@@ -7,9 +7,11 @@
 - 更新：重新下载源码安装即可
 
 ## windows下安装gfortran
-1. 下载[mingw64](http://www.mushroomfire.com:12162/api/v3/file/get/305/mingw-w64-install.exe?sign=YimpfliY7iMhtcAdddaw0hj504BjtVhMn4vDOAW63i8%3D%3A0),一路点击安装即可。
+1. 下载[mingw64](http://www.mushroomfire.com:12162/api/v3/file/get/305/mingw-w64-install.exe?sign=YimpfliY7iMhtcAdddaw0hj504BjtVhMn4vDOAW63i8%3D%3A0), 一路点击安装即可。
 2. 将bin目录添加至环境变量
 3. cmd或者powershell输入gfortran，有输出即表示安装成功
+## ubuntu下安装intel编译器
+1. 后续施工ing...
 ## 安装
 0. 下载源码
     ```bash

@@ -2,9 +2,8 @@ import pandas as pd
 import numpy as np 
 
 
-def OneBinning(system, direction, hbin, vbin):
+def OneBinning(data, direction, hbin, vbin):
     
-    data = system.data
     if isinstance(vbin, str):
         vbin = [vbin]
 

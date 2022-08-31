@@ -2,6 +2,7 @@ import os
 from glob import glob
 import platform
 from shutil import move
+import stat 
 
 
 for i in glob('*/*.f90'):
@@ -17,9 +18,9 @@ for i in glob('*/*.f90'):
             #os.system(f"f2py -c {os.path.abspath(i)} -m {mod} --opt='-O3' --fcompiler=gfortran")
     elif platform.system() == 'Windows':
         if mod[-1] == 'p':
-            os.system(f"f2py -c {os.path.abspath(i)} -m {mod} --opt='-O3' --fcompiler=gfortran --f90flags='-fopenmp' -lgomp")
+            os.system(f"f2py -c {os.path.abspath(i)} -m {mod} --opt='-O3' --compiler=mingw32 --fcompiler=gfortran --f90flags='-fopenmp' -lgomp")
         elif mod[-1] == 's':
-            os.system(f"f2py -c {os.path.abspath(i)} -m {mod} --opt='-O3' --fcompiler=gfortran")
+            os.system(f"f2py -c {os.path.abspath(i)} -m {mod} --opt='-O3' --compiler=mingw32 --fcompiler=gfortran")
     os.system('cd ..')
     if platform.system() == 'Linux':
         src_file = f"{glob(f'./{mod}.*.so')[0]}"
@@ -33,4 +34,3 @@ for i in glob('*/*.f90'):
             os.chmod(dst_file, stat.S_IWUSR)
             os.remove(dst_file)
     move(src_file, dst_file)
-        

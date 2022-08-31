@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 def pltset(ticksize=12, labelsize=12, legendsize=12): 
     try:
-    	plt.style.use(['science', 'notebook'])
+        plt.style.use(['science', 'notebook'])
     except:
         print('One should install SciencePlots package: pip install SciencePlots')
     plt.rcParams['legend.fontsize']  = legendsize

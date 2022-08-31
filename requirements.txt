@@ -1,5 +1,6 @@
-matplotlib
-numpy
-pandas
-SciencePlots
-numba
+freud==0.1.2
+matplotlib==3.5.0
+numba==0.56.0
+numpy==1.21.6
+pandas==1.3.5
+SciencePlots==1.0.9

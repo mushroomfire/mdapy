@@ -1,7 +1,33 @@
 # @Author: HerrWu 
 
-## 说明
+## 关于
 该库用于分子动力学轨迹后处理，包括邻域列表，温度，结构熵，切片等处理，目前暂无开源打算。
+系统要求：目前仅测试了win10, ubuntu。
+编译依赖：ubuntu上必须使用intel的fortran编译器，windows仅测试了gfortran编译。
+系统更新：重新下载源码安装即可
+## 安装
+0. 下载源码
+    ```bash
+    git clone https://github.com/mushroomfire/pyAnalysis.git
+    cd pyAnalysis
+    ```
+1. 建议使用conda先创建一个虚拟环境避免依赖库冲突,python版本建议3.7就行。
+    ```bash
+    conda create -n pyAna python=3.7
+    conda activate pyAna
+    ```
+2. 首先安装依赖
+    ```bash
+    pip install -r requirements.txt
+    ```
+3. 编译链接fortran代码
+    ```python
+    python make_fortran.py
+    ```
+4. 安装本库
+    ```python
+    python install.py
+    ```
 
 ## 更新记录
 
@@ -36,3 +62,9 @@
 1. 修改了binning模块
 2. 增加了requirements.txt
 
+## 2022-8-31
+1. 更新了requirements.txt
+2. 修改了make_fortran.py
+3. 修改了install.py
+4. 修改了one_binning.py
+5. 增加version='0.1.0'

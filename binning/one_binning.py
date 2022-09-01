@@ -20,7 +20,6 @@ def OneBinning(data, direction, hbin, vbin):
 
         new = np.arange(len(bins)-1, dtype=float)
         index = result.index.values
-        # index1 = np.array(list(set(new).difference(index)), dtype=int)
         value_new[index, 1:] = value
         value_new[index, 0] = num
         value = value_new[:-1, :]

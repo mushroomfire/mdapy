@@ -20,9 +20,9 @@ def OneBinning(data, direction, hbin, vbin):
 
         new = np.arange(len(bins)-1, dtype=float)
         index = result.index.values
-        index1 = np.array(list(set(new).difference(index)), dtype=int)
-        value_new[index1, 1:] = value
-        value_new[index1, 0] = num
+        # index1 = np.array(list(set(new).difference(index)), dtype=int)
+        value_new[index, 1:] = value
+        value_new[index, 0] = num
         value = value_new[:-1, :]
     else:
         value = np.hstack((num.reshape(-1, 1), value.reshape(-1, len(vbin))))

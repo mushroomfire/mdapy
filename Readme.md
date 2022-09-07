@@ -12,9 +12,9 @@
     git clone https://github.com/mushroomfire/pyAnalysis.git
     cd pyAnalysis
     ```
-1. 建议使用conda先创建一个虚拟环境避免依赖库冲突,python版本建议3.7就行。
+1. 建议使用conda先创建一个虚拟环境避免依赖库冲突
     ```bash
-    conda create -n pyAna python=3.7
+    conda create -n pyAna
     conda activate pyAna
     ```
 2. 首先安装依赖

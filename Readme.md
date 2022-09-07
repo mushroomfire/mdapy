@@ -38,6 +38,10 @@
 
 ## 更新记录
 
+## 2022-9-7 
+1. 更新了lattice_maker
+2. 更新了requirements.txt
+
 ## 2022-8-31
 1. 更新了requirements.txt
 2. 修改了make_fortran.py

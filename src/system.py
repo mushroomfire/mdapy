@@ -4,22 +4,16 @@ import pandas as pd
 
 
 class System:
-    def __init__(self, filename, amass, rc, units, max_neigh=100):
+    def __init__(self, filename):
         self.filename = filename
-        self.amass = amass
-        self.rc = rc
-        self.units = units
-        self.max_neigh = max_neigh
 
         self.boundary, self.box, self.head, self.names = self.read_box()
         (
             self.data,
             self.N,
-            self.mass,
-            self.type_list,
             self.pos,
             self.vel,
-        ) = self.read_dump(self.names, self.amass)
+        ) = self.read_dump(self.names)
 
     def read_box(self):
         with open(self.filename) as op:
@@ -30,7 +24,7 @@ class System:
         names = file[8].split()[2:]
         return boundary, box, head, names
 
-    def read_dump(self, names, amass):
+    def read_dump(self, names):
 
         data = pd.read_csv(
             self.filename,
@@ -41,12 +35,8 @@ class System:
             names=names,
         )
         N = data.shape[0]
-        mass = np.zeros(N)
-        type_list = np.unique(data["type"].values).astype(int)
-        for i in type_list:
-            mass[data["type"] == i] = amass[i - 1]
 
         pos = data[["x", "y", "z"]].values
         vel = data[["vx", "vy", "vz"]].values
 
-        return data, N, mass, type_list, pos, vel
+        return data, N, pos, vel

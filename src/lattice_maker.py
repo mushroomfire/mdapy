@@ -87,7 +87,7 @@ class LatticeMaker:
         return basis_vector, basis_atoms, pos
 
     @ti.kernel
-    def get_pos_real(self):
+    def compute(self):
         """
         建立坐标.
         """
@@ -99,7 +99,3 @@ class LatticeMaker:
                 ]
             )
             self.pos[i, j, k, h] = self.basis_atoms[h] + basis_origin
-
-    def get_pos(self):
-        self.get_pos_real()
-        return self.pos.to_numpy().reshape(-1, 3)

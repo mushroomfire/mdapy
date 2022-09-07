@@ -2,8 +2,6 @@ import taichi as ti
 import numpy as np
 import sys
 
-ti.init(arch=ti.gpu, device_memory_GB=2)
-
 
 @ti.data_oriented
 class LatticeMaker:
@@ -71,19 +69,19 @@ class LatticeMaker:
                 [self.lattice_constant * 3, self.lattice_constant * np.sqrt(3), 0.0]
             )
         else:
-            print("Unrecognized Lattice Type, please choose in [FCC, BCC, HCP, GRA].")
+            print("Unrecgonized Lattice Type, please choose in [FCC, BCC, HCP, GRA].")
             sys.exit()
 
         basis_vector = ti.Vector.field(
-            basis_vector_arr.shape[1], dtype=ti.f64, shape=(basis_vector_arr.shape[0])
+            basis_vector_arr.shape[1], dtype=ti.f32, shape=(basis_vector_arr.shape[0])
         )
         basis_atoms = ti.Vector.field(
-            basis_atoms_arr.shape[1], dtype=ti.f64, shape=(basis_atoms_arr.shape[0])
+            basis_atoms_arr.shape[1], dtype=ti.f32, shape=(basis_atoms_arr.shape[0])
         )
         basis_vector.from_numpy(basis_vector_arr)
         basis_atoms.from_numpy(basis_atoms_arr)
         pos = ti.Vector.field(
-            3, dtype=ti.f64, shape=(self.x, self.y, self.z, basis_atoms.shape[0])
+            3, dtype=ti.f32, shape=(self.x, self.y, self.z, basis_atoms.shape[0])
         )
 
         return basis_vector, basis_atoms, pos
@@ -105,9 +103,3 @@ class LatticeMaker:
     def get_pos(self):
         self.get_pos_real()
         return self.pos.to_numpy().reshape(-1, 3)
-
-
-if __name__ == "__main__":
-    x, y, z = 50, 50, 50
-    Al = LatticeMaker(4.05, "FCC", x, y, z)
-    pos = Al.get_pos()

@@ -3,15 +3,9 @@
 ## 关于
 - 该库用于分子动力学轨迹后处理，包括邻域列表，温度，结构熵，切片等处理，目前暂无开源打算。
 - 系统要求：目前仅测试了win10, ubuntu。
-- 编译依赖：ubuntu上必须使用intel的fortran编译器，windows仅测试了gfortran编译。
-- 更新：重新下载源码安装即可
+- 支持GPU加速
+- 更新：重新下载源码安装即可。
 
-## windows下安装gfortran
-1. 下载[mingw64](http://www.mushroomfire.com:12162/api/v3/file/get/305/mingw-w64-install.exe?sign=YimpfliY7iMhtcAdddaw0hj504BjtVhMn4vDOAW63i8%3D%3A0), 一路点击安装即可。
-2. 将bin目录添加至环境变量
-3. cmd或者powershell输入gfortran，有输出即表示安装成功
-## ubuntu下安装intel编译器
-1. 后续施工ing...
 ## 安装
 0. 下载源码
     ```bash
@@ -27,20 +21,19 @@
     ```bash
     pip install -r requirements.txt
     ```
-3. 编译链接fortran代码
-    ```python
-    python make_fortran.py
-    ```
-4. 安装本库
+3. 安装本库
     ```python
     python install.py
     ```
 
 ## 更新记录
 
+## 2022-9-7 21:01
+1. 大面积删改所有内容，从头开始写taichi
+
 ## 2022-9-7 
 1. 更新了lattice_maker
-2. 更新了requirements.txt
+2. 更新了requirements.txt 
 
 ## 2022-8-31
 1. 更新了requirements.txt

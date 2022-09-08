@@ -9,13 +9,13 @@
 ## 安装
 0. 下载源码
     ```bash
-    git clone https://github.com/mushroomfire/pyAnalysis.git
-    cd pyAnalysis
+    git clone https://github.com/mushroomfire/mdapy.git
+    cd mdapy
     ```
 1. 建议使用conda先创建一个虚拟环境避免依赖库冲突
     ```bash
-    conda create -n pyAna
-    conda activate pyAna
+    conda create -n mda
+    conda activate mda
     ```
 2. 首先安装依赖
     ```bash
@@ -26,10 +26,17 @@
     python install.py
     ```
 
+## 使用
+1. 导入库
+   ```python
+   import mdapy as mda
+   ```
+
 ## 更新记录
 
 ## 2022-9-8 16:12
 1. 重写了entropy计算
+2. 修改名字
    
 ## 2022-9-8
 1. 重写了邻域列表，温度计算等文件

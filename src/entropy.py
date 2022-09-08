@@ -43,7 +43,8 @@ class AtomicEntropy():
                 for k in range(self.distance_list.shape[1]):
                     if self.distance_list[i, k] > -1:
                         g_m[j] += ti.exp(-(self.rlist[j] - self.distance_list[i, k])**2 / (2.0*self.sigma**2)) / self.prefactor[j]
-                        n_neigh += 1
+                        if j == 0:
+                            n_neigh += 1
                         
             density = 0.
             if self.use_local_density:

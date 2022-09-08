@@ -2,7 +2,7 @@ import taichi as ti
 
 @ti.data_oriented
 class AtomicEntropy():
-    def __init__(self, box, distance_list, rc, sigma=0.2, use_local_density=False):
+    def __init__(self, box, distance_list, rc, sigma=0.25, use_local_density=False):
         self.box = box.to_numpy()
         self.distance_list = distance_list
         self.rc = rc 

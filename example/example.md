@@ -15,7 +15,7 @@
 import mdapy as mp # 无特殊说明本库简写为 mp
 import numpy as np
 import taichi as ti
-ti.init(ti.cpu)
+ti.init(ti.cpu) # 有gpu可以修改为 ti.gpu 
 ```
 
     [Taichi] version 1.1.2, llvm 10.0.0, commit f25cf4a2, win, python 3.7.13
@@ -41,19 +41,6 @@ system.data
 
 
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">

@@ -16,12 +16,14 @@ for i in sys.path:
         os.path.split(os.path.split(i)[0])[1] in ["lib", "Lib", py_version]
         and os.path.split(i)[1] == "site-packages"
     ):
-        print(f"Installing package to path: {i}")
-        path = i + "/pyAnalysis"
+        print("-" * 50)
+        print(f"Installing [mdapy] package to path: {i}")
+        print("-" * 50)
+        path = i + "/mdapy"
         if os.path.exists(path):
             shutil.rmtree(path, onerror=readonly_handler)
-        shutil.copytree("../pyAnalysis", path)
-        os.chdir(i + "/pyAnalysis")
+        shutil.copytree("../mdapy", path)
+        os.chdir(i + "/mdapy")
         print("Checking dependency package...")
         os.system("python check.py")
         break

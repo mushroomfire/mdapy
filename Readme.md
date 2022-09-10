@@ -27,14 +27,15 @@
     ```
 
 ## 使用
-1. 导入库
-   ```python
-   import mdapy as mda
-   ```
+具体参考example说明
+```python
+import mdapy as mp
+```
 
 ## 更新记录
 ## 2022-9-10
 1. 更新了中心对称参数计算
+2. 更新了使用说明
 
 ## 2022-9-8 16:12
 1. 重写了entropy计算

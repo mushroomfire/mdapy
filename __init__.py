@@ -6,4 +6,5 @@ from .src.system import System
 from .src.neighbor import Neighbor
 from .src.temperature import AtomicTemperature
 from .src.entropy import AtomicEntropy
+from .src.centro_symmetry_parameter import CentroSymmetryParameter
 from .src.io import write_dump

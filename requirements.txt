@@ -1,5 +1,5 @@
-taichi
-numpy
-pandas
-matplotlib
-SciencePlots
+taichi==1.1.2
+numpy==1.23.3
+pandas==1.4.4
+matplotlib==3.5.3
+SciencePlots==1.0.9

@@ -16,6 +16,8 @@
     ```bash
     conda create -n mda
     conda activate mda
+    # conda install ipykernel 
+    # python -m ipykernel install --name mda # jupyter 激活虚拟环境
     ```
 2. 首先安装依赖
     ```bash

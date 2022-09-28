@@ -99,3 +99,31 @@ class LatticeMaker:
                 ]
             )
             self.pos[i, j, k, h] = self.basis_atoms[h] + basis_origin
+
+    def write_data(self, type_list=None, output_name=None):
+        pos = self.pos.to_numpy().reshape(-1, 3)
+        N = pos.shape[0]
+        if np.sum(pos) == 0:
+            print("One should compute the pos before write to data file!")
+            sys.exit()
+
+        box = self.basis_vector.to_numpy() * np.array([self.x, self.y, self.z])
+        if output_name is None:
+            output_name = f"{self.lattice_type}-{self.x}-{self.y}-{self.z}.data"
+        if type_list is None:
+            type_list = [1] * N
+            Ntype = 1
+        else:
+            assert len(type_list) == N
+            Ntype = len(np.unique(type_list))
+
+        with open(output_name, "w") as op:
+            op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n")
+            op.write(f"{N} atoms\n{Ntype} atom types\n\n")
+            for i, j in zip(range(3), ["x", "y", "z"]):
+                op.write(f"{0} {box[i,i]} {j}lo {j}hi\n")
+            op.write("\n")
+            op.write(r"Atoms # atomic")
+            op.write("\n\n")
+            for i in range(N):
+                op.write(f"{i+1} {type_list[i]} {pos[i,0]} {pos[i,1]} {pos[i,2]}\n")

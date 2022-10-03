@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from neighbor import Neighbor
 
 
 class System:
@@ -13,6 +14,7 @@ class System:
             self.pos,
             self.vel,
         ) = self.read_dump(self.col_names)
+        self.if_neigh = False
 
     def read_box(self):
         head = []
@@ -95,3 +97,10 @@ class System:
         data[["id", "vx", "vy", "vz"]].to_csv(
             output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
         )
+
+    def build_neighbor(self, rc=5.0, max_neigh=50, exclude=True):
+        self.Neighbor = Neighbor(
+            self.pos, self.box, rc, self.boundary, max_neigh, exclude
+        )
+        self.Neighbor.compute()
+        self.if_neigh = True

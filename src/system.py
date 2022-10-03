@@ -83,7 +83,7 @@ class System:
 
         with open(output_name, "w") as op:
             op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n")
-            op.write(f"{self.N} atoms\n{Ntype} atom types\n\n")
+            op.write(f"{data.shape[0]} atoms\n{Ntype} atom types\n\n")
             for i, j in zip(self.box, ["x", "y", "z"]):
                 op.write(f"{i[0]} {i[1]} {j}lo {j}hi\n")
             op.write("\n")

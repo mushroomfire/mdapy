@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from neighbor import Neighbor
+from .neighbor import Neighbor
 
 
 class System:

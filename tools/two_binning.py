@@ -12,11 +12,7 @@ def TwoBinning(system, direction, hbin, vbin):
     assert max(direction) < 3
     assert isinstance(vbin, str)
     
-    if vbin == 'density':
-        value = system.mass/hbin**2
-    elif vbin == 'mass':
-        value = system.mass
-    elif vbin in system.data.columns:
+    if vbin in system.data.columns:
         value = system.data[vbin].values
     else:
         print('This vbin is not in the system! Please check that!')
@@ -24,7 +20,7 @@ def TwoBinning(system, direction, hbin, vbin):
     
     pos = system.pos
     box = system.box
-    ncel = np.floor(system.box_l/hbin).astype(int)
+    ncel = np.floor((system.box[:,1] - system.box[:,0])/hbin).astype(int)
     data = np.zeros(ncel[direction])
     start = box[direction, 0]
     row_max, col_max = np.array(data.shape)-1

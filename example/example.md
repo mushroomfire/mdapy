@@ -22,6 +22,20 @@ ti.init(arch=ti.cpu) #arch=ti.cpu 使用CPU. # arch=ti.gpu, device_memory_GB=5. 
     [Taichi] Starting on arch=x64
     
 
+## 查看版本号
+
+
+```python
+mp.__version__
+```
+
+
+
+
+    '0.4.0'
+
+
+
 ## 读取一个系统
 [可在此处下载example.dump文件](http://yunpan.mushroomfire.com/s/GzTv)
 
@@ -31,7 +45,7 @@ ti.init(arch=ti.cpu) #arch=ti.cpu 使用CPU. # arch=ti.gpu, device_memory_GB=5. 
 system = mp.System('example.dump') 
 ```
 
-    Wall time: 3.06 s
+    Wall time: 2.96 s
     
 
 ## 查看系统数据
@@ -233,7 +247,7 @@ system.data
 system.build_neighbor(rc=5., max_neigh=60)
 ```
 
-    Wall time: 4.05 s
+    Wall time: 3.82 s
     
 
 ## 计算中心对称参数
@@ -244,7 +258,7 @@ system.build_neighbor(rc=5., max_neigh=60)
 system.cal_centro_symmetry_parameter(N=12)
 ```
 
-    Wall time: 9.07 s
+    Wall time: 8.7 s
     
 
 ## 计算原子构型熵
@@ -255,7 +269,7 @@ system.cal_centro_symmetry_parameter(N=12)
 system.cal_atomic_entropy()
 ```
 
-    Wall time: 4.47 s
+    Wall time: 4.31 s
     
 
 ## 计算平均原子温度
@@ -266,7 +280,7 @@ system.cal_atomic_entropy()
 system.cal_atomic_temperature(amass=np.array([58.933, 58.693, 55.847, 26.982, 63.546]))
 ```
 
-    Wall time: 1.35 s
+    Wall time: 1.21 s
     
 
 ## 查看计算结果
@@ -548,7 +562,7 @@ error[error>0.1], error.max()
 system.write_dump() # 生成一个新的dump文件
 ```
 
-    Wall time: 33.5 s
+    Wall time: 30.1 s
     
 
 ## 建立简单晶体结构
@@ -560,7 +574,7 @@ FCC = mp.LatticeMaker(4.05, 'FCC', 50, 50, 50)
 FCC.compute()
 ```
 
-    Wall time: 571 ms
+    Wall time: 506 ms
     
 
 ## 保存为data格式
@@ -571,5 +585,5 @@ FCC.compute()
 FCC.write_data()
 ```
 
-    Wall time: 3.53 s
+    Wall time: 3.23 s
     

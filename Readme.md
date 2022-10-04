@@ -34,7 +34,12 @@
 import mdapy as mp
 ```
 
-## 更新记录
+## 更新记录 
+## 2022-10-04
+1. 更新了System.py
+2. 增加了计算模块的说明
+3. 更新了example文件夹
+
 ## 2022-9-28
 1. 更新了System.py的读取文件方式，减少内存占用，增加了保存为dump和data的方法
 2. 修改了LatticeMaker的保存方法

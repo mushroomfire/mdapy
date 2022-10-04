@@ -20,18 +20,18 @@ class AtomicTemperature:
     """
 
     def __init__(self, amass, vel, verlet_list, atype_list, units="metal"):
-        self.amass = ti.field(dtype=ti.f32, shape=(amass.shape[0]))
+        self.amass = ti.field(dtype=ti.f64, shape=(amass.shape[0]))
         self.amass.from_numpy(amass)
-        self.atype_list = ti.field(dtype=ti.i32, shape=(atype_list.shape[0]))
+        self.atype_list = ti.field(dtype=ti.i64, shape=(atype_list.shape[0]))
         self.atype_list.from_numpy(atype_list)
-        self.vel = ti.Vector.field(vel.shape[1], dtype=ti.f32, shape=(vel.shape[0]))
+        self.vel = ti.Vector.field(vel.shape[1], dtype=ti.f64, shape=(vel.shape[0]))
         if units == "metal":
             self.vel.from_numpy(vel * 100.0)
         elif units == "real":
             self.vel.from_numpy(vel * 100000.0)
         self.verlet_list = verlet_list
         self.N = self.vel.shape[0]
-        self.T = ti.field(dtype=ti.f32, shape=(self.N))
+        self.T = ti.field(dtype=ti.f64, shape=(self.N))
 
     @ti.kernel
     def compute(self):

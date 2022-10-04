@@ -46,12 +46,12 @@ class Neighbor:
         self.boundary = ti.Vector(boundary)
         self.max_neigh = max_neigh
         # 邻域计算
-        self.verlet_list = ti.field(dtype=ti.i32, shape=(self.N, self.max_neigh))
-        self.distance_list = ti.field(dtype=ti.f32, shape=(self.N, self.max_neigh))
-        self.neighbor_number = ti.field(dtype=ti.i32, shape=(self.N))
-        self.atom_cell_list = ti.field(dtype=ti.i32, shape=(self.N))
+        self.verlet_list = ti.field(dtype=ti.i64, shape=(self.N, self.max_neigh))
+        self.distance_list = ti.field(dtype=ti.f64, shape=(self.N, self.max_neigh))
+        self.neighbor_number = ti.field(dtype=ti.i64, shape=(self.N))
+        self.atom_cell_list = ti.field(dtype=ti.i64, shape=(self.N))
         self.cell_id_list = ti.field(
-            dtype=ti.i32, shape=(self.ncel[0], self.ncel[1], self.ncel[2])
+            dtype=ti.i64, shape=(self.ncel[0], self.ncel[1], self.ncel[2])
         )
 
     @ti.kernel

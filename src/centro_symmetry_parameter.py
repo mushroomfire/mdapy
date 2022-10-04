@@ -11,14 +11,14 @@ class CentroSymmetryParameter():
         self.boundary = boundary
         self.verlet_list = verlet_list
         self.distance_list = distance_list
-        self.csp = ti.field(ti.f32, shape=(self.pos.shape[0]))
+        self.csp = ti.field(ti.f64, shape=(self.pos.shape[0]))
         self.sortindex = self.sort_dis()
     
     def sort_dis(self):
         dis = self.distance_list.to_numpy()
         dis[dis==-1.] = np.max(dis)+0.5
         sortindex_arr = np.argsort(dis)[:,:self.N]
-        sortindex = ti.field(dtype=ti.i32, shape=(self.distance_list.shape[0], self.N))
+        sortindex = ti.field(dtype=ti.i64, shape=(self.distance_list.shape[0], self.N))
         sortindex.from_numpy(sortindex_arr)
         return sortindex
     

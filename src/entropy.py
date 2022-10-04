@@ -9,7 +9,7 @@ class AtomicEntropy():
         self.sigma = sigma
         self.use_local_density = use_local_density
         self.N, self.vol, self.global_density, self.nbins, self.rlist, self.rlist_sq, self.prefactor = self.initinput()
-        self.entropy = ti.field(dtype=ti.f32, shape=(self.N))
+        self.entropy = ti.field(dtype=ti.f64, shape=(self.N))
         
         
     def initinput(self):
@@ -20,9 +20,9 @@ class AtomicEntropy():
         nbins = ti.floor(self.rc / self.sigma) + 1
         interval = self.rc / (nbins-1.)
         
-        rlist = ti.field(dtype=ti.f32, shape=(nbins))
-        rlist_sq = ti.field(dtype=ti.f32, shape=(nbins))
-        prefactor = ti.field(dtype=ti.f32, shape=(nbins))
+        rlist = ti.field(dtype=ti.f64, shape=(nbins))
+        rlist_sq = ti.field(dtype=ti.f64, shape=(nbins))
+        prefactor = ti.field(dtype=ti.f64, shape=(nbins))
         
         for i in range(nbins):
             rlist[i] = i*interval

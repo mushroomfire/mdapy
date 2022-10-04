@@ -1,9 +1,18 @@
 import numpy as np
 import pandas as pd
 from .neighbor import Neighbor
+from .temperature import AtomicTemperature
+from .centro_symmetry_parameter import CentroSymmetryParameter
+from .entropy import AtomicEntropy
 
 
 class System:
+    """
+    生成一个System类,支持读取的文件格式为LAMMPS中的.dump格式,以此为基础来进行后处理,可以将结果保存为.data或者.dump格式.
+    输入参数:
+    filename : dump文件名称
+    """
+
     def __init__(self, filename):
         self.filename = filename
 
@@ -99,9 +108,64 @@ class System:
             output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
         )
 
-    def build_neighbor(self, rc=5.0, max_neigh=50, exclude=True):
+    def build_neighbor(self, rc=5.0, max_neigh=80, exclude=True):
         self.Neighbor = Neighbor(
             self.pos, self.box, rc, self.boundary, max_neigh, exclude
         )
         self.Neighbor.compute()
         self.if_neigh = True
+
+    def cal_atomic_temperature(self, amass, rc=5.0, units="metal", max_neigh=80):
+
+        """
+        amass : (N_type)的array,N_type为原子类型的数目,按照体系的类型顺序写入相应原子类型的相对原子质量.
+        units : metal or real.
+        """
+        if not self.if_neigh:
+            self.build_neighbor(rc, max_neigh)
+        elif self.Neighbor.rc != rc:
+            self.build_neighbor(rc, max_neigh)
+        atype_list = self.data["type"].values
+        self.AtomicTemperature = AtomicTemperature(
+            amass, self.vel, self.Neighbor.verlet_list, atype_list, units
+        )
+        self.AtomicTemperature.compute()
+        self.data["atomic_temp"] = self.AtomicTemperature.T.to_numpy()
+
+    def cal_centro_symmetry_parameter(self, N=12):
+        """
+        N : int, 大于0的偶数,对于FCC结构是12,对于BCC是8. default : 12
+        """
+        if not self.if_neigh:
+            self.build_neighbor()
+
+        self.CentroSymmetryParameter = CentroSymmetryParameter(
+            self.Neighbor.pos,
+            self.Neighbor.box,
+            self.Neighbor.boundary,
+            self.Neighbor.verlet_list,
+            self.Neighbor.distance_list,
+            N,
+        )
+        self.CentroSymmetryParameter.compute()
+        self.data["csp"] = self.CentroSymmetryParameter.csp.to_numpy()
+
+    def cal_atomic_entropy(self, sigma=0.25, use_local_density=False):
+
+        """
+        sigma : 用来表征插值的精细程度类似于,不能太大, 默认使用0.25或者0.2就行.
+        use_local_density : 是否使用局部密度,俺也不咋懂.
+        """
+
+        if not self.if_neigh:
+            self.build_neighbor()
+
+        self.AtomicEntropy = AtomicEntropy(
+            self.Neighbor.box,
+            self.Neighbor.distance_list,
+            self.Neighbor.rc,
+            sigma,
+            use_local_density,
+        )
+        self.AtomicEntropy.compute()
+        self.data["atomic_entropy"] = self.AtomicEntropy.entropy.to_numpy()

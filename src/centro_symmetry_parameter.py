@@ -45,7 +45,7 @@ class CentroSymmetryParameter():
         for i in range(self.pos.shape[0]):  
             # vec3 = ti.types.vector(int(self.N/2), ti.f64)
             # pair = vec3([0.]*int(self.N/2))
-            pair = ti.Vector([0.]*int(self.N/2))
+            pair = ti.Vector([ti.float64(0.)]*int(self.N/2))
             # init pair
             for k in ti.static(range(int(self.N/2))):
                 j_index = self.verlet_list[i, self.sortindex[i,0]]

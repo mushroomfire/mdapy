@@ -49,7 +49,7 @@ class AtomicTemperature:
         for i in range(self.N):
 
             # 求 atom_i 的邻域的平均速度
-            v_neigh = ti.Vector([0.0, 0.0, 0.0])
+            v_neigh = ti.Vector([ti.float64(0.0)] * dim)
             n_neigh = 0
             for j_index in range(max_neigh):
                 j = self.verlet_list[i, j_index]
@@ -61,7 +61,7 @@ class AtomicTemperature:
             v_mean = v_neigh / n_neigh
 
             # 求邻域去除平均速度后的动能
-            ke_neigh = 0.0
+            ke_neigh = ti.float64(0.0)
             for j_index in range(max_neigh):
                 j = self.verlet_list[i, j_index]
                 if j > -1 and j != i:

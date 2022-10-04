@@ -90,7 +90,7 @@ class Neighbor:
 
     @ti.func
     def pbc(self, rij):
-        for i in ti.static(range(self.box.shape[0])):
+        for i in ti.static(range(rij.n)):
             box_length = self.box[i][1] - self.box[i][0]
             if self.boundary[i] == 1:
                 rij[i] = rij[i] - box_length * ti.round(rij[i] / box_length)

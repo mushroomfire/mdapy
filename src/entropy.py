@@ -36,8 +36,8 @@ class AtomicEntropy():
     def compute(self):
         
         for i in range(self.N):
-            g_m = ti.Vector([0.]*self.nbins)
-            intergrad = ti.Vector([0.]*self.nbins)
+            g_m = ti.Vector([ti.float64(0.)]*self.nbins)
+            intergrad = ti.Vector([ti.float64(0.)]*self.nbins)
             n_neigh = 0
             for j in ti.static(range(self.nbins)):
                 for k in range(self.distance_list.shape[1]):
@@ -46,7 +46,7 @@ class AtomicEntropy():
                         if j == 0:
                             n_neigh += 1
                         
-            density = 0.
+            density = ti.float64(0.)
             if self.use_local_density:
                 local_vol = 4/3 * ti.math.pi * self.rc**3
                 density = n_neigh / local_vol
@@ -60,7 +60,7 @@ class AtomicEntropy():
                 else:
                     intergrad[j] = self.rlist_sq[j]
                     
-            sum_intergrad = 0.
+            sum_intergrad = ti.float64(0.)
             for j in ti.static(range(self.nbins-1)):
                 sum_intergrad += (intergrad[j] + intergrad[j+1]) * (self.rlist[j+1] - self.rlist[j])
                 

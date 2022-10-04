@@ -22,7 +22,7 @@ class AtomicTemperature:
     def __init__(self, amass, vel, verlet_list, atype_list, units="metal"):
         self.amass = ti.field(dtype=ti.f64, shape=(amass.shape[0]))
         self.amass.from_numpy(amass)
-        self.atype_list = ti.field(dtype=ti.i64, shape=(atype_list.shape[0]))
+        self.atype_list = ti.field(dtype=ti.i32, shape=(atype_list.shape[0]))
         self.atype_list.from_numpy(atype_list)
         self.vel = ti.Vector.field(vel.shape[1], dtype=ti.f64, shape=(vel.shape[0]))
         if units == "metal":

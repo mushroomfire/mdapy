@@ -18,7 +18,7 @@ class CentroSymmetryParameter():
         dis = self.distance_list.to_numpy()
         dis[dis==-1.] = np.max(dis)+0.5
         sortindex_arr = np.argsort(dis)[:,:self.N]
-        sortindex = ti.field(dtype=ti.i64, shape=(self.distance_list.shape[0], self.N))
+        sortindex = ti.field(dtype=ti.i32, shape=(self.distance_list.shape[0], self.N))
         sortindex.from_numpy(sortindex_arr)
         return sortindex
     
@@ -42,7 +42,9 @@ class CentroSymmetryParameter():
                
     @ti.kernel
     def compute(self):
-        for i in range(self.pos.shape[0]):  # self.pos.shape[0]
+        for i in range(self.pos.shape[0]):  
+            # vec3 = ti.types.vector(int(self.N/2), ti.f64)
+            # pair = vec3([0.]*int(self.N/2))
             pair = ti.Vector([0.]*int(self.N/2))
             # init pair
             for k in ti.static(range(int(self.N/2))):

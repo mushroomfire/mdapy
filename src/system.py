@@ -23,6 +23,8 @@ class System:
             self.pos,
             self.vel,
         ) = self.read_dump(self.col_names)
+        self.lx, self.ly, self.lz = self.box[:, 1] - self.box[:, 0]
+        self.vol = self.lx * self.ly * self.lz
         self.if_neigh = False
 
     def read_box(self):

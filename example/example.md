@@ -14,7 +14,7 @@
 ```python
 import mdapy as mp # 无特殊说明本库简写为 mp
 import numpy as np
-mp.init(arch="cpu") #arch="cpu" 使用CPU. # arch="gpu", device_memory_GB=9.6 使用GPU, the case is memory costed!!!
+mp.init(arch="cpu") #arch="cpu" 使用CPU. # arch="gpu", device_memory_GB=9. 使用GPU, the case is memory costed!!!
 ```
 
     [Taichi] version 1.1.2, llvm 10.0.0, commit f25cf4a2, win, python 3.7.3

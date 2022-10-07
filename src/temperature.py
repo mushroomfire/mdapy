@@ -38,12 +38,12 @@ class AtomicTemperature:
         """
         kb = 8.617333262145 eV / K
         kb = 1.380649×10^−23 J/K
-        dim = 3
+        dim = 3.
         afu = 6.022140857×10^23 1/mol
         j2e = 6.24150913 × 10^18
         """
         kb = 1.380649e-23
-        dim = 3
+        dim = 3.0
         afu = 6.022140857e23
         max_neigh = self.verlet_list.shape[1]
         for i in range(self.N):

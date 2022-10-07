@@ -32,9 +32,13 @@
 具体参考example说明
 ```python
 import mdapy as mp
+mp.init("cpu")
 ```
 
 ## 更新记录 
+## 2022-10-07
+1. 更新了中心对称参数的计算程序
+
 ## 2022-10-04
 1. 更新了System.py
 2. 增加了计算模块的说明

@@ -14,8 +14,7 @@
 ```python
 import mdapy as mp # 无特殊说明本库简写为 mp
 import numpy as np
-import taichi as ti
-ti.init(arch=ti.cpu) #arch=ti.cpu 使用CPU. # arch=ti.gpu, device_memory_GB=5. 使用GPU
+mp.init(arch="cpu") #arch="cpu" 使用CPU. # arch="gpu", device_memory_GB=9.6 使用GPU, the case is memory costed!!!
 ```
 
     [Taichi] version 1.1.2, llvm 10.0.0, commit f25cf4a2, win, python 3.7.3
@@ -32,7 +31,7 @@ mp.__version__
 
 
 
-    '0.4.0'
+    '0.4.2'
 
 
 
@@ -45,7 +44,7 @@ mp.__version__
 system = mp.System('example.dump') 
 ```
 
-    Wall time: 2.96 s
+    Wall time: 2.79 s
     
 
 ## 查看系统数据
@@ -247,7 +246,7 @@ system.data
 system.build_neighbor(rc=5., max_neigh=60)
 ```
 
-    Wall time: 3.82 s
+    Wall time: 3.67 s
     
 
 ## 计算中心对称参数
@@ -258,7 +257,7 @@ system.build_neighbor(rc=5., max_neigh=60)
 system.cal_centro_symmetry_parameter(N=12)
 ```
 
-    Wall time: 8.7 s
+    Wall time: 5.9 s
     
 
 ## 计算原子构型熵
@@ -269,7 +268,7 @@ system.cal_centro_symmetry_parameter(N=12)
 system.cal_atomic_entropy()
 ```
 
-    Wall time: 4.31 s
+    Wall time: 7.83 s
     
 
 ## 计算平均原子温度
@@ -280,7 +279,7 @@ system.cal_atomic_entropy()
 system.cal_atomic_temperature(amass=np.array([58.933, 58.693, 55.847, 26.982, 63.546]))
 ```
 
-    Wall time: 1.21 s
+    Wall time: 1.34 s
     
 
 ## 查看计算结果
@@ -339,9 +338,9 @@ system.data
       <td>-0.257686</td>
       <td>5.06650</td>
       <td>-3.71151</td>
-      <td>5.066506</td>
-      <td>-3.704394</td>
-      <td>271.311096</td>
+      <td>5.066507</td>
+      <td>-3.704236</td>
+      <td>271.311105</td>
     </tr>
     <tr>
       <th>1</th>
@@ -356,8 +355,8 @@ system.data
       <td>5.16323</td>
       <td>-3.69935</td>
       <td>5.163225</td>
-      <td>-3.693706</td>
-      <td>244.521713</td>
+      <td>-3.693594</td>
+      <td>244.521683</td>
     </tr>
     <tr>
       <th>2</th>
@@ -372,8 +371,8 @@ system.data
       <td>6.02419</td>
       <td>-3.51732</td>
       <td>6.024189</td>
-      <td>-3.511253</td>
-      <td>240.937302</td>
+      <td>-3.511158</td>
+      <td>240.937268</td>
     </tr>
     <tr>
       <th>3</th>
@@ -388,8 +387,8 @@ system.data
       <td>5.15436</td>
       <td>-3.90756</td>
       <td>5.154361</td>
-      <td>-3.897303</td>
-      <td>230.167953</td>
+      <td>-3.897154</td>
+      <td>230.167981</td>
     </tr>
     <tr>
       <th>4</th>
@@ -404,8 +403,8 @@ system.data
       <td>6.15314</td>
       <td>-3.85788</td>
       <td>6.153219</td>
-      <td>-3.849362</td>
-      <td>243.981369</td>
+      <td>-3.849288</td>
+      <td>243.981368</td>
     </tr>
     <tr>
       <th>...</th>
@@ -436,8 +435,8 @@ system.data
       <td>5.89311</td>
       <td>-3.92515</td>
       <td>5.893107</td>
-      <td>-3.916707</td>
-      <td>260.688812</td>
+      <td>-3.916585</td>
+      <td>260.688819</td>
     </tr>
     <tr>
       <th>2287144</th>
@@ -451,9 +450,9 @@ system.data
       <td>1.395140</td>
       <td>4.94041</td>
       <td>-4.08289</td>
-      <td>4.940413</td>
-      <td>-4.073879</td>
-      <td>320.674103</td>
+      <td>4.940414</td>
+      <td>-4.073576</td>
+      <td>320.674108</td>
     </tr>
     <tr>
       <th>2287145</th>
@@ -468,8 +467,8 @@ system.data
       <td>5.70667</td>
       <td>-3.83374</td>
       <td>5.706692</td>
-      <td>-3.825464</td>
-      <td>344.000671</td>
+      <td>-3.825251</td>
+      <td>344.000669</td>
     </tr>
     <tr>
       <th>2287146</th>
@@ -484,8 +483,8 @@ system.data
       <td>5.42057</td>
       <td>-3.39951</td>
       <td>5.420572</td>
-      <td>-3.393086</td>
-      <td>241.169174</td>
+      <td>-3.392952</td>
+      <td>241.169127</td>
     </tr>
     <tr>
       <th>2287147</th>
@@ -500,8 +499,8 @@ system.data
       <td>6.04798</td>
       <td>-2.90699</td>
       <td>6.048002</td>
-      <td>-2.902135</td>
-      <td>245.842743</td>
+      <td>-2.901894</td>
+      <td>245.842739</td>
     </tr>
   </tbody>
 </table>
@@ -520,7 +519,7 @@ system.data['atomic_temp'].mean() # K
 
 
 
-    293.87168742301066
+    293.8716733833224
 
 
 
@@ -536,7 +535,7 @@ error[error>0.1], error.max()
 
 
 
-    (Series([], dtype: float64), 0.0049196543884280075)
+    (Series([], dtype: float64), 0.0049195351035811186)
 
 
 
@@ -550,7 +549,7 @@ error[error>0.1], error.max()
 
 
 
-    (Series([], dtype: float64), 0.08606090263366717)
+    (Series([], dtype: float64), 0.08645435370197241)
 
 
 
@@ -559,10 +558,10 @@ error[error>0.1], error.max()
 
 ```python
 %%time
-system.write_dump() # 生成一个新的dump文件
+#system.write_dump() # 生成一个新的dump文件
 ```
 
-    Wall time: 30.1 s
+    Wall time: 0 ns
     
 
 ## 建立简单晶体结构
@@ -574,7 +573,7 @@ FCC = mp.LatticeMaker(4.05, 'FCC', 50, 50, 50)
 FCC.compute()
 ```
 
-    Wall time: 506 ms
+    Wall time: 647 ms
     
 
 ## 保存为data格式
@@ -582,8 +581,8 @@ FCC.compute()
 
 ```python
 %%time
-FCC.write_data()
+#FCC.write_data()
 ```
 
-    Wall time: 3.23 s
+    Wall time: 0 ns
     

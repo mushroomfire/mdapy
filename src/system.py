@@ -61,11 +61,11 @@ class System:
         else:
             data = self.data.loc[:, output_col]
         head[3] = f"{data.shape[0]}\n"
-        for dtype, name in zip(data.dtypes, data.columns):
-            if dtype == "int64":
-                data[name] = data[name].astype(np.int32)
-            elif dtype == "float64":
-                data[name] = data[name].astype(np.float32)
+        # for dtype, name in zip(data.dtypes, data.columns):
+        #     if dtype == "int64":
+        #         data[name] = data[name].astype(np.int32)
+        #     elif dtype == "float64":
+        #         data[name] = data[name].astype(np.float32)
         if output_name is None:
             prefilename = filename.split(".")
             prefilename.insert(-1, "output")
@@ -84,11 +84,11 @@ class System:
 
     def write_data(self, output_name=None):
         data = self.data
-        for dtype, name in zip(data.dtypes, data.columns):
-            if dtype == "int64":
-                data[name] = data[name].astype(np.int32)
-            elif dtype == "float64":
-                data[name] = data[name].astype(np.float32)
+        # for dtype, name in zip(data.dtypes, data.columns):
+        #     if dtype == "int64":
+        #         data[name] = data[name].astype(np.int32)
+        #     elif dtype == "float64":
+        #         data[name] = data[name].astype(np.float32)
         if output_name is None:
             output_name = self.filename[:-4] + "data"
         Ntype = len(np.unique(data["type"]))

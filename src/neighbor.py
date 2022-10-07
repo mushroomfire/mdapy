@@ -24,7 +24,7 @@ class Neighbor:
     neighbor_number : (N) ti.field, i原子的邻域数目.
     """
 
-    def __init__(self, pos, box, rc, boundary=[1, 1, 1], max_neigh=50, exclude=True):
+    def __init__(self, pos, box, rc, boundary=[1, 1, 1], max_neigh=80, exclude=True):
 
         # 转换pos, box为ti.field, 此处64位精度很重要！！！
         self.pos = ti.Vector.field(pos.shape[1], dtype=ti.f64, shape=(pos.shape[0]))
@@ -59,7 +59,7 @@ class Neighbor:
         for I in ti.grouped(self.verlet_list):
             self.verlet_list[I] = -1
         for I in ti.grouped(self.distance_list):
-            self.distance_list[I] = -1.0
+            self.distance_list[I] = self.rc + 1.0
         for I in ti.grouped(self.cell_id_list):
             self.cell_id_list[I] = -1
         for I in ti.grouped(self.atom_cell_list):

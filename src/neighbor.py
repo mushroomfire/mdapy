@@ -4,6 +4,7 @@ import numpy as np
 
 @ti.data_oriented
 class Neighbor:
+
     """
     描述: 用于生成体系的领域列表,也就是距离小于截断半径的原子集合.
     输入参数:
@@ -85,14 +86,15 @@ class Neighbor:
                 kkcel = 0
             elif kcel > self.ncel[2] - 1:
                 kkcel = self.ncel[2] - 1
+
             self.atom_cell_list[i] = self.cell_id_list[iicel, jjcel, kkcel]
             self.cell_id_list[iicel, jjcel, kkcel] = i
 
     @ti.func
     def pbc(self, rij):
         for i in ti.static(range(rij.n)):
-            box_length = self.box[i][1] - self.box[i][0]
             if self.boundary[i] == 1:
+                box_length = self.box[i][1] - self.box[i][0]
                 rij[i] = rij[i] - box_length * ti.round(rij[i] / box_length)
         return rij
 
@@ -103,25 +105,38 @@ class Neighbor:
             icel, jcel, kcel = ti.floor(
                 (self.pos[i] - self.origin) / self.bin_length, dtype=ti.i32
             )
-            for iicel in range(icel - 1, icel + 2):
-                for jjcel in range(jcel - 1, jcel + 2):
-                    for kkcel in range(kcel - 1, kcel + 2):
-                        iiicel = iicel
-                        jjjcel = jjcel
-                        kkkcel = kkcel
-                        if iicel < 0:
-                            iiicel += self.ncel[0]
-                        elif iicel > self.ncel[0] - 1:
-                            iiicel -= self.ncel[0]
-                        if jjcel < 0:
-                            jjjcel += self.ncel[1]
-                        elif jjcel > self.ncel[1] - 1:
-                            jjjcel -= self.ncel[1]
-                        if kkcel < 0:
-                            kkkcel += self.ncel[2]
-                        elif kkcel > self.ncel[2] - 1:
-                            kkkcel -= self.ncel[2]
-                        j = self.cell_id_list[iiicel, jjjcel, kkkcel]
+            iicel, jjcel, kkcel = icel, jcel, kcel  # 这一段用于确保所处正确的cell
+            if icel < 0:
+                iicel = 0
+            elif icel > self.ncel[0] - 1:
+                iicel = self.ncel[0] - 1
+            if jcel < 0:
+                jjcel = 0
+            elif jcel > self.ncel[1] - 1:
+                jjcel = self.ncel[1] - 1
+            if kcel < 0:
+                kkcel = 0
+            elif kcel > self.ncel[2] - 1:
+                kkcel = self.ncel[2] - 1
+            for iiicel in range(iicel - 1, iicel + 2):
+                for jjjcel in range(jjcel - 1, jjcel + 2):
+                    for kkkcel in range(kkcel - 1, kkcel + 2):
+                        iiiicel = iiicel
+                        jjjjcel = jjjcel
+                        kkkkcel = kkkcel
+                        if iiicel < 0:
+                            iiiicel += self.ncel[0]
+                        elif iiicel > self.ncel[0] - 1:
+                            iiiicel -= self.ncel[0]
+                        if jjjcel < 0:
+                            jjjjcel += self.ncel[1]
+                        elif jjjcel > self.ncel[1] - 1:
+                            jjjjcel -= self.ncel[1]
+                        if kkkcel < 0:
+                            kkkkcel += self.ncel[2]
+                        elif kkkcel > self.ncel[2] - 1:
+                            kkkkcel -= self.ncel[2]
+                        j = self.cell_id_list[iiiicel, jjjjcel, kkkkcel]
                         while j > -1:
                             rij = self.pbc(self.pos[i] - self.pos[j])
                             rijdis = rij.norm()

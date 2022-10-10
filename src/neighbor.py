@@ -138,7 +138,21 @@ class Neighbor:
                             j = self.atom_cell_list[j]
             self.neighbor_number[i] = nindex
 
+    def check_boundary(self):
+        @ti.kernel
+        def panduan(arr: ti.template(), max_neigh: int) -> int:
+            jishu = 0
+            for I in arr:
+                if arr[I] >= max_neigh:
+                    jishu += 1
+            return jishu
+
+        assert (
+            panduan(self.neighbor_number, self.max_neigh) == 0
+        ), "Neighbor number exceeds max_neigh, which should be increased!"
+
     def compute(self):
         self.initinput()
         self.build_cell()
         self.build_verlet_list()
+        self.check_boundary()

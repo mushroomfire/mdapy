@@ -127,7 +127,7 @@ class System:
             self.build_neighbor(rc, max_neigh)
         elif self.Neighbor.rc < rc:
             self.build_neighbor(rc, max_neigh)
-        atype_list = self.data["type"].values
+        atype_list = self.data["type"].values.astype(np.int32)
         self.AtomicTemperature = AtomicTemperature(
             amass,
             self.vel,

@@ -19,7 +19,9 @@ class AtomicTemperature:
     T : (N) ti.field,每一个原子的平均温度.
     """
 
-    def __init__(self, amass, vel, verlet_list, distance_list, atype_list, rc, units="metal"):
+    def __init__(
+        self, amass, vel, verlet_list, distance_list, atype_list, rc, units="metal"
+    ):
         self.amass = ti.field(dtype=ti.f64, shape=(amass.shape[0]))
         self.amass.from_numpy(amass)
         self.atype_list = ti.field(dtype=ti.i32, shape=(atype_list.shape[0]))

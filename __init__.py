@@ -8,6 +8,7 @@ from .src.temperature import AtomicTemperature
 from .src.entropy import AtomicEntropy
 from .src.centro_symmetry_parameter import CentroSymmetryParameter
 from .plot.pltset import pltset, cm2inch
+import taichi.profiler as profiler
 
 
 def init(arch="cpu", debug=False, device_memory_GB=2.0, kernel_profiler=False):
@@ -20,11 +21,6 @@ def init(arch="cpu", debug=False, device_memory_GB=2.0, kernel_profiler=False):
     import taichi as ti
 
     if arch == "cpu":
-<<<<<<< HEAD
-        ti.init(arch=ti.cpu, debug=debug,kernel_profiler=kernel_profiler)
-    elif arch == "gpu":
-        ti.init(arch=ti.gpu, device_memory_GB=device_memory_GB, debug=debug, kernel_profiler=kernel_profiler)
-=======
         ti.init(arch=ti.cpu, debug=debug, kernel_profiler=kernel_profiler)
     elif arch == "gpu":
         ti.init(
@@ -33,6 +29,13 @@ def init(arch="cpu", debug=False, device_memory_GB=2.0, kernel_profiler=False):
             debug=debug,
             kernel_profiler=kernel_profiler,
         )
->>>>>>> 53a39594cb1dbccddca06cf05d1d9e660bf432ff
+        ti.init(arch=ti.cpu, debug=debug, kernel_profiler=kernel_profiler)
+    elif arch == "gpu":
+        ti.init(
+            arch=ti.gpu,
+            device_memory_GB=device_memory_GB,
+            debug=debug,
+            kernel_profiler=kernel_profiler,
+        )
     else:
         raise ValueError("Unrecognized arch, please choose in ['cpu', 'gpu'].")

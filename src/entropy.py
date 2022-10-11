@@ -41,7 +41,7 @@ class AtomicEntropy():
             n_neigh = 0
             for j in ti.static(range(self.nbins)):
                 for k in range(self.distance_list.shape[1]):
-                    if self.distance_list[i, k] > -1:
+                    if self.distance_list[i, k] <= self.rc:
                         g_m[j] += ti.exp(-(self.rlist[j] - self.distance_list[i, k])**2 / (2.0*self.sigma**2)) / self.prefactor[j]
                         if j == 0:
                             n_neigh += 1

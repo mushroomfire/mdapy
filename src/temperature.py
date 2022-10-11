@@ -19,7 +19,7 @@ class AtomicTemperature:
     T : (N) ti.field,每一个原子的平均温度.
     """
 
-    def __init__(self, amass, vel, verlet_list, atype_list, units="metal"):
+    def __init__(self, amass, vel, verlet_list, distance_list, atype_list, rc, units="metal"):
         self.amass = ti.field(dtype=ti.f64, shape=(amass.shape[0]))
         self.amass.from_numpy(amass)
         self.atype_list = ti.field(dtype=ti.i32, shape=(atype_list.shape[0]))
@@ -30,6 +30,8 @@ class AtomicTemperature:
         elif units == "real":
             self.vel.from_numpy(vel * 100000.0)
         self.verlet_list = verlet_list
+        self.distance_list = distance_list
+        self.rc = rc
         self.N = self.vel.shape[0]
         self.T = ti.field(dtype=ti.f64, shape=(self.N))
 
@@ -53,7 +55,8 @@ class AtomicTemperature:
             n_neigh = 0
             for j_index in range(max_neigh):
                 j = self.verlet_list[i, j_index]
-                if j > -1 and j != i:
+                disj = self.distance_list[i, j_index]
+                if j > -1 and j != i and disj <= self.rc:
                     v_neigh += self.vel[j]
                     n_neigh += 1
             v_neigh += self.vel[i]
@@ -64,7 +67,8 @@ class AtomicTemperature:
             ke_neigh = ti.float64(0.0)
             for j_index in range(max_neigh):
                 j = self.verlet_list[i, j_index]
-                if j > -1 and j != i:
+                disj = self.distance_list[i, j_index]
+                if j > -1 and j != i and disj <= self.rc:
                     v_j = (self.vel[j] - v_mean).norm_sqr()
                     ke_neigh += (
                         0.5 * self.amass[self.atype_list[j] - 1] / afu / 1000.0 * v_j

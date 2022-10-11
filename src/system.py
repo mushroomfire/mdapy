@@ -125,11 +125,17 @@ class System:
         """
         if not self.if_neigh:
             self.build_neighbor(rc, max_neigh)
-        elif self.Neighbor.rc != rc:
+        elif self.Neighbor.rc < rc:
             self.build_neighbor(rc, max_neigh)
         atype_list = self.data["type"].values
         self.AtomicTemperature = AtomicTemperature(
-            amass, self.vel, self.Neighbor.verlet_list, atype_list, units
+            amass,
+            self.vel,
+            self.Neighbor.verlet_list,
+            self.Neighbor.distance_list,
+            atype_list,
+            rc,
+            units,
         )
         self.AtomicTemperature.compute()
         self.data["atomic_temp"] = self.AtomicTemperature.T.to_numpy()
@@ -140,6 +146,8 @@ class System:
         """
         if not self.if_neigh:
             self.build_neighbor()
+        elif self.Neighbor.rc < 5.0:
+            self.build_neighbor(5.0, 80)
 
         self.CentroSymmetryParameter = CentroSymmetryParameter(
             self.Neighbor.pos,
@@ -147,12 +155,13 @@ class System:
             self.Neighbor.boundary,
             self.Neighbor.verlet_list,
             self.Neighbor.distance_list,
+            self.Neighbor.neighbor_number,
             N,
         )
         self.CentroSymmetryParameter.compute()
         self.data["csp"] = self.CentroSymmetryParameter.csp.to_numpy()
 
-    def cal_atomic_entropy(self, sigma=0.25, use_local_density=False):
+    def cal_atomic_entropy(self, rc=5.0, sigma=0.25, use_local_density=False):
 
         """
         sigma : 用来表征插值的精细程度类似于,不能太大, 默认使用0.25或者0.2就行.
@@ -160,7 +169,9 @@ class System:
         """
 
         if not self.if_neigh:
-            self.build_neighbor()
+            self.build_neighbor(rc=rc, max_neigh=80)
+        elif self.Neighbor.rc < rc:
+            self.build_neighbor(rc=rc, max_neigh=80)
 
         self.AtomicEntropy = AtomicEntropy(
             self.Neighbor.box,

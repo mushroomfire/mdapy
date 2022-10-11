@@ -1,17 +1,17 @@
 import taichi as ti
-
 @ti.data_oriented
 class CentroSymmetryParameter():
     """
     计算材料中心对称参数,目前主要可以优化的地方在于2Dfield排序部分。
     """
-    def __init__(self, pos, box, boundary, verlet_list, distance_list, N):
+    def __init__(self, pos, box, boundary, verlet_list, distance_list, neighbor_number, N):
         self.N = N
         self.pos = pos
         self.box = box
         self.boundary = boundary
         self.verlet_list = verlet_list
         self.distance_list = distance_list
+        self.neighbor_number = neighbor_number
         self.pair = ti.field(ti.f64, shape=(self.pos.shape[0], int(self.N*(self.N-1)/2)))
         self.csp = ti.field(ti.f64, shape=(self.pos.shape[0]))
     
@@ -50,27 +50,30 @@ class CentroSymmetryParameter():
     @ti.kernel
     def get_pair(self):
         for i in range(self.pos.shape[0]): 
-            ncol = 0
-            for j in range(self.N):
-                j_index = self.verlet_list[i, j]
-                for k in range(j+1, self.N):
-                    k_index = self.verlet_list[i, k]
-                    rij = self.pbc(self.pos[j_index] - self.pos[i])
-                    rik = self.pbc(self.pos[k_index] - self.pos[i])
-                    rijk = (rij+rik).norm_sqr()
-                    self.pair[i, ncol] = rijk
-                    ncol += 1
+            if self.neighbor_number[i] >= self.N:
+                ncol = 0
+                for j in range(self.N):
+                    j_index = self.verlet_list[i, j]
+                    for k in range(j+1, self.N):
+                        k_index = self.verlet_list[i, k]
+                        rij = self.pbc(self.pos[j_index] - self.pos[i])
+                        rik = self.pbc(self.pos[k_index] - self.pos[i])
+                        rijk = (rij+rik).norm_sqr()
+                        self.pair[i, ncol] = rijk
+                        ncol += 1
     
     @ti.kernel
     def get_csp(self):
-        for i in range(self.pos.shape[0]):
-            for j in range(int(self.N/2)):
-                self.csp[i] += self.pair[i, j]
         
+        for i in range(self.pos.shape[0]):
+            if self.neighbor_number[i] >= self.N:
+                for j in range(int(self.N/2)):
+                    self.csp[i] += self.pair[i, j]
+            else:
+                self.csp[i] = 0.
+                        
     def compute(self):
         self.sort_2dfield_with_keys(self.distance_list, self.verlet_list)
         self.get_pair()
         self.sort_2dfield_without_keys(self.pair)
         self.get_csp()
-        
-                                    

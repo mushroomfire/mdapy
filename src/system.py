@@ -176,7 +176,7 @@ class System:
         self.AtomicEntropy = AtomicEntropy(
             self.Neighbor.box,
             self.Neighbor.distance_list,
-            self.Neighbor.rc,
+            rc,
             sigma,
             use_local_density,
         )

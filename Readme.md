@@ -5,7 +5,13 @@
 - 系统要求：目前仅测试了win10, ubuntu。
 - 支持GPU加速
 - 更新：重新下载源码安装即可。
-
+## 依赖
+- taichi
+- numpy
+- pandas
+- freud
+- matplotlib
+- SciencePlots
 ## 安装
 0. 下载源码
     ```bash
@@ -14,16 +20,11 @@
     ```
 1. 建议使用conda先创建一个虚拟环境避免依赖库冲突
     ```bash
-    conda create -n mda
-    conda activate mda
-    # conda install ipykernel 
+    conda env create -f .\requirements.yml # 会自动创建虚拟环境mda并安装依赖库.
+    # conda install ipykernel # 如果使用jupyter的话可以把该虚拟环境激活
     # python -m ipykernel install --name mda # jupyter 激活虚拟环境
     ```
-2. 首先安装依赖
-    ```bash
-    pip install -r requirements.txt
-    ```
-3. 安装本库
+2. 安装本库
     ```python
     python install.py
     ```

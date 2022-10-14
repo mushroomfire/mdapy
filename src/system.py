@@ -138,28 +138,18 @@ class System:
             units,
         )
         self.AtomicTemperature.compute()
-        self.data["atomic_temp"] = self.AtomicTemperature.T.to_numpy()
+        self.data["atomic_temp"] = self.AtomicTemperature.T
 
     def cal_centro_symmetry_parameter(self, N=12):
         """
         N : int, 大于0的偶数,对于FCC结构是12,对于BCC是8. default : 12
         """
-        if not self.if_neigh:
-            self.build_neighbor()
-        elif self.Neighbor.rc < 5.0:
-            self.build_neighbor(5.0, 80)
 
         self.CentroSymmetryParameter = CentroSymmetryParameter(
-            self.Neighbor.pos,
-            self.Neighbor.box,
-            self.Neighbor.boundary,
-            self.Neighbor.verlet_list,
-            self.Neighbor.distance_list,
-            self.Neighbor.neighbor_number,
-            N,
+            self.pos, np.array([self.lx, self.ly, self.lz]), N, self.boundary
         )
         self.CentroSymmetryParameter.compute()
-        self.data["csp"] = self.CentroSymmetryParameter.csp.to_numpy()
+        self.data["csp"] = self.CentroSymmetryParameter.csp
 
     def cal_atomic_entropy(self, rc=5.0, sigma=0.25, use_local_density=False):
 

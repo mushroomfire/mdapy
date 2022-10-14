@@ -20,16 +20,14 @@ class Neighbor:
     exclude : bool,代表邻域列表中是否包含自身.
             default : True (不包含自身)
     输出参数:
-    verlet_list : (N,max_neigh) ti.field,其中每一行代表第i个原子的邻域,其中的非负数为j原子索引.
-    distance_list : (N,max_neigh) ti.field,对应的ij原子的距离.
-    neighbor_number : (N) ti.field, i原子的邻域数目.
+    verlet_list : (N,max_neigh) array,其中每一行代表第i个原子的邻域,其中的非负数为j原子索引.
+    distance_list : (N,max_neigh) array,对应的ij原子的距离.
+    neighbor_number : (N) array, i原子的邻域数目.
     """
 
     def __init__(self, pos, box, rc, boundary=[1, 1, 1], max_neigh=80, exclude=True):
 
-        # 转换pos, box为ti.field, 此处64位精度很重要！！！
-        self.pos = ti.Vector.field(pos.shape[1], dtype=ti.f64, shape=(pos.shape[0]))
-        self.pos.from_numpy(pos)
+        self.pos = pos
         self.box = ti.Vector.field(box.shape[1], dtype=ti.f64, shape=(box.shape[0]))
         self.box.from_numpy(box)
         # 定义几个常数
@@ -47,31 +45,24 @@ class Neighbor:
         self.boundary = ti.Vector(boundary)
         self.max_neigh = max_neigh
         # 邻域计算
-        self.verlet_list = ti.field(dtype=ti.i32, shape=(self.N, self.max_neigh))
-        self.distance_list = ti.field(dtype=ti.f64, shape=(self.N, self.max_neigh))
-        self.neighbor_number = ti.field(dtype=ti.i32, shape=(self.N))
-        self.atom_cell_list = ti.field(dtype=ti.i32, shape=(self.N))
-        self.cell_id_list = ti.field(
-            dtype=ti.i32, shape=(self.ncel[0], self.ncel[1], self.ncel[2])
+        self.verlet_list = np.zeros((self.N, self.max_neigh), dtype=np.int32) - 1
+        self.distance_list = (
+            np.zeros((self.N, self.max_neigh), dtype=np.float64) + self.rc + 1.0
         )
+        self.neighbor_number = np.zeros(self.N, dtype=np.int32)
 
     @ti.kernel
-    def initinput(self):
-        for I in ti.grouped(self.verlet_list):
-            self.verlet_list[I] = -1
-        for I in ti.grouped(self.distance_list):
-            self.distance_list[I] = self.rc + 1.0
-        for I in ti.grouped(self.cell_id_list):
-            self.cell_id_list[I] = -1
-        for I in ti.grouped(self.atom_cell_list):
-            self.atom_cell_list[I] = 0
-
-    @ti.kernel
-    def build_cell(self):
+    def build_cell(
+        self,
+        pos: ti.types.ndarray(),
+        atom_cell_list: ti.types.ndarray(),
+        cell_id_list: ti.types.ndarray(),
+    ):
         ti.loop_config(serialize=True)  # 需要串行
         for i in range(self.N):
+            r_i = ti.Vector([pos[i, 0], pos[i, 1], pos[i, 2]])
             icel, jcel, kcel = ti.floor(
-                (self.pos[i] - self.origin) / self.bin_length, dtype=ti.i32
+                (r_i - self.origin) / self.bin_length, dtype=ti.i32
             )
             iicel, jjcel, kkcel = icel, jcel, kcel
             if icel < 0:
@@ -87,8 +78,8 @@ class Neighbor:
             elif kcel > self.ncel[2] - 1:
                 kkcel = self.ncel[2] - 1
 
-            self.atom_cell_list[i] = self.cell_id_list[iicel, jjcel, kkcel]
-            self.cell_id_list[iicel, jjcel, kkcel] = i
+            atom_cell_list[i] = cell_id_list[iicel, jjcel, kkcel]
+            cell_id_list[iicel, jjcel, kkcel] = i
 
     @ti.func
     def pbc(self, rij):
@@ -99,11 +90,20 @@ class Neighbor:
         return rij
 
     @ti.kernel
-    def build_verlet_list(self):
+    def build_verlet_list(
+        self,
+        pos: ti.types.ndarray(),
+        atom_cell_list: ti.types.ndarray(),
+        cell_id_list: ti.types.ndarray(),
+        verlet_list: ti.types.ndarray(),
+        distance_list: ti.types.ndarray(),
+        neighbor_number: ti.types.ndarray(),
+    ):
         for i in range(self.N):
             nindex = 0
+            r_i = ti.Vector([pos[i, 0], pos[i, 1], pos[i, 2]])
             icel, jcel, kcel = ti.floor(
-                (self.pos[i] - self.origin) / self.bin_length, dtype=ti.i32
+                (r_i - self.origin) / self.bin_length, dtype=ti.i32
             )
             iicel, jjcel, kkcel = icel, jcel, kcel  # 这一段用于确保所处正确的cell
             if icel < 0:
@@ -136,38 +136,69 @@ class Neighbor:
                             kkkkcel += self.ncel[2]
                         elif kkkcel > self.ncel[2] - 1:
                             kkkkcel -= self.ncel[2]
-                        j = self.cell_id_list[iiiicel, jjjjcel, kkkkcel]
+                        j = cell_id_list[iiiicel, jjjjcel, kkkkcel]
                         while j > -1:
-                            rij = self.pbc(self.pos[i] - self.pos[j])
+                            r_j = ti.Vector([pos[j, 0], pos[j, 1], pos[j, 2]])
+                            rij = self.pbc(r_i - r_j)
                             rijdis = rij.norm()
                             if self.exclude:
                                 if rijdis < self.rc and j != i:
-                                    self.verlet_list[i, nindex] = j
-                                    self.distance_list[i, nindex] = rijdis
+                                    verlet_list[i, nindex] = j
+                                    distance_list[i, nindex] = rijdis
                                     nindex += 1
                             else:
                                 if rijdis < self.rc:
-                                    self.verlet_list[i, nindex] = j
-                                    self.distance_list[i, nindex] = rijdis
+                                    verlet_list[i, nindex] = j
+                                    distance_list[i, nindex] = rijdis
                                     nindex += 1
-                            j = self.atom_cell_list[j]
-            self.neighbor_number[i] = nindex
-
-    def check_boundary(self):
-        @ti.kernel
-        def panduan(arr: ti.template(), max_neigh: int) -> int:
-            jishu = 0
-            for I in arr:
-                if arr[I] >= max_neigh:
-                    jishu += 1
-            return jishu
-
-        assert (
-            panduan(self.neighbor_number, self.max_neigh) == 0
-        ), "Neighbor number exceeds max_neigh, which should be increased!"
+                            j = atom_cell_list[j]
+            neighbor_number[i] = nindex
 
     def compute(self):
-        self.initinput()
-        self.build_cell()
-        self.build_verlet_list()
-        self.check_boundary()
+        atom_cell_list = np.zeros(self.N, dtype=np.int32)
+        cell_id_list = (
+            np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32) - 1
+        )
+        self.build_cell(self.pos, atom_cell_list, cell_id_list)
+        self.build_verlet_list(
+            self.pos,
+            atom_cell_list,
+            cell_id_list,
+            self.verlet_list,
+            self.distance_list,
+            self.neighbor_number,
+        )
+        assert (
+            self.neighbor_number.max() <= self.max_neigh
+        ), "Neighbor number exceeds max_neigh, which should be increased!"
+
+
+if __name__ == "__main__":
+    from lattice_maker import LatticeMaker
+    from time import time
+
+    ti.init(ti.gpu, device_memory_GB=5.0)
+    # ti.init(ti.cpu)
+    start = time()
+    lattice_constant = 4.05
+    x, y, z = 50, 100, 100
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    FCC.compute()
+    pos = FCC.pos.to_numpy().reshape(-1, 3)
+    end = time()
+    print(f"Build {pos.shape[0]} atoms FCC time: {end-start} s.")
+    start = time()
+    box = np.array(
+        [
+            [0.0, lattice_constant * x],
+            [0.0, lattice_constant * y],
+            [0.0, lattice_constant * z],
+        ]
+    )
+    neigh = Neighbor(pos, box, 3.0, max_neigh=15)
+    neigh.compute()
+    end = time()
+    print(f"Build neighbor time: {end-start} s.")
+    print(neigh.verlet_list[0])
+    print(neigh.distance_list[0])
+    print(neigh.neighbor_number[0])

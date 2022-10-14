@@ -8,14 +8,15 @@ class LatticeMaker:
     def __init__(self, lattice_constant, lattice_type, x, y, z):
         self.lattice_constant = lattice_constant
         self.lattice_type = lattice_type
-        self.x = int(x)
-        self.y = int(y)
-        self.z = int(z)
+        self.x = x
+        self.y = y
+        self.z = z
         self.basis_vector, self.basis_atoms, self.pos = self.init_global()
 
     def init_global(self):
         """
         定义基矢量,基原子,坐标.
+        此处需要64位精度!!!
         """
         if self.lattice_type == "FCC":
             basis_vector_arr = (
@@ -73,15 +74,15 @@ class LatticeMaker:
             sys.exit()
 
         basis_vector = ti.Vector.field(
-            basis_vector_arr.shape[1], dtype=ti.f32, shape=(basis_vector_arr.shape[0])
+            basis_vector_arr.shape[1], dtype=ti.f64, shape=(basis_vector_arr.shape[0])
         )
         basis_atoms = ti.Vector.field(
-            basis_atoms_arr.shape[1], dtype=ti.f32, shape=(basis_atoms_arr.shape[0])
+            basis_atoms_arr.shape[1], dtype=ti.f64, shape=(basis_atoms_arr.shape[0])
         )
         basis_vector.from_numpy(basis_vector_arr)
         basis_atoms.from_numpy(basis_atoms_arr)
         pos = ti.Vector.field(
-            3, dtype=ti.f32, shape=(self.x, self.y, self.z, basis_atoms.shape[0])
+            3, dtype=ti.f64, shape=(self.x, self.y, self.z, basis_atoms.shape[0])
         )
 
         return basis_vector, basis_atoms, pos
@@ -91,6 +92,7 @@ class LatticeMaker:
         """
         建立坐标.
         """
+        # ti.loop_config(serialize=True)
         for i, j, k, h in ti.ndrange(self.x, self.y, self.z, self.basis_atoms.shape[0]):
             basis_origin = ti.Vector(
                 [
@@ -121,9 +123,23 @@ class LatticeMaker:
             op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n")
             op.write(f"{N} atoms\n{Ntype} atom types\n\n")
             for i, j in zip(range(3), ["x", "y", "z"]):
-                op.write(f"{0} {box[i,i]} {j}lo {j}hi\n")
+                op.write(f"{0.} {box[i,i]} {j}lo {j}hi\n")
             op.write("\n")
             op.write(r"Atoms # atomic")
             op.write("\n\n")
             for i in range(N):
-                op.write(f"{i+1} {type_list[i]} {pos[i,0]} {pos[i,1]} {pos[i,2]}\n")
+                op.write(
+                    f"{i+1} {type_list[i]} {pos[i,0]:.6f} {pos[i,1]:.6f} {pos[i,2]:.6f}\n"
+                )
+
+
+if __name__ == "__main__":
+    ti.init(ti.gpu)
+    FCC = LatticeMaker(4.05, "BCC", 10, 10, 10)
+    FCC.compute()
+    # pos = FCC.pos.to_numpy().reshape(-1, 3)
+    # print(FCC.basis_atoms.to_numpy())
+    # print(FCC.basis_vector.to_numpy())
+    # print(pos)
+    # print(pos.dtype)
+    FCC.write_data()

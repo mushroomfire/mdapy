@@ -26,8 +26,8 @@ class CentroSymmetryParameterNearest:
             n = 0
             for j in range(self.N):
                 for k in range(j+1, self.N):
-                    rij = ti.Vector([0.]*3)
-                    rik = ti.Vector([0.]*3)
+                    rij = ti.Vector([ti.float64(0.)]*3)
+                    rik = ti.Vector([ti.float64(0.)]*3)
                     
                     for m in ti.static(range(3)):
                         rij[m] = pos[verlet[i, j], m] - pos[i, m]
@@ -47,4 +47,17 @@ class CentroSymmetryParameterNearest:
     def compute(self):
         self.build_kdtree()
         self.get_csp()
+
+
+if __name__ == '__main__':
+    from lattice_maker import LatticeMaker
+    ti.init(ti.gpu)
+    FCC = LatticeMaker(4.05, "FCC", 10, 10, 10)
+    FCC.compute()
+    pos = FCC.pos.to_numpy().reshape(-1, 3)
+    box = np.array([40.5]*3)
+    CSP = CentroSymmetryParameterNearest(pos, box, 12)
+    CSP.compute()
+    csp = CSP.csp 
+    print(csp.min(), csp.max(), csp.mean())
         

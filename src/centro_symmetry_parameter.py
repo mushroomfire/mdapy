@@ -35,18 +35,26 @@ class CentroSymmetryParameter:
                         n += 1
         
     def compute(self):
-        pair = np.zeros((self.pos.shape[0], int(self.N*(self.N-1)/2)))
-        sort_index = np.argpartition(self.distance_list, self.N)[:, :self.N]
-        self._get_pair(pair, self.pos, self.verlet_list, self.box, sort_index, self.boundary, self.neighbor_number)
-        pair.sort()
-        self.csp = np.sum(pair[:, :int(self.N/2)] ,axis=1)
+        try:
+            import torch 
+            print('Parallel computing by torch.')
+            pair = torch.zeros((self.pos.shape[0], int(self.N*(self.N-1)/2)), dtype=torch.float64).numpy()
+            sort_index = torch.argsort(torch.from_numpy(self.distance_list))[:,:self.N].numpy()
+            self._get_pair(pair, self.pos, self.verlet_list, self.box, sort_index, self.boundary, self.neighbor_number)
+            self.csp = torch.sum(torch.sort(torch.from_numpy(pair))[0][:,:int(self.N/2)], dim=1).numpy()
+        except ImportError:
+            pair = np.zeros((self.pos.shape[0], int(self.N*(self.N-1)/2)))
+            sort_index = np.argpartition(self.distance_list, self.N)[:, :self.N]
+            self._get_pair(pair, self.pos, self.verlet_list, self.box, sort_index, self.boundary, self.neighbor_number)
+            pair.sort()
+            self.csp = np.sum(pair[:, :int(self.N/2)] ,axis=1)
 
 
 if __name__ == '__main__':
     from lattice_maker import LatticeMaker
     from neighbor import Neighbor
     from time import time
-    ti.init(ti.gpu, device_memory_GB=5.0)
+    ti.init(ti.cpu, device_memory_GB=5.0)
     # ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05

@@ -1,5 +1,4 @@
 taichi==1.1.2
-freud==2.11.0
 numpy==1.23.3
 pandas==1.4.4
 matplotlib==3.5.3

@@ -11,6 +11,7 @@
 - pandas
 - matplotlib
 - SciencePlots
+- pytorch (目前 optional)
 ## 安装
 0. 下载源码
     ```bash
@@ -21,6 +22,7 @@
     ```bash
     conda create -n mda python==3.8.0 # 版本3.7以上都可以
     conda activate mda
+    # 目前可以自主选择是否安装pytorch
     # conda install ipykernel # 如果使用jupyter的话可以把该虚拟环境激活
     # python -m ipykernel install --name mda # jupyter 激活虚拟环境
     ```
@@ -41,6 +43,9 @@ mp.init("cpu")
 ```
 
 ## 更新记录  
+## 2022-10-16
+对于csp计算中的排序部分使用了pytorch,提高了计算效率,之后考虑把整个过程的array都转移到pytorch上面来.
+
 ## 2022-10-15
 再次修改csp的计算,目前瓶颈依然在于如何排序,决定还是不引用外部库freud，发现计算有错误.
 

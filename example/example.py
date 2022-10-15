@@ -1,5 +1,4 @@
 import mdapy as mp
-import numpy as np
 from time import time
 
 #mp.init("cpu", kernel_profiler=True)

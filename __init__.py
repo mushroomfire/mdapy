@@ -1,5 +1,5 @@
 __author__ = "HerrWu"
-__version__ = "0.4.9"
+__version__ = "0.5.0"
 
 from .src.lattice_maker import LatticeMaker
 from .src.system import System

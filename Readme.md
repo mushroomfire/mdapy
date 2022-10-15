@@ -9,7 +9,6 @@
 - taichi
 - numpy
 - pandas
-- freud
 - matplotlib
 - SciencePlots
 ## 安装
@@ -20,11 +19,16 @@
     ```
 1. 建议使用conda先创建一个虚拟环境避免依赖库冲突
     ```bash
-    conda env create -f .\requirements.yml # 会自动创建虚拟环境mda并安装依赖库.
+    conda create -n mda python==3.8.0 # 版本3.7以上都可以
+    conda activate mda
     # conda install ipykernel # 如果使用jupyter的话可以把该虚拟环境激活
     # python -m ipykernel install --name mda # jupyter 激活虚拟环境
     ```
-2. 安装本库
+2. 安装依赖
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. 安装本库
     ```python
     python install.py
     ```
@@ -37,6 +41,9 @@ mp.init("cpu")
 ```
 
 ## 更新记录  
+## 2022-10-15
+再次修改csp的计算,目前瓶颈依然在于如何排序,决定还是不引用外部库freud，发现计算有错误.
+
 ## 2022-10-14
 重写了计算的内存布局,局部使用ndarray可以大量节省内存.
 

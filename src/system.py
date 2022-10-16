@@ -4,6 +4,7 @@ from .neighbor import Neighbor
 from .temperature import AtomicTemperature
 from .centro_symmetry_parameter import CentroSymmetryParameter
 from .entropy import AtomicEntropy
+from .pair_distribution import PairDistribution
 
 
 class System:
@@ -182,3 +183,14 @@ class System:
         )
         AtomicEntro.compute()
         self.data["atomic_entropy"] = AtomicEntro.entropy
+
+    def cal_pair_distribution(self, rc=5.0, nbin=200, max_neigh=80):
+        if not self.if_neigh:
+            self.build_neighbor(rc=rc, max_neigh=80)
+        elif self.Neighbor.rc < rc:
+            self.build_neighbor(rc=rc, max_neigh=80)
+        rho = self.N / self.vol
+        self.PairDistribution = PairDistribution(
+            rc, nbin, rho, self.Neighbor.verlet_list, self.Neighbor.distance_list
+        )
+        self.PairDistribution.compute()

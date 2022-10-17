@@ -47,11 +47,11 @@ class AtomicTemperature:
         T: ti.types.ndarray(),
     ):
         """
-        kb = 8.617333262145 eV / K
-        kb = 1.380649×10^−23 J/K
+        kb = 8.617333262145e-5 eV / K
+        kb = 1.380649e−23 J/K
         dim = 3.
-        afu = 6.022140857×10^23 1/mol
-        j2e = 6.24150913 × 10^18
+        afu = 6.022140857e23 1/mol
+        j2e = 6.24150913e18
         """
         kb = 1.380649e-23
         dim = 3.0
@@ -127,11 +127,11 @@ if __name__ == "__main__":
     from neighbor import Neighbor
     from time import time
 
-    ti.init(ti.gpu, device_memory_GB=5.0)
-    # ti.init(ti.cpu)
+    # ti.init(ti.gpu, device_memory_GB=5.0)
+    ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 50
+    x, y, z = 100, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     pos = FCC.pos.to_numpy().reshape(-1, 3)
@@ -164,4 +164,4 @@ if __name__ == "__main__":
     T.compute()
     end = time()
     print(f"Calculating T time: {end-start} s.")
-    print(T.T.mean())
+    print("Average temperature is", T.T.mean(), "K.")

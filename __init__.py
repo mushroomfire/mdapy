@@ -1,5 +1,5 @@
 __author__ = "HerrWu"
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 from .src.lattice_maker import LatticeMaker
 from .src.system import System
@@ -7,6 +7,8 @@ from .src.neighbor import Neighbor
 from .src.temperature import AtomicTemperature
 from .src.entropy import AtomicEntropy
 from .src.centro_symmetry_parameter import CentroSymmetryParameter
+from .src.pair_distribution import PairDistribution
+from .src.cluser_analysis import ClusterAnalysis
 from .plot.pltset import pltset, cm2inch
 import taichi.profiler as profiler
 

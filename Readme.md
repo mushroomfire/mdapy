@@ -7,6 +7,7 @@
 - 更新：重新下载源码安装即可。
 ## 依赖
 - taichi
+- numba
 - numpy
 - pandas
 - matplotlib

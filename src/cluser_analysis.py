@@ -12,15 +12,18 @@ def _compute(N, verlet_list, distance_list, rc, particleClusters):
         toProcess = []
         toProcess.append(seedParticleIndex)
         cluster += 1
-        while len(toProcess) > 0:
-            currentParticle = toProcess[0]
-            del toProcess[0]
-            for j in range(verlet_list.shape[1]):
-                neighborIndex = verlet_list[currentParticle, j]
-                if neighborIndex > -1 and distance_list[currentParticle, j] <= rc:
-                    if particleClusters[neighborIndex] == -1:
-                        particleClusters[neighborIndex] = cluster
-                        toProcess.append(neighborIndex)
+        while True:  # 保证程序至少执行一次
+            if len(toProcess) > 0:
+                currentParticle = toProcess[0]
+                del toProcess[0]
+                for j in range(verlet_list.shape[1]):
+                    neighborIndex = verlet_list[currentParticle, j]
+                    if neighborIndex > -1 and distance_list[currentParticle, j] <= rc:
+                        if particleClusters[neighborIndex] == -1:
+                            particleClusters[neighborIndex] = cluster
+                            toProcess.append(neighborIndex)
+            else:
+                break
     return cluster
 
 
@@ -38,7 +41,9 @@ class ClusterAnalysis:
         self.is_computed = False
 
     def compute(self):
-        self.cluster_number = _compute(self.N, self.verlet_list, self.distance_list, self.rc, self.particleClusters)
+        self.cluster_number = _compute(
+            self.N, self.verlet_list, self.distance_list, self.rc, self.particleClusters
+        )
         print(f"Cluster number is {self.cluster_number}.")
         self.is_computed = True
 

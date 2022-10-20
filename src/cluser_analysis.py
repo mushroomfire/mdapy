@@ -3,7 +3,7 @@ import numba as nb
 
 
 @nb.njit
-def _compute(N, verlet_list, particleClusters):
+def _compute(N, verlet_list, distance_list, rc, particleClusters):
     cluster = 0
 
     for seedParticleIndex in range(N):
@@ -17,7 +17,7 @@ def _compute(N, verlet_list, particleClusters):
             del toProcess[0]
             for j in range(verlet_list.shape[1]):
                 neighborIndex = verlet_list[currentParticle, j]
-                if neighborIndex > -1:
+                if neighborIndex > -1 and distance_list[currentParticle, j] <= rc:
                     if particleClusters[neighborIndex] == -1:
                         particleClusters[neighborIndex] = cluster
                         toProcess.append(neighborIndex)
@@ -29,14 +29,16 @@ class ClusterAnalysis:
     代码参考Ovito的cluster_analysis模块,用于将粒子分类到不同的相互连通的group，也就是一个cluster中
     """
 
-    def __init__(self, verlet_list):
+    def __init__(self, rc, verlet_list, distance_list):
+        self.rc = rc
         self.verlet_list = verlet_list
+        self.distance_list = distance_list
         self.N = self.verlet_list.shape[0]
         self.particleClusters = np.zeros(self.N, dtype=np.int32) - 1
         self.is_computed = False
 
     def compute(self):
-        self.cluster_number = _compute(self.N, self.verlet_list, self.particleClusters)
+        self.cluster_number = _compute(self.N, self.verlet_list, self.distance_list, self.rc, self.particleClusters)
         print(f"Cluster number is {self.cluster_number}.")
         self.is_computed = True
 

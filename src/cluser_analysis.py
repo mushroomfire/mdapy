@@ -16,12 +16,16 @@ def _compute(N, verlet_list, distance_list, rc, particleClusters):
             if len(toProcess) > 0:
                 currentParticle = toProcess[0]
                 del toProcess[0]
+                n = 0  # 领域计数,保证孤立原子也有cluster_id
                 for j in range(verlet_list.shape[1]):
                     neighborIndex = verlet_list[currentParticle, j]
                     if neighborIndex > -1 and distance_list[currentParticle, j] <= rc:
+                        n += 1
                         if particleClusters[neighborIndex] == -1:
                             particleClusters[neighborIndex] = cluster
                             toProcess.append(neighborIndex)
+                if n == 0:
+                    particleClusters[currentParticle] = cluster
             else:
                 break
     return cluster

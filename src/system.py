@@ -5,6 +5,7 @@ from .temperature import AtomicTemperature
 from .centro_symmetry_parameter import CentroSymmetryParameter
 from .entropy import AtomicEntropy
 from .pair_distribution import PairDistribution
+from .cluser_analysis import ClusterAnalysis
 
 
 class System:
@@ -186,11 +187,21 @@ class System:
 
     def cal_pair_distribution(self, rc=5.0, nbin=200, max_neigh=80):
         if not self.if_neigh:
-            self.build_neighbor(rc=rc, max_neigh=80)
+            self.build_neighbor(rc=rc, max_neigh=max_neigh)
         elif self.Neighbor.rc < rc:
-            self.build_neighbor(rc=rc, max_neigh=80)
+            self.build_neighbor(rc=rc, max_neigh=max_neigh)
         rho = self.N / self.vol
         self.PairDistribution = PairDistribution(
             rc, nbin, rho, self.Neighbor.verlet_list, self.Neighbor.distance_list
         )
         self.PairDistribution.compute()
+
+    def cal_cluster_analysis(self, rc=5.0, max_neigh=80):
+        if not self.if_neigh:
+            self.build_neighbor(rc=rc, max_neigh=max_neigh)
+        elif self.Neighbor.rc < rc:
+            self.build_neighbor(rc=rc, max_neigh=max_neigh)
+
+        self.ClusterAnalysis = ClusterAnalysis(self.N, self.Neighbor.verlet_list)
+        self.ClusterAnalysis.compute()
+        self.data["cluster_id"] = self.ClusterAnalysis.particleClusters

@@ -25,9 +25,13 @@ def _compute(N, verlet_list, particleClusters):
 
 
 class ClusterAnalysis:
-    def __init__(self, N, verlet_list):
-        self.N = N
+    """
+    代码参考Ovito的cluster_analysis模块,用于将粒子分类到不同的相互连通的group，也就是一个cluster中
+    """
+
+    def __init__(self, verlet_list):
         self.verlet_list = verlet_list
+        self.N = self.verlet_list.shape[0]
         self.particleClusters = np.zeros(self.N, dtype=np.int32) - 1
         self.is_computed = False
 

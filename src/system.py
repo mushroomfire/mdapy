@@ -202,6 +202,6 @@ class System:
         elif self.Neighbor.rc < rc:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
 
-        self.ClusterAnalysis = ClusterAnalysis(self.N, self.Neighbor.verlet_list)
+        self.ClusterAnalysis = ClusterAnalysis(self.Neighbor.verlet_list)
         self.ClusterAnalysis.compute()
         self.data["cluster_id"] = self.ClusterAnalysis.particleClusters

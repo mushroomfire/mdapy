@@ -25,7 +25,18 @@ class Neighbor:
     neighbor_number : (N) array, i原子的邻域数目.
     """
 
-    def __init__(self, pos, box, rc, boundary=[1, 1, 1], max_neigh=80, exclude=True):
+    def __init__(
+        self,
+        pos,
+        box,
+        rc,
+        verlet_list,
+        distance_list,
+        neighbor_number,
+        boundary=[1, 1, 1],
+        max_neigh=80,
+        exclude=True,
+    ):
 
         self.pos = pos
         self.box = ti.Vector.field(box.shape[1], dtype=ti.f64, shape=(box.shape[0]))
@@ -45,11 +56,9 @@ class Neighbor:
         self.boundary = ti.Vector(boundary)
         self.max_neigh = max_neigh
         # 邻域计算
-        self.verlet_list = np.zeros((self.N, self.max_neigh), dtype=np.int32) - 1
-        self.distance_list = (
-            np.zeros((self.N, self.max_neigh), dtype=np.float64) + self.rc + 1.0
-        )
-        self.neighbor_number = np.zeros(self.N, dtype=np.int32)
+        self.verlet_list = verlet_list
+        self.distance_list = distance_list
+        self.neighbor_number = neighbor_number
 
     @ti.kernel
     def build_cell(

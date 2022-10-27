@@ -11,8 +11,8 @@ except ImportError:
     @nb.njit
     def _compute(verlet_list, distance_list, rc):
         cluster = 0
-        particleClusters = np.zeros(N, dtype=np.int32) - 1
         N = verlet_list.shape[0]
+        particleClusters = np.zeros(N, dtype=np.int32) - 1
         for seedParticleIndex in range(N):
             if particleClusters[seedParticleIndex] != -1:
                 continue
@@ -50,7 +50,6 @@ class ClusterAnalysis:
         self.rc = rc
         self.verlet_list = verlet_list
         self.distance_list = distance_list
-        self.N = self.verlet_list.shape[0]
         self.is_computed = False
 
     def compute(self):

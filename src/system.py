@@ -113,27 +113,15 @@ class System:
         )
 
     def build_neighbor(self, rc=5.0, max_neigh=80, exclude=True):
-        self.rc = rc
-        self.max_neigh = max_neigh
-        self.verlet_list = np.zeros((self.N, self.max_neigh), dtype=np.int32) - 1
-        self.distance_list = (
-            np.zeros((self.N, self.max_neigh), dtype=np.float64) + self.rc + 1.0
-        )
-        self.neighbor_number = np.zeros(self.N, dtype=np.int32)
-
-        Neigh = Neighbor(
-            self.pos,
-            self.box,
-            rc,
-            self.verlet_list,
-            self.distance_list,
-            self.neighbor_number,
-            self.boundary,
-            self.max_neigh,
-            exclude,
-        )
+        Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh, exclude)
         Neigh.compute()
 
+        self.verlet_list, self.distance_list, self.neighbor_number, self.rc = (
+            Neigh.verlet_list,
+            Neigh.distance_list,
+            Neigh.neighbor_number,
+            rc,
+        )
         self.if_neigh = True
 
     def cal_atomic_temperature(self, amass, rc=5.0, units="metal", max_neigh=80):

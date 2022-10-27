@@ -177,7 +177,9 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    ti.init(ti.gpu, device_memory_GB=5.0, packed=True, offline_cache=True)
+    ti.init(
+        ti.gpu, device_memory_GB=5.0, packed=True, offline_cache=True
+    )  # , offline_cache=True)
     # ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05

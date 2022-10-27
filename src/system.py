@@ -113,10 +113,15 @@ class System:
         )
 
     def build_neighbor(self, rc=5.0, max_neigh=80, exclude=True):
-        self.Neighbor = Neighbor(
-            self.pos, self.box, rc, self.boundary, max_neigh, exclude
+        Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh, exclude)
+        Neigh.compute()
+
+        self.verlet_list, self.distance_list, self.neighbor_number, self.rc = (
+            Neigh.verlet_list,
+            Neigh.distance_list,
+            Neigh.neighbor_number,
+            rc,
         )
-        self.Neighbor.compute()
         self.if_neigh = True
 
     def cal_atomic_temperature(self, amass, rc=5.0, units="metal", max_neigh=80):
@@ -127,14 +132,14 @@ class System:
         """
         if not self.if_neigh:
             self.build_neighbor(rc, max_neigh)
-        elif self.Neighbor.rc < rc:
+        elif self.rc < rc:
             self.build_neighbor(rc, max_neigh)
         atype_list = self.data["type"].values.astype(np.int32)
         AtomicTemp = AtomicTemperature(
             amass,
             self.vel,
-            self.Neighbor.verlet_list,
-            self.Neighbor.distance_list,
+            self.verlet_list,
+            self.distance_list,
             atype_list,
             rc,
             units,
@@ -148,7 +153,7 @@ class System:
         """
         if not self.if_neigh:
             self.build_neighbor(rc=rc, max_neigh=80)
-        elif self.Neighbor.rc < rc:
+        elif self.rc < rc:
             self.build_neighbor(rc=rc, max_neigh=80)
 
         CentroSymmetryPara = CentroSymmetryParameter(
@@ -156,14 +161,16 @@ class System:
             np.array([self.lx, self.ly, self.lz]),
             N,
             self.boundary,
-            self.Neighbor.verlet_list,
-            self.Neighbor.distance_list,
-            self.Neighbor.neighbor_number,
+            self.verlet_list,
+            self.distance_list,
+            self.neighbor_number,
         )
         CentroSymmetryPara.compute()
         self.data["csp"] = CentroSymmetryPara.csp
 
-    def cal_atomic_entropy(self, rc=5.0, sigma=0.25, use_local_density=False):
+    def cal_atomic_entropy(
+        self, rc=5.0, sigma=0.25, use_local_density=False, max_neigh=80
+    ):
 
         """
         sigma : 用来表征插值的精细程度类似于,不能太大, 默认使用0.25或者0.2就行.
@@ -171,13 +178,13 @@ class System:
         """
 
         if not self.if_neigh:
-            self.build_neighbor(rc=rc, max_neigh=80)
-        elif self.Neighbor.rc < rc:
-            self.build_neighbor(rc=rc, max_neigh=80)
+            self.build_neighbor(rc=rc, max_neigh=max_neigh)
+        elif self.rc < rc:
+            self.build_neighbor(rc=rc, max_neigh=max_neigh)
 
         AtomicEntro = AtomicEntropy(
             self.vol,
-            self.Neighbor.distance_list,
+            self.distance_list,
             rc,
             sigma,
             use_local_density,
@@ -188,22 +195,20 @@ class System:
     def cal_pair_distribution(self, rc=5.0, nbin=200, max_neigh=80):
         if not self.if_neigh:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
-        elif self.Neighbor.rc < rc:
+        elif self.rc < rc:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
         rho = self.N / self.vol
         self.PairDistribution = PairDistribution(
-            rc, nbin, rho, self.Neighbor.verlet_list, self.Neighbor.distance_list
+            rc, nbin, rho, self.verlet_list, self.distance_list
         )
         self.PairDistribution.compute()
 
     def cal_cluster_analysis(self, rc=5.0, max_neigh=80):
         if not self.if_neigh:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
-        elif self.Neighbor.rc < rc:
+        elif self.rc < rc:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
 
-        self.ClusterAnalysis = ClusterAnalysis(
-            rc, self.Neighbor.verlet_list, self.Neighbor.distance_list
-        )
-        self.ClusterAnalysis.compute()
-        self.data["cluster_id"] = self.ClusterAnalysis.particleClusters
+        ClusterAnalysi = ClusterAnalysis(rc, self.verlet_list, self.distance_list)
+        ClusterAnalysi.compute()
+        self.data["cluster_id"] = ClusterAnalysi.particleClusters

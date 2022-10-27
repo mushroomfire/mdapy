@@ -47,7 +47,7 @@ mp.init("cpu")
 ## 2022-10-27
 1. 跟新cluster_analysis功能,使用fortran加速,使用预编译分发.
 2. 版本号更新0.5.2
-3. 内存优化
+3. 内存不会泄露了,taichi版本升级到1.2.0
 
 ## 2022-10-20
 1. 增加了团簇分析功能,cluster_analysis,添加了numba加速,在一些特定场合numba也还是不错的.

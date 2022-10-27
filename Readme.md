@@ -44,6 +44,10 @@ mp.init("cpu")
 ```
 
 ## 更新记录 
+## 2022-10-27
+1. 跟新cluster_analysis功能,使用fortran加速,使用预编译分发.
+2. 版本号更新
+
 ## 2022-10-20
 1. 增加了团簇分析功能,cluster_analysis,添加了numba加速,在一些特定场合numba也还是不错的.
 2. 感觉有一点看得懂ovito的代码了,这点很重要.

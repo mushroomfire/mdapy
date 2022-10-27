@@ -38,7 +38,7 @@ except ImportError:
                         particleClusters[currentParticle] = cluster
                 else:
                     break
-        return cluster, particleClusters
+        return particleClusters, cluster
 
 
 class ClusterAnalysis:
@@ -54,7 +54,7 @@ class ClusterAnalysis:
         self.is_computed = False
 
     def compute(self):
-        self.cluster_number, self.particleClusters = _compute(
+        self.particleClusters, self.cluster_number = _compute(
             self.verlet_list, self.distance_list, self.rc
         )
         print(f"Cluster number is {self.cluster_number}.")

@@ -61,7 +61,13 @@ class LatticeMaker:
             )
         elif self.lattice_type == "GRA":
             basis_vector_arr = (
-                np.array([[3.0, 0.0, 0.0], [0.0, np.sqrt(3), 0.0], [0.0, 0.0, 3.4]])
+                np.array(
+                    [
+                        [3.0, 0.0, 0.0],
+                        [0.0, np.sqrt(3), 0.0],
+                        [0.0, 0.0, 3.4 / self.lattice_constant],
+                    ]
+                )
                 * self.lattice_constant
             )
             basis_atoms_arr = np.array(
@@ -135,11 +141,12 @@ class LatticeMaker:
 
 if __name__ == "__main__":
     ti.init(ti.gpu)
-    FCC = LatticeMaker(4.05, "BCC", 10, 10, 10)
+    FCC = LatticeMaker(1.42, "GRA", 5, 10, 3)
     FCC.compute()
+    # FCC.write_data()
     pos = FCC.pos.to_numpy().reshape(-1, 3)
-    # print(FCC.basis_atoms.to_numpy())
-    # print(FCC.basis_vector.to_numpy())
+    # # print(FCC.basis_atoms.to_numpy())
+    # # print(FCC.basis_vector.to_numpy())
     print(pos)
     # print(pos.dtype)
     # FCC.write_data()

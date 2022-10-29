@@ -168,9 +168,10 @@ class Neighbor:
             self.distance_list,
             self.neighbor_number,
         )
+        max_neighbor_number = self.neighbor_number.max()
         assert (
-            self.neighbor_number.max() <= self.max_neigh
-        ), "Neighbor number exceeds max_neigh, which should be increased!"
+            max_neighbor_number <= self.max_neigh
+        ), f"Neighbor number exceeds max_neigh, which should be larger than {max_neighbor_number}!"
 
 
 if __name__ == "__main__":

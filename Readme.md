@@ -44,8 +44,13 @@ mp.init("cpu")
 ```
 
 ## 更新记录 
+## 2022-10-29
+1. 更新common_neighbor_analysis的功能, fixed rc的模式目前,下一步继续更新adaptive rc 的模式
+2. 修复lattice_maker中GRA的层间距bug,现在是正常的3.4
+3. 更新版本号至0.5.3
+
 ## 2022-10-27
-1. 跟新cluster_analysis功能,使用fortran加速,使用预编译分发.
+1. 更新cluster_analysis功能,使用fortran加速,使用预编译分发.
 2. 版本号更新0.5.2
 3. 内存不会泄露了,taichi版本升级到1.2.0
 

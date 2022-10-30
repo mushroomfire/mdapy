@@ -43,7 +43,12 @@ import mdapy as mp
 mp.init("cpu")
 ```
 
-## 更新记录 
+## 更新记录
+## 2022-10-30
+1. 更新adaptive_common_neighbor_analysis
+2. 更新lattice_maker的pos显示
+3. 更新版本号0.6.0
+
 ## 2022-10-29
 1. 更新common_neighbor_analysis的功能, fixed rc的模式目前,下一步继续更新adaptive rc 的模式
 2. 修复lattice_maker中GRA的层间距bug,现在是正常的3.4

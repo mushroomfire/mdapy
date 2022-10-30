@@ -1,6 +1,5 @@
 import taichi as ti
 import numpy as np
-import sys
 
 
 @ti.data_oriented
@@ -11,7 +10,11 @@ class LatticeMaker:
         self.x = x
         self.y = y
         self.z = z
-        self.basis_vector, self.basis_atoms, self.pos = self.init_global()
+        self.basis_vector, self.basis_atoms = self.init_global()
+        self.box = self.basis_vector.to_numpy() * np.array([self.x, self.y, self.z])
+        self.pos = np.zeros(
+            (self.x, self.y, self.z, self.basis_atoms.shape[0], 3), dtype=np.float64
+        )
 
     def init_global(self):
         """
@@ -76,8 +79,9 @@ class LatticeMaker:
                 [self.lattice_constant * 3, self.lattice_constant * np.sqrt(3), 0.0]
             )
         else:
-            print("Unrecgonized Lattice Type, please choose in [FCC, BCC, HCP, GRA].")
-            sys.exit()
+            raise ValueError(
+                "Unrecgonized Lattice Type, please choose in [FCC, BCC, HCP, GRA]."
+            )
 
         basis_vector = ti.Vector.field(
             basis_vector_arr.shape[1], dtype=ti.f64, shape=(basis_vector_arr.shape[0])
@@ -87,14 +91,14 @@ class LatticeMaker:
         )
         basis_vector.from_numpy(basis_vector_arr)
         basis_atoms.from_numpy(basis_atoms_arr)
-        pos = ti.Vector.field(
-            3, dtype=ti.f64, shape=(self.x, self.y, self.z, basis_atoms.shape[0])
-        )
+        # pos = ti.Vector.field(
+        #     3, dtype=ti.f64, shape=(self.x, self.y, self.z, basis_atoms.shape[0])
+        # )
 
-        return basis_vector, basis_atoms, pos
+        return basis_vector, basis_atoms
 
     @ti.kernel
-    def compute(self):
+    def _compute(self, pos: ti.types.ndarray(element_dim=1)):
         """
         建立坐标.
         """
@@ -106,16 +110,19 @@ class LatticeMaker:
                     for m in range(self.basis_vector.shape[0])
                 ]
             )
-            self.pos[i, j, k, h] = self.basis_atoms[h] + basis_origin
+            pos[i, j, k, h] = self.basis_atoms[h] + basis_origin
+
+    def compute(self):
+
+        self._compute(self.pos)
+        self.pos = self.pos.reshape(-1, 3)
 
     def write_data(self, type_list=None, output_name=None):
-        pos = self.pos.to_numpy().reshape(-1, 3)
-        N = pos.shape[0]
+        pos = self.pos
         if np.sum(pos) == 0:
-            print("One should compute the pos before write to data file!")
-            sys.exit()
-
-        box = self.basis_vector.to_numpy() * np.array([self.x, self.y, self.z])
+            raise ValueError("One should use compute function to generate positions.")
+        N = pos.shape[0]
+        box = self.box
         if output_name is None:
             output_name = f"{self.lattice_type}-{self.x}-{self.y}-{self.z}.data"
         if type_list is None:
@@ -141,12 +148,13 @@ class LatticeMaker:
 
 if __name__ == "__main__":
     ti.init(ti.gpu)
-    FCC = LatticeMaker(1.42, "GRA", 5, 10, 3)
+    FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
     FCC.compute()
     # FCC.write_data()
-    pos = FCC.pos.to_numpy().reshape(-1, 3)
-    # # print(FCC.basis_atoms.to_numpy())
-    # # print(FCC.basis_vector.to_numpy())
-    print(pos)
+    # print(FCC.basis_atoms.to_numpy())
+    # print(FCC.basis_vector.to_numpy())
+    # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))
+    print(FCC.box)
+    # print(FCC.pos)
     # print(pos.dtype)
     # FCC.write_data()

@@ -3,7 +3,7 @@ import numpy as np
 
 
 @ti.data_oriented
-class CommenNeighborAnalysis:
+class CommonNeighborAnalysis:
 
     """
     fixed rc 的 CNA分析, 可以用来判断FCC, BCC, HCP等结构.
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     end = time()
     print(f"Build neighbor time: {end-start} s.")
     start = time()
-    CNA = CommenNeighborAnalysis(
+    CNA = CommonNeighborAnalysis(
         neigh.rc, neigh.verlet_list, neigh.neighbor_number, pos, box, [1, 1, 1]
     )
     CNA.compute()

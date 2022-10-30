@@ -160,31 +160,24 @@ if __name__ == "__main__":
     from neighbor import Neighbor
     from time import time
 
-    ti.init(ti.gpu, device_memory_GB=5.0)
-    # ti.init(ti.cpu)
+    # ti.init(ti.gpu, device_memory_GB=5.0)
+    ti.init(ti.cpu)
     start = time()
     lattice_constant = 3.0
     x, y, z = 100, 100, 50
-    FCC = LatticeMaker(lattice_constant, "BCC", x, y, z)
+    FCC = LatticeMaker(lattice_constant, "HCP", x, y, z)
     FCC.compute()
-    pos = FCC.pos.to_numpy().reshape(-1, 3)
     end = time()
-    print(f"Build {pos.shape[0]} atoms FCC time: {end-start} s.")
+    print(f"Build {FCC.pos.shape[0]} atoms HCP time: {end-start} s.")
     start = time()
-    box = np.array(
-        [
-            [0.0, lattice_constant * x],
-            [0.0, lattice_constant * y],
-            [0.0, lattice_constant * z],
-        ]
-    )
-    neigh = Neighbor(pos, box, 4.0, max_neigh=20)
+
+    neigh = Neighbor(FCC.pos, FCC.box, 4.0, max_neigh=30)
     neigh.compute()
     end = time()
     print(f"Build neighbor time: {end-start} s.")
     start = time()
     CNA = CommonNeighborAnalysis(
-        neigh.rc, neigh.verlet_list, neigh.neighbor_number, pos, box, [1, 1, 1]
+        neigh.rc, neigh.verlet_list, neigh.neighbor_number, FCC.pos, FCC.box, [1, 1, 1]
     )
     CNA.compute()
     end = time()

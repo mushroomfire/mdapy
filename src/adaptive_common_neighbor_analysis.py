@@ -298,21 +298,14 @@ if __name__ == "__main__":
     # ti.init(ti.cpu)
     start = time()
     lattice_constant = 3.0
-    x, y, z = 100, 100, 100
-    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    x, y, z = 50, 50, 50
+    FCC = LatticeMaker(lattice_constant, "HCP", x, y, z)
     FCC.compute()
-    pos = FCC.pos.to_numpy().reshape(-1, 3)
     end = time()
-    print(f"Build {pos.shape[0]} atoms FCC time: {end-start} s.")
+    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
-    box = np.array(
-        [
-            [0.0, lattice_constant * x],
-            [0.0, lattice_constant * y],
-            [0.0, lattice_constant * z],
-        ]
-    )
-    neigh = Neighbor(pos, box, 4.0, max_neigh=43)
+    print(FCC.box)
+    neigh = Neighbor(FCC.pos, FCC.box, 4.0, max_neigh=43)
     neigh.compute()
     end = time()
     print(f"Build neighbor time: {end-start} s.")
@@ -321,8 +314,8 @@ if __name__ == "__main__":
         neigh.verlet_list,
         neigh.distance_list,
         neigh.neighbor_number,
-        pos,
-        box,
+        FCC.pos,
+        FCC.box,
         [1, 1, 1],
         False,
     )

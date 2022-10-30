@@ -89,24 +89,16 @@ if __name__ == "__main__":
     x, y, z = 50, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
-    pos = FCC.pos.to_numpy().reshape(-1, 3)
     end = time()
-    print(f"Build {pos.shape[0]} atoms FCC time: {end-start} s.")
+    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
-    box = np.array(
-        [
-            [0.0, lattice_constant * x],
-            [0.0, lattice_constant * y],
-            [0.0, lattice_constant * z],
-        ]
-    )
-    neigh = Neighbor(pos, box, 5.0, max_neigh=60)
+    neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=60)
     neigh.compute()
     end = time()
     print(f"Build neighbor time: {end-start} s.")
 
     start = time()
-    vol = np.product(box[:, 1] - box[:, 0])
+    vol = np.product(FCC.box[:, 1] - FCC.box[:, 0])
     Entropy = AtomicEntropy(
         vol, neigh.distance_list, neigh.rc, sigma=0.25, use_local_density=False
     )

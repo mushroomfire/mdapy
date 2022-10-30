@@ -61,25 +61,17 @@ if __name__ == '__main__':
     x, y, z = 100, 100, 50
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
-    pos = FCC.pos.to_numpy().reshape(-1, 3)
     end = time()
-    print(f"Build {pos.shape[0]} atoms FCC time: {end-start} s.")
+    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     #FCC.write_data()
     start = time()
-    box = np.array(
-        [
-            [0.0, lattice_constant * x],
-            [0.0, lattice_constant * y],
-            [0.0, lattice_constant * z],
-        ]
-    )
     rc = 6.0
-    neigh = Neighbor(pos, box, rc, max_neigh=80)
+    neigh = Neighbor(FCC.pos, FCC.box, rc, max_neigh=80)
     neigh.compute()
     end = time()
     print(f"Build neighbor time: {end-start} s.")
     start = time()
-    rho = pos.shape[0] / np.product(box[:,1]-box[:,0])
+    rho = FCC.pos.shape[0] / np.product(FCC.box[:,1]-FCC.box[:,0])
     gr = PairDistribution(rc, 200, rho, neigh.verlet_list, neigh.distance_list)
     gr.compute()
     end = time()

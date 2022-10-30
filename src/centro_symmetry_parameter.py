@@ -61,23 +61,16 @@ if __name__ == '__main__':
     x, y, z = 100, 100, 50
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
-    pos = FCC.pos.to_numpy().reshape(-1, 3)
     end = time()
-    print(f"Build {pos.shape[0]} atoms FCC time: {end-start} s.")
+    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
-    box = np.array(
-        [
-            [0.0, lattice_constant * x],
-            [0.0, lattice_constant * y],
-            [0.0, lattice_constant * z],
-        ]
-    )
-    neigh = Neighbor(pos, box, 5.0, max_neigh=60)
+
+    neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=60)
     neigh.compute()
     end = time()
     print(f"Build neighbor time: {end-start} s.")
     start = time()
-    CSP = CentroSymmetryParameter(pos, box[:,1], 12, [1, 1, 1], neigh.verlet_list, neigh.distance_list, neigh.neighbor_number)
+    CSP = CentroSymmetryParameter(FCC.pos, FCC.box[:,1], 12, [1, 1, 1], neigh.verlet_list, neigh.distance_list, neigh.neighbor_number)
     CSP.compute()
     csp = CSP.csp 
     end = time()

@@ -11,10 +11,15 @@ class LatticeMaker:
         self.y = y
         self.z = z
         self.basis_vector, self.basis_atoms = self.init_global()
-        self.box = self.basis_vector.to_numpy() * np.array([self.x, self.y, self.z])
-        self.pos = np.zeros(
-            (self.x, self.y, self.z, self.basis_atoms.shape[0], 3), dtype=np.float64
-        )
+        self.box = np.vstack(
+            (
+                np.zeros(3),
+                np.diagonal(
+                    self.basis_vector.to_numpy() * np.array([self.x, self.y, self.z])
+                ),
+            )
+        ).T
+        self.if_computed = False
 
     def init_global(self):
         """
@@ -113,44 +118,47 @@ class LatticeMaker:
             pos[i, j, k, h] = self.basis_atoms[h] + basis_origin
 
     def compute(self):
-
-        self._compute(self.pos)
-        self.pos = self.pos.reshape(-1, 3)
+        pos = np.zeros(
+            (self.x, self.y, self.z, self.basis_atoms.shape[0], 3), dtype=np.float64
+        )
+        self._compute(pos)
+        self.pos = pos.reshape(-1, 3)
+        self.N = self.pos.shape[0]
+        self.if_computed = True
 
     def write_data(self, type_list=None, output_name=None):
-        pos = self.pos
-        if np.sum(pos) == 0:
-            raise ValueError("One should use compute function to generate positions.")
-        N = pos.shape[0]
-        box = self.box
+        if not self.if_computed:
+            self.compute()
+
         if output_name is None:
             output_name = f"{self.lattice_type}-{self.x}-{self.y}-{self.z}.data"
         if type_list is None:
-            type_list = [1] * N
+            type_list = [1] * self.N
             Ntype = 1
         else:
-            assert len(type_list) == N
+            assert len(type_list) == self.N
             Ntype = len(np.unique(type_list))
 
         with open(output_name, "w") as op:
             op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n")
-            op.write(f"{N} atoms\n{Ntype} atom types\n\n")
+            op.write(f"{self.N} atoms\n{Ntype} atom types\n\n")
             for i, j in zip(range(3), ["x", "y", "z"]):
-                op.write(f"{0.} {box[i,i]} {j}lo {j}hi\n")
+                op.write(f"{self.box[i,0]} {self.box[i,1]} {j}lo {j}hi\n")
             op.write("\n")
             op.write(r"Atoms # atomic")
             op.write("\n\n")
-            for i in range(N):
+            for i in range(self.N):
                 op.write(
-                    f"{i+1} {type_list[i]} {pos[i,0]:.6f} {pos[i,1]:.6f} {pos[i,2]:.6f}\n"
+                    f"{i+1} {type_list[i]} {self.pos[i,0]:.6f} {self.pos[i,1]:.6f} {self.pos[i,2]:.6f}\n"
                 )
 
 
 if __name__ == "__main__":
     ti.init(ti.gpu)
-    FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
-    FCC.compute()
-    # FCC.write_data()
+    # FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
+    FCC = LatticeMaker(4.05, "HCP", 10, 10, 10)
+    # FCC.compute()
+    FCC.write_data()
     # print(FCC.basis_atoms.to_numpy())
     # print(FCC.basis_vector.to_numpy())
     # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))

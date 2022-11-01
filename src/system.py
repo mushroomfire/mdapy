@@ -229,5 +229,5 @@ class System:
         AdaptiveCommonNeighborAnalysi = AdaptiveCommonNeighborAnalysis(
             self.pos, self.box, self.boundary
         )
-
+        AdaptiveCommonNeighborAnalysi.compute()
         self.data["acna"] = AdaptiveCommonNeighborAnalysi.pattern

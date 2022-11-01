@@ -1,6 +1,7 @@
 taichi==1.2.0
 numba==0.56.3
 numpy==1.23.3
+scipy==1.8.1
 pandas==1.4.4
 matplotlib==3.5.3
 SciencePlots==1.0.9

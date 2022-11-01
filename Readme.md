@@ -43,7 +43,10 @@ import mdapy as mp
 mp.init("cpu")
 ```
 
-## 更新记录
+## 更新记录 
+## 2022-11-1
+1. 使用scipy来构建kdtree处理近邻原子问题
+
 ## 2022-10-30
 1. 更新adaptive_common_neighbor_analysis
 2. 更新lattice_maker的pos显示

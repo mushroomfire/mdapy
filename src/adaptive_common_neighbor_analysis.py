@@ -1,24 +1,20 @@
 import taichi as ti
 import numpy as np
+from kdtree import kdtree
 
 
 @ti.data_oriented
 class AdaptiveCommonNeighborAnalysis:
-    def __init__(
-        self, verlet_list, distance_list, neighbor_number, pos, box, boundary, is_sorted
-    ):
-        self.verlet_list = verlet_list
-        self.distance_list = distance_list
-        self.neighbor_number = neighbor_number
+    def __init__(self, pos, box, boundary=[1, 1, 1]):
+
         self.box = ti.Vector.field(box.shape[1], dtype=ti.f64, shape=(box.shape[0]))
         self.box.from_numpy(box)
         self.boundary = ti.Vector(boundary)
         self.pos = pos
-        self.N = self.verlet_list.shape[0]
+        self.N = self.pos.shape[0]
         self.pattern = np.zeros(self.N, dtype=np.int32)
         self.MAXNEAR = 14
         self.MAXCOMMON = 7
-        self.is_sorted = is_sorted
         self.structure = ["other", "fcc", "hcp", "bcc", "ico"]
 
     @ti.func
@@ -179,41 +175,10 @@ class AdaptiveCommonNeighborAnalysis:
             pattern[i] = 3
 
     @ti.kernel
-    def sort_verlet(
-        self,
-        verlet_list_new: ti.types.ndarray(),
-        verlet_list: ti.types.ndarray(),
-        sort_index: ti.types.ndarray(),
-    ):
-
-        for i in range(self.N):
-            for j in range(verlet_list.shape[1]):
-                verlet_list_new[i, j] = verlet_list[i, sort_index[i, j]]
-
-    def sort_distance(self):
-
-        verlet_list_new = np.zeros(self.verlet_list.shape, dtype=np.int32)
-        try:
-            import torch
-
-            print("Parallel computing by torch.")
-            values, sort_index = torch.sort(torch.from_numpy(self.distance_list))
-            self.distance_list = values.numpy()
-            self.sort_verlet(verlet_list_new, self.verlet_list, sort_index)
-            self.verlet_list = verlet_list_new
-        except ImportError:
-
-            sort_index = np.argsort(self.distance_list)
-            self.distance_list.sort()
-            self.sort_verlet(verlet_list_new, self.verlet_list, sort_index)
-            self.verlet_list = verlet_list_new
-
-    @ti.kernel
     def _compute(
         self,
         pos: ti.types.ndarray(),
         verlet_list: ti.types.ndarray(),
-        neighbor_number: ti.types.ndarray(),
         cna: ti.types.ndarray(),
         common: ti.types.ndarray(),
         bonds: ti.types.ndarray(),
@@ -223,62 +188,77 @@ class AdaptiveCommonNeighborAnalysis:
     ):
         # ti.loop_config(serialize=True)
         for i in range(self.N):
-            if neighbor_number[i] >= 12:
-                r_i = ti.Vector([pos[i, 0], pos[i, 1], pos[i, 2]])
-                for m in range(12):
+            r_i = ti.Vector([pos[i, 0], pos[i, 1], pos[i, 2]])
+            for m in range(12):
+                ncommon = self.get_common_neighbor(
+                    i, m, 12, verlet_list, pos, common, r_fcc, r_i
+                )
+                cna[i, m, 0] = ncommon
+                nbonds = self.get_common_bonds(i, ncommon, bonds, common, pos, r_fcc)
+                cna[i, m, 1] = nbonds
+                maxbonds, minbonds = self.get_max_min_bonds(i, ncommon, bonds)
+                cna[i, m, 2] = maxbonds
+                cna[i, m, 3] = minbonds
+            if not self.is_fcc_hcp_ico(i, cna, pattern):
+                self.clear_common_bond_cna(i, cna, common, bonds)
+                for m in range(14):
                     ncommon = self.get_common_neighbor(
-                        i, m, 12, verlet_list, pos, common, r_fcc, r_i
+                        i, m, 14, verlet_list, pos, common, r_bcc, r_i
                     )
                     cna[i, m, 0] = ncommon
                     nbonds = self.get_common_bonds(
-                        i, ncommon, bonds, common, pos, r_fcc
+                        i, ncommon, bonds, common, pos, r_bcc
                     )
                     cna[i, m, 1] = nbonds
                     maxbonds, minbonds = self.get_max_min_bonds(i, ncommon, bonds)
                     cna[i, m, 2] = maxbonds
                     cna[i, m, 3] = minbonds
-                if not self.is_fcc_hcp_ico(i, cna, pattern):
-                    if neighbor_number[i] >= 14:
-                        self.clear_common_bond_cna(i, cna, common, bonds)
-                        for m in range(14):
-                            ncommon = self.get_common_neighbor(
-                                i, m, 14, verlet_list, pos, common, r_bcc, r_i
-                            )
-                            cna[i, m, 0] = ncommon
-                            nbonds = self.get_common_bonds(
-                                i, ncommon, bonds, common, pos, r_bcc
-                            )
-                            cna[i, m, 1] = nbonds
-                            maxbonds, minbonds = self.get_max_min_bonds(
-                                i, ncommon, bonds
-                            )
-                            cna[i, m, 2] = maxbonds
-                            cna[i, m, 3] = minbonds
-                        self.is_bcc(i, cna, pattern)
+                self.is_bcc(i, cna, pattern)
 
     def compute(self):
 
         cna = np.zeros((self.N, self.MAXNEAR, 4), dtype=np.int32)
-        common = np.zeros((self.N, self.MAXCOMMON), dtype=np.int32)
+        common = np.zeros((self.N, self.MAXCOMMON), dtype=np.int64)
         bonds = np.zeros((self.N, self.MAXCOMMON), dtype=np.int32)
-        if not self.is_sorted:
-            self.sort_distance()
-        r_fcc = (
-            np.sum(self.distance_list[:, :12], axis=1) / 12 * (1.0 + 2.0**0.5) / 2.0
-        )
-        r_bcc = (
-            (
-                np.sum(self.distance_list[:, :8], axis=1) * 2 / 3**0.5
-                + np.sum(self.distance_list[:, 8:14], axis=1)
+
+        kdt = kdtree(self.pos, self.box, self.boundary)
+        distance_list, verlet_list = kdt.query_nearest_neighbors(self.MAXNEAR)
+
+        try:
+            import torch
+
+            distance_list_torch = torch.from_numpy(distance_list)
+            r_fcc = (
+                torch.sum(distance_list_torch[:, :12], dim=1)
+                / 12
+                * (1.0 + 2.0**0.5)
+                / 2.0
             )
-            / 14
-            * (1.0 + 2.0**0.5)
-            / 2.0
-        )
+            r_bcc = (
+                (
+                    torch.sum(distance_list_torch[:, :8], dim=1) * 2 / 3**0.5
+                    + torch.sum(distance_list_torch[:, 8:14], dim=1)
+                )
+                / 14
+                * (1.0 + 2.0**0.5)
+                / 2.0
+            )
+        except ImportError:
+            r_fcc = (
+                np.sum(distance_list[:, :12], axis=1) / 12 * (1.0 + 2.0**0.5) / 2.0
+            )
+            r_bcc = (
+                (
+                    np.sum(distance_list[:, :8], axis=1) * 2 / 3**0.5
+                    + np.sum(distance_list[:, 8:14], axis=1)
+                )
+                / 14
+                * (1.0 + 2.0**0.5)
+                / 2.0
+            )
         self._compute(
             self.pos,
-            self.verlet_list,
-            self.neighbor_number,
+            verlet_list,
             cna,
             common,
             bonds,
@@ -291,34 +271,22 @@ class AdaptiveCommonNeighborAnalysis:
 if __name__ == "__main__":
 
     from lattice_maker import LatticeMaker
-    from neighbor import Neighbor
     from time import time
 
     ti.init(ti.cpu, offline_cache=True)  # , device_memory_GB=5.0)
     # ti.init(ti.cpu)
     start = time()
     lattice_constant = 3.0
-    x, y, z = 50, 50, 50
-    FCC = LatticeMaker(lattice_constant, "HCP", x, y, z)
+    x, y, z = 100, 100, 50
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
+    np.random.seed(10)
+    noise = np.random.rand(*FCC.pos.shape)
+    FCC.pos += noise / 10
     start = time()
-    print(FCC.box)
-    neigh = Neighbor(FCC.pos, FCC.box, 4.0, max_neigh=43)
-    neigh.compute()
-    end = time()
-    print(f"Build neighbor time: {end-start} s.")
-    start = time()
-    CNA = AdaptiveCommonNeighborAnalysis(
-        neigh.verlet_list,
-        neigh.distance_list,
-        neigh.neighbor_number,
-        FCC.pos,
-        FCC.box,
-        [1, 1, 1],
-        False,
-    )
+    CNA = AdaptiveCommonNeighborAnalysis(FCC.pos, FCC.box, [1, 1, 1])
     CNA.compute()
     end = time()
     print(f"Cal CNA time: {end-start} s.")

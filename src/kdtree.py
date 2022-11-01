@@ -3,6 +3,10 @@ from scipy.spatial import KDTree
 
 
 class kdtree:
+    """
+    建立一个kdtree,用来搜索最近邻原子.
+    """
+
     def __init__(self, pos, box, boundary):
         self.pos = pos
         self.box = box
@@ -12,9 +16,9 @@ class kdtree:
     def init(self):
         boxsize = np.array(
             [
-                self.box[i, 1] - self.box[i, 0]
+                self.box[i][1] - self.box[i][0]
                 if self.boundary[i] == 1
-                else self.box[i, 1] - self.box[i, 0] + 50.0
+                else self.box[i][1] - self.box[i][0] + 50.0
                 for i in range(3)
             ]
         )

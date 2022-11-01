@@ -1,6 +1,10 @@
 import numpy as np
 import pandas as pd
+
+from src.common_neighbor_analysis import CommonNeighborAnalysis
+from src.adaptive_common_neighbor_analysis import AdaptiveCommonNeighborAnalysis
 from .neighbor import Neighbor
+from .kdtree import kdtree
 from .temperature import AtomicTemperature
 from .centro_symmetry_parameter import CentroSymmetryParameter
 from .entropy import AtomicEntropy
@@ -147,23 +151,13 @@ class System:
         AtomicTemp.compute()
         self.data["atomic_temp"] = AtomicTemp.T
 
-    def cal_centro_symmetry_parameter(self, N=12, rc=5.0, max_neigh=80):
+    def cal_centro_symmetry_parameter(self, N=12):
         """
         N : int, 大于0的偶数,对于FCC结构是12,对于BCC是8. default : 12
         """
-        if not self.if_neigh:
-            self.build_neighbor(rc=rc, max_neigh=max_neigh)
-        elif self.rc < rc:
-            self.build_neighbor(rc=rc, max_neigh=max_neigh)
 
         CentroSymmetryPara = CentroSymmetryParameter(
-            self.pos,
-            np.array([self.lx, self.ly, self.lz]),
-            N,
-            self.boundary,
-            self.verlet_list,
-            self.distance_list,
-            self.neighbor_number,
+            N, self.pos, self.box, self.boundary
         )
         CentroSymmetryPara.compute()
         self.data["csp"] = CentroSymmetryPara.csp
@@ -212,3 +206,28 @@ class System:
         ClusterAnalysi = ClusterAnalysis(rc, self.verlet_list, self.distance_list)
         ClusterAnalysi.compute()
         self.data["cluster_id"] = ClusterAnalysi.particleClusters
+
+    def cal_common_neighbor_analysis(self, rc=3.0, max_neigh=30):
+        if not self.if_neigh:
+            self.build_neighbor(rc=rc, max_neigh=max_neigh)
+        elif self.rc < rc:
+            self.build_neighbor(rc=rc, max_neigh=max_neigh)
+
+        CommonNeighborAnalysi = CommonNeighborAnalysis(
+            rc,
+            self.verlet_list,
+            self.neighbor_number,
+            self.pos,
+            self.box,
+            self.boundary,
+        )
+        CommonNeighborAnalysi.compute()
+        self.data["cna"] = CommonNeighborAnalysi.pattern
+
+    def cal_adaptive_common_neighbor_analysis(self):
+
+        AdaptiveCommonNeighborAnalysi = AdaptiveCommonNeighborAnalysis(
+            self.pos, self.box, self.boundary
+        )
+
+        self.data["acna"] = AdaptiveCommonNeighborAnalysi.pattern

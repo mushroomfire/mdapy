@@ -9,6 +9,7 @@
 - taichi
 - numba
 - numpy
+- scipy
 - pandas
 - matplotlib
 - SciencePlots

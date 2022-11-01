@@ -163,15 +163,15 @@ if __name__ == "__main__":
     # ti.init(ti.gpu, device_memory_GB=5.0)
     ti.init(ti.cpu)
     start = time()
-    lattice_constant = 3.0
+    lattice_constant = 4.05
     x, y, z = 100, 100, 50
-    FCC = LatticeMaker(lattice_constant, "HCP", x, y, z)
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
-    print(f"Build {FCC.pos.shape[0]} atoms HCP time: {end-start} s.")
+    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
 
-    neigh = Neighbor(FCC.pos, FCC.box, 4.0, max_neigh=30)
+    neigh = Neighbor(FCC.pos, FCC.box, 3.0, max_neigh=30)
     neigh.compute()
     end = time()
     print(f"Build neighbor time: {end-start} s.")

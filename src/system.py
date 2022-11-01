@@ -209,14 +209,23 @@ class System:
 
     def cal_common_neighbor_analysis(self, rc=3.0, max_neigh=30):
         if not self.if_neigh:
-            self.build_neighbor(rc=rc, max_neigh=max_neigh)
-        elif self.rc < rc:
-            self.build_neighbor(rc=rc, max_neigh=max_neigh)
+            Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
+            Neigh.compute()
+            self.verlet_list, self.distance_list, self.neighbor_number, self.rc = (
+                Neigh.verlet_list,
+                Neigh.distance_list,
+                Neigh.neighbor_number,
+                rc,
+            )
+            self.if_neigh = True
+        elif self.rc != rc:
+            Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
+            Neigh.compute()
 
         CommonNeighborAnalysi = CommonNeighborAnalysis(
             rc,
-            self.verlet_list,
-            self.neighbor_number,
+            Neigh.verlet_list,
+            Neigh.neighbor_number,
             self.pos,
             self.box,
             self.boundary,

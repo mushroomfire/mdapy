@@ -49,6 +49,7 @@ mp.init("cpu")
 1. 使用scipy来构建kdtree处理近邻原子问题
 2. 修改了csp和a-cna的代码
 3. 更新版本号0.6.1
+4. 更新example文档
 
 ## 2022-10-30
 1. 更新adaptive_common_neighbor_analysis

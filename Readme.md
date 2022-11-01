@@ -50,6 +50,7 @@ mp.init("cpu")
 2. 修改了csp和a-cna的代码
 3. 更新版本号0.6.1
 4. 更新example文档
+5. 下一步更新EAM计算能量和受力进来
 
 ## 2022-10-30
 1. 更新adaptive_common_neighbor_analysis

@@ -147,14 +147,14 @@ class System:
         AtomicTemp.compute()
         self.data["atomic_temp"] = AtomicTemp.T
 
-    def cal_centro_symmetry_parameter(self, N=12, rc=5.0):
+    def cal_centro_symmetry_parameter(self, N=12, rc=5.0, max_neigh=80):
         """
         N : int, 大于0的偶数,对于FCC结构是12,对于BCC是8. default : 12
         """
         if not self.if_neigh:
-            self.build_neighbor(rc=rc, max_neigh=80)
+            self.build_neighbor(rc=rc, max_neigh=max_neigh)
         elif self.rc < rc:
-            self.build_neighbor(rc=rc, max_neigh=80)
+            self.build_neighbor(rc=rc, max_neigh=max_neigh)
 
         CentroSymmetryPara = CentroSymmetryParameter(
             self.pos,

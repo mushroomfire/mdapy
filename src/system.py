@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from src.common_neighbor_analysis import CommonNeighborAnalysis
-from src.adaptive_common_neighbor_analysis import AdaptiveCommonNeighborAnalysis
+from .common_neighbor_analysis import CommonNeighborAnalysis
+from .adaptive_common_neighbor_analysis import AdaptiveCommonNeighborAnalysis
 from .neighbor import Neighbor
 from .kdtree import kdtree
 from .temperature import AtomicTemperature

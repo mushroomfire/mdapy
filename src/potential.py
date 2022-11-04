@@ -1,11 +1,7 @@
 import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import matplotlib.pyplot as plt
-import sys
-import os
-
-sys.path.append(os.getcwd())
-from plot.pltset import pltset, cm2inch
+from mdapy.plot.pltset import pltset, cm2inch
 
 
 class EAM:

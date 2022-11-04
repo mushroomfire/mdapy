@@ -11,6 +11,9 @@ from .entropy import AtomicEntropy
 from .pair_distribution import PairDistribution
 from .cluser_analysis import ClusterAnalysis
 
+from .potential import EAM
+from .calculator import Calculator
+
 
 class System:
     """
@@ -240,3 +243,32 @@ class System:
         )
         AdaptiveCommonNeighborAnalysi.compute()
         self.data["acna"] = AdaptiveCommonNeighborAnalysi.pattern
+
+    def cal_energy_force(self, filename, elements_list):
+        """
+        filename : eam.alloy 势函数文件名
+        elements_list : 每一个原子type对应的元素, ['Al', 'Al', 'Ni']
+        """
+
+        potential = EAM(filename)
+
+        if not self.if_neigh:
+            self.build_neighbor(rc=potential.rc, max_neigh=120)
+        if self.rc < potential.rc:
+            self.build_neighbor(rc=potential.rc, max_neigh=120)
+
+        Cal = Calculator(
+            potential,
+            elements_list,
+            self.data["type"].values,
+            self.verlet_list,
+            self.distance_list,
+            self.neighbor_number,
+            self.pos,
+            self.boundary,
+            self.box,
+        )
+        Cal.compute()
+
+        self.data["pe"] = Cal.energy
+        self.data[["afx", "afy", "afz"]] = Cal.force

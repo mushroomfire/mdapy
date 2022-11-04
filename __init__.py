@@ -12,6 +12,10 @@ from .src.cluser_analysis import ClusterAnalysis
 from .src.common_neighbor_analysis import CommonNeighborAnalysis
 from .src.adaptive_common_neighbor_analysis import AdaptiveCommonNeighborAnalysis
 from .plot.pltset import pltset, cm2inch
+
+from .src.potential import EAM
+from .src.calculator import Calculator
+
 import taichi.profiler as profiler
 
 

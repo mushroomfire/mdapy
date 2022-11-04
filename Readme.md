@@ -44,10 +44,14 @@ import mdapy as mp
 mp.init("cpu")
 ```
 
+## To do...
+1. 目前没有完全考虑GPU的计算,导致内存很多时候使用64位,在之后的计算中可以优化起来.
+2. 64位的GPU操作需要使用N卡的,3080是可以的,其他的卡我也没有
+
 ## 更新记录 
 ## 2022-11-4
 1. 增加了EAM class, 目前支持eam.alloy格式的势函数
-2. 增加了Calculator class, 可以使用eam.alloy来计算原子的受力和能量,但是该模块目前GPU计算存在问题.
+2. 增加了Calculator class, 可以使用eam.alloy来计算原子的受力和能量
 3. 更新版本号 0.6.2
 
 ## 2022-11-1

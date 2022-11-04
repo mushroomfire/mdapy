@@ -45,6 +45,11 @@ mp.init("cpu")
 ```
 
 ## 更新记录 
+## 2022-11-4
+1. 增加了EAM class, 目前支持eam.alloy格式的势函数
+2. 增加了Calculator class, 可以使用eam.alloy来计算原子的受力和能量,但是该模块目前GPU计算存在问题.
+3. 更新版本号 0.6.2
+
 ## 2022-11-1
 1. 使用scipy来构建kdtree处理近邻原子问题
 2. 修改了csp和a-cna的代码

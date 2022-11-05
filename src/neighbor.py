@@ -95,7 +95,7 @@ class Neighbor:
     @ti.kernel
     def build_verlet_list(
         self,
-        pos: ti.types.ndarray(),
+        pos: ti.types.ndarray(element_dim=1),
         atom_cell_list: ti.types.ndarray(),
         cell_id_list: ti.types.ndarray(),
         verlet_list: ti.types.ndarray(),
@@ -104,9 +104,8 @@ class Neighbor:
     ):
         for i in range(self.N):
             nindex = 0
-            r_i = ti.Vector([pos[i, 0], pos[i, 1], pos[i, 2]])
             icel, jcel, kcel = ti.floor(
-                (r_i - self.origin) / self.bin_length, dtype=ti.i32
+                (pos[i] - self.origin) / self.bin_length, dtype=ti.i32
             )
             iicel, jjcel, kkcel = icel, jcel, kcel  # 这一段用于确保所处正确的cell
             if icel < 0:
@@ -141,8 +140,7 @@ class Neighbor:
                             kkkkcel -= self.ncel[2]
                         j = cell_id_list[iiiicel, jjjjcel, kkkkcel]
                         while j > -1:
-                            r_j = ti.Vector([pos[j, 0], pos[j, 1], pos[j, 2]])
-                            rij = self.pbc(r_i - r_j)
+                            rij = self.pbc(pos[j] - pos[i])
                             rijdis = rij.norm()
                             if self.exclude:
                                 if rijdis < self.rc and j != i:
@@ -157,20 +155,52 @@ class Neighbor:
                             j = atom_cell_list[j]
             neighbor_number[i] = nindex
 
+    @ti.kernel
+    def build_verlet_list_small(
+        self,
+        pos: ti.types.ndarray(element_dim=1),
+        verlet_list: ti.types.ndarray(),
+        distance_list: ti.types.ndarray(),
+        neighbor_number: ti.types.ndarray(),
+    ):
+
+        ti.loop_config(serialize=True)
+        for i in range(self.N):
+            nindex = 0
+            for j in range(self.N):
+                rij = self.pbc(pos[i] - pos[j])
+                rijdis = rij.norm()
+                if self.exclude:
+                    if rijdis < self.rc and j != i:
+                        verlet_list[i, nindex] = j
+                        distance_list[i, nindex] = rijdis
+                        nindex += 1
+                else:
+                    if rijdis < self.rc:
+                        verlet_list[i, nindex] = j
+                        distance_list[i, nindex] = rijdis
+                        nindex += 1
+            neighbor_number[i] = nindex
+
     def compute(self):
-        atom_cell_list = np.zeros(self.N, dtype=np.int32)
-        cell_id_list = (
-            np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32) - 1
-        )
-        self.build_cell(self.pos, atom_cell_list, cell_id_list)
-        self.build_verlet_list(
-            self.pos,
-            atom_cell_list,
-            cell_id_list,
-            self.verlet_list,
-            self.distance_list,
-            self.neighbor_number,
-        )
+        if self.N > 1000:
+            atom_cell_list = np.zeros(self.N, dtype=np.int32)
+            cell_id_list = (
+                np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32) - 1
+            )
+            self.build_cell(self.pos, atom_cell_list, cell_id_list)
+            self.build_verlet_list(
+                self.pos,
+                atom_cell_list,
+                cell_id_list,
+                self.verlet_list,
+                self.distance_list,
+                self.neighbor_number,
+            )
+        else:
+            self.build_verlet_list_small(
+                self.pos, self.verlet_list, self.distance_list, self.neighbor_number
+            )
         max_neighbor_number = self.neighbor_number.max()
         assert (
             max_neighbor_number <= self.max_neigh
@@ -187,13 +217,13 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 100
+    x, y, z = 5, 5, 5
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
-    neigh = Neighbor(FCC.pos, FCC.box, 3.0, max_neigh=15)
+    neigh = Neighbor(FCC.pos, FCC.box, 3.0, max_neigh=15, exclude=False)
     print(neigh.ncel)
     neigh.compute()
     end = time()

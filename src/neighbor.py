@@ -38,10 +38,13 @@ class Neighbor:
         self.origin = ti.Vector([box[0, 0], box[1, 0], box[2, 0]])
         self.ncel = ti.Vector(
             [
-                int(np.floor((box[i, 1] - box[i, 0]) / self.bin_length))
-                for i in range(box.shape[0])
+                i if i > 3 else 3
+                for i in [
+                    int(np.floor((box[i, 1] - box[i, 0]) / self.bin_length))
+                    for i in range(box.shape[0])
+                ]
             ]
-        )
+        )  # 使小体系也可以计算
         self.boundary = ti.Vector(boundary)
         self.max_neigh = max_neigh
         # 邻域计算
@@ -178,19 +181,20 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    ti.init(
-        ti.gpu, device_memory_GB=5.0, packed=True, offline_cache=True
-    )  # , offline_cache=True)
-    # ti.init(ti.cpu)
+    # ti.init(
+    #     ti.gpu, device_memory_GB=5.0, packed=True, offline_cache=True
+    # )  # , offline_cache=True)
+    ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 50, 100, 100
+    x, y, z = 100, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
     neigh = Neighbor(FCC.pos, FCC.box, 3.0, max_neigh=15)
+    print(neigh.ncel)
     neigh.compute()
     end = time()
     print(f"Build neighbor time: {end-start} s.")

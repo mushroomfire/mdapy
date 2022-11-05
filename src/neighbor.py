@@ -217,13 +217,13 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 5, 5, 5
+    x, y, z = 100, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
-    neigh = Neighbor(FCC.pos, FCC.box, 3.0, max_neigh=15, exclude=False)
+    neigh = Neighbor(FCC.pos, FCC.box, 3.0, max_neigh=15, exclude=True)
     print(neigh.ncel)
     neigh.compute()
     end = time()

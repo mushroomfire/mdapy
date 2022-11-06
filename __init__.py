@@ -15,6 +15,7 @@ from .plot.pltset import pltset, cm2inch
 
 from .src.potential import EAM
 from .src.calculator import Calculator
+from .src.eam_generate import EAMGenerate
 
 import taichi.profiler as profiler
 

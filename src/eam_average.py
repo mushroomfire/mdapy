@@ -31,7 +31,7 @@ class EAMAverage(EAM):
 
         if output_name is None:
             self.output_name = ""
-            for i in self.elements_list:
+            for i in self.elements_list[:-1]:
                 self.output_name += i
             self.output_name += ".average.eam.alloy"
         else:
@@ -114,6 +114,6 @@ if __name__ == "__main__":
     potential = EAMAverage(
         "./example/CoNiFeAlCu.eam.alloy", [0.25, 0.25, 0.25, 0.075, 0.175]
     )
-    potential = EAM("CoNiFeAlCuA.average.eam.alloy")
-    os.remove("CoNiFeAlCuA.average.eam.alloy")
+    potential = EAM("CoNiFeAlCu.average.eam.alloy")
+    os.remove("CoNiFeAlCu.average.eam.alloy")
     potential.plot()

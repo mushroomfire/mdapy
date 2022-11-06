@@ -16,6 +16,7 @@ from .plot.pltset import pltset, cm2inch
 from .src.potential import EAM
 from .src.calculator import Calculator
 from .src.eam_generate import EAMGenerate
+from .src.eam_average import EAMAverage
 
 import taichi.profiler as profiler
 

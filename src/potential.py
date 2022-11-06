@@ -97,6 +97,47 @@ class EAM:
         self.phi_data[:, :, 0] = self.phi_data[:, :, 1]
         self.d_phi_data[:, :, 0] = self.d_phi_data[:, :, 1]
 
+    def write_eam_alloy(self, output_name=None):
+        if output_name is None:
+            output_name = ""
+            for i in self.elements_list:
+                output_name += i
+            output_name += ".new.eam.alloy"
+        with open(output_name, "w") as op:
+            op.write("".join(self.header))
+
+            op.write(f"    {self.Nelements} ")
+            for i in self.elements_list:
+                op.write(f"{i} ")
+            op.write("\n")
+            op.write(f" {self.nrho} {self.drho} {self.nr} {self.dr} {self.rc}\n")
+            num = 1
+            colnum = 5
+            for i in range(self.Nelements):
+                op.write(
+                    f" {int(self.aindex[i])} {self.amass[i]} {self.lattice_constant[i]:.4f} {self.lattice_type[i]}\n "
+                )
+                for j in range(self.nrho):
+                    op.write(f"{self.embedded_data[i, j]:.16E} ")
+                    if num > colnum - 1:
+                        op.write("\n ")
+                        num = 0
+                    num += 1
+                for j in range(self.nr):
+                    op.write(f"{self.elec_density_data[i, j]:.16E} ")
+                    if num > colnum - 1:
+                        op.write("\n ")
+                        num = 0
+                    num += 1
+            for i1 in range(self.Nelements):
+                for i2 in range(i1 + 1):
+                    for j in range(self.nr):
+                        op.write(f"{self.rphi_data[i1, i2, j]:.16E} ")
+                        if num > colnum - 1:
+                            op.write("\n ")
+                            num = 0
+                        num += 1
+
     def plot_rho_r(self):
         fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
         plt.subplots_adjust(bottom=0.18, top=0.98, left=0.2, right=0.98)
@@ -154,5 +195,7 @@ class EAM:
 if __name__ == "__main__":
 
     potential = EAM("./example/CoNiFeAlCu.eam.alloy")
+    # potential.write_eam_alloy()
+    # potential = EAM("CoNiFeAlCu.new.eam.alloy")
     # potential = EAM("./example/Al_DFT.eam.alloy")
     potential.plot()

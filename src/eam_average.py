@@ -1,4 +1,4 @@
-from .potential import EAM
+from mdapy.src.potential import EAM
 import numpy as np
 
 

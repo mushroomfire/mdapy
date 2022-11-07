@@ -1,6 +1,6 @@
 import taichi as ti
 import numpy as np
-from .kdtree import kdtree
+from mdapy.src.kdtree import kdtree
 
 
 @ti.data_oriented

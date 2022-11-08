@@ -101,7 +101,6 @@ if __name__ == "__main__":
     ti.init(ti.cpu, offline_cache=True)
 
     file = open("./example/CoCuFeNiPd-4M.data").readlines()
-
     box = np.array([i.split()[:2] for i in file[6:9]], dtype=float)
     data = np.array([i.split() for i in file[12:]], dtype=float)
     pos = data[:, 2:]

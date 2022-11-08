@@ -27,30 +27,24 @@ class System:
     def __init__(self, filename):
         self.filename = filename
 
-        self.head, self.boundary, self.box, self.col_names = self.read_box()
-        (
-            self.data,
-            self.N,
-            self.pos,
-            self.vel,
-        ) = self.read_dump(self.col_names)
+        self.read_box()
+        self.read_dump(self.col_names)
         self.lx, self.ly, self.lz = self.box[:, 1] - self.box[:, 0]
         self.vol = self.lx * self.ly * self.lz
         self.if_neigh = False
 
     def read_box(self):
-        head = []
+        self.head = []
         with open(self.filename) as op:
             for _ in range(9):
-                head.append(op.readline())
-        boundary = [1 if i == "pp" else 0 for i in head[4].split()[-3:]]
-        box = np.array([i.split()[:2] for i in head[5:8]]).astype(float)
-        col_names = head[8].split()[2:]
-        return head, boundary, box, col_names
+                self.head.append(op.readline())
+        self.boundary = [1 if i == "pp" else 0 for i in self.head[4].split()[-3:]]
+        self.box = np.array([i.split()[:2] for i in self.head[5:8]]).astype(float)
+        self.col_names = self.head[8].split()[2:]
 
     def read_dump(self, col_names):
 
-        data = pd.read_csv(
+        self.data = pd.read_csv(
             self.filename,
             skiprows=9,
             index_col=False,
@@ -58,12 +52,13 @@ class System:
             sep=" ",
             names=col_names,
         )
-        N = data.shape[0]
+        self.N = self.data.shape[0]
+        self.pos = self.data[["x", "y", "z"]].values
 
-        pos = data[["x", "y", "z"]].values
-        vel = data[["vx", "vy", "vz"]].values
-
-        return data, N, pos, vel
+        try:
+            self.vel = self.data[["vx", "vy", "vz"]].values
+        except Exception:
+            pass
 
     def write_dump(self, output_name=None, output_col=None):
         head, filename = self.head, self.filename
@@ -115,11 +110,14 @@ class System:
         data[["id", "type", "x", "y", "z"]].to_csv(
             output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
         )
-        with open(output_name, "a") as op:
-            op.write("\nVelocities\n\n")
-        data[["id", "vx", "vy", "vz"]].to_csv(
-            output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
-        )
+        try:
+            with open(output_name, "a") as op:
+                op.write("\nVelocities\n\n")
+            data[["id", "vx", "vy", "vz"]].to_csv(
+                output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
+            )
+        except Exception:
+            pass
 
     def build_neighbor(self, rc=5.0, max_neigh=80, exclude=True):
         Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh, exclude)

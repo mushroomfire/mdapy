@@ -94,24 +94,28 @@ class WarrenCowleyParameter:
 
 
 if __name__ == "__main__":
+    from mdapy import System
     from neighbor import Neighbor
     from time import time
 
     # ti.init(ti.gpu, device_memory_GB=2.0)
     ti.init(ti.cpu, offline_cache=True)
 
-    file = open("./example/CoCuFeNiPd-4M.data").readlines()
-    box = np.array([i.split()[:2] for i in file[6:9]], dtype=float)
-    data = np.array([i.split() for i in file[12:]], dtype=float)
-    pos = data[:, 2:]
-    type_list = data[:, 1].astype(int)
+    # file = open("./example/CoCuFeNiPd-4M.data").readlines()
+    # box = np.array([i.split()[:2] for i in file[6:9]], dtype=float)
+    # data = np.array([i.split() for i in file[12:]], dtype=float)
+    # pos = data[:, 2:]
+    # type_list = data[:, 1].astype(int)
+    system = System("./example/CoCuFeNiPd-4M.dump")
     start = time()
-    neigh = Neighbor(pos, box, 3.0, max_neigh=30)
+    neigh = Neighbor(system.pos, system.box, 3.0, max_neigh=30)
     neigh.compute()
     end = time()
     print(f"Build neighbor time: {end-start} s.")
     start = time()
-    wcp = WarrenCowleyParameter(neigh.verlet_list, neigh.neighbor_number, type_list)
+    wcp = WarrenCowleyParameter(
+        neigh.verlet_list, neigh.neighbor_number, system.data["type"].values
+    )
     wcp.compute()
     end = time()
     print(f"Cal WCP time: {end-start} s.")

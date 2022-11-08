@@ -1,5 +1,5 @@
 __author__ = "HerrWu"
-__version__ = "0.6.3"
+__version__ = "0.6.4"
 
 from .src.lattice_maker import LatticeMaker
 from .src.system import System
@@ -18,37 +18,55 @@ from .src.potential import EAM
 from .src.calculator import Calculator
 from .src.eam_generate import EAMGenerate
 from .src.eam_average import EAMAverage
+from .src.void_distribution import VoidDistribution
 
 import taichi.profiler as profiler
 
 
 def init(
     arch="cpu",
+    cpu_max_num_threads=-1,
     offline_cache=False,
+    packed=False,
     debug=False,
     device_memory_GB=2.0,
     kernel_profiler=False,
 ):
     """
     arch : str, "cpu" or "gpu", default is "cpu".
+    cpu_max_num_threads : int, number of parallel cpu threads, -1 use all theards in your computer.
     debuge : bool, default is False.
     offline_cache : bool, defults is False.
+    packed: bool, data layout.
     device_memory_GB : float, memory for GPU only, default is 2 GB.
     kernel_profiler : bool, default is False.
     """
+
     import taichi as ti
 
     if arch == "cpu":
-        ti.init(
-            arch=ti.cpu,
-            offline_cache=offline_cache,
-            debug=debug,
-            kernel_profiler=kernel_profiler,
-        )
+        if cpu_max_num_threads == -1:
+            ti.init(
+                arch=ti.cpu,
+                offline_cache=offline_cache,
+                packed=packed,
+                debug=debug,
+                kernel_profiler=kernel_profiler,
+            )
+        else:
+            ti.init(
+                arch=ti.cpu,
+                cpu_max_num_threads=cpu_max_num_threads,
+                offline_cache=offline_cache,
+                packed=packed,
+                debug=debug,
+                kernel_profiler=kernel_profiler,
+            )
     elif arch == "gpu":
         ti.init(
             arch=ti.gpu,
             offline_cache=offline_cache,
+            packed=packed,
             device_memory_GB=device_memory_GB,
             debug=debug,
             kernel_profiler=kernel_profiler,

@@ -13,6 +13,7 @@ from .cluser_analysis import ClusterAnalysis
 
 from .potential import EAM
 from .calculator import Calculator
+from .void_distribution import VoidDistribution
 
 
 class System:
@@ -209,6 +210,7 @@ class System:
         ClusterAnalysi = ClusterAnalysis(rc, self.verlet_list, self.distance_list)
         ClusterAnalysi.compute()
         self.data["cluster_id"] = ClusterAnalysi.particleClusters
+        return ClusterAnalysi.cluster_number
 
     def cal_common_neighbor_analysis(self, rc=3.0, max_neigh=30):
         if not self.if_neigh:
@@ -272,3 +274,24 @@ class System:
 
         self.data["pe"] = Cal.energy
         self.data[["afx", "afy", "afz"]] = Cal.force
+
+    def cal_void_distribution(self, cell_length, out_void=False):
+        """
+        input:
+        cell_length : 比晶胞长度大一点的数字
+        out_void : 是否导出void的坐标文件
+        output:
+        void_number, void_volume
+        """
+        void = VoidDistribution(
+            self.pos,
+            self.box,
+            cell_length,
+            self.boundary,
+            out_void=out_void,
+            head=self.head,
+            out_name=self.filename[:-5] + ".void.dump",
+        )
+        void.compute()
+
+        return void.void_number, void.void_volume

@@ -56,7 +56,7 @@ class ClusterAnalysis:
         self.particleClusters, self.cluster_number = _compute(
             self.verlet_list, self.distance_list, self.rc
         )
-        print(f"Cluster number is {self.cluster_number}.")
+        # print(f"Cluster number is {self.cluster_number}.")
         self.is_computed = True
 
     def get_size_of_cluster(self, cluster_id):

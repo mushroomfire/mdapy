@@ -56,7 +56,7 @@ class AdaptiveCommonNeighborAnalysis:
                     r_inear_i = self.pbc(r_inear - r_i)
                     r_inear_j = self.pbc(r_inear - r_j)
 
-                    if r_inear_i.norm() <= r[i] and r_inear_j.norm() <= r[i]:
+                    if r_inear_i.norm() <= r[i] and r_inear_j.norm() <= r[j]:
                         if ncommon < self.MAXCOMMON:
                             common[i, ncommon] = verlet_list[i, inear]
                             ncommon += 1

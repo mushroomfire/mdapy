@@ -14,6 +14,7 @@ from .cluser_analysis import ClusterAnalysis
 from .potential import EAM
 from .calculator import Calculator
 from .void_distribution import VoidDistribution
+from .warren_cowley_parameter import WarrenCowleyParameter
 
 
 class System:
@@ -295,3 +296,18 @@ class System:
         void.compute()
 
         return void.void_number, void.void_volume
+
+    def cal_warren_cowley_parameter(self, rc=3.0, max_neigh=50):
+        if not self.if_neigh:
+            self.build_neighbor(rc=rc, max_neigh=max_neigh)
+            self.WarrenCowleyParameter = WarrenCowleyParameter(
+                self.verlet_list, self.neighbor_number, self.data["type"].values
+            )
+        elif self.rc != rc:
+            neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
+            neigh.compute()
+            self.WarrenCowleyParameter = WarrenCowleyParameter(
+                neigh.verlet_list, neigh.neighbor_number, self.data["type"].values
+            )
+
+        self.WarrenCowleyParameter.compute()

@@ -19,6 +19,7 @@ from .src.calculator import Calculator
 from .src.eam_generate import EAMGenerate
 from .src.eam_average import EAMAverage
 from .src.void_distribution import VoidDistribution
+from .src.warren_cowley_parameter import WarrenCowleyParameter
 
 import taichi.profiler as profiler
 

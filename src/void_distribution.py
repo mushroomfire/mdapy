@@ -136,10 +136,10 @@ class VoidDistribution:
             void_pos += self.origin.to_numpy()
             # np.array([self.cell_length] * 3) - self.origin.to_numpy()
 
-            neigh = Neighbor(void_pos, self.box, self.cell_length * 1.5, self.boundary)
+            neigh = Neighbor(void_pos, self.box, self.cell_length * 1.1, self.boundary)
             neigh.compute()
             cluster = ClusterAnalysis(
-                self.cell_length * 1.5, neigh.verlet_list, neigh.distance_list
+                self.cell_length * 1.1, neigh.verlet_list, neigh.distance_list
             )
             cluster.compute()
             self.void_number = cluster.cluster_number

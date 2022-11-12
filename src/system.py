@@ -111,7 +111,7 @@ class System:
             output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
         )
         try:
-            if self.vel:
+            if len(self.vel):
                 with open(output_name, "a") as op:
                     op.write("\nVelocities\n\n")
                 data[["id", "vx", "vy", "vz"]].to_csv(

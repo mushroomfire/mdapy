@@ -3,7 +3,7 @@ import importlib
 
 
 def check_module():
-    optional_package = ["freud"]
+    optional_package = ["pytorch"]
     exclude_package = ["SciencePlots"]
     module = []
     for i in open("requirements.txt").readlines():
@@ -11,8 +11,8 @@ def check_module():
         if name not in exclude_package:
             module.append(name)
             try:
-                importlib.import_module(name)
-                print(f"Import {name} successfully.")
+                mod = importlib.import_module(name)
+                print(f"Import {name}{mod.__version__} successfully.")
             except ModuleNotFoundError:
                 if name in optional_package:
                     print(f"{name} module is not found! Optionally install it.")

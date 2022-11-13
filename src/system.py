@@ -203,7 +203,12 @@ class System:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
         rho = self.N / self.vol
         self.PairDistribution = PairDistribution(
-            rc, nbin, rho, self.verlet_list, self.distance_list
+            rc,
+            nbin,
+            rho,
+            self.verlet_list,
+            self.distance_list,
+            self.data["type"].values,
         )
         self.PairDistribution.compute()
 

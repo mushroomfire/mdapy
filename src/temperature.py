@@ -66,11 +66,14 @@ class AtomicTemperature:
             for j_index in range(max_neigh):
                 j = verlet_list[i, j_index]
                 disj = distance_list[i, j_index]
-                if j > -1 and j != i and disj <= self.rc:
-                    j_mass = amass[atype_list[j] - 1]
-                    v_neigh += ti.Vector([vel[j, 0], vel[j, 1], vel[j, 2]]) * j_mass
-                    n_neigh += 1
-                    mass_neigh += j_mass
+                if j > -1:
+                    if j != i and disj <= self.rc:
+                        j_mass = amass[atype_list[j] - 1]
+                        v_neigh += ti.Vector([vel[j, 0], vel[j, 1], vel[j, 2]]) * j_mass
+                        n_neigh += 1
+                        mass_neigh += j_mass
+                else:
+                    break
             v_neigh += ti.Vector([vel[i, 0], vel[i, 1], vel[i, 2]])
             n_neigh += 1
             mass_neigh += amass[atype_list[i] - 1]
@@ -81,11 +84,14 @@ class AtomicTemperature:
             for j_index in range(max_neigh):
                 j = verlet_list[i, j_index]
                 disj = distance_list[i, j_index]
-                if j > -1 and j != i and disj <= self.rc:
-                    v_j = (
-                        ti.Vector([vel[j, 0], vel[j, 1], vel[j, 2]]) - v_mean
-                    ).norm_sqr()
-                    ke_neigh += 0.5 * amass[atype_list[j] - 1] / afu / 1000.0 * v_j
+                if j > -1:
+                    if j != i and disj <= self.rc:
+                        v_j = (
+                            ti.Vector([vel[j, 0], vel[j, 1], vel[j, 2]]) - v_mean
+                        ).norm_sqr()
+                        ke_neigh += 0.5 * amass[atype_list[j] - 1] / afu / 1000.0 * v_j
+                else:
+                    break
             ke_neigh += (
                 0.5
                 * amass[atype_list[i] - 1]

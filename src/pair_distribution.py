@@ -1,6 +1,7 @@
 import taichi as ti 
 import numpy as np 
-
+from mdapy.plot.pltset import pltset, cm2inch
+import matplotlib.pyplot as plt
 
 @ti.data_oriented
 class PairDistribution:
@@ -16,6 +17,7 @@ class PairDistribution:
         else:
             self.type_list = np.zeros(self.N, dtype=int)
         self.Ntype = len(np.unique(self.type_list))
+        pltset()
         
     @ti.kernel
     def _rdf(self, verlet_list:ti.types.ndarray(), distance_list:ti.types.ndarray(), type_list:ti.types.ndarray(),
@@ -57,10 +59,6 @@ class PairDistribution:
                     self.g_total += 2*concentrates[i]*concentrates[j]*self.g[i, j]
         
     def plot(self):
-        
-        from mdapy.plot.pltset import pltset, cm2inch
-        import matplotlib.pyplot as plt
-        pltset()
         fig = plt.figure(figsize=(cm2inch(8), cm2inch(5)), dpi=150)
         plt.subplots_adjust(left=0.16,bottom=0.225,right=0.97,top=0.97)
         plt.plot(self.r, self.g_total, 'o-', ms=3)
@@ -74,9 +72,6 @@ class PairDistribution:
     def plot_partial(self, elements_list=None):
         if elements_list is not None:
             assert len(elements_list) == self.Ntype
-        from mdapy.plot.pltset import pltset, cm2inch
-        import matplotlib.pyplot as plt
-        pltset()
         fig = plt.figure(figsize=(cm2inch(8), cm2inch(5)), dpi=150)
         plt.subplots_adjust(left=0.16,bottom=0.225,right=0.97,top=0.97)
         
@@ -100,7 +95,6 @@ if __name__ == '__main__':
     from neighbor import Neighbor
     from time import time
     ti.init(ti.cpu)
-    # ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
     x, y, z = 100, 100, 50

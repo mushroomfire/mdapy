@@ -219,6 +219,10 @@ class System:
         return ClusterAnalysi.cluster_number
 
     def cal_common_neighbor_analysis(self, rc=3.0, max_neigh=30):
+        """
+        rc should be 0.854*a for FCC and 1.207*a for BCC metal.
+        """
+
         if not self.if_neigh:
             Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
             Neigh.compute()

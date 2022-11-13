@@ -15,6 +15,7 @@ from .potential import EAM
 from .calculator import Calculator
 from .void_distribution import VoidDistribution
 from .warren_cowley_parameter import WarrenCowleyParameter
+from .voronoi_analysis import VoronoiAnalysis
 
 
 class System:
@@ -315,3 +316,10 @@ class System:
             )
 
         self.WarrenCowleyParameter.compute()
+
+    def cal_voronoi_volume(self):
+        voro = VoronoiAnalysis(self.pos, self.box, self.boundary)
+        voro.compute()
+        self.data["voronoi_volume"] = voro.vol
+        self.data["voronoi_number"] = voro.neighbor_number
+        self.data["cavity_radius"] = voro.cavity_radius

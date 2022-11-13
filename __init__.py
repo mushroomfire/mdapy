@@ -1,5 +1,5 @@
 __author__ = "HerrWu"
-__version__ = "0.6.4"
+__version__ = "0.6.5"
 
 from .src.lattice_maker import LatticeMaker
 from .src.system import System
@@ -20,6 +20,7 @@ from .src.eam_generate import EAMGenerate
 from .src.eam_average import EAMAverage
 from .src.void_distribution import VoidDistribution
 from .src.warren_cowley_parameter import WarrenCowleyParameter
+from .src.voronoi_analysis import VoronoiAnalysis
 
 import taichi.profiler as profiler
 

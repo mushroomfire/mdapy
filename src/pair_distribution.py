@@ -41,14 +41,15 @@ class PairDistribution:
         from mdapy.plot.pltset import pltset, cm2inch
         import matplotlib.pyplot as plt
         pltset()
-        plt.figure(figsize=(cm2inch(8), cm2inch(5)), dpi=150)
+        fig = plt.figure(figsize=(cm2inch(8), cm2inch(5)), dpi=150)
         plt.subplots_adjust(left=0.16,bottom=0.225,right=0.97,top=0.97)
         plt.plot(self.r, self.g, 'o-', ms=3)
         plt.xlabel('r ($\mathregular{\AA}$)')
         plt.ylabel('g(r)')
         plt.xlim(0, self.rc)
+        ax = plt.gca()
         plt.show()
-
+        return fig, ax
 
 if __name__ == '__main__':
     from lattice_maker import LatticeMaker

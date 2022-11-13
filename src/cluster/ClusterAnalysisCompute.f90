@@ -30,12 +30,16 @@ subroutine compute(N, verlet_list, distance_list, rc, particleClusters, cluster,
             n1 = 0  ! 领域计数,保证孤立原子也有cluster_id
             do j = 0, max_neigh-1
                 neighborIndex = verlet_list(currentParticle, j)
-                if ((neighborIndex > -1) .and. (distance_list(currentParticle, j) <= rc)) then
-                    n1 = n1 + 1
-                    if (particleClusters(neighborIndex) == -1) then
-                        particleClusters(neighborIndex) = cluster
-                        call append(toProcess, neighborIndex)
+                if (neighborIndex > -1) then
+                    if (distance_list(currentParticle, j) <= rc) then
+                        n1 = n1 + 1
+                        if (particleClusters(neighborIndex) == -1) then
+                            particleClusters(neighborIndex) = cluster
+                            call append(toProcess, neighborIndex)
+                        end if
                     end if
+                else 
+                    exit
                 end if
             end do
             if (n1 == 0) then

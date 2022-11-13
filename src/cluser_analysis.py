@@ -26,14 +26,14 @@ except ImportError:
                     n = 0  # 领域计数,保证孤立原子也有cluster_id
                     for j in range(verlet_list.shape[1]):
                         neighborIndex = verlet_list[currentParticle, j]
-                        if (
-                            neighborIndex > -1
-                            and distance_list[currentParticle, j] <= rc
-                        ):
-                            n += 1
-                            if particleClusters[neighborIndex] == -1:
-                                particleClusters[neighborIndex] = cluster
-                                toProcess.append(neighborIndex)
+                        if neighborIndex > -1:
+                            if distance_list[currentParticle, j] <= rc:
+                                n += 1
+                                if particleClusters[neighborIndex] == -1:
+                                    particleClusters[neighborIndex] = cluster
+                                    toProcess.append(neighborIndex)
+                        else:
+                            break
                     if n == 0:
                         particleClusters[currentParticle] = cluster
                 else:

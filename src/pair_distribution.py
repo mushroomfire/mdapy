@@ -21,13 +21,16 @@ class PairDistribution:
         for i in range(self.N):
             for jindex in range(verlet_list.shape[1]):
                 j = verlet_list[i, jindex]
-                if j > i and j > -1:
-                    dis = distance_list[i, jindex]
-                    if dis <= self.rc:
-                        k = ti.floor(dis/dr, dtype=ti.i32)
-                        if k > self.nbin-1:
-                            k = self.nbin-1
-                        g[k] += 2.
+                if j > -1:
+                    if j > i:
+                        dis = distance_list[i, jindex]
+                        if dis <= self.rc:
+                            k = ti.floor(dis/dr, dtype=ti.i32)
+                            if k > self.nbin-1:
+                                k = self.nbin-1
+                            g[k] += 2.
+                else:
+                    break
     
     def compute(self):
         r = np.linspace(0, self.rc, self.nbin+1)

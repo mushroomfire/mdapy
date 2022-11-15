@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 
 from .common_neighbor_analysis import CommonNeighborAnalysis
-from .adaptive_common_neighbor_analysis import AdaptiveCommonNeighborAnalysis
 from .neighbor import Neighbor
 from .kdtree import kdtree
 from .temperature import AtomicTemperature
@@ -252,14 +251,6 @@ class System:
         )
         CommonNeighborAnalysi.compute()
         self.data["cna"] = CommonNeighborAnalysi.pattern
-
-    def cal_adaptive_common_neighbor_analysis(self):
-
-        AdaptiveCommonNeighborAnalysi = AdaptiveCommonNeighborAnalysis(
-            self.pos, self.box, self.boundary
-        )
-        AdaptiveCommonNeighborAnalysi.compute()
-        self.data["acna"] = AdaptiveCommonNeighborAnalysi.pattern
 
     def cal_energy_force(self, filename, elements_list):
         """

@@ -1,44 +1,5 @@
 import numpy as np
-
-
-try:
-    from .cluster import _cluster_analysis
-
-    _compute = _cluster_analysis.get_cluster
-except ImportError:
-    print("using numba version")
-    import numba as nb
-
-    @nb.njit
-    def _compute(verlet_list, distance_list, rc, particleClusters):
-        cluster = 0
-        N = verlet_list.shape[0]
-        for seedParticleIndex in range(N):
-            if particleClusters[seedParticleIndex] != -1:
-                continue
-            toProcess = []
-            toProcess.append(seedParticleIndex)
-            cluster += 1
-            while True:  # 保证程序至少执行一次
-                if len(toProcess) > 0:
-                    currentParticle = toProcess[0]
-                    del toProcess[0]
-                    n = 0  # 领域计数,保证孤立原子也有cluster_id
-                    for j in range(verlet_list.shape[1]):
-                        neighborIndex = verlet_list[currentParticle, j]
-                        if neighborIndex > -1:
-                            if distance_list[currentParticle, j] <= rc:
-                                n += 1
-                                if particleClusters[neighborIndex] == -1:
-                                    particleClusters[neighborIndex] = cluster
-                                    toProcess.append(neighborIndex)
-                        else:
-                            break
-                    if n == 0:
-                        particleClusters[currentParticle] = cluster
-                else:
-                    break
-        return cluster
+from .cluster import _cluster_analysis
 
 
 class ClusterAnalysis:
@@ -55,7 +16,7 @@ class ClusterAnalysis:
     def compute(self):
         N = self.verlet_list.shape[0]
         self.particleClusters = np.zeros(N, dtype=np.int32) - 1
-        self.cluster_number = _compute(
+        self.cluster_number = _cluster_analysis.get_cluster(
             self.verlet_list, self.distance_list, self.rc, self.particleClusters
         )
         # print(f"Cluster number is {self.cluster_number}.")

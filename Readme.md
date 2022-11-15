@@ -51,7 +51,7 @@ mp.init("cpu")
 ## 更新记录 
 ##2022-11-15
 1. 暂时删除a-CNA,结果一直不对,增加了voronoi在ubuntu的编译
-2. 移除cluster中的fortran代码为c++版本
+2. 移除cluster中的fortran代码为c++版本,移除numba版本以及去除numba的依赖
 3. 更新版本号0.6.6
    
 ## 2022-11-13

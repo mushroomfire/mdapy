@@ -1,19 +1,19 @@
 # @Author: HerrWu 
 
 ## 关于
-- 该库用于分子动力学轨迹后处理，包括邻域列表，温度，结构熵，切片等处理，目前暂无开源打算。
-- 系统要求：目前仅测试了win10, ubuntu。
-- 支持GPU加速
+- 该库用于分子动力学轨迹后处理，包括邻域列表，温度，结构熵，切片等处理，目前暂无开源打算
+- python版本: 兼容py3.7到py3.10
+- 系统要求：win10,ubuntu,其他linux系统应该也可以, macos在M1芯片上无法编译
+- 部分模块支持GPU加速
 - 更新：重新下载源码安装即可。
 ## 依赖
 - taichi
-- numba
 - numpy
 - scipy
 - pandas
 - matplotlib
 - SciencePlots
-- pytorch (目前 optional)
+- pytorch (optional)
 ## 安装
 0. 下载源码
     ```bash

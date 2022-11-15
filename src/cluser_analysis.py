@@ -2,17 +2,17 @@ import numpy as np
 
 
 try:
-    from .cluster import ClusterAnalysisComputeF
+    from .cluster import _cluster_analysis
 
-    _compute = ClusterAnalysisComputeF.compute
+    _compute = _cluster_analysis.get_cluster
 except ImportError:
+    print("using numba version")
     import numba as nb
 
     @nb.njit
-    def _compute(verlet_list, distance_list, rc):
+    def _compute(verlet_list, distance_list, rc, particleClusters):
         cluster = 0
         N = verlet_list.shape[0]
-        particleClusters = np.zeros(N, dtype=np.int32) - 1
         for seedParticleIndex in range(N):
             if particleClusters[seedParticleIndex] != -1:
                 continue
@@ -38,7 +38,7 @@ except ImportError:
                         particleClusters[currentParticle] = cluster
                 else:
                     break
-        return particleClusters, cluster
+        return cluster
 
 
 class ClusterAnalysis:
@@ -53,8 +53,10 @@ class ClusterAnalysis:
         self.is_computed = False
 
     def compute(self):
-        self.particleClusters, self.cluster_number = _compute(
-            self.verlet_list, self.distance_list, self.rc
+        N = self.verlet_list.shape[0]
+        self.particleClusters = np.zeros(N, dtype=np.int32) - 1
+        self.cluster_number = _compute(
+            self.verlet_list, self.distance_list, self.rc, self.particleClusters
         )
         # print(f"Cluster number is {self.cluster_number}.")
         self.is_computed = True

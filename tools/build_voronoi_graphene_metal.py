@@ -124,6 +124,7 @@ def get_pos(
     gra_lattice_constant,
     randomseed,
     face_threshold=5,
+    theta_list=None
 ):
     assert metal_lattice_type in ["FCC", "BCC"]
     metal_pos = []
@@ -138,16 +139,21 @@ def get_pos(
     GRA.compute()
     gra_vector = np.array([0, 0, 1])
     print("Total grain number:", len(cntr))
+    if theta_list is None:
+        np.random.seed(randomseed)
+        theta_list = np.random.rand(len(cntr), 3)*360-180
     for i, cell in enumerate(cntr):
         print(f"Generating grain {i}..., volume is {cell.volume()}")
         coeffs = cell_plane_coeffs(cell)
         pos = FCC.pos.copy()
-        np.random.seed(randomseed * i)
-        theta = np.random.randint(0, 90, 3)
+        #theta = np.random.randint(0, 180, 3)
+        #dirct = np.random.uniform(-100, 100, 3)
+        #axis = dirct / np.linalg.norm(dirct)
+        #rotate_matrix = rotate_pos(theta, axis)
         rotate_matrix = np.matmul(
-            rotate_pos(theta[0], [1, 0, 0]),
-            rotate_pos(theta[1], [0, 1, 0]),
-            rotate_pos(theta[2], [0, 0, 1]),
+            rotate_pos(theta_list[i, 0], [1, 0, 0]),
+            rotate_pos(theta_list[i, 1], [0, 1, 0]),
+            rotate_pos(theta_list[i, 2], [0, 0, 1]),
         )
         pos = np.matmul(pos, rotate_matrix)
         pos = pos - np.mean(pos, axis=0) + cell.pos
@@ -204,7 +210,7 @@ def get_pos(
     return new_pos
 
 
-def get_pos_metal(cntr, metal_latttice_constant, metal_lattice_type, randomseed):
+def get_pos_metal(cntr, metal_latttice_constant, metal_lattice_type, randomseed, theta_list=None):
     assert metal_lattice_type in ["FCC", "BCC"]
     metal_pos = []
     r_max = np.sqrt(max([cell.max_radius_squared() for cell in cntr]))
@@ -212,17 +218,24 @@ def get_pos_metal(cntr, metal_latttice_constant, metal_lattice_type, randomseed)
     FCC = mp.LatticeMaker(metal_latttice_constant, metal_lattice_type, x, y, z)
     FCC.compute()
     print("Total grain number:", len(cntr))
+    if theta_list is None:
+        np.random.seed(randomseed)
+        theta_list = np.random.rand(len(cntr), 3)*360-180
     for i, cell in enumerate(cntr):
         print(f"Generating grain {i}..., volume is {cell.volume()}")
         coeffs = cell_plane_coeffs(cell)
         pos = FCC.pos.copy()
-        np.random.seed(randomseed * i)
-        theta = np.random.randint(0, 180, 3)
+        #np.random.seed(randomseed * i)
+        #theta = np.random.randint(0, 180, 3)
         rotate_matrix = np.matmul(
-            rotate_pos(theta[0], [1, 0, 0]),
-            rotate_pos(theta[1], [0, 1, 0]),
-            rotate_pos(theta[2], [0, 0, 1]),
+            rotate_pos(theta_list[i, 0], [1, 0, 0]),
+            rotate_pos(theta_list[i, 1], [0, 1, 0]),
+            rotate_pos(theta_list[i, 2], [0, 0, 1]),
         )
+        #theta = np.random.randint(0, 180)
+        #dirct = np.random.uniform(-100, 100, 3)
+        #axis = dirct / np.linalg.norm(dirct)
+        #rotate_matrix = rotate_pos(theta, axis)
         pos = np.matmul(pos, rotate_matrix)
         pos = pos - np.mean(pos, axis=0) + cell.pos
         delete = np.ones(pos.shape[0], dtype=int)
@@ -355,13 +368,26 @@ def build_graphene_metal_grain_boundary(
     metal_gra_overlap_dis,
     total_overlap_dis,
     output_name="GraMetalBoundary.dump",
-):
+    seed=None,
+    theta_list=None):
     np.random.seed(randomseed)
-    seed = np.c_[
-        np.random.randint(box[0, 0], box[0, 1], seednumber),
-        np.random.randint(box[1, 0], box[1, 1], seednumber),
-        np.random.randint(box[2, 0], box[2, 1], seednumber),
-    ].astype(float)
+    if seed is None:
+        seed = np.random.rand(seednumber, 3) * (box[:,1]-box[:,0])
+        #seed = np.c_[
+        #    np.random.rand(seednumber)*(box[0, 1]-box[0, 0]),
+        #    np.random.rand(seednumber)*(box[1, 1]-box[1, 0]),
+        #    np.random.rand(seednumber)*(box[2, 1]-box[2, 0]),
+        #]
+    #seed = np.c_[
+    #    np.random.uniform(box[0, 0], box[0, 1], seednumber),
+    #    np.random.uniform(box[1, 0], box[1, 1], seednumber),
+    #    np.random.uniform(box[2, 0], box[2, 1], seednumber),
+    #].astype(float)
+    #seed = np.c_[
+    #    np.random.rand(seednumber)*(box[0, 1]-box[0, 0]),
+    #    np.random.rand(seednumber)*(box[1, 1]-box[1, 0]),
+    #    np.random.rand(seednumber)*(box[2, 1]-box[2, 0]),
+    #]
     cntr = Container(seed, limits=(box[:, 0], box[:, 1]), periodic=np.bool_([1, 1, 1]))
     ave_grain_volume = np.mean([cell.volume() for cell in cntr])
     new_pos = get_pos(
@@ -370,6 +396,8 @@ def build_graphene_metal_grain_boundary(
         metal_lattice_type,
         gra_lattice_constant,
         randomseed,
+        face_threshold=5,
+        theta_list=theta_list
     )
     print("Wraping atoms into box...")
     warp_pos(new_pos, box)
@@ -425,17 +453,20 @@ def build_metal_grain_boundary(
     metal_lattice_type,
     metal_overlap_dis,
     output_name="MetalBoundary.dump",
-):
+    seed=None,
+    theta_list=None):
     np.random.seed(randomseed)
-    seed = np.c_[
-        np.random.randint(box[0, 0], box[0, 1], seednumber),
-        np.random.randint(box[1, 0], box[1, 1], seednumber),
-        np.random.randint(box[2, 0], box[2, 1], seednumber),
-    ].astype(float)
+    if seed is None:
+        seed = np.random.rand(seednumber, 3) * (box[:,1]-box[:,0])
+        #seed = np.c_[
+        #    np.random.rand(seednumber)*(box[0, 1]-box[0, 0]),
+        #    np.random.rand(seednumber)*(box[1, 1]-box[1, 0]),
+        #    np.random.rand(seednumber)*(box[2, 1]-box[2, 0]),
+        #]
     cntr = Container(seed, limits=(box[:, 0], box[:, 1]), periodic=np.bool_([1, 1, 1]))
     ave_grain_volume = np.mean([cell.volume() for cell in cntr])
     new_pos = get_pos_metal(
-        cntr, metal_latttice_constant, metal_lattice_type, randomseed
+        cntr, metal_latttice_constant, metal_lattice_type, randomseed, theta_list=theta_list
     )
     print("Wraping atoms into box...")
     warp_pos(new_pos, box)
@@ -466,7 +497,7 @@ def build_metal_grain_boundary(
 if __name__ == "__main__":
 
     box = np.array([[0.0, 800.0], [0.0, 200.0], [0.0, 200.0]])
-    randomseed = 40
+    randomseed = 1
     metal_latttice_constant, metal_lattice_type, gra_lattice_constant, = (
         3.615,
         "FCC",
@@ -478,8 +509,12 @@ if __name__ == "__main__":
         3.1,
         1.0,
     )
+    # data = np.array([i.split()[1:] for i in open('final_param.txt').readlines()[3:]], dtype=float)
+    seed = None # data[:,0:3]
+    theta_list = None # data[:,3:]
+    #print(theta_list.shape)
     file = open("grain_size.txt", "w")
-    for seednumber in [10, 20, 40]:
+    for seednumber in [100]:
         output_name_gra_metal = (
             f"GRA-Metal-{metal_lattice_type}-{seednumber}-{randomseed}.dump"
         )
@@ -496,6 +531,8 @@ if __name__ == "__main__":
             metal_gra_overlap_dis,
             total_overlap_dis,
             output_name_gra_metal,
+            seed,
+            theta_list
         )
         grain_size = build_metal_grain_boundary(
             seednumber,
@@ -505,6 +542,8 @@ if __name__ == "__main__":
             metal_lattice_type,
             metal_overlap_dis,
             output_name_metal,
+            seed,
+            theta_list
         )
         file.write(f"{seednumber} {grain_size}\n")
     file.close()

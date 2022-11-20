@@ -483,7 +483,10 @@ class CreatePolycrystalline:
             )
             new_pos = new_pos[np.bool_(delete_id)]
             neigh = Neighbor(
-                new_pos[:, 2:5], box, rc=self.gra_lattice_constant + 0.01, max_neigh=20
+                new_pos[:, 2:5],
+                self.box,
+                rc=self.gra_lattice_constant + 0.01,
+                max_neigh=20,
             )
             neigh.compute()
             delete_id = np.ones(new_pos.shape[0], dtype=int)
@@ -499,7 +502,10 @@ class CreatePolycrystalline:
             new_pos[:, 0] = np.arange(new_pos.shape[0]) + 1
         else:
             neigh = Neighbor(
-                new_pos[:, 2:5], box, rc=self.metal_gra_overlap_dis + 0.1, max_neigh=100
+                new_pos[:, 2:5],
+                self.box,
+                rc=self.metal_gra_overlap_dis + 0.1,
+                max_neigh=100,
             )
             neigh.compute()
             delete_id = np.ones(new_pos.shape[0], dtype=int)

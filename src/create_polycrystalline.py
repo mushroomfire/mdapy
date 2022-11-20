@@ -320,7 +320,10 @@ class CreatePolycrystalline:
                         #     )
                         # else:
                         #     delete = self.points_in_polygon(vertices[:, :2], pos[:, :2])
-                        delete = self.points_in_polygon(vertices, pos)
+                        # 避免垂直于xy平面
+                        vertices_temp = np.dot(vertices, self.rotate_pos(10, [1, 0, 0]))
+                        pos_temp = np.dot(pos, self.rotate_pos(10, [1, 0, 0]))
+                        delete = self.points_in_polygon(vertices_temp, pos_temp)
                         pos = pos[delete]
                         pos = np.c_[pos, np.ones(pos.shape[0]) * i]
                         gra_pos.append(pos)

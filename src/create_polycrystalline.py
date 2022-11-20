@@ -304,22 +304,23 @@ class CreatePolycrystalline:
                         if not np.isclose(abs(np.dot(a[:3], plane_vector)), 1):
                             theta = 360 - theta
                             temp = np.dot(pos, self.rotate_pos(theta, direction))
-                            a = self.get_plane_equation_coeff_py(
-                                temp[0], temp[1], temp[5]
-                            )[:3]
-                            a /= np.linalg.norm(a)
-                        assert np.isclose(abs(np.dot(a[:3], plane_vector)), 1), print(
-                            i, j, np.dot(a[:3], plane_vector)
-                        )
+                        #     a = self.get_plane_equation_coeff_py(
+                        #         temp[0], temp[1], temp[5]
+                        #     )[:3]
+                        #     a /= np.linalg.norm(a)
+                        # assert np.isclose(abs(np.dot(a[:3], plane_vector)), 1), print(
+                        #     i, j, np.dot(a[:3], plane_vector)
+                        # )
                         pos = temp
                         pos = pos - np.mean(pos, axis=0) + np.mean(vertices, axis=0)
                         vertices = np.r_[vertices, vertices[0].reshape(-1, 3)]
-                        if np.isclose(abs(np.dot(gra_vector, plane_vector)), 0):
-                            delete = self.points_in_polygon(
-                                vertices[:, [0, 2]], pos[:, [0, 2]]
-                            )
-                        else:
-                            delete = self.points_in_polygon(vertices[:, :2], pos[:, :2])
+                        # if np.isclose(abs(np.dot(gra_vector, plane_vector)), 0):
+                        #     delete = self.points_in_polygon(
+                        #         vertices[:, [0, 2]], pos[:, [0, 2]]
+                        #     )
+                        # else:
+                        #     delete = self.points_in_polygon(vertices[:, :2], pos[:, :2])
+                        delete = self.points_in_polygon(vertices, pos)
                         pos = pos[delete]
                         pos = np.c_[pos, np.ones(pos.shape[0]) * i]
                         gra_pos.append(pos)

@@ -1,6 +1,6 @@
-taichi==1.2.0
-numpy==1.23.3
-scipy==1.9.1
-pandas==1.4.4
-matplotlib==3.5.3
-SciencePlots==1.0.9
+taichi
+numpy
+scipy
+pandas
+matplotlib
+SciencePlots

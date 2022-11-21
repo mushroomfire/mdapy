@@ -195,7 +195,8 @@ class EAM:
 if __name__ == "__main__":
 
     potential = EAM("./example/CoNiFeAlCu.eam.alloy")
+    potential.plot()
+
     # potential.write_eam_alloy()
     # potential = EAM("CoNiFeAlCu.new.eam.alloy")
     # potential = EAM("./example/Al_DFT.eam.alloy")
-    potential.plot()

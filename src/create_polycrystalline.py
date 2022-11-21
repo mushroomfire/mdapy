@@ -43,10 +43,10 @@ class Container(list):
     def compute(self):
         volume_radius = np.zeros((self.pos.shape[0], 2))
         face_vertices = (
-            np.zeros((self.pos.shape[0], 30, 20), dtype=int) - 1
-        )  # 30 faces 20 edges
-        face_areas = np.zeros((self.pos.shape[0], 30))
-        vertices_pos = np.zeros((self.pos.shape[0], 50, 3))  # 50 vertices
+            np.zeros((self.pos.shape[0], 60, 30), dtype=int) - 1
+        )  # 60 faces 30 edges
+        face_areas = np.zeros((self.pos.shape[0], 60))  # 60 faces
+        vertices_pos = np.zeros((self.pos.shape[0], 90, 3))  # 90 vertices
         poly.get_cell_info(
             self.pos,
             self.box,

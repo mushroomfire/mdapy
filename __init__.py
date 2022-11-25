@@ -38,7 +38,7 @@ def init(
     """
     arch : str, "cpu" or "gpu", default is "cpu".
     cpu_max_num_threads : int, number of parallel cpu threads, -1 use all theards in your computer.
-    debuge : bool, default is False.
+    debug : bool, default is False.
     offline_cache : bool, defults is False.
     packed: bool, data layout.
     device_memory_GB : float, memory for GPU only, default is 2 GB.

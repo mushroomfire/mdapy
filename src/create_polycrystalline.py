@@ -509,7 +509,7 @@ class CreatePolycrystalline:
                 new_pos[:, 2:5],
                 self.box,
                 rc=self.metal_gra_overlap_dis + 0.1,
-                max_neigh=100,
+                max_neigh=80,
             )
             neigh.compute()
             delete_id = np.ones(new_pos.shape[0], dtype=int)

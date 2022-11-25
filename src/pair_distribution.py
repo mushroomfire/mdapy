@@ -31,6 +31,7 @@ class PairDistribution:
     ):
 
         dr = self.rc / self.nbin
+        ti.loop_config(serialize=True)
         for i in range(self.N):
             i_type = type_list[i]
             for jindex in range(verlet_list.shape[1]):
@@ -134,16 +135,16 @@ if __name__ == "__main__":
 
     ti.init(ti.cpu, offline_cache=True)
     start = time()
-    lattice_constant = 4.05
-    x, y, z = 100, 100, 50
+    lattice_constant = 3.615
+    x, y, z = 100, 100, 250
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     # FCC.write_data()
     start = time()
-    rc = 6.0
-    neigh = Neighbor(FCC.pos, FCC.box, rc, max_neigh=80)
+    rc = 5.0
+    neigh = Neighbor(FCC.pos, FCC.box, rc, max_neigh=50)
     neigh.compute()
     end = time()
     print(f"Build neighbor time: {end-start} s.")

@@ -90,8 +90,9 @@ class CreatePolycrystalline:
         add_graphene=False,
         gra_lattice_constant=1.42,
         metal_gra_overlap_dis=3.1,
-        gra_overlap_dis=1.41,
+        gra_overlap_dis=1.2,
         seed=None,
+        if_rotation=True,
         theta_list=None,
         face_threshold=5.0,
         output_name=None,
@@ -130,11 +131,16 @@ class CreatePolycrystalline:
             )
         else:
             self.seed = seed
-        if theta_list is None:
-            np.random.seed(self.randomseed)
-            self.theta_list = np.random.rand(self.seednumber, 3) * 360 - 180
+
+        self.if_rotation = if_rotation
+        if self.if_rotation:
+            if theta_list is None:
+                np.random.seed(self.randomseed)
+                self.theta_list = np.random.rand(self.seednumber, 3) * 360 - 180
+            else:
+                self.theta_list = theta_list
         else:
-            self.theta_list = theta_list
+            self.theta_list = np.zeros((self.seednumber, 3))
         assert (
             len(self.theta_list) == len(self.seed) == self.seednumber
         ), "shape of theta_lise and seed shoud be equal."
@@ -555,8 +561,10 @@ if __name__ == "__main__":
     # print(cntr[0].face_vertices())
     # print(cntr[0].vertices())
     ti.init(ti.cpu)
-    box = np.array([[0.0, 300.0], [0.0, 300.0], [0.0, 300.0]])
-    polycry = CreatePolycrystalline(box, 20, 3.615, "FCC")
-    polycry.compute()
-    polycry = CreatePolycrystalline(box, 20, 3.615, "FCC", add_graphene=True)
+    box = np.array([[0.0, 200.0], [0.0, 200.0], [0.0, 200.0]])
+    # polycry = CreatePolycrystalline(box, 20, 3.615, "FCC")
+    # polycry.compute()
+    polycry = CreatePolycrystalline(
+        box, 20, 3.615, "FCC", add_graphene=True, if_rotation=False
+    )
     polycry.compute()

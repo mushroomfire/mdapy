@@ -20,7 +20,6 @@ class AtomicEntropy:
         prefactor: ti.types.ndarray(),
         entropy: ti.types.ndarray(),
     ):
-
         for i in range(self.N):
             g_m = ti.Vector([ti.float64(0.0)] * self.nbins)
             intergrad = ti.Vector([ti.float64(0.0)] * self.nbins)
@@ -82,8 +81,8 @@ if __name__ == "__main__":
     from neighbor import Neighbor
     from time import time
 
-    ti.init(ti.gpu, device_memory_GB=5.0)
-    # ti.init(ti.cpu)
+    # ti.init(ti.gpu, device_memory_GB=5.0)
+    ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
     x, y, z = 50, 100, 100

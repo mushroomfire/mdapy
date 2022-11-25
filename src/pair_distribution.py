@@ -31,7 +31,7 @@ class PairDistribution:
     ):
 
         dr = self.rc / self.nbin
-        ti.loop_config(serialize=True)
+        ti.loop_config(serialize=True)  # parallel is slower due to +=
         for i in range(self.N):
             i_type = type_list[i]
             for jindex in range(verlet_list.shape[1]):

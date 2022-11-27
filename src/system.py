@@ -3,7 +3,6 @@ import pandas as pd
 
 from .common_neighbor_analysis import CommonNeighborAnalysis
 from .neighbor import Neighbor
-from .kdtree import kdtree
 from .temperature import AtomicTemperature
 from .centro_symmetry_parameter import CentroSymmetryParameter
 from .entropy import AtomicEntropy
@@ -19,41 +18,188 @@ from .voronoi_analysis import VoronoiAnalysis
 
 class System:
     """
-    生成一个System类,支持读取的文件格式为LAMMPS中的.dump格式,以此为基础来进行后处理,可以将结果保存为.data或者.dump格式.
+    生成一个System类,支持读取的文件格式为LAMMPS中的.dump或者.data格式,以此为基础来进行后处理,可以将结果保存为.data或者.dump格式。
+    仅仅支持正交盒子，data文件支持atomic和charge格式，不能有bond信息。
     输入参数:
     filename : dump文件名称
     """
 
-    def __init__(self, filename):
+    def __init__(
+        self,
+        filename=None,
+        format=None,
+        box=None,
+        pos=None,
+        boundary=[1, 1, 1],
+        vel=None,
+        type_list=None,
+        amass=None,
+        q=None,
+        data_format=None,
+    ):
+        self.dump_head = None
+        self.data_head = None
+        self.data_format = data_format
+        self.amass = amass
+        self.if_neigh = False
         self.filename = filename
+        if filename is None:
 
-        self.read_box()
-        self.read_dump(self.col_names)
+            self.format = format
+            self.box = box
+            self.pos = pos
+            self.N = self.pos.shape[0]
+            self.boundary = boundary
+            self.vel = vel
+            if type_list is None:
+                self.type_list = np.ones(self.N)
+            else:
+                self.type_list = type_list
+            if self.data_format == "charge":
+                if q is None:
+                    self.q = np.zeros(self.N)
+                else:
+                    self.q = q
+            else:
+                self.q = q
+
+            self.data = pd.DataFrame(
+                np.c_[np.arange(self.N) + 1, self.type_list, self.pos],
+                columns=["id", "type", "x", "y", "z"],
+            )
+            if self.data_format == "charge":
+                # self.data['q'] = self.q
+                # self.data[["id", "type", "q", "x", "y", "z"]] = self.data[["id", "type", "x", "y", "z", "q"]]
+                self.data.insert(2, "q", self.q)
+            if not self.vel is None:
+                self.data[["vx", "vy", "vz"]] = self.vel
+            self.data[["id", "type"]] = self.data[["id", "type"]].astype(int)
+            self.Ntype = len(np.unique(self.data["type"]))
+        else:
+
+            if format is None:
+                self.format = self.filename.split(".")[-1]
+            else:
+                self.format = format
+            assert self.format in [
+                "data",
+                "dump",
+            ], "format only surppot dump and data file defined in lammps, and data file only surpport atomic and charge format."
+            if self.format == "data":
+                self.read_data()
+            elif self.format == "dump":
+                self.read_dump()
+                self.data_format = None
+            self.N = self.pos.shape[0]
+
         self.lx, self.ly, self.lz = self.box[:, 1] - self.box[:, 0]
         self.vol = self.lx * self.ly * self.lz
-        self.if_neigh = False
+        self.rho = self.N / self.vol
 
-    def read_box(self):
-        self.head = []
+    def read_data(self):
+        self.data_head = []
+        self.box = np.zeros((3, 2))
+
+        with open(self.filename) as op:
+            file = op.readlines()
+
+        row = 0
+        mass_row = 0
+        for line in file:
+
+            self.data_head.append(line)
+            content = line.split()
+            if len(content):
+                if content[-1] == "atoms":
+                    self.N = int(content[0])
+                if len(content) >= 2:
+                    if content[1] == "bond":
+                        raise "Do not support bond style."
+                if len(content) >= 3:
+                    if content[1] == "atom" and content[2] == "types":
+                        self.Ntype = int(content[0])
+                if content[-1] == "xhi":
+                    self.box[0, :] = np.array([content[0], content[1]], dtype=float)
+                if content[-1] == "yhi":
+                    self.box[1, :] = np.array([content[0], content[1]], dtype=float)
+                if content[-1] == "zhi":
+                    self.box[2, :] = np.array([content[0], content[1]], dtype=float)
+                if content[-1] in ["xy", "xz", "yz"]:
+                    raise "Do not support triclinic box."
+                if content[0] == "Masses":
+                    mass_row = row + 1
+                if content[0] == "Atoms":
+                    break
+            row += 1
+        if mass_row > 0:
+            self.amass = np.array(
+                [
+                    i.split()
+                    for i in self.data_head[mass_row + 1 : mass_row + 1 + self.Ntype]
+                ],
+                dtype=float,
+            )[:, 1]
+        self.boundary = [1, 1, 1]
+
+        if self.data_head[-1].split()[-1] == "atomic":
+            self.data_format = "atomic"
+            self.col_names = ["id", "type", "x", "y", "z"]
+        elif self.data_head[-1].split()[-1] == "charge":
+            self.data_format = "charge"
+            self.col_names = ["id", "type", "q", "x", "y", "z"]
+        else:
+            if len(file[row + 2].split()) == 5:
+                self.data_format = "atomic"
+                self.col_names = ["id", "type", "x", "y", "z"]
+            elif len(file[row + 2].split()) == 6:
+                self.data_format = "charge"
+                self.col_names = ["id", "type", "q", "x", "y", "z"]
+            else:
+                raise "Unrecgonized data format. Only support atomic and charge."
+
+        data = np.array(
+            [i.split() for i in file[row + 2 : row + 2 + self.N]], dtype=float
+        )[:, : len(self.col_names)]
+        row += 2 + self.N
+        if row < len(file):
+            if_vel = False
+            for line in file[row:]:
+                content = line.split()
+                if len(content):
+                    if content[0] == "Velocities":
+                        if_vel = True
+                        break
+                row += 1
+            if if_vel:
+                vel = np.array(
+                    [i.split() for i in file[row + 2 : row + 2 + self.N]], dtype=float
+                )[:, 1:]
+                self.col_names += ["vx", "vy", "vz"]
+                self.data = pd.DataFrame(np.c_[data, vel], columns=self.col_names)
+                self.vel = self.data[["vx", "vy", "vz"]].values
+        else:
+            self.data = pd.DataFrame(data, columns=self.col_names)
+        self.data[["id", "type"]] = self.data[["id", "type"]].astype(int)
+        self.pos = self.data[["x", "y", "z"]].values
+
+    def read_dump(self):
+        self.dump_head = []
         with open(self.filename) as op:
             for _ in range(9):
-                self.head.append(op.readline())
-        self.boundary = [1 if i == "pp" else 0 for i in self.head[4].split()[-3:]]
-        self.box = np.array([i.split()[:2] for i in self.head[5:8]]).astype(float)
-        self.col_names = self.head[8].split()[2:]
-
-    def read_dump(self, col_names):
-
+                self.dump_head.append(op.readline())
+        self.boundary = [1 if i == "pp" else 0 for i in self.dump_head[4].split()[-3:]]
+        self.box = np.array([i.split()[:2] for i in self.dump_head[5:8]]).astype(float)
+        self.col_names = self.dump_head[8].split()[2:]
         self.data = pd.read_csv(
             self.filename,
             skiprows=9,
             index_col=False,
             header=None,
             sep=" ",
-            names=col_names,
+            names=self.col_names,
         )
-        self.N = self.data.shape[0]
         self.pos = self.data[["x", "y", "z"]].values
+        self.Ntype = len(np.unique(self.data["type"]))
 
         try:
             self.vel = self.data[["vx", "vy", "vz"]].values
@@ -61,55 +207,106 @@ class System:
             pass
 
     def write_dump(self, output_name=None, output_col=None):
-        head, filename = self.head, self.filename
+
         if output_col is None:
             data = self.data
         else:
             data = self.data.loc[:, output_col]
-        head[3] = f"{data.shape[0]}\n"
-        # for dtype, name in zip(data.dtypes, data.columns):
-        #     if dtype == "int64":
-        #         data[name] = data[name].astype(np.int32)
-        #     elif dtype == "float64":
-        #         data[name] = data[name].astype(np.float32)
+
         if output_name is None:
-            prefilename = filename.split(".")
-            prefilename.insert(-1, "output")
-            output_name = ".".join(prefilename)
+            if self.filename is None:
+                output_name = "output.dump"
+            else:
+                output_name = self.filename[:-4] + "output.dump"
         col_name = "ITEM: ATOMS "
         for i in data.columns:
             col_name += i
             col_name += " "
         col_name += "\n"
         with open(output_name, "w") as op:
-            op.write("".join(head[:-1]))
-            op.write("".join(col_name))
+            if self.dump_head is None:
+                op.write("ITEM: TIMESTEP\n0\n")
+                op.write("ITEM: NUMBER OF ATOMS\n")
+                op.write(f"{self.N}\n")
+                boundary = ["pp" if i == 1 else "ss" for i in self.boundary]
+                op.write(
+                    f"ITEM: BOX BOUNDS {boundary[0]} {boundary[1]} {boundary[2]}\n"
+                )
+                op.write(f"{self.box[0, 0]} {self.box[0, 1]}\n")
+                op.write(f"{self.box[1, 0]} {self.box[1, 1]}\n")
+                op.write(f"{self.box[2, 0]} {self.box[2, 1]}\n")
+                op.write("".join(col_name))
+            else:
+                self.dump_head[3] = f"{data.shape[0]}\n"
+                op.write("".join(self.dump_head[:-1]))
+                op.write("".join(col_name))
         data.to_csv(
             output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
         )
 
-    def write_data(self, output_name=None):
+    def write_data(self, output_name=None, data_format=None):
         data = self.data
-        # for dtype, name in zip(data.dtypes, data.columns):
-        #     if dtype == "int64":
-        #         data[name] = data[name].astype(np.int32)
-        #     elif dtype == "float64":
-        #         data[name] = data[name].astype(np.float32)
+        if data_format is None:
+            if self.data_format is None:
+                data_format = "atomic"
+            else:
+                data_format = self.data_format
+        else:
+            assert data_format in [
+                "atomic",
+                "charge",
+            ], "Unrecgonized data format. Only support atomic and charge."
+
         if output_name is None:
-            output_name = self.filename[:-4] + "data"
-        Ntype = len(np.unique(data["type"]))
+            if self.filename is None:
+                output_name = "output.data"
+            else:
+                output_name = self.filename[:-4] + "output.data"
 
         with open(output_name, "w") as op:
-            op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n")
-            op.write(f"{data.shape[0]} atoms\n{Ntype} atom types\n\n")
-            for i, j in zip(self.box, ["x", "y", "z"]):
-                op.write(f"{i[0]} {i[1]} {j}lo {j}hi\n")
-            op.write("\n")
-            op.write(r"Atoms # atomic")
-            op.write("\n\n")
-        data[["id", "type", "x", "y", "z"]].to_csv(
-            output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
-        )
+            if self.data_head is None:
+                op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n")
+                op.write(f"{data.shape[0]} atoms\n{self.Ntype} atom types\n\n")
+                for i, j in zip(self.box, ["x", "y", "z"]):
+                    op.write(f"{i[0]} {i[1]} {j}lo {j}hi\n")
+                op.write("\n")
+                if not self.amass is None:
+                    op.write("Masses\n\n")
+                    for i in range(self.Ntype):
+                        op.write(f"{i+1} {self.amass[i]}\n")
+                    op.write("\n")
+                op.write(rf"Atoms # {data_format}")
+                op.write("\n\n")
+            else:
+                self.data_head[-1] = f"Atoms # {data_format}\n"
+                op.write("# LAMMPS data file written by mdapy@HerrWu.\n")
+                op.write("".join(self.data_head[1:]))
+                op.write("\n")
+        if data_format == "atomic":
+            self.data[["id", "type", "x", "y", "z"]].to_csv(
+                output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
+            )
+        elif data_format == "charge":
+            if "q" not in self.data.columns:
+                self.data.insert(2, "q", np.zeros(self.N))
+                self.data[["id", "type", "q", "x", "y", "z"]].to_csv(
+                    output_name,
+                    header=None,
+                    index=False,
+                    sep=" ",
+                    mode="a",
+                    na_rep="nan",
+                )
+                self.data.drop("q", axis=1, inplace=True)
+            else:
+                self.data[["id", "type", "q", "x", "y", "z"]].to_csv(
+                    output_name,
+                    header=None,
+                    index=False,
+                    sep=" ",
+                    mode="a",
+                    na_rep="nan",
+                )
         try:
             if len(self.vel):
                 with open(output_name, "a") as op:
@@ -123,6 +320,7 @@ class System:
                     na_rep="nan",
                 )
         except Exception:
+            # print("No velocities provided!")
             pass
 
     def build_neighbor(self, rc=5.0, max_neigh=80, exclude=True):
@@ -323,3 +521,28 @@ class System:
         self.data["voronoi_volume"] = voro.vol
         self.data["voronoi_number"] = voro.neighbor_number
         self.data["cavity_radius"] = voro.cavity_radius
+
+
+if __name__ == "__main__":
+
+    # system = System(filename=r"./example/CoCuFeNiPd-4M.data")
+    # system = System(filename=r"./example/CoCuFeNiPd-4M.dump")
+    box = np.array([[0, 10], [0, 10], [0, 10]])
+    pos = np.array([[0.0, 0.0, 0.0], [1.5, 6.5, 9.0]])
+    vel = np.array([[1.0, 0.0, 0.0], [2.5, 6.5, 9.0]])
+    q = np.array([1.0, 2.0])
+    system = System(
+        box=box,
+        pos=pos,
+        type_list=[1, 2],
+        amass=[2.3, 4.5],
+        vel=vel,
+        boundary=[1, 1, 0],
+        data_format="charge",
+        q=q,
+    )
+    print(system.data)
+    print(system.Ntype, system.N, system.format)
+    print(system.data_head)
+    system.write_data(data_format="charge")
+    system.write_dump()

@@ -2,5 +2,6 @@ taichi
 numpy
 scipy
 pandas
+pyfftw
 matplotlib
 SciencePlots

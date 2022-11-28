@@ -11,6 +11,7 @@
 - numpy
 - scipy
 - pandas
+- pyfftw
 - matplotlib
 - SciencePlots
 - pytorch (optional)

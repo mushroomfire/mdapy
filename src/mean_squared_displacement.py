@@ -38,7 +38,7 @@ class MeanSquaredDisplacement:
         self.if_compute = False
 
     def _autocorrFFT(self, x):
-        N = len(x)
+        N = x.shape[0]
         F = fft(x, n=2 * N)  # 2*N because of zero-padding
         PSD = F * F.conjugate()
         res = ifft(PSD)

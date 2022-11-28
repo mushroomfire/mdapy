@@ -51,6 +51,8 @@ mp.init("cpu")
 ## 更新记录 
 ## 2022-11-28
 1. update了System模块，可以支持data文件格式的读取和导出，可以使用box和pos来创建system.
+2. 增加了MeanSquaredDisplacement模块,依赖增加了pyfftw来加速快速傅里叶变换.
+3. 更新版本0.6.8.
 
 ## 2022-11-26
 1. 增加benchmark测试

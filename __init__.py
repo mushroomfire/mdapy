@@ -1,5 +1,5 @@
 __author__ = "HerrWu"
-__version__ = "0.6.7"
+__version__ = "0.6.8"
 
 from .src.lattice_maker import LatticeMaker
 from .src.system import System
@@ -22,6 +22,7 @@ from .src.warren_cowley_parameter import WarrenCowleyParameter
 from .src.voronoi_analysis import VoronoiAnalysis
 
 from .src.create_polycrystalline import CreatePolycrystalline
+from .src.mean_squared_displacement import MeanSquaredDisplacement
 
 import taichi.profiler as profiler
 

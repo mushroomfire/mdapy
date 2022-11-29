@@ -36,6 +36,7 @@ class System:
         amass=None,
         q=None,
         data_format=None,
+        sorted_id=False,
     ):
         self.dump_head = None
         self.data_head = None
@@ -43,6 +44,7 @@ class System:
         self.amass = amass
         self.if_neigh = False
         self.filename = filename
+        self.sorted_id = sorted_id
         if filename is None:
 
             self.format = format
@@ -181,6 +183,8 @@ class System:
             self.data = pd.DataFrame(data, columns=self.col_names)
         self.data[["id", "type"]] = self.data[["id", "type"]].astype(int)
         self.pos = self.data[["x", "y", "z"]].values
+        if self.sorted_id:
+            self.data.sort_values("id", inplace=True)
 
     def read_dump(self):
         self.dump_head = []
@@ -205,6 +209,9 @@ class System:
             self.vel = self.data[["vx", "vy", "vz"]].values
         except Exception:
             pass
+
+        if self.sorted_id:
+            self.data.sort_values("id", inplace=True)
 
     def write_dump(self, output_name=None, output_col=None):
 

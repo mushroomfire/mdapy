@@ -150,7 +150,6 @@ class LindemannParameter:
         fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
         plt.subplots_adjust(left=0.16, bottom=0.16, right=0.95, top=0.97)
         plt.plot(self.lindemann_frame, "o-")
-        plt.legend()
         plt.xlabel("$\mathregular{N_{frames}}$")
         plt.ylabel("Lindemann index")
         plt.xlim(0, self.lindemann_frame.shape[0])

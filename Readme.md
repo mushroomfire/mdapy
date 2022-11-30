@@ -11,10 +11,10 @@
 - numpy
 - scipy
 - pandas
-- pyfftw
 - matplotlib
 - SciencePlots
-- pytorch (optional)
+- pyfftw (optional) for fast FFT 
+- pytorch (optional) for fast sort
 ## 安装
 0. 下载源码
     ```bash
@@ -50,6 +50,11 @@ mp.init("cpu")
 2. 64位的GPU操作需要使用N卡的,3080是可以的,其他的卡我也没有
 
 ## 更新记录 
+## 2022-11-30
+1. update了indemann_parameter模块
+2. update了MultiSystem模块
+3. 更新版本号0.6.9
+   
 ## 2022-11-28
 1. update了System模块，可以支持data文件格式的读取和导出，可以使用box和pos来创建system.
 2. 增加了MeanSquaredDisplacement模块,依赖增加了pyfftw来加速快速傅里叶变换.

@@ -15,6 +15,9 @@ from .void_distribution import VoidDistribution
 from .warren_cowley_parameter import WarrenCowleyParameter
 from .voronoi_analysis import VoronoiAnalysis
 
+from .mean_squared_displacement import MeanSquaredDisplacement
+from .lindemann_parameter import LindemannParameter
+
 
 class System:
     """
@@ -529,6 +532,31 @@ class System:
         self.data["voronoi_volume"] = voro.vol
         self.data["voronoi_number"] = voro.neighbor_number
         self.data["cavity_radius"] = voro.cavity_radius
+
+
+class MultiSystem(list):
+    def __init__(self, filename_list, sorted_id=True):
+        self.filename_list = filename_list
+        self.sorted_id = sorted_id
+        pos_list = []
+        for filename in filename_list:
+            system = System(filename, sorted_id=self.sorted_id)
+            self.append(system)
+            pos_list.append(system.pos)
+        self.pos_list = np.array(pos_list)
+        self.Nframes = self.pos_list.shape[0]
+
+    def cal_mean_squared_displacement(self, mode="windows"):
+        self.MSD = MeanSquaredDisplacement(self.pos_list, mode=mode)
+        self.MSD.compute()
+        for frame in range(self.Nframes):
+            self[frame].data["msd"] = self.MSD.partical_msd[frame]
+
+    def cal_lindemann_parameter(self):
+        self.Lindemann = LindemannParameter(self.pos_list)
+        self.Lindemann.compute()
+        for frame in range(self.Nframes):
+            self[frame].data["lindemann"] = self.Lindemann.lindemann_frame[frame]
 
 
 if __name__ == "__main__":

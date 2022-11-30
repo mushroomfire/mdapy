@@ -3,7 +3,7 @@ import importlib
 
 
 def check_module():
-    optional_package = ["pytorch"]
+    optional_package = ["pytorch", "pyfftw"]
     exclude_package = ["SciencePlots"]
     module = []
     for i in open("requirements.txt").readlines():

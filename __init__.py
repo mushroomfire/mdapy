@@ -2,7 +2,7 @@ __author__ = "HerrWu"
 __version__ = "0.6.9"
 
 from .src.lattice_maker import LatticeMaker
-from .src.system import System
+from .src.system import System, MultiSystem
 from .src.neighbor import Neighbor
 from .src.temperature import AtomicTemperature
 from .src.entropy import AtomicEntropy

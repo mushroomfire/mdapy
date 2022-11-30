@@ -556,7 +556,7 @@ class MultiSystem(list):
         self.Lindemann = LindemannParameter(self.pos_list)
         self.Lindemann.compute()
         for frame in range(self.Nframes):
-            self[frame].data["lindemann"] = self.Lindemann.lindemann_frame[frame]
+            self[frame].data["lindemann"] = self.Lindemann.lindemann_atom[frame]
 
 
 if __name__ == "__main__":

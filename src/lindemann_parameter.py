@@ -152,7 +152,7 @@ class LindemannParameter:
         plt.plot(self.lindemann_frame, "o-")
         plt.xlabel("$\mathregular{N_{frames}}$")
         plt.ylabel("Lindemann index")
-        plt.xlim(0, self.lindemann_frame.shape[0])
+        # plt.xlim(0, self.lindemann_frame.shape[0])
 
         ax = plt.gca()
         plt.show()

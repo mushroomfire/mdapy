@@ -19,7 +19,6 @@ class LindemannParameter:
 
     def __init__(self, pos_list) -> None:
         self.pos_list = pos_list
-        # self.parallel = parallel
         self.if_compute = False
 
     @ti.kernel
@@ -59,75 +58,7 @@ class LindemannParameter:
             lindemann_index /= Natoms * (Natoms - 1)  # (Natoms-1)/2
             lindemann_frame[frame] = lindemann_index
 
-    # @ti.kernel
-    # def _compute_parallel(
-    #     self,
-    #     pos_list: ti.types.ndarray(element_dim=1, dtype=float),
-    #     pos_mean: ti.types.ndarray(dtype=float),
-    #     pos_variance: ti.types.ndarray(dtype=float),
-    #     lindemann_frame: ti.types.ndarray(dtype=float),
-    #     lindemann_atom: ti.types.ndarray(dtype=float),
-    # ):
-
-    #     Nframes, Natoms = pos_list.shape
-    #     for frame, i in ti.ndrange(Nframes, Natoms):
-    #         for j in range(i + 1, Natoms):
-    #             rij = pos_list[frame, i] - pos_list[frame, j]
-    #             rijdis = rij.norm()
-    #             pos_mean[frame, i, j] = rijdis
-    #             pos_mean[frame, j, i] = rijdis
-    #             pos_variance[frame, i, j] = rijdis**2
-    #             pos_variance[frame, j, i] = pos_variance[frame, i, j]
-
-    #     ti.loop_config(serialize=True)  # Must run in serial
-    #     for frame in range(1, Nframes):
-    #         for i in range(Natoms):
-    #             for j in range(i + 1, Natoms):
-    #                 pos_mean[frame, i, j] += pos_mean[frame - 1, i, j]
-    #                 pos_variance[frame, i, j] += pos_variance[frame - 1, i, j]
-    #                 pos_mean[frame, j, i] = pos_mean[frame, i, j]
-    #                 pos_variance[frame, j, i] = pos_variance[frame, i, j]
-
-    #     for frame, i in ti.ndrange((1, Nframes), Natoms):
-    #         for j in range(i + 1, Natoms):
-    #             pos_mean[frame, i, j] /= frame + 1
-    #             pos_variance[frame, i, j] /= frame + 1
-    #             pos_mean[frame, j, i] = pos_mean[frame, i, j]
-    #             pos_variance[frame, j, i] = pos_variance[frame, i, j]
-
-    #     for frame in range(Nframes):
-    #         lindemann_index = ti.float64(0.0)
-    #         for i in range(Natoms):
-    #             for j in range(Natoms):
-    #                 if i != j:
-    #                     ldm = (
-    #                         ti.sqrt(
-    #                             pos_variance[frame, i, j] - pos_mean[frame, i, j] ** 2
-    #                         )
-    #                         / pos_mean[frame, i, j]
-    #                     )
-    #                     lindemann_index += ldm
-    #                     lindemann_atom[frame, i] += ldm / (Natoms - 1)
-
-    #         lindemann_index /= Natoms * (Natoms - 1)  # (Natoms-1)/2
-    #         lindemann_frame[frame] = lindemann_index
-
     def compute(self):
-        # if self.parallel:
-        #     Nframes, Natoms = self.pos_list.shape[:2]
-        #     pos_mean = np.zeros((Nframes, Natoms, Natoms))
-        #     pos_variance = np.zeros_like(pos_mean)
-        #     self.lindemann_frame = np.zeros(Nframes)
-        #     self.lindemann_atom = np.zeros((Nframes, Natoms))
-        #     self._compute_parallel(
-        #         self.pos_list,
-        #         pos_mean,
-        #         pos_variance,
-        #         self.lindemann_frame,
-        #         self.lindemann_atom,
-        #     )
-        #     self.lindemann_trj = self.lindemann_frame[-1]
-        # else:
         Nframes, Natoms = self.pos_list.shape[:2]
         pos_mean = np.zeros((Natoms, Natoms))
         pos_variance = np.zeros_like(pos_mean)
@@ -174,10 +105,3 @@ if __name__ == "__main__":
     print(f"LDM_trj: {LDM.lindemann_trj}, LDM costs: {end-start} s.")
     print(LDM.lindemann_frame[:10])
     print(LDM.lindemann_atom.mean(axis=-1))
-    # start = time()
-    # LDM = LindemannParameter(pos_list, parallel=True)
-    # LDM.compute()
-    # end = time()
-    # print(f"LDM_trj: {LDM.lindemann_trj}, LDM parallel costs: {end-start} s.")
-    # print(LDM.lindemann_frame)
-    # LDM.plot()

@@ -54,6 +54,7 @@ mp.init("cpu")
 1. update了indemann_parameter模块
 2. update了MultiSystem模块
 3. 更新版本号0.6.9
+4. 更新版本号0.7.0, 保留serial版本的lindemann index
    
 ## 2022-11-28
 1. update了System模块，可以支持data文件格式的读取和导出，可以使用box和pos来创建system.

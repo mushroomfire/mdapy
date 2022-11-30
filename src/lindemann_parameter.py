@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 @ti.data_oriented
 class LindemannParameter:
     """
-    Using Welford to updated the varience and mean of rij, see https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford
+    Using Welford method to updated the varience and mean of rij, see https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford
     Input:
     pos_list : np.ndarray (Nframes, Natoms, 3)
 

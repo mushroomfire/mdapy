@@ -178,13 +178,15 @@ class System:
                 )[:, 1:]
                 self.col_names += ["vx", "vy", "vz"]
                 self.data = pd.DataFrame(np.c_[data, vel], columns=self.col_names)
-                self.vel = self.data[["vx", "vy", "vz"]].values
         else:
             self.data = pd.DataFrame(data, columns=self.col_names)
-        self.data[["id", "type"]] = self.data[["id", "type"]].astype(int)
-        self.pos = self.data[["x", "y", "z"]].values
+
         if self.sorted_id:
             self.data.sort_values("id", inplace=True)
+        self.data[["id", "type"]] = self.data[["id", "type"]].astype(int)
+        self.pos = self.data[["x", "y", "z"]].values
+        if if_vel:
+            self.vel = self.data[["vx", "vy", "vz"]].values
 
     def read_dump(self):
         self.dump_head = []
@@ -202,16 +204,15 @@ class System:
             sep=" ",
             names=self.col_names,
         )
+
+        if self.sorted_id:
+            self.data.sort_values("id", inplace=True)
         self.pos = self.data[["x", "y", "z"]].values
         self.Ntype = len(np.unique(self.data["type"]))
-
         try:
             self.vel = self.data[["vx", "vy", "vz"]].values
         except Exception:
             pass
-
-        if self.sorted_id:
-            self.data.sort_values("id", inplace=True)
 
     def write_dump(self, output_name=None, output_col=None):
 

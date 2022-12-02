@@ -3,4 +3,5 @@ numpy
 scipy
 pandas
 matplotlib
+tqdm
 SciencePlots

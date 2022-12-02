@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from .common_neighbor_analysis import CommonNeighborAnalysis
 from .neighbor import Neighbor
@@ -572,7 +573,9 @@ class MultiSystem(list):
         self.unwrap = unwrap
         self.image_p = image_p
 
-        for filename in filename_list:
+        progress_bar = tqdm(filename_list)
+        for filename in progress_bar:
+            progress_bar.set_description(f"Reading {filename}")
             system = System(filename, sorted_id=self.sorted_id)
             self.append(system)
 
@@ -588,6 +591,15 @@ class MultiSystem(list):
                 system.data[["x", "y", "z"]] = self.pos_list[i]
 
         self.Nframes = self.pos_list.shape[0]
+
+    def write_dumps(self, output_col=None):
+        progress_bar = tqdm(self)
+        for system in progress_bar:
+            try:
+                progress_bar.set_description(f"Saving {system.filename}")
+            except Exception:
+                progress_bar.set_description(f"Saving file...")
+            system.write_dump(output_col=output_col)
 
     def cal_mean_squared_displacement(self, mode="windows"):
         """

@@ -53,7 +53,8 @@ mp.init("cpu")
 ## 2022-12-2
 1. 增加了unwrap_pos，用于计算MSD和lindemann index的前置处理
 2. 更新MSD的bug
-3. 更新版本号0.7.1
+3. 增加tqdm进度条
+4. 更新版本号0.7.1
 
 ## 2022-11-30
 1. update了indemann_parameter模块

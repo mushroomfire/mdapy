@@ -535,6 +535,14 @@ class System:
 
 
 class MultiSystem(list):
+
+    """
+    Generate a list of multi systems.
+    input:
+    filename_list : a list containing filename, such as ['melt.0.dump', 'melt.1.dump']
+    sorted_id : bool, sort data by atoms id
+    """
+
     def __init__(self, filename_list, sorted_id=True):
         self.filename_list = filename_list
         self.sorted_id = sorted_id
@@ -547,6 +555,14 @@ class MultiSystem(list):
         self.Nframes = self.pos_list.shape[0]
 
     def cal_mean_squared_displacement(self, mode="windows"):
+        """
+        Calculating MSD variation.
+        input:
+        mode : str, "windows" or "direct", see
+        output:
+        self.MSD.msd
+        """
+
         self.MSD = MeanSquaredDisplacement(self.pos_list, mode=mode)
         self.MSD.compute()
         for frame in range(self.Nframes):

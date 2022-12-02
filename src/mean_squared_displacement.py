@@ -5,13 +5,13 @@ import matplotlib.pyplot as plt
 try:
     import pyfftw
 
-    def fft(x, n, axis=0):
+    def fft(x, n, axis):
         a = pyfftw.empty_aligned(x.shape, "complex64")
         a[:] = x
         fft_object = pyfftw.builders.fft(a, n=n, axis=axis)
         return fft_object()
 
-    def ifft(x, axis=0):
+    def ifft(x, axis):
         a = pyfftw.empty_aligned(x.shape, "complex64")
         a[:] = x
         fft_object = pyfftw.builders.ifft(a, axis=axis)
@@ -39,9 +39,9 @@ class MeanSquaredDisplacement:
 
     def _autocorrFFT(self, x):
         N = x.shape[0]
-        F = fft(x, n=2 * N)  # 2*N because of zero-padding
+        F = fft(x, n=2 * N, axis=0)  # 2*N because of zero-padding
         PSD = F * F.conjugate()
-        res = ifft(PSD)
+        res = ifft(PSD, axis=0)
         res = (res[:N]).real  # now we have the autocorrelation in convention B
         n = np.arange(N, 0, -1)  #   N*np.ones(N)-np.arange(0,N) #divide res(m) by (N-m)
         return res / n[:, np.newaxis]  # this is the autocorrelation in convention A

@@ -351,7 +351,9 @@ class System:
         return np.linalg.norm(rij)
 
     def wrap_pos(self):
-        _wrap_pos(self.pos, self.box, np.array(self.boundary))
+        pos = self.pos.copy()  # a deep copy can be modified
+        _wrap_pos(pos, self.box, np.array(self.boundary))
+        self.pos = pos
         self.data[["x", "y", "z"]] = self.pos
 
     def build_neighbor(self, rc=5.0, max_neigh=80, exclude=True):

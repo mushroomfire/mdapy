@@ -567,7 +567,7 @@ class MultiSystem(list):
 
     def __init__(self, filename_list, unwrap=True, sorted_id=True, image_p=None):
         self.sorted_id = sorted_id
-        self.unwarp = unwrap
+        self.unwrap = unwrap
         self.image_p = image_p
 
         for filename in filename_list:

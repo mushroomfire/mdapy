@@ -18,6 +18,9 @@ from .voronoi_analysis import VoronoiAnalysis
 from .mean_squared_displacement import MeanSquaredDisplacement
 from .lindemann_parameter import LindemannParameter
 
+from .unwrap_positions import unwrap_pos
+from .unwrap_positions import wrap_pos as _wrap_pos
+
 
 class System:
     """
@@ -334,6 +337,23 @@ class System:
             # print("No velocities provided!")
             pass
 
+    def atom_distance(self, i, j):
+
+        """
+        distance fo atom i and atom j considering periodic boundary
+        """
+
+        rij = self.pos[i] - self.pos[j]
+        for i in range(3):
+            if self.boundary[i] == 1:
+                box_length = self.box[i][1] - self.box[i][0]
+                rij[i] = rij[i] - box_length * np.round(rij[i] / box_length)
+        return np.linalg.norm(rij)
+
+    def wrap_pos(self):
+        _wrap_pos(self.pos, self.box, np.array(self.boundary))
+        self.data[["x", "y", "z"]] = self.pos
+
     def build_neighbor(self, rc=5.0, max_neigh=80, exclude=True):
         Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh, exclude)
         Neigh.compute()
@@ -537,28 +557,41 @@ class System:
 class MultiSystem(list):
 
     """
-    Generate a list of multi systems.
+    Generate a list of systems.
     input:
     filename_list : a list containing filename, such as ['melt.0.dump', 'melt.1.dump']
+    unwrap : bool, make atom positions do not wrap into box due to periotic boundary
     sorted_id : bool, sort data by atoms id
+    image_p : image_p help to unwrap positions, if don't provided, using minimum image criterion, see https://en.wikipedia.org/wiki/Periodic_boundary_conditions#Practical_implementation:_continuity_and_the_minimum_image_convention.
     """
 
-    def __init__(self, filename_list, sorted_id=True):
-        self.filename_list = filename_list
+    def __init__(self, filename_list, unwrap=True, sorted_id=True, image_p=None):
         self.sorted_id = sorted_id
-        pos_list = []
+        self.unwarp = unwrap
+        self.image_p = image_p
+
         for filename in filename_list:
             system = System(filename, sorted_id=self.sorted_id)
             self.append(system)
-            pos_list.append(system.pos)
-        self.pos_list = np.array(pos_list)
+
+        self.pos_list = np.array([system.pos for system in self])
+        if self.unwrap:
+            if self.image_p is None:
+                try:
+                    self.image_p = [system.data[["ix", "iy", "iz"]] for syetem in self]
+                except Exception:
+                    pass
+            unwrap_pos(self.pos_list, self[0].box, self[0].boundary, self.image_p)
+            for i, system in enumerate(self):
+                system.data[["x", "y", "z"]] = self.pos_list[i]
+
         self.Nframes = self.pos_list.shape[0]
 
     def cal_mean_squared_displacement(self, mode="windows"):
         """
         Calculating MSD variation.
         input:
-        mode : str, "windows" or "direct", see
+        mode : str, "windows" or "direct", see https://stackoverflow.com/questions/34222272/computing-mean-square-displacement-using-python-and-fft
         output:
         self.MSD.msd
         """
@@ -569,6 +602,11 @@ class MultiSystem(list):
             self[frame].data["msd"] = self.MSD.partical_msd[frame]
 
     def cal_lindemann_parameter(self):
+        """
+        Calculate lindemann index
+        see https://en.wikipedia.org/wiki/Lindemann_index
+        """
+
         self.Lindemann = LindemannParameter(self.pos_list)
         self.Lindemann.compute()
         for frame in range(self.Nframes):

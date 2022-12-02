@@ -104,4 +104,4 @@ if __name__ == "__main__":
     end = time()
     print(f"LDM_trj: {LDM.lindemann_trj}, LDM costs: {end-start} s.")
     print(LDM.lindemann_frame[:10])
-    print(LDM.lindemann_atom.mean(axis=-1))
+    print(LDM.lindemann_atom.mean(axis=-1)[:10])

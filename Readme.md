@@ -50,6 +50,11 @@ mp.init("cpu")
 2. 64位的GPU操作需要使用N卡的,3080是可以的,其他的卡我也没有
 
 ## 更新记录 
+## 2022-12-2
+1. 增加了unwrap_pos，用于计算MSD和lindemann index的前置处理
+2. 更新MSD的bug
+3. 更新版本号0.7.1
+
 ## 2022-11-30
 1. update了indemann_parameter模块
 2. update了MultiSystem模块

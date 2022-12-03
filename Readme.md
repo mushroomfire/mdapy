@@ -52,7 +52,7 @@ mp.init("cpu")
 
 ## 更新记录 
 ## 2022-12-3
-1. 修复lindemann index的计算bug, 减少内存使用
+1. 修复lindemann index的计算bug, 增加了并行计算版本
 2. 更新版本号0.7.2
 
 ## 2022-12-2

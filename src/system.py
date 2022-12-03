@@ -618,12 +618,9 @@ class MultiSystem(list):
         for frame in range(self.Nframes):
             self[frame].data["msd"] = self.MSD.partical_msd[frame]
 
-    def cal_lindemann_parameter(
-        self, only_globle=True, need_frame=False, need_atom=False
-    ):
+    def cal_lindemann_parameter(self, only_global=False):
         """
-        Calculate lindemann index
-        $q_{i}=\frac{1}{N-1} \sum_{j \neq i} \frac{\sqrt{\left\langle r_{i j}^{2}\right\rangle-\left\langle r_{i j}\right\rangle^{2}}}{\left\langle r_{i j}\right\rangle}$
+        Need high memory!!!
         Using Welford method to updated the varience and mean of rij
         see
         1. https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford
@@ -631,9 +628,7 @@ class MultiSystem(list):
 
         Input:
         pos_list : np.ndarray (Nframes, Natoms, 3)
-        only_globle : bool, only calculate globle lindemann index, fast, parallel and relatively low memory
-        need_frame : bool, calculate lindemann index per frame, serial compute is conducted, relatively low memory
-        need_atoms : bool, calculate atomic contribution on lindemann index, slow and need very high memory
+        only_global : bool, only calculate globle lindemann index, fast, parallel
 
         Output:
         lindemann_atom : np.ndarray (Nframes, Natoms)
@@ -641,9 +636,7 @@ class MultiSystem(list):
         lindemann_trj : float
         """
 
-        self.Lindemann = LindemannParameter(
-            self.pos_list, only_globle, need_frame, need_atom
-        )
+        self.Lindemann = LindemannParameter(self.pos_list, only_global)
         self.Lindemann.compute()
         try:
             for frame in range(self.Nframes):

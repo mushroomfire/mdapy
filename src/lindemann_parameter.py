@@ -132,7 +132,9 @@ class LindemannParameter:
         if self.only_globle:
             pos_mean = np.zeros(int(Natoms * (Natoms - 1) / 2), dtype=np.float64)
             pos_variance = np.zeros_like(pos_mean, dtype=pos_mean.dtype)
-            self.lindemann_trj = self._compute_globle(pos_list, pos_mean, pos_variance)
+            self.lindemann_trj = self._compute_globle(
+                self.pos_list, pos_mean, pos_variance
+            )
 
         elif self.need_frame:
             pos_mean = np.zeros(int(Natoms * (Natoms - 1) / 2), dtype=np.float64)

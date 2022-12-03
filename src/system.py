@@ -605,7 +605,10 @@ class MultiSystem(list):
         """
         Calculating MSD variation.
         input:
-        mode : str, "windows" or "direct", see https://stackoverflow.com/questions/34222272/computing-mean-square-displacement-using-python-and-fft
+        mode : str, "windows" or "direct",
+        see
+        1. https://stackoverflow.com/questions/34222272/computing-mean-square-displacement-using-python-and-fft
+        2. https://freud.readthedocs.io/en/latest/modules/msd.html
         output:
         self.MSD.msd
         """
@@ -615,16 +618,38 @@ class MultiSystem(list):
         for frame in range(self.Nframes):
             self[frame].data["msd"] = self.MSD.partical_msd[frame]
 
-    def cal_lindemann_parameter(self):
+    def cal_lindemann_parameter(
+        self, only_globle=True, need_frame=False, need_atom=False
+    ):
         """
         Calculate lindemann index
-        see https://en.wikipedia.org/wiki/Lindemann_index
+        $q_{i}=\frac{1}{N-1} \sum_{j \neq i} \frac{\sqrt{\left\langle r_{i j}^{2}\right\rangle-\left\langle r_{i j}\right\rangle^{2}}}{\left\langle r_{i j}\right\rangle}$
+        Using Welford method to updated the varience and mean of rij
+        see
+        1. https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford
+        2. https://zhuanlan.zhihu.com/p/408474710
+
+        Input:
+        pos_list : np.ndarray (Nframes, Natoms, 3)
+        only_globle : bool, only calculate globle lindemann index, fast, parallel and relatively low memory
+        need_frame : bool, calculate lindemann index per frame, serial compute is conducted, relatively low memory
+        need_atoms : bool, calculate atomic contribution on lindemann index, slow and need very high memory
+
+        Output:
+        lindemann_atom : np.ndarray (Nframes, Natoms)
+        lindemann_frame : np.ndarray (Nframes)
+        lindemann_trj : float
         """
 
-        self.Lindemann = LindemannParameter(self.pos_list)
+        self.Lindemann = LindemannParameter(
+            self.pos_list, only_globle, need_frame, need_atom
+        )
         self.Lindemann.compute()
-        for frame in range(self.Nframes):
-            self[frame].data["lindemann"] = self.Lindemann.lindemann_atom[frame]
+        try:
+            for frame in range(self.Nframes):
+                self[frame].data["lindemann"] = self.Lindemann.lindemann_atom[frame]
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

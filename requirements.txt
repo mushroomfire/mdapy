@@ -1,6 +1,7 @@
 taichi
 numpy
 scipy
+pyfftw
 pandas
 matplotlib
 tqdm

@@ -11,9 +11,10 @@
 - numpy
 - scipy
 - pandas
+- pyfftw
 - matplotlib
+- tqdm
 - SciencePlots
-- pyfftw (optional) for fast FFT 
 - pytorch (optional) for fast sort
 ## 安装
 0. 下载源码
@@ -50,6 +51,10 @@ mp.init("cpu")
 2. 64位的GPU操作需要使用N卡的,3080是可以的,其他的卡我也没有
 
 ## 更新记录 
+## 2022-12-3
+1. 修复lindemann index的计算bug, 减少内存使用
+2. 更新版本号0.7.2
+
 ## 2022-12-2
 1. 增加了unwrap_pos，用于计算MSD和lindemann index的前置处理
 2. 更新MSD的bug

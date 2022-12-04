@@ -20,9 +20,13 @@ class CentroSymmetryParameter:
         return rij
 
     @ti.kernel
-    def _get_csp(self, pair:ti.types.ndarray(), pos:ti.types.ndarray(element_dim=1), 
-    verlet_list:ti.types.ndarray(), box:ti.types.ndarray(),
-                  boundary:ti.types.ndarray(), loop_index:ti.types.ndarray(), csp:ti.types.ndarray()):
+    def _get_csp(self, pair:ti.types.ndarray(), 
+    pos:ti.types.ndarray(element_dim=1), 
+    verlet_list:ti.types.ndarray(), 
+    box:ti.types.ndarray(),
+                  boundary:ti.types.ndarray(), 
+                  loop_index:ti.types.ndarray(), 
+                  csp:ti.types.ndarray()):
 
         # Get loop index
         num = 0

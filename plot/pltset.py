@@ -16,7 +16,7 @@ def pltset(
 ):
     try:
         plt.style.use(["science", "notebook"])
-    except:
+    except Exception:
         print("One should install SciencePlots package: pip install SciencePlots")
     plt.rcParams["legend.fontsize"] = legendsize
     plt.rcParams["lines.linewidth"] = linewidth

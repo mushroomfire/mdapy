@@ -8,11 +8,11 @@ from mdapy.tools.timer import timer
 from ovito.data import CutoffNeighborFinder, DataCollection, Particles, SimulationCell
 from ovito.io import import_file
 from ovito.pipeline import Pipeline, StaticSource
-from ovito.modifiers import CentroSymmetryModifier
+from ovito.modifiers import ClusterAnalysisModifier
 
     
 @timer
-def test_csp_average_time(ave_num=3, check_ovito=False):
+def test_cluster_average_time(ave_num=3, check_ovito=False):
     time_list = []
     print('*'*30)
     for num in [5, 10, 15, 20, 25, 30, 50, 70, 100, 150, 200, 250]:
@@ -34,25 +34,25 @@ def test_csp_average_time(ave_num=3, check_ovito=False):
             pipeline = Pipeline(source = StaticSource(data = data))
 
             start = time()
-            pipeline.modifiers.append(CentroSymmetryModifier())
+            pipeline.modifiers.append(ClusterAnalysisModifier(cutoff=5.))
             data = pipeline.compute()
             end = time()
             ovito_t += (end-start)
             
             print(f'Running {turn} turn in mdapy...')
-            start = time()
             system = mp.System(box=FCC.box, pos=FCC.pos)
-            system.cal_centro_symmetry_parameter()
+            start = time()
+            system.cal_cluster_analysis(rc=5.)
             end = time()
             mdapy_t += (end-start)
             if check_ovito:
                 print(f'Checking results of {turn} turn...')
-                assert np.allclose(system.data['csp'].values, np.array(data.particles['Centrosymmetry'][...]))
+                assert (system.data['cluster_id'].values == np.array(data.particles['Cluster'][...])).all()
             
         time_list.append([FCC.N, ovito_t/ave_num, mdapy_t/ave_num])
         print('*'*30)
     time_list = np.array(time_list)
-    np.savetxt('time_list_cpu_csp.txt', time_list, delimiter=' ', header='N ovito mdapy')
+    np.savetxt('time_list_cpu_cluster.txt', time_list, delimiter=' ', header='N ovito mdapy')
     return time_list
     
 def plot(time_list, title=None, kind = 'cpu', save_fig=True):
@@ -95,13 +95,13 @@ def plot(time_list, title=None, kind = 'cpu', save_fig=True):
     plt.xlabel('Number of atoms ($\mathregular{10^%d}$)' % exp_max)
     plt.ylabel('Time (s)')
     if save_fig:
-        plt.savefig('csp_mdapy_ovito.png', dpi=300, bbox_inches='tight', transparent=True)
+        plt.savefig('cluster_mdapy_ovito.png', dpi=300, bbox_inches='tight', transparent=True)
     plt.show()
     
 if __name__ == '__main__':
     mp.init('cpu')
     import matplotlib
     matplotlib.use('Agg')
-    time_list = test_csp_average_time(ave_num=3, check_ovito=True)
-    #time_list = np.loadtxt('time_list_cpu_csp.txt')
-    plot(time_list, title='Calculate CSP', kind = 'cpu', save_fig=True)
+    time_list = test_cluster_average_time(ave_num=3, check_ovito=True)
+    #time_list = np.loadtxt('time_list_cpu_cluster.txt')
+    plot(time_list, title='Cluster analysis', kind = 'cpu', save_fig=True)

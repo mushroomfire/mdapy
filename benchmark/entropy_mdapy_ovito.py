@@ -117,7 +117,7 @@ def test_entropy_average_time(ave_num=3, cutoff = 5., sigma=0.2, check_ovito=Fal
     np.savetxt('time_list_cpu_entropy.txt', time_list, delimiter=' ', header='N ovito mdapy')
     return time_list
     
-def plot(time_list, kind = 'cpu', save_fig=True):
+def plot(time_list, title=None, kind = 'cpu', save_fig=True):
 
     assert kind in ['cpu', 'gpu', 'cpu-gpu']
     if kind in ['cpu', 'gpu']:
@@ -127,7 +127,7 @@ def plot(time_list, kind = 'cpu', save_fig=True):
     pltset()
     colorlist = [i['color'] for i in list(plt.rcParams['axes.prop_cycle'])]
     fig = plt.figure(figsize=(cm2inch(10), cm2inch(8)), dpi=150)
-    plt.subplots_adjust(left=0.16, bottom=0.165, top=0.95, right=0.95)
+    plt.subplots_adjust(left=0.16, bottom=0.165, top=0.92, right=0.95)
     N_max = time_list[-1, 0]
     exp_max = int(np.log10(N_max))
     x, y = time_list[:, 0]/10**exp_max, time_list[:, 1]
@@ -150,8 +150,9 @@ def plot(time_list, kind = 'cpu', save_fig=True):
         y1 = time_list[:, 2]
         popt = np.polyfit(x, y1, 1)
         plt.plot(x, np.poly1d(popt)(x), c=colorlist[1])
-        plt.plot(x, y1, 'o', label = f'mdapy-cpu, k={popt[0]:.1f}')
-
+        plt.plot(x, y1, 'o', label = f'mdapy, k={popt[0]:.1f}')
+    if title is not None:
+        plt.title(title, fontsize=12)
     plt.legend()
     plt.xlabel('Number of atoms ($\mathregular{10^%d}$)' % exp_max)
     plt.ylabel('Time (s)')
@@ -163,6 +164,6 @@ if __name__ == '__main__':
     mp.init('cpu')
     import matplotlib
     matplotlib.use('Agg')
-    time_list = test_entropy_average_time(ave_num=3, check_ovito=True)
-    #time_list = np.loadtxt('time_list_cpu_entropy.txt')
-    plot(time_list, kind = 'cpu', save_fig=True)
+    #time_list = test_entropy_average_time(ave_num=3, check_ovito=True)
+    time_list = np.loadtxt('time_list_cpu_entropy.txt')
+    plot(time_list, title='Calculate atomic entropy', kind = 'cpu', save_fig=True)

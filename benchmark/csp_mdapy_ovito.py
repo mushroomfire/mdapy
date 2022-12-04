@@ -1,52 +1,60 @@
 import mdapy as mp
-import freud
 import numpy as np
 from time import time
 import matplotlib.pyplot as plt
 from mdapy.plot.pltset import pltset, cm2inch
 from mdapy.tools.timer import timer
 
+from ovito.data import CutoffNeighborFinder, DataCollection, Particles, SimulationCell
+from ovito.io import import_file
+from ovito.pipeline import Pipeline, StaticSource
+from ovito.modifiers import CentroSymmetryModifier
 
+    
 @timer
-def test_neighbor_average_time(ave_num=3, kind='cpu', check=False, cal_freud=True):
-    assert kind in ['cpu', 'gpu']
+def test_csp_average_time(ave_num=3, check_ovito=False):
     time_list = []
     print('*'*30)
-    for num in [5, 10, 15, 20, 25, 30, 50, 70, 100, 150, 200, 250]:  
+    for num in [5, 10, 15, 20, 25, 30, 50, 70, 100, 150, 200, 250]:
         FCC = mp.LatticeMaker(3.615, 'FCC', num, 100, 100)
         FCC.compute()
         print(f'Build {FCC.N} atoms...')
-        freud_t, mdapy_t = 0., 0.
+        ovito_t, mdapy_t = 0., 0.
         for turn in range(ave_num):
-            if cal_freud:
-                print(f'Running {turn} turn in freud...')
-                box = freud.box.Box(Lx=FCC.box[0, 1], Ly=FCC.box[1, 1], Lz=FCC.box[2, 1])
-                shift_pos = FCC.pos-np.min(FCC.pos, axis=0) - (FCC.box[:,1])/2
-                start = time()
-                aq = freud.locality.AABBQuery(box, shift_pos)
-                nlist = aq.query(shift_pos, {'r_max': 5., 'exclude_ii': True}).toNeighborList()
-                end = time()
-                freud_t += (end-start)
+            print(f'Running {turn} turn in ovito...')
+            particles = Particles()
+            data = DataCollection()
+            data.objects.append(particles)
+            particles.create_property('Position', data=FCC.pos)
+            cell = SimulationCell(pbc = (True, True, True))
+            cell[...] = [[FCC.box[0, 1],0,0,FCC.box[0, 0]],
+                         [0,FCC.box[1, 1],0,FCC.box[1, 0]],
+                         [0,0,FCC.box[2, 1],FCC.box[2, 0]]]
+            data.objects.append(cell)
+            pipeline = Pipeline(source = StaticSource(data = data))
+
+            start = time()
+            pipeline.modifiers.append(CentroSymmetryModifier())
+            data = pipeline.compute()
+            end = time()
+            ovito_t += (end-start)
             
             print(f'Running {turn} turn in mdapy...')
             start = time()
-            neigh = mp.Neighbor(FCC.pos, FCC.box, 5., max_neigh=50)
-            neigh.compute()
+            system = mp.System(box=FCC.box, pos=FCC.pos)
+            system.cal_centro_symmetry_parameter()
             end = time()
             mdapy_t += (end-start)
-            if check:
+            if check_ovito:
                 print(f'Checking results of {turn} turn...')
-                assert (nlist.neighbor_counts==neigh.neighbor_number).all()
-        time_list.append([FCC.N, freud_t/ave_num, mdapy_t/ave_num])
+                assert np.allclose(system.data['csp'].values, np.array(data.particles['Centrosymmetry'][...]))
+            
+        time_list.append([FCC.N, ovito_t/ave_num, mdapy_t/ave_num])
         print('*'*30)
     time_list = np.array(time_list)
-    if kind == 'cpu':
-        np.savetxt('time_list_cpu_neighbor.txt', time_list, delimiter=' ', header='N freud mdapy')
-    elif kind == 'gpu':
-        np.savetxt('time_list_gpu_neighbor.txt', time_list, delimiter=' ', header='N freud mdapy')
+    np.savetxt('time_list_cpu_csp.txt', time_list, delimiter=' ', header='N ovito mdapy')
     return time_list
-
-
+    
 def plot(time_list, title=None, kind = 'cpu', save_fig=True):
 
     assert kind in ['cpu', 'gpu', 'cpu-gpu']
@@ -64,7 +72,7 @@ def plot(time_list, title=None, kind = 'cpu', save_fig=True):
     
     popt = np.polyfit(x, y, 1)
     plt.plot(x, np.poly1d(popt)(x), c=colorlist[0])
-    plt.plot(x, y, 'o', label = f'freud, k={popt[0]:.1f}')
+    plt.plot(x, y, 'o', label = f'ovito, k={popt[0]:.1f}')
 
     if kind == 'cpu-gpu':
         y1 = time_list[:, 2]
@@ -81,28 +89,19 @@ def plot(time_list, title=None, kind = 'cpu', save_fig=True):
         popt = np.polyfit(x, y1, 1)
         plt.plot(x, np.poly1d(popt)(x), c=colorlist[1])
         plt.plot(x, y1, 'o', label = f'mdapy, k={popt[0]:.1f}')
-        
     if title is not None:
         plt.title(title, fontsize=12)
     plt.legend()
     plt.xlabel('Number of atoms ($\mathregular{10^%d}$)' % exp_max)
     plt.ylabel('Time (s)')
     if save_fig:
-        plt.savefig('buildneighbor_mdapy_freud.png', dpi=300, bbox_inches='tight', transparent=True)
+        plt.savefig('csp_mdapy_ovito.png', dpi=300, bbox_inches='tight', transparent=True)
     plt.show()
-
-
+    
 if __name__ == '__main__':
-
-    #mp.init('gpu', device_memory_GB=14.0)
-    #time_list_gpu = test_neighbor_average_time(2, kind='gpu', cal_freud=False)
     mp.init('cpu')
-    time_list_cpu = test_neighbor_average_time(3, kind='cpu')
-    #time_list_cpu = np.loadtxt('time_list_cpu_neighbor.txt')
-    #time_list_gpu = np.loadtxt('time_list_gpu.txt')
-    #time_list = np.zeros((time_list_cpu.shape[0], 4))
-    #time_list[:, 0] = time_list_cpu[:, 0]
-    #time_list[:, 1] = time_list_cpu[:, 1]
-    #time_list[:, 2] = time_list_cpu[:, 2]
-    #time_list[:, 3] = time_list_gpu[:, 2]
-    plot(time_list_cpu, title='Build neighbor', kind = 'cpu', save_fig=True)
+    import matplotlib
+    matplotlib.use('Agg')
+    time_list = test_entropy_average_time(ave_num=3, check_ovito=True)
+    #time_list = np.loadtxt('time_list_cpu_csp.txt')
+    plot(time_list, title='Calculate CSP', kind = 'cpu', save_fig=True)

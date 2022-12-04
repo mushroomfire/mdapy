@@ -12,10 +12,10 @@
 - scipy
 - pandas
 - pyfftw
-- matplotlib
 - tqdm
+- matplotlib
 - SciencePlots
-- pytorch (optional) for fast sort
+  
 ## 安装
 0. 下载源码
     ```bash

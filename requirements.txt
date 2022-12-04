@@ -3,6 +3,6 @@ numpy
 scipy
 pyfftw
 pandas
-matplotlib
 tqdm
+matplotlib
 SciencePlots

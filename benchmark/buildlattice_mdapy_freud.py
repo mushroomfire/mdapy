@@ -8,7 +8,7 @@ from mdapy.tools.timer import timer
 
 
 @timer
-def test_neighbor_average_time(ave_num=3, kind="cpu", check=False):
+def test_lattice_average_time(ave_num=3, kind="cpu", check=False):
     assert kind in ["cpu", "gpu"]
     time_list = []
     print("*" * 30)
@@ -32,9 +32,10 @@ def test_neighbor_average_time(ave_num=3, kind="cpu", check=False):
             if check:
                 print(f"Checking results of {turn} turn...")
                 shift_pos = points + box.L / 2
-                assert np.allclose(
-                    np.min(shift_pos, axis=0), np.min(FCC.pos, axis=0)
-                ) & np.allclose(np.max(shift_pos, axis=0), np.max(FCC.pos, axis=0))
+                print(np.min(shift_pos, axis=0), np.min(FCC.pos, axis=0))
+                print(np.max(shift_pos, axis=0), np.max(FCC.pos, axis=0))
+                assert np.abs(np.min(shift_pos, axis=0) - np.min(FCC.pos, axis=0)).max() < 1e-3
+                assert np.abs(np.max(shift_pos, axis=0) - np.max(FCC.pos, axis=0)).max() < 1e-3
         time_list.append(
             [np.product(n_repeats) * 4, freud_t / ave_num, mdapy_t / ave_num]
         )
@@ -57,7 +58,7 @@ def test_neighbor_average_time(ave_num=3, kind="cpu", check=False):
     return time_list
 
 
-def plot(time_list, kind="cpu", save_fig=True):
+def plot(time_list, title=None, kind="cpu", save_fig=True):
 
     assert kind in ["cpu", "gpu", "cpu-gpu"]
     if kind in ["cpu", "gpu"]:
@@ -67,14 +68,14 @@ def plot(time_list, kind="cpu", save_fig=True):
     pltset()
     colorlist = [i["color"] for i in list(plt.rcParams["axes.prop_cycle"])]
     fig = plt.figure(figsize=(cm2inch(10), cm2inch(8)), dpi=150)
-    plt.subplots_adjust(left=0.16, bottom=0.165, top=0.95, right=0.95)
+    plt.subplots_adjust(left=0.16, bottom=0.165, top=0.92, right=0.95)
     N_max = time_list[-1, 0]
     exp_max = int(np.log10(N_max))
     x, y = time_list[:, 0] / 10**exp_max, time_list[:, 1]
 
     popt = np.polyfit(x, y, 1)
     plt.plot(x, np.poly1d(popt)(x), c=colorlist[0])
-    plt.plot(x, y, "o", label=f"ovito, k={popt[0]:.1f}")
+    plt.plot(x, y, "o", label=f"freud, k={popt[0]:.1f}")
 
     if kind == "cpu-gpu":
         y1 = time_list[:, 2]
@@ -90,8 +91,10 @@ def plot(time_list, kind="cpu", save_fig=True):
         y1 = time_list[:, 2]
         popt = np.polyfit(x, y1, 1)
         plt.plot(x, np.poly1d(popt)(x), c=colorlist[1])
-        plt.plot(x, y1, "o", label=f"mdapy-cpu, k={popt[0]:.1f}")
-
+        plt.plot(x, y1, "o", label=f"mdapy, k={popt[0]:.1f}")
+    
+    if title is not None:
+        plt.title(title, fontsize=12)
     plt.legend()
     plt.xlabel("Number of atoms ($\mathregular{10^%d}$)" % exp_max)
     plt.ylabel("Time (s)")
@@ -108,6 +111,6 @@ def plot(time_list, kind="cpu", save_fig=True):
 if __name__ == "__main__":
 
     mp.init("cpu")
-    # time_list_cpu = test_neighbor_average_time(ave_num=3, kind='cpu', check=False)
+    #time_list = test_lattice_average_time(ave_num=3, kind='cpu', check=False)
     time_list = np.loadtxt("time_list_cpu_build_lattice.txt")
-    plot(time_list, kind="cpu", save_fig=True)
+    plot(time_list, title='Build lattice structure', kind="cpu", save_fig=True)

@@ -397,9 +397,16 @@ class System:
         N : int, 大于0的偶数,对于FCC结构是12,对于BCC是8. default : 12
         """
 
-        CentroSymmetryPara = CentroSymmetryParameter(
-            N, self.pos, self.box, self.boundary
-        )
+        try:
+            CentroSymmetryPara = CentroSymmetryParameter(
+                N, self.pos, self.box, self.boundary
+            )
+        except Exception:
+            pos = self.pos.copy()  # a deep copy can be modified
+            _wrap_pos(pos, self.box, np.array(self.boundary))
+            CentroSymmetryPara = CentroSymmetryParameter(
+                N, pos, self.box, self.boundary
+            )
         CentroSymmetryPara.compute()
         self.data["csp"] = CentroSymmetryPara.csp
 

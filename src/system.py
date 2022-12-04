@@ -401,13 +401,14 @@ class System:
             CentroSymmetryPara = CentroSymmetryParameter(
                 N, self.pos, self.box, self.boundary
             )
+            CentroSymmetryPara.compute()
         except Exception:
             pos = self.pos.copy()  # a deep copy can be modified
             _wrap_pos(pos, self.box, np.array(self.boundary))
             CentroSymmetryPara = CentroSymmetryParameter(
                 N, pos, self.box, self.boundary
             )
-        CentroSymmetryPara.compute()
+            CentroSymmetryPara.compute()
         self.data["csp"] = CentroSymmetryPara.csp
 
     def cal_atomic_entropy(

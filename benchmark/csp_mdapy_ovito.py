@@ -102,6 +102,6 @@ if __name__ == '__main__':
     mp.init('cpu')
     import matplotlib
     matplotlib.use('Agg')
-    time_list = test_entropy_average_time(ave_num=3, check_ovito=True)
+    time_list = test_csp_average_time(ave_num=3, check_ovito=True)
     #time_list = np.loadtxt('time_list_cpu_csp.txt')
     plot(time_list, title='Calculate CSP', kind = 'cpu', save_fig=True)

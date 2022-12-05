@@ -74,7 +74,7 @@ poly = mp.CreatePolycrystalline(box, seednumber, metal_lattice_constant, metal_l
 poly.compute() # generate a polycrystalline with graphene boundary
 ```
 ![](example/polycrystalline.png)
-1. Calculate the EOS curve
+4. Calculate the EOS curve
 ```python
 import numpy as np
 import matplotlib.pyplot as plt

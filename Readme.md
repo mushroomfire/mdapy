@@ -73,8 +73,8 @@ add_graphene=True # use graphen as grain boundary
 poly = mp.CreatePolycrystalline(box, seednumber, metal_lattice_constant, metal_lattice_type, randomseed=randomseed, add_graphene=add_graphene, gra_overlap_dis=1.2)
 poly.compute() # generate a polycrystalline with graphene boundary
 ```
-![](example/polycrystalline.png)
-4. Calculate the EOS curve
+![](example/polycrystalline.png){:width="50%"}
+1. Calculate the EOS curve
 ```python
 import numpy as np
 import matplotlib.pyplot as plt

@@ -1,7 +1,7 @@
 # mdapy : Molecular Dynamics Analysis with Python
 ## Overview
 ## Dependencies
-- python (>=3.7 and < 3.11, other versions maybe work but not be tested!)
+- python (>=3.7 and < 3.11)
 - taichi
 - numpy
 - scipy
@@ -17,7 +17,7 @@
    cd mdapy 
    ```
 2. Create a virtual environment (highly recommoned using anaconda)
-   - It help you to avoid the potential conflicts of dependencies in your current python environment and is very suitable for beginners. If you have installed all dependencies listed above, you can just skip this step!
+   - It helps you to avoid the potential conflicts of dependencies in your current python environment and is very suitable for beginners. If you have installed all dependencies listed above, you can just skip this step!
    ```bash
    conda create -n mda 
    conda create mda

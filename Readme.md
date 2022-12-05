@@ -50,7 +50,7 @@ system.write_dump() # save results to a new dump file
 import mdapy as mp
 mp.init('cpu')
 
-dump_list = [f'melt.{i}.dump' for i in range(100)] # obtain all the dump filename in a list
+dump_list = [f'melt.{i}.dump' for i in range(100)] # obtain all the dump filenames in a list
 MS = mp.MultiSystem(dump_list) # read all the dump file to generate a MultiSystem class
 MS.cal_mean_squared_displacement() # calculate the mean squared displacement
 MS.MSD.plot() # one can plot the MSD per frame

@@ -1,3 +1,6 @@
+# Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
+# This file is from the mdapy project, released under the BSD 3-Clause License.
+
 import taichi as ti
 import numpy as np
 from mdapy.plot.pltset import pltset, cm2inch
@@ -7,7 +10,7 @@ import matplotlib.pyplot as plt
 @ti.data_oriented
 class LindemannParameter:
     """
-    Need high memory!!!
+    Need large memory!!!
     Using Welford method to updated the varience and mean of rij
     see
     1. https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford

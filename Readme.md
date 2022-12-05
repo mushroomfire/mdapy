@@ -58,7 +58,21 @@ MS.cal_lindemann_parameter() # calculate the lindemann index
 MS.Lindemann.plot() # one can plot lindemann index per frame
 MS.write_dumps() # save results to a serials of dump files
 ```
-3. Create polycrystalline with graphene boundary
+3. Calculate WCP matrix in high-entropy alloy
+```python
+import mdapy as mp
+
+mp.init(arch="cpu")
+
+system = mp.System("CoCuFeNiPd-4M.data")
+system.cal_warren_cowley_parameter()  # calculate WCP parameter
+fig, ax = system.WarrenCowleyParameter.plot(
+    elements_list=["Co", "Cu", "Fe", "Ni", "Pd"]
+)  # plot WCP matrix
+fig.savefig("WCP.png", dpi=300, bbox_inches="tight", transparent=True)
+```
+![](example/WCP.png)
+4. Create polycrystalline with graphene boundary
 ```python
 import mdapy as mp
 import numpy as np
@@ -74,7 +88,7 @@ poly = mp.CreatePolycrystalline(box, seednumber, metal_lattice_constant, metal_l
 poly.compute() # generate a polycrystalline with graphene boundary
 ```
 ![](example/polycrystalline.png)
-4. Calculate the EOS curve
+5. Calculate the EOS curve
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
@@ -82,35 +96,37 @@ import mdapy as mp
 from mdapy.plot.pltset import pltset, cm2inch
 mp.init('cpu')
 
-def get_enegy_lattice(lattice_constant, potential):
-    x, y, z = 3, 3, 3
-    FCC = mp.LatticeMaker(lattice_constant, "FCC", x, y, z) # build a FCC lattice
-    FCC.compute()
-    neigh = mp.Neighbor(FCC.pos, FCC.box, potential.rc, max_neigh=150) # build neighbor list
+def get_enegy_lattice(potential, pos, box):
+    
+    neigh = mp.Neighbor(pos, box, potential.rc, max_neigh=150) # build neighbor list
     neigh.compute()
     Cal = mp.Calculator(
             potential,
             ["Al"],
-            np.ones(FCC.pos.shape[0], dtype=np.int32),
+            np.ones(pos.shape[0], dtype=np.int32),
             neigh.verlet_list,
             neigh.distance_list,
             neigh.neighbor_number,
-            FCC.pos,
+            pos,
             [1, 1, 1],
-            FCC.box,
+            box,
         ) # calculate the energy
     Cal.compute()
     return Cal.energy.mean()
 
 eos = []
 lattice_constant = 4.05
+x, y, z = 3, 3, 3
+FCC = mp.LatticeMaker(lattice_constant, "FCC", x, y, z) # build a FCC lattice
+FCC.compute()
 potential = mp.EAM("Al_DFT.eam.alloy") # read a eam.alloy potential file
 for scale in np.arange(0.9, 1.15, 0.01): # loop to get different energies
-    energy = get_enegy_lattice(lattice_constant*scale, potential)
+    energy = get_enegy_lattice(potential, FCC.pos*scale, FCC.box*scale)
     eos.append([scale*lattice_constant, energy])
 eos = np.array(eos)
 
 # plot the eos results
+pltset()
 fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
 plt.subplots_adjust(bottom=0.18, top=0.92, left=0.2, right=0.98)
 plt.plot(eos[:,0], eos[:,1], 'o-')
@@ -122,6 +138,7 @@ plt.xlim(eos[0,0]-0.2, eos[-1,0]+0.2)
 plt.xlabel("a ($\mathregular{\AA}$)")
 plt.ylabel(r"PE (eV/atom)")
 ax = plt.gca()
+plt.savefig('eos.png', dpi=300, bbox_inches='tight', transparent=True)
 plt.show()
 ```
 ![](example/eos.png)

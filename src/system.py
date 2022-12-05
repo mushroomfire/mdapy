@@ -173,8 +173,8 @@ class System:
             [i.split() for i in file[row + 2 : row + 2 + self.N]], dtype=float
         )[:, : len(self.col_names)]
         row += 2 + self.N
+        if_vel = False
         if row < len(file):
-            if_vel = False
             for line in file[row:]:
                 content = line.split()
                 if len(content):

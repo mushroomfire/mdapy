@@ -26,7 +26,6 @@
     ```bash
     conda create -n mda python==3.8.0 # 版本3.7以上都可以
     conda activate mda
-    # 目前可以自主选择是否安装pytorch
     # conda install ipykernel # 如果使用jupyter的话可以把该虚拟环境激活
     # python -m ipykernel install --name mda # jupyter 激活虚拟环境
     ```
@@ -51,7 +50,11 @@ mp.init("cpu")
 2. 64位的GPU操作需要使用N卡的,3080是可以的,其他的卡我也没有
 3. 目前kdtree使用scipy版本，确实比较慢
 
-## 更新记录 
+## 更新记录
+## 2022-12-5
+1. 增加BSD-3协议
+2. 增加英文版本readme
+ 
 ## 2022-12-4
 1. 修改了csp计算的排序和求和算法,去除了pytorch的依赖
 ## 2022-12-3

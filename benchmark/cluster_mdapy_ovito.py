@@ -15,7 +15,7 @@ from ovito.modifiers import ClusterAnalysisModifier
 def test_cluster_average_time(ave_num=3, check_ovito=False):
     time_list = []
     print('*'*30)
-    for num in [5, 10, 15, 20, 25, 30, 50, 70, 100, 150, 200, 250]:
+    for num in [5, 25, 45, 65, 85, 105, 125]:
         FCC = mp.LatticeMaker(3.615, 'FCC', num, 100, 100)
         FCC.compute()
         print(f'Build {FCC.N} atoms...')
@@ -88,7 +88,7 @@ def plot(time_list, title=None, kind = 'cpu', save_fig=True):
         y1 = time_list[:, 2]
         popt = np.polyfit(x, y1, 1)
         plt.plot(x, np.poly1d(popt)(x), c=colorlist[1])
-        plt.plot(x, y1, 'o', label = f'mdapy, k={popt[0]:.1f}')
+        plt.plot(x, y1, 'o', label = f'mdapy-{kind}, k={popt[0]:.1f}')
     if title is not None:
         plt.title(title, fontsize=12)
     plt.legend()
@@ -96,12 +96,12 @@ def plot(time_list, title=None, kind = 'cpu', save_fig=True):
     plt.ylabel('Time (s)')
     if save_fig:
         plt.savefig('cluster_mdapy_ovito.png', dpi=300, bbox_inches='tight', transparent=True)
-    plt.show()
+    #plt.show()
     
 if __name__ == '__main__':
     mp.init('cpu')
     import matplotlib
     matplotlib.use('Agg')
     time_list = test_cluster_average_time(ave_num=3, check_ovito=True)
-    #time_list = np.loadtxt('time_list_cpu_cluster.txt')
+    time_list = np.loadtxt('time_list_cpu_cluster.txt')
     plot(time_list, title='Cluster analysis', kind = 'cpu', save_fig=True)

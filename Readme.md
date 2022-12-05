@@ -127,26 +127,23 @@ plt.show()
 ![](example/eos.png)
 ## Benchmark
 - All python script files can be found in mdapy/benchmark folder.
-- CPU: Intel(R) Xeon(R) CPU E5-2630 v4 @ 2.20GHz
-- Memory: 64 Gb
+- CPU: Intel(R) Xeon(R) CPU E5-2678 v3 @ 2.50GHz 24 core
+- GPU: GeForce RTX 3080
 - mdapy version: 0.7.2, freud version: 2.12.0, ovito version: 3.7.11
 1. Build neighbor list.
 ![](benchmark/buildneighbor_mdapy_freud.png)
-1. Build FCC lattice structure.
+2. Build FCC lattice structure.
 ![](benchmark/build_lattice_mdapy_freud.png)
-1. Calculate radial distribution functions
-![](benchmark/rdf_mdapy_freud.png)
-1. Calculate atomic entropy.
+3. Calculate atomic entropy.
 ![](benchmark/entropy_mdapy_ovito.png)
-1. Cluster analysis.
+4. Cluster analysis.
 ![](benchmark/cluster_mdapy_ovito.png)
-
 ## Citations
 If you use **mdapy** to process data for publication, please use this citation:
-```latex
+```
 @article{mdapy2022,
     title = {mdapy: A simple and fast analysis software for molecular dynamics simulations with python},
-    author = {Yong-Chao Wu, XiaoYa Chang, Jian-Li Shao},
+    author = {Yong-Chao Wu, Jian-Li Shao},
     journal = {},
     volume = {},
     pages = {},

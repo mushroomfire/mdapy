@@ -146,7 +146,7 @@ class System:
         if mass_row > 0:
             self.amass = np.array(
                 [
-                    i.split()
+                    i.split()[:2]
                     for i in self.data_head[mass_row + 1 : mass_row + 1 + self.Ntype]
                 ],
                 dtype=float,

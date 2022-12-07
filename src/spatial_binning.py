@@ -216,9 +216,9 @@ class SpatialBinning:
             X, Y = np.meshgrid(
                 self.coor[self.direction[0]], self.coor[self.direction[1]]
             )
-            h = plt.contourf(X, Y, data, cmap="GnBu")
-            plt.ylabel(f"Coordination {self.direction[0]}")
-            plt.xlabel(f"Coordination {self.direction[1]}")
+            h = plt.contourf(X, Y, data.T, cmap="GnBu")
+            plt.xlabel(f"Coordination {self.direction[0]}")
+            plt.ylabel(f"Coordination {self.direction[1]}")
 
             ax = plt.gca()
             bar = fig.colorbar(h, ax=ax)
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     from time import time
 
     ti.init(ti.cpu)
-    FCC = LatticeMaker(4.05, "FCC", 50, 50, 50)
+    FCC = LatticeMaker(4.05, "FCC", 100, 50, 50)
     FCC.compute()
     start = time()
     binning = SpatialBinning(

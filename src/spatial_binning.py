@@ -148,8 +148,10 @@ class SpatialBinning:
         nbin = np.ceil(pos_delta[xyz2dim[self.direction]] / self.wbin).astype(int)
         self.res = np.zeros((*nbin, self.vbin.shape[1] + 1))
         self.coor = {}
-        for i in self.direction:
-            self.coor[i] = np.arange(self.res.shape[xyz2dim[i][0]]) * self.wbin
+        for i in range(len(self.direction)):
+            self.coor[self.direction[i]] = (
+                np.arange(self.res.shape[i]) * self.wbin + pos_min[i] + 0.001
+            )
 
         if self.operation == "sum":
             self.Binning_sum(
@@ -187,7 +189,7 @@ class SpatialBinning:
             self.compute()
 
         fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
-        plt.subplots_adjust(bottom=0.18, top=0.97, left=0.15, right=0.95)
+        plt.subplots_adjust(bottom=0.18, top=0.97, left=0.15, right=0.92)
         if len(self.direction) == 1:
             if label_list is not None:
                 for i in range(1, self.res.shape[1]):
@@ -244,7 +246,7 @@ if __name__ == "__main__":
     start = time()
     binning = SpatialBinning(
         FCC.pos,
-        "xy",
+        "xz",
         FCC.pos[:, 0],
         operation="mean",
     )

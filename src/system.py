@@ -1,6 +1,7 @@
 # Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
+import taichi as ti
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -22,8 +23,72 @@ from .voronoi_analysis import VoronoiAnalysis
 from .mean_squared_displacement import MeanSquaredDisplacement
 from .lindemann_parameter import LindemannParameter
 
-from .unwrap_positions import unwrap_pos
-from .unwrap_positions import wrap_pos as _wrap_pos
+from .spatial_binning import SpatialBinning
+
+
+@ti.kernel
+def _wrap_pos(
+    pos: ti.types.ndarray(), box: ti.types.ndarray(), boundary: ti.types.ndarray()
+):
+    boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
+    for i in range(pos.shape[0]):
+        for j in ti.static(range(3)):
+            if boundary[j] == 1:
+                while pos[i, j] < box[j, 0]:
+                    pos[i, j] += boxlength[j]
+                while pos[i, j] >= box[j, 1]:
+                    pos[i, j] -= boxlength[j]
+
+
+@ti.kernel
+def _unwrap_pos_with_image_p(
+    pos_list: ti.types.ndarray(element_dim=1),
+    box: ti.types.ndarray(),
+    boundary: ti.types.vector(3, dtype=int),
+    image_p: ti.types.ndarray(element_dim=1),
+):
+    boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
+    for i, j in pos_list:
+        for k in ti.static(range(3)):
+            if boundary[k] == 1:
+                pos_list[i, j][k] += image_p[i - 1, j][k] * boxlength[k]
+
+
+@ti.kernel
+def _unwrap_pos_without_image_p(
+    pos_list: ti.types.ndarray(element_dim=1),
+    box: ti.types.ndarray(),
+    boundary: ti.types.vector(3, dtype=int),
+    image_p: ti.types.ndarray(element_dim=1),
+):
+
+    boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
+    ti.loop_config(serialize=True)
+    for frame in range(1, pos_list.shape[0]):
+        for i in range(pos_list.shape[1]):
+            for j in ti.static(range(3)):
+                if boundary[j] == 1:
+                    pos_list[frame, i][j] += image_p[frame - 1, i][j] * boxlength[j]
+            delta = pos_list[frame, i] - pos_list[frame - 1, i]
+            for j in ti.static(range(3)):
+                if boundary[j] == 1:
+                    if delta[j] >= boxlength[j] / 2:
+                        image_p[frame, i][j] -= 1.0
+                        pos_list[frame, i][j] -= boxlength[j]
+                    elif delta[j] <= -boxlength[j] / 2:
+                        image_p[frame, i][j] += 1.0
+                        pos_list[frame, i][j] += boxlength[j]
+
+
+def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
+
+    if image_p is not None:
+        boundary = ti.Vector(boundary)
+        _unwrap_pos_with_image_p(pos_list, box, boundary, image_p)
+    else:
+        boundary = ti.Vector(boundary)
+        image_p = np.zeros_like(pos_list)
+        _unwrap_pos_without_image_p(pos_list, box, boundary, image_p)
 
 
 class System:
@@ -567,6 +632,26 @@ class System:
         self.data["voronoi_number"] = voro.neighbor_number
         self.data["cavity_radius"] = voro.cavity_radius
 
+    def spatial_binning(self, direction, vbin, wbin, operation="mean"):
+        """
+        input:
+        pos: (Nx3) ndarray, spatial coordination and the order is x, y and z
+        direction : str, binning direction
+        1. 'x', 'y', 'z', One-dimensional binning
+        2. 'xy', 'xz', 'yz', Two-dimensional binning
+        3. 'xyz', Three-dimensional binning
+        vbin: str or list
+        wbin: float, width of each bin, default is 5.
+        operation: str, ['mean', 'sum', 'min', 'max'], default is 'mean'
+        output:
+        Binning class
+        res: ndarray
+        coor: dict
+        """
+        vbin = self.data[vbin].values
+        self.Binning = SpatialBinning(self.pos, direction, vbin, wbin, operation)
+        self.Binning.compute()
+
 
 class MultiSystem(list):
 
@@ -594,10 +679,10 @@ class MultiSystem(list):
         if self.unwrap:
             if self.image_p is None:
                 try:
-                    self.image_p = [system.data[["ix", "iy", "iz"]] for syetem in self]
+                    self.image_p = [system.data[["ix", "iy", "iz"]] for system in self]
                 except Exception:
                     pass
-            unwrap_pos(self.pos_list, self[0].box, self[0].boundary, self.image_p)
+            _unwrap_pos(self.pos_list, self[0].box, self[0].boundary, self.image_p)
             for i, system in enumerate(self):
                 system.data[["x", "y", "z"]] = self.pos_list[i]
 

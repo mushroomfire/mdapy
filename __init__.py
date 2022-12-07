@@ -1,5 +1,5 @@
 __author__ = "HerrWu"
-__version__ = "0.7.2"
+__version__ = "0.7.3"
 
 from .src.lattice_maker import LatticeMaker
 from .src.system import System, MultiSystem
@@ -24,6 +24,8 @@ from .src.voronoi_analysis import VoronoiAnalysis
 from .src.create_polycrystalline import CreatePolycrystalline
 from .src.mean_squared_displacement import MeanSquaredDisplacement
 from .src.lindemann_parameter import LindemannParameter
+
+from .src.spatial_binning import SpatialBinning
 
 import taichi.profiler as profiler
 

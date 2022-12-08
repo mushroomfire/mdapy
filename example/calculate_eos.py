@@ -14,7 +14,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import mdapy as mp
-from mdapy.plot.pltset import pltset, cm2inch
+from mdapy import pltset, cm2inch
 
 mp.init("cpu")
 

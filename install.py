@@ -25,7 +25,7 @@ for i in sys.path:
         path = i + "/mdapy"
         if os.path.exists(path):
             shutil.rmtree(path, onerror=readonly_handler)
-        shutil.copytree("../mdapy", path)
+        shutil.copytree("./mdapy", path)
         os.chdir(i + "/mdapy")
         print("Checking dependency package...")
         os.system("python check.py")

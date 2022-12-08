@@ -22,7 +22,6 @@ class Neighbor:
 
         exclude (bool, optional): whether include atom self, True means no including. Defaults to True.
 
-    Returns:
         verlet_list (np.ndarray): (Nparticles x max_neigh) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
 
         distance_list (np.ndarray): (Nparticles x max_neigh) distance_list[i, j] means distance between i and j atom.

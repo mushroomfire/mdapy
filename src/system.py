@@ -30,6 +30,13 @@ from .spatial_binning import SpatialBinning
 def _wrap_pos(
     pos: ti.types.ndarray(), box: ti.types.ndarray(), boundary: ti.types.ndarray()
 ):
+    """This function is used to wrap particle positions into box considering periodic boundarys.
+
+    Args:
+        pos (ti.types.ndarray): (Nx3) particle position.
+        box (ti.types.ndarray): (3x2) system box.
+        boundary (ti.types.ndarray): boundary conditions, 1 is periodic and 0 is free boundary.
+    """
     boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
     for i in range(pos.shape[0]):
         for j in ti.static(range(3)):
@@ -47,6 +54,15 @@ def _unwrap_pos_with_image_p(
     boundary: ti.types.vector(3, dtype=int),
     image_p: ti.types.ndarray(element_dim=1),
 ):
+    """This function is used to unwrap particle positions
+     into box considering periodic boundarys with help of image_p.
+
+    Args:
+        pos_list (ti.types.ndarray): (Nframes x Nparticles x 3) particle position.
+        box (ti.types.ndarray): (3x2) system box.
+        boundary (ti.types.vector): boundary conditions, 1 is periodic and 0 is free boundary.
+        image_p (ti.types.ndarray): (Nframes x Nparticles x 3) image_p, such as 1 indicates plus a box distance and -2 means substract two box distances.
+    """
     boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
     for i, j in pos_list:
         for k in ti.static(range(3)):
@@ -61,7 +77,15 @@ def _unwrap_pos_without_image_p(
     boundary: ti.types.vector(3, dtype=int),
     image_p: ti.types.ndarray(element_dim=1),
 ):
+    """This function is used to unwrap particle positions
+     into box considering periodic boundarys without help of image_p.
 
+    Args:
+        pos_list (ti.types.ndarray): (Nframes x Nparticles x 3) particle position.
+        box (ti.types.ndarray): (3x2) system box.
+        boundary (ti.types.vector): boundary conditions, 1 is periodic and 0 is free boundary.
+        image_p (ti.types.ndarray): (Nframes x Nparticles x 3) fill with 0.
+    """
     boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
     ti.loop_config(serialize=True)
     for frame in range(1, pos_list.shape[0]):
@@ -81,7 +105,15 @@ def _unwrap_pos_without_image_p(
 
 
 def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
+    """This function is used to unwrap particle positions
+     into box considering periodic boundarys.
 
+    Args:
+        pos_list (np.ndarray): (Nframes x Nparticles x 3) particle position.
+        box (np.ndarray): (3x2) system box.
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+        image_p (_type_, optional): (Nframes x Nparticles x 3) image_p, such as 1 indicates plus a box distance and -2 means substract two box distances. Defaults to None.
+    """
     if image_p is not None:
         boundary = ti.Vector(boundary)
         _unwrap_pos_with_image_p(pos_list, box, boundary, image_p)
@@ -93,10 +125,41 @@ def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
 
 class System:
     """
-    生成一个System类,支持读取的文件格式为LAMMPS中的.dump或者.data格式,以此为基础来进行后处理,可以将结果保存为.data或者.dump格式。
-    仅仅支持正交盒子，data文件支持atomic和charge格式，不能有bond信息。
-    输入参数:
-    filename : dump文件名称
+    This is the core class in mdapy project. One can see the usage at below.
+
+        Args:
+            filename (str, optional): DATA/DUMP filename. Defaults to None.
+            format (str, optional): 'data' or 'dump', One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename.. Defaults to None.
+            box (np.ndarray, optional): (3 x 2) system box. Defaults to None.
+            pos (np.ndarray, optional): (Nparticles x 3) particles positions. Defaults to None.
+            boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+            vel (np.ndarray, optional): (Nparticles x 3) particles velocities. Defaults to None.
+            type_list (np.ndarray, optional): (Nparticles,) type per particles. Defaults to 1.
+            amass (np.ndarray, optional): (Ntypes,) atomic mass. Defaults to None.
+            q (np.ndarray, optional): (Nparticles,) atomic charge. Defaults to 0.0.
+            data_format (str, optional): 'atomic' or 'charge', format for DATA file. Defaults to None.
+            sorted_id (bool, optional): Whether sort system data by the particle id. Defaults to False.
+        Examples:
+            There are two ways to create a System class.
+            The first is directly reading from a DUMP/DATA file generated from LAMMPS.
+            >>> import mdapy as mp
+            >>> mp.init('cpu')
+            >>> system = mp.System('example.dump')
+            One can also create a System by giving pos, box manually.
+            >>> import numpy as np
+            >>> box = np.array([[0, 100], [0, 100], [0, 100.]])
+            >>> pos = np.random.random((100, 3))*100
+            >>> system = mp.System(box=box, pos=pos)
+            Then one can access almost all the analysis method in mdapy with uniform API.
+            >>> system.cal_atomic_entropy()
+            One can check the calculation results:
+            >>> system.data
+            And easily save it into disk with DUMP/DATA format.
+            >>> system.write_dump()
+        Note:
+        mdapy now only support rectangle box and triclinic system will raise and error.
+        mdapy only support the simplest DATA format, atomic and charge, which means like bond information will cause an error.
+        We recommend you use DUMP as input file format or directly give particle positions and box.
     """
 
     def __init__(

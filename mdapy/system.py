@@ -771,7 +771,9 @@ class MultiSystem(list):
         if self.unwrap:
             if self.image_p is None:
                 try:
-                    self.image_p = [system.data[["ix", "iy", "iz"]] for system in self]
+                    self.image_p = np.array(
+                        [system.data[["ix", "iy", "iz"]].values for system in self]
+                    )
                 except Exception:
                     pass
             _unwrap_pos(self.pos_list, self[0].box, self[0].boundary, self.image_p)

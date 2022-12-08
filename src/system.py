@@ -151,7 +151,7 @@ class System:
             >>> pos = np.random.random((100, 3))*100
             >>> system = mp.System(box=box, pos=pos)
             Then one can access almost all the analysis method in mdapy with uniform API.
-            >>> system.cal_atomic_entropy()
+            >>> system.cal_atomic_entropy() # calculate the atomic entropy
             One can check the calculation results:
             >>> system.data
             And easily save it into disk with DUMP/DATA format.

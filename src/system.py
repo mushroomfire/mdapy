@@ -129,7 +129,7 @@ class System:
 
         Args:
             filename (str, optional): DATA/DUMP filename. Defaults to None.
-            format (str, optional): 'data' or 'dump', One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename.. Defaults to None.
+            format (str, optional): 'data' or 'dump', One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
             box (np.ndarray, optional): (3 x 2) system box. Defaults to None.
             pos (np.ndarray, optional): (Nparticles x 3) particles positions. Defaults to None.
             boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].

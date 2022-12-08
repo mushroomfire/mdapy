@@ -34,7 +34,9 @@ def _wrap_pos(
 
     Args:
         pos (ti.types.ndarray): (Nx3) particle position.
+
         box (ti.types.ndarray): (3x2) system box.
+
         boundary (ti.types.ndarray): boundary conditions, 1 is periodic and 0 is free boundary.
     """
     boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
@@ -59,8 +61,11 @@ def _unwrap_pos_with_image_p(
 
     Args:
         pos_list (ti.types.ndarray): (Nframes x Nparticles x 3) particle position.
+
         box (ti.types.ndarray): (3x2) system box.
+
         boundary (ti.types.vector): boundary conditions, 1 is periodic and 0 is free boundary.
+
         image_p (ti.types.ndarray): (Nframes x Nparticles x 3) image_p, such as 1 indicates plus a box distance and -2 means substract two box distances.
     """
     boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
@@ -82,8 +87,11 @@ def _unwrap_pos_without_image_p(
 
     Args:
         pos_list (ti.types.ndarray): (Nframes x Nparticles x 3) particle position.
+
         box (ti.types.ndarray): (3x2) system box.
+
         boundary (ti.types.vector): boundary conditions, 1 is periodic and 0 is free boundary.
+
         image_p (ti.types.ndarray): (Nframes x Nparticles x 3) fill with 0.
     """
     boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
@@ -110,8 +118,11 @@ def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
 
     Args:
         pos_list (np.ndarray): (Nframes x Nparticles x 3) particle position.
+
         box (np.ndarray): (3x2) system box.
+
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+
         image_p (_type_, optional): (Nframes x Nparticles x 3) image_p, such as 1 indicates plus a box distance and -2 means substract two box distances. Defaults to None.
     """
     if image_p is not None:
@@ -749,6 +760,7 @@ class MultiSystem(list):
 
     """
     Generate a list of systems.
+
     input:
     filename_list : a list containing filename, such as ['melt.0.dump', 'melt.1.dump']
     unwrap : bool, make atom positions do not wrap into box due to periotic boundary

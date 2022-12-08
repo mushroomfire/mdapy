@@ -100,6 +100,9 @@ Calculate WCP matrix in high-entropy alloy
       fig, ax = system.WarrenCowleyParameter.plot(elements_list=["Co", "Cu", "Fe", "Ni", "Pd"])  # plot WCP matrix
       fig.savefig("WCP.png", dpi=300, bbox_inches="tight", transparent=True)
 
+.. image:: https://s3.pterclub.com/images/2022/12/08/WCP.png
+   :align: center
+
 Create polycrystalline with graphene boundary
 
    .. code-block:: python

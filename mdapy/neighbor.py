@@ -7,25 +7,27 @@ import numpy as np
 
 @ti.data_oriented
 class Neighbor:
+    """This module is used to cerate neighbor of atoms. Using linked-cell list method make fast neighbor finding possible.
 
-    """
-    描述: 用于生成体系的领域列表,也就是距离小于截断半径的原子集合.
-    输入参数:
-    required:
-    pos : (Nx3)的array,代表原子位置坐标,N为原子数目.
-    box : (3x2)的array,目前代码仅支持3维正交盒子,第一列为盒子最小值,第二列为盒子最大值.
-    rc : float,邻域的截断半径距离,单位为\AA.
-    optional:
-    boundary : (3x1)的list,表示模拟体系的边界条件,其中1代表周期性边界,0代表自由边界.
-            default : [1, 1, 1]
-    max_neigh : int,每一个原子的最大邻域原子数目,如果rc过大的话,需要提高这个数值,但是需要更大的内存分配.
-            default : 50
-    exclude : bool,代表邻域列表中是否包含自身.
-            default : True (不包含自身)
-    输出参数:
-    verlet_list : (N,max_neigh) array,其中每一行代表第i个原子的邻域,其中的非负数为j原子索引.
-    distance_list : (N,max_neigh) array,对应的ij原子的距离.
-    neighbor_number : (N) array, i原子的邻域数目.
+    Args:
+        pos (np.ndarray): (Nparticles x 3) particles positions.
+
+        box (np.ndarray): (3 x 2) system box, must be rectangle.
+
+        rc (float): cutoff ditances.
+
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+
+        max_neigh (int, optional): a given maximum neighbor number per atoms. Defaults to 80.
+
+        exclude (bool, optional): whether include atom self, True means no including. Defaults to True.
+
+    Returns:
+        verlet_list (np.ndarray): (Nparticles x max_neigh) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+
+        distance_list (np.ndarray): (Nparticles x max_neigh) distance_list[i, j] means distance between i and j atom.
+
+        neighbor_number (np.ndarray): (Nparticles) neighbor atoms number.
     """
 
     def __init__(self, pos, box, rc, boundary=[1, 1, 1], max_neigh=80, exclude=True):
@@ -33,7 +35,7 @@ class Neighbor:
         self.pos = pos
         self.box = ti.Vector.field(box.shape[1], dtype=ti.f64, shape=(box.shape[0]))
         self.box.from_numpy(box)
-        # 定义几个常数
+        # define several const variables
         self.exclude = exclude
         self.N = self.pos.shape[0]
         self.rc = rc
@@ -47,10 +49,10 @@ class Neighbor:
                     for i in range(box.shape[0])
                 ]
             ]
-        )  # 使小体系也可以计算
+        )  # calculate small system
         self.boundary = ti.Vector(boundary)
         self.max_neigh = max_neigh
-        # 邻域计算
+        # neighbor related array
         self.verlet_list = np.zeros((self.N, self.max_neigh), dtype=np.int32) - 1
         self.distance_list = (
             np.zeros((self.N, self.max_neigh), dtype=np.float64) + self.rc + 1.0
@@ -64,7 +66,7 @@ class Neighbor:
         atom_cell_list: ti.types.ndarray(),
         cell_id_list: ti.types.ndarray(),
     ):
-        ti.loop_config(serialize=True)  # 需要串行
+        ti.loop_config(serialize=True)  # serial for loop
         for i in range(self.N):
             r_i = ti.Vector([pos[i, 0], pos[i, 1], pos[i, 2]])
             icel, jcel, kcel = ti.floor(
@@ -110,7 +112,7 @@ class Neighbor:
             icel, jcel, kcel = ti.floor(
                 (pos[i] - self.origin) / self.bin_length, dtype=ti.i32
             )
-            iicel, jjcel, kkcel = icel, jcel, kcel  # 这一段用于确保所处正确的cell
+            iicel, jjcel, kkcel = icel, jcel, kcel  # make sure correct cell
             if icel < 0:
                 iicel = 0
             elif icel > self.ncel[0] - 1:

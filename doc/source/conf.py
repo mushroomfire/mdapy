@@ -21,8 +21,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
-    "recommonmark",
-    "sphinx_markdown_tables",
+    "myst_parser",
 ]
 
 templates_path = ["_templates"]

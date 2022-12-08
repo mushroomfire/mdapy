@@ -1,7 +1,4 @@
-
-
-Welcome to mdapy's documentation!
-=================================
+.. include:: ../../README.rst
 
 .. toctree::
    :maxdepth: 2

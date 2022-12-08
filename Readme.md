@@ -146,7 +146,7 @@ plt.show()
 - All python script files can be found in mdapy/benchmark folder.
 - CPU: Intel(R) Xeon(R) CPU E5-2678 v3 @ 2.50GHz 24 core
 - GPU: GeForce RTX 3080
-- mdapy version: 0.7.3, freud version: 2.12.0, ovito version: 3.7.11
+- mdapy version: 0.7.4, freud version: 2.12.0, ovito version: 3.7.11
 1. Build neighbor list.
 ![](benchmark/buildneighbor_mdapy_freud.png)
 2. Build FCC lattice structure.

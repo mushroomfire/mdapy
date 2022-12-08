@@ -16,8 +16,7 @@ class AtomicTemperature:
     verlet_list : (N, max_neigh) array, 系统的邻域列表,使用Neighbor类来建立.
     atype_list: (N)的array,每一个原子的原子类型.一般可以使用system.data['type'].values
     optional:
-    units : str, 采用LAMMPS中的单位,支持metal和real单位,具体见https://docs.lammps.org/units.html.
-            default : 'metal'
+    units : str, 采用LAMMPS中的单位,支持metal和real单位,具体见https://docs.lammps.org/units.html. default : 'metal'
 
     输出参数:
     T : (N) array,每一个原子的平均温度.

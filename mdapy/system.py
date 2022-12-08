@@ -124,42 +124,71 @@ def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
 
 
 class System:
-    """
-    This is the core class in mdapy project. One can see the usage at below.
+    """This is the core class in mdapy project. One can see the usage at below.
 
-        Args:
-            filename (str, optional): DATA/DUMP filename. Defaults to None.
-            format (str, optional): 'data' or 'dump', One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
-            box (np.ndarray, optional): (3 x 2) system box. Defaults to None.
-            pos (np.ndarray, optional): (Nparticles x 3) particles positions. Defaults to None.
-            boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
-            vel (np.ndarray, optional): (Nparticles x 3) particles velocities. Defaults to None.
-            type_list (np.ndarray, optional): (Nparticles,) type per particles. Defaults to 1.
-            amass (np.ndarray, optional): (Ntypes,) atomic mass. Defaults to None.
-            q (np.ndarray, optional): (Nparticles,) atomic charge. Defaults to 0.0.
-            data_format (str, optional): 'atomic' or 'charge', format for DATA file. Defaults to None.
-            sorted_id (bool, optional): Whether sort system data by the particle id. Defaults to False.
-        Examples:
-            There are two ways to create a System class.
-            The first is directly reading from a DUMP/DATA file generated from LAMMPS.
-            >>> import mdapy as mp
-            >>> mp.init('cpu')
-            >>> system = mp.System('example.dump')
-            One can also create a System by giving pos, box manually.
-            >>> import numpy as np
-            >>> box = np.array([[0, 100], [0, 100], [0, 100.]])
-            >>> pos = np.random.random((100, 3))*100
-            >>> system = mp.System(box=box, pos=pos)
-            Then one can access almost all the analysis method in mdapy with uniform API.
-            >>> system.cal_atomic_entropy() # calculate the atomic entropy
-            One can check the calculation results:
-            >>> system.data
-            And easily save it into disk with DUMP/DATA format.
-            >>> system.write_dump()
-        Note:
-        mdapy now only support rectangle box and triclinic system will raise and error.
-        mdapy only support the simplest DATA format, atomic and charge, which means like bond information will cause an error.
-        We recommend you use DUMP as input file format or directly give particle positions and box.
+    Args:
+        filename (str, optional): DATA/DUMP filename. Defaults to None.
+
+        format (str, optional): 'data' or 'dump', One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
+
+        box (np.ndarray, optional): (3 x 2) system box. Defaults to None.
+
+        pos (np.ndarray, optional): (Nparticles x 3) particles positions. Defaults to None.
+
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+
+        vel (np.ndarray, optional): (Nparticles x 3) particles velocities. Defaults to None.
+
+        type_list (np.ndarray, optional): (Nparticles,) type per particles. Defaults to 1.
+
+        amass (np.ndarray, optional): (Ntypes,) atomic mass. Defaults to None.
+
+        q (np.ndarray, optional): (Nparticles,) atomic charge. Defaults to 0.0.
+
+        data_format (str, optional): 'atomic' or 'charge', format for DATA file. Defaults to None.
+
+        sorted_id (bool, optional): Whether sort system data by the particle id. Defaults to False.
+
+    Examples:
+
+        There are two ways to create a System class.
+        The first is directly reading from a DUMP/DATA file generated from LAMMPS.
+
+        >>> import mdapy as mp
+
+        >>> mp.init('cpu')
+
+        >>> system = mp.System('example.dump')
+
+        One can also create a System by giving pos, box manually.
+
+        >>> import numpy as np
+
+        >>> box = np.array([[0, 100], [0, 100], [0, 100.]])
+
+        >>> pos = np.random.random((100, 3))*100
+
+        >>> system = mp.System(box=box, pos=pos)
+
+        Then one can access almost all the analysis method in mdapy with uniform API.
+
+        >>> system.cal_atomic_entropy() # calculate the atomic entropy
+
+        One can check the calculation results:
+
+        >>> system.data
+
+        And easily save it into disk with DUMP/DATA format.
+
+        >>> system.write_dump()
+
+    Note:
+
+    1. mdapy now only support rectangle box and triclinic system will raise and error.
+
+    2. mdapy only support the simplest DATA format, atomic and charge, which means like bond information will cause an error.
+
+    3. We recommend you use DUMP as input file format or directly give particle positions and box.
     """
 
     def __init__(

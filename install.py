@@ -19,9 +19,9 @@ for i in sys.path:
         os.path.split(os.path.split(i)[0])[1] in ["lib", "Lib", py_version]
         and os.path.split(i)[1] == "site-packages"
     ):
-        print("-" * 50)
+        print("-" * 80)
         print(f"Installing [mdapy] package to path: {i}")
-        print("-" * 50)
+        print("-" * 80)
         path = i + "/mdapy"
         if os.path.exists(path):
             shutil.rmtree(path, onerror=readonly_handler)

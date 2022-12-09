@@ -118,9 +118,9 @@ class CreatePolycrystalline:
             if self.metal_lattice_type == "FCC":
                 self.metal_overlap_dis = self.metal_latttice_constant / 2**0.5
             elif self.metal_lattice_type == "BCC":
-                self.metal_overlap_dis = self.metal_latttice_constant / (0.5 * 3**0.5)
-            else:
-                self.metal_overlap_dis = 2.0
+                self.metal_overlap_dis = self.metal_latttice_constant * (0.5 * 3**0.5)
+            elif self.metal_lattice_type == "HCP":
+                self.metal_overlap_dis = self.metal_latttice_constant
         else:
             self.metal_overlap_dis = metal_overlap_dis
         self.add_graphene = add_graphene
@@ -449,8 +449,9 @@ class CreatePolycrystalline:
 
         for i in range(pos.shape[0]):
             for j in range(neighbor_number[i]):
-                if distance_list[i, j] <= metal_overlap_dis and verlet_list[i, j] > i:
-                    delete_id[j] = 0
+                j_index = verlet_list[i, j]
+                if distance_list[i, j] <= metal_overlap_dis and j_index > i:
+                    delete_id[j_index] = 0
 
     def write_dump(self, pos):
         with open(self.output_name, "w") as op:
@@ -517,8 +518,8 @@ class CreatePolycrystalline:
             neigh = Neighbor(
                 new_pos[:, 2:5],
                 self.box,
-                rc=self.metal_gra_overlap_dis + 0.1,
-                max_neigh=80,
+                rc=self.metal_overlap_dis + 0.1,
+                max_neigh=40,
             )
             neigh.compute()
             delete_id = np.ones(new_pos.shape[0], dtype=int)

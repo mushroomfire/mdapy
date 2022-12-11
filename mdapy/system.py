@@ -583,14 +583,21 @@ class System:
         self.data["csp"] = CentroSymmetryPara.csp
 
     def cal_atomic_entropy(
-        self, rc=5.0, sigma=0.25, use_local_density=False, max_neigh=80
+        self,
+        rc=5.0,
+        sigma=0.2,
+        use_local_density=False,
+        compute_average=False,
+        average_rc=None,
+        max_neigh=80,
     ):
 
         """
         sigma : 用来表征插值的精细程度类似于,不能太大, 默认使用0.25或者0.2就行.
         use_local_density : 是否使用局部密度,俺也不咋懂.
         """
-
+        if average_rc is not None:
+            assert average_rc <= rc, "Average rc should not be larger than rc!"
         if not self.if_neigh:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
         elif self.rc < rc:
@@ -598,13 +605,18 @@ class System:
 
         AtomicEntro = AtomicEntropy(
             self.vol,
+            self.verlet_list,
             self.distance_list,
             rc,
             sigma,
             use_local_density,
+            compute_average,
+            average_rc,
         )
         AtomicEntro.compute()
         self.data["atomic_entropy"] = AtomicEntro.entropy
+        if compute_average:
+            self.data["ave_atomic_entropy"] = AtomicEntro.entropy_average
 
     def cal_pair_distribution(self, rc=5.0, nbin=200, max_neigh=80):
         if not self.if_neigh:

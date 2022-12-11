@@ -7,12 +7,29 @@ import numpy as np
 
 @ti.data_oriented
 class AtomicEntropy:
-    def __init__(self, vol, distance_list, rc, sigma=0.25, use_local_density=False):
+    def __init__(
+        self,
+        vol,
+        verlet_list,
+        distance_list,
+        rc=5.0,
+        sigma=0.2,
+        use_local_density=False,
+        compute_average=False,
+        average_rc=None,
+    ):
         self.vol = vol
+        self.verlet_list = verlet_list
         self.distance_list = distance_list
         self.rc = rc
         self.sigma = sigma
         self.use_local_density = use_local_density
+        self.compute_average = compute_average
+        if average_rc is None:
+            self.average_rc = rc
+        else:
+            assert average_rc <= rc, "Average rc should not be larger than rc!"
+            self.average_rc = average_rc
 
     @ti.kernel
     def _compute(
@@ -64,6 +81,27 @@ class AtomicEntropy:
 
             entropy[i] = -ti.math.pi * density * sum_intergrad
 
+    @ti.kernel
+    def _compute_average(
+        self,
+        entropy: ti.types.ndarray(),
+        verlet_list: ti.types.ndarray(),
+        distance_list: ti.types.ndarray(),
+        entropy_average: ti.types.ndarray(),
+    ):
+
+        for i in range(verlet_list.shape[0]):
+            neigh_num = 1
+            entropy_average[i] = entropy[i]
+            for j in range(verlet_list.shape[1]):
+                if verlet_list[i, j] > -1:
+                    if distance_list[i, j] <= self.average_rc:
+                        neigh_num += 1
+                        entropy_average[i] += entropy[verlet_list[i, j]]
+                else:
+                    break
+            entropy_average[i] /= neigh_num
+
     def compute(self):
 
         self.N = self.distance_list.shape[0]
@@ -77,6 +115,11 @@ class AtomicEntropy:
         )
         prefactor[0] = prefactor[1]
         self._compute(self.distance_list, rlist, rlist_sq, prefactor, self.entropy)
+        if self.compute_average:
+            self.entropy_average = np.zeros(self.N)
+            self._compute_average(
+                self.entropy, self.verlet_list, self.distance_list, self.entropy_average
+            )
 
 
 if __name__ == "__main__":
@@ -88,7 +131,7 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 50, 100, 100
+    x, y, z = 100, 100, 50
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
@@ -102,10 +145,19 @@ if __name__ == "__main__":
     start = time()
     vol = np.product(FCC.box[:, 1] - FCC.box[:, 0])
     Entropy = AtomicEntropy(
-        vol, neigh.distance_list, neigh.rc, sigma=0.25, use_local_density=False
+        vol,
+        neigh.verlet_list,
+        neigh.distance_list,
+        neigh.rc,
+        sigma=0.2,
+        use_local_density=False,
+        compute_average=True,
+        average_rc=4.0,
     )
     Entropy.compute()
     entropy = Entropy.entropy
+    entropy_ave = Entropy.entropy_average
     end = time()
     print(f"Cal entropy time: {end-start} s.")
     print(entropy)
+    print(entropy_ave)

@@ -111,7 +111,9 @@ def test_entropy_average_time(
             neigh = mp.Neighbor(FCC.pos, FCC.box, cutoff, max_neigh=50)
             neigh.compute()
             vol = np.product(FCC.box[:, 1])
-            entropy = mp.AtomicEntropy(vol, neigh.distance_list, cutoff, sigma=sigma)
+            entropy = mp.AtomicEntropy(
+                vol, neigh.verlet_list, neigh.distance_list, cutoff, sigma=sigma
+            )
             entropy.compute()
             end = time()
             mdapy_t += end - start

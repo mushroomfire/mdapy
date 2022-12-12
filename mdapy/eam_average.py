@@ -11,7 +11,7 @@ class EAMAverage(EAM):
     用于生成平均是EAM势函数
     input:
     filename : filename of eam.alloy
-    concentration : [0.25, 0.25]
+    concentration : [0.5, 0.5]
     """
 
     def __init__(self, filename, concentration, output_name=None):
@@ -21,8 +21,8 @@ class EAMAverage(EAM):
         assert (
             len(self.concentration) == self.Nelements
         ), f"Number of concentration list should be equal to {self.Nelements}."
-        assert (
-            np.sum(concentration) == 1
+        assert np.isclose(
+            np.sum(concentration), 1
         ), "Concentration summation should be equal to 1."
 
         (

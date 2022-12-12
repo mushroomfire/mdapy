@@ -7,10 +7,10 @@ The **mdapy** is a python library providing a set of simple, flexible and powerf
 - numpy
 - scipy
 - pandas
-- pyfftw
 - tqdm
 - matplotlib
 - SciencePlots
+- pyfftw (Optional, for fast FFT)
 ## Install
 1. Download source code
    ```bash

@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 class LindemannParameter:
     """
     Need large memory!!!
-    Using Welford method to updated the varience and mean of rij
+    Using Welford method to updated the variance and mean of rij
     see
     1. https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford
     2. https://zhuanlan.zhihu.com/p/408474710

@@ -1,7 +1,6 @@
 taichi==1.2.0
 numpy
 scipy
-pyfftw
 pandas
 tqdm
 matplotlib

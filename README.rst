@@ -15,10 +15,10 @@ Dependencies
 * numpy
 * scipy
 * pandas
-* pyfftw
 * tqdm
 * matplotlib
 * SciencePlots
+* pyfftw (Optional, for fast FFT)
 
 Install
 ------------

@@ -39,15 +39,15 @@ class AtomicEntropy:
         rlist_sq: ti.types.ndarray(),
         prefactor: ti.types.ndarray(),
         entropy: ti.types.ndarray(),
+        g_m: ti.types.ndarray(),
+        intergrad: ti.types.ndarray(),
     ):
         for i in range(self.N):
-            g_m = ti.Vector([ti.float64(0.0)] * self.nbins)
-            intergrad = ti.Vector([ti.float64(0.0)] * self.nbins)
             n_neigh = 0
-            for j in ti.static(range(self.nbins)):
+            for j in range(self.nbins):
                 for k in range(distance_list.shape[1]):
                     if distance_list[i, k] <= self.rc:
-                        g_m[j] += (
+                        g_m[i, j] += (
                             ti.exp(
                                 -((rlist[j] - distance_list[i, k]) ** 2)
                                 / (2.0 * self.sigma**2)
@@ -61,21 +61,22 @@ class AtomicEntropy:
             if self.use_local_density:
                 local_vol = 4 / 3 * ti.math.pi * self.rc**3
                 density = n_neigh / local_vol
-                g_m *= self.global_density / density
+                for j in range(self.nbins):
+                    g_m[i, j] *= self.global_density / density
             else:
                 density = self.global_density
 
-            for j in ti.static(range(self.nbins)):
-                if g_m[j] >= 1e-10:
-                    intergrad[j] = (g_m[j] * ti.log(g_m[j]) - g_m[j] + 1.0) * rlist_sq[
-                        j
-                    ]
+            for j in range(self.nbins):
+                if g_m[i, j] >= 1e-10:
+                    intergrad[i, j] = (
+                        g_m[i, j] * ti.log(g_m[i, j]) - g_m[i, j] + 1.0
+                    ) * rlist_sq[j]
                 else:
-                    intergrad[j] = rlist_sq[j]
+                    intergrad[i, j] = rlist_sq[j]
 
             sum_intergrad = ti.float64(0.0)
-            for j in ti.static(range(self.nbins - 1)):
-                sum_intergrad += (intergrad[j] + intergrad[j + 1]) * (
+            for j in range(self.nbins - 1):
+                sum_intergrad += (intergrad[i, j] + intergrad[i, j + 1]) * (
                     rlist[j + 1] - rlist[j]
                 )
 
@@ -108,13 +109,17 @@ class AtomicEntropy:
         self.entropy = np.zeros(self.N)
         self.global_density = self.N / self.vol
         self.nbins = int(np.floor(self.rc / self.sigma) + 1)
+        g_m = np.zeros((self.N, self.nbins))
+        intergrad = np.zeros_like(g_m)
         rlist = np.linspace(0.0, self.rc, self.nbins)
         rlist_sq = rlist**2
         prefactor = rlist_sq * (
             4 * np.pi * self.global_density * np.sqrt(2 * np.pi * self.sigma**2)
         )
         prefactor[0] = prefactor[1]
-        self._compute(self.distance_list, rlist, rlist_sq, prefactor, self.entropy)
+        self._compute(
+            self.distance_list, rlist, rlist_sq, prefactor, self.entropy, g_m, intergrad
+        )
         if self.compute_average:
             self.entropy_average = np.zeros(self.N)
             self._compute_average(

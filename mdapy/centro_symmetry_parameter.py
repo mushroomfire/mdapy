@@ -8,14 +8,44 @@ from .kdtree import kdtree
 
 @ti.data_oriented
 class CentroSymmetryParameter:
+    """This class is used to compute the CentroSymmetry Parameter (CSP), 
+    which is heluful to recgonize the structure in lattice, such as FCC and BCC.
+    The  CSP is given by: 
+    
+    .. math:: 
+        
+        p_{\mathrm{CSP}} = \sum_{i=1}^{N/2}{|\mathbf{r}_i + \mathbf{r}_{i+N/2}|^2}, 
+
+    where :math:`r_i` and :math:`r_{i+N/2}` are two neighbor vectors from the central atom to a pair of opposite neighbor atoms. 
+    For lattice sites in an ideal centrosymmetric crystal, the contributions of all neighbor pairs in this 
+    formula will cancel, and the resulting CSP value will hence be zero. Atomic sites within a defective crystal region, 
+    in contrast, typically have a disturbed, non-centrosymmetric neighborhood. In this case the CSP becomes positive. 
+    Using an appropriate threshold, to allow for small perturbations due to thermal displacements and elastic strains, 
+    the CSP can be used as an order parameter to filter out atoms that are part of crystal defects.
+    This parameter specifies the number of nearest neighbors that should be taken into account when computing 
+    the centrosymmetry value for an atom. This parameter value should match the ideal number of nearest neighbors 
+    in the crystal lattice at hand (12 in fcc crystals; 8 in bcc). More generally, it must be a positive, even integer.
+
+    Args:
+        N (int): Neighbor number.
+
+        pos (np.ndarray): (:math:`N_p * 3`) particles positions.
+
+        box (np.ndarray): (:math:`3 * 2`) system box. 
+
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+
+        csp (np.ndarray) : (:math:`N_p`) CSP per atoms.
+    """
     def __init__(self, N, pos, box, boundary=[1,1,1]):
+        
         self.pos = pos
         self.box = box
         self.N = N
         self.boundary = np.array(boundary)
     
     @ti.func
-    def pbc(self, rij, box:ti.types.ndarray(), boundary:ti.types.ndarray()):
+    def _pbc(self, rij, box:ti.types.ndarray(), boundary:ti.types.ndarray()):
         for i in ti.static(range(3)):
             if boundary[i] == 1:
                 box_length = box[i, 1] - box[i, 0]
@@ -45,8 +75,8 @@ class CentroSymmetryParameter:
             k = loop_index[index, 1]
             rij = pos[verlet_list[i, j]] - pos[i]
             rik = pos[verlet_list[i, k]] - pos[i]
-            rij = self.pbc(rij, box, boundary)
-            rik = self.pbc(rik, box, boundary)
+            rij = self._pbc(rij, box, boundary)
+            rik = self._pbc(rik, box, boundary)
             pair[i, index] = (rij+rik).norm_sqr()
 
         # Select sort
@@ -61,20 +91,15 @@ class CentroSymmetryParameter:
                 csp[i] += pair[i, j]
         
     def compute(self):
-        # from time import time
+        """Do the real CSP calculation.
+        """
         assert self.pos.shape[0] > self.N 
-        # start = time()
         kdt = kdtree(self.pos, self.box, self.boundary)
         _, verlet_list = kdt.query_nearest_neighbors(self.N)
-        # end = time()
-        # print(f'kdtree time: {end-start} s.')
-        # start = time()
         loop_index = np.zeros((int(self.N*(self.N-1)/2), 2), dtype=int)
         pair = np.zeros((self.pos.shape[0], int(self.N*(self.N-1)/2)))
         self.csp = np.zeros(self.pos.shape[0])
         self._get_csp(pair, self.pos, verlet_list, self.box, self.boundary, loop_index, self.csp)
-        # end = time()
-        # print(f'csp time: {end-start} s.')
 
 
 if __name__ == '__main__':

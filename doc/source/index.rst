@@ -30,4 +30,4 @@ Dependencies
    :maxdepth: 1
    :caption: Mdapy Python API
 
-   mdapy
+   modules

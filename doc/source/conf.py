@@ -31,8 +31,8 @@ templates_path = ["_templates"]
 # html_theme = 'sphinxdoc'
 html_theme = "sphinx_rtd_theme"
 
-html_logo = "images/mdapy_logo.png"
-html_favicon = "images/mdapy_favico.ico"
+html_logo = "images/mdapy_logo_white.png"
+html_favicon = "images/mdapy_favico_white.ico"
 
 # html_theme_path = []
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]

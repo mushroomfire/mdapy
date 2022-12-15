@@ -9,6 +9,7 @@ project = "mdapy"
 copyright = "2022, mushroomfire"
 author = "mushroomfire"
 release = "0.7.4"
+version = "0.7.4"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -24,10 +25,14 @@ extensions = [
     "myst_parser",
 ]
 
+
 templates_path = ["_templates"]
 
 # html_theme = 'sphinxdoc'
 html_theme = "sphinx_rtd_theme"
+
+html_logo = "images/mdapy_logo.png"
+html_favicon = "images/mdapy_favico.ico"
 
 # html_theme_path = []
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]

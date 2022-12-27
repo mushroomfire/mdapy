@@ -94,12 +94,19 @@ class CentroSymmetryParameter:
         """Do the real CSP calculation.
         """
         assert self.pos.shape[0] > self.N 
+        #import time
+        #start = time.time()
         kdt = kdtree(self.pos, self.box, self.boundary)
         _, verlet_list = kdt.query_nearest_neighbors(self.N)
+        #end = time.time()
+        #print(f'kdtree time: {end-start} s.')
+        #start = time.time()
         loop_index = np.zeros((int(self.N*(self.N-1)/2), 2), dtype=int)
         pair = np.zeros((self.pos.shape[0], int(self.N*(self.N-1)/2)))
         self.csp = np.zeros(self.pos.shape[0])
         self._get_csp(pair, self.pos, verlet_list, self.box, self.boundary, loop_index, self.csp)
+        #end = time.time()
+        #print(f'csp time: {end-start} s.')
 
 
 if __name__ == '__main__':
@@ -109,7 +116,7 @@ if __name__ == '__main__':
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 100
+    x, y, z = 250, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
@@ -121,5 +128,6 @@ if __name__ == '__main__':
     csp = CSP.csp 
     end = time()
     print(f"Cal csp time: {end-start} s.")
+    print(csp[:10])
     print(csp.min(), csp.max(), csp.mean())
         

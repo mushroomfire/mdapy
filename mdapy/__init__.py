@@ -36,16 +36,21 @@ def init(
     device_memory_GB=2.0,
     kernel_profiler=False,
 ):
-    """
-    arch : str, "cpu" or "gpu", default is "cpu".
-    cpu_max_num_threads : int, number of parallel cpu threads, -1 use all theards in your computer.
-    debug : bool, default is False.
-    offline_cache : bool, defults is False.
-    packed: bool, data layout.
-    device_memory_GB : float, memory for GPU only, default is 2 GB.
-    kernel_profiler : bool, default is False.
-    """
+    """Initilize the mdapy calculation. One should call this function after import mdapy.
+    This is a simple wrapper function of `taichi.init() <https://docs.taichi-lang.org/api/taichi/#taichi.init>`_.
 
+    Args:
+        arch (str, optional): run on CPU or GPU. Defaults to "cpu", choose in 'cpu' and 'gpu'.
+        cpu_max_num_threads (int, optional): maximum CPU core to use in calculation. Defaults to -1, indicating using all available CPU cores.
+        offline_cache (bool, optional): whether save compile cache. Defaults to False.
+        packed (bool, optional): memory allocate mode. Defaults to False.
+        debug (bool, optional): whether use debug mode. Defaults to False.
+        device_memory_GB (float, optional): available GPU memory. Defaults to 2.0 GB.
+        kernel_profiler (bool, optional): whether enable profiler. Defaults to False.
+
+    Raises:
+        ValueError: Unrecognized arch, please choose in ['cpu', 'gpu'].
+    """
     import taichi as ti
 
     if arch == "cpu":

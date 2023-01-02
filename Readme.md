@@ -1,8 +1,10 @@
 ![](logo.png)
 
 # *mdapy* : Molecular Dynamics Analysis with Python
+
 ## Overview
 The **mdapy** is a python library providing a set of simple, flexible and powerful tools to analyze the atomic trajectories generated from Molecular Dynamics (MD) simulations. Benefit by the [TaiChi](https://github.com/taichi-dev/taichi) project, we can effectively accelerate the pure python code close to those written in C++. Moreover, **mdapy** is highly parallelized to make full use of resources of both multicore CPU and GPU. **mdapy** can directly handle the DUMP and DATA format in [LAMMPS](https://www.lammps.org/). All data in **mdapy** is stored in NDARRAY format in [Numpy](https://numpy.org/), enabling integration with the scientific ecosystem in python and corporation with other post-progressing codes, such as [OVITO](https://www.ovito.org/) and [freud](https://github.com/glotzerlab/freud). 
+
 ## Dependencies
 - python (3.7-3.10)
 - taichi==1.2.0
@@ -13,6 +15,7 @@ The **mdapy** is a python library providing a set of simple, flexible and powerf
 - matplotlib
 - SciencePlots
 - pyfftw (Optional, for fast FFT)
+
 ## Install
 1. Download source code
    ```bash

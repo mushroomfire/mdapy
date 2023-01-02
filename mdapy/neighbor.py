@@ -10,9 +10,9 @@ class Neighbor:
     """This module is used to cerate neighbor of atoms. Using linked-cell list method make fast neighbor finding possible.
 
     Args:
-        pos (np.ndarray): (Nparticles x 3) particles positions.
+        pos (np.ndarray): (:math:`N_p * 3`) particles positions.
 
-        box (np.ndarray): (3 x 2) system box, must be rectangle.
+        box (np.ndarray): (:math:`3 * 2`) system box, must be rectangle.
 
         rc (float): cutoff ditances.
 
@@ -22,11 +22,11 @@ class Neighbor:
 
         exclude (bool, optional): whether include atom self, True means no including. Defaults to True.
 
-        verlet_list (np.ndarray): (Nparticles x max_neigh) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+        verlet_list (np.ndarray): (:math:`N_p * max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
 
-        distance_list (np.ndarray): (Nparticles x max_neigh) distance_list[i, j] means distance between i and j atom.
+        distance_list (np.ndarray): (:math:`N_p * max\_neigh`) distance_list[i, j] means distance between i and j atom.
 
-        neighbor_number (np.ndarray): (Nparticles) neighbor atoms number.
+        neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
     """
 
     def __init__(self, pos, box, rc, boundary=[1, 1, 1], max_neigh=80, exclude=True):

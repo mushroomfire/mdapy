@@ -17,14 +17,20 @@ class CentroSymmetryParameter:
         p_{\mathrm{CSP}} = \sum_{i=1}^{N/2}{|\mathbf{r}_i + \mathbf{r}_{i+N/2}|^2}, 
 
     where :math:`r_i` and :math:`r_{i+N/2}` are two neighbor vectors from the central atom to a pair of opposite neighbor atoms. 
-    For lattice sites in an ideal centrosymmetric crystal, the contributions of all neighbor pairs in this 
-    formula will cancel, and the resulting CSP value will hence be zero. Atomic sites within a defective crystal region, 
-    in contrast, typically have a disturbed, non-centrosymmetric neighborhood. In this case the CSP becomes positive. 
-    Using an appropriate threshold, to allow for small perturbations due to thermal displacements and elastic strains, 
-    the CSP can be used as an order parameter to filter out atoms that are part of crystal defects.
-    This parameter specifies the number of nearest neighbors that should be taken into account when computing 
-    the centrosymmetry value for an atom. This parameter value should match the ideal number of nearest neighbors 
-    in the crystal lattice at hand (12 in fcc crystals; 8 in bcc). More generally, it must be a positive, even integer.
+    For ideal centrosymmetric crystal, the contributions of all neighbor pairs will be zero. Atomic sites within a defective 
+    crystal region, in contrast, typically have a positive CSP value.
+    
+    This parameter :math:`N` indicates the number of nearest neighbors that should be taken into account when computing 
+    the centrosymmetry value for an atom. Generally, it should be a positive, even integer. Note that larger number decreases the
+    calculation speed. For FCC is 12 and BCC is 8.
+
+    .. note:: If you use this module in publication, you should also cite the original paper.
+      `Kelchner C L, Plimpton S J, Hamilton J C. Dislocation nucleation and defect 
+      structure during surface indentation[J]. Physical review B, 1998, 58(17): 11085. <https://journals.aps.org/prb/abstract/10.1103/PhysRevB.58.11085>`_.
+
+    .. hint:: The CSP is calculated by the `same algorithm as LAMMPS <https://docs.lammps.org/compute_centro_atom.html>`_. 
+      First calculate all :math:`N (N - 1) / 2` pairs of neighbor atoms, and the summation of the :math:`N/2` lowest weights
+      is CSP values.
 
     Args:
         N (int): Neighbor number.
@@ -34,14 +40,30 @@ class CentroSymmetryParameter:
         box (np.ndarray): (:math:`3 * 2`) system box. 
 
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+    
+        csp (np.ndarray) : (:math:`N_p`) CSP value per atoms.
+    
+    Examples:
 
-        csp (np.ndarray) : (:math:`N_p`) CSP per atoms.
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> FCC = mp.LatticeMaker(3.615, 'FCC', 10, 10, 10) # Create a FCC structure
+
+        >>> FCC.compute() # Get atom positions
+
+        >>> CSP = mp.CentroSymmetryParameter(12, FCC.pos, FCC.box, [1, 1, 1]) # Initialize CSP class
+
+        >>> CSP.compute() # Calculate the csp per atoms
+
+        >>> CSP.csp # Check the csp value
     """
     def __init__(self, N, pos, box, boundary=[1,1,1]):
         
+        self.N = N
         self.pos = pos
         self.box = box
-        self.N = N
         self.boundary = np.array(boundary)
     
     @ti.func

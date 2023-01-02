@@ -7,21 +7,66 @@ import numpy as np
 
 @ti.data_oriented
 class Calculator:
-    """
-    使用eam.alloy势函数来计算构型的能量和受力.
+    """This class is used to calculate the atomic energy and force based on the given embedded atom method
+    EAM potential. Multi-elements alloy is also supported.
 
-    input:
-    potential : EAM class
-    elements_list : list 指定的元素列表 ['Al', 'Fe'], 列表长度和设定的总atom_type相等.
-    init_type_list : ndarray, 每一个原子的元素类别.
-    verlet_list, distance_list, neighbor_num : 邻域列表信息.
-    pos : ndarray, 原子坐标
-    boundary : list, 边界条件
-    box : ndarray (3x2), 模拟盒子尺寸
+    Args:
+        potential (mp.EAM): A EAM class.
 
-    output:
-    energy : ndarray 原子势能
-    force : ndarray 原子受力
+        elements_list (list): elements need to be calculated. Such as ['Al', 'Fe'].
+
+        init_type_list (np.ndarray): (:math:`N_p`) per atom type.
+
+        verlet_list (np.ndarray): (:math:`N_p * max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+
+        distance_list (np.ndarray): (:math:`N_p * max\_neigh`) distance_list[i, j] means distance between i and j atom.
+
+        neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
+
+        pos (np.ndarray): (:math:`N_p * 3`) particles positions.
+
+        boundary (list): boundary conditions, 1 is periodic and 0 is free boundary. Such as [1, 1, 1].
+
+        box (np.ndarray): (:math:`3 * 2`) system box.
+
+        energy (np.ndarray): (:math:`N_p`) atomic energy (eV).
+
+        force (np.ndarray): (:math:`N_p * 3`) atomic force (eV/A).
+
+    Examples:
+
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> potential = mp.EAM("./example/CoNiFeAlCu.eam.alloy") # Read a eam.alloy file.
+
+        >>> FCC = mp.LatticeMaker(3.615, 'FCC', 10, 10, 10) # Create a FCC structure
+
+        >>> FCC.compute() # Get atom positions
+
+        >>> neigh = mp.Neighbor(FCC.pos, FCC.box,
+                                potential.rc, max_neigh=100) # Initialize Neighbor class.
+
+        >>> neigh.compute() # Calculate particle neighbor information.
+
+        >>> Cal = mp.Calculator(
+                potential,
+                ["Al"],
+                np.ones(FCC.pos.shape[0], dtype=np.int32),
+                neigh.verlet_list,
+                neigh.distance_list,
+                neigh.neighbor_number,
+                FCC.pos,
+                [1, 1, 1],
+                FCC.box,
+            ) # Initialize Calculator class.
+
+        >>> Cal.compute() # Calculate the atomic energy and force.
+
+        >>> Cal.energy # Check the energy.
+
+        >>> Cal.force # Check the force.
     """
 
     def __init__(
@@ -78,7 +123,7 @@ class Calculator:
         return type_list
 
     @ti.func
-    def pbc(self, rij):
+    def _pbc(self, rij):
         for i in ti.static(range(rij.n)):
             if self.boundary[i] == 1:
                 box_length = self.box[i, 1] - self.box[i, 0]
@@ -161,7 +206,7 @@ class Calculator:
             for jj in range(neighbor_number[i]):
                 j = verlet_list[i, jj]
                 if j > i:
-                    rij = self.pbc(pos[i] - pos[j])
+                    rij = self._pbc(pos[i] - pos[j])
                     j_type = atype_list[j] - 1
                     r = distance_list[i, jj]
                     if r <= self.rc:

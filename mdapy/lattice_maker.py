@@ -126,8 +126,13 @@ class LatticeMaker:
         )
         self._compute(pos)
         self.pos = pos.reshape(-1, 3)
-        self.N = self.pos.shape[0]
         self.if_computed = True
+
+    @property
+    def N(self):
+        if not self.if_computed:
+            self.compute()
+        return self.pos.shape[0]
 
     def write_data(self, type_list=None, output_name=None):
         if not self.if_computed:

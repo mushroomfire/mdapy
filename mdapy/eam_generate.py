@@ -8,21 +8,29 @@ import datetime
 
 class EAMGenerate:
 
-    """
-    Python version mixed by mdapy! Based on the previous fortran version by Zhou et. al.!
-    CITATION: X. W. Zhou, R. A. Johnson, H. N. G. Wadley, Phys. Rev. B, 69, 144113(2004)!
+    """This class is used to create EAM potential including one or more elements.
+    This is the python version translated from the `fortran version by Zhou et. al <https://www.ctcms.nist.gov/potentials/entry/2004--Zhou-X-W-Johnson-R-A-Wadley-H-N-G--W/>`_.
 
-    aviliable_name : ["Cu","Ag","Au","Ni","Pd","Pt","Al","Pb","Fe","Mo","Ta","W","Mg","Co","Ti","Zr"]
+    .. note:: If you use this module in publication, you should also cite the original paper.
+      `Misfit-energy-increasing dislocations in vapor-deposited CoFe/NiFe multilayers <https://doi.org/10.1103/PhysRevB.69.144113>`_
 
-    input:
-    elements_list : ['Co', 'Ni']
+    Args:
+        elements_list (list): elements list, such as ['Co', 'Ni'], wchich should choose from ["Cu","Ag","Au","Ni","Pd","Pt","Al","Pb","Fe","Mo","Ta","W","Mg","Co","Ti","Zr"].
 
-    output:
+        output_name (str, optional): filename of generated EAM file.
 
-    eam.alloy file
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> potential = mp.EAMGenerate(["Co", "Ni", "Fe"]) # Generate the EAMGenerate class.
+
+        >>> potential.plot() # plot the results.
     """
 
     def __init__(self, elements_list, output_name=None):
+
         self.elements_list = elements_list
         self.aviliable_elements = [
             "Cu",
@@ -497,11 +505,11 @@ class EAMGenerate:
             "0.85",
             "1.15",
         ]
-        self.get_eam_parameters()
+        self._get_eam_parameters()
         self.output_name = output_name
-        self.write_eam_alloy()
+        self._write_eam_alloy()
 
-    def diedai(self):
+    def _diedai(self):
         for i1 in range(self.ntypes):
             for i2 in range(i1 + 1):
                 if i1 == i2:
@@ -509,18 +517,18 @@ class EAMGenerate:
                         r = i * self.dr
                         if r < self.rst:
                             r = self.rst
-                        fvalue = self.prof(i1, r)
+                        fvalue = self._prof(i1, r)
                         if self.fmax < fvalue:
                             self.fmax = fvalue
                         self.rho[i, i1] = fvalue
-                        psi = self.pair(i1, i2, r)
+                        psi = self._pair(i1, i2, r)
                         self.rphi[i, i1, i2] = r * psi
                 else:
                     for i in range(self.nr):
                         r = i * self.dr
                         if r < self.rst:
                             r = self.rst
-                        psi = self.pair(i1, i2, r)
+                        psi = self._pair(i1, i2, r)
                         self.rphi[i, i1, i2] = r * psi
                         self.rphi[i, i2, i1] = self.rphi[i, i1, i2]
         rhom = self.fmax
@@ -532,14 +540,14 @@ class EAMGenerate:
         for it in range(self.ntypes):
             for i in range(self.nrho):
                 rhoF = i * self.drho
-                self.embdded[i, it] = self.embed(it, rhoF)
+                self.embdded[i, it] = self._embed(it, rhoF)
 
-    def prof(self, it, r):
+    def _prof(self, it, r):
         f = self.fe[it] * np.exp(-self.beta1[it] * (r / self.re[it] - 1.0))
         f = f / (1.0 + (r / self.re[it] - self.ramda1[it]) ** 20)
         return f
 
-    def pair(self, it1, it2, r):
+    def _pair(self, it1, it2, r):
         if it1 == it2:
             psi1 = self.A[it1] * np.exp(-self.alpha[it1] * (r / self.re[it1] - 1.0))
             psi1 = psi1 / (1.0 + (r / self.re[it1] - self.cai[it1]) ** 20)
@@ -554,11 +562,11 @@ class EAMGenerate:
                 psi2 = self.B[it] * np.exp(-self.beta[it] * (r / self.re[it] - 1.0))
                 psi2 = psi2 / (1.0 + (r / self.re[it] - self.ramda[it]) ** 20)
                 psiab.append(psi1 - psi2)
-                fab.append(self.prof(it, r))
+                fab.append(self._prof(it, r))
             psi = 0.5 * (fab[1] / fab[0] * psiab[0] + fab[0] / fab[1] * psiab[1])
         return psi
 
-    def embed(self, it, rho):
+    def _embed(self, it, rho):
         if rho < self.rhoe[it]:
             Fm33 = self.Fm3[it]
         else:
@@ -585,7 +593,7 @@ class EAMGenerate:
             )
         return emb
 
-    def get_eam_parameters(self):
+    def _get_eam_parameters(self):
 
         name, data = [], []
         a = 0
@@ -671,9 +679,9 @@ class EAMGenerate:
             (self.nr, len(self.elements_list), len(self.elements_list))
         )
         self.embdded = np.zeros((self.nr, len(self.elements_list)))
-        self.diedai()
+        self._diedai()
 
-    def write_eam_alloy(self):
+    def _write_eam_alloy(self):
         struc = "fcc"
         if self.output_name is None:
             self.output_name = ""

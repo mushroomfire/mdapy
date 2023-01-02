@@ -7,14 +7,43 @@ import numpy as np
 
 class EAMAverage(EAM):
 
-    """
-    用于生成平均是EAM势函数
-    input:
-    filename : filename of eam.alloy
-    concentration : [0.5, 0.5]
+    """This class is used to generate the average EAM (A-atom) potential, which is useful in alloy investigation.
+    The A-atom potential has the similar formula with the original EAM potential:
+
+    .. math:: E_{i}=\\sum_{i} F^{A}\\left(\\bar{\\rho}_{i}\\right)+\\frac{1}{2} \\sum_{i, j \\neq i} \\phi_{i j}^{A A},
+
+    .. math:: F^{A}\\left(\\bar{\\rho}_{i}\\right)=\\sum_{\\alpha} c_{\\alpha} F^{\\alpha}\\left(\\bar{\\rho}_{i}\\right),
+
+    .. math:: \\phi_{i j}^{A A}=\\sum_{\\alpha, \\beta } c_{\\alpha} c_{\\beta} \\phi_{i j}^{\\alpha \\beta},
+
+    .. math:: \\quad \\bar{\\rho}_{i}=\\sum_{j \\neq i} \\sum_{\\alpha} c_{\\alpha} \\rho_{i j}^{\\alpha},
+
+    where :math:`A` denotes an average-atom.
+
+    .. note:: If you use this module in publication, you should also cite the original paper.
+      `Average-atom interatomic potential for random alloys <https://doi.org/10.1103/PhysRevB.93.104201>`_
+
+    Args:
+        filename (str): filename of eam.alloy file.
+
+        concentration (list): atomic ratio list, such as [0.5, 0.5].
+
+        output_name (str, optional): filename of generated average EAM potential.
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> potential = mp.EAMAverage("./example/CoNiFeAlCu.eam.alloy",
+                        [0.2, 0.2, 0.2, 0.2, 0.2]) # Generate the EAMAverage class.
+
+        >>> potential.plot() # plot the results.
+
     """
 
     def __init__(self, filename, concentration, output_name=None):
+
         super().__init__(filename)
         self.concentration = concentration
 
@@ -30,7 +59,7 @@ class EAMAverage(EAM):
             self.elec_density_data,
             self.rphi_data,
             self.phi_data,
-        ) = self.average()
+        ) = self._average()
 
         if output_name is None:
             self.output_name = ""
@@ -42,7 +71,7 @@ class EAMAverage(EAM):
 
         self.write_eam_alloy(self.output_name)
 
-    def average(self):
+    def _average(self):
 
         self.Nelements += 1
         self.elements_list.append("A")
@@ -55,7 +84,7 @@ class EAMAverage(EAM):
         ]
         self.lattice_type.append("average")
 
-        # 平均 embedded_data 和 elec_density_data
+        # average embedded_data and elec_density_data
         new_embedded_data = np.r_[
             self.embedded_data,
             np.zeros((1, self.embedded_data.shape[1]), dtype=self.embedded_data.dtype),
@@ -73,7 +102,7 @@ class EAMAverage(EAM):
             self.elec_density_data, axis=0, weights=self.concentration
         )
 
-        # 平均 rphi_data
+        # average rphi_data
         new_rphi_data = np.concatenate(
             (
                 self.rphi_data,

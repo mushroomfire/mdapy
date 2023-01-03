@@ -7,13 +7,43 @@ import numpy as np
 
 @ti.data_oriented
 class LatticeMaker:
+    """This class is used to create some standard lattice structure.
+
+    Args:
+        lattice_constant (float): lattice constant :math:`a`.
+
+        lattice_type (str): lattice type, seleted in ['FCC', 'BCC', 'HCP', 'GRA']. Here the HCP is ideal structure and the :math:`c/a=1.633`.
+
+        x (int): repeat times along :math:`x` axis.
+
+        y (int): repeat times along :math:`y` axis.
+
+        z (int): repeat times along :math:`z` axis.
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> FCC = mp.LatticeMaker(3.615, 'FCC', 10, 10, 10) # Create a FCC structure.
+
+        >>> FCC.compute() # Get atom positions.
+
+        >>> FCC.write_data() # Save to DATA file.
+
+        >>> GRA = mp.LatticeMaker(1.42, 'GRA', 10, 20, 1) # Create a graphene structure.
+
+        >>> GRA.write_data(output_name='graphene.data') # Save to graphene.data file.
+    """
+
     def __init__(self, lattice_constant, lattice_type, x, y, z):
+
         self.lattice_constant = lattice_constant
         self.lattice_type = lattice_type
         self.x = x
         self.y = y
         self.z = z
-        self.basis_vector, self.basis_atoms = self.init_global()
+        self.basis_vector, self.basis_atoms = self._init_global()
         self.box = np.vstack(
             (
                 np.zeros(3),
@@ -24,10 +54,9 @@ class LatticeMaker:
         ).T
         self.if_computed = False
 
-    def init_global(self):
+    def _init_global(self):
         """
-        定义基矢量,基原子,坐标.
-        此处需要64位精度!!!
+        Define the base vector and base atoms in float64.
         """
         if self.lattice_type == "FCC":
             basis_vector_arr = (
@@ -99,16 +128,13 @@ class LatticeMaker:
         )
         basis_vector.from_numpy(basis_vector_arr)
         basis_atoms.from_numpy(basis_atoms_arr)
-        # pos = ti.Vector.field(
-        #     3, dtype=ti.f64, shape=(self.x, self.y, self.z, basis_atoms.shape[0])
-        # )
 
         return basis_vector, basis_atoms
 
     @ti.kernel
     def _compute(self, pos: ti.types.ndarray(element_dim=1)):
         """
-        建立坐标.
+        Get the position
         """
         # ti.loop_config(serialize=True)
         for i, j, k, h in ti.ndrange(self.x, self.y, self.z, self.basis_atoms.shape[0]):
@@ -121,6 +147,7 @@ class LatticeMaker:
             pos[i, j, k, h] = self.basis_atoms[h] + basis_origin
 
     def compute(self):
+        """Do the real lattice calculation."""
         pos = np.zeros(
             (self.x, self.y, self.z, self.basis_atoms.shape[0], 3), dtype=np.float64
         )
@@ -130,11 +157,19 @@ class LatticeMaker:
 
     @property
     def N(self):
+        """The particle number."""
         if not self.if_computed:
             self.compute()
         return self.pos.shape[0]
 
     def write_data(self, type_list=None, output_name=None):
+        """This function writes position into a DATA file.
+
+        Args:
+            type_list (np.ndarray, optional): (:math:`N_p`) atom type list. If not given, the atom type is set as 1.
+
+            output_name (str, optional): filename of generated DATA file.
+        """
         if not self.if_computed:
             self.compute()
 
@@ -164,7 +199,7 @@ class LatticeMaker:
 if __name__ == "__main__":
     ti.init(ti.gpu)
     # FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
-    FCC = LatticeMaker(4.05, "HCP", 10, 10, 10)
+    FCC = LatticeMaker(1.42, "GRA", 10, 10, 10)
     # FCC.compute()
     FCC.write_data()
     # print(FCC.basis_atoms.to_numpy())

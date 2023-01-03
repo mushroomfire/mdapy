@@ -9,24 +9,64 @@ import matplotlib.pyplot as plt
 
 @ti.data_oriented
 class LindemannParameter:
-    """
-    Need large memory!!!
-    Using Welford method to updated the variance and mean of rij
-    see
-    1. https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford
-    2. https://zhuanlan.zhihu.com/p/408474710
+    """This class is used to calculate the `Lindemann index <https://en.wikipedia.org/wiki/Lindemann_index>`_,
+    which is useful to distinguish the melt process and determine the melting points of nano-particles.
+    The Lindemann index is defined as the root-mean-square bond-length fluctuation with following mathematical expression:
 
-    Input:
-    pos_list : np.ndarray (Nframes, Natoms, 3)
-    only_global : bool, only calculate globle lindemann index, fast, parallel
+    .. math:: \\left\\langle\\sigma_{i}\\right\\rangle=\\frac{1}{N_{p}(N_{p}-1)} \\sum_{j \\neq i} \\frac{\\sqrt{\\left\\langle r_{i j}^{2}\\right\\rangle_t-\\left\\langle r_{i j}\\right\\rangle_t^{2}}}{\\left\\langle r_{i j}\\right\\rangle_t},
 
-    Output:
-    lindemann_atom : np.ndarray (Nframes, Natoms)
-    lindemann_frame : np.ndarray (Nframes)
-    lindemann_trj : float
+    where :math:`N_p` is the particle number, :math:`r_{ij}` is the distance between atom :math:`i` and :math:`j` and brackets :math:`\\left\\langle \\right\\rangle_t`
+    represents an time average.
+
+    .. note:: This class is partly referred to a `work <https://github.com/N720720/lindemann>`_ on calculating the Lindemann index.
+
+    .. note:: This calculation is high memory requirement. One can estimate the memory by: :math:`2 * 8 * N_p^2 / 1024^3` GB.
+
+    .. tip:: If only global lindemann index is needed, the class can be calculated in parallel.
+      The local Lindemann index only run serially due to the dependencies between different frames.
+      Here we use the `Welford method <https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford>`_ to
+      update the varience and mean of :math:`r_{ij}`.
+
+    Args:
+        pos_list (np.ndarray): (:math:`N_f*N_p*3`), :math:`N_f` frames particle position, which need to be unwrapped for periodic boundary.
+
+        only_global (bool, optional): whether only calculate the global index. Defaults to False.
+
+        lindemann_atom (np.ndarray): (:math:`N_f*N_p`), local Lindemann index per atoms.
+
+        lindemann_frame (np.ndarray): (:math:`N_f`), Lindemann index per frames.
+
+        lindemann_trj (float): global Lindemann index for an entire trajectory.
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> import numpy as np
+
+        >>> pos_list = np.cumsum(
+            np.random.choice([-1.0, 0.0, 1.0], size=(200, 1000, 3)), axis=0
+            ) # Generate a random walk trajectory with 200 frames and 1000 particles.
+
+        >>> LDMG = mp.LindemannParameter(pos_list, only_global=True) # Generate a Lindemann class.
+
+        >>> LDMG.compute() # Only calculate the global Lindemann index, it will be much faster.
+
+        >>> LDML = mp.LindemannParameter(pos_list) # Generate a Lindemann class.
+
+        >>> LDML.compute() # Calculate the global and local Lindemann index.
+
+        >>> np.isclose(LDML.lindemann_trj, LDMG.lindemann_trj) # Should return True.
+
+        >>> LDML.lindemann_frame # Check Lindemann index per frame.
+
+        >>> LDML.plot() # Plot the evolution of Lindemann index per frame.
+
     """
 
     def __init__(self, pos_list, only_global=False) -> None:
+
         self.pos_list = pos_list
         self.only_global = only_global
         self.if_compute = False
@@ -95,6 +135,7 @@ class LindemannParameter:
             lindemann_frame[frame] = lindemann_index
 
     def compute(self):
+        """Do the real Lindemann index calculation."""
         Nframes, Natoms = self.pos_list.shape[:2]
         pos_mean = np.zeros((Natoms, Natoms))
         pos_variance = np.zeros_like(pos_mean)
@@ -116,6 +157,14 @@ class LindemannParameter:
             self.if_compute = True
 
     def plot(self):
+        """Plot the evolution of Lindemann index per frame.
+
+        Raises:
+            Exception: One should compute lidemann_frame first!
+
+        Returns:
+            tuple: (fig, ax) matplotlib figure and axis class.
+        """
         pltset()
         if not self.if_compute:
             raise Exception("One should compute lidemann_frame first!")
@@ -135,20 +184,26 @@ if __name__ == "__main__":
     from time import time
 
     ti.init(ti.cpu, offline_cache=True)
-    Nframe, Nparticles = 200, 10000
+    Nframe, Nparticles = 200, 1000
     pos_list = np.cumsum(
         np.random.choice([-1.0, 0.0, 1.0], size=(Nframe, Nparticles, 3)), axis=0
     )
-    # start = time()
-    # LDM = LindemannParameter(pos_list)
-    # LDM.compute()
-    # end = time()
-    # print(f"LDM_trj: {LDM.lindemann_trj}, LDM costs: {end-start} s.")
-    # print(LDM.lindemann_frame[:10])
-    # LDM.plot()
 
     start = time()
-    LDM = LindemannParameter(pos_list, only_global=True)
-    LDM.compute()
+    LDMG = LindemannParameter(pos_list, only_global=True)
+    LDMG.compute()
     end = time()
-    print(f"LDM_trj: {LDM.lindemann_trj}, LDM costs: {end-start} s.")
+    print(f"LDM_trj: {LDMG.lindemann_trj}, LDM costs: {end-start} s.")
+
+    start = time()
+    LDML = LindemannParameter(pos_list)
+    LDML.compute()
+    end = time()
+    print(f"LDM_trj: {LDML.lindemann_trj}, LDM costs: {end-start} s.")
+
+    print(
+        "Global Lindemann index is close:",
+        np.isclose(LDMG.lindemann_trj, LDML.lindemann_trj),
+    )
+    print(LDML.lindemann_frame[:10])
+    LDML.plot()

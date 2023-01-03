@@ -9,7 +9,70 @@ import matplotlib.pyplot as plt
 
 @ti.data_oriented
 class PairDistribution:
+    """This class is used to calculate the radiul distribution function (RDF),which
+    reflects the probability of finding an atom at distance r. The seperate pair-wise
+    combinations of particle types can also be computed:
+
+    .. math:: g(r) = c_{\\alpha}^2 g_{\\alpha \\alpha}(r) + 2 c_{\\alpha} c_{\\beta} g_{\\alpha \\beta}(r) + c_{\\beta}^2 g_{\\beta \\beta}(r),
+
+    where :math:`c_{\\alpha}` and :math:`c_{\\beta}` denote the concentration of two atom types in system
+    and :math:`g_{\\alpha \\beta}(r)=g_{\\beta \\alpha}(r)`.
+
+    Args:
+        rc (float): cutoff distance.
+
+        nbin (int): number of bins.
+
+        rho (float): system density.
+
+        verlet_list (np.ndarray): (:math:`N_p * max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+
+        distance_list (np.ndarray): (:math:`N_p * max\_neigh`) distance_list[i, j] means distance between i and j atom.
+
+        type_list (np.ndarray, optional): (:math:`N_p`) atom type list. If not given, all atoms types are set as 1.
+
+        r (np.ndarray): (nbin), distance.
+
+        g_total (np.ndarray): (nbin), global RDF.
+
+        g (np.ndarray): (:math:`N_{type} * N_{type} * nbin`), partial RDF.
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> FCC = mp.LatticeMaker(3.615, 'FCC', 10, 10, 10) # Create a FCC structure.
+
+        >>> FCC.compute() # Get atom positions.
+
+        >>> neigh = mp.Neighbor(FCC.pos, FCC.box,
+                                5., max_neigh=20) # Initialize Neighbor class.
+
+        >>> neigh.compute() # Calculate particle neighbor information.
+
+        >>> rho = FCC.pos.shape[0] / np.product(FCC.box[:, 1] - FCC.box[:, 0]) # Get the system density.
+
+        >>> gr = mp.PairDistribution(neigh.rc, 200, rho,
+                                  neigh.verlet_list, neigh.distance_list,
+                                  np.ones(FCC.N, dtype=int)) # Initilize the RDF class.
+
+        >>> gr.compute() # Calculate the RDF.
+
+        >>> gr.g_total # Check global RDF.
+
+        >>> gr.g # Check partial RDF, here is the same due to only one species.
+
+        >>> gr.r # Check the distance.
+
+        >>> gr.plot() # Plot global RDF.
+
+        >>> gr.plot_partial() # Plot partial RDF.
+
+    """
+
     def __init__(self, rc, nbin, rho, verlet_list, distance_list, type_list=None):
+
         self.rc = rc
         self.nbin = nbin
         self.rho = rho
@@ -55,6 +118,7 @@ class PairDistribution:
                     break
 
     def compute(self):
+        """Do the real RDF calculation."""
         r = np.linspace(0, self.rc, self.nbin + 1)
 
         concentrates = (
@@ -79,6 +143,11 @@ class PairDistribution:
                     self.g_total += 2 * concentrates[i] * concentrates[j] * self.g[i, j]
 
     def plot(self):
+        """Plot the global RDF.
+
+        Returns:
+            tuple: (fig, ax) matplotlib figure and axis class.
+        """
         fig = plt.figure(figsize=(cm2inch(8), cm2inch(5)), dpi=150)
         plt.subplots_adjust(left=0.16, bottom=0.225, right=0.97, top=0.97)
         plt.plot(self.r, self.g_total, "o-", ms=3)
@@ -90,6 +159,14 @@ class PairDistribution:
         return fig, ax
 
     def plot_partial(self, elements_list=None):
+        """Plot the partial RDF.
+
+        Args:
+            elements_list (list, optional): species element names list, such as ['Al', 'Ni'].
+
+        Returns:
+            tuple: (fig, ax) matplotlib figure and axis class.
+        """
         if elements_list is not None:
             assert len(elements_list) == self.Ntype
         fig = plt.figure(figsize=(cm2inch(8), cm2inch(5)), dpi=150)
@@ -139,7 +216,7 @@ if __name__ == "__main__":
     ti.init(ti.cpu, offline_cache=True)
     start = time()
     lattice_constant = 3.615
-    x, y, z = 100, 100, 250
+    x, y, z = 50, 50, 50
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
@@ -160,4 +237,4 @@ if __name__ == "__main__":
     end = time()
     print(f"Cal gr time: {end-start} s.")
     gr.plot()
-    # gr.plot_partial()
+    gr.plot_partial()

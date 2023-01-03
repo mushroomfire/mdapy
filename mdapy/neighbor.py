@@ -7,14 +7,15 @@ import numpy as np
 
 @ti.data_oriented
 class Neighbor:
-    """This module is used to cerate neighbor of atoms. Using linked-cell list method make fast neighbor finding possible.
+    """This module is used to cerate neighbor of atoms within a given cutoff distance.
+    Using linked-cell list method makes fast neighbor finding possible.
 
     Args:
         pos (np.ndarray): (:math:`N_p * 3`) particles positions.
 
         box (np.ndarray): (:math:`3 * 2`) system box, must be rectangle.
 
-        rc (float): cutoff ditances.
+        rc (float): cutoff distance.
 
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
 
@@ -27,6 +28,28 @@ class Neighbor:
         distance_list (np.ndarray): (:math:`N_p * max\_neigh`) distance_list[i, j] means distance between i and j atom.
 
         neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> import numpy as np
+
+        >>> FCC = mp.LatticeMaker(3.615, 'FCC', 10, 10, 10) # Create a FCC structure
+
+        >>> FCC.compute() # Get atom positions
+
+        >>> neigh = mp.Neighbor(FCC.pos, FCC.box,
+                                5., max_neigh=80) # Initialize Neighbor class.
+
+        >>> neigh.compute() # Calculate particle neighbor information.
+
+        >>> neigh.verlet_list # Check the neighbor index.
+
+        >>> neigh.distance_list # Check the neighbor distance.
+
+        >>> neigh.neighbor_number # Check the neighbor atom number.
     """
 
     def __init__(self, pos, box, rc, boundary=[1, 1, 1], max_neigh=80, exclude=True):
@@ -59,7 +82,7 @@ class Neighbor:
         self.neighbor_number = np.zeros(self.N, dtype=np.int32)
 
     @ti.kernel
-    def build_cell(
+    def _build_cell(
         self,
         pos: ti.types.ndarray(),
         atom_cell_list: ti.types.ndarray(),
@@ -89,7 +112,7 @@ class Neighbor:
             cell_id_list[iicel, jjcel, kkcel] = i
 
     @ti.func
-    def pbc(self, rij):
+    def _pbc(self, rij):
         for i in ti.static(range(rij.n)):
             if self.boundary[i] == 1:
                 box_length = self.box[i][1] - self.box[i][0]
@@ -97,7 +120,7 @@ class Neighbor:
         return rij
 
     @ti.kernel
-    def build_verlet_list(
+    def _build_verlet_list(
         self,
         pos: ti.types.ndarray(element_dim=1),
         atom_cell_list: ti.types.ndarray(),
@@ -144,7 +167,7 @@ class Neighbor:
                             kkkkcel -= self.ncel[2]
                         j = cell_id_list[iiiicel, jjjjcel, kkkkcel]
                         while j > -1:
-                            rij = self.pbc(pos[j] - pos[i])
+                            rij = self._pbc(pos[j] - pos[i])
                             rijdis = rij.norm()
                             if self.exclude:
                                 if rijdis < self.rc and j != i:
@@ -160,7 +183,7 @@ class Neighbor:
             neighbor_number[i] = nindex
 
     @ti.kernel
-    def build_verlet_list_small(
+    def _build_verlet_list_small(
         self,
         pos: ti.types.ndarray(element_dim=1),
         verlet_list: ti.types.ndarray(),
@@ -172,7 +195,7 @@ class Neighbor:
         for i in range(self.N):
             nindex = 0
             for j in range(self.N):
-                rij = self.pbc(pos[i] - pos[j])
+                rij = self._pbc(pos[i] - pos[j])
                 rijdis = rij.norm()
                 if self.exclude:
                     if rijdis < self.rc and j != i:
@@ -187,13 +210,14 @@ class Neighbor:
             neighbor_number[i] = nindex
 
     def compute(self):
+        """Do the real neighbor calculation."""
         if self.N > 1000:
             atom_cell_list = np.zeros(self.N, dtype=np.int32)
             cell_id_list = (
                 np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32) - 1
             )
-            self.build_cell(self.pos, atom_cell_list, cell_id_list)
-            self.build_verlet_list(
+            self._build_cell(self.pos, atom_cell_list, cell_id_list)
+            self._build_verlet_list(
                 self.pos,
                 atom_cell_list,
                 cell_id_list,
@@ -202,7 +226,7 @@ class Neighbor:
                 self.neighbor_number,
             )
         else:
-            self.build_verlet_list_small(
+            self._build_verlet_list_small(
                 self.pos, self.verlet_list, self.distance_list, self.neighbor_number
             )
         max_neighbor_number = self.neighbor_number.max()

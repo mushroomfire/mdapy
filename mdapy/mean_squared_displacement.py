@@ -9,12 +9,14 @@ try:
     import pyfftw
 
     def fft(x, n, axis):
+        # FFT wrapper of pyfftw.
         a = pyfftw.empty_aligned(x.shape, "complex64")
         a[:] = x
         fft_object = pyfftw.builders.fft(a, n=n, axis=axis)
         return fft_object()
 
     def ifft(x, axis):
+        # IFFT wrapper of pyfftw.
         a = pyfftw.empty_aligned(x.shape, "complex64")
         a[:] = x
         fft_object = pyfftw.builders.ifft(a, axis=axis)

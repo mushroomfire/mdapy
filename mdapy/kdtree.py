@@ -6,17 +6,41 @@ from scipy.spatial import KDTree
 
 
 class kdtree:
-    """
-    建立一个kdtree,用来搜索最近邻原子.
+    """This class is a wrapper of `kdtree of scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html>`_
+    and helful to obtain the certain nearest atom neighbors considering the periodic/free boundary.
+    If you want to access the atom neighbor within a spherical
+    distance, the Neighbor class is suggested.
+
+    Args:
+        pos (np.ndarray): (:math:`N_p * 3`) particles positions.
+
+        box (np.ndarray): (:math:`3 * 2`) system box.
+
+        boundary (list): boundary conditions, 1 is periodic and 0 is free boundary. Such as [1, 1, 1].
+
+    Examples:
+
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> FCC = mp.LatticeMaker(3.615, 'FCC', 10, 10, 10) # Create a FCC structure
+
+        >>> FCC.compute() # Get atom positions
+
+        >>> kdt = mp.kdtree(FCC.pos, FCC.box, [1, 1, 1]) # Build a kdtree.
+
+        >>> dis, index = kdt.query_nearest_neighbors(12) # Query the 12 nearest neighbors per atom.
     """
 
     def __init__(self, pos, box, boundary):
-        self.pos = pos
+
+        self.shift_pos = pos - np.min(pos, axis=0)
         self.box = box
         self.boundary = boundary
-        self.init()
+        self._init()
 
-    def init(self):
+    def _init(self):
         boxsize = np.array(
             [
                 self.box[i][1] - self.box[i][0]
@@ -25,13 +49,20 @@ class kdtree:
                 for i in range(3)
             ]
         )
-        self.kdt = KDTree(self.pos - np.min(self.pos, axis=0), boxsize=boxsize)
+        self.kdt = KDTree(self.shift_pos, boxsize=boxsize)
 
-    def query_nearest_neighbors(self, n):
+    def query_nearest_neighbors(self, n, workers=-1):
+        """Query the :math:`n` nearest atom neighbors.
 
-        dis, index = self.kdt.query(
-            self.pos - np.min(self.pos, axis=0), k=n + 1, workers=-1
-        )
+        Args:
+            n (int): number of neighbors to query.
+
+            workers (int, optional): maximum CPU cores to use in calculation. Defaults to -1, indicating using all available CPU cores.
+
+        Returns:
+            tuple: (distance, index), distance of atom :math:`i` to its neighbor atom :math:`j`, and the index of atom :math:`j`.
+        """
+        dis, index = self.kdt.query(self.shift_pos, k=n + 1, workers=workers)
 
         return dis[:, 1:], index[:, 1:]
 
@@ -45,7 +76,7 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 250
+    x, y, z = 10, 10, 10
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()

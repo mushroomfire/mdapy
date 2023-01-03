@@ -22,18 +22,66 @@ try:
 
 except ImportError:
     try:
-        from scipy.fftpack import fft, ifft
+        from scipy.fft import fft, ifft
     except ImportError:
         from numpy.fft import fft, ifft
 
 
 class MeanSquaredDisplacement:
-    """
-    ref: https://stackoverflow.com/questions/34222272/computing-mean-square-displacement-using-python-and-fft
-    pos_list : np.ndarray, shape(Nframe, Nparticles, 3), one should make sure every particle locate at same row for all frames.
+    """This class is used to calculate the mean squared displacement MSD of system, which can be used to
+    reflect the particle diffusion trend and describe the melting process. Generally speaking, MSD is an
+    average displacement over all windows of length :math:`m` over the course of the simulation (so-called
+    'windows' mode here) and defined
+    by:
+
+    .. math:: MSD(m) = \\frac{1}{N_{p}} \\sum_{i=1}^{N_{p}} \\frac{1}{N_{f}-m} \\sum_{k=0}^{N_{f}-m-1} (\\vec{r}_i(k+m) - \\vec{r}_i(k))^2,
+
+    where :math:`r_i(t)` is the position of particle :math:`i` in frame :math:`t`. It is computationally extensive
+    while using a fast Fourier transform can remarkably reduce the computation cost as described in `nMoldyn - Interfacing
+    spectroscopic experiments, molecular dynamics simulations and models for time correlation functions
+    <https://doi.org/10.1051/sfn/201112010>`_ and discussion in `StackOverflow <https://stackoverflow.com/questions/34222272/computing-mean-square-displacement-using-python-and-fft>`_.
+
+    .. note:: One can install `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ to accelerate the calculation,
+      otherwise mdapy will use `scipy.fft <https://docs.scipy.org/doc/scipy/reference/fft.html#module-scipy.fft>`_
+      to do the Fourier transform.
+
+    Sometimes one only need the following atomic displacement (so-called 'direct' mode here):
+
+    .. math:: MSD(t) = \\dfrac{1}{N_p} \\sum_{i=1}^{N_p} (r_i(t) - r_i(0))^2.
+
+    Args:
+        pos_list (np.ndarray): (:math:`N_f*N_p*3`), :math:`N_f` frames particle position, which need to be unwrapped for periodic boundary.
+
+        mode (str, optional): calculation mode, selected from ['windows', 'direct']. Defaults to "windows".
+
+        msd (np.ndarray): (:math:`N_f`), mean squared displacement per frames.
+
+        particle_msd (np.ndarray): (:math:`N_f*N_p`), mean squared displacement per atom per frames.
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> import numpy as np
+
+        >>> pos_list = np.cumsum(
+            np.random.choice([-1.0, 0.0, 1.0], size=(200, 1000, 3)), axis=0
+            ) # Generate a random walk trajectory with 200 frames and 1000 particles.
+
+        >>> MSD = mp.MeanSquaredDisplacement(pos_list, mode="windows") # Initilize MSD class.
+
+        >>> MSD.compute() # Calculate the MSD in 'windows' mode.
+
+        >>> MSD.msd # Check msd.
+
+        >>> MSD.particle_msd.shape # Check msd per particle, should be (200, 1000) here.
+
+        >>> MSD.plot() # Plot the evolution of msd per frame.
     """
 
     def __init__(self, pos_list, mode="windows"):
+
         self.pos_list = pos_list
         assert len(self.pos_list.shape) == 3
         self.mode = mode
@@ -50,7 +98,7 @@ class MeanSquaredDisplacement:
         return res / n[:, np.newaxis]  # this is the autocorrelation in convention A
 
     def compute(self):
-
+        """Do the real MSD calculation."""
         if self.mode == "windows":
             Nframe = self.pos_list.shape[0]
             D = np.square(self.pos_list).sum(axis=-1)
@@ -67,16 +115,21 @@ class MeanSquaredDisplacement:
                 ],
                 axis=0,
             )
-            self.partical_msd = S1 - 2 * S2
+            self.particle_msd = S1 - 2 * S2
         elif self.mode == "direct":
-            self.partical_msd = np.square(self.pos_list - self.pos_list[0, :, :]).sum(
+            self.particle_msd = np.square(self.pos_list - self.pos_list[0, :, :]).sum(
                 axis=-1
             )
 
-        self.msd = self.partical_msd.mean(axis=-1)
+        self.msd = self.particle_msd.mean(axis=-1)
         self.if_compute = True
 
     def plot(self):
+        """Plot the evolution of MSD per frame.
+
+        Returns:
+            tuple: (fig, ax) matplotlib figure and axis class.
+        """
         pltset()
         if not self.if_compute:
             self.compute()
@@ -96,13 +149,14 @@ class MeanSquaredDisplacement:
 if __name__ == "__main__":
     from time import time
 
-    Nframe, Nparticles = 500, 10000
+    Nframe, Nparticles = 200, 1000
     pos_list = np.cumsum(
         np.random.choice([-1.0, 0.0, 1.0], size=(Nframe, Nparticles, 3)), axis=0
     )
     start = time()
     MSD = MeanSquaredDisplacement(pos_list=pos_list, mode="windows")
     MSD.compute()
+    print(MSD.particle_msd.shape)
     end = time()
     msd_w = MSD.msd
     print(f"windows mode costs: {end-start} s.")

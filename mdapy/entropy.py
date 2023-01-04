@@ -67,7 +67,7 @@ class AtomicEntropy:
         >>> FCC.compute() # Get atom positions
 
         >>> neigh = mp.Neighbor(FCC.pos, FCC.box,
-                                3.615*1.4, max_neigh=50) # Initialize Neighbor class.
+                                3.615*1.4, max_neigh=80) # Initialize Neighbor class.
 
         >>> neigh.compute() # Calculate particle neighbor information.
 

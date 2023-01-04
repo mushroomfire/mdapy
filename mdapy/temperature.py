@@ -7,24 +7,81 @@ import numpy as np
 
 @ti.data_oriented
 class AtomicTemperature:
-    """
-    描述: 根据原子的邻域来计算原子的平均温度.
-    输入参数:
-    required:
-    amass : (N_type)的array,N_type为原子类型的数目,按照体系的类型顺序写入相应原子类型的相对原子质量.
-    vel : (Nx3)的array,体系原子的速度,N为原子数.
-    verlet_list : (N, max_neigh) array, 系统的邻域列表,使用Neighbor类来建立.
-    atype_list: (N)的array,每一个原子的原子类型.一般可以使用system.data['type'].values
-    optional:
-    units : str, 采用LAMMPS中的单位,支持metal和real单位,具体见https://docs.lammps.org/units.html. default : 'metal'
 
-    输出参数:
-    T : (N) array,每一个原子的平均温度.
+    """This class is used to calculated an average thermal temperature per atom, wchich is useful at shock
+    simulations. The temperature of atom :math:`i` is given by:
+
+    .. math:: T_i=\\sum^{N^i_{neigh}}_0 m^i_j(v_j^i -v_{COM}^i)^2/(3N_pk_B),
+
+    where :math:`N^i_{neigh}` is neighbor atoms number of atom :math:`i`,
+    :math:`m^i_j` and :math:`v^i_j` are the atomic mass and velocity of neighbor atom :math:`j` of atom :math:`i`,
+    :math:`k_B` is the Boltzmann constant and :math:`N_p` is the number of particles in system, :math:`v^i_{COM}` is
+    the center of mass COM velocity of neighbor of atom :math:`i` and is given by:
+
+    .. math:: v^i_{COM}=\\frac{\\sum _0^{N^i_{neigh}}m^i_jv_j^i}{\\sum_0^{N^i_{neigh}} m_j^i}.
+
+    Here the neighbor of atom :math:`i` includes itself.
+
+    Args:
+        amass (np.ndarray): (:math:`N_{type}`) atomic mass.
+        vel (np.ndarray): (:math:`N_p, 3`), atomic velocity.
+        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+        distance_list (np.ndarray): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
+        atype_list (np.ndarray): (:math:`N_p`), atomic type.
+        rc (float): cutoff distance to average.
+        units (str, optional): `units <https://docs.lammps.org/units.html>`_ defined in LAMMPS, supports *metal* and *charge*. Defaults to "metal".
+
+    Outputs:
+        - **T** (np.ndarray) - (:math:`N_p`), atomic temperature.
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> FCC = mp.LatticeMaker(3.615, 'FCC', 10, 10, 10) # Create a FCC structure.
+
+        >>> FCC.compute() # Get atom positions.
+
+        >>> neigh = mp.Neighbor(FCC.pos, FCC.box,
+                                5., max_neigh=50) # Initialize Neighbor class.
+
+        >>> neigh.compute() # Calculate particle neighbor information.
+
+        >>> def init_vel(N, T, Mass=1.0):
+                # Generate random velocity at T K.
+                Boltzmann_Constant = 8.617385e-5
+                np.random.seed(10086)
+                x1 = np.random.random(N * 3)
+                x2 = np.random.random(N * 3)
+                vel = (
+                    np.sqrt(T * Boltzmann_Constant / Mass)
+                    * np.sqrt(-2 * np.log(x1))
+                    * np.cos(2 * np.pi * x2)
+                ).reshape(N, 3)
+                vel -= vel.mean(axis=0)
+                return vel * 100  # A/ps
+
+        >>> vel = init_vel(FCC.N, 300.0, 1.0) # Generate random velocity at 300 K.
+
+        >>> Temp = AtomicTemperature(
+                np.array([1.0]),
+                vel,
+                neigh.verlet_list,
+                neigh.distance_list,
+                np.ones(FCC.N, dtype=int),
+                5.0,
+            ) # Initilize the temperature class.
+
+        >>> Temp.compute() # Do the temperature calculation.
+
+        >>> Temp.T.mean() # Average temperature should be close to 300 K.
     """
 
     def __init__(
         self, amass, vel, verlet_list, distance_list, atype_list, rc, units="metal"
     ):
+
         self.amass = amass
         self.atype_list = atype_list
         self.units = units
@@ -61,7 +118,7 @@ class AtomicTemperature:
         max_neigh = verlet_list.shape[1]
         for i in range(self.N):
 
-            # 求 atom_i 的邻域的质心速度
+            # obtain v_COM of neighbor of atom_i
             v_neigh = ti.Vector([ti.float64(0.0)] * 3)
             n_neigh = 0
             mass_neigh = ti.float64(0.0)
@@ -81,7 +138,7 @@ class AtomicTemperature:
             mass_neigh += amass[atype_list[i] - 1]
             v_mean = v_neigh / mass_neigh
 
-            # 求邻域去除平均速度后的动能
+            # subtract v_COM
             ke_neigh = ti.float64(0.0)
             for j_index in range(max_neigh):
                 j = verlet_list[i, j_index]
@@ -102,10 +159,11 @@ class AtomicTemperature:
                 * (ti.Vector([vel[i, 0], vel[i, 1], vel[i, 2]]) - v_mean).norm_sqr()
             )
 
-            # 温度转换
+            # obtain temperature
             T[i] = ke_neigh * 2.0 / dim / n_neigh / kb
 
     def compute(self):
+        """Do the real temperature calculation."""
         self._compute(
             self.verlet_list,
             self.distance_list,
@@ -118,7 +176,7 @@ class AtomicTemperature:
 
 if __name__ == "__main__":
 
-    def init_vel(N, T, Mass):
+    def init_vel(N, T, Mass=1.0):
         Boltzmann_Constant = 8.617385e-5
         np.random.seed(10086)
         x1 = np.random.random(N * 3)
@@ -128,8 +186,8 @@ if __name__ == "__main__":
             * np.sqrt(-2 * np.log(x1))
             * np.cos(2 * np.pi * x2)
         ).reshape(N, 3)
-        vel -= vel.mean(axis=0)
-        return vel
+        vel -= vel.mean(axis=0)  # A/ps
+        return vel * 100  # m/s
 
     from lattice_maker import LatticeMaker
     from neighbor import Neighbor
@@ -138,23 +196,23 @@ if __name__ == "__main__":
     # ti.init(ti.gpu, device_memory_GB=5.0)
     ti.init(ti.cpu)
     start = time()
-    lattice_constant = 4.05
-    x, y, z = 100, 100, 100
+    lattice_constant = 3.615
+    x, y, z = 50, 50, 50
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
-    neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=60)
+    neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=50)
     neigh.compute()
     end = time()
     print(f"Build neighbor time: {end-start} s.")
 
-    vel = init_vel(FCC.pos.shape[0], 300.0, 12.0)
+    vel = init_vel(FCC.N, 300.0, 1.0)
     start = time()
     T = AtomicTemperature(
-        np.array([12.0]),
-        vel * 100.0,
+        np.array([1.0]),
+        vel,
         neigh.verlet_list,
         neigh.distance_list,
         np.ones(FCC.pos.shape[0], dtype=int),

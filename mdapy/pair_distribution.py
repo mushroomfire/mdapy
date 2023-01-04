@@ -42,7 +42,7 @@ class PairDistribution:
         >>> FCC.compute() # Get atom positions.
 
         >>> neigh = mp.Neighbor(FCC.pos, FCC.box,
-                                5., max_neigh=20) # Initialize Neighbor class.
+                                5., max_neigh=80) # Initialize Neighbor class.
 
         >>> neigh.compute() # Calculate particle neighbor information.
 

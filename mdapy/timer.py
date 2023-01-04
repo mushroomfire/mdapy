@@ -6,6 +6,8 @@ from functools import wraps
 
 
 def timer(function):
+    """Decorators function for timing."""
+
     @wraps(function)
     def timer(*args, **kwargs):
         start = datetime.now()

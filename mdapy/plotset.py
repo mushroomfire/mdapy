@@ -17,6 +17,21 @@ def pltset(
     fontkind="Times New Roman",
     fontweight=False,
 ):
+    """This is a drawing template function.
+
+    Args:
+        ticksize (int, optional): axis ticklabel fontsize. Defaults to 12.
+        labelsize (int, optional): label fontsize. Defaults to 12.
+        legendsize (int, optional): legend fontsize. Defaults to 12.
+        linewidth (float, optional): width of line. Defaults to 1.5.
+        axeswidth (int, optional): width of axis line. Defaults to 1.
+        tickwidth (int, optional): width of axis tick. Defaults to 1.
+        ticklength (int, optional): length of axis tick. Defaults to 3.
+        tickdirection (str, optional): axis tick direction. Defaults to "in".
+        mtickvisible (bool, optional): whether show minor axis tick. Defaults to False.
+        fontkind (str, optional): font family. Defaults to "Times New Roman".
+        fontweight (bool, optional): bold font or not. Defaults to False.
+    """
     try:
         plt.style.use(["science", "notebook"])
     except Exception:
@@ -42,4 +57,12 @@ def pltset(
 
 
 def cm2inch(value):
+    """Centimeters to feet.
+
+    Args:
+        value (float): centimeters.
+
+    Returns:
+        float: feet.
+    """
     return value / 2.54

@@ -9,24 +9,48 @@ from .plotset import pltset, cm2inch
 
 @ti.data_oriented
 class SpatialBinning:
-    """
-    input:
-    pos: (Nx3) ndarray, spatial coordination and the order is x, y and z
-    direction : str, binning direction
-    1. 'x', 'y', 'z', One-dimensional binning
-    2. 'xy', 'xz', 'yz', Two-dimensional binning
-    3. 'xyz', Three-dimensional binning
-    vbin: ndarray
-    1. (N,) ndarray, one value to be binning
-    2. (N, 2) ndarray, two values to be binning
-    wbin: float, width of each bin, default is 5.
-    operation: str, ['mean', 'sum', 'min', 'max'], default is 'mean'
-    output:
-    res: ndarray
-    coor: dict
+    """This class is used to divide particles into different bins and operating on each bin.
+    One-dimensional to Three-dimensional binning are supported.
+
+    Args:
+        pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+        direction (str): binning direction, selected in ['x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz']
+        vbin (np.ndarray): (:math:`N_p, x`), values to be operated, :math:`x` means arbitrary columns.
+        wbin (float, optional): width of each bin. Defaults to 5.0.
+        operation (str, optional): operation on each bin, selected from ['mean', 'sum', 'min', 'max']. Defaults to "mean".
+
+    Outputs:
+        - **res** (np.ndarray) - binning results, res[:, ..., 0] is the number of atoms each bin.
+        - **coor** (dict) - coordination along binning direction, such as coor['x'].
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> FCC = mp.LatticeMaker(4.05, 'FCC', 100, 50, 50) # Create a FCC structure.
+
+        >>> FCC.compute() # Get atom positions.
+
+        >>> binning = SpatialBinning(
+                FCC.pos,
+                "xz",
+                FCC.pos[:, 0],
+                operation="mean",
+            ) # Initilize the binning class along 'xz' plane.
+
+        >>> binning.compute() # Do the binnning calculation.
+
+        >>> binning.res # Check the binning results.
+
+        >>> binning.coor['x'] # Check the x coordination.
+
+        >>> binning.plot(bar_label='x coordination')
+
     """
 
     def __init__(self, pos, direction, vbin, wbin=5.0, operation="mean") -> None:
+
         self.pos = pos
         self.N = self.pos.shape[0]
         assert direction in [
@@ -55,7 +79,7 @@ class SpatialBinning:
         self.if_compute = False
 
     @ti.kernel
-    def Binning_sum(
+    def _Binning_sum(
         self,
         pos: ti.types.ndarray(element_dim=1),
         pos_min: ti.types.ndarray(element_dim=1),
@@ -71,7 +95,7 @@ class SpatialBinning:
                 res[cindex, j] += vbin[i, j - 1]
 
     @ti.kernel
-    def Binning_mean(
+    def _Binning_mean(
         self,
         pos: ti.types.ndarray(element_dim=1),
         pos_min: ti.types.ndarray(element_dim=1),
@@ -93,7 +117,7 @@ class SpatialBinning:
                 res[I] /= res[J]
 
     @ti.kernel
-    def Binning_min(
+    def _Binning_min(
         self,
         pos: ti.types.ndarray(element_dim=1),
         pos_min: ti.types.ndarray(element_dim=1),
@@ -113,7 +137,7 @@ class SpatialBinning:
                 res[cindex, j] = vbin[i, j - 1]
 
     @ti.kernel
-    def Binning_max(
+    def _Binning_max(
         self,
         pos: ti.types.ndarray(element_dim=1),
         pos_min: ti.types.ndarray(element_dim=1),
@@ -133,6 +157,7 @@ class SpatialBinning:
                 res[cindex, j] = vbin[i, j - 1]
 
     def compute(self):
+        """Do the real binning calculation."""
         xyz2dim = {
             "x": [0],
             "y": [1],
@@ -154,28 +179,28 @@ class SpatialBinning:
             )
 
         if self.operation == "sum":
-            self.Binning_sum(
+            self._Binning_sum(
                 self.pos[:, xyz2dim[self.direction]],
                 pos_min[xyz2dim[self.direction]][np.newaxis, :],
                 self.vbin,
                 self.res,
             )
         elif self.operation == "mean":
-            self.Binning_mean(
+            self._Binning_mean(
                 self.pos[:, xyz2dim[self.direction]],
                 pos_min[xyz2dim[self.direction]][np.newaxis, :],
                 self.vbin,
                 self.res,
             )
         elif self.operation == "min":
-            self.Binning_min(
+            self._Binning_min(
                 self.pos[:, xyz2dim[self.direction]],
                 pos_min[xyz2dim[self.direction]][np.newaxis, :],
                 self.vbin,
                 self.res,
             )
         elif self.operation == "max":
-            self.Binning_max(
+            self._Binning_max(
                 self.pos[:, xyz2dim[self.direction]],
                 pos_min[xyz2dim[self.direction]][np.newaxis, :],
                 self.vbin,
@@ -184,6 +209,19 @@ class SpatialBinning:
         self.if_compute = True
 
     def plot(self, label_list=None, bar_label=None):
+        """Plot the binning results for One- and Two-dimensional binning.
+        For 2-D binning, only the first column value will be plotted.
+
+        Args:
+            label_list (list, optional): value name. Defaults to None.
+            bar_label (str, optional): colorbar label for Two-dimensional binning. Defaults to None.
+
+        Raises:
+            NotImplementedError: "Three-dimensional binning visualization is not supported yet!"
+
+        Returns:
+            tuple: (fig, ax) matplotlib figure and axis class.
+        """
         pltset()
         if not self.if_compute:
             self.compute()
@@ -254,5 +292,7 @@ if __name__ == "__main__":
     end = time()
     print(f"Binning time: {end-start} s.")
     print(binning.res[:, ..., 1].max())
+    print(binning.coor["x"])
     # print(binning.coor)
-    binning.plot(label_list=["x"], bar_label="x")
+    # binning.plot(label_list=["x"], bar_label="x")
+    binning.plot(bar_label="x")

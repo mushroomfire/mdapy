@@ -43,20 +43,17 @@ class AtomicEntropy:
 
     Args:
         vol (float): system volume.
-
-        verlet_list (np.ndarray): (:math:`N_p * max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-
-        distance_list (np.ndarray): (:math:`N_p * max\_neigh`) distance_list[i, j] means distance between i and j atom.
-
+        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+        distance_list (np.ndarray): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
         rc (float, optional): cutoff distance. Defaults to 5.0.
-
         sigma (float, optional): smoothing parameter. Defaults to 0.2.
-
         use_local_density (bool, optional): whether use local atomic volume. Defaults to False.
-
         compute_average (bool, optional): whether compute the average version. Defaults to False.
-
         average_rc (float, optional): cutoff distance for averaging operation, if not given, it is equal to rc. This parameter should be lower than rc.
+
+    Outputs:
+        - **entropy** (np.ndarray) - (:math:`N_p`), atomic entropy.
+        - **entropy_average** (np.ndarray) - (:math:`N_p`), averaged atomic entropy if compute_average is True.
 
     Examples:
         >>> import mdapy as mp

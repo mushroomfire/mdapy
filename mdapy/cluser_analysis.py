@@ -11,14 +11,12 @@ class ClusterAnalysis:
 
     Args:
         rc (float): cutoff distance.
+        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+        distance_list (np.ndarray): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
 
-        verlet_list (np.ndarray): (:math:`N_p * max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-
-        distance_list (np.ndarray): (:math:`N_p * max\_neigh`) distance_list[i, j] means distance between i and j atom.
-
-        particleClusters (np.ndarray): (:math:`N_p`) cluster ID per atoms.
-
-        cluster_number (int) : cluster number.
+    Outputs:
+        - **particleClusters** (np.ndarray) - (:math:`N_p`) cluster ID per atoms.
+        - **cluster_number** (int) - cluster number.
 
     .. note:: This class use the `same method as in Ovito <https://www.ovito.org/docs/current/reference/pipelines/modifiers/cluster_analysis.html#particles-modifiers-cluster-analysis>`_.
 

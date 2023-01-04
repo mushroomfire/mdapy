@@ -12,11 +12,13 @@ class kdtree:
     distance, the Neighbor class is suggested.
 
     Args:
-        pos (np.ndarray): (:math:`N_p * 3`) particles positions.
-
-        box (np.ndarray): (:math:`3 * 2`) system box.
-
+        pos (np.ndarray): (:math:`N_p, 3`), particles positions.
+        box (np.ndarray): (:math:`3, 2`), system box.
         boundary (list): boundary conditions, 1 is periodic and 0 is free boundary. Such as [1, 1, 1].
+
+    Outputs:
+        - **shift_pos** (np.ndarray) - (:math:`N_p, 3`), shifted position, making the lower cornor is zero.
+        - **kdt** (scipy.spatial.KDTree) - a KDTree class.
 
     Examples:
 

@@ -12,26 +12,18 @@ class Calculator:
 
     Args:
         potential (mp.EAM): A EAM class.
-
         elements_list (list): elements need to be calculated. Such as ['Al', 'Fe'].
-
         init_type_list (np.ndarray): (:math:`N_p`) per atom type.
-
-        verlet_list (np.ndarray): (:math:`N_p * max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-
-        distance_list (np.ndarray): (:math:`N_p * max\_neigh`) distance_list[i, j] means distance between i and j atom.
-
+        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+        distance_list (np.ndarray): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
         neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
-
-        pos (np.ndarray): (:math:`N_p * 3`) particles positions.
-
+        pos (np.ndarray): (:math:`N_p, 3`) particles positions.
         boundary (list): boundary conditions, 1 is periodic and 0 is free boundary. Such as [1, 1, 1].
+        box (np.ndarray): (:math:`3, 2`) system box.
 
-        box (np.ndarray): (:math:`3 * 2`) system box.
-
-        energy (np.ndarray): (:math:`N_p`) atomic energy (eV).
-
-        force (np.ndarray): (:math:`N_p * 3`) atomic force (eV/A).
+    Outputs:
+        - **energy** (np.ndarray) - (:math:`N_p`) atomic energy (eV).
+        - **force** (np.ndarray) - (:math:`N_p, 3`) atomic force (eV/A).
 
     Examples:
 
@@ -237,6 +229,7 @@ class Calculator:
                         force[j] += d_pair * rij / r
 
     def compute(self):
+        """Do the real energy and force calculation."""
         N = self.pos.shape[0]
         self.energy = np.zeros(N)
         self.force = np.zeros((N, 3))

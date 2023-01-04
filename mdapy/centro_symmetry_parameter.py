@@ -34,14 +34,12 @@ class CentroSymmetryParameter:
 
     Args:
         N (int): Neighbor number.
-
-        pos (np.ndarray): (:math:`N_p * 3`) particles positions.
-
-        box (np.ndarray): (:math:`3 * 2`) system box. 
-
+        pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+        box (np.ndarray): (:math:`3, 2`) system box. 
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
     
-        csp (np.ndarray) : (:math:`N_p`) CSP value per atoms.
+    Outputs:
+        - **csp** (np.ndarray) - (:math:`N_p`) CSP value per atoms.
     
     Examples:
 

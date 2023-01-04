@@ -11,23 +11,17 @@ class Neighbor:
     Using linked-cell list method makes fast neighbor finding possible.
 
     Args:
-        pos (np.ndarray): (:math:`N_p * 3`) particles positions.
-
-        box (np.ndarray): (:math:`3 * 2`) system box, must be rectangle.
-
+        pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+        box (np.ndarray): (:math:`3, 2`) system box, must be rectangle.
         rc (float): cutoff distance.
-
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
-
         max_neigh (int, optional): a given maximum neighbor number per atoms. Defaults to 80.
-
         exclude (bool, optional): whether include atom self, True means no including. Defaults to True.
 
-        verlet_list (np.ndarray): (:math:`N_p * max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-
-        distance_list (np.ndarray): (:math:`N_p * max\_neigh`) distance_list[i, j] means distance between i and j atom.
-
-        neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
+    Outputs:
+        - **verlet_list** (np.ndarray) - (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+        - **distance_list** (np.ndarray) - (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
+        - **neighbor_number** (np.ndarray) - (:math:`N_p`) neighbor atoms number.
 
     Examples:
         >>> import mdapy as mp

@@ -8,12 +8,64 @@ from .plotset import pltset, cm2inch
 
 
 class EAM:
+    """This class is used to read/write a embedded-atom method (EAM) potentials.
+    The energy of atom :math:`i` is given by:
+
+    .. math:: E_i = F_\\alpha \\left(\\sum_{j \\neq i}\\rho_\\beta (r_{ij})\\right) + \\frac{1}{2} \\sum_{j \\neq i} \\phi_{\\alpha\\beta} (r_{ij}),
+
+    where :math:`F` is the embedding energy, :math:`\\rho` is the electron density, :math:`\\phi` is the pair interaction, and :math:`\\alpha` and
+    :math:`\\beta` are the elements species of atom :math:`i` and :math:`j`. Both summation go over all neighbor atom :math:`j` of atom
+    :math:`i` withing the cutoff distance.
+
+    .. note:: Only support `eam.alloy <https://docs.lammps.org/pair_eam.html>`_ definded in LAMMPS format now.
+
+    Args:
+        filename (str): filename of eam.alloy file.
+
+    Outputs:
+        - **Nelements** (int) - number of elements.
+        - **elements_list** (list) - elements list.
+        - **nrho** (int) - number of :math:`\\rho` array.
+        - **nr** (int) - number of :math:`r` array.
+        - **drho** (float) - spacing of electron density :math:`\\rho` space.
+        - **dr** (float) - spacing of real distance :math:`r` space. Unit is Angstroms.
+        - **rc** (float) - cutoff distance. Unit is Angstroms.
+        - **r** (np.ndarray) - (nr), distance space.
+        - **rho** (np.ndarray) - (nrho), electron density space.
+        - **aindex** (np.ndarray) - (Nelements), element serial number.
+        - **amass** (np.ndarray) - (Nelements), element mass.
+        - **lattice_constant** (np.ndarray) - (Nelements), lattice constant. Unit is Angstroms.
+        - **lattice_type** (list) - (Nelements), lattice type, such as [fcc, bcc].
+        - **embedded_data** (np.ndarray) - (Nelements, nrho), embedded energy :math:`F`.
+        - **elec_density_data** (np.ndarray) - (Nelements, nr), electron density :math:`\\rho`.
+        - **rphi_data** (np.ndarray) = (Nelements, Nelements, nr), :math:`r*\\phi`.
+        - **d_embedded_data** (np.ndarray) - (Nelements, nrho), derivatives of embedded energy :math:`dF/d\\rho`.
+        - **d_elec_density_data** (np.ndarray) - (Nelements, nr), derivatives of electron density :math:`d\\rho/dr`.
+        - **phi_data** (np.ndarray) = (Nelements, Nelements, nr), pair interaction :math:`\\phi`.
+        - **d_phi_data** (np.ndarray) = (Nelements, Nelements, nr), derivatives of pair interaction :math:`d\\phi/dr`.
+
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> potential = EAM("./example/CoNiFeAlCu.eam.alloy") # Read a eam.alloy file.
+
+        >>> potential.embedded_data # Check embedded energy.
+
+        >>> potential.phi_data # Check pair interaction.
+
+        >>> potential.plot() # Plot information of potential.
+    """
+
     def __init__(self, filename):
+
         self.filename = filename
-        self.read_eam_alloy()
+        self._read_eam_alloy()
         pltset()
 
-    def read_eam_alloy(self):
+    def _read_eam_alloy(self):
 
         file = open(self.filename).readlines()
         self.header = file[:3]
@@ -101,6 +153,11 @@ class EAM:
         self.d_phi_data[:, :, 0] = self.d_phi_data[:, :, 1]
 
     def write_eam_alloy(self, output_name=None):
+        """Save to a eam.alloy file.
+
+        Args:
+            output_name (str, optional): filename of generated eam file.
+        """
         if output_name is None:
             output_name = ""
             for i in self.elements_list:
@@ -142,6 +199,11 @@ class EAM:
                         num += 1
 
     def plot_rho_r(self):
+        """Plot the :math:`\\rho` with :math:`r`.
+
+        Returns:
+            tuple: (fig, ax) matplotlib figure and axis class.
+        """
         fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
         plt.subplots_adjust(bottom=0.18, top=0.98, left=0.2, right=0.98)
         for i in range(self.Nelements):
@@ -155,6 +217,11 @@ class EAM:
         return fig, ax
 
     def plot_embded_rho(self):
+        """Plot the :math:`F` with :math:`\\rho`.
+
+        Returns:
+            tuple: (fig, ax) matplotlib figure and axis class.
+        """
         fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
         plt.subplots_adjust(bottom=0.18, top=0.98, left=0.2, right=0.98)
         for i in range(self.Nelements):
@@ -169,6 +236,11 @@ class EAM:
         return fig, ax
 
     def plot_phi_r(self):
+        """Plot the :math:`\\phi` with :math:`r`.
+
+        Returns:
+            tuple: (fig, ax) matplotlib figure and axis class.
+        """
         fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
         plt.subplots_adjust(bottom=0.18, top=0.97, left=0.2, right=0.98)
         for i in range(self.Nelements):
@@ -190,6 +262,7 @@ class EAM:
         return fig, ax
 
     def plot(self):
+        """Plot :math:`F`, :math:`\\rho`, :math:`\\phi`."""
         self.plot_rho_r()
         self.plot_embded_rho()
         self.plot_phi_r()

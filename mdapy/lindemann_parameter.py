@@ -28,15 +28,13 @@ class LindemannParameter:
       update the varience and mean of :math:`r_{ij}`.
 
     Args:
-        pos_list (np.ndarray): (:math:`N_f*N_p*3`), :math:`N_f` frames particle position, which need to be unwrapped for periodic boundary.
-
+        pos_list (np.ndarray): (:math:`N_f, N_p, 3`), :math:`N_f` frames particle position, which need to be unwrapped for periodic boundary.
         only_global (bool, optional): whether only calculate the global index. Defaults to False.
 
-        lindemann_atom (np.ndarray): (:math:`N_f*N_p`), local Lindemann index per atoms.
-
-        lindemann_frame (np.ndarray): (:math:`N_f`), Lindemann index per frames.
-
-        lindemann_trj (float): global Lindemann index for an entire trajectory.
+    Outputs:
+        - **lindemann_atom** (np.ndarray) - (:math:`N_f, N_p`), local Lindemann index per atoms.
+        - **lindemann_frame** (np.ndarray) - (:math:`N_f`), Lindemann index per frames.
+        - **lindemann_trj** (float) - global Lindemann index for an entire trajectory.
 
     Examples:
         >>> import mdapy as mp

@@ -52,13 +52,12 @@ class MeanSquaredDisplacement:
     .. math:: MSD(t) = \\dfrac{1}{N_p} \\sum_{i=1}^{N_p} (r_i(t) - r_i(0))^2.
 
     Args:
-        pos_list (np.ndarray): (:math:`N_f*N_p*3`), :math:`N_f` frames particle position, which need to be unwrapped for periodic boundary.
-
+        pos_list (np.ndarray): (:math:`N_f, N_p, 3`), :math:`N_f` frames particle position, which need to be unwrapped for periodic boundary.
         mode (str, optional): calculation mode, selected from ['windows', 'direct']. Defaults to "windows".
 
-        msd (np.ndarray): (:math:`N_f`), mean squared displacement per frames.
-
-        particle_msd (np.ndarray): (:math:`N_f*N_p`), mean squared displacement per atom per frames.
+    Outputs:
+        - **msd** (np.ndarray) - (:math:`N_f`), mean squared displacement per frames.
+        - **particle_msd** (np.ndarray) - (:math:`N_f, N_p`), mean squared displacement per atom per frames.
 
     Examples:
         >>> import mdapy as mp

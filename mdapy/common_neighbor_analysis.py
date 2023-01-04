@@ -47,20 +47,15 @@ class CommonNeighborAnalysis:
 
     Args:
         rc (float): cutoff distance.
-
-        verlet_list (np.ndarray): (:math:`N_p * max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-
+        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
         neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
-
-        pos (np.ndarray): (:math:`N_p * 3`) particles positions.
-
-        box (np.ndarray): (:math:`3 * 2`) system box.
-
+        pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+        box (np.ndarray): (:math:`3, 2`) system box.
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
 
-        pattern (np.ndarray): (:math:`N_p`) CNA results
-
-        structure (list): the corresponding structure to each pattern.
+    Outputs:
+        - **pattern** (np.ndarray) - (:math:`N_p`) CNA results.
+        - **structure** (list) - the corresponding structure to each pattern.
 
     Examples:
         >>> import mdapy as mp

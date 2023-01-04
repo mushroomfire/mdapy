@@ -25,10 +25,11 @@ class EAMAverage(EAM):
 
     Args:
         filename (str): filename of eam.alloy file.
-
-        concentration (list): atomic ratio list, such as [0.5, 0.5].
-
+        concentration (list): atomic ratio list, such as [0.5, 0.5] and the summation should be equal to 1.
         output_name (str, optional): filename of generated average EAM potential.
+
+    Outputs:
+        - **generate an averaged eam.alloy potential file with A element.**
 
     Examples:
         >>> import mdapy as mp

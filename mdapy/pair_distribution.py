@@ -20,22 +20,17 @@ class PairDistribution:
 
     Args:
         rc (float): cutoff distance.
-
         nbin (int): number of bins.
-
         rho (float): system density.
-
-        verlet_list (np.ndarray): (:math:`N_p * max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-
-        distance_list (np.ndarray): (:math:`N_p * max\_neigh`) distance_list[i, j] means distance between i and j atom.
-
+        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+        distance_list (np.ndarray): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
         type_list (np.ndarray, optional): (:math:`N_p`) atom type list. If not given, all atoms types are set as 1.
 
-        r (np.ndarray): (nbin), distance.
-
-        g_total (np.ndarray): (nbin), global RDF.
-
-        g (np.ndarray): (:math:`N_{type} * N_{type} * nbin`), partial RDF.
+    Outputs:
+        - **r** (np.ndarray) - (nbin), distance.
+        - **g_total** (np.ndarray) - (nbin), global RDF.
+        - **Ntype** (int) - number of species.
+        - **g** (np.ndarray): (:math:`N_{type}, N_{type}, nbin`), partial RDF.
 
     Examples:
         >>> import mdapy as mp

@@ -11,14 +11,14 @@ class LatticeMaker:
 
     Args:
         lattice_constant (float): lattice constant :math:`a`.
-
         lattice_type (str): lattice type, seleted in ['FCC', 'BCC', 'HCP', 'GRA']. Here the HCP is ideal structure and the :math:`c/a=1.633`.
-
         x (int): repeat times along :math:`x` axis.
-
         y (int): repeat times along :math:`y` axis.
-
         z (int): repeat times along :math:`z` axis.
+
+    Outputs:
+        - **box** (np.ndarray) - (:math:`3, 2`), system box.
+        - **pos** (np.ndarray) - (:math:`N_p, 3`), particle position.
 
     Examples:
         >>> import mdapy as mp

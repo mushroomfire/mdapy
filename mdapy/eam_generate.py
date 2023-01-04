@@ -16,8 +16,10 @@ class EAMGenerate:
 
     Args:
         elements_list (list): elements list, such as ['Co', 'Ni'], wchich should choose from ["Cu","Ag","Au","Ni","Pd","Pt","Al","Pb","Fe","Mo","Ta","W","Mg","Co","Ti","Zr"].
-
         output_name (str, optional): filename of generated EAM file.
+
+    Outputs:
+        - **generate an eam.alloy potential file.**
 
     Examples:
         >>> import mdapy as mp

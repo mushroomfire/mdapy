@@ -135,30 +135,30 @@ def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
 
 
 class System:
-    """This is the core class in mdapy project. One can see the usage at below.
+    """This class can generate a System class for rapidly accessing almost all the analysis
+    method in mdapy.
+
+    .. note::
+      - mdapy now only supports rectangle box and triclinic system will raise an error.
+      - mdapy only supports the simplest DATA format, atomic and charge, which means like bond information will cause an error.
+      - We recommend you use DUMP as input file format or directly give particle positions and box.
 
     Args:
         filename (str, optional): DATA/DUMP filename. Defaults to None.
-
         format (str, optional): 'data' or 'dump', One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
-
-        box (np.ndarray, optional): (3 x 2) system box. Defaults to None.
-
-        pos (np.ndarray, optional): (Nparticles x 3) particles positions. Defaults to None.
-
+        box (np.ndarray, optional): (:math:`3, 2`) system box. Defaults to None.
+        pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+        vel (np.ndarray, optional): (:math:`N_p, 3`) particles velocities. Defaults to None.
+        type_list (np.ndarray, optional): (:math:`N_p`) type per particles. Defaults to 1.
+        amass (np.ndarray, optional): (:math:`N_type`) atomic mass. Defaults to None.
+        q (np.ndarray, optional): (:math:`N_p`) atomic charge. Defaults to 0.0.
+        data_format (str, optional): `'atomic' or 'charge' <https://docs.lammps.org/read_data.html>`_ defined in lammps, format for DATA file. Defaults to None.
+        sorted_id (bool, optional): whether sort system data by the particle id. Defaults to False.
 
-        vel (np.ndarray, optional): (Nparticles x 3) particles velocities. Defaults to None.
+    Outputs:
+        - **data** (pd.DataFrame) - system data.
 
-        type_list (np.ndarray, optional): (Nparticles,) type per particles. Defaults to 1.
-
-        amass (np.ndarray, optional): (Ntypes,) atomic mass. Defaults to None.
-
-        q (np.ndarray, optional): (Nparticles,) atomic charge. Defaults to 0.0.
-
-        data_format (str, optional): 'atomic' or 'charge', format for DATA file. Defaults to None.
-
-        sorted_id (bool, optional): Whether sort system data by the particle id. Defaults to False.
 
     Examples:
 
@@ -192,14 +192,6 @@ class System:
         And easily save it into disk with DUMP/DATA format.
 
         >>> system.write_dump()
-
-    Note:
-
-    1. mdapy now only support rectangle box and triclinic system will raise and error.
-
-    2. mdapy only support the simplest DATA format, atomic and charge, which means like bond information will cause an error.
-
-    3. We recommend you use DUMP as input file format or directly give particle positions and box.
     """
 
     def __init__(
@@ -266,9 +258,9 @@ class System:
                 "dump",
             ], "format only surppot dump and data file defined in lammps, and data file only surpport atomic and charge format."
             if self.format == "data":
-                self.read_data()
+                self._read_data()
             elif self.format == "dump":
-                self.read_dump()
+                self._read_dump()
                 self.data_format = None
             self.N = self.pos.shape[0]
 
@@ -276,7 +268,7 @@ class System:
         self.vol = self.lx * self.ly * self.lz
         self.rho = self.N / self.vol
 
-    def read_data(self):
+    def _read_data(self):
         self.data_head = []
         self.box = np.zeros((3, 2))
 
@@ -366,7 +358,7 @@ class System:
         if if_vel:
             self.vel = self.data[["vx", "vy", "vz"]].values
 
-    def read_dump(self):
+    def _read_dump(self):
         self.dump_head = []
         with open(self.filename) as op:
             for _ in range(9):
@@ -393,7 +385,12 @@ class System:
             pass
 
     def write_dump(self, output_name=None, output_col=None):
+        """Write data to a DUMP file.
 
+        Args:
+            output_name (str, optional): filename of generated DUMP file.
+            output_col (list, optional): which columns to be saved, which should be inclued in data columns, such as ['id', 'type', 'x', 'y', 'z'].
+        """
         if output_col is None:
             data = self.data
         else:
@@ -431,6 +428,12 @@ class System:
         )
 
     def write_data(self, output_name=None, data_format=None):
+        """Write data to a DATA file.
+
+        Args:
+            output_name (str, optional): filename of generated DATA file.
+            data_format (str, optional): selected in ['atomic', 'charge'].
+        """
         data = self.data
         if data_format is None:
             if self.data_format is None:
@@ -510,11 +513,15 @@ class System:
             pass
 
     def atom_distance(self, i, j):
+        """Calculate the distance fo atom :math:`i` and atom :math:`j` considering the periodic boundary.
 
-        """
-        distance fo atom i and atom j considering periodic boundary
-        """
+        Args:
+            i (int): atom :math:`i`.
+            j (int): atom :math:`j`.
 
+        Returns:
+            float: distance between given two atoms.
+        """
         rij = self.pos[i] - self.pos[j]
         for i in range(3):
             if self.boundary[i] == 1:
@@ -523,12 +530,25 @@ class System:
         return np.linalg.norm(rij)
 
     def wrap_pos(self):
+        """Wrap atom position into box considering the periodic boundary."""
         pos = self.pos.copy()  # a deep copy can be modified
         _wrap_pos(pos, self.box, np.array(self.boundary))
         self.pos = pos
         self.data[["x", "y", "z"]] = self.pos
 
     def build_neighbor(self, rc=5.0, max_neigh=80, exclude=True):
+        """Build neighbor withing a spherical distance based on the mdapy.Neighbor class.
+
+        Args:
+            rc (float, optional): cutoff distance. Defaults to 5.0.
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.
+            exclude (bool, optional): whether exclude atom itself. Defaults to True.
+
+        Outputs:
+            - **verlet_list** (np.ndarray) - (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+            - **distance_list** (np.ndarray) - (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
+            - **neighbor_number** (np.ndarray) - (:math:`N_p`) neighbor atoms number.
+        """
         Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh, exclude)
         Neigh.compute()
 
@@ -541,11 +561,30 @@ class System:
         self.if_neigh = True
 
     def cal_atomic_temperature(self, amass, rc=5.0, units="metal", max_neigh=80):
+        """Calculate an average thermal temperature per atom, wchich is useful at shock
+        simulations. The temperature of atom :math:`i` is given by:
 
+        .. math:: T_i=\\sum^{N^i_{neigh}}_0 m^i_j(v_j^i -v_{COM}^i)^2/(3N_pk_B),
+
+        where :math:`N^i_{neigh}` is neighbor atoms number of atom :math:`i`,
+        :math:`m^i_j` and :math:`v^i_j` are the atomic mass and velocity of neighbor atom :math:`j` of atom :math:`i`,
+        :math:`k_B` is the Boltzmann constant and :math:`N_p` is the number of particles in system, :math:`v^i_{COM}` is
+        the center of mass COM velocity of neighbor of atom :math:`i` and is given by:
+
+        .. math:: v^i_{COM}=\\frac{\\sum _0^{N^i_{neigh}}m^i_jv_j^i}{\\sum_0^{N^i_{neigh}} m_j^i}.
+
+        Here the neighbor of atom :math:`i` includes itself.
+
+        Args:
+            amass (np.ndarray): (:math:`N_{type}`) atomic mass per species.
+            rc (float, optional): cutoff distance. Defaults to 5.0.
+            units (str, optional): units selected from ['metal', 'charge']. Defaults to "metal".
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.
+
+        Outputs:
+            - **The result is added in self.data['atomic_temp']**.
         """
-        amass : (N_type)的array,N_type为原子类型的数目,按照体系的类型顺序写入相应原子类型的相对原子质量.
-        units : metal or real.
-        """
+
         if not self.if_neigh:
             self.build_neighbor(rc, max_neigh)
         elif self.rc < rc:
@@ -564,8 +603,35 @@ class System:
         self.data["atomic_temp"] = AtomicTemp.T
 
     def cal_centro_symmetry_parameter(self, N=12):
-        """
-        N : int, 大于0的偶数,对于FCC结构是12,对于BCC是8. default : 12
+        """Compute the CentroSymmetry Parameter (CSP),
+        which is heluful to recgonize the structure in lattice, such as FCC and BCC.
+        The  CSP is given by:
+
+        .. math::
+
+            p_{\mathrm{CSP}} = \sum_{i=1}^{N/2}{|\mathbf{r}_i + \mathbf{r}_{i+N/2}|^2},
+
+        where :math:`r_i` and :math:`r_{i+N/2}` are two neighbor vectors from the central atom to a pair of opposite neighbor atoms.
+        For ideal centrosymmetric crystal, the contributions of all neighbor pairs will be zero. Atomic sites within a defective
+        crystal region, in contrast, typically have a positive CSP value.
+
+        This parameter :math:`N` indicates the number of nearest neighbors that should be taken into account when computing
+        the centrosymmetry value for an atom. Generally, it should be a positive, even integer. Note that larger number decreases the
+        calculation speed. For FCC is 12 and BCC is 8.
+
+        .. note:: If you use this module in publication, you should also cite the original paper.
+        `Kelchner C L, Plimpton S J, Hamilton J C. Dislocation nucleation and defect
+        structure during surface indentation[J]. Physical review B, 1998, 58(17): 11085. <https://journals.aps.org/prb/abstract/10.1103/PhysRevB.58.11085>`_.
+
+        .. hint:: The CSP is calculated by the `same algorithm as LAMMPS <https://docs.lammps.org/compute_centro_atom.html>`_.
+        First calculate all :math:`N (N - 1) / 2` pairs of neighbor atoms, and the summation of the :math:`N/2` lowest weights
+        is CSP values.
+
+        Args:
+            N (int, optional): neighbor atom number considered, should be a positive and even number. Defaults to 12.
+
+        Outputs:
+            - **The result is added in self.data['csp']**.
         """
 
         try:
@@ -591,11 +657,53 @@ class System:
         average_rc=None,
         max_neigh=80,
     ):
+        """Calculate the entropy fingerprint, which is useful to distinguish
+        between ordered and disordered environments, including liquid and solid-like environments,
+        or glassy and crystalline-like environments. The potential application could identificate grain boundaries
+        or a solid cluster emerging from the melt. One of the advantages of this parameter is that no a priori
+        information of structure is required.
 
+        This parameter for atom :math:`i` is computed using the following formula:
+
+        .. math:: s_S^i=-2\\pi\\rho k_B \\int\\limits_0^{r_m} \\left [ g(r) \\ln g(r) - g(r) + 1 \\right ] r^2 dr,
+
+        where :math:`r` is a distance, :math:`g(r)` is the radial distribution function,
+        and :math:`\\rho` is the density of the system.
+        The :math:`g(r)` computed for each atom :math:`i` can be noisy and therefore it can be smoothed using:
+
+        .. math:: g_m^i(r) = \\frac{1}{4 \\pi \\rho r^2} \\sum\\limits_{j} \\frac{1}{\\sqrt{2 \\pi \\sigma^2}} e^{-(r-r_{ij})^2/(2\\sigma^2)},
+
+        where the sum over :math:`j` goes through the neighbors of atom :math:`i` and :math:`\\sigma` is
+        a parameter to control the smoothing. The average of the parameter over the neighbors of atom :math:`i`
+        is calculated according to:
+
+        .. math:: \\left< s_S^i \\right>  = \\frac{\\sum_j s_S^j + s_S^i}{N + 1},
+
+        where the sum over :math:`j` goes over the neighbors of atom :math:`i` and :math:`N` is the number of neighbors.
+        The average version always provides a sharper distinction between order and disorder environments.
+
+        .. note:: If you use this module in publication, you should also cite the original paper.
+        `Entropy based fingerprint for local crystalline order <https://doi.org/10.1063/1.4998408>`_
+
+        .. note:: This class uses the `same algorithm with LAMMPS <https://docs.lammps.org/compute_entropy_atom.html>`_.
+
+        .. tip:: Suggestions for FCC, the :math:`rc = 1.4a` and :math:`average\_rc = 0.9a` and
+        for BCC, the :math:`rc = 1.8a` and :math:`average\_rc = 1.2a`, where the :math:`a`
+        is the lattice constant.
+
+        Args:
+            rc (float, optional): cutoff distance. Defaults to 5.0.
+            sigma (float, optional): smoothing parameter. Defaults to 0.2.
+            use_local_density (bool, optional): whether use local atomic volume. Defaults to False.
+            compute_average (bool, optional): whether compute the average version. Defaults to False.
+            average_rc (_type_, optional): cutoff distance for averaging operation, if not given, it is equal to rc. This parameter should be lower than rc.
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.
+
+        Outputs:
+            - **The entropy is added in self.data['atomic_entropy']**.
+            - **The averaged entropy is added in self.data['ave_atomic_entropy']**.
         """
-        sigma : 用来表征插值的精细程度类似于,不能太大, 默认使用0.25或者0.2就行.
-        use_local_density : 是否使用局部密度,俺也不咋懂.
-        """
+
         if average_rc is not None:
             assert average_rc <= rc, "Average rc should not be larger than rc!"
         if not self.if_neigh:
@@ -619,6 +727,31 @@ class System:
             self.data["ave_atomic_entropy"] = AtomicEntro.entropy_average
 
     def cal_pair_distribution(self, rc=5.0, nbin=200, max_neigh=80):
+        """Calculate the radiul distribution function (RDF),which
+        reflects the probability of finding an atom at distance r. The seperate pair-wise
+        combinations of particle types can also be computed:
+
+        .. math:: g(r) = c_{\\alpha}^2 g_{\\alpha \\alpha}(r) + 2 c_{\\alpha} c_{\\beta} g_{\\alpha \\beta}(r) + c_{\\beta}^2 g_{\\beta \\beta}(r),
+
+        where :math:`c_{\\alpha}` and :math:`c_{\\beta}` denote the concentration of two atom types in system
+        and :math:`g_{\\alpha \\beta}(r)=g_{\\beta \\alpha}(r)`.
+
+        Args:
+            rc (float, optional): cutoff distance. Defaults to 5.0.
+            nbin (int, optional): number of bins. Defaults to 200.
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.
+
+        Outputs:
+            - **The result adds a PairDistribution (mdapy.PairDistribution) class**
+
+        .. tip:: One can check the results by:
+
+          >>> system.PairDistribution.plot() # Plot gr.
+
+          >>> system.PairDistribution.g # Check partial RDF.
+
+          >>> system.PairDistribution.g_total # Check global RDF.
+        """
         if not self.if_neigh:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
         elif self.rc < rc:
@@ -635,6 +768,21 @@ class System:
         self.PairDistribution.compute()
 
     def cal_cluster_analysis(self, rc=5.0, max_neigh=80):
+        """Divide atoms connected within a given cutoff distance into a cluster.
+        It is helpful to recognize the reaction products or fragments under shock loading.
+
+        .. note:: This class use the `same method as in Ovito <https://www.ovito.org/docs/current/reference/pipelines/modifiers/cluster_analysis.html#particles-modifiers-cluster-analysis>`_.
+
+        Args:
+            rc (float, optional): cutoff distance.. Defaults to 5.0.
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.
+
+        Returns:
+            int: cluster number.
+
+        Outputs:
+            - **The cluster id per atom is added in self.data['cluster_id']**
+        """
         if not self.if_neigh:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
         elif self.rc < rc:
@@ -646,8 +794,49 @@ class System:
         return ClusterAnalysi.cluster_number
 
     def cal_common_neighbor_analysis(self, rc=3.0, max_neigh=30):
-        """
-        rc should be 0.854*a for FCC and 1.207*a for BCC metal.
+        """Sse Common Neighbor Analysis (CNA) method to recgonize the lattice structure, based
+        on which atoms can be divided into FCC, BCC, HCP and Other structure.
+
+        .. note:: If one use this module in publication, one should also cite the original paper.
+          `Faken D, Jónsson H. Systematic analysis of local atomic structure combined with 3D computer graphics[J].
+          Computational Materials Science, 1994, 2(2): 279-286. <https://doi.org/10.1016/0927-0256(94)90109-0>`_.
+
+        .. hint:: We use the `same algorithm as in LAMMPS <https://docs.lammps.org/compute_cna_atom.html>`_.
+
+        CNA method is sensitive to the given cutoff distance. The suggesting cutoff can be obtained from the
+        following formulas:
+
+        .. math::
+
+            r_{c}^{\mathrm{fcc}} = \\frac{1}{2} \\left(\\frac{\\sqrt{2}}{2} + 1\\right) a
+            \\approx 0.8536 a,
+
+        .. math::
+
+            r_{c}^{\mathrm{bcc}} = \\frac{1}{2}(\\sqrt{2} + 1) a
+            \\approx 1.207 a,
+
+        .. math::
+
+            r_{c}^{\mathrm{hcp}} = \\frac{1}{2}\\left(1+\\sqrt{\\frac{4+2x^{2}}{3}}\\right) a,
+
+        where :math:`a` is the lattice constant and :math:`x=(c/a)/1.633` and 1.633 is the ideal ratio of :math:`c/a`
+        in HCP structure.
+
+        The CNA method can recgonize the following structure:
+
+        1. Other
+        2. FCC
+        3. HCP
+        4. BCC
+        5. ICO
+
+        Args:
+            rc (float, optional): cutoff distance. Defaults to 3.0.
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 30.
+
+        Outputs:
+            - **The CNA pattern per atom is added in self.data['cna']**.
         """
 
         if not self.if_neigh:
@@ -675,18 +864,26 @@ class System:
         CommonNeighborAnalysi.compute()
         self.data["cna"] = CommonNeighborAnalysi.pattern
 
-    def cal_energy_force(self, filename, elements_list):
-        """
-        filename : eam.alloy 势函数文件名
-        elements_list : 每一个原子type对应的元素, ['Al', 'Al', 'Ni']
+    def cal_energy_force(self, filename, elements_list, max_neighbor=120):
+        """Calculate the atomic energy and force based on the given embedded atom method
+        EAM potential. Multi-elements alloy is also supported.
+
+        Args:
+            filename (str): filename of eam.alloy potential file.
+            elements_list (list): elements to be calculated, such as ['Al', 'Al', 'Ni'] indicates setting type 1 and 2 as 'Al' and type 3 as 'Ni'.
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 120.
+
+        Outputs:
+            - **The energy per atom is added in self.data['pe']**.
+            - **The force per atom is added in self.data[["afx", "afy", "afz"]]**.
         """
 
         potential = EAM(filename)
 
         if not self.if_neigh:
-            self.build_neighbor(rc=potential.rc, max_neigh=120)
+            self.build_neighbor(rc=potential.rc, max_neigh=max_neighbor)
         if self.rc < potential.rc:
-            self.build_neighbor(rc=potential.rc, max_neigh=120)
+            self.build_neighbor(rc=potential.rc, max_neigh=max_neighbor)
 
         Cal = Calculator(
             potential,
@@ -705,13 +902,24 @@ class System:
         self.data[["afx", "afy", "afz"]] = Cal.force
 
     def cal_void_distribution(self, cell_length, out_void=False):
+        """This class is used to detect the void distribution in solid structure.
+        First we divid particles into three-dimensional grid and check the its
+        neighbors, if all neighbor grid is empty we treat this grid is void, otherwise it is
+        a point defect. Then useing clustering all connected 'void' grid into an entire void.
+        Excepting counting the number and volume of voids, this class can also output the
+        spatial coordination of void for analyzing the void distribution.
+
+        .. note:: The results are sensitive to the selection of :math:`cell\_length`, which should
+          be illustrated if this class is used in your publication.
+
+        Args:
+            cell_length (float): length of cell, larger than lattice constant is okay.
+            out_void (bool, optional): whether outputs void coordination. Defaults to False.
+
+        Returns:
+            tuple: (void_number, void_volume), number and volume of voids.
         """
-        input:
-        cell_length : 比晶胞长度大一点的数字
-        out_void : 是否导出void的坐标文件
-        output:
-        void_number, void_volume
-        """
+
         void = VoidDistribution(
             self.pos,
             self.box,
@@ -726,6 +934,31 @@ class System:
         return void.void_number, void.void_volume
 
     def cal_warren_cowley_parameter(self, rc=3.0, max_neigh=50):
+        """This class is used to calculate the Warren Cowley parameter (WCP), which is useful to
+        analyze the short-range order (SRO) in the 1st-nearest neighbor shell in alloy system and is given by:
+
+        .. math:: WCP_{mn} = 1 - Z_{mn}/(X_n Z_{m}),
+
+        where :math:`Z_{mn}` is the number of :math:`n`-type atoms around :math:`m`-type atoms,
+        :math:`Z_m` is the total number of atoms around :math:`m`-type atoms, and :math:`X_n` is
+        the atomic concentration of :math:`n`-type atoms in the alloy.
+
+        .. note:: If you use this class in publication, you should also cite the original paper:
+          `X‐Ray Measurement of Order in Single Crystals of Cu3Au <https://doi.org/10.1063/1.1699415>`_.
+
+        Args:
+            rc (float, optional): cutoff distance. Defaults to 3.0.
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 50.
+
+        Outputs:
+            - **The result adds a WarrenCowleyParameter (mdapy.WarrenCowleyParameter) class**
+
+        .. tip:: One can check the results by:
+
+          >>> system.WarrenCowleyParameter.plot() # Plot WCP.
+
+          >>> system.WarrenCowleyParameter.WCP # Check WCP.
+        """
         if not self.if_neigh:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
             self.WarrenCowleyParameter = WarrenCowleyParameter(
@@ -741,46 +974,67 @@ class System:
         self.WarrenCowleyParameter.compute()
 
     def cal_voronoi_volume(self):
+        """This class is used to calculate the Voronoi polygon, wchich can be applied to
+        estimate the atomic volume. The calculation is conducted by the `voro++ <https://math.lbl.gov/voro++/>`_ package and
+        this class only provides a wrapper.
+
+        Outputs:
+            - **The atomic Voronoi volume is added in self.data['voronoi_volume']**.
+            - **The atomic Voronoi neighbor is added in self.data["voronoi_number"]**.
+            - **The atomic Voronoi cavity radius is added in self.data["cavity_radius"]**.
+
+        """
         voro = VoronoiAnalysis(self.pos, self.box, self.boundary)
         voro.compute()
         self.data["voronoi_volume"] = voro.vol
         self.data["voronoi_number"] = voro.neighbor_number
         self.data["cavity_radius"] = voro.cavity_radius
 
-    def spatial_binning(self, direction, vbin, wbin, operation="mean"):
+    def spatial_binning(self, direction, vbin, wbin=5.0, operation="mean"):
+        """This class is used to divide particles into different bins and operating on each bin.
+        One-dimensional to Three-dimensional binning are supported.
+
+        Args:
+            direction (str): binning direction, selected in ['x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz'].
+            vbin (str/list): values to be operated, such as 'x' or ['vx', 'pe'].
+            wbin (float, optional): width of each bin. Defaults to 5.0.
+            operation (str, optional): operation on each bin, selected from ['mean', 'sum', 'min', 'max']. Defaults to "mean".
+
+        Outputs:
+            - **The result adds a Binning (mdapy.SpatialBinning) class**
+
+        .. tip:: One can check the results by:
+
+          >>> system.Binning.plot() # Plot the binning results.
+
+          >>> system.Binning.res # Check the binning results.
+
+          >>> system.Binning.coor # Check the binning coordination.
         """
-        input:
-        pos: (Nx3) ndarray, spatial coordination and the order is x, y and z
-        direction : str, binning direction
-        1. 'x', 'y', 'z', One-dimensional binning
-        2. 'xy', 'xz', 'yz', Two-dimensional binning
-        3. 'xyz', Three-dimensional binning
-        vbin: str or list
-        wbin: float, width of each bin, default is 5.
-        operation: str, ['mean', 'sum', 'min', 'max'], default is 'mean'
-        output:
-        Binning class
-        res: ndarray
-        coor: dict
-        """
+
         vbin = self.data[vbin].values
         self.Binning = SpatialBinning(self.pos, direction, vbin, wbin, operation)
         self.Binning.compute()
 
 
 class MultiSystem(list):
-
     """
-    Generate a list of systems.
+    This class is a collection of mdapy.System class and is helful to handle the atomic trajectory.
 
-    input:
-    filename_list : a list containing filename, such as ['melt.0.dump', 'melt.1.dump']
-    unwrap : bool, make atom positions do not wrap into box due to periotic boundary
-    sorted_id : bool, sort data by atoms id
-    image_p : image_p help to unwrap positions, if don't provided, using minimum image criterion, see https://en.wikipedia.org/wiki/Periodic_boundary_conditions#Practical_implementation:_continuity_and_the_minimum_image_convention.
+    Args:
+        filename_list (list): ordered filename list, such as ['melt.0.dump', 'melt.100.dump'].
+        unwrap (bool, optional): make atom positions do not wrap into box due to periotic boundary. Defaults to True.
+        sorted_id (bool, optional): sort data by atoms id. Defaults to True.
+        image_p (np.ndarray, optional): (:math:`N_p, 3`), image_p help to unwrap positions, if don't provided, using minimum image criterion, see https://en.wikipedia.org/wiki/Periodic_boundary_conditions#Practical_implementation:_continuity_and_the_minimum_image_convention.
+
+    Outputs:
+        - **pos_list** (np.ndarray): (:math:`N_f, N_p, 3`), :math:`N_f` frames particle position.
+        - **Nframes** (int): number of frames.
+
     """
 
     def __init__(self, filename_list, unwrap=True, sorted_id=True, image_p=None):
+
         self.sorted_id = sorted_id
         self.unwrap = unwrap
         self.image_p = image_p
@@ -807,6 +1061,11 @@ class MultiSystem(list):
         self.Nframes = self.pos_list.shape[0]
 
     def write_dumps(self, output_col=None):
+        """Write all data to a series of DUMP files.
+
+        Args:
+            output_col (list, optional): columns to be saved, such as ['id', 'type', 'x', 'y', 'z'].
+        """
         progress_bar = tqdm(self)
         for system in progress_bar:
             try:
@@ -816,15 +1075,41 @@ class MultiSystem(list):
             system.write_dump(output_col=output_col)
 
     def cal_mean_squared_displacement(self, mode="windows"):
-        """
-        Calculating MSD variation.
-        input:
-        mode : str, "windows" or "direct",
-        see
-        1. https://stackoverflow.com/questions/34222272/computing-mean-square-displacement-using-python-and-fft
-        2. https://freud.readthedocs.io/en/latest/modules/msd.html
-        output:
-        self.MSD.msd
+        """Calculate the mean squared displacement MSD of system, which can be used to
+        reflect the particle diffusion trend and describe the melting process. Generally speaking, MSD is an
+        average displacement over all windows of length :math:`m` over the course of the simulation (so-called
+        'windows' mode here) and defined by:
+
+        .. math:: MSD(m) = \\frac{1}{N_{p}} \\sum_{i=1}^{N_{p}} \\frac{1}{N_{f}-m} \\sum_{k=0}^{N_{f}-m-1} (\\vec{r}_i(k+m) - \\vec{r}_i(k))^2,
+
+        where :math:`r_i(t)` is the position of particle :math:`i` in frame :math:`t`. It is computationally extensive
+        while using a fast Fourier transform can remarkably reduce the computation cost as described in `nMoldyn - Interfacing
+        spectroscopic experiments, molecular dynamics simulations and models for time correlation functions
+        <https://doi.org/10.1051/sfn/201112010>`_ and discussion in `StackOverflow <https://stackoverflow.com/questions/34222272/computing-mean-square-displacement-using-python-and-fft>`_.
+
+        .. note:: One can install `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ to accelerate the calculation,
+          otherwise mdapy will use `scipy.fft <https://docs.scipy.org/doc/scipy/reference/fft.html#module-scipy.fft>`_
+          to do the Fourier transform.
+
+        Sometimes one only need the following atomic displacement (so-called 'direct' mode here):
+
+        .. math:: MSD(t) = \\dfrac{1}{N_p} \\sum_{i=1}^{N_p} (r_i(t) - r_i(0))^2.
+
+        Args:
+            mode (str, optional): 'windows' or 'direct'. Defaults to "windows".
+
+        Outputs:
+            - **The result adds a MSD (mdapy.MeanSquaredDisplacement) class**
+
+        .. tip:: One can check the results by:
+
+          >>> MS = mp.MultiSystem(filename_list) # Generate a MultiSystem class.
+
+          >>> MS.cal_mean_squared_displacement() # Calculate MSD.
+
+          >>> MS.MSD.plot() # Plot the MSD results.
+
+          >>> MS[0].data['msd'] # Check MSD per particles.
         """
 
         self.MSD = MeanSquaredDisplacement(self.pos_list, mode=mode)
@@ -833,21 +1118,42 @@ class MultiSystem(list):
             self[frame].data["msd"] = self.MSD.partical_msd[frame]
 
     def cal_lindemann_parameter(self, only_global=False):
+
         """
-        Need high memory!!!
-        Using Welford method to updated the varience and mean of rij
-        see
-        1. https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford
-        2. https://zhuanlan.zhihu.com/p/408474710
+        Calculate the `Lindemann index <https://en.wikipedia.org/wiki/Lindemann_index>`_,
+        which is useful to distinguish the melt process and determine the melting points of nano-particles.
+        The Lindemann index is defined as the root-mean-square bond-length fluctuation with following mathematical expression:
 
-        Input:
-        pos_list : np.ndarray (Nframes, Natoms, 3)
-        only_global : bool, only calculate globle lindemann index, fast, parallel
+        .. math:: \\left\\langle\\sigma_{i}\\right\\rangle=\\frac{1}{N_{p}(N_{p}-1)} \\sum_{j \\neq i} \\frac{\\sqrt{\\left\\langle r_{i j}^{2}\\right\\rangle_t-\\left\\langle r_{i j}\\right\\rangle_t^{2}}}{\\left\\langle r_{i j}\\right\\rangle_t},
 
-        Output:
-        lindemann_atom : np.ndarray (Nframes, Natoms)
-        lindemann_frame : np.ndarray (Nframes)
-        lindemann_trj : float
+        where :math:`N_p` is the particle number, :math:`r_{ij}` is the distance between atom :math:`i` and :math:`j` and brackets :math:`\\left\\langle \\right\\rangle_t`
+        represents an time average.
+
+        .. note:: This class is partly referred to a `work <https://github.com/N720720/lindemann>`_ on calculating the Lindemann index.
+
+        .. note:: This calculation is high memory requirement. One can estimate the memory by: :math:`2 * 8 * N_p^2 / 1024^3` GB.
+
+        .. tip:: If only global lindemann index is needed, the class can be calculated in parallel.
+          The local Lindemann index only run serially due to the dependencies between different frames.
+          Here we use the `Welford method <https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford>`_ to
+          update the varience and mean of :math:`r_{ij}`.
+
+        Args:
+            only_global (bool, optional): whether only calculate the global index. Defaults to False.
+
+        Outputs:
+            - **The result adds a Lindemann (mdapy.LindemannParameter) class**.
+
+        .. tip:: One can check the results by:
+
+          >>> MS = mp.MultiSystem(filename_list) # Generate a MultiSystem class.
+
+          >>> MS.cal_lindemann_parameter() # Calculate Lindemann index.
+
+          >>> MS.Lindemann.plot() # Plot the Lindemann index.
+
+          >>> MS[0].data['lindemann'] # Check Lindemann index per particles.
+
         """
 
         self.Lindemann = LindemannParameter(self.pos_list, only_global)

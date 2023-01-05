@@ -1,0 +1,10 @@
+taichi==1.2.0
+numpy
+scipy
+pandas
+tqdm
+matplotlib
+SciencePlots
+sphinx
+sphinx_rtd_theme
+pybind11

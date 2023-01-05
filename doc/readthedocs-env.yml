@@ -1,23 +1,9 @@
-name: mdapy
-channels:
-  - conda-forge
-  - defaults
-dependencies:
-  - python
-  - pip
-  - taichi==1.2.0
-  - pandas
-  - tqdm
-  - scipy
-  - numpy
-  - matplotlib
-  - SciencePlots
-  - sphinx
-  - sphinx_rtd_theme
-  - pybind11
-
 version: 2
 
+python:
+  install:
+    - requirements: docs/requirements.txt
+  
 build:
   os: ubuntu-20.04
   tools:

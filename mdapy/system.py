@@ -718,7 +718,7 @@ class System:
             cell_length,
             self.boundary,
             out_void=out_void,
-            head=self.head,
+            head=self.dump_head,
             out_name=self.filename[:-5] + ".void.dump",
         )
         void.compute()

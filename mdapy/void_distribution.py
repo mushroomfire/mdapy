@@ -9,16 +9,60 @@ from .cluser_analysis import ClusterAnalysis
 
 @ti.data_oriented
 class VoidDistribution:
-    """
-    计算固体中空洞的数目,体积,空间分布.
-    input :
-    pos : ndarray
-    box : (3x2) ndarray
-    cell_length : float, 应该要比晶胞长度大一点
-    boundary : list, [1, 1, 1]
-    out_void : bool, False 是否导出void的坐标
-    head : dump文件的head, 不指定会默认生成
-    out_name : void坐标文件的名字, 默认为void.dump
+    """This class is used to detect the void distribution in solid structure.
+    First we divid particles into three-dimensional grid and check the its
+    neighbors, if all neighbor grid is empty we treat this grid is void, otherwise it is
+    a point defect. Then useing clustering all connected 'void' grid into an entire void.
+    Excepting counting the number and volume of voids, this class can also output the
+    spatial coordination of void for analyzing the void distribution.
+
+    .. note:: The results are sensitive to the selection of :math:`cell\_length`, which should
+      be illustrated if this class is used in your publication.
+
+    Args:
+        pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+        box (np.ndarray): (:math:`3, 2`) system box.
+        cell_length (float): length of cell, larger than lattice constant is okay.
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+        out_void (bool, optional): whether outputs void coordination. Defaults to False.
+        head (list, optional): header of void DUMP file. Defaults to None.
+        out_name (str, optional): filename of generated void DUMP file. Defaults to "void.dump".
+
+    Outputs:
+        - **void_number** (int) - total number of voids.
+        - **void_volume** (float) - total volume of voids
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> import numpy as np
+
+        >>> FCC = mp.LatticeMaker(4.05, 'FCC', 50, 50, 50) # Create a FCC structure.
+
+        >>> FCC.compute() # Get atom positions.
+
+        Generate four voids.
+
+        >>> pos = FCC.pos.copy()
+
+        >>> pos = pos[np.sum(np.square(pos - np.array([50, 50, 50])), axis=1) > 100]
+
+        >>> pos = pos[np.sum(np.square(pos - np.array([100, 100, 100])), axis=1) > 100]
+
+        >>> pos = pos[np.sum(np.square(pos - np.array([150, 150, 150])), axis=1) > 400]
+
+        >>> pos = pos[np.sum(np.square(pos - np.array([50, 150, 50])), axis=1) > 400]
+
+        >>> void = mp.VoidDistribution(pos, FCC.box, 5., out_void=True) # Initilize void class.
+
+        >>> void.compute() # Calculated the voids and generate a file named void.dump.
+
+        >>> void.void_number # Check the void number, should be 4 here.
+
+        >>> void.void_volume # Check the void volume.
+
     """
 
     def __init__(
@@ -52,7 +96,7 @@ class VoidDistribution:
         )
 
     @ti.kernel
-    def fill_cell(
+    def _fill_cell(
         self,
         pos: ti.types.ndarray(element_dim=1),
         cell_id_list: ti.types.ndarray(),
@@ -98,12 +142,12 @@ class VoidDistribution:
                 elif k > self.ncel[2] - 1:
                     kk = self.ncel[2] - 1
                 num += id_list[ii, jj, kk]
-            if num < 26:  # 20 is empty
+            if num < 26:  # 26 is empty
                 cell_id_list[iicel, jjcel, kkcel] = 1  # is void
             # else:
             #     cell_id_list[iicel, jjcel, kkcel] = 0  # is point defect
 
-    def write_void_pos(self, void_data):
+    def _write_void_pos(self, void_data):
 
         if self.head is None:
             boundary_str = ["pp" if i == 1 else "ff" for i in self.boundary]
@@ -128,11 +172,12 @@ class VoidDistribution:
             np.savetxt(op, void_data, fmt="%d %d %f %f %f %d", delimiter=" ")
 
     def compute(self):
+        """Do the real void calculation."""
         cell_id_list = np.zeros(
             (self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32
         )
         id_list = np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32)
-        self.fill_cell(self.pos, cell_id_list, id_list)
+        self._fill_cell(self.pos, cell_id_list, id_list)
 
         if 1 in cell_id_list:
             void_pos = np.argwhere(cell_id_list == 1) * self.cell_length
@@ -155,7 +200,7 @@ class VoidDistribution:
                     void_pos,
                     cluster.particleClusters,
                 ]
-                self.write_void_pos(void_data)
+                self._write_void_pos(void_data)
         else:
             self.void_number = 0
             self.void_volume = 0.0
@@ -188,7 +233,7 @@ if __name__ == "__main__":
     print("Generate four voids.")
 
     start = time()
-    void = VoidDistribution(pos, FCC.box, lattice_constant + 1.0, out_void=False)
+    void = VoidDistribution(pos, FCC.box, lattice_constant + 1.0, out_void=True)
     void.compute()
     end = time()
     print("void number is:", void.void_number)

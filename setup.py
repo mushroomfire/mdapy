@@ -1,13 +1,11 @@
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import setup
-import os
 
 description = "A simple and fast python library to handle the data generated from molecular dynamics simulations"
 try:
-    readme_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.md")
-    with open(readme_file) as f:
+    with open("README.md") as f:
         readme = f.read()
-except ImportError:
+except Exception:
     readme = description
 
 setup(

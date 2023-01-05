@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mdapy.system &mdash; mdapy 0.7.4 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="shortcut icon" href="../../_static/mdapy_favico_white.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> mdapy
+            <img src="../../_static/mdapy_logo_white.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.7.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Mdapy Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">mdapy</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">mdapy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../mdapy.html">mdapy</a></li>
+      <li class="breadcrumb-item active">mdapy.system</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mdapy.system</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) 2022, mushroomfire in Beijing Institute of Technology</span>
+<span class="c1"># This file is from the mdapy project, released under the BSD 3-Clause License.</span>
+
+<span class="kn">import</span> <span class="nn">taichi</span> <span class="k">as</span> <span class="nn">ti</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span> <span class="nn">.common_neighbor_analysis</span> <span class="kn">import</span> <span class="n">CommonNeighborAnalysis</span>
+<span class="kn">from</span> <span class="nn">.neighbor</span> <span class="kn">import</span> <span class="n">Neighbor</span>
+<span class="kn">from</span> <span class="nn">.temperature</span> <span class="kn">import</span> <span class="n">AtomicTemperature</span>
+<span class="kn">from</span> <span class="nn">.centro_symmetry_parameter</span> <span class="kn">import</span> <span class="n">CentroSymmetryParameter</span>
+<span class="kn">from</span> <span class="nn">.entropy</span> <span class="kn">import</span> <span class="n">AtomicEntropy</span>
+<span class="kn">from</span> <span class="nn">.pair_distribution</span> <span class="kn">import</span> <span class="n">PairDistribution</span>
+<span class="kn">from</span> <span class="nn">.cluser_analysis</span> <span class="kn">import</span> <span class="n">ClusterAnalysis</span>
+
+<span class="kn">from</span> <span class="nn">.potential</span> <span class="kn">import</span> <span class="n">EAM</span>
+<span class="kn">from</span> <span class="nn">.calculator</span> <span class="kn">import</span> <span class="n">Calculator</span>
+<span class="kn">from</span> <span class="nn">.void_distribution</span> <span class="kn">import</span> <span class="n">VoidDistribution</span>
+<span class="kn">from</span> <span class="nn">.warren_cowley_parameter</span> <span class="kn">import</span> <span class="n">WarrenCowleyParameter</span>
+<span class="kn">from</span> <span class="nn">.voronoi_analysis</span> <span class="kn">import</span> <span class="n">VoronoiAnalysis</span>
+
+<span class="kn">from</span> <span class="nn">.mean_squared_displacement</span> <span class="kn">import</span> <span class="n">MeanSquaredDisplacement</span>
+<span class="kn">from</span> <span class="nn">.lindemann_parameter</span> <span class="kn">import</span> <span class="n">LindemannParameter</span>
+
+<span class="kn">from</span> <span class="nn">.spatial_binning</span> <span class="kn">import</span> <span class="n">SpatialBinning</span>
+
+
+<span class="nd">@ti</span><span class="o">.</span><span class="n">kernel</span>
+<span class="k">def</span> <span class="nf">_wrap_pos</span><span class="p">(</span>
+    <span class="n">pos</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span> <span class="n">box</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span> <span class="n">boundary</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">()</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function is used to wrap particle positions into box considering periodic boundarys.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pos (ti.types.ndarray): (Nx3) particle position.</span>
+
+<span class="sd">        box (ti.types.ndarray): (3x2) system box.</span>
+
+<span class="sd">        boundary (ti.types.ndarray): boundary conditions, 1 is periodic and 0 is free boundary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">boxlength</span> <span class="o">=</span> <span class="n">ti</span><span class="o">.</span><span class="n">Vector</span><span class="p">([</span><span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)])</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ti</span><span class="o">.</span><span class="n">static</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">boundary</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">while</span> <span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]:</span>
+                    <span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">boxlength</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="k">while</span> <span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+                    <span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="n">boxlength</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+
+
+<span class="nd">@ti</span><span class="o">.</span><span class="n">kernel</span>
+<span class="k">def</span> <span class="nf">_unwrap_pos_with_image_p</span><span class="p">(</span>
+    <span class="n">pos_list</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">element_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">box</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+    <span class="n">boundary</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">vector</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
+    <span class="n">image_p</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">element_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function is used to unwrap particle positions</span>
+<span class="sd">     into box considering periodic boundarys with help of image_p.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pos_list (ti.types.ndarray): (Nframes x Nparticles x 3) particle position.</span>
+
+<span class="sd">        box (ti.types.ndarray): (3x2) system box.</span>
+
+<span class="sd">        boundary (ti.types.vector): boundary conditions, 1 is periodic and 0 is free boundary.</span>
+
+<span class="sd">        image_p (ti.types.ndarray): (Nframes x Nparticles x 3) image_p, such as 1 indicates plus a box distance and -2 means substract two box distances.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">boxlength</span> <span class="o">=</span> <span class="n">ti</span><span class="o">.</span><span class="n">Vector</span><span class="p">([</span><span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)])</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">pos_list</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ti</span><span class="o">.</span><span class="n">static</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">boundary</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">pos_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="n">image_p</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">boxlength</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+
+
+<span class="nd">@ti</span><span class="o">.</span><span class="n">kernel</span>
+<span class="k">def</span> <span class="nf">_unwrap_pos_without_image_p</span><span class="p">(</span>
+    <span class="n">pos_list</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">element_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">box</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+    <span class="n">boundary</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">vector</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
+    <span class="n">image_p</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">element_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function is used to unwrap particle positions</span>
+<span class="sd">     into box considering periodic boundarys without help of image_p.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pos_list (ti.types.ndarray): (Nframes x Nparticles x 3) particle position.</span>
+
+<span class="sd">        box (ti.types.ndarray): (3x2) system box.</span>
+
+<span class="sd">        boundary (ti.types.vector): boundary conditions, 1 is periodic and 0 is free boundary.</span>
+
+<span class="sd">        image_p (ti.types.ndarray): (Nframes x Nparticles x 3) fill with 0.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">boxlength</span> <span class="o">=</span> <span class="n">ti</span><span class="o">.</span><span class="n">Vector</span><span class="p">([</span><span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)])</span>
+    <span class="n">ti</span><span class="o">.</span><span class="n">loop_config</span><span class="p">(</span><span class="n">serialize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">pos_list</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pos_list</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ti</span><span class="o">.</span><span class="n">static</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">boundary</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">pos_list</span><span class="p">[</span><span class="n">frame</span><span class="p">,</span> <span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">image_p</span><span class="p">[</span><span class="n">frame</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">boxlength</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">delta</span> <span class="o">=</span> <span class="n">pos_list</span><span class="p">[</span><span class="n">frame</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">pos_list</span><span class="p">[</span><span class="n">frame</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ti</span><span class="o">.</span><span class="n">static</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">boundary</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">delta</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">boxlength</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="n">image_p</span><span class="p">[</span><span class="n">frame</span><span class="p">,</span> <span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="mf">1.0</span>
+                        <span class="n">pos_list</span><span class="p">[</span><span class="n">frame</span><span class="p">,</span> <span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="n">boxlength</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                    <span class="k">elif</span> <span class="n">delta</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="o">-</span><span class="n">boxlength</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="n">image_p</span><span class="p">[</span><span class="n">frame</span><span class="p">,</span> <span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="mf">1.0</span>
+                        <span class="n">pos_list</span><span class="p">[</span><span class="n">frame</span><span class="p">,</span> <span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">boxlength</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_unwrap_pos</span><span class="p">(</span><span class="n">pos_list</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">boundary</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">image_p</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function is used to unwrap particle positions</span>
+<span class="sd">     into box considering periodic boundarys.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pos_list (np.ndarray): (Nframes x Nparticles x 3) particle position.</span>
+
+<span class="sd">        box (np.ndarray): (3x2) system box.</span>
+
+<span class="sd">        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].</span>
+
+<span class="sd">        image_p (_type_, optional): (Nframes x Nparticles x 3) image_p, such as 1 indicates plus a box distance and -2 means substract two box distances. Defaults to None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">image_p</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">boundary</span> <span class="o">=</span> <span class="n">ti</span><span class="o">.</span><span class="n">Vector</span><span class="p">(</span><span class="n">boundary</span><span class="p">)</span>
+        <span class="n">_unwrap_pos_with_image_p</span><span class="p">(</span><span class="n">pos_list</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">boundary</span><span class="p">,</span> <span class="n">image_p</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">boundary</span> <span class="o">=</span> <span class="n">ti</span><span class="o">.</span><span class="n">Vector</span><span class="p">(</span><span class="n">boundary</span><span class="p">)</span>
+        <span class="n">image_p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">pos_list</span><span class="p">)</span>
+        <span class="n">_unwrap_pos_without_image_p</span><span class="p">(</span><span class="n">pos_list</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">boundary</span><span class="p">,</span> <span class="n">image_p</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="System"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System">[docs]</a><span class="k">class</span> <span class="nc">System</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;This class can generate a System class for rapidly accessing almost all the analysis</span>
+<span class="sd">    method in mdapy.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">      - mdapy now only supports rectangle box and triclinic system will raise an error.</span>
+<span class="sd">      - mdapy only supports the simplest DATA format, atomic and charge, which means like bond information will cause an error.</span>
+<span class="sd">      - We recommend you use DUMP as input file format or directly give particle positions and box.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename (str, optional): DATA/DUMP filename. Defaults to None.</span>
+<span class="sd">        format (str, optional): &#39;data&#39; or &#39;dump&#39;, One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.</span>
+<span class="sd">        box (np.ndarray, optional): (:math:`3, 2`) system box. Defaults to None.</span>
+<span class="sd">        pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.</span>
+<span class="sd">        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].</span>
+<span class="sd">        vel (np.ndarray, optional): (:math:`N_p, 3`) particles velocities. Defaults to None.</span>
+<span class="sd">        type_list (np.ndarray, optional): (:math:`N_p`) type per particles. Defaults to 1.</span>
+<span class="sd">        amass (np.ndarray, optional): (:math:`N_type`) atomic mass. Defaults to None.</span>
+<span class="sd">        q (np.ndarray, optional): (:math:`N_p`) atomic charge. Defaults to 0.0.</span>
+<span class="sd">        data_format (str, optional): `&#39;atomic&#39; or &#39;charge&#39; &lt;https://docs.lammps.org/read_data.html&gt;`_ defined in lammps, format for DATA file. Defaults to None.</span>
+<span class="sd">        sorted_id (bool, optional): whether sort system data by the particle id. Defaults to False.</span>
+
+<span class="sd">    Outputs:</span>
+<span class="sd">        - **data** (pd.DataFrame) - system data.</span>
+
+
+<span class="sd">    Examples:</span>
+
+<span class="sd">        There are two ways to create a System class.</span>
+<span class="sd">        The first is directly reading from a DUMP/DATA file generated from LAMMPS.</span>
+
+<span class="sd">        &gt;&gt;&gt; import mdapy as mp</span>
+
+<span class="sd">        &gt;&gt;&gt; mp.init(&#39;cpu&#39;)</span>
+
+<span class="sd">        &gt;&gt;&gt; system = mp.System(&#39;example.dump&#39;)</span>
+
+<span class="sd">        One can also create a System by giving pos, box manually.</span>
+
+<span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+
+<span class="sd">        &gt;&gt;&gt; box = np.array([[0, 100], [0, 100], [0, 100.]])</span>
+
+<span class="sd">        &gt;&gt;&gt; pos = np.random.random((100, 3))*100</span>
+
+<span class="sd">        &gt;&gt;&gt; system = mp.System(box=box, pos=pos)</span>
+
+<span class="sd">        Then one can access almost all the analysis method in mdapy with uniform API.</span>
+
+<span class="sd">        &gt;&gt;&gt; system.cal_atomic_entropy() # calculate the atomic entropy</span>
+
+<span class="sd">        One can check the calculation results:</span>
+
+<span class="sd">        &gt;&gt;&gt; system.data</span>
+
+<span class="sd">        And easily save it into disk with DUMP/DATA format.</span>
+
+<span class="sd">        &gt;&gt;&gt; system.write_dump()</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="nb">format</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">box</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">pos</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">boundary</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="n">vel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">type_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">amass</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">q</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">data_format</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">sorted_id</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dump_head</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_head</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_format</span> <span class="o">=</span> <span class="n">data_format</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amass</span> <span class="o">=</span> <span class="n">amass</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">if_neigh</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sorted_id</span> <span class="o">=</span> <span class="n">sorted_id</span>
+        <span class="k">if</span> <span class="n">filename</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">=</span> <span class="nb">format</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">box</span> <span class="o">=</span> <span class="n">box</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span> <span class="o">=</span> <span class="n">boundary</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vel</span> <span class="o">=</span> <span class="n">vel</span>
+            <span class="k">if</span> <span class="n">type_list</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">type_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">type_list</span> <span class="o">=</span> <span class="n">type_list</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_format</span> <span class="o">==</span> <span class="s2">&quot;charge&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">q</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">=</span> <span class="n">q</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">=</span> <span class="n">q</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_list</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">],</span>
+                <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">],</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_format</span> <span class="o">==</span> <span class="s2">&quot;charge&quot;</span><span class="p">:</span>
+                <span class="c1"># self.data[&#39;q&#39;] = self.q</span>
+                <span class="c1"># self.data[[&quot;id&quot;, &quot;type&quot;, &quot;q&quot;, &quot;x&quot;, &quot;y&quot;, &quot;z&quot;]] = self.data[[&quot;id&quot;, &quot;type&quot;, &quot;x&quot;, &quot;y&quot;, &quot;z&quot;, &quot;q&quot;]]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">q</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">vel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;vx&quot;</span><span class="p">,</span> <span class="s2">&quot;vy&quot;</span><span class="p">,</span> <span class="s2">&quot;vz&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vel</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Ntype</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">=</span> <span class="nb">format</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="ow">in</span> <span class="p">[</span>
+                <span class="s2">&quot;data&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;dump&quot;</span><span class="p">,</span>
+            <span class="p">],</span> <span class="s2">&quot;format only surppot dump and data file defined in lammps, and data file only surpport atomic and charge format.&quot;</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">==</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_read_data</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">==</span> <span class="s2">&quot;dump&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_read_dump</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data_format</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">lx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ly</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lz</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lx</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ly</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">lz</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rho</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">vol</span>
+
+    <span class="k">def</span> <span class="nf">_read_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_head</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">box</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">op</span><span class="p">:</span>
+            <span class="n">file</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+
+        <span class="n">row</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">mass_row</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">data_head</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;atoms&quot;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;bond&quot;</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="s2">&quot;Do not support bond style.&quot;</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;atom&quot;</span> <span class="ow">and</span> <span class="n">content</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;types&quot;</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">Ntype</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;xhi&quot;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;yhi&quot;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;zhi&quot;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;xy&quot;</span><span class="p">,</span> <span class="s2">&quot;xz&quot;</span><span class="p">,</span> <span class="s2">&quot;yz&quot;</span><span class="p">]:</span>
+                    <span class="k">raise</span> <span class="s2">&quot;Do not support triclinic box.&quot;</span>
+                <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Masses&quot;</span><span class="p">:</span>
+                    <span class="n">mass_row</span> <span class="o">=</span> <span class="n">row</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Atoms&quot;</span><span class="p">:</span>
+                    <span class="k">break</span>
+            <span class="n">row</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">mass_row</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">amass</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">()[:</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_head</span><span class="p">[</span><span class="n">mass_row</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">mass_row</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ntype</span><span class="p">]</span>
+                <span class="p">],</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+            <span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_head</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;atomic&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data_format</span> <span class="o">=</span> <span class="s2">&quot;atomic&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">col_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_head</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;charge&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data_format</span> <span class="o">=</span> <span class="s2">&quot;charge&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">col_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">file</span><span class="p">[</span><span class="n">row</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">())</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data_format</span> <span class="o">=</span> <span class="s2">&quot;atomic&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">col_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">file</span><span class="p">[</span><span class="n">row</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">())</span> <span class="o">==</span> <span class="mi">6</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data_format</span> <span class="o">=</span> <span class="s2">&quot;charge&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">col_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="s2">&quot;Unrecgonized data format. Only support atomic and charge.&quot;</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">file</span><span class="p">[</span><span class="n">row</span> <span class="o">+</span> <span class="mi">2</span> <span class="p">:</span> <span class="n">row</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span>
+        <span class="p">)[:,</span> <span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">col_names</span><span class="p">)]</span>
+        <span class="n">row</span> <span class="o">+=</span> <span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span>
+        <span class="n">if_vel</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">row</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">file</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">[</span><span class="n">row</span><span class="p">:]:</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Velocities&quot;</span><span class="p">:</span>
+                        <span class="n">if_vel</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="k">break</span>
+                <span class="n">row</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">if_vel</span><span class="p">:</span>
+                <span class="n">vel</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">file</span><span class="p">[</span><span class="n">row</span> <span class="o">+</span> <span class="mi">2</span> <span class="p">:</span> <span class="n">row</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span>
+                <span class="p">)[:,</span> <span class="mi">1</span><span class="p">:]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">col_names</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;vx&quot;</span><span class="p">,</span> <span class="s2">&quot;vy&quot;</span><span class="p">,</span> <span class="s2">&quot;vz&quot;</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">data</span><span class="p">,</span> <span class="n">vel</span><span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">col_names</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">col_names</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sorted_id</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">if</span> <span class="n">if_vel</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;vx&quot;</span><span class="p">,</span> <span class="s2">&quot;vy&quot;</span><span class="p">,</span> <span class="s2">&quot;vz&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="k">def</span> <span class="nf">_read_dump</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dump_head</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">op</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">9</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dump_head</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">readline</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="s2">&quot;pp&quot;</span> <span class="k">else</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump_head</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">3</span><span class="p">:]]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">box</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">()[:</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump_head</span><span class="p">[</span><span class="mi">5</span><span class="p">:</span><span class="mi">8</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">col_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump_head</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">2</span><span class="p">:]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+            <span class="n">skiprows</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span>
+            <span class="n">index_col</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">sep</span><span class="o">=</span><span class="s2">&quot; &quot;</span><span class="p">,</span>
+            <span class="n">names</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">col_names</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sorted_id</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ntype</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;vx&quot;</span><span class="p">,</span> <span class="s2">&quot;vy&quot;</span><span class="p">,</span> <span class="s2">&quot;vz&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+<div class="viewcode-block" id="System.write_dump"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.write_dump">[docs]</a>    <span class="k">def</span> <span class="nf">write_dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output_col</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Write data to a DUMP file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            output_name (str, optional): filename of generated DUMP file.</span>
+<span class="sd">            output_col (list, optional): which columns to be saved, which should be inclued in data columns, such as [&#39;id&#39;, &#39;type&#39;, &#39;x&#39;, &#39;y&#39;, &#39;z&#39;].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">output_col</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">output_col</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">output_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">output_name</span> <span class="o">=</span> <span class="s2">&quot;output.dump&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">output_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">[:</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;output.dump&quot;</span>
+        <span class="n">col_name</span> <span class="o">=</span> <span class="s2">&quot;ITEM: ATOMS &quot;</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">col_name</span> <span class="o">+=</span> <span class="n">i</span>
+            <span class="n">col_name</span> <span class="o">+=</span> <span class="s2">&quot; &quot;</span>
+        <span class="n">col_name</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_name</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">op</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dump_head</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;ITEM: TIMESTEP</span><span class="se">\n</span><span class="s2">0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;ITEM: NUMBER OF ATOMS</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">boundary</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;pp&quot;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">&quot;ss&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">]</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;ITEM: BOX BOUNDS </span><span class="si">{</span><span class="n">boundary</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">boundary</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">boundary</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">col_name</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dump_head</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dump_head</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">col_name</span><span class="p">))</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+            <span class="n">output_name</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">na_rep</span><span class="o">=</span><span class="s2">&quot;nan&quot;</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="System.write_data"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.write_data">[docs]</a>    <span class="k">def</span> <span class="nf">write_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data_format</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Write data to a DATA file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            output_name (str, optional): filename of generated DATA file.</span>
+<span class="sd">            data_format (str, optional): selected in [&#39;atomic&#39;, &#39;charge&#39;].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+        <span class="k">if</span> <span class="n">data_format</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_format</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">data_format</span> <span class="o">=</span> <span class="s2">&quot;atomic&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">data_format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_format</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">data_format</span> <span class="ow">in</span> <span class="p">[</span>
+                <span class="s2">&quot;atomic&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;charge&quot;</span><span class="p">,</span>
+            <span class="p">],</span> <span class="s2">&quot;Unrecgonized data format. Only support atomic and charge.&quot;</span>
+
+        <span class="k">if</span> <span class="n">output_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">output_name</span> <span class="o">=</span> <span class="s2">&quot;output.data&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">output_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">[:</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;output.data&quot;</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_name</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">op</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_head</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;# LAMMPS data file written by mdapy@HerrWu.</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> atoms</span><span class="se">\n</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">Ntype</span><span class="si">}</span><span class="s2"> atom types</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]):</span>
+                    <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">lo </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">hi</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">amass</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Masses</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Ntype</span><span class="p">):</span>
+                        <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">amass</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">rf</span><span class="s2">&quot;Atoms # </span><span class="si">{</span><span class="n">data_format</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data_head</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Atoms # </span><span class="si">{</span><span class="n">data_format</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;# LAMMPS data file written by mdapy@HerrWu.</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_head</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">data_format</span> <span class="o">==</span> <span class="s2">&quot;atomic&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+                <span class="n">output_name</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">na_rep</span><span class="o">=</span><span class="s2">&quot;nan&quot;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">data_format</span> <span class="o">==</span> <span class="s2">&quot;charge&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;q&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+                    <span class="n">output_name</span><span class="p">,</span>
+                    <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">sep</span><span class="o">=</span><span class="s2">&quot; &quot;</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">,</span>
+                    <span class="n">na_rep</span><span class="o">=</span><span class="s2">&quot;nan&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+                    <span class="n">output_name</span><span class="p">,</span>
+                    <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">sep</span><span class="o">=</span><span class="s2">&quot; &quot;</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">,</span>
+                    <span class="n">na_rep</span><span class="o">=</span><span class="s2">&quot;nan&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vel</span><span class="p">):</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_name</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">op</span><span class="p">:</span>
+                    <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Velocities</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">data</span><span class="p">[[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;vx&quot;</span><span class="p">,</span> <span class="s2">&quot;vy&quot;</span><span class="p">,</span> <span class="s2">&quot;vz&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+                    <span class="n">output_name</span><span class="p">,</span>
+                    <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">sep</span><span class="o">=</span><span class="s2">&quot; &quot;</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">,</span>
+                    <span class="n">na_rep</span><span class="o">=</span><span class="s2">&quot;nan&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="c1"># print(&quot;No velocities provided!&quot;)</span>
+            <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="System.atom_distance"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.atom_distance">[docs]</a>    <span class="k">def</span> <span class="nf">atom_distance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the distance fo atom :math:`i` and atom :math:`j` considering the periodic boundary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            i (int): atom :math:`i`.</span>
+<span class="sd">            j (int): atom :math:`j`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            float: distance between given two atoms.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rij</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">box_length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">rij</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">rij</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">box_length</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">rij</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">/</span> <span class="n">box_length</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">rij</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="System.wrap_pos"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.wrap_pos">[docs]</a>    <span class="k">def</span> <span class="nf">wrap_pos</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Wrap atom position into box considering the periodic boundary.&quot;&quot;&quot;</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>  <span class="c1"># a deep copy can be modified</span>
+        <span class="n">_wrap_pos</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span></div>
+
+<div class="viewcode-block" id="System.build_neighbor"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.build_neighbor">[docs]</a>    <span class="k">def</span> <span class="nf">build_neighbor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rc</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">exclude</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Build neighbor withing a spherical distance based on the mdapy.Neighbor class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            rc (float, optional): cutoff distance. Defaults to 5.0.</span>
+<span class="sd">            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.</span>
+<span class="sd">            exclude (bool, optional): whether exclude atom itself. Defaults to True.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **verlet_list** (np.ndarray) - (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j &gt; -1.</span>
+<span class="sd">            - **distance_list** (np.ndarray) - (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.</span>
+<span class="sd">            - **neighbor_number** (np.ndarray) - (:math:`N_p`) neighbor atoms number.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">Neigh</span> <span class="o">=</span> <span class="n">Neighbor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="n">rc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">,</span> <span class="n">max_neigh</span><span class="p">,</span> <span class="n">exclude</span><span class="p">)</span>
+        <span class="n">Neigh</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">distance_list</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">neighbor_number</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">Neigh</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span>
+            <span class="n">Neigh</span><span class="o">.</span><span class="n">distance_list</span><span class="p">,</span>
+            <span class="n">Neigh</span><span class="o">.</span><span class="n">neighbor_number</span><span class="p">,</span>
+            <span class="n">rc</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">if_neigh</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="System.cal_atomic_temperature"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.cal_atomic_temperature">[docs]</a>    <span class="k">def</span> <span class="nf">cal_atomic_temperature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">amass</span><span class="p">,</span> <span class="n">rc</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s2">&quot;metal&quot;</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="mi">80</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate an average thermal temperature per atom, wchich is useful at shock</span>
+<span class="sd">        simulations. The temperature of atom :math:`i` is given by:</span>
+
+<span class="sd">        .. math:: T_i=\\sum^{N^i_{neigh}}_0 m^i_j(v_j^i -v_{COM}^i)^2/(3N_pk_B),</span>
+
+<span class="sd">        where :math:`N^i_{neigh}` is neighbor atoms number of atom :math:`i`,</span>
+<span class="sd">        :math:`m^i_j` and :math:`v^i_j` are the atomic mass and velocity of neighbor atom :math:`j` of atom :math:`i`,</span>
+<span class="sd">        :math:`k_B` is the Boltzmann constant and :math:`N_p` is the number of particles in system, :math:`v^i_{COM}` is</span>
+<span class="sd">        the center of mass COM velocity of neighbor of atom :math:`i` and is given by:</span>
+
+<span class="sd">        .. math:: v^i_{COM}=\\frac{\\sum _0^{N^i_{neigh}}m^i_jv_j^i}{\\sum_0^{N^i_{neigh}} m_j^i}.</span>
+
+<span class="sd">        Here the neighbor of atom :math:`i` includes itself.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            amass (np.ndarray): (:math:`N_{type}`) atomic mass per species.</span>
+<span class="sd">            rc (float, optional): cutoff distance. Defaults to 5.0.</span>
+<span class="sd">            units (str, optional): units selected from [&#39;metal&#39;, &#39;charge&#39;]. Defaults to &quot;metal&quot;.</span>
+<span class="sd">            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The result is added in self.data[&#39;atomic_temp&#39;]**.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_neigh</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_neighbor</span><span class="p">(</span><span class="n">rc</span><span class="p">,</span> <span class="n">max_neigh</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">&lt;</span> <span class="n">rc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_neighbor</span><span class="p">(</span><span class="n">rc</span><span class="p">,</span> <span class="n">max_neigh</span><span class="p">)</span>
+        <span class="n">atype_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">AtomicTemp</span> <span class="o">=</span> <span class="n">AtomicTemperature</span><span class="p">(</span>
+            <span class="n">amass</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vel</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">distance_list</span><span class="p">,</span>
+            <span class="n">atype_list</span><span class="p">,</span>
+            <span class="n">rc</span><span class="p">,</span>
+            <span class="n">units</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">AtomicTemp</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;atomic_temp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">AtomicTemp</span><span class="o">.</span><span class="n">T</span></div>
+
+<div class="viewcode-block" id="System.cal_centro_symmetry_parameter"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.cal_centro_symmetry_parameter">[docs]</a>    <span class="k">def</span> <span class="nf">cal_centro_symmetry_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">12</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the CentroSymmetry Parameter (CSP),</span>
+<span class="sd">        which is heluful to recgonize the structure in lattice, such as FCC and BCC.</span>
+<span class="sd">        The  CSP is given by:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            p_{\mathrm{CSP}} = \sum_{i=1}^{N/2}{|\mathbf{r}_i + \mathbf{r}_{i+N/2}|^2},</span>
+
+<span class="sd">        where :math:`r_i` and :math:`r_{i+N/2}` are two neighbor vectors from the central atom to a pair of opposite neighbor atoms.</span>
+<span class="sd">        For ideal centrosymmetric crystal, the contributions of all neighbor pairs will be zero. Atomic sites within a defective</span>
+<span class="sd">        crystal region, in contrast, typically have a positive CSP value.</span>
+
+<span class="sd">        This parameter :math:`N` indicates the number of nearest neighbors that should be taken into account when computing</span>
+<span class="sd">        the centrosymmetry value for an atom. Generally, it should be a positive, even integer. Note that larger number decreases the</span>
+<span class="sd">        calculation speed. For FCC is 12 and BCC is 8.</span>
+
+<span class="sd">        .. note:: If you use this module in publication, you should also cite the original paper.</span>
+<span class="sd">        `Kelchner C L, Plimpton S J, Hamilton J C. Dislocation nucleation and defect</span>
+<span class="sd">        structure during surface indentation[J]. Physical review B, 1998, 58(17): 11085. &lt;https://journals.aps.org/prb/abstract/10.1103/PhysRevB.58.11085&gt;`_.</span>
+
+<span class="sd">        .. hint:: The CSP is calculated by the `same algorithm as LAMMPS &lt;https://docs.lammps.org/compute_centro_atom.html&gt;`_.</span>
+<span class="sd">        First calculate all :math:`N (N - 1) / 2` pairs of neighbor atoms, and the summation of the :math:`N/2` lowest weights</span>
+<span class="sd">        is CSP values.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            N (int, optional): neighbor atom number considered, should be a positive and even number. Defaults to 12.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The result is added in self.data[&#39;csp&#39;]**.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">CentroSymmetryPara</span> <span class="o">=</span> <span class="n">CentroSymmetryParameter</span><span class="p">(</span>
+                <span class="n">N</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span>
+            <span class="p">)</span>
+            <span class="n">CentroSymmetryPara</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>  <span class="c1"># a deep copy can be modified</span>
+            <span class="n">_wrap_pos</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">))</span>
+            <span class="n">CentroSymmetryPara</span> <span class="o">=</span> <span class="n">CentroSymmetryParameter</span><span class="p">(</span>
+                <span class="n">N</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span>
+            <span class="p">)</span>
+            <span class="n">CentroSymmetryPara</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;csp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">CentroSymmetryPara</span><span class="o">.</span><span class="n">csp</span></div>
+
+<div class="viewcode-block" id="System.cal_atomic_entropy"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.cal_atomic_entropy">[docs]</a>    <span class="k">def</span> <span class="nf">cal_atomic_entropy</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">rc</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+        <span class="n">sigma</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">use_local_density</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">compute_average</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">average_rc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">max_neigh</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the entropy fingerprint, which is useful to distinguish</span>
+<span class="sd">        between ordered and disordered environments, including liquid and solid-like environments,</span>
+<span class="sd">        or glassy and crystalline-like environments. The potential application could identificate grain boundaries</span>
+<span class="sd">        or a solid cluster emerging from the melt. One of the advantages of this parameter is that no a priori</span>
+<span class="sd">        information of structure is required.</span>
+
+<span class="sd">        This parameter for atom :math:`i` is computed using the following formula:</span>
+
+<span class="sd">        .. math:: s_S^i=-2\\pi\\rho k_B \\int\\limits_0^{r_m} \\left [ g(r) \\ln g(r) - g(r) + 1 \\right ] r^2 dr,</span>
+
+<span class="sd">        where :math:`r` is a distance, :math:`g(r)` is the radial distribution function,</span>
+<span class="sd">        and :math:`\\rho` is the density of the system.</span>
+<span class="sd">        The :math:`g(r)` computed for each atom :math:`i` can be noisy and therefore it can be smoothed using:</span>
+
+<span class="sd">        .. math:: g_m^i(r) = \\frac{1}{4 \\pi \\rho r^2} \\sum\\limits_{j} \\frac{1}{\\sqrt{2 \\pi \\sigma^2}} e^{-(r-r_{ij})^2/(2\\sigma^2)},</span>
+
+<span class="sd">        where the sum over :math:`j` goes through the neighbors of atom :math:`i` and :math:`\\sigma` is</span>
+<span class="sd">        a parameter to control the smoothing. The average of the parameter over the neighbors of atom :math:`i`</span>
+<span class="sd">        is calculated according to:</span>
+
+<span class="sd">        .. math:: \\left&lt; s_S^i \\right&gt;  = \\frac{\\sum_j s_S^j + s_S^i}{N + 1},</span>
+
+<span class="sd">        where the sum over :math:`j` goes over the neighbors of atom :math:`i` and :math:`N` is the number of neighbors.</span>
+<span class="sd">        The average version always provides a sharper distinction between order and disorder environments.</span>
+
+<span class="sd">        .. note:: If you use this module in publication, you should also cite the original paper.</span>
+<span class="sd">        `Entropy based fingerprint for local crystalline order &lt;https://doi.org/10.1063/1.4998408&gt;`_</span>
+
+<span class="sd">        .. note:: This class uses the `same algorithm with LAMMPS &lt;https://docs.lammps.org/compute_entropy_atom.html&gt;`_.</span>
+
+<span class="sd">        .. tip:: Suggestions for FCC, the :math:`rc = 1.4a` and :math:`average\_rc = 0.9a` and</span>
+<span class="sd">        for BCC, the :math:`rc = 1.8a` and :math:`average\_rc = 1.2a`, where the :math:`a`</span>
+<span class="sd">        is the lattice constant.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            rc (float, optional): cutoff distance. Defaults to 5.0.</span>
+<span class="sd">            sigma (float, optional): smoothing parameter. Defaults to 0.2.</span>
+<span class="sd">            use_local_density (bool, optional): whether use local atomic volume. Defaults to False.</span>
+<span class="sd">            compute_average (bool, optional): whether compute the average version. Defaults to False.</span>
+<span class="sd">            average_rc (_type_, optional): cutoff distance for averaging operation, if not given, it is equal to rc. This parameter should be lower than rc.</span>
+<span class="sd">            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The entropy is added in self.data[&#39;atomic_entropy&#39;]**.</span>
+<span class="sd">            - **The averaged entropy is added in self.data[&#39;ave_atomic_entropy&#39;]**.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">average_rc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">average_rc</span> <span class="o">&lt;=</span> <span class="n">rc</span><span class="p">,</span> <span class="s2">&quot;Average rc should not be larger than rc!&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_neigh</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_neighbor</span><span class="p">(</span><span class="n">rc</span><span class="o">=</span><span class="n">rc</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="n">max_neigh</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">&lt;</span> <span class="n">rc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_neighbor</span><span class="p">(</span><span class="n">rc</span><span class="o">=</span><span class="n">rc</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="n">max_neigh</span><span class="p">)</span>
+
+        <span class="n">AtomicEntro</span> <span class="o">=</span> <span class="n">AtomicEntropy</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vol</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">distance_list</span><span class="p">,</span>
+            <span class="n">rc</span><span class="p">,</span>
+            <span class="n">sigma</span><span class="p">,</span>
+            <span class="n">use_local_density</span><span class="p">,</span>
+            <span class="n">compute_average</span><span class="p">,</span>
+            <span class="n">average_rc</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">AtomicEntro</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;atomic_entropy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">AtomicEntro</span><span class="o">.</span><span class="n">entropy</span>
+        <span class="k">if</span> <span class="n">compute_average</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;ave_atomic_entropy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">AtomicEntro</span><span class="o">.</span><span class="n">entropy_average</span></div>
+
+<div class="viewcode-block" id="System.cal_pair_distribution"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.cal_pair_distribution">[docs]</a>    <span class="k">def</span> <span class="nf">cal_pair_distribution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rc</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">nbin</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="mi">80</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the radiul distribution function (RDF),which</span>
+<span class="sd">        reflects the probability of finding an atom at distance r. The seperate pair-wise</span>
+<span class="sd">        combinations of particle types can also be computed:</span>
+
+<span class="sd">        .. math:: g(r) = c_{\\alpha}^2 g_{\\alpha \\alpha}(r) + 2 c_{\\alpha} c_{\\beta} g_{\\alpha \\beta}(r) + c_{\\beta}^2 g_{\\beta \\beta}(r),</span>
+
+<span class="sd">        where :math:`c_{\\alpha}` and :math:`c_{\\beta}` denote the concentration of two atom types in system</span>
+<span class="sd">        and :math:`g_{\\alpha \\beta}(r)=g_{\\beta \\alpha}(r)`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            rc (float, optional): cutoff distance. Defaults to 5.0.</span>
+<span class="sd">            nbin (int, optional): number of bins. Defaults to 200.</span>
+<span class="sd">            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The result adds a PairDistribution (mdapy.PairDistribution) class**</span>
+
+<span class="sd">        .. tip:: One can check the results by:</span>
+
+<span class="sd">          &gt;&gt;&gt; system.PairDistribution.plot() # Plot gr.</span>
+
+<span class="sd">          &gt;&gt;&gt; system.PairDistribution.g # Check partial RDF.</span>
+
+<span class="sd">          &gt;&gt;&gt; system.PairDistribution.g_total # Check global RDF.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_neigh</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_neighbor</span><span class="p">(</span><span class="n">rc</span><span class="o">=</span><span class="n">rc</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="n">max_neigh</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">&lt;</span> <span class="n">rc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_neighbor</span><span class="p">(</span><span class="n">rc</span><span class="o">=</span><span class="n">rc</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="n">max_neigh</span><span class="p">)</span>
+        <span class="n">rho</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">vol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">PairDistribution</span> <span class="o">=</span> <span class="n">PairDistribution</span><span class="p">(</span>
+            <span class="n">rc</span><span class="p">,</span>
+            <span class="n">nbin</span><span class="p">,</span>
+            <span class="n">rho</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">distance_list</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">PairDistribution</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="System.cal_cluster_analysis"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.cal_cluster_analysis">[docs]</a>    <span class="k">def</span> <span class="nf">cal_cluster_analysis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rc</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="mi">80</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Divide atoms connected within a given cutoff distance into a cluster.</span>
+<span class="sd">        It is helpful to recognize the reaction products or fragments under shock loading.</span>
+
+<span class="sd">        .. note:: This class use the `same method as in Ovito &lt;https://www.ovito.org/docs/current/reference/pipelines/modifiers/cluster_analysis.html#particles-modifiers-cluster-analysis&gt;`_.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            rc (float, optional): cutoff distance.. Defaults to 5.0.</span>
+<span class="sd">            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: cluster number.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The cluster id per atom is added in self.data[&#39;cluster_id&#39;]**</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_neigh</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_neighbor</span><span class="p">(</span><span class="n">rc</span><span class="o">=</span><span class="n">rc</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="n">max_neigh</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">&lt;</span> <span class="n">rc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_neighbor</span><span class="p">(</span><span class="n">rc</span><span class="o">=</span><span class="n">rc</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="n">max_neigh</span><span class="p">)</span>
+
+        <span class="n">ClusterAnalysi</span> <span class="o">=</span> <span class="n">ClusterAnalysis</span><span class="p">(</span><span class="n">rc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">distance_list</span><span class="p">)</span>
+        <span class="n">ClusterAnalysi</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;cluster_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ClusterAnalysi</span><span class="o">.</span><span class="n">particleClusters</span>
+        <span class="k">return</span> <span class="n">ClusterAnalysi</span><span class="o">.</span><span class="n">cluster_number</span></div>
+
+<div class="viewcode-block" id="System.cal_common_neighbor_analysis"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.cal_common_neighbor_analysis">[docs]</a>    <span class="k">def</span> <span class="nf">cal_common_neighbor_analysis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rc</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sse Common Neighbor Analysis (CNA) method to recgonize the lattice structure, based</span>
+<span class="sd">        on which atoms can be divided into FCC, BCC, HCP and Other structure.</span>
+
+<span class="sd">        .. note:: If one use this module in publication, one should also cite the original paper.</span>
+<span class="sd">          `Faken D, Jónsson H. Systematic analysis of local atomic structure combined with 3D computer graphics[J].</span>
+<span class="sd">          Computational Materials Science, 1994, 2(2): 279-286. &lt;https://doi.org/10.1016/0927-0256(94)90109-0&gt;`_.</span>
+
+<span class="sd">        .. hint:: We use the `same algorithm as in LAMMPS &lt;https://docs.lammps.org/compute_cna_atom.html&gt;`_.</span>
+
+<span class="sd">        CNA method is sensitive to the given cutoff distance. The suggesting cutoff can be obtained from the</span>
+<span class="sd">        following formulas:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            r_{c}^{\mathrm{fcc}} = \\frac{1}{2} \\left(\\frac{\\sqrt{2}}{2} + 1\\right) a</span>
+<span class="sd">            \\approx 0.8536 a,</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            r_{c}^{\mathrm{bcc}} = \\frac{1}{2}(\\sqrt{2} + 1) a</span>
+<span class="sd">            \\approx 1.207 a,</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            r_{c}^{\mathrm{hcp}} = \\frac{1}{2}\\left(1+\\sqrt{\\frac{4+2x^{2}}{3}}\\right) a,</span>
+
+<span class="sd">        where :math:`a` is the lattice constant and :math:`x=(c/a)/1.633` and 1.633 is the ideal ratio of :math:`c/a`</span>
+<span class="sd">        in HCP structure.</span>
+
+<span class="sd">        The CNA method can recgonize the following structure:</span>
+
+<span class="sd">        1. Other</span>
+<span class="sd">        2. FCC</span>
+<span class="sd">        3. HCP</span>
+<span class="sd">        4. BCC</span>
+<span class="sd">        5. ICO</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            rc (float, optional): cutoff distance. Defaults to 3.0.</span>
+<span class="sd">            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 30.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The CNA pattern per atom is added in self.data[&#39;cna&#39;]**.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_neigh</span><span class="p">:</span>
+            <span class="n">Neigh</span> <span class="o">=</span> <span class="n">Neighbor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="n">rc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">,</span> <span class="n">max_neigh</span><span class="p">)</span>
+            <span class="n">Neigh</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">distance_list</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">neighbor_number</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">Neigh</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span>
+                <span class="n">Neigh</span><span class="o">.</span><span class="n">distance_list</span><span class="p">,</span>
+                <span class="n">Neigh</span><span class="o">.</span><span class="n">neighbor_number</span><span class="p">,</span>
+                <span class="n">rc</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">if_neigh</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">!=</span> <span class="n">rc</span><span class="p">:</span>
+            <span class="n">Neigh</span> <span class="o">=</span> <span class="n">Neighbor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="n">rc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">,</span> <span class="n">max_neigh</span><span class="p">)</span>
+            <span class="n">Neigh</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+
+        <span class="n">CommonNeighborAnalysi</span> <span class="o">=</span> <span class="n">CommonNeighborAnalysis</span><span class="p">(</span>
+            <span class="n">rc</span><span class="p">,</span>
+            <span class="n">Neigh</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span>
+            <span class="n">Neigh</span><span class="o">.</span><span class="n">neighbor_number</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">CommonNeighborAnalysi</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;cna&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">CommonNeighborAnalysi</span><span class="o">.</span><span class="n">pattern</span></div>
+
+<div class="viewcode-block" id="System.cal_energy_force"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.cal_energy_force">[docs]</a>    <span class="k">def</span> <span class="nf">cal_energy_force</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">elements_list</span><span class="p">,</span> <span class="n">max_neighbor</span><span class="o">=</span><span class="mi">120</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the atomic energy and force based on the given embedded atom method</span>
+<span class="sd">        EAM potential. Multi-elements alloy is also supported.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename (str): filename of eam.alloy potential file.</span>
+<span class="sd">            elements_list (list): elements to be calculated, such as [&#39;Al&#39;, &#39;Al&#39;, &#39;Ni&#39;] indicates setting type 1 and 2 as &#39;Al&#39; and type 3 as &#39;Ni&#39;.</span>
+<span class="sd">            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 120.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The energy per atom is added in self.data[&#39;pe&#39;]**.</span>
+<span class="sd">            - **The force per atom is added in self.data[[&quot;afx&quot;, &quot;afy&quot;, &quot;afz&quot;]]**.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">potential</span> <span class="o">=</span> <span class="n">EAM</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_neigh</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_neighbor</span><span class="p">(</span><span class="n">rc</span><span class="o">=</span><span class="n">potential</span><span class="o">.</span><span class="n">rc</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="n">max_neighbor</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">&lt;</span> <span class="n">potential</span><span class="o">.</span><span class="n">rc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_neighbor</span><span class="p">(</span><span class="n">rc</span><span class="o">=</span><span class="n">potential</span><span class="o">.</span><span class="n">rc</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="n">max_neighbor</span><span class="p">)</span>
+
+        <span class="n">Cal</span> <span class="o">=</span> <span class="n">Calculator</span><span class="p">(</span>
+            <span class="n">potential</span><span class="p">,</span>
+            <span class="n">elements_list</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">distance_list</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">neighbor_number</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">Cal</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;pe&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Cal</span><span class="o">.</span><span class="n">energy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;afx&quot;</span><span class="p">,</span> <span class="s2">&quot;afy&quot;</span><span class="p">,</span> <span class="s2">&quot;afz&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Cal</span><span class="o">.</span><span class="n">force</span></div>
+
+<div class="viewcode-block" id="System.cal_void_distribution"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.cal_void_distribution">[docs]</a>    <span class="k">def</span> <span class="nf">cal_void_distribution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cell_length</span><span class="p">,</span> <span class="n">out_void</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This class is used to detect the void distribution in solid structure.</span>
+<span class="sd">        First we divid particles into three-dimensional grid and check the its</span>
+<span class="sd">        neighbors, if all neighbor grid is empty we treat this grid is void, otherwise it is</span>
+<span class="sd">        a point defect. Then useing clustering all connected &#39;void&#39; grid into an entire void.</span>
+<span class="sd">        Excepting counting the number and volume of voids, this class can also output the</span>
+<span class="sd">        spatial coordination of void for analyzing the void distribution.</span>
+
+<span class="sd">        .. note:: The results are sensitive to the selection of :math:`cell\_length`, which should</span>
+<span class="sd">          be illustrated if this class is used in your publication.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            cell_length (float): length of cell, larger than lattice constant is okay.</span>
+<span class="sd">            out_void (bool, optional): whether outputs void coordination. Defaults to False.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple: (void_number, void_volume), number and volume of voids.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">void</span> <span class="o">=</span> <span class="n">VoidDistribution</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span>
+            <span class="n">cell_length</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">,</span>
+            <span class="n">out_void</span><span class="o">=</span><span class="n">out_void</span><span class="p">,</span>
+            <span class="n">head</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dump_head</span><span class="p">,</span>
+            <span class="n">out_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">[:</span><span class="o">-</span><span class="mi">5</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;.void.dump&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">void</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">void</span><span class="o">.</span><span class="n">void_number</span><span class="p">,</span> <span class="n">void</span><span class="o">.</span><span class="n">void_volume</span></div>
+
+<div class="viewcode-block" id="System.cal_warren_cowley_parameter"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.cal_warren_cowley_parameter">[docs]</a>    <span class="k">def</span> <span class="nf">cal_warren_cowley_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rc</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This class is used to calculate the Warren Cowley parameter (WCP), which is useful to</span>
+<span class="sd">        analyze the short-range order (SRO) in the 1st-nearest neighbor shell in alloy system and is given by:</span>
+
+<span class="sd">        .. math:: WCP_{mn} = 1 - Z_{mn}/(X_n Z_{m}),</span>
+
+<span class="sd">        where :math:`Z_{mn}` is the number of :math:`n`-type atoms around :math:`m`-type atoms,</span>
+<span class="sd">        :math:`Z_m` is the total number of atoms around :math:`m`-type atoms, and :math:`X_n` is</span>
+<span class="sd">        the atomic concentration of :math:`n`-type atoms in the alloy.</span>
+
+<span class="sd">        .. note:: If you use this class in publication, you should also cite the original paper:</span>
+<span class="sd">          `X‐Ray Measurement of Order in Single Crystals of Cu3Au &lt;https://doi.org/10.1063/1.1699415&gt;`_.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            rc (float, optional): cutoff distance. Defaults to 3.0.</span>
+<span class="sd">            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 50.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The result adds a WarrenCowleyParameter (mdapy.WarrenCowleyParameter) class**</span>
+
+<span class="sd">        .. tip:: One can check the results by:</span>
+
+<span class="sd">          &gt;&gt;&gt; system.WarrenCowleyParameter.plot() # Plot WCP.</span>
+
+<span class="sd">          &gt;&gt;&gt; system.WarrenCowleyParameter.WCP # Check WCP.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_neigh</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_neighbor</span><span class="p">(</span><span class="n">rc</span><span class="o">=</span><span class="n">rc</span><span class="p">,</span> <span class="n">max_neigh</span><span class="o">=</span><span class="n">max_neigh</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">WarrenCowleyParameter</span> <span class="o">=</span> <span class="n">WarrenCowleyParameter</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">neighbor_number</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">!=</span> <span class="n">rc</span><span class="p">:</span>
+            <span class="n">neigh</span> <span class="o">=</span> <span class="n">Neighbor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="n">rc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">,</span> <span class="n">max_neigh</span><span class="p">)</span>
+            <span class="n">neigh</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">WarrenCowleyParameter</span> <span class="o">=</span> <span class="n">WarrenCowleyParameter</span><span class="p">(</span>
+                <span class="n">neigh</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span> <span class="n">neigh</span><span class="o">.</span><span class="n">neighbor_number</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">WarrenCowleyParameter</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="System.cal_voronoi_volume"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.cal_voronoi_volume">[docs]</a>    <span class="k">def</span> <span class="nf">cal_voronoi_volume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This class is used to calculate the Voronoi polygon, wchich can be applied to</span>
+<span class="sd">        estimate the atomic volume. The calculation is conducted by the `voro++ &lt;https://math.lbl.gov/voro++/&gt;`_ package and</span>
+<span class="sd">        this class only provides a wrapper.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The atomic Voronoi volume is added in self.data[&#39;voronoi_volume&#39;]**.</span>
+<span class="sd">            - **The atomic Voronoi neighbor is added in self.data[&quot;voronoi_number&quot;]**.</span>
+<span class="sd">            - **The atomic Voronoi cavity radius is added in self.data[&quot;cavity_radius&quot;]**.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">voro</span> <span class="o">=</span> <span class="n">VoronoiAnalysis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">)</span>
+        <span class="n">voro</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;voronoi_volume&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">voro</span><span class="o">.</span><span class="n">vol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;voronoi_number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">voro</span><span class="o">.</span><span class="n">neighbor_number</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;cavity_radius&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">voro</span><span class="o">.</span><span class="n">cavity_radius</span></div>
+
+<div class="viewcode-block" id="System.spatial_binning"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.System.spatial_binning">[docs]</a>    <span class="k">def</span> <span class="nf">spatial_binning</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">vbin</span><span class="p">,</span> <span class="n">wbin</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This class is used to divide particles into different bins and operating on each bin.</span>
+<span class="sd">        One-dimensional to Three-dimensional binning are supported.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            direction (str): binning direction, selected in [&#39;x&#39;, &#39;y&#39;, &#39;z&#39;, &#39;xy&#39;, &#39;xz&#39;, &#39;yz&#39;, &#39;xyz&#39;].</span>
+<span class="sd">            vbin (str/list): values to be operated, such as &#39;x&#39; or [&#39;vx&#39;, &#39;pe&#39;].</span>
+<span class="sd">            wbin (float, optional): width of each bin. Defaults to 5.0.</span>
+<span class="sd">            operation (str, optional): operation on each bin, selected from [&#39;mean&#39;, &#39;sum&#39;, &#39;min&#39;, &#39;max&#39;]. Defaults to &quot;mean&quot;.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The result adds a Binning (mdapy.SpatialBinning) class**</span>
+
+<span class="sd">        .. tip:: One can check the results by:</span>
+
+<span class="sd">          &gt;&gt;&gt; system.Binning.plot() # Plot the binning results.</span>
+
+<span class="sd">          &gt;&gt;&gt; system.Binning.res # Check the binning results.</span>
+
+<span class="sd">          &gt;&gt;&gt; system.Binning.coor # Check the binning coordination.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">vbin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">vbin</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Binning</span> <span class="o">=</span> <span class="n">SpatialBinning</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">vbin</span><span class="p">,</span> <span class="n">wbin</span><span class="p">,</span> <span class="n">operation</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Binning</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="MultiSystem"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.MultiSystem">[docs]</a><span class="k">class</span> <span class="nc">MultiSystem</span><span class="p">(</span><span class="nb">list</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class is a collection of mdapy.System class and is helful to handle the atomic trajectory.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename_list (list): ordered filename list, such as [&#39;melt.0.dump&#39;, &#39;melt.100.dump&#39;].</span>
+<span class="sd">        unwrap (bool, optional): make atom positions do not wrap into box due to periotic boundary. Defaults to True.</span>
+<span class="sd">        sorted_id (bool, optional): sort data by atoms id. Defaults to True.</span>
+<span class="sd">        image_p (np.ndarray, optional): (:math:`N_p, 3`), image_p help to unwrap positions, if don&#39;t provided, using minimum image criterion, see https://en.wikipedia.org/wiki/Periodic_boundary_conditions#Practical_implementation:_continuity_and_the_minimum_image_convention.</span>
+
+<span class="sd">    Outputs:</span>
+<span class="sd">        - **pos_list** (np.ndarray): (:math:`N_f, N_p, 3`), :math:`N_f` frames particle position.</span>
+<span class="sd">        - **Nframes** (int): number of frames.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename_list</span><span class="p">,</span> <span class="n">unwrap</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sorted_id</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">image_p</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sorted_id</span> <span class="o">=</span> <span class="n">sorted_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unwrap</span> <span class="o">=</span> <span class="n">unwrap</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image_p</span> <span class="o">=</span> <span class="n">image_p</span>
+
+        <span class="n">progress_bar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">filename_list</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">progress_bar</span><span class="p">:</span>
+            <span class="n">progress_bar</span><span class="o">.</span><span class="n">set_description</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reading </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">system</span> <span class="o">=</span> <span class="n">System</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">sorted_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sorted_id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">system</span><span class="o">.</span><span class="n">pos</span> <span class="k">for</span> <span class="n">system</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">])</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">unwrap</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_p</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">image_p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                        <span class="p">[</span><span class="n">system</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;ix&quot;</span><span class="p">,</span> <span class="s2">&quot;iy&quot;</span><span class="p">,</span> <span class="s2">&quot;iz&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">system</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">]</span>
+                    <span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">pass</span>
+            <span class="n">_unwrap_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="p">,</span> <span class="bp">self</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="bp">self</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">boundary</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_p</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">system</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+                <span class="n">system</span><span class="o">.</span><span class="n">data</span><span class="p">[[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">Nframes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<div class="viewcode-block" id="MultiSystem.write_dumps"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.MultiSystem.write_dumps">[docs]</a>    <span class="k">def</span> <span class="nf">write_dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_col</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Write all data to a series of DUMP files.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            output_col (list, optional): columns to be saved, such as [&#39;id&#39;, &#39;type&#39;, &#39;x&#39;, &#39;y&#39;, &#39;z&#39;].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">progress_bar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">system</span> <span class="ow">in</span> <span class="n">progress_bar</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">progress_bar</span><span class="o">.</span><span class="n">set_description</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saving </span><span class="si">{</span><span class="n">system</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">progress_bar</span><span class="o">.</span><span class="n">set_description</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saving file...&quot;</span><span class="p">)</span>
+            <span class="n">system</span><span class="o">.</span><span class="n">write_dump</span><span class="p">(</span><span class="n">output_col</span><span class="o">=</span><span class="n">output_col</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MultiSystem.cal_mean_squared_displacement"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.MultiSystem.cal_mean_squared_displacement">[docs]</a>    <span class="k">def</span> <span class="nf">cal_mean_squared_displacement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;windows&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the mean squared displacement MSD of system, which can be used to</span>
+<span class="sd">        reflect the particle diffusion trend and describe the melting process. Generally speaking, MSD is an</span>
+<span class="sd">        average displacement over all windows of length :math:`m` over the course of the simulation (so-called</span>
+<span class="sd">        &#39;windows&#39; mode here) and defined by:</span>
+
+<span class="sd">        .. math:: MSD(m) = \\frac{1}{N_{p}} \\sum_{i=1}^{N_{p}} \\frac{1}{N_{f}-m} \\sum_{k=0}^{N_{f}-m-1} (\\vec{r}_i(k+m) - \\vec{r}_i(k))^2,</span>
+
+<span class="sd">        where :math:`r_i(t)` is the position of particle :math:`i` in frame :math:`t`. It is computationally extensive</span>
+<span class="sd">        while using a fast Fourier transform can remarkably reduce the computation cost as described in `nMoldyn - Interfacing</span>
+<span class="sd">        spectroscopic experiments, molecular dynamics simulations and models for time correlation functions</span>
+<span class="sd">        &lt;https://doi.org/10.1051/sfn/201112010&gt;`_ and discussion in `StackOverflow &lt;https://stackoverflow.com/questions/34222272/computing-mean-square-displacement-using-python-and-fft&gt;`_.</span>
+
+<span class="sd">        .. note:: One can install `pyfftw &lt;https://github.com/pyFFTW/pyFFTW&gt;`_ to accelerate the calculation,</span>
+<span class="sd">          otherwise mdapy will use `scipy.fft &lt;https://docs.scipy.org/doc/scipy/reference/fft.html#module-scipy.fft&gt;`_</span>
+<span class="sd">          to do the Fourier transform.</span>
+
+<span class="sd">        Sometimes one only need the following atomic displacement (so-called &#39;direct&#39; mode here):</span>
+
+<span class="sd">        .. math:: MSD(t) = \\dfrac{1}{N_p} \\sum_{i=1}^{N_p} (r_i(t) - r_i(0))^2.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mode (str, optional): &#39;windows&#39; or &#39;direct&#39;. Defaults to &quot;windows&quot;.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The result adds a MSD (mdapy.MeanSquaredDisplacement) class**</span>
+
+<span class="sd">        .. tip:: One can check the results by:</span>
+
+<span class="sd">          &gt;&gt;&gt; MS = mp.MultiSystem(filename_list) # Generate a MultiSystem class.</span>
+
+<span class="sd">          &gt;&gt;&gt; MS.cal_mean_squared_displacement() # Calculate MSD.</span>
+
+<span class="sd">          &gt;&gt;&gt; MS.MSD.plot() # Plot the MSD results.</span>
+
+<span class="sd">          &gt;&gt;&gt; MS[0].data[&#39;msd&#39;] # Check MSD per particles.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">MSD</span> <span class="o">=</span> <span class="n">MeanSquaredDisplacement</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">MSD</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Nframes</span><span class="p">):</span>
+            <span class="bp">self</span><span class="p">[</span><span class="n">frame</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;msd&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MSD</span><span class="o">.</span><span class="n">partical_msd</span><span class="p">[</span><span class="n">frame</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="MultiSystem.cal_lindemann_parameter"><a class="viewcode-back" href="../../mdapy.html#mdapy.system.MultiSystem.cal_lindemann_parameter">[docs]</a>    <span class="k">def</span> <span class="nf">cal_lindemann_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">only_global</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the `Lindemann index &lt;https://en.wikipedia.org/wiki/Lindemann_index&gt;`_,</span>
+<span class="sd">        which is useful to distinguish the melt process and determine the melting points of nano-particles.</span>
+<span class="sd">        The Lindemann index is defined as the root-mean-square bond-length fluctuation with following mathematical expression:</span>
+
+<span class="sd">        .. math:: \\left\\langle\\sigma_{i}\\right\\rangle=\\frac{1}{N_{p}(N_{p}-1)} \\sum_{j \\neq i} \\frac{\\sqrt{\\left\\langle r_{i j}^{2}\\right\\rangle_t-\\left\\langle r_{i j}\\right\\rangle_t^{2}}}{\\left\\langle r_{i j}\\right\\rangle_t},</span>
+
+<span class="sd">        where :math:`N_p` is the particle number, :math:`r_{ij}` is the distance between atom :math:`i` and :math:`j` and brackets :math:`\\left\\langle \\right\\rangle_t`</span>
+<span class="sd">        represents an time average.</span>
+
+<span class="sd">        .. note:: This class is partly referred to a `work &lt;https://github.com/N720720/lindemann&gt;`_ on calculating the Lindemann index.</span>
+
+<span class="sd">        .. note:: This calculation is high memory requirement. One can estimate the memory by: :math:`2 * 8 * N_p^2 / 1024^3` GB.</span>
+
+<span class="sd">        .. tip:: If only global lindemann index is needed, the class can be calculated in parallel.</span>
+<span class="sd">          The local Lindemann index only run serially due to the dependencies between different frames.</span>
+<span class="sd">          Here we use the `Welford method &lt;https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford&gt;`_ to</span>
+<span class="sd">          update the varience and mean of :math:`r_{ij}`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            only_global (bool, optional): whether only calculate the global index. Defaults to False.</span>
+
+<span class="sd">        Outputs:</span>
+<span class="sd">            - **The result adds a Lindemann (mdapy.LindemannParameter) class**.</span>
+
+<span class="sd">        .. tip:: One can check the results by:</span>
+
+<span class="sd">          &gt;&gt;&gt; MS = mp.MultiSystem(filename_list) # Generate a MultiSystem class.</span>
+
+<span class="sd">          &gt;&gt;&gt; MS.cal_lindemann_parameter() # Calculate Lindemann index.</span>
+
+<span class="sd">          &gt;&gt;&gt; MS.Lindemann.plot() # Plot the Lindemann index.</span>
+
+<span class="sd">          &gt;&gt;&gt; MS[0].data[&#39;lindemann&#39;] # Check Lindemann index per particles.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">Lindemann</span> <span class="o">=</span> <span class="n">LindemannParameter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="p">,</span> <span class="n">only_global</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Lindemann</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Nframes</span><span class="p">):</span>
+                <span class="bp">self</span><span class="p">[</span><span class="n">frame</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;lindemann&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lindemann</span><span class="o">.</span><span class="n">lindemann_atom</span><span class="p">[</span><span class="n">frame</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span></div></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+
+    <span class="c1"># system = System(filename=r&quot;./example/CoCuFeNiPd-4M.data&quot;)</span>
+    <span class="c1"># system = System(filename=r&quot;./example/CoCuFeNiPd-4M.dump&quot;)</span>
+    <span class="n">box</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">]])</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">6.5</span><span class="p">,</span> <span class="mf">9.0</span><span class="p">]])</span>
+    <span class="n">vel</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">6.5</span><span class="p">,</span> <span class="mf">9.0</span><span class="p">]])</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">])</span>
+    <span class="n">system</span> <span class="o">=</span> <span class="n">System</span><span class="p">(</span>
+        <span class="n">box</span><span class="o">=</span><span class="n">box</span><span class="p">,</span>
+        <span class="n">pos</span><span class="o">=</span><span class="n">pos</span><span class="p">,</span>
+        <span class="n">type_list</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+        <span class="n">amass</span><span class="o">=</span><span class="p">[</span><span class="mf">2.3</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">],</span>
+        <span class="n">vel</span><span class="o">=</span><span class="n">vel</span><span class="p">,</span>
+        <span class="n">boundary</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+        <span class="n">data_format</span><span class="o">=</span><span class="s2">&quot;charge&quot;</span><span class="p">,</span>
+        <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="o">.</span><span class="n">Ntype</span><span class="p">,</span> <span class="n">system</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">system</span><span class="o">.</span><span class="n">format</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="o">.</span><span class="n">data_head</span><span class="p">)</span>
+    <span class="n">system</span><span class="o">.</span><span class="n">write_data</span><span class="p">(</span><span class="n">data_format</span><span class="o">=</span><span class="s2">&quot;charge&quot;</span><span class="p">)</span>
+    <span class="n">system</span><span class="o">.</span><span class="n">write_dump</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, mushroomfire.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

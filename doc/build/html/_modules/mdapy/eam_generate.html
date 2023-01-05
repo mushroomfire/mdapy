@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mdapy.eam_generate &mdash; mdapy 0.7.4 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="shortcut icon" href="../../_static/mdapy_favico_white.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> mdapy
+            <img src="../../_static/mdapy_logo_white.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.7.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Mdapy Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">mdapy</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">mdapy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../mdapy.html">mdapy</a></li>
+      <li class="breadcrumb-item active">mdapy.eam_generate</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mdapy.eam_generate</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) 2022, mushroomfire in Beijing Institute of Technology</span>
+<span class="c1"># This file is from the mdapy project, released under the BSD 3-Clause License.</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+
+
+<div class="viewcode-block" id="EAMGenerate"><a class="viewcode-back" href="../../mdapy.html#mdapy.eam_generate.EAMGenerate">[docs]</a><span class="k">class</span> <span class="nc">EAMGenerate</span><span class="p">:</span>
+
+    <span class="sd">&quot;&quot;&quot;This class is used to create EAM potential including one or more elements.</span>
+<span class="sd">    This is the python version translated from the `fortran version by Zhou et. al &lt;https://www.ctcms.nist.gov/potentials/entry/2004--Zhou-X-W-Johnson-R-A-Wadley-H-N-G--W/&gt;`_.</span>
+
+<span class="sd">    .. note:: If you use this module in publication, you should also cite the original paper.</span>
+<span class="sd">      `Misfit-energy-increasing dislocations in vapor-deposited CoFe/NiFe multilayers &lt;https://doi.org/10.1103/PhysRevB.69.144113&gt;`_</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        elements_list (list): elements list, such as [&#39;Co&#39;, &#39;Ni&#39;], wchich should choose from [&quot;Cu&quot;,&quot;Ag&quot;,&quot;Au&quot;,&quot;Ni&quot;,&quot;Pd&quot;,&quot;Pt&quot;,&quot;Al&quot;,&quot;Pb&quot;,&quot;Fe&quot;,&quot;Mo&quot;,&quot;Ta&quot;,&quot;W&quot;,&quot;Mg&quot;,&quot;Co&quot;,&quot;Ti&quot;,&quot;Zr&quot;].</span>
+<span class="sd">        output_name (str, optional): filename of generated EAM file.</span>
+
+<span class="sd">    Outputs:</span>
+<span class="sd">        - **generate an eam.alloy potential file.**</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; import mdapy as mp</span>
+
+<span class="sd">        &gt;&gt;&gt; mp.init()</span>
+
+<span class="sd">        &gt;&gt;&gt; potential = mp.EAMGenerate([&quot;Co&quot;, &quot;Ni&quot;, &quot;Fe&quot;]) # Generate the EAMGenerate class.</span>
+
+<span class="sd">        &gt;&gt;&gt; potential.plot() # plot the results.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">elements_list</span><span class="p">,</span> <span class="n">output_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span> <span class="o">=</span> <span class="n">elements_list</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aviliable_elements</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;Cu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Ag&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Au&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Ni&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pd&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pt&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Al&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pb&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fe&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Mo&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Ta&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;W&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Mg&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Co&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Ti&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Zr&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="n">element</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">aviliable_elements</span>
+            <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">element</span><span class="si">}</span><span class="s2"> is not in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">aviliable_elements</span><span class="si">}</span><span class="s2">!!!&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">eam_parameters</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;Cu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.556162&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.554485&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;21.175871&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;21.175395&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;8.127620&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.334731&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.396620&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.548085&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.308782&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.756515&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.170269&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.263788&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.088878&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.817603&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.19&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.561830&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.100595&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.310490&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.186568&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;29&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;63.546&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.100595&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.334731&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.756515&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Ag&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.891814&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.106232&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;14.604100&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;14.604144&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;9.132010&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.870405&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.277758&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.419611&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.339710&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.750758&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.729364&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.255882&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.912050&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.561432&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.75&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.744561&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.150650&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.783924&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.748423&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;47&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;107.8682&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.150650&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.870405&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.750758&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Au&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.885034&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.529021&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;19.991632&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;19.991509&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;9.516052&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;5.075228&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.229762&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.356666&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.356570&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.748798&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.937772&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.500288&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.601954&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.835530&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.98&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.706587&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.134778&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.021095&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.978815&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;79&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;196.96654&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.134778&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;5.075228&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.748798&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Ni&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.488746&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.007018&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;27.562015&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;27.562031&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;8.383453&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.471175&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.429046&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.633531&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.443599&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.820658&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.693513&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.076445&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.241442&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.375626&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.70&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.265390&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.152856&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.445470&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.7&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;28&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;58.6934&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.152856&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.471175&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.820658&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pd&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.750897&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.595417&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;21.335246&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;21.940073&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;8.697397&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.638612&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.406763&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.598880&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.397263&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.754799&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.321006&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.473983&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.615343&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.231681&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.36&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.481742&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.675615&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.130000&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.352753&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;46&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;106.42&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.675615&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.638612&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.754799&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pt&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.771916&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.336509&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;33.367564&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;35.205357&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;7.105782&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;3.789750&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.556398&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.696037&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.385255&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.770510&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.455568&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.149952&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.528491&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.222875&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-4.17&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;3.010561&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.420128&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.450000&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-4.145597&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;78&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;195.08&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.420128&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;3.789750&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.770510&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.25&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Al&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.863924&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.403115&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;20.418205&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;23.195740&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;6.613165&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;3.527021&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.314873&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.365551&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.379846&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.759692&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.807602&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.301435&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.258562&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.247604&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.83&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.622245&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.488244&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.785902&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.824528&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;13&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;26.981539&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.488244&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;3.527021&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.759692&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pb&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;3.499723&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.647872&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;8.450154&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;8.450063&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;9.121799&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;5.212457&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.161219&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.236884&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.250805&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.764955&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.422370&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.210107&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.682886&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.529378&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.44&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.702726&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.538766&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.935380&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.439436&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;82&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;207.2&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.538766&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;5.212457&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.764955&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fe&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.481987&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.885957&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;20.041463&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;20.041463&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;9.818270&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;5.236411&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.392811&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.646243&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.170306&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.340613&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.534992&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.059605&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.193065&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.282322&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.54&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.200269&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.148770&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.391750&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.539945&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;26&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;55.847&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.148770&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;5.236411&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.340613&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Mo&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.728100&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.723710&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;29.354065&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;29.354065&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;8.393531&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.476550&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.708787&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.120373&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.137640&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.275280&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-3.692913&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.178812&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.380450&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-3.133650&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-3.71&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.875874&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.776222&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.790879&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-3.712093&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;42&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;95.94&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.776222&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.476550&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.275280&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Ta&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.860082&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;3.086341&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;33.787168&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;33.787168&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;8.489528&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.527748&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.611679&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.032101&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.176977&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.353954&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-5.103845&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.405524&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.112997&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-3.585325&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-5.14&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.640098&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.221375&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.848843&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-5.141526&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;73&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;180.9479&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.221375&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.527748&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.353954&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;W&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.740840&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;3.487340&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;37.234847&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;37.234847&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;8.900114&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.746728&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.882435&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.394592&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.139209&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.278417&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-4.946281&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.148818&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.365057&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-4.432406&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-4.96&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.661935&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.348147&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.582714&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-4.961306&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;74&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;183.84&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.348147&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.746728&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.278417&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Mg&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;3.196291&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.544323&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;7.132600&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;7.132600&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;10.228708&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;5.455311&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.137518&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.225930&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.5&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.896473&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.044291&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.162232&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.689950&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.90&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.122838&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.226010&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.431425&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.899702&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;12&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;24.305&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.226010&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;5.455311&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Co&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.505979&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.975299&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;27.206789&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;27.206789&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;8.679625&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.629134&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.421378&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.640107&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.5&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.541799&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.219415&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.733381&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-1.589003&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.56&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.705845&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.687140&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.694608&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.559307&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;27&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;58.9332&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.687140&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.629134&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Ti&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.933872&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.863200&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;25.565138&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;25.565138&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;8.775431&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.680230&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.373601&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.570968&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.5&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-3.203773&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.198262&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.683779&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-2.321732&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-3.22&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.608587&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.750710&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.558572&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-3.219176&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;22&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;47.88&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.750710&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.680230&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Zr&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;3.199978&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2.230909&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;30.879991&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;30.879991&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;8.559190&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.564902&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.424667&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.640054&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.5&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-4.485793&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.293129&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.990148&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-3.202516&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-4.51&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.00&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.928602&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.981870&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.597133&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-4.509025&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;40&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;91.224&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-0.981870&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;4.564902&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;0.85&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;1.15&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_get_eam_parameters</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="o">=</span> <span class="n">output_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_write_eam_alloy</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_diedai</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ntypes</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i2</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">i1</span> <span class="o">==</span> <span class="n">i2</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nr</span><span class="p">):</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dr</span>
+                        <span class="k">if</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">rst</span><span class="p">:</span>
+                            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rst</span>
+                        <span class="n">fvalue</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prof</span><span class="p">(</span><span class="n">i1</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmax</span> <span class="o">&lt;</span> <span class="n">fvalue</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">fmax</span> <span class="o">=</span> <span class="n">fvalue</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">rho</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i1</span><span class="p">]</span> <span class="o">=</span> <span class="n">fvalue</span>
+                        <span class="n">psi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pair</span><span class="p">(</span><span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">rphi</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span> <span class="o">*</span> <span class="n">psi</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nr</span><span class="p">):</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dr</span>
+                        <span class="k">if</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">rst</span><span class="p">:</span>
+                            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rst</span>
+                        <span class="n">psi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pair</span><span class="p">(</span><span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">rphi</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span> <span class="o">*</span> <span class="n">psi</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">rphi</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i2</span><span class="p">,</span> <span class="n">i1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rphi</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">]</span>
+        <span class="n">rhom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmax</span>
+        <span class="k">if</span> <span class="n">rhom</span> <span class="o">&lt;</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoemax</span><span class="p">:</span>
+            <span class="n">rhom</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoemax</span>
+        <span class="k">if</span> <span class="n">rhom</span> <span class="o">&lt;</span> <span class="mf">100.0</span><span class="p">:</span>
+            <span class="n">rhom</span> <span class="o">=</span> <span class="mf">100.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">drho</span> <span class="o">=</span> <span class="n">rhom</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nrho</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ntypes</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nrho</span><span class="p">):</span>
+                <span class="n">rhoF</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">drho</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">embdded</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">it</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_embed</span><span class="p">(</span><span class="n">it</span><span class="p">,</span> <span class="n">rhoF</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_prof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">it</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fe</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">beta1</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">))</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">f</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">ramda1</span><span class="p">[</span><span class="n">it</span><span class="p">])</span> <span class="o">**</span> <span class="mi">20</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">f</span>
+
+    <span class="k">def</span> <span class="nf">_pair</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">it1</span><span class="p">,</span> <span class="n">it2</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">it1</span> <span class="o">==</span> <span class="n">it2</span><span class="p">:</span>
+            <span class="n">psi1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">[</span><span class="n">it1</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">[</span><span class="n">it1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="p">[</span><span class="n">it1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">))</span>
+            <span class="n">psi1</span> <span class="o">=</span> <span class="n">psi1</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="p">[</span><span class="n">it1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">cai</span><span class="p">[</span><span class="n">it1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">20</span><span class="p">)</span>
+            <span class="n">psi2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">[</span><span class="n">it1</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">[</span><span class="n">it1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="p">[</span><span class="n">it1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">))</span>
+            <span class="n">psi2</span> <span class="o">=</span> <span class="n">psi2</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="p">[</span><span class="n">it1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">ramda</span><span class="p">[</span><span class="n">it1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">20</span><span class="p">)</span>
+            <span class="n">psi</span> <span class="o">=</span> <span class="n">psi1</span> <span class="o">-</span> <span class="n">psi2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">psiab</span><span class="p">,</span> <span class="n">fab</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="p">[</span><span class="n">it1</span><span class="p">,</span> <span class="n">it2</span><span class="p">]:</span>
+                <span class="n">psi1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">))</span>
+                <span class="n">psi1</span> <span class="o">=</span> <span class="n">psi1</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">cai</span><span class="p">[</span><span class="n">it</span><span class="p">])</span> <span class="o">**</span> <span class="mi">20</span><span class="p">)</span>
+                <span class="n">psi2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">))</span>
+                <span class="n">psi2</span> <span class="o">=</span> <span class="n">psi2</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">ramda</span><span class="p">[</span><span class="n">it</span><span class="p">])</span> <span class="o">**</span> <span class="mi">20</span><span class="p">)</span>
+                <span class="n">psiab</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">psi1</span> <span class="o">-</span> <span class="n">psi2</span><span class="p">)</span>
+                <span class="n">fab</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_prof</span><span class="p">(</span><span class="n">it</span><span class="p">,</span> <span class="n">r</span><span class="p">))</span>
+            <span class="n">psi</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">fab</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">fab</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">psiab</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">fab</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">fab</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">psiab</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">psi</span>
+
+    <span class="k">def</span> <span class="nf">_embed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">it</span><span class="p">,</span> <span class="n">rho</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">rho</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoe</span><span class="p">[</span><span class="n">it</span><span class="p">]:</span>
+            <span class="n">Fm33</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Fm3</span><span class="p">[</span><span class="n">it</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Fm33</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Fm4</span><span class="p">[</span><span class="n">it</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">rho</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoin</span><span class="p">[</span><span class="n">it</span><span class="p">]:</span>
+            <span class="n">emb</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">Fi0</span><span class="p">[</span><span class="n">it</span><span class="p">]</span>
+                <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">Fi1</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">rho</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoin</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span>
+                <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">Fi2</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">rho</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoin</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+                <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">Fi3</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">rho</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoin</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">rho</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoout</span><span class="p">[</span><span class="n">it</span><span class="p">]:</span>
+            <span class="n">emb</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">Fm0</span><span class="p">[</span><span class="n">it</span><span class="p">]</span>
+                <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">Fm1</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">rho</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoe</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span>
+                <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">Fm2</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">rho</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoe</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+                <span class="o">+</span> <span class="n">Fm33</span> <span class="o">*</span> <span class="p">(</span><span class="n">rho</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoe</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">emb</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">Fn</span><span class="p">[</span><span class="n">it</span><span class="p">]</span>
+                <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">fnn</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">rho</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhos</span><span class="p">[</span><span class="n">it</span><span class="p">]))</span>
+                <span class="o">*</span> <span class="p">(</span><span class="n">rho</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhos</span><span class="p">[</span><span class="n">it</span><span class="p">])</span> <span class="o">**</span> <span class="bp">self</span><span class="o">.</span><span class="n">fnn</span><span class="p">[</span><span class="n">it</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">emb</span>
+
+    <span class="k">def</span> <span class="nf">_get_eam_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">16</span><span class="p">):</span>
+            <span class="n">name</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eam_parameters</span><span class="p">[</span><span class="n">a</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eam_parameters</span><span class="p">[</span><span class="n">a</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">a</span> <span class="o">+</span> <span class="mi">28</span><span class="p">])</span>
+            <span class="n">a</span> <span class="o">+=</span> <span class="mi">28</span>
+        <span class="n">index_name</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;re&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;fe&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;rhoe&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;rhos&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;alpha&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;beta&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;A&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;B&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;cai&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ramda&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fi0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fi1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fi2&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fi3&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fm0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fm1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fm2&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fm3&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;fnn&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fn&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ielement&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;amass&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fm4&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;beta1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ramda1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;rhol&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;rhoh&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">index_name</span>
+
+        <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fe</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rhoe</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rhos</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cai</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ramda</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Fi0</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Fi1</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Fi2</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Fi3</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Fm0</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Fm1</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Fm2</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Fm3</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fnn</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Fn</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ielement</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">amass</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Fm4</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">beta1</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ramda1</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rhol</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rhoh</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">2.0</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rhoin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhol</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoe</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rhoout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoh</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoe</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nr</span> <span class="o">=</span> <span class="mi">2000</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nrho</span> <span class="o">=</span> <span class="mi">2000</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alatmax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">blat</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rhoemax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhoe</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ntypes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">10.0</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">alatmax</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rst</span> <span class="o">=</span> <span class="mf">0.5</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nr</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fmax</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rho</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nrho</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rphi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nr</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embdded</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nr</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_diedai</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_write_eam_alloy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">struc</span> <span class="o">=</span> <span class="s2">&quot;fcc&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="o">+=</span> <span class="n">i</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="o">+=</span> <span class="s2">&quot;.eam.alloy&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_name</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">op</span><span class="p">:</span>
+            <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot; Python version mixed by mdapy! Based on the previous fortran version by Zhou et. al.</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; Building at </span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot; CITATION: X. W. Zhou, R. A. Johnson, H. N. G. Wadley, Phys. Rev. B, 69, 144113(2004)</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ntypes</span><span class="si">}</span><span class="s2"> &quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span><span class="p">:</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> &quot;</span><span class="p">)</span>
+            <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nrho</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">drho</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nr</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dr</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rc</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">num</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">colnum</span> <span class="o">=</span> <span class="mi">5</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ntypes</span><span class="p">):</span>
+                <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ielement</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">amass</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">blat</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">struc</span><span class="si">}</span><span class="se">\n</span><span class="s2"> &quot;</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nrho</span><span class="p">):</span>
+                    <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">embdded</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.16E</span><span class="si">}</span><span class="s2"> &quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">num</span> <span class="o">&gt;</span> <span class="n">colnum</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> &quot;</span><span class="p">)</span>
+                        <span class="n">num</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">num</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nr</span><span class="p">):</span>
+                    <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rho</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.16E</span><span class="si">}</span><span class="s2"> &quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">num</span> <span class="o">&gt;</span> <span class="n">colnum</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> &quot;</span><span class="p">)</span>
+                        <span class="n">num</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">num</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">for</span> <span class="n">i1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ntypes</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">i2</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nr</span><span class="p">):</span>
+                        <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rphi</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span><span class="p">]</span><span class="si">:</span><span class="s2">.16E</span><span class="si">}</span><span class="s2"> &quot;</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">num</span> <span class="o">&gt;</span> <span class="n">colnum</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                            <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> &quot;</span><span class="p">)</span>
+                            <span class="n">num</span> <span class="o">=</span> <span class="mi">0</span>
+                        <span class="n">num</span> <span class="o">+=</span> <span class="mi">1</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+
+    <span class="kn">from</span> <span class="nn">potential</span> <span class="kn">import</span> <span class="n">EAM</span>
+    <span class="kn">import</span> <span class="nn">os</span>
+
+    <span class="n">potential</span> <span class="o">=</span> <span class="n">EAMGenerate</span><span class="p">([</span><span class="s2">&quot;Co&quot;</span><span class="p">,</span> <span class="s2">&quot;Ni&quot;</span><span class="p">,</span> <span class="s2">&quot;Fe&quot;</span><span class="p">])</span>
+
+    <span class="n">potential</span> <span class="o">=</span> <span class="n">EAM</span><span class="p">(</span><span class="s2">&quot;CoNiFe.eam.alloy&quot;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;CoNiFe.eam.alloy&quot;</span><span class="p">)</span>
+    <span class="n">potential</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, mushroomfire.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

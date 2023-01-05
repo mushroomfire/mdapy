@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mdapy.plotset &mdash; mdapy 0.7.4 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="shortcut icon" href="../../_static/mdapy_favico_white.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> mdapy
+            <img src="../../_static/mdapy_logo_white.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.7.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Mdapy Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">mdapy</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">mdapy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../mdapy.html">mdapy</a></li>
+      <li class="breadcrumb-item active">mdapy.plotset</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mdapy.plotset</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) 2022, mushroomfire in Beijing Institute of Technology</span>
+<span class="c1"># This file is from the mdapy project, released under the BSD 3-Clause License.</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+
+<div class="viewcode-block" id="pltset"><a class="viewcode-back" href="../../mdapy.html#mdapy.plotset.pltset">[docs]</a><span class="k">def</span> <span class="nf">pltset</span><span class="p">(</span>
+    <span class="n">ticksize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+    <span class="n">labelsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+    <span class="n">legendsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+    <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+    <span class="n">axeswidth</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">tickwidth</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">ticklength</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">tickdirection</span><span class="o">=</span><span class="s2">&quot;in&quot;</span><span class="p">,</span>
+    <span class="n">mtickvisible</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">fontkind</span><span class="o">=</span><span class="s2">&quot;Times New Roman&quot;</span><span class="p">,</span>
+    <span class="n">fontweight</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This is a drawing template function.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ticksize (int, optional): axis ticklabel fontsize. Defaults to 12.</span>
+<span class="sd">        labelsize (int, optional): label fontsize. Defaults to 12.</span>
+<span class="sd">        legendsize (int, optional): legend fontsize. Defaults to 12.</span>
+<span class="sd">        linewidth (float, optional): width of line. Defaults to 1.5.</span>
+<span class="sd">        axeswidth (int, optional): width of axis line. Defaults to 1.</span>
+<span class="sd">        tickwidth (int, optional): width of axis tick. Defaults to 1.</span>
+<span class="sd">        ticklength (int, optional): length of axis tick. Defaults to 3.</span>
+<span class="sd">        tickdirection (str, optional): axis tick direction. Defaults to &quot;in&quot;.</span>
+<span class="sd">        mtickvisible (bool, optional): whether show minor axis tick. Defaults to False.</span>
+<span class="sd">        fontkind (str, optional): font family. Defaults to &quot;Times New Roman&quot;.</span>
+<span class="sd">        fontweight (bool, optional): bold font or not. Defaults to False.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">([</span><span class="s2">&quot;science&quot;</span><span class="p">,</span> <span class="s2">&quot;notebook&quot;</span><span class="p">])</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;One should install SciencePlots package: pip install SciencePlots&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;legend.fontsize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">legendsize</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;lines.linewidth&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">linewidth</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;axes.linewidth&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">axeswidth</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;xtick.labelsize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ticksize</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;ytick.labelsize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ticksize</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;xtick.major.width&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tickwidth</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;ytick.major.width&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tickwidth</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;xtick.major.size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ticklength</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;ytick.major.size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ticklength</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;xtick.direction&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tickdirection</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;ytick.direction&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tickdirection</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;axes.labelsize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">labelsize</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;font.sans-serif&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fontkind</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;ytick.minor.visible&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mtickvisible</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;xtick.minor.visible&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mtickvisible</span>
+    <span class="k">if</span> <span class="n">fontweight</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;font.weight&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;bold&quot;</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;axes.labelweight&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;bold&quot;</span></div>
+
+
+<div class="viewcode-block" id="cm2inch"><a class="viewcode-back" href="../../mdapy.html#mdapy.plotset.cm2inch">[docs]</a><span class="k">def</span> <span class="nf">cm2inch</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Centimeters to feet.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        value (float): centimeters.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float: feet.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">value</span> <span class="o">/</span> <span class="mf">2.54</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, mushroomfire.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

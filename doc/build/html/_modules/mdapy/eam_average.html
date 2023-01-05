@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mdapy.eam_average &mdash; mdapy 0.7.4 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="shortcut icon" href="../../_static/mdapy_favico_white.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> mdapy
+            <img src="../../_static/mdapy_logo_white.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.7.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Mdapy Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">mdapy</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">mdapy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../mdapy.html">mdapy</a></li>
+      <li class="breadcrumb-item active">mdapy.eam_average</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mdapy.eam_average</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) 2022, mushroomfire in Beijing Institute of Technology</span>
+<span class="c1"># This file is from the mdapy project, released under the BSD 3-Clause License.</span>
+
+<span class="kn">from</span> <span class="nn">.potential</span> <span class="kn">import</span> <span class="n">EAM</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+
+<div class="viewcode-block" id="EAMAverage"><a class="viewcode-back" href="../../mdapy.html#mdapy.eam_average.EAMAverage">[docs]</a><span class="k">class</span> <span class="nc">EAMAverage</span><span class="p">(</span><span class="n">EAM</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;This class is used to generate the average EAM (A-atom) potential, which is useful in alloy investigation.</span>
+<span class="sd">    The A-atom potential has the similar formula with the original EAM potential:</span>
+
+<span class="sd">    .. math:: E_{i}=\\sum_{i} F^{A}\\left(\\bar{\\rho}_{i}\\right)+\\frac{1}{2} \\sum_{i, j \\neq i} \\phi_{i j}^{A A},</span>
+
+<span class="sd">    .. math:: F^{A}\\left(\\bar{\\rho}_{i}\\right)=\\sum_{\\alpha} c_{\\alpha} F^{\\alpha}\\left(\\bar{\\rho}_{i}\\right),</span>
+
+<span class="sd">    .. math:: \\phi_{i j}^{A A}=\\sum_{\\alpha, \\beta } c_{\\alpha} c_{\\beta} \\phi_{i j}^{\\alpha \\beta},</span>
+
+<span class="sd">    .. math:: \\quad \\bar{\\rho}_{i}=\\sum_{j \\neq i} \\sum_{\\alpha} c_{\\alpha} \\rho_{i j}^{\\alpha},</span>
+
+<span class="sd">    where :math:`A` denotes an average-atom.</span>
+
+<span class="sd">    .. note:: If you use this module in publication, you should also cite the original paper.</span>
+<span class="sd">      `Average-atom interatomic potential for random alloys &lt;https://doi.org/10.1103/PhysRevB.93.104201&gt;`_</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename (str): filename of eam.alloy file.</span>
+<span class="sd">        concentration (list): atomic ratio list, such as [0.5, 0.5] and the summation should be equal to 1.</span>
+<span class="sd">        output_name (str, optional): filename of generated average EAM potential.</span>
+
+<span class="sd">    Outputs:</span>
+<span class="sd">        - **generate an averaged eam.alloy potential file with A element.**</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; import mdapy as mp</span>
+
+<span class="sd">        &gt;&gt;&gt; mp.init()</span>
+
+<span class="sd">        &gt;&gt;&gt; potential = mp.EAMAverage(&quot;./example/CoNiFeAlCu.eam.alloy&quot;,</span>
+<span class="sd">                        [0.2, 0.2, 0.2, 0.2, 0.2]) # Generate the EAMAverage class.</span>
+
+<span class="sd">        &gt;&gt;&gt; potential.plot() # plot the results.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">concentration</span><span class="p">,</span> <span class="n">output_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">concentration</span> <span class="o">=</span> <span class="n">concentration</span>
+
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">concentration</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nelements</span>
+        <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;Number of concentration list should be equal to </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">Nelements</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">concentration</span><span class="p">),</span> <span class="mi">1</span>
+        <span class="p">),</span> <span class="s2">&quot;Concentration summation should be equal to 1.&quot;</span>
+
+        <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">embedded_data</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">elec_density_data</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rphi_data</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">phi_data</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_average</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">output_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="o">+=</span> <span class="n">i</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="o">+=</span> <span class="s2">&quot;.average.eam.alloy&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="o">=</span> <span class="n">output_name</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_eam_alloy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_average</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">Nelements</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elements_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;A&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aindex</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">aindex</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">aindex</span><span class="o">.</span><span class="n">dtype</span><span class="p">)]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amass</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">amass</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">amass</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">concentration</span><span class="p">))</span>
+        <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lattice_constant</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lattice_constant</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lattice_constant</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lattice_type</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;average&quot;</span><span class="p">)</span>
+
+        <span class="c1"># average embedded_data and elec_density_data</span>
+        <span class="n">new_embedded_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">embedded_data</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedded_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">embedded_data</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+        <span class="p">]</span>
+        <span class="n">new_elec_density_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">elec_density_data</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">elec_density_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">elec_density_data</span><span class="o">.</span><span class="n">dtype</span>
+            <span class="p">),</span>
+        <span class="p">]</span>
+        <span class="n">new_embedded_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">embedded_data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">concentration</span>
+        <span class="p">)</span>
+        <span class="n">new_elec_density_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">elec_density_data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">concentration</span>
+        <span class="p">)</span>
+
+        <span class="c1"># average rphi_data</span>
+        <span class="n">new_rphi_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">rphi_data</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rphi_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rphi_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rphi_data</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+            <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">new_rphi_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">new_rphi_data</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">new_rphi_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">new_rphi_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">new_rphi_data</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+            <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">new_rphi_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rphi_data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">concentration</span>
+        <span class="p">)</span>
+        <span class="n">new_rphi_data</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">new_rphi_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">column</span> <span class="o">=</span> <span class="n">new_rphi_data</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">new_rphi_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span>
+            <span class="n">column</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">concentration</span>
+        <span class="p">)</span>
+
+        <span class="n">new_phi_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">new_rphi_data</span><span class="p">)</span>
+
+        <span class="n">new_phi_data</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">new_rphi_data</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">new_phi_data</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_phi_data</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">new_embedded_data</span><span class="p">,</span> <span class="n">new_elec_density_data</span><span class="p">,</span> <span class="n">new_rphi_data</span><span class="p">,</span> <span class="n">new_phi_data</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">os</span>
+
+    <span class="n">potential</span> <span class="o">=</span> <span class="n">EAMAverage</span><span class="p">(</span>
+        <span class="s2">&quot;./example/CoNiFeAlCu.eam.alloy&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.075</span><span class="p">,</span> <span class="mf">0.175</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">potential</span> <span class="o">=</span> <span class="n">EAM</span><span class="p">(</span><span class="s2">&quot;CoNiFeAlCu.average.eam.alloy&quot;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;CoNiFeAlCu.average.eam.alloy&quot;</span><span class="p">)</span>
+    <span class="n">potential</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, mushroomfire.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

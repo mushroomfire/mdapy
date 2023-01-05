@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mdapy.mean_squared_displacement &mdash; mdapy 0.7.4 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="shortcut icon" href="../../_static/mdapy_favico_white.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> mdapy
+            <img src="../../_static/mdapy_logo_white.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.7.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Mdapy Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">mdapy</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">mdapy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../mdapy.html">mdapy</a></li>
+      <li class="breadcrumb-item active">mdapy.mean_squared_displacement</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mdapy.mean_squared_displacement</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) 2022, mushroomfire in Beijing Institute of Technology</span>
+<span class="c1"># This file is from the mdapy project, released under the BSD 3-Clause License.</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">.plotset</span> <span class="kn">import</span> <span class="n">pltset</span><span class="p">,</span> <span class="n">cm2inch</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pyfftw</span>
+
+<div class="viewcode-block" id="fft"><a class="viewcode-back" href="../../mdapy.html#mdapy.mean_squared_displacement.fft">[docs]</a>    <span class="k">def</span> <span class="nf">fft</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">axis</span><span class="p">):</span>
+        <span class="c1"># FFT wrapper of pyfftw.</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">pyfftw</span><span class="o">.</span><span class="n">empty_aligned</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">&quot;complex64&quot;</span><span class="p">)</span>
+        <span class="n">a</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="n">fft_object</span> <span class="o">=</span> <span class="n">pyfftw</span><span class="o">.</span><span class="n">builders</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fft_object</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="ifft"><a class="viewcode-back" href="../../mdapy.html#mdapy.mean_squared_displacement.ifft">[docs]</a>    <span class="k">def</span> <span class="nf">ifft</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="p">):</span>
+        <span class="c1"># IFFT wrapper of pyfftw.</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">pyfftw</span><span class="o">.</span><span class="n">empty_aligned</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">&quot;complex64&quot;</span><span class="p">)</span>
+        <span class="n">a</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="n">fft_object</span> <span class="o">=</span> <span class="n">pyfftw</span><span class="o">.</span><span class="n">builders</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fft_object</span><span class="p">()</span></div>
+
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">scipy.fft</span> <span class="kn">import</span> <span class="n">fft</span><span class="p">,</span> <span class="n">ifft</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">numpy.fft</span> <span class="kn">import</span> <span class="n">fft</span><span class="p">,</span> <span class="n">ifft</span>
+
+
+<div class="viewcode-block" id="MeanSquaredDisplacement"><a class="viewcode-back" href="../../mdapy.html#mdapy.mean_squared_displacement.MeanSquaredDisplacement">[docs]</a><span class="k">class</span> <span class="nc">MeanSquaredDisplacement</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;This class is used to calculate the mean squared displacement MSD of system, which can be used to</span>
+<span class="sd">    reflect the particle diffusion trend and describe the melting process. Generally speaking, MSD is an</span>
+<span class="sd">    average displacement over all windows of length :math:`m` over the course of the simulation (so-called</span>
+<span class="sd">    &#39;windows&#39; mode here) and defined</span>
+<span class="sd">    by:</span>
+
+<span class="sd">    .. math:: MSD(m) = \\frac{1}{N_{p}} \\sum_{i=1}^{N_{p}} \\frac{1}{N_{f}-m} \\sum_{k=0}^{N_{f}-m-1} (\\vec{r}_i(k+m) - \\vec{r}_i(k))^2,</span>
+
+<span class="sd">    where :math:`r_i(t)` is the position of particle :math:`i` in frame :math:`t`. It is computationally extensive</span>
+<span class="sd">    while using a fast Fourier transform can remarkably reduce the computation cost as described in `nMoldyn - Interfacing</span>
+<span class="sd">    spectroscopic experiments, molecular dynamics simulations and models for time correlation functions</span>
+<span class="sd">    &lt;https://doi.org/10.1051/sfn/201112010&gt;`_ and discussion in `StackOverflow &lt;https://stackoverflow.com/questions/34222272/computing-mean-square-displacement-using-python-and-fft&gt;`_.</span>
+
+<span class="sd">    .. note:: One can install `pyfftw &lt;https://github.com/pyFFTW/pyFFTW&gt;`_ to accelerate the calculation,</span>
+<span class="sd">      otherwise mdapy will use `scipy.fft &lt;https://docs.scipy.org/doc/scipy/reference/fft.html#module-scipy.fft&gt;`_</span>
+<span class="sd">      to do the Fourier transform.</span>
+
+<span class="sd">    Sometimes one only need the following atomic displacement (so-called &#39;direct&#39; mode here):</span>
+
+<span class="sd">    .. math:: MSD(t) = \\dfrac{1}{N_p} \\sum_{i=1}^{N_p} (r_i(t) - r_i(0))^2.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pos_list (np.ndarray): (:math:`N_f, N_p, 3`), :math:`N_f` frames particle position, which need to be unwrapped for periodic boundary.</span>
+<span class="sd">        mode (str, optional): calculation mode, selected from [&#39;windows&#39;, &#39;direct&#39;]. Defaults to &quot;windows&quot;.</span>
+
+<span class="sd">    Outputs:</span>
+<span class="sd">        - **msd** (np.ndarray) - (:math:`N_f`), mean squared displacement per frames.</span>
+<span class="sd">        - **particle_msd** (np.ndarray) - (:math:`N_f, N_p`), mean squared displacement per atom per frames.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; import mdapy as mp</span>
+
+<span class="sd">        &gt;&gt;&gt; mp.init()</span>
+
+<span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+
+<span class="sd">        &gt;&gt;&gt; pos_list = np.cumsum(</span>
+<span class="sd">            np.random.choice([-1.0, 0.0, 1.0], size=(200, 1000, 3)), axis=0</span>
+<span class="sd">            ) # Generate a random walk trajectory with 200 frames and 1000 particles.</span>
+
+<span class="sd">        &gt;&gt;&gt; MSD = mp.MeanSquaredDisplacement(pos_list, mode=&quot;windows&quot;) # Initilize MSD class.</span>
+
+<span class="sd">        &gt;&gt;&gt; MSD.compute() # Calculate the MSD in &#39;windows&#39; mode.</span>
+
+<span class="sd">        &gt;&gt;&gt; MSD.msd # Check msd.</span>
+
+<span class="sd">        &gt;&gt;&gt; MSD.particle_msd.shape # Check msd per particle, should be (200, 1000) here.</span>
+
+<span class="sd">        &gt;&gt;&gt; MSD.plot() # Plot the evolution of msd per frame.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pos_list</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;windows&quot;</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span> <span class="o">=</span> <span class="n">pos_list</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;windows&quot;</span><span class="p">,</span> <span class="s2">&quot;direct&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">if_compute</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">_autocorrFFT</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">N</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># 2*N because of zero-padding</span>
+        <span class="n">PSD</span> <span class="o">=</span> <span class="n">F</span> <span class="o">*</span> <span class="n">F</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">ifft</span><span class="p">(</span><span class="n">PSD</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="p">(</span><span class="n">res</span><span class="p">[:</span><span class="n">N</span><span class="p">])</span><span class="o">.</span><span class="n">real</span>  <span class="c1"># now we have the autocorrelation in convention B</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1">#   N*np.ones(N)-np.arange(0,N) #divide res(m) by (N-m)</span>
+        <span class="k">return</span> <span class="n">res</span> <span class="o">/</span> <span class="n">n</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>  <span class="c1"># this is the autocorrelation in convention A</span>
+
+<div class="viewcode-block" id="MeanSquaredDisplacement.compute"><a class="viewcode-back" href="../../mdapy.html#mdapy.mean_squared_displacement.MeanSquaredDisplacement.compute">[docs]</a>    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do the real MSD calculation.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;windows&quot;</span><span class="p">:</span>
+            <span class="n">Nframe</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">D</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">D</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">Q</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">D</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">S1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Nframe</span><span class="p">):</span>
+                <span class="n">Q</span> <span class="o">-=</span> <span class="n">D</span><span class="p">[</span><span class="n">m</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">D</span><span class="p">[</span><span class="n">Nframe</span> <span class="o">-</span> <span class="n">m</span><span class="p">,</span> <span class="p">:]</span>
+                <span class="n">S1</span><span class="p">[</span><span class="n">m</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">Q</span> <span class="o">/</span> <span class="p">(</span><span class="n">Nframe</span> <span class="o">-</span> <span class="n">m</span><span class="p">)</span>
+            <span class="n">S2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_autocorrFFT</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">])</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                <span class="p">],</span>
+                <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">particle_msd</span> <span class="o">=</span> <span class="n">S1</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">S2</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;direct&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">particle_msd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos_list</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
+                <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">msd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">particle_msd</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">if_compute</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="MeanSquaredDisplacement.plot"><a class="viewcode-back" href="../../mdapy.html#mdapy.mean_squared_displacement.MeanSquaredDisplacement.plot">[docs]</a>    <span class="k">def</span> <span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Plot the evolution of MSD per frame.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple: (fig, ax) matplotlib figure and axis class.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pltset</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_compute</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="n">cm2inch</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">cm2inch</span><span class="p">(</span><span class="mi">7</span><span class="p">)),</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="mf">0.16</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="mf">0.16</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="mf">0.97</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">msd</span><span class="p">,</span> <span class="s2">&quot;o-&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;$\mathregular{N_</span><span class="si">{frames}</span><span class="s2">}$&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;MSD ($\mathregular{\AA}$)&quot;</span><span class="p">)</span>
+        <span class="c1"># plt.xlim(0, self.msd.shape[0])</span>
+
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span></div></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">time</span>
+
+    <span class="n">Nframe</span><span class="p">,</span> <span class="n">Nparticles</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">1000</span>
+    <span class="n">pos_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">Nframe</span><span class="p">,</span> <span class="n">Nparticles</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span>
+    <span class="p">)</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+    <span class="n">MSD</span> <span class="o">=</span> <span class="n">MeanSquaredDisplacement</span><span class="p">(</span><span class="n">pos_list</span><span class="o">=</span><span class="n">pos_list</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;windows&quot;</span><span class="p">)</span>
+    <span class="n">MSD</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">MSD</span><span class="o">.</span><span class="n">particle_msd</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+    <span class="n">msd_w</span> <span class="o">=</span> <span class="n">MSD</span><span class="o">.</span><span class="n">msd</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;windows mode costs: </span><span class="si">{</span><span class="n">end</span><span class="o">-</span><span class="n">start</span><span class="si">}</span><span class="s2"> s.&quot;</span><span class="p">)</span>
+    <span class="n">MSD</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+    <span class="n">MSD</span> <span class="o">=</span> <span class="n">MeanSquaredDisplacement</span><span class="p">(</span><span class="n">pos_list</span><span class="o">=</span><span class="n">pos_list</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;direct&quot;</span><span class="p">)</span>
+    <span class="n">MSD</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+    <span class="n">msd_d</span> <span class="o">=</span> <span class="n">MSD</span><span class="o">.</span><span class="n">msd</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;direct mode costs: </span><span class="si">{</span><span class="n">end</span><span class="o">-</span><span class="n">start</span><span class="si">}</span><span class="s2"> s.&quot;</span><span class="p">)</span>
+    <span class="n">MSD</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="n">cm2inch</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">cm2inch</span><span class="p">(</span><span class="mi">7</span><span class="p">)),</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="mf">0.16</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="mf">0.16</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="mf">0.97</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">msd_w</span><span class="p">,</span> <span class="s2">&quot;o-&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;windows&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">msd_d</span><span class="p">,</span> <span class="s2">&quot;o-&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;direct&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;$\mathregular{N_</span><span class="si">{frames}</span><span class="s2">}$&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;MSD ($\mathregular{\AA}$)&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">msd_w</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, mushroomfire.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

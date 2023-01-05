@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mdapy.create_polycrystalline &mdash; mdapy 0.7.4 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="shortcut icon" href="../../_static/mdapy_favico_white.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> mdapy
+            <img src="../../_static/mdapy_logo_white.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.7.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../gettingstarted/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Mdapy Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">mdapy</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">mdapy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../mdapy.html">mdapy</a></li>
+      <li class="breadcrumb-item active">mdapy.create_polycrystalline</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mdapy.create_polycrystalline</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) 2022, mushroomfire in Beijing Institute of Technology</span>
+<span class="c1"># This file is from the mdapy project, released under the BSD 3-Clause License.</span>
+
+<span class="kn">from</span> <span class="nn">.polygon</span> <span class="kn">import</span> <span class="n">poly</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">taichi</span> <span class="k">as</span> <span class="nn">ti</span>
+<span class="kn">from</span> <span class="nn">.lattice_maker</span> <span class="kn">import</span> <span class="n">LatticeMaker</span>
+<span class="kn">from</span> <span class="nn">.neighbor</span> <span class="kn">import</span> <span class="n">Neighbor</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">time</span>
+
+
+<div class="viewcode-block" id="Cell"><a class="viewcode-back" href="../../mdapy.html#mdapy.create_polycrystalline.Cell">[docs]</a><span class="k">class</span> <span class="nc">Cell</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">face_vertices</span><span class="p">,</span> <span class="n">vertices</span><span class="p">,</span> <span class="n">volume</span><span class="p">,</span> <span class="n">cavity_radius</span><span class="p">,</span> <span class="n">face_areas</span><span class="p">,</span> <span class="n">pos</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_face_vertices</span> <span class="o">=</span> <span class="n">face_vertices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_vertices</span> <span class="o">=</span> <span class="n">vertices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_volume</span> <span class="o">=</span> <span class="n">volume</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cavity_radius</span> <span class="o">=</span> <span class="n">cavity_radius</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_face_areas</span> <span class="o">=</span> <span class="n">face_areas</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span>
+
+<div class="viewcode-block" id="Cell.face_vertices"><a class="viewcode-back" href="../../mdapy.html#mdapy.create_polycrystalline.Cell.face_vertices">[docs]</a>    <span class="k">def</span> <span class="nf">face_vertices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_face_vertices</span></div>
+
+<div class="viewcode-block" id="Cell.face_areas"><a class="viewcode-back" href="../../mdapy.html#mdapy.create_polycrystalline.Cell.face_areas">[docs]</a>    <span class="k">def</span> <span class="nf">face_areas</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_face_areas</span></div>
+
+<div class="viewcode-block" id="Cell.vertices"><a class="viewcode-back" href="../../mdapy.html#mdapy.create_polycrystalline.Cell.vertices">[docs]</a>    <span class="k">def</span> <span class="nf">vertices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vertices</span></div>
+
+<div class="viewcode-block" id="Cell.volume"><a class="viewcode-back" href="../../mdapy.html#mdapy.create_polycrystalline.Cell.volume">[docs]</a>    <span class="k">def</span> <span class="nf">volume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_volume</span></div>
+
+<div class="viewcode-block" id="Cell.cavity_radius"><a class="viewcode-back" href="../../mdapy.html#mdapy.create_polycrystalline.Cell.cavity_radius">[docs]</a>    <span class="k">def</span> <span class="nf">cavity_radius</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cavity_radius</span></div></div>
+
+
+<div class="viewcode-block" id="Container"><a class="viewcode-back" href="../../mdapy.html#mdapy.create_polycrystalline.Container">[docs]</a><span class="k">class</span> <span class="nc">Container</span><span class="p">(</span><span class="nb">list</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">boundary</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">box</span> <span class="o">=</span> <span class="n">box</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">(</span><span class="n">boundary</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Container.compute"><a class="viewcode-back" href="../../mdapy.html#mdapy.create_polycrystalline.Container.compute">[docs]</a>    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">volume_radius</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="n">face_vertices</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="p">)</span>  <span class="c1"># 60 faces 30 edges</span>
+        <span class="n">face_areas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">60</span><span class="p">))</span>  <span class="c1"># 60 faces</span>
+        <span class="n">vertices_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>  <span class="c1"># 90 vertices</span>
+        <span class="n">poly</span><span class="o">.</span><span class="n">get_cell_info</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">boundary</span><span class="p">,</span>
+            <span class="n">volume_radius</span><span class="p">,</span>
+            <span class="n">face_vertices</span><span class="p">,</span>
+            <span class="n">vertices_pos</span><span class="p">,</span>
+            <span class="n">face_areas</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="n">new_face_vertices</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">face_vertices</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">j</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">new_face_vertices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">j</span><span class="p">[</span><span class="n">j</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">Cell</span><span class="p">(</span>
+                    <span class="n">new_face_vertices</span><span class="p">,</span>
+                    <span class="n">vertices_pos</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                    <span class="n">volume_radius</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                    <span class="n">volume_radius</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+                    <span class="n">face_areas</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">face_areas</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="CreatePolycrystalline"><a class="viewcode-back" href="../../mdapy.html#mdapy.create_polycrystalline.CreatePolycrystalline">[docs]</a><span class="nd">@ti</span><span class="o">.</span><span class="n">data_oriented</span>
+<span class="k">class</span> <span class="nc">CreatePolycrystalline</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;This class is used to create polycrystalline structure with random grain orientation</span>
+<span class="sd">    based on the Voronoi diagram. It provides an interesting feature to replace the metallic</span>
+<span class="sd">    grain boundary into graphene, which can generate a three-dimensional graphene structure.</span>
+<span class="sd">    The metallic matrix can be FCC, BCC and HCP structure.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        box (np.ndarray): (:math:`3, 2`), system box.</span>
+<span class="sd">        seednumber (int): number of initial seed to generate the Voronoi polygon.</span>
+<span class="sd">        metal_latttice_constant (float): lattice constant.</span>
+<span class="sd">        metal_lattice_type (str): metallic matrix structure type, supporting FCC, BCC and HCP.</span>
+<span class="sd">        randomseed (int, optional): randomseed to generate the random number, this is helpful to reproduce the same structure. If not given, a random seed will be generated.</span>
+<span class="sd">        metal_overlap_dis (float, optional): minimum distance between metallic particles. If not given, this parameter will be determined by the given metal_lattice_type and metal_latttice_constant.</span>
+<span class="sd">        add_graphene (bool, optional): whether use graphene as grain boundary. Defaults to False.</span>
+<span class="sd">        gra_lattice_constant (float, optional): C-C bond length in graphene. Defaults to 1.42.</span>
+<span class="sd">        metal_gra_overlap_dis (float, optional): minimum distance between metallic particles and graphene. Defaults to 3.1.</span>
+<span class="sd">        gra_overlap_dis (float, optional): minimum distance between atoms in graphene. Defaults to 1.2.</span>
+<span class="sd">        seed (np.ndarray, optional): (seednumber, 3) initial position of seed to generate Voronoi polygon. If not given, it will be generated by the given randomseed.</span>
+<span class="sd">        if_rotation (bool, optional): whether rotate the grain orientation. Defaults to True.</span>
+<span class="sd">        theta_list (np.ndarray, optional): (seednumber, 3) rotation degree of each grain along x, y, z axis. If not given, it will be generated by the given randomseed.</span>
+<span class="sd">        face_threshold (float, optional): minimum voronoi polygon face area to add graphene. Defaults to 5.0.</span>
+<span class="sd">        output_name (str, optional): filename of DUMP file. Defaults to None.</span>
+
+<span class="sd">    Outputs:</span>
+<span class="sd">        - **generate an polycrystalline DUMP file with grain ID.**</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; import mdapy as mp</span>
+
+<span class="sd">        &gt;&gt;&gt; mp.init()</span>
+
+<span class="sd">        &gt;&gt;&gt; box = np.array([[0.0, 200.0], [0.0, 200.0], [0.0, 200.0]]) # Generate a box.</span>
+
+<span class="sd">        &gt;&gt;&gt; polycry = mp.CreatePolycrystalline(</span>
+<span class="sd">                      box, 20, 3.615, &quot;FCC&quot;, add_graphene=True) # Initilize a Poly class.</span>
+
+<span class="sd">        &gt;&gt;&gt; polycry.compute() # Generate a graphene/metal structure with 20 grains.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">box</span><span class="p">,</span>
+        <span class="n">seednumber</span><span class="p">,</span>
+        <span class="n">metal_latttice_constant</span><span class="p">,</span>
+        <span class="n">metal_lattice_type</span><span class="p">,</span>
+        <span class="n">randomseed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">metal_overlap_dis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">add_graphene</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">gra_lattice_constant</span><span class="o">=</span><span class="mf">1.42</span><span class="p">,</span>
+        <span class="n">metal_gra_overlap_dis</span><span class="o">=</span><span class="mf">3.1</span><span class="p">,</span>
+        <span class="n">gra_overlap_dis</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span>
+        <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">if_rotation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">theta_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">face_threshold</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+        <span class="n">output_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">box</span> <span class="o">=</span> <span class="n">box</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seednumber</span> <span class="o">=</span> <span class="n">seednumber</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metal_latttice_constant</span> <span class="o">=</span> <span class="n">metal_latttice_constant</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metal_lattice_type</span> <span class="o">=</span> <span class="n">metal_lattice_type</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">metal_lattice_type</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s2">&quot;FCC&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;BCC&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;HCP&quot;</span><span class="p">,</span>
+        <span class="p">],</span> <span class="s2">&quot;Only support lattice_type in [&#39;FCC&#39;, &#39;BCC&#39;, &#39;HCP&#39;].&quot;</span>
+        <span class="k">if</span> <span class="n">randomseed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">randomseed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10000000</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">randomseed</span> <span class="o">=</span> <span class="n">randomseed</span>
+
+        <span class="k">if</span> <span class="n">metal_overlap_dis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">metal_lattice_type</span> <span class="o">==</span> <span class="s2">&quot;FCC&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metal_overlap_dis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metal_latttice_constant</span> <span class="o">/</span> <span class="mi">2</span><span class="o">**</span><span class="mf">0.5</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">metal_lattice_type</span> <span class="o">==</span> <span class="s2">&quot;BCC&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metal_overlap_dis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metal_latttice_constant</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="mi">3</span><span class="o">**</span><span class="mf">0.5</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">metal_lattice_type</span> <span class="o">==</span> <span class="s2">&quot;HCP&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metal_overlap_dis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metal_latttice_constant</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metal_overlap_dis</span> <span class="o">=</span> <span class="n">metal_overlap_dis</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_graphene</span> <span class="o">=</span> <span class="n">add_graphene</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gra_lattice_constant</span> <span class="o">=</span> <span class="n">gra_lattice_constant</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metal_gra_overlap_dis</span> <span class="o">=</span> <span class="n">metal_gra_overlap_dis</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gra_overlap_dis</span> <span class="o">=</span> <span class="n">gra_overlap_dis</span>
+        <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">randomseed</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seednumber</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">if_rotation</span> <span class="o">=</span> <span class="n">if_rotation</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_rotation</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">theta_list</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">randomseed</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">theta_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seednumber</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="mi">360</span> <span class="o">-</span> <span class="mi">180</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">theta_list</span> <span class="o">=</span> <span class="n">theta_list</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">theta_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">seednumber</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta_list</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">seednumber</span>
+        <span class="p">),</span> <span class="s2">&quot;shape of theta_lise and seed shoud be equal.&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">face_threshold</span> <span class="o">=</span> <span class="n">face_threshold</span>
+        <span class="k">if</span> <span class="n">output_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_graphene</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;GRA-Metal-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metal_lattice_type</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">seednumber</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">randomseed</span><span class="si">}</span><span class="s2">.dump&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Metal-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metal_lattice_type</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">seednumber</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">randomseed</span><span class="si">}</span><span class="s2">.dump&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span> <span class="o">=</span> <span class="n">output_name</span>
+
+    <span class="nd">@ti</span><span class="o">.</span><span class="n">func</span>
+    <span class="k">def</span> <span class="nf">_get_plane_equation_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">p3</span><span class="p">,</span> <span class="n">coeff</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get plane equation parameters from three points in plane.</span>
+<span class="sd">        :math:`ax+by+cz+d=0`</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            p1 (ti.types.ndarray): (3 * 1) point 1 in plane.</span>
+<span class="sd">            p2 (ti.types.ndarray): (3 * 1) point 2 in plane.</span>
+<span class="sd">            p3 (ti.types.ndarray): (3 * 1) point 3 in plane.</span>
+<span class="sd">            coeff (ti.types.ndarray): (4 * 1) zero filled array.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ti.types.ndarray: (4 * 1) plane equation parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">-</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">coeff</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">coeff</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">p1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">coeff</span>
+
+    <span class="nd">@ti</span><span class="o">.</span><span class="n">func</span>
+    <span class="k">def</span> <span class="nf">_plane_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+        <span class="c1"># determine point p in plane</span>
+        <span class="k">return</span> <span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">p</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+
+    <span class="nd">@ti</span><span class="o">.</span><span class="n">kernel</span>
+    <span class="k">def</span> <span class="nf">_get_cell_plane_coeffs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">coeffs</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">element_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+        <span class="n">plane_pos</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">element_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+    <span class="p">):</span>
+        <span class="c1"># get all plane parameters of a Voronoi cell.</span>
+        <span class="n">ti</span><span class="o">.</span><span class="n">loop_config</span><span class="p">(</span><span class="n">serialize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">coeffs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="n">coeffs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_plane_equation_coeff</span><span class="p">(</span>
+                <span class="n">plane_pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">plane_pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">plane_pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">coeffs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_cell_plane_coeffs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cell</span><span class="p">):</span>
+        <span class="c1"># get all plane parameters of a Voronoi cell.</span>
+        <span class="n">vertices_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">vertices</span><span class="p">())</span>
+        <span class="n">face_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">i</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">cell</span><span class="o">.</span><span class="n">face_vertices</span><span class="p">()])</span>
+        <span class="n">plane_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">vertices_pos</span><span class="p">[</span><span class="n">face_index</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">face_index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+        <span class="p">)</span>
+        <span class="n">coeffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">face_index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">4</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_get_cell_plane_coeffs</span><span class="p">(</span><span class="n">coeffs</span><span class="p">,</span> <span class="n">plane_pos</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">coeffs</span>
+
+    <span class="nd">@ti</span><span class="o">.</span><span class="n">kernel</span>
+    <span class="k">def</span> <span class="nf">_delete_atoms</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pos</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">element_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+        <span class="n">coeffs</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">element_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+        <span class="n">delete</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+    <span class="p">):</span>
+        <span class="c1"># delete atoms outside the Voronoi cell</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">coeffs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plane_equation</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">delete</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="k">break</span>
+
+    <span class="k">def</span> <span class="nf">_rotate_pos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">direction</span><span class="p">):</span>
+        <span class="c1"># get rotation matrix along direction.</span>
+
+        <span class="n">radians</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span>
+        <span class="n">cos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span>
+        <span class="n">sin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span>
+        <span class="n">theta</span> <span class="o">=</span> <span class="n">radians</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">direction</span>
+        <span class="n">rot_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="p">[</span>
+                    <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span>
+                    <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span> <span class="o">-</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span>
+                    <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">z</span> <span class="o">+</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span>
+                <span class="p">],</span>
+                <span class="p">[</span>
+                    <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">*</span> <span class="n">y</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span>
+                    <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">*</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span>
+                    <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">*</span> <span class="n">y</span> <span class="o">*</span> <span class="n">z</span> <span class="o">-</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span><span class="p">,</span>
+                <span class="p">],</span>
+                <span class="p">[</span>
+                    <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">*</span> <span class="n">z</span> <span class="o">*</span> <span class="n">x</span> <span class="o">-</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span>
+                    <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">*</span> <span class="n">z</span> <span class="o">*</span> <span class="n">y</span> <span class="o">+</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span><span class="p">,</span>
+                    <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span> <span class="o">*</span> <span class="n">z</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">],</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">rot_mat</span>
+
+    <span class="k">def</span> <span class="nf">_get_plane_equation_coeff_py</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">p3</span><span class="p">):</span>
+        <span class="c1"># get plane equation in python scope.</span>
+        <span class="n">coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+        <span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">-</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">coeff</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="p">(</span><span class="n">p2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">p3</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">coeff</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">p1</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">coeff</span>
+
+    <span class="k">def</span> <span class="nf">_points_in_polygon</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">polygon</span><span class="p">,</span> <span class="n">pts</span><span class="p">):</span>
+        <span class="c1"># check points in polygon plane.</span>
+
+        <span class="n">pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float32&quot;</span><span class="p">)</span>
+        <span class="n">polygon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">polygon</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float32&quot;</span><span class="p">)</span>
+        <span class="n">contour2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">polygon</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">polygon</span><span class="p">[:</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">test_diff</span> <span class="o">=</span> <span class="n">contour2</span> <span class="o">-</span> <span class="n">polygon</span>
+        <span class="n">mask1</span> <span class="o">=</span> <span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">==</span> <span class="n">polygon</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">m1</span> <span class="o">=</span> <span class="p">(</span><span class="n">polygon</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">pts</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">!=</span> <span class="p">(</span><span class="n">contour2</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">pts</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">slope</span> <span class="o">=</span> <span class="p">((</span><span class="n">pts</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">polygon</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">test_diff</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="p">(</span>
+            <span class="n">test_diff</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">polygon</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="n">m2</span> <span class="o">=</span> <span class="n">slope</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="n">mask2</span> <span class="o">=</span> <span class="p">(</span><span class="n">m1</span> <span class="o">&amp;</span> <span class="n">m2</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">m3</span> <span class="o">=</span> <span class="p">(</span><span class="n">slope</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="n">contour2</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">polygon</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">m4</span> <span class="o">=</span> <span class="n">m1</span> <span class="o">&amp;</span> <span class="n">m3</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">m4</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">mask3</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">count</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">mask1</span> <span class="o">|</span> <span class="n">mask2</span> <span class="o">|</span> <span class="n">mask3</span>
+        <span class="k">return</span> <span class="n">mask</span>
+
+    <span class="k">def</span> <span class="nf">_get_pos</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># get the initial position.</span>
+
+        <span class="n">metal_pos</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># r_max = np.sqrt(max([cell.max_radius_squared() for cell in cntr]))</span>
+        <span class="n">r_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="n">cell</span><span class="o">.</span><span class="n">cavity_radius</span><span class="p">()</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cntr</span><span class="p">])</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">y</span> <span class="o">=</span> <span class="n">z</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">r_max</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">metal_latttice_constant</span><span class="p">))</span>
+        <span class="n">FCC</span> <span class="o">=</span> <span class="n">LatticeMaker</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metal_latttice_constant</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">metal_lattice_type</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span>
+        <span class="p">)</span>
+        <span class="n">FCC</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_graphene</span><span class="p">:</span>
+            <span class="n">gra_pos</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">x1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">r_max</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gra_lattice_constant</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)))</span>
+            <span class="n">y1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">r_max</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gra_lattice_constant</span> <span class="o">*</span> <span class="mi">3</span><span class="o">**</span><span class="mf">0.5</span><span class="p">)))</span>
+            <span class="n">GRA</span> <span class="o">=</span> <span class="n">LatticeMaker</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gra_lattice_constant</span><span class="p">,</span> <span class="s2">&quot;GRA&quot;</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">GRA</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+            <span class="n">gra_vector</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Total grain number:&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cntr</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">cell</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cntr</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Generating grain </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">..., volume is </span><span class="si">{</span><span class="n">cell</span><span class="o">.</span><span class="n">volume</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">coeffs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cell_plane_coeffs</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="n">FCC</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">rotate_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_rotate_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_rotate_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_rotate_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
+            <span class="p">)</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">rotate_matrix</span><span class="p">)</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">cell</span><span class="o">.</span><span class="n">pos</span>
+            <span class="n">delete</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_delete_atoms</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">delete</span><span class="p">)</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">(</span><span class="n">delete</span><span class="p">)]</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">pos</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">metal_pos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_graphene</span><span class="p">:</span>
+                <span class="n">face_index</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">face_vertices</span><span class="p">()</span>
+                <span class="n">face_areas</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">face_areas</span><span class="p">()</span>
+                <span class="n">vertices_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">vertices</span><span class="p">())</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">coeffs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                    <span class="k">if</span> <span class="n">face_areas</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">face_threshold</span><span class="p">:</span>
+                        <span class="n">vertices</span> <span class="o">=</span> <span class="n">vertices_pos</span><span class="p">[</span><span class="n">face_index</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span>
+                        <span class="n">pos</span> <span class="o">=</span> <span class="n">GRA</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                        <span class="n">plane_vector</span> <span class="o">=</span> <span class="n">coeffs</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="p">:</span><span class="mi">3</span><span class="p">]</span>
+                        <span class="n">plane_vector</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">plane_vector</span><span class="p">)</span>
+                        <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arccos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">gra_vector</span><span class="p">,</span> <span class="n">plane_vector</span><span class="p">)))</span>
+                        <span class="n">axis</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">gra_vector</span><span class="p">,</span> <span class="n">plane_vector</span><span class="p">)</span>
+                        <span class="n">direction</span> <span class="o">=</span> <span class="n">axis</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">axis</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-6</span><span class="p">)</span>
+                        <span class="n">temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rotate_pos</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">direction</span><span class="p">))</span>
+                        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_plane_equation_coeff_py</span><span class="p">(</span>
+                            <span class="n">temp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">temp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">temp</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+                        <span class="p">)[:</span><span class="mi">3</span><span class="p">]</span>
+                        <span class="n">a</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">a</span><span class="p">[:</span><span class="mi">3</span><span class="p">],</span> <span class="n">plane_vector</span><span class="p">)),</span> <span class="mi">1</span><span class="p">):</span>
+                            <span class="n">theta</span> <span class="o">=</span> <span class="mi">360</span> <span class="o">-</span> <span class="n">theta</span>
+                            <span class="n">temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rotate_pos</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">direction</span><span class="p">))</span>
+                        <span class="c1">#     a = self._get_plane_equation_coeff_py(</span>
+                        <span class="c1">#         temp[0], temp[1], temp[5]</span>
+                        <span class="c1">#     )[:3]</span>
+                        <span class="c1">#     a /= np.linalg.norm(a)</span>
+                        <span class="c1"># assert np.isclose(abs(np.dot(a[:3], plane_vector)), 1), print(</span>
+                        <span class="c1">#     i, j, np.dot(a[:3], plane_vector)</span>
+                        <span class="c1"># )</span>
+                        <span class="n">pos</span> <span class="o">=</span> <span class="n">temp</span>
+                        <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">vertices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                        <span class="n">vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">vertices</span><span class="p">,</span> <span class="n">vertices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)]</span>
+                        <span class="c1"># if np.isclose(abs(np.dot(gra_vector, plane_vector)), 0):</span>
+                        <span class="c1">#     delete = self._points_in_polygon(</span>
+                        <span class="c1">#         vertices[:, [0, 2]], pos[:, [0, 2]]</span>
+                        <span class="c1">#     )</span>
+                        <span class="c1"># else:</span>
+                        <span class="c1">#     delete = self._points_in_polygon(vertices[:, :2], pos[:, :2])</span>
+                        <span class="n">vertices_temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span>
+                            <span class="n">vertices</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rotate_pos</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+                        <span class="p">)</span>
+                        <span class="n">pos_temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rotate_pos</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]))</span>
+                        <span class="n">delete</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points_in_polygon</span><span class="p">(</span><span class="n">vertices_temp</span><span class="p">,</span> <span class="n">pos_temp</span><span class="p">)</span>
+                        <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">delete</span><span class="p">]</span>
+                        <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">pos</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">i</span><span class="p">]</span>
+                        <span class="n">gra_pos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+
+        <span class="n">metal_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">metal_pos</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_graphene</span><span class="p">:</span>
+            <span class="n">gra_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">gra_pos</span><span class="p">)</span>
+            <span class="n">metal_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">metal_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">metal_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                <span class="n">metal_pos</span><span class="p">,</span>
+            <span class="p">]</span>
+            <span class="n">gra_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">gra_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">metal_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">gra_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span>
+                <span class="n">gra_pos</span><span class="p">,</span>
+            <span class="p">]</span>
+            <span class="n">new_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">metal_pos</span><span class="p">,</span> <span class="n">gra_pos</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">new_pos</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">metal_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">metal_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">metal_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                <span class="n">metal_pos</span><span class="p">,</span>
+            <span class="p">]</span>
+            <span class="k">return</span> <span class="n">metal_pos</span>
+
+    <span class="nd">@ti</span><span class="o">.</span><span class="n">kernel</span>
+    <span class="k">def</span> <span class="nf">_wrap_pos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pos</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span> <span class="n">box</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">()):</span>
+        <span class="c1"># wrap position into box.</span>
+        <span class="n">boxlength</span> <span class="o">=</span> <span class="n">ti</span><span class="o">.</span><span class="n">Vector</span><span class="p">([</span><span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)])</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ti</span><span class="o">.</span><span class="n">static</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)):</span>
+                <span class="k">while</span> <span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">j</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]:</span>
+                    <span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">boxlength</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="k">while</span> <span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">j</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">box</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+                    <span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="n">boxlength</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+
+    <span class="nd">@ti</span><span class="o">.</span><span class="n">kernel</span>
+    <span class="k">def</span> <span class="nf">_find_close</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pos</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">verlet_list</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">distance_list</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">atype_list</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">grain_id</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">neighbor_number</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">delete_id</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">metal_overlap_dis</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">gra_overlap_dis</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">metal_gra_overlap_dis</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">total_overlap_dis</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="c1"># find potential overlap atoms for graphene/metal structure</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="n">i_type</span> <span class="o">=</span> <span class="n">atype_list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">i_grain</span> <span class="o">=</span> <span class="n">grain_id</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">neighbor_number</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="n">j_index</span> <span class="o">=</span> <span class="n">verlet_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
+                <span class="n">j_type</span> <span class="o">=</span> <span class="n">atype_list</span><span class="p">[</span><span class="n">j_index</span><span class="p">]</span>
+                <span class="n">j_grain</span> <span class="o">=</span> <span class="n">grain_id</span><span class="p">[</span><span class="n">j_index</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">i_type</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">j_type</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">distance_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">metal_overlap_dis</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">j_index</span> <span class="o">&gt;</span> <span class="n">i</span><span class="p">:</span>
+                                <span class="n">delete_id</span><span class="p">[</span><span class="n">j_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">j_type</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">j_grain</span> <span class="o">&gt;</span> <span class="n">i_grain</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">distance_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">total_overlap_dis</span><span class="p">:</span>
+                                <span class="n">delete_id</span><span class="p">[</span><span class="n">j_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                        <span class="k">elif</span> <span class="n">j_grain</span> <span class="o">==</span> <span class="n">i_grain</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">distance_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">gra_overlap_dis</span> <span class="ow">and</span> <span class="n">j_index</span> <span class="o">&gt;</span> <span class="n">i</span><span class="p">:</span>
+                                <span class="n">delete_id</span><span class="p">[</span><span class="n">j_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="k">elif</span> <span class="n">j_type</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">distance_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">metal_gra_overlap_dis</span><span class="p">:</span>
+                            <span class="n">delete_id</span><span class="p">[</span><span class="n">j_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="nd">@ti</span><span class="o">.</span><span class="n">kernel</span>
+    <span class="k">def</span> <span class="nf">_find_close_graphene</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pos</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">verlet_list</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">atype_list</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">grain_id</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">neighbor_number</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">delete_id</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+    <span class="p">):</span>
+        <span class="c1"># find potential overlap atoms in graphene for graphene/metal structure</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="n">i_type</span> <span class="o">=</span> <span class="n">atype_list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">i_grain</span> <span class="o">=</span> <span class="n">grain_id</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">i_type</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">neighbor_number</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                    <span class="n">j_index</span> <span class="o">=</span> <span class="n">verlet_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
+                    <span class="n">j_type</span> <span class="o">=</span> <span class="n">atype_list</span><span class="p">[</span><span class="n">j_index</span><span class="p">]</span>
+                    <span class="n">j_grain</span> <span class="o">=</span> <span class="n">grain_id</span><span class="p">[</span><span class="n">j_index</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">j_type</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">i_grain</span> <span class="o">&gt;</span> <span class="n">j_grain</span><span class="p">:</span>
+                            <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="n">neighbor_number</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                    <span class="n">delete_id</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="nd">@ti</span><span class="o">.</span><span class="n">kernel</span>
+    <span class="k">def</span> <span class="nf">_find_close_metal</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pos</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">verlet_list</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">distance_list</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">neighbor_number</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">delete_id</span><span class="p">:</span> <span class="n">ti</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(),</span>
+        <span class="n">metal_overlap_dis</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="c1"># find potential overlap atoms for polycrystalline metal</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">neighbor_number</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="n">j_index</span> <span class="o">=</span> <span class="n">verlet_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">distance_list</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">metal_overlap_dis</span> <span class="ow">and</span> <span class="n">j_index</span> <span class="o">&gt;</span> <span class="n">i</span><span class="p">:</span>
+                    <span class="n">delete_id</span><span class="p">[</span><span class="n">j_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">_write_dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pos</span><span class="p">):</span>
+        <span class="c1"># save position to DUMP file.</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_name</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">op</span><span class="p">:</span>
+            <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;ITEM: TIMESTEP</span><span class="se">\n</span><span class="s2">0</span><span class="se">\n</span><span class="s2">ITEM: NUMBER OF ATOMS</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">ITEM: BOX BOUNDS pp pp pp</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="n">op</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;ITEM: ATOMS id type x y z grainid</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> </span><span class="si">%d</span><span class="s2"> </span><span class="si">%f</span><span class="s2"> </span><span class="si">%f</span><span class="s2"> </span><span class="si">%f</span><span class="s2"> </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CreatePolycrystalline.compute"><a class="viewcode-back" href="../../mdapy.html#mdapy.create_polycrystalline.CreatePolycrystalline.compute">[docs]</a>    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do the real polycrystalline structure building.&quot;&quot;&quot;</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Generating voronoi polygon...&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cntr</span> <span class="o">=</span> <span class="n">Container</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">ave_grain_volume</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">([</span><span class="n">cell</span><span class="o">.</span><span class="n">volume</span><span class="p">()</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cntr</span><span class="p">])</span>
+        <span class="c1"># print(ave_grain_volume, self.cntr[0].cavity_radius())</span>
+        <span class="n">new_pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_pos</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Wraping atoms into box...&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_wrap_pos</span><span class="p">(</span><span class="n">new_pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Deleting overlap atoms...&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_graphene</span><span class="p">:</span>
+            <span class="n">neigh</span> <span class="o">=</span> <span class="n">Neighbor</span><span class="p">(</span>
+                <span class="n">new_pos</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span>
+                <span class="n">rc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metal_gra_overlap_dis</span> <span class="o">+</span> <span class="mf">0.1</span><span class="p">,</span>
+                <span class="n">max_neigh</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">neigh</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+            <span class="n">delete_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">new_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_find_close</span><span class="p">(</span>
+                <span class="n">new_pos</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">],</span>
+                <span class="n">neigh</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span>
+                <span class="n">neigh</span><span class="o">.</span><span class="n">distance_list</span><span class="p">,</span>
+                <span class="n">new_pos</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span>
+                <span class="n">new_pos</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span>
+                <span class="n">neigh</span><span class="o">.</span><span class="n">neighbor_number</span><span class="p">,</span>
+                <span class="n">delete_id</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metal_overlap_dis</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">gra_overlap_dis</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metal_gra_overlap_dis</span><span class="p">,</span>
+                <span class="mf">1.0</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">new_pos</span> <span class="o">=</span> <span class="n">new_pos</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">(</span><span class="n">delete_id</span><span class="p">)]</span>
+            <span class="n">neigh</span> <span class="o">=</span> <span class="n">Neighbor</span><span class="p">(</span>
+                <span class="n">new_pos</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span>
+                <span class="n">rc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gra_lattice_constant</span> <span class="o">+</span> <span class="mf">0.01</span><span class="p">,</span>
+                <span class="n">max_neigh</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">neigh</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+            <span class="n">delete_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">new_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_find_close_graphene</span><span class="p">(</span>
+                <span class="n">new_pos</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">],</span>
+                <span class="n">neigh</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span>
+                <span class="n">new_pos</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span>
+                <span class="n">new_pos</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span>
+                <span class="n">neigh</span><span class="o">.</span><span class="n">neighbor_number</span><span class="p">,</span>
+                <span class="n">delete_id</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">new_pos</span> <span class="o">=</span> <span class="n">new_pos</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">(</span><span class="n">delete_id</span><span class="p">)]</span>
+            <span class="n">new_pos</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">new_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">neigh</span> <span class="o">=</span> <span class="n">Neighbor</span><span class="p">(</span>
+                <span class="n">new_pos</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span>
+                <span class="n">rc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metal_overlap_dis</span> <span class="o">+</span> <span class="mf">0.1</span><span class="p">,</span>
+                <span class="n">max_neigh</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">neigh</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+            <span class="n">delete_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">new_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_find_close_metal</span><span class="p">(</span>
+                <span class="n">new_pos</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">],</span>
+                <span class="n">neigh</span><span class="o">.</span><span class="n">verlet_list</span><span class="p">,</span>
+                <span class="n">neigh</span><span class="o">.</span><span class="n">distance_list</span><span class="p">,</span>
+                <span class="n">neigh</span><span class="o">.</span><span class="n">neighbor_number</span><span class="p">,</span>
+                <span class="n">delete_id</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metal_overlap_dis</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">new_pos</span> <span class="o">=</span> <span class="n">new_pos</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">(</span><span class="n">delete_id</span><span class="p">)]</span>
+            <span class="n">new_pos</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">new_pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Total atom numbers: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">new_pos</span><span class="p">)</span><span class="si">}</span><span class="s2">, average grain size: </span><span class="si">{</span><span class="n">ave_grain_volume</span><span class="si">}</span><span class="s2"> A^3&quot;</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Saving atoms into dump file...&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_write_dump</span><span class="p">(</span><span class="n">new_pos</span><span class="p">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Time costs: </span><span class="si">{</span><span class="n">end</span><span class="o">-</span><span class="n">start</span><span class="si">}</span><span class="s2"> s.&quot;</span><span class="p">)</span></div></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+
+    <span class="c1"># box = np.array([[0.0, 100], [0.0, 100.0], [0.0, 100.0]])</span>
+    <span class="c1"># seed = np.random.rand(20, 3) * (box[:, 1] - box[:, 0])</span>
+    <span class="c1"># boundary = [1, 1, 1]</span>
+    <span class="c1"># cntr = Container(seed, box, boundary)</span>
+    <span class="c1"># cell = cntr[0]</span>
+    <span class="c1"># print(&quot;r:&quot;, cell.cavity_radius())</span>
+    <span class="c1"># print(&quot;volume:&quot;, cell.volume())</span>
+    <span class="c1"># print(&quot;face_vertices:&quot;, cell.face_vertices())</span>
+    <span class="c1"># print(&quot;face_areas:&quot;, cell.face_areas())</span>
+    <span class="c1"># print(&quot;vertices:&quot;, cell.vertices())</span>
+    <span class="c1"># print(cntr[0])</span>
+    <span class="c1"># print(len(cntr))</span>
+    <span class="c1"># for i in cntr:</span>
+    <span class="c1">#     print(i)</span>
+    <span class="c1"># print(cntr[0].cavity_radius())</span>
+    <span class="c1"># print(cntr[:1])</span>
+    <span class="c1"># print(len(cntr))</span>
+    <span class="c1"># print(cntr[0].face_vertices())</span>
+    <span class="c1"># print(cntr[0].vertices())</span>
+    <span class="n">ti</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">ti</span><span class="o">.</span><span class="n">cpu</span><span class="p">)</span>
+    <span class="n">box</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">200.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">200.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">200.0</span><span class="p">]])</span>
+    <span class="c1"># polycry = CreatePolycrystalline(box, 20, 3.615, &quot;FCC&quot;)</span>
+    <span class="c1"># polycry.compute()</span>
+    <span class="n">polycry</span> <span class="o">=</span> <span class="n">CreatePolycrystalline</span><span class="p">(</span>
+        <span class="n">box</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mf">3.615</span><span class="p">,</span> <span class="s2">&quot;FCC&quot;</span><span class="p">,</span> <span class="n">add_graphene</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">if_rotation</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+    <span class="n">polycry</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, mushroomfire.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -13,5 +13,6 @@ dependencies:
   - matplotlib
   - SciencePlots
   - sphinx
+  - myst-parser
   - sphinx_rtd_theme
   - recommonmark

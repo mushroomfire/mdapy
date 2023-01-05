@@ -2,7 +2,11 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
-from .cluster import _cluster_analysis
+
+try:
+    from .cluster import _cluster_analysis
+except Exception:
+    import _cluster_analysis
 
 
 class ClusterAnalysis:

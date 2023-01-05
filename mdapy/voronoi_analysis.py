@@ -2,7 +2,11 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
-from .voronoi import _voronoi_analysis
+
+try:
+    from .voronoi import _voronoi_analysis
+except Exception:
+    import _voronoi_analysis
 
 
 class VoronoiAnalysis:

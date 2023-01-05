@@ -2,3 +2,7 @@
 /mdapy/__pycache__/
 /doc/build/
 /.vscode/
+/mdapy.egg-info/
+/mdapy/mdapy.egg-info/
+/build/
+/dist/

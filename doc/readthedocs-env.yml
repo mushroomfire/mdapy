@@ -4,9 +4,10 @@ build:
   os: ubuntu-20.04
   tools:
     python: "3.7"
-  commands:
-    - pip install pybind11
-    - python compile.py 
+  jobs:
+    pre_build:
+      - pip install pybind11
+      - python compile.py 
   
 python:
   install:

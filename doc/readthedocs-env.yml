@@ -10,7 +10,6 @@ dependencies:
   - tqdm
   - scipy
   - numpy
-  - scipy
   - matplotlib
   - SciencePlots
   - sphinx

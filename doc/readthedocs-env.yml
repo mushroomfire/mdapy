@@ -4,7 +4,10 @@ build:
   os: ubuntu-20.04
   tools:
     python: "3.8"
-  
+  apt_packages:
+    - libc-bin=2.29 
+    - libc6=2.29
+
 python:
   install:
     - requirements: docs/requirements.txt

@@ -7,4 +7,3 @@ matplotlib
 SciencePlots
 sphinx
 sphinx_rtd_theme
-pybind11

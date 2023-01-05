@@ -12,7 +12,8 @@ dependencies:
   - numpy
   - matplotlib
   - SciencePlots
-  - sphinx
+  - myst-parser
   - myst_parser
+  - sphinx
   - sphinx_rtd_theme
   - recommonmark

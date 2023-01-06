@@ -3,7 +3,7 @@ from setuptools import setup
 
 description = "A simple and fast python library to handle the data generated from molecular dynamics simulations"
 try:
-    with open("README.md") as f:
+    with open("README.rst") as f:
         readme = f.read()
 except Exception:
     readme = description
@@ -15,7 +15,6 @@ setup(
     author_email="yongchao_wu@bit.edu.cn",
     description=description,
     long_description=readme,
-    long_description_content_type="text/markdown",
     packages=["mdapy"],
     headers=[
         "mdapy/cluster/cluster.hpp",

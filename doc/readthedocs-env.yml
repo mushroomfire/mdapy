@@ -1,6 +1,9 @@
 version: 2
 
+conda:
+  environment: doc/environment.yml
+
 python:
   install:
-    - requirements: docs/requirements.txt
+    - requirements: doc/requirements.txt
   

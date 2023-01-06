@@ -1,0 +1,6 @@
+name: mdapy
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pandoc

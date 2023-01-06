@@ -1,0 +1,44 @@
+dimension 3
+units metal
+boundary p p p
+atom_style atomic
+
+region 1 block -100 100 -100 100 -100 100
+create_box 1 1
+
+region 2 sphere 0 0 0 50
+lattice fcc 4.05
+create_atoms 1 region 2
+
+neighbor 2.0 bin
+neigh_modify every 20 delay 0 check yes
+
+pair_style eam/alloy 
+pair_coeff * * ./Al_DFT.eam.alloy Al 
+
+timestep 0.001
+
+variable Press equal press
+variable Temp equal temp
+variable Step equal step
+variable PE equal pe
+
+thermo 1000
+thermo_style custom step temp press pe ke
+
+velocity all create 300 429816734892 dist gaussian mom yes rot yes
+
+fix 1 all npt temp 300 300 0.1 iso 0 0 1
+fix 2 all print 1000 "${Step} ${Temp} ${Press} ${PE}" file 300Krelax.txt screen no title "Step Temp Press PE"
+run 20000
+unfix 1
+unfix 2
+
+reset_timestep 0 
+fix 3 all nvt temp 300 1000 0.1 
+fix 4 all print 1000 "${Step} ${Temp} ${Press} ${PE}" file melt.txt screen no title "Step Temp Press PE"
+
+dump 1 all custom 1000 melt.*.dump id type x y z vx vy vz
+
+run 1400000
+

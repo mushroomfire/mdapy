@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.abspath("../../"))
 
 project = "mdapy"
 copyright = "2022, mushroomfire"
-author = "mushroomfire aka HerrWu"
+author = "Jian-Li Shao Group in Beijing Institute of Technology"
 version = "0.7.6"
 release = "0.7.6"
 
@@ -22,6 +22,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
+    "nbsphinx",
 ]
 
 

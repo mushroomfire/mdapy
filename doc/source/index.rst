@@ -38,10 +38,11 @@ Dependencies
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Getting Started
    
    gettingstarted/installation
+   gettingstarted/quicklystart
    gettingstarted/examples
 
 .. toctree::

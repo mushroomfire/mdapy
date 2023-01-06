@@ -72,7 +72,7 @@ Calculate the EOS curve
     import numpy as np
     import matplotlib.pyplot as plt
     import mdapy as mp
-    from mdapy.plot.pltset import pltset, cm2inch
+    from mdapy import pltset, cm2inch
     mp.init('cpu')
 
     def get_enegy_lattice(potential, pos, box):

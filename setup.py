@@ -1,3 +1,6 @@
+# Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
+# This file is from the mdapy project, released under the BSD 3-Clause License.
+
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import setup
 
@@ -10,7 +13,7 @@ except Exception:
 
 setup(
     name="mdapy",
-    version="0.7.5",
+    version="0.7.6",
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,

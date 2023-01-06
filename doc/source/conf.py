@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, os.path.abspath("../../"))
 
 project = "mdapy"
-copyright = "2022, mushroomfire"
+copyright = "2022, Jian-Li Shao Group in Beijing Institute of Technology"
 author = "Jian-Li Shao Group in Beijing Institute of Technology"
 version = "0.7.6"
 release = "0.7.6"

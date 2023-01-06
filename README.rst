@@ -52,7 +52,7 @@ Install from pip (recommended).
 Install from source code.
 ---------------------------
 
-.. note:: You should install pybind11 and have a c++ compilation environment.
+- You should install pybind11 and have a c++ compilation environment.
 
    .. code-block:: bash
       

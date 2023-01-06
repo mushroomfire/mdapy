@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.abspath("../../"))
 
 project = "mdapy"
 copyright = "2022, mushroomfire"
-author = "mushroomfire"
+author = "mushroomfire aka HerrWu"
 release = "0.7.4"
 version = "0.7.4"
 

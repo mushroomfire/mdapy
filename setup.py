@@ -12,8 +12,10 @@ setup(
     name="mdapy",
     version="0.7.4",
     author="mushroomfire aka HerrWu",
+    author_email="yongchao_wu@bit.edu.cn",
     description=description,
     long_description=readme,
+    long_description_content_type="text/markdown",
     packages=["mdapy"],
     headers=[
         "mdapy/cluster/cluster.hpp",
@@ -63,9 +65,18 @@ setup(
         "SciencePlots",
     ],
     classifiers=[
+        "License :: OSI Approved :: BSD License",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: POSIX :: Linux",
     ],
+    project_urls={
+        "Homepage": "https://github.com/mushroomfire/mdapy",
+        "Documentation": "https://mdapy.readthedocs.io/",
+        "Source Code": "https://github.com/mushroomfire/mdapy",
+        "Issue Tracker": "https://github.com/mushroomfire/mdapy/issues",
+    },
 )

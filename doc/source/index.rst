@@ -16,6 +16,14 @@ stored in NDARRAY format in `Numpy <https://numpy.org/>`_\ , enabling integratio
 with the scientific ecosystem in python and corporation with other post-progressing 
 codes, such as `OVITO <https://www.ovito.org/>`_ and `freud <https://github.com/glotzerlab/freud>`_. 
 
+Resources
+----------
+
+- Homepage: `https://github.com/mushroomfire/mdapy <https://github.com/mushroomfire/mdapy>`_
+- Documentation: `https://mdapy.readthedocs.io/ <https://mdapy.readthedocs.io/>`_
+- Source Code: `https://github.com/mushroomfire/mdapy <https://github.com/mushroomfire/mdapy>`_
+- Issue Tracker: `https://github.com/mushroomfire/mdapy/issues <https://github.com/mushroomfire/mdapy/issues>`_
+
 Dependencies
 ------------
 

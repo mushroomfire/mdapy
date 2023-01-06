@@ -14,7 +14,7 @@ do
         echo "Mac OS X"
     elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
         echo "GNU/Linux"
-        python setup.py bdist_wheel --plat-name=manylinux1_x84_x64
+        python setup.py bdist_wheel --plat-name=manylinux1_x86_64
     elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then    
         echo "Windows NT"
         python setup.py bdist_wheel

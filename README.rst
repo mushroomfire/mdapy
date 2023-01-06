@@ -1,4 +1,4 @@
-.. image:: logo.png
+.. image:: https://s3.pterclub.com/images/2023/01/06/logo.png
 
 *mdapy* : Molecular Dynamics Analysis with Python
 =====================================================

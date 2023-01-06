@@ -74,7 +74,7 @@ Usage
    import mdapy as mp
    mp.init('cpu') # use cpu, mp.init('gpu') will use gpu to compute.
 
-   system = mp.System('./CoCuFeNiPd-4M.dump') # read dump file to generate a system class
+   system = mp.System('./example/CoCuFeNiPd-4M.dump') # read dump file to generate a system class
    system.cal_centro_symmetry_parameter() # calculate the centrosymmetry parameters
    system.cal_atomic_entropy() # calculate the atomic entropy
    system.write_dump() # save results to a new dump file

@@ -6,3 +6,9 @@
 /mdapy/mdapy.egg-info/
 /build/
 /dist/
+/mdapy/cluster/*.py*
+/mdapy/cluster/*.so
+/mdapy/polygon/*.py*
+/mdapy/polygon/*.so
+/mdapy/voronoi/*.py*
+/mdapy/voronoi/*.so

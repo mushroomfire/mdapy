@@ -119,3 +119,33 @@ Calculate the EOS curve
     ax = plt.gca()
     plt.savefig('eos.png', dpi=300, bbox_inches='tight', transparent=True)
     plt.show()
+
+Collaborative use with Ovito
+-----------------------------
+
+This function can be runned in script environment of Ovito. (Tested in Ovito 3.0.0-dev581).
+
+.. code-block:: python
+
+    from ovito.data import *
+    import mdapy as mp
+    import numpy as np
+
+    def modify(frame, data):
+        
+        box = np.array([data.cell[...][:,-1], [data.cell[...][i, i] for i in range(3)]]).T
+        pos = np.array(data.particles['Position'][...])
+        boundary = [int(i) for i in data.cell.pbc]
+        
+        system = mp.System(pos=pos, box=box, boundary=boundary)
+        
+        system.cal_atomic_entropy(
+            rc=3.6*1.4,
+            sigma=0.2,
+            use_local_density=False,
+            compute_average=True,
+            average_rc=3.6*0.9,
+            max_neigh=80,
+        )
+
+        data.particles_.create_property("entropy", data=system.data['ave_atomic_entropy'].values)

@@ -130,6 +130,7 @@ This function can be runned in script environment of Ovito. (Tested in Ovito 3.0
     from ovito.data import *
     import mdapy as mp
     import numpy as np
+    mp.init()
 
     def modify(frame, data):
         
@@ -140,11 +141,11 @@ This function can be runned in script environment of Ovito. (Tested in Ovito 3.0
         system = mp.System(pos=pos, box=box, boundary=boundary)
         
         system.cal_atomic_entropy(
-            rc=3.6*1.4,
+            rc=4.05*1.4,
             sigma=0.2,
-            use_local_density=False,
+            use_local_density=True,
             compute_average=True,
-            average_rc=3.6*0.9,
+            average_rc=4.05*0.9,
             max_neigh=80,
         )
 

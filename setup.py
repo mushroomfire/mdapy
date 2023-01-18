@@ -64,7 +64,6 @@ setup(
         "taichi==1.2.0",
         "tqdm",
         "matplotlib",
-        "SciencePlots",
     ],
     classifiers=[
         "License :: OSI Approved :: BSD License",

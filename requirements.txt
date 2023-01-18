@@ -4,4 +4,3 @@ scipy
 pandas
 tqdm
 matplotlib
-SciencePlots

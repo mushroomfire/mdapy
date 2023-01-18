@@ -35,7 +35,8 @@ def pltset(
     try:
         plt.style.use(["science", "notebook"])
     except Exception:
-        print("One should install SciencePlots package: pip install SciencePlots")
+        pass
+        # print("One should install SciencePlots package: pip install SciencePlots")
     plt.rcParams["legend.fontsize"] = legendsize
     plt.rcParams["lines.linewidth"] = linewidth
     plt.rcParams["axes.linewidth"] = axeswidth
@@ -48,7 +49,10 @@ def pltset(
     plt.rcParams["xtick.direction"] = tickdirection
     plt.rcParams["ytick.direction"] = tickdirection
     plt.rcParams["axes.labelsize"] = labelsize
-    plt.rcParams["font.sans-serif"] = fontkind
+    try:
+        plt.rcParams["font.sans-serif"] = fontkind
+    except Exception:
+        pass
     plt.rcParams["ytick.minor.visible"] = mtickvisible
     plt.rcParams["xtick.minor.visible"] = mtickvisible
     if fontweight:

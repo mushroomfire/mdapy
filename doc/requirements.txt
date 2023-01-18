@@ -4,7 +4,6 @@ scipy
 pandas
 tqdm
 matplotlib
-SciencePlots
 sphinx
 sphinx_rtd_theme
 nbsphinx

@@ -14,7 +14,7 @@ we can effectively accelerate the pure python code close to those written
 in C++. Moreover, **mdapy** is highly parallelized to make full use of 
 resources of both multicore CPU and GPU. **mdapy** can directly handle the DUMP 
 and DATA format in `LAMMPS <https://www.lammps.org/>`_. All data in **mdapy** is 
-stored in NDARRAY format in `Numpy <https://numpy.org/>`_\ , enabling integration 
+stored in NDARRAY format in `NumPy <https://numpy.org/>`_\ , enabling integration 
 with the scientific ecosystem in python and corporation with other post-progressing 
 codes, such as `OVITO <https://www.ovito.org/>`_ and `freud <https://github.com/glotzerlab/freud>`_. 
 
@@ -36,7 +36,7 @@ Dependencies
 * `pandas <https://pandas.pydata.org/>`_
 * `tqdm <https://github.com/tqdm/tqdm>`_
 * `matplotlib <https://matplotlib.org/>`_
-* `SciencePlots <https://github.com/garrettj403/SciencePlots>`_
+* `SciencePlots <https://github.com/garrettj403/SciencePlots>`_ (Optional, for plotting results)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
 
 Installation

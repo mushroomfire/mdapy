@@ -28,12 +28,16 @@ Dependencies
 ------------
 
 * `python <https://www.python.org/>`_ (3.7-3.10)
-* `taichi==1.2.0 <https://github.com/taichi-dev/taichi>`_
+* `taichi>=1.4.0 <https://github.com/taichi-dev/taichi>`_
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
 * `pandas <https://pandas.pydata.org/>`_
 * `tqdm <https://github.com/tqdm/tqdm>`_
 * `matplotlib <https://matplotlib.org/>`_
+
+Optional Dependencies
+----------------------
+
 * `SciencePlots <https://github.com/garrettj403/SciencePlots>`_ (Optional, for plotting results)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
 

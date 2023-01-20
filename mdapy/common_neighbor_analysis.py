@@ -155,8 +155,8 @@ class CommonNeighborAnalysis:
                     minbonds = self.MAXCOMMON
 
                     for n in range(ncommon):
-                        maxbonds = max(bonds[i, n], maxbonds)
-                        minbonds = min(bonds[i, n], minbonds)
+                        maxbonds = ti.max(bonds[i, n], maxbonds)
+                        minbonds = ti.min(bonds[i, n], minbonds)
 
                     cna[i, m, 2] = maxbonds
                     cna[i, m, 3] = minbonds

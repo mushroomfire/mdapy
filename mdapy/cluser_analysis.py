@@ -4,7 +4,7 @@
 import numpy as np
 
 try:
-    from .cluster import _cluster_analysis
+    from cluster import _cluster_analysis
 except Exception:
     import _cluster_analysis
 
@@ -85,3 +85,37 @@ class ClusterAnalysis:
             0 < cluster_id <= self.cluster_number
         ), f"cluster_id should be in the range of  [1, cluster_number {self.cluster_number}]."
         return len(self.particleClusters[self.particleClusters == cluster_id])
+
+
+if __name__ == "__main__":
+    from lattice_maker import LatticeMaker
+    from time import time
+    from neighbor import Neighbor
+    import taichi as ti
+
+    # ti.init(ti.gpu, device_memory_GB=5.0)
+    ti.init(ti.cpu)
+    start = time()
+    lattice_constant = 4.05
+    x, y, z = 50, 50, 50
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    FCC.compute()
+    end = time()
+    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
+
+    start = time()
+    neigh = Neighbor(FCC.pos, FCC.box, 3.0, max_neigh=20)
+    neigh.compute()
+    # print(neigh.neighbor_number.max())
+    end = time()
+    print(f"Build neighbor time: {end-start} s.")
+
+    start = time()
+    Cls = ClusterAnalysis(3.0, neigh.verlet_list, neigh.distance_list)
+    Cls.compute()
+    end = time()
+    print(f"Cal cluster time: {end-start} s.")
+
+    print("NUmber of cluster:", Cls.cluster_number)
+
+    print("Cluster size of 1:", Cls.get_size_of_cluster(1))

@@ -132,7 +132,7 @@ class LatticeMaker:
         return basis_vector, basis_atoms
 
     @ti.kernel
-    def _compute(self, pos: ti.types.ndarray(element_dim=1)):
+    def _compute(self, pos: ti.types.ndarray(dtype=ti.math.vec3)):
         """
         Get the position
         """
@@ -151,6 +151,7 @@ class LatticeMaker:
         pos = np.zeros(
             (self.x, self.y, self.z, self.basis_atoms.shape[0], 3), dtype=np.float64
         )
+
         self._compute(pos)
         self.pos = pos.reshape(-1, 3)
         self.if_computed = True
@@ -200,8 +201,9 @@ if __name__ == "__main__":
     ti.init(ti.gpu)
     # FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
     FCC = LatticeMaker(1.42, "GRA", 10, 10, 10)
+    print(FCC.N)
     # FCC.compute()
-    FCC.write_data()
+    # FCC.write_data()
     # print(FCC.basis_atoms.to_numpy())
     # print(FCC.basis_vector.to_numpy())
     # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))

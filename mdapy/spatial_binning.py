@@ -4,7 +4,11 @@
 import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
-from .plotset import pltset, cm2inch
+
+try:
+    from .plotset import pltset, cm2inch
+except Exception:
+    from plotset import pltset, cm2inch
 
 
 @ti.data_oriented
@@ -65,7 +69,7 @@ class SpatialBinning:
         self.direction = direction
         assert vbin.shape[0] == self.N, "shpae dismatchs between pos and vbin."
         if vbin.ndim == 1:
-            self.vbin = vbin[:, np.newaxis]
+            self.vbin = np.ascontiguousarray(vbin[:, np.newaxis])
         else:
             self.vbin = vbin
         self.wbin = wbin
@@ -81,8 +85,8 @@ class SpatialBinning:
     @ti.kernel
     def _Binning_sum(
         self,
-        pos: ti.types.ndarray(element_dim=1),
-        pos_min: ti.types.ndarray(element_dim=1),
+        pos: ti.types.ndarray(),
+        pos_min: ti.types.ndarray(),
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
@@ -97,8 +101,8 @@ class SpatialBinning:
     @ti.kernel
     def _Binning_mean(
         self,
-        pos: ti.types.ndarray(element_dim=1),
-        pos_min: ti.types.ndarray(element_dim=1),
+        pos: ti.types.ndarray(),
+        pos_min: ti.types.ndarray(),
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
@@ -119,8 +123,8 @@ class SpatialBinning:
     @ti.kernel
     def _Binning_min(
         self,
-        pos: ti.types.ndarray(element_dim=1),
-        pos_min: ti.types.ndarray(element_dim=1),
+        pos: ti.types.ndarray(),
+        pos_min: ti.types.ndarray(),
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
@@ -139,8 +143,8 @@ class SpatialBinning:
     @ti.kernel
     def _Binning_max(
         self,
-        pos: ti.types.ndarray(element_dim=1),
-        pos_min: ti.types.ndarray(element_dim=1),
+        pos: ti.types.ndarray(),
+        pos_min: ti.types.ndarray(),
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
@@ -167,6 +171,7 @@ class SpatialBinning:
             "yz": [1, 2],
             "xyz": [0, 1, 2],
         }
+
         pos_min = np.min(self.pos, axis=0) - 0.001
         pos_max = np.max(self.pos, axis=0) + 0.001
         pos_delta = pos_max - pos_min
@@ -178,31 +183,37 @@ class SpatialBinning:
                 np.arange(self.res.shape[i]) * self.wbin + pos_min[i] + 0.001
             )
 
+        vecarray = ti.types.vector(len(xyz2dim[self.direction]), float)
+        pos_bin = ti.ndarray(dtype=vecarray, shape=(self.N))
+        pos_bin.from_numpy(self.pos[:, xyz2dim[self.direction]])
+        pos_min_bin = ti.ndarray(dtype=vecarray, shape=(1))
+        pos_min_bin.from_numpy(pos_min[xyz2dim[self.direction]][np.newaxis, :])
+
         if self.operation == "sum":
             self._Binning_sum(
-                self.pos[:, xyz2dim[self.direction]],
-                pos_min[xyz2dim[self.direction]][np.newaxis, :],
+                pos_bin,
+                pos_min_bin,
                 self.vbin,
                 self.res,
             )
         elif self.operation == "mean":
             self._Binning_mean(
-                self.pos[:, xyz2dim[self.direction]],
-                pos_min[xyz2dim[self.direction]][np.newaxis, :],
+                pos_bin,
+                pos_min_bin,
                 self.vbin,
                 self.res,
             )
         elif self.operation == "min":
             self._Binning_min(
-                self.pos[:, xyz2dim[self.direction]],
-                pos_min[xyz2dim[self.direction]][np.newaxis, :],
+                pos_bin,
+                pos_min_bin,
                 self.vbin,
                 self.res,
             )
         elif self.operation == "max":
             self._Binning_max(
-                self.pos[:, xyz2dim[self.direction]],
-                pos_min[xyz2dim[self.direction]][np.newaxis, :],
+                pos_bin,
+                pos_min_bin,
                 self.vbin,
                 self.res,
             )
@@ -286,7 +297,7 @@ if __name__ == "__main__":
         FCC.pos,
         "xz",
         FCC.pos[:, 0],
-        operation="mean",
+        operation="sum",
     )
     binning.compute()
     end = time()

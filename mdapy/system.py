@@ -6,24 +6,67 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from .common_neighbor_analysis import CommonNeighborAnalysis
-from .neighbor import Neighbor
-from .temperature import AtomicTemperature
-from .centro_symmetry_parameter import CentroSymmetryParameter
-from .entropy import AtomicEntropy
-from .pair_distribution import PairDistribution
-from .cluser_analysis import ClusterAnalysis
+try:
+    from .common_neighbor_analysis import CommonNeighborAnalysis
+except Exception:
+    from common_neighbor_analysis import CommonNeighborAnalysis
+try:
+    from .neighbor import Neighbor
+except Exception:
+    from neighbor import Neighbor
+try:
+    from .temperature import AtomicTemperature
+except Exception:
+    from temperature import AtomicTemperature
+try:
+    from .centro_symmetry_parameter import CentroSymmetryParameter
+except Exception:
+    from centro_symmetry_parameter import CentroSymmetryParameter
+try:
+    from .entropy import AtomicEntropy
+except Exception:
+    from entropy import AtomicEntropy
+try:
+    from .pair_distribution import PairDistribution
+except Exception:
+    from pair_distribution import PairDistribution
+try:
+    from .cluser_analysis import ClusterAnalysis
+except Exception:
+    from cluser_analysis import ClusterAnalysis
+try:
+    from .potential import EAM
+except Exception:
+    from potential import EAM
+try:
+    from .calculator import Calculator
+except Exception:
+    from calculator import Calculator
+try:
+    from .void_distribution import VoidDistribution
+except Exception:
+    from void_distribution import VoidDistribution
+try:
+    from .warren_cowley_parameter import WarrenCowleyParameter
+except Exception:
+    from warren_cowley_parameter import WarrenCowleyParameter
+try:
+    from .voronoi_analysis import VoronoiAnalysis
+except Exception:
+    from voronoi_analysis import VoronoiAnalysis
+try:
+    from .mean_squared_displacement import MeanSquaredDisplacement
+except Exception:
+    from mean_squared_displacement import MeanSquaredDisplacement
+try:
+    from .lindemann_parameter import LindemannParameter
+except Exception:
+    from lindemann_parameter import LindemannParameter
 
-from .potential import EAM
-from .calculator import Calculator
-from .void_distribution import VoidDistribution
-from .warren_cowley_parameter import WarrenCowleyParameter
-from .voronoi_analysis import VoronoiAnalysis
-
-from .mean_squared_displacement import MeanSquaredDisplacement
-from .lindemann_parameter import LindemannParameter
-
-from .spatial_binning import SpatialBinning
+try:
+    from .spatial_binning import SpatialBinning
+except Exception:
+    from spatial_binning import SpatialBinning
 
 
 @ti.kernel
@@ -51,10 +94,10 @@ def _wrap_pos(
 
 @ti.kernel
 def _unwrap_pos_with_image_p(
-    pos_list: ti.types.ndarray(element_dim=1),
+    pos_list: ti.types.ndarray(dtype=ti.math.vec3),
     box: ti.types.ndarray(),
     boundary: ti.types.vector(3, dtype=int),
-    image_p: ti.types.ndarray(element_dim=1),
+    image_p: ti.types.ndarray(dtype=ti.types.vector(3, int)),
 ):
     """This function is used to unwrap particle positions
      into box considering periodic boundarys with help of image_p.
@@ -77,10 +120,10 @@ def _unwrap_pos_with_image_p(
 
 @ti.kernel
 def _unwrap_pos_without_image_p(
-    pos_list: ti.types.ndarray(element_dim=1),
+    pos_list: ti.types.ndarray(dtype=ti.math.vec3),
     box: ti.types.ndarray(),
     boundary: ti.types.vector(3, dtype=int),
-    image_p: ti.types.ndarray(element_dim=1),
+    image_p: ti.types.ndarray(dtype=ti.types.vector(3, int)),
 ):
     """This function is used to unwrap particle positions
      into box considering periodic boundarys without help of image_p.
@@ -105,10 +148,10 @@ def _unwrap_pos_without_image_p(
             for j in ti.static(range(3)):
                 if boundary[j] == 1:
                     if delta[j] >= boxlength[j] / 2:
-                        image_p[frame, i][j] -= 1.0
+                        image_p[frame, i][j] -= 1
                         pos_list[frame, i][j] -= boxlength[j]
                     elif delta[j] <= -boxlength[j] / 2:
-                        image_p[frame, i][j] += 1.0
+                        image_p[frame, i][j] += 1
                         pos_list[frame, i][j] += boxlength[j]
 
 
@@ -130,7 +173,7 @@ def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
         _unwrap_pos_with_image_p(pos_list, box, boundary, image_p)
     else:
         boundary = ti.Vector(boundary)
-        image_p = np.zeros_like(pos_list)
+        image_p = np.zeros_like(pos_list, dtype=int)
         _unwrap_pos_without_image_p(pos_list, box, boundary, image_p)
 
 
@@ -1166,25 +1209,28 @@ class MultiSystem(list):
 
 
 if __name__ == "__main__":
+    import taichi as ti
 
+    ti.init()
     # system = System(filename=r"./example/CoCuFeNiPd-4M.data")
-    # system = System(filename=r"./example/CoCuFeNiPd-4M.dump")
-    box = np.array([[0, 10], [0, 10], [0, 10]])
-    pos = np.array([[0.0, 0.0, 0.0], [1.5, 6.5, 9.0]])
-    vel = np.array([[1.0, 0.0, 0.0], [2.5, 6.5, 9.0]])
-    q = np.array([1.0, 2.0])
-    system = System(
-        box=box,
-        pos=pos,
-        type_list=[1, 2],
-        amass=[2.3, 4.5],
-        vel=vel,
-        boundary=[1, 1, 0],
-        data_format="charge",
-        q=q,
-    )
+    system = System(filename=r"./example/CoCuFeNiPd-4M.dump")
+    # box = np.array([[0, 10], [0, 10], [0, 10]])
+    # pos = np.array([[0.0, 0.0, 0.0], [1.5, 6.5, 9.0]])
+    # vel = np.array([[1.0, 0.0, 0.0], [2.5, 6.5, 9.0]])
+    # q = np.array([1.0, 2.0])
+    # system = System(
+    #     box=box,
+    #     pos=pos,
+    #     type_list=[1, 2],
+    #     amass=[2.3, 4.5],
+    #     vel=vel,
+    #     boundary=[1, 1, 0],
+    #     data_format="charge",
+    #     q=q,
+    # )
+    system.wrap_pos()
     print(system.data)
     print(system.Ntype, system.N, system.format)
     print(system.data_head)
-    system.write_data(data_format="charge")
-    system.write_dump()
+    # system.write_data(data_format="charge")
+    # system.write_dump()

@@ -3,8 +3,15 @@
 
 import taichi as ti
 import numpy as np
-from .neighbor import Neighbor
-from .cluser_analysis import ClusterAnalysis
+
+try:
+    from .neighbor import Neighbor
+except Exception:
+    from neighbor import Neighbor
+try:
+    from .cluser_analysis import ClusterAnalysis
+except Exception:
+    from cluser_analysis import ClusterAnalysis
 
 
 @ti.data_oriented
@@ -98,7 +105,7 @@ class VoidDistribution:
     @ti.kernel
     def _fill_cell(
         self,
-        pos: ti.types.ndarray(element_dim=1),
+        pos: ti.types.ndarray(dtype=ti.math.vec3),
         cell_id_list: ti.types.ndarray(),
         id_list: ti.types.ndarray(),
     ):

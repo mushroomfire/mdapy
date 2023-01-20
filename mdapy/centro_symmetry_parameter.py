@@ -3,7 +3,10 @@
 
 import taichi as ti
 import numpy as np
-from .kdtree import kdtree
+try:
+    from .kdtree import kdtree
+except Exception:
+    from kdtree import kdtree
 
 
 @ti.data_oriented
@@ -74,7 +77,7 @@ class CentroSymmetryParameter:
 
     @ti.kernel
     def _get_csp(self, pair:ti.types.ndarray(), 
-                  pos:ti.types.ndarray(element_dim=1), 
+                  pos:ti.types.ndarray(dtype=ti.math.vec3), 
                   verlet_list:ti.types.ndarray(), 
                   box:ti.types.ndarray(),
                   boundary:ti.types.ndarray(), 
@@ -136,7 +139,7 @@ if __name__ == '__main__':
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 250, 100, 100
+    x, y, z = 100, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()

@@ -4,7 +4,7 @@
 import numpy as np
 
 try:
-    from .voronoi import _voronoi_analysis
+    from voronoi import _voronoi_analysis
 except Exception:
     import _voronoi_analysis
 

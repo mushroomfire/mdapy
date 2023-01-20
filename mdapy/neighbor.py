@@ -116,7 +116,7 @@ class Neighbor:
     @ti.kernel
     def _build_verlet_list(
         self,
-        pos: ti.types.ndarray(element_dim=1),
+        pos: ti.types.ndarray(dtype=ti.math.vec3),
         atom_cell_list: ti.types.ndarray(),
         cell_id_list: ti.types.ndarray(),
         verlet_list: ti.types.ndarray(),
@@ -179,7 +179,7 @@ class Neighbor:
     @ti.kernel
     def _build_verlet_list_small(
         self,
-        pos: ti.types.ndarray(element_dim=1),
+        pos: ti.types.ndarray(dtype=ti.math.vec3),
         verlet_list: ti.types.ndarray(),
         distance_list: ti.types.ndarray(),
         neighbor_number: ti.types.ndarray(),

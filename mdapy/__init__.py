@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 __author__ = "mushroomfire aka HerrWu"
-__version__ = "0.7.7"
+__version__ = "0.7.8"
 __license__ = "BSD License"
 
 from .calculator import Calculator
@@ -35,7 +35,6 @@ def init(
     arch="cpu",
     cpu_max_num_threads=-1,
     offline_cache=False,
-    packed=False,
     debug=False,
     device_memory_GB=2.0,
     kernel_profiler=False,
@@ -49,8 +48,6 @@ def init(
         cpu_max_num_threads (int, optional): maximum CPU core to use in calculation. Defaults to -1, indicating using all available CPU cores.
 
         offline_cache (bool, optional): whether save compile cache. Defaults to False.
-
-        packed (bool, optional): memory allocate mode. Defaults to False.
 
         debug (bool, optional): whether use debug mode. Defaults to False.
 
@@ -68,7 +65,6 @@ def init(
             ti.init(
                 arch=ti.cpu,
                 offline_cache=offline_cache,
-                packed=packed,
                 debug=debug,
                 kernel_profiler=kernel_profiler,
             )
@@ -77,7 +73,6 @@ def init(
                 arch=ti.cpu,
                 cpu_max_num_threads=cpu_max_num_threads,
                 offline_cache=offline_cache,
-                packed=packed,
                 debug=debug,
                 kernel_profiler=kernel_profiler,
             )
@@ -85,7 +80,6 @@ def init(
         ti.init(
             arch=ti.gpu,
             offline_cache=offline_cache,
-            packed=packed,
             device_memory_GB=device_memory_GB,
             debug=debug,
             kernel_profiler=kernel_profiler,

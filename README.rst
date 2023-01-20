@@ -30,27 +30,32 @@ Dependencies
 ------------
 
 * `python <https://www.python.org/>`_ (3.7-3.10)
-* `taichi==1.2.0 <https://github.com/taichi-dev/taichi>`_
+* `taichi>=1.4.0 <https://github.com/taichi-dev/taichi>`_
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
 * `pandas <https://pandas.pydata.org/>`_
 * `tqdm <https://github.com/tqdm/tqdm>`_
 * `matplotlib <https://matplotlib.org/>`_
+
+Optional Dependencies
+----------------------
+
 * `SciencePlots <https://github.com/garrettj403/SciencePlots>`_ (Optional, for plotting results)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
+
 
 Installation
 -------------
 
 Install from pip (recommended).
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: bash
 
    pip install mdapy
 
 Install from source code.
----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - You should install pybind11 and have a C++ compilation environment.
 
@@ -78,3 +83,13 @@ Usage
    system.cal_centro_symmetry_parameter() # calculate the centrosymmetry parameters
    system.cal_atomic_entropy() # calculate the atomic entropy
    system.write_dump() # save results to a new dump file
+
+Release Notes
+--------------
+
+V0.7.8
+^^^^^^^
+
+- Update TaiChi version to 1.4.0.
+- Set SciencePlots as a optional package.
+- Fix bug in create_polycrystalline.

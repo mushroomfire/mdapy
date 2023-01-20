@@ -13,18 +13,12 @@ except Exception:
 
 setup(
     name="mdapy",
-    version="0.7.7",
+    version="0.7.8",
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,
     long_description=readme,
     packages=["mdapy"],
-    headers=[
-        "mdapy/cluster/cluster.hpp",
-        "mdapy/polygon/polygon.hpp",
-        "mdapy/voronoi/voro.hpp",
-        "thirdparty/voro++/voro++.hh",
-    ],
     ext_modules=[
         Pybind11Extension(
             r"_cluster_analysis",
@@ -32,7 +26,7 @@ setup(
             language="c++",
         ),
         Pybind11Extension(
-            r"poly",
+            r"_poly",
             [
                 "mdapy/polygon/polygon.cpp",
                 "mdapy/polygon/wrap.cpp",
@@ -56,14 +50,14 @@ setup(
     cmdclass={"build_ext": build_ext},
     zip_safe=False,
     url="https://github.com/mushroomfire/mdapy",
-    python_requires=">=3.7",
+    python_requires=">=3.7,<3.11",
     install_requires=[
+        "taichi>=1.4.0",
         "numpy",
         "scipy",
         "pandas",
-        "taichi==1.2.0",
-        "tqdm",
         "matplotlib",
+        "tqdm",
     ],
     classifiers=[
         "License :: OSI Approved :: BSD License",

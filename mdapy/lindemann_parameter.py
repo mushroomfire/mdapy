@@ -3,7 +3,11 @@
 
 import taichi as ti
 import numpy as np
-from .plotset import pltset, cm2inch
+
+try:
+    from .plotset import pltset, cm2inch
+except Exception:
+    from plotset import pltset, cm2inch
 import matplotlib.pyplot as plt
 
 
@@ -72,7 +76,7 @@ class LindemannParameter:
     @ti.kernel
     def _compute_global(
         self,
-        pos_list: ti.types.ndarray(element_dim=1),
+        pos_list: ti.types.ndarray(dtype=ti.math.vec3),
         pos_mean: ti.types.ndarray(),
         pos_variance: ti.types.ndarray(),
     ) -> float:
@@ -98,7 +102,7 @@ class LindemannParameter:
     @ti.kernel
     def _compute_all(
         self,
-        pos_list: ti.types.ndarray(element_dim=1, dtype=float),
+        pos_list: ti.types.ndarray(dtype=ti.math.vec3),
         pos_mean: ti.types.ndarray(dtype=float),
         pos_variance: ti.types.ndarray(dtype=float),
         lindemann_frame: ti.types.ndarray(dtype=float),

@@ -3,7 +3,11 @@
 
 import taichi as ti
 import numpy as np
-from .plotset import pltset, cm2inch
+
+try:
+    from .plotset import pltset, cm2inch
+except Exception:
+    from plotset import pltset, cm2inch
 import matplotlib.pyplot as plt
 
 

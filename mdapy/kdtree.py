@@ -66,7 +66,7 @@ class kdtree:
         """
         dis, index = self.kdt.query(self.shift_pos, k=n + 1, workers=workers)
 
-        return dis[:, 1:], index[:, 1:]
+        return np.ascontiguousarray(dis[:, 1:]), np.ascontiguousarray(index[:, 1:])
 
 
 if __name__ == "__main__":

@@ -4,7 +4,11 @@
 import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import matplotlib.pyplot as plt
-from .plotset import pltset, cm2inch
+
+try:
+    from .plotset import pltset, cm2inch
+except Exception:
+    from plotset import pltset, cm2inch
 
 
 class EAM:

@@ -139,9 +139,9 @@ class Calculator:
         d_embedded_data: ti.types.ndarray(),
         d_phi_data: ti.types.ndarray(),
         d_elec_density_data: ti.types.ndarray(),
-        pos: ti.types.ndarray(element_dim=1),
+        pos: ti.types.ndarray(dtype=ti.math.vec3),
         energy: ti.types.ndarray(),
-        force: ti.types.ndarray(element_dim=1),
+        force: ti.types.ndarray(dtype=ti.math.vec3),
         elec_density: ti.types.ndarray(),
         d_embedded_rho: ti.types.ndarray(),
     ):

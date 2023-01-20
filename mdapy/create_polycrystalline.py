@@ -2,13 +2,25 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 try:
-    from .polygon import poly
+    from polygon import _poly
+
 except Exception:
-    import poly
+    import _poly
+
 import numpy as np
 import taichi as ti
-from .lattice_maker import LatticeMaker
-from .neighbor import Neighbor
+
+try:
+    from .lattice_maker import LatticeMaker
+except Exception:
+    from lattice_maker import LatticeMaker
+
+try:
+    from .neighbor import Neighbor
+except Exception:
+    from neighbor import Neighbor
+
+
 from time import time
 
 
@@ -53,7 +65,7 @@ class Container(list):
         )  # 60 faces 30 edges
         face_areas = np.zeros((self.pos.shape[0], 60))  # 60 faces
         vertices_pos = np.zeros((self.pos.shape[0], 90, 3))  # 90 vertices
-        poly.get_cell_info(
+        _poly.get_cell_info(
             self.pos,
             self.box,
             self.boundary,
@@ -226,8 +238,8 @@ class CreatePolycrystalline:
     @ti.kernel
     def _get_cell_plane_coeffs(
         self,
-        coeffs: ti.types.ndarray(element_dim=1),
-        plane_pos: ti.types.ndarray(element_dim=1),
+        coeffs: ti.types.ndarray(dtype=ti.math.vec4),
+        plane_pos: ti.types.ndarray(dtype=ti.math.vec3),
     ):
         # get all plane parameters of a Voronoi cell.
         ti.loop_config(serialize=True)
@@ -250,8 +262,8 @@ class CreatePolycrystalline:
     @ti.kernel
     def _delete_atoms(
         self,
-        pos: ti.types.ndarray(element_dim=1),
-        coeffs: ti.types.ndarray(element_dim=1),
+        pos: ti.types.ndarray(dtype=ti.math.vec3),
+        coeffs: ti.types.ndarray(dtype=ti.math.vec4),
         delete: ti.types.ndarray(),
     ):
         # delete atoms outside the Voronoi cell
@@ -536,14 +548,14 @@ class CreatePolycrystalline:
         print("Generating voronoi polygon...")
         self.cntr = Container(self.seed, self.box, [1, 1, 1])
         ave_grain_volume = np.mean([cell.volume() for cell in self.cntr])
-        # print(ave_grain_volume, self.cntr[0].cavity_radius())
+        print(ave_grain_volume, self.cntr[0].cavity_radius())
         new_pos = self._get_pos()
         print("Wraping atoms into box...")
         self._wrap_pos(new_pos, self.box)
         print("Deleting overlap atoms...")
         if self.add_graphene:
             neigh = Neighbor(
-                new_pos[:, 2:5],
+                np.ascontiguousarray(new_pos[:, 2:5]),
                 self.box,
                 rc=self.metal_gra_overlap_dis + 0.1,
                 max_neigh=150,
@@ -551,7 +563,7 @@ class CreatePolycrystalline:
             neigh.compute()
             delete_id = np.ones(new_pos.shape[0], dtype=int)
             self._find_close(
-                new_pos[:, 2:5],
+                np.ascontiguousarray(new_pos[:, 2:5]),
                 neigh.verlet_list,
                 neigh.distance_list,
                 new_pos[:, 1].astype(int),
@@ -565,7 +577,7 @@ class CreatePolycrystalline:
             )
             new_pos = new_pos[np.bool_(delete_id)]
             neigh = Neighbor(
-                new_pos[:, 2:5],
+                np.ascontiguousarray(new_pos[:, 2:5]),
                 self.box,
                 rc=self.gra_lattice_constant + 0.01,
                 max_neigh=20,
@@ -573,7 +585,7 @@ class CreatePolycrystalline:
             neigh.compute()
             delete_id = np.ones(new_pos.shape[0], dtype=int)
             self._find_close_graphene(
-                new_pos[:, 2:5],
+                np.ascontiguousarray(new_pos[:, 2:5]),
                 neigh.verlet_list,
                 new_pos[:, 1].astype(int),
                 new_pos[:, -1].astype(int),
@@ -584,7 +596,7 @@ class CreatePolycrystalline:
             new_pos[:, 0] = np.arange(new_pos.shape[0]) + 1
         else:
             neigh = Neighbor(
-                new_pos[:, 2:5],
+                np.ascontiguousarray(new_pos[:, 2:5]),
                 self.box,
                 rc=self.metal_overlap_dis + 0.1,
                 max_neigh=40,
@@ -592,7 +604,7 @@ class CreatePolycrystalline:
             neigh.compute()
             delete_id = np.ones(new_pos.shape[0], dtype=int)
             self._find_close_metal(
-                new_pos[:, 2:5],
+                np.ascontiguousarray(new_pos[:, 2:5]),
                 neigh.verlet_list,
                 neigh.distance_list,
                 neigh.neighbor_number,
@@ -630,7 +642,7 @@ if __name__ == "__main__":
     # print(cntr[:1])
     # print(len(cntr))
     # print(cntr[0].face_vertices())
-    # print(cntr[0].vertices())
+    # # print(cntr[0].vertices())
     ti.init(ti.cpu)
     box = np.array([[0.0, 200.0], [0.0, 200.0], [0.0, 200.0]])
     # polycry = CreatePolycrystalline(box, 20, 3.615, "FCC")

@@ -13,9 +13,9 @@
 namespace py = pybind11;
 using namespace std;
 
-PYBIND11_PLUGIN(poly)
+PYBIND11_PLUGIN(_poly)
 {
-    pybind11::module m("poly", "auto-compiled c++ extension");
+    pybind11::module m("_poly", "auto-compiled c++ extension");
     m.def("get_cell_info", &get_cell_info);
     return m.ptr();
 }

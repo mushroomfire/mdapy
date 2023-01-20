@@ -2,7 +2,11 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
-from .plotset import pltset, cm2inch
+
+try:
+    from .plotset import pltset, cm2inch
+except Exception:
+    from plotset import pltset, cm2inch
 import matplotlib.pyplot as plt
 
 try:

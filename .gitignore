@@ -9,6 +9,7 @@
 /mdapy/cluster/*.py*
 /mdapy/cluster/*.so
 /mdapy/polygon/*.py*
+/mdapy/polygon/*.sh
 /mdapy/polygon/*.so
 /mdapy/voronoi/*.py*
 /mdapy/voronoi/*.so

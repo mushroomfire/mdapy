@@ -97,7 +97,7 @@ def _unwrap_pos_with_image_p(
     pos_list: ti.types.ndarray(dtype=ti.math.vec3),
     box: ti.types.ndarray(),
     boundary: ti.types.vector(3, dtype=int),
-    image_p: ti.types.ndarray(dtype=ti.types.vector(3, int)),
+    image_p: ti.types.ndarray(dtype=ti.math.vec3),
 ):
     """This function is used to unwrap particle positions
      into box considering periodic boundarys with help of image_p.
@@ -123,7 +123,7 @@ def _unwrap_pos_without_image_p(
     pos_list: ti.types.ndarray(dtype=ti.math.vec3),
     box: ti.types.ndarray(),
     boundary: ti.types.vector(3, dtype=int),
-    image_p: ti.types.ndarray(dtype=ti.types.vector(3, int)),
+    image_p: ti.types.ndarray(dtype=ti.math.vec3),
 ):
     """This function is used to unwrap particle positions
      into box considering periodic boundarys without help of image_p.
@@ -148,10 +148,10 @@ def _unwrap_pos_without_image_p(
             for j in ti.static(range(3)):
                 if boundary[j] == 1:
                     if delta[j] >= boxlength[j] / 2:
-                        image_p[frame, i][j] -= 1
+                        image_p[frame, i][j] -= 1.0
                         pos_list[frame, i][j] -= boxlength[j]
                     elif delta[j] <= -boxlength[j] / 2:
-                        image_p[frame, i][j] += 1
+                        image_p[frame, i][j] += 1.0
                         pos_list[frame, i][j] += boxlength[j]
 
 

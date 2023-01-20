@@ -102,6 +102,8 @@ class CreatePolycrystalline:
     grain boundary into graphene, which can generate a three-dimensional graphene structure.
     The metallic matrix can be FCC, BCC and HCP structure.
 
+    .. note:: This class only supports for Windows 10 now.
+
     Args:
         box (np.ndarray): (:math:`3, 2`), system box.
         seednumber (int): number of initial seed to generate the Voronoi polygon.

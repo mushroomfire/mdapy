@@ -1,7 +1,7 @@
 # Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
-from pybind11.setup_helpers import Pybind11Extension, build_ext
+from pybind11.setup_helpers import Pybind11Extension
 from setuptools import setup
 
 description = "A simple and fast python library to handle the data generated from molecular dynamics simulations"
@@ -46,8 +46,6 @@ setup(
             include_dirs=["thirdparty/voro++"],
         ),
     ],
-    # add custom build_ext command
-    cmdclass={"build_ext": build_ext},
     zip_safe=False,
     url="https://github.com/mushroomfire/mdapy",
     python_requires=">=3.7,<3.11",

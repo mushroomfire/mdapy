@@ -183,7 +183,7 @@ class SpatialBinning:
                 np.arange(self.res.shape[i]) * self.wbin + pos_min[i] + 0.001
             )
 
-        vecarray = ti.types.vector(len(xyz2dim[self.direction]), float)
+        vecarray = ti.types.vector(len(xyz2dim[self.direction]), ti.f64)
         pos_bin = ti.ndarray(dtype=vecarray, shape=(self.N))
         pos_bin.from_numpy(self.pos[:, xyz2dim[self.direction]])
         pos_min_bin = ti.ndarray(dtype=vecarray, shape=(1))

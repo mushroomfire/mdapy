@@ -2,6 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import matplotlib.pyplot as plt
+import platform
 
 
 def pltset(
@@ -14,7 +15,7 @@ def pltset(
     ticklength=3,
     tickdirection="in",
     mtickvisible=False,
-    fontkind="Times New Roman",
+    fontkind=None,
     fontweight=False,
 ):
     """This is a drawing template function.
@@ -29,7 +30,7 @@ def pltset(
         ticklength (int, optional): length of axis tick. Defaults to 3.
         tickdirection (str, optional): axis tick direction. Defaults to "in".
         mtickvisible (bool, optional): whether show minor axis tick. Defaults to False.
-        fontkind (str, optional): font family. Defaults to "Times New Roman".
+        fontkind (str, optional): font family. Defaults to "Times New Roman" for Windows.
         fontweight (bool, optional): bold font or not. Defaults to False.
     """
     try:
@@ -49,10 +50,12 @@ def pltset(
     plt.rcParams["xtick.direction"] = tickdirection
     plt.rcParams["ytick.direction"] = tickdirection
     plt.rcParams["axes.labelsize"] = labelsize
-    try:
+    if fontkind is None:
+        if platform.platform().split("-")[0] == "Windows":
+            plt.rcParams["font.sans-serif"] = "Times New Roman"
+    else:
         plt.rcParams["font.sans-serif"] = fontkind
-    except Exception:
-        pass
+
     plt.rcParams["ytick.minor.visible"] = mtickvisible
     plt.rcParams["xtick.minor.visible"] = mtickvisible
     if fontweight:
@@ -70,3 +73,16 @@ def cm2inch(value):
         float: feet.
     """
     return value / 2.54
+
+
+if __name__ == "__main__":
+    pltset()
+    fig = plt.figure(figsize=(cm2inch(10), cm2inch(6)), dpi=150)
+    plt.subplots_adjust(
+        top=0.935, bottom=0.18, left=0.115, right=0.965, hspace=0.2, wspace=0.2
+    )
+    plt.plot(range(10), "o-")
+    plt.xlabel("x label")
+    plt.ylabel("y label")
+
+    plt.show()

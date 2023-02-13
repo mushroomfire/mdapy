@@ -13,7 +13,7 @@ except Exception:
 
 setup(
     name="mdapy",
-    version="0.7.8",
+    version="0.7.9",
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,
@@ -29,7 +29,6 @@ setup(
             r"_poly",
             [
                 "mdapy/polygon/polygon.cpp",
-                "mdapy/polygon/wrap.cpp",
                 "thirdparty/voro++/voro++.cc",
             ],
             language="c++",

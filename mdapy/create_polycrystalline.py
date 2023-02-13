@@ -56,40 +56,21 @@ class Container(list):
         self.pos = pos
         self.box = box
         self.boundary = np.bool_(boundary)
-        self.compute()
-
-    def compute(self):
-        volume_radius = np.zeros((self.pos.shape[0], 2))
-        face_vertices = (
-            np.zeros((self.pos.shape[0], 60, 30), dtype=int) - 1
-        )  # 60 faces 30 edges
-        face_areas = np.zeros((self.pos.shape[0], 60))  # 60 faces
-        vertices_pos = np.zeros((self.pos.shape[0], 90, 3))  # 90 vertices
-        _poly.get_cell_info(
-            self.pos,
-            self.box,
-            self.boundary,
-            volume_radius,
+        (
             face_vertices,
-            vertices_pos,
+            vertices,
+            volume,
+            cavity_radius,
             face_areas,
-        )
-
+        ) = _poly.get_cell_info(self.pos, self.box, self.boundary)
         for i in range(self.pos.shape[0]):
-            new_face_vertices = []
-            for j in face_vertices[i]:
-                if j[0] == -1:
-                    break
-                else:
-                    new_face_vertices.append(j[j != -1].tolist())
-
             self.append(
                 Cell(
-                    new_face_vertices,
-                    vertices_pos[i],
-                    volume_radius[i, 0],
-                    volume_radius[i, 1],
-                    face_areas[i][face_areas[i] > 0],
+                    face_vertices[i],
+                    vertices[i],
+                    volume[i],
+                    cavity_radius[i],
+                    face_areas[i],
                     self.pos[i],
                 )
             )
@@ -101,8 +82,6 @@ class CreatePolycrystalline:
     based on the Voronoi diagram. It provides an interesting feature to replace the metallic
     grain boundary into graphene, which can generate a three-dimensional graphene structure.
     The metallic matrix can be FCC, BCC and HCP structure.
-
-    .. note:: This class only supports for Windows 10 now.
 
     Args:
         box (np.ndarray): (:math:`3, 2`), system box.

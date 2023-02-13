@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 __author__ = "mushroomfire aka HerrWu"
-__version__ = "0.7.8"
+__version__ = "0.7.9"
 __license__ = "BSD License"
 
 from .calculator import Calculator

@@ -87,6 +87,11 @@ Usage
 Release Notes
 --------------
 
+V0.7.9
+^^^^^^^
+
+- Fix bug of create_polycrystalline module in Linux.
+
 V0.7.8
 ^^^^^^^
 

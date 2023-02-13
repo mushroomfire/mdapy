@@ -76,7 +76,7 @@ if __name__ == "__main__":
 
     FCC = LatticeMaker(4.05, "FCC", 10, 10, 10)  # Create a FCC structure.
     FCC.compute()  # Get atom positions.
-    FCC.write_data()
+    # FCC.write_data()
     start = time()
     avol = VoronoiAnalysis(FCC.pos, FCC.box, [1, 1, 1])  # Initilize the Voronoi class.
     avol.compute()  # Calculate the Voronoi volume.

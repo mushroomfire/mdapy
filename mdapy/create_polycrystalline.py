@@ -529,7 +529,6 @@ class CreatePolycrystalline:
         print("Generating voronoi polygon...")
         self.cntr = Container(self.seed, self.box, [1, 1, 1])
         ave_grain_volume = np.mean([cell.volume() for cell in self.cntr])
-        print(ave_grain_volume, self.cntr[0].cavity_radius())
         new_pos = self._get_pos()
         print("Wraping atoms into box...")
         self._wrap_pos(new_pos, self.box)

@@ -1,4 +1,4 @@
-taichi==1.2.0
+taichi>=1.4.0
 numpy
 scipy
 pandas

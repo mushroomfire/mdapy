@@ -1,7 +1,6 @@
 # Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 # To compile the C module for different python versions.
-
 #!/usr/bin/env bash
 
 for i in 7 8 9 10

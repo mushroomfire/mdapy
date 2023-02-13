@@ -48,6 +48,7 @@ Optional Dependencies
    gettingstarted/installation
    gettingstarted/quicklystart
    gettingstarted/examples
+   gettingstarted/benchmark
 
 .. toctree::
    :maxdepth: 1

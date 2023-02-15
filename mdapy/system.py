@@ -944,8 +944,8 @@ class System:
         )
         CommonNeighborAnalysi.compute()
         self.data["cna"] = CommonNeighborAnalysi.pattern
-    
-    def cal_common_neighbor_analysis(self, rc=3.0, max_neigh=30):
+
+    def cal_common_neighbor_parameter(self, rc=3.0, max_neigh=30):
         """Use Common Neighbor Parameter (CNP) method to recgonize the lattice structure.
 
         .. note:: If one use this module in publication, one should also cite the original paper.
@@ -1016,7 +1016,7 @@ class System:
             rc,
             Neigh.verlet_list,
             Neigh.distance_list,
-            Neigh.neighbor_number
+            Neigh.neighbor_number,
         )
         CommonNeighborPar.compute()
         self.data["cnp"] = CommonNeighborPar.cnp

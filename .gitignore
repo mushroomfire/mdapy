@@ -13,3 +13,4 @@
 /mdapy/polygon/*.so
 /mdapy/voronoi/*.py*
 /mdapy/voronoi/*.so
+/.VSCodeCounter/

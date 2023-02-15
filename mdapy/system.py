@@ -7,6 +7,10 @@ import pandas as pd
 from tqdm import tqdm
 
 try:
+    from .ackland_jones_analysis import AcklandJonesAnalysis
+except Exception:
+    from ackland_jones_analysis import AcklandJonesAnalysis
+try:
     from .common_neighbor_analysis import CommonNeighborAnalysis
 except Exception:
     from common_neighbor_analysis import CommonNeighborAnalysis
@@ -644,6 +648,35 @@ class System:
         )
         AtomicTemp.compute()
         self.data["atomic_temp"] = AtomicTemp.T
+
+    def cal_ackland_jones_analysis(self):
+        """Using Ackland Jones Analysis (AJA) method to identify the lattice structure.
+
+        The AJA method can recgonize the following structure:
+
+        1. Other
+        2. FCC
+        3. HCP
+        4. BCC
+        5. ICO
+
+        .. note:: If you use this module in publication, you should also cite the original paper.
+        `Ackland G J, Jones A P. Applications of local crystal structure measures in experiment and simulation[J]. Physical Review B, 2006, 73(5): 054104. <https://doi.org/10.1103/PhysRevB.73.054104>`_.
+
+        .. hint:: The module uses the `legacy algorithm in LAMMPS <https://docs.lammps.org/compute_ackland_atom.html>`_.
+
+        Outputs:
+            - **The result is added in self.data['aja']**.
+        """
+        try:
+            AcklandJonesAna = AcklandJonesAnalysis(self.pos, self.box, self.boundary)
+            AcklandJonesAna.compute()
+        except Exception:
+            pos = self.pos.copy()  # a deep copy can be modified
+            _wrap_pos(pos, self.box, np.array(self.boundary))
+            AcklandJonesAna = AcklandJonesAnalysis(pos, self.box, self.boundary)
+            AcklandJonesAna.compute()
+        self.data["aja"] = AcklandJonesAna.aja
 
     def cal_centro_symmetry_parameter(self, N=12):
         """Compute the CentroSymmetry Parameter (CSP),

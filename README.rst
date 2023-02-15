@@ -87,6 +87,11 @@ Usage
 Release Notes
 --------------
 
+V0.8.0
+^^^^^^^
+
+- Add Ackland Jones Analysis (AJA) method.
+
 V0.7.9
 ^^^^^^^
 

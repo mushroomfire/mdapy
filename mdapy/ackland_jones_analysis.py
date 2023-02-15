@@ -1,3 +1,6 @@
+# Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
+# This file is from the mdapy project, released under the BSD 3-Clause License.
+
 import taichi as ti
 import numpy as np
 
@@ -20,7 +23,8 @@ class AcklandJonesAnalysis:
     5. ICO
 
     .. note:: If you use this module in publication, you should also cite the original paper.
-      `Ackland G J, Jones A P. Applications of local crystal structure measures in experiment and simulation[J]. Physical Review B, 2006, 73(5): 054104. <https://doi.org/10.1103/PhysRevB.73.054104>`_.
+      `Ackland G J, Jones A P. Applications of local crystal structure measures in experiment
+      and simulation[J]. Physical Review B, 2006, 73(5): 054104. <https://doi.org/10.1103/PhysRevB.73.054104>`_.
 
     .. hint:: The module uses the `legacy algorithm in LAMMPS <https://docs.lammps.org/compute_ackland_atom.html>`_.
 

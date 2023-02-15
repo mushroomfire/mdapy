@@ -1,8 +1,16 @@
 mdapy package
 =============
-   
+
 Submodules
 ----------
+
+mdapy.ackland\_jones\_analysis module
+-------------------------------------
+
+.. automodule:: mdapy.ackland_jones_analysis
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 mdapy.calculator module
 -----------------------

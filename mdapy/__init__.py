@@ -10,6 +10,7 @@ from .calculator import Calculator
 from .centro_symmetry_parameter import CentroSymmetryParameter
 from .cluser_analysis import ClusterAnalysis
 from .common_neighbor_analysis import CommonNeighborAnalysis
+from .common_neighbor_parameter import CommonNeighborParameter
 from .create_polycrystalline import CreatePolycrystalline
 from .eam_average import EAMAverage
 from .eam_generate import EAMGenerate

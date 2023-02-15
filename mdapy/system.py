@@ -15,6 +15,10 @@ try:
 except Exception:
     from common_neighbor_analysis import CommonNeighborAnalysis
 try:
+    from .common_neighbor_parameter import CommonNeighborParameter
+except Exception:
+    from common_neighbor_parameter import CommonNeighborParameter
+try:
     from .neighbor import Neighbor
 except Exception:
     from neighbor import Neighbor
@@ -871,7 +875,7 @@ class System:
         return ClusterAnalysi.cluster_number
 
     def cal_common_neighbor_analysis(self, rc=3.0, max_neigh=30):
-        """Sse Common Neighbor Analysis (CNA) method to recgonize the lattice structure, based
+        """Use Common Neighbor Analysis (CNA) method to recgonize the lattice structure, based
         on which atoms can be divided into FCC, BCC, HCP and Other structure.
 
         .. note:: If one use this module in publication, one should also cite the original paper.
@@ -940,6 +944,82 @@ class System:
         )
         CommonNeighborAnalysi.compute()
         self.data["cna"] = CommonNeighborAnalysi.pattern
+    
+    def cal_common_neighbor_analysis(self, rc=3.0, max_neigh=30):
+        """Use Common Neighbor Parameter (CNP) method to recgonize the lattice structure.
+
+        .. note:: If one use this module in publication, one should also cite the original paper.
+          `Tsuzuki H, Branicio P S, Rino J P. Structural characterization of deformed crystals by analysis of common atomic neighborhood[J].
+          Computer physics communications, 2007, 177(6): 518-523. <https://doi.org/10.1016/j.cpc.2007.05.018>`_.
+
+        CNP method is sensitive to the given cutoff distance. The suggesting cutoff can be obtained from the
+        following formulas:
+
+        .. math::
+
+            r_{c}^{\mathrm{fcc}} = \\frac{1}{2} \\left(\\frac{\\sqrt{2}}{2} + 1\\right) a
+            \\approx 0.8536 a,
+
+        .. math::
+
+            r_{c}^{\mathrm{bcc}} = \\frac{1}{2}(\\sqrt{2} + 1) a
+            \\approx 1.207 a,
+
+        .. math::
+
+            r_{c}^{\mathrm{hcp}} = \\frac{1}{2}\\left(1+\\sqrt{\\frac{4+2x^{2}}{3}}\\right) a,
+
+        where :math:`a` is the lattice constant and :math:`x=(c/a)/1.633` and 1.633 is the ideal ratio of :math:`c/a`
+        in HCP structure.
+
+        Some typical CNP values:
+
+        - FCC : 0.0
+        - BCC : 0.0
+        - HCP : 4.4
+        - FCC (111) surface : 13.0
+        - FCC (100) surface : 26.5
+        - FCC dislocation core : 11
+
+        Args:
+            rc (float, optional): cutoff distance. Defaults to 3.0.
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 30.
+
+        Outputs:
+            - **The CNP pattern per atom is added in self.data['cnp']**.
+        """
+        if not self.if_neigh:
+            Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
+            Neigh.compute()
+            self.verlet_list, self.distance_list, self.neighbor_number, self.rc = (
+                Neigh.verlet_list,
+                Neigh.distance_list,
+                Neigh.neighbor_number,
+                rc,
+            )
+            self.if_neigh = True
+        elif self.rc < rc:
+            Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
+            Neigh.compute()
+            self.verlet_list, self.distance_list, self.neighbor_number, self.rc = (
+                Neigh.verlet_list,
+                Neigh.distance_list,
+                Neigh.neighbor_number,
+                rc,
+            )
+            self.if_neigh = True
+
+        CommonNeighborPar = CommonNeighborParameter(
+            self.pos,
+            self.box,
+            self.boundary,
+            rc,
+            Neigh.verlet_list,
+            Neigh.distance_list,
+            Neigh.neighbor_number
+        )
+        CommonNeighborPar.compute()
+        self.data["cnp"] = CommonNeighborPar.cnp
 
     def cal_energy_force(self, filename, elements_list, max_neighbor=120):
         """Calculate the atomic energy and force based on the given embedded atom method

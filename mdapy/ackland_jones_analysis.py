@@ -157,6 +157,7 @@ class AcklandJonesAnalysis:
                     aja[i] = 2  # HCP
 
     def compute(self):
+        """Do the real AJA calculation."""
         kdt = kdtree(self.pos, self.box, self.boundary)
         distance_list, verlet_list = kdt.query_nearest_neighbors(14)
         self.aja = np.zeros(self.pos.shape[0], dtype=int)
@@ -174,7 +175,7 @@ if __name__ == "__main__":
     start = time()
     lattice_constant = 4.05
     x, y, z = 100, 100, 100
-    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    FCC = LatticeMaker(lattice_constant, "BCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")

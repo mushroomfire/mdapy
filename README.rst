@@ -91,6 +91,7 @@ V0.8.0
 ^^^^^^^
 
 - Add Ackland Jones Analysis (AJA) method.
+- Add Common Neighbor Parameter (CNP) method.
 
 V0.7.9
 ^^^^^^^

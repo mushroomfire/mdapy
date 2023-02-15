@@ -44,6 +44,14 @@ mdapy.common\_neighbor\_analysis module
    :undoc-members:
    :show-inheritance:
 
+mdapy.common\_neighbor\_parameter module
+----------------------------------------
+
+.. automodule:: mdapy.common_neighbor_parameter
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.create\_polycrystalline module
 ------------------------------------
 

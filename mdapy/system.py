@@ -185,6 +185,31 @@ def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
         _unwrap_pos_without_image_p(pos_list, box, boundary, image_p)
 
 
+@ti.kernel
+def _partition_select_sort(
+    indices: ti.types.ndarray(), keys: ti.types.ndarray(), N: int
+):
+    """This function sorts N-th minimal value in keys.
+
+    Args:
+        indices (ti.types.ndarray): indices.
+        keys (ti.types.ndarray): values to be sorted.
+        N (int): number of sorted values.
+    """
+    for i in range(indices.shape[0]):
+        for j in range(N):
+            minIndex = j
+            for k in range(j + 1, indices.shape[1]):
+                if keys[i, k] < keys[i, minIndex]:
+                    minIndex = k
+            if minIndex != j:
+                keys[i, minIndex], keys[i, j] = keys[i, j], keys[i, minIndex]
+                indices[i, minIndex], indices[i, j] = (
+                    indices[i, j],
+                    indices[i, minIndex],
+                )
+
+
 class System:
     """This class can generate a System class for rapidly accessing almost all the analysis
     method in mdapy.
@@ -673,14 +698,42 @@ class System:
         Outputs:
             - **The result is added in self.data['aja']**.
         """
-        try:
-            AcklandJonesAna = AcklandJonesAnalysis(self.pos, self.box, self.boundary)
-            AcklandJonesAna.compute()
-        except Exception:
-            pos = self.pos.copy()  # a deep copy can be modified
-            _wrap_pos(pos, self.box, np.array(self.boundary))
-            AcklandJonesAna = AcklandJonesAnalysis(pos, self.box, self.boundary)
-            AcklandJonesAna.compute()
+        use_verlet = False
+        if self.if_neigh:
+            n_neigh_min = self.neighbor_number.min()
+            if n_neigh_min == 14:
+                AcklandJonesAna = AcklandJonesAnalysis(
+                    self.pos,
+                    self.box,
+                    self.boundary,
+                    self.verlet_list,
+                    self.distance_list,
+                )
+                AcklandJonesAna.compute()
+                use_verlet = True
+            elif n_neigh_min > 14:
+                _partition_select_sort(self.verlet_list, self.distance_list, 14)
+                AcklandJonesAna = AcklandJonesAnalysis(
+                    self.pos,
+                    self.box,
+                    self.boundary,
+                    self.verlet_list,
+                    self.distance_list,
+                )
+                AcklandJonesAna.compute()
+                use_verlet = True
+
+        if not use_verlet:
+            try:
+                AcklandJonesAna = AcklandJonesAnalysis(
+                    self.pos, self.box, self.boundary
+                )
+                AcklandJonesAna.compute()
+            except Exception:
+                pos = self.pos.copy()  # a deep copy can be modified
+                _wrap_pos(pos, self.box, np.array(self.boundary))
+                AcklandJonesAna = AcklandJonesAnalysis(pos, self.box, self.boundary)
+                AcklandJonesAna.compute()
         self.data["aja"] = AcklandJonesAna.aja
 
     def cal_centro_symmetry_parameter(self, N=12):
@@ -714,19 +767,36 @@ class System:
         Outputs:
             - **The result is added in self.data['csp']**.
         """
+        use_verlet = False
+        if self.if_neigh:
+            n_neigh_min = self.neighbor_number.min()
+            if n_neigh_min == N:
+                CentroSymmetryPara = CentroSymmetryParameter(
+                    N, self.pos, self.box, self.boundary, self.verlet_list
+                )
+                CentroSymmetryPara.compute()
+                use_verlet = True
+            elif n_neigh_min > N:
+                _partition_select_sort(self.verlet_list, self.distance_list, N)
+                CentroSymmetryPara = CentroSymmetryParameter(
+                    N, self.pos, self.box, self.boundary, self.verlet_list
+                )
+                CentroSymmetryPara.compute()
+                use_verlet = True
 
-        try:
-            CentroSymmetryPara = CentroSymmetryParameter(
-                N, self.pos, self.box, self.boundary
-            )
-            CentroSymmetryPara.compute()
-        except Exception:
-            pos = self.pos.copy()  # a deep copy can be modified
-            _wrap_pos(pos, self.box, np.array(self.boundary))
-            CentroSymmetryPara = CentroSymmetryParameter(
-                N, pos, self.box, self.boundary
-            )
-            CentroSymmetryPara.compute()
+        if not use_verlet:
+            try:
+                CentroSymmetryPara = CentroSymmetryParameter(
+                    N, self.pos, self.box, self.boundary
+                )
+                CentroSymmetryPara.compute()
+            except Exception:
+                pos = self.pos.copy()  # a deep copy can be modified
+                _wrap_pos(pos, self.box, np.array(self.boundary))
+                CentroSymmetryPara = CentroSymmetryParameter(
+                    N, pos, self.box, self.boundary
+                )
+                CentroSymmetryPara.compute()
         self.data["csp"] = CentroSymmetryPara.csp
 
     def cal_atomic_entropy(

@@ -32,6 +32,8 @@ class AcklandJonesAnalysis:
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
         box (np.ndarray): (:math:`3, 2`) system box.
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+        verlet_list (np.ndarray, optional): (:math:`N_p`, >=14), first 14 neighbors is sorted, if not given, use kdtree to obtain it. Defaults to None.
+        distance_list (np.ndarray, optional): (:math:`N_p`, >=14), first 14 neighbors is sorted, if not given, use kdtree to obtain it. Defaults to None.
 
     Outputs:
         - **aja** (np.ndarray) - (:math:`N_p`) AJA value per atoms.
@@ -54,11 +56,15 @@ class AcklandJonesAnalysis:
         >>> AJA.aja # Check the aja value
     """
 
-    def __init__(self, pos, box, boundary=[1, 1, 1]):
+    def __init__(
+        self, pos, box, boundary=[1, 1, 1], verlet_list=None, distance_list=None
+    ):
 
         self.pos = pos
         self.box = box
         self.boundary = np.array(boundary)
+        self.verlet_list = verlet_list
+        self.distance_list = distance_list
         self.structure = ["other", "fcc", "hcp", "bcc", "ico"]
 
     @ti.func
@@ -86,7 +92,7 @@ class AcklandJonesAnalysis:
                 r0_sq += distance_list[i, j] ** 2
             r0_sq /= 6.0
             N0, N1 = 0, 0
-            for j in range(distance_list.shape[1]):
+            for j in range(14):
                 rij_sq = distance_list[i, j] ** 2
                 if rij_sq < 1.55 * r0_sq:
                     N1 += 1
@@ -158,8 +164,10 @@ class AcklandJonesAnalysis:
 
     def compute(self):
         """Do the real AJA calculation."""
-        kdt = kdtree(self.pos, self.box, self.boundary)
-        distance_list, verlet_list = kdt.query_nearest_neighbors(14)
+        verlet_list, distance_list = self.verlet_list, self.distance_list
+        if verlet_list is None or distance_list is None:
+            kdt = kdtree(self.pos, self.box, self.boundary)
+            distance_list, verlet_list = kdt.query_nearest_neighbors(14)
         self.aja = np.zeros(self.pos.shape[0], dtype=int)
         self._compute(
             self.pos, self.box, self.boundary, verlet_list, distance_list, self.aja
@@ -169,13 +177,14 @@ class AcklandJonesAnalysis:
 if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
+    from neighbor import Neighbor
 
     # ti.init(ti.gpu, device_memory_GB=5.0)
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
     x, y, z = 100, 100, 100
-    FCC = LatticeMaker(lattice_constant, "BCC", x, y, z)
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
@@ -185,6 +194,26 @@ if __name__ == "__main__":
     AJA.compute()
     aja = AJA.aja
     end = time()
-    print(f"Cal aja time: {end-start} s.")
+    print(f"Cal aja kdt time: {end-start} s.")
+    for i in range(5):
+        print(AJA.structure[i], sum(aja == i))
+
+    Neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=30)
+    Neigh.compute()
+    print(Neigh.neighbor_number.min())
+
+    start = time()
+    Neigh.sort_verlet_by_distance(14)
+    end = time()
+    print(f"taichi sort time: {end-start} s.")
+
+    start = time()
+    AJA = AcklandJonesAnalysis(
+        FCC.pos, FCC.box, [1, 1, 1], Neigh.verlet_list, Neigh.distance_list
+    )
+    AJA.compute()
+    aja = AJA.aja
+    end = time()
+    print(f"Cal aja sort time: {end-start} s.")
     for i in range(5):
         print(AJA.structure[i], sum(aja == i))

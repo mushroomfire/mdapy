@@ -40,6 +40,7 @@ class CentroSymmetryParameter:
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
         box (np.ndarray): (:math:`3, 2`) system box. 
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+        verlet_list (np.ndarray, optional): (:math:`N_p`, >=N), first N neighbors is sorted, if not given, use kdtree to obtain it. Defaults to None.
     
     Outputs:
         - **csp** (np.ndarray) - (:math:`N_p`) CSP value per atoms.
@@ -60,12 +61,13 @@ class CentroSymmetryParameter:
 
         >>> CSP.csp # Check the csp value
     """
-    def __init__(self, N, pos, box, boundary=[1,1,1]):
+    def __init__(self, N, pos, box, boundary=[1,1,1], verlet_list=None):
         
         self.N = N
         self.pos = pos
         self.box = box
         self.boundary = np.array(boundary)
+        self.verlet_list = verlet_list
     
     @ti.func
     def _pbc(self, rij, box:ti.types.ndarray(), boundary:ti.types.ndarray()):
@@ -117,40 +119,70 @@ class CentroSymmetryParameter:
         """Do the real CSP calculation.
         """
         assert self.pos.shape[0] > self.N 
-        #import time
-        #start = time.time()
-        kdt = kdtree(self.pos, self.box, self.boundary)
-        _, verlet_list = kdt.query_nearest_neighbors(self.N)
-        #end = time.time()
-        #print(f'kdtree time: {end-start} s.')
-        #start = time.time()
+
+        verlet_list = self.verlet_list
+        if verlet_list is None:
+            kdt = kdtree(self.pos, self.box, self.boundary)
+            _, verlet_list = kdt.query_nearest_neighbors(self.N)
         loop_index = np.zeros((int(self.N*(self.N-1)/2), 2), dtype=int)
         pair = np.zeros((self.pos.shape[0], int(self.N*(self.N-1)/2)))
         self.csp = np.zeros(self.pos.shape[0])
         self._get_csp(pair, self.pos, verlet_list, self.box, self.boundary, loop_index, self.csp)
-        #end = time.time()
-        #print(f'csp time: {end-start} s.')
 
 
 if __name__ == '__main__':
     from lattice_maker import LatticeMaker
+    from neighbor import Neighbor
     from time import time
     # ti.init(ti.gpu, device_memory_GB=5.0)
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 100
+    x, y, z = 250, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-    
+
+    Neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=30)
+    Neigh.compute()
+    print(Neigh.neighbor_number.min())
+
+    # start = time()
+    # verlet_list_sort = np.ascontiguousarray(np.take_along_axis(Neigh.verlet_list, np.argpartition(Neigh.distance_list, 12, axis=-1), axis=-1)[:, :12])
+    # end = time()
+    # print(f'numpy sort time: {end-start} s.')
+    # print(verlet_list_sort[0])
+
     start = time()
-    CSP = CentroSymmetryParameter(12, FCC.pos, FCC.box, [1, 1, 1])
+    Neigh.sort_verlet_by_distance(12)
+    end = time()
+    print(f'taichi sort time: {end-start} s.')
+    print(Neigh.verlet_list[0, :12])
+    print(Neigh.distance_list[0, :12])
+
+    # start = time()
+    # kdt = kdtree(FCC.pos, FCC.box, [1, 1, 1])
+    # _, verlet_list_kdt = kdt.query_nearest_neighbors(12)
+    # end = time()
+    # print(f'kdt time: {end-start} s.')
+    # print(verlet_list_kdt[0])
+
+    # start = time()
+    # CSP = CentroSymmetryParameter(12, FCC.pos, FCC.box, [1, 1, 1])
+    # CSP.compute()
+    # csp = CSP.csp 
+    # end = time()
+    # print(f"Cal csp kdt time: {end-start} s.")
+    # print(csp[:10])
+    # print(csp.min(), csp.max(), csp.mean())
+
+    start = time()
+    CSP = CentroSymmetryParameter(12, FCC.pos, FCC.box, [1, 1, 1], Neigh.verlet_list)
     CSP.compute()
     csp = CSP.csp 
     end = time()
-    print(f"Cal csp time: {end-start} s.")
+    print(f"Cal csp verlet time: {end-start} s.")
     print(csp[:10])
     print(csp.min(), csp.max(), csp.mean())
         

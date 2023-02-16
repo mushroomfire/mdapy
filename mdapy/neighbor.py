@@ -228,6 +228,38 @@ class Neighbor:
             max_neighbor_number <= self.max_neigh
         ), f"Neighbor number exceeds max_neigh, which should be larger than {max_neighbor_number}!"
 
+    @ti.kernel
+    def _partition_select_sort(
+        self, indices: ti.types.ndarray(), keys: ti.types.ndarray(), N: int
+    ):
+        """This function sorts N-th minimal value in keys.
+
+        Args:
+            indices (ti.types.ndarray): indices.
+            keys (ti.types.ndarray): values to be sorted.
+            N (int): number of sorted values.
+        """
+        for i in range(indices.shape[0]):
+            for j in range(N):
+                minIndex = j
+                for k in range(j + 1, indices.shape[1]):
+                    if keys[i, k] < keys[i, minIndex]:
+                        minIndex = k
+                if minIndex != j:
+                    keys[i, minIndex], keys[i, j] = keys[i, j], keys[i, minIndex]
+                    indices[i, minIndex], indices[i, j] = (
+                        indices[i, j],
+                        indices[i, minIndex],
+                    )
+
+    def sort_verlet_by_distance(self, N: int):
+        """This function sorts the first N-th verlet_list in distance_list.
+
+        Args:
+            N (int): number of sorted values
+        """
+        self._partition_select_sort(self.verlet_list, self.distance_list, N)
+
 
 if __name__ == "__main__":
     from lattice_maker import LatticeMaker
@@ -245,7 +277,7 @@ if __name__ == "__main__":
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
-    neigh = Neighbor(FCC.pos, FCC.box, 3.0, max_neigh=13, exclude=True)
+    neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=20, exclude=True)
     print(neigh.ncel)
     neigh.compute()
     end = time()
@@ -253,3 +285,7 @@ if __name__ == "__main__":
     print(neigh.verlet_list[0])
     print(neigh.distance_list[0])
     print(neigh.neighbor_number[0])
+
+    neigh.sort_verlet_by_distance(12)
+    print(neigh.verlet_list[0])
+    print(neigh.distance_list[0])

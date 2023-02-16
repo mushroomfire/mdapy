@@ -48,6 +48,7 @@ Optional Dependencies
    gettingstarted/installation
    gettingstarted/quicklystart
    gettingstarted/examples
+   gettingstarted/use_mdapy_efficiently
    gettingstarted/benchmark
 
 .. toctree::

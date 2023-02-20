@@ -90,7 +90,9 @@ If you use mdapy in your publication and at present are feel free to cite it as 
 
 .. code-block:: bash
 
-   Wu, Yong-Chao and Shao, Jian-Li, Mdapy: A Flexible and Efficient Analysis Software for Molecular Dynamics Simulations. Available at SSRN: https://ssrn.com/abstract=4360931 or http://dx.doi.org/10.2139/ssrn.4360931
+   Wu, Yong-Chao and Shao, Jian-Li, Mdapy: A Flexible and Efficient Analysis Software for 
+   Molecular Dynamics Simulations. Available at SSRN: https://ssrn.com/abstract=4360931 
+   or http://dx.doi.org/10.2139/ssrn.4360931.
 
 
 Release Notes

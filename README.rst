@@ -23,7 +23,6 @@ Resources
 
 - Homepage: `https://github.com/mushroomfire/mdapy <https://github.com/mushroomfire/mdapy>`_
 - Documentation: `https://mdapy.readthedocs.io/ <https://mdapy.readthedocs.io/>`_
-- Source Code: `https://github.com/mushroomfire/mdapy <https://github.com/mushroomfire/mdapy>`_
 - Issue Tracker: `https://github.com/mushroomfire/mdapy/issues <https://github.com/mushroomfire/mdapy/issues>`_
 
 Dependencies
@@ -83,6 +82,16 @@ Usage
    system.cal_centro_symmetry_parameter() # calculate the centrosymmetry parameters
    system.cal_atomic_entropy() # calculate the atomic entropy
    system.write_dump() # save results to a new dump file
+
+Citation
+---------
+
+If you use mdapy in your publication and at present are feel free to cite it as below:
+
+.. code-block:: bash
+
+   Wu, Yong-Chao and Shao, Jian-Li, Mdapy: A Flexible and Efficient Analysis Software for Molecular Dynamics Simulations. Available at SSRN: https://ssrn.com/abstract=4360931 or http://dx.doi.org/10.2139/ssrn.4360931
+
 
 Release Notes
 --------------

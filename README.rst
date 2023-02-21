@@ -86,7 +86,7 @@ Usage
 Citation
 ---------
 
-If you use mdapy in your publication and at present are feel free to cite it as below:
+If you use mdapy in your publication, you can star it and cite it as below:
 
 .. code-block:: bash
 

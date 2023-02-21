@@ -74,6 +74,7 @@ class Neighbor:
             np.zeros((self.N, self.max_neigh), dtype=np.float64) + self.rc + 1.0
         )
         self.neighbor_number = np.zeros(self.N, dtype=np.int32)
+        self._if_computed = False
 
     @ti.kernel
     def _build_cell(
@@ -227,6 +228,7 @@ class Neighbor:
         assert (
             max_neighbor_number <= self.max_neigh
         ), f"Neighbor number exceeds max_neigh, which should be larger than {max_neighbor_number}!"
+        self._if_computed = True
 
     @ti.kernel
     def _partition_select_sort(
@@ -253,11 +255,13 @@ class Neighbor:
                     )
 
     def sort_verlet_by_distance(self, N: int):
-        """This function sorts the first N-th verlet_list in distance_list.
+        """This function sorts the first N-th verlet_list by distance_list.
 
         Args:
             N (int): number of sorted values
         """
+        if not self._if_computed:
+            self.compute()
         self._partition_select_sort(self.verlet_list, self.distance_list, N)
 
 

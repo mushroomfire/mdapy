@@ -700,18 +700,8 @@ class System:
         """
         use_verlet = False
         if self.if_neigh:
-            n_neigh_min = self.neighbor_number.min()
-            if n_neigh_min == 14:
-                AcklandJonesAna = AcklandJonesAnalysis(
-                    self.pos,
-                    self.box,
-                    self.boundary,
-                    self.verlet_list,
-                    self.distance_list,
-                )
-                AcklandJonesAna.compute()
-                use_verlet = True
-            elif n_neigh_min > 14:
+
+            if self.neighbor_number.min() >= 14:
                 _partition_select_sort(self.verlet_list, self.distance_list, 14)
                 AcklandJonesAna = AcklandJonesAnalysis(
                     self.pos,
@@ -769,14 +759,7 @@ class System:
         """
         use_verlet = False
         if self.if_neigh:
-            n_neigh_min = self.neighbor_number.min()
-            if n_neigh_min == N:
-                CentroSymmetryPara = CentroSymmetryParameter(
-                    N, self.pos, self.box, self.boundary, self.verlet_list
-                )
-                CentroSymmetryPara.compute()
-                use_verlet = True
-            elif n_neigh_min > N:
+            if self.neighbor_number.min() >= N:
                 _partition_select_sort(self.verlet_list, self.distance_list, N)
                 CentroSymmetryPara = CentroSymmetryParameter(
                     N, self.pos, self.box, self.boundary, self.verlet_list

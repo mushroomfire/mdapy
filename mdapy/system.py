@@ -986,15 +986,23 @@ class System:
         elif self.rc != rc:
             Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
             Neigh.compute()
-
-        CommonNeighborAnalysi = CommonNeighborAnalysis(
-            rc,
-            Neigh.verlet_list,
-            Neigh.neighbor_number,
-            self.pos,
-            self.box,
-            self.boundary,
-        )
+            CommonNeighborAnalysi = CommonNeighborAnalysis(
+                rc,
+                Neigh.verlet_list,
+                Neigh.neighbor_number,
+                self.pos,
+                self.box,
+                self.boundary,
+            )
+        else:
+            CommonNeighborAnalysi = CommonNeighborAnalysis(
+                rc,
+                self.verlet_list,
+                self.neighbor_number,
+                self.pos,
+                self.box,
+                self.boundary,
+            )
         CommonNeighborAnalysi.compute()
         self.data["cna"] = CommonNeighborAnalysi.pattern
 
@@ -1032,7 +1040,8 @@ class System:
         - HCP : 4.4
         - FCC (111) surface : 13.0
         - FCC (100) surface : 26.5
-        - FCC dislocation core : 11
+        - FCC dislocation core : 11.
+        - Isolated atom : 1000. (manually assigned by mdapy)
 
         Args:
             rc (float, optional): cutoff distance. Defaults to 3.0.
@@ -1067,9 +1076,9 @@ class System:
             self.box,
             self.boundary,
             rc,
-            Neigh.verlet_list,
-            Neigh.distance_list,
-            Neigh.neighbor_number,
+            self.verlet_list,
+            self.distance_list,
+            self.neighbor_number,
         )
         CommonNeighborPar.compute()
         self.data["cnp"] = CommonNeighborPar.cnp

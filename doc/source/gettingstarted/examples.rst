@@ -133,20 +133,25 @@ This function can be runned in script environment of Ovito. (Tested in Ovito 3.0
     mp.init()
 
     def modify(frame, data):
-        
-        box = np.array([data.cell[...][:,-1], [data.cell[...][i, i] for i in range(3)]]).T
+
+        yield "Transforming mdapy system..."
+        cell_ovito = data.cell[...]
+        box = np.array([[cell_ovito[i, -1], cell_ovito[i, -1]+cell_ovito[i, i]] for i in range(3)])
         pos = np.array(data.particles['Position'][...])
         boundary = [int(i) for i in data.cell.pbc]
-        
         system = mp.System(pos=pos, box=box, boundary=boundary)
-        
+
+        yield "Performing compute entropy..."
         system.cal_atomic_entropy(
-            rc=4.05*1.4,
+            rc=3.6*1.4,
             sigma=0.2,
             use_local_density=True,
             compute_average=True,
-            average_rc=4.05*0.9,
+            average_rc=3.6*0.9,
             max_neigh=80,
         )
-
         data.particles_.create_property("entropy", data=system.data['ave_atomic_entropy'].values)
+        
+        yield "Performing compute CNP..."
+        system.cal_common_neighbor_parameter(rc=3.6*0.8536)
+        data.particles_.create_property("cnp", data=system.data['cnp'].values)

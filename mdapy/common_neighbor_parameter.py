@@ -40,7 +40,8 @@ class CommonNeighborParameter:
     - HCP : 4.4
     - FCC (111) surface : 13.0
     - FCC (100) surface : 26.5
-    - FCC dislocation core : 11
+    - FCC dislocation core : 11.
+    - Isolated atom : 1000. (manually assigned by mdapy)
 
     Args:
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
@@ -129,11 +130,13 @@ class CommonNeighborParameter:
                                     rjk = self._pbc(rjk, box, boundary)
                                     r += rik + rjk
                 cnp[i] += r.norm_sqr()
-            cnp[i] /= N
+            if N > 0:
+                cnp[i] /= N
+            else:
+                cnp[i] = ti.f64(1000.0)
 
     def compute(self):
-        """Do the real CNP calculation.
-        """
+        """Do the real CNP calculation."""
         self.cnp = np.zeros(self.pos.shape[0])
         self._compute(
             self.pos,

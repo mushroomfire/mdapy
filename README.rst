@@ -95,6 +95,21 @@ If you use mdapy in your publication, you can star it and cite it as below:
    or http://dx.doi.org/10.2139/ssrn.4360931.
 
 
+Trouble Shoot
+-------------
+
+If you encounter ImportError in Linux: 
+
+.. code-block:: bash
+
+   eversion 'GLIBCXX_3.4.29' not found. 
+
+You can try: 
+
+.. code-block:: bash
+
+   conda install -c conda-forge gxx_linux-64
+
 Release Notes
 --------------
 

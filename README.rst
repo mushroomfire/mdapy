@@ -102,7 +102,7 @@ If you encounter ImportError in Linux:
 
 .. code-block:: bash
 
-   eversion 'GLIBCXX_3.4.29' not found. 
+   version 'GLIBCXX_3.4.29' not found. 
 
 You can try: 
 

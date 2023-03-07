@@ -138,15 +138,15 @@ if __name__ == '__main__':
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 250, 100, 100
+    x, y, z = 100, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
 
-    Neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=30)
-    Neigh.compute()
-    print(Neigh.neighbor_number.min())
+    # Neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=30)
+    # Neigh.compute()
+    # print(Neigh.neighbor_number.min())
 
     # start = time()
     # verlet_list_sort = np.ascontiguousarray(np.take_along_axis(Neigh.verlet_list, np.argpartition(Neigh.distance_list, 12, axis=-1), axis=-1)[:, :12])
@@ -154,12 +154,12 @@ if __name__ == '__main__':
     # print(f'numpy sort time: {end-start} s.')
     # print(verlet_list_sort[0])
 
-    start = time()
-    Neigh.sort_verlet_by_distance(12)
-    end = time()
-    print(f'taichi sort time: {end-start} s.')
-    print(Neigh.verlet_list[0, :12])
-    print(Neigh.distance_list[0, :12])
+    # start = time()
+    # Neigh.sort_verlet_by_distance(12)
+    # end = time()
+    # print(f'taichi sort time: {end-start} s.')
+    # print(Neigh.verlet_list[0, :12])
+    # print(Neigh.distance_list[0, :12])
 
     # start = time()
     # kdt = kdtree(FCC.pos, FCC.box, [1, 1, 1])
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     # print(csp.min(), csp.max(), csp.mean())
 
     start = time()
-    CSP = CentroSymmetryParameter(12, FCC.pos, FCC.box, [1, 1, 1], Neigh.verlet_list)
+    CSP = CentroSymmetryParameter(12, FCC.pos, FCC.box, [1, 1, 1])
     CSP.compute()
     csp = CSP.csp 
     end = time()

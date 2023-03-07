@@ -2,7 +2,6 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
-from scipy.spatial import KDTree
 
 
 class kdtree:
@@ -51,21 +50,46 @@ class kdtree:
                 for i in range(3)
             ]
         )
-        self.kdt = KDTree(self.shift_pos, boxsize=boxsize)
+        try:
+            import pyfnntw
 
-    def query_nearest_neighbors(self, n, workers=-1):
+            if self.shift_pos.dtype == np.float64:
+                KDTree = pyfnntw.Treef64
+            elif self.shift_pos.dtype == np.float32:
+                KDTree = pyfnntw.Treef32
+                boxsize = np.array(boxsize, dtype=np.float32)
+            if self.shift_pos.shape[0] < 10**6:
+                self.kdt = KDTree(
+                    self.shift_pos, leafsize=32, par_split_level=1, boxsize=boxsize
+                )
+            elif self.shift_pos.shape[0] < 10**7:
+                self.kdt = KDTree(
+                    self.shift_pos, leafsize=32, par_split_level=2, boxsize=boxsize
+                )
+            else:
+                self.kdt = KDTree(
+                    self.shift_pos, leafsize=32, par_split_level=4, boxsize=boxsize
+                )
+        except Exception:
+            from scipy.spatial import KDTree
+
+            self.kdt = KDTree(self.shift_pos, leafsize=32, boxsize=boxsize)
+
+    def query_nearest_neighbors(self, n):
         """Query the :math:`n` nearest atom neighbors.
 
         Args:
             n (int): number of neighbors to query.
 
-            workers (int, optional): maximum CPU cores to use in calculation. Defaults to -1, indicating using all available CPU cores.
-
         Returns:
             tuple: (distance, index), distance of atom :math:`i` to its neighbor atom :math:`j`, and the index of atom :math:`j`.
         """
-        dis, index = self.kdt.query(self.shift_pos, k=n + 1, workers=workers)
+        try:
+            import pyfnntw
 
+            dis, index = self.kdt.query(self.shift_pos, k=n + 1)
+        except Exception:
+            dis, index = self.kdt.query(self.shift_pos, k=n + 1, workers=-1)
         return np.ascontiguousarray(dis[:, 1:]), np.ascontiguousarray(index[:, 1:])
 
 
@@ -78,7 +102,7 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 10, 10, 10
+    x, y, z = 250, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()

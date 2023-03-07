@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 __author__ = "mushroomfire aka HerrWu"
-__version__ = "0.8.0"
+__version__ = "0.8.1"
 __license__ = "BSD License"
 
 from .ackland_jones_analysis import AcklandJonesAnalysis
@@ -25,6 +25,7 @@ from .plotset import pltset
 from .plotset import cm2inch
 from .potential import EAM
 from .spatial_binning import SpatialBinning
+from .steinhardt_bond_orientation import SteinhardtBondOrientation
 from .system import System, MultiSystem
 from .temperature import AtomicTemperature
 from .timer import timer

@@ -156,6 +156,14 @@ mdapy.spatial\_binning module
    :undoc-members:
    :show-inheritance:
 
+mdapy.steinhardt\_bond\_orientation module
+------------------------------------------
+
+.. automodule:: mdapy.steinhardt_bond_orientation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.system module
 -------------------
 

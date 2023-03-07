@@ -76,6 +76,16 @@ try:
 except Exception:
     from spatial_binning import SpatialBinning
 
+try:
+    from .steinhardt_bond_orientation import SteinhardtBondOrientation
+except Exception:
+    from steinhardt_bond_orientation import SteinhardtBondOrientation
+
+try:
+    from .kdtree import kdtree
+except Exception:
+    from kdtree import kdtree
+
 
 @ti.kernel
 def _wrap_pos(
@@ -725,6 +735,74 @@ class System:
                 AcklandJonesAna = AcklandJonesAnalysis(pos, self.box, self.boundary)
                 AcklandJonesAna.compute()
         self.data["aja"] = AcklandJonesAna.aja
+
+    def cal_steinhardt_bond_orientation(
+        self,
+        rc=4.0,
+        qlist=[6],
+        nnn=0,
+        wlflag=False,
+        wlhatflag=False,
+        solidliquid=False,
+        max_neigh=60,
+        threshold=0.7,
+        n_bond=7,
+    ):
+        if nnn > 0:
+            use = False
+            if self.if_neigh:
+                if self.neighbor_number.min() >= nnn:
+                    _partition_select_sort(self.verlet_list, self.distance_list, nnn)
+                    use = True
+            if not use:
+                try:
+                    kdt = kdtree(self.pos, self.box, self.boundary)
+                    self.distance_list, self.verlet_list = kdt.query_nearest_neighbors(
+                        nnn
+                    )
+                except Exception:
+                    pos = self.pos.copy()  # a deep copy can be modified
+                    _wrap_pos(pos, self.box, np.array(self.boundary))
+                    kdt = kdtree(self.pos, self.box, self.boundary)
+                    self.distance_list, self.verlet_list = kdt.query_nearest_neighbors(
+                        nnn
+                    )
+                self.neighbor_number = np.ones(self.N, int) * nnn
+                self.rc = self.distance_list.max()
+        else:
+            if not self.if_neigh:
+                self.build_neighbor(rc=rc, max_neigh=max_neigh)
+            elif self.rc < rc:
+                self.build_neighbor(rc=rc, max_neigh=max_neigh)
+
+        SBO = SteinhardtBondOrientation(
+            rc,
+            self.pos,
+            self.box,
+            self.boundary,
+            self.verlet_list,
+            self.distance_list,
+            self.neighbor_number,
+            qlist,
+            nnn,
+            wlflag,
+            wlhatflag,
+        )
+        SBO.compute()
+        columns = []
+        for i in qlist:
+            columns.append(f"ql{i}")
+        if wlflag:
+            for i in qlist:
+                columns.append(f"wl{i}")
+        if wlhatflag:
+            for i in qlist:
+                columns.append(f"whl{i}")
+
+        self.data[columns] = SBO.qnarray
+        if solidliquid:
+            SBO.identifySolidLiquid(threshold, n_bond)
+            self.data["solidliquid"] = SBO.solidliquid
 
     def cal_centro_symmetry_parameter(self, N=12):
         """Compute the CentroSymmetry Parameter (CSP),
@@ -1404,9 +1482,21 @@ if __name__ == "__main__":
     #     data_format="charge",
     #     q=q,
     # )
-    system.wrap_pos()
+    # system.wrap_pos()
+    system.cal_steinhardt_bond_orientation(
+        rc=3.0,
+        qlist=[6],
+        nnn=12,
+        wlflag=False,
+        wlhatflag=False,
+        solidliquid=True,
+        max_neigh=30,
+        threshold=0.7,
+        n_bond=7,
+    )
     print(system.data)
+    print(system.neighbor_number, system.rc)
     print(system.Ntype, system.N, system.format)
-    print(system.data_head)
+    # print(system.data_head)
     # system.write_data(data_format="charge")
     # system.write_dump()

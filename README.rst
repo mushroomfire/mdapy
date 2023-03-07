@@ -113,6 +113,12 @@ You can try:
 Release Notes
 --------------
 
+V0.8.1
+^^^^^^^
+
+- Add Steinhardt Bondorder Parameter method, which can be used to identify the lattice structure and distinguish
+  the solid/liquid phase during melting process.
+
 V0.8.0
 ^^^^^^^
 

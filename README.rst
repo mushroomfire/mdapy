@@ -41,6 +41,7 @@ Optional Dependencies
 
 * `SciencePlots <https://github.com/garrettj403/SciencePlots>`_ (Optional, for plotting results)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
+* `pyfnntw >= 0.4.1 <https://github.com/cavemanloverboy/FNNTW>`_ (Optional, for fast Kdtree)
 
 
 Installation
@@ -118,6 +119,7 @@ V0.8.1
 
 - Add Steinhardt Bondorder Parameter method, which can be used to identify the lattice structure and distinguish
   the solid/liquid phase during melting process.
+- Add **pyfnntw** as optional dependency to accelerate KNN.
 
 V0.8.0
 ^^^^^^^

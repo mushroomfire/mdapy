@@ -50,6 +50,7 @@ Optional Dependencies
    gettingstarted/examples
    gettingstarted/use_mdapy_efficiently
    gettingstarted/benchmark
+   gettingstarted/main_features
 
 .. toctree::
    :maxdepth: 1

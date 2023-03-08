@@ -1,7 +1,7 @@
 Examples
 =========
 
-Structure analysis
+1. Structure analysis
 -------------------
 
 .. code-block:: python
@@ -14,7 +14,7 @@ Structure analysis
     system.cal_atomic_entropy() # calculate the atomic entropy
     system.write_dump() # save results to a new dump file
 
-Mean squared displacement and Lindemann index
+2. Mean squared displacement and Lindemann index
 ------------------------------------------------
 
 .. code-block:: python 
@@ -30,7 +30,7 @@ Mean squared displacement and Lindemann index
     MS.Lindemann.plot() # one can plot lindemann index per frame
     MS.write_dumps() # save results to a serials of dump files
 
-Calculate WCP matrix in high-entropy alloy
+3. Calculate WCP matrix in high-entropy alloy
 -------------------------------------------
 
 .. code-block:: python 
@@ -46,7 +46,7 @@ Calculate WCP matrix in high-entropy alloy
     )  # plot WCP matrix
     fig.savefig("WCP.png", dpi=300, bbox_inches="tight", transparent=True)
 
-Create polycrystalline with graphene boundary
+4. Create polycrystalline with graphene boundary
 ------------------------------------------------
 
 .. code-block:: python 
@@ -64,7 +64,7 @@ Create polycrystalline with graphene boundary
     poly = mp.CreatePolycrystalline(box, seednumber, metal_lattice_constant, metal_lattice_type, randomseed=randomseed, add_graphene=add_graphene, gra_overlap_dis=1.2)
     poly.compute() # generate a polycrystalline with graphene boundary
 
-Calculate the EOS curve
+5. Calculate the EOS curve
 -------------------------
 
 .. code-block:: python 
@@ -120,7 +120,7 @@ Calculate the EOS curve
     plt.savefig('eos.png', dpi=300, bbox_inches='tight', transparent=True)
     plt.show()
 
-Collaborative use with Ovito
+6. Collaborative use with Ovito
 -----------------------------
 
 This function can be runned in script environment of Ovito. (Tested in Ovito 3.0.0-dev581).

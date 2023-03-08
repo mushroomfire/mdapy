@@ -7,6 +7,7 @@ import numpy as np
 class kdtree:
     """This class is a wrapper of `kdtree of scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html>`_
     and helful to obtain the certain nearest atom neighbors considering the periodic/free boundary.
+    If possible, one can install `pyfnntw <https://github.com/cavemanloverboy/FNNTW>`_ to accelerate this class.
     If you want to access the atom neighbor within a spherical
     distance, the Neighbor class is suggested.
 

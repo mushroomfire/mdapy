@@ -40,6 +40,7 @@ Optional Dependencies
 
 * `SciencePlots <https://github.com/garrettj403/SciencePlots>`_ (Optional, for plotting results)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
+* `pyfnntw >= 0.4.1 <https://github.com/cavemanloverboy/FNNTW>`_ (Optional, for fast Kdtree)
 
 .. toctree::
    :maxdepth: 3

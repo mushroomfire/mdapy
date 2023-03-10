@@ -84,6 +84,14 @@ mdapy.entropy module
    :undoc-members:
    :show-inheritance:
 
+mdapy.identify\_SFs\_TBs module
+-------------------------------
+
+.. automodule:: mdapy.identify_SFs_TBs
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.kdtree module
 -------------------
 
@@ -136,6 +144,14 @@ mdapy.plotset module
 --------------------
 
 .. automodule:: mdapy.plotset
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mdapy.polyhedral\_template\_matching module
+-------------------------------------------
+
+.. automodule:: mdapy.polyhedral_template_matching
    :members:
    :undoc-members:
    :show-inheritance:

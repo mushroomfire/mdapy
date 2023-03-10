@@ -3,6 +3,7 @@
 
 from pybind11.setup_helpers import Pybind11Extension
 from setuptools import setup
+from glob import glob
 
 description = "A simple and fast python library to handle the data generated from molecular dynamics simulations"
 try:
@@ -43,6 +44,12 @@ setup(
             ],
             language="c++",
             include_dirs=["thirdparty/voro++"],
+        ),
+        Pybind11Extension(
+            "_ptm",
+            glob("thirdparty/ptm/ptm*.cpp") + ["mdapy/ptm/_ptm.cpp"],
+            language="c++",
+            include_dirs=["thirdparty/ptm"],
         ),
     ],
     zip_safe=False,

@@ -2,12 +2,12 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
+from scipy.spatial import KDTree
 
 
 class kdtree:
     """This class is a wrapper of `kdtree of scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html>`_
     and helful to obtain the certain nearest atom neighbors considering the periodic/free boundary.
-    If possible, one can install `pyfnntw <https://github.com/cavemanloverboy/FNNTW>`_ to accelerate this class.
     If you want to access the atom neighbor within a spherical
     distance, the Neighbor class is suggested.
 
@@ -51,46 +51,21 @@ class kdtree:
                 for i in range(3)
             ]
         )
-        try:
-            import pyfnntw
 
-            if self.shift_pos.dtype == np.float64:
-                KDTree = pyfnntw.Treef64
-            elif self.shift_pos.dtype == np.float32:
-                KDTree = pyfnntw.Treef32
-                boxsize = np.array(boxsize, dtype=np.float32)
-            if self.shift_pos.shape[0] < 10**6:
-                self.kdt = KDTree(
-                    self.shift_pos, leafsize=32, par_split_level=1, boxsize=boxsize
-                )
-            elif self.shift_pos.shape[0] < 10**7:
-                self.kdt = KDTree(
-                    self.shift_pos, leafsize=32, par_split_level=2, boxsize=boxsize
-                )
-            else:
-                self.kdt = KDTree(
-                    self.shift_pos, leafsize=32, par_split_level=4, boxsize=boxsize
-                )
-        except Exception:
-            from scipy.spatial import KDTree
+        self.kdt = KDTree(self.shift_pos, leafsize=32, boxsize=boxsize)
 
-            self.kdt = KDTree(self.shift_pos, leafsize=32, boxsize=boxsize)
-
-    def query_nearest_neighbors(self, n):
+    def query_nearest_neighbors(self, n, workers=-1):
         """Query the :math:`n` nearest atom neighbors.
 
         Args:
             n (int): number of neighbors to query.
+            worker (int): maximum cores used. Defaults to -1, indicating use all aviliable cores.
 
         Returns:
             tuple: (distance, index), distance of atom :math:`i` to its neighbor atom :math:`j`, and the index of atom :math:`j`.
         """
-        try:
-            import pyfnntw
-
-            dis, index = self.kdt.query(self.shift_pos, k=n + 1)
-        except Exception:
-            dis, index = self.kdt.query(self.shift_pos, k=n + 1, workers=-1)
+        
+        dis, index = self.kdt.query(self.shift_pos, k=n + 1, workers=workers)
         return np.ascontiguousarray(dis[:, 1:]), np.ascontiguousarray(index[:, 1:])
 
 

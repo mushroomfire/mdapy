@@ -11,6 +11,8 @@ Main Features
    - `Atomic Structure Entropy <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.entropy>`_ 
    - `Steinhardt Bondorder <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.steinhardt_bond_orientation>`_ 
    - `Radiul Distribution Function <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.pair_distribution>`_
+   - `Polyhedral Template Matching <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.polyhedral_template_matching>`_
+   - `Identify stacking faults (SFs) and twinning boundary (TBs) <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.identify_SFs_TBs>`_
 
 2. Potential Analysis 
 ----------------------

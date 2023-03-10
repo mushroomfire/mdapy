@@ -116,17 +116,17 @@ Release Notes
 V0.8.1
 ^^^^^^^
 
-- Add Steinhardt Bondorder Parameter method, which can be used to identify the lattice structure and distinguish
+- Add **Steinhardt Bondorder Parameter** method, which can be used to identify the lattice structure and distinguish
   the solid/liquid phase during melting process.
-- Add PolyhedralTemplateMathing method.
-- Add IdentifySFsTBs method to identify the stacking faults (SFs) and twinning boundary (TBs) in FCC lattice.
+- Add **Polyhedral Template Mathing** method.
+- Add **IdentifySFsTBs** method to identify the stacking faults (SFs) and twinning boundary (TBs) in FCC lattice.
 
 
 V0.8.0
 ^^^^^^^
 
-- Add Ackland Jones Analysis (AJA) method.
-- Add Common Neighbor Parameter (CNP) method.
+- Add **Ackland Jones Analysis (AJA)** method.
+- Add **Common Neighbor Parameter (CNP)** method.
 - Update the nearest neighbor search in CSP method.
 
 V0.7.9

@@ -15,6 +15,7 @@ from .create_polycrystalline import CreatePolycrystalline
 from .eam_average import EAMAverage
 from .eam_generate import EAMGenerate
 from .entropy import AtomicEntropy
+from .identify_SFs_TBs import IdentifySFTBinFCC
 from .kdtree import kdtree
 from .lattice_maker import LatticeMaker
 from .lindemann_parameter import LindemannParameter
@@ -23,6 +24,7 @@ from .neighbor import Neighbor
 from .pair_distribution import PairDistribution
 from .plotset import pltset
 from .plotset import cm2inch
+from .polyhedral_template_matching import PolyhedralTemplateMatching
 from .potential import EAM
 from .spatial_binning import SpatialBinning
 from .steinhardt_bond_orientation import SteinhardtBondOrientation

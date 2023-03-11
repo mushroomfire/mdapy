@@ -187,21 +187,112 @@ nfac_table_numpy = np.array(
 
 @ti.data_oriented
 class SteinhardtBondOrientation:
+    """This class is used to calculate a set of bond-orientational order parameters :math:`Q_{\\ell}` to characterize the local orientational order in atomic structures. We first compute the local order parameters as averages of the spherical harmonics :math:`Y_{\ell m}` for each neighbor:
+
+    .. math:: \\bar{Y}_{\\ell m} = \\frac{1}{nnn}\\sum_{j = 1}^{nnn} Y_{\\ell m}\\bigl( \\theta( {\\bf r}_{ij} ), \\phi( {\\bf r}_{ij} ) \\bigr),
+
+    where the summation goes over the :math:`nnn` nearest neighbor and the :math:`\\theta` and the :math:`\\phi` are the azimuthal and polar
+    angles. Then we can obtain a rotationally invariant non-negative amplitude by summing over all the components of degree :math:`l`:
+
+    .. math:: Q_{\\ell}  = \\sqrt{\\frac{4 \\pi}{2 \\ell  + 1} \\sum_{m = -\\ell }^{m = \\ell } \\bar{Y}_{\\ell m} \\bar{Y}^*_{\\ell m}}.
+
+    For a FCC lattice with :math:`nnn=12`, :math:`Q_4 = \\sqrt{\\frac{7}{192}} \\approx 0.19094`. More numerical values for commonly encountered high-symmetry structures are listed in Table 1 of `J. Chem. Phys. 138, 044501 (2013) <https://aip.scitation.org/doi/abs/10.1063/1.4774084>`_, and all data can be reproduced by this class.
+
+    If :math:`wlflag` is True, this class will compute the third-order invariants :math:`W_{\\ell}` for the same degrees as for the :math:`Q_{\\ell}` parameters:
+
+    .. math:: W_{\\ell} = \\sum \\limits_{m_1 + m_2 + m_3 = 0} \\begin{pmatrix}\\ell & \\ell & \\ell \\\m_1 & m_2 & m_3\\end{pmatrix}\\bar{Y}_{\\ell m_1} \\bar{Y}_{\\ell m_2} \\bar{Y}_{\\ell m_3}.
+
+    For FCC lattice with :math:`nnn=12`, :math:`W_4 = -\\sqrt{\\frac{14}{143}} \\left(\\frac{49}{4096}\\right) \\pi^{-3/2} \\approx -0.0006722136`.
+
+    If :math:`wlhatflag` is true, the normalized third-order invariants :math:`\\hat{W}_{\\ell}` will be computed:
+
+    .. math:: \\hat{W}_{\\ell} = \\frac{\\sum \\limits_{m_1 + m_2 + m_3 = 0} \\begin{pmatrix}\\ell & \\ell & \\ell \\\m_1 & m_2 & m_3\\end{pmatrix}\\bar{Y}_{\\ell m_1} \\bar{Y}_{\\ell m_2} \\bar{Y}_{\\ell m_3}}{\\left(\\sum \\limits_{m=-l}^{l} |\\bar{Y}_{\ell m}|^2 \\right)^{3/2}}.
+
+    For FCC lattice with :math:`nnn=12`, :math:`\\hat{W}_4 = -\\frac{7}{3} \\sqrt{\\frac{2}{429}} \\approx -0.159317`. More numerical values of :math:`\\hat{W}_{\\ell}` can be found in Table 1 of `Phys. Rev. B 28, 784 <https://doi.org/10.1103/PhysRevB.28.784>`_, and all data can be reproduced by this class.
+
+    .. hint:: If you use this class in your publication, you should cite the original paper:
+
+      `Steinhardt P J, Nelson D R, Ronchetti M. Bond-orientational order in liquids and glasses[J]. Physical Review B, 1983, 28(2): 784. <https://doi.org/10.1103/PhysRevB.28.784>`_
+
+    .. note:: This class is translated from that in `LAMMPS <https://docs.lammps.org/compute_orientorder_atom.html>`_.
+
+    We also further implement the bond order to identify the solid or liquid state for lattice structure. For FCC structure, one can compute the normalized cross product:
+
+    .. math:: s_\\ell(i,j) = \\frac{4\\pi}{2\\ell + 1} \\frac{\\sum_{m=-\\ell}^{\\ell} \\bar{Y}_{\\ell m}(i) \\bar{Y}_{\\ell m}^*(j)}{Q_\\ell(i) Q_\\ell(j)}.
+
+    According to `J. Chem. Phys. 133, 244115 (2010) <https://doi.org/10.1063/1.3506838>`_, when :math:`s_6(i, j)` is larger than a threshold value (typically 0.7), the bond is regarded as a solid bond. Id the number of solid bond is larger than a threshold (6-8), the atom is considered as solid phase.
+
+    .. hint:: If you use `identifySolidLiquid` function in this class in your publication, you should cite the original paper:
+
+      `Filion L, Hermes M, Ni R, et al. Crystal nucleation of hard spheres using molecular dynamics, umbrella sampling, and forward flux sampling: A comparison of simulation techniques[J]. The Journal of chemical physics, 2010, 133(24): 244115. <https://doi.org/10.1063/1.3506838>`_
+
+    Args:
+
+        pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+        box (np.ndarray): (:math:`3, 2`) system box, must be rectangle.
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+        verlet_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1. Defaults to None.
+        distance_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom. Defaults to None.
+        neighbor_number (np.ndarray, optional): (:math:`N_p`) neighbor atoms number. Defaults to None.
+        rc (float, optional): cutoff distance to find neighbors. Defaults to 0.0.
+        qlist (list|int, optional): the list of order parameters to be computed, which should be a non-negative integer. Defaults to np.array([4, 6, 8, 10, 12], int).
+        nnn (int, optional): the number of nearest neighbors used to calculate :math:`Q_{\ell}`. If :math:`nnn > 0`, the :math:`rc` has no effects, otherwise the summation will go over all neighbors within :math:`rc`. Defaults to 12.
+        wlflag (bool, optional): whether calculate the third-order invariants :math:`W_{\ell}`. Defaults to False.
+        wlhatflag (bool, optional): whether calculate the normalized third-order invariants :math:`\hat{W}_{\ell}`. If :math:`wlflag` is False, this parameter has no effect. Defaults to False.
+        max_neigh (int, optional): a given maximum neighbor number per atoms. Defaults to 60.
+
+    Outputs:
+        - **qnarray** (np.ndarray) - (math:`N_p, len(qlist)*(1+wlflag+wlhatflag)`) consider the :math:`qlist=[4, 6]` and :math:`wlflag` and :math:`wlhatflag` is True, the columns of :math:`qnarray` are [:math:`Q_4, Q_6, W_4, W_6, \hat{W}_4, \hat{W}_6`].
+        - **solidliquid** (np.ndarray) - (math:`N_p`), 1 indicates solid state and 0 indicates liquid state.
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> FCC = mp.LatticeMaker(3.615, 'FCC', 10, 10, 10) # Create a FCC structure
+
+        >>> FCC.compute() # Get atom positions
+
+        >>> BO = SteinhardtBondOrientation(
+                    FCC.pos,
+                    FCC.box,
+                    [1, 1, 1],
+                    None,
+                    None,
+                    None,
+                    0.0,
+                    [4, 6, 8, 10, 12],
+                    12,
+                    wlflag=False,
+                    wlhatflag=False,
+                ) # Initialize BondOrder class
+
+        >>> BO.compute() # Do the BondOrder computation.
+
+        >>> BO.qnarray[0] # Check qnarray, it should be [0.19094067 0.57452428 0.40391458 0.01285704 0.60008306].
+
+        >>> BO.identifySolidLiquid() # Identify solid/liquid state.
+
+        >>> BO.solidliquid[0] # Should be 1, that is solid.
+    """
+
     def __init__(
         self,
-        rc,
         pos,
         box,
-        boundary,
+        boundary=[1, 1, 1],
         verlet_list=None,
         distance_list=None,
         neighbor_number=None,
+        rc=0.0,
         qlist=np.array([4, 6, 8, 10, 12], int),
-        nnn=0,
+        nnn=12,
         wlflag=False,
         wlhatflag=False,
         max_neigh=60,
     ):
+
         self.rc = rc
         self.pos = pos
         self.box = box
@@ -218,11 +309,11 @@ class SteinhardtBondOrientation:
         elif isinstance(qlist, np.ndarray):
             self.qlist = qlist.astype(int)
         else:
-            raise "qlist should be a positive even integer (>=4) or List[int]|Tuple[int]|np.array[int]."
+            raise "qlist should be a non-negative integer or List[int]|Tuple[int]|np.array[int]."
         for i in self.qlist:
             assert (
-                i % 2 == 0 and i >= 4
-            ), "qlist should be a positive even integer (>=4) or List[int]|Tuple[int]|np.array[int]."
+                i >= 0
+            ), "qlist should be a non-negative integer or List[int]|Tuple[int]|np.array[int]."
         self.nnn = nnn
         assert self.nnn >= 0, "nnn should be larger than 0."
         if self.nnn > 0:
@@ -234,8 +325,8 @@ class SteinhardtBondOrientation:
         ncol = self.qlist.shape[0]
         if self.wlflag:
             ncol += self.nqlist
-        if self.wlhatflag:
-            ncol += self.nqlist
+            if self.wlhatflag:
+                ncol += self.nqlist
         self.ncol = ncol
         self.nfac_table = ti.field(dtype=ti.f64, shape=nfac_table_numpy.shape)
         self.nfac_table.from_numpy(nfac_table_numpy)
@@ -441,36 +532,38 @@ class SteinhardtBondOrientation:
                             idxcg_count += 1
                     qnarray[i, nqlist + il] = wlsum / ti.sqrt(2 * l + 1)
 
-            if self.wlhatflag:
-                idxcg_count = 0
-                for il in range(nqlist):
-                    l = qlist[il]
-                    wlsum = ti.f64(0.0)
-                    for m1 in range(2 * l + 1):
-                        for m2 in range(
-                            ti.max(0, l - m1), ti.min(2 * l + 1, 3 * l - m1 + 1)
-                        ):
-                            m = m1 + m2 - l
-                            qm1qm2_r = (
-                                qnm_r[i, il, m1] * qnm_r[i, il, m2]
-                                - qnm_i[i, il, m1] * qnm_i[i, il, m2]
+                if self.wlhatflag:
+                    idxcg_count = 0
+                    for il in range(nqlist):
+                        l = qlist[il]
+                        wlsum = ti.f64(0.0)
+                        for m1 in range(2 * l + 1):
+                            for m2 in range(
+                                ti.max(0, l - m1), ti.min(2 * l + 1, 3 * l - m1 + 1)
+                            ):
+                                m = m1 + m2 - l
+                                qm1qm2_r = (
+                                    qnm_r[i, il, m1] * qnm_r[i, il, m2]
+                                    - qnm_i[i, il, m1] * qnm_i[i, il, m2]
+                                )
+                                qm1qm2_i = (
+                                    qnm_r[i, il, m1] * qnm_i[i, il, m2]
+                                    + qnm_i[i, il, m1] * qnm_r[i, il, m2]
+                                )
+                                wlsum += (
+                                    qm1qm2_r * qnm_r[i, il, m]
+                                    + qm1qm2_i * qnm_i[i, il, m]
+                                ) * cglist[idxcg_count]
+                                idxcg_count += 1
+                        if qnarray[i, il] >= 1e-6:
+                            qnormfac = ti.sqrt(4 * ti.math.pi / (2 * l + 1))
+                            qnfac = qnormfac / qnarray[i, il]
+                            qnarray[i, nqlist + nqlist + il] = (
+                                wlsum / ti.sqrt(2 * l + 1) * (qnfac * qnfac * qnfac)
                             )
-                            qm1qm2_i = (
-                                qnm_r[i, il, m1] * qnm_i[i, il, m2]
-                                + qnm_i[i, il, m1] * qnm_r[i, il, m2]
-                            )
-                            wlsum += (
-                                qm1qm2_r * qnm_r[i, il, m] + qm1qm2_i * qnm_i[i, il, m]
-                            ) * cglist[idxcg_count]
-                            idxcg_count += 1
-                    if qnarray[i, il] >= 1e-6:
-                        qnormfac = ti.sqrt(4 * ti.math.pi / (2 * l + 1))
-                        qnfac = qnormfac / qnarray[i, il]
-                        qnarray[i, nqlist + nqlist + il] = (
-                            wlsum / ti.sqrt(2 * l + 1) * (qnfac * qnfac * qnfac)
-                        )
 
     def compute(self):
+        """Do the Steinhardt Bondorder calculation."""
         qmax = self.qlist.max()
         self.qnm_r = np.zeros((self.pos.shape[0], self.nqlist, 2 * qmax + 1))
         self.qnm_i = np.zeros_like(self.qnm_r)
@@ -553,6 +646,12 @@ class SteinhardtBondOrientation:
                 solidliquid[i] = 1
 
     def identifySolidLiquid(self, threshold=0.7, n_bond=7):
+        """Identify the solid/liquid phase. Make sure you computed the 6 in qlist.
+
+        Args:
+            threshold (float, optional): threshold value to determine the solid bond. Defaults to 0.7.
+            n_bond (int, optional): threshold to determine the solid atoms. Defaults to 7.
+        """
         assert 6 in self.qlist, "You must calculate Q6 bond order."
         if not self.if_compute:
             self.compute()
@@ -580,27 +679,27 @@ if __name__ == "__main__":
 
     ti.init()
     start = time()
-    FCC = LatticeMaker(3.615, "BCC", 50, 50, 50)
+    FCC = LatticeMaker(3.615, "FCC", 50, 50, 50)
     FCC.compute()
     print(f"Build FCC time cost: {time()-start} s. Atom number: {FCC.N}.")
 
     start = time()
     BO = SteinhardtBondOrientation(
-        4.0,
         FCC.pos,
         FCC.box,
         [1, 1, 1],
         None,
         None,
         None,
-        [4, 6, 8, 10, 12],
-        8,
+        0.0,
+        [4, 6, 8, 10],
+        12,
         wlflag=False,
-        wlhatflag=False,
+        wlhatflag=True,
     )
     BO.compute()
     print(f"BO time cost: {time()-start} s.")
-    print(BO.qnarray[:10])
+    print(BO.qnarray[0])
     start = time()
     BO.identifySolidLiquid()
     print(f"SolidLiquid time cost: {time()-start} s.")

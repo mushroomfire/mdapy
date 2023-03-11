@@ -734,9 +734,9 @@ class System:
 
     def cal_steinhardt_bond_orientation(
         self,
-        rc=4.0,
+        nnn=12,
         qlist=[6],
-        nnn=0,
+        rc=0.0,
         wlflag=False,
         wlhatflag=False,
         solidliquid=False,
@@ -744,6 +744,59 @@ class System:
         threshold=0.7,
         n_bond=7,
     ):
+        """This function is used to calculate a set of bond-orientational order parameters :math:`Q_{\\ell}` to characterize the local orientational order in atomic structures. We first compute the local order parameters as averages of the spherical harmonics :math:`Y_{\ell m}` for each neighbor:
+
+        .. math:: \\bar{Y}_{\\ell m} = \\frac{1}{nnn}\\sum_{j = 1}^{nnn} Y_{\\ell m}\\bigl( \\theta( {\\bf r}_{ij} ), \\phi( {\\bf r}_{ij} ) \\bigr),
+
+        where the summation goes over the :math:`nnn` nearest neighbor and the :math:`\\theta` and the :math:`\\phi` are the azimuthal and polar
+        angles. Then we can obtain a rotationally invariant non-negative amplitude by summing over all the components of degree :math:`l`:
+
+        .. math:: Q_{\\ell}  = \\sqrt{\\frac{4 \\pi}{2 \\ell  + 1} \\sum_{m = -\\ell }^{m = \\ell } \\bar{Y}_{\\ell m} \\bar{Y}^*_{\\ell m}}.
+
+        For a FCC lattice with :math:`nnn=12`, :math:`Q_4 = \\sqrt{\\frac{7}{192}} \\approx 0.19094`. More numerical values for commonly encountered high-symmetry structures are listed in Table 1 of `J. Chem. Phys. 138, 044501 (2013) <https://aip.scitation.org/doi/abs/10.1063/1.4774084>`_, and all data can be reproduced by this class.
+
+        If :math:`wlflag` is True, this class will compute the third-order invariants :math:`W_{\\ell}` for the same degrees as for the :math:`Q_{\\ell}` parameters:
+
+        .. math:: W_{\\ell} = \\sum \\limits_{m_1 + m_2 + m_3 = 0} \\begin{pmatrix}\\ell & \\ell & \\ell \\\m_1 & m_2 & m_3\\end{pmatrix}\\bar{Y}_{\\ell m_1} \\bar{Y}_{\\ell m_2} \\bar{Y}_{\\ell m_3}.
+
+        For FCC lattice with :math:`nnn=12`, :math:`W_4 = -\\sqrt{\\frac{14}{143}} \\left(\\frac{49}{4096}\\right) \\pi^{-3/2} \\approx -0.0006722136`.
+
+        If :math:`wlhatflag` is true, the normalized third-order invariants :math:`\\hat{W}_{\\ell}` will be computed:
+
+        .. math:: \\hat{W}_{\\ell} = \\frac{\\sum \\limits_{m_1 + m_2 + m_3 = 0} \\begin{pmatrix}\\ell & \\ell & \\ell \\\m_1 & m_2 & m_3\\end{pmatrix}\\bar{Y}_{\\ell m_1} \\bar{Y}_{\\ell m_2} \\bar{Y}_{\\ell m_3}}{\\left(\\sum \\limits_{m=-l}^{l} |\\bar{Y}_{\ell m}|^2 \\right)^{3/2}}.
+
+        For FCC lattice with :math:`nnn=12`, :math:`\\hat{W}_4 = -\\frac{7}{3} \\sqrt{\\frac{2}{429}} \\approx -0.159317`. More numerical values of :math:`\\hat{W}_{\\ell}` can be found in Table 1 of `Phys. Rev. B 28, 784 <https://doi.org/10.1103/PhysRevB.28.784>`_, and all data can be reproduced by this class.
+
+        .. hint:: If you use this class in your publication, you should cite the original paper:
+
+        `Steinhardt P J, Nelson D R, Ronchetti M. Bond-orientational order in liquids and glasses[J]. Physical Review B, 1983, 28(2): 784. <https://doi.org/10.1103/PhysRevB.28.784>`_
+
+        .. note:: This class is translated from that in `LAMMPS <https://docs.lammps.org/compute_orientorder_atom.html>`_.
+
+        We also further implement the bond order to identify the solid or liquid state for lattice structure. For FCC structure, one can compute the normalized cross product:
+
+        .. math:: s_\\ell(i,j) = \\frac{4\\pi}{2\\ell + 1} \\frac{\\sum_{m=-\\ell}^{\\ell} \\bar{Y}_{\\ell m}(i) \\bar{Y}_{\\ell m}^*(j)}{Q_\\ell(i) Q_\\ell(j)}.
+
+        According to `J. Chem. Phys. 133, 244115 (2010) <https://doi.org/10.1063/1.3506838>`_, when :math:`s_6(i, j)` is larger than a threshold value (typically 0.7), the bond is regarded as a solid bond. Id the number of solid bond is larger than a threshold (6-8), the atom is considered as solid phase.
+
+        .. hint:: If you set `solidliquid` is True in your publication, you should cite the original paper:
+
+        `Filion L, Hermes M, Ni R, et al. Crystal nucleation of hard spheres using molecular dynamics, umbrella sampling, and forward flux sampling: A comparison of simulation techniques[J]. The Journal of chemical physics, 2010, 133(24): 244115. <https://doi.org/10.1063/1.3506838>`_
+
+        Args:
+            nnn (int, optional): the number of nearest neighbors used to calculate :math:`Q_{\ell}`. If :math:`nnn > 0`, the :math:`rc` has no effects, otherwise the summation will go over all neighbors within :math:`rc`. Defaults to 12.
+            qlist (list, optional): the list of order parameters to be computed, which should be a non-negative integer. Defaults to [6].
+            rc (float, optional): cutoff distance to find neighbors. Defaults to 0.0.
+            wlflag (bool, optional): whether calculate the third-order invariants :math:`W_{\ell}`. Defaults to False.
+            wlhatflag (bool, optional): whether calculate the normalized third-order invariants :math:`\hat{W}_{\ell}`. If :math:`wlflag` is False, this parameter has no effect. Defaults to False.
+            solidliquid (bool, optional): whether identify the solid/liquid phase. Defaults to False.
+            max_neigh (int, optional): a given maximum neighbor number per atoms. Defaults to 60.
+            threshold (float, optional): threshold value to determine the solid bond. Defaults to 0.7.
+            n_bond (int, optional): threshold to determine the solid atoms. Defaults to 7.
+
+        Outputs:
+            - **The result is added in self.data[['ql', 'wl', 'whl', 'solidliquid']]**.
+        """
         distance_list, verlet_list, neighbor_number = None, None, None
         if nnn > 0:
             if self.if_neigh:
@@ -767,13 +820,13 @@ class System:
             )
 
         SBO = SteinhardtBondOrientation(
-            rc,
             self.pos,
             self.box,
             self.boundary,
             verlet_list,
             distance_list,
             neighbor_number,
+            rc,
             qlist,
             nnn,
             wlflag,
@@ -853,8 +906,49 @@ class System:
         return_atomic_distance=False,
         return_wxyz=False,
     ):
+        """This function identifies the local structural environment of particles using the Polyhedral Template Matching (PTM) method, which shows greater reliability than e.g. `Common Neighbor Analysis (CNA) <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.common_neighbor_analysis>`_. It can identify the following structure:
+
+        1. other = 0
+        2. fcc = 1
+        3. hcp = 2
+        4. bcc = 3
+        5. ico (icosahedral) = 4
+        6. sc (simple cubic) = 5
+        7. dcub (diamond cubic) = 6
+        8. dhex (diamond hexagonal) = 7
+        9. graphene = 8
+
+        .. hint:: If you use this class in publication, you should cite the original papar:
+
+          `Larsen P M, Schmidt S, Schiøtz J. Robust structural identification via polyhedral template matching[J]. Modelling and Simulation in Materials Science and Engineering, 2016, 24(5): 055007. <10.1088/0965-0393/24/5/055007>`_
+
+        .. note:: The present version is translated from that in `LAMMPS <https://docs.lammps.org/compute_ptm_atom.html>`_ and only can run serially, we will try to make it parallel.
+
+
+        Args:
+            structure (str, optional): the structure one want to identify, one can choose from ["fcc","hcp","bcc","ico","sc","dcub","dhex","graphene","all","default"], such as 'fcc-hcp-bcc'. 'default' represents 'fcc-hcp-bcc-ico'. Defaults to 'default'.
+            rmsd_threshold (float, optional): rmsd threshold. Defaults to 0.1.
+            return_rmsd (bool, optional): whether return rmsd. Defaults to False.
+            return_atomic_distance (bool, optional): whether return interatomic distance. Defaults to False.
+            return_wxyz (bool, optional): whether return local structure orientation. Defaults to False.
+
+        Outputs:
+            - **The result is added in self.data['structure_types']**.
+        """
+        verlet_list = None
+        if self.if_neigh:
+            if self.neighbor_number.min() >= 18:
+                _partition_select_sort(self.verlet_list, self.distance_list, 18)
+                verlet_list = self.verlet_list
+
         ptm = PolyhedralTemplateMatching(
-            structure, self.pos, self.box, self.boundary, rmsd_threshold, False
+            self.pos,
+            self.box,
+            self.boundary,
+            structure,
+            rmsd_threshold,
+            verlet_list,
+            False,
         )
         ptm.compute()
         self.data["structure_types"] = np.array(ptm.output[:, 0], int)

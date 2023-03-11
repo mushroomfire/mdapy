@@ -3,11 +3,36 @@
 
 import numpy as np
 from scipy.spatial import KDTree
+import taichi as ti
+
+
+@ti.kernel
+def _wrap_pos(
+    pos: ti.types.ndarray(), box: ti.types.ndarray(), boundary: ti.types.ndarray()
+):
+    """This function is used to wrap particle positions into box considering periodic boundarys.
+
+    Args:
+        pos (ti.types.ndarray): (Nx3) particle position.
+
+        box (ti.types.ndarray): (3x2) system box.
+
+        boundary (ti.types.ndarray): boundary conditions, 1 is periodic and 0 is free boundary.
+    """
+    boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
+    for i in range(pos.shape[0]):
+        for j in ti.static(range(3)):
+            if boundary[j] == 1:
+                while pos[i, j] < box[j, 0]:
+                    pos[i, j] += boxlength[j]
+                while pos[i, j] >= box[j, 1]:
+                    pos[i, j] -= boxlength[j]
 
 
 class kdtree:
     """This class is a wrapper of `kdtree of scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html>`_
     and helful to obtain the certain nearest atom neighbors considering the periodic/free boundary.
+    One can install `pyfnntw <https://github.com/cavemanloverboy/FNNTW>`_ to accelerate this module.
     If you want to access the atom neighbor within a spherical
     distance, the Neighbor class is suggested.
 
@@ -36,10 +61,21 @@ class kdtree:
     """
 
     def __init__(self, pos, box, boundary):
-
-        self.shift_pos = pos - np.min(pos, axis=0)
+        if_wrap = False
+        lower, upper = np.min(pos, axis=0), np.max(pos, axis=0)
+        for i in range(3):
+            if lower[i] < box[i, 0] or upper[i] > box[i, 1]:
+                if_wrap = True
+                break
+        if if_wrap:
+            new_pos = pos.copy()
+            _wrap_pos(new_pos, box, np.array(boundary, int))
+            self.shift_pos = new_pos - np.min(new_pos, axis=0)
+        else:
+            self.shift_pos = np.ascontiguousarray(pos - lower)  # for pyfnntw backend.
         self.box = box
         self.boundary = boundary
+        self._use_pyfnntw = False
         self._init()
 
     def _init(self):
@@ -51,21 +87,71 @@ class kdtree:
                 for i in range(3)
             ]
         )
+        try:
+            import pyfnntw
 
-        self.kdt = KDTree(self.shift_pos, leafsize=32, boxsize=boxsize)
+            if self.shift_pos.dtype == np.float64:
+                if self.shift_pos.shape[0] < 10**6:
+                    self.kdt = pyfnntw.Treef64(
+                        self.shift_pos,
+                        leafsize=32,
+                        par_split_level=1,
+                        boxsize=boxsize,
+                    )
+                elif self.shift_pos.shape[0] < 10**7:
+                    self.kdt = pyfnntw.Treef64(
+                        self.shift_pos,
+                        leafsize=32,
+                        par_split_level=2,
+                        boxsize=boxsize,
+                    )
+                else:
+                    self.kdt = pyfnntw.Treef64(
+                        self.shift_pos,
+                        leafsize=32,
+                        par_split_level=4,
+                        boxsize=boxsize,
+                    )
+            elif self.shift_pos.dtype == np.float32:
+                if self.shift_pos.shape[0] < 10**6:
+                    self.kdt = pyfnntw.Treef32(
+                        self.shift_pos,
+                        leafsize=32,
+                        par_split_level=1,
+                        boxsize=boxsize,
+                    )
+                elif self.shift_pos.shape[0] < 10**7:
+                    self.kdt = pyfnntw.Treef32(
+                        self.shift_pos,
+                        leafsize=32,
+                        par_split_level=2,
+                        boxsize=boxsize,
+                    )
+                else:
+                    self.kdt = pyfnntw.Treef32(
+                        self.shift_pos,
+                        leafsize=32,
+                        par_split_level=4,
+                        boxsize=boxsize,
+                    )
+            self._use_pyfnntw = True
+        except Exception:
+            self.kdt = KDTree(self.shift_pos, leafsize=32, boxsize=boxsize)
 
     def query_nearest_neighbors(self, n, workers=-1):
         """Query the :math:`n` nearest atom neighbors.
 
         Args:
             n (int): number of neighbors to query.
-            worker (int): maximum cores used. Defaults to -1, indicating use all aviliable cores.
+            worker (int): maximum cores used. Defaults to -1, indicating use all aviliable cores. Only works for scipy backend.
 
         Returns:
             tuple: (distance, index), distance of atom :math:`i` to its neighbor atom :math:`j`, and the index of atom :math:`j`.
         """
-        
-        dis, index = self.kdt.query(self.shift_pos, k=n + 1, workers=workers)
+        if self._use_pyfnntw:
+            dis, index = self.kdt.query(self.shift_pos, n + 1)
+        else:
+            dis, index = self.kdt.query(self.shift_pos, k=n + 1, workers=workers)
         return np.ascontiguousarray(dis[:, 1:]), np.ascontiguousarray(index[:, 1:])
 
 
@@ -74,7 +160,6 @@ if __name__ == "__main__":
     import taichi as ti
     from time import time
 
-    # ti.init(ti.gpu, device_memory_GB=5.0)
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
@@ -83,14 +168,13 @@ if __name__ == "__main__":
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-    np.random.seed(10)
-    noise = np.random.rand(*FCC.pos.shape)
-    FCC.pos += noise / 10
+    FCC.pos -= 0.2
+    print(np.min(FCC.pos, axis=0))
     start = time()
     kdt = kdtree(FCC.pos, FCC.box, [1, 1, 1])
     end = time()
     print(f"Build kdtree time: {end-start} s.")
-
+    print(np.min(FCC.pos, axis=0))
     start = time()
     dis, index = kdt.query_nearest_neighbors(12)
     end = time()
@@ -98,5 +182,3 @@ if __name__ == "__main__":
 
     print(dis[0])
     print(index[0])
-
-    # FCC.write_data()

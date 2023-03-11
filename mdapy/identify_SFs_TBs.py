@@ -3,7 +3,7 @@ import numpy as np
 
 
 @ti.data_oriented
-class IdentifySFTWinFCC:
+class IdentifySFTBinFCC:
     def __init__(self, structure_types, verlet_list) -> None:
         self.structure_types = structure_types
         self.verlet_list = verlet_list
@@ -197,11 +197,11 @@ if __name__ == "__main__":
     structure_type = np.array(ptm.output[:, 0], int)
     verlet_list = np.ascontiguousarray(ptm.ptm_indices[structure_type == 2][:, 1:13])
 
-    SFTW = IdentifySFTWinFCC(structure_type, verlet_list)
-    SFTW.compute()
-    print(f"SFTW time cost: {time()-start} s.")
-    print(SFTW.fault_types)
-    print(SFTW.structure_types)
-    system.data["fault_types"] = SFTW.fault_types
-    system.data["structure_types"] = SFTW.structure_types
+    SFTB = IdentifySFTBinFCC(structure_type, verlet_list)
+    SFTB.compute()
+    print(f"SFTB time cost: {time()-start} s.")
+    print(SFTB.fault_types)
+    print(SFTB.structure_types)
+    system.data["fault_types"] = SFTB.fault_types
+    system.data["structure_types"] = SFTB.structure_types
     system.write_dump()

@@ -41,6 +41,7 @@ Optional Dependencies
 
 * `SciencePlots <https://github.com/garrettj403/SciencePlots>`_ (Optional, for plotting results)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
+* `pyfnntw>=0.4.1 <https://github.com/cavemanloverboy/FNNTW>`_ (Optional, for fast KNN search)
 
 
 Installation
@@ -85,8 +86,9 @@ Usage
 
 Citation
 ---------
-
-If you use mdapy in your publication, you can star it and cite it as below:
+If you find **mdapy** useful, you can start it!
+If you use **mdapy** in your scientific publication, because the paper is under
+review on *Computer Physics Communication* and you can cite its preprint version as below:
 
 .. code-block:: bash
 

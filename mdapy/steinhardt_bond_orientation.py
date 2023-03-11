@@ -1,6 +1,16 @@
 import numpy as np
 import taichi as ti
 
+try:
+    from .neighbor import Neighbor
+except Exception:
+    from neighbor import Neighbor
+
+try:
+    from .kdtree import kdtree
+except Exception:
+    from kdtree import kdtree
+
 nfac_table_numpy = np.array(
     [
         1,
@@ -183,13 +193,14 @@ class SteinhardtBondOrientation:
         pos,
         box,
         boundary,
-        verlet_list,
-        distance_list,
-        neighbor_number,
+        verlet_list=None,
+        distance_list=None,
+        neighbor_number=None,
         qlist=np.array([4, 6, 8, 10, 12], int),
         nnn=0,
         wlflag=False,
         wlhatflag=False,
+        max_neigh=60,
     ):
         self.rc = rc
         self.pos = pos
@@ -229,6 +240,7 @@ class SteinhardtBondOrientation:
         self.nfac_table = ti.field(dtype=ti.f64, shape=nfac_table_numpy.shape)
         self.nfac_table.from_numpy(nfac_table_numpy)
         self.if_compute = False
+        self.max_neigh = max_neigh
 
     @ti.func
     def _factorial(self, n: int) -> ti.f64:
@@ -467,18 +479,37 @@ class SteinhardtBondOrientation:
         if self.wlflag or self.wlhatflag:
             self._init_clebsch_gordan(cglist, self.qlist)
         self.qnarray = np.zeros((self.pos.shape[0], self.ncol))
-        if self.nnn > 0:
-            neighbor_number = np.ones(self.pos.shape[0], int) * self.nnn
-        elif self.nnn == 0:
-            neighbor_number = self.neighbor_number
 
+        if self.verlet_list is None or self.distance_list is None:
+            if self.nnn > 0:
+                kdt = kdtree(self.pos, self.box, self.boundary)
+                self.distance_list, self.verlet_list = kdt.query_nearest_neighbors(
+                    self.nnn
+                )
+                self.neighbor_number = np.ones(self.pos.shape[0], int) * self.nnn
+            else:
+                assert self.rc > 0.0, "one of rc and nnn at least is positive."
+                neigh = Neighbor(
+                    self.pos, self.box, self.rc, self.boundary, max_neigh=self.max_neigh
+                )
+                neigh.compute()
+                self.distance_list, self.verlet_list, self.neighbor_number = (
+                    neigh.verlet_list,
+                    neigh.distance_list,
+                    neigh.neighbor_number,
+                )
+        else:
+            if self.nnn > 0:
+                assert (
+                    self.neighbor_number.min() >= self.nnn
+                ), "The minimum of neighbor_number should be larger than nnn."
         self._compute(
             self.pos,
             self.box,
             self.boundary,
             self.verlet_list,
             self.distance_list,
-            neighbor_number,
+            self.neighbor_number,
             self.qlist,
             self.qnm_r,
             self.qnm_i,
@@ -545,30 +576,25 @@ class SteinhardtBondOrientation:
 if __name__ == "__main__":
 
     from lattice_maker import LatticeMaker
-    from neighbor import Neighbor
     from time import time
 
     ti.init()
     start = time()
-    FCC = LatticeMaker(3.615, "FCC", 100, 100, 100)
+    FCC = LatticeMaker(3.615, "BCC", 50, 50, 50)
     FCC.compute()
     print(f"Build FCC time cost: {time()-start} s. Atom number: {FCC.N}.")
-    start = time()
-    neigh = Neighbor(FCC.pos, FCC.box, 3.0, max_neigh=13)
-    neigh.compute()
-    print(f"Build neighbor cost: {time()-start} s.")
-    print(neigh.neighbor_number.max())
+
     start = time()
     BO = SteinhardtBondOrientation(
         4.0,
         FCC.pos,
         FCC.box,
         [1, 1, 1],
-        neigh.verlet_list,
-        neigh.distance_list,
-        neigh.neighbor_number,
-        6,
-        12,
+        None,
+        None,
+        None,
+        [4, 6, 8, 10, 12],
+        8,
         wlflag=False,
         wlhatflag=False,
     )

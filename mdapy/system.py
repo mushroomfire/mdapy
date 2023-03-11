@@ -35,9 +35,17 @@ try:
 except Exception:
     from entropy import AtomicEntropy
 try:
+    from .identify_SFs_TBs import IdentifySFTBinFCC
+except Exception:
+    from identify_SFs_TBs import IdentifySFTBinFCC
+try:
     from .pair_distribution import PairDistribution
 except Exception:
     from pair_distribution import PairDistribution
+try:
+    from .polyhedral_template_matching import PolyhedralTemplateMatching
+except Exception:
+    from polyhedral_template_matching import PolyhedralTemplateMatching
 try:
     from .cluser_analysis import ClusterAnalysis
 except Exception:
@@ -80,11 +88,6 @@ try:
     from .steinhardt_bond_orientation import SteinhardtBondOrientation
 except Exception:
     from steinhardt_bond_orientation import SteinhardtBondOrientation
-
-try:
-    from .kdtree import kdtree
-except Exception:
-    from kdtree import kdtree
 
 
 @ti.kernel
@@ -724,16 +727,9 @@ class System:
                 use_verlet = True
 
         if not use_verlet:
-            try:
-                AcklandJonesAna = AcklandJonesAnalysis(
-                    self.pos, self.box, self.boundary
-                )
-                AcklandJonesAna.compute()
-            except Exception:
-                pos = self.pos.copy()  # a deep copy can be modified
-                _wrap_pos(pos, self.box, np.array(self.boundary))
-                AcklandJonesAna = AcklandJonesAnalysis(pos, self.box, self.boundary)
-                AcklandJonesAna.compute()
+            AcklandJonesAna = AcklandJonesAnalysis(self.pos, self.box, self.boundary)
+            AcklandJonesAna.compute()
+
         self.data["aja"] = AcklandJonesAna.aja
 
     def cal_steinhardt_bond_orientation(
@@ -748,45 +744,41 @@ class System:
         threshold=0.7,
         n_bond=7,
     ):
+        distance_list, verlet_list, neighbor_number = None, None, None
         if nnn > 0:
-            use = False
             if self.if_neigh:
                 if self.neighbor_number.min() >= nnn:
                     _partition_select_sort(self.verlet_list, self.distance_list, nnn)
-                    use = True
-            if not use:
-                try:
-                    kdt = kdtree(self.pos, self.box, self.boundary)
-                    self.distance_list, self.verlet_list = kdt.query_nearest_neighbors(
-                        nnn
+                    verlet_list, distance_list, neighbor_number = (
+                        self.verlet_list,
+                        self.distance_list,
+                        self.neighbor_number,
                     )
-                except Exception:
-                    pos = self.pos.copy()  # a deep copy can be modified
-                    _wrap_pos(pos, self.box, np.array(self.boundary))
-                    kdt = kdtree(self.pos, self.box, self.boundary)
-                    self.distance_list, self.verlet_list = kdt.query_nearest_neighbors(
-                        nnn
-                    )
-                self.neighbor_number = np.ones(self.N, int) * nnn
-                self.rc = self.distance_list.max()
         else:
             if not self.if_neigh:
                 self.build_neighbor(rc=rc, max_neigh=max_neigh)
             elif self.rc < rc:
                 self.build_neighbor(rc=rc, max_neigh=max_neigh)
 
+            verlet_list, distance_list, neighbor_number = (
+                self.verlet_list,
+                self.distance_list,
+                self.neighbor_number,
+            )
+
         SBO = SteinhardtBondOrientation(
             rc,
             self.pos,
             self.box,
             self.boundary,
-            self.verlet_list,
-            self.distance_list,
-            self.neighbor_number,
+            verlet_list,
+            distance_list,
+            neighbor_number,
             qlist,
             nnn,
             wlflag,
             wlhatflag,
+            max_neigh,
         )
         SBO.compute()
         columns = []
@@ -846,19 +838,53 @@ class System:
                 use_verlet = True
 
         if not use_verlet:
-            try:
-                CentroSymmetryPara = CentroSymmetryParameter(
-                    N, self.pos, self.box, self.boundary
-                )
-                CentroSymmetryPara.compute()
-            except Exception:
-                pos = self.pos.copy()  # a deep copy can be modified
-                _wrap_pos(pos, self.box, np.array(self.boundary))
-                CentroSymmetryPara = CentroSymmetryParameter(
-                    N, pos, self.box, self.boundary
-                )
-                CentroSymmetryPara.compute()
+            CentroSymmetryPara = CentroSymmetryParameter(
+                N, self.pos, self.box, self.boundary
+            )
+            CentroSymmetryPara.compute()
+
         self.data["csp"] = CentroSymmetryPara.csp
+
+    def cal_polyhedral_template_matching(
+        self,
+        structure="default",
+        rmsd_threshold=0.1,
+        return_rmsd=False,
+        return_atomic_distance=False,
+        return_wxyz=False,
+    ):
+        ptm = PolyhedralTemplateMatching(
+            structure, self.pos, self.box, self.boundary, rmsd_threshold, False
+        )
+        ptm.compute()
+        self.data["structure_types"] = np.array(ptm.output[:, 0], int)
+        if return_rmsd:
+            self.data["rmsd"] = ptm.output[:, 1]
+        if return_atomic_distance:
+            self.data["interatomic_distance"] = ptm.output[:, 2]
+        if return_wxyz:
+            self.data[["qw", "qx", "qy", "qz"]] = ptm.output[:, 3:]
+
+    def cal_identify_SFs_TBs(
+        self,
+        rmsd_threshold=0.1,
+    ):
+        ptm = PolyhedralTemplateMatching(
+            "default", self.pos, self.box, self.boundary, rmsd_threshold, True
+        )
+        ptm.compute()
+        structure_types = np.array(ptm.output[:, 0], int)
+        if 2 in structure_types:
+            verlet_list = np.ascontiguousarray(
+                ptm.ptm_indices[structure_types == 2][:, 1:13]
+            )
+            SFTB = IdentifySFTBinFCC(structure_types, verlet_list)
+            SFTB.compute()
+            self.data["fault_types"] = SFTB.fault_types
+            self.data["structure_types"] = SFTB.structure_types
+        else:
+            self.data["fault_types"] = 0
+            self.data["structure_types"] = structure_types
 
     def cal_atomic_entropy(
         self,

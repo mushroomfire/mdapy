@@ -963,8 +963,20 @@ class System:
         self,
         rmsd_threshold=0.1,
     ):
+        verlet_list = None
+        if self.if_neigh:
+            if self.neighbor_number.min() >= 18:
+                _partition_select_sort(self.verlet_list, self.distance_list, 18)
+                verlet_list = self.verlet_list
+
         ptm = PolyhedralTemplateMatching(
-            "default", self.pos, self.box, self.boundary, rmsd_threshold, True
+            self.pos,
+            self.box,
+            self.boundary,
+            "default",
+            rmsd_threshold,
+            verlet_list,
+            True,
         )
         ptm.compute()
         structure_types = np.array(ptm.output[:, 0], int)

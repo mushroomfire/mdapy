@@ -133,12 +133,12 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    FCC = LatticeMaker(1.42, "GRA", 10, 10, 10)
+    FCC = LatticeMaker(3.615, "FCC", 10, 10, 10)
     FCC.compute()
 
     start = time()
     ptm = PolyhedralTemplateMatching(
-        FCC.pos, FCC.box, structure="graphene", return_verlet=True
+        FCC.pos, FCC.box, structure="default", return_verlet=True
     )
     ptm.compute()
     print(f"PTM time cost: {time()-start} s.")

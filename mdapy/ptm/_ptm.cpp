@@ -50,7 +50,7 @@ static int get_neighbours(void *vdata, size_t central_index,
 
 typedef py::array_t<double, py::array::c_style | py::array::forcecast> double_py;
 typedef py::array_t<int, py::array::c_style | py::array::forcecast> int_py;
-void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<double> cboxsize, py::array_t<int> cboundary, py::array_t<double> coutput, double rmsd_threshold, py::array_t<int> cptm_indices)
+void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<double> cboxsize, py::array_t<int> cboundary, py::array_t<double> coutput, double rmsd_threshold, py::array cptm_indices)
 {
     auto pos_buf = pos.request();
     auto verlet_buf = verlet_list.request();
@@ -61,7 +61,7 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
     double **c_pos = new double *[pos_rows];
     int **c_verlet = new int *[pos_rows];
     auto output = coutput.mutable_unchecked<2>();
-    auto ptm_indices = cptm_indices.mutable_unchecked<2>();
+    auto ptm_indices = cptm_indices.mutable_unchecked<int, 2>();
     for (int i = 0; i < pos_rows; i++)
     {
         c_pos[i] = pos_ptr + i * 3;
@@ -116,8 +116,7 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
     }
 
     ptmnbrdata_t nbrlist = {c_pos, boxsize, c_verlet, boundary};
-    // std::cout << "Starting loop ptm..." << std::endl;
-    // #pragma omp parallel for
+
     for (int i = 0; i < pos_rows; i++)
     {
         output(i, 0) = -1.0;
@@ -125,13 +124,8 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
         double scale, rmsd, interatomic_distance;
         double q[4];
         bool standard_orientations = false;
-        size_t ouput_indices[18];
-        size_t *p;
-        p = &ouput_indices[0];
-        for (int k = 0; k < 18; k++)
-        {
-            p[k] = -1;
-        }
+        size_t p[18];
+
         ptm_index(local_handle, i, get_neighbours, (void *)&nbrlist,
                   input_flags, standard_orientations,
                   &type, &alloy_type, &scale, &rmsd, q,
@@ -145,6 +139,7 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
         {
             ptm_indices(i, k) = p[k];
         }
+
         output(i, 0) = type;
         output(i, 1) = rmsd;
         output(i, 2) = interatomic_distance;

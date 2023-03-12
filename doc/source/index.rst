@@ -21,7 +21,6 @@ Resources
 
 - Homepage: `https://github.com/mushroomfire/mdapy <https://github.com/mushroomfire/mdapy>`_
 - Documentation: `https://mdapy.readthedocs.io/ <https://mdapy.readthedocs.io/>`_
-- Source Code: `https://github.com/mushroomfire/mdapy <https://github.com/mushroomfire/mdapy>`_
 - Issue Tracker: `https://github.com/mushroomfire/mdapy/issues <https://github.com/mushroomfire/mdapy/issues>`_
 
 Dependencies

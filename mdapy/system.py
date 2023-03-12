@@ -963,6 +963,26 @@ class System:
         self,
         rmsd_threshold=0.1,
     ):
+        """This function is used to identify the stacking faults (SFs) and coherent twin boundaries (TBs) in FCC structure based on the `Polyhedral Template Matching (PTM) <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.polyhedral_template_matching>`_.
+        It can identify the following structure:
+
+        1. 0 = Non-hcp atoms (e.g. perfect fcc or disordered)
+        2. 1 = Indeterminate hcp-like (isolated hcp-like atoms, not forming a planar defect)
+        3. 2 = Intrinsic stacking fault (two adjacent hcp-like layers)
+        4. 3 = Coherent twin boundary (one hcp-like layer)
+        5. 4 = Multi-layer stacking fault (three or more adjacent hcp-like layers)
+
+        .. note:: This class is translated from that `implementation in Ovito <https://www.ovito.org/docs/current/reference/pipelines/modifiers/identify_fcc_planar_faults.html#modifiers-identify-fcc-planar-faults>`_ but optimized to be run parallely.
+          And so-called multi-layer stacking faults maybe a combination of intrinsic stacking faults and/or twin boundary which are located on adjacent {111} plane. It can not be distiguished by the current method.
+
+
+        Args:
+            rmsd_threshold (float, optional): rmsd_threshold for ptm method. Defaults to 0.1.
+
+        Outputs:
+            - **The result is added in self.data['structure_types']**.
+            - **The result is added in self.data['fault_types']**.
+        """
         verlet_list = None
         if self.if_neigh:
             if self.neighbor_number.min() >= 18:
@@ -986,11 +1006,12 @@ class System:
             )
             SFTB = IdentifySFTBinFCC(structure_types, verlet_list)
             SFTB.compute()
-            self.data["fault_types"] = SFTB.fault_types
             self.data["structure_types"] = SFTB.structure_types
+            self.data["fault_types"] = SFTB.fault_types
+
         else:
-            self.data["fault_types"] = 0
             self.data["structure_types"] = structure_types
+            self.data["fault_types"] = 0
 
     def cal_atomic_entropy(
         self,

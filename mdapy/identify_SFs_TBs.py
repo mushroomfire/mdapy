@@ -4,12 +4,56 @@ import numpy as np
 
 @ti.data_oriented
 class IdentifySFTBinFCC:
+    """This class is used to identify the stacking faults (SFs) and coherent twin boundaries (TBs) in FCC structure based on the `Polyhedral Template Matching (PTM) <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.polyhedral_template_matching>`_.
+    It can identify the following structure:
+
+    1. 0 = Non-hcp atoms (e.g. perfect fcc or disordered)
+    2. 1 = Indeterminate hcp-like (isolated hcp-like atoms, not forming a planar defect)
+    3. 2 = Intrinsic stacking fault (two adjacent hcp-like layers)
+    4. 3 = Coherent twin boundary (one hcp-like layer)
+    5. 4 = Multi-layer stacking fault (three or more adjacent hcp-like layers)
+
+    .. note:: This class is translated from that `implementation in Ovito <https://www.ovito.org/docs/current/reference/pipelines/modifiers/identify_fcc_planar_faults.html#modifiers-identify-fcc-planar-faults>`_ but optimized to be run parallely.
+      And so-called multi-layer stacking faults maybe a combination of intrinsic stacking faults and/or twin boundary which are located on adjacent {111} plane. It can not be distiguished by the current method.
+
+    Args:
+        structure_types (np.ndarray): (:math:`N_p`) structure type from ptm method.
+        verlet_list (np.ndarray): (:math:`N_p, 12`) ptm ordered verlet_list for hcp-like atoms.
+
+    Outputs:
+        - **fault_types** (np.ndarray) - (:math:`N_p`) planar faults types.
+
+    Examples:
+
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> system = mp.System(r"./example/ISF.dump") # Read dump
+
+        >>> ptm = PolyhedralTemplateMatching(
+                    system.pos, system.box, system.boundary, "default", 0.1, None, True
+                    ) # Initilize ptm method.
+
+        >>> ptm.compute() # Compute ptm per atoms.
+
+        >>> structure_type = np.array(ptm.output[:, 0], int) # Obtain ptm structure
+
+        >>> verlet_list = np.ascontiguousarray(ptm.ptm_indices[structure_type == 2][:, 1:13]) # Obtain ptm neighbor
+
+        >>> SFTB = IdentifySFTBinFCC(structure_type, verlet_list) # Initialize SFTB class
+
+        >>> SFTB.compute() # Compute the planar faults type
+
+        >>> SFTB.fault_types # Check results
+    """
+
     def __init__(self, structure_types, verlet_list) -> None:
         self.structure_types = structure_types
         self.verlet_list = verlet_list
 
     @ti.func
-    def are_stacked(
+    def _are_stacked(
         self,
         a: int,
         b: int,
@@ -31,7 +75,7 @@ class IdentifySFTBinFCC:
         return res
 
     @ti.func
-    def binary_search(self, arr: ti.types.ndarray(), value) -> int:
+    def _binary_search(self, arr: ti.types.ndarray(), value) -> int:
         left, right = 0, arr.shape[0] - 1
         mid = 0
         while left <= right:
@@ -62,7 +106,7 @@ class IdentifySFTBinFCC:
             for j in range(12):
                 bindex = verlet_list[i, j]
                 if structure_types[bindex] == 2:  # HCP
-                    hcp_neighbors[i, j] = self.binary_search(hcp_indices, bindex)
+                    hcp_neighbors[i, j] = self._binary_search(hcp_indices, bindex)
                 else:
                     hcp_neighbors[i, j] = ti.i32(-bindex - 1)
 
@@ -80,7 +124,7 @@ class IdentifySFTBinFCC:
                 if hcp_neighbors[i, j] >= 0:
                     if layer_dir[j] == 0:
                         n_basal += 1
-                    elif self.are_stacked(
+                    elif self._are_stacked(
                         i, hcp_neighbors[i, j], basal_neighbors, hcp_neighbors
                     ):
                         if layer_dir[j] == 1:
@@ -158,6 +202,8 @@ class IdentifySFTBinFCC:
     def compute(
         self,
     ):
+        """Do the real computation.
+        """
         assert 2 in self.structure_types, "Sample mush include HCP atoms."
         hcp_indices = np.where(self.structure_types == 2)[0].astype(int)
         hcp_neighbors = np.zeros((hcp_indices.shape[0], 12), dtype=int)
@@ -184,12 +230,10 @@ if __name__ == "__main__":
     from system import System
     from polyhedral_template_matching import PolyhedralTemplateMatching
 
-    system = System(
-        r"C:\Users\Administrator\Desktop\python\MY_PACKAGE\MyPackage\IdentifySFTB\ISF.dump"
-    )
+    system = System(r"./example/ISF.dump")
 
     ptm = PolyhedralTemplateMatching(
-        "default", system.pos, system.box, system.boundary, 0.1, True
+        system.pos, system.box, system.boundary, "default", 0.1, None, True
     )
     ptm.compute()
 
@@ -202,6 +246,6 @@ if __name__ == "__main__":
     print(f"SFTB time cost: {time()-start} s.")
     print(SFTB.fault_types)
     print(SFTB.structure_types)
-    system.data["fault_types"] = SFTB.fault_types
     system.data["structure_types"] = SFTB.structure_types
-    system.write_dump()
+    system.data["fault_types"] = SFTB.fault_types
+    # system.write_dump()

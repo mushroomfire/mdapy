@@ -69,7 +69,7 @@ Install from source code.
 
       git clone https://github.com/mushroomfire/mdapy.git
       cd mdapy 
-      python setup.py install
+      pip install .
 
 Usage
 ------

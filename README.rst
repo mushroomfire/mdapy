@@ -164,6 +164,12 @@ You can try:
 Release Notes
 --------------
 
+V0.8.2
+^^^^^^^^^
+
+- Fix bugs of unwrap positions.
+- Fix a typo error in msd.
+
 V0.8.1
 ^^^^^^^
 

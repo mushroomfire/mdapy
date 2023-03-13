@@ -168,12 +168,16 @@ def _unwrap_pos_without_image_p(
             delta = pos_list[frame, i] - pos_list[frame - 1, i]
             for j in ti.static(range(3)):
                 if boundary[j] == 1:
-                    if delta[j] >= boxlength[j] / 2:
+                    temp = delta[j]
+                    while temp >= boxlength[j] / 2:
                         image_p[frame, i][j] -= 1.0
                         pos_list[frame, i][j] -= boxlength[j]
-                    elif delta[j] <= -boxlength[j] / 2:
+                        temp = pos_list[frame, i][j] - pos_list[frame - 1, i][j]
+
+                    while temp <= -boxlength[j] / 2:
                         image_p[frame, i][j] += 1.0
                         pos_list[frame, i][j] += boxlength[j]
+                        temp = pos_list[frame, i][j] - pos_list[frame - 1, i][j]
 
 
 def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
@@ -1565,7 +1569,7 @@ class MultiSystem(list):
         self.MSD = MeanSquaredDisplacement(self.pos_list, mode=mode)
         self.MSD.compute()
         for frame in range(self.Nframes):
-            self[frame].data["msd"] = self.MSD.partical_msd[frame]
+            self[frame].data["msd"] = self.MSD.particle_msd[frame]
 
     def cal_lindemann_parameter(self, only_global=False):
 

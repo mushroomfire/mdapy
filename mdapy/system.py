@@ -170,12 +170,12 @@ def _unwrap_pos_without_image_p(
                 if boundary[j] == 1:
                     temp = delta[j]
                     while temp >= boxlength[j] / 2:
-                        image_p[frame, i][j] -= 1.0
+                        image_p[frame, i][j] -= 1
                         pos_list[frame, i][j] -= boxlength[j]
                         temp = pos_list[frame, i][j] - pos_list[frame - 1, i][j]
 
                     while temp <= -boxlength[j] / 2:
-                        image_p[frame, i][j] += 1.0
+                        image_p[frame, i][j] += 1
                         pos_list[frame, i][j] += boxlength[j]
                         temp = pos_list[frame, i][j] - pos_list[frame - 1, i][j]
 

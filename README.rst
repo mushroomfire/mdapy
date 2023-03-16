@@ -6,7 +6,8 @@
 Overview
 --------
 
-The **mdapy** is a python library providing a set of simple, 
+The **mdapy** is a python library developed by **Yong-Chao Wu & Jian-Li Shao Group in 
+Beijing Institute of Technology**, providing a set of simple, 
 flexible and powerful tools to analyze the atomic trajectories 
 generated from Molecular Dynamics (MD) simulations. 
 Benefit by the `TaiChi <https://github.com/taichi-dev/taichi>`_ project, 
@@ -16,7 +17,8 @@ resources of both multicore CPU and GPU. **mdapy** can directly handle the DUMP
 and DATA format in `LAMMPS <https://www.lammps.org/>`_. All data in **mdapy** is 
 stored in NDARRAY format in `NumPy <https://numpy.org/>`_\ , enabling integration 
 with the scientific ecosystem in python and corporation with other post-progressing 
-codes, such as `OVITO <https://www.ovito.org/>`_ and `freud <https://github.com/glotzerlab/freud>`_. 
+codes, such as `OVITO <https://www.ovito.org/>`_ and `freud <https://github.com/glotzerlab/freud>`_.
+
 
 Resources
 ----------

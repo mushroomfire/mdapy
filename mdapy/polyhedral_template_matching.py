@@ -1,6 +1,6 @@
 # Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
-# We highly thanks to Dr. Peter M Larsen for the help on parallism of this module.
+# We highly thanks to Dr. Peter M Larsen for the help on parallelism of this module.
 
 import numpy as np
 
@@ -134,12 +134,12 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    FCC = LatticeMaker(3.615, "FCC", 100, 100, 100)
+    FCC = LatticeMaker(3.615, "GRA", 10, 10, 10)
     FCC.compute()
 
     start = time()
     ptm = PolyhedralTemplateMatching(
-        FCC.pos, FCC.box, structure="default", return_verlet=True
+        FCC.pos, FCC.box, structure="fcc-graphene", return_verlet=True
     )
     ptm.compute()
     print(f"PTM time cost: {time()-start} s.")

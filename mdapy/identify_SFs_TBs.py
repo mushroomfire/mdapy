@@ -31,7 +31,7 @@ class IdentifySFTBinFCC:
 
         >>> system = mp.System(r"./example/ISF.dump") # Read dump
 
-        >>> ptm = PolyhedralTemplateMatching(
+        >>> ptm = mp.PolyhedralTemplateMatching(
                     system.pos, system.box, system.boundary, "default", 0.1, None, True
                     ) # Initilize ptm method.
 
@@ -41,7 +41,7 @@ class IdentifySFTBinFCC:
 
         >>> verlet_list = np.ascontiguousarray(ptm.ptm_indices[structure_type == 2][:, 1:13]) # Obtain ptm neighbor
 
-        >>> SFTB = IdentifySFTBinFCC(structure_type, verlet_list) # Initialize SFTB class
+        >>> SFTB = mp.IdentifySFTBinFCC(structure_type, verlet_list) # Initialize SFTB class
 
         >>> SFTB.compute() # Compute the planar faults type
 

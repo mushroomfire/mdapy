@@ -61,7 +61,7 @@ class PolyhedralTemplateMatching:
 
         >>> FCC.compute() # Get atom positions
 
-        >>> ptm = PolyhedralTemplateMatching(FCC.pos, FCC.box) # Initilize ptm class.
+        >>> ptm = mp.PolyhedralTemplateMatching(FCC.pos, FCC.box) # Initilize ptm class.
 
         >>> ptm.compute() # Compute ptm per atoms.
 

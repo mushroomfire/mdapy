@@ -202,8 +202,7 @@ class IdentifySFTBinFCC:
     def compute(
         self,
     ):
-        """Do the real computation.
-        """
+        """Do the real computation."""
         assert 2 in self.structure_types, "Sample mush include HCP atoms."
         hcp_indices = np.where(self.structure_types == 2)[0].astype(int)
         hcp_neighbors = np.zeros((hcp_indices.shape[0], 12), dtype=int)
@@ -248,4 +247,4 @@ if __name__ == "__main__":
     print(SFTB.structure_types)
     system.data["structure_types"] = SFTB.structure_types
     system.data["fault_types"] = SFTB.fault_types
-    # system.write_dump()
+    system.write_dump()

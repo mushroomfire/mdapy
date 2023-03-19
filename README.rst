@@ -59,7 +59,7 @@ Install from pip (recommended).
 Install from source code.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- You should install pybind11 and have a C++ compilation environment.
+- You should install pybind11 and have a C++ compilation environment. Tested by MSVC in Windows and GCC in Ubuntu.
 
    .. code-block:: bash
       
@@ -165,6 +165,10 @@ You can try:
 
 Release Notes
 --------------
+V0.8.3 (3/19/2023)
+^^^^^^^
+
+- Make **Polyhedral Template Mathing** parallel.
 
 V0.8.2
 ^^^^^^^^^

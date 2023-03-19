@@ -4,6 +4,12 @@
 from pybind11.setup_helpers import Pybind11Extension
 from setuptools import setup
 from glob import glob
+import sys
+
+if sys.platform.startswith("win"):
+    omp = "/openmp"
+elif sys.platform.startswith("linux"):
+    omp = "-fopenmp"
 
 description = "A simple and fast python library to handle the data generated from molecular dynamics simulations"
 try:
@@ -14,7 +20,7 @@ except Exception:
 
 setup(
     name="mdapy",
-    version="0.8.2",
+    version="0.8.3",
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,
@@ -50,6 +56,8 @@ setup(
             glob("thirdparty/ptm/ptm*.cpp") + ["mdapy/ptm/_ptm.cpp"],
             language="c++",
             include_dirs=["thirdparty/ptm"],
+            extra_compile_args=[omp],
+            extra_link_args=[omp],
         ),
     ],
     zip_safe=False,

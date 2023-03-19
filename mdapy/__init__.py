@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 __author__ = "mushroomfire aka HerrWu"
-__version__ = "0.8.2"
+__version__ = "0.8.3"
 __license__ = "BSD License"
 
 from .ackland_jones_analysis import AcklandJonesAnalysis

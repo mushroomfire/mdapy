@@ -2,6 +2,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
+#include <omp.h>
 
 namespace py = pybind11;
 
@@ -68,8 +69,6 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
         c_verlet[i] = verlet_ptr + i * verlet_cols;
     }
 
-    ptm_initialize_global();
-    ptm_local_handle_t local_handle = ptm_initialize_local();
     double *boxsize = (double *)cboxsize.request().ptr;
     int *boundary = (int *)cboundary.request().ptr;
 
@@ -116,39 +115,45 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
     }
 
     ptmnbrdata_t nbrlist = {c_pos, boxsize, c_verlet, boundary};
-
-    for (int i = 0; i < pos_rows; i++)
+#pragma omp parallel
     {
-        output(i, 0) = -1.0;
-        int32_t type, alloy_type;
-        double scale, rmsd, interatomic_distance;
-        double q[4];
-        bool standard_orientations = false;
-        size_t p[18];
-
-        ptm_index(local_handle, i, get_neighbours, (void *)&nbrlist,
-                  input_flags, standard_orientations,
-                  &type, &alloy_type, &scale, &rmsd, q,
-                  NULL, NULL, NULL, NULL, &interatomic_distance, NULL, p);
-        if (rmsd > rmsd_threshold)
+        ptm_initialize_global();
+        ptm_local_handle_t local_handle = ptm_initialize_local();
+#pragma omp for
+        for (int i = 0; i < pos_rows; i++)
         {
-            type = 0;
-            rmsd = 10000.;
-        }
-        for (int k = 0; k < 18; k++)
-        {
-            ptm_indices(i, k) = p[k];
-        }
+            output(i, 0) = -1.0;
+            int32_t type, alloy_type;
+            double scale, rmsd, interatomic_distance;
+            double q[4];
+            bool standard_orientations = false;
+            size_t p[18];
 
-        output(i, 0) = type;
-        output(i, 1) = rmsd;
-        output(i, 2) = interatomic_distance;
-        output(i, 3) = q[0];
-        output(i, 4) = q[1];
-        output(i, 5) = q[2];
-        output(i, 6) = q[3];
+            ptm_index(local_handle, i, get_neighbours, (void *)&nbrlist,
+                      input_flags, standard_orientations,
+                      &type, &alloy_type, &scale, &rmsd, q,
+                      NULL, NULL, NULL, NULL, &interatomic_distance, NULL, p);
+            if (rmsd > rmsd_threshold)
+            {
+                type = 0;
+                rmsd = 10000.;
+            }
+            for (int k = 0; k < 18; k++)
+            {
+                ptm_indices(i, k) = p[k];
+            }
+
+            output(i, 0) = type;
+            output(i, 1) = rmsd;
+            output(i, 2) = interatomic_distance;
+            output(i, 3) = q[0];
+            output(i, 4) = q[1];
+            output(i, 5) = q[2];
+            output(i, 6) = q[3];
+        }
+        ptm_uninitialize_local(local_handle);
     }
-    ptm_uninitialize_local(local_handle);
+
     delete[] c_pos;
     delete[] c_verlet;
 }

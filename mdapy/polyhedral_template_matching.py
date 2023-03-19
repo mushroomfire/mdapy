@@ -1,5 +1,6 @@
 # Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
+# We highly thanks to Dr. Peter M Larsen for the help on parallism of this module.
 
 import numpy as np
 
@@ -31,7 +32,7 @@ class PolyhedralTemplateMatching:
 
       `Larsen P M, Schmidt S, Schiøtz J. Robust structural identification via polyhedral template matching[J]. Modelling and Simulation in Materials Science and Engineering, 2016, 24(5): 055007. <10.1088/0965-0393/24/5/055007>`_
 
-    .. note:: The present version is translated from that in `LAMMPS <https://docs.lammps.org/compute_ptm_atom.html>`_ and only can run serially, we will try to make it parallel.
+    .. note:: The present version is translated from that in `LAMMPS <https://docs.lammps.org/compute_ptm_atom.html>`_, which is fully parallel via openmp from mdapy verison 0.8.3.
 
     Args:
 
@@ -133,7 +134,7 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    FCC = LatticeMaker(3.615, "FCC", 10, 10, 10)
+    FCC = LatticeMaker(3.615, "FCC", 100, 100, 100)
     FCC.compute()
 
     start = time()

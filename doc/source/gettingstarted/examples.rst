@@ -183,7 +183,7 @@ Here the stacking faults include intrinsic SFs and multi layer SFs.
         TB=(255 / 255, 102 / 255, 102 / 255),
     ):
 
-        print("Transforming mdapy system...")
+        yield "Transforming mdapy system..."
         cell_ovito = data.cell[...]
         box = np.array(
             [[cell_ovito[i, -1], cell_ovito[i, -1] + cell_ovito[i, i]] for i in range(3)]
@@ -192,7 +192,7 @@ Here the stacking faults include intrinsic SFs and multi layer SFs.
         boundary = [int(i) for i in data.cell.pbc]
         system = mp.System(pos=pos, box=box, boundary=boundary)
 
-        print("Performing identify SFTB...")
+        yield "Performing identify SFTB..."
         system.cal_identify_SFs_TBs()
         data.particles_.create_property(
             "structure_types", data=system.data["structure_types"].values
@@ -201,7 +201,7 @@ Here the stacking faults include intrinsic SFs and multi layer SFs.
             "fault_types", data=system.data["fault_types"].values
         )
 
-        print("Coloring atoms...")
+        yield "Coloring atoms..."
         data.apply(
             ExpressionSelectionModifier(expression="structure_types==0 || fault_types==1")
         )

@@ -165,8 +165,9 @@ You can try:
 
 Release Notes
 --------------
+
 V0.8.3 (3/20/2023)
-^^^^^^^
+^^^^^^^^^^^^^^^^^^^
 
 - Make **Polyhedral Template Mathing** parallel.
 

@@ -123,7 +123,7 @@ Examples
 6. Collaborative use with Ovito
 -----------------------------
 
-This function can be runned in script environment of Ovito. (Tested in Ovito 3.0.0-dev581).
+This function can run in script environment of Ovito. (Tested in Ovito 3.0.0-dev581).
 
 .. code-block:: python
 
@@ -155,3 +155,68 @@ This function can be runned in script environment of Ovito. (Tested in Ovito 3.0
         yield "Performing compute CNP..."
         system.cal_common_neighbor_parameter(rc=3.6*0.8536)
         data.particles_.create_property("cnp", data=system.data['cnp'].values)
+
+
+7. Identify stacking faults (SFs) and twin boundaries (TBs) in Ovito
+-----------------------------
+
+This function can run in script environment of Ovito. (Tested in Ovito 3.0.0-dev581).
+Here the stacking faults include intrinsic SFs and multi layer SFs.
+
+.. code-block:: python
+
+    from ovito.data import *
+    from ovito.modifiers import ExpressionSelectionModifier, AssignColorModifier
+    import mdapy as mp
+    import numpy as np
+
+    mp.init()
+
+
+    def modify(
+        frame,
+        data,
+        other=(243 / 255, 243 / 255, 243 / 255),
+        fcc=(102 / 255, 255 / 255, 102 / 255),
+        bcc=(102 / 255, 102 / 255, 255 / 255),
+        SF=(0.9, 0.7, 0.2),
+        TB=(255 / 255, 102 / 255, 102 / 255),
+    ):
+
+        print("Transforming mdapy system...")
+        cell_ovito = data.cell[...]
+        box = np.array(
+            [[cell_ovito[i, -1], cell_ovito[i, -1] + cell_ovito[i, i]] for i in range(3)]
+        )
+        pos = np.array(data.particles["Position"][...])
+        boundary = [int(i) for i in data.cell.pbc]
+        system = mp.System(pos=pos, box=box, boundary=boundary)
+
+        print("Performing identify SFTB...")
+        system.cal_identify_SFs_TBs()
+        data.particles_.create_property(
+            "structure_types", data=system.data["structure_types"].values
+        )
+        data.particles_.create_property(
+            "fault_types", data=system.data["fault_types"].values
+        )
+
+        print("Coloring atoms...")
+        data.apply(
+            ExpressionSelectionModifier(expression="structure_types==0 || fault_types==1")
+        )
+        data.apply(AssignColorModifier(color=other))
+        data.apply(ExpressionSelectionModifier(expression="structure_types==1"))
+        data.apply(AssignColorModifier(color=fcc))
+        data.apply(ExpressionSelectionModifier(expression="structure_types==3"))
+        data.apply(AssignColorModifier(color=bcc))
+        data.apply(ExpressionSelectionModifier(expression="fault_types==2 || fault_types==4"))
+        data.apply(AssignColorModifier(color=SF))
+        data.apply(ExpressionSelectionModifier(expression="fault_types==3"))
+        data.apply(AssignColorModifier(color=TB))
+        data.apply(ExpressionSelectionModifier(expression="structure_types==10"))
+
+.. image:: https://img.pterclub.com/images/2023/03/20/SF.png
+
+
+

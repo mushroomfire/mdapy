@@ -904,7 +904,7 @@ class System:
 
     def cal_polyhedral_template_matching(
         self,
-        structure="default",
+        structure="fcc-hcp-bcc",
         rmsd_threshold=0.1,
         return_rmsd=False,
         return_atomic_distance=False,
@@ -930,7 +930,7 @@ class System:
 
 
         Args:
-            structure (str, optional): the structure one want to identify, one can choose from ["fcc","hcp","bcc","ico","sc","dcub","dhex","graphene","all","default"], such as 'fcc-hcp-bcc'. 'default' represents 'fcc-hcp-bcc-ico'. Defaults to 'default'.
+            structure (str, optional): the structure one want to identify, one can choose from ["fcc","hcp","bcc","ico","sc","dcub","dhex","graphene","all","default"], such as 'fcc-hcp-bcc'. 'default' represents 'fcc-hcp-bcc-ico'. Defaults to 'fcc-hcp-bcc'.
             rmsd_threshold (float, optional): rmsd threshold. Defaults to 0.1.
             return_rmsd (bool, optional): whether return rmsd. Defaults to False.
             return_atomic_distance (bool, optional): whether return interatomic distance. Defaults to False.
@@ -997,7 +997,7 @@ class System:
             self.pos,
             self.box,
             self.boundary,
-            "default",
+            "fcc-hcp-bcc",
             rmsd_threshold,
             verlet_list,
             True,

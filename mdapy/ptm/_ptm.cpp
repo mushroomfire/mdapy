@@ -115,9 +115,9 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
     }
 
     ptmnbrdata_t nbrlist = {c_pos, boxsize, c_verlet, boundary};
+    ptm_initialize_global();
 #pragma omp parallel
     {
-        ptm_initialize_global();
         ptm_local_handle_t local_handle = ptm_initialize_local();
 #pragma omp for
         for (int i = 0; i < pos_rows; i++)
@@ -127,7 +127,7 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
             double scale, rmsd, interatomic_distance;
             double q[4];
             bool standard_orientations = false;
-            size_t p[18];
+            size_t p[19];
 
             ptm_index(local_handle, i, get_neighbours, (void *)&nbrlist,
                       input_flags, standard_orientations,
@@ -138,6 +138,10 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
                 type = 0;
                 rmsd = 10000.;
             }
+
+            if (type == PTM_MATCH_NONE)
+                type = 0;
+
             for (int k = 0; k < 18; k++)
             {
                 ptm_indices(i, k) = p[k];

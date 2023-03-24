@@ -5,6 +5,10 @@ import taichi as ti
 import numpy as np
 
 try:
+    from rdf._rdf import _rdf, _rdf_single_species
+except Exception:
+    from _rdf import _rdf, _rdf_single_species
+try:
     from .plotset import pltset, cm2inch
 except Exception:
     from plotset import pltset, cm2inch
@@ -89,50 +93,6 @@ class PairDistribution:
         self.Ntype = len(np.unique(self.type_list))
         pltset()
 
-    @ti.kernel
-    def _rdf(
-        self,
-        verlet_list: ti.types.ndarray(),
-        distance_list: ti.types.ndarray(),
-        neighbor_number: ti.types.ndarray(),
-        type_list: ti.types.ndarray(),
-        g: ti.types.ndarray(),
-        concentrates: ti.types.ndarray(),
-    ):
-
-        dr = self.rc / self.nbin
-        ti.loop_config(serialize=True)  # parallel is slower due to +=
-        for i in range(self.N):
-            i_type = type_list[i]
-            for jindex in range(neighbor_number[i]):
-                j = verlet_list[i, jindex]
-                dis = distance_list[i, jindex]
-                if j > i and dis < self.rc:
-                    j_type = type_list[j]
-                    k = ti.i32(dis / dr)
-                    if j_type >= i_type:
-                        g[i_type, j_type, k] += (
-                            2.0 / concentrates[i_type] / concentrates[j_type]
-                        )
-
-    @ti.kernel
-    def _rdf_single_species(
-        self,
-        verlet_list: ti.types.ndarray(),
-        distance_list: ti.types.ndarray(),
-        neighbor_number: ti.types.ndarray(),
-        sum_array: ti.types.ndarray(),
-    ):
-
-        dr = self.rc / self.nbin
-        for i in range(self.N):
-            for jindex in range(neighbor_number[i]):
-                dis = distance_list[i, jindex]
-                j = verlet_list[i, jindex]
-                if j > i and dis < self.rc:
-                    k = ti.i32(dis / dr)
-                    sum_array[i, k] += 2.0
-
     def compute(self):
         """Do the real RDF calculation."""
         r = np.linspace(0, self.rc, self.nbin + 1)
@@ -148,13 +108,15 @@ class PairDistribution:
                 / self.N
             )
             self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
-            self._rdf(
+            _rdf(
                 self.verlet_list,
                 self.distance_list,
                 self.neighbor_number,
                 self.type_list,
                 self.g,
                 concentrates,
+                self.rc,
+                self.nbin,
             )
 
             self.g /= self.N * const * (r[1:] ** 3 - r[:-1] ** 3)
@@ -169,17 +131,16 @@ class PairDistribution:
                             2 * concentrates[i] * concentrates[j] * self.g[i, j]
                         )
         else:
-            sum_array = np.zeros((self.N, self.nbin))
-            self._rdf_single_species(
+            self.g_total = np.zeros(self.nbin)
+            _rdf_single_species(
                 self.verlet_list,
                 self.distance_list,
                 self.neighbor_number,
-                sum_array,
+                self.g_total,
+                self.rc,
+                self.nbin,
             )
-
-            self.g_total = np.sum(sum_array, axis=0) / (
-                self.N * const * (r[1:] ** 3 - r[:-1] ** 3)
-            )
+            self.g_total /= self.N * const * (r[1:] ** 3 - r[:-1] ** 3)
             self.r = (r[1:] + r[:-1]) / 2
             self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
             self.g[0, 0] = self.g_total
@@ -259,7 +220,7 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 3.615
-    x, y, z = 100, 100, 125
+    x, y, z = 50, 50, 50
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
@@ -273,6 +234,10 @@ if __name__ == "__main__":
     print(f"Build neighbor time: {end-start} s.")
     start = time()
     rho = FCC.pos.shape[0] / np.product(FCC.box[:, 1] - FCC.box[:, 0])
+    # type_list = np.r_[
+    #         np.ones(int(FCC.N / 2), dtype=int), np.ones(int(FCC.N / 2), dtype=int) + 1
+    #     ]
+    type_list = np.ones(FCC.N, int)
     gr = PairDistribution(
         rc,
         200,
@@ -280,7 +245,7 @@ if __name__ == "__main__":
         neigh.verlet_list,
         neigh.distance_list,
         neigh.neighbor_number,
-        np.ones(FCC.N, dtype=int),
+        type_list,
     )
     gr.compute()
     end = time()

@@ -16,4 +16,7 @@
 /mdapy/ptm/*.so
 /mdapy/ptm/*.py*
 /mdapy/ptm/*.sh
+/mdapy/rdf/*.so
+/mdapy/rdf/*.py*
+/mdapy/rdf/*.sh
 /.VSCodeCounter/

@@ -28,6 +28,7 @@ class PairDistribution:
         rho (float): system density.
         verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
         distance_list (np.ndarray): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
+        neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
         type_list (np.ndarray, optional): (:math:`N_p`) atom type list. If not given, all atoms types are set as 1.
 
     Outputs:
@@ -53,7 +54,7 @@ class PairDistribution:
         >>> rho = FCC.pos.shape[0] / np.product(FCC.box[:, 1] - FCC.box[:, 0]) # Get the system density.
 
         >>> gr = mp.PairDistribution(neigh.rc, 200, rho,
-                                  neigh.verlet_list, neigh.distance_list,
+                                  neigh.verlet_list, neigh.distance_list, neigh.neighbor_number,
                                   np.ones(FCC.N, dtype=int)) # Initilize the RDF class.
 
         >>> gr.compute() # Calculate the RDF.
@@ -70,13 +71,16 @@ class PairDistribution:
 
     """
 
-    def __init__(self, rc, nbin, rho, verlet_list, distance_list, type_list=None):
+    def __init__(
+        self, rc, nbin, rho, verlet_list, distance_list, neighbor_number, type_list=None
+    ):
 
         self.rc = rc
         self.nbin = nbin
         self.rho = rho
         self.verlet_list = verlet_list
         self.distance_list = distance_list
+        self.neighbor_number = neighbor_number
         self.N = self.distance_list.shape[0]
         if type_list is not None:
             self.type_list = type_list - 1
@@ -90,6 +94,7 @@ class PairDistribution:
         self,
         verlet_list: ti.types.ndarray(),
         distance_list: ti.types.ndarray(),
+        neighbor_number: ti.types.ndarray(),
         type_list: ti.types.ndarray(),
         g: ti.types.ndarray(),
         concentrates: ti.types.ndarray(),
@@ -99,47 +104,85 @@ class PairDistribution:
         ti.loop_config(serialize=True)  # parallel is slower due to +=
         for i in range(self.N):
             i_type = type_list[i]
-            for jindex in range(verlet_list.shape[1]):
+            for jindex in range(neighbor_number[i]):
                 j = verlet_list[i, jindex]
-                j_type = type_list[j]
-                if j > -1:
-                    if j > i:
-                        dis = distance_list[i, jindex]
-                        if dis <= self.rc:
-                            k = ti.floor(dis / dr, dtype=ti.i32)
-                            if k > self.nbin - 1:
-                                k = self.nbin - 1
-                            if j_type >= i_type:
-                                g[i_type, j_type, k] += (
-                                    2.0 / concentrates[i_type] / concentrates[j_type]
-                                )
-                else:
-                    break
+                dis = distance_list[i, jindex]
+                if j > i and dis < self.rc:
+                    j_type = type_list[j]
+                    k = ti.i32(dis / dr)
+                    if j_type >= i_type:
+                        g[i_type, j_type, k] += (
+                            2.0 / concentrates[i_type] / concentrates[j_type]
+                        )
+
+    @ti.kernel
+    def _rdf_single_species(
+        self,
+        verlet_list: ti.types.ndarray(),
+        distance_list: ti.types.ndarray(),
+        neighbor_number: ti.types.ndarray(),
+        sum_array: ti.types.ndarray(),
+    ):
+
+        dr = self.rc / self.nbin
+        for i in range(self.N):
+            for jindex in range(neighbor_number[i]):
+                dis = distance_list[i, jindex]
+                j = verlet_list[i, jindex]
+                if j > i and dis < self.rc:
+                    k = ti.i32(dis / dr)
+                    sum_array[i, k] += 2.0
 
     def compute(self):
         """Do the real RDF calculation."""
         r = np.linspace(0, self.rc, self.nbin + 1)
-
-        concentrates = (
-            np.array(
-                [len(self.type_list[self.type_list == i]) for i in range(self.Ntype)]
-            )
-            / self.N
-        )
-        self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
-        self._rdf(
-            self.verlet_list, self.distance_list, self.type_list, self.g, concentrates
-        )
         const = 4.0 * np.pi * self.rho / 3.0
-        self.g /= self.N * const * (r[1:] ** 3 - r[:-1] ** 3)
-        self.r = (r[1:] + r[:-1]) / 2
-        self.g_total = np.zeros_like(self.r)
-        for i in range(self.Ntype):
-            for j in range(self.Ntype):
-                if j == i:
-                    self.g_total += concentrates[i] * concentrates[j] * self.g[i, j]
-                else:
-                    self.g_total += 2 * concentrates[i] * concentrates[j] * self.g[i, j]
+        if self.Ntype > 1:
+            concentrates = (
+                np.array(
+                    [
+                        len(self.type_list[self.type_list == i])
+                        for i in range(self.Ntype)
+                    ]
+                )
+                / self.N
+            )
+            self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
+            self._rdf(
+                self.verlet_list,
+                self.distance_list,
+                self.neighbor_number,
+                self.type_list,
+                self.g,
+                concentrates,
+            )
+
+            self.g /= self.N * const * (r[1:] ** 3 - r[:-1] ** 3)
+            self.r = (r[1:] + r[:-1]) / 2
+            self.g_total = np.zeros_like(self.r)
+            for i in range(self.Ntype):
+                for j in range(self.Ntype):
+                    if j == i:
+                        self.g_total += concentrates[i] * concentrates[j] * self.g[i, j]
+                    else:
+                        self.g_total += (
+                            2 * concentrates[i] * concentrates[j] * self.g[i, j]
+                        )
+        else:
+            sum_array = np.zeros((self.N, self.nbin))
+            self._rdf_single_species(
+                self.verlet_list,
+                self.distance_list,
+                self.neighbor_number,
+                sum_array,
+            )
+
+            self.g_total = np.sum(sum_array, axis=0) / (
+                self.N * const * (r[1:] ** 3 - r[:-1] ** 3)
+            )
+            self.r = (r[1:] + r[:-1]) / 2
+            self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
+            self.g[0, 0] = self.g_total
 
     def plot(self):
         """Plot the global RDF.
@@ -212,10 +255,11 @@ if __name__ == "__main__":
     from neighbor import Neighbor
     from time import time
 
-    ti.init(ti.cpu, offline_cache=True)
+    # ti.init(ti.gpu, device_memory_GB=4.0)
+    ti.init(ti.cpu)
     start = time()
     lattice_constant = 3.615
-    x, y, z = 50, 50, 50
+    x, y, z = 100, 100, 125
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
@@ -230,7 +274,13 @@ if __name__ == "__main__":
     start = time()
     rho = FCC.pos.shape[0] / np.product(FCC.box[:, 1] - FCC.box[:, 0])
     gr = PairDistribution(
-        rc, 200, rho, neigh.verlet_list, neigh.distance_list, np.ones(FCC.N, dtype=int)
+        rc,
+        200,
+        rho,
+        neigh.verlet_list,
+        neigh.distance_list,
+        neigh.neighbor_number,
+        np.ones(FCC.N, dtype=int),
     )
     gr.compute()
     end = time()

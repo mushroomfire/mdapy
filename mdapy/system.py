@@ -1132,6 +1132,7 @@ class System:
             rho,
             self.verlet_list,
             self.distance_list,
+            self.neighbor_number,
             self.data["type"].values,
         )
         self.PairDistribution.compute()

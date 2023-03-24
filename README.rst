@@ -166,6 +166,11 @@ You can try:
 Release Notes
 --------------
 
+V0.8.4
+^^^^^^^^^
+
+- Optimize **Pair Distribution** module for single elemental system.
+
 V0.8.3 (3/20/2023)
 ^^^^^^^^^^^^^^^^^^^
 

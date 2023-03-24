@@ -63,8 +63,6 @@ setup(
             "_rdf",
             ["mdapy/rdf/_rdf.cpp"],
             language="c++",
-            extra_compile_args=[omp],
-            extra_link_args=[omp],
         ),
     ],
     zip_safe=False,

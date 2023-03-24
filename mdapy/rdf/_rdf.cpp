@@ -1,8 +1,5 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
-#include <vector>
-#include <pybind11/stl.h>
-#include <omp.h>
 
 namespace py = pybind11;
 
@@ -29,7 +26,7 @@ void _rdf(py::array cverlet_list, py::array cdistance_list,
         {
             int j = verlet_list(i, jindex);
             double dis = distance_list(i, jindex);
-            if (j > i & dis < rc)
+            if (j > i && dis < rc)
             {
                 int j_type = type_list(j);
                 if (j_type >= i_type)
@@ -55,31 +52,19 @@ void _rdf_single_species(py::array cverlet_list, py::array cdistance_list,
     int N = verlet_list.shape(0);
 
     double dr = rc / nbin;
-    std::vector<std::vector<double>> g_local(omp_get_max_threads(), std::vector<double>(nbin, 0.0));
-#pragma omp parallel
+
+    for (int i = 0; i < N; i++)
     {
-        int tid = omp_get_thread_num();
-        for (int i = tid; i < N; i += omp_get_num_threads())
+        int i_neigh = neighbor_number(i);
+        for (int jindex = 0; jindex < i_neigh; jindex++)
         {
-            int i_neigh = neighbor_number(i);
-            for (int jindex = 0; jindex < i_neigh; jindex++)
+            int j = verlet_list(i, jindex);
+            double dis = distance_list(i, jindex);
+            if (j > i && dis < rc)
             {
-                int j = verlet_list(i, jindex);
-                double dis = distance_list(i, jindex);
-                if (j > i & dis < rc)
-                {
-                    int k = (int)(dis / dr);
-                    g_local[tid][k] += 2.0;
-                }
+                int k = (int)(dis / dr);
+                g(k) += 2.0;
             }
-        }
-    }
-    for (int i = 0; i < omp_get_max_threads(); i++)
-    {
-        for (int j = 0; j < nbin; j++)
-        {
-#pragma omp atomic
-            g(j) += g_local[i][j];
         }
     }
 }

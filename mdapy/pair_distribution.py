@@ -220,7 +220,7 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 3.615
-    x, y, z = 50, 50, 50
+    x, y, z = 100, 100, 125
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
@@ -234,10 +234,10 @@ if __name__ == "__main__":
     print(f"Build neighbor time: {end-start} s.")
     start = time()
     rho = FCC.pos.shape[0] / np.product(FCC.box[:, 1] - FCC.box[:, 0])
-    # type_list = np.r_[
-    #         np.ones(int(FCC.N / 2), dtype=int), np.ones(int(FCC.N / 2), dtype=int) + 1
-    #     ]
-    type_list = np.ones(FCC.N, int)
+    type_list = np.r_[
+        np.ones(int(FCC.N / 2), dtype=int), np.ones(int(FCC.N / 2), dtype=int) + 1
+    ]
+    # type_list = np.ones(FCC.N, int)
     gr = PairDistribution(
         rc,
         200,

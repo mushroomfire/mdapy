@@ -215,11 +215,11 @@ if __name__ == "__main__":
     from neighbor import Neighbor
     from time import time
 
-    # ti.init(ti.gpu, device_memory_GB=4.0)
-    ti.init(ti.cpu)
+    ti.init(ti.gpu, device_memory_GB=4.0)
+    # ti.init(ti.cpu)
     start = time()
     lattice_constant = 3.615
-    x, y, z = 100, 100, 125
+    x, y, z = 50, 50, 50
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()

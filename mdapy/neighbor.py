@@ -206,6 +206,7 @@ class Neighbor:
 
     def compute(self):
         """Do the real neighbor calculation."""
+
         if self.N > 1000:
             atom_cell_list = np.zeros(self.N, dtype=np.int32)
             cell_id_list = (
@@ -275,7 +276,7 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 100
+    x, y, z = 250, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()

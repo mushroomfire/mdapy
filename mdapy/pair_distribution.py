@@ -1,7 +1,6 @@
 # Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
-import taichi as ti
 import numpy as np
 
 try:
@@ -15,7 +14,6 @@ except Exception:
 import matplotlib.pyplot as plt
 
 
-@ti.data_oriented
 class PairDistribution:
     """This class is used to calculate the radiul distribution function (RDF),which
     reflects the probability of finding an atom at distance r. The seperate pair-wise
@@ -212,6 +210,7 @@ class PairDistribution:
 
 
 if __name__ == "__main__":
+    import taichi as ti
     from lattice_maker import LatticeMaker
     from neighbor import Neighbor
     from time import time

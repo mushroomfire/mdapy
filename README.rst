@@ -170,6 +170,7 @@ V0.8.4
 ^^^^^^^^^
 
 - Optimize **Pair Distribution** module.
+- Optimize **Neighbor** module.
 
 V0.8.3 (3/20/2023)
 ^^^^^^^^^^^^^^^^^^^

@@ -64,6 +64,11 @@ setup(
             ["mdapy/rdf/_rdf.cpp"],
             language="c++",
         ),
+        Pybind11Extension(
+            "_neigh",
+            ["mdapy/neigh/_neigh.cpp"],
+            language="c++",
+        ),
     ],
     zip_safe=False,
     url="https://github.com/mushroomfire/mdapy",

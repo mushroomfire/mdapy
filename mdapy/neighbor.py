@@ -4,6 +4,11 @@
 import taichi as ti
 import numpy as np
 
+try:
+    from neigh._neigh import _build_cell
+except Exception:
+    from _neigh import _build_cell
+
 
 @ti.data_oriented
 class Neighbor:
@@ -56,8 +61,9 @@ class Neighbor:
         self.N = self.pos.shape[0]
         self.rc = rc
         self.bin_length = self.rc + 0.5
+        self._corigin = box[:, 0]
         self.origin = ti.Vector([box[0, 0], box[1, 0], box[2, 0]])
-        self.ncel = ti.Vector(
+        self._cncel = np.array(
             [
                 i if i > 3 else 3
                 for i in [
@@ -65,6 +71,9 @@ class Neighbor:
                     for i in range(box.shape[0])
                 ]
             ]
+        )
+        self.ncel = ti.Vector(
+            [self._cncel[0], self._cncel[1], self._cncel[2]]
         )  # calculate small system
         self.boundary = ti.Vector(boundary)
         self.max_neigh = max_neigh
@@ -75,36 +84,6 @@ class Neighbor:
         )
         self.neighbor_number = np.zeros(self.N, dtype=np.int32)
         self._if_computed = False
-
-    @ti.kernel
-    def _build_cell(
-        self,
-        pos: ti.types.ndarray(),
-        atom_cell_list: ti.types.ndarray(),
-        cell_id_list: ti.types.ndarray(),
-    ):
-        ti.loop_config(serialize=True)  # serial for loop
-        for i in range(self.N):
-            r_i = ti.Vector([pos[i, 0], pos[i, 1], pos[i, 2]])
-            icel, jcel, kcel = ti.floor(
-                (r_i - self.origin) / self.bin_length, dtype=ti.i32
-            )
-            iicel, jjcel, kkcel = icel, jcel, kcel
-            if icel < 0:
-                iicel = 0
-            elif icel > self.ncel[0] - 1:
-                iicel = self.ncel[0] - 1
-            if jcel < 0:
-                jjcel = 0
-            elif jcel > self.ncel[1] - 1:
-                jjcel = self.ncel[1] - 1
-            if kcel < 0:
-                kkcel = 0
-            elif kcel > self.ncel[2] - 1:
-                kkcel = self.ncel[2] - 1
-
-            atom_cell_list[i] = cell_id_list[iicel, jjcel, kkcel]
-            cell_id_list[iicel, jjcel, kkcel] = i
 
     @ti.func
     def _pbc(self, rij):
@@ -212,7 +191,14 @@ class Neighbor:
             cell_id_list = (
                 np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32) - 1
             )
-            self._build_cell(self.pos, atom_cell_list, cell_id_list)
+            _build_cell(
+                self.pos,
+                atom_cell_list,
+                cell_id_list,
+                self._corigin,
+                self._cncel,
+                self.bin_length,
+            )
             self._build_verlet_list(
                 self.pos,
                 atom_cell_list,
@@ -270,13 +256,11 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    # ti.init(
-    #     ti.gpu, device_memory_GB=5.0, packed=True, offline_cache=True
-    # )  # , offline_cache=True)
+    # ti.init(ti.gpu, device_memory_GB=4.0)
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 250, 100, 100
+    x, y, z = 100, 50, 50
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()

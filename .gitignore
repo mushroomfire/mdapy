@@ -19,5 +19,7 @@
 /mdapy/rdf/*.so
 /mdapy/rdf/*.py*
 /mdapy/rdf/*.sh
+/mdapy/neigh/*.so
+/mdapy/neigh/*.py*
+/mdapy/neigh/*.sh
 /.VSCodeCounter/
-mdapy/rdf/build/temp.linux-x86_64-cpython-37/_rdf.o

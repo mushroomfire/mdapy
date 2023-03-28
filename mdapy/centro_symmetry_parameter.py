@@ -134,8 +134,8 @@ if __name__ == '__main__':
     from lattice_maker import LatticeMaker
     from neighbor import Neighbor
     from time import time
-    # ti.init(ti.gpu, device_memory_GB=5.0)
-    ti.init(ti.cpu)
+    ti.init(ti.gpu, device_memory_GB=5.0)
+    #ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
     x, y, z = 100, 100, 100

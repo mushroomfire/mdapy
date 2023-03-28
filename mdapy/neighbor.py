@@ -9,6 +9,9 @@ try:
 except Exception:
     from _neigh import _build_cell
 
+vec3f32 = ti.types.vector(3, ti.f32)
+vec3f64 = ti.types.vector(3, ti.f64)
+
 
 @ti.data_oriented
 class Neighbor:
@@ -53,16 +56,24 @@ class Neighbor:
 
     def __init__(self, pos, box, rc, boundary=[1, 1, 1], max_neigh=80, exclude=True):
 
+        assert pos.dtype in [
+            np.float64,
+            np.float32,
+        ], "Dtype of pos must in [float64, float32]."
         self.pos = pos
-        self.box = ti.Vector.field(box.shape[1], dtype=ti.f64, shape=(box.shape[0]))
-        self.box.from_numpy(box)
-        # define several const variables
-        self.exclude = exclude
+        self.box = box
+        self.boundary = ti.Vector([boundary[i] for i in range(3)], int)
         self.N = self.pos.shape[0]
         self.rc = rc
         self.bin_length = self.rc + 0.5
-        self._corigin = box[:, 0]
-        self.origin = ti.Vector([box[0, 0], box[1, 0], box[2, 0]])
+        self._corigin = np.ascontiguousarray(box[:, 0])
+        if self.pos.dtype == np.float64:
+            self.origin = vec3f64([box[i, 0] for i in range(3)])
+            self.box_length = vec3f64([box[i, 1] - box[i, 0] for i in range(3)])
+        elif self.pos.dtype == np.float32:
+            self.origin = vec3f32([box[i, 0] for i in range(3)])
+            self.box_length = vec3f32([box[i, 1] - box[i, 0] for i in range(3)])
+
         self._cncel = np.array(
             [
                 i if i > 3 else 3
@@ -72,25 +83,29 @@ class Neighbor:
                 ]
             ]
         )
-        self.ncel = ti.Vector(
-            [self._cncel[0], self._cncel[1], self._cncel[2]]
-        )  # calculate small system
-        self.boundary = ti.Vector(boundary)
+        self.ncel = ti.Vector([self._cncel[0], self._cncel[1], self._cncel[2]], int)
         self.max_neigh = max_neigh
-        # neighbor related array
+        self.exclude = exclude
         self.verlet_list = np.zeros((self.N, self.max_neigh), dtype=np.int32) - 1
         self.distance_list = (
-            np.zeros((self.N, self.max_neigh), dtype=np.float64) + self.rc + 1.0
+            np.zeros((self.N, self.max_neigh), dtype=pos.dtype) + self.rc + 1.0
         )
         self.neighbor_number = np.zeros(self.N, dtype=np.int32)
         self._if_computed = False
 
     @ti.func
     def _pbc(self, rij):
-        for i in ti.static(range(rij.n)):
-            if self.boundary[i] == 1:
-                box_length = self.box[i][1] - self.box[i][0]
-                rij[i] = rij[i] - box_length * ti.round(rij[i] / box_length)
+
+        for m in ti.static(range(3)):
+            if self.boundary[m]:
+                dx = rij[m]
+                x_size = self.box_length[m]
+                h_x_size = x_size * 0.5
+                if dx > h_x_size:
+                    dx = dx - x_size
+                if dx <= -h_x_size:
+                    dx = dx + x_size
+                rij[m] = dx
         return rij
 
     @ti.kernel
@@ -259,22 +274,28 @@ if __name__ == "__main__":
     # ti.init(ti.gpu, device_memory_GB=4.0)
     ti.init(ti.cpu)
     start = time()
-    lattice_constant = 4.05
-    x, y, z = 100, 50, 50
+    lattice_constant = 3.615
+    x, y, z = 100, 100, 125
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
-    neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=20, exclude=True)
-    print(neigh.ncel)
+    neigh = Neighbor(
+        FCC.pos,
+        np.array(FCC.box, np.float32),
+        5.0,
+        max_neigh=50,
+        exclude=True,
+    )
     neigh.compute()
     end = time()
+    print(neigh.ncel)
     print(f"Build neighbor time: {end-start} s.")
-    print(neigh.verlet_list[0])
-    print(neigh.distance_list[0])
-    print(neigh.neighbor_number[0])
+    # print(neigh.verlet_list[0])
+    # print(neigh.distance_list[0])
+    # print(neigh.neighbor_number.max())
 
-    neigh.sort_verlet_by_distance(12)
-    print(neigh.verlet_list[0])
-    print(neigh.distance_list[0])
+    # neigh.sort_verlet_by_distance(12)
+    # print(neigh.verlet_list[0])
+    # print(neigh.distance_list[0])

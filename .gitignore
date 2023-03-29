@@ -23,3 +23,5 @@
 /mdapy/neigh/*.py*
 /mdapy/neigh/*.sh
 /.VSCodeCounter/
+/benchmark/*/*.png 
+/benchmark/*/*.txt

@@ -156,8 +156,8 @@ if __name__ == "__main__":
 
     Nframe, Nparticles = 200, 1000
     pos_list = np.cumsum(
-        np.random.choice([-1.0, 0.0, 1.0], size=(Nframe, Nparticles, 3)), axis=0
-    )
+        np.random.choice([-1.0, 1.0], size=(Nframe, Nparticles, 3)), axis=0
+    ) * np.sqrt(2.0)
     start = time()
     MSD = MeanSquaredDisplacement(pos_list=pos_list, mode="windows")
     MSD.compute()
@@ -165,18 +165,19 @@ if __name__ == "__main__":
     end = time()
     msd_w = MSD.msd
     print(f"windows mode costs: {end-start} s.")
-    MSD.plot()
+    # MSD.plot()
     start = time()
     MSD = MeanSquaredDisplacement(pos_list=pos_list, mode="direct")
     MSD.compute()
     end = time()
     msd_d = MSD.msd
     print(f"direct mode costs: {end-start} s.")
-    MSD.plot()
+    # MSD.plot()
     fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
     plt.subplots_adjust(left=0.16, bottom=0.16, right=0.95, top=0.97)
     plt.plot(msd_w, "o-", label="windows")
     plt.plot(msd_d, "o-", label="direct")
+    plt.plot(np.arange(Nframe) * 6, label="theoritical")
     plt.legend()
     plt.xlabel("$\mathregular{N_{frames}}$")
     plt.ylabel("MSD ($\mathregular{\AA}$)")

@@ -71,6 +71,7 @@ setup(
         ),
     ],
     zip_safe=False,
+    license='BSD 3-Clause License'
     url="https://github.com/mushroomfire/mdapy",
     python_requires=">=3.7,<3.11",
     install_requires=[

@@ -166,8 +166,8 @@ You can try:
 Release Notes
 --------------
 
-V0.8.4
-^^^^^^^^^
+V0.8.4 (3/30/2023)
+^^^^^^^^^^^^^^^^^^^
 
 - Optimize **Pair Distribution** module.
 - Optimize **Neighbor** module.

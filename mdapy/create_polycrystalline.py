@@ -154,11 +154,13 @@ class CreatePolycrystalline:
 
         if metal_overlap_dis is None:
             if self.metal_lattice_type == "FCC":
-                self.metal_overlap_dis = self.metal_latttice_constant / 2**0.5
+                self.metal_overlap_dis = self.metal_latttice_constant / 2**0.5 - 0.001
             elif self.metal_lattice_type == "BCC":
-                self.metal_overlap_dis = self.metal_latttice_constant * (0.5 * 3**0.5)
+                self.metal_overlap_dis = (
+                    self.metal_latttice_constant * (0.5 * 3**0.5) - 0.001
+                )
             elif self.metal_lattice_type == "HCP":
-                self.metal_overlap_dis = self.metal_latttice_constant
+                self.metal_overlap_dis = self.metal_latttice_constant - 0.001
         else:
             self.metal_overlap_dis = metal_overlap_dis
         self.add_graphene = add_graphene

@@ -172,6 +172,7 @@ V0.8.5 (Under development)
 
 - Obviously improve the performance of **reading/writing DUMP with pyarrow**.
 - Fix bug of **create_polycrystalline** module. One can give box with any number, the old version only works for positive float.
+- Fix bug of **spatial_binning** module for zero region detect.
 
 V0.8.4 (3/30/2023)
 ^^^^^^^^^^^^^^^^^^^

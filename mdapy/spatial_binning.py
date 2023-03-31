@@ -115,10 +115,11 @@ class SpatialBinning:
                 res[cindex, j] += vbin[i, j - 1]
 
         for I in ti.grouped(res):
-            if I[I.n - 1] != 0:
+            if I[I.n - 1] != 0:  # do not divide number per bin
                 J = I
                 J[J.n - 1] = 0
-                res[I] /= res[J]
+                if res[J] > 0:
+                    res[I] /= res[J]
 
     @ti.kernel
     def _Binning_min(
@@ -134,11 +135,13 @@ class SpatialBinning:
             cindex = ti.floor((pos[i] - pos_min[0]) / self.wbin, dtype=ti.i32)
             res[cindex, j] = vbin[i, j - 1]
         # get min
-        for i, j in ti.ndrange(self.N, (1, res.shape[-1])):
+        ti.loop_config(serialize=True)
+        for i in range(self.N):
             cindex = ti.floor((pos[i] - pos_min[0]) / self.wbin, dtype=ti.i32)
             res[cindex, 0] += 1.0
-            if vbin[i, j - 1] < res[cindex, j]:
-                res[cindex, j] = vbin[i, j - 1]
+            for j in range(1, res.shape[-1]):
+                if vbin[i, j - 1] < res[cindex, j]:
+                    res[cindex, j] = vbin[i, j - 1]
 
     @ti.kernel
     def _Binning_max(
@@ -154,11 +157,13 @@ class SpatialBinning:
             cindex = ti.floor((pos[i] - pos_min[0]) / self.wbin, dtype=ti.i32)
             res[cindex, j] = vbin[i, j - 1]
         # get max
-        for i, j in ti.ndrange(self.N, (1, res.shape[-1])):
+        ti.loop_config(serialize=True)
+        for i in range(self.N):
             cindex = ti.floor((pos[i] - pos_min[0]) / self.wbin, dtype=ti.i32)
             res[cindex, 0] += 1.0
-            if vbin[i, j - 1] > res[cindex, j]:
-                res[cindex, j] = vbin[i, j - 1]
+            for j in range(1, res.shape[-1]):
+                if vbin[i, j - 1] > res[cindex, j]:
+                    res[cindex, j] = vbin[i, j - 1]
 
     def compute(self):
         """Do the real binning calculation."""
@@ -292,12 +297,14 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     FCC = LatticeMaker(4.05, "FCC", 100, 50, 50)
     FCC.compute()
+    pos = FCC.pos
+    pos = pos[(pos[:, 0] < 100) | (pos[:, 0] > 300)]
     start = time()
     binning = SpatialBinning(
-        FCC.pos,
-        "xz",
-        FCC.pos[:, 0],
-        operation="sum",
+        pos,
+        "x",
+        pos[:, 0] + pos[:, 1],
+        operation="max",
     )
     binning.compute()
     end = time()

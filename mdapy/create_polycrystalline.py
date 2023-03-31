@@ -392,9 +392,13 @@ class CreatePolycrystalline:
                         # else:
                         #     delete = self._points_in_polygon(vertices[:, :2], pos[:, :2])
                         vertices_temp = np.dot(
-                            vertices, self._rotate_pos(10, [1, 0, 0])
+                            vertices,
+                            self._rotate_pos(10, np.array([1, 1, 1]) / np.sqrt(3.0)),
                         )
-                        pos_temp = np.dot(pos, self._rotate_pos(10, [1, 0, 0]))
+                        pos_temp = np.dot(
+                            pos,
+                            self._rotate_pos(10, np.array([1, 1, 1]) / np.sqrt(3.0)),
+                        )
                         delete = self._points_in_polygon(vertices_temp, pos_temp)
                         pos = pos[delete]
                         pos = np.c_[pos, np.ones(pos.shape[0]) * i]
@@ -636,10 +640,10 @@ if __name__ == "__main__":
     # print(cntr[0].face_vertices())
     # # print(cntr[0].vertices())
     ti.init(ti.cpu)
-    box = np.array([[-100, 100], [-100, 100], [-100, 100]])
+    box = np.array([[-100, 600], [-100, 200], [-100, 300]])
     # polycry = CreatePolycrystalline(box, 20, 3.615, "FCC")
     # polycry.compute()
     polycry = CreatePolycrystalline(
-        box, 10, 3.615, "FCC", add_graphene=False, if_rotation=True
+        box, 30, 2.615, "HCP", add_graphene=True, if_rotation=True
     )
     polycry.compute()

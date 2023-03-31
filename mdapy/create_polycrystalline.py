@@ -9,6 +9,7 @@ except Exception:
 
 import numpy as np
 import taichi as ti
+import pandas as pd
 
 try:
     from .lattice_maker import LatticeMaker
@@ -135,7 +136,9 @@ class CreatePolycrystalline:
         output_name=None,
     ) -> None:
 
-        self.box = box
+        self._real_box = np.array(box, float)
+        self._lower = self._real_box[:, 0]
+        self.box = np.c_[np.zeros(3), self._real_box[:, 1] - self._real_box[:, 0]]
         self.seednumber = seednumber
         self.metal_latttice_constant = metal_latttice_constant
         self.metal_lattice_type = metal_lattice_type
@@ -514,14 +517,21 @@ class CreatePolycrystalline:
 
     def _write_dump(self, pos):
         # save position to DUMP file.
+        pos[:, 2:5] += self._lower
+        df = pd.DataFrame(pos, columns=["id", "type", "x", "y", "z", "grainid"])
+        df[["id", "type", "grainid"]] = df[["id", "type", "grainid"]].astype(int)
+        df[["x", "y", "z"]] = df[["x", "y", "z"]].astype(np.float32)
         with open(self.output_name, "w") as op:
             op.write("ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n")
             op.write(f"{pos.shape[0]}\nITEM: BOX BOUNDS pp pp pp\n")
             op.write(
-                f"{self.box[0, 0]} {self.box[0, 1]}\n{self.box[1, 0]} {self.box[1, 1]}\n{self.box[2, 0]} {self.box[2, 1]}\n"
+                f"{self._real_box[0, 0]} {self._real_box[0, 1]}\n{self._real_box[1, 0]} {self._real_box[1, 1]}\n{self._real_box[2, 0]} {self._real_box[2, 1]}\n"
             )
             op.write("ITEM: ATOMS id type x y z grainid\n")
-            np.savetxt(op, pos, delimiter=" ", fmt="%d %d %f %f %f %d")
+            # np.savetxt(op, pos, delimiter=" ", fmt="%d %d %f %f %f %d")
+        df.to_csv(
+            self.output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
+        )
 
     def compute(self):
         """Do the real polycrystalline structure building."""
@@ -624,10 +634,10 @@ if __name__ == "__main__":
     # print(cntr[0].face_vertices())
     # # print(cntr[0].vertices())
     ti.init(ti.cpu)
-    box = np.array([[0.0, 200.0], [0.0, 200.0], [0.0, 200.0]])
+    box = np.array([[-100, 100], [-100, 100], [-100, 100]])
     # polycry = CreatePolycrystalline(box, 20, 3.615, "FCC")
     # polycry.compute()
     polycry = CreatePolycrystalline(
-        box, 20, 3.615, "FCC", add_graphene=True, if_rotation=False
+        box, 10, 3.615, "FCC", add_graphene=False, if_rotation=True
     )
     polycry.compute()

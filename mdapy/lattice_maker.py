@@ -3,6 +3,7 @@
 
 import taichi as ti
 import numpy as np
+import pandas as pd
 
 
 @ti.data_oriented
@@ -177,33 +178,61 @@ class LatticeMaker:
         if output_name is None:
             output_name = f"{self.lattice_type}-{self.x}-{self.y}-{self.z}.data"
         if type_list is None:
-            type_list = [1] * self.N
+            type_list = np.ones(self.N, int)
             Ntype = 1
         else:
             assert len(type_list) == self.N
+            type_list = np.array(type_list, int)
             Ntype = len(np.unique(type_list))
+        df = pd.DataFrame(
+            {
+                "id": np.arange(1, self.N + 1),
+                "type": type_list,
+                "x": self.pos[:, 0].astype(np.float32),
+                "y": self.pos[:, 1].astype(np.float32),
+                "z": self.pos[:, 2].astype(np.float32),
+            }
+        )
+        try:
+            import pyarrow as pa
+            from pyarrow import csv
 
-        with open(output_name, "w") as op:
-            op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n")
-            op.write(f"{self.N} atoms\n{Ntype} atom types\n\n")
-            for i, j in zip(range(3), ["x", "y", "z"]):
-                op.write(f"{self.box[i,0]} {self.box[i,1]} {j}lo {j}hi\n")
-            op.write("\n")
-            op.write(r"Atoms # atomic")
-            op.write("\n\n")
-            for i in range(self.N):
-                op.write(
-                    f"{i+1} {type_list[i]} {self.pos[i,0]:.6f} {self.pos[i,1]:.6f} {self.pos[i,2]:.6f}\n"
-                )
+            table = pa.Table.from_pandas(df)
+            with pa.OSFile(output_name, "wb") as op:
+                op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n".encode())
+                op.write(f"{self.N} atoms\n{Ntype} atom types\n\n".encode())
+                for i, j in zip(range(3), ["x", "y", "z"]):
+                    op.write(f"{self.box[i,0]} {self.box[i,1]} {j}lo {j}hi\n".encode())
+                op.write("\n".encode())
+                op.write(r"Atoms # atomic".encode())
+                op.write("\n\n".encode())
+                write_options = csv.WriteOptions(delimiter=" ", include_header=False)
+                csv.write_csv(table, op, write_options=write_options)
+        except Exception:
+            with open(output_name, "w") as op:
+                op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n")
+                op.write(f"{self.N} atoms\n{Ntype} atom types\n\n")
+                for i, j in zip(range(3), ["x", "y", "z"]):
+                    op.write(f"{self.box[i,0]} {self.box[i,1]} {j}lo {j}hi\n")
+                op.write("\n")
+                op.write(r"Atoms # atomic")
+                op.write("\n\n")
+            df.to_csv(
+                output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
+            )
 
 
 if __name__ == "__main__":
     ti.init(ti.gpu)
+    from time import time
+
     # FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
-    FCC = LatticeMaker(1.42, "GRA", 10, 10, 10)
-    print(FCC.N)
-    # FCC.compute()
-    # FCC.write_data()
+    FCC = LatticeMaker(3.615, "FCC", 100, 100, 100)
+    FCC.compute()
+    print("Atom number is:", FCC.N)
+    start = time()
+    FCC.write_data()
+    print(f"write time {time()-start} s.")
     # print(FCC.basis_atoms.to_numpy())
     # print(FCC.basis_vector.to_numpy())
     # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))

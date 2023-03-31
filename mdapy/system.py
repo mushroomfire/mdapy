@@ -507,26 +507,52 @@ class System:
             col_name += i
             col_name += " "
         col_name += "\n"
-        with open(output_name, "w") as op:
-            if self.dump_head is None:
-                op.write("ITEM: TIMESTEP\n0\n")
-                op.write("ITEM: NUMBER OF ATOMS\n")
-                op.write(f"{self.N}\n")
-                boundary = ["pp" if i == 1 else "ss" for i in self.boundary]
-                op.write(
-                    f"ITEM: BOX BOUNDS {boundary[0]} {boundary[1]} {boundary[2]}\n"
-                )
-                op.write(f"{self.box[0, 0]} {self.box[0, 1]}\n")
-                op.write(f"{self.box[1, 0]} {self.box[1, 1]}\n")
-                op.write(f"{self.box[2, 0]} {self.box[2, 1]}\n")
-                op.write("".join(col_name))
-            else:
-                self.dump_head[3] = f"{data.shape[0]}\n"
-                op.write("".join(self.dump_head[:-1]))
-                op.write("".join(col_name))
-        data.to_csv(
-            output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
-        )
+        try:
+            import pyarrow as pa
+            from pyarrow import csv
+
+            table = pa.Table.from_pandas(data)
+            with pa.OSFile(output_name, "wb") as op:
+                if self.dump_head is None:
+                    op.write("ITEM: TIMESTEP\n0\n".encode())
+                    op.write("ITEM: NUMBER OF ATOMS\n".encode())
+                    op.write(f"{self.N}\n".encode())
+                    boundary = ["pp" if i == 1 else "ss" for i in self.boundary]
+                    op.write(
+                        f"ITEM: BOX BOUNDS {boundary[0]} {boundary[1]} {boundary[2]}\n".encode()
+                    )
+                    op.write(f"{self.box[0, 0]} {self.box[0, 1]}\n".encode())
+                    op.write(f"{self.box[1, 0]} {self.box[1, 1]}\n".encode())
+                    op.write(f"{self.box[2, 0]} {self.box[2, 1]}\n".encode())
+                    op.write("".join(col_name).encode())
+                else:
+                    self.dump_head[3] = f"{data.shape[0]}\n"
+                    op.write("".join(self.dump_head[:-1]).encode())
+                    op.write("".join(col_name).encode())
+                write_options = csv.WriteOptions(delimiter=" ", include_header=False)
+                csv.write_csv(table, op, write_options=write_options)
+
+        except Exception:
+            with open(output_name, "w") as op:
+                if self.dump_head is None:
+                    op.write("ITEM: TIMESTEP\n0\n")
+                    op.write("ITEM: NUMBER OF ATOMS\n")
+                    op.write(f"{self.N}\n")
+                    boundary = ["pp" if i == 1 else "ss" for i in self.boundary]
+                    op.write(
+                        f"ITEM: BOX BOUNDS {boundary[0]} {boundary[1]} {boundary[2]}\n"
+                    )
+                    op.write(f"{self.box[0, 0]} {self.box[0, 1]}\n")
+                    op.write(f"{self.box[1, 0]} {self.box[1, 1]}\n")
+                    op.write(f"{self.box[2, 0]} {self.box[2, 1]}\n")
+                    op.write("".join(col_name))
+                else:
+                    self.dump_head[3] = f"{data.shape[0]}\n"
+                    op.write("".join(self.dump_head[:-1]))
+                    op.write("".join(col_name))
+            data.to_csv(
+                output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
+            )
 
     def write_data(self, output_name=None, data_format=None):
         """Write data to a DATA file.
@@ -1660,11 +1686,20 @@ if __name__ == "__main__":
     #     threshold=0.7,
     #     n_bond=7,
     # )
+    # from time import time
 
-    print(system.data)
+    # start = time()
+    # system = System(
+    #     r"C:\Users\Administrator\Desktop\python\MY_PACKAGE\MyPackage\test\new_pandas\Metal-FCC-100-2260622.dump"
+    # )
+    # print(f"read time is {time()-start} s.")
+    print(system.data.head())
+    # start = time()
+    # system.write_dump(output_col=["id", "x", "y", "z"])
+    # print(f"write time is {time()-start} s.")
     # print(system.neighbor_number, system.rc)
     print(system.Ntype, system.N, system.format)
-    print(system.pos)
+    # print(system.pos)
     # print(system.data_head)
     # system.write_data(data_format="charge")
     # system.write_dump()

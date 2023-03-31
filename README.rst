@@ -170,7 +170,7 @@ Release Notes
 V0.8.5 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- Improve read DUMP performance with **pyarrow**.
+- Obviously improve the performance of **reading/writing DUMP with pyarrow**.
 - Fix bug of **create_polycrystalline** module. One can give box with any number, the old version only works for positive float.
 
 V0.8.4 (3/30/2023)

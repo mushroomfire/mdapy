@@ -1633,7 +1633,7 @@ if __name__ == "__main__":
 
     ti.init()
     # system = System(filename=r"./example/CoCuFeNiPd-4M.data")
-    # system = System(filename=r"./example/CoCuFeNiPd-4M.dump")
+    system = System(filename=r"./example/CoCuFeNiPd-4M.dump")
     # box = np.array([[0, 10], [0, 10], [0, 10]])
     # pos = np.array([[0.0, 0.0, 0.0], [1.5, 6.5, 9.0]])
     # vel = np.array([[1.0, 0.0, 0.0], [2.5, 6.5, 9.0]])

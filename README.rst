@@ -41,7 +41,7 @@ Dependencies
 Optional Dependencies
 ----------------------
 
-* `pyarrow <https://arrow.apache.org/docs/python/index.html>`_ (Optional, for fast reading DUMP file)
+* `pyarrow <https://arrow.apache.org/docs/python/index.html>`_ (Optional, for fast reading/writing DUMP file)
 * `SciencePlots <https://github.com/garrettj403/SciencePlots>`_ (Optional, for plotting results)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
 * `pyfnntw>=0.4.1 <https://github.com/cavemanloverboy/FNNTW>`_ (Optional, for fast KNN search)

@@ -141,7 +141,7 @@ class WarrenCowleyParameter:
 
         baraxes = fig.add_axes([0.83, 0.165, 0.03, 0.67])
         bar = fig.colorbar(h, ax=ax, cax=baraxes)
-        bar.set_ticks([vmin, 0, vmax], fontsize=8)
+        bar.set_ticks(ticks=[vmin, 0, vmax])
         bar.set_label("WCP")
         plt.show()
         return fig, ax

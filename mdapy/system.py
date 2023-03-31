@@ -459,14 +459,22 @@ class System:
         self.boundary = [1 if i == "pp" else 0 for i in self.dump_head[4].split()[-3:]]
         self.box = np.array([i.split()[:2] for i in self.dump_head[5:8]]).astype(float)
         self.col_names = self.dump_head[8].split()[2:]
-        self.data = pd.read_csv(
-            self.filename,
-            skiprows=9,
-            index_col=False,
-            header=None,
-            sep=" ",
-            names=self.col_names,
-        )
+        try:
+            self.data = pd.read_csv(
+                self.filename,
+                skiprows=9,
+                sep=" ",
+                names=self.col_names,
+                engine="pyarrow",
+            )
+        except Exception:
+            self.data = pd.read_csv(
+                self.filename,
+                skiprows=9,
+                index_col=False,
+                sep=" ",
+                names=self.col_names,
+            )
 
         if self.sorted_id:
             self.data.sort_values("id", inplace=True)
@@ -1625,7 +1633,7 @@ if __name__ == "__main__":
 
     ti.init()
     # system = System(filename=r"./example/CoCuFeNiPd-4M.data")
-    system = System(filename=r"./example/CoCuFeNiPd-4M.dump")
+    # system = System(filename=r"./example/CoCuFeNiPd-4M.dump")
     # box = np.array([[0, 10], [0, 10], [0, 10]])
     # pos = np.array([[0.0, 0.0, 0.0], [1.5, 6.5, 9.0]])
     # vel = np.array([[1.0, 0.0, 0.0], [2.5, 6.5, 9.0]])
@@ -1641,20 +1649,22 @@ if __name__ == "__main__":
     #     q=q,
     # )
     # system.wrap_pos()
-    system.cal_steinhardt_bond_orientation(
-        rc=3.0,
-        qlist=[6],
-        nnn=12,
-        wlflag=False,
-        wlhatflag=False,
-        solidliquid=True,
-        max_neigh=30,
-        threshold=0.7,
-        n_bond=7,
-    )
+    # system.cal_steinhardt_bond_orientation(
+    #     rc=3.0,
+    #     qlist=[6],
+    #     nnn=12,
+    #     wlflag=False,
+    #     wlhatflag=False,
+    #     solidliquid=True,
+    #     max_neigh=30,
+    #     threshold=0.7,
+    #     n_bond=7,
+    # )
+
     print(system.data)
-    print(system.neighbor_number, system.rc)
+    # print(system.neighbor_number, system.rc)
     print(system.Ntype, system.N, system.format)
+    print(system.pos)
     # print(system.data_head)
     # system.write_data(data_format="charge")
     # system.write_dump()

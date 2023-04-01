@@ -50,6 +50,7 @@ Optional Dependencies
    gettingstarted/quicklystart
    gettingstarted/examples
    gettingstarted/use_mdapy_efficiently
+   gettingstarted/reading_and_saving_file
    gettingstarted/benchmark
    gettingstarted/main_features
 

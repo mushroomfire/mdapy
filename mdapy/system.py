@@ -4,7 +4,8 @@
 import taichi as ti
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
+import pyarrow as pa
+from pyarrow import csv
 
 try:
     from .ackland_jones_analysis import AcklandJonesAnalysis
@@ -507,52 +508,27 @@ class System:
             col_name += i
             col_name += " "
         col_name += "\n"
-        try:
-            import pyarrow as pa
-            from pyarrow import csv
 
-            table = pa.Table.from_pandas(data)
-            with pa.OSFile(output_name, "wb") as op:
-                if self.dump_head is None:
-                    op.write("ITEM: TIMESTEP\n0\n".encode())
-                    op.write("ITEM: NUMBER OF ATOMS\n".encode())
-                    op.write(f"{self.N}\n".encode())
-                    boundary = ["pp" if i == 1 else "ss" for i in self.boundary]
-                    op.write(
-                        f"ITEM: BOX BOUNDS {boundary[0]} {boundary[1]} {boundary[2]}\n".encode()
-                    )
-                    op.write(f"{self.box[0, 0]} {self.box[0, 1]}\n".encode())
-                    op.write(f"{self.box[1, 0]} {self.box[1, 1]}\n".encode())
-                    op.write(f"{self.box[2, 0]} {self.box[2, 1]}\n".encode())
-                    op.write("".join(col_name).encode())
-                else:
-                    self.dump_head[3] = f"{data.shape[0]}\n"
-                    op.write("".join(self.dump_head[:-1]).encode())
-                    op.write("".join(col_name).encode())
-                write_options = csv.WriteOptions(delimiter=" ", include_header=False)
-                csv.write_csv(table, op, write_options=write_options)
-
-        except Exception:
-            with open(output_name, "w") as op:
-                if self.dump_head is None:
-                    op.write("ITEM: TIMESTEP\n0\n")
-                    op.write("ITEM: NUMBER OF ATOMS\n")
-                    op.write(f"{self.N}\n")
-                    boundary = ["pp" if i == 1 else "ss" for i in self.boundary]
-                    op.write(
-                        f"ITEM: BOX BOUNDS {boundary[0]} {boundary[1]} {boundary[2]}\n"
-                    )
-                    op.write(f"{self.box[0, 0]} {self.box[0, 1]}\n")
-                    op.write(f"{self.box[1, 0]} {self.box[1, 1]}\n")
-                    op.write(f"{self.box[2, 0]} {self.box[2, 1]}\n")
-                    op.write("".join(col_name))
-                else:
-                    self.dump_head[3] = f"{data.shape[0]}\n"
-                    op.write("".join(self.dump_head[:-1]))
-                    op.write("".join(col_name))
-            data.to_csv(
-                output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
-            )
+        table = pa.Table.from_pandas(data)
+        with pa.OSFile(output_name, "wb") as op:
+            if self.dump_head is None:
+                op.write("ITEM: TIMESTEP\n0\n".encode())
+                op.write("ITEM: NUMBER OF ATOMS\n".encode())
+                op.write(f"{self.N}\n".encode())
+                boundary = ["pp" if i == 1 else "ss" for i in self.boundary]
+                op.write(
+                    f"ITEM: BOX BOUNDS {boundary[0]} {boundary[1]} {boundary[2]}\n".encode()
+                )
+                op.write(f"{self.box[0, 0]} {self.box[0, 1]}\n".encode())
+                op.write(f"{self.box[1, 0]} {self.box[1, 1]}\n".encode())
+                op.write(f"{self.box[2, 0]} {self.box[2, 1]}\n".encode())
+                op.write("".join(col_name).encode())
+            else:
+                self.dump_head[3] = f"{data.shape[0]}\n"
+                op.write("".join(self.dump_head[:-1]).encode())
+                op.write("".join(col_name).encode())
+            write_options = csv.WriteOptions(delimiter=" ", include_header=False)
+            csv.write_csv(table, op, write_options=write_options)
 
     def write_data(self, output_name=None, data_format=None):
         """Write data to a DATA file.
@@ -1527,12 +1503,19 @@ class MultiSystem(list):
         self.sorted_id = sorted_id
         self.unwrap = unwrap
         self.image_p = image_p
+        try:
+            from tqdm import tqdm
 
-        progress_bar = tqdm(filename_list)
-        for filename in progress_bar:
-            progress_bar.set_description(f"Reading {filename}")
-            system = System(filename, sorted_id=self.sorted_id)
-            self.append(system)
+            progress_bar = tqdm(filename_list)
+            for filename in progress_bar:
+                progress_bar.set_description(f"Reading {filename}")
+                system = System(filename, sorted_id=self.sorted_id)
+                self.append(system)
+        except Exception:
+            for filename in filename_list:
+                print(f"Reading {filename}", end="")
+                system = System(filename, sorted_id=self.sorted_id)
+                self.append(system)
 
         self.pos_list = np.array([system.pos for system in self])
         if self.unwrap:
@@ -1555,13 +1538,17 @@ class MultiSystem(list):
         Args:
             output_col (list, optional): columns to be saved, such as ['id', 'type', 'x', 'y', 'z'].
         """
-        progress_bar = tqdm(self)
-        for system in progress_bar:
-            try:
+        try:
+            from tqdm import tqdm
+
+            progress_bar = tqdm(self)
+            for system in progress_bar:
                 progress_bar.set_description(f"Saving {system.filename}")
-            except Exception:
-                progress_bar.set_description(f"Saving file...")
-            system.write_dump(output_col=output_col)
+                system.write_dump(output_col=output_col)
+        except Exception:
+            for system in self:
+                print(f"Saving {system.filename}", end="")
+                system.write_dump(output_col=output_col)
 
     def cal_mean_squared_displacement(self, mode="windows"):
         """Calculate the mean squared displacement MSD of system, which can be used to

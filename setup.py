@@ -79,8 +79,8 @@ setup(
         "numpy",
         "scipy",
         "pandas",
+        "pyarrow",
         "matplotlib",
-        "tqdm",
     ],
     classifiers=[
         "License :: OSI Approved :: BSD License",

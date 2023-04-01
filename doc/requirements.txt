@@ -2,7 +2,7 @@ taichi>=1.4.0
 numpy
 scipy
 pandas
-tqdm
+pyarrow
 matplotlib
 sphinx
 sphinx_rtd_theme

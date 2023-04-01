@@ -35,17 +35,16 @@ Dependencies
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
 * `pandas <https://pandas.pydata.org/>`_
-* `tqdm <https://github.com/tqdm/tqdm>`_
+* `pyarrow <https://arrow.apache.org/docs/python/index.html>`_
 * `matplotlib <https://matplotlib.org/>`_
 
 Optional Dependencies
 ----------------------
 
-* `pyarrow <https://arrow.apache.org/docs/python/index.html>`_ (Optional, for fast reading/writing DUMP file)
 * `SciencePlots <https://github.com/garrettj403/SciencePlots>`_ (Optional, for plotting results)
+* `tqdm <https://github.com/tqdm/tqdm>`_ (Optional, for progress bar when reading/saving multi DUMP files)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
 * `pyfnntw>=0.4.1 <https://github.com/cavemanloverboy/FNNTW>`_ (Optional, for fast KNN search)
-
 
 
 Installation
@@ -171,8 +170,10 @@ V0.8.5 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Obviously improve the performance of **reading/writing DUMP with pyarrow**.
+- Add **pyarrow** as a dependency package.
 - Fix bug of **create_polycrystalline** module. One can give box with any number, the old version only works for positive float.
-- Fix bug of **spatial_binning** module for zero region detect.
+- Fix bug of **spatial_binning** module for empty region.
+- Let **tqdm** as an Optional dependency. 
 
 V0.8.4 (3/30/2023)
 ^^^^^^^^^^^^^^^^^^^

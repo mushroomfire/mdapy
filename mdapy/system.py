@@ -7,88 +7,49 @@ import pandas as pd
 import pyarrow as pa
 from pyarrow import csv
 
-try:
-    from .ackland_jones_analysis import AcklandJonesAnalysis
-except Exception:
+if __name__ == "__main__":
+
     from ackland_jones_analysis import AcklandJonesAnalysis
-try:
-    from .common_neighbor_analysis import CommonNeighborAnalysis
-except Exception:
     from common_neighbor_analysis import CommonNeighborAnalysis
-try:
-    from .common_neighbor_parameter import CommonNeighborParameter
-except Exception:
     from common_neighbor_parameter import CommonNeighborParameter
-try:
-    from .neighbor import Neighbor
-except Exception:
     from neighbor import Neighbor
-try:
-    from .temperature import AtomicTemperature
-except Exception:
     from temperature import AtomicTemperature
-try:
-    from .centro_symmetry_parameter import CentroSymmetryParameter
-except Exception:
     from centro_symmetry_parameter import CentroSymmetryParameter
-try:
-    from .entropy import AtomicEntropy
-except Exception:
     from entropy import AtomicEntropy
-try:
-    from .identify_SFs_TBs import IdentifySFTBinFCC
-except Exception:
     from identify_SFs_TBs import IdentifySFTBinFCC
-try:
-    from .pair_distribution import PairDistribution
-except Exception:
     from pair_distribution import PairDistribution
-try:
-    from .polyhedral_template_matching import PolyhedralTemplateMatching
-except Exception:
     from polyhedral_template_matching import PolyhedralTemplateMatching
-try:
-    from .cluser_analysis import ClusterAnalysis
-except Exception:
     from cluser_analysis import ClusterAnalysis
-try:
-    from .potential import EAM
-except Exception:
     from potential import EAM
-try:
-    from .calculator import Calculator
-except Exception:
     from calculator import Calculator
-try:
-    from .void_distribution import VoidDistribution
-except Exception:
     from void_distribution import VoidDistribution
-try:
-    from .warren_cowley_parameter import WarrenCowleyParameter
-except Exception:
     from warren_cowley_parameter import WarrenCowleyParameter
-try:
-    from .voronoi_analysis import VoronoiAnalysis
-except Exception:
     from voronoi_analysis import VoronoiAnalysis
-try:
-    from .mean_squared_displacement import MeanSquaredDisplacement
-except Exception:
     from mean_squared_displacement import MeanSquaredDisplacement
-try:
-    from .lindemann_parameter import LindemannParameter
-except Exception:
     from lindemann_parameter import LindemannParameter
-
-try:
-    from .spatial_binning import SpatialBinning
-except Exception:
     from spatial_binning import SpatialBinning
-
-try:
-    from .steinhardt_bond_orientation import SteinhardtBondOrientation
-except Exception:
     from steinhardt_bond_orientation import SteinhardtBondOrientation
+else:
+    from .common_neighbor_analysis import CommonNeighborAnalysis
+    from .ackland_jones_analysis import AcklandJonesAnalysis
+    from .common_neighbor_parameter import CommonNeighborParameter
+    from .neighbor import Neighbor
+    from .temperature import AtomicTemperature
+    from .centro_symmetry_parameter import CentroSymmetryParameter
+    from .entropy import AtomicEntropy
+    from .identify_SFs_TBs import IdentifySFTBinFCC
+    from .pair_distribution import PairDistribution
+    from .polyhedral_template_matching import PolyhedralTemplateMatching
+    from .cluser_analysis import ClusterAnalysis
+    from .potential import EAM
+    from .calculator import Calculator
+    from .void_distribution import VoidDistribution
+    from .warren_cowley_parameter import WarrenCowleyParameter
+    from .voronoi_analysis import VoronoiAnalysis
+    from .mean_squared_displacement import MeanSquaredDisplacement
+    from .lindemann_parameter import LindemannParameter
+    from .spatial_binning import SpatialBinning
+    from .steinhardt_bond_orientation import SteinhardtBondOrientation
 
 
 @ti.kernel

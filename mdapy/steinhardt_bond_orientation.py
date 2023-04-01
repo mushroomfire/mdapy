@@ -1,15 +1,15 @@
+# Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
+# This file is from the mdapy project, released under the BSD 3-Clause License.
+
 import numpy as np
 import taichi as ti
 
-try:
-    from .neighbor import Neighbor
-except Exception:
+if __name__ == "__main__":
     from neighbor import Neighbor
-
-try:
-    from .kdtree import kdtree
-except Exception:
     from kdtree import kdtree
+else:
+    from .neighbor import Neighbor
+    from .kdtree import kdtree
 
 nfac_table_numpy = np.array(
     [

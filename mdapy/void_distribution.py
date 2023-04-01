@@ -4,14 +4,12 @@
 import taichi as ti
 import numpy as np
 
-try:
-    from .neighbor import Neighbor
-except Exception:
+if __name__ == "__main__":
     from neighbor import Neighbor
-try:
-    from .cluser_analysis import ClusterAnalysis
-except Exception:
     from cluser_analysis import ClusterAnalysis
+else:
+    from .neighbor import Neighbor
+    from .cluser_analysis import ClusterAnalysis
 
 
 @ti.data_oriented

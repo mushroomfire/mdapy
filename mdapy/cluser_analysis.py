@@ -3,9 +3,9 @@
 
 import numpy as np
 
-try:
+if __name__ == "__main__":
     from cluster import _cluster_analysis
-except Exception:
+else:
     import _cluster_analysis
 
 

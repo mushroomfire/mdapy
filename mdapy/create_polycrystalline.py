@@ -1,30 +1,21 @@
 # Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
-try:
-    from polygon import _poly
-
-except Exception:
-    import _poly
-
+from time import time
 import numpy as np
 import taichi as ti
 import pandas as pd
 import pyarrow as pa
 from pyarrow import csv
 
-try:
-    from .lattice_maker import LatticeMaker
-except Exception:
+if __name__ == "__main__":
+    from polygon import _poly
     from lattice_maker import LatticeMaker
-
-try:
-    from .neighbor import Neighbor
-except Exception:
     from neighbor import Neighbor
-
-
-from time import time
+else:
+    import _poly
+    from .lattice_maker import LatticeMaker
+    from .neighbor import Neighbor
 
 
 class Cell:
@@ -640,11 +631,12 @@ if __name__ == "__main__":
     # print(len(cntr))
     # print(cntr[0].face_vertices())
     # # print(cntr[0].vertices())
-    ti.init(ti.cpu)
-    box = np.array([[-100, 100], [-100, 100], [-100, 100]])
-    # polycry = CreatePolycrystalline(box, 20, 3.615, "FCC")
+    # ti.init(ti.cpu)
+    # box = np.array([[-100, 100], [-100, 100], [-100, 100]])
+    # # polycry = CreatePolycrystalline(box, 20, 3.615, "FCC")
+    # # polycry.compute()
+    # polycry = CreatePolycrystalline(
+    #     box, 10, 2.615, "FCC", add_graphene=True, if_rotation=True
+    # )
     # polycry.compute()
-    polycry = CreatePolycrystalline(
-        box, 10, 2.615, "FCC", add_graphene=True, if_rotation=True
-    )
-    polycry.compute()
+    print("test")

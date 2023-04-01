@@ -2,12 +2,12 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
-
-try:
-    from .plotset import pltset, cm2inch
-except Exception:
-    from plotset import pltset, cm2inch
 import matplotlib.pyplot as plt
+
+if __name__ == "__main__":
+    from plotset import pltset, cm2inch
+else:
+    from .plotset import pltset, cm2inch
 
 try:
     import pyfftw
@@ -173,6 +173,7 @@ if __name__ == "__main__":
     msd_d = MSD.msd
     print(f"direct mode costs: {end-start} s.")
     # MSD.plot()
+    pltset()
     fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
     plt.subplots_adjust(left=0.16, bottom=0.16, right=0.95, top=0.97)
     plt.plot(msd_w, "o-", label="windows")

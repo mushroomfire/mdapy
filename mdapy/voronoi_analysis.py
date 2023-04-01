@@ -3,9 +3,9 @@
 
 import numpy as np
 
-try:
+if __name__ == "__main__":
     from voronoi import _voronoi_analysis
-except Exception:
+else:
     import _voronoi_analysis
 
 

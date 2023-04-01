@@ -5,10 +5,10 @@ import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import matplotlib.pyplot as plt
 
-try:
-    from .plotset import pltset, cm2inch
-except Exception:
+if __name__ == "__main__":
     from plotset import pltset, cm2inch
+else:
+    from .plotset import pltset, cm2inch
 
 
 class EAM:

@@ -4,11 +4,12 @@
 import taichi as ti
 import numpy as np
 
-try:
-    from .plotset import pltset, cm2inch
-except Exception:
-    from plotset import pltset, cm2inch
 import matplotlib.pyplot as plt
+
+if __name__ == "__main__":
+    from plotset import pltset, cm2inch
+else:
+    from .plotset import pltset, cm2inch
 
 
 @ti.data_oriented

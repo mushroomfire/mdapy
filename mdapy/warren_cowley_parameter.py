@@ -5,10 +5,10 @@ import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
 
-try:
-    from .plotset import pltset, cm2inch
-except Exception:
+if __name__ == "__main__":
     from plotset import pltset, cm2inch
+else:
+    from .plotset import pltset, cm2inch
 
 
 @ti.data_oriented
@@ -148,7 +148,7 @@ class WarrenCowleyParameter:
 
 
 if __name__ == "__main__":
-    from system import System
+    from mdapy import System
     from neighbor import Neighbor
     from time import time
 

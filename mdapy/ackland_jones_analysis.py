@@ -4,10 +4,10 @@
 import taichi as ti
 import numpy as np
 
-try:
-    from .kdtree import kdtree
-except Exception:
+if __name__ == "__main__":
     from kdtree import kdtree
+else:
+    from .kdtree import kdtree
 
 
 @ti.data_oriented

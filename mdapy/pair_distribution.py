@@ -2,16 +2,14 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
-
-try:
-    from rdf._rdf import _rdf, _rdf_single_species
-except Exception:
-    from _rdf import _rdf, _rdf_single_species
-try:
-    from .plotset import pltset, cm2inch
-except Exception:
-    from plotset import pltset, cm2inch
 import matplotlib.pyplot as plt
+
+if __name__ == "__main__":
+    from rdf._rdf import _rdf, _rdf_single_species
+    from plotset import pltset, cm2inch
+else:
+    from _rdf import _rdf, _rdf_single_species
+    from .plotset import pltset, cm2inch
 
 
 class PairDistribution:

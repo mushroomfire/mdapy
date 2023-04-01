@@ -5,10 +5,10 @@ import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
 
-try:
-    from .plotset import pltset, cm2inch
-except Exception:
+if __name__ == "__main__":
     from plotset import pltset, cm2inch
+else:
+    from .plotset import pltset, cm2inch
 
 
 @ti.data_oriented

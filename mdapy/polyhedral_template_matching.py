@@ -4,14 +4,11 @@
 
 import numpy as np
 
-try:
+if __name__ == "__main__":
     from ptm import _ptm
-except Exception:
-    import _ptm
-
-try:
     from kdtree import kdtree
-except Exception:
+else:
+    import _ptm
     from .kdtree import kdtree
 
 

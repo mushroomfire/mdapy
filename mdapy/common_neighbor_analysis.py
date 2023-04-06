@@ -4,6 +4,9 @@
 import taichi as ti
 import numpy as np
 
+vec3f32 = ti.types.vector(3, ti.f32)
+vec3f64 = ti.types.vector(3, ti.f64)
+
 
 @ti.data_oriented
 class CommonNeighborAnalysis:
@@ -87,11 +90,17 @@ class CommonNeighborAnalysis:
         self.rc = rc
         self.verlet_list = verlet_list
         self.neighbor_number = neighbor_number
-        self.box = ti.Vector.field(box.shape[1], dtype=ti.f64, shape=(box.shape[0]))
-        self.box.from_numpy(box)
-        self.boundary = ti.Vector(boundary)
+        self.box = box
+        self.boundary = ti.Vector([boundary[i] for i in range(3)], int)
+        assert pos.dtype in [
+            np.float64,
+            np.float32,
+        ], "Dtype of pos must in [float64, float32]."
         self.pos = pos
-
+        if self.pos.dtype == np.float64:
+            self.box_length = vec3f64([box[i, 1] - box[i, 0] for i in range(3)])
+        elif self.pos.dtype == np.float32:
+            self.box_length = vec3f32([box[i, 1] - box[i, 0] for i in range(3)])
         self.N = self.verlet_list.shape[0]
         self.MAXNEAR = 14
         self.MAXCOMMON = 7
@@ -100,10 +109,17 @@ class CommonNeighborAnalysis:
 
     @ti.func
     def _pbc(self, rij):
-        for i in ti.static(range(rij.n)):
-            if self.boundary[i] == 1:
-                box_length = self.box[i][1] - self.box[i][0]
-                rij[i] = rij[i] - box_length * ti.round(rij[i] / box_length)
+
+        for m in ti.static(range(3)):
+            if self.boundary[m]:
+                dx = rij[m]
+                x_size = self.box_length[m]
+                h_x_size = x_size * 0.5
+                if dx > h_x_size:
+                    dx = dx - x_size
+                if dx <= -h_x_size:
+                    dx = dx + x_size
+                rij[m] = dx
         return rij
 
     @ti.kernel

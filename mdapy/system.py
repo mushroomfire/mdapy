@@ -1206,18 +1206,6 @@ class System:
                 rc,
             )
             self.if_neigh = True
-        elif self.rc != rc:
-            Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
-            Neigh.compute()
-            CommonNeighborAnalysi = CommonNeighborAnalysis(
-                rc,
-                Neigh.verlet_list,
-                Neigh.neighbor_number,
-                self.pos,
-                self.box,
-                self.boundary,
-            )
-        else:
             CommonNeighborAnalysi = CommonNeighborAnalysis(
                 rc,
                 self.verlet_list,
@@ -1226,6 +1214,27 @@ class System:
                 self.box,
                 self.boundary,
             )
+        else:
+            if self.rc != rc:
+                Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
+                Neigh.compute()
+                CommonNeighborAnalysi = CommonNeighborAnalysis(
+                    rc,
+                    Neigh.verlet_list,
+                    Neigh.neighbor_number,
+                    self.pos,
+                    self.box,
+                    self.boundary,
+                )
+            else:
+                CommonNeighborAnalysi = CommonNeighborAnalysis(
+                    rc,
+                    self.verlet_list,
+                    self.neighbor_number,
+                    self.pos,
+                    self.box,
+                    self.boundary,
+                )
         CommonNeighborAnalysi.compute()
         self.data["cna"] = CommonNeighborAnalysi.pattern
 

@@ -133,7 +133,7 @@ class CommonNeighborAnalysis:
         bonds: ti.types.ndarray(),
         pattern: ti.types.ndarray(),
     ):
-
+        rcsq = self.rc * self.rc
         for i in range(self.N):
             if neighbor_number[i] == 12 or neighbor_number[i] == 14:
                 for m in range(neighbor_number[i]):
@@ -161,7 +161,7 @@ class CommonNeighborAnalysis:
                             r_k = ti.Vector([pos[k, 0], pos[k, 1], pos[k, 2]])
 
                             rjk = self._pbc(r_j - r_k)
-                            if rjk.norm() < self.rc:
+                            if rjk.norm_sqr() < rcsq:
                                 nbonds += 1
                                 bonds[i, jj] += 1
                                 bonds[i, kk] += 1

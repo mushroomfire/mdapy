@@ -415,20 +415,36 @@ class System:
 
     def _read_dump(self):
         self.dump_head = []
+        if_space = False
         with open(self.filename) as op:
-            for _ in range(9):
-                self.dump_head.append(op.readline())
+            for i in range(10):
+                if i < 9:
+                    self.dump_head.append(op.readline())
+                else:
+                    if op.readline()[-2] == " ":
+                        if_space = True
         self.boundary = [1 if i == "pp" else 0 for i in self.dump_head[4].split()[-3:]]
         self.box = np.array([i.split()[:2] for i in self.dump_head[5:8]]).astype(float)
         self.col_names = self.dump_head[8].split()[2:]
         try:
-            self.data = pd.read_csv(
-                self.filename,
-                skiprows=9,
-                sep=" ",
-                names=self.col_names,
-                engine="pyarrow",
-            )
+            if if_space:
+                data = pd.read_csv(
+                    self.filename,
+                    skiprows=9,
+                    sep=" ",
+                    names=self.col_names + ["drop"],
+                    engine="pyarrow",
+                )
+                del data["drop"]
+                self.data = data
+            else:
+                self.data = pd.read_csv(
+                    self.filename,
+                    skiprows=9,
+                    sep=" ",
+                    names=self.col_names,
+                    engine="pyarrow",
+                )
         except Exception:
             self.data = pd.read_csv(
                 self.filename,

@@ -1,17 +1,23 @@
 # Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
-from pybind11.setup_helpers import Pybind11Extension
+from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import setup
 from glob import glob
 import sys
 
 if sys.platform.startswith("win"):
-    omp = "/openmp"
+    extra_compile_args = ["/openmp"]
+    extra_link_args = [""]
 elif sys.platform.startswith("linux"):
-    omp = "-fopenmp"
+    extra_compile_args = ["-fopenmp"]
+    extra_link_args = ["-fopenmp"]
+elif sys.platform.startswith("darw"):
+    extra_compile_args = ["-Xclang", "-fopenmp"]
+    extra_link_args = ["-lomp"]
 
-description = "A simple and fast python library to handle the data generated from molecular dynamics simulations"
+
+description = "A simple, fast and cross-platform python library to handle the data generated from molecular dynamics simulations"
 try:
     with open("README.rst") as f:
         readme = f.read()
@@ -56,8 +62,8 @@ setup(
             glob("thirdparty/ptm/ptm*.cpp") + ["mdapy/ptm/_ptm.cpp"],
             language="c++",
             include_dirs=["thirdparty/ptm"],
-            extra_compile_args=[omp],
-            extra_link_args=[omp],
+            extra_compile_args=extra_compile_args,
+            extra_link_args=extra_link_args,
         ),
         Pybind11Extension(
             "_rdf",
@@ -70,6 +76,7 @@ setup(
             language="c++",
         ),
     ],
+    cmdclass={"build_ext": build_ext},
     zip_safe=False,
     license="BSD 3-Clause License",
     url="https://github.com/mushroomfire/mdapy",
@@ -90,11 +97,11 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: POSIX :: Linux",
+        "Operating System :: MacOS",
     ],
     project_urls={
         "Homepage": "https://github.com/mushroomfire/mdapy",
         "Documentation": "https://mdapy.readthedocs.io/",
-        "Source Code": "https://github.com/mushroomfire/mdapy",
         "Issue Tracker": "https://github.com/mushroomfire/mdapy/issues",
     },
 )

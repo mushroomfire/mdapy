@@ -4,17 +4,17 @@
 Overview
 --------
 
-The **mdapy** is a python library providing a set of simple, 
-flexible and powerful tools to analyze the atomic trajectories 
-generated from Molecular Dynamics (MD) simulations. 
-Benefit by the `TaiChi <https://github.com/taichi-dev/taichi>`_ project, 
-we can effectively accelerate the pure python code close to those written 
-in C++. Moreover, **mdapy** is highly parallelized to make full use of 
-resources of both multicore CPU and GPU. **mdapy** can directly handle the DUMP 
-and DATA format in `LAMMPS <https://www.lammps.org/>`_. All data in **mdapy** is 
-stored in NDARRAY format in `NumPy <https://numpy.org/>`_\ , enabling integration 
-with the scientific ecosystem in python and corporation with other post-progressing 
-codes, such as `OVITO <https://www.ovito.org/>`_ and `freud <https://github.com/glotzerlab/freud>`_. 
+The **mdapy** python library is developed by the **Yong-Chao Wu & Jian-Li Shao Group at the 
+Beijing Institute of Technology**, which provides an array of powerful, flexible, and straightforward 
+tools to analyze atomic trajectories generated from Molecular Dynamics (MD) simulations. The library is fully 
+cross-platform, making it accessible to users in **Windows, Linux, and Mac OS**. 
+Benefited by the `TaiChi <https://github.com/taichi-dev/taichi>`_ project, 
+we can effectively accelerate the pure python code, bringing it closer to the speed of code written in C++. 
+Furthermore, **mdapy** is highly parallelized, allowing users to leverage the resources of both multicore CPU and GPU. 
+**mdapy** can directly handle the DUMP and DATA formats in `LAMMPS <https://www.lammps.org/>`_. 
+Besides, all data in **mdapy** is stored in NDARRAY format in `NumPy <https://numpy.org/>`_\ , which enables easy integration 
+with the scientific ecosystem in python and facilitates collaboration with other post-progressing 
+tools such as `OVITO <https://www.ovito.org/>`_ and `freud <https://github.com/glotzerlab/freud>`_.
 
 Resources
 ----------

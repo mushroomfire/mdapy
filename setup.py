@@ -8,7 +8,7 @@ import sys
 
 if sys.platform.startswith("win"):
     extra_compile_args = ["/openmp"]
-    extra_link_args = [""]
+    extra_link_args = ["/openmp"]
 elif sys.platform.startswith("linux"):
     extra_compile_args = ["-fopenmp"]
     extra_link_args = ["-fopenmp"]

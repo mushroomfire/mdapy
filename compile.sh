@@ -11,6 +11,7 @@ do
     pip install pybind11
     if [ "$(uname)" == "Darwin" ]; then
         echo "Mac OS X"
+        python setup.py bdist_wheel
     elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
         echo "GNU/Linux"
         python setup.py bdist_wheel --plat-name=manylinux1_x86_64

@@ -166,7 +166,7 @@ You can try:
 
 Release Notes
 --------------
-V0.8.5 (Under development)
+V0.8.5 (4/9/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Compile it on MAC OS with M1. Now **mdapy** is fully cross-platform.

@@ -3,10 +3,18 @@
 # To compile the C module for different python versions.
 #!/usr/bin/env bash
 
+if [ "$(uname)" == "Darwin" ]; then
+    source /opt/anaconda3/etc/profile.d/conda.sh
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
+    source /home/herrwu/deepmd-kit/etc/profile.d/conda.sh
+elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then    
+    source D:/Anaconda/etc/profile.d/conda.sh
+fi
+
 for i in 7 8 9 10
 do 
     echo "py3${i}"
-    source activate "py3${i}"
+    conda activate "py3${i}"
     python -m pip install --upgrade pip setuptools wheel twine
     pip install pybind11
     if [ "$(uname)" == "Darwin" ]; then
@@ -19,7 +27,7 @@ do
         echo "Windows NT"
         python setup.py bdist_wheel
     fi
-    source deactivate
+    conda deactivate
 done
 
 # python -m twine upload dist/*

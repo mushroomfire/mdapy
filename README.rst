@@ -81,7 +81,7 @@ Install from source code.
       curl -O https://mac.r-project.org/openmp/openmp-13.0.0-darwin21-Release.tar.gz 
       sudo tar fvxz openmp-13.0.0-darwin21-Release.tar.gz -C /
    
-- I have installed Xcode in my lattop, so the compiler args should be: "*-Xclang -fopenmp*".
+- I have installed Xcode in my laptop, so the compiler args should be: "*-Xclang -fopenmp*".
   If you install openmp by: *brew install libomp*, you can try to change the compiler args to "*-fopenmp*".
 
 Usage

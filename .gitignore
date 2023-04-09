@@ -26,4 +26,4 @@
 /benchmark/*/*.png 
 /benchmark/*/*.txt
 /doc/source/gettingstarted/.ipy*/
-/example/*.output*
+/example/*.output.dump

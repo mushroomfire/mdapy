@@ -125,7 +125,7 @@ class CommonNeighborAnalysis:
     @ti.kernel
     def _compute(
         self,
-        pos: ti.types.ndarray(),
+        pos: ti.types.ndarray(dtype=ti.math.vec3),
         verlet_list: ti.types.ndarray(),
         neighbor_number: ti.types.ndarray(),
         cna: ti.types.ndarray(),
@@ -156,11 +156,7 @@ class CommonNeighborAnalysis:
                         j = common[i, jj]
                         for kk in range(jj + 1, ncommon):
                             k = common[i, kk]
-
-                            r_j = ti.Vector([pos[j, 0], pos[j, 1], pos[j, 2]])
-                            r_k = ti.Vector([pos[k, 0], pos[k, 1], pos[k, 2]])
-
-                            rjk = self._pbc(r_j - r_k)
+                            rjk = self._pbc(pos[j] - pos[k])
                             if rjk.norm_sqr() < rcsq:
                                 nbonds += 1
                                 bonds[i, jj] += 1

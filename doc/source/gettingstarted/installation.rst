@@ -18,7 +18,7 @@ Install from source code.
       
       pip install pybind11
 
-- Download source code
+- Download the source code and installation.
    
    .. code-block:: bash
 

@@ -66,7 +66,7 @@ Install from source code.
       
       pip install pybind11
 
-- Download source code
+- Download the source code and installation.
    
    .. code-block:: bash
 
@@ -74,15 +74,6 @@ Install from source code.
       cd mdapy 
       pip install .
 
-- One may install openmp in MAC OS manually by: 
-   
-   .. code-block:: bash 
-
-      curl -O https://mac.r-project.org/openmp/openmp-13.0.0-darwin21-Release.tar.gz 
-      sudo tar fvxz openmp-13.0.0-darwin21-Release.tar.gz -C /
-   
-- I have installed Xcode in my laptop, so the compiler args should be: "*-Xclang -fopenmp*".
-  If you install openmp by: *brew install libomp*, you can try to change the compiler args to "*-fopenmp*".
 
 Usage
 ------

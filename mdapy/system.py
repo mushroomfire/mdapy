@@ -1499,7 +1499,7 @@ class MultiSystem(list):
                 self.append(system)
         except Exception:
             for filename in filename_list:
-                print(f"Reading {filename}", end="")
+                print(f"\rReading {filename}", end="")
                 system = System(filename, sorted_id=self.sorted_id)
                 self.append(system)
 
@@ -1533,7 +1533,7 @@ class MultiSystem(list):
                 system.write_dump(output_col=output_col)
         except Exception:
             for system in self:
-                print(f"Saving {system.filename}", end="")
+                print(f"\rSaving {system.filename}", end="")
                 system.write_dump(output_col=output_col)
 
     def cal_mean_squared_displacement(self, mode="windows"):

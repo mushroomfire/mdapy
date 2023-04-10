@@ -8,6 +8,8 @@ if __name__ == "__main__":
 else:
     from .kdtree import kdtree
 
+vec3f32 = ti.types.vector(3, ti.f32)
+vec3f64 = ti.types.vector(3, ti.f64)
 
 @ti.data_oriented
 class CentroSymmetryParameter:
@@ -66,23 +68,33 @@ class CentroSymmetryParameter:
         self.N = N
         self.pos = pos
         self.box = box
-        self.boundary = np.array(boundary)
+        self.boundary = ti.Vector([boundary[i] for i in range(3)], int)
+        if self.pos.dtype == np.float64:
+            self.box_length = vec3f64([box[i, 1] - box[i, 0] for i in range(3)])
+        elif self.pos.dtype == np.float32:
+            self.box_length = vec3f32([box[i, 1] - box[i, 0] for i in range(3)])
+        self.half_box_length = self.box_length / 2.0
         self.verlet_list = verlet_list
     
     @ti.func
-    def _pbc(self, rij, box:ti.types.ndarray(), boundary:ti.types.ndarray()):
-        for i in ti.static(range(3)):
-            if boundary[i] == 1:
-                box_length = box[i, 1] - box[i, 0]
-                rij[i] = rij[i] - box_length * ti.round(rij[i] / box_length)
+    def _pbc(self, rij):
+
+        for m in ti.static(range(3)):
+            if self.boundary[m]:
+                dx = rij[m]
+                x_size = self.box_length[m]
+                h_x_size = self.half_box_length[m]
+                if dx > h_x_size:
+                    dx = dx - x_size
+                if dx <= -h_x_size:
+                    dx = dx + x_size
+                rij[m] = dx
         return rij
 
     @ti.kernel
     def _get_csp(self, pair:ti.types.ndarray(), 
                   pos:ti.types.ndarray(dtype=ti.math.vec3), 
-                  verlet_list:ti.types.ndarray(), 
-                  box:ti.types.ndarray(),
-                  boundary:ti.types.ndarray(), 
+                  verlet_list:ti.types.ndarray(),  
                   loop_index:ti.types.ndarray(), 
                   csp:ti.types.ndarray()):
 
@@ -100,12 +112,13 @@ class CentroSymmetryParameter:
             k = loop_index[index, 1]
             rij = pos[verlet_list[i, j]] - pos[i]
             rik = pos[verlet_list[i, k]] - pos[i]
-            rij = self._pbc(rij, box, boundary)
-            rik = self._pbc(rik, box, boundary)
+            rij = self._pbc(rij)
+            rik = self._pbc(rik)
             pair[i, index] = (rij+rik).norm_sqr()
 
         # Select sort
         for i in range(pair.shape[0]):
+            res = ti.f64(0.)
             for j in range(int(self.N/2)):
                 minIndex = j
                 for k in range(j+1, pair.shape[1]):
@@ -113,7 +126,8 @@ class CentroSymmetryParameter:
                         minIndex = k
                 if minIndex != j:
                     pair[i, minIndex], pair[i, j] = pair[i, j], pair[i, minIndex]
-                csp[i] += pair[i, j]
+                res += pair[i, j]
+            csp[i] = res
         
     def compute(self):
         """Do the real CSP calculation.
@@ -127,26 +141,26 @@ class CentroSymmetryParameter:
         loop_index = np.zeros((int(self.N*(self.N-1)/2), 2), dtype=int)
         pair = np.zeros((self.pos.shape[0], int(self.N*(self.N-1)/2)))
         self.csp = np.zeros(self.pos.shape[0])
-        self._get_csp(pair, self.pos, verlet_list, self.box, self.boundary, loop_index, self.csp)
+        self._get_csp(pair, self.pos, verlet_list, loop_index, self.csp)
 
 
 if __name__ == '__main__':
     from lattice_maker import LatticeMaker
     from neighbor import Neighbor
     from time import time
-    ti.init(ti.gpu, device_memory_GB=5.0)
-    #ti.init(ti.cpu)
+    # ti.init(ti.gpu, device_memory_GB=5.0)
+    ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 100
+    x, y, z = 100, 100, 250
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
 
-    # Neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=30)
-    # Neigh.compute()
-    # print(Neigh.neighbor_number.min())
+    Neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=30)
+    Neigh.compute()
+    print(Neigh.neighbor_number.min())
 
     # start = time()
     # verlet_list_sort = np.ascontiguousarray(np.take_along_axis(Neigh.verlet_list, np.argpartition(Neigh.distance_list, 12, axis=-1), axis=-1)[:, :12])
@@ -154,12 +168,12 @@ if __name__ == '__main__':
     # print(f'numpy sort time: {end-start} s.')
     # print(verlet_list_sort[0])
 
-    # start = time()
-    # Neigh.sort_verlet_by_distance(12)
-    # end = time()
-    # print(f'taichi sort time: {end-start} s.')
-    # print(Neigh.verlet_list[0, :12])
-    # print(Neigh.distance_list[0, :12])
+    start = time()
+    Neigh.sort_verlet_by_distance(12)
+    end = time()
+    print(f'taichi sort time: {end-start} s.')
+    print(Neigh.verlet_list[0, :12])
+    print(Neigh.distance_list[0, :12])
 
     # start = time()
     # kdt = kdtree(FCC.pos, FCC.box, [1, 1, 1])
@@ -168,17 +182,17 @@ if __name__ == '__main__':
     # print(f'kdt time: {end-start} s.')
     # print(verlet_list_kdt[0])
 
-    # start = time()
-    # CSP = CentroSymmetryParameter(12, FCC.pos, FCC.box, [1, 1, 1])
-    # CSP.compute()
-    # csp = CSP.csp 
-    # end = time()
-    # print(f"Cal csp kdt time: {end-start} s.")
-    # print(csp[:10])
-    # print(csp.min(), csp.max(), csp.mean())
-
     start = time()
     CSP = CentroSymmetryParameter(12, FCC.pos, FCC.box, [1, 1, 1])
+    CSP.compute()
+    csp = CSP.csp 
+    end = time()
+    print(f"Cal csp kdt time: {end-start} s.")
+    print(csp[:10])
+    print(csp.min(), csp.max(), csp.mean())
+
+    start = time()
+    CSP = CentroSymmetryParameter(12, FCC.pos, FCC.box, [1, 1, 1], verlet_list=Neigh.verlet_list)
     CSP.compute()
     csp = CSP.csp 
     end = time()

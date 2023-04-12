@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 __author__ = "mushroomfire aka HerrWu"
-__version__ = "0.8.5"
+__version__ = "0.8.6"
 __license__ = "BSD License"
 
 from .ackland_jones_analysis import AcklandJonesAnalysis
@@ -34,6 +34,7 @@ from .timer import timer
 from .void_distribution import VoidDistribution
 from .voronoi_analysis import VoronoiAnalysis
 from .warren_cowley_parameter import WarrenCowleyParameter
+from .replicate import Replicate
 
 
 def init(

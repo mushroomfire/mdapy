@@ -167,6 +167,12 @@ You can try:
 
 Release Notes
 --------------
+V0.8.6 (Under Development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Add repr for System class.
+- Add Replicate class.
+
 V0.8.5 (4/9/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

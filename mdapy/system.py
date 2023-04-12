@@ -28,6 +28,7 @@ if __name__ == "__main__":
     from lindemann_parameter import LindemannParameter
     from spatial_binning import SpatialBinning
     from steinhardt_bond_orientation import SteinhardtBondOrientation
+    from replicate import Replicate
 else:
     from .common_neighbor_analysis import CommonNeighborAnalysis
     from .ackland_jones_analysis import AcklandJonesAnalysis
@@ -49,6 +50,7 @@ else:
     from .lindemann_parameter import LindemannParameter
     from .spatial_binning import SpatialBinning
     from .steinhardt_bond_orientation import SteinhardtBondOrientation
+    from .replicate import Replicate
 
 
 @ti.kernel
@@ -614,6 +616,54 @@ class System:
         _wrap_pos(pos, self.box, np.array(self.boundary))
         self.pos = pos
         self.data[["x", "y", "z"]] = self.pos
+
+    def replicate(self, x=1, y=1, z=1):
+        """Replicate the system.
+
+        Args:
+            x (int, optional): replication number (positive integer) along x axis. Defaults to 1.
+            y (int, optional): replication number (positive integer) along y axis. Defaults to 1.
+            z (int, optional): replication number (positive integer) along z axis. Defaults to 1.
+        """
+        assert x > 0 and isinstance(x, int), "x should be a positive integer."
+        assert y > 0 and isinstance(y, int), "y should be a positive integer."
+        assert z > 0 and isinstance(z, int), "z should be a positive integer."
+
+        repli = Replicate(self.pos, self.box, x, y, z)
+        repli.compute()
+        num = x * y * z
+        id_list = self.data["id"].values
+        self.data = pd.concat([self.data] * num, ignore_index=True)
+        self.data["id"] = np.array([id_list + i * self.N for i in range(num)]).flatten()
+
+        self.data[["x", "y", "z"]] = repli.pos
+        self.N = self.data.shape[0]
+        self.box = repli.box.copy()
+        self.pos = self.data[["x", "y", "z"]].values
+        if "vx" in self.data.columns:
+            self.vel = self.data[["vx", "vy", "vz"]].values
+
+        self.lx, self.ly, self.lz = self.box[:, 1] - self.box[:, 0]
+        self.vol = self.lx * self.ly * self.lz
+        self.rho = self.N / self.vol
+        del repli
+        if self.dump_head is not None:
+            self.dump_head[5] = "{} {}\n".format(*self.box[0])
+            self.dump_head[6] = "{} {}\n".format(*self.box[1])
+            self.dump_head[7] = "{} {}\n".format(*self.box[2])
+        if self.data_head is not None:
+            row = 0
+            for i in self.data_head:
+                line = i.split()
+                if len(line) > 0:
+                    if line[-1] == "atoms":
+                        self.data_head[row] = f"{self.N} atoms\n"
+                    if line[-1] == "xhi":
+                        break
+                row += 1
+            self.data_head[row] = "{} {} xlo xhi\n".format(*self.box[0])
+            self.data_head[row + 1] = "{} {} ylo yhi\n".format(*self.box[1])
+            self.data_head[row + 2] = "{} {} zlo zhi\n".format(*self.box[2])
 
     def build_neighbor(self, rc=5.0, max_neigh=80, exclude=True):
         """Build neighbor withing a spherical distance based on the mdapy.Neighbor class.

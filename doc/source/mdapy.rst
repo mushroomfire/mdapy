@@ -164,6 +164,14 @@ mdapy.potential module
    :undoc-members:
    :show-inheritance:
 
+mdapy.replicate module
+----------------------
+
+.. automodule:: mdapy.replicate
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.spatial\_binning module
 -----------------------------
 

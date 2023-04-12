@@ -8,7 +8,6 @@ import pyarrow as pa
 from pyarrow import csv
 
 if __name__ == "__main__":
-
     from ackland_jones_analysis import AcklandJonesAnalysis
     from common_neighbor_analysis import CommonNeighborAnalysis
     from common_neighbor_parameter import CommonNeighborParameter
@@ -271,7 +270,6 @@ class System:
         self.filename = filename
         self.sorted_id = sorted_id
         if filename is None:
-
             self.format = format
             self.box = box
             self.pos = pos
@@ -303,7 +301,6 @@ class System:
             self.data[["id", "type"]] = self.data[["id", "type"]].astype(int)
             self.Ntype = len(np.unique(self.data["type"]))
         else:
-
             if format is None:
                 self.format = self.filename.split(".")[-1]
             else:
@@ -323,6 +320,9 @@ class System:
         self.vol = self.lx * self.ly * self.lz
         self.rho = self.N / self.vol
 
+    def __repr__(self):
+        return f"A System with {self.N} atoms."
+
     def _read_data(self):
         self.data_head = []
         self.box = np.zeros((3, 2))
@@ -333,7 +333,6 @@ class System:
         row = 0
         mass_row = 0
         for line in file:
-
             self.data_head.append(line)
             content = line.split()
             if len(content):
@@ -704,7 +703,6 @@ class System:
         """
         use_verlet = False
         if self.if_neigh:
-
             if self.neighbor_number.min() >= 14:
                 _partition_select_sort(self.verlet_list, self.distance_list, 14)
                 AcklandJonesAna = AcklandJonesAnalysis(
@@ -1485,7 +1483,6 @@ class MultiSystem(list):
     """
 
     def __init__(self, filename_list, unwrap=True, sorted_id=True, image_p=None):
-
         self.sorted_id = sorted_id
         self.unwrap = unwrap
         self.image_p = image_p
@@ -1580,7 +1577,6 @@ class MultiSystem(list):
             self[frame].data["msd"] = self.MSD.particle_msd[frame]
 
     def cal_lindemann_parameter(self, only_global=False):
-
         """
         Calculate the `Lindemann index <https://en.wikipedia.org/wiki/Lindemann_index>`_,
         which is useful to distinguish the melt process and determine the melting points of nano-particles.

@@ -2,7 +2,7 @@ Examples
 =========
 
 1. Structure analysis
--------------------
+----------------------
 
 .. code-block:: python
 
@@ -15,7 +15,7 @@ Examples
     system.write_dump() # save results to a new dump file
 
 2. Mean squared displacement and Lindemann index
-------------------------------------------------
+--------------------------------------------------
 
 .. code-block:: python 
 
@@ -31,7 +31,7 @@ Examples
     MS.write_dumps() # save results to a serials of dump files
 
 3. Calculate WCP matrix in high-entropy alloy
--------------------------------------------
+-----------------------------------------------
 
 .. code-block:: python 
 
@@ -47,7 +47,7 @@ Examples
     fig.savefig("WCP.png", dpi=300, bbox_inches="tight", transparent=True)
 
 4. Create polycrystalline with graphene boundary
-------------------------------------------------
+--------------------------------------------------
 
 .. code-block:: python 
 
@@ -65,7 +65,7 @@ Examples
     poly.compute() # generate a polycrystalline with graphene boundary
 
 5. Calculate the EOS curve
--------------------------
+----------------------------
 
 .. code-block:: python 
 
@@ -121,7 +121,7 @@ Examples
     plt.show()
 
 6. Collaborative use with Ovito
------------------------------
+--------------------------------
 
 This function can run in script environment of Ovito. (Tested in Ovito 3.0.0-dev581).
 
@@ -158,7 +158,7 @@ This function can run in script environment of Ovito. (Tested in Ovito 3.0.0-dev
 
 
 7. Identify stacking faults (SFs) and twin boundaries (TBs) in Ovito
------------------------------
+----------------------------------------------------------------------
 
 This function can run in script environment of Ovito. (Tested in Ovito 3.0.0-dev581).
 Here the stacking faults include intrinsic SFs and multi layer SFs.

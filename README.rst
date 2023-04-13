@@ -172,6 +172,7 @@ V0.8.6 (Under Development)
 
 - Add repr for System class.
 - Add Replicate class.
+- Improve the performance of **reading/writing DATA file with pyarrow**.
 
 V0.8.5 (4/9/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

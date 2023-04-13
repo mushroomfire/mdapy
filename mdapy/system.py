@@ -328,37 +328,35 @@ class System:
     def _read_data(self):
         self.data_head = []
         self.box = np.zeros((3, 2))
-
-        with open(self.filename) as op:
-            file = op.readlines()
-
         row = 0
         mass_row = 0
-        for line in file:
-            self.data_head.append(line)
-            content = line.split()
-            if len(content):
-                if content[-1] == "atoms":
-                    self.N = int(content[0])
-                if len(content) >= 2:
-                    if content[1] == "bond":
-                        raise "Do not support bond style."
-                if len(content) >= 3:
-                    if content[1] == "atom" and content[2] == "types":
-                        self.Ntype = int(content[0])
-                if content[-1] == "xhi":
-                    self.box[0, :] = np.array([content[0], content[1]], dtype=float)
-                if content[-1] == "yhi":
-                    self.box[1, :] = np.array([content[0], content[1]], dtype=float)
-                if content[-1] == "zhi":
-                    self.box[2, :] = np.array([content[0], content[1]], dtype=float)
-                if content[-1] in ["xy", "xz", "yz"]:
-                    raise "Do not support triclinic box."
-                if content[0] == "Masses":
-                    mass_row = row + 1
-                if content[0] == "Atoms":
-                    break
-            row += 1
+        with open(self.filename) as op:
+            while True:
+                line = op.readline()
+                self.data_head.append(line)
+                content = line.split()
+                if len(content):
+                    if content[-1] == "atoms":
+                        self.N = int(content[0])
+                    if len(content) >= 2:
+                        if content[1] == "bond":
+                            raise "Do not support bond style."
+                    if len(content) >= 3:
+                        if content[1] == "atom" and content[2] == "types":
+                            self.Ntype = int(content[0])
+                    if content[-1] == "xhi":
+                        self.box[0, :] = np.array([content[0], content[1]], dtype=float)
+                    if content[-1] == "yhi":
+                        self.box[1, :] = np.array([content[0], content[1]], dtype=float)
+                    if content[-1] == "zhi":
+                        self.box[2, :] = np.array([content[0], content[1]], dtype=float)
+                    if content[-1] in ["xy", "xz", "yz"]:
+                        raise "Do not support triclinic box."
+                    if content[0] == "Masses":
+                        mass_row = row + 1
+                    if content[0] == "Atoms":
+                        break
+                row += 1
         if mass_row > 0:
             self.amass = np.array(
                 [
@@ -369,6 +367,7 @@ class System:
             )[:, 1]
         self.boundary = [1, 1, 1]
 
+        row += 2  # Coordination part
         if self.data_head[-1].split()[-1] == "atomic":
             self.data_format = "atomic"
             self.col_names = ["id", "type", "x", "y", "z"]
@@ -376,43 +375,53 @@ class System:
             self.data_format = "charge"
             self.col_names = ["id", "type", "q", "x", "y", "z"]
         else:
-            if len(file[row + 2].split()) == 5:
+            with open(self.filename) as op:
+                for _ in range(row):
+                    op.readline()
+                line = op.readline()
+            if len(line.split()) == 5:
                 self.data_format = "atomic"
                 self.col_names = ["id", "type", "x", "y", "z"]
-            elif len(file[row + 2].split()) == 6:
+            elif len(line.split()) == 6:
                 self.data_format = "charge"
                 self.col_names = ["id", "type", "q", "x", "y", "z"]
             else:
                 raise "Unrecgonized data format. Only support atomic and charge."
 
-        data = np.array(
-            [i.split() for i in file[row + 2 : row + 2 + self.N]], dtype=float
-        )[:, : len(self.col_names)]
-        row += 2 + self.N
-        if_vel = False
-        if row < len(file):
-            for line in file[row:]:
-                content = line.split()
-                if len(content):
-                    if content[0] == "Velocities":
-                        if_vel = True
-                        break
-                row += 1
-            if if_vel:
-                vel = np.array(
-                    [i.split() for i in file[row + 2 : row + 2 + self.N]], dtype=float
-                )[:, 1:]
-                self.col_names += ["vx", "vy", "vz"]
-                self.data = pd.DataFrame(np.c_[data, vel], columns=self.col_names)
-        else:
-            self.data = pd.DataFrame(data, columns=self.col_names)
+        data = pd.read_csv(
+            self.filename,
+            sep=" ",
+            skiprows=row,
+            nrows=self.N,
+            names=self.col_names,
+            usecols=range(len(self.col_names)),
+            engine="c",
+        )
+
+        row += self.N
+        try:
+            read_options = csv.ReadOptions(
+                column_names=["id", "vx", "vy", "vz"], skip_rows_after_names=row + 3
+            )
+            parse_options = csv.ParseOptions(delimiter=" ")
+            vel = (
+                csv.read_csv(
+                    self.filename,
+                    read_options=read_options,
+                    parse_options=parse_options,
+                )
+                .drop(["id"])
+                .to_pandas()
+            )
+            self.col_names += ["vx", "vy", "vz"]
+            self.data = pd.concat([data, vel], axis=1)
+            self.vel = vel.values
+        except Exception:
+            self.data = data
 
         if self.sorted_id:
             self.data.sort_values("id", inplace=True)
-        self.data[["id", "type"]] = self.data[["id", "type"]].astype(int)
         self.pos = self.data[["x", "y", "z"]].values
-        if if_vel:
-            self.vel = self.data[["vx", "vy", "vz"]].values
 
     def _read_dump(self):
         self.dump_head = []
@@ -427,33 +436,26 @@ class System:
         self.boundary = [1 if i == "pp" else 0 for i in self.dump_head[4].split()[-3:]]
         self.box = np.array([i.split()[:2] for i in self.dump_head[5:8]]).astype(float)
         self.col_names = self.dump_head[8].split()[2:]
-        try:
-            if if_space:
-                data = pd.read_csv(
-                    self.filename,
-                    skiprows=9,
-                    sep=" ",
-                    names=self.col_names + ["drop"],
-                    engine="pyarrow",
-                )
-                del data["drop"]
-                self.data = data
-            else:
-                self.data = pd.read_csv(
-                    self.filename,
-                    skiprows=9,
-                    sep=" ",
-                    names=self.col_names,
-                    engine="pyarrow",
-                )
-        except Exception:
-            self.data = pd.read_csv(
-                self.filename,
-                skiprows=9,
-                index_col=False,
-                sep=" ",
-                names=self.col_names,
+        if if_space:
+            read_options = csv.ReadOptions(
+                column_names=self.col_names + ["drop"], skip_rows=9
             )
+            parse_options = csv.ParseOptions(delimiter=" ")
+            self.data = (
+                csv.read_csv(
+                    self.filename,
+                    read_options=read_options,
+                    parse_options=parse_options,
+                )
+                .drop(["drop"])
+                .to_pandas()
+            )
+        else:
+            read_options = csv.ReadOptions(column_names=self.col_names, skip_rows=9)
+            parse_options = csv.ParseOptions(delimiter=" ")
+            self.data = csv.read_csv(
+                self.filename, read_options=read_options, parse_options=parse_options
+            ).to_pandas()
 
         if self.sorted_id:
             self.data.sort_values("id", inplace=True)
@@ -533,65 +535,44 @@ class System:
             else:
                 output_name = self.filename[:-4] + "output.data"
 
-        with open(output_name, "w") as op:
+        with pa.OSFile(output_name, "wb") as op:
             if self.data_head is None:
-                op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n")
-                op.write(f"{data.shape[0]} atoms\n{self.Ntype} atom types\n\n")
+                op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n".encode())
+                op.write(f"{data.shape[0]} atoms\n{self.Ntype} atom types\n\n".encode())
                 for i, j in zip(self.box, ["x", "y", "z"]):
-                    op.write(f"{i[0]} {i[1]} {j}lo {j}hi\n")
-                op.write("\n")
+                    op.write(f"{i[0]} {i[1]} {j}lo {j}hi\n".encode())
+                op.write("\n".encode())
                 if not self.amass is None:
-                    op.write("Masses\n\n")
+                    op.write("Masses\n\n".encode())
                     for i in range(self.Ntype):
-                        op.write(f"{i+1} {self.amass[i]}\n")
-                    op.write("\n")
-                op.write(rf"Atoms # {data_format}")
-                op.write("\n\n")
+                        op.write(f"{i+1} {self.amass[i]}\n".encode())
+                    op.write("\n".encode())
+                op.write(rf"Atoms # {data_format}".encode())
+                op.write("\n\n".encode())
             else:
                 self.data_head[-1] = f"Atoms # {data_format}\n"
-                op.write("# LAMMPS data file written by mdapy@HerrWu.\n")
-                op.write("".join(self.data_head[1:]))
-                op.write("\n")
-        if data_format == "atomic":
-            self.data[["id", "type", "x", "y", "z"]].to_csv(
-                output_name, header=None, index=False, sep=" ", mode="a", na_rep="nan"
-            )
-        elif data_format == "charge":
-            if "q" not in self.data.columns:
-                self.data.insert(2, "q", np.zeros(self.N))
-                self.data[["id", "type", "q", "x", "y", "z"]].to_csv(
-                    output_name,
-                    header=None,
-                    index=False,
-                    sep=" ",
-                    mode="a",
-                    na_rep="nan",
-                )
-                self.data.drop("q", axis=1, inplace=True)
-            else:
-                self.data[["id", "type", "q", "x", "y", "z"]].to_csv(
-                    output_name,
-                    header=None,
-                    index=False,
-                    sep=" ",
-                    mode="a",
-                    na_rep="nan",
-                )
-        try:
-            if len(self.vel):
-                with open(output_name, "a") as op:
-                    op.write("\nVelocities\n\n")
-                data[["id", "vx", "vy", "vz"]].to_csv(
-                    output_name,
-                    header=None,
-                    index=False,
-                    sep=" ",
-                    mode="a",
-                    na_rep="nan",
-                )
-        except Exception:
-            # print("No velocities provided!")
-            pass
+                op.write("# LAMMPS data file written by mdapy@HerrWu.\n".encode())
+                op.write("".join(self.data_head[1:]).encode())
+                op.write("\n".encode())
+            write_options = csv.WriteOptions(delimiter=" ", include_header=False)
+            if data_format == "atomic":
+                table = pa.Table.from_pandas(data[["id", "type", "x", "y", "z"]])
+                csv.write_csv(table, op, write_options=write_options)
+            elif data_format == "charge":
+                if "q" not in self.data.columns:
+                    table = pa.Table.from_pandas(data[["id", "type", "x", "y", "z"]])
+                    table.add_column(2, "q", pa.array(np.zeros(self.N)))
+                    csv.write_csv(table, op, write_options=write_options)
+                else:
+                    table = pa.Table.from_pandas(
+                        data[["id", "type", "q", "x", "y", "z"]]
+                    )
+                    csv.write_csv(table, op, write_options=write_options)
+
+            if "vx" in data.columns:
+                op.write("\nVelocities\n\n".encode())
+                table = pa.Table.from_pandas(data[["id", "vx", "vy", "vz"]])
+                csv.write_csv(table, op, write_options=write_options)
 
     def atom_distance(self, i, j):
         """Calculate the distance fo atom :math:`i` and atom :math:`j` considering the periodic boundary.

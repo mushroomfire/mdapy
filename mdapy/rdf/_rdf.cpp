@@ -69,10 +69,8 @@ void _rdf_single_species(py::array cverlet_list, py::array cdistance_list,
     }
 }
 
-PYBIND11_PLUGIN(_rdf)
+PYBIND11_MODULE(_rdf, m)
 {
-    pybind11::module m("_rdf", "auto-compiled c++ extension");
     m.def("_rdf", &_rdf);
     m.def("_rdf_single_species", &_rdf_single_species);
-    return m.ptr();
 }

@@ -47,9 +47,7 @@ void _build_cell(py::array cpos, py::array catom_cell_list, py::array ccell_id_l
     }
 }
 
-PYBIND11_PLUGIN(_neigh)
+PYBIND11_MODULE(_neigh, m)
 {
-    pybind11::module m("_neigh", "auto-compiled c++ extension");
     m.def("_build_cell", &_build_cell);
-    return m.ptr();
 }

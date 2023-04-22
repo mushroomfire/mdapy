@@ -2,6 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
+import multiprocessing as mt
 
 if __name__ == "__main__":
     from voronoi import _voronoi_analysis
@@ -18,6 +19,7 @@ class VoronoiAnalysis:
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
         box (np.ndarray): (:math:`3, 2`) system box.
         boundary (list): boundary conditions, 1 is periodic and 0 is free boundary, such as [1, 1, 1].
+        num_t (int, optional): threads number to generate Voronoi diagram. If not given, use all avilable threads.
 
     Outputs:
         - **vol** (np.ndarray) - (:math:`N_p`), atom Voronoi volume.
@@ -44,11 +46,15 @@ class VoronoiAnalysis:
         >>> avol.cavity_radius # Check the cavity radius.
     """
 
-    def __init__(self, pos, box, boundary) -> None:
-
+    def __init__(self, pos, box, boundary, num_t=None) -> None:
         self.pos = pos
         self.box = box
         self.boundary = boundary
+        if num_t is None:
+            self.num_t = mt.cpu_count()
+        else:
+            assert num_t >= 1, "num_t should be a positive integer!"
+            self.num_t = int(num_t)
 
     def compute(self):
         """Do the real Voronoi volume calculation."""
@@ -63,18 +69,18 @@ class VoronoiAnalysis:
             self.vol,
             self.neighbor_number,
             self.cavity_radius,
+            self.num_t,
         )
 
 
 if __name__ == "__main__":
-
     import taichi as ti
     from lattice_maker import LatticeMaker
     from time import time
 
     ti.init()
 
-    FCC = LatticeMaker(4.05, "FCC", 10, 10, 10)  # Create a FCC structure.
+    FCC = LatticeMaker(4.05, "FCC", 100, 100, 50)  # Create a FCC structure.
     FCC.compute()  # Get atom positions.
     # FCC.write_data()
     start = time()

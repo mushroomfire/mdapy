@@ -7,8 +7,8 @@ from glob import glob
 import sys
 
 if sys.platform.startswith("win"):
-    extra_compile_args = ["/openmp"]
-    extra_link_args = ["/openmp"]
+    extra_compile_args = ["/openmp:llvm"]
+    extra_link_args = ["/openmp:llvm"]
 elif sys.platform.startswith("linux"):
     extra_compile_args = ["-fopenmp"]
     extra_link_args = ["-fopenmp"]
@@ -35,27 +35,19 @@ setup(
     ext_modules=[
         Pybind11Extension(
             r"_cluster_analysis",
-            ["mdapy/cluster/cluster.cpp", "mdapy/cluster/wrap.cpp"],
+            ["mdapy/cluster/_cluster.cpp"],
             language="c++",
-        ),
-        Pybind11Extension(
-            r"_poly",
-            [
-                "mdapy/polygon/polygon.cpp",
-                "thirdparty/voro++/voro++.cc",
-            ],
-            language="c++",
-            include_dirs=["thirdparty/voro++"],
         ),
         Pybind11Extension(
             "_voronoi_analysis",
             [
-                "mdapy/voronoi/voro.cpp",
-                "mdapy/voronoi/wrap.cpp",
+                "mdapy/voronoi/_voro.cpp",
                 "thirdparty/voro++/voro++.cc",
             ],
             language="c++",
             include_dirs=["thirdparty/voro++"],
+            extra_compile_args=extra_compile_args,
+            extra_link_args=extra_link_args,
         ),
         Pybind11Extension(
             "_ptm",

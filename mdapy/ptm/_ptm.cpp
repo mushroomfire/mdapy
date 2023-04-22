@@ -162,9 +162,7 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
     delete[] c_verlet;
 }
 
-PYBIND11_PLUGIN(_ptm)
+PYBIND11_MODULE(_ptm, m)
 {
-    pybind11::module m("_ptm", "auto-compiled c++ extension");
     m.def("get_ptm", &get_ptm);
-    return m.ptr();
 }

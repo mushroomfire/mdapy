@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 from pyarrow import csv
+import multiprocessing as mt
 
 if __name__ == "__main__":
     from ackland_jones_analysis import AcklandJonesAnalysis
@@ -1453,10 +1454,13 @@ class System:
 
         self.WarrenCowleyParameter.compute()
 
-    def cal_voronoi_volume(self):
+    def cal_voronoi_volume(self, num_t=None):
         """This class is used to calculate the Voronoi polygon, wchich can be applied to
         estimate the atomic volume. The calculation is conducted by the `voro++ <https://math.lbl.gov/voro++/>`_ package and
         this class only provides a wrapper.
+
+        Args:
+            num_t (int, optional): threads number to generate Voronoi diagram. If not given, use all avilable threads.
 
         Outputs:
             - **The atomic Voronoi volume is added in self.data['voronoi_volume']**.
@@ -1464,7 +1468,13 @@ class System:
             - **The atomic Voronoi cavity radius is added in self.data["cavity_radius"]**.
 
         """
-        voro = VoronoiAnalysis(self.pos, self.box, self.boundary)
+        if num_t is None:
+            num_t = mt.cpu_count()
+        else:
+            assert num_t >= 1, "num_t should be a positive integer!"
+            num_t = int(num_t)
+
+        voro = VoronoiAnalysis(self.pos, self.box, self.boundary, num_t)
         voro.compute()
         self.data["voronoi_volume"] = voro.vol
         self.data["voronoi_number"] = voro.neighbor_number

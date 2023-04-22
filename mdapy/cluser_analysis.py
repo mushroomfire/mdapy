@@ -54,7 +54,6 @@ class ClusterAnalysis:
     """
 
     def __init__(self, rc, verlet_list, distance_list):
-
         self.rc = rc
         self.verlet_list = verlet_list
         self.distance_list = distance_list
@@ -64,7 +63,7 @@ class ClusterAnalysis:
         """Do the real cluster analysis."""
         N = self.verlet_list.shape[0]
         self.particleClusters = np.zeros(N, dtype=np.int32) - 1
-        self.cluster_number = _cluster_analysis.get_cluster(
+        self.cluster_number = _cluster_analysis._get_cluster(
             self.verlet_list, self.distance_list, self.rc, self.particleClusters
         )
         # print(f"Cluster number is {self.cluster_number}.")

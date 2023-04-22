@@ -81,11 +81,13 @@ if __name__ == "__main__":
 
     ti.init()
 
-    FCC = LatticeMaker(4.05, "FCC", 100, 100, 50)  # Create a FCC structure.
+    FCC = LatticeMaker(4.05, "FCC", 50, 50, 50)  # Create a FCC structure.
     FCC.compute()  # Get atom positions.
     # FCC.write_data()
     start = time()
-    avol = VoronoiAnalysis(FCC.pos, FCC.box, [1, 1, 1])  # Initilize the Voronoi class.
+    avol = VoronoiAnalysis(
+        FCC.pos, FCC.box, [1, 1, 1], 40
+    )  # Initilize the Voronoi class.
     avol.compute()  # Calculate the Voronoi volume.
     end = time()
 

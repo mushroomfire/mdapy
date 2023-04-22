@@ -167,7 +167,7 @@ You can try:
 
 Release Notes
 --------------
-V0.8.6 (Under Development)
+V0.8.6 (4/22/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Add repr for System class.

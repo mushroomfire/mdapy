@@ -1,6 +1,7 @@
 // Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
 // This file is from the mdapy project, released under the BSD 3-Clause License.
-// We highly thanks to Dr. Jiayin Lu for the help on parallelism of this module.
+// We highly thanks to Dr. Jiayin Lu, Prof. Christipher Rycroft
+// and Prof. Emanuel Lazar for the help on parallelism of this module.
 
 #include "voro++.hh"
 #include <pybind11/pybind11.h>

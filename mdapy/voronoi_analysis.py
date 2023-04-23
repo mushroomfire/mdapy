@@ -1,6 +1,7 @@
 # Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
-# We highly thanks to Dr. Jiayin Lu for the help on parallelism of this module.
+# We highly thanks to Dr. Jiayin Lu, Prof. Christipher Rycroft
+# and Prof. Emanuel Lazar for the help on parallelism of this module.
 
 import numpy as np
 import multiprocessing as mt
@@ -14,7 +15,8 @@ else:
 class VoronoiAnalysis:
     """This class is used to calculate the Voronoi polygon, wchich can be applied to
     estimate the atomic volume. The calculation is conducted by the `voro++ <https://math.lbl.gov/voro++/>`_ package and
-    this class only provides a wrapper.
+    this class only provides a wrapper. From mdapy v0.8.6, we use extended parallel voro++ to improve the performance, the
+    implementation can be found in `An extension to VORO++ for multithreaded computation of Voronoi cells <https://arxiv.org/abs/2209.11606>`_.
 
     Args:
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.

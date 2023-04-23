@@ -1457,7 +1457,8 @@ class System:
     def cal_voronoi_volume(self, num_t=None):
         """This class is used to calculate the Voronoi polygon, wchich can be applied to
         estimate the atomic volume. The calculation is conducted by the `voro++ <https://math.lbl.gov/voro++/>`_ package and
-        this class only provides a wrapper.
+        this class only provides a wrapper. From mdapy v0.8.6, we use extended parallel voro++ to improve the performance, the
+        implementation can be found in `An extension to VORO++ for multithreaded computation of Voronoi cells <https://arxiv.org/abs/2209.11606>`_.
 
         Args:
             num_t (int, optional): threads number to generate Voronoi diagram. If not given, use all avilable threads.

@@ -13,7 +13,7 @@ else:
 
 
 class VoronoiAnalysis:
-    """This class is used to calculate the Voronoi polygon, wchich can be applied to
+    """This class is used to calculate the Voronoi polygon, which can be applied to
     estimate the atomic volume. The calculation is conducted by the `voro++ <https://math.lbl.gov/voro++/>`_ package and
     this class only provides a wrapper. From mdapy v0.8.6, we use extended parallel voro++ to improve the performance, the
     implementation can be found in `An extension to VORO++ for multithreaded computation of Voronoi cells <https://arxiv.org/abs/2209.11606>`_.

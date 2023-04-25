@@ -26,5 +26,6 @@
 /.VSCodeCounter/
 /benchmark/*/*.png 
 /benchmark/*/*.txt
+/benchmark/average_rdf/*.dump
 /doc/source/gettingstarted/.ipy*/
 /example/*.output.dump

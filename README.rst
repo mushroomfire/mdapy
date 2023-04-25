@@ -139,7 +139,7 @@ Main Features
 
 Citation
 ---------
-If you find **mdapy** useful, you can start it!
+If you find **mdapy** useful, you can star it!
 If you use **mdapy** in your scientific publication, because the paper is under
 review on *Computer Physics Communication* and you can cite its preprint version as below:
 

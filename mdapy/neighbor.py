@@ -55,14 +55,13 @@ class Neighbor:
     """
 
     def __init__(self, pos, box, rc, boundary=[1, 1, 1], max_neigh=80, exclude=True):
-
         assert pos.dtype in [
             np.float64,
             np.float32,
         ], "Dtype of pos must in [float64, float32]."
         self.pos = pos
         self.box = box
-        self.boundary = ti.Vector([boundary[i] for i in range(3)], int)
+        self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
         self.N = self.pos.shape[0]
         self.rc = rc
         self.bin_length = self.rc + 0.5
@@ -83,7 +82,7 @@ class Neighbor:
                 ]
             ]
         )
-        self.ncel = ti.Vector([self._cncel[0], self._cncel[1], self._cncel[2]], int)
+        self.ncel = ti.Vector([self._cncel[0], self._cncel[1], self._cncel[2]])
         self.max_neigh = max_neigh
         self.exclude = exclude
         self.verlet_list = np.zeros((self.N, self.max_neigh), dtype=np.int32) - 1
@@ -95,7 +94,6 @@ class Neighbor:
 
     @ti.func
     def _pbc(self, rij):
-
         for m in ti.static(range(3)):
             if self.boundary[m]:
                 dx = rij[m]
@@ -179,7 +177,6 @@ class Neighbor:
         distance_list: ti.types.ndarray(),
         neighbor_number: ti.types.ndarray(),
     ):
-
         ti.loop_config(serialize=True)
         for i in range(self.N):
             nindex = 0
@@ -271,11 +268,11 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    # ti.init(ti.gpu, device_memory_GB=4.0)
+    # ti.init(ti.gpu, device_memory_GB=6.0)
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 3.615
-    x, y, z = 100, 100, 125
+    x, y, z = 50, 50, 125
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()

@@ -86,12 +86,11 @@ class CommonNeighborAnalysis:
     """
 
     def __init__(self, rc, verlet_list, neighbor_number, pos, box, boundary=[1, 1, 1]):
-
         self.rc = rc
         self.verlet_list = verlet_list
         self.neighbor_number = neighbor_number
         self.box = box
-        self.boundary = ti.Vector([boundary[i] for i in range(3)], int)
+        self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
         assert pos.dtype in [
             np.float64,
             np.float32,
@@ -109,7 +108,6 @@ class CommonNeighborAnalysis:
 
     @ti.func
     def _pbc(self, rij):
-
         for m in ti.static(range(3)):
             if self.boundary[m]:
                 dx = rij[m]
@@ -241,7 +239,6 @@ class CommonNeighborAnalysis:
 
 
 if __name__ == "__main__":
-
     from lattice_maker import LatticeMaker
     from neighbor import Neighbor
     from time import time

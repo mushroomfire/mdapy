@@ -29,8 +29,8 @@ Resources
 Dependencies
 ------------
 
-* `python <https://www.python.org/>`_ (3.7-3.10)
-* `taichi>=1.4.0 <https://github.com/taichi-dev/taichi>`_
+* `python <https://www.python.org/>`_ (3.7-3.11)
+* `taichi>=1.6.0 <https://github.com/taichi-dev/taichi>`_
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
 * `pandas <https://pandas.pydata.org/>`_
@@ -167,6 +167,12 @@ You can try:
 
 Release Notes
 --------------
+V0.8.7 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Updated Taichi to 1.6.0, which decreases the import time and has some performance improvement.
+- Python 3.11 support.
+
 V0.8.6 (4/22/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

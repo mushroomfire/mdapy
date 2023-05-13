@@ -26,7 +26,7 @@ except Exception:
 
 setup(
     name="mdapy",
-    version="0.8.6",
+    version="0.8.7",
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,
@@ -72,9 +72,9 @@ setup(
     zip_safe=False,
     license="BSD 3-Clause License",
     url="https://github.com/mushroomfire/mdapy",
-    python_requires=">=3.7,<3.11",
+    python_requires=">=3.7,<=3.11",
     install_requires=[
-        "taichi>=1.4.0",
+        "taichi>=1.6.0",
         "numpy",
         "scipy",
         "pandas",
@@ -87,6 +87,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS",

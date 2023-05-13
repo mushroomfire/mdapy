@@ -46,6 +46,7 @@ Main Features
 
     - `Void Distribution <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.void_distribution>`_
     - `Cluster Analysis <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.cluser_analysis>`_
+    - `Replication <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.replicate>`_
     - `Warren Cowley Parameter <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.warren_cowley_parameter>`_
     - `Average Atomic Temperature <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.temperature>`_
     - `Atomic Voronoi Volume <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.voronoi_analysis>`_

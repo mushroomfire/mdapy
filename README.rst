@@ -139,8 +139,8 @@ Main Features
 
 Citation
 ---------
-If you find **mdapy** useful, you can star it!
-If you use **mdapy** in your scientific publications, please `cite the paper <https://doi.org/10.1016/j.cpc.2023.108764>`_:
+If you find **mdapy** useful, you can `star it! <https://github.com/mushroomfire/mdapy>`_
+If you use **mdapy** in your scientific publications, please `cite the paper: <https://doi.org/10.1016/j.cpc.2023.108764>`_
 
 .. code-block:: bibtex
 
@@ -179,6 +179,7 @@ V0.8.7 (Under development)
 
 - Updated Taichi to 1.6.0, which decreases the import time ans supports Python 3.11.
 - Fix bug in read data.
+- Updated mdapy citation. We are pleased that our article for mdapy has been accepted by **Computer Physics Communications**.
 
 V0.8.6 (4/22/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

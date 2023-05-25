@@ -41,6 +41,25 @@ Optional Dependencies
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
 * `pyfnntw>=0.4.1 <https://github.com/cavemanloverboy/FNNTW>`_ (Optional, for fast KNN search)
 
+Citation
+---------
+If you find **mdapy** useful, you can `star it! <https://github.com/mushroomfire/mdapy>`_
+If you use **mdapy** in your scientific publications, please `cite the paper: <https://doi.org/10.1016/j.cpc.2023.108764>`_
+
+.. code-block:: bibtex
+
+   @article{mdapy2023,
+      title = {mdapy: A flexible and efficient analysis software for molecular dynamics simulations},
+      journal = {Computer Physics Communications},
+      pages = {108764},
+      year = {2023},
+      issn = {0010-4655},
+      doi = {https://doi.org/10.1016/j.cpc.2023.108764},
+      url = {https://www.sciencedirect.com/science/article/pii/S0010465523001091},
+      author = {Yong-Chao Wu and Jian-Li Shao},
+      keywords = {Simulation analysis, Molecular dynamics, Polycrystal, TaiChi, Parallel computing}
+      }
+
 .. toctree::
    :maxdepth: 3
    :caption: Getting Started

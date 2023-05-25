@@ -174,7 +174,7 @@ You can try:
 
 Release Notes
 --------------
-V0.8.7 (Under development)
+V0.8.7 (5/25/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Updated Taichi to 1.6.0, which decreases the import time ans supports Python 3.11.

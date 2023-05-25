@@ -177,7 +177,7 @@ Release Notes
 V0.8.7 (5/25/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- Updated Taichi to 1.6.0, which decreases the import time ans supports Python 3.11.
+- Updated Taichi to 1.6.0, which decreases the import time and supports Python 3.11.
 - Fix bug in read data.
 - Updated mdapy citation. We are pleased that our article for mdapy has been accepted by **Computer Physics Communications**.
 

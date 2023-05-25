@@ -4,9 +4,9 @@
 import taichi as ti
 import numpy as np
 
-if __name__ == "__main__":
+try:
     from neigh._neigh import _build_cell
-else:
+except Exception:
     from _neigh import _build_cell
 
 vec3f32 = ti.types.vector(3, ti.f32)

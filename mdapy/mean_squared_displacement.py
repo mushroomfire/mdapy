@@ -4,9 +4,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-if __name__ == "__main__":
+try:
     from plotset import pltset, cm2inch
-else:
+except Exception:
     from .plotset import pltset, cm2inch
 
 try:
@@ -86,7 +86,6 @@ class MeanSquaredDisplacement:
     """
 
     def __init__(self, pos_list, mode="windows"):
-
         self.pos_list = pos_list
         assert len(self.pos_list.shape) == 3
         self.mode = mode

@@ -4,10 +4,10 @@
 import numpy as np
 import taichi as ti
 
-if __name__ == "__main__":
+try:
     from neighbor import Neighbor
     from kdtree import kdtree
-else:
+except Exception:
     from .neighbor import Neighbor
     from .kdtree import kdtree
 
@@ -292,7 +292,6 @@ class SteinhardtBondOrientation:
         wlhatflag=False,
         max_neigh=60,
     ):
-
         self.rc = rc
         self.pos = pos
         self.box = box
@@ -342,7 +341,6 @@ class SteinhardtBondOrientation:
     def _init_clebsch_gordan(
         self, cglist: ti.types.ndarray(), qlist: ti.types.ndarray()
     ):
-
         idxcg_count = 0
         for il in range(self.nqlist):
             l = qlist[il]
@@ -625,7 +623,6 @@ class SteinhardtBondOrientation:
         n_bond: int,
         solidliquid: ti.types.ndarray(),
     ):
-
         for i in range(verlet_list.shape[0]):
             n_solid_bond = 0
             for jj in range(neighbor_number[i]):
@@ -673,7 +670,6 @@ class SteinhardtBondOrientation:
 
 
 if __name__ == "__main__":
-
     from lattice_maker import LatticeMaker
     from time import time
 

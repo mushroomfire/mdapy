@@ -5,9 +5,9 @@ import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
 
-if __name__ == "__main__":
+try:
     from plotset import pltset, cm2inch
-else:
+except Exception:
     from .plotset import pltset, cm2inch
 
 
@@ -58,7 +58,6 @@ class WarrenCowleyParameter:
     """
 
     def __init__(self, verlet_list, neighbor_number, type_list):
-
         self.verlet_list = verlet_list
         self.neighbor_number = neighbor_number
         self.type_list = type_list - 1

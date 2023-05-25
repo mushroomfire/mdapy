@@ -4,9 +4,9 @@
 import taichi as ti
 import numpy as np
 
-if __name__ == "__main__":
+try:
     from kdtree import kdtree
-else:
+except Exception:
     from .kdtree import kdtree
 
 vec3f32 = ti.types.vector(3, ti.f32)

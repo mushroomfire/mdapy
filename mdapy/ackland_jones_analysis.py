@@ -4,9 +4,9 @@
 import taichi as ti
 import numpy as np
 
-if __name__ == "__main__":
+try:
     from kdtree import kdtree
-else:
+except Exception:
     from .kdtree import kdtree
 
 
@@ -59,7 +59,6 @@ class AcklandJonesAnalysis:
     def __init__(
         self, pos, box, boundary=[1, 1, 1], verlet_list=None, distance_list=None
     ):
-
         self.pos = pos
         self.box = box
         self.boundary = np.array(boundary)
@@ -85,7 +84,6 @@ class AcklandJonesAnalysis:
         distance_list: ti.types.ndarray(),
         aja: ti.types.ndarray(),
     ):
-
         for i in range(pos.shape[0]):
             r0_sq = ti.f64(0.0)
             for j in range(6):

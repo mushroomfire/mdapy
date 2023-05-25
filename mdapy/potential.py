@@ -5,9 +5,9 @@ import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import matplotlib.pyplot as plt
 
-if __name__ == "__main__":
+try:
     from plotset import pltset, cm2inch
-else:
+except Exception:
     from .plotset import pltset, cm2inch
 
 
@@ -64,13 +64,11 @@ class EAM:
     """
 
     def __init__(self, filename):
-
         self.filename = filename
         self._read_eam_alloy()
         pltset()
 
     def _read_eam_alloy(self):
-
         file = open(self.filename).readlines()
         self.header = file[:3]
         self.data = []
@@ -273,7 +271,6 @@ class EAM:
 
 
 if __name__ == "__main__":
-
     potential = EAM("./example/CoNiFeAlCu.eam.alloy")
     potential.plot()
 

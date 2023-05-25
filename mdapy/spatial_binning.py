@@ -5,9 +5,9 @@ import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
 
-if __name__ == "__main__":
+try:
     from plotset import pltset, cm2inch
-else:
+except Exception:
     from .plotset import pltset, cm2inch
 
 
@@ -54,7 +54,6 @@ class SpatialBinning:
     """
 
     def __init__(self, pos, direction, vbin, wbin=5.0, operation="mean") -> None:
-
         self.pos = pos
         self.N = self.pos.shape[0]
         assert direction in [
@@ -90,7 +89,6 @@ class SpatialBinning:
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
-
         for i, j in ti.ndrange(self.N, res.shape[-1]):
             cindex = ti.floor((pos[i] - pos_min[0]) / self.wbin, dtype=ti.i32)
             if j == 0:
@@ -106,7 +104,6 @@ class SpatialBinning:
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
-
         for i, j in ti.ndrange(self.N, res.shape[-1]):
             cindex = ti.floor((pos[i] - pos_min[0]) / self.wbin, dtype=ti.i32)
             if j == 0:
@@ -129,7 +126,6 @@ class SpatialBinning:
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
-
         # init res
         for i, j in ti.ndrange(self.N, (1, res.shape[-1])):
             cindex = ti.floor((pos[i] - pos_min[0]) / self.wbin, dtype=ti.i32)
@@ -151,7 +147,6 @@ class SpatialBinning:
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
-
         # init res
         for i, j in ti.ndrange(self.N, (1, res.shape[-1])):
             cindex = ti.floor((pos[i] - pos_min[0]) / self.wbin, dtype=ti.i32)

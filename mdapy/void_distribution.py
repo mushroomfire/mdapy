@@ -4,10 +4,10 @@
 import taichi as ti
 import numpy as np
 
-if __name__ == "__main__":
+try:
     from neighbor import Neighbor
     from cluser_analysis import ClusterAnalysis
-else:
+except Exception:
     from .neighbor import Neighbor
     from .cluser_analysis import ClusterAnalysis
 
@@ -80,7 +80,6 @@ class VoidDistribution:
         head=None,
         out_name="void.dump",
     ):
-
         self.pos = pos
         self.N = self.pos.shape[0]
         self.box = box
@@ -153,7 +152,6 @@ class VoidDistribution:
             #     cell_id_list[iicel, jjcel, kkcel] = 0  # is point defect
 
     def _write_void_pos(self, void_data):
-
         if self.head is None:
             boundary_str = ["pp" if i == 1 else "ff" for i in self.boundary]
             head = [
@@ -212,7 +210,6 @@ class VoidDistribution:
 
 
 if __name__ == "__main__":
-
     from lattice_maker import LatticeMaker
     from time import time
 

@@ -4,10 +4,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-if __name__ == "__main__":
+try:
     from rdf._rdf import _rdf, _rdf_single_species
     from plotset import pltset, cm2inch
-else:
+except Exception:
     from _rdf import _rdf, _rdf_single_species
     from .plotset import pltset, cm2inch
 
@@ -74,7 +74,6 @@ class PairDistribution:
     def __init__(
         self, rc, nbin, rho, verlet_list, distance_list, neighbor_number, type_list=None
     ):
-
         self.rc = rc
         self.nbin = nbin
         self.rho = rho

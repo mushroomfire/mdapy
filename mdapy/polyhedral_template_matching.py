@@ -4,10 +4,10 @@
 
 import numpy as np
 
-if __name__ == "__main__":
+try:
     from ptm import _ptm
     from kdtree import kdtree
-else:
+except Exception:
     import _ptm
     from .kdtree import kdtree
 
@@ -75,7 +75,6 @@ class PolyhedralTemplateMatching:
         verlet_list=None,
         return_verlet=False,
     ):
-
         self.pos = pos
         self.box = box
         self.boundary = boundary

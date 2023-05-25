@@ -6,9 +6,9 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-if __name__ == "__main__":
+try:
     from plotset import pltset, cm2inch
-else:
+except Exception:
     from .plotset import pltset, cm2inch
 
 
@@ -69,7 +69,6 @@ class LindemannParameter:
     """
 
     def __init__(self, pos_list, only_global=False) -> None:
-
         self.pos_list = pos_list
         self.only_global = only_global
         self.if_compute = False
@@ -81,7 +80,6 @@ class LindemannParameter:
         pos_mean: ti.types.ndarray(),
         pos_variance: ti.types.ndarray(),
     ) -> float:
-
         Nframes, Natoms = pos_list.shape
         factor = Natoms * (Natoms - 1) / 2
         for i, j in ti.ndrange(Natoms, Natoms):
@@ -109,7 +107,6 @@ class LindemannParameter:
         lindemann_frame: ti.types.ndarray(dtype=float),
         lindemann_atom: ti.types.ndarray(dtype=float),
     ):
-
         Nframes, Natoms = pos_list.shape
         ti.loop_config(serialize=True)  # serial compute
         for frame in range(Nframes):

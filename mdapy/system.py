@@ -8,7 +8,7 @@ import pyarrow as pa
 from pyarrow import csv
 import multiprocessing as mt
 
-if __name__ == "__main__":
+try:
     from ackland_jones_analysis import AcklandJonesAnalysis
     from common_neighbor_analysis import CommonNeighborAnalysis
     from common_neighbor_parameter import CommonNeighborParameter
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     from spatial_binning import SpatialBinning
     from steinhardt_bond_orientation import SteinhardtBondOrientation
     from replicate import Replicate
-else:
+except Exception:
     from .common_neighbor_analysis import CommonNeighborAnalysis
     from .ackland_jones_analysis import AcklandJonesAnalysis
     from .common_neighbor_parameter import CommonNeighborParameter
@@ -414,7 +414,7 @@ class System:
                 .drop(["id"])
                 .to_pandas()
             )
-            assert vel.shape[0] == self.data.shape[0]
+            assert vel.shape[0] == data.shape[0]
             self.col_names += ["vx", "vy", "vz"]
             self.data = pd.concat([data, vel], axis=1)
             self.vel = vel.values
@@ -1670,8 +1670,9 @@ if __name__ == "__main__":
     import taichi as ti
 
     ti.init()
-    # system = System(filename=r"./example/CoCuFeNiPd-4M.data")
-    system = System(filename=r"./example/CoCuFeNiPd-4M.dump")
+    system = System(filename=r"./example/CoCuFeNiPd-4M.data")
+    # system = System(filename=r"./example/CoCuFeNiPd-4M.dump")
+    # system = System(filename=r"E:\HTiHe\relax.data")
     # box = np.array([[0, 10], [0, 10], [0, 10]])
     # pos = np.array([[0.0, 0.0, 0.0], [1.5, 6.5, 9.0]])
     # vel = np.array([[1.0, 0.0, 0.0], [2.5, 6.5, 9.0]])

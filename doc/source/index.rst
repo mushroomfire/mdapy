@@ -4,8 +4,7 @@
 Overview
 --------
 
-The **mdapy** python library is developed by the **Yong-Chao Wu & Jian-Li Shao Group at the 
-Beijing Institute of Technology**, which provides an array of powerful, flexible, and straightforward 
+The **mdapy** python library provides an array of powerful, flexible, and straightforward 
 tools to analyze atomic trajectories generated from Molecular Dynamics (MD) simulations. The library is fully 
 cross-platform, making it accessible to users in **Windows, Linux, and Mac OS**. 
 Benefited by the `TaiChi <https://github.com/taichi-dev/taichi>`_ project, 

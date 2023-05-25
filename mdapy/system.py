@@ -414,6 +414,7 @@ class System:
                 .drop(["id"])
                 .to_pandas()
             )
+            assert vel.shape[0] == self.data.shape[0]
             self.col_names += ["vx", "vy", "vz"]
             self.data = pd.concat([data, vel], axis=1)
             self.vel = vel.values

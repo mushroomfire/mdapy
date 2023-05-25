@@ -6,8 +6,7 @@
 Overview
 --------
 
-The **mdapy** python library is developed by the **Yong-Chao Wu & Jian-Li Shao Group at the 
-Beijing Institute of Technology**, which provides an array of powerful, flexible, and straightforward 
+The **mdapy** python library provides an array of powerful, flexible, and straightforward 
 tools to analyze atomic trajectories generated from Molecular Dynamics (MD) simulations. The library is fully 
 cross-platform, making it accessible to users in **Windows, Linux, and Mac OS**. 
 Benefited by the `TaiChi <https://github.com/taichi-dev/taichi>`_ project, 
@@ -141,14 +140,21 @@ Main Features
 Citation
 ---------
 If you find **mdapy** useful, you can star it!
-If you use **mdapy** in your scientific publication, because the paper is under
-review on *Computer Physics Communication* and you can cite its preprint version as below:
+If you use **mdapy** in your scientific publications, please `cite the paper <https://doi.org/10.1016/j.cpc.2023.108764>`_:
 
-.. code-block:: bash
+.. code-block:: bibtex
 
-   Wu, Yong-Chao and Shao, Jian-Li, Mdapy: A Flexible and Efficient Analysis Software for 
-   Molecular Dynamics Simulations. Available at SSRN: https://ssrn.com/abstract=4360931 
-   or http://dx.doi.org/10.2139/ssrn.4360931.
+   @article{mdapy2023,
+      title = {mdapy: A flexible and efficient analysis software for molecular dynamics simulations},
+      journal = {Computer Physics Communications},
+      pages = {108764},
+      year = {2023},
+      issn = {0010-4655},
+      doi = {https://doi.org/10.1016/j.cpc.2023.108764},
+      url = {https://www.sciencedirect.com/science/article/pii/S0010465523001091},
+      author = {Yong-Chao Wu and Jian-Li Shao},
+      keywords = {Simulation analysis, Molecular dynamics, Polycrystal, TaiChi, Parallel computing}
+      }
 
 
 Trouble Shoot
@@ -171,8 +177,8 @@ Release Notes
 V0.8.7 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- Updated Taichi to 1.6.0, which decreases the import time and has some performance improvement.
-- Python 3.11 support.
+- Updated Taichi to 1.6.0, which decreases the import time ans supports Python 3.11.
+- Fix bug in read data.
 
 V0.8.6 (4/22/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

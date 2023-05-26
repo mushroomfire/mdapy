@@ -676,11 +676,11 @@ class System:
         """Calculate an average thermal temperature per atom, wchich is useful at shock
         simulations. The temperature of atom :math:`i` is given by:
 
-        .. math:: T_i=\\sum^{N^i_{neigh}}_0 m^i_j(v_j^i -v_{COM}^i)^2/(3N_pk_B),
+        .. math:: T_i=\\sum^{N^i_{neigh}}_0 m^i_j(v_j^i -v_{COM}^i)^2/(3N^i_{neigh}k_B),
 
         where :math:`N^i_{neigh}` is neighbor atoms number of atom :math:`i`,
         :math:`m^i_j` and :math:`v^i_j` are the atomic mass and velocity of neighbor atom :math:`j` of atom :math:`i`,
-        :math:`k_B` is the Boltzmann constant and :math:`N_p` is the number of particles in system, :math:`v^i_{COM}` is
+        :math:`k_B` is the Boltzmann constant, :math:`v^i_{COM}` is
         the center of mass COM velocity of neighbor of atom :math:`i` and is given by:
 
         .. math:: v^i_{COM}=\\frac{\\sum _0^{N^i_{neigh}}m^i_jv_j^i}{\\sum_0^{N^i_{neigh}} m_j^i}.

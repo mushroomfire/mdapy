@@ -84,8 +84,8 @@ class SpatialBinning:
     @ti.kernel
     def _Binning_sum(
         self,
-        pos: ti.types.ndarray(),
-        pos_min: ti.types.ndarray(),
+        pos: ti.types.ndarray(element_dim=1),
+        pos_min: ti.types.ndarray(element_dim=1),
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
@@ -99,8 +99,8 @@ class SpatialBinning:
     @ti.kernel
     def _Binning_mean(
         self,
-        pos: ti.types.ndarray(),
-        pos_min: ti.types.ndarray(),
+        pos: ti.types.ndarray(element_dim=1),
+        pos_min: ti.types.ndarray(element_dim=1),
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
@@ -121,8 +121,8 @@ class SpatialBinning:
     @ti.kernel
     def _Binning_min(
         self,
-        pos: ti.types.ndarray(),
-        pos_min: ti.types.ndarray(),
+        pos: ti.types.ndarray(element_dim=1),
+        pos_min: ti.types.ndarray(element_dim=1),
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
@@ -142,8 +142,8 @@ class SpatialBinning:
     @ti.kernel
     def _Binning_max(
         self,
-        pos: ti.types.ndarray(),
-        pos_min: ti.types.ndarray(),
+        pos: ti.types.ndarray(element_dim=1),
+        pos_min: ti.types.ndarray(element_dim=1),
         vbin: ti.types.ndarray(),
         res: ti.types.ndarray(),
     ):
@@ -182,13 +182,17 @@ class SpatialBinning:
             self.coor[self.direction[i]] = (
                 np.arange(self.res.shape[i]) * self.wbin + pos_min[i] + 0.001
             )
+        # Thoes codes will cause memory leak!!!
+        # vecarray = ti.types.vector(len(xyz2dim[self.direction]), ti.f64)
+        # pos_bin = ti.ndarray(dtype=vecarray, shape=(self.N))
+        # pos_bin.from_numpy(self.pos[:, xyz2dim[self.direction]])
+        # pos_min_bin = ti.ndarray(dtype=vecarray, shape=(1))
+        # pos_min_bin.from_numpy(pos_min[xyz2dim[self.direction]][np.newaxis, :])
 
-        vecarray = ti.types.vector(len(xyz2dim[self.direction]), ti.f64)
-        pos_bin = ti.ndarray(dtype=vecarray, shape=(self.N))
-        pos_bin.from_numpy(self.pos[:, xyz2dim[self.direction]])
-        pos_min_bin = ti.ndarray(dtype=vecarray, shape=(1))
-        pos_min_bin.from_numpy(pos_min[xyz2dim[self.direction]][np.newaxis, :])
-
+        pos_bin = np.ascontiguousarray(self.pos[:, xyz2dim[self.direction]])
+        pos_min_bin = np.ascontiguousarray(
+            pos_min[xyz2dim[self.direction]][np.newaxis, :]
+        )
         if self.operation == "sum":
             self._Binning_sum(
                 pos_bin,
@@ -295,17 +299,26 @@ if __name__ == "__main__":
     pos = FCC.pos
     pos = pos[(pos[:, 0] < 100) | (pos[:, 0] > 300)]
     start = time()
-    binning = SpatialBinning(
-        pos,
-        "x",
-        pos[:, 0] + pos[:, 1],
-        operation="max",
-    )
-    binning.compute()
+    for i in range(1000):
+        print(i)
+        binning = SpatialBinning(
+            pos,
+            "x",
+            pos[:, 0] + pos[:, 1],
+            operation="mean",
+        )
+        binning.compute()
+    # binning = SpatialBinning(
+    #     pos,
+    #     "x",
+    #     pos[:, 0] + pos[:, 1],
+    #     operation="min",
+    # )
+    # binning.compute()
     end = time()
     print(f"Binning time: {end-start} s.")
     print(binning.res[:, ..., 1].max())
     print(binning.coor["x"])
-    # print(binning.coor)
-    # binning.plot(label_list=["x"], bar_label="x")
-    binning.plot(bar_label="x")
+    print(binning.coor)
+    binning.plot(label_list=["x"], bar_label="x")
+    # binning.plot(bar_label="x")

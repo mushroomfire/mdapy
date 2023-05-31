@@ -174,6 +174,11 @@ You can try:
 
 Release Notes
 --------------
+V0.8.8 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Fix memory leak in SpatialBinning class, not the correct issue.
+
 V0.8.7 (5/25/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

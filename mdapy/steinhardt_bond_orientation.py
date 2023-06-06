@@ -447,9 +447,15 @@ class SteinhardtBondOrientation:
         MY_EPSILON = 2.220446049250313e-15
         N = pos.shape[0]
         nqlist = self.nqlist
+        K = 0
         for i in range(N):
             nneigh = 0
-            for jj in range(neighbor_number[i]):
+            # Make sure only iterate the nnn neighbors!
+            if self.nnn > 0:
+                K = self.nnn
+            else:
+                K = neighbor_number[i]
+            for jj in range(K):
                 j = verlet_list[i, jj]
                 r = self._pbc(pos[i] - pos[j], box, boundary)
                 rmag = distance_list[i, jj]
@@ -594,6 +600,7 @@ class SteinhardtBondOrientation:
                 assert (
                     self.neighbor_number.min() >= self.nnn
                 ), "The minimum of neighbor_number should be larger than nnn."
+                # self.neighbor_number = np.ones(self.pos.shape[0], int) * self.nnn
         self._compute(
             self.pos,
             self.box,

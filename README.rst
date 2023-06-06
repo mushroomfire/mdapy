@@ -178,6 +178,7 @@ V0.8.8 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Fix memory leak in SpatialBinning class, not the correct issue.
+- Fix bug in SteinhardtBondOrientation class.
 
 V0.8.7 (5/25/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

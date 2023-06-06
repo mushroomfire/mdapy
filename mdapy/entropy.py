@@ -102,7 +102,6 @@ class AtomicEntropy:
         compute_average=False,
         average_rc=None,
     ):
-
         self.vol = vol
         self.verlet_list = verlet_list
         self.distance_list = distance_list
@@ -160,12 +159,11 @@ class AtomicEntropy:
                     intergrad[i, j] = rlist_sq[j]
 
             sum_intergrad = ti.float64(0.0)
-            for j in range(self.nbins - 1):
-                sum_intergrad += (intergrad[i, j] + intergrad[i, j + 1]) * (
-                    rlist[j + 1] - rlist[j]
-                )
 
-            entropy[i] = -ti.math.pi * density * sum_intergrad
+            for j in range(self.nbins - 1):
+                sum_intergrad += intergrad[i, j] + intergrad[i, j + 1]
+
+            entropy[i] = -ti.math.pi * density * sum_intergrad * self.sigma
 
     @ti.kernel
     def _compute_average(
@@ -175,7 +173,6 @@ class AtomicEntropy:
         distance_list: ti.types.ndarray(),
         entropy_average: ti.types.ndarray(),
     ):
-
         for i in range(verlet_list.shape[0]):
             neigh_num = 1
             entropy_average[i] = entropy[i]
@@ -239,11 +236,11 @@ if __name__ == "__main__":
         vol,
         neigh.verlet_list,
         neigh.distance_list,
-        neigh.rc,
+        5.0,
         sigma=0.2,
         use_local_density=False,
         compute_average=True,
-        average_rc=lattice_constant * 0.9,
+        average_rc=4.0,
     )
     Entropy.compute()
     entropy = Entropy.entropy

@@ -4,6 +4,7 @@
 import mdapy as mp
 import numpy as np
 import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 mp.init("cpu")
 print("Test Polygon class...")

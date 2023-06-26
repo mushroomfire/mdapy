@@ -391,7 +391,7 @@ class System:
 
         data = pd.read_csv(
             self.filename,
-            sep=" ",
+            sep="\s+",
             skiprows=row,
             nrows=self.N,
             names=self.col_names,

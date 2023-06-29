@@ -306,7 +306,7 @@ if __name__ == "__main__":
         print(i)
         binning = SpatialBinning(
             pos,
-            "z",
+            "xy",
             pos[:, 0] + pos[:, 1],
             operation="mean",
         )
@@ -321,7 +321,7 @@ if __name__ == "__main__":
     end = time()
     print(f"Binning time: {end-start} s.")
     print(binning.res[:, ..., 1].max())
-    print(binning.coor["z"])
+    print(binning.coor["x"])
     print(binning.coor)
-    binning.plot(label_list=["z"], bar_label="z")
+    binning.plot(label_list=["x"], bar_label="x")
     # binning.plot(bar_label="x")

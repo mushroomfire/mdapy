@@ -178,9 +178,12 @@ class SpatialBinning:
         nbin = np.ceil(pos_delta[xyz2dim[self.direction]] / self.wbin).astype(int)
         self.res = np.zeros((*nbin, self.vbin.shape[1] + 1))
         self.coor = {}
+
         for i in range(len(self.direction)):
             self.coor[self.direction[i]] = (
-                np.arange(self.res.shape[i]) * self.wbin + pos_min[i] + 0.001
+                np.arange(self.res.shape[i]) * self.wbin
+                + pos_min[xyz2dim[self.direction[i]][0]]
+                + 0.001
             )
         # Thoes codes will cause memory leak!!!
         # vecarray = ti.types.vector(len(xyz2dim[self.direction]), ti.f64)
@@ -299,11 +302,11 @@ if __name__ == "__main__":
     pos = FCC.pos
     pos = pos[(pos[:, 0] < 100) | (pos[:, 0] > 300)]
     start = time()
-    for i in range(1000):
+    for i in range(10):
         print(i)
         binning = SpatialBinning(
             pos,
-            "x",
+            "z",
             pos[:, 0] + pos[:, 1],
             operation="mean",
         )
@@ -318,7 +321,7 @@ if __name__ == "__main__":
     end = time()
     print(f"Binning time: {end-start} s.")
     print(binning.res[:, ..., 1].max())
-    print(binning.coor["x"])
+    print(binning.coor["z"])
     print(binning.coor)
-    binning.plot(label_list=["x"], bar_label="x")
+    binning.plot(label_list=["z"], bar_label="z")
     # binning.plot(bar_label="x")

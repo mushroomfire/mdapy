@@ -181,6 +181,7 @@ V0.8.8 (Under development)
 - Fix bug in SteinhardtBondOrientation class.
 - Fix bug in read data.
 - Fix bug in spatial_binning.
+- Updated the IdentifySFTBinFCC class to identify the twinning and extrinsic stacking fault.
 
 V0.8.7 (5/25/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

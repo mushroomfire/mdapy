@@ -15,13 +15,14 @@ class IdentifySFTBinFCC:
     3. 2 = Intrinsic stacking fault (two adjacent hcp-like layers)
     4. 3 = Coherent twin boundary (one hcp-like layer)
     5. 4 = Multi-layer stacking fault (three or more adjacent hcp-like layers)
+    6. 5 = Extrinsic stacking fault
 
     .. note:: This class is translated from that `implementation in Ovito <https://www.ovito.org/docs/current/reference/pipelines/modifiers/identify_fcc_planar_faults.html#modifiers-identify-fcc-planar-faults>`_ but optimized to be run parallely.
       And so-called multi-layer stacking faults maybe a combination of intrinsic stacking faults and/or twin boundary which are located on adjacent {111} plane. It can not be distiguished by the current method.
 
     Args:
         structure_types (np.ndarray): (:math:`N_p`) structure type from ptm method.
-        verlet_list (np.ndarray): (:math:`N_p, 12`) ptm ordered verlet_list for hcp-like atoms.
+        ptm_indices (np.ndarray): (:math:`N_p, 18`) ptm ordered verlet_list for all atoms.
 
     Outputs:
         - **fault_types** (np.ndarray) - (:math:`N_p`) planar faults types.
@@ -42,18 +43,16 @@ class IdentifySFTBinFCC:
 
         >>> structure_type = np.array(ptm.output[:, 0], int) # Obtain ptm structure
 
-        >>> verlet_list = np.ascontiguousarray(ptm.ptm_indices[structure_type == 2][:, 1:13]) # Obtain ptm neighbor
-
-        >>> SFTB = mp.IdentifySFTBinFCC(structure_type, verlet_list) # Initialize SFTB class
+        >>> SFTB = mp.IdentifySFTBinFCC(structure_type, ptm.ptm_indices) # Initialize SFTB class
 
         >>> SFTB.compute() # Compute the planar faults type
 
         >>> SFTB.fault_types # Check results
     """
 
-    def __init__(self, structure_types, verlet_list) -> None:
+    def __init__(self, structure_types, ptm_indices) -> None:
         self.structure_types = structure_types
-        self.verlet_list = verlet_list
+        self.ptm_indices = np.ascontiguousarray(ptm_indices[:, 1:13])
 
     @ti.func
     def _are_stacked(
@@ -63,7 +62,6 @@ class IdentifySFTBinFCC:
         basal_neighbors: ti.types.ndarray(),
         hcp_neighbors: ti.types.ndarray(),
     ) -> int:
-
         # Iterate over the basal plane neighbors of both 'a' and 'b'.
         res = 1
         for i in range(6):
@@ -96,18 +94,17 @@ class IdentifySFTBinFCC:
         self,
         hcp_indices: ti.types.ndarray(),
         hcp_neighbors: ti.types.ndarray(),
-        verlet_list: ti.types.ndarray(),
+        ptm_indices: ti.types.ndarray(),
         structure_types: ti.types.ndarray(),
         fault_types: ti.types.ndarray(),
         layer_dir: ti.types.ndarray(),
         basal_neighbors: ti.types.ndarray(),
         outofplane_neighbors: ti.types.ndarray(),
     ):
-
         for i in range(hcp_indices.shape[0]):
             aindex = hcp_indices[i]
             for j in range(12):
-                bindex = verlet_list[i, j]
+                bindex = ptm_indices[aindex, j]
                 if structure_types[bindex] == 2:  # HCP
                     hcp_neighbors[i, j] = self._binary_search(hcp_indices, bindex)
                 else:
@@ -202,28 +199,48 @@ class IdentifySFTBinFCC:
                         # Turn the neighbor into a multi-layered fault atom.
                         fault_types[hcp_indices[neighbor_index]] = 4
 
+        # Get ESF
+        for i in range(hcp_indices.shape[0]):
+            aindex = hcp_indices[i]
+            if fault_types[aindex] == 3:  # twin_type.id
+                for j in range(12):
+                    fcc, hcp = 0, 0
+                    jindex = ptm_indices[aindex, j]
+                    if structure_types[jindex] == 1:  # FCC
+                        for k in range(12):
+                            kindex = ptm_indices[jindex, k]
+                            if structure_types[kindex] == 1:  # FCC
+                                fcc += 1
+                            elif structure_types[kindex] == 2:  # HCP
+                                hcp += 1
+                        if (5 <= fcc <= 6) and (5 <= hcp <= 6):
+                            fault_types[aindex] = 5  # ESF
+                            break
+
     def compute(
         self,
     ):
         """Do the real computation."""
-        assert 2 in self.structure_types, "Sample mush include HCP atoms."
-        hcp_indices = np.where(self.structure_types == 2)[0].astype(int)
-        hcp_neighbors = np.zeros((hcp_indices.shape[0], 12), dtype=int)
-        self.fault_types = np.zeros_like(self.structure_types)
-        layer_dir = np.array([0, 0, -1, -1, -1, 0, 0, 0, 0, 1, 1, 1])
-        basal_neighbors = np.array([0, 1, 5, 6, 7, 8])
-        outofplane_neighbors = np.array([2, 3, 4, 9, 10, 11])
+        if 2 in self.structure_types:
+            hcp_indices = np.where(self.structure_types == 2)[0].astype(int)
+            hcp_neighbors = np.zeros((hcp_indices.shape[0], 12), dtype=int)
+            self.fault_types = np.zeros_like(self.structure_types)
+            layer_dir = np.array([0, 0, -1, -1, -1, 0, 0, 0, 0, 1, 1, 1])
+            basal_neighbors = np.array([0, 1, 5, 6, 7, 8])
+            outofplane_neighbors = np.array([2, 3, 4, 9, 10, 11])
 
-        self._compute(
-            hcp_indices,
-            hcp_neighbors,
-            self.verlet_list,
-            self.structure_types,
-            self.fault_types,
-            layer_dir,
-            basal_neighbors,
-            outofplane_neighbors,
-        )
+            self._compute(
+                hcp_indices,
+                hcp_neighbors,
+                self.ptm_indices,
+                self.structure_types,
+                self.fault_types,
+                layer_dir,
+                basal_neighbors,
+                outofplane_neighbors,
+            )
+        else:
+            self.fault_types = np.zeros_like(self.structure_types)
 
 
 if __name__ == "__main__":
@@ -241,9 +258,8 @@ if __name__ == "__main__":
 
     start = time()
     structure_type = np.array(ptm.output[:, 0], int)
-    verlet_list = np.ascontiguousarray(ptm.ptm_indices[structure_type == 2][:, 1:13])
 
-    SFTB = IdentifySFTBinFCC(structure_type, verlet_list)
+    SFTB = IdentifySFTBinFCC(structure_type, ptm.ptm_indices)
     SFTB.compute()
     print(f"SFTB time cost: {time()-start} s.")
     print(SFTB.fault_types)

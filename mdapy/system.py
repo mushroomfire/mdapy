@@ -993,6 +993,7 @@ class System:
         3. 2 = Intrinsic stacking fault (two adjacent hcp-like layers)
         4. 3 = Coherent twin boundary (one hcp-like layer)
         5. 4 = Multi-layer stacking fault (three or more adjacent hcp-like layers)
+        6. 5 = Extrinsic stacking fault
 
         .. note:: This class is translated from that `implementation in Ovito <https://www.ovito.org/docs/current/reference/pipelines/modifiers/identify_fcc_planar_faults.html#modifiers-identify-fcc-planar-faults>`_ but optimized to be run parallely.
           And so-called multi-layer stacking faults maybe a combination of intrinsic stacking faults and/or twin boundary which are located on adjacent {111} plane. It can not be distiguished by the current method.
@@ -1022,18 +1023,10 @@ class System:
         )
         ptm.compute()
         structure_types = np.array(ptm.output[:, 0], int)
-        if 2 in structure_types:
-            verlet_list = np.ascontiguousarray(
-                ptm.ptm_indices[structure_types == 2][:, 1:13]
-            )
-            SFTB = IdentifySFTBinFCC(structure_types, verlet_list)
-            SFTB.compute()
-            self.data["structure_types"] = SFTB.structure_types
-            self.data["fault_types"] = SFTB.fault_types
-
-        else:
-            self.data["structure_types"] = structure_types
-            self.data["fault_types"] = 0
+        SFTB = IdentifySFTBinFCC(structure_types, ptm.ptm_indices)
+        SFTB.compute()
+        self.data["structure_types"] = SFTB.structure_types
+        self.data["fault_types"] = SFTB.fault_types
 
     def cal_atomic_entropy(
         self,

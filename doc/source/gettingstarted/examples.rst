@@ -179,7 +179,9 @@ Here the stacking faults include intrinsic SFs and multi layer SFs.
         other=(243 / 255, 243 / 255, 243 / 255),
         fcc=(102 / 255, 255 / 255, 102 / 255),
         bcc=(102 / 255, 102 / 255, 255 / 255),
-        SF=(0.9, 0.7, 0.2),
+        hcp=(255/255, 85/255, 0/255),
+        ISF=(0.9, 0.7, 0.2),
+        ESF=(132/255, 25/255, 255/255),
         TB=(255 / 255, 102 / 255, 102 / 255),
     ):
 
@@ -210,8 +212,12 @@ Here the stacking faults include intrinsic SFs and multi layer SFs.
         data.apply(AssignColorModifier(color=fcc))
         data.apply(ExpressionSelectionModifier(expression="structure_types==3"))
         data.apply(AssignColorModifier(color=bcc))
-        data.apply(ExpressionSelectionModifier(expression="fault_types==2 || fault_types==4"))
-        data.apply(AssignColorModifier(color=SF))
+        data.apply(ExpressionSelectionModifier(expression="fault_types==4"))
+        data.apply(AssignColorModifier(color=hcp))
+        data.apply(ExpressionSelectionModifier(expression="fault_types==2"))
+        data.apply(AssignColorModifier(color=ISF))
+        data.apply(ExpressionSelectionModifier(expression="fault_types==5"))
+        data.apply(AssignColorModifier(color=ESF))
         data.apply(ExpressionSelectionModifier(expression="fault_types==3"))
         data.apply(AssignColorModifier(color=TB))
         data.apply(ExpressionSelectionModifier(expression="structure_types==10"))

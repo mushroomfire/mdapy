@@ -8,8 +8,8 @@ sys.path.insert(0, os.path.abspath("../../"))
 project = "mdapy"
 copyright = "2022, Yong-Chao Wu & Jian-Li Shao Group in Beijing Institute of Technology"
 author = "Yong-Chao Wu & Jian-Li Shao Group in Beijing Institute of Technology"
-version = "0.8.7"
-release = "0.8.7"
+version = "0.8.8"
+release = "0.8.8"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

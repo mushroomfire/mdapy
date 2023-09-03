@@ -175,6 +175,10 @@ You can try:
 Release Notes
 --------------
 
+V0.8.9 (Under development)
+- Add supporting to *trilinic box*.
+
+
 V0.8.8 (8/24/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

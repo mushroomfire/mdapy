@@ -175,10 +175,10 @@ You can try:
 Release Notes
 --------------
 
-V0.8.9 (Under development)
+V0.8.9 (9/5/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- Add supporting to *trilinic box*.
+- Fix installation in python 3.11.5.
 
 
 V0.8.8 (8/24/2023)

@@ -72,7 +72,7 @@ setup(
     zip_safe=False,
     license="BSD 3-Clause License",
     url="https://github.com/mushroomfire/mdapy",
-    python_requires=">=3.7,<=3.11",
+    python_requires=">=3.7,<3.12",
     install_requires=[
         "taichi>=1.6.0",
         "numpy",

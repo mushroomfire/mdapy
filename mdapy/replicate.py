@@ -3,26 +3,30 @@
 
 import taichi as ti
 import numpy as np
-import pandas as pd
-import pyarrow as pa
-from pyarrow import csv
+
+try:
+    from load_save_data import SaveFile
+except Exception:
+    from .load_save_data import SaveFile
 
 
 @ti.data_oriented
 class Replicate:
-    """This class used to replicate a position with np.array format.
+    """This class used to replicate a position with np.ndarray format.
 
     Args:
         pos (np.ndarray): (:math:`N_p, 3`), initial position to be replicated.
-        box (np.ndarray): (:math:`3, 2`), initial system box.
+        box (np.ndarray): (:math:`4, 3`), initial system box.
         x (int, optional): replication number (positive integer) along x axis. Defaults to 1.
         y (int, optional): replication number (positive integer) along y axis. Defaults to 1.
         z (int, optional): replication number (positive integer) along z axis. Defaults to 1.
+        type_list (np.ndarray, optional): (:math:`N_p`), type for each atom. Defaults to None.
 
     Outputs:
-        - **box** (np.ndarray) - (:math:`3, 2`), replicated box.
+        - **box** (np.ndarray) - (:math:`4, 3`), replicated box.
         - **pos** (np.ndarray) - (:math:`N, 3`), replicated particle position.
         - **N** (int) - replicated atom number.
+        - **type_list** (np.ndarray) - (:math:`N`), replicated type list.
 
     Examples:
         >>> import mdapy as mp
@@ -42,38 +46,85 @@ class Replicate:
         >>> repli.write_data() # Save to DATA file.
     """
 
-    def __init__(self, pos, box, x=1, y=1, z=1):
+    def __init__(self, pos, box, x=1, y=1, z=1, type_list=None):
         self.old_pos = pos
-        self.old_box = box
+        if box.shape == (3, 2):
+            self.old_box = np.zeros((4, 3), dtype=box.dtype)
+            self.old_box[0, 0], self.old_box[1, 1], self.old_box[2, 2] = (
+                box[:, 1] - box[:, 0]
+            )
+            self.old_box[-1] = box[:, 0]
+        elif box.shape == (4, 3) or box.shape == (3, 3):
+            assert box[0, 1] == box[0, 2] == box[1, 2] == 0
+            if box.shape == (4, 3):
+                self.old_box = box
+            else:
+                self.old_box = np.zeros((4, 3), dtype=box.dtype)
+                self.old_box[:-1] = box
         assert x > 0 and isinstance(x, int), "x should be a positive integer."
         self.x = x
         assert y > 0 and isinstance(y, int), "y should be a positive integer."
         self.y = y
         assert z > 0 and isinstance(z, int), "z should be a positive integer."
         self.z = z
+        self.old_type_list = type_list
         self.if_computed = False
 
     @ti.kernel
     def _compute(
         self,
-        old_pos: ti.types.ndarray(dtype=ti.math.vec3),
-        old_box: ti.types.ndarray(),
-        pos: ti.types.ndarray(dtype=ti.math.vec3),
+        old_pos: ti.types.ndarray(element_dim=1),
+        old_box: ti.types.ndarray(element_dim=1),
+        pos: ti.types.ndarray(element_dim=1),
     ):
-        box_length = ti.Vector([old_box[i, 1] - old_box[i, 0] for i in range(3)])
-        for i, j, k, m in ti.ndrange(self.x, self.y, self.z, old_pos.shape[0]):
-            move = box_length * ti.Vector([i, j, k])
-            pos[i, j, k, m] = old_pos[m] + move
+        N = old_pos.shape[0]
+        a = self.y * self.z * N
+        b = self.z * N
+        for i, j, k, m in ti.ndrange(self.x, self.y, self.z, N):
+            pos[i * a + j * b + k * N + m] = (
+                old_pos[m] + i * old_box[0] + j * old_box[1] + k * old_box[2]
+            )
+
+    @ti.kernel
+    def _compute_with_type_list(
+        self,
+        old_pos: ti.types.ndarray(element_dim=1),
+        old_box: ti.types.ndarray(element_dim=1),
+        pos: ti.types.ndarray(element_dim=1),
+        old_type_list: ti.types.ndarray(),
+        type_list: ti.types.ndarray(),
+    ):
+        N = old_pos.shape[0]
+        a = self.y * self.z * N
+        b = self.z * N
+        for i, j, k, m in ti.ndrange(self.x, self.y, self.z, N):
+            index = i * a + j * b + k * N + m
+            pos[index] = old_pos[m] + i * old_box[0] + j * old_box[1] + k * old_box[2]
+            type_list[index] = old_type_list[m]
 
     def compute(self):
-        """Do the real lattice calculation."""
-        pos = np.zeros((self.x, self.y, self.z, self.old_pos.shape[0], 3))
-        self._compute(self.old_pos, self.old_box, pos)
-        self.pos = pos.reshape(-1, 3)
+        """Do the real replicate calculation."""
+        self.pos = np.zeros(
+            (self.x * self.y * self.z * self.old_pos.shape[0], 3),
+            dtype=self.old_pos.dtype,
+        )
+        if self.old_type_list is None:
+            self.type_list = None
+            self._compute(self.old_pos, self.old_box, self.pos)
+        else:
+            assert len(self.old_type_list) == self.old_pos.shape[0]
+            self.type_list = np.zeros(self.pos.shape[0], int)
+            self._compute_with_type_list(
+                self.old_pos,
+                self.old_box,
+                self.pos,
+                np.array(self.old_type_list),
+                self.type_list,
+            )
         self.box = self.old_box.copy()
-        self.box[:, 1] = self.box[:, 0] + (
-            self.old_box[:, 1] - self.old_box[:, 0]
-        ) * np.array([self.x, self.y, self.z])
+        self.box[0] *= self.x
+        self.box[1] *= self.y
+        self.box[2] *= self.z
         self.if_computed = True
 
     @property
@@ -83,53 +134,33 @@ class Replicate:
             self.compute()
         return self.pos.shape[0]
 
-    def write_data(self, type_list=None, output_name=None):
+    def write_data(self, output_name=None, data_format="atomic"):
         """This function writes position into a DATA file.
 
         Args:
-            type_list (np.ndarray, optional): (:math:`N_p`) atom type list. If not given, the atom type is set as 1.
-
             output_name (str, optional): filename of generated DATA file.
+            data_format (str, optional): data format, selected in ['atomic', 'charge']
         """
         if not self.if_computed:
             self.compute()
 
         if output_name is None:
             output_name = f"{self.x}-{self.y}-{self.z}.data"
-        if type_list is None:
-            type_list = np.ones(self.N, int)
-            Ntype = 1
-        else:
-            assert len(type_list) == self.N
-            type_list = np.array(type_list, int)
-            Ntype = len(np.unique(type_list))
-        df = pd.DataFrame(
-            {
-                "id": np.arange(1, self.N + 1),
-                "type": type_list,
-                "x": self.pos[:, 0].astype(np.float32),
-                "y": self.pos[:, 1].astype(np.float32),
-                "z": self.pos[:, 2].astype(np.float32),
-            }
+        if self.type_list is None:
+            self.type_list = np.ones(self.N, int)
+        SaveFile.write_data(
+            output_name,
+            self.box,
+            [1, 1, 1],
+            pos=self.pos,
+            type_list=self.type_list,
+            data_format=data_format,
         )
-        table = pa.Table.from_pandas(df)
-        with pa.OSFile(output_name, "wb") as op:
-            op.write("# LAMMPS data file generated by mdapy@HerrWu.\n\n".encode())
-            op.write(f"{self.N} atoms\n{Ntype} atom types\n\n".encode())
-            for i, j in zip(range(3), ["x", "y", "z"]):
-                op.write(f"{self.box[i,0]} {self.box[i,1]} {j}lo {j}hi\n".encode())
-            op.write("\n".encode())
-            op.write(r"Atoms # atomic".encode())
-            op.write("\n\n".encode())
-            write_options = csv.WriteOptions(delimiter=" ", include_header=False)
-            csv.write_csv(table, op, write_options=write_options)
 
-    def write_dump(self, type_list=None, output_name=None):
+    def write_dump(self, output_name=None):
         """This function writes position into a DUMP file.
 
         Args:
-            type_list (np.ndarray, optional): (:math:`N_p`) atom type list. If not given, the atom type is set as 1.
-
             output_name (str, optional): filename of generated DUMP file.
         """
         if not self.if_computed:
@@ -137,33 +168,12 @@ class Replicate:
 
         if output_name is None:
             output_name = f"{self.x}-{self.y}-{self.z}.dump"
-        if type_list is None:
-            type_list = np.ones(self.N, int)
-        else:
-            assert len(type_list) == self.N
-            type_list = np.array(type_list, int)
-        df = pd.DataFrame(
-            {
-                "id": np.arange(1, self.N + 1),
-                "type": type_list,
-                "x": self.pos[:, 0].astype(np.float32),
-                "y": self.pos[:, 1].astype(np.float32),
-                "z": self.pos[:, 2].astype(np.float32),
-            }
-        )
+        if self.type_list is None:
+            self.type_list = np.ones(self.N, int)
 
-        table = pa.Table.from_pandas(df)
-        with pa.OSFile(output_name, "wb") as op:
-            op.write("ITEM: TIMESTEP\n0\n".encode())
-            op.write("ITEM: NUMBER OF ATOMS\n".encode())
-            op.write(f"{self.N}\n".encode())
-            op.write(f"ITEM: BOX BOUNDS pp pp pp\n".encode())
-            op.write(f"{self.box[0, 0]} {self.box[0, 1]}\n".encode())
-            op.write(f"{self.box[1, 0]} {self.box[1, 1]}\n".encode())
-            op.write(f"{self.box[2, 0]} {self.box[2, 1]}\n".encode())
-            op.write("ITEM: ATOMS id type x y z\n".encode())
-            write_options = csv.WriteOptions(delimiter=" ", include_header=False)
-            csv.write_csv(table, op, write_options=write_options)
+        SaveFile.write_dump(
+            output_name, self.box, [1, 1, 1], pos=self.pos, type_list=self.type_list
+        )
 
 
 if __name__ == "__main__":
@@ -171,13 +181,14 @@ if __name__ == "__main__":
 
     from lattice_maker import LatticeMaker
 
-    fcc = LatticeMaker(3.615, "FCC", 10, 10, 10)
+    fcc = LatticeMaker(3.615, "FCC", 1, 1, 1)
     fcc.compute()
     print(f"build {fcc.N} atoms...")
 
-    repli = Replicate(fcc.pos - 10, fcc.box - 10, 10, 5, 10)
+    repli = Replicate(fcc.pos - 10, fcc.box, 2, 2, 2, type_list=[1, 2, 1, 2])
     repli.compute()
     print(f"replicate {repli.x} {repli.y} {repli.z}...")
     print(repli.box)
+    print(repli.type_list)
     # repli.write_data()
     # repli.write_dump()

@@ -81,34 +81,68 @@ class CommonNeighborParameter:
     def __init__(
         self, pos, box, boundary, rc, verlet_list, distance_list, neighbor_number
     ) -> None:
+        if pos.dtype != np.float64:
+            pos = pos.astype(np.float64)
         self.pos = pos
-        self.box = box
-        self.boundary = np.array(boundary)
+        if box.dtype != np.float64:
+            box = box.astype(np.float64)
+        if box.shape == (3, 2):
+            self.box = np.zeros((4, 3), dtype=box.dtype)
+            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
+            self.box[-1] = box[:, 0]
+        elif box.shape == (4, 3):
+            self.box = box
+        assert self.box[0, 1] == 0
+        assert self.box[0, 2] == 0
+        assert self.box[1, 2] == 0
+        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
+        self.rec = True
+        if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
+            self.rec = False
+        self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
         self.rc = rc
         self.verlet_list = verlet_list
         self.distance_list = distance_list
         self.neighbor_number = neighbor_number
 
     @ti.func
-    def _pbc(self, rij, box: ti.types.ndarray(), boundary: ti.types.ndarray()):
-        for i in ti.static(range(3)):
-            if boundary[i] == 1:
-                box_length = box[i, 1] - box[i, 0]
-                rij[i] = rij[i] - box_length * ti.round(rij[i] / box_length)
+    def _pbc_rec(self, rij):
+        for m in ti.static(range(3)):
+            if self.boundary[m]:
+                dx = rij[m]
+                x_size = self.box_length[m]
+                h_x_size = x_size * 0.5
+                if dx > h_x_size:
+                    dx = dx - x_size
+                if dx <= -h_x_size:
+                    dx = dx + x_size
+                rij[m] = dx
         return rij
+
+    @ti.func
+    def _pbc(self, rij, box: ti.types.ndarray(dtype=ti.math.vec3)) -> ti.math.vec3:
+        nz = rij[2] / box[2][2]
+        ny = (rij[1] - nz * box[2][1]) / box[1][1]
+        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
+        n = ti.Vector([nx, ny, nz])
+        for i in ti.static(range(3)):
+            if self.boundary[i] == 1:
+                if n[i] > 0.5:
+                    n[i] -= 1
+                elif n[i] < -0.5:
+                    n[i] += 1
+        return n[0] * box[0] + n[1] * box[1] + n[2] * box[2]
 
     @ti.kernel
     def _compute(
         self,
         pos: ti.types.ndarray(dtype=ti.math.vec3),
-        box: ti.types.ndarray(),
-        boundary: ti.types.ndarray(),
+        box: ti.types.ndarray(dtype=ti.math.vec3),
         verlet_list: ti.types.ndarray(),
         distance_list: ti.types.ndarray(),
         neighbor_number: ti.types.ndarray(),
         cnp: ti.types.ndarray(),
     ):
-
         for i in range(pos.shape[0]):
             N = 0
             for m in range(neighbor_number[i]):
@@ -126,8 +160,12 @@ class CommonNeighborParameter:
                                     k = verlet_list[j, s]
                                     rik = pos[i] - pos[k]
                                     rjk = pos[j] - pos[k]
-                                    rik = self._pbc(rik, box, boundary)
-                                    rjk = self._pbc(rjk, box, boundary)
+                                    if ti.static(self.rec):
+                                        rik = self._pbc_rec(rik)
+                                        rjk = self._pbc_rec(rjk)
+                                    else:
+                                        rik = self._pbc(rik, box)
+                                        rjk = self._pbc(rjk, box)
                                     r += rik + rjk
                 cnp[i] += r.norm_sqr()
             if N > 0:
@@ -141,7 +179,6 @@ class CommonNeighborParameter:
         self._compute(
             self.pos,
             self.box,
-            self.boundary,
             self.verlet_list,
             self.distance_list,
             self.neighbor_number,

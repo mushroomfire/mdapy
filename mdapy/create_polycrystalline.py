@@ -48,8 +48,24 @@ class Cell:
 
 class Container(list):
     def __init__(self, pos, box, boundary, num_t) -> None:
+        if pos.dtype != np.float64:
+            pos = pos.astype(np.float64)
         self.pos = pos
-        self.box = box
+        if box.dtype != np.float64:
+            box = box.astype(np.float64)
+        if box.shape == (4, 3):
+            for i in range(3):
+                for j in range(3):
+                    if i != j:
+                        assert box[i, j] == 0, "Do not support triclinic box."
+            self.box = np.zeros((3, 2))
+            self.box[:, 0] = box[-1]
+            self.box[:, 1] = (
+                np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
+            )
+        elif box.shape == (3, 2):
+            self.box = box
+
         self.boundary = np.bool_(boundary)
         self.num_t = num_t
         (
@@ -134,7 +150,21 @@ class CreatePolycrystalline:
         output_name=None,
         num_t=None,
     ) -> None:
-        self._real_box = np.array(box, float)
+        if box.dtype != np.float64:
+            box = box.astype(np.float64)
+        if box.shape == (4, 3):
+            for i in range(3):
+                for j in range(3):
+                    if i != j:
+                        assert box[i, j] == 0, "Do not support triclinic box."
+            self._real_box = np.zeros((3, 2))
+            self._real_box[:, 0] = box[-1]
+            self._real_box[:, 1] = (
+                np.array([box[0, 0], box[1, 1], box[2, 2]]) + self._real_box[:, 0]
+            )
+        elif box.shape == (3, 2):
+            self._real_box = box
+
         self._lower = self._real_box[:, 0]
         self.box = np.c_[np.zeros(3), self._real_box[:, 1] - self._real_box[:, 0]]
         self.seednumber = seednumber

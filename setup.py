@@ -26,7 +26,7 @@ except Exception:
 
 setup(
     name="mdapy",
-    version="0.8.9",
+    version="0.9.0",
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,

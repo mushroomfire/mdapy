@@ -80,21 +80,36 @@ class VoidDistribution:
         head=None,
         out_name="void.dump",
     ):
+        if pos.dtype != np.float64:
+            pos = pos.astype(np.float64)
         self.pos = pos
         self.N = self.pos.shape[0]
-        self.box = box
+        if box.dtype != np.float64:
+            box = box.astype(np.float64)
+        if box.shape == (4, 3):
+            for i in range(3):
+                for j in range(3):
+                    if i != j:
+                        assert box[i, j] == 0, "Do not support triclinic box."
+            self.box = np.zeros((3, 2))
+            self.box[:, 0] = box[-1]
+            self.box[:, 1] = (
+                np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
+            )
+        elif box.shape == (3, 2):
+            self.box = box
         self.cell_length = cell_length
         self.boundary = boundary
         self.out_void = out_void
         self.head = head
         self.out_name = out_name
-        self.origin = ti.Vector([box[0, 0], box[1, 0], box[2, 0]])
+        self.origin = ti.Vector([self.box[0, 0], self.box[1, 0], self.box[2, 0]])
         self.ncel = ti.Vector(
             [
                 i if i > 3 else 3
                 for i in [
-                    int(np.floor((box[i, 1] - box[i, 0]) / self.cell_length))
-                    for i in range(box.shape[0])
+                    int(np.floor((self.box[i, 1] - self.box[i, 0]) / self.cell_length))
+                    for i in range(self.box.shape[0])
                 ]
             ]
         )

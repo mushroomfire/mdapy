@@ -21,7 +21,7 @@ class VoronoiAnalysis:
     Args:
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
         box (np.ndarray): (:math:`3, 2`) system box.
-        boundary (list): boundary conditions, 1 is periodic and 0 is free boundary, such as [1, 1, 1].
+        boundary (list): boundary conditions, 1 is periodic and 0 is free boundary, default to [1, 1, 1].
         num_t (int, optional): threads number to generate Voronoi diagram. If not given, use all avilable threads.
 
     Outputs:
@@ -49,9 +49,25 @@ class VoronoiAnalysis:
         >>> avol.cavity_radius # Check the cavity radius.
     """
 
-    def __init__(self, pos, box, boundary, num_t=None) -> None:
+    def __init__(self, pos, box, boundary=[1, 1, 1], num_t=None) -> None:
+        if pos.dtype != np.float64:
+            pos = pos.astype(np.float64)
         self.pos = pos
-        self.box = box
+        self.N = self.pos.shape[0]
+        if box.dtype != np.float64:
+            box = box.astype(np.float64)
+        if box.shape == (4, 3):
+            for i in range(3):
+                for j in range(3):
+                    if i != j:
+                        assert box[i, j] == 0, "Do not support triclinic box."
+            self.box = np.zeros((3, 2))
+            self.box[:, 0] = box[-1]
+            self.box[:, 1] = (
+                np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
+            )
+        elif box.shape == (3, 2):
+            self.box = box
         self.boundary = boundary
         if num_t is None:
             self.num_t = mt.cpu_count()
@@ -87,9 +103,7 @@ if __name__ == "__main__":
     FCC.compute()  # Get atom positions.
     # FCC.write_data()
     start = time()
-    avol = VoronoiAnalysis(
-        FCC.pos, FCC.box, [1, 1, 1], 40
-    )  # Initilize the Voronoi class.
+    avol = VoronoiAnalysis(FCC.pos, FCC.box)  # Initilize the Voronoi class.
     avol.compute()  # Calculate the Voronoi volume.
     end = time()
 

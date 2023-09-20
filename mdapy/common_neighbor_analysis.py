@@ -4,9 +4,6 @@
 import taichi as ti
 import numpy as np
 
-vec3f32 = ti.types.vector(3, ti.f32)
-vec3f64 = ti.types.vector(3, ti.f64)
-
 
 @ti.data_oriented
 class CommonNeighborAnalysis:
@@ -89,17 +86,25 @@ class CommonNeighborAnalysis:
         self.rc = rc
         self.verlet_list = verlet_list
         self.neighbor_number = neighbor_number
-        self.box = box
-        self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
-        assert pos.dtype in [
-            np.float64,
-            np.float32,
-        ], "Dtype of pos must in [float64, float32]."
+        if pos.dtype != np.float64:
+            pos = pos.astype(np.float64)
         self.pos = pos
-        if self.pos.dtype == np.float64:
-            self.box_length = vec3f64([box[i, 1] - box[i, 0] for i in range(3)])
-        elif self.pos.dtype == np.float32:
-            self.box_length = vec3f32([box[i, 1] - box[i, 0] for i in range(3)])
+        if box.dtype != np.float64:
+            box = box.astype(np.float64)
+        if box.shape == (3, 2):
+            self.box = np.zeros((4, 3), dtype=box.dtype)
+            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
+            self.box[-1] = box[:, 0]
+        elif box.shape == (4, 3):
+            self.box = box
+        assert self.box[0, 1] == 0
+        assert self.box[0, 2] == 0
+        assert self.box[1, 2] == 0
+        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
+        self.rec = True
+        if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
+            self.rec = False
+        self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
         self.N = self.verlet_list.shape[0]
         self.MAXNEAR = 14
         self.MAXCOMMON = 7
@@ -107,7 +112,7 @@ class CommonNeighborAnalysis:
         self.structure = ["other", "fcc", "hcp", "bcc", "ico"]
 
     @ti.func
-    def _pbc(self, rij):
+    def _pbc_rec(self, rij):
         for m in ti.static(range(3)):
             if self.boundary[m]:
                 dx = rij[m]
@@ -120,10 +125,25 @@ class CommonNeighborAnalysis:
                 rij[m] = dx
         return rij
 
+    @ti.func
+    def _pbc(self, rij, box: ti.types.ndarray(dtype=ti.math.vec3)) -> ti.math.vec3:
+        nz = rij[2] / box[2][2]
+        ny = (rij[1] - nz * box[2][1]) / box[1][1]
+        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
+        n = ti.Vector([nx, ny, nz])
+        for i in ti.static(range(3)):
+            if self.boundary[i] == 1:
+                if n[i] > 0.5:
+                    n[i] -= 1
+                elif n[i] < -0.5:
+                    n[i] += 1
+        return n[0] * box[0] + n[1] * box[1] + n[2] * box[2]
+
     @ti.kernel
     def _compute(
         self,
         pos: ti.types.ndarray(dtype=ti.math.vec3),
+        box: ti.types.ndarray(dtype=ti.math.vec3),
         verlet_list: ti.types.ndarray(),
         neighbor_number: ti.types.ndarray(),
         cna: ti.types.ndarray(),
@@ -154,7 +174,11 @@ class CommonNeighborAnalysis:
                         j = common[i, jj]
                         for kk in range(jj + 1, ncommon):
                             k = common[i, kk]
-                            rjk = self._pbc(pos[j] - pos[k])
+                            rjk = pos[j] - pos[k]
+                            if ti.static(self.rec):
+                                rjk = self._pbc_rec(rjk)
+                            else:
+                                rjk = self._pbc(rjk, box)
                             if rjk.norm_sqr() < rcsq:
                                 nbonds += 1
                                 bonds[i, jj] += 1
@@ -229,6 +253,7 @@ class CommonNeighborAnalysis:
         self.pattern = np.zeros(self.N, dtype=np.int32)
         self._compute(
             self.pos,
+            self.box,
             self.verlet_list,
             self.neighbor_number,
             cna,

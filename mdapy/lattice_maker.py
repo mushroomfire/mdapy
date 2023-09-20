@@ -3,9 +3,13 @@
 
 import taichi as ti
 import numpy as np
-import pandas as pd
-import pyarrow as pa
-from pyarrow import csv
+
+try:
+    from replicate import Replicate
+    from load_save_data import SaveFile
+except Exception:
+    from .replicate import Replicate
+    from .load_save_data import SaveFile
 
 
 @ti.data_oriented
@@ -18,10 +22,14 @@ class LatticeMaker:
         x (int): repeat times along :math:`x` axis.
         y (int): repeat times along :math:`y` axis.
         z (int): repeat times along :math:`z` axis.
+        basis_vector (np.ndarray): (:math:`4, 3`) or (:math:`3, 2`) repeat vector.
+        basis_atoms (np.ndarray): (:math:`N_p, 3`) basis atom positions.
+        type_list (np.ndarray): (:math:`N_p`) type for basis atoms.
 
     Outputs:
-        - **box** (np.ndarray) - (:math:`3, 2`), system box.
+        - **box** (np.ndarray) - (:math:`4, 3`), system box.
         - **pos** (np.ndarray) - (:math:`N_p, 3`), particle position.
+        - **type_list** (np.ndarray) - (:math:`N_p`), replicated type list.
 
     Examples:
         >>> import mdapy as mp
@@ -39,49 +47,67 @@ class LatticeMaker:
         >>> GRA.write_data(output_name='graphene.data') # Save to graphene.data file.
     """
 
-    def __init__(self, lattice_constant, lattice_type, x, y, z):
-
+    def __init__(
+        self,
+        lattice_constant=None,
+        lattice_type=None,
+        x=1,
+        y=1,
+        z=1,
+        basis_vector=None,
+        basis_atoms=None,
+        type_list=None,
+    ):
         self.lattice_constant = lattice_constant
         self.lattice_type = lattice_type
         self.x = x
         self.y = y
         self.z = z
-        self.basis_vector, self.basis_atoms = self._init_global()
-        self.box = np.vstack(
-            (
-                np.zeros(3),
-                np.diagonal(
-                    self.basis_vector.to_numpy() * np.array([self.x, self.y, self.z])
-                ),
-            )
-        ).T
+        if self.lattice_constant is None or self.lattice_type is None:
+            assert basis_atoms is not None
+            assert basis_vector is not None
+            assert basis_vector.shape == (3, 2) or basis_vector.shape == (4, 3)
+            assert basis_atoms.shape[1] == 3
+            self.basis_vector = basis_vector
+            self.basis_atoms = basis_atoms
+        else:
+            assert self.lattice_type in [
+                "FCC",
+                "BCC",
+                "HCP",
+                "GRA",
+            ], "Unrecgonized Lattice Type, please choose in [FCC, BCC, HCP, GRA]."
+            self.basis_vector, self.basis_atoms = self._get_basis_vector_atoms()
+        self.type_list = type_list
+        if self.type_list is not None:
+            assert len(self.type_list) == self.basis_atoms.shape[0]
         self.if_computed = False
 
-    def _init_global(self):
+    def _get_basis_vector_atoms(self):
         """
         Define the base vector and base atoms in float64.
         """
         if self.lattice_type == "FCC":
-            basis_vector_arr = (
+            basis_vector = (
                 np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
                 * self.lattice_constant
             )
-            basis_atoms_arr = (
+            basis_atoms = (
                 np.array(
                     [[0.0, 0.0, 0.0], [0.5, 0.5, 0.0], [0.5, 0.0, 0.5], [0.0, 0.5, 0.5]]
                 )
                 * self.lattice_constant
             )
         elif self.lattice_type == "BCC":
-            basis_vector_arr = (
+            basis_vector = (
                 np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
                 * self.lattice_constant
             )
-            basis_atoms_arr = (
+            basis_atoms = (
                 np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]) * self.lattice_constant
             )
         elif self.lattice_type == "HCP":
-            basis_vector_arr = (
+            basis_vector = (
                 np.array(
                     [
                         [1.0, 0.0, 0.0],
@@ -91,7 +117,7 @@ class LatticeMaker:
                 )
                 * self.lattice_constant
             )
-            basis_atoms_arr = (
+            basis_atoms = (
                 np.array(
                     [
                         [0.0, 0.0, 0.0],
@@ -103,7 +129,7 @@ class LatticeMaker:
                 * self.lattice_constant
             )
         elif self.lattice_type == "GRA":
-            basis_vector_arr = (
+            basis_vector = (
                 np.array(
                     [
                         [3.0, 0.0, 0.0],
@@ -113,50 +139,26 @@ class LatticeMaker:
                 )
                 * self.lattice_constant
             )
-            basis_atoms_arr = np.array(
+            basis_atoms = np.array(
                 [[1 / 6, 0.0, 0.0], [0.5, 0.0, 0.0], [0.0, 0.5, 0.0], [2 / 3, 0.5, 0.0]]
             ) * np.array(
                 [self.lattice_constant * 3, self.lattice_constant * np.sqrt(3), 0.0]
             )
-        else:
-            raise ValueError(
-                "Unrecgonized Lattice Type, please choose in [FCC, BCC, HCP, GRA]."
-            )
-
-        basis_vector = ti.Vector.field(
-            basis_vector_arr.shape[1], dtype=ti.f64, shape=(basis_vector_arr.shape[0])
-        )
-        basis_atoms = ti.Vector.field(
-            basis_atoms_arr.shape[1], dtype=ti.f64, shape=(basis_atoms_arr.shape[0])
-        )
-        basis_vector.from_numpy(basis_vector_arr)
-        basis_atoms.from_numpy(basis_atoms_arr)
 
         return basis_vector, basis_atoms
 
-    @ti.kernel
-    def _compute(self, pos: ti.types.ndarray(dtype=ti.math.vec3)):
-        """
-        Get the position
-        """
-        # ti.loop_config(serialize=True)
-        for i, j, k, h in ti.ndrange(self.x, self.y, self.z, self.basis_atoms.shape[0]):
-            basis_origin = ti.Vector(
-                [
-                    self.basis_vector[m].dot(ti.Vector([i, j, k]))
-                    for m in range(self.basis_vector.shape[0])
-                ]
-            )
-            pos[i, j, k, h] = self.basis_atoms[h] + basis_origin
-
     def compute(self):
         """Do the real lattice calculation."""
-        pos = np.zeros(
-            (self.x, self.y, self.z, self.basis_atoms.shape[0], 3), dtype=np.float64
+        repli = Replicate(
+            self.basis_atoms, self.basis_vector, self.x, self.y, self.z, self.type_list
         )
-
-        self._compute(pos)
-        self.pos = pos.reshape(-1, 3)
+        repli.compute()
+        self.pos = repli.pos
+        self.box = repli.box
+        if self.type_list is None:
+            self.type_list = np.ones(self.pos.shape[0], int)
+        else:
+            self.type_list = repli.type_list
         self.if_computed = True
 
     @property
@@ -166,87 +168,50 @@ class LatticeMaker:
             self.compute()
         return self.pos.shape[0]
 
-    def write_data(self, type_list=None, output_name=None):
+    @property
+    def vol(self):
+        """The box volume."""
+        if not self.if_computed:
+            self.compute()
+        return np.inner(self.box[0], np.cross(self.box[1], self.box[2]))
+
+    def write_data(self, output_name=None, data_format="atomic"):
         """This function writes position into a DATA file.
 
         Args:
-            type_list (np.ndarray, optional): (:math:`N_p`) atom type list. If not given, the atom type is set as 1.
-
             output_name (str, optional): filename of generated DATA file.
+            data_format (str, optional): data format, selected in ['atomic', 'charge']
         """
         if not self.if_computed:
             self.compute()
 
         if output_name is None:
-            output_name = f"{self.lattice_type}-{self.x}-{self.y}-{self.z}.data"
-        if type_list is None:
-            type_list = np.ones(self.N, int)
-            Ntype = 1
-        else:
-            assert len(type_list) == self.N
-            type_list = np.array(type_list, int)
-            Ntype = len(np.unique(type_list))
-        df = pd.DataFrame(
-            {
-                "id": np.arange(1, self.N + 1),
-                "type": type_list,
-                "x": self.pos[:, 0].astype(np.float32),
-                "y": self.pos[:, 1].astype(np.float32),
-                "z": self.pos[:, 2].astype(np.float32),
-            }
-        )
-        table = pa.Table.from_pandas(df)
-        with pa.OSFile(output_name, "wb") as op:
-            op.write("# LAMMPS data file generated by mdapy@HerrWu.\n\n".encode())
-            op.write(f"{self.N} atoms\n{Ntype} atom types\n\n".encode())
-            for i, j in zip(range(3), ["x", "y", "z"]):
-                op.write(f"{self.box[i,0]} {self.box[i,1]} {j}lo {j}hi\n".encode())
-            op.write("\n".encode())
-            op.write(r"Atoms # atomic".encode())
-            op.write("\n\n".encode())
-            write_options = csv.WriteOptions(delimiter=" ", include_header=False)
-            csv.write_csv(table, op, write_options=write_options)
+            output_name = f"{self.x}-{self.y}-{self.z}.data"
 
-    def write_dump(self, type_list=None, output_name=None):
+        SaveFile.write_data(
+            output_name,
+            self.box,
+            [1, 1, 1],
+            pos=self.pos,
+            type_list=self.type_list,
+            data_format=data_format,
+        )
+
+    def write_dump(self, output_name=None):
         """This function writes position into a DUMP file.
 
         Args:
-            type_list (np.ndarray, optional): (:math:`N_p`) atom type list. If not given, the atom type is set as 1.
-
             output_name (str, optional): filename of generated DUMP file.
         """
         if not self.if_computed:
             self.compute()
 
         if output_name is None:
-            output_name = f"{self.lattice_type}-{self.x}-{self.y}-{self.z}.dump"
-        if type_list is None:
-            type_list = np.ones(self.N, int)
-        else:
-            assert len(type_list) == self.N
-            type_list = np.array(type_list, int)
-        df = pd.DataFrame(
-            {
-                "id": np.arange(1, self.N + 1),
-                "type": type_list,
-                "x": self.pos[:, 0].astype(np.float32),
-                "y": self.pos[:, 1].astype(np.float32),
-                "z": self.pos[:, 2].astype(np.float32),
-            }
-        )
+            output_name = f"{self.x}-{self.y}-{self.z}.dump"
 
-        table = pa.Table.from_pandas(df)
-        with pa.OSFile(output_name, "wb") as op:
-            op.write("ITEM: TIMESTEP\n0\n".encode())
-            op.write("ITEM: NUMBER OF ATOMS\n".encode())
-            op.write(f"{self.N}\n".encode())
-            op.write(f"ITEM: BOX BOUNDS pp pp pp\n".encode())
-            op.write(f"{self.box[0, 0]} {self.box[0, 1]}\n".encode())
-            op.write(f"{self.box[1, 0]} {self.box[1, 1]}\n".encode())
-            op.write(f"{self.box[2, 0]} {self.box[2, 1]}\n".encode())
-            op.write("ITEM: ATOMS id type x y z\n".encode())
-            write_options = csv.WriteOptions(delimiter=" ", include_header=False)
-            csv.write_csv(table, op, write_options=write_options)
+        SaveFile.write_dump(
+            output_name, self.box, [1, 1, 1], pos=self.pos, type_list=self.type_list
+        )
 
 
 if __name__ == "__main__":
@@ -254,21 +219,24 @@ if __name__ == "__main__":
     from time import time
 
     # FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
-    FCC = LatticeMaker(3.615, "FCC", 10, 10, 10)
+    FCC = LatticeMaker(3.615, "FCC", 10, 10, 10, type_list=np.array([1, 2, 1, 2]))
     FCC.compute()
     print("Atom number is:", FCC.N)
-    start = time()
-    FCC.write_data()
-    print(f"write data time {time()-start} s.")
+    # start = time()
+    # FCC.write_data()
+    # print(f"write data time {time()-start} s.")
 
-    start = time()
-    FCC.write_dump()
-    print(f"write dump time {time()-start} s.")
+    # start = time()
+    # FCC.write_dump()
+    # print(f"write dump time {time()-start} s.")
 
     # print(FCC.basis_atoms.to_numpy())
     # print(FCC.basis_vector.to_numpy())
     # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))
     print(FCC.box)
+    print(FCC.vol)
+    # FCC.write_data()
+    # FCC.write_dump()
     # print(FCC.pos)
     # print(pos.dtype)
     # FCC.write_data()

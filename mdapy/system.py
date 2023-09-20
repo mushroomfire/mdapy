@@ -1,14 +1,11 @@
-# Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
-# This file is from the mdapy project, released under the BSD 3-Clause License.
-
-import taichi as ti
-import numpy as np
 import pandas as pd
-import pyarrow as pa
-from pyarrow import csv
+import numpy as np
+import taichi as ti
 import multiprocessing as mt
 
 try:
+    from load_save_data import BuildSystem, SaveFile
+    from tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from ackland_jones_analysis import AcklandJonesAnalysis
     from common_neighbor_analysis import CommonNeighborAnalysis
     from common_neighbor_parameter import CommonNeighborParameter
@@ -31,6 +28,8 @@ try:
     from steinhardt_bond_orientation import SteinhardtBondOrientation
     from replicate import Replicate
 except Exception:
+    from .load_save_data import BuildSystem, SaveFile
+    from .tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from .common_neighbor_analysis import CommonNeighborAnalysis
     from .ackland_jones_analysis import AcklandJonesAnalysis
     from .common_neighbor_parameter import CommonNeighborParameter
@@ -54,530 +53,183 @@ except Exception:
     from .replicate import Replicate
 
 
-@ti.kernel
-def _wrap_pos(
-    pos: ti.types.ndarray(), box: ti.types.ndarray(), boundary: ti.types.ndarray()
-):
-    """This function is used to wrap particle positions into box considering periodic boundarys.
-
-    Args:
-        pos (ti.types.ndarray): (Nx3) particle position.
-
-        box (ti.types.ndarray): (3x2) system box.
-
-        boundary (ti.types.ndarray): boundary conditions, 1 is periodic and 0 is free boundary.
-    """
-    boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
-    for i in range(pos.shape[0]):
-        for j in ti.static(range(3)):
-            if boundary[j] == 1:
-                while pos[i, j] < box[j, 0]:
-                    pos[i, j] += boxlength[j]
-                while pos[i, j] >= box[j, 1]:
-                    pos[i, j] -= boxlength[j]
-
-
-@ti.kernel
-def _unwrap_pos_with_image_p(
-    pos_list: ti.types.ndarray(dtype=ti.math.vec3),
-    box: ti.types.ndarray(),
-    boundary: ti.types.vector(3, dtype=int),
-    image_p: ti.types.ndarray(dtype=ti.math.vec3),
-):
-    """This function is used to unwrap particle positions
-     into box considering periodic boundarys with help of image_p.
-
-    Args:
-        pos_list (ti.types.ndarray): (Nframes x Nparticles x 3) particle position.
-
-        box (ti.types.ndarray): (3x2) system box.
-
-        boundary (ti.types.vector): boundary conditions, 1 is periodic and 0 is free boundary.
-
-        image_p (ti.types.ndarray): (Nframes x Nparticles x 3) image_p, such as 1 indicates plus a box distance and -2 means substract two box distances.
-    """
-    boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
-    for i, j in pos_list:
-        for k in ti.static(range(3)):
-            if boundary[k] == 1:
-                pos_list[i, j][k] += image_p[i - 1, j][k] * boxlength[k]
-
-
-@ti.kernel
-def _unwrap_pos_without_image_p(
-    pos_list: ti.types.ndarray(dtype=ti.math.vec3),
-    box: ti.types.ndarray(),
-    boundary: ti.types.vector(3, dtype=int),
-    image_p: ti.types.ndarray(dtype=ti.math.vec3),
-):
-    """This function is used to unwrap particle positions
-     into box considering periodic boundarys without help of image_p.
-
-    Args:
-        pos_list (ti.types.ndarray): (Nframes x Nparticles x 3) particle position.
-
-        box (ti.types.ndarray): (3x2) system box.
-
-        boundary (ti.types.vector): boundary conditions, 1 is periodic and 0 is free boundary.
-
-        image_p (ti.types.ndarray): (Nframes x Nparticles x 3) fill with 0.
-    """
-    boxlength = ti.Vector([box[j, 1] - box[j, 0] for j in range(3)])
-    ti.loop_config(serialize=True)
-    for frame in range(1, pos_list.shape[0]):
-        for i in range(pos_list.shape[1]):
-            for j in ti.static(range(3)):
-                if boundary[j] == 1:
-                    pos_list[frame, i][j] += image_p[frame - 1, i][j] * boxlength[j]
-            delta = pos_list[frame, i] - pos_list[frame - 1, i]
-            for j in ti.static(range(3)):
-                if boundary[j] == 1:
-                    temp = delta[j]
-                    while temp >= boxlength[j] / 2:
-                        image_p[frame, i][j] -= 1
-                        pos_list[frame, i][j] -= boxlength[j]
-                        temp = pos_list[frame, i][j] - pos_list[frame - 1, i][j]
-
-                    while temp <= -boxlength[j] / 2:
-                        image_p[frame, i][j] += 1
-                        pos_list[frame, i][j] += boxlength[j]
-                        temp = pos_list[frame, i][j] - pos_list[frame - 1, i][j]
-
-
-def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
-    """This function is used to unwrap particle positions
-     into box considering periodic boundarys.
-
-    Args:
-        pos_list (np.ndarray): (Nframes x Nparticles x 3) particle position.
-
-        box (np.ndarray): (3x2) system box.
-
-        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
-
-        image_p (_type_, optional): (Nframes x Nparticles x 3) image_p, such as 1 indicates plus a box distance and -2 means substract two box distances. Defaults to None.
-    """
-    if image_p is not None:
-        boundary = ti.Vector(boundary)
-        _unwrap_pos_with_image_p(pos_list, box, boundary, image_p)
-    else:
-        boundary = ti.Vector(boundary)
-        image_p = np.zeros_like(pos_list, dtype=int)
-        _unwrap_pos_without_image_p(pos_list, box, boundary, image_p)
-
-
-@ti.kernel
-def _partition_select_sort(
-    indices: ti.types.ndarray(), keys: ti.types.ndarray(), N: int
-):
-    """This function sorts N-th minimal value in keys.
-
-    Args:
-        indices (ti.types.ndarray): indices.
-        keys (ti.types.ndarray): values to be sorted.
-        N (int): number of sorted values.
-    """
-    for i in range(indices.shape[0]):
-        for j in range(N):
-            minIndex = j
-            for k in range(j + 1, indices.shape[1]):
-                if keys[i, k] < keys[i, minIndex]:
-                    minIndex = k
-            if minIndex != j:
-                keys[i, minIndex], keys[i, j] = keys[i, j], keys[i, minIndex]
-                indices[i, minIndex], indices[i, j] = (
-                    indices[i, j],
-                    indices[i, minIndex],
-                )
-
-
 class System:
-    """This class can generate a System class for rapidly accessing almost all the analysis
-    method in mdapy.
-
-    .. note::
-      - mdapy now only supports rectangle box and triclinic system will raise an error.
-      - mdapy only supports the simplest DATA format, atomic and charge, which means like bond information will cause an error.
-      - We recommend you use DUMP as input file format or directly give particle positions and box.
-
-    Args:
-        filename (str, optional): DATA/DUMP filename. Defaults to None.
-        format (str, optional): 'data' or 'dump', One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
-        box (np.ndarray, optional): (:math:`3, 2`) system box. Defaults to None.
-        pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
-        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
-        vel (np.ndarray, optional): (:math:`N_p, 3`) particles velocities. Defaults to None.
-        type_list (np.ndarray, optional): (:math:`N_p`) type per particles. Defaults to 1.
-        amass (np.ndarray, optional): (:math:`N_type`) atomic mass. Defaults to None.
-        q (np.ndarray, optional): (:math:`N_p`) atomic charge. Defaults to 0.0.
-        data_format (str, optional): `'atomic' or 'charge' <https://docs.lammps.org/read_data.html>`_ defined in lammps, format for DATA file. Defaults to None.
-        sorted_id (bool, optional): whether sort system data by the particle id. Defaults to False.
-
-    Outputs:
-        - **data** (pd.DataFrame) - system data.
-
-
-    Examples:
-
-        There are two ways to create a System class.
-        The first is directly reading from a DUMP/DATA file generated from LAMMPS.
-
-        >>> import mdapy as mp
-
-        >>> mp.init('cpu')
-
-        >>> system = mp.System('example.dump')
-
-        One can also create a System by giving pos, box manually.
-
-        >>> import numpy as np
-
-        >>> box = np.array([[0, 100], [0, 100], [0, 100.]])
-
-        >>> pos = np.random.random((100, 3))*100
-
-        >>> system = mp.System(box=box, pos=pos)
-
-        Then one can access almost all the analysis method in mdapy with uniform API.
-
-        >>> system.cal_atomic_entropy() # calculate the atomic entropy
-
-        One can check the calculation results:
-
-        >>> system.data
-
-        And easily save it into disk with DUMP/DATA format.
-
-        >>> system.write_dump()
-    """
-
     def __init__(
         self,
         filename=None,
-        format=None,
+        fmt=None,
+        data=None,
         box=None,
         pos=None,
         boundary=[1, 1, 1],
         vel=None,
         type_list=None,
-        amass=None,
-        q=None,
-        data_format=None,
         sorted_id=False,
-    ):
-        self.dump_head = None
-        self.data_head = None
-        self.data_format = data_format
-        self.amass = amass
-        self.if_neigh = False
-        self.filename = filename
-        self.sorted_id = sorted_id
-        if filename is None:
-            self.format = format
-            self.box = box
-            self.pos = pos
-            self.N = self.pos.shape[0]
-            self.boundary = boundary
-            self.vel = vel
-            if type_list is None:
-                self.type_list = np.ones(self.N)
-            else:
-                self.type_list = type_list
-            if self.data_format == "charge":
-                if q is None:
-                    self.q = np.zeros(self.N)
-                else:
-                    self.q = q
-            else:
-                self.q = q
-
-            self.data = pd.DataFrame(
-                np.c_[np.arange(self.N) + 1, self.type_list, self.pos],
-                columns=["id", "type", "x", "y", "z"],
+    ) -> None:
+        self.__filename = filename
+        self.__fmt = fmt
+        self.__timestep = 0
+        if (
+            isinstance(data, pd.DataFrame)
+            and isinstance(box, np.ndarray)
+            and isinstance(boundary, list)
+        ):
+            self.__data, self.__box, self.__boundary = BuildSystem.fromdata(
+                data, box, boundary
             )
-            if self.data_format == "charge":
-                # self.data['q'] = self.q
-                # self.data[["id", "type", "q", "x", "y", "z"]] = self.data[["id", "type", "x", "y", "z", "q"]]
-                self.data.insert(2, "q", self.q)
-            if not self.vel is None:
-                self.data[["vx", "vy", "vz"]] = self.vel
-            self.data[["id", "type"]] = self.data[["id", "type"]].astype(int)
-            self.Ntype = len(np.unique(self.data["type"]))
-        else:
-            if format is None:
-                self.format = self.filename.split(".")[-1]
+        elif isinstance(self.__filename, str):
+            self.__fmt = BuildSystem.getformat(self.__filename, fmt)
+            if self.__fmt == "dump":
+                (
+                    self.__data,
+                    self.__box,
+                    self.__boundary,
+                    self.__timestep,
+                ) = BuildSystem.fromfile(self.__filename, self.__fmt)
             else:
-                self.format = format
-            assert self.format in [
-                "data",
-                "dump",
-            ], "format only surppot dump and data file defined in lammps, and data file only surpport atomic and charge format."
-            if self.format == "data":
-                self._read_data()
-            elif self.format == "dump":
-                self._read_dump()
-                self.data_format = None
-            self.N = self.pos.shape[0]
+                self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
+                    self.__filename, self.__fmt
+                )
+        elif (
+            isinstance(pos, np.ndarray)
+            and isinstance(box, np.ndarray)
+            and isinstance(boundary, list)
+        ):
+            self.__data, self.__box, self.__boundary = BuildSystem.fromarray(
+                pos, box, boundary, vel, type_list
+            )
+        if sorted_id:
+            assert "id" in self.__data.columns
+            self.__data.sort_values("id", inplace=True)
+        self.if_neigh = False
 
-        self.lx, self.ly, self.lz = self.box[:, 1] - self.box[:, 0]
-        self.vol = self.lx * self.ly * self.lz
-        self.rho = self.N / self.vol
+    @property
+    def filename(self):
+        return self.__filename
+
+    @property
+    def fmt(self):
+        return self.__fmt
+
+    @property
+    def data(self):
+        return self.__data
+
+    @property
+    def box(self):
+        return self.__box
+
+    @property
+    def boundary(self):
+        return self.__boundary
+
+    @property
+    def pos(self):
+        return self.__data[["x", "y", "z"]].values
+
+    @property
+    def vel(self):
+        if "vx" in self.__data.columns:
+            return self.__data[["vx", "vy", "vz"]].values
+        else:
+            return "No Velocity found."
+
+    @property
+    def N(self):
+        return self.__data.shape[0]
+
+    @property
+    def vol(self):
+        return np.inner(self.__box[0], np.cross(self.__box[1], self.__box[2]))
+
+    @property
+    def rho(self):
+        return self.N / self.vol
+
+    @property
+    def verlet_list(self):
+        if self.if_neigh:
+            return self.__verlet_list
+        else:
+            return "No Neighbor Information found. Call build_neighbor() please."
+
+    @property
+    def distance_list(self):
+        if self.if_neigh:
+            return self.__distance_list
+        else:
+            return "No Neighbor Information found. Call build_neighbor() please."
+
+    @property
+    def neighbor_number(self):
+        if self.if_neigh:
+            return self.__neighbor_number
+        else:
+            return "No Neighbor Information found. Call build_neighbor() please."
+
+    @property
+    def rc(self):
+        if self.if_neigh:
+            return self.__rc
+        else:
+            return "No Neighbor Information found. Call build_neighbor() please."
+
+    def change_filename(self, filename):
+        assert isinstance(filename, str)
+        self.__filename = filename
 
     def __repr__(self):
-        return f"A System with {self.N} atoms."
+        return f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\nParticle Information:\n{self.data.head()}"
 
-    def _read_data(self):
-        self.data_head = []
-        self.box = np.zeros((3, 2))
-        row = 0
-        mass_row = 0
-        with open(self.filename) as op:
-            while True:
-                line = op.readline()
-                self.data_head.append(line)
-                content = line.split()
-                if len(content):
-                    if content[-1] == "atoms":
-                        self.N = int(content[0])
-                    if len(content) >= 2:
-                        if content[1] == "bond":
-                            raise "Do not support bond style."
-                    if len(content) >= 3:
-                        if content[1] == "atom" and content[2] == "types":
-                            self.Ntype = int(content[0])
-                    if content[-1] == "xhi":
-                        self.box[0, :] = np.array([content[0], content[1]], dtype=float)
-                    if content[-1] == "yhi":
-                        self.box[1, :] = np.array([content[0], content[1]], dtype=float)
-                    if content[-1] == "zhi":
-                        self.box[2, :] = np.array([content[0], content[1]], dtype=float)
-                    if content[-1] in ["xy", "xz", "yz"]:
-                        raise "Do not support triclinic box."
-                    if content[0] == "Masses":
-                        mass_row = row + 1
-                    if content[0] == "Atoms":
-                        break
-                row += 1
-        if mass_row > 0:
-            self.amass = np.array(
-                [
-                    i.split()[:2]
-                    for i in self.data_head[mass_row + 1 : mass_row + 1 + self.Ntype]
-                ],
-                dtype=float,
-            )[:, 1]
-        self.boundary = [1, 1, 1]
-
-        row += 2  # Coordination part
-        if self.data_head[-1].split()[-1] == "atomic":
-            self.data_format = "atomic"
-            self.col_names = ["id", "type", "x", "y", "z"]
-        elif self.data_head[-1].split()[-1] == "charge":
-            self.data_format = "charge"
-            self.col_names = ["id", "type", "q", "x", "y", "z"]
-        else:
-            with open(self.filename) as op:
-                for _ in range(row):
-                    op.readline()
-                line = op.readline()
-            if len(line.split()) == 5:
-                self.data_format = "atomic"
-                self.col_names = ["id", "type", "x", "y", "z"]
-            elif len(line.split()) == 6:
-                self.data_format = "charge"
-                self.col_names = ["id", "type", "q", "x", "y", "z"]
-            else:
-                raise "Unrecgonized data format. Only support atomic and charge."
-
-        data = pd.read_csv(
-            self.filename,
-            sep="\s+",
-            skiprows=row,
-            nrows=self.N,
-            names=self.col_names,
-            usecols=range(len(self.col_names)),
-            engine="c",
+    def select(self, data: pd.DataFrame):
+        subSystem = System(
+            data=data.reset_index(drop=True),
+            box=self.__box,
+            boundary=self.__boundary,
+            filename=self.__filename,
+            fmt=self.__fmt,
         )
-
-        row += self.N
-        try:
-            read_options = csv.ReadOptions(
-                column_names=["id", "vx", "vy", "vz"], skip_rows_after_names=row + 3
-            )
-            parse_options = csv.ParseOptions(delimiter=" ")
-            vel = (
-                csv.read_csv(
-                    self.filename,
-                    read_options=read_options,
-                    parse_options=parse_options,
-                )
-                .drop(["id"])
-                .to_pandas()
-            )
-            assert vel.shape[0] == data.shape[0]
-            self.col_names += ["vx", "vy", "vz"]
-            self.data = pd.concat([data, vel], axis=1)
-            self.vel = vel.values
-        except Exception:
-            self.data = data
-
-        if self.sorted_id:
-            self.data.sort_values("id", inplace=True)
-        self.pos = self.data[["x", "y", "z"]].values
-
-    def _read_dump(self):
-        self.dump_head = []
-        if_space = False
-        with open(self.filename) as op:
-            for i in range(10):
-                if i < 9:
-                    self.dump_head.append(op.readline())
-                else:
-                    if op.readline()[-2] == " ":
-                        if_space = True
-        self.boundary = [1 if i == "pp" else 0 for i in self.dump_head[4].split()[-3:]]
-        self.box = np.array([i.split()[:2] for i in self.dump_head[5:8]]).astype(float)
-        self.col_names = self.dump_head[8].split()[2:]
-        if if_space:
-            read_options = csv.ReadOptions(
-                column_names=self.col_names + ["drop"], skip_rows=9
-            )
-            parse_options = csv.ParseOptions(delimiter=" ")
-            self.data = (
-                csv.read_csv(
-                    self.filename,
-                    read_options=read_options,
-                    parse_options=parse_options,
-                )
-                .drop(["drop"])
-                .to_pandas()
-            )
-        else:
-            read_options = csv.ReadOptions(column_names=self.col_names, skip_rows=9)
-            parse_options = csv.ParseOptions(delimiter=" ")
-            self.data = csv.read_csv(
-                self.filename, read_options=read_options, parse_options=parse_options
-            ).to_pandas()
-
-        if self.sorted_id:
-            self.data.sort_values("id", inplace=True)
-        self.pos = self.data[["x", "y", "z"]].values
-        self.Ntype = len(np.unique(self.data["type"]))
-        try:
-            self.vel = self.data[["vx", "vy", "vz"]].values
-        except Exception:
-            pass
+        return subSystem
 
     def write_dump(self, output_name=None, output_col=None):
-        """Write data to a DUMP file.
-
-        Args:
-            output_name (str, optional): filename of generated DUMP file.
-            output_col (list, optional): which columns to be saved, which should be inclued in data columns, such as ['id', 'type', 'x', 'y', 'z'].
-        """
-        if output_col is None:
-            data = self.data
-        else:
-            data = self.data.loc[:, output_col]
-
         if output_name is None:
-            if self.filename is None:
+            if self.__filename is None:
                 output_name = "output.dump"
             else:
-                output_name = self.filename[:-4] + "output.dump"
-        col_name = "ITEM: ATOMS "
-        for i in data.columns:
-            col_name += i
-            col_name += " "
-        col_name += "\n"
-
-        table = pa.Table.from_pandas(data)
-        with pa.OSFile(output_name, "wb") as op:
-            if self.dump_head is None:
-                op.write("ITEM: TIMESTEP\n0\n".encode())
-                op.write("ITEM: NUMBER OF ATOMS\n".encode())
-                op.write(f"{self.N}\n".encode())
-                boundary = ["pp" if i == 1 else "ss" for i in self.boundary]
-                op.write(
-                    f"ITEM: BOX BOUNDS {boundary[0]} {boundary[1]} {boundary[2]}\n".encode()
-                )
-                op.write(f"{self.box[0, 0]} {self.box[0, 1]}\n".encode())
-                op.write(f"{self.box[1, 0]} {self.box[1, 1]}\n".encode())
-                op.write(f"{self.box[2, 0]} {self.box[2, 1]}\n".encode())
-                op.write("".join(col_name).encode())
-            else:
-                self.dump_head[3] = f"{data.shape[0]}\n"
-                op.write("".join(self.dump_head[:-1]).encode())
-                op.write("".join(col_name).encode())
-            write_options = csv.WriteOptions(delimiter=" ", include_header=False)
-            csv.write_csv(table, op, write_options=write_options)
-
-    def write_data(self, output_name=None, data_format=None):
-        """Write data to a DATA file.
-
-        Args:
-            output_name (str, optional): filename of generated DATA file.
-            data_format (str, optional): selected in ['atomic', 'charge'].
-        """
-        data = self.data
-        if data_format is None:
-            if self.data_format is None:
-                data_format = "atomic"
-            else:
-                data_format = self.data_format
+                output_name = self.__filename[:-4] + "output.dump"
+        if output_col is None:
+            data = self.__data
         else:
-            assert data_format in [
-                "atomic",
-                "charge",
-            ], "Unrecgonized data format. Only support atomic and charge."
+            data = self.__data.loc[:, output_col]
+        SaveFile.write_dump(
+            output_name,
+            self.__box,
+            self.__boundary,
+            data=data,
+            pos=None,
+            type_list=None,
+            timestep=self.__timestep,
+        )
 
+    def write_data(self, output_name=None, data_format="atomic"):
         if output_name is None:
-            if self.filename is None:
+            if self.__filename is None:
                 output_name = "output.data"
             else:
-                output_name = self.filename[:-4] + "output.data"
+                output_name = ".".join(self.__filename.split(".")[:-1]) + ".output.data"
 
-        with pa.OSFile(output_name, "wb") as op:
-            if self.data_head is None:
-                op.write("# LAMMPS data file written by mdapy@HerrWu.\n\n".encode())
-                op.write(f"{data.shape[0]} atoms\n{self.Ntype} atom types\n\n".encode())
-                for i, j in zip(self.box, ["x", "y", "z"]):
-                    op.write(f"{i[0]} {i[1]} {j}lo {j}hi\n".encode())
-                op.write("\n".encode())
-                if not self.amass is None:
-                    op.write("Masses\n\n".encode())
-                    for i in range(self.Ntype):
-                        op.write(f"{i+1} {self.amass[i]}\n".encode())
-                    op.write("\n".encode())
-                op.write(rf"Atoms # {data_format}".encode())
-                op.write("\n\n".encode())
-            else:
-                self.data_head[-1] = f"Atoms # {data_format}\n"
-                op.write("# LAMMPS data file written by mdapy@HerrWu.\n".encode())
-                op.write("".join(self.data_head[1:]).encode())
-                op.write("\n".encode())
-            write_options = csv.WriteOptions(delimiter=" ", include_header=False)
-            if data_format == "atomic":
-                table = pa.Table.from_pandas(data[["id", "type", "x", "y", "z"]])
-                csv.write_csv(table, op, write_options=write_options)
-            elif data_format == "charge":
-                if "q" not in self.data.columns:
-                    table = pa.Table.from_pandas(data[["id", "type", "x", "y", "z"]])
-                    table.add_column(2, "q", pa.array(np.zeros(self.N)))
-                    csv.write_csv(table, op, write_options=write_options)
-                else:
-                    table = pa.Table.from_pandas(
-                        data[["id", "type", "q", "x", "y", "z"]]
-                    )
-                    csv.write_csv(table, op, write_options=write_options)
-
-            if "vx" in data.columns:
-                op.write("\nVelocities\n\n".encode())
-                table = pa.Table.from_pandas(data[["id", "vx", "vy", "vz"]])
-                csv.write_csv(table, op, write_options=write_options)
+        SaveFile.write_data(
+            output_name,
+            self.__box,
+            self.__boundary,
+            data=self.__data,
+            pos=None,
+            type_list=None,
+            data_format=data_format,
+        )
 
     def atom_distance(self, i, j):
-        """Calculate the distance fo atom :math:`i` and atom :math:`j` considering the periodic boundary.
+        """Calculate the distance of atom :math:`i` and atom :math:`j` considering the periodic boundary.
 
         Args:
             i (int): atom :math:`i`.
@@ -586,19 +238,25 @@ class System:
         Returns:
             float: distance between given two atoms.
         """
+        box = self.__box
         rij = self.pos[i] - self.pos[j]
+        nz = rij[2] / box[2][2]
+        ny = (rij[1] - nz * box[2][1]) / box[1][1]
+        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
+        n = [nx, ny, nz]
         for i in range(3):
-            if self.boundary[i] == 1:
-                box_length = self.box[i][1] - self.box[i][0]
-                rij[i] = rij[i] - box_length * np.round(rij[i] / box_length)
-        return np.linalg.norm(rij)
+            if self.__boundary[i] == 1:
+                if n[i] > 0.5:
+                    n[i] -= 1
+                elif n[i] < -0.5:
+                    n[i] += 1
+        return np.linalg.norm(n[0] * box[0] + n[1] * box[1] + n[2] * box[2])
 
     def wrap_pos(self):
         """Wrap atom position into box considering the periodic boundary."""
-        pos = self.pos.copy()  # a deep copy can be modified
+        pos = self.pos
         _wrap_pos(pos, self.box, np.array(self.boundary))
-        self.pos = pos
-        self.data[["x", "y", "z"]] = self.pos
+        self.__data[["x", "y", "z"]] = pos
 
     def replicate(self, x=1, y=1, z=1):
         """Replicate the system.
@@ -615,56 +273,28 @@ class System:
         repli = Replicate(self.pos, self.box, x, y, z)
         repli.compute()
         num = x * y * z
-        id_list = self.data["id"].values
-        self.data = pd.concat([self.data] * num, ignore_index=True)
-        self.data["id"] = np.array([id_list + i * self.N for i in range(num)]).flatten()
+        self.__data = pd.concat([self.__data] * num, ignore_index=True)
+        self.__data["id"] = np.arange(1, self.N + 1)
+        self.__data[["x", "y", "z"]] = repli.pos
+        self.__box = repli.box
 
-        self.data[["x", "y", "z"]] = repli.pos
-        self.N = self.data.shape[0]
-        self.box = repli.box.copy()
-        self.pos = self.data[["x", "y", "z"]].values
-        if "vx" in self.data.columns:
-            self.vel = self.data[["vx", "vy", "vz"]].values
-
-        self.lx, self.ly, self.lz = self.box[:, 1] - self.box[:, 0]
-        self.vol = self.lx * self.ly * self.lz
-        self.rho = self.N / self.vol
-        del repli
-        if self.dump_head is not None:
-            self.dump_head[5] = "{} {}\n".format(*self.box[0])
-            self.dump_head[6] = "{} {}\n".format(*self.box[1])
-            self.dump_head[7] = "{} {}\n".format(*self.box[2])
-        if self.data_head is not None:
-            row = 0
-            for i in self.data_head:
-                line = i.split()
-                if len(line) > 0:
-                    if line[-1] == "atoms":
-                        self.data_head[row] = f"{self.N} atoms\n"
-                    if line[-1] == "xhi":
-                        break
-                row += 1
-            self.data_head[row] = "{} {} xlo xhi\n".format(*self.box[0])
-            self.data_head[row + 1] = "{} {} ylo yhi\n".format(*self.box[1])
-            self.data_head[row + 2] = "{} {} zlo zhi\n".format(*self.box[2])
-
-    def build_neighbor(self, rc=5.0, max_neigh=80, exclude=True):
+    def build_neighbor(self, rc=5.0, max_neigh=None):
         """Build neighbor withing a spherical distance based on the mdapy.Neighbor class.
 
         Args:
             rc (float, optional): cutoff distance. Defaults to 5.0.
-            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.
-            exclude (bool, optional): whether exclude atom itself. Defaults to True.
+            max_neigh (int, optional): maximum neighbor number. If not given, will estimate atomatically. Default to None.
 
         Outputs:
             - **verlet_list** (np.ndarray) - (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
             - **distance_list** (np.ndarray) - (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
             - **neighbor_number** (np.ndarray) - (:math:`N_p`) neighbor atoms number.
+            - **rc** (float) - cutoff distance.
         """
-        Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh, exclude)
+        Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh=max_neigh)
         Neigh.compute()
 
-        self.verlet_list, self.distance_list, self.neighbor_number, self.rc = (
+        self.__verlet_list, self.__distance_list, self.__neighbor_number, self.__rc = (
             Neigh.verlet_list,
             Neigh.distance_list,
             Neigh.neighbor_number,
@@ -672,7 +302,7 @@ class System:
         )
         self.if_neigh = True
 
-    def cal_atomic_temperature(self, amass, rc=5.0, units="metal", max_neigh=80):
+    def cal_atomic_temperature(self, amass, rc=5.0, units="metal", max_neigh=None):
         """Calculate an average thermal temperature per atom, wchich is useful at shock
         simulations. The temperature of atom :math:`i` is given by:
 
@@ -691,22 +321,25 @@ class System:
             amass (np.ndarray): (:math:`N_{type}`) atomic mass per species.
             rc (float, optional): cutoff distance. Defaults to 5.0.
             units (str, optional): units selected from ['metal', 'charge']. Defaults to "metal".
-            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.
+            max_neigh (int, optional): maximum neighbor number. If not given, will estimate atomatically. Default to None.
 
         Outputs:
             - **The result is added in self.data['atomic_temp']**.
         """
 
         if not self.if_neigh:
-            self.build_neighbor(rc, max_neigh)
+            self.build_neighbor(rc, max_neigh=max_neigh)
         elif self.rc < rc:
-            self.build_neighbor(rc, max_neigh)
+            self.build_neighbor(rc, max_neigh=max_neigh)
         atype_list = self.data["type"].values.astype(np.int32)
+        assert "vx" in self.__data.columns
+        assert "vy" in self.__data.columns
+        assert "vz" in self.__data.columns
         AtomicTemp = AtomicTemperature(
             amass,
             self.vel,
-            self.verlet_list,
-            self.distance_list,
+            self.__verlet_list,
+            self.__distance_list,
             atype_list,
             rc,
             units,
@@ -1136,11 +769,11 @@ class System:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
         elif self.rc < rc:
             self.build_neighbor(rc=rc, max_neigh=max_neigh)
-        rho = self.N / self.vol
+
         self.PairDistribution = PairDistribution(
             rc,
             nbin,
-            rho,
+            self.rho,
             self.verlet_list,
             self.distance_list,
             self.neighbor_number,
@@ -1660,52 +1293,21 @@ class MultiSystem(list):
 
 
 if __name__ == "__main__":
-    import taichi as ti
-
     ti.init()
-    system = System(filename=r"./example/CoCuFeNiPd-4M.data")
-    # system = System(filename=r"./example/CoCuFeNiPd-4M.dump")
-    # system = System(filename=r"E:\HTiHe\relax.data")
-    # box = np.array([[0, 10], [0, 10], [0, 10]])
-    # pos = np.array([[0.0, 0.0, 0.0], [1.5, 6.5, 9.0]])
-    # vel = np.array([[1.0, 0.0, 0.0], [2.5, 6.5, 9.0]])
-    # q = np.array([1.0, 2.0])
-    # system = System(
-    #     box=box,
-    #     pos=pos,
-    #     type_list=[1, 2],
-    #     amass=[2.3, 4.5],
-    #     vel=vel,
-    #     boundary=[1, 1, 0],
-    #     data_format="charge",
-    #     q=q,
-    # )
-    # system.wrap_pos()
-    # system.cal_steinhardt_bond_orientation(
-    #     rc=3.0,
-    #     qlist=[6],
-    #     nnn=12,
-    #     wlflag=False,
-    #     wlhatflag=False,
-    #     solidliquid=True,
-    #     max_neigh=30,
-    #     threshold=0.7,
-    #     n_bond=7,
-    # )
-    # from time import time
+    system = System(
+        r"C:\Users\Administrator\Desktop\python\MY_PACKAGE\MyPackage\test\tribox\shear-XY.150000.dump"
+    )
+    print(system)
+    from time import time
 
-    # start = time()
-    # system = System(
-    #     r"C:\Users\Administrator\Desktop\python\MY_PACKAGE\MyPackage\test\new_pandas\Metal-FCC-100-2260622.dump"
+    start = time()
+    system.build_neighbor(5.0, 70)
+    print(time() - start, "s")
+    # system.cal_atomic_temperature(
+    #     np.array([58.9332, 58.6934, 55.847, 26.981539, 63.546]), 5.0
     # )
-    # print(f"read time is {time()-start} s.")
-    print(system.data.head())
-    # start = time()
-    # system.write_dump(output_col=["id", "x", "y", "z"])
-    # print(f"write time is {time()-start} s.")
-    # print(system.neighbor_number, system.rc)
-    print(system.Ntype, system.N, system.format)
-    # print(system.pos)
-    # print(system.data_head)
-    # system.write_data(data_format="charge")
-    # system.write_dump()
+    # print(system.data["atomic_temp"].mean())
+    print(system.distance_list[0])
+    print(system.verlet_list[0])
+    print(system.neighbor_number.max())
+    print(system.verlet_list.shape[1])

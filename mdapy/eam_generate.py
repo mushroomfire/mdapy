@@ -32,7 +32,6 @@ class EAMGenerate:
     """
 
     def __init__(self, elements_list, output_name=None):
-
         self.elements_list = elements_list
         self.aviliable_elements = [
             "Cu",
@@ -596,7 +595,6 @@ class EAMGenerate:
         return emb
 
     def _get_eam_parameters(self):
-
         name, data = [], []
         a = 0
         for _ in range(16):
@@ -732,12 +730,12 @@ class EAMGenerate:
 
 
 if __name__ == "__main__":
-
     from potential import EAM
     import os
 
-    potential = EAMGenerate(["Co", "Ni", "Fe"])
+    potential = EAMGenerate(["Co", "Ni", "Fe", "Al", "Cu"])
 
-    potential = EAM("CoNiFe.eam.alloy")
-    os.remove("CoNiFe.eam.alloy")
-    potential.plot()
+    potential = EAM("CoNiFeAlCu.eam.alloy")
+    print(potential.amass)
+    os.remove("CoNiFeAlCu.eam.alloy")
+    # potential.plot()

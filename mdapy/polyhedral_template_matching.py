@@ -6,10 +6,10 @@ import numpy as np
 
 try:
     from ptm import _ptm
-    from kdtree import kdtree
+    from nearest_neighbor import NearestNeighbor
 except Exception:
     import _ptm
-    from .kdtree import kdtree
+    from .nearest_neighbor import NearestNeighbor
 
 
 class PolyhedralTemplateMatching:
@@ -34,7 +34,7 @@ class PolyhedralTemplateMatching:
     Args:
 
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
-        box (np.ndarray): (:math:`3, 2`) system box, must be rectangle.
+        box (np.ndarray): (:math:`4, 3`) or (:math:`3, 2`) system box, must be rectangle.
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
         structure (str, optional): the structure one want to identify, one can choose from ["fcc","hcp","bcc","ico","sc","dcub","dhex","graphene","all","default"], such as 'fcc-hcp-bcc'. 'default' represents 'fcc-hcp-bcc-ico'. Defaults to 'fcc-hcp-bcc'.
         rmsd_threshold (float, optional): rmsd threshold. Defaults to 0.1.
@@ -75,8 +75,23 @@ class PolyhedralTemplateMatching:
         verlet_list=None,
         return_verlet=False,
     ):
+        if pos.dtype != np.float64:
+            pos = pos.astype(np.float64)
         self.pos = pos
-        self.box = box
+        if box.dtype != np.float64:
+            box = box.astype(np.float64)
+        if box.shape == (4, 3):
+            for i in range(3):
+                for j in range(3):
+                    if i != j:
+                        assert box[i, j] == 0, "Do not support triclinic box."
+            self.box = np.zeros((3, 2))
+            self.box[:, 0] = box[-1]
+            self.box[:, 1] = (
+                np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
+            )
+        elif box.shape == (3, 2):
+            self.box = box
         self.boundary = boundary
         self.structure = structure
         structure_list = [
@@ -103,7 +118,7 @@ class PolyhedralTemplateMatching:
         """Do the real ptm computation."""
         verlet_list = self.verlet_list
         if verlet_list is None:
-            kdt = kdtree(self.pos, self.box, self.boundary)
+            kdt = NearestNeighbor(self.pos, self.box, self.boundary)
             _, verlet_list = kdt.query_nearest_neighbors(18)
 
         ptm_indices = np.zeros_like(verlet_list, int)
@@ -130,7 +145,7 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    FCC = LatticeMaker(3.615, "BCC", 10, 10, 10)
+    FCC = LatticeMaker(3.615, "FCC", 10, 10, 10)
     FCC.compute()
 
     start = time()

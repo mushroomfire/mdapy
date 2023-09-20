@@ -5,12 +5,9 @@ import taichi as ti
 import numpy as np
 
 try:
-    from kdtree import kdtree
+    from nearest_neighbor import NearestNeighbor
 except Exception:
-    from .kdtree import kdtree
-
-vec3f32 = ti.types.vector(3, ti.f32)
-vec3f64 = ti.types.vector(3, ti.f64)
+    from .nearest_neighbor import NearestNeighbor
 
 
 @ti.data_oriented
@@ -68,23 +65,34 @@ class CentroSymmetryParameter:
 
     def __init__(self, N, pos, box, boundary=[1, 1, 1], verlet_list=None):
         self.N = N
+        if pos.dtype != np.float64:
+            pos = pos.astype(np.float64)
         self.pos = pos
-        self.box = box
+        if box.dtype != np.float64:
+            box = box.astype(np.float64)
+        if box.shape == (3, 2):
+            self.box = np.zeros((4, 3), dtype=box.dtype)
+            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
+            self.box[-1] = box[:, 0]
+        elif box.shape == (4, 3):
+            self.box = box
+        assert self.box[0, 1] == 0
+        assert self.box[0, 2] == 0
+        assert self.box[1, 2] == 0
+        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
+        self.rec = True
+        if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
+            self.rec = False
         self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
-        if self.pos.dtype == np.float64:
-            self.box_length = vec3f64([box[i, 1] - box[i, 0] for i in range(3)])
-        elif self.pos.dtype == np.float32:
-            self.box_length = vec3f32([box[i, 1] - box[i, 0] for i in range(3)])
-        self.half_box_length = self.box_length / 2.0
         self.verlet_list = verlet_list
 
     @ti.func
-    def _pbc(self, rij):
+    def _pbc_rec(self, rij):
         for m in ti.static(range(3)):
             if self.boundary[m]:
                 dx = rij[m]
                 x_size = self.box_length[m]
-                h_x_size = self.half_box_length[m]
+                h_x_size = x_size * 0.5
                 if dx > h_x_size:
                     dx = dx - x_size
                 if dx <= -h_x_size:
@@ -92,11 +100,26 @@ class CentroSymmetryParameter:
                 rij[m] = dx
         return rij
 
+    @ti.func
+    def _pbc(self, rij, box: ti.types.ndarray(dtype=ti.math.vec3)) -> ti.math.vec3:
+        nz = rij[2] / box[2][2]
+        ny = (rij[1] - nz * box[2][1]) / box[1][1]
+        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
+        n = ti.Vector([nx, ny, nz])
+        for i in ti.static(range(3)):
+            if self.boundary[i] == 1:
+                if n[i] > 0.5:
+                    n[i] -= 1
+                elif n[i] < -0.5:
+                    n[i] += 1
+        return n[0] * box[0] + n[1] * box[1] + n[2] * box[2]
+
     @ti.kernel
     def _get_csp(
         self,
         pair: ti.types.ndarray(),
         pos: ti.types.ndarray(dtype=ti.math.vec3),
+        box: ti.types.ndarray(dtype=ti.math.vec3),
         verlet_list: ti.types.ndarray(),
         loop_index: ti.types.ndarray(),
         csp: ti.types.ndarray(),
@@ -115,8 +138,12 @@ class CentroSymmetryParameter:
             k = loop_index[index, 1]
             rij = pos[verlet_list[i, j]] - pos[i]
             rik = pos[verlet_list[i, k]] - pos[i]
-            rij = self._pbc(rij)
-            rik = self._pbc(rik)
+            if ti.static(self.rec):
+                rij = self._pbc_rec(rij)
+                rik = self._pbc_rec(rik)
+            else:
+                rij = self._pbc(rij, box)
+                rik = self._pbc(rik, box)
             pair[i, index] = (rij + rik).norm_sqr()
 
         # Select sort
@@ -138,12 +165,12 @@ class CentroSymmetryParameter:
 
         verlet_list = self.verlet_list
         if verlet_list is None:
-            kdt = kdtree(self.pos, self.box, self.boundary)
+            kdt = NearestNeighbor(self.pos, self.box, self.boundary)
             _, verlet_list = kdt.query_nearest_neighbors(self.N)
         loop_index = np.zeros((int(self.N * (self.N - 1) / 2), 2), dtype=int)
         pair = np.zeros((self.pos.shape[0], int(self.N * (self.N - 1) / 2)))
         self.csp = np.zeros(self.pos.shape[0])
-        self._get_csp(pair, self.pos, verlet_list, loop_index, self.csp)
+        self._get_csp(pair, self.pos, self.box, verlet_list, loop_index, self.csp)
 
 
 if __name__ == "__main__":

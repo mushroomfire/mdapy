@@ -5,9 +5,9 @@ import taichi as ti
 import numpy as np
 
 try:
-    from kdtree import kdtree
+    from nearest_neighbor import NearestNeighbor
 except Exception:
-    from .kdtree import kdtree
+    from .nearest_neighbor import NearestNeighbor
 
 
 @ti.data_oriented
@@ -59,27 +59,62 @@ class AcklandJonesAnalysis:
     def __init__(
         self, pos, box, boundary=[1, 1, 1], verlet_list=None, distance_list=None
     ):
+        if pos.dtype != np.float64:
+            pos = pos.astype(np.float64)
         self.pos = pos
-        self.box = box
-        self.boundary = np.array(boundary)
+        if box.dtype != np.float64:
+            box = box.astype(np.float64)
+        if box.shape == (3, 2):
+            self.box = np.zeros((4, 3), dtype=box.dtype)
+            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
+            self.box[-1] = box[:, 0]
+        elif box.shape == (4, 3):
+            self.box = box
+        assert self.box[0, 1] == 0
+        assert self.box[0, 2] == 0
+        assert self.box[1, 2] == 0
+        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
+        self.rec = True
+        if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
+            self.rec = False
+        self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
         self.verlet_list = verlet_list
         self.distance_list = distance_list
         self.structure = ["other", "fcc", "hcp", "bcc", "ico"]
 
     @ti.func
-    def _pbc(self, rij, box: ti.types.ndarray(), boundary: ti.types.ndarray()):
-        for i in ti.static(range(3)):
-            if boundary[i] == 1:
-                box_length = box[i, 1] - box[i, 0]
-                rij[i] = rij[i] - box_length * ti.round(rij[i] / box_length)
+    def _pbc_rec(self, rij):
+        for m in ti.static(range(3)):
+            if self.boundary[m]:
+                dx = rij[m]
+                x_size = self.box_length[m]
+                h_x_size = x_size * 0.5
+                if dx > h_x_size:
+                    dx = dx - x_size
+                if dx <= -h_x_size:
+                    dx = dx + x_size
+                rij[m] = dx
         return rij
+
+    @ti.func
+    def _pbc(self, rij, box: ti.types.ndarray(dtype=ti.math.vec3)) -> ti.math.vec3:
+        nz = rij[2] / box[2][2]
+        ny = (rij[1] - nz * box[2][1]) / box[1][1]
+        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
+        n = ti.Vector([nx, ny, nz])
+        for i in ti.static(range(3)):
+            if self.boundary[i] == 1:
+                if n[i] > 0.5:
+                    n[i] -= 1
+                elif n[i] < -0.5:
+                    n[i] += 1
+        return n[0] * box[0] + n[1] * box[1] + n[2] * box[2]
 
     @ti.kernel
     def _compute(
         self,
         pos: ti.types.ndarray(dtype=ti.math.vec3),
-        box: ti.types.ndarray(),
-        boundary: ti.types.ndarray(),
+        box: ti.types.ndarray(dtype=ti.math.vec3),
         verlet_list: ti.types.ndarray(),
         distance_list: ti.types.ndarray(),
         aja: ti.types.ndarray(),
@@ -101,8 +136,12 @@ class AcklandJonesAnalysis:
                 for k in range(j + 1, N0):
                     rij = pos[verlet_list[i, j]] - pos[i]
                     rik = pos[verlet_list[i, k]] - pos[i]
-                    rij = self._pbc(rij, box, boundary)
-                    rik = self._pbc(rik, box, boundary)
+                    if ti.static(self.rec):
+                        rij = self._pbc_rec(rij)
+                        rik = self._pbc_rec(rik)
+                    else:
+                        rij = self._pbc(rij, box)
+                        rik = self._pbc(rik, box)
                     cos_theta = rij.dot(rik) / (
                         distance_list[i, j] * distance_list[i, k]
                     )
@@ -162,14 +201,16 @@ class AcklandJonesAnalysis:
 
     def compute(self):
         """Do the real AJA calculation."""
-        verlet_list, distance_list = self.verlet_list, self.distance_list
-        if verlet_list is None or distance_list is None:
-            kdt = kdtree(self.pos, self.box, self.boundary)
-            distance_list, verlet_list = kdt.query_nearest_neighbors(14)
         self.aja = np.zeros(self.pos.shape[0], dtype=int)
-        self._compute(
-            self.pos, self.box, self.boundary, verlet_list, distance_list, self.aja
-        )
+        if self.pos.shape[0] < 14 and sum(self.boundary) == 0:
+            pass
+        else:
+            verlet_list, distance_list = self.verlet_list, self.distance_list
+            if verlet_list is None or distance_list is None:
+                kdt = NearestNeighbor(self.pos, self.box, self.boundary)
+                distance_list, verlet_list = kdt.query_nearest_neighbors(14)
+
+            self._compute(self.pos, self.box, verlet_list, distance_list, self.aja)
 
 
 if __name__ == "__main__":

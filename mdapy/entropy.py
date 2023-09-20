@@ -231,9 +231,8 @@ if __name__ == "__main__":
     print(neigh.neighbor_number.max())
 
     start = time()
-    vol = np.product(FCC.box[:, 1] - FCC.box[:, 0])
     Entropy = AtomicEntropy(
-        vol,
+        FCC.vol,
         neigh.verlet_list,
         neigh.distance_list,
         5.0,

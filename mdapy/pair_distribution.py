@@ -229,7 +229,7 @@ if __name__ == "__main__":
     end = time()
     print(f"Build neighbor time: {end-start} s.")
     start = time()
-    rho = FCC.pos.shape[0] / np.product(FCC.box[:, 1] - FCC.box[:, 0])
+    rho = FCC.pos.shape[0] / FCC.vol
     # type_list = np.r_[
     #     np.ones(int(FCC.N / 2), dtype=int), np.ones(int(FCC.N / 2), dtype=int) + 1
     # ]

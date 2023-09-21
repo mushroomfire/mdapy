@@ -103,7 +103,7 @@ class Neighbor:
     @ti.func
     def _pbc_rec(self, rij):
         for m in ti.static(range(3)):
-            if self.boundary[m]:
+            if self.boundary[m] == 1:
                 dx = rij[m]
                 x_size = self.box_length[m]
                 h_x_size = x_size * 0.5

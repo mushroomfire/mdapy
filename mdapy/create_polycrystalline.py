@@ -679,4 +679,3 @@ if __name__ == "__main__":
         box, 10, 2.615, "FCC", add_graphene=True, if_rotation=True
     )
     polycry.compute()
-    print("test")

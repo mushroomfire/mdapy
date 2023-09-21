@@ -27,6 +27,7 @@ try:
     from spatial_binning import SpatialBinning
     from steinhardt_bond_orientation import SteinhardtBondOrientation
     from replicate import Replicate
+    from tool_function import _check_repeat_cutoff
 except Exception:
     from .load_save_data import BuildSystem, SaveFile
     from .tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
@@ -51,6 +52,7 @@ except Exception:
     from .spatial_binning import SpatialBinning
     from .steinhardt_bond_orientation import SteinhardtBondOrientation
     from .replicate import Replicate
+    from .tool_function import _check_repeat_cutoff
 
 
 class System:
@@ -327,10 +329,18 @@ class System:
             - **The result is added in self.data['atomic_temp']**.
         """
 
-        if not self.if_neigh:
-            self.build_neighbor(rc, max_neigh=max_neigh)
-        elif self.rc < rc:
-            self.build_neighbor(rc, max_neigh=max_neigh)
+        repeat = _check_repeat_cutoff(self.box, self.boundary, rc)
+        verlet_list, distance_list = None, None
+        if sum(repeat) == 3:
+            if not self.if_neigh:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            if self.rc < rc:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            verlet_list, distance_list = (
+                self.verlet_list,
+                self.distance_list,
+            )
+
         atype_list = self.data["type"].values.astype(np.int32)
         assert "vx" in self.__data.columns
         assert "vy" in self.__data.columns
@@ -338,10 +348,13 @@ class System:
         AtomicTemp = AtomicTemperature(
             amass,
             self.vel,
-            self.__verlet_list,
-            self.__distance_list,
             atype_list,
             rc,
+            verlet_list,
+            distance_list,
+            self.pos,
+            self.box,
+            self.boundary,
             units,
         )
         AtomicTemp.compute()
@@ -463,16 +476,20 @@ class System:
                         self.neighbor_number,
                     )
         else:
-            if not self.if_neigh:
-                self.build_neighbor(rc=rc, max_neigh=max_neigh)
-            elif self.rc < rc:
-                self.build_neighbor(rc=rc, max_neigh=max_neigh)
+            assert rc > 0
+            repeat = _check_repeat_cutoff(self.box, self.boundary, rc)
 
-            verlet_list, distance_list, neighbor_number = (
-                self.verlet_list,
-                self.distance_list,
-                self.neighbor_number,
-            )
+            if sum(repeat) == 3:
+                if not self.if_neigh:
+                    self.build_neighbor(rc=rc, max_neigh=max_neigh)
+                elif self.rc < rc:
+                    self.build_neighbor(rc=rc, max_neigh=max_neigh)
+
+                verlet_list, distance_list, neighbor_number = (
+                    self.verlet_list,
+                    self.distance_list,
+                    self.neighbor_number,
+                )
 
         SBO = SteinhardtBondOrientation(
             self.pos,
@@ -717,17 +734,28 @@ class System:
             - **The averaged entropy is added in self.data['ave_atomic_entropy']**.
         """
 
+        repeat = _check_repeat_cutoff(self.box, self.boundary, rc, 4)
+        verlet_list, distance_list = None, None
+        if sum(repeat) == 3:
+            if not self.if_neigh:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            if self.rc < rc:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            verlet_list, distance_list = (
+                self.verlet_list,
+                self.distance_list,
+            )
+
         if average_rc is not None:
             assert average_rc <= rc, "Average rc should not be larger than rc!"
-        if not self.if_neigh:
-            self.build_neighbor(rc=rc, max_neigh=max_neigh)
-        elif self.rc < rc:
-            self.build_neighbor(rc=rc, max_neigh=max_neigh)
 
         AtomicEntro = AtomicEntropy(
             self.vol,
-            self.verlet_list,
-            self.distance_list,
+            verlet_list,
+            distance_list,
+            self.pos,
+            self.box,
+            self.boundary,
             rc,
             sigma,
             use_local_density,
@@ -765,18 +793,30 @@ class System:
 
           >>> system.PairDistribution.g_total # Check global RDF.
         """
-        if not self.if_neigh:
-            self.build_neighbor(rc=rc, max_neigh=max_neigh)
-        elif self.rc < rc:
-            self.build_neighbor(rc=rc, max_neigh=max_neigh)
+
+        repeat = _check_repeat_cutoff(self.box, self.boundary, rc)
+        verlet_list, distance_list, neighbor_number = None, None, None
+        if sum(repeat) == 3:
+            if not self.if_neigh:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            if self.rc < rc:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            verlet_list, distance_list, neighbor_number = (
+                self.verlet_list,
+                self.distance_list,
+                self.neighbor_number,
+            )
 
         self.PairDistribution = PairDistribution(
             rc,
             nbin,
             self.rho,
-            self.verlet_list,
-            self.distance_list,
-            self.neighbor_number,
+            verlet_list,
+            distance_list,
+            neighbor_number,
+            self.pos,
+            self.box,
+            self.boundary,
             self.data["type"].values,
         )
         self.PairDistribution.compute()
@@ -797,12 +837,21 @@ class System:
         Outputs:
             - **The cluster id per atom is added in self.data['cluster_id']**
         """
-        if not self.if_neigh:
-            self.build_neighbor(rc=rc, max_neigh=max_neigh)
-        elif self.rc < rc:
-            self.build_neighbor(rc=rc, max_neigh=max_neigh)
+        repeat = _check_repeat_cutoff(self.box, self.boundary, rc)
+        verlet_list, distance_list = None, None
+        if sum(repeat) == 3:
+            if not self.if_neigh:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            if self.rc < rc:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            verlet_list, distance_list = (
+                self.verlet_list,
+                self.distance_list,
+            )
 
-        ClusterAnalysi = ClusterAnalysis(rc, self.verlet_list, self.distance_list)
+        ClusterAnalysi = ClusterAnalysis(
+            rc, verlet_list, distance_list, self.pos, self.box, self.boundary
+        )
         ClusterAnalysi.compute()
         self.data["cluster_id"] = ClusterAnalysi.particleClusters
         return ClusterAnalysi.cluster_number
@@ -852,46 +901,33 @@ class System:
         Outputs:
             - **The CNA pattern per atom is added in self.data['cna']**.
         """
+        repeat = _check_repeat_cutoff(self.box, self.boundary, rc, 4)
 
-        if not self.if_neigh:
-            Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
-            Neigh.compute()
-            self.verlet_list, self.distance_list, self.neighbor_number, self.rc = (
-                Neigh.verlet_list,
-                Neigh.distance_list,
-                Neigh.neighbor_number,
-                rc,
-            )
-            self.if_neigh = True
+        if sum(repeat) == 3:
+            if not self.if_neigh:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+                CommonNeighborAnalysi = CommonNeighborAnalysis(
+                    rc,
+                    self.pos,
+                    self.box,
+                    self.boundary,
+                    self.verlet_list,
+                    self.neighbor_number,
+                )
+            if self.rc != rc:
+                CommonNeighborAnalysi = CommonNeighborAnalysis(
+                    rc,
+                    self.pos,
+                    self.box,
+                    self.boundary,
+                )
+        else:
             CommonNeighborAnalysi = CommonNeighborAnalysis(
                 rc,
-                self.verlet_list,
-                self.neighbor_number,
                 self.pos,
                 self.box,
                 self.boundary,
             )
-        else:
-            if self.rc != rc:
-                Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
-                Neigh.compute()
-                CommonNeighborAnalysi = CommonNeighborAnalysis(
-                    rc,
-                    Neigh.verlet_list,
-                    Neigh.neighbor_number,
-                    self.pos,
-                    self.box,
-                    self.boundary,
-                )
-            else:
-                CommonNeighborAnalysi = CommonNeighborAnalysis(
-                    rc,
-                    self.verlet_list,
-                    self.neighbor_number,
-                    self.pos,
-                    self.box,
-                    self.boundary,
-                )
         CommonNeighborAnalysi.compute()
         self.data["cna"] = CommonNeighborAnalysi.pattern
 
@@ -939,40 +975,33 @@ class System:
         Outputs:
             - **The CNP pattern per atom is added in self.data['cnp']**.
         """
-        if not self.if_neigh:
-            Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
-            Neigh.compute()
-            self.verlet_list, self.distance_list, self.neighbor_number, self.rc = (
-                Neigh.verlet_list,
-                Neigh.distance_list,
-                Neigh.neighbor_number,
-                rc,
-            )
-            self.if_neigh = True
-        elif self.rc < rc:
-            Neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
-            Neigh.compute()
-            self.verlet_list, self.distance_list, self.neighbor_number, self.rc = (
-                Neigh.verlet_list,
-                Neigh.distance_list,
-                Neigh.neighbor_number,
-                rc,
-            )
-            self.if_neigh = True
+        repeat = _check_repeat_cutoff(self.box, self.boundary, rc)
 
-        CommonNeighborPar = CommonNeighborParameter(
-            self.pos,
-            self.box,
-            self.boundary,
-            rc,
-            self.verlet_list,
-            self.distance_list,
-            self.neighbor_number,
-        )
+        if sum(repeat) == 3:
+            if not self.if_neigh:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            if self.rc < rc:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            CommonNeighborPar = CommonNeighborParameter(
+                self.pos,
+                self.box,
+                self.boundary,
+                rc,
+                self.verlet_list,
+                self.distance_list,
+                self.neighbor_number,
+            )
+        else:
+            CommonNeighborPar = CommonNeighborParameter(
+                self.pos,
+                self.box,
+                self.boundary,
+                rc,
+            )
         CommonNeighborPar.compute()
         self.data["cnp"] = CommonNeighborPar.cnp
 
-    def cal_energy_force(self, filename, elements_list, max_neighbor=120):
+    def cal_energy_force(self, filename, elements_list, max_neigh=None):
         """Calculate the atomic energy and force based on the given embedded atom method
         EAM potential. Multi-elements alloy is also supported.
 
@@ -987,29 +1016,36 @@ class System:
         """
 
         potential = EAM(filename)
-
-        if not self.if_neigh:
-            self.build_neighbor(rc=potential.rc, max_neigh=max_neighbor)
-        if self.rc < potential.rc:
-            self.build_neighbor(rc=potential.rc, max_neigh=max_neighbor)
+        repeat = _check_repeat_cutoff(self.box, self.boundary, potential.rc)
+        verlet_list, distance_list, neighbor_number = None, None, None
+        if sum(repeat) == 3:
+            if not self.if_neigh:
+                self.build_neighbor(rc=potential.rc, max_neigh=max_neigh)
+            if self.rc < potential.rc:
+                self.build_neighbor(rc=potential.rc, max_neigh=max_neigh)
+            verlet_list, distance_list, neighbor_number = (
+                self.verlet_list,
+                self.distance_list,
+                self.neighbor_number,
+            )
 
         Cal = Calculator(
             potential,
-            elements_list,
-            self.data["type"].values,
-            self.verlet_list,
-            self.distance_list,
-            self.neighbor_number,
             self.pos,
             self.boundary,
             self.box,
+            elements_list,
+            self.data["type"].values,
+            verlet_list,
+            distance_list,
+            neighbor_number,
         )
         Cal.compute()
 
         self.data["pe"] = Cal.energy
         self.data[["afx", "afy", "afz"]] = Cal.force
 
-    def cal_void_distribution(self, cell_length, out_void=False):
+    def cal_void_distribution(self, cell_length, out_void=False, out_name="void.dump"):
         """This class is used to detect the void distribution in solid structure.
         First we divid particles into three-dimensional grid and check the its
         neighbors, if all neighbor grid is empty we treat this grid is void, otherwise it is
@@ -1023,6 +1059,7 @@ class System:
         Args:
             cell_length (float): length of cell, larger than lattice constant is okay.
             out_void (bool, optional): whether outputs void coordination. Defaults to False.
+            out_name (str, optional): output filename. Defaults to void.dump.
 
         Returns:
             tuple: (void_number, void_volume), number and volume of voids.
@@ -1034,8 +1071,7 @@ class System:
             cell_length,
             self.boundary,
             out_void=out_void,
-            head=self.dump_head,
-            out_name=self.filename[:-5] + ".void.dump",
+            out_name=out_name,
         )
         void.compute()
 
@@ -1067,17 +1103,32 @@ class System:
 
           >>> system.WarrenCowleyParameter.WCP # Check WCP.
         """
-        if not self.if_neigh:
-            self.build_neighbor(rc=rc, max_neigh=max_neigh)
-            self.WarrenCowleyParameter = WarrenCowleyParameter(
-                self.verlet_list, self.neighbor_number, self.data["type"].values
-            )
-        elif self.rc != rc:
-            neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
-            neigh.compute()
-            self.WarrenCowleyParameter = WarrenCowleyParameter(
-                neigh.verlet_list, neigh.neighbor_number, self.data["type"].values
-            )
+        repeat = _check_repeat_cutoff(self.box, self.boundary, rc, 4)
+        verlet_list, neighbor_number = None, None
+        if sum(repeat) == 3:
+            if not self.if_neigh:
+                self.build_neighbor(rc=rc, max_neigh=max_neigh)
+                verlet_list, neighbor_number = (
+                    self.verlet_list,
+                    self.neighbor_number,
+                )
+            if self.rc != rc:
+                neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
+                neigh.compute()
+                verlet_list, neighbor_number = (
+                    neigh.verlet_list,
+                    neigh.neighbor_number,
+                )
+
+        self.WarrenCowleyParameter = WarrenCowleyParameter(
+            self.data["type"].values,
+            verlet_list,
+            neighbor_number,
+            rc,
+            self.pos,
+            self.box,
+            self.boundary,
+        )
 
         self.WarrenCowleyParameter.compute()
 
@@ -1294,20 +1345,55 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System(
-        r"C:\Users\Administrator\Desktop\python\MY_PACKAGE\MyPackage\test\tribox\shear-XY.150000.dump"
-    )
-    print(system)
-    from time import time
+    # from tool_function import _init_vel
 
-    start = time()
-    system.build_neighbor(5.0, 70)
-    print(time() - start, "s")
-    # system.cal_atomic_temperature(
-    #     np.array([58.9332, 58.6934, 55.847, 26.981539, 63.546]), 5.0
+    # system = System(r"./example/FCC.data")
+    # # print(system)
+    # # from time import time
+
+    # # start = time()
+    # # system.build_neighbor(5.0, 70)
+    # # print(time() - start, "s")
+    # # # system.cal_atomic_temperature(
+    # # #     np.array([58.9332, 58.6934, 55.847, 26.981539, 63.546]), 5.0
+    # # # )
+    # # # print(system.data["atomic_temp"].mean())
+    # # print(system.distance_list[0])
+    # # print(system.verlet_list[0])
+    # # print(system.neighbor_number.max())
+    # # print(system.verlet_list.shape[1])
+    # # system.replicate(4, 4, 4)
+    # system.cal_energy_force("./example/CoNiFeAlCu.eam.alloy", ["Al"])
+    # system.cal_ackland_jones_analysis()
+    # system.cal_centro_symmetry_parameter()
+    # system.cal_common_neighbor_analysis(4.05 * 0.86)
+    # system.cal_common_neighbor_parameter(4.05 * 0.86)
+    # system.cal_atomic_entropy(
+    #     rc=4.05 * 1.4, average_rc=4.05 * 0.9, compute_average=True
     # )
-    # print(system.data["atomic_temp"].mean())
-    print(system.distance_list[0])
-    print(system.verlet_list[0])
-    print(system.neighbor_number.max())
+    # system.cal_polyhedral_template_matching()
+    # system.cal_identify_SFs_TBs()
+    # print("Number of cluter:", system.cal_cluster_analysis(5.0))
+    # # system.cal_pair_distribution()
+    # # system.PairDistribution.plot()
+    # system.cal_steinhardt_bond_orientation()
+    # vel = _init_vel(system.N, 300.0, 1.0)
+    # system.data[["vx", "vy", "vz"]] = vel
+    # system.cal_atomic_temperature(np.array([1.0]))
+    # system.cal_voronoi_volume()
+    # system.cal_warren_cowley_parameter()
+    # print(system.WarrenCowleyParameter.WCP)
+    # print(system)
+    # print(system.rc)
+    system = System(f"./benchmark/average_rdf/rdf.0.dump")
+    system.cal_pair_distribution(max_neigh=430)
     print(system.verlet_list.shape[1])
+    print(system.neighbor_number.max())
+    system.PairDistribution.plot()
+    # MS = MultiSystem([f"./benchmark/average_rdf/rdf.{i}.dump" for i in range(5)])
+    # print(MS[0])
+    # MS.cal_mean_squared_displacement()
+    # MS.MSD.plot()
+    # MS.cal_lindemann_parameter()
+    # MS.Lindemann.plot()
+    # MS.write_dumps()

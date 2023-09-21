@@ -4,6 +4,15 @@
 import taichi as ti
 import numpy as np
 
+try:
+    from tool_function import _check_repeat_cutoff
+    from replicate import Replicate
+    from neighbor import Neighbor
+except Exception:
+    from .tool_function import _check_repeat_cutoff
+    from .replicate import Replicate
+    from .neighbor import Neighbor
+
 
 @ti.data_oriented
 class CommonNeighborParameter:
@@ -45,12 +54,12 @@ class CommonNeighborParameter:
 
     Args:
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
-        box (np.ndarray): (:math:`3, 2`) system box.
+        box (np.ndarray): (:math:`3, 2`) or (:math:`4, 3`) system box.
         boundary (list): boundary conditions, 1 is periodic and 0 is free boundary.
         rc (float): cutoff distance.
-        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-        distance_list (np.ndarray): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
-        neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
+        verlet_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+        distance_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
+        neighbor_number (np.ndarray, optional): (:math:`N_p`) neighbor atoms number.
 
     Outputs:
         - **cnp** (np.ndarray) - (:math:`N_p`) CNP results.
@@ -79,28 +88,45 @@ class CommonNeighborParameter:
     """
 
     def __init__(
-        self, pos, box, boundary, rc, verlet_list, distance_list, neighbor_number
+        self,
+        pos,
+        box,
+        boundary,
+        rc,
+        verlet_list=None,
+        distance_list=None,
+        neighbor_number=None,
     ) -> None:
+        self.rc = rc
+        repeat = _check_repeat_cutoff(box, boundary, self.rc)
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        self.pos = pos
         if box.dtype != np.float64:
             box = box.astype(np.float64)
-        if box.shape == (3, 2):
-            self.box = np.zeros((4, 3), dtype=box.dtype)
-            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-            self.box[-1] = box[:, 0]
-        elif box.shape == (4, 3):
-            self.box = box
+        self.old_N = None
+        if sum(repeat) == 3:
+            self.pos = pos
+            if box.shape == (3, 2):
+                self.box = np.zeros((4, 3), dtype=box.dtype)
+                self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
+                self.box[-1] = box[:, 0]
+            elif box.shape == (4, 3):
+                self.box = box
+        else:
+            self.old_N = pos.shape[0]
+            repli = Replicate(pos, box, *repeat)
+            repli.compute()
+            self.pos = repli.pos
+            self.box = repli.box
+
         assert self.box[0, 1] == 0
         assert self.box[0, 2] == 0
         assert self.box[1, 2] == 0
-        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
+        self.box_length = ti.Vector([np.linalg.norm(self.box[i]) for i in range(3)])
         self.rec = True
         if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
             self.rec = False
         self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
-        self.rc = rc
         self.verlet_list = verlet_list
         self.distance_list = distance_list
         self.neighbor_number = neighbor_number
@@ -175,7 +201,20 @@ class CommonNeighborParameter:
 
     def compute(self):
         """Do the real CNP calculation."""
+        if (
+            self.verlet_list is None
+            or self.neighbor_number is None
+            or self.distance_list is None
+        ):
+            neigh = Neighbor(self.pos, self.box, self.rc, self.boundary)
+            neigh.compute()
+            self.verlet_list, self.distance_list, self.neighbor_number = (
+                neigh.verlet_list,
+                neigh.distance_list,
+                neigh.neighbor_number,
+            )
         self.cnp = np.zeros(self.pos.shape[0])
+
         self._compute(
             self.pos,
             self.box,
@@ -184,6 +223,8 @@ class CommonNeighborParameter:
             self.neighbor_number,
             self.cnp,
         )
+        if self.old_N is not None:
+            self.cnp = self.cnp[: self.old_N]
 
 
 if __name__ == "__main__":
@@ -194,25 +235,22 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 50, 50, 50
+    x, y, z = 1, 1, 1
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-    neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=20)
-    neigh.compute()
-    print(neigh.neighbor_number.max())
-    end = time()
-    print(f"Build neighbor time: {end-start} s.")
+    # neigh = Neighbor(FCC.pos, FCC.box, 4.05 * 1.207, max_neigh=20)
+    # neigh.compute()
+    # end = time()
+    # print(f"Build neighbor time: {end-start} s.")
     start = time()
+    # 0.8536, 1.207
     CNP = CommonNeighborParameter(
         FCC.pos,
         FCC.box,
         [1, 1, 1],
         4.05 * 0.8536,
-        neigh.verlet_list,
-        neigh.distance_list,
-        neigh.neighbor_number,
     )
     CNP.compute()
     cnp = CNP.cnp

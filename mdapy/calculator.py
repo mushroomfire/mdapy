@@ -4,6 +4,15 @@
 import taichi as ti
 import numpy as np
 
+try:
+    from tool_function import _check_repeat_cutoff
+    from replicate import Replicate
+    from neighbor import Neighbor
+except Exception:
+    from .tool_function import _check_repeat_cutoff
+    from .replicate import Replicate
+    from .neighbor import Neighbor
+
 
 @ti.data_oriented
 class Calculator:
@@ -12,14 +21,14 @@ class Calculator:
 
     Args:
         potential (mp.EAM): A EAM class.
-        elements_list (list): elements need to be calculated. Such as ['Al', 'Fe'].
-        init_type_list (np.ndarray): (:math:`N_p`) per atom type.
-        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-        distance_list (np.ndarray): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
-        neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
         boundary (list): boundary conditions, 1 is periodic and 0 is free boundary. Such as [1, 1, 1].
-        box (np.ndarray): (:math:`3, 2`) system box.
+        box (np.ndarray): (:math:`3, 2`) or (:math:`4, 3`) system box.
+        elements_list (list): elements need to be calculated. Such as ['Al', 'Fe'].
+        init_type_list (np.ndarray): (:math:`N_p`) per atom type.
+        verlet_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1. Defaults to None.
+        distance_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom. Defaults to None.
+        neighbor_number (np.ndarray, optional): (:math:`N_p`) neighbor atoms number. Defaults to None.
 
     Outputs:
         - **energy** (np.ndarray) - (:math:`N_p`) atomic energy (eV).
@@ -44,14 +53,14 @@ class Calculator:
 
         >>> Cal = mp.Calculator(
                 potential,
+                FCC.pos,
+                [1, 1, 1],
+                FCC.box,
                 ["Al"],
                 np.ones(FCC.pos.shape[0], dtype=np.int32),
                 neigh.verlet_list,
                 neigh.distance_list,
                 neigh.neighbor_number,
-                FCC.pos,
-                [1, 1, 1],
-                FCC.box,
             ) # Initialize Calculator class.
 
         >>> Cal.compute() # Calculate the atomic energy and force.
@@ -64,41 +73,53 @@ class Calculator:
     def __init__(
         self,
         potential,
-        elements_list,
-        init_type_list,
-        verlet_list,
-        distance_list,
-        neighbor_number,
         pos,
         boundary,
         box,
+        elements_list,
+        init_type_list,
+        verlet_list=None,
+        distance_list=None,
+        neighbor_number=None,
     ):
         self.potential = potential
         self.rc = self.potential.rc
-        self.elements_list = elements_list
-        self.init_type_list = init_type_list
-        self.verlet_list = verlet_list
-        self.distance_list = distance_list
-        self.neighbor_number = neighbor_number
+        repeat = _check_repeat_cutoff(box, boundary, self.rc)
+
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        self.pos = pos
         if box.dtype != np.float64:
             box = box.astype(np.float64)
-        if box.shape == (3, 2):
-            self.box = np.zeros((4, 3), dtype=box.dtype)
-            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-            self.box[-1] = box[:, 0]
-        elif box.shape == (4, 3):
-            self.box = box
+        self.old_N = None
+        if sum(repeat) == 3:
+            self.pos = pos
+            if box.shape == (3, 2):
+                self.box = np.zeros((4, 3), dtype=box.dtype)
+                self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
+                self.box[-1] = box[:, 0]
+            elif box.shape == (4, 3):
+                self.box = box
+            self.init_type_list = init_type_list
+        else:
+            self.old_N = pos.shape[0]
+            repli = Replicate(pos, box, *repeat, type_list=init_type_list)
+            repli.compute()
+            self.pos = repli.pos
+            self.box = repli.box
+            self.init_type_list = repli.type_list
+
         assert self.box[0, 1] == 0
         assert self.box[0, 2] == 0
         assert self.box[1, 2] == 0
-        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
+        self.box_length = ti.Vector([np.linalg.norm(self.box[i]) for i in range(3)])
         self.rec = True
         if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
             self.rec = False
         self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
+        self.elements_list = elements_list
+        self.verlet_list = verlet_list
+        self.distance_list = distance_list
+        self.neighbor_number = neighbor_number
 
     def _get_type_list(self):
         assert len(self.elements_list) == len(
@@ -275,6 +296,19 @@ class Calculator:
         d_embedded_rho = np.zeros(N)
 
         type_list = self._get_type_list()
+        if (
+            self.distance_list is None
+            or self.verlet_list is None
+            or self.neighbor_number is None
+        ):
+            neigh = Neighbor(self.pos, self.box, self.rc, self.boundary)
+            neigh.compute()
+            self.distance_list, self.verlet_list, self.neighbor_number = (
+                neigh.distance_list,
+                neigh.verlet_list,
+                neigh.neighbor_number,
+            )
+
         self._compute_energy_force(
             self.box,
             self.verlet_list,
@@ -297,6 +331,9 @@ class Calculator:
             elec_density,
             d_embedded_rho,
         )
+        if self.old_N is not None:
+            self.energy = np.ascontiguousarray(self.energy[: self.old_N])
+            self.force = np.ascontiguousarray(self.force[: self.old_N])
 
 
 if __name__ == "__main__":
@@ -309,35 +346,35 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 50, 50, 50
+    x, y, z = 1, 1, 1
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
 
     potential = EAM("./example/CoNiFeAlCu.eam.alloy")
-    start = time()
-    neigh = Neighbor(FCC.pos, FCC.box, potential.rc, max_neigh=100)
-    neigh.compute()
-    end = time()
-    print(f"Build neighbor time: {end-start} s.")
+    # start = time()
+    # neigh = Neighbor(FCC.pos, FCC.box, potential.rc, max_neigh=100)
+    # neigh.compute()
+    # end = time()
+    # print(f"Build neighbor time: {end-start} s.")
 
     start = time()
     Cal = Calculator(
         potential,
-        ["Al"],
-        np.ones(FCC.pos.shape[0], dtype=np.int32),
-        neigh.verlet_list,
-        neigh.distance_list,
-        neigh.neighbor_number,
         FCC.pos,
         [1, 1, 1],
         FCC.box,
+        ["Al"],
+        np.ones(FCC.pos.shape[0], dtype=np.int32),
     )
+    # neigh.verlet_list,
+    # neigh.distance_list,
+    # neigh.neighbor_number,
     Cal.compute()
     end = time()
     print(f"Calculate energy and force time: {end-start} s.")
     print("energy:")
-    print(Cal.energy[:10])
+    print(Cal.energy[:4])
     print("force:")
-    print(Cal.force[:10, :])
+    print(Cal.force[:4, :])

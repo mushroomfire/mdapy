@@ -7,9 +7,15 @@ import matplotlib.pyplot as plt
 try:
     from rdf._rdf import _rdf, _rdf_single_species
     from plotset import pltset, cm2inch
+    from tool_function import _check_repeat_cutoff
+    from replicate import Replicate
+    from neighbor import Neighbor
 except Exception:
     from _rdf import _rdf, _rdf_single_species
     from .plotset import pltset, cm2inch
+    from .tool_function import _check_repeat_cutoff
+    from .replicate import Replicate
+    from .neighbor import Neighbor
 
 
 class PairDistribution:
@@ -25,10 +31,13 @@ class PairDistribution:
     Args:
         rc (float): cutoff distance.
         nbin (int): number of bins.
-        rho (float): system density.
-        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-        distance_list (np.ndarray): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
-        neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
+        rho (float, optional): system density.
+        verlet_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+        distance_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
+        neighbor_number (np.ndarray, optional): (:math:`N_p`) neighbor atoms number.
+        pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
+        box (np.ndarray, optional): (:math:`3, 2`) or (:math:`4, 3`) system box. Defaults to None.
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Such as [1, 1, 1]. Defaults to None.
         type_list (np.ndarray, optional): (:math:`N_p`) atom type list. If not given, all atoms types are set as 1.
 
     Outputs:
@@ -55,7 +64,7 @@ class PairDistribution:
 
         >>> gr = mp.PairDistribution(neigh.rc, 200, rho,
                                   neigh.verlet_list, neigh.distance_list, neigh.neighbor_number,
-                                  np.ones(FCC.N, dtype=int)) # Initilize the RDF class.
+                                  type_list=np.ones(FCC.N, dtype=int)) # Initilize the RDF class.
 
         >>> gr.compute() # Calculate the RDF.
 
@@ -72,15 +81,67 @@ class PairDistribution:
     """
 
     def __init__(
-        self, rc, nbin, rho, verlet_list, distance_list, neighbor_number, type_list=None
+        self,
+        rc,
+        nbin,
+        rho=None,
+        verlet_list=None,
+        distance_list=None,
+        neighbor_number=None,
+        pos=None,
+        box=None,
+        boundary=None,
+        type_list=None,
     ):
         self.rc = rc
         self.nbin = nbin
-        self.rho = rho
+        self.old_N = None
         self.verlet_list = verlet_list
         self.distance_list = distance_list
         self.neighbor_number = neighbor_number
-        self.N = self.distance_list.shape[0]
+        self.rho = rho
+        if (
+            verlet_list is None
+            or distance_list is None
+            or rho is None
+            or neighbor_number is None
+        ):
+            assert pos is not None
+            assert box is not None
+            assert boundary is not None
+            repeat = _check_repeat_cutoff(box, boundary, self.rc)
+            print(repeat)
+            if pos.dtype != np.float64:
+                pos = pos.astype(np.float64)
+            if box.dtype != np.float64:
+                box = box.astype(np.float64)
+            if sum(repeat) == 3:
+                self.pos = pos
+                if box.shape == (3, 2):
+                    self.box = np.zeros((4, 3), dtype=box.dtype)
+                    self.box[0, 0], self.box[1, 1], self.box[2, 2] = (
+                        box[:, 1] - box[:, 0]
+                    )
+                    self.box[-1] = box[:, 0]
+                elif box.shape == (4, 3):
+                    self.box = box
+            else:
+                self.old_N = pos.shape[0]
+                repli = Replicate(pos, box, *repeat)
+                repli.compute()
+                self.pos = repli.pos
+                self.box = repli.box
+
+            assert self.box[0, 1] == 0
+            assert self.box[0, 2] == 0
+            assert self.box[1, 2] == 0
+            self.boundary = [int(boundary[i]) for i in range(3)]
+            vol = np.inner(self.box[0], np.cross(self.box[1], self.box[2]))
+            self.rho = self.pos.shape[0] / vol
+        if self.verlet_list is not None:
+            self.N = self.verlet_list.shape[0]
+        else:
+            self.N = self.pos.shape[0]
         if type_list is not None:
             self.type_list = type_list - 1
         else:
@@ -90,6 +151,14 @@ class PairDistribution:
 
     def compute(self):
         """Do the real RDF calculation."""
+        if self.verlet_list is None or self.distance_list is None:
+            neigh = Neighbor(self.pos, self.box, self.rc, self.boundary)
+            neigh.compute()
+            self.verlet_list, self.distance_list, self.neighbor_number = (
+                neigh.verlet_list,
+                neigh.distance_list,
+                neigh.neighbor_number,
+            )
         r = np.linspace(0, self.rc, self.nbin + 1)
         const = 4.0 * np.pi * self.rho / 3.0
         if self.Ntype > 1:
@@ -216,18 +285,18 @@ if __name__ == "__main__":
     # ti.init(ti.cpu)
     start = time()
     lattice_constant = 3.615
-    x, y, z = 50, 50, 50
+    x, y, z = 1, 1, 1
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     # FCC.write_data()
-    start = time()
+    # start = time()
     rc = 5.0
-    neigh = Neighbor(FCC.pos, FCC.box, rc, max_neigh=50)
-    neigh.compute()
-    end = time()
-    print(f"Build neighbor time: {end-start} s.")
+    # neigh = Neighbor(FCC.pos, FCC.box, rc, max_neigh=50)
+    # neigh.compute()
+    # end = time()
+    # print(f"Build neighbor time: {end-start} s.")
     start = time()
     rho = FCC.pos.shape[0] / FCC.vol
     # type_list = np.r_[
@@ -237,14 +306,17 @@ if __name__ == "__main__":
     gr = PairDistribution(
         rc,
         200,
-        rho,
-        neigh.verlet_list,
-        neigh.distance_list,
-        neigh.neighbor_number,
+        None,
+        None,
+        None,
+        None,
+        FCC.pos,
+        FCC.box,
+        [1, 1, 1],
         type_list,
     )
     gr.compute()
     end = time()
     print(f"Cal gr time: {end-start} s.")
     gr.plot()
-    gr.plot_partial()
+    # gr.plot_partial()

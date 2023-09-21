@@ -4,6 +4,15 @@
 import taichi as ti
 import numpy as np
 
+try:
+    from tool_function import _check_repeat_cutoff
+    from replicate import Replicate
+    from neighbor import Neighbor
+except Exception:
+    from .tool_function import _check_repeat_cutoff
+    from .replicate import Replicate
+    from .neighbor import Neighbor
+
 
 @ti.data_oriented
 class AtomicEntropy:
@@ -42,9 +51,12 @@ class AtomicEntropy:
       is the lattice constant.
 
     Args:
-        vol (float): system volume.
-        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-        distance_list (np.ndarray): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
+        vol (float, optional): system volume. Defaults to None.
+        verlet_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1. Defaults to None.
+        distance_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom. Defaults to None.
+        pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
+        box (np.ndarray, optional): (:math:`3, 2`) or (:math:`4, 3`) system box. Defaults to None.
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Such as [1, 1, 1]. Defaults to None.
         rc (float, optional): cutoff distance. Defaults to 5.0.
         sigma (float, optional): smoothing parameter. Defaults to 0.2.
         use_local_density (bool, optional): whether use local atomic volume. Defaults to False.
@@ -77,6 +89,9 @@ class AtomicEntropy:
                 vol,
                 neigh.verlet_list,
                 neigh.distance_list,
+                None,
+                None,
+                None,
                 neigh.rc,
                 sigma=0.2,
                 use_local_density=False,
@@ -93,19 +108,56 @@ class AtomicEntropy:
 
     def __init__(
         self,
-        vol,
-        verlet_list,
-        distance_list,
+        vol=None,
+        verlet_list=None,
+        distance_list=None,
+        pos=None,
+        box=None,
+        boundary=None,
         rc=5.0,
         sigma=0.2,
         use_local_density=False,
         compute_average=False,
         average_rc=None,
     ):
-        self.vol = vol
+        self.rc = rc
+        self.old_N = None
         self.verlet_list = verlet_list
         self.distance_list = distance_list
-        self.rc = rc
+        self.vol = vol
+        if verlet_list is None or distance_list is None or self.vol is None:
+            assert pos is not None
+            assert box is not None
+            assert boundary is not None
+            repeat = _check_repeat_cutoff(box, boundary, self.rc, 4)
+
+            if pos.dtype != np.float64:
+                pos = pos.astype(np.float64)
+            if box.dtype != np.float64:
+                box = box.astype(np.float64)
+            if sum(repeat) == 3:
+                self.pos = pos
+                if box.shape == (3, 2):
+                    self.box = np.zeros((4, 3), dtype=box.dtype)
+                    self.box[0, 0], self.box[1, 1], self.box[2, 2] = (
+                        box[:, 1] - box[:, 0]
+                    )
+                    self.box[-1] = box[:, 0]
+                elif box.shape == (4, 3):
+                    self.box = box
+            else:
+                self.old_N = pos.shape[0]
+                repli = Replicate(pos, box, *repeat)
+                repli.compute()
+                self.pos = repli.pos
+                self.box = repli.box
+
+            assert self.box[0, 1] == 0
+            assert self.box[0, 2] == 0
+            assert self.box[1, 2] == 0
+            self.boundary = [int(boundary[i]) for i in range(3)]
+            self.vol = np.inner(self.box[0], np.cross(self.box[1], self.box[2]))
+
         self.sigma = sigma
         self.use_local_density = use_local_density
         self.compute_average = compute_average
@@ -187,7 +239,14 @@ class AtomicEntropy:
 
     def compute(self):
         """Do the real entropy calculation."""
-        self.N = self.distance_list.shape[0]
+        if self.verlet_list is None or self.distance_list is None:
+            neigh = Neighbor(self.pos, self.box, self.rc, self.boundary)
+            neigh.compute()
+            self.verlet_list, self.distance_list = (
+                neigh.verlet_list,
+                neigh.distance_list,
+            )
+        self.N = self.verlet_list.shape[0]
         self.entropy = np.zeros(self.N)
         self.global_density = self.N / self.vol
         self.nbins = int(np.floor(self.rc / self.sigma) + 1)
@@ -207,6 +266,12 @@ class AtomicEntropy:
             self._compute_average(
                 self.entropy, self.verlet_list, self.distance_list, self.entropy_average
             )
+        if self.old_N is not None:
+            self.entropy = np.ascontiguousarray(self.entropy[: self.old_N])
+            if self.compute_average:
+                self.entropy_average = np.ascontiguousarray(
+                    self.entropy_average[: self.old_N]
+                )
 
 
 if __name__ == "__main__":
@@ -218,28 +283,44 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 50
+    x, y, z = 100, 100, 10
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-    start = time()
-    neigh = Neighbor(FCC.pos, FCC.box, lattice_constant * 1.4, max_neigh=60)
-    neigh.compute()
-    end = time()
-    print(f"Build neighbor time: {end-start} s.")
-    print(neigh.neighbor_number.max())
+    # start = time()
+    # neigh = Neighbor(FCC.pos, FCC.box, lattice_constant * 1.4, max_neigh=60)
+    # neigh.compute()
+    # end = time()
+    # print(f"Build neighbor time: {end-start} s.")
+    # print(neigh.neighbor_number.max())
 
     start = time()
+    # Entropy = AtomicEntropy(
+    #     FCC.vol,
+    #     neigh.verlet_list,
+    #     neigh.distance_list,
+    #     None,
+    #     None,
+    #     None,
+    #     5.0,
+    #     sigma=0.2,
+    #     use_local_density=False,
+    #     compute_average=True,
+    #     average_rc=4.0,
+    # )
     Entropy = AtomicEntropy(
-        FCC.vol,
-        neigh.verlet_list,
-        neigh.distance_list,
-        5.0,
+        None,
+        None,
+        None,
+        FCC.pos,
+        FCC.box,
+        [1, 1, 1],
+        4.05 * 1.4,
         sigma=0.2,
         use_local_density=False,
         compute_average=True,
-        average_rc=4.0,
+        average_rc=4.05 * 0.9,
     )
     Entropy.compute()
     entropy = Entropy.entropy

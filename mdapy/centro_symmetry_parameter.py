@@ -6,8 +6,12 @@ import numpy as np
 
 try:
     from nearest_neighbor import NearestNeighbor
+    from replicate import Replicate
+    from tool_function import _check_repeat_nearest
 except Exception:
     from .nearest_neighbor import NearestNeighbor
+    from .replicate import Replicate
+    from .tool_function import _check_repeat_nearest
 
 
 @ti.data_oriented
@@ -65,21 +69,31 @@ class CentroSymmetryParameter:
 
     def __init__(self, N, pos, box, boundary=[1, 1, 1], verlet_list=None):
         self.N = N
+        repeat = _check_repeat_nearest(pos, box, boundary)
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        self.pos = pos
         if box.dtype != np.float64:
             box = box.astype(np.float64)
-        if box.shape == (3, 2):
-            self.box = np.zeros((4, 3), dtype=box.dtype)
-            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-            self.box[-1] = box[:, 0]
-        elif box.shape == (4, 3):
-            self.box = box
+        self.old_N = None
+        if sum(repeat) == 3:
+            self.pos = pos
+            if box.shape == (3, 2):
+                self.box = np.zeros((4, 3), dtype=box.dtype)
+                self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
+                self.box[-1] = box[:, 0]
+            elif box.shape == (4, 3):
+                self.box = box
+        else:
+            self.old_N = pos.shape[0]
+            repli = Replicate(pos, box, *repeat)
+            repli.compute()
+            self.pos = repli.pos
+            self.box = repli.box
+
         assert self.box[0, 1] == 0
         assert self.box[0, 2] == 0
         assert self.box[1, 2] == 0
-        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
+        self.box_length = ti.Vector([np.linalg.norm(self.box[i]) for i in range(3)])
         self.rec = True
         if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
             self.rec = False
@@ -161,36 +175,40 @@ class CentroSymmetryParameter:
 
     def compute(self):
         """Do the real CSP calculation."""
-        assert self.pos.shape[0] > self.N
-
-        verlet_list = self.verlet_list
-        if verlet_list is None:
-            kdt = NearestNeighbor(self.pos, self.box, self.boundary)
-            _, verlet_list = kdt.query_nearest_neighbors(self.N)
-        loop_index = np.zeros((int(self.N * (self.N - 1) / 2), 2), dtype=int)
-        pair = np.zeros((self.pos.shape[0], int(self.N * (self.N - 1) / 2)))
         self.csp = np.zeros(self.pos.shape[0])
-        self._get_csp(pair, self.pos, self.box, verlet_list, loop_index, self.csp)
+        if self.pos.shape[0] < self.N and sum(self.boundary) == 0:
+            self.csp += 10000
+        else:
+            verlet_list = self.verlet_list
+            if verlet_list is None:
+                kdt = NearestNeighbor(self.pos, self.box, self.boundary)
+                _, verlet_list = kdt.query_nearest_neighbors(self.N)
+            loop_index = np.zeros((int(self.N * (self.N - 1) / 2), 2), dtype=int)
+            pair = np.zeros((self.pos.shape[0], int(self.N * (self.N - 1) / 2)))
+            self._get_csp(pair, self.pos, self.box, verlet_list, loop_index, self.csp)
+        if self.old_N is not None:
+            self.csp = np.ascontiguousarray(self.csp[: self.old_N])
 
 
 if __name__ == "__main__":
     from lattice_maker import LatticeMaker
-    from neighbor import Neighbor
+
+    # from neighbor import Neighbor
     from time import time
 
     # ti.init(ti.gpu, device_memory_GB=5.0)
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 250
-    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    x, y, z = 1, 1, 1
+    FCC = LatticeMaker(lattice_constant, "BCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
 
-    Neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=30)
-    Neigh.compute()
-    print(Neigh.neighbor_number.min())
+    # Neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=30)
+    # Neigh.compute()
+    # print(Neigh.neighbor_number.min())
 
     # start = time()
     # verlet_list_sort = np.ascontiguousarray(np.take_along_axis(Neigh.verlet_list, np.argpartition(Neigh.distance_list, 12, axis=-1), axis=-1)[:, :12])
@@ -198,12 +216,12 @@ if __name__ == "__main__":
     # print(f'numpy sort time: {end-start} s.')
     # print(verlet_list_sort[0])
 
-    start = time()
-    Neigh.sort_verlet_by_distance(12)
-    end = time()
-    print(f"taichi sort time: {end-start} s.")
-    print(Neigh.verlet_list[0, :12])
-    print(Neigh.distance_list[0, :12])
+    # start = time()
+    # Neigh.sort_verlet_by_distance(12)
+    # end = time()
+    # print(f"taichi sort time: {end-start} s.")
+    # print(Neigh.verlet_list[0, :12])
+    # print(Neigh.distance_list[0, :12])
 
     # start = time()
     # kdt = kdtree(FCC.pos, FCC.box, [1, 1, 1])
@@ -213,21 +231,21 @@ if __name__ == "__main__":
     # print(verlet_list_kdt[0])
 
     start = time()
-    CSP = CentroSymmetryParameter(12, FCC.pos, FCC.box, [1, 1, 1])
+    CSP = CentroSymmetryParameter(8, FCC.pos, FCC.box, [1, 1, 1])
     CSP.compute()
     csp = CSP.csp
     end = time()
     print(f"Cal csp kdt time: {end-start} s.")
-    print(csp[:10])
+    print(csp[:4])
     print(csp.min(), csp.max(), csp.mean())
 
-    start = time()
-    CSP = CentroSymmetryParameter(
-        12, FCC.pos, FCC.box, [1, 1, 1], verlet_list=Neigh.verlet_list
-    )
-    CSP.compute()
-    csp = CSP.csp
-    end = time()
-    print(f"Cal csp verlet time: {end-start} s.")
-    print(csp[:10])
-    print(csp.min(), csp.max(), csp.mean())
+    # start = time()
+    # CSP = CentroSymmetryParameter(
+    #     12, FCC.pos, FCC.box, [1, 1, 1], verlet_list=Neigh.verlet_list
+    # )
+    # CSP.compute()
+    # csp = CSP.csp
+    # end = time()
+    # print(f"Cal csp verlet time: {end-start} s.")
+    # print(csp[:10])
+    # print(csp.min(), csp.max(), csp.mean())

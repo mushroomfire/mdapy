@@ -47,6 +47,10 @@ class Replicate:
     """
 
     def __init__(self, pos, box, x=1, y=1, z=1, type_list=None):
+        if pos.dtype != np.float64:
+            pos = pos.astype(np.float64)
+        if box.dtype != np.float64:
+            box = box.astype(np.float64)
         self.old_pos = pos
         if box.shape == (3, 2):
             self.old_box = np.zeros((4, 3), dtype=box.dtype)

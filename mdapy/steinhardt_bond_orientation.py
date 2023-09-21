@@ -5,11 +5,16 @@ import numpy as np
 import taichi as ti
 
 try:
+    from tool_function import _check_repeat_cutoff, _check_repeat_nearest
+    from replicate import Replicate
     from neighbor import Neighbor
     from nearest_neighbor import NearestNeighbor
 except Exception:
+    from .tool_function import _check_repeat_cutoff, _check_repeat_nearest
+    from .replicate import Replicate
     from .neighbor import Neighbor
     from .nearest_neighbor import NearestNeighbor
+
 
 nfac_table_numpy = np.array(
     [
@@ -293,21 +298,38 @@ class SteinhardtBondOrientation:
         max_neigh=60,
     ):
         self.rc = rc
+        self.nnn = nnn
+        if self.nnn > 0:
+            self.rc = 1000000000.0
+            repeat = _check_repeat_nearest(pos, box, boundary)
+        else:
+            assert self.rc > 0
+            repeat = _check_repeat_cutoff(box, boundary, self.rc)
+
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        self.pos = pos
         if box.dtype != np.float64:
             box = box.astype(np.float64)
-        if box.shape == (3, 2):
-            self.box = np.zeros((4, 3), dtype=box.dtype)
-            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-            self.box[-1] = box[:, 0]
-        elif box.shape == (4, 3):
-            self.box = box
+        self.old_N = None
+        if sum(repeat) == 3:
+            self.pos = pos
+            if box.shape == (3, 2):
+                self.box = np.zeros((4, 3), dtype=box.dtype)
+                self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
+                self.box[-1] = box[:, 0]
+            elif box.shape == (4, 3):
+                self.box = box
+        else:
+            self.old_N = pos.shape[0]
+            repli = Replicate(pos, box, *repeat)
+            repli.compute()
+            self.pos = repli.pos
+            self.box = repli.box
+
         assert self.box[0, 1] == 0
         assert self.box[0, 2] == 0
         assert self.box[1, 2] == 0
-        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
+        self.box_length = ti.Vector([np.linalg.norm(self.box[i]) for i in range(3)])
         self.rec = True
         if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
             self.rec = False
@@ -330,10 +352,6 @@ class SteinhardtBondOrientation:
             assert (
                 i >= 0
             ), "qlist should be a non-negative integer or List[int]|Tuple[int]|np.array[int]."
-        self.nnn = nnn
-        assert self.nnn >= 0, "nnn should be larger than 0."
-        if self.nnn > 0:
-            self.rc = 1000000000.0
 
         self.wlflag = wlflag
         self.wlhatflag = wlhatflag
@@ -653,6 +671,9 @@ class SteinhardtBondOrientation:
             self.qnarray,
             cglist,
         )
+        if self.old_N is not None:
+            self.old_qnarray = self.qnarray.copy()
+            self.qnarray = np.ascontiguousarray(self.qnarray[: self.old_N])
         self.if_compute = True
 
     @ti.kernel
@@ -699,7 +720,10 @@ class SteinhardtBondOrientation:
         if not self.if_compute:
             self.compute()
         Q6index = int(np.where(self.qlist == 6)[0][0])
-        Q6 = np.ascontiguousarray(self.qnarray[:, Q6index])
+        if self.old_N is not None:
+            Q6 = np.ascontiguousarray(self.old_qnarray[:, Q6index])
+        else:
+            Q6 = np.ascontiguousarray(self.qnarray[:, Q6index])
         self.solidliquid = np.zeros(self.pos.shape[0], int)
         self._identifySolidLiquid(
             Q6index,
@@ -713,6 +737,8 @@ class SteinhardtBondOrientation:
             n_bond,
             self.solidliquid,
         )
+        if self.old_N is not None:
+            self.solidliquid = np.ascontiguousarray(self.solidliquid[: self.old_N])
 
 
 if __name__ == "__main__":
@@ -721,7 +747,7 @@ if __name__ == "__main__":
 
     ti.init()
     start = time()
-    FCC = LatticeMaker(3.615, "FCC", 50, 50, 50)
+    FCC = LatticeMaker(3.615, "FCC", 10, 10, 10)
     FCC.compute()
     print(f"Build FCC time cost: {time()-start} s. Atom number: {FCC.N}.")
 

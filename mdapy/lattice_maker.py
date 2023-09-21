@@ -219,7 +219,7 @@ if __name__ == "__main__":
     from time import time
 
     # FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
-    FCC = LatticeMaker(3.615, "FCC", 10, 10, 10, type_list=np.array([1, 2, 1, 2]))
+    FCC = LatticeMaker(4.05, "FCC", 1, 1, 1)
     FCC.compute()
     print("Atom number is:", FCC.N)
     # start = time()
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))
     print(FCC.box)
     print(FCC.vol)
-    # FCC.write_data()
+    FCC.write_data()
     # FCC.write_dump()
     # print(FCC.pos)
     # print(pos.dtype)

@@ -7,8 +7,10 @@ import taichi as ti
 
 try:
     from neigh._neigh import _build_cell_tri
+    from tool_function import _check_repeat_nearest
 except Exception:
     from _neigh import _build_cell_tri
+    from .tool_function import _check_repeat_nearest
 
 
 @ti.kernel
@@ -163,6 +165,11 @@ class kdtree:
 @ti.data_oriented
 class NearestNeighbor:
     def __init__(self, pos, box, boundary=[1, 1, 1]):
+        repeat = _check_repeat_nearest(pos, box, boundary)
+        assert (
+            sum(repeat) == 3
+        ), f"The atom number < 50 or shorest box length < 0.6 nm, which should be repeated by {repeat} to make sure the results correct."
+
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
         self.pos = pos
@@ -310,6 +317,9 @@ class NearestNeighbor:
         Returns:
             tuple: (distance, index), distance of atom :math:`i` to its neighbor atom :math:`j`, and the index of atom :math:`j`.
         """
+        assert K < 25
+        if sum(self.boundary) == 0:
+            assert self.pos.shape[0] >= K, f"Atom number should be larger than {K}."
 
         if self.rec:
             distance_list, verlet_list = self._kdt.query_nearest_neighbors(
@@ -362,43 +372,43 @@ if __name__ == "__main__":
     from system import System
 
     ti.init(ti.cpu)
-    system = System(
-        r"C:\Users\Administrator\Desktop\python\MY_PACKAGE\MyPackage\test\tribox\shear-XY.150000.dump"
-    )
-    print(system)
-    start = time()
-    kdt = NearestNeighbor(system.pos, system.box, system.boundary)
-    end = time()
-    print(f"Build kdtree time: {end-start} s.")
-    start = time()
-    dis, index = kdt.query_nearest_neighbors(16)
-    end = time()
-    print(f"Query time: {end-start} s.")
-    print(dis[0])
-    print(index[0])
+    # system = System(
+    #     r"C:\Users\Administrator\Desktop\python\MY_PACKAGE\MyPackage\test\tribox\shear-XY.150000.dump"
+    # )
+    # print(system)
     # start = time()
-    # lattice_constant = 4.05
-    # x, y, z = 100, 100, 100
-    # FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
-    # FCC.compute()
-    # end = time()
-    # print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-    # FCC.pos -= 0.2
-    # print(np.min(FCC.pos, axis=0))
-    # start = time()
-    # kdt = NearestNeighbor(FCC.pos, FCC.box, [1, 1, 1])
-    # # kdt = kdtree(FCC.pos, FCC.box, [1, 1, 1])
+    # kdt = NearestNeighbor(system.pos, system.box, system.boundary)
     # end = time()
     # print(f"Build kdtree time: {end-start} s.")
-    # print(np.min(FCC.pos, axis=0))
     # start = time()
-    # dis, index = kdt.query_nearest_neighbors(12)
+    # dis, index = kdt.query_nearest_neighbors(16)
     # end = time()
-    # print(f"Query kdtree time: {end-start} s.")
+    # print(f"Query time: {end-start} s.")
+    # print(dis[0])
+    # print(index[0])
+    start = time()
+    lattice_constant = 4.05
+    x, y, z = 2, 2, 2
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    FCC.compute()
+    end = time()
+    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
+    FCC.pos -= 0.2
+    print(np.min(FCC.pos, axis=0))
+    start = time()
+    kdt = NearestNeighbor(FCC.pos, FCC.box, [0, 0, 0])
+    # kdt = kdtree(FCC.pos, FCC.box, [1, 1, 1])
+    end = time()
+    print(f"Build kdtree time: {end-start} s.")
+    print(np.min(FCC.pos, axis=0))
+    start = time()
+    dis, index = kdt.query_nearest_neighbors(12)
+    end = time()
+    print(f"Query kdtree time: {end-start} s.")
     # start = time()
     # dis, index = kdt.query_nearest_neighbors(16)
     # end = time()
     # print(f"Query kdtree time: {end-start} s.")
 
-    # print(dis[0])
-    # print(index[0])
+    print(dis[0])
+    print(index[0])

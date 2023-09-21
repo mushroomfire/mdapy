@@ -3,9 +3,15 @@
 
 import numpy as np
 
-if __name__ == "__main__":
+try:
+    from tool_function import _check_repeat_cutoff
+    from replicate import Replicate
+    from neighbor import Neighbor
     from cluster import _cluster_analysis
-else:
+except Exception:
+    from .tool_function import _check_repeat_cutoff
+    from .replicate import Replicate
+    from .neighbor import Neighbor
     import _cluster_analysis
 
 
@@ -15,8 +21,11 @@ class ClusterAnalysis:
 
     Args:
         rc (float): cutoff distance.
-        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-        distance_list (np.ndarray): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
+        verlet_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1. Defaults to None.
+        distance_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom. Defaults to None.
+        pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
+        box (np.ndarray, optional): (:math:`3, 2`) or (:math:`4, 3`) system box. Defaults to None.
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Such as [1, 1, 1]. Defaults to None.
 
     Outputs:
         - **particleClusters** (np.ndarray) - (:math:`N_p`) cluster ID per atoms.
@@ -53,20 +62,72 @@ class ClusterAnalysis:
 
     """
 
-    def __init__(self, rc, verlet_list, distance_list):
+    def __init__(
+        self,
+        rc,
+        verlet_list=None,
+        distance_list=None,
+        pos=None,
+        box=None,
+        boundary=None,
+    ):
         self.rc = rc
+        self.old_N = None
+
         self.verlet_list = verlet_list
         self.distance_list = distance_list
+        if verlet_list is None or distance_list is None:
+            assert pos is not None
+            assert box is not None
+            assert boundary is not None
+            repeat = _check_repeat_cutoff(box, boundary, self.rc)
+
+            if pos.dtype != np.float64:
+                pos = pos.astype(np.float64)
+            if box.dtype != np.float64:
+                box = box.astype(np.float64)
+            if sum(repeat) == 3:
+                self.pos = pos
+                if box.shape == (3, 2):
+                    self.box = np.zeros((4, 3), dtype=box.dtype)
+                    self.box[0, 0], self.box[1, 1], self.box[2, 2] = (
+                        box[:, 1] - box[:, 0]
+                    )
+                    self.box[-1] = box[:, 0]
+                elif box.shape == (4, 3):
+                    self.box = box
+            else:
+                self.old_N = pos.shape[0]
+                repli = Replicate(pos, box, *repeat)
+                repli.compute()
+                self.pos = repli.pos
+                self.box = repli.box
+
+            assert self.box[0, 1] == 0
+            assert self.box[0, 2] == 0
+            assert self.box[1, 2] == 0
+            self.boundary = [int(boundary[i]) for i in range(3)]
         self.is_computed = False
 
     def compute(self):
         """Do the real cluster analysis."""
+        if self.verlet_list is None or self.distance_list is None:
+            neigh = Neighbor(self.pos, self.box, self.rc, self.boundary)
+            neigh.compute()
+            self.verlet_list, self.distance_list = (
+                neigh.verlet_list,
+                neigh.distance_list,
+            )
         N = self.verlet_list.shape[0]
         self.particleClusters = np.zeros(N, dtype=np.int32) - 1
         self.cluster_number = _cluster_analysis._get_cluster(
             self.verlet_list, self.distance_list, self.rc, self.particleClusters
         )
         # print(f"Cluster number is {self.cluster_number}.")
+        if self.old_N is not None:
+            self.particleClusters = np.ascontiguousarray(
+                self.particleClusters[: self.old_N]
+            )
         self.is_computed = True
 
     def get_size_of_cluster(self, cluster_id):
@@ -96,25 +157,27 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 50, 50, 50
+    x, y, z = 10, 10, 10
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
 
-    start = time()
-    neigh = Neighbor(FCC.pos, FCC.box, 3.0, max_neigh=20)
-    neigh.compute()
-    # print(neigh.neighbor_number.max())
-    end = time()
-    print(f"Build neighbor time: {end-start} s.")
+    # start = time()
+    # neigh = Neighbor(FCC.pos, FCC.box, 3.0, max_neigh=20)
+    # neigh.compute()
+    # # print(neigh.neighbor_number.max())
+    # end = time()
+    # print(f"Build neighbor time: {end-start} s.")
 
     start = time()
-    Cls = ClusterAnalysis(3.0, neigh.verlet_list, neigh.distance_list)
+    Cls = ClusterAnalysis(3.0, pos=FCC.pos, box=FCC.box, boundary=[1, 1, 1])
     Cls.compute()
     end = time()
     print(f"Cal cluster time: {end-start} s.")
 
-    print("NUmber of cluster:", Cls.cluster_number)
+    print("Cluster id:", Cls.particleClusters)
+
+    print("Number of cluster", Cls.cluster_number)
 
     print("Cluster size of 1:", Cls.get_size_of_cluster(1))

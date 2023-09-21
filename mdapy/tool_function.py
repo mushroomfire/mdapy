@@ -2,6 +2,41 @@ import taichi as ti
 import numpy as np
 
 
+def _check_repeat_nearest(pos, box, boundary):
+    repeat = [1, 1, 1]
+    box_length = [np.linalg.norm(box[i]) for i in range(3)]
+    repeat_length = False
+    for i in range(3):
+        if boundary[i] == 1 and box_length[i] <= 6.0:
+            repeat_length = True
+    repeat_number = False
+    if pos.shape[0] < 50 and sum(boundary) > 0:
+        repeat_number = True
+
+    if repeat_length or repeat_number:
+        repeat = [1 if boundary[i] == 0 else 3 for i in range(3)]
+        while np.product(repeat) * pos.shape[0] < 50:
+            for i in range(3):
+                if boundary[i] == 1:
+                    repeat[i] += 1
+
+        for i in range(3):
+            if boundary[i] == 1:
+                while repeat[i] * box_length[i] < 6.0:
+                    repeat[i] += 1
+    return repeat
+
+
+def _check_repeat_cutoff(box, boundary, rc, factor=2):
+    repeat = [1, 1, 1]
+    box_length = [np.linalg.norm(box[i]) for i in range(3)]
+    for i in range(3):
+        if boundary[i] == 1:
+            while repeat[i] * box_length[i] <= factor * rc:
+                repeat[i] += 1
+    return repeat
+
+
 @ti.kernel
 def _wrap_pos(
     pos: ti.types.ndarray(element_dim=1),
@@ -148,3 +183,17 @@ def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
         boundary = ti.Vector(boundary)
         image_p = np.zeros_like(pos_list, dtype=int)
         _unwrap_pos_without_image_p(pos_list, box, boundary, image_p)
+
+
+def _init_vel(N, T, Mass=1.0):
+    Boltzmann_Constant = 8.617385e-5
+    np.random.seed(10086)
+    x1 = np.random.random(N * 3)
+    x2 = np.random.random(N * 3)
+    vel = (
+        np.sqrt(T * Boltzmann_Constant / Mass)
+        * np.sqrt(-2 * np.log(x1))
+        * np.cos(2 * np.pi * x2)
+    ).reshape(N, 3)
+    vel -= vel.mean(axis=0)  # A/ps
+    return vel * 100  # m/s

@@ -6,8 +6,12 @@ import numpy as np
 
 try:
     from nearest_neighbor import NearestNeighbor
+    from replicate import Replicate
+    from tool_function import _check_repeat_nearest
 except Exception:
     from .nearest_neighbor import NearestNeighbor
+    from .replicate import Replicate
+    from .tool_function import _check_repeat_nearest
 
 
 @ti.data_oriented
@@ -59,21 +63,31 @@ class AcklandJonesAnalysis:
     def __init__(
         self, pos, box, boundary=[1, 1, 1], verlet_list=None, distance_list=None
     ):
+        repeat = _check_repeat_nearest(pos, box, boundary)
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        self.pos = pos
         if box.dtype != np.float64:
             box = box.astype(np.float64)
-        if box.shape == (3, 2):
-            self.box = np.zeros((4, 3), dtype=box.dtype)
-            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-            self.box[-1] = box[:, 0]
-        elif box.shape == (4, 3):
-            self.box = box
+        self.old_N = None
+        if sum(repeat) == 3:
+            self.pos = pos
+            if box.shape == (3, 2):
+                self.box = np.zeros((4, 3), dtype=box.dtype)
+                self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
+                self.box[-1] = box[:, 0]
+            elif box.shape == (4, 3):
+                self.box = box
+        else:
+            self.old_N = pos.shape[0]
+            repli = Replicate(pos, box, *repeat)
+            repli.compute()
+            self.pos = repli.pos
+            self.box = repli.box
+
         assert self.box[0, 1] == 0
         assert self.box[0, 2] == 0
         assert self.box[1, 2] == 0
-        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
+        self.box_length = ti.Vector([np.linalg.norm(self.box[i]) for i in range(3)])
         self.rec = True
         if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
             self.rec = False
@@ -201,16 +215,20 @@ class AcklandJonesAnalysis:
 
     def compute(self):
         """Do the real AJA calculation."""
+
         self.aja = np.zeros(self.pos.shape[0], dtype=int)
         if self.pos.shape[0] < 14 and sum(self.boundary) == 0:
             pass
+        elif self.verlet_list is not None and self.distance_list is not None:
+            self._compute(
+                self.pos, self.box, self.verlet_list, self.distance_list, self.aja
+            )
         else:
-            verlet_list, distance_list = self.verlet_list, self.distance_list
-            if verlet_list is None or distance_list is None:
-                kdt = NearestNeighbor(self.pos, self.box, self.boundary)
-                distance_list, verlet_list = kdt.query_nearest_neighbors(14)
-
+            kdt = NearestNeighbor(self.pos, self.box, self.boundary)
+            distance_list, verlet_list = kdt.query_nearest_neighbors(14)
             self._compute(self.pos, self.box, verlet_list, distance_list, self.aja)
+        if self.old_N is not None:
+            self.aja = self.aja[: self.old_N]
 
 
 if __name__ == "__main__":
@@ -222,8 +240,8 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 100
-    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    x, y, z = 10, 10, 10
+    FCC = LatticeMaker(lattice_constant, "BCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
@@ -237,22 +255,22 @@ if __name__ == "__main__":
     for i in range(5):
         print(AJA.structure[i], sum(aja == i))
 
-    Neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=30)
-    Neigh.compute()
-    print(Neigh.neighbor_number.min())
+    # Neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=30)
+    # Neigh.compute()
+    # print(Neigh.neighbor_number.min())
 
-    start = time()
-    Neigh.sort_verlet_by_distance(14)
-    end = time()
-    print(f"taichi sort time: {end-start} s.")
+    # start = time()
+    # Neigh.sort_verlet_by_distance(14)
+    # end = time()
+    # print(f"taichi sort time: {end-start} s.")
 
-    start = time()
-    AJA = AcklandJonesAnalysis(
-        FCC.pos, FCC.box, [1, 1, 1], Neigh.verlet_list, Neigh.distance_list
-    )
-    AJA.compute()
-    aja = AJA.aja
-    end = time()
-    print(f"Cal aja sort time: {end-start} s.")
-    for i in range(5):
-        print(AJA.structure[i], sum(aja == i))
+    # start = time()
+    # AJA = AcklandJonesAnalysis(
+    #     FCC.pos, FCC.box, [1, 1, 1], Neigh.verlet_list, Neigh.distance_list
+    # )
+    # AJA.compute()
+    # aja = AJA.aja
+    # end = time()
+    # print(f"Cal aja sort time: {end-start} s.")
+    # for i in range(5):
+    #     print(AJA.structure[i], sum(aja == i))

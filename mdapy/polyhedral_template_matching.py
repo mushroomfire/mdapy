@@ -7,9 +7,13 @@ import numpy as np
 try:
     from ptm import _ptm
     from nearest_neighbor import NearestNeighbor
+    from replicate import Replicate
+    from tool_function import _check_repeat_nearest
 except Exception:
     import _ptm
     from .nearest_neighbor import NearestNeighbor
+    from .replicate import Replicate
+    from .tool_function import _check_repeat_nearest
 
 
 class PolyhedralTemplateMatching:
@@ -75,23 +79,44 @@ class PolyhedralTemplateMatching:
         verlet_list=None,
         return_verlet=False,
     ):
+        repeat = [1, 1, 1]
+        if verlet_list is None:
+            repeat = _check_repeat_nearest(pos, box, boundary)
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        self.pos = pos
         if box.dtype != np.float64:
             box = box.astype(np.float64)
-        if box.shape == (4, 3):
+        self.old_N = None
+        if sum(repeat) == 3:
+            self.pos = pos
+            if box.shape == (4, 3):
+                for i in range(3):
+                    for j in range(3):
+                        if i != j:
+                            assert box[i, j] == 0, "Do not support triclinic box."
+                self.box = np.zeros((3, 2))
+                self.box[:, 0] = box[-1]
+                self.box[:, 1] = (
+                    np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
+                )
+            elif box.shape == (3, 2):
+                self.box = box
+        else:
+            self.old_N = pos.shape[0]
+            repli = Replicate(pos, box, *repeat)
+            repli.compute()
+            self.pos = repli.pos
             for i in range(3):
                 for j in range(3):
                     if i != j:
-                        assert box[i, j] == 0, "Do not support triclinic box."
-            self.box = np.zeros((3, 2))
-            self.box[:, 0] = box[-1]
-            self.box[:, 1] = (
-                np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
-            )
-        elif box.shape == (3, 2):
-            self.box = box
+                        assert repli.box[i, j] == 0, "Do not support triclinic box."
+                self.box = np.zeros((3, 2))
+                self.box[:, 0] = repli.box[-1]
+                self.box[:, 1] = (
+                    np.array([repli.box[0, 0], repli.box[1, 1], repli.box[2, 2]])
+                    + self.box[:, 0]
+                )
+
         self.boundary = boundary
         self.structure = structure
         structure_list = [
@@ -116,26 +141,31 @@ class PolyhedralTemplateMatching:
 
     def compute(self):
         """Do the real ptm computation."""
-        verlet_list = self.verlet_list
-        if verlet_list is None:
-            kdt = NearestNeighbor(self.pos, self.box, self.boundary)
-            _, verlet_list = kdt.query_nearest_neighbors(18)
-
-        ptm_indices = np.zeros_like(verlet_list, int)
         self.output = np.zeros((self.pos.shape[0], 7))
+        ptm_indices = np.zeros((self.pos.shape[0], 18), int)
+        if self.pos.shape[0] < 18 and sum(self.boundary) == 0:
+            pass
+        else:
+            if self.verlet_list is None:
+                kdt = NearestNeighbor(self.pos, self.box, self.boundary)
+                _, self.verlet_list = kdt.query_nearest_neighbors(18)
 
-        _ptm.get_ptm(
-            self.structure,
-            self.pos,
-            verlet_list,
-            self.box[:, 1] - self.box[:, 0],
-            np.array(self.boundary, int),
-            self.output,
-            self.rmsd_threshold,
-            ptm_indices,
-        )
+            _ptm.get_ptm(
+                self.structure,
+                self.pos,
+                self.verlet_list,
+                self.box[:, 1] - self.box[:, 0],
+                np.array(self.boundary, int),
+                self.output,
+                self.rmsd_threshold,
+                ptm_indices,
+            )
         if self.return_verlet:
             self.ptm_indices = ptm_indices
+        if self.old_N is not None:
+            self.output = np.ascontiguousarray(self.output[: self.old_N])
+            if self.return_verlet:
+                self.ptm_indices = np.ascontiguousarray(self.ptm_indices[: self.old_N])
 
 
 if __name__ == "__main__":

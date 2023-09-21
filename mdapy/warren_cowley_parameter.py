@@ -5,10 +5,17 @@ import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 try:
     from plotset import pltset, cm2inch
+    from tool_function import _check_repeat_cutoff
+    from replicate import Replicate
+    from neighbor import Neighbor
 except Exception:
     from .plotset import pltset, cm2inch
+    from .tool_function import _check_repeat_cutoff
+    from .replicate import Replicate
+    from .neighbor import Neighbor
 
 
 @ti.data_oriented
@@ -26,9 +33,13 @@ class WarrenCowleyParameter:
       `X‐Ray Measurement of Order in Single Crystals of Cu3Au <https://doi.org/10.1063/1.1699415>`_.
 
     Args:
-        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-        neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
         type_list (np.ndarray): (:math:`N_p`) atom type.
+        verlet_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
+        neighbor_number (np.ndarray, optional): (:math:`N_p`) neighbor atoms number.
+        pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
+        box (np.ndarray, optional): (:math:`3, 2`) or (:math:`4, 3`) system box. Defaults to None.
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Such as [1, 1, 1]. Defaults to None.
+
 
     Outputs:
         - **WCP** (np.ndarray) - (:math:`N_{type}, N_{type}`) WCP for all pair elements
@@ -45,7 +56,7 @@ class WarrenCowleyParameter:
         >>> neigh.compute() # Calculate particle neighbor information.
 
         >>> wcp = mp.WarrenCowleyParameter(
-            neigh.verlet_list, neigh.neighbor_number, system.data["type"].values
+            system.data["type"].values, neigh.verlet_list, neigh.neighbor_number
             ) # Initilize the WCP class.
 
         >>> wcp.compute() # Calculate the WCP.
@@ -57,10 +68,53 @@ class WarrenCowleyParameter:
         >>> wcp.plot(["Co", "Cu", "Fe", "Ni", "Pd"]) # Plot the results.
     """
 
-    def __init__(self, verlet_list, neighbor_number, type_list):
+    def __init__(
+        self,
+        type_list,
+        verlet_list=None,
+        neighbor_number=None,
+        rc=None,
+        pos=None,
+        box=None,
+        boundary=None,
+    ):
+        self.type_list = type_list - 1
         self.verlet_list = verlet_list
         self.neighbor_number = neighbor_number
-        self.type_list = type_list - 1
+        if verlet_list is None or neighbor_number is None:
+            assert rc is not None
+            assert pos is not None
+            assert box is not None
+            assert boundary is not None
+            self.rc = rc
+            repeat = _check_repeat_cutoff(box, boundary, self.rc, 4)
+
+            if pos.dtype != np.float64:
+                pos = pos.astype(np.float64)
+            if box.dtype != np.float64:
+                box = box.astype(np.float64)
+            if sum(repeat) == 3:
+                self.pos = pos
+                if box.shape == (3, 2):
+                    self.box = np.zeros((4, 3), dtype=box.dtype)
+                    self.box[0, 0], self.box[1, 1], self.box[2, 2] = (
+                        box[:, 1] - box[:, 0]
+                    )
+                    self.box[-1] = box[:, 0]
+                elif box.shape == (4, 3):
+                    self.box = box
+            else:
+                repli = Replicate(pos, box, *repeat, type_list=type_list)
+                repli.compute()
+                self.pos = repli.pos
+                self.box = repli.box
+                self.type_list = repli.type_list - 1
+
+            assert self.box[0, 1] == 0
+            assert self.box[0, 2] == 0
+            assert self.box[1, 2] == 0
+            self.boundary = [int(boundary[i]) for i in range(3)]
+
         pltset()
 
     @ti.kernel
@@ -91,6 +145,13 @@ class WarrenCowleyParameter:
 
     def compute(self):
         """Do the real WCP calculation."""
+        if self.verlet_list is None or self.neighbor_number is None:
+            neigh = Neighbor(self.pos, self.box, self.rc, self.boundary)
+            neigh.compute()
+            self.verlet_list, self.neighbor_number = (
+                neigh.verlet_list,
+                neigh.neighbor_number,
+            )
         Ntype = len(np.unique(self.type_list))
         Zmn = np.zeros((Ntype, Ntype), dtype=np.int32)
         Zm = np.zeros(Ntype, dtype=np.int32)
@@ -104,7 +165,8 @@ class WarrenCowleyParameter:
             Zm,
             Alpha_n,
         )
-        self.WCP = 1 - Zmn / (Alpha_n * Zm)
+
+        self.WCP = 1 - Zmn / (np.expand_dims(Alpha_n, 0) * np.expand_dims(Zm, 1))
 
     def plot(self, elements_list=None, vmin=-2, vmax=1, cmap="GnBu"):
         """Plot the WCP matrix.
@@ -126,6 +188,8 @@ class WarrenCowleyParameter:
         if elements_list is not None:
             ax.set_xticklabels(elements_list)
             ax.set_yticklabels(elements_list[::-1])
+        else:
+            ax.set_yticklabels(np.arange(self.WCP.shape[0])[::-1])
 
         for i in range(self.WCP.shape[0]):
             for j in range(self.WCP.shape[1]):
@@ -150,28 +214,29 @@ if __name__ == "__main__":
     from mdapy import System
     from neighbor import Neighbor
     from time import time
+    from lattice_maker import LatticeMaker
 
     # ti.init(ti.gpu, device_memory_GB=2.0)
     ti.init(ti.cpu, offline_cache=True)
-
-    # file = open("./example/CoCuFeNiPd-4M.data").readlines()
-    # box = np.array([i.split()[:2] for i in file[6:9]], dtype=float)
-    # data = np.array([i.split() for i in file[12:]], dtype=float)
-    # pos = data[:, 2:]
-    # type_list = data[:, 1].astype(int)
-    system = System("./example/CoCuFeNiPd-4M.dump")
+    # system = LatticeMaker(3.615, "FCC", 1, 1, 1)
+    # system.compute()\
+    system = System("./1-1-1.data")
+    # system = System(r"F:\HEARes\HEA-Paper\SFE\MDMC\relax.0.data")
+    # system = System(r"./example/CoCuFeNiPd-4M.dump")
+    # start = time()
+    # neigh = Neighbor(system.pos, system.box, 3.0, max_neigh=30)
+    # neigh.compute()
+    # end = time()
+    # print(f"Build neighbor time: {end-start} s.")
     start = time()
-    neigh = Neighbor(system.pos, system.box, 3.0, max_neigh=30)
-    neigh.compute()
-    end = time()
-    print(f"Build neighbor time: {end-start} s.")
-    start = time()
+    # system.data["type"].values
     wcp = WarrenCowleyParameter(
-        neigh.verlet_list, neigh.neighbor_number, system.data["type"].values
+        system.data["type"].values, None, None, 3.0, system.pos, system.box, [1, 1, 1]
     )
     wcp.compute()
     end = time()
     print(f"Cal WCP time: {end-start} s.")
     print("WCP matrix is:")
     print(wcp.WCP)
-    wcp.plot(["Co", "Cu", "Fe", "Ni", "Pd"])
+    wcp.plot()
+    # wcp.plot(["Co", "Cu", "Fe", "Ni", "Pd"])

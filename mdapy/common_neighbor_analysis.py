@@ -4,6 +4,15 @@
 import taichi as ti
 import numpy as np
 
+try:
+    from tool_function import _check_repeat_cutoff
+    from replicate import Replicate
+    from neighbor import Neighbor
+except Exception:
+    from .tool_function import _check_repeat_cutoff
+    from .replicate import Replicate
+    from .neighbor import Neighbor
+
 
 @ti.data_oriented
 class CommonNeighborAnalysis:
@@ -47,11 +56,12 @@ class CommonNeighborAnalysis:
 
     Args:
         rc (float): cutoff distance.
-        verlet_list (np.ndarray): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
-        neighbor_number (np.ndarray): (:math:`N_p`) neighbor atoms number.
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
         box (np.ndarray): (:math:`3, 2`) system box.
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+        verlet_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1. Defaults to None.
+        neighbor_number (np.ndarray, optional): (:math:`N_p`) neighbor atoms number. Defaults to None.
+
 
     Outputs:
         - **pattern** (np.ndarray) - (:math:`N_p`) CNA results.
@@ -71,8 +81,8 @@ class CommonNeighborAnalysis:
 
         >>> neigh.compute() # Calculate particle neighbor information.
 
-        >>> CNA = mp.CommonNeighborAnalysis(3.615*0.8536, neigh.verlet_list, neigh.neighbor_number,
-                    FCC.pos, FCC.box, [1, 1, 1]) # Initialize CNA class
+        >>> CNA = mp.CommonNeighborAnalysis(3.615*0.8536, FCC.pos, FCC.box, [1, 1, 1],
+                    neigh.verlet_list, neigh.neighbor_number) # Initialize CNA class
 
         >>> CNA.compute() # Calculate the CNA per atoms
 
@@ -82,30 +92,44 @@ class CommonNeighborAnalysis:
 
     """
 
-    def __init__(self, rc, verlet_list, neighbor_number, pos, box, boundary=[1, 1, 1]):
+    def __init__(
+        self, rc, pos, box, boundary=[1, 1, 1], verlet_list=None, neighbor_number=None
+    ):
         self.rc = rc
-        self.verlet_list = verlet_list
-        self.neighbor_number = neighbor_number
+        # Make sure the boxl_length is four times larger than the rc.
+        repeat = _check_repeat_cutoff(box, boundary, self.rc, 4)
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        self.pos = pos
         if box.dtype != np.float64:
             box = box.astype(np.float64)
-        if box.shape == (3, 2):
-            self.box = np.zeros((4, 3), dtype=box.dtype)
-            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-            self.box[-1] = box[:, 0]
-        elif box.shape == (4, 3):
-            self.box = box
+        self.old_N = None
+        if sum(repeat) == 3:
+            self.pos = pos
+            if box.shape == (3, 2):
+                self.box = np.zeros((4, 3), dtype=box.dtype)
+                self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
+                self.box[-1] = box[:, 0]
+            elif box.shape == (4, 3):
+                self.box = box
+        else:
+            self.old_N = pos.shape[0]
+            repli = Replicate(pos, box, *repeat)
+            repli.compute()
+            self.pos = repli.pos
+            self.box = repli.box
+
         assert self.box[0, 1] == 0
         assert self.box[0, 2] == 0
         assert self.box[1, 2] == 0
-        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
+        self.box_length = ti.Vector([np.linalg.norm(self.box[i]) for i in range(3)])
         self.rec = True
         if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
             self.rec = False
         self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
-        self.N = self.verlet_list.shape[0]
+
+        self.N = self.pos.shape[0]
+        self.verlet_list = verlet_list
+        self.neighbor_number = neighbor_number
         self.MAXNEAR = 14
         self.MAXCOMMON = 7
 
@@ -114,7 +138,7 @@ class CommonNeighborAnalysis:
     @ti.func
     def _pbc_rec(self, rij):
         for m in ti.static(range(3)):
-            if self.boundary[m]:
+            if self.boundary[m] == 1:
                 dx = rij[m]
                 x_size = self.box_length[m]
                 h_x_size = x_size * 0.5
@@ -179,7 +203,7 @@ class CommonNeighborAnalysis:
                                 rjk = self._pbc_rec(rjk)
                             else:
                                 rjk = self._pbc(rjk, box)
-                            if rjk.norm_sqr() < rcsq:
+                            if rjk.norm_sqr() <= rcsq:
                                 nbonds += 1
                                 bonds[i, jj] += 1
                                 bonds[i, kk] += 1
@@ -247,6 +271,14 @@ class CommonNeighborAnalysis:
 
     def compute(self):
         """Do the real CNA calculation."""
+        if self.verlet_list is None or self.neighbor_number is None:
+            neigh = Neighbor(self.pos, self.box, self.rc, self.boundary)
+            neigh.compute()
+            self.verlet_list, self.neighbor_number = (
+                neigh.verlet_list,
+                neigh.neighbor_number,
+            )
+
         cna = np.zeros((self.N, self.MAXNEAR, 4), dtype=np.int32)
         common = np.zeros((self.N, self.MAXCOMMON), dtype=np.int32)
         bonds = np.zeros((self.N, self.MAXCOMMON), dtype=np.int32)
@@ -261,6 +293,8 @@ class CommonNeighborAnalysis:
             bonds,
             self.pattern,
         )
+        if self.old_N is not None:
+            self.pattern = np.ascontiguousarray(self.pattern[: self.old_N])
 
 
 if __name__ == "__main__":
@@ -272,24 +306,25 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 125
-    FCC = LatticeMaker(lattice_constant, "HCP", x, y, z)
+    x, y, z = 1, 1, 1
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
+    FCC.write_data()
     print(f"Build {FCC.pos.shape[0]} atoms HCP time: {end-start} s.")
-    start = time()
+    rc = 4.05 * 0.86  # 1.207
+    # start = time()
 
-    neigh = Neighbor(FCC.pos, FCC.box, 4.05 * 1.207, max_neigh=20)
-    neigh.compute()
-    print(neigh.neighbor_number.max())
-    end = time()
+    # neigh = Neighbor(FCC.pos, FCC.box, rc, max_neigh=20)
+    # neigh.compute()
+    # # print(neigh.neighbor_number.max())
+    # end = time()
     print(f"Build neighbor time: {end-start} s.")
     start = time()
-    CNA = CommonNeighborAnalysis(
-        neigh.rc, neigh.verlet_list, neigh.neighbor_number, FCC.pos, FCC.box, [1, 1, 1]
-    )
+    CNA = CommonNeighborAnalysis(rc, FCC.pos, FCC.box, [1, 1, 1])
     CNA.compute()
     end = time()
+
     print(f"Cal CNA time: {end-start} s.")
     for i in range(5):
         print(CNA.structure[i], ":", len(CNA.pattern[CNA.pattern == i]))

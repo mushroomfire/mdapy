@@ -30,7 +30,6 @@ class VoidDistribution:
         cell_length (float): length of cell, larger than lattice constant is okay.
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
         out_void (bool, optional): whether outputs void coordination. Defaults to False.
-        head (list, optional): header of void DUMP file. Defaults to None.
         out_name (str, optional): filename of generated void DUMP file. Defaults to "void.dump".
 
     Outputs:
@@ -77,7 +76,6 @@ class VoidDistribution:
         cell_length,
         boundary=[1, 1, 1],
         out_void=False,
-        head=None,
         out_name="void.dump",
     ):
         if pos.dtype != np.float64:
@@ -101,7 +99,6 @@ class VoidDistribution:
         self.cell_length = cell_length
         self.boundary = boundary
         self.out_void = out_void
-        self.head = head
         self.out_name = out_name
         self.origin = ti.Vector([self.box[0, 0], self.box[1, 0], self.box[2, 0]])
         self.ncel = ti.Vector(
@@ -167,23 +164,18 @@ class VoidDistribution:
             #     cell_id_list[iicel, jjcel, kkcel] = 0  # is point defect
 
     def _write_void_pos(self, void_data):
-        if self.head is None:
-            boundary_str = ["pp" if i == 1 else "ff" for i in self.boundary]
-            head = [
-                "ITEM: TIMESTEP\n",
-                "0\n",
-                "ITEM: NUMBER OF ATOMS\n",
-                f"{void_data.shape[0]}\n",
-                "ITEM: BOX BOUNDS {} {} {}\n".format(*boundary_str),
-                f"{self.box[0, 0]} {self.box[0, 1]}\n",
-                f"{self.box[1, 0]} {self.box[1, 1]}\n",
-                f"{self.box[2, 0]} {self.box[2, 1]}\n",
-                "ITEM: ATOMS id type x y z cluster_id\n",
-            ]
-        else:
-            head = self.head.copy()
-            head[3] = f"{void_data.shape[0]}\n"
-            head[-1] = "ITEM: ATOMS id type x y z cluster_id\n"
+        boundary_str = ["pp" if i == 1 else "ff" for i in self.boundary]
+        head = [
+            "ITEM: TIMESTEP\n",
+            "0\n",
+            "ITEM: NUMBER OF ATOMS\n",
+            f"{void_data.shape[0]}\n",
+            "ITEM: BOX BOUNDS {} {} {}\n".format(*boundary_str),
+            f"{self.box[0, 0]} {self.box[0, 1]}\n",
+            f"{self.box[1, 0]} {self.box[1, 1]}\n",
+            f"{self.box[2, 0]} {self.box[2, 1]}\n",
+            "ITEM: ATOMS id type x y z cluster_id\n",
+        ]
 
         with open(self.out_name, "w") as op:
             op.write("".join(head))

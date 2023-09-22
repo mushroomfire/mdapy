@@ -704,10 +704,21 @@ class SteinhardtBondOrientation:
                         )
 
                 sij_sum = sij_sum / Q6[i] / Q6[j] * 4 * ti.math.pi / 13
-                if sij_sum >= threshold:
+                if sij_sum > threshold:
                     n_solid_bond += 1
             if n_solid_bond >= n_bond:
                 solidliquid[i] = 1
+
+        for i in range(verlet_list.shape[0]):
+            if solidliquid[i] == 1:
+                n_solid = 0
+                for jj in range(neighbor_number[i]):
+                    j = verlet_list[i, jj]
+                    if solidliquid[j] == 1:
+                        n_solid = 1
+                        break
+                if n_solid == 0:
+                    solidliquid[i] = 0
 
     def identifySolidLiquid(self, threshold=0.7, n_bond=7):
         """Identify the solid/liquid phase. Make sure you computed the 6 in qlist.

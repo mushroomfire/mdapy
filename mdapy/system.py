@@ -1016,7 +1016,7 @@ class System:
         """
 
         potential = EAM(filename)
-        repeat = _check_repeat_cutoff(self.box, self.boundary, potential.rc)
+        repeat = _check_repeat_cutoff(self.box, self.boundary, potential.rc, 5)
         verlet_list, distance_list, neighbor_number = None, None, None
         if sum(repeat) == 3:
             if not self.if_neigh:

@@ -18,34 +18,26 @@ from mdapy import pltset, cm2inch
 
 mp.init("cpu")
 
-
-def get_enegy_lattice(potential, pos, box):
-
-    neigh = mp.Neighbor(pos, box, potential.rc, max_neigh=150)  # build neighbor list
-    neigh.compute()
-    Cal = mp.Calculator(
-        potential,
-        ["Al"],
-        np.ones(pos.shape[0], dtype=np.int32),
-        neigh.verlet_list,
-        neigh.distance_list,
-        neigh.neighbor_number,
-        pos,
-        [1, 1, 1],
-        box,
-    )  # calculate the energy
-    Cal.compute()
-    return Cal.energy.mean()
-
-
 eos = []
 lattice_constant = 4.05
-x, y, z = 3, 3, 3
+x, y, z = 4, 4, 4
 FCC = mp.LatticeMaker(lattice_constant, "FCC", x, y, z)  # build a FCC lattice
 FCC.compute()
 potential = mp.EAM("Al_DFT.eam.alloy")  # read a eam.alloy potential file
 for scale in np.arange(0.9, 1.15, 0.01):  # loop to get different energies
-    energy = get_enegy_lattice(potential, FCC.pos * scale, FCC.box * scale)
+    pos = FCC.pos.copy() * scale
+    box = FCC.box.copy()
+    box[:-1] *= scale
+    Cal = mp.Calculator(
+        potential,
+        pos,
+        [1, 1, 1],
+        box,
+        ["Al"],
+        np.ones(FCC.N, dtype=np.int32),
+    )  # calculate the energy
+    Cal.compute()
+    energy = Cal.energy.mean()
     eos.append([scale * lattice_constant, energy])
 eos = np.array(eos)
 

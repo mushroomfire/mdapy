@@ -84,7 +84,7 @@ class Calculator:
     ):
         self.potential = potential
         self.rc = self.potential.rc
-        repeat = _check_repeat_cutoff(box, boundary, self.rc)
+        repeat = _check_repeat_cutoff(box, boundary, self.rc, 5)
 
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
@@ -352,7 +352,8 @@ if __name__ == "__main__":
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
 
-    potential = EAM("./example/CoNiFeAlCu.eam.alloy")
+    potential = EAM("./example/Al_DFT.eam.alloy")
+    print(4.05 * 8 / potential.rc)
     # start = time()
     # neigh = Neighbor(FCC.pos, FCC.box, potential.rc, max_neigh=100)
     # neigh.compute()
@@ -362,9 +363,9 @@ if __name__ == "__main__":
     start = time()
     Cal = Calculator(
         potential,
-        FCC.pos,
+        FCC.pos * 0.9,
         [1, 1, 1],
-        FCC.box,
+        FCC.box * 0.9,
         ["Al"],
         np.ones(FCC.pos.shape[0], dtype=np.int32),
     )

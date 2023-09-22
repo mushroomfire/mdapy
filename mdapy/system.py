@@ -1346,7 +1346,13 @@ class MultiSystem(list):
 if __name__ == "__main__":
     ti.init()
     # from tool_function import _init_vel
-
+    system = System("./example/CoCuFeNiPd-4M.dump")
+    system.build_neighbor(max_neigh=60)
+    system.cal_pair_distribution()
+    system.cal_warren_cowley_parameter()
+    system.cal_centro_symmetry_parameter()
+    system.cal_polyhedral_template_matching()
+    print(system)
     # system = System(r"./example/FCC.data")
     # # print(system)
     # # from time import time
@@ -1385,11 +1391,11 @@ if __name__ == "__main__":
     # print(system.WarrenCowleyParameter.WCP)
     # print(system)
     # print(system.rc)
-    system = System(f"./benchmark/average_rdf/rdf.0.dump")
-    system.cal_pair_distribution(max_neigh=430)
-    print(system.verlet_list.shape[1])
-    print(system.neighbor_number.max())
-    system.PairDistribution.plot()
+    # system = System(f"./benchmark/average_rdf/rdf.0.dump")
+    # system.cal_pair_distribution(max_neigh=430)
+    # print(system.verlet_list.shape[1])
+    # print(system.neighbor_number.max())
+    # system.PairDistribution.plot()
     # MS = MultiSystem([f"./benchmark/average_rdf/rdf.{i}.dump" for i in range(5)])
     # print(MS[0])
     # MS.cal_mean_squared_displacement()

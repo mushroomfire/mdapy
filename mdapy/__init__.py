@@ -36,6 +36,10 @@ from .voronoi_analysis import VoronoiAnalysis
 from .warren_cowley_parameter import WarrenCowleyParameter
 from .replicate import Replicate
 
+import os
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
 
 def init(
     arch="cpu",

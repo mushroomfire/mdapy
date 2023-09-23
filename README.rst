@@ -175,11 +175,11 @@ You can try:
 Release Notes
 --------------
 
-V0.9.0 (9/22/2023)
+V0.9.0 (9/23/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Support triclinic box now!!!
-- Add select feature.
+- Add Select feature.
 - Rewrite the load and save module.
 - Make many method suitable for small system.
 - Fix some bugs.

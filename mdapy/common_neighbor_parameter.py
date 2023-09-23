@@ -236,7 +236,7 @@ if __name__ == "__main__":
     start = time()
     lattice_constant = 4.05
     x, y, z = 1, 1, 1
-    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    FCC = LatticeMaker(lattice_constant, "HCP", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
@@ -250,7 +250,7 @@ if __name__ == "__main__":
         FCC.pos,
         FCC.box,
         [1, 1, 1],
-        4.05 * 0.8536,
+        4.05 * 1.207,
     )
     CNP.compute()
     cnp = CNP.cnp

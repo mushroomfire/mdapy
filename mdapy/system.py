@@ -1366,9 +1366,9 @@ if __name__ == "__main__":
     system.cal_centro_symmetry_parameter()
     system.cal_polyhedral_template_matching()
     print(system)
-    system.write_data()
-    system.write_dump()
-    system.write_dump(compress=True)
+    # system.write_data()
+    # system.write_dump()
+    # system.write_dump(compress=True)
     # system = System(r"./example/FCC.data")
     # # print(system)
     # # from time import time

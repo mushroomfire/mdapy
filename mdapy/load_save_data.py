@@ -4,6 +4,14 @@ import gzip
 import numpy as np
 import pandas as pd
 import polars as pl
+import os
+import shutil
+from tempfile import mkdtemp
+
+try:
+    from .pigz import compress_file
+except Exception:
+    from pigz import compress_file
 
 
 class SaveFile:
@@ -46,8 +54,13 @@ class SaveFile:
                 assert len(type_list) == pos.shape[0]
                 type_list = np.array(type_list, int)
             data = pd.DataFrame(
-                np.c_[np.arange(pos.shape[0]) + 1, type_list, pos],
-                columns=["id", "type", "x", "y", "z"],
+                {
+                    "id": np.arange(pos.shape[0]) + 1,
+                    "type": type_list,
+                    "x": pos[:, 0],
+                    "y": pos[:, 1],
+                    "z": pos[:, 2],
+                }
             )
 
         with open(output_name, "wb") as op:
@@ -121,45 +134,55 @@ class SaveFile:
                 assert len(type_list) == pos.shape[0]
                 type_list = np.array(type_list, int)
             data = pd.DataFrame(
-                np.c_[np.arange(pos.shape[0]) + 1, type_list, pos],
-                columns=["id", "type", "x", "y", "z"],
+                {
+                    "id": np.arange(pos.shape[0]) + 1,
+                    "type": type_list,
+                    "x": pos[:, 0],
+                    "y": pos[:, 1],
+                    "z": pos[:, 2],
+                }
             )
 
         if compress:
-            op = gzip.open(output_name, "wb")
-        else:
-            op = open(output_name, "wb")
-        op.write(f"ITEM: TIMESTEP\n{timestep}\n".encode())
-        op.write("ITEM: NUMBER OF ATOMS\n".encode())
-        op.write(f"{data.shape[0]}\n".encode())
-        xlo, ylo, zlo = new_box[3]
-        xhi, yhi, zhi = (
-            xlo + new_box[0, 0],
-            ylo + new_box[1, 1],
-            zlo + new_box[2, 2],
-        )
-        xy, xz, yz = new_box[1, 0], new_box[2, 0], new_box[2, 1]
-        if xy != 0 or xz != 0 or yz != 0:  # Triclinic box
-            xlo_bound = xlo + min(0.0, xy, xz, xy + xz)
-            xhi_bound = xhi + max(0.0, xy, xz, xy + xz)
-            ylo_bound = ylo + min(0.0, yz)
-            yhi_bound = yhi + max(0.0, yz)
-            zlo_bound = zlo
-            zhi_bound = zhi
-            op.write(f"ITEM: BOX BOUNDS xy xz yz pp pp pp\n".encode())
-            op.write(f"{xlo_bound} {xhi_bound} {xy}\n".encode())
-            op.write(f"{ylo_bound} {yhi_bound} {xz}\n".encode())
-            op.write(f"{zlo_bound} {zhi_bound} {yz}\n".encode())
-        else:
-            op.write(f"ITEM: BOX BOUNDS pp pp pp\n".encode())
-            op.write(f"{xlo} {xhi}\n".encode())
-            op.write(f"{ylo} {yhi}\n".encode())
-            op.write(f"{zlo} {zhi}\n".encode())
-        col_name = "ITEM: ATOMS " + " ".join(data.columns) + " \n"
-        op.write(col_name.encode())
+            path, name = os.path.split(output_name)
+            if name.split(".")[-1] == "gz":
+                name = name[:-3]
+            temp_dir = mkdtemp()
+            output_name = os.path.join(temp_dir, name)
+        with open(output_name, "wb") as op:
+            op.write(f"ITEM: TIMESTEP\n{timestep}\n".encode())
+            op.write("ITEM: NUMBER OF ATOMS\n".encode())
+            op.write(f"{data.shape[0]}\n".encode())
+            xlo, ylo, zlo = new_box[3]
+            xhi, yhi, zhi = (
+                xlo + new_box[0, 0],
+                ylo + new_box[1, 1],
+                zlo + new_box[2, 2],
+            )
+            xy, xz, yz = new_box[1, 0], new_box[2, 0], new_box[2, 1]
+            if xy != 0 or xz != 0 or yz != 0:  # Triclinic box
+                xlo_bound = xlo + min(0.0, xy, xz, xy + xz)
+                xhi_bound = xhi + max(0.0, xy, xz, xy + xz)
+                ylo_bound = ylo + min(0.0, yz)
+                yhi_bound = yhi + max(0.0, yz)
+                zlo_bound = zlo
+                zhi_bound = zhi
+                op.write(f"ITEM: BOX BOUNDS xy xz yz pp pp pp\n".encode())
+                op.write(f"{xlo_bound} {xhi_bound} {xy}\n".encode())
+                op.write(f"{ylo_bound} {yhi_bound} {xz}\n".encode())
+                op.write(f"{zlo_bound} {zhi_bound} {yz}\n".encode())
+            else:
+                op.write(f"ITEM: BOX BOUNDS pp pp pp\n".encode())
+                op.write(f"{xlo} {xhi}\n".encode())
+                op.write(f"{ylo} {yhi}\n".encode())
+                op.write(f"{zlo} {zhi}\n".encode())
+            col_name = "ITEM: ATOMS " + " ".join(data.columns) + " \n"
+            op.write(col_name.encode())
 
-        pl.DataFrame(data).write_csv(op, separator=" ", has_header=False)
-        op.close()
+            pl.DataFrame(data).write_csv(op, separator=" ", has_header=False)
+        if compress:
+            compress_file(output_name, os.path.join(path, name + ".gz"))
+            shutil.rmtree(temp_dir)
 
 
 class BuildSystem:

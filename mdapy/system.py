@@ -81,7 +81,7 @@ class System:
             )
         elif isinstance(self.__filename, str):
             self.__fmt = BuildSystem.getformat(self.__filename, fmt)
-            if self.__fmt == "dump":
+            if self.__fmt in ["dump", "dump.gz"]:
                 (
                     self.__data,
                     self.__box,
@@ -1358,14 +1358,20 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
+    # system = System(r'E:\HEAShock\111\0.7km\shock-700m.10000.dump')
+    # system.write_data()
+    # system.write_dump()
+    # system.write_dump(compress=True)
+    # system.write_dump(output_name='test.dump.gz', compress=True)
     # from tool_function import _init_vel
     system = System("./example/CoCuFeNiPd-4M.dump")
-    system.build_neighbor(max_neigh=60)
-    system.cal_pair_distribution()
-    system.cal_warren_cowley_parameter()
-    system.cal_centro_symmetry_parameter()
-    system.cal_polyhedral_template_matching()
     print(system)
+    # system.build_neighbor(max_neigh=60)
+    # system.cal_pair_distribution()
+    # system.cal_warren_cowley_parameter()
+    # system.cal_centro_symmetry_parameter()
+    # system.cal_polyhedral_template_matching()
+    # print(system)
     # system.write_data()
     # system.write_dump()
     # system.write_dump(compress=True)

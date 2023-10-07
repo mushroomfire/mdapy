@@ -161,22 +161,27 @@ class Replicate:
             data_format=data_format,
         )
 
-    def write_dump(self, output_name=None):
+    def write_dump(self, output_name=None, compress=False):
         """This function writes position into a DUMP file.
 
         Args:
             output_name (str, optional): filename of generated DUMP file.
+            compress (bool, optional): whether compress the DUMP file.
         """
         if not self.if_computed:
             self.compute()
 
         if output_name is None:
             output_name = f"{self.x}-{self.y}-{self.z}.dump"
+        
+        if compress:
+            if output_name.split('.')[-1] != 'gz':
+                output_name += '.gz'
         if self.type_list is None:
             self.type_list = np.ones(self.N, int)
 
         SaveFile.write_dump(
-            output_name, self.box, [1, 1, 1], pos=self.pos, type_list=self.type_list
+            output_name, self.box, [1, 1, 1], pos=self.pos, type_list=self.type_list, compress=compress
         )
 
 
@@ -189,10 +194,11 @@ if __name__ == "__main__":
     fcc.compute()
     print(f"build {fcc.N} atoms...")
 
-    repli = Replicate(fcc.pos - 10, fcc.box, 2, 2, 2, type_list=[1, 2, 1, 2])
+    repli = Replicate(fcc.pos, fcc.box, 2, 2, 2, type_list=[1, 2, 1, 2])
     repli.compute()
     print(f"replicate {repli.x} {repli.y} {repli.z}...")
     print(repli.box)
     print(repli.type_list)
     # repli.write_data()
     # repli.write_dump()
+    # repli.write_dump(compress=True)

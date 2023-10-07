@@ -33,7 +33,7 @@ Dependencies
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
 * `pandas <https://pandas.pydata.org/>`_
-* `pyarrow <https://arrow.apache.org/docs/python/index.html>`_
+* `polars <https://pola-rs.github.io/polars/>`_
 * `matplotlib <https://matplotlib.org/>`_
 
 Optional Dependencies
@@ -174,6 +174,13 @@ You can try:
 
 Release Notes
 --------------
+
+V0.9.1 (Under developing)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Add **Polars** and remove Pyarrow. Now we still use pandas, but mdapy maybe move to polars in the future.
+- Optimize the performance of reading and saving Dump and Data file.
+- Support loading compressed Dump file (such as sample.dump.gz).
 
 V0.9.0 (9/23/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

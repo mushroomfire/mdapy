@@ -5,18 +5,18 @@ from time import time
 import numpy as np
 import taichi as ti
 import pandas as pd
-import pyarrow as pa
-from pyarrow import csv
 import multiprocessing as mt
 
 if __name__ == "__main__":
     from voronoi import _voronoi_analysis
     from lattice_maker import LatticeMaker
     from neighbor import Neighbor
+    from load_save_data import SaveFile
 else:
     import _voronoi_analysis
     from .lattice_maker import LatticeMaker
     from .neighbor import Neighbor
+    from .load_save_data import SaveFile
 
 
 class Cell:
@@ -561,16 +561,7 @@ class CreatePolycrystalline:
         df = pd.DataFrame(pos, columns=["id", "type", "x", "y", "z", "grainid"])
         df[["id", "type", "grainid"]] = df[["id", "type", "grainid"]].astype(int)
         df[["x", "y", "z"]] = df[["x", "y", "z"]].astype(np.float32)
-        table = pa.Table.from_pandas(df)
-        with pa.OSFile(self.output_name, "wb") as op:
-            op.write("ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n".encode())
-            op.write(f"{pos.shape[0]}\nITEM: BOX BOUNDS pp pp pp\n".encode())
-            op.write(
-                f"{self._real_box[0, 0]} {self._real_box[0, 1]}\n{self._real_box[1, 0]} {self._real_box[1, 1]}\n{self._real_box[2, 0]} {self._real_box[2, 1]}\n".encode()
-            )
-            op.write("ITEM: ATOMS id type x y z grainid\n".encode())
-            write_options = csv.WriteOptions(delimiter=" ", include_header=False)
-            csv.write_csv(table, op, write_options=write_options)
+        SaveFile.write_dump(self.output_name, self._real_box, [1, 1, 1], df)
 
     def compute(self):
         """Do the real polycrystalline structure building."""

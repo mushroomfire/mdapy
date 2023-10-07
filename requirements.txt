@@ -2,5 +2,5 @@ taichi>=1.6.0
 numpy
 scipy
 pandas
-pyarrow
+polars
 matplotlib

@@ -30,7 +30,7 @@ Dependencies
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
 * `pandas <https://pandas.pydata.org/>`_
-* `pyarrow <https://arrow.apache.org/docs/python/index.html>`_
+* `polars <https://pola-rs.github.io/polars/>`_
 * `matplotlib <https://matplotlib.org/>`_
 
 Optional Dependencies

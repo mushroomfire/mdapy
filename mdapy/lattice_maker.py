@@ -197,20 +197,25 @@ class LatticeMaker:
             data_format=data_format,
         )
 
-    def write_dump(self, output_name=None):
+    def write_dump(self, output_name=None, compress=False):
         """This function writes position into a DUMP file.
 
         Args:
             output_name (str, optional): filename of generated DUMP file.
+            compress (bool, optional): whether compress the DUMP file.
         """
         if not self.if_computed:
             self.compute()
 
         if output_name is None:
             output_name = f"{self.x}-{self.y}-{self.z}.dump"
+        
+        if compress:
+            if output_name.split('.')[-1] != 'gz':
+                output_name += '.gz'
 
         SaveFile.write_dump(
-            output_name, self.box, [1, 1, 1], pos=self.pos, type_list=self.type_list
+            output_name, self.box, [1, 1, 1], pos=self.pos, type_list=self.type_list, compress=compress
         )
 
 
@@ -236,7 +241,7 @@ if __name__ == "__main__":
     print(FCC.box)
     print(FCC.vol)
     FCC.write_data()
-    # FCC.write_dump()
+    FCC.write_dump(compress=True)
     # print(FCC.pos)
     # print(pos.dtype)
     # FCC.write_data()

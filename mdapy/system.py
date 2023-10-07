@@ -193,12 +193,23 @@ class System:
         )
         return subSystem
 
-    def write_dump(self, output_name=None, output_col=None):
+    def write_dump(self, output_name=None, output_col=None, compress=False):
+        """This function writes position into a DUMP file.
+
+        Args:
+            output_name (str, optional): filename of generated DUMP file.
+            output_col (list, optional): which columns should be saved.
+            compress (bool, optional): whether compress the DUMP file.
+        """
         if output_name is None:
             if self.__filename is None:
                 output_name = "output.dump"
             else:
                 output_name = self.__filename[:-4] + "output.dump"
+        if compress:
+            if output_name.split('.')[-1] != 'gz':
+                output_name += '.gz'
+        
         if output_col is None:
             data = self.__data
         else:
@@ -211,6 +222,7 @@ class System:
             pos=None,
             type_list=None,
             timestep=self.__timestep,
+            compress=compress
         )
 
     def write_data(self, output_name=None, data_format="atomic"):
@@ -1235,11 +1247,12 @@ class MultiSystem(list):
 
         self.Nframes = self.pos_list.shape[0]
 
-    def write_dumps(self, output_col=None):
+    def write_dumps(self, output_col=None, compress=False):
         """Write all data to a series of DUMP files.
 
         Args:
             output_col (list, optional): columns to be saved, such as ['id', 'type', 'x', 'y', 'z'].
+            compress (bool, optional): whether compress the DUMP file.
         """
         try:
             from tqdm import tqdm
@@ -1247,11 +1260,11 @@ class MultiSystem(list):
             progress_bar = tqdm(self)
             for system in progress_bar:
                 progress_bar.set_description(f"Saving {system.filename}")
-                system.write_dump(output_col=output_col)
+                system.write_dump(output_col=output_col, compress=compress)
         except Exception:
             for system in self:
                 print(f"\rSaving {system.filename}", end="")
-                system.write_dump(output_col=output_col)
+                system.write_dump(output_col=output_col, compress=compress)
 
     def cal_mean_squared_displacement(self, mode="windows"):
         """Calculate the mean squared displacement MSD of system, which can be used to
@@ -1353,6 +1366,9 @@ if __name__ == "__main__":
     system.cal_centro_symmetry_parameter()
     system.cal_polyhedral_template_matching()
     print(system)
+    system.write_data()
+    system.write_dump()
+    system.write_dump(compress=True)
     # system = System(r"./example/FCC.data")
     # # print(system)
     # # from time import time

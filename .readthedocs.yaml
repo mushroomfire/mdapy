@@ -5,6 +5,13 @@ build:
   tools:
     python: "miniconda3-4.7"
 
+python:
+  install:
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
+
 conda:
   environment: doc/environment.yml
 

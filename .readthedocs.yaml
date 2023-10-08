@@ -9,11 +9,11 @@ python:
   install:
     - method: pip
       path: .
-      extra_requirements:
-        - docs
 
 conda:
   environment: doc/environment.yml
 
 sphinx:
+  builder: html
   configuration: doc/source/conf.py
+  fail_on_warning: true

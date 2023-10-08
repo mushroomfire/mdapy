@@ -108,10 +108,26 @@ mdapy.lindemann\_parameter module
    :undoc-members:
    :show-inheritance:
 
+mdapy.load\_save\_data module
+-----------------------------
+
+.. automodule:: mdapy.load_save_data
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.mean\_squared\_displacement module
 ----------------------------------------
 
 .. automodule:: mdapy.mean_squared_displacement
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mdapy.nearest\_neighbor module
+------------------------------
+
+.. automodule:: mdapy.nearest_neighbor
    :members:
    :undoc-members:
    :show-inheritance:
@@ -128,6 +144,14 @@ mdapy.pair\_distribution module
 -------------------------------
 
 .. automodule:: mdapy.pair_distribution
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mdapy.pigz module
+-----------------
+
+.. automodule:: mdapy.pigz
    :members:
    :undoc-members:
    :show-inheritance:
@@ -200,6 +224,14 @@ mdapy.timer module
 ------------------
 
 .. automodule:: mdapy.timer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mdapy.tool\_function module
+---------------------------
+
+.. automodule:: mdapy.tool_function
    :members:
    :undoc-members:
    :show-inheritance:

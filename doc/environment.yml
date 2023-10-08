@@ -4,3 +4,16 @@ channels:
   - defaults
 dependencies:
   - pandoc
+  - python=3.8
+  - pip>=20.1  # pip is needed as dependency
+  - pip:
+    - taichi>=1.6.0
+    - numpy
+    - scipy
+    - pandas
+    - polars
+    - matplotlib
+    - sphinx
+    - sphinx_rtd_theme
+    - nbsphinx
+    - pybind11

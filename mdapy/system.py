@@ -207,9 +207,9 @@ class System:
             else:
                 output_name = self.__filename[:-4] + "output.dump"
         if compress:
-            if output_name.split('.')[-1] != 'gz':
-                output_name += '.gz'
-        
+            if output_name.split(".")[-1] != "gz":
+                output_name += ".gz"
+
         if output_col is None:
             data = self.__data
         else:
@@ -222,7 +222,7 @@ class System:
             pos=None,
             type_list=None,
             timestep=self.__timestep,
-            compress=compress
+            compress=compress,
         )
 
     def write_data(self, output_name=None, data_format="atomic"):
@@ -1365,13 +1365,13 @@ if __name__ == "__main__":
     # system.write_dump(output_name='test.dump.gz', compress=True)
     # from tool_function import _init_vel
     system = System("./example/CoCuFeNiPd-4M.dump")
-    print(system)
-    # system.build_neighbor(max_neigh=60)
-    # system.cal_pair_distribution()
-    # system.cal_warren_cowley_parameter()
-    # system.cal_centro_symmetry_parameter()
-    # system.cal_polyhedral_template_matching()
     # print(system)
+    system.build_neighbor(max_neigh=60)
+    system.cal_pair_distribution()
+    # system.cal_warren_cowley_parameter()
+    system.cal_centro_symmetry_parameter()
+    system.cal_polyhedral_template_matching()
+    print(system)
     # system.write_data()
     # system.write_dump()
     # system.write_dump(compress=True)

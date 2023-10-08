@@ -19,6 +19,10 @@ except Exception:
         _build_cell_tri_with_jishu,
     )
 
+import warnings
+
+warnings.simplefilter("ignore", category=DeprecationWarning)
+
 
 @ti.data_oriented
 class Neighbor:
@@ -207,9 +211,9 @@ class Neighbor:
 
     def compute(self):
         """Do the real neighbor calculation."""
-        atom_cell_list = np.zeros(self.N, dtype=np.int32)
+        atom_cell_list = np.zeros(self.N, dtype=int)
         cell_id_list = (
-            np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32) - 1
+            np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=int) - 1
         )
         need_check = True
         if self.max_neigh is None:
@@ -255,11 +259,11 @@ class Neighbor:
                     np.array([i for i in self.ncel]),
                     self.bin_length,
                 )
-        self.verlet_list = np.zeros((self.N, self.max_neigh), dtype=np.int32) - 1
+        self.verlet_list = np.zeros((self.N, self.max_neigh), dtype=int) - 1
         self.distance_list = (
             np.zeros((self.N, self.max_neigh), dtype=self.pos.dtype) + self.rc + 1.0
         )
-        self.neighbor_number = np.zeros(self.N, dtype=np.int32)
+        self.neighbor_number = np.zeros(self.N, dtype=int)
 
         self._build_verlet_list(
             self.pos,
@@ -317,8 +321,8 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    ti.init(ti.gpu, device_memory_GB=4.0)
-    # ti.init(ti.cpu)
+    # ti.init(ti.gpu, device_memory_GB=4.0)
+    ti.init(ti.cpu)
     start = time()
     lattice_constant = 3.615
     x, y, z = 100, 100, 50
@@ -332,12 +336,12 @@ if __name__ == "__main__":
     end = time()
     print(neigh.ncel)
     print(f"Build neighbor time: {end-start} s.")
-    print(neigh.verlet_list[0])
-    print(neigh.distance_list[0])
-    print(neigh.verlet_list.shape[1])
-    print(neigh.neighbor_number.max())
-    print(neigh.neighbor_number.min())
+    # print(neigh.verlet_list[0])
+    # print(neigh.distance_list[0])
+    # print(neigh.verlet_list.shape[1])
+    # print(neigh.neighbor_number.max())
+    # print(neigh.neighbor_number.min())
 
-    neigh.sort_verlet_by_distance(12)
-    print(neigh.verlet_list[0])
-    print(neigh.distance_list[0])
+    # neigh.sort_verlet_by_distance(12)
+    # print(neigh.verlet_list[0])
+    # print(neigh.distance_list[0])

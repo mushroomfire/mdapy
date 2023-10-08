@@ -35,6 +35,7 @@ from .void_distribution import VoidDistribution
 from .voronoi_analysis import VoronoiAnalysis
 from .warren_cowley_parameter import WarrenCowleyParameter
 from .replicate import Replicate
+from .pigz import compress_file
 
 import os
 

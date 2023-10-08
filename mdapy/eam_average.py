@@ -2,6 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
+
 if __name__ == "__main__":
     from potential import EAM
 else:
@@ -47,7 +48,6 @@ class EAMAverage(EAM):
     """
 
     def __init__(self, filename, concentration, output_name=None):
-
         super().__init__(filename)
         self.concentration = concentration
 
@@ -76,7 +76,6 @@ class EAMAverage(EAM):
         self.write_eam_alloy(self.output_name)
 
     def _average(self):
-
         self.Nelements += 1
         self.elements_list.append("A")
         self.aindex = np.r_[self.aindex, np.zeros(1, dtype=self.aindex.dtype)]

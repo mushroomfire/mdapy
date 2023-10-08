@@ -31,7 +31,7 @@ FCOMMENT = 0x10
 
 
 class PigzFile:  # pylint: disable=too-many-instance-attributes
-    """ Class to implement Pigz functionality in Python """
+    """Class to implement Pigz functionality in Python"""
 
     def __init__(
         self,
@@ -45,8 +45,12 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         Take in a file or directory and gzip using multiple system cores.
         """
         assert isinstance(compression_target, str)
-        assert compression_target.split('.')[-1] != 'gz', "Can not compress the .gz file."
-        assert os.path.exists(compression_target), f"No such file or directory: {compression_target}"
+        assert (
+            compression_target.split(".")[-1] != "gz"
+        ), "Can not compress the .gz file."
+        assert os.path.exists(
+            compression_target
+        ), f"No such file or directory: {compression_target}"
         self.compression_target = compression_target
         self.compression_level = compresslevel
         self.blocksize = blocksize * 1000
@@ -54,7 +58,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         self.output_file = None
         if output_filename is None:
-            output_filename = self.compression_target + '.gz'
+            output_filename = self.compression_target + ".gz"
         self.output_filename = output_filename
 
         # This is how we know if we're done reading, compressing, & writing the file
@@ -89,7 +93,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         # Block until writing is complete
         # This prevents us from returning prior to the work being done
         self.write_thread.join()
-
 
     def _write_output_header(self):
         """
@@ -126,25 +129,25 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
 
     def _write_header_cm(self):
-        """ Write the CM (compression method) to file header """
+        """Write the CM (compression method) to file header"""
         self.output_file.write((8).to_bytes(1, sys.byteorder))
 
     def _write_header_flg(self, flags):
-        """ Write FLG (FLaGs) """
+        """Write FLG (FLaGs)"""
         self.output_file.write((flags).to_bytes(1, sys.byteorder))
 
     def _write_header_mtime(self):
-        """ Write MTIME (Modification time) """
+        """Write MTIME (Modification time)"""
         mtime = self._determine_mtime()
         self.output_file.write((mtime).to_bytes(4, sys.byteorder))
 
     def _write_header_xfl(self):
-        """ Write XFL (eXtra FLags) """
+        """Write XFL (eXtra FLags)"""
         extra_flags = self._determine_extra_flags(self.compression_level)
         self.output_file.write((extra_flags).to_bytes(1, sys.byteorder))
 
     def _write_header_os(self):
-        """ Write OS """
+        """Write OS"""
         os_number = self._determine_operating_system()
         self.output_file.write((os_number).to_bytes(1, sys.byteorder))
 
@@ -152,7 +155,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         """
         Setup the output file
         """
-
 
         self.output_file = open(self.output_filename, "wb")
         self._write_output_header()
@@ -355,7 +357,7 @@ def compress_file(
     blocksize=DEFAULT_BLOCK_SIZE_KB,
     workers=CPU_COUNT,
 ):
-    """ Helper function to call underlying class and compression method """
+    """Helper function to call underlying class and compression method"""
     assert isinstance(source_file, str)
     pigz_file = PigzFile(source_file, output_file, compresslevel, blocksize, workers)
     pigz_file.process_compression_target()
@@ -366,8 +368,10 @@ def compress_file(
             pass
 
 
-if __name__=='__main__':
+if __name__ == "__main__":
     start = time.time()
-    compress_file(r'C:\Users\Administrator\Desktop\python\MY_PACKAGE\MyPackage\mdapy\doc\source\gettingstarted\mdapy.data')
+    compress_file(
+        r"E:\HEAShock\111\1km\shock-1000m.10000.dump"
+    )
     end = time.time()
-    print(f'Time cost {end-start} s.')
+    print(f"Time cost {end-start} s.")

@@ -209,13 +209,18 @@ class LatticeMaker:
 
         if output_name is None:
             output_name = f"{self.x}-{self.y}-{self.z}.dump"
-        
+
         if compress:
-            if output_name.split('.')[-1] != 'gz':
-                output_name += '.gz'
+            if output_name.split(".")[-1] != "gz":
+                output_name += ".gz"
 
         SaveFile.write_dump(
-            output_name, self.box, [1, 1, 1], pos=self.pos, type_list=self.type_list, compress=compress
+            output_name,
+            self.box,
+            [1, 1, 1],
+            pos=self.pos,
+            type_list=self.type_list,
+            compress=compress,
         )
 
 

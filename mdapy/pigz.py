@@ -359,6 +359,9 @@ def compress_file(
 ):
     """Helper function to call underlying class and compression method"""
     assert isinstance(source_file, str)
+    file_size = os.path.getsize(source_file)/1024**2 # M
+    if file_size < 4:
+        workers = 1
     pigz_file = PigzFile(source_file, output_file, compresslevel, blocksize, workers)
     pigz_file.process_compression_target()
     if inplace:
@@ -371,7 +374,7 @@ def compress_file(
 if __name__ == "__main__":
     start = time.time()
     compress_file(
-        r"E:\HEAShock\111\1km\shock-1000m.10000.dump"
+        r"C:\Users\Administrator\Desktop\test\test-2.dump"
     )
     end = time.time()
     print(f"Time cost {end-start} s.")

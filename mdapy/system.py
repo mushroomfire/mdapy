@@ -205,7 +205,7 @@ class System:
             if self.__filename is None:
                 output_name = "output.dump"
             else:
-                output_name = self.__filename[:-4] + "output.dump"
+                output_name = ".".join(self.__filename.split(".")[:-1]) + ".output.dump"
         if compress:
             if output_name.split(".")[-1] != "gz":
                 output_name += ".gz"

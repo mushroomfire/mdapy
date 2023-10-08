@@ -92,14 +92,6 @@ mdapy.identify\_SFs\_TBs module
    :undoc-members:
    :show-inheritance:
 
-mdapy.kdtree module
--------------------
-
-.. automodule:: mdapy.kdtree
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 mdapy.lattice\_maker module
 ---------------------------
 

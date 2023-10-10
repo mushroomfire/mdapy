@@ -28,12 +28,12 @@ Resources
 Dependencies
 ------------
 
-* `python <https://www.python.org/>`_ (3.7-3.11)
+* `python <https://www.python.org/>`_ (3.8-3.11)
 * `taichi>=1.6.0 <https://github.com/taichi-dev/taichi>`_
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
 * `pandas <https://pandas.pydata.org/>`_
-* `polars <https://pola-rs.github.io/polars/>`_
+* `polars>=0.19.0 <https://pola-rs.github.io/polars/>`_
 * `pyarrow <https://arrow.apache.org/docs/python/>`_
 * `matplotlib <https://matplotlib.org/>`_
 
@@ -182,6 +182,7 @@ V0.9.1 (10/10/2023)
 - Add **Polars** as dependency package. Now we still use pandas, but mdapy maybe move to polars in the future.
 - Optimize the performance of reading and saving Dump and Data file.
 - Support loading/saving compressed Dump file (such as sample.dump.gz).
+- Support the lowest python version to 3.8.0
 
 V0.9.0 (9/23/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

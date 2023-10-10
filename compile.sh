@@ -11,7 +11,7 @@ elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then
     source D:/Anaconda/etc/profile.d/conda.sh
 fi
 
-for i in 7 8 9 10 11
+for i in 8 9 10 11
 do 
     echo "py3${i}"
     conda activate "py3${i}"

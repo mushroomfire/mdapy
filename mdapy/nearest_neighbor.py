@@ -388,7 +388,7 @@ if __name__ == "__main__":
     # print(index[0])
     start = time()
     lattice_constant = 4.05
-    x, y, z = 10, 10, 10
+    x, y, z = 100, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()

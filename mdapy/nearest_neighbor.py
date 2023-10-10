@@ -369,7 +369,7 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     import taichi as ti
     from time import time
-    from system import System
+    # from system import System
 
     ti.init(ti.cpu)
     # system = System(
@@ -388,7 +388,7 @@ if __name__ == "__main__":
     # print(index[0])
     start = time()
     lattice_constant = 4.05
-    x, y, z = 2, 2, 2
+    x, y, z = 10, 10, 10
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()

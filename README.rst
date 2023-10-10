@@ -184,7 +184,7 @@ which is caused by the Polars installed by pip. You can install it by conda:
 Release Notes
 --------------
 
-V0.9.1 (10/10/2023)
+V0.9.1 (10/11/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Add **Polars** as dependency package. Now we still use pandas, but mdapy maybe move to polars in the future.

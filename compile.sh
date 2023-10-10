@@ -15,7 +15,7 @@ for i in 8 9 10 11
 do 
     echo "py3${i}"
     conda activate "py3${i}"
-    python -m pip install --upgrade pip 
+    python -m pip install --upgrade pip setuptools wheel twine
     pip install pybind11 build
     if [ "$(uname)" == "Darwin" ]; then
         echo "Mac OS X"

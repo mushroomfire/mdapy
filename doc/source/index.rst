@@ -31,6 +31,7 @@ Dependencies
 * `scipy <https://scipy.org/>`_
 * `pandas <https://pandas.pydata.org/>`_
 * `polars <https://pola-rs.github.io/polars/>`_
+* `pyarrow <https://arrow.apache.org/docs/python/>`_
 * `matplotlib <https://matplotlib.org/>`_
 
 Optional Dependencies

@@ -79,6 +79,7 @@ setup(
         "scipy",
         "pandas",
         "polars",
+        "pyarrow",
         "matplotlib",
     ],
     classifiers=[

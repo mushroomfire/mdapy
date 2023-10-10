@@ -34,6 +34,7 @@ Dependencies
 * `scipy <https://scipy.org/>`_
 * `pandas <https://pandas.pydata.org/>`_
 * `polars <https://pola-rs.github.io/polars/>`_
+* `pyarrow <https://arrow.apache.org/docs/python/>`_
 * `matplotlib <https://matplotlib.org/>`_
 
 Optional Dependencies
@@ -178,7 +179,7 @@ Release Notes
 V0.9.1 (10/10/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- Add **Polars** and remove Pyarrow. Now we still use pandas, but mdapy maybe move to polars in the future.
+- Add **Polars** as dependency package. Now we still use pandas, but mdapy maybe move to polars in the future.
 - Optimize the performance of reading and saving Dump and Data file.
 - Support loading/saving compressed Dump file (such as sample.dump.gz).
 

@@ -12,6 +12,7 @@ dependencies:
     - scipy
     - pandas
     - polars
+    - pyarrow
     - matplotlib
     - sphinx
     - sphinx_rtd_theme

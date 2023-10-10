@@ -3,4 +3,5 @@ numpy
 scipy
 pandas
 polars
+pyarrow
 matplotlib

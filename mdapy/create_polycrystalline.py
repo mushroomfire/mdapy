@@ -667,6 +667,6 @@ if __name__ == "__main__":
     # polycry = CreatePolycrystalline(box, 20, 3.615, "FCC")
     # polycry.compute()
     polycry = CreatePolycrystalline(
-        box, 10, 2.615, "FCC", add_graphene=True, if_rotation=True
+        box, 10, 2.615, "FCC", 1, add_graphene=True, if_rotation=True
     )
     polycry.compute()

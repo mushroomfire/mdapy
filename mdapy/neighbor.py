@@ -211,10 +211,10 @@ class Neighbor:
 
     def compute(self):
         """Do the real neighbor calculation."""
-        atom_cell_list = np.zeros(self.N, dtype=int)
+        atom_cell_list = np.zeros(self.N, dtype=np.int32)
         cell_id_list = (
-            np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=int) - 1
-        )
+            np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32)
+        ) -1
         need_check = True
         if self.max_neigh is None:
             max_neigh_list = np.zeros_like(cell_id_list)
@@ -336,8 +336,8 @@ if __name__ == "__main__":
     end = time()
     print(neigh.ncel)
     print(f"Build neighbor time: {end-start} s.")
-    # print(neigh.verlet_list[0])
-    # print(neigh.distance_list[0])
+    print(neigh.verlet_list[0])
+    print(neigh.distance_list[0])
     # print(neigh.verlet_list.shape[1])
     # print(neigh.neighbor_number.max())
     # print(neigh.neighbor_number.min())

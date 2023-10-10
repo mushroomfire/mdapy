@@ -331,7 +331,7 @@ if __name__ == "__main__":
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
-    neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=42)
+    neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=None)
     neigh.compute()
     end = time()
     print(neigh.ncel)

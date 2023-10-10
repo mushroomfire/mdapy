@@ -32,5 +32,6 @@ do
 done
 
 # python -m twine upload dist/*
+# rename 's/linux/manylinux1/' mdapy-0.9.1*linux* -n
 
 

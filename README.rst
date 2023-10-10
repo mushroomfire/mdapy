@@ -173,6 +173,14 @@ You can try:
 
    conda install -c conda-forge gxx_linux-64
 
+If you encounter zsh: illegal hardware instruction in Mac OS with M1,
+which is caused by the Polars installed by pip. You can install it by conda:
+
+.. code-block:: bash
+
+   1. pip uninstall polars
+   2. conda install -c conda-forge polars
+
 Release Notes
 --------------
 

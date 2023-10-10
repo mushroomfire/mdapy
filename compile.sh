@@ -19,7 +19,8 @@ do
     pip install pybind11 build
     if [ "$(uname)" == "Darwin" ]; then
         echo "Mac OS X"
-        python -m build --no-isolation
+        python setup.py bdist_wheel
+        # python -m build --no-isolation This has bugs in Mac OS.
     elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
         echo "GNU/Linux"
         python -m build --no-isolation

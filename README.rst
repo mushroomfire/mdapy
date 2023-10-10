@@ -59,12 +59,8 @@ Install from pip (recommended).
 Install from source code.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- You should install pybind11 and have a C++ compilation environment (-std=c++11 or newer) and openmp supports. 
+- You should have a C++ compilation environment (-std=c++11 or newer) and openmp supports. 
   Tested by MSVC in Windows 10, GCC in Ubuntu, Clang in MAC OS M1.
-
-   .. code-block:: bash
-      
-      pip install pybind11
 
 - Download the source code and installation.
    

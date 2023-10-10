@@ -94,6 +94,7 @@ class kdtree:
                 for i in range(3)
             ]
         )
+
         try:
             import pyfnntw
 
@@ -388,7 +389,7 @@ if __name__ == "__main__":
     # print(index[0])
     start = time()
     lattice_constant = 4.05
-    x, y, z = 100, 100, 100
+    x, y, z = 50, 50, 50
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
@@ -396,7 +397,7 @@ if __name__ == "__main__":
     FCC.pos -= 0.2
     print(np.min(FCC.pos, axis=0))
     start = time()
-    kdt = NearestNeighbor(FCC.pos, FCC.box, [0, 0, 0])
+    kdt = NearestNeighbor(FCC.pos, FCC.box, [1, 1, 1])
     # kdt = kdtree(FCC.pos, FCC.box, [1, 1, 1])
     end = time()
     print(f"Build kdtree time: {end-start} s.")
@@ -412,3 +413,5 @@ if __name__ == "__main__":
 
     print(dis[0])
     print(index[0])
+    print(FCC.box)
+    print(FCC.pos[199] - FCC.pos[0])

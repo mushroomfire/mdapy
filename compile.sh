@@ -15,17 +15,16 @@ for i in 7 8 9 10 11
 do 
     echo "py3${i}"
     conda activate "py3${i}"
-    python -m pip install --upgrade pip setuptools wheel twine
-    pip install pybind11
+    python -m pip install --upgrade pip pybind11 build
     if [ "$(uname)" == "Darwin" ]; then
         echo "Mac OS X"
-        python setup.py bdist_wheel
+        python -m build --no-isolation
     elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
         echo "GNU/Linux"
-        python setup.py bdist_wheel --plat-name=manylinux1_x86_64
+        python -m build --no-isolation
     elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then    
         echo "Windows NT"
-        python setup.py bdist_wheel
+        python -m build --no-isolation
     fi
     conda deactivate
 done

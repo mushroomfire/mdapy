@@ -190,7 +190,8 @@ V0.9.1 (10/10/2023)
 - Add **Polars** as dependency package. Now we still use pandas, but mdapy maybe move to polars in the future.
 - Optimize the performance of reading and saving Dump and Data file.
 - Support loading/saving compressed Dump file (such as sample.dump.gz).
-- Support the lowest python version to 3.8.0
+- Support the lowest python version to 3.8.0.
+- Add pyproject.toml.
 
 V0.9.0 (9/23/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

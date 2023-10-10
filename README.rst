@@ -175,12 +175,12 @@ You can try:
 Release Notes
 --------------
 
-V0.9.1 (Under developing)
+V0.9.1 (10/10/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Add **Polars** and remove Pyarrow. Now we still use pandas, but mdapy maybe move to polars in the future.
 - Optimize the performance of reading and saving Dump and Data file.
-- Support loading compressed Dump file (such as sample.dump.gz).
+- Support loading/saving compressed Dump file (such as sample.dump.gz).
 
 V0.9.0 (9/23/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

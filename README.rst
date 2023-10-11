@@ -169,8 +169,8 @@ You can try:
 
    conda install -c conda-forge gxx_linux-64
 
-If you encounter zsh: illegal hardware instruction in Mac OS with M1,
-which is caused by the Polars installed by pip. You can try:
+If you encounter zsh: illegal hardware instruction in Mac OS,
+which is caused by the x86_64 Rosseta architecture. You can try:
 
 .. code-block:: bash
 

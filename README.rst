@@ -177,14 +177,6 @@ You can try:
 
    conda install -c conda-forge gxx_linux-64
 
-If you encounter zsh: illegal hardware instruction in Mac OS,
-which is caused by the x86_64 Rosseta architecture. You can try:
-
-.. code-block:: bash
-
-   1. pip uninstall polars
-   2. pip install polars-lts-cpu
-
 Release Notes
 --------------
 

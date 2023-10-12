@@ -39,7 +39,7 @@ Main Features
 ---------------------
 
     - `Neighbor Atoms within Fixed Distance <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.neighbor>`_
-    - `Neighbor Atoms within Fixed Number <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.kdtree>`_
+    - `Neighbor Atoms within Fixed Number <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.nearest_neighbor>`_
 
 6. Other 
 ---------
@@ -51,4 +51,4 @@ Main Features
     - `Average Atomic Temperature <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.temperature>`_
     - `Atomic Voronoi Volume <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.voronoi_analysis>`_
     - `Multi-dimensional Spatial Binning <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.spatial_binning>`_
-
+    - `Parallelly Compress file to .gz format <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.pigz>`_

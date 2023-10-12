@@ -357,7 +357,16 @@ def compress_file(
     blocksize=DEFAULT_BLOCK_SIZE_KB,
     workers=CPU_COUNT,
 ):
-    """Helper function to call underlying class and compression method"""
+    """This function provides a interface to compress a file to .gz format parallelly.
+
+    Args:
+        source_file (str): filename you want to compress.
+        output_file (str, optional): output compressed filename. If not give, mdapy will automatically append a .gz postfix.
+        inplace (bool, optional): whether inplace the original file. Defaults to False.
+        compresslevel (int, optional): 1 is fastest but worst, 9 is slowest but best. Defaults to 9.
+        blocksize (int, optional): blocksize, generally do not need change. Defaults to 128 KB.
+        workers (int, optional): number of threads to be used to do compression. Defaults to all your CPU cores.
+    """
     assert isinstance(source_file, str)
     file_size = os.path.getsize(source_file) / 1024**2  # M
     if file_size < 4:

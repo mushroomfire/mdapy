@@ -56,6 +56,58 @@ except Exception:
 
 
 class System:
+    """This class can generate a System class for rapidly accessing almost all the analysis
+    method in mdapy.
+
+    .. note::
+      - mdapy now supports both rectangle and triclinic box from version 0.9.0.
+      - mdapy only supports the simplest DATA format, atomic and charge, which means like bond information will cause an error.
+      - We recommend you use DUMP as input file format or directly give particle positions and box.
+
+    Args:
+        filename (str, optional): DATA/DUMP filename. Defaults to None.
+        fmt (str, optional): selected in ['data', 'lmp', 'dump', 'dump.gz'], One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
+        data (pd.Dataframe, optional): all particles information. Defaults to None.
+        box (np.ndarray, optional): (:math:`4, 3` or :math:`3, 2`) system box. Defaults to None.
+        pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+        vel (np.ndarray, optional): (:math:`N_p, 3`) particles velocities. Defaults to None.
+        type_list (np.ndarray, optional): (:math:`N_p`) type per particles. Defaults to 1.
+        sorted_id (bool, optional): whether sort system data by the particle id. Defaults to False.
+    
+    Examples:
+
+        There are two ways to create a System class.
+        The first is directly reading from a DUMP/DATA file generated from LAMMPS.
+
+        >>> import mdapy as mp
+
+        >>> mp.init('cpu')
+
+        >>> system = mp.System('example.dump')
+
+        One can also create a System by giving pos, box manually.
+
+        >>> import numpy as np
+
+        >>> box = np.array([[0, 100], [0, 100], [0, 100.]])
+
+        >>> pos = np.random.random((100, 3))*100
+
+        >>> system = mp.System(box=box, pos=pos)
+
+        Then one can access almost all the analysis method in mdapy with uniform API.
+
+        >>> system.cal_atomic_entropy() # calculate the atomic entropy
+
+        One can check the calculation results:
+
+        >>> system.data
+
+        And easily save it into disk with DUMP/DATA format.
+
+        >>> system.write_dump()
+    """
     def __init__(
         self,
         filename=None,
@@ -68,6 +120,7 @@ class System:
         type_list=None,
         sorted_id=False,
     ) -> None:
+        
         self.__filename = filename
         self.__fmt = fmt
         self.__timestep = 0
@@ -107,30 +160,65 @@ class System:
 
     @property
     def filename(self):
+        """obtain filename.
+
+        Returns:
+            str: filename.
+        """
         return self.__filename
 
     @property
     def fmt(self):
+        """obtain file format.
+
+        Returns:
+            str: file format.
+        """
         return self.__fmt
 
     @property
     def data(self):
+        """check particles information.
+
+        Returns:
+            pd.Dataframe: particles information.
+        """
         return self.__data
 
     @property
     def box(self):
+        """box information.
+
+        Returns:
+            np.ndarray: box information.
+        """
         return self.__box
 
     @property
     def boundary(self):
+        """boundary information.
+
+        Returns:
+            list: boundary information.
+        """
         return self.__boundary
 
     @property
     def pos(self):
+        """particle position information.
+
+        Returns:
+            np.ndarray: position information.
+        """
         return self.__data[["x", "y", "z"]].values
 
     @property
     def vel(self):
+        """particle velocity information.
+
+        Returns:
+            np.ndarray: velocity information.
+        """
         if "vx" in self.__data.columns:
             return self.__data[["vx", "vy", "vz"]].values
         else:
@@ -138,18 +226,38 @@ class System:
 
     @property
     def N(self):
+        """particle number.
+
+        Returns:
+            int: particle number.
+        """
         return self.__data.shape[0]
 
     @property
     def vol(self):
+        """system volume.
+
+        Returns:
+            float: system volume.
+        """
         return np.inner(self.__box[0], np.cross(self.__box[1], self.__box[2]))
 
     @property
     def rho(self):
+        """system number density.
+
+        Returns:
+            float: system number density.
+        """
         return self.N / self.vol
 
     @property
     def verlet_list(self):
+        """verlet neighbor information. Each row indicates the neighbor atom's indice.
+
+        Returns:
+            np.ndarray: verlet information.
+        """
         if self.if_neigh:
             return self.__verlet_list
         else:
@@ -157,6 +265,11 @@ class System:
 
     @property
     def distance_list(self):
+        """distance neighbor information. Each row indicates the neighbor atom's distance.
+
+        Returns:
+            np.ndarray: distance information.
+        """
         if self.if_neigh:
             return self.__distance_list
         else:
@@ -164,6 +277,11 @@ class System:
 
     @property
     def neighbor_number(self):
+        """neighbor number information. Each row indicates the neighbor atom's number.
+
+        Returns:
+            np.ndarray: neighbor number.
+        """
         if self.if_neigh:
             return self.__neighbor_number
         else:
@@ -171,12 +289,22 @@ class System:
 
     @property
     def rc(self):
+        """current cutoff distance.
+
+        Returns:
+            float: cutoff distance.
+        """
         if self.if_neigh:
             return self.__rc
         else:
             return "No Neighbor Information found. Call build_neighbor() please."
 
     def change_filename(self, filename):
+        """change the filename.
+
+        Args:
+            filename (str): the new filename.
+        """
         assert isinstance(filename, str)
         self.__filename = filename
 
@@ -184,6 +312,14 @@ class System:
         return f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\nParticle Information:\n{self.data.head()}"
 
     def select(self, data: pd.DataFrame):
+        """Generate a subsystem.
+
+        Args:
+            data (pd.DataFrame): a new dataframe. Such as system.data[system.data['x']>100]
+
+        Returns:
+            System: a new subsystem.
+        """
         subSystem = System(
             data=data.reset_index(drop=True),
             box=self.__box,
@@ -226,6 +362,12 @@ class System:
         )
 
     def write_data(self, output_name=None, data_format="atomic"):
+        """This function writes particles information into a DATA file.
+
+        Args:
+            output_name (str, optional): output filename. Defaults to None.
+            data_format (str, optional): selected in ['atomic', 'charge']. Defaults to "atomic".
+        """
         if output_name is None:
             if self.__filename is None:
                 output_name = "output.data"
@@ -297,7 +439,7 @@ class System:
 
         Args:
             rc (float, optional): cutoff distance. Defaults to 5.0.
-            max_neigh (int, optional): maximum neighbor number. If not given, will estimate atomatically. Default to None.
+            max_neigh (int, optional): maximum neighbor number (highly recommened to assign a number). If not given, will estimate atomatically. Default to None.
 
         Outputs:
             - **verlet_list** (np.ndarray) - (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.

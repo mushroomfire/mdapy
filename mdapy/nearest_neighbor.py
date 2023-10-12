@@ -165,7 +165,35 @@ class kdtree:
 
 @ti.data_oriented
 class NearestNeighbor:
+    """This class is used to query the nearest neighbor with fixed number. For rectangle box, this 
+    class is a wrapper of `kdtree of scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html>`_
+    and helful to obtain the certain nearest atom neighbors considering the periodic/free boundary.
+    One can install `pyfnntw==0.4.1 <https://github.com/cavemanloverboy/FNNTW>`_ to accelerate this module.
+    If you want to access the atom neighbor within a spherical
+    distance, the Neighbor class is suggested.
+    For triclinic box, this class use cell-list to find the nearest neighbors.
+
+    Args:
+        pos (np.ndarray): (:math:`N_p, 3`), particles positions.
+        box (np.ndarray): (:math:`4, 3` or :math:`3, 2`), system box.
+        boundary (list): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+    
+    Examples:
+
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> FCC = mp.LatticeMaker(3.615, 'FCC', 10, 10, 10) # Create a FCC structure
+
+        >>> FCC.compute() # Get atom positions
+
+        >>> kdt = mp.kdtree(FCC.pos, FCC.box, [1, 1, 1]) # Build a kdtree.
+
+        >>> dis, index = kdt.query_nearest_neighbors(12) # Query the 12 nearest neighbors per atom.
+    """
     def __init__(self, pos, box, boundary=[1, 1, 1]):
+        
         repeat = _check_repeat_nearest(pos, box, boundary)
         assert (
             sum(repeat) == 3

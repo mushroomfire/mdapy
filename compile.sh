@@ -6,9 +6,9 @@
 version="0.9.2"
 
 if [ "$(uname)" == "Darwin" ]; then
-    source /opt/anaconda3/etc/profile.d/conda.sh
+    source ~/anaconda3/etc/profile.d/conda.sh
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
-    source /home/herrwu/deepmd-kit/etc/profile.d/conda.sh
+    source ~/deepmd-kit/etc/profile.d/conda.sh
 elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then    
     source D:/Anaconda/etc/profile.d/conda.sh
 fi

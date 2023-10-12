@@ -165,14 +165,6 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Trouble Shoot
 -------------
 
-If you encounter ImportError in Windows:
-   
-.. code-block:: bash
-
-   ImportError: DLL load failed while importing _voronoi_analysis
-
-You can unzip and copy `libomp140.x86_64.zip <https://github.com/mushroomfire/mdapy/tree/master/thirdparty/libomp140.x86_64.zip>`_ to your system32 dir (C:\Windows\System32). 
-
 If you encounter ImportError in Linux: 
 
 .. code-block:: bash

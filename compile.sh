@@ -22,6 +22,9 @@ do
     if [ "$(uname)" == "Darwin" ]; then
         echo "Mac OS X"
         python setup.py bdist_wheel
+        pip install delocate
+        name="dist/mdapy-${version}-cp3${i}-cp3${i}-macosx_11_0_arm64.whl"
+        delocate-wheel -w wheelhouse -v ${name}
         # python -m build --no-isolation This has bugs in Mac OS.
     elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
         echo "GNU/Linux"
@@ -34,7 +37,7 @@ do
         echo "Windows NT"
         python -m build --no-isolation
         pip install delvewheel
-        name=".\dist\mdapy-${version}-cp3${i}-cp3${i}-win_amd64.whl"
+        name="dist/mdapy-${version}-cp3${i}-cp3${i}-win_amd64.whl"
         delvewheel repair ${name}
     fi
     conda deactivate

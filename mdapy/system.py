@@ -74,7 +74,7 @@ class System:
         vel (np.ndarray, optional): (:math:`N_p, 3`) particles velocities. Defaults to None.
         type_list (np.ndarray, optional): (:math:`N_p`) type per particles. Defaults to 1.
         sorted_id (bool, optional): whether sort system data by the particle id. Defaults to False.
-    
+
     Examples:
 
         There are two ways to create a System class.
@@ -108,6 +108,7 @@ class System:
 
         >>> system.write_dump()
     """
+
     def __init__(
         self,
         filename=None,
@@ -120,7 +121,6 @@ class System:
         type_list=None,
         sorted_id=False,
     ) -> None:
-        
         self.__filename = filename
         self.__fmt = fmt
         self.__timestep = 0

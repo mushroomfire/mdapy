@@ -18,7 +18,6 @@ mdt = mdtraj.load(trajectory_filename)
 
 
 def average_rdf_mdapy(rc, nbin=75, mm=mm):
-
     g = []
     for i in range(len(mm)):
         pos = mm[i].particles.position
@@ -47,7 +46,6 @@ def rdf_average_time(ave_num=3):
     print("*" * 30)
 
     for rc in range(1, 8):
-
         print(f"rc is {rc}...")
         mdapy_t_cpu, mdapy_t_gpu, mdapy_single_t, mdanalysis_t, mdtraj_t = (
             0.0,
@@ -120,7 +118,6 @@ def rdf_average_time(ave_num=3):
 
 
 def plot(time_list, title=None, savefig=True):
-
     pltset(fontkind="Times New Roman")
     colorlist = [i["color"] for i in list(plt.rcParams["axes.prop_cycle"])]
     fig = plt.figure(figsize=(cm2inch(10), cm2inch(8)), dpi=150)

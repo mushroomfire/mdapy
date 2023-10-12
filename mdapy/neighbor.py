@@ -214,7 +214,7 @@ class Neighbor:
         atom_cell_list = np.zeros(self.N, dtype=np.int32)
         cell_id_list = (
             np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32)
-        ) -1
+        ) - 1
         need_check = True
         if self.max_neigh is None:
             max_neigh_list = np.zeros_like(cell_id_list)

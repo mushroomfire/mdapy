@@ -2,11 +2,13 @@ import mdapy as mp
 import numpy as np
 from time import time
 import matplotlib.pyplot as plt
-plt.switch_backend('tkagg')
+
+plt.switch_backend("tkagg")
 from mdapy import pltset, cm2inch
 
 from ovito.data import CutoffNeighborFinder, DataCollection, Particles, SimulationCell
 from ovito.pipeline import Pipeline, StaticSource
+
 
 def modify(
     frame: int, data: DataCollection, cutoff=5.0, sigma=0.2, use_local_density=False
@@ -69,8 +71,9 @@ def modify(
     # Output the computed per-particle entropy values to the data pipeline.
     data.particles_.create_property("Entropy", data=local_entropy)
 
+
 def mdapy_entropy(pos, box):
-    neigh = mp.Neighbor(pos, box, 5., max_neigh=50)
+    neigh = mp.Neighbor(pos, box, 5.0, max_neigh=50)
     neigh.compute()
     vol = np.product(box[:, 1])
     entropy = mp.AtomicEntropy(
@@ -83,13 +86,12 @@ def entropy_average_time(ave_num=3):
     time_list = []
     print("*" * 30)
     for num in [10, 15, 20, 25, 30, 35, 40, 45, 50]:
-        FCC = mp.LatticeMaker(3.615, 'FCC', num, 50, 50)
+        FCC = mp.LatticeMaker(3.615, "FCC", num, 50, 50)
         FCC.compute()
         pos, box, N = FCC.pos, FCC.box, FCC.N
         print(f"Build {N} atoms...")
         mdapy_t_cpu, mdapy_t_gpu, mdapy_t_serial, ovito_t = 0.0, 0.0, 0.0, 0.0
         for turn in range(ave_num):
-
             print(f"Running {turn} turn in ovito...")
 
             particles = Particles()
@@ -97,11 +99,7 @@ def entropy_average_time(ave_num=3):
             data.objects.append(particles)
             particles.create_property("Position", data=pos)
             cell = SimulationCell(pbc=(True, True, True))
-            cell[...] = [
-                [box[0, 1], 0, 0, box[0, 0]],
-                [0, box[1, 1], 0, box[1, 0]],
-                [0, 0, box[2, 1], box[2, 0]],
-            ]
+            cell[...] = np.c_[box[:-1], box[-1]]
             data.objects.append(cell)
 
             pipeline = Pipeline(source=StaticSource(data=data))
@@ -111,7 +109,7 @@ def entropy_average_time(ave_num=3):
             end = time()
             ovito_t += end - start
 
-        mp.init(arch='cpu')
+        mp.init(arch="cpu")
         mdapy_entropy(pos, box)
         for turn in range(ave_num):
             print(f"Running {turn} turn in mdapy cpu parallel...")
@@ -121,7 +119,7 @@ def entropy_average_time(ave_num=3):
             end = time()
             mdapy_t_cpu += end - start
 
-        mp.init(arch='gpu', device_memory_GB=6.)
+        mp.init(arch="gpu", device_memory_GB=6.0)
         mdapy_entropy(pos, box)
         for turn in range(ave_num):
             print(f"Running {turn} turn in mdapy gpu...")
@@ -131,7 +129,7 @@ def entropy_average_time(ave_num=3):
             end = time()
             mdapy_t_gpu += end - start
 
-        mp.init(arch='cpu', cpu_max_num_threads=1)
+        mp.init(arch="cpu", cpu_max_num_threads=1)
         mdapy_entropy(pos, box)
         for turn in range(ave_num):
             print(f"Running {turn} turn in mdapy cpu serial...")
@@ -140,8 +138,16 @@ def entropy_average_time(ave_num=3):
             mdapy_entropy(pos, box)
             end = time()
             mdapy_t_serial += end - start
-                
-        time_list.append([N, mdapy_t_cpu / ave_num, mdapy_t_gpu / ave_num, mdapy_t_serial / ave_num, ovito_t/ave_num])
+
+        time_list.append(
+            [
+                N,
+                mdapy_t_cpu / ave_num,
+                mdapy_t_gpu / ave_num,
+                mdapy_t_serial / ave_num,
+                ovito_t / ave_num,
+            ]
+        )
         print("*" * 30)
     time_list = np.array(time_list)
 
@@ -149,7 +155,6 @@ def entropy_average_time(ave_num=3):
 
 
 def plot(time_list, title=None, savefig=True):
-
     pltset(fontkind="Times New Roman")
     colorlist = [i["color"] for i in list(plt.rcParams["axes.prop_cycle"])]
     fig = plt.figure(figsize=(cm2inch(10), cm2inch(8)), dpi=150)
@@ -157,7 +162,6 @@ def plot(time_list, title=None, savefig=True):
     N_max = time_list[-1, 0]
     exp_max = int(np.log10(N_max))
     x, y = time_list[:, 0] / 10**exp_max, time_list[:, 1]
-
 
     plt.plot(x, y, "o-", label=f"mdapy-cpu-parallel")
 
@@ -170,21 +174,19 @@ def plot(time_list, title=None, savefig=True):
     y = time_list[:, 4]
     plt.plot(x, y, "o-", label=f"ovito")
 
-
     if title is not None:
         plt.title(title, fontsize=12)
     plt.legend()
     plt.xlabel("Number of atoms ($\mathregular{10^%d}$)" % exp_max)
     plt.ylabel("Time (s)")
     if savefig:
-        plt.savefig('entropy.png', dpi=300, bbox_inches='tight', transparent=True)
+        plt.savefig("entropy.png", dpi=300, bbox_inches="tight", transparent=True)
     plt.show()
 
 
-
-if __name__ == '__main__':
-	mp.init()
-	time_list = entropy_average_time(ave_num=3)
-	np.savetxt('time_list.txt', time_list)
-	time_list = np.loadtxt('time_list.txt')
-	plot(time_list, 'Calculate entropy')
+if __name__ == "__main__":
+    mp.init()
+    time_list = entropy_average_time(ave_num=3)
+    np.savetxt("time_list.txt", time_list)
+    time_list = np.loadtxt("time_list.txt")
+    plot(time_list, "Calculate entropy")

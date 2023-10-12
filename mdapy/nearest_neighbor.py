@@ -165,7 +165,7 @@ class kdtree:
 
 @ti.data_oriented
 class NearestNeighbor:
-    """This class is used to query the nearest neighbor with fixed number. For rectangle box, this 
+    """This class is used to query the nearest neighbor with fixed number. For rectangle box, this
     class is a wrapper of `kdtree of scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html>`_
     and helful to obtain the certain nearest atom neighbors considering the periodic/free boundary.
     One can install `pyfnntw==0.4.1 <https://github.com/cavemanloverboy/FNNTW>`_ to accelerate this module.
@@ -177,7 +177,7 @@ class NearestNeighbor:
         pos (np.ndarray): (:math:`N_p, 3`), particles positions.
         box (np.ndarray): (:math:`4, 3` or :math:`3, 2`), system box.
         boundary (list): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
-    
+
     Examples:
 
         >>> import mdapy as mp
@@ -192,8 +192,8 @@ class NearestNeighbor:
 
         >>> dis, index = kdt.query_nearest_neighbors(12) # Query the 12 nearest neighbors per atom.
     """
+
     def __init__(self, pos, box, boundary=[1, 1, 1]):
-        
         repeat = _check_repeat_nearest(pos, box, boundary)
         assert (
             sum(repeat) == 3
@@ -398,6 +398,7 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     import taichi as ti
     from time import time
+
     # from system import System
 
     ti.init(ti.cpu)

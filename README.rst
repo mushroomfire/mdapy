@@ -70,6 +70,13 @@ Install from source code.
       cd mdapy 
       pip install .
 
+Check Installation
+^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+   python -c "import mdapy as mp; mp.init(); print('mdapy version is:', mp.__version__)"
+
 
 Usage
 ------

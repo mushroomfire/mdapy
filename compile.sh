@@ -3,6 +3,8 @@
 # To compile the C module for different python versions.
 #!/usr/bin/env bash
 
+version="0.9.2"
+
 if [ "$(uname)" == "Darwin" ]; then
     source /opt/anaconda3/etc/profile.d/conda.sh
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
@@ -24,14 +26,21 @@ do
     elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
         echo "GNU/Linux"
         python -m build --no-isolation
+        pip install auditwheel
+        pip install patchelf
+        name="dist/mdapy-${version}-cp3${i}-cp3${i}-linux_x86_64.whl"
+        auditwheel repair ${name} --plat=manylinux_2_35_x86_64
     elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then    
         echo "Windows NT"
         python -m build --no-isolation
+        pip install delvewheel
+        name=".\dist\mdapy-${version}-cp3${i}-cp3${i}-win_amd64.whl"
+        delvewheel repair ${name}
     fi
     conda deactivate
 done
 
-# python -m twine upload dist/*
+# python -m twine upload wheelhouse/*
 # rename 's/linux/manylinux1/' mdapy-0.9.1*linux* -n
 
 

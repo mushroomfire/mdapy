@@ -188,6 +188,12 @@ which is caused by the x86_64 Rosseta architecture. You can try:
 Release Notes
 --------------
 
+V0.9.2 (10/12/2023)
+^^^^^^^^^^^^^^^^^^^^^^
+
+- Fix capacity of cross-platform.
+- Updated doc.
+
 V0.9.1 (10/11/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

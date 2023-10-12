@@ -80,15 +80,15 @@ Examples
         neigh = mp.Neighbor(pos, box, potential.rc, max_neigh=150) # build neighbor list
         neigh.compute()
         Cal = mp.Calculator(
-                potential,
-                ["Al"],
-                np.ones(pos.shape[0], dtype=np.int32),
-                neigh.verlet_list,
-                neigh.distance_list,
-                neigh.neighbor_number,
-                pos,
-                [1, 1, 1],
-                box,
+            potential,
+            pos,
+            [1, 1, 1],
+            box,
+            ["Al"],
+            np.ones(pos.shape[0], dtype=np.int32),
+            neigh.verlet_list,
+            neigh.distance_list,
+            neigh.neighbor_number,
             ) # calculate the energy
         Cal.compute()
         return Cal.energy.mean()
@@ -120,7 +120,7 @@ Examples
     plt.savefig('eos.png', dpi=300, bbox_inches='tight', transparent=True)
     plt.show()
 
-6. Collaborative use with Ovito
+1. Collaborative use with Ovito
 --------------------------------
 
 This function can run in script environment of Ovito. (Tested in Ovito 3.0.0-dev581).

@@ -29,10 +29,9 @@ do
     elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
         echo "GNU/Linux"
         python -m build --no-isolation
-        pip install auditwheel
-        pip install patchelf
         name="dist/mdapy-${version}-cp3${i}-cp3${i}-linux_x86_64.whl"
-        auditwheel repair ${name} --plat=manylinux_2_35_x86_64
+        newname="wheelhouse/mdapy-${version}-cp3${i}-cp3${i}-manylinux1_x86_64.whl"
+        cp ${name} ${newname}
     elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then    
         echo "Windows NT"
         python -m build --no-isolation

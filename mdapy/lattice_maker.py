@@ -175,25 +175,31 @@ class LatticeMaker:
             self.compute()
         return np.inner(self.box[0], np.cross(self.box[1], self.box[2]))
 
-    def write_data(self, output_name=None, data_format="atomic"):
+    def write_data(self, output_name=None, data_format="atomic", type_list=None):
         """This function writes position into a DATA file.
 
         Args:
             output_name (str, optional): filename of generated DATA file.
-            data_format (str, optional): data format, selected in ['atomic', 'charge']
+            data_format (str, optional): data format, selected in ['atomic', 'charge'].
+            type_list (np.ndarray, optional): one can mannually assign the type_list.
         """
         if not self.if_computed:
             self.compute()
 
         if output_name is None:
             output_name = f"{self.x}-{self.y}-{self.z}.data"
+        
+        if type_list is None:
+            type_list = self.type_list
+        else:
+            assert len(type_list) == self.N
 
         SaveFile.write_data(
             output_name,
             self.box,
             [1, 1, 1],
             pos=self.pos,
-            type_list=self.type_list,
+            type_list=type_list,
             data_format=data_format,
         )
 

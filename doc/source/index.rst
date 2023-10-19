@@ -68,6 +68,7 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
    gettingstarted/installation
    gettingstarted/quicklystart
    gettingstarted/examples
+   gettingstarted/calculate_GSFE
    gettingstarted/use_mdapy_efficiently
    gettingstarted/reading_and_saving_file
    gettingstarted/benchmark

@@ -296,7 +296,7 @@ if __name__ == "__main__":
     # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))
     print(FCC.basis_atoms)
     print(FCC.basis_vector)
-    FCC.write_data()
+    #FCC.write_data()
     #FCC.write_dump(compress=True)
     # print(FCC.pos)
     # print(pos.dtype)

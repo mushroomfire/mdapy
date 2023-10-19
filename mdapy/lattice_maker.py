@@ -99,7 +99,7 @@ class LatticeMaker:
     
     def _check_orthogonal(self):
         v1, v2, v3 = self.crystalline_orientation[0], self.crystalline_orientation[1], self.crystalline_orientation[2]
-        if np.dot(v1, v2)==0 and np.dot(v1, v3)==0 and np.dot(v2, v3)==0 and np.array_equal(np.cross(v1, v2), v3):
+        if np.dot(v1, v2)==0 and np.dot(v1, v3)==0 and np.dot(v2, v3)==0:
             return True
         else:
             return False
@@ -280,7 +280,7 @@ if __name__ == "__main__":
 
     # FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
     # crystalline_orientation=np.array([[1, 1, 0], [-1, 1, 1], [1, -1, 2]])
-    FCC = LatticeMaker(3.615, "FCC", 30, 10, 15, crystalline_orientation=np.array([[1, 1, 0], [1, -1, 1], [1, -1, -2]]))
+    FCC = LatticeMaker(3.615, "FCC", 30, 10, 15, crystalline_orientation=np.array([[1, 1, -2], [1, -1, 0], [1, 1, 1]]))
     FCC.compute()
     print("Atom number is:", FCC.N)
     # start = time()
@@ -296,7 +296,7 @@ if __name__ == "__main__":
     # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))
     print(FCC.basis_atoms)
     print(FCC.basis_vector)
-    #FCC.write_data()
+    FCC.write_data()
     #FCC.write_dump(compress=True)
     # print(FCC.pos)
     # print(pos.dtype)

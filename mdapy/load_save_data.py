@@ -227,7 +227,7 @@ class BuildSystem:
         if type_list is None:
             type_list = np.ones(pos.shape[0], int)
         assert len(type_list) == pos.shape[0]
-        assert isinstance(type_list[0], int)
+        assert type_list.dtype in [np.int32, np.int64], "type_list should be int32 or int64"
 
         data = pd.DataFrame(
                 {

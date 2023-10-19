@@ -227,10 +227,17 @@ class BuildSystem:
         if type_list is None:
             type_list = np.ones(pos.shape[0], int)
         assert len(type_list) == pos.shape[0]
+        assert isinstance(type_list[0], int)
+
         data = pd.DataFrame(
-            np.c_[np.arange(pos.shape[0]) + 1, type_list, pos],
-            columns=["id", "type", "x", "y", "z"],
-        )
+                {
+                    "id": np.arange(pos.shape[0]) + 1,
+                    "type": type_list,
+                    "x": pos[:, 0],
+                    "y": pos[:, 1],
+                    "z": pos[:, 2],
+                }
+            )
         if vel is not None:
             assert vel.shape == pos.shape
             data[["vx", "vy", "vz"]] = vel

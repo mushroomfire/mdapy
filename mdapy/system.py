@@ -1501,9 +1501,8 @@ class MultiSystem(list):
 if __name__ == "__main__":
     ti.init()
     system = System(r'E:\SFE_test\out.50.dump')
-    print(system.pos[0])
     system.wrap_pos()
-    print(system.pos[0])
+    system.boundary[-1] = 0
     system.write_dump()
     # system = System(r'E:\HEAShock\111\0.7km\shock-700m.10000.dump')
     # system.write_data()

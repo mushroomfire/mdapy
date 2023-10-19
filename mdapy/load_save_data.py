@@ -149,6 +149,7 @@ class SaveFile:
                 name = name[:-3]
             temp_dir = mkdtemp()
             output_name = os.path.join(temp_dir, name)
+        boundary2str = ["pp" if i == 1 else "ss" for i in boundary]
         with open(output_name, "wb") as op:
             op.write(f"ITEM: TIMESTEP\n{timestep}\n".encode())
             op.write("ITEM: NUMBER OF ATOMS\n".encode())
@@ -167,12 +168,16 @@ class SaveFile:
                 yhi_bound = yhi + max(0.0, yz)
                 zlo_bound = zlo
                 zhi_bound = zhi
-                op.write(f"ITEM: BOX BOUNDS xy xz yz pp pp pp\n".encode())
+                op.write(
+                    f"ITEM: BOX BOUNDS xy xz yz {boundary2str[0]} {boundary2str[1]} {boundary2str[2]}\n".encode()
+                )
                 op.write(f"{xlo_bound} {xhi_bound} {xy}\n".encode())
                 op.write(f"{ylo_bound} {yhi_bound} {xz}\n".encode())
                 op.write(f"{zlo_bound} {zhi_bound} {yz}\n".encode())
             else:
-                op.write(f"ITEM: BOX BOUNDS pp pp pp\n".encode())
+                op.write(
+                    f"ITEM: BOX BOUNDS {boundary2str[0]} {boundary2str[1]} {boundary2str[2]}\n".encode()
+                )
                 op.write(f"{xlo} {xhi}\n".encode())
                 op.write(f"{ylo} {yhi}\n".encode())
                 op.write(f"{zlo} {zhi}\n".encode())

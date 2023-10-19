@@ -185,6 +185,8 @@ V0.9.3 (Under developing)
 
 - Support generating special crystalline orientations for FCC and BCC lattice.
 - Fix bug for warpping positions.
+- Fix bug for write dump.
+- Update an example to calculate the Generalized Stacking Fault Energy (GSFE).
 
 V0.9.2 (10/12/2023)
 ^^^^^^^^^^^^^^^^^^^^^^

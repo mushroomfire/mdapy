@@ -184,6 +184,7 @@ V0.9.3 (Under developing)
 ^^^^^^^^^^^^^^^^^^^^^
 
 - Support generating special crystalline orientations for FCC and BCC lattice.
+- Fix bug for warpping positions.
 
 V0.9.2 (10/12/2023)
 ^^^^^^^^^^^^^^^^^^^^^^

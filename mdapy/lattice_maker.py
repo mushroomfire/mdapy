@@ -22,6 +22,7 @@ class LatticeMaker:
         x (int): repeat times along :math:`x` axis.
         y (int): repeat times along :math:`y` axis.
         z (int): repeat times along :math:`z` axis.
+        crystalline_orientation (np.ndarray, optional): (:math:`3, 3`). Crystalline orientation, only support for 'FCC' and 'BCC' lattice. If not given, the orientation if x[1, 0, 0], y[0, 1, 0], z[0, 0, 1].
         basis_vector (np.ndarray): (:math:`4, 3`) or (:math:`3, 2`) repeat vector.
         basis_atoms (np.ndarray): (:math:`N_p, 3`) basis atom positions.
         type_list (np.ndarray): (:math:`N_p`) type for basis atoms.
@@ -45,6 +46,13 @@ class LatticeMaker:
         >>> GRA = mp.LatticeMaker(1.42, 'GRA', 10, 20, 1) # Create a graphene structure.
 
         >>> GRA.write_data(output_name='graphene.data') # Save to graphene.data file.
+
+        >>> BCC = mp.LatticeMaker(3.615, 'FCC', 10, 10, 10, 
+                  crystalline_orientation=np.array([[1, 1, 1], [1, -1, 0], [1, 1, -2]])) # Create a BCC lattice with special orientations.
+        
+        >>> BCC.compute() # Get atom positions.
+
+        >>> BCC.write_dump() # Save to dump file.
     """
 
     def __init__(
@@ -54,6 +62,7 @@ class LatticeMaker:
         x=1,
         y=1,
         z=1,
+        crystalline_orientation=None,
         basis_vector=None,
         basis_atoms=None,
         type_list=None,
@@ -77,11 +86,23 @@ class LatticeMaker:
                 "HCP",
                 "GRA",
             ], "Unrecgonized Lattice Type, please choose in [FCC, BCC, HCP, GRA]."
+            self.crystalline_orientation = crystalline_orientation
+            if self.crystalline_orientation is not None:
+                assert self.lattice_type in ['FCC', 'BCC'], "crystalline orientation only supports FCC and BCC lattice."
+                assert self.crystalline_orientation.shape == (3, 3), "It should be (3 x 3) array."
+                assert self._check_orthogonal(), "three vector must be orthogonal"
             self.basis_vector, self.basis_atoms = self._get_basis_vector_atoms()
         self.type_list = type_list
         if self.type_list is not None:
             assert len(self.type_list) == self.basis_atoms.shape[0]
         self.if_computed = False
+    
+    def _check_orthogonal(self):
+        v1, v2, v3 = self.crystalline_orientation[0], self.crystalline_orientation[1], self.crystalline_orientation[2]
+        if np.dot(v1, v2)==0 and np.dot(v1, v3)==0 and np.dot(v2, v3)==0 and np.array_equal(np.cross(v1, v2), v3):
+            return True
+        else:
+            return False
 
     def _get_basis_vector_atoms(self):
         """
@@ -144,9 +165,32 @@ class LatticeMaker:
             ) * np.array(
                 [self.lattice_constant * 3, self.lattice_constant * np.sqrt(3), 0.0]
             )
-
+        if self.crystalline_orientation is not None:
+            n = int(np.abs(self.crystalline_orientation).max()*5)
+            repli = Replicate(basis_atoms, basis_vector, n, n, n)
+            repli.compute()
+            length = np.linalg.norm(self.crystalline_orientation, axis=1)
+            basis_vector = basis_vector * (length / self._get_ref())
+            pos = repli.pos.copy()
+            # rotate the atoms
+            pos = np.matmul(pos, (self.crystalline_orientation/np.expand_dims(length, 1)).T)
+            pos = pos - np.mean(pos, axis=0) + np.diag(basis_vector)/2
+            basis_atoms = pos[(pos[:, 0]>-1e-12) & (pos[:, 1]>-1e-12) & (pos[:, 2]>-1e-12) & (pos[:, 0]<basis_vector[0,0]-1e-12) & (pos[:, 1]<basis_vector[1,1]-1e-12) & (pos[:,2]<basis_vector[2, 2]-1e-12)]
         return basis_vector, basis_atoms
 
+    def _get_ref(self):
+        ref = np.ones(3, int)
+        for i in range(3):
+            num = 0
+            for j in self.crystalline_orientation[i]:
+                if j % 2:
+                    num += 1
+            if num == 2 and self.lattice_type=='FCC':
+                ref[i] = 2
+            if num == 3 and self.lattice_type=='BCC':
+                ref[i] = 2
+        return ref
+        
     def compute(self):
         """Do the real lattice calculation."""
         repli = Replicate(
@@ -231,11 +275,12 @@ class LatticeMaker:
 
 
 if __name__ == "__main__":
-    ti.init(ti.gpu)
+    ti.init(ti.cpu)
     from time import time
 
     # FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
-    FCC = LatticeMaker(4.05, "FCC", 1, 1, 1)
+    # crystalline_orientation=np.array([[1, 1, 0], [-1, 1, 1], [1, -1, 2]])
+    FCC = LatticeMaker(3.615, "FCC", 30, 10, 15, crystalline_orientation=np.array([[1, 1, 0], [1, -1, 1], [1, -1, -2]]))
     FCC.compute()
     print("Atom number is:", FCC.N)
     # start = time()
@@ -249,10 +294,10 @@ if __name__ == "__main__":
     # print(FCC.basis_atoms.to_numpy())
     # print(FCC.basis_vector.to_numpy())
     # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))
-    print(FCC.box)
-    print(FCC.vol)
+    print(FCC.basis_atoms)
+    print(FCC.basis_vector)
     FCC.write_data()
-    FCC.write_dump(compress=True)
+    #FCC.write_dump(compress=True)
     # print(FCC.pos)
     # print(pos.dtype)
     # FCC.write_data()

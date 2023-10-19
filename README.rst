@@ -180,6 +180,11 @@ You can try:
 Release Notes
 --------------
 
+V0.9.3 (Under developing)
+^^^^^^^^^^^^^^^^^^^^^
+
+- Support generating special crystalline orientations for FCC and BCC lattice.
+
 V0.9.2 (10/12/2023)
 ^^^^^^^^^^^^^^^^^^^^^^
 

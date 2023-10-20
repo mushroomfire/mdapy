@@ -120,10 +120,10 @@ Examples
     plt.savefig('eos.png', dpi=300, bbox_inches='tight', transparent=True)
     plt.show()
 
-1. Collaborative use with Ovito
+6. Collaborative use with Ovito
 --------------------------------
 
-This function can run in script environment of Ovito. (Tested in Ovito 3.0.0-dev581).
+This function can run in script environment of Ovito.
 
 .. code-block:: python
 
@@ -136,7 +136,7 @@ This function can run in script environment of Ovito. (Tested in Ovito 3.0.0-dev
 
         yield "Transforming mdapy system..."
         cell_ovito = data.cell[...]
-        box = np.array([[cell_ovito[i, -1], cell_ovito[i, -1]+cell_ovito[i, i]] for i in range(3)])
+        box = np.r_[cell_ovito[:,:-1], np.expand_dims(cell_ovito[:,-1],axis=0)]
         pos = np.array(data.particles['Position'][...])
         boundary = [int(i) for i in data.cell.pbc]
         system = mp.System(pos=pos, box=box, boundary=boundary)
@@ -150,11 +150,11 @@ This function can run in script environment of Ovito. (Tested in Ovito 3.0.0-dev
             average_rc=3.6*0.9,
             max_neigh=80,
         )
-        data.particles_.create_property("entropy", data=system.data['ave_atomic_entropy'].values)
+        data.particles_.create_property("entropy", data=system.data['ave_atomic_entropy'].to_numpy())
         
         yield "Performing compute CNP..."
         system.cal_common_neighbor_parameter(rc=3.6*0.8536)
-        data.particles_.create_property("cnp", data=system.data['cnp'].values)
+        data.particles_.create_property("cnp", data=system.data['cnp'].to_numpy())
 
 
 7. Identify stacking faults (SFs) and twin boundaries (TBs) in Ovito
@@ -187,9 +187,7 @@ Here the stacking faults include intrinsic SFs and multi layer SFs.
 
         yield "Transforming mdapy system..."
         cell_ovito = data.cell[...]
-        box = np.array(
-            [[cell_ovito[i, -1], cell_ovito[i, -1] + cell_ovito[i, i]] for i in range(3)]
-        )
+        box = np.r_[cell_ovito[:,:-1], np.expand_dims(cell_ovito[:,-1],axis=0)]
         pos = np.array(data.particles["Position"][...])
         boundary = [int(i) for i in data.cell.pbc]
         system = mp.System(pos=pos, box=box, boundary=boundary)
@@ -197,10 +195,10 @@ Here the stacking faults include intrinsic SFs and multi layer SFs.
         yield "Performing identify SFTB..."
         system.cal_identify_SFs_TBs()
         data.particles_.create_property(
-            "structure_types", data=system.data["structure_types"].values
+            "structure_types", data=system.data["structure_types"].to_numpy()
         )
         data.particles_.create_property(
-            "fault_types", data=system.data["fault_types"].values
+            "fault_types", data=system.data["fault_types"].to_numpy()
         )
 
         yield "Coloring atoms..."

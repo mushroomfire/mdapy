@@ -444,7 +444,7 @@ class System:
         repli.compute()
         num = x * y * z
         self.__data = pl.concat([self.__data] * num).with_columns(
-            pl.lit(np.arange(1, self.N + 1)).alias("id"),
+            pl.lit(np.arange(1, repli.N + 1)).alias("id"),
             pl.lit(repli.pos[:, 0]).alias("x"),
             pl.lit(repli.pos[:, 1]).alias("y"),
             pl.lit(repli.pos[:, 2]).alias("z"),
@@ -1571,9 +1571,11 @@ if __name__ == "__main__":
     ti.init()
     system = System(r"E:\SFE_test\relax.dump")
     print(system)
-    system.cal_ackland_jones_analysis()
-    system.cal_atomic_entropy()
+    system.replicate(3, 3, 3)
     print(system)
+    # system.cal_ackland_jones_analysis()
+    # system.cal_atomic_entropy()
+    # print(system)
     # system.wrap_pos()
     # system.boundary[-1] = 0
     # system.write_dump()

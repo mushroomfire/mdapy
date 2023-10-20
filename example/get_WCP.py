@@ -10,4 +10,4 @@ system.cal_warren_cowley_parameter()  # calculate WCP parameter
 fig, ax = system.WarrenCowleyParameter.plot(
     elements_list=["Co", "Cu", "Fe", "Ni", "Pd"]
 )  # plot WCP matrix
-#fig.savefig("WCP.png", dpi=300, bbox_inches="tight", transparent=True)
+# fig.savefig("WCP.png", dpi=300, bbox_inches="tight", transparent=True)

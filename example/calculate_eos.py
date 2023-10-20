@@ -25,7 +25,6 @@ FCC = mp.LatticeMaker(lattice_constant, "FCC", x, y, z)  # build a FCC lattice
 FCC.compute()
 potential = mp.EAM("Al_DFT.eam.alloy")  # read a eam.alloy potential file
 for scale in np.arange(0.9, 1.15, 0.01):  # loop to get different energies
-
     Cal = mp.Calculator(
         potential,
         FCC.pos * scale,

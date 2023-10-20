@@ -1,7 +1,7 @@
 # Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
-from pybind11.setup_helpers import Pybind11Extension, build_ext
+from pybind11.setup_helpers import Pybind11Extension, build_ext, ParallelCompile
 from setuptools import setup
 from glob import glob
 import sys
@@ -24,6 +24,8 @@ try:
 except Exception:
     readme = description
 
+
+ParallelCompile().install()
 setup(
     name="mdapy",
     version="0.9.4",

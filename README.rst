@@ -184,6 +184,7 @@ V0.9.4 (10/20/2023)
 - Remove dependency for **Pandas** and **Pyarrow**. mdapy uses **Polars** to be the newer DataFrame structure.
 - Updated Documentation.
 - Improve the importing speed.
+- Minor improvement on compilation speed.
 
 V0.9.3 (10/19/2023)
 ^^^^^^^^^^^^^^^^^^^^^

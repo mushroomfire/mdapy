@@ -1,4 +1,3 @@
-
 import polars as pl
 import numpy as np
 import taichi as ti
@@ -1003,7 +1002,7 @@ class System:
             self.pos,
             self.box,
             self.boundary,
-            self.__data['type'].to_numpy()
+            self.__data["type"].to_numpy(),
         )
         self.PairDistribution.compute()
 
@@ -1229,7 +1228,7 @@ class System:
             self.boundary,
             self.box,
             elements_list,
-            self.__data['type'].to_numpy(),
+            self.__data["type"].to_numpy(),
             verlet_list,
             distance_list,
             neighbor_number,
@@ -1319,7 +1318,7 @@ class System:
                 )
 
         self.WarrenCowleyParameter = WarrenCowleyParameter(
-            self.__data['type'].to_numpy(),
+            self.__data["type"].to_numpy(),
             verlet_list,
             neighbor_number,
             rc,

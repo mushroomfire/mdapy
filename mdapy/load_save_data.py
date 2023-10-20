@@ -227,20 +227,27 @@ class BuildSystem:
         if type_list is None:
             type_list = np.ones(pos.shape[0], int)
         assert len(type_list) == pos.shape[0]
-        assert type_list.dtype in [np.int32, np.int64], "type_list should be int32 or int64"
+        assert type_list.dtype in [
+            np.int32,
+            np.int64,
+        ], "type_list should be int32 or int64"
 
         data = pl.DataFrame(
-                {
-                    "id": np.arange(pos.shape[0]) + 1,
-                    "type": type_list,
-                    "x": pos[:, 0],
-                    "y": pos[:, 1],
-                    "z": pos[:, 2],
-                }
-            )
+            {
+                "id": np.arange(pos.shape[0]) + 1,
+                "type": type_list,
+                "x": pos[:, 0],
+                "y": pos[:, 1],
+                "z": pos[:, 2],
+            }
+        )
         if vel is not None:
             assert vel.shape == pos.shape
-            data.with_columns(pl.lit(vel[:,0]).alias('vx'), pl.lit(vel[:, 1]).alias('vy'), pl.lit(vel[:, 2]).alias('vz'))
+            data.with_columns(
+                pl.lit(vel[:, 0]).alias("vx"),
+                pl.lit(vel[:, 1]).alias("vy"),
+                pl.lit(vel[:, 2]).alias("vz"),
+            )
 
         return data, box, boundary
 

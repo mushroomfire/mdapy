@@ -601,7 +601,7 @@ class EAMGenerate:
             name.append(self.eam_parameters[a].strip())
             data.append(self.eam_parameters[a + 1 : a + 28])
             a += 28
-        
+
         self.data = pl.from_numpy(np.array(data, dtype=np.float64).T, schema=name)
 
         (

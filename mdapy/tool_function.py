@@ -53,7 +53,7 @@ def _wrap_pos(
         boundary (ti.types.ndarray): boundary conditions, 1 is periodic and 0 is free boundary.
     """
 
-    for i in range(pos.shape[0]): 
+    for i in range(pos.shape[0]):
         rij = pos[i] - box[3]
         nz = rij[2] / box[2][2]
         ny = (rij[1] - nz * box[2][1]) / box[1][1]
@@ -63,7 +63,6 @@ def _wrap_pos(
         for j in ti.static(range(3)):
             if boundary[j] == 1:
                 while n[j] < 0 or n[j] > 1:
-
                     if n[j] < 0:
                         n[j] += 1
                         pos[i] += box[j]

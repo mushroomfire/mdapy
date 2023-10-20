@@ -329,8 +329,8 @@ class System:
             fmt=self.__fmt,
         )
         return subSystem
-    
-    def update_data(self, data:pl.DataFrame):
+
+    def update_data(self, data: pl.DataFrame):
         """Provide a interface to directly update the particle information. If you are not sure, do not use it.
 
         Args:

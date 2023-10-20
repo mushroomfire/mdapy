@@ -320,6 +320,7 @@ class System:
         Returns:
             System: a new subsystem.
         """
+        assert isinstance(data, pl.DataFrame)
         subSystem = System(
             data=data,
             box=self.__box,
@@ -328,6 +329,15 @@ class System:
             fmt=self.__fmt,
         )
         return subSystem
+    
+    def update_data(self, data:pl.DataFrame):
+        """Provide a interface to directly update the particle information. If you are not sure, do not use it.
+
+        Args:
+            data (pl.DataFrame): a new dataframe
+        """
+        assert isinstance(data, pl.DataFrame)
+        self.__data = data
 
     def write_dump(self, output_name=None, output_col=None, compress=False):
         """This function writes position into a DUMP file.

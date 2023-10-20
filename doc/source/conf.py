@@ -28,6 +28,8 @@ extensions = [
 
 templates_path = ["_templates"]
 
+html_extra_path = ["robots.txt"]
+
 # html_theme = 'sphinxdoc'
 html_theme = "sphinx_rtd_theme"
 

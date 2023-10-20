@@ -77,9 +77,7 @@ setup(
         "taichi>=1.6.0",
         "numpy",
         "scipy",
-        "pandas",
         "polars>=0.19",
-        "pyarrow",
         "matplotlib",
     ],
     classifiers=[

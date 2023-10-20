@@ -1,4 +1,5 @@
-import pandas as pd
+
+import polars as pl
 import numpy as np
 import taichi as ti
 import multiprocessing as mt
@@ -67,7 +68,7 @@ class System:
     Args:
         filename (str, optional): DATA/DUMP filename. Defaults to None.
         fmt (str, optional): selected in ['data', 'lmp', 'dump', 'dump.gz'], One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
-        data (pd.Dataframe, optional): all particles information. Defaults to None.
+        data (polars.Dataframe, optional): all particles information. Defaults to None.
         box (np.ndarray, optional): (:math:`4, 3` or :math:`3, 2`) system box. Defaults to None.
         pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
@@ -125,7 +126,7 @@ class System:
         self.__fmt = fmt
         self.__timestep = 0
         if (
-            isinstance(data, pd.DataFrame)
+            isinstance(data, pl.DataFrame)
             and isinstance(box, np.ndarray)
             and isinstance(boundary, list)
         ):
@@ -155,7 +156,7 @@ class System:
             )
         if sorted_id:
             assert "id" in self.__data.columns
-            self.__data.sort_values("id", inplace=True)
+            self.__data = self.__data.sort("id")
         self.if_neigh = False
 
     @property
@@ -181,7 +182,7 @@ class System:
         """check particles information.
 
         Returns:
-            pd.Dataframe: particles information.
+            polars.Dataframe: particles information.
         """
         return self.__data
 
@@ -210,7 +211,7 @@ class System:
         Returns:
             np.ndarray: position information.
         """
-        return self.__data[["x", "y", "z"]].values
+        return self.__data.select(["x", "y", "z"]).to_numpy()
 
     @property
     def vel(self):
@@ -220,7 +221,7 @@ class System:
             np.ndarray: velocity information.
         """
         if "vx" in self.__data.columns:
-            return self.__data[["vx", "vy", "vz"]].values
+            return self.__data.select(["vx", "vy", "vz"]).to_numpy()
         else:
             return "No Velocity found."
 
@@ -309,19 +310,19 @@ class System:
         self.__filename = filename
 
     def __repr__(self):
-        return f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\nParticle Information:\n{self.data.head()}"
+        return f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\nParticle Information:\n{self.__data.head()}"
 
-    def select(self, data: pd.DataFrame):
+    def select(self, data: pl.DataFrame):
         """Generate a subsystem.
 
         Args:
-            data (pd.DataFrame): a new dataframe. Such as system.data[system.data['x']>100]
+            data (polars.DataFrame): a new dataframe. Such as system.data.filter((pl.col('x')>50) & (pl.col('y')<100))
 
         Returns:
             System: a new subsystem.
         """
         subSystem = System(
-            data=data.reset_index(drop=True),
+            data=data,
             box=self.__box,
             boundary=self.__boundary,
             filename=self.__filename,
@@ -349,7 +350,7 @@ class System:
         if output_col is None:
             data = self.__data
         else:
-            data = self.__data.loc[:, output_col]
+            data = self.__data.select(output_col)
         SaveFile.write_dump(
             output_name,
             self.__box,
@@ -412,7 +413,11 @@ class System:
         """Wrap atom position into box considering the periodic boundary."""
         pos = self.pos
         _wrap_pos(pos, self.box, np.array(self.boundary))
-        self.__data[["x", "y", "z"]] = pos
+        self.__data = self.__data.with_columns(
+            pl.lit(pos[:, 0]).alias("x"),
+            pl.lit(pos[:, 1]).alias("y"),
+            pl.lit(pos[:, 2]).alias("z"),
+        )
 
     def replicate(self, x=1, y=1, z=1):
         """Replicate the system.
@@ -429,9 +434,12 @@ class System:
         repli = Replicate(self.pos, self.box, x, y, z)
         repli.compute()
         num = x * y * z
-        self.__data = pd.concat([self.__data] * num, ignore_index=True)
-        self.__data["id"] = np.arange(1, self.N + 1)
-        self.__data[["x", "y", "z"]] = repli.pos
+        self.__data = pl.concat([self.__data] * num).with_columns(
+            pl.lit(np.arange(1, self.N + 1)).alias("id"),
+            pl.lit(repli.pos[:, 0]).alias("x"),
+            pl.lit(repli.pos[:, 1]).alias("y"),
+            pl.lit(repli.pos[:, 2]).alias("z"),
+        )
         self.__box = repli.box
 
     def build_neighbor(self, rc=5.0, max_neigh=None):
@@ -495,7 +503,8 @@ class System:
                 self.distance_list,
             )
 
-        atype_list = self.data["type"].values.astype(np.int32)
+        atype_list = self.__data["type"].to_numpy().astype(np.int32)
+
         assert "vx" in self.__data.columns
         assert "vy" in self.__data.columns
         assert "vz" in self.__data.columns
@@ -512,7 +521,9 @@ class System:
             units,
         )
         AtomicTemp.compute()
-        self.data["atomic_temp"] = AtomicTemp.T
+        self.__data = self.__data.with_columns(
+            pl.lit(AtomicTemp.T).alias("atomic_temp")
+        )
 
     def cal_ackland_jones_analysis(self):
         """Using Ackland Jones Analysis (AJA) method to identify the lattice structure.
@@ -552,7 +563,7 @@ class System:
             AcklandJonesAna = AcklandJonesAnalysis(self.pos, self.box, self.boundary)
             AcklandJonesAna.compute()
 
-        self.data["aja"] = AcklandJonesAna.aja
+        self.__data = self.__data.with_columns(pl.lit(AcklandJonesAna.aja).alias("aja"))
 
     def cal_steinhardt_bond_orientation(
         self,
@@ -670,10 +681,12 @@ class System:
             for i in qlist:
                 columns.append(f"whl{i}")
 
-        self.data[columns] = SBO.qnarray
+        self.__data.hstack(pl.from_numpy(SBO.qnarray, schema=columns), in_place=True)
         if solidliquid:
             SBO.identifySolidLiquid(threshold, n_bond)
-            self.data["solidliquid"] = SBO.solidliquid
+            self.__data = self.__data.with_columns(
+                pl.lit(SBO.solidliquid).alias("solidliquid")
+            )
 
     def cal_centro_symmetry_parameter(self, N=12):
         """Compute the CentroSymmetry Parameter (CSP),
@@ -722,7 +735,9 @@ class System:
             )
             CentroSymmetryPara.compute()
 
-        self.data["csp"] = CentroSymmetryPara.csp
+        self.__data = self.__data.with_columns(
+            pl.lit(CentroSymmetryPara.csp).alias("csp")
+        )
 
     def cal_polyhedral_template_matching(
         self,
@@ -777,13 +792,23 @@ class System:
             False,
         )
         ptm.compute()
-        self.data["structure_types"] = np.array(ptm.output[:, 0], int)
+
+        self.__data = self.__data.with_columns(
+            pl.lit(np.array(ptm.output[:, 0], int)).alias("structure_types")
+        )
         if return_rmsd:
-            self.data["rmsd"] = ptm.output[:, 1]
+            self.__data = self.__data.with_columns(
+                pl.lit(ptm.output[:, 1]).alias("rmsd")
+            )
         if return_atomic_distance:
-            self.data["interatomic_distance"] = ptm.output[:, 2]
+            self.__data = self.__data.with_columns(
+                pl.lit(ptm.output[:, 2]).alias("interatomic_distance")
+            )
         if return_wxyz:
-            self.data[["qw", "qx", "qy", "qz"]] = ptm.output[:, 3:]
+            self.__data.hstack(
+                pl.from_numpy(ptm.output[:, 3:], schema=["qw", "qx", "qy", "qz"]),
+                in_place=True,
+            )
 
     def cal_identify_SFs_TBs(
         self,
@@ -829,8 +854,10 @@ class System:
         structure_types = np.array(ptm.output[:, 0], int)
         SFTB = IdentifySFTBinFCC(structure_types, ptm.ptm_indices)
         SFTB.compute()
-        self.data["structure_types"] = SFTB.structure_types
-        self.data["fault_types"] = SFTB.fault_types
+        self.__data = self.__data.with_columns(
+            pl.lit(SFTB.structure_types).alias("structure_types"),
+            pl.lit(SFTB.fault_types).alias("fault_types"),
+        )
 
     def cal_atomic_entropy(
         self,
@@ -917,9 +944,14 @@ class System:
             average_rc,
         )
         AtomicEntro.compute()
-        self.data["atomic_entropy"] = AtomicEntro.entropy
+
+        self.__data = self.__data.with_columns(
+            pl.lit(AtomicEntro.entropy).alias("atomic_entropy")
+        )
         if compute_average:
-            self.data["ave_atomic_entropy"] = AtomicEntro.entropy_average
+            self.__data = self.__data.with_columns(
+                pl.lit(AtomicEntro.entropy_average).alias("ave_atomic_entropy")
+            )
 
     def cal_pair_distribution(self, rc=5.0, nbin=200, max_neigh=80):
         """Calculate the radiul distribution function (RDF),which
@@ -971,7 +1003,7 @@ class System:
             self.pos,
             self.box,
             self.boundary,
-            self.data["type"].values,
+            self.__data['type'].to_numpy()
         )
         self.PairDistribution.compute()
 
@@ -1007,7 +1039,9 @@ class System:
             rc, verlet_list, distance_list, self.pos, self.box, self.boundary
         )
         ClusterAnalysi.compute()
-        self.data["cluster_id"] = ClusterAnalysi.particleClusters
+        self.__data = self.__data.with_columns(
+            pl.lit(ClusterAnalysi.particleClusters).alias("cluster_id")
+        )
         return ClusterAnalysi.cluster_number
 
     def cal_common_neighbor_analysis(self, rc=3.0, max_neigh=30):
@@ -1083,7 +1117,10 @@ class System:
                 self.boundary,
             )
         CommonNeighborAnalysi.compute()
-        self.data["cna"] = CommonNeighborAnalysi.pattern
+
+        self.__data = self.__data.with_columns(
+            pl.lit(CommonNeighborAnalysi.pattern).alias("cna")
+        )
 
     def cal_common_neighbor_parameter(self, rc=3.0, max_neigh=30):
         """Use Common Neighbor Parameter (CNP) method to recgonize the lattice structure.
@@ -1153,7 +1190,10 @@ class System:
                 rc,
             )
         CommonNeighborPar.compute()
-        self.data["cnp"] = CommonNeighborPar.cnp
+
+        self.__data = self.__data.with_columns(
+            pl.lit(CommonNeighborPar.cnp).alias("cnp")
+        )
 
     def cal_energy_force(self, filename, elements_list, max_neigh=None):
         """Calculate the atomic energy and force based on the given embedded atom method
@@ -1189,15 +1229,19 @@ class System:
             self.boundary,
             self.box,
             elements_list,
-            self.data["type"].values,
+            self.__data['type'].to_numpy(),
             verlet_list,
             distance_list,
             neighbor_number,
         )
         Cal.compute()
 
-        self.data["pe"] = Cal.energy
-        self.data[["afx", "afy", "afz"]] = Cal.force
+        self.__data = self.__data.with_columns(
+            pl.lit(Cal.energy).alias("pe"),
+            pl.lit(Cal.force[:, 0]).alias("afx"),
+            pl.lit(Cal.force[:, 1]).alias("afy"),
+            pl.lit(Cal.force[:, 2]).alias("afz"),
+        )
 
     def cal_void_distribution(self, cell_length, out_void=False, out_name="void.dump"):
         """This class is used to detect the void distribution in solid structure.
@@ -1275,7 +1319,7 @@ class System:
                 )
 
         self.WarrenCowleyParameter = WarrenCowleyParameter(
-            self.data["type"].values,
+            self.__data['type'].to_numpy(),
             verlet_list,
             neighbor_number,
             rc,
@@ -1309,9 +1353,12 @@ class System:
 
         voro = VoronoiAnalysis(self.pos, self.box, self.boundary, num_t)
         voro.compute()
-        self.data["voronoi_volume"] = voro.vol
-        self.data["voronoi_number"] = voro.neighbor_number
-        self.data["cavity_radius"] = voro.cavity_radius
+
+        self.__data = self.__data.with_columns(
+            pl.lit(voro.vol).alias("voronoi_volume"),
+            pl.lit(voro.neighbor_number).alias("voronoi_number"),
+            pl.lit(voro.cavity_radius).alias("cavity_radius"),
+        )
 
     def spatial_binning(self, direction, vbin, wbin=5.0, operation="mean"):
         """This class is used to divide particles into different bins and operating on each bin.
@@ -1335,7 +1382,7 @@ class System:
           >>> system.Binning.coor # Check the binning coordination.
         """
 
-        vbin = self.data[vbin].values
+        vbin = self.__data.select(vbin).to_numpy()
         self.Binning = SpatialBinning(self.pos, direction, vbin, wbin, operation)
         self.Binning.compute()
 
@@ -1379,13 +1426,18 @@ class MultiSystem(list):
             if self.image_p is None:
                 try:
                     self.image_p = np.array(
-                        [system.data[["ix", "iy", "iz"]].values for system in self]
+                        [
+                            system.data.select(["ix", "iy", "iz"]).to_numpy()
+                            for system in self
+                        ]
                     )
                 except Exception:
                     pass
             _unwrap_pos(self.pos_list, self[0].box, self[0].boundary, self.image_p)
             for i, system in enumerate(self):
-                system.data[["x", "y", "z"]] = self.pos_list[i]
+                system.data.replace("x", pl.Series(self.pos_list[i, :, 0]))
+                system.data.replace("y", pl.Series(self.pos_list[i, :, 1]))
+                system.data.replace("z", pl.Series(self.pos_list[i, :, 2]))
 
         self.Nframes = self.pos_list.shape[0]
 
@@ -1449,7 +1501,10 @@ class MultiSystem(list):
         self.MSD = MeanSquaredDisplacement(self.pos_list, mode=mode)
         self.MSD.compute()
         for frame in range(self.Nframes):
-            self[frame].data["msd"] = self.MSD.particle_msd[frame]
+            self[frame].data.hstack(
+                pl.from_numpy(self.MSD.particle_msd[frame], schema=["msd"]),
+                in_place=True,
+            )
 
     def cal_lindemann_parameter(self, only_global=False):
         """
@@ -1493,17 +1548,26 @@ class MultiSystem(list):
         self.Lindemann.compute()
         try:
             for frame in range(self.Nframes):
-                self[frame].data["lindemann"] = self.Lindemann.lindemann_atom[frame]
+                self[frame].data.hstack(
+                    pl.from_numpy(
+                        self.Lindemann.lindemann_atom[frame], schema=["lindemann"]
+                    ),
+                    in_place=True,
+                )
         except Exception:
             pass
 
 
 if __name__ == "__main__":
     ti.init()
-    system = System(r'E:\SFE_test\out.50.dump')
-    system.wrap_pos()
-    system.boundary[-1] = 0
-    system.write_dump()
+    system = System(r"E:\SFE_test\relax.dump")
+    print(system)
+    system.cal_ackland_jones_analysis()
+    system.cal_atomic_entropy()
+    print(system)
+    # system.wrap_pos()
+    # system.boundary[-1] = 0
+    # system.write_dump()
     # system = System(r'E:\HEAShock\111\0.7km\shock-700m.10000.dump')
     # system.write_data()
     # system.write_dump()

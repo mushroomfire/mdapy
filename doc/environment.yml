@@ -10,9 +10,7 @@ dependencies:
     - taichi>=1.6.0
     - numpy
     - scipy
-    - pandas
     - polars
-    - pyarrow
     - matplotlib
     - sphinx
     - sphinx_rtd_theme

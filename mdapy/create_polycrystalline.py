@@ -4,7 +4,7 @@
 from time import time
 import numpy as np
 import taichi as ti
-import pandas as pd
+import polars as pl
 import multiprocessing as mt
 
 if __name__ == "__main__":
@@ -558,9 +558,18 @@ class CreatePolycrystalline:
     def _write_dump(self, pos):
         # save position to DUMP file.
         pos[:, 2:5] += self._lower
-        df = pd.DataFrame(pos, columns=["id", "type", "x", "y", "z", "grainid"])
-        df[["id", "type", "grainid"]] = df[["id", "type", "grainid"]].astype(int)
-        df[["x", "y", "z"]] = df[["x", "y", "z"]].astype(np.float32)
+        df = pl.from_numpy(
+            pos,
+            schema={
+                "id": pl.Int32,
+                "type": pl.Int32,
+                "x": pl.Float32,
+                "y": pl.Float32,
+                "z": pl.Float32,
+                "grainid": pl.Int32,
+            },
+        )
+
         SaveFile.write_dump(self.output_name, self._real_box, [1, 1, 1], df)
 
     def compute(self):

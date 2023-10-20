@@ -3,13 +3,16 @@
 
 import taichi as ti
 import numpy as np
+import polars as pl
 
 try:
     from neighbor import Neighbor
     from cluser_analysis import ClusterAnalysis
+    from load_save_data import SaveFile
 except Exception:
     from .neighbor import Neighbor
     from .cluser_analysis import ClusterAnalysis
+    from .load_save_data import SaveFile
 
 
 @ti.data_oriented
@@ -163,24 +166,6 @@ class VoidDistribution:
             # else:
             #     cell_id_list[iicel, jjcel, kkcel] = 0  # is point defect
 
-    def _write_void_pos(self, void_data):
-        boundary_str = ["pp" if i == 1 else "ff" for i in self.boundary]
-        head = [
-            "ITEM: TIMESTEP\n",
-            "0\n",
-            "ITEM: NUMBER OF ATOMS\n",
-            f"{void_data.shape[0]}\n",
-            "ITEM: BOX BOUNDS {} {} {}\n".format(*boundary_str),
-            f"{self.box[0, 0]} {self.box[0, 1]}\n",
-            f"{self.box[1, 0]} {self.box[1, 1]}\n",
-            f"{self.box[2, 0]} {self.box[2, 1]}\n",
-            "ITEM: ATOMS id type x y z cluster_id\n",
-        ]
-
-        with open(self.out_name, "w") as op:
-            op.write("".join(head))
-            np.savetxt(op, void_data, fmt="%d %d %f %f %f %d", delimiter=" ")
-
     def compute(self):
         """Do the real void calculation."""
         cell_id_list = np.zeros(
@@ -204,13 +189,18 @@ class VoidDistribution:
             self.void_volume = void_pos.shape[0] * self.cell_length**3
 
             if self.out_void:
-                void_data = np.c_[
-                    np.arange(void_pos.shape[0]) + 1,
-                    np.ones(void_pos.shape[0]),
-                    void_pos,
-                    cluster.particleClusters,
-                ]
-                self._write_void_pos(void_data)
+                void_data = pl.DataFrame(
+                    {
+                        "id": np.arange(1, void_pos.shape[0] + 1),
+                        "type": np.ones(void_pos.shape[0], int),
+                        "x": void_pos[:, 0],
+                        "y": void_pos[:, 1],
+                        "z": void_pos[:, 2],
+                        "cluster_id": cluster.particleClusters,
+                    }
+                )
+                SaveFile.write_dump(self.out_name, self.box, self.boundary, void_data)
+
         else:
             self.void_number = 0
             self.void_volume = 0.0

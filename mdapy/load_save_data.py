@@ -2,7 +2,6 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 import gzip
 import numpy as np
-import pandas as pd
 import polars as pl
 import os
 import shutil
@@ -43,7 +42,7 @@ class SaveFile:
             "atomic",
             "charge",
         ], "Unrecgonized data format. Only support atomic and charge."
-        if isinstance(data, pd.DataFrame):
+        if isinstance(data, pl.DataFrame):
             for col in ["id", "type", "x", "y", "z"]:
                 assert col in data.columns
         else:
@@ -53,7 +52,7 @@ class SaveFile:
             else:
                 assert len(type_list) == pos.shape[0]
                 type_list = np.array(type_list, int)
-            data = pd.DataFrame(
+            data = pl.DataFrame(
                 {
                     "id": np.arange(pos.shape[0]) + 1,
                     "type": type_list,
@@ -85,18 +84,19 @@ class SaveFile:
             op.write("\n\n".encode())
 
             if data_format == "atomic":
-                table = pl.DataFrame(data[["id", "type", "x", "y", "z"]])
+                table = data.select(["id", "type", "x", "y", "z"])
+
             elif data_format == "charge":
                 if "q" not in data.columns:
-                    table = pl.DataFrame(data[["id", "type", "x", "y", "z"]])
+                    table = data.select(["id", "type", "x", "y", "z"])
                     table.insert_at_idx(2, pl.Series("q", np.zeros(data.shape[0])))
                 else:
-                    table = pl.DataFrame(data[["id", "type", "q", "x", "y", "z"]])
+                    table = data.select(["id", "type", "q", "x", "y", "z"])
             table.write_csv(op, separator=" ", has_header=False)
 
-            if "vx" in data.columns:
+            if "vx" in data.columns and "vy" in data.columns and "vz" in data.columns:
                 op.write("\nVelocities\n\n".encode())
-                table = pl.DataFrame(data[["id", "vx", "vy", "vz"]])
+                table = data.select(["id", "vx", "vy", "vz"])
                 table.write_csv(op, separator=" ", has_header=False)
 
     @staticmethod
@@ -123,7 +123,7 @@ class SaveFile:
             assert box[0, 2] == 0
             assert box[1, 2] == 0
             new_box = box
-        if isinstance(data, pd.DataFrame):
+        if isinstance(data, pl.DataFrame):
             for col in ["id", "type", "x", "y", "z"]:
                 assert col in data.columns
         else:
@@ -133,7 +133,7 @@ class SaveFile:
             else:
                 assert len(type_list) == pos.shape[0]
                 type_list = np.array(type_list, int)
-            data = pd.DataFrame(
+            data = pl.DataFrame(
                 {
                     "id": np.arange(pos.shape[0]) + 1,
                     "type": type_list,
@@ -184,7 +184,7 @@ class SaveFile:
             col_name = "ITEM: ATOMS " + " ".join(data.columns) + " \n"
             op.write(col_name.encode())
 
-            pl.DataFrame(data).write_csv(op, separator=" ", has_header=False)
+            data.write_csv(op, separator=" ", has_header=False)
         if compress:
             compress_file(output_name, os.path.join(path, name + ".gz"))
             shutil.rmtree(temp_dir)
@@ -229,7 +229,7 @@ class BuildSystem:
         assert len(type_list) == pos.shape[0]
         assert type_list.dtype in [np.int32, np.int64], "type_list should be int32 or int64"
 
-        data = pd.DataFrame(
+        data = pl.DataFrame(
                 {
                     "id": np.arange(pos.shape[0]) + 1,
                     "type": type_list,
@@ -240,7 +240,8 @@ class BuildSystem:
             )
         if vel is not None:
             assert vel.shape == pos.shape
-            data[["vx", "vy", "vz"]] = vel
+            data.with_columns(pl.lit(vel[:,0]).alias('vx'), pl.lit(vel[:, 1]).alias('vy'), pl.lit(vel[:, 2]).alias('vz'))
+
         return data, box, boundary
 
     @staticmethod
@@ -345,7 +346,7 @@ class BuildSystem:
             data = pl.concat([data, vel], how="horizontal")
         except Exception:
             pass
-        data = data.to_pandas()
+
         return data, box, boundary
 
     @staticmethod
@@ -405,6 +406,6 @@ class BuildSystem:
             columns=range(len(col_names)),
             has_header=False,
             truncate_ragged_lines=True,
-        ).to_pandas()
+        )
 
         return data, box, boundary, timestep

@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
-import pandas as pd
+import polars as pl
 import datetime
 
 
@@ -601,37 +601,8 @@ class EAMGenerate:
             name.append(self.eam_parameters[a].strip())
             data.append(self.eam_parameters[a + 1 : a + 28])
             a += 28
-        index_name = [
-            "re",
-            "fe",
-            "rhoe",
-            "rhos",
-            "alpha",
-            "beta",
-            "A",
-            "B",
-            "cai",
-            "ramda",
-            "Fi0",
-            "Fi1",
-            "Fi2",
-            "Fi3",
-            "Fm0",
-            "Fm1",
-            "Fm2",
-            "Fm3",
-            "fnn",
-            "Fn",
-            "ielement",
-            "amass",
-            "Fm4",
-            "beta1",
-            "ramda1",
-            "rhol",
-            "rhoh",
-        ]
-        self.data = pd.DataFrame(np.array(data, dtype=np.float64).T, columns=name)
-        self.data.index = index_name
+        
+        self.data = pl.from_numpy(np.array(data, dtype=np.float64).T, schema=name)
 
         (
             self.re,
@@ -661,7 +632,8 @@ class EAMGenerate:
             self.ramda1,
             self.rhol,
             self.rhoh,
-        ) = self.data[self.elements_list].values
+        ) = self.data.select(self.elements_list).to_numpy()
+
         self.blat = np.sqrt(2.0) * self.re
         self.rhoin = self.rhol * self.rhoe
         self.rhoout = self.rhoh * self.rhoe
@@ -736,6 +708,5 @@ if __name__ == "__main__":
     potential = EAMGenerate(["Co", "Ni", "Fe", "Al", "Cu"])
 
     potential = EAM("CoNiFeAlCu.eam.alloy")
-    print(potential.amass)
     os.remove("CoNiFeAlCu.eam.alloy")
-    # potential.plot()
+    potential.plot()

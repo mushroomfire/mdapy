@@ -29,9 +29,7 @@ Dependencies
 * `taichi>=1.6.0 <https://github.com/taichi-dev/taichi>`_
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
-* `pandas <https://pandas.pydata.org/>`_
 * `polars>=0.19.0 <https://pola-rs.github.io/polars/>`_
-* `pyarrow <https://arrow.apache.org/docs/python/>`_
 * `matplotlib <https://matplotlib.org/>`_
 
 Optional Dependencies

@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /
+Allow: /*/latest/
+Allow: /en/latest/   # Fallback for bots that don't understand wildcards
+Allow: /*/master/
+Allow: /en/master/   # Fallback for bots that don't understand wildcards
+Sitemap: https://mdapy.readthedocs.io/en/latest/sitemap.xml

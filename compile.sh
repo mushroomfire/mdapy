@@ -5,7 +5,6 @@
 
 version="0.9.4"
 
-
 if [ "$(uname)" == "Darwin" ]; then
     source ~/anaconda3/etc/profile.d/conda.sh
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   

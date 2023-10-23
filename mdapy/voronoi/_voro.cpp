@@ -16,7 +16,8 @@ using namespace voro;
 void get_voronoi_volume(py::array pos, py::array box, py::array boundary, py::array vol, py::array neighbor_number, py::array cavity_radius, int num_t)
 {
 
-    auto c_pos = pos.mutable_unchecked<double, 2>();
+    // auto c_pos = pos.mutable_unchecked<double, 2>();
+    auto c_pos = pos.unchecked<double, 2>();
     auto c_box = box.mutable_unchecked<double, 2>();
     auto c_boundary = boundary.mutable_unchecked<bool, 1>();
     auto c_vol = vol.mutable_unchecked<double, 1>();
@@ -65,7 +66,8 @@ typedef std::vector<std::vector<std::vector<double>>> D3DouVector;
 
 std::tuple<D3IntVector, D3DouVector, std::vector<double>, std::vector<double>, std::vector<std::vector<double>>> get_cell_info(py::array pos, py::array box, py::array boundary, int num_t)
 {
-    auto c_pos = pos.mutable_unchecked<double, 2>();
+    // auto c_pos = pos.mutable_unchecked<double, 2>();
+    auto c_pos = pos.unchecked<double, 2>();
     auto c_box = box.mutable_unchecked<double, 2>();
     auto c_boundary = boundary.mutable_unchecked<bool, 1>();
     int N = c_pos.shape(0);

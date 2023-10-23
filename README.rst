@@ -178,6 +178,14 @@ You can try:
 Release Notes
 --------------
 
+V0.9.5 (Under Developing)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Fix the documentations.
+- Add a dynamic logo.
+- Improve the memory use for System class.
+- Improve the README.
+
 V0.9.4 (10/20/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

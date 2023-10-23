@@ -157,6 +157,9 @@ class System:
             assert "id" in self.__data.columns
             self.__data = self.__data.sort("id")
         self.if_neigh = False
+        self.update_pos()
+        if 'vx' in self.__data.columns:
+            self.update_vel()
 
     @property
     def filename(self):
@@ -203,26 +206,43 @@ class System:
         """
         return self.__boundary
 
+
+    def update_pos(self):
+        """Call it only if you modify the positions information by modify the data.
+        """
+        assert 'x' in self.__data.columns, "Must contains the position information."
+        self.__pos = np.c_[self.__data['x'].view(), self.__data['y'].view(), self.__data['z'].view()]
+        self.__pos.flags.writeable = False
+    
+    def update_vel(self):
+        """Call it only if you modify the velocities information by modify the data.
+        """
+        assert 'vx' in self.__data.columns, "Must contains the velocity information."
+        self.__vel = np.c_[self.__data['vx'].view(), self.__data['vy'].view(), self.__data['vz'].view()]
+
     @property
     def pos(self):
-        """particle position information.
+        """particle position information. Do not change it directly. 
+        If you want to modify the positions, modify the data and call self.update_pos()
 
         Returns:
             np.ndarray: position information.
         """
-        return self.__data.select(["x", "y", "z"]).to_numpy()
+
+        return self.__pos
 
     @property
     def vel(self):
-        """particle velocity information.
+        """particle velocity information. Do not change it directly. 
+        If you want to modify the velocities, modify the data and call self.update_vel()
 
         Returns:
             np.ndarray: velocity information.
         """
         if "vx" in self.__data.columns:
-            return self.__data.select(["vx", "vy", "vz"]).to_numpy()
+            return self.__vel
         else:
-            return "No Velocity found."
+            raise "No Velocity found."
 
     @property
     def N(self):
@@ -261,7 +281,7 @@ class System:
         if self.if_neigh:
             return self.__verlet_list
         else:
-            return "No Neighbor Information found. Call build_neighbor() please."
+            raise "No Neighbor Information found. Call build_neighbor() please."
 
     @property
     def distance_list(self):
@@ -273,7 +293,7 @@ class System:
         if self.if_neigh:
             return self.__distance_list
         else:
-            return "No Neighbor Information found. Call build_neighbor() please."
+            raise "No Neighbor Information found. Call build_neighbor() please."
 
     @property
     def neighbor_number(self):
@@ -285,7 +305,7 @@ class System:
         if self.if_neigh:
             return self.__neighbor_number
         else:
-            return "No Neighbor Information found. Call build_neighbor() please."
+            raise "No Neighbor Information found. Call build_neighbor() please."
 
     @property
     def rc(self):
@@ -297,7 +317,7 @@ class System:
         if self.if_neigh:
             return self.__rc
         else:
-            return "No Neighbor Information found. Call build_neighbor() please."
+            raise "No Neighbor Information found. Call build_neighbor() please."
 
     def change_filename(self, filename):
         """change the filename.
@@ -330,14 +350,20 @@ class System:
         )
         return subSystem
 
-    def update_data(self, data: pl.DataFrame):
+    def update_data(self, data: pl.DataFrame, update_pos:False, update_vel:False):
         """Provide a interface to directly update the particle information. If you are not sure, do not use it.
 
         Args:
             data (pl.DataFrame): a new dataframe
+            update_pos (bool, optional): if new data change the position, set it to True. Defaults to False.
+            update_vel (bool, optional): if new data change the velocity, set it to True. Defaults to False.
         """
         assert isinstance(data, pl.DataFrame)
         self.__data = data
+        if update_pos:
+            self.update_pos()
+        if update_vel:
+            self.update_vel()
 
     def write_dump(self, output_name=None, output_col=None, compress=False):
         """This function writes position into a DUMP file.
@@ -420,13 +446,15 @@ class System:
 
     def wrap_pos(self):
         """Wrap atom position into box considering the periodic boundary."""
-        pos = self.pos
-        _wrap_pos(pos, self.box, np.array(self.boundary))
+
+        self.__pos.flags.writeable = True
+        _wrap_pos(self.__pos, self.box, np.array(self.boundary))
         self.__data = self.__data.with_columns(
-            pl.lit(pos[:, 0]).alias("x"),
-            pl.lit(pos[:, 1]).alias("y"),
-            pl.lit(pos[:, 2]).alias("z"),
+            pl.lit(self.__pos[:, 0]).alias("x"),
+            pl.lit(self.__pos[:, 1]).alias("y"),
+            pl.lit(self.__pos[:, 2]).alias("z"),
         )
+        self.__pos.flags.writeable = False
 
     def replicate(self, x=1, y=1, z=1):
         """Replicate the system.
@@ -449,6 +477,9 @@ class System:
             pl.lit(repli.pos[:, 1]).alias("y"),
             pl.lit(repli.pos[:, 2]).alias("z"),
         )
+        self.update_pos()
+        if 'vx' in self.__data.columns:
+            self.update_vel()
         self.__box = repli.box
 
     def build_neighbor(self, rc=5.0, max_neigh=None):
@@ -512,7 +543,7 @@ class System:
                 self.distance_list,
             )
 
-        atype_list = self.__data["type"].to_numpy().astype(np.int32)
+        atype_list = self.__data["type"].view() #to_numpy().astype(np.int32)
 
         assert "vx" in self.__data.columns
         assert "vy" in self.__data.columns
@@ -1012,7 +1043,7 @@ class System:
             self.pos,
             self.box,
             self.boundary,
-            self.__data["type"].to_numpy(),
+            self.__data["type"].view(),
         )
         self.PairDistribution.compute()
 
@@ -1238,7 +1269,7 @@ class System:
             self.boundary,
             self.box,
             elements_list,
-            self.__data["type"].to_numpy(),
+            self.__data["type"].view(),
             verlet_list,
             distance_list,
             neighbor_number,
@@ -1328,7 +1359,7 @@ class System:
                 )
 
         self.WarrenCowleyParameter = WarrenCowleyParameter(
-            self.__data["type"].to_numpy(),
+            self.__data["type"].view(),
             verlet_list,
             neighbor_number,
             rc,
@@ -1391,7 +1422,7 @@ class System:
           >>> system.Binning.coor # Check the binning coordination.
         """
 
-        vbin = self.__data.select(vbin).to_numpy()
+        vbin = np.ascontiguousarray(self.__data.select(vbin))
         self.Binning = SpatialBinning(self.pos, direction, vbin, wbin, operation)
         self.Binning.compute()
 
@@ -1442,11 +1473,14 @@ class MultiSystem(list):
                     )
                 except Exception:
                     pass
+
             _unwrap_pos(self.pos_list, self[0].box, self[0].boundary, self.image_p)
+
             for i, system in enumerate(self):
-                system.data.replace("x", pl.Series(self.pos_list[i, :, 0]))
-                system.data.replace("y", pl.Series(self.pos_list[i, :, 1]))
-                system.data.replace("z", pl.Series(self.pos_list[i, :, 2]))
+                newdata = system.data.with_columns(pl.lit(self.pos_list[i, :, 0]).alias('x'),
+                                         pl.lit(self.pos_list[i, :, 1]).alias('y'),
+                                         pl.lit(self.pos_list[i, :, 2]).alias('z'))
+                system.update_data(newdata, update_pos=True)
 
         self.Nframes = self.pos_list.shape[0]
 
@@ -1571,8 +1605,11 @@ if __name__ == "__main__":
     ti.init()
     system = System(r"E:\SFE_test\relax.dump")
     print(system)
+    print(system.pos[:5])
     system.replicate(3, 3, 3)
     print(system)
+    print(system.pos[:5])
+    print(system.vel)
     # system.cal_ackland_jones_analysis()
     # system.cal_atomic_entropy()
     # print(system)

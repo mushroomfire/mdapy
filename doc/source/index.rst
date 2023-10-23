@@ -1,6 +1,10 @@
 *mdapy* : Molecular Dynamics Analysis with Python
 =====================================================
 
+.. raw:: html
+
+   <iframe src="https://mushroomfire.com/mdapy.html" height="250px" width="1000px", frameBorder="0"></iframe>
+
 Overview
 --------
 

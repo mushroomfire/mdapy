@@ -26,19 +26,11 @@ try:
 except Exception:
     readme = description
 
-def get_version(path):
-    version_path = os.path.join(path, "mdapy\__init__.py")
-    with open(version_path) as op:
-        while True:
-            content = op.readline().split()
-            if len(content)==3:
-                if content[0] == '__version__':
-                    return content[-1][1:-1]
 
 ParallelCompile(needs_recompile=False).install()
 setup(
     name="mdapy",
-    version=get_version(path),
+    version='0.9.4',
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,

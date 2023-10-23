@@ -5,7 +5,6 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext, ParallelCompile
 from setuptools import setup
 from glob import glob
 import sys
-import os
 
 if sys.platform.startswith("win"):
     extra_compile_args = ["/openmp:llvm", "/d2FH4-"]
@@ -17,11 +16,9 @@ elif sys.platform.startswith("darw"):
     extra_compile_args = ["-Xclang", "-fopenmp"]
     extra_link_args = ["-lomp"]
 
-path = os.getcwd()
-
 description = "A simple, fast and cross-platform python library to handle the data generated from molecular dynamics simulations."
 try:
-    with open(os.path.join(path, "README.rst")) as f:
+    with open("README.rst") as f:
         readme = f.read()
 except Exception:
     readme = description

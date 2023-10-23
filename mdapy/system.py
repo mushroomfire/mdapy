@@ -350,7 +350,7 @@ class System:
         )
         return subSystem
 
-    def update_data(self, data: pl.DataFrame, update_pos:False, update_vel:False):
+    def update_data(self, data: pl.DataFrame, update_pos=False, update_vel=False):
         """Provide a interface to directly update the particle information. If you are not sure, do not use it.
 
         Args:

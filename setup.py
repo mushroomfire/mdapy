@@ -5,6 +5,7 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext, ParallelCompile
 from setuptools import setup
 from glob import glob
 import sys
+import os
 
 if sys.platform.startswith("win"):
     extra_compile_args = ["/openmp:llvm", "/d2FH4-"]
@@ -16,19 +17,28 @@ elif sys.platform.startswith("darw"):
     extra_compile_args = ["-Xclang", "-fopenmp"]
     extra_link_args = ["-lomp"]
 
+path = os.getcwd()
 
-description = "A simple, fast and cross-platform python library to handle the data generated from molecular dynamics simulations"
+description = "A simple, fast and cross-platform python library to handle the data generated from molecular dynamics simulations."
 try:
-    with open("README.rst") as f:
+    with open(os.path.join(path, "README.rst")) as f:
         readme = f.read()
 except Exception:
     readme = description
 
+def get_version(path):
+    version_path = os.path.join(path, "mdapy\__init__.py")
+    with open(version_path) as op:
+        while True:
+            content = op.readline().split()
+            if len(content)==3:
+                if content[0] == '__version__':
+                    return content[-1][1:-1]
 
-ParallelCompile().install()
+ParallelCompile(needs_recompile=False).install()
 setup(
     name="mdapy",
-    version="0.9.4",
+    version=get_version(path),
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,

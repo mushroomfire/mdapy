@@ -1,5 +1,4 @@
 # for using Read the Docs theme
-import sphinx_rtd_theme
 import os
 import sys
 
@@ -27,8 +26,6 @@ extensions = [
 
 
 templates_path = ["_templates"]
-
-html_extra_path = ["robots.txt"]
 
 # html_theme = 'sphinxdoc'
 html_theme = "sphinx_rtd_theme"

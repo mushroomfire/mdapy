@@ -34,4 +34,4 @@ html_logo = "images/mdapy_logo_white.png"
 html_favicon = "images/mdapy_favico_white.ico"
 
 # html_theme_path = []
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+# html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]

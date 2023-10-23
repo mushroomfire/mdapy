@@ -24,10 +24,10 @@ except Exception:
     readme = description
 
 
-ParallelCompile(needs_recompile=False).install()
+ParallelCompile().install()
 setup(
     name="mdapy",
-    version='0.9.4',
+    version="0.9.4",
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,

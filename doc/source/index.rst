@@ -3,7 +3,7 @@
 
 .. raw:: html
 
-   <iframe src="https://mushroomfire.com/mdapy.html" height="250px" width="1000px", frameBorder="0"></iframe>
+   <iframe src="https://mushroomfire.com/mdapy.html" height="170px" width="700px", frameBorder="0"></iframe>
 
 Overview
 --------

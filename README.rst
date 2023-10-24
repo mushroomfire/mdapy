@@ -253,7 +253,7 @@ V0.9.5 (Under Developing)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Fix the documentations.
-- Add a dynamic logo.
+- Add a dynamic `logo <https://mdapy.readthedocs.io/en/latest/>`_.
 - Improve the memory use for System class.
 - Improve the README.
 

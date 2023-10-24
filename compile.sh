@@ -3,7 +3,7 @@
 # To compile the C module for different python versions.
 #!/usr/bin/env bash
 
-version="0.9.4"
+version="0.9.5"
 
 if [ "$(uname)" == "Darwin" ]; then
     source ~/anaconda3/etc/profile.d/conda.sh

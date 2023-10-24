@@ -256,6 +256,7 @@ V0.9.5 (Under Developing)
 - Add a dynamic `logo <https://mdapy.readthedocs.io/en/latest/>`_.
 - Improve the memory use for System class.
 - Improve the README.
+- Add plot for 3D spatial binning.
 
 V0.9.4 (10/20/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

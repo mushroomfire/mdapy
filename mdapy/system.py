@@ -219,6 +219,7 @@ class System:
         """
         assert 'vx' in self.__data.columns, "Must contains the velocity information."
         self.__vel = np.c_[self.__data['vx'].view(), self.__data['vy'].view(), self.__data['vz'].view()]
+        self.__vel.flags.writeable = False
 
     @property
     def pos(self):

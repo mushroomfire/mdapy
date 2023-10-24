@@ -243,9 +243,10 @@ class SpatialBinning:
         pltset()
         if not self.if_compute:
             self.compute()
+        if len(self.direction) in [1, 2]:
+            fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
+            plt.subplots_adjust(bottom=0.18, top=0.97, left=0.15, right=0.92)
 
-        fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
-        plt.subplots_adjust(bottom=0.18, top=0.97, left=0.15, right=0.92)
         if len(self.direction) == 1:
             if label_list is not None:
                 for i in range(1, self.res.shape[1]):
@@ -266,11 +267,11 @@ class SpatialBinning:
             plt.show()
             return fig, ax
         elif len(self.direction) == 2:
-            data = np.zeros(self.res.shape[:2])
-            for i in range(self.res.shape[0]):
-                for j in range(self.res.shape[1]):
-                    data[i, j] = self.res[i, j, 1]
-
+            # data = np.zeros(self.res.shape[:2])
+            # for i in range(self.res.shape[0]):
+            #     for j in range(self.res.shape[1]):
+            #         data[i, j] = self.res[i, j, 1]
+            data = self.res[:, :, 1]
             X, Y = np.meshgrid(
                 self.coor[self.direction[0]], self.coor[self.direction[1]]
             )
@@ -287,9 +288,65 @@ class SpatialBinning:
             plt.show()
             return fig, ax
         else:
-            raise NotImplementedError(
-                "Three-dimensional binning visualization is not supported yet!"
+
+            fig = plt.figure(figsize=(cm2inch(14), cm2inch(10)), dpi=150)
+            ax = fig.add_subplot(111, projection='3d')
+            plt.subplots_adjust(bottom=0.08, top=0.971, left=0.01, right=0.843)
+            x, y, z = self.coor[self.direction[0]], self.coor[self.direction[1]], self.coor[self.direction[2]]
+            X,Y,Z = np.meshgrid(x, y, z)
+            data = np.zeros(X.shape)
+            for i in range(X.shape[0]):
+                for j in range(X.shape[1]):
+                    for k in range(X.shape[2]):
+                        data[i, j, k] = self.res[j, i, k, 1]
+            #data = self.res[:, :, :, 1].reshape(X.shape)
+
+            kw = {
+                'vmin': data.min(),
+                'vmax': data.max(),
+                'levels': np.linspace(data.min(), data.max(), 50),
+                'cmap':"GnBu"
+            }
+
+            # Plot contour surfaces
+            _ = ax.contourf(
+                X[:, :, 0], Y[:, :, 0], data[:, :, 0],
+                zdir='z', offset=Z.max(), **kw
             )
+
+            _ = ax.contourf(
+                X[0, :, :], data[0, :, :], Z[0, :, :],
+                zdir='y', offset=0, **kw
+            )
+            C = ax.contourf(
+                data[:, -1, :], Y[:, -1, :], Z[:, -1, :],
+                zdir='x', offset=X.max(), **kw
+            )
+            # Set limits of the plot from coord limits
+            xmin, xmax = X.min(), X.max()
+            ymin, ymax = Y.min(), Y.max()
+            zmin, zmax = Z.min(), Z.max()
+            ax.set(xlim=[xmin, xmax], ylim=[ymin, ymax], zlim=[zmin, zmax])
+
+            #Set labels and zticks
+            ax.set(
+                xlabel='X',
+                ylabel='Y',
+                zlabel='Z',
+            )
+
+            # Set zoom and angle view
+            ax.view_init(40, -30, 0)
+            # ax.set_box_aspect((xmax-xmin, ymax-ymin, zmax-zmin))
+            # ax.set_aspect('auto')
+            bar = fig.colorbar(C, ax=ax, fraction=0.015, pad=0.15) 
+            if bar_label is not None:
+                bar.set_label(bar_label)
+            else:
+                bar.set_label("Some value")
+
+            plt.show()
+            return fig, ax
 
 
 if __name__ == "__main__":
@@ -297,31 +354,35 @@ if __name__ == "__main__":
     from time import time
 
     ti.init(ti.cpu)
-    FCC = LatticeMaker(4.05, "FCC", 100, 50, 50)
+    FCC = LatticeMaker(4.05, "FCC", 50, 50, 50)
     FCC.compute()
+    #val = np.random.random(FCC.N)
     pos = FCC.pos
-    pos = pos[(pos[:, 0] < 100) | (pos[:, 0] > 300)]
+    #pos = pos[(pos[:, 0] < 100) | (pos[:, 0] > 300)]
     start = time()
-    for i in range(10):
-        print(i)
-        binning = SpatialBinning(
-            pos,
-            "xy",
-            pos[:, 0] + pos[:, 1],
-            operation="mean",
-        )
-        binning.compute()
+    # for i in range(10):
+    #     print(i)
     # binning = SpatialBinning(
     #     pos,
-    #     "x",
-    #     pos[:, 0] + pos[:, 1],
-    #     operation="min",
+    #     "xyz",
+    #     val,
+    #     operation="mean",
     # )
     # binning.compute()
+    binning = SpatialBinning(
+        pos,
+        "xyz",
+        np.cos(pos[:, 0])**2 - np.sin(pos[:, 1])**2,
+        wbin=4.06,
+        operation="mean",
+    )
+    binning.compute()
     end = time()
     print(f"Binning time: {end-start} s.")
-    print(binning.res[:, ..., 1].max())
-    print(binning.coor["x"])
-    print(binning.coor)
-    binning.plot(label_list=["x"], bar_label="x")
-    # binning.plot(bar_label="x")
+    #print(binning.res[:, ..., 1].max())
+    #print(binning.coor["x"])
+    #print(binning.coor)
+    #binning.plot(label_list=["x"], bar_label="x")
+    #binning.plot(bar_label="x")
+    binning.plot(bar_label='random')
+    

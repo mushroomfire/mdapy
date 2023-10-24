@@ -32,6 +32,7 @@ setup(
     author_email="yongchao_wu@bit.edu.cn",
     description=description,
     long_description=readme,
+    long_description_content_type="text/x-rst",
     packages=["mdapy"],
     ext_modules=[
         Pybind11Extension(

@@ -132,8 +132,8 @@ Main Features
    - `Parallelly Compress file to .gz format <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.pigz>`_
 
 
-Dependencies (Support Python3.8-3.11)
---------------------------------------
+Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
+------------------------------------------------------------------
 
 .. list-table::
 

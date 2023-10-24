@@ -249,7 +249,7 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
-V0.9.5 (Under Developing)
+V0.9.5 (10/24/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Fix the documentations.

@@ -158,7 +158,7 @@ class System:
             self.__data = self.__data.sort("id")
         self.if_neigh = False
         self.update_pos()
-        if 'vx' in self.__data.columns:
+        if "vx" in self.__data.columns:
             self.update_vel()
 
     @property
@@ -206,24 +206,25 @@ class System:
         """
         return self.__boundary
 
-
     def update_pos(self):
-        """Call it only if you modify the positions information by modify the data.
-        """
-        assert 'x' in self.__data.columns, "Must contains the position information."
-        self.__pos = np.c_[self.__data['x'].view(), self.__data['y'].view(), self.__data['z'].view()]
+        """Call it only if you modify the positions information by modify the data."""
+        assert "x" in self.__data.columns, "Must contains the position information."
+        self.__pos = np.c_[
+            self.__data["x"].view(), self.__data["y"].view(), self.__data["z"].view()
+        ]
         self.__pos.flags.writeable = False
-    
+
     def update_vel(self):
-        """Call it only if you modify the velocities information by modify the data.
-        """
-        assert 'vx' in self.__data.columns, "Must contains the velocity information."
-        self.__vel = np.c_[self.__data['vx'].view(), self.__data['vy'].view(), self.__data['vz'].view()]
+        """Call it only if you modify the velocities information by modify the data."""
+        assert "vx" in self.__data.columns, "Must contains the velocity information."
+        self.__vel = np.c_[
+            self.__data["vx"].view(), self.__data["vy"].view(), self.__data["vz"].view()
+        ]
         self.__vel.flags.writeable = False
 
     @property
     def pos(self):
-        """particle position information. Do not change it directly. 
+        """particle position information. Do not change it directly.
         If you want to modify the positions, modify the data and call self.update_pos()
 
         Returns:
@@ -234,7 +235,7 @@ class System:
 
     @property
     def vel(self):
-        """particle velocity information. Do not change it directly. 
+        """particle velocity information. Do not change it directly.
         If you want to modify the velocities, modify the data and call self.update_vel()
 
         Returns:
@@ -479,7 +480,7 @@ class System:
             pl.lit(repli.pos[:, 2]).alias("z"),
         )
         self.update_pos()
-        if 'vx' in self.__data.columns:
+        if "vx" in self.__data.columns:
             self.update_vel()
         self.__box = repli.box
 
@@ -544,7 +545,7 @@ class System:
                 self.distance_list,
             )
 
-        atype_list = self.__data["type"].view() #to_numpy().astype(np.int32)
+        atype_list = self.__data["type"].view()  # to_numpy().astype(np.int32)
 
         assert "vx" in self.__data.columns
         assert "vy" in self.__data.columns
@@ -1478,9 +1479,11 @@ class MultiSystem(list):
             _unwrap_pos(self.pos_list, self[0].box, self[0].boundary, self.image_p)
 
             for i, system in enumerate(self):
-                newdata = system.data.with_columns(pl.lit(self.pos_list[i, :, 0]).alias('x'),
-                                         pl.lit(self.pos_list[i, :, 1]).alias('y'),
-                                         pl.lit(self.pos_list[i, :, 2]).alias('z'))
+                newdata = system.data.with_columns(
+                    pl.lit(self.pos_list[i, :, 0]).alias("x"),
+                    pl.lit(self.pos_list[i, :, 1]).alias("y"),
+                    pl.lit(self.pos_list[i, :, 2]).alias("z"),
+                )
                 system.update_data(newdata, update_pos=True)
 
         self.Nframes = self.pos_list.shape[0]

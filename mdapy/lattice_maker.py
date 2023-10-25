@@ -238,13 +238,14 @@ class LatticeMaker:
             self.compute()
         return np.inner(self.box[0], np.cross(self.box[1], self.box[2]))
 
-    def write_data(self, output_name=None, data_format="atomic", type_list=None):
+    def write_data(self, output_name=None, data_format="atomic", type_list=None, num_type=None):
         """This function writes position into a DATA file.
 
         Args:
             output_name (str, optional): filename of generated DATA file.
             data_format (str, optional): data format, selected in ['atomic', 'charge'].
             type_list (np.ndarray, optional): one can mannually assign the type_list.
+            num_type (int, optional): explictly assign a number of atom type. Defaults to None.
         """
         if not self.if_computed:
             self.compute()
@@ -263,6 +264,7 @@ class LatticeMaker:
             [1, 1, 1],
             pos=self.pos,
             type_list=type_list,
+            num_type=num_type,
             data_format=data_format,
         )
 
@@ -322,7 +324,7 @@ if __name__ == "__main__":
     # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))
     print(FCC.basis_atoms)
     print(FCC.basis_vector)
-    FCC.write_data()
+    FCC.write_data(num_type=2)
     # FCC.write_dump(compress=True)
     # print(FCC.pos)
     # print(pos.dtype)

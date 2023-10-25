@@ -22,6 +22,7 @@ class SaveFile:
         data=None,
         pos=None,
         type_list=None,
+        num_type=None,
         data_format="atomic",
     ):
         assert isinstance(output_name, str)
@@ -61,11 +62,15 @@ class SaveFile:
                     "z": pos[:, 2],
                 }
             )
-
+        if num_type is None:
+            num_type = data['type'].max()
+        else:
+            assert isinstance(num_type, int)
+            assert num_type >= data['type'].max(), f"num_type should be >= {data['type'].max()}."
         with open(output_name, "wb") as op:
             op.write("# LAMMPS data file written by mdapy.\n\n".encode())
             op.write(
-                f"{data.shape[0]} atoms\n{data['type'].max()} atom types\n\n".encode()
+                f"{data.shape[0]} atoms\n{num_type} atom types\n\n".encode()
             )
             op.write(
                 f"{new_box[-1, 0]} {new_box[-1, 0]+new_box[0, 0]} xlo xhi\n".encode()

@@ -399,12 +399,13 @@ class System:
             compress=compress,
         )
 
-    def write_data(self, output_name=None, data_format="atomic"):
+    def write_data(self, output_name=None, data_format="atomic", num_type=None):
         """This function writes particles information into a DATA file.
 
         Args:
             output_name (str, optional): output filename. Defaults to None.
             data_format (str, optional): selected in ['atomic', 'charge']. Defaults to "atomic".
+            num_type (int, optional): explictly assign a number of atom type. Defaults to None.
         """
         if output_name is None:
             if self.__filename is None:
@@ -419,6 +420,7 @@ class System:
             data=self.__data,
             pos=None,
             type_list=None,
+            num_type=num_type,
             data_format=data_format,
         )
 

@@ -138,12 +138,13 @@ class Replicate:
             self.compute()
         return self.pos.shape[0]
 
-    def write_data(self, output_name=None, data_format="atomic"):
+    def write_data(self, output_name=None, data_format="atomic", num_type=None):
         """This function writes position into a DATA file.
 
         Args:
             output_name (str, optional): filename of generated DATA file.
             data_format (str, optional): data format, selected in ['atomic', 'charge']
+            num_type (int, optional): explictly assign a number of atom type. Defaults to None.
         """
         if not self.if_computed:
             self.compute()
@@ -158,6 +159,7 @@ class Replicate:
             [1, 1, 1],
             pos=self.pos,
             type_list=self.type_list,
+            num_type=num_type,
             data_format=data_format,
         )
 

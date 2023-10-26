@@ -110,7 +110,6 @@ class PairDistribution:
             assert box is not None
             assert boundary is not None
             repeat = _check_repeat_cutoff(box, boundary, self.rc)
-            print(repeat)
             if pos.dtype != np.float64:
                 pos = pos.astype(np.float64)
             if box.dtype != np.float64:
@@ -285,14 +284,14 @@ if __name__ == "__main__":
     # ti.init(ti.cpu)
     start = time()
     lattice_constant = 3.615
-    x, y, z = 1, 1, 1
+    x, y, z = 1, 2, 3
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     # FCC.write_data()
     # start = time()
-    rc = 5.0
+    rc = 8.0
     # neigh = Neighbor(FCC.pos, FCC.box, rc, max_neigh=50)
     # neigh.compute()
     # end = time()

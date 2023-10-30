@@ -6,9 +6,9 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import matplotlib.pyplot as plt
 
 try:
-    from plotset import pltset, cm2inch
-except Exception:
     from .plotset import pltset, cm2inch
+except Exception:
+    from plotset import pltset, cm2inch
 
 
 class EAM:
@@ -132,10 +132,11 @@ class EAM:
 
         for i in range(self.Nelements):
             self.d_embedded_data[i] = spline(
-                self.rho, self.embedded_data[i], k=3
+                self.rho, self.embedded_data[i]
             ).derivative(n=1)(self.rho)
+
             self.d_elec_density_data[i] = spline(
-                self.r, self.elec_density_data[i], k=3
+                self.r, self.elec_density_data[i]
             ).derivative(n=1)(self.r)
 
         self.phi_data = np.zeros((self.Nelements, self.Nelements, self.nr))
@@ -146,7 +147,7 @@ class EAM:
                 if i >= j:
                     self.phi_data[i, j, 1:] = self.rphi_data[i, j][1:] / self.r[1:]
                     self.d_phi_data[i, j, 1:] = spline(
-                        self.r[1:], self.phi_data[i, j][1:], k=3
+                        self.r[1:], self.phi_data[i, j][1:]
                     ).derivative(n=1)(self.r[1:])
                     if i != j:
                         self.phi_data[j, i] = self.phi_data[i, j]
@@ -271,8 +272,18 @@ class EAM:
 
 
 if __name__ == "__main__":
+    import taichi as ti
+    ti.init()
     potential = EAM("./example/CoNiFeAlCu.eam.alloy")
-    potential.plot()
+    # print(potential.d_elec_density_data[0, :10])
+    # print(potential.d_elec_density_data[0, :10])
+    # print(potential.d_phi_data[0, :10])
+    # potential.plot()
+    #plt.plot(potential.r, potential.d_phi_data[0][0])
+    #plt.plot(potential.r, potential.d_embedded_data[0])
+    #plt.plot(potential.rho, potential.d_elec_density_data[0])
+    #plt.plot(potential.rho, potential.elec_density_data[0])
+    plt.show()
 
     # potential.write_eam_alloy()
     # potential = EAM("CoNiFeAlCu.new.eam.alloy")

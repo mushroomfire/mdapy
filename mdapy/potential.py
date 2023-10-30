@@ -272,18 +272,17 @@ class EAM:
 
 
 if __name__ == "__main__":
-    import taichi as ti
-    ti.init()
+
     potential = EAM("./example/CoNiFeAlCu.eam.alloy")
     # print(potential.d_elec_density_data[0, :10])
     # print(potential.d_elec_density_data[0, :10])
     # print(potential.d_phi_data[0, :10])
-    # potential.plot()
+    potential.plot()
     #plt.plot(potential.r, potential.d_phi_data[0][0])
     #plt.plot(potential.r, potential.d_embedded_data[0])
     #plt.plot(potential.rho, potential.d_elec_density_data[0])
     #plt.plot(potential.rho, potential.elec_density_data[0])
-    plt.show()
+    #plt.show()
 
     # potential.write_eam_alloy()
     # potential = EAM("CoNiFeAlCu.new.eam.alloy")

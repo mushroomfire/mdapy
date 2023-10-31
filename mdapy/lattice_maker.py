@@ -254,14 +254,21 @@ class LatticeMaker:
 
         if type_name is not None:
             assert len(type_name) == len(np.unique(self.type_list))
-        
+
         data = pl.DataFrame(
-            {'type':self.type_list, 'x':self.pos[:,0], 'y':self.pos[:,1], 'z':self.pos[:,2] }
+            {
+                "type": self.type_list,
+                "x": self.pos[:, 0],
+                "y": self.pos[:, 1],
+                "z": self.pos[:, 2],
+            }
         )
 
         SaveFile.write_POSCAR(output_name, self.box, data, type_name)
 
-    def write_data(self, output_name=None, data_format="atomic", type_list=None, num_type=None):
+    def write_data(
+        self, output_name=None, data_format="atomic", type_list=None, num_type=None
+    ):
         """This function writes position into a DATA file.
 
         Args:
@@ -323,18 +330,11 @@ if __name__ == "__main__":
 
     # FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
     # crystalline_orientation=np.array([[1, 1, 0], [-1, 1, 1], [1, -1, 2]])
-    FCC = LatticeMaker(
-        3.615,
-        "FCC",
-        3,
-        3,
-        3,
-        type_list=[1, 1, 2, 2]
-    )
+    FCC = LatticeMaker(3.615, "FCC", 3, 3, 3, type_list=[1, 1, 2, 2])
     # crystalline_orientation=np.array([[1, 1, -2], [1, -1, 0], [1, 1, 1]]),
     FCC.compute()
     print("Atom number is:", FCC.N)
-    FCC.write_POSCAR(type_name=['Cu', 'Fe'])
+    FCC.write_POSCAR(type_name=["Cu", "Fe"])
     # start = time()
     # FCC.write_data()
     # print(f"write data time {time()-start} s.")
@@ -346,9 +346,9 @@ if __name__ == "__main__":
     # print(FCC.basis_atoms.to_numpy())
     # print(FCC.basis_vector.to_numpy())
     # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))
-    #print(FCC.basis_atoms)
-    #print(FCC.basis_vector)
-    #FCC.write_data(num_type=2)
+    # print(FCC.basis_atoms)
+    # print(FCC.basis_vector)
+    # FCC.write_data(num_type=2)
     # FCC.write_dump(compress=True)
     # print(FCC.pos)
     # print(pos.dtype)

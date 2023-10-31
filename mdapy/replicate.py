@@ -138,7 +138,7 @@ class Replicate:
         if not self.if_computed:
             self.compute()
         return self.pos.shape[0]
-    
+
     def write_POSCAR(self, output_name=None, type_name=None):
         """This function writes position into a POSCAR file.
 
@@ -154,9 +154,14 @@ class Replicate:
 
         if type_name is not None:
             assert len(type_name) == len(np.unique(self.type_list))
-        
+
         data = pl.DataFrame(
-            {'type':self.type_list, 'x':self.pos[:,0], 'y':self.pos[:,1], 'z':self.pos[:,2] }
+            {
+                "type": self.type_list,
+                "x": self.pos[:, 0],
+                "y": self.pos[:, 1],
+                "z": self.pos[:, 2],
+            }
         )
 
         SaveFile.write_POSCAR(output_name, self.box, data, type_name)

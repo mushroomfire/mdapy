@@ -74,8 +74,8 @@ class System:
         vel (np.ndarray, optional): (:math:`N_p, 3`) particles velocities. Defaults to None.
         type_list (np.ndarray, optional): (:math:`N_p`) type per particles. Defaults to 1.
         sorted_id (bool, optional): whether sort system data by the particle id. Defaults to False.
-    
-    .. note:: 
+
+    .. note::
       - Mdapy supports load/save `POSCAR format <https://www.vasp.at/wiki/index.php/POSCAR>`_ from version 0.9.6.
         We will convert the box vector to be compatiable with that `defined in lammps <https://docs.lammps.org/Howto_triclinic.html>`_.
 
@@ -145,12 +145,14 @@ class System:
                     self.__boundary,
                     self.__timestep,
                 ) = BuildSystem.fromfile(self.__filename, self.__fmt)
-            elif self.__fmt in ['data', 'lmp']:
+            elif self.__fmt in ["data", "lmp"]:
                 self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
                     self.__filename, self.__fmt
                 )
-            elif self.__fmt == 'POSCAR':
-                self.__data, self.__box, self.__boundary = BuildSystem.fromfile(self.__filename, self.__fmt)
+            elif self.__fmt == "POSCAR":
+                self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
+                    self.__filename, self.__fmt
+                )
         elif (
             isinstance(pos, np.ndarray)
             and isinstance(box, np.ndarray)
@@ -405,9 +407,13 @@ class System:
             compress=compress,
         )
 
-    def wtite_POSCAR(self, output_name=None,type_name=None,
+    def wtite_POSCAR(
+        self,
+        output_name=None,
+        type_name=None,
         selective_dynamics=False,
-        save_velocity=False):
+        save_velocity=False,
+    ):
         """This function writes particles information into a POSCAR file.
 
         Args:
@@ -420,8 +426,17 @@ class System:
             if self.__filename is None:
                 output_name = "output.POSCAR"
             else:
-                output_name = ".".join(self.__filename.split(".")[:-1]) + ".output.POSCAR"
-        SaveFile.write_POSCAR(output_name,self.__box, self.__data, type_name, selective_dynamics, save_velocity)
+                output_name = (
+                    ".".join(self.__filename.split(".")[:-1]) + ".output.POSCAR"
+                )
+        SaveFile.write_POSCAR(
+            output_name,
+            self.__box,
+            self.__data,
+            type_name,
+            selective_dynamics,
+            save_velocity,
+        )
 
     def write_data(self, output_name=None, data_format="atomic", num_type=None):
         """This function writes particles information into a DATA file.
@@ -1634,11 +1649,11 @@ if __name__ == "__main__":
     ti.init()
     system = System(r"example\solidliquid.dump")
     print(system)
-    system.wtite_POSCAR(output_name='POSCAR',save_velocity=True, type_name=['Mo'])
-    system = System('POSCAR')
+    system.wtite_POSCAR(output_name="POSCAR", save_velocity=True, type_name=["Mo"])
+    system = System("POSCAR")
     print(system)
     system.wtite_POSCAR()
-    #system.replicate(3, 3, 3)
+    # system.replicate(3, 3, 3)
     # system.cal_ackland_jones_analysis()
     # system.cal_atomic_entropy()
     # print(system)

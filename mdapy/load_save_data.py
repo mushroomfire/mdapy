@@ -14,14 +14,15 @@ except Exception:
 
 
 class SaveFile:
-
     @staticmethod
-    def write_POSCAR(output_name,
+    def write_POSCAR(
+        output_name,
         box,
         data,
         type_name=None,
         selective_dynamics=False,
-        save_velocity=False):
+        save_velocity=False,
+    ):
         assert isinstance(output_name, str)
         assert isinstance(box, np.ndarray)
         assert box.shape == (3, 2) or box.shape == (4, 3)
@@ -34,55 +35,67 @@ class SaveFile:
             assert box[1, 2] == 0
             new_box = box[:-1]
         assert isinstance(data, pl.DataFrame)
-        for col in ['type', 'x', 'y', 'z']:
+        for col in ["type", "x", "y", "z"]:
             assert col in data.columns, f"data must contain {col}."
-        
-        data = data.select(pl.all()).sort('type').with_columns(pl.col('x')-pl.col('x').min(),pl.col('y')-pl.col('y').min(), pl.col('z')-pl.col('z').min())
-        type_list = data.group_by('type', maintain_order=True).count()['count']
+
+        data = (
+            data.select(pl.all())
+            .sort("type")
+            .with_columns(
+                pl.col("x") - pl.col("x").min(),
+                pl.col("y") - pl.col("y").min(),
+                pl.col("z") - pl.col("z").min(),
+            )
+        )
+        type_list = data.group_by("type", maintain_order=True).count()["count"]
         if type_name is not None:
             assert len(type_name) == type_list.shape[0]
         else:
-            if 'type_name' in data.columns:
-                type_name = data['type_name'].unique(maintain_order=True)
+            if "type_name" in data.columns:
+                type_name = data["type_name"].unique(maintain_order=True)
                 assert len(type_name) == type_list.shape[0]
-        
+
         if selective_dynamics:
-            for col in ['sdx', 'sdy', 'sdz']:
-                assert col in data.columns, f"data mush contain {col} if you set selective_dynamics to True."
-        
+            for col in ["sdx", "sdy", "sdz"]:
+                assert (
+                    col in data.columns
+                ), f"data mush contain {col} if you set selective_dynamics to True."
+
         if save_velocity:
-            for col in ['vx', 'vy', 'vz']:
-                assert col in data.columns, f"data mush contain {col} if you set save_velocity to True."
+            for col in ["vx", "vy", "vz"]:
+                assert (
+                    col in data.columns
+                ), f"data mush contain {col} if you set save_velocity to True."
 
         with open(output_name, "wb") as op:
             op.write("# VASP POSCAR file written by mdapy.\n".encode())
-            op.write('1.0000000000\n'.encode())
-            op.write('{:.10f} {:.10f} {:.10f}\n'.format(*box[0]).encode())
-            op.write('{:.10f} {:.10f} {:.10f}\n'.format(*box[1]).encode())
-            op.write('{:.10f} {:.10f} {:.10f}\n'.format(*box[2]).encode())
+            op.write("1.0000000000\n".encode())
+            op.write("{:.10f} {:.10f} {:.10f}\n".format(*box[0]).encode())
+            op.write("{:.10f} {:.10f} {:.10f}\n".format(*box[1]).encode())
+            op.write("{:.10f} {:.10f} {:.10f}\n".format(*box[2]).encode())
             if type_name is not None:
                 for aname in type_name:
-                    op.write(f'{aname} '.encode())
-                op.write('\n'.encode())
+                    op.write(f"{aname} ".encode())
+                op.write("\n".encode())
             for atype in type_list:
-                op.write(f'{atype} '.encode())
-            op.write('\n'.encode())
+                op.write(f"{atype} ".encode())
+            op.write("\n".encode())
             if selective_dynamics:
-                op.write('Selective dynamics\n'.encode())
-            op.write('Cartesian\n'.encode()) # Only support Cartesian coordinations
+                op.write("Selective dynamics\n".encode())
+            op.write("Cartesian\n".encode())  # Only support Cartesian coordinations
             if selective_dynamics:
-                data.select(['x', 'y', 'z', 'sdx', 'sdy', 'sdz']).write_csv(op, separator=" ", has_header=False, float_precision=10)
+                data.select(["x", "y", "z", "sdx", "sdy", "sdz"]).write_csv(
+                    op, separator=" ", has_header=False, float_precision=10
+                )
             else:
-                data.select(['x', 'y', 'z']).write_csv(op, separator=" ", has_header=False, float_precision=10)
+                data.select(["x", "y", "z"]).write_csv(
+                    op, separator=" ", has_header=False, float_precision=10
+                )
             if save_velocity:
-                op.write('Cartesian\n'.encode())
-                data.select(['vx', 'vy', 'vz']).write_csv(op, separator=" ", has_header=False, float_precision=10)
-        
-
-        
-        
-
-
+                op.write("Cartesian\n".encode())
+                data.select(["vx", "vy", "vz"]).write_csv(
+                    op, separator=" ", has_header=False, float_precision=10
+                )
 
     @staticmethod
     def write_data(
@@ -131,15 +144,15 @@ class SaveFile:
                 }
             )
         if num_type is None:
-            num_type = data['type'].max()
+            num_type = data["type"].max()
         else:
             assert isinstance(num_type, int)
-            assert num_type >= data['type'].max(), f"num_type should be >= {data['type'].max()}."
+            assert (
+                num_type >= data["type"].max()
+            ), f"num_type should be >= {data['type'].max()}."
         with open(output_name, "wb") as op:
             op.write("# LAMMPS data file written by mdapy.\n\n".encode())
-            op.write(
-                f"{data.shape[0]} atoms\n{num_type} atom types\n\n".encode()
-            )
+            op.write(f"{data.shape[0]} atoms\n{num_type} atom types\n\n".encode())
             op.write(
                 f"{new_box[-1, 0]} {new_box[-1, 0]+new_box[0, 0]} xlo xhi\n".encode()
             )
@@ -284,7 +297,7 @@ class BuildSystem:
             return cls.read_dump(filename, fmt)
         elif fmt in ["data", "lmp"]:
             return cls.read_data(filename)
-        elif fmt == 'POSCAR':
+        elif fmt == "POSCAR":
             return cls.read_POSCAR(filename)
 
     @staticmethod
@@ -346,22 +359,22 @@ class BuildSystem:
         with open(filename) as op:
             file = op.readlines()
         scale = float(file[1].strip())
-        box = np.array([i.split() for i in file[2:5]], float)*scale
+        box = np.array([i.split() for i in file[2:5]], float) * scale
         a, b, c = box
         ax = np.linalg.norm(box[0])
-        bx = box[1]@(box[0]/ax)
-        by = np.sqrt(np.linalg.norm(box[1])**2-bx**2)
-        cx = box[2] @ (box[0]/ax)
+        bx = box[1] @ (box[0] / ax)
+        by = np.sqrt(np.linalg.norm(box[1]) ** 2 - bx**2)
+        cx = box[2] @ (box[0] / ax)
         AXB = np.cross(box[0], box[1])
-        cy = (box[1] @ box[2] - bx*cx) / by
-        cz = np.sqrt(np.linalg.norm(box[2])**2 - cx**2 -cy**2)
+        cy = (box[1] @ box[2] - bx * cx) / by
+        cz = np.sqrt(np.linalg.norm(box[2]) ** 2 - cx**2 - cy**2)
         rotation = np.array([[ax, bx, cx], [0, by, cy], [0, 0, cz]])
         box = rotation.T
         row = 5
         type_list, type_name_list = [], []
         if file[5][0].isdigit():
             for atype, num in enumerate(file[5].split()):
-                type_list.extend([atype+1]*int(num))
+                type_list.extend([atype + 1] * int(num))
             row += 1
         else:
             assert file[6][0].isdigit()
@@ -374,60 +387,62 @@ class BuildSystem:
                     atype += 1
             for atype, num in enumerate(file[6].split()):
                 t_name = content[atype]
-                type_name_list.extend([t_name]*int(num))
-                type_list.extend([name_dict[t_name]]*int(num))
+                type_name_list.extend([t_name] * int(num))
+                type_list.extend([name_dict[t_name]] * int(num))
             row += 2
         selective_dynamics = False
-        if file[row][0] in ['S', 's']:
+        if file[row][0] in ["S", "s"]:
             row += 1
             selective_dynamics = True
         natoms = len(type_list)
         pos, sd = [], []
         if selective_dynamics:
-            for line in file[row+1:row+1+natoms]:
+            for line in file[row + 1 : row + 1 + natoms]:
                 content = line.split()
                 pos.append(content[:3])
                 sd.append(content[3:])
             sd = np.array(sd)
         else:
-            for line in file[row+1:row+1+natoms]:
+            for line in file[row + 1 : row + 1 + natoms]:
                 pos.append(line.split()[:3])
         pos = np.array(pos, float)
-        if file[row][0] in ['C', 'c', 'K', 'k']:
+        if file[row][0] in ["C", "c", "K", "k"]:
             pos *= scale
         else:
             pos = (pos @ np.c_[a, b, c]) * scale
-        rotation_M = (rotation/np.inner(box[0], np.cross(box[1], box[2]))) @ np.c_[np.cross(b, c), np.cross(c, a), np.cross(a, b)]
+        rotation_M = (rotation / np.inner(box[0], np.cross(box[1], box[2]))) @ np.c_[
+            np.cross(b, c), np.cross(c, a), np.cross(a, b)
+        ]
         pos = (rotation_M @ pos.T).T
-        row += natoms+1
+        row += natoms + 1
         vel = []
-        if file[row][0] in ['L', 'l']: # skip the lattice velocities
+        if file[row][0] in ["L", "l"]:  # skip the lattice velocities
             row += 8
-        if row+1+natoms <= len(file):
-            vel = np.array([i.split() for i in file[row+1:row+1+natoms]], float)
-            if file[row][0] not in ['C', 'c', 'K', 'k']:
+        if row + 1 + natoms <= len(file):
+            vel = np.array([i.split() for i in file[row + 1 : row + 1 + natoms]], float)
+            if file[row][0] not in ["C", "c", "K", "k"]:
                 vel = vel @ np.c_[a, b, c]
             vel = (rotation_M @ vel.T).T
-        
+
         data = {}
-        data['id'] = np.arange(1, natoms+1)
-        data['type'] = type_list
+        data["id"] = np.arange(1, natoms + 1)
+        data["type"] = type_list
         if len(type_name_list) > 0:
-            data['type_name'] = type_name_list
-        data['x'] = pos[:, 0]
-        data['y'] = pos[:, 1]
-        data['z'] = pos[:, 2]
-        if len(sd)>0:
-            data['sdx'] = sd[:, 0]
-            data['sdy'] = sd[:, 1]
-            data['sdz'] = sd[:, 2]
-        if len(vel)>0:
-            data['vx'] = vel[:, 0]
-            data['vy'] = vel[:, 1]
-            data['vz'] = vel[:, 2]
+            data["type_name"] = type_name_list
+        data["x"] = pos[:, 0]
+        data["y"] = pos[:, 1]
+        data["z"] = pos[:, 2]
+        if len(sd) > 0:
+            data["sdx"] = sd[:, 0]
+            data["sdy"] = sd[:, 1]
+            data["sdz"] = sd[:, 2]
+        if len(vel) > 0:
+            data["vx"] = vel[:, 0]
+            data["vy"] = vel[:, 1]
+            data["vz"] = vel[:, 2]
         data = pl.DataFrame(data)
 
-        return data, np.r_[box, np.array([[0, 0, 0.]])], [1, 1, 1]
+        return data, np.r_[box, np.array([[0, 0, 0.0]])], [1, 1, 1]
 
     @staticmethod
     def read_data(filename):

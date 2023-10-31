@@ -1,6 +1,7 @@
 import polars as pl
 import numpy as np
 import taichi as ti
+import os
 import multiprocessing as mt
 
 try:
@@ -427,7 +428,7 @@ class System:
                 output_name = "output.POSCAR"
             else:
                 output_name = (
-                    ".".join(self.__filename.split(".")[:-1]) + ".output.POSCAR"
+                    self.__filename + ".output.POSCAR"
                 )
         SaveFile.write_POSCAR(
             output_name,
@@ -1647,10 +1648,10 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System(r"example\solidliquid.dump")
-    print(system)
-    system.wtite_POSCAR(output_name="POSCAR", save_velocity=True, type_name=["Mo"])
-    system = System("POSCAR")
+    # system = System(r"example\solidliquid.dump")
+    # print(system)
+    # system.wtite_POSCAR(output_name="POSCAR", save_velocity=True, type_name=["Mo"])
+    system = System(r'C:\Users\Administrator\Desktop\Fe\ML-DATA\VASP\examples\examples\POSCAR')
     print(system)
     system.wtite_POSCAR()
     # system.replicate(3, 3, 3)

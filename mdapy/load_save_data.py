@@ -280,7 +280,7 @@ class BuildSystem:
     @staticmethod
     def getformat(filename, fmt=None):
         if fmt is None:
-            postfix = filename.split(".")[-1]
+            postfix = os.path.split(filename)[-1].split(".")[-1]
             if postfix == "gz":
                 assert (
                     filename.split(".")[-2] == "dump"
@@ -372,12 +372,12 @@ class BuildSystem:
         box = rotation.T
         row = 5
         type_list, type_name_list = [], []
-        if file[5][0].isdigit():
+        if file[5].strip()[0].isdigit():
             for atype, num in enumerate(file[5].split()):
                 type_list.extend([atype + 1] * int(num))
             row += 1
         else:
-            assert file[6][0].isdigit()
+            assert file[6].strip()[0].isdigit()
             content = file[5].split()
             name_dict = {}
             atype = 1
@@ -416,11 +416,12 @@ class BuildSystem:
         pos = (rotation_M @ pos.T).T
         row += natoms + 1
         vel = []
-        if file[row][0] in ["L", "l"]:  # skip the lattice velocities
-            row += 8
+        if row <= len(file)-1:
+            if file[row].strip()[0] in ["L", "l"]:  # skip the lattice velocities
+                row += 8
         if row + 1 + natoms <= len(file):
             vel = np.array([i.split() for i in file[row + 1 : row + 1 + natoms]], float)
-            if file[row][0] not in ["C", "c", "K", "k"]:
+            if file[row].strip()[0] not in ["C", "c", "K", "k"]:
                 vel = vel @ np.c_[a, b, c]
             vel = (rotation_M @ vel.T).T
 

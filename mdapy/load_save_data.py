@@ -18,7 +18,6 @@ class SaveFile:
     def write_data(
         output_name,
         box,
-        boundary,
         data=None,
         pos=None,
         type_list=None,
@@ -27,7 +26,6 @@ class SaveFile:
     ):
         assert isinstance(output_name, str)
         assert isinstance(box, np.ndarray)
-        assert len(boundary) == 3
         assert box.shape == (3, 2) or box.shape == (4, 3)
         if box.shape == (3, 2):
             new_box = np.zeros((4, 3), dtype=box.dtype)

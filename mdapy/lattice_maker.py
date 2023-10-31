@@ -261,7 +261,6 @@ class LatticeMaker:
         SaveFile.write_data(
             output_name,
             self.box,
-            [1, 1, 1],
             pos=self.pos,
             type_list=type_list,
             num_type=num_type,

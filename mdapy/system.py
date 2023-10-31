@@ -416,7 +416,6 @@ class System:
         SaveFile.write_data(
             output_name,
             self.__box,
-            self.__boundary,
             data=self.__data,
             pos=None,
             type_list=None,

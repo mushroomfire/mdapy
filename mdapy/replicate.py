@@ -156,7 +156,6 @@ class Replicate:
         SaveFile.write_data(
             output_name,
             self.box,
-            [1, 1, 1],
             pos=self.pos,
             type_list=self.type_list,
             num_type=num_type,

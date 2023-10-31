@@ -249,6 +249,12 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
+V0.9.6 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- One can explicitly assign the type number when writing to data file.
+- Support load/save POSCAR format.
+
 V0.9.5 (10/24/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

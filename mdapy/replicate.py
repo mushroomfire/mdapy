@@ -3,6 +3,7 @@
 
 import taichi as ti
 import numpy as np
+import polars as pl
 
 try:
     from load_save_data import SaveFile
@@ -137,6 +138,28 @@ class Replicate:
         if not self.if_computed:
             self.compute()
         return self.pos.shape[0]
+    
+    def write_POSCAR(self, output_name=None, type_name=None):
+        """This function writes position into a POSCAR file.
+
+        Args:
+            output_name (str, optional): filename of generated POSCAR file.
+            type_name (list, optional): species name. Such as ['Al', 'Fe']
+        """
+        if not self.if_computed:
+            self.compute()
+
+        if output_name is None:
+            output_name = f"{self.x}-{self.y}-{self.z}.POSCAR"
+
+        if type_name is not None:
+            assert len(type_name) == len(np.unique(self.type_list))
+        
+        data = pl.DataFrame(
+            {'type':self.type_list, 'x':self.pos[:,0], 'y':self.pos[:,1], 'z':self.pos[:,2] }
+        )
+
+        SaveFile.write_POSCAR(output_name, self.box, data, type_name)
 
     def write_data(self, output_name=None, data_format="atomic", num_type=None):
         """This function writes position into a DATA file.

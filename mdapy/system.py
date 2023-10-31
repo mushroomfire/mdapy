@@ -141,10 +141,12 @@ class System:
                     self.__boundary,
                     self.__timestep,
                 ) = BuildSystem.fromfile(self.__filename, self.__fmt)
-            else:
+            elif self.__fmt in ['data', 'lmp']:
                 self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
                     self.__filename, self.__fmt
                 )
+            elif self.__fmt == 'POSCAR':
+                self.__data, self.__box, self.__boundary = BuildSystem.fromfile(self.__filename, self.__fmt)
         elif (
             isinstance(pos, np.ndarray)
             and isinstance(box, np.ndarray)
@@ -398,6 +400,24 @@ class System:
             timestep=self.__timestep,
             compress=compress,
         )
+
+    def wtite_POSCAR(self, output_name=None,type_name=None,
+        selective_dynamics=False,
+        save_velocity=False):
+        """This function writes particles information into a POSCAR file.
+
+        Args:
+            output_name (str, optional): output filename. Defaults to None.
+            type_name (list, optional): species name. Such as ['Al', 'Fe']
+            selective_dynamics (bool, optional): whether do selective dynamics. Defaults to False.
+            save_velocity (bool, optional): whether save velocities information. Defaults to False.
+        """
+        if output_name is None:
+            if self.__filename is None:
+                output_name = "output.POSCAR"
+            else:
+                output_name = ".".join(self.__filename.split(".")[:-1]) + ".output.POSCAR"
+        SaveFile.write_POSCAR(output_name,self.__box, self.__data, type_name, selective_dynamics, save_velocity)
 
     def write_data(self, output_name=None, data_format="atomic", num_type=None):
         """This function writes particles information into a DATA file.
@@ -1608,13 +1628,13 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System(r"E:\SFE_test\relax.dump")
+    system = System(r"example\solidliquid.dump")
     print(system)
-    print(system.pos[:5])
-    system.replicate(3, 3, 3)
+    system.wtite_POSCAR(output_name='POSCAR',save_velocity=True, type_name=['Mo'])
+    system = System('POSCAR')
     print(system)
-    print(system.pos[:5])
-    print(system.vel)
+    system.wtite_POSCAR()
+    #system.replicate(3, 3, 3)
     # system.cal_ackland_jones_analysis()
     # system.cal_atomic_entropy()
     # print(system)

@@ -3,6 +3,7 @@
 
 import taichi as ti
 import numpy as np
+import polars as pl
 
 try:
     from replicate import Replicate
@@ -238,6 +239,28 @@ class LatticeMaker:
             self.compute()
         return np.inner(self.box[0], np.cross(self.box[1], self.box[2]))
 
+    def write_POSCAR(self, output_name=None, type_name=None):
+        """This function writes position into a POSCAR file.
+
+        Args:
+            output_name (str, optional): filename of generated POSCAR file.
+            type_name (list, optional): species name. Such as ['Al', 'Fe']
+        """
+        if not self.if_computed:
+            self.compute()
+
+        if output_name is None:
+            output_name = f"{self.x}-{self.y}-{self.z}.POSCAR"
+
+        if type_name is not None:
+            assert len(type_name) == len(np.unique(self.type_list))
+        
+        data = pl.DataFrame(
+            {'type':self.type_list, 'x':self.pos[:,0], 'y':self.pos[:,1], 'z':self.pos[:,2] }
+        )
+
+        SaveFile.write_POSCAR(output_name, self.box, data, type_name)
+
     def write_data(self, output_name=None, data_format="atomic", type_list=None, num_type=None):
         """This function writes position into a DATA file.
 
@@ -303,13 +326,15 @@ if __name__ == "__main__":
     FCC = LatticeMaker(
         3.615,
         "FCC",
-        30,
-        10,
-        15,
-        crystalline_orientation=np.array([[1, 1, -2], [1, -1, 0], [1, 1, 1]]),
+        3,
+        3,
+        3,
+        type_list=[1, 1, 2, 2]
     )
+    # crystalline_orientation=np.array([[1, 1, -2], [1, -1, 0], [1, 1, 1]]),
     FCC.compute()
     print("Atom number is:", FCC.N)
+    FCC.write_POSCAR(type_name=['Cu', 'Fe'])
     # start = time()
     # FCC.write_data()
     # print(f"write data time {time()-start} s.")
@@ -321,9 +346,9 @@ if __name__ == "__main__":
     # print(FCC.basis_atoms.to_numpy())
     # print(FCC.basis_vector.to_numpy())
     # print(FCC.basis_vector.to_numpy() * np.array([FCC.x, FCC.y, FCC.z]))
-    print(FCC.basis_atoms)
-    print(FCC.basis_vector)
-    FCC.write_data(num_type=2)
+    #print(FCC.basis_atoms)
+    #print(FCC.basis_vector)
+    #FCC.write_data(num_type=2)
     # FCC.write_dump(compress=True)
     # print(FCC.pos)
     # print(pos.dtype)

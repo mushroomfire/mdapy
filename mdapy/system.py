@@ -66,7 +66,7 @@ class System:
 
     Args:
         filename (str, optional): DATA/DUMP filename. Defaults to None.
-        fmt (str, optional): selected in ['data', 'lmp', 'dump', 'dump.gz'], One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
+        fmt (str, optional): selected in ['data', 'lmp', 'dump', 'dump.gz', 'POSCAR'], One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
         data (polars.Dataframe, optional): all particles information. Defaults to None.
         box (np.ndarray, optional): (:math:`4, 3` or :math:`3, 2`) system box. Defaults to None.
         pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
@@ -74,6 +74,10 @@ class System:
         vel (np.ndarray, optional): (:math:`N_p, 3`) particles velocities. Defaults to None.
         type_list (np.ndarray, optional): (:math:`N_p`) type per particles. Defaults to 1.
         sorted_id (bool, optional): whether sort system data by the particle id. Defaults to False.
+    
+    .. note:: 
+      - Mdapy supports load/save `POSCAR format <https://www.vasp.at/wiki/index.php/POSCAR>`_ from version 0.9.6.
+        We will convert the box vector to be compatiable with that `defined in lammps <https://docs.lammps.org/Howto_triclinic.html>`_.
 
     Examples:
 

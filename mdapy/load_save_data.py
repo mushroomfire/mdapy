@@ -408,7 +408,7 @@ class BuildSystem:
                 type_list.extend([name_dict[t_name]] * int(num))
             row += 2
         selective_dynamics = False
-        if file[row][0] in ["S", "s"]:
+        if file[row].strip()[0] in ["S", "s"]:
             row += 1
             selective_dynamics = True
         natoms = len(type_list)
@@ -435,12 +435,14 @@ class BuildSystem:
         row += natoms + 1
         vel = []
         if row <= len(file) - 1:
-            if file[row].strip()[0] in ["L", "l"]:  # skip the lattice velocities
-                row += 8
+            if len(file[row].split()) > 0:
+                if file[row].strip()[0] in ["L", "l"]:  # skip the lattice velocities
+                    row += 8
         if row + 1 + natoms <= len(file):
             vel = np.array([i.split() for i in file[row + 1 : row + 1 + natoms]], float)
-            if file[row].strip()[0] not in ["C", "c", "K", "k"]:
-                vel = vel @ np.c_[a, b, c]
+            if len(file[row].split()) > 0:
+                if file[row].strip()[0] not in ["C", "c", "K", "k"]:
+                    vel = vel @ np.c_[a, b, c]
             if need_rotation:
                 vel = (rotation_M @ vel.T).T
 

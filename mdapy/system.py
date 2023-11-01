@@ -1652,13 +1652,15 @@ if __name__ == "__main__":
     # system = System(r"example\solidliquid.dump")
     # print(system)
     # system.wtite_POSCAR(output_name="POSCAR", save_velocity=True, type_name=["Mo"])
-    system = System(
-        r"C:\Users\Administrator\Desktop\Fe\ML-DATA\VASP\examples\examples\POSCAR"
-    )
+    system = System('POSCAR')
     print(system)
-    system.wtite_POSCAR(output_name="c.POSCAR")
-    system.wtite_POSCAR(output_name="d.POSCAR", reduced_pos=True)
-    print(system)
+    # system = System(
+    #     r"C:\Users\Administrator\Desktop\Fe\ML-DATA\VASP\examples\examples\POSCAR"
+    # )
+    # print(system)
+    # system.wtite_POSCAR(output_name="c.POSCAR")
+    # system.wtite_POSCAR(output_name="d.POSCAR", reduced_pos=True)
+    # print(system)
     # system.replicate(3, 3, 3)
     # system.cal_ackland_jones_analysis()
     # system.cal_atomic_entropy()

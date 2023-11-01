@@ -139,12 +139,13 @@ class Replicate:
             self.compute()
         return self.pos.shape[0]
 
-    def write_POSCAR(self, output_name=None, type_name=None):
+    def write_POSCAR(self, output_name=None, type_name=None, reduced_pos=False):
         """This function writes position into a POSCAR file.
 
         Args:
             output_name (str, optional): filename of generated POSCAR file.
-            type_name (list, optional): species name. Such as ['Al', 'Fe']
+            type_name (list, optional): species name. Such as ['Al', 'Fe'].
+            reduced_pos (bool, optional): whether save directed coordination. Defaults to False.
         """
         if not self.if_computed:
             self.compute()
@@ -164,7 +165,7 @@ class Replicate:
             }
         )
 
-        SaveFile.write_POSCAR(output_name, self.box, data, type_name)
+        SaveFile.write_POSCAR(output_name, self.box, data, type_name, reduced_pos)
 
     def write_data(self, output_name=None, data_format="atomic", num_type=None):
         """This function writes position into a DATA file.

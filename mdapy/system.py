@@ -412,6 +412,7 @@ class System:
         self,
         output_name=None,
         type_name=None,
+        reduced_pos=False,
         selective_dynamics=False,
         save_velocity=False,
     ):
@@ -419,22 +420,22 @@ class System:
 
         Args:
             output_name (str, optional): output filename. Defaults to None.
-            type_name (list, optional): species name. Such as ['Al', 'Fe']
+            type_name (list, optional): species name. Such as ['Al', 'Fe'].
             selective_dynamics (bool, optional): whether do selective dynamics. Defaults to False.
+            reduced_pos (bool, optional): whether save directed coordination. Defaults to False.
             save_velocity (bool, optional): whether save velocities information. Defaults to False.
         """
         if output_name is None:
             if self.__filename is None:
                 output_name = "output.POSCAR"
             else:
-                output_name = (
-                    self.__filename + ".output.POSCAR"
-                )
+                output_name = self.__filename + ".output.POSCAR"
         SaveFile.write_POSCAR(
             output_name,
             self.__box,
             self.__data,
             type_name,
+            reduced_pos,
             selective_dynamics,
             save_velocity,
         )
@@ -1651,9 +1652,13 @@ if __name__ == "__main__":
     # system = System(r"example\solidliquid.dump")
     # print(system)
     # system.wtite_POSCAR(output_name="POSCAR", save_velocity=True, type_name=["Mo"])
-    system = System(r'C:\Users\Administrator\Desktop\Fe\ML-DATA\VASP\examples\examples\POSCAR')
+    system = System(
+        r"C:\Users\Administrator\Desktop\Fe\ML-DATA\VASP\examples\examples\POSCAR"
+    )
     print(system)
-    system.wtite_POSCAR()
+    system.wtite_POSCAR(output_name="c.POSCAR")
+    system.wtite_POSCAR(output_name="d.POSCAR", reduced_pos=True)
+    print(system)
     # system.replicate(3, 3, 3)
     # system.cal_ackland_jones_analysis()
     # system.cal_atomic_entropy()

@@ -239,12 +239,13 @@ class LatticeMaker:
             self.compute()
         return np.inner(self.box[0], np.cross(self.box[1], self.box[2]))
 
-    def write_POSCAR(self, output_name=None, type_name=None):
+    def write_POSCAR(self, output_name=None, type_name=None, reduced_pos=False):
         """This function writes position into a POSCAR file.
 
         Args:
             output_name (str, optional): filename of generated POSCAR file.
-            type_name (list, optional): species name. Such as ['Al', 'Fe']
+            type_name (list, optional): species name. Such as ['Al', 'Fe'].
+            reduced_pos (bool, optional): whether save directed coordination. Defaults to False.
         """
         if not self.if_computed:
             self.compute()
@@ -264,7 +265,7 @@ class LatticeMaker:
             }
         )
 
-        SaveFile.write_POSCAR(output_name, self.box, data, type_name)
+        SaveFile.write_POSCAR(output_name, self.box, data, type_name, reduced_pos)
 
     def write_data(
         self, output_name=None, data_format="atomic", type_list=None, num_type=None
@@ -334,7 +335,7 @@ if __name__ == "__main__":
     # crystalline_orientation=np.array([[1, 1, -2], [1, -1, 0], [1, 1, 1]]),
     FCC.compute()
     print("Atom number is:", FCC.N)
-    FCC.write_POSCAR(type_name=["Cu", "Fe"])
+    FCC.write_POSCAR(type_name=["Cu", "Fe"], reduced_pos=True)
     # start = time()
     # FCC.write_data()
     # print(f"write data time {time()-start} s.")

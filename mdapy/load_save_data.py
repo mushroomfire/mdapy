@@ -20,6 +20,7 @@ class SaveFile:
         box,
         data,
         type_name=None,
+        reduced_pos=False,
         selective_dynamics=False,
         save_velocity=False,
     ):
@@ -47,6 +48,16 @@ class SaveFile:
                 pl.col("z") - pl.col("z").min(),
             )
         )
+        if reduced_pos:
+            new_pos = np.c_[
+                data["x"].view(), data["y"].view(), data["z"].view()
+            ] @ np.linalg.pinv(new_box.T)
+            data = data.with_columns(
+                pl.lit(new_pos[:, 0]).alias("x"),
+                pl.lit(new_pos[:, 1]).alias("y"),
+                pl.lit(new_pos[:, 2]).alias("z"),
+            )
+
         type_list = data.group_by("type", maintain_order=True).count()["count"]
         if type_name is not None:
             assert len(type_name) == type_list.shape[0]
@@ -70,9 +81,9 @@ class SaveFile:
         with open(output_name, "wb") as op:
             op.write("# VASP POSCAR file written by mdapy.\n".encode())
             op.write("1.0000000000\n".encode())
-            op.write("{:.10f} {:.10f} {:.10f}\n".format(*box[0]).encode())
-            op.write("{:.10f} {:.10f} {:.10f}\n".format(*box[1]).encode())
-            op.write("{:.10f} {:.10f} {:.10f}\n".format(*box[2]).encode())
+            op.write("{:.10f} {:.10f} {:.10f}\n".format(*new_box[0]).encode())
+            op.write("{:.10f} {:.10f} {:.10f}\n".format(*new_box[1]).encode())
+            op.write("{:.10f} {:.10f} {:.10f}\n".format(*new_box[2]).encode())
             if type_name is not None:
                 for aname in type_name:
                     op.write(f"{aname} ".encode())
@@ -82,7 +93,10 @@ class SaveFile:
             op.write("\n".encode())
             if selective_dynamics:
                 op.write("Selective dynamics\n".encode())
-            op.write("Cartesian\n".encode())  # Only support Cartesian coordinations
+            if reduced_pos:
+                op.write("Direct\n".encode())
+            else:
+                op.write("Cartesian\n".encode())
             if selective_dynamics:
                 data.select(["x", "y", "z", "sdx", "sdy", "sdz"]).write_csv(
                     op, separator=" ", has_header=False, float_precision=10
@@ -359,17 +373,20 @@ class BuildSystem:
         with open(filename) as op:
             file = op.readlines()
         scale = float(file[1].strip())
+        need_rotation = False
         box = np.array([i.split() for i in file[2:5]], float) * scale
         a, b, c = box
-        ax = np.linalg.norm(box[0])
-        bx = box[1] @ (box[0] / ax)
-        by = np.sqrt(np.linalg.norm(box[1]) ** 2 - bx**2)
-        cx = box[2] @ (box[0] / ax)
-        AXB = np.cross(box[0], box[1])
-        cy = (box[1] @ box[2] - bx * cx) / by
-        cz = np.sqrt(np.linalg.norm(box[2]) ** 2 - cx**2 - cy**2)
-        rotation = np.array([[ax, bx, cx], [0, by, cy], [0, 0, cz]])
-        box = rotation.T
+        if box[0, 1] != 0 or box[0, 2] != 0 or box[1, 2] != 0:
+            ax = np.linalg.norm(box[0])
+            bx = box[1] @ (box[0] / ax)
+            by = np.sqrt(np.linalg.norm(box[1]) ** 2 - bx**2)
+            cx = box[2] @ (box[0] / ax)
+            AXB = np.cross(box[0], box[1])
+            cy = (box[1] @ box[2] - bx * cx) / by
+            cz = np.sqrt(np.linalg.norm(box[2]) ** 2 - cx**2 - cy**2)
+            rotation = np.array([[ax, bx, cx], [0, by, cy], [0, 0, cz]])
+            box = rotation.T
+            need_rotation = True
         row = 5
         type_list, type_name_list = [], []
         if file[5].strip()[0].isdigit():
@@ -400,7 +417,7 @@ class BuildSystem:
             for line in file[row + 1 : row + 1 + natoms]:
                 content = line.split()
                 pos.append(content[:3])
-                sd.append(content[3:])
+                sd.append(content[-3:])
             sd = np.array(sd)
         else:
             for line in file[row + 1 : row + 1 + natoms]:
@@ -410,20 +427,22 @@ class BuildSystem:
             pos *= scale
         else:
             pos = (pos @ np.c_[a, b, c]) * scale
-        rotation_M = (rotation / np.inner(box[0], np.cross(box[1], box[2]))) @ np.c_[
-            np.cross(b, c), np.cross(c, a), np.cross(a, b)
-        ]
-        pos = (rotation_M @ pos.T).T
+        if need_rotation:
+            rotation_M = (
+                rotation / np.inner(box[0], np.cross(box[1], box[2]))
+            ) @ np.c_[np.cross(b, c), np.cross(c, a), np.cross(a, b)]
+            pos = (rotation_M @ pos.T).T
         row += natoms + 1
         vel = []
-        if row <= len(file)-1:
+        if row <= len(file) - 1:
             if file[row].strip()[0] in ["L", "l"]:  # skip the lattice velocities
                 row += 8
         if row + 1 + natoms <= len(file):
             vel = np.array([i.split() for i in file[row + 1 : row + 1 + natoms]], float)
             if file[row].strip()[0] not in ["C", "c", "K", "k"]:
                 vel = vel @ np.c_[a, b, c]
-            vel = (rotation_M @ vel.T).T
+            if need_rotation:
+                vel = (rotation_M @ vel.T).T
 
         data = {}
         data["id"] = np.arange(1, natoms + 1)

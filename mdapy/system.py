@@ -408,7 +408,7 @@ class System:
             compress=compress,
         )
 
-    def wtite_POSCAR(
+    def write_POSCAR(
         self,
         output_name=None,
         type_name=None,

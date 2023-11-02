@@ -15,6 +15,98 @@ except Exception:
 
 class SaveFile:
     @staticmethod
+    def write_xyz(output_name, box, data, boundary, classical=False):
+        assert isinstance(output_name, str)
+        assert isinstance(box, np.ndarray)
+        assert box.shape == (3, 2) or box.shape == (4, 3)
+        if box.shape == (3, 2):
+            new_box = np.zeros((4, 3), dtype=box.dtype)
+            new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
+            new_box[-1] = box[:, 0]
+        else:
+            assert box[0, 1] == 0
+            assert box[0, 2] == 0
+            assert box[1, 2] == 0
+            new_box = box
+        assert isinstance(data, pl.DataFrame)
+        for col in ["x", "y", "z"]:
+            assert col in data.columns, f"data must contain {col}."
+        assert (
+            "type" in data.columns or "type_name" in data.columns
+        ), f"data must contain type or type_name."
+
+        if classical:
+            with open(output_name, "wb") as op:
+                op.write(f"{data.shape[0]}\n".encode())
+                op.write("Classical XYZ file written by mdapy.\n".encode())
+                if "type_name" in data.columns:
+                    data.select("type_name", "x", "y", "z").write_csv(
+                        op, separator=" ", has_header=False
+                    )
+                else:
+                    data.select("type", "x", "y", "z").write_csv(
+                        op, separator=" ", has_header=False
+                    )
+        else:
+            properties = []
+            for name, dtype in zip(data.columns, data.dtypes):
+                if dtype in pl.INTEGER_DTYPES:
+                    ptype = "I"
+                elif dtype in pl.FLOAT_DTYPES:
+                    ptype = "R"
+                elif dtype == pl.Utf8:
+                    ptype = "S"
+                else:
+                    raise f"Unrecognized data type {dtype}."
+                if name == "type_name":
+                    properties.append(f"species:{ptype}:1")
+                else:
+                    properties.append(f"{name}:{ptype}:1")
+            properties_str = "Properties=" + ":".join(properties).replace(
+                "x:R:1:y:R:1:z:R:1", "pos:R:3"
+            )
+
+            if "vx:R:1:vy:R:1:vz:R:1" in properties_str:
+                properties_str = properties_str.replace(
+                    "vx:R:1:vy:R:1:vz:R:1", "velo:R:3"
+                )
+            if "fx:R:1:fy:R:1:fz:R:1" in properties_str:
+                properties_str = properties_str.replace(
+                    "fx:R:1:fy:R:1:fz:R:1", "force:R:3"
+                )
+
+            lattice_str = (
+                "Lattice="
+                + '"'
+                + " ".join(new_box[:-1].flatten().astype(str).tolist())
+                + '"'
+            )
+            pbc_str = (
+                "pbc="
+                + '"'
+                + " ".join(["T" if i == 1 else "F" for i in boundary])
+                + '"'
+            )
+            origin_str = 'Origin="' + " ".join(new_box[-1].astype(str).tolist()) + '"'
+            comments = (
+                lattice_str + " " + properties_str + " " + pbc_str + " " + origin_str
+            )
+            with open(output_name, "wb") as op:
+                op.write(f"{data.shape[0]}\n".encode())
+                if "type_name" in data.columns and "type" in data.columns:
+                    if "type:I:1:" in comments:
+                        comments = comments.replace("type:I:1:", "")
+                    if ":type:I:1" in comments:
+                        comments = comments.replace(":type:I:1", "")
+                    op.write(f"{comments}\n".encode())
+                    data.select(pl.all().exclude("type")).write_csv(
+                        op, separator=" ", has_header=False
+                    )
+                else:
+                    op.write(f"{comments}\n".encode())
+                    data.write_csv(op, separator=" ", has_header=False)
+
+    @staticmethod
     def write_POSCAR(
         output_name,
         box,
@@ -242,6 +334,7 @@ class SaveFile:
                     "z": pos[:, 2],
                 }
             )
+        data = data.select(pl.selectors.by_dtype(pl.NUMERIC_DTYPES))
 
         if compress:
             path, name = os.path.split(output_name)
@@ -302,7 +395,7 @@ class BuildSystem:
                 fmt = "dump.gz"
             else:
                 fmt = postfix
-        assert fmt in ["data", "lmp", "dump", "dump.gz", "POSCAR"]
+        assert fmt in ["data", "lmp", "dump", "dump.gz", "POSCAR", "xyz"]
         return fmt
 
     @classmethod
@@ -313,6 +406,8 @@ class BuildSystem:
             return cls.read_data(filename)
         elif fmt == "POSCAR":
             return cls.read_POSCAR(filename)
+        elif fmt == "xyz":
+            return cls.read_xyz(filename)
 
     @staticmethod
     def fromarray(pos, box, boundary, vel, type_list):
@@ -367,6 +462,202 @@ class BuildSystem:
         else:
             new_box = box
         return data, box, boundary
+
+    @staticmethod
+    def read_xyz(filename):
+        head = []
+        with open(filename) as op:
+            for i in range(3):
+                head.append(op.readline())
+        natom = int(head[0].split()[0])
+        classical = True
+        if "Lattice" in head[1] and "Properties" in head[1]:
+            classical = False
+            info = head[1]
+
+            if "pbc=" in info:
+                pindex = info.index("pbc=") + len("pbc=")
+                boundary = [
+                    1 if i == "T" or i == "1" else 0
+                    for i in info[pindex + 1 : pindex + 6].split()
+                ]
+            else:
+                boundary = [1, 1, 1]
+
+            bindex = info.index("Lattice=") + len("Lattice=")
+            try:
+                box = np.array(info[bindex:].split("'")[1].split(), float).reshape(3, 3)
+            except Exception:
+                box = np.array(info[bindex:].split('"')[1].split(), float).reshape(3, 3)
+            assert (
+                box[0, 1] == box[0, 2] == box[1, 2] == 0
+            ), "Only support lammps style box! box[0, 1]==box[0, 2]==box[1, 2]==0."
+            if "Origin=" in info:
+                oindex = info.index("Origin=") + len("Origin=")
+                origin = np.expand_dims(
+                    np.array(info[oindex:].split('"')[1].split(), float), axis=0
+                )
+                box = np.r_[box, origin]
+
+            pindex = info.index("Properties=") + len("Properties=")
+            content = info[pindex:].split()[0].split(":")
+            i = 0
+            columns = []
+            schema = {}
+            while i < len(content) - 2:
+                n_col = int(content[i + 2])
+                if content[i + 1] == "S":
+                    dtype = pl.Utf8
+                elif content[i + 1] == "R":
+                    dtype = pl.Float64
+                elif content[i + 1] == "I":
+                    dtype = pl.Int64
+                else:
+                    raise f"Unrecognized type {content[i+1]}."
+
+                if (
+                    content[i] == "pos"
+                    and content[i + 1] == "R"
+                    and content[i + 2] == "3"
+                ):
+                    columns.extend(["x", "y", "z"])
+                    schema["x"] = dtype
+                    schema["y"] = dtype
+                    schema["z"] = dtype
+                elif (
+                    content[i] in ["species", "type_name", "element"]
+                    and content[i + 2] == "1"
+                ):
+                    columns.append("type_name")
+                    schema["type_name"] = dtype
+                elif (
+                    content[i] == "velo"
+                    and content[i + 1] == "R"
+                    and content[i + 2] == "3"
+                ):
+                    columns.extend(["vx", "vy", "vz"])
+                    schema["vx"] = dtype
+                    schema["vy"] = dtype
+                    schema["vz"] = dtype
+                elif (
+                    content[i] in ["force", "forces"]
+                    and content[i + 1] == "R"
+                    and content[i + 2] == "3"
+                ):
+                    columns.extend(["fx", "fy", "fz"])
+                    schema["fx"] = dtype
+                    schema["fy"] = dtype
+                    schema["fz"] = dtype
+                else:
+                    if n_col > 1:
+                        for j in range(n_col):
+                            columns.append(content[i] + f"_{j}")
+                            schema[content[i] + f"_{j}"] = dtype
+                    else:
+                        columns.append(content[i])
+                        schema[content[i]] = dtype
+                i += 3
+        else:
+            boundary = [0, 0, 0]
+            columns = ["type_name", "x", "y", "z"]
+            schema = {
+                "type_name": pl.Utf8,
+                "x": pl.Float64,
+                "y": pl.Float64,
+                "z": pl.Float64,
+            }
+
+        multi_space = False
+        if head[-1].count(" ") != len(columns) - 1:
+            multi_space = True
+        if classical:
+            if multi_space:
+                type_name, x, y, z = [], [], [], []
+                with open(filename) as op:
+                    op.readline()  # skip head
+                    op.readline()
+                    for i in range(natom):
+                        content = op.readline().split()
+                        type_name.append(content[0])
+                        x.append(content[1])
+                        y.append(content[2])
+                        z.append(content[3])
+                df = pl.DataFrame(
+                    {"type_name": type_name, "x": x, "y": y, "z": z}, schema=schema
+                )
+            else:
+                df = pl.read_csv(
+                    filename,
+                    separator=" ",
+                    schema=schema,
+                    skip_rows=2,
+                    new_columns=columns,
+                    columns=range(len(columns)),
+                    has_header=False,
+                    truncate_ragged_lines=True,
+                )
+            if df["type_name"][0].isdigit():
+                df = df.with_columns(pl.col("type_name").cast(int)).rename(
+                    {"type_name": "type"}
+                )
+            else:
+                type_list = df["type_name"].unique(maintain_order=True)
+                df = df.with_columns(
+                    [
+                        pl.when(pl.col("type_name") == j)
+                        .then(pl.lit(i + 1))
+                        .alias("type")
+                        for i, j in enumerate(type_list)
+                    ]
+                )
+            df = df.with_row_count("id", offset=1)
+            coor = df.select("x", "y", "z")
+            box = np.r_[
+                np.eye(3) * (coor.max() - coor.min()).to_numpy(), coor.min().to_numpy()
+            ]
+        else:
+            if multi_space:
+                data = {}
+                for i in columns:
+                    data[i] = []
+                with open(filename) as op:
+                    op.readline()  # skip head
+                    op.readline()
+                    for i in range(natom):
+                        for key, j in zip(columns, op.readline().split()):
+                            data[key].append(j)
+                df = pl.DataFrame(data, schema=schema)
+            else:
+                df = pl.read_csv(
+                    filename,
+                    separator=" ",
+                    schema=schema,
+                    skip_rows=2,
+                    new_columns=columns,
+                    columns=range(len(columns)),
+                    has_header=False,
+                    truncate_ragged_lines=True,
+                )
+
+            if "Origin=" not in info:
+                box = np.r_[box, df.select("x", "y", "z").min().to_numpy()]
+            if "id" not in df.columns:
+                df = df.with_row_count("id", offset=1)
+            if "type" not in df.columns:
+                if "type_name" in df.columns:
+                    if df["type_name"][0].isdigit():
+                        df = df.with_columns(pl.col("type_name").cast(int)).rename(
+                            {"type_name": "type"}
+                        )
+                    else:
+                        name_list = df["type_name"].unique(maintain_order=True)
+                        name2type = {j: i + 1 for i, j in enumerate(name_list)}
+                        df = df.with_columns(
+                            pl.col("type_name").map_dict(name2type).alias("type")
+                        )
+                else:
+                    df = df.with_columns(pl.lit(1).alias("type"))
+        return df, box, boundary
 
     @staticmethod
     def read_POSCAR(filename):

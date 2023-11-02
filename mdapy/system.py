@@ -67,7 +67,7 @@ class System:
 
     Args:
         filename (str, optional): DATA/DUMP filename. Defaults to None.
-        fmt (str, optional): selected in ['data', 'lmp', 'dump', 'dump.gz', 'POSCAR'], One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
+        fmt (str, optional): selected in ['data', 'lmp', 'dump', 'dump.gz', 'POSCAR', 'xyz'], One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
         data (polars.Dataframe, optional): all particles information. Defaults to None.
         box (np.ndarray, optional): (:math:`4, 3` or :math:`3, 2`) system box. Defaults to None.
         pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
@@ -79,6 +79,9 @@ class System:
     .. note::
       - Mdapy supports load/save `POSCAR format <https://www.vasp.at/wiki/index.php/POSCAR>`_ from version 0.9.6.
         We will convert the box vector to be compatiable with that `defined in lammps <https://docs.lammps.org/Howto_triclinic.html>`_.
+
+    .. note::
+      - Mdapy supports load/save `xyz file with classical and extended format <https://www.ovito.org/manual/reference/file_formats/input/xyz.html#file-formats-input-xyz-extended-format>`_ from version 0.9.6.
 
     Examples:
 
@@ -151,6 +154,10 @@ class System:
                     self.__filename, self.__fmt
                 )
             elif self.__fmt == "POSCAR":
+                self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
+                    self.__filename, self.__fmt
+                )
+            elif self.__fmt == "xyz":
                 self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
                     self.__filename, self.__fmt
                 )
@@ -375,6 +382,32 @@ class System:
             self.update_pos()
         if update_vel:
             self.update_vel()
+
+    def write_xyz(self, output_name=None, type_name=None, classical=False):
+        """This function writes position into a XYZ file.
+        Classical model only saves [type x y z] information and do not contain the box information.
+        Extended model can includes any particles information, just like dump format.
+
+        Args:
+            output_name (str, optional): filename of generated XYZ file. Defaults to None.
+            type_name (list, optional): assign the species name. Such as ['Al', 'Cu']. Defaults to None.
+            classical (bool, optional): whether save with classical format. Defaults to False.
+        """
+        if output_name is None:
+            if self.__filename is None:
+                output_name = "output.xyz"
+            else:
+                output_name = ".".join(self.__filename.split(".")[:-1]) + ".output.xyz"
+        data = self.__data
+        if type_name is not None:
+            if "type_name" not in self.__data.columns:
+                assert len(type_name) == self.__data["type"].unique().shape[0]
+                type2name = {str(i + 1): j for i, j in enumerate(type_name)}
+                data = self.__data.with_columns(
+                    pl.col("type").cast(str).map_dict(type2name).alias("type_name")
+                )
+
+        SaveFile.write_xyz(output_name, self.__box, data, self.__boundary, classical)
 
     def write_dump(self, output_name=None, output_col=None, compress=False):
         """This function writes position into a DUMP file.
@@ -1649,11 +1682,20 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
+    # system = System('example/solidliquid.dump')
+    # system.write_xyz()
+    system = System("3-3-3.xyz")
+    print(system.data)
+    system.write_xyz()
+    # system.write_xyz(classical=True)
+    # system.write_dump()
+    # system.write_POSCAR()
+    # system.write_data()
     # system = System(r"example\solidliquid.dump")
     # print(system)
     # system.wtite_POSCAR(output_name="POSCAR", save_velocity=True, type_name=["Mo"])
-    system = System('POSCAR')
-    print(system)
+    # system = System('POSCAR')
+    # print(system)
     # system = System(
     #     r"C:\Users\Administrator\Desktop\Fe\ML-DATA\VASP\examples\examples\POSCAR"
     # )

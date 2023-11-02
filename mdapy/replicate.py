@@ -139,6 +139,40 @@ class Replicate:
             self.compute()
         return self.pos.shape[0]
 
+    def write_xyz(self, output_name=None, type_name=None, classical=False):
+        """This function writes position into a xyz file.
+
+        Args:
+            output_name (str, optional): filename of generated xyz file. Defaults to None.
+            type_name (list, optional): assign the species name. Such as ['Al', 'Cu']. Defaults to None.
+            classical (bool, optional): whether save with classical format. Defaults to False.
+        """
+        if not self.if_computed:
+            self.compute()
+
+        if output_name is None:
+            output_name = f"{self.x}-{self.y}-{self.z}.xyz"
+
+        data = pl.DataFrame(
+            {
+                "type": self.type_list,
+                "x": self.pos[:, 0],
+                "y": self.pos[:, 1],
+                "z": self.pos[:, 2],
+            }
+        )
+
+        if type_name is not None:
+            assert len(type_name) == data["type"].unique().shape[0]
+
+            type2name = {str(i + 1): j for i, j in enumerate(type_name)}
+
+            data = data.with_columns(
+                pl.col("type").cast(str).map_dict(type2name).alias("type_name")
+            )
+
+        SaveFile.write_xyz(output_name, self.box, data, [1, 1, 1], classical)
+
     def write_POSCAR(self, output_name=None, type_name=None, reduced_pos=False):
         """This function writes position into a POSCAR file.
 
@@ -234,6 +268,7 @@ if __name__ == "__main__":
     print(f"replicate {repli.x} {repli.y} {repli.z}...")
     print(repli.box)
     print(repli.type_list)
+    repli.write_xyz(type_name=["Al", "Cu"])
     # repli.write_data()
     # repli.write_dump()
     # repli.write_dump(compress=True)

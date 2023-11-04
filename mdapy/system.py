@@ -5,6 +5,7 @@ import os
 import multiprocessing as mt
 
 try:
+    from visualize import Visualize
     from load_save_data import BuildSystem, SaveFile
     from tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from ackland_jones_analysis import AcklandJonesAnalysis
@@ -30,6 +31,7 @@ try:
     from replicate import Replicate
     from tool_function import _check_repeat_cutoff
 except Exception:
+    from .visualize import Visualize
     from .load_save_data import BuildSystem, SaveFile
     from .tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from .common_neighbor_analysis import CommonNeighborAnalysis
@@ -173,6 +175,7 @@ class System:
             assert "id" in self.__data.columns
             self.__data = self.__data.sort("id")
         self.if_neigh = False
+        self.__if_displayed = False
         self.update_pos()
         if "vx" in self.__data.columns:
             self.update_vel()
@@ -349,6 +352,23 @@ class System:
     def __repr__(self):
         return f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\nParticle Information:\n{self.__data.head()}"
 
+    def display(self):
+        if not self.__if_displayed:
+            self.view = Visualize(self.__data, self.__box)
+            self.__if_displayed = True
+
+        self.view.display()
+
+    def atoms_colored_by(self, values, vmin=None, vmax=None, cmap="rainbow"):
+        if not self.__if_displayed:
+            self.view = Visualize(self.__data, self.__box)
+            self.view.atoms_colored_by(values, vmin, vmax, cmap)
+            self.view.display()
+            self.__if_displayed = True
+        else:
+            self.view.data = self.__data
+            self.view.atoms_colored_by(values, vmin, vmax, cmap)
+
     def select(self, data: pl.DataFrame):
         """Generate a subsystem.
 
@@ -380,6 +400,9 @@ class System:
         self.__data = data
         if update_pos:
             self.update_pos()
+            if self.__if_displayed:
+                self.view = Visualize(self.__data, self.__box)
+                self.view.display()
         if update_vel:
             self.update_vel()
 
@@ -1687,7 +1710,7 @@ if __name__ == "__main__":
     system = System(r"E:\read_poscar\read_xyz\ouput.xyz")
     print(system)
     system.write_xyz()
-    #system.write_xyz(classical=True)
+    # system.write_xyz(classical=True)
     # system.write_dump()
     # system.write_POSCAR()
     # system.write_data()

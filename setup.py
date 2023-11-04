@@ -84,6 +84,7 @@ setup(
         "scipy",
         "polars>=0.19",
         "matplotlib",
+        "k3d"
     ],
     classifiers=[
         "License :: OSI Approved :: BSD License",

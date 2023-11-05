@@ -251,7 +251,7 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
-V0.9.7 (Under development)
+V0.9.7 (11/5/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Experimentally support Visualizing System (only in Jupyter environment).

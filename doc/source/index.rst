@@ -75,6 +75,7 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
    gettingstarted/quicklystart
    gettingstarted/examples
    gettingstarted/calculate_GSFE
+   gettingstarted/visualizing_atoms
    gettingstarted/use_mdapy_efficiently
    gettingstarted/matters_need_attention
    gettingstarted/reading_and_saving_file

@@ -251,6 +251,12 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
+V0.9.7 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Experimentally support Visualizing System (only in Jupyter environment).
+- Add `k3d <https://matplotlib.org/>`_ as a dependency.
+
 V0.9.6 (11/2/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

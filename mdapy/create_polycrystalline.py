@@ -553,26 +553,9 @@ class CreatePolycrystalline:
             for j in range(neighbor_number[i]):
                 j_index = verlet_list[i, j]
                 if distance_list[i, j] <= metal_overlap_dis and j_index > i:
-                    delete_id[j_index] = 0
+                    delete_id[j_index] = 0   
 
-    def _write_dump(self, pos):
-        # save position to DUMP file.
-        pos[:, 2:5] += self._lower
-        df = pl.from_numpy(
-            pos,
-            schema={
-                "id": pl.Int32,
-                "type": pl.Int32,
-                "x": pl.Float32,
-                "y": pl.Float32,
-                "z": pl.Float32,
-                "grainid": pl.Int32,
-            },
-        )
-
-        SaveFile.write_dump(self.output_name, self._real_box, [1, 1, 1], df)
-
-    def compute(self):
+    def compute(self, save_dump=True):
         """Do the real polycrystalline structure building."""
         start = time()
         print("Generating voronoi polygon...")
@@ -645,8 +628,22 @@ class CreatePolycrystalline:
         print(
             f"Total atom numbers: {len(new_pos)}, average grain size: {ave_grain_volume} A^3"
         )
-        print("Saving atoms into dump file...")
-        self._write_dump(new_pos)
+        new_pos[:, 2:5] += self._lower
+        new_pos[:, -1] += 1
+        self.data = pl.from_numpy(
+            new_pos,
+            schema={
+                "id": pl.Int32,
+                "type": pl.Int32,
+                "x": pl.Float32,
+                "y": pl.Float32,
+                "z": pl.Float32,
+                "grainid": pl.Int32,
+            },
+        )
+        if save_dump:
+            print("Saving atoms into dump file...")
+            SaveFile.write_dump(self.output_name, self._real_box, [1, 1, 1], self.data)
         end = time()
         print(f"Time costs: {end-start} s.")
 
@@ -678,4 +675,7 @@ if __name__ == "__main__":
     polycry = CreatePolycrystalline(
         box, 10, 2.615, "FCC", 1, add_graphene=True, if_rotation=True
     )
-    polycry.compute()
+    polycry.compute(save_dump=True)
+    print(polycry.data.head())
+    print(polycry.box)
+

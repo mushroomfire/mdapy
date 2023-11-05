@@ -38,6 +38,7 @@ Dependencies
 * `scipy <https://scipy.org/>`_
 * `polars>=0.19.0 <https://pola-rs.github.io/polars/>`_
 * `matplotlib <https://matplotlib.org/>`_
+* `k3d <https://matplotlib.org/>`_
 
 Optional Dependencies
 ----------------------

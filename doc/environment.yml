@@ -12,6 +12,8 @@ dependencies:
     - scipy
     - polars
     - matplotlib
+    - k3d
+    - jupyter
     - sphinx
     - sphinx_rtd_theme
     - nbsphinx

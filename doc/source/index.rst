@@ -39,6 +39,7 @@ Dependencies
 * `polars>=0.19.0 <https://pola-rs.github.io/polars/>`_
 * `matplotlib <https://matplotlib.org/>`_
 * `k3d <https://matplotlib.org/>`_
+* `jupyter <https://jupyter.org/>`_
 
 Optional Dependencies
 ----------------------

@@ -157,6 +157,9 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
     *   -   `k3d <https://matplotlib.org/>`_
         -   latest
         -   Visualize the 3D atoms.
+    *   -   `jupyter <https://jupyter.org/>`_
+        -   latest
+        -   Visualize the 3D atoms. 
 
 
 Optional Dependencies
@@ -256,6 +259,7 @@ V0.9.7 (11/5/2023)
 
 - Experimentally support Visualizing System (only in Jupyter environment).
 - Add `k3d <https://matplotlib.org/>`_ as a dependency.
+- Add `jupyter <https://jupyter.org/>`_ as a dependency.
 
 V0.9.6 (11/2/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

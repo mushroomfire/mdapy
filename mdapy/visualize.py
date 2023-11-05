@@ -130,6 +130,9 @@ class Visualize:
 
     def display(self):
         self.plot.display()
+    
+    def close(self):
+        self.plot.close()
 
     def atom_colored_by_atom_type(self):
         decimal = (

@@ -154,6 +154,9 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
     *   -   `matplotlib <https://matplotlib.org/>`_
         -   latest
         -   Plot the results.
+    *   -   `k3d <https://matplotlib.org/>`_
+        -   latest
+        -   Visualize the 3D atoms.
 
 
 Optional Dependencies

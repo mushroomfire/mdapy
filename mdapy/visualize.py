@@ -130,7 +130,7 @@ class Visualize:
 
     def display(self):
         self.plot.display()
-    
+
     def close(self):
         self.plot.close()
 

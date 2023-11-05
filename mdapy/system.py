@@ -353,6 +353,7 @@ class System:
         return f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\nParticle Information:\n{self.__data.head()}"
 
     def display(self):
+        """Visualize the System."""
         if not self.__if_displayed:
             self.view = Visualize(self.__data, self.__box)
             self.__if_displayed = True
@@ -360,6 +361,14 @@ class System:
         self.view.display()
 
     def atoms_colored_by(self, values, vmin=None, vmax=None, cmap="rainbow"):
+        """Rendered atoms by the given values.
+
+        Args:
+            values (str): column names in data. Atoms will be colored base on it. A numpy.ndarray or polars.Series is also accept.
+            vmin (float, optional): color range min, if not give, use the values.min(). Defaults to None.
+            vmax (float, optional): color range max, if not give, use the values.max(). Defaults to None.
+            cmap (str, optional): colormap name from matplotlib, check https://matplotlib.org/stable/users/explain/colors/colormaps.html. Defaults to "rainbow".
+        """
         if not self.__if_displayed:
             self.view = Visualize(self.__data, self.__box)
             self.view.atoms_colored_by(values, vmin, vmax, cmap)

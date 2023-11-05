@@ -553,7 +553,7 @@ class CreatePolycrystalline:
             for j in range(neighbor_number[i]):
                 j_index = verlet_list[i, j]
                 if distance_list[i, j] <= metal_overlap_dis and j_index > i:
-                    delete_id[j_index] = 0   
+                    delete_id[j_index] = 0
 
     def compute(self, save_dump=True):
         """Do the real polycrystalline structure building."""
@@ -678,4 +678,3 @@ if __name__ == "__main__":
     polycry.compute(save_dump=True)
     print(polycry.data.head())
     print(polycry.box)
-

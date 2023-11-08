@@ -23,8 +23,8 @@ Resources
 - Documentation: `https://mdapy.readthedocs.io/ <https://mdapy.readthedocs.io/>`_
 - Issue Tracker: `https://github.com/mushroomfire/mdapy/issues <https://github.com/mushroomfire/mdapy/issues>`_
 
-Visualize Configurations
--------------------------
+`Visualize Configurations <https://mdapy.readthedocs.io/en/latest/gettingstarted/visualizing_atoms.html>`_
+-------------------------------------------------------------------------------------------------------------
 
 .. image:: doc/source/images/visualize.gif
 

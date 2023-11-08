@@ -84,7 +84,7 @@ Basic Usage
 Visualize System
 -------------------
 
-.. image:: https://img.pterclub.com/images/2023/11/08/visualize-2.gif
+.. image:: doc/source/images/visualize.gif
 
 
 Main Features

@@ -23,6 +23,11 @@ Resources
 - Documentation: `https://mdapy.readthedocs.io/ <https://mdapy.readthedocs.io/>`_
 - Issue Tracker: `https://github.com/mushroomfire/mdapy/issues <https://github.com/mushroomfire/mdapy/issues>`_
 
+Visualize Configurations
+-------------------------
+
+.. image:: doc/source/images/visualize.gif
+
 Basic Usage
 ------------
 
@@ -79,12 +84,6 @@ Basic Usage
    └─────┴──────┴───────────┴───────────┴───┴────────────────┴────────────────┴───────────────┴─────────────────┘
 
    In [8]: system.write_dump() # Save results to a Dump file.
-
-
-Visualize System
--------------------
-
-.. image:: doc/source/images/visualize.gif
 
 
 Main Features

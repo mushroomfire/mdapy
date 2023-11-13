@@ -38,12 +38,11 @@ Dependencies
 * `scipy <https://scipy.org/>`_
 * `polars>=0.19.0 <https://pola-rs.github.io/polars/>`_
 * `matplotlib <https://matplotlib.org/>`_
-* `k3d <https://matplotlib.org/>`_
-* `jupyter <https://jupyter.org/>`_
 
 Optional Dependencies
 ----------------------
 
+* `k3d <https://matplotlib.org/>`_ (Optional, for visualizing the 3D atoms.)
 * `SciencePlots <https://github.com/garrettj403/SciencePlots>`_ (Optional, for plotting results)
 * `tqdm <https://github.com/tqdm/tqdm>`_ (Optional, for progress bar when reading/saving multi DUMP files)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)

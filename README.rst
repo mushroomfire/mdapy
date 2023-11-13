@@ -261,7 +261,7 @@ V0.9.8 (Under Development)
 
 - Update support for Polars>=0.19.13
 - Support clustering with multi cutoff distance for different elemental pairs.
-- Add species clustering feature based on the.
+- Add species clustering feature.
 - Assign `k3d <https://matplotlib.org/>`_ as an optional dependency. One can install it only if you need visualize the System in Jupyter environment.
 
 V0.9.7 (11/5/2023)

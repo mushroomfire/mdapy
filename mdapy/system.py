@@ -2,8 +2,11 @@ import polars as pl
 import numpy as np
 import taichi as ti
 import multiprocessing as mt
+import re
+
 
 try:
+    from tool_function import atomic_numbers, vdw_radii
     from load_save_data import BuildSystem, SaveFile
     from tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from ackland_jones_analysis import AcklandJonesAnalysis
@@ -29,6 +32,7 @@ try:
     from replicate import Replicate
     from tool_function import _check_repeat_cutoff
 except Exception:
+    from .tool_function import atomic_numbers, vdw_radii
     from .load_save_data import BuildSystem, SaveFile
     from .tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from .common_neighbor_analysis import CommonNeighborAnalysis
@@ -359,7 +363,7 @@ class System:
             from visualize import Visualize
         except:
             from .visualize import Visualize
-        
+
         if not self.__if_displayed:
             self.view = Visualize(self.__data, self.__box)
             self.__if_displayed = True
@@ -423,7 +427,7 @@ class System:
         self.__data = data
         if update_pos:
             self.update_pos()
-                
+
         if update_vel:
             self.update_vel()
 
@@ -626,6 +630,62 @@ class System:
             rc,
         )
         self.if_neigh = True
+
+    def cal_species_number(self, element_list, search_species):
+        """This function can recgnized the species based on the atom connectivity.
+        For atom i and atom j, if rij <= (vdwr_i + vdwr_j) * 0.6, we think two atoms are connected.
+        Similar method can be found in `OpenBabel <https://github.com/openbabel/openbabel>`_.
+
+        Args:
+            element_list (list): elemental name for your system. Such as ['C', 'H', 'O'].
+            search_species (list): the molecular formula you want to find. Such as ['H2O', 'CO2', 'Cl2', 'N2'].
+
+        Returns:
+            dict: search species and the corresponding number.
+        """
+
+        partial_cutoff = {}
+        for type1 in range(len(element_list)):
+            for type2 in range(type1, len(element_list)):
+                partial_cutoff[f"{type1+1}-{type2+1}"] = (
+                    vdw_radii[atomic_numbers[element_list[type1]]]
+                    + vdw_radii[atomic_numbers[element_list[type2]]]
+                ) * 0.6
+        pattern = r"([A-Z][a-z]?)(\d*)"
+        trans_search_species = []
+        for old_name in search_species:
+            matches = re.findall(pattern, old_name)
+            matches.sort()
+            name = ""
+            for i, j in matches:
+                if len(j):
+                    name += i * int(j)
+                else:
+                    name += i
+            trans_search_species.append(name)
+        self.cal_cluster_analysis(partial_cutoff, max_neigh=None)
+
+        res = (
+            self.__data.with_columns(
+                pl.lit(np.array(element_list)[(self.__data["type"] - 1).view()]).alias(
+                    "type_name"
+                )
+            )
+            .group_by("cluster_id")
+            .agg(pl.col("type_name"))
+            .with_columns(pl.col("type_name").list.sort())
+            .with_columns(pl.col("type_name").list.join(""))["type_name"]
+            .value_counts()
+        ).filter(pl.col("type_name").is_in(trans_search_species))
+        res = dict(zip(res[:, 0], res[:, 1]))
+        species = {}
+        for i, j in zip(search_species, trans_search_species):
+            if j not in res.keys():
+                species[i] = 0
+            else:
+                species[i] = res[j]
+
+        return species
 
     def cal_atomic_temperature(self, amass, rc=5.0, units="metal", max_neigh=None):
         """Calculate an average thermal temperature per atom, wchich is useful at shock
@@ -1200,11 +1260,18 @@ class System:
             verlet_list, distance_list, neighbor_number = (
                 self.verlet_list,
                 self.distance_list,
-                self.neighbor_number
+                self.neighbor_number,
             )
 
         ClusterAnalysi = ClusterAnalysis(
-            rc, verlet_list, distance_list, neighbor_number, self.pos, self.box, self.boundary, self.__data['type'].view()
+            rc,
+            verlet_list,
+            distance_list,
+            neighbor_number,
+            self.pos,
+            self.box,
+            self.boundary,
+            self.__data["type"].view(),
         )
         ClusterAnalysi.compute()
         self.__data = self.__data.with_columns(
@@ -1735,9 +1802,13 @@ if __name__ == "__main__":
     ti.init()
     # system = System('example/solidliquid.dump')
     # system.write_xyz()
-    system = System(r"E:\read_poscar\read_xyz\ouput.xyz")
-    print(system)
-    system.write_xyz()
+    system = System(r"E:\visua_test\heat.500.output.dump")
+    species = system.cal_species_number(
+        element_list=["H", "C", "N", "O", "F", "Al", "Cl"],
+        search_species=["H2O", "Cl", "N2", "CO2", "HCl"],
+    )
+    print(species)
+    # system.write_xyz()
     # system.write_xyz(classical=True)
     # system.write_dump()
     # system.write_POSCAR()

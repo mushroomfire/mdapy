@@ -1,11 +1,9 @@
 import polars as pl
 import numpy as np
 import taichi as ti
-import os
 import multiprocessing as mt
 
 try:
-    from visualize import Visualize
     from load_save_data import BuildSystem, SaveFile
     from tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from ackland_jones_analysis import AcklandJonesAnalysis
@@ -31,7 +29,6 @@ try:
     from replicate import Replicate
     from tool_function import _check_repeat_cutoff
 except Exception:
-    from .visualize import Visualize
     from .load_save_data import BuildSystem, SaveFile
     from .tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from .common_neighbor_analysis import CommonNeighborAnalysis
@@ -354,6 +351,15 @@ class System:
 
     def display(self):
         """Visualize the System."""
+        try:
+            import k3d
+        except ImportError:
+            raise "One should install k3d (https://github.com/K3D-tools/K3D-jupyter) to visualize the System. try: pip install k3d"
+        try:
+            from visualize import Visualize
+        except:
+            from .visualize import Visualize
+        
         if not self.__if_displayed:
             self.view = Visualize(self.__data, self.__box)
             self.__if_displayed = True
@@ -369,6 +375,14 @@ class System:
             vmax (float, optional): color range max, if not give, use the values.max(). Defaults to None.
             cmap (str, optional): colormap name from matplotlib, check https://matplotlib.org/stable/users/explain/colors/colormaps.html. Defaults to "rainbow".
         """
+        try:
+            import k3d
+        except ImportError:
+            raise "One should install k3d (https://github.com/K3D-tools/K3D-jupyter) to visualize the System. try: pip install k3d"
+        try:
+            from visualize import Visualize
+        except:
+            from .visualize import Visualize
         if not self.__if_displayed:
             self.view = Visualize(self.__data, self.__box)
             self.view.atoms_colored_by(values, vmin, vmax, cmap)
@@ -409,9 +423,7 @@ class System:
         self.__data = data
         if update_pos:
             self.update_pos()
-            if self.__if_displayed:
-                self.view = Visualize(self.__data, self.__box)
-                self.view.display()
+                
         if update_vel:
             self.update_vel()
 
@@ -1163,7 +1175,7 @@ class System:
         .. note:: This class use the `same method as in Ovito <https://www.ovito.org/docs/current/reference/pipelines/modifiers/cluster_analysis.html#particles-modifiers-cluster-analysis>`_.
 
         Args:
-            rc (float, optional): cutoff distance.. Defaults to 5.0.
+            rc (float | dict): cutoff distance. One can also assign multi cutoff for different elemental pair, such as {'1-1':1.5, '1-6':1.7}. The unassigned elemental pair will default use the maximum cutoff distance. Defaults to 5.0.
             max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 80.
 
         Returns:
@@ -1172,20 +1184,27 @@ class System:
         Outputs:
             - **The cluster id per atom is added in self.data['cluster_id']**
         """
-        repeat = _check_repeat_cutoff(self.box, self.boundary, rc)
-        verlet_list, distance_list = None, None
+        if isinstance(rc, float) or isinstance(rc, int):
+            max_rc = rc
+        elif isinstance(rc, dict):
+            max_rc = max([i for i in rc.values()])
+        else:
+            raise "rc should be a positive number, or a dict like {'1-1':1.5, '1.2':1.3}"
+        repeat = _check_repeat_cutoff(self.box, self.boundary, max_rc)
+        verlet_list, distance_list, neighbor_number = None, None, None
         if sum(repeat) == 3:
             if not self.if_neigh:
-                self.build_neighbor(rc, max_neigh=max_neigh)
-            if self.rc < rc:
-                self.build_neighbor(rc, max_neigh=max_neigh)
-            verlet_list, distance_list = (
+                self.build_neighbor(max_rc, max_neigh=max_neigh)
+            if self.rc < max_rc:
+                self.build_neighbor(max_rc, max_neigh=max_neigh)
+            verlet_list, distance_list, neighbor_number = (
                 self.verlet_list,
                 self.distance_list,
+                self.neighbor_number
             )
 
         ClusterAnalysi = ClusterAnalysis(
-            rc, verlet_list, distance_list, self.pos, self.box, self.boundary
+            rc, verlet_list, distance_list, neighbor_number, self.pos, self.box, self.boundary, self.__data['type'].view()
         )
         ClusterAnalysi.compute()
         self.__data = self.__data.with_columns(

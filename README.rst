@@ -159,12 +159,6 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
     *   -   `matplotlib <https://matplotlib.org/>`_
         -   latest
         -   Plot the results.
-    *   -   `k3d <https://matplotlib.org/>`_
-        -   latest
-        -   Visualize the 3D atoms.
-    *   -   `jupyter <https://jupyter.org/>`_
-        -   latest
-        -   Visualize the 3D atoms. 
 
 
 Optional Dependencies
@@ -175,6 +169,9 @@ Optional Dependencies
     *   -   **Package Name**
         -   **Version**
         -   **Features**
+    *   -   `k3d <https://matplotlib.org/>`_
+        -   latest
+        -   Visualize the 3D atoms.
     *   -   `SciencePlots <https://github.com/garrettj403/SciencePlots>`_
         -   latest
         -   Format the figures.
@@ -258,6 +255,14 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 
 Release Notes
 --------------
+
+V0.9.8 (Under Development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Update support for Polars>=0.19.13
+- Support clustering with multi cutoff distance for different elemental pairs.
+- Add species clustering feature based on the.
+- Assign `k3d <https://matplotlib.org/>`_ as an optional dependency. One can install it only if you need visualize the System in Jupyter environment.
 
 V0.9.7 (11/5/2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

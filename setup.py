@@ -30,7 +30,7 @@ except Exception:
 ParallelCompile().install()
 setup(
     name="mdapy",
-    version="0.9.7",
+    version="0.9.8",
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,
@@ -82,10 +82,8 @@ setup(
         "taichi>=1.6.0",
         "numpy",
         "scipy",
-        "polars>=0.19",
+        "polars>=0.19.13",
         "matplotlib",
-        "k3d",
-        "jupyter"
     ],
     classifiers=[
         "License :: OSI Approved :: BSD License",

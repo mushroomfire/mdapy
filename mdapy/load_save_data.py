@@ -41,11 +41,11 @@ class SaveFile:
                 op.write("Classical XYZ file written by mdapy.\n".encode())
                 if "type_name" in data.columns:
                     data.select("type_name", "x", "y", "z").write_csv(
-                        op, separator=" ", has_header=False
+                        op, separator=" ", include_header=False
                     )
                 else:
                     data.select("type", "x", "y", "z").write_csv(
-                        op, separator=" ", has_header=False
+                        op, separator=" ", include_header=False
                     )
         else:
             properties = []
@@ -100,11 +100,11 @@ class SaveFile:
                         comments = comments.replace(":type:I:1", "")
                     op.write(f"{comments}\n".encode())
                     data.select(pl.all().exclude("type")).write_csv(
-                        op, separator=" ", has_header=False
+                        op, separator=" ", include_header=False
                     )
                 else:
                     op.write(f"{comments}\n".encode())
-                    data.write_csv(op, separator=" ", has_header=False)
+                    data.write_csv(op, separator=" ", include_header=False)
 
     @staticmethod
     def write_POSCAR(
@@ -191,16 +191,16 @@ class SaveFile:
                 op.write("Cartesian\n".encode())
             if selective_dynamics:
                 data.select(["x", "y", "z", "sdx", "sdy", "sdz"]).write_csv(
-                    op, separator=" ", has_header=False, float_precision=10
+                    op, separator=" ", include_header=False, float_precision=10
                 )
             else:
                 data.select(["x", "y", "z"]).write_csv(
-                    op, separator=" ", has_header=False, float_precision=10
+                    op, separator=" ", include_header=False, float_precision=10
                 )
             if save_velocity:
                 op.write("Cartesian\n".encode())
                 data.select(["vx", "vy", "vz"]).write_csv(
-                    op, separator=" ", has_header=False, float_precision=10
+                    op, separator=" ", include_header=False, float_precision=10
                 )
 
     @staticmethod
@@ -284,12 +284,12 @@ class SaveFile:
                     table.insert_at_idx(2, pl.Series("q", np.zeros(data.shape[0])))
                 else:
                     table = data.select(["id", "type", "q", "x", "y", "z"])
-            table.write_csv(op, separator=" ", has_header=False)
+            table.write_csv(op, separator=" ", include_header=False)
 
             if "vx" in data.columns and "vy" in data.columns and "vz" in data.columns:
                 op.write("\nVelocities\n\n".encode())
                 table = data.select(["id", "vx", "vy", "vz"])
-                table.write_csv(op, separator=" ", has_header=False)
+                table.write_csv(op, separator=" ", include_header=False)
 
     @staticmethod
     def write_dump(
@@ -377,7 +377,7 @@ class SaveFile:
             col_name = "ITEM: ATOMS " + " ".join(data.columns) + " \n"
             op.write(col_name.encode())
 
-            data.write_csv(op, separator=" ", has_header=False)
+            data.write_csv(op, separator=" ", include_header=False)
         if compress:
             compress_file(output_name, os.path.join(path, name + ".gz"))
             shutil.rmtree(temp_dir)

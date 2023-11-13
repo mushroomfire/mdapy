@@ -154,7 +154,7 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
         -   latest
         -   Build kdtree, do FFT, spline interpolation.
     *   -   `polars <https://pola-rs.github.io/polars/>`_
-        -   >=0.19.0
+        -   >=0.19.13
         -   Fast read/save file. Data structure to represent the particles information.
     *   -   `matplotlib <https://matplotlib.org/>`_
         -   latest

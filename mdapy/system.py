@@ -357,7 +357,7 @@ class System:
         """Visualize the System."""
         try:
             import k3d
-        except ImportError:
+        except ModuleNotFoundError:
             raise "One should install k3d (https://github.com/K3D-tools/K3D-jupyter) to visualize the System. try: pip install k3d"
         try:
             from visualize import Visualize
@@ -381,7 +381,7 @@ class System:
         """
         try:
             import k3d
-        except ImportError:
+        except ModuleNotFoundError:
             raise "One should install k3d (https://github.com/K3D-tools/K3D-jupyter) to visualize the System. try: pip install k3d"
         try:
             from visualize import Visualize
@@ -643,7 +643,7 @@ class System:
         Returns:
             dict: search species and the corresponding number.
         """
-
+        assert len(element_list) == self.__data['type'].max(), 'The length of element_list must be equal to the atom type number.'
         partial_cutoff = {}
         for type1 in range(len(element_list)):
             for type2 in range(type1, len(element_list)):

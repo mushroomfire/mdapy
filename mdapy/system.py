@@ -631,15 +631,15 @@ class System:
         )
         self.if_neigh = True
 
-    def cal_species_number(self, element_list, search_species):
+    def cal_species_number(self, element_list, search_species=None, check_most=10):
         """This function can recgnized the species based on the atom connectivity.
         For atom i and atom j, if rij <= (vdwr_i + vdwr_j) * 0.6, we think two atoms are connected.
         Similar method can be found in `OpenBabel <https://github.com/openbabel/openbabel>`_.
 
         Args:
             element_list (list): elemental name for your system. Such as ['C', 'H', 'O'].
-            search_species (list): the molecular formula you want to find. Such as ['H2O', 'CO2', 'Cl2', 'N2'].
-
+            search_species (list, optional): the molecular formula you want to find. Such as ['H2O', 'CO2', 'Cl2', 'N2'].
+            check_most (int, optional): if search_species is not given, we will give the N-most species.
         Returns:
             dict: search species and the corresponding number.
         """
@@ -651,40 +651,58 @@ class System:
                     vdw_radii[atomic_numbers[element_list[type1]]]
                     + vdw_radii[atomic_numbers[element_list[type2]]]
                 ) * 0.6
-        pattern = r"([A-Z][a-z]?)(\d*)"
-        trans_search_species = []
-        for old_name in search_species:
-            matches = re.findall(pattern, old_name)
-            matches.sort()
-            name = ""
-            for i, j in matches:
-                if len(j):
-                    name += i * int(j)
-                else:
-                    name += i
-            trans_search_species.append(name)
         self.cal_cluster_analysis(partial_cutoff, max_neigh=None)
-
-        res = (
-            self.__data.with_columns(
-                pl.lit(np.array(element_list)[(self.__data["type"] - 1).view()]).alias(
-                    "type_name"
+        if search_species is not None:
+            pattern = r"([A-Z][a-z]?)(\d*)"
+            trans_search_species = []
+            for old_name in search_species:
+                matches = re.findall(pattern, old_name)
+                matches.sort()
+                name = ""
+                for i, j in matches:
+                    if len(j):
+                        name += i * int(j)
+                    else:
+                        name += i
+                trans_search_species.append(name)
+            res = (
+                self.__data.with_columns(
+                    pl.lit(
+                        np.array(element_list)[(self.__data["type"] - 1).view()]
+                    ).alias("type_name")
                 )
-            )
-            .group_by("cluster_id")
-            .agg(pl.col("type_name"))
-            .with_columns(pl.col("type_name").list.sort())
-            .with_columns(pl.col("type_name").list.join(""))["type_name"]
-            .value_counts()
-        ).filter(pl.col("type_name").is_in(trans_search_species))
-        res = dict(zip(res[:, 0], res[:, 1]))
-        species = {}
-        for i, j in zip(search_species, trans_search_species):
-            if j not in res.keys():
-                species[i] = 0
-            else:
-                species[i] = res[j]
+                .group_by("cluster_id")
+                .agg(pl.col("type_name"))
+                .with_columns(pl.col("type_name").list.sort())
+                .with_columns(pl.col("type_name").list.join(""))["type_name"]
+                .value_counts()
+            ).filter(pl.col("type_name").is_in(trans_search_species))
+            res = dict(zip(res[:, 0], res[:, 1]))
+            species = {}
+            for i, j in zip(search_species, trans_search_species):
+                if j not in res.keys():
+                    species[i] = 0
+                else:
+                    species[i] = res[j]
 
+        else:
+            res = (
+                (
+                    self.__data.with_columns(
+                        pl.lit(
+                            np.array(element_list)[(self.__data["type"] - 1).view()]
+                        ).alias("type_name")
+                    )
+                    .group_by("cluster_id")
+                    .agg(pl.col("type_name"))
+                    .with_columns(pl.col("type_name").list.sort())
+                    .with_columns(pl.col("type_name").list.join(""))["type_name"]
+                    .value_counts()
+                )
+                .sort("counts", descending=True)
+                .limit(check_most)
+            )
+            species = dict(zip(res[:, 0], res[:, 1]))
         return species
 
     def cal_atomic_temperature(self, amass, rc=5.0, units="metal", max_neigh=None):
@@ -1806,6 +1824,10 @@ if __name__ == "__main__":
     species = system.cal_species_number(
         element_list=["H", "C", "N", "O", "F", "Al", "Cl"],
         search_species=["H2O", "Cl", "N2", "CO2", "HCl"],
+    )
+    print(species)
+    species = system.cal_species_number(
+        element_list=["H", "C", "N", "O", "F", "Al", "Cl"], check_most=20
     )
     print(species)
     # system.write_xyz()

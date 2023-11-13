@@ -231,11 +231,17 @@ if __name__ == "__main__":
     import mdapy as mp
 
     ti.init(ti.cpu)
-    system = mp.System(r'F:\Gra-Al-shear\relax\Al-Gra-relax.0.dump')
+    system = mp.System(r"F:\Gra-Al-shear\relax\Al-Gra-relax.0.dump")
 
     start = time()
     # {'1-1':2.5, '1-2':1.6, '2-2':1.5}
-    Cls = ClusterAnalysis(rc=2.9, pos=system.pos, box=system.box, boundary=system.boundary, type_list=system.data['type'].view())
+    Cls = ClusterAnalysis(
+        rc=2.9,
+        pos=system.pos,
+        box=system.box,
+        boundary=system.boundary,
+        type_list=system.data["type"].view(),
+    )
     Cls.compute()
     end = time()
     print(f"Cal cluster time: {end-start} s.")

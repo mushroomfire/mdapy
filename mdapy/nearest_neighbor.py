@@ -402,9 +402,7 @@ if __name__ == "__main__":
     from system import System
 
     ti.init(ti.cpu)
-    system = System(
-        r"F:/Gra-Al-shear/shear/shear-XY.150000.dump"
-    )
+    system = System(r"F:/Gra-Al-shear/shear/shear-XY.150000.dump")
     system.replicate(2, 2, 2)
     print(system)
     start = time()

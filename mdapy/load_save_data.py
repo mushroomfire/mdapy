@@ -602,13 +602,9 @@ class BuildSystem:
                 )
             else:
                 type_list = df["type_name"].unique(maintain_order=True)
+                type_list2type = {j: i+1 for i, j in enumerate(type_list)}
                 df = df.with_columns(
-                    [
-                        pl.when(pl.col("type_name") == j)
-                        .then(pl.lit(i + 1))
-                        .alias("type")
-                        for i, j in enumerate(type_list)
-                    ]
+                    pl.col('type_name').map_dict(type_list2type).alias('type')
                 )
             df = df.with_row_count("id", offset=1)
             coor = df.select("x", "y", "z")

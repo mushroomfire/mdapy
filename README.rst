@@ -256,6 +256,11 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
+V0.9.9 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Fix a bug when loading xyz file.
+
 V0.9.8 (November 13, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

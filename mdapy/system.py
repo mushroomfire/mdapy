@@ -1820,16 +1820,17 @@ if __name__ == "__main__":
     ti.init()
     # system = System('example/solidliquid.dump')
     # system.write_xyz()
-    system = System(r"E:\visua_test\heat.500.output.dump")
-    species = system.cal_species_number(
-        element_list=["H", "C", "N", "O", "F", "Al", "Cl"],
-        search_species=["H2O", "Cl", "N2", "CO2", "HCl"],
-    )
-    print(species)
-    species = system.cal_species_number(
-        element_list=["H", "C", "N", "O", "F", "Al", "Cl"], check_most=20
-    )
-    print(species)
+    system = System(r"C:\Users\Administrator\Desktop\htpb\H2O-64.xyz")
+    print(system)
+    # species = system.cal_species_number(
+    #     element_list=["H", "C", "N", "O", "F", "Al", "Cl"],
+    #     search_species=["H2O", "Cl", "N2", "CO2", "HCl"],
+    # )
+    # print(species)
+    # species = system.cal_species_number(
+    #     element_list=["H", "C", "N", "O", "F", "Al", "Cl"], check_most=20
+    # )
+    # print(species)
     # system.write_xyz()
     # system.write_xyz(classical=True)
     # system.write_dump()

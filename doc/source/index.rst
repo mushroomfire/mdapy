@@ -36,7 +36,7 @@ Dependencies
 * `taichi>=1.6.0 <https://github.com/taichi-dev/taichi>`_
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
-* `polars>=0.19.13 <https://pola-rs.github.io/polars/>`_
+* `polars>=0.19.14 <https://pola-rs.github.io/polars/>`_
 * `matplotlib <https://matplotlib.org/>`_
 
 Optional Dependencies

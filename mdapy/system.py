@@ -6,7 +6,7 @@ import re
 
 
 try:
-    from tool_function import atomic_numbers, vdw_radii
+    from tool_function import atomic_numbers, vdw_radii, atomic_masses
     from load_save_data import BuildSystem, SaveFile
     from tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from ackland_jones_analysis import AcklandJonesAnalysis
@@ -32,7 +32,7 @@ try:
     from replicate import Replicate
     from tool_function import _check_repeat_cutoff
 except Exception:
-    from .tool_function import atomic_numbers, vdw_radii
+    from .tool_function import atomic_numbers, vdw_radii, atomic_masses
     from .load_save_data import BuildSystem, SaveFile
     from .tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from .common_neighbor_analysis import CommonNeighborAnalysis
@@ -229,17 +229,13 @@ class System:
     def update_pos(self):
         """Call it only if you modify the positions information by modify the data."""
         assert "x" in self.__data.columns, "Must contains the position information."
-        self.__pos = np.c_[
-            self.__data["x"].view(), self.__data["y"].view(), self.__data["z"].view()
-        ]
+        self.__pos = np.c_[self.__data["x"], self.__data["y"], self.__data["z"]]
         self.__pos.flags.writeable = False
 
     def update_vel(self):
         """Call it only if you modify the velocities information by modify the data."""
         assert "vx" in self.__data.columns, "Must contains the velocity information."
-        self.__vel = np.c_[
-            self.__data["vx"].view(), self.__data["vy"].view(), self.__data["vz"].view()
-        ]
+        self.__vel = np.c_[self.__data["vx"], self.__data["vy"], self.__data["vz"]]
         self.__vel.flags.writeable = False
 
     @property
@@ -643,7 +639,9 @@ class System:
         Returns:
             dict: search species and the corresponding number.
         """
-        assert len(element_list) == self.__data['type'].max(), 'The length of element_list must be equal to the atom type number.'
+        assert (
+            len(element_list) == self.__data["type"].max()
+        ), "The length of element_list must be equal to the atom type number."
         partial_cutoff = {}
         for type1 in range(len(element_list)):
             for type2 in range(type1, len(element_list)):
@@ -668,7 +666,9 @@ class System:
             res = (
                 self.__data.with_columns(
                     pl.lit(
-                        np.array(element_list)[(self.__data["type"] - 1).view()]
+                        np.array(element_list)[
+                            (self.__data["type"] - 1).to_numpy(zero_copy_only=True)
+                        ]
                     ).alias("type_name")
                 )
                 .group_by("cluster_id")
@@ -690,7 +690,9 @@ class System:
                 (
                     self.__data.with_columns(
                         pl.lit(
-                            np.array(element_list)[(self.__data["type"] - 1).view()]
+                            np.array(element_list)[
+                                (self.__data["type"] - 1).to_numpy(zero_copy_only=True)
+                            ]
                         ).alias("type_name")
                     )
                     .group_by("cluster_id")
@@ -705,7 +707,9 @@ class System:
             species = dict(zip(res[:, 0], res[:, 1]))
         return species
 
-    def cal_atomic_temperature(self, amass, rc=5.0, units="metal", max_neigh=None):
+    def cal_atomic_temperature(
+        self, amass=None, elemental_list=None, rc=5.0, units="metal", max_neigh=None
+    ):
         """Calculate an average thermal temperature per atom, wchich is useful at shock
         simulations. The temperature of atom :math:`i` is given by:
 
@@ -721,7 +725,8 @@ class System:
         Here the neighbor of atom :math:`i` includes itself.
 
         Args:
-            amass (np.ndarray): (:math:`N_{type}`) atomic mass per species.
+            amass (np.ndarray, optional): (:math:`N_{type}`) atomic mass per species, such as np.array([1., 12.]).
+            elemental_list (list, optional): (:math:`N_{type}`) elemental name, such as ['H', 'C'].
             rc (float, optional): cutoff distance. Defaults to 5.0.
             units (str, optional): units selected from ['metal', 'charge']. Defaults to "metal".
             max_neigh (int, optional): maximum neighbor number. If not given, will estimate atomatically. Default to None.
@@ -729,6 +734,14 @@ class System:
         Outputs:
             - **The result is added in self.data['atomic_temp']**.
         """
+
+        if amass is None:
+            assert (
+                elemental_list is not None
+            ), "One must provide either amass or elemental_list!"
+            amass = np.array([atomic_masses[atomic_numbers[i]] for i in elemental_list])
+        else:
+            amass = np.array(amass)
 
         repeat = _check_repeat_cutoff(self.box, self.boundary, rc)
         verlet_list, distance_list = None, None
@@ -742,7 +755,9 @@ class System:
                 self.distance_list,
             )
 
-        atype_list = self.__data["type"].view()  # to_numpy().astype(np.int32)
+        atype_list = self.__data["type"].to_numpy(
+            zero_copy_only=True
+        )  # to_numpy().astype(np.int32)
 
         assert "vx" in self.__data.columns
         assert "vy" in self.__data.columns
@@ -1242,7 +1257,7 @@ class System:
             self.pos,
             self.box,
             self.boundary,
-            self.__data["type"].view(),
+            self.__data["type"].to_numpy(zero_copy_only=True),
         )
         self.PairDistribution.compute()
 
@@ -1289,7 +1304,7 @@ class System:
             self.pos,
             self.box,
             self.boundary,
-            self.__data["type"].view(),
+            self.__data["type"].to_numpy(zero_copy_only=True),
         )
         ClusterAnalysi.compute()
         self.__data = self.__data.with_columns(
@@ -1482,7 +1497,7 @@ class System:
             self.boundary,
             self.box,
             elements_list,
-            self.__data["type"].view(),
+            self.__data["type"].to_numpy(zero_copy_only=True),
             verlet_list,
             distance_list,
             neighbor_number,
@@ -1572,7 +1587,7 @@ class System:
                 )
 
         self.WarrenCowleyParameter = WarrenCowleyParameter(
-            self.__data["type"].view(),
+            self.__data["type"].to_numpy(zero_copy_only=True),
             verlet_list,
             neighbor_number,
             rc,

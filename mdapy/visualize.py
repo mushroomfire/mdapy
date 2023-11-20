@@ -120,7 +120,9 @@ class Visualize:
         )
         self.atoms = k3d.points(
             self.data.select("x", "y", "z").to_numpy().astype(np.float32),
-            colors=np.array(self.data["colors"].view(), np.uint32),
+            colors=np.array(
+                self.data["colors"].to_numpy(zero_copy_only=True), np.uint32
+            ),
             shader="3d",
             point_size=2.5,
         )
@@ -167,19 +169,23 @@ class Visualize:
             assert values in self.data.columns
             if values == "type":
                 self.atom_colored_by_atom_type()
-                self.atoms.colors = np.array(self.data["colors"].view(), np.uint32)
+                self.atoms.colors = np.array(
+                    self.data["colors"].to_numpy(zero_copy_only=True), np.uint32
+                )
                 self.atoms.color_map = []
                 self.atoms.color_range = []
                 return
             elif values == "structure_types":
                 self.atom_colored_by_structure_type()
-                self.atoms.colors = np.array(self.data["colors"].view(), np.uint32)
+                self.atoms.colors = np.array(
+                    self.data["colors"].to_numpy(zero_copy_only=True), np.uint32
+                )
                 self.atoms.color_map = []
                 self.atoms.color_range = []
                 return
             else:
                 assert self.data[values].dtype in pl.NUMERIC_DTYPES
-                values = self.data[values].view()
+                values = self.data[values].to_numpy(zero_copy_only=True)
 
         else:
             assert values.shape[0] == self.data.shape[0]

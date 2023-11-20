@@ -240,7 +240,7 @@ if __name__ == "__main__":
         pos=system.pos,
         box=system.box,
         boundary=system.boundary,
-        type_list=system.data["type"].view(),
+        type_list=system.data["type"].to_numpy(zero_copy_only=True),
     )
     Cls.compute()
     end = time()

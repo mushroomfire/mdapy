@@ -259,7 +259,10 @@ Release Notes
 V0.9.9 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- We can use elemental list to calculate the atomic temperature now.
 - Fix a bug when loading xyz file.
+- Update support for Polars>=0.19.14.
+- Prepared to support Python 3.12.
 
 V0.9.8 (November 13, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

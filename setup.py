@@ -82,7 +82,7 @@ setup(
         "taichi>=1.6.0",
         "numpy",
         "scipy",
-        "polars>=0.19.13",
+        "polars>=0.19.14",
         "matplotlib",
     ],
     classifiers=[

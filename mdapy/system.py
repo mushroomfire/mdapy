@@ -1833,14 +1833,14 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System('example/solidliquid.dump')
-    #system.cal_atomic_temperature(elemental_list=['Mo'])
+    system = System("example/solidliquid.dump")
+    # system.cal_atomic_temperature(elemental_list=['Mo'])
     system.cal_atomic_temperature(amass=[95.94])
     # system.write_xyz()
     # system = System(r"C:\Users\Administrator\Desktop\htpb\H2O-64.xyz")
     print(system)
-    print(system.data['atomic_temp'].mean())
-    
+    print(system.data["atomic_temp"].mean())
+
     # species = system.cal_species_number(
     #     element_list=["H", "C", "N", "O", "F", "Al", "Cl"],
     #     search_species=["H2O", "Cl", "N2", "CO2", "HCl"],

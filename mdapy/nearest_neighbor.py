@@ -39,7 +39,6 @@ def _wrap_pos(
 class kdtree:
     """This class is a wrapper of `kdtree of scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html>`_
     and helful to obtain the certain nearest atom neighbors considering the periodic/free boundary.
-    One can install `pyfnntw <https://github.com/cavemanloverboy/FNNTW>`_ to accelerate this module.
     If you want to access the atom neighbor within a spherical
     distance, the Neighbor class is suggested.
 
@@ -79,10 +78,9 @@ class kdtree:
             _wrap_pos(new_pos, box, np.array(boundary, int))
             self.shift_pos = new_pos - np.min(new_pos, axis=0)
         else:
-            self.shift_pos = np.ascontiguousarray(pos - lower)  # for pyfnntw backend.
+            self.shift_pos = pos - lower
         self.box = box
         self.boundary = boundary
-        self._use_pyfnntw = False
         self._init()
 
     def _init(self):
@@ -95,56 +93,7 @@ class kdtree:
             ]
         )
 
-        try:
-            import pyfnntw
-
-            if self.shift_pos.dtype == np.float64:
-                if self.shift_pos.shape[0] < 10**6:
-                    self.kdt = pyfnntw.Treef64(
-                        self.shift_pos,
-                        leafsize=32,
-                        par_split_level=1,
-                        boxsize=boxsize,
-                    )
-                elif self.shift_pos.shape[0] < 10**7:
-                    self.kdt = pyfnntw.Treef64(
-                        self.shift_pos,
-                        leafsize=32,
-                        par_split_level=2,
-                        boxsize=boxsize,
-                    )
-                else:
-                    self.kdt = pyfnntw.Treef64(
-                        self.shift_pos,
-                        leafsize=32,
-                        par_split_level=4,
-                        boxsize=boxsize,
-                    )
-            elif self.shift_pos.dtype == np.float32:
-                if self.shift_pos.shape[0] < 10**6:
-                    self.kdt = pyfnntw.Treef32(
-                        self.shift_pos,
-                        leafsize=32,
-                        par_split_level=1,
-                        boxsize=boxsize,
-                    )
-                elif self.shift_pos.shape[0] < 10**7:
-                    self.kdt = pyfnntw.Treef32(
-                        self.shift_pos,
-                        leafsize=32,
-                        par_split_level=2,
-                        boxsize=boxsize,
-                    )
-                else:
-                    self.kdt = pyfnntw.Treef32(
-                        self.shift_pos,
-                        leafsize=32,
-                        par_split_level=4,
-                        boxsize=boxsize,
-                    )
-            self._use_pyfnntw = True
-        except Exception:
-            self.kdt = KDTree(self.shift_pos, leafsize=32, boxsize=boxsize)
+        self.kdt = KDTree(self.shift_pos, boxsize=boxsize)
 
     def query_nearest_neighbors(self, K, workers=-1):
         """Query the :math:`n` nearest atom neighbors.
@@ -156,10 +105,8 @@ class kdtree:
         Returns:
             tuple: (distance, index), distance of atom :math:`i` to its neighbor atom :math:`j`, and the index of atom :math:`j`.
         """
-        if self._use_pyfnntw:
-            dis, index = self.kdt.query(self.shift_pos, K + 1)
-        else:
-            dis, index = self.kdt.query(self.shift_pos, k=K + 1, workers=workers)
+
+        dis, index = self.kdt.query(self.shift_pos, k=K + 1, workers=workers)
         return np.ascontiguousarray(dis[:, 1:]), np.ascontiguousarray(index[:, 1:])
 
 
@@ -168,7 +115,6 @@ class NearestNeighbor:
     """This class is used to query the nearest neighbor with fixed number. For rectangle box, this
     class is a wrapper of `kdtree of scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html>`_
     and helful to obtain the certain nearest atom neighbors considering the periodic/free boundary.
-    One can install `pyfnntw==0.4.1 <https://github.com/cavemanloverboy/FNNTW>`_ to accelerate this module.
     If you want to access the atom neighbor within a spherical
     distance, the Neighbor class is suggested.
     For triclinic box, this class use cell-list to find the nearest neighbors.
@@ -402,44 +348,44 @@ if __name__ == "__main__":
     from system import System
 
     ti.init(ti.cpu)
-    system = System(r"F:/Gra-Al-shear/shear/shear-XY.150000.dump")
-    system.replicate(2, 2, 2)
-    print(system)
-    start = time()
-    kdt = NearestNeighbor(system.pos, system.box, system.boundary)
-    end = time()
-    print(f"Build kdtree time: {end-start} s.")
-    start = time()
-    dis, index = kdt.query_nearest_neighbors(16)
-    end = time()
-    print(f"Query time: {end-start} s.")
-    print(dis[0])
-    print(index[0])
+    # system = System(r"F:/Gra-Al-shear/shear/shear-XY.150000.dump")
+    # system.replicate(2, 2, 2)
+    # print(system)
     # start = time()
-    # lattice_constant = 4.05
-    # x, y, z = 50, 50, 50
-    # FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
-    # FCC.compute()
-    # end = time()
-    # print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-    # FCC.pos -= 0.2
-    # print(np.min(FCC.pos, axis=0))
-    # start = time()
-    # kdt = NearestNeighbor(FCC.pos, FCC.box, [1, 1, 1])
-    # # kdt = kdtree(FCC.pos, FCC.box, [1, 1, 1])
+    # kdt = NearestNeighbor(system.pos, system.box, system.boundary)
     # end = time()
     # print(f"Build kdtree time: {end-start} s.")
-    # print(np.min(FCC.pos, axis=0))
     # start = time()
-    # dis, index = kdt.query_nearest_neighbors(12)
+    # dis, index = kdt.query_nearest_neighbors(16)
     # end = time()
-    # print(f"Query kdtree time: {end-start} s.")
+    # print(f"Query time: {end-start} s.")
+    # print(dis[0])
+    # print(index[0])
+    start = time()
+    lattice_constant = 4.05
+    x, y, z = 50, 50, 50
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    FCC.compute()
+    end = time()
+    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
+    FCC.pos -= 0.2
+    print(np.min(FCC.pos, axis=0))
+    start = time()
+    kdt = NearestNeighbor(FCC.pos, FCC.box, [1, 1, 1])
+    # kdt = kdtree(FCC.pos, FCC.box, [1, 1, 1])
+    end = time()
+    print(f"Build kdtree time: {end-start} s.")
+    print(np.min(FCC.pos, axis=0))
+    start = time()
+    dis, index = kdt.query_nearest_neighbors(12)
+    end = time()
+    print(f"Query kdtree time: {end-start} s.")
     # # start = time()
     # # dis, index = kdt.query_nearest_neighbors(16)
     # # end = time()
     # # print(f"Query kdtree time: {end-start} s.")
 
-    # print(dis[0])
-    # print(index[0])
+    print(dis[0])
+    print(index[0])
     # print(FCC.box)
     # print(FCC.pos[199] - FCC.pos[0])

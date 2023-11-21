@@ -6,13 +6,13 @@ import matplotlib.pyplot as plt
 
 try:
     from rdf._rdf import _rdf, _rdf_single_species
-    from plotset import pltset, cm2inch
+    from plotset import set_figure
     from tool_function import _check_repeat_cutoff
     from replicate import Replicate
     from neighbor import Neighbor
 except Exception:
     from _rdf import _rdf, _rdf_single_species
-    from .plotset import pltset, cm2inch
+    from .plotset import set_figure
     from .tool_function import _check_repeat_cutoff
     from .replicate import Replicate
     from .neighbor import Neighbor
@@ -146,7 +146,6 @@ class PairDistribution:
         else:
             self.type_list = np.zeros(self.N, dtype=int)
         self.Ntype = len(np.unique(self.type_list))
-        pltset()
 
     def compute(self):
         """Do the real RDF calculation."""
@@ -214,13 +213,19 @@ class PairDistribution:
         Returns:
             tuple: (fig, ax) matplotlib figure and axis class.
         """
-        fig = plt.figure(figsize=(cm2inch(8), cm2inch(5)), dpi=150)
-        plt.subplots_adjust(left=0.16, bottom=0.225, right=0.97, top=0.97)
+
+        fig, ax = set_figure(
+            figsize=(10, 7),
+            left=0.14,
+            bottom=0.18,
+            right=0.95,
+            top=0.97,
+            use_pltset=True,
+        )
         plt.plot(self.r, self.g_total, "o-", ms=3)
         plt.xlabel("r ($\mathregular{\AA}$)")
         plt.ylabel("g(r)")
         plt.xlim(0, self.rc)
-        ax = plt.gca()
         plt.show()
         return fig, ax
 
@@ -235,8 +240,15 @@ class PairDistribution:
         """
         if elements_list is not None:
             assert len(elements_list) == self.Ntype
-        fig = plt.figure(figsize=(cm2inch(8), cm2inch(5)), dpi=150)
-        plt.subplots_adjust(left=0.16, bottom=0.225, right=0.97, top=0.97)
+
+        fig, ax = set_figure(
+            figsize=(10, 7),
+            left=0.14,
+            bottom=0.18,
+            right=0.95,
+            top=0.97,
+            use_pltset=True,
+        )
         lw = 1.0
         if self.Ntype > 3:
             colorlist = plt.cm.get_cmap("tab20").colors[::2]
@@ -269,7 +281,6 @@ class PairDistribution:
         plt.xlabel("r ($\mathregular{\AA}$)")
         plt.ylabel("g(r)")
         plt.xlim(0, self.rc)
-        ax = plt.gca()
         plt.show()
         return fig, ax
 
@@ -318,4 +329,4 @@ if __name__ == "__main__":
     end = time()
     print(f"Cal gr time: {end-start} s.")
     gr.plot()
-    # gr.plot_partial()
+    gr.plot_partial()

@@ -172,18 +172,12 @@ Optional Dependencies
     *   -   `k3d <https://matplotlib.org/>`_
         -   latest
         -   Visualize the 3D atoms.
-    *   -   `SciencePlots <https://github.com/garrettj403/SciencePlots>`_
-        -   latest
-        -   Format the figures.
     *   -   `tqdm <https://github.com/tqdm/tqdm>`_
         -   latest
-        -   Show progress bar when reading/saving multi DUMP files.
+        -   Show progress bar when reading/saving multi files.
     *   -   `pyfftw <https://github.com/pyFFTW/pyFFTW>`_
         -   latest
         -   Faster FFT.
-    *   -   `pyfnntw <https://github.com/cavemanloverboy/FNNTW>`_
-        -   0.4.1
-        -   Faster kdtree building and query.
 
 Installation
 -------------
@@ -194,6 +188,18 @@ Install from pip (recommended).
 .. code-block:: bash
 
    pip install mdapy
+
+One can install optional dependencies. For example:
+
+.. code-block:: bash
+
+   # This will also install the k3d package.
+   pip install mdapy[k3d]
+
+.. code-block:: bash
+
+   # This will install all optional packages (k3d, tqdm, pyfftw).
+   pip install mdapy[all]
 
 Install from source code.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -259,10 +265,12 @@ Release Notes
 V0.9.9 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- Rewrite the pltset and add a set_figure feature.
 - We can use elemental list to calculate the atomic temperature now.
 - Fix a bug when loading xyz file.
 - Update support for Polars>=0.19.14.
 - Prepared to support Python 3.12.
+- Remove the SciencePlots and pyfnntw as optional dependency for concise.
 
 V0.9.8 (November 13, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

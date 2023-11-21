@@ -43,10 +43,8 @@ Optional Dependencies
 ----------------------
 
 * `k3d <https://matplotlib.org/>`_ (Optional, for visualizing the 3D atoms.)
-* `SciencePlots <https://github.com/garrettj403/SciencePlots>`_ (Optional, for plotting results)
-* `tqdm <https://github.com/tqdm/tqdm>`_ (Optional, for progress bar when reading/saving multi DUMP files)
+* `tqdm <https://github.com/tqdm/tqdm>`_ (Optional, for progress bar when reading/saving multi files)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
-* `pyfnntw>=0.4.1 <https://github.com/cavemanloverboy/FNNTW>`_ (Optional, for fast KNN search)
 
 Citation
 ---------

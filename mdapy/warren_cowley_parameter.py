@@ -7,12 +7,12 @@ import matplotlib.pyplot as plt
 
 
 try:
-    from plotset import pltset, cm2inch
+    from plotset import set_figure
     from tool_function import _check_repeat_cutoff
     from replicate import Replicate
     from neighbor import Neighbor
 except Exception:
-    from .plotset import pltset, cm2inch
+    from .plotset import set_figure
     from .tool_function import _check_repeat_cutoff
     from .replicate import Replicate
     from .neighbor import Neighbor
@@ -115,8 +115,6 @@ class WarrenCowleyParameter:
             assert self.box[1, 2] == 0
             self.boundary = [int(boundary[i]) for i in range(3)]
 
-        pltset()
-
     @ti.kernel
     def _get_wcp(
         self,
@@ -180,8 +178,10 @@ class WarrenCowleyParameter:
         Returns:
             tuple: (fig, ax) matplotlib figure and axis class.
         """
-        fig, ax = plt.subplots(figsize=(cm2inch(8), cm2inch(8)), dpi=150)
-        plt.subplots_adjust(bottom=0.1, top=0.9, left=0.15, right=0.82)
+        fig, ax = set_figure(
+            figsize=(8, 8), bottom=0.1, top=0.9, left=0.15, right=0.82, use_pltset=True
+        )
+
         h = ax.imshow(self.WCP[::-1], vmin=vmin, vmax=vmax, cmap=cmap)
         ax.set_xticks(np.arange(self.WCP.shape[0]))
         ax.set_yticks(np.arange(self.WCP.shape[0]))
@@ -220,9 +220,8 @@ if __name__ == "__main__":
     ti.init(ti.cpu, offline_cache=True)
     # system = LatticeMaker(3.615, "FCC", 1, 1, 1)
     # system.compute()\
-    system = System("./1-1-1.data")
     # system = System(r"F:\HEARes\HEA-Paper\SFE\MDMC\relax.0.data")
-    # system = System(r"./example/CoCuFeNiPd-4M.dump")
+    system = System(r"./example/CoCuFeNiPd-4M.dump")
     # start = time()
     # neigh = Neighbor(system.pos, system.box, 3.0, max_neigh=30)
     # neigh.compute()
@@ -231,12 +230,19 @@ if __name__ == "__main__":
     start = time()
     # system.data["type"].values
     wcp = WarrenCowleyParameter(
-        system.data["type"].values, None, None, 3.0, system.pos, system.box, [1, 1, 1]
+        system.data["type"].to_numpy(zero_copy_only=True),
+        None,
+        None,
+        3.0,
+        system.pos,
+        system.box,
+        [1, 1, 1],
     )
     wcp.compute()
     end = time()
     print(f"Cal WCP time: {end-start} s.")
     print("WCP matrix is:")
     print(wcp.WCP)
-    wcp.plot()
-    # wcp.plot(["Co", "Cu", "Fe", "Ni", "Pd"])
+    # wcp.plot()
+    fig, ax = wcp.plot(["Co", "Cu", "Fe", "Ni", "Pd"])
+    # fig.savefig('wcp.png', dpi=300, bbox_inches='tight', transparent=True)

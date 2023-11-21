@@ -30,7 +30,7 @@ except Exception:
 ParallelCompile().install()
 setup(
     name="mdapy",
-    version="0.9.8",
+    version="0.9.9",
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,
@@ -85,6 +85,12 @@ setup(
         "polars>=0.19.14",
         "matplotlib",
     ],
+    extras_require={
+        "all": ["k3d", "tqdm", "pyfftw"],
+        "k3d": "k3d",
+        "tqdm": "tqdm",
+        "pyfftw": "pyfftw",
+    },
     classifiers=[
         "License :: OSI Approved :: BSD License",
         "Programming Language :: Python :: 3.8",

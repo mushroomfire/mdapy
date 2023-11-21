@@ -6,9 +6,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 try:
-    from plotset import pltset, cm2inch
+    from plotset import set_figure, pltset, cm2inch
 except Exception:
-    from .plotset import pltset, cm2inch
+    from .plotset import set_figure, pltset, cm2inch
 
 
 @ti.data_oriented
@@ -240,12 +240,18 @@ class SpatialBinning:
         Returns:
             tuple: (fig, ax) matplotlib figure and axis class.
         """
-        pltset()
+
         if not self.if_compute:
             self.compute()
         if len(self.direction) in [1, 2]:
-            fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
-            plt.subplots_adjust(bottom=0.18, top=0.97, left=0.15, right=0.92)
+            fig, ax = set_figure(
+                figsize=(10, 7),
+                bottom=0.18,
+                top=0.97,
+                left=0.15,
+                right=0.92,
+                use_pltset=True,
+            )
 
         if len(self.direction) == 1:
             if label_list is not None:
@@ -263,14 +269,9 @@ class SpatialBinning:
 
             plt.xlabel(f"Coordination {self.direction}")
             plt.ylabel(f"Some values")
-            ax = plt.gca()
             plt.show()
             return fig, ax
         elif len(self.direction) == 2:
-            # data = np.zeros(self.res.shape[:2])
-            # for i in range(self.res.shape[0]):
-            #     for j in range(self.res.shape[1]):
-            #         data[i, j] = self.res[i, j, 1]
             data = self.res[:, :, 1]
             X, Y = np.meshgrid(
                 self.coor[self.direction[0]], self.coor[self.direction[1]]
@@ -279,7 +280,6 @@ class SpatialBinning:
             plt.xlabel(f"Coordination {self.direction[0]}")
             plt.ylabel(f"Coordination {self.direction[1]}")
 
-            ax = plt.gca()
             bar = fig.colorbar(h, ax=ax)
             if bar_label is not None:
                 bar.set_label(bar_label)
@@ -288,6 +288,7 @@ class SpatialBinning:
             plt.show()
             return fig, ax
         else:
+            pltset()
             fig = plt.figure(figsize=(cm2inch(14), cm2inch(10)), dpi=150)
             ax = fig.add_subplot(111, projection="3d")
             plt.subplots_adjust(bottom=0.08, top=0.971, left=0.01, right=0.843)
@@ -371,7 +372,7 @@ if __name__ == "__main__":
     # binning.compute()
     binning = SpatialBinning(
         pos,
-        "xyz",
+        "x",
         np.cos(pos[:, 0]) ** 2 - np.sin(pos[:, 1]) ** 2,
         wbin=4.06,
         operation="mean",

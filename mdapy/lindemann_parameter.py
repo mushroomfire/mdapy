@@ -7,9 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 try:
-    from plotset import pltset, cm2inch
+    from plotset import set_figure
 except Exception:
-    from .plotset import pltset, cm2inch
+    from .plotset import set_figure
 
 
 @ti.data_oriented
@@ -165,17 +165,20 @@ class LindemannParameter:
         Returns:
             tuple: (fig, ax) matplotlib figure and axis class.
         """
-        pltset()
+
         if not self.if_compute:
             raise Exception("One should compute lidemann_frame first!")
-        fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
-        plt.subplots_adjust(left=0.16, bottom=0.16, right=0.95, top=0.97)
+        fig, ax = set_figure(
+            figsize=(10, 7),
+            left=0.14,
+            bottom=0.16,
+            right=0.95,
+            top=0.97,
+            use_pltset=True,
+        )
         plt.plot(self.lindemann_frame, "o-")
         plt.xlabel("$\mathregular{N_{frames}}$")
         plt.ylabel("Lindemann index")
-        # plt.xlim(0, self.lindemann_frame.shape[0])
-
-        ax = plt.gca()
         plt.show()
         return fig, ax
 

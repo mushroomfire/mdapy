@@ -5,9 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 try:
-    from plotset import pltset, cm2inch
+    from plotset import set_figure
 except Exception:
-    from .plotset import pltset, cm2inch
+    from .plotset import set_figure
 
 try:
     import pyfftw
@@ -26,10 +26,10 @@ try:
         fft_object = pyfftw.builders.ifft(a, axis=axis)
         return fft_object()
 
-except ImportError:
+except Exception:
     try:
         from scipy.fft import fft, ifft
-    except ImportError:
+    except Exception:
         from numpy.fft import fft, ifft
 
 
@@ -132,20 +132,22 @@ class MeanSquaredDisplacement:
         """Plot the evolution of MSD per frame.
 
         Returns:
-            tuple: (fig, ax) matplotlib figure and axis class.
+            tuple: (fig, ax) matplotlib figure and axis object.
         """
-        pltset()
         if not self.if_compute:
             self.compute()
-        fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
-        plt.subplots_adjust(left=0.18, bottom=0.16, right=0.95, top=0.97)
+        fig, ax = set_figure(
+            figsize=(10, 7),
+            left=0.18,
+            bottom=0.16,
+            right=0.95,
+            top=0.97,
+            use_pltset=True,
+        )
         plt.plot(self.msd, "o-", label=self.mode)
         plt.legend()
         plt.xlabel("$\mathregular{N_{frames}}$")
         plt.ylabel("MSD ($\mathregular{\AA^2}$)")
-        # plt.xlim(0, self.msd.shape[0])
-
-        ax = plt.gca()
         plt.show()
         return fig, ax
 
@@ -160,21 +162,18 @@ if __name__ == "__main__":
     start = time()
     MSD = MeanSquaredDisplacement(pos_list=pos_list, mode="windows")
     MSD.compute()
-    print(MSD.particle_msd.shape)
     end = time()
     msd_w = MSD.msd
     print(f"windows mode costs: {end-start} s.")
-    # MSD.plot()
+    MSD.plot()
     start = time()
     MSD = MeanSquaredDisplacement(pos_list=pos_list, mode="direct")
     MSD.compute()
     end = time()
     msd_d = MSD.msd
     print(f"direct mode costs: {end-start} s.")
-    # MSD.plot()
-    pltset()
-    fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
-    plt.subplots_adjust(left=0.18, bottom=0.16, right=0.95, top=0.97)
+    MSD.plot()
+    fig, ax = set_figure(figsize=(9, 7), left=0.19, bottom=0.16, right=0.95, top=0.97)
     plt.plot(msd_w, "o-", label="windows")
     plt.plot(msd_d, "o-", label="direct")
     plt.plot(np.arange(Nframe) * 6, label="theoritical")

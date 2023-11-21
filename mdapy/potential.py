@@ -6,9 +6,9 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import matplotlib.pyplot as plt
 
 try:
-    from .plotset import pltset, cm2inch
+    from .plotset import set_figure
 except Exception:
-    from plotset import pltset, cm2inch
+    from plotset import set_figure
 
 
 class EAM:
@@ -66,7 +66,6 @@ class EAM:
     def __init__(self, filename):
         self.filename = filename
         self._read_eam_alloy()
-        pltset()
 
     def _read_eam_alloy(self):
         file = open(self.filename).readlines()
@@ -207,15 +206,20 @@ class EAM:
         Returns:
             tuple: (fig, ax) matplotlib figure and axis class.
         """
-        fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
-        plt.subplots_adjust(bottom=0.18, top=0.98, left=0.2, right=0.98)
+        fig, ax = set_figure(
+            figsize=(10, 7),
+            bottom=0.18,
+            top=0.98,
+            left=0.2,
+            right=0.98,
+            use_pltset=True,
+        )
         for i in range(self.Nelements):
             plt.plot(self.r, self.elec_density_data[i], label=self.elements_list[i])
         plt.legend()
         plt.xlim(0, self.rc)
         plt.xlabel("r ($\mathregular{\AA}$)")
         plt.ylabel(r"$\mathregular{\rho}$ (r)")
-        ax = plt.gca()
         plt.show()
         return fig, ax
 
@@ -225,8 +229,15 @@ class EAM:
         Returns:
             tuple: (fig, ax) matplotlib figure and axis class.
         """
-        fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
-        plt.subplots_adjust(bottom=0.18, top=0.98, left=0.2, right=0.98)
+        fig, ax = set_figure(
+            figsize=(10, 7),
+            bottom=0.18,
+            top=0.98,
+            left=0.2,
+            right=0.98,
+            use_pltset=True,
+        )
+
         for i in range(self.Nelements):
             plt.plot(self.rho, self.embedded_data[i], label=self.elements_list[i])
 
@@ -234,7 +245,7 @@ class EAM:
         plt.xlim(0, self.rho[-1])
         plt.xlabel(r"$\mathregular{\rho}$")
         plt.ylabel(r"F($\mathregular{\rho}$) (eV)")
-        ax = plt.gca()
+
         plt.show()
         return fig, ax
 
@@ -244,8 +255,15 @@ class EAM:
         Returns:
             tuple: (fig, ax) matplotlib figure and axis class.
         """
-        fig = plt.figure(figsize=(cm2inch(10), cm2inch(7)), dpi=150)
-        plt.subplots_adjust(bottom=0.18, top=0.97, left=0.2, right=0.98)
+        fig, ax = set_figure(
+            figsize=(10, 7),
+            bottom=0.18,
+            top=0.97,
+            left=0.2,
+            right=0.98,
+            use_pltset=True,
+        )
+
         for i in range(self.Nelements):
             for j in range(self.Nelements):
                 if i == j:
@@ -260,7 +278,7 @@ class EAM:
         plt.ylim(-50, 400)
         plt.xlabel("r ($\mathregular{\AA}$)")
         plt.ylabel(r"$\mathregular{\phi}$(r) (eV)")
-        ax = plt.gca()
+
         plt.show()
         return fig, ax
 

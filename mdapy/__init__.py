@@ -22,7 +22,7 @@ from .lindemann_parameter import LindemannParameter
 from .mean_squared_displacement import MeanSquaredDisplacement
 from .neighbor import Neighbor
 from .pair_distribution import PairDistribution
-from .plotset import pltset, cm2inch, set_figure
+from .plotset import pltset, pltset_old, cm2inch, set_figure
 from .polyhedral_template_matching import PolyhedralTemplateMatching
 from .potential import EAM
 from .spatial_binning import SpatialBinning

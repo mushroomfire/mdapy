@@ -163,6 +163,48 @@ def pltset(color_cycler=None, **kargs):
             pass
 
 
+def pltset_old(color_cycler=None, **kargs):
+    """This function used to generate the same style with mdapy<0.9.9. Note that the
+    'Times New Roman' font is required.
+
+    Args:
+        color_cycler (str | list[str] | tuple[str], optional): One can use other color cycler belongs to ['bright', 'high-contrast', 'high-vis', 'light', 'muted', 'retro', 'std-colors', 'vibrant'], or directly provide a list or tuple contains colors, such as ['#FFAABB', '#99DDFF', '#44BB99']. Defaults to None.
+
+    One also can modify the default parameters by provide a dict. For example, if you want to let the font normal and set the font size, you can try:
+
+    pltset_old(**{"font.weight":'normal', "axes.labelweight":'normal', "font.size" : 10})
+
+    More parameters can be found in plt.rcParams.keys().
+    """
+    pltset(color_cycler=color_cycler)
+    default = {
+        "xtick.major.width": 1.0,
+        "ytick.major.width": 1.0,
+        "axes.linewidth": 1.0,
+        "font.weight": "bold",
+        "axes.labelweight": "bold",
+        "font.serif": "Times New Roman",
+        "xtick.minor.visible": False,
+        "ytick.minor.visible": False,
+        "xtick.top": False,
+        "ytick.right": False,
+        "font.size": 12,
+        "legend.fontsize": 10,
+    }
+    for key, value in default.items():
+        try:
+            plt.rcParams[key] = value
+        except Exception as e:
+            print(e)
+            pass
+    for key, value in kargs.items():
+        try:
+            plt.rcParams[key] = value
+        except Exception as e:
+            print(e)
+            pass
+
+
 def cm2inch(value):
     """Centimeters to feet.
 
@@ -187,6 +229,7 @@ def set_figure(
     nrow=1,
     ncol=1,
     use_pltset=False,
+    use_pltset_old=False,
 ):
     """This function can generate a Figure and a Axes object easily.
 
@@ -202,12 +245,15 @@ def set_figure(
         nrow (int, optional): the rows number. Defaults to 1.
         ncol (int, optional): the columns number. Defaults to 1.
         use_pltset (bool, optional): whether use the pltset. Defaults to False.
+        use_pltset_old (bool, optional): whether use the old pltset. This will be used only if use_pltset is False. Defaults to False.
 
     Returns:
         tuple: Figure and Axes object.
     """
     if use_pltset:
         pltset()
+    elif use_pltset_old:
+        pltset_old()
     fig, ax = plt.subplots(
         nrow, ncol, figsize=tuple(cm2inch(size) for size in figsize), dpi=figdpi
     )
@@ -218,15 +264,23 @@ def set_figure(
 
 
 if __name__ == "__main__":
-    # pltset(color_cycler="high-vis")
-    # pltset(**{"xtick.major.width":1., "ytick.major.width":1., "axes.linewidth":1., "font.weight":'bold', "axes.labelweight":'bold', 'font.serif':'Times New Roman'})
+    # pltset_old(color_cycler="high-vis", **{"font.weight":'normal', "axes.labelweight":'normal', })
+    pltset_old()
+    # pltset_old(**{"font.weight":'normal', "axes.labelweight":'normal', })
     # pltset('high-vis', **{'font.serif':'Times New Roman', 'xtick.minor.visible':False, 'ytick.minor.visible':False,})
-    fig, ax = set_figure(ncol=2, nrow=1, figsize=(16, 6), wspace=0.3)
-    for i in range(6):
-        ax[0].plot(range(i, 10 + i))
+    fig, ax = set_figure(
+        ncol=2,
+        nrow=1,
+        figsize=(16, 6),
+        wspace=0.3,
+        use_pltset=False,
+        use_pltset_old=False,
+    )
+    for i in range(3):
+        ax[0].plot(range(i, 10 + i), label=i)
     ax[1].plot(range(12), "o-")
     for i in range(2):
         ax[i].set_xlabel("x label")
         ax[i].set_ylabel("y label")
-
+    ax[0].legend()
     plt.show()

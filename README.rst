@@ -265,7 +265,7 @@ Release Notes
 V0.9.9 (November 21, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- Rewrite the pltset and add a set_figure feature.
+- Rewrite the pltset and add a set_figure feature, which makes plotting easier.
 - We can use elemental list to calculate the atomic temperature now.
 - Fix a bug when loading xyz file.
 - Update support for Polars>=0.19.14.

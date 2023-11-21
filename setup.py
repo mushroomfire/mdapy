@@ -19,10 +19,10 @@ elif sys.platform.startswith("darw"):
 description = "A simple, fast and cross-platform python library to handle the data generated from molecular dynamics simulations."
 try:
     readme = []
-    with open("README.rst", encoding='utf-8') as f:
+    with open("README.rst", encoding="utf-8") as f:
         for i in range(25):
             readme.append(f.readline())
-    readme = ''.join(readme)
+    readme = "".join(readme)
 except Exception:
     readme = description
 

@@ -262,7 +262,7 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
-V0.9.9 (Under development)
+V0.9.9 (November 21, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Rewrite the pltset and add a set_figure feature.

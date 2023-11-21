@@ -145,6 +145,7 @@ def pltset(color_cycler=None, **kargs):
 
     plt.rcParams["axes.linewidth"] = 0.5
     plt.rcParams["lines.linewidth"] = 1.5
+    plt.rcParams["lines.markersize"] = 4
 
     plt.rcParams["legend.frameon"] = False
 

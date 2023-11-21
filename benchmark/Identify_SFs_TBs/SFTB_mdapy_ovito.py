@@ -109,7 +109,7 @@ def sftb_average_time(ave_num=3):
 
 
 def plot(time_list, title=None, savefig=True):
-    pltset(fontkind="Times New Roman")
+    pltset()
     colorlist = [i["color"] for i in list(plt.rcParams["axes.prop_cycle"])]
     fig = plt.figure(figsize=(cm2inch(10), cm2inch(8)), dpi=150)
     plt.subplots_adjust(left=0.16, bottom=0.165, top=0.92, right=0.95)

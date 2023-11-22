@@ -69,6 +69,7 @@ class kdtree:
     def __init__(self, pos, box, boundary):
         if_wrap = False
         lower, upper = np.min(pos, axis=0), np.max(pos, axis=0)
+
         for i in range(3):
             if lower[i] < box[i, 0] or upper[i] > box[i, 1]:
                 if_wrap = True
@@ -107,6 +108,7 @@ class kdtree:
         """
 
         dis, index = self.kdt.query(self.shift_pos, k=K + 1, workers=workers)
+
         return np.ascontiguousarray(dis[:, 1:]), np.ascontiguousarray(index[:, 1:])
 
 
@@ -363,19 +365,17 @@ if __name__ == "__main__":
     # print(index[0])
     start = time()
     lattice_constant = 4.05
-    x, y, z = 50, 50, 50
+    x, y, z = 100, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-    FCC.pos -= 0.2
-    print(np.min(FCC.pos, axis=0))
+
     start = time()
     kdt = NearestNeighbor(FCC.pos, FCC.box, [1, 1, 1])
     # kdt = kdtree(FCC.pos, FCC.box, [1, 1, 1])
     end = time()
     print(f"Build kdtree time: {end-start} s.")
-    print(np.min(FCC.pos, axis=0))
     start = time()
     dis, index = kdt.query_nearest_neighbors(12)
     end = time()
@@ -388,4 +388,4 @@ if __name__ == "__main__":
     print(dis[0])
     print(index[0])
     # print(FCC.box)
-    # print(FCC.pos[199] - FCC.pos[0])
+    print(FCC.pos[399] - FCC.pos[0])

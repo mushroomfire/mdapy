@@ -22,6 +22,7 @@ Resources
 - Homepage: `https://github.com/mushroomfire/mdapy <https://github.com/mushroomfire/mdapy>`_
 - Documentation: `https://mdapy.readthedocs.io/ <https://mdapy.readthedocs.io/>`_
 - Issue Tracker: `https://github.com/mushroomfire/mdapy/issues <https://github.com/mushroomfire/mdapy/issues>`_
+- Tutorial: `https://github.com/mushroomfire/mdapy-tutorial <https://github.com/mushroomfire/mdapy-tutorial>`_
 
 `Visualize Configurations <https://mdapy.readthedocs.io/en/latest/gettingstarted/visualizing_atoms.html>`_
 -------------------------------------------------------------------------------------------------------------

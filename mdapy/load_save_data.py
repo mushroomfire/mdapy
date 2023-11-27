@@ -604,7 +604,7 @@ class BuildSystem:
                     for i, j in enumerate(df["type_name"].unique(maintain_order=True))
                 }
                 df = df.with_columns(
-                    pl.col("type_name").map_dict(type_name2type).alias("type")
+                    pl.col("type_name").replace(type_name2type).alias("type")
                 )
             df = df.with_row_count("id", offset=1)
             coor = df.select("x", "y", "z")
@@ -649,7 +649,7 @@ class BuildSystem:
                         name_list = df["type_name"].unique(maintain_order=True)
                         name2type = {j: i + 1 for i, j in enumerate(name_list)}
                         df = df.with_columns(
-                            pl.col("type_name").map_dict(name2type).alias("type")
+                            pl.col("type_name").replace(name2type).alias("type")
                         )
                 else:
                     df = df.with_columns(pl.lit(1).alias("type"))

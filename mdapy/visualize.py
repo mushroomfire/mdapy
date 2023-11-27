@@ -142,12 +142,9 @@ class Visualize:
             + (self.rgb_type[:, 1] << 8)
             + self.rgb_type[:, 2]
         )
-        type2color = {str(i): j for i, j in enumerate(decimal)}
+        type2color = {i: j for i, j in enumerate(decimal)}
         self.data = self.data.with_columns(
-            ((pl.col("type") - 1) % len(decimal))
-            .cast(str)
-            .map_dict(type2color)
-            .alias("colors")
+            ((pl.col("type") - 1) % len(decimal)).replace(type2color).alias("colors")
         )
 
     def atom_colored_by_structure_type(self):
@@ -156,11 +153,10 @@ class Visualize:
             + (self.rgb_structure_type[:, 1] << 8)
             + self.rgb_structure_type[:, 2]
         )
-        type2color = {str(i): j for i, j in enumerate(decimal)}
+        type2color = {i: j for i, j in enumerate(decimal)}
         self.data = self.data.with_columns(
             (pl.col("structure_types") % len(decimal))
-            .cast(str)
-            .map_dict(type2color)
+            .replace(type2color)
             .alias("colors")
         )
 

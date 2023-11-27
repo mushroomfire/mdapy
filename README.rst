@@ -152,7 +152,7 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
         -   **Version**
         -   **Features**
     *   -   `taichi <https://github.com/taichi-dev/taichi>`_
-        -   >=1.6.0
+        -   ==1.6.0
         -   Do parallel computing.
     *   -   `numpy <https://numpy.org/>`_
         -   latest
@@ -161,7 +161,7 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
         -   latest
         -   Build kdtree, do FFT, spline interpolation.
     *   -   `polars <https://pola-rs.github.io/polars/>`_
-        -   >=0.19.13
+        -   >=0.19.17
         -   Fast read/save file. Data structure to represent the particles information.
     *   -   `matplotlib <https://matplotlib.org/>`_
         -   latest
@@ -268,6 +268,13 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 
 Release Notes
 --------------
+
+V0.10.0 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Make mdapy support polars>=0.19.17
+- Fix a bug in void_distribution class
+- Keep taichi==1.6.0, v1.7.0 currently has remarkable performance decrease
 
 V0.9.9 (November 21, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -321,17 +321,17 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    # ti.init(ti.gpu, device_memory_GB=4.0)
-    ti.init(ti.cpu)
+    # ti.init(ti.gpu) # , device_memory_GB=4.0)
+    ti.init(ti.cpu, offline_cache=True)
     start = time()
     lattice_constant = 3.615
-    x, y, z = 100, 100, 50
+    x, y, z = 100, 100, 250
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
-    neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=None)
+    neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=43)
     neigh.compute()
     end = time()
     print(neigh.ncel)

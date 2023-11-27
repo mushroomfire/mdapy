@@ -444,12 +444,13 @@ class System:
                 output_name = ".".join(self.__filename.split(".")[:-1]) + ".output.xyz"
         data = self.__data
         if type_name is not None:
-            if "type_name" not in self.__data.columns:
-                assert len(type_name) == self.__data["type"].unique().shape[0]
-                type2name = {str(i + 1): j for i, j in enumerate(type_name)}
-                data = self.__data.with_columns(
-                    pl.col("type").cast(str).map_dict(type2name).alias("type_name")
-                )
+            assert len(type_name) == self.__data["type"].unique().shape[0]
+
+            type2name = {i + 1: j for i, j in enumerate(type_name)}
+
+            data = self.__data.with_columns(
+                pl.col("type").replace(type2name).alias("type_name")
+            )
 
         SaveFile.write_xyz(output_name, self.__box, data, self.__boundary, classical)
 
@@ -1833,14 +1834,15 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System('example/solidliquid.dump')
-    #system.cal_atomic_temperature(elemental_list=['Mo'])
+    system = System("example/solidliquid.dump")
+    # system.cal_atomic_temperature(elemental_list=['Mo'])
     system.cal_atomic_temperature(amass=[95.94])
     # system.write_xyz()
     # system = System(r"C:\Users\Administrator\Desktop\htpb\H2O-64.xyz")
     print(system)
-    print(system.data['atomic_temp'].mean())
-    
+    print(system.data["atomic_temp"].mean())
+    system.write_xyz(type_name=["Mo"])
+
     # species = system.cal_species_number(
     #     element_list=["H", "C", "N", "O", "F", "Al", "Cl"],
     #     search_species=["H2O", "Cl", "N2", "CO2", "HCl"],

@@ -182,7 +182,10 @@ class VoidDistribution:
             neigh = Neighbor(void_pos, self.box, self.cell_length * 1.1, self.boundary)
             neigh.compute()
             cluster = ClusterAnalysis(
-                self.cell_length * 1.1, neigh.verlet_list, neigh.distance_list
+                self.cell_length * 1.1,
+                neigh.verlet_list,
+                neigh.distance_list,
+                neigh.neighbor_number,
             )
             cluster.compute()
             self.void_number = cluster.cluster_number
@@ -207,10 +210,16 @@ class VoidDistribution:
 
 
 if __name__ == "__main__":
+    # import mdapy as mp
+    # mp.init()
+    # ss = mp.System(r'E:\Al+SiC\compress\Al-SiC-relax.9000.dump')
+    # void = VoidDistribution(ss.pos, ss.box, 4., out_void=True)
+    # void.compute()
+    # print(ss.vol, void.void_volume, ss.vol-void.void_volume)
     from lattice_maker import LatticeMaker
     from time import time
 
-    # ti.init(ti.gpu, device_memory_GB=5.0)
+    ti.init(ti.gpu, device_memory_GB=5.0)
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05

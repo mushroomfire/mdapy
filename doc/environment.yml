@@ -7,10 +7,10 @@ dependencies:
   - python=3.9
   - pip>=20.1  # pip is needed as dependency
   - pip:
-    - taichi>=1.6.0
+    - taichi==1.6.0
     - numpy
     - scipy
-    - polars>=0.19.14
+    - polars>=0.19.17
     - matplotlib
     - k3d
     - jupyter

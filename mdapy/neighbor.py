@@ -325,7 +325,7 @@ if __name__ == "__main__":
     ti.init(ti.cpu, offline_cache=True)
     start = time()
     lattice_constant = 3.615
-    x, y, z = 100, 100, 250
+    x, y, z = 100, 100, 50
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()

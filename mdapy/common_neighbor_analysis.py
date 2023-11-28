@@ -97,7 +97,7 @@ class CommonNeighborAnalysis:
     ):
         self.rc = rc
         # Make sure the boxl_length is four times larger than the rc.
-        repeat = _check_repeat_cutoff(box, boundary, self.rc, 4)
+        repeat = _check_repeat_cutoff(box, boundary, self.rc)
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
         if box.dtype != np.float64:
@@ -150,7 +150,7 @@ class CommonNeighborAnalysis:
         return rij
 
     @ti.func
-    def _pbc(self, rij, box: ti.types.ndarray(dtype=ti.math.vec3)) -> ti.math.vec3:
+    def _pbc(self, rij, box: ti.types.ndarray(element_dim=1)) -> ti.math.vec3:
         nz = rij[2] / box[2][2]
         ny = (rij[1] - nz * box[2][1]) / box[1][1]
         nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
@@ -167,7 +167,7 @@ class CommonNeighborAnalysis:
     def _compute(
         self,
         pos: ti.types.ndarray(dtype=ti.math.vec3),
-        box: ti.types.ndarray(dtype=ti.math.vec3),
+        box: ti.types.ndarray(element_dim=1),
         verlet_list: ti.types.ndarray(),
         neighbor_number: ti.types.ndarray(),
         cna: ti.types.ndarray(),

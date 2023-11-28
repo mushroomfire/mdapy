@@ -64,6 +64,7 @@ class AcklandJonesAnalysis:
         self, pos, box, boundary=[1, 1, 1], verlet_list=None, distance_list=None
     ):
         repeat = _check_repeat_nearest(pos, box, boundary)
+
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
         if box.dtype != np.float64:
@@ -111,7 +112,7 @@ class AcklandJonesAnalysis:
         return rij
 
     @ti.func
-    def _pbc(self, rij, box: ti.types.ndarray(dtype=ti.math.vec3)) -> ti.math.vec3:
+    def _pbc(self, rij, box: ti.types.ndarray(element_dim=1)) -> ti.math.vec3:
         nz = rij[2] / box[2][2]
         ny = (rij[1] - nz * box[2][1]) / box[1][1]
         nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
@@ -128,7 +129,7 @@ class AcklandJonesAnalysis:
     def _compute(
         self,
         pos: ti.types.ndarray(dtype=ti.math.vec3),
-        box: ti.types.ndarray(dtype=ti.math.vec3),
+        box: ti.types.ndarray(element_dim=1),
         verlet_list: ti.types.ndarray(),
         distance_list: ti.types.ndarray(),
         aja: ti.types.ndarray(),

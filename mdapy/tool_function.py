@@ -7,27 +7,27 @@ def _check_repeat_nearest(pos, box, boundary):
     box_length = [np.linalg.norm(box[i]) for i in range(3)]
     repeat_length = False
     for i in range(3):
-        if boundary[i] == 1 and box_length[i] <= 6.0:
+        if boundary[i] == 1 and box_length[i] <= 10.0:
             repeat_length = True
     repeat_number = False
-    if pos.shape[0] < 50 and sum(boundary) > 0:
+    if pos.shape[0] < 100 and sum(boundary) > 0:
         repeat_number = True
 
     if repeat_length or repeat_number:
         repeat = [1 if boundary[i] == 0 else 3 for i in range(3)]
-        while np.product(repeat) * pos.shape[0] < 50:
+        while np.product(repeat) * pos.shape[0] < 100:
             for i in range(3):
                 if boundary[i] == 1:
                     repeat[i] += 1
 
         for i in range(3):
             if boundary[i] == 1:
-                while repeat[i] * box_length[i] < 6.0:
+                while repeat[i] * box_length[i] < 10.0:
                     repeat[i] += 1
     return repeat
 
 
-def _check_repeat_cutoff(box, boundary, rc, factor=2):
+def _check_repeat_cutoff(box, boundary, rc, factor=4):
     repeat = [1, 1, 1]
     box_length = [np.linalg.norm(box[i]) for i in range(3)]
     for i in range(3):

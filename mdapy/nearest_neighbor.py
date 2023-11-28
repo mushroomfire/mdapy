@@ -145,7 +145,7 @@ class NearestNeighbor:
         repeat = _check_repeat_nearest(pos, box, boundary)
         assert (
             sum(repeat) == 3
-        ), f"The atom number < 50 or shorest box length < 0.6 nm, which should be repeated by {repeat} to make sure the results correct."
+        ), f"The atom number < 100 or shorest box length < 1 nm, which should be repeated by {repeat} to make sure the results correct."
 
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
@@ -175,7 +175,7 @@ class NearestNeighbor:
             self._kdt = kdtree(self.pos, box, self.boundary)
 
     @ti.func
-    def _pbc(self, rij, box: ti.types.ndarray(dtype=ti.math.vec3)) -> ti.math.vec3:
+    def _pbc(self, rij, box: ti.types.ndarray(element_dim=1)) -> ti.math.vec3:
         nz = rij[2] / box[2][2]
         ny = (rij[1] - nz * box[2][1]) / box[1][1]
         nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
@@ -197,7 +197,7 @@ class NearestNeighbor:
         init_delta: int,
         verlet_list: ti.types.ndarray(),
         distance_list: ti.types.ndarray(),
-        box: ti.types.ndarray(dtype=ti.math.vec3),
+        box: ti.types.ndarray(element_dim=1),
         K: int,
     ):
         for i in range(self.N):

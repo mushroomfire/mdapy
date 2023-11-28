@@ -273,8 +273,10 @@ V0.10.0 (November 28, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Make mdapy support polars>=0.19.17
-- Make mdapy support taichi==1.7.0
+- Make mdapy support taichi>=1.7.0
 - Fix a bug in void_distribution class
+- Fix a bug when system with small size
+- change the display when system pos changed
 
 V0.9.9 (November 21, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

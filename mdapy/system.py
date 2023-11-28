@@ -231,6 +231,8 @@ class System:
         assert "x" in self.__data.columns, "Must contains the position information."
         self.__pos = np.c_[self.__data["x"], self.__data["y"], self.__data["z"]]
         self.__pos.flags.writeable = False
+        if self.__if_displayed == True:
+            self.__if_displayed = False
 
     def update_vel(self):
         """Call it only if you modify the velocities information by modify the data."""
@@ -926,17 +928,24 @@ class System:
             max_neigh,
         )
         SBO.compute()
-        columns = []
-        for i in qlist:
-            columns.append(f"ql{i}")
-        if wlflag:
+        if SBO.qnarray.shape[1] > 1:
+            columns = []
             for i in qlist:
-                columns.append(f"wl{i}")
-        if wlhatflag:
-            for i in qlist:
-                columns.append(f"whl{i}")
+                columns.append(f"ql{i}")
+            if wlflag:
+                for i in qlist:
+                    columns.append(f"wl{i}")
+            if wlhatflag:
+                for i in qlist:
+                    columns.append(f"whl{i}")
 
-        self.__data.hstack(pl.from_numpy(SBO.qnarray, schema=columns), in_place=True)
+            self.__data.hstack(
+                pl.from_numpy(SBO.qnarray, schema=columns), in_place=True
+            )
+        else:
+            self.__data = self.__data.with_columns(
+                pl.lit(SBO.qnarray.flatten()).alias(f"ql{qlist[0]}")
+            )
         if solidliquid:
             SBO.identifySolidLiquid(threshold, n_bond)
             self.__data = self.__data.with_columns(
@@ -1834,14 +1843,26 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System("example/solidliquid.dump")
+    # system = System("example/solidliquid.dump")
     # system.cal_atomic_temperature(elemental_list=['Mo'])
-    system.cal_atomic_temperature(amass=[95.94])
+    # system.cal_atomic_temperature(amass=[95.94])
     # system.write_xyz()
-    # system = System(r"C:\Users\Administrator\Desktop\htpb\H2O-64.xyz")
-    print(system)
-    print(system.data["atomic_temp"].mean())
-    system.write_xyz(type_name=["Mo"])
+    system = System(r"E:\MyPackage\mdapy-tutorial\frame\Ti.data")
+    system.replicate(5, 5, 5)
+    system.cal_common_neighbor_analysis(rc=2.9357 * 1.207)
+    # print(system)
+    system.cal_ackland_jones_analysis()
+    # print(system)
+    system.cal_centro_symmetry_parameter()
+    # print(system)
+    system.cal_common_neighbor_parameter()
+    # print(system)
+    system.cal_steinhardt_bond_orientation()
+    # print(system)
+    print(system.data[:, 4:])
+
+    # print(system.data["atomic_temp"].mean())
+    # system.write_xyz(type_name=["Mo"])
 
     # species = system.cal_species_number(
     #     element_list=["H", "C", "N", "O", "F", "Al", "Cl"],

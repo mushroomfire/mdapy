@@ -102,10 +102,10 @@ class LindemannParameter:
     def _compute_all(
         self,
         pos_list: ti.types.ndarray(dtype=ti.math.vec3),
-        pos_mean: ti.types.ndarray(dtype=float),
-        pos_variance: ti.types.ndarray(dtype=float),
-        lindemann_frame: ti.types.ndarray(dtype=float),
-        lindemann_atom: ti.types.ndarray(dtype=float),
+        pos_mean: ti.types.ndarray(),
+        pos_variance: ti.types.ndarray(),
+        lindemann_frame: ti.types.ndarray(),
+        lindemann_atom: ti.types.ndarray(),
     ):
         Nframes, Natoms = pos_list.shape
         ti.loop_config(serialize=True)  # serial compute

@@ -18,7 +18,7 @@ def value2color(
     fac = (N - 1) / delta
 
     for i in range(value.shape[0]):
-        val = value[i]
+        val = ti.float64(value[i])
         if val > vmax:
             val = vmax
         elif val < vmin:
@@ -190,10 +190,17 @@ class Visualize:
             assert vmin < vmax
         else:
             vmin, vmax = float(values.min()), float(values.max())
-        cmap = mpl.cm.get_cmap(cmap)
+        cmap = mpl.colormaps[cmap]
+
         colors_rgb = np.array(cmap(range(256))[:, :-1] * 255, dtype=int)
+
         colors = np.zeros(values.shape[0], dtype=int)
-        value2color(colors_rgb, values, vmin, vmax, colors)
+        if vmin < vmax:
+            value2color(colors_rgb, values, vmin, vmax, colors)
+        else:
+            r, g, b = colors_rgb[int(len(colors_rgb)/2)]
+            colors += (r << 16) + (g << 8) + b
+
         colors = colors.astype(np.uint32)
         self.atoms.colors = colors
         c_cmap = (
@@ -202,5 +209,8 @@ class Visualize:
             .astype(np.float32)
         )
         self.atoms.color_map = c_cmap
-        self.atoms.color_range = [vmin, vmax]
+        if vmin < vmax:
+            self.atoms.color_range = [vmin, vmax]
+        else:
+            self.atoms.color_range = [vmin-5, vmin+5]
         self.data = self.data.with_columns(pl.lit(colors).alias("colors"))

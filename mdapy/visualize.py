@@ -190,12 +190,13 @@ class Visualize:
             assert vmin < vmax
         else:
             vmin, vmax = float(values.min()), float(values.max())
+
         cmap = mpl.colormaps[cmap]
 
         colors_rgb = np.array(cmap(range(256))[:, :-1] * 255, dtype=int)
 
         colors = np.zeros(values.shape[0], dtype=int)
-        if vmin < vmax:
+        if vmax - vmin > 1e-4:
             value2color(colors_rgb, values, vmin, vmax, colors)
         else:
             r, g, b = colors_rgb[int(len(colors_rgb)/2)]
@@ -209,7 +210,7 @@ class Visualize:
             .astype(np.float32)
         )
         self.atoms.color_map = c_cmap
-        if vmin < vmax:
+        if vmax - vmin > 1e-4:
             self.atoms.color_range = [vmin, vmax]
         else:
             self.atoms.color_range = [vmin-5, vmin+5]

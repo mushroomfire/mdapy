@@ -237,7 +237,7 @@ if __name__ == "__main__":
     from neighbor import Neighbor
 
     # ti.init(ti.gpu, device_memory_GB=5.0)
-    ti.init(ti.cpu)
+    ti.init(ti.cpu, offline_cache=True)
     start = time()
     lattice_constant = 4.05
     x, y, z = 10, 10, 10

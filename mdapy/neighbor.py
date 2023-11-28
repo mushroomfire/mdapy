@@ -144,14 +144,11 @@ class Neighbor:
         box: ti.types.ndarray(dtype=ti.math.vec3),
     ):
         rcsq = self.rc * self.rc
-        icel, jcel, kcel, rij = (
-            0,
-            0,
-            0,
-            ti.Vector([ti.f64(0.0), ti.f64(0.0), ti.f64(0.0)]),
-        )
+
         for i in range(pos.shape[0]):
             nindex = 0
+            icel, jcel, kcel = 0, 0, 0
+            rij = ti.Vector([ti.f64(0.0), ti.f64(0.0), ti.f64(0.0)])
             if ti.static(self.rec):
                 icel, jcel, kcel = ti.floor(
                     (pos[i] - box[3]) / self.bin_length, dtype=ti.i32
@@ -321,8 +318,8 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    # ti.init(ti.gpu) # , device_memory_GB=4.0)
-    ti.init(ti.cpu, offline_cache=True)
+    ti.init(ti.gpu, device_memory_GB=4.0)
+    # ti.init(ti.cpu, offline_cache=True)
     start = time()
     lattice_constant = 3.615
     x, y, z = 100, 100, 50
@@ -331,13 +328,14 @@ if __name__ == "__main__":
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     start = time()
+
     neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=43)
     neigh.compute()
+    # print(neigh.ncel)
     end = time()
-    print(neigh.ncel)
     print(f"Build neighbor time: {end-start} s.")
-    print(neigh.verlet_list[0])
-    print(neigh.distance_list[0])
+    # print(neigh.verlet_list[0])
+    # print(neigh.distance_list[0])
     # print(neigh.verlet_list.shape[1])
     # print(neigh.neighbor_number.max())
     # print(neigh.neighbor_number.min())

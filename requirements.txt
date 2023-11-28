@@ -1,4 +1,4 @@
-taichi==1.6.0
+taichi>=1.7.0
 numpy
 scipy
 polars>=0.19.17

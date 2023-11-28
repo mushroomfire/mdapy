@@ -269,12 +269,12 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
-V0.10.0 (Under development)
+V0.10.0 (November 28, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Make mdapy support polars>=0.19.17
+- Make mdapy support taichi==1.7.0
 - Fix a bug in void_distribution class
-- Keep taichi==1.6.0, v1.7.0 currently has remarkable performance decrease
 
 V0.9.9 (November 21, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

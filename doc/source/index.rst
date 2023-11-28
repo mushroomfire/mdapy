@@ -34,7 +34,7 @@ Dependencies
 ------------
 
 * `python <https://www.python.org/>`_ (3.8-3.11)
-* `taichi==1.6.0 <https://github.com/taichi-dev/taichi>`_
+* `taichi>=1.7.0 <https://github.com/taichi-dev/taichi>`_
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
 * `polars>=0.19.17 <https://pola-rs.github.io/polars/>`_

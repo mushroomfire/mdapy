@@ -199,7 +199,7 @@ class Visualize:
         if vmax - vmin > 1e-4:
             value2color(colors_rgb, values, vmin, vmax, colors)
         else:
-            r, g, b = colors_rgb[int(len(colors_rgb)/2)]
+            r, g, b = colors_rgb[int(len(colors_rgb) / 2)]
             colors += (r << 16) + (g << 8) + b
 
         colors = colors.astype(np.uint32)
@@ -213,5 +213,5 @@ class Visualize:
         if vmax - vmin > 1e-4:
             self.atoms.color_range = [vmin, vmax]
         else:
-            self.atoms.color_range = [vmin-5, vmin+5]
+            self.atoms.color_range = [vmin - 5, vmin + 5]
         self.data = self.data.with_columns(pl.lit(colors).alias("colors"))

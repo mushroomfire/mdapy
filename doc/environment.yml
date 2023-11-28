@@ -18,3 +18,8 @@ dependencies:
     - sphinx_rtd_theme
     - nbsphinx
     - pybind11
+    - six
+    - ipywidgets>=7.0.1
+    - traittypes
+    - traitlets
+    - jupyter_sphinx

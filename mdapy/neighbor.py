@@ -318,8 +318,8 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    ti.init(ti.gpu, device_memory_GB=4.0)
-    # ti.init(ti.cpu, offline_cache=True)
+    # ti.init(ti.gpu, device_memory_GB=4.0)
+    ti.init(ti.cpu, offline_cache=True)
     start = time()
     lattice_constant = 3.615
     x, y, z = 100, 100, 50

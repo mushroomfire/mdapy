@@ -269,6 +269,11 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
+V0.10.1 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Fix a bug when generating System from array with velocity.
+
 V0.10.0 (November 28, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

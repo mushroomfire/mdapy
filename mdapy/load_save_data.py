@@ -438,7 +438,7 @@ class BuildSystem:
         )
         if vel is not None:
             assert vel.shape == pos.shape
-            data.with_columns(
+            data = data.with_columns(
                 pl.lit(vel[:, 0]).alias("vx"),
                 pl.lit(vel[:, 1]).alias("vy"),
                 pl.lit(vel[:, 2]).alias("vz"),

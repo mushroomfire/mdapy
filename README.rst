@@ -273,6 +273,7 @@ V0.10.1 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Fix a bug when generating System from array with velocity.
+- Modify repr of System to print entire DataFrame.
 
 V0.10.0 (November 28, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

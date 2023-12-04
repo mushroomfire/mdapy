@@ -349,7 +349,7 @@ class System:
         self.__filename = filename
 
     def __repr__(self):
-        return f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\nParticle Information:\n{self.__data.head()}"
+        return f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\nParticle Information:\n{self.__data}"
 
     def display(self):
         """Visualize the System."""
@@ -1846,6 +1846,7 @@ if __name__ == "__main__":
     system = System(r'E:\Al+SiC\compress\compress.154000.dump')
     _, vol = system.cal_void_distribution(4., False)
     print(vol, system.vol, system.vol-vol)
+    print(system)
     # system = System("example/solidliquid.dump")
     # system.cal_atomic_temperature(elemental_list=['Mo'])
     # system.cal_atomic_temperature(amass=[95.94])

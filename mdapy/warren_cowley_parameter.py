@@ -166,8 +166,7 @@ class WarrenCowleyParameter:
 
         self.WCP = 1 - Zmn / (np.expand_dims(Alpha_n, 0) * np.expand_dims(Zm, 1))
 
-        self.WCP = (self.WCP + self.WCP.T)/2
-
+        self.WCP = (self.WCP + self.WCP.T) / 2
 
     def plot(self, elements_list=None, vmin=-2, vmax=1, cmap="GnBu"):
         """Plot the WCP matrix.

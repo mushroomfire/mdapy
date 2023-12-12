@@ -95,30 +95,29 @@ def init_global_parameters():
     globals()["sbo_wlflag"] = False
     globals()["sbo_wlhatflag"] = False
     globals()["sbo_solidliquid"] = False
-    globals()["sbo_solidliquid_threshold"] = 0.7 
+    globals()["sbo_solidliquid_threshold"] = 0.7
     globals()["sbo_solidliquid_nbond"] = 7
-    globals()["solid"] = np.array([59, 198, 170])/255
-    globals()["liquid"] = np.array([52, 68, 223])/255
- 
-    globals()["entropy_rc"] = 5.
+    globals()["solid"] = np.array([59, 198, 170]) / 255
+    globals()["liquid"] = np.array([52, 68, 223]) / 255
+
+    globals()["entropy_rc"] = 5.0
     globals()["entropy_sigma"] = 0.2
     globals()["entropy_use_local_density"] = False
     globals()["entropy_compute_average"] = True
     globals()["entropy_average_rc"] = 4.0
 
-    globals()["rdf_rc"] = 5.
+    globals()["rdf_rc"] = 5.0
     globals()["rdf_nbin"] = 200
     globals()["rdf_plot"] = True
     globals()["rdf_plot_partial"] = False
 
-    globals()["cnp_rc"] = 3.
-    globals()["wcp_rc"] = 3.
-    globals()["wcp_element_list"] = 'Al, Fe, Cu'
-    globals()["wcp_res"] = ''
+    globals()["cnp_rc"] = 3.0
+    globals()["wcp_rc"] = 3.0
+    globals()["wcp_element_list"] = "Al, Fe, Cu"
+    globals()["wcp_res"] = ""
 
-    globals()["cluster_rc"] = 5.
+    globals()["cluster_rc"] = 5.0
     globals()["cluster_num"] = 0
-
 
 
 def box2lines(box):
@@ -394,6 +393,7 @@ def centro_symmetry_parameter():
                 ps.error(str(e))
         psim.TreePop()
 
+
 def common_neighbor_parameter():
     global system, atoms, cnp_rc
     if psim.TreeNode("Common Neighbor Parameter"):
@@ -401,7 +401,7 @@ def common_neighbor_parameter():
 
         _, cnp_rc = psim.InputFloat("cutoff distance", cnp_rc)
 
-        if psim.Button('Compute'):
+        if psim.Button("Compute"):
             try:
                 if isinstance(system, System):
                     ps.info("Calculating Commen Neighbor Parameter...")
@@ -411,34 +411,37 @@ def common_neighbor_parameter():
                     )
                     ps.info("Calculate Commen Neighbor Parameter successfully.")
                 else:
-                    ps.warning('System not found.')
+                    ps.warning("System not found.")
             except Exception as e:
                 ps.error(str(e))
 
         psim.TreePop()
 
+
 def cluster_analysis():
     global system, atoms, cluster_rc, cluster_num
-    if psim.TreeNode('Cluster Analysis'):
-        _, cluster_rc = psim.InputFloat('cutoff distance', cluster_rc)
+    if psim.TreeNode("Cluster Analysis"):
+        _, cluster_rc = psim.InputFloat("cutoff distance", cluster_rc)
 
-        if psim.Button('Compute'):
+        if psim.Button("Compute"):
             try:
                 if isinstance(system, System):
                     ps.info("Calculating Cluster Analysis...")
-                    cluster_num = system.cal_cluster_analysis(rc=cluster_rc, max_neigh=None)
+                    cluster_num = system.cal_cluster_analysis(
+                        rc=cluster_rc, max_neigh=None
+                    )
                     atoms.add_scalar_quantity(
-                        'cluster_id',
-                        system.data['cluster_id'].view(),
-                        cmap='jet',
-                        enabled=True
+                        "cluster_id",
+                        system.data["cluster_id"].view(),
+                        cmap="jet",
+                        enabled=True,
                     )
                     ps.info("Calculating Cluster Analysis successfully.")
                 else:
-                    ps.warning('System not found')
+                    ps.warning("System not found")
             except Exception as e:
                 ps.error(str(e))
-        
+
         if cluster_num > 0:
             psim.TextUnformatted("The number of cluster: {}".format(cluster_num))
 
@@ -488,12 +491,13 @@ def common_neighbor_analysis():
 
         psim.TreePop()
 
+
 def warren_cowley_parameter():
     global system, wcp_rc, wcp_element_list, wcp_res
 
-    if psim.TreeNode('Warren Cowley Parameter'):
-        _, wcp_rc = psim.InputFloat('cutoff distance', wcp_rc)
-        if psim.Button('Compute'):
+    if psim.TreeNode("Warren Cowley Parameter"):
+        _, wcp_rc = psim.InputFloat("cutoff distance", wcp_rc)
+        if psim.Button("Compute"):
             try:
                 if isinstance(system, System):
                     ps.info("Calculating Warren Cowley Parameter...")
@@ -501,119 +505,135 @@ def warren_cowley_parameter():
                     wcp_res = str(np.round(system.WarrenCowleyParameter.WCP, 2))
                     ps.info("Calculate Warren Cowley Parameter successfully.")
                 else:
-                    ps.warning('System not found.')
+                    ps.warning("System not found.")
             except Exception as e:
                 ps.error(str(e))
-        psim.TextUnformatted('The WCP is:')
+        psim.TextUnformatted("The WCP is:")
         if len(wcp_res) > 0:
-            psim.InputTextMultiline('', wcp_res, (240, 100)) 
-        _, wcp_element_list = psim.InputText('elemental list', wcp_element_list)
+            psim.InputTextMultiline("", wcp_res, (240, 100))
+        _, wcp_element_list = psim.InputText("elemental list", wcp_element_list)
         psim.SameLine()
-        if psim.Button('Plot'):
+        if psim.Button("Plot"):
             if isinstance(system, System):
-                if hasattr(system, 'WarrenCowleyParameter'):
-                    element_list = [i.strip() for i in wcp_element_list.split(',')]
+                if hasattr(system, "WarrenCowleyParameter"):
+                    element_list = [i.strip() for i in wcp_element_list.split(",")]
                     if len(element_list) == system.WarrenCowleyParameter.WCP.shape[0]:
                         system.WarrenCowleyParameter.plot(element_list)
                     else:
                         system.WarrenCowleyParameter.plot()
                 else:
-                    ps.warning('You should press Compute Button first.')
+                    ps.warning("You should press Compute Button first.")
             else:
-                ps.warning('System not found.')
+                ps.warning("System not found.")
         psim.TreePop()
 
 
 def radiul_distribution_function():
     global system, rdf_rc, rdf_nbin, rdf_plot, rdf_plot_partial
-    if psim.TreeNode('Radiul Distribution Function'):
-        _, rdf_rc = psim.InputFloat('cutoff distance', rdf_rc)
-        _, rdf_nbin = psim.InputInt('number of binds', rdf_nbin)
-        _, rdf_plot = psim.Checkbox('plot the total rdf', rdf_plot)
-        _, rdf_plot_partial = psim.Checkbox('plot the partial rdf', rdf_plot_partial)
-        if psim.Button('Compute'):
+    if psim.TreeNode("Radiul Distribution Function"):
+        _, rdf_rc = psim.InputFloat("cutoff distance", rdf_rc)
+        _, rdf_nbin = psim.InputInt("number of binds", rdf_nbin)
+        _, rdf_plot = psim.Checkbox("plot the total rdf", rdf_plot)
+        _, rdf_plot_partial = psim.Checkbox("plot the partial rdf", rdf_plot_partial)
+        if psim.Button("Compute"):
             try:
                 if isinstance(system, System):
-                    ps.info('Calculating Radiul Distribution Function...')
-                    system.cal_pair_distribution(rc=rdf_rc, nbin=rdf_nbin, max_neigh=None)
-                    ps.info('Calculate Radiul Distribution Function successfully.')
+                    ps.info("Calculating Radiul Distribution Function...")
+                    system.cal_pair_distribution(
+                        rc=rdf_rc, nbin=rdf_nbin, max_neigh=None
+                    )
+                    ps.info("Calculate Radiul Distribution Function successfully.")
                     if rdf_plot:
                         system.PairDistribution.plot()
                     if rdf_plot_partial:
                         system.PairDistribution.plot_partial()
                 else:
-                    ps.warning('System not found.')
+                    ps.warning("System not found.")
             except Exception as e:
                 ps.error(str(e))
 
-        if psim.Button('Save'):
+        if psim.Button("Save"):
             if isinstance(system, System):
-                if hasattr(system, 'PairDistribution'):
+                if hasattr(system, "PairDistribution"):
                     Tk().withdraw()
                     outputname = asksaveasfilename()
                     try:
                         if len(outputname) > 0:
                             ps.info(f"Saving rdf results to {outputname} ...")
-                            np.savetxt(outputname, np.c_[system.PairDistribution.r, system.PairDistribution.g_total], header='r g(r)', delimiter=' ')
-                            ps.info(f'Save rdf results to {outputname} successfully.')
+                            np.savetxt(
+                                outputname,
+                                np.c_[
+                                    system.PairDistribution.r,
+                                    system.PairDistribution.g_total,
+                                ],
+                                header="r g(r)",
+                                delimiter=" ",
+                            )
+                            ps.info(f"Save rdf results to {outputname} successfully.")
                     except Exception:
-                        ps.error(
-                                f"Save {outputname} fail. Change a right outputname."
-                            )  
+                        ps.error(f"Save {outputname} fail. Change a right outputname.")
                 else:
-                    ps.warning('One should press compute Button first.')
+                    ps.warning("One should press compute Button first.")
             else:
-                ps.warning('System not found.')
+                ps.warning("System not found.")
         psim.SameLine()
-        if psim.Button('Save Partial'):
+        if psim.Button("Save Partial"):
             if isinstance(system, System):
-                if hasattr(system, 'PairDistribution'):
+                if hasattr(system, "PairDistribution"):
                     Tk().withdraw()
                     outputname = asksaveasfilename()
                     try:
                         if len(outputname) > 0:
                             ps.info(f"Saving rdf_partial results to {outputname} ...")
-                            with open(outputname, 'w') as op:
-                                op.write('r: ')
+                            with open(outputname, "w") as op:
+                                op.write("r: ")
                                 for i in system.PairDistribution.r:
-                                    op.write(f'{i} ')
-                                op.write('\n')
+                                    op.write(f"{i} ")
+                                op.write("\n")
                                 g = system.PairDistribution.g
                                 for i in range(g.shape[0]):
                                     for j in range(i, g.shape[1]):
-                                        op.write(f'{i+1}-{j+1}: ')
+                                        op.write(f"{i+1}-{j+1}: ")
                                         for k in range(g.shape[2]):
-                                            op.write(f'{g[i, j, k]} ')
-                                        op.write('\n')
-                            ps.info(f'Save rdf_partial results to {outputname} successfully.')
+                                            op.write(f"{g[i, j, k]} ")
+                                        op.write("\n")
+                            ps.info(
+                                f"Save rdf_partial results to {outputname} successfully."
+                            )
                     except Exception:
-                        ps.error(
-                                f"Save {outputname} fail. Change a right outputname."
-                            )  
+                        ps.error(f"Save {outputname} fail. Change a right outputname.")
                 else:
-                    ps.warning('One should press compute Button first.')
+                    ps.warning("One should press compute Button first.")
             else:
-                ps.warning('System not found.')
+                ps.warning("System not found.")
 
         psim.TreePop()
 
 
 def atomic_entropy():
     global system, atoms, entropy_rc, entropy_sigma, entropy_use_local_density, entropy_compute_average, entropy_average_rc
-    if psim.TreeNode('Atomic Entropy'):
-        _, entropy_rc = psim.InputFloat('cutoff distance', entropy_rc)
-        _, entropy_sigma = psim.InputFloat('sigma', entropy_sigma)
-        _, entropy_use_local_density = psim.Checkbox('use local density', entropy_use_local_density)
-        _, entropy_compute_average = psim.Checkbox('compute_average', entropy_compute_average)
+    if psim.TreeNode("Atomic Entropy"):
+        _, entropy_rc = psim.InputFloat("cutoff distance", entropy_rc)
+        _, entropy_sigma = psim.InputFloat("sigma", entropy_sigma)
+        _, entropy_use_local_density = psim.Checkbox(
+            "use local density", entropy_use_local_density
+        )
+        _, entropy_compute_average = psim.Checkbox(
+            "compute_average", entropy_compute_average
+        )
 
         if entropy_compute_average:
-            psim.TextUnformatted('Average distance should be smaller than cutoff distance.')
-            _, entropy_average_rc = psim.InputFloat('average distance', entropy_average_rc)
-        
-        if psim.Button('Compute'):
+            psim.TextUnformatted(
+                "Average distance should be smaller than cutoff distance."
+            )
+            _, entropy_average_rc = psim.InputFloat(
+                "average distance", entropy_average_rc
+            )
+
+        if psim.Button("Compute"):
             try:
                 if isinstance(system, System):
-                    ps.info('Calculating Atomic Entropy...')
+                    ps.info("Calculating Atomic Entropy...")
                     system.cal_atomic_entropy(
                         rc=entropy_rc,
                         sigma=entropy_sigma,
@@ -623,21 +643,21 @@ def atomic_entropy():
                         max_neigh=None,
                     )
                     atoms.add_scalar_quantity(
-                        'atomic_entropy',
-                        system.data['atomic_entropy'].view(),
-                        cmap='jet',
-                        enabled=True
+                        "atomic_entropy",
+                        system.data["atomic_entropy"].view(),
+                        cmap="jet",
+                        enabled=True,
                     )
                     if entropy_compute_average:
                         atoms.add_scalar_quantity(
-                        'ave_atomic_entropy',
-                        system.data['ave_atomic_entropy'].view(),
-                        cmap='jet',
-                        enabled=True
-                    )
-                        ps.info('Calculate Atomic Entropy successfully.')
+                            "ave_atomic_entropy",
+                            system.data["ave_atomic_entropy"].view(),
+                            cmap="jet",
+                            enabled=True,
+                        )
+                        ps.info("Calculate Atomic Entropy successfully.")
                 else:
-                    ps.warning('System not found.')
+                    ps.warning("System not found.")
             except Exception as e:
                 ps.error(str(e))
         psim.TreePop()
@@ -718,12 +738,11 @@ def steinhardt_bond_orientation():
             _, liquid = psim.ColorEdit3("Liquid", liquid)
             psim.PopItemWidth()
 
-
         psim.PopItemWidth()
         if psim.Button("Compute"):
             try:
                 if isinstance(system, System):
-                    ps.info('Calculating Steinhardt Bond Orientation...')
+                    ps.info("Calculating Steinhardt Bond Orientation...")
                     qlist = [int(i.strip()) for i in sbo_qlist.split(",")]
                     if sbo_mode_default == "nearest":
                         nnn = sbo_neigh_number
@@ -774,8 +793,8 @@ def steinhardt_bond_orientation():
                     if sbo_solidliquid:
                         rgb = (
                             system.data.select(
-                                rgb = pl.col('solidliquid').map_dict(
-                                    {0:liquid, 1:solid}
+                                rgb=pl.col("solidliquid").map_dict(
+                                    {0: liquid, 1: solid}
                                 )
                             )["rgb"]
                             .list.to_array(3)
@@ -787,7 +806,7 @@ def steinhardt_bond_orientation():
                             system.data["solidliquid"].view(),
                             cmap="jet",
                         )
-                    ps.info('Calculate Steinhardt Bond Orientation successfully.')
+                    ps.info("Calculate Steinhardt Bond Orientation successfully.")
                 else:
                     ps.warning("System not found.")
             except Exception as e:

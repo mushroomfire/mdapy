@@ -1847,7 +1847,7 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System(r'E:\visua_test\heat.500.output.output.data')
+    system = System(r"E:\visua_test\heat.500.output.output.data")
     system.cal_pair_distribution()
     print(system.PairDistribution.g)
     # system = System("example/solidliquid.dump")

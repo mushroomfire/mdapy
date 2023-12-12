@@ -146,7 +146,7 @@ class PairDistribution:
             self.type_list = type_list - 1
         else:
             self.type_list = np.zeros(self.N, dtype=int)
-        self.Ntype = self.type_list.max()+1 # len(np.unique(self.type_list))
+        self.Ntype = self.type_list.max() + 1  # len(np.unique(self.type_list))
 
     def compute(self):
         """Do the real RDF calculation."""
@@ -172,7 +172,7 @@ class PairDistribution:
             )
 
             self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
-            
+
             _rdf(
                 self.verlet_list,
                 self.distance_list,

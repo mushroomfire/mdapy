@@ -126,10 +126,11 @@ class PairDistribution:
                     self.box = box
             else:
                 self.old_N = pos.shape[0]
-                repli = Replicate(pos, box, *repeat)
+                repli = Replicate(pos, box, *repeat, type_list=type_list)
                 repli.compute()
                 self.pos = repli.pos
                 self.box = repli.box
+                type_list = repli.type_list
 
             assert self.box[0, 1] == 0
             assert self.box[0, 2] == 0
@@ -145,7 +146,7 @@ class PairDistribution:
             self.type_list = type_list - 1
         else:
             self.type_list = np.zeros(self.N, dtype=int)
-        self.Ntype = len(np.unique(self.type_list))
+        self.Ntype = self.type_list.max()+1 # len(np.unique(self.type_list))
 
     def compute(self):
         """Do the real RDF calculation."""
@@ -169,7 +170,9 @@ class PairDistribution:
                 )
                 / self.N
             )
+
             self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
+            
             _rdf(
                 self.verlet_list,
                 self.distance_list,
@@ -205,6 +208,7 @@ class PairDistribution:
             self.g_total /= self.N * const * (r[1:] ** 3 - r[:-1] ** 3)
             self.r = (r[1:] + r[:-1]) / 2
             self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
+
             self.g[0, 0] = self.g_total
 
     def plot(self):
@@ -274,7 +278,7 @@ class PairDistribution:
                             self.g[i, j],
                             c=colorlist[n],
                             lw=lw,
-                            label=f"{i}-{j}",
+                            label=f"{i+1}-{j+1}",
                         )
                     n += 1
         plt.legend(ncol=2, fontsize=6)

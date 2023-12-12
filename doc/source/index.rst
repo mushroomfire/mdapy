@@ -39,11 +39,12 @@ Dependencies
 * `scipy <https://scipy.org/>`_
 * `polars>=0.19.17 <https://pola-rs.github.io/polars/>`_
 * `matplotlib <https://matplotlib.org/>`_
+* `polyscope <https://polyscope.run/py/>`_
 
 Optional Dependencies
 ----------------------
 
-* `k3d <https://matplotlib.org/>`_ (Optional, for visualizing the 3D atoms.)
+* `k3d <https://github.com/K3D-tools/K3D-jupyter>`_ (Optional, for visualizing the 3D atoms.)
 * `tqdm <https://github.com/tqdm/tqdm>`_ (Optional, for progress bar when reading/saving multi files)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
 

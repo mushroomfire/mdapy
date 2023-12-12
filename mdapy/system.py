@@ -738,13 +738,22 @@ class System:
             - **The result is added in self.data['atomic_temp']**.
         """
 
+        Ntype = self.__data["type"].max()
         if amass is None:
             assert (
                 elemental_list is not None
             ), "One must provide either amass or elemental_list!"
+            assert (
+                len(elemental_list) == Ntype
+            ), f"length of elemental list should be equal to the atom type number: {Ntype}."
             amass = np.array([atomic_masses[atomic_numbers[i]] for i in elemental_list])
         else:
             amass = np.array(amass)
+            assert (
+                amass.shape[0] == Ntype
+            ), f"length of amass should be equal to the atom type number: {Ntype}."
+
+        assert units in ["metal", "charge"], "units must in ['metal', 'charge']."
 
         repeat = _check_repeat_cutoff(self.box, self.boundary, rc)
         verlet_list, distance_list = None, None
@@ -762,7 +771,9 @@ class System:
             zero_copy_only=True
         )  # to_numpy().astype(np.int32)
 
-        assert "vx" in self.__data.columns
+        assert (
+            "vx" in self.__data.columns
+        ), "Should contain velocity information for computing temperature."
         assert "vy" in self.__data.columns
         assert "vz" in self.__data.columns
         AtomicTemp = AtomicTemperature(
@@ -939,9 +950,10 @@ class System:
                 for i in qlist:
                     columns.append(f"whl{i}")
 
-            self.__data.hstack(
-                pl.from_numpy(SBO.qnarray, schema=columns), in_place=True
-            )
+            for i, name in enumerate(columns):
+                self.__data = self.__data.with_columns(
+                    pl.lit(SBO.qnarray[:, i]).alias(name)
+                )
         else:
             self.__data = self.__data.with_columns(
                 pl.lit(SBO.qnarray.flatten()).alias(f"ql{qlist[0]}")
@@ -1292,7 +1304,7 @@ class System:
         elif isinstance(rc, dict):
             max_rc = max([i for i in rc.values()])
         else:
-            raise "rc should be a positive number, or a dict like {'1-1':1.5, '1.2':1.3}"
+            raise "rc should be a positive number, or a dict like {'1-1':1.5, '1-2':1.3}"
         repeat = _check_repeat_cutoff(self.box, self.boundary, max_rc)
         verlet_list, distance_list, neighbor_number = None, None, None
         if sum(repeat) == 3:
@@ -1369,24 +1381,16 @@ class System:
         """
         repeat = _check_repeat_cutoff(self.box, self.boundary, rc, 4)
 
-        if sum(repeat) == 3:
-            if not self.if_neigh:
-                self.build_neighbor(rc, max_neigh=max_neigh)
-                CommonNeighborAnalysi = CommonNeighborAnalysis(
-                    rc,
-                    self.pos,
-                    self.box,
-                    self.boundary,
-                    self.verlet_list,
-                    self.neighbor_number,
-                )
-            if self.rc != rc:
-                CommonNeighborAnalysi = CommonNeighborAnalysis(
-                    rc,
-                    self.pos,
-                    self.box,
-                    self.boundary,
-                )
+        if sum(repeat) == 3 and not self.if_neigh:
+            self.build_neighbor(rc, max_neigh=max_neigh)
+            CommonNeighborAnalysi = CommonNeighborAnalysis(
+                rc,
+                self.pos,
+                self.box,
+                self.boundary,
+                self.verlet_list,
+                self.neighbor_number,
+            )
         else:
             CommonNeighborAnalysi = CommonNeighborAnalysis(
                 rc,
@@ -1843,10 +1847,9 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System(r'E:\Al+SiC\compress\compress.154000.dump')
-    _, vol = system.cal_void_distribution(4., False)
-    print(vol, system.vol, system.vol-vol)
-    print(system)
+    system = System(r'E:\visua_test\heat.500.output.output.data')
+    system.cal_pair_distribution()
+    print(system.PairDistribution.g)
     # system = System("example/solidliquid.dump")
     # system.cal_atomic_temperature(elemental_list=['Mo'])
     # system.cal_atomic_temperature(amass=[95.94])

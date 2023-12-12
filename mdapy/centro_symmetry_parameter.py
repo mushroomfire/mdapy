@@ -69,6 +69,7 @@ class CentroSymmetryParameter:
 
     def __init__(self, N, pos, box, boundary=[1, 1, 1], verlet_list=None):
         self.N = N
+        assert N > 0 and N % 2 == 0, "N must be a positive even number."
         repeat = _check_repeat_nearest(pos, box, boundary)
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
@@ -204,7 +205,7 @@ if __name__ == "__main__":
     FCC = LatticeMaker(lattice_constant, "BCC", x, y, z)
     FCC.compute()
     end = time()
-    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
+    print(f"Build {FCC.pos.shape[0]} atoms BCC time: {end-start} s.")
 
     # Neigh = Neighbor(FCC.pos, FCC.box, 4.05, max_neigh=30)
     # Neigh.compute()
@@ -231,12 +232,12 @@ if __name__ == "__main__":
     # print(verlet_list_kdt[0])
 
     start = time()
-    CSP = CentroSymmetryParameter(8, FCC.pos, FCC.box, [1, 1, 1])
+    CSP = CentroSymmetryParameter(7, FCC.pos, FCC.box, [1, 1, 1])
     CSP.compute()
     csp = CSP.csp
     end = time()
     print(f"Cal csp kdt time: {end-start} s.")
-    print(csp[:4])
+    print(csp)
     print(csp.min(), csp.max(), csp.mean())
 
     # start = time()

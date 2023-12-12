@@ -30,7 +30,7 @@ except Exception:
 ParallelCompile().install()
 setup(
     name="mdapy",
-    version="0.10.0",
+    version="0.10.1",
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,
@@ -84,6 +84,7 @@ setup(
         "scipy",
         "polars>=0.19.17",
         "matplotlib",
+        "polyscope"
     ],
     extras_require={
         "all": ["k3d", "tqdm", "pyfftw"],

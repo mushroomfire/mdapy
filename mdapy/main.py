@@ -1,0 +1,1263 @@
+# Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
+# This file is from the mdapy project, released under the BSD 3-Clause License.
+
+
+import numpy as np
+import polars as pl
+import polyscope as ps
+import polyscope.imgui as psim
+from tkinter import Tk
+from tkinter.filedialog import askopenfilename, asksaveasfilename
+from . import __version__
+import taichi as ti
+
+try:
+    from .system import System
+except Exception:
+    from system import System
+import argparse
+
+
+def init_global_parameters():
+    globals()["system"] = None
+    globals()["atoms"] = None
+    globals()["filename"] = ""
+    globals()["init_file"] = False
+    rgb_structure_type = (
+        np.array(
+            [
+                [243, 243, 243],
+                [102, 255, 102],
+                [255, 102, 102],
+                [102, 102, 255],
+                [243, 204, 51],
+                [160, 20, 254],
+                [19, 160, 254],
+                [254, 137, 0],
+                [160, 120, 254],
+            ],
+        )
+        / 255
+    )
+    globals()["Other"] = rgb_structure_type[0]
+    globals()["FCC"] = rgb_structure_type[1]
+    globals()["HCP"] = rgb_structure_type[2]
+    globals()["BCC"] = rgb_structure_type[3]
+    globals()["ICO"] = rgb_structure_type[4]
+    globals()["Simple_Cubic"] = rgb_structure_type[5]
+    globals()["Cubic_Diamond"] = rgb_structure_type[6]
+    globals()["Hexagonal_Diamond"] = rgb_structure_type[7]
+    globals()["Graphene"] = rgb_structure_type[8]
+    globals()["cna_rc"] = 3.0
+    globals()["csp_n_neigh"] = 12
+    globals()["rx"] = 1
+    globals()["ry"] = 1
+    globals()["rz"] = 1
+    globals()["dump_compress"] = False
+
+    globals()["data_fmt"] = ["atomic", "charge"]
+    globals()["data_fmt_default"] = "atomic"
+
+    globals()["ptm_other"] = True
+    globals()["ptm_fcc"] = True
+    globals()["ptm_hcp"] = True
+    globals()["ptm_bcc"] = True
+    globals()["ptm_ico"] = False
+    globals()["ptm_scubic"] = False
+    globals()["ptm_dcubic"] = False
+    globals()["ptm_dhex"] = False
+    globals()["ptm_gra"] = False
+
+    globals()["ptm_rmsd_threshold"] = 0.1
+    globals()["ptm_return_rmsd"] = False
+    globals()["ptm_return_interatomic_distance"] = False
+    globals()["ptm_return_wxyz"] = False
+
+    globals()["spatial_directions"] = ["x", "y", "z", "xy", "xz", "yz", "xyz"]
+    globals()["spatial_direction_default"] = "x"
+    globals()["input_values"] = ["id", "type", "x", "y", "z"]
+    globals()["input_value_default"] = "id"
+    globals()["operations"] = ["mean", "sum", "min", "max"]
+    globals()["operation_default"] = "mean"
+    globals()["wbin"] = 5.0
+    globals()["binning_plot"] = True
+
+    globals()["temp_element"] = "H, C, O"
+    globals()["temp_rc"] = 5.0
+    globals()["temp_unit"] = ["metal", "charge"]
+    globals()["temp_unit_default"] = "metal"
+
+    globals()["sbo_mode"] = ["nearest", "cutoff"]
+    globals()["sbo_mode_default"] = "nearest"
+    globals()["sbo_neigh_number"] = 12
+    globals()["sbo_cutoff"] = 4.0
+    globals()["sbo_qlist"] = "4, 6, 8"
+    globals()["sbo_wlflag"] = False
+    globals()["sbo_wlhatflag"] = False
+    globals()["sbo_solidliquid"] = False
+    globals()["sbo_solidliquid_threshold"] = 0.7 
+    globals()["sbo_solidliquid_nbond"] = 7
+    globals()["solid"] = np.array([59, 198, 170])/255
+    globals()["liquid"] = np.array([52, 68, 223])/255
+ 
+    globals()["entropy_rc"] = 5.
+    globals()["entropy_sigma"] = 0.2
+    globals()["entropy_use_local_density"] = False
+    globals()["entropy_compute_average"] = True
+    globals()["entropy_average_rc"] = 4.0
+
+    globals()["rdf_rc"] = 5.
+    globals()["rdf_nbin"] = 200
+    globals()["rdf_plot"] = True
+    globals()["rdf_plot_partial"] = False
+
+    globals()["cnp_rc"] = 3.
+    globals()["wcp_rc"] = 3.
+    globals()["wcp_element_list"] = 'Al, Fe, Cu'
+    globals()["wcp_res"] = ''
+
+    globals()["cluster_rc"] = 5.
+    globals()["cluster_num"] = 0
+
+
+
+def box2lines(box):
+    assert isinstance(box, np.ndarray)
+    assert box.shape == (3, 2) or box.shape == (4, 3)
+    if box.shape == (3, 2):
+        new_box = np.zeros((4, 3), dtype=box.dtype)
+        new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
+        new_box[-1] = box[:, 0]
+    else:
+        assert box[0, 1] == 0
+        assert box[0, 2] == 0
+        assert box[1, 2] == 0
+        new_box = box
+    vertices = np.zeros((8, 3), dtype=np.float32)
+    origin = new_box[-1]
+    AB = new_box[0]
+    AD = new_box[1]
+    AA1 = new_box[2]
+    vertices[0] = origin
+    vertices[1] = origin + AB
+    vertices[2] = origin + AB + AD
+    vertices[3] = origin + AD
+    vertices[4] = vertices[0] + AA1
+    vertices[5] = vertices[1] + AA1
+    vertices[6] = vertices[2] + AA1
+    vertices[7] = vertices[3] + AA1
+    indices = np.zeros((12, 2), dtype=np.float32)
+    indices[0] = [0, 1]
+    indices[1] = [1, 2]
+    indices[2] = [2, 3]
+    indices[3] = [3, 0]
+    indices[4] = [0, 4]
+    indices[5] = [1, 5]
+    indices[6] = [2, 6]
+    indices[7] = [3, 7]
+    indices[8] = [4, 5]
+    indices[9] = [5, 6]
+    indices[10] = [6, 7]
+    indices[11] = [7, 4]
+    return vertices, indices
+
+
+def box2axis(box):
+    assert isinstance(box, np.ndarray)
+    assert box.shape == (3, 2) or box.shape == (4, 3)
+    if box.shape == (3, 2):
+        new_box = np.zeros((4, 3), dtype=box.dtype)
+        new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
+        new_box[-1] = box[:, 0]
+    else:
+        assert box[0, 1] == 0
+        assert box[0, 2] == 0
+        assert box[1, 2] == 0
+        new_box = box
+
+    AB = new_box[0]
+    AD = new_box[1]
+    AA1 = new_box[2]
+    fac = 0.1
+    origin = new_box[-1] - (AB + AD + AA1) * fac * 2
+    vertices = np.zeros((22, 3), dtype=np.float32)
+    min_length = max(
+        4, min([np.linalg.norm(AB), np.linalg.norm(AD), np.linalg.norm(AA1)]) * fac
+    )
+
+    vertices[0] = origin
+    vertices[1] = origin + np.array([min_length * 2, 0.0, 0.0])
+    vertices[2] = origin + np.array([0.0, min_length * 2, 0.0])
+    vertices[3] = origin + np.array(
+        [
+            0.0,
+            0.0,
+            min_length * 2,
+        ]
+    )
+
+    # plot x
+    vertices[4] = vertices[1] + np.array([min_length * 0.5, 0, min_length * 0.5])
+    vertices[5] = vertices[1] + np.array([min_length * 0.5 * 3, 0, -min_length * 0.5])
+    vertices[6] = vertices[1] + np.array([min_length * 0.5, 0, -min_length * 0.5])
+    vertices[7] = vertices[1] + np.array([min_length * 0.5 * 3, 0, min_length * 0.5])
+
+    # plot y
+    vertices[8] = vertices[2] + np.array([0, min_length * 0.5, min_length * 0.5])
+    vertices[9] = vertices[2] + np.array([0, min_length * 0.5 * 2, 0])
+    vertices[10] = vertices[2] + np.array([0, min_length * 0.5 * 3, min_length * 0.5])
+    vertices[11] = vertices[2] + np.array([0, min_length * 0.5 * 2, -min_length * 0.5])
+
+    # plot z
+    vertices[12] = vertices[3] + np.array([min_length * 0.5, 0, min_length * 0.5])
+    vertices[13] = vertices[3] + np.array([-min_length * 0.5, 0, min_length * 0.5])
+    vertices[14] = vertices[3] + np.array([-min_length * 0.5, 0, min_length * 0.5 * 3])
+    vertices[15] = vertices[3] + np.array([min_length * 0.5, 0, min_length * 0.5 * 3])
+
+    # plot x arrow
+    vertices[16] = vertices[1] + np.array([-min_length * 0.5, 0, min_length * 0.5])
+    vertices[17] = vertices[1] + np.array([-min_length * 0.5, 0, -min_length * 0.5])
+
+    # plot y arrow
+    vertices[18] = vertices[2] + np.array([0, -min_length * 0.5, min_length * 0.5])
+    vertices[19] = vertices[2] + np.array([0, -min_length * 0.5, -min_length * 0.5])
+
+    # plot x arrow
+    vertices[20] = vertices[3] + np.array([-min_length * 0.5, 0, -min_length * 0.5])
+    vertices[21] = vertices[3] + np.array([min_length * 0.5, 0, -min_length * 0.5])
+
+    indices = np.zeros((17, 2), dtype=np.float32)
+    indices[0] = [0, 1]
+    indices[1] = [0, 2]
+    indices[2] = [0, 3]
+
+    # plot x
+    indices[3] = [4, 5]
+    indices[4] = [6, 7]
+    # plot y
+    indices[5] = [8, 9]
+    indices[6] = [9, 10]
+    indices[7] = [9, 11]
+    # plot z
+    indices[8] = [12, 13]
+    indices[9] = [13, 15]
+    indices[10] = [14, 15]
+    # plot x arrow
+    indices[11] = [1, 16]
+    indices[12] = [1, 17]
+    # plot y arrow
+    indices[13] = [2, 18]
+    indices[14] = [2, 19]
+    # plot z arrow
+    indices[15] = [3, 20]
+    indices[16] = [3, 21]
+
+    return vertices, indices
+
+
+def loadfile(filename):
+    try:
+        ps.info(f"Loading {filename} ...")
+        system = System(rf"{filename}")
+        atoms = ps.register_point_cloud("Atoms", system.pos)
+        atoms.set_radius(1.2, relative=False)
+        for name in system.data.columns:
+            if name == "type":
+                atoms.add_scalar_quantity(
+                    name, system.data[name].view(), enabled=True, cmap="jet"
+                )
+            else:
+                atoms.add_scalar_quantity(name, system.data[name].view(), cmap="jet")
+        vertices, indices = box2lines(system.box)
+        ps.register_curve_network(
+            "Box", vertices, indices, color=(0, 0, 0), radius=0.0015
+        )
+        vertices, indices = box2axis(system.box)
+        ps.register_curve_network(
+            "Axis",
+            vertices,
+            indices,
+            color=(0.5, 0.5, 0.5),
+            radius=0.0015,
+            enabled=False,
+        )
+
+        ps.reset_camera_to_home_view()
+        ps.info(f"Load {filename} successfully.")
+        globals()["system"] = system
+        globals()["atoms"] = atoms
+    except Exception as e:
+        ps.error(str(e))
+
+
+def whether_init_file(filename):
+    global init_file
+    if init_file:
+        loadfile(filename)
+        init_file = False
+
+
+def load_file_gui():
+    if psim.TreeNode("Load file"):
+        if psim.Button("Load"):
+            Tk().withdraw()
+            filename = askopenfilename(
+                title="mdapy file loader",
+                filetypes=[
+                    (
+                        "",
+                        ("*.dump", "*.dump.gz", "*.data", "*.lmp", "*.xyz", "*.POSCAR"),
+                    ),
+                ],
+            )
+            if len(filename) > 0:
+                loadfile(filename)
+        psim.TreePop()
+
+
+def save_file_dump():
+    global dump_compress
+    if psim.TreeNode("Save Dump"):
+        _, dump_compress = psim.Checkbox("compressed", dump_compress)
+        psim.SameLine()
+        if psim.Button("Save"):
+            Tk().withdraw()
+            outputname = asksaveasfilename()
+            try:
+                if len(outputname) > 0 and isinstance(system, System):
+                    ps.info(f"Saving {outputname} ...")
+                    system.write_dump(rf"{outputname}", compress=dump_compress)
+                    ps.info(f"Save {outputname} successfully.")
+                else:
+                    ps.warning("System not found or outputname not given.")
+            except Exception:
+                ps.error(f"Save {outputname} fail. Change a right outputname.")
+        psim.TreePop()
+
+
+def save_file_data():
+    global data_fmt, data_fmt_default, system
+    if psim.TreeNode("Save Data"):
+        psim.PushItemWidth(100)
+        changed = psim.BeginCombo("data format", data_fmt_default)
+        if changed:
+            for val in data_fmt:
+                _, selected = psim.Selectable(val, data_fmt_default == val)
+                if selected:
+                    data_fmt_default = val
+            psim.EndCombo()
+        psim.PopItemWidth()
+        psim.Separator()
+        if psim.Button("Save"):
+            Tk().withdraw()
+            outputname = asksaveasfilename()
+            try:
+                if len(outputname) > 0 and isinstance(system, System):
+                    ps.info(f"Saving {outputname} ...")
+                    system.write_data(rf"{outputname}", data_format=data_fmt_default)
+                    ps.info(f"Save {outputname} successfully.")
+                else:
+                    ps.warning("System not found or outputname not given.")
+            except Exception:
+                ps.error(f"Save {outputname} fail. Change a right outputname.")
+        psim.TreePop()
+
+
+def save_file_gui():
+    if psim.TreeNode("Save file"):
+        save_file_dump()
+        save_file_data()
+        psim.TreePop()
+
+
+def centro_symmetry_parameter():
+    global csp_n_neigh, system, atoms
+    if psim.TreeNode("CentroSymmetry Parameter"):
+        psim.TextUnformatted(
+            "For FCC is 12, for BCC is 8. It must be a positive even number."
+        )
+
+        _, csp_n_neigh = psim.InputInt("neighbor number", csp_n_neigh)
+
+        if psim.Button("Compute"):
+            try:
+                if isinstance(system, System):
+                    ps.info("Calculating CentroSymmetry Parameter ...")
+                    system.cal_centro_symmetry_parameter(N=csp_n_neigh)
+                    atoms.add_scalar_quantity(
+                        "csp", system.data["csp"].view(), enabled=True, cmap="jet"
+                    )
+                    ps.info("Calculate CentroSymmetry Parameter successfully.")
+                else:
+                    ps.warning("System not found.")
+            except Exception as e:
+                ps.error(str(e))
+        psim.TreePop()
+
+def common_neighbor_parameter():
+    global system, atoms, cnp_rc
+    if psim.TreeNode("Common Neighbor Parameter"):
+        psim.TextUnformatted("Give a cutoff distance")
+
+        _, cnp_rc = psim.InputFloat("cutoff distance", cnp_rc)
+
+        if psim.Button('Compute'):
+            try:
+                if isinstance(system, System):
+                    ps.info("Calculating Commen Neighbor Parameter...")
+                    system.cal_common_neighbor_parameter(rc=cnp_rc, max_neigh=None)
+                    atoms.add_scalar_quantity(
+                        "cnp", system.data["cnp"].view(), cmap="jet", enabled=True
+                    )
+                    ps.info("Calculate Commen Neighbor Parameter successfully.")
+                else:
+                    ps.warning('System not found.')
+            except Exception as e:
+                ps.error(str(e))
+
+        psim.TreePop()
+
+def cluster_analysis():
+    global system, atoms, cluster_rc, cluster_num
+    if psim.TreeNode('Cluster Analysis'):
+        _, cluster_rc = psim.InputFloat('cutoff distance', cluster_rc)
+
+        if psim.Button('Compute'):
+            try:
+                if isinstance(system, System):
+                    ps.info("Calculating Cluster Analysis...")
+                    cluster_num = system.cal_cluster_analysis(rc=cluster_rc, max_neigh=None)
+                    atoms.add_scalar_quantity(
+                        'cluster_id',
+                        system.data['cluster_id'].view(),
+                        cmap='jet',
+                        enabled=True
+                    )
+                    ps.info("Calculating Cluster Analysis successfully.")
+                else:
+                    ps.warning('System not found')
+            except Exception as e:
+                ps.error(str(e))
+        
+        if cluster_num > 0:
+            psim.TextUnformatted("The number of cluster: {}".format(cluster_num))
+
+
+def common_neighbor_analysis():
+    global cna_rc, system, atoms, Other, FCC, HCP, BCC, ICO
+    if psim.TreeNode("Commen Neighbor Analysis"):
+        _, Other = psim.ColorEdit3("Other", Other)
+        psim.SameLine()
+        _, FCC = psim.ColorEdit3("FCC", FCC)
+        psim.Separator()
+        _, HCP = psim.ColorEdit3("HCP", HCP)
+        psim.SameLine()
+        _, BCC = psim.ColorEdit3("BCC", BCC)
+        psim.Separator()
+        _, ICO = psim.ColorEdit3("ICO", ICO)
+
+        psim.TextUnformatted("Give a cutoff distance")
+
+        _, cna_rc = psim.InputFloat("cutoff_cna", cna_rc)
+
+        if psim.Button("Compute"):
+            try:
+                if isinstance(system, System):
+                    ps.info("Calculating Commen Neighbor Analysis...")
+                    color = np.array([Other, FCC, HCP, BCC, ICO])
+
+                    system.cal_common_neighbor_analysis(cna_rc, max_neigh=None)
+                    rgb = (
+                        system.data.select(
+                            rgb=pl.col("cna").map_dict(
+                                {i: j for i, j in enumerate(color)}
+                            )
+                        )["rgb"]
+                        .list.to_array(3)
+                        .to_numpy()
+                    )
+                    atoms.add_color_quantity("cna_struc", rgb, enabled=True)
+                    atoms.add_scalar_quantity(
+                        "cna", system.data["cna"].view(), cmap="jet"
+                    )
+                    ps.info("Calculate Commen Neighbor Analysis successfully.")
+                else:
+                    ps.warning("System not found.")
+            except Exception as e:
+                ps.error(str(e))
+
+        psim.TreePop()
+
+def warren_cowley_parameter():
+    global system, wcp_rc, wcp_element_list, wcp_res
+
+    if psim.TreeNode('Warren Cowley Parameter'):
+        _, wcp_rc = psim.InputFloat('cutoff distance', wcp_rc)
+        if psim.Button('Compute'):
+            try:
+                if isinstance(system, System):
+                    ps.info("Calculating Warren Cowley Parameter...")
+                    system.cal_warren_cowley_parameter(rc=wcp_rc, max_neigh=None)
+                    wcp_res = str(np.round(system.WarrenCowleyParameter.WCP, 2))
+                    ps.info("Calculate Warren Cowley Parameter successfully.")
+                else:
+                    ps.warning('System not found.')
+            except Exception as e:
+                ps.error(str(e))
+        psim.TextUnformatted('The WCP is:')
+        if len(wcp_res) > 0:
+            psim.InputTextMultiline('', wcp_res, (240, 100)) 
+        _, wcp_element_list = psim.InputText('elemental list', wcp_element_list)
+        psim.SameLine()
+        if psim.Button('Plot'):
+            if isinstance(system, System):
+                if hasattr(system, 'WarrenCowleyParameter'):
+                    element_list = [i.strip() for i in wcp_element_list.split(',')]
+                    if len(element_list) == system.WarrenCowleyParameter.WCP.shape[0]:
+                        system.WarrenCowleyParameter.plot(element_list)
+                    else:
+                        system.WarrenCowleyParameter.plot()
+                else:
+                    ps.warning('You should press Compute Button first.')
+            else:
+                ps.warning('System not found.')
+        psim.TreePop()
+
+
+def radiul_distribution_function():
+    global system, rdf_rc, rdf_nbin, rdf_plot, rdf_plot_partial
+    if psim.TreeNode('Radiul Distribution Function'):
+        _, rdf_rc = psim.InputFloat('cutoff distance', rdf_rc)
+        _, rdf_nbin = psim.InputInt('number of binds', rdf_nbin)
+        _, rdf_plot = psim.Checkbox('plot the total rdf', rdf_plot)
+        _, rdf_plot_partial = psim.Checkbox('plot the partial rdf', rdf_plot_partial)
+        if psim.Button('Compute'):
+            try:
+                if isinstance(system, System):
+                    ps.info('Calculating Radiul Distribution Function...')
+                    system.cal_pair_distribution(rc=rdf_rc, nbin=rdf_nbin, max_neigh=None)
+                    ps.info('Calculate Radiul Distribution Function successfully.')
+                    if rdf_plot:
+                        system.PairDistribution.plot()
+                    if rdf_plot_partial:
+                        system.PairDistribution.plot_partial()
+                else:
+                    ps.warning('System not found.')
+            except Exception as e:
+                ps.error(str(e))
+
+        if psim.Button('Save'):
+            if isinstance(system, System):
+                if hasattr(system, 'PairDistribution'):
+                    Tk().withdraw()
+                    outputname = asksaveasfilename()
+                    try:
+                        if len(outputname) > 0:
+                            ps.info(f"Saving rdf results to {outputname} ...")
+                            np.savetxt(outputname, np.c_[system.PairDistribution.r, system.PairDistribution.g_total], header='r g(r)', delimiter=' ')
+                            ps.info(f'Save rdf results to {outputname} successfully.')
+                    except Exception:
+                        ps.error(
+                                f"Save {outputname} fail. Change a right outputname."
+                            )  
+                else:
+                    ps.warning('One should press compute Button first.')
+            else:
+                ps.warning('System not found.')
+        psim.SameLine()
+        if psim.Button('Save Partial'):
+            if isinstance(system, System):
+                if hasattr(system, 'PairDistribution'):
+                    Tk().withdraw()
+                    outputname = asksaveasfilename()
+                    try:
+                        if len(outputname) > 0:
+                            ps.info(f"Saving rdf_partial results to {outputname} ...")
+                            with open(outputname, 'w') as op:
+                                op.write('r: ')
+                                for i in system.PairDistribution.r:
+                                    op.write(f'{i} ')
+                                op.write('\n')
+                                g = system.PairDistribution.g
+                                for i in range(g.shape[0]):
+                                    for j in range(i, g.shape[1]):
+                                        op.write(f'{i+1}-{j+1}: ')
+                                        for k in range(g.shape[2]):
+                                            op.write(f'{g[i, j, k]} ')
+                                        op.write('\n')
+                            ps.info(f'Save rdf_partial results to {outputname} successfully.')
+                    except Exception:
+                        ps.error(
+                                f"Save {outputname} fail. Change a right outputname."
+                            )  
+                else:
+                    ps.warning('One should press compute Button first.')
+            else:
+                ps.warning('System not found.')
+
+        psim.TreePop()
+
+
+def atomic_entropy():
+    global system, atoms, entropy_rc, entropy_sigma, entropy_use_local_density, entropy_compute_average, entropy_average_rc
+    if psim.TreeNode('Atomic Entropy'):
+        _, entropy_rc = psim.InputFloat('cutoff distance', entropy_rc)
+        _, entropy_sigma = psim.InputFloat('sigma', entropy_sigma)
+        _, entropy_use_local_density = psim.Checkbox('use local density', entropy_use_local_density)
+        _, entropy_compute_average = psim.Checkbox('compute_average', entropy_compute_average)
+
+        if entropy_compute_average:
+            psim.TextUnformatted('Average distance should be smaller than cutoff distance.')
+            _, entropy_average_rc = psim.InputFloat('average distance', entropy_average_rc)
+        
+        if psim.Button('Compute'):
+            try:
+                if isinstance(system, System):
+                    ps.info('Calculating Atomic Entropy...')
+                    system.cal_atomic_entropy(
+                        rc=entropy_rc,
+                        sigma=entropy_sigma,
+                        use_local_density=entropy_use_local_density,
+                        compute_average=entropy_compute_average,
+                        average_rc=entropy_average_rc,
+                        max_neigh=None,
+                    )
+                    atoms.add_scalar_quantity(
+                        'atomic_entropy',
+                        system.data['atomic_entropy'].view(),
+                        cmap='jet',
+                        enabled=True
+                    )
+                    if entropy_compute_average:
+                        atoms.add_scalar_quantity(
+                        'ave_atomic_entropy',
+                        system.data['ave_atomic_entropy'].view(),
+                        cmap='jet',
+                        enabled=True
+                    )
+                        ps.info('Calculate Atomic Entropy successfully.')
+                else:
+                    ps.warning('System not found.')
+            except Exception as e:
+                ps.error(str(e))
+        psim.TreePop()
+
+
+def ackland_jones_analysis():
+    global system, atoms, Other, FCC, HCP, BCC, ICO
+    if psim.TreeNode("Ackland Jones Analysis"):
+        _, Other = psim.ColorEdit3("Other", Other)
+        psim.SameLine()
+        _, FCC = psim.ColorEdit3("FCC", FCC)
+        psim.Separator()
+        _, HCP = psim.ColorEdit3("HCP", HCP)
+        psim.SameLine()
+        _, BCC = psim.ColorEdit3("BCC", BCC)
+        psim.Separator()
+        _, ICO = psim.ColorEdit3("ICO", ICO)
+
+        if psim.Button("Compute"):
+            try:
+                if isinstance(system, System):
+                    ps.info("Calculating Ackland Jones Analysis...")
+                    color = np.array([Other, FCC, HCP, BCC, ICO])
+                    system.cal_ackland_jones_analysis()
+                    rgb = (
+                        system.data.select(
+                            rgb=pl.col("aja").map_dict(
+                                {i: j for i, j in enumerate(color)}
+                            )
+                        )["rgb"]
+                        .list.to_array(3)
+                        .to_numpy()
+                    )
+                    atoms.add_color_quantity("aja_struc", rgb, enabled=True)
+                    atoms.add_scalar_quantity(
+                        "aja", system.data["aja"].view(), cmap="jet"
+                    )
+                    ps.info("Calculate Ackland Jones Analysis successfully.")
+                else:
+                    ps.warning("System not found.")
+            except Exception as e:
+                ps.error(str(e))
+        psim.TreePop()
+
+
+def steinhardt_bond_orientation():
+    global system, atoms, sbo_neigh_number, sbo_cutoff, sbo_mode
+    global sbo_mode_default, sbo_qlist, sbo_wlflag, sbo_wlhatflag, sbo_solidliquid
+    global solid, liquid, sbo_solidliquid_threshold, sbo_solidliquid_nbond
+    if psim.TreeNode("Steinhardt Bond Orientation"):
+        psim.PushItemWidth(100)
+        changed = psim.BeginCombo("neighbor mode", sbo_mode_default)
+        if changed:
+            for val in sbo_mode:
+                _, selected = psim.Selectable(val, sbo_mode_default == val)
+                if selected:
+                    sbo_mode_default = val
+            psim.EndCombo()
+        if sbo_mode_default == "nearest":
+            _, sbo_neigh_number = psim.InputInt("neighbor number", sbo_neigh_number)
+        else:
+            _, sbo_cutoff = psim.InputFloat("cutoff distance", sbo_cutoff)
+        _, sbo_qlist = psim.InputText("qlist", sbo_qlist)
+        _, sbo_wlflag = psim.Checkbox("wlflag", sbo_wlflag)
+        psim.SameLine()
+        _, sbo_wlhatflag = psim.Checkbox("wlhatflag", sbo_wlhatflag)
+        psim.Separator()
+        _, sbo_solidliquid = psim.Checkbox("solidliquid", sbo_solidliquid)
+        if sbo_solidliquid:
+            _, sbo_solidliquid_threshold = psim.InputFloat(
+                "solid threshold", sbo_solidliquid_threshold
+            )
+            _, sbo_solidliquid_nbond = psim.InputInt(
+                "bond number threshold", sbo_solidliquid_nbond
+            )
+            psim.PushItemWidth(150)
+            _, solid = psim.ColorEdit3("Solid", solid)
+            _, liquid = psim.ColorEdit3("Liquid", liquid)
+            psim.PopItemWidth()
+
+
+        psim.PopItemWidth()
+        if psim.Button("Compute"):
+            try:
+                if isinstance(system, System):
+                    ps.info('Calculating Steinhardt Bond Orientation...')
+                    qlist = [int(i.strip()) for i in sbo_qlist.split(",")]
+                    if sbo_mode_default == "nearest":
+                        nnn = sbo_neigh_number
+                        rc = 0.0
+                    else:
+                        nnn = 0
+                        rc = sbo_cutoff
+                    if sbo_solidliquid:
+                        threshold = 0.7
+                        n_bond = 7
+                    else:
+                        threshold = sbo_solidliquid_threshold
+                        n_bond = sbo_solidliquid_nbond
+                    system.cal_steinhardt_bond_orientation(
+                        nnn=nnn,
+                        qlist=qlist,
+                        rc=rc,
+                        wlflag=sbo_wlflag,
+                        wlhatflag=sbo_wlhatflag,
+                        solidliquid=sbo_solidliquid,
+                        max_neigh=None,
+                        threshold=threshold,
+                        n_bond=n_bond,
+                    )
+
+                    for i in qlist:
+                        if i == qlist[0]:
+                            atoms.add_scalar_quantity(
+                                f"ql{i}",
+                                system.data[f"ql{i}"].view(),
+                                cmap="jet",
+                                enabled=True,
+                            )
+                        else:
+                            atoms.add_scalar_quantity(
+                                f"ql{i}", system.data[f"ql{i}"].view(), cmap="jet"
+                            )
+                    if sbo_wlflag:
+                        for i in qlist:
+                            atoms.add_scalar_quantity(
+                                f"wl{i}", system.data[f"wl{i}"].view(), cmap="jet"
+                            )
+                    if sbo_wlhatflag:
+                        for i in qlist:
+                            atoms.add_scalar_quantity(
+                                f"whl{i}", system.data[f"whl{i}"].view(), cmap="jet"
+                            )
+                    if sbo_solidliquid:
+                        rgb = (
+                            system.data.select(
+                                rgb = pl.col('solidliquid').map_dict(
+                                    {0:liquid, 1:solid}
+                                )
+                            )["rgb"]
+                            .list.to_array(3)
+                            .to_numpy()
+                        )
+                        atoms.add_color_quantity("solidliquid_color", rgb, enabled=True)
+                        atoms.add_scalar_quantity(
+                            f"solidliquid",
+                            system.data["solidliquid"].view(),
+                            cmap="jet",
+                        )
+                    ps.info('Calculate Steinhardt Bond Orientation successfully.')
+                else:
+                    ps.warning("System not found.")
+            except Exception as e:
+                ps.error(str(e))
+
+
+def polyhedral_template_matching():
+    global system, atoms, Other, FCC, HCP, BCC, ICO, Simple_Cubic, Cubic_Diamond, Hexagonal_Diamond, Graphene
+    global ptm_other, ptm_fcc, ptm_hcp, ptm_bcc, ptm_ico, ptm_scubic, ptm_dcubic, ptm_dhex, ptm_gra
+    global ptm_return_rmsd, ptm_return_interatomic_distance, ptm_return_wxyz, ptm_rmsd_threshold
+
+    if psim.TreeNode("Polyhedral Template Matching"):
+        psim.TextUnformatted("Select which structure you want to identify:")
+
+        _, Other = psim.ColorEdit3("Other", Other)
+        psim.SameLine()
+        _, ptm_other = psim.Checkbox(" " * 1, ptm_other)
+
+        _, FCC = psim.ColorEdit3("FCC", FCC)
+        psim.SameLine()
+        _, ptm_fcc = psim.Checkbox(" " * 2, ptm_fcc)
+
+        _, HCP = psim.ColorEdit3("HCP", HCP)
+        psim.SameLine()
+        _, ptm_hcp = psim.Checkbox(" " * 3, ptm_hcp)
+
+        _, BCC = psim.ColorEdit3("BCC", BCC)
+        psim.SameLine()
+        _, ptm_bcc = psim.Checkbox(" " * 4, ptm_bcc)
+
+        _, ICO = psim.ColorEdit3("ICO", ICO)
+        psim.SameLine()
+        _, ptm_ico = psim.Checkbox(" " * 5, ptm_ico)
+
+        _, Simple_Cubic = psim.ColorEdit3("Simple_Cubic", Simple_Cubic)
+        psim.SameLine()
+        _, ptm_scubic = psim.Checkbox(" " * 6, ptm_scubic)
+
+        _, Cubic_Diamond = psim.ColorEdit3("Cubic_Diamond", Cubic_Diamond)
+        psim.SameLine()
+        _, ptm_dcubic = psim.Checkbox(" " * 7, ptm_dcubic)
+
+        _, Hexagonal_Diamond = psim.ColorEdit3("Hexagonal_Diamond", Hexagonal_Diamond)
+        psim.SameLine()
+        _, ptm_dhex = psim.Checkbox(" " * 8, ptm_dhex)
+
+        _, Graphene = psim.ColorEdit3("Graphene", Graphene)
+        psim.SameLine()
+        _, ptm_gra = psim.Checkbox(" " * 9, ptm_gra)
+
+        _, ptm_rmsd_threshold = psim.InputFloat("rmsd threshold", ptm_rmsd_threshold)
+        _, ptm_return_rmsd = psim.Checkbox("return rmsd", ptm_return_rmsd)
+        _, ptm_return_interatomic_distance = psim.Checkbox(
+            "return interatomic distance", ptm_return_interatomic_distance
+        )
+        _, ptm_return_wxyz = psim.Checkbox("return wxyz", ptm_return_wxyz)
+
+        if psim.Button("Compute"):
+            try:
+                if isinstance(system, System):
+                    ps.info("Calculating Polyhedral Template Matching ...")
+                    structure = []
+                    for check, stype in zip(
+                        [
+                            ptm_fcc,
+                            ptm_hcp,
+                            ptm_bcc,
+                            ptm_ico,
+                            ptm_scubic,
+                            ptm_dcubic,
+                            ptm_dhex,
+                            ptm_gra,
+                        ],
+                        ["fcc", "hcp", "bcc", "ico", "sc", "dcub", "dhex", "graphene"],
+                    ):
+                        if check:
+                            structure.append(stype)
+                    structure = "-".join(structure)
+                    color = np.array(
+                        [
+                            Other,
+                            FCC,
+                            HCP,
+                            BCC,
+                            ICO,
+                            Simple_Cubic,
+                            Cubic_Diamond,
+                            Hexagonal_Diamond,
+                        ]
+                    )
+                    if len(structure) > 0:
+                        system.cal_polyhedral_template_matching(
+                            structure=structure,
+                            rmsd_threshold=ptm_rmsd_threshold,
+                            return_rmsd=ptm_return_rmsd,
+                            return_atomic_distance=ptm_return_interatomic_distance,
+                            return_wxyz=ptm_return_wxyz,
+                        )
+
+                    rgb = (
+                        system.data.select(
+                            rgb=pl.col("structure_types").map_dict(
+                                {i: j for i, j in enumerate(color)}
+                            )
+                        )["rgb"]
+                        .list.to_array(3)
+                        .to_numpy()
+                    )
+                    atoms.add_color_quantity("ptm_struc", rgb, enabled=True)
+                    atoms.add_scalar_quantity(
+                        "ptm", system.data["structure_types"].view(), cmap="jet"
+                    )
+                    if ptm_return_rmsd:
+                        atoms.add_scalar_quantity(
+                            "rmsd", system.data["rmsd"].view(), cmap="jet"
+                        )
+                    if ptm_return_interatomic_distance:
+                        atoms.add_scalar_quantity(
+                            "interatomic_distance",
+                            system.data["interatomic_distance"].view(),
+                            cmap="jet",
+                        )
+                    if ptm_return_wxyz:
+                        for name in ["qw", "qx", "qy", "qz"]:
+                            atoms.add_scalar_quantity(
+                                name, system.data[name].view(), cmap="jet"
+                            )
+                    ps.info("Calculate Polyhedral Template Matching successfully.")
+                else:
+                    ps.warning("System not found.")
+            except Exception as e:
+                ps.error(str(e))
+
+        psim.TreePop()
+
+
+def voronoi_analysis():
+    global system, atoms
+    if psim.TreeNode("Voronoi Analysis"):
+        psim.TextUnformatted("Compute the voronoi volume, number and cavity radius.")
+
+        if psim.Button("Compute"):
+            try:
+                if isinstance(system, System):
+                    ps.info("Calculating Voronoi Analysis...")
+                    system.cal_voronoi_volume()
+
+                    atoms.add_scalar_quantity(
+                        "voronoi_volume",
+                        system.data["voronoi_volume"].view(),
+                        enabled=True,
+                        cmap="jet",
+                    )
+                    atoms.add_scalar_quantity(
+                        "voronoi_number",
+                        system.data["voronoi_number"].view(),
+                        cmap="jet",
+                    )
+                    atoms.add_scalar_quantity(
+                        "cavity_radius", system.data["cavity_radius"].view(), cmap="jet"
+                    )
+                    ps.info("Calculate Voronoi Analysis successfully.")
+                else:
+                    ps.warning("System not found.")
+            except Exception as e:
+                ps.error(str(e))
+        psim.TreePop()
+
+
+def replicate():
+    global system, atoms, rx, ry, rz
+    if psim.TreeNode("Replicate"):
+        psim.TextUnformatted("Replicate system along x, y, z directions.")
+        _, rx = psim.InputInt("x", rx)
+        _, ry = psim.InputInt("y", ry)
+        _, rz = psim.InputInt("z", rz)
+        if psim.Button("Compute"):
+            try:
+                if isinstance(system, System):
+                    ps.info("Replicating system...")
+                    system.replicate(rx, ry, rz)
+                    ps.remove_all_structures()
+                    atoms = ps.register_point_cloud("Atoms", system.pos)
+                    atoms.set_radius(1.2, relative=False)
+                    for name in system.data.columns:
+                        if name == "type":
+                            atoms.add_scalar_quantity(
+                                name, system.data[name].view(), enabled=True, cmap="jet"
+                            )
+                        else:
+                            atoms.add_scalar_quantity(
+                                name, system.data[name].view(), cmap="jet"
+                            )
+                    vertices, indices = box2lines(system.box)
+                    ps.register_curve_network(
+                        "Box", vertices, indices, color=(0, 0, 0), radius=0.0015
+                    )
+                    vertices, indices = box2axis(system.box)
+                    ps.register_curve_network(
+                        "Axis",
+                        vertices,
+                        indices,
+                        color=(0.5, 0.5, 0.5),
+                        radius=0.0015,
+                        enabled=False,
+                    )
+                    ps.info("Replicate system successfully.")
+                else:
+                    ps.warning("System not found.")
+            except Exception as e:
+                ps.error(str(e))
+        psim.TreePop()
+
+
+def atomic_temperature():
+    global system, atoms, temp_element, temp_rc, temp_unit_default, temp_unit
+    if psim.TreeNode("Atomic Temperature"):
+        psim.TextUnformatted(
+            "Calculate atomic temperature subtracting \naverage velocity of center of mass."
+        )
+        _, temp_element = psim.InputText("elemental list", temp_element)
+        _, temp_rc = psim.InputFloat("cutoff distance", temp_rc)
+        psim.PushItemWidth(100)
+        changed = psim.BeginCombo("units", temp_unit_default)
+        if changed:
+            for val in temp_unit:
+                _, selected = psim.Selectable(val, temp_unit_default == val)
+                if selected:
+                    temp_unit_default = val
+            psim.EndCombo()
+        psim.PopItemWidth()
+        if psim.Button("compute"):
+            try:
+                if isinstance(system, System):
+                    ps.info("Calculating Atomic Temperature...")
+                    elemental_list = [i.strip() for i in temp_element.split(",")]
+                    system.cal_atomic_temperature(
+                        elemental_list=elemental_list,
+                        rc=temp_rc,
+                        units=temp_unit_default,
+                    )
+                    atoms.add_scalar_quantity(
+                        "atomic_temp",
+                        system.data["atomic_temp"].view(),
+                        cmap="jet",
+                        enabled=True,
+                    )
+                    ps.info("Calculate Atomic Temperature successfully.")
+                else:
+                    ps.warning("System not found.")
+            except Exception as e:
+                ps.error(str(e))
+        psim.TreePop()
+
+
+def spatial_binning():
+    global spatial_directions, spatial_direction_default, input_values, input_value_default, wbin, operations, operation_default, binning_plot
+
+    if psim.TreeNode("Spatial Binning"):
+        try:
+            psim.TextUnformatted("Spatial binning feature.")
+            if isinstance(system, System):
+                input_values = system.data.columns
+            psim.PushItemWidth(80)
+            changed1 = psim.BeginCombo("direction", spatial_direction_default)
+            if changed1:
+                for val in spatial_directions:
+                    _, selected = psim.Selectable(val, spatial_direction_default == val)
+                    if selected:
+                        spatial_direction_default = val
+                psim.EndCombo()
+            psim.SameLine()
+            changed2 = psim.BeginCombo("input value", input_value_default)
+            if changed2:
+                for val in input_values:
+                    _, selected = psim.Selectable(val, input_value_default == val)
+                    if selected:
+                        input_value_default = val
+                psim.EndCombo()
+            psim.Separator()
+            changed3 = psim.BeginCombo("operation", operation_default)
+            if changed3:
+                for val in operations:
+                    _, selected = psim.Selectable(val, operation_default == val)
+                    if selected:
+                        operation_default = val
+                psim.EndCombo()
+            psim.PopItemWidth()
+
+            _, wbin = psim.InputFloat("width of bin", wbin)
+            _, binning_plot = psim.Checkbox("plot results", binning_plot)
+
+            if psim.Button("compute"):
+                if isinstance(system, System):
+                    ps.info(f"Binning system along {spatial_direction_default}...")
+                    system.spatial_binning(
+                        spatial_direction_default,
+                        input_value_default,
+                        wbin,
+                        operation_default,
+                    )
+                    if binning_plot:
+                        system.Binning.plot(input_value_default)
+                    ps.info(
+                        f"Binning system along {spatial_direction_default} successfully."
+                    )
+                else:
+                    ps.warning("System not found.")
+
+            psim.SameLine()
+            if psim.Button("save results"):
+                if isinstance(system, System):
+                    if hasattr(system, "Binning"):
+                        Tk().withdraw()
+                        outputname = asksaveasfilename()
+                        try:
+                            if len(outputname) > 0:
+                                ps.info(f"Saving binning results to {outputname} ...")
+                                if spatial_direction_default in ["x", "y", "z"]:
+                                    np.savetxt(
+                                        rf"{outputname}",
+                                        np.c_[
+                                            system.Binning.coor[
+                                                spatial_direction_default
+                                            ],
+                                            system.Binning.res[:, 1],
+                                        ],
+                                        header=f"{spatial_direction_default} {input_value_default}-{operation_default}",
+                                        delimiter=" ",
+                                    )
+                                elif spatial_direction_default in ["xy", "xz", "yz"]:
+                                    with open(rf"{outputname}", "w") as op:
+                                        for i in spatial_direction_default:
+                                            op.write(i)
+                                            op.write(": ")
+                                            for j in system.Binning.coor[
+                                                spatial_direction_default[0]
+                                            ]:
+                                                op.write(f"{j} ")
+                                            op.write("\n")
+                                        op.write("data:\n")
+                                        data = system.Binning.res[:, :, 1]
+                                        for i in range(data.shape[0]):
+                                            for j in range(data.shape[1]):
+                                                op.write(f"{data[i,j]} ")
+                                            op.write("\n")
+                                else:
+                                    with open(rf"{outputname}", "w") as op:
+                                        for i in spatial_direction_default:
+                                            op.write(i)
+                                            op.write(": ")
+                                            for j in system.Binning.coor[
+                                                spatial_direction_default[0]
+                                            ]:
+                                                op.write(f"{j} ")
+                                            op.write("\n")
+                                        op.write("data:\n")
+                                        data = system.Binning.res[:, :, :, 1]
+                                        for i in range(data.shape[0]):
+                                            op.write(f"x rows {i}\n")
+                                            for j in range(data.shape[1]):
+                                                for k in range(data.shape[2]):
+                                                    op.write(f"{data[i, j, k]} ")
+                                                op.write("\n")
+
+                                ps.info(f"Save {outputname} successfully.")
+                        except Exception:
+                            ps.error(
+                                f"Save {outputname} fail. Change a right outputname."
+                            )
+                    else:
+                        ps.warning("One should press compute Button first!")
+                else:
+                    ps.warning("System not found.")
+
+        except Exception as e:
+            ps.error(str(e))
+
+        psim.TreePop()
+
+
+def show_system_info():
+    global system
+    if isinstance(system, System):
+        psim.InputTextMultiline(
+            "",
+            f"Filename: {system.filename}\nAtom Number: {system.N}\nSimulation Box:\n{system.box}\nBoundary: {system.boundary}",
+            (500, 150),
+        )
+    else:
+        psim.Text("System not found.")
+
+
+def callback():
+    global filename
+    whether_init_file(filename)
+    psim.PushItemWidth(150)
+    psim.TextUnformatted("File")
+    load_file_gui()
+    save_file_gui()
+
+    psim.TextUnformatted("Analysis Modifier")
+    psim.SetNextItemOpen(True, psim.ImGuiCond_FirstUseEver)
+    if psim.TreeNode("Structure Analysis"):
+        ackland_jones_analysis()
+        atomic_entropy()
+        centro_symmetry_parameter()
+        common_neighbor_analysis()
+        common_neighbor_parameter()
+        polyhedral_template_matching()
+        radiul_distribution_function()
+        steinhardt_bond_orientation()
+        warren_cowley_parameter()
+        psim.TreePop()
+    psim.SetNextItemOpen(True, psim.ImGuiCond_FirstUseEver)
+    if psim.TreeNode("Other Analysis"):
+        atomic_temperature()
+        cluster_analysis()
+        replicate()
+        spatial_binning()
+        voronoi_analysis()
+        psim.TreePop()
+    psim.SetNextItemOpen(True, psim.ImGuiCond_FirstUseEver)
+    if psim.TreeNode("System Infomation"):
+        show_system_info()
+        psim.TreePop()
+    psim.PopItemWidth()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="mdapy",
+        description="mdapy: A flexible and powerful toolkit to handle the data generated from molecular dynamics simulations.",
+    )
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="store_true",
+        required=False,
+        help="Show the version of mdapy",
+    )
+    parser.add_argument(
+        "-f", "--filename", default="", type=str, help="filename to load."
+    )
+
+    try:
+        args = parser.parse_args()
+        if args.version:
+            print("The version of mdapy is:", __version__)
+        else:
+            init_global_parameters()
+            global filename, init_file
+            filename = rf"{args.filename}"
+            if len(filename) > 0:
+                init_file = True
+            ti.init()
+
+            ps.set_program_name("mdapy")
+            ps.set_up_dir("z_up")
+            ps.set_verbosity(2)
+            ps.set_give_focus_on_show(True)
+            ps.set_ground_plane_mode("none")
+            ps.set_invoke_user_callback_for_nested_show(True)
+            ps.set_use_prefs_file(True)
+            ps.set_print_prefix("[mdapy] ")
+            ps.init()
+            ps.set_user_callback(callback)
+            ps.show()
+            ps.info(f"Exit mdapy GUI mode successfully.")
+
+    except Exception as e:
+        print(e)
+        parser.print_help()

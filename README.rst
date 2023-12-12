@@ -24,12 +24,14 @@ Resources
 - Issue Tracker: `https://github.com/mushroomfire/mdapy/issues <https://github.com/mushroomfire/mdapy/issues>`_
 - Tutorial: `https://github.com/mushroomfire/mdapy-tutorial <https://github.com/mushroomfire/mdapy-tutorial>`_
 
-`Visualize Configurations <https://mdapy.readthedocs.io/en/latest/gettingstarted/visualizing_atoms.html>`_
--------------------------------------------------------------------------------------------------------------
+GUI Mode 
+-------------
 
-.. image:: doc/source/images/visualize.gif
+- After installing mdapy, type **mdapy** at CMD can start the GUI mode.
 
-Basic Usage
+.. image:: doc/source/images/GUI.gif
+
+Script Mode
 ------------
 
 .. code-block:: bash
@@ -85,6 +87,12 @@ Basic Usage
    └─────┴──────┴───────────┴───────────┴───┴────────────────┴────────────────┴───────────────┴─────────────────┘
 
    In [8]: system.write_dump() # Save results to a Dump file.
+
+
+`Visualize Configurations in Jupyter <https://mdapy.readthedocs.io/en/latest/gettingstarted/visualizing_atoms.html>`_
+----------------------------------------------------------------------------------------------------------------------
+
+.. image:: doc/source/images/visualize.gif
 
 
 Main Features
@@ -144,7 +152,7 @@ Main Features
 
 
 Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
-------------------------------------------------------------------
+---------------------------------------------------------------------
 
 .. list-table::
 
@@ -166,6 +174,9 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
     *   -   `matplotlib <https://matplotlib.org/>`_
         -   latest
         -   Plot the results.
+    *   -   `polyscope <https://polyscope.run/py/>`_
+        -   latest
+        -   Provide GUI interface.
 
 
 Optional Dependencies
@@ -176,9 +187,9 @@ Optional Dependencies
     *   -   **Package Name**
         -   **Version**
         -   **Features**
-    *   -   `k3d <https://matplotlib.org/>`_
+    *   -   `k3d <https://github.com/K3D-tools/K3D-jupyter>`_
         -   latest
-        -   Visualize the 3D atoms.
+        -   Visualize the 3D atoms in Jupyter.
     *   -   `tqdm <https://github.com/tqdm/tqdm>`_
         -   latest
         -   Show progress bar when reading/saving multi files.
@@ -272,8 +283,12 @@ Release Notes
 V0.10.1 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- Provide a GUI interface based on the polyscope.
 - Fix a bug when generating System from array with velocity.
 - Modify repr of System to print entire DataFrame.
+- Fix a bug in pair_distribution class.
+- Fix a bug when loading dump file.
+- Updated README
 
 V0.10.0 (November 28, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

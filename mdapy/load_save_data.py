@@ -896,14 +896,26 @@ class BuildSystem:
             )
         col_names = dump_head[8].split()[2:]
 
-        data = pl.read_csv(
-            filename,
-            separator=" ",
-            skip_rows=9,
-            new_columns=col_names,
-            columns=range(len(col_names)),
-            has_header=False,
-            truncate_ragged_lines=True,
-        )
+        try:
+            data = pl.read_csv(
+                filename,
+                separator=" ",
+                skip_rows=9,
+                new_columns=col_names,
+                columns=range(len(col_names)),
+                has_header=False,
+                truncate_ragged_lines=True,
+            )
+        except Exception:
+            data = pl.read_csv(
+                filename,
+                separator=" ",
+                skip_rows=9,
+                new_columns=col_names,
+                columns=range(len(col_names)),
+                has_header=False,
+                truncate_ragged_lines=True,
+                infer_schema_length=None,
+            )
 
         return data, box, boundary, timestep

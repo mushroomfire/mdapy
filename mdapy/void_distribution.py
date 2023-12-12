@@ -175,15 +175,14 @@ class VoidDistribution:
         self._fill_cell(self.pos, cell_id_list, id_list)
 
         if 1 in cell_id_list:
-
             void_pos = np.argwhere(cell_id_list == 1) * self.cell_length
             void_pos += self.origin.to_numpy()
 
             cluster = ClusterAnalysis(
                 self.cell_length * 1.1,
-                pos = void_pos,
-                box = self.box,
-                boundary = self.boundary
+                pos=void_pos,
+                box=self.box,
+                boundary=self.boundary,
             )
             cluster.compute()
 
@@ -211,12 +210,13 @@ class VoidDistribution:
 if __name__ == "__main__":
     import mdapy as mp
     from time import time
+
     mp.init()
 
-    ss = mp.System(r'E:\Al+SiC\compress\compress.154000.dump')
+    ss = mp.System(r"E:\Al+SiC\compress\compress.154000.dump")
 
     start = time()
-    void = VoidDistribution(ss.pos, ss.box, 4.)
+    void = VoidDistribution(ss.pos, ss.box, 4.0)
     void.compute()
     end = time()
     print(f"Calculate void time: {end-start} s.")

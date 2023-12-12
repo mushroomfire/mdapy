@@ -33,3 +33,5 @@
 /example/solidliquid.data
 /git_operation
 /wheelhouse/
+/*.ini
+/example/*.ini

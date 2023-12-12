@@ -183,7 +183,7 @@ class SpatialBinning:
             self.coor[self.direction[i]] = (
                 np.arange(self.res.shape[i]) * self.wbin
                 + pos_min[xyz2dim[self.direction[i]][0]]
-                + 0.001
+                + self.wbin / 2
             )
         # Thoes codes will cause memory leak!!!
         # vecarray = ti.types.vector(len(xyz2dim[self.direction]), ti.f64)
@@ -226,16 +226,12 @@ class SpatialBinning:
             )
         self.if_compute = True
 
-    def plot(self, label_list=None, bar_label=None):
-        """Plot the binning results for One- and Two-dimensional binning.
-        For 2-D binning, only the first column value will be plotted.
+    def plot(self, value_label=None):
+        """Plot the binning results multidimensional binning.
+        For multi values, only the first value will be plotted.
 
         Args:
-            label_list (list, optional): value name. Defaults to None.
-            bar_label (str, optional): colorbar label for Two-dimensional binning. Defaults to None.
-
-        Raises:
-            NotImplementedError: "Three-dimensional binning visualization is not supported yet!"
+            value_label (str, optional): y-lable for One-dimensional binning, or colorbar label for Two/Three-dimensional binning. Defaults to None.
 
         Returns:
             tuple: (fig, ax) matplotlib figure and axis class.
@@ -248,27 +244,26 @@ class SpatialBinning:
                 figsize=(10, 7),
                 bottom=0.18,
                 top=0.97,
-                left=0.15,
+                left=0.18,
                 right=0.92,
                 use_pltset=True,
             )
 
         if len(self.direction) == 1:
-            if label_list is not None:
-                for i in range(1, self.res.shape[1]):
-                    plt.plot(
-                        self.coor[self.direction],
-                        self.res[:, i],
-                        "o-",
-                        label=label_list[i - 1],
-                    )
-                plt.legend()
-            else:
-                for i in range(1, self.res.shape[1]):
-                    plt.plot(self.coor[self.direction], self.res[:, i], "o-")
-
+            x, y = self.coor[self.direction], self.res[:, 1]
+            plt.plot(
+                x,
+                y,
+                "o-",
+            )
+            b, t = plt.ylim()
+            plt.fill_between(x, b, y, alpha=0.2)
+            plt.ylim(b, t)
             plt.xlabel(f"Coordination {self.direction}")
-            plt.ylabel(f"Some values")
+            if value_label is None:
+                plt.ylabel(f"Some values")
+            else:
+                plt.ylabel(value_label)
             plt.show()
             return fig, ax
         elif len(self.direction) == 2:
@@ -281,8 +276,8 @@ class SpatialBinning:
             plt.ylabel(f"Coordination {self.direction[1]}")
 
             bar = fig.colorbar(h, ax=ax)
-            if bar_label is not None:
-                bar.set_label(bar_label)
+            if value_label is not None:
+                bar.set_label(value_label)
             else:
                 bar.set_label("Some value")
             plt.show()
@@ -318,7 +313,7 @@ class SpatialBinning:
             )
 
             _ = ax.contourf(
-                X[0, :, :], data[0, :, :], Z[0, :, :], zdir="y", offset=0, **kw
+                X[0, :, :], data[0, :, :], Z[0, :, :], zdir="y", offset=Y.min(), **kw
             )
             C = ax.contourf(
                 data[:, -1, :], Y[:, -1, :], Z[:, -1, :], zdir="x", offset=X.max(), **kw
@@ -341,8 +336,8 @@ class SpatialBinning:
             # ax.set_box_aspect((xmax-xmin, ymax-ymin, zmax-zmin))
             # ax.set_aspect('auto')
             bar = fig.colorbar(C, ax=ax, fraction=0.015, pad=0.15)
-            if bar_label is not None:
-                bar.set_label(bar_label)
+            if value_label is not None:
+                bar.set_label(value_label)
             else:
                 bar.set_label("Some value")
 
@@ -372,7 +367,7 @@ if __name__ == "__main__":
     # binning.compute()
     binning = SpatialBinning(
         pos,
-        "x",
+        "xyz",
         np.cos(pos[:, 0]) ** 2 - np.sin(pos[:, 1]) ** 2,
         wbin=4.06,
         operation="mean",
@@ -380,9 +375,9 @@ if __name__ == "__main__":
     binning.compute()
     end = time()
     print(f"Binning time: {end-start} s.")
-    # print(binning.res[:, ..., 1].max())
+    print(binning.res[:, ..., 1])
     # print(binning.coor["x"])
     # print(binning.coor)
     # binning.plot(label_list=["x"], bar_label="x")
     # binning.plot(bar_label="x")
-    binning.plot(bar_label="random")
+    binning.plot("x")

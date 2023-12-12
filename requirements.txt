@@ -3,3 +3,4 @@ numpy
 scipy
 polars>=0.19.17
 matplotlib
+polyscope

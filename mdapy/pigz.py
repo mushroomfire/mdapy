@@ -382,6 +382,6 @@ def compress_file(
 
 if __name__ == "__main__":
     start = time.time()
-    compress_file(r"C:\Users\Administrator\Desktop\test\test-2.dump")
+    compress_file(r"E:/MyPackage/mdapy/test.dump")
     end = time.time()
     print(f"Time cost {end-start} s.")

@@ -20,7 +20,7 @@ typedef struct
 } ptmnbrdata_t;
 
 static int get_neighbours(void *vdata, size_t central_index,
-                          size_t atom_index, int num, size_t *nbr_indices,
+                          size_t atom_index, int num, int *ordering, size_t *nbr_indices,
                           int32_t *numbers, double (*nbr_pos)[3])
 {
     ptmnbrdata_t *data = (ptmnbrdata_t *)vdata;
@@ -120,35 +120,41 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
 
     ptmnbrdata_t nbrlist = {c_pos, boxsize, c_verlet, boundary};
     ptm_initialize_global();
+    
 #pragma omp parallel
     {
         ptm_local_handle_t local_handle = ptm_initialize_local();
 #pragma omp for
         for (int i = 0; i < pos_rows; i++)
         {
+            
             output(i, 0) = -1.0;
             int32_t type, alloy_type;
             double scale, rmsd, interatomic_distance;
             double q[4];
             bool standard_orientations = false;
-            size_t p[19];
+            int8_t p[19];
 
             ptm_index(local_handle, i, get_neighbours, (void *)&nbrlist,
                       input_flags, standard_orientations,
                       &type, &alloy_type, &scale, &rmsd, q,
-                      NULL, NULL, NULL, NULL, &interatomic_distance, NULL, p);
+                      NULL, NULL, NULL, NULL, &interatomic_distance, NULL, NULL, NULL, p);
+
+
             if (rmsd > rmsd_threshold)
+            {
+                type = 0;
+            }
+
+            if (type == PTM_MATCH_NONE)
             {
                 type = 0;
                 rmsd = 10000.;
             }
 
-            if (type == PTM_MATCH_NONE)
-                type = 0;
-
             for (int k = 0; k < 18; k++)
             {
-                ptm_indices(i, k) = p[k];
+                ptm_indices(i, k) = (int)p[k];
             }
 
             output(i, 0) = type;
@@ -158,6 +164,7 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
             output(i, 4) = q[1];
             output(i, 5) = q[2];
             output(i, 6) = q[3];
+            
         }
         ptm_uninitialize_local(local_handle);
     }

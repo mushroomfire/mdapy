@@ -288,6 +288,7 @@ V0.10.1 (Under development)
 - Modify repr of System to print entire DataFrame.
 - Fix a bug in pair_distribution class.
 - Fix a bug when loading dump file.
+- Fix a bug in PTM module.
 - Updated README
 
 V0.10.0 (November 28, 2023)

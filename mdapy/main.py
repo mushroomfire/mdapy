@@ -266,7 +266,8 @@ def loadfile(filename):
                     name, system.data[name].view(), enabled=True, cmap="jet"
                 )
             else:
-                atoms.add_scalar_quantity(name, system.data[name].view(), cmap="jet")
+                if system.data[name].dtype in pl.NUMERIC_DTYPES:
+                    atoms.add_scalar_quantity(name, system.data[name].view(), cmap="jet")
         vertices, indices = box2lines(system.box)
         ps.register_curve_network(
             "Box", vertices, indices, color=(0, 0, 0), radius=0.0015
@@ -346,7 +347,7 @@ def save_file_data():
                     data_fmt_default = val
             psim.EndCombo()
         psim.PopItemWidth()
-        psim.Separator()
+        psim.SameLine()
         if psim.Button("Save"):
             Tk().withdraw()
             outputname = asksaveasfilename()
@@ -895,9 +896,11 @@ def polyhedral_template_matching():
                             Simple_Cubic,
                             Cubic_Diamond,
                             Hexagonal_Diamond,
+                            Graphene
                         ]
                     )
                     if len(structure) > 0:
+                        
                         system.cal_polyhedral_template_matching(
                             structure=structure,
                             rmsd_threshold=ptm_rmsd_threshold,
@@ -988,15 +991,13 @@ def replicate():
                 if isinstance(system, System):
                     ps.info("Replicating system...")
                     system.replicate(rx, ry, rz)
-                    ps.remove_all_structures()
+                    ps.remove_point_cloud('Atoms')
+                    ps.remove_curve_network('Box')
+                    # ps.remove_all_structures()
                     atoms = ps.register_point_cloud("Atoms", system.pos)
                     atoms.set_radius(1.2, relative=False)
                     for name in system.data.columns:
-                        if name == "type":
-                            atoms.add_scalar_quantity(
-                                name, system.data[name].view(), enabled=True, cmap="jet"
-                            )
-                        else:
+                        if system.data[name].dtype in pl.NUMERIC_DTYPES:
                             atoms.add_scalar_quantity(
                                 name, system.data[name].view(), cmap="jet"
                             )
@@ -1004,15 +1005,15 @@ def replicate():
                     ps.register_curve_network(
                         "Box", vertices, indices, color=(0, 0, 0), radius=0.0015
                     )
-                    vertices, indices = box2axis(system.box)
-                    ps.register_curve_network(
-                        "Axis",
-                        vertices,
-                        indices,
-                        color=(0.5, 0.5, 0.5),
-                        radius=0.0015,
-                        enabled=False,
-                    )
+                    # vertices, indices = box2axis(system.box)
+                    # ps.register_curve_network(
+                    #     "Axis",
+                    #     vertices,
+                    #     indices,
+                    #     color=(0.5, 0.5, 0.5),
+                    #     radius=0.0015,
+                    #     enabled=False,
+                    # )
                     ps.info("Replicate system successfully.")
                 else:
                     ps.warning("System not found.")

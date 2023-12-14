@@ -1847,9 +1847,13 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System(r"E:\visua_test\heat.500.output.output.data")
-    system.cal_pair_distribution()
-    print(system.PairDistribution.g)
+    # system = System('E:/Al+SiC/compress/20/2km/shock.10000.dump')
+    system = System(r"E:/VORO_GRAPHENE/GPCu/GRAIN100/relax/GRA-Metal-FCC-100-1.data")
+    # system.cal_polyhedral_template_matching(structure="all")
+    # print(system)
+    system.cal_polyhedral_template_matching(structure='fcc-hcp-bcc-graphene')
+    print(system)
+    #system.cal_voronoi_volume()
     # system = System("example/solidliquid.dump")
     # system.cal_atomic_temperature(elemental_list=['Mo'])
     # system.cal_atomic_temperature(amass=[95.94])

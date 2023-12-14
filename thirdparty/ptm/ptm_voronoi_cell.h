@@ -40,7 +40,6 @@ works, incorporate into other computer software, distribute, and sublicense
 such enhancements or derivative works thereof, in binary and source code form.
 */
 
-// clang-format off
 
 // Voro++, a 3D cell-based Voronoi library
 //
@@ -57,6 +56,9 @@ such enhancements or derivative works thereof, in binary and source code form.
 #define PTM_VOROPP_CELL_HH
 
 #include <vector>
+#include <cstdio>
+
+#include "ptm_voronoi_config.h"
 
 namespace ptm_voro {
 
@@ -273,7 +275,7 @@ class voronoicell_neighbor : public voronoicell_base {
                  * face that is clockwise from the jth edge. */
                 int **ne;
                 voronoicell_neighbor();
-                ~voronoicell_neighbor() override;
+                ~voronoicell_neighbor();
                 void operator=(voronoicell_neighbor &c);
                 /** Cuts the Voronoi cell by a particle whose center is at a
                  * separation of (x,y,z) from the cell center. The value of rsq
@@ -321,7 +323,7 @@ class voronoicell_neighbor : public voronoicell_base {
                 }
                 void init(double xmin,double xmax,double ymin,double ymax,double zmin,double zmax);
                 void check_facets();
-                void neighbors(std::vector<int> &v) override;
+                virtual void neighbors(std::vector<int> &v);
 
         private:
                 int *paux1;
@@ -329,12 +331,12 @@ class voronoicell_neighbor : public voronoicell_base {
                 inline void n_allocate(int i,int m) {mne[i]=new int[m*i];}
                 inline void n_add_memory_vertices(int i) {
                         int **pp=new int*[i];
-                        for (int j=0;j<current_vertices;j++) pp[j]=ne[j];
+                        for(int j=0;j<current_vertices;j++) pp[j]=ne[j];
                         delete [] ne;ne=pp;
                 }
                 inline void n_add_memory_vorder(int i) {
                         int **p2=new int*[i];
-                        for (int j=0;j<current_vertex_order;j++) p2[j]=mne[j];
+                        for(int j=0;j<current_vertex_order;j++) p2[j]=mne[j];
                         delete [] mne;mne=p2;
                 }
                 inline void n_set_pointer(int p,int n) {
@@ -347,7 +349,7 @@ class voronoicell_neighbor : public voronoicell_base {
                 inline void n_copy_aux1_shift(int a,int b) {paux1[b]=ne[a][b+1];}
                 inline void n_set_aux2_copy(int a,int b) {
                         paux2=mne[b]+b*mec[b];
-                        for (int i=0;i<b;i++) ne[a][i]=paux2[i];
+                        for(int i=0;i<b;i++) ne[a][i]=paux2[i];
                 }
                 inline void n_copy_pointer(int a,int b) {ne[a]=ne[b];}
                 inline void n_set_to_aux1(int j) {ne[j]=paux1;}
@@ -363,4 +365,3 @@ class voronoicell_neighbor : public voronoicell_base {
 
 #endif
 
-// clang-format on

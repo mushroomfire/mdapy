@@ -1,4 +1,3 @@
-// clang-format off
 /*******************************************************************************
  *  -/_|:|_|_\-
  *
@@ -89,7 +88,6 @@
 #include <cmath>
 #include <algorithm>
 #include <cstring>
-#include "ptm_polar.h"
 #include "ptm_quat.h"
 
 

@@ -267,7 +267,9 @@ def loadfile(filename):
                 )
             else:
                 if system.data[name].dtype in pl.NUMERIC_DTYPES:
-                    atoms.add_scalar_quantity(name, system.data[name].view(), cmap="jet")
+                    atoms.add_scalar_quantity(
+                        name, system.data[name].view(), cmap="jet"
+                    )
         vertices, indices = box2lines(system.box)
         ps.register_curve_network(
             "Box", vertices, indices, color=(0, 0, 0), radius=0.0015
@@ -868,7 +870,6 @@ def polyhedral_template_matching():
         if psim.Button("Compute"):
             try:
                 if isinstance(system, System):
-                    ps.info("Calculating Polyhedral Template Matching ...")
                     structure = []
                     for check, stype in zip(
                         [
@@ -896,11 +897,11 @@ def polyhedral_template_matching():
                             Simple_Cubic,
                             Cubic_Diamond,
                             Hexagonal_Diamond,
-                            Graphene
+                            Graphene,
                         ]
                     )
                     if len(structure) > 0:
-                        
+                        ps.info("Calculating Polyhedral Template Matching ...")
                         system.cal_polyhedral_template_matching(
                             structure=structure,
                             rmsd_threshold=ptm_rmsd_threshold,
@@ -909,35 +910,37 @@ def polyhedral_template_matching():
                             return_wxyz=ptm_return_wxyz,
                         )
 
-                    rgb = (
-                        system.data.select(
-                            rgb=pl.col("structure_types").map_dict(
-                                {i: j for i, j in enumerate(color)}
-                            )
-                        )["rgb"]
-                        .list.to_array(3)
-                        .to_numpy()
-                    )
-                    atoms.add_color_quantity("ptm_struc", rgb, enabled=True)
-                    atoms.add_scalar_quantity(
-                        "ptm", system.data["structure_types"].view(), cmap="jet"
-                    )
-                    if ptm_return_rmsd:
-                        atoms.add_scalar_quantity(
-                            "rmsd", system.data["rmsd"].view(), cmap="jet"
+                        rgb = (
+                            system.data.select(
+                                rgb=pl.col("structure_types").map_dict(
+                                    {i: j for i, j in enumerate(color)}
+                                )
+                            )["rgb"]
+                            .list.to_array(3)
+                            .to_numpy()
                         )
-                    if ptm_return_interatomic_distance:
+                        atoms.add_color_quantity("ptm_struc", rgb, enabled=True)
                         atoms.add_scalar_quantity(
-                            "interatomic_distance",
-                            system.data["interatomic_distance"].view(),
-                            cmap="jet",
+                            "ptm", system.data["structure_types"].view(), cmap="jet"
                         )
-                    if ptm_return_wxyz:
-                        for name in ["qw", "qx", "qy", "qz"]:
+                        if ptm_return_rmsd:
                             atoms.add_scalar_quantity(
-                                name, system.data[name].view(), cmap="jet"
+                                "rmsd", system.data["rmsd"].view(), cmap="jet"
                             )
-                    ps.info("Calculate Polyhedral Template Matching successfully.")
+                        if ptm_return_interatomic_distance:
+                            atoms.add_scalar_quantity(
+                                "interatomic_distance",
+                                system.data["interatomic_distance"].view(),
+                                cmap="jet",
+                            )
+                        if ptm_return_wxyz:
+                            for name in ["qw", "qx", "qy", "qz"]:
+                                atoms.add_scalar_quantity(
+                                    name, system.data[name].view(), cmap="jet"
+                                )
+                        ps.info("Calculate Polyhedral Template Matching successfully.")
+                    else:
+                        ps.error("At least select one structure.")
                 else:
                     ps.warning("System not found.")
             except Exception as e:
@@ -991,8 +994,8 @@ def replicate():
                 if isinstance(system, System):
                     ps.info("Replicating system...")
                     system.replicate(rx, ry, rz)
-                    ps.remove_point_cloud('Atoms')
-                    ps.remove_curve_network('Box')
+                    ps.remove_point_cloud("Atoms")
+                    ps.remove_curve_network("Box")
                     # ps.remove_all_structures()
                     atoms = ps.register_point_cloud("Atoms", system.pos)
                     atoms.set_radius(1.2, relative=False)

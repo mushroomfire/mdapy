@@ -20,7 +20,7 @@ typedef struct
 } ptmnbrdata_t;
 
 static int get_neighbours(void *vdata, size_t central_index,
-                          size_t atom_index, int num, int *ordering, size_t *nbr_indices,
+                          size_t atom_index, int num, size_t *nbr_indices,
                           int32_t *numbers, double (*nbr_pos)[3])
 {
     ptmnbrdata_t *data = (ptmnbrdata_t *)vdata;
@@ -133,12 +133,12 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
             double scale, rmsd, interatomic_distance;
             double q[4];
             bool standard_orientations = false;
-            int8_t p[19];
+            size_t p[19];
 
             ptm_index(local_handle, i, get_neighbours, (void *)&nbrlist,
                       input_flags, standard_orientations,
                       &type, &alloy_type, &scale, &rmsd, q,
-                      NULL, NULL, NULL, NULL, &interatomic_distance, NULL, NULL, NULL, p);
+                      nullptr, nullptr, nullptr, nullptr, &interatomic_distance, nullptr, p);
 
 
             if (rmsd > rmsd_threshold)
@@ -154,7 +154,7 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
 
             for (int k = 0; k < 18; k++)
             {
-                ptm_indices(i, k) = (int)p[k];
+                ptm_indices(i, k) = p[k];
             }
 
             output(i, 0) = type;

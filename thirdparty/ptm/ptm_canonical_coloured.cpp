@@ -1,3 +1,4 @@
+// clang-format off
 /*Copyright (c) 2016 PM Larsen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -60,7 +61,7 @@ static bool weinberg_coloured(int num_nodes, int num_edges, int8_t common[PTM_MA
 
                         c = common[a][b];
                 }
-                else if (m[b][a] == false)
+                else if (!m[b][a])
                 {
                         //When an old vertex is reached on a new path, go back
                         //in the opposite direction.
@@ -74,7 +75,7 @@ static bool weinberg_coloured(int num_nodes, int num_edges, int8_t common[PTM_MA
                         //been traversed in that direction.
 
                         c = common[a][b];
-                        while (m[b][c] == true)
+                        while (m[b][c])
                                 c = common[c][b];
                 }
 

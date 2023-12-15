@@ -10,11 +10,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #ifndef PTM_FUNCTIONS_H
 #define PTM_FUNCTIONS_H
 
-#include <stdint.h>
-#include <stdbool.h>
-#include "ptm_initialize_data.h"
-#include "ptm_constants.h"
+#include <cstdbool>
+#include <cstddef>
+#include <cstdint>
 
+#include "ptm_constants.h"
+#include "ptm_initialize_data.h"
 
 //------------------------------------
 //    function declarations
@@ -23,26 +24,17 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 extern "C" {
 #endif
 
-
-int ptm_index(	ptm_local_handle_t local_handle,
-		size_t atom_index, int (get_neighbours)(void* vdata, size_t _unused_lammps_variable, size_t atom_index, int num, int* ordering, size_t* nbr_indices, int32_t* numbers, double (*nbr_pos)[3]), void* nbrlist,
-		int32_t flags, bool output_conventional_orientation, //inputs
-		int32_t* p_type, int32_t* p_alloy_type, double* p_scale, double* p_rmsd, double* q, double* F, double* F_res, double* U, double* P, double* p_interatomic_distance, double* p_lattice_constant,
-		int* p_best_template_index, const double (**p_best_template)[3], int8_t* output_indices);	//outputs
-
-
-int ptm_remap_template(	int type, bool output_conventional_orientation, int input_template_index, double* qtarget, double* q,
-			double* p_disorientation, int8_t* mapping, const double (**p_best_template)[3]);
-
-int ptm_undo_conventional_orientation(int type, int input_template_index, double* q, int8_t* mapping);
-
-int ptm_preorder_neighbours(void* _voronoi_handle, int num_input_points, double (*input_points)[3], uint64_t* res);
-void ptm_index_to_permutation(int n, uint64_t k, int* permuted);
-
+int ptm_index(ptm_local_handle_t local_handle, size_t atom_index,
+              int(get_neighbours)(void *vdata, size_t central_index, size_t atom_index, int num,
+                                  size_t *nbr_indices, int32_t *numbers, double (*nbr_pos)[3]),
+              void *nbrlist, int32_t flags, bool output_conventional_orientation,    //inputs
+              int32_t *p_type, int32_t *p_alloy_type, double *p_scale, double *p_rmsd, double *q,
+              double *F, double *F_res, double *U, double *P, double *p_interatomic_distance,
+              double *p_lattice_constant,
+              size_t *output_indices);    //outputs
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
-

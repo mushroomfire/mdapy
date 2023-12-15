@@ -119,6 +119,11 @@ def init_global_parameters():
     globals()["cluster_rc"] = 5.0
     globals()["cluster_num"] = 0
 
+    globals()["SF_rmsd_threshold"] = 0.1
+    globals()["ISF"] = np.array([0.9, 0.7, 0.2])
+    globals()["ESF"] = np.array([132/255, 25/255, 255/255])
+    globals()["TB"] = np.array([255 / 255, 102 / 255+0.2, 102 / 255 +0.2]) 
+
 
 def box2lines(box):
     assert isinstance(box, np.ndarray)
@@ -1024,6 +1029,72 @@ def replicate():
                 ps.error(str(e))
         psim.TreePop()
 
+def identify_SFs_TBs():
+    global system, atoms, SF_rmsd_threshold, Other, FCC, HCP, BCC, ISF, ESF, TB
+
+    if psim.TreeNode('Identify SFs and TBs'):
+        _, Other = psim.ColorEdit3("Other", Other)
+        psim.SameLine()
+        _, FCC = psim.ColorEdit3("FCC", FCC)
+        _, HCP = psim.ColorEdit3("HCP", HCP)
+        psim.SameLine()
+        _, BCC = psim.ColorEdit3("BCC", BCC)
+        _, ISF = psim.ColorEdit3("ISF", ISF)
+        psim.SameLine()
+        _, ESF = psim.ColorEdit3("ESF", ESF)
+        _, TB = psim.ColorEdit3("TB", TB)
+
+
+        _, SF_rmsd_threshold = psim.InputFloat("rmsd threshold", SF_rmsd_threshold)
+        if psim.Button('Compute'):
+            if isinstance(system, System):
+                try:
+                    ps.info("Calculating Identify SFs and TBs...")
+                    system.cal_identify_SFs_TBs(rmsd_threshold=SF_rmsd_threshold)
+
+                    rgb = (
+                            system.data.with_columns(
+                                pl.when(pl.col('structure_types')==1).
+                                then(FCC).
+                                when(pl.col('structure_types')==3).
+                                then(BCC).
+                                when(pl.col('fault_types')==4). 
+                                then(HCP).
+                                when(pl.col('fault_types')==2).
+                                then(ISF).
+                                when(pl.col('fault_types')==5).
+                                then(ESF).
+                                when(pl.col('fault_types')==3).
+                                then(TB).
+                                otherwise(Other).
+                                alias('rgb')
+                            )["rgb"]
+                            .list.to_array(3)
+                            .to_numpy()
+                        )
+                    
+                    atoms.add_color_quantity("SFTB_struc", rgb, enabled=True)
+                    atoms.add_scalar_quantity(
+                        'ptm_struc',
+                        system.data['structure_types'].view(),
+                        cmap='jet'
+                    )
+                    atoms.add_scalar_quantity(
+                        'fault_types',
+                        system.data['fault_types'].view(),
+                        cmap='jet'
+                    )
+                    ps.info('Calculate Identify SFs and TBs successfully.')
+
+                except Exception as e:
+                    ps.error(str(e))
+
+            else:
+                ps.warning('System not found.')
+
+        psim.TreePop()
+
+    
 
 def atomic_temperature():
     global system, atoms, temp_element, temp_rc, temp_unit_default, temp_unit
@@ -1220,6 +1291,7 @@ def callback():
         centro_symmetry_parameter()
         common_neighbor_analysis()
         common_neighbor_parameter()
+        identify_SFs_TBs()
         polyhedral_template_matching()
         radiul_distribution_function()
         steinhardt_bond_orientation()

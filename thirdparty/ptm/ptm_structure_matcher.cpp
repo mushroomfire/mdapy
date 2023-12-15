@@ -1,3 +1,4 @@
+// clang-format off
 /*Copyright (c) 2016 PM Larsen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -7,20 +8,16 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#include <cstdio>
-#include <cstdlib>
+#include "ptm_structure_matcher.h"
 #include <cstring>
 #include <cmath>
-#include <cfloat>
-#include <cassert>
-#include <algorithm>
+#include <utility>
 #include "ptm_convex_hull_incremental.h"
 #include "ptm_canonical_coloured.h"
 #include "ptm_graph_data.h"
 #include "ptm_graph_tools.h"
 #include "ptm_normalize_vertices.h"
 #include "ptm_polar.h"
-#include "ptm_structure_matcher.h"
 #include "ptm_constants.h"
 
 
@@ -302,6 +299,7 @@ int match_dcub_dhex(double (*ch_points)[3], double (*points)[3], int32_t flags, 
 
         return PTM_NO_ERROR;
 }
+
 
 static void check_graphs_graphene(        const refdata_t* s,
                                         int num_points,

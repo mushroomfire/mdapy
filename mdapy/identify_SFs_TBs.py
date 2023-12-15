@@ -262,8 +262,8 @@ if __name__ == "__main__":
     SFTB = IdentifySFTBinFCC(structure_type, ptm.ptm_indices)
     SFTB.compute()
     print(f"SFTB time cost: {time()-start} s.")
-    print(SFTB.fault_types)
-    print(SFTB.structure_types)
-    system.data["structure_types"] = SFTB.structure_types
-    system.data["fault_types"] = SFTB.fault_types
-    system.write_dump()
+    print(np.unique(SFTB.fault_types))
+    print(np.unique(SFTB.structure_types))
+    # system.data["structure_types"] = SFTB.structure_types
+    # system.data["fault_types"] = SFTB.fault_types
+    # system.write_dump()

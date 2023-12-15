@@ -1,3 +1,4 @@
+// clang-format off
 /*Copyright (c) 2016 PM Larsen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -7,9 +8,9 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+#include "ptm_quat.h"
 #include <cstring>
 #include <cmath>
-#include <cfloat>
 #include <algorithm>
 
 
@@ -20,12 +21,12 @@ namespace ptm {
 
 const double generator_cubic[24][4] = {
         {          1,          0,          0,          0 },
-        {  sqrt(2)/2,  sqrt(2)/2,          0,          0 },
-        {  sqrt(2)/2,          0,  sqrt(2)/2,          0 },
-        {  sqrt(2)/2,          0,          0,  sqrt(2)/2 },
-        {  sqrt(2)/2,          0,          0, -sqrt(2)/2 },
-        {  sqrt(2)/2,          0, -sqrt(2)/2,          0 },
-        {  sqrt(2)/2, -sqrt(2)/2,         -0,         -0 },
+        {  sqrt(2.0)/2,  sqrt(2.0)/2,          0,          0 },
+        {  sqrt(2.0)/2,          0,  sqrt(2.0)/2,          0 },
+        {  sqrt(2.0)/2,          0,          0,  sqrt(2.0)/2 },
+        {  sqrt(2.0)/2,          0,          0, -sqrt(2.0)/2 },
+        {  sqrt(2.0)/2,          0, -sqrt(2.0)/2,          0 },
+        {  sqrt(2.0)/2, -sqrt(2.0)/2,         -0,         -0 },
         {        0.5,        0.5,        0.5,        0.5 },
         {        0.5,        0.5,        0.5,       -0.5 },
         {        0.5,        0.5,       -0.5,        0.5 },
@@ -35,13 +36,13 @@ const double generator_cubic[24][4] = {
         {        0.5,       -0.5,       -0.5,        0.5 },
         {        0.5,       -0.5,       -0.5,       -0.5 },
         {          0,          1,          0,          0 },
-        {          0,  sqrt(2)/2,  sqrt(2)/2,          0 },
-        {          0,  sqrt(2)/2,          0,  sqrt(2)/2 },
-        {          0,  sqrt(2)/2,          0, -sqrt(2)/2 },
-        {          0,  sqrt(2)/2, -sqrt(2)/2,          0 },
+        {          0,  sqrt(2.0)/2,  sqrt(2.0)/2,          0 },
+        {          0,  sqrt(2.0)/2,          0,  sqrt(2.0)/2 },
+        {          0,  sqrt(2.0)/2,          0, -sqrt(2.0)/2 },
+        {          0,  sqrt(2.0)/2, -sqrt(2.0)/2,          0 },
         {          0,          0,          1,          0 },
-        {          0,          0,  sqrt(2)/2,  sqrt(2)/2 },
-        {          0,          0,  sqrt(2)/2, -sqrt(2)/2 },
+        {          0,          0,  sqrt(2.0)/2,  sqrt(2.0)/2 },
+        {          0,          0,  sqrt(2.0)/2, -sqrt(2.0)/2 },
         {          0,          0,          0,          1 },
 };
 
@@ -62,119 +63,105 @@ const double generator_diamond_cubic[12][4] = {
 
 const double generator_hcp[6][4] = {
         {          1,          0,          0,          0 },
-        {        0.5,          0,          0,  sqrt(3)/2 },
-        {        0.5,          0,          0, -sqrt(3)/2 },
-        {          0,  sqrt(3)/2,        0.5,          0 },
-        {          0,  sqrt(3)/2,       -0.5,          0 },
+        {        0.5,          0,          0,  sqrt(3.0)/2 },
+        {        0.5,          0,          0, -sqrt(3.0)/2 },
+        {          0,  sqrt(3.0)/2,        0.5,          0 },
+        {          0,  sqrt(3.0)/2,       -0.5,          0 },
         {          0,          0,          1,          0 },
 };
 
 
 const double generator_hcp_conventional[12][4] = {
         {          1,          0,          0,          0 },
-        {  sqrt(3)/2,          0,          0,        0.5 },
-        {  sqrt(3)/2,          0,          0,       -0.5 },
-        {        0.5,          0,          0,  sqrt(3)/2 },
-        {        0.5,          0,          0, -sqrt(3)/2 },
+        {  sqrt(3.0)/2,          0,          0,        0.5 },
+        {  sqrt(3.0)/2,          0,          0,       -0.5 },
+        {        0.5,          0,          0,  sqrt(3.0)/2 },
+        {        0.5,          0,          0, -sqrt(3.0)/2 },
         {          0,          1,          0,          0 },
-        {          0,  sqrt(3)/2,        0.5,          0 },
-        {          0,  sqrt(3)/2,       -0.5,          0 },
-        {          0,        0.5,  sqrt(3)/2,          0 },
-        {          0,        0.5, -sqrt(3)/2,          0 },
+        {          0,  sqrt(3.0)/2,        0.5,          0 },
+        {          0,  sqrt(3.0)/2,       -0.5,          0 },
+        {          0,        0.5,  sqrt(3.0)/2,          0 },
+        {          0,        0.5, -sqrt(3.0)/2,          0 },
         {          0,          0,          1,          0 },
         {          0,          0,          0,          1 },
 };
 
 const double generator_diamond_hexagonal[3][4] = {
         {          1,          0,          0,          0 },
-        {        0.5,          0,          0,  sqrt(3)/2 },
-        {        0.5,          0,          0, -sqrt(3)/2 },
+        {        0.5,          0,          0,  sqrt(3.0)/2 },
+        {        0.5,          0,          0, -sqrt(3.0)/2 },
 };
 
 const double generator_icosahedral[60][4] = {
         {                        1,                        0,                        0,                        0 },
-        {            (1+sqrt(5))/4,                      0.5,   sqrt(25-10*sqrt(5))/10,   sqrt(50-10*sqrt(5))/20 },
-        {            (1+sqrt(5))/4,                      0.5,  -sqrt(25-10*sqrt(5))/10,  -sqrt(50-10*sqrt(5))/20 },
-        {            (1+sqrt(5))/4,            1/(1+sqrt(5)),   sqrt(10*sqrt(5)+50)/20,  -sqrt(50-10*sqrt(5))/20 },
-        {            (1+sqrt(5))/4,            1/(1+sqrt(5)),  -sqrt(10*sqrt(5)+50)/20,   sqrt(50-10*sqrt(5))/20 },
-        {            (1+sqrt(5))/4,                        0,   sqrt(50-10*sqrt(5))/10,   sqrt(50-10*sqrt(5))/20 },
-        {            (1+sqrt(5))/4,                        0,                        0,     sqrt(5./8-sqrt(5)/8) },
-        {            (1+sqrt(5))/4,                        0,                        0,    -sqrt(5./8-sqrt(5)/8) },
-        {            (1+sqrt(5))/4,                        0,  -sqrt(50-10*sqrt(5))/10,  -sqrt(50-10*sqrt(5))/20 },
-        {            (1+sqrt(5))/4,           -1/(1+sqrt(5)),   sqrt(10*sqrt(5)+50)/20,  -sqrt(50-10*sqrt(5))/20 },
-        {            (1+sqrt(5))/4,           -1/(1+sqrt(5)),  -sqrt(10*sqrt(5)+50)/20,   sqrt(50-10*sqrt(5))/20 },
-        {            (1+sqrt(5))/4,                     -0.5,   sqrt(25-10*sqrt(5))/10,   sqrt(50-10*sqrt(5))/20 },
-        {            (1+sqrt(5))/4,                     -0.5,  -sqrt(25-10*sqrt(5))/10,  -sqrt(50-10*sqrt(5))/20 },
-        {                      0.5,            (1+sqrt(5))/4,   sqrt(50-10*sqrt(5))/20,  -sqrt(25-10*sqrt(5))/10 },
-        {                      0.5,            (1+sqrt(5))/4,  -sqrt(50-10*sqrt(5))/20,   sqrt(25-10*sqrt(5))/10 },
-        {                      0.5,                      0.5,   sqrt((5+2*sqrt(5))/20),   sqrt(25-10*sqrt(5))/10 },
-        {                      0.5,                      0.5,   sqrt(25-10*sqrt(5))/10,  -sqrt((5+2*sqrt(5))/20) },
-        {                      0.5,                      0.5,  -sqrt(25-10*sqrt(5))/10,   sqrt((5+2*sqrt(5))/20) },
-        {                      0.5,                      0.5,  -sqrt((5+2*sqrt(5))/20),  -sqrt(25-10*sqrt(5))/10 },
-        {                      0.5,            1/(1+sqrt(5)),   sqrt(10*sqrt(5)+50)/20,   sqrt((5+2*sqrt(5))/20) },
-        {                      0.5,            1/(1+sqrt(5)),  -sqrt(10*sqrt(5)+50)/20,  -sqrt((5+2*sqrt(5))/20) },
-        {                      0.5,                        0,     sqrt((5+sqrt(5))/10),  -sqrt(25-10*sqrt(5))/10 },
-        {                      0.5,                        0,   sqrt(50-10*sqrt(5))/10,  -sqrt((5+2*sqrt(5))/20) },
-        {                      0.5,                        0,  -sqrt(50-10*sqrt(5))/10,   sqrt((5+2*sqrt(5))/20) },
-        {                      0.5,                        0,    -sqrt((5+sqrt(5))/10),   sqrt(25-10*sqrt(5))/10 },
-        {                      0.5,           -1/(1+sqrt(5)),   sqrt(10*sqrt(5)+50)/20,   sqrt((5+2*sqrt(5))/20) },
-        {                      0.5,           -1/(1+sqrt(5)),  -sqrt(10*sqrt(5)+50)/20,  -sqrt((5+2*sqrt(5))/20) },
-        {                      0.5,                     -0.5,   sqrt((5+2*sqrt(5))/20),   sqrt(25-10*sqrt(5))/10 },
-        {                      0.5,                     -0.5,   sqrt(25-10*sqrt(5))/10,  -sqrt((5+2*sqrt(5))/20) },
-        {                      0.5,                     -0.5,  -sqrt(25-10*sqrt(5))/10,   sqrt((5+2*sqrt(5))/20) },
-        {                      0.5,                     -0.5,  -sqrt((5+2*sqrt(5))/20),  -sqrt(25-10*sqrt(5))/10 },
-        {                      0.5,           -(1+sqrt(5))/4,   sqrt(50-10*sqrt(5))/20,  -sqrt(25-10*sqrt(5))/10 },
-        {                      0.5,           -(1+sqrt(5))/4,  -sqrt(50-10*sqrt(5))/20,   sqrt(25-10*sqrt(5))/10 },
-        {            1/(1+sqrt(5)),            (1+sqrt(5))/4,   sqrt(50-10*sqrt(5))/20,   sqrt(10*sqrt(5)+50)/20 },
-        {            1/(1+sqrt(5)),            (1+sqrt(5))/4,  -sqrt(50-10*sqrt(5))/20,  -sqrt(10*sqrt(5)+50)/20 },
-        {            1/(1+sqrt(5)),                      0.5,   sqrt((5+2*sqrt(5))/20),  -sqrt(10*sqrt(5)+50)/20 },
-        {            1/(1+sqrt(5)),                      0.5,  -sqrt((5+2*sqrt(5))/20),   sqrt(10*sqrt(5)+50)/20 },
-        {            1/(1+sqrt(5)),                        0,     sqrt((5+sqrt(5))/10),   sqrt(10*sqrt(5)+50)/20 },
-        {            1/(1+sqrt(5)),                        0,                        0,  sqrt(1-1/(2*sqrt(5)+6)) },
-        {            1/(1+sqrt(5)),                        0,                        0, -sqrt(1-1/(2*sqrt(5)+6)) },
-        {            1/(1+sqrt(5)),                        0,    -sqrt((5+sqrt(5))/10),  -sqrt(10*sqrt(5)+50)/20 },
-        {            1/(1+sqrt(5)),                     -0.5,   sqrt((5+2*sqrt(5))/20),  -sqrt(10*sqrt(5)+50)/20 },
-        {            1/(1+sqrt(5)),                     -0.5,  -sqrt((5+2*sqrt(5))/20),   sqrt(10*sqrt(5)+50)/20 },
-        {            1/(1+sqrt(5)),           -(1+sqrt(5))/4,   sqrt(50-10*sqrt(5))/20,   sqrt(10*sqrt(5)+50)/20 },
-        {            1/(1+sqrt(5)),           -(1+sqrt(5))/4,  -sqrt(50-10*sqrt(5))/20,  -sqrt(10*sqrt(5)+50)/20 },
+        {            (1+sqrt(5.0))/4,                      0.5,   sqrt(25-10*sqrt(5.0))/10,   sqrt(50-10*sqrt(5.0))/20 },
+        {            (1+sqrt(5.0))/4,                      0.5,  -sqrt(25-10*sqrt(5.0))/10,  -sqrt(50-10*sqrt(5.0))/20 },
+        {            (1+sqrt(5.0))/4,            1/(1+sqrt(5.0)),   sqrt(10*sqrt(5.0)+50)/20,  -sqrt(50-10*sqrt(5.0))/20 },
+        {            (1+sqrt(5.0))/4,            1/(1+sqrt(5.0)),  -sqrt(10*sqrt(5.0)+50)/20,   sqrt(50-10*sqrt(5.0))/20 },
+        {            (1+sqrt(5.0))/4,                        0,   sqrt(50-10*sqrt(5.0))/10,   sqrt(50-10*sqrt(5.0))/20 },
+        {            (1+sqrt(5.0))/4,                        0,                        0,     sqrt(5./8-sqrt(5.0)/8) },
+        {            (1+sqrt(5.0))/4,                        0,                        0,    -sqrt(5./8-sqrt(5.0)/8) },
+        {            (1+sqrt(5.0))/4,                        0,  -sqrt(50-10*sqrt(5.0))/10,  -sqrt(50-10*sqrt(5.0))/20 },
+        {            (1+sqrt(5.0))/4,           -1/(1+sqrt(5.0)),   sqrt(10*sqrt(5.0)+50)/20,  -sqrt(50-10*sqrt(5.0))/20 },
+        {            (1+sqrt(5.0))/4,           -1/(1+sqrt(5.0)),  -sqrt(10*sqrt(5.0)+50)/20,   sqrt(50-10*sqrt(5.0))/20 },
+        {            (1+sqrt(5.0))/4,                     -0.5,   sqrt(25-10*sqrt(5.0))/10,   sqrt(50-10*sqrt(5.0))/20 },
+        {            (1+sqrt(5.0))/4,                     -0.5,  -sqrt(25-10*sqrt(5.0))/10,  -sqrt(50-10*sqrt(5.0))/20 },
+        {                      0.5,            (1+sqrt(5.0))/4,   sqrt(50-10*sqrt(5.0))/20,  -sqrt(25-10*sqrt(5.0))/10 },
+        {                      0.5,            (1+sqrt(5.0))/4,  -sqrt(50-10*sqrt(5.0))/20,   sqrt(25-10*sqrt(5.0))/10 },
+        {                      0.5,                      0.5,   sqrt((5+2*sqrt(5.0))/20),   sqrt(25-10*sqrt(5.0))/10 },
+        {                      0.5,                      0.5,   sqrt(25-10*sqrt(5.0))/10,  -sqrt((5+2*sqrt(5.0))/20) },
+        {                      0.5,                      0.5,  -sqrt(25-10*sqrt(5.0))/10,   sqrt((5+2*sqrt(5.0))/20) },
+        {                      0.5,                      0.5,  -sqrt((5+2*sqrt(5.0))/20),  -sqrt(25-10*sqrt(5.0))/10 },
+        {                      0.5,            1/(1+sqrt(5.0)),   sqrt(10*sqrt(5.0)+50)/20,   sqrt((5+2*sqrt(5.0))/20) },
+        {                      0.5,            1/(1+sqrt(5.0)),  -sqrt(10*sqrt(5.0)+50)/20,  -sqrt((5+2*sqrt(5.0))/20) },
+        {                      0.5,                        0,     sqrt((5+sqrt(5.0))/10),  -sqrt(25-10*sqrt(5.0))/10 },
+        {                      0.5,                        0,   sqrt(50-10*sqrt(5.0))/10,  -sqrt((5+2*sqrt(5.0))/20) },
+        {                      0.5,                        0,  -sqrt(50-10*sqrt(5.0))/10,   sqrt((5+2*sqrt(5.0))/20) },
+        {                      0.5,                        0,    -sqrt((5+sqrt(5.0))/10),   sqrt(25-10*sqrt(5.0))/10 },
+        {                      0.5,           -1/(1+sqrt(5.0)),   sqrt(10*sqrt(5.0)+50)/20,   sqrt((5+2*sqrt(5.0))/20) },
+        {                      0.5,           -1/(1+sqrt(5.0)),  -sqrt(10*sqrt(5.0)+50)/20,  -sqrt((5+2*sqrt(5.0))/20) },
+        {                      0.5,                     -0.5,   sqrt((5+2*sqrt(5.0))/20),   sqrt(25-10*sqrt(5.0))/10 },
+        {                      0.5,                     -0.5,   sqrt(25-10*sqrt(5.0))/10,  -sqrt((5+2*sqrt(5.0))/20) },
+        {                      0.5,                     -0.5,  -sqrt(25-10*sqrt(5.0))/10,   sqrt((5+2*sqrt(5.0))/20) },
+        {                      0.5,                     -0.5,  -sqrt((5+2*sqrt(5.0))/20),  -sqrt(25-10*sqrt(5.0))/10 },
+        {                      0.5,           -(1+sqrt(5.0))/4,   sqrt(50-10*sqrt(5.0))/20,  -sqrt(25-10*sqrt(5.0))/10 },
+        {                      0.5,           -(1+sqrt(5.0))/4,  -sqrt(50-10*sqrt(5.0))/20,   sqrt(25-10*sqrt(5.0))/10 },
+        {            1/(1+sqrt(5.0)),            (1+sqrt(5.0))/4,   sqrt(50-10*sqrt(5.0))/20,   sqrt(10*sqrt(5.0)+50)/20 },
+        {            1/(1+sqrt(5.0)),            (1+sqrt(5.0))/4,  -sqrt(50-10*sqrt(5.0))/20,  -sqrt(10*sqrt(5.0)+50)/20 },
+        {            1/(1+sqrt(5.0)),                      0.5,   sqrt((5+2*sqrt(5.0))/20),  -sqrt(10*sqrt(5.0)+50)/20 },
+        {            1/(1+sqrt(5.0)),                      0.5,  -sqrt((5+2*sqrt(5.0))/20),   sqrt(10*sqrt(5.0)+50)/20 },
+        {            1/(1+sqrt(5.0)),                        0,     sqrt((5+sqrt(5.0))/10),   sqrt(10*sqrt(5.0)+50)/20 },
+        {            1/(1+sqrt(5.0)),                        0,                        0,  sqrt(1-1/(2*sqrt(5.0)+6)) },
+        {            1/(1+sqrt(5.0)),                        0,                        0, -sqrt(1-1/(2*sqrt(5.0)+6)) },
+        {            1/(1+sqrt(5.0)),                        0,    -sqrt((5+sqrt(5.0))/10),  -sqrt(10*sqrt(5.0)+50)/20 },
+        {            1/(1+sqrt(5.0)),                     -0.5,   sqrt((5+2*sqrt(5.0))/20),  -sqrt(10*sqrt(5.0)+50)/20 },
+        {            1/(1+sqrt(5.0)),                     -0.5,  -sqrt((5+2*sqrt(5.0))/20),   sqrt(10*sqrt(5.0)+50)/20 },
+        {            1/(1+sqrt(5.0)),           -(1+sqrt(5.0))/4,   sqrt(50-10*sqrt(5.0))/20,   sqrt(10*sqrt(5.0)+50)/20 },
+        {            1/(1+sqrt(5.0)),           -(1+sqrt(5.0))/4,  -sqrt(50-10*sqrt(5.0))/20,  -sqrt(10*sqrt(5.0)+50)/20 },
         {                        0,                        1,                        0,                        0 },
-        {                        0,            (1+sqrt(5))/4,     sqrt(5./8-sqrt(5)/8),                        0 },
-        {                        0,            (1+sqrt(5))/4,   sqrt(50-10*sqrt(5))/20,  -sqrt(50-10*sqrt(5))/10 },
-        {                        0,            (1+sqrt(5))/4,  -sqrt(50-10*sqrt(5))/20,   sqrt(50-10*sqrt(5))/10 },
-        {                        0,            (1+sqrt(5))/4,    -sqrt(5./8-sqrt(5)/8),                        0 },
-        {                        0,                      0.5,   sqrt((5+2*sqrt(5))/20),   sqrt(50-10*sqrt(5))/10 },
-        {                        0,                      0.5,   sqrt(25-10*sqrt(5))/10,     sqrt((5+sqrt(5))/10) },
-        {                        0,                      0.5,  -sqrt(25-10*sqrt(5))/10,    -sqrt((5+sqrt(5))/10) },
-        {                        0,                      0.5,  -sqrt((5+2*sqrt(5))/20),  -sqrt(50-10*sqrt(5))/10 },
-        {                        0,            1/(1+sqrt(5)),  sqrt(1-1/(2*sqrt(5)+6)),                        0 },
-        {                        0,            1/(1+sqrt(5)),   sqrt(10*sqrt(5)+50)/20,    -sqrt((5+sqrt(5))/10) },
-        {                        0,            1/(1+sqrt(5)),  -sqrt(10*sqrt(5)+50)/20,     sqrt((5+sqrt(5))/10) },
-        {                        0,            1/(1+sqrt(5)), -sqrt(1-1/(2*sqrt(5)+6)),                        0 },
-        {                        0,                        0,     sqrt((5+sqrt(5))/10),  -sqrt(50-10*sqrt(5))/10 },
-        {                        0,                        0,   sqrt(50-10*sqrt(5))/10,     sqrt((5+sqrt(5))/10) },
+        {                        0,            (1+sqrt(5.0))/4,     sqrt(5./8-sqrt(5.0)/8),                        0 },
+        {                        0,            (1+sqrt(5.0))/4,   sqrt(50-10*sqrt(5.0))/20,  -sqrt(50-10*sqrt(5.0))/10 },
+        {                        0,            (1+sqrt(5.0))/4,  -sqrt(50-10*sqrt(5.0))/20,   sqrt(50-10*sqrt(5.0))/10 },
+        {                        0,            (1+sqrt(5.0))/4,    -sqrt(5./8-sqrt(5.0)/8),                        0 },
+        {                        0,                      0.5,   sqrt((5+2*sqrt(5.0))/20),   sqrt(50-10*sqrt(5.0))/10 },
+        {                        0,                      0.5,   sqrt(25-10*sqrt(5.0))/10,     sqrt((5+sqrt(5.0))/10) },
+        {                        0,                      0.5,  -sqrt(25-10*sqrt(5.0))/10,    -sqrt((5+sqrt(5.0))/10) },
+        {                        0,                      0.5,  -sqrt((5+2*sqrt(5.0))/20),  -sqrt(50-10*sqrt(5.0))/10 },
+        {                        0,            1/(1+sqrt(5.0)),  sqrt(1-1/(2*sqrt(5.0)+6)),                        0 },
+        {                        0,            1/(1+sqrt(5.0)),   sqrt(10*sqrt(5.0)+50)/20,    -sqrt((5+sqrt(5.0))/10) },
+        {                        0,            1/(1+sqrt(5.0)),  -sqrt(10*sqrt(5.0)+50)/20,     sqrt((5+sqrt(5.0))/10) },
+        {                        0,            1/(1+sqrt(5.0)), -sqrt(1-1/(2*sqrt(5.0)+6)),                        0 },
+        {                        0,                        0,     sqrt((5+sqrt(5.0))/10),  -sqrt(50-10*sqrt(5.0))/10 },
+        {                        0,                        0,   sqrt(50-10*sqrt(5.0))/10,     sqrt((5+sqrt(5.0))/10) },
 };
 
 
-void quat_rot(double* r, double* a, double* b)
+static void quat_rot(double* r, double* a, double* b)
 {
         b[0] = (r[0] * a[0] - r[1] * a[1] - r[2] * a[2] - r[3] * a[3]);
         b[1] = (r[0] * a[1] + r[1] * a[0] + r[2] * a[3] - r[3] * a[2]);
         b[2] = (r[0] * a[2] - r[1] * a[3] + r[2] * a[0] + r[3] * a[1]);
         b[3] = (r[0] * a[3] + r[1] * a[2] - r[2] * a[1] + r[3] * a[0]);
-}
-
-static void rotate_and_flip(double* q, double* r)
-{
-	double temp[4];
-        quat_rot(q, r, temp);
-	memcpy(q, temp, 4 * sizeof(double));
-        if (q[0] < 0)
-        {
-		q[0] = -q[0];
-		q[1] = -q[1];
-		q[2] = -q[2];
-		q[3] = -q[3];
-        }
 }
 
 static int rotate_quaternion_into_fundamental_zone(int num_generators, const double (*generator)[4], double* q)
@@ -235,46 +222,6 @@ int rotate_quaternion_into_diamond_hexagonal_fundamental_zone(double* q)
 {
         return rotate_quaternion_into_fundamental_zone(3, generator_diamond_hexagonal, q);
 }
-
-
-
-int map_quaternion_cubic(double* q, int i)
-{
-	rotate_and_flip(q, (double*)generator_cubic[i]);
-	return 0;
-}
-
-int map_quaternion_diamond_cubic(double* q, int i)
-{
-	rotate_and_flip(q, (double*)generator_diamond_cubic[i]);
-	return 0;
-}
-
-int map_quaternion_icosahedral(double* q, int i)
-{
-	rotate_and_flip(q, (double*)generator_icosahedral[i]);
-	return 0;
-}
-
-int map_quaternion_hcp(double* q, int i)
-{
-	rotate_and_flip(q, (double*)generator_hcp[i]);
-	return 0;
-}
-
-int map_quaternion_hcp_conventional(double* q, int i)
-{
-	rotate_and_flip(q, (double*)generator_hcp_conventional[i]);
-	return 0;
-}
-
-int map_quaternion_diamond_hexagonal(double* q, int i)
-{
-	rotate_and_flip(q, (double*)generator_diamond_hexagonal[i]);
-	return 0;
-}
-
-
 
 double quat_dot(double* a, double* b)
 {

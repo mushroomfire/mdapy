@@ -122,7 +122,7 @@ def init_global_parameters():
     globals()["SF_rmsd_threshold"] = 0.1
     globals()["ISF"] = np.array([0.9, 0.7, 0.2])
     globals()["ESF"] = np.array([132/255, 25/255, 255/255])
-    globals()["TB"] = np.array([255 / 255, 102 / 255+0.2, 102 / 255 +0.2]) 
+    globals()["TB"] = np.array([14 / 255, 133 / 255, 160 / 255]) 
 
 
 def box2lines(box):

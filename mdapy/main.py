@@ -13,8 +13,12 @@ import taichi as ti
 
 try:
     from .system import System
+    from .lattice_maker import LatticeMaker
+    from .create_polycrystalline import CreatePolycrystalline
 except Exception:
     from system import System
+    from lattice_maker import LatticeMaker
+    from create_polycrystalline import CreatePolycrystalline
 import argparse
 
 
@@ -123,6 +127,30 @@ def init_global_parameters():
     globals()["ISF"] = np.array([0.9, 0.7, 0.2])
     globals()["ESF"] = np.array([132/255, 25/255, 255/255])
     globals()["TB"] = np.array([14 / 255, 133 / 255, 160 / 255]) 
+
+    globals()["lattice_type_default"] = 'FCC'
+    globals()["lattice_type_list"] = ['FCC', 'BCC', 'HCP', 'GRA']
+    globals()["lattice_constant"] = 4.05
+    globals()["rx"] = 1
+    globals()["ry"] = 1
+    globals()["rz"] = 1
+    globals()["orientation_x"] = '1, 0, 0'
+    globals()["orientation_y"] = '0, 1, 0'
+    globals()["orientation_z"] = '0, 0, 1'
+
+    globals()["box_length"] = '100, 100, 100'
+    globals()["grain_number"] = 10
+    globals()["metal_lattice_type_default"] = 'FCC'
+    globals()["metal_lattice_type_list"] = ['FCC', 'BCC', 'HCP']
+    globals()["metal_lattice_constant"] = 3.615
+    globals()["random_seed"] = 1
+    globals()["metal_overlap_dis"] = 2.5
+    globals()["add_graphene"] = False
+    globals()["gra_lattice_constant"] = 1.42
+    globals()["metal_gra_overlap_dis"] = 3.0825
+    globals()["gra_overlap_dis"] = 1.2
+
+
 
 
 def box2lines(box):
@@ -1262,6 +1290,159 @@ def spatial_binning():
 
         psim.TreePop()
 
+def build_polycrystal():
+    global box_length, grain_number, metal_lattice_type_default, metal_lattice_type_list, metal_lattice_constant, random_seed
+    global metal_overlap_dis, add_graphene, gra_lattice_constant, metal_gra_overlap_dis, gra_overlap_dis
+
+    if psim.TreeNode('Build Polycrystal'):
+        
+        psim.TextUnformatted('Given the box length along x, y, z directions.')
+        _, box_length = psim.InputText('Box Length', box_length)
+        _, grain_number = psim.InputInt('Grain Number', grain_number)
+        psim.PushItemWidth(100)
+        changed = psim.BeginCombo("Metallic Lattice Type", metal_lattice_type_default)
+        if changed:
+            for val in metal_lattice_type_list:
+                _, selected = psim.Selectable(val, metal_lattice_type_default == val)
+                if selected:
+                    metal_lattice_type_default = val
+            psim.EndCombo()
+        psim.PopItemWidth()
+        _, metal_lattice_constant = psim.InputFloat('Metallic Lattice Constant', metal_lattice_constant)
+        _, random_seed = psim.InputInt('Random Seed', random_seed)
+        _, metal_overlap_dis = psim.InputFloat('Metallic Overlap Distance', metal_overlap_dis)
+
+        _, add_graphene = psim.Checkbox('Add Graphene', add_graphene)
+
+        if add_graphene:
+            _, gra_lattice_constant = psim.InputFloat('Graphene Lattice Constant', gra_lattice_constant)
+            _, metal_gra_overlap_dis = psim.InputFloat('Gra/Metal Overlap Distance', metal_gra_overlap_dis)
+            _, gra_overlap_dis = psim.InputFloat('Graphene Overlap Distance', gra_overlap_dis)
+
+        if psim.Button('Build'):
+            try:
+                ps.info('Building polycrystal...')
+                box = np.array([[0., float(i.strip())] for i in box_length.split(',')])
+                poly = CreatePolycrystalline(
+                    box=box,
+                    seednumber=grain_number,
+                    metal_latttice_constant=metal_lattice_constant,
+                    metal_lattice_type=metal_lattice_type_default,
+                    randomseed=random_seed,
+                    metal_overlap_dis=metal_overlap_dis,
+                    add_graphene=add_graphene,
+                    gra_lattice_constant=gra_lattice_constant,
+                    metal_gra_overlap_dis=metal_gra_overlap_dis,
+                    gra_overlap_dis=gra_overlap_dis
+                )
+                poly.compute(save_dump=False)
+                system = System(data=poly.data, box=poly.box)
+                ps.remove_all_structures()
+                atoms = ps.register_point_cloud("Atoms", system.pos)
+                atoms.set_radius(1.2, relative=False)
+                for name in system.data.columns:
+                    if system.data[name].dtype in pl.NUMERIC_DTYPES:
+                        if name == 'grainid':
+                            atoms.add_scalar_quantity(
+                                name, system.data[name].view(), cmap="jet", enabled=True
+                            )
+                        else:
+                            atoms.add_scalar_quantity(
+                                name, system.data[name].view(), cmap="jet"
+                            )
+                vertices, indices = box2lines(system.box)
+                ps.register_curve_network(
+                    "Box", vertices, indices, color=(0, 0, 0), radius=0.0015
+                )
+                vertices, indices = box2axis(system.box)
+                ps.register_curve_network(
+                    "Axis",
+                    vertices,
+                    indices,
+                    color=(0.5, 0.5, 0.5),
+                    radius=0.0015,
+                    enabled=False,
+                )
+                ps.reset_camera_to_home_view()
+                ps.info('Builde polycrystal successfully.')
+                globals()['system'] = system
+                globals()['atoms'] = atoms
+            except Exception as e:
+                ps.error(str(e))
+                
+
+        psim.TreePop()
+
+def build_lattice():
+    global lattice_type_default, lattice_type_list, lattice_constant, rx, ry, rz, orientation_x, orientation_y, orientation_z
+    if psim.TreeNode('Build Lattice'):
+
+        psim.PushItemWidth(100)
+        changed = psim.BeginCombo("Lattice Type", lattice_type_default)
+        if changed:
+            for val in lattice_type_list:
+                _, selected = psim.Selectable(val, lattice_type_default == val)
+                if selected:
+                    lattice_type_default = val
+            psim.EndCombo()
+        psim.PopItemWidth()
+
+        if lattice_type_default in ['FCC', 'BCC']:
+            psim.TextUnformatted('You can assign the crystalline orientation,\n which should be mutually orthogonal.')
+            _, orientation_x = psim.InputText('orientation x', orientation_x)
+            _, orientation_y = psim.InputText('orientation y', orientation_y)
+            _, orientation_z = psim.InputText('orientation z', orientation_z)
+
+        _, lattice_constant = psim.InputFloat('Lattice Constant', lattice_constant)
+        _, rx = psim.InputInt("x", rx)
+        _, ry = psim.InputInt("y", ry)
+        _, rz = psim.InputInt("z", rz)
+
+        if psim.Button('Build'):
+            try:
+                ps.info('Building lattice...')
+                orientation = None
+                if lattice_type_default in ['FCC', 'BCC']:
+                    ox = [int(i.strip()) for i in orientation_x.split(',')]
+                    oy = [int(i.strip()) for i in orientation_y.split(',')]
+                    oz = [int(i.strip()) for i in orientation_z.split(',')]
+                    orientation = np.array([ox, oy, oz])
+                lat = LatticeMaker(lattice_constant, lattice_type_default, 
+                                   rx, ry, rz, 
+                                   crystalline_orientation=orientation)
+                lat.compute()
+                system = System(pos=lat.pos, box=lat.box)
+                ps.remove_all_structures()
+                atoms = ps.register_point_cloud("Atoms", system.pos)
+                atoms.set_radius(1.2, relative=False)
+                for name in system.data.columns:
+                    if system.data[name].dtype in pl.NUMERIC_DTYPES:
+                        atoms.add_scalar_quantity(
+                            name, system.data[name].view(), cmap="jet"
+                        )
+                vertices, indices = box2lines(system.box)
+                ps.register_curve_network(
+                    "Box", vertices, indices, color=(0, 0, 0), radius=0.0015
+                )
+                vertices, indices = box2axis(system.box)
+                ps.register_curve_network(
+                    "Axis",
+                    vertices,
+                    indices,
+                    color=(0.5, 0.5, 0.5),
+                    radius=0.0015,
+                    enabled=False,
+                )
+                ps.reset_camera_to_home_view()
+                ps.info('Build lattice successfully.')
+                globals()['system'] = system
+                globals()['atoms'] = atoms
+            except Exception as e:
+                ps.error(str(e))
+        psim.TreePop()
+
+
+
 
 def show_system_info():
     global system
@@ -1304,6 +1485,11 @@ def callback():
         replicate()
         spatial_binning()
         voronoi_analysis()
+        psim.TreePop()
+    psim.SetNextItemOpen(True, psim.ImGuiCond_FirstUseEver)
+    if psim.TreeNode("Build model"):
+        build_lattice()
+        build_polycrystal()
         psim.TreePop()
     psim.SetNextItemOpen(True, psim.ImGuiCond_FirstUseEver)
     if psim.TreeNode("System Infomation"):

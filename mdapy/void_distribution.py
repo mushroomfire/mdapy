@@ -216,10 +216,11 @@ if __name__ == "__main__":
     ss = mp.System(r"E:\Al+SiC\compress\compress.154000.dump")
 
     start = time()
-    void = VoidDistribution(ss.pos, ss.box, 4.0)
+    void = VoidDistribution(ss.pos, ss.box, 4.0, out_void=True)
     void.compute()
     end = time()
     print(f"Calculate void time: {end-start} s.")
+    print(void.void_number, void.void_volume)
 
     # print(ss.vol, void.void_volume, ss.vol-void.void_volume)
     # from lattice_maker import LatticeMaker

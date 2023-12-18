@@ -82,7 +82,7 @@ setup(
         "taichi>=1.7.0",
         "numpy",
         "scipy",
-        "polars>=0.19.17",
+        "polars>=0.20.0",
         "matplotlib",
         "polyscope"
     ],

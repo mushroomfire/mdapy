@@ -169,7 +169,7 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
         -   latest
         -   Build kdtree, do FFT, spline interpolation.
     *   -   `polars <https://pola-rs.github.io/polars/>`_
-        -   >=0.19.17
+        -   >=0.20.0
         -   Fast read/save file. Data structure to represent the particles information.
     *   -   `matplotlib <https://matplotlib.org/>`_
         -   latest
@@ -284,12 +284,14 @@ V0.10.1 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Provide a GUI interface based on the polyscope.
+- Provide a GUI software for Windows platform.
 - Fix a bug when generating System from array with velocity.
 - Modify repr of System to print entire DataFrame.
 - Fix a bug in pair_distribution class.
 - Fix a bug when loading dump file.
 - Fix a bug in PTM module.
-- Updated README
+- Update polars version to 0.20.0
+- Updated README.
 
 V0.10.0 (November 28, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

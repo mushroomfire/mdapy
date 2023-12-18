@@ -704,7 +704,7 @@ class System:
                     .with_columns(pl.col("type_name").list.join(""))["type_name"]
                     .value_counts()
                 )
-                .sort("counts", descending=True)
+                .sort("count", descending=True)
                 .limit(check_most)
             )
             species = dict(zip(res[:, 0], res[:, 1]))

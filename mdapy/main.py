@@ -131,9 +131,9 @@ def init_global_parameters():
     globals()["lattice_type_default"] = 'FCC'
     globals()["lattice_type_list"] = ['FCC', 'BCC', 'HCP', 'GRA']
     globals()["lattice_constant"] = 4.05
-    globals()["rx"] = 1
-    globals()["ry"] = 1
-    globals()["rz"] = 1
+    globals()["lrx"] = 1
+    globals()["lry"] = 1
+    globals()["lrz"] = 1
     globals()["orientation_x"] = '1, 0, 0'
     globals()["orientation_y"] = '0, 1, 0'
     globals()["orientation_z"] = '0, 0, 1'
@@ -150,6 +150,27 @@ def init_global_parameters():
     globals()["metal_gra_overlap_dis"] = 3.0825
     globals()["gra_overlap_dis"] = 1.2
 
+    globals()["xyz_classical"] = False
+    globals()["xyz_give_type"] = False
+    globals()["xyz_type_list"] = 'Al, Fe'
+
+    globals()["poscar_give_type"] = False
+    globals()["poscar_type_list"] = 'Al, Fe'
+    globals()["reduced_pos"] = False
+    globals()["save_velocity"] = False
+
+
+    globals()["species_element_list"] = 'C, H, O'
+    globals()["identify_mode_default"] = 'check most'
+    globals()["identify_mode"] = ['check most', 'search species']
+    globals()["search_species"] = 'H2O, CO2, H2'
+    globals()["check_most"] = 10
+    globals()["species"] = None
+
+    globals()["cell_length"] = 4.
+    globals()["out_void"] = False
+    globals()["void_number"] = None
+    globals()["void_volume"] = None
 
 
 
@@ -349,24 +370,83 @@ def load_file_gui():
                 loadfile(filename)
         psim.TreePop()
 
+def save_file_POSCAR():
+    global poscar_give_type, poscar_type_list, reduced_pos, save_velocity
+
+    if psim.TreeNode('Save POSCAR'):
+
+        _, poscar_give_type = psim.Checkbox('assign elemetal name', poscar_give_type)
+        if poscar_give_type:
+            _, poscar_type_list = psim.InputText('elemental list', poscar_type_list)
+        
+        _, reduced_pos = psim.Checkbox('reduced pos', reduced_pos)
+        _, save_velocity = psim.Checkbox('save velocity', save_velocity)
+        type_name = None
+        if poscar_give_type:
+            if len(poscar_type_list) > 0:
+                type_name = [i.strip() for i in poscar_type_list.split(',')]
+        
+        if psim.Button('Save'):
+            try:
+                if isinstance(system, System):
+                    Tk().withdraw()
+                    outputname = asksaveasfilename()
+                    if len(outputname) > 0:
+                        ps.info(f"Saving {outputname} ...")
+                        system.write_POSCAR(rf"{outputname}", type_name=type_name, reduced_pos=reduced_pos, save_velocity=save_velocity)
+                        ps.info(f"Save {outputname} successfully.")
+                else:
+                    ps.warning('System not found.')
+            except Exception as e:
+                ps.error(str(e))
+        psim.TreePop()
+
+def save_file_xyz():
+    global system, xyz_classical, xyz_give_type, xyz_type_list
+    if psim.TreeNode("Save XYZ"):
+        
+        _, xyz_give_type = psim.Checkbox('assign elemental name', xyz_give_type)
+        if xyz_give_type:
+            _, xyz_type_list = psim.InputText('elemental list', xyz_type_list)
+        _, xyz_classical = psim.Checkbox("classical", xyz_classical)
+        type_name = None
+        if xyz_give_type:
+            if len(xyz_type_list) > 0:
+                type_name = [i.strip() for i in xyz_type_list.split(',')]
+
+        if psim.Button("Save"):
+            try:
+                if isinstance(system, System):
+                    Tk().withdraw()
+                    outputname = asksaveasfilename()
+                    if len(outputname) > 0:
+                        ps.info(f"Saving {outputname} ...")
+                        system.write_xyz(rf"{outputname}", type_name=type_name, classical=xyz_classical)
+                        ps.info(f"Save {outputname} successfully.")
+                else:
+                    ps.warning('System not found.')
+            except Exception as e:
+                ps.error(str(e))
+        psim.TreePop()
 
 def save_file_dump():
     global dump_compress
     if psim.TreeNode("Save Dump"):
         _, dump_compress = psim.Checkbox("compressed", dump_compress)
-        psim.SameLine()
+
         if psim.Button("Save"):
-            Tk().withdraw()
-            outputname = asksaveasfilename()
             try:
-                if len(outputname) > 0 and isinstance(system, System):
-                    ps.info(f"Saving {outputname} ...")
-                    system.write_dump(rf"{outputname}", compress=dump_compress)
-                    ps.info(f"Save {outputname} successfully.")
+                if isinstance(system, System):
+                    Tk().withdraw()
+                    outputname = asksaveasfilename()
+                    if len(outputname) > 0:
+                        ps.info(f"Saving {outputname} ...")
+                        system.write_dump(rf"{outputname}", compress=dump_compress)
+                        ps.info(f"Save {outputname} successfully.")
                 else:
-                    ps.warning("System not found or outputname not given.")
-            except Exception:
-                ps.error(f"Save {outputname} fail. Change a right outputname.")
+                    ps.warning("System not found.")
+            except Exception as e:
+                ps.error(str(e))
         psim.TreePop()
 
 
@@ -382,19 +462,20 @@ def save_file_data():
                     data_fmt_default = val
             psim.EndCombo()
         psim.PopItemWidth()
-        psim.SameLine()
+
         if psim.Button("Save"):
-            Tk().withdraw()
-            outputname = asksaveasfilename()
             try:
-                if len(outputname) > 0 and isinstance(system, System):
-                    ps.info(f"Saving {outputname} ...")
-                    system.write_data(rf"{outputname}", data_format=data_fmt_default)
-                    ps.info(f"Save {outputname} successfully.")
+                if isinstance(system, System):
+                    Tk().withdraw()
+                    outputname = asksaveasfilename()
+                    if len(outputname) > 0:
+                        ps.info(f"Saving {outputname} ...")
+                        system.write_data(rf"{outputname}", data_format=data_fmt_default)
+                        ps.info(f"Save {outputname} successfully.")
                 else:
-                    ps.warning("System not found or outputname not given.")
-            except Exception:
-                ps.error(f"Save {outputname} fail. Change a right outputname.")
+                    ps.warning("System not found.")
+            except Exception as e:
+                ps.error(str(e))
         psim.TreePop()
 
 
@@ -402,6 +483,8 @@ def save_file_gui():
     if psim.TreeNode("Save file"):
         save_file_dump()
         save_file_data()
+        save_file_xyz()
+        save_file_POSCAR()
         psim.TreePop()
 
 
@@ -508,8 +591,8 @@ def common_neighbor_analysis():
                     system.cal_common_neighbor_analysis(cna_rc, max_neigh=None)
                     rgb = (
                         system.data.select(
-                            rgb=pl.col("cna").map_dict(
-                                {i: j for i, j in enumerate(color)}
+                            rgb=pl.col("cna").replace(
+                                {i: j for i, j in enumerate(color)}, default=None
                             )
                         )["rgb"]
                         .list.to_array(3)
@@ -645,7 +728,6 @@ def radiul_distribution_function():
 
         psim.TreePop()
 
-
 def atomic_entropy():
     global system, atoms, entropy_rc, entropy_sigma, entropy_use_local_density, entropy_compute_average, entropy_average_rc
     if psim.TreeNode("Atomic Entropy"):
@@ -698,7 +780,6 @@ def atomic_entropy():
                 ps.error(str(e))
         psim.TreePop()
 
-
 def ackland_jones_analysis():
     global system, atoms, Other, FCC, HCP, BCC, ICO
     if psim.TreeNode("Ackland Jones Analysis"):
@@ -720,8 +801,8 @@ def ackland_jones_analysis():
                     system.cal_ackland_jones_analysis()
                     rgb = (
                         system.data.select(
-                            rgb=pl.col("aja").map_dict(
-                                {i: j for i, j in enumerate(color)}
+                            rgb=pl.col("aja").replace(
+                                {i: j for i, j in enumerate(color)}, default=None
                             )
                         )["rgb"]
                         .list.to_array(3)
@@ -737,7 +818,6 @@ def ackland_jones_analysis():
             except Exception as e:
                 ps.error(str(e))
         psim.TreePop()
-
 
 def steinhardt_bond_orientation():
     global system, atoms, sbo_neigh_number, sbo_cutoff, sbo_mode
@@ -829,8 +909,8 @@ def steinhardt_bond_orientation():
                     if sbo_solidliquid:
                         rgb = (
                             system.data.select(
-                                rgb=pl.col("solidliquid").map_dict(
-                                    {0: liquid, 1: solid}
+                                rgb=pl.col("solidliquid").replace(
+                                    {0: liquid, 1: solid}, default=None
                                 )
                             )["rgb"]
                             .list.to_array(3)
@@ -847,7 +927,6 @@ def steinhardt_bond_orientation():
                     ps.warning("System not found.")
             except Exception as e:
                 ps.error(str(e))
-
 
 def polyhedral_template_matching():
     global system, atoms, Other, FCC, HCP, BCC, ICO, Simple_Cubic, Cubic_Diamond, Hexagonal_Diamond, Graphene
@@ -945,8 +1024,8 @@ def polyhedral_template_matching():
 
                         rgb = (
                             system.data.select(
-                                rgb=pl.col("structure_types").map_dict(
-                                    {i: j for i, j in enumerate(color)}
+                                rgb=pl.col("structure_types").replace(
+                                    {i: j for i, j in enumerate(color)}, default=None
                                 )
                             )["rgb"]
                             .list.to_array(3)
@@ -981,7 +1060,6 @@ def polyhedral_template_matching():
 
         psim.TreePop()
 
-
 def voronoi_analysis():
     global system, atoms
     if psim.TreeNode("Voronoi Analysis"):
@@ -1014,6 +1092,65 @@ def voronoi_analysis():
                 ps.error(str(e))
         psim.TreePop()
 
+def identify_species():
+    global system, atoms, species_element_list, identify_mode_default, identify_mode, search_species, check_most, species
+
+    if psim.TreeNode('Identify Species'):
+        
+        _, species_element_list = psim.InputText("elemental name", species_element_list)
+        
+        psim.PushItemWidth(100)
+        changed = psim.BeginCombo("identify mode", identify_mode_default)
+        if changed:
+            for val in identify_mode:
+                _, selected = psim.Selectable(val, identify_mode_default == val)
+                if selected:
+                    identify_mode_default = val
+            psim.EndCombo()
+        psim.PopItemWidth()
+
+        if identify_mode_default == 'search species':
+            _, search_species = psim.InputText('target species', search_species)
+        else:
+            _, check_most = psim.InputInt('check most', check_most)
+        
+        if psim.Button('Compute'):
+            try:
+                if isinstance(system, System):
+                    ps.info('Identifing species...')
+                    element_list = [i.strip() for i in species_element_list.split(',')]
+                    if identify_mode_default == 'search species':
+                        search_species_list = [i.strip() for i in search_species.split(',')]
+                        assert len(search_species_list) > 0, "At least give one species."
+                        species = system.cal_species_number(element_list, search_species=search_species_list)
+                    else:
+                        species = system.cal_species_number(element_list, check_most=check_most)
+                    atoms.add_scalar_quantity(
+                        "cluster_id",
+                        system.data["cluster_id"].view(),
+                        cmap="jet",
+                        enabled=True,
+                    )
+                    ps.info('Identify species successfully.')
+                else:
+                    ps.warning('System not found.')
+            except Exception as e:
+                ps.error(str(e))
+        
+        if species is not None:
+            res = ''
+            num = 0
+            for key in species.keys():
+                res+= f"{key}:{species[key]}\n"
+                num += 1
+
+            psim.InputTextMultiline(
+                "",
+                res,
+                (150, num*20)
+            )
+
+        psim.TreePop()
 
 def replicate():
     global system, atoms, rx, ry, rz
@@ -1055,6 +1192,39 @@ def replicate():
                     ps.warning("System not found.")
             except Exception as e:
                 ps.error(str(e))
+        psim.TreePop()
+
+def void_analysis():
+
+    global system, cell_length, out_void, void_number, void_volume
+
+    if psim.TreeNode('Void Analysis'):
+        
+        _, cell_length =  psim.InputFloat('cell length', cell_length)
+        _, out_void = psim.Checkbox('save void distribution', out_void)
+
+        if psim.Button('Compute'):
+            try:
+                if isinstance(system, System):
+                    ps.info('Calculating Void Analysis...')
+                    if out_void:
+                        Tk().withdraw()
+                        outputname = asksaveasfilename()
+                        if len(outputname) > 0:
+                            void_number, void_volume = system.cal_void_distribution(cell_length, out_void=out_void, out_name=outputname)
+                    else:
+                        void_number, void_volume = system.cal_void_distribution(cell_length)
+                    ps.info('Calculate Void Analysis successfully.')
+                else:
+                    ps.warning('System not found.')
+            except Exception as e:
+                ps.error(str(e))
+        
+        if void_number is not None and void_volume is not None:
+            psim.TextUnformatted(
+                f'The void number is: {void_number}.\nThe void volume is: {void_volume} A^3.'
+            )
+        
         psim.TreePop()
 
 def identify_SFs_TBs():
@@ -1122,8 +1292,6 @@ def identify_SFs_TBs():
 
         psim.TreePop()
 
-    
-
 def atomic_temperature():
     global system, atoms, temp_element, temp_rc, temp_unit_default, temp_unit
     if psim.TreeNode("Atomic Temperature"):
@@ -1163,7 +1331,6 @@ def atomic_temperature():
             except Exception as e:
                 ps.error(str(e))
         psim.TreePop()
-
 
 def spatial_binning():
     global spatial_directions, spatial_direction_default, input_values, input_value_default, wbin, operations, operation_default, binning_plot
@@ -1374,7 +1541,7 @@ def build_polycrystal():
         psim.TreePop()
 
 def build_lattice():
-    global lattice_type_default, lattice_type_list, lattice_constant, rx, ry, rz, orientation_x, orientation_y, orientation_z
+    global lattice_type_default, lattice_type_list, lattice_constant, lrx, lry, lrz, orientation_x, orientation_y, orientation_z
     if psim.TreeNode('Build Lattice'):
 
         psim.PushItemWidth(100)
@@ -1394,9 +1561,9 @@ def build_lattice():
             _, orientation_z = psim.InputText('orientation z', orientation_z)
 
         _, lattice_constant = psim.InputFloat('Lattice Constant', lattice_constant)
-        _, rx = psim.InputInt("x", rx)
-        _, ry = psim.InputInt("y", ry)
-        _, rz = psim.InputInt("z", rz)
+        _, lrx = psim.InputInt("x", lrx)
+        _, lry = psim.InputInt("y", lry)
+        _, lrz = psim.InputInt("z", lrz)
 
         if psim.Button('Build'):
             try:
@@ -1408,7 +1575,7 @@ def build_lattice():
                     oz = [int(i.strip()) for i in orientation_z.split(',')]
                     orientation = np.array([ox, oy, oz])
                 lat = LatticeMaker(lattice_constant, lattice_type_default, 
-                                   rx, ry, rz, 
+                                   lrx, lry, lrz, 
                                    crystalline_orientation=orientation)
                 lat.compute()
                 system = System(pos=lat.pos, box=lat.box)
@@ -1441,9 +1608,6 @@ def build_lattice():
                 ps.error(str(e))
         psim.TreePop()
 
-
-
-
 def show_system_info():
     global system
     if isinstance(system, System):
@@ -1454,7 +1618,6 @@ def show_system_info():
         )
     else:
         psim.Text("System not found.")
-
 
 def callback():
     global filename
@@ -1482,8 +1645,10 @@ def callback():
     if psim.TreeNode("Other Analysis"):
         atomic_temperature()
         cluster_analysis()
+        identify_species()
         replicate()
         spatial_binning()
+        void_analysis()
         voronoi_analysis()
         psim.TreePop()
     psim.SetNextItemOpen(True, psim.ImGuiCond_FirstUseEver)
@@ -1496,7 +1661,6 @@ def callback():
         show_system_info()
         psim.TreePop()
     psim.PopItemWidth()
-
 
 def main():
     parser = argparse.ArgumentParser(

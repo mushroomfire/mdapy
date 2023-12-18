@@ -28,6 +28,7 @@ GUI Mode
 -------------
 
 - After installing mdapy, type **mdapy** at CMD can start the GUI mode. Note that this mode only runs on Windows platform now.
+- A standalone version can be found in release page.
 
 .. image:: doc/source/images/GUI.gif
 

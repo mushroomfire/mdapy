@@ -284,7 +284,7 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
-V0.10.1 (Under development)
+V0.10.1 (December 18, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Provide a GUI interface based on the polyscope.

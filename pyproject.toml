@@ -4,7 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mdapy"
-readme = "README.rst"
 description = "A simple, fast and cross-platform python library to handle the data generated from molecular dynamics simulations."
 dependencies = [
     "taichi>=1.7.0",
@@ -26,7 +25,7 @@ classifiers = [
 ]
 requires-python = ">=3.8, <3.12"
 license = { file = "LICENSE" }
-dynamic = ["version"]
+dynamic = ["version", "readme"]
 authors = [
     { name = "mushroomfire aka HerrWu", email = "yongchao_wu@bit.edu.cn" },
 ]

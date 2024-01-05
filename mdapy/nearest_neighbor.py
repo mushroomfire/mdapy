@@ -326,6 +326,7 @@ class NearestNeighbor:
                 self.box,
                 np.array([i for i in self.ncel]),
                 self.bin_length,
+                0
             )
             verlet_list = np.zeros((self.N, K), int)
             distance_list = np.zeros_like(verlet_list, float)
@@ -347,7 +348,7 @@ if __name__ == "__main__":
     import taichi as ti
     from time import time
 
-    from system import System
+    # from system import System
 
     ti.init(ti.cpu)
     # system = System(r"F:/Gra-Al-shear/shear/shear-XY.150000.dump")

@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 __author__ = "mushroomfire aka HerrWu"
-__version__ = "0.10.1"
+__version__ = "0.10.2"
 __license__ = "BSD License"
 
 from .main import main
@@ -47,7 +47,7 @@ def init(
     cpu_max_num_threads=-1,
     offline_cache=False,
     debug=False,
-    device_memory_GB=2.0,
+    device_memory_fraction=0.9,
     kernel_profiler=False,
 ):
     """Initilize the mdapy calculation. One should call this function after import mdapy.
@@ -62,7 +62,7 @@ def init(
 
         debug (bool, optional): whether use debug mode. Defaults to False.
 
-        device_memory_GB (float, optional): available GPU memory. Defaults to 2.0 GB.
+        device_memory_fraction (float, optional): preallocate available GPU memory fraction. Defaults to 90%.
 
         kernel_profiler (bool, optional): whether enable profiler. Defaults to False.
 
@@ -78,6 +78,7 @@ def init(
                 offline_cache=offline_cache,
                 debug=debug,
                 kernel_profiler=kernel_profiler,
+                default_fp=ti.f64
             )
         else:
             ti.init(
@@ -86,14 +87,16 @@ def init(
                 offline_cache=offline_cache,
                 debug=debug,
                 kernel_profiler=kernel_profiler,
+                default_fp=ti.f64
             )
     elif arch == "gpu":
         ti.init(
             arch=ti.gpu,
             offline_cache=offline_cache,
-            device_memory_GB=device_memory_GB,
+            device_memory_fraction=device_memory_fraction,
             debug=debug,
             kernel_profiler=kernel_profiler,
+            default_fp=ti.f64
         )
     else:
         raise ValueError("Unrecognized arch, please choose in ['cpu', 'gpu'].")

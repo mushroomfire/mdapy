@@ -5,23 +5,19 @@ import taichi as ti
 import numpy as np
 
 try:
-    from neigh._neigh import (
-        _build_cell_rec,
-        _build_cell_rec_with_jishu,
-        _build_cell_tri,
-        _build_cell_tri_with_jishu,
-    )
-except Exception:
     from _neigh import (
         _build_cell_rec,
         _build_cell_rec_with_jishu,
         _build_cell_tri,
         _build_cell_tri_with_jishu,
     )
-
-import warnings
-
-warnings.simplefilter("ignore", category=DeprecationWarning)
+except Exception:
+    from neigh._neigh import (
+        _build_cell_rec,
+        _build_cell_rec_with_jishu,
+        _build_cell_tri,
+        _build_cell_tri_with_jishu,
+    )
 
 
 @ti.data_oriented
@@ -65,9 +61,11 @@ class Neighbor:
     """
 
     def __init__(self, pos, box, rc, boundary=[1, 1, 1], max_neigh=None):
+
         if pos.dtype != np.float64:
-            pos = pos.astype(np.float64)
-        self.pos = pos
+            self.pos = pos.astype(np.float64)
+        else:
+            self.pos = pos
         if box.dtype != np.float64:
             box = box.astype(np.float64)
         if box.shape == (3, 2):
@@ -135,7 +133,7 @@ class Neighbor:
     @ti.kernel
     def _build_verlet_list(
         self,
-        pos: ti.types.ndarray(dtype=ti.math.vec3),
+        pos: ti.types.ndarray(element_dim=1),
         atom_cell_list: ti.types.ndarray(),
         cell_id_list: ti.types.ndarray(),
         verlet_list: ti.types.ndarray(),
@@ -148,10 +146,10 @@ class Neighbor:
         for i in range(pos.shape[0]):
             nindex = 0
             icel, jcel, kcel = 0, 0, 0
-            rij = ti.Vector([ti.f64(0.0), ti.f64(0.0), ti.f64(0.0)])
+            rij = ti.Vector([0.0, 0.0, 0.0])
             if ti.static(self.rec):
                 icel, jcel, kcel = ti.floor(
-                    (pos[i] - box[3]) / self.bin_length, dtype=ti.i32
+                    (pos[i] - box[3]) / self.bin_length, dtype=int
                 )
             else:
                 r = pos[i] - box[3]
@@ -161,38 +159,27 @@ class Neighbor:
                 icel = ti.floor((nx * box[0]).norm() / self.bin_length, int)
                 jcel = ti.floor((ny * box[1]).norm() / self.bin_length, int)
                 kcel = ti.floor((nz * box[2]).norm() / self.bin_length, int)
-            iicel, jjcel, kkcel = icel, jcel, kcel  # make sure correct cell
+            # iicel, jjcel, kkcel = icel, jcel, kcel  # make sure correct cell
             if icel < 0:
-                iicel = 0
+                icel = 0
             elif icel > self.ncel[0] - 1:
-                iicel = self.ncel[0] - 1
+                icel = self.ncel[0] - 1
             if jcel < 0:
-                jjcel = 0
+                jcel = 0
             elif jcel > self.ncel[1] - 1:
-                jjcel = self.ncel[1] - 1
+                jcel = self.ncel[1] - 1
             if kcel < 0:
-                kkcel = 0
+                kcel = 0
             elif kcel > self.ncel[2] - 1:
-                kkcel = self.ncel[2] - 1
-            for iiicel in range(iicel - 1, iicel + 2):
-                for jjjcel in range(jjcel - 1, jjcel + 2):
-                    for kkkcel in range(kkcel - 1, kkcel + 2):
-                        iiiicel = iiicel
-                        jjjjcel = jjjcel
-                        kkkkcel = kkkcel
-                        if iiicel < 0:
-                            iiiicel += self.ncel[0]
-                        elif iiicel > self.ncel[0] - 1:
-                            iiiicel -= self.ncel[0]
-                        if jjjcel < 0:
-                            jjjjcel += self.ncel[1]
-                        elif jjjcel > self.ncel[1] - 1:
-                            jjjjcel -= self.ncel[1]
-                        if kkkcel < 0:
-                            kkkkcel += self.ncel[2]
-                        elif kkkcel > self.ncel[2] - 1:
-                            kkkkcel -= self.ncel[2]
-                        j = cell_id_list[iiiicel, jjjjcel, kkkkcel]
+                kcel = self.ncel[2] - 1
+            for iicel in range(icel - 1, icel + 2):
+                for jjcel in range(jcel - 1, jcel + 2):
+                    for kkcel in range(kcel - 1, kcel + 2):
+                        j = cell_id_list[
+                            iicel % self.ncel[0],
+                            jjcel % self.ncel[1],
+                            kkcel % self.ncel[2],
+                        ]
                         while j > -1:
                             if ti.static(self.rec):
                                 rij = self._pbc_rec(pos[j] - pos[i])
@@ -209,12 +196,13 @@ class Neighbor:
     def compute(self):
         """Do the real neighbor calculation."""
         atom_cell_list = np.zeros(self.N, dtype=np.int32)
-        cell_id_list = (
-            np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32)
-        ) - 1
+        cell_id_list = np.full(
+            (self.ncel[0], self.ncel[1], self.ncel[2]), -1, dtype=np.int32
+        )
         need_check = True
         if self.max_neigh is None:
             max_neigh_list = np.zeros_like(cell_id_list)
+            # flag 0 indicate double, in the future we may support single!
             if self.rec:
                 _build_cell_rec_with_jishu(
                     self.pos,
@@ -224,6 +212,7 @@ class Neighbor:
                     np.array([i for i in self.ncel]),
                     self.bin_length,
                     max_neigh_list,
+                    0
                 )
             else:
                 _build_cell_tri_with_jishu(
@@ -234,6 +223,7 @@ class Neighbor:
                     np.array([i for i in self.ncel]),
                     self.bin_length,
                     max_neigh_list,
+                    0
                 )
             self.max_neigh = np.partition(max_neigh_list.flatten(), -4)[-4:].sum()
             need_check = False
@@ -246,7 +236,9 @@ class Neighbor:
                     np.ascontiguousarray(self.box[-1]),
                     np.array([i for i in self.ncel]),
                     self.bin_length,
+                    0
                 )
+
             else:
                 _build_cell_tri(
                     self.pos,
@@ -255,12 +247,15 @@ class Neighbor:
                     self.box,
                     np.array([i for i in self.ncel]),
                     self.bin_length,
+                    0
                 )
-        self.verlet_list = np.zeros((self.N, self.max_neigh), dtype=int) - 1
-        self.distance_list = (
-            np.zeros((self.N, self.max_neigh), dtype=self.pos.dtype) + self.rc + 1.0
+
+        self.verlet_list = np.full((self.N, self.max_neigh), -1, dtype=np.int32)
+        self.distance_list = np.full(
+            (self.N, self.max_neigh), self.rc + 1.0, dtype=self.pos.dtype
         )
-        self.neighbor_number = np.zeros(self.N, dtype=int)
+        self.neighbor_number = np.zeros(self.N, dtype=np.int32)
+
 
         self._build_verlet_list(
             self.pos,
@@ -318,24 +313,32 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    # ti.init(ti.gpu, device_memory_GB=4.0)
-    ti.init(ti.cpu, offline_cache=True)
+    ti.init()
     start = time()
     lattice_constant = 3.615
-    x, y, z = 100, 100, 50
+    x, y, z = 100, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-    start = time()
-
-    neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=43)
-    neigh.compute()
-    # print(neigh.ncel)
-    end = time()
-    print(f"Build neighbor time: {end-start} s.")
-    # print(neigh.verlet_list[0])
-    # print(neigh.distance_list[0])
+    for arch, tarch in zip(["cpu", "gpu"], [ti.cpu, ti.gpu]):
+        ti.init(
+            tarch,
+            offline_cache=True,
+            device_memory_fraction=0.9,
+            default_fp=ti.f64
+        )
+        start = time()
+        neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=43)
+        neigh.compute()
+        end = time()
+        print(
+            f"Arch: {arch}. Build neighbor time: {end-start} s."
+        )
+        print(neigh.verlet_list[0, :5])
+        print(neigh.distance_list[0, :5])
+        print(neigh.verlet_list.shape)
+        # print(neigh.distance_list.dtype)
     # print(neigh.verlet_list.shape[1])
     # print(neigh.neighbor_number.max())
     # print(neigh.neighbor_number.min())

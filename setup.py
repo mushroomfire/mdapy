@@ -30,7 +30,6 @@ except Exception:
 ParallelCompile().install()
 setup(
     name="mdapy",
-    version="0.10.1",
     author="mushroomfire aka HerrWu",
     author_email="yongchao_wu@bit.edu.cn",
     description=description,

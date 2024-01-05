@@ -285,6 +285,10 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
+V0.10.2 (Under development)
+
+- Remarkably optimize the performance of Neighbor class.
+
 V0.10.1 (December 18, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

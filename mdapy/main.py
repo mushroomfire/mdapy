@@ -1728,7 +1728,7 @@ def main():
             filename = rf"{args.filename}"
             if len(filename) > 0:
                 init_file = True
-            ti.init()
+            ti.init(ti.cpu, default_fp=ti.f64)
 
             ps.set_program_name("mdapy")
             ps.set_up_dir("z_up")

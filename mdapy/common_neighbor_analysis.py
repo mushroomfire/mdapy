@@ -306,11 +306,11 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 1, 1, 1
+    x, y, z = 100, 100, 125
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
-    FCC.write_data()
+    # FCC.write_data()
     print(f"Build {FCC.pos.shape[0]} atoms HCP time: {end-start} s.")
     rc = 4.05 * 0.86  # 1.207
     # start = time()

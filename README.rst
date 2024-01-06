@@ -287,7 +287,7 @@ Release Notes
 
 V0.10.2 (Under development)
 
-- Remarkably optimize the performance of Neighbor class.
+- Significantly optimize the performance of Neighbor class.
 
 V0.10.1 (December 18, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

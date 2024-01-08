@@ -317,7 +317,7 @@ class NearestNeighbor:
             )
             atom_cell_list = np.zeros(self.N, dtype=np.int32)
             cell_id_list = (
-                np.zeros((self.ncel[0], self.ncel[1], self.ncel[2]), dtype=np.int32) - 1
+                np.full((self.ncel[0], self.ncel[1], self.ncel[2]), -1, dtype=np.int32)
             )
             _build_cell_tri(
                 self.pos,

@@ -232,7 +232,7 @@ if __name__ == "__main__":
     # print(verlet_list_kdt[0])
 
     start = time()
-    CSP = CentroSymmetryParameter(7, FCC.pos, FCC.box, [1, 1, 1])
+    CSP = CentroSymmetryParameter(8, FCC.pos, FCC.box, [1, 1, 1])
     CSP.compute()
     csp = CSP.csp
     end = time()

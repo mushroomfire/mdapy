@@ -58,6 +58,7 @@ class Visualize:
     def __init__(self, data, box) -> None:
         assert isinstance(data, pl.DataFrame)
         self.data = data
+        self.label = None
         self.init_plot(*self.box2lines(box))
 
     def box2lines(self, box):
@@ -161,6 +162,7 @@ class Visualize:
         )
 
     def atoms_colored_by(self, values, vmin=None, vmax=None, cmap="rainbow"):
+        value_name = values
         if isinstance(values, str):
             assert values in self.data.columns
             if values == "type":
@@ -170,6 +172,9 @@ class Visualize:
                 )
                 self.atoms.color_map = []
                 self.atoms.color_range = []
+                if self.label is not None:
+                    self.plot -= self.label
+                    self.label = None
                 return
             elif values == "structure_types":
                 self.atom_colored_by_structure_type()
@@ -178,6 +183,9 @@ class Visualize:
                 )
                 self.atoms.color_map = []
                 self.atoms.color_range = []
+                if self.label is not None:
+                    self.plot -= self.label
+                    self.label = None
                 return
             else:
                 assert self.data[values].dtype in pl.NUMERIC_DTYPES
@@ -214,4 +222,11 @@ class Visualize:
             self.atoms.color_range = [vmin, vmax]
         else:
             self.atoms.color_range = [vmin - 5, vmin + 5]
+
+        if isinstance(value_name, str):
+            if self.label is None:
+                self.label = k3d.text2d(value_name, position=(0.015, 0.43), size=2, is_html=True, label_box=False, color=0)
+                self.plot += self.label 
+            else:
+                self.label.text = value_name
         self.data = self.data.with_columns(pl.lit(colors).alias("colors"))

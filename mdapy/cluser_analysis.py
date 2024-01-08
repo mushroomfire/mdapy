@@ -187,7 +187,7 @@ class ClusterAnalysis:
             self._filter_verlet(verlet_list, distance_list, neighbor_number)
 
         N = verlet_list.shape[0]
-        self.particleClusters = np.zeros(N, dtype=np.int32) - 1
+        self.particleClusters = np.full(N, -1, dtype=np.int32)
         if isinstance(self.rc, dict):
             self.cluster_number = _cluster_analysis._get_cluster_by_bond(
                 verlet_list, neighbor_number, self.particleClusters

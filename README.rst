@@ -285,10 +285,11 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
-V0.10.2 (January 6, 2024)
+V0.10.2 (January 8, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Significantly optimize the performance of Neighbor class.
+- Add label for colorbar while visualizing in jupyter.
 
 V0.10.1 (December 18, 2023)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

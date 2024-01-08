@@ -8,9 +8,9 @@ version="0.10.2"
 if [ "$(uname)" == "Darwin" ]; then
     source ~/anaconda3/etc/profile.d/conda.sh
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
-    source ~/deepmd-kit/etc/profile.d/conda.sh
+    source ~/miniconda3/etc/profile.d/conda.sh
 elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then    
-    source D:/Anaconda/etc/profile.d/conda.sh
+    source D:/Software/miniconda3/etc/profile.d/conda.sh
 fi
 
 for i in 8 9 10 11

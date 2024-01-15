@@ -491,9 +491,9 @@ class System:
 
         if output_name is None:
             if self.__filename is None:
-                output_name = "output.POSCAR"
+                output_name = "output.cif"
             else:
-                output_name = self.__filename + ".output.POSCAR"
+                output_name = self.__filename + ".output.cif"
         SaveFile.write_cif(output_name, self.__box, self.__data, type_name)
 
     def write_POSCAR(

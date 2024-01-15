@@ -70,7 +70,7 @@ class System:
 
     Args:
         filename (str, optional): DATA/DUMP filename. Defaults to None.
-        fmt (str, optional): selected in ['data', 'lmp', 'dump', 'dump.gz', 'POSCAR', 'xyz'], One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
+        fmt (str, optional): selected in ['data', 'lmp', 'dump', 'dump.gz', 'POSCAR', 'xyz', 'cif'], One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
         data (polars.Dataframe, optional): all particles information. Defaults to None.
         box (np.ndarray, optional): (:math:`4, 3` or :math:`3, 2`) system box. Defaults to None.
         pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
@@ -152,18 +152,11 @@ class System:
                     self.__boundary,
                     self.__timestep,
                 ) = BuildSystem.fromfile(self.__filename, self.__fmt)
-            elif self.__fmt in ["data", "lmp"]:
+            elif self.__fmt in ["data", "lmp", "POSCAR", "xyz", "cif"]:
                 self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
                     self.__filename, self.__fmt
                 )
-            elif self.__fmt == "POSCAR":
-                self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
-                    self.__filename, self.__fmt
-                )
-            elif self.__fmt == "xyz":
-                self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
-                    self.__filename, self.__fmt
-                )
+
         elif (
             isinstance(pos, np.ndarray)
             and isinstance(box, np.ndarray)
@@ -487,6 +480,21 @@ class System:
             timestep=self.__timestep,
             compress=compress,
         )
+
+    def write_cif(self, output_name=None, type_name=None):
+        """This function writes particles information into a cif file.
+
+        Args:
+            output_name (str, optional): output filename. Defaults to None.
+            type_name (list, optional): species name. Such as ['Al', 'Fe'].
+        """
+
+        if output_name is None:
+            if self.__filename is None:
+                output_name = "output.POSCAR"
+            else:
+                output_name = self.__filename + ".output.POSCAR"
+        SaveFile.write_cif(output_name, self.__box, self.__data, type_name)
 
     def write_POSCAR(
         self,

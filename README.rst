@@ -12,7 +12,8 @@ cross-platform, making it accessible to users in **Windows, Linux, and Mac OS**.
 Benefited by the `TaiChi <https://github.com/taichi-dev/taichi>`_ project, 
 we can effectively accelerate the pure python code, bringing it closer to the speed of code written in C++. 
 Furthermore, **mdapy** is highly parallelized, allowing users to leverage the resources of both multicore CPU and GPU. 
-**mdapy** can directly handle the DUMP and DATA formats in `LAMMPS <https://www.lammps.org/>`_, POSCAR format in `VASP <https://www.vasp.at/wiki/index.php/The_VASP_Manual>`_, and universal XYZ format. Besides, all data in **mdapy** is stored in NDARRAY format in `NumPy <https://numpy.org/>`_\ , which enables easy integration 
+**mdapy** can directly handle the DUMP and DATA formats in `LAMMPS <https://www.lammps.org/>`_, POSCAR format in `VASP <https://www.vasp.at/wiki/index.php/The_VASP_Manual>`_, 
+universal XYZ format and CIF format. Besides, all data in **mdapy** is stored in NDARRAY format in `NumPy <https://numpy.org/>`_, which enables easy integration 
 with the scientific ecosystem in python and facilitates collaboration with other post-progressing 
 tools such as `OVITO <https://www.ovito.org/>`_ and `freud <https://github.com/glotzerlab/freud>`_.
 
@@ -284,6 +285,12 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 
 Release Notes
 --------------
+
+V0.10.3 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Fix a bug when save POSCAR with reduced positions.
+- Support read/write simple `Crystallographic Information File cif <https://www.iucr.org/resources/cif/spec/version1.1/cifsyntax>`_ format.
 
 V0.10.2 (January 8, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

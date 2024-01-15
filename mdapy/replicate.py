@@ -173,6 +173,37 @@ class Replicate:
 
         SaveFile.write_xyz(output_name, self.box, data, [1, 1, 1], classical)
 
+    def write_cif(
+        self,
+        output_name=None,
+        type_name=None,
+    ):
+        """This function writes position into a cif file.
+
+        Args:
+            output_name (str, optional): filename of generated cif file.
+            type_name (list, optional): species name. Such as ['Al', 'Fe'].
+        """
+        if not self.if_computed:
+            self.compute()
+
+        if output_name is None:
+            output_name = f"{self.x}-{self.y}-{self.z}.cif"
+
+        if type_name is not None:
+            assert len(type_name) == len(np.unique(self.type_list))
+
+        data = pl.DataFrame(
+            {
+                "type": self.type_list,
+                "x": self.pos[:, 0],
+                "y": self.pos[:, 1],
+                "z": self.pos[:, 2],
+            }
+        )
+
+        SaveFile.write_cif(output_name, self.box, data, type_name)
+
     def write_POSCAR(self, output_name=None, type_name=None, reduced_pos=False):
         """This function writes position into a POSCAR file.
 
@@ -268,7 +299,8 @@ if __name__ == "__main__":
     print(f"replicate {repli.x} {repli.y} {repli.z}...")
     print(repli.box)
     print(repli.type_list)
-    repli.write_xyz(type_name=["Al", "Cu"])
+    # repli.write_xyz(type_name=["Al", "Cu"])
+    repli.write_cif(type_name=["Al", "Cu"])
     # repli.write_data()
     # repli.write_dump()
     # repli.write_dump(compress=True)

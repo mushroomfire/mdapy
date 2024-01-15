@@ -107,6 +107,86 @@ class SaveFile:
                     data.write_csv(op, separator=" ", include_header=False)
 
     @staticmethod
+    def write_cif(output_name, box, data, type_name=None):
+        assert isinstance(output_name, str)
+        assert isinstance(box, np.ndarray)
+        assert box.shape == (3, 2) or box.shape == (4, 3)
+        old_box = box.copy()
+        if box.shape == (3, 2):
+            box = np.zeros((3, 3), dtype=old_box.dtype)
+            box[0, 0], box[1, 1], box[2, 2] = old_box[:, 1] - old_box[:, 0]
+        else:
+            box = old_box[:-1]
+
+        la, lb, lc = np.linalg.norm(box, axis=0)
+        xy, xz, yz = box[1, 0], box[2, 0], box[2, 1]
+        alpha = np.rad2deg(np.arccos((xy * xz + box[1, 1] * yz) / (lb * lc)))
+        beta = np.rad2deg(np.arccos(xz / lc))
+        gamma = np.rad2deg(np.arccos(xy / lb))
+
+        assert isinstance(data, pl.DataFrame)
+        for col in ["type", "x", "y", "z"]:
+            assert col in data.columns, f"data must contain {col}."
+        xlo = max(data["x"].min(), 0.0)
+        ylo = max(data["y"].min(), 0.0)
+        zlo = max(data["z"].min(), 0.0)
+        data = data.sort("type").with_columns(
+            pl.col("x") - xlo,
+            pl.col("y") - ylo,
+            pl.col("z") - zlo,
+        )
+
+        Ntype = data["type"].max()
+        res = data.group_by("type", maintain_order=True).count()
+        res = dict(zip(res[:, 0], res[:, 1]))
+        index = []
+        for i in res.keys():
+            if i <= Ntype:
+                index.append(np.arange(1, res[i] + 1))
+        index = np.concatenate(index)
+        if type_name is not None:
+            assert (
+                len(type_name) >= Ntype
+            ), f"type list should contain more than {Ntype} elements."
+            data = data.with_columns(
+                pl.col("type")
+                .replace(dict(enumerate(type_name, start=1)))
+                .alias("type"),
+                _a=index,
+            ).with_columns((pl.col("type") + pl.col("_a").cast(str)).alias("index"))
+            index = data["index"]
+        else:
+            if "type_name" in data.columns:
+                index = data.with_columns(_a=index).with_columns(
+                    (pl.col("type_name") + pl.col("_a").cast(str)).alias("index")
+                )["index"]
+
+        new_pos = np.dot(np.c_[data["x"], data["y"], data["z"]], np.linalg.pinv(box))
+        data = data.with_columns(
+            pl.lit(new_pos[:, 0]).alias("x"),
+            pl.lit(new_pos[:, 1]).alias("y"),
+            pl.lit(new_pos[:, 2]).alias("z"),
+        ).select("type", index, "x", "y", "z")
+        with open(output_name, "wb") as op:
+            op.write("data_image0\n".encode())
+
+            op.write(f"_cell_length_a {la}\n".encode())
+            op.write(f"_cell_length_b {lb}\n".encode())
+            op.write(f"_cell_length_c {lc}\n".encode())
+            op.write(f"_cell_angle_alpha {alpha}\n".encode())
+            op.write(f"_cell_angle_beta {beta}\n".encode())
+            op.write(f"_cell_angle_gamma {gamma}\n\n".encode())
+
+            op.write("loop_\n".encode())
+            op.write("_atom_site_type_symbol\n".encode())
+            op.write("_atom_site_label\n".encode())
+            op.write("_atom_site_fract_x\n".encode())
+            op.write("_atom_site_fract_y\n".encode())
+            op.write("_atom_site_fract_z\n".encode())
+
+            data.write_csv(op, separator=" ", include_header=False)
+
+    @staticmethod
     def write_POSCAR(
         output_name,
         box,
@@ -131,17 +211,18 @@ class SaveFile:
         for col in ["type", "x", "y", "z"]:
             assert col in data.columns, f"data must contain {col}."
 
-        data = (
-            data.select(pl.all())
-            .sort("type")
-            .with_columns(
-                pl.col("x") - pl.col("x").min(),
-                pl.col("y") - pl.col("y").min(),
-                pl.col("z") - pl.col("z").min(),
-            )
+        xlo = max(data["x"].min(), 0.0)
+        ylo = max(data["y"].min(), 0.0)
+        zlo = max(data["z"].min(), 0.0)
+        data = data.sort("type").with_columns(
+            pl.col("x") - xlo,
+            pl.col("y") - ylo,
+            pl.col("z") - zlo,
         )
         if reduced_pos:
-            new_pos = np.c_[data["x"], data["y"], data["z"]] @ np.linalg.pinv(new_box.T)
+            new_pos = np.dot(
+                np.c_[data["x"], data["y"], data["z"]], np.linalg.pinv(new_box)
+            )
             data = data.with_columns(
                 pl.lit(new_pos[:, 0]).alias("x"),
                 pl.lit(new_pos[:, 1]).alias("y"),
@@ -393,7 +474,7 @@ class BuildSystem:
                 fmt = "dump.gz"
             else:
                 fmt = postfix
-        assert fmt in ["data", "lmp", "dump", "dump.gz", "POSCAR", "xyz"]
+        assert fmt in ["data", "lmp", "dump", "dump.gz", "POSCAR", "xyz", "cif"]
         return fmt
 
     @classmethod
@@ -406,6 +487,8 @@ class BuildSystem:
             return cls.read_POSCAR(filename)
         elif fmt == "xyz":
             return cls.read_xyz(filename)
+        elif fmt == "cif":
+            return cls.read_cif(filename)
 
     @staticmethod
     def fromarray(pos, box, boundary, vel, type_list):
@@ -459,7 +542,7 @@ class BuildSystem:
             new_box[-1] = box[:, 0]
         else:
             new_box = box
-        return data, box, boundary
+        return data, new_box, boundary
 
     @staticmethod
     def read_xyz(filename):
@@ -660,6 +743,94 @@ class BuildSystem:
         return df, box, boundary
 
     @staticmethod
+    def read_cif(filename):
+        with open(filename) as op:
+            file = op.readlines()
+
+        a, b, c, alpha, beta, gamma = None, None, None, None, None, None
+        head = []
+        data = []
+        for line in file:
+            content = line.split()
+            if len(content) > 0:
+                if content[0] == "_cell_length_a":
+                    a = float(content[1])
+                if content[0] == "_cell_length_b":
+                    b = float(content[1])
+                if content[0] == "_cell_length_c":
+                    c = float(content[1])
+                if content[0] == "_cell_angle_alpha":
+                    alpha = np.deg2rad(float(content[1]))
+                if content[0] == "_cell_angle_beta":
+                    beta = np.deg2rad(float(content[1]))
+                if content[0] == "_cell_angle_gamma":
+                    gamma = np.deg2rad(float(content[1]))
+                if content[0].startswith("_atom_site"):
+                    head.append(content[0])
+                if len(content) >= 5 and len(content) == len(head):
+                    data.append(content)
+
+        for i in [a, b, c, alpha, beta, gamma]:
+            assert (
+                i is not None
+            ), "Box information missing. Check file with a, b, c, alpha, beta, gamma."
+
+        lx = a
+        xy = b * np.cos(gamma)
+        xz = c * np.cos(beta)
+        ly = (b**2 - xy**2) ** 0.5
+        yz = (b * c * np.cos(alpha) - xy * xz) / ly
+        lz = (c**2 - xz**2 - yz**2) ** 0.5
+
+        box = np.zeros((4, 3))
+        box[0, 0] = lx
+        box[1, 0] = xy
+        box[1, 1] = ly
+        box[2, 0] = xz
+        box[2, 1] = xy
+        box[2, 2] = lz
+
+        data = pl.from_numpy(np.array(data), schema=head)
+
+        if "_atom_site_fract_x" in head:
+            data = data.with_columns(
+                pl.col("_atom_site_type_symbol").alias("type"),
+                pl.col("_atom_site_fract_x").cast(pl.Float64).alias("x"),
+                pl.col("_atom_site_fract_y").cast(pl.Float64).alias("y"),
+                pl.col("_atom_site_fract_z").cast(pl.Float64).alias("z"),
+            ).select("type", "x", "y", "z")
+        else:
+            data = data.with_columns(
+                pl.col("_atom_site_type_symbol").alias("type"),
+                pl.col("_atom_site_x").cast(pl.Float64).alias("x"),
+                pl.col("_atom_site_y").cast(pl.Float64).alias("y"),
+                pl.col("_atom_site_z").cast(pl.Float64).alias("z"),
+            ).select("type", "x", "y", "z")
+
+        if data["type"][0].isdigit():
+            data = data.with_columns(pl.col("type").cast(int))
+        else:
+            res = data.group_by("type", maintain_order=True).count()["type"]
+            species2type = dict([[j, i] for i, j in enumerate(res, start=1)])
+            data = data.with_columns(pl.col("type").alias("type_name")).with_columns(
+                pl.col("type_name")
+                .replace(species2type, return_dtype=pl.Int64)
+                .alias("type")
+            )
+
+        if "_atom_site_fract_x" in head:
+            new_pos = data.select("x", "y", "z").to_numpy() @ box[:-1]
+            data = data.with_columns(
+                pl.lit(new_pos[:, 0]).alias("x"),
+                pl.lit(new_pos[:, 1]).alias("y"),
+                pl.lit(new_pos[:, 2]).alias("z"),
+            )
+
+        data = data.with_row_count("id", offset=1)
+
+        return data, box, [1, 1, 1]
+
+    @staticmethod
     def read_POSCAR(filename):
         with open(filename) as op:
             file = op.readlines()
@@ -717,7 +888,7 @@ class BuildSystem:
         if file[row][0] in ["C", "c", "K", "k"]:
             pos *= scale
         else:
-            pos = (pos @ np.c_[a, b, c]) * scale
+            pos = (pos @ np.c_[a, b, c].T) * scale
         if need_rotation:
             rotation_M = (
                 rotation / np.inner(box[0], np.cross(box[1], box[2]))
@@ -733,7 +904,7 @@ class BuildSystem:
             vel = np.array([i.split() for i in file[row + 1 : row + 1 + natoms]], float)
             if len(file[row].split()) > 0:
                 if file[row].strip()[0] not in ["C", "c", "K", "k"]:
-                    vel = vel @ np.c_[a, b, c]
+                    vel = vel @ np.c_[a, b, c].T
             if need_rotation:
                 vel = (rotation_M @ vel.T).T
 

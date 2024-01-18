@@ -154,6 +154,9 @@ def init_global_parameters():
     globals()["xyz_give_type"] = False
     globals()["xyz_type_list"] = "Al, Fe"
 
+    globals()["cif_give_type"] = False
+    globals()["cif_type_list"] = "Al, Fe"
+
     globals()["poscar_give_type"] = False
     globals()["poscar_type_list"] = "Al, Fe"
     globals()["reduced_pos"] = False
@@ -360,7 +363,15 @@ def load_file_gui():
                 filetypes=[
                     (
                         "",
-                        ("*.dump", "*.dump.gz", "*.data", "*.lmp", "*.xyz", "*.POSCAR"),
+                        (
+                            "*.dump",
+                            "*.dump.gz",
+                            "*.data",
+                            "*.lmp",
+                            "*.xyz",
+                            "*.POSCAR",
+                            "*.cif",
+                        ),
                     ),
                 ],
             )
@@ -437,6 +448,37 @@ def save_file_xyz():
         psim.TreePop()
 
 
+def save_file_cif():
+    global system, cif_give_type, cif_type_list
+    if psim.TreeNode("Save cif"):
+        _, cif_give_type = psim.Checkbox("assign elemental name", cif_give_type)
+        if cif_give_type:
+            _, cif_type_list = psim.InputText("elemental list", cif_type_list)
+
+        type_name = None
+        if cif_give_type:
+            if len(cif_type_list) > 0:
+                type_name = [i.strip() for i in cif_type_list.split(",")]
+
+        if psim.Button("Save"):
+            try:
+                if isinstance(system, System):
+                    Tk().withdraw()
+                    outputname = asksaveasfilename()
+                    if len(outputname) > 0:
+                        ps.info(f"Saving {outputname} ...")
+                        system.write_cif(
+                            rf"{outputname}",
+                            type_name=type_name,
+                        )
+                        ps.info(f"Save {outputname} successfully.")
+                else:
+                    ps.warning("System not found.")
+            except Exception as e:
+                ps.error(str(e))
+        psim.TreePop()
+
+
 def save_file_dump():
     global dump_compress
     if psim.TreeNode("Save Dump"):
@@ -495,6 +537,7 @@ def save_file_gui():
         save_file_data()
         save_file_xyz()
         save_file_POSCAR()
+        save_file_cif()
         psim.TreePop()
 
 

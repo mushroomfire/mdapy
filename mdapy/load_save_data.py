@@ -790,6 +790,8 @@ class BuildSystem:
         box[2, 1] = xy
         box[2, 2] = lz
 
+        box[np.abs(box) < 1e-6] = 0.0
+
         data = pl.from_numpy(np.array(data), schema=head)
 
         if "_atom_site_fract_x" in head:

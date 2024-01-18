@@ -141,8 +141,8 @@ Main Features
 
 6. I/O
    
-   - `Load Dump, Data, POSCAR, XYZ format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
-   - `Export Dump, Data, POSCAR, XYZ format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
+   - `Load Dump, Data, POSCAR, XYZ, cif format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
+   - `Export Dump, Data, POSCAR, XYZ, cif format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
 
 7. Other 
 

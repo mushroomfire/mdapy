@@ -837,17 +837,20 @@ class BuildSystem:
         with open(filename) as op:
             file = op.readlines()
         scale = float(file[1].strip())
-
+        need_rotation = False
         box = np.array([i.split() for i in file[2:5]], float) * scale
+
         if box[0, 1] != 0 or box[0, 2] != 0 or box[1, 2] != 0:
+            old_box = box.copy()
             ax = np.linalg.norm(box[0])
             bx = box[1] @ (box[0] / ax)
             by = np.sqrt(np.linalg.norm(box[1]) ** 2 - bx**2)
             cx = box[2] @ (box[0] / ax)
             cy = (box[1] @ box[2] - bx * cx) / by
             cz = np.sqrt(np.linalg.norm(box[2]) ** 2 - cx**2 - cy**2)
-            rotation = np.array([[ax, bx, cx], [0, by, cy], [0, 0, cz]])
-            box = rotation.T
+            box = np.array([[ax, bx, cx], [0, by, cy], [0, 0, cz]]).T
+            need_rotation = True
+            rotation = np.linalg.solve(old_box, box)
 
         row = 5
         type_list, type_name_list = [], []
@@ -887,6 +890,8 @@ class BuildSystem:
         pos = np.array(pos, float)
         if file[row][0] in ["C", "c", "K", "k"]:
             pos *= scale
+            if need_rotation:
+                pos = pos @ rotation
         else:
             pos = pos @ box
 
@@ -901,6 +906,9 @@ class BuildSystem:
             if len(file[row].split()) > 0:
                 if file[row].strip()[0] not in ["C", "c", "K", "k"]:
                     vel = vel @ box
+                else:
+                    if need_rotation:
+                        vel = vel @ rotation
 
         data = {}
         data["id"] = np.arange(1, natoms + 1)

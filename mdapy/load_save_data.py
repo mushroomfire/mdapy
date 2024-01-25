@@ -960,6 +960,11 @@ class BuildSystem:
                             float(content[2]),
                         )
                     if content[0] == "Atoms":
+                        line = op.readline()
+                        data_head.append(line)
+                        line = op.readline()
+                        data_head.append(line)
+                        row += 2  # Coordination part
                         break
                 row += 1
         box = np.array(
@@ -972,16 +977,12 @@ class BuildSystem:
         )
         boundary = [1, 1, 1]
 
-        row += 2  # Coordination part
-        if data_head[-1].split()[-1] == "atomic":
+        if data_head[-3].split()[-1] == "atomic":
             col_names = ["id", "type", "x", "y", "z"]
-        elif data_head[-1].split()[-1] == "charge":
+        elif data_head[-3].split()[-1] == "charge":
             col_names = ["id", "type", "q", "x", "y", "z"]
         else:
-            with open(filename) as op:
-                for _ in range(row):
-                    op.readline()
-                line = op.readline()
+            line = data_head[-1]
             if len(line.split()) == 5:
                 col_names = ["id", "type", "x", "y", "z"]
             elif len(line.split()) == 6:
@@ -989,34 +990,60 @@ class BuildSystem:
             else:
                 raise "Unrecgonized data format. Only support atomic and charge."
 
-        data = pl.read_csv(
-            filename,
-            separator=" ",
-            skip_rows=row,
-            n_rows=N,
-            new_columns=col_names,
-            columns=range(len(col_names)),
-            has_header=False,
-            truncate_ragged_lines=True,
-            ignore_errors=True,
-        )
+        multi_space = False
+        if data_head[-1].count(" ") != len(col_names) - 1:
+            multi_space = True
 
-        row += N
-        try:
-            vel = pl.read_csv(
+        if multi_space:
+            with open(filename) as op:
+                file = op.readlines()
+
+            data = np.array([i.split() for i in file[row : row + N]], float)
+            data = pl.from_numpy(data, schema=col_names)
+            data = data.with_columns(
+                pl.col("id").cast(pl.Int64), pl.col("type").cast(pl.Int64)
+            )
+
+            try:
+                row += N
+                assert file[row + 1].split()[0].strip() == "Velocities"
+                vel = np.array(
+                    [i.split()[1:4] for i in file[row + 3 : row + 3 + N]], float
+                )
+                assert vel.shape[0] == data.shape[0]
+                data = data.with_columns(vx=vel[:, 0], vy=vel[:, 1], vz=vel[:, 2])
+
+            except Exception:
+                pass
+        else:
+            data = pl.read_csv(
                 filename,
                 separator=" ",
-                skip_rows=row + 3,
-                new_columns=["vx", "vy", "vz"],
-                columns=range(1, 4),
+                skip_rows=row,
+                n_rows=N,
+                new_columns=col_names,
+                columns=range(len(col_names)),
                 has_header=False,
                 truncate_ragged_lines=True,
                 ignore_errors=True,
             )
-            assert vel.shape[0] == data.shape[0]
-            data = pl.concat([data, vel], how="horizontal")
-        except Exception:
-            pass
+
+            row += N
+            try:
+                vel = pl.read_csv(
+                    filename,
+                    separator=" ",
+                    skip_rows=row + 3,
+                    new_columns=["vx", "vy", "vz"],
+                    columns=range(1, 4),
+                    has_header=False,
+                    truncate_ragged_lines=True,
+                    ignore_errors=True,
+                )
+                assert vel.shape[0] == data.shape[0]
+                data = pl.concat([data, vel], how="horizontal")
+            except Exception:
+                pass
 
         return data, box, boundary
 

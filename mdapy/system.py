@@ -1855,9 +1855,11 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System("./example/ISF.dump")
-    system.cal_identify_SFs_TBs()
-    system.write_dump("test.dump")
+    system = System(r"D:\Study\Gra-Al\init_data\cxy_pca\HNOCl_lmp\HNOCl_lmp\0.lmp")
+    # system = System("example/solidliquid.data")
+    print(system)
+    # system.cal_identify_SFs_TBs()
+    # system.write_dump("test.dump")
     # system = System('E:/Al+SiC/compress/20/2km/shock.10000.dump')
     # system = System(r"E:/VORO_GRAPHENE/GPCu/GRAIN100/relax/GRA-Metal-FCC-100-1.data")
     # system.cal_polyhedral_template_matching(structure="all")

@@ -1118,4 +1118,11 @@ class BuildSystem:
                 infer_schema_length=None,
             )
 
+        if "xs" in data.columns:
+            pos = data.select("xs", "ys", "zs").to_numpy() @ box[:-1]
+
+            data = data.with_columns(x=pos[:, 0], y=pos[:, 1], z=pos[:, 2]).select(
+                pl.all().exclude("xs", "ys", "zs")
+            )
+
         return data, box, boundary, timestep

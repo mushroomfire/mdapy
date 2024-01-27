@@ -1855,7 +1855,7 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System(r"D:\Study\Gra-Al\init_data\cxy_pca\HNOCl_lmp\HNOCl_lmp\0.lmp")
+    system = System(r"C:\Users\herrwu\Desktop\heat.0.dump")
     # system = System("example/solidliquid.data")
     print(system)
     # system.cal_identify_SFs_TBs()

@@ -36,6 +36,7 @@ from .voronoi_analysis import VoronoiAnalysis
 from .warren_cowley_parameter import WarrenCowleyParameter
 from .replicate import Replicate
 from .pigz import compress_file
+from .tool_function import atomic_numbers, vdw_radii, atomic_masses
 
 import os
 
@@ -78,7 +79,7 @@ def init(
                 offline_cache=offline_cache,
                 debug=debug,
                 kernel_profiler=kernel_profiler,
-                default_fp=ti.f64
+                default_fp=ti.f64,
             )
         else:
             ti.init(
@@ -87,7 +88,7 @@ def init(
                 offline_cache=offline_cache,
                 debug=debug,
                 kernel_profiler=kernel_profiler,
-                default_fp=ti.f64
+                default_fp=ti.f64,
             )
     elif arch == "gpu":
         ti.init(
@@ -96,7 +97,7 @@ def init(
             device_memory_fraction=device_memory_fraction,
             debug=debug,
             kernel_profiler=kernel_profiler,
-            default_fp=ti.f64
+            default_fp=ti.f64,
         )
     else:
         raise ValueError("Unrecognized arch, please choose in ['cpu', 'gpu'].")

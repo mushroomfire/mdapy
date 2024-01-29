@@ -528,13 +528,16 @@ class System:
             save_velocity,
         )
 
-    def write_data(self, output_name=None, data_format="atomic", num_type=None):
+    def write_data(
+        self, output_name=None, data_format="atomic", num_type=None, type_name=None
+    ):
         """This function writes particles information into a DATA file.
 
         Args:
             output_name (str, optional): output filename. Defaults to None.
             data_format (str, optional): selected in ['atomic', 'charge']. Defaults to "atomic".
             num_type (int, optional): explictly assign a number of atom type. Defaults to None.
+            type_name (list, optional): explictly assign elemantal name list, such as ['Al', 'C']. Defaults to None.
         """
         if output_name is None:
             if self.__filename is None:
@@ -549,6 +552,7 @@ class System:
             pos=None,
             type_list=None,
             num_type=num_type,
+            type_name=type_name,
             data_format=data_format,
         )
 
@@ -1855,9 +1859,9 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System(r"C:\Users\herrwu\Desktop\heat.0.dump")
-    # system = System("example/solidliquid.data")
-    print(system)
+
+    system = System("example/solidliquid.data")
+    system.write_data("test.data", type_name=["Al", "C", "Fe"])
     # system.cal_identify_SFs_TBs()
     # system.write_dump("test.dump")
     # system = System('E:/Al+SiC/compress/20/2km/shock.10000.dump')

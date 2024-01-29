@@ -232,13 +232,16 @@ class Replicate:
 
         SaveFile.write_POSCAR(output_name, self.box, data, type_name, reduced_pos)
 
-    def write_data(self, output_name=None, data_format="atomic", num_type=None):
+    def write_data(
+        self, output_name=None, data_format="atomic", num_type=None, type_name=None
+    ):
         """This function writes position into a DATA file.
 
         Args:
             output_name (str, optional): filename of generated DATA file.
             data_format (str, optional): data format, selected in ['atomic', 'charge']
             num_type (int, optional): explictly assign a number of atom type. Defaults to None.
+            type_name (list, optional): explictly assign elemantal name list, such as ['Al', 'C']. Defaults to None.
         """
         if not self.if_computed:
             self.compute()
@@ -253,6 +256,7 @@ class Replicate:
             pos=self.pos,
             type_list=self.type_list,
             num_type=num_type,
+            type_name=type_name,
             data_format=data_format,
         )
 
@@ -300,7 +304,7 @@ if __name__ == "__main__":
     print(repli.box)
     print(repli.type_list)
     # repli.write_xyz(type_name=["Al", "Cu"])
-    repli.write_cif(type_name=["Al", "Cu"])
+    repli.write_data(type_name=["Al", "Cu"])
     # repli.write_data()
     # repli.write_dump()
     # repli.write_dump(compress=True)

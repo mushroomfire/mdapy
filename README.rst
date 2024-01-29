@@ -292,6 +292,7 @@ V0.10.3 (Under development)
 - Fix bug when read/write POSCAR with reduced positions.
 - Fix bug when read data file with multi space.
 - Fix bug when read dump with reduced positions.
+- Add support for write data with type name list.
 - Support read/write simple `Crystallographic Information File cif <https://www.iucr.org/resources/cif/spec/version1.1/cifsyntax>`_ format.
 
 V0.10.2 (January 8, 2024)

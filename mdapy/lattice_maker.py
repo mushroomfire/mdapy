@@ -329,7 +329,12 @@ class LatticeMaker:
         SaveFile.write_POSCAR(output_name, self.box, data, type_name, reduced_pos)
 
     def write_data(
-        self, output_name=None, data_format="atomic", type_list=None, num_type=None
+        self,
+        output_name=None,
+        data_format="atomic",
+        type_list=None,
+        num_type=None,
+        type_name=None,
     ):
         """This function writes position into a DATA file.
 
@@ -338,6 +343,7 @@ class LatticeMaker:
             data_format (str, optional): data format, selected in ['atomic', 'charge'].
             type_list (np.ndarray, optional): one can mannually assign the type_list.
             num_type (int, optional): explictly assign a number of atom type. Defaults to None.
+            type_name (list, optional): explictly assign elemantal name list, such as ['Al', 'C']. Defaults to None.
         """
         if not self.if_computed:
             self.compute()
@@ -356,6 +362,7 @@ class LatticeMaker:
             pos=self.pos,
             type_list=type_list,
             num_type=num_type,
+            type_name=type_name,
             data_format=data_format,
         )
 
@@ -397,7 +404,7 @@ if __name__ == "__main__":
     FCC.compute()
     print("Atom number is:", FCC.N)
     # FCC.write_xyz(type_name=["Al", "Cu"])
-    FCC.write_cif(type_name=["Al", "Cu"])
+    FCC.write_data(type_name=["Al", "Cu", "C"])
     # FCC.write_POSCAR(type_name=["Cu", "Fe"], reduced_pos=True)
     # start = time()
     # FCC.write_data()

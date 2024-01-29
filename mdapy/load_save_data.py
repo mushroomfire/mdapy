@@ -9,8 +9,10 @@ from tempfile import mkdtemp
 
 try:
     from .pigz import compress_file
+    from .tool_function import atomic_numbers, atomic_masses
 except Exception:
     from pigz import compress_file
+    from tool_function import atomic_numbers, atomic_masses
 
 
 class SaveFile:
@@ -290,6 +292,7 @@ class SaveFile:
         pos=None,
         type_list=None,
         num_type=None,
+        type_name=None,
         data_format="atomic",
     ):
         assert isinstance(output_name, str)
@@ -335,6 +338,15 @@ class SaveFile:
             assert (
                 num_type >= data["type"].max()
             ), f"num_type should be >= {data['type'].max()}."
+
+        if type_name is not None:
+            assert (
+                len(type_name) >= num_type
+            ), f"type_name should at least contain {num_type} elements."
+            num_type = len(type_name)
+            for i in type_name:
+                assert i in atomic_numbers.keys(), f"Unrecognized element name {i}."
+
         with open(output_name, "wb") as op:
             op.write("# LAMMPS data file written by mdapy.\n\n".encode())
             op.write(f"{data.shape[0]} atoms\n{num_type} atom types\n\n".encode())
@@ -351,6 +363,12 @@ class SaveFile:
             if xy != 0 or xz != 0 or yz != 0:  # Triclinic box
                 op.write(f"{xy} {xz} {yz} xy xz yz\n".encode())
             op.write("\n".encode())
+            if type_name is not None:
+                op.write("Masses\n\n".encode())
+                for i, j in enumerate(type_name, start=1):
+                    op.write(f"{i} {atomic_masses[atomic_numbers[j]]} # {j}\n".encode())
+                op.write("\n".encode())
+
             op.write(rf"Atoms # {data_format}".encode())
             op.write("\n\n".encode())
 

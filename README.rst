@@ -286,7 +286,7 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
-V0.10.3 (Under development)
+V0.10.3 (January 30, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Fix bug when read/write POSCAR with reduced positions.

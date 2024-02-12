@@ -439,7 +439,7 @@ class System:
                 output_name = ".".join(self.__filename.split(".")[:-1]) + ".output.xyz"
         data = self.__data
         if type_name is not None:
-            assert len(type_name) == self.__data["type"].unique().shape[0]
+            assert len(type_name) >= self.__data["type"].max()
 
             type2name = {i + 1: j for i, j in enumerate(type_name)}
 

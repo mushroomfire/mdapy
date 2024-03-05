@@ -248,19 +248,15 @@ Check Installation
 
 
 Trouble Shoot
--------------
+---------------
 
 If you encounter ImportError in Linux: 
 
 .. code-block:: bash
 
-   version 'GLIBCXX_3.4.29' not found. 
+   version 'GLIBCXX_X.X.X' not found. 
 
-You can try: 
-
-.. code-block:: bash
-
-   conda install -c conda-forge gxx_linux-64
+You can install mdapy from source.
 
 
 Citation

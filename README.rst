@@ -258,6 +258,10 @@ If you encounter ImportError in Linux:
 
 You can install mdapy from source.
 
+.. code-block:: bash
+
+   pip install https://github.com/mushroomfire/mdapy/archive/master.zip
+
 
 Citation
 ---------

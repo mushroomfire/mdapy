@@ -262,6 +262,22 @@ You can install mdapy from source.
 
    pip install https://github.com/mushroomfire/mdapy/archive/master.zip
 
+Build the doc
+--------------
+
+If you want to build mannual locally, you can install the dependencies:
+
+.. code-block:: bash
+
+   pip install Sphinx nbsphinx sphinx-rtd-theme
+   conda install pandoc
+
+Then changing to ./doc dir:
+
+.. code-block:: bash
+
+   make html
+
 
 Citation
 ---------

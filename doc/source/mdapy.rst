@@ -116,6 +116,14 @@ mdapy.load\_save\_data module
    :undoc-members:
    :show-inheritance:
 
+mdapy.main module
+-----------------
+
+.. automodule:: mdapy.main
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.mean\_squared\_displacement module
 ----------------------------------------
 
@@ -144,6 +152,14 @@ mdapy.pair\_distribution module
 -------------------------------
 
 .. automodule:: mdapy.pair_distribution
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mdapy.phonon module
+-------------------
+
+.. automodule:: mdapy.phonon
    :members:
    :undoc-members:
    :show-inheritance:
@@ -232,6 +248,14 @@ mdapy.tool\_function module
 ---------------------------
 
 .. automodule:: mdapy.tool_function
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mdapy.visualize module
+----------------------
+
+.. automodule:: mdapy.visualize
    :members:
    :undoc-members:
    :show-inheritance:

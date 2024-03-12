@@ -155,6 +155,7 @@ Main Features
    - `Atomic Voronoi Volume <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.voronoi_analysis>`_
    - `Multi-dimensional Spatial Binning <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.spatial_binning>`_
    - `Parallelly Compress file to .gz format <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.pigz>`_
+   - `Plot phonon dispersion <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.phonon>`_
 
 
 Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)

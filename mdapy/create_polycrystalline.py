@@ -649,6 +649,9 @@ class CreatePolycrystalline:
 
 
 if __name__ == "__main__":
+    import os
+
+    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
     # box = np.array([[0.0, 100], [0.0, 100.0], [0.0, 100.0]])
     # seed = np.random.rand(20, 3) * (box[:, 1] - box[:, 0])
     # boundary = [1, 1, 1]
@@ -675,6 +678,6 @@ if __name__ == "__main__":
     polycry = CreatePolycrystalline(
         box, 10, 2.615, "FCC", 1, add_graphene=True, if_rotation=True
     )
-    polycry.compute(save_dump=True)
+    polycry.compute(save_dump=False)
     print(polycry.data.head())
     print(polycry.box)

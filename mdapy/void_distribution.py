@@ -213,45 +213,46 @@ if __name__ == "__main__":
 
     mp.init()
 
-    ss = mp.System(r"E:\Al+SiC\compress\compress.154000.dump")
+    # ss = mp.System(r"E:\Al+SiC\compress\compress.154000.dump")
 
-    start = time()
-    void = VoidDistribution(ss.pos, ss.box, 4.0, out_void=True)
-    void.compute()
-    end = time()
-    print(f"Calculate void time: {end-start} s.")
-    print(void.void_number, void.void_volume)
+    # start = time()
+    # void = VoidDistribution(ss.pos, ss.box, 4.0, out_void=True)
+    # void.compute()
+    # end = time()
+    # print(f"Calculate void time: {end-start} s.")
+    # print(void.void_number, void.void_volume)
 
     # print(ss.vol, void.void_volume, ss.vol-void.void_volume)
-    # from lattice_maker import LatticeMaker
+    from lattice_maker import LatticeMaker
+
     # from time import time
 
     # # ti.init(ti.gpu, device_memory_GB=5.0)
     # ti.init(ti.cpu)
-    # start = time()
-    # lattice_constant = 4.05
-    # x, y, z = 50, 50, 50
-    # FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
-    # FCC.compute()
-    # end = time()
-    # print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-    # pos = FCC.pos.copy()
+    start = time()
+    lattice_constant = 4.05
+    x, y, z = 50, 50, 50
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    FCC.compute()
+    end = time()
+    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
+    pos = FCC.pos.copy()
 
-    # pos = pos[np.sum(np.square(pos - np.array([50, 50, 50])), axis=1) > 100]
-    # pos = pos[np.sum(np.square(pos - np.array([100, 100, 100])), axis=1) > 100]
-    # pos = pos[np.sum(np.square(pos - np.array([150, 150, 150])), axis=1) > 400]
-    # pos = pos[np.sum(np.square(pos - np.array([50, 150, 50])), axis=1) > 400]
+    pos = pos[np.sum(np.square(pos - np.array([50, 50, 50])), axis=1) > 100]
+    pos = pos[np.sum(np.square(pos - np.array([100, 100, 100])), axis=1) > 100]
+    pos = pos[np.sum(np.square(pos - np.array([150, 150, 150])), axis=1) > 400]
+    pos = pos[np.sum(np.square(pos - np.array([50, 150, 50])), axis=1) > 400]
 
-    # # FCC.pos = pos
-    # # FCC.N = pos.shape[0]
-    # # FCC.write_data()
-    # print("Generate four voids.")
+    # FCC.pos = pos
+    # FCC.N = pos.shape[0]
+    # FCC.write_data()
+    print("Generate four voids.")
 
-    # start = time()
-    # void = VoidDistribution(pos, FCC.box, lattice_constant + 1.0, out_void=True)
-    # void.compute()
-    # end = time()
-    # print("void number is:", void.void_number)
-    # print("void volume is:", void.void_volume)
-    # print("real valume is:", 4 / 3 * np.pi * (2 * 10**3 + 2 * 20**3))
-    # print(f"Calculate void time: {end-start} s.")
+    start = time()
+    void = VoidDistribution(pos, FCC.box, lattice_constant + 1.0, out_void=False)
+    void.compute()
+    end = time()
+    print("void number is:", void.void_number)
+    print("void volume is:", void.void_volume)
+    print("real valume is:", 4 / 3 * np.pi * (2 * 10**3 + 2 * 20**3))
+    print(f"Calculate void time: {end-start} s.")

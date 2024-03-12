@@ -681,9 +681,7 @@ class System:
             res = (
                 self.__data.with_columns(
                     pl.lit(
-                        np.array(element_list)[
-                            (self.__data["type"] - 1).to_numpy(zero_copy_only=True)
-                        ]
+                        np.array(element_list)[(self.__data["type"] - 1).to_numpy()]
                     ).alias("type_name")
                 )
                 .group_by("cluster_id")
@@ -705,9 +703,7 @@ class System:
                 (
                     self.__data.with_columns(
                         pl.lit(
-                            np.array(element_list)[
-                                (self.__data["type"] - 1).to_numpy(zero_copy_only=True)
-                            ]
+                            np.array(element_list)[(self.__data["type"] - 1).to_numpy()]
                         ).alias("type_name")
                     )
                     .group_by("cluster_id")
@@ -779,9 +775,7 @@ class System:
                 self.distance_list,
             )
 
-        atype_list = self.__data["type"].to_numpy(
-            zero_copy_only=True
-        )  # to_numpy().astype(np.int32)
+        atype_list = self.__data["type"].to_numpy()  # to_numpy().astype(np.int32)
 
         assert (
             "vx" in self.__data.columns
@@ -1291,7 +1285,7 @@ class System:
             self.pos,
             self.box,
             self.boundary,
-            self.__data["type"].to_numpy(zero_copy_only=True),
+            self.__data["type"].to_numpy(),
         )
         self.PairDistribution.compute()
 
@@ -1338,7 +1332,7 @@ class System:
             self.pos,
             self.box,
             self.boundary,
-            self.__data["type"].to_numpy(zero_copy_only=True),
+            self.__data["type"].to_numpy(),
         )
         ClusterAnalysi.compute()
         self.__data = self.__data.with_columns(
@@ -1523,7 +1517,7 @@ class System:
             self.boundary,
             self.box,
             elements_list,
-            self.__data["type"].to_numpy(zero_copy_only=True),
+            self.__data["type"].to_numpy(),
             verlet_list,
             distance_list,
             neighbor_number,
@@ -1613,7 +1607,7 @@ class System:
                 )
 
         self.WarrenCowleyParameter = WarrenCowleyParameter(
-            self.__data["type"].to_numpy(zero_copy_only=True),
+            self.__data["type"].to_numpy(),
             verlet_list,
             neighbor_number,
             rc,
@@ -1859,9 +1853,10 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-
-    system = System("example/solidliquid.data")
-    system.write_data("test.data", type_name=["Al", "C", "Fe"])
+    system = System(r"C:\Users\herrwu\Desktop\nve-10 (1).xyz")
+    print(system)
+    # system = System("example/solidliquid.data")
+    # system.write_data("test.data", type_name=["Al", "C", "Fe"])
     # system.cal_identify_SFs_TBs()
     # system.write_dump("test.dump")
     # system = System('E:/Al+SiC/compress/20/2km/shock.10000.dump')
@@ -1891,7 +1886,7 @@ if __name__ == "__main__":
 
     # print(system.data["atomic_temp"].mean())
     # system.write_xyz(type_name=["Mo"])
-
+    # system = System(r"D:\Package\MyPackage\mdapy-tutorial\frame\ap@al.dump")
     # species = system.cal_species_number(
     #     element_list=["H", "C", "N", "O", "F", "Al", "Cl"],
     #     search_species=["H2O", "Cl", "N2", "CO2", "HCl"],

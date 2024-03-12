@@ -399,12 +399,14 @@ if __name__ == "__main__":
 
     # FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
     # crystalline_orientation=np.array([[1, 1, 0], [-1, 1, 1], [1, -1, 2]])
-    FCC = LatticeMaker(3.615, "FCC", 3, 3, 3, type_list=[1, 1, 2, 2])
+    FCC = LatticeMaker(2.8, "HCP", 1, 1, 1)
     # crystalline_orientation=np.array([[1, 1, -2], [1, -1, 0], [1, 1, 1]]),
     FCC.compute()
-    print("Atom number is:", FCC.N)
+    print(FCC.box)
+    print(FCC.pos)
+    # print("Atom number is:", FCC.N)
     # FCC.write_xyz(type_name=["Al", "Cu"])
-    FCC.write_data(type_name=["Al", "Cu", "C"])
+    # FCC.write_data(type_name=["Al", "Cu", "C"])
     # FCC.write_POSCAR(type_name=["Cu", "Fe"], reduced_pos=True)
     # start = time()
     # FCC.write_data()

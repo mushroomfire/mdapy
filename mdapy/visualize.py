@@ -121,9 +121,7 @@ class Visualize:
         )
         self.atoms = k3d.points(
             self.data.select("x", "y", "z").to_numpy().astype(np.float32),
-            colors=np.array(
-                self.data["colors"].to_numpy(zero_copy_only=True), np.uint32
-            ),
+            colors=np.array(self.data["colors"].to_numpy(), np.uint32),
             shader="3d",
             point_size=2.5,
         )
@@ -167,9 +165,7 @@ class Visualize:
             assert values in self.data.columns
             if values == "type":
                 self.atom_colored_by_atom_type()
-                self.atoms.colors = np.array(
-                    self.data["colors"].to_numpy(zero_copy_only=True), np.uint32
-                )
+                self.atoms.colors = np.array(self.data["colors"].to_numpy(), np.uint32)
                 self.atoms.color_map = []
                 self.atoms.color_range = []
                 if self.label is not None:
@@ -178,9 +174,7 @@ class Visualize:
                 return
             elif values == "structure_types":
                 self.atom_colored_by_structure_type()
-                self.atoms.colors = np.array(
-                    self.data["colors"].to_numpy(zero_copy_only=True), np.uint32
-                )
+                self.atoms.colors = np.array(self.data["colors"].to_numpy(), np.uint32)
                 self.atoms.color_map = []
                 self.atoms.color_range = []
                 if self.label is not None:
@@ -189,7 +183,7 @@ class Visualize:
                 return
             else:
                 assert self.data[values].dtype in pl.NUMERIC_DTYPES
-                values = self.data[values].to_numpy(zero_copy_only=True)
+                values = self.data[values].to_numpy()
 
         else:
             assert values.shape[0] == self.data.shape[0]
@@ -225,8 +219,15 @@ class Visualize:
 
         if isinstance(value_name, str):
             if self.label is None:
-                self.label = k3d.text2d(value_name, position=(0.015, 0.43), size=2, is_html=True, label_box=False, color=0)
-                self.plot += self.label 
+                self.label = k3d.text2d(
+                    value_name,
+                    position=(0.015, 0.43),
+                    size=2,
+                    is_html=True,
+                    label_box=False,
+                    color=0,
+                )
+                self.plot += self.label
             else:
                 self.label.text = value_name
         self.data = self.data.with_columns(pl.lit(colors).alias("colors"))

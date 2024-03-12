@@ -232,7 +232,7 @@ if __name__ == "__main__":
     start = time()
     # system.data["type"].values
     wcp = WarrenCowleyParameter(
-        system.data["type"].to_numpy(zero_copy_only=True),
+        system.data["type"].to_numpy(),
         None,
         None,
         3.0,
@@ -245,6 +245,6 @@ if __name__ == "__main__":
     print(f"Cal WCP time: {end-start} s.")
     print("WCP matrix is:")
     print(wcp.WCP)
-    # wcp.plot()
+    wcp.plot()
     # fig, ax = wcp.plot(["Co", "Cu", "Fe", "Ni", "Pd"])
     # fig.savefig('wcp.png', dpi=300, bbox_inches='tight', transparent=True)

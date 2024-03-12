@@ -231,7 +231,7 @@ if __name__ == "__main__":
     import mdapy as mp
 
     ti.init(ti.cpu)
-    system = mp.System(r"F:\Gra-Al-shear\relax\Al-Gra-relax.0.dump")
+    system = mp.System(r"example\CoCuFeNiPd-4M.dump")
 
     start = time()
     # {'1-1':2.5, '1-2':1.6, '2-2':1.5}
@@ -240,7 +240,7 @@ if __name__ == "__main__":
         pos=system.pos,
         box=system.box,
         boundary=system.boundary,
-        type_list=system.data["type"].to_numpy(zero_copy_only=True),
+        type_list=system.data["type"].to_numpy(),
     )
     Cls.compute()
     end = time()

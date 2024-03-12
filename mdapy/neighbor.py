@@ -146,7 +146,7 @@ class Neighbor:
         for i in range(pos.shape[0]):
             nindex = 0
             icel, jcel, kcel = 0, 0, 0
-            rij = ti.Vector([0.0, 0.0, 0.0])
+            rij = ti.Vector([0.0, 0.0, 0.0], ti.f64)
             if ti.static(self.rec):
                 icel, jcel, kcel = ti.floor(
                     (pos[i] - box[3]) / self.bin_length, dtype=int
@@ -212,7 +212,7 @@ class Neighbor:
                     np.array([i for i in self.ncel]),
                     self.bin_length,
                     max_neigh_list,
-                    0
+                    0,
                 )
             else:
                 _build_cell_tri_with_jishu(
@@ -223,7 +223,7 @@ class Neighbor:
                     np.array([i for i in self.ncel]),
                     self.bin_length,
                     max_neigh_list,
-                    0
+                    0,
                 )
             self.max_neigh = np.partition(max_neigh_list.flatten(), -4)[-4:].sum()
             need_check = False
@@ -236,7 +236,7 @@ class Neighbor:
                     np.ascontiguousarray(self.box[-1]),
                     np.array([i for i in self.ncel]),
                     self.bin_length,
-                    0
+                    0,
                 )
 
             else:
@@ -247,7 +247,7 @@ class Neighbor:
                     self.box,
                     np.array([i for i in self.ncel]),
                     self.bin_length,
-                    0
+                    0,
                 )
 
         self.verlet_list = np.full((self.N, self.max_neigh), -1, dtype=np.int32)
@@ -255,7 +255,6 @@ class Neighbor:
             (self.N, self.max_neigh), self.rc + 1.0, dtype=self.pos.dtype
         )
         self.neighbor_number = np.zeros(self.N, dtype=np.int32)
-
 
         self._build_verlet_list(
             self.pos,
@@ -323,18 +322,13 @@ if __name__ == "__main__":
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     for arch, tarch in zip(["cpu", "gpu"], [ti.cpu, ti.gpu]):
         ti.init(
-            tarch,
-            offline_cache=True,
-            device_memory_fraction=0.9,
-            default_fp=ti.f64
+            tarch, offline_cache=True, device_memory_fraction=0.9, default_fp=ti.f64
         )
         start = time()
         neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=43)
         neigh.compute()
         end = time()
-        print(
-            f"Arch: {arch}. Build neighbor time: {end-start} s."
-        )
+        print(f"Arch: {arch}. Build neighbor time: {end-start} s.")
         print(neigh.verlet_list[0, :5])
         print(neigh.distance_list[0, :5])
         print(neigh.verlet_list.shape)

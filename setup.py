@@ -81,9 +81,9 @@ setup(
         "taichi>=1.7.0",
         "numpy",
         "scipy",
-        "polars>=0.20.0",
+        "polars>=0.20.15",
         "matplotlib",
-        "polyscope"
+        "polyscope",
     ],
     extras_require={
         "all": ["k3d", "tqdm", "pyfftw"],

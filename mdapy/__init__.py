@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 __author__ = "mushroomfire aka HerrWu"
-__version__ = "0.10.4"
+__version__ = "0.10.5"
 __license__ = "BSD License"
 
 from .main import main
@@ -27,6 +27,7 @@ from .plotset import pltset, pltset_old, cm2inch, set_figure
 from .polyhedral_template_matching import PolyhedralTemplateMatching
 from .potential import EAM
 from .phonon import Phonon
+from .perturb_model import PerturbModel
 from .spatial_binning import SpatialBinning
 from .steinhardt_bond_orientation import SteinhardtBondOrientation
 from .system import System, MultiSystem

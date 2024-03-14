@@ -303,6 +303,11 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
+V0.10.5 (Under development)
+
+- Add feature for generating initial geometry model with perturbation, which is helpful to prepare the initial database for deep learning. The function is similar to `init_bulk` and `init_surf` in `dpgen <https://github.com/deepmodeling/dpgen>`_.
+- Fix bug when writing cif and POSCAR.
+
 V0.10.4 (March 12, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

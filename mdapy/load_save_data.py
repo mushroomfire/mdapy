@@ -26,9 +26,6 @@ class SaveFile:
             new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
             new_box[-1] = box[:, 0]
         else:
-            assert box[0, 1] == 0
-            assert box[0, 2] == 0
-            assert box[1, 2] == 0
             new_box = box
         assert isinstance(data, pl.DataFrame)
         for col in ["x", "y", "z"]:
@@ -129,14 +126,13 @@ class SaveFile:
         assert isinstance(data, pl.DataFrame)
         for col in ["type", "x", "y", "z"]:
             assert col in data.columns, f"data must contain {col}."
-        xlo = max(data["x"].min(), 0.0)
-        ylo = max(data["y"].min(), 0.0)
-        zlo = max(data["z"].min(), 0.0)
-        data = data.sort("type").with_columns(
-            pl.col("x") - xlo,
-            pl.col("y") - ylo,
-            pl.col("z") - zlo,
-        )
+        data = data.sort("type")
+        if old_box.shape == (4, 3):
+            data = data.with_columns(
+                pl.col("x") - old_box[-1, 0],
+                pl.col("y") - old_box[-1, 1],
+                pl.col("z") - old_box[-1, 2],
+            )
 
         Ntype = data["type"].max()
         res = data.group_by("type", maintain_order=True).count()
@@ -205,22 +201,27 @@ class SaveFile:
             new_box = np.zeros((3, 3), dtype=box.dtype)
             new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
         else:
-            assert box[0, 1] == 0
-            assert box[0, 2] == 0
-            assert box[1, 2] == 0
+
             new_box = box[:-1]
         assert isinstance(data, pl.DataFrame)
         for col in ["type", "x", "y", "z"]:
             assert col in data.columns, f"data must contain {col}."
 
-        xlo = max(data["x"].min(), 0.0)
-        ylo = max(data["y"].min(), 0.0)
-        zlo = max(data["z"].min(), 0.0)
-        data = data.sort("type").with_columns(
-            pl.col("x") - xlo,
-            pl.col("y") - ylo,
-            pl.col("z") - zlo,
-        )
+        # xlo = max(data["x"].min(), 0.0)
+        # ylo = max(data["y"].min(), 0.0)
+        # zlo = max(data["z"].min(), 0.0)
+        # data = data.sort("type").with_columns(
+        #     pl.col("x") - xlo,
+        #     pl.col("y") - ylo,
+        #     pl.col("z") - zlo,
+        # )
+        data = data.sort("type")
+        if box.shape == (4, 3):
+            data = data.with_columns(
+                pl.col("x") - box[-1, 0],
+                pl.col("y") - box[-1, 1],
+                pl.col("z") - box[-1, 2],
+            )
         if reduced_pos:
             new_pos = np.dot(
                 np.c_[data["x"], data["y"], data["z"]], np.linalg.pinv(new_box)

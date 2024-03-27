@@ -18,6 +18,15 @@ else:
     from .neighbor import Neighbor
     from .load_save_data import SaveFile
 
+try:
+    from _neigh import (
+        _build_cell_rec,
+    )
+except Exception:
+    from neigh._neigh import (
+        _build_cell_rec,
+    )
+
 
 class Cell:
     def __init__(
@@ -88,6 +97,106 @@ class Container(list):
                     self.pos[i],
                 )
             )
+
+
+@ti.data_oriented
+class DeleteOverlap:
+
+    def __init__(self, pos, box, rc) -> None:
+        self.pos = pos
+        if box.dtype != np.float64:
+            box = box.astype(np.float64)
+        if box.shape == (3, 2):
+            self.box = np.zeros((4, 3), dtype=box.dtype)
+            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
+            self.box[-1] = box[:, 0]
+        elif box.shape == (4, 3):
+            self.box = box
+        self.rc = rc
+        self.bin_length = rc + 0.1
+        self.ncel = ti.Vector(
+            [
+                max(int(np.floor(np.linalg.norm(box[i]) / self.bin_length)), 3)
+                for i in range(3)
+            ]
+        )
+        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
+
+    @ti.func
+    def _pbc_rec(self, rij):
+        for m in ti.static(range(3)):
+            dx = rij[m]
+            x_size = self.box_length[m]
+            h_x_size = x_size * 0.5
+            if dx > h_x_size:
+                dx = dx - x_size
+            if dx <= -h_x_size:
+                dx = dx + x_size
+            rij[m] = dx
+        return rij
+
+    @ti.kernel
+    def _build_delete_id(
+        self,
+        pos: ti.types.ndarray(element_dim=1),
+        atom_cell_list: ti.types.ndarray(),
+        cell_id_list: ti.types.ndarray(),
+        delete_id: ti.types.ndarray(),
+        box: ti.types.ndarray(element_dim=1),
+    ):
+        rcsq = self.rc * self.rc
+
+        for i in range(pos.shape[0]):
+            icel, jcel, kcel = ti.floor((pos[i] - box[3]) / self.bin_length, dtype=int)
+            if icel < 0:
+                icel = 0
+            elif icel > self.ncel[0] - 1:
+                icel = self.ncel[0] - 1
+            if jcel < 0:
+                jcel = 0
+            elif jcel > self.ncel[1] - 1:
+                jcel = self.ncel[1] - 1
+            if kcel < 0:
+                kcel = 0
+            elif kcel > self.ncel[2] - 1:
+                kcel = self.ncel[2] - 1
+            for iicel in range(icel - 1, icel + 2):
+                for jjcel in range(jcel - 1, jcel + 2):
+                    for kkcel in range(kcel - 1, kcel + 2):
+                        j = cell_id_list[
+                            iicel % self.ncel[0],
+                            jjcel % self.ncel[1],
+                            kkcel % self.ncel[2],
+                        ]
+                        while j > -1:
+                            rij = self._pbc_rec(pos[j] - pos[i])
+                            rijdis_sq = rij[0] ** 2 + rij[1] ** 2 + rij[2] ** 2
+                            if rijdis_sq <= rcsq and j > i:
+                                delete_id[j] = 0
+                            j = atom_cell_list[j]
+
+    def compute(self):
+        atom_cell_list = np.zeros(self.pos.shape[0], dtype=np.int32)
+        cell_id_list = np.full(
+            (self.ncel[0], self.ncel[1], self.ncel[2]), -1, dtype=np.int32
+        )
+        _build_cell_rec(
+            self.pos,
+            atom_cell_list,
+            cell_id_list,
+            np.ascontiguousarray(self.box[-1]),
+            np.array([i for i in self.ncel]),
+            self.bin_length,
+            0,
+        )
+        self.delete_id = np.ones(self.pos.shape[0], int)
+        self._build_delete_id(
+            self.pos,
+            atom_cell_list,
+            cell_id_list,
+            self.delete_id,
+            self.box,
+        )
 
 
 @ti.data_oriented
@@ -164,6 +273,8 @@ class CreatePolycrystalline:
             )
         elif box.shape == (3, 2):
             self._real_box = box
+        else:
+            raise "The box dimesion must be (4, 3) or (3, 2)."
 
         self._lower = self._real_box[:, 0]
         self.box = np.c_[np.zeros(3), self._real_box[:, 1] - self._real_box[:, 0]]
@@ -538,23 +649,6 @@ class CreatePolycrystalline:
                 if n == neighbor_number[i]:
                     delete_id[i] = 0
 
-    @ti.kernel
-    def _find_close_metal(
-        self,
-        pos: ti.types.ndarray(),
-        verlet_list: ti.types.ndarray(),
-        distance_list: ti.types.ndarray(),
-        neighbor_number: ti.types.ndarray(),
-        delete_id: ti.types.ndarray(),
-        metal_overlap_dis: float,
-    ):
-        # find potential overlap atoms for polycrystalline metal
-        for i in range(pos.shape[0]):
-            for j in range(neighbor_number[i]):
-                j_index = verlet_list[i, j]
-                if distance_list[i, j] <= metal_overlap_dis and j_index > i:
-                    delete_id[j_index] = 0
-
     def compute(self, save_dump=True):
         """Do the real polycrystalline structure building."""
         start = time()
@@ -607,24 +701,15 @@ class CreatePolycrystalline:
             new_pos = new_pos[np.bool_(delete_id)]
             new_pos[:, 0] = np.arange(new_pos.shape[0]) + 1
         else:
-            neigh = Neighbor(
+            dele = DeleteOverlap(
                 np.ascontiguousarray(new_pos[:, 2:5]),
                 self.box,
-                rc=self.metal_overlap_dis + 0.1,
-                max_neigh=40,
+                rc=self.metal_overlap_dis,
             )
-            neigh.compute()
-            delete_id = np.ones(new_pos.shape[0], dtype=int)
-            self._find_close_metal(
-                np.ascontiguousarray(new_pos[:, 2:5]),
-                neigh.verlet_list,
-                neigh.distance_list,
-                neigh.neighbor_number,
-                delete_id,
-                self.metal_overlap_dis,
-            )
-            new_pos = new_pos[np.bool_(delete_id)]
+            dele.compute()
+            new_pos = new_pos[np.bool_(dele.delete_id)]
             new_pos[:, 0] = np.arange(new_pos.shape[0]) + 1
+
         print(
             f"Total atom numbers: {len(new_pos)}, average grain size: {ave_grain_volume} A^3"
         )
@@ -652,32 +737,18 @@ if __name__ == "__main__":
     import os
 
     os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-    # box = np.array([[0.0, 100], [0.0, 100.0], [0.0, 100.0]])
-    # seed = np.random.rand(20, 3) * (box[:, 1] - box[:, 0])
-    # boundary = [1, 1, 1]
-    # cntr = Container(seed, box, boundary)
-    # cell = cntr[0]
-    # print("r:", cell.cavity_radius())
-    # print("volume:", cell.volume())
-    # print("face_vertices:", cell.face_vertices())
-    # print("face_areas:", cell.face_areas())
-    # print("vertices:", cell.vertices())
-    # print(cntr[0])
-    # print(len(cntr))
-    # for i in cntr:
-    #     print(i)
-    # print(cntr[0].cavity_radius())
-    # print(cntr[:1])
-    # print(len(cntr))
-    # print(cntr[0].face_vertices())
-    # # print(cntr[0].vertices())
     ti.init(ti.cpu)
-    box = np.array([[-100, 100], [-100, 100], [-100, 100]])
-    # polycry = CreatePolycrystalline(box, 20, 3.615, "FCC")
-    # polycry.compute()
+    # polycry = CreatePolycrystalline(
+    #     np.array([[0, 600.0], [0, 600.0], [0, 4000.0]]), 87, 4.057, "FCC", 1
+    # )
     polycry = CreatePolycrystalline(
-        box, 10, 2.615, "FCC", 1, add_graphene=True, if_rotation=True
+        np.array([[0, 200.0], [0, 200.0], [0, 200.0]]),
+        20,
+        4.057,
+        "FCC",
+        1,
+        add_graphene=False,
     )
-    polycry.compute(save_dump=False)
+    polycry.compute(save_dump=True)
     print(polycry.data.head())
     print(polycry.box)

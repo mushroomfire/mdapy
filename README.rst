@@ -309,6 +309,7 @@ V0.10.5 (Under development)
 - Add feature for converge cp2k output to xyz format for NEP trainning.
 - Fix bug when writing cif and POSCAR.
 - Fix bug for create_polycrystalline when input wrong box, and optimize the performance of deleting overlap atoms.
+- Fix bug when write cif.
 
 
 V0.10.4 (March 12, 2024)

@@ -158,6 +158,7 @@ class SaveFile:
                 index = data.with_columns(_a=index).with_columns(
                     (pl.col("type_name") + pl.col("_a").cast(str)).alias("index")
                 )["index"]
+                data = data.with_columns(type=pl.col("type_name"))
 
         new_pos = np.dot(np.c_[data["x"], data["y"], data["z"]], np.linalg.pinv(box))
         data = data.with_columns(

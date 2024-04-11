@@ -1,5 +1,58 @@
 import taichi as ti
 import numpy as np
+import os
+
+
+def split_xyz(input_file, outputdir, output_file_prefix=None):
+    os.makedirs(outputdir, exist_ok=True)
+    if output_file_prefix is None:
+        output_file_prefix = "".join(input_file.split(".")[:-1])
+
+    with open(input_file, "r") as file:
+        frame = 0
+        while True:
+            line = file.readline()
+            if not line:
+                break
+            print(f"\rSaving frame {frame}", end="")
+            n = int(line.strip())
+            output_file = os.path.join(outputdir, f"{output_file_prefix}.{frame}.xyz")
+            with open(output_file, "w") as out_file:
+                out_file.write(line)
+                for _ in range(n + 1):
+                    out_file.write(file.readline())
+            frame += 1
+
+
+def split_dump(input_file, outputdir, output_file_prefix=None):
+    os.makedirs(outputdir, exist_ok=True)
+    if output_file_prefix is None:
+        output_file_prefix = "".join(input_file.split(".")[:-1])
+
+    with open(input_file, "r") as file:
+        frame = 0
+        while True:
+            output_file = os.path.join(outputdir, f"{output_file_prefix}.{frame}.dump")
+            header = []
+            line = file.readline()
+            if not line:
+                break
+            print(f"\rSaving frame {frame}", end="")
+            with open(output_file, "w") as out_file:
+                out_file.write(line)
+                header.append(line)
+                for _ in range(8):
+                    line = file.readline()
+                    if not line:
+                        return
+                    out_file.write(line)
+                    header.append(line)
+
+            n = int(header[3].strip())
+            with open(output_file, "a") as out_file:
+                for _ in range(n):
+                    out_file.write(file.readline())
+            frame += 1
 
 
 def _check_repeat_nearest(pos, box, boundary):

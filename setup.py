@@ -62,6 +62,12 @@ setup(
             extra_link_args=extra_link_args,
         ),
         Pybind11Extension(
+            "_nep",
+            ["mdapy/nep/_nep.cpp", "thirdparty/nep/nep.cpp"],
+            language="c++",
+            include_dirs=["thirdparty/nep"],
+        ),
+        Pybind11Extension(
             "_rdf",
             ["mdapy/rdf/_rdf.cpp"],
             language="c++",
@@ -81,7 +87,7 @@ setup(
         "taichi>=1.7.0",
         "numpy",
         "scipy",
-        "polars>=0.20.15",
+        "polars>=0.20.19",
         "matplotlib",
         "polyscope",
     ],

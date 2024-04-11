@@ -13,7 +13,16 @@ def timer(function):
         start = datetime.now()
         result = function(*args, **kwargs)
         end = datetime.now()
-        print(f"{function.__name__} finished. Time costs {end-start}.")
+        print(f"\nFunction {function.__name__}() is finished. Time costs {end-start}.")
         return result
 
     return timer
+
+
+if __name__ == "__main__":
+
+    @timer
+    def print_name():
+        print("xixiha")
+
+    print_name()

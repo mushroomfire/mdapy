@@ -20,8 +20,7 @@ try:
     from pair_distribution import PairDistribution
     from polyhedral_template_matching import PolyhedralTemplateMatching
     from cluser_analysis import ClusterAnalysis
-    from potential import EAM
-    from calculator import Calculator
+    from potential import EAM, NEP
     from void_distribution import VoidDistribution
     from warren_cowley_parameter import WarrenCowleyParameter
     from voronoi_analysis import VoronoiAnalysis
@@ -46,8 +45,7 @@ except Exception:
     from .pair_distribution import PairDistribution
     from .polyhedral_template_matching import PolyhedralTemplateMatching
     from .cluser_analysis import ClusterAnalysis
-    from .potential import EAM
-    from .calculator import Calculator
+    from .potential import EAM, NEP
     from .void_distribution import VoidDistribution
     from .warren_cowley_parameter import WarrenCowleyParameter
     from .voronoi_analysis import VoronoiAnalysis
@@ -1483,13 +1481,16 @@ class System:
             pl.lit(CommonNeighborPar.cnp).alias("cnp")
         )
 
-    def cal_energy_force(self, filename, elements_list, max_neigh=None):
-        """Calculate the atomic energy and force based on the given embedded atom method
-        EAM potential. Multi-elements alloy is also supported.
+    def cal_energy_force(
+        self, filename, elements_list, pair_style="eam/alloy", max_neigh=None
+    ):
+        """Calculate the atomic energy and force based on the given potential.
+        From the version of 0.10.5, we support `NEP potential <https://gpumd.org/potentials/nep.html>`_.
 
         Args:
-            filename (str): filename of eam.alloy potential file.
+            filename (str): filename of potential file.
             elements_list (list): elements to be calculated, such as ['Al', 'Al', 'Ni'] indicates setting type 1 and 2 as 'Al' and type 3 as 'Ni'.
+            pair_style (str): support eam/alloy and nep potential style.
             max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 120.
 
         Outputs:
@@ -1497,38 +1498,49 @@ class System:
             - **The force per atom is added in self.data[["afx", "afy", "afz"]]**.
         """
 
-        potential = EAM(filename)
-        repeat = _check_repeat_cutoff(self.box, self.boundary, potential.rc, 5)
-        verlet_list, distance_list, neighbor_number = None, None, None
-        if sum(repeat) == 3:
-            if not self.if_neigh:
-                self.build_neighbor(rc=potential.rc, max_neigh=max_neigh)
-            if self.rc < potential.rc:
-                self.build_neighbor(rc=potential.rc, max_neigh=max_neigh)
-            verlet_list, distance_list, neighbor_number = (
-                self.verlet_list,
-                self.distance_list,
-                self.neighbor_number,
+        if pair_style == "eam/alloy":
+            potential = EAM(filename)
+            repeat = _check_repeat_cutoff(self.box, self.boundary, potential.rc, 5)
+            verlet_list, distance_list, neighbor_number = None, None, None
+            if sum(repeat) == 3:
+                if not self.if_neigh:
+                    self.build_neighbor(rc=potential.rc, max_neigh=max_neigh)
+                if self.rc < potential.rc:
+                    self.build_neighbor(rc=potential.rc, max_neigh=max_neigh)
+                verlet_list, distance_list, neighbor_number = (
+                    self.verlet_list,
+                    self.distance_list,
+                    self.neighbor_number,
+                )
+
+            energy, force = potential.compute(
+                self.pos,
+                self.box,
+                elements_list,
+                self.__data["type"].to_numpy(),
+                self.boundary,
+                verlet_list,
+                distance_list,
+                neighbor_number,
             )
 
-        Cal = Calculator(
-            potential,
-            self.pos,
-            self.boundary,
-            self.box,
-            elements_list,
-            self.__data["type"].to_numpy(),
-            verlet_list,
-            distance_list,
-            neighbor_number,
-        )
-        Cal.compute()
+        elif pair_style == "nep":
+            potential = NEP(filename)
+            energy, force, _ = potential.compute(
+                self.pos,
+                self.box,
+                elements_list,
+                self.__data["type"].to_numpy(),
+                self.boundary,
+            )
+        else:
+            raise "pair_style must in ['eam/alloy', 'nep']."
 
         self.__data = self.__data.with_columns(
-            pl.lit(Cal.energy).alias("pe"),
-            pl.lit(Cal.force[:, 0]).alias("afx"),
-            pl.lit(Cal.force[:, 1]).alias("afy"),
-            pl.lit(Cal.force[:, 2]).alias("afz"),
+            pl.lit(energy).alias("pe"),
+            pl.lit(force[:, 0]).alias("afx"),
+            pl.lit(force[:, 1]).alias("afy"),
+            pl.lit(force[:, 2]).alias("afz"),
         )
 
     def cal_void_distribution(self, cell_length, out_void=False, out_name="void.dump"):

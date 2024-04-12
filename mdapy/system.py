@@ -1,3 +1,6 @@
+# Copyright (c) 2022-2024, mushroomfire in Beijing Institute of Technology
+# This file is from the mdapy project, released under the BSD 3-Clause License.
+
 import polars as pl
 import numpy as np
 import taichi as ti

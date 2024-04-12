@@ -1,4 +1,4 @@
-// Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
+// Copyright (c) 2022-2024, mushroomfire in Beijing Institute of Technology
 // This file is from the mdapy project, released under the BSD 3-Clause License.
 // Part of code is inspired by the PyNEP project (https://github.com/bigd4/PyNEP).
 #include "nep.h"

@@ -1,4 +1,4 @@
-# Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
+# Copyright (c) 2022-2024, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import taichi as ti
@@ -16,7 +16,6 @@ except Exception:
 
 @ti.data_oriented
 class AtomicTemperature:
-
     """This class is used to calculated an average thermal temperature per atom, wchich is useful at shock
     simulations. The temperature of atom :math:`i` is given by:
 

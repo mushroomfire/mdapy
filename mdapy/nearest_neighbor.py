@@ -1,4 +1,4 @@
-# Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
+# Copyright (c) 2022-2024, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
@@ -87,9 +87,11 @@ class kdtree:
     def _init(self):
         boxsize = np.array(
             [
-                self.box[i][1] - self.box[i][0]
-                if self.boundary[i] == 1
-                else self.box[i][1] - self.box[i][0] + 50.0
+                (
+                    self.box[i][1] - self.box[i][0]
+                    if self.boundary[i] == 1
+                    else self.box[i][1] - self.box[i][0] + 50.0
+                )
                 for i in range(3)
             ]
         )
@@ -316,8 +318,8 @@ class NearestNeighbor:
                 ]
             )
             atom_cell_list = np.zeros(self.N, dtype=np.int32)
-            cell_id_list = (
-                np.full((self.ncel[0], self.ncel[1], self.ncel[2]), -1, dtype=np.int32)
+            cell_id_list = np.full(
+                (self.ncel[0], self.ncel[1], self.ncel[2]), -1, dtype=np.int32
             )
             _build_cell_tri(
                 self.pos,
@@ -326,7 +328,7 @@ class NearestNeighbor:
                 self.box,
                 np.array([i for i in self.ncel]),
                 self.bin_length,
-                0
+                0,
             )
             verlet_list = np.zeros((self.N, K), int)
             distance_list = np.zeros_like(verlet_list, float)

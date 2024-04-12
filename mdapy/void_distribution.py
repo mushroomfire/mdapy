@@ -1,4 +1,4 @@
-# Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
+# Copyright (c) 2022-2024, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import taichi as ti
@@ -6,11 +6,9 @@ import numpy as np
 import polars as pl
 
 try:
-    from neighbor import Neighbor
     from cluser_analysis import ClusterAnalysis
     from load_save_data import SaveFile
 except Exception:
-    from .neighbor import Neighbor
     from .cluser_analysis import ClusterAnalysis
     from .load_save_data import SaveFile
 

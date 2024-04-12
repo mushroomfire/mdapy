@@ -1,4 +1,4 @@
-# Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
+# Copyright (c) 2022-2024, mushroomfire in Beijing Institute of Technology
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np
@@ -7,7 +7,6 @@ import datetime
 
 
 class EAMGenerate:
-
     """This class is used to create EAM potential including one or more elements.
     This is the python version translated from the `fortran version by Zhou et. al <https://www.ctcms.nist.gov/potentials/entry/2004--Zhou-X-W-Johnson-R-A-Wadley-H-N-G--W/>`_.
 

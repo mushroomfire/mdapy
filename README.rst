@@ -307,6 +307,7 @@ Release Notes
 --------------
 
 V0.10.5 (April 12, 2024)
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Refactor the code structure. Delete calculator file. Remove timer into tool_function file.
 - Support `NEP <https://gpumd.org/potentials/nep.html>`_ model to evaluate the energy, force and virial.

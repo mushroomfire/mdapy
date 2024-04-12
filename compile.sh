@@ -28,7 +28,7 @@ do
         # python -m build --no-isolation This has bugs in Mac OS.
     elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then   
         echo "GNU/Linux"
-        python -m build --no-isolation
+        python setup.py bdist_wheel
         pip install auditwheel
         name="dist/mdapy-${version}-cp3${i}-cp3${i}-linux_x86_64.whl"
         auditwheel repair ${name} --plat=manylinux_2_35_x86_64
@@ -38,7 +38,7 @@ do
 
     elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then    
         echo "Windows NT"
-        python -m build --no-isolation
+        python setup.py bdist_wheel
         pip install delvewheel
         name="dist/mdapy-${version}-cp3${i}-cp3${i}-win_amd64.whl"
         delvewheel repair ${name}

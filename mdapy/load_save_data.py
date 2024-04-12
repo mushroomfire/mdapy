@@ -711,7 +711,7 @@ class BuildSystem:
                     .replace(type_name2type, default=None)
                     .alias("type")
                 )
-            df = df.with_row_count("id", offset=1)
+            df = df.with_row_index("id", offset=1)
             coor = df.select("x", "y", "z")
             box = np.r_[
                 np.eye(3) * (coor.max() - coor.min()).to_numpy(), coor.min().to_numpy()
@@ -743,7 +743,7 @@ class BuildSystem:
             if "Origin=" not in info:
                 box = np.r_[box, df.select("x", "y", "z").min().to_numpy()]
             if "id" not in df.columns:
-                df = df.with_row_count("id", offset=1)
+                df = df.with_row_index("id", offset=1)
             if "type" not in df.columns:
                 if "type_name" in df.columns:
                     if df["type_name"][0].isdigit():
@@ -848,7 +848,7 @@ class BuildSystem:
                 pl.lit(new_pos[:, 2]).alias("z"),
             )
 
-        data = data.with_row_count("id", offset=1)
+        data = data.with_row_index("id", offset=1)
 
         return data, box, [1, 1, 1]
 

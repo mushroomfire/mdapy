@@ -121,8 +121,8 @@ Main Features
    - `Generate EAM/alloy Potential <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.eam_generate>`_
    - `Read EAM/alloy Potential <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.potential>`_
    - `Average EAM/alloy Potential <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.eam_average>`_
-   - `Calculate Atomic Force and Energy by EAM/alloy <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.potential.EAM>`_
-   - `Calculate Atomic Force and Energy by NEP <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.potential.NEP>`_
+   - `Calculate Atomic Force and Energy by EAM/alloy <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.potential.EAM>`_
+   - `Calculate Atomic Force and Energy by NEP <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.potential.NEP>`_
 
 3. Melting Analysis 
 
@@ -158,7 +158,7 @@ Main Features
    - `Parallelly Compress file to .gz format <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.pigz>`_
    - `Plot phonon dispersion <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.phonon>`_
    - `Generate perturbation models <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.perturb_model>`_
-   - `Split xyz/dump trajectories into seperate xyz/dump files <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.tool_function.split_dump>`_
+   - `Split xyz/dump trajectories into seperate xyz/dump files <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.tool_function.split_dump>`_
 
 
 Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)

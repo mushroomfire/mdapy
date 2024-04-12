@@ -32,8 +32,7 @@ from .spatial_binning import SpatialBinning
 from .steinhardt_bond_orientation import SteinhardtBondOrientation
 from .system import System, MultiSystem
 from .temperature import AtomicTemperature
-from .timer import timer
-from .tool_function import split_dump, split_xyz
+from .tool_function import split_dump, split_xyz, timer
 from .void_distribution import VoidDistribution
 from .voronoi_analysis import VoronoiAnalysis
 from .warren_cowley_parameter import WarrenCowleyParameter

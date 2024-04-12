@@ -9,6 +9,9 @@
 /dist/
 /mdapy/cluster/*.py*
 /mdapy/cluster/*.so
+/mdapy/nep/*.py*
+/mdapy/nep/*.so
+/mdapy/nep/*.pyd
 /mdapy/polygon/*.py*
 /mdapy/polygon/*.sh
 /mdapy/polygon/*.so

@@ -1,6 +1,27 @@
+# Copyright (c) 2022, mushroomfire in Beijing Institute of Technology
+# This file is from the mdapy project, released under the BSD 3-Clause License.
+
+# This file includes some simple and useful function, part of them will be exposed to users.
+
 import taichi as ti
 import numpy as np
 import os
+from datetime import datetime
+from functools import wraps
+
+
+def timer(function):
+    """Decorators function for timing."""
+
+    @wraps(function)
+    def timer(*args, **kwargs):
+        start = datetime.now()
+        result = function(*args, **kwargs)
+        end = datetime.now()
+        print(f"\nFunction {function.__name__}() is finished. Time costs {end-start}.")
+        return result
+
+    return timer
 
 
 def split_xyz(input_file, outputdir, output_file_prefix=None):

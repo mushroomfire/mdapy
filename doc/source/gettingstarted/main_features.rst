@@ -18,7 +18,8 @@ Main Features
    - `Generate EAM/alloy Potential <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.eam_generate>`_
    - `Read EAM/alloy Potential <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.potential>`_
    - `Average EAM/alloy Potential <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.eam_average>`_
-   - `Calculate Atomic Force and Energy by EAM/alloy <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.calculator>`_
+   - `Calculate Atomic Force and Energy by EAM/alloy <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.potential.EAM>`_
+   - `Calculate Atomic Force and Energy by NEP <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.potential.NEP>`_
 
 3. Melting Analysis 
 
@@ -38,8 +39,8 @@ Main Features
 
 6. I/O
    
-   - `Load Dump, Data, POSCAR, XYZ format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
-   - `Export Dump, Data, POSCAR, XYZ format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
+   - `Load Dump, Data, POSCAR, XYZ, cif format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
+   - `Export Dump, Data, POSCAR, XYZ, cif format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
 
 7. Other 
 
@@ -53,3 +54,5 @@ Main Features
    - `Multi-dimensional Spatial Binning <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.spatial_binning>`_
    - `Parallelly Compress file to .gz format <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.pigz>`_
    - `Plot phonon dispersion <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.phonon>`_
+   - `Generate perturbation models <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.perturb_model>`_
+   - `Split xyz/dump trajectories into seperate xyz/dump files <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.tool_function.split_dump>`_

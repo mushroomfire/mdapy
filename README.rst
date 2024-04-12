@@ -158,6 +158,7 @@ Main Features
    - `Parallelly Compress file to .gz format <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.pigz>`_
    - `Plot phonon dispersion <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.phonon>`_
    - `Generate perturbation models <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.perturb_model>`_
+   - `Extract DFT data to XYZ format for NEP training <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.dft2nepxyz>`_
    - `Split xyz/dump trajectories into seperate xyz/dump files <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.tool_function.split_dump>`_
 
 

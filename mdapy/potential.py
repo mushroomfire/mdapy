@@ -17,7 +17,7 @@ except Exception:
     from .tool_function import _check_repeat_cutoff
     from .replicate import Replicate
     from .neighbor import Neighbor
-    from .nep._nep import NepCalculator
+    from _nep import NepCalculator
 
 
 @ti.data_oriented

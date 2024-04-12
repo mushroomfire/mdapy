@@ -11,12 +11,14 @@ class LabeledSystem:
     """This class is used to read first principle calculation data, obataining the energy, force, box and virial information.
     Those information can be saved as initial database for deep learning training, aiming to develop high accurancy potential
     function.
+
     The units are listed as below:
+
     - energy : eV (per-cell)
-    - force : eV/:math:`\AA` (per-atom)
+    - force : eV/Å (per-atom)
     - virial : eV (per-cell)
-    - pos : :math:`\AA` (per-atom)
-    - box : :math:`\AA`
+    - pos : Å (per-atom)
+    - box : Å
     Now we only support SCF calculation in CP2K. In the future the AIMD and VASP may also be implemented.
 
     Args:

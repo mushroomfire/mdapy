@@ -12,14 +12,6 @@ mdapy.ackland\_jones\_analysis module
    :undoc-members:
    :show-inheritance:
 
-mdapy.calculator module
------------------------
-
-.. automodule:: mdapy.calculator
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 mdapy.centro\_symmetry\_parameter module
 ----------------------------------------
 
@@ -56,6 +48,14 @@ mdapy.create\_polycrystalline module
 ------------------------------------
 
 .. automodule:: mdapy.create_polycrystalline
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mdapy.dft2nepxyz module
+-----------------------
+
+.. automodule:: mdapy.dft2nepxyz
    :members:
    :undoc-members:
    :show-inheritance:
@@ -156,6 +156,14 @@ mdapy.pair\_distribution module
    :undoc-members:
    :show-inheritance:
 
+mdapy.perturb\_model module
+---------------------------
+
+.. automodule:: mdapy.perturb_model
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.phonon module
 -------------------
 
@@ -232,14 +240,6 @@ mdapy.temperature module
 ------------------------
 
 .. automodule:: mdapy.temperature
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mdapy.timer module
-------------------
-
-.. automodule:: mdapy.timer
    :members:
    :undoc-members:
    :show-inheritance:

@@ -57,7 +57,7 @@ class EAMCalculator:
 
         >>> neigh.compute() # Calculate particle neighbor information.
 
-        >>> Cal = mp.Calculator(
+        >>> Cal = EAMCalculator(
                 potential,
                 FCC.pos,
                 [1, 1, 1],

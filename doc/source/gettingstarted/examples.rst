@@ -75,24 +75,6 @@ Examples
     from mdapy import pltset, cm2inch
     mp.init('cpu')
 
-    def get_enegy_lattice(potential, pos, box):
-        
-        neigh = mp.Neighbor(pos, box, potential.rc, max_neigh=150) # build neighbor list
-        neigh.compute()
-        Cal = mp.Calculator(
-            potential,
-            pos,
-            [1, 1, 1],
-            box,
-            ["Al"],
-            np.ones(pos.shape[0], dtype=np.int32),
-            neigh.verlet_list,
-            neigh.distance_list,
-            neigh.neighbor_number,
-            ) # calculate the energy
-        Cal.compute()
-        return Cal.energy.mean()
-
     eos = []
     lattice_constant = 4.05
     x, y, z = 3, 3, 3
@@ -100,8 +82,8 @@ Examples
     FCC.compute()
     potential = mp.EAM("Al_DFT.eam.alloy") # read a eam.alloy potential file
     for scale in np.arange(0.9, 1.15, 0.01): # loop to get different energies
-        energy = get_enegy_lattice(potential, FCC.pos*scale, FCC.box*scale)
-        eos.append([scale*lattice_constant, energy])
+        energy, _ = potential.compute(FCC.pos*scale, FCC.box*scale, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32))
+        eos.append([scale*lattice_constant, energy.mean()])
     eos = np.array(eos)
 
     # plot the eos results
@@ -120,7 +102,7 @@ Examples
     plt.savefig('eos.png', dpi=300, bbox_inches='tight', transparent=True)
     plt.show()
 
-6. Collaborative use with Ovito
+1. Collaborative use with Ovito
 --------------------------------
 
 This function can run in script environment of Ovito.

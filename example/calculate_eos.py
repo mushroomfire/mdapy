@@ -20,22 +20,18 @@ mp.init("cpu")
 
 eos = []
 lattice_constant = 4.05
-x, y, z = 1, 1, 1
+x, y, z = 3, 3, 3
 FCC = mp.LatticeMaker(lattice_constant, "FCC", x, y, z)  # build a FCC lattice
 FCC.compute()
 potential = mp.EAM("Al_DFT.eam.alloy")  # read a eam.alloy potential file
 for scale in np.arange(0.9, 1.15, 0.01):  # loop to get different energies
-    Cal = mp.Calculator(
-        potential,
+    energy, _ = potential.compute(
         FCC.pos * scale,
-        [1, 1, 1],
         FCC.box * scale,
         ["Al"],
-        np.ones(FCC.N, dtype=np.int32),
-    )  # calculate the energy
-    Cal.compute()
-    energy = Cal.energy.mean()
-    eos.append([scale * lattice_constant, energy])
+        np.ones(FCC.pos.shape[0], dtype=np.int32),
+    )
+    eos.append([scale * lattice_constant, energy.mean()])
 eos = np.array(eos)
 
 # plot the eos results

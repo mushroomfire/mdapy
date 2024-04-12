@@ -19,10 +19,10 @@ struct Atom {
   std::vector<double> box, position, potential, force, virial, descriptor;
 };
 
-class NepCalculator
+class NEPCalculator
 {
   public:
-    NepCalculator(std::string);
+    NEPCalculator(std::string);
     void setAtoms(py::array, py::array, py::array);
     std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> calculate(py::array, py::array, py::array);
     py::dict info;
@@ -36,7 +36,7 @@ class NepCalculator
     bool HAS_SETATOMS=false;
 };
 
-NepCalculator::NepCalculator(std::string _model_file)
+NEPCalculator::NEPCalculator(std::string _model_file)
 {
   model_file = _model_file;
   calc = NEP3(model_file);
@@ -54,7 +54,7 @@ NepCalculator::NepCalculator(std::string _model_file)
   info["element_list"] = calc.element_list;
 }
 
-void NepCalculator::setAtoms(
+void NEPCalculator::setAtoms(
   py::array _type,
   py::array _box,
   py::array _position)
@@ -84,7 +84,7 @@ void NepCalculator::setAtoms(
   HAS_SETATOMS = true;
 }
 
-std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> NepCalculator::calculate(
+std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> NEPCalculator::calculate(
   py::array _type,
   py::array _box,
   py::array _position
@@ -100,7 +100,7 @@ std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> NepCal
   return std::make_tuple(atom.potential, atom.force, atom.virial);
 }
 
-std::vector<double> NepCalculator::get_descriptors(
+std::vector<double> NEPCalculator::get_descriptors(
   py::array _type,
   py::array _box,
   py::array _position
@@ -115,10 +115,10 @@ std::vector<double> NepCalculator::get_descriptors(
 
 PYBIND11_MODULE(_nep, m){
     m.doc() = "nep";
-    py::class_<NepCalculator>(m, "NepCalculator")
+    py::class_<NEPCalculator>(m, "NEPCalculator")
 		.def(py::init<std::string>())
-    .def_readonly("info", &NepCalculator::info)
-		.def("calculate", &NepCalculator::calculate)
-    .def("get_descriptors", &NepCalculator::get_descriptors)
+    .def_readonly("info", &NEPCalculator::info)
+		.def("calculate", &NEPCalculator::calculate)
+    .def("get_descriptors", &NEPCalculator::get_descriptors)
 		;
 }

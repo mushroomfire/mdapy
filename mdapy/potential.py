@@ -11,13 +11,13 @@ try:
     from tool_function import _check_repeat_cutoff
     from replicate import Replicate
     from neighbor import Neighbor
-    from nep._nep import NepCalculator
+    from nep._nep import NEPCalculator
 except Exception:
     from .plotset import set_figure
     from .tool_function import _check_repeat_cutoff
     from .replicate import Replicate
     from .neighbor import Neighbor
-    from _nep import NepCalculator
+    from _nep import NEPCalculator
 
 
 @ti.data_oriented
@@ -704,7 +704,7 @@ class NEP:
     def __init__(self, filename) -> None:
 
         self.filename = filename
-        self._nep = NepCalculator(filename)
+        self._nep = NEPCalculator(filename)
         self.info = self._nep.info
         self.rc = max(self.info["radial_cutoff"], self.info["angular_cutoff"])
 

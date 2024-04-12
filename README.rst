@@ -303,16 +303,17 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
-V0.10.5 (Under development)
+V0.10.5 (April 12, 2024)
 
-- Refactor the code structure and support NEP model to evaluate the energy, force and virial.
+- Refactor the code structure. Delete calculator file. Remove timer into tool_function file.
+- support `NEP <https://gpumd.org/potentials/nep.html>`_ model to evaluate the energy, force and virial.
 - Add feature for generating initial geometry model with perturbation, which is helpful to prepare the initial database for deep learning. The function is similar to `init_bulk` and `init_surf` in `dpgen <https://github.com/deepmodeling/dpgen>`_.
-- Add feature for converge cp2k output to xyz format for NEP trainning.
+- Add feature for converge cp2k output to xyz format for `NEP <https://gpumd.org/potentials/nep.html>`_ trainning.
 - Add feature to split dump/xyz containing multi frames into seperate frames.
 - Optimize timer decorators.
 - Fix bug when writing cif and POSCAR.
 - Fix bug for create_polycrystalline when input wrong box, and optimize the performance of deleting overlap atoms.
-- Make mdapy support polars>=0.20.19
+- Make mdapy support polars>=0.20.19.
 
 V0.10.4 (March 12, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

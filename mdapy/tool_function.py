@@ -24,7 +24,14 @@ def timer(function):
     return timer
 
 
-def split_xyz(input_file, outputdir, output_file_prefix=None):
+def split_xyz(input_file, outputdir="res", output_file_prefix=None):
+    """This function can be used to split a xyz trajectory into seperate xyz files, which can be read by mp.System.
+
+    Args:
+        input_file (str): xyz filename.
+        outputdir (str, optional): output folder. Defaults to 'res'.
+        output_file_prefix (str, optional): output file prefix. If not given, mdapy will generate one based on the input_file. Defaults to None.
+    """
     os.makedirs(outputdir, exist_ok=True)
     if output_file_prefix is None:
         output_file_prefix = "".join(input_file.split(".")[:-1])
@@ -45,7 +52,14 @@ def split_xyz(input_file, outputdir, output_file_prefix=None):
             frame += 1
 
 
-def split_dump(input_file, outputdir, output_file_prefix=None):
+def split_dump(input_file, outputdir="res", output_file_prefix=None):
+    """This function can be used to split a dump trajectory into seperate dump files, which can be read by mp.System.
+
+    Args:
+        input_file (str): xyz filename.
+        outputdir (str, optional): output folder. Defaults to 'res'.
+        output_file_prefix (str, optional): output file prefix. If not given, mdapy will generate one based on the input_file. Defaults to None.
+    """
     os.makedirs(outputdir, exist_ok=True)
     if output_file_prefix is None:
         output_file_prefix = "".join(input_file.split(".")[:-1])

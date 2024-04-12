@@ -1494,7 +1494,7 @@ class System:
             filename (str): filename of potential file.
             elements_list (list): elements to be calculated, such as ['Al', 'Al', 'Ni'] indicates setting type 1 and 2 as 'Al' and type 3 as 'Ni'.
             pair_style (str): support eam/alloy and nep potential style.
-            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 120.
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to None.
 
         Outputs:
             - **The energy per atom is added in self.data['pe']**.

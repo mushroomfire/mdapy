@@ -23,7 +23,7 @@ class LatticeMaker:
         x (int): repeat times along :math:`x` axis.
         y (int): repeat times along :math:`y` axis.
         z (int): repeat times along :math:`z` axis.
-        crystalline_orientation (np.ndarray, optional): (:math:`3, 3`). Crystalline orientation, only support for 'FCC' and 'BCC' lattice. If not given, the orientation if x[1, 0, 0], y[0, 1, 0], z[0, 0, 1].
+        crystalline_orientation (np.ndarray, optional): (:math:`3, 3`). Crystalline orientation, only support for 'FCC' and 'BCC' lattice. If not given, the orientation is x[1, 0, 0], y[0, 1, 0], z[0, 0, 1].
         basis_vector (np.ndarray): (:math:`4, 3`) or (:math:`3, 2`) repeat vector.
         basis_atoms (np.ndarray): (:math:`N_p, 3`) basis atom positions.
         type_list (np.ndarray): (:math:`N_p`) type for basis atoms.

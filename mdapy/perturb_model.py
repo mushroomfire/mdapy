@@ -13,6 +13,52 @@ except Exception:
 
 
 class PerturbModel:
+    """This class is used to generate atomic model with small geometry perturb, which is helpful to preparing
+    database for deep learning training.
+
+    Args:
+        filename (str, optional): filename one wants to perturb. Defaults to None.
+        lattice_type (str, optional): lattice type, selected in ['FCC', 'BCC', 'HCP', 'GRA']. This parameter will be ignored if filename is provides. Defaults to None.
+        lattice_constant (float, optional): lattice constant. Defaults to None.
+        x (int, optional): replicate along x direction. Defaults to 1.
+        y (int, optional): replicate along y direction. Defaults to 1.
+        z (int, optional): replicate along z direction. Defaults to 1.
+        crystalline_orientation (np.ndarray, optional): (:math:`3, 3`). Crystalline orientation, only support for 'FCC' and 'BCC' lattice. If not given, the orientation is x[1, 0, 0], y[0, 1, 0], z[0, 0, 1]. Defaults to None.
+        scale_list (list, optional): one can scale system isotropicly, such as [0.9, 1.0, 1.1]. Defaults to None.
+        pert_num (int, optional): number of models per-scale, such as 20. Defaults to None.
+        pert_box (float, optional): perturb on box, such as 0.03. Defaults to None.
+        pert_atom (float, optional): perturb on atom, such as 0.03. Defaults to None.
+        type_list (list[int], optional): type list only for generated lattice, such as [1, 1, 1, 2] for FCC lattice. Defaults to None.
+        type_name (list[str], optional): element name, such as ['Al', 'Fe']. Defaults to None.
+        save_path (str, optional): save path. Defaults to "res".
+        save_type (str, optional): selected in ['cp2k', 'vasp']. For 'vasp', POSCAR will be saved. For 'cp2k', cif and xyz will be saved. Defaults to "cp2k".
+        fmt (str, optional): this explitly gives the file format for filename, selected in ["data", "lmp", "POSCAR", "xyz", "cif"]. Defaults to None.
+
+    Outputs:
+        - Generate a series of perturb model in save_path.
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> pert = mp.PerturbModel(
+                lattice_type="FCC",
+                lattice_constant=4.05,
+                x=3,
+                y=3,
+                z=3,
+                scale_list=[0.8, 1.0, 1.2],
+                pert_num=20,
+                pert_atom=0.03,
+                pert_box=0.03,
+                type_name=["Al"],
+                save_path="Al_FCC",
+                save_type="cp2k"
+            )
+
+        >>> pert.compute() # check results in './Al_FCC'
+    """
 
     def __init__(
         self,
@@ -33,6 +79,7 @@ class PerturbModel:
         save_type="cp2k",
         fmt=None,
     ) -> None:
+
         if filename is not None:
             system = System(filename, fmt=fmt)
             system.replicate(x, y, z)
@@ -91,6 +138,13 @@ class PerturbModel:
         return pert_box_trans, pert_atom_trans
 
     def compute(self, init_type="init_bulk", direction="z", distance=10.0):
+        """Generate perturb models.
+
+        Args:
+            init_type (str, optional): selected in ["init_bulk", "init_surf"]. Defaults to "init_bulk".
+            direction (str, optional): the direction to generate vacuum layer. This parameter will be ignored for init_bulk. Defaults to "z".
+            distance (float, optional): this length of vacuum layer. This parameter will be ignored for init_bulk. Defaults to 10.0.
+        """
         assert init_type in [
             "init_bulk",
             "init_surf",

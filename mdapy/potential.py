@@ -385,13 +385,22 @@ class EAM:
 
         >>> mp.init()
 
-        >>> potential = EAM("./example/CoNiFeAlCu.eam.alloy") # Read a eam.alloy file.
+        >>> potential = mp.EAM("./example/CoNiFeAlCu.eam.alloy") # Read a eam.alloy file.
 
         >>> potential.embedded_data # Check embedded energy.
 
         >>> potential.phi_data # Check pair interaction.
 
         >>> potential.plot() # Plot information of potential.
+
+        >>> FCC = LatticeMaker(4.05, "FCC", x, y, z)
+
+        >>> FCC.compute()
+
+        >>> Compute energy and force.
+
+        >>> energy, force = potential.compute(FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32))
+
     """
 
     def __init__(self, filename):
@@ -630,6 +639,21 @@ class EAM:
         distance_list=None,
         neighbor_number=None,
     ):
+        """This function is used to calculate the energy and force.
+
+        Args:
+            pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+            box (np.ndarray): (:math:`4, 3`) system box.
+            elements_list (list[str]): elements to be calculated, such as ['Al', 'Ni'].
+            type_list (np.ndarray): (:math:`N_p`) atom type list.
+            boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+            verlet_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1. Defaults to None.
+            distance_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom. Defaults to None.
+            neighbor_number (np.ndarray, optional): (:math:`N_p`) neighbor atoms number. Defaults to None.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: energy and force.
+        """
         Cal = EAMCalculator(
             self,
             pos,
@@ -646,14 +670,57 @@ class EAM:
 
 
 class NEP:
+    """This class is a python interface for `NEP_CPU <https://github.com/brucefan1983/NEP_CPU>`_ version,
+    which can be used to evaluate the energy, force and virial of a given system.
+
+    Args:
+        filename (str): filename of a NEP potential file, such as nep.txt.
+
+    Outputs:
+        - **rc** (float) - cutoff distance. Unit is Angstroms.
+        - **info** (dict) - information for NEP potential.
+
+    Example:
+
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> FCC = LatticeMaker(4.05, "FCC", x, y, z)
+
+        >>> FCC.compute()
+
+        >>> nep = NEP("nep.txt")
+
+        >>> energy, force, virial = nep.compute(
+                FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
+                )
+
+        >>> des = nep.get_descriptors(
+                    FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
+                    ) # obtain the descriptor.
+    """
 
     def __init__(self, filename) -> None:
+
         self.filename = filename
         self._nep = NepCalculator(filename)
         self.info = self._nep.info
         self.rc = max(self.info["radial_cutoff"], self.info["angular_cutoff"])
 
     def compute(self, pos, box, elements_list, type_list, boundary=[1, 1, 1]):
+        """This function is used to calculate the energy and force.
+
+        Args:
+            pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+            box (np.ndarray): (:math:`4, 3`) system box.
+            elements_list (list[str]): elements to be calculated, such as ['Al', 'Ni'].
+            type_list (np.ndarray): (:math:`N_p`) atom type list.
+            boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+
+        Returns:
+            tuple[np.ndarray, np.ndarray, np.ndarray]: energy, force, virial.
+        """
         for i in elements_list:
             assert (
                 i in self.info["element_list"]
@@ -679,6 +746,18 @@ class NEP:
         return e, f, v
 
     def get_descriptors(self, pos, box, elements_list, type_list, boundary=[1, 1, 1]):
+        """This function is used to calculate the descriptor.
+
+        Args:
+            pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+            box (np.ndarray): (:math:`4, 3`) system box.
+            elements_list (list[str]): elements to be calculated, such as ['Al', 'Ni'].
+            type_list (np.ndarray): (:math:`N_p`) atom type list.
+            boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+
+        Returns:
+            np.ndarray: descriptor.
+        """
         for i in elements_list:
             assert (
                 i in self.info["element_list"]

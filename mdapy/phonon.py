@@ -47,7 +47,9 @@ class Phonon:
         return color
 
     @staticmethod
-    def get_supercell(rx, ry, rz, inputfile="cp2k.inp", tolerance=1e-3, backend="cp2k"):
+    def _get_supercell(
+        rx, ry, rz, inputfile="cp2k.inp", tolerance=1e-3, backend="cp2k"
+    ):
 
         if backend == "cp2k":
             return f'phonopy --cp2k -c {inputfile} -d --dim="{rx} {ry} {rz}" --tolerance {tolerance}'

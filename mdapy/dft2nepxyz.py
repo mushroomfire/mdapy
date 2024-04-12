@@ -8,8 +8,37 @@ import os
 
 
 class LabeledSystem:
+    """This class is used to read first principle calculation data, obataining the energy, force, box and virial information.
+    Those information can be saved as initial database for deep learning training, aiming to develop high accurancy potential
+    function.
+    The units are listed as below:
+    - energy : eV (per-cell)
+    - force : eV/:math:`\AA` (per-atom)
+    - virial : eV (per-cell)
+    - pos : :math:`\AA` (per-atom)
+    - box : :math:`\AA`
+    Now we only support SCF calculation in CP2K. In the future the AIMD and VASP may also be implemented.
+
+    Args:
+        filename (str): filename of CP2K SCF output file.
+        fmt (str, optional): DFT calculation code. Defaults to "CP2K-SCF".
+
+    Outputs:
+        - **content** (str) - the whole content of input file.
+        - **structure** (dict) - a dict contains energy, pos, box, force, type_list and virial (if computed).
+
+    Examples:
+        >>> import mdapy as mp
+
+        >>> mp.init()
+
+        >>> LS = mp.LabeledSystem('output.log')
+
+        >>> LS.data['energy'] # check energy per cell.
+    """
 
     def __init__(self, filename, fmt="CP2K-SCF"):
+
         self.filename = filename
         assert fmt in ["CP2K-SCF"], "Only support CP2K-SCF now."
         self.fmt = fmt
@@ -107,6 +136,19 @@ class LabeledSystem:
 
 
 class DFT2NEPXYZ:
+    """This class is used to generate `NEP <https://gpumd.org/potentials/nep.html>`_ training XYZ file from many DFT data.
+    Now we only support SCF calculation in CP2K. In the future the AIMD and VASP may also be implemented.
+
+    Args:
+        filename_list (list): all DFT output file you want to save, such as ['a/output.log', 'b/output.log']
+        fmt (str, optional): DFT calculation code. Defaults to "CP2K-SCF".
+        interval (int, optional): if provided, we will save it to test.xyz per interval. Defaults to 10.
+        energy_shift (dict, optional): if provided, the energy will substract the base energy, such as {'Fe':89.0, 'O':50.0}. Defaults to None.
+        save_virial (bool, optional): if set False, the virial information will not be saved. Defaults to True.
+
+    Outputs:
+        - Generate train.xyz and test.xyz in current folder (if *interval* provides).
+    """
 
     def __init__(
         self,
@@ -116,6 +158,7 @@ class DFT2NEPXYZ:
         energy_shift=None,
         save_virial=True,
     ):
+
         self.filename_list = filename_list
         assert fmt in ["CP2K-SCF"], "Only support CP2K-SCF now."
         self.fmt = fmt
@@ -165,7 +208,7 @@ class DFT2NEPXYZ:
                     )
                 )
 
-    def write_xyz(self):
+    def _write_xyz(self):
         start = time()
         if os.path.exists("train.xyz"):
             os.remove("train.xyz")

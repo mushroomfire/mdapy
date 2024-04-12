@@ -749,6 +749,6 @@ if __name__ == "__main__":
         1,
         add_graphene=False,
     )
-    polycry.compute(save_dump=True)
+    polycry.compute(save_dump=False)
     print(polycry.data.head())
     print(polycry.box)

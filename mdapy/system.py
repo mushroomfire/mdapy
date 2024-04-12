@@ -1868,9 +1868,8 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System(r"C:\Users\herrwu\Desktop\nve-10 (1).xyz")
+    system = System("example/solidliquid.data")
     print(system)
-    # system = System("example/solidliquid.data")
     # system.write_data("test.data", type_name=["Al", "C", "Fe"])
     # system.cal_identify_SFs_TBs()
     # system.write_dump("test.dump")

@@ -309,7 +309,7 @@ Release Notes
 V0.10.5 (April 12, 2024)
 
 - Refactor the code structure. Delete calculator file. Remove timer into tool_function file.
-- support `NEP <https://gpumd.org/potentials/nep.html>`_ model to evaluate the energy, force and virial.
+- Support `NEP <https://gpumd.org/potentials/nep.html>`_ model to evaluate the energy, force and virial.
 - Add feature for generating initial geometry model with perturbation, which is helpful to prepare the initial database for deep learning. The function is similar to `init_bulk` and `init_surf` in `dpgen <https://github.com/deepmodeling/dpgen>`_.
 - Add feature for converge cp2k output to xyz format for `NEP <https://gpumd.org/potentials/nep.html>`_ trainning.
 - Add feature to split dump/xyz containing multi frames into seperate frames.

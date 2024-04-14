@@ -169,7 +169,7 @@ class DFT2NEPXYZ:
         self.interval = interval
         self.energy_shift = energy_shift
         self.save_virial = save_virial
-        self.write_xyz()
+        self._write_xyz()
 
     def __repr__(self):
         return ""
@@ -237,3 +237,8 @@ class DFT2NEPXYZ:
                 except Exception:
                     print(f"Warning: Something is wrong for {filename}!")
         print(f"Saving {frame} frames. Time costs {time()-start} s.")
+
+
+if __name__ == "__main__":
+
+    DFT2NEPXYZ([r"D:\Study\Gra-Al\init_data\data\aluminum\FCC\scale_0.8\0\output.log"])

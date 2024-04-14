@@ -307,6 +307,10 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
+V0.10.6 (April 13, 2024)
+
+- Fix a typo bug in DFT2NEPXYZ class.
+
 V0.10.5 (April 12, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 

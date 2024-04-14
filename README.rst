@@ -308,6 +308,7 @@ Release Notes
 --------------
 
 V0.10.6 (April 13, 2024)
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Fix a typo bug in DFT2NEPXYZ class.
 

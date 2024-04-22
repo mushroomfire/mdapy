@@ -39,6 +39,7 @@ class EAMCalculator:
     Outputs:
         - **energy** (np.ndarray) - (:math:`N_p`) atomic energy (eV).
         - **force** (np.ndarray) - (:math:`N_p, 3`) atomic force (eV/A).
+        - **virial** (np.ndarray) - (:math:`N_p, 9`) atomic force (eV*A^3).
 
     Examples:
 
@@ -74,6 +75,8 @@ class EAMCalculator:
         >>> Cal.energy # Check the energy.
 
         >>> Cal.force # Check the force.
+
+        >>> Cal.virial # Check the virial.
     """
 
     def __init__(
@@ -204,6 +207,7 @@ class EAMCalculator:
         pos: ti.types.ndarray(dtype=ti.math.vec3),
         energy: ti.types.ndarray(),
         force: ti.types.ndarray(dtype=ti.math.vec3),
+        virial: ti.types.ndarray(),
         elec_density: ti.types.ndarray(),
         d_embedded_rho: ti.types.ndarray(),
     ):
@@ -293,11 +297,39 @@ class EAMCalculator:
                         force[i] -= d_pair * rij / r
                         force[j] += d_pair * rij / r
 
+                        virial[i, 0] += rij[0] * d_pair * rij[0] / r  # xx
+                        virial[j, 0] += rij[0] * d_pair * rij[0] / r  # xx
+
+                        virial[i, 1] += rij[1] * d_pair * rij[1] / r  # yy
+                        virial[j, 1] += rij[1] * d_pair * rij[1] / r  # yy
+
+                        virial[i, 2] += rij[2] * d_pair * rij[2] / r  # zz
+                        virial[j, 2] += rij[2] * d_pair * rij[2] / r  # zz
+
+                        virial[i, 3] += rij[0] * d_pair * rij[1] / r  # xy
+                        virial[j, 3] += rij[0] * d_pair * rij[1] / r  # xy
+
+                        virial[i, 4] += rij[0] * d_pair * rij[2] / r  # xz
+                        virial[j, 4] += rij[0] * d_pair * rij[2] / r  # xz
+
+                        virial[i, 5] += rij[1] * d_pair * rij[2] / r  # yz
+                        virial[j, 5] += rij[1] * d_pair * rij[2] / r  # yz
+
+                        virial[i, 6] += rij[1] * d_pair * rij[0] / r  # yx
+                        virial[j, 6] += rij[1] * d_pair * rij[0] / r  # yx
+
+                        virial[i, 7] += rij[2] * d_pair * rij[0] / r  # zx
+                        virial[j, 7] += rij[2] * d_pair * rij[0] / r  # zx
+
+                        virial[i, 8] += rij[2] * d_pair * rij[1] / r  # zy
+                        virial[j, 8] += rij[2] * d_pair * rij[1] / r  # zy
+
     def compute(self):
-        """Do the real energy and force calculation."""
+        """Do the real energy, force and virial calculation."""
         N = self.pos.shape[0]
         self.energy = np.zeros(N)
         self.force = np.zeros((N, 3))
+        self.virial = np.zeros((N, 9))
         elec_density = np.zeros(N)
         d_embedded_rho = np.zeros(N)
 
@@ -334,12 +366,15 @@ class EAMCalculator:
             self.pos,
             self.energy,
             self.force,
+            self.virial,
             elec_density,
             d_embedded_rho,
         )
+        self.virial /= 2.0
         if self.old_N is not None:
             self.energy = np.ascontiguousarray(self.energy[: self.old_N])
             self.force = np.ascontiguousarray(self.force[: self.old_N])
+            self.virial = np.ascontiguousarray(self.virial[: self.old_N])
 
 
 class EAM:
@@ -397,9 +432,9 @@ class EAM:
 
         >>> FCC.compute()
 
-        >>> Compute energy and force.
+        >>> Compute energy, force and virial.
 
-        >>> energy, force = potential.compute(FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32))
+        >>> energy, force, virial = potential.compute(FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32))
 
     """
 
@@ -639,7 +674,7 @@ class EAM:
         distance_list=None,
         neighbor_number=None,
     ):
-        """This function is used to calculate the energy and force.
+        """This function is used to calculate the energy, force and virial.
 
         Args:
             pos (np.ndarray): (:math:`N_p, 3`) particles positions.
@@ -652,7 +687,12 @@ class EAM:
             neighbor_number (np.ndarray, optional): (:math:`N_p`) neighbor atoms number. Defaults to None.
 
         Returns:
-            tuple[np.ndarray, np.ndarray]: energy and force.
+            tuple[np.ndarray, np.ndarray, np.ndarray]: energy, force, virial.
+
+        Units & Shape:
+            energy : eV (:math:`N_p`)
+            force : eV/A (:math:`N_p, 3`). The order is fx, fy and fz.
+            virial : eV*A^3 (:math:`N_p, 9`). The order is xx, yy, zz, xy, xz, yz, yx, zx, zy.
         """
         Cal = EAMCalculator(
             self,
@@ -666,7 +706,7 @@ class EAM:
             neighbor_number,
         )
         Cal.compute()
-        return Cal.energy, Cal.force
+        return Cal.energy, Cal.force, Cal.virial
 
 
 class NEP:
@@ -720,6 +760,11 @@ class NEP:
 
         Returns:
             tuple[np.ndarray, np.ndarray, np.ndarray]: energy, force, virial.
+
+        Units & Shape:
+            energy : eV (:math:`N_p`)
+            force : eV/A (:math:`N_p, 3`). The order is fx, fy and fz.
+            virial : eV*A^3 (:math:`N_p, 9`). The order is xx, yy, zz, xy, xz, yz, yx, zx, zy.
         """
         for i in elements_list:
             assert (
@@ -741,7 +786,8 @@ class NEP:
 
         e = np.array(e)
         f = np.array(f).reshape(3, -1).T
-        v = np.array(v).reshape(9, -1)
+        v = np.array(v).reshape(9, -1).T
+        v = v[:, [0, 4, 8, 1, 2, 5, 3, 6, 7]]
 
         return e, f, v
 
@@ -785,10 +831,11 @@ if __name__ == "__main__":
 
     from lattice_maker import LatticeMaker
     from time import time
+    from system import System
 
     ti.init(ti.cpu)
     start = time()
-    lattice_constant = 4.05
+    lattice_constant = 4.048
     x, y, z = 10, 10, 10
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
@@ -806,18 +853,20 @@ if __name__ == "__main__":
     print(e[:5])
     print(f[:5])
     print(v[:5])
-    start = time()
-    des = nep.get_descriptors(
-        FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
-    )
-    end = time()
-    print(f"Calculate descriptors time: {end-start} s.")
-    print(des[:5])
-
-    # potential = EAM("./example/CoNiFeAlCu.eam.alloy")
     # start = time()
-    # energy, force = potential.compute(
-    #     FCC.pos * 0.9, FCC.box * 0.9, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
+    # des = nep.get_descriptors(
+    #     FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
+    # )
+    # end = time()
+    # print(f"Calculate descriptors time: {end-start} s.")
+    # print(des[:5])
+    # system = System(
+    #     r"D:\Study\Gra-Al\potential_test\phonon\graphene\phonon_interface\stress\test.0.dump"
+    # )
+    # potential = EAM("./example/Al_DFT.eam.alloy")
+    # start = time()
+    # energy, force, virial = potential.compute(
+    #     system.pos, system.box, ["Al"], np.ones(system.N, dtype=np.int32)
     # )
     # end = time()
     # print(f"Calculate energy and force time: {end-start} s.")
@@ -825,6 +874,8 @@ if __name__ == "__main__":
     # print(energy[:4])
     # print("force:")
     # print(force[:4, :])
+    # print("virial:")
+    # print(virial[:4, :] * 160.214 * 1e4)
 
     # print(potential.d_elec_density_data[0, :10])
     # print(potential.d_elec_density_data[0, :10])

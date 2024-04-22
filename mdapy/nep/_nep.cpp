@@ -33,7 +33,6 @@ class NEPCalculator
     NEP3 calc;
     std::string model_file;
     bool HAS_CALCULATED=false;
-    bool HAS_SETATOMS=false;
 };
 
 NEPCalculator::NEPCalculator(std::string _model_file)
@@ -80,8 +79,6 @@ void NEPCalculator::setAtoms(
   _atom.virial.resize(_atom.N * 9);
   _atom.descriptor.resize(_atom.N * calc.annmb.dim);
   atom = _atom;
-  HAS_CALCULATED = false;
-  HAS_SETATOMS = true;
 }
 
 std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> NEPCalculator::calculate(
@@ -90,13 +87,8 @@ std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> NEPCal
   py::array _position
 )
 {
-  if (!HAS_SETATOMS){
-    setAtoms(_type, _box, _position);
-  }
-  if (!HAS_CALCULATED){
-    calc.compute(atom.type, atom.box, atom.position, atom.potential, atom.force, atom.virial);
-    HAS_CALCULATED = true;
-  }
+  setAtoms(_type, _box, _position);
+  calc.compute(atom.type, atom.box, atom.position, atom.potential, atom.force, atom.virial);
   return std::make_tuple(atom.potential, atom.force, atom.virial);
 }
 
@@ -106,9 +98,7 @@ std::vector<double> NEPCalculator::get_descriptors(
   py::array _position
 )
 {
-  if (!HAS_SETATOMS){
-    setAtoms(_type, _box, _position);
-  }
+  setAtoms(_type, _box, _position);
   calc.find_descriptor(atom.type, atom.box, atom.position, atom.descriptor);
   return atom.descriptor;
 }

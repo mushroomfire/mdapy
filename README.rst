@@ -307,6 +307,12 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
+V0.10.7 (Under development)
+
+- Add atomic virial computation for eam/alloy potential.
+- Add phonon calculation feature based on the phonopy.
+- Fix a bug for NEP interface.
+
 V0.10.6 (April 13, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 

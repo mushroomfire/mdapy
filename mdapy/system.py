@@ -643,6 +643,51 @@ class System:
         )
         self.if_neigh = True
 
+    def cal_phono_dispersion(
+        self,
+        path,
+        labels,
+        filename,
+        elements_list,
+        pair_style="eam/alloy",
+        replicate=None,
+    ):
+        """This function can be used to calculate the phono dispersion based on Phonopy (https://phonopy.github.io/phonopy/). We support NEP and
+        eam/alloy potential now.
+
+        Args:
+            path (str | np.ndarray| nested list): band path, such as '0. 0. 0. 0.5 0.5 0.5', indicating two points.
+            labels (str | list): high symmetry points label, such as ["$\Gamma$", "K", "M", "$\Gamma$"].
+            filename (str): potential filename, such as 'nep.txt'.
+            elements_list (list[str]): element list, such as ['Al']
+            pair_style (str, optional): pair style, selected in ['nep', 'eam/alloy']. Defaults to "eam/alloy".
+            replicate (list, optional): replication to pos, such as [3, 3, 3]. If not given, we will replicate it exceeding 15 A per directions. Defaults to None.
+
+        Outputs:
+            **Phon** : a Phonon object, which can be used to plot phonon dispersion.
+        """
+        try:
+            import phonopy
+        except ModuleNotFoundError:
+            raise "One should install phonopy (https://phonopy.github.io/phonopy/) to calculate the phono dispersion. try: pip install phonopy"
+        try:
+            from phonon import Phonon
+        except:
+            from .phonon import Phonon
+
+        self.Phon = Phonon(
+            path,
+            labels,
+            self.pos,
+            self.box,
+            filename,
+            elements_list,
+            self.__data["type"].to_numpy(),
+            pair_style,
+            replicate,
+        )
+        self.Phon.compute()
+
     def cal_species_number(self, element_list, search_species=None, check_most=10):
         """This function can recgnized the species based on the atom connectivity.
         For atom i and atom j, if rij <= (vdwr_i + vdwr_j) * 0.6, we think two atoms are connected.
@@ -1484,7 +1529,7 @@ class System:
             pl.lit(CommonNeighborPar.cnp).alias("cnp")
         )
 
-    def cal_energy_force(
+    def cal_energy_force_virial(
         self, filename, elements_list, pair_style="eam/alloy", max_neigh=None
     ):
         """Calculate the atomic energy and force based on the given potential.
@@ -1496,9 +1541,13 @@ class System:
             pair_style (str): support eam/alloy and nep potential style.
             max_neigh (int, optional): maximum number of atom neighbor number. Defaults to None.
 
-        Outputs:
-            - **The energy per atom is added in self.data['pe']**.
-            - **The force per atom is added in self.data[["afx", "afy", "afz"]]**.
+        Returns:
+            tuple[np.ndarray, np.ndarray, np.ndarray]: energy, force, virial.
+
+        Units & Shape:
+            energy : eV (:math:`N_p`)
+            force : eV/A (:math:`N_p, 3`). The order is fx, fy and fz.
+            virial : eV*A^3 (:math:`N_p, 9`). The order is xx, yy, zz, xy, xz, yz, yx, zx, zy.
         """
 
         if pair_style == "eam/alloy":
@@ -1516,7 +1565,7 @@ class System:
                     self.neighbor_number,
                 )
 
-            energy, force = potential.compute(
+            energy, force, virial = potential.compute(
                 self.pos,
                 self.box,
                 elements_list,
@@ -1529,7 +1578,7 @@ class System:
 
         elif pair_style == "nep":
             potential = NEP(filename)
-            energy, force, _ = potential.compute(
+            energy, force, virial = potential.compute(
                 self.pos,
                 self.box,
                 elements_list,
@@ -1539,12 +1588,7 @@ class System:
         else:
             raise "pair_style must in ['eam/alloy', 'nep']."
 
-        self.__data = self.__data.with_columns(
-            pl.lit(energy).alias("pe"),
-            pl.lit(force[:, 0]).alias("afx"),
-            pl.lit(force[:, 1]).alias("afy"),
-            pl.lit(force[:, 2]).alias("afz"),
-        )
+        return energy, force, virial
 
     def cal_void_distribution(self, cell_length, out_void=False, out_name="void.dump"):
         """This class is used to detect the void distribution in solid structure.
@@ -1868,8 +1912,25 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     ti.init()
-    system = System("example/solidliquid.data")
-    print(system)
+    from lattice_maker import LatticeMaker
+
+    lat = LatticeMaker(4.05, "FCC", 1, 1, 1)
+    lat.compute()
+    system = System(pos=lat.pos, box=lat.box)
+
+    system.cal_phono_dispersion(
+        "0.0 0.0 0.0 0.5 0.0 0.5 0.625 0.25 0.625 0.375 0.375 0.75 0.0 0.0 0.0 0.5 0.5 0.5",
+        "$\Gamma$ X U K $\Gamma$ L",
+        filename=r"example\Al_DFT.eam.alloy",
+        elements_list=["Al"],
+    )
+
+    print(system.Phon.bands_dict.keys())
+    fig, ax = system.Phon.plot_dispersion(
+        units="1/cm", merge_kpoints=[2, 3], color=(123, 204, 33), ylim=[0, 350]
+    )
+    # system = System("example/solidliquid.data")
+    # print(system)
     # system.write_data("test.data", type_name=["Al", "C", "Fe"])
     # system.cal_identify_SFs_TBs()
     # system.write_dump("test.dump")

@@ -570,7 +570,7 @@ if __name__ == "__main__":
     # )
     # pho.compute()
     pho.compute_thermal(0, 50, 1000, (30, 30, 30))
-    pho.plot_thermal()
+    # pho.plot_thermal()
     # pho.plot_dispersion(
     #     units="1/cm",
     # )

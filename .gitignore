@@ -31,6 +31,7 @@
 /benchmark/*/*.txt
 /benchmark/average_rdf/*.dump
 /doc/source/gettingstarted/.ipy*/
+/doc/source/gettingstarted/log.lammps
 /example/*.output.dump
 /example/*.output.data
 /example/solidliquid.data

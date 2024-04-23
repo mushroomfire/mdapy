@@ -25,6 +25,18 @@ from abc import ABC, abstractmethod
 class BasePotential(ABC):
     @abstractmethod
     def compute(self, pos, box, elements_list, type_list, boundary=[1, 1, 1]):
+        """Interface function.
+
+        Args:
+            pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+            box (np.ndarray): (:math:`4, 3`) system box.
+            elements_list (list[str]): elements to be calculated, such as ['Al', 'Ni'].
+            type_list (np.ndarray): (:math:`N_p`) atom type list.
+            boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+
+        Returns:
+            tuple[np.ndarray, np.ndarray, np.ndarray]: energy, force, virial.
+        """
         pass
 
 
@@ -757,7 +769,7 @@ class NEP(BasePotential):
         self.rc = max(self.info["radial_cutoff"], self.info["angular_cutoff"])
 
     def compute(self, pos, box, elements_list, type_list, boundary=[1, 1, 1]):
-        """This function is used to calculate the energy and force.
+        """This function is used to calculate the energy, force and virial.
 
         Args:
             pos (np.ndarray): (:math:`N_p, 3`) particles positions.
@@ -837,7 +849,7 @@ class NEP(BasePotential):
 
 try:
     from lammps import lammps
-except ModuleNotFoundError:
+except Exception:
     pass
 
 
@@ -851,6 +863,15 @@ class LammpsPotential(BasePotential):
         extra_args=None,
         conversion_factor=None,
     ):
+        """This class provide a interface to use potential supported in lammps to calculate the energy, force and virial.
+
+        Args:
+            pair_parameter (str): including pair_style and pair_coeff, such as "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al".
+            units (str, optional): lammps units, such as metal, real etc. Defaults to "metal".
+            atomic_style (str, optional): atomic_style, such as atomic, charge etc. Defaults to "atomic".
+            extra_args (str, optional): any lammps commond. Defaults to None.
+            conversion_factor (dict, optional): units conversion. It must be {'energy':float, 'force':float, 'virial':float}. The float can be any number, while the key is fixed. Defaults to None.
+        """
         self.pair_parameter = pair_parameter
         self.units = units
         self.atomic_style = atomic_style
@@ -887,6 +908,23 @@ class LammpsPotential(BasePotential):
         type_list,
         boundary=[1, 1, 1],
     ):
+        """This function is used to calculate the energy, force and virial.
+
+        Args:
+            pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+            box (np.ndarray): (:math:`4, 3`) system box.
+            elements_list (list[str]): elements to be calculated, such as ['Al', 'Ni'].
+            type_list (np.ndarray): (:math:`N_p`) atom type list.
+            boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+
+        Returns:
+            tuple[np.ndarray, np.ndarray, np.ndarray]: energy, force, virial.
+
+        Shape:
+            energy : (:math:`N_p`)
+            force : (:math:`N_p, 3`). The order is fx, fy and fz.
+            virial : (:math:`N_p, 6`). The order is xx, yy, zz, xy, xz, yz.
+        """
         boundary = " ".join(["p" if i == 1 else "s" for i in boundary])
         energy, force, virial = None, None, None
         lmp = lammps()
@@ -907,7 +945,6 @@ class LammpsPotential(BasePotential):
 
             for i, m in enumerate(elements_list, start=1):
                 mass = atomic_masses[atomic_numbers[m]]
-                print(m, mass)
                 lmp.commands_string(f"mass {i} {mass}")
             lmp.commands_string(self.pair_parameter)
             if self.extra_args is not None:
@@ -937,38 +974,37 @@ if __name__ == "__main__":
     from time import time
     from system import System
 
-    eam = EAM("example/Al_DFT.eam.alloy")
-    print(isinstance(eam, EAM))
-    print(isinstance(eam, NEP))
+    # eam = EAM("example/Al_DFT.eam.alloy")
+    # print(isinstance(eam, EAM))
+    # print(isinstance(eam, NEP))
 
-    # ti.init(ti.cpu)
-    # start = time()
-    # lattice_constant = 4.048
-    # x, y, z = 10, 10, 10
-    # FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
-    # FCC.compute()
-    # end = time()
-    # print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
+    ti.init(ti.cpu)
+    start = time()
+    lattice_constant = 4.048
+    x, y, z = 10, 10, 10
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    FCC.compute()
+    end = time()
+    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
 
-    # start = time()
+    start = time()
     # nep = NEP(r"D:\Study\Gra-Al\init_data\nep_interface\nep.txt")
 
     # e, f, v = nep.compute(
     #     FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
     # )
-    # potential = LammpsPotential(
-    #     """pair_style eam/alloy
-    #    pair_coeff * * example/Al_DFT.eam.alloy Al"""
-    # )
-    # e, f, v = potential.compute(
-    #     FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
-    # )
-    # end = time()
-    # print(f"Calculate energy and force time: {end-start} s.")
-    # print(e[:5])
-    # print(f[:5])
-    # print(v[:5])
-    # start = time()
+    potential = LammpsPotential(
+        "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al"
+    )
+    e, f, v = potential.compute(
+        FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
+    )
+    end = time()
+    print(f"Calculate energy and force time: {end-start} s.")
+    print(e[:5])
+    print(f[:5])
+    print(v[:5])
+    start = time()
     # des = nep.get_descriptors(
     #     FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
     # )

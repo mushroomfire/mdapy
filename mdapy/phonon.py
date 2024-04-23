@@ -76,6 +76,12 @@ class Phonon:
         else:
             self.replicate = replicate
 
+        self.bands_dict = None
+        self.dos_dict = None
+        self.pdos_dict = None
+        self.thermal_dict = None
+        self.get_force_constants()
+
     def build_phononAtoms(self):
 
         return PhonopyAtoms(
@@ -113,7 +119,7 @@ class Phonon:
         self.phonon.produce_force_constants(forces=set_of_forces)
 
     def compute(self):
-        self.get_force_constants()
+
         qpoints, connections = get_band_qpoints_and_path_connections(
             self.path, npoints=101
         )
@@ -121,6 +127,77 @@ class Phonon:
             qpoints, path_connections=connections, labels=self.labels
         )
         self.bands_dict = self.phonon.get_band_structure_dict()
+
+    def compute_dos(self, mesh=(10, 10, 10)):
+        self.phonon.run_mesh(mesh)
+        self.phonon.run_total_dos(use_tetrahedron_method=True)
+        self.dos_dict = self.phonon.get_total_dos_dict()
+
+    def compute_pdos(self, mesh=(10, 10, 10)):
+        self.phonon.run_mesh(mesh, with_eigenvectors=True, is_mesh_symmetry=False)
+        self.phonon.run_projected_dos()
+        self.pdos_dict = self.phonon.get_projected_dos_dict()
+
+    def compute_thermal(self, t_min, t_step, t_max, mesh=(10, 10, 10)):
+        self.phonon.run_mesh(mesh)
+        self.phonon.run_thermal_properties(t_min=t_min, t_step=t_step, t_max=t_max)
+        self.thermal_dict = self.phonon.get_thermal_properties_dict()
+
+    def plot_dos(self):
+        if self.dos_dict is None:
+            raise "call compute_dos before plot_dos."
+        fig, ax = set_figure(
+            figsize=(10, 7.5), bottom=0.15, left=0.16, use_pltset=True, figdpi=150
+        )
+        x, y = self.dos_dict["frequency_points"], self.dos_dict["total_dos"]
+        ax.plot(x, y)
+        ax.set_xlabel("Frequency (THz)")
+        ax.set_ylabel("Density of states")
+        ax.set_ylim(y.min(), y.max() * 1.1)
+        plt.show()
+        return fig, ax
+
+    def plot_pdos(self):
+
+        if self.pdos_dict is None:
+            raise "call compute_pdos before plot_pdos."
+
+        fig, ax = set_figure(
+            figsize=(10, 7.5), bottom=0.15, left=0.16, use_pltset=True, figdpi=150
+        )
+        x, y1 = self.pdos_dict["frequency_points"], self.pdos_dict["projected_dos"]
+        for i, y in enumerate(y1, start=1):
+            ax.plot(x, y, label=f"[{i}]")
+
+        ax.legend()
+        ax.set_xlabel("Frequency (THz)")
+        ax.set_ylabel("Partial density of states")
+        ax.set_ylim(y1.min(), y1.max() * 1.1)
+        plt.show()
+        return fig, ax
+
+    def plot_thermal(self):
+        if self.thermal_dict is None:
+            raise "call compute_thermal before plot_thermal."
+
+        temperatures = self.thermal_dict["temperatures"]
+        free_energy = self.thermal_dict["free_energy"]
+        entropy = self.thermal_dict["entropy"]
+        heat_capacity = self.thermal_dict["heat_capacity"]
+
+        fig, ax = set_figure(
+            figsize=(10, 7.5), bottom=0.15, left=0.16, use_pltset=True, figdpi=150
+        )
+        ax.plot(temperatures, free_energy, label="Free energy (kJ/mol)")
+        ax.plot(temperatures, entropy, label="Entropy (J/K/mol)")
+        ax.plot(temperatures, heat_capacity, label="$C_v$ (J/K/mol)")
+
+        ax.legend()
+        ax.set_xlabel("Temperature (K)")
+
+        ax.set_xlim(temperatures[0], temperatures[-1])
+        plt.show()
+        return fig, ax
 
     def _rgb2hex(self, rgb):
         color = "#"
@@ -148,6 +225,9 @@ class Phonon:
         Returns:
             tuple: (fig, ax) matplotlib figure and axis class.
         """
+        if self.bands_dict is None:
+            self.compute()
+
         fig, ax = set_figure(
             figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=150
         )
@@ -464,11 +544,11 @@ if __name__ == "__main__":
     lat.compute()
     lat.box[2, 2] += 20
 
-    potential = LammpsPotential(
-        """pair_style airebo 3.0
-       pair_coeff * * D:\Study\Gra-Al\potential_test\phonon\graphene\phonon_interface\CH.airebo C"""
-    )
-    # potential = EAM("example/Al_DFT.eam.alloy")
+    # potential = LammpsPotential(
+    #     """pair_style airebo 3.0
+    #    pair_coeff * * D:\Study\Gra-Al\potential_test\phonon\graphene\phonon_interface\CH.airebo C"""
+    # )
+    potential = NEP("example/C_2022_NEP3.txt")
     # potential = NEP(r"D:\Study\Gra-Al\potential_test\phonon\aluminum\nep.txt")
     pho = Phonon(
         "0.0 0.0 0.0 0.3333333333 0.3333333333 0.0 0.5 0.0 0.0 0.0 0.0 0.0",
@@ -488,10 +568,12 @@ if __name__ == "__main__":
     #     elements_list=["Al"],
     #     type_list=lat.type_list,
     # )
-    pho.compute()
-    pho.plot_dispersion(
-        units="1/cm",
-    )
+    # pho.compute()
+    pho.compute_thermal(0, 50, 1000, (30, 30, 30))
+    pho.plot_thermal()
+    # pho.plot_dispersion(
+    #     units="1/cm",
+    # )
     # pho = Phonon(r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\aluminum\band.dat")
     # # ["$\Gamma$", "X", "U", "K", "$\Gamma$", "L"] Al
     # # ["$\Gamma$", "K", "M", "$\Gamma$"] graphene

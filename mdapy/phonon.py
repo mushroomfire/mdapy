@@ -9,10 +9,10 @@ from phonopy.phonon.band_structure import get_band_qpoints_and_path_connections
 
 try:
     from .plotset import set_figure
-    from .potential import EAM, NEP
+    from .potential import BasePotential
 except Exception:
     from plotset import set_figure
-    from potential import EAM, NEP
+    from potential import BasePotential
 
 
 class Phonon:
@@ -20,12 +20,11 @@ class Phonon:
         self,
         path,
         labels,
+        potential,
         pos,
         box,
-        filename,
         elements_list,
         type_list,
-        pair_style="eam/alloy",
         replicate=None,
     ):
         """This class can be used to calculate the phono dispersion based on Phonopy. We support NEP and
@@ -34,12 +33,11 @@ class Phonon:
         Args:
             path (str | np.ndarray| nested list): band path, such as '0. 0. 0. 0.5 0.5 0.5', indicating two points.
             labels (str | list): high symmetry points label, such as ["$\Gamma$", "K", "M", "$\Gamma$"].
+            potential (BasePotential): base potential class defined in mdapy, which must including a compute method to calculate the energy, force, virial.
             pos (np.ndarray): (:math:`N_p, 3`) particles positions.
             box (np.ndarray): (:math:`4, 3`) system box.
-            filename (str): potential filename, such as 'nep.txt'.
             elements_list (list[str]): element list, such as ['Al']
             type_list (np.ndarray): (:math:`N_p`) atom type list.
-            pair_style (str, optional): pair style, selected in ['nep', 'eam/alloy']. Defaults to "eam/alloy".
             replicate (list, optional): replication to pos, such as [3, 3, 3]. If not given, we will replicate it exceeding 15 A per directions. Defaults to None.
 
         Outputs:
@@ -59,15 +57,18 @@ class Phonon:
             len(self.labels) == self.path.shape[1]
         ), "The length of path should be equal to labels."
 
+        assert isinstance(
+            potential, BasePotential
+        ), "potential must be a mdapy BasePotential."
+
+        self.potential = potential
         self.pos = pos
         assert box.shape == (4, 3)
         self.box = box[:-1]
         self.scaled_positions = self.pos @ np.linalg.inv(self.box)
-        self.filename = filename
         self.elements_list = elements_list
         self.type_list = type_list
         self.type_name = [elements_list[i - 1] for i in self.type_list]
-        self.pair_style = pair_style
 
         if replicate is None:
             lengths = np.linalg.norm(self.box, axis=1)
@@ -95,19 +96,17 @@ class Phonon:
         self.phonon.generate_displacements(distance=0.01)
         supercells = self.phonon.get_supercells_with_displacements()
         set_of_forces = []
-        type_list = self.type_list.tolist() * np.prod(self.replicate)
-        if self.pair_style == "eam/alloy":
-            potential = EAM(self.filename)
-        elif self.pair_style == "nep":
-            potential = NEP(self.filename)
+        type_list = np.array(self.type_list.tolist() * np.prod(self.replicate), int)
+
         for cell in supercells:
-            _, forces, _ = potential.compute(
+            _, forces, _ = self.potential.compute(
                 cell.get_positions(),
                 np.r_[cell.get_cell(), np.zeros((1, 3))],
                 self.elements_list,
                 type_list,
                 [1, 1, 1],
             )
+
             forces -= np.mean(forces, axis=0)
             set_of_forces.append(forces)
         set_of_forces = np.array(set_of_forces)
@@ -459,24 +458,39 @@ if __name__ == "__main__":
 
     ti.init()
     from lattice_maker import LatticeMaker
+    from potential import LammpsPotential, EAM, NEP
 
-    lat = LatticeMaker(4.05, "FCC", 1, 1, 1)
+    lat = LatticeMaker(1.42, "GRA", 1, 1, 1)
     lat.compute()
-    # gra.box[2, 2] += 20
+    lat.box[2, 2] += 20
 
+    potential = LammpsPotential(
+        """pair_style airebo 3.0
+       pair_coeff * * D:\Study\Gra-Al\potential_test\phonon\graphene\phonon_interface\CH.airebo C"""
+    )
+    # potential = EAM("example/Al_DFT.eam.alloy")
+    # potential = NEP(r"D:\Study\Gra-Al\potential_test\phonon\aluminum\nep.txt")
     pho = Phonon(
-        "0.0 0.0 0.0 0.5 0.0 0.5 0.625 0.25 0.625 0.375 0.375 0.75 0.0 0.0 0.0 0.5 0.5 0.5",
-        "$\Gamma$ X U K $\Gamma$ L",
+        "0.0 0.0 0.0 0.3333333333 0.3333333333 0.0 0.5 0.0 0.0 0.0 0.0 0.0",
+        "$\Gamma$ K M $\Gamma$",
+        potential,
         lat.pos,
         lat.box,
-        filename=r"example\Al_DFT.eam.alloy",
-        elements_list=["Al"],
+        elements_list=["C"],
         type_list=lat.type_list,
-        pair_style="eam/alloy",
     )
+    # pho = Phonon(
+    #     "0.0 0.0 0.0 0.5 0.0 0.5 0.625 0.25 0.625 0.375 0.375 0.75 0.0 0.0 0.0 0.5 0.5 0.5",
+    #     "$\Gamma$ X U K $\Gamma$ L",
+    #     potential,
+    #     lat.pos,
+    #     lat.box,
+    #     elements_list=["Al"],
+    #     type_list=lat.type_list,
+    # )
     pho.compute()
     pho.plot_dispersion(
-        units="1/cm", merge_kpoints=[2, 3], color=(123, 204, 33), ylim=[0, 350]
+        units="1/cm",
     )
     # pho = Phonon(r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\aluminum\band.dat")
     # # ["$\Gamma$", "X", "U", "K", "$\Gamma$", "L"] Al

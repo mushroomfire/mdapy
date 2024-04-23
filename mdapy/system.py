@@ -647,9 +647,8 @@ class System:
         self,
         path,
         labels,
-        filename,
+        potential,
         elements_list,
-        pair_style="eam/alloy",
         replicate=None,
     ):
         """This function can be used to calculate the phono dispersion based on Phonopy (https://phonopy.github.io/phonopy/). We support NEP and
@@ -658,7 +657,7 @@ class System:
         Args:
             path (str | np.ndarray| nested list): band path, such as '0. 0. 0. 0.5 0.5 0.5', indicating two points.
             labels (str | list): high symmetry points label, such as ["$\Gamma$", "K", "M", "$\Gamma$"].
-            filename (str): potential filename, such as 'nep.txt'.
+            potential (BasePotential): base potential class defined in mdapy, which must including a compute method to calculate the energy, force, virial.
             elements_list (list[str]): element list, such as ['Al']
             pair_style (str, optional): pair style, selected in ['nep', 'eam/alloy']. Defaults to "eam/alloy".
             replicate (list, optional): replication to pos, such as [3, 3, 3]. If not given, we will replicate it exceeding 15 A per directions. Defaults to None.
@@ -678,12 +677,11 @@ class System:
         self.Phon = Phonon(
             path,
             labels,
+            potential,
             self.pos,
             self.box,
-            filename,
             elements_list,
             self.__data["type"].to_numpy(),
-            pair_style,
             replicate,
         )
         self.Phon.compute()
@@ -1529,36 +1527,30 @@ class System:
             pl.lit(CommonNeighborPar.cnp).alias("cnp")
         )
 
-    def cal_energy_force_virial(
-        self, filename, elements_list, pair_style="eam/alloy", max_neigh=None
-    ):
+    def cal_energy_force_virial(self, potential, elements_list):
         """Calculate the atomic energy and force based on the given potential.
-        From the version of 0.10.5, we support `NEP potential <https://gpumd.org/potentials/nep.html>`_.
 
         Args:
-            filename (str): filename of potential file.
-            elements_list (list): elements to be calculated, such as ['Al', 'Al', 'Ni'] indicates setting type 1 and 2 as 'Al' and type 3 as 'Ni'.
-            pair_style (str): support eam/alloy and nep potential style.
-            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to None.
+            potential (BasePotential): base potential class defined in mdapy, which must including a compute method to calculate the energy, force, virial.
+            elements_list (list): elements to be calculated, such as ['Al', 'Ni'] indicates setting type 1 as 'Al' and type 2 as 'Ni'.
 
         Returns:
             tuple[np.ndarray, np.ndarray, np.ndarray]: energy, force, virial.
 
-        Units & Shape:
+        Units & Shape (Only for our originally supported EAM and NEP potential.):
             energy : eV (:math:`N_p`)
             force : eV/A (:math:`N_p, 3`). The order is fx, fy and fz.
             virial : eV*A^3 (:math:`N_p, 9`). The order is xx, yy, zz, xy, xz, yz, yx, zx, zy.
         """
 
-        if pair_style == "eam/alloy":
-            potential = EAM(filename)
+        if isinstance(potential, EAM):
             repeat = _check_repeat_cutoff(self.box, self.boundary, potential.rc, 5)
             verlet_list, distance_list, neighbor_number = None, None, None
             if sum(repeat) == 3:
                 if not self.if_neigh:
-                    self.build_neighbor(rc=potential.rc, max_neigh=max_neigh)
+                    self.build_neighbor(rc=potential.rc)
                 if self.rc < potential.rc:
-                    self.build_neighbor(rc=potential.rc, max_neigh=max_neigh)
+                    self.build_neighbor(rc=potential.rc)
                 verlet_list, distance_list, neighbor_number = (
                     self.verlet_list,
                     self.distance_list,
@@ -1576,8 +1568,7 @@ class System:
                 neighbor_number,
             )
 
-        elif pair_style == "nep":
-            potential = NEP(filename)
+        else:
             energy, force, virial = potential.compute(
                 self.pos,
                 self.box,
@@ -1585,8 +1576,6 @@ class System:
                 self.__data["type"].to_numpy(),
                 self.boundary,
             )
-        else:
-            raise "pair_style must in ['eam/alloy', 'nep']."
 
         return energy, force, virial
 
@@ -1913,19 +1902,21 @@ class MultiSystem(list):
 if __name__ == "__main__":
     ti.init()
     from lattice_maker import LatticeMaker
+    from potential import LammpsPotential
 
     lat = LatticeMaker(4.05, "FCC", 1, 1, 1)
     lat.compute()
     system = System(pos=lat.pos, box=lat.box)
-
+    potential = LammpsPotential(
+        """pair_style eam/alloy
+       pair_coeff * * example/Al_DFT.eam.alloy Al"""
+    )
     system.cal_phono_dispersion(
         "0.0 0.0 0.0 0.5 0.0 0.5 0.625 0.25 0.625 0.375 0.375 0.75 0.0 0.0 0.0 0.5 0.5 0.5",
         "$\Gamma$ X U K $\Gamma$ L",
-        filename=r"example\Al_DFT.eam.alloy",
+        potential=potential,
         elements_list=["Al"],
     )
-
-    print(system.Phon.bands_dict.keys())
     fig, ax = system.Phon.plot_dispersion(
         units="1/cm", merge_kpoints=[2, 3], color=(123, 204, 33), ylim=[0, 350]
     )

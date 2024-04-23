@@ -8,16 +8,24 @@ import matplotlib.pyplot as plt
 
 try:
     from plotset import set_figure
-    from tool_function import _check_repeat_cutoff
+    from tool_function import _check_repeat_cutoff, atomic_masses, atomic_numbers
     from replicate import Replicate
     from neighbor import Neighbor
     from nep._nep import NEPCalculator
 except Exception:
     from .plotset import set_figure
-    from .tool_function import _check_repeat_cutoff
+    from .tool_function import _check_repeat_cutoff, atomic_masses, atomic_numbers
     from .replicate import Replicate
     from .neighbor import Neighbor
     from _nep import NEPCalculator
+
+from abc import ABC, abstractmethod
+
+
+class BasePotential(ABC):
+    @abstractmethod
+    def compute(self, pos, box, elements_list, type_list, boundary=[1, 1, 1]):
+        pass
 
 
 @ti.data_oriented
@@ -377,7 +385,7 @@ class EAMCalculator:
             self.virial = np.ascontiguousarray(self.virial[: self.old_N])
 
 
-class EAM:
+class EAM(BasePotential):
     """This class is used to read/write a embedded-atom method (EAM) potentials.
     The energy of atom :math:`i` is given by:
 
@@ -709,7 +717,7 @@ class EAM:
         return Cal.energy, Cal.force, Cal.virial
 
 
-class NEP:
+class NEP(BasePotential):
     """This class is a python interface for `NEP_CPU <https://github.com/brucefan1983/NEP_CPU>`_ version,
     which can be used to evaluate the energy, force and virial of a given system.
 
@@ -827,32 +835,139 @@ class NEP:
         )
 
 
+try:
+    from lammps import lammps
+except ModuleNotFoundError:
+    pass
+
+
+class LammpsPotential(BasePotential):
+
+    def __init__(
+        self,
+        pair_parameter,
+        units="metal",
+        atomic_style="atomic",
+        extra_args=None,
+        conversion_factor=None,
+    ):
+        self.pair_parameter = pair_parameter
+        self.units = units
+        self.atomic_style = atomic_style
+        self.extra_args = extra_args
+        self.conversion_factor = conversion_factor
+
+    def to_lammps_box(self, box):
+        xlo, ylo, zlo = box[-1]
+        xhi, yhi, zhi = (
+            xlo + box[0, 0],
+            ylo + box[1, 1],
+            zlo + box[2, 2],
+        )
+        xy, xz, yz = box[1, 0], box[2, 0], box[2, 1]
+        xlo_bound = xlo + min(0.0, xy, xz, xy + xz)
+        xhi_bound = xhi + max(0.0, xy, xz, xy + xz)
+        ylo_bound = ylo + min(0.0, yz)
+        yhi_bound = yhi + max(0.0, yz)
+        zlo_bound = zlo
+        zhi_bound = zhi
+        return (
+            [xlo_bound, ylo_bound, zlo_bound],
+            [xhi_bound, yhi_bound, zhi_bound],
+            xy,
+            xz,
+            yz,
+        )
+
+    def compute(
+        self,
+        pos,
+        box,
+        elements_list,
+        type_list,
+        boundary=[1, 1, 1],
+    ):
+        boundary = " ".join(["p" if i == 1 else "s" for i in boundary])
+        energy, force, virial = None, None, None
+        lmp = lammps()
+        try:
+            lmp.commands_string(f"units {self.units}")
+            lmp.commands_string(f"boundary {boundary}")
+            lmp.commands_string(f"atom_style {self.atomic_style}")
+            num_type = type_list.max()
+            create_box = f"""
+            region 1 block 0 1 0 1 0 1
+            create_box {num_type} 1
+            """
+            lmp.commands_string(create_box)
+            lmp.reset_box(*self.to_lammps_box(box))
+            N = pos.shape[0]
+            N_lmp = lmp.create_atoms(N, np.arange(1, N + 1), type_list, pos.flatten())
+            assert N == N_lmp, "Wrong atom numbers."
+
+            for i, m in enumerate(elements_list, start=1):
+                mass = atomic_masses[atomic_numbers[m]]
+                print(m, mass)
+                lmp.commands_string(f"mass {i} {mass}")
+            lmp.commands_string(self.pair_parameter)
+            if self.extra_args is not None:
+                lmp.commands_string(self.extra_args)
+            lmp.commands_string("compute 1 all stress/atom NULL")
+            lmp.commands_string("compute 2 all pe/atom")
+            lmp.commands_string("run 0")
+            sort_index = np.argsort(lmp.numpy.extract_atom("id"))
+            energy = np.array(lmp.numpy.extract_compute("2", 1, 1))[sort_index]
+            force = np.array(lmp.numpy.extract_atom("f"))[sort_index]
+            virial = np.array(lmp.numpy.extract_compute("1", 1, 2))[sort_index]
+        except Exception as e:
+            print(e)
+        finally:
+            lmp.close()
+
+        if self.conversion_factor is not None:
+            energy *= self.conversion_factor["energy"]
+            force *= self.conversion_factor["force"]
+            virial *= self.conversion_factor["virial"]
+        return energy, force, virial
+
+
 if __name__ == "__main__":
 
     from lattice_maker import LatticeMaker
     from time import time
     from system import System
 
-    ti.init(ti.cpu)
-    start = time()
-    lattice_constant = 4.048
-    x, y, z = 10, 10, 10
-    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
-    FCC.compute()
-    end = time()
-    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
+    eam = EAM("example/Al_DFT.eam.alloy")
+    print(isinstance(eam, EAM))
+    print(isinstance(eam, NEP))
 
-    start = time()
-    nep = NEP(r"D:\Study\Gra-Al\init_data\nep_interface\nep.txt")
+    # ti.init(ti.cpu)
+    # start = time()
+    # lattice_constant = 4.048
+    # x, y, z = 10, 10, 10
+    # FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    # FCC.compute()
+    # end = time()
+    # print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
 
-    e, f, v = nep.compute(
-        FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
-    )
-    end = time()
-    print(f"Calculate energy and force time: {end-start} s.")
-    print(e[:5])
-    print(f[:5])
-    print(v[:5])
+    # start = time()
+    # nep = NEP(r"D:\Study\Gra-Al\init_data\nep_interface\nep.txt")
+
+    # e, f, v = nep.compute(
+    #     FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
+    # )
+    # potential = LammpsPotential(
+    #     """pair_style eam/alloy
+    #    pair_coeff * * example/Al_DFT.eam.alloy Al"""
+    # )
+    # e, f, v = potential.compute(
+    #     FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
+    # )
+    # end = time()
+    # print(f"Calculate energy and force time: {end-start} s.")
+    # print(e[:5])
+    # print(f[:5])
+    # print(v[:5])
     # start = time()
     # des = nep.get_descriptors(
     #     FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)

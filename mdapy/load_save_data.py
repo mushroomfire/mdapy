@@ -494,7 +494,17 @@ class BuildSystem:
                 fmt = "dump.gz"
             else:
                 fmt = postfix
-        assert fmt in ["data", "lmp", "dump", "dump.gz", "POSCAR", "xyz", "cif"]
+
+        fmt = fmt.lower()
+        assert fmt in [
+            "data",
+            "lmp",
+            "dump",
+            "dump.gz",
+            "poscar",
+            "xyz",
+            "cif",
+        ], "fmt must in ['data', 'lmp', 'dump', 'dump.gz', 'poscar', 'xyz', 'cif']"
         return fmt
 
     @classmethod
@@ -503,7 +513,7 @@ class BuildSystem:
             return cls.read_dump(filename, fmt)
         elif fmt in ["data", "lmp"]:
             return cls.read_data(filename)
-        elif fmt == "POSCAR":
+        elif fmt == "poscar":
             return cls.read_POSCAR(filename)
         elif fmt == "xyz":
             return cls.read_xyz(filename)
@@ -1019,9 +1029,9 @@ class BuildSystem:
                 file = op.readlines()
 
             data = np.array([i.split() for i in file[row : row + N]], float)
-            data = pl.from_numpy(data, schema=col_names)
+            data = pl.from_numpy(data[:, : len(col_names)], schema=col_names)
             data = data.with_columns(
-                pl.col("id").cast(pl.Int64), pl.col("type").cast(pl.Int64)
+                pl.col("id").cast(pl.Int32), pl.col("type").cast(pl.Int32)
             )
 
             try:

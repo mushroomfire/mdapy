@@ -71,7 +71,7 @@ class System:
 
     Args:
         filename (str, optional): DATA/DUMP filename. Defaults to None.
-        fmt (str, optional): selected in ['data', 'lmp', 'dump', 'dump.gz', 'POSCAR', 'xyz', 'cif'], One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
+        fmt (str, optional): selected in ['data', 'lmp', 'dump', 'dump.gz', 'poscar', 'xyz', 'cif'], One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
         data (polars.Dataframe, optional): all particles information. Defaults to None.
         box (np.ndarray, optional): (:math:`4, 3` or :math:`3, 2`) system box. Defaults to None.
         pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
@@ -153,7 +153,7 @@ class System:
                     self.__boundary,
                     self.__timestep,
                 ) = BuildSystem.fromfile(self.__filename, self.__fmt)
-            elif self.__fmt in ["data", "lmp", "POSCAR", "xyz", "cif"]:
+            elif self.__fmt in ["data", "lmp", "poscar", "xyz", "cif"]:
                 self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
                     self.__filename, self.__fmt
                 )
@@ -1900,26 +1900,28 @@ class MultiSystem(list):
 
 
 if __name__ == "__main__":
-    ti.init()
-    from lattice_maker import LatticeMaker
-    from potential import LammpsPotential
+    system = System(r"D:\Study\Gra-Al\potential_test\phonon\aluminum\min.data")
+    print(system)
+    # ti.init()
+    # from lattice_maker import LatticeMaker
+    # from potential import LammpsPotential
 
-    lat = LatticeMaker(4.05, "FCC", 1, 1, 1)
-    lat.compute()
-    system = System(pos=lat.pos, box=lat.box)
-    potential = LammpsPotential(
-        """pair_style eam/alloy
-       pair_coeff * * example/Al_DFT.eam.alloy Al"""
-    )
-    system.cal_phono_dispersion(
-        "0.0 0.0 0.0 0.5 0.0 0.5 0.625 0.25 0.625 0.375 0.375 0.75 0.0 0.0 0.0 0.5 0.5 0.5",
-        "$\Gamma$ X U K $\Gamma$ L",
-        potential=potential,
-        elements_list=["Al"],
-    )
-    fig, ax = system.Phon.plot_dispersion(
-        units="1/cm", merge_kpoints=[2, 3], color=(123, 204, 33), ylim=[0, 350]
-    )
+    # lat = LatticeMaker(4.05, "FCC", 1, 1, 1)
+    # lat.compute()
+    # system = System(pos=lat.pos, box=lat.box)
+    # potential = LammpsPotential(
+    #     """pair_style eam/alloy
+    #    pair_coeff * * example/Al_DFT.eam.alloy Al"""
+    # )
+    # system.cal_phono_dispersion(
+    #     "0.0 0.0 0.0 0.5 0.0 0.5 0.625 0.25 0.625 0.375 0.375 0.75 0.0 0.0 0.0 0.5 0.5 0.5",
+    #     "$\Gamma$ X U K $\Gamma$ L",
+    #     potential=potential,
+    #     elements_list=["Al"],
+    # )
+    # fig, ax = system.Phon.plot_dispersion(
+    #     units="1/cm", merge_kpoints=[2, 3], color=(123, 204, 33), ylim=[0, 350]
+    # )
     # system = System("example/solidliquid.data")
     # print(system)
     # system.write_data("test.data", type_name=["Al", "C", "Fe"])

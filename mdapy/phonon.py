@@ -232,7 +232,7 @@ class Phonon:
             figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=150
         )
         if color is None:
-            color = "b"
+            color = "deepskyblue"
         elif isinstance(color, str):
             color = color
         else:
@@ -406,7 +406,7 @@ class Phonon:
             figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=150
         )
         if color is None:
-            color = "b"
+            color = "deepskyblue"
         elif isinstance(color, str):
             color = color
         else:
@@ -568,12 +568,12 @@ if __name__ == "__main__":
     #     elements_list=["Al"],
     #     type_list=lat.type_list,
     # )
-    # pho.compute()
-    pho.compute_thermal(0, 50, 1000, (30, 30, 30))
+    pho.compute()
+    # pho.compute_thermal(0, 50, 1000, (30, 30, 30))
     # pho.plot_thermal()
-    # pho.plot_dispersion(
-    #     units="1/cm",
-    # )
+    pho.plot_dispersion(
+        units="1/cm",
+    )
     # pho = Phonon(r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\aluminum\band.dat")
     # # ["$\Gamma$", "X", "U", "K", "$\Gamma$", "L"] Al
     # # ["$\Gamma$", "K", "M", "$\Gamma$"] graphene

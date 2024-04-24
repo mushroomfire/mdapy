@@ -388,6 +388,59 @@ class System:
             self.view.data = self.__data
             self.view.atoms_colored_by(values, vmin, vmax, cmap)
 
+    def cell_opt(
+        self,
+        pair_parameter,
+        elements_list,
+        units="metal",
+        atomic_style="atomic",
+        extra_args=None,
+        conversion_factor=None,
+    ):
+        """This function can be used to optimize box and position using lammps.
+
+        Args:
+            pair_parameter (str): including pair_style and pair_coeff, such as "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al".
+            elements_list (list[str]): elements to be calculated, such as ['Al', 'Ni'].
+            units (str, optional): lammps units, such as metal, real etc. Defaults to "metal".
+            atomic_style (str, optional): atomic_style, such as atomic, charge etc. Defaults to "atomic".
+            extra_args (str, optional): any lammps commond. Defaults to None.
+            conversion_factor (float, optional): units conversion. Make sure converse the length units to A. Defaults to None.
+
+        Returns:
+            System: an optimized system.
+        """
+        try:
+            from lammps import lammps
+        except Exception:
+            raise "One should install lammps=python interface to use this function. Chech the installation guide (https://docs.lammps.org/Python_install.html)."
+
+        try:
+            from cell_opt import CellOptimization
+        except Exception:
+            from .cell_opt import CellOptimization
+
+        cpt = CellOptimization(
+            self.pos,
+            self.box,
+            self.__data["type"].to_numpy(),
+            elements_list,
+            self.boundary,
+            pair_parameter,
+            units,
+            atomic_style,
+            extra_args,
+            conversion_factor,
+        )
+        data, box = cpt.compute()
+        return System(
+            data=data,
+            box=box,
+            boundary=self.__boundary,
+            filename=self.__filename,
+            fmt=self.__fmt,
+        )
+
     def select(self, data: pl.DataFrame):
         """Generate a subsystem.
 
@@ -1901,7 +1954,11 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     system = System(r"D:\Study\Gra-Al\potential_test\phonon\aluminum\min.data")
-    print(system)
+    relax_system = system.cell_opt(
+        "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al", ["Al"]
+    )
+    print(relax_system)
+
     # ti.init()
     # from lattice_maker import LatticeMaker
     # from potential import LammpsPotential

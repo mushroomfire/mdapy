@@ -3,6 +3,7 @@
 
 import numpy as np
 import polars as pl
+import os
 
 try:
     from lammps import lammps
@@ -137,10 +138,12 @@ class CellOptimization:
             type_list = np.array(lmp.numpy.extract_atom("type"))
             box = self.to_mdapy_box(lmp.extract_box())
         except Exception as e:
-            print(e)
-            raise "Cell optimization failed."
-        finally:
             lmp.close()
+            os.remove("log.lammps")
+            raise e
+
+        lmp.close()
+        os.remove("log.lammps")
 
         if self.conversion_factor is not None:
             pos *= self.conversion_factor

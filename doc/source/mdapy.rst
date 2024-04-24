@@ -12,6 +12,14 @@ mdapy.ackland\_jones\_analysis module
    :undoc-members:
    :show-inheritance:
 
+mdapy.cell\_opt module
+----------------------
+
+.. automodule:: mdapy.cell_opt
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.centro\_symmetry\_parameter module
 ----------------------------------------
 

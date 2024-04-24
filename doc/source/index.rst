@@ -34,19 +34,21 @@ Dependencies
 ------------
 
 * `python <https://www.python.org/>`_ (3.8-3.11)
-* `taichi>=1.7.0 <https://github.com/taichi-dev/taichi>`_
+* `taichi>=1.7.1 <https://github.com/taichi-dev/taichi>`_
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
-* `polars>=0.20.19 <https://pola-rs.github.io/polars/>`_
+* `polars>=0.20.22 <https://pola-rs.github.io/polars/>`_
 * `matplotlib <https://matplotlib.org/>`_
 * `polyscope <https://polyscope.run/py/>`_
 
 Optional Dependencies
 ----------------------
 
-* `k3d <https://github.com/K3D-tools/K3D-jupyter>`_ (Optional, for visualizing the 3D atoms.)
-* `tqdm <https://github.com/tqdm/tqdm>`_ (Optional, for progress bar when reading/saving multi files)
-* `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Optional, for fast FFT)
+* `k3d <https://github.com/K3D-tools/K3D-jupyter>`_ (Visualizing the 3D atoms)
+* `tqdm <https://github.com/tqdm/tqdm>`_ (Show progress bar when reading/saving multi files)
+* `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Fast FFT)
+* `phonopy <https://github.com/phonopy/phonopy>`_ (Do phonon calculation)
+* `lammps <https://github.com/lammps/lammps>`_ (Compute atomic energy, force and virial using lammps supported potential)
 
 Citation
 ---------
@@ -75,6 +77,7 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
    gettingstarted/quicklystart
    gettingstarted/examples
    gettingstarted/calculate_GSFE
+   gettingstarted/calculate_phonon
    gettingstarted/visualizing_atoms
    gettingstarted/use_mdapy_efficiently
    gettingstarted/matters_need_attention

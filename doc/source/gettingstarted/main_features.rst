@@ -19,30 +19,40 @@ Main Features
    - `Read EAM/alloy Potential <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.potential>`_
    - `Average EAM/alloy Potential <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.eam_average>`_
    - `Calculate Atomic Force and Energy by EAM/alloy <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.potential.EAM>`_
-   - `Calculate Atomic Force and Energy by NEP <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.potential.NEP>`_
 
-3. Melting Analysis 
+3. Phonon Calculation
+   
+   - `Cell optimization <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.cell_opt>`_
+   - `Calculate phonon dispersion, dos and thermal properties, supporting any kind of potential formats <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.phonon>`_
+
+4. Melting Analysis 
 
    - `Mean Squared Displacement <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.mean_squared_displacement>`_
    - `Lindemann Parameter <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.lindemann_parameter>`_
    - `Identify Solid/Liquid Phase <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.steinhardt_bond_orientation>`_
 
-4. Geometry Structure Creation 
+5. Deep Learning Potential Database Preparing
+   
+   - `Generate perturbation models <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.perturb_model>`_
+   - `Extract DFT data to XYZ format for NEP training <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.dft2nepxyz>`_
+   - `Calculate Atomic Force and Energy by NEP <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.potential.NEP>`_
+
+6. Geometry Structure Creation 
 
    - `Generate Standard Lattice Structure <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.lattice_maker>`_
    - `Generate Polycrystal <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.create_polycrystalline.CreatePolycrystalline>`_
 
-5. Neighbor Search 
+7. Neighbor Search 
 
    - `Neighbor Atoms within Fixed Distance <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.neighbor>`_
    - `Neighbor Atoms within Fixed Number <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.nearest_neighbor>`_
 
-6. I/O
+8. I/O
    
    - `Load Dump, Data, POSCAR, XYZ, cif format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
    - `Export Dump, Data, POSCAR, XYZ, cif format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
 
-7. Other 
+9. Other 
 
    - `Void Distribution <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.void_distribution>`_
    - `Cluster Analysis <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.cluser_analysis>`_
@@ -53,7 +63,4 @@ Main Features
    - `Atomic Voronoi Volume <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.voronoi_analysis>`_
    - `Multi-dimensional Spatial Binning <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.spatial_binning>`_
    - `Parallelly Compress file to .gz format <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.pigz>`_
-   - `Plot phonon dispersion <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.phonon>`_
-   - `Generate perturbation models <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.perturb_model>`_
-   - `Extract DFT data to XYZ format for NEP training <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.dft2nepxyz>`_
    - `Split xyz/dump trajectories into seperate xyz/dump files <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.tool_function.split_dump>`_

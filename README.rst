@@ -155,7 +155,7 @@ Main Features
    - `Load Dump, Data, POSCAR, XYZ, cif format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
    - `Export Dump, Data, POSCAR, XYZ, cif format <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.system.System>`_
 
-9.  Other 
+9. Other 
 
    - `Void Distribution <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.void_distribution>`_
    - `Cluster Analysis <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.cluser_analysis>`_

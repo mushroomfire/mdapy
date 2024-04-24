@@ -5,6 +5,7 @@ import taichi as ti
 import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import matplotlib.pyplot as plt
+import os
 
 try:
     from plotset import set_figure
@@ -957,10 +958,11 @@ class LammpsPotential(BasePotential):
             force = np.array(lmp.numpy.extract_atom("f"))[sort_index]
             virial = np.array(lmp.numpy.extract_compute("1", 1, 2))[sort_index]
         except Exception as e:
-            print(e)
-        finally:
             lmp.close()
-
+            os.remove("log.lammps")
+            raise e
+        lmp.close()
+        os.remove("log.lammps")
         if self.conversion_factor is not None:
             energy *= self.conversion_factor["energy"]
             force *= self.conversion_factor["force"]
@@ -980,7 +982,7 @@ if __name__ == "__main__":
 
     ti.init(ti.cpu)
     start = time()
-    lattice_constant = 4.048
+    lattice_constant = 4.05
     x, y, z = 10, 10, 10
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()

@@ -82,7 +82,7 @@ Examples
     FCC.compute()
     potential = mp.EAM("Al_DFT.eam.alloy") # read a eam.alloy potential file
     for scale in np.arange(0.9, 1.15, 0.01): # loop to get different energies
-        energy, _ = potential.compute(FCC.pos*scale, FCC.box*scale, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32))
+        energy, _, _ = potential.compute(FCC.pos*scale, FCC.box*scale, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32))
         eos.append([scale*lattice_constant, energy.mean()])
     eos = np.array(eos)
 

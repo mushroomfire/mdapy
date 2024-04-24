@@ -84,10 +84,10 @@ setup(
     url="https://github.com/mushroomfire/mdapy",
     python_requires=">=3.8,<3.12",
     install_requires=[
-        "taichi>=1.7.0",
+        "taichi>=1.7.1",
         "numpy",
         "scipy",
-        "polars>=0.20.19",
+        "polars>=0.20.22",
         "matplotlib",
         "polyscope",
     ],

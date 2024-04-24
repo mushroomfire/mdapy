@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "mdapy"
 description = "A simple, fast and cross-platform python library to handle the data generated from molecular dynamics simulations."
 dependencies = [
-    "taichi>=1.7.0",
+    "taichi>=1.7.1",
     "numpy",
     "scipy",
-    "polars>=0.20.19",
+    "polars>=0.20.22",
     "matplotlib",
     "polyscope",
 ]

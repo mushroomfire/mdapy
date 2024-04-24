@@ -413,7 +413,7 @@ class System:
         try:
             from lammps import lammps
         except Exception:
-            raise "One should install lammps=python interface to use this function. Chech the installation guide (https://docs.lammps.org/Python_install.html)."
+            raise "One should install lammps-python interface to use this function. Chech the installation guide (https://docs.lammps.org/Python_install.html)."
 
         try:
             from cell_opt import CellOptimization

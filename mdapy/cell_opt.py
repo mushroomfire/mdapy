@@ -6,6 +6,9 @@ import polars as pl
 
 try:
     from lammps import lammps
+except Exception:
+    raise "One should install lammps-python interface to use this function. Chech the installation guide (https://docs.lammps.org/Python_install.html)."
+try:
     from tool_function import atomic_masses, atomic_numbers
 except Exception:
     from .tool_function import atomic_masses, atomic_numbers

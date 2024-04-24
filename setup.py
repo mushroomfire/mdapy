@@ -92,11 +92,10 @@ setup(
         "polyscope",
     ],
     extras_require={
-        "all": ["k3d", "tqdm", "pyfftw", "phonopy"],
+        "all": ["k3d", "tqdm", "pyfftw"],
         "k3d": "k3d",
         "tqdm": "tqdm",
         "pyfftw": "pyfftw",
-        "phonopy": "phonopy",
     },
     classifiers=[
         "License :: OSI Approved :: BSD License",

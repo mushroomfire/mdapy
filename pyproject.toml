@@ -31,11 +31,10 @@ authors = [
 ]
 
 [project.optional-dependencies]
-all = ['k3d', 'tqdm', 'pyfftw', 'phonopy']
+all = ['k3d', 'tqdm', 'pyfftw']
 k3d = ['k3d']
 tqdm = ['tqdm']
 pyfftw = ['pyfftw']
-phonopy = ['phonopy']
 
 [project.urls]
 Homepage = "https://github.com/mushroomfire/mdapy"

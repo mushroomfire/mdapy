@@ -171,7 +171,7 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
         -   **Version**
         -   **Features**
     *   -   `taichi <https://github.com/taichi-dev/taichi>`_
-        -   >=1.7.0
+        -   >=1.7.1
         -   Do parallel computing.
     *   -   `numpy <https://numpy.org/>`_
         -   latest
@@ -180,7 +180,7 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
         -   latest
         -   Build kdtree, do FFT, spline interpolation.
     *   -   `polars <https://pola-rs.github.io/polars/>`_
-        -   >=0.20.19
+        -   >=0.20.22
         -   Fast read/save file. Data structure to represent the particles information.
     *   -   `matplotlib <https://matplotlib.org/>`_
         -   latest
@@ -207,6 +207,12 @@ Optional Dependencies
     *   -   `pyfftw <https://github.com/pyFFTW/pyFFTW>`_
         -   latest
         -   Faster FFT.
+    *   -   `phonopy <https://github.com/phonopy/phonopy>`_
+        -   latest
+        -   Do phonon calculation.
+    *   -   `lammps <https://github.com/lammps/lammps>`_ 
+        -   latest
+        -   Compute atomic energy, force and virial using lammps supported potential.
 
 Installation
 -------------
@@ -227,8 +233,11 @@ One can install optional dependencies. For example:
 
 .. code-block:: bash
 
-   # This will install all optional packages (k3d, tqdm, pyfftw).
+   # This will install all optional packages (k3d, tqdm, pyfftw, phonopy) except lammps.
    pip install mdapy[all]
+
+.. note:: If one wants to use lammps supported potential to calculate atomic force and phonon properties, one 
+   can install the lammps-python interface referring to the `official guide <https://docs.lammps.org/Python_install.html>`_.
 
 Install from source code.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -308,10 +317,17 @@ Release Notes
 --------------
 
 V0.10.7 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- Add phonon calculation feature based on the phonopy, supporting any kind of potential format.
 - Add atomic virial computation for eam/alloy potential.
-- Add phonon calculation feature based on the phonopy.
 - Fix a bug for NEP interface.
+- Fix a bug for read_data.
+- Add feature of cell_opt, using lammps as calculation backend.
+- Add phonopy and lammps as optional package.
+- Support taichi>=1.7.1.
+- Support polars>=0.20.22.
+- Update readme.
 
 V0.10.6 (April 13, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^

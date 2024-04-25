@@ -338,6 +338,7 @@ V0.10.7 (Under development)
 - Fix a bug for read_data.
 - Add feature of cell_opt, using lammps as calculation backend.
 - Add phonopy and lammps as optional package.
+- Add force_max and mode parameter for DFT2NEPXYZ class.
 - Support taichi>=1.7.1.
 - Support polars>=0.20.22.
 - Update readme.

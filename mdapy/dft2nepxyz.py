@@ -147,7 +147,8 @@ class DFT2NEPXYZ:
         interval (int, optional): if provided, we will save it to test.xyz per interval. Defaults to 10.
         energy_shift (dict, optional): if provided, the energy will substract the base energy, such as {'Fe':89.0, 'O':50.0}. Defaults to None.
         save_virial (bool, optional): if set False, the virial information will not be saved. Defaults to True.
-
+        force_max (float, optional): if system's abusolute maximum force is larger than this value, it will not be saved to train.xyz.
+        mode (str, optional): if mode is 'w', it will generate new train.xyz/test.xyz. If mode is 'a', it will append in current train.xyz/test.xyz. Defaults to 'w'.
     Outputs:
         - Generate train.xyz and test.xyz in current folder (if *interval* provides).
     """
@@ -159,6 +160,8 @@ class DFT2NEPXYZ:
         interval=10,
         energy_shift=None,
         save_virial=True,
+        force_max=None,
+        mode="w",
     ):
 
         self.filename_list = filename_list
@@ -169,6 +172,11 @@ class DFT2NEPXYZ:
         self.interval = interval
         self.energy_shift = energy_shift
         self.save_virial = save_virial
+        if force_max is not None:
+            force_max = abs(force_max)
+        self.force_max = force_max
+        assert mode in ["w", "a"], "mode must in ['w', 'a']."
+        self.mode = mode
         self._write_xyz()
 
     def __repr__(self):
@@ -212,27 +220,34 @@ class DFT2NEPXYZ:
 
     def _write_xyz(self):
         start = time()
-        if os.path.exists("train.xyz"):
-            os.remove("train.xyz")
-        if os.path.exists("test.xyz"):
-            os.remove("test.xyz")
+        if self.mode == "w":
+            if os.path.exists("train.xyz"):
+                os.remove("train.xyz")
+            if os.path.exists("test.xyz"):
+                os.remove("test.xyz")
+        elif self.mode == "a":
+            print("Adding frames to train.xyz/test.xyz.")
         frame = 0
         if self.interval is not None:
             for i, filename in enumerate(self.filename_list, start=1):
                 try:
                     LS = LabeledSystem(filename)
-                    if i % self.interval == 0:
-                        self._write_nep_xyz("test.xyz", LS.data)
-                    else:
-                        self._write_nep_xyz("train.xyz", LS.data)
+                    if self.force_max is not None:
+                        if abs(LS.data["force"]).max() < self.force_max:
+                            if i % self.interval == 0:
+                                self._write_nep_xyz("test.xyz", LS.data)
+                            else:
+                                self._write_nep_xyz("train.xyz", LS.data)
                     frame += 1
-                except Exception as e:
+                except Exception:
                     print(f"Warning: Something is wrong for {filename}!")
         else:
             for i, filename in enumerate(self.filename_list, start=1):
                 try:
                     LS = LabeledSystem(filename)
-                    self._write_nep_xyz("train.xyz", LS.data)
+                    if self.force_max is not None:
+                        if abs(LS.data["force"]).max() < self.force_max:
+                            self._write_nep_xyz("train.xyz", LS.data)
                     frame += 1
                 except Exception:
                     print(f"Warning: Something is wrong for {filename}!")
@@ -241,4 +256,8 @@ class DFT2NEPXYZ:
 
 if __name__ == "__main__":
 
-    DFT2NEPXYZ([r"D:\Study\Gra-Al\init_data\data\aluminum\FCC\scale_0.8\0\output.log"])
+    DFT2NEPXYZ(
+        [r"D:\Study\Gra-Al\init_data\data\aluminum\FCC\scale_0.8\0\output.log"],
+        force_max=200,
+        mode="a",
+    )

@@ -16,6 +16,20 @@ except Exception:
 
 
 class CellOptimization:
+    """This class provide a interface to optimize the position and box using lammps.
+
+    Args:
+        pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+        box (np.ndarray): (:math:`4, 3`) system box.
+        type_list (np.ndarray): (:math:`N_p`) atom type list.
+        elements_list (list[str]): elements to be calculated, such as ['Al', 'Ni'].
+        boundary (list): boundary conditions, 1 is periodic and 0 is free boundary.
+        pair_parameter (str): including pair_style and pair_coeff, such as "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al".
+        units (str, optional): lammps units, such as metal, real etc. Defaults to "metal".
+        atomic_style (str, optional): atomic_style, such as atomic, charge etc. Defaults to "atomic".
+        extra_args (str, optional): any lammps commond. Defaults to None.
+        conversion_factor (float, optional): units conversion. Make sure converse the length units to A. Defaults to None.
+    """
 
     def __init__(
         self,
@@ -30,20 +44,6 @@ class CellOptimization:
         extra_args=None,
         conversion_factor=None,
     ):
-        """This class provide a interface to optimize the position and box using lammps.
-
-        Args:
-            pos (np.ndarray): (:math:`N_p, 3`) particles positions.
-            box (np.ndarray): (:math:`4, 3`) system box.
-            type_list (np.ndarray): (:math:`N_p`) atom type list.
-            elements_list (list[str]): elements to be calculated, such as ['Al', 'Ni'].
-            boundary (list): boundary conditions, 1 is periodic and 0 is free boundary.
-            pair_parameter (str): including pair_style and pair_coeff, such as "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al".
-            units (str, optional): lammps units, such as metal, real etc. Defaults to "metal".
-            atomic_style (str, optional): atomic_style, such as atomic, charge etc. Defaults to "atomic".
-            extra_args (str, optional): any lammps commond. Defaults to None.
-            conversion_factor (float, optional): units conversion. Make sure converse the length units to A. Defaults to None.
-        """
         self.pos = pos
         self.box = box
         self.type_list = type_list

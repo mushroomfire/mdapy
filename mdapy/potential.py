@@ -855,6 +855,15 @@ except Exception:
 
 
 class LammpsPotential(BasePotential):
+    """This class provide a interface to use potential supported in lammps to calculate the energy, force and virial.
+
+    Args:
+        pair_parameter (str): including pair_style and pair_coeff, such as "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al".
+        units (str, optional): lammps units, such as metal, real etc. Defaults to "metal".
+        atomic_style (str, optional): atomic_style, such as atomic, charge etc. Defaults to "atomic".
+        extra_args (str, optional): any lammps commond. Defaults to None.
+        conversion_factor (dict, optional): units conversion. It must be {'energy':float, 'force':float, 'virial':float}. The float can be any number, while the key is fixed. Defaults to None.
+    """
 
     def __init__(
         self,
@@ -864,15 +873,7 @@ class LammpsPotential(BasePotential):
         extra_args=None,
         conversion_factor=None,
     ):
-        """This class provide a interface to use potential supported in lammps to calculate the energy, force and virial.
 
-        Args:
-            pair_parameter (str): including pair_style and pair_coeff, such as "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al".
-            units (str, optional): lammps units, such as metal, real etc. Defaults to "metal".
-            atomic_style (str, optional): atomic_style, such as atomic, charge etc. Defaults to "atomic".
-            extra_args (str, optional): any lammps commond. Defaults to None.
-            conversion_factor (dict, optional): units conversion. It must be {'energy':float, 'force':float, 'virial':float}. The float can be any number, while the key is fixed. Defaults to None.
-        """
         self.pair_parameter = pair_parameter
         self.units = units
         self.atomic_style = atomic_style

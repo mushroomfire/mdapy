@@ -16,6 +16,23 @@ except Exception:
 
 
 class Phonon:
+    """This class can be used to calculate the phono dispersion based on Phonopy. We support NEP and
+    eam/alloy potential now.
+
+    Args:
+        path (str | np.ndarray| nested list): band path, such as '0. 0. 0. 0.5 0.5 0.5', indicating two points.
+        labels (str | list): high symmetry points label, such as ["$\Gamma$", "K", "M", "$\Gamma$"].
+        potential (BasePotential): base potential class defined in mdapy, which must including a compute method to calculate the energy, force, virial.
+        pos (np.ndarray): (:math:`N_p, 3`) particles positions.
+        box (np.ndarray): (:math:`4, 3`) system box.
+        elements_list (list[str]): element list, such as ['Al']
+        type_list (np.ndarray): (:math:`N_p`) atom type list.
+        replicate (list, optional): replication to pos, such as [3, 3, 3]. If not given, we will replicate it exceeding 15 A per directions. Defaults to None.
+
+    Outputs:
+        **band_dict** : band information, which can be used to plot phono dispersion.
+    """
+
     def __init__(
         self,
         path,
@@ -27,22 +44,6 @@ class Phonon:
         type_list,
         replicate=None,
     ):
-        """This class can be used to calculate the phono dispersion based on Phonopy. We support NEP and
-        eam/alloy potential now.
-
-        Args:
-            path (str | np.ndarray| nested list): band path, such as '0. 0. 0. 0.5 0.5 0.5', indicating two points.
-            labels (str | list): high symmetry points label, such as ["$\Gamma$", "K", "M", "$\Gamma$"].
-            potential (BasePotential): base potential class defined in mdapy, which must including a compute method to calculate the energy, force, virial.
-            pos (np.ndarray): (:math:`N_p, 3`) particles positions.
-            box (np.ndarray): (:math:`4, 3`) system box.
-            elements_list (list[str]): element list, such as ['Al']
-            type_list (np.ndarray): (:math:`N_p`) atom type list.
-            replicate (list, optional): replication to pos, such as [3, 3, 3]. If not given, we will replicate it exceeding 15 A per directions. Defaults to None.
-
-        Outputs:
-            **band_dict** : band information, which can be used to plot phono dispersion.
-        """
 
         if isinstance(path, str):
             self.path = np.array(path.split(), float).reshape(1, -1, 3)

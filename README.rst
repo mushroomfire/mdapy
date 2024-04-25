@@ -329,7 +329,7 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
-V0.10.7 (Under development)
+V0.10.7 (April 25, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Add phonon calculation feature based on the phonopy, supporting any kind of potential format.

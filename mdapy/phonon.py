@@ -572,9 +572,10 @@ if __name__ == "__main__":
     pho.compute()
     # pho.compute_thermal(0, 50, 1000, (30, 30, 30))
     # pho.plot_thermal()
-    pho.plot_dispersion(
+    fig, ax = pho.plot_dispersion(
         units="1/cm",
     )
+    fig.savefig("test.png")
     # pho = Phonon(r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\aluminum\band.dat")
     # # ["$\Gamma$", "X", "U", "K", "$\Gamma$", "L"] Al
     # # ["$\Gamma$", "K", "M", "$\Gamma$"] graphene

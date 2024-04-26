@@ -238,7 +238,7 @@ class DFT2NEPXYZ:
                                 self._write_nep_xyz("test.xyz", LS.data)
                             else:
                                 self._write_nep_xyz("train.xyz", LS.data)
-                    frame += 1
+                            frame += 1
                 except Exception:
                     print(f"Warning: Something is wrong for {filename}!")
         else:
@@ -248,7 +248,7 @@ class DFT2NEPXYZ:
                     if self.force_max is not None:
                         if abs(LS.data["force"]).max() < self.force_max:
                             self._write_nep_xyz("train.xyz", LS.data)
-                    frame += 1
+                            frame += 1
                 except Exception:
                     print(f"Warning: Something is wrong for {filename}!")
         print(f"Saving {frame} frames. Time costs {time()-start} s.")

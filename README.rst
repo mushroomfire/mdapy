@@ -329,6 +329,11 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
+V0.10.8 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Fix frame counter in DFT2NEPXYZ.
+
 V0.10.7 (April 25, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

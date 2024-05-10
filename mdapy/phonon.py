@@ -73,7 +73,7 @@ class Phonon:
 
         if replicate is None:
             lengths = np.linalg.norm(self.box, axis=1)
-            self.replicate = np.round(15.0 / lengths).astype(int)
+            self.replicate = np.round(10.0 / lengths).astype(int)
         else:
             self.replicate = replicate
 
@@ -88,8 +88,115 @@ class Phonon:
         return PhonopyAtoms(
             symbols=self.type_name,
             cell=self.box,
-            scaled_positions=self.scaled_positions,
+            positions=self.pos,
+            # scaled_positions=self.scaled_positions,
         )
+
+    def diff_matrix(self, array_1, array_2, cell_size):
+        """
+        :param array_1: supercell scaled positions respect unit cell
+        :param array_2: supercell scaled positions respect unit cell
+        :param cell_size: diference between arrays accounting for periodicity
+        :return:
+        """
+        array_1_norm = np.array(array_1) / np.array(cell_size, dtype=float)[None, :]
+        array_2_norm = np.array(array_2) / np.array(cell_size, dtype=float)[None, :]
+
+        return array_2_norm - array_1_norm
+
+    def phonopy_order(self, i, size):
+        x = np.mod(i, size[0])
+        y = np.mod(i, size[0] * size[1]) // size[0]
+        z = np.mod(i, size[0] * size[1] * size[2]) // (size[1] * size[0])
+        k = i // (size[1] * size[0] * size[2])
+
+        return np.array([x, y, z, k])
+
+    def get_correct_arrangement(self, reference):
+
+        # print structure.get_scaled_positions()
+        inv_box = np.linalg.inv(self.box)
+        struc_scale_position = self.pos @ inv_box
+        scaled_coordinates = []
+        for coordinate in reference:
+            trans = np.dot(coordinate, inv_box)
+            scaled_coordinates.append(np.array(trans.real, dtype=float))
+
+        number_of_cell_atoms = self.pos.shape[0]
+        number_of_supercell_atoms = len(scaled_coordinates)
+        # supercell_dim = np.diag(supercell_matrix)
+
+        # print 'atom', number_of_cell_atoms, number_of_supercell_atoms
+        unit_cell_scaled_coordinates = scaled_coordinates - np.array(
+            scaled_coordinates, dtype=int
+        )
+
+        # Map supercell atoms to unitcell
+        atom_unit_cell_index = []
+        for coordinate in unit_cell_scaled_coordinates:
+            # Only works for non symmetric cell (must be changed)
+
+            diff = np.abs(
+                np.array([coordinate] * number_of_cell_atoms) - struc_scale_position
+            )
+
+            diff[diff >= 0.5] -= 1.0
+            diff[diff < -0.5] += 1.0
+
+            index = np.argmin(np.linalg.norm(diff, axis=1))
+
+            atom_unit_cell_index.append(index)
+        atom_unit_cell_index = np.array(atom_unit_cell_index)
+
+        original_conf = np.array(
+            [
+                self.phonopy_order(j, self.replicate)[:3]
+                for j in range(number_of_supercell_atoms)
+            ]
+        )
+
+        template = []
+        lp_coordinates = []
+        for i, coordinate in enumerate(scaled_coordinates):
+            lattice_points_coordinates = (
+                coordinate - struc_scale_position[atom_unit_cell_index[i]]
+            )
+
+            for k in range(3):
+                if lattice_points_coordinates[k] > self.replicate[k] - 0.5:
+                    lattice_points_coordinates[k] = (
+                        lattice_points_coordinates[k] - self.replicate[k]
+                    )
+                if lattice_points_coordinates[k] < -0.5:
+                    lattice_points_coordinates[k] = (
+                        lattice_points_coordinates[k] + self.replicate[k]
+                    )
+
+            comparison_cell = np.array(
+                [lattice_points_coordinates] * number_of_supercell_atoms
+            )
+            diference = np.linalg.norm(
+                self.diff_matrix(original_conf, comparison_cell, self.replicate), axis=1
+            )
+            template.append(
+                np.argmin(diference)
+                + atom_unit_cell_index[i]
+                * number_of_supercell_atoms
+                // number_of_cell_atoms
+            )
+
+            lp_coordinates.append(lattice_points_coordinates)
+        template = np.array(template)
+
+        if len(np.unique(template)) < len(template):
+            print(
+                "Something wrong with crystal structure!\n"
+                "POSCAR & LAMMPS structure do not match"
+            )
+            print("unique: {} / {}".format(len(np.unique(template)), len(template)))
+            exit()
+
+        return template
 
     def get_force_constants(self):
 
@@ -100,22 +207,30 @@ class Phonon:
             supercell_matrix=self.replicate,
             primitive_matrix="auto",
         )
+
         self.phonon.generate_displacements(distance=0.01)
         supercells = self.phonon.get_supercells_with_displacements()
+        # data_set = self.phonon.get_displacement_dataset()
+        # print(data_set["first_atoms"][0])
         set_of_forces = []
         type_list = np.array(self.type_list.tolist() * np.prod(self.replicate), int)
 
         for cell in supercells:
+            template = self.get_correct_arrangement(cell.get_positions())
+            # print(template)
             _, forces, _ = self.potential.compute(
-                cell.get_positions(),
+                cell.get_positions()[template],
                 np.r_[cell.get_cell(), np.zeros((1, 3))],
                 self.elements_list,
-                type_list,
+                type_list[template],
                 [1, 1, 1],
             )
 
             forces -= np.mean(forces, axis=0)
-            set_of_forces.append(forces)
+            set_of_forces.append(forces[np.argsort(template)])
+            # data_set["first_atoms"][i]["forces"] = forces
+        # self.phonon.set_displacement_dataset(data_set)
+        # self.phonon.produce_force_constants()
         set_of_forces = np.array(set_of_forces)
         self.phonon.produce_force_constants(forces=set_of_forces)
 
@@ -540,25 +655,35 @@ if __name__ == "__main__":
     ti.init()
     from lattice_maker import LatticeMaker
     from potential import LammpsPotential, EAM, NEP
+    from system import System
 
-    lat = LatticeMaker(1.42, "GRA", 1, 1, 1)
-    lat.compute()
-    lat.box[2, 2] += 20
+    # lat = LatticeMaker(1.42, "GRA", 1, 1, 1)
+    # lat.compute()
+    # lat.box[2, 2] += 20
 
     # potential = LammpsPotential(
     #     """pair_style airebo 3.0
     #    pair_coeff * * D:\Study\Gra-Al\potential_test\phonon\graphene\phonon_interface\CH.airebo C"""
     # )
-    potential = NEP("example/C_2022_NEP3.txt")
+    # "0.0 0.0 0.0 0.3333333333 0.3333333333 0.0 0.5 0.0 0.0 0.0 0.0 0.0",
+    # "$\Gamma$ K M $\Gamma$",
+    system = System(r"D:\Study\Gra-Al\potential_test\phonon\alc\Al4C3.lmp")
+    potential = NEP(r"D:\Study\Gra-Al\potential_test\total\nep.txt")
+    # system = System(r"/mnt/d/Study/Gra-Al/potential_test/phonon/alc/POSCAR")
+    # potential = LammpsPotential(
+    #     """pair_style nep /mnt/d/Study/Gra-Al/potential_test/total/nep.txt
+    #        pair_coeff * *"""
+    # )
     # potential = NEP(r"D:\Study\Gra-Al\potential_test\phonon\aluminum\nep.txt")
     pho = Phonon(
-        "0.0 0.0 0.0 0.3333333333 0.3333333333 0.0 0.5 0.0 0.0 0.0 0.0 0.0",
-        "$\Gamma$ K M $\Gamma$",
+        "0.0 0.0 0.0 0.5 0.5 0.5 0.8244 0.1755 0.5 0.5 0.0 0.0 0.0 0.0 0.0 0.3377 -0.337 0.0 0.5 0.0 0.5 0.0 0.0 0.0",
+        "$\Gamma$ T $H_2$ L $\Gamma$ $S_0$ F $\Gamma$",
         potential,
-        lat.pos,
-        lat.box,
-        elements_list=["C"],
-        type_list=lat.type_list,
+        system.pos,
+        system.box,
+        elements_list=["Al", "C"],
+        type_list=system.data["type"].to_numpy(),
+        replicate=[3, 3, 1],
     )
     # pho = Phonon(
     #     "0.0 0.0 0.0 0.5 0.0 0.5 0.625 0.25 0.625 0.375 0.375 0.75 0.0 0.0 0.0 0.5 0.5 0.5",
@@ -572,10 +697,8 @@ if __name__ == "__main__":
     pho.compute()
     # pho.compute_thermal(0, 50, 1000, (30, 30, 30))
     # pho.plot_thermal()
-    fig, ax = pho.plot_dispersion(
-        units="1/cm",
-    )
-    fig.savefig("test.png")
+    fig, ax = pho.plot_dispersion()
+    # fig.savefig("test.png")
     # pho = Phonon(r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\aluminum\band.dat")
     # # ["$\Gamma$", "X", "U", "K", "$\Gamma$", "L"] Al
     # # ["$\Gamma$", "K", "M", "$\Gamma$"] graphene

@@ -535,6 +535,32 @@ class System:
             compress=compress,
         )
 
+    def write_cp2k(self, output_name=None, type_name=None):
+        """This function writes particles information for cp2k calculation.
+
+        Args:
+            output_name (str, optional): output filename. Defaults to None.
+            type_name (list, optional): species name. Such as ['Al', 'Fe'].
+        """
+        if output_name is None:
+            if self.__filename is None:
+                output_name = "output.cp2k"
+            else:
+                output_name = self.__filename + ".output.cp2k"
+
+        if type_name is None:
+            assert "type_name" in self.__data.columns, "One need to provide type_name."
+            data = self.__data
+        else:
+            assert len(type_name) >= self.__data["type"].max()
+            type_dict = {i + 1: j for i, j in enumerate(type_name)}
+
+            data = self.__data.with_columns(
+                pl.col("type").replace(type_dict).alias("type_name")
+            )
+
+        SaveFile.write_cp2k(output_name, self.__box, self.__boundary, data)
+
     def write_cif(self, output_name=None, type_name=None):
         """This function writes particles information into a cif file.
 
@@ -1954,10 +1980,11 @@ class MultiSystem(list):
 
 if __name__ == "__main__":
     system = System(r"D:\Study\Gra-Al\potential_test\phonon\aluminum\min.data")
-    relax_system = system.cell_opt(
-        "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al", ["Al"]
-    )
-    print(relax_system)
+    system.write_cp2k("cp2k", type_name=["Al"])
+    # relax_system = system.cell_opt(
+    #     "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al", ["Al"]
+    # )
+    # print(relax_system)
 
     # ti.init()
     # from lattice_maker import LatticeMaker

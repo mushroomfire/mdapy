@@ -245,6 +245,6 @@ if __name__ == "__main__":
     print(f"Cal WCP time: {end-start} s.")
     print("WCP matrix is:")
     print(wcp.WCP)
-    wcp.plot()
+    wcp.plot(["Co", "Cu", "Fe", "Ni", "Pd"])
     # fig, ax = wcp.plot(["Co", "Cu", "Fe", "Ni", "Pd"])
     # fig.savefig('wcp.png', dpi=300, bbox_inches='tight', transparent=True)

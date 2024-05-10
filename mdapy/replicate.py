@@ -60,7 +60,7 @@ class Replicate:
             )
             self.old_box[-1] = box[:, 0]
         elif box.shape == (4, 3) or box.shape == (3, 3):
-            assert box[0, 1] == box[0, 2] == box[1, 2] == 0
+            # assert box[0, 1] == box[0, 2] == box[1, 2] == 0
             if box.shape == (4, 3):
                 self.old_box = box
             else:

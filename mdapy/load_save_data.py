@@ -481,6 +481,58 @@ class SaveFile:
             compress_file(output_name, os.path.join(path, name + ".gz"))
             shutil.rmtree(temp_dir)
 
+    @staticmethod
+    def write_cp2k(output_name, box, boundary, data=None, pos=None, type_name=None):
+        assert isinstance(output_name, str)
+        assert isinstance(box, np.ndarray)
+        assert len(boundary) == 3
+        assert box.shape == (3, 2) or box.shape == (4, 3)
+        if box.shape == (3, 2):
+            new_box = np.zeros((4, 3), dtype=box.dtype)
+            new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
+            new_box[-1] = box[:, 0]
+        else:
+            new_box = box
+
+        if isinstance(data, pl.DataFrame):
+            for col in ["type_name", "x", "y", "z"]:
+                assert col in data.columns
+            data = data.select(["type_name", "x", "y", "z"])
+        else:
+            assert pos.shape[1] == 3
+            assert pos.shape[0] == len(type_name)
+            data = pl.DataFrame(
+                {
+                    "type_name": type_name,
+                    "x": pos[:, 0],
+                    "y": pos[:, 1],
+                    "z": pos[:, 2],
+                }
+            )
+
+        data = data.with_columns(
+            pl.col("x") - box[-1, 0], pl.col("y") - box[-1, 1], pl.col("z") - box[-1, 2]
+        )
+
+        pbc = "PERIODIC "
+        if sum(boundary) == 0:
+            pbc += "NONE"
+        else:
+            pbc_dict = {0: "X", 1: "Y", 2: "Z"}
+            for i, j in enumerate(boundary):
+                if j == 1:
+                    pbc += pbc_dict[i]
+        with open(output_name, "wb") as op:
+            op.write("&CELL\n".encode())
+            op.write(f"A {box[0, 0]} {box[0, 1]} {box[0, 2]}\n".encode())
+            op.write(f"B {box[1, 0]} {box[1, 1]} {box[1, 2]}\n".encode())
+            op.write(f"C {box[2, 0]} {box[2, 1]} {box[2, 2]}\n".encode())
+            op.write(f"{pbc}\n".encode())
+            op.write("&END CELL\n".encode())
+            op.write("&COORD\n".encode())
+            data.write_csv(op, separator=" ", include_header=False)
+            op.write("&END COORD\n".encode())
+
 
 class BuildSystem:
     @staticmethod

@@ -163,15 +163,19 @@ class PerturbModel:
                 system.box[surf[direction], surf[direction]] += 2 * distance
 
             if self.save_type == "cp2k":
-                system.write_cif(
-                    output_name=f"{self.save_path}/scale_{scale}/0.cif",
+                system.write_cp2k(
+                    output_name=f"{self.save_path}/scale_{scale}/0.cp2k",
                     type_name=self.type_name,
                 )
-                system.write_xyz(
-                    output_name=f"{self.save_path}/scale_{scale}/0.xyz",
-                    type_name=self.type_name,
-                    classical=True,
-                )
+                # system.write_cif(
+                #     output_name=f"{self.save_path}/scale_{scale}/0.cif",
+                #     type_name=self.type_name,
+                # )
+                # system.write_xyz(
+                #     output_name=f"{self.save_path}/scale_{scale}/0.xyz",
+                #     type_name=self.type_name,
+                #     classical=True,
+                # )
             elif self.save_type == "vasp":
                 system.write_POSCAR(
                     output_name=f"{self.save_path}/scale_{scale}/0.POSCAR",
@@ -191,15 +195,11 @@ class PerturbModel:
                     system.box[-1, surf[direction]] -= distance
                     system.box[surf[direction], surf[direction]] += 2 * distance
                 if self.save_type == "cp2k":
-                    system.write_cif(
-                        output_name=f"{self.save_path}/scale_{scale}/{j}.cif",
+                    system.write_cp2k(
+                        output_name=f"{self.save_path}/scale_{scale}/{j}.cp2k",
                         type_name=self.type_name,
                     )
-                    system.write_xyz(
-                        output_name=f"{self.save_path}/scale_{scale}/{j}.xyz",
-                        type_name=self.type_name,
-                        classical=True,
-                    )
+
                 elif self.save_type == "vasp":
                     system.write_POSCAR(
                         output_name=f"{self.save_path}/scale_{scale}/{j}.POSCAR",
@@ -226,8 +226,8 @@ if __name__ == "__main__":
         type_name=["Al", "C"],
         save_path="Al4C3",
         fmt="POSCAR",
-        save_type="vasp",
+        save_type="cp2k",
     )
-    # pert.compute()
+    pert.compute()
     # pert.save_path = "FCC_surf"
-    pert.compute("init_surf")
+    # pert.compute("init_surf")

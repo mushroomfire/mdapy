@@ -1979,8 +1979,13 @@ class MultiSystem(list):
 
 
 if __name__ == "__main__":
-    system = System(r"D:\Study\Gra-Al\potential_test\phonon\aluminum\min.data")
-    system.write_cp2k("cp2k", type_name=["Al"])
+    system = System(r"D:\Study\Gra-Al\init_data\active\alc\1000K\split\dump.0.xyz")
+    print(system)
+    system.write_xyz("test.xyz")
+    # system.write_POSCAR()
+    system.write_cif("test.cif")
+    # system = System(r"D:\Study\Gra-Al\potential_test\phonon\aluminum\min.data")
+    # system.write_cp2k("cp2k", type_name=["Al"])
     # relax_system = system.cell_opt(
     #     "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al", ["Al"]
     # )

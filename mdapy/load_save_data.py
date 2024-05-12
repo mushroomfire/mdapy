@@ -117,12 +117,6 @@ class SaveFile:
         else:
             box = old_box[:-1]
 
-        la, lb, lc = np.linalg.norm(box, axis=0)
-        xy, xz, yz = box[1, 0], box[2, 0], box[2, 1]
-        alpha = np.rad2deg(np.arccos((xy * xz + box[1, 1] * yz) / (lb * lc)))
-        beta = np.rad2deg(np.arccos(xz / lc))
-        gamma = np.rad2deg(np.arccos(xy / lb))
-
         assert isinstance(data, pl.DataFrame)
         for col in ["type", "x", "y", "z"]:
             assert col in data.columns, f"data must contain {col}."
@@ -133,6 +127,27 @@ class SaveFile:
                 pl.col("y") - old_box[-1, 1],
                 pl.col("z") - old_box[-1, 2],
             )
+
+        pos = np.c_[data["x"], data["y"], data["z"]]
+
+        if box[0, 1] != 0 or box[0, 2] != 0 or box[1, 2] != 0:
+
+            ax = np.linalg.norm(box[0])
+            bx = box[1] @ (box[0] / ax)
+            by = np.sqrt(np.linalg.norm(box[1]) ** 2 - bx**2)
+            cx = box[2] @ (box[0] / ax)
+            cy = (box[1] @ box[2] - bx * cx) / by
+            cz = np.sqrt(np.linalg.norm(box[2]) ** 2 - cx**2 - cy**2)
+            box = np.array([[ax, bx, cx], [0, by, cy], [0, 0, cz]]).T
+            rotation = np.linalg.solve(old_box, box)
+            pos = pos @ rotation
+
+        la, lb, lc = np.linalg.norm(box, axis=1)
+        # print(la, lb, lc)
+        xy, xz, yz = box[1, 0], box[2, 0], box[2, 1]
+        alpha = np.rad2deg(np.arccos((xy * xz + box[1, 1] * yz) / (lb * lc)))
+        beta = np.rad2deg(np.arccos(xz / lc))
+        gamma = np.rad2deg(np.arccos(xy / lb))
 
         Ntype = data["type"].max()
         res = data.group_by("type", maintain_order=True).count()
@@ -160,7 +175,7 @@ class SaveFile:
                 )["index"]
                 data = data.with_columns(type=pl.col("type_name"))
 
-        new_pos = np.dot(np.c_[data["x"], data["y"], data["z"]], np.linalg.pinv(box))
+        new_pos = np.dot(pos, np.linalg.pinv(box))
         data = data.with_columns(
             pl.lit(new_pos[:, 0]).alias("x"),
             pl.lit(new_pos[:, 1]).alias("y"),
@@ -803,7 +818,8 @@ class BuildSystem:
                 )
 
             if "Origin=" not in info:
-                box = np.r_[box, df.select("x", "y", "z").min().to_numpy()]
+                box = np.r_[box, np.zeros((1, 3))]
+                # box = np.r_[box, df.select("x", "y", "z").min().to_numpy()]
             if "id" not in df.columns:
                 df = df.with_row_index("id", offset=1)
             if "type" not in df.columns:

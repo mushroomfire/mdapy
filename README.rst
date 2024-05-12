@@ -336,6 +336,8 @@ V0.10.8 (Under development)
 - Add feature to calculate elastic constants.
 - Fix a bug for NEP potential with triclinic box.
 - Add write_cp2k method.
+- Fix a bug when reading xyz.
+- Fix a bug when writing cif.
 
 V0.10.7 (April 25, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

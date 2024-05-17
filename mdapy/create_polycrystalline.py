@@ -7,6 +7,7 @@ import taichi as ti
 import polars as pl
 import multiprocessing as mt
 
+
 if __name__ == "__main__":
     from voronoi import _voronoi_analysis
     from lattice_maker import LatticeMaker
@@ -483,6 +484,7 @@ class CreatePolycrystalline:
             GRA.compute()
             gra_vector = np.array([0, 0, 1])
         print("Total grain number:", len(self.cntr))
+
         for i, cell in enumerate(self.cntr):
             print(f"Generating grain {i}..., volume is {cell.volume()}")
             coeffs = self._cell_plane_coeffs(cell)

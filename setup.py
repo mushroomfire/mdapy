@@ -90,11 +90,11 @@ setup(
         "polars>=0.20.22",
         "matplotlib",
         "polyscope",
+        "tqdm",
     ],
     extras_require={
-        "all": ["k3d", "tqdm", "pyfftw"],
+        "all": ["k3d", "pyfftw"],
         "k3d": "k3d",
-        "tqdm": "tqdm",
         "pyfftw": "pyfftw",
     },
     classifiers=[

@@ -187,7 +187,7 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
         -   latest
         -   Build kdtree, do FFT, spline interpolation.
     *   -   `polars <https://pola-rs.github.io/polars/>`_
-        -   >=0.20.22
+        -   >=0.20.26
         -   Fast read/save file. Data structure to represent the particles information.
     *   -   `matplotlib <https://matplotlib.org/>`_
         -   latest
@@ -195,6 +195,9 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
     *   -   `polyscope <https://polyscope.run/py/>`_
         -   latest
         -   Provide GUI interface.
+    *   -   `tqdm <https://github.com/tqdm/tqdm>`_
+        -   latest
+        -   Show progress bar.
 
 
 Optional Dependencies
@@ -208,9 +211,6 @@ Optional Dependencies
     *   -   `k3d <https://github.com/K3D-tools/K3D-jupyter>`_
         -   latest
         -   Visualize the 3D atoms in Jupyter.
-    *   -   `tqdm <https://github.com/tqdm/tqdm>`_
-        -   latest
-        -   Show progress bar when reading/saving multi files.
     *   -   `pyfftw <https://github.com/pyFFTW/pyFFTW>`_
         -   latest
         -   Faster FFT.
@@ -240,7 +240,7 @@ One can install optional dependencies. For example:
 
 .. code-block:: bash
 
-   # This will install all optional packages (k3d, tqdm, pyfftw) except phonopy and lammps.
+   # This will install all optional packages (k3d, pyfftw) except phonopy and lammps.
    pip install mdapy[all]
 
 If one wants to install phonopy, the best way is:
@@ -332,12 +332,13 @@ Release Notes
 V0.10.8 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- Let tqdm as a dependency package.
 - Fix frame counter in DFT2NEPXYZ.
-- Add feature to calculate elastic constants.
 - Fix a bug for NEP potential with triclinic box.
 - Add write_cp2k method.
 - Fix a bug when reading xyz.
 - Fix a bug when writing cif.
+- Fix a bug for phonon calculation.
 
 V0.10.7 (April 25, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

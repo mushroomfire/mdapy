@@ -40,12 +40,12 @@ Dependencies
 * `polars>=0.20.22 <https://pola-rs.github.io/polars/>`_
 * `matplotlib <https://matplotlib.org/>`_
 * `polyscope <https://polyscope.run/py/>`_
+* `tqdm <https://github.com/tqdm/tqdm>`_ (Show progress bar when reading/saving multi files)
 
 Optional Dependencies
 ----------------------
 
 * `k3d <https://github.com/K3D-tools/K3D-jupyter>`_ (Visualizing the 3D atoms)
-* `tqdm <https://github.com/tqdm/tqdm>`_ (Show progress bar when reading/saving multi files)
 * `pyfftw <https://github.com/pyFFTW/pyFFTW>`_ (Fast FFT)
 * `phonopy <https://github.com/phonopy/phonopy>`_ (Do phonon calculation)
 * `lammps <https://github.com/lammps/lammps>`_ (Compute atomic energy, force and virial using lammps supported potential)

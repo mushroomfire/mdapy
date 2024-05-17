@@ -3,6 +3,7 @@
 
 import numpy as np
 import os
+from tqdm import tqdm
 
 try:
     from .system import System
@@ -113,7 +114,7 @@ class PerturbModel:
         assert save_type in [
             "cp2k",
             "vasp",
-        ], "For cp2k, we save .cif and .xyz; for vasp, we save POSCAR."
+        ], "For cp2k, we save cp2k; for vasp, we save POSCAR."
         self.save_type = save_type
         self.eye_matrix = np.eye(3)
 
@@ -151,7 +152,9 @@ class PerturbModel:
         ], "Only support init_bulk and init_surf."
 
         surf = {"x": 0, "y": 1, "z": 2}
-        for scale in self.scale_list:
+        bar = tqdm(self.scale_list)
+        for scale in bar:
+            bar.set_description(f"Saving scale {scale}")
             os.makedirs(f"{self.save_path}/scale_{scale}", exist_ok=True)
             system = System(
                 pos=self.pos * scale,

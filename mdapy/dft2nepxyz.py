@@ -5,6 +5,7 @@ import re
 from time import time
 from collections import Counter
 import os
+from tqdm import tqdm
 
 
 class LabeledSystem:
@@ -70,7 +71,7 @@ class LabeledSystem:
         if matches:
             return np.array([line.split()[4:7] for line in matches], float)
         else:
-            raise "No box inforation found."
+            raise "No box information found."
 
     def _get_position(self, N):
         pos_line = self.content.index("ATOMIC COORDINATES IN angstrom")
@@ -228,8 +229,11 @@ class DFT2NEPXYZ:
         elif self.mode == "a":
             print("Adding frames to train.xyz/test.xyz.")
         frame = 0
+        bar = tqdm(range(len(self.filename_list)))
         if self.interval is not None:
-            for i, filename in enumerate(self.filename_list, start=1):
+            for i in bar:
+                filename = self.filename_list[i]
+                bar.set_description(f"Saving {frame+1} frames")
                 try:
                     LS = LabeledSystem(filename)
                     if self.force_max is not None:
@@ -248,7 +252,9 @@ class DFT2NEPXYZ:
                 except Exception:
                     print(f"Warning: Something is wrong for {filename}!")
         else:
-            for i, filename in enumerate(self.filename_list, start=1):
+            for i in bar:
+                filename = self.filename_list[i]
+                bar.set_description(f"Saving {frame+1} frames")
                 try:
                     LS = LabeledSystem(filename)
                     if self.force_max is not None:
@@ -260,13 +266,14 @@ class DFT2NEPXYZ:
                         frame += 1
                 except Exception:
                     print(f"Warning: Something is wrong for {filename}!")
-        print(f"Saving {frame} frames. Time costs {time()-start} s.")
+        print(f"Saved {frame} frames. Time costs {time()-start} s.")
 
 
 if __name__ == "__main__":
+    from glob import glob
 
     DFT2NEPXYZ(
-        [r"D:\Study\Gra-Al\init_data\data\aluminum\FCC\scale_0.8\0\output.log"],
-        force_max=200,
-        mode="a",
+        glob(r"D:\Study\Gra-Al\init_data\data\aluminum\FCC\scale_*\*\output.log") * 100,
+        force_max=None,
+        interval=None,
     )

@@ -9,9 +9,10 @@ dependencies = [
     "taichi>=1.7.1",
     "numpy",
     "scipy",
-    "polars>=0.20.22",
+    "polars>=0.20.26",
     "matplotlib",
     "polyscope",
+    "tqdm"
 ]
 classifiers = [
     'License :: OSI Approved :: BSD License',
@@ -31,9 +32,8 @@ authors = [
 ]
 
 [project.optional-dependencies]
-all = ['k3d', 'tqdm', 'pyfftw']
+all = ['k3d', 'pyfftw']
 k3d = ['k3d']
-tqdm = ['tqdm']
 pyfftw = ['pyfftw']
 
 [project.urls]

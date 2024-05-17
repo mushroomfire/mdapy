@@ -728,6 +728,7 @@ class System:
         labels,
         potential,
         elements_list,
+        symprec=1e-5,
         replicate=None,
     ):
         """This function can be used to calculate the phono dispersion based on Phonopy (https://phonopy.github.io/phonopy/). We support NEP and
@@ -739,6 +740,7 @@ class System:
             potential (BasePotential): base potential class defined in mdapy, which must including a compute method to calculate the energy, force, virial.
             elements_list (list[str]): element list, such as ['Al']
             pair_style (str, optional): pair style, selected in ['nep', 'eam/alloy']. Defaults to "eam/alloy".
+            symprec (float): this is used to set geometric tolerance to find symmetry of crystal structure. Defaults to 1e-5.
             replicate (list, optional): replication to pos, such as [3, 3, 3]. If not given, we will replicate it exceeding 15 A per directions. Defaults to None.
 
         Outputs:
@@ -761,6 +763,7 @@ class System:
             self.box,
             elements_list,
             self.__data["type"].to_numpy(),
+            symprec,
             replicate,
         )
         self.Phon.compute()

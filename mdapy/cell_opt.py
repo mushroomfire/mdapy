@@ -111,14 +111,33 @@ class CellOptimization:
             lmp.commands_string(f"atom_style {self.atomic_style}")
             num_type = self.type_list.max()
             create_box = f"""
-            region 1 block 0 1 0 1 0 1
+            region 1 prism 0 1 0 1 0 1 0 0 0
             create_box {num_type} 1
             """
             lmp.commands_string(create_box)
-            lmp.reset_box(*self.to_lammps_box(self.box))
+            pos = self.pos
+            box = self.box
+            if box[0, 1] != 0 or box[0, 2] != 0 or box[1, 2] != 0:
+                old_box = box.copy()
+                ax = np.linalg.norm(box[0])
+                bx = box[1] @ (box[0] / ax)
+                by = np.sqrt(np.linalg.norm(box[1]) ** 2 - bx**2)
+                cx = box[2] @ (box[0] / ax)
+                cy = (box[1] @ box[2] - bx * cx) / by
+                cz = np.sqrt(np.linalg.norm(box[2]) ** 2 - cx**2 - cy**2)
+                box = np.array([[ax, bx, cx], [0, by, cy], [0, 0, cz]]).T
+                rotation = np.linalg.solve(old_box[:-1], box)
+                pos = self.pos @ rotation
+                box = np.r_[box, box[-1].reshape(1, -1)]
+            # lmp.reset_box(*self.to_lammps_box(box))
+            lo, hi, xy, xz, yz = self.to_lammps_box(box)
+            lmp.commands_string(
+                f"change_box all x final {lo[0]} {hi[0]} y final {lo[1]} {hi[1]} z final {lo[2]} {hi[2]} xy final {xy} xz final {xz} yz final {yz}"
+            )
+
             N = self.pos.shape[0]
             N_lmp = lmp.create_atoms(
-                N, np.arange(1, N + 1), self.type_list, self.pos.flatten()
+                N, np.arange(1, N + 1), self.type_list, pos.flatten()
             )
             assert N == N_lmp, "Wrong atom numbers."
 

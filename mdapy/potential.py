@@ -6,6 +6,7 @@ import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import matplotlib.pyplot as plt
 import os
+from tqdm import tqdm
 
 try:
     from plotset import set_figure
@@ -13,12 +14,14 @@ try:
     from replicate import Replicate
     from neighbor import Neighbor
     from nep._nep import NEPCalculator
+    from load_save_data import BuildSystem
 except Exception:
     from .plotset import set_figure
     from .tool_function import _check_repeat_cutoff, atomic_masses, atomic_numbers
     from .replicate import Replicate
     from .neighbor import Neighbor
     from _nep import NEPCalculator
+    from .load_save_data import BuildSystem
 
 from abc import ABC, abstractmethod
 
@@ -859,6 +862,78 @@ class NEP(BasePotential):
             .T
         )
 
+    def fps_sample(
+        self,
+        n_sample,
+        des_total=None,
+        filename_list=None,
+        elements_list=None,
+        start_idx=None,
+        fmt=None,
+    ):
+        """This function is used to sample the configurations using farthest point sampling method, based
+        on the NEP descriptors. It is helpful to select the structures during active learning process.
+
+        Args:
+            n_sample (int): number of structures one wants to select.
+            des_total (np.ndarray): two dimensional ndarray, it actually can be any descriptors. If this parameter is given, the filename_list, elements_list and fmt will be ignored. Defaults to None.
+            filename_list (list): filename list, such as ['0.xyz', '1.xyz']. Defaults to None.
+            elements_list (list): elements list, such as ['Al', 'C']. Defaults to None.
+            start_idx (int, optional): for deterministic results, fix the first sampled point index. Defaults to None.
+            fmt (str, optional): selected in ['data', 'lmp', 'dump', 'dump.gz', 'poscar', 'xyz', 'cif'], One can explicitly assign the file format or mdapy will handle it with the postsuffix of filename. Defaults to None.
+
+        Returns:
+            np.ndarray: selected index.
+        """
+        if des_total is None:
+            assert filename_list is not None
+            assert elements_list is not None
+            des_total = []
+            bar = tqdm(filename_list)
+            for filename in bar:
+                bar.set_description(f"Reading {filename}")
+                fmt = BuildSystem.getformat(filename, fmt)
+                if fmt in ["dump", "dump.gz"]:
+                    data, box, boundary, _ = BuildSystem.fromfile(filename, fmt)
+                elif fmt in ["data", "lmp", "poscar", "xyz", "cif"]:
+                    data, box, boundary = BuildSystem.fromfile(filename, fmt)
+                else:
+                    raise "Something is wrong here."
+
+                des = self.get_descriptors(
+                    data.select(["x", "y", "z"]).to_numpy(),
+                    box,
+                    elements_list,
+                    data["type"].to_numpy(),
+                    boundary,
+                ).sum(axis=0)
+                des_total.append(des)
+            des_total = np.array(des_total)
+        assert des_total.ndim == 2, "Only support 2-D ndarray."
+        n_points = des_total.shape[0]
+        assert n_sample <= n_points, f"n_sample must <= {n_points}."
+        assert n_sample > 0, "n_sample must be a positive number."
+        if start_idx is None:
+            start_idx = np.random.randint(0, n_points)
+        else:
+            assert (
+                start_idx >= 0 and start_idx < n_points
+            ), f"start_idx must belong [0, {n_points-1}]."
+
+        sampled_indices = [start_idx]
+        min_distances = np.full(n_points, np.inf)
+        farthest_point_idx = start_idx
+        bar = tqdm(range(n_sample - 1))
+        for i in bar:
+            bar.set_description(f"Fps sampling {i+2} frames")
+            current_point = des_total[farthest_point_idx]
+            dist_to_current_point = np.linalg.norm(des_total - current_point, axis=1)
+            min_distances = np.minimum(min_distances, dist_to_current_point)
+            farthest_point_idx = np.argmax(min_distances)
+            sampled_indices.append(farthest_point_idx)
+
+        return np.array(sampled_indices)
+
 
 try:
     from lammps import lammps
@@ -1015,6 +1090,32 @@ if __name__ == "__main__":
     # print(isinstance(eam, NEP))
 
     ti.init(ti.cpu)
+
+    file_list = []
+    for step in range(10):
+        file_list.append(
+            rf"D:\Study\Gra-Al\init_data\active\gra_al\interface\300K\split\dump.{step}.xyz"
+        )
+    file_list = np.array(file_list)
+    nep = NEP(r"D:\Study\Gra-Al\init_data\active\gra_al\interface\300K\nep.txt")
+
+    sele = nep.fps_sample(
+        10, filename_list=file_list, elements_list=["Al", "C"], start_idx=2
+    )
+
+    print(sele)
+
+    des_total = []
+    for filename in file_list:
+        system = System(filename)
+        des = nep.get_descriptors(
+            system.pos, system.box, ["Al", "C"], system.data["type"].to_numpy()
+        ).sum(axis=0)
+        des_total.append(des)
+    des_total = np.array(des_total)
+
+    sele = nep.fps_sample(10, des_total, start_idx=2)
+    print(sele)
     # start = time()
     # lattice_constant = 4.05
     # x, y, z = 10, 10, 10
@@ -1037,14 +1138,14 @@ if __name__ == "__main__":
     # )
     # end = time()
     # print(f"Calculate energy and force time: {end-start} s.")
-    system = System(r"D:\Study\Gra-Al\potential_test\phonon\alc\POSCAR")
-    potential = NEP(r"D:\Study\Gra-Al\potential_test\total\nep.txt")
-    e, f, v = potential.compute(
-        system.pos, system.box, ["Al", "C"], system.data["type"].to_numpy()
-    )
-    print(e.sum())
-    print(f[:5])
-    print(v.sum(axis=0) / system.vol)
+    # system = System(r"D:\Study\Gra-Al\potential_test\phonon\alc\POSCAR")
+    # potential = NEP(r"D:\Study\Gra-Al\potential_test\total\nep.txt")
+    # e, f, v = potential.compute(
+    #     system.pos, system.box, ["Al", "C"], system.data["type"].to_numpy()
+    # )
+    # print(e.sum())
+    # print(f[:5])
+    # print(v.sum(axis=0) / system.vol)
     # start = time()
     # des = nep.get_descriptors(
     #     FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)

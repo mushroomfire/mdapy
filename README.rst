@@ -329,6 +329,11 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
+V0.10.9 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Add the farthest point sampling method to select the configuration by NEP potential.
+
 V0.10.8 (May 17, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

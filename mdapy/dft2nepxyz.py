@@ -18,6 +18,7 @@ class LabeledSystem:
     - energy : eV (per-cell)
     - force : eV/Å (per-atom)
     - virial : eV (per-cell)
+    - stress : GPa (per-cell)
     - pos : Å (per-atom)
     - box : Å
     Now we only support SCF calculation in CP2K. In the future the AIMD and VASP may also be implemented.
@@ -104,20 +105,20 @@ class LabeledSystem:
         except Exception:
             raise "No force information found."
 
-    def _get_virial(self, box):
+    def _get_virial_stress(self, box):
         try:
             stress_line = self.content.index("STRESS TENSOR [GPa]")
-            return (
-                np.array(
-                    [
-                        i.split()[1:]
-                        for i in self.content[stress_line:].split("\n")[3:6]
-                    ],
-                    float,
-                )
+            stress = np.array(
+                [i.split()[1:] for i in self.content[stress_line:].split("\n")[3:6]],
+                float,
+            )  # GPa
+
+            virial = (
+                stress
                 * 0.006241509125883258
                 * np.inner(box[0], np.cross(box[1], box[2]))
             )  # converge to eV
+            return virial, stress
         except Exception:
             raise "No virial information found."
 
@@ -133,7 +134,9 @@ class LabeledSystem:
             self.data["N"]
         )
         try:
-            self.data["virial"] = self._get_virial(self.data["box"])
+            self.data["virial"], self.data["stress"] = self._get_virial_stress(
+                self.data["box"]
+            )
         except Exception:
             pass
 
@@ -148,7 +151,8 @@ class DFT2NEPXYZ:
         interval (int, optional): if provided, we will save it to test.xyz per interval. Defaults to 10.
         energy_shift (dict, optional): if provided, the energy will substract the base energy, such as {'Fe':89.0, 'O':50.0}. Defaults to None.
         save_virial (bool, optional): if set False, the virial information will not be saved. Defaults to True.
-        force_max (float, optional): if system's abusolute maximum force is larger than this value, it will not be saved to train.xyz.
+        force_max (float, optional): if system's abusolute maximum force (in eV/A) is larger than this value, it will not be saved to train.xyz.
+        stress_max (float, optional): if system's abusolute maximum stress (in GPa) is larger than this value, it will not be saved to train.xyz.
         mode (str, optional): if mode is 'w', it will generate new train.xyz/test.xyz. If mode is 'a', it will append in current train.xyz/test.xyz. Defaults to 'w'.
     Outputs:
         - Generate train.xyz and test.xyz in current folder (if *interval* provides).
@@ -162,6 +166,7 @@ class DFT2NEPXYZ:
         energy_shift=None,
         save_virial=True,
         force_max=None,
+        stress_max=None,
         mode="w",
     ):
 
@@ -176,6 +181,9 @@ class DFT2NEPXYZ:
         if force_max is not None:
             force_max = abs(force_max)
         self.force_max = force_max
+        if stress_max is not None:
+            stress_max = abs(stress_max)
+        self.stress_max = stress_max
         assert mode in ["w", "a"], "mode must in ['w', 'a']."
         self.mode = mode
         self._write_xyz()
@@ -236,8 +244,27 @@ class DFT2NEPXYZ:
                 bar.set_description(f"Saving {frame+1} frames")
                 try:
                     LS = LabeledSystem(filename)
-                    if self.force_max is not None:
+
+                    if self.force_max is not None and self.stress_max is not None:
+
+                        if (
+                            abs(LS.data["force"]).max() < self.force_max
+                            and abs(LS.data["stress"].max()) < self.stress_max
+                        ):
+                            if i % self.interval == 0:
+                                self._write_nep_xyz("test.xyz", LS.data)
+                            else:
+                                self._write_nep_xyz("train.xyz", LS.data)
+                            frame += 1
+                    elif self.force_max is not None:
                         if abs(LS.data["force"]).max() < self.force_max:
+                            if i % self.interval == 0:
+                                self._write_nep_xyz("test.xyz", LS.data)
+                            else:
+                                self._write_nep_xyz("train.xyz", LS.data)
+                            frame += 1
+                    elif self.stress_max is not None:
+                        if abs(LS.data["stress"].max()) < self.stress_max:
                             if i % self.interval == 0:
                                 self._write_nep_xyz("test.xyz", LS.data)
                             else:
@@ -257,8 +284,19 @@ class DFT2NEPXYZ:
                 bar.set_description(f"Saving {frame+1} frames")
                 try:
                     LS = LabeledSystem(filename)
-                    if self.force_max is not None:
+                    if self.force_max is not None and self.stress_max is not None:
+                        if (
+                            abs(LS.data["force"]).max() < self.force_max
+                            and abs(LS.data["stress"].max()) < self.stress_max
+                        ):
+                            self._write_nep_xyz("train.xyz", LS.data)
+                            frame += 1
+                    elif self.force_max is not None:
                         if abs(LS.data["force"]).max() < self.force_max:
+                            self._write_nep_xyz("train.xyz", LS.data)
+                            frame += 1
+                    elif self.stress_max is not None:
+                        if abs(LS.data["stress"].max()) < self.stress_max:
                             self._write_nep_xyz("train.xyz", LS.data)
                             frame += 1
                     else:
@@ -276,4 +314,5 @@ if __name__ == "__main__":
         glob(r"D:\Study\Gra-Al\init_data\data\aluminum\FCC\scale_*\*\output.log") * 100,
         force_max=None,
         interval=None,
+        stress_max=100,
     )

@@ -333,6 +333,7 @@ V0.10.9 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Add the farthest point sampling method to select the configuration by NEP potential.
+- Add stress_max parameter for DFT2NEPXYZ class.
 
 V0.10.8 (May 17, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

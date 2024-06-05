@@ -853,7 +853,7 @@ class NEP(BasePotential):
         for i, j in enumerate(boundary):
             if j == 0:
                 box[i, i] += 1.5 * self.rc
-        box = box.flatten()
+        box = box.T.flatten()
         pos = pos.T.flatten()
 
         return (

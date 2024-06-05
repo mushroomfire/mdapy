@@ -5,10 +5,12 @@ import sys
 sys.path.insert(0, os.path.abspath("../../"))
 
 project = "mdapy"
-copyright = "2022-2023, Yong-Chao Wu & Jian-Li Shao Group in Beijing Institute of Technology"
+copyright = (
+    "2022-2024, Yong-Chao Wu & Jian-Li Shao Group in Beijing Institute of Technology"
+)
 author = "Yong-Chao Wu & Jian-Li Shao Group in Beijing Institute of Technology"
-#version = "0.9.4"
-#release = "0.9.4"
+# version = "0.9.4"
+# release = "0.9.4"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

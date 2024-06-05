@@ -649,8 +649,10 @@ class BuildSystem:
                 head.append(op.readline())
         natom = int(head[0].split()[0])
         classical = True
-        if "Lattice" in head[1] and "Properties" in head[1]:
+
+        if "Lattice=" in head[1] or "lattice=" in head[1]:
             classical = False
+        if not classical:
             info = head[1]
 
             if "pbc=" in info:
@@ -662,22 +664,31 @@ class BuildSystem:
             else:
                 boundary = [1, 1, 1]
 
-            bindex = info.index("Lattice=") + len("Lattice=")
+            if "Lattice=" in info:
+                bindex = info.index("Lattice=") + len("Lattice=")
+            else:
+                bindex = info.index("lattice=") + len("lattice=")
             try:
                 box = np.array(info[bindex:].split("'")[1].split(), float).reshape(3, 3)
             except Exception:
                 box = np.array(info[bindex:].split('"')[1].split(), float).reshape(3, 3)
-            assert (
-                box[0, 1] == box[0, 2] == box[1, 2] == 0
-            ), "Only support lammps style box! box[0, 1]==box[0, 2]==box[1, 2]==0."
-            if "Origin=" in info:
-                oindex = info.index("Origin=") + len("Origin=")
+            # assert (
+            #     box[0, 1] == box[0, 2] == box[1, 2] == 0
+            # ), "Only support lammps style box! box[0, 1]==box[0, 2]==box[1, 2]==0."
+            if "Origin=" in info or "origin=" in info:
+                if "Origin=" in info:
+                    oindex = info.index("Origin=") + len("Origin=")
+                else:
+                    oindex = info.index("origin=") + len("origin=")
+
                 origin = np.expand_dims(
                     np.array(info[oindex:].split('"')[1].split(), float), axis=0
                 )
                 box = np.r_[box, origin]
-
-            pindex = info.index("Properties=") + len("Properties=")
+            if "Properties=" in info:
+                pindex = info.index("Properties=") + len("Properties=")
+            else:
+                pindex = info.index("properties=") + len("properties=")
             content = info[pindex:].split()[0].split(":")
             i = 0
             columns = []
@@ -709,7 +720,7 @@ class BuildSystem:
                     columns.append("type_name")
                     schema["type_name"] = dtype
                 elif (
-                    content[i] == "velo"
+                    content[i] in ["velo", "vel"]
                     and content[i + 1] == "R"
                     and content[i + 2] == "3"
                 ):

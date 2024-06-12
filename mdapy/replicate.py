@@ -6,9 +6,11 @@ import numpy as np
 import polars as pl
 
 try:
-    from load_save_data import SaveFile
-except Exception:
     from .load_save_data import SaveFile
+    from .box import init_box
+except Exception:
+    from load_save_data import SaveFile
+    from box import init_box
 
 
 @ti.data_oriented
@@ -50,22 +52,9 @@ class Replicate:
     def __init__(self, pos, box, x=1, y=1, z=1, type_list=None):
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        if box.dtype != np.float64:
-            box = box.astype(np.float64)
         self.old_pos = pos
-        if box.shape == (3, 2):
-            self.old_box = np.zeros((4, 3), dtype=box.dtype)
-            self.old_box[0, 0], self.old_box[1, 1], self.old_box[2, 2] = (
-                box[:, 1] - box[:, 0]
-            )
-            self.old_box[-1] = box[:, 0]
-        elif box.shape == (4, 3) or box.shape == (3, 3):
-            # assert box[0, 1] == box[0, 2] == box[1, 2] == 0
-            if box.shape == (4, 3):
-                self.old_box = box
-            else:
-                self.old_box = np.zeros((4, 3), dtype=box.dtype)
-                self.old_box[:-1] = box
+        self.old_box, _, _ = init_box(box)
+        
         assert x > 0 and isinstance(x, int), "x should be a positive integer."
         self.x = x
         assert y > 0 and isinstance(y, int), "y should be a positive integer."
@@ -304,7 +293,7 @@ if __name__ == "__main__":
     print(repli.box)
     print(repli.type_list)
     # repli.write_xyz(type_name=["Al", "Cu"])
-    repli.write_data(type_name=["Al", "Cu"])
+    #repli.write_data(type_name=["Al", "Cu"])
     # repli.write_data()
     # repli.write_dump()
     # repli.write_dump(compress=True)

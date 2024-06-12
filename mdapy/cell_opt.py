@@ -183,7 +183,6 @@ class CellOptimization:
 if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
-    from system import System
     import taichi as ti
 
     ti.init(ti.cpu)

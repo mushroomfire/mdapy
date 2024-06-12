@@ -8,10 +8,12 @@ try:
     from tool_function import _check_repeat_cutoff
     from replicate import Replicate
     from neighbor import Neighbor
+    from box import init_box, _pbc, _pbc_rec
 except Exception:
     from .tool_function import _check_repeat_cutoff
     from .replicate import Replicate
     from .neighbor import Neighbor
+    from .box import init_box, _pbc, _pbc_rec
 
 
 @ti.data_oriented
@@ -56,7 +58,7 @@ class CommonNeighborAnalysis:
     Args:
         rc (float): cutoff distance.
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
-        box (np.ndarray): (:math:`3, 2`) system box.
+        box (np.ndarray): (:math:`4, 3`) system box.
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
         verlet_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1. Defaults to None.
         neighbor_number (np.ndarray, optional): (:math:`N_p`) neighbor atoms number. Defaults to None.
@@ -95,35 +97,24 @@ class CommonNeighborAnalysis:
         self, rc, pos, box, boundary=[1, 1, 1], verlet_list=None, neighbor_number=None
     ):
         self.rc = rc
+        box, inverse_box, rec = init_box(box)
         # Make sure the boxl_length is four times larger than the rc.
         repeat = _check_repeat_cutoff(box, boundary, self.rc)
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        if box.dtype != np.float64:
-            box = box.astype(np.float64)
+
         self.old_N = None
         if sum(repeat) == 3:
             self.pos = pos
-            if box.shape == (3, 2):
-                self.box = np.zeros((4, 3), dtype=box.dtype)
-                self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-                self.box[-1] = box[:, 0]
-            elif box.shape == (4, 3):
-                self.box = box
+            self.box, self.inverse_box, self.rec = box, inverse_box, rec
         else:
             self.old_N = pos.shape[0]
             repli = Replicate(pos, box, *repeat)
             repli.compute()
             self.pos = repli.pos
-            self.box = repli.box
+            self.box, self.inverse_box, self.rec = init_box(repli.box)
 
-        assert self.box[0, 1] == 0
-        assert self.box[0, 2] == 0
-        assert self.box[1, 2] == 0
         self.box_length = ti.Vector([np.linalg.norm(self.box[i]) for i in range(3)])
-        self.rec = True
-        if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
-            self.rec = False
         self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
 
         self.N = self.pos.shape[0]
@@ -133,34 +124,6 @@ class CommonNeighborAnalysis:
         self.MAXCOMMON = 7
 
         self.structure = ["other", "fcc", "hcp", "bcc", "ico"]
-
-    @ti.func
-    def _pbc_rec(self, rij):
-        for m in ti.static(range(3)):
-            if self.boundary[m] == 1:
-                dx = rij[m]
-                x_size = self.box_length[m]
-                h_x_size = x_size * 0.5
-                if dx > h_x_size:
-                    dx = dx - x_size
-                if dx <= -h_x_size:
-                    dx = dx + x_size
-                rij[m] = dx
-        return rij
-
-    @ti.func
-    def _pbc(self, rij, box: ti.types.ndarray(element_dim=1)) -> ti.math.vec3:
-        nz = rij[2] / box[2][2]
-        ny = (rij[1] - nz * box[2][1]) / box[1][1]
-        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
-        n = ti.Vector([nx, ny, nz])
-        for i in ti.static(range(3)):
-            if self.boundary[i] == 1:
-                if n[i] > 0.5:
-                    n[i] -= 1
-                elif n[i] < -0.5:
-                    n[i] += 1
-        return n[0] * box[0] + n[1] * box[1] + n[2] * box[2]
 
     @ti.kernel
     def _compute(
@@ -173,6 +136,7 @@ class CommonNeighborAnalysis:
         common: ti.types.ndarray(),
         bonds: ti.types.ndarray(),
         pattern: ti.types.ndarray(),
+        inverse_box: ti.types.ndarray(element_dim=1)
     ):
         rcsq = self.rc * self.rc
         for i in range(self.N):
@@ -199,9 +163,9 @@ class CommonNeighborAnalysis:
                             k = common[i, kk]
                             rjk = pos[j] - pos[k]
                             if ti.static(self.rec):
-                                rjk = self._pbc_rec(rjk)
+                                rjk = _pbc_rec(rjk, self.boundary, self.box_length)
                             else:
-                                rjk = self._pbc(rjk, box)
+                                rjk = _pbc(rjk, self.boundary, box, inverse_box)
                             if rjk.norm_sqr() <= rcsq:
                                 nbonds += 1
                                 bonds[i, jj] += 1
@@ -291,6 +255,7 @@ class CommonNeighborAnalysis:
             common,
             bonds,
             self.pattern,
+            self.inverse_box
         )
         if self.old_N is not None:
             self.pattern = np.ascontiguousarray(self.pattern[: self.old_N])

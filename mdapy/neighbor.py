@@ -5,18 +5,20 @@ import taichi as ti
 import numpy as np
 
 try:
+    from .box import init_box, _pbc, _pbc_rec
     from _neigh import (
-        _build_cell_rec,
-        _build_cell_rec_with_jishu,
-        _build_cell_tri,
-        _build_cell_tri_with_jishu,
+        build_cell_rec,
+        build_cell_rec_with_jishu,
+        build_cell_tri,
+        build_cell_tri_with_jishu
     )
 except Exception:
+    from box import init_box, _pbc, _pbc_rec
     from neigh._neigh import (
-        _build_cell_rec,
-        _build_cell_rec_with_jishu,
-        _build_cell_tri,
-        _build_cell_tri_with_jishu,
+        build_cell_rec,
+        build_cell_rec_with_jishu,
+        build_cell_tri,
+        build_cell_tri_with_jishu
     )
 
 
@@ -27,7 +29,7 @@ class Neighbor:
 
     Args:
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
-        box (np.ndarray): (:math:`4, 3`) system box, must be rectangle.
+        box (np.ndarray): (:math:`4, 3`) system box.
         rc (float): cutoff distance.
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
         max_neigh (int, optional): maximum neighbor number. If not given, will estimate atomatically. Default to None.
@@ -66,23 +68,13 @@ class Neighbor:
             self.pos = pos.astype(np.float64)
         else:
             self.pos = pos
-        if box.dtype != np.float64:
-            box = box.astype(np.float64)
-        if box.shape == (3, 2):
-            self.box = np.zeros((4, 3), dtype=box.dtype)
-            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-            self.box[-1] = box[:, 0]
-        elif box.shape == (4, 3):
-            self.box = box
-        assert self.box[0, 1] == 0
-        assert self.box[0, 2] == 0
-        assert self.box[1, 2] == 0
+        
+        self.box, self.inverse_box, self.rec = init_box(box)
         self.rc = rc
         self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
         self.bin_length = self.rc + 0.01
         self.max_neigh = max_neigh
-        self.box_length = ti.Vector([np.linalg.norm(box[i]) for i in range(3)])
-
+        self.box_length = ti.Vector([np.linalg.norm(self.box[i]) for i in range(3)])
         self.N = self.pos.shape[0]
         for i, direc in zip(range(3), ["x", "y", "z"]):
             if self.boundary[i] == 1:
@@ -92,43 +84,11 @@ class Neighbor:
 
         self.ncel = ti.Vector(
             [
-                max(int(np.floor(np.linalg.norm(box[i]) / self.bin_length)), 3)
+                max(int(np.floor(np.linalg.norm(self.box[i]) / self.bin_length)), 3)
                 for i in range(3)
             ]
         )
         self.if_computed = False
-
-        self.rec = True
-        if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
-            self.rec = False
-
-    @ti.func
-    def _pbc_rec(self, rij):
-        for m in ti.static(range(3)):
-            if self.boundary[m] == 1:
-                dx = rij[m]
-                x_size = self.box_length[m]
-                h_x_size = x_size * 0.5
-                if dx > h_x_size:
-                    dx = dx - x_size
-                if dx <= -h_x_size:
-                    dx = dx + x_size
-                rij[m] = dx
-        return rij
-
-    @ti.func
-    def _pbc(self, rij, box: ti.types.ndarray(element_dim=1)) -> ti.math.vec3:
-        nz = rij[2] / box[2][2]
-        ny = (rij[1] - nz * box[2][1]) / box[1][1]
-        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
-        n = ti.Vector([nx, ny, nz])
-        for i in ti.static(range(3)):
-            if self.boundary[i] == 1:
-                if n[i] > 0.5:
-                    n[i] -= 1
-                elif n[i] < -0.5:
-                    n[i] += 1
-        return n[0] * box[0] + n[1] * box[1] + n[2] * box[2]
 
     @ti.kernel
     def _build_verlet_list(
@@ -140,6 +100,7 @@ class Neighbor:
         distance_list: ti.types.ndarray(),
         neighbor_number: ti.types.ndarray(),
         box: ti.types.ndarray(element_dim=1),
+        inverse_box: ti.types.ndarray(element_dim=1),
     ):
         rcsq = self.rc * self.rc
 
@@ -153,12 +114,10 @@ class Neighbor:
                 )
             else:
                 r = pos[i] - box[3]
-                nz = r[2] / box[2][2]
-                ny = (r[1] - nz * box[2][1]) / box[1][1]
-                nx = (r[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
-                icel = ti.floor((nx * box[0]).norm() / self.bin_length, int)
-                jcel = ti.floor((ny * box[1]).norm() / self.bin_length, int)
-                kcel = ti.floor((nz * box[2]).norm() / self.bin_length, int)
+                n = r[0] * inverse_box[0] + r[1] * inverse_box[1] + r[2] * inverse_box[2]
+                icel = ti.floor((n[0] * box[0]).norm() / self.bin_length, int)
+                jcel = ti.floor((n[1] * box[1]).norm() / self.bin_length, int)
+                kcel = ti.floor((n[2] * box[2]).norm() / self.bin_length, int)
             # iicel, jjcel, kkcel = icel, jcel, kcel  # make sure correct cell
             if icel < 0:
                 icel = 0
@@ -182,9 +141,9 @@ class Neighbor:
                         ]
                         while j > -1:
                             if ti.static(self.rec):
-                                rij = self._pbc_rec(pos[j] - pos[i])
+                                rij = _pbc_rec(pos[j] - pos[i], self.boundary, self.box_length)
                             else:
-                                rij = self._pbc(pos[j] - pos[i], box)
+                                rij = _pbc(pos[j] - pos[i], self.boundary, box, inverse_box)
                             rijdis_sq = rij[0] ** 2 + rij[1] ** 2 + rij[2] ** 2
                             if rijdis_sq <= rcsq and j != i:
                                 verlet_list[i, nindex] = j
@@ -202,9 +161,9 @@ class Neighbor:
         need_check = True
         if self.max_neigh is None:
             max_neigh_list = np.zeros_like(cell_id_list)
-            # flag 0 indicate double, in the future we may support single!
+
             if self.rec:
-                _build_cell_rec_with_jishu(
+                build_cell_rec_with_jishu(
                     self.pos,
                     atom_cell_list,
                     cell_id_list,
@@ -212,42 +171,39 @@ class Neighbor:
                     np.array([i for i in self.ncel]),
                     self.bin_length,
                     max_neigh_list,
-                    0,
                 )
             else:
-                _build_cell_tri_with_jishu(
+                build_cell_tri_with_jishu(
                     self.pos,
                     atom_cell_list,
                     cell_id_list,
                     self.box,
+                    self.inverse_box,
                     np.array([i for i in self.ncel]),
                     self.bin_length,
                     max_neigh_list,
-                    0,
                 )
             self.max_neigh = np.partition(max_neigh_list.flatten(), -4)[-4:].sum()
             need_check = False
         else:
             if self.rec:
-                _build_cell_rec(
+                build_cell_rec(
                     self.pos,
                     atom_cell_list,
                     cell_id_list,
                     np.ascontiguousarray(self.box[-1]),
                     np.array([i for i in self.ncel]),
                     self.bin_length,
-                    0,
                 )
-
             else:
-                _build_cell_tri(
+                build_cell_tri(
                     self.pos,
                     atom_cell_list,
                     cell_id_list,
                     self.box,
+                    self.inverse_box,
                     np.array([i for i in self.ncel]),
                     self.bin_length,
-                    0,
                 )
 
         self.verlet_list = np.full((self.N, self.max_neigh), -1, dtype=np.int32)
@@ -264,6 +220,7 @@ class Neighbor:
             self.distance_list,
             self.neighbor_number,
             self.box,
+            self.inverse_box
         )
 
         if need_check:
@@ -303,8 +260,10 @@ class Neighbor:
         Args:
             N (int): number of sorted values
         """
+        
         if not self._if_computed:
             self.compute()
+        assert self.neighbor_number.min() >= N, f"N should lower than {self.neighbor_number.min()}."
         self._partition_select_sort(self.verlet_list, self.distance_list, N)
 
 
@@ -312,14 +271,13 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
 
-    ti.init()
+    ti.init(offline_cache=True)
     start = time()
     lattice_constant = 3.615
     x, y, z = 250, 100, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
-    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     for arch, tarch in zip(["cpu", "gpu"], [ti.cpu, ti.gpu]):
         ti.init(
             tarch, offline_cache=True, device_memory_fraction=0.9, default_fp=ti.f64
@@ -332,7 +290,7 @@ if __name__ == "__main__":
         print(neigh.verlet_list[0, :5])
         print(neigh.distance_list[0, :5])
         print(neigh.verlet_list.shape)
-        # print(neigh.distance_list.dtype)
+        print(neigh.distance_list.dtype)
     # print(neigh.verlet_list.shape[1])
     # print(neigh.neighbor_number.max())
     # print(neigh.neighbor_number.min())

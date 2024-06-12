@@ -9,11 +9,13 @@ try:
     from nearest_neighbor import NearestNeighbor
     from replicate import Replicate
     from tool_function import _check_repeat_nearest
+    from box import init_box
 except Exception:
     import _ptm
     from .nearest_neighbor import NearestNeighbor
     from .replicate import Replicate
     from .tool_function import _check_repeat_nearest
+    from .box import init_box
 
 
 class PolyhedralTemplateMatching:
@@ -79,43 +81,34 @@ class PolyhedralTemplateMatching:
         verlet_list=None,
         return_verlet=False,
     ):
+        box, _, rec = init_box(box)
+        if not rec:
+            raise "Do not support triclinic box."
+        
         repeat = [1, 1, 1]
         if verlet_list is None:
             repeat = _check_repeat_nearest(pos, box, boundary)
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        if box.dtype != np.float64:
-            box = box.astype(np.float64)
         self.old_N = None
         if sum(repeat) == 3:
             self.pos = pos
-            if box.shape == (4, 3):
-                for i in range(3):
-                    for j in range(3):
-                        if i != j:
-                            assert box[i, j] == 0, "Do not support triclinic box."
-                self.box = np.zeros((3, 2))
-                self.box[:, 0] = box[-1]
-                self.box[:, 1] = (
-                    np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
-                )
-            elif box.shape == (3, 2):
-                self.box = box
+            self.box = np.zeros((3, 2))
+            self.box[:, 0] = box[-1]
+            self.box[:, 1] = (
+                np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
+            )
         else:
             self.old_N = pos.shape[0]
             repli = Replicate(pos, box, *repeat)
             repli.compute()
             self.pos = repli.pos
-            for i in range(3):
-                for j in range(3):
-                    if i != j:
-                        assert repli.box[i, j] == 0, "Do not support triclinic box."
-                self.box = np.zeros((3, 2))
-                self.box[:, 0] = repli.box[-1]
-                self.box[:, 1] = (
-                    np.array([repli.box[0, 0], repli.box[1, 1], repli.box[2, 2]])
-                    + self.box[:, 0]
-                )
+            self.box = np.zeros((3, 2))
+            self.box[:, 0] = repli.box[-1]
+            self.box[:, 1] = (
+                np.array([repli.box[0, 0], repli.box[1, 1], repli.box[2, 2]])
+                + self.box[:, 0]
+            )
 
         self.boundary = boundary
         self.structure = structure

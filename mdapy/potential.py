@@ -15,6 +15,7 @@ try:
     from neighbor import Neighbor
     from nep._nep import NEPCalculator
     from load_save_data import BuildSystem
+    from box import init_box, _pbc, _pbc_rec
 except Exception:
     from .plotset import set_figure
     from .tool_function import _check_repeat_cutoff, atomic_masses, atomic_numbers
@@ -22,6 +23,7 @@ except Exception:
     from .neighbor import Neighbor
     from _nep import NEPCalculator
     from .load_save_data import BuildSystem
+    from .box import init_box, _pbc, _pbc_rec
 
 from abc import ABC, abstractmethod
 
@@ -117,49 +119,25 @@ class EAMCalculator:
     ):
         self.potential = potential
         self.rc = self.potential.rc
+        box, inverse_box, rec = init_box(box)
         repeat = _check_repeat_cutoff(box, boundary, self.rc, 5)
 
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        if box.dtype != np.float64:
-            box = box.astype(np.float64)
         self.old_N = None
         if sum(repeat) == 3:
             self.pos = pos
-            if box.shape == (3, 2):
-                self.box = np.zeros((4, 3), dtype=box.dtype)
-                self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-                self.box[-1] = box[:, 0]
-            elif box.shape == (4, 3):
-                self.box = box
+            self.box, self.inverse_box, self.rec = box, inverse_box, rec
             self.init_type_list = init_type_list
         else:
             self.old_N = pos.shape[0]
             repli = Replicate(pos, box, *repeat, type_list=init_type_list)
             repli.compute()
             self.pos = repli.pos
-            self.box = repli.box
+            self.box, self.inverse_box, self.rec = init_box(repli.box)
             self.init_type_list = repli.type_list
-        box = self.box.copy()
-        if box[0, 1] != 0 or box[0, 2] != 0 or box[1, 2] != 0:
-            old_box = self.box.copy()
-            ax = np.linalg.norm(box[0])
-            bx = box[1] @ (box[0] / ax)
-            by = np.sqrt(np.linalg.norm(box[1]) ** 2 - bx**2)
-            cx = box[2] @ (box[0] / ax)
-            cy = (box[1] @ box[2] - bx * cx) / by
-            cz = np.sqrt(np.linalg.norm(box[2]) ** 2 - cx**2 - cy**2)
-            box = np.array([[ax, bx, cx], [0, by, cy], [0, 0, cz]]).T
-            rotation = np.linalg.solve(old_box[:-1], box)
-            self.pos = self.pos @ rotation
-            self.box = np.r_[box, box[-1].reshape(1, -1)]
-        assert self.box[0, 1] == 0
-        assert self.box[0, 2] == 0
-        assert self.box[1, 2] == 0
+        
         self.box_length = ti.Vector([np.linalg.norm(self.box[i]) for i in range(3)])
-        self.rec = True
-        if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
-            self.rec = False
         self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
         self.elements_list = elements_list
         self.verlet_list = verlet_list
@@ -194,34 +172,6 @@ class EAMCalculator:
         _get_type_list_real(type_list, N, init_to_now, self.init_type_list)
         return type_list
 
-    @ti.func
-    def _pbc_rec(self, rij):
-        for m in ti.static(range(3)):
-            if self.boundary[m]:
-                dx = rij[m]
-                x_size = self.box_length[m]
-                h_x_size = x_size * 0.5
-                if dx > h_x_size:
-                    dx = dx - x_size
-                if dx <= -h_x_size:
-                    dx = dx + x_size
-                rij[m] = dx
-        return rij
-
-    @ti.func
-    def _pbc(self, rij, box: ti.types.ndarray(element_dim=1)) -> ti.math.vec3:
-        nz = rij[2] / box[2][2]
-        ny = (rij[1] - nz * box[2][1]) / box[1][1]
-        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
-        n = ti.Vector([nx, ny, nz])
-        for i in ti.static(range(3)):
-            if self.boundary[i] == 1:
-                if n[i] > 0.5:
-                    n[i] -= 1
-                elif n[i] < -0.5:
-                    n[i] += 1
-        return n[0] * box[0] + n[1] * box[1] + n[2] * box[2]
-
     @ti.kernel
     def _compute_energy_force(
         self,
@@ -246,6 +196,7 @@ class EAMCalculator:
         virial: ti.types.ndarray(),
         elec_density: ti.types.ndarray(),
         d_embedded_rho: ti.types.ndarray(),
+        inverse_box: ti.types.ndarray(element_dim=1)
     ):
         N = verlet_list.shape[0]
 
@@ -301,9 +252,9 @@ class EAMCalculator:
                 if j > i:
                     rij = pos[i] - pos[j]
                     if ti.static(self.rec):
-                        rij = self._pbc_rec(rij)
+                        rij = _pbc_rec(rij, self.boundary, self.box_length)
                     else:
-                        rij = self._pbc(rij, box)
+                        rij = _pbc(rij, self.boundary, box, inverse_box)
                     j_type = atype_list[j] - 1
                     r = distance_list[i, jj]
                     if r <= self.rc:
@@ -405,6 +356,7 @@ class EAMCalculator:
             self.virial,
             elec_density,
             d_embedded_rho,
+            self.inverse_box
         )
         self.virial /= -2.0
         if self.old_N is not None:
@@ -802,6 +754,7 @@ class NEP(BasePotential):
             force : eV/A (:math:`N_p, 3`). The order is fx, fy and fz.
             virial : eV*A^3 (:math:`N_p, 9`). The order is xx, yy, zz, xy, xz, yz, yx, zx, zy.
         """
+        box, _, _ = init_box(box)
         for i in elements_list:
             assert (
                 i in self.info["element_list"]
@@ -840,6 +793,9 @@ class NEP(BasePotential):
         Returns:
             np.ndarray: descriptor.
         """
+        
+        box, _, _ = init_box(box)
+
         for i in elements_list:
             assert (
                 i in self.info["element_list"]
@@ -1091,31 +1047,31 @@ if __name__ == "__main__":
 
     ti.init(ti.cpu)
 
-    file_list = []
-    for step in range(10):
-        file_list.append(
-            rf"D:\Study\Gra-Al\init_data\active\gra_al\interface\300K\split\dump.{step}.xyz"
-        )
-    file_list = np.array(file_list)
-    nep = NEP(r"D:\Study\Gra-Al\init_data\active\gra_al\interface\300K\nep.txt")
+    # file_list = []
+    # for step in range(10):
+    #     file_list.append(
+    #         rf"D:\Study\Gra-Al\init_data\active\gra_al\interface\300K\split\dump.{step}.xyz"
+    #     )
+    # file_list = np.array(file_list)
+    # nep = NEP(r"D:\Study\Gra-Al\init_data\active\gra_al\interface\300K\nep.txt")
 
-    sele = nep.fps_sample(
-        10, filename_list=file_list, elements_list=["Al", "C"], start_idx=2
-    )
+    # sele = nep.fps_sample(
+    #     10, filename_list=file_list, elements_list=["Al", "C"], start_idx=2
+    # )
 
-    print(sele)
+    # print(sele)
 
-    des_total = []
-    for filename in file_list:
-        system = System(filename)
-        des = nep.get_descriptors(
-            system.pos, system.box, ["Al", "C"], system.data["type"].to_numpy()
-        ).sum(axis=0)
-        des_total.append(des)
-    des_total = np.array(des_total)
+    # des_total = []
+    # for filename in file_list:
+    #     system = System(filename)
+    #     des = nep.get_descriptors(
+    #         system.pos, system.box, ["Al", "C"], system.data["type"].to_numpy()
+    #     ).sum(axis=0)
+    #     des_total.append(des)
+    # des_total = np.array(des_total)
 
-    sele = nep.fps_sample(10, des_total, start_idx=2)
-    print(sele)
+    # sele = nep.fps_sample(10, des_total, start_idx=2)
+    # print(sele)
     # start = time()
     # lattice_constant = 4.05
     # x, y, z = 10, 10, 10
@@ -1153,22 +1109,22 @@ if __name__ == "__main__":
     # end = time()
     # print(f"Calculate descriptors time: {end-start} s.")
     # print(des[:5])
-    # system = System(
-    #     r"D:\Study\Gra-Al\potential_test\phonon\graphene\phonon_interface\stress\test.0.dump"
-    # )
-    # potential = EAM("./example/Al_DFT.eam.alloy")
-    # start = time()
-    # energy, force, virial = potential.compute(
-    #     system.pos, system.box, ["Al"], np.ones(system.N, dtype=np.int32)
-    # )
-    # end = time()
-    # print(f"Calculate energy and force time: {end-start} s.")
-    # print("energy:")
-    # print(energy[:4])
-    # print("force:")
-    # print(force[:4, :])
-    # print("virial:")
-    # print(virial[:4, :] * 160.214 * 1e4)
+    system = System(
+        r"D:\Study\Gra-Al\potential_test\phonon\graphene\phonon_interface\stress\test.0.dump"
+    )
+    potential = EAM("./example/Al_DFT.eam.alloy")
+    start = time()
+    energy, force, virial = potential.compute(
+        system.pos, system.box, ["Al"], np.ones(system.N, dtype=np.int32)
+    )
+    end = time()
+    print(f"Calculate energy and force time: {end-start} s.")
+    print("energy:")
+    print(energy[:4])
+    print("force:")
+    print(force[:4, :])
+    print("virial:")
+    print(virial[:4, :] * 160.2176621 * 1e4)
 
     # print(potential.d_elec_density_data[0, :10])
     # print(potential.d_elec_density_data[0, :10])

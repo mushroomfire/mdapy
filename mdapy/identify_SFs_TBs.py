@@ -246,10 +246,10 @@ class IdentifySFTBinFCC:
 if __name__ == "__main__":
     ti.init()
     from time import time
-    from system import System
+    import mdapy as mp
     from polyhedral_template_matching import PolyhedralTemplateMatching
 
-    system = System(r"./example/ISF.dump")
+    system = mp.System(r"./example/ISF.dump")
 
     ptm = PolyhedralTemplateMatching(
         system.pos, system.box, system.boundary, "default", 0.1, None, True

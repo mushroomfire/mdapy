@@ -8,10 +8,12 @@ try:
     from tool_function import _check_repeat_cutoff
     from replicate import Replicate
     from neighbor import Neighbor
+    from box import init_box
 except Exception:
     from .tool_function import _check_repeat_cutoff
     from .replicate import Replicate
     from .neighbor import Neighbor
+    from .box import init_box
 
 
 @ti.data_oriented
@@ -129,22 +131,15 @@ class AtomicEntropy:
             assert pos is not None
             assert box is not None
             assert boundary is not None
+            box, _, _ = init_box(box)
             repeat = _check_repeat_cutoff(box, boundary, self.rc, 4)
 
             if pos.dtype != np.float64:
                 pos = pos.astype(np.float64)
-            if box.dtype != np.float64:
-                box = box.astype(np.float64)
+
             if sum(repeat) == 3:
                 self.pos = pos
-                if box.shape == (3, 2):
-                    self.box = np.zeros((4, 3), dtype=box.dtype)
-                    self.box[0, 0], self.box[1, 1], self.box[2, 2] = (
-                        box[:, 1] - box[:, 0]
-                    )
-                    self.box[-1] = box[:, 0]
-                elif box.shape == (4, 3):
-                    self.box = box
+                self.box = box
             else:
                 self.old_N = pos.shape[0]
                 repli = Replicate(pos, box, *repeat)
@@ -152,9 +147,6 @@ class AtomicEntropy:
                 self.pos = repli.pos
                 self.box = repli.box
 
-            assert self.box[0, 1] == 0
-            assert self.box[0, 2] == 0
-            assert self.box[1, 2] == 0
             self.boundary = [int(boundary[i]) for i in range(3)]
             self.vol = np.inner(self.box[0], np.cross(self.box[1], self.box[2]))
 

@@ -6,6 +6,7 @@ import numpy as np
 import taichi as ti
 import multiprocessing as mt
 import re
+from tqdm import tqdm
 
 
 try:
@@ -33,6 +34,7 @@ try:
     from steinhardt_bond_orientation import SteinhardtBondOrientation
     from replicate import Replicate
     from tool_function import _check_repeat_cutoff
+    from box import init_box
 except Exception:
     from .tool_function import atomic_numbers, vdw_radii, atomic_masses
     from .load_save_data import BuildSystem, SaveFile
@@ -58,6 +60,7 @@ except Exception:
     from .steinhardt_bond_orientation import SteinhardtBondOrientation
     from .replicate import Replicate
     from .tool_function import _check_repeat_cutoff
+    from .box import init_box
 
 
 class System:
@@ -160,9 +163,9 @@ class System:
 
         elif (
             isinstance(pos, np.ndarray)
-            and isinstance(box, np.ndarray)
             and isinstance(boundary, list)
         ):
+            box, _, _ = init_box(box)
             self.__data, self.__box, self.__boundary = BuildSystem.fromarray(
                 pos, box, boundary, vel, type_list
             )
@@ -646,19 +649,17 @@ class System:
         Returns:
             float: distance between given two atoms.
         """
-        box = self.__box
+        box = self.__box[:-1]
         rij = self.pos[i] - self.pos[j]
-        nz = rij[2] / box[2][2]
-        ny = (rij[1] - nz * box[2][1]) / box[1][1]
-        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
-        n = [nx, ny, nz]
+        inverse_box = np.linalg.inv(box)
+        n = rij @ inverse_box
         for i in range(3):
             if self.__boundary[i] == 1:
                 if n[i] > 0.5:
                     n[i] -= 1
                 elif n[i] < -0.5:
                     n[i] += 1
-        return np.linalg.norm(n[0] * box[0] + n[1] * box[1] + n[2] * box[2])
+        return np.linalg.norm(n @ box)
 
     def wrap_pos(self):
         """Wrap atom position into box considering the periodic boundary."""
@@ -1811,9 +1812,8 @@ class MultiSystem(list):
 
     Args:
         filename_list (list): ordered filename list, such as ['melt.0.dump', 'melt.100.dump'].
-        unwrap (bool, optional): make atom positions do not wrap into box due to periotic boundary. Defaults to True.
+        unwrap (bool, optional): make atom positions do not wrap into box due to periotic boundary. Using minimum image criterion, see https://en.wikipedia.org/wiki/Periodic_boundary_conditions#Practical_implementation:_continuity_and_the_minimum_image_convention. Defaults to True.
         sorted_id (bool, optional): sort data by atoms id. Defaults to True.
-        image_p (np.ndarray, optional): (:math:`N_p, 3`), image_p help to unwrap positions, if don't provided, using minimum image criterion, see https://en.wikipedia.org/wiki/Periodic_boundary_conditions#Practical_implementation:_continuity_and_the_minimum_image_convention.
 
     Outputs:
         - **pos_list** (np.ndarray): (:math:`N_f, N_p, 3`), :math:`N_f` frames particle position.
@@ -1821,38 +1821,27 @@ class MultiSystem(list):
 
     """
 
-    def __init__(self, filename_list, unwrap=True, sorted_id=True, image_p=None):
+    def __init__(self, filename_list, unwrap=True, sorted_id=True):
         self.sorted_id = sorted_id
         self.unwrap = unwrap
-        self.image_p = image_p
-        try:
-            from tqdm import tqdm
+        progress_bar = tqdm(filename_list)
+        for filename in progress_bar:
+            progress_bar.set_description(f"Reading {filename}")
+            system = System(filename, sorted_id=self.sorted_id)
+            self.append(system)
 
-            progress_bar = tqdm(filename_list)
-            for filename in progress_bar:
-                progress_bar.set_description(f"Reading {filename}")
-                system = System(filename, sorted_id=self.sorted_id)
-                self.append(system)
-        except Exception:
-            for filename in filename_list:
-                print(f"\rReading {filename}", end="")
-                system = System(filename, sorted_id=self.sorted_id)
-                self.append(system)
+        pos_list, box_list, inverse_box_list = [], [], []
+        for system in self:
+            pos_list.append(system.pos)
+            box_list.append(system.box)
+            inverse_box_list.append(np.linalg.inv(system.box[:-1]))
+        
+        self.pos_list = np.array(pos_list)
+        self.box_list = np.array(box_list)
 
-        self.pos_list = np.array([system.pos for system in self])
+        self.inverse_box_list = np.array(inverse_box_list)
         if self.unwrap:
-            if self.image_p is None:
-                try:
-                    self.image_p = np.array(
-                        [
-                            system.data.select(["ix", "iy", "iz"]).to_numpy()
-                            for system in self
-                        ]
-                    )
-                except Exception:
-                    pass
-
-            _unwrap_pos(self.pos_list, self[0].box, self[0].boundary, self.image_p)
+            _unwrap_pos(self.pos_list, self.box_list, self.inverse_box_list, self[0].boundary)
 
             for i, system in enumerate(self):
                 newdata = system.data.with_columns(
@@ -1871,17 +1860,12 @@ class MultiSystem(list):
             output_col (list, optional): columns to be saved, such as ['id', 'type', 'x', 'y', 'z'].
             compress (bool, optional): whether compress the DUMP file.
         """
-        try:
-            from tqdm import tqdm
 
-            progress_bar = tqdm(self)
-            for system in progress_bar:
-                progress_bar.set_description(f"Saving {system.filename}")
-                system.write_dump(output_col=output_col, compress=compress)
-        except Exception:
-            for system in self:
-                print(f"\rSaving {system.filename}", end="")
-                system.write_dump(output_col=output_col, compress=compress)
+
+        progress_bar = tqdm(self)
+        for system in progress_bar:
+            progress_bar.set_description(f"Saving {system.filename}")
+            system.write_dump(output_col=output_col, compress=compress)
 
     def cal_mean_squared_displacement(self, mode="windows"):
         """Calculate the mean squared displacement MSD of system, which can be used to
@@ -1982,9 +1966,17 @@ class MultiSystem(list):
 
 
 if __name__ == "__main__":
-    system = System(r"D:\Study\Gra-Al\paper\Fig1\PCA\res\train.0.xyz")
-    print(system)
-    # system.write_xyz("test.xyz")
+    # system = System(r"D:\Study\Gra-Al\paper\Fig1\PCA\res\train.0.xyz")
+    # print(system)
+    import taichi as ti
+    ti.init()
+
+    filename_list = [rf'D:\Study\Gra-Al\potential_test\validating\aluminum\itre_33\test\test.{i}.xyz' for i in range(0, 1000, 10)]
+    MS = MultiSystem(filename_list, sorted_id=False, unwrap=True)
+    #MS.write_dumps()
+    # for i in range(12):
+    #     print(i, 'step', MS[i].pos[0])
+    # # system.write_xyz("test.xyz")
     # system.write_POSCAR()
     # system.write_cif("test.cif")
     # system = System(r"D:\Study\Gra-Al\potential_test\phonon\aluminum\min.data")

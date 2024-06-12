@@ -6,6 +6,10 @@ import numpy as np
 import polars as pl
 import taichi as ti
 import matplotlib as mpl
+try:
+    from .box import init_box
+except Exception:
+    from box import init_box
 
 
 @ti.kernel
@@ -65,17 +69,8 @@ class Visualize:
         self.init_plot(*self.box2lines(box))
 
     def box2lines(self, box):
-        assert isinstance(box, np.ndarray)
-        assert box.shape == (3, 2) or box.shape == (4, 3)
-        if box.shape == (3, 2):
-            new_box = np.zeros((4, 3), dtype=box.dtype)
-            new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
-            new_box[-1] = box[:, 0]
-        else:
-            assert box[0, 1] == 0
-            assert box[0, 2] == 0
-            assert box[1, 2] == 0
-            new_box = box
+        new_box, _, _ = init_box(box)
+
         vertices = np.zeros((8, 3), dtype=np.float32)
         origin = new_box[-1]
         AB = new_box[0]

@@ -553,7 +553,7 @@ if __name__ == "__main__":
     ti.init()
     from lattice_maker import LatticeMaker
     from potential import LammpsPotential, EAM, NEP
-    from system import System
+    import mdapy as mp
 
     # lat = LatticeMaker(1.42, "GRA", 1, 1, 1)
     # lat.compute()
@@ -565,7 +565,7 @@ if __name__ == "__main__":
     # )
     # "0.0 0.0 0.0 0.3333333333 0.3333333333 0.0 0.5 0.0 0.0 0.0 0.0 0.0",
     # "$\Gamma$ K M $\Gamma$",
-    system = System(r"D:\Study\Gra-Al\potential_test\phonon\graphene\min.data")
+    system = mp.System(r"D:\Study\Gra-Al\potential_test\phonon\graphene\min.data")
     potential = NEP(r"D:\Study\Gra-Al\potential_test\phonon\graphene\nep.txt")
     # system = System(r"/mnt/d/Study/Gra-Al/potential_test/phonon/alc/POSCAR")
     # potential = LammpsPotential(

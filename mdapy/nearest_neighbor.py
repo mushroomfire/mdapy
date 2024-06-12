@@ -6,10 +6,12 @@ from scipy.spatial import KDTree
 import taichi as ti
 
 try:
-    from neigh._neigh import _build_cell_tri
+    from box import init_box, _pbc
+    from neigh._neigh import build_cell_tri
     from tool_function import _check_repeat_nearest
 except Exception:
-    from _neigh import _build_cell_tri
+    from .box import init_box, _pbc
+    from _neigh import build_cell_tri
     from .tool_function import _check_repeat_nearest
 
 
@@ -144,7 +146,8 @@ class NearestNeighbor:
     """
 
     def __init__(self, pos, box, boundary=[1, 1, 1]):
-        repeat = _check_repeat_nearest(pos, box, boundary)
+        self.box, self.inverse_box, self.rec = init_box(box)
+        repeat = _check_repeat_nearest(pos, self.box, boundary)
         assert (
             sum(repeat) == 3
         ), f"The atom number < 100 or shorest box length < 1 nm, which should be repeated by {repeat} to make sure the results correct."
@@ -152,21 +155,7 @@ class NearestNeighbor:
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
         self.pos = pos
-        if box.dtype != np.float64:
-            box = box.astype(np.float64)
-        if box.shape == (3, 2):
-            self.box = np.zeros((4, 3), dtype=box.dtype)
-            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-            self.box[-1] = box[:, 0]
-        elif box.shape == (4, 3):
-            self.box = box
-        assert self.box[0, 1] == 0
-        assert self.box[0, 2] == 0
-        assert self.box[1, 2] == 0
         self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
-        self.rec = True
-        if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
-            self.rec = False
         self.N = self.pos.shape[0]
         if self.rec:
             box = np.zeros((3, 2))
@@ -175,20 +164,6 @@ class NearestNeighbor:
                 np.array([self.box[0, 0], self.box[1, 1], self.box[2, 2]]) + box[:, 0]
             )
             self._kdt = kdtree(self.pos, box, self.boundary)
-
-    @ti.func
-    def _pbc(self, rij, box: ti.types.ndarray(element_dim=1)) -> ti.math.vec3:
-        nz = rij[2] / box[2][2]
-        ny = (rij[1] - nz * box[2][1]) / box[1][1]
-        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
-        n = ti.Vector([nx, ny, nz])
-        for i in ti.static(range(3)):
-            if self.boundary[i] == 1:
-                if n[i] > 0.5:
-                    n[i] -= 1
-                elif n[i] < -0.5:
-                    n[i] += 1
-        return n[0] * box[0] + n[1] * box[1] + n[2] * box[2]
 
     @ti.kernel
     def _build_verlet_list(
@@ -200,55 +175,40 @@ class NearestNeighbor:
         verlet_list: ti.types.ndarray(),
         distance_list: ti.types.ndarray(),
         box: ti.types.ndarray(element_dim=1),
+        inverse_box: ti.types.ndarray(element_dim=1),
         K: int,
     ):
         for i in range(self.N):
-            rij = pos[i] - box[3]
-            nz = rij[2] / box[2][2]
-            ny = (rij[1] - nz * box[2][1]) / box[1][1]
-            nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
-            icel = ti.floor((nx * box[0]).norm() / self.bin_length, int)
-            jcel = ti.floor((ny * box[1]).norm() / self.bin_length, int)
-            kcel = ti.floor((nz * box[2]).norm() / self.bin_length, int)
-            iicel, jjcel, kkcel = icel, jcel, kcel  # make sure correct cell
+            r = pos[i] - box[3]
+            n = r[0] * inverse_box[0] + r[1] * inverse_box[1] + r[2] * inverse_box[2]
+            icel = ti.floor((n[0] * box[0]).norm() / self.bin_length, int)
+            jcel = ti.floor((n[1] * box[1]).norm() / self.bin_length, int)
+            kcel = ti.floor((n[2] * box[2]).norm() / self.bin_length, int)
             if icel < 0:
-                iicel = 0
+                icel = 0
             elif icel > self.ncel[0] - 1:
-                iicel = self.ncel[0] - 1
+                icel = self.ncel[0] - 1
             if jcel < 0:
-                jjcel = 0
+                jcel = 0
             elif jcel > self.ncel[1] - 1:
-                jjcel = self.ncel[1] - 1
+                jcel = self.ncel[1] - 1
             if kcel < 0:
-                kkcel = 0
+                kcel = 0
             elif kcel > self.ncel[2] - 1:
-                kkcel = self.ncel[2] - 1
-
+                kcel = self.ncel[2] - 1
             nindex = 0
             delta = init_delta
             while nindex < K:
-                for iiicel in range(iicel - delta, iicel + delta + 1):
-                    for jjjcel in range(jjcel - delta, jjcel + delta + 1):
-                        for kkkcel in range(kkcel - delta, kkcel + delta + 1):
-                            iiiicel = iiicel
-                            jjjjcel = jjjcel
-                            kkkkcel = kkkcel
-                            if iiicel < 0:
-                                iiiicel += self.ncel[0]
-                            elif iiicel > self.ncel[0] - 1:
-                                iiiicel -= self.ncel[0]
-                            if jjjcel < 0:
-                                jjjjcel += self.ncel[1]
-                            elif jjjcel > self.ncel[1] - 1:
-                                jjjjcel -= self.ncel[1]
-                            if kkkcel < 0:
-                                kkkkcel += self.ncel[2]
-                            elif kkkcel > self.ncel[2] - 1:
-                                kkkkcel -= self.ncel[2]
-                            j = cell_id_list[iiiicel, jjjjcel, kkkkcel]
-
+                for iicel in range(icel - delta, icel + delta + 1):
+                    for jjcel in range(jcel - delta, jcel + delta + 1):
+                        for kkcel in range(kcel - delta, kcel + delta + 1):
+                            j = cell_id_list[
+                                iicel % self.ncel[0],
+                                jjcel % self.ncel[1],
+                                kkcel % self.ncel[2],
+                            ]
                             while j > -1:
-                                rij = self._pbc(pos[j] - pos[i], box)
+                                rij = _pbc(pos[j] - pos[i], self.boundary, box, inverse_box)
                                 rijdis = rij.norm()
                                 if rijdis < delta * self.bin_length and j != i:
                                     if nindex < K:
@@ -321,14 +281,14 @@ class NearestNeighbor:
             cell_id_list = np.full(
                 (self.ncel[0], self.ncel[1], self.ncel[2]), -1, dtype=np.int32
             )
-            _build_cell_tri(
+            build_cell_tri(
                 self.pos,
                 atom_cell_list,
                 cell_id_list,
                 self.box,
+                self.inverse_box,
                 np.array([i for i in self.ncel]),
                 self.bin_length,
-                0,
             )
             verlet_list = np.zeros((self.N, K), int)
             distance_list = np.zeros_like(verlet_list, float)
@@ -340,6 +300,7 @@ class NearestNeighbor:
                 verlet_list,
                 distance_list,
                 self.box,
+                self.inverse_box,
                 K,
             )
         return distance_list, verlet_list
@@ -350,12 +311,12 @@ if __name__ == "__main__":
     import taichi as ti
     from time import time
 
-    from system import System
+    import mdapy as mp
 
     ti.init(ti.cpu)
-    system = System(r"D:\Package\MyPackage\mdapy-tutorial\frame\Ti.data")
+    system = mp.System(r"D:\Package\MyPackage\mdapy-tutorial\frame\Ti.data")
     system.replicate(20, 20, 20)
-    print(system)
+    #print(system)
     start = time()
     kdt = NearestNeighbor(system.pos, system.box, system.boundary)
     end = time()

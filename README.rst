@@ -332,6 +332,7 @@ Release Notes
 V0.10.9 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- Refactor the code about generating box, supporting all triclinic box now. The previous version only support lammps style triclinic box.
 - Add the farthest point sampling method to select the configuration by NEP potential.
 - Add stress_max parameter for DFT2NEPXYZ class.
 - Fix a bug for obtaining descriptor in NEP interface.

@@ -9,11 +9,13 @@ try:
     from replicate import Replicate
     from neighbor import Neighbor
     from nearest_neighbor import NearestNeighbor
+    from box import init_box, _pbc, _pbc_rec
 except Exception:
     from .tool_function import _check_repeat_cutoff, _check_repeat_nearest
     from .replicate import Replicate
     from .neighbor import Neighbor
     from .nearest_neighbor import NearestNeighbor
+    from .box import init_box, _pbc, _pbc_rec
 
 
 nfac_table_numpy = np.array(
@@ -308,31 +310,20 @@ class SteinhardtBondOrientation:
 
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        if box.dtype != np.float64:
-            box = box.astype(np.float64)
+        
+        box, inverse_box, rec = init_box(box)
         self.old_N = None
         if sum(repeat) == 3:
             self.pos = pos
-            if box.shape == (3, 2):
-                self.box = np.zeros((4, 3), dtype=box.dtype)
-                self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-                self.box[-1] = box[:, 0]
-            elif box.shape == (4, 3):
-                self.box = box
+            self.box, self.inverse_box, self.rec = box, inverse_box, rec
         else:
             self.old_N = pos.shape[0]
             repli = Replicate(pos, box, *repeat)
             repli.compute()
             self.pos = repli.pos
-            self.box = repli.box
+            self.box, self.inverse_box, self.rec = init_box(repli.box)
 
-        assert self.box[0, 1] == 0
-        assert self.box[0, 2] == 0
-        assert self.box[1, 2] == 0
         self.box_length = ti.Vector([np.linalg.norm(self.box[i]) for i in range(3)])
-        self.rec = True
-        if self.box[1, 0] != 0 or self.box[2, 0] != 0 or self.box[2, 1] != 0:
-            self.rec = False
         self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
 
         self.verlet_list = verlet_list
@@ -445,33 +436,7 @@ class SteinhardtBondOrientation:
             prefactor = -prefactor
         return prefactor
 
-    @ti.func
-    def _pbc_rec(self, rij):
-        for m in ti.static(range(3)):
-            if self.boundary[m]:
-                dx = rij[m]
-                x_size = self.box_length[m]
-                h_x_size = x_size * 0.5
-                if dx > h_x_size:
-                    dx = dx - x_size
-                if dx <= -h_x_size:
-                    dx = dx + x_size
-                rij[m] = dx
-        return rij
 
-    @ti.func
-    def _pbc(self, rij, box: ti.types.ndarray(element_dim=1)) -> ti.math.vec3:
-        nz = rij[2] / box[2][2]
-        ny = (rij[1] - nz * box[2][1]) / box[1][1]
-        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
-        n = ti.Vector([nx, ny, nz])
-        for i in ti.static(range(3)):
-            if self.boundary[i] == 1:
-                if n[i] > 0.5:
-                    n[i] -= 1
-                elif n[i] < -0.5:
-                    n[i] += 1
-        return n[0] * box[0] + n[1] * box[1] + n[2] * box[2]
 
     @ti.kernel
     def _get_idx(self, qlist: ti.types.ndarray()) -> int:
@@ -497,6 +462,7 @@ class SteinhardtBondOrientation:
         qnm_i: ti.types.ndarray(),
         qnarray: ti.types.ndarray(),
         cglist: ti.types.ndarray(),
+        inverse_box: ti.types.ndarray(element_dim=1)
     ):
         MY_EPSILON = 2.220446049250313e-15
         N = pos.shape[0]
@@ -513,9 +479,9 @@ class SteinhardtBondOrientation:
                 j = verlet_list[i, jj]
                 r = pos[i] - pos[j]
                 if ti.static(self.rec):
-                    r = self._pbc_rec(r)
+                    r = _pbc_rec(r, self.boundary, self.box_length)
                 else:
-                    r = self._pbc(r, box)
+                    r = _pbc(r, self.boundary, box, inverse_box)
                 rmag = distance_list[i, jj]
                 if rmag > MY_EPSILON and rmag <= self.rc:
                     nneigh += 1
@@ -670,6 +636,7 @@ class SteinhardtBondOrientation:
             self.qnm_i,
             self.qnarray,
             cglist,
+            self.inverse_box
         )
         if self.old_N is not None:
             self.old_qnarray = self.qnarray.copy()

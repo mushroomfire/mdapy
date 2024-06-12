@@ -13,19 +13,21 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from neighbor import Neighbor
     from load_save_data import SaveFile
+    from box import init_box
 else:
     import _voronoi_analysis
     from .lattice_maker import LatticeMaker
     from .neighbor import Neighbor
     from .load_save_data import SaveFile
+    from .box import init_box
 
 try:
     from _neigh import (
-        _build_cell_rec,
+        build_cell_rec,
     )
 except Exception:
     from neigh._neigh import (
-        _build_cell_rec,
+        build_cell_rec,
     )
 
 
@@ -105,14 +107,7 @@ class DeleteOverlap:
 
     def __init__(self, pos, box, rc) -> None:
         self.pos = pos
-        if box.dtype != np.float64:
-            box = box.astype(np.float64)
-        if box.shape == (3, 2):
-            self.box = np.zeros((4, 3), dtype=box.dtype)
-            self.box[0, 0], self.box[1, 1], self.box[2, 2] = box[:, 1] - box[:, 0]
-            self.box[-1] = box[:, 0]
-        elif box.shape == (4, 3):
-            self.box = box
+        self.box, _, _ = init_box(box)
         self.rc = rc
         self.bin_length = rc + 0.1
         self.ncel = ti.Vector(
@@ -181,14 +176,13 @@ class DeleteOverlap:
         cell_id_list = np.full(
             (self.ncel[0], self.ncel[1], self.ncel[2]), -1, dtype=np.int32
         )
-        _build_cell_rec(
+        build_cell_rec(
             self.pos,
             atom_cell_list,
             cell_id_list,
             np.ascontiguousarray(self.box[-1]),
             np.array([i for i in self.ncel]),
             self.bin_length,
-            0,
         )
         self.delete_id = np.ones(self.pos.shape[0], int)
         self._build_delete_id(
@@ -260,22 +254,14 @@ class CreatePolycrystalline:
         output_name=None,
         num_t=None,
     ) -> None:
-        if box.dtype != np.float64:
-            box = box.astype(np.float64)
-        if box.shape == (4, 3):
-            for i in range(3):
-                for j in range(3):
-                    if i != j:
-                        assert box[i, j] == 0, "Do not support triclinic box."
-            self._real_box = np.zeros((3, 2))
-            self._real_box[:, 0] = box[-1]
-            self._real_box[:, 1] = (
-                np.array([box[0, 0], box[1, 1], box[2, 2]]) + self._real_box[:, 0]
-            )
-        elif box.shape == (3, 2):
-            self._real_box = box
-        else:
-            raise "The box dimesion must be (4, 3) or (3, 2)."
+        box, _, rec = init_box(box)
+        if not rec:
+            raise "Do not support triclinic box."
+        self._real_box = np.zeros((3, 2))
+        self._real_box[:, 0] = box[-1]
+        self._real_box[:, 1] = (
+            np.array([box[0, 0], box[1, 1], box[2, 2]]) + self._real_box[:, 0]
+        )
 
         self._lower = self._real_box[:, 0]
         self.box = np.c_[np.zeros(3), self._real_box[:, 1] - self._real_box[:, 0]]
@@ -744,7 +730,7 @@ if __name__ == "__main__":
     #     np.array([[0, 600.0], [0, 600.0], [0, 4000.0]]), 87, 4.057, "FCC", 1
     # )
     polycry = CreatePolycrystalline(
-        np.array([[0, 200.0], [0, 200.0], [0, 200.0]]),
+        np.array([[0, 200.0], [0, 200.0], [-100, 200.0]]),
         20,
         4.057,
         "FCC",

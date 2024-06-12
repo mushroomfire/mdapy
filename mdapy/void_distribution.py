@@ -8,9 +8,11 @@ import polars as pl
 try:
     from cluser_analysis import ClusterAnalysis
     from load_save_data import SaveFile
+    from box import init_box
 except Exception:
     from .cluser_analysis import ClusterAnalysis
     from .load_save_data import SaveFile
+    from .box import init_box
 
 
 @ti.data_oriented
@@ -83,20 +85,14 @@ class VoidDistribution:
             pos = pos.astype(np.float64)
         self.pos = pos
         self.N = self.pos.shape[0]
-        if box.dtype != np.float64:
-            box = box.astype(np.float64)
-        if box.shape == (4, 3):
-            for i in range(3):
-                for j in range(3):
-                    if i != j:
-                        assert box[i, j] == 0, "Do not support triclinic box."
-            self.box = np.zeros((3, 2))
-            self.box[:, 0] = box[-1]
-            self.box[:, 1] = (
-                np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
-            )
-        elif box.shape == (3, 2):
-            self.box = box
+        box, _, rec = init_box(box)
+        if not rec:
+            raise "Do not support triclinic box."
+        self.box = np.zeros((3, 2))
+        self.box[:, 0] = box[-1]
+        self.box[:, 1] = (
+            np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
+        )
         self.cell_length = cell_length
         self.boundary = boundary
         self.out_void = out_void

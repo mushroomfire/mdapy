@@ -8,6 +8,10 @@ import numpy as np
 import os
 from datetime import datetime
 from functools import wraps
+try:
+    from box import init_box
+except Exception:
+    from .box import init_box
 
 
 def timer(function):
@@ -103,7 +107,7 @@ def _check_repeat_nearest(pos, box, boundary):
 
     if repeat_length or repeat_number:
         repeat = [1 if boundary[i] == 0 else 3 for i in range(3)]
-        while np.product(repeat) * pos.shape[0] < 100:
+        while np.prod(repeat) * pos.shape[0] < 100:
             for i in range(3):
                 if boundary[i] == 1:
                     repeat[i] += 1
@@ -211,10 +215,11 @@ def _unwrap_pos_with_image_p(
 
 @ti.kernel
 def _unwrap_pos_without_image_p(
-    pos_list: ti.types.ndarray(dtype=ti.math.vec3),
-    box: ti.types.ndarray(dtype=ti.math.vec3),
+    pos_list: ti.types.ndarray(element_dim=1),
+    box_list: ti.types.ndarray(element_dim=1),
     boundary: ti.types.vector(3, dtype=int),
-    image_p: ti.types.ndarray(dtype=ti.math.vec3),
+    image_p: ti.types.ndarray(element_dim=1),
+    inverse_box_list: ti.types.ndarray(element_dim=1),
 ):
     """This function is used to unwrap particle positions
      into box considering periodic boundarys without help of image_p.
@@ -222,11 +227,13 @@ def _unwrap_pos_without_image_p(
     Args:
         pos_list (ti.types.ndarray): (Nframes x Nparticles x 3) particle position.
 
-        box (ti.types.ndarray): (4x3) system box.
+        box_list (ti.types.ndarray): (Nframesx4x3) system box list.
 
         boundary (ti.types.vector): boundary conditions, 1 is periodic and 0 is free boundary.
 
         image_p (ti.types.ndarray): (Nframes x Nparticles x 3) fill with 0.
+
+        inverse_box (ti.types.ndarray): (Nframesx3x3) inverse box list.
     """
 
     ti.loop_config(serialize=True)
@@ -234,25 +241,27 @@ def _unwrap_pos_without_image_p(
         for i in range(pos_list.shape[1]):
             for j in ti.static(range(3)):
                 if boundary[j] == 1:
-                    pos_list[frame, i] += image_p[frame - 1, i][j] * box[j]
+                    pos_list[frame, i] += image_p[frame-1, i] * box_list[frame, j]
+            
             delta = pos_list[frame, i] - pos_list[frame - 1, i]
-            nz = delta[2] / box[2][2]
-            ny = (delta[1] - nz * box[2][1]) / box[1][1]
-            nx = (delta[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
-            n = ti.Vector([nx, ny, nz])
+            n = delta[0] * inverse_box_list[frame, 0] + delta[1] * inverse_box_list[frame, 1] + delta[2] * inverse_box_list[frame, 2]
+            
             for j in ti.static(range(3)):
                 if boundary[j] == 1:
-                    while n[j] <= -0.5:
+                    if n[j] <= -0.5:
                         n[j] += 1
                         image_p[frame, i][j] += 1
-                        pos_list[frame, i] += box[j]
-                    while n[j] >= 0.5:
+                        pos_list[frame, i] += box_list[frame, j]
+                    if n[j] >= 0.5:
                         n[j] -= 1
                         image_p[frame, i][j] -= 1
-                        pos_list[frame, i] -= box[j]
+                        pos_list[frame, i] -= box_list[frame, j]
+            
+            
 
 
-def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
+
+def _unwrap_pos(pos_list, box_list, inverse_box_list, boundary):
     """This function is used to unwrap particle positions
      into box considering periodic boundarys.
 
@@ -265,18 +274,19 @@ def _unwrap_pos(pos_list, box, boundary=[1, 1, 1], image_p=None):
 
         image_p (_type_, optional): (Nframes x Nparticles x 3) image_p, such as 1 indicates plus a box distance and -2 means substract two box distances. Defaults to None.
     """
-    if image_p is not None:
-        boundary = ti.Vector(boundary)
-        _unwrap_pos_with_image_p(pos_list, box, boundary, image_p)
-    else:
-        boundary = ti.Vector(boundary)
-        image_p = np.zeros_like(pos_list, dtype=int)
-        _unwrap_pos_without_image_p(pos_list, box, boundary, image_p)
+
+    boundary = ti.Vector(boundary)
+    image_p = np.zeros_like(pos_list, dtype=int)
+
+    _unwrap_pos_without_image_p(pos_list, box_list, boundary, image_p, inverse_box_list)
+
+    # for i in range(12):
+    #     print(i, image_p[i][0])
 
 
-def _init_vel(N, T, Mass=1.0):
+def _init_vel(N, T, Mass=1.0, randomseed=10086):
     Boltzmann_Constant = 8.617385e-5
-    np.random.seed(10086)
+    np.random.seed(randomseed)
     x1 = np.random.random(N * 3)
     x2 = np.random.random(N * 3)
     vel = (

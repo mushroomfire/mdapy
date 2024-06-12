@@ -6,10 +6,12 @@
 import numpy as np
 import multiprocessing as mt
 
-if __name__ == "__main__":
+try:
     from voronoi import _voronoi_analysis
-else:
+    from box import init_box
+except Exception:
     import _voronoi_analysis
+    from .box import init_box
 
 
 class VoronoiAnalysis:
@@ -54,20 +56,14 @@ class VoronoiAnalysis:
             pos = pos.astype(np.float64)
         self.pos = pos
         self.N = self.pos.shape[0]
-        if box.dtype != np.float64:
-            box = box.astype(np.float64)
-        if box.shape == (4, 3):
-            for i in range(3):
-                for j in range(3):
-                    if i != j:
-                        assert box[i, j] == 0, "Do not support triclinic box."
-            self.box = np.zeros((3, 2))
-            self.box[:, 0] = box[-1]
-            self.box[:, 1] = (
-                np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
-            )
-        elif box.shape == (3, 2):
-            self.box = box
+        box, _, rec = init_box(box)
+        if not rec:
+            raise "Do not support triclinic box."
+        self.box = np.zeros((3, 2))
+        self.box[:, 0] = box[-1]
+        self.box[:, 1] = (
+            np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
+        )
         self.boundary = boundary
         if num_t is None:
             self.num_t = mt.cpu_count()

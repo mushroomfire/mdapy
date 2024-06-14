@@ -849,9 +849,9 @@ class NEP(BasePotential):
             for filename in bar:
                 bar.set_description(f"Reading {filename}")
                 fmt = BuildSystem.getformat(filename, fmt)
-                if fmt in ["dump", "dump.gz"]:
+                if fmt in ["xyz", "dump", "dump.gz"]:
                     data, box, boundary, _ = BuildSystem.fromfile(filename, fmt)
-                elif fmt in ["data", "lmp", "poscar", "xyz", "cif"]:
+                elif fmt in ["data", "lmp", "poscar", "cif"]:
                     data, box, boundary = BuildSystem.fromfile(filename, fmt)
                 else:
                     raise "Something is wrong here."

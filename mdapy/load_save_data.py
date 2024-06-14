@@ -6,27 +6,23 @@ import polars as pl
 import os
 import shutil
 from tempfile import mkdtemp
+import re
 
 try:
     from .pigz import compress_file
+    from .box import init_box
     from .tool_function import atomic_numbers, atomic_masses
 except Exception:
+    from box import init_box
     from pigz import compress_file
     from tool_function import atomic_numbers, atomic_masses
 
 
 class SaveFile:
     @staticmethod
-    def write_xyz(output_name, box, data, boundary, classical=False):
+    def write_xyz(output_name, box, data, boundary, classical=False, **kargs):
         assert isinstance(output_name, str)
-        assert isinstance(box, np.ndarray)
-        assert box.shape == (3, 2) or box.shape == (4, 3)
-        if box.shape == (3, 2):
-            new_box = np.zeros((4, 3), dtype=box.dtype)
-            new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
-            new_box[-1] = box[:, 0]
-        else:
-            new_box = box
+        new_box, _, _ = init_box(box)
         assert isinstance(data, pl.DataFrame)
         for col in ["x", "y", "z"]:
             assert col in data.columns, f"data must contain {col}."
@@ -67,7 +63,7 @@ class SaveFile:
 
             if "vx:R:1:vy:R:1:vz:R:1" in properties_str:
                 properties_str = properties_str.replace(
-                    "vx:R:1:vy:R:1:vz:R:1", "velo:R:3"
+                    "vx:R:1:vy:R:1:vz:R:1", "vel:R:3"
                 )
             if "fx:R:1:fy:R:1:fz:R:1" in properties_str:
                 properties_str = properties_str.replace(
@@ -90,6 +86,12 @@ class SaveFile:
             comments = (
                 lattice_str + " " + properties_str + " " + pbc_str + " " + origin_str
             )
+            for key, value in kargs.items():
+                if key.lower() not in ['lattice', 'pbc', 'properties']:
+                    try:
+                        comments += f" {key}={value}"
+                    except Exception as e:
+                        pass
             with open(output_name, "wb") as op:
                 op.write(f"{data.shape[0]}\n".encode())
                 if "type_name" in data.columns and "type" in data.columns:
@@ -590,15 +592,7 @@ class BuildSystem:
     @staticmethod
     def fromarray(pos, box, boundary, vel, type_list):
         assert pos.shape[1] == 3
-        assert box.shape == (3, 2) or box.shape == (4, 3)
-        assert len(boundary) == 3
-        if box.shape == (3, 2):
-            new_box = np.zeros((4, 3), dtype=box.dtype)
-            new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
-            new_box[-1] = box[:, 0]
-        else:
-            new_box = box
-
+        new_box, _, _ = init_box(box)
         if type_list is None:
             type_list = np.ones(pos.shape[0], int)
         assert len(type_list) == pos.shape[0]
@@ -606,10 +600,11 @@ class BuildSystem:
             np.int32,
             np.int64,
         ], "type_list should be int32 or int64"
-
+        assert len(boundary) == 3
+        boundary = [int(i) for i in boundary]
         data = pl.DataFrame(
             {
-                "id": np.arange(pos.shape[0]) + 1,
+                "id": np.arange(1, pos.shape[0]+1),
                 "type": type_list,
                 "x": pos[:, 0],
                 "y": pos[:, 1],
@@ -624,7 +619,7 @@ class BuildSystem:
                 pl.lit(vel[:, 2]).alias("vz"),
             )
 
-        return data, box, boundary
+        return data, new_box, boundary
 
     @staticmethod
     def fromdata(data, box, boundary):
@@ -632,13 +627,9 @@ class BuildSystem:
         assert "y" in data.columns
         assert "z" in data.columns
         assert len(boundary) == 3
-        assert box.shape == (3, 2) or box.shape == (4, 3)
-        if box.shape == (3, 2):
-            new_box = np.zeros((4, 3), dtype=box.dtype)
-            new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
-            new_box[-1] = box[:, 0]
-        else:
-            new_box = box
+        boundary = [int(i) for i in boundary]
+        new_box, _, _ = init_box(box)
+
         return data, new_box, boundary
 
     @staticmethod
@@ -647,49 +638,37 @@ class BuildSystem:
         with open(filename) as op:
             for i in range(3):
                 head.append(op.readline())
-        natom = int(head[0].split()[0])
-        classical = True
+        natom = int(head[0].strip())
+        line2 = {}
+        results = re.findall(r'(\w+)=(?:"([^"]+)"|([^ ]+))', head[1].replace("'", '"'))
+        for match in results:
+            key = match[0].lower()
+            value = match[1] if match[1] else match[2]
+            line2[key] = value
+        
+        classical = False if 'lattice' in line2.keys() else True
 
-        if "Lattice=" in head[1] or "lattice=" in head[1]:
-            classical = False
         if not classical:
-            info = head[1]
-
-            if "pbc=" in info:
-                pindex = info.index("pbc=") + len("pbc=")
+            assert "properties" in line2.keys(), "Must contain properties."
+            # Check boundary condition
+            if "pbc" in line2.keys():
                 boundary = [
                     1 if i == "T" or i == "1" else 0
-                    for i in info[pindex + 1 : pindex + 6].split()
+                    for i in line2['pbc']
                 ]
             else:
                 boundary = [1, 1, 1]
-
-            if "Lattice=" in info:
-                bindex = info.index("Lattice=") + len("Lattice=")
+            # Get box
+            box = np.array(line2['lattice'].split(), float).reshape(3, 3)
+            # Check origin
+            if "origin" in line2.keys():
+                origin = np.array(line2['origin'].split(), float)
             else:
-                bindex = info.index("lattice=") + len("lattice=")
-            try:
-                box = np.array(info[bindex:].split("'")[1].split(), float).reshape(3, 3)
-            except Exception:
-                box = np.array(info[bindex:].split('"')[1].split(), float).reshape(3, 3)
-            # assert (
-            #     box[0, 1] == box[0, 2] == box[1, 2] == 0
-            # ), "Only support lammps style box! box[0, 1]==box[0, 2]==box[1, 2]==0."
-            if "Origin=" in info or "origin=" in info:
-                if "Origin=" in info:
-                    oindex = info.index("Origin=") + len("Origin=")
-                else:
-                    oindex = info.index("origin=") + len("origin=")
-
-                origin = np.expand_dims(
-                    np.array(info[oindex:].split('"')[1].split(), float), axis=0
-                )
-                box = np.r_[box, origin]
-            if "Properties=" in info:
-                pindex = info.index("Properties=") + len("Properties=")
-            else:
-                pindex = info.index("properties=") + len("properties=")
-            content = info[pindex:].split()[0].split(":")
+                origin = np.zeros(3, float)
+            box = np.r_[box, origin.reshape((1, 3))]
+            # Get columns name and dtype
+            content = line2['properties'].strip().split(':')
+            #print(content)
             i = 0
             columns = []
             schema = {}
@@ -715,6 +694,7 @@ class BuildSystem:
                     schema["z"] = dtype
                 elif (
                     content[i] in ["species", "type_name", "element"]
+                    and content[i+1] == "S"
                     and content[i + 2] == "1"
                 ):
                     columns.append("type_name")
@@ -764,7 +744,7 @@ class BuildSystem:
                 type_name, x, y, z = [], [], [], []
                 with open(filename) as op:
                     op.readline()  # skip head
-                    op.readline()
+                    op.readline()  # skip line 2
                     for i in range(natom):
                         content = op.readline().split()
                         type_name.append(content[0])
@@ -783,7 +763,7 @@ class BuildSystem:
                     new_columns=columns,
                     columns=range(len(columns)),
                     has_header=False,
-                    truncate_ragged_lines=True,
+                    truncate_ragged_lines=False,
                 )
             if df["type_name"][0].isdigit():
                 df = df.with_columns(pl.col("type_name").cast(int)).rename(
@@ -811,10 +791,10 @@ class BuildSystem:
                     data[i] = []
                 with open(filename) as op:
                     op.readline()  # skip head
-                    op.readline()
+                    op.readline()  # skip line2
                     for i in range(natom):
-                        for key, j in zip(columns, op.readline().split()):
-                            data[key].append(j)
+                        for key, value in zip(columns, op.readline().split()):
+                            data[key].append(value)
                 df = pl.DataFrame(data, schema=schema)
             else:
                 df = pl.read_csv(
@@ -825,12 +805,9 @@ class BuildSystem:
                     new_columns=columns,
                     columns=range(len(columns)),
                     has_header=False,
-                    truncate_ragged_lines=True,
+                    truncate_ragged_lines=False,
                 )
 
-            if "Origin=" not in info:
-                box = np.r_[box, np.zeros((1, 3))]
-                # box = np.r_[box, df.select("x", "y", "z").min().to_numpy()]
             if "id" not in df.columns:
                 df = df.with_row_index("id", offset=1)
             if "type" not in df.columns:
@@ -849,7 +826,11 @@ class BuildSystem:
                         )
                 else:
                     df = df.with_columns(pl.lit(1).alias("type"))
-        return df, box, boundary
+        for key in ['pbc', 'properties', 'origin', 'lattice']:
+            if key in line2.keys():
+                del line2[key]
+        
+        return df, box, boundary, line2
 
     @staticmethod
     def read_cif(filename):

@@ -219,7 +219,7 @@ def cm2inch(value):
 
 def set_figure(
     figsize=(10, 6),
-    figdpi=150,
+    figdpi=300,
     top=0.935,
     bottom=0.18,
     left=0.115,
@@ -235,7 +235,7 @@ def set_figure(
 
     Args:
         figsize (tuple, optional): figsize with units of Centimeters. Defaults to (10, 6).
-        figdpi (int, optional): figure dpi to show. Defaults to 150.
+        figdpi (int, optional): figure dpi to show. Defaults to 300.
         top (float, optional): axes range in figure at top, should be [0., 1.]. Defaults to 0.935.
         bottom (float, optional): axes range in figure at bottom, should be [0., 1.]. Defaults to 0.18.
         left (float, optional): axes range in figure at left, should be [0., 1.]. Defaults to 0.115.

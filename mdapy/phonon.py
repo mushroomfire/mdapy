@@ -29,6 +29,8 @@ class Phonon:
         type_list (np.ndarray): (:math:`N_p`) atom type list.
         symprec (float): this is used to set geometric tolerance to find symmetry of crystal structure. Defaults to 1e-5.
         replicate (list, optional): replication to pos, such as [3, 3, 3]. If not given, we will replicate it exceeding 15 A per directions. Defaults to None.
+        displacement (float, optional): displacement distance. Defaults to 0.01.
+        cutoff_radius (float, optional): Set zero to force constants outside of cutoff distance. If not given, the force constant will consider the whole supercell. This parameter will not reduce the computation cost. Defaults to None.
 
     Outputs:
         **bands_dict** : band information, which can be used to plot phono dispersion.
@@ -48,6 +50,8 @@ class Phonon:
         type_list,
         symprec=1e-5,
         replicate=None,
+        displacement=0.01,
+        cutoff_radius=None
     ):
 
         if isinstance(path, str):
@@ -81,6 +85,8 @@ class Phonon:
         else:
             self.replicate = replicate
         self.symprec = symprec
+        self.displacement = float(displacement)
+        self.cutoff_radius = cutoff_radius
         self.bands_dict = None
         self.dos_dict = None
         self.pdos_dict = None
@@ -106,7 +112,7 @@ class Phonon:
             symprec=self.symprec,
         )
 
-        self.phonon.generate_displacements()
+        self.phonon.generate_displacements(distance=self.displacement)
 
         supercells = self.phonon.get_supercells_with_displacements()
         set_of_forces = []
@@ -131,6 +137,8 @@ class Phonon:
 
         set_of_forces = np.array(set_of_forces)
         self.phonon.produce_force_constants(forces=set_of_forces)
+        if self.cutoff_radius is not None:
+            self.phonon.set_force_constants_zero_with_radius(float(self.cutoff_radius))
 
     def compute(self):
 
@@ -218,9 +226,60 @@ class Phonon:
         for i in rgb:
             color += str(hex(i))[-2:].replace("x", "0").upper()
         return color
+    
+    def plot_dispersion(self, fig=None, ax=None, linestyle='-',legend='NEP', color=None, yticks=None, ylim=None, units='THz'):
+        if self.bands_dict is None:
+            self.compute()
+        if fig is None or ax is None:
+            fig, ax = set_figure(
+                figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=150
+            )
+        if color is None:
+            color = "deepskyblue"
+        elif isinstance(color, str):
+            color = color
+        else:
+            assert (
+                len(color) == 3
+            ), "Only support str or a three-elements rgb turple, such as [125, 125, 125]."
+            color = self._rgb2hex(color)
+        
+        frequencies = self.bands_dict["frequencies"]
+        distances = self.bands_dict["distances"]
+        kpoints = [distances[0][0]] + [i[-1] for i in distances]
+        for i in range(len(distances)):
+            x, y = distances[i], frequencies[i]
+            if units == "1/cm":
+                y *= 33.4
+            if i == len(distances) - 1:
+                ax.plot(x, y, linestyle, c=color, label=legend)
+            else:
+                ax.plot(x, y, linestyle, c=color)
 
-    def plot_dispersion(
+        ax.set_xlim(kpoints[0], kpoints[-1])
+        ax.set_xticks(kpoints)
+        ax.set_xticks([], minor=True)
+        ax.set_yticks([], minor=True)
+        ax.set_xticklabels(self.labels)
+        if yticks is not None:
+            ax.set_yticks(yticks)
+
+        if units == "1/cm":
+            ax.set_ylabel("Frequency ($cm^{-1}$)")
+        else:
+            ax.set_ylabel("Frequency (THz)")
+
+        if ylim is not None:
+            ax.set_ylim(ylim) 
+
+        ax.legend()
+        
+        return fig, ax
+
+    def plot_dispersion_with_merge_kpoints(
         self,
+        fig = None,
+        ax = None,
         units="THz",
         yticks=None,
         ylim=None,
@@ -241,10 +300,10 @@ class Phonon:
         """
         if self.bands_dict is None:
             self.compute()
-
-        fig, ax = set_figure(
-            figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=150
-        )
+        if fig is None or ax is None:
+            fig, ax = set_figure(
+                figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=150
+            )
         if color is None:
             color = "deepskyblue"
         elif isinstance(color, str):
@@ -363,8 +422,8 @@ class Phonon:
             )
 
         ax.set_ylim(ylo, yhi)
-        plt.show()
-        return fig, ax
+        #plt.show()
+        #return fig, ax
 
     @classmethod
     def read_band_data(cls, filename):
@@ -385,10 +444,12 @@ class Phonon:
         return kpoints, data
 
     @classmethod
-    def plot_dispersion_from_band_data(
+    def plot_dispersion_from_band_data_with_merge_kpoints(
         cls,
         filename,
         labels,
+        fig = None,
+        ax = None,
         units="THz",
         yticks=None,
         ylim=None,
@@ -416,9 +477,10 @@ class Phonon:
         assert len(labels) == len(
             kpoints
         ), f"length of labels should be {len(kpoints)}."
-        fig, ax = set_figure(
-            figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=150
-        )
+        if fig is None and ax is None:
+            fig, ax = set_figure(
+                figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=150
+            )
         if color is None:
             color = "deepskyblue"
         elif isinstance(color, str):
@@ -534,7 +596,7 @@ class Phonon:
             )
 
         ax.set_ylim(ylo, yhi)
-        plt.show()
+        #plt.show()
 
         return fig, ax
 
@@ -584,6 +646,8 @@ if __name__ == "__main__":
         elements_list=["Al", "C"],
         type_list=system.data["type"].to_numpy(),
         symprec=1e-3,
+        displacement=0.01,
+        cutoff_radius=15.
     )
 
     # pho = Phonon(
@@ -599,7 +663,14 @@ if __name__ == "__main__":
 
     # pho.compute_thermal(0, 50, 1000, (30, 30, 30))
     # pho.plot_thermal()
-    fig, ax = pho.plot_dispersion()
+    mp.pltset(**{"xtick.major.width":1., "ytick.major.width":1., "axes.linewidth":1.,})
+    fig, ax = mp.set_figure(figsize=(10, 8), figdpi=300)
+    fig, ax = pho.plot_dispersion(fig, ax, color='k')
+
+    # fig, ax = pho.plot_dispersion_from_band_data(r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\graphene\band.dat", labels=pho.labels,
+    #                                    fig=fig, ax=ax, color='b')
+    plt.show()
+    # fig.show()
     # fig.savefig("test.png")
     # pho = Phonon(r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\aluminum\band.dat")
     # # ["$\Gamma$", "X", "U", "K", "$\Gamma$", "L"] Al

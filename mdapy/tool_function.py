@@ -54,6 +54,7 @@ def split_xyz(input_file, outputdir="res", output_file_prefix=None):
                 for _ in range(n + 1):
                     out_file.write(file.readline())
             frame += 1
+    print('\n')
 
 
 def split_dump(input_file, outputdir="res", output_file_prefix=None):
@@ -92,6 +93,7 @@ def split_dump(input_file, outputdir="res", output_file_prefix=None):
                 for _ in range(n):
                     out_file.write(file.readline())
             frame += 1
+    print('\n')
 
 
 def _check_repeat_nearest(pos, box, boundary):
@@ -134,6 +136,7 @@ def _wrap_pos(
     pos: ti.types.ndarray(element_dim=1),
     box: ti.types.ndarray(element_dim=1),
     boundary: ti.types.ndarray(),
+    inverse_box: ti.types.ndarray(element_dim=1)
 ):
     """This function is used to wrap particle positions into box considering periodic boundarys.
 
@@ -147,11 +150,7 @@ def _wrap_pos(
 
     for i in range(pos.shape[0]):
         rij = pos[i] - box[3]
-        nz = rij[2] / box[2][2]
-        ny = (rij[1] - nz * box[2][1]) / box[1][1]
-        nx = (rij[0] - ny * box[1][0] - nz * box[2][0]) / box[0][0]
-        n = ti.Vector([nx, ny, nz])
-
+        n = rij[0] * inverse_box[0] + rij[1] * inverse_box[1] + rij[2] * inverse_box[2]
         for j in ti.static(range(3)):
             if boundary[j] == 1:
                 while n[j] < 0 or n[j] > 1:
@@ -218,8 +217,9 @@ def _unwrap_pos_without_image_p(
     pos_list: ti.types.ndarray(element_dim=1),
     box_list: ti.types.ndarray(element_dim=1),
     boundary: ti.types.vector(3, dtype=int),
-    image_p: ti.types.ndarray(element_dim=1),
     inverse_box_list: ti.types.ndarray(element_dim=1),
+    image_p: ti.types.ndarray(element_dim=1),
+    delta_list:ti.types.ndarray(element_dim=1),
 ):
     """This function is used to unwrap particle positions
      into box considering periodic boundarys without help of image_p.
@@ -231,34 +231,30 @@ def _unwrap_pos_without_image_p(
 
         boundary (ti.types.vector): boundary conditions, 1 is periodic and 0 is free boundary.
 
-        image_p (ti.types.ndarray): (Nframes x Nparticles x 3) fill with 0.
-
         inverse_box (ti.types.ndarray): (Nframesx3x3) inverse box list.
+
+        image_p (ti.types.ndarray): (Nframes x Nparticles x 3) fill with 0.
     """
 
-    ti.loop_config(serialize=True)
-    for frame in range(1, pos_list.shape[0]):
-        for i in range(pos_list.shape[1]):
-            for j in ti.static(range(3)):
-                if boundary[j] == 1:
-                    pos_list[frame, i] += image_p[frame-1, i] * box_list[frame, j]
-            
-            delta = pos_list[frame, i] - pos_list[frame - 1, i]
-            n = delta[0] * inverse_box_list[frame, 0] + delta[1] * inverse_box_list[frame, 1] + delta[2] * inverse_box_list[frame, 2]
-            
-            for j in ti.static(range(3)):
-                if boundary[j] == 1:
-                    if n[j] <= -0.5:
-                        n[j] += 1
-                        image_p[frame, i][j] += 1
-                        pos_list[frame, i] += box_list[frame, j]
-                    if n[j] >= 0.5:
-                        n[j] -= 1
-                        image_p[frame, i][j] -= 1
-                        pos_list[frame, i] -= box_list[frame, j]
-            
-            
+    Nframe = pos_list.shape[0]
+    Natoms = pos_list.shape[1]
 
+    for i, j in ti.ndrange(delta_list.shape[0], delta_list.shape[1]):
+        n = delta_list[i, j][0] * inverse_box_list[i, 0] + delta_list[i, j][1] * inverse_box_list[i, 1] + delta_list[i, j][2] * inverse_box_list[i, 2]
+    
+        for k in ti.static(range(3)):
+            if boundary[k] == 1:
+                if n[k] <= -0.5:
+                    image_p[i, j][k] += 1
+                if n[k] >= 0.5:
+                    image_p[i, j][k] -= 1
+
+    ti.loop_config(serialize=True)
+    for frame in range(1, Nframe):
+        for i in range(Natoms):
+            pos_list[frame, i] = pos_list[frame-1, i] + delta_list[frame-1, i]
+            for j in ti.static(range(3)):
+                pos_list[frame, i] += image_p[frame - 1, i][j] * box_list[frame-1, j]
 
 
 def _unwrap_pos(pos_list, box_list, inverse_box_list, boundary):
@@ -272,13 +268,13 @@ def _unwrap_pos(pos_list, box_list, inverse_box_list, boundary):
 
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
 
-        image_p (_type_, optional): (Nframes x Nparticles x 3) image_p, such as 1 indicates plus a box distance and -2 means substract two box distances. Defaults to None.
     """
 
     boundary = ti.Vector(boundary)
-    image_p = np.zeros_like(pos_list, dtype=int)
+    image_p = np.zeros_like(pos_list, np.int32)
+    delta_list = pos_list[1:, :, :] - pos_list[:-1, :, :]
 
-    _unwrap_pos_without_image_p(pos_list, box_list, boundary, image_p, inverse_box_list)
+    _unwrap_pos_without_image_p(pos_list, box_list, boundary, inverse_box_list, image_p, delta_list)
 
     # for i in range(12):
     #     print(i, image_p[i][0])

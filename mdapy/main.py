@@ -12,10 +12,12 @@ from . import __version__
 import taichi as ti
 
 try:
+    from .box import init_box
     from .system import System
     from .lattice_maker import LatticeMaker
     from .create_polycrystalline import CreatePolycrystalline
 except Exception:
+    from box import init_box
     from system import System
     from lattice_maker import LatticeMaker
     from create_polycrystalline import CreatePolycrystalline
@@ -176,17 +178,8 @@ def init_global_parameters():
 
 
 def box2lines(box):
-    assert isinstance(box, np.ndarray)
-    assert box.shape == (3, 2) or box.shape == (4, 3)
-    if box.shape == (3, 2):
-        new_box = np.zeros((4, 3), dtype=box.dtype)
-        new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
-        new_box[-1] = box[:, 0]
-    else:
-        assert box[0, 1] == 0
-        assert box[0, 2] == 0
-        assert box[1, 2] == 0
-        new_box = box
+    new_box, _, _ = init_box(box)
+
     vertices = np.zeros((8, 3), dtype=np.float32)
     origin = new_box[-1]
     AB = new_box[0]
@@ -217,17 +210,8 @@ def box2lines(box):
 
 
 def box2axis(box):
-    assert isinstance(box, np.ndarray)
-    assert box.shape == (3, 2) or box.shape == (4, 3)
-    if box.shape == (3, 2):
-        new_box = np.zeros((4, 3), dtype=box.dtype)
-        new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
-        new_box[-1] = box[:, 0]
-    else:
-        assert box[0, 1] == 0
-        assert box[0, 2] == 0
-        assert box[1, 2] == 0
-        new_box = box
+    new_box, _, _ = init_box(box)
+
 
     AB = new_box[0]
     AD = new_box[1]

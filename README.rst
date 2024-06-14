@@ -337,6 +337,8 @@ V0.10.9 (Under development)
 - Add stress_max parameter for DFT2NEPXYZ class.
 - Fix a bug for obtaining descriptor in NEP interface.
 - Fix a bug for reading xyz.
+- Refactor code of unwraping position.
+- Let read/write xyz containing the global information, such as energy, virial and stress.
 
 V0.10.8 (May 17, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

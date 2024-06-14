@@ -34,7 +34,7 @@ try:
     from steinhardt_bond_orientation import SteinhardtBondOrientation
     from replicate import Replicate
     from tool_function import _check_repeat_cutoff
-    from box import init_box
+
 except Exception:
     from .tool_function import atomic_numbers, vdw_radii, atomic_masses
     from .load_save_data import BuildSystem, SaveFile
@@ -60,7 +60,7 @@ except Exception:
     from .steinhardt_bond_orientation import SteinhardtBondOrientation
     from .replicate import Replicate
     from .tool_function import _check_repeat_cutoff
-    from .box import init_box
+
 
 
 class System:
@@ -139,6 +139,7 @@ class System:
         self.__filename = filename
         self.__fmt = fmt
         self.__timestep = 0
+        self.__global_info = {}
         if (
             isinstance(data, pl.DataFrame)
             and isinstance(box, np.ndarray)
@@ -156,7 +157,11 @@ class System:
                     self.__boundary,
                     self.__timestep,
                 ) = BuildSystem.fromfile(self.__filename, self.__fmt)
-            elif self.__fmt in ["data", "lmp", "poscar", "xyz", "cif"]:
+            elif self.__fmt in ['xyz']:
+                self.__data, self.__box, self.__boundary, self.__global_info = BuildSystem.fromfile(self.__filename, self.__fmt)
+                if 'time' in self.__global_info.keys():
+                    self.__timestep = self.__global_info['time']
+            elif self.__fmt in ["data", "lmp", "poscar", "cif"]:
                 self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
                     self.__filename, self.__fmt
                 )
@@ -165,7 +170,6 @@ class System:
             isinstance(pos, np.ndarray)
             and isinstance(boundary, list)
         ):
-            box, _, _ = init_box(box)
             self.__data, self.__box, self.__boundary = BuildSystem.fromarray(
                 pos, box, boundary, vel, type_list
             )
@@ -195,9 +199,18 @@ class System:
             str: file format.
         """
         return self.__fmt
+    
+    @property
+    def global_info(self):
+        """obtaine global info, such as energy, virial and stress.
+
+        Returns:
+            dict: global information.
+        """
+        return self.__global_info
 
     @property
-    def data(self):
+    def data(self)->pl.DataFrame:
         """check particles information.
 
         Returns:
@@ -346,7 +359,16 @@ class System:
         self.__filename = filename
 
     def __repr__(self):
-        return f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\nParticle Information:\n{self.__data}"
+        if not self.__global_info:
+            return f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\nParticle Information:\n{self.__data}"
+        else:
+            info = f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\n"
+            for key in self.__global_info.keys():
+                if key not in ['time', 'lattice']:
+                    info += f'{key}: {self.__global_info[key]}\n'
+            info += f"Particle Information:\n{self.__data}"
+            return info
+            
 
     def display(self):
         """Visualize the System."""
@@ -504,7 +526,7 @@ class System:
                 pl.col("type").replace(type2name).alias("type_name")
             )
 
-        SaveFile.write_xyz(output_name, self.__box, data, self.__boundary, classical)
+        SaveFile.write_xyz(output_name, self.__box, data, self.__boundary, classical, **self.__global_info)
 
     def write_dump(self, output_name=None, output_col=None, compress=False):
         """This function writes position into a DUMP file.
@@ -665,7 +687,7 @@ class System:
         """Wrap atom position into box considering the periodic boundary."""
 
         self.__pos.flags.writeable = True
-        _wrap_pos(self.__pos, self.box, np.array(self.boundary))
+        _wrap_pos(self.__pos, self.box, np.array(self.boundary), np.linalg.inv(self.box[:-1]))
         self.__data = self.__data.with_columns(
             pl.lit(self.__pos[:, 0]).alias("x"),
             pl.lit(self.__pos[:, 1]).alias("y"),
@@ -1837,11 +1859,11 @@ class MultiSystem(list):
             inverse_box_list.append(np.linalg.inv(system.box[:-1]))
         
         self.pos_list = np.array(pos_list)
-        self.box_list = np.array(box_list)
+        box_list = np.array(box_list)
+        inverse_box_list = np.array(inverse_box_list)
 
-        self.inverse_box_list = np.array(inverse_box_list)
         if self.unwrap:
-            _unwrap_pos(self.pos_list, self.box_list, self.inverse_box_list, self[0].boundary)
+            _unwrap_pos(self.pos_list, box_list, inverse_box_list, self[0].boundary)
 
             for i, system in enumerate(self):
                 newdata = system.data.with_columns(
@@ -1966,15 +1988,21 @@ class MultiSystem(list):
 
 
 if __name__ == "__main__":
-    # system = System(r"D:\Study\Gra-Al\paper\Fig1\PCA\res\train.0.xyz")
-    # print(system)
-    import taichi as ti
-    ti.init()
+    system = System(r"D:\Study\Gra-Al\model\Al4C3.POSCAR")
+    #print(system.global_info)
+    system.write_xyz('test.xyz')
+    system.global_info['energy'] = 2.
+    system.global_info['Logo'] = 'Write by mdapy'
+    system.write_xyz('test_1.xyz')
+    # import taichi as ti
+    # ti.init()
 
-    filename_list = [rf'D:\Study\Gra-Al\potential_test\validating\aluminum\itre_33\test\test.{i}.xyz' for i in range(0, 1000, 10)]
-    MS = MultiSystem(filename_list, sorted_id=False, unwrap=True)
+    # filename_list = [rf'C:\Users\herrwu\Desktop\wrap_test\dump.{i}.xyz' for i in range(100, 10100, 100)]
+    # MS = MultiSystem(filename_list, sorted_id=False, unwrap=True)
+    # MS.cal_mean_squared_displacement()
+    # MS.MSD.plot()
     #MS.write_dumps()
-    # for i in range(12):
+    # for i in range(20):
     #     print(i, 'step', MS[i].pos[0])
     # # system.write_xyz("test.xyz")
     # system.write_POSCAR()

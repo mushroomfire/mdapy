@@ -7,7 +7,7 @@ name = "mdapy"
 description = "A simple, fast and cross-platform python library to handle the data generated from molecular dynamics simulations."
 dependencies = [
     "taichi>=1.7.1",
-    "numpy",
+    "numpy<2.0",
     "scipy",
     "polars>=0.20.26",
     "matplotlib",

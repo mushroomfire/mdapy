@@ -85,7 +85,7 @@ setup(
     python_requires=">=3.8,<3.12",
     install_requires=[
         "taichi>=1.7.1",
-        "numpy",
+        "numpy<2.0",
         "scipy",
         "polars>=0.20.26",
         "matplotlib",

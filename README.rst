@@ -181,7 +181,7 @@ Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)
         -   >=1.7.1
         -   Do parallel computing.
     *   -   `numpy <https://numpy.org/>`_
-        -   latest
+        -   <2.0
         -   Data structure.
     *   -   `scipy <https://scipy.org/>`_
         -   latest

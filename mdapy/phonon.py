@@ -272,7 +272,7 @@ class Phonon:
     def plot_dispersion(self, fig=None, ax=None, units='THz', filename=None,
                         **kwargs, 
                         ):
-        plt.gca()
+
         """This function is used to plot the phonon dispersion.
 
         Args:

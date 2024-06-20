@@ -753,6 +753,8 @@ class System:
         elements_list,
         symprec=1e-5,
         replicate=None,
+        displacement=0.01,
+        cutoff_radius=None
     ):
         """This function can be used to calculate the phono dispersion based on Phonopy (https://phonopy.github.io/phonopy/). We support NEP and
         eam/alloy potential now.
@@ -765,6 +767,8 @@ class System:
             pair_style (str, optional): pair style, selected in ['nep', 'eam/alloy']. Defaults to "eam/alloy".
             symprec (float): this is used to set geometric tolerance to find symmetry of crystal structure. Defaults to 1e-5.
             replicate (list, optional): replication to pos, such as [3, 3, 3]. If not given, we will replicate it exceeding 15 A per directions. Defaults to None.
+            displacement (float, optional): displacement distance. Defaults to 0.01.
+            cutoff_radius (float, optional): Set zero to force constants outside of cutoff distance. If not given, the force constant will consider the whole supercell. This parameter will not reduce the computation cost. Defaults to None.
 
         Outputs:
             **Phon** : a Phonon object, which can be used to plot phonon dispersion.
@@ -788,6 +792,8 @@ class System:
             self.__data["type"].to_numpy(),
             symprec,
             replicate,
+            displacement,
+            cutoff_radius
         )
         self.Phon.compute()
 

@@ -329,7 +329,7 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
-V0.10.9 (Under development)
+V0.10.9 (June 20, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Refactor the code about generating box, supporting all triclinic box now. The previous version only support lammps style triclinic box.

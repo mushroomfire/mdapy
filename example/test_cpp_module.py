@@ -47,7 +47,7 @@ print("Test NEP class...")
 gra = mp.LatticeMaker(1.42, "GRA", 6, 6, 1)
 gra.compute()
 
-nep = mp.NEP("C_2022_NEP3.txt")
+nep = mp.NEP("C_2024_NEP4.txt")
 e, f, v = nep.compute(gra.pos, gra.box, ["C"], np.ones(gra.N, int))
 print("energy is:")
 print(e[:5])

@@ -1,0 +1,9 @@
+graft thirdparty
+include mdapy/*.py
+include mdapy/*/*.cpp
+exclude mdapy/*/*.py
+exclude compile.sh
+global-exclude *.pyd *.so .*
+prune benchmark 
+prune doc 
+prune example

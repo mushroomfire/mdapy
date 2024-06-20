@@ -46,7 +46,7 @@ do
     conda deactivate
 done
 
-# python setup.py sdist
+# python setup.py sdist --manifest-only
 # python -m twine upload wheelhouse/*
 # rename 's/linux/manylinux1/' mdapy-0.9.1*linux* -n
 

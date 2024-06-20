@@ -342,6 +342,7 @@ V0.10.9 (Under development)
 - Add cutoff_radius and displacement parameter in Phonon class.
 - Rewrite the plot_dispersion function to make users custom figures easily.
 - Reading POSCAR dose not need to rotate the box.
+- Add MANIFEST.in file.
 
 V0.10.8 (May 17, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

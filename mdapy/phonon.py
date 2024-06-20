@@ -227,13 +227,7 @@ class Phonon:
             color += str(hex(i))[-2:].replace("x", "0").upper()
         return color
     
-    def plot_dispersion(self, fig=None, ax=None, linestyle='-',legend='NEP', color=None, yticks=None, ylim=None, units='THz'):
-        if self.bands_dict is None:
-            self.compute()
-        if fig is None or ax is None:
-            fig, ax = set_figure(
-                figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=150
-            )
+    def _check_color(self, color):
         if color is None:
             color = "deepskyblue"
         elif isinstance(color, str):
@@ -243,187 +237,66 @@ class Phonon:
                 len(color) == 3
             ), "Only support str or a three-elements rgb turple, such as [125, 125, 125]."
             color = self._rgb2hex(color)
-        
-        frequencies = self.bands_dict["frequencies"]
-        distances = self.bands_dict["distances"]
-        kpoints = [distances[0][0]] + [i[-1] for i in distances]
-        for i in range(len(distances)):
-            x, y = distances[i], frequencies[i]
-            if units == "1/cm":
-                y *= 33.4
-            if i == len(distances) - 1:
-                ax.plot(x, y, linestyle, c=color, label=legend)
-            else:
-                ax.plot(x, y, linestyle, c=color)
+        return color
+    
+    def _plot_lines(self, ax, units, filename, **kwargs):
 
-        ax.set_xlim(kpoints[0], kpoints[-1])
-        ax.set_xticks(kpoints)
-        ax.set_xticks([], minor=True)
-        ax.set_yticks([], minor=True)
-        ax.set_xticklabels(self.labels)
-        if yticks is not None:
-            ax.set_yticks(yticks)
+        if 'c' not in kwargs.keys() and 'color' not in kwargs.keys():
+            kwargs['c'] = 'deepskyblue'
 
-        if units == "1/cm":
-            ax.set_ylabel("Frequency ($cm^{-1}$)")
+        if filename is None:
+            frequencies = self.bands_dict["frequencies"]
+            distances = self.bands_dict["distances"]
+            kpoints = [distances[0][0]] + [i[-1] for i in distances]
+            for i in range(len(distances)):
+                x, y = distances[i], frequencies[i]
+                if units == "1/cm":
+                    y *= 33.4
+                h = ax.plot(x, y, **kwargs)
+            ax.set_xlim(kpoints[0], kpoints[-1])
+            ax.set_xticks(kpoints)
+            ax.set_xticklabels(self.labels)
         else:
-            ax.set_ylabel("Frequency (THz)")
+            kpoints, data = self.read_band_data(filename)
+            for i in data.keys():
+                x, y = data[i][:, 0], data[i][:, 1]
+                if units == "1/cm":
+                    y *= 33.4
+                h = ax.plot(x, y, **kwargs)
+            ax.set_xlim(kpoints[0], kpoints[-1])
+            ax.set_xticks(kpoints)
+            ax.set_xticklabels(self.labels)
+        return h[0]
 
-        if ylim is not None:
-            ax.set_ylim(ylim) 
-
-        ax.legend()
-        
-        return fig, ax
-
-    def plot_dispersion_with_merge_kpoints(
-        self,
-        fig = None,
-        ax = None,
-        units="THz",
-        yticks=None,
-        ylim=None,
-        color=None,
-        merge_kpoints=None,
-    ):
-        """This function can plot the phonon dispersion.
+    
+    def plot_dispersion(self, fig=None, ax=None, units='THz', filename=None,
+                        **kwargs, 
+                        ):
+        plt.gca()
+        """This function is used to plot the phonon dispersion.
 
         Args:
-            units (str, optional): units of frequency, selected in ['THz', '1/cm']. Defaults to "THz".
-            yticks (list[float], optional): y axis ticks, such as [0, 10, 20]. Defaults to None.
-            ylim (list[float], optional): y axis limitation, such as [0, 100]. Defaults to None.
-            color (str | rgb turple, optional): line color, can be a str, such as 'r', '#729CBD', or a rgb turple, such as [125, 125, 125]. Defaults to None.
-            merge_kpoints (list, optional): sometimes you want to merge two equalvalue points, such as [2, 3]. Defaults to None.
+            fig (matplotlib.figure.Figure, optional): figure object. Defaults to None.
+            ax (matplotlib.axes.Axes, optional): axes object. Defaults to None.
+            units (str, optional): selected in ['THz', '1/cm']. Defaults to 'THz'.
+            filename (str, optional): One can obtain the band data from band.dat saved by Phonopy. Defaults to None.
 
         Returns:
-            tuple: (fig, ax) matplotlib figure and axis class.
+            tuple: (fig, ax, line)
         """
         if self.bands_dict is None:
             self.compute()
         if fig is None or ax is None:
             fig, ax = set_figure(
-                figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=150
+                figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=200
             )
-        if color is None:
-            color = "deepskyblue"
-        elif isinstance(color, str):
-            color = color
-        else:
-            assert (
-                len(color) == 3
-            ), "Only support str or a three-elements rgb turple, such as [125, 125, 125]."
-            color = self._rgb2hex(color)
-        frequencies = self.bands_dict["frequencies"]
-        distances = self.bands_dict["distances"]
-        kpoints = [distances[0][0]] + [i[-1] for i in distances]
-        if merge_kpoints is None:
-            for i in range(len(distances)):
-                x, y = distances[i], frequencies[i]
-                if units == "1/cm":
-                    y *= 33.4
-                ax.plot(x, y, lw=1.2, c=color)
-
-            ax.plot(
-                [kpoints[0], kpoints[-1]],
-                [0, 0],
-                "--",
-                c="grey",
-                lw=1.0,
-                alpha=0.5,
-            )
-            ax.set_xlim(kpoints[0], kpoints[-1])
-            ax.set_xticks(kpoints)
-        else:
-            assert len(merge_kpoints) == 2
-            assert min(merge_kpoints) >= 0
-            assert max(merge_kpoints) <= len(kpoints) - 1
-            L, R = merge_kpoints
-            assert L < R
-            move = kpoints[R] - kpoints[L]
-            for i in range(len(distances)):
-                x, y = distances[i], frequencies[i]
-                if units == "1/cm":
-                    y *= 33.4
-                if x.min() >= kpoints[L] - 0.01 and x.max() <= kpoints[R] + 0.01:
-                    pass
-                else:
-                    if x.min() >= kpoints[R] - 0.01:
-                        ax.plot(x - move, y, lw=1.2, c=color)
-                    else:
-                        ax.plot(x, y, lw=1.2, c=color)
-            ax.plot(
-                [kpoints[0], kpoints[-1] - move],
-                [0, 0],
-                "--",
-                c="grey",
-                lw=1.0,
-                alpha=0.5,
-            )
-            ax.set_xlim(kpoints[0], kpoints[-1] - move)
-
-            if R == len(kpoints) - 1:
-                ax.set_xticks(kpoints[: L + 1])
-            else:
-                ax.set_xticks(
-                    np.hstack(
-                        [
-                            kpoints[: L + 1],
-                            (kpoints[min(R + 1, len(kpoints) - 1) :] - move),
-                        ]
-                    )
-                )
-
-        ax.set_xticks([], minor=True)
-        ax.set_yticks([], minor=True)
-
-        if merge_kpoints is None:
-            ax.set_xticklabels(self.labels)
-        else:
-            if R == len(kpoints) - 1:
-                ax.set_xticklabels(
-                    np.hstack(
-                        [
-                            self.labels[:L],
-                            [self.labels[L] + "$|$" + self.labels[R]],
-                        ]
-                    )
-                )
-            else:
-                ax.set_xticklabels(
-                    np.hstack(
-                        [
-                            self.labels[:L],
-                            [self.labels[L] + "$|$" + self.labels[R]],
-                            self.labels[min(R + 1, len(self.labels) - 1) :],
-                        ]
-                    )
-                )
-        if yticks is not None:
-            ax.set_yticks(yticks)
-
+        line = self._plot_lines(ax, units, filename, **kwargs)
         if units == "1/cm":
             ax.set_ylabel("Frequency ($cm^{-1}$)")
         else:
             ax.set_ylabel("Frequency (THz)")
 
-        if ylim is not None:
-            ylo, yhi = ylim
-        else:
-            ylo, yhi = ax.get_ylim()
-        xticks = ax.get_xticks()
-        for i in xticks:
-            ax.plot(
-                [i, i],
-                [ylo, yhi],
-                "--",
-                lw=0.8,
-                c="grey",
-                alpha=0.5,
-            )
-
-        ax.set_ylim(ylo, yhi)
-        #plt.show()
-        #return fig, ax
+        return fig, ax, line
 
     @classmethod
     def read_band_data(cls, filename):
@@ -442,163 +315,6 @@ class Phonon:
                 data[f"{num}"] = pot
                 num += 1
         return kpoints, data
-
-    @classmethod
-    def plot_dispersion_from_band_data_with_merge_kpoints(
-        cls,
-        filename,
-        labels,
-        fig = None,
-        ax = None,
-        units="THz",
-        yticks=None,
-        ylim=None,
-        color=None,
-        merge_kpoints=None,
-    ):
-        """This function can plot the phonon dispersion based on band.dat.
-
-        Args:
-            filename (str) : filename of band data generated from phonopy, such as band.dat.
-            labels (list[str], optional): kpoints label, such as ["$\Gamma$", "K", "M", "$\Gamma$"] for graphene.
-            units (str, optional): units of frequency, selected in ['THz', '1/cm']. Defaults to "THz".
-            yticks (list[float], optional): y axis ticks, such as [0, 10, 20]. Defaults to None.
-            ylim (list[float], optional): y axis limitation, such as [0, 100]. Defaults to None.
-            color (str | rgb turple, optional): line color, can be a str, such as 'r', '#729CBD', or a rgb turple, such as [125, 125, 125]. Defaults to None.
-            merge_kpoints (list, optional): sometimes you want to merge two equalvalue points, such as [2, 3]. Defaults to None.
-
-        Returns:
-            tuple: (fig, ax) matplotlib figure and axis class.
-        """
-
-        kpoints, data = cls.read_band_data(filename)
-        if isinstance(labels, str):
-            labels = labels.split()
-        assert len(labels) == len(
-            kpoints
-        ), f"length of labels should be {len(kpoints)}."
-        if fig is None and ax is None:
-            fig, ax = set_figure(
-                figsize=(10, 7.5), bottom=0.08, left=0.16, use_pltset=True, figdpi=150
-            )
-        if color is None:
-            color = "deepskyblue"
-        elif isinstance(color, str):
-            color = color
-        else:
-            assert (
-                len(color) == 3
-            ), "Only support str or a three-elements rgb turple, such as [125, 125, 125]."
-            color = cls._rgb2hex(color)
-        if merge_kpoints is None:
-            for i in data.keys():
-                x, y = data[i][:, 0], data[i][:, 1]
-                if units == "1/cm":
-                    y *= 33.4
-                ax.plot(x, y, lw=1.2, c=color)
-
-            ax.plot(
-                [kpoints[0], kpoints[-1]],
-                [0, 0],
-                "--",
-                c="grey",
-                lw=1.0,
-                alpha=0.5,
-            )
-            ax.set_xlim(kpoints[0], kpoints[-1])
-            ax.set_xticks(kpoints)
-        else:
-            assert len(merge_kpoints) == 2
-            assert min(merge_kpoints) >= 0
-            assert max(merge_kpoints) <= len(kpoints) - 1
-            L, R = merge_kpoints
-            assert L < R
-            move = kpoints[R] - kpoints[L]
-            for i in data.keys():
-                x, y = data[i][:, 0], data[i][:, 1]
-                if units == "1/cm":
-                    y *= 33.4
-                if x.min() >= kpoints[L] - 0.01 and x.max() <= kpoints[R] + 0.01:
-                    pass
-                else:
-                    if x.min() >= kpoints[R] - 0.01:
-                        ax.plot(x - move, y, lw=1.2, c=color)
-                    else:
-                        ax.plot(x, y, lw=1.2, c=color)
-            ax.plot(
-                [kpoints[0], kpoints[-1] - move],
-                [0, 0],
-                "--",
-                c="grey",
-                lw=1.0,
-                alpha=0.5,
-            )
-            ax.set_xlim(kpoints[0], kpoints[-1] - move)
-
-            if R == len(kpoints) - 1:
-                ax.set_xticks(kpoints[: L + 1])
-            else:
-                ax.set_xticks(
-                    np.hstack(
-                        [
-                            kpoints[: L + 1],
-                            (kpoints[min(R + 1, len(kpoints) - 1) :] - move),
-                        ]
-                    )
-                )
-
-        ax.set_xticks([], minor=True)
-        ax.set_yticks([], minor=True)
-        if yticks is not None:
-            ax.set_yticks(yticks)
-
-        if merge_kpoints is None:
-            ax.set_xticklabels(labels)
-        else:
-            if R == len(kpoints) - 1:
-                ax.set_xticklabels(
-                    np.hstack(
-                        [
-                            labels[:L],
-                            [labels[L] + "$|$" + labels[R]],
-                        ]
-                    )
-                )
-            else:
-                ax.set_xticklabels(
-                    np.hstack(
-                        [
-                            labels[:L],
-                            [labels[L] + "$|$" + labels[R]],
-                            labels[min(R + 1, len(labels) - 1) :],
-                        ]
-                    )
-                )
-
-        if units == "1/cm":
-            ax.set_ylabel("Frequency ($cm^{-1}$)")
-        else:
-            ax.set_ylabel("Frequency (THz)")
-
-        if ylim is not None:
-            ylo, yhi = ylim
-        else:
-            ylo, yhi = ax.get_ylim()
-        xticks = ax.get_xticks()
-        for i in xticks:
-            ax.plot(
-                [i, i],
-                [ylo, yhi],
-                "--",
-                lw=0.8,
-                c="grey",
-                alpha=0.5,
-            )
-
-        ax.set_ylim(ylo, yhi)
-        #plt.show()
-
-        return fig, ax
 
 
 if __name__ == "__main__":
@@ -660,16 +376,21 @@ if __name__ == "__main__":
     #     type_list=lat.type_list,
     # )
     pho.compute()
-
+    pho.plot_dispersion()
     # pho.compute_thermal(0, 50, 1000, (30, 30, 30))
     # pho.plot_thermal()
-    mp.pltset(**{"xtick.major.width":1., "ytick.major.width":1., "axes.linewidth":1.,})
-    fig, ax = mp.set_figure(figsize=(10, 8), figdpi=300)
-    fig, ax = pho.plot_dispersion(fig, ax, color='k')
-
+    # mp.pltset(**{"xtick.major.width":1., "ytick.major.width":1., "axes.linewidth":1., 'xtick.minor.visible':False, 'ytick.minor.visible':False})
+    # fig, ax = mp.set_figure(figsize=(10, 8), figdpi=300)
+    # fig, ax, line1 = pho.plot_dispersion(fig, ax, )
+    # fig, ax, line2 = pho.plot_dispersion(fig, ax, linestyle='--', c='green', linewidth=1.6, alpha=0.6, filename=r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\graphene\band.dat")
+    # # fig, ax, line1 = pho.plot_dispersion(fig, ax, color='k', show=False)
+    # # fig, ax, line2 = pho.plot_dispersion(fig, ax, color='r', linestyle='-.', show=False)
+    # ax.legend([line1, line2], ['NEP', 'DFT'])
+    # ax.set_ylim(0, 50)
+    plt.show()
     # fig, ax = pho.plot_dispersion_from_band_data(r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\graphene\band.dat", labels=pho.labels,
     #                                    fig=fig, ax=ax, color='b')
-    plt.show()
+    #plt.show()
     # fig.show()
     # fig.savefig("test.png")
     # pho = Phonon(r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\aluminum\band.dat")

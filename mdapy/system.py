@@ -1988,12 +1988,21 @@ class MultiSystem(list):
 
 
 if __name__ == "__main__":
-    system = System(r"D:\Study\Gra-Al\model\Al4C3.POSCAR")
-    #print(system.global_info)
-    system.write_xyz('test.xyz')
-    system.global_info['energy'] = 2.
-    system.global_info['Logo'] = 'Write by mdapy'
-    system.write_xyz('test_1.xyz')
+    system = System(r"D:\Study\Gra-Al\ref\ref\Al4C3.poscar")
+    print(system)
+    system.write_data('test.data')
+    system.write_dump('test.dump')
+    #system.write_POSCAR('test.poscar')
+    # system.write_cif('test-2.cif')
+    #system = System('test.poscar')
+    system = System('test.data')
+    print(system)
+    system = System('test.dump')
+    print(system)
+    #system.write_xyz('test.xyz')
+    # system.global_info['energy'] = 2.
+    # system.global_info['Logo'] = 'Write by mdapy'
+    # system.write_xyz('test_1.xyz')
     # import taichi as ti
     # ti.init()
 

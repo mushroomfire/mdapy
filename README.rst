@@ -333,12 +333,15 @@ V0.10.9 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Refactor the code about generating box, supporting all triclinic box now. The previous version only support lammps style triclinic box.
-- Add the farthest point sampling method to select the configuration by NEP potential.
+- Add the farthest point sampling method to select the configuration by descriptor.
 - Add stress_max parameter for DFT2NEPXYZ class.
 - Fix a bug for obtaining descriptor in NEP interface.
 - Fix a bug for reading xyz.
 - Refactor code of unwraping position.
 - Let read/write xyz containing the global information, such as energy, virial and stress.
+- Add cutoff_radius and displacement parameter in Phonon class.
+- Rewrite the plot_dispersion function to make users custom figures easily.
+- Reading POSCAR dose not need to rotate the box.
 
 V0.10.8 (May 17, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

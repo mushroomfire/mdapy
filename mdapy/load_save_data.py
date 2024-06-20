@@ -110,46 +110,24 @@ class SaveFile:
     @staticmethod
     def write_cif(output_name, box, data, type_name=None):
         assert isinstance(output_name, str)
-        assert isinstance(box, np.ndarray)
-        assert box.shape == (3, 2) or box.shape == (4, 3)
-        old_box = box.copy()
-        if box.shape == (3, 2):
-            box = np.zeros((3, 3), dtype=old_box.dtype)
-            box[0, 0], box[1, 1], box[2, 2] = old_box[:, 1] - old_box[:, 0]
-        else:
-            box = old_box[:-1]
-
+        old_box, inverse_box, _ = init_box(box)
+        box = old_box[:-1]
         assert isinstance(data, pl.DataFrame)
         for col in ["type", "x", "y", "z"]:
             assert col in data.columns, f"data must contain {col}."
         data = data.sort("type")
-        if old_box.shape == (4, 3):
-            data = data.with_columns(
-                pl.col("x") - old_box[-1, 0],
-                pl.col("y") - old_box[-1, 1],
-                pl.col("z") - old_box[-1, 2],
-            )
+        data = data.with_columns(
+            pl.col("x") - old_box[-1, 0],
+            pl.col("y") - old_box[-1, 1],
+            pl.col("z") - old_box[-1, 2],
+        )
 
         pos = np.c_[data["x"], data["y"], data["z"]]
-
-        if box[0, 1] != 0 or box[0, 2] != 0 or box[1, 2] != 0:
-
-            ax = np.linalg.norm(box[0])
-            bx = box[1] @ (box[0] / ax)
-            by = np.sqrt(np.linalg.norm(box[1]) ** 2 - bx**2)
-            cx = box[2] @ (box[0] / ax)
-            cy = (box[1] @ box[2] - bx * cx) / by
-            cz = np.sqrt(np.linalg.norm(box[2]) ** 2 - cx**2 - cy**2)
-            box = np.array([[ax, bx, cx], [0, by, cy], [0, 0, cz]]).T
-            rotation = np.linalg.solve(old_box, box)
-            pos = pos @ rotation
-
+        x, y, z = box[0], box[1], box[2]
         la, lb, lc = np.linalg.norm(box, axis=1)
-        # print(la, lb, lc)
-        xy, xz, yz = box[1, 0], box[2, 0], box[2, 1]
-        alpha = np.rad2deg(np.arccos((xy * xz + box[1, 1] * yz) / (lb * lc)))
-        beta = np.rad2deg(np.arccos(xz / lc))
-        gamma = np.rad2deg(np.arccos(xy / lb))
+        alpha = np.rad2deg(np.arccos(np.dot(y, z) / (lb * lc)))
+        beta = np.rad2deg(np.arccos(np.dot(x, z) / (la * lc)))
+        gamma = np.rad2deg(np.arccos(np.dot(x, y) / (la * lb)))
 
         Ntype = data["type"].max()
         res = data.group_by("type", maintain_order=True).count()
@@ -177,7 +155,7 @@ class SaveFile:
                 )["index"]
                 data = data.with_columns(type=pl.col("type_name"))
 
-        new_pos = np.dot(pos, np.linalg.pinv(box))
+        new_pos = np.dot(pos, inverse_box)
         data = data.with_columns(
             pl.lit(new_pos[:, 0]).alias("x"),
             pl.lit(new_pos[:, 1]).alias("y"),
@@ -213,36 +191,20 @@ class SaveFile:
         save_velocity=False,
     ):
         assert isinstance(output_name, str)
-        assert isinstance(box, np.ndarray)
-        assert box.shape == (3, 2) or box.shape == (4, 3)
-        if box.shape == (3, 2):
-            new_box = np.zeros((3, 3), dtype=box.dtype)
-            new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
-        else:
-
-            new_box = box[:-1]
+        box, inverse_box, _ = init_box(box)
         assert isinstance(data, pl.DataFrame)
         for col in ["type", "x", "y", "z"]:
             assert col in data.columns, f"data must contain {col}."
 
-        # xlo = max(data["x"].min(), 0.0)
-        # ylo = max(data["y"].min(), 0.0)
-        # zlo = max(data["z"].min(), 0.0)
-        # data = data.sort("type").with_columns(
-        #     pl.col("x") - xlo,
-        #     pl.col("y") - ylo,
-        #     pl.col("z") - zlo,
-        # )
-        data = data.sort("type")
-        if box.shape == (4, 3):
-            data = data.with_columns(
+        data = data.sort("type").with_columns(
                 pl.col("x") - box[-1, 0],
                 pl.col("y") - box[-1, 1],
                 pl.col("z") - box[-1, 2],
             )
+
         if reduced_pos:
             new_pos = np.dot(
-                np.c_[data["x"], data["y"], data["z"]], np.linalg.pinv(new_box)
+                np.c_[data["x"], data["y"], data["z"]], inverse_box
             )
             data = data.with_columns(
                 pl.lit(new_pos[:, 0]).alias("x"),
@@ -273,9 +235,9 @@ class SaveFile:
         with open(output_name, "wb") as op:
             op.write("# VASP POSCAR file written by mdapy.\n".encode())
             op.write("1.0000000000\n".encode())
-            op.write("{:.10f} {:.10f} {:.10f}\n".format(*new_box[0]).encode())
-            op.write("{:.10f} {:.10f} {:.10f}\n".format(*new_box[1]).encode())
-            op.write("{:.10f} {:.10f} {:.10f}\n".format(*new_box[2]).encode())
+            op.write("{:.10f} {:.10f} {:.10f}\n".format(*box[0]).encode())
+            op.write("{:.10f} {:.10f} {:.10f}\n".format(*box[1]).encode())
+            op.write("{:.10f} {:.10f} {:.10f}\n".format(*box[2]).encode())
             if type_name is not None:
                 for aname in type_name:
                     op.write(f"{aname} ".encode())
@@ -315,25 +277,52 @@ class SaveFile:
         data_format="atomic",
     ):
         assert isinstance(output_name, str)
-        assert isinstance(box, np.ndarray)
-        assert box.shape == (3, 2) or box.shape == (4, 3)
-        if box.shape == (3, 2):
-            new_box = np.zeros((4, 3), dtype=box.dtype)
-            new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
-            new_box[-1] = box[:, 0]
-        else:
-            assert box[0, 1] == 0
-            assert box[0, 2] == 0
-            assert box[1, 2] == 0
-            new_box = box
+        new_box, inverse_box, _ = init_box(box)
+        # Check whether need to rotate
+        need_rotation = False
+        if new_box[0, 1] != 0 or new_box[0, 2] != 0 or new_box[1, 2] != 0:
+            need_rotation = True 
+        if need_rotation:
+            if isinstance(data, pl.DataFrame):
+                for col in ["id", "type", "x", "y", "z"]:
+                    assert col in data.columns
+                pos = np.c_[data["x"], data["y"], data["z"]]
+            pos -= new_box[-1]
+            x, y, z = new_box[0], new_box[1], new_box[2]
+            la, lb, lc = np.linalg.norm(new_box[:-1], axis=1)
+            alpha = np.arccos(np.dot(y, z) / (lb * lc))
+            beta = np.arccos(np.dot(x, z) / (la * lc))
+            gamma = np.arccos(np.dot(x, y) / (la * lb))
+            pos = pos @ inverse_box
+            lx = la
+            xy = lb * np.cos(gamma)
+            xz = lc * np.cos(beta)
+            ly = (lb**2 - xy**2) ** 0.5
+            yz = (lb * lc * np.cos(alpha) - xy * xz) / ly
+            lz = (lc**2 - xz**2 - yz**2) ** 0.5
+            box = np.zeros((4, 3))
+            box[0, 0] = lx
+            box[1, 0] = xy
+            box[1, 1] = ly
+            box[2, 0] = xz
+            box[2, 1] = yz
+            box[2, 2] = lz
+            box[np.abs(box) < 1e-6] = 0.0
+            new_box = box 
+            pos = pos @ new_box[:-1]
+
 
         assert data_format in [
             "atomic",
             "charge",
         ], "Unrecgonized data format. Only support atomic and charge."
         if isinstance(data, pl.DataFrame):
-            for col in ["id", "type", "x", "y", "z"]:
-                assert col in data.columns
+            if need_rotation:
+                data = data.with_columns(
+                    pl.lit(pos[:, 0]).alias('x'),
+                    pl.lit(pos[:, 1]).alias('y'),
+                    pl.lit(pos[:, 2]).alias('z'),
+                )
         else:
             assert pos.shape[1] == 3
             if type_list is None:
@@ -419,21 +408,47 @@ class SaveFile:
         compress=False,
     ):
         assert isinstance(output_name, str)
-        assert isinstance(box, np.ndarray)
         assert len(boundary) == 3
-        assert box.shape == (3, 2) or box.shape == (4, 3)
-        if box.shape == (3, 2):
-            new_box = np.zeros((4, 3), dtype=box.dtype)
-            new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
-            new_box[-1] = box[:, 0]
-        else:
-            assert box[0, 1] == 0
-            assert box[0, 2] == 0
-            assert box[1, 2] == 0
-            new_box = box
+        new_box, inverse_box, _ = init_box(box)
+        # Check whether need to rotate
+        need_rotation = False
+        if new_box[0, 1] != 0 or new_box[0, 2] != 0 or new_box[1, 2] != 0:
+            need_rotation = True 
+        if need_rotation:
+            if isinstance(data, pl.DataFrame):
+                for col in ["id", "type", "x", "y", "z"]:
+                    assert col in data.columns
+                pos = np.c_[data["x"], data["y"], data["z"]]
+            pos -= new_box[-1]
+            x, y, z = new_box[0], new_box[1], new_box[2]
+            la, lb, lc = np.linalg.norm(new_box[:-1], axis=1)
+            alpha = np.arccos(np.dot(y, z) / (lb * lc))
+            beta = np.arccos(np.dot(x, z) / (la * lc))
+            gamma = np.arccos(np.dot(x, y) / (la * lb))
+            pos = pos @ inverse_box
+            lx = la
+            xy = lb * np.cos(gamma)
+            xz = lc * np.cos(beta)
+            ly = (lb**2 - xy**2) ** 0.5
+            yz = (lb * lc * np.cos(alpha) - xy * xz) / ly
+            lz = (lc**2 - xz**2 - yz**2) ** 0.5
+            box = np.zeros((4, 3))
+            box[0, 0] = lx
+            box[1, 0] = xy
+            box[1, 1] = ly
+            box[2, 0] = xz
+            box[2, 1] = yz
+            box[2, 2] = lz
+            box[np.abs(box) < 1e-6] = 0.0
+            new_box = box 
+            pos = pos @ new_box[:-1]
         if isinstance(data, pl.DataFrame):
-            for col in ["id", "type", "x", "y", "z"]:
-                assert col in data.columns
+            if need_rotation:
+                data = data.with_columns(
+                    pl.lit(pos[:, 0]).alias('x'),
+                    pl.lit(pos[:, 1]).alias('y'),
+                    pl.lit(pos[:, 2]).alias('z'),
+                )
         else:
             assert pos.shape[1] == 3
             if type_list is None:
@@ -501,15 +516,8 @@ class SaveFile:
     @staticmethod
     def write_cp2k(output_name, box, boundary, data=None, pos=None, type_name=None):
         assert isinstance(output_name, str)
-        assert isinstance(box, np.ndarray)
         assert len(boundary) == 3
-        assert box.shape == (3, 2) or box.shape == (4, 3)
-        if box.shape == (3, 2):
-            new_box = np.zeros((4, 3), dtype=box.dtype)
-            new_box[0, 0], new_box[1, 1], new_box[2, 2] = box[:, 1] - box[:, 0]
-            new_box[-1] = box[:, 0]
-        else:
-            new_box = box
+        box, _, _ = init_box(box)
 
         if isinstance(data, pl.DataFrame):
             for col in ["type_name", "x", "y", "z"]:
@@ -877,7 +885,7 @@ class BuildSystem:
         box[1, 0] = xy
         box[1, 1] = ly
         box[2, 0] = xz
-        box[2, 1] = xy
+        box[2, 1] = yz
         box[2, 2] = lz
 
         box[np.abs(box) < 1e-6] = 0.0
@@ -891,6 +899,12 @@ class BuildSystem:
                 pl.col("_atom_site_fract_y").cast(pl.Float64).alias("y"),
                 pl.col("_atom_site_fract_z").cast(pl.Float64).alias("z"),
             ).select("type", "x", "y", "z")
+            new_pos = data.select("x", "y", "z").to_numpy() @ box[:-1]
+            data = data.with_columns(
+                pl.lit(new_pos[:, 0]).alias("x"),
+                pl.lit(new_pos[:, 1]).alias("y"),
+                pl.lit(new_pos[:, 2]).alias("z"),
+            )
         else:
             data = data.with_columns(
                 pl.col("_atom_site_type_symbol").alias("type"),
@@ -910,14 +924,6 @@ class BuildSystem:
                 .alias("type")
             )
 
-        if "_atom_site_fract_x" in head:
-            new_pos = data.select("x", "y", "z").to_numpy() @ box[:-1]
-            data = data.with_columns(
-                pl.lit(new_pos[:, 0]).alias("x"),
-                pl.lit(new_pos[:, 1]).alias("y"),
-                pl.lit(new_pos[:, 2]).alias("z"),
-            )
-
         data = data.with_row_index("id", offset=1)
 
         return data, box, [1, 1, 1]
@@ -927,21 +933,8 @@ class BuildSystem:
         with open(filename) as op:
             file = op.readlines()
         scale = float(file[1].strip())
-        need_rotation = False
+
         box = np.array([i.split() for i in file[2:5]], float) * scale
-
-        if box[0, 1] != 0 or box[0, 2] != 0 or box[1, 2] != 0:
-            old_box = box.copy()
-            ax = np.linalg.norm(box[0])
-            bx = box[1] @ (box[0] / ax)
-            by = np.sqrt(np.linalg.norm(box[1]) ** 2 - bx**2)
-            cx = box[2] @ (box[0] / ax)
-            cy = (box[1] @ box[2] - bx * cx) / by
-            cz = np.sqrt(np.linalg.norm(box[2]) ** 2 - cx**2 - cy**2)
-            box = np.array([[ax, bx, cx], [0, by, cy], [0, 0, cz]]).T
-            need_rotation = True
-            rotation = np.linalg.solve(old_box, box)
-
         row = 5
         type_list, type_name_list = [], []
         if file[5].strip()[0].isdigit():
@@ -980,8 +973,6 @@ class BuildSystem:
         pos = np.array(pos, float)
         if file[row][0] in ["C", "c", "K", "k"]:
             pos *= scale
-            if need_rotation:
-                pos = pos @ rotation
         else:
             pos = pos @ box
 
@@ -996,9 +987,6 @@ class BuildSystem:
             if len(file[row].split()) > 0:
                 if file[row].strip()[0] not in ["C", "c", "K", "k"]:
                     vel = vel @ box
-                else:
-                    if need_rotation:
-                        vel = vel @ rotation
 
         data = {}
         data["id"] = np.arange(1, natoms + 1)

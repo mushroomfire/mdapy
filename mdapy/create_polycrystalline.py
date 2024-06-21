@@ -308,6 +308,7 @@ class CreatePolycrystalline:
                 self.theta_list = np.random.rand(self.seednumber, 3) * 360 - 180
             else:
                 self.theta_list = theta_list
+                self.randomseed = 0 # No random
         else:
             self.theta_list = np.zeros((self.seednumber, 3))
         assert (
@@ -475,11 +476,8 @@ class CreatePolycrystalline:
             print(f"Generating grain {i}..., volume is {cell.volume()}")
             coeffs = self._cell_plane_coeffs(cell)
             pos = FCC.pos.copy()
-            rotate_matrix = np.matmul(
-                self._rotate_pos(self.theta_list[i, 0], [1, 0, 0]),
-                self._rotate_pos(self.theta_list[i, 1], [0, 1, 0]),
-                self._rotate_pos(self.theta_list[i, 2], [0, 0, 1]),
-            )
+            a, b, c = self._rotate_pos(self.theta_list[i, 0], [1, 0, 0]), self._rotate_pos(self.theta_list[i, 1], [0, 1, 0]), self._rotate_pos(self.theta_list[i, 2], [0, 0, 1])
+            rotate_matrix = a @ b @ c
             pos = np.matmul(pos, rotate_matrix)
             pos = pos - np.mean(pos, axis=0) + cell.pos
             delete = np.ones(pos.shape[0], dtype=int)
@@ -727,16 +725,47 @@ if __name__ == "__main__":
     os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
     ti.init(ti.cpu)
     # polycry = CreatePolycrystalline(
-    #     np.array([[0, 600.0], [0, 600.0], [0, 4000.0]]), 87, 4.057, "FCC", 1
+    #     np.array([[0, 200.0], [0, 200.0], [-100, 200.0]]),
+    #     20,
+    #     4.057,
+    #     "FCC",
+    #     1,
+    #     add_graphene=False,
     # )
-    polycry = CreatePolycrystalline(
-        np.array([[0, 200.0], [0, 200.0], [-100, 200.0]]),
-        20,
-        4.057,
-        "FCC",
-        1,
-        add_graphene=False,
+    # polycry.compute(save_dump=False)
+    # print(polycry.data.head())
+    # print(polycry.box)
+
+    a = 4.033
+    y_height = 100*a
+    x_height = y_height * 3**0.5
+    delta = x_height/6
+    box = np.array([
+        [x_height, 0, 0],
+        [0, y_height, 0],
+        [0, 0, a*20],
+        [0, 0, 0]
+    ]
     )
-    polycry.compute(save_dump=False)
-    print(polycry.data.head())
-    print(polycry.box)
+    y = y_height / 2
+    z = a*10
+    seed = np.array([
+        [0, 0, z],
+        [delta, y, z],
+        [2*delta, 0, z],
+        [3*delta, y, z],
+        [4*delta, 0, z],
+        [5*delta, y, z]
+    ])
+
+    seed[:, 0] += 60
+    theta_list = np.array([
+        [0, 0, 0],
+        [0, 0, 30],
+        [0, 0, 60],
+        [0, 0, 0],
+        [0, 0, 30],
+        [0, 0, 60]
+    ])
+    poly = CreatePolycrystalline(box, len(seed), 4.033, 'FCC', metal_overlap_dis=a/2**0.5-0.1, seed=seed, theta_list=theta_list)
+    poly.compute()

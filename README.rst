@@ -329,10 +329,11 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
-V0.11.0 (Under development)
+V0.11.0 (June 22, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Fix a bug for create_polycrystalline module.
+- Fix a bug for reading xyz.
 
 V0.10.9 (June 20, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

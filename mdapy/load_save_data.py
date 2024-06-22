@@ -662,7 +662,7 @@ class BuildSystem:
             if "pbc" in line2.keys():
                 boundary = [
                     1 if i == "T" or i == "1" else 0
-                    for i in line2['pbc']
+                    for i in line2['pbc'].split()
                 ]
             else:
                 boundary = [1, 1, 1]

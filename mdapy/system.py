@@ -1994,17 +1994,17 @@ class MultiSystem(list):
 
 
 if __name__ == "__main__":
-    system = System(r"D:\Study\Gra-Al\ref\ref\Al4C3.poscar")
+    system = System(r"ClO3.all.xyz")
     print(system)
-    system.write_data('test.data')
-    system.write_dump('test.dump')
-    #system.write_POSCAR('test.poscar')
-    # system.write_cif('test-2.cif')
-    #system = System('test.poscar')
-    system = System('test.data')
-    print(system)
-    system = System('test.dump')
-    print(system)
+    # system.write_data('test.data')
+    # system.write_dump('test.dump')
+    # #system.write_POSCAR('test.poscar')
+    # # system.write_cif('test-2.cif')
+    # #system = System('test.poscar')
+    # system = System('test.data')
+    # print(system)
+    # system = System('test.dump')
+    # print(system)
     #system.write_xyz('test.xyz')
     # system.global_info['energy'] = 2.
     # system.global_info['Logo'] = 'Write by mdapy'

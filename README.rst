@@ -329,6 +329,11 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
 Release Notes
 --------------
 
+V0.11.1 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Improve the performance for split_dump and split_xyz method.
+
 V0.11.0 (June 22, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

@@ -13,6 +13,13 @@ try:
 except Exception:
     from .box import init_box
 
+import subprocess 
+   
+def run_cmd(command):
+    result = subprocess.run(command, stdout=subprocess.PIPE, 
+                            stderr=subprocess.PIPE, 
+                            universal_newlines=True, shell=True)
+    return result
 
 def timer(function):
     """Decorators function for timing."""
@@ -28,72 +35,101 @@ def timer(function):
     return timer
 
 
-def split_xyz(input_file, outputdir="res", output_file_prefix=None):
+def split_xyz(input_file, outputdir="res", output_file_prefix=None, fix_N=True):
     """This function can be used to split a xyz trajectory into seperate xyz files, which can be read by mp.System.
 
     Args:
         input_file (str): xyz filename.
         outputdir (str, optional): output folder. Defaults to 'res'.
         output_file_prefix (str, optional): output file prefix. If not given, mdapy will generate one based on the input_file. Defaults to None.
+        fix_N (bool, optional): if the whole trajectory has the same atoms, set this to True, it will improve the performance. Defaults to True.
     """
     os.makedirs(outputdir, exist_ok=True)
     if output_file_prefix is None:
-        output_file_prefix = "".join(input_file.split(".")[:-1])
+        output_file_prefix = os.path.splitext(os.path.basename(input_file))[0]
 
-    with open(input_file, "r") as file:
-        frame = 0
-        while True:
+    has_split = run_cmd('split --help').returncode
+
+    if fix_N and has_split==0:
+        with open(input_file, "r") as file:
             line = file.readline()
-            if not line:
-                break
-            print(f"\rSaving frame {frame}", end="")
-            n = int(line.strip())
-            output_file = os.path.join(outputdir, f"{output_file_prefix}.{frame}.xyz")
-            with open(output_file, "w") as out_file:
-                out_file.write(line)
-                for _ in range(n + 1):
-                    out_file.write(file.readline())
-            frame += 1
-    print('\n')
+            Natoms = int(line.strip())
+        output_file = os.path.join(outputdir, f"{output_file_prefix}.")
+        
+        cmd = f"split -l {Natoms+2} {input_file} {output_file} -d -a 5 --additional-suffix .xyz"
+        print(f'Start spliting {input_file} by system split command...')
+        run_cmd(cmd)
+    else:
+        print(f'Start spliting {input_file} by mdapy split method...')
+        with open(input_file, "r") as file:
+            frame = 0
+            while True:
+                line = file.readline()
+                if not line:
+                    break
+                print(f"\rSaving frame {frame}", end="")
+                n = int(line.strip())
+                output_file = os.path.join(outputdir, f"{output_file_prefix}.{frame:0>5d}.xyz")
+                with open(output_file, "w") as out_file:
+                    out_file.write(line)
+                    for _ in range(n + 1):
+                        out_file.write(file.readline())
+                frame += 1
+        print('\n')
 
 
-def split_dump(input_file, outputdir="res", output_file_prefix=None):
+def split_dump(input_file, outputdir="res", output_file_prefix=None, fix_N=True):
     """This function can be used to split a dump trajectory into seperate dump files, which can be read by mp.System.
 
     Args:
         input_file (str): xyz filename.
         outputdir (str, optional): output folder. Defaults to 'res'.
         output_file_prefix (str, optional): output file prefix. If not given, mdapy will generate one based on the input_file. Defaults to None.
+        fix_N (bool, optional): if the whole trajectory has the same atoms, set this to True, it will improve the performance. Defaults to True.
     """
     os.makedirs(outputdir, exist_ok=True)
     if output_file_prefix is None:
-        output_file_prefix = "".join(input_file.split(".")[:-1])
-
-    with open(input_file, "r") as file:
-        frame = 0
-        while True:
-            output_file = os.path.join(outputdir, f"{output_file_prefix}.{frame}.dump")
-            header = []
+        output_file_prefix = os.path.splitext(os.path.basename(input_file))[0]
+    has_split = run_cmd('split --help').returncode
+    if fix_N and has_split==0:
+        with open(input_file, "r") as file:
+            file.readline()
+            file.readline()
+            file.readline()
             line = file.readline()
-            if not line:
-                break
-            print(f"\rSaving frame {frame}", end="")
-            with open(output_file, "w") as out_file:
-                out_file.write(line)
-                header.append(line)
-                for _ in range(8):
-                    line = file.readline()
-                    if not line:
-                        return
+            Natoms = int(line.strip())
+        output_file = os.path.join(outputdir, f"{output_file_prefix}.")
+        
+        cmd = f"split -l {Natoms+9} {input_file} {output_file} -d -a 5 --additional-suffix .dump"
+        print(f'Start spliting {input_file} by system split command...')
+        run_cmd(cmd)
+    else:
+        print(f'Start spliting {input_file} by mdapy split method...')
+        with open(input_file, "r") as file:
+            frame = 0
+            while True:
+                output_file = os.path.join(outputdir, f"{output_file_prefix}.{frame:0>5d}.dump")
+                header = []
+                line = file.readline()
+                if not line:
+                    break
+                print(f"\rSaving frame {frame}", end="")
+                with open(output_file, "w") as out_file:
                     out_file.write(line)
                     header.append(line)
+                    for _ in range(8):
+                        line = file.readline()
+                        if not line:
+                            return
+                        out_file.write(line)
+                        header.append(line)
 
-            n = int(header[3].strip())
-            with open(output_file, "a") as out_file:
-                for _ in range(n):
-                    out_file.write(file.readline())
-            frame += 1
-    print('\n')
+                n = int(header[3].strip())
+                with open(output_file, "a") as out_file:
+                    for _ in range(n):
+                        out_file.write(file.readline())
+                frame += 1
+        print('\n')
 
 
 def _check_repeat_nearest(pos, box, boundary):
@@ -683,3 +719,10 @@ atomic_masses = np.array(
 )
 
 atomic_masses.flags.writeable = False
+
+
+if __name__ == '__main__':
+    input_file = 'train.dump'
+    #print(os.path.splitext(os.path.basename(input_file)))
+    timer(split_dump)(input_file)
+

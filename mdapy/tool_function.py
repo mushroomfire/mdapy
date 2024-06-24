@@ -722,7 +722,7 @@ atomic_masses.flags.writeable = False
 
 
 if __name__ == '__main__':
-    input_file = 'train.dump'
+    input_file = 'train.xyz'
     #print(os.path.splitext(os.path.basename(input_file)))
-    timer(split_dump)(input_file)
+    timer(split_xyz)(input_file)
 

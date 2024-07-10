@@ -46,13 +46,13 @@ class LabeledSystem:
         self.filename = filename
         assert fmt in ["CP2K-SCF"], "Only support CP2K-SCF now."
         self.fmt = fmt
-        self._get_data()
+        self.get_data()
 
     def _get_atom_number(self):
         pattern = r"Number of atoms:.*?(?:\n|$)"
         matches = re.findall(pattern, self.content, re.DOTALL)
         if matches:
-            return sum([int(i.split()[-1]) for i in matches])
+            return int(matches[-1].split()[-1]) # sum([int(i.split()[-1]) for i in matches]) # int(matches[-1].split()[-1]) #
         else:
             raise "No atom number found."
 
@@ -75,6 +75,7 @@ class LabeledSystem:
             raise "No box information found."
 
     def _get_position(self, N):
+
         pos_line = self.content.index("ATOMIC COORDINATES IN angstrom")
         if pos_line:
             res = self.content[pos_line:].split("\n")
@@ -122,7 +123,7 @@ class LabeledSystem:
         except Exception:
             raise "No virial information found."
 
-    def _get_data(self):
+    def get_data(self):
         with open(self.filename) as op:
             self.content = op.read()
         self.data = {}
@@ -139,6 +140,39 @@ class LabeledSystem:
             )
         except Exception:
             pass
+
+
+# class MultiLabeledSystem(LabeledSystem):
+
+#     def __init__(self, filename, fmt="CP2K-AIMD"):
+
+#         self.filename = filename
+#         assert fmt in ["CP2K-AIMD"], "Only support CP2K-AIMD now."
+#         self.fmt = fmt 
+
+#     def get_data(self):
+#         with open(self.filename) as op:
+#             content = op.read()
+
+#         res = content.split('STEP NUMBER')
+#         Nframe = len(res)
+#         self.data_list = []
+#         for frame in range(Nframe):
+#             self.content = res[frame]
+#             data = {}
+#             data["N"] = self._get_atom_number()
+#             self.data["energy"] = self._get_energy()
+#             self.data["box"] = self._get_box()
+#             self.data["pos"] = self._get_position(self.data["N"])
+#             self.data["force"], self.data["type_list"] = self._get_force_typelist(
+#                 self.data["N"]
+#             )
+#             try:
+#                 self.data["virial"], self.data["stress"] = self._get_virial_stress(
+#                     self.data["box"]
+#                 )
+#             except Exception:
+#                 pass
 
 
 class DFT2NEPXYZ:
@@ -244,7 +278,7 @@ class DFT2NEPXYZ:
                 bar.set_description(f"Saving {frame+1} frames")
                 try:
                     LS = LabeledSystem(filename)
-
+                    #LS.get_data()
                     if self.force_max is not None and self.stress_max is not None:
 
                         if (
@@ -284,6 +318,7 @@ class DFT2NEPXYZ:
                 bar.set_description(f"Saving {frame+1} frames")
                 try:
                     LS = LabeledSystem(filename)
+                    #LS.get_data()
                     if self.force_max is not None and self.stress_max is not None:
                         if (
                             abs(LS.data["force"]).max() < self.force_max
@@ -308,6 +343,8 @@ class DFT2NEPXYZ:
 
 
 if __name__ == "__main__":
+    # LS = LabeledSystem(r'D:\Study\Gra-Al\Read_AIMD\test.log')
+    # print(LS.data)
     from glob import glob
 
     DFT2NEPXYZ(
@@ -316,3 +353,5 @@ if __name__ == "__main__":
         interval=None,
         stress_max=100,
     )
+    # MS = MultiLabeledSystem(r'D:\Study\Gra-Al\Read_AIMD\output.log')
+    # print(MS.filename)

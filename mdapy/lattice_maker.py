@@ -399,11 +399,12 @@ if __name__ == "__main__":
 
     # FCC = LatticeMaker(1.42, "GRA", 10, 20, 3)
     # crystalline_orientation=np.array([[1, 1, 0], [-1, 1, 1], [1, -1, 2]])
-    FCC = LatticeMaker(2.8, "HCP", 1, 1, 1)
+    FCC = LatticeMaker(4.05, "FCC", 200, 200, 100)
     # crystalline_orientation=np.array([[1, 1, -2], [1, -1, 0], [1, 1, 1]]),
     FCC.compute()
     print(FCC.box)
     print(FCC.pos)
+    FCC.write_xyz(r'D:\Package\MyPackage\numba_Learn\fcc.xyz', type_name=['Al'])
     # print("Atom number is:", FCC.N)
     # FCC.write_xyz(type_name=["Al", "Cu"])
     # FCC.write_data(type_name=["Al", "Cu", "C"])

@@ -14,6 +14,13 @@ except Exception:
     from .box import init_box
 
 import subprocess 
+
+
+
+    
+
+
+
    
 def run_cmd(command):
     result = subprocess.run(command, stdout=subprocess.PIPE, 
@@ -723,6 +730,8 @@ atomic_masses.flags.writeable = False
 
 if __name__ == '__main__':
     input_file = 'train.xyz'
-    #print(os.path.splitext(os.path.basename(input_file)))
+    print(os.path.splitext(os.path.basename(input_file)))
     timer(split_xyz)(input_file)
+
+    
 

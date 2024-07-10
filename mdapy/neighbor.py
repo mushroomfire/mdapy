@@ -273,24 +273,26 @@ if __name__ == "__main__":
 
     ti.init(offline_cache=True)
     start = time()
-    lattice_constant = 3.615
-    x, y, z = 250, 100, 100
+    lattice_constant = 4.05
+    x, y, z = 200, 200, 100
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
-    for arch, tarch in zip(["cpu", "gpu"], [ti.cpu, ti.gpu]):
-        ti.init(
-            tarch, offline_cache=True, device_memory_fraction=0.9, default_fp=ti.f64
-        )
+    for arch, tarch in zip(["cpu"], [ti.cpu]):
+        # ti.init(
+        #     tarch, offline_cache=True, device_memory_fraction=0.9, default_fp=ti.f64
+        # )
         start = time()
-        neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=43)
+        neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=50)
         neigh.compute()
         end = time()
         print(f"Arch: {arch}. Build neighbor time: {end-start} s.")
-        print(neigh.verlet_list[0, :5])
-        print(neigh.distance_list[0, :5])
-        print(neigh.verlet_list.shape)
-        print(neigh.distance_list.dtype)
+        print(neigh.verlet_list[0])
+        print(neigh.neighbor_number[0])
+        print(neigh.distance_list[0])
+        #print(np.linalg.norm(neigh.pos[5]-neigh.pos[0]))
+        # print(neigh.verlet_list.shape)
+        # print(neigh.distance_list.dtype)
     # print(neigh.verlet_list.shape[1])
     # print(neigh.neighbor_number.max())
     # print(neigh.neighbor_number.min())

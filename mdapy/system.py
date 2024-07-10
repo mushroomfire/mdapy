@@ -28,6 +28,7 @@ try:
     from void_distribution import VoidDistribution
     from warren_cowley_parameter import WarrenCowleyParameter
     from voronoi_analysis import VoronoiAnalysis
+    from minimizer import Minimizer
     from mean_squared_displacement import MeanSquaredDisplacement
     from lindemann_parameter import LindemannParameter
     from spatial_binning import SpatialBinning
@@ -54,6 +55,7 @@ except Exception:
     from .void_distribution import VoidDistribution
     from .warren_cowley_parameter import WarrenCowleyParameter
     from .voronoi_analysis import VoronoiAnalysis
+    from .minimizer import Minimizer
     from .mean_squared_displacement import MeanSquaredDisplacement
     from .lindemann_parameter import LindemannParameter
     from .spatial_binning import SpatialBinning
@@ -412,6 +414,31 @@ class System:
         else:
             self.view.data = self.__data
             self.view.atoms_colored_by(values, vmin, vmax, cmap)
+
+    def minimize(self, elements_list, potential, fmax=0.05, max_itre=10):
+        mini = Minimizer(self.data.select(['x', 'y', 'z']).to_numpy(),
+                  self.box,
+                  self.boundary,
+                  potential,
+                  elements_list,
+                  self.data['type'].to_numpy(),
+                  fmax=fmax,
+                  max_itre=max_itre)
+        mini.compute()
+
+        data = self.__data.with_columns(
+            pl.lit(mini.pos[:, 0]).alias('x'),
+            pl.lit(mini.pos[:, 1]).alias('y'),
+            pl.lit(mini.pos[:, 2]).alias('z'),
+        )
+        return System(
+            data=data,
+            box=self.__box,
+            boundary=self.__boundary,
+            filename=self.__filename,
+            fmt=self.__fmt,
+        )
+
 
     def cell_opt(
         self,

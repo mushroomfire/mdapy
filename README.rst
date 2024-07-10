@@ -333,6 +333,8 @@ V0.11.1 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Improve the performance for split_dump and split_xyz method.
+- Add minimizer with FIRE method.
+- Add method to compute Vacancy Formation energy.
 
 V0.11.0 (June 22, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -204,5 +204,43 @@ Here the stacking faults include intrinsic SFs and multi layer SFs.
 
 .. image:: https://img.pterclub.com/images/2023/03/20/SF.png
 
+8. Compute Vacancy Formation Energy for metal
+-----------------------------------------------
+
+Make sure you have install lammps-python interface. We use lammps to do cell optimization.
+
+.. code-block:: python
+    import mdapy as mp
+    from mdapy.potential import LammpsPotential
+
+    mp.init()
+    
+    def compute_Vacancy_formation_energy(lattice_constant, lattice_type, element='Al', pair_parameter="""
+        pair_style nep nep.txt
+        pair_coeff * *
+        """, x=5, y=5, z=5, fmax=0.05, max_itre=10):
+    
+        potential = LammpsPotential(
+            pair_parameter=pair_parameter
+        )
+        fcc = mp.LatticeMaker(lattice_constant, lattice_type, x, y, z)
+        fcc.compute()
+        system = mp.System(pos=fcc.pos, box=fcc.box)
+        relax_system = system.cell_opt(
+            pair_parameter=pair_parameter,
+            elements_list=[element],
+        )
+        e, _, _ = relax_system.cal_energy_force_virial(potential, [element])
+        E_bulk = e.sum()
+        print(f"Bulk energy: {E_bulk:.2f} eV.")
+        defect_system = relax_system.select(relax_system.data[1:])
+        mini_defect_system = defect_system.minimize([element], potential, fmax=fmax, max_itre=max_itre)
+        e, _, _ = mini_defect_system.cal_energy_force_virial(potential, [element])
+        E_defect = e.sum()
+        print(f"Defect energy: {E_defect:.2f} eV.")
+        E_v = E_defect - E_bulk * (relax_system.N-1) / relax_system.N 
+        print(f"Vacancy formation energy: {E_v:.2f} eV.")
+        return E_v
+
 
 

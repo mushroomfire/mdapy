@@ -201,10 +201,12 @@ if __name__ == "__main__":
         FCC.type_list,
         ["Al"],
         [1, 1, 1],
-        "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al",
+        r"""pair_style nep D:\Study\VFE\nep.txt
+        pair_coeff * *""",
     )
     data, box = cpt.compute()
     end = time()
+    #"pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al"
     print(f"Cell opt time: {end-start} s.")
     print(data)
     print(box)

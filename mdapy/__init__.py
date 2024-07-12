@@ -20,7 +20,7 @@ from .identify_SFs_TBs import IdentifySFTBinFCC
 from .nearest_neighbor import NearestNeighbor
 from .lattice_maker import LatticeMaker
 from .lindemann_parameter import LindemannParameter
-from .minimizer import Minimizer, compute_Vacancy_formation_energy
+from .minimizer import Minimizer
 from .mean_squared_displacement import MeanSquaredDisplacement
 from .neighbor import Neighbor
 from .pair_distribution import PairDistribution

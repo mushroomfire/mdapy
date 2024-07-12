@@ -89,7 +89,18 @@ class Minimizer:
         print("Energy minimization finished.")
 
 
-def compute_Vacancy_formation_energy(element_name, lattice_constant, lattice_type, potential, x=5, y=5, z=5, fmax=0.05, max_itre=10):
+if __name__=='__main__':
+
+    import taichi as ti
+    from potential import NEP 
+    ti.init()
+
+    nep = NEP(r'D:\Study\Gra-Al\potential_test\validating\graphene\itre_45\nep.txt')
+
+    element_name, lattice_constant, lattice_type, potential = 'Al', 4.033, 'FCC', nep
+    x, y, z = 5, 5, 5
+    fmax = 0.05
+    max_itre = 10
     lat = LatticeMaker(lattice_constant, lattice_type, x, y, z)
     lat.compute()
 
@@ -109,17 +120,5 @@ def compute_Vacancy_formation_energy(element_name, lattice_constant, lattice_typ
 
     E_v = E_defect - E_bulk * (lat.N-1) / lat.N 
     print(f"Vacancy formation energy: {E_v:.2f} eV.")
-    return E_v
-
-
-if __name__=='__main__':
-
-    import taichi as ti
-    from potential import NEP 
-    ti.init()
-
-    nep = NEP(r'D:\Study\Gra-Al\potential_test\validating\graphene\itre_45\nep.txt')
-
-    compute_Vacancy_formation_energy('Al', 4.033, 'FCC', nep)
 
 

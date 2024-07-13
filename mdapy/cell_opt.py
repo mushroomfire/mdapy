@@ -63,15 +63,10 @@ class CellOptimization:
             zlo + box[2, 2],
         )
         xy, xz, yz = box[1, 0], box[2, 0], box[2, 1]
-        xlo_bound = xlo + min(0.0, xy, xz, xy + xz)
-        xhi_bound = xhi + max(0.0, xy, xz, xy + xz)
-        ylo_bound = ylo + min(0.0, yz)
-        yhi_bound = yhi + max(0.0, yz)
-        zlo_bound = zlo
-        zhi_bound = zhi
+
         return (
-            [xlo_bound, ylo_bound, zlo_bound],
-            [xhi_bound, yhi_bound, zhi_bound],
+            [xlo, ylo, zlo],
+            [xhi, yhi, zhi],
             xy,
             xz,
             yz,
@@ -79,14 +74,9 @@ class CellOptimization:
 
     def to_mdapy_box(self, box):
         boxlo, boxhi, xy, yz, xz, _, _ = box
-        xlo_bound, ylo_bound, zlo_bound = boxlo
-        xhi_bound, yhi_bound, zhi_bound = boxhi
-        xlo = xlo_bound - min(0.0, xy, xz, xy + xz)
-        xhi = xhi_bound - max(0.0, xy, xz, xy + xz)
-        ylo = ylo_bound - min(0.0, yz)
-        yhi = yhi_bound - max(0.0, yz)
-        zlo = zlo_bound
-        zhi = zhi_bound
+        xlo, ylo, zlo = boxlo
+        xhi, yhi, zhi = boxhi
+
         return np.array(
             [
                 [xhi - xlo, 0, 0],
@@ -155,6 +145,7 @@ class CellOptimization:
             index = np.array(lmp.numpy.extract_atom("id"))
             pos = np.array(lmp.numpy.extract_atom("x"))
             type_list = np.array(lmp.numpy.extract_atom("type"))
+            print(lmp.extract_box())
             box = self.to_mdapy_box(lmp.extract_box())
         except Exception as e:
             lmp.close()
@@ -184,24 +175,25 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
     from time import time
     import taichi as ti
+    import mdapy as mp
 
     ti.init(ti.cpu)
-    start = time()
-    lattice_constant = 4.048
-    x, y, z = 10, 10, 10
-    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
-    FCC.compute()
-    end = time()
-    print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-
+    # start = time()
+    # lattice_constant = 4.048
+    # x, y, z = 10, 10, 10
+    # FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    # FCC.compute()
+    # end = time()
+    # print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
+    FCC = mp.System(r'D:\Study\Gra-Al\potential_test\phonon\alc\Al4C3.lmp')
     start = time()
     cpt = CellOptimization(
         FCC.pos,
         FCC.box,
-        FCC.type_list,
-        ["Al"],
+        FCC.data['type'].to_numpy(),
+        ["Al", 'C'],
         [1, 1, 1],
-        r"""pair_style nep D:\Study\VFE\nep.txt
+        r"""pair_style nep D:\Study\Gra-Al\potential_test\phonon\alc\nep.txt
         pair_coeff * *""",
     )
     data, box = cpt.compute()

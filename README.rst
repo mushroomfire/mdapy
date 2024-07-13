@@ -335,6 +335,7 @@ V0.11.1 (Under development)
 - Improve the performance for split_dump and split_xyz method.
 - Add minimizer with FIRE method.
 - Add an example to compute Vacancy Formation energy.
+- Fix a bug for cell_opt class.
 
 V0.11.0 (June 22, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

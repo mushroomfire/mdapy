@@ -145,7 +145,7 @@ class CellOptimization:
             index = np.array(lmp.numpy.extract_atom("id"))
             pos = np.array(lmp.numpy.extract_atom("x"))
             type_list = np.array(lmp.numpy.extract_atom("type"))
-            print(lmp.extract_box())
+            #print(lmp.extract_box())
             box = self.to_mdapy_box(lmp.extract_box())
         except Exception as e:
             lmp.close()

@@ -343,7 +343,8 @@ if __name__ == "__main__":
     # )
     # "0.0 0.0 0.0 0.3333333333 0.3333333333 0.0 0.5 0.0 0.0 0.0 0.0 0.0",
     # "$\Gamma$ K M $\Gamma$",
-    system = mp.System(r"D:\Study\Gra-Al\potential_test\phonon\graphene\min.data")
+    system = mp.System(r"D:\Study\Gra-Al\potential_test\phonon\alc\min.data")
+    print(system)
     potential = NEP(r"D:\Study\Gra-Al\potential_test\phonon\graphene\nep.txt")
     # system = System(r"/mnt/d/Study/Gra-Al/potential_test/phonon/alc/POSCAR")
     # potential = LammpsPotential(
@@ -354,8 +355,8 @@ if __name__ == "__main__":
     # "0.0 0.0 0.0 0.5 0.5 0.5 0.8244 0.1755 0.5 0.5 0.0 0.0 0.0 0.0 0.0 0.3377 -0.337 0.0 0.5 0.0 0.5 0.0 0.0 0.0",
     # "$\Gamma$ T $H_2$ L $\Gamma$ $S_0$ F $\Gamma$",
     pho = Phonon(
-        "0.0 0.0 0.0 0.3333333333 0.3333333333 0.0 0.5 0.0 0.0 0.0 0.0 0.0",
-        "$\Gamma$ K M $\Gamma$",
+        '0.0 0.0 0.0 0.5 0.5 0.5 0.8244 0.1755 0.5 0.5 0.0 0.0 0.0 0.0 0.0 0.3377 -0.337 0.0 0.5 0.0 0.5 0.0 0.0 0.0',
+        '$\Gamma$ T $H_2$ L $\Gamma$ $S_0$ F $\Gamma$',
         potential,
         system.pos,
         system.box,

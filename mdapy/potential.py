@@ -924,7 +924,6 @@ class LammpsPotential(BasePotential):
         self.conversion_factor = conversion_factor
 
     def to_lammps_box(self, box):
-
         xlo, ylo, zlo = box[-1]
         xhi, yhi, zhi = (
             xlo + box[0, 0],
@@ -932,15 +931,10 @@ class LammpsPotential(BasePotential):
             zlo + box[2, 2],
         )
         xy, xz, yz = box[1, 0], box[2, 0], box[2, 1]
-        xlo_bound = xlo + min(0.0, xy, xz, xy + xz)
-        xhi_bound = xhi + max(0.0, xy, xz, xy + xz)
-        ylo_bound = ylo + min(0.0, yz)
-        yhi_bound = yhi + max(0.0, yz)
-        zlo_bound = zlo
-        zhi_bound = zhi
+
         return (
-            [xlo_bound, ylo_bound, zlo_bound],
-            [xhi_bound, yhi_bound, zhi_bound],
+            [xlo, ylo, zlo],
+            [xhi, yhi, zhi],
             xy,
             xz,
             yz,

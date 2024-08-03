@@ -14,6 +14,7 @@ try:
     from load_save_data import BuildSystem, SaveFile
     from tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from ackland_jones_analysis import AcklandJonesAnalysis
+    from atomic_strain import AtomicStrain
     from common_neighbor_analysis import CommonNeighborAnalysis
     from common_neighbor_parameter import CommonNeighborParameter
     from neighbor import Neighbor
@@ -42,6 +43,7 @@ except Exception:
     from .tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from .common_neighbor_analysis import CommonNeighborAnalysis
     from .ackland_jones_analysis import AcklandJonesAnalysis
+    from .atomic_strain import AtomicStrain
     from .common_neighbor_parameter import CommonNeighborParameter
     from .neighbor import Neighbor
     from .temperature import AtomicTemperature
@@ -414,6 +416,45 @@ class System:
         else:
             self.view.data = self.__data
             self.view.atoms_colored_by(values, vmin, vmax, cmap)
+
+    def cal_atomic_strain(self, ref, rc=5., affi_map='off'):
+        """This class is used to calculate the atomic shear strain. More details can be found here.
+        https://www.ovito.org/docs/current/reference/pipelines/modifiers/atomic_strain.html
+
+        Args:
+            ref (mdapy.System): a reference system object.
+            rc (float, optional): cutoff distance to determine the neighbor environments. Defaults to 5. A.
+            affi_map (str, optional): selected in ['off', 'ref']. If use to 'ref', the current position will affine to the reference frame. Defaults to 'off'.
+        
+        Outputs:
+            - **The result is added in self.data['shear_strain']**.
+        """
+        assert isinstance(ref, System), 'ref must be a mdapy System object.'
+        assert affi_map in ['off', 'ref']
+        assert self.boundary == ref.boundary
+        assert self.N == ref.N
+        if affi_map == 'ref':
+            assert self.boundary == [1, 1, 1]
+        
+        rebuild = True
+        if ref.if_neigh:
+            if ref.rc == rc:
+                rebuild = False
+        if rebuild:
+            # print(f'rebuild neighbor with rc={rc}.')
+            ref.build_neighbor(rc=rc)
+        
+        
+        strain = AtomicStrain(ref.pos, ref.box, self.pos, 
+                              self.box, ref.verlet_list, 
+                              ref.neighbor_number, 
+                              self.boundary, affi_map)
+        strain.compute()
+
+        self.__data = self.__data.with_columns(
+            pl.lit(strain.shear_strain).alias('shear_strain')
+        )
+
 
     def minimize(self, elements_list, potential, fmax=0.05, max_itre=10):
         mini = Minimizer(self.data.select(['x', 'y', 'z']).to_numpy(),
@@ -2021,8 +2062,9 @@ class MultiSystem(list):
 
 
 if __name__ == "__main__":
-    system = System(r"ClO3.all.xyz")
-    print(system)
+    # system = System(r"ClO3.all.xyz")
+    # print(system)
+
     # system.write_data('test.data')
     # system.write_dump('test.dump')
     # #system.write_POSCAR('test.poscar')
@@ -2036,8 +2078,13 @@ if __name__ == "__main__":
     # system.global_info['energy'] = 2.
     # system.global_info['Logo'] = 'Write by mdapy'
     # system.write_xyz('test_1.xyz')
-    # import taichi as ti
-    # ti.init()
+    import taichi as ti
+    ti.init()
+    ref = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.0.xyz')
+    ref.build_neighbor(5., max_neigh=70)
+    cur = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.1000.xyz')
+    cur.cal_atomic_strain(ref, rc=5.)
+    print(cur)
 
     # filename_list = [rf'C:\Users\herrwu\Desktop\wrap_test\dump.{i}.xyz' for i in range(100, 10100, 100)]
     # MS = MultiSystem(filename_list, sorted_id=False, unwrap=True)

@@ -336,6 +336,8 @@ V0.11.1 (Under development)
 - Add minimizer with FIRE method.
 - Add an example to compute Vacancy Formation energy.
 - Fix a bug for cell_opt class.
+- Fix a bug for neighbor class.
+- Add new feature to calculate the Atomic Shear Strain.
 
 V0.11.0 (June 22, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

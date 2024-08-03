@@ -183,8 +183,9 @@ class Neighbor:
                     self.bin_length,
                     max_neigh_list,
                 )
-            self.max_neigh = np.partition(max_neigh_list.flatten(), -4)[-4:].sum()
+            self.max_neigh = max_neigh_list.max() * 4 # np.partition(max_neigh_list.flatten(), -4)[-4:].sum()
             need_check = False
+            #print(max_neigh_list, self.max_neigh)
         else:
             if self.rec:
                 build_cell_rec(
@@ -274,22 +275,27 @@ if __name__ == "__main__":
     ti.init(offline_cache=True)
     start = time()
     lattice_constant = 4.05
-    x, y, z = 200, 200, 100
+    x, y, z = 3, 3, 3
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
     end = time()
-    for arch, tarch in zip(["cpu"], [ti.cpu]):
-        # ti.init(
-        #     tarch, offline_cache=True, device_memory_fraction=0.9, default_fp=ti.f64
-        # )
-        start = time()
-        neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=50)
-        neigh.compute()
-        end = time()
-        print(f"Arch: {arch}. Build neighbor time: {end-start} s.")
-        print(neigh.verlet_list[0])
-        print(neigh.neighbor_number[0])
-        print(neigh.distance_list[0])
+    neigh = Neighbor(FCC.pos, FCC.box, 5.0)
+    neigh.compute()
+    print(neigh.verlet_list[0])
+    print(neigh.neighbor_number[0])
+    print(neigh.distance_list[0])
+    # for arch, tarch in zip(["cpu"], [ti.cpu]):
+    #     # ti.init(
+    #     #     tarch, offline_cache=True, device_memory_fraction=0.9, default_fp=ti.f64
+    #     # )
+    #     start = time()
+    #     neigh = Neighbor(FCC.pos, FCC.box, 5.0, max_neigh=50)
+    #     neigh.compute()
+    #     end = time()
+    #     print(f"Arch: {arch}. Build neighbor time: {end-start} s.")
+    #     print(neigh.verlet_list[0])
+    #     print(neigh.neighbor_number[0])
+    #     print(neigh.distance_list[0])
         #print(np.linalg.norm(neigh.pos[5]-neigh.pos[0]))
         # print(neigh.verlet_list.shape)
         # print(neigh.distance_list.dtype)

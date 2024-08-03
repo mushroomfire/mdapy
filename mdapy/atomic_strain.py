@@ -83,12 +83,12 @@ if __name__ == '__main__':
     from time import time
     ref = mp.System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.0.xyz')
     ref.build_neighbor(5., max_neigh=70)
-    cur = mp.System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.1000.xyz')
+    cur = mp.System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.150000.xyz')
 
     start = time()
     strain = AtomicStrain(ref.pos, ref.box, cur.pos, cur.box, 
                           ref.verlet_list, ref.neighbor_number, 
-                          ref.boundary, 'off')
+                          ref.boundary, 'ref')
     strain.compute()
     end = time()
     print(f'Atom strain time costs: {end-start} s.')

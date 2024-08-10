@@ -339,6 +339,7 @@ V0.11.1 (Under development)
 - Fix a bug for neighbor class.
 - Add new feature to calculate the Atomic Shear Strain.
 - Fix a bug for RDF with partial interaction.
+- Fix a bug for reading cp2k output file with OT method.
 
 V0.11.0 (June 22, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

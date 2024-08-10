@@ -33,13 +33,12 @@ class PairDistribution:
     Args:
         rc (float): cutoff distance.
         nbin (int): number of bins.
-        rho (float, optional): system density.
+        box (np.ndarray): (:math:`3, 2`) or (:math:`4, 3`) system box. Defaults to None.
+        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Such as [1, 1, 1]. Defaults to [1, 1, 1].
         verlet_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) verlet_list[i, j] means j atom is a neighbor of i atom if j > -1.
         distance_list (np.ndarray, optional): (:math:`N_p, max\_neigh`) distance_list[i, j] means distance between i and j atom.
         neighbor_number (np.ndarray, optional): (:math:`N_p`) neighbor atoms number.
         pos (np.ndarray, optional): (:math:`N_p, 3`) particles positions. Defaults to None.
-        box (np.ndarray, optional): (:math:`3, 2`) or (:math:`4, 3`) system box. Defaults to None.
-        boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Such as [1, 1, 1]. Defaults to None.
         type_list (np.ndarray, optional): (:math:`N_p`) atom type list. If not given, all atoms types are set as 1.
 
     Outputs:
@@ -62,11 +61,8 @@ class PairDistribution:
 
         >>> neigh.compute() # Calculate particle neighbor information.
 
-        >>> rho = FCC.pos.shape[0] / np.product(FCC.box[:, 1] - FCC.box[:, 0]) # Get the system density.
-
-        >>> gr = mp.PairDistribution(neigh.rc, 200, rho,
-                                  neigh.verlet_list, neigh.distance_list, neigh.neighbor_number,
-                                  type_list=np.ones(FCC.N, dtype=int)) # Initilize the RDF class.
+        >>> gr = mp.PairDistribution(neigh.rc, 200, FCC.box, [1, 1, 1],
+                                  neigh.verlet_list, neigh.distance_list, neigh.neighbor_number,) # Initilize the RDF class.
 
         >>> gr.compute() # Calculate the RDF.
 
@@ -86,49 +82,47 @@ class PairDistribution:
         self,
         rc,
         nbin,
-        rho=None,
+        box,
+        boundary,
         verlet_list=None,
         distance_list=None,
         neighbor_number=None,
         pos=None,
-        box=None,
-        boundary=None,
         type_list=None,
     ):
         self.rc = rc
         self.nbin = nbin
+        self.box, _, _ = init_box(box)
+        self.vol = np.linalg.det(self.box[:-1])
+        self.boundary = [int(boundary[i]) for i in range(3)]
         self.old_N = None
         self.verlet_list = verlet_list
         self.distance_list = distance_list
         self.neighbor_number = neighbor_number
-        self.rho = rho
+
+
         if (
             verlet_list is None
             or distance_list is None
-            or rho is None
             or neighbor_number is None
         ):
             assert pos is not None
-            assert box is not None
-            assert boundary is not None
-            box, _, _ = init_box(box)
-            repeat = _check_repeat_cutoff(box, boundary, self.rc)
             if pos.dtype != np.float64:
                 pos = pos.astype(np.float64)
+            
+            repeat = _check_repeat_cutoff(self.box, self.boundary, self.rc)
+            
             if sum(repeat) == 3:
                 self.pos = pos
-                self.box = box
             else:
                 self.old_N = pos.shape[0]
-                repli = Replicate(pos, box, *repeat, type_list=type_list)
+                repli = Replicate(pos, self.box, *repeat, type_list=type_list)
                 repli.compute()
                 self.pos = repli.pos
                 self.box = repli.box
                 type_list = repli.type_list
-                
-            self.boundary = [int(boundary[i]) for i in range(3)]
-            vol = np.inner(self.box[0], np.cross(self.box[1], self.box[2]))
-            self.rho = self.pos.shape[0] / vol
+                self.vol = np.linalg.det(self.box[:-1])
+
         if self.verlet_list is not None:
             self.N = self.verlet_list.shape[0]
         else:
@@ -150,42 +144,39 @@ class PairDistribution:
                 neigh.neighbor_number,
             )
         r = np.linspace(0, self.rc, self.nbin + 1)
-        const = 4.0 * np.pi * self.rho / 3.0
+        const = (4.0 * np.pi / 3.0 * (r[1:] ** 3 - r[:-1] ** 3) ) / self.vol
         if self.Ntype > 1:
-            concentrates = (
-                np.array(
+            number_per_type = np.array(
                     [
                         len(self.type_list[self.type_list == i])
                         for i in range(self.Ntype)
                     ]
                 )
-                / self.N
-            )
-
             self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
-
             _rdf(
                 self.verlet_list,
                 self.distance_list,
                 self.neighbor_number,
                 self.type_list,
                 self.g,
-                concentrates,
                 self.rc,
                 self.nbin,
             )
-
-            self.g /= self.N * const * (r[1:] ** 3 - r[:-1] ** 3)
             self.r = (r[1:] + r[:-1]) / 2
             self.g_total = np.zeros_like(self.r)
             for i in range(self.Ntype):
                 for j in range(self.Ntype):
-                    if j == i:
-                        self.g_total += concentrates[i] * concentrates[j] * self.g[i, j]
-                    else:
-                        self.g_total += (
-                            2 * concentrates[i] * concentrates[j] * self.g[i, j]
-                        )
+                    self.g_total += self.g[i, j]
+            
+            
+            self.g_total = self.g_total / const / (self.N)**2
+
+            for i in range(self.Ntype):
+                for j in range(self.Ntype):
+                        self.g[i, j] = self.g[i, j] / (number_per_type[i] * number_per_type[j])
+            
+            self.g = self.g / const
+ 
         else:
             self.g_total = np.zeros(self.nbin)
             _rdf_single_species(
@@ -196,7 +187,7 @@ class PairDistribution:
                 self.rc,
                 self.nbin,
             )
-            self.g_total /= self.N * const * (r[1:] ** 3 - r[:-1] ** 3)
+            self.g_total = self.g_total / const / (self.N)**2
             self.r = (r[1:] + r[:-1]) / 2
             self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
 
@@ -291,9 +282,10 @@ if __name__ == "__main__":
     start = time()
     lattice_constant = 3.615
     x, y, z = 1, 2, 3
-    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z, type_list=[1, 2, 2, 2]) # 
     FCC.compute()
     end = time()
+    FCC.write_xyz('test.xyz', type_name=['Al', 'Cu'])
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     # FCC.write_data()
     # start = time()
@@ -307,18 +299,17 @@ if __name__ == "__main__":
     # type_list = np.r_[
     #     np.ones(int(FCC.N / 2), dtype=int), np.ones(int(FCC.N / 2), dtype=int) + 1
     # ]
-    type_list = np.ones(FCC.N, int)
+    #type_list = np.ones(FCC.N, int)
     gr = PairDistribution(
         rc,
         200,
-        None,
+        FCC.box,
+        [1, 1, 1],
         None,
         None,
         None,
         FCC.pos,
-        FCC.box,
-        [1, 1, 1],
-        type_list,
+        FCC.type_list,
     )
     gr.compute()
     end = time()

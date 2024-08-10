@@ -8,7 +8,7 @@ namespace py = pybind11;
 
 void _rdf(py::array cverlet_list, py::array cdistance_list,
           py::array cneighbor_number, py::array ctype_list,
-          py::array cg, py::array cconcentrates, double rc,
+          py::array cg, double rc,
           int nbin)
 {
 
@@ -17,7 +17,6 @@ void _rdf(py::array cverlet_list, py::array cdistance_list,
     auto neighbor_number = cneighbor_number.unchecked<int, 1>();
     auto type_list = ctype_list.unchecked<int, 1>();
     auto g = cg.mutable_unchecked<double, 3>();
-    auto concentrates = cconcentrates.unchecked<double, 1>();
     int N = verlet_list.shape(0);
 
     double dr = rc / nbin;
@@ -29,14 +28,11 @@ void _rdf(py::array cverlet_list, py::array cdistance_list,
         {
             int j = verlet_list(i, jindex);
             double dis = distance_list(i, jindex);
-            if (j > i && dis < rc)
+            if (dis < rc)
             {
                 int j_type = type_list(j);
-                if (j_type >= i_type)
-                {
-                    int k = (int)(dis / dr);
-                    g(i_type, j_type, k) += 2.0 / concentrates(i_type) / concentrates(j_type);
-                }
+                int k = (int)(dis / dr);
+                g(i_type, j_type, k) += 1.;
             }
         }
     }

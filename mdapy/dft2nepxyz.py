@@ -52,7 +52,7 @@ class LabeledSystem:
         pattern = r"Number of atoms:.*?(?:\n|$)"
         matches = re.findall(pattern, self.content, re.DOTALL)
         if matches:
-            return int(matches[-1].split()[-1]) # sum([int(i.split()[-1]) for i in matches]) # int(matches[-1].split()[-1]) #
+            return sum([int(i.split()[-1]) for i in matches]) # int(matches[-1].split()[-1]) # sum([int(i.split()[-1]) for i in matches]) # int(matches[-1].split()[-1]) #
         else:
             raise "No atom number found."
 
@@ -82,7 +82,11 @@ class LabeledSystem:
             header = res[2].split()
             start = header.index("X") - len(header)
             pos = []
-            for line in res[4 : 4 + N]:
+            for coor_start in range(3, N):
+                if len(res[coor_start].split()) != 0:
+                    break
+
+            for line in res[coor_start : coor_start + N]:
                 line_content = line.split()
                 pos.append(line_content[start : start + 3])
             return np.array(pos, float)
@@ -108,11 +112,19 @@ class LabeledSystem:
 
     def _get_virial_stress(self, box):
         try:
-            stress_line = self.content.index("STRESS TENSOR [GPa]")
-            stress = np.array(
-                [i.split()[1:] for i in self.content[stress_line:].split("\n")[3:6]],
-                float,
-            )  # GPa
+            assert "STRESS TENSOR [GPa]" in self.content or "stress tensor [GPa]" in self.content
+            if "STRESS TENSOR [GPa]" in self.content: # DIAG
+                stress_line = self.content.index("STRESS TENSOR [GPa]")
+                stress = np.array(
+                    [i.split()[-3:] for i in self.content[stress_line:].split("\n")[3:6]],
+                    float,
+                )  # GPa
+            elif "stress tensor [GPa]" in self.content: # OT
+                stress_line = self.content.index("stress tensor [GPa]")
+                stress = np.array(
+                    [i.split()[-3:] for i in self.content[stress_line:].split("\n")[2:5]],
+                    float,
+                )  # GPa
 
             virial = (
                 stress
@@ -343,15 +355,16 @@ class DFT2NEPXYZ:
 
 
 if __name__ == "__main__":
-    # LS = LabeledSystem(r'D:\Study\Gra-Al\Read_AIMD\test.log')
-    # print(LS.data)
-    from glob import glob
+    #LS = LabeledSystem(r'C:\Users\herrwu\Desktop\output.log')
+    LS = LabeledSystem(r"D:\Study\Gra-Al\init_data\init_data\al4c3\Al4C3\scale_0.8\0\output.log")
+    print(LS.data)
+    # from glob import glob
 
-    DFT2NEPXYZ(
-        glob(r"D:\Study\Gra-Al\init_data\data\aluminum\FCC\scale_*\*\output.log") * 100,
-        force_max=None,
-        interval=None,
-        stress_max=100,
-    )
+    # DFT2NEPXYZ(
+    #     glob(r"D:\Study\Gra-Al\init_data\data\aluminum\FCC\scale_*\*\output.log") * 100,
+    #     force_max=None,
+    #     interval=None,
+    #     stress_max=100,
+    # )
     # MS = MultiLabeledSystem(r'D:\Study\Gra-Al\Read_AIMD\output.log')
     # print(MS.filename)

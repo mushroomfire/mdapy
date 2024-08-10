@@ -1501,13 +1501,12 @@ class System:
         self.PairDistribution = PairDistribution(
             rc,
             nbin,
-            self.rho,
+            self.box,
+            self.boundary,
             verlet_list,
             distance_list,
             neighbor_number,
             self.pos,
-            self.box,
-            self.boundary,
             self.__data["type"].to_numpy(),
         )
         self.PairDistribution.compute()
@@ -2080,11 +2079,17 @@ if __name__ == "__main__":
     # system.write_xyz('test_1.xyz')
     import taichi as ti
     ti.init()
-    ref = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.0.xyz')
-    ref.build_neighbor(5., max_neigh=70)
-    cur = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.1000.xyz')
-    cur.cal_atomic_strain(ref, rc=5.)
-    print(cur)
+    # ref = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.0.xyz')
+    # ref.build_neighbor(5., max_neigh=70)
+    # cur = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.1000.xyz')
+    # cur.cal_atomic_strain(ref, rc=5.)
+    # print(cur)
+
+    system = System("test.xyz")
+    system.cal_pair_distribution(8., 200)
+
+    system.PairDistribution.plot()
+    system.PairDistribution.plot_partial(['Al', 'Cu'])
 
     # filename_list = [rf'C:\Users\herrwu\Desktop\wrap_test\dump.{i}.xyz' for i in range(100, 10100, 100)]
     # MS = MultiSystem(filename_list, sorted_id=False, unwrap=True)

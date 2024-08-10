@@ -38,7 +38,7 @@ setup(
     packages=["mdapy"],
     ext_modules=[
         Pybind11Extension(
-            r"_cluster_analysis",
+            "_cluster_analysis",
             ["mdapy/cluster/_cluster.cpp"],
             language="c++",
         ),

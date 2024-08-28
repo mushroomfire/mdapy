@@ -195,7 +195,7 @@ class DFT2NEPXYZ:
         filename_list (list): all DFT output file you want to save, such as ['a/output.log', 'b/output.log']
         fmt (str, optional): DFT calculation code. Defaults to "CP2K-SCF".
         interval (int, optional): if provided, we will save it to test.xyz per interval. Defaults to 10.
-        energy_shift (dict, optional): if provided, the energy will substract the base energy, such as {'Fe':89.0, 'O':50.0}. Defaults to None.
+        energy_shift (dict, optional): unit is eV. Ff provided, the energy will substract the base energy, such as {'Fe':89.0, 'O':50.0}. Defaults to None.
         save_virial (bool, optional): if set False, the virial information will not be saved. Defaults to True.
         force_max (float, optional): if system's abusolute maximum force (in eV/A) is larger than this value, it will not be saved to train.xyz.
         stress_max (float, optional): if system's abusolute maximum stress (in GPa) is larger than this value, it will not be saved to train.xyz.
@@ -356,15 +356,23 @@ class DFT2NEPXYZ:
 
 if __name__ == "__main__":
     #LS = LabeledSystem(r'C:\Users\herrwu\Desktop\output.log')
-    LS = LabeledSystem(r"D:\Study\Gra-Al\init_data\init_data\al4c3\Al4C3\scale_0.8\0\output.log")
-    print(LS.data)
-    # from glob import glob
+    #LS = LabeledSystem(r"C:\Users\herrwu\Desktop\cxy_pho\output.log")
+    #print(len(LS.data['type_list']))
+    from glob import glob
+    energy_shift = {'Au':-33.138799856187710, 
+                'Mo': -67.841399471470552,
+                'S':-10.060550708954318,
+                'Y':-38.141847251215943}
+    for i in energy_shift.keys():
+        energy_shift[i] *= 27.2113838565563
+    print(energy_shift)
 
-    # DFT2NEPXYZ(
-    #     glob(r"D:\Study\Gra-Al\init_data\data\aluminum\FCC\scale_*\*\output.log") * 100,
-    #     force_max=None,
-    #     interval=None,
-    #     stress_max=100,
-    # )
+    DFT2NEPXYZ(
+        glob(r"C:\Users\herrwu\Desktop\cxy_pho\output.log"),
+        force_max=None,
+        interval=None,
+        stress_max=100,
+        energy_shift=energy_shift
+    )
     # MS = MultiLabeledSystem(r'D:\Study\Gra-Al\Read_AIMD\output.log')
     # print(MS.filename)

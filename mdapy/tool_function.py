@@ -14,13 +14,6 @@ except Exception:
     from .box import init_box
 
 import subprocess 
-
-
-
-    
-
-
-
    
 def run_cmd(command):
     result = subprocess.run(command, stdout=subprocess.PIPE, 

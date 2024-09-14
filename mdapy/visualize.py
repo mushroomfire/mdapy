@@ -136,8 +136,8 @@ class Visualize:
                     group="type_name",
                     name=f"{j} (Type {res[j]})",
                 )
-            pos = [0.0, 0.0]
         else:
+            pos = [0.0, 0.0]
             for i, j in enumerate(self.data["type"].unique()):
                 pos[0] = i * 0.05
                 if pos[0] > 0.45:

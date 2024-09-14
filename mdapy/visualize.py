@@ -87,16 +87,16 @@ class Visualize:
             if "type_name" in self.data.columns:
                 self.data = self.data.with_columns(
                     pl.col("type_name")
-                    .replace(ele_radius, default=1.0, return_dtype=pl.Float32)
+                    .replace(ele_radius, default=2.0, return_dtype=pl.Float32)
                     .alias("radius")
                 )
             else:
                 self.data = self.data.with_columns(
-                    pl.lit(1.0).cast(pl.Float32).alias("radius")
+                    pl.lit(2.0).cast(pl.Float32).alias("radius")
                 )
 
     def init_plot(self, vertices, indices):
-        self.plot = k3d.plot()
+        self.plot = k3d.plot(height=600)
         self.init_color()
         self.init_radius()
 

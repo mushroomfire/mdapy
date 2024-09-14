@@ -4,6 +4,7 @@
 Functions and classes to speed up compression of files by utilizing
 multiple cores on a system.
 """
+
 """
 The original file comes from https://github.com/bguise987/pigz-python/tree/master.
 mdapy changes some details to compress the dump to dump.gz.

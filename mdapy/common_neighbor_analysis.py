@@ -26,7 +26,7 @@ class CommonNeighborAnalysis:
     on which atoms can be divided into FCC, BCC, HCP and Other structure.
 
     .. note:: If one use this module in publication, one should also cite the original paper.
-      `Stukowski, A. (2012). Structure identification methods for atomistic simulations of crystalline materials. 
+      `Stukowski, A. (2012). Structure identification methods for atomistic simulations of crystalline materials.
       Modelling and Simulation in Materials Science and Engineering, 20(4), 045021. <https://doi.org/10.1088/0965-0393/20/4/045021>`_.
 
     .. hint:: We use the `same algorithm as in OVITO <https://www.ovito.org/docs/current/reference/pipelines/modifiers/common_neighbor_analysis.html#particles-modifiers-common-neighbor-analysis>`_.
@@ -51,7 +51,7 @@ class CommonNeighborAnalysis:
     where :math:`a` is the lattice constant and :math:`x=(c/a)/1.633` and 1.633 is the ideal ratio of :math:`c/a`
     in HCP structure.
 
-    Prof. Alexander Stukowski has improved this method using adaptive cutoff distances based on the atomic neighbor environment, which is the default method 
+    Prof. Alexander Stukowski has improved this method using adaptive cutoff distances based on the atomic neighbor environment, which is the default method
     in mdapy from version 0.11.1.
 
     The CNA method can recgonize the following structure:
@@ -63,7 +63,7 @@ class CommonNeighborAnalysis:
     5. ICO
 
     Args:
-        
+
         pos (np.ndarray): (:math:`N_p, 3`) particles positions.
         box (np.ndarray): (:math:`4, 3`) system box.
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
@@ -89,7 +89,7 @@ class CommonNeighborAnalysis:
 
         >>> neigh.compute() # Calculate particle neighbor information.
 
-        >>> CNA = mp.CommonNeighborAnalysis(FCC.pos, FCC.box, [1, 1, 1], 3.615*0.8536, 
+        >>> CNA = mp.CommonNeighborAnalysis(FCC.pos, FCC.box, [1, 1, 1], 3.615*0.8536,
                     neigh.verlet_list, neigh.neighbor_number) # Initialize CNA class
 
         >>> CNA.compute() # Calculate the CNA per atoms
@@ -101,7 +101,13 @@ class CommonNeighborAnalysis:
     """
 
     def __init__(
-        self, pos, box, boundary=[1, 1, 1], rc = None, verlet_list=None, neighbor_number=None
+        self,
+        pos,
+        box,
+        boundary=[1, 1, 1],
+        rc=None,
+        verlet_list=None,
+        neighbor_number=None,
     ):
         self.rc = rc
         box, inverse_box, rec = init_box(box)
@@ -148,12 +154,28 @@ class CommonNeighborAnalysis:
                 else:
                     neigh = NearestNeighbor(self.pos, self.box, self.boundary)
                     _, self.verlet_list = neigh.query_nearest_neighbors(14)
-                    
+
         self.pattern = np.zeros(self.N, dtype=np.int32)
         if self.rc is None:
-            _cna._acna(self.pos, self.box, self.inverse_box, np.bool_(self.boundary), self.verlet_list, self.pattern)
+            _cna._acna(
+                self.pos,
+                self.box,
+                self.inverse_box,
+                np.bool_(self.boundary),
+                self.verlet_list,
+                self.pattern,
+            )
         else:
-            _cna._fcna(self.pos, self.box, self.inverse_box, np.bool_(self.boundary), self.verlet_list, self.neighbor_number, self.pattern, self.rc)
+            _cna._fcna(
+                self.pos,
+                self.box,
+                self.inverse_box,
+                np.bool_(self.boundary),
+                self.verlet_list,
+                self.neighbor_number,
+                self.pattern,
+                self.rc,
+            )
         if self.old_N is not None:
             self.pattern = np.ascontiguousarray(self.pattern[: self.old_N])
 
@@ -182,7 +204,9 @@ if __name__ == "__main__":
     # end = time()
     # print(f"Build neighbor time: {end-start} s.")
     start = time()
-    CNA = CommonNeighborAnalysis(FCC.pos, FCC.box, [1, 1, 1])#, rc=lattice_constant*1.207)
+    CNA = CommonNeighborAnalysis(
+        FCC.pos, FCC.box, [1, 1, 1]
+    )  # , rc=lattice_constant*1.207)
     CNA.compute()
     end = time()
 

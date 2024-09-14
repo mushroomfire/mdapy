@@ -131,7 +131,7 @@ class CommonNeighborParameter:
         distance_list: ti.types.ndarray(),
         neighbor_number: ti.types.ndarray(),
         cnp: ti.types.ndarray(),
-        inverse_box: ti.types.ndarray(element_dim=1)
+        inverse_box: ti.types.ndarray(element_dim=1),
     ):
         for i in range(pos.shape[0]):
             N = 0
@@ -151,8 +151,12 @@ class CommonNeighborParameter:
                                     rik = pos[i] - pos[k]
                                     rjk = pos[j] - pos[k]
                                     if ti.static(self.rec):
-                                        rik = _pbc_rec(rik, self.boundary, self.box_length)
-                                        rjk = _pbc_rec(rjk, self.boundary, self.box_length)
+                                        rik = _pbc_rec(
+                                            rik, self.boundary, self.box_length
+                                        )
+                                        rjk = _pbc_rec(
+                                            rjk, self.boundary, self.box_length
+                                        )
                                     else:
                                         rik = _pbc(rik, self.boundary, box, inverse_box)
                                         rjk = _pbc(rjk, self.boundary, box, inverse_box)
@@ -186,7 +190,7 @@ class CommonNeighborParameter:
             self.distance_list,
             self.neighbor_number,
             self.cnp,
-            self.inverse_box
+            self.inverse_box,
         )
         if self.old_N is not None:
             self.cnp = self.cnp[: self.old_N]

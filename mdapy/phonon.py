@@ -51,9 +51,8 @@ class Phonon:
         symprec=1e-5,
         replicate=None,
         displacement=0.01,
-        cutoff_radius=None
+        cutoff_radius=None,
     ):
-
         if isinstance(path, str):
             self.path = np.array(path.split(), float).reshape(1, -1, 3)
         else:
@@ -94,7 +93,6 @@ class Phonon:
         self.get_force_constants()
 
     def build_phononAtoms(self):
-
         return PhonopyAtoms(
             symbols=self.type_name,
             cell=self.box,
@@ -102,7 +100,6 @@ class Phonon:
         )
 
     def get_force_constants(self):
-
         unitcell = self.build_phononAtoms()
 
         self.phonon = Phonopy(
@@ -123,7 +120,6 @@ class Phonon:
         )
 
         for cell in supercells:
-
             _, forces, _ = self.potential.compute(
                 cell.get_positions(),
                 np.r_[cell.get_cell(), np.zeros((1, 3))],
@@ -141,7 +137,6 @@ class Phonon:
             self.phonon.set_force_constants_zero_with_radius(float(self.cutoff_radius))
 
     def compute(self):
-
         qpoints, connections = get_band_qpoints_and_path_connections(
             self.path, npoints=101
         )
@@ -180,7 +175,6 @@ class Phonon:
         return fig, ax
 
     def plot_pdos(self):
-
         if self.pdos_dict is None:
             raise "call compute_pdos before plot_pdos."
 
@@ -226,7 +220,7 @@ class Phonon:
         for i in rgb:
             color += str(hex(i))[-2:].replace("x", "0").upper()
         return color
-    
+
     def _check_color(self, color):
         if color is None:
             color = "deepskyblue"
@@ -238,11 +232,10 @@ class Phonon:
             ), "Only support str or a three-elements rgb turple, such as [125, 125, 125]."
             color = self._rgb2hex(color)
         return color
-    
-    def _plot_lines(self, ax, units, filename, **kwargs):
 
-        if 'c' not in kwargs.keys() and 'color' not in kwargs.keys():
-            kwargs['c'] = 'deepskyblue'
+    def _plot_lines(self, ax, units, filename, **kwargs):
+        if "c" not in kwargs.keys() and "color" not in kwargs.keys():
+            kwargs["c"] = "deepskyblue"
 
         if filename is None:
             frequencies = self.bands_dict["frequencies"]
@@ -268,11 +261,14 @@ class Phonon:
             ax.set_xticklabels(self.labels)
         return h[0]
 
-    
-    def plot_dispersion(self, fig=None, ax=None, units='THz', filename=None,
-                        **kwargs, 
-                        ):
-
+    def plot_dispersion(
+        self,
+        fig=None,
+        ax=None,
+        units="THz",
+        filename=None,
+        **kwargs,
+    ):
         """This function is used to plot the phonon dispersion.
 
         Args:
@@ -318,7 +314,6 @@ class Phonon:
 
 
 if __name__ == "__main__":
-
     # Phonon.plot_dispersion_from_band_data(
     #     r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\aluminum\band.dat",
     #     "$\Gamma$ X U K $\Gamma$ L",
@@ -355,8 +350,8 @@ if __name__ == "__main__":
     # "0.0 0.0 0.0 0.5 0.5 0.5 0.8244 0.1755 0.5 0.5 0.0 0.0 0.0 0.0 0.0 0.3377 -0.337 0.0 0.5 0.0 0.5 0.0 0.0 0.0",
     # "$\Gamma$ T $H_2$ L $\Gamma$ $S_0$ F $\Gamma$",
     pho = Phonon(
-        '0.0 0.0 0.0 0.5 0.5 0.5 0.8244 0.1755 0.5 0.5 0.0 0.0 0.0 0.0 0.0 0.3377 -0.337 0.0 0.5 0.0 0.5 0.0 0.0 0.0',
-        '$\Gamma$ T $H_2$ L $\Gamma$ $S_0$ F $\Gamma$',
+        "0.0 0.0 0.0 0.5 0.5 0.5 0.8244 0.1755 0.5 0.5 0.0 0.0 0.0 0.0 0.0 0.3377 -0.337 0.0 0.5 0.0 0.5 0.0 0.0 0.0",
+        "$\Gamma$ T $H_2$ L $\Gamma$ $S_0$ F $\Gamma$",
         potential,
         system.pos,
         system.box,
@@ -364,7 +359,7 @@ if __name__ == "__main__":
         type_list=system.data["type"].to_numpy(),
         symprec=1e-3,
         displacement=0.01,
-        cutoff_radius=15.
+        cutoff_radius=15.0,
     )
 
     # pho = Phonon(
@@ -391,7 +386,7 @@ if __name__ == "__main__":
     plt.show()
     # fig, ax = pho.plot_dispersion_from_band_data(r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\graphene\band.dat", labels=pho.labels,
     #                                    fig=fig, ax=ax, color='b')
-    #plt.show()
+    # plt.show()
     # fig.show()
     # fig.savefig("test.png")
     # pho = Phonon(r"D:\Study\Gra-Al\init_data\cp2k_test\band_data\aluminum\band.dat")

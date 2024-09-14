@@ -208,7 +208,9 @@ class NearestNeighbor:
                                 kkcel % self.ncel[2],
                             ]
                             while j > -1:
-                                rij = _pbc(pos[j] - pos[i], self.boundary, box, inverse_box)
+                                rij = _pbc(
+                                    pos[j] - pos[i], self.boundary, box, inverse_box
+                                )
                                 rijdis = rij.norm()
                                 if rijdis < delta * self.bin_length and j != i:
                                     if nindex < K:
@@ -316,7 +318,7 @@ if __name__ == "__main__":
     ti.init(ti.cpu)
     system = mp.System(r"D:\Package\MyPackage\mdapy-tutorial\frame\Ti.data")
     system.replicate(20, 20, 20)
-    #print(system)
+    # print(system)
     start = time()
     kdt = NearestNeighbor(system.pos, system.box, system.boundary)
     end = time()

@@ -310,7 +310,7 @@ class SteinhardtBondOrientation:
 
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
-        
+
         box, inverse_box, rec = init_box(box)
         self.old_N = None
         if sum(repeat) == 3:
@@ -436,8 +436,6 @@ class SteinhardtBondOrientation:
             prefactor = -prefactor
         return prefactor
 
-
-
     @ti.kernel
     def _get_idx(self, qlist: ti.types.ndarray()) -> int:
         idxcg_count = 0
@@ -462,7 +460,7 @@ class SteinhardtBondOrientation:
         qnm_i: ti.types.ndarray(),
         qnarray: ti.types.ndarray(),
         cglist: ti.types.ndarray(),
-        inverse_box: ti.types.ndarray(element_dim=1)
+        inverse_box: ti.types.ndarray(element_dim=1),
     ):
         MY_EPSILON = 2.220446049250313e-15
         N = pos.shape[0]
@@ -636,7 +634,7 @@ class SteinhardtBondOrientation:
             self.qnm_i,
             self.qnarray,
             cglist,
-            self.inverse_box
+            self.inverse_box,
         )
         if self.old_N is not None:
             self.old_qnarray = self.qnarray.copy()

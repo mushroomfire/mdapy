@@ -84,7 +84,7 @@ class PolyhedralTemplateMatching:
         box, _, rec = init_box(box)
         if not rec:
             raise "Do not support triclinic box."
-        
+
         repeat = [1, 1, 1]
         if verlet_list is None:
             repeat = _check_repeat_nearest(pos, box, boundary)

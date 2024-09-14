@@ -42,7 +42,6 @@ class LabeledSystem:
     """
 
     def __init__(self, filename, fmt="CP2K-SCF"):
-
         self.filename = filename
         assert fmt in ["CP2K-SCF"], "Only support CP2K-SCF now."
         self.fmt = fmt
@@ -52,7 +51,9 @@ class LabeledSystem:
         pattern = r"Number of atoms:.*?(?:\n|$)"
         matches = re.findall(pattern, self.content, re.DOTALL)
         if matches:
-            return sum([int(i.split()[-1]) for i in matches]) # int(matches[-1].split()[-1]) # sum([int(i.split()[-1]) for i in matches]) # int(matches[-1].split()[-1]) #
+            return sum(
+                [int(i.split()[-1]) for i in matches]
+            )  # int(matches[-1].split()[-1]) # sum([int(i.split()[-1]) for i in matches]) # int(matches[-1].split()[-1]) #
         else:
             raise "No atom number found."
 
@@ -75,7 +76,6 @@ class LabeledSystem:
             raise "No box information found."
 
     def _get_position(self, N):
-
         pos_line = self.content.index("ATOMIC COORDINATES IN angstrom")
         if pos_line:
             res = self.content[pos_line:].split("\n")
@@ -112,17 +112,26 @@ class LabeledSystem:
 
     def _get_virial_stress(self, box):
         try:
-            assert "STRESS TENSOR [GPa]" in self.content or "stress tensor [GPa]" in self.content
-            if "STRESS TENSOR [GPa]" in self.content: # DIAG
+            assert (
+                "STRESS TENSOR [GPa]" in self.content
+                or "stress tensor [GPa]" in self.content
+            )
+            if "STRESS TENSOR [GPa]" in self.content:  # DIAG
                 stress_line = self.content.index("STRESS TENSOR [GPa]")
                 stress = np.array(
-                    [i.split()[-3:] for i in self.content[stress_line:].split("\n")[3:6]],
+                    [
+                        i.split()[-3:]
+                        for i in self.content[stress_line:].split("\n")[3:6]
+                    ],
                     float,
                 )  # GPa
-            elif "stress tensor [GPa]" in self.content: # OT
+            elif "stress tensor [GPa]" in self.content:  # OT
                 stress_line = self.content.index("stress tensor [GPa]")
                 stress = np.array(
-                    [i.split()[-3:] for i in self.content[stress_line:].split("\n")[2:5]],
+                    [
+                        i.split()[-3:]
+                        for i in self.content[stress_line:].split("\n")[2:5]
+                    ],
                     float,
                 )  # GPa
 
@@ -160,7 +169,7 @@ class LabeledSystem:
 
 #         self.filename = filename
 #         assert fmt in ["CP2K-AIMD"], "Only support CP2K-AIMD now."
-#         self.fmt = fmt 
+#         self.fmt = fmt
 
 #     def get_data(self):
 #         with open(self.filename) as op:
@@ -215,7 +224,6 @@ class DFT2NEPXYZ:
         stress_max=None,
         mode="w",
     ):
-
         self.filename_list = filename_list
         assert fmt in ["CP2K-SCF"], "Only support CP2K-SCF now."
         self.fmt = fmt
@@ -290,9 +298,8 @@ class DFT2NEPXYZ:
                 bar.set_description(f"Saving {frame+1} frames")
                 try:
                     LS = LabeledSystem(filename)
-                    #LS.get_data()
+                    # LS.get_data()
                     if self.force_max is not None and self.stress_max is not None:
-
                         if (
                             abs(LS.data["force"]).max() < self.force_max
                             and abs(LS.data["stress"].max()) < self.stress_max
@@ -330,7 +337,7 @@ class DFT2NEPXYZ:
                 bar.set_description(f"Saving {frame+1} frames")
                 try:
                     LS = LabeledSystem(filename)
-                    #LS.get_data()
+                    # LS.get_data()
                     if self.force_max is not None and self.stress_max is not None:
                         if (
                             abs(LS.data["force"]).max() < self.force_max
@@ -355,14 +362,17 @@ class DFT2NEPXYZ:
 
 
 if __name__ == "__main__":
-    #LS = LabeledSystem(r'C:\Users\herrwu\Desktop\output.log')
-    #LS = LabeledSystem(r"C:\Users\herrwu\Desktop\cxy_pho\output.log")
-    #print(len(LS.data['type_list']))
+    # LS = LabeledSystem(r'C:\Users\herrwu\Desktop\output.log')
+    # LS = LabeledSystem(r"C:\Users\herrwu\Desktop\cxy_pho\output.log")
+    # print(len(LS.data['type_list']))
     from glob import glob
-    energy_shift = {'Au':-33.138799856187710, 
-                'Mo': -67.841399471470552,
-                'S':-10.060550708954318,
-                'Y':-38.141847251215943}
+
+    energy_shift = {
+        "Au": -33.138799856187710,
+        "Mo": -67.841399471470552,
+        "S": -10.060550708954318,
+        "Y": -38.141847251215943,
+    }
     for i in energy_shift.keys():
         energy_shift[i] *= 27.2113838565563
     print(energy_shift)
@@ -372,7 +382,7 @@ if __name__ == "__main__":
         force_max=None,
         interval=None,
         stress_max=100,
-        energy_shift=energy_shift
+        energy_shift=energy_shift,
     )
     # MS = MultiLabeledSystem(r'D:\Study\Gra-Al\Read_AIMD\output.log')
     # print(MS.filename)

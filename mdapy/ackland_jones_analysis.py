@@ -95,7 +95,7 @@ class AcklandJonesAnalysis:
         verlet_list: ti.types.ndarray(),
         distance_list: ti.types.ndarray(),
         aja: ti.types.ndarray(),
-        inverse_box: ti.types.ndarray(element_dim=1)
+        inverse_box: ti.types.ndarray(element_dim=1),
     ):
         for i in range(pos.shape[0]):
             r0_sq = ti.f64(0.0)
@@ -185,12 +185,24 @@ class AcklandJonesAnalysis:
             pass
         elif self.verlet_list is not None and self.distance_list is not None:
             self._compute(
-                self.pos, self.box, self.verlet_list, self.distance_list, self.aja, self.inverse_box
+                self.pos,
+                self.box,
+                self.verlet_list,
+                self.distance_list,
+                self.aja,
+                self.inverse_box,
             )
         else:
             kdt = NearestNeighbor(self.pos, self.box, self.boundary)
             distance_list, verlet_list = kdt.query_nearest_neighbors(14)
-            self._compute(self.pos, self.box, verlet_list, distance_list, self.aja, self.inverse_box)
+            self._compute(
+                self.pos,
+                self.box,
+                verlet_list,
+                distance_list,
+                self.aja,
+                self.inverse_box,
+            )
         if self.old_N is not None:
             self.aja = self.aja[: self.old_N]
 

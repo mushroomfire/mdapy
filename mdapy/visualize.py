@@ -6,6 +6,7 @@ import numpy as np
 import polars as pl
 import taichi as ti
 import matplotlib as mpl
+
 try:
     from .box import init_box
     from .tool_function import ele_radius, ele_dict, struc_dict, type_dict
@@ -37,7 +38,6 @@ def value2color(
 
 
 class Visualize:
-
     def __init__(self, data, box) -> None:
         assert isinstance(data, pl.DataFrame)
         self.data = data
@@ -81,19 +81,25 @@ class Visualize:
                 self.atom_colored_by_atom_type_name()
             else:
                 self.atom_colored_by_atom_type()
-    
+
     def init_radius(self):
-        if 'radius' not in self.data.columns:
-            if 'type_name' in self.data.columns:
-                self.data = self.data.with_columns(pl.col('type_name').replace(ele_radius, default=1., return_dtype=pl.Float32).alias('radius'))
+        if "radius" not in self.data.columns:
+            if "type_name" in self.data.columns:
+                self.data = self.data.with_columns(
+                    pl.col("type_name")
+                    .replace(ele_radius, default=1.0, return_dtype=pl.Float32)
+                    .alias("radius")
+                )
             else:
-                self.data = self.data.with_columns(pl.lit(1.).cast(pl.Float32).alias('radius'))
+                self.data = self.data.with_columns(
+                    pl.lit(1.0).cast(pl.Float32).alias("radius")
+                )
 
     def init_plot(self, vertices, indices):
         self.plot = k3d.plot()
         self.init_color()
         self.init_radius()
-        
+
         self.box = k3d.lines(
             vertices,
             indices,
@@ -101,34 +107,52 @@ class Visualize:
             indices_type="segment",
             width=1.5,
             shader="simple",
-            group='box'
+            group="box",
         )
         self.atoms = k3d.points(
             self.data.select("x", "y", "z").to_numpy().astype(np.float32),
             colors=np.array(self.data["color"].to_numpy(), np.uint32),
             shader="3d",
-            point_sizes=self.data['radius'].to_numpy().astype(np.float32),
-            group='atoms'
+            point_sizes=self.data["radius"].to_numpy().astype(np.float32),
+            group="atoms",
         )
         self.plot += self.box
         self.plot += self.atoms
         self.plot.grid_visible = False
 
-        if 'type_name' in self.data.columns:
-            res = self.data.unique('type_name').sort('type').select('type_name', 'type')
-            res = {res[i, 0] : res[i, 1] for i in range(res.shape[0])}
+        if "type_name" in self.data.columns:
+            res = self.data.unique("type_name").sort("type").select("type_name", "type")
+            res = {res[i, 0]: res[i, 1] for i in range(res.shape[0])}
             pos = [0.0, 0.0]
-            for i, j in enumerate(self.data['type_name'].unique()):
+            for i, j in enumerate(self.data["type_name"].unique()):
                 pos[0] = i * 0.02
-                self.plot += k3d.text2d(j, position=pos, size=1.5, is_html=True, label_box=True, color=ele_dict[j], group='type_name', name=f'{j} (Type {res[j]})')
+                self.plot += k3d.text2d(
+                    j,
+                    position=pos,
+                    size=1.5,
+                    is_html=True,
+                    label_box=True,
+                    color=ele_dict[j],
+                    group="type_name",
+                    name=f"{j} (Type {res[j]})",
+                )
             pos = [0.0, 0.0]
         else:
-            for i, j in enumerate(self.data['type'].unique()):
+            for i, j in enumerate(self.data["type"].unique()):
                 pos[0] = i * 0.05
                 if pos[0] > 0.45:
-                    pos[0] = (i-10) * 0.05
+                    pos[0] = (i - 10) * 0.05
                     pos[1] = 0.07
-                self.plot += k3d.text2d(f'Type {j:2}', position=pos, size=1.5, is_html=True, label_box=True, color=type_dict[(j-1) % 9 + 1], group='type', name=f'Type {j}')
+                self.plot += k3d.text2d(
+                    f"Type {j:2}",
+                    position=pos,
+                    size=1.5,
+                    is_html=True,
+                    label_box=True,
+                    color=type_dict[(j - 1) % 9 + 1],
+                    group="type",
+                    name=f"Type {j}",
+                )
 
     def hide_object_by_group_name(self, name, remove=False):
         for i in self.plot.objects:
@@ -145,12 +169,12 @@ class Visualize:
                 i.visible = True
                 found_name = True
         if not found_name:
-            print(f'Did not find {name}.')
+            print(f"Did not find {name}.")
 
     def display(self):
         self.plot.display()
-        self.hide_object_by_group_name('type_name')
-        self.hide_object_by_group_name('type')
+        self.hide_object_by_group_name("type_name")
+        self.hide_object_by_group_name("type")
 
     def close(self):
         self.plot.close()
@@ -165,67 +189,75 @@ class Visualize:
         #     self.label = None
 
     def atom_colored_by_atom_type(self):
-        self.data = self.data.with_columns(((pl.col('type')-1) % 9 + 1).replace(type_dict, return_dtype=pl.UInt32).alias('color'))
-        if hasattr(self, 'atoms'):
+        self.data = self.data.with_columns(
+            ((pl.col("type") - 1) % 9 + 1)
+            .replace(type_dict, return_dtype=pl.UInt32)
+            .alias("color")
+        )
+        if hasattr(self, "atoms"):
             self.atoms.colors = np.array(self.data["color"].to_numpy(), np.uint32)
             self.delete_color_bar()
 
     def atom_colored_by_atom_type_name(self):
         n = 1
-        for i in self.data['type_name'].unique():
+        for i in self.data["type_name"].unique():
             if i not in ele_dict.keys():
                 ele_dict[i] = type_dict[n % 9]
                 n += 1
-        self.data = self.data.with_columns(pl.col('type_name').replace(ele_dict, return_dtype=pl.UInt32).alias('color'))
-        if hasattr(self, 'atoms'):
+        self.data = self.data.with_columns(
+            pl.col("type_name").replace(ele_dict, return_dtype=pl.UInt32).alias("color")
+        )
+        if hasattr(self, "atoms"):
             self.atoms.colors = np.array(self.data["color"].to_numpy(), np.uint32)
-            for i in ['ptm', 'cna', 'aja', 'ids']:
+            for i in ["ptm", "cna", "aja", "ids"]:
                 self.hide_object_by_group_name(i)
             self.delete_color_bar()
 
     def atom_colored_by_structure_type(self, method, show_label=False):
-        avia_method = ['ptm', 'cna', 'aja', 'ids']
+        avia_method = ["ptm", "cna", "aja", "ids"]
         assert method in avia_method
         assert method in self.data.columns
         N = self.data.shape[0]
         for i in avia_method:
             if method != i:
                 self.hide_object_by_group_name(i)
-        if method == 'ptm':
+        if method == "ptm":
             struc = {
-                0 : 'Other',
-                1 : 'FCC',
-                2 : 'HCP',
-                3 : 'BCC',
-                4 : 'ICO',
-                5 : 'Simple cubic',
-                6 : 'Cubic diamond',
-                7 : 'Hexagonal diamond',
-                8 : 'Graphene'
+                0: "Other",
+                1: "FCC",
+                2: "HCP",
+                3: "BCC",
+                4: "ICO",
+                5: "Simple cubic",
+                6: "Cubic diamond",
+                7: "Hexagonal diamond",
+                8: "Graphene",
             }
-        elif method == 'cna' or method == 'aja':
+        elif method == "cna" or method == "aja":
             struc = {
-                0 : 'Other',
-                1 : 'FCC',
-                2 : 'HCP',
-                3 : 'BCC',
-                4 : 'ICO',
+                0: "Other",
+                1: "FCC",
+                2: "HCP",
+                3: "BCC",
+                4: "ICO",
             }
-        elif method == 'ids':
+        elif method == "ids":
             struc = {
-             0 : 'Other',
-             1 : 'Cubic diamond',
-             2 : 'Cubic diamond (1st neighbor)',
-             3 : 'Cubic diamond (2nd neighbor)',
-             4 : 'Hexagonal diamond',
-             5 : 'Hexagonal diamond (1st neighbor)',
-             6 : 'Hexagonal diamond (2nd neighbor)',
+                0: "Other",
+                1: "Cubic diamond",
+                2: "Cubic diamond (1st neighbor)",
+                3: "Cubic diamond (2nd neighbor)",
+                4: "Hexagonal diamond",
+                5: "Hexagonal diamond (1st neighbor)",
+                6: "Hexagonal diamond (2nd neighbor)",
             }
 
-        color_struc = {i:struc_dict[struc[i]] for i in struc.keys()}
-        self.data = self.data.with_columns(pl.col(method).replace(color_struc, return_dtype=pl.UInt32).alias('color'))
+        color_struc = {i: struc_dict[struc[i]] for i in struc.keys()}
+        self.data = self.data.with_columns(
+            pl.col(method).replace(color_struc, return_dtype=pl.UInt32).alias("color")
+        )
         number = self.data.group_by(method).len()
-        number_dict = {number[i, 0] : number[i, 1] for i in range(number.shape[0])}
+        number_dict = {number[i, 0]: number[i, 1] for i in range(number.shape[0])}
         pos = [0.0, 0.0]
         for i in struc.keys():
             pos[1] = i * 0.07
@@ -233,11 +265,20 @@ class Visualize:
                 n = number_dict[i]
             else:
                 n = 0
-            self.plot += k3d.text2d(f'{struc[i]} {n} {(n/N)*100:.1f}%', position=pos, size=1.5, is_html=True, label_box=True, color=color_struc[i], group=method, name=struc[i])
+            self.plot += k3d.text2d(
+                f"{struc[i]} {n} {(n/N)*100:.1f}%",
+                position=pos,
+                size=1.5,
+                is_html=True,
+                label_box=True,
+                color=color_struc[i],
+                group=method,
+                name=struc[i],
+            )
 
         self.atoms.colors = np.array(self.data["color"].to_numpy(), np.uint32)
         if not show_label:
-            self.hide_object_by_group_name(method) 
+            self.hide_object_by_group_name(method)
 
         self.delete_color_bar()
 
@@ -245,15 +286,15 @@ class Visualize:
         value_name = values
         if isinstance(values, str):
             assert values in self.data.columns
-            if values != 'type_name':
+            if values != "type_name":
                 assert self.data[values].dtype in pl.NUMERIC_DTYPES
-            if values == 'type':
+            if values == "type":
                 self.atom_colored_by_atom_type()
                 return
-            elif values == 'type_name':
+            elif values == "type_name":
                 self.atom_colored_by_atom_type_name()
                 return
-            elif values in ['ptm', 'cna', 'aja', 'ids']:
+            elif values in ["ptm", "cna", "aja", "ids"]:
                 self.atom_colored_by_structure_type(values)
                 return
             values = self.data[values].to_numpy()
@@ -298,11 +339,10 @@ class Visualize:
                     is_html=True,
                     label_box=False,
                     color=0,
-                    group='colorbar'
+                    group="colorbar",
                 )
                 self.plot += self.label
             else:
                 self.label.text = value_name
                 self.label.visible = True
         self.data = self.data.with_columns(pl.lit(colors).alias("colors"))
-        

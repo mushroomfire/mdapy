@@ -106,7 +106,6 @@ class Container(list):
 
 @ti.data_oriented
 class DeleteOverlap:
-
     def __init__(self, pos, box, rc) -> None:
         self.pos = pos
         self.box, _, _ = init_box(box)
@@ -245,7 +244,7 @@ class CreatePolycrystalline:
         metal_latttice_constant=None,
         metal_lattice_type=None,
         randomseed=None,
-        metal_overlap_dis=2.,
+        metal_overlap_dis=2.0,
         add_graphene=False,
         gra_lattice_constant=1.42,
         metal_gra_overlap_dis=3.1,
@@ -278,7 +277,7 @@ class CreatePolycrystalline:
                 "BCC",
                 "HCP",
             ], "Only support lattice_type in ['FCC', 'BCC', 'HCP']."
-            assert self.metal_latttice_constant is not None 
+            assert self.metal_latttice_constant is not None
 
         if randomseed is None:
             self.randomseed = np.random.randint(0, 10000000)
@@ -305,7 +304,7 @@ class CreatePolycrystalline:
                 self.theta_list = np.random.rand(self.seednumber, 3) * 360 - 180
             else:
                 self.theta_list = theta_list
-                self.randomseed = 0 # No random
+                self.randomseed = 0  # No random
         else:
             self.theta_list = np.zeros((self.seednumber, 3))
         assert (
@@ -456,7 +455,9 @@ class CreatePolycrystalline:
         # r_max = np.sqrt(max([cell.max_radius_squared() for cell in cntr]))
         r_max = max([cell.cavity_radius() for cell in self.cntr])
         if self.filename is None:
-            lat = LatticeMaker(self.metal_latttice_constant, self.metal_lattice_type, 1, 1, 1)
+            lat = LatticeMaker(
+                self.metal_latttice_constant, self.metal_lattice_type, 1, 1, 1
+            )
             lat.compute()
             box_length = np.array([np.linalg.norm(i) for i in lat.box[:-1]])
             x, y, z = [int(i) for i in np.ceil(r_max / box_length)]
@@ -470,7 +471,7 @@ class CreatePolycrystalline:
             x, y, z = [int(i) for i in np.ceil(r_max / box_length)]
 
             FCC.replicate(x, y, z)
-        
+
         if self.add_graphene:
             gra_pos = []
             x1 = int(np.ceil(r_max / (self.gra_lattice_constant * 3)))
@@ -484,7 +485,11 @@ class CreatePolycrystalline:
             print(f"Generating grain {i}..., volume is {cell.volume()}")
             coeffs = self._cell_plane_coeffs(cell)
             pos = FCC.pos.copy()
-            a, b, c = self._rotate_pos(self.theta_list[i, 0], [1, 0, 0]), self._rotate_pos(self.theta_list[i, 1], [0, 1, 0]), self._rotate_pos(self.theta_list[i, 2], [0, 0, 1])
+            a, b, c = (
+                self._rotate_pos(self.theta_list[i, 0], [1, 0, 0]),
+                self._rotate_pos(self.theta_list[i, 1], [0, 1, 0]),
+                self._rotate_pos(self.theta_list[i, 2], [0, 0, 1]),
+            )
             rotate_matrix = a @ b @ c
             pos = np.matmul(pos, rotate_matrix)
             pos = pos - np.mean(pos, axis=0) + cell.pos
@@ -745,48 +750,38 @@ if __name__ == "__main__":
     # print(polycry.box)
 
     a = 4.033
-    y_height = 100*a
+    y_height = 100 * a
     x_height = y_height * 3**0.5
-    delta = x_height/6
-    box = np.array([
-        [x_height, 0, 0],
-        [0, y_height, 0],
-        [0, 0, a*20],
-        [0, 0, 0]
-    ]
-    )
+    delta = x_height / 6
+    box = np.array([[x_height, 0, 0], [0, y_height, 0], [0, 0, a * 20], [0, 0, 0]])
     y = y_height / 2
-    z = a*10
-    seed = np.array([
-        [0, 0, z],
-        [delta, y, z],
-        [2*delta, 0, z],
-        [3*delta, y, z],
-        [4*delta, 0, z],
-        [5*delta, y, z]
-    ])
+    z = a * 10
+    seed = np.array(
+        [
+            [0, 0, z],
+            [delta, y, z],
+            [2 * delta, 0, z],
+            [3 * delta, y, z],
+            [4 * delta, 0, z],
+            [5 * delta, y, z],
+        ]
+    )
 
     seed[:, 0] += 60
-    theta_list = np.array([
-        [0, 0, 0],
-        [0, 0, 30],
-        [0, 0, 60],
-        [0, 0, 0],
-        [0, 0, 30],
-        [0, 0, 60]
-    ])
+    theta_list = np.array(
+        [[0, 0, 0], [0, 0, 30], [0, 0, 60], [0, 0, 0], [0, 0, 30], [0, 0, 60]]
+    )
     # poly = CreatePolycrystalline(box, len(seed), None, 4.033, 'FCC', metal_overlap_dis=a/2**0.5-0.1, seed=seed, theta_list=theta_list)
     # poly.compute()
-    box = np.array([
-        [500, 0, 0],
-        [0, 150, 0],
-        [0, 0, 150],
-        [0, 0, 0]
-    ]
+    box = np.array([[500, 0, 0], [0, 150, 0], [0, 0, 150], [0, 0, 0]])
+    poly = CreatePolycrystalline(
+        box,
+        10,
+        r"C:\Users\herrwu\Desktop\xyz\CubicDiamond.xyz",
+        metal_overlap_dis=1.5,
+        randomseed=1,
+        output_name=r"D:\Study\Diamond\model\Cubic\model.xyz",
     )
-    poly = CreatePolycrystalline(box, 10, r'C:\Users\herrwu\Desktop\xyz\CubicDiamond.xyz', 
-                                 metal_overlap_dis=1.5, randomseed=1,
-                                 output_name=r'D:\Study\Diamond\model\Cubic\model.xyz')
     poly.compute()
     # box = np.array([
     #     [600, 0, 0],

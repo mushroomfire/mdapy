@@ -10,7 +10,7 @@ try:
         build_cell_rec,
         build_cell_rec_with_jishu,
         build_cell_tri,
-        build_cell_tri_with_jishu
+        build_cell_tri_with_jishu,
     )
 except Exception:
     from box import init_box, _pbc, _pbc_rec
@@ -18,7 +18,7 @@ except Exception:
         build_cell_rec,
         build_cell_rec_with_jishu,
         build_cell_tri,
-        build_cell_tri_with_jishu
+        build_cell_tri_with_jishu,
     )
 
 
@@ -63,12 +63,11 @@ class Neighbor:
     """
 
     def __init__(self, pos, box, rc, boundary=[1, 1, 1], max_neigh=None):
-
         if pos.dtype != np.float64:
             self.pos = pos.astype(np.float64)
         else:
             self.pos = pos
-        
+
         self.box, self.inverse_box, self.rec = init_box(box)
         self.rc = rc
         self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
@@ -114,7 +113,11 @@ class Neighbor:
                 )
             else:
                 r = pos[i] - box[3]
-                n = r[0] * inverse_box[0] + r[1] * inverse_box[1] + r[2] * inverse_box[2]
+                n = (
+                    r[0] * inverse_box[0]
+                    + r[1] * inverse_box[1]
+                    + r[2] * inverse_box[2]
+                )
                 icel = ti.floor((n[0] * box[0]).norm() / self.bin_length, int)
                 jcel = ti.floor((n[1] * box[1]).norm() / self.bin_length, int)
                 kcel = ti.floor((n[2] * box[2]).norm() / self.bin_length, int)
@@ -141,9 +144,13 @@ class Neighbor:
                         ]
                         while j > -1:
                             if ti.static(self.rec):
-                                rij = _pbc_rec(pos[j] - pos[i], self.boundary, self.box_length)
+                                rij = _pbc_rec(
+                                    pos[j] - pos[i], self.boundary, self.box_length
+                                )
                             else:
-                                rij = _pbc(pos[j] - pos[i], self.boundary, box, inverse_box)
+                                rij = _pbc(
+                                    pos[j] - pos[i], self.boundary, box, inverse_box
+                                )
                             rijdis_sq = rij[0] ** 2 + rij[1] ** 2 + rij[2] ** 2
                             if rijdis_sq <= rcsq and j != i:
                                 verlet_list[i, nindex] = j
@@ -183,9 +190,11 @@ class Neighbor:
                     self.bin_length,
                     max_neigh_list,
                 )
-            self.max_neigh = max_neigh_list.max() * 4 # np.partition(max_neigh_list.flatten(), -4)[-4:].sum()
+            self.max_neigh = (
+                max_neigh_list.max() * 4
+            )  # np.partition(max_neigh_list.flatten(), -4)[-4:].sum()
             need_check = False
-            #print(max_neigh_list, self.max_neigh)
+            # print(max_neigh_list, self.max_neigh)
         else:
             if self.rec:
                 build_cell_rec(
@@ -221,7 +230,7 @@ class Neighbor:
             self.distance_list,
             self.neighbor_number,
             self.box,
-            self.inverse_box
+            self.inverse_box,
         )
 
         if need_check:
@@ -261,10 +270,12 @@ class Neighbor:
         Args:
             N (int): number of sorted values
         """
-        
+
         if not self._if_computed:
             self.compute()
-        assert self.neighbor_number.min() >= N, f"N should lower than {self.neighbor_number.min()}."
+        assert (
+            self.neighbor_number.min() >= N
+        ), f"N should lower than {self.neighbor_number.min()}."
         self._partition_select_sort(self.verlet_list, self.distance_list, N)
 
 
@@ -296,9 +307,9 @@ if __name__ == "__main__":
     #     print(neigh.verlet_list[0])
     #     print(neigh.neighbor_number[0])
     #     print(neigh.distance_list[0])
-        #print(np.linalg.norm(neigh.pos[5]-neigh.pos[0]))
-        # print(neigh.verlet_list.shape)
-        # print(neigh.distance_list.dtype)
+    # print(np.linalg.norm(neigh.pos[5]-neigh.pos[0]))
+    # print(neigh.verlet_list.shape)
+    # print(neigh.distance_list.dtype)
     # print(neigh.verlet_list.shape[1])
     # print(neigh.neighbor_number.max())
     # print(neigh.neighbor_number.min())

@@ -56,15 +56,18 @@ class SpatialBinning:
     def __init__(self, pos, direction, vbin, wbin=5.0, operation="mean") -> None:
         self.pos = pos
         self.N = self.pos.shape[0]
-        assert direction in [
-            "x",
-            "y",
-            "z",
-            "xy",
-            "xz",
-            "yz",
-            "xyz",
-        ], f"unsupported direction {direction}. chosen in ['x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz']"
+        assert (
+            direction
+            in [
+                "x",
+                "y",
+                "z",
+                "xy",
+                "xz",
+                "yz",
+                "xyz",
+            ]
+        ), f"unsupported direction {direction}. chosen in ['x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz']"
         self.direction = direction
         assert vbin.shape[0] == self.N, "shpae dismatchs between pos and vbin."
         if vbin.ndim == 1:

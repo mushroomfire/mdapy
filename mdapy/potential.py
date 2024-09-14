@@ -136,7 +136,7 @@ class EAMCalculator:
             self.pos = repli.pos
             self.box, self.inverse_box, self.rec = init_box(repli.box)
             self.init_type_list = repli.type_list
-        
+
         self.box_length = ti.Vector([np.linalg.norm(self.box[i]) for i in range(3)])
         self.boundary = ti.Vector([int(boundary[i]) for i in range(3)])
         self.elements_list = elements_list
@@ -196,7 +196,7 @@ class EAMCalculator:
         virial: ti.types.ndarray(),
         elec_density: ti.types.ndarray(),
         d_embedded_rho: ti.types.ndarray(),
-        inverse_box: ti.types.ndarray(element_dim=1)
+        inverse_box: ti.types.ndarray(element_dim=1),
     ):
         N = verlet_list.shape[0]
 
@@ -356,7 +356,7 @@ class EAMCalculator:
             self.virial,
             elec_density,
             d_embedded_rho,
-            self.inverse_box
+            self.inverse_box,
         )
         self.virial /= -2.0
         if self.old_N is not None:
@@ -730,7 +730,6 @@ class NEP(BasePotential):
     """
 
     def __init__(self, filename) -> None:
-
         self.filename = filename
         self._nep = NEPCalculator(filename)
         self.info = self._nep.info
@@ -793,7 +792,7 @@ class NEP(BasePotential):
         Returns:
             np.ndarray: descriptor.
         """
-        
+
         box, _, _ = init_box(box)
 
         for i in elements_list:
@@ -916,7 +915,6 @@ class LammpsPotential(BasePotential):
         extra_args=None,
         conversion_factor=None,
     ):
-
         self.pair_parameter = pair_parameter
         self.units = units
         self.atomic_style = atomic_style
@@ -1030,7 +1028,6 @@ class LammpsPotential(BasePotential):
 
 
 if __name__ == "__main__":
-
     from lattice_maker import LatticeMaker
     from time import time
     from system import System

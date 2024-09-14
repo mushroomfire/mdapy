@@ -404,7 +404,7 @@ if __name__ == "__main__":
     FCC.compute()
     print(FCC.box)
     print(FCC.pos)
-    FCC.write_xyz(r'D:\Package\MyPackage\numba_Learn\fcc.xyz', type_name=['Al'])
+    FCC.write_xyz(r"D:\Package\MyPackage\numba_Learn\fcc.xyz", type_name=["Al"])
     # print("Atom number is:", FCC.N)
     # FCC.write_xyz(type_name=["Al", "Cu"])
     # FCC.write_data(type_name=["Al", "Cu", "C"])

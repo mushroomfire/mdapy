@@ -100,18 +100,13 @@ class PairDistribution:
         self.distance_list = distance_list
         self.neighbor_number = neighbor_number
 
-
-        if (
-            verlet_list is None
-            or distance_list is None
-            or neighbor_number is None
-        ):
+        if verlet_list is None or distance_list is None or neighbor_number is None:
             assert pos is not None
             if pos.dtype != np.float64:
                 pos = pos.astype(np.float64)
-            
+
             repeat = _check_repeat_cutoff(self.box, self.boundary, self.rc)
-            
+
             if sum(repeat) == 3:
                 self.pos = pos
             else:
@@ -144,14 +139,11 @@ class PairDistribution:
                 neigh.neighbor_number,
             )
         r = np.linspace(0, self.rc, self.nbin + 1)
-        const = (4.0 * np.pi / 3.0 * (r[1:] ** 3 - r[:-1] ** 3) ) / self.vol
+        const = (4.0 * np.pi / 3.0 * (r[1:] ** 3 - r[:-1] ** 3)) / self.vol
         if self.Ntype > 1:
             number_per_type = np.array(
-                    [
-                        len(self.type_list[self.type_list == i])
-                        for i in range(self.Ntype)
-                    ]
-                )
+                [len(self.type_list[self.type_list == i]) for i in range(self.Ntype)]
+            )
             self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
             _rdf(
                 self.verlet_list,
@@ -167,16 +159,17 @@ class PairDistribution:
             for i in range(self.Ntype):
                 for j in range(self.Ntype):
                     self.g_total += self.g[i, j]
-            
-            
-            self.g_total = self.g_total / const / (self.N)**2
+
+            self.g_total = self.g_total / const / (self.N) ** 2
 
             for i in range(self.Ntype):
                 for j in range(self.Ntype):
-                        self.g[i, j] = self.g[i, j] / (number_per_type[i] * number_per_type[j])
-            
+                    self.g[i, j] = self.g[i, j] / (
+                        number_per_type[i] * number_per_type[j]
+                    )
+
             self.g = self.g / const
- 
+
         else:
             self.g_total = np.zeros(self.nbin)
             _rdf_single_species(
@@ -187,7 +180,7 @@ class PairDistribution:
                 self.rc,
                 self.nbin,
             )
-            self.g_total = self.g_total / const / (self.N)**2
+            self.g_total = self.g_total / const / (self.N) ** 2
             self.r = (r[1:] + r[:-1]) / 2
             self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
 
@@ -282,10 +275,10 @@ if __name__ == "__main__":
     start = time()
     lattice_constant = 3.615
     x, y, z = 1, 2, 3
-    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z, type_list=[1, 2, 2, 2]) # 
+    FCC = LatticeMaker(lattice_constant, "FCC", x, y, z, type_list=[1, 2, 2, 2])  #
     FCC.compute()
     end = time()
-    FCC.write_xyz('test.xyz', type_name=['Al', 'Cu'])
+    FCC.write_xyz("test.xyz", type_name=["Al", "Cu"])
     print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
     # FCC.write_data()
     # start = time()
@@ -299,7 +292,7 @@ if __name__ == "__main__":
     # type_list = np.r_[
     #     np.ones(int(FCC.N / 2), dtype=int), np.ones(int(FCC.N / 2), dtype=int) + 1
     # ]
-    #type_list = np.ones(FCC.N, int)
+    # type_list = np.ones(FCC.N, int)
     gr = PairDistribution(
         rc,
         200,

@@ -80,7 +80,6 @@ class PerturbModel:
         save_type="cp2k",
         fmt=None,
     ) -> None:
-
         if filename is not None:
             system = System(filename, fmt=fmt)
             system.replicate(x, y, z)

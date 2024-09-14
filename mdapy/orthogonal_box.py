@@ -14,9 +14,9 @@ except Exception:
     from replicate import Replicate
     from tool_function import _wrap_pos
 
+
 @ti.data_oriented
 class OrthogonalBox:
-
     def __init__(self, pos, box, type_list=None) -> None:
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
@@ -27,23 +27,23 @@ class OrthogonalBox:
         else:
             assert len(type_list) == self.pos.shape[0]
             self.type_list = type_list
-    
+
     @ti.kernel
     def _find_orthogonal_vectors(
         self,
-        trans:ti.types.ndarray(),
-        box:ti.types.ndarray(element_dim=1),
-        N:int,
-        delta:float
+        trans: ti.types.ndarray(),
+        box: ti.types.ndarray(element_dim=1),
+        N: int,
+        delta: float,
     ):
         x = y = z = False
         while not (x and y and z):
-            for ii in range(2*N):
-                for jj in range(2*N):
-                    for kk in range(2*N):
-                        i = ii-N
-                        j = jj-N
-                        k = kk-N
+            for ii in range(2 * N):
+                for jj in range(2 * N):
+                    for kk in range(2 * N):
+                        i = ii - N
+                        j = jj - N
+                        k = kk - N
                         vec = i * box[0] + j * box[1] + k * box[2]
                         if not x:
                             if abs(vec[1]) < delta and abs(vec[2]) < delta:
@@ -63,17 +63,20 @@ class OrthogonalBox:
                                 trans[2, 0] = i
                                 trans[2, 1] = j
                                 trans[2, 2] = k
-    
 
     def compute(self, N=10):
-        delta=1e-6
+        delta = 1e-6
         trans = np.zeros((3, 3), int)
         self._find_orthogonal_vectors(trans, self.box, N, delta)
-        for i, j in zip(trans, ['x', 'y', 'z']):
-            assert sum(i)!=0, f"Not found proper vector along {j} direction. Try to increase N."
-        trans = np.array([i//gcd(*i) for i in np.array([i//gcd(*i) for i in trans])])
+        for i, j in zip(trans, ["x", "y", "z"]):
+            assert (
+                sum(i) != 0
+            ), f"Not found proper vector along {j} direction. Try to increase N."
+        trans = np.array(
+            [i // gcd(*i) for i in np.array([i // gcd(*i) for i in trans])]
+        )
         rec_box = np.abs(np.dot(trans, self.box[:-1]))
-        rec_box[np.abs(rec_box) < delta] = 0.
+        rec_box[np.abs(rec_box) < delta] = 0.0
         rec_box, inverse_box, _ = init_box(rec_box)
         replicate = [1, 1, 1]
         for i in range(3):
@@ -91,10 +94,11 @@ class OrthogonalBox:
         self.rec_type_list = rec_type_list
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ti.init()
     from system import System
-    hex_C = System(r'C:\Users\herrwu\Desktop\xyz\C.cif')
+
+    hex_C = System(r"C:\Users\herrwu\Desktop\xyz\C.cif")
 
     # box = np.array([
     #    [2.52699457, 0.        , 0.        ],
@@ -109,11 +113,10 @@ if __name__ == '__main__':
 
     rec = OrthogonalBox(hex_C.pos, hex_C.box)
     rec.compute()
-    print('Rectangular box without reduce_box:')
+    print("Rectangular box without reduce_box:")
     print(rec.rec_box)
-    print('Rectangular pos without reduce_box::')
+    print("Rectangular pos without reduce_box::")
     print(rec.rec_pos)
 
-    system = System(pos = rec.rec_pos, box=rec.rec_box, type_list=rec.rec_type_list)
-    system.write_xyz('HexDiamond.xyz', type_name=['C'])
-
+    system = System(pos=rec.rec_pos, box=rec.rec_box, type_list=rec.rec_type_list)
+    system.write_xyz("HexDiamond.xyz", type_name=["C"])

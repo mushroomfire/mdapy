@@ -212,7 +212,6 @@ def box2lines(box):
 def box2axis(box):
     new_box, _, _ = init_box(box)
 
-
     AB = new_box[0]
     AD = new_box[1]
     AA1 = new_box[2]
@@ -767,7 +766,14 @@ def radiul_distribution_function():
 
 
 def atomic_entropy():
-    global system, atoms, entropy_rc, entropy_sigma, entropy_use_local_density, entropy_compute_average, entropy_average_rc
+    global \
+        system, \
+        atoms, \
+        entropy_rc, \
+        entropy_sigma, \
+        entropy_use_local_density, \
+        entropy_compute_average, \
+        entropy_average_rc
     if psim.TreeNode("Atomic Entropy"):
         _, entropy_rc = psim.InputFloat("cutoff distance", entropy_rc)
         _, entropy_sigma = psim.InputFloat("sigma", entropy_sigma)
@@ -970,9 +976,33 @@ def steinhardt_bond_orientation():
 
 
 def polyhedral_template_matching():
-    global system, atoms, Other, FCC, HCP, BCC, ICO, Simple_Cubic, Cubic_Diamond, Hexagonal_Diamond, Graphene
-    global ptm_other, ptm_fcc, ptm_hcp, ptm_bcc, ptm_ico, ptm_scubic, ptm_dcubic, ptm_dhex, ptm_gra
-    global ptm_return_rmsd, ptm_return_interatomic_distance, ptm_return_wxyz, ptm_rmsd_threshold
+    global \
+        system, \
+        atoms, \
+        Other, \
+        FCC, \
+        HCP, \
+        BCC, \
+        ICO, \
+        Simple_Cubic, \
+        Cubic_Diamond, \
+        Hexagonal_Diamond, \
+        Graphene
+    global \
+        ptm_other, \
+        ptm_fcc, \
+        ptm_hcp, \
+        ptm_bcc, \
+        ptm_ico, \
+        ptm_scubic, \
+        ptm_dcubic, \
+        ptm_dhex, \
+        ptm_gra
+    global \
+        ptm_return_rmsd, \
+        ptm_return_interatomic_distance, \
+        ptm_return_wxyz, \
+        ptm_rmsd_threshold
 
     if psim.TreeNode("Polyhedral Template Matching"):
         psim.TextUnformatted("Select which structure you want to identify:")
@@ -1136,7 +1166,15 @@ def voronoi_analysis():
 
 
 def identify_species():
-    global system, atoms, species_element_list, identify_mode_default, identify_mode, search_species, check_most, species
+    global \
+        system, \
+        atoms, \
+        species_element_list, \
+        identify_mode_default, \
+        identify_mode, \
+        search_species, \
+        check_most, \
+        species
 
     if psim.TreeNode("Identify Species"):
         _, species_element_list = psim.InputText("elemental name", species_element_list)
@@ -1381,7 +1419,15 @@ def atomic_temperature():
 
 
 def spatial_binning():
-    global spatial_directions, spatial_direction_default, input_values, input_value_default, wbin, operations, operation_default, binning_plot
+    global \
+        spatial_directions, \
+        spatial_direction_default, \
+        input_values, \
+        input_value_default, \
+        wbin, \
+        operations, \
+        operation_default, \
+        binning_plot
 
     if psim.TreeNode("Spatial Binning"):
         try:
@@ -1507,8 +1553,19 @@ def spatial_binning():
 
 
 def build_polycrystal():
-    global box_length, grain_number, metal_lattice_type_default, metal_lattice_type_list, metal_lattice_constant, random_seed
-    global metal_overlap_dis, add_graphene, gra_lattice_constant, metal_gra_overlap_dis, gra_overlap_dis
+    global \
+        box_length, \
+        grain_number, \
+        metal_lattice_type_default, \
+        metal_lattice_type_list, \
+        metal_lattice_constant, \
+        random_seed
+    global \
+        metal_overlap_dis, \
+        add_graphene, \
+        gra_lattice_constant, \
+        metal_gra_overlap_dis, \
+        gra_overlap_dis
 
     if psim.TreeNode("Build Polycrystal"):
         psim.TextUnformatted("Given the box length along x, y, z directions.")
@@ -1599,7 +1656,16 @@ def build_polycrystal():
 
 
 def build_lattice():
-    global lattice_type_default, lattice_type_list, lattice_constant, lrx, lry, lrz, orientation_x, orientation_y, orientation_z
+    global \
+        lattice_type_default, \
+        lattice_type_list, \
+        lattice_constant, \
+        lrx, \
+        lry, \
+        lrz, \
+        orientation_x, \
+        orientation_y, \
+        orientation_z
     if psim.TreeNode("Build Lattice"):
         psim.PushItemWidth(100)
         changed = psim.BeginCombo("Lattice Type", lattice_type_default)

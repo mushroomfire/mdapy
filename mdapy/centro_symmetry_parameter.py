@@ -149,7 +149,15 @@ class CentroSymmetryParameter:
                 _, verlet_list = kdt.query_nearest_neighbors(self.N)
             loop_index = np.zeros((int(self.N * (self.N - 1) / 2), 2), dtype=int)
             pair = np.zeros((self.pos.shape[0], int(self.N * (self.N - 1) / 2)))
-            self._get_csp(pair, self.pos, self.box, verlet_list, loop_index, self.csp, self.inverse_box)
+            self._get_csp(
+                pair,
+                self.pos,
+                self.box,
+                verlet_list,
+                loop_index,
+                self.csp,
+                self.inverse_box,
+            )
         if self.old_N is not None:
             self.csp = np.ascontiguousarray(self.csp[: self.old_N])
 

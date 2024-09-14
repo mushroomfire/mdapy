@@ -145,7 +145,7 @@ class CellOptimization:
             index = np.array(lmp.numpy.extract_atom("id"))
             pos = np.array(lmp.numpy.extract_atom("x"))
             type_list = np.array(lmp.numpy.extract_atom("type"))
-            #print(lmp.extract_box())
+            # print(lmp.extract_box())
             box = self.to_mdapy_box(lmp.extract_box())
         except Exception as e:
             lmp.close()
@@ -185,20 +185,20 @@ if __name__ == "__main__":
     # FCC.compute()
     # end = time()
     # print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-    FCC = mp.System(r'D:\Study\Gra-Al\potential_test\phonon\alc\Al4C3.lmp')
+    FCC = mp.System(r"D:\Study\Gra-Al\potential_test\phonon\alc\Al4C3.lmp")
     start = time()
     cpt = CellOptimization(
         FCC.pos,
         FCC.box,
-        FCC.data['type'].to_numpy(),
-        ["Al", 'C'],
+        FCC.data["type"].to_numpy(),
+        ["Al", "C"],
         [1, 1, 1],
         r"""pair_style nep D:\Study\Gra-Al\potential_test\phonon\alc\nep.txt
         pair_coeff * *""",
     )
     data, box = cpt.compute()
     end = time()
-    #"pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al"
+    # "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al"
     print(f"Cell opt time: {end-start} s.")
     print(data)
     print(box)

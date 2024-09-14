@@ -54,7 +54,7 @@ class Replicate:
             pos = pos.astype(np.float64)
         self.old_pos = pos
         self.old_box, _, _ = init_box(box)
-        
+
         assert x > 0 and isinstance(x, int), "x should be a positive integer."
         self.x = x
         assert y > 0 and isinstance(y, int), "y should be a positive integer."
@@ -293,7 +293,7 @@ if __name__ == "__main__":
     print(repli.box)
     print(repli.type_list)
     # repli.write_xyz(type_name=["Al", "Cu"])
-    #repli.write_data(type_name=["Al", "Cu"])
+    # repli.write_data(type_name=["Al", "Cu"])
     # repli.write_data()
     # repli.write_dump()
     # repli.write_dump(compress=True)

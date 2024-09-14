@@ -87,7 +87,7 @@ class SaveFile:
                 lattice_str + " " + properties_str + " " + pbc_str + " " + origin_str
             )
             for key, value in kargs.items():
-                if key.lower() not in ['lattice', 'pbc', 'properties']:
+                if key.lower() not in ["lattice", "pbc", "properties"]:
                     try:
                         comments += f" {key}={value}"
                     except Exception as e:
@@ -197,15 +197,13 @@ class SaveFile:
             assert col in data.columns, f"data must contain {col}."
 
         data = data.sort("type").with_columns(
-                pl.col("x") - box[-1, 0],
-                pl.col("y") - box[-1, 1],
-                pl.col("z") - box[-1, 2],
-            )
+            pl.col("x") - box[-1, 0],
+            pl.col("y") - box[-1, 1],
+            pl.col("z") - box[-1, 2],
+        )
 
         if reduced_pos:
-            new_pos = np.dot(
-                np.c_[data["x"], data["y"], data["z"]], inverse_box
-            )
+            new_pos = np.dot(np.c_[data["x"], data["y"], data["z"]], inverse_box)
             data = data.with_columns(
                 pl.lit(new_pos[:, 0]).alias("x"),
                 pl.lit(new_pos[:, 1]).alias("y"),
@@ -281,7 +279,7 @@ class SaveFile:
         # Check whether need to rotate
         need_rotation = False
         if new_box[0, 1] != 0 or new_box[0, 2] != 0 or new_box[1, 2] != 0:
-            need_rotation = True 
+            need_rotation = True
         if need_rotation:
             if isinstance(data, pl.DataFrame):
                 for col in ["id", "type", "x", "y", "z"]:
@@ -308,9 +306,8 @@ class SaveFile:
             box[2, 1] = yz
             box[2, 2] = lz
             box[np.abs(box) < 1e-6] = 0.0
-            new_box = box 
+            new_box = box
             pos = pos @ new_box[:-1]
-
 
         assert data_format in [
             "atomic",
@@ -319,9 +316,9 @@ class SaveFile:
         if isinstance(data, pl.DataFrame):
             if need_rotation:
                 data = data.with_columns(
-                    pl.lit(pos[:, 0]).alias('x'),
-                    pl.lit(pos[:, 1]).alias('y'),
-                    pl.lit(pos[:, 2]).alias('z'),
+                    pl.lit(pos[:, 0]).alias("x"),
+                    pl.lit(pos[:, 1]).alias("y"),
+                    pl.lit(pos[:, 2]).alias("z"),
                 )
         else:
             assert pos.shape[1] == 3
@@ -413,7 +410,7 @@ class SaveFile:
         # Check whether need to rotate
         need_rotation = False
         if new_box[0, 1] != 0 or new_box[0, 2] != 0 or new_box[1, 2] != 0:
-            need_rotation = True 
+            need_rotation = True
         if need_rotation:
             if isinstance(data, pl.DataFrame):
                 for col in ["id", "type", "x", "y", "z"]:
@@ -440,14 +437,14 @@ class SaveFile:
             box[2, 1] = yz
             box[2, 2] = lz
             box[np.abs(box) < 1e-6] = 0.0
-            new_box = box 
+            new_box = box
             pos = pos @ new_box[:-1]
         if isinstance(data, pl.DataFrame):
             if need_rotation:
                 data = data.with_columns(
-                    pl.lit(pos[:, 0]).alias('x'),
-                    pl.lit(pos[:, 1]).alias('y'),
-                    pl.lit(pos[:, 2]).alias('z'),
+                    pl.lit(pos[:, 0]).alias("x"),
+                    pl.lit(pos[:, 1]).alias("y"),
+                    pl.lit(pos[:, 2]).alias("z"),
                 )
         else:
             assert pos.shape[1] == 3
@@ -612,7 +609,7 @@ class BuildSystem:
         boundary = [int(i) for i in boundary]
         data = pl.DataFrame(
             {
-                "id": np.arange(1, pos.shape[0]+1),
+                "id": np.arange(1, pos.shape[0] + 1),
                 "type": type_list,
                 "x": pos[:, 0],
                 "y": pos[:, 1],
@@ -653,30 +650,29 @@ class BuildSystem:
             key = match[0].lower()
             value = match[1] if match[1] else match[2]
             line2[key] = value
-        
-        classical = False if 'lattice' in line2.keys() else True
+
+        classical = False if "lattice" in line2.keys() else True
 
         if not classical:
             assert "properties" in line2.keys(), "Must contain properties."
             # Check boundary condition
             if "pbc" in line2.keys():
                 boundary = [
-                    1 if i == "T" or i == "1" else 0
-                    for i in line2['pbc'].split()
+                    1 if i == "T" or i == "1" else 0 for i in line2["pbc"].split()
                 ]
             else:
                 boundary = [1, 1, 1]
             # Get box
-            box = np.array(line2['lattice'].split(), float).reshape(3, 3)
+            box = np.array(line2["lattice"].split(), float).reshape(3, 3)
             # Check origin
             if "origin" in line2.keys():
-                origin = np.array(line2['origin'].split(), float)
+                origin = np.array(line2["origin"].split(), float)
             else:
                 origin = np.zeros(3, float)
             box = np.r_[box, origin.reshape((1, 3))]
             # Get columns name and dtype
-            content = line2['properties'].strip().split(':')
-            #print(content)
+            content = line2["properties"].strip().split(":")
+            # print(content)
             i = 0
             columns = []
             schema = {}
@@ -702,7 +698,7 @@ class BuildSystem:
                     schema["z"] = dtype
                 elif (
                     content[i] in ["species", "type_name", "element"]
-                    and content[i+1] == "S"
+                    and content[i + 1] == "S"
                     and content[i + 2] == "1"
                 ):
                     columns.append("type_name")
@@ -834,10 +830,10 @@ class BuildSystem:
                         )
                 else:
                     df = df.with_columns(pl.lit(1).alias("type"))
-        for key in ['pbc', 'properties', 'origin', 'lattice']:
+        for key in ["pbc", "properties", "origin", "lattice"]:
             if key in line2.keys():
                 del line2[key]
-        
+
         return df, box, boundary, line2
 
     @staticmethod

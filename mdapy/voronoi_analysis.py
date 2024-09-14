@@ -61,9 +61,7 @@ class VoronoiAnalysis:
             raise "Do not support triclinic box."
         self.box = np.zeros((3, 2))
         self.box[:, 0] = box[-1]
-        self.box[:, 1] = (
-            np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
-        )
+        self.box[:, 1] = np.array([box[0, 0], box[1, 1], box[2, 2]]) + self.box[:, 0]
         self.boundary = boundary
         if num_t is None:
             self.num_t = mt.cpu_count()

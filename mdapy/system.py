@@ -70,7 +70,6 @@ except Exception:
     from .tool_function import _check_repeat_cutoff
 
 
-
 class System:
     """This class can generate a System class for rapidly accessing almost all the analysis
     method in mdapy.
@@ -165,19 +164,18 @@ class System:
                     self.__boundary,
                     self.__timestep,
                 ) = BuildSystem.fromfile(self.__filename, self.__fmt)
-            elif self.__fmt in ['xyz']:
-                self.__data, self.__box, self.__boundary, self.__global_info = BuildSystem.fromfile(self.__filename, self.__fmt)
-                if 'time' in self.__global_info.keys():
-                    self.__timestep = self.__global_info['time']
+            elif self.__fmt in ["xyz"]:
+                self.__data, self.__box, self.__boundary, self.__global_info = (
+                    BuildSystem.fromfile(self.__filename, self.__fmt)
+                )
+                if "time" in self.__global_info.keys():
+                    self.__timestep = self.__global_info["time"]
             elif self.__fmt in ["data", "lmp", "poscar", "cif"]:
                 self.__data, self.__box, self.__boundary = BuildSystem.fromfile(
                     self.__filename, self.__fmt
                 )
 
-        elif (
-            isinstance(pos, np.ndarray)
-            and isinstance(boundary, list)
-        ):
+        elif isinstance(pos, np.ndarray) and isinstance(boundary, list):
             self.__data, self.__box, self.__boundary = BuildSystem.fromarray(
                 pos, box, boundary, vel, type_list
             )
@@ -207,7 +205,7 @@ class System:
             str: file format.
         """
         return self.__fmt
-    
+
     @property
     def global_info(self):
         """obtaine global info, such as energy, virial and stress.
@@ -218,7 +216,7 @@ class System:
         return self.__global_info
 
     @property
-    def data(self)->pl.DataFrame:
+    def data(self) -> pl.DataFrame:
         """check particles information.
 
         Returns:
@@ -372,11 +370,10 @@ class System:
         else:
             info = f"Filename: {self.filename}\nAtom Number: {self.N}\nSimulation Box:\n{self.box}\nTimeStep: {self.__timestep}\nBoundary: {self.boundary}\n"
             for key in self.__global_info.keys():
-                if key not in ['time', 'lattice']:
-                    info += f'{key}: {self.__global_info[key]}\n'
+                if key not in ["time", "lattice"]:
+                    info += f"{key}: {self.__global_info[key]}\n"
             info += f"Particle Information:\n{self.__data}"
             return info
-            
 
     def display(self):
         """Visualize the System."""
@@ -421,7 +418,7 @@ class System:
             self.view.data = self.__data
             self.view.atom_colored_by(values, vmin, vmax, cmap)
 
-    def cal_atomic_strain(self, ref, rc=5., affi_map='off'):
+    def cal_atomic_strain(self, ref, rc=5.0, affi_map="off"):
         """This class is used to calculate the atomic shear strain. More details can be found here.
         https://www.ovito.org/docs/current/reference/pipelines/modifiers/atomic_strain.html
 
@@ -429,17 +426,17 @@ class System:
             ref (mdapy.System): a reference system object.
             rc (float, optional): cutoff distance to determine the neighbor environments. Defaults to 5. A.
             affi_map (str, optional): selected in ['off', 'ref']. If use to 'ref', the current position will affine to the reference frame. Defaults to 'off'.
-        
+
         Outputs:
             - **The result is added in self.data['shear_strain']**.
         """
-        assert isinstance(ref, System), 'ref must be a mdapy System object.'
-        assert affi_map in ['off', 'ref']
+        assert isinstance(ref, System), "ref must be a mdapy System object."
+        assert affi_map in ["off", "ref"]
         assert self.boundary == ref.boundary
         assert self.N == ref.N
-        if affi_map == 'ref':
+        if affi_map == "ref":
             assert self.boundary == [1, 1, 1]
-        
+
         rebuild = True
         if ref.if_neigh:
             if ref.rc == rc:
@@ -447,34 +444,40 @@ class System:
         if rebuild:
             # print(f'rebuild neighbor with rc={rc}.')
             ref.build_neighbor(rc=rc)
-        
-        
-        strain = AtomicStrain(ref.pos, ref.box, self.pos, 
-                              self.box, ref.verlet_list, 
-                              ref.neighbor_number, 
-                              self.boundary, affi_map)
+
+        strain = AtomicStrain(
+            ref.pos,
+            ref.box,
+            self.pos,
+            self.box,
+            ref.verlet_list,
+            ref.neighbor_number,
+            self.boundary,
+            affi_map,
+        )
         strain.compute()
 
         self.__data = self.__data.with_columns(
-            pl.lit(strain.shear_strain).alias('shear_strain')
+            pl.lit(strain.shear_strain).alias("shear_strain")
         )
 
-
     def minimize(self, elements_list, potential, fmax=0.05, max_itre=10):
-        mini = Minimizer(self.data.select(['x', 'y', 'z']).to_numpy(),
-                  self.box,
-                  self.boundary,
-                  potential,
-                  elements_list,
-                  self.data['type'].to_numpy(),
-                  fmax=fmax,
-                  max_itre=max_itre)
+        mini = Minimizer(
+            self.data.select(["x", "y", "z"]).to_numpy(),
+            self.box,
+            self.boundary,
+            potential,
+            elements_list,
+            self.data["type"].to_numpy(),
+            fmax=fmax,
+            max_itre=max_itre,
+        )
         mini.compute()
 
         data = self.__data.with_columns(
-            pl.lit(mini.pos[:, 0]).alias('x'),
-            pl.lit(mini.pos[:, 1]).alias('y'),
-            pl.lit(mini.pos[:, 2]).alias('z'),
+            pl.lit(mini.pos[:, 0]).alias("x"),
+            pl.lit(mini.pos[:, 1]).alias("y"),
+            pl.lit(mini.pos[:, 2]).alias("z"),
         )
         return System(
             data=data,
@@ -483,7 +486,6 @@ class System:
             filename=self.__filename,
             fmt=self.__fmt,
         )
-
 
     def cell_opt(
         self,
@@ -598,7 +600,14 @@ class System:
                 pl.col("type").replace(type2name).alias("type_name")
             )
 
-        SaveFile.write_xyz(output_name, self.__box, data, self.__boundary, classical, **self.__global_info)
+        SaveFile.write_xyz(
+            output_name,
+            self.__box,
+            data,
+            self.__boundary,
+            classical,
+            **self.__global_info,
+        )
 
     def write_dump(self, output_name=None, output_col=None, compress=False):
         """This function writes position into a DUMP file.
@@ -759,7 +768,9 @@ class System:
         """Wrap atom position into box considering the periodic boundary."""
 
         self.__pos.flags.writeable = True
-        _wrap_pos(self.__pos, self.box, np.array(self.boundary), np.linalg.inv(self.box[:-1]))
+        _wrap_pos(
+            self.__pos, self.box, np.array(self.boundary), np.linalg.inv(self.box[:-1])
+        )
         self.__data = self.__data.with_columns(
             pl.lit(self.__pos[:, 0]).alias("x"),
             pl.lit(self.__pos[:, 1]).alias("y"),
@@ -826,7 +837,7 @@ class System:
         symprec=1e-5,
         replicate=None,
         displacement=0.01,
-        cutoff_radius=None
+        cutoff_radius=None,
     ):
         """This function can be used to calculate the phono dispersion based on Phonopy (https://phonopy.github.io/phonopy/). We support NEP and
         eam/alloy potential now.
@@ -865,7 +876,7 @@ class System:
             symprec,
             replicate,
             displacement,
-            cutoff_radius
+            cutoff_radius,
         )
         self.Phon.compute()
 
@@ -1571,7 +1582,7 @@ class System:
         on which atoms can be divided into FCC, BCC, HCP and Other structure.
 
         .. note:: If one use this module in publication, one should also cite the original paper.
-          `Stukowski, A. (2012). Structure identification methods for atomistic simulations of crystalline materials. 
+          `Stukowski, A. (2012). Structure identification methods for atomistic simulations of crystalline materials.
           Modelling and Simulation in Materials Science and Engineering, 20(4), 045021. <https://doi.org/10.1088/0965-0393/20/4/045021>`_.
 
         .. hint:: We use the `same algorithm as in OVITO <https://www.ovito.org/docs/current/reference/pipelines/modifiers/common_neighbor_analysis.html#particles-modifiers-common-neighbor-analysis>`_.
@@ -1596,7 +1607,7 @@ class System:
         where :math:`a` is the lattice constant and :math:`x=(c/a)/1.633` and 1.633 is the ideal ratio of :math:`c/a`
         in HCP structure.
 
-        Prof. Alexander Stukowski has improved this method using adaptive cutoff distances based on the atomic neighbor environment, which is the default method 
+        Prof. Alexander Stukowski has improved this method using adaptive cutoff distances based on the atomic neighbor environment, which is the default method
         in mdapy from version 0.11.1.
 
         The CNA method can recgonize the following structure:
@@ -1629,10 +1640,7 @@ class System:
                 )
             else:
                 CommonNeighborAnalysi = CommonNeighborAnalysis(
-                    self.pos,
-                    self.box,
-                    self.boundary,
-                    rc
+                    self.pos, self.box, self.boundary, rc
                 )
             CommonNeighborAnalysi.compute()
         else:
@@ -1640,14 +1648,10 @@ class System:
             if self.if_neigh:
                 if self.neighbor_number.min() >= 14:
                     _partition_select_sort(self.verlet_list, self.distance_list, 14)
-                    sort_neigh = True 
+                    sort_neigh = True
             if sort_neigh:
                 CommonNeighborAnalysi = CommonNeighborAnalysis(
-                    self.pos,
-                    self.box,
-                    self.boundary,
-                    rc,
-                    self.verlet_list
+                    self.pos, self.box, self.boundary, rc, self.verlet_list
                 )
             else:
                 CommonNeighborAnalysi = CommonNeighborAnalysis(
@@ -1735,18 +1739,17 @@ class System:
             pl.lit(CommonNeighborPar.cnp).alias("cnp")
         )
 
-    def cal_identify_diamond_structure(self,):
+    def cal_identify_diamond_structure(
+        self,
+    ):
         sort_neigh = False
         if self.if_neigh:
             if self.neighbor_number.min() >= 12:
                 _partition_select_sort(self.verlet_list, self.distance_list, 12)
-                sort_neigh = True 
+                sort_neigh = True
         if sort_neigh:
             IDS = IdentifyDiamondStructure(
-                self.pos,
-                self.box,
-                self.boundary,
-                self.verlet_list
+                self.pos, self.box, self.boundary, self.verlet_list
             )
         else:
             IDS = IdentifyDiamondStructure(
@@ -1755,10 +1758,8 @@ class System:
                 self.boundary,
             )
         IDS.compute()
-        self.__data = self.__data.with_columns(
-            pl.lit(IDS.pattern).alias("ids")
-        )
-    
+        self.__data = self.__data.with_columns(pl.lit(IDS.pattern).alias("ids"))
+
     def cal_energy_force_virial(self, potential, elements_list):
         """Calculate the atomic energy and force based on the given potential.
 
@@ -1960,7 +1961,7 @@ class System:
         Returns:
             System: a new system with reactangular box. The atoms number may be changed.
         """
-        rec = OrthogonalBox(self.pos, self.box, self.data['type'].to_numpy())
+        rec = OrthogonalBox(self.pos, self.box, self.data["type"].to_numpy())
         rec.compute()
 
         return System(pos=rec.pos, box=rec.box, type_list=rec.type_list)
@@ -1995,7 +1996,7 @@ class MultiSystem(list):
             pos_list.append(system.pos)
             box_list.append(system.box)
             inverse_box_list.append(np.linalg.inv(system.box[:-1]))
-        
+
         self.pos_list = np.array(pos_list)
         box_list = np.array(box_list)
         inverse_box_list = np.array(inverse_box_list)
@@ -2020,7 +2021,6 @@ class MultiSystem(list):
             output_col (list, optional): columns to be saved, such as ['id', 'type', 'x', 'y', 'z'].
             compress (bool, optional): whether compress the DUMP file.
         """
-
 
         progress_bar = tqdm(self)
         for system in progress_bar:
@@ -2138,21 +2138,22 @@ if __name__ == "__main__":
     # print(system)
     # system = System('test.dump')
     # print(system)
-    #system.write_xyz('test.xyz')
+    # system.write_xyz('test.xyz')
     # system.global_info['energy'] = 2.
     # system.global_info['Logo'] = 'Write by mdapy'
     # system.write_xyz('test_1.xyz')
     import taichi as ti
     import polars as pl
+
     ti.init()
     # system = System(r'example/CoCuFeNiPd-4M.data')
     # system.cal_common_neighbor_analysis(rc=3.)
     # print(system.data.group_by(pl.col('cna')).count().sort(pl.col('cna')))
 
-    system = System(r'C:\Users\herrwu\Desktop\xyz\HexDiamond.xyz')
+    system = System(r"C:\Users\herrwu\Desktop\xyz\HexDiamond.xyz")
     system.cal_identify_diamond_structure()
-    print(system.data.group_by(pl.col('ids')).count().sort(pl.col('ids')))
-    
+    print(system.data.group_by(pl.col("ids")).count().sort(pl.col("ids")))
+
     # ref = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.0.xyz')
     # ref.build_neighbor(5., max_neigh=70)
     # cur = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.1000.xyz')
@@ -2169,7 +2170,7 @@ if __name__ == "__main__":
     # MS = MultiSystem(filename_list, sorted_id=False, unwrap=True)
     # MS.cal_mean_squared_displacement()
     # MS.MSD.plot()
-    #MS.write_dumps()
+    # MS.write_dumps()
     # for i in range(20):
     #     print(i, 'step', MS[i].pos[0])
     # # system.write_xyz("test.xyz")

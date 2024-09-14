@@ -22,6 +22,8 @@ try:
     from centro_symmetry_parameter import CentroSymmetryParameter
     from entropy import AtomicEntropy
     from identify_SFs_TBs import IdentifySFTBinFCC
+    from identify_diamond_structure import IdentifyDiamondStructure
+    from orthogonal_box import OrthogonalBox
     from pair_distribution import PairDistribution
     from polyhedral_template_matching import PolyhedralTemplateMatching
     from cluser_analysis import ClusterAnalysis
@@ -50,6 +52,8 @@ except Exception:
     from .centro_symmetry_parameter import CentroSymmetryParameter
     from .entropy import AtomicEntropy
     from .identify_SFs_TBs import IdentifySFTBinFCC
+    from .identify_diamond_structure import IdentifyDiamondStructure
+    from .orthogonal_box import OrthogonalBox
     from .pair_distribution import PairDistribution
     from .polyhedral_template_matching import PolyhedralTemplateMatching
     from .cluser_analysis import ClusterAnalysis
@@ -410,12 +414,12 @@ class System:
             from .visualize import Visualize
         if not self.__if_displayed:
             self.view = Visualize(self.__data, self.__box)
-            self.view.atoms_colored_by(values, vmin, vmax, cmap)
+            self.view.atom_colored_by(values, vmin, vmax, cmap)
             self.view.display()
             self.__if_displayed = True
         else:
             self.view.data = self.__data
-            self.view.atoms_colored_by(values, vmin, vmax, cmap)
+            self.view.atom_colored_by(values, vmin, vmax, cmap)
 
     def cal_atomic_strain(self, ref, rc=5., affi_map='off'):
         """This class is used to calculate the atomic shear strain. More details can be found here.
@@ -1279,7 +1283,7 @@ class System:
             return_wxyz (bool, optional): whether return local structure orientation. Defaults to False.
 
         Outputs:
-            - **The result is added in self.data['structure_types']**.
+            - **The result is added in self.data['ptm']**.
         """
         verlet_list = None
         if self.if_neigh:
@@ -1299,7 +1303,7 @@ class System:
         ptm.compute()
 
         self.__data = self.__data.with_columns(
-            pl.lit(np.array(ptm.output[:, 0], int)).alias("structure_types")
+            pl.lit(np.array(ptm.output[:, 0], int)).alias("ptm")
         )
         if return_rmsd:
             self.__data = self.__data.with_columns(
@@ -1562,15 +1566,15 @@ class System:
         )
         return ClusterAnalysi.cluster_number
 
-    def cal_common_neighbor_analysis(self, rc=3.0, max_neigh=30):
+    def cal_common_neighbor_analysis(self, rc=None, max_neigh=30):
         """Use Common Neighbor Analysis (CNA) method to recgonize the lattice structure, based
         on which atoms can be divided into FCC, BCC, HCP and Other structure.
 
         .. note:: If one use this module in publication, one should also cite the original paper.
-          `Faken D, Jónsson H. Systematic analysis of local atomic structure combined with 3D computer graphics[J].
-          Computational Materials Science, 1994, 2(2): 279-286. <https://doi.org/10.1016/0927-0256(94)90109-0>`_.
+          `Stukowski, A. (2012). Structure identification methods for atomistic simulations of crystalline materials. 
+          Modelling and Simulation in Materials Science and Engineering, 20(4), 045021. <https://doi.org/10.1088/0965-0393/20/4/045021>`_.
 
-        .. hint:: We use the `same algorithm as in LAMMPS <https://docs.lammps.org/compute_cna_atom.html>`_.
+        .. hint:: We use the `same algorithm as in OVITO <https://www.ovito.org/docs/current/reference/pipelines/modifiers/common_neighbor_analysis.html#particles-modifiers-common-neighbor-analysis>`_.
 
         CNA method is sensitive to the given cutoff distance. The suggesting cutoff can be obtained from the
         following formulas:
@@ -1592,6 +1596,9 @@ class System:
         where :math:`a` is the lattice constant and :math:`x=(c/a)/1.633` and 1.633 is the ideal ratio of :math:`c/a`
         in HCP structure.
 
+        Prof. Alexander Stukowski has improved this method using adaptive cutoff distances based on the atomic neighbor environment, which is the default method 
+        in mdapy from version 0.11.1.
+
         The CNA method can recgonize the following structure:
 
         1. Other
@@ -1601,32 +1608,55 @@ class System:
         5. ICO
 
         Args:
-            rc (float, optional): cutoff distance. Defaults to 3.0.
+            rc (float, optional): cutoff distance, if not given, will using adaptive cutoff. Defaults to None.
             max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 30.
 
         Outputs:
             - **The CNA pattern per atom is added in self.data['cna']**.
         """
-        repeat = _check_repeat_cutoff(self.box, self.boundary, rc, 4)
+        if rc is not None:
+            repeat = _check_repeat_cutoff(self.box, self.boundary, rc, 4)
 
-        if sum(repeat) == 3 and not self.if_neigh:
-            self.build_neighbor(rc, max_neigh=max_neigh)
-            CommonNeighborAnalysi = CommonNeighborAnalysis(
-                rc,
-                self.pos,
-                self.box,
-                self.boundary,
-                self.verlet_list,
-                self.neighbor_number,
-            )
+            if sum(repeat) == 3 and not self.if_neigh:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+                CommonNeighborAnalysi = CommonNeighborAnalysis(
+                    self.pos,
+                    self.box,
+                    self.boundary,
+                    rc,
+                    self.verlet_list,
+                    self.neighbor_number,
+                )
+            else:
+                CommonNeighborAnalysi = CommonNeighborAnalysis(
+                    self.pos,
+                    self.box,
+                    self.boundary,
+                    rc
+                )
+            CommonNeighborAnalysi.compute()
         else:
-            CommonNeighborAnalysi = CommonNeighborAnalysis(
-                rc,
-                self.pos,
-                self.box,
-                self.boundary,
-            )
-        CommonNeighborAnalysi.compute()
+            sort_neigh = False
+            if self.if_neigh:
+                if self.neighbor_number.min() >= 14:
+                    _partition_select_sort(self.verlet_list, self.distance_list, 14)
+                    sort_neigh = True 
+            if sort_neigh:
+                CommonNeighborAnalysi = CommonNeighborAnalysis(
+                    self.pos,
+                    self.box,
+                    self.boundary,
+                    rc,
+                    self.verlet_list
+                )
+            else:
+                CommonNeighborAnalysi = CommonNeighborAnalysis(
+                    self.pos,
+                    self.box,
+                    self.boundary,
+                    rc,
+                )
+            CommonNeighborAnalysi.compute()
 
         self.__data = self.__data.with_columns(
             pl.lit(CommonNeighborAnalysi.pattern).alias("cna")
@@ -1705,6 +1735,30 @@ class System:
             pl.lit(CommonNeighborPar.cnp).alias("cnp")
         )
 
+    def cal_identify_diamond_structure(self,):
+        sort_neigh = False
+        if self.if_neigh:
+            if self.neighbor_number.min() >= 12:
+                _partition_select_sort(self.verlet_list, self.distance_list, 12)
+                sort_neigh = True 
+        if sort_neigh:
+            IDS = IdentifyDiamondStructure(
+                self.pos,
+                self.box,
+                self.boundary,
+                self.verlet_list
+            )
+        else:
+            IDS = IdentifyDiamondStructure(
+                self.pos,
+                self.box,
+                self.boundary,
+            )
+        IDS.compute()
+        self.__data = self.__data.with_columns(
+            pl.lit(IDS.pattern).alias("ids")
+        )
+    
     def cal_energy_force_virial(self, potential, elements_list):
         """Calculate the atomic energy and force based on the given potential.
 
@@ -1900,6 +1954,17 @@ class System:
         self.Binning = SpatialBinning(self.pos, direction, vbin, wbin, operation)
         self.Binning.compute()
 
+    def orthogonal_box(self):
+        """This function try to change the box rectangular.
+
+        Returns:
+            System: a new system with reactangular box. The atoms number may be changed.
+        """
+        rec = OrthogonalBox(self.pos, self.box, self.data['type'].to_numpy())
+        rec.compute()
+
+        return System(pos=rec.pos, box=rec.box, type_list=rec.type_list)
+
 
 class MultiSystem(list):
     """
@@ -2078,18 +2143,27 @@ if __name__ == "__main__":
     # system.global_info['Logo'] = 'Write by mdapy'
     # system.write_xyz('test_1.xyz')
     import taichi as ti
+    import polars as pl
     ti.init()
+    # system = System(r'example/CoCuFeNiPd-4M.data')
+    # system.cal_common_neighbor_analysis(rc=3.)
+    # print(system.data.group_by(pl.col('cna')).count().sort(pl.col('cna')))
+
+    system = System(r'C:\Users\herrwu\Desktop\xyz\HexDiamond.xyz')
+    system.cal_identify_diamond_structure()
+    print(system.data.group_by(pl.col('ids')).count().sort(pl.col('ids')))
+    
     # ref = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.0.xyz')
     # ref.build_neighbor(5., max_neigh=70)
     # cur = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.1000.xyz')
     # cur.cal_atomic_strain(ref, rc=5.)
     # print(cur)
 
-    system = System("test.xyz")
-    system.cal_pair_distribution(8., 200)
+    # system = System("test.xyz")
+    # system.cal_pair_distribution(8., 200)
 
-    system.PairDistribution.plot()
-    system.PairDistribution.plot_partial(['Al', 'Cu'])
+    # system.PairDistribution.plot()
+    # system.PairDistribution.plot_partial(['Al', 'Cu'])
 
     # filename_list = [rf'C:\Users\herrwu\Desktop\wrap_test\dump.{i}.xyz' for i in range(100, 10100, 100)]
     # MS = MultiSystem(filename_list, sorted_id=False, unwrap=True)

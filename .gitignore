@@ -9,6 +9,8 @@
 /dist/
 /mdapy/cluster/*.py*
 /mdapy/cluster/*.so
+/mdapy/cna/*.py*
+/mdapy/cna/*.so
 /mdapy/nep/*.py*
 /mdapy/nep/*.so
 /mdapy/nep/*.pyd

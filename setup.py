@@ -43,6 +43,13 @@ setup(
             language="c++",
         ),
         Pybind11Extension(
+            "_cna",
+            ["mdapy/cna/_cna.cpp"],
+            language="c++",
+            extra_compile_args=extra_compile_args,
+            extra_link_args=extra_link_args,
+        ),
+        Pybind11Extension(
             "_voronoi_analysis",
             [
                 "mdapy/voronoi/_voro.cpp",

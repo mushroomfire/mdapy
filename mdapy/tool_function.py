@@ -144,22 +144,22 @@ def _check_repeat_nearest(pos, box, boundary):
     box_length = [np.linalg.norm(box[i]) for i in range(3)]
     repeat_length = False
     for i in range(3):
-        if boundary[i] == 1 and box_length[i] <= 10.0:
+        if boundary[i] == 1 and box_length[i] <= 15.0:
             repeat_length = True
     repeat_number = False
-    if pos.shape[0] < 100 and sum(boundary) > 0:
+    if pos.shape[0] < 200 and sum(boundary) > 0:
         repeat_number = True
 
     if repeat_length or repeat_number:
         repeat = [1 if boundary[i] == 0 else 3 for i in range(3)]
-        while np.prod(repeat) * pos.shape[0] < 100:
+        while np.prod(repeat) * pos.shape[0] < 200:
             for i in range(3):
                 if boundary[i] == 1:
                     repeat[i] += 1
 
         for i in range(3):
             if boundary[i] == 1:
-                while repeat[i] * box_length[i] < 10.0:
+                while repeat[i] * box_length[i] < 15.0:
                     repeat[i] += 1
     return repeat
 
@@ -726,6 +726,374 @@ atomic_masses = np.array(
 )
 
 atomic_masses.flags.writeable = False
+
+
+"""
+The elemental radius and colors come from OVITO for visualization. The original statements are as below:
+
+https://gitlab.com/stuko/ovito/-/blob/master/src/ovito/particles/objects/ParticleType.cpp#L225-329
+
+// Define default names, colors, and radii for some predefined particle types.
+//
+// Van der Waals radii have been adopted from the VMD software, which adopted them from A. Bondi, J. Phys. Chem., 68, 441 - 452, 1964,
+// except the value for H, which was taken from R.S. Rowland & R. Taylor, J. Phys. Chem., 100, 7384 - 7391, 1996.
+// For radii that are not available in either of these publications use r = 2.0.
+// The radii for ions (Na, K, Cl, Ca, Mg, and Cs) are based on the CHARMM27 Rmin/2 parameters for (SOD, POT, CLA, CAL, MG, CES).
+//
+// Colors and covalent radii of elements marked with '//' have been adopted from OpenBabel.
+
+Here we time 2 for radius.
+
+Here is the code to extract the radius and color information:
+
+res = [i.split(', ')[:5] for i in context.split('ParticleType::PredefinedChemicalType')[2:]]
+ele_rgb, ele_radius = {}, {}
+for i in res:
+    ele, r, g, b, size = i
+    #print(ele)
+    ele = ele.split('(')[-1].split('"')[1]
+    if '/' in r:
+        L, R = r.split('(')[1].split('/')
+        r = float(L[:-1]) / float(R[:-1])
+        L, R = g.split('/')
+        g = float(L[:-1]) / float(R[:-1])
+        L, R = b.split('/')
+        b = float(L[:-1]) / float(R[:-2])
+    else:
+        r = float(r.split()[1].replace('f', ''))
+        g = float(g.split()[0].replace('f', ''))
+        b = float(b.split()[0][:-1].replace('f', ''))
+    size = float(size[:-1])
+    ele_rgb[ele] = [int(r*255), int(g*255), int(b*255)]
+    ele_radius[ele] = size
+"""
+
+ele_radius = {'X': 2.0,
+ 'H': 0.92,
+ 'He': 2.44,
+ 'Li': 3.14,
+ 'Be': 2.94,
+ 'B': 4.02,
+ 'C': 1.54,
+ 'N': 1.48,
+ 'O': 1.48,
+ 'F': 1.48,
+ 'Ne': 1.48,
+ 'Na': 3.82,
+ 'Mg': 3.2,
+ 'Al': 2.86,
+ 'Si': 2.36,
+ 'P': 2.14,
+ 'S': 2.1,
+ 'Cl': 2.04,
+ 'Ar': 2.12,
+ 'K': 4.06,
+ 'Ca': 3.94,
+ 'Sc': 3.4,
+ 'Ti': 2.94,
+ 'V': 3.06,
+ 'Cr': 2.58,
+ 'Mn': 2.78,
+ 'Fe': 2.52,
+ 'Co': 2.5,
+ 'Ni': 2.5,
+ 'Cu': 2.56,
+ 'Zn': 2.74,
+ 'Ga': 3.06,
+ 'Ge': 2.44,
+ 'As': 2.38,
+ 'Se': 2.4,
+ 'Br': 2.4,
+ 'Kr': 3.96,
+ 'Rb': 4.4,
+ 'Sr': 4.3,
+ 'Y': 3.64,
+ 'Zr': 3.2,
+ 'Nb': 2.94,
+ 'Mo': 3.08,
+ 'Tc': 2.94,
+ 'Ru': 2.92,
+ 'Rh': 2.84,
+ 'Pd': 2.74,
+ 'Ag': 2.9,
+ 'Cd': 2.88,
+ 'In': 2.84,
+ 'Sn': 2.78,
+ 'Sb': 2.78,
+ 'Te': 2.76,
+ 'I': 2.78,
+ 'Xe': 2.8,
+ 'Cs': 4.88,
+ 'Ba': 4.3,
+ 'La': 4.14,
+ 'Ce': 4.08,
+ 'Pr': 4.06,
+ 'Nd': 4.02,
+ 'Pm': 3.98,
+ 'Sm': 3.96,
+ 'Eu': 3.96,
+ 'Gd': 3.92,
+ 'Tb': 3.88,
+ 'Dy': 3.84,
+ 'Ho': 3.84,
+ 'Er': 3.78,
+ 'Tm': 3.8,
+ 'Yb': 3.74,
+ 'Lu': 3.74,
+ 'Hf': 3.5,
+ 'Ta': 3.4,
+ 'W': 3.24,
+ 'Re': 3.02,
+ 'Os': 2.88,
+ 'Ir': 2.82,
+ 'Pt': 2.78,
+ 'Au': 2.88,
+ 'Hg': 2.64,
+ 'Tl': 2.9,
+ 'Pb': 2.94,
+ 'Bi': 2.92,
+ 'Po': 2.8,
+ 'At': 3.0,
+ 'Rn': 3.0,
+ 'Fr': 5.2}
+
+ele_rgb = {'X': [255, 255, 255],
+ 'H': [255, 255, 255],
+ 'He': [217, 255, 255],
+ 'Li': [204, 128, 255],
+ 'Be': [193, 255, 0],
+ 'B': [255, 181, 181],
+ 'C': [144, 144, 144],
+ 'N': [48, 80, 248],
+ 'O': [255, 13, 13],
+ 'F': [127, 178, 255],
+ 'Ne': [178, 226, 244],
+ 'Na': [171, 92, 242],
+ 'Mg': [138, 255, 0],
+ 'Al': [191, 166, 166],
+ 'Si': [240, 200, 160],
+ 'P': [255, 127, 0],
+ 'S': [178, 178, 0],
+ 'Cl': [30, 239, 30],
+ 'Ar': [127, 209, 226],
+ 'K': [142, 63, 211],
+ 'Ca': [61, 255, 0],
+ 'Sc': [229, 229, 229],
+ 'Ti': [191, 194, 199],
+ 'V': [165, 165, 170],
+ 'Cr': [138, 153, 199],
+ 'Mn': [155, 122, 198],
+ 'Fe': [224, 102, 51],
+ 'Co': [240, 144, 160],
+ 'Ni': [80, 208, 80],
+ 'Cu': [200, 128, 51],
+ 'Zn': [125, 128, 176],
+ 'Ga': [194, 143, 143],
+ 'Ge': [102, 143, 143],
+ 'As': [188, 127, 226],
+ 'Se': [255, 160, 0],
+ 'Br': [165, 40, 40],
+ 'Kr': [92, 184, 209],
+ 'Rb': [112, 45, 175],
+ 'Sr': [0, 255, 38],
+ 'Y': [102, 152, 142],
+ 'Zr': [0, 255, 0],
+ 'Nb': [76, 178, 118],
+ 'Mo': [84, 181, 181],
+ 'Tc': [58, 158, 158],
+ 'Ru': [35, 142, 142],
+ 'Rh': [10, 124, 140],
+ 'Pd': [0, 105, 133],
+ 'Ag': [224, 224, 255],
+ 'Cd': [255, 216, 142],
+ 'In': [165, 117, 114],
+ 'Sn': [102, 127, 127],
+ 'Sb': [158, 99, 181],
+ 'Te': [211, 122, 0],
+ 'I': [147, 0, 147],
+ 'Xe': [66, 158, 175],
+ 'Cs': [86, 22, 142],
+ 'Ba': [0, 201, 0],
+ 'La': [112, 211, 255],
+ 'Ce': [255, 255, 198],
+ 'Pr': [216, 255, 198],
+ 'Nd': [198, 255, 198],
+ 'Pm': [163, 255, 198],
+ 'Sm': [142, 255, 198],
+ 'Eu': [96, 255, 198],
+ 'Gd': [68, 255, 198],
+ 'Tb': [48, 255, 198],
+ 'Dy': [30, 255, 198],
+ 'Ho': [0, 255, 155],
+ 'Er': [0, 229, 117],
+ 'Tm': [0, 211, 81],
+ 'Yb': [0, 191, 56],
+ 'Lu': [0, 170, 35],
+ 'Hf': [76, 193, 255],
+ 'Ta': [76, 165, 255],
+ 'W': [33, 147, 214],
+ 'Re': [38, 124, 170],
+ 'Os': [38, 102, 150],
+ 'Ir': [22, 84, 135],
+ 'Pt': [229, 216, 173],
+ 'Au': [255, 209, 35],
+ 'Hg': [181, 181, 193],
+ 'Tl': [165, 84, 76],
+ 'Pb': [87, 89, 97],
+ 'Bi': [158, 79, 181],
+ 'Po': [170, 91, 0],
+ 'At': [117, 79, 68],
+ 'Rn': [66, 130, 150],
+ 'Fr': [66, 0, 102]}
+
+struc_rgb = {'Other': [243, 243, 243],
+ 'FCC': [102, 255, 102],
+ 'HCP': [255, 102, 102],
+ 'BCC': [102, 102, 255],
+ 'ICO': [243, 204, 51],
+ 'Cubic diamond': [19, 160, 254],
+ 'Cubic diamond (1st neighbor)': [0, 254, 245],
+ 'Cubic diamond (2nd neighbor)': [126, 254, 181],
+ 'Hexagonal diamond': [254, 137, 0],
+ 'Hexagonal diamond (1st neighbor)': [254, 220, 0],
+ 'Hexagonal diamond (2nd neighbor)': [204, 229, 81],
+ 'Simple cubic': [160, 20, 254],
+ 'Graphene': [160, 120, 254],
+ 'Hexagonal ice': [0, 230, 230],
+ 'Cubic ice': [255, 193, 5],
+ 'Interfacial ice': [128, 30, 102],
+ 'Hydrate': [255, 76, 25],
+ 'Interfacial hydrate': [25, 255, 25]}
+
+type_rgb = {
+    1 : [255, 102, 102],
+    2 : [102, 102, 255],
+    3 : [255, 186, 25],
+    4 : [120, 120, 120],
+    5 : [214, 188, 39],
+    6 : [255, 102, 255],
+    7 : [179, 0, 255],
+    8 : [51, 255, 255],
+    9 : [102, 255, 102],
+}
+
+ele_dict = {'X': 16777215,
+ 'H': 16777215,
+ 'He': 14286847,
+ 'Li': 13402367,
+ 'Be': 12713728,
+ 'B': 16758197,
+ 'C': 9474192,
+ 'N': 3166456,
+ 'O': 16715021,
+ 'F': 8368895,
+ 'Ne': 11723508,
+ 'Na': 11230450,
+ 'Mg': 9109248,
+ 'Al': 12560038,
+ 'Si': 15780000,
+ 'P': 16744192,
+ 'S': 11710976,
+ 'Cl': 2027294,
+ 'Ar': 8376802,
+ 'K': 9322451,
+ 'Ca': 4062976,
+ 'Sc': 15066597,
+ 'Ti': 12567239,
+ 'V': 10855850,
+ 'Cr': 9083335,
+ 'Mn': 10189510,
+ 'Fe': 14706227,
+ 'Co': 15765664,
+ 'Ni': 5296208,
+ 'Cu': 13140019,
+ 'Zn': 8224944,
+ 'Ga': 12750735,
+ 'Ge': 6721423,
+ 'As': 12353506,
+ 'Se': 16752640,
+ 'Br': 10823720,
+ 'Kr': 6076625,
+ 'Rb': 7351727,
+ 'Sr': 65318,
+ 'Y': 6723726,
+ 'Zr': 65280,
+ 'Nb': 5026422,
+ 'Mo': 5551541,
+ 'Tc': 3841694,
+ 'Ru': 2330254,
+ 'Rh': 687244,
+ 'Pd': 27013,
+ 'Ag': 14737663,
+ 'Cd': 16767118,
+ 'In': 10843506,
+ 'Sn': 6717311,
+ 'Sb': 10380213,
+ 'Te': 13859328,
+ 'I': 9633939,
+ 'Xe': 4365999,
+ 'Cs': 5641870,
+ 'Ba': 51456,
+ 'La': 7394303,
+ 'Ce': 16777158,
+ 'Pr': 14221254,
+ 'Nd': 13041606,
+ 'Pm': 10747846,
+ 'Sm': 9371590,
+ 'Eu': 6356934,
+ 'Gd': 4521926,
+ 'Tb': 3211206,
+ 'Dy': 2031558,
+ 'Ho': 65435,
+ 'Er': 58741,
+ 'Tm': 54097,
+ 'Yb': 48952,
+ 'Lu': 43555,
+ 'Hf': 5030399,
+ 'Ta': 5023231,
+ 'W': 2200534,
+ 'Re': 2522282,
+ 'Os': 2516630,
+ 'Ir': 1463431,
+ 'Pt': 15063213,
+ 'Au': 16765219,
+ 'Hg': 11908545,
+ 'Tl': 10835020,
+ 'Pb': 5724513,
+ 'Bi': 10375093,
+ 'Po': 11164416,
+ 'At': 7688004,
+ 'Rn': 4358806,
+ 'Fr': 4325478}
+
+struc_dict = {'Other': 15987699,
+ 'FCC': 6750054,
+ 'HCP': 16737894,
+ 'BCC': 6711039,
+ 'ICO': 15977523,
+ 'Cubic diamond': 1286398,
+ 'Cubic diamond (1st neighbor)': 65269,
+ 'Cubic diamond (2nd neighbor)': 8322741,
+ 'Hexagonal diamond': 16681216,
+ 'Hexagonal diamond (1st neighbor)': 16702464,
+ 'Hexagonal diamond (2nd neighbor)': 13428049,
+ 'Simple cubic': 10491134,
+ 'Graphene': 10516734,
+ 'Hexagonal ice': 59110,
+ 'Cubic ice': 16761093,
+ 'Interfacial ice': 8396390,
+ 'Hydrate': 16731161,
+ 'Interfacial hydrate': 1703705}
+
+type_dict = {1: 16737894,
+ 2: 6711039,
+ 3: 16759321,
+ 4: 7895160,
+ 5: 14072871,
+ 6: 16738047,
+ 7: 11731199,
+ 8: 3407871,
+ 9: 6750054}
 
 
 if __name__ == '__main__':

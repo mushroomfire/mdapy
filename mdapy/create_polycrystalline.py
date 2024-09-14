@@ -14,12 +14,14 @@ if __name__ == "__main__":
     from neighbor import Neighbor
     from load_save_data import SaveFile
     from box import init_box
+    from system import System
 else:
     import _voronoi_analysis
     from .lattice_maker import LatticeMaker
     from .neighbor import Neighbor
     from .load_save_data import SaveFile
     from .box import init_box
+    from .system import System
 
 try:
     from _neigh import (
@@ -239,10 +241,11 @@ class CreatePolycrystalline:
         self,
         box,
         seednumber,
-        metal_latttice_constant,
-        metal_lattice_type,
+        filename=None,
+        metal_latttice_constant=None,
+        metal_lattice_type=None,
         randomseed=None,
-        metal_overlap_dis=None,
+        metal_overlap_dis=2.,
         add_graphene=False,
         gra_lattice_constant=1.42,
         metal_gra_overlap_dis=3.1,
@@ -266,29 +269,23 @@ class CreatePolycrystalline:
         self._lower = self._real_box[:, 0]
         self.box = np.c_[np.zeros(3), self._real_box[:, 1] - self._real_box[:, 0]]
         self.seednumber = seednumber
+        self.filename = filename
         self.metal_latttice_constant = metal_latttice_constant
         self.metal_lattice_type = metal_lattice_type
-        assert self.metal_lattice_type in [
-            "FCC",
-            "BCC",
-            "HCP",
-        ], "Only support lattice_type in ['FCC', 'BCC', 'HCP']."
+        if self.filename is None:
+            assert self.metal_lattice_type in [
+                "FCC",
+                "BCC",
+                "HCP",
+            ], "Only support lattice_type in ['FCC', 'BCC', 'HCP']."
+            assert self.metal_latttice_constant is not None 
+
         if randomseed is None:
             self.randomseed = np.random.randint(0, 10000000)
         else:
             self.randomseed = randomseed
 
-        if metal_overlap_dis is None:
-            if self.metal_lattice_type == "FCC":
-                self.metal_overlap_dis = self.metal_latttice_constant / 2**0.5 - 0.001
-            elif self.metal_lattice_type == "BCC":
-                self.metal_overlap_dis = (
-                    self.metal_latttice_constant * (0.5 * 3**0.5) - 0.001
-                )
-            elif self.metal_lattice_type == "HCP":
-                self.metal_overlap_dis = self.metal_latttice_constant - 0.001
-        else:
-            self.metal_overlap_dis = metal_overlap_dis
+        self.metal_overlap_dis = metal_overlap_dis
         self.add_graphene = add_graphene
         self.gra_lattice_constant = gra_lattice_constant
         self.metal_gra_overlap_dis = metal_gra_overlap_dis
@@ -317,9 +314,9 @@ class CreatePolycrystalline:
         self.face_threshold = face_threshold
         if output_name is None:
             if self.add_graphene:
-                self.output_name = f"GRA-Metal-{self.metal_lattice_type}-{self.seednumber}-{self.randomseed}.dump"
+                self.output_name = f"GRA-Metal-{self.seednumber}-{self.randomseed}.dump"
             else:
-                self.output_name = f"Metal-{self.metal_lattice_type}-{self.seednumber}-{self.randomseed}.dump"
+                self.output_name = f"Metal-{self.seednumber}-{self.randomseed}.dump"
         else:
             self.output_name = output_name
 
@@ -458,11 +455,22 @@ class CreatePolycrystalline:
         metal_pos = []
         # r_max = np.sqrt(max([cell.max_radius_squared() for cell in cntr]))
         r_max = max([cell.cavity_radius() for cell in self.cntr])
-        x = y = z = int(np.ceil(r_max / self.metal_latttice_constant))
-        FCC = LatticeMaker(
-            self.metal_latttice_constant, self.metal_lattice_type, x, y, z
-        )
-        FCC.compute()
+        if self.filename is None:
+            lat = LatticeMaker(self.metal_latttice_constant, self.metal_lattice_type, 1, 1, 1)
+            lat.compute()
+            box_length = np.array([np.linalg.norm(i) for i in lat.box[:-1]])
+            x, y, z = [int(i) for i in np.ceil(r_max / box_length)]
+            FCC = LatticeMaker(
+                self.metal_latttice_constant, self.metal_lattice_type, x, y, z
+            )
+            FCC.compute()
+        else:
+            FCC = System(self.filename)
+            box_length = np.array([np.linalg.norm(i) for i in FCC.box[:-1]])
+            x, y, z = [int(i) for i in np.ceil(r_max / box_length)]
+
+            FCC.replicate(x, y, z)
+        
         if self.add_graphene:
             gra_pos = []
             x1 = int(np.ceil(r_max / (self.gra_lattice_constant * 3)))
@@ -767,5 +775,25 @@ if __name__ == "__main__":
         [0, 0, 30],
         [0, 0, 60]
     ])
-    poly = CreatePolycrystalline(box, len(seed), 4.033, 'FCC', metal_overlap_dis=a/2**0.5-0.1, seed=seed, theta_list=theta_list)
+    # poly = CreatePolycrystalline(box, len(seed), None, 4.033, 'FCC', metal_overlap_dis=a/2**0.5-0.1, seed=seed, theta_list=theta_list)
+    # poly.compute()
+    box = np.array([
+        [500, 0, 0],
+        [0, 150, 0],
+        [0, 0, 150],
+        [0, 0, 0]
+    ]
+    )
+    poly = CreatePolycrystalline(box, 10, r'C:\Users\herrwu\Desktop\xyz\CubicDiamond.xyz', 
+                                 metal_overlap_dis=1.5, randomseed=1,
+                                 output_name=r'D:\Study\Diamond\model\Cubic\model.xyz')
     poly.compute()
+    # box = np.array([
+    #     [600, 0, 0],
+    #     [0, 200, 0],
+    #     [0, 0, 200],
+    #     [0, 0, 0]
+    # ]
+    # )
+    # poly = CreatePolycrystalline(box, 6, metal_lattice_type='FCC', metal_latttice_constant=3.615, metal_overlap_dis=2.5, randomseed=1, output_name='Cu.dump')
+    # poly.compute()

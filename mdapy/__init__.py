@@ -23,6 +23,7 @@ from .lindemann_parameter import LindemannParameter
 from .minimizer import Minimizer
 from .mean_squared_displacement import MeanSquaredDisplacement
 from .neighbor import Neighbor
+from .orthogonal_box import OrthogonalBox
 from .pair_distribution import PairDistribution
 from .plotset import pltset, pltset_old, cm2inch, set_figure
 from .polyhedral_template_matching import PolyhedralTemplateMatching

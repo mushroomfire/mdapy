@@ -120,14 +120,14 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
 
     ptmnbrdata_t nbrlist = {c_pos, boxsize, c_verlet, boundary};
     ptm_initialize_global();
-    
+
 #pragma omp parallel
     {
         ptm_local_handle_t local_handle = ptm_initialize_local();
 #pragma omp for
         for (int i = 0; i < pos_rows; i++)
         {
-            
+
             output(i, 0) = -1.0;
             int32_t type, alloy_type;
             double scale, rmsd, interatomic_distance;
@@ -139,7 +139,6 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
                       input_flags, standard_orientations,
                       &type, &alloy_type, &scale, &rmsd, q,
                       nullptr, nullptr, nullptr, nullptr, &interatomic_distance, nullptr, p);
-
 
             if (rmsd > rmsd_threshold)
             {
@@ -164,7 +163,6 @@ void get_ptm(char *structure, double_py pos, int_py verlet_list, py::array_t<dou
             output(i, 4) = q[1];
             output(i, 5) = q[2];
             output(i, 6) = q[3];
-            
         }
         ptm_uninitialize_local(local_handle);
     }

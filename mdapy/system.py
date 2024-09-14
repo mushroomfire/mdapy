@@ -88,6 +88,7 @@ class System:
         boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
         vel (np.ndarray, optional): (:math:`N_p, 3`) particles velocities. Defaults to None.
         type_list (np.ndarray, optional): (:math:`N_p`) type per particles. Defaults to 1.
+        type_name (list, optional): one can assign the type name per type, such as ['Al', 'C'], indicate type1 is Al and type2 is C. Defaults to None.
         sorted_id (bool, optional): whether sort system data by the particle id. Defaults to False.
 
     .. note::
@@ -141,6 +142,7 @@ class System:
         boundary=[1, 1, 1],
         vel=None,
         type_list=None,
+        type_name=None,
         sorted_id=False,
     ) -> None:
         self.__filename = filename
@@ -179,6 +181,18 @@ class System:
             self.__data, self.__box, self.__boundary = BuildSystem.fromarray(
                 pos, box, boundary, vel, type_list
             )
+
+        if type_name is not None:
+            assert self.__data["type"].max() <= len(type_name)
+
+            type_dict = {i: type_name[i - 1] for i in self.__data["type"].unique()}
+
+            self.__data = self.__data.with_columns(
+                pl.col("type")
+                .replace(type_dict, return_dtype=pl.Utf8)
+                .alias("type_name")
+            )
+
         if sorted_id:
             assert "id" in self.__data.columns
             self.__data = self.__data.sort("id")
@@ -862,7 +876,7 @@ class System:
             raise "One should install phonopy (https://phonopy.github.io/phonopy/) to calculate the phono dispersion. try: pip install phonopy"
         try:
             from phonon import Phonon
-        except:
+        except Exception:
             from .phonon import Phonon
 
         self.Phon = Phonon(
@@ -1352,7 +1366,7 @@ class System:
             rmsd_threshold (float, optional): rmsd_threshold for ptm method. Defaults to 0.1.
 
         Outputs:
-            - **The result is added in self.data['structure_types']**.
+            - **The result is added in self.data['ptm']**.
             - **The result is added in self.data['fault_types']**.
         """
         verlet_list = None
@@ -1375,7 +1389,7 @@ class System:
         SFTB = IdentifySFTBinFCC(structure_types, ptm.ptm_indices)
         SFTB.compute()
         self.__data = self.__data.with_columns(
-            pl.lit(SFTB.structure_types).alias("structure_types"),
+            pl.lit(SFTB.structure_types).alias("ptm"),
             pl.lit(SFTB.fault_types).alias("fault_types"),
         )
 
@@ -1955,16 +1969,19 @@ class System:
         self.Binning = SpatialBinning(self.pos, direction, vbin, wbin, operation)
         self.Binning.compute()
 
-    def orthogonal_box(self):
+    def orthogonal_box(self, N=10):
         """This function try to change the box rectangular.
+
+        Args:
+            N (int, optional): search limit. If you can't found rectangular box, increase N. Defaults to N.
 
         Returns:
             System: a new system with reactangular box. The atoms number may be changed.
         """
         rec = OrthogonalBox(self.pos, self.box, self.data["type"].to_numpy())
-        rec.compute()
+        rec.compute(N)
 
-        return System(pos=rec.pos, box=rec.box, type_list=rec.type_list)
+        return System(pos=rec.rec_pos, box=rec.rec_box, type_list=rec.rec_type_list)
 
 
 class MultiSystem(list):
@@ -2150,9 +2167,16 @@ if __name__ == "__main__":
     # system.cal_common_neighbor_analysis(rc=3.)
     # print(system.data.group_by(pl.col('cna')).count().sort(pl.col('cna')))
 
-    system = System(r"C:\Users\herrwu\Desktop\xyz\HexDiamond.xyz")
-    system.cal_identify_diamond_structure()
-    print(system.data.group_by(pl.col("ids")).count().sort(pl.col("ids")))
+    # system = System(r"C:\Users\herrwu\Desktop\xyz\HexDiamond.xyz")
+    # system.cal_identify_diamond_structure()
+    # print(system.data.group_by(pl.col("ids")).count().sort(pl.col("ids")))
+
+    system = System(r"C:\Users\herrwu\Desktop\xyz\MoS2-H.xyz")
+    rec = system.orthogonal_box(10)
+    print("Rectangular box:")
+    print(rec.box)
+    print("Rectangular pos::")
+    print(rec.pos)
 
     # ref = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.0.xyz')
     # ref.build_neighbor(5., max_neigh=70)

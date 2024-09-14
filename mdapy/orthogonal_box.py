@@ -98,7 +98,7 @@ if __name__ == "__main__":
     ti.init()
     from system import System
 
-    hex_C = System(r"C:\Users\herrwu\Desktop\xyz\C.cif")
+    hex_C = System(r"C:\Users\herrwu\Desktop\xyz\MoS2-H.xyz")
 
     # box = np.array([
     #    [2.52699457, 0.        , 0.        ],
@@ -111,12 +111,12 @@ if __name__ == "__main__":
     #    [2.52699457, 1.458961  , 1.03164121]
     #    ])
 
-    rec = OrthogonalBox(hex_C.pos, hex_C.box)
+    rec = OrthogonalBox(hex_C.pos, hex_C.box, hex_C.data["type"].to_numpy())
     rec.compute()
-    print("Rectangular box without reduce_box:")
+    print("Rectangular box:")
     print(rec.rec_box)
-    print("Rectangular pos without reduce_box::")
+    print("Rectangular pos::")
     print(rec.rec_pos)
 
     system = System(pos=rec.rec_pos, box=rec.rec_box, type_list=rec.rec_type_list)
-    system.write_xyz("HexDiamond.xyz", type_name=["C"])
+    system.write_xyz("MoS2.xyz", type_name=["Mo", "S"])

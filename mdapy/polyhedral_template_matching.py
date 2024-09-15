@@ -127,7 +127,7 @@ class PolyhedralTemplateMatching:
         for i in self.structure.split("-"):
             assert (
                 i in structure_list
-            ), f'Structure should in ["fcc", "hcp", "bcc", "ico", "sc","dcub", "dhex", "graphene", "all", "default"].'
+            ), 'Structure should in ["fcc", "hcp", "bcc", "ico", "sc","dcub", "dhex", "graphene", "all", "default"].'
         self.rmsd_threshold = rmsd_threshold
         self.verlet_list = verlet_list
         self.return_verlet = return_verlet

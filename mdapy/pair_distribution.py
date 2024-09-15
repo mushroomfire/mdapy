@@ -164,8 +164,8 @@ class PairDistribution:
 
             for i in range(self.Ntype):
                 for j in range(self.Ntype):
-                    self.g[i, j] = self.g[i, j] / (
-                        number_per_type[i] * number_per_type[j]
+                    self.g[i, j] = (
+                        self.g[i, j] / number_per_type[i] / number_per_type[j]
                     )
 
             self.g = self.g / const

@@ -99,7 +99,7 @@ class CellOptimization:
             lmp.commands_string(f"units {self.units}")
             lmp.commands_string(f"boundary {boundary}")
             lmp.commands_string(f"atom_style {self.atomic_style}")
-            num_type = self.type_list.max()
+            num_type = len(self.elements_list)
             create_box = f"""
             region 1 prism 0 1 0 1 0 1 0 0 0
             create_box {num_type} 1

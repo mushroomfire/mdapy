@@ -948,6 +948,8 @@ class LammpsPotential(BasePotential):
     ):
         """This function is used to calculate the energy, force and virial.
 
+        # Note we use centroid/stress/atom to compute the atomic virial.
+
         Args:
             pos (np.ndarray): (:math:`N_p, 3`) particles positions.
             box (np.ndarray): (:math:`4, 3`) system box.
@@ -961,7 +963,7 @@ class LammpsPotential(BasePotential):
         Shape:
             energy : (:math:`N_p`)
             force : (:math:`N_p, 3`). The order is fx, fy and fz.
-            virial : (:math:`N_p, 6`). The order is xx, yy, zz, xy, xz, yz.
+            virial : (:math:`N_p, 9`). The order is xx, yy, zz, xy, xz, yz, yx, zx, zy.
         """
         boundary = " ".join(["p" if i == 1 else "s" for i in boundary])
         energy, force, virial = None, None, None
@@ -970,7 +972,7 @@ class LammpsPotential(BasePotential):
             lmp.commands_string(f"units {self.units}")
             lmp.commands_string(f"boundary {boundary}")
             lmp.commands_string(f"atom_style {self.atomic_style}")
-            num_type = type_list.max()
+            num_type = len(elements_list)
             create_box = f"""
             region 1 prism 0 1 0 1 0 1 0 0 0
             create_box {num_type} 1
@@ -1004,7 +1006,7 @@ class LammpsPotential(BasePotential):
             lmp.commands_string(self.pair_parameter)
             if self.extra_args is not None:
                 lmp.commands_string(self.extra_args)
-            lmp.commands_string("compute 1 all stress/atom NULL")
+            lmp.commands_string("compute 1 all centroid/stress/atom NULL")
             lmp.commands_string("compute 2 all pe/atom")
             # lmp.commands_string("variable vol equal vol")
             lmp.commands_string("run 0")
@@ -1085,37 +1087,51 @@ if __name__ == "__main__":
     # )
     # end = time()
     # print(f"Calculate energy and force time: {end-start} s.")
-    # system = System(r"D:\Study\Gra-Al\potential_test\phonon\alc\POSCAR")
-    # potential = NEP(r"D:\Study\Gra-Al\potential_test\total\nep.txt")
-    # e, f, v = potential.compute(
-    #     system.pos, system.box, ["Al", "C"], system.data["type"].to_numpy()
+    system = System(r"D:\Study\Gra-Al\potential_test\phonon\alc\POSCAR")
+    # nep = NEP(r"D:\Study\Gra-Al\potential_test\total\nep.txt")
+    # lnep = LammpsPotential(
+    #     r"""
+    # pair_style nep
+    # pair_coeff * * D:\Study\Gra-Al\potential_test\total\nep.txt Al C
+    # """
     # )
-    # print(e.sum())
-    # print(f[:5])
-    # print(v.sum(axis=0) / system.vol)
+    lnep = LammpsPotential(
+        r"""
+    pair_style nep D:\Study\Gra-Al\potential_test\total\nep.txt
+    pair_coeff * *
+    """
+    )
+
+    e, f, v = lnep.compute(
+        system.pos, system.box, ["Al", "C"], system.data["type"].to_numpy()
+    )
+    print(e.sum())
+    print(f[:5])
+    print(v.sum(axis=0) / system.vol * 6.241509125883258e-07)
+    print(v[:2] * 6.241509125883258e-07)  # to eV
     # start = time()
     # des = nep.get_descriptors(
-    #     FCC.pos, FCC.box, ["Al"], np.ones(FCC.pos.shape[0], dtype=np.int32)
+    #     system.pos, system.box, ["Al", "C"], system.data["type"].to_numpy()
     # )
     # end = time()
     # print(f"Calculate descriptors time: {end-start} s.")
     # print(des[:5])
-    system = System(
-        r"D:\Study\Gra-Al\potential_test\phonon\graphene\phonon_interface\stress\test.0.dump"
-    )
-    potential = EAM("./example/Al_DFT.eam.alloy")
-    start = time()
-    energy, force, virial = potential.compute(
-        system.pos, system.box, ["Al"], np.ones(system.N, dtype=np.int32)
-    )
-    end = time()
-    print(f"Calculate energy and force time: {end-start} s.")
-    print("energy:")
-    print(energy[:4])
-    print("force:")
-    print(force[:4, :])
-    print("virial:")
-    print(virial[:4, :] * 160.2176621 * 1e4)
+    # system = System(
+    #     r"D:\Study\Gra-Al\potential_test\phonon\graphene\phonon_interface\stress\test.0.dump"
+    # )
+    # potential = EAM("./example/Al_DFT.eam.alloy")
+    # start = time()
+    # energy, force, virial = potential.compute(
+    #     system.pos, system.box, ["Al"], np.ones(system.N, dtype=np.int32)
+    # )
+    # end = time()
+    # print(f"Calculate energy and force time: {end-start} s.")
+    # print("energy:")
+    # print(energy[:4])
+    # print("force:")
+    # print(force[:4, :])
+    # print("virial:")
+    # print(virial[:4, :] * 160.2176621 * 1e4)
 
     # print(potential.d_elec_density_data[0, :10])
     # print(potential.d_elec_density_data[0, :10])

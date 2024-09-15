@@ -546,6 +546,13 @@ class System:
             conversion_factor,
         )
         data, box = cpt.compute()
+        type_dict = {i: j for i, j in enumerate(elements_list, start=1)}
+        if "type_name" in self.data.columns:
+            data = data.with_columns(
+                pl.col("type")
+                .replace(type_dict, return_dtype=pl.Utf8)
+                .alias("type_name")
+            )
         return System(
             data=data,
             box=box,

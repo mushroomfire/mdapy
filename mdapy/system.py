@@ -1980,8 +1980,28 @@ class System:
         """
         rec = OrthogonalBox(self.pos, self.box, self.data["type"].to_numpy())
         rec.compute(N)
-
-        return System(pos=rec.rec_pos, box=rec.rec_box, type_list=rec.rec_type_list)
+        if "type_name" in self.data.columns:
+            df = self.data.group_by("type").agg(pl.col("type_name"))
+            type_dict = {df[i, 0]: df[i, 1][0] for i in range(df.shape[0])}
+            system = System(
+                pos=rec.rec_pos,
+                box=rec.rec_box,
+                type_list=rec.rec_type_list,
+            )
+            system.update_data(
+                system.data.with_columns(
+                    pl.col("type")
+                    .replace(type_dict, return_dtype=pl.Utf8)
+                    .alias("type_name")
+                )
+            )
+            return system
+        else:
+            return System(
+                pos=rec.rec_pos,
+                box=rec.rec_box,
+                type_list=rec.rec_type_list,
+            )
 
 
 class MultiSystem(list):
@@ -2173,10 +2193,11 @@ if __name__ == "__main__":
 
     system = System(r"C:\Users\herrwu\Desktop\xyz\MoS2-H.xyz")
     rec = system.orthogonal_box(10)
-    print("Rectangular box:")
-    print(rec.box)
-    print("Rectangular pos::")
-    print(rec.pos)
+    print(rec)
+    # print("Rectangular box:")
+    # print(rec.box)
+    # print("Rectangular pos::")
+    # print(rec.pos)
 
     # ref = System(r'D:\Study\Gra-Al\paper\Fig6\res\al_gra_deform_1e9_x\dump.0.xyz')
     # ref.build_neighbor(5., max_neigh=70)

@@ -23,8 +23,14 @@ class NEP3
 {
 public:
   struct ParaMB {
+    bool use_typewise_cutoff = false;
+    bool use_typewise_cutoff_zbl = false;
+    float typewise_cutoff_radial_factor = 2.5f;
+    float typewise_cutoff_angular_factor = 2.0f;
+    float typewise_cutoff_zbl_factor = 0.65f;
+
     int model_type = 0; // 0=potential, 1=dipole, 2=polarizability
-    int version = 2;
+    int version = 4;
     double rc_radial = 0.0;
     double rc_angular = 0.0;
     double rcinv_radial = 0.0;
@@ -40,21 +46,22 @@ public:
     int num_c_radial = 0;
     int num_types = 0;
     double q_scaler[140];
+    int atomic_numbers[94];
   };
 
   struct ANN {
     int dim = 0;
     int num_neurons1 = 0;
     int num_para = 0;
-    const double* w0[103];
-    const double* b0[103];
-    const double* w1[103];
+    const double* w0[94];
+    const double* b0[94];
+    const double* w1[94];
     const double* b1;
     const double* c;
     // for the scalar part of polarizability
-    const double* w0_pol[103];
-    const double* b0_pol[103];
-    const double* w1_pol[103];
+    const double* w0_pol[94];
+    const double* b0_pol[94];
+    const double* w1_pol[94];
     const double* b1_pol;
   };
 
@@ -64,7 +71,6 @@ public:
     int num_types;
     double rc_inner = 1.0;
     double rc_outer = 2.0;
-    double atomic_numbers[103];
     double para[550];
   };
 
@@ -85,6 +91,8 @@ public:
   NEP3(const std::string& potential_filename);
 
   void init_from_file(const std::string& potential_filename, const bool is_rank_0);
+
+  void update_type_map(const int ntype, int* type_map, char** elements);
 
   // type[num_atoms] should be integers 0, 1, ..., mapping to the atom types in nep.txt in order
   // box[9] is ordered as ax, bx, cx, ay, by, cy, az, bz, cz
@@ -153,11 +161,13 @@ public:
   );
 
   void compute_for_lammps(
+    int nlocal,              // atom->nlocal
     int inum,                // list->inum
     int* ilist,              // list->ilist
     int* numneigh,           // list->numneigh
     int** firstneigh,        // list->firstneigh
     int* type,               // atom->type
+    int* type_map,           // map from atom type to element
     double** x,              // atom->x
     double& total_potential, // total potential energy for the current processor
     double total_virial[6],  // total virial for the current processor

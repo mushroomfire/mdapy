@@ -12,6 +12,23 @@ except Exception:
 
 @ti.data_oriented
 class AtomicStrain:
+    """This class is used to calculate the atomic shear strain. More details can be found here.
+    https://www.ovito.org/docs/current/reference/pipelines/modifiers/atomic_strain.html
+
+    Args:
+        ref_pos (np.ndarray): position of the reference configuration.
+        ref_box (np.ndarray): box of the reference configuration.
+        cur_pos (np.array): position of the current configuration.
+        cur_box (np.array): box of the current configuration.
+        verlet_list (np.ndarray): neighbor atom index for the reference configuration.
+        distance_list (np.ndarray): neighbor atom number for the reference configuration..
+        boundary (list, optional): boundary condition. Defaults to [1, 1, 1].
+        affi_map (str, optional): selected in ['off', 'ref']. If use to 'ref', the current position will affine to the reference frame. Defaults to 'off'.
+
+    Outputs:
+        - **shear_strain** (np.ndarray) - shear strain value per atoms.
+    """
+
     def __init__(
         self,
         ref_pos,
@@ -85,6 +102,7 @@ class AtomicStrain:
             shear_strain[i] = shearStrain
 
     def compute(self):
+        """Do the real compute."""
         self.shear_strain = np.zeros(self.neighbor_number.shape[0])
         self._cal_atomic_strain(
             self.verlet_list,

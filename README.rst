@@ -107,6 +107,7 @@ Main Features
 1. Structure Analysis
    
    - `Ackland Jones Analysis <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.ackland_jones_analysis>`_
+   - `Atomic Shear Strain <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.atomic_strain>`_
    - `CentroSymmetry Parameter <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.centro_symmetry_parameter>`_ 
    - `Common Neighbor Analysis <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.common_neighbor_analysis>`_ 
    - `Common Neighbor Parameter <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.common_neighbor_parameter>`_
@@ -115,6 +116,7 @@ Main Features
    - `Radiul Distribution Function <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.pair_distribution>`_
    - `Polyhedral Template Matching <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.polyhedral_template_matching>`_
    - `Identify stacking faults (SFs) and twinning boundary (TBs) <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.identify_SFs_TBs>`_
+   - `Identify Diamond structure <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.identify_diamond_structure>`_
 
 2. Potential Analysis 
 
@@ -167,6 +169,8 @@ Main Features
    - `Multi-dimensional Spatial Binning <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.spatial_binning>`_
    - `Parallelly Compress file to .gz format <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.pigz>`_
    - `Split xyz/dump trajectories into seperate xyz/dump files <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.tool_function.split_dump>`_
+   - `Minimization <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.minimizer>`_
+   - `OrthogonalBox <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.orthogonal_box>`
 
 
 Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)

@@ -476,6 +476,17 @@ class System:
         )
 
     def minimize(self, elements_list, potential, fmax=0.05, max_itre=10):
+        """This function use the fast inertial relaxation engine (FIRE) method to minimize the system with fixed box.
+
+        Args:
+            elements_list (list): element name, such as ['Al', 'C']
+            potential (BasePotential): a BasePotential
+            fmax (float, optional): maximum force per atom to consider as converged. Defaults to 0.05.
+            max_itre (int, optional): maximum iteration times. Defaults to 10.
+
+        Returns:
+            System: system with optimized position.
+        """
         mini = Minimizer(
             self.data.select(["x", "y", "z"]).to_numpy(),
             self.box,
@@ -546,8 +557,8 @@ class System:
             conversion_factor,
         )
         data, box = cpt.compute()
-        type_dict = {i: j for i, j in enumerate(elements_list, start=1)}
         if "type_name" in self.data.columns:
+            type_dict = {i: j for i, j in enumerate(elements_list, start=1)}
             data = data.with_columns(
                 pl.col("type")
                 .replace(type_dict, return_dtype=pl.Utf8)
@@ -1763,6 +1774,23 @@ class System:
     def cal_identify_diamond_structure(
         self,
     ):
+        """This class is used to identify the Diamond structure. The results and algorithm should be the same in Ovito.
+        More details can be found in https://www.ovito.org/manual/reference/pipelines/modifiers/identify_diamond.html .
+
+        Outputs:
+            - **The pattern per atom is added in self.data['ids']**.
+
+        The identified structures include:
+
+        - 0 "other",
+        - 1 "cubic_diamond",
+        - 2 "cubic_diamond_1st_neighbor",
+        - 3 "cubic_diamond_2st_neighbor",
+        - 4 "hexagonal_diamond",
+        - 5 "hexagonal_diamond_1st_neighbor",
+        - 6 "hexagonal_diamond_2st_neighbor"
+
+        """
         sort_neigh = False
         if self.if_neigh:
             if self.neighbor_number.min() >= 12:
@@ -1781,12 +1809,13 @@ class System:
         IDS.compute()
         self.__data = self.__data.with_columns(pl.lit(IDS.pattern).alias("ids"))
 
-    def cal_energy_force_virial(self, potential, elements_list):
+    def cal_energy_force_virial(self, potential, elements_list, centroid_stress=False):
         """Calculate the atomic energy and force based on the given potential.
 
         Args:
             potential (BasePotential): base potential class defined in mdapy, which must including a compute method to calculate the energy, force, virial.
             elements_list (list): elements to be calculated, such as ['Al', 'Ni'] indicates setting type 1 as 'Al' and type 2 as 'Ni'.
+            centroid_stress (bool, optional): Only for LammpsPotential. If Ture, use compute stress/atomm. If False, use compute centroid/stress/atom. Defaults to False.
 
         Returns:
             tuple[np.ndarray, np.ndarray, np.ndarray]: energy, force, virial.
@@ -1822,13 +1851,22 @@ class System:
                 neighbor_number,
             )
 
-        else:
+        elif isinstance(potential, NEP):
             energy, force, virial = potential.compute(
                 self.pos,
                 self.box,
                 elements_list,
                 self.__data["type"].to_numpy(),
                 self.boundary,
+            )
+        else:
+            energy, force, potential = potential.compute(
+                self.pos,
+                self.box,
+                elements_list,
+                self.__data["type"].to_numpy(),
+                self.boundary,
+                centroid_stress,
             )
 
         return energy, force, virial
@@ -1977,10 +2015,10 @@ class System:
         self.Binning.compute()
 
     def orthogonal_box(self, N=10):
-        """This function try to change the box rectangular.
+        """This function try to change the box to rectangular.
 
         Args:
-            N (int, optional): search limit. If you can't found rectangular box, increase N. Defaults to N.
+            N (int, optional): search limit. If you can't found rectangular box, increase N. Defaults to 10.
 
         Returns:
             System: a new system with reactangular box. The atoms number may be changed.

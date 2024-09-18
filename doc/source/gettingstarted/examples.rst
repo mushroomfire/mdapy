@@ -61,7 +61,7 @@ Examples
     metal_lattice_type = 'FCC' # lattice type of metallic matrix
     randomseed = 1 # control the crystalline orientations per grains
     add_graphene=True # use graphen as grain boundary
-    poly = mp.CreatePolycrystalline(box, seednumber, metal_lattice_constant, metal_lattice_type, randomseed=randomseed, add_graphene=add_graphene, gra_overlap_dis=1.2)
+    poly = mp.CreatePolycrystalline(box, seednumber, None, metal_lattice_constant, metal_lattice_type, randomseed=randomseed, add_graphene=add_graphene, gra_overlap_dis=1.2)
     poly.compute() # generate a polycrystalline with graphene boundary
 
 5. Calculate the EOS curve
@@ -102,7 +102,7 @@ Examples
     plt.savefig('eos.png', dpi=300, bbox_inches='tight', transparent=True)
     plt.show()
 
-1. Collaborative use with Ovito
+6. Collaborative use with Ovito
 --------------------------------
 
 This function can run in script environment of Ovito.
@@ -210,14 +210,15 @@ Here the stacking faults include intrinsic SFs and multi layer SFs.
 Make sure you have install lammps-python interface. We use lammps to do cell optimization.
 
 .. code-block:: python
+    
     import mdapy as mp
     from mdapy.potential import LammpsPotential
 
     mp.init()
     
     def compute_Vacancy_formation_energy(lattice_constant, lattice_type, element='Al', pair_parameter="""
-        pair_style nep nep.txt
-        pair_coeff * *
+        pair_style nep 
+        pair_coeff * * nep.txt Al
         """, x=5, y=5, z=5, fmax=0.05, max_itre=10):
     
         potential = LammpsPotential(

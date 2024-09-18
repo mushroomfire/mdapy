@@ -945,10 +945,11 @@ class LammpsPotential(BasePotential):
         elements_list,
         type_list,
         boundary=[1, 1, 1],
+        centroid_stress=False,
     ):
         """This function is used to calculate the energy, force and virial.
 
-        # Note we use centroid/stress/atom to compute the atomic virial.
+        # If one use NEP potential, set centroid_stress to True to obtain right 9 indices virial.
 
         Args:
             pos (np.ndarray): (:math:`N_p, 3`) particles positions.
@@ -956,6 +957,7 @@ class LammpsPotential(BasePotential):
             elements_list (list[str]): elements to be calculated, such as ['Al', 'Ni'].
             type_list (np.ndarray): (:math:`N_p`) atom type list.
             boundary (list, optional): boundary conditions, 1 is periodic and 0 is free boundary. Defaults to [1, 1, 1].
+            centroid_stress (bool, optional): if Ture, use compute stress/atomm. If False, use compute centroid/stress/atom. Defaults to False.
 
         Returns:
             tuple[np.ndarray, np.ndarray, np.ndarray]: energy, force, virial.
@@ -963,7 +965,7 @@ class LammpsPotential(BasePotential):
         Shape:
             energy : (:math:`N_p`)
             force : (:math:`N_p, 3`). The order is fx, fy and fz.
-            virial : (:math:`N_p, 9`). The order is xx, yy, zz, xy, xz, yz, yx, zx, zy.
+            virial : (:math:`N_p, 9`). If centroid_stress is True, the order is xx, yy, zz, xy, xz, yz, yx, zx, zy. Otherwise the order is xx, yy, zz, xy, xz, yz.
         """
         boundary = " ".join(["p" if i == 1 else "s" for i in boundary])
         energy, force, virial = None, None, None
@@ -1006,7 +1008,10 @@ class LammpsPotential(BasePotential):
             lmp.commands_string(self.pair_parameter)
             if self.extra_args is not None:
                 lmp.commands_string(self.extra_args)
-            lmp.commands_string("compute 1 all centroid/stress/atom NULL")
+            if centroid_stress:
+                lmp.commands_string("compute 1 all centroid/stress/atom NULL")
+            else:
+                lmp.commands_string("compute 1 all stress/atom NULL")
             lmp.commands_string("compute 2 all pe/atom")
             # lmp.commands_string("variable vol equal vol")
             lmp.commands_string("run 0")
@@ -1097,13 +1102,18 @@ if __name__ == "__main__":
     # )
     lnep = LammpsPotential(
         r"""
-    pair_style nep D:\Study\Gra-Al\potential_test\total\nep.txt
-    pair_coeff * *
+    pair_style nep 
+    pair_coeff * * D:\Study\Gra-Al\potential_test\total\nep.txt Al C
     """
     )
 
     e, f, v = lnep.compute(
-        system.pos, system.box, ["Al", "C"], system.data["type"].to_numpy()
+        system.pos,
+        system.box,
+        ["Al", "C"],
+        system.data["type"].to_numpy(),
+        [1, 1, 1],
+        True,
     )
     print(e.sum())
     print(f[:5])

@@ -12,6 +12,22 @@ mdapy.ackland\_jones\_analysis module
    :undoc-members:
    :show-inheritance:
 
+mdapy.atomic\_strain module
+---------------------------
+
+.. automodule:: mdapy.atomic_strain
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mdapy.box module
+----------------
+
+.. automodule:: mdapy.box
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.cell\_opt module
 ----------------------
 
@@ -100,6 +116,14 @@ mdapy.identify\_SFs\_TBs module
    :undoc-members:
    :show-inheritance:
 
+mdapy.identify\_diamond\_structure module
+-----------------------------------------
+
+.. automodule:: mdapy.identify_diamond_structure
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.lattice\_maker module
 ---------------------------
 
@@ -140,6 +164,14 @@ mdapy.mean\_squared\_displacement module
    :undoc-members:
    :show-inheritance:
 
+mdapy.minimizer module
+----------------------
+
+.. automodule:: mdapy.minimizer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.nearest\_neighbor module
 ------------------------------
 
@@ -152,6 +184,14 @@ mdapy.neighbor module
 ---------------------
 
 .. automodule:: mdapy.neighbor
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mdapy.orthogonal\_box module
+----------------------------
+
+.. automodule:: mdapy.orthogonal_box
    :members:
    :undoc-members:
    :show-inheritance:

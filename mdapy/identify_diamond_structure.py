@@ -8,18 +8,42 @@ try:
     from nearest_neighbor import NearestNeighbor
     from replicate import Replicate
     from tool_function import _check_repeat_nearest
-    from box import init_box, _pbc, _pbc_rec
+    from box import init_box
     from cna import _cna
 except Exception:
     from .nearest_neighbor import NearestNeighbor
     from .replicate import Replicate
     from .tool_function import _check_repeat_nearest
-    from .box import init_box, _pbc, _pbc_rec
+    from .box import init_box
     import _cna
 
 
 @ti.data_oriented
 class IdentifyDiamondStructure:
+    """This class is used to identify the Diamond structure. The results and algorithm should be the same in Ovito.
+    More details can be found in https://www.ovito.org/manual/reference/pipelines/modifiers/identify_diamond.html .
+
+    Args:
+        pos (np.ndarray): atom position.
+        box (np.ndarray: system box.
+        boundary (list, optional): boundary. Defaults to [1, 1, 1].
+        verlet_list (np.ndarray, optional): first 12 neighbors is sorted, if not given, use kdtree to obtain it. Defaults to None.
+
+    Outputs:
+        - **pattern** (np.ndarray) - structure pattern per atoms.
+
+    The identified structures include:
+
+    - 0 "other",
+    - 1 "cubic_diamond",
+    - 2 "cubic_diamond_1st_neighbor",
+    - 3 "cubic_diamond_2st_neighbor",
+    - 4 "hexagonal_diamond",
+    - 5 "hexagonal_diamond_1st_neighbor",
+    - 6 "hexagonal_diamond_2st_neighbor"
+
+    """
+
     def __init__(
         self,
         pos,
@@ -82,7 +106,7 @@ class IdentifyDiamondStructure:
 
 if __name__ == "__main__":
     ti.init()
-    import polars as pl
+    # import polars as pl
     from system import System
     from time import time
 

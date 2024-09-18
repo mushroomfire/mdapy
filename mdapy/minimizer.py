@@ -14,6 +14,23 @@ except Exception:
 
 
 class Minimizer:
+    """This function use the fast inertial relaxation engine (FIRE) method to minimize the system with fixed box.
+    More details can be found in paper:
+
+    Guénolé, Julien, et al. "Assessment and optimization of the fast inertial relaxation engine (fire) for energy minimization in atomistic simulations and its implementation in lammps." Computational Materials Science 175 (2020): 109584.
+
+    Args:
+        pos (np.ndarray): atom position.
+        box (np.ndarray): system box.
+        boundary (list): boundary, such as [1, 1, 1].
+        potential (BasePotential): mdapy potential.
+        elements_list (list): elemental name, such as ['Al', 'C'].
+        type_list (np.ndarray): atom type list.
+        mini_type (str, optional): only support 'FIRE' now. Defaults to "FIRE".
+        fmax (float, optional): maximum force per atom to consider as converged. Defaults to 0.05.
+        max_itre (int, optional): maximum iteration times. Defaults to 100.
+    """
+
     def __init__(
         self,
         pos,

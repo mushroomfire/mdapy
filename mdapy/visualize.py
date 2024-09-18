@@ -334,7 +334,7 @@ class Visualize:
             if self.label is None:
                 self.label = k3d.text2d(
                     value_name,
-                    position=(0.02, 0.5),
+                    position=(0.01, 0.5),
                     size=2,
                     is_html=True,
                     label_box=False,

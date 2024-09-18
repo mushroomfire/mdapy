@@ -15,6 +15,7 @@ add_graphene = True  # use graphen as grain boundary
 poly = mp.CreatePolycrystalline(
     box,
     seednumber,
+    None,
     metal_lattice_constant,
     metal_lattice_type,
     randomseed=randomseed,

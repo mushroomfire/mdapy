@@ -42,24 +42,23 @@ def _pbc(
 def init_box(box):
     """This function is used to obtain box array.
 
+    - case 1: a float/int number, such as 10, it will generate a rectangle box with box length of 10 A.
+    - case 2: a str, such as "10", the result is same with case 1.
+    - case 3: a list/tuple/np.ndarray.
+
+    If it includs three elements, such as [10, 20, 30], it will build a rectangle box with box length of x(10), y(20) and z(30). If the input is 2 2-D np.array or nested list.
+    We accept the shape of (3, 2), (3, 3) and (4, 3). The shape of (3, 2) indicates the first colume is the origin
+    and the second column is the maximum points of box. The shape of (3, 3) indicates the three box vector. The shape
+    of (4, 3) indicates the three box vector and the fourth row is the origin position. The defaults origin is [0, 0, 0].
+    The final box is a np.ndarray with shape of (4, 3):
+
+    - ax ay az (x axis)
+    - bx by bz (y axis)
+    - cx cy cz (z axis)
+    - ox oy oz (origin)
+
     Args:
-        box (float | str | list | np.ndarray): The input accepts several cases:
-        - case 1: a float/int number, such as 10, it will generate a rectangle box with box length of 10 A.
-        - case 2: a str, such as "10", the result is same with case 1.
-        - case 3: a list/tuple/np.ndarray. If it includs three elements, such as [10, 20, 30], it will build a
-        rectangle box with box length of x(10), y(20) and z(30). If the input is 2 2-D np.array or nested list.
-        We accept the shape of (3, 2), (3, 3) and (4, 3). The shape of (3, 2) indicates the first colume is the origin
-        and the second column is the maximum points of box. The shape of (3, 3) indicates the three box vector. The shape
-        of (4, 3) indicates the three box vector and the fourth row is the origin position. The defaults origin is [0, 0, 0].
-        The final box is a np.ndarray with shape of (4, 3):
-
-        - ax ay az (x axis)
-
-        - bx by bz (y axis)
-
-        - cx cy cz (z axis)
-
-        - ox oy oz (origin)
+        box (float | str | list | np.ndarray): The input box.
 
     Returns:
         tuple[np.ndarray, np.ndarray, bool]: box (4, 3), inverse box (3, 3), rec. The rec indicates if the box is reactangle.

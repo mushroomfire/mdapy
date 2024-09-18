@@ -17,6 +17,19 @@ except Exception:
 
 @ti.data_oriented
 class OrthogonalBox:
+    """This class try to change the box to rectangular.
+
+    Args:
+        pos (np.ndarray): atom position.
+        box (np.ndarray): system box.
+        type_list (np.ndarray, optional): type list. Defaults to None.
+
+    Outputs:
+        - **rec_pos** (np.ndarray) - new position.
+        - **rec_box** (np.ndarray) - new box.
+        - **rec_type_list** (np.ndarray) - new type_list.
+    """
+
     def __init__(self, pos, box, type_list=None) -> None:
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
@@ -65,6 +78,11 @@ class OrthogonalBox:
                                 trans[2, 2] = k
 
     def compute(self, N=10):
+        """Do the real computation.
+
+        Args:
+            N (int, optional): search limit. If you can't found rectangular box, increase N. Defaults to 10.
+        """
         delta = 1e-6
         trans = np.zeros((3, 3), int)
         self._find_orthogonal_vectors(trans, self.box, N, delta)

@@ -170,7 +170,7 @@ Main Features
    - `Parallelly Compress file to .gz format <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.pigz>`_
    - `Split xyz/dump trajectories into seperate xyz/dump files <https://mdapy.readthedocs.io/en/latest/mdapy.html#mdapy.tool_function.split_dump>`_
    - `Minimization <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.minimizer>`_
-   - `OrthogonalBox <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.orthogonal_box>`
+   - `OrthogonalBox <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.orthogonal_box>`_
 
 
 Dependencies (Support `Python <https://www.python.org/>`_ 3.8-3.11)

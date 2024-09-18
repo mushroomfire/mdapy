@@ -1,7 +1,7 @@
 Release Notes
 --------------
 
-Mdapy 0.11.1 (September 18, 2024)
+Mdapy 0.11.1 (September 19, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 🏆 Highlights
 ---------------
@@ -28,6 +28,7 @@ Mdapy 0.11.1 (September 18, 2024)
 - Fix a bug for neighbor class.
 - Fix a bug for RDF with partial interaction in multi-elemental system.
 - Fix a bug for reading cp2k output file with OT method.
+- Let GUI model compatible with latest polars.
 
 🛠️ Other improvements
 ---------------------------

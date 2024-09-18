@@ -301,12 +301,12 @@ def loadfile(filename):
         for name in system.data.columns:
             if name == "type":
                 atoms.add_scalar_quantity(
-                    name, system.data[name].view(), enabled=True, cmap="jet"
+                    name, system.data[name].to_numpy(), enabled=True, cmap="jet"
                 )
             else:
                 if system.data[name].dtype in pl.NUMERIC_DTYPES:
                     atoms.add_scalar_quantity(
-                        name, system.data[name].view(), cmap="jet"
+                        name, system.data[name].to_numpy(), cmap="jet"
                     )
         vertices, indices = box2lines(system.box)
         ps.register_curve_network(
@@ -539,7 +539,7 @@ def centro_symmetry_parameter():
                     ps.info("Calculating CentroSymmetry Parameter ...")
                     system.cal_centro_symmetry_parameter(N=csp_n_neigh)
                     atoms.add_scalar_quantity(
-                        "csp", system.data["csp"].view(), enabled=True, cmap="jet"
+                        "csp", system.data["csp"].to_numpy(), enabled=True, cmap="jet"
                     )
                     ps.info("Calculate CentroSymmetry Parameter successfully.")
                 else:
@@ -562,7 +562,7 @@ def common_neighbor_parameter():
                     ps.info("Calculating Commen Neighbor Parameter...")
                     system.cal_common_neighbor_parameter(rc=cnp_rc, max_neigh=None)
                     atoms.add_scalar_quantity(
-                        "cnp", system.data["cnp"].view(), cmap="jet", enabled=True
+                        "cnp", system.data["cnp"].to_numpy(), cmap="jet", enabled=True
                     )
                     ps.info("Calculate Commen Neighbor Parameter successfully.")
                 else:
@@ -587,7 +587,7 @@ def cluster_analysis():
                     )
                     atoms.add_scalar_quantity(
                         "cluster_id",
-                        system.data["cluster_id"].view(),
+                        system.data["cluster_id"].to_numpy(),
                         cmap="jet",
                         enabled=True,
                     )
@@ -625,19 +625,21 @@ def common_neighbor_analysis():
                     color = np.array([Other, FCC, HCP, BCC, ICO])
 
                     system.cal_common_neighbor_analysis()
-                    rgb = (
-                        system.data.select(
-                            rgb=pl.col("cna").replace(
-                                {i: j for i, j in enumerate(color)}, default=None
-                            )
-                        )["rgb"]
-                        .list.to_array(3)
-                        .to_numpy()
-                    )
+                    # rgb = (
+                    #     system.data.select(
+                    #         rgb=pl.col("cna").replace(
+                    #             {i: j for i, j in enumerate(color)}, default=None
+                    #         )
+                    #     )["rgb"]
+                    #     .list.to_array(3)
+                    #     .to_numpy()
+                    # )
+                    cna = system.data["cna"].to_numpy()
+                    rgb = np.zeros((system.N, 3))
+                    for i in range(system.N):
+                        rgb[i] = color[cna[i]]
                     atoms.add_color_quantity("cna_struc", rgb, enabled=True)
-                    atoms.add_scalar_quantity(
-                        "cna", system.data["cna"].view(), cmap="jet"
-                    )
+                    atoms.add_scalar_quantity("cna", cna, cmap="jet")
                     ps.info("Calculate Commen Neighbor Analysis successfully.")
                 else:
                     ps.warning("System not found.")
@@ -806,14 +808,14 @@ def atomic_entropy():
                     )
                     atoms.add_scalar_quantity(
                         "atomic_entropy",
-                        system.data["atomic_entropy"].view(),
+                        system.data["atomic_entropy"].to_numpy(),
                         cmap="jet",
                         enabled=True,
                     )
                     if entropy_compute_average:
                         atoms.add_scalar_quantity(
                             "ave_atomic_entropy",
-                            system.data["ave_atomic_entropy"].view(),
+                            system.data["ave_atomic_entropy"].to_numpy(),
                             cmap="jet",
                             enabled=True,
                         )
@@ -844,19 +846,21 @@ def ackland_jones_analysis():
                     ps.info("Calculating Ackland Jones Analysis...")
                     color = np.array([Other, FCC, HCP, BCC, ICO])
                     system.cal_ackland_jones_analysis()
-                    rgb = (
-                        system.data.select(
-                            rgb=pl.col("aja").replace(
-                                {i: j for i, j in enumerate(color)}, default=None
-                            )
-                        )["rgb"]
-                        .list.to_array(3)
-                        .to_numpy()
-                    )
+                    # rgb = (
+                    #     system.data.select(
+                    #         rgb=pl.col("aja").replace(
+                    #             {i: j for i, j in enumerate(color)}, default=None
+                    #         )
+                    #     )["rgb"]
+                    #     .list.to_array(3)
+                    #     .to_numpy()
+                    # )
+                    aja = system.data["aja"].to_numpy()
+                    rgb = np.zeros((system.N, 3))
+                    for i in range(system.N):
+                        rgb[i] = color[aja[i]]
                     atoms.add_color_quantity("aja_struc", rgb, enabled=True)
-                    atoms.add_scalar_quantity(
-                        "aja", system.data["aja"].view(), cmap="jet"
-                    )
+                    atoms.add_scalar_quantity("aja", aja, cmap="jet")
                     ps.info("Calculate Ackland Jones Analysis successfully.")
                 else:
                     ps.warning("System not found.")
@@ -934,38 +938,44 @@ def steinhardt_bond_orientation():
                         if i == qlist[0]:
                             atoms.add_scalar_quantity(
                                 f"ql{i}",
-                                system.data[f"ql{i}"].view(),
+                                system.data[f"ql{i}"].to_numpy(),
                                 cmap="jet",
                                 enabled=True,
                             )
                         else:
                             atoms.add_scalar_quantity(
-                                f"ql{i}", system.data[f"ql{i}"].view(), cmap="jet"
+                                f"ql{i}", system.data[f"ql{i}"].to_numpy(), cmap="jet"
                             )
                     if sbo_wlflag:
                         for i in qlist:
                             atoms.add_scalar_quantity(
-                                f"wl{i}", system.data[f"wl{i}"].view(), cmap="jet"
+                                f"wl{i}", system.data[f"wl{i}"].to_numpy(), cmap="jet"
                             )
                     if sbo_wlhatflag:
                         for i in qlist:
                             atoms.add_scalar_quantity(
-                                f"whl{i}", system.data[f"whl{i}"].view(), cmap="jet"
+                                f"whl{i}", system.data[f"whl{i}"].to_numpy(), cmap="jet"
                             )
                     if sbo_solidliquid:
-                        rgb = (
-                            system.data.select(
-                                rgb=pl.col("solidliquid").replace(
-                                    {0: liquid, 1: solid}, default=None
-                                )
-                            )["rgb"]
-                            .list.to_array(3)
-                            .to_numpy()
-                        )
+                        # rgb = (
+                        #     system.data.select(
+                        #         rgb=pl.col("solidliquid").replace(
+                        #             {0: liquid, 1: solid}, default=None
+                        #         )
+                        #     )["rgb"]
+                        #     .list.to_array(3)
+                        #     .to_numpy()
+                        # )
+                        color = np.array([liquid, solid])
+                        sl = system.data["solidliquid"].to_numpy()
+                        rgb = np.zeros((system.N, 3))
+                        for i in range(system.N):
+                            rgb[i] = color[sl[i]]
+
                         atoms.add_color_quantity("solidliquid_color", rgb, enabled=True)
                         atoms.add_scalar_quantity(
-                            f"solidliquid",
-                            system.data["solidliquid"].view(),
+                            "solidliquid",
+                            sl,
                             cmap="jet",
                         )
                     ps.info("Calculate Steinhardt Bond Orientation successfully.")
@@ -1093,33 +1103,36 @@ def polyhedral_template_matching():
                             return_wxyz=ptm_return_wxyz,
                         )
 
-                        rgb = (
-                            system.data.select(
-                                rgb=pl.col("ptm").replace(
-                                    {i: j for i, j in enumerate(color)}, default=None
-                                )
-                            )["rgb"]
-                            .list.to_array(3)
-                            .to_numpy()
-                        )
+                        # rgb = (
+                        #     system.data.select(
+                        #         rgb=pl.col("ptm").replace(
+                        #             {i: j for i, j in enumerate(color)},
+                        #             default=None,
+                        #         )
+                        #     )["rgb"]
+                        #     .list.to_array(3)
+                        #     .to_numpy()
+                        # )
+                        ptm = system.data["ptm"].to_numpy()
+                        rgb = np.zeros((system.N, 3))
+                        for i in range(system.N):
+                            rgb[i] = color[ptm[i]]
                         atoms.add_color_quantity("ptm_struc", rgb, enabled=True)
-                        atoms.add_scalar_quantity(
-                            "ptm", system.data["ptm"].view(), cmap="jet"
-                        )
+                        atoms.add_scalar_quantity("ptm", ptm, cmap="jet")
                         if ptm_return_rmsd:
                             atoms.add_scalar_quantity(
-                                "rmsd", system.data["rmsd"].view(), cmap="jet"
+                                "rmsd", system.data["rmsd"].to_numpy(), cmap="jet"
                             )
                         if ptm_return_interatomic_distance:
                             atoms.add_scalar_quantity(
                                 "interatomic_distance",
-                                system.data["interatomic_distance"].view(),
+                                system.data["interatomic_distance"].to_numpy(),
                                 cmap="jet",
                             )
                         if ptm_return_wxyz:
                             for name in ["qw", "qx", "qy", "qz"]:
                                 atoms.add_scalar_quantity(
-                                    name, system.data[name].view(), cmap="jet"
+                                    name, system.data[name].to_numpy(), cmap="jet"
                                 )
                         ps.info("Calculate Polyhedral Template Matching successfully.")
                     else:
@@ -1145,17 +1158,19 @@ def voronoi_analysis():
 
                     atoms.add_scalar_quantity(
                         "voronoi_volume",
-                        system.data["voronoi_volume"].view(),
+                        system.data["voronoi_volume"].to_numpy(),
                         enabled=True,
                         cmap="jet",
                     )
                     atoms.add_scalar_quantity(
                         "voronoi_number",
-                        system.data["voronoi_number"].view(),
+                        system.data["voronoi_number"].to_numpy(),
                         cmap="jet",
                     )
                     atoms.add_scalar_quantity(
-                        "cavity_radius", system.data["cavity_radius"].view(), cmap="jet"
+                        "cavity_radius",
+                        system.data["cavity_radius"].to_numpy(),
+                        cmap="jet",
                     )
                     ps.info("Calculate Voronoi Analysis successfully.")
                 else:
@@ -1215,7 +1230,7 @@ def identify_species():
                         )
                     atoms.add_scalar_quantity(
                         "cluster_id",
-                        system.data["cluster_id"].view(),
+                        system.data["cluster_id"].to_numpy(),
                         cmap="jet",
                         enabled=True,
                     )
@@ -1257,7 +1272,7 @@ def replicate():
                     for name in system.data.columns:
                         if system.data[name].dtype in pl.NUMERIC_DTYPES:
                             atoms.add_scalar_quantity(
-                                name, system.data[name].view(), cmap="jet"
+                                name, system.data[name].to_numpy(), cmap="jet"
                             )
                     vertices, indices = box2lines(system.box)
                     ps.register_curve_network(
@@ -1338,34 +1353,49 @@ def identify_SFs_TBs():
                     ps.info("Calculating Identify SFs and TBs...")
                     system.cal_identify_SFs_TBs(rmsd_threshold=SF_rmsd_threshold)
 
-                    rgb = (
-                        system.data.with_columns(
-                            pl.when(pl.col("ptm") == 1)
-                            .then(FCC)
-                            .when(pl.col("ptm") == 3)
-                            .then(BCC)
-                            .when(pl.col("fault_types") == 4)
-                            .then(HCP)
-                            .when(pl.col("fault_types") == 2)
-                            .then(ISF)
-                            .when(pl.col("fault_types") == 5)
-                            .then(ESF)
-                            .when(pl.col("fault_types") == 3)
-                            .then(TB)
-                            .otherwise(Other)
-                            .alias("rgb")
-                        )["rgb"]
-                        .list.to_array(3)
-                        .to_numpy()
-                    )
+                    # rgb = (
+                    #     system.data.with_columns(
+                    #         pl.when(pl.col("ptm") == 1)
+                    #         .then(FCC)
+                    #         .when(pl.col("ptm") == 3)
+                    #         .then(BCC)
+                    #         .when(pl.col("fault_types") == 4)
+                    #         .then(HCP)
+                    #         .when(pl.col("fault_types") == 2)
+                    #         .then(ISF)
+                    #         .when(pl.col("fault_types") == 5)
+                    #         .then(ESF)
+                    #         .when(pl.col("fault_types") == 3)
+                    #         .then(TB)
+                    #         .otherwise(Other)
+                    #         .alias("rgb")
+                    #     )["rgb"]
+                    #     .list.to_array(3)
+                    #     .to_numpy()
+                    # )
+                    ptm = system.data["ptm"].to_numpy()
+                    fault_types = system.data["fault_types"].to_numpy()
+                    rgb = []
+                    for i in range(system.N):
+                        if ptm[i] == 1:
+                            rgb.append(FCC)
+                        elif ptm[i] == 3:
+                            rgb.append(BCC)
+                        elif fault_types[i] == 4:
+                            rgb.append(HCP)
+                        elif fault_types[i] == 2:
+                            rgb.append(ISF)
+                        elif fault_types[i] == 5:
+                            rgb.append(ESF)
+                        elif fault_types[i] == 3:
+                            rgb.append(TB)
+                        else:
+                            rgb.append(Other)
+                    rgb = np.array(rgb)
 
                     atoms.add_color_quantity("SFTB_struc", rgb, enabled=True)
-                    atoms.add_scalar_quantity(
-                        "ptm_struc", system.data["ptm"].view(), cmap="jet"
-                    )
-                    atoms.add_scalar_quantity(
-                        "fault_types", system.data["fault_types"].view(), cmap="jet"
-                    )
+                    atoms.add_scalar_quantity("ptm_struc", ptm, cmap="jet")
+                    atoms.add_scalar_quantity("fault_types", fault_types, cmap="jet")
                     ps.info("Calculate Identify SFs and TBs successfully.")
 
                 except Exception as e:
@@ -1406,7 +1436,7 @@ def atomic_temperature():
                     )
                     atoms.add_scalar_quantity(
                         "atomic_temp",
-                        system.data["atomic_temp"].view(),
+                        system.data["atomic_temp"].to_numpy(),
                         cmap="jet",
                         enabled=True,
                     )
@@ -1626,11 +1656,14 @@ def build_polycrystal():
                     if system.data[name].dtype in pl.NUMERIC_DTYPES:
                         if name == "grainid":
                             atoms.add_scalar_quantity(
-                                name, system.data[name].view(), cmap="jet", enabled=True
+                                name,
+                                system.data[name].to_numpy(),
+                                cmap="jet",
+                                enabled=True,
                             )
                         else:
                             atoms.add_scalar_quantity(
-                                name, system.data[name].view(), cmap="jet"
+                                name, system.data[name].to_numpy(), cmap="jet"
                             )
                 vertices, indices = box2lines(system.box)
                 ps.register_curve_network(
@@ -1715,7 +1748,7 @@ def build_lattice():
                 for name in system.data.columns:
                     if system.data[name].dtype in pl.NUMERIC_DTYPES:
                         atoms.add_scalar_quantity(
-                            name, system.data[name].view(), cmap="jet"
+                            name, system.data[name].to_numpy(), cmap="jet"
                         )
                 vertices, indices = box2lines(system.box)
                 ps.register_curve_network(

@@ -1,7 +1,7 @@
 Release Notes
 --------------
 
-Mdapy 0.11.1 (Under development)
+Mdapy 0.11.1 (September 18, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 🏆 Highlights
 ---------------
@@ -32,6 +32,7 @@ Mdapy 0.11.1 (Under development)
 🛠️ Other improvements
 ---------------------------
 - Update NEP interface to V1.3, compatible with GPUMD 3.9.5.
+- Updated some documentations.
 
 V0.11.0 (June 22, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

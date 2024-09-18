@@ -9,6 +9,7 @@
 #include <vector>
 #include <pybind11/stl.h>
 #include <cmath>
+#include <omp.h>
 
 namespace py = pybind11;
 using namespace voro;

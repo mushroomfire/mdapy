@@ -7,7 +7,7 @@ from glob import glob
 import sys
 
 if sys.platform.startswith("win"):
-    extra_compile_args = ["/openmp:llvm", "/d2FH4-"]
+    extra_compile_args = ["/openmp:llvm", "/d2FH4-", "/DMSVC"]
     extra_link_args = ["/openmp:llvm"]
 elif sys.platform.startswith("linux"):
     extra_compile_args = ["-fopenmp"]

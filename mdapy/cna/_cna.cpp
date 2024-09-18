@@ -52,10 +52,15 @@ struct NeighborBondArray
 int findCommonNeighbors(const NeighborBondArray &neighborArray, int neighborIndex, unsigned int &commonNeighbors)
 {
     commonNeighbors = neighborArray.neighborArray[neighborIndex];
+#ifndef MSVC
+    // Count the number of bits set in neighbor bit-field.
+    return __builtin_popcount(commonNeighbors);
+#else
     // Count the number of bits set in neighbor bit-field.
     unsigned int v = commonNeighbors - ((commonNeighbors >> 1) & 0x55555555);
     v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
     return ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24;
+#endif
 }
 
 /******************************************************************************
@@ -124,8 +129,12 @@ int calcMaxChainLength(CNAPairBond *neighborBonds, int numBonds)
         int clusterSize = 1;
         do
         {
+#ifndef MSVC
+            int nextAtomIndex = __builtin_ctz(atomsToProcess);
+#else
             unsigned long nextAtomIndex;
             _BitScanForward(&nextAtomIndex, atomsToProcess);
+#endif
             unsigned int nextAtom = 1 << nextAtomIndex;
             atomsProcessed |= nextAtom;
             atomsToProcess &= ~nextAtom;

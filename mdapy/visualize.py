@@ -125,7 +125,7 @@ class Visualize:
             res = {res[i, 0]: res[i, 1] for i in range(res.shape[0])}
             pos = [0.0, 0.0]
             for i, j in enumerate(self.data["type_name"].unique()):
-                pos[0] = i * 0.02
+                pos[0] = i * 0.03
                 self.plot += k3d.text2d(
                     j,
                     position=pos,

@@ -54,7 +54,7 @@ def init_global_parameters():
     globals()["Cubic_Diamond"] = rgb_structure_type[6]
     globals()["Hexagonal_Diamond"] = rgb_structure_type[7]
     globals()["Graphene"] = rgb_structure_type[8]
-    globals()["cna_rc"] = 3.0
+    # globals()["cna_rc"] = 3.0
     globals()["csp_n_neigh"] = 12
     globals()["rx"] = 1
     globals()["ry"] = 1
@@ -602,8 +602,8 @@ def cluster_analysis():
 
 
 def common_neighbor_analysis():
-    global cna_rc, system, atoms, Other, FCC, HCP, BCC, ICO
-    if psim.TreeNode("Commen Neighbor Analysis"):
+    global system, atoms, Other, FCC, HCP, BCC, ICO
+    if psim.TreeNode("Adaptive Commen Neighbor Analysis"):
         _, Other = psim.ColorEdit3("Other", Other)
         psim.SameLine()
         _, FCC = psim.ColorEdit3("FCC", FCC)
@@ -614,9 +614,9 @@ def common_neighbor_analysis():
         psim.Separator()
         _, ICO = psim.ColorEdit3("ICO", ICO)
 
-        psim.TextUnformatted("Give a cutoff distance")
+        # psim.TextUnformatted("Give a cutoff distance")
 
-        _, cna_rc = psim.InputFloat("cutoff_cna", cna_rc)
+        # _, cna_rc = psim.InputFloat("cutoff_cna", cna_rc)
 
         if psim.Button("Compute"):
             try:
@@ -624,7 +624,7 @@ def common_neighbor_analysis():
                     ps.info("Calculating Commen Neighbor Analysis...")
                     color = np.array([Other, FCC, HCP, BCC, ICO])
 
-                    system.cal_common_neighbor_analysis(cna_rc, max_neigh=None)
+                    system.cal_common_neighbor_analysis()
                     rgb = (
                         system.data.select(
                             rgb=pl.col("cna").replace(
@@ -1095,7 +1095,7 @@ def polyhedral_template_matching():
 
                         rgb = (
                             system.data.select(
-                                rgb=pl.col("structure_types").replace(
+                                rgb=pl.col("ptm").replace(
                                     {i: j for i, j in enumerate(color)}, default=None
                                 )
                             )["rgb"]
@@ -1104,7 +1104,7 @@ def polyhedral_template_matching():
                         )
                         atoms.add_color_quantity("ptm_struc", rgb, enabled=True)
                         atoms.add_scalar_quantity(
-                            "ptm", system.data["structure_types"].view(), cmap="jet"
+                            "ptm", system.data["ptm"].view(), cmap="jet"
                         )
                         if ptm_return_rmsd:
                             atoms.add_scalar_quantity(
@@ -1340,9 +1340,9 @@ def identify_SFs_TBs():
 
                     rgb = (
                         system.data.with_columns(
-                            pl.when(pl.col("structure_types") == 1)
+                            pl.when(pl.col("ptm") == 1)
                             .then(FCC)
-                            .when(pl.col("structure_types") == 3)
+                            .when(pl.col("ptm") == 3)
                             .then(BCC)
                             .when(pl.col("fault_types") == 4)
                             .then(HCP)
@@ -1361,7 +1361,7 @@ def identify_SFs_TBs():
 
                     atoms.add_color_quantity("SFTB_struc", rgb, enabled=True)
                     atoms.add_scalar_quantity(
-                        "ptm_struc", system.data["structure_types"].view(), cmap="jet"
+                        "ptm_struc", system.data["ptm"].view(), cmap="jet"
                     )
                     atoms.add_scalar_quantity(
                         "fault_types", system.data["fault_types"].view(), cmap="jet"

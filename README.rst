@@ -293,6 +293,14 @@ You can install mdapy from source.
 
    pip install https://github.com/mushroomfire/mdapy/archive/master.zip
 
+If you encounter GUI problem:
+
+.. code-block:: bash
+
+   GLFW emitted error...
+
+You can solve it by enableing GPU direct passthrough.
+
 Build the doc
 --------------
 

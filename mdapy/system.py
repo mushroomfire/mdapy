@@ -15,6 +15,7 @@ try:
     from tool_function import _wrap_pos, _partition_select_sort, _unwrap_pos
     from ackland_jones_analysis import AcklandJonesAnalysis
     from atomic_strain import AtomicStrain
+    from bond_analysis import BondAnalysis
     from common_neighbor_analysis import CommonNeighborAnalysis
     from common_neighbor_parameter import CommonNeighborParameter
     from neighbor import Neighbor
@@ -46,6 +47,7 @@ except Exception:
     from .common_neighbor_analysis import CommonNeighborAnalysis
     from .ackland_jones_analysis import AcklandJonesAnalysis
     from .atomic_strain import AtomicStrain
+    from .bond_analysis import BondAnalysis
     from .common_neighbor_parameter import CommonNeighborParameter
     from .neighbor import Neighbor
     from .temperature import AtomicTemperature
@@ -1860,7 +1862,7 @@ class System:
                 self.boundary,
             )
         else:
-            energy, force, potential = potential.compute(
+            energy, force, virial = potential.compute(
                 self.pos,
                 self.box,
                 elements_list,
@@ -2047,6 +2049,48 @@ class System:
                 box=rec.rec_box,
                 type_list=rec.rec_type_list,
             )
+
+    def cal_bond_analysis(self, rc, nbins=100, max_neigh=None):
+        """This function calculates the distribution of bond length and angle based on a given cutoff distance.
+
+        Args:
+            rc (float): cutoff distance.
+            nbins (int, optional): number of bins. Defaults to 100.
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to None.
+
+        Outputs:
+            - **The result adds a BA (mdapy.BondAnalysis) class.**
+
+        .. tip:: One can check the results by:
+
+          >>> system.BA.plot_bond_length_distribution() # Plot the bond length distribution.
+
+          >>> system.BA.plot_bond_angle_distribution() # Plot the bond angle distribution.
+
+          >>> system.BA.bond_length_distribution # Check the data.
+
+          >>> system.BA.bond_angle_distribution # Check the data.
+        """
+        repeat = _check_repeat_cutoff(self.box, self.boundary, rc)
+
+        if sum(repeat) == 3:
+            if not self.if_neigh:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            if self.rc < rc:
+                self.build_neighbor(rc, max_neigh=max_neigh)
+            self.BA = BondAnalysis(
+                self.pos,
+                self.box,
+                self.boundary,
+                rc,
+                nbins,
+                self.verlet_list,
+                self.distance_list,
+                self.neighbor_number,
+            )
+        else:
+            self.BA = BondAnalysis(self.pos, self.box, self.boundary, rc, nbins)
+        self.BA.compute()
 
 
 class MultiSystem(list):
@@ -2235,10 +2279,13 @@ if __name__ == "__main__":
     # system = System(r"C:\Users\herrwu\Desktop\xyz\HexDiamond.xyz")
     # system.cal_identify_diamond_structure()
     # print(system.data.group_by(pl.col("ids")).count().sort(pl.col("ids")))
-
-    system = System(r"C:\Users\herrwu\Desktop\xyz\MoS2-H.xyz")
-    rec = system.orthogonal_box(10)
-    print(rec)
+    system = System(r"C:\Users\herrwu\Desktop\xyz\40.lmp")
+    system.cal_bond_analysis(2.5)
+    system.BA.plot_bond_angle_distribution()
+    system.BA.plot_bond_length_distribution()
+    # system = System(r"C:\Users\herrwu\Desktop\xyz\MoS2-H.xyz")
+    # rec = system.orthogonal_box(10)
+    # print(rec)
     # print("Rectangular box:")
     # print(rec.box)
     # print("Rectangular pos::")

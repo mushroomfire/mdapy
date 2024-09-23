@@ -14,6 +14,7 @@ Main Features
    - `Polyhedral Template Matching <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.polyhedral_template_matching>`_
    - `Identify stacking faults (SFs) and twinning boundary (TBs) <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.identify_SFs_TBs>`_
    - `Identify Diamond structure <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.identify_diamond_structure>`_
+   - `Bond Analysis <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.bond_analysis>`_
 
 2. Potential Analysis 
 

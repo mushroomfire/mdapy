@@ -2,11 +2,12 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 __author__ = "mushroomfire aka HerrWu"
-__version__ = "0.11.1"
+__version__ = "0.11.2"
 __license__ = "BSD License"
 
 from .main import main
 from .ackland_jones_analysis import AcklandJonesAnalysis
+from .bond_analysis import BondAnalysis
 from .centro_symmetry_parameter import CentroSymmetryParameter
 from .cluser_analysis import ClusterAnalysis
 from .common_neighbor_analysis import CommonNeighborAnalysis

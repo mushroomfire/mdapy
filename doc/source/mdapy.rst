@@ -20,6 +20,14 @@ mdapy.atomic\_strain module
    :undoc-members:
    :show-inheritance:
 
+mdapy.bond\_analysis module
+---------------------------
+
+.. automodule:: mdapy.bond_analysis
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mdapy.box module
 ----------------
 

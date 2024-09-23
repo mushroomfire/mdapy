@@ -1,6 +1,16 @@
 Release Notes
 --------------
 
+Mdapy 0.11.2 (September 23, 2024)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+🏆 Highlights
+---------------
+- Add a new feature to calculate the distribution of bond length and bond angle.
+
+🐞 Bug fixes
+-----------------
+- Fix a typo bug for LammpsPotential.
+
 Mdapy 0.11.1 (September 19, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 🏆 Highlights

@@ -117,6 +117,7 @@ Main Features
    - `Polyhedral Template Matching <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.polyhedral_template_matching>`_
    - `Identify stacking faults (SFs) and twinning boundary (TBs) <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.identify_SFs_TBs>`_
    - `Identify Diamond structure <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.identify_diamond_structure>`_
+   - `Bond Analysis <https://mdapy.readthedocs.io/en/latest/mdapy.html#module-mdapy.bond_analysis>`_
 
 2. Potential Analysis 
 
@@ -299,7 +300,7 @@ If you encounter GUI problem:
 
    GLFW emitted error...
 
-You can solve it by enableing GPU direct passthrough.
+You can solve it by enableing GPU direct passthrough, see `issue <https://github.com/mushroomfire/mdapy/issues/2#issuecomment-2033441993>`_.
 
 Build the doc
 --------------

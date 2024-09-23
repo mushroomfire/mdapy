@@ -3,7 +3,7 @@
 # To compile the C module for different python versions.
 #!/usr/bin/env bash
 
-version="0.11.1"
+version="0.11.2"
 
 if [ "$(uname)" == "Darwin" ]; then
     source ~/anaconda3/etc/profile.d/conda.sh
@@ -49,5 +49,11 @@ done
 # python setup.py sdist
 # python -m twine upload wheelhouse/*
 # rename 's/linux/manylinux1/' mdapy-0.9.1*linux* -n
+
+## doc
+
+# rm .\source\mdapy.rst
+# sphinx-apidoc -o ./source ../mdapy/
+# make html
 
 

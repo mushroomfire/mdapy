@@ -11,6 +11,10 @@ Mdapy 0.11.2 (September 23, 2024)
 -----------------
 - Fix a typo bug for LammpsPotential.
 
+🛠️ Other improvements
+---------------------------
+- Add test script for lammps interface.
+
 Mdapy 0.11.1 (September 19, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 🏆 Highlights

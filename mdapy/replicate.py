@@ -154,10 +154,13 @@ class Replicate:
         if type_name is not None:
             assert len(type_name) == data["type"].unique().shape[0]
 
-            type2name = {i + 1: j for i, j in enumerate(type_name)}
+            type2name = {str(i + 1): j for i, j in enumerate(type_name)}
 
             data = data.with_columns(
-                pl.col("type").replace(type2name).alias("type_name")
+                pl.col("type")
+                .cast(pl.Utf8)
+                .replace_strict(type2name)
+                .alias("type_name")
             ).select("type_name", "x", "y", "z")
 
         SaveFile.write_xyz(output_name, self.box, data, [1, 1, 1], classical)

@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 __author__ = "mushroomfire aka HerrWu"
-__version__ = "0.11.2"
+__version__ = "0.11.3"
 __license__ = "BSD License"
 
 from .main import main
@@ -45,6 +45,10 @@ from .tool_function import atomic_numbers, vdw_radii, atomic_masses
 import os
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+import warnings
+
+warnings.filterwarnings("ignore", message="Polars found a filename")
 
 
 def init(

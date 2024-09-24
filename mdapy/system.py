@@ -187,11 +187,12 @@ class System:
         if type_name is not None:
             assert self.__data["type"].max() <= len(type_name)
 
-            type_dict = {i: type_name[i - 1] for i in self.__data["type"].unique()}
+            type_dict = {str(i): type_name[i - 1] for i in self.__data["type"].unique()}
 
             self.__data = self.__data.with_columns(
                 pl.col("type")
-                .replace(type_dict, return_dtype=pl.Utf8)
+                .cast(pl.Utf8)
+                .replace_strict(type_dict)
                 .alias("type_name")
             )
 
@@ -560,10 +561,11 @@ class System:
         )
         data, box = cpt.compute()
         if "type_name" in self.data.columns:
-            type_dict = {i: j for i, j in enumerate(elements_list, start=1)}
+            type_dict = {str(i): j for i, j in enumerate(elements_list, start=1)}
             data = data.with_columns(
                 pl.col("type")
-                .replace(type_dict, return_dtype=pl.Utf8)
+                .cast(pl.Utf8)
+                .replace_strict(type_dict)
                 .alias("type_name")
             )
         return System(
@@ -628,10 +630,13 @@ class System:
         if type_name is not None:
             assert len(type_name) >= self.__data["type"].max()
 
-            type2name = {i + 1: j for i, j in enumerate(type_name)}
+            type2name = {str(i + 1): j for i, j in enumerate(type_name)}
 
             data = self.__data.with_columns(
-                pl.col("type").replace(type2name).alias("type_name")
+                pl.col("type")
+                .cast(pl.Utf8)
+                .replace_strict(type2name)
+                .alias("type_name")
             )
 
         SaveFile.write_xyz(
@@ -693,10 +698,13 @@ class System:
             data = self.__data
         else:
             assert len(type_name) >= self.__data["type"].max()
-            type_dict = {i + 1: j for i, j in enumerate(type_name)}
+            type_dict = {str(i + 1): j for i, j in enumerate(type_name)}
 
             data = self.__data.with_columns(
-                pl.col("type").replace(type_dict).alias("type_name")
+                pl.col("type")
+                .cast(pl.Utf8)
+                .replace_strict(type_dict)
+                .alias("type_name")
             )
 
         SaveFile.write_cp2k(output_name, self.__box, self.__boundary, data)
@@ -2029,7 +2037,7 @@ class System:
         rec.compute(N)
         if "type_name" in self.data.columns:
             df = self.data.group_by("type").agg(pl.col("type_name"))
-            type_dict = {df[i, 0]: df[i, 1][0] for i in range(df.shape[0])}
+            type_dict = {str(df[i, 0]): df[i, 1][0] for i in range(df.shape[0])}
             system = System(
                 pos=rec.rec_pos,
                 box=rec.rec_box,
@@ -2038,7 +2046,8 @@ class System:
             system.update_data(
                 system.data.with_columns(
                     pl.col("type")
-                    .replace(type_dict, return_dtype=pl.Utf8)
+                    .cast(pl.Utf8)
+                    .replace_strict(type_dict)
                     .alias("type_name")
                 )
             )
@@ -2279,10 +2288,19 @@ if __name__ == "__main__":
     # system = System(r"C:\Users\herrwu\Desktop\xyz\HexDiamond.xyz")
     # system.cal_identify_diamond_structure()
     # print(system.data.group_by(pl.col("ids")).count().sort(pl.col("ids")))
-    system = System(r"C:\Users\herrwu\Desktop\xyz\40.lmp")
-    system.cal_bond_analysis(2.5)
-    system.BA.plot_bond_angle_distribution()
-    system.BA.plot_bond_length_distribution()
+    # system = System(r"C:\Users\herrwu\Desktop\xyz\40.lmp")
+    # system.cal_bond_analysis(2.5)
+    # system.BA.plot_bond_angle_distribution()
+    # system.BA.plot_bond_length_distribution()
+    system = System(r"D:\Package\MyPackage\lammps_nep\example\gra.xyz")
+    print(system)
+    pair_parameter = """
+    pair_style nep
+    pair_coeff * * D:\\Package\\MyPackage\\lammps_nep\\example\\C_2024_NEP4.txt C
+    """
+    elements_list = ["C"]
+    relax_gra = system.cell_opt(pair_parameter, elements_list)
+    print(relax_gra)
     # system = System(r"C:\Users\herrwu\Desktop\xyz\MoS2-H.xyz")
     # rec = system.orthogonal_box(10)
     # print(rec)

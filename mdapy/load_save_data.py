@@ -143,7 +143,8 @@ class SaveFile:
             ), f"type list should contain more than {Ntype} elements."
             data = data.with_columns(
                 pl.col("type")
-                .replace(dict(enumerate(type_name, start=1)))
+                .cast(pl.Utf8)
+                .replace_strict(dict(enumerate(type_name, start=1)))
                 .alias("type"),
                 _a=index,
             ).with_columns((pl.col("type") + pl.col("_a").cast(str)).alias("index"))
@@ -775,12 +776,13 @@ class BuildSystem:
                 )
             else:
                 type_name2type = {
-                    j: i + 1
+                    j: str(i + 1)
                     for i, j in enumerate(df["type_name"].unique(maintain_order=True))
                 }
                 df = df.with_columns(
                     pl.col("type_name")
-                    .replace(type_name2type, default=None)
+                    .replace_strict(type_name2type)
+                    .cast(pl.Int64)
                     .alias("type")
                 )
             df = df.with_row_index("id", offset=1)
@@ -822,10 +824,11 @@ class BuildSystem:
                         )
                     else:
                         name_list = df["type_name"].unique(maintain_order=True)
-                        name2type = {j: i + 1 for i, j in enumerate(name_list)}
+                        name2type = {j: str(i + 1) for i, j in enumerate(name_list)}
                         df = df.with_columns(
                             pl.col("type_name")
-                            .replace(name2type, default=None)
+                            .replace_strict(name2type)
+                            .cast(pl.Int64)
                             .alias("type")
                         )
                 else:
@@ -910,13 +913,14 @@ class BuildSystem:
             ).select("type", "x", "y", "z")
 
         if data["type"][0].isdigit():
-            data = data.with_columns(pl.col("type").cast(int))
+            data = data.with_columns(pl.col("type").cast(pl.Int64))
         else:
             res = data.group_by("type", maintain_order=True).count()["type"]
-            species2type = dict([[j, i] for i, j in enumerate(res, start=1)])
+            species2type = {j: str(i) for i, j in enumerate(res, start=1)}
             data = data.with_columns(pl.col("type").alias("type_name")).with_columns(
                 pl.col("type_name")
-                .replace(species2type, return_dtype=pl.Int64)
+                .replace_strict(species2type)
+                .cast(pl.Int64)
                 .alias("type")
             )
 

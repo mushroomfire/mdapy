@@ -15,6 +15,13 @@ except Exception:
     from tool_function import ele_radius, ele_dict, struc_dict, type_dict
 
 
+for i in ele_radius.keys():
+    ele_radius[i] = str(ele_radius[i])
+ele_dict_str = {}
+for i in ele_dict.keys():
+    ele_dict_str[i] = str(ele_dict[i])
+
+
 @ti.kernel
 def value2color(
     colors_rgb: ti.types.ndarray(element_dim=1),
@@ -87,12 +94,13 @@ class Visualize:
             if "type_name" in self.data.columns:
                 self.data = self.data.with_columns(
                     pl.col("type_name")
-                    .replace(ele_radius, default=2.0, return_dtype=pl.Float32)
+                    .replace_strict(ele_radius, default="2.0")
+                    .cast(pl.Float32)
                     .alias("radius")
                 )
             else:
                 self.data = self.data.with_columns(
-                    pl.lit(2.0).cast(pl.Float32).alias("radius")
+                    pl.lit(2.0, pl.Float32).alias("radius")
                 )
 
     def init_plot(self, vertices, indices):
@@ -191,7 +199,7 @@ class Visualize:
     def atom_colored_by_atom_type(self):
         self.data = self.data.with_columns(
             ((pl.col("type") - 1) % 9 + 1)
-            .replace(type_dict, return_dtype=pl.UInt32)
+            .replace_strict(type_dict, return_dtype=pl.UInt32)
             .alias("color")
         )
         if hasattr(self, "atoms"):
@@ -202,10 +210,13 @@ class Visualize:
         n = 1
         for i in self.data["type_name"].unique():
             if i not in ele_dict.keys():
-                ele_dict[i] = type_dict[n % 9]
+                ele_dict_str[i] = str(type_dict[n % 9])
                 n += 1
         self.data = self.data.with_columns(
-            pl.col("type_name").replace(ele_dict, return_dtype=pl.UInt32).alias("color")
+            pl.col("type_name")
+            .replace_strict(ele_dict_str)
+            .cast(pl.UInt32)
+            .alias("color")
         )
         if hasattr(self, "atoms"):
             self.atoms.colors = np.array(self.data["color"].to_numpy(), np.uint32)
@@ -254,7 +265,9 @@ class Visualize:
 
         color_struc = {i: struc_dict[struc[i]] for i in struc.keys()}
         self.data = self.data.with_columns(
-            pl.col(method).replace(color_struc, return_dtype=pl.UInt32).alias("color")
+            pl.col(method)
+            .replace_strict(color_struc, return_dtype=pl.UInt32)
+            .alias("color")
         )
         number = self.data.group_by(method).len()
         number_dict = {number[i, 0]: number[i, 1] for i in range(number.shape[0])}

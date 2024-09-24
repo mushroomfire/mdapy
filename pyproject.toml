@@ -9,7 +9,7 @@ dependencies = [
     "taichi>=1.7.1",
     "numpy<2.0",
     "scipy",
-    "polars>=0.20.26",
+    "polars>=1.8.0",
     "matplotlib",
     "polyscope",
     "tqdm"

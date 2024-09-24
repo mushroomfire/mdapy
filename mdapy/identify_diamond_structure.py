@@ -110,7 +110,7 @@ if __name__ == "__main__":
     from system import System
     from time import time
 
-    hex_C = System(r"D:\Package\MyPackage\mdapy\Metal-6-1.dump")
+    hex_C = System(r"C:\Users\herrwu\Desktop\xyz\CubicDiamond.xyz")
     # hex_C = System(r'C:\Users\herrwu\Desktop\xyz\HexDiamond.xyz')
     # hex_C = System(r'C:\Users\herrwu\Desktop\xyz\CubicDiamond.xyz')
 

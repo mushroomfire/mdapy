@@ -37,7 +37,7 @@ Dependencies
 * `taichi>=1.7.1 <https://github.com/taichi-dev/taichi>`_
 * `numpy <https://numpy.org/>`_
 * `scipy <https://scipy.org/>`_
-* `polars>=0.20.22 <https://pola-rs.github.io/polars/>`_
+* `polars>=1.8.0 <https://pola-rs.github.io/polars/>`_
 * `matplotlib <https://matplotlib.org/>`_
 * `polyscope <https://polyscope.run/py/>`_
 * `tqdm <https://github.com/tqdm/tqdm>`_ (Show progress bar when reading/saving multi files)

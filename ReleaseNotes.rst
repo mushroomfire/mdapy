@@ -1,6 +1,13 @@
 Release Notes
 --------------
 
+Mdapy 0.11.3 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🛠️ Other improvements
+---------------------------
+- Upgrade the minimum polars to the latest version 1.8.0, so many code changes have been done.
+
 Mdapy 0.11.2 (September 23, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 🏆 Highlights

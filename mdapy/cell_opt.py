@@ -185,20 +185,46 @@ if __name__ == "__main__":
     # FCC.compute()
     # end = time()
     # print(f"Build {FCC.pos.shape[0]} atoms FCC time: {end-start} s.")
-    FCC = mp.System(r"D:\Study\Gra-Al\potential_test\phonon\alc\Al4C3.lmp")
-    start = time()
+    # FCC = mp.System(r"D:\Study\Gra-Al\potential_test\phonon\alc\Al4C3.lmp")
+    # start = time()
+    # cpt = CellOptimization(
+    #     FCC.pos,
+    #     FCC.box,
+    #     FCC.data["type"].to_numpy(),
+    #     ["Al", "C"],
+    #     [1, 1, 1],
+    #     r"""pair_style nep
+    #     pair_coeff * * D:\Study\Gra-Al\potential_test\phonon\alc\nep.txt Al C""",
+    # )
+    # data, box = cpt.compute()
+    # end = time()
+    # # "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al"
+    # print(f"Cell opt time: {end-start} s.")
+    # print(data)
+    # print(box)
+    FCC = mp.System(r"D:\Package\MyPackage\lammps_nep\example\gra.xyz")
+
+    pair_parameter = """
+    pair_style nep
+    pair_coeff * * D:\\Package\\MyPackage\\lammps_nep\\example\\C_2024_NEP4.txt C
+    """
+    elements_list = ["C"]
+    # relax_gra = system.cell_opt(pair_parameter, elements_list)
+    # print(relax_gra)
     cpt = CellOptimization(
         FCC.pos,
         FCC.box,
         FCC.data["type"].to_numpy(),
-        ["Al", "C"],
+        ["C"],
         [1, 1, 1],
-        r"""pair_style nep D:\Study\Gra-Al\potential_test\phonon\alc\nep.txt
-        pair_coeff * *""",
+        pair_parameter,
     )
     data, box = cpt.compute()
-    end = time()
-    # "pair_style eam/alloy\npair_coeff * * example/Al_DFT.eam.alloy Al"
-    print(f"Cell opt time: {end-start} s.")
     print(data)
     print(box)
+    type_dict = {str(i): j for i, j in enumerate(elements_list, start=1)}
+    print(type_dict)
+    data = data.with_columns(
+        type_name=pl.col("type").cast(pl.Utf8).replace_strict(type_dict)
+    )
+    print(data)

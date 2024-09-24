@@ -625,15 +625,6 @@ def common_neighbor_analysis():
                     color = np.array([Other, FCC, HCP, BCC, ICO])
 
                     system.cal_common_neighbor_analysis()
-                    # rgb = (
-                    #     system.data.select(
-                    #         rgb=pl.col("cna").replace(
-                    #             {i: j for i, j in enumerate(color)}, default=None
-                    #         )
-                    #     )["rgb"]
-                    #     .list.to_array(3)
-                    #     .to_numpy()
-                    # )
                     cna = system.data["cna"].to_numpy()
                     rgb = np.zeros((system.N, 3))
                     for i in range(system.N):
@@ -846,15 +837,6 @@ def ackland_jones_analysis():
                     ps.info("Calculating Ackland Jones Analysis...")
                     color = np.array([Other, FCC, HCP, BCC, ICO])
                     system.cal_ackland_jones_analysis()
-                    # rgb = (
-                    #     system.data.select(
-                    #         rgb=pl.col("aja").replace(
-                    #             {i: j for i, j in enumerate(color)}, default=None
-                    #         )
-                    #     )["rgb"]
-                    #     .list.to_array(3)
-                    #     .to_numpy()
-                    # )
                     aja = system.data["aja"].to_numpy()
                     rgb = np.zeros((system.N, 3))
                     for i in range(system.N):
@@ -957,15 +939,6 @@ def steinhardt_bond_orientation():
                                 f"whl{i}", system.data[f"whl{i}"].to_numpy(), cmap="jet"
                             )
                     if sbo_solidliquid:
-                        # rgb = (
-                        #     system.data.select(
-                        #         rgb=pl.col("solidliquid").replace(
-                        #             {0: liquid, 1: solid}, default=None
-                        #         )
-                        #     )["rgb"]
-                        #     .list.to_array(3)
-                        #     .to_numpy()
-                        # )
                         color = np.array([liquid, solid])
                         sl = system.data["solidliquid"].to_numpy()
                         rgb = np.zeros((system.N, 3))
@@ -1103,16 +1076,6 @@ def polyhedral_template_matching():
                             return_wxyz=ptm_return_wxyz,
                         )
 
-                        # rgb = (
-                        #     system.data.select(
-                        #         rgb=pl.col("ptm").replace(
-                        #             {i: j for i, j in enumerate(color)},
-                        #             default=None,
-                        #         )
-                        #     )["rgb"]
-                        #     .list.to_array(3)
-                        #     .to_numpy()
-                        # )
                         ptm = system.data["ptm"].to_numpy()
                         rgb = np.zeros((system.N, 3))
                         for i in range(system.N):

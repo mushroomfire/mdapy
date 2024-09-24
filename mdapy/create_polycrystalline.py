@@ -782,7 +782,7 @@ if __name__ == "__main__":
         randomseed=1,
         output_name=r"D:\Study\Diamond\model\Cubic\model.xyz",
     )
-    poly.compute()
+    poly.compute(save_dump=False)
     # box = np.array([
     #     [600, 0, 0],
     #     [0, 200, 0],

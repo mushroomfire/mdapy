@@ -1,7 +1,7 @@
 Release Notes
 --------------
 
-Mdapy 0.11.3 (Under development)
+Mdapy 0.11.3 (September 25, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🛠️ Other improvements

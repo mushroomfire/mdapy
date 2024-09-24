@@ -256,6 +256,7 @@ If one wants to install phonopy, the best way is:
 
 If one wants to use lammps supported potential to calculate atomic force and phonon 
 properties, one can install the lammps-python interface referring to the `official guide <https://docs.lammps.org/Python_install.html>`_.
+A simple installation way can be found `here <https://github.com/mushroomfire/lammps_nep>`_.
 
 Install from source code.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

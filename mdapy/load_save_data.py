@@ -792,6 +792,7 @@ class BuildSystem:
             ]
         else:
             if multi_space:
+                # print("multi_space")
                 data = {}
                 for i in columns:
                     data[i] = []
@@ -801,7 +802,8 @@ class BuildSystem:
                     for i in range(natom):
                         for key, value in zip(columns, op.readline().split()):
                             data[key].append(value)
-                df = pl.DataFrame(data, schema=schema)
+                # print(data)
+                df = pl.DataFrame(data).cast(schema)
             else:
                 df = pl.read_csv(
                     filename,

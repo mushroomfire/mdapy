@@ -1,6 +1,14 @@
 Release Notes
 --------------
 
+Mdapy 0.11.4 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🐞 Bug fixes
+-----------------
+- Fix a bug for reading xyz format with multi space.
+
+
 Mdapy 0.11.3 (September 25, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

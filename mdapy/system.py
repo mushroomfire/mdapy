@@ -2292,15 +2292,15 @@ if __name__ == "__main__":
     # system.cal_bond_analysis(2.5)
     # system.BA.plot_bond_angle_distribution()
     # system.BA.plot_bond_length_distribution()
-    system = System(r"D:\Package\MyPackage\lammps_nep\example\gra.xyz")
+    system = System(r"D:\Study\Diamond\NEP\res\train.00000.xyz")
     print(system)
-    pair_parameter = """
-    pair_style nep
-    pair_coeff * * D:\\Package\\MyPackage\\lammps_nep\\example\\C_2024_NEP4.txt C
-    """
-    elements_list = ["C"]
-    relax_gra = system.cell_opt(pair_parameter, elements_list)
-    print(relax_gra)
+    # pair_parameter = """
+    # pair_style nep
+    # pair_coeff * * D:\\Package\\MyPackage\\lammps_nep\\example\\C_2024_NEP4.txt C
+    # """
+    # elements_list = ["C"]
+    # relax_gra = system.cell_opt(pair_parameter, elements_list)
+    # print(relax_gra)
     # system = System(r"C:\Users\herrwu\Desktop\xyz\MoS2-H.xyz")
     # rec = system.orthogonal_box(10)
     # print(rec)

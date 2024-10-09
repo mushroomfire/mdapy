@@ -4,6 +4,10 @@ Release Notes
 Mdapy 0.11.4 (Under development)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+🏆 Highlights
+---------------
+- Add feature to Minimizer class for optimizing the box.
+
 🐞 Bug fixes
 -----------------
 - Fix a bug for reading xyz format with multi space.

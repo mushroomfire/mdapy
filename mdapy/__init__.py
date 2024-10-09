@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 __author__ = "mushroomfire aka HerrWu"
-__version__ = "0.11.3"
+__version__ = "0.11.4"
 __license__ = "BSD License"
 
 from .main import main

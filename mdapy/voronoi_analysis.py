@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
     ti.init()
 
-    FCC = LatticeMaker(4.05, "FCC", 1, 1, 1)  # Create a FCC structure.
+    FCC = LatticeMaker(4.05, "FCC", 100, 100, 100)  # Create a FCC structure.
     FCC.compute()  # Get atom positions.
     # FCC.write_data()
     start = time()

@@ -478,17 +478,27 @@ class System:
             pl.lit(strain.shear_strain).alias("shear_strain")
         )
 
-    def minimize(self, elements_list, potential, fmax=0.05, max_itre=10):
-        """This function use the fast inertial relaxation engine (FIRE) method to minimize the system with fixed box.
+    def minimize(
+        self,
+        elements_list,
+        potential,
+        fmax=1e-5,
+        max_itre=200,
+        volume_change=False,
+        hydrostatic_strain=False,
+    ):
+        """This function use the fast inertial relaxation engine (FIRE) method to minimize the system, including optimizing position and box.
 
         Args:
             elements_list (list): element name, such as ['Al', 'C']
             potential (BasePotential): a BasePotential
-            fmax (float, optional): maximum force per atom to consider as converged. Defaults to 0.05.
-            max_itre (int, optional): maximum iteration times. Defaults to 10.
+            fmax (float, optional): maximum force per atom to consider as converged. Defaults to 1e-5.
+            max_itre (int, optional): maximum iteration times. Defaults to 200.
+            volume_change (bool, optional): whether change the box to optimize the pressure. Defaults to False.
+            hydrostatic_strain (bool, optional): sonstrain the cell by only allowing hydrostatic deformation. Defaults to False.
 
         Returns:
-            System: system with optimized position.
+            System: optimized system.
         """
         mini = Minimizer(
             self.data.select(["x", "y", "z"]).to_numpy(),
@@ -499,6 +509,8 @@ class System:
             self.data["type"].to_numpy(),
             fmax=fmax,
             max_itre=max_itre,
+            volume_change=volume_change,
+            hydrostatic_strain=hydrostatic_strain,
         )
         mini.compute()
 
@@ -509,7 +521,7 @@ class System:
         )
         return System(
             data=data,
-            box=self.__box,
+            box=mini.box,
             boundary=self.__boundary,
             filename=self.__filename,
             fmt=self.__fmt,
@@ -2279,8 +2291,29 @@ if __name__ == "__main__":
     # system.write_xyz('test_1.xyz')
     import taichi as ti
     import polars as pl
+    import numpy as np
+    from lattice_maker import LatticeMaker
 
     ti.init()
+    nep = NEP(r"D:\Study\Gra-Al\potential_test\validating\graphene\itre_45\nep.txt")
+    element_name, lattice_constant, lattice_type, potential = (
+        "Al",
+        4.1,
+        "FCC",
+        nep,
+    )
+    x, y, z = 5, 5, 5
+    fmax = 1e-5
+    max_itre = 200
+    lat = LatticeMaker(lattice_constant, lattice_type, x, y, z)
+    lat.compute()
+    noise = np.random.random((lat.N, 3))
+    system = System(pos=lat.pos + noise, box=lat.box)
+    relax_system = system.minimize(
+        [element_name], potential, volume_change=True, hydrostatic_strain=True
+    )
+    print(relax_system)
+    relax_system.write_xyz("Al.xyz", type_name=["Al"])
     # system = System(r'example/CoCuFeNiPd-4M.data')
     # system.cal_common_neighbor_analysis(rc=3.)
     # print(system.data.group_by(pl.col('cna')).count().sort(pl.col('cna')))
@@ -2292,8 +2325,8 @@ if __name__ == "__main__":
     # system.cal_bond_analysis(2.5)
     # system.BA.plot_bond_angle_distribution()
     # system.BA.plot_bond_length_distribution()
-    system = System(r"D:\Study\Diamond\NEP\res\train.00000.xyz")
-    print(system)
+    # system = System(r"D:\Study\Diamond\NEP\res\train.00000.xyz")
+    # print(system)
     # pair_parameter = """
     # pair_style nep
     # pair_coeff * * D:\\Package\\MyPackage\\lammps_nep\\example\\C_2024_NEP4.txt C

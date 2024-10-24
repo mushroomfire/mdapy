@@ -16,6 +16,7 @@ try:
     from ackland_jones_analysis import AcklandJonesAnalysis
     from atomic_strain import AtomicStrain
     from bond_analysis import BondAnalysis
+    from box import init_box
     from common_neighbor_analysis import CommonNeighborAnalysis
     from common_neighbor_parameter import CommonNeighborParameter
     from neighbor import Neighbor
@@ -32,6 +33,7 @@ try:
     from void_distribution import VoidDistribution
     from warren_cowley_parameter import WarrenCowleyParameter
     from voronoi_analysis import VoronoiAnalysis
+    from voronoi import _voronoi_analysis
     from minimizer import Minimizer
     from mean_squared_displacement import MeanSquaredDisplacement
     from lindemann_parameter import LindemannParameter
@@ -48,6 +50,7 @@ except Exception:
     from .ackland_jones_analysis import AcklandJonesAnalysis
     from .atomic_strain import AtomicStrain
     from .bond_analysis import BondAnalysis
+    from .box import init_box
     from .common_neighbor_parameter import CommonNeighborParameter
     from .neighbor import Neighbor
     from .temperature import AtomicTemperature
@@ -70,6 +73,7 @@ except Exception:
     from .steinhardt_bond_orientation import SteinhardtBondOrientation
     from .replicate import Replicate
     from .tool_function import _check_repeat_cutoff
+    import _voronoi_analysis
 
 
 class System:
@@ -858,6 +862,32 @@ class System:
             self.update_vel()
         self.__box = repli.box
 
+    def build_neighbor_voronoi(self, ncore=-1):
+        """Build voronoi neighbor. Only support rectangular and periodic boundary.
+        After building, the system classs will have voro_neighbor_number, voro_verlet_list, voro_distance_list, voro_face_areas.
+        This neighbor information is mainly used to calculate the steinhardt bond order.
+
+        Args:
+            ncore (int, optional): parallel CPU cores, -1 means use all cores. Defaults to -1.
+        """
+        # assert self.boundary == [1, 1, 1], "Only support all periodic boundary."
+        ibox, _, rec = init_box(self.box)
+        assert rec, "Only support rectangular box."
+        box = np.zeros((3, 2))
+        box[:, 0] = ibox[-1]
+        box[:, 1] = np.array([ibox[0, 0], ibox[1, 1], ibox[2, 2]]) + box[:, 0]
+        if ncore == -1:
+            ncore = mt.cpu_count()
+        else:
+            assert ncore > 0, "ncore must be positive number."
+            ncore = int(ncore)
+        self.voro_neighbor_number = np.zeros(self.N, np.int32)
+        self.voro_verlet_list, self.voro_distance_list, self.voro_face_areas = (
+            _voronoi_analysis.get_voronoi_neighbor(
+                self.pos, box, np.bool_(self.boundary), self.voro_neighbor_number, ncore
+            )
+        )
+
     def build_neighbor(self, rc=5.0, max_neigh=None):
         """Build neighbor withing a spherical distance based on the mdapy.Neighbor class.
 
@@ -1138,6 +1168,8 @@ class System:
         rc=0.0,
         wlflag=False,
         wlhatflag=False,
+        use_voronoi=False,
+        use_weight=False,
         solidliquid=False,
         max_neigh=60,
         threshold=0.7,
@@ -1197,30 +1229,44 @@ class System:
             - **The result is added in self.data[['ql', 'wl', 'whl', 'solidliquid']]**.
         """
         distance_list, verlet_list, neighbor_number = None, None, None
-        if nnn > 0:
-            if self.if_neigh:
-                if self.neighbor_number.min() >= nnn:
-                    _partition_select_sort(self.verlet_list, self.distance_list, nnn)
+        weight = None
+        if use_voronoi:
+            if not hasattr(self, "voro_verlet_list"):
+                self.build_neighbor_voronoi()
+            distance_list, verlet_list, neighbor_number = (
+                self.voro_distance_list,
+                self.voro_verlet_list,
+                self.voro_neighbor_number,
+            )
+            if use_weight:
+                weight = self.voro_face_areas
+        else:
+            if nnn > 0:
+                if self.if_neigh:
+                    if self.neighbor_number.min() >= nnn:
+                        _partition_select_sort(
+                            self.verlet_list, self.distance_list, nnn
+                        )
+                        verlet_list, distance_list, neighbor_number = (
+                            self.verlet_list,
+                            self.distance_list,
+                            self.neighbor_number,
+                        )
+            else:
+                assert rc > 0
+                repeat = _check_repeat_cutoff(self.box, self.boundary, rc)
+
+                if sum(repeat) == 3:
+                    if not self.if_neigh:
+                        self.build_neighbor(rc=rc, max_neigh=max_neigh)
+                    elif self.rc < rc:
+                        self.build_neighbor(rc=rc, max_neigh=max_neigh)
+
                     verlet_list, distance_list, neighbor_number = (
                         self.verlet_list,
                         self.distance_list,
                         self.neighbor_number,
                     )
-        else:
-            assert rc > 0
-            repeat = _check_repeat_cutoff(self.box, self.boundary, rc)
-
-            if sum(repeat) == 3:
-                if not self.if_neigh:
-                    self.build_neighbor(rc=rc, max_neigh=max_neigh)
-                elif self.rc < rc:
-                    self.build_neighbor(rc=rc, max_neigh=max_neigh)
-
-                verlet_list, distance_list, neighbor_number = (
-                    self.verlet_list,
-                    self.distance_list,
-                    self.neighbor_number,
-                )
 
         SBO = SteinhardtBondOrientation(
             self.pos,
@@ -1235,6 +1281,9 @@ class System:
             wlflag,
             wlhatflag,
             max_neigh,
+            use_weight,
+            weight,
+            use_voronoi,
         )
         SBO.compute()
         if SBO.qnarray.shape[1] > 1:
@@ -2295,25 +2344,97 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
 
     ti.init()
-    nep = NEP(r"D:\Study\Gra-Al\potential_test\validating\graphene\itre_45\nep.txt")
-    element_name, lattice_constant, lattice_type, potential = (
-        "Al",
-        4.1,
-        "FCC",
-        nep,
-    )
-    x, y, z = 5, 5, 5
-    fmax = 1e-5
-    max_itre = 200
-    lat = LatticeMaker(lattice_constant, lattice_type, x, y, z)
-    lat.compute()
-    noise = np.random.random((lat.N, 3))
-    system = System(pos=lat.pos + noise, box=lat.box)
-    relax_system = system.minimize(
-        [element_name], potential, volume_change=True, hydrostatic_strain=True
-    )
-    print(relax_system)
-    relax_system.write_xyz("Al.xyz", type_name=["Al"])
+    # nep = NEP(r"D:\Study\Gra-Al\potential_test\validating\graphene\itre_45\nep.txt")
+    # element_name, lattice_constant, lattice_type, potential = (
+    #     "Al",
+    #     4.1,
+    #     "FCC",
+    #     nep,
+    # )
+    # x, y, z = 5, 5, 5
+    # fmax = 1e-5
+    # max_itre = 200
+    # lat = LatticeMaker(lattice_constant, lattice_type, x, y, z)
+    # lat.compute()
+    # noise = np.random.random((lat.N, 3))
+    # system = System(pos=lat.pos + noise, box=lat.box)
+    # relax_system = system.minimize(
+    #     [element_name], potential, volume_change=True, hydrostatic_strain=True
+    # )
+    # print(relax_system)
+    # relax_system.write_xyz("Al.xyz", type_name=["Al"])
+
+    # lat = LatticeMaker(3.615, "FCC", 5, 5, 5)
+    # lat.compute()
+    import freud
+
+    box, points = freud.data.make_random_system(30, 2000, seed=0)
+    # print(box.to_matrix())
+    # box.periodic_x = False
+    neigh = freud.locality.Voronoi()
+    neigh.compute((box, points))
+    print(box.periodic)
+    # neigh1 = freud.locality.AABBQuery(box, points)
+    # nlist = neigh1.query(
+    #     points, {"num_neighbors": 12, "exclude_ii": True}
+    # ).toNeighborList()
+    ql = freud.order.Steinhardt(l=6, weighted=True, wl=True, wl_normalize=True)
+    ql.compute(
+        (box, points), neigh.nlist
+    )  # neigh.nlist) #{"num_neighbors": 6, "exclude_ii": True}
+
+    print(ql.ql[:10])
+    # print(box, points)
+    system = System(box=box.Lx, pos=points.astype(np.float64))
+    system.wrap_pos()
+    # system.boundary[0] = 0
+    # system.build_neighbor_voronoi()
+    # print(system.voro_verlet_list[0])
+    # print(neigh.nlist[neigh.nlist[:, 0] == 0])
+    # system.build_neighbor(3.1, max_neigh=23)
+    system.cal_steinhardt_bond_orientation(
+        use_voronoi=True, use_weight=True, wlflag=True, wlhatflag=True
+    )  # use_voronoi=True, use_weight=True)
+    print(system.data["ql6"].to_numpy()[:10])
+    # print(neigh.nlist[neigh.nlist[:, 0] == 0])
+    # print(system.voro_verlet_list[0])
+    # # print(neigh.nlist.distances[neigh.nlist[:, 0] == 5])
+    # # print(system.voro_distance_list[5])
+
+    # for i in neigh.nlist[neigh.nlist[:, 0] == 0]:
+    #     if i[1] not in system.voro_verlet_list[0]:
+    #         print(i, system.atom_distance(i[0], i[1]))
+
+    # n = 0
+    # print("i j freud_dis, mdapy_dis")
+    # for i in range(system.voro_neighbor_number[n]):
+    #     j = system.voro_verlet_list[n, i]
+    #     if j > -1:
+    #         m_dis = system.voro_distance_list[n, i]
+    #         f_dis = neigh.nlist.distances[
+    #             (neigh.nlist[:, 0] == n) & (neigh.nlist[:, 1] == j)
+    #         ][0]
+    #         print(n, j, f_dis, m_dis)
+    # print(system.voro_distance_list[5])
+    # print(system.voro_neighbor_number[5])
+    # print(system.voro_face_areas[5])
+    # print(system.neighbor_number[5])
+    # print(system.distance_list[5])
+    # print(points[134] - points[5])
+    # print(system.atom_distance(5, 134))
+    # print(system.atom_distance(5, 510))
+    # print(system.pos[5])
+    # print(points[5])
+    # print(system.voro_verlet_list[0])
+    # print(system.voro_neighbor_number[0])
+    # print(system.voro_distance_list[0])
+    # print(system.voro_face_areas[0])
+    # np.random.seed(1)
+    # noise = np.random.random((lat.N, 3))
+    # system = System(pos=lat.pos + noise, box=lat.box)
+    # system.cal_steinhardt_bond_orientation(use_voronoi=True, use_weight=True)
+    # print(system)
+
     # system = System(r'example/CoCuFeNiPd-4M.data')
     # system.cal_common_neighbor_analysis(rc=3.)
     # print(system.data.group_by(pl.col('cna')).count().sort(pl.col('cna')))

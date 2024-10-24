@@ -298,15 +298,22 @@ class SteinhardtBondOrientation:
         wlflag=False,
         wlhatflag=False,
         max_neigh=60,
+        use_weight=False,
+        weight=None,
+        voronoi=False,
     ):
         self.rc = rc
         self.nnn = nnn
-        if self.nnn > 0:
-            self.rc = 1000000000.0
-            repeat = _check_repeat_nearest(pos, box, boundary)
+        repeat = [1, 1, 1]
+        if not voronoi:
+            if self.nnn > 0:
+                self.rc = 1000000000.0
+                repeat = _check_repeat_nearest(pos, box, boundary)
+            else:
+                assert self.rc > 0
+                repeat = _check_repeat_cutoff(box, boundary, self.rc)
         else:
-            assert self.rc > 0
-            repeat = _check_repeat_cutoff(box, boundary, self.rc)
+            self.rc = 10000000000.0
 
         if pos.dtype != np.float64:
             pos = pos.astype(np.float64)
@@ -357,6 +364,9 @@ class SteinhardtBondOrientation:
         self.nfac_table.from_numpy(nfac_table_numpy)
         self.if_compute = False
         self.max_neigh = max_neigh
+        self.use_weight = use_weight
+        self.weight = weight
+        self.voronoi = voronoi
 
     @ti.func
     def _factorial(self, n: int) -> ti.f64:
@@ -461,62 +471,73 @@ class SteinhardtBondOrientation:
         qnarray: ti.types.ndarray(),
         cglist: ti.types.ndarray(),
         inverse_box: ti.types.ndarray(element_dim=1),
+        weight: ti.types.ndarray(),
     ):
         MY_EPSILON = 2.220446049250313e-15
         N = pos.shape[0]
         nqlist = self.nqlist
         K = 0
         for i in range(N):
-            nneigh = 0
+            weight_val = ti.f64(0.0)
             # Make sure only iterate the nnn neighbors!
-            if self.nnn > 0:
-                K = self.nnn
-            else:
+            if self.voronoi:
                 K = neighbor_number[i]
+            else:
+                if self.nnn > 0:
+                    K = self.nnn
+                else:
+                    K = neighbor_number[i]
             for jj in range(K):
                 j = verlet_list[i, jj]
-                r = pos[i] - pos[j]
-                if ti.static(self.rec):
-                    r = _pbc_rec(r, self.boundary, self.box_length)
-                else:
-                    r = _pbc(r, self.boundary, box, inverse_box)
-                rmag = distance_list[i, jj]
-                if rmag > MY_EPSILON and rmag <= self.rc:
-                    nneigh += 1
-                    costheta = r[2] / rmag
-                    expphi_r = r[0]
-                    expphi_i = r[1]
-                    rxymag = ti.sqrt(expphi_r * expphi_r + expphi_i * expphi_i)
-                    if rxymag <= MY_EPSILON:
-                        expphi_r = 1.0
-                        expphi_i = 0.0
+                if j >= 0:  # for voronoi neighbor
+                    r = pos[i] - pos[j]
+                    if ti.static(self.rec):
+                        r = _pbc_rec(r, self.boundary, self.box_length)
                     else:
-                        rxymaginv = 1.0 / rxymag
-                        expphi_r *= rxymaginv
-                        expphi_i *= rxymaginv
-                    for il in range(nqlist):
-                        l = qlist[il]
-                        qnm_r[i, il, l] += self._polar_prefactor(l, 0, costheta)
-                        expphim_r = expphi_r
-                        expphim_i = expphi_i
-                        for m in range(1, l + 1):
-                            prefactor = self._polar_prefactor(l, m, costheta)
-                            c_r = prefactor * expphim_r
-                            c_i = prefactor * expphim_i
-                            qnm_r[i, il, m + l] += c_r
-                            qnm_i[i, il, m + l] += c_i
-                            if m & 1:
-                                qnm_r[i, il, -m + l] -= c_r
-                                qnm_i[i, il, -m + l] += c_i
-                            else:
-                                qnm_r[i, il, -m + l] += c_r
-                                qnm_i[i, il, -m + l] -= c_i
-                            tmp_r = expphim_r * expphi_r - expphim_i * expphi_i
-                            tmp_i = expphim_r * expphi_i + expphim_i * expphi_r
-                            expphim_r = tmp_r
-                            expphim_i = tmp_i
+                        r = _pbc(r, self.boundary, box, inverse_box)
+                    rmag = distance_list[i, jj]
+                    if rmag > MY_EPSILON and rmag <= self.rc:
+                        wij = ti.f64(1.0)
+                        if ti.static(self.use_weight):
+                            wij = weight[i, jj]
+                        weight_val += wij
+                        costheta = r[2] / rmag
+                        expphi_r = r[0]
+                        expphi_i = r[1]
+                        rxymag = ti.sqrt(expphi_r * expphi_r + expphi_i * expphi_i)
+                        if rxymag <= MY_EPSILON:
+                            expphi_r = 1.0
+                            expphi_i = 0.0
+                        else:
+                            rxymaginv = 1.0 / rxymag
+                            expphi_r *= rxymaginv
+                            expphi_i *= rxymaginv
+                        for il in range(nqlist):
+                            l = qlist[il]
+                            qnm_r[i, il, l] += wij * self._polar_prefactor(
+                                l, 0, costheta
+                            )
+                            expphim_r = expphi_r
+                            expphim_i = expphi_i
+                            for m in range(1, l + 1):
+                                prefactor = self._polar_prefactor(l, m, costheta)
+                                c_r = prefactor * expphim_r
+                                c_i = prefactor * expphim_i
+                                qnm_r[i, il, m + l] += wij * c_r
+                                qnm_i[i, il, m + l] += wij * c_i
+                                if m & 1:
+                                    qnm_r[i, il, -m + l] -= wij * c_r
+                                    qnm_i[i, il, -m + l] += wij * c_i
+                                else:
+                                    qnm_r[i, il, -m + l] += wij * c_r
+                                    qnm_i[i, il, -m + l] -= wij * c_i
+                                tmp_r = expphim_r * expphi_r - expphim_i * expphi_i
+                                tmp_i = expphim_r * expphi_i + expphim_i * expphi_r
+                                expphim_r = tmp_r
+                                expphim_i = tmp_i
 
-            facn = 1.0 / nneigh
+            facn = 1.0 / weight_val
+
             for il in range(nqlist):
                 l = qlist[il]
                 for m in range(2 * l + 1):
@@ -612,30 +633,51 @@ class SteinhardtBondOrientation:
                     self.pos, self.box, self.rc, self.boundary, max_neigh=self.max_neigh
                 )
                 neigh.compute()
-                self.distance_list, self.verlet_list, self.neighbor_number = (
+                self.verlet_list, self.distance_list, self.neighbor_number = (
                     neigh.verlet_list,
                     neigh.distance_list,
                     neigh.neighbor_number,
                 )
+
         else:
-            if self.nnn > 0:
-                assert (
-                    self.neighbor_number.min() >= self.nnn
-                ), "The minimum of neighbor_number should be larger than nnn."
-                # self.neighbor_number = np.ones(self.pos.shape[0], int) * self.nnn
-        self._compute(
-            self.pos,
-            self.box,
-            self.verlet_list,
-            self.distance_list,
-            self.neighbor_number,
-            self.qlist,
-            self.qnm_r,
-            self.qnm_i,
-            self.qnarray,
-            cglist,
-            self.inverse_box,
-        )
+            if not self.voronoi:
+                if self.nnn > 0:
+                    assert (
+                        self.neighbor_number.min() >= self.nnn
+                    ), "The minimum of neighbor_number should be larger than nnn."
+                    # self.neighbor_number = np.ones(self.pos.shape[0], int) * self.nnn
+
+        if self.use_weight:
+            assert self.weight.shape == self.verlet_list.shape
+            self._compute(
+                self.pos,
+                self.box,
+                self.verlet_list,
+                self.distance_list,
+                self.neighbor_number,
+                self.qlist,
+                self.qnm_r,
+                self.qnm_i,
+                self.qnarray,
+                cglist,
+                self.inverse_box,
+                self.weight,
+            )
+        else:
+            self._compute(
+                self.pos,
+                self.box,
+                self.verlet_list,
+                self.distance_list,
+                self.neighbor_number,
+                self.qlist,
+                self.qnm_r,
+                self.qnm_i,
+                self.qnarray,
+                cglist,
+                self.inverse_box,
+                np.zeros((2, 2)),
+            )
         if self.old_N is not None:
             self.old_qnarray = self.qnarray.copy()
             self.qnarray = np.ascontiguousarray(self.qnarray[: self.old_N])
@@ -659,14 +701,15 @@ class SteinhardtBondOrientation:
             n_solid_bond = 0
             for jj in range(neighbor_number[i]):
                 j = verlet_list[i, jj]
-                r = distance_list[i, jj]
                 sij_sum = ti.f64(0.0)
-                if r <= self.rc:
-                    for m in range(13):
-                        sij_sum += (
-                            qnm_r[i, Q6index, m] * qnm_r[j, Q6index, m]
-                            + qnm_i[i, Q6index, m] * qnm_i[j, Q6index, m]
-                        )
+                if j >= 0:  # voronoi neighbor
+                    r = distance_list[i, jj]
+                    if r <= self.rc:
+                        for m in range(13):
+                            sij_sum += (
+                                qnm_r[i, Q6index, m] * qnm_r[j, Q6index, m]
+                                + qnm_i[i, Q6index, m] * qnm_i[j, Q6index, m]
+                            )
 
                 sij_sum = sij_sum / Q6[i] / Q6[j] * 4 * ti.math.pi / 13
                 if sij_sum > threshold:
@@ -679,9 +722,10 @@ class SteinhardtBondOrientation:
                 n_solid = 0
                 for jj in range(neighbor_number[i]):
                     j = verlet_list[i, jj]
-                    if solidliquid[j] == 1:
-                        n_solid = 1
-                        break
+                    if j >= 0:
+                        if solidliquid[j] == 1:
+                            n_solid = 1
+                            break
                 if n_solid == 0:
                     solidliquid[i] = 0
 

@@ -152,6 +152,8 @@ class Neighbor:
                                     pos[j] - pos[i], self.boundary, box, inverse_box
                                 )
                             rijdis_sq = rij[0] ** 2 + rij[1] ** 2 + rij[2] ** 2
+                            # if i == 5:
+                            #     print(i, j, rijdis_sq)
                             if rijdis_sq <= rcsq and j != i:
                                 verlet_list[i, nindex] = j
                                 distance_list[i, nindex] = ti.sqrt(rijdis_sq)

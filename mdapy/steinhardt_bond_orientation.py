@@ -301,6 +301,7 @@ class SteinhardtBondOrientation:
         use_weight=False,
         weight=None,
         voronoi=False,
+        average=False,
     ):
         self.rc = rc
         self.nnn = nnn
@@ -367,6 +368,7 @@ class SteinhardtBondOrientation:
         self.use_weight = use_weight
         self.weight = weight
         self.voronoi = voronoi
+        self.average = average
 
     @ti.func
     def _factorial(self, n: int) -> ti.f64:
@@ -472,6 +474,8 @@ class SteinhardtBondOrientation:
         cglist: ti.types.ndarray(),
         inverse_box: ti.types.ndarray(element_dim=1),
         weight: ti.types.ndarray(),
+        a_qnm_r: ti.types.ndarray(),
+        a_qnm_i: ti.types.ndarray(),
     ):
         MY_EPSILON = 2.220446049250313e-15
         N = pos.shape[0]
@@ -544,6 +548,42 @@ class SteinhardtBondOrientation:
                     qnm_r[i, il, m] *= facn
                     qnm_i[i, il, m] *= facn
 
+        if ti.static(self.average):
+            for i in range(N):
+                for j in range(qnm_r.shape[1]):
+                    for k in range(qnm_r.shape[2]):
+                        a_qnm_r[i, j, k] = qnm_r[i, j, k]
+                        a_qnm_i[i, j, k] = qnm_i[i, j, k]
+
+            ti.loop_config(serialize=True)
+            for i in range(N):
+                if self.voronoi:
+                    K = neighbor_number[i]
+                else:
+                    if self.nnn > 0:
+                        K = self.nnn
+                    else:
+                        K = neighbor_number[i]
+
+                N_neigh = 1
+                for jj in range(K):
+                    j = verlet_list[i, jj]
+
+                    if j >= 0:  # for voronoi neighbor
+                        for il in range(nqlist):
+                            l = qlist[il]
+                            for m in range(2 * l + 1):
+                                qnm_r[i, il, m] += a_qnm_r[j, il, m]
+                                qnm_i[i, il, m] += a_qnm_i[j, il, m]
+                        N_neigh += 1
+
+                for il in range(nqlist):
+                    l = qlist[il]
+                    for m in range(2 * l + 1):
+                        qnm_r[i, il, m] /= N_neigh
+                        qnm_i[i, il, m] /= N_neigh
+
+        for i in range(N):
             for il in range(nqlist):
                 l = qlist[il]
                 qnormfac = ti.sqrt(4 * ti.math.pi / (2 * l + 1))
@@ -614,6 +654,13 @@ class SteinhardtBondOrientation:
         qmax = self.qlist.max()
         self.qnm_r = np.zeros((self.pos.shape[0], self.nqlist, 2 * qmax + 1))
         self.qnm_i = np.zeros_like(self.qnm_r)
+        if self.average:
+            a_qnm_r = np.zeros_like(self.qnm_r)
+            a_qnm_i = np.zeros_like(self.qnm_i)
+        else:
+            a_qnm_r = np.zeros((2, 2, 2))
+            a_qnm_i = np.zeros((2, 2, 2))
+
         idxcg_count = self._get_idx(self.qlist)
         cglist = np.zeros(idxcg_count)
         if self.wlflag or self.wlhatflag:
@@ -662,6 +709,8 @@ class SteinhardtBondOrientation:
                 cglist,
                 self.inverse_box,
                 self.weight,
+                a_qnm_r,
+                a_qnm_i,
             )
         else:
             self._compute(
@@ -677,6 +726,8 @@ class SteinhardtBondOrientation:
                 cglist,
                 self.inverse_box,
                 np.zeros((2, 2)),
+                a_qnm_r,
+                a_qnm_i,
             )
         if self.old_N is not None:
             self.old_qnarray = self.qnarray.copy()
@@ -780,15 +831,16 @@ if __name__ == "__main__":
         None,
         None,
         0.0,
-        [4, 6, 8, 10],
+        [6],
         12,
-        wlflag=True,
+        wlflag=False,
         wlhatflag=False,
+        average=True,
     )
     BO.compute()
     print(f"BO time cost: {time()-start} s.")
     print(BO.qnarray[0])
     start = time()
-    BO.identifySolidLiquid()
-    print(f"SolidLiquid time cost: {time()-start} s.")
-    print(BO.solidliquid[:10])
+    # BO.identifySolidLiquid()
+    # print(f"SolidLiquid time cost: {time()-start} s.")
+    # print(BO.solidliquid[:10])

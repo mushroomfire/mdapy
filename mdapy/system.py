@@ -1170,6 +1170,7 @@ class System:
         wlhatflag=False,
         use_voronoi=False,
         use_weight=False,
+        average=False,
         solidliquid=False,
         max_neigh=60,
         threshold=0.7,
@@ -1284,6 +1285,7 @@ class System:
             use_weight,
             weight,
             use_voronoi,
+            average,
         )
         SBO.compute()
         if SBO.qnarray.shape[1] > 1:
@@ -2378,12 +2380,12 @@ if __name__ == "__main__":
     # nlist = neigh1.query(
     #     points, {"num_neighbors": 12, "exclude_ii": True}
     # ).toNeighborList()
-    ql = freud.order.Steinhardt(l=6, weighted=True, wl=True, wl_normalize=True)
+    ql = freud.order.Steinhardt(l=6, average=True, weighted=True)
     ql.compute(
         (box, points), neigh.nlist
     )  # neigh.nlist) #{"num_neighbors": 6, "exclude_ii": True}
 
-    print(ql.ql[:10])
+    print(ql.ql[:15])
     # print(box, points)
     system = System(box=box.Lx, pos=points.astype(np.float64))
     system.wrap_pos()
@@ -2393,9 +2395,11 @@ if __name__ == "__main__":
     # print(neigh.nlist[neigh.nlist[:, 0] == 0])
     # system.build_neighbor(3.1, max_neigh=23)
     system.cal_steinhardt_bond_orientation(
-        use_voronoi=True, use_weight=True, wlflag=True, wlhatflag=True
+        use_voronoi=True, average=True, use_weight=True
     )  # use_voronoi=True, use_weight=True)
-    print(system.data["ql6"].to_numpy()[:10])
+    print(system.data["ql6"].to_numpy()[:15])
+    x, y = ql.ql, system.data["ql6"].to_numpy()
+    print(np.where(x - y > 1e-3))
     # print(neigh.nlist[neigh.nlist[:, 0] == 0])
     # print(system.voro_verlet_list[0])
     # # print(neigh.nlist.distances[neigh.nlist[:, 0] == 5])

@@ -20,7 +20,7 @@ std::tuple<py::array_t<int>, py::array_t<double>, py::array_t<double>> get_voron
     auto c_box = box.mutable_unchecked<double, 2>();
     auto c_boundary = boundary.mutable_unchecked<bool, 1>();
     auto c_neighbor_number = neighbor_number.mutable_unchecked<int, 1>();
-    int N = c_pos.shape(0);
+    size_t N = c_pos.shape(0);
     double ax = c_box(0, 0), bx = c_box(0, 1);
     double ay = c_box(1, 0), by = c_box(1, 1);
     double az = c_box(2, 0), bz = c_box(2, 1);
@@ -58,7 +58,7 @@ std::tuple<py::array_t<int>, py::array_t<double>, py::array_t<double>> get_voron
         }
     }
 
-    int max_neighbor = c_neighbor_number(0);
+    size_t max_neighbor = c_neighbor_number(0);
     for (int i = 1; i < N; ++i)
     {
         if (c_neighbor_number(i) > max_neighbor)

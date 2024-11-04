@@ -555,7 +555,7 @@ class SteinhardtBondOrientation:
                         a_qnm_r[i, j, k] = qnm_r[i, j, k]
                         a_qnm_i[i, j, k] = qnm_i[i, j, k]
 
-            ti.loop_config(serialize=True)
+            # ti.loop_config(serialize=True)
             for i in range(N):
                 if self.voronoi:
                     K = neighbor_number[i]
@@ -818,7 +818,7 @@ if __name__ == "__main__":
 
     ti.init()
     start = time()
-    FCC = LatticeMaker(3.615, "FCC", 10, 10, 10)
+    FCC = LatticeMaker(3.615, "FCC", 100, 100, 100)
     FCC.compute()
     print(f"Build FCC time cost: {time()-start} s. Atom number: {FCC.N}.")
 

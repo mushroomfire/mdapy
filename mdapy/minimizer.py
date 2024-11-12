@@ -236,17 +236,17 @@ if __name__ == "__main__":
     nep = NEP(r"D:\Study\Gra-Al\potential_test\validating\graphene\itre_45\nep.txt")
 
     element_name, lattice_constant, lattice_type, potential = (
-        "Al",
-        4.1,
-        "FCC",
+        "C",
+        1.42,
+        "GRA",
         nep,
     )
-    x, y, z = 5, 5, 5
+    x, y, z = 5, 5, 1
     fmax = 1e-5
     max_itre = 200
     lat = LatticeMaker(lattice_constant, lattice_type, x, y, z)
     lat.compute()
-
+    lat.box[2, 2] += 20
     # pe_atom, _, _ = potential.compute(
     #     lat.pos, lat.box, [element_name], lat.type_list, [1, 1, 1]
     # )
@@ -279,11 +279,11 @@ if __name__ == "__main__":
         lat.type_list,
         fmax=fmax,
         max_itre=max_itre,
-        volume_change=True,
+        volume_change=False,
         hydrostatic_strain=True,
     )
     mini.compute()
-    print(mini.box / 5)
+    print(mini.box)
 
     # e, f, v = potential.compute(mini.pos, mini.box, [element_name], lat.type_list)
     # vol = np.inner(mini.box[0], np.cross(mini.box[1], mini.box[2]))

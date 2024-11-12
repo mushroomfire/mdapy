@@ -1,12 +1,13 @@
 Release Notes
 --------------
 
-Mdapy 0.11.4 (Under development)
+Mdapy 0.11.4 (Nov 13, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🏆 Highlights
 ---------------
 - Add feature to Minimizer class for optimizing the box.
+- Add many options for calculating SteinhardtBondOrientation, including the Voronoi neighbor, weighted by Voronoi face area and average version.
 
 🐞 Bug fixes
 -----------------

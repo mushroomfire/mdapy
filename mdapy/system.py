@@ -1221,6 +1221,9 @@ class System:
             rc (float, optional): cutoff distance to find neighbors. Defaults to 0.0.
             wlflag (bool, optional): whether calculate the third-order invariants :math:`W_{\ell}`. Defaults to False.
             wlhatflag (bool, optional): whether calculate the normalized third-order invariants :math:`\hat{W}_{\ell}`. If :math:`wlflag` is False, this parameter has no effect. Defaults to False.
+            use_voronoi (bool, optional): whether use Voronoi neighbor. Defaults to False.
+            use_weight (bool, optional): whether use Voronoi face area to weight the qlm. Defaults to False.
+            average (bool, optional): whether avcerage the qlm with the neighbor atoms. Defaults to False.
             solidliquid (bool, optional): whether identify the solid/liquid phase. Defaults to False.
             max_neigh (int, optional): a given maximum neighbor number per atoms. Defaults to 60.
             threshold (float, optional): threshold value to determine the solid bond. Defaults to 0.7.

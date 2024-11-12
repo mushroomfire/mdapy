@@ -247,6 +247,10 @@ class SteinhardtBondOrientation:
         wlflag (bool, optional): whether calculate the third-order invariants :math:`W_{\ell}`. Defaults to False.
         wlhatflag (bool, optional): whether calculate the normalized third-order invariants :math:`\hat{W}_{\ell}`. If :math:`wlflag` is False, this parameter has no effect. Defaults to False.
         max_neigh (int, optional): a given maximum neighbor number per atoms. Defaults to 60.
+        use_weight (bool, optional): whether use weight. Defaults to False.
+        weight (np.ndarray, optional): a given weight to calculate the qlm. Such as a voronoi face area array. Defaults to None.
+        voronoi (bool, optional): indicate that whether the neighbor is Voronoi neighbor. Defaults to False.
+        average (bool, optional): whether average the qlm within the neighbor atoms. Defaults to False.
 
     Outputs:
         - **qnarray** (np.ndarray) - (math:`N_p, len(qlist)*(1+wlflag+wlhatflag)`) consider the :math:`qlist=[4, 6]` and :math:`wlflag` and :math:`wlhatflag` is True, the columns of :math:`qnarray` are [:math:`Q_4, Q_6, W_4, W_6, \hat{W}_4, \hat{W}_6`].

@@ -1,6 +1,13 @@
 Release Notes
 --------------
 
+Mdapy 0.11.5 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🏆 Highlights
+---------------
+- Add feature to calculate local WCP parameter.
+
 Mdapy 0.11.4 (Nov 13, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

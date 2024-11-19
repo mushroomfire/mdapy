@@ -2034,6 +2034,93 @@ class System:
 
         self.WarrenCowleyParameter.compute()
 
+    def cal_local_warren_cowley_parameter(
+        self, pair_list, rc=3.0, use_voronoi=False, max_neigh=50, default_value=-10000.0
+    ):
+        """Calculate the local sro parameter per atom:
+
+        .. math:: WCP_{mn} = 1 - Z_{mn}/(X_n Z_{m}),
+
+        where :math:`Z_{mn}` is the number of :math:`n`-type atoms around :math:`m`-type atoms,
+        :math:`Z_m` is the total number of atoms around :math:`m`-type atoms, and :math:`X_n` is
+        the atomic concentration of :math:`n`-type atoms in the alloy.
+
+        Args:
+            pair_list (list[str]): the atom pair you want to compute, such as ['1-2', '2-3'].
+            rc (float, optional): cutoff distance. Defaults to 3.0.
+            use_voronoi (bool, optional): If set to True, we will use Voronoi neighbor to calculate the results. Defaults to False.
+            max_neigh (int, optional): maximum number of atom neighbor number. Defaults to 50.
+            default_value (float, optional): defaults values for non-reference atoms, one can assign any number here. Defaults to -10000.
+        """
+
+        pairs = np.array([i.split("-") for i in pair_list], int)
+        assert pairs.min() >= 1 and pairs.max() <= self.data["type"].max()
+
+        verlet_list, neighbor_number = None, None
+        if use_voronoi:
+            if not hasattr(self, "voro_verlet_list"):
+                self.build_neighbor_voronoi()
+
+            verlet_list, neighbor_number = (
+                self.voro_verlet_list,
+                self.voro_neighbor_number,
+            )
+        else:
+            if not self.if_neigh:
+                self.build_neighbor(rc=rc, max_neigh=max_neigh)
+                verlet_list, neighbor_number = (
+                    self.verlet_list,
+                    self.neighbor_number,
+                )
+            if self.rc != rc:
+                neigh = Neighbor(self.pos, self.box, rc, self.boundary, max_neigh)
+                neigh.compute()
+                verlet_list, neighbor_number = (
+                    neigh.verlet_list,
+                    neigh.neighbor_number,
+                )
+
+        @ti.kernel
+        def get_sro(
+            verlet_list: ti.types.ndarray(),
+            neighbor_number: ti.types.ndarray(),
+            type_list: ti.types.ndarray(),
+            sro: ti.types.ndarray(),
+            fraction: ti.types.ndarray(),
+            type1: int,
+            type2: int,
+        ):
+            for i in range(verlet_list.shape[0]):
+                i_type = type_list[i]
+                if i_type == type1:
+                    i_neigh = 0
+                    j_num = 0
+                    for jj in range(neighbor_number[i]):
+                        j = verlet_list[i, jj]
+                        if j > -1:
+                            j_type = type_list[j]
+                            if j_type == type2:
+                                j_num += 1
+                            i_neigh += 1
+                    Pij = j_num / i_neigh
+                    sro[i] = 1 - Pij / fraction[type2 - 1]
+
+        fraction = (
+            self.__data.group_by("type").len().sort("type")["len"].to_numpy() / self.N
+        )
+        for i, pair in enumerate(pairs):
+            sro = np.full(self.N, default_value, float)
+            get_sro(
+                verlet_list,
+                neighbor_number,
+                self.__data["type"].to_numpy(),
+                sro,
+                fraction,
+                pair[0],
+                pair[1],
+            )
+            self.__data = self.__data.with_columns(pl.lit(sro).alias(pair_list[i]))
+
     def cal_voronoi_volume(self, num_t=None):
         """This class is used to calculate the Voronoi polygon, which can be applied to
         estimate the atomic volume. The calculation is conducted by the `voro++ <https://math.lbl.gov/voro++/>`_ package and
@@ -2349,6 +2436,12 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
 
     ti.init()
+
+    system = System("example/CoCuFeNiPd-4M.data")
+    system.cal_local_warren_cowley_parameter(["1-2", "2-3"], use_voronoi=True)
+    print(system.data)
+    sro = system.data["2-3"].to_numpy()
+    print(sro[sro != -10000].mean())
     # nep = NEP(r"D:\Study\Gra-Al\potential_test\validating\graphene\itre_45\nep.txt")
     # element_name, lattice_constant, lattice_type, potential = (
     #     "Al",
@@ -2371,38 +2464,38 @@ if __name__ == "__main__":
 
     # lat = LatticeMaker(3.615, "FCC", 5, 5, 5)
     # lat.compute()
-    import freud
+    # import freud
 
-    box, points = freud.data.make_random_system(30, 2000, seed=0)
-    # print(box.to_matrix())
-    # box.periodic_x = False
-    neigh = freud.locality.Voronoi()
-    neigh.compute((box, points))
-    print(box.periodic)
-    # neigh1 = freud.locality.AABBQuery(box, points)
-    # nlist = neigh1.query(
-    #     points, {"num_neighbors": 12, "exclude_ii": True}
-    # ).toNeighborList()
-    ql = freud.order.Steinhardt(l=6, average=True, weighted=True)
-    ql.compute(
-        (box, points), neigh.nlist
-    )  # neigh.nlist) #{"num_neighbors": 6, "exclude_ii": True}
+    # box, points = freud.data.make_random_system(30, 2000, seed=0)
+    # # print(box.to_matrix())
+    # # box.periodic_x = False
+    # neigh = freud.locality.Voronoi()
+    # neigh.compute((box, points))
+    # print(box.periodic)
+    # # neigh1 = freud.locality.AABBQuery(box, points)
+    # # nlist = neigh1.query(
+    # #     points, {"num_neighbors": 12, "exclude_ii": True}
+    # # ).toNeighborList()
+    # ql = freud.order.Steinhardt(l=6, average=True, weighted=True)
+    # ql.compute(
+    #     (box, points), neigh.nlist
+    # )  # neigh.nlist) #{"num_neighbors": 6, "exclude_ii": True}
 
-    print(ql.ql[:15])
-    # print(box, points)
-    system = System(box=box.Lx, pos=points.astype(np.float64))
-    system.wrap_pos()
-    # system.boundary[0] = 0
-    # system.build_neighbor_voronoi()
-    # print(system.voro_verlet_list[0])
-    # print(neigh.nlist[neigh.nlist[:, 0] == 0])
-    # system.build_neighbor(3.1, max_neigh=23)
-    system.cal_steinhardt_bond_orientation(
-        use_voronoi=True, average=True, use_weight=True
-    )  # use_voronoi=True, use_weight=True)
-    print(system.data["ql6"].to_numpy()[:15])
-    x, y = ql.ql, system.data["ql6"].to_numpy()
-    print(np.where(x - y > 1e-3))
+    # print(ql.ql[:15])
+    # # print(box, points)
+    # system = System(box=box.Lx, pos=points.astype(np.float64))
+    # system.wrap_pos()
+    # # system.boundary[0] = 0
+    # # system.build_neighbor_voronoi()
+    # # print(system.voro_verlet_list[0])
+    # # print(neigh.nlist[neigh.nlist[:, 0] == 0])
+    # # system.build_neighbor(3.1, max_neigh=23)
+    # system.cal_steinhardt_bond_orientation(
+    #     use_voronoi=True, average=True, use_weight=True
+    # )  # use_voronoi=True, use_weight=True)
+    # print(system.data["ql6"].to_numpy()[:15])
+    # x, y = ql.ql, system.data["ql6"].to_numpy()
+    # print(np.where(x - y > 1e-3))
     # print(neigh.nlist[neigh.nlist[:, 0] == 0])
     # print(system.voro_verlet_list[0])
     # # print(neigh.nlist.distances[neigh.nlist[:, 0] == 5])

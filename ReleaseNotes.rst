@@ -1,12 +1,13 @@
 Release Notes
 --------------
 
-Mdapy 0.11.5 (Under development)
+Mdapy 0.11.5 (Nov 27, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🏆 Highlights
 ---------------
 - Add feature to calculate local WCP parameter.
+- Remove NEP model output.
 
 Mdapy 0.11.4 (Nov 13, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

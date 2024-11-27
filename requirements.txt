@@ -4,3 +4,4 @@ scipy
 polars>=1.8.0
 matplotlib
 polyscope
+tqdm

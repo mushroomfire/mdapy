@@ -376,6 +376,7 @@ def compress_file(
         workers = 1
     pigz_file = PigzFile(source_file, output_file, compresslevel, blocksize, workers)
     pigz_file.process_compression_target()
+
     if inplace:
         try:
             os.remove(source_file)
@@ -385,6 +386,7 @@ def compress_file(
 
 if __name__ == "__main__":
     start = time.time()
-    compress_file(r"E:/MyPackage/mdapy/test.dump")
+    compress_file(r"D:\Package\MyPackage\mdapy\doc\source\gettingstarted\mdapy.dump")
     end = time.time()
+    # os.remove(r"D:\Study\Diamond\model\Hugoniot_big\impact\1km\dump.20000.xyz.gz")
     print(f"Time cost {end-start} s.")

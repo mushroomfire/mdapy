@@ -7,6 +7,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <vector>
+#include <numeric>
 #include <pybind11/stl.h>
 #include <cmath>
 #include <omp.h>
@@ -14,7 +15,9 @@
 namespace py = pybind11;
 using namespace voro;
 
-std::tuple<py::array_t<int>, py::array_t<double>, py::array_t<double>> get_voronoi_neighbor(py::array pos, py::array box, py::array boundary, py::array neighbor_number, int num_t)
+std::tuple<py::array_t<int>, py::array_t<double>, py::array_t<double>> get_voronoi_neighbor(py::array pos, py::array box,
+                                                                                            py::array boundary, py::array neighbor_number,
+                                                                                            double a_face_area_threshold, double r_face_area_threshold, int num_t)
 {
     auto c_pos = pos.unchecked<double, 2>();
     auto c_box = box.mutable_unchecked<double, 2>();
@@ -82,15 +85,31 @@ std::tuple<py::array_t<int>, py::array_t<double>, py::array_t<double>> get_voron
         double i_x = c_pos(i, 0);
         double i_y = c_pos(i, 1);
         double i_z = c_pos(i, 2);
+
+        double area_min = 0.;
+        if (a_face_area_threshold > 0)
+            area_min = a_face_area_threshold;
+
+        if (r_face_area_threshold > 0.)
+        {
+            auto vec = voro_face_areas[i];
+            area_min = std::accumulate(vec.begin(), vec.end(), 0.0) * r_face_area_threshold;
+        }
+
+        // Use the maximum threshold.
+        if (a_face_area_threshold > area_min)
+            area_min = a_face_area_threshold;
+
         for (int j = 0; j < max_neighbor; ++j)
         {
             if (j < i_neigh)
             {
                 int j_index = voro_verlet_list[i][j];
-                if (j_index >= 0)
+                double j_face_area = voro_face_areas[i][j];
+                if ((j_index >= 0) && (j_face_area > area_min))
                 {
                     c_verlet_list(i, j) = j_index;
-                    c_face_areas(i, j) = voro_face_areas[i][j];
+                    c_face_areas(i, j) = j_face_area;
 
                     double deltax = c_pos(j_index, 0) - i_x;
                     double deltay = c_pos(j_index, 1) - i_y;

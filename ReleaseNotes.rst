@@ -1,6 +1,14 @@
 Release Notes
 --------------
 
+Mdapy 0.11.6 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🏆 Highlights
+---------------
+- Add a_face_area_threshold and r_face_area_threshold parameters when building voronoi neighbor.
+
+
 Mdapy 0.11.5 (Nov 27, 2024)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

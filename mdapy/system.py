@@ -862,12 +862,16 @@ class System:
             self.update_vel()
         self.__box = repli.box
 
-    def build_neighbor_voronoi(self, ncore=-1):
-        """Build voronoi neighbor. Only support rectangular and periodic boundary.
+    def build_neighbor_voronoi(
+        self, a_face_area_threshold=0.0, r_face_area_threshold=0.0, ncore=-1
+    ):
+        """Build voronoi neighbor. Only support rectangular box.
         After building, the system classs will have voro_neighbor_number, voro_verlet_list, voro_distance_list, voro_face_areas.
         This neighbor information is mainly used to calculate the steinhardt bond order.
 
         Args:
+            a_face_area_threshold (float, optional): Specifies a minimum area for the individual faces of a Voronoi cell. The modifier will ignore any Voronoi cell face whose area is smaller than this threshold area when computing the coordination number and the Voronoi index of a particle. The threshold is an absolute value in units of length squared (in whatever units of length your input data is given).
+            r_face_area_threshold (float, optional): Specifies a minimum area for the individual faces of a Voronoi cell in terms of a fraction of the total surface area of a Voronoi polyhedron. The modifier will ignore any Voronoi cell face whose area is smaller than this threshold when computing the coordination number and the Voronoi index of a particle. The relative threshold is specified as a fraction of the total surface area of the Voronoi polyhedron the faces belong to. For example, you can use this threshold to exclude those faces from the analysis with an area less than 1% of the total area of the polyhedron surface, like it was done in this `paper <https://www.nature.com/articles/nature04421>`_.
             ncore (int, optional): parallel CPU cores, -1 means use all cores. Defaults to -1.
         """
         # assert self.boundary == [1, 1, 1], "Only support all periodic boundary."
@@ -884,7 +888,13 @@ class System:
         self.voro_neighbor_number = np.zeros(self.N, np.int32)
         self.voro_verlet_list, self.voro_distance_list, self.voro_face_areas = (
             _voronoi_analysis.get_voronoi_neighbor(
-                self.pos, box, np.bool_(self.boundary), self.voro_neighbor_number, ncore
+                self.pos,
+                box,
+                np.bool_(self.boundary),
+                self.voro_neighbor_number,
+                a_face_area_threshold,
+                r_face_area_threshold,
+                ncore,
             )
         )
 
@@ -2437,11 +2447,27 @@ if __name__ == "__main__":
 
     ti.init()
 
-    system = System("example/CoCuFeNiPd-4M.data")
-    system.cal_local_warren_cowley_parameter(["1-2", "2-3"], use_voronoi=True)
-    print(system.data)
-    sro = system.data["2-3"].to_numpy()
-    print(sro[sro != -10000].mean())
+    # system = System("example/CoCuFeNiPd-4M.data")
+    # system.cal_local_warren_cowley_parameter(["1-2", "2-3"], use_voronoi=True)
+    # print(system.data)
+    # sro = system.data["2-3"].to_numpy()
+    # print(sro[sro != -10000].mean())
+    system = System(r"D:\Package\MyPackage\NEPPY\HEA.xyz")
+
+    system.build_neighbor_voronoi(r_face_area_threshold=0.01, a_face_area_threshold=1.0)
+
+    # print(system.voro_neighbor_number[1])
+    # print(system.voro_verlet_list[1])
+    # print(system.voro_face_areas[1])
+    system.cal_steinhardt_bond_orientation(qlist=[4], use_voronoi=True, use_weight=True)
+    print(system.data["ql4"][:5])
+    system.build_neighbor_voronoi()
+
+    # print(system.voro_neighbor_number[1])
+    # print(system.voro_verlet_list[1])
+    # print(system.voro_face_areas[1])
+    system.cal_steinhardt_bond_orientation(qlist=[4], use_voronoi=True, use_weight=True)
+    print(system.data["ql4"][:5])
     # nep = NEP(r"D:\Study\Gra-Al\potential_test\validating\graphene\itre_45\nep.txt")
     # element_name, lattice_constant, lattice_type, potential = (
     #     "Al",

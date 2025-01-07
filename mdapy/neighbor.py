@@ -286,14 +286,17 @@ if __name__ == "__main__":
     from time import time
 
     ti.init(offline_cache=True)
-    start = time()
+
     lattice_constant = 4.05
-    x, y, z = 3, 3, 3
+    x, y, z = 100, 100, 250
     FCC = LatticeMaker(lattice_constant, "FCC", x, y, z)
     FCC.compute()
-    end = time()
+
+    start = time()
     neigh = Neighbor(FCC.pos, FCC.box, 5.0)
     neigh.compute()
+    end = time()
+    print("Time cost: ", end - start, " s.")
     print(neigh.verlet_list[0])
     print(neigh.neighbor_number[0])
     print(neigh.distance_list[0])

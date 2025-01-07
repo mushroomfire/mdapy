@@ -221,6 +221,7 @@ class Minimizer:
                 vel = vel * (1 - alpha) + force * (alpha * v_modulus) / F_modulus
 
                 self.pos += vel[:N] * dt
+
                 self.box[:-1] += self.box[:-1] @ (vel[N:] / N).T
 
             print("Energy minimization with volume change finished.")
@@ -229,61 +230,84 @@ class Minimizer:
 if __name__ == "__main__":
     import taichi as ti
     from potential import NEP
-    from lattice_maker import LatticeMaker
+    import mdapy as mp
+    import polars as pl
 
     ti.init()
 
-    nep = NEP(r"D:\Study\Gra-Al\potential_test\validating\graphene\itre_45\nep.txt")
-
-    element_name, lattice_constant, lattice_type, potential = (
-        "C",
-        1.42,
-        "GRA",
-        nep,
+    nep = NEP(r"D:\Package\MyPackage\GPUMD\mini_test\nep.txt")
+    element_list = ["Cu", "Ni", "P", "Pd"]
+    replace = {j: i + 1 for i, j in enumerate(element_list)}
+    lat = mp.System(r"D:\Package\MyPackage\GPUMD\mini_test\model.xyz")
+    lat.update_data(
+        lat.data.with_columns(pl.col("type_name").replace_strict(replace).alias("type"))
     )
-    x, y, z = 5, 5, 1
-    fmax = 1e-5
-    max_itre = 200
-    lat = LatticeMaker(lattice_constant, lattice_type, x, y, z)
-    lat.compute()
-    lat.box[2, 2] += 20
-    # pe_atom, _, _ = potential.compute(
-    #     lat.pos, lat.box, [element_name], lat.type_list, [1, 1, 1]
-    # )
-    # E_bulk = pe_atom.sum()
-    # print(f"Bulk energy: {E_bulk:.2f} eV.")
+    # print(lat.box)
 
-    # mini_defect = Minimizer(
-    #     np.ascontiguousarray(lat.pos[1:]),
+    mini = Minimizer(
+        lat.pos.copy(),
+        lat.box,
+        lat.boundary,
+        nep,
+        element_list,
+        lat.data["type"].to_numpy(),
+        fmax=1e-5,
+        max_itre=100,
+        volume_change=True,
+        hydrostatic_strain=False,
+    )
+    mini.compute()
+    # print(mini.box)
+
+    # element_name, lattice_constant, lattice_type, potential = (
+    #     "C",
+    #     1.42,
+    #     "GRA",
+    #     nep,
+    # )
+    # x, y, z = 5, 5, 1
+    # fmax = 1e-5
+    # max_itre = 200
+    # lat = LatticeMaker(lattice_constant, lattice_type, x, y, z)
+    # lat.compute()
+    # lat.box[2, 2] += 20
+    # # pe_atom, _, _ = potential.compute(
+    # #     lat.pos, lat.box, [element_name], lat.type_list, [1, 1, 1]
+    # # )
+    # # E_bulk = pe_atom.sum()
+    # # print(f"Bulk energy: {E_bulk:.2f} eV.")
+
+    # # mini_defect = Minimizer(
+    # #     np.ascontiguousarray(lat.pos[1:]),
+    # #     lat.box,
+    # #     [1, 1, 1],
+    # #     potential,
+    # #     [element_name],
+    # #     np.ascontiguousarray(lat.type_list[1:]),
+    # #     fmax=fmax,
+    # #     max_itre=max_itre,
+    # # )
+    # # mini_defect.compute()
+    # # E_defect = mini_defect.pe_itre[-1]
+    # # print(f"Defect energy: {E_defect:.2f} eV.")
+
+    # # E_v = E_defect - E_bulk * (lat.N - 1) / lat.N
+    # # print(f"Vacancy formation energy: {E_v:.2f} eV.")
+
+    # mini = Minimizer(
+    #     lat.pos,
     #     lat.box,
     #     [1, 1, 1],
     #     potential,
     #     [element_name],
-    #     np.ascontiguousarray(lat.type_list[1:]),
+    #     lat.type_list,
     #     fmax=fmax,
     #     max_itre=max_itre,
+    #     volume_change=False,
+    #     hydrostatic_strain=True,
     # )
-    # mini_defect.compute()
-    # E_defect = mini_defect.pe_itre[-1]
-    # print(f"Defect energy: {E_defect:.2f} eV.")
-
-    # E_v = E_defect - E_bulk * (lat.N - 1) / lat.N
-    # print(f"Vacancy formation energy: {E_v:.2f} eV.")
-
-    mini = Minimizer(
-        lat.pos,
-        lat.box,
-        [1, 1, 1],
-        potential,
-        [element_name],
-        lat.type_list,
-        fmax=fmax,
-        max_itre=max_itre,
-        volume_change=False,
-        hydrostatic_strain=True,
-    )
-    mini.compute()
-    print(mini.box)
+    # mini.compute()
+    # print(mini.box)
 
     # e, f, v = potential.compute(mini.pos, mini.box, [element_name], lat.type_list)
     # vol = np.inner(mini.box[0], np.cross(mini.box[1], mini.box[2]))

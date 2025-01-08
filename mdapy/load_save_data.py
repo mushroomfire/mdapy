@@ -383,8 +383,9 @@ class SaveFile:
 
             elif data_format == "charge":
                 if "q" not in data.columns:
-                    table = data.select(["id", "type", "x", "y", "z"])
-                    table.insert_at_idx(2, pl.Series("q", np.zeros(data.shape[0])))
+                    table = data.select(["id", "type", "x", "y", "z"]).with_columns(
+                        pl.Series("q", np.zeros(data.shape[0]))
+                    )
                 else:
                     table = data.select(["id", "type", "q", "x", "y", "z"])
             table.write_csv(op, separator=" ", include_header=False)

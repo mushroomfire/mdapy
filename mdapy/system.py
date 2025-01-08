@@ -2446,28 +2446,30 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
 
     ti.init()
-
+    lat = LatticeMaker(3.615, "FCC", 5, 5, 5)
+    lat.compute()
+    lat.write_data("test.data", data_format='charge')
     # system = System("example/CoCuFeNiPd-4M.data")
     # system.cal_local_warren_cowley_parameter(["1-2", "2-3"], use_voronoi=True)
     # print(system.data)
     # sro = system.data["2-3"].to_numpy()
     # print(sro[sro != -10000].mean())
-    system = System(r"D:\Package\MyPackage\NEPPY\HEA.xyz")
+    # system = System(r"D:\Package\MyPackage\NEPPY\HEA.xyz")
 
-    system.build_neighbor_voronoi(r_face_area_threshold=0.01, a_face_area_threshold=1.0)
+    # system.build_neighbor_voronoi(r_face_area_threshold=0.01, a_face_area_threshold=1.0)
 
-    # print(system.voro_neighbor_number[1])
-    # print(system.voro_verlet_list[1])
-    # print(system.voro_face_areas[1])
-    system.cal_steinhardt_bond_orientation(qlist=[4], use_voronoi=True, use_weight=True)
-    print(system.data["ql4"][:5])
-    system.build_neighbor_voronoi()
+    # # print(system.voro_neighbor_number[1])
+    # # print(system.voro_verlet_list[1])
+    # # print(system.voro_face_areas[1])
+    # system.cal_steinhardt_bond_orientation(qlist=[4], use_voronoi=True, use_weight=True)
+    # print(system.data["ql4"][:5])
+    # system.build_neighbor_voronoi()
 
-    # print(system.voro_neighbor_number[1])
-    # print(system.voro_verlet_list[1])
-    # print(system.voro_face_areas[1])
-    system.cal_steinhardt_bond_orientation(qlist=[4], use_voronoi=True, use_weight=True)
-    print(system.data["ql4"][:5])
+    # # print(system.voro_neighbor_number[1])
+    # # print(system.voro_verlet_list[1])
+    # # print(system.voro_face_areas[1])
+    # system.cal_steinhardt_bond_orientation(qlist=[4], use_voronoi=True, use_weight=True)
+    # print(system.data["ql4"][:5])
     # nep = NEP(r"D:\Study\Gra-Al\potential_test\validating\graphene\itre_45\nep.txt")
     # element_name, lattice_constant, lattice_type, potential = (
     #     "Al",

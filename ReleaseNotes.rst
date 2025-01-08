@@ -6,6 +6,7 @@ Mdapy 0.11.6 (Under development)
 
 🏆 Highlights
 ---------------
+- Fix a bug for writting data with charge format.
 - Add a_face_area_threshold and r_face_area_threshold parameters when building voronoi neighbor.
 
 

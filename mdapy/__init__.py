@@ -7,7 +7,7 @@ __license__ = "BSD License"
 
 from .main import main
 from .ackland_jones_analysis import AcklandJonesAnalysis
-from .bond_analysis import BondAnalysis
+from .bond_analysis import BondAnalysis, AngularDistributionFunctions
 from .centro_symmetry_parameter import CentroSymmetryParameter
 from .cluser_analysis import ClusterAnalysis
 from .common_neighbor_analysis import CommonNeighborAnalysis

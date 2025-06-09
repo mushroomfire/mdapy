@@ -51,9 +51,9 @@ class EAMGenerate:
             "Zr",
         ]
         for element in self.elements_list:
-            assert (
-                element in self.aviliable_elements
-            ), f"{element} is not in {self.aviliable_elements}!!!"
+            assert element in self.aviliable_elements, (
+                f"{element} is not in {self.aviliable_elements}!!!"
+            )
 
         self.eam_parameters = [
             "Cu",
@@ -704,8 +704,11 @@ if __name__ == "__main__":
     from potential import EAM
     import os
 
-    potential = EAMGenerate(["Co", "Ni", "Fe", "Al", "Cu"])
+    potential = EAMGenerate(
+        ["Co", "Ni", "Fe", "Al", "Cu"],
+        r"C:\Users\HerrWu\Desktop\test_eam\test_eam\CoNiFeAlCu.eam.alloy",
+    )
 
-    potential = EAM("CoNiFeAlCu.eam.alloy")
-    os.remove("CoNiFeAlCu.eam.alloy")
-    potential.plot()
+    # potential = EAM("CoNiFeAlCu.eam.alloy")
+    # os.remove("CoNiFeAlCu.eam.alloy")
+    # potential.plot()

@@ -974,7 +974,9 @@ class System:
         )
         self.Phon.compute()
 
-    def cal_species_number(self, element_list, search_species=None, check_most=10):
+    def cal_species_number(
+        self, element_list, search_species=None, check_most=10, add_mol_id=False
+    ):
         """This function can recgnized the species based on the atom connectivity.
         For atom i and atom j, if rij <= (vdwr_i + vdwr_j) * 0.6, we think two atoms are connected.
         Similar method can be found in `OpenBabel <https://github.com/openbabel/openbabel>`_.
@@ -983,16 +985,17 @@ class System:
             element_list (list): elemental name for your system. Such as ['C', 'H', 'O'].
             search_species (list, optional): the molecular formula you want to find. Such as ['H2O', 'CO2', 'Cl2', 'N2'].
             check_most (int, optional): if search_species is not given, we will give the N-most species.
+            add_mol_id (bool, optional): if True and search_species is asigned, will add a column 'mol_id' to the data, which indicates the molecule id. Undified atoms will be -1, the others will be set in the order of search_species from zero-based index. Defaults to False.
         Returns:
             dict: search species and the corresponding number.
         """
-        assert (
-            len(element_list) == self.__data["type"].max()
-        ), "The length of element_list must be equal to the atom type number."
+        assert len(element_list) == self.__data["type"].max(), (
+            "The length of element_list must be equal to the atom type number."
+        )
         partial_cutoff = {}
         for type1 in range(len(element_list)):
             for type2 in range(type1, len(element_list)):
-                partial_cutoff[f"{type1+1}-{type2+1}"] = (
+                partial_cutoff[f"{type1 + 1}-{type2 + 1}"] = (
                     vdw_radii[atomic_numbers[element_list[type1]]]
                     + vdw_radii[atomic_numbers[element_list[type2]]]
                 ) * 0.6
@@ -1010,7 +1013,7 @@ class System:
                     else:
                         name += i
                 trans_search_species.append(name)
-            res = (
+            first_step = (
                 self.__data.with_columns(
                     pl.lit(
                         np.array(element_list)[(self.__data["type"] - 1).to_numpy()]
@@ -1019,9 +1022,11 @@ class System:
                 .group_by("cluster_id")
                 .agg(pl.col("type_name"))
                 .with_columns(pl.col("type_name").list.sort())
-                .with_columns(pl.col("type_name").list.join(""))["type_name"]
-                .value_counts()
-            ).filter(pl.col("type_name").is_in(trans_search_species))
+                .with_columns(pl.col("type_name").list.join(""))
+            )
+            res = (first_step["type_name"].value_counts()).filter(
+                pl.col("type_name").is_in(trans_search_species)
+            )
             res = dict(zip(res[:, 0], res[:, 1]))
             species = {}
             for i, j in zip(search_species, trans_search_species):
@@ -1029,6 +1034,20 @@ class System:
                     species[i] = 0
                 else:
                     species[i] = res[j]
+            if add_mol_id:
+                clus_mol = first_step.with_columns(
+                    pl.col("type_name")
+                    .replace(
+                        {j: i for i, j in enumerate(trans_search_species)}, default=-1
+                    )
+                    .alias("mol_id")
+                )
+
+                self.__data = self.__data.with_columns(
+                    pl.col("cluster_id")
+                    .replace(dict(zip(clus_mol["cluster_id"], clus_mol["mol_id"])))
+                    .alias("mol_id")
+                )
 
         else:
             res = (
@@ -1080,18 +1099,18 @@ class System:
 
         Ntype = self.__data["type"].max()
         if amass is None:
-            assert (
-                elemental_list is not None
-            ), "One must provide either amass or elemental_list!"
-            assert (
-                len(elemental_list) == Ntype
-            ), f"length of elemental list should be equal to the atom type number: {Ntype}."
+            assert elemental_list is not None, (
+                "One must provide either amass or elemental_list!"
+            )
+            assert len(elemental_list) == Ntype, (
+                f"length of elemental list should be equal to the atom type number: {Ntype}."
+            )
             amass = np.array([atomic_masses[atomic_numbers[i]] for i in elemental_list])
         else:
             amass = np.array(amass)
-            assert (
-                amass.shape[0] == Ntype
-            ), f"length of amass should be equal to the atom type number: {Ntype}."
+            assert amass.shape[0] == Ntype, (
+                f"length of amass should be equal to the atom type number: {Ntype}."
+            )
 
         assert units in ["metal", "charge"], "units must in ['metal', 'charge']."
 
@@ -1109,9 +1128,9 @@ class System:
 
         atype_list = self.__data["type"].to_numpy()  # to_numpy().astype(np.int32)
 
-        assert (
-            "vx" in self.__data.columns
-        ), "Should contain velocity information for computing temperature."
+        assert "vx" in self.__data.columns, (
+            "Should contain velocity information for computing temperature."
+        )
         assert "vy" in self.__data.columns
         assert "vz" in self.__data.columns
         AtomicTemp = AtomicTemperature(
@@ -2446,9 +2465,74 @@ if __name__ == "__main__":
     from lattice_maker import LatticeMaker
 
     ti.init()
-    lat = LatticeMaker(3.615, "FCC", 5, 5, 5)
-    lat.compute()
-    lat.write_data("test.data", data_format='charge')
+    from time import time
+
+    system = System(r"E:\W-C\shock.40000.dump.gz")
+    element_list = ["C", "H", "O", "N"]
+    search_species = ["H2O", "CO2", "Cl2", "N2"]
+    res = system.cal_species_number(
+        element_list, search_species=search_species, add_mol_id=True
+    )
+    print(res)
+    system.write_dump("test.dump")
+    # potential = EAM(r"C:\Users\HerrWu\Desktop\test_eam\test_eam\CoNiFeAlCu.eam.alloy")
+    # system = System(r"C:\Users\HerrWu\Desktop\test_eam\test_eam\model.data")
+
+    # print("start calculating...")
+    # start = time()
+    # e, f, v = system.cal_energy_force_virial(potential, ["Co", "Ni", "Fe", "Al", "Cu"])
+    # end = time()
+    # print(f"N is {system.N}, eam time: {end - start} s.")
+
+    # print(e[6141])
+    # print(f[6141])
+    # print(v.sum(0))  # / system.box.volume * 160.21766)
+
+    # potential = EAM(r"D:\Package\MyPackage\mdapy\example\Al_DFT.eam.alloy")
+    # fcc = LatticeMaker(3.61, "FCC", 15, 15, 15)
+    # fcc.compute()
+    # type_list = (
+    #     [1] * int(fcc.N * 0.2)
+    #     + [2] * int(fcc.N * 0.2)
+    #     + [3] * int(fcc.N * 0.2)
+    #     + [4] * int(fcc.N * 0.2)
+    # )
+    # type_list.extend([5] * (fcc.N - len(type_list)))
+    # np.random.seed(1)
+    # np.random.shuffle(type_list)
+
+    # system = System(
+    #     pos=fcc.pos,
+    #     box=fcc.box,
+    #     type_name=["Co", "Ni", "Fe", "Al", "Cu"],
+    #     type_list=np.array(type_list, int),
+    # )
+
+    # np.random.seed(1)
+    # pos = np.random.random((system.N, 3))
+    # df = system.data.with_columns(
+    #     pl.col("x") + pos[:, 0], pl.col("y") + pos[:, 1], pl.col("z") + pos[:, 2]
+    # )
+    # system.update_data(df, update_pos=True)
+    # system.write_xyz(r"D:\Package\MyPackage\GPUMD\test\model.xyz")
+    # system.write_data(
+    #     r"D:\Package\MyPackage\GPUMD\test\model.data",
+    #     type_name=["Co", "Ni", "Fe", "Al", "Cu"],
+    # )
+    # system.build_neighbor(potential.rc)
+    # print("start calculating...")
+    # start = time()
+    # e, f, v = system.cal_energy_force_virial(potential, elements_list=["Al"])
+    # end = time()
+    # print(f"N is {system.N}, eam time: {end - start} s.")
+
+    # print(e[:5])
+    # print(f[:2])
+    # print(v[0])
+    # lat = LatticeMaker(3.615, "FCC", 5, 5, 5)
+    # lat.compute()
+    # lat.write_data("test.data", data_format='charge')
+
     # system = System("example/CoCuFeNiPd-4M.data")
     # system.cal_local_warren_cowley_parameter(["1-2", "2-3"], use_voronoi=True)
     # print(system.data)

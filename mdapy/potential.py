@@ -145,13 +145,13 @@ class EAMCalculator:
         self.neighbor_number = neighbor_number
 
     def _get_type_list(self):
-        assert len(self.elements_list) == len(
-            np.unique(self.init_type_list)
-        ), "All type must be assigned."
+        assert len(self.elements_list) == len(np.unique(self.init_type_list)), (
+            "All type must be assigned."
+        )
         for i in self.elements_list:
-            assert (
-                i in self.potential.elements_list
-            ), f"Input element {i} not included in potential."
+            assert i in self.potential.elements_list, (
+                f"Input element {i} not included in potential."
+            )
 
         init_to_now = np.array(
             [self.potential.elements_list.index(i) for i in self.elements_list]
@@ -229,6 +229,8 @@ class EAMCalculator:
                             + (1 - quanzhong) * elec_density_data[i_type, k]
                         )
 
+        # print(elec_density[6141])
+
         for i in range(N):
             i_type = atype_list[i] - 1
             rk = elec_density[i] / drho
@@ -244,6 +246,8 @@ class EAMCalculator:
                 quanzhong * d_embedded_data[i_type, k + 1]
                 + (1 - quanzhong) * d_embedded_data[i_type, k]
             )
+
+        # print(d_embedded_rho[6141])
 
         for i in range(N):
             i_type = atype_list[i] - 1
@@ -280,6 +284,9 @@ class EAMCalculator:
                             d_embedded_rho[i] * d_elec_density_i
                             + d_embedded_rho[j] * d_elec_density_j
                         )
+
+                        # if i == 6141:
+                        #     print(i, j, d_pair)
 
                         force[i] -= d_pair * rij / r
                         force[j] += d_pair * rij / r
@@ -755,9 +762,9 @@ class NEP(BasePotential):
         """
         box, _, _ = init_box(box)
         for i in elements_list:
-            assert (
-                i in self.info["element_list"]
-            ), f"{i} not contained in {self.info['element_list']}."
+            assert i in self.info["element_list"], (
+                f"{i} not contained in {self.info['element_list']}."
+            )
 
         type_list = np.array(
             [self.info["element_list"].index(elements_list[i - 1]) for i in type_list],
@@ -796,9 +803,9 @@ class NEP(BasePotential):
         box, _, _ = init_box(box)
 
         for i in elements_list:
-            assert (
-                i in self.info["element_list"]
-            ), f"{i} not contained in {self.info['element_list']}."
+            assert i in self.info["element_list"], (
+                f"{i} not contained in {self.info['element_list']}."
+            )
 
         type_list = np.array(
             [self.info["element_list"].index(elements_list[i - 1]) for i in type_list],
@@ -871,16 +878,16 @@ class NEP(BasePotential):
         if start_idx is None:
             start_idx = np.random.randint(0, n_points)
         else:
-            assert (
-                start_idx >= 0 and start_idx < n_points
-            ), f"start_idx must belong [0, {n_points-1}]."
+            assert start_idx >= 0 and start_idx < n_points, (
+                f"start_idx must belong [0, {n_points - 1}]."
+            )
 
         sampled_indices = [start_idx]
         min_distances = np.full(n_points, np.inf)
         farthest_point_idx = start_idx
         bar = tqdm(range(n_sample - 1))
         for i in bar:
-            bar.set_description(f"Fps sampling {i+2} frames")
+            bar.set_description(f"Fps sampling {i + 2} frames")
             current_point = des_total[farthest_point_idx]
             dist_to_current_point = np.linalg.norm(des_total - current_point, axis=1)
             min_distances = np.minimum(min_distances, dist_to_current_point)
@@ -1035,15 +1042,18 @@ class LammpsPotential(BasePotential):
 
 
 if __name__ == "__main__":
-    from lattice_maker import LatticeMaker
-    from time import time
-    from system import System
+    # from lattice_maker import LatticeMaker
+    # from time import time
+    # from system import System
 
-    # eam = EAM("example/Al_DFT.eam.alloy")
+    eam = EAM("example/CoNiFeAlCu.eam.alloy")
     # print(isinstance(eam, EAM))
     # print(isinstance(eam, NEP))
+    for i in range(eam.Nelements):
+        plt.plot(eam.r, eam.d_elec_density_data[i])
 
-    ti.init(ti.cpu)
+    plt.show()
+    # ti.init(ti.cpu)
 
     # file_list = []
     # for step in range(10):
@@ -1092,33 +1102,33 @@ if __name__ == "__main__":
     # )
     # end = time()
     # print(f"Calculate energy and force time: {end-start} s.")
-    system = System(r"D:\Study\Gra-Al\potential_test\phonon\alc\POSCAR")
-    # nep = NEP(r"D:\Study\Gra-Al\potential_test\total\nep.txt")
+    # system = System(r"D:\Study\Gra-Al\potential_test\phonon\alc\POSCAR")
+    # # nep = NEP(r"D:\Study\Gra-Al\potential_test\total\nep.txt")
+    # # lnep = LammpsPotential(
+    # #     r"""
+    # # pair_style nep
+    # # pair_coeff * * D:\Study\Gra-Al\potential_test\total\nep.txt Al C
+    # # """
+    # # )
     # lnep = LammpsPotential(
     #     r"""
     # pair_style nep
     # pair_coeff * * D:\Study\Gra-Al\potential_test\total\nep.txt Al C
     # """
     # )
-    lnep = LammpsPotential(
-        r"""
-    pair_style nep 
-    pair_coeff * * D:\Study\Gra-Al\potential_test\total\nep.txt Al C
-    """
-    )
 
-    e, f, v = lnep.compute(
-        system.pos,
-        system.box,
-        ["Al", "C"],
-        system.data["type"].to_numpy(),
-        [1, 1, 1],
-        True,
-    )
-    print(e.sum())
-    print(f[:5])
-    print(v.sum(axis=0) / system.vol * 6.241509125883258e-07)
-    print(v[:2] * 6.241509125883258e-07)  # to eV
+    # e, f, v = lnep.compute(
+    #     system.pos,
+    #     system.box,
+    #     ["Al", "C"],
+    #     system.data["type"].to_numpy(),
+    #     [1, 1, 1],
+    #     True,
+    # )
+    # print(e.sum())
+    # print(f[:5])
+    # print(v.sum(axis=0) / system.vol * 6.241509125883258e-07)
+    # print(v[:2] * 6.241509125883258e-07)  # to eV
     # start = time()
     # des = nep.get_descriptors(
     #     system.pos, system.box, ["Al", "C"], system.data["type"].to_numpy()

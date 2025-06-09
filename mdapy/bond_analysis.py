@@ -288,11 +288,9 @@ class AngularDistributionFunctions:
                         j = verlet_list[i, jj]
                         jtype = type_list[j]
                         if jtype == pair_list[m, 1]:
-                            
                             r_ij = distance_list[i, jj]
                             if r_ij <= rc_list[m, 1] and r_ij >= rc_list[m, 0]:
-
-                                for kk in range(jj+1, i_neigh):
+                                for kk in range(jj + 1, i_neigh):
                                     k = verlet_list[i, kk]
                                     ktype = type_list[k]
                                     if ktype == pair_list[m, 2]:
@@ -349,6 +347,7 @@ class AngularDistributionFunctions:
         delta_theta = 180.0 / self.nbins
         self.bond_angle_distribution = np.zeros((self.Npair, self.nbins), int)
         from time import time
+
         start = time()
         self._compute(
             self.pos,
@@ -368,25 +367,38 @@ class AngularDistributionFunctions:
         print(f"Time: {end - start} s.")
         r = np.linspace(0, 180.0, self.nbins + 1)
         self.r_angle = (r[1:] + r[:-1]) / 2
-    
-    def plot_bond_angle_distribution(
-        self, type_name=None, fig=None, ax=None
-    ):
+
+    def plot_bond_angle_distribution(self, type_name=None, fig=None, ax=None):
         assert hasattr(self, "bond_angle_distribution"), "call compute first."
         if fig is None and ax is None:
             fig, ax = set_figure(figsize=(10, 8), figdpi=150, use_pltset=True)
         if type_name is not None:
-            assert np.unique(self.pair_list).max() <= len(type_name), "type_name is not enough."
+            assert np.unique(self.pair_list).max() <= len(type_name), (
+                "type_name is not enough."
+            )
             for m in range(self.Npair):
                 itype, jtype, ktype = self.pair_list[m]
-                i, j, k = type_name[itype-1], type_name[jtype-1], type_name[ktype-1]
+                i, j, k = (
+                    type_name[itype - 1],
+                    type_name[jtype - 1],
+                    type_name[ktype - 1],
+                )
                 total = self.bond_angle_distribution[m].sum()
-                ax.plot(self.r_angle, self.bond_angle_distribution[m]/total, 'o', label=f"{j}-{i}-{k}")
+                ax.plot(
+                    self.r_angle,
+                    self.bond_angle_distribution[m] / total,
+                    "o",
+                    label=f"{j}-{i}-{k}",
+                )
         else:
             for i in range(self.Npair):
-                ax.plot(self.r_angle, self.bond_angle_distribution[i], label=f"{self.pair_list[i, 1]}-{self.pair_list[i, 0]}-{self.pair_list[i, 2]}")
-        
-        #ax.fill_between(self.r_angle, self.bond_angle_distribution, alpha=0.3)
+                ax.plot(
+                    self.r_angle,
+                    self.bond_angle_distribution[i],
+                    label=f"{self.pair_list[i, 1]}-{self.pair_list[i, 0]}-{self.pair_list[i, 2]}",
+                )
+
+        # ax.fill_between(self.r_angle, self.bond_angle_distribution, alpha=0.3)
         ax.set_xlabel(r"Bond angle ($\mathregular{\theta}$)")
         ax.set_ylabel("Count")
         ax.set_xlim(0, 180)
@@ -403,10 +415,12 @@ if __name__ == "__main__":
     from mdapy import System
     import polars as pl
 
-    system = System(r"C:\Users\HerrWu\Desktop\adf\model.xyz")
-    system.update_data(system.data.with_columns(
-        pl.col('type_name').replace_strict({'H':1, 'O':2}).alias('type')
-    ))
+    system = System(r"D:\Package\MyPackage\adf_test\model.xyz")
+    system.update_data(
+        system.data.with_columns(
+            pl.col("type_name").replace_strict({"H": 1, "O": 2}).alias("type")
+        )
+    )
 
     # system = System(r"C:\Users\HerrWu\Desktop\adf\nvt_heat_Mg+O2\nvt_heat_Mg+O2\dump\dump.00500.dump")
     # system = System(r"C:\Users\HerrWu\Desktop\adf\gcmc_Mg\gcmc_Mg\dump\dump.00500.dump")
@@ -416,29 +430,30 @@ if __name__ == "__main__":
         system.pos,
         system.box,
         system.boundary,
-        {
-         "2-1-1": [0.0, 1.2, 0.0, 1.2],
-         },
+        {"2-1-1": [0.0, 1.2, 0.0, 1.2], "1-2-2": [0.1, 1.2, 0.1, 1.3]},
         30,
-        system.data['type'].to_numpy(),
+        system.data["type"].to_numpy(),
     )
     adf.compute()
-    # print(adf.r_angle)
+    total = adf.bond_angle_distribution[0].sum()
+    delta = adf.r_angle[1] - adf.r_angle[0]
+    print(adf.bond_angle_distribution / total / delta)
+    print(adf.r_angle)
 
     # fig, ax = set_figure(figsize=(10, 8), figdpi=150, use_pltset=True)
     # total = adf.bond_angle_distribution[0].sum()
     # # print(total)
-    # adf_l = np.loadtxt(r"C:\Users\HerrWu\Desktop\adf\adf.dat", skiprows=4)
-    # ax.plot(adf_l[:, 1], adf_l[:, 2], 'o', label="LAMMPS")
-    # x, y = adf_l[:, 1], adf_l[:, 2]
-    # print(np.trapz(y, x))
+    # # adf_l = np.loadtxt(r"C:\Users\HerrWu\Desktop\adf\adf.dat", skiprows=4)
+    # # ax.plot(adf_l[:, 1], adf_l[:, 2], 'o', label="LAMMPS")
+    # # x, y = adf_l[:, 1], adf_l[:, 2]
+    # # print(np.trapz(y, x))
     # delta = adf.r_angle[1] - adf.r_angle[0]
     # x1, y1 = adf.r_angle, adf.bond_angle_distribution[0]/total/delta
     # print(np.trapz(y1, x1))
     # ax.plot(x1, y1, '-*', label="O-Mg-O")
     # ax.legend()
     # plt.show()
-    #adf.plot_bond_angle_distribution(['H', 'O'], fig, ax)
+    # adf.plot_bond_angle_distribution(['H', 'O'], fig, ax)
     # print(np.cumsum(adf.bond_angle_distribution[1]/system.data.filter(pl.col('type') == 2).shape[0]))
     # print(adf.verlet_list[0])
     # print(adf.distance_list)

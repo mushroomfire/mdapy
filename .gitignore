@@ -42,3 +42,6 @@
 /*.ini
 /example/*.ini
 /log.lammps
+/.con*
+/test.py
+/*dump

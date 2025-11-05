@@ -10,6 +10,7 @@ Mdapy 0.11.6 (Under development)
 - Add a_face_area_threshold and r_face_area_threshold parameters when building voronoi neighbor.
 - Add a feature to calculate AngularDistributionFunctions.
 - Add `add_mol_id` parameter for `cal_species_number` method.
+- Fix a bug for CreatePolycrystalline with random number.
 
 
 Mdapy 0.11.5 (Nov 27, 2024)

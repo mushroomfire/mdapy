@@ -1,4 +1,4 @@
-.. image:: doc/source/images/log.png
+.. image:: doc/source/images/logo.png
 
 *mdapy* : Molecular Dynamics Analysis with Python
 =====================================================

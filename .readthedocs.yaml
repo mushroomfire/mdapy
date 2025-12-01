@@ -1,0 +1,23 @@
+version: 2
+
+build:
+  os: "ubuntu-20.04"
+  tools:
+    python: "miniconda3-4.7"
+
+python:
+  install:
+    - method: pip
+      path: .
+
+conda:
+  environment: doc/environment.yml
+
+sphinx:
+  builder: html
+  configuration: doc/conf.py
+  fail_on_warning: false
+
+formats:
+  - pdf
+  - epub

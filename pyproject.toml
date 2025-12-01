@@ -13,6 +13,9 @@ license = "BSD-3-Clause"
 license-files = [ "LICENSE" ]
 dependencies = ["numpy", "polars"]
 
+[project.urls]
+Homepage = "https://github.com/mushroomfire/mdapy"
+
 [project.optional-dependencies]
 plot = ["matplotlib"]
 k3d = ["k3d"]

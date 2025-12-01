@@ -928,7 +928,7 @@ class System:
         compress=False,
     ):
         if element_list is not None:
-            self.set_type(element_list)
+            self.set_type_by_element(element_list)
         SaveSystem.write_data(
             output_name,
             self.box,

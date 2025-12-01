@@ -23,6 +23,10 @@ Resources
 - Issue Tracker: `https://github.com/mushroomfire/mdapy/issues <https://github.com/mushroomfire/mdapy/issues>`_
 - Tutorial: `https://github.com/mushroomfire/mdapy-tutorial <https://github.com/mushroomfire/mdapy-tutorial>`_
 
+Notes
+------
+
+We experienced a break upgrade from mdapy 1.0, the old mdapy (<=0.11.5) can be found in this `branch <https://github.com/mushroomfire/mdapy/tree/mdapy_old>`_
 
 Dependencies
 -------------

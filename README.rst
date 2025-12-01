@@ -81,10 +81,37 @@ Install from pip (recommended).
 
    pip install mdapy
 
+Install from source code.
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- You should have a C++ compilation environment (-std=c++17 or newer) and openmp supports. 
+  Tested by MSVC in Windows 10, GCC in Ubuntu, Clang in MAC OS M1.
+
+- Download the source code and installation.
+   
+   .. code-block:: bash
+
+      git clone https://github.com/mushroomfire/mdapy.git
+      cd mdapy 
+      pip install .
+
+- Directly install from github:
+  
+  .. code-block:: bash 
+
+    pip install https://github.com/mushroomfire/mdapy/archive/master.zip
+
+Check Installation
+^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+   python -c "import mdapy as mp; print('mdapy version is:', mp.__version__)"
+
 Build the doc
 --------------
 
-If you want to build mannual locally, you can install the dependencies:
+If you want to build documentation locally, you can install the dependencies:
 
 .. code-block:: bash
 

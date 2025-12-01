@@ -4,7 +4,7 @@ channels:
   - defaults
 dependencies:
   - pandoc
-  - python=3.11
+  - python=3.12
   - pip
   - pip:
     - nanobind

@@ -1,0 +1,39 @@
+[build-system]
+requires = ["scikit-build-core >=0.4.3", "nanobind >=1.3.2"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "mdapy"
+dynamic = ["version"]
+description = "Mini mdapy"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{ name = "Yongchao Wu", email = "934313174@qq.com" }]
+classifiers = ["License :: BSD"]
+dependencies = ["numpy", "polars"]
+
+[project.optional-dependencies]
+plot = ["matplotlib"]
+
+[tool.scikit-build]
+minimum-version = "0.4"
+build-dir = "build/{wheel_tag}"
+wheel.py-api = "cp312"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "src/mdapy/__init__.py"
+regex = "^\\s*__version__\\s*=\\s*(['\\\"])(?P<value>[^'\\\"]+)\\1"
+
+[tool.ruff]
+
+include = ["**/*.py"]
+target-version = "py38"
+line-length = 88
+
+[tool.ruff.format]
+
+docstring-code-format = true      
+quote-style = "double"  
+
+

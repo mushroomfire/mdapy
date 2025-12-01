@@ -1,0 +1,358 @@
+# Copyright (c) 2022-2025, Yongchao Wu in Aalto University
+# This file is from the mdapy project, released under the BSD 3-Clause License.
+
+from __future__ import annotations
+from typing import List, Optional, Tuple, TYPE_CHECKING
+from pathlib import Path
+import numpy as np
+import polars as pl
+from mdapy.calculator import CalculatorMP
+from mdapy.build_lattice import build_hea, build_crystal
+from mdapy.system import System
+
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+    from matplotlib.axes import Axes
+
+
+def rmse(predictions: np.ndarray, targets: np.ndarray) -> float:
+    """Compute Root-Mean-Square Error (RMSE).
+
+    Parameters
+    ----------
+    predictions : np.ndarray
+        Predicted values.
+    targets : np.ndarray
+        Target reference values.
+
+    Returns
+    -------
+    float
+        RMSE value.
+    """
+    return np.sqrt(((predictions - targets) ** 2).mean())
+
+
+def read_thermo(path: str) -> pl.DataFrame:
+    """Load GPUMD thermo.out file into a Polars DataFrame.
+
+    The file contains 18 columns:
+    T, K, U, Pxx, Pyy, Pzz, Pyz, Pxz, Pxy, ax, ay, az, bx, by, bz, cx, cy, cz.
+
+    Parameters
+    ----------
+    path : str
+        Directory path containing thermo.out.
+
+    Returns
+    -------
+    pl.DataFrame
+        Thermo data with 18 columns.
+    """
+    return pl.from_numpy(
+        np.loadtxt(Path(path, "thermo.out")),
+        schema="T K U Pxx Pyy Pzz Pyz Pxz Pxy ax ay az bx by bz cx cy cz".split(),
+    )
+
+
+def plot_nep_train(
+    path: str,
+    outname: Optional[str] = None,
+    figdpi: Optional[int] = 300,
+    **kargs,
+) -> Tuple[Figure, List[List[Axes]]]:
+    """Plot NEP training results, including energy/force/stress scatter plots and loss curves.
+
+    Parameters
+    ----------
+    path : str
+        Path containing NEP output files: loss.out, energy_train.out, force_train.out, stress_train.out.
+    outname : Optional[str], optional
+        Filename to save figure, by default None.
+    figdpi : Optional[int], optional
+        DPI of generated figure, by default 300.
+    **kargs :
+        Extra arguments passed to set_figure().
+
+    Returns
+    -------
+    Tuple[Figure, List[List[Axes]]]
+        The figure and 2×2 axes list.
+    """
+    from mdapy.plotset import set_figure, save_figure
+
+    fig, axes = set_figure(figsize=(16, 14), figdpi=figdpi, nrow=2, ncol=2, **kargs)
+    loss = np.loadtxt(Path(path, "loss.out"))
+    e_train = np.loadtxt(Path(path, "energy_train.out"))
+    f_train = np.loadtxt(Path(path, "force_train.out"))
+    s_train = np.loadtxt(Path(path, "stress_train.out"))
+
+    # --- Energy ---
+    x, y = e_train[:, 1], e_train[:, 0]
+    axes[0][0].plot(x, y, "o", label=f"RMSE={rmse(x, y) * 1000:.1f} meV")
+    axes[0][0].legend()
+    axes[0][0].set_xlabel("DFT energy (eV/atom)")
+    axes[0][0].set_ylabel("NEP energy (eV/atom)")
+
+    # --- Force ---
+    x, y = f_train[:, 3:].flatten(), f_train[:, :3].flatten()
+    axes[0][1].plot(
+        x, y, "o", label=f"RMSE={rmse(x, y) * 1000:.1f} meV/" + r"$\mathregular{\AA}$"
+    )
+    axes[0][1].legend(handletextpad=0.01, loc="upper left")
+    axes[0][1].set_xlabel(r"DFT force (eV/$\mathregular{\AA}$)")
+    axes[0][1].set_ylabel(r"NEP force (eV/$\mathregular{\AA}$)")
+
+    # --- Stress ---
+    x, y = s_train[:, 6:].flatten(), s_train[:, :6].flatten()
+    axes[1][0].plot(x, y, "o", label=f"RMSE={rmse(x, y):.2f} GPa")
+    axes[1][0].legend(handletextpad=0.01, loc="upper left")
+    axes[1][0].set_xlabel("DFT stress (GPa)")
+    axes[1][0].set_ylabel("NEP stress (GPa)")
+
+    # --- Loss ---
+    for i, j in zip([1, 4, 5, 6], "Total E-train F-train V-train".split()):
+        axes[1][1].plot(loss[:, 0], loss[:, i], label=j)
+
+    axes[1][1].legend()
+    axes[1][1].set_xlabel("Generation")
+    axes[1][1].set_ylabel("Loss")
+    axes[1][1].set_yscale("log")
+    axes[1][1].set_xscale("log")
+
+    # --- diagonal reference lines ---
+    for i in [0, 1]:
+        for j in [0, 1]:
+            if i == 1 and j == 1:
+                continue
+            xlim = axes[i][j].get_xlim()
+            ylim = axes[i][j].get_ylim()
+            lo = min(xlim[0], ylim[0])
+            hi = max(xlim[1], ylim[1])
+            delta = 0.05 * abs(hi - lo)
+            lo -= delta
+            hi += delta
+            lim = [lo, hi]
+            axes[i][j].plot(lim, lim, "grey")
+            axes[i][j].set_xlim(lim)
+            axes[i][j].set_ylim(lim)
+
+    if outname is not None:
+        save_figure(fig, outname)
+
+    return fig, axes
+
+
+def get_sfe_fcc(name: str, a: float, calc: CalculatorMP) -> float:
+    """Compute stacking fault energy (SFE) for an FCC crystal.
+
+    Parameters
+    ----------
+    name : str
+        Element name.
+    a : float
+        Lattice constant.
+    calc : CalculatorMP
+        MDAPY calculator.
+
+    Returns
+    -------
+    float
+        Stacking fault energy in mJ/m².
+    """
+    distance = a / 6**0.5
+    system = build_crystal(
+        name,
+        "fcc",
+        a,
+        nx=3,
+        ny=3,
+        nz=4,
+        miller1=[1, 1, 2],
+        miller2=[1, -1, 0],
+        miller3=[1, 1, -1],
+    )
+    calc.results = {}
+    system.calc = calc
+    system.box.boundary[2] = 0
+    e1 = system.get_energy()
+
+    LZ = system.data["z"].max() - system.data["z"].min()
+    system.update_data(
+        system.data.with_columns(
+            pl.when(pl.col("z") > LZ / 2)
+            .then(pl.col("x") + distance)
+            .otherwise(pl.col("x"))
+            .alias("x")
+        ),
+        reset_calcolator=True,
+    )
+    system.warp_pos()
+    e2 = system.get_energy()
+
+    factor = system.box.box[0, 0] * system.box.box[1, 1] / 16021.766200000002
+    return (e2 - e1) / factor
+
+
+def get_average_sfe_fcc_hea(
+    N: int,
+    element_list: List[str],
+    element_ratio: List[float],
+    a: float,
+    calc: CalculatorMP,
+) -> np.ndarray:
+    """Compute averaged SFE for random FCC HEA configurations.
+
+    Parameters
+    ----------
+    N : int
+        Number of random samples.
+    element_list : List[str]
+        Element species.
+    element_ratio : List[float]
+        Element ratios.
+    a : float
+        Lattice constant.
+    calc : CalculatorMP
+        MD calculator.
+
+    Returns
+    -------
+    np.ndarray
+        Array of: [i, mean_sfe up to sample i]
+    """
+    sfe = []
+    distance = a / 6**0.5
+
+    for seed in range(1, N + 1):
+        system = build_hea(
+            element_list,
+            element_ratio,
+            "fcc",
+            a,
+            nx=3,
+            ny=3,
+            nz=4,
+            miller1=[1, 1, 2],
+            miller2=[1, -1, 0],
+            miller3=[1, 1, -1],
+            random_seed=seed,
+        )
+        calc.results = {}
+        system.calc = calc
+        system.box.boundary[2] = 0
+        e1 = system.get_energy()
+
+        LZ = system.data["z"].max() - system.data["z"].min()
+        system.update_data(
+            system.data.with_columns(
+                pl.when(pl.col("z") > LZ / 2)
+                .then(pl.col("x") + distance)
+                .otherwise(pl.col("x"))
+                .alias("x")
+            ),
+            reset_calcolator=True,
+        )
+        system.warp_pos()
+        e2 = system.get_energy()
+
+        factor = system.box.box[0, 0] * system.box.box[1, 1] / 16021.766200000002
+        sfe.append((e2 - e1) / factor)
+
+    ave_sfe = []
+    for i in range(1, len(sfe)):
+        ave_sfe.append([i, np.mean(sfe[:i])])
+    return np.array(ave_sfe)
+
+
+def get_eos(
+    system: System, scale_start: float, scale_end: float, num: int
+) -> np.ndarray:
+    """Compute equation of state (EOS) by uniformly scaling volume.
+
+    Parameters
+    ----------
+    system : System
+        Input structure.
+    scale_start : float
+        Initial scale factor (>0).
+    scale_end : float
+        Final scale factor (> scale_start).
+    num : int
+        Number of sampling points.
+
+    Returns
+    -------
+    np.ndarray
+        (num, 2) array of [volume_per_atom, energy_per_atom]
+    """
+    assert scale_start < scale_end
+    assert scale_start > 0
+
+    scale_list = np.linspace(scale_start, scale_end, num)
+    eos = []
+
+    for i in scale_list:
+        cur = System(
+            box=system.box.box * i,
+            data=system.data.with_columns(
+                pl.col("x") * i, pl.col("y") * i, pl.col("z") * i
+            ),
+        )
+        cur.calc = system.calc
+        cur.calc.results = {}
+        e = cur.get_energy() / cur.N
+        vol = cur.box.volume / cur.N
+        eos.append([vol, e])
+
+    return np.array(eos)
+
+
+class PCA:
+    """Simple PCA implementation (similar to sklearn PCA)."""
+
+    def __init__(self, n_components: int):
+        """
+        Parameters
+        ----------
+        n_components : int
+            Number of principal components to keep.
+        """
+        self.n_components = n_components
+        self.explained_variance: Optional[np.ndarray] = None
+
+    def fit_transform(self, X: np.ndarray) -> np.ndarray:
+        """Fit PCA and return transformed coordinates.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input array shape (n_samples, n_features).
+
+        Returns
+        -------
+        np.ndarray
+            Projected data with shape (n_samples, n_components).
+        """
+        X_centered = X - np.mean(X, axis=0)
+        cov_matrix = np.cov(X_centered.T)
+
+        eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
+        idx = np.argsort(eigenvalues)[::-1]
+
+        eigenvalues = eigenvalues[idx]
+        eigenvectors = eigenvectors[:, idx]
+
+        components = eigenvectors[:, : self.n_components]
+        self.explained_variance = eigenvalues[: self.n_components]
+
+        # same as sklearn: make signs deterministic
+        max_abs_idx = np.argmax(np.abs(components), axis=0)
+        signs = np.sign(components[max_abs_idx, np.arange(self.n_components)])
+        components *= signs
+
+        return np.dot(X_centered, components)
+
+
+if __name__ == "__main__":
+    pass

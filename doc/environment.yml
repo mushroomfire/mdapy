@@ -1,0 +1,17 @@
+name: mdapy
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pandoc
+  - python=3.11
+  - pip
+  - pip:
+    - nanobind
+    - numpy
+    - polars
+    - matplotlib
+    - sphinx
+    - pydata_sphinx_theme
+    - nbsphinx
+    

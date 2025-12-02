@@ -100,7 +100,7 @@ trajectories generated from Molecular Dynamics (MD) simulations.
 - Stacking faults energy
 - Phonon dispersion
 
-📚 **Misc**
+📚 **Miscellaneous**
 --------
 
 - Generate EAM potential

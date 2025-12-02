@@ -242,7 +242,7 @@ trajectories generated from Molecular Dynamics (MD) simulations.
    * - matplotlib
      - latest
      - Data visualization
-    * - k3d
+   * - k3d
      - latest
      - Atom 3D visualization
    * - pyfftw

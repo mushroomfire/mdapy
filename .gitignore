@@ -7,4 +7,5 @@
 /src/mdapy/__py*
 /extern/nanobind
 /doc/_build
+/doc/get*/.*
 *pyc

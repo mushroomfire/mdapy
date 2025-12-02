@@ -32,7 +32,6 @@ license-files = [ "LICENSE" ]
 dependencies = ["numpy", "polars"]
 classifiers=[
     "Intended Audience :: Science/Research",
-    "Topic :: Scientific/Engineering :: Mechanics",
     "Topic :: Scientific/Engineering :: Physics",
     "Programming Language :: C++",
     "Programming Language :: Python :: 3.8",

@@ -1,9 +1,10 @@
 import os
 import sys
 import re
+import datetime
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath("../src"))
+sys.path.insert(0, os.path.abspath("../.."))
 
 version_file = Path(__file__).resolve().parent.parent / "src/mdapy/__init__.py"
 
@@ -17,7 +18,8 @@ else:
     release = "unknown"
 
 project = "mdapy"
-copyright = "2025, Yongchao Wu"
+year = datetime.date.today().year
+copyright = f"2022-{year} Yongchao Wu"
 author = "Yongchao Wu"
 
 templates_path = ["_templates"]

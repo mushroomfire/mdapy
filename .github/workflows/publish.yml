@@ -1,7 +1,7 @@
 name: Publish to PyPI
 
 on:
-  # 当推送 tag 时触发（例如 v1.0.0a1, v1.0.0）
+  # tag like v1.0.0a1, v1.0.0
   push:
     tags:
       - 'v*'
@@ -22,19 +22,12 @@ jobs:
         submodules: true
         fetch-depth: 0  
     
-    - name: Set up QEMU
-      if: runner.os == 'Linux'
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: all
-    
     - name: Build wheels
       uses: pypa/cibuildwheel@v2.22
       env:
-        # Python 3.8-3.14
-        CIBW_BUILD: 'cp38-* cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*'
+        CIBW_BUILD: 'cp38-*'
         
-        # skip PyPy, musllinux, 32位
+        # skip PyPy, musllinux, 32bit
         CIBW_SKIP: pp* *-musllinux_* *-manylinux_i686
         
         # macOS 
@@ -45,9 +38,9 @@ jobs:
         CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
           delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
         
-        # Linux 
-        CIBW_ARCHS_LINUX: auto aarch64
-        # Linux repair wheel，use auditwheel
+        # Linux - only x86_64, remove aarch64
+        CIBW_ARCHS_LINUX: auto
+        # Linux repair wheel,use auditwheel
         CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
           auditwheel repair -w {dest_dir} {wheel}
         

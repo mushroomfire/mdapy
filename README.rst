@@ -14,6 +14,10 @@
    :target: https://github.com/mushroomfire/mdapy/blob/master/LICENSE
    :alt: License
 
+.. image:: https://readthedocs.org/projects/mdapy/badge/?version=latest
+   :target: https://freud.readthedocs.io/en/latest/?badge=latest
+   :alt: ReadTheDocs
+
 .. image:: https://img.shields.io/github/stars/mushroomfire/mdapy.svg?style=social
    :target: https://github.com/mushroomfire/mdapy
    :alt: GitHub stars

@@ -349,7 +349,7 @@ class BuildSystem:
 
         global_info = {}
         for i in meta_data.keys():
-            if i not in ["box", "origin", "boundary"]:
+            if i not in ["box", "origin", "boundary", "ARROW:schema"]:
                 global_info[i] = meta_data[i]
         return data, box, global_info
 

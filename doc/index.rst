@@ -50,10 +50,9 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
       keywords = {Simulation analysis, Molecular dynamics, Polycrystal, TaiChi, Parallel computing}
       }
 
-Getting Started
------------------
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
+   :caption: Getting Started
    
    gettingstarted/use_mdapy_efficiently
 

@@ -136,7 +136,7 @@ trajectories generated from Molecular Dynamics (MD) simulations.
 
 .. code-block:: bash
 
-   # Install all optional packages (k3d, pyfftw), except phonopy and lammps
+   # Install all optional packages (matplotlib, k3d, phonopy, pyfftw), except lammps
    pip install mdapy[all]
 
 **Method 3: Install from source**

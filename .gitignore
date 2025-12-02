@@ -6,6 +6,5 @@
 /tests/__py*
 /src/mdapy/__py*
 /extern/nanobind
-/doc/_*
 /doc/source/tutorial/.*
 *pyc

@@ -120,55 +120,33 @@ class Box:
             self.__inverse_box = box.inverse_box.copy()
             self.__volume = float(box.volume)
         else:
-            self.__box, self.__origin = self.__get_box(box, origin)
-            self.__boundary = self.__get_boundary(boundary)
+            self.__box, self.__origin = self.__get_box_origin(box, origin)
             self.__triclinic = self.__get_triclinic()
             self.__inverse_box = np.linalg.inv(self.box)
             self.__volume = np.linalg.det(self.box)
+            self.set_boundary(boundary)
 
-    def __get_box(
-        self,
-        box: Union[int, float, Iterable[float], np.ndarray],
-        origin: Optional[Union[Iterable[float], np.ndarray]] = None,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def __get_origin(self,origin: Optional[Union[Iterable[float], np.ndarray]] = None)->np.ndarray:
         """
-        Parse and validate box input.
+        Parse and validate origin input.
 
         Parameters
         ----------
-        box : int, float, Iterable[float], or np.ndarray
-            Box specification in various formats.
         origin : Iterable[float] or np.ndarray, optional
             Origin position.
 
         Returns
         -------
-        Tuple[np.ndarray, np.ndarray]
-            The box matrix and origin position.
+        np.ndarray
+            The origin position.
 
         Raises
         ------
         ValueError
-            If box or origin has invalid shape.
+            If origin has invalid shape.
         TypeError
-            If box or origin has invalid type.
+            If origin has invalid type.
         """
-        if isinstance(box, (int, float)):
-            box = np.eye(3, dtype=np.float64) * box
-        elif isinstance(box, (list, tuple, np.ndarray)):
-            box = np.array(box, np.float64)
-            if box.shape == (3,):
-                box = np.diag(box)
-            elif box.shape == (3, 3):
-                pass
-            elif box.shape == (4, 3):
-                origin = np.array(box[3])
-                box = np.array(box[:3])
-            else:
-                raise ValueError(f"Invalid box shape: {box.shape}")
-        else:
-            raise TypeError(f"Invalid box type: {type(box)}")
-
         if origin is None:
             origin = np.array([0.0, 0.0, 0.0], np.float64)
         elif isinstance(origin, (list, tuple, np.ndarray)):
@@ -179,8 +157,85 @@ class Box:
                 )
         else:
             raise TypeError(f"Invalid origin type: {type(origin)}")
+        return origin
+
+    def __get_box_origin(
+        self,
+        box: Union[int, float, Iterable[float], np.ndarray],
+        origin: Optional[Union[Iterable[float], np.ndarray]] = None
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        """
+        Parse and validate box input.
+
+        Parameters
+        ----------
+        box : int, float, Iterable[float], or np.ndarray
+            Box specification in various formats.
+        origin : Iterable[float], np.ndarray, optional
+            Origin information
+        Returns
+        -------
+        Tuple [np.ndarray, np.ndarray]
+            The box matrix and origin information.
+
+        Raises
+        ------
+        ValueError
+            If box or origin have invalid shape.
+        TypeError
+            If box or origin have invalid type.
+        """
+
+        if isinstance(box, (int, float)):
+            box = np.eye(3, dtype=np.float64) * box
+        elif isinstance(box, (list, tuple, np.ndarray)):
+            box = np.array(box, np.float64)
+            if box.shape == (3,):
+                box = np.diag(box)
+            elif box.shape == (3, 3):
+                pass
+            elif box.shape == (4, 3): # old mdapy format
+                origin = np.array(box[-1])
+                box = np.array(box[:-1])
+            elif box.shape == (3, 4): # ovito format
+                origin = np.array(box[:, -1])
+                box = np.array(box[:, :-1])
+            else:
+                raise ValueError(f"Invalid box shape: {box.shape}")
+        else:
+            raise TypeError(f"Invalid box type: {type(box)}")
+        
+        origin = self.__get_origin(origin)
 
         return box, origin
+    
+    def __get_box(self, box: Union[int, float, Iterable[float], np.ndarray],):
+        if isinstance(box, (int, float)):
+            box = np.eye(3, dtype=np.float64) * box
+        elif isinstance(box, (list, tuple, np.ndarray)):
+            box = np.array(box, np.float64)
+            if box.shape == (3,):
+                box = np.diag(box)
+            elif box.shape == (3, 3):
+                pass
+            else:
+                raise ValueError(f"Invalid box shape: {box.shape}")
+        else:
+            raise TypeError(f"Invalid box type: {type(box)}")
+
+    def set_box(self, box: Union[int, float, Iterable[float], np.ndarray])->None:
+        """
+        Set box matrix.
+
+        Parameters
+        ----------
+        box : int, float, Iterable[float], or 3x3 np.ndarray
+            Box specification in various formats.
+        """
+        self.__box = self.__get_box(box)
+        self.__triclinic = self.__get_triclinic()
+        self.__inverse_box = np.linalg.inv(self.box)
+        self.__volume = np.linalg.det(self.box)
 
     def __get_boundary(
         self, boundary: Optional[Union[Iterable[int], np.ndarray]]
@@ -285,6 +340,17 @@ class Box:
         """
         return self.__origin
 
+    def set_origin(self, origin: Union[Iterable[float], np.ndarray])->None:
+        """
+        Set origin coordinates.
+
+        Parameters
+        ----------
+        origin : Iterable[float] or np.ndarray
+            Origin position.
+        """
+        self.__origin = self.__get_origin(origin)
+
     @property
     def boundary(self) -> np.ndarray:
         """
@@ -298,6 +364,17 @@ class Box:
             Array of boundary flags (1=periodic, 0=fixed).
         """
         return self.__boundary
+    
+    def set_boundary(self, boundary: Union[Iterable[int], np.ndarray])->None:
+        """
+        Set boundary conditions.
+
+        Parameters
+        ----------
+        boundary : Iterable[int] or np.ndarray
+            Boundary condition flags (1=periodic, 0=fixed).
+        """
+        self.__boundary = self.__get_boundary(boundary)
 
     @property
     def triclinic(self) -> bool:

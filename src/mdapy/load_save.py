@@ -259,7 +259,6 @@ class BuildSystem:
     def from_array(
         pos: np.ndarray,
         box: Union[int, float, Iterable[float], np.ndarray, Box],
-        boundary: Optional[Union[Iterable[int], np.ndarray]] = None,
     ) -> Tuple[pl.DataFrame, Box]:
         """
         Create system from position array.
@@ -270,8 +269,6 @@ class BuildSystem:
             Atom positions (N x 3).
         box : Union[int, float, Iterable[float], np.ndarray, mdapy.box.Box]
             Simulation box definition.
-        boundary : Optional[Union[Iterable[int], np.ndarray]]
-            Periodic boundary conditions.
 
         Returns
         -------
@@ -283,7 +280,7 @@ class BuildSystem:
         if pos.ndim != 2 or pos.shape[1] != 3:
             raise ValueError("pos must be N x 3 array")
 
-        box = Box(box, boundary)
+        box = Box(box)
         data = pl.from_numpy(
             pos, schema={"x": pl.Float64, "y": pl.Float64, "z": pl.Float64}
         )
@@ -293,7 +290,6 @@ class BuildSystem:
     def from_data(
         data: pl.DataFrame,
         box: Union[int, float, Iterable[float], np.ndarray, Box],
-        boundary: Optional[Union[Iterable[int], np.ndarray]] = None,
     ) -> Tuple[pl.DataFrame, Box]:
         """
         Create system from DataFrame.
@@ -304,8 +300,6 @@ class BuildSystem:
             DataFrame with at least 'x', 'y', 'z' columns.
         box : Union[int, float, Iterable[float], np.ndarray, mdapy.box.Box]
             Simulation box definition.
-        boundary : Optional[Union[Iterable[int], np.ndarray]]
-            Periodic boundary conditions.
 
         Returns
         -------
@@ -320,7 +314,7 @@ class BuildSystem:
             pl.col("y").cast(pl.Float64),
             pl.col("z").cast(pl.Float64),
         )
-        box = Box(box, boundary)
+        box = Box(box)
         return data, box
 
     @staticmethod

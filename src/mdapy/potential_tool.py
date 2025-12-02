@@ -187,7 +187,7 @@ def get_sfe_fcc(name: str, a: float, calc: CalculatorMP) -> float:
         ),
         reset_calcolator=True,
     )
-    system.warp_pos()
+    system.wrap_pos()
     e2 = system.get_energy()
 
     factor = system.box.box[0, 0] * system.box.box[1, 1] / 16021.766200000002
@@ -253,7 +253,7 @@ def get_average_sfe_fcc_hea(
             ),
             reset_calcolator=True,
         )
-        system.warp_pos()
+        system.wrap_pos()
         e2 = system.get_energy()
 
         factor = system.box.box[0, 0] * system.box.box[1, 1] / 16021.766200000002

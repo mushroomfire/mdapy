@@ -73,9 +73,6 @@ class System:
     box : int, float, Iterable[float], np.ndarray, or Box, optional
         Simulation box specification. Required when using `data` or `pos` parameters.
         See :class:`~mdapy.box.Box` for supported formats.
-    boundary : Iterable[int] or np.ndarray, optional
-        Boundary condition flags [x, y, z] where 1=periodic, 0=non-periodic.
-        Defaults to [1, 1, 1].
     ase_atom : ase.Atoms, optional
         ASE Atoms object to initialize the system from.
     ovito_atom : ovito.data.DataCollection, optional
@@ -195,7 +192,6 @@ class System:
         data: Optional[pl.DataFrame] = None,
         pos: Optional[np.ndarray] = None,
         box: Union[int, float, Iterable[float], np.ndarray, Box] = None,
-        boundary: Optional[Union[Iterable[int], np.ndarray]] = None,
         ase_atom: Optional["Atoms"] = None,
         ovito_atom: Optional["DataCollection"] = None,
         format: Optional[str] = None,
@@ -208,9 +204,9 @@ class System:
                 filename, format
             )
         elif data is not None and box is not None:
-            self.__data, self.box = BuildSystem.from_data(data, box, boundary)
+            self.__data, self.box = BuildSystem.from_data(data, box)
         elif pos is not None and box is not None:
-            self.__data, self.box = BuildSystem.from_array(pos, box, boundary)
+            self.__data, self.box = BuildSystem.from_array(pos, box)
         elif ase_atom is not None:
             self.__data, self.box = BuildSystem.from_ase(ase_atom)
         elif ovito_atom is not None:

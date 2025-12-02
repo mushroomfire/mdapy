@@ -813,7 +813,7 @@ class CreatePolycrystal:
         if verbose:
             print("[5/5] Finalizing structure...")
         system = System(data=data, box=self.box)
-        system.warp_pos()
+        system.wrap_pos()
 
         # Final statistics
         if verbose:

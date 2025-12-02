@@ -1,145 +1,320 @@
 .. image:: doc/images/logo.png
 
-*mdapy* : Molecular Dynamics Analysis with Python
-=====================================================
+===================================================
+🚀 mdapy - Molecular Dynamics Analysis with Python
+===================================================
 
-Overview
----------
+.. image:: https://img.shields.io/pypi/v/mdapy.svg
+   :target: https://pypi.org/project/mdapy/
+   :alt: PyPI version
 
-The **mdapy** python library provides an array of powerful, flexible, and straightforward 
-tools to analyze atomic trajectories generated from Molecular Dynamics (MD) simulations. The library is fully 
-cross-platform, making it accessible to users in **Windows, Linux, and Mac OS**. 
-Furthermore, **mdapy** is highly parallelized, allowing users to leverage the resources of multicore CPU. 
-**mdapy** can directly handle the DUMP and DATA formats in `LAMMPS <https://www.lammps.org/>`_, POSCAR format in `VASP <https://www.vasp.at/wiki/index.php/The_VASP_Manual>`_, 
-universal XYZ format and self-difined MP format. Besides, all data in **mdapy** is stored in NDARRAY format in `NumPy <https://numpy.org/>`_, which enables easy integration 
-with the scientific ecosystem in python and facilitates collaboration with other post-progressing 
-tools such as `OVITO <https://www.ovito.org/>`_ and `freud <https://github.com/glotzerlab/freud>`_.
+.. image:: https://img.shields.io/pypi/pyversions/mdapy.svg
+   :target: https://pypi.org/project/mdapy/
+   :alt: Python versions
 
-Resources
-----------
+.. image:: https://img.shields.io/github/license/mushroomfire/mdapy.svg
+   :target: https://github.com/mushroomfire/mdapy/blob/master/LICENSE
+   :alt: License
 
-- Homepage: `https://github.com/mushroomfire/mdapy <https://github.com/mushroomfire/mdapy>`_
-- Documentation: `https://mdapy.readthedocs.io/ <https://mdapy.readthedocs.io/>`_
-- Issue Tracker: `https://github.com/mushroomfire/mdapy/issues <https://github.com/mushroomfire/mdapy/issues>`_
-- Tutorial: `https://github.com/mushroomfire/mdapy-tutorial <https://github.com/mushroomfire/mdapy-tutorial>`_
+.. image:: https://img.shields.io/github/stars/mushroomfire/mdapy.svg?style=social
+   :target: https://github.com/mushroomfire/mdapy
+   :alt: GitHub stars
 
-Notes
-------
+A simple, fast, and powerful Python library designed for Molecular Dynamics (MD) simulation data analysis! 💪
 
-We experienced a break upgrade from mdapy 1.0, the old mdapy (<=0.11.5) can be found in this `branch <https://github.com/mushroomfire/mdapy/tree/mdapy_old>`_
+--------
 
-Dependencies
--------------
+📖 **Introduction**
+========================================
 
-.. list-table::
+**mdapy** provides a comprehensive suite of powerful, 
+flexible, and straightforward tools for analyzing atomic 
+trajectories generated from Molecular Dynamics (MD) simulations.
 
-    *   -   **Package Name**
-        -   **Version**
-        -   **Features**
-    *   -   `python <https://www.python.org>`_
-        -   >=3.8
-        -   Language support.
-    *   -   `numpy <https://numpy.org/>`_
-        -   latest
-        -   Data structure.
-    *   -   `polars <https://pola-rs.github.io/polars/>`_
-        -   latest
-        -   Fast read/save file. Data structure to represent the particles information.
+🎯 **Why Choose mdapy?**
+--------
 
+✨ **Cross-Platform Support**
+   Fully compatible with Windows, Linux, and Mac OS - run anywhere seamlessly
 
-Optional Dependencies
-----------------------
+⚡ **Blazing Fast Performance**
+   - Accelerated by C++ using Nanobind
+   - Highly parallelized, fully utilizing multicore CPU resources
+   - Lightning-fast file I/O for large datasets
 
-.. list-table::
+🔧 **Comprehensive Format Support**
+   Native support for mainstream MD formats:
+   
+   - LAMMPS (DUMP/DATA)
+   - VASP (POSCAR)
+   - Universal XYZ format
+   - Custom MP format
 
-    *   -   **Package Name**
-        -   **Version**
-        -   **Features**
-    *   -   `k3d <https://github.com/K3D-tools/K3D-jupyter>`_
-        -   latest
-        -   Visualize the 3D atoms in Jupyter.
-    *   -   `matplotlib <https://matplotlib.org/>`_
-        -   latest
-        -   Plot the results.
-    *   -   `pyfftw <https://github.com/pyFFTW/pyFFTW>`_
-        -   latest
-        -   Faster FFT.
-    *   -   `phonopy <https://github.com/phonopy/phonopy>`_
-        -   latest
-        -   Do phonon calculation.
-    *   -   `lammps <https://github.com/lammps/lammps>`_ 
-        -   latest
-        -   Compute atomic energy, force and virial using lammps supported potential.
+🔗 **Seamless Integration**
+   - All data stored in Polars DataFrame and transfer with NumPy NDARRAY format
+   - Easy integration with Python scientific ecosystem
+   - Perfect compatibility with post-processing tools like OVITO and freud
 
-Installation
--------------
+--------
 
-Install from pip (recommended).
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+🎨 **Core Features**
+========================================
+
+🔬 **Neighbor Search**
+--------
+
+- Fixed cutoff distance neighbor
+- Fixed number nearest neighbor
+- Voronoi neighbor
+
+📊 **Structural Analysis**
+--------
+
+- Ackland Jones Analysis
+- Common Neighbor Parameter
+- CentroSymmetry Parameter
+- Common Neighbor Analysis
+- Polyhedral Template Matching
+- Identify Fcc Planar Faults
+- Identify Diamond Structure
+- Structure Entropy
+- AtomicStrain
+- Steinhardt Bond Orientation
+- Radial Distribution Function
+- Bond Analysis
+- Angular Distribution Function
+- Structure Factor
+
+📦 **Model Building**
+--------
+
+- **Large scale** polycrystalline structure generation
+- Standard lattice configuration creation
+- High entropy alloy structure
+
+🤖 **Machine Learning Potential**
+--------
+
+- NEP potential support
+- Elastic constant
+- Minimization with cell optimization
+- Equation of state
+- Stacking faults energy
+- Phonon dispersion
+
+📚 **Misc**
+--------
+
+- Generate EAM potential
+- Average EAM potential 
+- Mean Square Displacement
+- Lindemann Parameter
+- Cluster Analysis 
+- Void Analysis 
+- Warren Cowley Parameter
+- Average Atomic Temperature
+- Average by Neighbor 
+- Atomic Voronoi Volume
+- Multi-dimensional Spatial Binning
+- Parallelly Compress file to .gz format
+
+--------
+
+🚀 **Quick Start**
+========================================
+
+💾 **Installation**
+--------
+
+**Method 1: Install via pip (Recommended)**
 
 .. code-block:: bash
 
    pip install mdapy
 
-Install from source code.
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+**Method 2: Install with all optional features**
 
-- You should have a C++ compilation environment (-std=c++17 or newer) and openmp supports. 
-  Tested by MSVC in Windows 10, GCC in Ubuntu, Clang in MAC OS M1.
+.. code-block:: bash
 
-- Download the source code and installation.
-   
-   .. code-block:: bash
+   # Install all optional packages (k3d, pyfftw), except phonopy and lammps
+   pip install mdapy[all]
 
-      git clone https://github.com/mushroomfire/mdapy.git
-      cd mdapy 
-      pip install .
+**Method 3: Install from source**
 
-- Directly install from github:
-  
-  .. code-block:: bash 
+.. code-block:: bash
 
-    pip install https://github.com/mushroomfire/mdapy/archive/master.zip
+   git clone https://github.com/mushroomfire/mdapy.git
+   cd mdapy
+   pip install .
 
-Check Installation
-^^^^^^^^^^^^^^^^^^^
+**Method 4: Install directly from GitHub**
+
+.. code-block:: bash
+
+   pip install https://github.com/mushroomfire/mdapy/archive/master.zip
+
+📋 **System Requirements**
+~~~~~~~~
+
+- Python 3.8+
+- C++ compilation environment (C++17 or newer)
+- OpenMP support
+- Tested platforms: Windows 10 (MSVC), Ubuntu (GCC), Mac OS M1 (Clang)
+
+✅ **Verify Installation**
+~~~~~~~~
 
 .. code-block:: bash
 
    python -c "import mdapy as mp; print('mdapy version is:', mp.__version__)"
 
-Build the doc
---------------
+--------
 
-If you want to build documentation locally, you can install the dependencies:
+💡 **Usage Examples**
+========================================
 
-.. code-block:: bash
+🎬 **Basic Usage**
 
-   pip install Sphinx nbsphinx pydata_sphinx_theme
-   conda install pandoc
+.. code-block:: python
 
-Then changing to ./doc dir:
+   import mdapy as mp
+   
+   # Load LAMMPS DUMP file
+   system = mp.System('your_file.dump')
+   
+   # View system information
+   print(system)
+   
+   # Calculate radial distribution function
+   rdf = system.cal_radial_distribution_function(rc=5.0)
+   rdf.plot()
+   
+   # Identify crystal structures
+   system.cal_polyhedral_template_matching()
 
-.. code-block:: bash
+--------
 
-   make html
+📚 **Documentation & Resources**
+========================================
 
+📖 **Full Documentation**
+   https://mdapy.readthedocs.io/
 
-Citation
----------
-If you find **mdapy** useful, you can `star it! <https://github.com/mushroomfire/mdapy>`_
-If you use **mdapy** in your scientific publications, please `cite the paper: <https://doi.org/10.1016/j.cpc.2023.108764>`_
+🎓 **Tutorial Repository**
+   https://github.com/mushroomfire/mdapy-tutorial
+
+💬 **Issue Tracker**
+   https://github.com/mushroomfire/mdapy/issues
+
+🏠 **Project Homepage**
+   https://github.com/mushroomfire/mdapy
+
+--------
+
+📦 **Dependencies**
+========================================
+
+**Core Dependencies**
+
+.. list-table::
+   :widths: 30 20 50
+   :header-rows: 1
+
+   * - Package
+     - Version
+     - Purpose
+   * - numpy
+     - latest
+     - Array computations
+   * - polars
+     - latest
+     - Data processing
+
+**Optional Dependencies**
+
+.. list-table::
+   :widths: 30 20 50
+   :header-rows: 1
+
+   * - Package
+     - Version
+     - Purpose
+   * - matplotlib
+     - latest
+     - Data visualization
+   * - pyfftw
+     - latest
+     - Fast Fourier Transform
+   * - phonopy
+     - latest
+     - Phonon calculations
+   * - lammps
+     - latest
+     - Potential calculations
+
+--------
+
+🔄 **Version Updates**
+========================================
+
+⚠️ **Important Notice**
+
+We have undergone a major upgrade from mdapy 1.0 (almost rewriting everyting). The old version of mdapy (≤0.11.5) can be found in this `branch <https://github.com/mushroomfire/mdapy/tree/mdapy_old>`_.
+
+--------
+
+📜 **Citation**
+========================================
+
+If you use mdapy in your scientific publications, please cite the following paper:
 
 .. code-block:: bibtex
 
    @article{mdapy2023,
-      title = {mdapy: A flexible and efficient analysis software for molecular dynamics simulations},
-      journal = {Computer Physics Communications},
-      pages = {108764},
-      year = {2023},
-      issn = {0010-4655},
-      doi = {https://doi.org/10.1016/j.cpc.2023.108764},
-      url = {https://www.sciencedirect.com/science/article/pii/S0010465523001091},
-      author = {Yong-Chao Wu and Jian-Li Shao},
-      keywords = {Simulation analysis, Molecular dynamics, Polycrystal, TaiChi, Parallel computing}
-      }
+     title = {mdapy: A flexible and efficient analysis software for molecular dynamics simulations},
+     journal = {Computer Physics Communications},
+     pages = {108764},
+     year = {2023},
+     issn = {0010-4655},
+     doi = {https://doi.org/10.1016/j.cpc.2023.108764},
+     url = {https://www.sciencedirect.com/science/article/pii/S0010465523001091},
+     author = {Yong-Chao Wu and Jian-Li Shao},
+     keywords = {Simulation analysis, Molecular dynamics, Polycrystal, TaiChi, Parallel computing}
+   }
+
+--------
+
+⭐ **Support the Project**
+========================================
+
+If you find mdapy useful, please give us a `Star ⭐ <https://github.com/mushroomfire/mdapy>`_!
+
+Your support is our motivation for continuous improvement! 🙏
+
+--------
+
+📄 **License**
+========================================
+
+This project is licensed under the BSD 3-Clause License - see the `LICENSE <https://github.com/mushroomfire/mdapy/blob/master/LICENSE>`_ file for details.
+
+--------
+
+🤝 **Contributing**
+========================================
+
+Issues and Pull Requests are welcome!
+
+Let's make mdapy better together! 💪
+
+--------
+
+📧 **Contact**
+========================================
+
+If you have any questions or suggestions, feel free to reach us through:
+
+- 📬 Submit an Issue: https://github.com/mushroomfire/mdapy/issues
+- 💬 Email to Author: 934313174@qq.com 
+
+--------

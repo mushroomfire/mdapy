@@ -2,18 +2,19 @@ name: mdapy
 channels:
   - conda-forge
 dependencies:
-  - python=3.13
-  - lammps
-  - pandoc
-  - phonopy
-  - ase 
-  - k3d
-  - furo==2024.8.6
-  - pip==25.0
-  - scikit-build-core==0.10.7
-  - cmake==3.31.5
-  - nanobind==2.5.0
-  - numpy==2.2.2
-  - sphinx==8.1.3
-  - nbsphinx==0.9.6
-  - jupyter_sphinx==0.5.3
+  - python=3.11
+  - lammps=2024.08.29
+  - pandoc=3.8.3
+  - phonopy=2.44.0
+  - ase=3.26.0 
+  - k3d=2.17.0
+  - furo=2024.8.6
+  - pip=25.3
+  - scikit-build-core=0.11.6
+  - cmake=4.2.0
+  - nanobind=2.9.2
+  - numpy=2.3.5
+  - sphinx=8.2.3
+  - nbsphinx=0.9.8
+  - jupyter-sphinx=0.5.3
+  - openmpi=5.0.8

@@ -3,15 +3,21 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - pandoc
   - python=3.12
+  - pandoc
+  - cmake
+  - ninja
+  - cxx-compiler  
   - pip
+  - setuptools
+  - wheel
   - pip:
-    - nanobind
+    - scikit-build-core>=0.4.3
+    - nanobind>=1.3.2
     - numpy
-    - polars
+    - polars>=1.8.0
     - matplotlib
     - sphinx
     - pydata_sphinx_theme
     - nbsphinx
-    
+    - ipython  

@@ -418,3 +418,47 @@ def generate_velocity(N, mass, temperature, remove_com=True, seed=None):
         vel -= v_com
 
     return vel
+
+
+def fps_sample(
+    n_sample:int,
+    descriptors: np.ndarray,
+    start_idx: int = 0,
+) -> np.ndarray:
+    """This function is used to sample the configurations using farthest point sampling method, based
+    on the descriptors. It is helpful to select the structures during active learning process.
+
+    Parameters
+    ----------
+    n_sample : int
+        Number of structures one wants to select.
+    descriptors : np.ndarray
+        Two dimensional ndarray, it can be any descriptors.
+    start_idx : int
+        For deterministic results, fix the first sampled point index.
+        Defaults to 0.
+
+    Returns
+    -------
+    sampled_indices : ndarray, shape (n_sample,)
+    """
+
+    assert descriptors.ndim == 2, "Only support 2-D ndarray."
+    n_points = descriptors.shape[0]
+    assert n_sample <= n_points, f"n_sample must <= {n_points}."
+    assert n_sample > 0, "n_sample must be a positive number."
+    assert start_idx >= 0 and start_idx < n_points, (
+        f"start_idx must belong [0, {n_points - 1}]."
+    )
+    sampled_indices = [start_idx]
+    min_distances = np.full(n_points, np.inf)
+    farthest_point_idx = start_idx
+
+    for _ in range(n_sample - 1):
+        current_point = descriptors[farthest_point_idx]
+        dist_to_current_point = np.linalg.norm(descriptors - current_point, axis=1)
+        min_distances = np.minimum(min_distances, dist_to_current_point)
+        farthest_point_idx = np.argmax(min_distances)
+        sampled_indices.append(farthest_point_idx)
+
+    return np.array(sampled_indices, np.int32)

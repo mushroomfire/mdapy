@@ -421,12 +421,7 @@ class Phonon:
         if fig is None and ax is None:
             from mdapy.plotset import set_figure
 
-            fig, ax = set_figure(
-                **{
-                    "xtick.minor.visible": False,
-                    "ytick.minor.visible": False,
-                }
-            )
+            fig, ax = set_figure()
 
         for d, f in zip(distances, frequencies):
             for band in f.T:

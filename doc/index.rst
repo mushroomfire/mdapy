@@ -47,6 +47,7 @@ Getting Started
    gettingstarted/installation
    gettingstarted/atomic_structure_generation
    gettingstarted/use_mdapy_efficiently
+   gettingstarted/phonon_calculation
    
 
 Mdapy Python API

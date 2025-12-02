@@ -3,7 +3,11 @@ channels:
   - conda-forge
 dependencies:
   - python=3.13
+  - lammps
   - pandoc
+  - phonopy
+  - ase 
+  - k3d
   - furo==2024.8.6
   - pip==25.0
   - scikit-build-core==0.10.7

@@ -1,5 +1,3 @@
-.. image:: doc/images/logo.png
-
 ===================================================
 🚀 mdapy - Molecular Dynamics Analysis with Python
 ===================================================

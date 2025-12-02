@@ -827,24 +827,4 @@ class CreatePolycrystal:
 
 
 if __name__ == "__main__":
-    from mdapy.build_lattice import build_crystal
-
-    unit = build_crystal("Al", "fcc", 4.05)
-    box = np.array([[300, 0, 0], [0, 300, 0], [0, 0, unit.box.box[2, 2] * 30]])
-    seed_number = 10
-    box_lengths = np.diag(box)
-    seed_position = np.random.random((seed_number, 3)) * box_lengths
-    seed_position[:, 2] = box[2, 2] / 2
-    theta_list = np.random.uniform(-180, 180, (seed_number, 3))
-    theta_list[:, :2] = 0
-    poly = CreatePolycrystal(
-        unit,
-        box=box,
-        seed_number=seed_number,
-        randomseed=42,
-        metal_overlap_dis=None,
-        theta_list=theta_list,
-        seed_position=seed_position,
-    )
-    system = poly.compute()
-    system.write_xyz("poly.xyz")
+    pass 

@@ -1,29 +1,18 @@
-*mdapy* : Molecular Dynamics Analysis with Python
-=====================================================
-
+===================================================
+🚀 mdapy - Molecular Dynamics Analysis with Python
+===================================================
 
 .. raw:: html
 
    <iframe src="https://mushroomfire.com/mdapy.html" height="200px" width="1000px", frameBorder="0"></iframe>
 
-
-
 Overview
 --------
 
-The **mdapy** python library provides an array of powerful, flexible, and straightforward 
-tools to analyze atomic trajectories generated from Molecular Dynamics (MD) simulations. The library is fully 
-cross-platform, making it accessible to users in **Windows, Linux, and Mac OS**. 
-Furthermore, **mdapy** is highly parallelized, allowing users to leverage the resources of multicore CPU. 
-**mdapy** can directly handle the DUMP and DATA formats in `LAMMPS <https://www.lammps.org/>`_, POSCAR format in `VASP <https://www.vasp.at/wiki/index.php/The_VASP_Manual>`_, and universal XYZ format. 
+**mdapy** provides a comprehensive suite of powerful, 
+flexible, and straightforward tools for analyzing atomic 
+trajectories generated from Molecular Dynamics (MD) simulations.
 
-Resources
-----------
-
-- Homepage: `https://github.com/mushroomfire/mdapy <https://github.com/mushroomfire/mdapy>`_
-- Documentation: `https://mdapy.readthedocs.io/ <https://mdapy.readthedocs.io/>`_
-- Issue Tracker: `https://github.com/mushroomfire/mdapy/issues <https://github.com/mushroomfire/mdapy/issues>`_
-- Tutorial: `https://github.com/mushroomfire/mdapy-tutorial <https://github.com/mushroomfire/mdapy-tutorial>`_
 
 Dependencies
 ------------
@@ -50,11 +39,15 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
       keywords = {Simulation analysis, Molecular dynamics, Polycrystal, TaiChi, Parallel computing}
       }
 
+Getting Started
+-----------------
 .. toctree::
-   :maxdepth: 3
-   :caption: Getting Started
+   :maxdepth: 2
    
+   gettingstarted/installation
+   gettingstarted/atomic_structure_generation
    gettingstarted/use_mdapy_efficiently
+   
 
 Mdapy Python API
 -----------------

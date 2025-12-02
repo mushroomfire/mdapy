@@ -1,27 +1,21 @@
 version: 2
-
 build:
-  os: "ubuntu-22.04"
-  tools:
-    python: "mambaforge-22.9"
-  jobs:
-    pre_build:
-      - pip install --upgrade pip setuptools wheel
-      - pip install scikit-build-core nanobind
-
-python:
-  install:
-    - method: pip
-      path: .
-
+    os: ubuntu-24.04
+    tools:
+        python: "mambaforge-23.11"
 conda:
-  environment: doc/environment.yml
-
+    environment: doc/environment.yml
+python:
+    install:
+        - method: pip
+          path: .
+submodules:
+    include: all
+    recursive: true
 sphinx:
   builder: html
   configuration: doc/conf.py
   fail_on_warning: false
-
 formats:
   - pdf
   - epub

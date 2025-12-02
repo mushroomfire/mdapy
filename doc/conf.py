@@ -46,4 +46,4 @@ napoleon_numpy_docstring = True
 napoleon_use_rtype = False
 napoleon_use_param = True
 
-html_theme = "pydata_sphinx_theme"
+html_theme = "furo"

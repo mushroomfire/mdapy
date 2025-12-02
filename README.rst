@@ -53,7 +53,7 @@ trajectories generated from Molecular Dynamics (MD) simulations.
 🔗 **Seamless Integration**
    - All data stored in Polars DataFrame and transfer with NumPy NDARRAY format
    - Easy integration with Python scientific ecosystem
-   - Perfect compatibility with post-processing tools like OVITO and freud
+   - Perfect compatibility with post-processing tools like OVITO, ASE and freud
 
 --------
 

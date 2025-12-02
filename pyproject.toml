@@ -6,7 +6,7 @@ build-backend = "scikit_build_core.build"
 name = "mdapy"
 dynamic = ["version"]
 description = "Mdapy: molecular dynamics simulation analysis in Python"
-readme = """
+readme = {content-type = "text/x-rst", text = """
 *mdapy* : Molecular Dynamics Analysis with Python
 =====================================================
 
@@ -20,11 +20,11 @@ trajectories generated from Molecular Dynamics (MD) simulations.
 Resources
 ----------
 
-- Homepage: `https://github.com/mushroomfire/mdapy <https://github.com/mushroomfire/mdapy>`_
-- Documentation: `https://mdapy.readthedocs.io/ <https://mdapy.readthedocs.io/>`_
-- Issue Tracker: `https://github.com/mushroomfire/mdapy/issues <https://github.com/mushroomfire/mdapy/issues>`_
-- Tutorial: `https://github.com/mushroomfire/mdapy-tutorial <https://github.com/mushroomfire/mdapy-tutorial>`_
-"""
+- Homepage: https://github.com/mushroomfire/mdapy
+- Documentation: https://mdapy.readthedocs.io/
+- Issue Tracker: https://github.com/mushroomfire/mdapy/issues
+- Tutorial: https://github.com/mushroomfire/mdapy-tutorial
+"""}
 requires-python = ">=3.8"
 authors = [{ name = "Yongchao Wu", email = "934313174@qq.com" }]
 license = "BSD-3-Clause"

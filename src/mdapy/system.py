@@ -784,8 +784,8 @@ class System:
         if hasattr(self, "_enlarge_box"):
             del self._enlarge_box, self._enlarge_data
 
-    def warp_pos(self) -> None:
-        """Warp positions into box for PBC boundary."""
+    def wrap_pos(self) -> None:
+        """Wrap positions into box for PBC boundary."""
         self.update_data(tool.wrap_pos(self.data, self.box), True, True)
 
     def replicate(self, nx: int, ny: int, nz: int) -> None:

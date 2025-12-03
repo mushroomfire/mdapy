@@ -604,6 +604,43 @@ def build_hea(
     ...     random_seed=1,
     ... )
     """
+
+    assert structure.lower() in {"fcc", "bcc", "hcp"}, (
+        f"Unsupported structure '{structure}'. Choose from 'fcc', 'bcc', or 'hcp'."
+    )
+    if miller1 is not None and miller2 is not None and miller3 is not None:
+        assert structure.lower() != "hcp", "hcp does not support miller orientations."
+
+    # --- Build base crystal ---
+    system = build_crystal(
+        "X", structure, a, miller1, miller2, miller3, nx, ny, nz, c_over_a
+    )
+
+    return build_hea_fromsystem(system, element_list, element_ratio, random_seed)
+
+
+def build_hea_fromsystem(
+    system: System,
+    element_list: Tuple[str],
+    element_ratio: Tuple[float],
+    random_seed: Optional[int] = None,
+) -> System:
+    """Generate element per atom for a system,
+
+    Parameters
+    ----------
+    element_list : Tuple[str]
+        List of element symbols, e.g., ``('Cu', 'Al', 'Mg')``.
+    element_ratio : Tuple[float]
+        Corresponding atomic ratios. The sum must equal 1.
+    random_seed : int, optional
+        Random seed for reproducible element assignment.
+    
+    Returns
+    -------
+    System
+        A :class:`System` object containing the generated element information.
+    """
     # --- Input validation ---
     assert len(element_list) > 1, "At least two elements are required to form an HEA."
     assert len(set(element_list)) == len(element_list), (
@@ -615,18 +652,12 @@ def build_hea(
     assert abs(np.sum(element_ratio) - 1.0) < 1e-6, (
         f"Element ratios must sum to 1 (got {np.sum(element_ratio):.6f})."
     )
-    assert structure.lower() in {"fcc", "bcc", "hcp"}, (
-        f"Unsupported structure '{structure}'. Choose from 'fcc', 'bcc', or 'hcp'."
-    )
-
-    # --- Build base crystal ---
-    system = build_crystal(
-        "X", structure, a, miller1, miller2, miller3, nx, ny, nz, c_over_a
-    )
-
     # --- Assign elements by ratio ---
     type_counts = np.floor(system.N * np.array(element_ratio)).astype(int)
-    type_counts[type_counts == 0] += 1
+    for i in range(len(element_ratio)):
+        if type_counts[i] == 0 and element_ratio[i] > 0:
+            type_counts[i] += 1
+
     type_counts[-1] = max(system.N - type_counts[:-1].sum(), 1)  # ensure total equals N
 
     element_array = np.repeat(element_list, type_counts)
@@ -638,7 +669,88 @@ def build_hea(
     return system
 
 
+def build_partial_dislocation_fcc(
+    name: str,
+    a: float,
+    nx: int,
+    ny: int,
+    nz: int,
+    element_list: Optional[Tuple[str]] = None,
+    element_ratio: Optional[Tuple[float]] = None,
+    random_seed: Optional[int] = None,
+) -> System:
+    """Generate a FCC strcuture with a pair partial dislocations along y axis.
+    The crystalline orientation is: x->[1-10], y->[11-2], z->[111]. If `element_list` and 
+    `element_ratio` are given, it will generate a HEA.
+    Similar to Construct a dislocation by superimposing two crystals in atomsk: https://atomsk.univ-lille.fr/tutorial_Al_edge.php
+
+    Parameters
+    ----------
+    name : str
+        Element symbol (e.g., 'Cu', 'Al', 'Mg', 'C').
+    a : float
+        Lattice constant in Angstroms.
+    nx : int, default=1
+        Number of repetitions along x-axis direction.
+    ny : int, default=1
+        Number of repetitions along y-axis direction.
+    nz : int, default=1
+        Number of repetitions along z-axis direction.
+    element_list : Tuple[str], optional
+        List of element symbols, e.g., ``('Cu', 'Al', 'Mg')``.
+    element_ratio : Tuple[float], optional
+        Corresponding atomic ratios. The sum must equal 1.
+    random_seed : int, optional
+        Random seed for reproducible element assignment.
+    
+    Returns
+    -------
+    System
+        A :class:`System` object containing the dislocations.
+    """
+    upper = build_crystal(
+        name,
+        "fcc",
+        a,
+        miller1=[1, -1, 0],
+        miller2=[1, 1, -2],
+        miller3=[1, 1, 1],
+        nx=nx,
+        ny=ny,
+        nz=nz,
+    )
+    lower = build_crystal(
+        name,
+        "fcc",
+        a,
+        miller1=[1, -1, 0],
+        miller2=[1, 1, -2],
+        miller3=[1, 1, 1],
+        nx=nx + 1,
+        ny=ny,
+        nz=nz,
+    )
+    box = upper.box.box.copy()
+    box[0, 0] = box[0, 0] * (1 + (0.5 / 100))
+
+    upper.update_box(box, scale_pos=True)
+    box = lower.box.box.copy()
+    box[0, 0] = box[0, 0] * (1 - (0.5 / 101))
+
+    lower.update_box(box, scale_pos=True)
+    data = pl.concat(
+        [upper.data.with_columns(pl.col("z") + lower.box.box[2, 2]), lower.data]
+    )
+    box = lower.box.box.copy()
+    box[2, 2] += upper.box.box[2, 2]
+    system = System(data=data, box=box)
+    if element_list is not None and element_ratio is not None:
+        system = build_hea_fromsystem(system, element_list, element_ratio, random_seed)
+    return system
+
+
 if __name__ == "__main__":
-    element_list = ["Cr", "Co", "Ni"]
-    element_ratio = [1 / 3, 1 / 3, 1 / 3]
-    unitcell = build_hea(element_list, element_ratio, "fcc", 3.63)
+
+    system = build_partial_dislocation_fcc('X', 3.526, 100, 60, 13, ['Cr', 'Co', 'Fe', 'Ni'], [1/3, 1/3, 0, 1/3])
+    print('Fe' in system.data['element'])
+    system.write_data('test.data', ['Cr', 'Co', 'Fe', 'Ni'])

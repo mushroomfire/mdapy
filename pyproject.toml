@@ -7,8 +7,8 @@ name = "mdapy"
 dynamic = ["version"]
 description = "Mdapy: molecular dynamics simulation analysis in Python"
 readme = {content-type = "text/x-rst", text = """
-*mdapy* : Molecular Dynamics Analysis with Python
-=====================================================
+**mdapy** : Molecular Dynamics Analysis with Python
+--------------------------------------------------
 
 Overview
 ---------

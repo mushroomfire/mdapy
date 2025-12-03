@@ -42,4 +42,4 @@ __all__ = [
     "LindemannParameter",
     "VoidAnalysis",
 ]
-__version__ = "1.0.0a1"
+__version__ = "1.0.0a2"

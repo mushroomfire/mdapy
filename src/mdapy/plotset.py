@@ -187,7 +187,7 @@ def _cm2inch(value: Union[float, int]) -> float:
 
 def set_figure(
     figsize: Tuple[Union[float, int], Union[float, int]] = (8.5, 7.0),
-    figdpi: int = 300,
+    figdpi: int = 150,
     nrow: int = 1,
     ncol: int = 1,
     color_cycler: Optional[Union[List[str], Tuple[str, ...]]] = None,
@@ -200,7 +200,7 @@ def set_figure(
     ----------
     figsize : tuple of (float or int, float or int), default=(8.5, 7.0)
         Figure dimensions in centimeters as (width, height).
-    figdpi : int, default=300
+    figdpi : int, default=150
         Figure resolution in dots per inch.
     nrow : int, default=1
         Number of subplot rows.

@@ -629,6 +629,8 @@ def build_hea_fromsystem(
 
     Parameters
     ----------
+    system : System
+        System need to be modified.
     element_list : Tuple[str]
         List of element symbols, e.g., ``('Cu', 'Al', 'Mg')``.
     element_ratio : Tuple[float]

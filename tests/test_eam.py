@@ -45,6 +45,7 @@ def test_evf_lammps():
     s = model.get_stress()
 
     model.calc = eam_lmp
+    model.calc.results = {}
     e1 = model.get_energies()
     f1 = model.get_force()
     v1 = model.get_virials()

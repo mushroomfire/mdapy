@@ -130,11 +130,15 @@ class LammpsPotential(CalculatorMP):
             lmp.commands_string(self.pair_parameter)
             lmp.commands_string("run 0")
             sort_index = np.argsort(lmp.numpy.extract_atom("id")[:N_atom])
-            energy = np.asarray(lmp.numpy.extract_compute("2", 1, 1)[sort_index])
-            force = np.asarray(lmp.numpy.extract_atom("f")[sort_index])
+            energy = np.asarray(
+                lmp.numpy.extract_compute("2", 1, 1)[:N_atom][sort_index]
+            )
+            force = np.asarray(lmp.numpy.extract_atom("f")[:N_atom][sort_index])
             # xx, yy, zz, xy, xz, yz, yx, zx, zy.
             # xx, yy, zz, xy, xz, yz
-            virial = -np.asarray(lmp.numpy.extract_compute("1", 1, 2)[sort_index])
+            virial = -np.asarray(
+                lmp.numpy.extract_compute("1", 1, 2)[:N_atom][sort_index]
+            )
         except Exception as e:
             raise e
         finally:

@@ -15,9 +15,11 @@ def test_lammpspotential():
         centroid_stress=False,
     )
     system.calc = eam
+    system.calc.results = {}
     e = system.get_energies()
     f = system.get_force()
     v = system.get_virials()
+
     assert np.allclose(e, system.data["energy_atom"].to_numpy())
     assert np.allclose(f, system.data.select("fx", "fy", "fz").to_numpy(), atol=1e-3)
     assert np.allclose(

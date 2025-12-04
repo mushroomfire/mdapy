@@ -15,7 +15,7 @@
    :alt: License
 
 .. image:: https://readthedocs.org/projects/mdapy/badge/?version=latest
-   :target: https://freud.readthedocs.io/en/latest/?badge=latest
+   :target: https://mdapy.readthedocs.io/en/latest/?badge=latest
    :alt: ReadTheDocs
 
 .. image:: https://img.shields.io/github/stars/mushroomfire/mdapy.svg?style=social

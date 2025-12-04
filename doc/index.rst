@@ -48,6 +48,7 @@ Getting Started
    gettingstarted/atomic_structure_generation
    gettingstarted/use_mdapy_efficiently
    gettingstarted/phonon_calculation
+   gettingstarted/eam_analysis
    gettingstarted/load_save
    
 

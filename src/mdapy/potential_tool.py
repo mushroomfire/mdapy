@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 from __future__ import annotations
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING, Dict, Union
 from pathlib import Path
 import numpy as np
 import polars as pl
@@ -352,6 +352,61 @@ class PCA:
         components *= signs
 
         return np.dot(X_centered, components)
+
+
+def cfg2xyz(
+    file_list: Union[List[str], str],
+    type_dict: Dict[str, int],
+    output_name: str = "train.xyz",
+    f_max: float = 25.0,
+) -> None:
+    """Convert cfg file for MTP to xyz file for GPUMD, including energy, force and virial.
+
+    Parameters
+    ----------
+    file_list : List[str] or str
+        Single or multi cfg file.
+    type_dict : Dict[str, int]
+        Map type from number to element, such as {'Al':0, 'C':1}.
+    output_name : str
+        Output filename with append mode. Defaults to train.xyz.
+    f_max : float
+        Force absolute maximum larger than this value will be filtered. Defaults to 25.0 eV/A.
+    """
+    for cfg in file_list:
+        with open(cfg) as op:
+            file = op.read()
+        res = file.split("BEGIN_CFG")[1:]
+        for f in range(len(res)):
+            frame_content = res[f].split("\n")
+            N = int(frame_content[2].strip())
+            box = []
+            for i in frame_content[4:7]:
+                box.extend(i.split())
+            type_pos_force = [i.split()[1:] for i in frame_content[8 : 8 + N]]
+            _f_max = np.abs(np.array(type_pos_force)[:, -3:].astype(float)).max()
+            if _f_max > f_max:
+                continue
+            energy = frame_content[8 + N + 1].strip()
+            vxx, vyy, vzz, vyz, vxz, vxy = frame_content[8 + N + 1 + 2].strip().split()
+            vyx = vxy
+            vzx = vxz
+            vzy = vyz
+
+            with open(output_name, "a") as op:
+                op.write(f"{N}\n")
+                box_str = (
+                    "Lattice=" + '"' + "{} {} {} {} {} {} {} {} {}".format(*box) + '"'
+                )
+                op.write(
+                    f'{box_str} energy={energy} virial="{vxx} {vxy} {vxz} {vyx} {vyy} {vyz} {vzx} {vzy} {vzz}" properties=species:S:1:pos:R:3:force:R:3\n'
+                )
+                for i in range(N):
+                    op.write(
+                        "{} {} {} {} {} {} {}\n".format(
+                            type_dict[int(type_pos_force[i][0])], *type_pos_force[i][1:]
+                        )
+                    )
 
 
 if __name__ == "__main__":

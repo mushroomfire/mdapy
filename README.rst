@@ -102,7 +102,7 @@ trajectories generated from Molecular Dynamics (MD) simulations.
 - Minimization with cell optimization
 - Equation of state
 - Stacking faults energy
-- Phonon dispersion
+- Phonon dispersion 
 
 📚 **Miscellaneous**
 --------
@@ -135,6 +135,16 @@ trajectories generated from Molecular Dynamics (MD) simulations.
    pip install mdapy
 
 **Method 2: Install with all optional features**
+
+.. code-block:: bash
+
+   # Install with matplotlib
+   pip install mdapy[plot]
+
+.. code-block:: bash
+
+   # Install with phonoy
+   pip install mdapy[k3d]
 
 .. code-block:: bash
 

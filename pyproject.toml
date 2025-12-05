@@ -6,9 +6,9 @@ build-backend = "scikit_build_core.build"
 name = "mdapy"
 dynamic = ["version"]
 description = "Mdapy: molecular dynamics simulation analysis in Python"
-readme = {content-type = "text/x-rst", text = """
+readme = { content-type = "text/x-rst", text = """
 **mdapy** : Molecular Dynamics Analysis with Python
---------------------------------------------------
+-----------------------------------------------------
 
 Overview
 ---------
@@ -24,13 +24,13 @@ Resources
 - Documentation: https://mdapy.readthedocs.io/
 - Issue Tracker: https://github.com/mushroomfire/mdapy/issues
 - Tutorial: https://github.com/mushroomfire/mdapy-tutorial
-"""}
+""" }
 requires-python = ">=3.8"
 authors = [{ name = "Yongchao Wu", email = "934313174@qq.com" }]
 license = "BSD-3-Clause"
-license-files = [ "LICENSE" ]
+license-files = ["LICENSE"]
 dependencies = ["numpy", "polars"]
-classifiers=[
+classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics",
     "Programming Language :: C++",
@@ -71,7 +71,5 @@ line-length = 88
 
 [tool.ruff.format]
 
-docstring-code-format = true      
-quote-style = "double"  
-
-
+docstring-code-format = true
+quote-style = "double"

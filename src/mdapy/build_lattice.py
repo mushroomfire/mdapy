@@ -733,11 +733,11 @@ def build_partial_dislocation_fcc(
         nz=nz,
     )
     box = upper.box.box.copy()
-    box[0, 0] = box[0, 0] * (1 + (0.5 / 100))
+    box[0, 0] = box[0, 0] * (1 + (0.5 / nx))
 
     upper.update_box(box, scale_pos=True)
     box = lower.box.box.copy()
-    box[0, 0] = box[0, 0] * (1 - (0.5 / 101))
+    box[0, 0] = box[0, 0] * (1 - (0.5 / (nx + 1)))
 
     lower.update_box(box, scale_pos=True)
     data = pl.concat(

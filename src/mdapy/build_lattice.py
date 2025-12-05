@@ -733,11 +733,11 @@ def build_partial_dislocation_fcc(
         nz=nz,
     )
     box = upper.box.box.copy()
-    box[0, 0] = box[0, 0] * (1 + (0.5 / 100))
+    box[0, 0] = box[0, 0] * (1 + (0.5 / nx))
 
     upper.update_box(box, scale_pos=True)
     box = lower.box.box.copy()
-    box[0, 0] = box[0, 0] * (1 - (0.5 / 101))
+    box[0, 0] = box[0, 0] * (1 - (0.5 / (nx+1)))
 
     lower.update_box(box, scale_pos=True)
     data = pl.concat(
@@ -753,6 +753,7 @@ def build_partial_dislocation_fcc(
 
 if __name__ == "__main__":
 
-    system = build_partial_dislocation_fcc('X', 3.526, 100, 60, 13, ['Cr', 'Co', 'Fe', 'Ni'], [1/3, 1/3, 0, 1/3])
+    system = build_partial_dislocation_fcc('X', 3.526, 300, 60, 13, ['Cr', 'Co', 'Fe', 'Ni'], [1/3, 1/3, 0, 1/3])
+
     print('Fe' in system.data['element'])
     system.write_data('test.data', ['Cr', 'Co', 'Fe', 'Ni'])

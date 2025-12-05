@@ -2086,21 +2086,4 @@ class System:
 
 
 if __name__ == "__main__":
-    system = System("tests/input_files/POSCAR")
-    metadata = {}
-    metadata["box"] = " ".join(system.box.box.astype(str).flatten().tolist())
-    metadata["origin"] = " ".join(system.box.origin.astype(str).tolist())
-    metadata["boundary"] = " ".join(system.box.boundary.astype(str).tolist())
-    for i in system.global_info.keys():
-        if i not in ["box", "origin", "boundary"] and i in [
-            "energy",
-            "stress",
-            "virial",
-            "timestep",
-        ]:
-            metadata[str(i)] = str(system.global_info[i])
-    system.data.write_parquet("test.parquet", metadata=metadata)
-    meta = pl.read_parquet_metadata("test.parquet")
-    print(meta.keys())
-    data = pl.read_parquet("test.parquet")
-    print(data)
+    pass 

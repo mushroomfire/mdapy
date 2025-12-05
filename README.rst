@@ -143,7 +143,7 @@ trajectories generated from Molecular Dynamics (MD) simulations.
 
 .. code-block:: bash
 
-   # Install with phonoy
+   # Install with k3d
    pip install mdapy[k3d]
 
 .. code-block:: bash

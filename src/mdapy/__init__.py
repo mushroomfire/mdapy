@@ -2,7 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 from mdapy.system import System
-from mdapy.box import Box 
+from mdapy.box import Box
 from mdapy.build_lattice import build_crystal, build_hea
 from mdapy.create_polycrystal import CreatePolycrystal
 from mdapy.eam import EAM, EAMAverage, EAMGenerator

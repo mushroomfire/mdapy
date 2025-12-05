@@ -146,6 +146,9 @@ class EAM(CalculatorMP):
         else:
             assert len(mass_list) == len(self.elements_list)
         self.mass_list = mass_list
+        self._eam = _eam.EAM(
+            self.rc, self.F_rho, self.rho_r, self.phi_r, self.r, self.rho
+        )
 
     def _read_eam_alloy(self) -> None:
         """
@@ -502,7 +505,7 @@ class EAM(CalculatorMP):
         force = np.zeros((N, 3), float)  # Per-atom forces [fx, fy, fz]
         virial = np.zeros((N, 9), float)  # Per-atom virials (9 components)
 
-        _eam.calculate(
+        self._eam.calculate(
             data["x"].to_numpy(allow_copy=False),
             data["y"].to_numpy(allow_copy=False),
             data["z"].to_numpy(allow_copy=False),
@@ -513,12 +516,6 @@ class EAM(CalculatorMP):
             neigh.verlet_list,
             neigh.distance_list,
             neigh.neighbor_number,
-            self.rc,
-            self.F_rho,
-            self.rho_r,
-            self.phi_r,
-            self.r,
-            self.rho,
             force,
             virial,
             potential,

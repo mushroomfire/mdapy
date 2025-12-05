@@ -31,7 +31,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
-    'nbsphinx', # for jupyter
+    "nbsphinx",  # for jupyter
 ]
 
 

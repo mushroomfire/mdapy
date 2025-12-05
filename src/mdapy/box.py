@@ -126,7 +126,9 @@ class Box:
             self.__volume = np.linalg.det(self.box)
             self.set_boundary(boundary)
 
-    def __get_origin(self,origin: Optional[Union[Iterable[float], np.ndarray]] = None)->np.ndarray:
+    def __get_origin(
+        self, origin: Optional[Union[Iterable[float], np.ndarray]] = None
+    ) -> np.ndarray:
         """
         Parse and validate origin input.
 
@@ -162,7 +164,7 @@ class Box:
     def __get_box_origin(
         self,
         box: Union[int, float, Iterable[float], np.ndarray],
-        origin: Optional[Union[Iterable[float], np.ndarray]] = None
+        origin: Optional[Union[Iterable[float], np.ndarray]] = None,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
         Parse and validate box input.
@@ -194,22 +196,25 @@ class Box:
                 box = np.diag(box)
             elif box.shape == (3, 3):
                 pass
-            elif box.shape == (4, 3): # old mdapy format
+            elif box.shape == (4, 3):  # old mdapy format
                 origin = np.array(box[-1])
                 box = np.array(box[:-1])
-            elif box.shape == (3, 4): # ovito format
+            elif box.shape == (3, 4):  # ovito format
                 origin = np.array(box[:, -1])
                 box = np.array(box[:, :-1])
             else:
                 raise ValueError(f"Invalid box shape: {box.shape}")
         else:
             raise TypeError(f"Invalid box type: {type(box)}")
-        
+
         origin = self.__get_origin(origin)
 
         return box, origin
-    
-    def __get_box(self, box: Union[int, float, Iterable[float], np.ndarray],):
+
+    def __get_box(
+        self,
+        box: Union[int, float, Iterable[float], np.ndarray],
+    ):
         if isinstance(box, (int, float)):
             box = np.eye(3, dtype=np.float64) * box
         elif isinstance(box, (list, tuple, np.ndarray)):
@@ -223,7 +228,7 @@ class Box:
         else:
             raise TypeError(f"Invalid box type: {type(box)}")
 
-    def set_box(self, box: Union[int, float, Iterable[float], np.ndarray])->None:
+    def set_box(self, box: Union[int, float, Iterable[float], np.ndarray]) -> None:
         """
         Set box matrix.
 
@@ -340,7 +345,7 @@ class Box:
         """
         return self.__origin
 
-    def set_origin(self, origin: Union[Iterable[float], np.ndarray])->None:
+    def set_origin(self, origin: Union[Iterable[float], np.ndarray]) -> None:
         """
         Set origin coordinates.
 
@@ -364,8 +369,8 @@ class Box:
             Array of boundary flags (1=periodic, 0=fixed).
         """
         return self.__boundary
-    
-    def set_boundary(self, boundary: Union[Iterable[int], np.ndarray])->None:
+
+    def set_boundary(self, boundary: Union[Iterable[int], np.ndarray]) -> None:
         """
         Set boundary conditions.
 

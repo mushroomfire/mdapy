@@ -421,7 +421,7 @@ def generate_velocity(N, mass, temperature, remove_com=True, seed=None):
 
 
 def fps_sample(
-    n_sample:int,
+    n_sample: int,
     descriptors: np.ndarray,
     start_idx: int = 0,
 ) -> np.ndarray:

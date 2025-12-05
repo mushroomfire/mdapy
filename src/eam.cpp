@@ -1,61 +1,30 @@
-#include "type.h"
-#include "spline.h"
-#include "box.h"
+#include "eam.h"
+#include <cmath>
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
-#include <vector>
-#include <cmath>
 #include <omp.h>
 
-void calculate(
-    const ROneArrayD x_py,
-    const ROneArrayD y_py,
-    const ROneArrayD z_py,
-    const ROneArrayI type_list_py,
-    const RTwoArrayD box_py,
-    const ROneArrayD origin,
-    const ROneArrayI boundary,
-    const RTwoArrayI verlet_list_py,
-    const RTwoArrayD distance_list_py,
-    const ROneArrayI neighbor_number_py,
-    const double rc,
-    const RTwoArrayD F_rho_py,
-    const RTwoArrayD rho_r_py,
-    const RThreeArrayD phi_r_py,
-    const ROneArrayD r_list_py,
-    const ROneArrayD rho_list_py,
-    TwoArrayD force_py,
-    TwoArrayD virial_py,
-    OneArrayD energy_py)
+EAM::EAM(const double rc,
+         const RTwoArrayD F_rho_py,
+         const RTwoArrayD rho_r_py,
+         const RThreeArrayD phi_r_py,
+         const ROneArrayD r_list_py,
+         const ROneArrayD rho_list_py)
+    : rc_(rc)
 {
-
-    const int N = x_py.shape(0);
     auto r_list = r_list_py.view();
     auto rho_list = rho_list_py.view();
     const int nrho = rho_list.shape(0);
     const int nr = r_list.shape(0);
-    int Nelements = F_rho_py.shape(0);
-    const Box box = get_box(box_py, origin, boundary);
-
-    auto x = x_py.view();
-    auto y = y_py.view();
-    auto z = z_py.view();
-    auto type_list = type_list_py.view();
-    auto verlet_list = verlet_list_py.view();
-    auto distance_list = distance_list_py.view();
-    auto neighbor_number = neighbor_number_py.view();
+    Nelements_ = F_rho_py.shape(0);
 
     auto F_rho_data = F_rho_py.view();
     auto rho_r_data = rho_r_py.view();
     auto phi_r_data = phi_r_py.view();
 
-    auto force = force_py.view();
-    auto virial = virial_py.view();
-    auto energy = energy_py.view();
-
-    std::vector<CubicSpline> F_rho_spline(Nelements);
-    std::vector<CubicSpline> rho_r_spline(Nelements);
-    std::vector<std::vector<CubicSpline>> phi_r_spline(Nelements, std::vector<CubicSpline>(Nelements));
+    F_rho_spline_.resize(Nelements_);
+    rho_r_spline_.resize(Nelements_);
+    phi_r_spline_.resize(Nelements_, std::vector<CubicSpline>(Nelements_));
 
     std::vector<double> rho_vec(nrho);
     std::vector<double> r_vec(nr);
@@ -70,39 +39,70 @@ void calculate(
 
     // spline F_rho
     std::vector<double> F_rho_values(nrho);
-    for (int i = 0; i < Nelements; ++i)
+    for (int i = 0; i < Nelements_; ++i)
     {
         for (int j = 0; j < nrho; ++j)
         {
             F_rho_values[j] = F_rho_data(i, j);
         }
-        F_rho_spline[i] = CubicSpline(rho_vec, F_rho_values);
+        F_rho_spline_[i] = CubicSpline(rho_vec, F_rho_values);
     }
 
     // spline rho_r
     std::vector<double> rho_r_values(nr);
-    for (int i = 0; i < Nelements; ++i)
+    for (int i = 0; i < Nelements_; ++i)
     {
         for (int j = 0; j < nr; ++j)
         {
             rho_r_values[j] = rho_r_data(i, j);
         }
-        rho_r_spline[i] = CubicSpline(r_vec, rho_r_values);
+        rho_r_spline_[i] = CubicSpline(r_vec, rho_r_values);
     }
 
     // spline phi_r
     std::vector<double> phi_r_values(nr);
-    for (int i = 0; i < Nelements; ++i)
+    for (int i = 0; i < Nelements_; ++i)
     {
-        for (int j = 0; j < Nelements; ++j)
+        for (int j = 0; j < Nelements_; ++j)
         {
             for (int k = 0; k < nr; ++k)
             {
                 phi_r_values[k] = phi_r_data(i, j, k);
             }
-            phi_r_spline[i][j] = CubicSpline(r_vec, phi_r_values);
+            phi_r_spline_[i][j] = CubicSpline(r_vec, phi_r_values);
         }
     }
+}
+
+void EAM::calculate(
+    const ROneArrayD x_py,
+    const ROneArrayD y_py,
+    const ROneArrayD z_py,
+    const ROneArrayI type_list_py,
+    const RTwoArrayD box_py,
+    const ROneArrayD origin,
+    const ROneArrayI boundary,
+    const RTwoArrayI verlet_list_py,
+    const RTwoArrayD distance_list_py,
+    const ROneArrayI neighbor_number_py,
+    TwoArrayD force_py,
+    TwoArrayD virial_py,
+    OneArrayD energy_py)
+{
+    const int N = x_py.shape(0);
+    const Box box = get_box(box_py, origin, boundary);
+
+    auto x = x_py.view();
+    auto y = y_py.view();
+    auto z = z_py.view();
+    auto type_list = type_list_py.view();
+    auto verlet_list = verlet_list_py.view();
+    auto distance_list = distance_list_py.view();
+    auto neighbor_number = neighbor_number_py.view();
+
+    auto force = force_py.view();
+    auto virial = virial_py.view();
+    auto energy = energy_py.view();
 
     std::vector<double> rho(N, 0.0);
 #pragma omp parallel for schedule(dynamic)
@@ -118,9 +118,9 @@ void calculate(
             int type_j = type_list(j);
             double rij = distance_list(i, jj);
 
-            if (rij <= rc)
+            if (rij <= rc_)
             {
-                double rho_j_val = rho_r_spline[type_j].evaluate(rij);
+                double rho_j_val = rho_r_spline_[type_j].evaluate(rij);
                 rho_i += rho_j_val;
             }
         }
@@ -132,8 +132,8 @@ void calculate(
     {
         const int type_i = type_list(i);
 
-        double F_i = F_rho_spline[type_i].evaluate(rho[i]);
-        double dF_i = F_rho_spline[type_i].derivative(rho[i]);
+        double F_i = F_rho_spline_[type_i].evaluate(rho[i]);
+        double dF_i = F_rho_spline_[type_i].derivative(rho[i]);
 
         double e_i = F_i;
         double f_x = 0.0, f_y = 0.0, f_z = 0.0;
@@ -151,13 +151,13 @@ void calculate(
             box.pbc(dx, dy, dz);
             double rij = distance_list(i, jj);
 
-            if (rij <= rc)
+            if (rij <= rc_)
             {
-                double phi_ij = phi_r_spline[type_i][type_j].evaluate(rij);
-                double dphi_ij = phi_r_spline[type_i][type_j].derivative(rij);
-                double rho_j_contrib_deriv = rho_r_spline[type_j].derivative(rij);
-                double rho_i_contrib_deriv = rho_r_spline[type_i].derivative(rij);
-                double dF_j = F_rho_spline[type_j].derivative(rho[j]);
+                double phi_ij = phi_r_spline_[type_i][type_j].evaluate(rij);
+                double dphi_ij = phi_r_spline_[type_i][type_j].derivative(rij);
+                double rho_j_contrib_deriv = rho_r_spline_[type_j].derivative(rij);
+                double rho_i_contrib_deriv = rho_r_spline_[type_i].derivative(rij);
+                double dF_j = F_rho_spline_[type_j].derivative(rho[j]);
 
                 e_i += 0.5 * phi_ij;
 
@@ -195,7 +195,35 @@ void calculate(
     }
 }
 
+namespace nb = nanobind;
+
 NB_MODULE(_eam, m)
 {
-    m.def("calculate", &calculate);
+    nb::class_<EAM>(m, "EAM")
+        .def(nb::init<const double,
+                      const RTwoArrayD,
+                      const RTwoArrayD,
+                      const RThreeArrayD,
+                      const ROneArrayD,
+                      const ROneArrayD>(),
+             nb::arg("rc"),
+             nb::arg("F_rho"),
+             nb::arg("rho_r"),
+             nb::arg("phi_r"),
+             nb::arg("r_list"),
+             nb::arg("rho_list"))
+        .def("calculate", &EAM::calculate,
+             nb::arg("x"),
+             nb::arg("y"),
+             nb::arg("z"),
+             nb::arg("type_list"),
+             nb::arg("box"),
+             nb::arg("origin"),
+             nb::arg("boundary"),
+             nb::arg("verlet_list"),
+             nb::arg("distance_list"),
+             nb::arg("neighbor_number"),
+             nb::arg("force"),
+             nb::arg("virial"),
+             nb::arg("energy"));
 }

@@ -637,7 +637,7 @@ def build_hea_fromsystem(
         Corresponding atomic ratios. The sum must equal 1.
     random_seed : int, optional
         Random seed for reproducible element assignment.
-    
+
     Returns
     -------
     System
@@ -682,7 +682,7 @@ def build_partial_dislocation_fcc(
     random_seed: Optional[int] = None,
 ) -> System:
     """Generate a FCC strcuture with a pair partial dislocations along y axis.
-    The crystalline orientation is: x->[1-10], y->[11-2], z->[111]. If `element_list` and 
+    The crystalline orientation is: x->[1-10], y->[11-2], z->[111]. If `element_list` and
     `element_ratio` are given, it will generate a HEA.
     Similar to Construct a dislocation by superimposing two crystals in atomsk: https://atomsk.univ-lille.fr/tutorial_Al_edge.php
 
@@ -704,7 +704,7 @@ def build_partial_dislocation_fcc(
         Corresponding atomic ratios. The sum must equal 1.
     random_seed : int, optional
         Random seed for reproducible element assignment.
-    
+
     Returns
     -------
     System
@@ -752,7 +752,8 @@ def build_partial_dislocation_fcc(
 
 
 if __name__ == "__main__":
-
-    system = build_partial_dislocation_fcc('X', 3.526, 100, 60, 13, ['Cr', 'Co', 'Fe', 'Ni'], [1/3, 1/3, 0, 1/3])
-    print('Fe' in system.data['element'])
-    system.write_data('test.data', ['Cr', 'Co', 'Fe', 'Ni'])
+    system = build_partial_dislocation_fcc(
+        "X", 3.526, 100, 60, 13, ["Cr", "Co", "Fe", "Ni"], [1 / 3, 1 / 3, 0, 1 / 3]
+    )
+    print("Fe" in system.data["element"])
+    system.write_data("test.data", ["Cr", "Co", "Fe", "Ni"])

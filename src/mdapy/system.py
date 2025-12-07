@@ -1663,6 +1663,7 @@ class System:
         k_max: float,
         nbins: int,
         cal_partial: bool = False,
+        atomic_form_factors: bool = False,
         mode: str = "direct",
     ) -> StructureFactor:
         """
@@ -1678,6 +1679,8 @@ class System:
             Number of bins for k-space averaging.
         cal_partial : bool, optional
             If True, calculate partial structure factors. Default is False.
+        atomic_form_factors : bool, default=False
+            If True, use atomic form factors f to weigh the atoms' individual contributions to S(k). Atomic form factors are taken from `TU Graz <https://lampz.tugraz.at/~hadley/ss1/crystaldiffraction/atomicformfactors/formfactors.php>`_.
         mode : str, optional
             Calculation mode: 'direct' or 'debye'. Default is 'direct'.
 
@@ -1692,7 +1695,7 @@ class System:
         implementation details and returned attributes.
         """
         sfc = StructureFactor(
-            self.data, self.box, k_min, k_max, nbins, cal_partial, mode
+            self.data, self.box, k_min, k_max, nbins, cal_partial, atomic_form_factors, mode
         )
         sfc.compute()
         return sfc

@@ -13,6 +13,7 @@ import numpy as np
 import polars as pl
 from mdapy.box import Box
 import mdapy.tool_function as tool
+from mdapy.data import xray_form_factor
 
 
 class StructureFactor:
@@ -61,6 +62,8 @@ class StructureFactor:
     cal_partial : bool, default=False
         If True, compute partial structure factors S_αβ(k) for each pair of
         atom types α and β. Requires 'element' or 'type' column in data.
+    atomic_form_factors : bool, default=False
+        If True, use atomic form factors f to weigh the atoms' individual contributions to S(k). Atomic form factors are taken from `TU Graz <https://lampz.tugraz.at/~hadley/ss1/crystaldiffraction/atomicformfactors/formfactors.php>`_.
     mode : {'direct', 'debye'}, default='direct'
         Computational method:
         - 'direct': Direct reciprocal space summation
@@ -75,6 +78,12 @@ class StructureFactor:
     Sk_partial : dict[str, np.ndarray], optional
         Dictionary of partial structure factors (only if cal_partial=True).
         Keys are formatted as 'element1-element2'.
+    Sk_partial_xray : dict[str, np.ndarray], optional
+        Dictionary of partial structure factors weighted by atomic_form (only if cal_partial=True and atomic_form_factors=True).
+        This is helpful to directly compare with experimental results.
+        Keys are formatted as 'element1-element2'.
+    Sk_xray : np.ndarray
+        Total static structure factor values weighted by atomic_form  (only if cal_partial=True and atomic_form_factors=True).
 
 
     References
@@ -95,6 +104,7 @@ class StructureFactor:
         k_max: float,
         nbins: int,
         cal_partial: bool = False,
+        atomic_form_factors:bool = False,
         mode: Literal["direct", "debye"] = "direct",
     ) -> None:
         self.data = data
@@ -106,8 +116,18 @@ class StructureFactor:
         self.nbins = int(nbins)
         assert nbins > 0, "nbins must be positive"
         self.cal_partial = cal_partial
+        self.atomic_form_factors = atomic_form_factors
         self.mode = mode.lower()
         assert self.mode in ["direct", "debye"], "mode must be 'direct' or 'debye'"
+    
+    def _get_xray_form_factor(self, element:str):
+        para = xray_form_factor[element]
+        factors = np.zeros(len(self.k))
+        for i in range(0, 4):
+            factors += para[2 * i] * np.exp(
+                -para[2 * i + 1] * (self.k / (np.pi * 4)) ** 2
+            )
+        return factors + para[-1]
 
     def compute(self) -> None:
         """Compute the static structure factor S(k).
@@ -156,6 +176,8 @@ class StructureFactor:
             data, box = tool._replicate_pos(data, box, *repeat)
 
         if self.cal_partial:
+            if self.atomic_form_factors:
+                assert 'element' in self.data.columns
             name = "element"
             if name not in self.data.columns:
                 name = "type"
@@ -163,7 +185,7 @@ class StructureFactor:
                     "Must have 'element' or 'type' column for partial structure factors"
                 )
             data = data.sort(name)
-            uniele = data[name].unique()
+            uniele = data[name].unique().sort()
             assert len(uniele) > 1, (
                 "Need at least 2 species for partial structure factors"
             )
@@ -210,7 +232,28 @@ class StructureFactor:
                     self.Sk += Sk
                     if i != j:
                         self.Sk += Sk  # Account for symmetry (S_ij = S_ji)
-
+            if self.atomic_form_factors:
+                
+                self.Sk_partial_xray = {}
+                self.Sk_xray = np.zeros(self.nbins)
+                concentration = []
+                factor =[]
+                for i in range(len(uniele)):
+                    concentration.append(data.filter(pl.col('element')==uniele[i]).shape[0] / data.shape[0])
+                    assert uniele[i] in xray_form_factor.keys(), f'Unrecognized element: {uniele[i]}.'
+                    factor.append(self._get_xray_form_factor(uniele[i]))
+                normalization = np.zeros(self.k.shape[0])
+                for i in range(len(uniele)):
+                    for j in range(i, len(uniele)):
+                        pair = f"{uniele[i]}-{uniele[j]}"
+                        if i == j:
+                            self.Sk_partial_xray[pair] = self.Sk_partial[pair] / concentration[i] / concentration[j] + 1 - 1 / concentration[i]
+                            self.Sk_xray += self.Sk_partial_xray[pair] * factor[i] * factor[j] * concentration[i] * concentration[j]
+                        else:
+                            self.Sk_partial_xray[pair] = self.Sk_partial[pair] / concentration[i] / concentration[j] + 1
+                            self.Sk_xray += 2 * self.Sk_partial_xray[pair] * factor[i] * factor[j] * concentration[i] * concentration[j]
+                    normalization += concentration[i] * factor[i]
+                self.Sk_xray /= normalization**2
         else:
             self.Sk = np.zeros(self.nbins)
             if self.mode == "direct":
@@ -264,9 +307,11 @@ class StructureFactor:
             from mdapy.plotset import set_figure
 
             fig, ax = set_figure()
-
-        ax.plot(self.k, self.Sk, "o-", ms=3)
-        ax.set_xlabel("k")
+        if self.atomic_form_factors:
+            ax.plot(self.k, self.Sk_xray, "o-", ms=3)
+        else:
+            ax.plot(self.k, self.Sk, "o-", ms=3)
+        ax.set_xlabel(r"k (1/$\mathregular{\AA}$)")
         ax.set_ylabel("S(k)")
         ax.set_xlim(self.k_min, self.k_max)
 
@@ -311,8 +356,12 @@ class StructureFactor:
         else:
             colorlist = [i["color"] for i in plt.rcParams["axes.prop_cycle"]]
         for i, j in enumerate(self.Sk_partial.keys()):
-            ax.plot(self.k, self.Sk_partial[j], "o-", c=colorlist[i], label=j, ms=3)
-        ax.set_xlabel("k")
+            if self.atomic_form_factors:
+                ax.plot(self.k, self.Sk_partial_xray[j], "o-", c=colorlist[i], label=j, ms=3)
+            else:
+                ax.plot(self.k, self.Sk_partial[j], "o-", c=colorlist[i], label=j, ms=3)
+
+        ax.set_xlabel(r"k (1/$\mathregular{\AA}$)")
         ax.set_ylabel("S(k)")
         ax.set_xlim(self.k_min, self.k_max)
         ax.legend()

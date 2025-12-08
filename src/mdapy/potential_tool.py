@@ -9,10 +9,52 @@ import polars as pl
 from mdapy.calculator import CalculatorMP
 from mdapy.build_lattice import build_hea, build_crystal
 from mdapy.system import System
+import os
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
     from matplotlib.axes import Axes
+
+
+def run_gpumd(
+    system: System,
+    dirname: str,
+    runin: str,
+    nep_file: str,
+    gpumd_path: str = "gpumd",
+) -> None:
+    """Warpper to run GPUMD.
+
+    Parameters
+    ----------
+    system : System
+        Use this to generate model.xyz.
+    dirname : str
+        Run MD in this dirname. If it has been existing, raise error.
+    runin : str
+        Use this to generate run.in file. Do not specify potential here, using `nep_file` parameter.
+    nep_file : str
+        The path of nep.txt. Defaults to nep.txt.
+    gpumd_path : str
+        The path of gpumd. Defaults to gpumd.
+    """
+
+    if os.path.exists(dirname):
+        raise FileExistsError(f"{dirname} is existing.")
+    if not os.path.exists(nep_file):
+        raise FileNotFoundError(f"{nep_file} is not found.")
+
+    os.makedirs(dirname)
+    system.write_xyz(f"{dirname}/model.xyz")
+    with open(f"{dirname}/run.in", "w") as op:
+        op.write(f"potential {os.path.abspath(nep_file)}\n" + runin)
+
+    cwd = os.getcwd()
+    os.chdir(dirname)
+    try:
+        os.system(gpumd_path)
+    finally:
+        os.chdir(cwd)
 
 
 def rmse(predictions: np.ndarray, targets: np.ndarray) -> float:
@@ -352,6 +394,50 @@ class PCA:
         components *= signs
 
         return np.dot(X_centered, components)
+
+
+def fps_sample(
+    n_sample: int,
+    descriptors: np.ndarray,
+    start_idx: int = 0,
+) -> np.ndarray:
+    """This function is used to sample the configurations using farthest point sampling method, based
+    on the descriptors. It is helpful to select the structures during active learning process.
+
+    Parameters
+    ----------
+    n_sample : int
+        Number of structures one wants to select.
+    descriptors : np.ndarray
+        Two dimensional ndarray, it can be any descriptors.
+    start_idx : int
+        For deterministic results, fix the first sampled point index.
+        Defaults to 0.
+
+    Returns
+    -------
+    sampled_indices : ndarray, shape (n_sample,)
+    """
+
+    assert descriptors.ndim == 2, "Only support 2-D ndarray."
+    n_points = descriptors.shape[0]
+    assert n_sample <= n_points, f"n_sample must <= {n_points}."
+    assert n_sample > 0, "n_sample must be a positive number."
+    assert start_idx >= 0 and start_idx < n_points, (
+        f"start_idx must belong [0, {n_points - 1}]."
+    )
+    sampled_indices = [start_idx]
+    min_distances = np.full(n_points, np.inf)
+    farthest_point_idx = start_idx
+
+    for _ in range(n_sample - 1):
+        current_point = descriptors[farthest_point_idx]
+        dist_to_current_point = np.linalg.norm(descriptors - current_point, axis=1)
+        min_distances = np.minimum(min_distances, dist_to_current_point)
+        farthest_point_idx = np.argmax(min_distances)
+        sampled_indices.append(farthest_point_idx)
+
+    return np.array(sampled_indices, np.int32)
 
 
 def cfg2xyz(

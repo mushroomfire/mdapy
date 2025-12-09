@@ -115,7 +115,8 @@ class WignerSeitzAnalysis:
         np.add.at(site_occ, indice, 1)
         # vacancy and interstitial counts
         vacancy_count = int(np.sum(site_occ == 0))
-        interstitial_count = int(np.sum(site_occ > 1))
+        interstitial_count = int((site_occ[site_occ>1]-1).sum())
+
         result: Dict[str, Union[int, np.ndarray]] = {
             "site_occupancy": site_occ,
             "atom_site_index": indice,

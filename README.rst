@@ -97,7 +97,7 @@ trajectories generated from Molecular Dynamics (MD) simulations.
 🤖 **Machine Learning Potential**
 --------
 
-- NEP potential support
+- NEP/qNEP potential support
 - Elastic constant
 - Minimization with cell optimization
 - Equation of state

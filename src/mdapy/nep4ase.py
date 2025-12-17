@@ -183,7 +183,7 @@ class NEP4ASE(Calculator):
 
         Notes
         -----
-        Special properties 'descriptor' and 'latentspace' are not in
+        Special properties 'descriptor', 'latentspace', 'charges' and 'bec' are not in
         the standard ASE interface but are available through this calculator.
         """
         # Set default properties if not specified
@@ -216,7 +216,6 @@ class NEP4ASE(Calculator):
                 bec = np.zeros((N, 9), float)  # Per-atom bec (9 components)
 
             # Perform NEP calculation
-
             if self._is_qnep:
                 self.calc.calculate(*self.set_nep(atoms), potential, force, virial, charge, bec)
             else:
@@ -279,7 +278,7 @@ class NEP4ASE(Calculator):
         Returns
         -------
         np.ndarray
-            Charge array of shape (N, num_ndim)
+            Charge array of shape (N,)
         """
         if self._is_qnep:
             if 'charges' not in self.results.keys():
@@ -287,6 +286,33 @@ class NEP4ASE(Calculator):
         else:
             raise ValueError('Charges is only available for qNEP.')
         return self.results["charges"]
+    
+    def get_bec(
+        self,
+        atoms: Atoms = None,
+        system_changes: List[str] = all_changes,
+    ) -> np.ndarray:
+        """
+        Get atomic bec for qNEP model (not part of standard ASE interface).
+
+        Parameters
+        ----------
+        atoms : Atoms, optional
+            ASE Atoms object
+        system_changes : list of str, optional
+            System changes since last calculation
+
+        Returns
+        -------
+        np.ndarray
+            Bec array of shape (N, 9)
+        """
+        if self._is_qnep:
+            if 'bec' not in self.results.keys():
+                self.calculate(atoms, ["bec"], system_changes)
+        else:
+            raise ValueError('Bec is only available for qNEP.')
+        return self.results["bec"]
 
     def get_latentspace(
         self,

@@ -104,7 +104,7 @@ class StructureFactor:
         k_max: float,
         nbins: int,
         cal_partial: bool = False,
-        atomic_form_factors:bool = False,
+        atomic_form_factors: bool = False,
         mode: Literal["direct", "debye"] = "direct",
     ) -> None:
         self.data = data
@@ -119,8 +119,8 @@ class StructureFactor:
         self.atomic_form_factors = atomic_form_factors
         self.mode = mode.lower()
         assert self.mode in ["direct", "debye"], "mode must be 'direct' or 'debye'"
-    
-    def _get_xray_form_factor(self, element:str):
+
+    def _get_xray_form_factor(self, element: str):
         para = xray_form_factor[element]
         factors = np.zeros(len(self.k))
         for i in range(0, 4):
@@ -177,7 +177,7 @@ class StructureFactor:
 
         if self.cal_partial:
             if self.atomic_form_factors:
-                assert 'element' in self.data.columns
+                assert "element" in self.data.columns
             name = "element"
             if name not in self.data.columns:
                 name = "type"
@@ -233,25 +233,53 @@ class StructureFactor:
                     if i != j:
                         self.Sk += Sk  # Account for symmetry (S_ij = S_ji)
             if self.atomic_form_factors:
-                
                 self.Sk_partial_xray = {}
                 self.Sk_xray = np.zeros(self.nbins)
                 concentration = []
-                factor =[]
+                factor = []
                 for i in range(len(uniele)):
-                    concentration.append(data.filter(pl.col('element')==uniele[i]).shape[0] / data.shape[0])
-                    assert uniele[i] in xray_form_factor.keys(), f'Unrecognized element: {uniele[i]}.'
+                    concentration.append(
+                        data.filter(pl.col("element") == uniele[i]).shape[0]
+                        / data.shape[0]
+                    )
+                    assert uniele[i] in xray_form_factor.keys(), (
+                        f"Unrecognized element: {uniele[i]}."
+                    )
                     factor.append(self._get_xray_form_factor(uniele[i]))
                 normalization = np.zeros(self.k.shape[0])
                 for i in range(len(uniele)):
                     for j in range(i, len(uniele)):
                         pair = f"{uniele[i]}-{uniele[j]}"
                         if i == j:
-                            self.Sk_partial_xray[pair] = self.Sk_partial[pair] / concentration[i] / concentration[j] + 1 - 1 / concentration[i]
-                            self.Sk_xray += self.Sk_partial_xray[pair] * factor[i] * factor[j] * concentration[i] * concentration[j]
+                            self.Sk_partial_xray[pair] = (
+                                self.Sk_partial[pair]
+                                / concentration[i]
+                                / concentration[j]
+                                + 1
+                                - 1 / concentration[i]
+                            )
+                            self.Sk_xray += (
+                                self.Sk_partial_xray[pair]
+                                * factor[i]
+                                * factor[j]
+                                * concentration[i]
+                                * concentration[j]
+                            )
                         else:
-                            self.Sk_partial_xray[pair] = self.Sk_partial[pair] / concentration[i] / concentration[j] + 1
-                            self.Sk_xray += 2 * self.Sk_partial_xray[pair] * factor[i] * factor[j] * concentration[i] * concentration[j]
+                            self.Sk_partial_xray[pair] = (
+                                self.Sk_partial[pair]
+                                / concentration[i]
+                                / concentration[j]
+                                + 1
+                            )
+                            self.Sk_xray += (
+                                2
+                                * self.Sk_partial_xray[pair]
+                                * factor[i]
+                                * factor[j]
+                                * concentration[i]
+                                * concentration[j]
+                            )
                     normalization += concentration[i] * factor[i]
                 self.Sk_xray /= normalization**2
         else:
@@ -357,7 +385,9 @@ class StructureFactor:
             colorlist = [i["color"] for i in plt.rcParams["axes.prop_cycle"]]
         for i, j in enumerate(self.Sk_partial.keys()):
             if self.atomic_form_factors:
-                ax.plot(self.k, self.Sk_partial_xray[j], "o-", c=colorlist[i], label=j, ms=3)
+                ax.plot(
+                    self.k, self.Sk_partial_xray[j], "o-", c=colorlist[i], label=j, ms=3
+                )
             else:
                 ax.plot(self.k, self.Sk_partial[j], "o-", c=colorlist[i], label=j, ms=3)
 

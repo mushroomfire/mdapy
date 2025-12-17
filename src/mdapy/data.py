@@ -432,7 +432,7 @@ atomic_masses.flags.writeable = False
     Table 6.1.1.4
 """
 
-xray_form_factor:Dict[str, List[float]] = {
+xray_form_factor: Dict[str, List[float]] = {
     "H": [
         0.489918,
         20.6593,

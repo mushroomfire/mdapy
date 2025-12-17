@@ -214,7 +214,7 @@ class Box:
     def __get_box(
         self,
         box: Union[int, float, Iterable[float], np.ndarray],
-    )->np.ndarray:
+    ) -> np.ndarray:
         if isinstance(box, (int, float)):
             box = np.eye(3, dtype=np.float64) * box
         elif isinstance(box, (list, tuple, np.ndarray)):
@@ -227,7 +227,7 @@ class Box:
                 raise ValueError(f"Invalid box shape: {box.shape}")
         else:
             raise TypeError(f"Invalid box type: {type(box)}")
-        return box 
+        return box
 
     def set_box(self, box: Union[int, float, Iterable[float], np.ndarray]) -> None:
         """

@@ -90,8 +90,8 @@ class NEP4ASE(Calculator):
         # Load NEP model
         self._is_qnep = False
         with open(model_filename) as op:
-            if 'charge' in op.readline():
-                self._is_qnep = True 
+            if "charge" in op.readline():
+                self._is_qnep = True
 
         if self._is_qnep:
             self.calc = _qnepcal.qNEPCalculator(model_filename)
@@ -202,7 +202,7 @@ class NEP4ASE(Calculator):
             self.results["descriptor"] = descriptor
         elif "latentspace" in properties:
             if self._is_qnep:
-                raise ValueError('qNEP dose not support get_latentspace now.')
+                raise ValueError("qNEP dose not support get_latentspace now.")
             latentspace = np.zeros((N, self.calc.info["num_nlatent"]), float)
             self.calc.get_latentspace(*self.set_nep(atoms), latentspace)
             self.results["latentspace"] = latentspace
@@ -217,7 +217,9 @@ class NEP4ASE(Calculator):
 
             # Perform NEP calculation
             if self._is_qnep:
-                self.calc.calculate(*self.set_nep(atoms), potential, force, virial, charge, bec)
+                self.calc.calculate(
+                    *self.set_nep(atoms), potential, force, virial, charge, bec
+                )
             else:
                 self.calc.calculate(*self.set_nep(atoms), potential, force, virial)
 
@@ -227,8 +229,8 @@ class NEP4ASE(Calculator):
             self.results["forces"] = force  # Forces
             self.results["virials"] = virial  # Per-atom virials
             if self._is_qnep:
-                self.results["charges"] = charge 
-                self.results["bec"] = bec 
+                self.results["charges"] = charge
+                self.results["bec"] = bec
 
             # Calculate stress tensor from virials
             v = virial.sum(axis=0).reshape(3, 3)
@@ -259,7 +261,7 @@ class NEP4ASE(Calculator):
         """
         self.calculate(atoms, ["descriptor"], system_changes)
         return self.results["descriptor"]
-    
+
     def get_charges(
         self,
         atoms: Atoms = None,
@@ -281,12 +283,12 @@ class NEP4ASE(Calculator):
             Charge array of shape (N,)
         """
         if self._is_qnep:
-            if 'charges' not in self.results.keys():
+            if "charges" not in self.results.keys():
                 self.calculate(atoms, ["charges"], system_changes)
         else:
-            raise ValueError('Charges is only available for qNEP.')
+            raise ValueError("Charges is only available for qNEP.")
         return self.results["charges"]
-    
+
     def get_bec(
         self,
         atoms: Atoms = None,
@@ -308,10 +310,10 @@ class NEP4ASE(Calculator):
             Bec array of shape (N, 9)
         """
         if self._is_qnep:
-            if 'bec' not in self.results.keys():
+            if "bec" not in self.results.keys():
                 self.calculate(atoms, ["bec"], system_changes)
         else:
-            raise ValueError('Bec is only available for qNEP.')
+            raise ValueError("Bec is only available for qNEP.")
         return self.results["bec"]
 
     def get_latentspace(
@@ -335,7 +337,7 @@ class NEP4ASE(Calculator):
             Latent space array of shape (N, num_nlatent)
         """
         if self._is_qnep:
-            raise ValueError('qNEP dose not support get_latentspace now.')
+            raise ValueError("qNEP dose not support get_latentspace now.")
 
         self.calculate(atoms, ["latentspace"], system_changes)
         return self.results["latentspace"]

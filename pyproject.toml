@@ -25,7 +25,7 @@ Resources
 - Issue Tracker: https://github.com/mushroomfire/mdapy/issues
 - Tutorial: https://github.com/mushroomfire/mdapy-tutorial
 """ }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [{ name = "Yongchao Wu", email = "934313174@qq.com" }]
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
@@ -34,7 +34,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics",
     "Programming Language :: C++",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -66,7 +65,7 @@ regex = "^\\s*__version__\\s*=\\s*(['\\\"])(?P<value>[^'\\\"]+)\\1"
 [tool.ruff]
 
 include = ["**/*.py"]
-target-version = "py38"
+target-version = "py312"
 line-length = 88
 
 [tool.ruff.format]

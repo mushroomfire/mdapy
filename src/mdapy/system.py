@@ -1695,7 +1695,14 @@ class System:
         implementation details and returned attributes.
         """
         sfc = StructureFactor(
-            self.data, self.box, k_min, k_max, nbins, cal_partial, atomic_form_factors, mode
+            self.data,
+            self.box,
+            k_min,
+            k_max,
+            nbins,
+            cal_partial,
+            atomic_form_factors,
+            mode,
         )
         sfc.compute()
         return sfc
@@ -2089,4 +2096,4 @@ class System:
 
 
 if __name__ == "__main__":
-    pass 
+    pass

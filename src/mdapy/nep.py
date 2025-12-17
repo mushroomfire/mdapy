@@ -75,11 +75,11 @@ class NEP(CalculatorMP):
         """
         if not os.path.exists(filename):
             raise FileNotFoundError(f"{filename} does not exist.")
-        
+
         self._is_qnep = False
         with open(filename) as op:
-            if 'charge' in op.readline():
-                self._is_qnep = True 
+            if "charge" in op.readline():
+                self._is_qnep = True
 
         if self._is_qnep:
             self.calc = _qnepcal.qNEPCalculator(filename)
@@ -204,7 +204,9 @@ class NEP(CalculatorMP):
 
         # Call the C++NEP calculator
         if self._is_qnep:
-            self.calc.calculate(*self.setAtoms(data, box), potential, force, virial, charge, bec)
+            self.calc.calculate(
+                *self.setAtoms(data, box), potential, force, virial, charge, bec
+            )
         else:
             self.calc.calculate(*self.setAtoms(data, box), potential, force, virial)
 
@@ -213,8 +215,8 @@ class NEP(CalculatorMP):
         self.results["forces"] = force
         self.results["virials"] = virial
         if self._is_qnep:
-            self.results["charges"] = charge 
-            self.results["bec"] = bec 
+            self.results["charges"] = charge
+            self.results["bec"] = bec
 
         # Calculate stress tensor from virials
         v = virial.sum(axis=0)  # Sum virials over all atoms
@@ -325,7 +327,7 @@ class NEP(CalculatorMP):
             self.calculate(data, box)
         return self.results["stress"]
 
-    def get_charges(self, data:pl.DataFrame, box:Box) -> np.ndarray:
+    def get_charges(self, data: pl.DataFrame, box: Box) -> np.ndarray:
         """
         Get per-atom charges for qNEP.
 
@@ -345,10 +347,10 @@ class NEP(CalculatorMP):
             if "charges" not in self.results.keys():
                 self.calculate(data, box)
         else:
-            raise ValueError('Charges is only available for qNEP.')
+            raise ValueError("Charges is only available for qNEP.")
         return self.results["charges"]
-    
-    def get_bec(self, data:pl.DataFrame, box:Box) -> np.ndarray:
+
+    def get_bec(self, data: pl.DataFrame, box: Box) -> np.ndarray:
         """
         Get per-atom bec for qNEP.
 
@@ -369,7 +371,7 @@ class NEP(CalculatorMP):
             if "bec" not in self.results.keys():
                 self.calculate(data, box)
         else:
-            raise ValueError('bec is only available for qNEP.')
+            raise ValueError("bec is only available for qNEP.")
         return self.results["bec"]
 
     def get_descriptor(self, data: pl.DataFrame, box: Box) -> np.ndarray:
@@ -423,7 +425,7 @@ class NEP(CalculatorMP):
 
         """
         if self._is_qnep:
-            raise ValueError('qNEP dose not support get_latentspace now.')
+            raise ValueError("qNEP dose not support get_latentspace now.")
         N = data.shape[0]
         latentspace = np.zeros((N, self.calc.info["num_nlatent"]), float)
         self.calc.get_latentspace(*self.setAtoms(data, box), latentspace)
@@ -431,4 +433,4 @@ class NEP(CalculatorMP):
 
 
 if __name__ == "__main__":
-    pass 
+    pass

@@ -418,4 +418,3 @@ def generate_velocity(N, mass, temperature, remove_com=True, seed=None):
         vel -= v_com
 
     return vel
-

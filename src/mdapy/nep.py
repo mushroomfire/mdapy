@@ -1,7 +1,7 @@
 # Copyright (c) 2022-2025, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
-from mdapy import _nepcal
+from mdapy import _nepcal, _qnepcal
 from mdapy.box import Box
 from typing import Tuple
 import numpy as np
@@ -75,9 +75,16 @@ class NEP(CalculatorMP):
         """
         if not os.path.exists(filename):
             raise FileNotFoundError(f"{filename} does not exist.")
+        
+        self._is_qnep = False
+        with open(filename) as op:
+            if 'charge' in op.readline():
+                self._is_qnep = True 
 
-        # Load the NEP model using the C++/Cython interface
-        self.calc = _nepcal.NEPCalculator(filename)
+        if self._is_qnep:
+            self.calc = _qnepcal.qNEPCalculator(filename)
+        else:
+            self.calc = _nepcal.NEPCalculator(filename)
         self.rc = max(self.calc.info["radial_cutoff"], self.calc.info["angular_cutoff"])
         # Initialize results dictionary
         self.results = {}
@@ -179,6 +186,8 @@ class NEP(CalculatorMP):
         - 'forces': per-atom forces (N, 3)
         - 'virials': per-atom virials (N, 9)
         - 'stress': system stress tensor (6,) in Voigt notation
+        - 'charge' : per-atom charge (N,), only available for qNEP
+        - 'bec' : per-atom bec (N, 9), only available for qNEP
 
         The stress tensor is computed from virials as:
         σ = -(W + W^T) / (2V) where W is the total virial and V is volume.
@@ -189,14 +198,23 @@ class NEP(CalculatorMP):
         potential = np.zeros(N, float)  # Per-atom energies
         force = np.zeros((N, 3), float)  # Per-atom forces [fx, fy, fz]
         virial = np.zeros((N, 9), float)  # Per-atom virials (9 components)
+        if self._is_qnep:
+            charge = np.zeros(N, float)  # Per-atom charges
+            bec = np.zeros((N, 9), float)  # Per-atom bec (9 components)
 
-        # Call the C++/Cython NEP calculator
-        self.calc.calculate(*self.setAtoms(data, box), potential, force, virial)
+        # Call the C++NEP calculator
+        if self._is_qnep:
+            self.calc.calculate(*self.setAtoms(data, box), potential, force, virial, charge, bec)
+        else:
+            self.calc.calculate(*self.setAtoms(data, box), potential, force, virial)
 
         # Store results
         self.results["energies"] = potential
         self.results["forces"] = force
         self.results["virials"] = virial
+        if self._is_qnep:
+            self.results["charges"] = charge 
+            self.results["bec"] = bec 
 
         # Calculate stress tensor from virials
         v = virial.sum(axis=0)  # Sum virials over all atoms
@@ -307,6 +325,53 @@ class NEP(CalculatorMP):
             self.calculate(data, box)
         return self.results["stress"]
 
+    def get_charges(self, data:pl.DataFrame, box:Box) -> np.ndarray:
+        """
+        Get per-atom charges for qNEP.
+
+        Parameters
+        ----------
+        data : pl.DataFrame
+            Atomic configuration data
+        box : Box
+            Simulation box
+
+        Returns
+        -------
+        np.ndarray
+            Array of shape (N,) containing charge for each atom
+        """
+        if self._is_qnep:
+            if "charges" not in self.results.keys():
+                self.calculate(data, box)
+        else:
+            raise ValueError('Charges is only available for qNEP.')
+        return self.results["charges"]
+    
+    def get_bec(self, data:pl.DataFrame, box:Box) -> np.ndarray:
+        """
+        Get per-atom bec for qNEP.
+
+        Parameters
+        ----------
+        data : pl.DataFrame
+            Atomic configuration data
+        box : Box
+            Simulation box
+
+        Returns
+        -------
+        np.ndarray
+            Array of shape (N, 9) with bec components for each atom
+            Ordered as: [bec_xx, bec_xy, bec_xz, bec_yx, bec_yy, bec_yz, bec_zx, bec_zy, bec_zz]
+        """
+        if self._is_qnep:
+            if "bec" not in self.results.keys():
+                self.calculate(data, box)
+        else:
+            raise ValueError('bec is only available for qNEP.')
+        return self.results["bec"]
+
     def get_descriptor(self, data: pl.DataFrame, box: Box) -> np.ndarray:
         """
         Get atomic descriptors from the NEP model.
@@ -357,6 +422,8 @@ class NEP(CalculatorMP):
             for each atom, where num_nlatent is the latent space dimension
 
         """
+        if self._is_qnep:
+            raise ValueError('qNEP dose not support get_latentspace now.')
         N = data.shape[0]
         latentspace = np.zeros((N, self.calc.info["num_nlatent"]), float)
         self.calc.get_latentspace(*self.setAtoms(data, box), latentspace)
@@ -364,4 +431,4 @@ class NEP(CalculatorMP):
 
 
 if __name__ == "__main__":
-    pass
+    pass 

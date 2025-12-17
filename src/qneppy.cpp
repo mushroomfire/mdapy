@@ -1,8 +1,5 @@
-// Copyright (c) 2022-2024, mushroomfire in Beijing Institute of Technology
-// This file is from the mdapy project, released under the BSD 3-Clause License.
-
 #include "type.h"
-#include <nep.h>
+#include <qnep.h>
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/string.h>
@@ -16,13 +13,13 @@ struct Atom
 {
     int N;
     std::vector<int> type;
-    std::vector<double> box, position, potential, force, virial, descriptor, latentspace;
+    std::vector<double> box, position, potential, force, virial, charge, bec, descriptor;
 };
 
-class NEPCalculator
+class qNEPCalculator
 {
 public:
-    NEPCalculator(std::string);
+    qNEPCalculator(std::string);
     void setAtoms(const ROneArrayI type_py,
                   const ROneArrayD x_py,
                   const ROneArrayD y_py,
@@ -35,7 +32,10 @@ public:
                    const RTwoArrayD box_py,
                    OneArrayD potention_py,
                    TwoArrayD force_py,
-                   TwoArrayD virial_py);
+                   TwoArrayD virial_py,
+                   OneArrayD charge_py,
+                   TwoArrayD bec_py    
+                );
     nb::dict info;
     void get_descriptors(const ROneArrayI type_py,
                          const ROneArrayD x_py,
@@ -44,24 +44,17 @@ public:
                          const RTwoArrayD box_py,
                          TwoArrayD descriptor_py);
 
-    void get_latentspace(const ROneArrayI type_py,
-                         const ROneArrayD x_py,
-                         const ROneArrayD y_py,
-                         const ROneArrayD z_py,
-                         const RTwoArrayD box_py,
-                         TwoArrayD latentspace_py);
-
 private:
     Atom atom;
-    NEP3 calc;
+    QNEP calc;
     std::string model_file;
 };
 
-NEPCalculator::NEPCalculator(std::string _model_file)
+qNEPCalculator::qNEPCalculator(std::string _model_file)
 {
     model_file = _model_file;
-    calc = NEP3(model_file);
-    info["version"] = calc.paramb.version;
+    calc = QNEP(model_file);
+    info["charge_mode"] = calc.paramb.charge_mode;
     info["zbl"] = calc.zbl.enabled;
     info["radial_cutoff"] = calc.paramb.rc_radial;
     info["angular_cutoff"] = calc.paramb.rc_angular;
@@ -81,7 +74,7 @@ NEPCalculator::NEPCalculator(std::string _model_file)
     info["element_list"] = ele_list;
 }
 
-void NEPCalculator::setAtoms(
+void qNEPCalculator::setAtoms(
     const ROneArrayI type_py,
     const ROneArrayD x_py,
     const ROneArrayD y_py,
@@ -104,6 +97,10 @@ void NEPCalculator::setAtoms(
     // virial[num_atoms * 9] is ordered as v_xx[num_atoms], v_xy[num_atoms], v_xz[num_atoms],
     // v_yx[num_atoms], v_yy[num_atoms], v_yz[num_atoms], v_zx[num_atoms], v_zy[num_atoms],
     // v_zz[num_atoms]
+    // charge[num_atoms]
+    // bec[num_atoms * 9] is ordered as bec_xx[num_atoms], bec_xy[num_atoms], bec_xz[num_atoms],
+    // bec_yx[num_atoms], bec_yy[num_atoms], bec_yz[num_atoms], bec_zx[num_atoms], bec_zy[num_atoms],
+    // bec_zz[num_atoms]
     // descriptor[num_atoms * dim] is ordered as d0[num_atoms], d1[num_atoms], ...
 
     _atom.box.resize(9);
@@ -112,8 +109,10 @@ void NEPCalculator::setAtoms(
     _atom.potential.resize(_atom.N);
     _atom.force.resize(_atom.N * 3);
     _atom.virial.resize(_atom.N * 9);
+    _atom.charge.resize(_atom.N);
+    _atom.bec.resize(_atom.N * 9);
     _atom.descriptor.resize(_atom.N * calc.annmb.dim);
-    _atom.latentspace.resize(_atom.N * calc.annmb.num_neurons1);
+
     _atom.box[0] = box(0, 0); // ax
     _atom.box[1] = box(1, 0); // bx
     _atom.box[2] = box(2, 0); // cx
@@ -136,7 +135,7 @@ void NEPCalculator::setAtoms(
     atom = _atom;
 }
 
-void NEPCalculator::calculate(
+void qNEPCalculator::calculate(
     const ROneArrayI type_py,
     const ROneArrayD x_py,
     const ROneArrayD y_py,
@@ -144,33 +143,44 @@ void NEPCalculator::calculate(
     const RTwoArrayD box_py,
     OneArrayD potention_py,
     TwoArrayD force_py,
-    TwoArrayD virial_py)
+    TwoArrayD virial_py,
+    OneArrayD charge_py,
+    TwoArrayD bec_py   
+)
 {
     setAtoms(type_py, x_py, y_py, z_py, box_py);
-    calc.compute(atom.type, atom.box, atom.position, atom.potential, atom.force, atom.virial);
+    calc.compute(atom.type, atom.box, atom.position, atom.potential, atom.force, atom.virial, atom.charge, atom.bec);
     auto potential = potention_py.view();
     auto force = force_py.view();
     auto virial = virial_py.view();
+    auto charge = charge_py.view();
+    auto bec = bec_py.view();
 // potential[num_atoms]
 // force[num_atoms * 3] is ordered as fx[num_atoms], fy[num_atoms], fz[num_atoms]
 // virial[num_atoms * 9] is ordered as v_xx[num_atoms], v_xy[num_atoms], v_xz[num_atoms],
 // v_yx[num_atoms], v_yy[num_atoms], v_yz[num_atoms], v_zx[num_atoms], v_zy[num_atoms],
 // v_zz[num_atoms]
+// charge[num_atoms]
+// bec[num_atoms * 9] is ordered as bec_xx[num_atoms], bec_xy[num_atoms], bec_xz[num_atoms],
+// bec_yx[num_atoms], bec_yy[num_atoms], bec_yz[num_atoms], bec_zx[num_atoms], bec_zy[num_atoms],
+// bec_zz[num_atoms]
 #pragma omp parallel for
     for (int i = 0; i < atom.N; ++i)
     {
         potential(i) = atom.potential[i];
+        charge(i) = atom.charge[i];
         force(i, 0) = atom.force[i];
         force(i, 1) = atom.force[i + atom.N];
         force(i, 2) = atom.force[i + atom.N * 2];
         for (int j = 0; j < 9; ++j)
         {
             virial(i, j) = atom.virial[i + atom.N * j];
+            bec(i, j) = atom.bec[i+atom.N*j];
         }
     }
 }
 
-void NEPCalculator::get_descriptors(
+void qNEPCalculator::get_descriptors(
     const ROneArrayI type_py,
     const ROneArrayD x_py,
     const ROneArrayD y_py,
@@ -193,35 +203,11 @@ void NEPCalculator::get_descriptors(
     }
 }
 
-void NEPCalculator::get_latentspace(
-    const ROneArrayI type_py,
-    const ROneArrayD x_py,
-    const ROneArrayD y_py,
-    const ROneArrayD z_py,
-    const RTwoArrayD box_py,
-    TwoArrayD latentspace_py)
+NB_MODULE(_qnepcal, m)
 {
-    setAtoms(type_py, x_py, y_py, z_py, box_py);
-    calc.find_latent_space(atom.type, atom.box, atom.position, atom.latentspace);
-    auto latentspace = latentspace_py.view();
-
-#pragma omp parallel for
-    for (int i = 0; i < atom.N; ++i)
-    {
-
-        for (int j = 0; j < calc.annmb.num_neurons1; ++j)
-        {
-            latentspace(i, j) = atom.latentspace[i + atom.N * j];
-        }
-    }
-}
-
-NB_MODULE(_nepcal, m)
-{
-    nb::class_<NEPCalculator>(m, "NEPCalculator")
+    nb::class_<qNEPCalculator>(m, "qNEPCalculator")
         .def(nb::init<std::string>())
-        .def_ro("info", &NEPCalculator::info)
-        .def("calculate", &NEPCalculator::calculate)
-        .def("get_descriptors", &NEPCalculator::get_descriptors)
-        .def("get_latentspace", &NEPCalculator::get_latentspace);
+        .def_ro("info", &qNEPCalculator::info)
+        .def("calculate", &qNEPCalculator::calculate)
+        .def("get_descriptors", &qNEPCalculator::get_descriptors);
 }

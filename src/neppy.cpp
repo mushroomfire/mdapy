@@ -46,6 +46,7 @@ public:
                           TwoArrayD virial_py,
                           OneArrayD charge_py,
                           TwoArrayD bec_py);
+
     nb::dict info;
     void get_descriptors(const ROneArrayI type_py,
                          const ROneArrayD x_py,

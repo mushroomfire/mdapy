@@ -31,21 +31,19 @@ find_package(nanobind CONFIG REQUIRED)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern/voro++/src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern/NEPCPU)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern/NEPCPU/qnep)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern/ptm)
 
 file(GLOB PTM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/ptm/ptm_*.cpp
 )
-file(GLOB qNEP_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/extern/NEPCPU/qnep/*.cpp
+file(GLOB NEP_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/extern/NEPCPU/*.cpp
 )
 
 nanobind_add_module(_neighbor STABLE_ABI src/neighbor.cpp)
 nanobind_add_module(_structure_entropy STABLE_ABI src/structure_entropy.cpp)
 nanobind_add_module(_voronoi STABLE_ABI src/voronoi.cpp ${CMAKE_CURRENT_SOURCE_DIR}/extern/voro++/src/voro++.cc)
-nanobind_add_module(_nepcal STABLE_ABI src/neppy.cpp ${CMAKE_CURRENT_SOURCE_DIR}/extern/NEPCPU/nep.cpp)
-nanobind_add_module(_qnepcal STABLE_ABI src/qneppy.cpp ${qNEP_SOURCES})
+nanobind_add_module(_nepcal STABLE_ABI src/neppy.cpp ${NEP_SOURCES})
 nanobind_add_module(_repeat_cell STABLE_ABI src/repeat_cell.cpp)
 nanobind_add_module(_aabbtree STABLE_ABI src/aabb_tree.cpp)
 nanobind_add_module(_cluster STABLE_ABI src/cluster.cpp)
@@ -75,7 +73,6 @@ set(MODULES
     _structure_entropy
     _voronoi
     _nepcal
-    _qnepcal
     _repeat_cell
     _aabbtree
     _cluster

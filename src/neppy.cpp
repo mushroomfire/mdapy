@@ -16,7 +16,7 @@ struct Atom
 {
     int N;
     std::vector<int> type;
-    std::vector<double> box, position, potential, force, virial, descriptor, latentspace;
+    std::vector<double> box, position, potential, force, virial, charge, bec, descriptor, latentspace;
 };
 
 class NEPCalculator
@@ -36,6 +36,16 @@ public:
                    OneArrayD potention_py,
                    TwoArrayD force_py,
                    TwoArrayD virial_py);
+    void calculate_charge(const ROneArrayI type_py,
+                          const ROneArrayD x_py,
+                          const ROneArrayD y_py,
+                          const ROneArrayD z_py,
+                          const RTwoArrayD box_py,
+                          OneArrayD potention_py,
+                          TwoArrayD force_py,
+                          TwoArrayD virial_py,
+                          OneArrayD charge_py,
+                          TwoArrayD bec_py);
     nb::dict info;
     void get_descriptors(const ROneArrayI type_py,
                          const ROneArrayD x_py,
@@ -53,15 +63,17 @@ public:
 
 private:
     Atom atom;
-    NEP3 calc;
+    NEP calc;
     std::string model_file;
 };
 
 NEPCalculator::NEPCalculator(std::string _model_file)
 {
     model_file = _model_file;
-    calc = NEP3(model_file);
+    calc = NEP(model_file);
+    info["model_type"] = calc.paramb.model_type;
     info["version"] = calc.paramb.version;
+    info["charge_mode"] = calc.paramb.charge_mode;
     info["zbl"] = calc.zbl.enabled;
     info["radial_cutoff"] = calc.paramb.rc_radial;
     info["angular_cutoff"] = calc.paramb.rc_angular;
@@ -124,6 +136,16 @@ void NEPCalculator::setAtoms(
     _atom.box[7] = box(1, 2); // bz
     _atom.box[8] = box(2, 2); // cz
 
+    // charge[num_atoms]
+    // bec[num_atoms * 9] is ordered as bec_xx[num_atoms], bec_xy[num_atoms], bec_xz[num_atoms],
+    // bec_yx[num_atoms], bec_yy[num_atoms], bec_yz[num_atoms], bec_zx[num_atoms], bec_zy[num_atoms],
+    // bec_zz[num_atoms]
+    if (calc.paramb.charge_mode > 0)
+    {
+        _atom.charge.resize(_atom.N);
+        _atom.bec.resize(_atom.N * 9);
+    }
+
 #pragma omp parallel for firstprivate(x, y, z, type)
     for (int i = 0; i < _atom.N; ++i)
     {
@@ -166,6 +188,42 @@ void NEPCalculator::calculate(
         for (int j = 0; j < 9; ++j)
         {
             virial(i, j) = atom.virial[i + atom.N * j];
+        }
+    }
+}
+
+void NEPCalculator::calculate_charge(
+    const ROneArrayI type_py,
+    const ROneArrayD x_py,
+    const ROneArrayD y_py,
+    const ROneArrayD z_py,
+    const RTwoArrayD box_py,
+    OneArrayD potention_py,
+    TwoArrayD force_py,
+    TwoArrayD virial_py,
+    OneArrayD charge_py,
+    TwoArrayD bec_py)
+{
+    setAtoms(type_py, x_py, y_py, z_py, box_py);
+    calc.compute(atom.type, atom.box, atom.position, atom.potential, atom.force, atom.virial, atom.charge, atom.bec);
+    auto potential = potention_py.view();
+    auto force = force_py.view();
+    auto virial = virial_py.view();
+    auto charge = charge_py.view();
+    auto bec = bec_py.view();
+
+#pragma omp parallel for
+    for (int i = 0; i < atom.N; ++i)
+    {
+        potential(i) = atom.potential[i];
+        charge(i) = atom.charge[i];
+        force(i, 0) = atom.force[i];
+        force(i, 1) = atom.force[i + atom.N];
+        force(i, 2) = atom.force[i + atom.N * 2];
+        for (int j = 0; j < 9; ++j)
+        {
+            virial(i, j) = atom.virial[i + atom.N * j];
+            bec(i, j) = atom.bec[i + atom.N * j];
         }
     }
 }
@@ -222,6 +280,7 @@ NB_MODULE(_nepcal, m)
         .def(nb::init<std::string>())
         .def_ro("info", &NEPCalculator::info)
         .def("calculate", &NEPCalculator::calculate)
+        .def("calculate_charge", &NEPCalculator::calculate_charge)
         .def("get_descriptors", &NEPCalculator::get_descriptors)
         .def("get_latentspace", &NEPCalculator::get_latentspace);
 }

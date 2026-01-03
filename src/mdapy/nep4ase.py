@@ -6,7 +6,7 @@ try:
     from ase.calculators.calculator import Calculator, all_changes
 except ImportError:
     raise ImportError("One can install ase by pip install ase.")
-from mdapy import _nepcal, _qnepcal
+from mdapy import _nepcal
 from typing import Optional, List, Tuple
 import numpy as np
 import os
@@ -88,15 +88,12 @@ class NEP4ASE(Calculator):
             raise FileNotFoundError(f"{model_filename} does not exist.")
 
         # Load NEP model
+        self.calc = _nepcal.NEPCalculator(model_filename)
+        assert self.calc.info['model_type'] == 0, "Only support energy NEP model."
         self._is_qnep = False
-        with open(model_filename) as op:
-            if "charge" in op.readline():
-                self._is_qnep = True
-
-        if self._is_qnep:
-            self.calc = _qnepcal.qNEPCalculator(model_filename)
-        else:
-            self.calc = _nepcal.NEPCalculator(model_filename)
+        if self.calc.info['charge_mode'] > 0:
+            self._is_qnep = True 
+        
         self.rc = max(self.calc.info["radial_cutoff"], self.calc.info["angular_cutoff"])
         self.results = {}
 
@@ -201,8 +198,6 @@ class NEP4ASE(Calculator):
             self.calc.get_descriptors(*self.set_nep(atoms), descriptor)
             self.results["descriptor"] = descriptor
         elif "latentspace" in properties:
-            if self._is_qnep:
-                raise ValueError("qNEP dose not support get_latentspace now.")
             latentspace = np.zeros((N, self.calc.info["num_nlatent"]), float)
             self.calc.get_latentspace(*self.set_nep(atoms), latentspace)
             self.results["latentspace"] = latentspace
@@ -217,7 +212,7 @@ class NEP4ASE(Calculator):
 
             # Perform NEP calculation
             if self._is_qnep:
-                self.calc.calculate(
+                self.calc.calculate_charge(
                     *self.set_nep(atoms), potential, force, virial, charge, bec
                 )
             else:
@@ -336,8 +331,6 @@ class NEP4ASE(Calculator):
         np.ndarray
             Latent space array of shape (N, num_nlatent)
         """
-        if self._is_qnep:
-            raise ValueError("qNEP dose not support get_latentspace now.")
 
         self.calculate(atoms, ["latentspace"], system_changes)
         return self.results["latentspace"]

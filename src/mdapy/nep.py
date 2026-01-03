@@ -1,7 +1,7 @@
 # Copyright (c) 2022-2025, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
-from mdapy import _nepcal, _qnepcal
+from mdapy import _nepcal
 from mdapy.box import Box
 from typing import Tuple
 import numpy as np
@@ -75,16 +75,12 @@ class NEP(CalculatorMP):
         """
         if not os.path.exists(filename):
             raise FileNotFoundError(f"{filename} does not exist.")
-
+        self.calc = _nepcal.NEPCalculator(filename)
+        assert self.calc.info['model_type'] == 0, "Only support energy NEP model."
         self._is_qnep = False
-        with open(filename) as op:
-            if "charge" in op.readline():
-                self._is_qnep = True
+        if self.calc.info['charge_mode'] > 0:
+            self._is_qnep = True 
 
-        if self._is_qnep:
-            self.calc = _qnepcal.qNEPCalculator(filename)
-        else:
-            self.calc = _nepcal.NEPCalculator(filename)
         self.rc = max(self.calc.info["radial_cutoff"], self.calc.info["angular_cutoff"])
         # Initialize results dictionary
         self.results = {}
@@ -204,7 +200,7 @@ class NEP(CalculatorMP):
 
         # Call the C++NEP calculator
         if self._is_qnep:
-            self.calc.calculate(
+            self.calc.calculate_charge(
                 *self.setAtoms(data, box), potential, force, virial, charge, bec
             )
         else:
@@ -424,8 +420,6 @@ class NEP(CalculatorMP):
             for each atom, where num_nlatent is the latent space dimension
 
         """
-        if self._is_qnep:
-            raise ValueError("qNEP dose not support get_latentspace now.")
         N = data.shape[0]
         latentspace = np.zeros((N, self.calc.info["num_nlatent"]), float)
         self.calc.get_latentspace(*self.setAtoms(data, box), latentspace)

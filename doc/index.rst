@@ -57,6 +57,7 @@ Getting Started
    gettingstarted/phonon_calculation
    gettingstarted/eam_analysis
    gettingstarted/load_save
+   gettingstarted/benchmark
    
 
 Mdapy Python API

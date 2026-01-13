@@ -657,10 +657,9 @@ def build_hea_fromsystem(
     # --- Assign elements by ratio ---
     type_counts = np.floor(system.N * np.array(element_ratio)).astype(int)
     for i in range(len(element_ratio)):
-        if type_counts[i] == 0 and element_ratio[i] > 0:
+        if type_counts[i] == 0 and element_ratio[i] > 1e-6:
             type_counts[i] += 1
-
-    type_counts[-1] = max(system.N - type_counts[:-1].sum(), 1)  # ensure total equals N
+    type_counts[-1] = system.N - type_counts[:-1].sum()
 
     element_array = np.repeat(element_list, type_counts)
     if random_seed is not None:
@@ -752,8 +751,5 @@ def build_partial_dislocation_fcc(
 
 
 if __name__ == "__main__":
-    system = build_partial_dislocation_fcc(
-        "X", 3.526, 100, 60, 13, ["Cr", "Co", "Fe", "Ni"], [1 / 3, 1 / 3, 0, 1 / 3]
-    )
-    print("Fe" in system.data["element"])
-    system.write_data("test.data", ["Cr", "Co", "Fe", "Ni"])
+    fcc = build_hea(["Cr", "Co", "Fe", "Ni"], [0, 0, 0, 1], 'fcc', 3.53, nx=3, ny=3, nz=3, random_seed=1)
+    print(fcc)

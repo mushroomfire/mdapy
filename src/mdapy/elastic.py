@@ -161,7 +161,7 @@ class ElasticConstant:
         system.calc.results = {}
         return system
 
-    def generate_deformations(self, n: int = 5, d: float = 2) -> List[System]:
+    def generate_deformations(self, n: int = 5, d: float = 2, relax_structure:bool = True) -> List[System]:
         """
         Generate a series of deformed systems for elastic constant fitting.
 
@@ -171,13 +171,16 @@ class ElasticConstant:
             Number of deformation steps for each mode (default: 5).
         d : float, optional
             Maximum deformation amplitude in percent (default: 2).
+        relax_structure : bool, optional
+            Whether optimize structures (default: True).
 
         Returns
         -------
         list of System
             List of deformed system objects.
         """
-        self.relax_struc(self.system, change_cell=True)
+        if relax_structure:
+            self.relax_struc(self.system, change_cell=True)
         systems = []
         for a in range(6):
             if a < 3:
@@ -230,12 +233,14 @@ class ElasticConstant:
     # ------------------------------------------------------------
     # Main computation
     # ------------------------------------------------------------
-    def compute(self, n: int = 5, d: float = 2):
+    def compute(self, relax_structure:bool = True, n: int = 5, d: float = 2):
         """
         Compute the elastic constants by fitting stress–strain data.
 
         Parameters
         ----------
+        relax_structure : bool, optional
+            Whether optimize structures (default: True).
         n : int, optional
             Number of deformation steps per mode (default: 5).
         d : float, optional
@@ -245,17 +250,18 @@ class ElasticConstant:
         -----
         The method performs the following steps:
 
-        1. Generate deformed configurations based on a fully relaxed structure.
-        2. Relax each configuration to minimize energy.
+        1. Generate deformed configurations based on a fully relaxed structure (if relax_structure is True).
+        2. Relax each configuration to minimize energy (if relax_structure is True).
         3. Compute the resulting stress tensors.
         4. Fit the linear stress–strain relation to extract Cij.
         """
-        systems = self.generate_deformations(n, d)
+        systems = self.generate_deformations(n, d, relax_structure)
         p = self.get_pressure(self.system.get_stress())
 
         ul, sl = [], []
         for g in systems:
-            self.relax_struc(g)
+            if relax_structure:
+                self.relax_struc(g)
             u_vec = self.get_strain(g, self.system)
             s_vec = np.array(g.get_stress(), dtype=float) - np.array(
                 [p, p, p, 0.0, 0.0, 0.0], dtype=float

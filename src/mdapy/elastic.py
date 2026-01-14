@@ -108,7 +108,7 @@ class ElasticConstant:
         steps : int, optional
             Maximum number of FIRE steps (default: 10000).
         """
-        fy = FIRE(system, optimize_cell=change_cell)
+        fy = FIRE(system, optimize_cell=change_cell, hydrostatic_strain=True)
         fy.run(steps, fmax, show_process=show_process)
         system.calc.results = {}
 
@@ -161,7 +161,7 @@ class ElasticConstant:
         system.calc.results = {}
         return system
 
-    def generate_deformations(self, n: int = 5, d: float = 2, relax_structure:bool = True) -> List[System]:
+    def generate_deformations(self, n: int = 5, d: float = 2) -> List[System]:
         """
         Generate a series of deformed systems for elastic constant fitting.
 
@@ -171,16 +171,14 @@ class ElasticConstant:
             Number of deformation steps for each mode (default: 5).
         d : float, optional
             Maximum deformation amplitude in percent (default: 2).
-        relax_structure : bool, optional
-            Whether optimize structures (default: True).
 
         Returns
         -------
         list of System
             List of deformed system objects.
         """
-        if relax_structure:
-            self.relax_struc(self.system, change_cell=True)
+
+        self.relax_struc(self.system, change_cell=True)
         systems = []
         for a in range(6):
             if a < 3:
@@ -233,14 +231,12 @@ class ElasticConstant:
     # ------------------------------------------------------------
     # Main computation
     # ------------------------------------------------------------
-    def compute(self, relax_structure:bool = True, n: int = 5, d: float = 2):
+    def compute(self, n: int = 5, d: float = 2):
         """
         Compute the elastic constants by fitting stress–strain data.
 
         Parameters
         ----------
-        relax_structure : bool, optional
-            Whether optimize structures (default: True).
         n : int, optional
             Number of deformation steps per mode (default: 5).
         d : float, optional
@@ -255,13 +251,12 @@ class ElasticConstant:
         3. Compute the resulting stress tensors.
         4. Fit the linear stress–strain relation to extract Cij.
         """
-        systems = self.generate_deformations(n, d, relax_structure)
+        systems = self.generate_deformations(n, d)
         p = self.get_pressure(self.system.get_stress())
 
         ul, sl = [], []
         for g in systems:
-            if relax_structure:
-                self.relax_struc(g)
+            self.relax_struc(g)
             u_vec = self.get_strain(g, self.system)
             s_vec = np.array(g.get_stress(), dtype=float) - np.array(
                 [p, p, p, 0.0, 0.0, 0.0], dtype=float
@@ -324,4 +319,15 @@ class ElasticConstant:
 
 
 if __name__ == "__main__":
-    pass
+    from mdapy import NEP, build_hea
+
+    nep = NEP('/u/22/wuy33/unix/Desktop/mini_test/nep89_20250409.txt')
+    element_list = ['Cr', 'Co', 'Ni']
+    element_ratio = [1/3, 1/3, 1/3]
+    fcc = build_hea(element_list, element_ratio, 'fcc', 3.53, nx=3, ny=3, nz=3, random_seed=1)
+    fcc.calc = nep
+    fcc.calc.results = {}
+    elas = ElasticConstant(fcc)
+    elas.compute()
+    elas.print_Cij()
+

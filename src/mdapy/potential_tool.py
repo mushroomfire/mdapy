@@ -453,33 +453,35 @@ def cfg2xyz(
     file_list : List[str] or str
         Single or multi cfg file.
     type_dict : Dict[str, int]
-        Map type from number to element, such as {'Al':0, 'C':1}.
+        Map type from number to element, such as {0:'Al', 1:'C'}.
     output_name : str
         Output filename with append mode. Defaults to train.xyz.
     f_max : float
         Force absolute maximum larger than this value will be filtered. Defaults to 25.0 eV/A.
     """
-    for cfg in file_list:
-        with open(cfg) as op:
-            file = op.read()
-        res = file.split("BEGIN_CFG")[1:]
-        for f in range(len(res)):
-            frame_content = res[f].split("\n")
-            N = int(frame_content[2].strip())
-            box = []
-            for i in frame_content[4:7]:
-                box.extend(i.split())
-            type_pos_force = [i.split()[1:] for i in frame_content[8 : 8 + N]]
-            _f_max = np.abs(np.array(type_pos_force)[:, -3:].astype(float)).max()
-            if _f_max > f_max:
-                continue
-            energy = frame_content[8 + N + 1].strip()
-            vxx, vyy, vzz, vyz, vxz, vxy = frame_content[8 + N + 1 + 2].strip().split()
-            vyx = vxy
-            vzx = vxz
-            vzy = vyz
-
-            with open(output_name, "a") as op:
+    if isinstance(file_list, str):
+        file_list = [file_list]
+    with open(output_name, "a") as op:
+        for cfg in file_list:
+            with open(cfg) as op:
+                file = op.read()
+            res = file.split("BEGIN_CFG")[1:]
+            for f in range(len(res)):
+                frame_content = res[f].split("\n")
+                N = int(frame_content[2].strip())
+                box = []
+                for i in frame_content[4:7]:
+                    box.extend(i.split())
+                type_pos_force = [i.split()[1:] for i in frame_content[8 : 8 + N]]
+                _f_max = np.abs(np.array(type_pos_force)[:, -3:].astype(float)).max()
+                if _f_max > f_max:
+                    continue
+                energy = frame_content[8 + N + 1].strip()
+                vxx, vyy, vzz, vyz, vxz, vxy = frame_content[8 + N + 1 + 2].strip().split()
+                vyx = vxy
+                vzx = vxz
+                vzy = vyz
+            
                 op.write(f"{N}\n")
                 box_str = (
                     "Lattice=" + '"' + "{} {} {} {} {} {} {} {} {}".format(*box) + '"'

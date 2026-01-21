@@ -10,6 +10,7 @@ from mdapy.calculator import CalculatorMP
 from mdapy.build_lattice import build_hea, build_crystal
 from mdapy.system import System
 import os
+import re
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -477,11 +478,13 @@ def cfg2xyz(
                 if _f_max > f_max:
                     continue
                 energy = frame_content[8 + N + 1].strip()
-                vxx, vyy, vzz, vyz, vxz, vxy = frame_content[8 + N + 1 + 2].strip().split()
+                vxx, vyy, vzz, vyz, vxz, vxy = (
+                    frame_content[8 + N + 1 + 2].strip().split()
+                )
                 vyx = vxy
                 vzx = vxz
                 vzy = vyz
-            
+
                 op.write(f"{N}\n")
                 box_str = (
                     "Lattice=" + '"' + "{} {} {} {} {} {} {} {} {}".format(*box) + '"'
@@ -495,6 +498,116 @@ def cfg2xyz(
                             type_dict[int(type_pos_force[i][0])], *type_pos_force[i][1:]
                         )
                     )
+
+
+def read_OUTCAR(filename: str):
+    data = {
+        "Natom": None,
+        "lattice": None,
+        "energy": None,
+        "pos_force": None,
+        "symbols": None,
+        "virial": None,
+    }
+    with open(filename) as f:
+        content = f.read()
+    lines_content = content.split("\n")
+
+    pattern = (
+        r"VOLUME and BASIS-vectors are now.*?\n(.*?\n.*?\n.*?\n.*?\n.*?\n.*?\n.*?\n)"
+    )
+    match = re.search(pattern, content, re.DOTALL)
+    lines = match.group(1).strip().split("\n")
+    lattice_lines = lines[-3:]
+    lattice = []
+    for line in lattice_lines:
+        line = re.sub(r"(?<=\d)-", " -", line)
+        values = line.split()[:3]
+        lattice.extend(values)
+    data["lattice"] = " ".join(lattice)
+
+    has_virial = False
+    ion_symbols = []
+    for i, line in enumerate(lines_content):
+        if "number of ions" in line:
+            data["Natom"] = int(line.split()[-1])
+        if "free  energy   TOTEN" in line:
+            data["energy"] = float(line.split()[4])
+        if "ISIF" in line:
+            has_virial = int(line.split()[2]) != 0
+        if "ions per type" in line:
+            ion_numbers = [int(j) for j in line.split("=")[1].split()]
+        if "POTCAR:" in line:
+            symbol = line.split()[2].split("_")[0]
+            if symbol not in ion_symbols:
+                ion_symbols.append(symbol)
+        if "TOTAL-FORCE (eV/Angst)" in line:
+            start_idx = i + 2
+            end_idx = start_idx + data["Natom"]
+            data["pos_force"] = [
+                " ".join(lines_content[j].split()) for j in range(start_idx, end_idx)
+            ]
+
+    symbols = []
+    for i, j in zip(ion_symbols, ion_numbers):
+        symbols.extend([i] * j)
+    data["symbols"] = symbols
+    if has_virial:
+        pattern = r"FORCE on cell =-STRESS.*?Total\s+([\d\.\-\s]+)"
+        values = list(re.finditer(pattern, content, re.DOTALL))[-1].group(1).split()
+        data["virial"] = " ".join(
+            [
+                values[0],
+                values[3],
+                values[4],
+                values[3],
+                values[1],
+                values[5],
+                values[4],
+                values[5],
+                values[2],
+            ]
+        )
+    return data
+
+
+def outcar2xyz(
+    outcar_list: Union[List[str], str], output_path: str = "train.xyz", mode: str = "w"
+):
+    """Convert OUTCAR file for VASP to xyz file for GPUMD, including energy, force and virial.
+
+    Parameters
+    ----------
+    outcar_list : List[str] or str
+        Single or multi OUTCAR file.
+    output_path : str
+        Output filename. Defaults to train.xyz.
+    mode : str
+        Writting mode, such as 'w' and 'a'. Defaults to 'w'.
+    """
+    if isinstance(outcar_list, str):
+        outcar_list = [outcar_list]
+
+    assert mode in ["w", "a"], "Only support w or a mode."
+
+    with open(output_path, mode) as out_f:
+        for i, outcar in enumerate(outcar_list, 1):
+            data = read_OUTCAR(outcar)
+            out_f.write(f"{data['Natom']}\n")
+            line_properties = "Properties=species:S:1:pos:R:3:forces:R:3"
+            energy, lattice = data["energy"], data["lattice"]
+            if data["virial"] is not None:
+                virial = data["virial"]
+                out_f.write(
+                    f'energy={energy:.6f} Lattice="{lattice}" virial="{virial}" {line_properties} pbc="T T T"\n'
+                )
+            else:
+                out_f.write(
+                    f'energy={energy:.6f} Lattice="{lattice}" {line_properties} pbc="T T T"\n'
+                )
+            for symbol, pf_line in zip(data["symbols"], data["pos_force"]):
+                out_f.write(f"{symbol} {pf_line}\n")
+            print(f"\rProgress: {i}/{len(outcar_list)}", end="", flush=True)
 
 
 if __name__ == "__main__":

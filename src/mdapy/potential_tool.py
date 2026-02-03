@@ -722,9 +722,9 @@ def outcars2xyz(
                     for s, l in zip(syms, lines):
                         wf.write(f"{s} {' '.join(l.split())}\n")
 
-        progress = int((num + 1) * 100 / len(output_path))
-        bar = "#" * (progress // 2) + "." * (50 - progress // 2)
-        print(f"\rProgress: [{bar}] {progress}% ({num + 1}/{len(output_path)})", end="")
+            progress = int((num + 1) * 100 / len(output_path))
+            bar = "#" * (progress // 2) + "." * (50 - progress // 2)
+            print(f"\rProgress: [{bar}] {progress}% ({num + 1}/{len(output_path)})", end="")
     if len(not_converged):
         print(
             f"\nFound {len(not_converged)} non-converged OUTCARS, we have skiped them:"

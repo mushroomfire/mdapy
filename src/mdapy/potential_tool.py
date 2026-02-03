@@ -702,8 +702,10 @@ def outcars2xyz(
                     .split("\n")[0]
                     .split()[1:]
                 )
+
                 xx, yy, zz, xy, yz, zx = virial
-                virial_str = f"{xx} {yy} {zz} {xy} {yz} {zx} {xy} {yz} {zx}"
+                yx, xz, zy = xy, zx, yz
+                virial_str = f"{xx} {xy} {xz} {yx} {yy} {yz} {zx} {zy} {zz}"
                 wf.write(
                     f'Lattice="{latt}" Energy={ener} Virial="{virial_str}" pbc="T T T" Properties=species:S:1:pos:R:3:forces:R:3\n'
                 )

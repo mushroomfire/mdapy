@@ -572,7 +572,7 @@ def read_OUTCAR(filename: str) -> Union[Dict, bool]:
 
 
 def outcar2xyz(
-    outcar_list: Union[List[str], str], output_path: str = "train.xyz", mode: str = "w"
+    outcar_list: Union[List[str], str], output_path: str = "train.xyz", mode: str = "w", print_no_converge:bool=True
 ):
     """Convert OUTCAR file for VASP to xyz file for GPUMD, including energy, force and virial.
     It only works for single-point energy calculation generated OUTCAR.
@@ -585,6 +585,8 @@ def outcar2xyz(
         Output filename. Defaults to train.xyz.
     mode : str
         Writting mode, such as 'w' and 'a'. Defaults to 'w'.
+    print_no_converge : bool
+        Whether print non-converged outcars filename. Defaults to True
     """
     if isinstance(outcar_list, str):
         outcar_list = [outcar_list]
@@ -618,12 +620,13 @@ def outcar2xyz(
         print(
             f"\nFound {len(not_converged)} non-converged OUTCARS, we have skiped them:"
         )
-        for i in not_converged:
-            print(f"{i} is not converged!")
+        if print_no_converge:
+            for i in not_converged:
+                print(f"{i} is not converged!")
 
 
 def outcars2xyz(
-    outcar_list: Union[List[str], str], output_path: str = "train.xyz", mode: str = "w"
+    outcar_list: Union[List[str], str], output_path: str = "train.xyz", mode: str = "w", print_no_converge:bool=True
 ):
     """Convert OUTCAR file for VASP to xyz file for GPUMD, including energy, force and virial.
 
@@ -635,6 +638,8 @@ def outcars2xyz(
         Output filename. Defaults to train.xyz.
     mode : str
         Writting mode, such as 'w' and 'a'. Defaults to 'w'.
+    print_no_converge : bool
+        Whether print non-converged outcars filename. Defaults to True
     """
     if isinstance(outcar_list, str):
         outcar_list = [outcar_list]
@@ -721,8 +726,9 @@ def outcars2xyz(
         print(
             f"\nFound {len(not_converged)} non-converged OUTCARS, we have skiped them:"
         )
-        for i in not_converged:
-            print(f"{i} is not converged!")
+        if print_no_converge:
+            for i in not_converged:
+                print(f"{i} is not converged!")
 
 
 if __name__ == "__main__":

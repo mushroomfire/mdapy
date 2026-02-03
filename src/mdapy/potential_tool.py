@@ -724,7 +724,7 @@ def outcars2xyz(
 
             progress = int((num + 1) * 100 / len(outcar_list))
             bar = "#" * (progress // 2) + "." * (50 - progress // 2)
-            print(f"\rProgress: [{bar}] {progress}% ({num + 1}/{len(output_path)})", end="")
+            print(f"\rProgress: [{bar}] {progress}% ({num + 1}/{len(outcar_list)})", end="")
     if len(not_converged):
         print(
             f"\nFound {len(not_converged)} non-converged OUTCARS, we have skiped them:"

@@ -565,19 +565,9 @@ def read_OUTCAR(filename: str) -> Union[Dict, bool]:
     if has_virial:
         pattern = r"FORCE on cell =-STRESS.*?Total\s+([\d\.\-\s]+)"
         values = list(re.finditer(pattern, content, re.DOTALL))[-1].group(1).split()
-        data["virial"] = " ".join(
-            [
-                values[0],
-                values[3],
-                values[4],
-                values[3],
-                values[1],
-                values[5],
-                values[4],
-                values[5],
-                values[2],
-            ]
-        )
+        xx, yy, zz, xy, yz, zx = values
+        yx, xz, zy = xy, zx, yz
+        data["virial"] = f"{xx} {xy} {xz} {yx} {yy} {yz} {zx} {zy} {zz}"
     return data
 
 

@@ -250,7 +250,7 @@ class FIRE:
                     pl.lit(new_positions[:, 2]).alias("z"),
                 ),
                 True,
-                True
+                True,
             )
         else:
             self.system.update_data(
@@ -260,7 +260,7 @@ class FIRE:
                     pl.col("z") + extended_dr[:, 2],
                 ),
                 True,
-                True
+                True,
             )
 
     def run(self, steps: int, fmax=1e-4, show_process=True):

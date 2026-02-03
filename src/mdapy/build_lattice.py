@@ -751,5 +751,14 @@ def build_partial_dislocation_fcc(
 
 
 if __name__ == "__main__":
-    fcc = build_hea(["Cr", "Co", "Fe", "Ni"], [0, 0, 0, 1], 'fcc', 3.53, nx=3, ny=3, nz=3, random_seed=1)
+    fcc = build_hea(
+        ["Cr", "Co", "Fe", "Ni"],
+        [0, 0, 0, 1],
+        "fcc",
+        3.53,
+        nx=3,
+        ny=3,
+        nz=3,
+        random_seed=1,
+    )
     print(fcc)

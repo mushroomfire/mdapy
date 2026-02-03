@@ -500,7 +500,15 @@ def cfg2xyz(
                     )
 
 
-def read_OUTCAR(filename: str):
+def read_OUTCAR(filename: str) -> Union[Dict, bool]:
+    """This is only working for single-point calculation OUTCAR.
+
+    Args:
+        filename (str): outcar filename.
+
+    Returns:
+        Dict[str:Any]: system information, such as 'Natom', 'lattice', 'energy', 'pos_force', 'symbols', 'virial'
+    """
     data = {
         "Natom": None,
         "lattice": None,
@@ -511,6 +519,8 @@ def read_OUTCAR(filename: str):
     }
     with open(filename) as f:
         content = f.read()
+        if "aborting loop because EDIFF is reached" not in content:
+            return False
     lines_content = content.split("\n")
 
     pattern = (
@@ -575,6 +585,7 @@ def outcar2xyz(
     outcar_list: Union[List[str], str], output_path: str = "train.xyz", mode: str = "w"
 ):
     """Convert OUTCAR file for VASP to xyz file for GPUMD, including energy, force and virial.
+    It only works for single-point energy calculation generated OUTCAR.
 
     Parameters
     ----------
@@ -589,10 +600,13 @@ def outcar2xyz(
         outcar_list = [outcar_list]
 
     assert mode in ["w", "a"], "Only support w or a mode."
-
+    not_converged = []
     with open(output_path, mode) as out_f:
         for i, outcar in enumerate(outcar_list, 1):
             data = read_OUTCAR(outcar)
+            if not data:
+                not_converged.append(outcar)
+                continue
             out_f.write(f"{data['Natom']}\n")
             line_properties = "Properties=species:S:1:pos:R:3:forces:R:3"
             energy, lattice = data["energy"], data["lattice"]
@@ -607,7 +621,116 @@ def outcar2xyz(
                 )
             for symbol, pf_line in zip(data["symbols"], data["pos_force"]):
                 out_f.write(f"{symbol} {pf_line}\n")
-            print(f"\rProgress: {i}/{len(outcar_list)}", end="", flush=True)
+            progress = int(i * 100 / len(outcar_list))
+            bar = "#" * (progress // 2) + "." * (50 - progress // 2)
+            print(f"\rProgress: [{bar}] {progress}% ({i}/{len(outcar_list)})", end="")
+    if len(not_converged):
+        print(
+            f"\nFound {len(not_converged)} non-converged OUTCARS, we have skiped them:"
+        )
+        for i in not_converged:
+            print(f"{i} is not converged!")
+
+
+def outcars2xyz(
+    outcar_list: Union[List[str], str], output_path: str = "train.xyz", mode: str = "w"
+):
+    """Convert OUTCAR file for VASP to xyz file for GPUMD, including energy, force and virial.
+
+    Parameters
+    ----------
+    outcar_list : List[str] or str
+        Single or multi OUTCAR file.
+    output_path : str
+        Output filename. Defaults to train.xyz.
+    mode : str
+        Writting mode, such as 'w' and 'a'. Defaults to 'w'.
+    """
+    if isinstance(outcar_list, str):
+        outcar_list = [outcar_list]
+    not_converged = []
+    with open(output_path, mode) as wf:
+        for num, file in enumerate(outcar_list):
+            text = open(file).read()
+            start_lines = [
+                m.start()
+                for m in re.finditer("aborting loop because EDIFF is reached", text)
+            ]
+            if not start_lines:
+                not_converged.append(file)
+                continue
+
+            end_lines = [
+                m.start() for m in re.finditer(r"[^ML] energy  without entropy", text)
+            ]
+            ion_nums = re.findall(r"ions per type\s*=\s*(.*)", text)
+            ion_numb_arra = list(map(int, ion_nums[-1].split())) if ion_nums else []
+            ion_syms = []
+            for m in re.finditer(r"^.*POTCAR:\s+\S+\s+(\S+)", text, flags=re.M):
+                s = m.group(1).split("_")[0]
+                if s not in ion_syms:
+                    ion_syms.append(s)
+            m = re.search(r"number of ions\s+NIONS =\s+(\d+)", text)
+            syst_numb_atom = int(m.group(1)) if m else 0
+            k = 0
+            for i in range(len(start_lines)):
+                while k < len(end_lines) and start_lines[i] > end_lines[k]:
+                    k += 1
+                if k >= len(end_lines):
+                    break
+
+                block = text[start_lines[i] : end_lines[k]]
+
+                wf.write(f"{syst_numb_atom}\n")
+
+                pattern = r"VOLUME and BASIS-vectors are now.*?\n(.*?\n.*?\n.*?\n.*?\n.*?\n.*?\n.*?\n)"
+                match = re.search(pattern, block, re.DOTALL)
+                lines = match.group(1).strip().split("\n")
+                lattice_lines = lines[-3:]
+                lattice = []
+                for line in lattice_lines:
+                    line = re.sub(r"(?<=\d)-", " -", line)
+                    values = line.split()[:3]
+                    lattice.extend(values)
+                latt = " ".join(lattice)
+
+                m = re.search(r"free  energy   TOTEN\s*=\s*([-.\dEe+]+)", block)
+                ener = m.group(1)
+
+                virial = (
+                    block[block.index("Total") : block.index("external")]
+                    .split("\n")[0]
+                    .split()[1:]
+                )
+                xx, yy, zz, xy, yz, zx = virial
+                virial_str = f"{xx} {yy} {zz} {xy} {yz} {zx} {xy} {yz} {zx}"
+                wf.write(
+                    f'Lattice="{latt}" Energy={ener} Virial="{virial_str}" pbc="T T T" Properties=species:S:1:pos:R:3:forces:R:3\n'
+                )
+
+                syms = []
+                for s, n in zip(ion_syms, ion_numb_arra):
+                    syms += [s] * n
+
+                forces_block = re.search(r"TOTAL-FORCE \(eV/Angst\)(.*)", block, re.S)
+                if forces_block:
+                    lines = (
+                        forces_block.group(1)
+                        .strip()
+                        .splitlines()[1 : syst_numb_atom + 1]
+                    )
+                    for s, l in zip(syms, lines):
+                        wf.write(f"{s} {' '.join(l.split())}\n")
+
+        progress = int((num + 1) * 100 / len(output_path))
+        bar = "#" * (progress // 2) + "." * (50 - progress // 2)
+        print(f"\rProgress: [{bar}] {progress}% ({num + 1}/{len(output_path)})", end="")
+    if len(not_converged):
+        print(
+            f"\nFound {len(not_converged)} non-converged OUTCARS, we have skiped them:"
+        )
+        for i in not_converged:
+            print(f"{i} is not converged!")
 
 
 if __name__ == "__main__":

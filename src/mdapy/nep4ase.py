@@ -89,11 +89,11 @@ class NEP4ASE(Calculator):
 
         # Load NEP model
         self.calc = _nepcal.NEPCalculator(model_filename)
-        assert self.calc.info['model_type'] == 0, "Only support energy NEP model."
+        assert self.calc.info["model_type"] == 0, "Only support energy NEP model."
         self._is_qnep = False
-        if self.calc.info['charge_mode'] > 0:
-            self._is_qnep = True 
-        
+        if self.calc.info["charge_mode"] > 0:
+            self._is_qnep = True
+
         self.rc = max(self.calc.info["radial_cutoff"], self.calc.info["angular_cutoff"])
         self.results = {}
 

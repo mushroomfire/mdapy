@@ -321,13 +321,14 @@ class ElasticConstant:
 if __name__ == "__main__":
     from mdapy import NEP, build_hea
 
-    nep = NEP('/u/22/wuy33/unix/Desktop/mini_test/nep89_20250409.txt')
-    element_list = ['Cr', 'Co', 'Ni']
-    element_ratio = [1/3, 1/3, 1/3]
-    fcc = build_hea(element_list, element_ratio, 'fcc', 3.53, nx=3, ny=3, nz=3, random_seed=1)
+    nep = NEP("/u/22/wuy33/unix/Desktop/mini_test/nep89_20250409.txt")
+    element_list = ["Cr", "Co", "Ni"]
+    element_ratio = [1 / 3, 1 / 3, 1 / 3]
+    fcc = build_hea(
+        element_list, element_ratio, "fcc", 3.53, nx=3, ny=3, nz=3, random_seed=1
+    )
     fcc.calc = nep
     fcc.calc.results = {}
     elas = ElasticConstant(fcc)
     elas.compute()
     elas.print_Cij()
-

@@ -263,7 +263,7 @@ class FIRE:
                 True,
             )
 
-    def run(self, steps: int, fmax=1e-4, show_process=True):
+    def run(self, steps: int, fmax=1e-4, show_process=True) -> bool:
         """
         Run the FIRE relaxation process.
 
@@ -277,6 +277,11 @@ class FIRE:
 
         show_process : bool, optional
             Whether to print per-step progress (default: True).
+
+        Returns
+        -------
+        bool
+            Return whether the minimization process is converged.
 
         Notes
         -----
@@ -305,7 +310,9 @@ class FIRE:
                 press = -stress[:3].mean()
                 print(f"{step:6d} {energy:15.6f} {cfmax:15.6f} {press:15.6f}")
             if cfmax < fmax:
-                return
+                if show_process:
+                    print('Converged!')
+                return True
 
             if self.v is None:
                 self.v = np.zeros((self.ndof, 3))
@@ -359,6 +366,9 @@ class FIRE:
             self.update_data_box(dr)
 
         self.system.calc.results = {}
+        if show_process:
+            print('Not converged! Try decrease the fmax or increase steps.')
+        return False
 
 
 if __name__ == "__main__":

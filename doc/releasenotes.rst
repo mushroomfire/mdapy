@@ -18,6 +18,8 @@ Mdapy 1.0.1 (Under Development)
 
 - Added a neighbor-search benchmark to the documentation.
 
+- Optimized Minimization process.
+
 🚀 Build System
 ----------------
 

@@ -20,6 +20,8 @@ Mdapy 1.0.1 (Under Development)
 
 - Optimized Minimization process.
 
+- Optimized stress computation for LammpsPotential
+
 🚀 Build System
 ----------------
 

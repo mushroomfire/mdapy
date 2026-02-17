@@ -129,6 +129,7 @@ class LammpsPotential(CalculatorMP):
 
             lmp.commands_string(self.pair_parameter)
             lmp.commands_string("run 0")
+            
             sort_index = np.argsort(lmp.numpy.extract_atom("id")[:N_atom])
             energy = np.asarray(
                 lmp.numpy.extract_compute("2", 1, 1)[:N_atom][sort_index]
@@ -139,6 +140,10 @@ class LammpsPotential(CalculatorMP):
             virial = -np.asarray(
                 lmp.numpy.extract_compute("1", 1, 2)[:N_atom][sort_index]
             )
+            # Some potentials can not compute per-atom virial, such as mtp.
+            stress = np.array([lmp.get_thermo(p) for p in ('pxx', 'pyy', 'pzz', 'pyz', 'pxz', 'pxy')])
+            self.results["stress"] = stress / 1e4 / 160.21766208 # bar to eV
+            
         except Exception as e:
             raise e
         finally:
@@ -150,15 +155,16 @@ class LammpsPotential(CalculatorMP):
         self.results["energies"] = energy
         self.results["forces"] = force
         self.results["virials"] = virial
+        
         # Calculate stress tensor from virials
-        v = virial.sum(axis=0)  # Sum virials over all atoms
+        # v = virial.sum(axis=0)  # Sum virials over all atoms
         # Reshape to 3×3 matrix: v_xx, v_xy, v_xz, v_yx, v_yy, v_yz, v_zx, v_zy, v_zz
-        v = v.reshape(3, 3)
+        # v = v.reshape(3, 3)
         # Stress = -(virial + virial^T) / (2 * volume)
-        stress = (-0.5 * (v + v.T) / box.volume).ravel()
+        # stress = (-0.5 * (v + v.T) / box.volume).ravel()
         # Convert to Voigt notation: [σ_xx, σ_yy, σ_zz, σ_yz, σ_xz, σ_xy]
-        stress = stress[[0, 4, 8, 5, 2, 1]]
-        self.results["stress"] = stress
+        # stress = stress[[0, 4, 8, 5, 2, 1]]
+        # self.results["stress"] = stress
 
     def _reorder_virial(self, v: np.ndarray) -> np.ndarray:
         """
@@ -251,4 +257,15 @@ class LammpsPotential(CalculatorMP):
 
 
 if __name__ == "__main__":
-    pass
+    from mdapy import build_crystal
+    al = build_crystal('Al', 'fcc', 4.0)
+    eam = LammpsPotential(
+        """pair_style eam/alloy
+        pair_coeff * * tests/input_files/CoNiFeAlCu.eam.alloy Al
+        """,
+        ['Al'],
+    )
+    al.calc = eam
+    print(al.get_stress())
+
+    

@@ -142,7 +142,7 @@ class LammpsPotential(CalculatorMP):
             )
             # Some potentials can not compute per-atom virial, such as mtp.
             stress = np.array([lmp.get_thermo(p) for p in ('pxx', 'pyy', 'pzz', 'pyz', 'pxz', 'pxy')])
-            self.results["stress"] = stress / 1e4 / 160.21766208 # bar to eV
+            self.results["stress"] = -stress / 1e4 / 160.21766208 # bar to eV
             
         except Exception as e:
             raise e

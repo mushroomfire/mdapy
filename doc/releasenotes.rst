@@ -22,6 +22,8 @@ Mdapy 1.0.1 (Under Development)
 
 - Optimized stress computation for LammpsPotential
 
+- Fix a typo for cfg2xyz
+
 🚀 Build System
 ----------------
 

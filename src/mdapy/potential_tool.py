@@ -464,8 +464,8 @@ def cfg2xyz(
         file_list = [file_list]
     with open(output_name, "a") as op:
         for cfg in file_list:
-            with open(cfg) as op:
-                file = op.read()
+            with open(cfg) as op1:
+                file = op1.read()
             res = file.split("BEGIN_CFG")[1:]
             for f in range(len(res)):
                 frame_content = res[f].split("\n")

@@ -785,7 +785,7 @@ class XYZTrajectory:
                             info_parts.append(f'{key}="{value_str}"')
                 except Exception:
                     continue
-
+        
         # Write comment line
         if info_parts:
             f.write(" ".join(info_parts) + "\n")

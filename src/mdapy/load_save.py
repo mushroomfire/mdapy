@@ -1157,7 +1157,10 @@ class SaveSystem:
                 for key, value in kargs.items():
                     if key.lower() not in ["lattice", "pbc", "properties", "origin"]:
                         try:
-                            comments += f" {key}={value}"
+                            if key.lower() in ['virial', 'bec', 'stress']:
+                                comments += f' {key}="{value}"'
+                            else:
+                                comments += f" {key}={value}"
                         except Exception:
                             pass
 

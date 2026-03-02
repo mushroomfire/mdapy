@@ -8,6 +8,8 @@ Mdapy 1.0.2 (Under development)
 ----------------------
 
 - Reduced published sdist size.
+- Added "" for bec, stress, virial when write_xyz at comment line.
+- Optimized LammpsPotential for general box.
 
 Mdapy 1.0.1 (March 2, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

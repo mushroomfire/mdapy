@@ -48,6 +48,7 @@ class LammpsPotential(CalculatorMP):
         self.units = units
         assert units == "metal", "Only support metal units now."
         self.centroid_stress = centroid_stress
+        self.need_rotation = False
 
     def calculate(self, data: pl.DataFrame, box: Box) -> None:
         """
@@ -104,10 +105,14 @@ class LammpsPotential(CalculatorMP):
                 .rechunk()
                 .alias("type")
             )["type"].to_numpy(allow_copy=False)
-            id_list = data.with_row_index("id", offset=1)["id"].to_numpy(
-                allow_copy=False
-            )
-            x_list = (
+            id_list = np.arange(1, N_atom+1) 
+            tol = 1e-6
+            self.need_rotation = box.box[0, 0] <= tol or box.box[1, 1] <= tol or box.box[2, 2] <= tol or abs(box.box[0, 1]) > tol or abs(box.box[0, 2]) > tol or abs(box.box[1, 2]) > tol
+            if self.need_rotation:
+                _, rotate = box.align_to_lammps_box()
+                x_list = ((data.select('x', 'y', 'z').to_numpy() - box.origin) @ rotate).flatten()
+            else:
+                x_list = (
                 data.select(
                     pl.col("x") - box.origin[0],
                     pl.col("y") - box.origin[1],
@@ -128,13 +133,18 @@ class LammpsPotential(CalculatorMP):
             lmp.commands_string("compute 2 all pe/atom")
 
             lmp.commands_string(self.pair_parameter)
+            lmp.commands_string("dump 1 all custom 1 out.dump id type x y z c_2 fx fy fz c_1[*]")
+            lmp.commands_string("dump_modify 1 triclinic/general yes sort id element Cr Co Ni")
             lmp.commands_string("run 0")
 
             sort_index = np.argsort(lmp.numpy.extract_atom("id")[:N_atom])
+
             energy = np.asarray(
                 lmp.numpy.extract_compute("2", 1, 1)[:N_atom][sort_index]
             )
             force = np.asarray(lmp.numpy.extract_atom("f")[:N_atom][sort_index])
+            if self.need_rotation:
+                force = force @ rotate.T
             # xx, yy, zz, xy, xz, yz, yx, zx, zy.
             # xx, yy, zz, xy, xz, yz
             virial = -np.asarray(
@@ -259,20 +269,55 @@ class LammpsPotential(CalculatorMP):
 
 
 if __name__ == "__main__":
-    from mdapy import build_crystal, NEP
+    from mdapy import build_crystal, System, XYZTrajectory, NEP
+    import polars as pl
+    #from ase.build import bulk
+    #ni = bulk('Co').repeat((2, 2, 2))
+    #ni = System(ase_atom=ni)
+    #system = XYZTrajectory('/u/22/wuy33/unix/Desktop/train.xyz')[953]
 
-    al = build_crystal("Al", "fcc", 4.0)
+    #system.write_xyz('test.xyz')
+    # ni = System('test.data')
+    # ni.update_data(ni.data.with_columns(
+    #     pl.col('type').replace_strict({1:'Cr', 2:'Co', 3:'Ni'}).alias('element')
+    # ))
+    ni = System('test.xyz')
+    xi = System('test.xyz')
+    print(ni)
+    # ni = build_crystal("Ni", "fcc", 3.52)
     nep = LammpsPotential(
         """pair_style nep
-        pair_coeff * * tests/input_files/UNEP-v1.txt Al
+        pair_coeff * * /u/22/wuy33/unix/Desktop/nep.txt Cr Co Ni
         """,
-        ["Al"],
+        ["Cr", "Co", "Ni"],
         centroid_stress=True,
     )
+#     mtp = LammpsPotential(
+#         """pair_style mlip load_from=/u/22/wuy33/unix/Desktop//MTP_TS-f_Cao_Levmax_20.mtp
+# pair_coeff * *
+#         """,
+#         ["Cr", "Co", "Ni"],
+#     )
 
-    nep.calculate(al.data, al.box)
-    print(nep.results["stress"])
+    ni.calc = nep
 
-    nep1 = NEP("tests/input_files/UNEP-v1.txt")
-    nep1.calculate(al.data, al.box)
-    print(nep1.results["stress"])
+    print(ni.get_energies()[:10])
+    print(ni.get_energy())
+    print(xi.global_info['energy'])
+    print(ni.get_force()[:3])
+    print(ni.get_stress())
+    print(ni.global_info)
+    print(-ni.get_virials()[0] * 1e4 * 160.21766208)
+
+    nep2 = NEP('/u/22/wuy33/unix/Desktop/nep.txt')
+
+    ni.calc = nep2 
+
+    print(ni.get_energies()[:10])
+    print(ni.get_energy())
+    print(ni.get_force()[:3])
+    print(ni.get_stress())
+    print(ni.get_virials()[0])
+    
+
+

@@ -22,7 +22,11 @@ Mdapy 1.0.1 (Under Development)
 
 - Optimized stress computation for LammpsPotential and added test.
 
-- Make XYZTraj support saving bec information.
+- Made XYZTraj support saving bec information.
+
+- Added test for qNEP.
+
+- Removed warning for test_void by adding `impode` cast method.
 
 🚀 Build System
 ----------------

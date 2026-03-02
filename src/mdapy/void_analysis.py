@@ -92,7 +92,7 @@ class VoidAnalysis:
 
                 void_system.update_data(
                     void_system.data.filter(
-                        pl.col("cluster_id").is_in(res)
+                        pl.col("cluster_id").is_in(res.implode())
                     ).with_columns(
                         pl.col("cluster_id").replace_strict(new_cluster_id),
                         pl.lit("X").alias("element"),

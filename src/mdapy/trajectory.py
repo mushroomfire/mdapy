@@ -9,7 +9,27 @@ from mdapy.system import System
 from mdapy.box import Box
 
 # Standard column names that have special meaning in XYZ format
-_STANDARD_COLS = {"element", "x", "y", "z", "vx", "vy", "vz", "fx", "fy", "fz"}
+_STANDARD_COLS = (
+    "element",
+    "x",
+    "y",
+    "z",
+    "vx",
+    "vy",
+    "vz",
+    "fx",
+    "fy",
+    "fz",
+    "bec_0",
+    "bec_1",
+    "bec_2",
+    "bec_3",
+    "bec_4",
+    "bec_5",
+    "bec_6",
+    "bec_7",
+    "bec_8",
+)
 
 
 class XYZTrajectory:
@@ -724,6 +744,22 @@ class XYZTrajectory:
             if all(c in df.columns for c in ["fx", "fy", "fz"]):
                 properties.append("force:R:3")
 
+            if all(
+                c in df.columns
+                for c in [
+                    "bec_0",
+                    "bec_1",
+                    "bec_2",
+                    "bec_3",
+                    "bec_4",
+                    "bec_5",
+                    "bec_6",
+                    "bec_7",
+                    "bec_8",
+                ]
+            ):
+                properties.append("bec:R:9")
+
             # Add other columns to properties
             for col in df.columns:
                 if col not in _STANDARD_COLS:
@@ -768,6 +804,33 @@ class XYZTrajectory:
                 write_columns.extend(["vx", "vy", "vz"])
             if all(c in df.columns for c in ["fx", "fy", "fz"]):
                 write_columns.extend(["fx", "fy", "fz"])
+            if all(
+                c in df.columns
+                for c in [
+                    "bec_0",
+                    "bec_1",
+                    "bec_2",
+                    "bec_3",
+                    "bec_4",
+                    "bec_5",
+                    "bec_6",
+                    "bec_7",
+                    "bec_8",
+                ]
+            ):
+                write_columns.extend(
+                    [
+                        "bec_0",
+                        "bec_1",
+                        "bec_2",
+                        "bec_3",
+                        "bec_4",
+                        "bec_5",
+                        "bec_6",
+                        "bec_7",
+                        "bec_8",
+                    ]
+                )
 
             # Add remaining custom columns
             for col in df.columns:
@@ -789,9 +852,11 @@ if __name__ == "__main__":
     from time import time
 
     start = time()
-    systems = XYZTrajectory(r"C:\Users\HerrW\Desktop\test.xyz")
+    systems = XYZTrajectory(
+        r"/u/22/wuy33/unix/Desktop/18335947/reference-structures-training-water-SCAN.xyz"
+    )
     print(f"serial time: {time() - start} s.")
-    systems.save("t.xyz", 0)
+    systems.save("t.xyz", [8, 11, 12])
 
     # start = time()
     # systems = XYZTrajectory(r"C:\Users\HerrW\Desktop\test.xyz", fast_mode=True)

@@ -572,7 +572,10 @@ def read_OUTCAR(filename: str) -> Union[Dict, bool]:
 
 
 def outcar2xyz(
-    outcar_list: Union[List[str], str], output_path: str = "train.xyz", mode: str = "w", print_no_converge:bool=True
+    outcar_list: Union[List[str], str],
+    output_path: str = "train.xyz",
+    mode: str = "w",
+    print_no_converge: bool = True,
 ):
     """Convert OUTCAR file for VASP to xyz file for GPUMD, including energy, force and virial.
     It only works for single-point energy calculation generated OUTCAR.
@@ -626,7 +629,10 @@ def outcar2xyz(
 
 
 def outcars2xyz(
-    outcar_list: Union[List[str], str], output_path: str = "train.xyz", mode: str = "w", print_no_converge:bool=True
+    outcar_list: Union[List[str], str],
+    output_path: str = "train.xyz",
+    mode: str = "w",
+    print_no_converge: bool = True,
 ):
     """Convert OUTCAR file for VASP to xyz file for GPUMD, including energy, force and virial.
 
@@ -721,7 +727,10 @@ def outcars2xyz(
 
             progress = int((num + 1) * 100 / len(outcar_list))
             bar = "#" * (progress // 2) + "." * (50 - progress // 2)
-            print(f"\rProgress: [{bar}] {progress}% ({num + 1}/{len(outcar_list)})", end="")
+            print(
+                f"\rProgress: [{bar}] {progress}% ({num + 1}/{len(outcar_list)})",
+                end="",
+            )
     if len(not_converged):
         print(
             f"\nFound {len(not_converged)} non-converged OUTCARS, we have skiped them:"

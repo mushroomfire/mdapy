@@ -5,6 +5,11 @@ from ovito.data import CutoffNeighborFinder, DataCollection
 from ovito.modifiers import ComputePropertyModifier
 import numpy as np
 
+try:
+    trapz = np.trapezoid  # numpy >= 2.0
+except AttributeError:
+    trapz = np.trapz  # numpy < 2.0
+
 
 class Entropy(ModifierInterface):
     cutoff = (5.0,)
@@ -79,7 +84,7 @@ class Entropy(ModifierInterface):
             )
 
             # Integrate from 0 to cutoff distance:
-            local_entropy[particle_index] = -2.0 * np.pi * rho * np.trapz(integrand, r)
+            local_entropy[particle_index] = -2.0 * np.pi * rho * trapz(integrand, r)
 
         # Output the computed per-particle entropy values to the data pipeline.
         data.particles_.create_property("Entropy", data=local_entropy)

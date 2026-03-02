@@ -311,7 +311,7 @@ class FIRE:
                 print(f"{step:6d} {energy:15.6f} {cfmax:15.6f} {press:15.6f}")
             if cfmax < fmax:
                 if show_process:
-                    print('Converged!')
+                    print("Converged!")
                 return True
 
             if self.v is None:
@@ -367,7 +367,7 @@ class FIRE:
 
         self.system.calc.results = {}
         if show_process:
-            print('Not converged! Try decrease the fmax or increase steps.')
+            print("Not converged! Try decrease the fmax or increase steps.")
         return False
 
 

@@ -269,6 +269,24 @@ trajectories generated from Molecular Dynamics (MD) simulations.
 
 --------
 
+**Test**
+=========
+
+Some dependencies need to be installed before running the tests:
+
+```bash
+pip install pytest scikit-learn ase freud-analysis, pyfftw
+pip install git+https://github.com/bigd4/PyNEP.git
+```
+
+You also need to install OVITO and LAMMPS using your preferred method. Once everything is installed, you can run the tests with:
+
+```bash
+cd tests
+pytest 
+```
+
+
 🔄 **Version Updates**
 ========================================
 

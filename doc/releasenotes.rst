@@ -20,9 +20,9 @@ Mdapy 1.0.1 (Under Development)
 
 - Optimized Minimization process.
 
-- Optimized stress computation for LammpsPotential
+- Optimized stress computation for LammpsPotential and added test.
 
-- Fix a typo for cfg2xyz
+- Make XYZTraj support saving bec information.
 
 🚀 Build System
 ----------------

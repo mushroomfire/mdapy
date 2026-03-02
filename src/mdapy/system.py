@@ -2147,18 +2147,18 @@ class System:
 
         Examples
         --------
-        >>> species = system.cal_chemical_species(['H2O', 'CO2'])
+        >>> species = system.cal_chemical_species(["H2O", "CO2"])
         >>> print(species)
         {'H2O': 125, 'CO2': 42}
 
         """
-        import re 
+        import re
 
-        if 'element' in self.data.columns:
-            element_list = self.data['element'].unique().sort()
+        if "element" in self.data.columns:
+            element_list = self.data["element"].unique().sort()
             ele2type = {j: i + 1 for i, j in enumerate(element_list)}
             self.__data = self.__data.with_columns(
-                pl.col('element').replace_strict(ele2type).alias('type')
+                pl.col("element").replace_strict(ele2type).alias("type")
             )
         else:
             assert element_list is not None, (
@@ -2166,11 +2166,11 @@ class System:
                 "is present in the data."
             )
 
-            assert 'type' in self.data.columns, (
+            assert "type" in self.data.columns, (
                 "'type' column is required when 'element' column is not available."
             )
 
-            Ntype = self.data['type'].max()
+            Ntype = self.data["type"].max()
 
             assert len(element_list) >= Ntype, (
                 f"'element_list' must contain at least {Ntype} elements to match "
@@ -2183,7 +2183,7 @@ class System:
                 partial_cutoff[f"{type1 + 1}-{type2 + 1}"] = (
                     vdw_radii[atomic_numbers[element_list[type1]]]
                     + vdw_radii[atomic_numbers[element_list[type2]]]
-                ) * scale 
+                ) * scale
         self.cal_cluster_analysis(partial_cutoff, max_neigh=None)
         if search_species is not None:
             pattern = r"([A-Z][a-z]?)(\d*)"
@@ -2256,8 +2256,8 @@ class System:
 
 
 if __name__ == "__main__":
-    system = System('tests/input_files/water.xyz')
-    #res = system.cal_chemical_species(search_species=['H2O'], add_mol_id=True)
+    system = System("tests/input_files/water.xyz")
+    # res = system.cal_chemical_species(search_species=['H2O'], add_mol_id=True)
     res = system.cal_chemical_species(scale=0.4)
     print(res)
-    #system.write_xyz('mol.xyz')
+    # system.write_xyz('mol.xyz')

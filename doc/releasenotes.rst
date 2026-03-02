@@ -1,6 +1,14 @@
 Release Notes
 ===============
 
+Mdapy 1.0.2 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🛠️ Other Improvements
+----------------------
+
+- Reduced published sdist size.
+
 Mdapy 1.0.1 (March 2, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

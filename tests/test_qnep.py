@@ -35,9 +35,7 @@ def test_qnep():
         bec_g = np.loadtxt(f"{path}/bec_train.out")[:, :9]
         N = 384
         for i in range(len(traj)):
-            charge_g[i * N : (i + 1) * N] -= charge_g[
-                i * N : (i + 1) * N
-            ].mean()
+            charge_g[i * N : (i + 1) * N] -= charge_g[i * N : (i + 1) * N].mean()
 
         atol = 1e-1
         assert np.allclose(e_m, e_g, atol=atol), f"{mode} energy is wrong."

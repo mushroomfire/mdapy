@@ -56,6 +56,14 @@ all = ["matplotlib", "k3d", "pyfftw", "phonopy"]
 minimum-version = "0.4"
 build-dir = "build/{wheel_tag}"
 
+sdist.exclude = [
+    "tests",
+    "doc",
+    ".github",
+    ".readthedocs.yaml",
+    ".gitignore"
+]
+
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
 input = "src/mdapy/__init__.py"
@@ -71,3 +79,5 @@ line-length = 88
 
 docstring-code-format = true
 quote-style = "double"
+
+

@@ -38,6 +38,7 @@ from mdapy.atomic_temperature import AtomicTemperature
 from mdapy.bond_analysis import BondAnalysis
 from mdapy.angular_distribution_function import AngularDistributionFunction
 import mdapy.tool_function as tool
+from mdapy.data import atomic_numbers, vdw_radii
 from typing import Optional, Dict, TYPE_CHECKING, Union, Iterable, Any, List, Tuple
 import numpy as np
 import polars as pl
@@ -1990,7 +1991,7 @@ class System:
             assert "type" in self.data.columns, (
                 "Must have type for multi rc cluster calculation."
             )
-            type_list = self.data["type"].to_numpy(zero_copy_only=True)
+            type_list = self.data["type"].to_numpy(allow_copy=False)
         ca = ClusterAnalysis(
             rc, self.verlet_list, self.distance_list, self.neighbor_number, type_list
         )
@@ -2094,6 +2095,169 @@ class System:
             )
         )
 
+    def cal_chemical_species(
+        self,
+        search_species: Optional[List[str]] = None,
+        element_list: Optional[List[str]] = None,
+        check_most: int = 10,
+        add_mol_id: bool = False,
+        scale: float = 0.6,
+    ) -> Dict[str, int]:
+        """
+        Identify chemical species based on atomic connectivity.
+
+        Two atoms *i* and *j* are considered bonded if their interatomic distance
+        satisfies:
+
+            rij <= (vdW_radius_i + vdW_radius_j) * scale
+
+        where vdW_radius is the van der Waals radius of the corresponding element,
+        and ``scale`` is an empirical scaling factor. This approach is similar to
+        the connectivity detection method used in OpenBabel.
+
+        Parameters
+        ----------
+        search_species : list of str, optional
+            Molecular formulas to search for, e.g. ``['H2O', 'CO2', 'Cl2', 'N2']``.
+            If provided, only these species will be counted. Otherwise, the most
+            frequent species will be returned.
+
+        element_list : list of str, optional
+            List of element symbols corresponding to atom types, e.g.
+            ``['C', 'H', 'O']``. This is required if the ``'element'`` column is
+            not present in ``self.data``.
+
+        check_most : int, default=10
+            Number of most frequent species to return when ``search_species`` is None.
+
+        add_mol_id : bool, default=False
+            If True and ``search_species`` is provided, add a new column ``'mol_id'``
+            to the internal data. The molecule IDs are assigned according to the order
+            of ``search_species`` (zero-based index). Atoms not belonging to any
+            searched species are assigned ``-1``.
+
+        scale : float, default=0.6
+            Scaling factor applied to the sum of van der Waals radii when determining
+            bonding cutoff distances.
+
+        Returns
+        -------
+        dict of str to int
+            Dictionary mapping species formulas to their corresponding counts.
+
+        Examples
+        --------
+        >>> species = system.cal_chemical_species(['H2O', 'CO2'])
+        >>> print(species)
+        {'H2O': 125, 'CO2': 42}
+
+        """
+        import re 
+
+        if 'element' in self.data.columns:
+            element_list = self.data['element'].unique().sort()
+            ele2type = {j: i + 1 for i, j in enumerate(element_list)}
+            self.__data = self.__data.with_columns(
+                pl.col('element').replace_strict(ele2type).alias('type')
+            )
+        else:
+            assert element_list is not None, (
+                "'element_list' must be provided because no 'element' column "
+                "is present in the data."
+            )
+
+            assert 'type' in self.data.columns, (
+                "'type' column is required when 'element' column is not available."
+            )
+
+            Ntype = self.data['type'].max()
+
+            assert len(element_list) >= Ntype, (
+                f"'element_list' must contain at least {Ntype} elements to match "
+                f"the maximum atom type index ({Ntype})."
+            )
+
+        partial_cutoff = {}
+        for type1 in range(len(element_list)):
+            for type2 in range(type1, len(element_list)):
+                partial_cutoff[f"{type1 + 1}-{type2 + 1}"] = (
+                    vdw_radii[atomic_numbers[element_list[type1]]]
+                    + vdw_radii[atomic_numbers[element_list[type2]]]
+                ) * scale 
+        self.cal_cluster_analysis(partial_cutoff, max_neigh=None)
+        if search_species is not None:
+            pattern = r"([A-Z][a-z]?)(\d*)"
+            trans_search_species = []
+            for old_name in search_species:
+                matches = re.findall(pattern, old_name)
+                matches.sort()
+                name = ""
+                for i, j in matches:
+                    if len(j):
+                        name += i * int(j)
+                    else:
+                        name += i
+                trans_search_species.append(name)
+            first_step = (
+                self.__data.with_columns(
+                    pl.lit(
+                        np.array(element_list)[(self.__data["type"] - 1).to_numpy()]
+                    ).alias("type_name")
+                )
+                .group_by("cluster_id")
+                .agg(pl.col("type_name"))
+                .with_columns(pl.col("type_name").list.sort())
+                .with_columns(pl.col("type_name").list.join(""))
+            )
+            res = (first_step["type_name"].value_counts()).filter(
+                pl.col("type_name").is_in(trans_search_species)
+            )
+            res = dict(zip(res[:, 0], res[:, 1]))
+            species = {}
+            for i, j in zip(search_species, trans_search_species):
+                if j not in res.keys():
+                    species[i] = 0
+                else:
+                    species[i] = res[j]
+            if add_mol_id:
+                clus_mol = first_step.with_columns(
+                    pl.col("type_name")
+                    .replace_strict(
+                        {j: i for i, j in enumerate(trans_search_species)}, default=-1
+                    )
+                    .alias("mol_id")
+                )
+
+                self.__data = self.__data.with_columns(
+                    pl.col("cluster_id")
+                    .replace(dict(zip(clus_mol["cluster_id"], clus_mol["mol_id"])))
+                    .alias("mol_id")
+                )
+
+        else:
+            res = (
+                (
+                    self.__data.with_columns(
+                        pl.lit(
+                            np.array(element_list)[(self.__data["type"] - 1).to_numpy()]
+                        ).alias("type_name")
+                    )
+                    .group_by("cluster_id")
+                    .agg(pl.col("type_name"))
+                    .with_columns(pl.col("type_name").list.sort())
+                    .with_columns(pl.col("type_name").list.join(""))["type_name"]
+                    .value_counts()
+                )
+                .sort("count", descending=True)
+                .limit(check_most)
+            )
+            species = dict(zip(res[:, 0], res[:, 1]))
+        return species
+
 
 if __name__ == "__main__":
-    pass
+    system = System('tests/input_files/water.xyz')
+    #res = system.cal_chemical_species(search_species=['H2O'], add_mol_id=True)
+    res = system.cal_chemical_species(scale=0.4)
+    print(res)
+    #system.write_xyz('mol.xyz')

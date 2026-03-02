@@ -29,7 +29,8 @@ atomic_numbers : dict[str, int]
 
 vdw_radii : np.ndarray
     NumPy array of van der Waals radii (in Å).
-    Values are based on Alvarez (2013). Some elements have ``np.nan`` where data are unavailable.
+    Van der Waals radii in [A] taken from: A cartography of the van der Waals territories S. Alvarez, Dalton Trans., 2013, 42, 8617-8636 DOI: 10.1039/C3DT50599E. 
+    Some elements have ``np.nan`` where data are unavailable.
     The array is read-only.
 
 atomic_masses : np.ndarray

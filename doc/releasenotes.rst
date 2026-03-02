@@ -1,37 +1,44 @@
 Release Notes
 ===============
 
-Mdapy 1.0.1 (Under Development)
+Mdapy 1.0.1 (March 2, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🏆 New Features
 ----------------
 
-- Added support to convert VASP OUTCAR files to XYZ format for GPUMD. This is compatible with single-point calculations as well as structure minimization and AIMD multi-frame trajectories.
+- Added support for converting VASP OUTCAR files to XYZ format for GPUMD.
+  This supports single-point calculations, structure minimization,
+  and AIMD multi-frame trajectories.
+
+- Added functionality to identify chemical species based on vdW-radius
+  connectivity between atoms.
 
 🛠️ Other Improvements
 ----------------------
 
 - Fixed a bug in the HEA model builder.
 
-- Optimized cfg2xyz.
+- Optimized the cfg2xyz conversion tool.
 
 - Added a neighbor-search benchmark to the documentation.
 
-- Optimized Minimization process.
+- Improved the energy minimization workflow.
 
-- Optimized stress computation for LammpsPotential and added test.
+- Optimized stress computation in ``LammpsPotential`` and added corresponding tests.
 
-- Made XYZTraj support saving bec information.
+- Added support for saving BEC information in ``XYZTraj``.
 
-- Added test for qNEP.
+- Added tests for qNEP.
 
-- Removed warning for test_void by adding `impode` cast method.
+- Removed warnings in ``test_void`` by introducing an explicit ``implode`` cast method.
 
 🚀 Build System
 ----------------
 
-- Binary wheels are now built separately for each new Python version instead of using the general ABI (> Python 3.12), since the general ABI does not work for Python 3.13.
+- Binary wheels are now built separately for each Python version,
+  instead of using the stable ABI (> Python 3.12). This change ensures
+  compatibility with Python 3.13, where the stable ABI is not supported.
 
 
 Mdapy 1.0.0 (January 3, 2026)

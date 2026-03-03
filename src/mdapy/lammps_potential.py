@@ -24,19 +24,16 @@ def silence():
     old_stdout = os.dup(1)
     old_stderr = os.dup(2)
 
-    os.dup2(devnull, 1)
-    os.dup2(devnull, 2)
-
     try:
+        os.dup2(devnull, 1)
+        os.dup2(devnull, 2)
         yield
-    except Exception:
-        os.dup2(old_stdout, 1)
-        os.dup2(old_stderr, 2)
-        raise
     finally:
         os.dup2(old_stdout, 1)
         os.dup2(old_stderr, 2)
         os.close(devnull)
+        os.close(old_stdout)
+        os.close(old_stderr)
 
 
 class LammpsPotential(CalculatorMP):
@@ -229,7 +226,7 @@ class LammpsPotential(CalculatorMP):
             finally:
                 lmp.close()
 
-            self.results["stress"] = -stress / 1e4 / 160.21766208  # bar to eV
+            self.results["stress"] = -stress / 1e4 / 160.21766208  # bar to eV/A^3
             self.results["energies"] = energy
             self.results["forces"] = force
             self.results["virials"] = virial / 1e4 / 160.21766208  # bar to eV

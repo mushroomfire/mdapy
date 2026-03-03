@@ -14,6 +14,30 @@ import numpy as np
 import polars as pl
 from typing import List, Any
 
+import os
+import contextlib
+
+
+@contextlib.contextmanager
+def silence():
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    old_stdout = os.dup(1)
+    old_stderr = os.dup(2)
+
+    os.dup2(devnull, 1)
+    os.dup2(devnull, 2)
+
+    try:
+        yield
+    except Exception:
+        os.dup2(old_stdout, 1)
+        os.dup2(old_stderr, 2)
+        raise
+    finally:
+        os.dup2(old_stdout, 1)
+        os.dup2(old_stderr, 2)
+        os.close(devnull)
+
 
 class LammpsPotential(CalculatorMP):
     """
@@ -48,7 +72,6 @@ class LammpsPotential(CalculatorMP):
         self.units = units
         assert units == "metal", "Only support metal units now."
         self.centroid_stress = centroid_stress
-        self.need_rotation = False
 
     def calculate(self, data: pl.DataFrame, box: Box) -> None:
         """
@@ -86,97 +109,130 @@ class LammpsPotential(CalculatorMP):
             assert i in self.element_list, f"element_list dose not have {i} element."
         boundary = " ".join(["p" if i == 1 else "s" for i in box.boundary])
         N_atom = data.shape[0]
-        lmp = lammps(cmdargs=["-echo", "none", "-log", "none", "-screen", "none"])
+        with silence():
+            lmp = lammps(cmdargs=["-echo", "none", "-log", "none", "-screen", "none"])
 
-        try:
-            lmp.commands_string(f"units {self.units}")
-            lmp.commands_string(f"boundary {boundary}")
-            lmp.commands_string("atom_style atomic")
+            try:
+                lmp.commands_string(f"units {self.units}")
+                lmp.commands_string(f"boundary {boundary}")
+                lmp.commands_string("atom_style atomic")
 
-            num_type = len(self.element_list)
-            create_box = f"""lattice custom 1.0 a1 {box.box[0, 0]} {box.box[0, 1]} {box.box[0, 2]} a2 {box.box[1, 0]} {box.box[1, 1]} {box.box[1, 2]} a3 {box.box[2, 0]} {box.box[2, 1]} {box.box[2, 2]} basis 0.0 0.0 0.0 triclinic/general
-            create_box {num_type} NULL 0 1 0 1 0 1"""
-            lmp.commands_string(create_box)
+                num_type = len(self.element_list)
+                create_box = f"""lattice custom 1.0 a1 {box.box[0, 0]} {box.box[0, 1]} {box.box[0, 2]} a2 {box.box[1, 0]} {box.box[1, 1]} {box.box[1, 2]} a3 {box.box[2, 0]} {box.box[2, 1]} {box.box[2, 2]} basis 0.0 0.0 0.0 triclinic/general
+                create_box {num_type} NULL 0 1 0 1 0 1"""
+                lmp.commands_string(create_box)
 
-            ele2type = {j: i + 1 for i, j in enumerate(self.element_list)}
-            type_list = data.select(
-                pl.col("element")
-                .replace_strict(ele2type, return_dtype=pl.Int32)
-                .rechunk()
-                .alias("type")
-            )["type"].to_numpy(allow_copy=False)
-            id_list = np.arange(1, N_atom+1) 
-            tol = 1e-6
-            self.need_rotation = box.box[0, 0] <= tol or box.box[1, 1] <= tol or box.box[2, 2] <= tol or abs(box.box[0, 1]) > tol or abs(box.box[0, 2]) > tol or abs(box.box[1, 2]) > tol
-            if self.need_rotation:
-                _, rotate = box.align_to_lammps_box()
-                x_list = ((data.select('x', 'y', 'z').to_numpy() - box.origin) @ rotate).flatten()
-            else:
-                x_list = (
-                data.select(
-                    pl.col("x") - box.origin[0],
-                    pl.col("y") - box.origin[1],
-                    pl.col("z") - box.origin[2],
+                ele2type = {j: i + 1 for i, j in enumerate(self.element_list)}
+                type_list = data.select(
+                    pl.col("element")
+                    .replace_strict(ele2type, return_dtype=pl.Int32)
+                    .rechunk()
+                    .alias("type")
+                )["type"].to_numpy(allow_copy=False)
+                id_list = np.arange(1, N_atom + 1)
+
+                if box.is_general_box():
+                    box_lmp, rotate = box.align_to_lammps_box()
+                    R = box.inverse_box @ box_lmp.box
+                    x_list = (
+                        (data.select("x", "y", "z").to_numpy() - box.origin) @ rotate
+                    ).flatten()
+                else:
+                    x_list = (
+                        data.select(
+                            pl.col("x") - box.origin[0],
+                            pl.col("y") - box.origin[1],
+                            pl.col("z") - box.origin[2],
+                        )
+                        .to_numpy()
+                        .flatten()
+                    )
+
+                N_lmp = lmp.create_atoms(N_atom, id_list, type_list, x_list)
+                assert N_atom == N_lmp, "Create atoms incorrectly."
+                for i in range(num_type):
+                    lmp.commands_string(f"mass {i + 1} 1.0")
+                if self.centroid_stress:
+                    lmp.commands_string("compute 1 all centroid/stress/atom NULL")
+                else:
+                    lmp.commands_string("compute 1 all stress/atom NULL")
+                lmp.commands_string("compute 2 all pe/atom")
+
+                lmp.commands_string(self.pair_parameter)
+                # lmp.commands_string(
+                #     "dump 1 all custom 1 out.dump id type x y z c_2 fx fy fz c_1[*]"
+                # )
+                # lmp.commands_string(
+                #     "dump_modify 1 triclinic/general yes sort id element Cr Co Ni"
+                # )
+                lmp.commands_string("run 0")
+
+                sort_index = np.argsort(lmp.numpy.extract_atom("id")[:N_atom])
+
+                energy = np.asarray(
+                    lmp.numpy.extract_compute("2", 1, 1)[:N_atom][sort_index]
                 )
-                .to_numpy()
-                .flatten()
-            )
+                force = np.asarray(lmp.numpy.extract_atom("f")[:N_atom][sort_index])
+                if box.is_general_box():
+                    force = force @ rotate.T
+                # xx, yy, zz, xy, xz, yz, yx, zx, zy.
+                # xx, yy, zz, xy, xz, yz
+                virial = -np.asarray(
+                    lmp.numpy.extract_compute("1", 1, 2)[:N_atom][sort_index]
+                )
+                # v_xx, v_xy, v_xz, v_yx, v_yy, v_yz, v_zx, v_zy, v_zz
+                virial = self._reorder_virial(virial)
+                if box.is_general_box():
+                    virial = (R @ virial.reshape((N_atom, 3, 3)) @ R.T).reshape(
+                        (N_atom, 9)
+                    )
 
-            N_lmp = lmp.create_atoms(N_atom, id_list, type_list, x_list)
-            assert N_atom == N_lmp, "Create atoms incorrectly."
-            for i in range(num_type):
-                lmp.commands_string(f"mass {i + 1} 1.0")
-            if self.centroid_stress:
-                lmp.commands_string("compute 1 all centroid/stress/atom NULL")
-            else:
-                lmp.commands_string("compute 1 all stress/atom NULL")
-            lmp.commands_string("compute 2 all pe/atom")
+                # Some potentials can not compute per-atom virial, such as mtp.
+                if box.is_general_box():
+                    stress = np.array(
+                        [
+                            lmp.get_thermo(p)
+                            for p in (
+                                "pxx",
+                                "pxy",
+                                "pxz",
+                                "pxy",
+                                "pyy",
+                                "pyz",
+                                "pxz",
+                                "pyz",
+                                "pzz",
+                            )
+                        ]
+                    ).reshape(3, 3)
+                    stress = R @ stress @ R.T
+                    stress = np.array(
+                        [
+                            stress[0, 0],
+                            stress[1, 1],
+                            stress[2, 2],
+                            stress[1, 2],
+                            stress[0, 2],
+                            stress[0, 1],
+                        ]
+                    )
+                else:
+                    stress = np.array(
+                        [
+                            lmp.get_thermo(p)
+                            for p in ("pxx", "pyy", "pzz", "pyz", "pxz", "pxy")
+                        ]
+                    )
 
-            lmp.commands_string(self.pair_parameter)
-            lmp.commands_string("dump 1 all custom 1 out.dump id type x y z c_2 fx fy fz c_1[*]")
-            lmp.commands_string("dump_modify 1 triclinic/general yes sort id element Cr Co Ni")
-            lmp.commands_string("run 0")
+            except Exception as e:
+                raise e
+            finally:
+                lmp.close()
 
-            sort_index = np.argsort(lmp.numpy.extract_atom("id")[:N_atom])
-
-            energy = np.asarray(
-                lmp.numpy.extract_compute("2", 1, 1)[:N_atom][sort_index]
-            )
-            force = np.asarray(lmp.numpy.extract_atom("f")[:N_atom][sort_index])
-            if self.need_rotation:
-                force = force @ rotate.T
-            # xx, yy, zz, xy, xz, yz, yx, zx, zy.
-            # xx, yy, zz, xy, xz, yz
-            virial = -np.asarray(
-                lmp.numpy.extract_compute("1", 1, 2)[:N_atom][sort_index]
-            )
-            # Some potentials can not compute per-atom virial, such as mtp.
-            stress = np.array(
-                [lmp.get_thermo(p) for p in ("pxx", "pyy", "pzz", "pyz", "pxz", "pxy")]
-            )
             self.results["stress"] = -stress / 1e4 / 160.21766208  # bar to eV
-
-        except Exception as e:
-            raise e
-        finally:
-            lmp.close()
-
-        virial = virial / 1e4 / 160.21766208  # bar to eV
-        # v_xx, v_xy, v_xz, v_yx, v_yy, v_yz, v_zx, v_zy, v_zz
-        virial = self._reorder_virial(virial)
-        self.results["energies"] = energy
-        self.results["forces"] = force
-        self.results["virials"] = virial
-
-        # Calculate stress tensor from virials
-        # v = virial.sum(axis=0)  # Sum virials over all atoms
-        # Reshape to 3×3 matrix: v_xx, v_xy, v_xz, v_yx, v_yy, v_yz, v_zx, v_zy, v_zz
-        # v = v.reshape(3, 3)
-        # Stress = -(virial + virial^T) / (2 * volume)
-        # stress = (-0.5 * (v + v.T) / box.volume).ravel()
-        # Convert to Voigt notation: [σ_xx, σ_yy, σ_zz, σ_yz, σ_xz, σ_xy]
-        # stress = stress[[0, 4, 8, 5, 2, 1]]
-        # self.results["stress1"] = stress
+            self.results["energies"] = energy
+            self.results["forces"] = force
+            self.results["virials"] = virial / 1e4 / 160.21766208  # bar to eV
 
     def _reorder_virial(self, v: np.ndarray) -> np.ndarray:
         """
@@ -269,55 +325,4 @@ class LammpsPotential(CalculatorMP):
 
 
 if __name__ == "__main__":
-    from mdapy import build_crystal, System, XYZTrajectory, NEP
-    import polars as pl
-    #from ase.build import bulk
-    #ni = bulk('Co').repeat((2, 2, 2))
-    #ni = System(ase_atom=ni)
-    #system = XYZTrajectory('/u/22/wuy33/unix/Desktop/train.xyz')[953]
-
-    #system.write_xyz('test.xyz')
-    # ni = System('test.data')
-    # ni.update_data(ni.data.with_columns(
-    #     pl.col('type').replace_strict({1:'Cr', 2:'Co', 3:'Ni'}).alias('element')
-    # ))
-    ni = System('test.xyz')
-    xi = System('test.xyz')
-    print(ni)
-    # ni = build_crystal("Ni", "fcc", 3.52)
-    nep = LammpsPotential(
-        """pair_style nep
-        pair_coeff * * /u/22/wuy33/unix/Desktop/nep.txt Cr Co Ni
-        """,
-        ["Cr", "Co", "Ni"],
-        centroid_stress=True,
-    )
-#     mtp = LammpsPotential(
-#         """pair_style mlip load_from=/u/22/wuy33/unix/Desktop//MTP_TS-f_Cao_Levmax_20.mtp
-# pair_coeff * *
-#         """,
-#         ["Cr", "Co", "Ni"],
-#     )
-
-    ni.calc = nep
-
-    print(ni.get_energies()[:10])
-    print(ni.get_energy())
-    print(xi.global_info['energy'])
-    print(ni.get_force()[:3])
-    print(ni.get_stress())
-    print(ni.global_info)
-    print(-ni.get_virials()[0] * 1e4 * 160.21766208)
-
-    nep2 = NEP('/u/22/wuy33/unix/Desktop/nep.txt')
-
-    ni.calc = nep2 
-
-    print(ni.get_energies()[:10])
-    print(ni.get_energy())
-    print(ni.get_force()[:3])
-    print(ni.get_stress())
-    print(ni.get_virials()[0])
-    
-
-
+    pass

@@ -402,6 +402,41 @@ class Box:
         """
         return f"Box information:\n{self.box}\nOrigin: {self.origin}\nTriclinic: {self.triclinic}\nBoundary: {self.boundary}"
 
+    def is_general_box(self, tol: float = 1e-6) -> bool:
+        """
+        Determine whether the simulation box is a general (non-lower-triangular) box.
+
+        A box is considered *general* if it does not satisfy the lower-triangular
+        form required by LAMMPS, i.e.,
+
+            [[ax,  0,  0],
+            [bx, by,  0],
+            [cx, cy, cz]]
+
+        within a given numerical tolerance.
+
+        Parameters
+        ----------
+        tol : float, optional
+            Numerical tolerance used to judge whether a value is effectively zero.
+            Default is 1e-6.
+
+        Returns
+        -------
+        bool
+            True if the box is a general box; False if it is already in
+            lower-triangular form.
+        """
+
+        return (
+            self.box[0, 0] <= tol
+            or self.box[1, 1] <= tol
+            or self.box[2, 2] <= tol
+            or abs(self.box[0, 1]) > tol
+            or abs(self.box[0, 2]) > tol
+            or abs(self.box[1, 2]) > tol
+        )
+
     def align_to_lammps_box(self) -> Tuple[Box, np.ndarray]:
         """
         Transform the box to LAMMPS-compatible format.

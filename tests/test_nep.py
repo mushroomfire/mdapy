@@ -11,8 +11,8 @@ import numpy as np
 
 def test_nep_lmp():
 
-    hea = build_hea(
-        ["Al", "Cu", "Ni"],
+    hea1 = build_hea(
+        ["Al", "Cr", "Ni"],
         [1 / 3, 1 / 3, 1 / 3],
         "fcc",
         a=3.6,
@@ -21,30 +21,34 @@ def test_nep_lmp():
         nz=3,
         random_seed=1,
     )
+    hea2 = System("input_files/AlCrNi.xyz")
     nep_lmp = LammpsPotential(
         """pair_style nep
-        pair_coeff * * input_files/UNEP-v1.txt Al Cu Ni
+        pair_coeff * * input_files/UNEP-v1.txt Al Cr Ni
         """,
-        ["Al", "Cu", "Ni"],
+        ["Al", "Cr", "Ni"],
         centroid_stress=True,
     )
-    hea.calc = nep_lmp
-    e_lmp = hea.get_energies()
-    f_lmp = hea.get_force()
-    s_lmp = hea.get_stress()
-    v_lmp = hea.get_virials()
+    nep_mda = NEP("input_files/UNEP-v1.txt")
+    for i, hea in enumerate([hea1, hea2]):
+        hea.calc = nep_lmp
+        hea.calc.results = {}
+        e_lmp = hea.get_energies()
+        f_lmp = hea.get_force()
+        s_lmp = hea.get_stress()
+        v_lmp = hea.get_virials()
 
-    nep1 = NEP("input_files/UNEP-v1.txt")
-    hea.calc = nep1
-    e_mda = hea.get_energies()
-    f_mda = hea.get_force()
-    s_mda = hea.get_stress()
-    v_mda = hea.get_virials()
+        hea.calc = nep_mda
+        hea.calc.results = {}
+        e_mda = hea.get_energies()
+        f_mda = hea.get_force()
+        s_mda = hea.get_stress()
+        v_mda = hea.get_virials()
 
-    assert np.allclose(e_lmp, e_mda), "energy is wrong for NEP."
-    assert np.allclose(f_lmp, f_mda), "force is wrong for NEP."
-    assert np.allclose(s_lmp, s_mda), "stress is wrong for NEP."
-    assert np.allclose(v_lmp, v_mda), "virial is wrong for NEP."
+        assert np.allclose(e_lmp, e_mda), f"round {i}: energy is wrong for NEP."
+        assert np.allclose(f_lmp, f_mda), f"round {i}: force is wrong for NEP."
+        assert np.allclose(s_lmp, s_mda), f"round {i}: stress is wrong for NEP."
+        assert np.allclose(v_lmp, v_mda), f"round {i}: virial is wrong for NEP."
 
 
 def test_nep():

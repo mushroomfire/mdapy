@@ -7,9 +7,11 @@ Mdapy 1.0.2 (Under development)
 🛠️ Other Improvements
 ----------------------
 
-- Reduced published sdist size.
-- Added "" for bec, stress, virial when write_xyz at comment line.
-- Optimized LammpsPotential for general box.
+- Reduced the size of the published source distribution (sdist).
+
+- Added support for writing bec, stress, and virial fields in the comment line when using write_xyz.
+
+- Improved LammpsPotential handling of general simulation boxes; it can now correctly compute stress, forces, and energy for such structures.
 
 Mdapy 1.0.1 (March 2, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

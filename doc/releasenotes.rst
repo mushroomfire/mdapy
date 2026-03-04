@@ -1,7 +1,7 @@
 Release Notes
 ===============
 
-Mdapy 1.0.2 (Under development)
+Mdapy 1.0.2 (March 4, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🛠️ Other Improvements
@@ -12,6 +12,8 @@ Mdapy 1.0.2 (Under development)
 - Added support for writing bec, stress, and virial fields in the comment line when using write_xyz.
 
 - Improved LammpsPotential handling of general simulation boxes; it can now correctly compute stress, forces, and energy for such structures.
+
+- Added newest version for fixing a bug in qNEP.
 
 Mdapy 1.0.1 (March 2, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

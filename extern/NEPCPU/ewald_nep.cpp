@@ -41,7 +41,7 @@ double get_area(const double* a, const double* b)
 }
 
 void find_structure_factor(
-  const int num_kpoints_max,
+  const int num_kpoints,
   const int N,
   const double* g_charge,
   const double* g_x,
@@ -53,7 +53,7 @@ void find_structure_factor(
   double* g_S_real,
   double* g_S_imag)
 {
-  for (int nk = 0; nk < num_kpoints_max; ++nk) {
+  for (int nk = 0; nk < num_kpoints; ++nk) {
     double S_real = 0.0;
     double S_imag = 0.0;
     for (int n = 0; n < N; ++n) {
@@ -226,10 +226,9 @@ void EwaldNep::find_k_and_G(const double* box)
     }
   }
 
-  int num_kpoints = int(G.size());
+  num_kpoints = int(G.size());
 
-  // if (num_kpoints > num_kpoints_max) {
-  if (true) {
+  if (num_kpoints > num_kpoints_max) {
     num_kpoints_max = num_kpoints;
     S_real.resize(num_kpoints_max);
     S_imag.resize(num_kpoints_max);
@@ -248,7 +247,7 @@ void EwaldNep::find_force(
 {
   find_k_and_G(box);
   find_structure_factor(
-    num_kpoints_max,
+    num_kpoints,
     N,
     charge.data(),
     position_per_atom.data(),
@@ -262,7 +261,7 @@ void EwaldNep::find_force(
 
   find_force_charge_reciprocal_space(
     N,
-    num_kpoints_max,
+    num_kpoints,
     alpha_factor,
     charge.data(),
     position_per_atom.data(),

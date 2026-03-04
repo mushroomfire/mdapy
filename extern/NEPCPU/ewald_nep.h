@@ -33,6 +33,7 @@ public:
     std::vector<double>& potential_per_atom);
 private:
     int num_kpoints_max = 1;
+    int num_kpoints;
     double alpha = 0.5; // 1 / (2 Angstrom)
     double alpha_factor = 1.0; // 1 / (4 * alpha * alpha)
     std::vector<double> kx;

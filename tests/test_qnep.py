@@ -15,12 +15,14 @@ def test_qnep():
         charge_m = []
         bec_m = []
         for system in traj:
+            nep = nep 
             nep.calculate(system.data, system.box)
             e_m.append(nep.results["energies"].mean())
             f_m.append(nep.results["forces"])
             v_m.append(nep.results["virials"].mean(axis=0)[[0, 4, 8, 1, 5, 6]])
             charge_m.append(nep.results["charges"])
             bec_m.append(nep.results["bec"])
+            
 
         e_m = np.array(e_m)
         f_m = np.concatenate(f_m)
@@ -37,7 +39,7 @@ def test_qnep():
         for i in range(len(traj)):
             charge_g[i * N : (i + 1) * N] -= charge_g[i * N : (i + 1) * N].mean()
 
-        atol = 1e-1
+        atol = 1e-4
         assert np.allclose(e_m, e_g, atol=atol), f"{mode} energy is wrong."
         assert np.allclose(f_m, f_g, atol=atol), f"{mode} force is wrong."
         assert np.allclose(v_m, v_g, atol=atol), f"{mode} virial is wrong."

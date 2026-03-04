@@ -196,7 +196,7 @@ void EwaldNep::find_k_and_G(const double* box)
     b3[d] *= two_pi_over_det;
   }
 
-  const double volume_k = two_pi * two_pi * two_pi / abs(det);
+  const double volume_k = two_pi * two_pi * two_pi / std::abs(det);
   int n1_max = alpha * two_pi * get_area(b2, b3) / volume_k;
   int n2_max = alpha * two_pi * get_area(b3, b1) / volume_k;
   int n3_max = alpha * two_pi * get_area(b1, b2) / volume_k;
@@ -228,7 +228,8 @@ void EwaldNep::find_k_and_G(const double* box)
 
   int num_kpoints = int(G.size());
 
-  if (num_kpoints > num_kpoints_max) {
+  // if (num_kpoints > num_kpoints_max) {
+  if (true) {
     num_kpoints_max = num_kpoints;
     S_real.resize(num_kpoints_max);
     S_imag.resize(num_kpoints_max);

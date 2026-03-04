@@ -1,7 +1,0 @@
-type 2 H O
-cutoff 4 4
-generation 100000
-batch 1000
-charge_mode 1
-prediction 1
-

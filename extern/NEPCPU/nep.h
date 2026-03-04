@@ -18,8 +18,6 @@
 #include <vector>
 #include "ewald_nep.h"
 
-// #define USE_TABLE_FOR_RADIAL_FUNCTIONS
-
 class NEP
 {
 public:

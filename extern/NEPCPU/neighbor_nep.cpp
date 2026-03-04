@@ -61,7 +61,7 @@ double get_det(const double* cpu_h)
          cpu_h[2] * (cpu_h[3] * cpu_h[7] - cpu_h[4] * cpu_h[6]);
 }
 
-double get_volume(const double* cpu_h) { return abs(get_det(cpu_h)); }
+double get_volume(const double* cpu_h) { return std::abs(get_det(cpu_h)); }
 
 void get_inverse(double* cpu_h)
 {

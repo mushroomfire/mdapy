@@ -13,7 +13,7 @@ Mdapy 1.0.2 (March 4, 2026)
 
 - Improved LammpsPotential handling of general simulation boxes; it can now correctly compute stress, forces, and energy for such structures.
 
-- Added newest version for fixing a bug in qNEP.
+- Added newest version of NEPCPU for fixing a bug in qNEP.
 
 Mdapy 1.0.1 (March 2, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

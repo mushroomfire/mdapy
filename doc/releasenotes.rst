@@ -1,6 +1,15 @@
 Release Notes
 ===============
 
+Mdapy 1.0.3 (Under development)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🛠️ Other Improvements
+----------------------
+
+- Added explained_variance_ratio for PCA.
+
+
 Mdapy 1.0.2 (March 4, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

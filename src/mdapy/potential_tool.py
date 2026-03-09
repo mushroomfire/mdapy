@@ -363,6 +363,7 @@ class PCA:
         """
         self.n_components = n_components
         self.explained_variance: Optional[np.ndarray] = None
+        self.explained_variance_ratio: Optional[np.ndarray] = None
 
     def fit_transform(self, X: np.ndarray) -> np.ndarray:
         """Fit PCA and return transformed coordinates.
@@ -388,6 +389,7 @@ class PCA:
 
         components = eigenvectors[:, : self.n_components]
         self.explained_variance = eigenvalues[: self.n_components]
+        self.explained_variance_ratio = (eigenvalues[: self.n_components] / np.sum(eigenvalues))
 
         # same as sklearn: make signs deterministic
         max_abs_idx = np.argmax(np.abs(components), axis=0)

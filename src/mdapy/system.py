@@ -1116,7 +1116,13 @@ class System:
         for implementation details.
         """
         verlet_list = None
-        if self.N > 1000:  # safe atom number
+        safe_L = 15
+        repeat = np.ceil(safe_L / self.box.get_thickness()).astype(int)
+        for i in range(3):
+            if self.box.boundary[i] == 0:
+                repeat[i] = 1
+
+        if sum(repeat) == 3:
             if hasattr(self, "neighbor_number"):
                 if self.neighbor_number.min() >= 4:
                     tool.sort_neighbor(

@@ -8,7 +8,7 @@ Mdapy 1.0.3 (Under development)
 ----------------------
 
 - Added explained_variance_ratio for PCA.
-- Increase safe atom number to 1000 for IdentifyDiamondStructure class.
+- Fixed a bug for IdentifyDiamondStructure class with small box.
 
 
 Mdapy 1.0.2 (March 4, 2026)

@@ -123,16 +123,14 @@ class PolyhedralTemplateMatching:
         box = self.box
         data = self.data
         verlet_list = self.verlet_list
-        rNum = 250  # safe atom number
+        safe_L = 15  # Safe box thickness
 
         if self.verlet_list is None:
-            repeat = [1, 1, 1]
-            if N < rNum:
-                if sum(self.box.boundary) > 0:
-                    while np.prod(repeat) * N < rNum:
-                        for i in range(3):
-                            if self.box.boundary[i] == 1:
-                                repeat[i] += 1
+            repeat = np.ceil(safe_L / self.box.get_thickness()).astype(int)
+            for i in range(3):
+                if self.box.boundary[i] == 0:
+                    repeat[i] = 1
+            # print(repeat)
             if sum(repeat) != 3:
                 # Small box: replicate atoms to find enough neighbors
                 data, box = tool._replicate_pos(data, box, *repeat)

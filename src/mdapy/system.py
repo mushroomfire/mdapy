@@ -1522,7 +1522,13 @@ class System:
         """
 
         verlet_list = None
-        if self.N > 250:  # safe atom number
+        safe_L = 15
+        repeat = np.ceil(safe_L / self.box.get_thickness()).astype(int)
+        for i in range(3):
+            if self.box.boundary[i] == 0:
+                repeat[i] = 1
+
+        if sum(repeat) == 3:
             if hasattr(self, "neighbor_number"):
                 if self.neighbor_number.min() >= 18:
                     tool.sort_neighbor(
@@ -1631,7 +1637,13 @@ class System:
         """
         verlet_list = None
         neighbor_number = None
-        if self.N > 500:  # safe atom number
+        safe_L = 15
+        repeat = np.ceil(safe_L / self.box.get_thickness()).astype(int)
+        for i in range(3):
+            if self.box.boundary[i] == 0:
+                repeat[i] = 1
+
+        if sum(repeat) == 3:
             if hasattr(self, "rc"):
                 if rc is None:
                     if self.neighbor_number.min() >= 14:

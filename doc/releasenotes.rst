@@ -8,7 +8,7 @@ Mdapy 1.0.3 (Under development)
 ----------------------
 
 - Added explained_variance_ratio for PCA.
-- Fixed a bug for IdentifyDiamondStructure class with small box.
+- For these analysis methods (CNA, PTM, and IDS), any simulation box with a thickness below 15 Å is automatically treated as a small box.
 
 
 Mdapy 1.0.2 (March 4, 2026)

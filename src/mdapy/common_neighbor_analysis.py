@@ -95,17 +95,14 @@ class CommonNeighborAnalysis:
         verlet_list = self.verlet_list
         neighbor_number = self.neighbor_number
 
-        rNum = 500  # safe atom number
+        wrap_pos_L = 15  # wrap_pos box thickness
 
-        if verlet_list is None:
-            repeat = [1, 1, 1]
-            if N < rNum:
-                if sum(self.box.boundary) > 0:
-                    while np.prod(repeat) * N < rNum:
-                        for i in range(3):
-                            if self.box.boundary[i] == 1:
-                                repeat[i] += 1
-
+        if self.verlet_list is None:
+            repeat = np.ceil(wrap_pos_L / self.box.get_thickness()).astype(int)
+            for i in range(3):
+                if self.box.boundary[i] == 0:
+                    repeat[i] = 1
+            # print(repeat)
             if sum(repeat) != 3:
                 # Small box: replicate atoms to find enough neighbors
                 data, box = tool._replicate_pos(data, box, *repeat)

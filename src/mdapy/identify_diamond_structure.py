@@ -76,7 +76,7 @@ class IdentifyDiamondStructure:
 
         - For systems with ≤4 particles and no periodic boundaries, all particles
           are classified as type 0 (Other)
-        - For small systems (N < 500) with periodic boundaries, the simulation cell
+        - For small systems (N < 1000) with periodic boundaries, the simulation cell
           is automatically replicated to ensure accurate neighbor identification
         - If no neighbor list is provided, a k-nearest neighbor search with k=4
           is performed automatically
@@ -89,7 +89,7 @@ class IdentifyDiamondStructure:
         box = self.box
         data = self.data
         verlet_list = self.verlet_list
-        rNum = 500  # Safe atom number threshold for replication
+        rNum = 1000  # Safe atom number threshold for replication
 
         if self.verlet_list is None:
             repeat = [1, 1, 1]
@@ -128,4 +128,9 @@ class IdentifyDiamondStructure:
 
 
 if __name__ == "__main__":
-    pass
+    import mdapy as mp
+    system = mp.System('/u/22/wuy33/unix/Desktop/test_ida/unit_Hplane.xyz')
+    print(system.N)
+    ids = IdentifyDiamondStructure(system.data, system.box)
+    ids.compute()
+    print(ids.pattern[:10])

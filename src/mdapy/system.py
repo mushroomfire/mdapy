@@ -1116,7 +1116,7 @@ class System:
         for implementation details.
         """
         verlet_list = None
-        if self.N > 500:  # safe atom number
+        if self.N > 1000:  # safe atom number
             if hasattr(self, "neighbor_number"):
                 if self.neighbor_number.min() >= 4:
                     tool.sort_neighbor(

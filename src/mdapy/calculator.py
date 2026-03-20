@@ -33,11 +33,11 @@ class CalculatorMP(ABC):
     results : dict
         Dictionary storing computed results. Keys typically include:
 
-        - 'energies': per-atom potential energies
-        - 'forces': per-atom forces
-        - 'stress': system stress tensor
-        - 'virials': per-atom virial tensors
-        - 'energy': system potential energy
+        - 'energies': per-atom potential energies (eV)
+        - 'forces': per-atom forces (eV/A)
+        - 'stress': system stress tensor (eV/A^3)
+        - 'virials': per-atom virial tensors (eV)
+        - 'energy': system potential energy (eV)
 
     Notes
     -----

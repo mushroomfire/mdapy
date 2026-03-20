@@ -215,7 +215,7 @@ def get_sfe_fcc(name: str, a: float, calc: CalculatorMP) -> float:
         miller2=[1, -1, 0],
         miller3=[1, 1, -1],
     )
-    calc.results = {}
+
     system.calc = calc
     system.box.boundary[2] = 0
     e1 = system.get_energy()
@@ -281,7 +281,7 @@ def get_average_sfe_fcc_hea(
             miller3=[1, 1, -1],
             random_seed=seed,
         )
-        calc.results = {}
+
         system.calc = calc
         system.box.boundary[2] = 0
         e1 = system.get_energy()
@@ -343,7 +343,7 @@ def get_eos(
             ),
         )
         cur.calc = system.calc
-        cur.calc.results = {}
+
         e = cur.get_energy() / cur.N
         vol = cur.box.volume / cur.N
         eos.append([vol, e])
@@ -389,7 +389,9 @@ class PCA:
 
         components = eigenvectors[:, : self.n_components]
         self.explained_variance = eigenvalues[: self.n_components]
-        self.explained_variance_ratio = (eigenvalues[: self.n_components] / np.sum(eigenvalues))
+        self.explained_variance_ratio = eigenvalues[: self.n_components] / np.sum(
+            eigenvalues
+        )
 
         # same as sklearn: make signs deterministic
         max_abs_idx = np.argmax(np.abs(components), axis=0)

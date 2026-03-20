@@ -7,7 +7,7 @@ from mdapy.build_lattice import build_crystal, build_hea
 from mdapy.create_polycrystal import CreatePolycrystal
 from mdapy.eam import EAM, EAMAverage, EAMGenerator
 from mdapy.nep import NEP
-from mdapy.elastic import ElasticConstant
+from mdapy.elastic import get_elastic_constant
 from mdapy.mean_squared_displacement import MeanSquaredDisplacement
 from mdapy.minimizer import FIRE
 from mdapy.plotset import set_figure, save_figure
@@ -29,7 +29,7 @@ __all__ = [
     "EAMAverage",
     "EAMGenerator",
     "NEP",
-    "ElasticConstant",
+    "get_elastic_constant",
     "MeanSquaredDisplacement",
     "FIRE",
     "set_figure",

@@ -220,7 +220,20 @@ class System:
             )
         if not len(self.__global_info):
             self.__global_info = global_info
-        self.calc: Optional[CalculatorMP] = None
+        self.__calc: Optional[CalculatorMP] = None
+
+    @property
+    def calc(self) -> Optional[CalculatorMP]:
+        return self.__calc
+
+    @calc.setter
+    def calc(self, value):
+        if not isinstance(value, CalculatorMP):
+            raise TypeError(
+                f"calc must be CalculatorMP, instead of {type(value).__name__}"
+            )
+        value.results = {}
+        self.__calc = value
 
     @property
     def global_info(self) -> Dict[str, Any]:

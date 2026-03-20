@@ -15,7 +15,7 @@ def test_lammpspotential():
         centroid_stress=False,
     )
     system.calc = eam
-    system.calc.results = {}
+
     e = system.get_energies()
     f = system.get_force()
     v = system.get_virials()

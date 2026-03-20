@@ -276,7 +276,7 @@ Some dependencies need to be installed before running the tests:
 
 .. code-block:: bash
 
-   pip install pytest scikit-learn ase freud-analysis, pyfftw
+   pip install pytest scikit-learn ase freud-analysis pyfftw pymatgen
    pip install git+https://github.com/bigd4/PyNEP.git
 
 

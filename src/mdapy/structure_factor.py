@@ -170,7 +170,7 @@ class StructureFactor:
                     for i in range(3):
                         if self.box.boundary[i] == 1:
                             repeat[i] += 1
-                            
+
         if sum(repeat) != 3:
             # Small box: replicate atoms to ensure sufficient statistics
             data, box = tool.replicate(data, box, *repeat)

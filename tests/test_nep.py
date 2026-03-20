@@ -32,14 +32,12 @@ def test_nep_lmp():
     nep_mda = NEP("input_files/UNEP-v1.txt")
     for i, hea in enumerate([hea1, hea2]):
         hea.calc = nep_lmp
-        hea.calc.results = {}
         e_lmp = hea.get_energies()
         f_lmp = hea.get_force()
         s_lmp = hea.get_stress()
         v_lmp = hea.get_virials()
 
         hea.calc = nep_mda
-        hea.calc.results = {}
         e_mda = hea.get_energies()
         f_mda = hea.get_force()
         s_mda = hea.get_stress()

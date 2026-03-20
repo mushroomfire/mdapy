@@ -159,7 +159,6 @@ class Phonon:
         box = atoms.cell
         system = System(data=data, box=box)
         system.calc = self.unitcell.calc
-        system.calc.results = {}
         return system
 
     def get_force_constants(self) -> None:

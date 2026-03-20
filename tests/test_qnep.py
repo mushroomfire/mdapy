@@ -15,14 +15,13 @@ def test_qnep():
         charge_m = []
         bec_m = []
         for system in traj:
-            nep = nep 
+            nep = nep
             nep.calculate(system.data, system.box)
             e_m.append(nep.results["energies"].mean())
             f_m.append(nep.results["forces"])
             v_m.append(nep.results["virials"].mean(axis=0)[[0, 4, 8, 1, 5, 6]])
             charge_m.append(nep.results["charges"])
             bec_m.append(nep.results["bec"])
-            
 
         e_m = np.array(e_m)
         f_m = np.concatenate(f_m)

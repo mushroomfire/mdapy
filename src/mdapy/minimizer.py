@@ -193,9 +193,10 @@ class FIRE:
         atoms_forces = self.system.get_force()
         if self.optimize_cell:
             volume = self.system.box.volume
-            virial = self.system.get_virials().sum(axis=0).reshape(3, 3) + (
-                -np.diag([self.scalar_pressure] * 3) * volume
-            )
+            virial = (-_voigt_6_to_full_3x3_stress(self.system.get_stress()) - np.diag([self.scalar_pressure] * 3)) * volume
+            # virial = self.system.get_virials().sum(axis=0).reshape(3, 3) + (
+            #     -np.diag([self.scalar_pressure] * 3) * volume
+            # )
 
             cur_deform_grad = np.linalg.solve(self.orig_box, self.system.box.box).T
             atoms_forces = atoms_forces @ cur_deform_grad

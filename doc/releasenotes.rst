@@ -11,6 +11,7 @@ Mdapy 1.0.3 (Under development)
 - For these analysis methods (CNA, PTM, and IDS), any simulation box with a thickness below 15 Å is automatically treated as a small box.
 - Optimize elastic constant workflow can validated by pymatgen.
 - Optimize calculator set behavior for System.
+- Fixed a bug in minimize class.
 
 
 Mdapy 1.0.2 (March 4, 2026)

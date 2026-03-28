@@ -10,7 +10,6 @@ import numpy as np
 
 
 def test_nep_lmp():
-
     hea1 = build_hea(
         ["Al", "Cr", "Ni"],
         [1 / 3, 1 / 3, 1 / 3],

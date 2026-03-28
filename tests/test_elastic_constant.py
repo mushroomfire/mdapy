@@ -2,9 +2,9 @@ from mdapy.elastic import get_elastic_constant, _get_stress
 from mdapy import build_crystal, FIRE, System
 from mdapy.nep import NEP
 import numpy as np
-from pymatgen.analysis.elasticity.strain import DeformedStructureSet
-from pymatgen.analysis.elasticity.elastic import Strain
-from pymatgen.analysis.elasticity.elastic import ElasticTensor
+from pymatgen.core.elasticity.strain import DeformedStructureSet
+from pymatgen.core.elasticity.elastic import Strain
+from pymatgen.core.elasticity.elastic import ElasticTensor
 from pymatgen.core.structure import Structure
 
 

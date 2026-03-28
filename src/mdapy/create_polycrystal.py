@@ -806,7 +806,7 @@ class CreatePolycrystal:
             element = self.unitcell.data["element"][0]
             type2ele = {1: element, 2: "C"}
             data = data.with_columns(
-                pl.col("type").replace_strict(type2ele).alias("element")
+                pl.col("type").replace_strict(type2ele).rechunk().alias("element")
             ).select("element", "x", "y", "z", "grain_id", "type")
 
         # Create system and wrap atoms

@@ -132,42 +132,41 @@ class DeformedStructureSet:
     """
     Generate a set of deformed cells for elastic constant fitting.
 
-    Exact port of pymatgen's DeformedStructureSet, but works directly on
-    numpy cell + positions arrays — no pymatgen Structure needed.
-
     Deformation strategy (identical to pymatgen):
-      • Normal modes (0,0) (1,1) (2,2) : each strain in `norm_strains`
-      • Shear  modes (0,1) (0,2) (1,2) : each strain in `shear_strains`
-      Total configurations = 3×len(norm_strains) + 3×len(shear_strains)
+
+      - Normal modes (0,0) (1,1) (2,2) : each strain in `norm_strains`
+
+      - Shear  modes (0,1) (0,2) (1,2) : each strain in `shear_strains`
+
+      Total configurations = 3xlen(norm_strains) + 3xlen(shear_strains)
 
     Parameters
     ----------
-    cell            : (3,3) equilibrium cell matrix, row vectors [a; b; c]
-    positions       : (N,3) Cartesian atomic coordinates
+    system          : optimized structure
     norm_strains    : normal strain magnitudes (default same as pymatgen)
     shear_strains   : shear  strain magnitudes (default same as pymatgen)
 
     Attributes
     ----------
     deformations    : list of (3,3) deformation matrices F
-    deformed_cells  : list of (3,3) deformed cell matrices
-    deformed_positions : list of (N,3) deformed Cartesian coordinates
+    deformed_systems  : list of deformed systems
     """
 
     def __init__(
         self,
-        cell: np.ndarray,
-        positions: np.ndarray,
+        system: System,
         norm_strains: Sequence[float] = (-0.01, -0.005, 0.005, 0.01),
         shear_strains: Sequence[float] = (-0.06, -0.03, 0.03, 0.06),
     ):
-
-        self.cell = np.asarray(cell, dtype=float)
-        self.positions = np.asarray(positions, dtype=float)
+        assert "element" in system.data.columns, (
+            "system must contain element information."
+        )
+        self.element = system.data["element"]
+        self.cell = system.box.box.copy()
+        self.positions = system.get_positions().to_numpy() - system.box.origin
 
         self.deformations: List[np.ndarray] = []
-        self.deformed_cells: List[np.ndarray] = []
-        self.deformed_positions: List[np.ndarray] = []
+        self.deformed_systems: List[System] = []
 
         # Normal modes: (0,0), (1,1), (2,2)
         for ind in [(0, 0), (1, 1), (2, 2)]:
@@ -187,15 +186,16 @@ class DeformedStructureSet:
         new_cell = apply_deformation_to_cell(self.cell, defo)
         new_pos = apply_deformation_to_positions(self.positions, self.cell, new_cell)
         self.deformations.append(defo)
-        self.deformed_cells.append(new_cell)
-        self.deformed_positions.append(new_pos)
+        dfm_system = System(box=new_cell, pos=new_pos)
+        dfm_system.set_element(self.element)
+        self.deformed_systems.append(dfm_system)
 
     def __len__(self):
         return len(self.deformations)
 
     def __iter__(self):
-        """Iterate over (deformation, deformed_cell, deformed_positions) tuples."""
-        return zip(self.deformations, self.deformed_cells, self.deformed_positions)
+        """Iterate over (deformation, deformed_systems) tuples."""
+        return zip(self.deformations, self.deformed_systems)
 
 
 # ============================================================
@@ -205,7 +205,7 @@ class DeformedStructureSet:
 
 class ElasticTensor:
     """
-    6×6 elastic stiffness tensor in Voigt notation.
+    6x6 elastic stiffness tensor in Voigt notation.
 
     Build via the class method:
         et = ElasticTensor.from_independent_strains(strain_list, stress_list, eq_stress)
@@ -232,8 +232,8 @@ class ElasticTensor:
 
         Exact port of pymatgen ElasticTensor.from_independent_strains.
 
-        Algorithm
-        ---------
+        Algorithm:
+
         1. Convert all strains/stresses to Voigt 6-vectors.
         2. Group by "strain state" — which Voigt component is active.
         3. For each strain state i (0–5) and each response component j (0–5):
@@ -308,40 +308,36 @@ class ElasticTensor:
         return cls(C)
 
     # ----------------------------------------------------------
-    def print(self, label: str = ""):
-        tag = f" [{label}]" if label else ""
-        print(f"\nElastic tensor (GPa){tag}:")
-        col_labels = ["C1", "C2", "C3", "C4", "C5", "C6"]
-        print("  " + "  ".join(f"{c:>8s}" for c in col_labels))
+    def print(self):
+        print(f"Elastic tensor (GPa):")
         for i, row in enumerate(self.voigt):
             vals = "  ".join(f"{v:8.2f}" for v in row)
-            print(f"  C{i + 1}   {vals}")
+            print(f"{vals}")
 
     def vrh(self):
         """
-        Voigt–Reuss–Hill polycrystalline averages.
+        Voigt-Reuss-Hill polycrystalline averages.
 
         Converts the single-crystal elastic tensor into isotropic polycrystalline
-        properties by averaging over all grain orientations. Valid for ANY crystal
-        symmetry (cubic, hexagonal/HCP, tetragonal, orthorhombic, monoclinic,
-        triclinic) — the formulas operate on the full 6×6 Cij matrix directly.
+        properties by averaging over all grain orientations.
 
         Three averaging schemes:
-          Voigt : assumes uniform strain across grains → upper bound
-          Reuss : assumes uniform stress across grains → lower bound
-          Hill  : arithmetic mean of Voigt and Reuss → best estimate
 
-        The Voigt–Reuss gap reflects single-crystal anisotropy: a larger gap
+          - Voigt : assumes uniform strain across grains → upper bound
+          - Reuss : assumes uniform stress across grains → lower bound
+          - Hill  : arithmetic mean of Voigt and Reuss → best estimate
+
+        The Voigt-Reuss gap reflects single-crystal anisotropy: a larger gap
         means stronger directional dependence (e.g. HCP Mg has a wider gap
         than FCC Cu).
 
         Returns
         -------
         dict with keys (all in GPa except nu which is dimensionless):
-          K_V, K_R, K_H : bulk modulus  (resistance to uniform compression)
-          G_V, G_R, G_H : shear modulus (resistance to shape change)
-          E              : Young's modulus (stiffness under uniaxial load), Hill only
-          nu             : Poisson's ratio (lateral contraction), Hill only
+          K_V, K_R, K_H : bulk modulus
+          G_V, G_R, G_H : shear modulus
+          E              : Young's modulus, Hill only
+          nu             : Poisson's ratio, Hill only
         """
         C = self.voigt
         K_V = (C[0, 0] + C[1, 1] + C[2, 2] + 2 * (C[0, 1] + C[0, 2] + C[1, 2])) / 9.0
@@ -368,31 +364,26 @@ class ElasticTensor:
         return dict(K_V=K_V, G_V=G_V, K_R=K_R, G_R=G_R, K_H=K_H, G_H=G_H, E=E, nu=nu)
 
     def print_vrh(self):
-        """Print Voigt–Reuss–Hill polycrystalline mechanical properties."""
+        """Print Voigt-Reuss-Hill polycrystalline mechanical properties."""
         r = self.vrh()
-        print("\nPolycrystalline mechanical properties (Voigt–Reuss–Hill averages):")
-        print("  Valid for any crystal symmetry: cubic, HCP, tetragonal, etc.")
+        print("Voigt-Reuss-Hill averages:")
         print(
             f"  {'Property':<34s} {'Voigt':>8s}  {'Reuss':>8s}  {'Hill':>8s}  {'Unit'}"
         )
         print(f"  {'-' * 66}")
         print(
-            f"  {'Bulk modulus K (compression)':<34s} {r['K_V']:>8.2f}  {r['K_R']:>8.2f}  {r['K_H']:>8.2f}  GPa"
+            f"  {'Bulk modulus K':<34s} {r['K_V']:>8.2f}  {r['K_R']:>8.2f}  {r['K_H']:>8.2f}  GPa"
         )
         print(
-            f"  {'Shear modulus G (shape change)':<34s} {r['G_V']:>8.2f}  {r['G_R']:>8.2f}  {r['G_H']:>8.2f}  GPa"
+            f"  {'Shear modulus G':<34s} {r['G_V']:>8.2f}  {r['G_R']:>8.2f}  {r['G_H']:>8.2f}  GPa"
         )
-        print(
-            f"  {"Young's modulus E (uniaxial)":<34s} {'':>8s}  {'':>8s}  {r['E']:>8.2f}  GPa"
-        )
-        print(
-            f"  {"Poisson's ratio nu (lateral)":<34s} {'':>8s}  {'':>8s}  {r['nu']:>8.4f}  -"
-        )
-        print(
-            "\n  Voigt = upper bound  |  Reuss = lower bound  |  Hill = best estimate"
-        )
+        y = "Young's modulus E"
+        print(f"  {y:<34s} {'':>8s}  {'':>8s}  {r['E']:>8.2f}  GPa")
+        p = "Poisson's ratio nu"
+        print(f"  {p:<34s} {'':>8s}  {'':>8s}  {r['nu']:>8.4f}  -")
+        print("  Voigt = upper bound  |  Reuss = lower bound  |  Hill = best estimate")
         aniso = abs(r["K_V"] - r["K_R"]) + abs(r["G_V"] - r["G_R"])
-        print(f"  Voigt–Reuss gap (K+G): {aniso:.2f} GPa  (larger = more anisotropic)")
+        print(f"  Voigt-Reuss gap (K+G): {aniso:.2f} GPa  (larger = more anisotropic)")
 
 
 def _get_stress(system: System) -> np.ndarray:
@@ -408,9 +399,22 @@ def get_elastic_constant(
     shear_strains: Sequence[float] = (-0.06, -0.03, 0.03, 0.06),
     fmax: float = 1e-4,
 ) -> ElasticTensor:
+    """
+    Workflow to compute elastic constants from a system.
 
+    Parameters
+    ----------
+    system          : atomic structure
+    calc            : calculator for computing energy, force and stress
+    norm_strains    : normal strain magnitudes, defaults is (-0.01, -0.005, 0.005, 0.01)
+    shear_strains   : shear  strain magnitudes, defaults is (-0.06, -0.03, 0.03, 0.06)
+    fmax            : converge limit for minimization, defaults is 1e-4
+
+    Returns
+    -------
+    ElasticTensor with .voigt attribute = (6,6) Cij in same units as stresses
+    """
     assert "element" in system.data.columns, "system must contain element information."
-    element = system.data["element"]
     system.calc = calc
     fy = FIRE(system, optimize_cell=True)
     assert fy.run(fmax=fmax, steps=10000, show_process=False), (
@@ -419,15 +423,12 @@ def get_elastic_constant(
     equi_stress = _get_stress(system)
 
     dfm_ss = DeformedStructureSet(
-        system.box.box,
-        system.get_positions().to_numpy(),
+        system,
         norm_strains=norm_strains,
         shear_strains=shear_strains,
     )
     strain_list, stress_list = [], []
-    for defo, new_cell, new_pos in dfm_ss:
-        dfm_system = System(box=new_cell, pos=new_pos)
-        dfm_system.set_element(element)
+    for defo, dfm_system in dfm_ss:
         dfm_system.calc = calc
         fy = FIRE(dfm_system)
         assert fy.run(fmax=fmax, steps=10000, show_process=False), (

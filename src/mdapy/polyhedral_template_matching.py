@@ -145,7 +145,7 @@ class PolyhedralTemplateMatching:
         elif "element" in data.columns:
             ele2type = {j: i + 1 for i, j in enumerate(data["element"].unique().sort())}
             type_list = data.with_columns(
-                pl.col("element").replace_strict(ele2type).alias("type")
+                pl.col("element").replace_strict(ele2type).rechunk().alias("type")
             )["type"].to_numpy(allow_copy=False)
         else:
             type_list = np.ones(data.shape[0], np.int32)

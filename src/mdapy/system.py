@@ -398,6 +398,7 @@ class System:
             self.data.with_columns(
                 pl.col("element")
                 .replace_strict(ele2type, return_dtype=pl.Int32)
+                .rechunk()
                 .alias("type")
             ),
             True,
@@ -1896,7 +1897,7 @@ class System:
         if "element" in data.columns:
             ele2type = {j: i + 1 for i, j in enumerate(data["element"].unique().sort())}
             type_list = data.with_columns(
-                pl.col("element").replace_strict(ele2type).alias("type")
+                pl.col("element").replace_strict(ele2type).rechunk().alias("type")
             )["type"].to_numpy()
             self.__data = self.data.with_columns(type=type_list[: self.N])
         elif "type" in data.columns:
@@ -2189,7 +2190,7 @@ class System:
             element_list = self.data["element"].unique().sort()
             ele2type = {j: i + 1 for i, j in enumerate(element_list)}
             self.__data = self.__data.with_columns(
-                pl.col("element").replace_strict(ele2type).alias("type")
+                pl.col("element").replace_strict(ele2type).rechunk().alias("type")
             )
         else:
             assert element_list is not None, (
@@ -2255,13 +2256,13 @@ class System:
                     pl.col("type_name")
                     .replace_strict(
                         {j: i for i, j in enumerate(trans_search_species)}, default=-1
-                    )
+                    ).rechunk()
                     .alias("mol_id")
                 )
 
                 self.__data = self.__data.with_columns(
                     pl.col("cluster_id")
-                    .replace(dict(zip(clus_mol["cluster_id"], clus_mol["mol_id"])))
+                    .replace_strict(dict(zip(clus_mol["cluster_id"], clus_mol["mol_id"]))).rechunk()
                     .alias("mol_id")
                 )
 

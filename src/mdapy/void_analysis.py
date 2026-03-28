@@ -94,7 +94,7 @@ class VoidAnalysis:
                     void_system.data.filter(
                         pl.col("cluster_id").is_in(res.implode())
                     ).with_columns(
-                        pl.col("cluster_id").replace_strict(new_cluster_id),
+                        pl.col("cluster_id").replace_strict(new_cluster_id).rechunk(),
                         pl.lit("X").alias("element"),
                     )
                 )

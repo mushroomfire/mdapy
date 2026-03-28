@@ -1,17 +1,18 @@
 Release Notes
 ===============
 
-Mdapy 1.0.3 (Under development)
+Mdapy 1.0.3 (March 28, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🛠️ Other Improvements
 ----------------------
 
 - Added explained_variance_ratio for PCA.
-- For these analysis methods (CNA, PTM, and IDS), any simulation box with a thickness below 15 Å is automatically treated as a small box.
-- Optimize elastic constant workflow can validated by pymatgen.
-- Optimize calculator set behavior for System.
-- Fixed a bug in minimize class.
+- For these analysis methods (CNA, PTM, and IDS), simulation boxes with a thickness below 15 Å are automatically treated as small boxes.
+- The optimized elastic constant workflow can be validated using pymatgen.
+- Improved the calculator setup behavior for the System.
+- Fixed a bug in the minimize class.
+- Updated parts of the documentation.
 
 
 Mdapy 1.0.2 (March 4, 2026)

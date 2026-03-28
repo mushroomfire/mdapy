@@ -216,7 +216,7 @@ def _set_pka(
                 raise ValueError(f"Unknown element '{ele}' in atomic_numbers.")
             ele2mass[ele] = atomic_masses[atomic_numbers[ele]]
         data = data.with_columns(
-            pl.col("element").replace_strict(ele2mass).alias("amass")
+            pl.col("element").replace_strict(ele2mass).rechunk().alias("amass")
         )
         has_amass = False
 

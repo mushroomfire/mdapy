@@ -54,6 +54,7 @@ Getting Started
    gettingstarted/installation
    gettingstarted/atomic_structure_generation
    gettingstarted/use_mdapy_efficiently
+   gettingstarted/elastic_constant
    gettingstarted/phonon_calculation
    gettingstarted/eam_analysis
    gettingstarted/load_save

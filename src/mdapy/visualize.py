@@ -100,6 +100,7 @@ class View:
             self.system.data.with_columns(
                 ((pl.col("type") - 1) % 9 + 1)
                 .replace_strict(type_dict, return_dtype=pl.UInt32)
+                .rechunk()
                 .alias("color")
             )
         )
@@ -118,6 +119,7 @@ class View:
             self.system.data.with_columns(
                 pl.col("element")
                 .replace_strict(ele_dict, return_dtype=pl.UInt32)
+                .rechunk()
                 .alias("color")
             )
         )
@@ -159,6 +161,7 @@ class View:
                     self.system.data.with_columns(
                         pl.col("element")
                         .replace_strict(ele_radius, return_dtype=pl.Float32)
+                        .rechunk()
                         .alias("radius")
                     )
                 )
@@ -340,6 +343,7 @@ class View:
             self.system.data.with_columns(
                 pl.col(method)
                 .replace_strict(color_struc, return_dtype=pl.UInt32)
+                .rechunk()
                 .alias("color")
             )
         )

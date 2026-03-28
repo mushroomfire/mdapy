@@ -211,7 +211,7 @@ class BuildSystem:
         type2element = {t.id: t.name for t in atom.particles.particle_type.types}
         if len(type2element[1]):
             data = data.with_columns(
-                pl.col("type").replace_strict(type2element).alias("element")
+                pl.col("type").replace_strict(type2element).rechunk().alias("element")
             )
         return data.rechunk(), box, global_info
 

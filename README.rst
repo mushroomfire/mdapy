@@ -163,7 +163,7 @@ trajectories generated from Molecular Dynamics (MD) simulations.
 
 .. code-block:: bash
 
-   pip install https://github.com/mushroomfire/mdapy/archive/master.zip --force-reinstall
+   pip install https://github.com/mushroomfire/mdapy/archive/master.zip
 
 📋 **System Requirements for Method 3 and 4**
 ~~~~~~~~

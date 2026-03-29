@@ -479,10 +479,11 @@ if __name__ == '__main__':
         print("示例 4：从 mdapy.System 渲染 FCC Al")
         print("=" * 50)
         sys_al = mp.build_crystal('Ni', 'fcc', 3.6, nx=5, ny=5, nz=5)
+        # sys_al.write_xyz('test.xyz')
         print(f"  原子数：{sys_al.N}")
-        cam = CameraParams(False, field_of_view=10.56, position=(5.34, 5.16, 5.42), direction=(0.58, 0.76, -0.31),
-                            up=(0.19, 0.25, 0.95), znear=-15)
-        ren2  = TachyonRender(width=2000, height=2000,
+        cam = CameraParams(False, field_of_view=13.42, position=(6.59559, 5.99291, 9.8026), direction=(0.58, 0.76, -0.31),
+                            up=(0.19, 0.25, 0.95), znear=-15 ,dof_enabled=True)
+        ren2  = TachyonRender(width=900, height=900,
                               background=(1, 1, 1), direct_light_intensity=1.2, 
                               aa_samples=20, ao_brightness=1.)
         img_al = ren2.render_system(sys_al, camera=cam, 

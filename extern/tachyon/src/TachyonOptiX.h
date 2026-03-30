@@ -933,8 +933,6 @@ private:
   // Internal methods
   //
 
-  /// initialize the underlying CUDA/OptiX hardware contexts
-  void create_context(void);
   void destroy_context(void);
 
   void check_verbose_env();                 ///< check env vars for verbose out
@@ -1071,6 +1069,12 @@ public:
   /// reduce active memory footprint without destroying the scene
   /// by freeing internal temporary buffers used during AS builds etc.
   void minimize_memory_use(void);
+
+  /// Initialize (or re-initialize) the underlying CUDA/OptiX hardware context.
+  /// The constructor calls this automatically with the default PTX path.
+  /// Call set_shader_path() first, then call this method again if the default
+  /// PTX path was wrong (e.g., the working directory differs from install dir).
+  void create_context(void);
 
 
   //

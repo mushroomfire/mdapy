@@ -8,11 +8,16 @@
  *     TachyonOptiX.h (rt_texture, rt_directional_light, RT_FOG_NONE clash).
  *  2. Redefine the minimal plain-data structs (Vec3, CameraParams, etc.)
  *     independently so this file has no dependency on tachyon.h.
- *  3. Use the same namespace as the rest of mdapy (mdapy_tachyon or mdapy -
- *     must match tachyon_optix_render.h).
+ *  3. Use the same namespace as the rest of mdapy (mdapy_tachyon).
  */
 
-// ── Tell TachyonOptiX.h to use tachyon's own util.h, not VMD's WKFUtils.h ──
+// MSVC requires _USE_MATH_DEFINES before <cmath> to expose M_PI.
+// Define it unconditionally here so nvcc + MSVC also see M_PI.
+#if !defined(_USE_MATH_DEFINES)
+#  define _USE_MATH_DEFINES
+#endif
+
+// Tell TachyonOptiX.h to use tachyon's own util.h, not VMD's WKFUtils.h
 #if !defined(TACHYONINTERNAL)
 #  define TACHYONINTERNAL 1
 #endif
@@ -33,7 +38,73 @@
 #include <stdexcept>
 #include <algorithm>
 #include <string>
-#include <dlfcn.h>   // dladdr — locate the .so at runtime to find PTX sibling
+
+// ---------------------------------------------------------------------------
+// Cross-platform shared-library directory resolution
+//
+// On Linux/macOS: use dladdr() from <dlfcn.h> to locate this .so at runtime.
+// On Windows:     use GetModuleHandleEx() + GetModuleFileName() from <windows.h>
+//                 (dlfcn.h does not exist on Windows).
+//
+// Both implementations return the directory that contains the current shared
+// library, with a trailing slash (e.g. "/path/to/mdapy/" or "C:/path/mdapy/").
+// The PTX file is installed into that same directory by CMake's install() rule.
+// ---------------------------------------------------------------------------
+#if defined(_WIN32) || defined(_WIN64)
+
+#  include <windows.h>
+
+// Returns the directory containing the current DLL, with trailing slash.
+// Uses the address of this function itself as the anchor.
+static std::string get_so_directory() {
+    HMODULE hm = NULL;
+    // GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS: find module by address
+    // GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT: don't increment refcount
+    if (GetModuleHandleExA(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+            GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            reinterpret_cast<LPCSTR>(&get_so_directory),
+            &hm)) {
+        char path[MAX_PATH];
+        DWORD len = GetModuleFileNameA(hm, path, MAX_PATH);
+        if (len > 0 && len < MAX_PATH) {
+            std::string p(path, len);
+            // Normalize backslashes to forward slashes for consistency
+            for (auto &c : p) if (c == '\\') c = '/';
+            auto sep = p.rfind('/');
+            if (sep != std::string::npos)
+                return p.substr(0, sep + 1);
+        }
+    }
+    return "./";
+}
+
+#else  // Linux / macOS
+
+#  include <dlfcn.h>
+#  include <climits>   // PATH_MAX
+
+// Returns the directory containing the current .so, with trailing slash.
+// Uses the address of this function itself as the anchor for dladdr.
+static std::string get_so_directory() {
+    Dl_info info{};
+    if (dladdr(reinterpret_cast<void*>(&get_so_directory), &info)
+            && info.dli_fname) {
+        // realpath() resolves symlinks and relative components, giving a
+        // canonical absolute path (important in virtual-env installs).
+        char resolved[PATH_MAX];
+        const char *fpath = info.dli_fname;
+        if (realpath(fpath, resolved))
+            fpath = resolved;
+        std::string so_path(fpath);
+        auto sep = so_path.rfind('/');
+        if (sep != std::string::npos)
+            return so_path.substr(0, sep + 1);
+    }
+    return "./";
+}
+
+#endif  // _WIN32
 
 // ---------------------------------------------------------------------------
 // Minimal plain-data struct copies (no tachyon.h dependency).
@@ -140,38 +211,73 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-// Anchor symbol used by dladdr to locate this shared library at runtime.
-// Must be a plain function — nvcc rejects member-fn-ptr and lambda→void* casts.
-static void _mdapy_tachyon_anchor() {}
-
 struct TachyonOptiXRenderer::Impl {
     TachyonOptiX ctx;
 
     Impl() {
         ctx.set_verbose_mode(TachyonOptiX::RT_VERB_MIN);
 
-        // Resolve the absolute path to TachyonOptiXShaders.ptx.
-        // The PTX file is installed next to _tachyon*.so (both land in the
-        // mdapy package directory via CMake's install(FILES ...) rule).
-        // dladdr on _mdapy_tachyon_anchor gives us the path of this .so.
-        Dl_info info{};
-        if (dladdr(reinterpret_cast<void*>(&_mdapy_tachyon_anchor), &info)
-                && info.dli_fname) {
-            std::string so_path(info.dli_fname);
-            auto sep = so_path.rfind('/');
-            std::string dir = (sep != std::string::npos) ? so_path.substr(0, sep + 1) : "./";
-            std::string ptx_path = dir + "TachyonOptiXShaders.ptx";
-            printf("[mdapy] dladdr so_path : %s\n", so_path.c_str());
-            printf("[mdapy] dladdr ptx_path: %s\n", ptx_path.c_str());
-            ctx.set_shader_path(ptx_path.c_str());
-        } else {
-            printf("[mdapy] dladdr failed — shaderpath left as default\n");
+        // ── Pre-flight check 1: CUDA GPU availability ────────────────────
+        // TachyonOptiX::device_count() uses cudaGetDeviceCount() which is
+        // safe to call before any context has been created.
+        if (TachyonOptiX::device_count() == 0) {
+            throw std::runtime_error(
+                "[mdapy] No CUDA-capable GPU found. "
+                "Use backend='cpu' to fall back to CPU rendering.");
         }
 
-        // create_context() was removed from TachyonOptiX constructor so we
-        // can set the correct shaderpath first.  Call it here explicitly.
+        // ── Resolve absolute path to TachyonOptiXShaders.ptx ────────────
+        //
+        // CMake installs both _tachyon*.so/_tachyon*.pyd and
+        // TachyonOptiXShaders.ptx into the same mdapy package directory.
+        // get_so_directory() locates that directory at runtime:
+        //   Windows  → GetModuleHandleEx + GetModuleFileName
+        //   Linux    → dladdr + realpath
+        //
+        // The TachyonOptiX default constructor already calls create_context()
+        // with the hard-coded relative path "TachyonOptiXShaders.ptx", which
+        // silently fails when the working directory is not the package dir.
+        // Because create_context() only sets context_created=1 on success,
+        // our explicit call below will correctly retry with the resolved path.
+        std::string dir      = get_so_directory();
+        std::string ptx_path = dir + "TachyonOptiXShaders.ptx";
+        printf("[mdapy] TachyonOptiX shader path: %s\n", ptx_path.c_str());
+
+        // ── Pre-flight check 2: PTX file must exist ──────────────────────
+        // Fail early with a clear message instead of a later segfault.
+        {
+            FILE *fp = fopen(ptx_path.c_str(), "r");
+            if (fp) {
+                fclose(fp);
+            } else {
+                throw std::runtime_error(
+                    "[mdapy] TachyonOptiXShaders.ptx not found at:\n"
+                    "  " + ptx_path + "\n"
+                    "  Ensure mdapy was installed via 'cmake --install' so that\n"
+                    "  TachyonOptiXShaders.ptx is placed next to _tachyon*.so / _tachyon*.pyd.\n"
+                    "  Use backend='cpu' to fall back to CPU rendering.");
+            }
+        }
+
+        // Set the correct PTX path BEFORE calling create_context().
+        // create_context() checks `if (context_created) return;` so if the
+        // constructor's internal call failed (no PTX at relative path), this
+        // second call will succeed with the resolved absolute path.
+        ctx.set_shader_path(ptx_path.c_str());
         ctx.create_context();
         ctx.destroy_scene();
+
+        // ── Post-flight check: CUDA error after context creation ─────────
+        // If create_context() encountered an OptiX/CUDA error, that error
+        // will surface here.  This catches driver-too-old or other GPU faults.
+        cudaError_t cuda_err = cudaGetLastError();
+        if (cuda_err != cudaSuccess) {
+            throw std::runtime_error(
+                std::string("[mdapy] TachyonOptiX GPU context creation failed: ") +
+                cudaGetErrorString(cuda_err) + "\n"
+                "  NVIDIA driver may be too old for OptiX 7.6 (minimum driver: 520.xx)\n"
+                "  Use backend='cpu' to fall back to CPU rendering.");
+        }
     }
 
     int makeMaterial(float r, float g, float b, float alpha) {
@@ -269,14 +375,21 @@ struct TachyonOptiXRenderer::Impl {
         ctx.update_rendering_state(0);
         ctx.render();
 
-        std::vector<uint8_t> rgb24(rp.width*rp.height*3);
-        ctx.framebuffer_download_rgb4u(rgb24.data());
-        uint8_t alpha=uint8_t(std::max(0.f,std::min(1.f,rp.bgA))*255.f+0.5f);
-        std::vector<uint8_t> rgba(rp.width*rp.height*4);
-        for (int i=0; i<rp.width*rp.height; ++i) {
-            rgba[i*4]=rgb24[i*3]; rgba[i*4+1]=rgb24[i*3+1];
-            rgba[i*4+2]=rgb24[i*3+2]; rgba[i*4+3]=alpha;
-        }
+        // framebuffer_download_rgb4u downloads width*height*sizeof(int) bytes,
+        // i.e. 4 bytes per pixel (RGBA unsigned bytes), NOT 3 bytes.
+        // Allocating only width*height*3 would overflow the buffer and cause
+        // a segmentation fault.
+        const int npixels = rp.width * rp.height;
+        std::vector<uint8_t> rgba(npixels * 4);
+        ctx.framebuffer_download_rgb4u(rgba.data());  // fills RGBA, 4 bytes/px
+
+        // Override the alpha channel with the configured background alpha.
+        // The GPU framebuffer alpha may not match the Python-configured value.
+        const uint8_t alpha = static_cast<uint8_t>(
+            std::max(0.f, std::min(1.f, rp.bgA)) * 255.f + 0.5f);
+        for (int i = 0; i < npixels; ++i)
+            rgba[i*4 + 3] = alpha;
+
         return rgba;
     }
 };

@@ -73,11 +73,16 @@ set(MODULES
 )
 
 foreach(mod IN LISTS MODULES)
-  if(OpenMP_CXX_FOUND)
-    target_link_libraries(${mod} PRIVATE OpenMP::OpenMP_CXX)
-  endif()
   if(MSVC)
+    # On MSVC, use /openmp:llvm directly and skip OpenMP::OpenMP_CXX.
+    # Linking OpenMP::OpenMP_CXX adds /openmp, then /openmp:llvm overrides it,
+    # producing "cl: D9025: overriding /openmp with /openmp:llvm" for every module.
+    # Using only /openmp:llvm avoids the warning entirely.
     target_compile_options(${mod} PRIVATE /openmp:llvm)
+    # Suppress linker warnings about CRT symbol imports from mixed static libs.
+    # LNK4217/LNK4286 are informational: a symbol defined in libucrt.lib is
+    # imported by an object — harmless but very verbose.
+    target_link_options(${mod} PRIVATE /ignore:4217 /ignore:4286 /ignore:4098)
     if(${mod} STREQUAL "_cna")
       target_compile_options(${mod} PRIVATE /DMSVC)
     endif()
@@ -85,11 +90,17 @@ foreach(mod IN LISTS MODULES)
       target_compile_options(${mod} PRIVATE /D_OPENMP)
     endif()
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if(OpenMP_CXX_FOUND)
+      target_link_libraries(${mod} PRIVATE OpenMP::OpenMP_CXX)
+    endif()
     target_compile_options(${mod} PRIVATE -O3 -fopenmp)
     if(${mod} STREQUAL "_nepcal")
       target_compile_options(${mod} PRIVATE -D_OPENMP)
     endif()
   else()
+    if(OpenMP_CXX_FOUND)
+      target_link_libraries(${mod} PRIVATE OpenMP::OpenMP_CXX)
+    endif()
     target_compile_options(${mod} PRIVATE -O3)
     if(${mod} STREQUAL "_nepcal")
       target_compile_options(${mod} PRIVATE -D_OPENMP)
@@ -292,72 +303,223 @@ if(MDAPY_OPTIX)
             set(OPTIX_INCLUDE_DIR
                 "${CMAKE_CURRENT_SOURCE_DIR}/extern/optix/include")
 
-            enable_language(CUDA)
+            ###################################################################
+            # IMPORTANT: Do NOT use enable_language(CUDA).
+            #
+            # On Windows, CMake's CUDA language requires the CUDA VS toolset
+            # integration (CUDA xx.x.targets inside the VS installation).
+            # When building via pip (isolated cmake without a full VS shell)
+            # that toolset is never found and CMake aborts:
+            #   "No CUDA toolset found."
+            #
+            # Solution: locate nvcc with find_program(), compile the .cu files
+            # via add_custom_command(), and link the resulting object files.
+            # This works on Linux, macOS, and Windows without any VS CUDA toolset.
+            ###################################################################
 
-            # Compile TachyonOptiXShaders.cu → PTX (loaded at runtime by OptiX).
-            set(OPTIX_SHADERS_CU "${TACHYON_SRC}/TachyonOptiXShaders.cu")
-            set(OPTIX_SHADERS_PTX
-                "${CMAKE_CURRENT_BINARY_DIR}/TachyonOptiXShaders.ptx")
+            # find_program locates nvcc from the CUDAToolkit already found above.
+            find_program(NVCC_EXECUTABLE nvcc
+                HINTS "${CUDAToolkit_BIN_DIR}"
+                REQUIRED)
+            message(STATUS "[mdapy] nvcc: ${NVCC_EXECUTABLE}")
+
+            # Include directories required by both .cu files.
+            set(_CUDA_INC
+                "${TACHYON_SRC}"
+                "${OPTIX_INCLUDE_DIR}"
+                "${CUDAToolkit_INCLUDE_DIRS}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/src"
+            )
+            set(_NVCC_INCS "")
+            foreach(_inc IN LISTS _CUDA_INC)
+                list(APPEND _NVCC_INCS "-I${_inc}")
+            endforeach()
+
+            # Common nvcc flags for compiling .cu -> relocatable object (-dc).
+            # -dc emits device code that must be device-linked before host linking.
+            if(WIN32)
+                set(_NVCC_FLAGS
+                    -dc --generate-line-info
+                    -gencode arch=compute_60,code=sm_60
+                    -gencode arch=compute_70,code=sm_70
+                    -gencode arch=compute_75,code=sm_75
+                    -gencode arch=compute_80,code=sm_80
+                    -gencode arch=compute_86,code=sm_86
+                    -gencode arch=compute_89,code=sm_89
+                    -gencode arch=compute_90,code=sm_90
+                    -DMDAPY_OPTIX=1 -DTACHYON_INTERNAL=1 -DTACHYONINTERNAL=1
+                    -UTACHYON_OPTIXDENOISER
+                    # On Windows, `uint` is not a built-in type (comes from
+                    # POSIX <sys/types.h> which MSVC does not include automatically).
+                    # Map it via a macro. Also map strcasecmp -> _stricmp (POSIX vs MSVC).
+                    "-Duint=unsigned int"
+                    "-Dstrcasecmp=_stricmp"
+                    # _USE_MATH_DEFINES exposes M_PI under MSVC; /wd4819 silences
+                    # the "file contains a character that cannot be represented"
+                    # code-page warning emitted by nvcc on Windows.
+                    # /MD: use dynamic CRT (DLL), matching cl.exe default.
+                    # Mixing /MT (nvcc default) with /MD (cl.exe) causes
+                    # LNK2038 "RuntimeLibrary mismatch" at link time.
+                    # /wd4819: suppress code-page warning from nvcc on Windows.
+                    # /wd4244: suppress narrowing conversion warnings.
+                    -Xcompiler "/MD /D_USE_MATH_DEFINES /wd4819 /wd4244"
+                    # Suppress nvcc warning about old GPU arch (sm_60..74)
+                    # being deprecated in future CUDA releases.
+                    -Wno-deprecated-gpu-targets
+                )
+                set(_OBJ_EXT "obj")
+            else()
+                set(_NVCC_FLAGS
+                    -dc --generate-line-info
+                    -gencode arch=compute_60,code=sm_60
+                    -gencode arch=compute_70,code=sm_70
+                    -gencode arch=compute_75,code=sm_75
+                    -gencode arch=compute_80,code=sm_80
+                    -gencode arch=compute_86,code=sm_86
+                    -gencode arch=compute_89,code=sm_89
+                    -gencode arch=compute_90,code=sm_90
+                    -DMDAPY_OPTIX=1 -DTACHYON_INTERNAL=1 -DTACHYONINTERNAL=1
+                    -UTACHYON_OPTIXDENOISER
+                    -Xcompiler -fPIC
+                )
+                set(_OBJ_EXT "o")
+            endif()
+
+            # ── PTX shader: TachyonOptiXShaders.cu → .ptx ─────────────────
+            # (loaded at runtime by OptiX; compiled to PTX only, not an object)
+            set(OPTIX_SHADERS_CU  "${TACHYON_SRC}/TachyonOptiXShaders.cu")
+            set(OPTIX_SHADERS_PTX "${CMAKE_CURRENT_BINARY_DIR}/TachyonOptiXShaders.ptx")
 
             add_custom_command(
                 OUTPUT  "${OPTIX_SHADERS_PTX}"
-                COMMAND ${CMAKE_CUDA_COMPILER}
-                        -ptx
-                        -I "${TACHYON_SRC}"
-                        -I "${OPTIX_INCLUDE_DIR}"
-                        --generate-line-info
-                        -arch sm_60   # minimum: Pascal (GTX 10xx and newer)
+                COMMAND "${NVCC_EXECUTABLE}"
+                        -ptx --generate-line-info
+                        -arch sm_60
+                        ${_NVCC_INCS}
+                        -DTACHYON_INTERNAL=1 -DTACHYONINTERNAL=1
+                        -UTACHYON_OPTIXDENOISER
+                        "-Duint=unsigned int"
+                        "-Dstrcasecmp=_stricmp"
+                        -Wno-deprecated-gpu-targets
                         -o "${OPTIX_SHADERS_PTX}"
                         "${OPTIX_SHADERS_CU}"
                 DEPENDS "${OPTIX_SHADERS_CU}"
-                COMMENT "[mdapy] Compiling TachyonOptiX shaders to PTX"
+                COMMENT "[mdapy] nvcc: TachyonOptiXShaders.cu -> PTX"
             )
-            add_custom_target(TachyonOptiXShadersPTX
+            add_custom_target(TachyonOptiXShadersPTX ALL
                 DEPENDS "${OPTIX_SHADERS_PTX}")
 
-            # Add two CUDA source files to the _tachyon module:
-            #   1. src/tachyon_optix_impl.cu  — our PIMPL implementation (mdapy code)
-            #   2. extern/tachyon/src/TachyonOptiX.cu — Tachyon GPU engine
-            #
-            # CRITICAL: tachyon_render.cpp (compiled by g++) includes only the clean
-            # tachyon_optix_render.h PIMPL interface and NEVER sees TachyonOptiX.h.
-            # This avoids symbol clashes (rt_texture, RT_FOG_NONE, __saturatef, etc.)
-            # between tachyon.h (CPU API) and TachyonOptiX.h (GPU internal API).
-            target_sources(_tachyon PRIVATE
-                "${CMAKE_CURRENT_SOURCE_DIR}/src/tachyon_optix_impl.cu"
-                "${TACHYON_SRC}/TachyonOptiX.cu"
+            # ── TachyonOptiX.cu → relocatable object ──────────────────────
+            set(_TACHYON_OPTIX_CU  "${TACHYON_SRC}/TachyonOptiX.cu")
+            set(_TACHYON_OPTIX_OBJ "${CMAKE_CURRENT_BINARY_DIR}/TachyonOptiX.${_OBJ_EXT}")
+
+            add_custom_command(
+                OUTPUT  "${_TACHYON_OPTIX_OBJ}"
+                COMMAND "${NVCC_EXECUTABLE}"
+                        ${_NVCC_FLAGS} ${_NVCC_INCS}
+                        -o "${_TACHYON_OPTIX_OBJ}"
+                        "${_TACHYON_OPTIX_CU}"
+                DEPENDS "${_TACHYON_OPTIX_CU}"
+                        "${TACHYON_SRC}/TachyonOptiX.h"
+                        "${TACHYON_SRC}/TachyonOptiXShaders.h"
+                COMMENT "[mdapy] nvcc: TachyonOptiX.cu -> object"
             )
-            set_source_files_properties(
-                "${CMAKE_CURRENT_SOURCE_DIR}/src/tachyon_optix_impl.cu"
-                "${TACHYON_SRC}/TachyonOptiX.cu"
-                PROPERTIES LANGUAGE CUDA)
+
+            # ── tachyon_optix_impl.cu → relocatable object ─────────────────
+            set(_IMPL_CU  "${CMAKE_CURRENT_SOURCE_DIR}/src/tachyon_optix_impl.cu")
+            set(_IMPL_OBJ "${CMAKE_CURRENT_BINARY_DIR}/tachyon_optix_impl.${_OBJ_EXT}")
+
+            add_custom_command(
+                OUTPUT  "${_IMPL_OBJ}"
+                COMMAND "${NVCC_EXECUTABLE}"
+                        ${_NVCC_FLAGS} ${_NVCC_INCS}
+                        -o "${_IMPL_OBJ}"
+                        "${_IMPL_CU}"
+                DEPENDS "${_IMPL_CU}"
+                        "${TACHYON_SRC}/TachyonOptiX.h"
+                        "${CMAKE_CURRENT_SOURCE_DIR}/src/tachyon_optix_render.h"
+                COMMENT "[mdapy] nvcc: tachyon_optix_impl.cu -> object"
+            )
+
+            # ── Device-link the two relocatable objects ────────────────────
+            # When -dc is used, a separate nvcc -dlink pass is required to merge
+            # the device code before the host linker sees the final .obj files.
+            set(_DLINK_OBJ "${CMAKE_CURRENT_BINARY_DIR}/tachyon_optix_dlink.${_OBJ_EXT}")
+            if(WIN32)
+                set(_DLINK_EXTRA "")
+            else()
+                set(_DLINK_EXTRA -Xcompiler -fPIC)
+            endif()
+
+            add_custom_command(
+                OUTPUT  "${_DLINK_OBJ}"
+                COMMAND "${NVCC_EXECUTABLE}"
+                        -dlink
+                        -gencode arch=compute_60,code=sm_60
+                        -gencode arch=compute_70,code=sm_70
+                        -gencode arch=compute_75,code=sm_75
+                        -gencode arch=compute_80,code=sm_80
+                        -gencode arch=compute_86,code=sm_86
+                        -gencode arch=compute_89,code=sm_89
+                        -gencode arch=compute_90,code=sm_90
+                        ${_DLINK_EXTRA}
+                        -o "${_DLINK_OBJ}"
+                        "${_TACHYON_OPTIX_OBJ}" "${_IMPL_OBJ}"
+                DEPENDS "${_TACHYON_OPTIX_OBJ}" "${_IMPL_OBJ}"
+                COMMENT "[mdapy] nvcc: device-link CUDA objects"
+            )
+
+            # Custom target ensures obj files are built before _tachyon links.
+            add_custom_target(TachyonOptiXBuild ALL
+                DEPENDS "${_TACHYON_OPTIX_OBJ}" "${_IMPL_OBJ}" "${_DLINK_OBJ}")
+
+            # Tell tachyon_render.cpp (compiled by cl.exe/g++) that OptiX is
+            # available, so it exposes TachyonOptiXRenderer and has_optix()=true.
+            target_compile_definitions(_tachyon PRIVATE MDAPY_OPTIX=1)
+            # tachyon_render.h uses M_PI. MSVC only exposes it with this define.
+            if(MSVC)
+                target_compile_definitions(_tachyon PRIVATE _USE_MATH_DEFINES)
+            endif()
 
             target_include_directories(_tachyon PRIVATE "${OPTIX_INCLUDE_DIR}")
-            target_link_libraries(_tachyon PRIVATE CUDA::cudart CUDA::cuda_driver dl)
 
-            # These definitions are passed to ALL sources in _tachyon (both .cpp
-            # and .cu).  The CUDA sources need TACHYONINTERNAL to avoid WKFUtils.h.
-            target_compile_definitions(_tachyon PRIVATE
-                MDAPY_OPTIX=1
-                TACHYON_INTERNAL=1     # used by TachyonOptiX.cu itself
-                TACHYONINTERNAL=1)     # used by TachyonOptiX.h → picks util.h
-            # Explicitly undefine the denoiser feature: its OptiX 7.6 API changed
-            # OptixDenoiserParams::denoiseAlpha from int to OptixDenoiserAlphaMode.
-            target_compile_options(_tachyon PRIVATE
-                $<$<COMPILE_LANGUAGE:CUDA>:-UTACHYON_OPTIXDENOISER>)
+            # Inject the three .obj/.o files directly into the link command.
+            #
+            # target_link_libraries() with raw paths is unreliable on the MSVC
+            # generator — CMake may silently discard them instead of passing them
+            # to link.exe.  target_link_options() bypasses CMake's translation
+            # layer and appends the paths verbatim to the linker command line:
+            #   - MSVC link.exe accepts bare .obj paths on its command line.
+            #   - GNU ld / lld accept bare .o paths equally.
+            # This is the most reliable way to force-include pre-built objects.
+            if(WIN32)
+                target_link_options(_tachyon PRIVATE
+                    # CUDA objects: TachyonOptiX engine + our PIMPL + device-link stub
+                    "${_TACHYON_OPTIX_OBJ}"
+                    "${_IMPL_OBJ}"
+                    "${_DLINK_OBJ}"
+                    # Suppress noisy MSVC linker informational warnings.
+                    /ignore:4098   # defaultlib conflict (CRT mismatch notice)
+                    /ignore:4217   # symbol imported by object (harmless)
+                    /ignore:4286   # symbol imported by multiple objects (harmless)
+                )
+                target_link_libraries(_tachyon PRIVATE
+                    CUDA::cudart CUDA::cuda_driver)
+            else()
+                target_link_options(_tachyon PRIVATE
+                    "${_TACHYON_OPTIX_OBJ}"
+                    "${_IMPL_OBJ}"
+                    "${_DLINK_OBJ}"
+                )
+                target_link_libraries(_tachyon PRIVATE
+                    CUDA::cudart CUDA::cuda_driver dl)
+            endif()
 
-            set_target_properties(_tachyon PROPERTIES
-                CUDA_SEPARABLE_COMPILATION OFF
-                CUDA_ARCHITECTURES "60;70;75;80;86;89;90"
-                # 60=Pascal  70=Volta  75=Turing  80=Ampere  86=Ampere(RTX30)
-                # 89=Ada(RTX40)  90=Hopper
-            )
-
-            add_dependencies(_tachyon TachyonOptiXShadersPTX)
+            add_dependencies(_tachyon TachyonOptiXBuild TachyonOptiXShadersPTX)
             install(FILES "${OPTIX_SHADERS_PTX}" DESTINATION mdapy)
 
-            message(STATUS "[mdapy] GPU backend ENABLED. "
-                           "PTX → ${OPTIX_SHADERS_PTX}")
+            message(STATUS "[mdapy] GPU backend ENABLED (nvcc custom-command). "
+                           "PTX: ${OPTIX_SHADERS_PTX}")
 
         endif()   # CUDAToolkit_FOUND
     endif()   # optix.h exists

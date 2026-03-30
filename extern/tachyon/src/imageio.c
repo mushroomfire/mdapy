@@ -1,7 +1,11 @@
 /*
- *  imageio.c - This file deals with reading/writing image files
+ * imageio.c - This file deals with reading/writing image files
  *
- *  $Id: imageio.c,v 1.30 2013/04/21 16:58:19 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: imageio.c,v 1.31 2022/02/18 17:55:28 johns Exp $
+ *
  */ 
 
 /* For our puposes, we're interested only in the 3 byte per pixel 24 bit

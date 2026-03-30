@@ -1,7 +1,11 @@
 /*
- *  ppm.c - This file deals with PPM format image files (reading/writing)
+ * ppm.c - This file deals with PPM format image files (reading/writing)
  *
- *  $Id: ppm.c,v 1.24 2013/04/21 07:02:23 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: ppm.c,v 1.26 2022/02/18 17:55:28 johns Exp $
+ *
  */ 
 
 /* For our puposes, we're interested only in the 3 byte per pixel 24 bit
@@ -25,7 +29,7 @@ static int getint(FILE * dfile) {
 
   num=0; 
   while (num==0) {
-    if (fscanf(dfile, "%s", ch) == 1) {
+    if (fscanf(dfile, "%255s", ch) == 1) {
       while (ch[0]=='#') {
         fgets(ch, sizeof(ch), dfile);
       }
@@ -46,7 +50,7 @@ int readppm(const char * name, int * xres, int * yres, unsigned char **imgdata) 
     return IMAGEBADFILE; /* couldn't open the file */
   }
 
-  cnt = fscanf(ifp, "%s", data);
+  cnt = fscanf(ifp, "%255s", data);
  
   if (cnt != 1 || strcmp(data, "P6")) {
     fclose(ifp);

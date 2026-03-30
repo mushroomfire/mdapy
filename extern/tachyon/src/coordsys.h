@@ -1,7 +1,11 @@
 /*
  * coordsys.h - defines for coordinate system routines.
  *  
- *  $Id: coordsys.h,v 1.3 1998/05/27 16:32:08 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: coordsys.h,v 1.4 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 void xytopolar(flt, flt, flt, flt *, flt *);

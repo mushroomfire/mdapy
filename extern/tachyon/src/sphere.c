@@ -1,7 +1,11 @@
 /* 
  * sphere.c - This file contains the functions for dealing with spheres.
  *
- *  $Id: sphere.c,v 1.33 2012/10/17 04:25:57 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: sphere.c,v 1.36 2022/02/18 17:55:28 johns Exp $
+ *
  */
  
 #include <stdio.h>
@@ -54,6 +58,8 @@ static int sphere_bbox(void * obj, vector * min, vector * max) {
 }
 
 static void sphere_intersect(const sphere * spr, ray * ry) {
+#if 1
+  // classic ray-sphere intersection method
   flt b, disc, t1, t2, temp;
   vector V;
 
@@ -74,6 +80,34 @@ static void sphere_intersect(const sphere * spr, ray * ry) {
   t1=b-disc;
   if (t1 > SPEPSILON) 
     ry->add_intersection(t1, (object *) spr, ry);  
+#else
+  // Ray-sphere intersection method with improved floating point precision 
+  // for cases where the sphere size is small relative to the distance
+  // from the camera to the sphere.  This implementation is based on 
+  // Eq. 10-72, p.603 of "Computer Graphics with OpenGL", 3rd Ed., 
+  // by Donald Hearn and Pauline Baker, 2004.  Shown in Eq. 10, p.639
+  // in the 4th edition of the book (Hearn, Baker, Carithers).
+  vector deltap, remedyTerm;
+  flt ddp, disc;
+
+  VSUB(spr->ctr, ry->o, deltap);
+  VDOT(ddp, ry->d, deltap);
+  remedyTerm.x = deltap.x - ddp * ry->d.x; 
+  remedyTerm.y = deltap.y - ddp * ry->d.y; 
+  remedyTerm.z = deltap.z - ddp * ry->d.z;
+  disc = spr->rad*spr->rad - (remedyTerm.x * remedyTerm.x + remedyTerm.y * remedyTerm.y + remedyTerm.z * remedyTerm.z);
+  if (disc >= 0.0f) {   
+    flt disc_root = SQRT(disc);
+    float t2 = ddp + disc_root;
+    float t1 = ddp - disc_root;
+    if (t2 <= SPEPSILON)
+      return;
+    ry->add_intersection(t2, (object *) spr, ry); 
+
+    if (t1 > SPEPSILON)
+      ry->add_intersection(t1, (object *) spr, ry); 
+  } 
+#endif
 }
 
 static void sphere_normal(const sphere * spr, const vector * pnt, const ray * incident, vector * N) {

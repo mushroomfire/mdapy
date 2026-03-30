@@ -1,7 +1,11 @@
 /* 
  * triangle.c - This file contains the functions for dealing with triangles.
  *
- *  $Id: triangle.c,v 1.40 2012/10/17 04:25:57 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: triangle.c,v 1.41 2022/02/18 17:55:28 johns Exp $
+ *
  */
  
 #include <stdio.h>

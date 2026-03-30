@@ -1,8 +1,24 @@
 /*
  * threads.c - code for spawning threads on various platforms.
  *
- *  $Id: threads.c,v 1.71 2013/04/21 02:22:02 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: threads.c,v 1.111 2022/04/08 08:06:29 johns Exp $
+ *
  */ 
+
+/**
+ *  \file threads.c
+ *  \brief Tachyon cross-platform thread creation and management,
+ *         atomic operations, and CPU feature query APIs.
+ */
+
+
+/* 
+ * XXX will need to rename threads.[ch] src to avoid collision with
+ * the new headers included in the C11 standard and later
+ */
 
 /*
    To use the WorkForce threading routines outside of Tachyon, 
@@ -52,6 +68,13 @@
 
 #include "threads.h"
 
+/* needed for CPU info APIs and flag macros */
+#if (defined(__INTEL_COMPILER) && (__INTEL_COMPILER >= 1300)) || (defined(_MSC_VER) && (_MSC_VER >= 1916))
+#include <emmintrin.h>
+#include <immintrin.h>
+#endif
+
+
 #ifdef _MSC_VER
 #if 0
 #define RTUSENEWWIN32APIS 1
@@ -73,6 +96,10 @@
 #else
 #include <Carbon/Carbon.h>  /**< Deprecated Carbon APIs for Multiprocessing */
 #endif
+#endif
+
+#if defined(__linux) && (defined(ARCH_LINUXARM64) || defined(__ARM_ARCH_ISA_A64) || defined(__ARM_NEON))
+#include <sys/auxv.h>       /**< for getauxval() */
 #endif
 
 #if defined(__hpux)
@@ -121,12 +148,13 @@ int rt_thread_numphysprocessors(void) {
   a = sysconf(_SC_CRAY_NCPU);        /**< total number of CPUs */
 #endif
 
-#if defined(ANDROID) || (defined(__linux) && defined(USEPHYSCPUCOUNT))
-  /* Android toggles cores on/off according to system activity, */
+#if defined(ANDROID) || defined(USEPHYSCPUCOUNT)
+  /* Android devices and the NVIDIA/SECO "CARMA" and "Kayla"    */
+  /* boards toggles cores on/off according to system activity,  */
   /* thermal management, and battery state.  For now, we will   */
   /* use as many threads as the number of physical cores since  */
   /* the number that are online may vary even over a 2 second   */
-  /* time window.  We will likely have this issue on other      */
+  /* time window.  We will likely have this issue on many more  */
   /* platforms as power management becomes more important...    */
 
   /* use sysconf() for initial guess, although it produces incorrect    */
@@ -195,6 +223,260 @@ int rt_thread_numprocessors(void) {
 #endif /* THR */
 
   return a;
+}
+
+
+/*
+ * Functions supporting processor-specific runtime dispatch for hand-written
+ * kernels using SIMD vector intrinsics or other highly specialized routines.
+ */
+#define RT_USEINTCPUID 1
+#if defined(RT_USEINTCPUID) && (defined(__GNUC__) || defined(__INTEL_COMPILER) || (defined(_MSC_VER) && (_MSC_VER >= 1916))) && (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_AMD64))
+#if 1
+//static void rt_cpuid(uint32_t eax, uint32_t ecx, uint32_t* abcd) {
+static void rt_cpuid(unsigned int eax, unsigned int ecx, unsigned int* abcd) {
+#if defined(_MSC_VER)
+  __cpuidex((int*)abcd, eax, ecx);
+#else
+//  uint32_t ebx, edx;
+  unsigned int ebx=0, edx=0;
+#if defined(__i386__) && defined (__PIC__)
+  /* in case of PIC under 32-bit EBX cannot be clobbered */
+  __asm__("movl %%ebx, %%edi \n\t cpuid \n\t xchgl %%ebx, %%edi" : "=D" (ebx),
+#else
+  __asm__("cpuid" : "+b" (ebx),
+#endif
+          "+a" (eax), "+c" (ecx), "=d" (edx));
+          abcd[0] = eax; abcd[1] = ebx; abcd[2] = ecx; abcd[3] = edx;
+#endif
+  }
+#else
+static void rt_cpuid(unsigned int eax, unsigned int ecx, unsigned int *info) {
+  __asm__ __volatile__(
+    "xchg %%ebx, %%edi;"
+    "cpuid;"
+    "xchg %%ebx, %%edi;"
+    :"=a" (info[0]), "=D" (info[1]), "=c" (info[2]), "=d" (info[3])
+    :"0" (eax)
+  );
+}
+#endif
+
+static unsigned long long rt_xgetbv(unsigned int index) {
+#if defined(_MSC_VER)
+  return _xgetbv(index);
+#else
+  unsigned int eax=0, edx=0;
+  __asm__ __volatile__(
+    "xgetbv;"
+    : "=a" (eax), "=d"(edx)
+    : "c" (index)
+  );
+  return ((unsigned long long) edx << 32) | eax;
+#endif
+}
+#endif
+
+
+int rt_cpu_capability_flags(rt_cpu_caps_t *cpucaps) {
+  int flags=CPU_UNKNOWN;
+  int smtdepth = CPU_SMTDEPTH_UNKNOWN;
+
+#if defined(RT_USEINTCPUID) && (defined(__GNUC__) || defined(__INTEL_COMPILER) || (defined(_MSC_VER) && (_MSC_VER >= 1916))) && (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_AMD64))
+#define RT_INTERNAL_ENABLE_CPUCAP_BAILOUT 1
+  // https://software.intel.com/content/www/us/en/develop/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family.html
+  // https://stackoverflow.com/questions/6121792/how-to-check-if-a-cpu-supports-the-sse3-instruction-set
+  // https://gist.github.com/hi2p-perim/7855506
+  // http://www.hugi.scene.org/online/coding/hugi%2016%20-%20corawhd4.htm
+  // http://www.geoffchappell.com/studies/windows/km/cpu/precpuid.htm
+  // http://www.geoffchappell.com/studies/windows/km/cpu/cpuid/index.htm
+  // https://www.sandpile.org/x86/cpuid.htm
+  // https://lemire.me/blog/2020/07/17/the-cost-of-runtime-dispatch/
+  // https://github.com/google/cpu_features/
+  // https://github.com/klauspost/cpuid
+  // https://github.com/anrieff/libcpuid/tree/master/libcpuid
+  // Considerations about clock rate capping and false dependencies
+  //   when high AVX/AVX-512 registers are considered "in use" with 
+  //   stale data, unless cleared, e.g., by _mm256_zeroupper():
+  //   https://blog.cloudflare.com/on-the-dangers-of-intels-frequency-scaling/
+  //   https://www.agner.org/optimize/blog/read.php?i=857
+  unsigned int vendcpuinfo[4] = { 0 };
+  unsigned int cpuinfo[4] = { 0 };
+  unsigned long long xcrFeatureMask = 0;
+  int havexmmymm = 0;
+  int havezmmmask = 0;
+  int haveosxsave = 0;
+
+  rt_cpuid(0, 0, vendcpuinfo); /* get vendor string, highest function code */
+  if (vendcpuinfo[0] == 0)
+    goto nocpuinfo; /* bail on very primitive CPU type, max fctn code==0 */
+
+  rt_cpuid(1, 0, cpuinfo);     /* get various SIMD extension flags */
+  haveosxsave = (cpuinfo[2] & (1 << 27)) != 0; /* OS save/restore xmm regs */
+
+  flags = 0;
+  flags |= ((cpuinfo[2] & (1 << 19)) != 0)           * CPU_SSE4_1;
+  flags |= ((cpuinfo[2] & (1 << 29)) != 0)           * CPU_F16C;
+  flags |= ((cpuinfo[2] & (1 << 31)) != 0)           * CPU_HYPERVISOR;
+  flags |= ((cpuinfo[3] & (1 << 26)) != 0)           * CPU_SSE2;
+  flags |= ((cpuinfo[3] & (1 << 28)) != 0)           * CPU_HT;
+
+  /* if we have AVX, we need to call xgetbv too */
+  if ((cpuinfo[2] & (1 << 28)) != 0) {
+    xcrFeatureMask = rt_xgetbv(0);
+    havexmmymm  = (xcrFeatureMask & 0x06) == 0x06;
+    havezmmmask = (xcrFeatureMask & 0xE6) == 0xE6;
+  }
+
+  flags |= (((cpuinfo[2] & (1 << 12)) != 0) &&
+            havexmmymm && haveosxsave)               * CPU_FMA;
+
+  flags |= (((cpuinfo[2] & (1 << 28)) != 0) &&
+            havexmmymm && haveosxsave)               * CPU_AVX;
+
+  /* check that we can call CPUID function 7 */
+  if (cpuinfo[0] >= 0x7) {
+    unsigned int extcpuinfo[4] = { 0 };
+    rt_cpuid(7, 0, extcpuinfo);
+
+    flags |= (((extcpuinfo[1] & (1 << 5)) != 0) &&
+              havexmmymm && haveosxsave)               * CPU_AVX2;
+
+    flags |= (((extcpuinfo[1] & (1 << 16)) != 0) &&
+              havezmmmask && haveosxsave)              * CPU_AVX512F;
+    flags |= (((extcpuinfo[1] & (1 << 26)) != 0) &&
+              havezmmmask && haveosxsave)              * CPU_AVX512PF;
+    flags |= (((extcpuinfo[1] & (1 << 27)) != 0) &&
+              havezmmmask && haveosxsave)              * CPU_AVX512ER;
+    flags |= (((extcpuinfo[1] & (1 << 28)) != 0) &&
+              havezmmmask && haveosxsave)              * CPU_AVX512CD;
+  }
+
+  smtdepth = 1;
+  if (flags & CPU_HT) {
+#if 1
+    /* XXX correct this for Phi, OS/BIOS settings */
+    smtdepth = 2;
+
+    /* XXX Hack to detect Xeon Phi CPUs since no other CPUs */
+    /* support AVX-512ER or AVX-512PF (yet...)              */ 
+    if ((flags & CPU_AVX512ER) && (flags & CPU_AVX512PF)) { 
+      smtdepth = 4;
+    }
+#else
+    int logicalcores = (cpuinfo[1] >> 16) && 0xFF;
+    int physicalcores = logicalcores;
+    char vendor[16] = { 0 };
+    ((unsigned *)vendor)[0] = vendcpuinfo[1];
+    ((unsigned *)vendor)[1] = vendcpuinfo[3];
+    ((unsigned *)vendor)[2] = vendcpuinfo[2];
+
+    /* hmm, not quite right yet */
+    if (!strcmp(vendor, "GenuineIntel")) {
+      unsigned int corecpuinfo[4] = { 0 };
+      rt_cpuid(4, 0, corecpuinfo);
+      physicalcores = ((corecpuinfo[0] >> 26) & 0x3f) + 1; 
+    } else if (!strcmp(vendor, "AuthenticAMD")) {
+      unsigned int corecpuinfo[4] = { 0 };
+      rt_cpuid(0x80000008, 0, corecpuinfo);
+      physicalcores = (corecpuinfo[2] & 0xFF) + 1; 
+    }
+
+printf("cpuinfo: %d / %d  vend: %s\n", logicalcores, physicalcores, vendor);
+
+    smtdepth = logicalcores / physicalcores;
+#endif
+  }
+
+#elif defined(__INTEL_COMPILER) && (__INTEL_COMPILER >= 1300)
+
+  // https://software.intel.com/content/www/us/en/develop/documentation/cpp-compiler-developer-guide-and-reference/top/compiler-reference/intrinsics/intrinsics-for-all-intel-architectures/may-i-use-cpu-feature.html
+  flags = 0;
+  flags |= _may_i_use_cpu_feature(_FEATURE_SSE2)     * CPU_SSE2;
+  flags |= _may_i_use_cpu_feature(_FEATURE_SSE4_1)   * CPU_SSE4_1;
+  flags |= _may_i_use_cpu_feature(_FEATURE_AVX)      * CPU_AVX;
+  flags |= _may_i_use_cpu_feature(_FEATURE_AVX2)     * CPU_AVX2;
+  flags |= _may_i_use_cpu_feature(_FEATURE_FMA)      * CPU_FMA;
+  flags |= _may_i_use_cpu_feature(_FEATURE_AVX512F)  * CPU_AVX512F;
+  flags |= _may_i_use_cpu_feature(_FEATURE_AVX512CD) * CPU_AVX512CD;
+  flags |= _may_i_use_cpu_feature(_FEATURE_AVX512ER) * CPU_AVX512ER;
+  flags |= _may_i_use_cpu_feature(_FEATURE_AVX512PF) * CPU_AVX512PF;
+
+#elif defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)) 
+
+  // https://gcc.gnu.org/onlinedocs/gcc/x86-Built-in-Functions.html
+  flags = 0;
+  __builtin_cpu_init();
+  flags |= (__builtin_cpu_supports("sse2")!=0)       * CPU_SSE2;
+  flags |= (__builtin_cpu_supports("sse4.1")!=0)     * CPU_SSE4_1;
+  flags |= (__builtin_cpu_supports("avx")!=0)        * CPU_AVX;
+  flags |= (__builtin_cpu_supports("avx2")!=0)       * CPU_AVX2;
+  flags |= (__builtin_cpu_supports("fma")!=0)        * CPU_FMA;
+  flags |= (__builtin_cpu_supports("avx512f")!=0)    * CPU_AVX512F;
+  flags |= (__builtin_cpu_supports("avx512cd")!=0)   * CPU_AVX512CD;
+  flags |= (__builtin_cpu_supports("avx512er")!=0)   * CPU_AVX512ER;
+  flags |= (__builtin_cpu_supports("avx512pf")!=0)   * CPU_AVX512PF;
+
+#elif defined(__linux) && (defined(ARCH_LINUXARM64) || defined(__ARM_ARCH_ISA_A64) || defined(__ARM_NEON))
+
+  // https://golang.org/src/internal/cpu/cpu_arm64.go
+  // https://code.woboq.org/qt5/qtbase/src/corelib/tools/qsimd.cpp.html
+  // https://www.kernel.org/doc/html/latest/arm64/elf_hwcaps.html
+  // https://man7.org/linux/man-pages/man3/getauxval.3.html
+  // https://lists.cs.columbia.edu/pipermail/kvmarm/2017-August/026715.html
+  unsigned long auxval1=0;
+//  unsigned long auxval2=0;
+  auxval1 = getauxval(AT_HWCAP);
+//  auxval2 = getauxval(AT_HWCAP2);
+//  printf("WKFThreadsARM: %016lx %016lx\n", auxval1, auxval2);
+
+  flags = 0;
+  flags |= ((auxval1 & HWCAP_FP) != 0)               * CPU_ARM64_FP;
+
+  flags |= ((auxval1 & HWCAP_ASIMD) != 0)            * CPU_ARM64_ASIMD;
+  flags |= ((auxval1 & HWCAP_ASIMDHP) != 0)          * CPU_ARM64_ASIMDHP;
+  flags |= ((auxval1 & HWCAP_ASIMDRDM) != 0)         * CPU_ARM64_ASIMDRDM;
+  flags |= ((auxval1 & HWCAP_ASIMDDP) != 0)          * CPU_ARM64_ASIMDDP;
+  flags |= ((auxval1 & HWCAP_ASIMDFHM) != 0)         * CPU_ARM64_ASIMDFHM;
+
+  flags |= ((auxval1 & HWCAP_SVE) != 0)              * CPU_ARM64_SVE;
+
+  flags |= ((auxval1 & HWCAP_AES) != 0)              * CPU_ARM64_AES;
+  flags |= ((auxval1 & HWCAP_CRC32) != 0)            * CPU_ARM64_CRC32;
+  flags |= ((auxval1 & HWCAP_SHA1) != 0)             * CPU_ARM64_SHA1;
+  flags |= ((auxval1 & HWCAP_SHA2) != 0)             * CPU_ARM64_SHA2;
+  flags |= ((auxval1 & HWCAP_SHA3) != 0)             * CPU_ARM64_SHA3;
+  flags |= ((auxval1 & HWCAP_SHA512) != 0)           * CPU_ARM64_SHA512;
+
+#endif
+
+#if defined(RT_INTERNAL_ENABLE_CPUCAP_BAILOUT)
+nocpuinfo:
+#endif
+  cpucaps->flags = flags;
+  cpucaps->smtdepth = smtdepth;
+
+  if (flags == CPU_UNKNOWN)
+    return 1;
+
+  return 0;
+}
+
+
+int rt_cpu_smt_depth(void) {
+  int smtdepth = CPU_SMTDEPTH_UNKNOWN;
+
+#if defined(RT_USEINTCPUID) && (defined(__GNUC__) || defined(__INTEL_COMPILER)) && (defined(__i386__) || defined(__x86_64__))
+  // x86 examples:
+  //  https://software.intel.com/en-us/articles/methods-to-utilize-intels-hyper-threading-technology-with-linux
+  // https://stackoverflow.com/questions/2901694/how-to-detect-the-number-of-physical-processors-cores-on-windows-mac-and-linu
+  rt_cpu_caps_t cpucaps;
+  if (!rt_cpu_capability_flags(&cpucaps)) {
+    smtdepth = cpucaps.smtdepth;
+  }
+#endif
+
+  return smtdepth;
 }
 
 
@@ -761,7 +1043,13 @@ int rt_cond_broadcast(rt_cond_t * cvp) {
 int rt_atomic_int_init(rt_atomic_int_t * atomp, int val) {
   memset(atomp, 0, sizeof(rt_atomic_int_t));
 #ifdef THR
-#ifdef USEGCCATOMICS
+#if defined(USEGCCATOMICS)
+  /* nothing to do here */
+#elif defined(USENETBSDATOMICS) 
+  /* nothing to do here */
+#elif defined(USESOLARISATOMICS) 
+  /* nothing to do here */
+#elif defined(USEWIN32ATOMICS) 
   /* nothing to do here */
 #else  /* use mutexes */
   rt_mutex_init(&atomp->lock);
@@ -777,7 +1065,13 @@ int rt_atomic_int_init(rt_atomic_int_t * atomp, int val) {
 
 int rt_atomic_int_destroy(rt_atomic_int_t * atomp) {
 #ifdef THR
-#ifdef USEGCCATOMICS
+#if defined(USEGCCATOMICS)
+  /* nothing to do here */
+#elif defined(USENETBSDATOMICS) 
+  /* nothing to do here */
+#elif defined(USESOLARISATOMICS) 
+  /* nothing to do here */
+#elif defined(USEWIN32ATOMICS) 
   /* nothing to do here */
 #else  /* use mutexes */
   rt_mutex_destroy(&atomp->lock);
@@ -794,10 +1088,22 @@ int rt_atomic_int_set(rt_atomic_int_t * atomp, int val) {
   int retval;
 
 #ifdef THR
-#ifdef USEGCCATOMICS
+#if defined(USEGCCATOMICS)
   /* nothing special to do here? */
   atomp->val = val;  
-  retval = atomp->val;
+  retval = val;
+#elif defined(USENETBSDATOMICS) 
+  /* nothing special to do here? */
+  atomp->val = val;  
+  retval = val;
+#elif defined(USESOLARISATOMICS) 
+  /* nothing special to do here? */
+  atomp->val = val;  
+  retval = val;
+#elif defined(USEWIN32ATOMICS) 
+  /* nothing special to do here? */
+  atomp->val = val;  
+  retval = val;
 #else  /* use mutexes */
   rt_mutex_lock(&atomp->lock);
   atomp->val = val;  
@@ -818,7 +1124,16 @@ int rt_atomic_int_get(rt_atomic_int_t * atomp) {
   int retval;
 
 #ifdef THR
-#ifdef USEGCCATOMICS
+#if defined(USEGCCATOMICS)
+  /* nothing special to do here? */
+  retval = atomp->val;
+#elif defined(USENETBSDATOMICS) 
+  /* nothing special to do here? */
+  retval = atomp->val;
+#elif defined(USESOLARISATOMICS) 
+  /* nothing special to do here? */
+  retval = atomp->val;
+#elif defined(USEWIN32ATOMICS) 
   /* nothing special to do here? */
   retval = atomp->val;
 #else  /* use mutexes */
@@ -836,8 +1151,16 @@ int rt_atomic_int_get(rt_atomic_int_t * atomp) {
 
 int rt_atomic_int_fetch_and_add(rt_atomic_int_t * atomp, int inc) {
 #ifdef THR
-#ifdef USEGCCATOMICS
+#if defined(USEGCCATOMICS)
   return __sync_fetch_and_add(&atomp->val, inc);
+#elif defined(USENETBSDATOMICS) 
+  /* value returned is the new value, so we have to subtract it off again */
+  return atomic_add_int_nv(&atomp->val, inc) - inc;
+#elif defined(USESOLARISATOMICS) 
+  /* value returned is the new value, so we have to subtract it off again */
+  return atomic_add_int_nv(&atomp->val, inc) - inc;
+#elif defined(USEWIN32ATOMICS) 
+  return InterlockedExchangeAdd(&atomp->val, inc);
 #else  /* use mutexes */
   int retval;
   rt_mutex_lock(&atomp->lock);
@@ -856,8 +1179,15 @@ int rt_atomic_int_fetch_and_add(rt_atomic_int_t * atomp, int inc) {
 
 int rt_atomic_int_add_and_fetch(rt_atomic_int_t * atomp, int inc) {
 #ifdef THR
-#ifdef USEGCCATOMICS
+#if defined(USEGCCATOMICS)
   return __sync_add_and_fetch(&atomp->val, inc);
+#elif defined(USENETBSDATOMICS) 
+  return atomic_add_int_nv(&atomp->val, inc);
+#elif defined(USESOLARISATOMICS) 
+  return atomic_add_int_nv(&atomp->val, inc);
+#elif defined(USEWIN32ATOMICS) 
+  /* value returned is the old value, so we have to add it on again */
+  return InterlockedExchangeAdd(&atomp->val, inc) + inc;
 #else  /* use mutexes */
   int retval; 
   rt_mutex_lock(&atomp->lock);
@@ -1037,6 +1367,49 @@ rt_barrier_t * rt_thread_barrier_init(int n_clients) {
 #endif
 
   return barrier;
+}
+
+
+/* When rendering in the CAVE we use a special synchronization    */
+/* mode so that shared memory mutexes and condition variables     */
+/* will work correctly when accessed from multiple processes.     */
+/* Inter-process synchronization involves the kernel to a greater */
+/* degree, so these barriers are substantially more costly to use */
+/* than the ones designed for use within a single-process.        */
+int rt_thread_barrier_init_proc_shared(rt_barrier_t *barrier, int n_clients) {
+#ifdef THR
+#ifdef USEPOSIXTHREADS
+  if (barrier != NULL) {
+    barrier->n_clients = n_clients;
+    barrier->n_waiting = 0;
+    barrier->phase = 0;
+    barrier->sum = 0;
+
+    pthread_mutexattr_t mattr;
+    pthread_condattr_t  cattr;
+
+    printf("Setting barriers to have system scope...\n");
+
+    pthread_mutexattr_init(&mattr);
+    if (pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED) != 0) {
+      printf("WARNING: could not set mutex to process shared scope\n");
+    }
+
+    pthread_condattr_init(&cattr);
+    if (pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED) != 0) {
+      printf("WARNING: could not set mutex to process shared scope\n");
+    }
+
+    pthread_mutex_init(&barrier->lock, &mattr);
+    pthread_cond_init(&barrier->wait_cv, &cattr);
+
+    pthread_condattr_destroy(&cattr);
+    pthread_mutexattr_destroy(&mattr);
+  }
+#endif
+#endif
+
+  return 0;
 }
 
 

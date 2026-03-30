@@ -1,7 +1,11 @@
 /* 
  * quadric.c - This file contains the functions for dealing with quadrics.
  *
- *  $Id: quadric.c,v 1.27 2012/10/17 04:25:57 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: quadric.c,v 1.28 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 #include <stdio.h>
@@ -18,19 +22,7 @@
 #include "util.h"
 
 int quadric_bbox(void * obj, vector * min, vector * max) {
-  quadric * q = (quadric *) obj;
-
-  if(q->bbox > 0.0) {
-	  min->x = q->ctr.x - q->bbox;
-	  min->y = q->ctr.y - q->bbox;
-	  min->z = q->ctr.z - q->bbox;
-	  max->x = q->ctr.x + q->bbox;
-	  max->y = q->ctr.y + q->bbox;
-	  max->z = q->ctr.z + q->bbox;
-
-	  return 1;
-  }
-  else return 0;
+  return 0;
 }
 
 static object_methods quadric_methods = {

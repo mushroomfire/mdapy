@@ -2,7 +2,11 @@
  * intersect.h - This file contains the declarations and defines for the
  *               functions that manage intersection, bounding and CSG..
  *
- *  $Id: intersect.h,v 1.18 2007/02/09 08:05:32 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: intersect.h,v 1.19 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 unsigned int new_objectid(scenedef *);

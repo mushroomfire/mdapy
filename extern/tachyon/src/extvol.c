@@ -1,7 +1,11 @@
 /*
  * extvol.c - Volume rendering helper routines etc.
  *
- *  $Id: extvol.c,v 1.30 2012/10/17 04:25:57 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: extvol.c,v 1.32 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 #include <stdio.h>
@@ -115,7 +119,7 @@ color ext_volume_texture(const vector * hit, const texture * tx, ray * ry) {
   flt a, tx1, tx2, ty1, ty2, tz1, tz2;
   flt tnear, tfar;
   flt t, tdist, dt, ddt, sum, tt; 
-  vector pnt, bln;
+  vector pnt, bln, bln_1;
   flt scalar, transval; 
   point_light * li;
   color diffint; 
@@ -135,8 +139,7 @@ color ext_volume_texture(const vector * hit, const texture * tx, ray * ry) {
  
   if (ry->d.x == 0.0) {
     if ((ry->o.x < bx->min.x) || (ry->o.x > bx->max.x)) return col;
-  }
-  else {
+  } else {
     tx1 = (bx->min.x - ry->o.x) / ry->d.x;
     tx2 = (bx->max.x - ry->o.x) / ry->d.x;
     if (tx1 > tx2) { a=tx1; tx1=tx2; tx2=a; }
@@ -146,10 +149,9 @@ color ext_volume_texture(const vector * hit, const texture * tx, ray * ry) {
   if (tnear > tfar) return col;
   if (tfar < 0.0) return col;
  
- if (ry->d.y == 0.0) {
+  if (ry->d.y == 0.0) {
     if ((ry->o.y < bx->min.y) || (ry->o.y > bx->max.y)) return col;
-  }
-  else {
+  } else {
     ty1 = (bx->min.y - ry->o.y) / ry->d.y;
     ty2 = (bx->max.y - ry->o.y) / ry->d.y;
     if (ty1 > ty2) { a=ty1; ty1=ty2; ty2=a; }
@@ -161,8 +163,7 @@ color ext_volume_texture(const vector * hit, const texture * tx, ray * ry) {
  
   if (ry->d.z == 0.0) {
     if ((ry->o.z < bx->min.z) || (ry->o.z > bx->max.z)) return col;
-  }
-  else {
+  } else {
     tz1 = (bx->min.z - ry->o.z) / ry->d.z;
     tz2 = (bx->max.z - ry->o.z) / ry->d.z;
     if (tz1 > tz2) { a=tz1; tz1=tz2; tz2=a; }
@@ -175,22 +176,25 @@ color ext_volume_texture(const vector * hit, const texture * tx, ray * ry) {
   if (tnear < 0.0) tnear=0.0;
  
   tdist = xvol->samples;
-
   tt = (xvol->opacity / tdist); 
+  dt = 1.0 / tdist; 
+  sum = 0.0;
 
   bln.x=FABS(bx->min.x - bx->max.x);
   bln.y=FABS(bx->min.y - bx->max.y);
   bln.z=FABS(bx->min.z - bx->max.z);
-  
-     dt = 1.0 / tdist; 
-    sum = 0.0;
 
-/* Accumulate color as the ray passes through the voxels */
+  /* avoid divides in the voxel traversal loop */
+  bln_1.x = 1.0 / bln.x;
+  bln_1.y = 1.0 / bln.y;
+  bln_1.z = 1.0 / bln.z;
+
+  /* Accumulate color as the ray passes through the voxels */
   for (t=tnear; t<=tfar; t+=dt) {
     if (sum < 1.0) {
-      pnt.x=((ry->o.x + (ry->d.x * t)) - bx->min.x) / bln.x;
-      pnt.y=((ry->o.y + (ry->d.y * t)) - bx->min.y) / bln.y;
-      pnt.z=((ry->o.z + (ry->d.z * t)) - bx->min.z) / bln.z;
+      pnt.x=((ry->o.x + (ry->d.x * t)) - bx->min.x) * bln_1.x;
+      pnt.y=((ry->o.y + (ry->d.y * t)) - bx->min.y) * bln_1.y;
+      pnt.z=((ry->o.z + (ry->d.z * t)) - bx->min.z) * bln_1.z;
 
       /* call external evaluator assume 0.0 -> 1.0 range.. */ 
       scalar = xvol->evaluator(pnt.x, pnt.y, pnt.z);  
@@ -211,13 +215,13 @@ color ext_volume_texture(const vector * hit, const texture * tx, ray * ry) {
   
         /* Calculate the Volume gradient at the voxel */
         N.x = (xvol->evaluator(pnt.x - ddt, pnt.y, pnt.z)  -  
-              xvol->evaluator(pnt.x + ddt, pnt.y, pnt.z)) *  8.0 * tt; 
+              xvol->evaluator(pnt.x + ddt, pnt.y, pnt.z)) * 8.0 * tt; 
   
         N.y = (xvol->evaluator(pnt.x, pnt.y - ddt, pnt.z)  -  
-              xvol->evaluator(pnt.x, pnt.y + ddt, pnt.z)) *  8.0 * tt; 
+              xvol->evaluator(pnt.x, pnt.y + ddt, pnt.z)) * 8.0 * tt; 
   
         N.z = (xvol->evaluator(pnt.x, pnt.y, pnt.z - ddt)  -  
-              xvol->evaluator(pnt.x, pnt.y, pnt.z + ddt)) *  8.0 * tt; 
+              xvol->evaluator(pnt.x, pnt.y, pnt.z + ddt)) * 8.0 * tt; 
  
         /* only light surfaces with enough of a normal.. */
         if ((N.x*N.x + N.y*N.y + N.z*N.z) > 0.0) { 
@@ -226,7 +230,6 @@ color ext_volume_texture(const vector * hit, const texture * tx, ray * ry) {
           diffint.r = 0.0; 
           diffint.g = 0.0; 
           diffint.b = 0.0; 
-
 
           /* add the contribution of each of the lights.. */
           cur = ry->scene->lightlist;
@@ -254,8 +257,7 @@ color ext_volume_texture(const vector * hit, const texture * tx, ray * ry) {
           col.b += col2.b * diffint.b * xvol->diffuse;
         }
       }
-    }   
-    else { 
+    } else { 
       sum=1.0;
     }  
   }

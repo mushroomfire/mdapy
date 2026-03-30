@@ -1,7 +1,11 @@
 /* 
  * quadric.h - This file contains the defines for quadrics.
  *
- *  $Id: quadric.h,v 1.12 2011/02/05 08:10:11 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: quadric.h,v 1.13 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 typedef struct {
@@ -14,7 +18,6 @@ typedef struct {
 typedef struct {
   RT_OBJECT_HEAD
   vector ctr;      /**< center of quadric object            */
-  flt bbox;        /**< Size of user-defined bounding box   */
   quadmatrix mat;  /**< quadric function coefficient matrix */
 } quadric; 
 

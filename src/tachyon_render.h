@@ -1,16 +1,22 @@
 #pragma once
 /**
- * tachyon_render.h  —  mdapy Tachyon 渲染器
+ * tachyon_render.h  —  mdapy Tachyon 渲染器（适配 Tachyon 0.99.5）
  *
  * 只使用 Tachyon 公开 API (tachyon.h)，无内部头文件依赖。
  * 相机模型与 OVITO TachyonRenderer 完全一致。
  *
- * ★ 关键修复：rt_newscene() 默认把输出文件设为 /tmp/outfile.tga
- *   (writeimagefile=1)，并把内部格式设为 RGB96F。
- *   若不调用 rt_outputfile(scene, "") 把 writeimagefile 清零，
- *   renderscene() 渲染完后会调用 writeimage()，把我们的 RGBA32 buffer
- *   当成 RGB96F float buffer 解引用 → segfault。
- *   修复：在 rt_rawimage_rgba32() 之前，必须先调用 rt_outputfile(scene, "")。
+ * ★ 0.99.5 API 变更说明：
+ *   1. rt_rawimage_rgba32() 已移除 → 改用 rt_rawimage_rgb24()（24-bit RGB）
+ *      渲染完毕后手动将 RGB24 扩展为 RGBA32（alpha=255）。
+ *   2. colora 类型已移除 → rt_background() 接受 apicolor（无 alpha 通道）。
+ *   3. rt_ambient_occlusion() 新增 maxdist 参数：
+ *      rt_ambient_occlusion(scene, numsamples, maxdist, col)
+ *      传入 RT_AO_MAXDIST_UNLIMITED 表示无限距离。
+ *   4. rt_outputfile(scene, "") 仍然需要调用以禁用文件输出。
+ *
+ * ★ 新增功能：
+ *   BoxEdgeData 现支持自定义颜色（r/g/b/a）和线宽（radius）。
+ *   ParticleData 沿用 positions/colors/radii，接口不变。
  */
 
 #include <cstdint>
@@ -24,7 +30,7 @@ extern "C" {
 #include <tachyon.h>
 }
 
-namespace mdapy {
+namespace mdapy_tachyon {
 
 // ─── 向量辅助 ──────────────────────────────────────────────────────────────────
 struct Vec3 {
@@ -82,8 +88,9 @@ struct RenderParams {
     bool   aoEnabled    = true;
     int    aoSamples    = 12;
     double aoBrightness = 0.80;
+    double aoMaxDist    = RT_AO_MAXDIST_UNLIMITED;  // AO 最大距离，默认无限
 
-    float bgR = 0.f, bgG = 0.f, bgB = 0.f, bgA = 1.f;
+    float bgR = 0.f, bgG = 0.f, bgB = 0.f, bgA = 1.f;  // bgA 用于最终 RGBA 输出
     int   numThreads = 0;   // 0 = Tachyon 自动
 };
 
@@ -99,8 +106,12 @@ struct ParticleData {
 struct BoxEdgeData {
     const double* points = nullptr;  // [M,2,3] float64，每棱两端点
     size_t        count  = 0;
-    float r=1.f, g=1.f, b=1.f, a=1.f;
-    float radius = 0.05f;
+    // 颜色与线宽（可由 Python 层自定义）
+    float r      = 1.f;
+    float g      = 1.f;
+    float b      = 1.f;
+    float a      = 1.f;   // 透明度（0=透明，1=不透明）
+    float radius = 0.05f; // 棱线圆柱半径
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -111,7 +122,7 @@ public:
     TachyonRenderer() {
         rt_set_ui_message([](int, char*){});
         rt_set_ui_progress([](int){});
-        rt_initialize(0, nullptr);
+        rt_initialize_nompi();   // 0.99.5 推荐：不启用 MPI
     }
     ~TachyonRenderer() { rt_finalize(); }
 
@@ -138,19 +149,23 @@ public:
         if (rp.antialiasingEnabled)
             rt_aa_maxsamples(scene, rp.antialiasingSamples);
 
-        // ── ★ 关键修复：禁用文件输出，必须在 rt_rawimage_rgba32 之前调用 ──
-        // rt_newscene() 默认 writeimagefile=1 + imgbufformat=RGB96F
-        // 如果不清零，renderscene() 最后会把我们的 RGBA32 buffer 当
-        // RGB96F float 来读取 → 内存越界 → segfault
-        rt_outputfile(scene, "");   // 设置 writeimagefile=0
+        // ── 禁用文件输出（必须在设置 rawimage buffer 之前调用）─────────
+        // rt_newscene() 默认 writeimagefile=1，不清零会触发内部文件写入
+        rt_outputfile(scene, "");
 
-        // ── 原始图像 buffer（Tachyon 从下往上填充，之后我们翻转）────────
-        std::vector<uint8_t> rawbuf(rp.width * rp.height * 4, 0);
-        rt_rawimage_rgba32(scene, rawbuf.data());
+        // ── 原始图像 buffer（RGB24，Tachyon 从下往上填充）────────────────
+        // 0.99.5 不再提供 rgba32，改用 rgb24，之后手动扩展为 RGBA32
+        const int npixels = rp.width * rp.height;
+        std::vector<uint8_t> rgb24buf(npixels * 3, 0);
+        rt_rawimage_rgb24(scene, rgb24buf.data());
 
-        // ── 背景 & 基本设置 ───────────────────────────────────────────────
-        colora bg{rp.bgR, rp.bgG, rp.bgB, rp.bgA};
+        // ── 背景（0.99.5: rt_background 接受 apicolor，无 alpha）─────────
+        apicolor bg;
+        bg.r = rp.bgR;
+        bg.g = rp.bgG;
+        bg.b = rp.bgB;
         rt_background(scene, bg);
+
         rt_phong_shader(scene, RT_SHADER_NULL_PHONG);
         rt_trans_mode(scene, RT_TRANS_VMD);
         rt_camera_raydepth(scene, 1000);
@@ -167,12 +182,15 @@ public:
         else
             rt_shadermode(scene, RT_SHADER_MEDIUM);
 
-        // ── Ambient Occlusion ─────────────────────────────────────────────
+        // ── Ambient Occlusion（0.99.5 新增 maxdist 参数）──────────────────
         if (rp.aoEnabled) {
             apicolor skycol;
             skycol.r = skycol.g = skycol.b = static_cast<float>(rp.aoBrightness);
             rt_rescale_lights(scene, 0.2f);
-            rt_ambient_occlusion(scene, rp.aoSamples, skycol);
+            rt_ambient_occlusion(scene,
+                                 rp.aoSamples,
+                                 static_cast<apiflt>(rp.aoMaxDist),
+                                 skycol);
         }
 
         // ── 几何体 ────────────────────────────────────────────────────────
@@ -183,12 +201,23 @@ public:
         // ── 渲染 ──────────────────────────────────────────────────────────
         rt_renderscene(scene);
 
-        // ── 垂直翻转（Tachyon 从底行到顶行填充）─────────────────────────
-        std::vector<uint8_t> result(rawbuf.size());
-        const int bpl = rp.width * 4;
-        for (int y = 0; y < rp.height; y++)
-            std::memcpy(result.data() + (rp.height-1-y)*bpl,
-                        rawbuf.data() + y*bpl, bpl);
+        // ── RGB24 → RGBA32（垂直翻转 + 补 alpha）─────────────────────────
+        // Tachyon 从底行到顶行填充，需要翻转为标准的从顶到底顺序
+        const uint8_t bgAlpha = static_cast<uint8_t>(
+            std::max(0.f, std::min(1.f, rp.bgA)) * 255.f + 0.5f);
+        std::vector<uint8_t> result(npixels * 4);
+        const int bpl_src = rp.width * 3;
+        const int bpl_dst = rp.width * 4;
+        for (int y = 0; y < rp.height; y++) {
+            const uint8_t* src = rgb24buf.data() + y * bpl_src;
+            uint8_t* dst = result.data() + (rp.height - 1 - y) * bpl_dst;
+            for (int x = 0; x < rp.width; x++) {
+                dst[x*4+0] = src[x*3+0];  // R
+                dst[x*4+1] = src[x*3+1];  // G
+                dst[x*4+2] = src[x*3+2];  // B
+                dst[x*4+3] = bgAlpha;      // A（统一用背景 alpha）
+            }
+        }
 
         rt_deletescene(scene);
         return result;
@@ -210,11 +239,9 @@ private:
                 rt_camera_dof(scene, cp.dofFocalLen, cp.dofAperture);
                 zoomScale = cp.dofFocalLen;
             }
-            // OVITO: zoom = 0.5 / tan(fov*0.5) / zoomScale
             rt_camera_position(scene, tvec(pos), tvec(dir), tvec(up));
             rt_camera_zoom(scene, 0.5 / std::tan(cp.fieldOfView * 0.5) / zoomScale);
         } else {
-            // OVITO: zoom = 0.5 / fieldOfView，相机沿 dir 偏移 znear
             rt_camera_projection(scene, RT_PROJECTION_ORTHOGRAPHIC);
             Vec3 orthoPos = pos + dir * (cp.znear - 1e-9);
             rt_camera_position(scene, tvec(orthoPos), tvec(dir), tvec(up));
@@ -233,11 +260,9 @@ private:
         lt.ambient = lt.opacity = lt.diffuse = 1.f;
         void* ltex = rt_texture(scene, &lt);
 
-        // 重建相机坐标轴
         const Vec3 d = cp.direction.normalized();
         const Vec3 r = d.cross(cp.up.normalized()).normalized();
         const Vec3 u = r.cross(d).normalized();
-        // OVITO lightDir = inverseViewMatrix * (0.2,-0.2,-1.0)
         const Vec3 wl = r*0.2 + u*(-0.2) + d*(-1.0);
         rt_directional_light(scene, ltex, tvec(wl));
     }
@@ -258,7 +283,7 @@ private:
         return rt_texture(scene, &tex);
     }
 
-    // ── 球形粒子（对标 OVITO SphericalShape 分支）────────────────────────────
+    // ── 球形粒子 ──────────────────────────────────────────────────────────────
     static void addParticles(SceneHandle scene, const ParticleData& pd) {
         for (size_t i = 0; i < pd.count; i++) {
             const float alpha = pd.colors[i*4+3];

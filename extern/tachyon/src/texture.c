@@ -1,7 +1,11 @@
 /* 
  * texture.c - This file contains functions for implementing textures.
  * 
- *  $Id: texture.c,v 1.35 2012/10/17 04:25:57 johns Exp $ 
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: texture.c,v 1.42 2022/03/25 06:13:10 johns Exp $ 
+ *
  */
 
 #include <stdio.h>
@@ -70,58 +74,74 @@ printf("XXX Doh, unrecognized image map type!\n");
 
 
 /* standard solid background texture */
-colora solid_background_texture(const ray *ry) {
-  return ry->scene->bgtex.background;
+color solid_background_texture(ray *ry) {
+  return ry->scene->bgtex.bg_color;
 }
 
 
 /* sky sphere background texture, linear mapping */
-colora sky_sphere_background_texture(const ray *ry) {
+color sky_sphere_background_texture(ray *ry) {
   color col;
-  flt IdotG = VDot(&ry->d, &ry->scene->bgtex.gradient);
-  flt range = ry->scene->bgtex.gradtopval - ry->scene->bgtex.gradbotval;
+  flt tmp;
+  flt IdotG = VDot(&ry->d, &ry->scene->bgtex.bg_grad_updir);
+  flt val = (IdotG - ry->scene->bgtex.bg_grad_botval) * 
+            ry->scene->bgtex.bg_grad_invrange;
 
-  flt val = (IdotG - ry->scene->bgtex.gradbotval) / range;
+  /*
+   * Compute and add random noise to the background gradient to
+   * avoid banding artifacts, particularly in compressed video.
+   * Noise RNG depends only on pixel index, with no sample/subframe
+   * contribution, so that dither pattern won't average out.
+   */
+  unsigned int randval = tea4(ry->idx, ry->idx);
+  flt u = rt_rand(&randval) * RT_RAND_MAX_INV;
+  flt noise = ry->scene->bgtex.bg_grad_noisemag * (u - 0.5); 
+  val += noise;
 
-  if (val < 0.0)
-    val = 0.0;
+  tmp = (val > 1.0) ? 1.0 : val;
+  val = (tmp < 0.0) ? 0.0 : tmp;
 
-  if (val > 1.0)
-    val = 1.0;
+  col.r = ry->scene->bgtex.bg_grad_top.r * val + 
+          ry->scene->bgtex.bg_grad_bot.r * (1.0 - val);
+  col.g = ry->scene->bgtex.bg_grad_top.g * val + 
+          ry->scene->bgtex.bg_grad_bot.g * (1.0 - val);
+  col.b = ry->scene->bgtex.bg_grad_top.b * val + 
+          ry->scene->bgtex.bg_grad_bot.b * (1.0 - val);
 
-  col.r = val * ry->scene->bgtex.backgroundtop.r + 
-          (1.0 - val) * ry->scene->bgtex.backgroundbot.r;
-  col.g = val * ry->scene->bgtex.backgroundtop.g + 
-          (1.0 - val) * ry->scene->bgtex.backgroundbot.g;
-  col.b = val * ry->scene->bgtex.backgroundtop.b + 
-          (1.0 - val) * ry->scene->bgtex.backgroundbot.b;
-
-  return tocolora(col);
+  return col;
 }
 
 
 /* sky orthographic plane background texture, linear mapping */
-colora sky_plane_background_texture(const ray *ry) {
+color sky_plane_background_texture(ray *ry) {
   color col;
-  flt IdotG = VDot(&ry->o, &ry->scene->bgtex.gradient);
-  flt range = ry->scene->bgtex.gradtopval - ry->scene->bgtex.gradbotval;
+  flt tmp;
+  flt IdotG = VDot(&ry->o, &ry->scene->bgtex.bg_grad_updir);
+  flt val = (IdotG - ry->scene->bgtex.bg_grad_botval) * 
+            ry->scene->bgtex.bg_grad_invrange;
 
-  flt val = (IdotG - ry->scene->bgtex.gradbotval) / range;
+  /*
+   * Compute and add random noise to the background gradient to
+   * avoid banding artifacts, particularly in compressed video.
+   * Noise RNG depends only on pixel index, with no sample/subframe
+   * contribution, so that dither pattern won't average out.
+   */
+  unsigned int randval = tea4(ry->idx, ry->idx);
+  flt u = rt_rand(&randval) * RT_RAND_MAX_INV;
+  flt noise = ry->scene->bgtex.bg_grad_noisemag * (u - 0.5); 
+  val += noise;
 
-  if (val < 0.0)
-    val = 0.0;
+  tmp = (val > 1.0) ? 1.0 : val;
+  val = (tmp < 0.0) ? 0.0 : tmp;
 
-  if (val > 1.0)
-    val = 1.0;
+  col.r = ry->scene->bgtex.bg_grad_top.r * val + 
+          ry->scene->bgtex.bg_grad_bot.r * (1.0 - val);
+  col.g = ry->scene->bgtex.bg_grad_top.g * val + 
+          ry->scene->bgtex.bg_grad_bot.g * (1.0 - val);
+  col.b = ry->scene->bgtex.bg_grad_top.b * val + 
+          ry->scene->bgtex.bg_grad_bot.b * (1.0 - val);
 
-  col.r = val * ry->scene->bgtex.backgroundtop.r + 
-          (1.0 - val) * ry->scene->bgtex.backgroundbot.r;
-  col.g = val * ry->scene->bgtex.backgroundtop.g + 
-          (1.0 - val) * ry->scene->bgtex.backgroundbot.g;
-  col.b = val * ry->scene->bgtex.backgroundtop.b + 
-          (1.0 - val) * ry->scene->bgtex.backgroundbot.b;
-
-  return tocolora(col);
+  return col;
 }
 
 
@@ -392,7 +412,7 @@ void InitNoise(void) {
   for (x=0; x<NMAX; x++) {
     for (y=0; y<NMAX; y++) {
       for (z=0; z<NMAX; z++) {
-        NoiseMatrix[x][y][z]=(short int) ((rt_rand(&rndval) / RT_RAND_MAX) * 12000.0);
+        NoiseMatrix[x][y][z]=(short int) ((rt_rand(&rndval) * RT_RAND_MAX_INV) * 12000.0);
 
         if (x==NMAX-1) i=0; 
         else i=x;
@@ -459,7 +479,7 @@ int Noise(flt x, flt y, flt z) {
 }
 
 color marble_texture(const vector * hit, const texture * tx, const ray * ry) {
-  flt i,d;
+  flt i,d,t;
   flt x,y,z;
   color col;
 /*
@@ -474,9 +494,10 @@ color marble_texture(const vector * hit, const texture * tx, const ray * ry) {
 
   d=x + 0.0006 * Noise(x, (y * 1.0), (z * 1.0));
   d=d*(((int) d) % 25);
-  i=0.0 + 0.10 * FABS(d - 10.0 - 20.0 * ((int) d * 0.05));
-  if (i > 1.0) i=1.0;
-  if (i < 0.0) i=0.0;  
+  i=0.0 + 0.10 * FABS(d - 10.0f - 20.0f * ((int) d * 0.05f));
+
+  t = (i > 1.0) ? 1.0 : i;
+  i = (t < 0.0) ? 0.0 : t;
 
 /*
   col.r=i * tex->col.r;
@@ -494,15 +515,15 @@ color marble_texture(const vector * hit, const texture * tx, const ray * ry) {
 
 color gnoise_texture(const vector * hit, const texture * tx, const ray * ry) {
   color col;
-  flt f;
+  flt f, t;
   standard_texture * tex = (standard_texture *) tx;
 
   f=Noise((hit->x - tex->ctr.x), 
           (hit->y - tex->ctr.y), 
 	  (hit->z - tex->ctr.z));
 
-  if (f < 0.01) f=0.01;
-  if (f > 1.0) f=1.0;
+  t = (f > 1.0) ? 1.0 : f;
+  f = (t < 0.01) ? 0.01 : t;
 
   col.r=tex->col.r * f;
   col.g=tex->col.g * f;

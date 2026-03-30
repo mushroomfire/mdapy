@@ -1,7 +1,11 @@
 /*
- *  sgirgb.h - This file deals with SGI RGB format image files (reading/writing)
+ * sgirgb.h - This file deals with SGI RGB format image files (reading/writing)
  *
- *  $Id: sgirgb.c,v 1.5 2011/02/07 07:41:51 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: sgirgb.c,v 1.6 2022/02/18 17:55:28 johns Exp $
+ *
  */ 
 
 #include <stdio.h>

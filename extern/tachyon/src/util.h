@@ -1,11 +1,25 @@
 /* 
- * util.h - This file contains defines for the timer functions...
+ * util.h - This file contains prototypes and definitions for timers and RNGs
  *
- *  $Id: util.h,v 1.23 2012/10/17 04:25:57 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: util.h,v 1.32 2022/03/07 06:31:06 johns Exp $
+ *
+ */
+
+/**
+ *  \file util.h
+ *  \brief Tachyon cross-platform timers, special math function wrappers,
+ *         and RNGs.
  */
 
 #if !defined(RT_UTIL_H) 
 #define RT_UTIL_H 1
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #if !defined(USESINGLEFLT)
 #define ACOS(x)    acos(x)
@@ -15,7 +29,18 @@
 #define POW(x, y)  pow(x, y)
 #define SIN(x)     sin(x)
 #define SQRT(x)    sqrt(x)
+/* Note: it may be necessary to define _GNU_SOURCE   */
+/*       to obtain function prototypes for sincos()  */
+#if defined(__APPLE__)
+#define SINCOS(ax, sx, cx)  __sincos(ax, sx, cx)
+#elif defined(_MSC_VER)
+#define SINCOS(ax, sx, cx)  (*(sx))=sin(ax); (*(cx))=cos(ax)
 #else
+#define SINCOS(ax, sx, cx)  sincos(ax, sx, cx)
+#endif
+
+#else
+
 #define ACOS(x)    acosf(x)
 #define COS(x)     cosf(x)
 #define EXP(x)     expf(x)
@@ -23,6 +48,16 @@
 #define POW(x, y)  powf(x, y)
 #define SIN(x)     sinf(x)
 #define SQRT(x)    sqrtf(x)
+/* Note: it may be necessary to define _GNU_SOURCE   */
+/*       to obtain function prototypes for sincos()  */
+#if defined(__APPLE__)
+#define SINCOS(ax, sx, cx)  __sincosf(ax, sx, cx)
+#elif defined(_MSC_VER)
+#define SINCOS(ax, sx, cx)  (*(sx))=sinf(ax); (*(cx))=cosf(ax)
+#else
+#define SINCOS(ax, sx, cx)  sincosf(ax, sx, cx)
+#endif
+
 #endif
 
 typedef void * rt_timerhandle;           /* a timer handle */
@@ -33,7 +68,8 @@ void rt_timer_stop(rt_timerhandle);      /* stop a timer                   */
 double rt_timer_time(rt_timerhandle);    /* report elapsed time in seconds */
 double rt_timer_timenow(rt_timerhandle); /* report elapsed time in seconds */
 
-#define RT_RAND_MAX 4294967296.0         /* Max random value from rt_rand  */
+#define RT_RAND_MAX     4294967296.0     /* Max random value from rt_rand  */
+#define RT_RAND_MAX_INV 2.3283064365e-10 /* Max random value from rt_rand  */
 unsigned int rt_rand(unsigned int *);    /* thread-safe 32-bit RNG         */
 
 /* select the RNG to use as the basis for all of the floating point work */
@@ -104,8 +140,17 @@ void rng_drand_seed(rng_frand_handle *rngh, unsigned int seed);
 /* routine to help create seeds for parallel runs */
 unsigned int rng_seed_from_tid_nodeid(int tid, int node);
 
+/* TEA key mixing helper routines */
+unsigned int tea2(unsigned int v0, unsigned int v1);
+unsigned int tea4(unsigned int v0, unsigned int v1);
+
+/* routines for jittering AA, AO, and DoF samples */
 void jitter_offset2f(unsigned int *pval, float *xy);
 void jitter_disc2f(unsigned int *pval, float *xy);
 void jitter_sphere3f(rng_frand_handle *rngh, float *dir);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,7 +1,11 @@
 /*
  * ui.h - defines for user interface functions
  *
- *  $Id: ui.h,v 1.2 1997/12/04 06:26:01 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: ui.h,v 1.3 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 /* Different types of message, for levels of verbosity etc */

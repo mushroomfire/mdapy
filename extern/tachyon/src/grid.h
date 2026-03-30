@@ -1,7 +1,10 @@
 /*
  * grid.h - spatial subdivision efficiency structures
  *
- * $Id: grid.h,v 1.17 2011/02/05 08:10:11 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: grid.h,v 1.19 2022/02/18 17:55:28 johns Exp $
  * 
  */
 
@@ -53,9 +56,9 @@ static void gridstats(int xs, int ys, int zs, int numobj);
 static int grid_bbox(void * obj, vector * min, vector * max);
 static void grid_free(void * v);
 
-static int cellbound(const grid *g, const gridindex *index, vector * cmin, vector * cmax);
+static ptrdiff_t cellbound(const grid *g, const gridindex *index, vector * cmin, vector * cmax);
 
-static int engrid_objlist(grid * g, object ** list);
+static ptrdiff_t engrid_objlist(grid * g, object ** list);
 static int engrid_object(grid * g, object * obj, int addtolist);
 
 static int engrid_objectlist(grid * g, objectlist ** list);

@@ -1,7 +1,11 @@
 /* 
  * plane.c - This file contains the functions for dealing with planes.
  *
- *  $Id: plane.c,v 1.25 2011/02/07 07:41:51 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: plane.c,v 1.26 2022/02/18 17:55:28 johns Exp $
+ *
  */
  
 #include <stdio.h>

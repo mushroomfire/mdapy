@@ -1,7 +1,11 @@
 /*
- *  psd.c - This file deals with Photoshop format image files (reading/writing)
+ * psd.c - This file deals with Photoshop format image files (reading/writing)
  *
- *  $Id: psd.c,v 1.4 2011/02/07 07:41:51 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: psd.c,v 1.5 2022/02/18 17:55:28 johns Exp $
+ *
  */ 
 
 #include <stdio.h>

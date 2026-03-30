@@ -1,7 +1,11 @@
 /*
  * hash.c - This file contains code implementing various hash tables 
  * 
- * $Id: hash.c,v 1.2 2000/11/28 19:15:01 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: hash.c,v 1.3 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 

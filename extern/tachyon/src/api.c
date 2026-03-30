@@ -2,7 +2,11 @@
  * api.c - This file contains all of the API calls that are defined for
  *         external driver code to use.  
  * 
- *  $Id: api.c,v 1.193 2011/02/18 06:01:46 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: api.c,v 1.210 2022/03/13 23:30:01 johns Exp $
+ *
  */
 
 #include <stdio.h>
@@ -18,7 +22,6 @@
 #include "threads.h"
 
 #include "box.h"
-#include "cone.h"
 #include "cylinder.h"
 #include "plane.h"
 #include "quadric.h"
@@ -42,6 +45,117 @@
 #include "ui.h"
 #include "shade.h"
 
+
+int rt_mynode(void) {
+  return rt_par_rank(global_parhnd);
+}
+
+int rt_numnodes(void) {
+  return rt_par_size(global_parhnd);
+}
+
+
+int rt_initialize_nompi(void) {
+  InitTextures();
+
+  if (global_parhnd == NULL) {
+    global_parhnd = rt_par_init_nompi();
+    if (global_parhnd == NULL)
+      return -1;
+  }
+
+  return rt_mynode(); /* return our node id */ 
+}
+
+int rt_initialize(int * argc, char ***argv) {
+  InitTextures();
+
+  if (global_parhnd == NULL) {
+    global_parhnd = rt_par_init(argc, argv);
+    if (global_parhnd == NULL)
+      return -1;
+  }
+
+  return rt_mynode(); /* return our node id */ 
+}
+
+int rt_initialize_mpi_comm(void *mpicomm) {
+  InitTextures();
+
+  if (global_parhnd == NULL) {
+    global_parhnd = rt_par_init_mpi_comm(mpicomm);
+    if (global_parhnd == NULL)
+      return -1;
+  }
+
+  return rt_mynode(); /* return our node id */ 
+}
+
+int rt_initialize_mpi_comm_world(void) {
+  InitTextures();
+
+  if (global_parhnd == NULL) {
+    global_parhnd = rt_par_init_mpi_comm_world();
+    if (global_parhnd == NULL)
+      return -1;
+  }
+
+  return rt_mynode(); /* return our node id */ 
+}
+
+int rt_initialize_mpi_comm_split(void *mpicomm, int color, int key) {
+  InitTextures();
+
+  if (global_parhnd == NULL) {
+    global_parhnd = rt_par_init_mpi_comm_split(mpicomm, color, key);
+    if (global_parhnd == NULL)
+      return -1;
+  }
+
+  return rt_mynode(); /* return our node id */ 
+}
+
+int rt_set_mpi_comm_world(void) {
+  if (rt_par_set_mpi_comm_world(global_parhnd))
+    return -1;
+
+  return rt_par_rank(global_parhnd); /* return our node id */ 
+}
+
+int rt_set_mpi_comm(void *mpicomm) {
+  if (rt_par_set_mpi_comm(global_parhnd, mpicomm))
+    return -1;
+
+  return rt_par_rank(global_parhnd); /* return our node id */ 
+}
+
+int rt_set_mpi_comm_split(void *mpicomm, int color, int key) {
+  if (rt_par_set_mpi_comm_split(global_parhnd, mpicomm, color, key))
+    return -1;
+
+  return rt_par_rank(global_parhnd); /* return our node id */ 
+}
+
+int rt_set_mpi_comm_world_split(int color, int key) {
+  if (rt_par_set_mpi_comm_world_split(global_parhnd, color, key))
+    return -1;
+
+  return rt_par_rank(global_parhnd); /* return our node id */ 
+}
+
+int rt_set_mpi_comm_world_split_all(void) {
+  if (rt_par_set_mpi_comm_world_split_all(global_parhnd))
+    return -1;
+
+  return rt_par_rank(global_parhnd); /* return our node id */ 
+}
+
+void rt_finalize(void) {
+  FreeTextures();
+  rt_par_finish(global_parhnd);
+}
+
+
 apivector rt_vector(flt x, flt y, flt z) {
   apivector v;
 
@@ -62,26 +176,6 @@ apicolor rt_color(flt r, flt g, flt b) {
   return c;
 }
 
-colora tocolora(apicolor c) {
-	colora ca = { c.r, c.g, c.b, 1 };
-	return ca;
-}
-
-int rt_initialize(int * argc, char ***argv) {
-  InitTextures();
-
-  if (!parinitted) {
-    rt_par_init(argc, argv);
-    parinitted=1;
-  }
-
-  return rt_mynode(); /* return our node id */ 
-}
-
-void rt_finalize(void) {
-  FreeTextures();
-  rt_par_finish();
-}
 
 void rt_renderscene(SceneHandle voidscene) {
   scenedef * scene = (scenedef *) voidscene;
@@ -135,9 +229,13 @@ void rt_trans_max_surfaces(SceneHandle voidscene, int count) {
 void rt_camera_setup(SceneHandle voidscene, flt zoom, flt aspectratio, 
 	             int antialiasing, int raydepth, 
                      apivector camcent, apivector viewvec, apivector upvec) {
+#if 0
+  /* this blows away internal state, not a good idea */
   scenedef * scene = (scenedef *) voidscene;
-
   cameradefault(&scene->camera);
+#endif
+
+  rt_camera_eye_separation(voidscene, 0.0);
 
   rt_camera_zoom(voidscene, zoom);
 
@@ -206,6 +304,32 @@ flt rt_get_camera_zoom(SceneHandle voidscene) {
   return scene->camera.camzoom;
 }
 
+void rt_camera_eye_separation(SceneHandle voidscene, flt eyesep) {
+  scenedef * scene = (scenedef *) voidscene;
+  scene->camera.eyeshift=eyesep * 0.5; 
+}
+
+flt rt_camera_get_eye_separation(SceneHandle voidscene) {
+  scenedef * scene = (scenedef *) voidscene;
+  return scene->camera.eyeshift * 2.0; 
+}
+
+void rt_camera_modulate_eye_separation(SceneHandle voidscene, flt cospow) {
+  scenedef * scene = (scenedef *) voidscene;
+  if (cospow != 0) {
+    scene->camera.modulate_eyeshift = 1;
+  }
+  scene->camera.modulate_eyeshift_pow = cospow; 
+}
+
+flt rt_camera_get_modulate_eye_separation(SceneHandle voidscene) {
+  scenedef * scene = (scenedef *) voidscene;
+  if (scene->camera.modulate_eyeshift) {
+    return scene->camera.modulate_eyeshift_pow;
+  }
+  return 0;
+}
+
 void rt_camera_vfov(SceneHandle voidscene, flt vfov) {
   flt zoom = 1.0 / tan((vfov/360.0)*TWOPI/2.0);
   rt_camera_zoom(voidscene, zoom);
@@ -234,9 +358,9 @@ void rt_outputfile(SceneHandle voidscene, const char * outname) {
   }
 }
 
-void rt_camera_dof(SceneHandle voidscene, flt focallength, flt aperture) {
+void rt_camera_dof(SceneHandle voidscene, flt focaldist, flt aperture) {
   scenedef * scene = (scenedef *) voidscene;
-  cameradof(&scene->camera, focallength, aperture);
+  cameradof(&scene->camera, focaldist, aperture);
 }
 
 
@@ -300,13 +424,6 @@ void rt_rawimage_rgb24(SceneHandle voidscene, unsigned char *img) {
   scene->scenecheck = 1;
 }
 
-void rt_rawimage_rgba32(SceneHandle voidscene, unsigned char *img) {
-  scenedef * scene = (scenedef *) voidscene;
-  scene->img = (void *) img;
-  scene->imginternal = 0;  /* image was allocated by the caller */
-  scene->imgbufformat = RT_IMAGE_BUFFER_RGBA32;
-  scene->scenecheck = 1;
-}
 
 void rt_rawimage_rgb96f(SceneHandle voidscene, float *img) {
   scenedef * scene = (scenedef *) voidscene;
@@ -336,6 +453,21 @@ void rt_image_gamma(SceneHandle voidscene, float gamma) {
 }
 
 
+#if defined(RT_ACCUMULATE_ON)
+void rt_accumulation_mode(SceneHandle voidscene, int mode) {
+  scenedef * scene = (scenedef *) voidscene;
+  scene->accum_mode = mode;
+  if (mode == RT_ACCUMULATE_OFF) {
+    if (scene->accum_buf != NULL) {
+      free(scene->accum_buf);
+      scene->accum_buf = NULL;
+    }
+    scene->accum_count = 0;
+  } 
+}
+#endif
+
+
 void rt_set_numthreads(SceneHandle voidscene, int numthreads) {
   scenedef * scene = (scenedef *) voidscene;
 #ifdef THR
@@ -355,31 +487,53 @@ void rt_set_numthreads(SceneHandle voidscene, int numthreads) {
   scene->scenecheck = 1;
 }
 
-void rt_background(SceneHandle voidscene, colora col) {
+void rt_background(SceneHandle voidscene, apicolor col) {
   scenedef * scene = (scenedef *) voidscene;
-  scene->bgtex.background.r = col.r;
-  scene->bgtex.background.g = col.g;
-  scene->bgtex.background.b = col.b;
-  scene->bgtex.background.a = col.a;
+  scene->bgtex.bg_color.r = col.r;
+  scene->bgtex.bg_color.g = col.g;
+  scene->bgtex.bg_color.b = col.b;
 }
 
-void rt_background_gradient(SceneHandle voidscene, 
-  apivector up,
-  flt topval, flt botval, apicolor topcol, apicolor botcol) {
+void rt_background_gradient(SceneHandle voidscene, apivector up,
+                            flt topval, flt botval, 
+                            apicolor topcol, apicolor botcol) {
+  apicolor delta;
+  flt maxcoldelta;
   scenedef * scene = (scenedef *) voidscene;
 
-  scene->bgtex.gradient = up;
+  scene->bgtex.bg_grad_top.r = topcol.r;  
+  scene->bgtex.bg_grad_top.g = topcol.g;  
+  scene->bgtex.bg_grad_top.b = topcol.b;
 
-  scene->bgtex.gradtopval = topval;
-  scene->bgtex.gradbotval = botval;
+  scene->bgtex.bg_grad_bot.r = botcol.r;  
+  scene->bgtex.bg_grad_bot.g = botcol.g;  
+  scene->bgtex.bg_grad_bot.b = botcol.b;
 
-  scene->bgtex.backgroundtop.r = topcol.r;  
-  scene->bgtex.backgroundtop.g = topcol.g;  
-  scene->bgtex.backgroundtop.b = topcol.b;
+  scene->bgtex.bg_grad_updir  = up;
+  scene->bgtex.bg_grad_topval = topval;
+  scene->bgtex.bg_grad_botval = botval;
+  scene->bgtex.bg_grad_invrange = 1.0 / (topval - botval);
 
-  scene->bgtex.backgroundbot.r = botcol.r;  
-  scene->bgtex.backgroundbot.g = botcol.g;  
-  scene->bgtex.backgroundbot.b = botcol.b;
+  /*
+   * Add noise to gradient backgrounds to prevent Mach banding effects,
+   * particularly noticable in video streams or movie renderings.
+   * Compute the delta between the top and bottom gradient colors and
+   * calculate the noise magnitude required, such that by adding it to the
+   * scalar interpolation parameter we get more than +/-1ulp in the
+   * resulting interpolated color, as represented in an 8bpp framebuffer.
+   */
+  delta.r = fabs(topcol.r - botcol.r);
+  delta.g = fabs(topcol.g - botcol.g);
+  delta.b = fabs(topcol.b - botcol.b);
+  maxcoldelta = (delta.r > delta.g) ? 
+                   ((delta.r > delta.b) ? delta.r : delta.b) :
+                   ((delta.g > delta.b) ? delta.g : delta.b);
+
+  /*
+   * Ideally the noise mag calc would take into account both max color delta
+   * and image dimensions to avoid banding even with very subtle gradients.
+   */
+  scene->bgtex.bg_grad_noisemag = (3.0f/256.0f) / (maxcoldelta + 0.0005);
 }
 
 void rt_background_sky_sphere(SceneHandle voidscene, apivector up, flt topval, 
@@ -406,9 +560,11 @@ void rt_background_mode(SceneHandle voidscene, int mode) {
 }
 
 
-void rt_ambient_occlusion(SceneHandle voidscene, int numsamples, apicolor col) {
+void rt_ambient_occlusion(SceneHandle voidscene, int numsamples, 
+                          apiflt maxdist, apicolor col) {
   scenedef * scene = (scenedef *) voidscene;
   scene->ambocc.numsamples = numsamples; 
+  scene->ambocc.ao_maxdist = maxdist;
   scene->ambocc.col.r = col.r;
   scene->ambocc.col.g = col.g;
   scene->ambocc.col.b = col.b;
@@ -493,19 +649,19 @@ void rt_shadermode(SceneHandle voidscene, int mode) {
   /* Main shader used for whole scene */
   switch (mode) {
     case RT_SHADER_LOWEST:
-      scene->shader = (colora (*)(void *)) lowest_shader;
+      scene->shader = (color (*)(void *)) lowest_shader;
       break;
     case RT_SHADER_LOW:
-      scene->shader = (colora (*)(void *)) low_shader;
+      scene->shader = (color (*)(void *)) low_shader;
       break;
     case RT_SHADER_MEDIUM:
-      scene->shader = (colora (*)(void *)) medium_shader;
+      scene->shader = (color (*)(void *)) medium_shader;
       break;
     case RT_SHADER_HIGH:
-      scene->shader = (colora (*)(void *)) full_shader;
+      scene->shader = (color (*)(void *)) full_shader;
       break;
     case RT_SHADER_FULL:
-      scene->shader = (colora (*)(void *)) full_shader;
+      scene->shader = (color (*)(void *)) full_shader;
       break;
     case RT_SHADER_AUTO:
     default:
@@ -542,7 +698,7 @@ void rt_phong_shader(SceneHandle voidscene, int mode) {
 SceneHandle rt_newscene(void) {
   scenedef * scene;
   SceneHandle voidscene;
-  color bgcolor = rt_color(0.0, 0.0, 0.0);
+  apicolor bgcolor = rt_color(0.0, 0.0, 0.0);
   apicolor ambcolor = rt_color(1.0, 1.0, 1.0);
 
   scene = (scenedef *) malloc(sizeof(scenedef));
@@ -565,23 +721,29 @@ SceneHandle rt_newscene(void) {
   rt_rawimage_rgb24(voidscene, NULL);             /* raw image output off   */
 #endif
 
+#if defined(RT_ACCUMULATE_ON)
+  rt_accumulation_mode(voidscene, RT_ACCUMULATE_OFF); /* no accum default */
+#endif
+
   rt_boundmode(voidscene, RT_BOUNDING_ENABLED);   /* spatial subdivision on */
   rt_boundthresh(voidscene, BOUNDTHRESH);         /* default threshold      */
   rt_camera_setup(voidscene, 1.0, 1.0, 0, 6,
                   rt_vector(0.0, 0.0, 0.0),
                   rt_vector(0.0, 0.0, 1.0),
                   rt_vector(0.0, 1.0, 0.0));
-  rt_camera_dof(voidscene, 1.0, 0.0);
+  rt_camera_dof(voidscene, 1.0, 2.8);
   rt_shadermode(voidscene, RT_SHADER_AUTO);
   rt_rescale_lights(voidscene, 1.0);
   rt_phong_shader(voidscene, RT_SHADER_BLINN);
 
-  rt_background(voidscene, tocolora(bgcolor));
+  rt_background(voidscene, bgcolor);
   rt_background_sky_sphere(voidscene, rt_vector(0.0, 1.0, 0.0), 0.3, 0, 
                            rt_color(0.0, 0.0, 0.0), rt_color(0.0, 0.0, 0.5));
   rt_background_mode(voidscene, RT_BACKGROUND_TEXTURE_SOLID);
 
-  rt_ambient_occlusion(voidscene, 0, ambcolor);    /* disable AO by default  */
+  /* disable AO by default */
+  rt_ambient_occlusion(voidscene, 0, RT_AO_MAXDIST_UNLIMITED, ambcolor);
+
   rt_fog_rendering_mode(voidscene, RT_FOG_NORMAL); /* radial fog by default  */
   rt_fog_mode(voidscene, RT_FOG_NONE);             /* disable fog by default */
   rt_fog_parms(voidscene, bgcolor, 0.0, 1.0, 1.0);
@@ -602,6 +764,7 @@ SceneHandle rt_newscene(void) {
   scene->cliplist = NULL;
   scene->numlights = 0;
   scene->scenecheck = 1;
+  scene->parhnd = global_parhnd; /* XXX this needs to be fixed! */
   scene->parbuf = NULL;
   scene->threads = NULL;
   scene->threadparms = NULL;
@@ -610,7 +773,7 @@ SceneHandle rt_newscene(void) {
   rt_set_numthreads(voidscene, -1);         /* auto determine num threads */ 
 
   /* number of distributed memory nodes, fills in array of node/cpu info */
-  scene->nodes = rt_getcpuinfo(&scene->cpuinfo);
+  scene->nodes = rt_par_getcpuinfo(scene->parhnd, &scene->cpuinfo);
   scene->mynode = rt_mynode();
 
   return scene;
@@ -627,12 +790,18 @@ void rt_deletescene(SceneHandle voidscene) {
       free(scene->img);
     }
 
+#if defined(RT_ACCUMULATE_ON)
+    if (scene->accum_buf) {
+      free(scene->accum_buf);
+    }
+#endif
+
     /* tear down and deallocate persistent rendering threads */
     destroy_render_threads(scene);
 
     /* tear down and deallocate persistent scanline receives */
     if (scene->parbuf != NULL)
-      rt_delete_scanlinereceives(scene->parbuf);
+      rt_par_delete_scanlinereceives(scene->parhnd, scene->parbuf);
 
     /* free all lights */
     cur = scene->lightlist;
@@ -1013,17 +1182,6 @@ void rt_fcylinder3fv(SceneHandle scene, void * tex,
   add_bounded_object((scenedef *) scene, newfcylinder(tex, vctr, vaxis, rad));
 }
 
-void rt_cone(SceneHandle scene, void * tex, apivector ctr, apivector axis, flt rad) {
-  add_bounded_object((scenedef *) scene, newcone(tex, ctr, axis, rad));
-}
-
-void rt_cone3fv(SceneHandle scene, void * tex,
-                     const float *ctr, const float *axis, float rad) {
-  vector vctr, vaxis;
-  vctr.x = ctr[0];   vctr.y = ctr[1];   vctr.z = ctr[2];
-  vaxis.x = axis[0]; vaxis.y = axis[1]; vaxis.z = axis[2];
-  add_bounded_object((scenedef *) scene, newcone(tex, vctr, vaxis, rad));
-}
 
 void rt_plane(SceneHandle scene, void * tex, apivector ctr, apivector norm) {
   add_unbounded_object((scenedef *) scene, newplane(tex, ctr, norm));
@@ -1269,30 +1427,6 @@ void rt_quadsphere(SceneHandle scene, void * tex, apivector ctr, flt rad) {
   q->mat.j=-1.0;
  
   add_unbounded_object((scenedef *) scene, (object *)q);
-}
-
-void rt_quadric(SceneHandle scene, void * tex, apivector ctr, flt a, flt b, flt c, flt d, flt e, flt f, flt g, flt h, flt i, flt j, flt bbox) {
-  quadric * q;
-  q=(quadric *) newquadric();
-  q->tex=tex;
-  q->ctr=ctr;
-  q->bbox = bbox;
-
-  q->mat.a=a;
-  q->mat.b=b;
-  q->mat.c=c;
-  q->mat.d=d;
-  q->mat.e=e;
-  q->mat.f=f;
-  q->mat.g=g;
-  q->mat.h=h;
-  q->mat.i=i;
-  q->mat.j=j;
-
-  if(bbox <= 0.0)
-	  add_unbounded_object((scenedef *) scene, (object *)q);
-  else
-	  add_bounded_object((scenedef *) scene, (object *)q);
 }
 
 

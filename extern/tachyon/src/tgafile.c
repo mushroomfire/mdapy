@@ -1,7 +1,11 @@
 /* 
  * tgafile.c - This file contains the code to write 24 bit targa files...
  *
- *  $Id: tgafile.c,v 1.28 2011/02/07 07:41:51 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: tgafile.c,v 1.29 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 #include <stdio.h>

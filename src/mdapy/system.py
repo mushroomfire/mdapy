@@ -2256,13 +2256,17 @@ class System:
                     pl.col("type_name")
                     .replace_strict(
                         {j: i for i, j in enumerate(trans_search_species)}, default=-1
-                    ).rechunk()
+                    )
+                    .rechunk()
                     .alias("mol_id")
                 )
 
                 self.__data = self.__data.with_columns(
                     pl.col("cluster_id")
-                    .replace_strict(dict(zip(clus_mol["cluster_id"], clus_mol["mol_id"]))).rechunk()
+                    .replace_strict(
+                        dict(zip(clus_mol["cluster_id"], clus_mol["mol_id"]))
+                    )
+                    .rechunk()
                     .alias("mol_id")
                 )
 

@@ -1,6 +1,14 @@
 /* 
  * image.h - Image Data Structures and definitions
  *
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: image.h,v 1.4 2022/02/18 17:55:28 johns Exp $
+ *
+ */
+
+/*
  * One day, this file will define a common structure
  * for all image / animation / volume type data structures.
  * This will allow me to design and implement a library of
@@ -8,8 +16,6 @@
  * image data in the rendering process.  Good examples will be
  * image map filtering, animated image maps, DCT/IDCT algorithms,
  * scalar volume data, a common set of file format readers and converters.
- *
- *  $Id: image.h,v 1.3 2011/02/05 08:10:11 johns Exp $
  */
 
 typedef struct {

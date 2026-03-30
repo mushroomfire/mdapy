@@ -1,11 +1,17 @@
 /*
- * tachyon.h - The declarations and prototypes needed so that 3rd party     
- *   driver code can run the raytracer.  Third party driver code should       
- *   only use the functions in this header file to interface with the 
- *   rendering engine.                                            
+ * tachyon.h - Tachyon public APIs used to drive the ray tracing engine.
  *
- * $Id: tachyon.h,v 1.121 2013/04/09 16:44:41 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
  *
+ * $Id: tachyon.h,v 1.146 2022/04/23 15:23:51 johns Exp $
+ *
+ */
+
+/**
+ *  \file tachyon.h
+ *  \brief Tachyon public API function prototypes and declarations used to
+ *         drive the ray tracing engine.
  */
 
 #if !defined(TACHYON_H)
@@ -25,10 +31,10 @@ extern "C" {
 /*
  * Tachyon version strings for feature detection and compatibility testing.
  */
-#define TACHYON_VERSION_STRING      "0.99"    /**< string version info  */
+#define TACHYON_VERSION_STRING      "0.99.5"  /**< string version info  */
 #define TACHYON_MAJOR_VERSION       0         /**< major version number */
 #define TACHYON_MINOR_VERSION       99        /**< minor version number */
-#define TACHYON_PATCH_VERSION       0         /**< patch version number */
+#define TACHYON_PATCH_VERSION       5         /**< patch version number */
 
 /*
  * Build Tachyon and its interfaces using either double- or single-precision
@@ -45,25 +51,16 @@ typedef flt apiflt;  /**< for backward compatibility */
 typedef void * SceneHandle;
 
 typedef struct {
-   flt x;
-   flt y;
-   flt z;
+   flt x;          /**< X coordinate or direction component */
+   flt y;          /**< Y coordinate or direction component */
+   flt z;          /**< Z coordinate or direction component */
 } apivector;
 
 typedef struct {
-   float r;
-   float g;
-   float b;
+   float r;        /**< Red color component */
+   float g;        /**< Green color component */
+   float b;        /**< Blue color component */
 } apicolor;
-
-typedef struct {
-   float r;
-   float g;
-   float b;
-   float a;
-} colora;
-
-colora tocolora(apicolor c);
 
 typedef struct {
   int texturefunc; /**< which texture function to use */
@@ -98,20 +95,129 @@ void rt_set_ui_message(void (* func) (int, char *));
 /** Set function pointer for user interface progress callbacks.  */
 void rt_set_ui_progress(void (* func) (int));
 
+/* Backwards compatibility with older revs of Tachyon that provided 
+ * convenience wrappers for parallel runs on the Intel iPSC/860 NX OS.
+ */
+int rt_mynode(void);    /**< distributed memory parallel node rank */
+int rt_numnodes(void);  /**< distributed memory parallel node count */
+
 /**
- * Initialize ray tracing library, must be first Tachyon API called.
+ * Initialize Tachyon library, must be first Tachyon API called.
+ * This variant shuts-off the MPI features in builds that have MPI,
+ * thereby allowing runtime determination of whether to use MPI or not.
+ */
+int rt_initialize_nompi(); 
+
+/**
+ * Initialize Tachyon library, must be first Tachyon API called.
  * Takes pointer to argument count, and pointer to argument array
- * 1. resets and initializes the raytracing system
+ * 1. resets and initializes Tachyon (and MPI!)
  * 2. initializes internal parallel processing facilities, and tests
  *    inter-node connectivity.
  * 3. deallocates previously allocated internal data structures
- * 4. returns the id of this computational node on success, -1 on failure.
+ * 4. returns the rank of this computational node on success, -1 on failure.
  */ 
 int rt_initialize(int *, char ***); 
 
+
 /**
- * Shutdown the ray tracing library for good, at final use before
- * program termination.  The ray tracer may not be used after rt_finalize
+ * Initialize Tachyon library, must be first Tachyon API called.
+ * The caller must have already run MPI_init() before calling this API.
+ * This API sets Tachyon to use MPI_COMM_WORLD by default.
+ * 1. resets and initializes Tachyon
+ * 2. initializes internal parallel processing facilities, and tests
+ *    inter-node connectivity.
+ * 3. deallocates previously allocated internal data structures
+ * 4. returns the rank of this computational node on success, -1 on failure.
+ */ 
+int rt_initialize_mpi_comm_world(); 
+
+/**
+ * Initialize Tachyon library, must be first Tachyon API called.
+ * Takes pointer to caller-provided MPI communicator.  The caller must
+ * have already run MPI_init() before calling this API.
+ * 1. resets and initializes Tachyon
+ * 2. initializes internal parallel processing facilities, and tests
+ *    inter-node connectivity.
+ * 3. deallocates previously allocated internal data structures
+ * 4. returns the rank of this computational node on success, -1 on failure.
+ */ 
+int rt_initialize_mpi_comm(void *mpicomm);
+
+/**
+ * Initialize Tachyon library, must be first Tachyon API called.
+ * Takes pointer to caller-provided MPI communicator.  The caller must
+ * have already run MPI_init() before calling this API.
+ * This variant subdivides compute nodes into multiple rendering groups,
+ * according to the same input parameters as MPI_Comm_split().
+ * 1. resets and initializes Tachyon
+ * 2. initializes internal parallel processing facilities, and tests
+ *    inter-node connectivity.
+ * 3. deallocates previously allocated internal data structures
+ * 4. returns the rank of this computational node on success, -1 on failure.
+ */ 
+int rt_initialize_mpi_comm_split(void *mpicomm, int color, int key);
+
+/**
+ * Override the previously set MPI communicator for Tachyon to use.
+ * Tachyon must already be initialized before this API is called.
+ * NOTE: This API can currently only be called when no Tachyon scene
+ *       objects are allocated, as they contain internal references to 
+ *       MPI state associated with the previously active MPI communicator.
+ * Returns the new comm rank of this process on success, -1 on failure.
+ */ 
+int rt_set_mpi_comm(void *mpicomm);
+
+/**
+ * Override the previously set MPI communicator for Tachyon to use.
+ * Tachyon must already be initialized before this API is called.
+ * This API splits a user-provided communicator into new ones 
+ * in the same way that MPI_Comm_split() does.
+ * NOTE: This API can currently only be called when no Tachyon scene
+ *       objects are allocated, as they contain internal references to 
+ *       MPI state associated with the previously active MPI communicator.
+ * Returns the new comm rank of this process on success, -1 on failure.
+ */ 
+int rt_set_mpi_comm_split(void *mpicomm, int color, int key);
+
+/**
+ * Override the previously set MPI communicator with MPI_COMM_WORLD.
+ * Tachyon must already be initialized before this API is called.
+ * NOTE: This API can currently only be called when no Tachyon scene
+ *       objects are allocated, as they contain internal references to 
+ *       MPI state associated with the previously active MPI communicator.
+ * Returns the new comm rank of this process on success, -1 on failure.
+ */ 
+int rt_set_mpi_comm_world(void);
+
+/**
+ * Override the previously set MPI communicator for Tachyon to use.
+ * Tachyon must already be initialized before this API is called.
+ * This API splits the MPI_COMM_WORLD communicator into new ones 
+ * in the same way that MPI_Comm_split() does.
+ * NOTE: This API can currently only be called when no Tachyon scene
+ *       objects are allocated, as they contain internal references to 
+ *       MPI state associated with the previously active MPI communicator.
+ * Returns the new comm rank of this process on success, -1 on failure.
+ */ 
+int rt_set_mpi_comm_world_split(int color, int key);
+
+/**
+ * Override the previously set MPI communicator for Tachyon to use.
+ * Tachyon must already be initialized before this API is called.
+ * This API splits the MPI_COMM_WORLD communicator into new ones, 
+ * with one communicator for each node.
+ * NOTE: This API can currently only be called when no Tachyon scene
+ *       objects are allocated, as they contain internal references to 
+ *       MPI state associated with the previously active MPI communicator.
+ * Returns the new comm rank of this process on success, -1 on failure.
+ */ 
+int rt_set_mpi_comm_world_split_all(void);
+
+
+/**
+ * Shut down Tachyon library for good, at final use before
+ * program termination.  Tachyon may not be used after rt_finalize
  * has been called.
  */ 
 void rt_finalize(void); 
@@ -184,7 +290,7 @@ void rt_crop_disable(SceneHandle);
 void rt_aa_maxsamples(SceneHandle, int maxsamples);
 
 /**
- * Enables or Disables verbose messages from the ray tracing library
+ * Enables or Disables verbose messages from the Tachyon library
  * during rendering. (a zero value means off, non-zero means on)
  */
 void rt_verbose(SceneHandle, int v);
@@ -220,13 +326,12 @@ void rt_image_normalize(SceneHandle voidscene);
 void rt_image_gamma(SceneHandle voidscene, float gamma);
 
 /**
- * Have the ray tracer save the output image in the specified
+ * Have Tachyon save the output image in the specified
  * memory area, in raw 24-bit, packed, pixel interleaved, unsigned
  * RGB bytes.  The caller is responsible for making sure that there
  * is enough space in the memory area for the entire image.
  */
 void rt_rawimage_rgb24(SceneHandle, unsigned char *rawimage);
-void rt_rawimage_rgba32(SceneHandle, unsigned char *rawimage);
 
 /**
  * Request Tachyon to save the output image in the specified
@@ -236,11 +341,29 @@ void rt_rawimage_rgba32(SceneHandle, unsigned char *rawimage);
  */
 void rt_rawimage_rgb96f(SceneHandle, float *rawimage);
 
+#if 1
+/*
+ * Accumulation buffer mode constants
+ */
+#define RT_ACCUMULATE_OFF      0  /**< accum. buffer disabled */
+#define RT_ACCUMULATE_ON       1  /**< accum. buffer enabled  */
+#define RT_ACCUMULATE_CLEAR    2  /**< accum. buffer enabled, cleared */
+
+/**
+ * Request Tachyon to use (or disuse) an internal floating point
+ * accumulation buffer, combining the newest frame with previously
+ * accumulated frames, normalizing the pixel values using an 
+ * internal subframe counter.  The default Tachyon behavior is
+ * to operate without use of the accumulation buffer.
+ */
+void rt_accumulation_mode(SceneHandle, int mode);
+#endif
+
 /** Explicitly set the number of worker threads Tachyon will use.  */
 void rt_set_numthreads(SceneHandle, int);
 
 /** Set the background color of the specified scene.  */
-void rt_background(SceneHandle, colora);
+void rt_background(SceneHandle, apicolor);
 
 /** 
  * Set parameters for gradient (sky plane or sphere) 
@@ -256,13 +379,13 @@ void rt_background_gradient(SceneHandle, apivector up,
                             flt topval, flt botval,
                             apicolor topcolor, apicolor botcolor);
 
-/**
+/* 
  * Background texture modes for rt_background_mode, 
  * determines behavior to use when rays don't hit any objects.
  */
-#define RT_BACKGROUND_TEXTURE_SOLID             0
-#define RT_BACKGROUND_TEXTURE_SKY_SPHERE        1
-#define RT_BACKGROUND_TEXTURE_SKY_ORTHO_PLANE   2
+#define RT_BACKGROUND_TEXTURE_SOLID            0  /**< uniform bg color   */
+#define RT_BACKGROUND_TEXTURE_SKY_SPHERE       1  /**< gradient bg, persp */
+#define RT_BACKGROUND_TEXTURE_SKY_ORTHO_PLANE  2  /**< gradient bg, ortho */
 
 /**
  * Set the background texturing mode to use.
@@ -377,7 +500,10 @@ void rt_boundthresh(SceneHandle, int threshold);
 #define RT_PROJECTION_PERSPECTIVE      0  /**< Perspective projection mode  */
 #define RT_PROJECTION_ORTHOGRAPHIC     1  /**< Orthographic projection mode */
 #define RT_PROJECTION_PERSPECTIVE_DOF  2  /**< Perspective projection mode  */
-#define RT_PROJECTION_FISHEYE          3  /**< Perspective projection mode  */
+#define RT_PROJECTION_ORTHOGRAPHIC_DOF 3  /**< Orthographic projection mode */
+#define RT_PROJECTION_EQUIRECTANGULAR  4  /**< 360 lat-long equirectangular */
+#define RT_PROJECTION_FISHEYE          5  /**< Fisheye projection mode      */
+#define RT_PROJECTION_STEREO_EQUIRECTANGULAR  6  /**< over/under omnistereo equirectangular */
 
 /** Set camera projection mode.  */
 void rt_camera_projection(SceneHandle, int mode);
@@ -385,6 +511,7 @@ void rt_camera_projection(SceneHandle, int mode);
 /** Set camera position and orientation.  */ 
 void rt_camera_position(SceneHandle, apivector center, apivector viewdir, 
                         apivector updir);
+
 /** Set camera position and orientation.  */ 
 void rt_camera_position3fv(SceneHandle, const float *center, 
                            const float *viewdir, const float *updir);
@@ -392,9 +519,10 @@ void rt_camera_position3fv(SceneHandle, const float *center,
 /** Get camera position and orientation.  */ 
 void rt_get_camera_position(SceneHandle, apivector *center, apivector *viewdir,
                             apivector *updir, apivector *rightdir);
+
 /** Get camera position and orientation.  */ 
 void rt_get_camera_position3fv(SceneHandle, float *center, float *viewdir,
-                              float *updir, float *rightdir);
+                               float *updir, float *rightdir);
 
 /**
  * Camera maximum ray recursion depth (i.e. number of levels of 
@@ -419,6 +547,21 @@ void rt_camera_zoom(SceneHandle, flt zoom);
 /** Return current camera "zoom" factor. */
 flt rt_get_camera_zoom(SceneHandle);
 
+/**
+ * Set camera stereoscopic eye separation
+ */
+void rt_camera_eye_separation(SceneHandle, flt eyesep);
+
+/** Return current camera eye separation. */
+flt rt_get_camera_eye_separation(SceneHandle);
+
+/**
+ * Set camera stereoscopic eye separation modulation and cosine power
+ */
+void rt_camera_modulate_eye_separation(SceneHandle, flt cospow);
+
+/** Return current camera eye separation. */
+flt rt_get_camera_modulate_eye_separation(SceneHandle);
 
 /**
  * Set vertical field of view (in degrees) for a perspective camera.
@@ -446,7 +589,7 @@ flt rt_get_camera_vfov(SceneHandle);
 void rt_camera_frustum(SceneHandle, flt left, flt right, flt bottom, flt top);
 
 /** Set depth-of-field rendering options.  */
-void rt_camera_dof(SceneHandle voidscene, flt focallength, flt aperture);
+void rt_camera_dof(SceneHandle voidscene, flt focaldist, flt aperture);
 
 
 /***********************/
@@ -469,18 +612,17 @@ void rt_camera_dof(SceneHandle voidscene, flt focallength, flt aperture);
 #define RT_TEXTURE_VOLUME_IMAGE        10  /**< volumetric image map        */
 
 /**
- * translates a texture definition into the internal format used
- * by the ray tracing system, and returns an opaque pointer to the
- * internally used structure, which should be passed to object creation
- * routines.
+ * Translate a texture definition into the internal format used
+ * by Tachyon, and returns an opaque pointer to the internal
+ * texturing data structure that is passed to object creation routines.
  *
- * NOTE: This API should be deprecated, but a suitable replacement has not 
- *       been written yet.
+ * NOTE: This API should be revised and deprecated, but a suitable 
+ *       replacement has not been written yet.
  */
 void * rt_texture(SceneHandle, apitexture *);
 
 /**
- * Defines a named 1-D, 2-D, or 3-D texture image with a 
+ * Define a named 1-D, 2-D, or 3-D texture image with a 
  * 24-bit RGB image buffer, without any file references.
  * This allows an application to send Tachyon images for texture mapping
  * without having to touch the filesystem.
@@ -506,16 +648,16 @@ void * rt_texture_copy_vcstri(SceneHandle, void *oldtex);
 /*****************************/
 
 /*
- * Shader modes settings for rt_shadermode()
+ * Shader mode settings for rt_shadermode()
  * These are sorted from lowest quality (and fastest execution)
  * to highest quality (and slowest execution)
  */
-#define RT_SHADER_AUTO    0  /**< Automatically determine shader needed */
-#define RT_SHADER_LOWEST  1  /**< lowest quality shading available      */
-#define RT_SHADER_LOW     2  /**< low quality shading                   */
-#define RT_SHADER_MEDIUM  3  /**< Medium quality shading                */
-#define RT_SHADER_HIGH    4  /**< High quality shading                  */
-#define RT_SHADER_FULL    5  /**< Highest quality shading available     */
+#define RT_SHADER_AUTO       0  /**< Automatically determine shader needed */
+#define RT_SHADER_LOWEST     1  /**< lowest quality shading available      */
+#define RT_SHADER_LOW        2  /**< low quality shading                   */
+#define RT_SHADER_MEDIUM     3  /**< Medium quality shading                */
+#define RT_SHADER_HIGH       4  /**< High quality shading                  */
+#define RT_SHADER_FULL       5  /**< Highest quality shading available     */
 
 /** 
  * Set the shading mode for the specified scene. 
@@ -539,8 +681,8 @@ void rt_phong_shader(SceneHandle voidscene, int mode);
 /*
  * Phong types
  */
-#define RT_PHONG_PLASTIC                0  /**< Dielectric Phong highlight  */
-#define RT_PHONG_METAL                  1  /**< Metallic Phong highlight    */
+#define RT_PHONG_PLASTIC     0  /**< Dielectric Phong highlight  */
+#define RT_PHONG_METAL       1  /**< Metallic Phong highlight    */
 
 /** Set Phong shading parameters for an existing texture.  */
 void rt_tex_phong(void * voidtex, flt phong, flt phongexp, int type); 
@@ -559,32 +701,28 @@ void rt_tex_outline(void * voidtex, flt outline, flt outlinewidth);
 void rt_rescale_lights(SceneHandle, flt lightscale);
 
 
-/** Define a point light source with associated texture, center, and radius. */
+/** Define a point light with associated texture, position, and radius. */
 void * rt_light(SceneHandle, void *tex, apivector center, flt radius);     
-/** Define a point light source with associated texture, center, and radius. */
+
+/** Define a point light with associated texture, position, and radius. */
 void * rt_light3fv(SceneHandle, void *tex, const float *center, float radius);
 
 
-/**
- * Define a directional light source with associated texture, 
- * center, and direction.
- */
+/** Define a directional light with associated texture and direction. */
 void * rt_directional_light(SceneHandle, void *tex, apivector direction);     
-/**
- * Define a directional light source with associated texture, 
- * center, and direction.
- */
+
+/** Define a directional light with associated texture and direction. */
 void * rt_directional_light3fv(SceneHandle, void *tex, const float *direction);
 
 
 /**
- * Define a spotlight with associated texture, center, radius, direction,
+ * Define a spotlight with associated texture, position, radius, direction,
  * falloff start, and falloff end parameters.
  */
 void * rt_spotlight(SceneHandle, void *tex, apivector center, flt radius,
                     apivector direction, flt fallstart, flt fallend);     
 /**
- * Define a spotlight with associated texture, center, radius, direction,
+ * Define a spotlight with associated texture, position, radius, direction,
  * falloff start, and falloff end parameters.
  */
 void * rt_spotlight3fv(SceneHandle, void *tex, const float *center, 
@@ -596,12 +734,14 @@ void * rt_spotlight3fv(SceneHandle, void *tex, const float *center,
 void rt_light_attenuation(void *light, flt constfactor, 
                           flt linearfactor, flt quadfactor);
 
+#define RT_AO_MAXDIST_UNLIMITED 3.402823e+38 /**< unlimited AO distaned macro */
+
 /**
  * Ambient occlusion lighting, with monte carlo sampling of 
  * omnidirectional "sky" light.
  */
-void rt_ambient_occlusion(void *scene, int numsamples, apicolor col);
-
+void rt_ambient_occlusion(void *scene, int numsamples, 
+                          flt maxdist, apicolor col);
 
 /************************/
 /* Object Creation APIs */
@@ -639,12 +779,6 @@ void rt_polycylinder(SceneHandle, void *tex, apivector *points,
 void rt_polycylinder3fv(SceneHandle, void *tex, const float *points, 
                         int numpoints, float radius);
 
-/** Define a cone.  */
-void rt_cone(SceneHandle, void *tex, apivector center,
-                  apivector axis, flt radius);
-/** Define a cone.  */
-void rt_cone3fv(SceneHandle, void *tex, const float *center,
-                     const float *axis, float radius);
 
 /** Define a sphere with associated texture, center, and radius.  */
 void rt_sphere(SceneHandle, void *tex, apivector center, flt radius);
@@ -749,11 +883,6 @@ void rt_box(SceneHandle, void *tex, apivector mincoord, apivector maxcoord);
  */
 void rt_quadsphere(SceneHandle, void *tex, apivector center, flt rad);
 
-/**
- * Define a quadric.
- */
-void rt_quadric(SceneHandle, void *tex, apivector center, flt a, flt b, flt c, flt d, flt e, flt f, flt g, flt h, flt i, flt j, flt bbox);
-
 
 /*
  * Include now-deprecated Tachyon APIs, unless the user has told us not to
@@ -772,8 +901,8 @@ void rt_quadric(SceneHandle, void *tex, apivector center, flt a, flt b, flt c, f
 
 #ifdef USESINGLEFLT
 /* All floating point types will be based on "float" */
-#define SPEPSILON   0.0001f     /**< amount to crawl down a ray           */
-#define EPSILON     0.0001f     /**< amount to crawl down a ray           */
+#define SPEPSILON   0.0004f     /**< amount to crawl down a ray           */
+#define EPSILON     0.0004f     /**< amount to crawl down a ray           */
 #define FHUGE       1e18f       /**< biggest fp number we care about      */
 #define TWOPI       6.28318531f /**< Two times Pi                         */
 #define MINCONTRIB  0.001959f   /**< 1.0 / 512.0, smallest contribution   */
@@ -858,7 +987,6 @@ void rt_quadric(SceneHandle, void *tex, apivector center, flt a, flt b, flt c, f
  */
 #define RT_IMAGE_BUFFER_RGB24   0 /**< 24-bit color, unsigned char RGB */
 #define RT_IMAGE_BUFFER_RGB96F  1 /**< 96-bit color, 32-bit float RGB  */
-#define RT_IMAGE_BUFFER_RGBA32  2 /**< 32-bit color, unsigned char RGBA */
 
 
 /*
@@ -907,12 +1035,14 @@ typedef struct {         /**< Scalar Volume Data */
  * Background texture data structure
  */
 typedef struct {
-  colora background;      /**< solid background color     */
-  vector gradient;       /**< gradient direction vector for "up"  */
-  flt gradtopval;        /**< texture dot product max parameter for top  */
-  flt gradbotval;        /**< texture dot product min parameter for bot  */
-  color backgroundtop;   /**< gradient background top    */ 
-  color backgroundbot;   /**< gradient background bottom */
+  color bg_color;        /**< solid background color            */
+  color bg_grad_top;     /**< gradient background top color     */ 
+  color bg_grad_bot;     /**< gradient background bottom color  */
+  vector bg_grad_updir;  /**< gradient "up" direction vector    */
+  flt bg_grad_topval;    /**< gradient top max dot product      */
+  flt bg_grad_botval;    /**< gradient bottom min dot product   */
+  flt bg_grad_invrange;  /**< gradient rcp (top-bot) range      */
+  flt bg_grad_noisemag;  /**< gradient noise magnitude          */
 } background_texture;
 
 /*
@@ -1025,14 +1155,17 @@ typedef struct {
   flt py;                    /**< height of image plane in world coords   */
   flt psx;                   /**< width of pixel in world coords          */
   flt psy;                   /**< height of pixel in world coords         */
-  flt focallength;           /**< distance from eye to focal plane        */
+  flt dof_focaldist;         /**< DoF distance from eye to focal plane    */
   flt left;                  /**< left side of perspective frustum        */
   flt right;                 /**< right side of perspective frustum       */
   flt top;                   /**< top side of perspective frustum         */
   flt bottom;                /**< bottom side of perspective frustum      */
-  flt aperture;              /**< depth of field aperture                 */
+  flt dof_aperture_rad;      /**< DoF aperture radius scalefactor         */
   vector projcent;           /**< center of image plane in world coords   */
-  colora (* cam_ray)(void *, flt, flt);   /**< camera ray generator fctn   */
+  flt eyeshift;              /**< half of stereoscopic eye separation     */
+  int modulate_eyeshift;     /**< modulate eyeshift by latitude angle     */
+  flt modulate_eyeshift_pow; /**< modulate eyeshift cosine power factor   */
+  color (* cam_ray)(void *, flt, flt);   /**< camera ray generator fctn   */
   vector lowleft;            /**< lower left corner of image plane        */
   vector iplaneright;        /**< image plane right vector                */
   vector iplaneup;           /**< image plane up    vector                */
@@ -1049,6 +1182,7 @@ typedef struct fogdata_t {
 
 typedef struct amboccdata_t {
   int numsamples;            /**< number of samples for ambient occlusion */
+  flt ao_maxdist;            /**< maximum occlusion distance cutoff       */
   color col;                 /**< color of ambient occlusion light        */
 } amboccludedata;
 
@@ -1057,6 +1191,7 @@ typedef struct {
   flt cpuspeed;              /**< relative speed of cpus on this node     */
   flt nodespeed;             /**< relative speed index for this node      */
   char machname[512];        /**< machine/node name                       */
+  void *cpucaps;             /**< CPU ISA feature/capability flags        */
 } nodeinfo;
 
 typedef struct list {
@@ -1084,6 +1219,9 @@ typedef struct {
   object * unboundedobj;     /**< unbounded object list, starts out empty */
   int numobjects;            /**< number of objects in group              */
 } displist;
+
+typedef void * rt_parhandle;
+typedef void * rt_parbuf;
  
 typedef struct {
   char outfilename[256];     /**< name of the output image                */
@@ -1095,6 +1233,11 @@ typedef struct {
   int imgbufformat;          /**< pixel format for image buffer           */
   int imgfileformat;         /**< output format for final image           */
   cropinfo imgcrop;          /**< image output cropping for SPEC MPI      */
+#if defined(RT_ACCUMULATE_ON)
+  float *accum_buf;          /**< optional accumulation buffer            */
+  unsigned int accum_count;  /**< number of images accumulated in buf     */
+  int accum_mode;            /**< accumulation buffer mode                */
+#endif
   int numthreads;            /**< user controlled number of threads       */
   int nodes;                 /**< number of distributed memory nodes      */
   int mynode;                /**< my distributed memory node number       */
@@ -1113,11 +1256,11 @@ typedef struct {
   list * cliplist;           /**< linked list of clipping plane groups    */
   unsigned int flags;        /**< scene feature requirement flags         */
   camdef camera;             /**< camera definition                       */
-  colora (* shader)(void *);  /**< main shader used for the whole scene    */
+  color (* shader)(void *);  /**< main shader used for the whole scene    */  
   flt (* phongfunc)(const struct ray_t * incident, const shadedata * shadevars, flt specpower);              /**< phong shader used for whole scene       */ 
   int transmode;             /**< transparency mode flags                 */
   background_texture bgtex;  /**< background texture parameters           */
-  colora (* bgtexfunc)(const struct ray_t * incident); /**< background texturing function ptr  */
+  color (* bgtexfunc)(struct ray_t * incident); /**< background texturing function ptr  */
   fogdata fog;               /**< fog parameters                          */
   displist objgroup;         /**< objects in the scene                    */
   list * lightlist;          /**< linked list of lights in the scene      */
@@ -1125,7 +1268,8 @@ typedef struct {
   int numlights;             /**< number of lights in the scene           */
   amboccludedata ambocc;     /**< ambient occlusion data                  */
   int scenecheck;            /**< re-check scene for changes              */
-  void * parbuf;             /**< parallel message passing handle         */
+  rt_parhandle parhnd;       /**< message passing handle (global)         */
+  rt_parbuf parbuf;          /**< message passing handle (scene)          */
   void * threads;            /**< thread handles                          */
   void * threadparms;        /**< thread parameters                       */
   clip_group * curclipgroup; /**< current clipping group, during parsing  */
@@ -1134,21 +1278,21 @@ typedef struct {
 
 
 typedef struct ray_t {
-  vector o;              /**< origin of the ray X,Y,Z                        */
-  vector d;              /**< normalized direction of the ray                */
-  flt maxdist;           /**< maximum distance to search for intersections   */
-  flt opticdist;         /**< total distance traveled from camera so far     */
+  vector o;              /**< origin of the ray X,Y,Z                     */
+  vector d;              /**< normalized direction of the ray             */
+  flt maxdist;           /**< max distance to search for intersections    */
+  flt opticdist;         /**< total distance traveled from camera so far  */
   void (* add_intersection)(flt, const object *, struct ray_t *); 
-  intersectstruct intstruct; /**< ptr to thread's intersection data          */ 
-  unsigned int depth;    /**< levels left to recurse.. (maxdepth - curdepth) */
-  int transcnt;          /**< transparent surfaces left to show              */
-  unsigned int flags;    /**< ray flags, any special treatment needed etc    */
-  unsigned long serial;  /**< serial number of the ray                       */
-  unsigned long * mbox;  /**< mailbox array for optimizing intersections     */
-  scenedef * scene;      /**< pointer to the scene, for global parms such as */
-                         /**< background colors etc                          */
-  unsigned int randval;  /**< random number seed                             */
-  rng_frand_handle frng; /**< 32-bit FP random number generator handle       */
+  intersectstruct intstruct; /**< ptr to thread's intersection data       */ 
+  unsigned int depth;    /**< levels left to recurse (maxdepth-curdepth)  */
+  int transcnt;          /**< transparent surfaces left to show           */
+  unsigned int flags;    /**< ray flags, any special treatment needed etc */
+  unsigned long serial;  /**< serial number of the ray                    */
+  unsigned long * mbox;  /**< mailbox array for optimizing intersections  */
+  scenedef * scene;      /**< ptr to the scene, for global scene parms    */
+  unsigned int idx;      /**< 1-D pixel index used to seed RNGs           */
+  unsigned int randval;  /**< random number seed                          */
+  rng_frand_handle frng; /**< 32-bit FP random number generator handle    */
 } ray;
 
 

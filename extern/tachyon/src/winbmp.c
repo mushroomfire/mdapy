@@ -1,8 +1,12 @@
 /*
- *  winbmp.c - This file deals with Windows Bitmap image files 
- *             (reading/writing)
+ * winbmp.c - This file deals with Windows Bitmap image files 
+ *            (reading/writing)
  *
- *  $Id: winbmp.c,v 1.4 2011/02/07 07:41:51 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: winbmp.c,v 1.6 2022/02/18 17:55:28 johns Exp $
+ *
  */ 
 
 #include <stdio.h>
@@ -35,7 +39,8 @@ int writebmp(char * filename, int xs, int ys, unsigned char * img) {
     if ((dfile = fopen(filename, "wb")) != NULL) {
       int i, y; /* loop variables */
       int imgdataoffset = 14 + 40;     /* file header + bitmap header size */
-      int rowsz = ((xs * 3) + 3) & -4; /* size of one padded row of pixels */
+      int rowlen = xs * 3;             /* non-padded row length in pixels  */
+      int rowsz = (rowlen + 3) & -4;   /* size of one padded row of pixels */
       int imgdatasize = rowsz * ys;    /* size of image data */
       int filesize = imgdataoffset + imgdatasize;
       unsigned char * rowbuf = NULL; 
@@ -73,7 +78,7 @@ int writebmp(char * filename, int xs, int ys, unsigned char * img) {
 
           /* write one row of the image, in reversed RGB -> BGR pixel order */
           /* padding bytes remain 0's, shouldn't have to re-clear them. */
-          for (i=0; i<rowsz; i+=3) {
+          for (i=0; i<rowlen; i+=3) {
             rowbuf[i    ] = img[addr + i + 2]; /* blue  */
             rowbuf[i + 1] = img[addr + i + 1]; /* green */
             rowbuf[i + 2] = img[addr + i    ]; /* red   */

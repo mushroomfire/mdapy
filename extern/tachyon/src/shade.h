@@ -1,16 +1,20 @@
 /* 
  * shade.h - This file contains declarations and definitions for the shader.
  *
- *  $Id: shade.h,v 1.19 2009/04/22 17:47:00 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: shade.h,v 1.20 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 #ifndef SHADE_H
 #define SHADE_H
 
-colora lowest_shader(ray *);
-colora low_shader(ray *);
-colora medium_shader(ray *);
-colora full_shader(ray *);
+color lowest_shader(ray *);
+color low_shader(ray *);
+color medium_shader(ray *);
+color full_shader(ray *);
 color shade_reflection(ray *, const shadedata *, flt);
 color shade_transmission(ray *, const shadedata *, flt);
 

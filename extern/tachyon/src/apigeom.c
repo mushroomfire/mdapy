@@ -2,7 +2,11 @@
  * apigeom.c - This file contains all of the API calls that are defined for
  *         external driver code to use.  
  * 
- *  $Id: apigeom.c,v 1.14 2012/10/17 04:25:57 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: apigeom.c,v 1.16 2022/03/13 23:46:29 johns Exp $
+ *
  */
 
 #include <stdio.h>
@@ -184,7 +188,7 @@ static void adjust(flt *base, int xres, int yres, flt wx, flt wy,
     d=(abs(xa - xb) / (xres * 1.0))*wx + (abs(ya - yb) / (yres * 1.0))*wy; 
 
     v= (base[xa + (xres*ya)] + base[xb + (xres*yb)]) / 2.0 +
-       ((((rt_rand(rndval) / RT_RAND_MAX) - 0.5)*d) / 4.0) * (len / 16.0);
+       ((((rt_rand(rndval) * RT_RAND_MAX_INV) - 0.5)*d) / 4.0) * (len / 16.0);
 
     if (v < 0.0) v=0.0; 
     if (v > (xres + yres)) v=(xres + yres);
@@ -235,10 +239,10 @@ void rt_landscape(SceneHandle scene, void * tex, int m, int n,
     }
   }
 
-  field[0 + 0            ] = rt_rand(&rndval) / RT_RAND_MAX;
-  field[m - 1            ] = rt_rand(&rndval) / RT_RAND_MAX;
-  field[0     + m*(n - 1)] = rt_rand(&rndval) / RT_RAND_MAX;
-  field[m - 1 + m*(n - 1)] = rt_rand(&rndval) / RT_RAND_MAX;
+  field[0 + 0            ] = rt_rand(&rndval) * RT_RAND_MAX_INV;
+  field[m - 1            ] = rt_rand(&rndval) * RT_RAND_MAX_INV;
+  field[0     + m*(n - 1)] = rt_rand(&rndval) * RT_RAND_MAX_INV;
+  field[m - 1 + m*(n - 1)] = rt_rand(&rndval) * RT_RAND_MAX_INV;
 
   subdivide(field, m, n, wx, wy, 0, 0, m-1, n-1, &rndval);
 

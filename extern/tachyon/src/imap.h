@@ -1,7 +1,11 @@
 /*
  * imap.h - This file contains defines etc for doing image map type things.  
  *
- *  $Id: imap.h,v 1.13 2009/03/25 03:23:27 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: imap.h,v 1.14 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 void       ResetImage(void);

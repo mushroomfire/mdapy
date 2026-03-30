@@ -1,7 +1,11 @@
 /*
  * vol.h - Volume rendering definitions etc.
  *
- *  $Id: vol.h,v 1.7 2011/02/02 06:06:30 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: vol.h,v 1.8 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 void * newscalarvol(void * intex, vector min, vector max, 

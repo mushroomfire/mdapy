@@ -1,7 +1,11 @@
 /* 
  * vector.c - This file contains all of the vector arithmetic functions.
  *
- *  $Id: vector.c,v 1.8 2012/10/17 04:25:57 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: vector.c,v 1.9 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 #include <stdio.h>

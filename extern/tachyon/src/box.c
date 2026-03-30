@@ -1,7 +1,11 @@
 /* 
  * box.c - This file contains the functions for dealing with boxes.
  *
- *  $Id: box.c,v 1.23 2012/10/17 04:25:57 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: box.c,v 1.25 2022/02/18 17:55:28 johns Exp $
+ *
  */
  
 #include <stdio.h>
@@ -107,9 +111,17 @@ void box_normal(const box * bx, const vector * pnt, const ray * incident, vector
   VSub((vector *) pnt, &c, N);
   b=(*N);
 
-  a.x=FABS(N->x/(bx->max.x - bx->min.x));
-  a.y=FABS(N->y/(bx->max.y - bx->min.y));
-  a.z=FABS(N->z/(bx->max.z - bx->min.z));
+#if 1
+  /* arbitrary rectangular boxes */
+  a.x=FABS(N->x / (bx->max.x - bx->min.x));
+  a.y=FABS(N->y / (bx->max.y - bx->min.y));
+  a.z=FABS(N->z / (bx->max.z - bx->min.z));
+#else
+  /* cubic boxes only */
+  a.x=FABS(N->x);
+  a.y=FABS(N->y);
+  a.z=FABS(N->z);
+#endif
  
   N->x=0.0;  N->y=0.0;  N->z=0.0;
 

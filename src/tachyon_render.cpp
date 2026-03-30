@@ -1,15 +1,21 @@
 /**
- * tachyon_render.cpp  —  mdapy Tachyon nanobind 绑定
+ * tachyon_render.cpp  —  mdapy Tachyon nanobind 绑定（适配 0.99.5）
  *
  * 暴露的 Python 接口：
  *   _tachyon.TachyonRenderer
  *   _tachyon.RenderParams
  *   _tachyon.CameraParams
  *   _tachyon.Vec3
+ *
+ * 相较旧版新增/修改：
+ *   - RenderParams 新增 ao_max_dist（AO 最大距离）
+ *   - render() 的 box_edges 参数扩展为可传 dict，支持自定义颜色和半径
+ *   - 内部使用 BoxEdgeParams 辅助结构传递 box 外观参数
  */
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/string.h>
 
 #include <cstring>
 #include <vector>
@@ -19,7 +25,7 @@
 #include "tachyon_render.h"
 
 namespace nb = nanobind;
-using namespace mdapy;
+using namespace mdapy_tachyon;
 
 // ndarray 类型别名
 using PosArray = nb::ndarray<double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
@@ -28,7 +34,7 @@ using RadArray = nb::ndarray<float,  nb::shape<-1>,    nb::c_contig, nb::device:
 using BoxArray = nb::ndarray<double, nb::shape<-1, 2, 3>, nb::c_contig, nb::device::cpu>;
 
 NB_MODULE(_tachyon, m) {
-    m.doc() = "Tachyon ray-tracing renderer for mdapy";
+    m.doc() = "Tachyon ray-tracing renderer for mdapy (Tachyon 0.99.5)";
 
     // ── Vec3 ─────────────────────────────────────────────────────────────
     nb::class_<Vec3>(m, "Vec3")
@@ -69,6 +75,7 @@ NB_MODULE(_tachyon, m) {
         .def_rw("ao_enabled",             &RenderParams::aoEnabled)
         .def_rw("ao_samples",             &RenderParams::aoSamples)
         .def_rw("ao_brightness",          &RenderParams::aoBrightness)
+        .def_rw("ao_max_dist",            &RenderParams::aoMaxDist)   // 新增
         .def_rw("bg_r",                   &RenderParams::bgR)
         .def_rw("bg_g",                   &RenderParams::bgG)
         .def_rw("bg_b",                   &RenderParams::bgB)
@@ -82,13 +89,18 @@ NB_MODULE(_tachyon, m) {
             [](TachyonRenderer& self,
                const RenderParams& rp,
                const CameraParams& cp,
-               PosArray positions,      // (N,3) float64
-               ColArray colors,         // (N,4) float32
-               RadArray radii,          // (N,)  float32
-               nb::object box_obj)      // None | (M,2,3) float64
-            -> nb::ndarray<nb::numpy, uint8_t, nb::shape<-1,-1,4>>
+               PosArray positions,          // (N,3) float64
+               ColArray colors,             // (N,4) float32
+               RadArray radii,              // (N,)  float32
+               nb::object box_obj,          // None | (M,2,3) float64
+               float     box_radius,        // 棱线圆柱半径
+               float     box_r,             // 棱线颜色 R
+               float     box_g,             // 棱线颜色 G
+               float     box_b,             // 棱线颜色 B
+               float     box_a             // 棱线颜色 A（透明度）
+            ) -> nb::ndarray<nb::numpy, uint8_t, nb::shape<-1,-1,4>>
         {
-            // ── 粒子（直接使用 Python 数组内存，生命期由 Python GC 保证）──
+            // ── 粒子 ────────────────────────────────────────────────────
             const size_t N = positions.shape(0);
             if (colors.shape(0) != N || radii.shape(0) != N)
                 throw std::runtime_error("positions/colors/radii size mismatch");
@@ -99,21 +111,20 @@ NB_MODULE(_tachyon, m) {
             pd.radii     = radii.data();
             pd.count     = N;
 
-            // ── 晶胞棱线：立即深拷贝到 std::vector ──────────────────────
-            // ★ 关键：不能存 BoxArray 的 .data() 指针然后再渲染
-            //   因为 nb::cast<BoxArray>(box_obj) 返回的局部对象析构后
-            //   指针即悬空。改为拷贝到 std::vector 确保生命期安全。
+            // ── 晶胞棱线（深拷贝，防止 BoxArray 临时对象析构后指针悬空）──
             std::vector<double> box_buf;
             BoxEdgeData be{};
-            be.r = be.g = be.b = be.a = 1.f;
-            be.radius = 0.05f;
+            be.r      = box_r;
+            be.g      = box_g;
+            be.b      = box_b;
+            be.a      = box_a;
+            be.radius = box_radius;
 
             bool hasBox = !box_obj.is_none();
             if (hasBox) {
                 BoxArray ba = nb::cast<BoxArray>(box_obj);
                 const size_t M = ba.shape(0);
                 if (M > 0) {
-                    // 深拷贝：ba 析构后 box_buf 仍然有效
                     box_buf.assign(ba.data(), ba.data() + M * 6);
                     be.points = box_buf.data();
                     be.count  = M;
@@ -122,12 +133,12 @@ NB_MODULE(_tachyon, m) {
                 }
             }
 
-            // ── 渲染 ──────────────────────────────────────────────────────
+            // ── 渲染 ────────────────────────────────────────────────────
             std::vector<uint8_t> raw = self.render(
                 rp, cp, pd,
                 hasBox ? &be : nullptr);
 
-            // ── 把结果移交给 Python（通过 capsule 管理堆内存）────────────
+            // ── 把结果移交给 Python（capsule 管理堆内存）────────────────
             const size_t H = static_cast<size_t>(rp.height);
             const size_t W = static_cast<size_t>(rp.width);
             uint8_t* heap = new uint8_t[raw.size()];
@@ -143,14 +154,21 @@ NB_MODULE(_tachyon, m) {
         nb::arg("positions"),
         nb::arg("colors"),
         nb::arg("radii"),
-        nb::arg("box_edges") = nb::none(),
+        nb::arg("box_edges")   = nb::none(),
+        nb::arg("box_radius")  = 0.05f,
+        nb::arg("box_r")       = 1.0f,
+        nb::arg("box_g")       = 1.0f,
+        nb::arg("box_b")       = 1.0f,
+        nb::arg("box_a")       = 1.0f,
         "Render sphere particles + optional box edges.\n\n"
         "Parameters\n"
         "----------\n"
-        "positions : (N,3) float64\n"
-        "colors    : (N,4) float32  RGBA in [0,1]\n"
-        "radii     : (N,)  float32\n"
-        "box_edges : (M,2,3) float64 or None\n\n"
+        "positions  : (N,3) float64\n"
+        "colors     : (N,4) float32  RGBA in [0,1]\n"
+        "radii      : (N,)  float32\n"
+        "box_edges  : (M,2,3) float64 or None\n"
+        "box_radius : float  cylinder radius for box edges (default 0.05)\n"
+        "box_r/g/b/a: float  RGBA color for box edges (default white, opaque)\n\n"
         "Returns\n"
         "-------\n"
         "numpy.ndarray shape (H,W,4) uint8 RGBA");

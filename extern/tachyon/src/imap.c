@@ -1,7 +1,11 @@
 /*
  * imap.c - This file contains code for doing image map type things.  
  *
- *  $Id: imap.c,v 1.37 2013/04/21 16:58:19 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: imap.c,v 1.42 2022/03/25 06:13:10 johns Exp $
+ *
  */
 
 #include <stdio.h>
@@ -12,27 +16,24 @@
 #define TACHYON_INTERNAL 1
 #include "tachyon.h"
 #include "imap.h"
+#include "global.h" /* XXX this needs to go */
 #include "util.h"
 #include "parallel.h"
 #include "imageio.h"
 #include "ui.h"
 
-/* XXX globals that must be eliminated! */
-rawimage * imagelist[MAXIMGS];
-int numimages;
-
 void ResetImages(void) {
   int i;
-  numimages=0;
+  global_numimages=0;
   for (i=0; i<MAXIMGS; i++) {
-    imagelist[i]=NULL;
+    global_imagelist[i]=NULL;
   }
 }
 
 void FreeImages(void) {
   int i; 
-  for (i=0; i<numimages; i++) {
-    DeallocateImage(imagelist[i]);
+  for (i=0; i<global_numimages; i++) {
+    DeallocateImage(global_imagelist[i]);
   }
   ResetImages();
 }
@@ -49,10 +50,10 @@ rawimage * AllocateImageRGB24(const char * filename, int xs, int ys, int zs, uns
   int i, len, intable;
 
   intable=0;
-  if (numimages!=0) {
-    for (i=0; i<numimages; i++) {
-      if (!strcmp(filename, imagelist[i]->name)) {
-        newimage=imagelist[i];
+  if (global_numimages!=0) {
+    for (i=0; i<global_numimages; i++) {
+      if (!strcmp(filename, global_imagelist[i]->name)) {
+        newimage=global_imagelist[i];
         intable=1;
       }
     }
@@ -71,8 +72,8 @@ rawimage * AllocateImageRGB24(const char * filename, int xs, int ys, int zs, uns
       return NULL;
     strcpy(newimage->name, filename);
 
-    imagelist[numimages]=newimage;  /* add new one to the table       */ 
-    numimages++;                    /* increment the number of images */
+    global_imagelist[global_numimages]=newimage;  /* add new one to the table       */ 
+    global_numimages++;                    /* increment the number of images */
   }
  
   return newimage;
@@ -83,10 +84,10 @@ rawimage * AllocateImageFile(const char * filename) {
   int i, len, intable;
 
   intable=0;
-  if (numimages!=0) {
-    for (i=0; i<numimages; i++) {
-      if (!strcmp(filename, imagelist[i]->name)) {
-        newimage=imagelist[i];
+  if (global_numimages!=0) {
+    for (i=0; i<global_numimages; i++) {
+      if (!strcmp(filename, global_imagelist[i]->name)) {
+        newimage=global_imagelist[i];
         intable=1;
       }
     }
@@ -105,8 +106,8 @@ rawimage * AllocateImageFile(const char * filename) {
       return NULL;
     strcpy(newimage->name, filename);
 
-    imagelist[numimages]=newimage;  /* add new one to the table       */ 
-    numimages++;                    /* increment the number of images */
+    global_imagelist[global_numimages]=newimage; /* add new tex to table and */ 
+    global_numimages++;                          /* increment image count    */
   }
  
   return newimage;
@@ -123,7 +124,7 @@ rawimage * NewImage(int x, int y, int z) {
   newimage->yres=y;
   newimage->zres=z;
   newimage->bpp=0;
-  newimage->data=malloc(x*y*z*3);
+  newimage->data=malloc(((long)x)*((long)y)*((long)z)*3L);
   if (newimage->data == NULL) {
     free(newimage);
     return NULL;
@@ -173,13 +174,13 @@ mipmap * LoadMIPMap(const char * filename, int maxlevels) {
 
 rawimage * DecimateImage(const rawimage * image) {
   rawimage * newimage;
-  int x, y, addr, addr2;
+  long x, y, addr, addr2;
 
-  x = (int) image->xres >> 1;
+  x = (long) image->xres >> 1;
   if (x == 0)
     x = 1;
 
-  y = (int) image->yres >> 1;
+  y = (long) image->yres >> 1;
   if (y == 0)
     y = 1;
 
@@ -188,8 +189,8 @@ rawimage * DecimateImage(const rawimage * image) {
   if (image->xres > 1 && image->yres > 1) {
     for (y=0; y<newimage->yres; y++) {
       for (x=0; x<newimage->xres; x++) {
-        addr = (newimage->xres*y + x)*3;
-        addr2 = (image->xres*y + x)*3*2;
+        addr = (newimage->xres*y + x)*3L;
+        addr2 = (image->xres*y + x)*3L*2L;
         newimage->data[addr] = (int)
           (image->data[addr2] + 
            image->data[addr2 + 3] +
@@ -211,11 +212,10 @@ rawimage * DecimateImage(const rawimage * image) {
            image->data[addr2 + (image->xres + 1)*3]) >> 2; 
       }
     }
-  }
-  else if (image->xres == 1) {
+  } else if (image->xres == 1) {
     for (y=0; y<newimage->yres; y++) {
-      addr = y*3;
-      addr2 = y*3*2;
+      addr = y*3L;
+      addr2 = y*3L*2L;
       newimage->data[addr] = (int)
         (image->data[addr2] + 
          image->data[addr2 + 3]) >> 1;
@@ -230,11 +230,10 @@ rawimage * DecimateImage(const rawimage * image) {
         (image->data[addr2] + 
          image->data[addr2 + 3]) >> 1;
     }
-  }
-  else if (image->yres == 1) {
+  } else if (image->yres == 1) {
     for (x=0; x<newimage->xres; x++) {
-      addr = x*3;
-      addr2 = x*3*2;
+      addr = x*3L;
+      addr2 = x*3L*2L;
       newimage->data[addr] = (int)
         (image->data[addr2] + 
          image->data[addr2 + 3]) >> 1;
@@ -332,10 +331,9 @@ color MIPMap(const mipmap * mip, flt u, flt v, flt d) {
   color col, col1, col2;
 
   if ((u <= 1.0) && (u >= 0.0) && (v <= 1.0) && (v >= 0.0)) {
-    if (d > 1.0) 
-      d = 1.0;
-    else if (d < 0.0)
-      d = 0.0;
+    flt t;
+    t = (d > 1.0) ? 1.0 : d;
+    d = (t < 0.0) ? 0.0 : t;
 
     mapflt = d * (mip->levels - 0.9999); /* convert range to mapindex        */
     mapindex = (int) mapflt;             /* truncate to nearest integer      */
@@ -370,6 +368,7 @@ color ImageMap(const rawimage * image, flt u, flt v) {
   flt x, y, px, py;
   int ix, iy, nx, ny;
   unsigned char * ptr;
+  const flt texel_inv = 1.0 / 255.0;
 
   /*
    *  Perform bilinear interpolation between 4 closest pixels.
@@ -401,9 +400,9 @@ color ImageMap(const rawimage * image, flt u, flt v) {
   colx2.b = ((flt)ptr[2] + px*((flt)ptr[nx+2] - (flt)ptr[2])); 
 
   /* interpolate between upper and lower interpolated pixels */
-  col.r = (colx.r + py*(colx2.r - colx.r)) / 255.0;
-  col.g = (colx.g + py*(colx2.g - colx.g)) / 255.0;
-  col.b = (colx.b + py*(colx2.b - colx.b)) / 255.0;
+  col.r = (colx.r + py*(colx2.r - colx.r)) * texel_inv;
+  col.g = (colx.g + py*(colx2.g - colx.g)) * texel_inv;
+  col.b = (colx.b + py*(colx2.b - colx.b)) * texel_inv;
 
   return col;
 } 
@@ -412,15 +411,15 @@ color ImageMap(const rawimage * image, flt u, flt v) {
 color VolImageMapNearest(const rawimage * img, flt u, flt v, flt w) {
   color col;
   flt x, y, z;
-  int ix, iy, iz;
-  int addr;
+  long ix, iy, iz;
+  long addr;
 
   x = (img->xres - 1.0) * u;  /* floating point X location */
-  ix = (int) x;
+  ix = (long) x;
   y = (img->yres - 1.0) * v;  /* floating point Y location */
-  iy = (int) y;
+  iy = (long) y;
   z = (img->zres - 1.0) * w;  /* floating point Z location */
-  iz = (int) z;
+  iz = (long) z;
 
   addr = ((iz * img->xres * img->yres) + (iy * img->xres) + ix) * 3; 
   col.r = img->data[addr    ];
@@ -434,29 +433,30 @@ color VolImageMapNearest(const rawimage * img, flt u, flt v, flt w) {
 color VolImageMapTrilinear(const rawimage * img, flt u, flt v, flt w) {
   color col, colL, colU, colll, colul, colLL, colUL;
   flt x, y, z, px, py, pz;
-  int ix, iy, iz, nx, ny, nz;
+  long ix, iy, iz, nx, ny, nz;
   unsigned char *llptr, *ulptr, *LLptr, *ULptr;
-  int addr;
+  long addr;
+  const flt texel_inv = 1.0 / 255.0;
 
   /*
    *  Perform trilinear interpolation between 8 closest pixels.
    */
-  nx = (img->xres > 1) ? 3 : 0;
+  nx = (img->xres > 1) ? 3L : 0L;
   x = (img->xres - 1.0) * u;  /* floating point X location */
-  ix = (int) x;               /* integer X location        */
+  ix = (long) x;              /* integer X location        */
   px = x - ix;                /* fractional X location     */
 
-  ny = (img->yres > 1) ? (img->xres * 3) : 0;
+  ny = (img->yres > 1) ? (img->xres * 3L) : 0L;
   y = (img->yres - 1.0) * v;  /* floating point Y location */
-  iy = (int) y;               /* integer Y location        */
+  iy = (long) y;              /* integer Y location        */
   py = y - iy;                /* fractional Y location     */
 
-  nz = (img->zres > 1) ? (img->xres * img->yres * 3) : 0;
+  nz = (img->zres > 1) ? (img->xres * img->yres * 3L) : 0L;
   z = (img->zres - 1.0) * w;  /* floating point Z location */
-  iz = (int) z;               /* integer Z location        */
+  iz = (long) z;              /* integer Z location        */
   pz = z - iz;                /* fractional Z location     */
 
-  addr = ((img->xres*img->yres * iz) + (img->xres * iy) + ix) * 3; 
+  addr = ((img->xres*img->yres * iz) + (img->xres * iy) + ix) * 3L; 
 
   /* pointer to the lower left lower pixel (Y  ) */
   llptr = img->data + addr;
@@ -500,9 +500,9 @@ color VolImageMapTrilinear(const rawimage * img, flt u, flt v, flt w) {
   colU.b = (colLL.b + py*(colUL.b - colLL.b));
 
   /* interpolate between upper and lower interpolated pixels */
-  col.r = (colL.r + pz*(colU.r - colL.r)) / 255.0;
-  col.g = (colL.g + pz*(colU.g - colL.g)) / 255.0;
-  col.b = (colL.b + pz*(colU.b - colL.b)) / 255.0;
+  col.r = (colL.r + pz*(colU.r - colL.r)) * texel_inv;
+  col.g = (colL.g + pz*(colU.g - colL.g)) * texel_inv;
+  col.b = (colL.b + pz*(colU.b - colL.b)) * texel_inv;
 
   return col;
 }
@@ -516,10 +516,9 @@ color VolMIPMap(const mipmap * mip, flt u, flt v, flt w, flt d) {
   if ((u <= 1.0) && (u >= 0.0) && 
       (v <= 1.0) && (v >= 0.0) &&
       (w <= 1.0) && (w >= 0.0)) {
-    if (d > 1.0) 
-      d = 1.0;
-    else if (d < 0.0)
-      d = 0.0;
+    flt t;
+    t = (d > 1.0) ? 1.0 : d;
+    d = (t < 0.0) ? 0.0 : t;
 
     mapflt = d * (mip->levels - 0.9999); /* convert range to mapindex        */
     mapindex = (int) mapflt;             /* truncate to nearest integer      */
@@ -532,14 +531,12 @@ color VolMIPMap(const mipmap * mip, flt u, flt v, flt w, flt d) {
       col.r = col1.r + mapflt*(col2.r - col1.r);
       col.g = col1.g + mapflt*(col2.g - col1.g);
       col.b = col1.b + mapflt*(col2.b - col1.b);
-    }
-    else {
+    } else {
       /* if mapindex is too high, use the highest,  */
       /* with no MIP-Map interpolation.             */
       col  = VolImageMapTrilinear(mip->images[mip->levels - 1], u, v, w);
     }
-  } 
-  else {
+  } else {
     col.r=0.0;
     col.g=0.0;
     col.b=0.0;

@@ -1,7 +1,11 @@
 /* 
  * light.h - this file includes declarations and defines for light sources.
  *
- *  $Id: light.h,v 1.16 2011/02/05 08:10:11 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: light.h,v 1.17 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 #include "shade.h"

@@ -2,7 +2,11 @@
  * trace.c - This file contains the functions for firing primary rays
  *           and handling subsequent calculations
  *
- *   $Id: trace.c,v 1.127 2013/04/21 08:28:14 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: trace.c,v 1.145 2022/03/14 03:50:38 johns Exp $
+ *
  */
 
 #include <stdio.h>
@@ -26,7 +30,7 @@
 #include <omp.h>
 #endif
 
-colora trace(ray * primary) {
+color trace(ray * primary) {
   if (primary->depth > 0) {
     intersect_objects(primary);
     return primary->scene->shader(primary);
@@ -82,7 +86,8 @@ int node_row_sendrecv(int my_tid, thr_parms * t, scenedef *scene,
       /* send any rows that are completed but not already sent */ 
       for (row=(*sentrows); row<rowsdone; row++) { 
 /* printf("node[%d] sending row: %d  (sentrows %d)\n", scene->mynode, row, *sentrows); */
-        rt_sendrecvscanline(scene->parbuf); /* only thread 0 can use MPI */ 
+        /* only thread 0 can use MPI */ 
+        rt_par_sendrecvscanline(scene->parhnd, scene->parbuf);
 /* printf("node[%d] row: %d sent!\n", scene->mynode, row); */
       }
       *sentrows = row;
@@ -98,13 +103,13 @@ int node_row_sendrecv(int my_tid, thr_parms * t, scenedef *scene,
 
     /* after all worker threads have completed the row, we can send it */
     if (my_tid == 0) {
-      rt_sendrecvscanline(scene->parbuf); /* only thread 0 can use MPI */ 
+      rt_par_sendrecvscanline(scene->parhnd, scene->parbuf); /* only thread 0 can use MPI */ 
     }
 #endif  
 #else
     /* For OpenMP, we must also check that we are thread ID 0 */
     if (my_tid == 0) {
-      rt_sendrecvscanline(scene->parbuf); /* only thread 0 can use MPI */ 
+      rt_par_sendrecvscanline(scene->parhnd, scene->parbuf); /* only thread 0 can use MPI */ 
     }
 #endif
 
@@ -134,7 +139,7 @@ int node_finish_row_sendrecvs(int my_tid, thr_parms * t, scenedef *scene, int *s
     /* wait for all peer threads to complete */
     if (my_tid == 0) {
       int rowsdone, totalrows;
-      totalrows = rt_sendrecvscanline_get_totalrows(scene->parbuf);
+      totalrows = rt_par_sendrecvscanline_get_totalrows(scene->parhnd, scene->parbuf);
 
 /* printf("node[%d]: spinning waiting for totalrows: %d\n", scene->mynode, totalrows); */
 
@@ -154,7 +159,8 @@ int node_finish_row_sendrecvs(int my_tid, thr_parms * t, scenedef *scene, int *s
       /* send any rows that are completed but not already sent */ 
       for (row=(*sentrows); row<rowsdone; row++) { 
 /* printf("node[%d] sending row: %d (finishing)\n", scene->mynode, row); */
-        rt_sendrecvscanline(scene->parbuf); /* only thread 0 can use MPI */ 
+        /* only thread 0 can use MPI */ 
+        rt_par_sendrecvscanline(scene->parhnd, scene->parbuf);
 /* printf("node[%d] row: %d sent! (finishing)\n", scene->mynode, row); */
       }
       *sentrows = row;
@@ -173,6 +179,25 @@ int node_finish_row_sendrecvs(int my_tid, thr_parms * t, scenedef *scene, int *s
 #endif /* MPI */
 
 
+void convert_rgb96f_rgb24u(color col, unsigned char *img) {
+  int R = (int) (col.r * 255.0f); /* quantize float to integer */
+  int G = (int) (col.g * 255.0f); /* quantize float to integer */
+  int B = (int) (col.b * 255.0f); /* quantize float to integer */
+
+  if (R > 255) R = 255;      /* clamp pixel value to range 0-255      */
+  if (R < 0) R = 0;
+  img[0] = (byte) R;  /* Store final pixel to the image buffer */
+
+  if (G > 255) G = 255;      /* clamp pixel value to range 0-255      */
+  if (G < 0) G = 0;
+  img[1] = (byte) G;  /* Store final pixel to the image buffer */
+
+  if (B > 255) B = 255;      /* clamp pixel value to range 0-255      */
+  if (B < 0) B = 0;
+  img[2] = (byte) B;  /* Store final pixel to the image buffer */
+}
+
+
 void * thread_trace(thr_parms * t) {
 #if defined(_OPENMP)
 #pragma omp parallel default( none ) firstprivate(t)
@@ -180,11 +205,15 @@ void * thread_trace(thr_parms * t) {
 #endif
   unsigned long * local_mbox = NULL;
   scenedef * scene;
-  colora col;
+  color col;
   ray primary;
   int x, y, do_ui, hskip;
   int startx, stopx, xinc, starty, stopy, yinc, hsize, vres;
   rng_frand_handle cachefrng; /* Hold cached FP RNG state */
+#if defined(RT_ACCUMULATE_ON)
+  float accum_norm = 1.0f;
+#endif
+
 #if defined(MPI)
   int sentrows = 0;  /* no rows sent yet */
 #endif
@@ -210,15 +239,9 @@ void * thread_trace(thr_parms * t) {
   yinc   = t->yinc;
  
   scene  = t->scene;
-  if (scene->imgbufformat == RT_IMAGE_BUFFER_RGBA32) {
-	  hsize  = scene->hres*4;
-	  hskip  = xinc * 4;
-  }
-  else {
-	  hsize  = scene->hres*3;
-	  hskip  = xinc * 3;
-  }
+  hsize  = scene->hres*3;
   vres   = scene->vres;
+  hskip  = xinc * 3;
   do_ui = (scene->mynode == 0 && my_tid == 0);
 
 #if !defined(DISABLEMBOX)
@@ -233,6 +256,12 @@ void * thread_trace(thr_parms * t) {
 #endif
 #else
   local_mbox = NULL; /* mailboxes are disabled */
+#endif
+
+#if defined(RT_ACCUMULATE_ON)
+  /* calculate accumulation buffer normalization factor */
+  if (scene->accum_count > 0) 
+    accum_norm = 1.0f / scene->accum_count;
 #endif
 
   /*
@@ -262,8 +291,17 @@ void * thread_trace(thr_parms * t) {
   }
 
   /* setup the thread-specific properties of the primary ray(s) */
-  camray_init(scene, &primary, my_serialno, local_mbox, 
-              rng_seed_from_tid_nodeid(my_tid, scene->mynode));
+  { 
+     unsigned int rngseed = tea4(my_tid, scene->mynode);
+#if defined(RT_ACCUMULATE_ON)
+     rngseed = tea4(scene->accum_count, rngseed);
+     camray_init(scene, &primary, my_serialno, local_mbox, rngseed,
+                 tea4(scene->accum_count, scene->accum_count));
+#else
+     // unsigned int rngseed = rng_seed_from_tid_nodeid(my_tid, scene->mynode);
+     camray_init(scene, &primary, my_serialno, local_mbox, rngseed, rngseed);
+#endif
+  }
 
   /* copy the RNG state to cause increased coherence among */
   /* AO sample rays, significantly reducing granulation    */
@@ -272,51 +310,95 @@ void * thread_trace(thr_parms * t) {
   /* 
    * Render the image in either RGB24 or RGB96F format
    */
-  if (scene->imgbufformat == RT_IMAGE_BUFFER_RGB24 || scene->imgbufformat == RT_IMAGE_BUFFER_RGBA32) {
+  if (scene->imgbufformat == RT_IMAGE_BUFFER_RGB24) {
     /* 24-bit unsigned char RGB, RT_IMAGE_BUFFER_RGB24 */
-    int addr, R,G,B,A;
     unsigned char *img = (unsigned char *) scene->img;
+
+#if defined(THR) && !defined(MPI)
+    /* implement dynamic pixel scheduler */
+    if (t->sched_dynamic) {
+      int pixel;
+      int end = scene->hres * scene->vres - 1;
+      int tilesz = 32;
+
+      while ((pixel = rt_atomic_int_fetch_and_add(t->pixelsched, tilesz)) <= end) {
+        int tpxl;
+        int mystart=pixel;
+        int myend=pixel+tilesz-1;
+        if (myend > end)
+          myend = end;
+        for (tpxl=mystart; tpxl<=myend; tpxl++) {
+          int y = tpxl / scene->hres;
+          int x = tpxl - (y*scene->hres);
+          unsigned int idx = y*scene->hres + x;  /* 1-D pixel index */
+#if defined(RT_ACCUMULATE_ON)
+          if (scene->accum_count) {
+            primary.randval =  tea4(idx, scene->accum_count);
+          }
+#endif
+
+          int addr = hsize * y + (3 * (startx - 1 + x));  /* row address */
+
+          primary.idx = idx;        /* used for idx-based RNG seeding */
+          primary.frng = cachefrng; /* each pixel uses the same AO RNG seed */
+          col=scene->camera.cam_ray(&primary, x, y);  /* generate ray */ 
+
+#if defined(RT_ACCUMULATE_ON)
+          /* accumulate and normalize if enabled */
+          if (scene->accum_buf != NULL) {
+            scene->accum_buf[addr    ] += col.r;
+            col.r = scene->accum_buf[addr    ] * accum_norm;
+            scene->accum_buf[addr + 1] += col.g;
+            col.g = scene->accum_buf[addr + 1] * accum_norm;
+            scene->accum_buf[addr + 2] += col.b;
+            col.b = scene->accum_buf[addr + 2] * accum_norm;
+          }
+#endif
+
+          convert_rgb96f_rgb24u(col, &img[addr]);
+        }
+
+        if (do_ui && !(mystart % (16*scene->hres))) {
+          rt_ui_progress((100L * mystart) / end);  /* call progress meter callback */
+        } 
+      } 
+    } else {
+#endif
 
 #if defined(_OPENMP)
 #pragma omp for schedule(runtime)
 #endif
     for (y=starty; y<=stopy; y+=yinc) {
-      if(scene->imgbufformat == RT_IMAGE_BUFFER_RGB24) {
-        addr = hsize * (y - 1) + (3 * (startx - 1));    /* row address */
-      }
-      else {
-        addr = hsize * (y - 1) + (4 * (startx - 1));    /* row address */
-      }
+      int addr = hsize * (y - 1) + (3 * (startx - 1));  /* row address */
       for (x=startx; x<=stopx; x+=xinc,addr+=hskip) {
-        primary.frng = cachefrng; /* each pixel uses the same AO RNG seed */
-        col=scene->camera.cam_ray(&primary, x, y);    /* generate ray */ 
-
-        R = (int) (col.r * 255.0f); /* quantize float to integer */
-        G = (int) (col.g * 255.0f); /* quantize float to integer */
-        B = (int) (col.b * 255.0f); /* quantize float to integer */
-
-        if (R > 255) R = 255;       /* clamp pixel value to range 0-255      */
-        if (R < 0) R = 0;
-        img[addr    ] = (byte) R;   /* Store final pixel to the image buffer */
-
-        if (G > 255) G = 255;       /* clamp pixel value to range 0-255      */
-        if (G < 0) G = 0;
-        img[addr + 1] = (byte) G;   /* Store final pixel to the image buffer */
-
-        if (B > 255) B = 255;       /* clamp pixel value to range 0-255      */
-        if (B < 0) B = 0;
-        img[addr + 2] = (byte) B;   /* Store final pixel to the image buffer */
-
-        if(scene->imgbufformat == RT_IMAGE_BUFFER_RGBA32) {
-            A = (int) (col.a * 255.0f); /* quantize float to integer */
-			if (A > 255) A = 255;       /* clamp pixel value to range 0-255      */
-			if (A < 0) A = 0;
-			img[addr + 3] = (byte) A;   /* Store final pixel to the image buffer */
+        unsigned int idx = y*scene->hres + x;  /* 1-D pixel index */
+#if defined(RT_ACCUMULATE_ON)
+        if (scene->accum_count) {
+          primary.randval =  tea4(idx, scene->accum_count);
         }
+#endif
+
+        primary.idx = idx;        /* used for idx-based RNG seeding */
+        primary.frng = cachefrng; /* each pixel uses the same AO RNG seed */
+        col=scene->camera.cam_ray(&primary, x, y);  /* generate ray */ 
+
+#if defined(RT_ACCUMULATE_ON)
+        /* accumulate and normalize if enabled */
+        if (scene->accum_buf != NULL) {
+          scene->accum_buf[addr    ] += col.r;
+          col.r = scene->accum_buf[addr    ] * accum_norm;
+          scene->accum_buf[addr + 1] += col.g;
+          col.g = scene->accum_buf[addr + 1] * accum_norm;
+          scene->accum_buf[addr + 2] += col.b;
+          col.b = scene->accum_buf[addr + 2] * accum_norm;
+        }
+#endif
+
+        convert_rgb96f_rgb24u(col, &img[addr]);
       } /* end of x-loop */
 
       if (do_ui && !((y-1) % 16)) {
-        rt_ui_progress((100 * y) / vres);  /* call progress meter callback */
+        rt_ui_progress((100L * y) / vres);  /* call progress meter callback */
       } 
 
 #if defined(MPI)
@@ -324,10 +406,69 @@ void * thread_trace(thr_parms * t) {
       node_row_sendrecv(my_tid, t, scene, &sentrows, y);
 #endif
     }        /* end y-loop */
+
+#if defined(THR) && !defined(MPI)
+    } /* end of dynamic scheduler test */
+#endif
+
   } else {   /* end of RGB24 loop */
     /* 96-bit float RGB, RT_IMAGE_BUFFER_RGB96F */
     int addr;
     float *img = (float *) scene->img;
+
+#if defined(THR) && !defined(MPI)
+    /* implement dynamic pixel scheduler */
+    if (t->sched_dynamic) {
+      int pixel;
+      int end = scene->hres * scene->vres - 1;
+      int tilesz = 32;
+
+      while ((pixel = rt_atomic_int_fetch_and_add(t->pixelsched, tilesz)) <= end) {
+        int tpxl;
+        int mystart=pixel;
+        int myend=pixel+tilesz-1;
+        if (myend > end)
+          myend = end;
+        for (tpxl=mystart; tpxl<=myend; tpxl++) {
+          int y = tpxl / scene->hres;
+          int x = tpxl - (y*scene->hres);
+          unsigned int idx = y*scene->hres + x;  /* 1-D pixel index */
+
+          addr = hsize * y + (3 * (startx - 1 + x));    /* row address */
+
+#if defined(RT_ACCUMULATE_ON)
+          if (scene->accum_count) {
+            primary.randval =  tea4(idx, scene->accum_count);
+          }
+#endif
+
+          primary.idx = idx;        /* used for idx-based RNG seeding */
+          primary.frng = cachefrng; /* each pixel uses the same AO RNG seed */
+          col=scene->camera.cam_ray(&primary, x, y);    /* generate ray */
+
+#if defined(RT_ACCUMULATE_ON)
+          /* accumulate and normalize if enabled */
+          if (scene->accum_buf != NULL) {
+            scene->accum_buf[addr    ] += col.r;
+            col.r = scene->accum_buf[addr    ] * accum_norm;
+            scene->accum_buf[addr + 1] += col.g;
+            col.g = scene->accum_buf[addr + 1] * accum_norm;
+            scene->accum_buf[addr + 2] += col.b;
+            col.b = scene->accum_buf[addr + 2] * accum_norm;
+          }
+#endif
+
+          img[addr    ] = col.r;   /* Store final pixel to the image buffer */
+          img[addr + 1] = col.g;   /* Store final pixel to the image buffer */
+          img[addr + 2] = col.b;   /* Store final pixel to the image buffer */
+        }
+
+        if (do_ui && !(mystart % (16*scene->hres))) {
+          rt_ui_progress((100L * mystart) / end);  /* call progress meter callback */
+        }
+      }
+    } else {
+#endif
 
 #if defined(_OPENMP)
 #pragma omp for schedule(runtime)
@@ -335,15 +476,36 @@ void * thread_trace(thr_parms * t) {
     for (y=starty; y<=stopy; y+=yinc) {
       addr = hsize * (y - 1) + (3 * (startx - 1));    /* row address */
       for (x=startx; x<=stopx; x+=xinc,addr+=hskip) {
+        unsigned int idx = y*scene->hres + x;  /* 1-D pixel index */
+#if defined(RT_ACCUMULATE_ON)
+        if (scene->accum_count) {
+          primary.randval =  tea4(idx, scene->accum_count);
+        }
+#endif
+
+        primary.idx = idx;        /* used for idx-based RNG seeding */
         primary.frng = cachefrng; /* each pixel uses the same AO RNG seed */
         col=scene->camera.cam_ray(&primary, x, y);    /* generate ray */ 
+
+#if defined(RT_ACCUMULATE_ON)
+        /* accumulate and normalize if enabled */
+        if (scene->accum_buf != NULL) {
+          scene->accum_buf[addr    ] += col.r;
+          col.r = scene->accum_buf[addr    ] * accum_norm;
+          scene->accum_buf[addr + 1] += col.g;
+          col.g = scene->accum_buf[addr + 1] * accum_norm;
+          scene->accum_buf[addr + 2] += col.b;
+          col.b = scene->accum_buf[addr + 2] * accum_norm;
+        }
+#endif
+
         img[addr    ] = col.r;   /* Store final pixel to the image buffer */
         img[addr + 1] = col.g;   /* Store final pixel to the image buffer */
         img[addr + 2] = col.b;   /* Store final pixel to the image buffer */
       } /* end of x-loop */
 
       if (do_ui && !((y-1) % 16)) {
-        rt_ui_progress((100 * y) / vres);  /* call progress meter callback */
+        rt_ui_progress((100L * y) / vres);  /* call progress meter callback */
       } 
 
 #if defined(MPI)
@@ -351,7 +513,13 @@ void * thread_trace(thr_parms * t) {
       node_row_sendrecv(my_tid, t, scene, &sentrows, y);
 #endif
     }        /* end y-loop */
+
+#if defined(THR) && !defined(MPI)
+    } /* end of dynamic scheduler test */
+#endif
+
   }          /* end of RGB96F loop */
+
 
   /* 
    * Image has been rendered into the buffer in the appropriate pixel format

@@ -1,7 +1,11 @@
 /*
- *  jpeg.c - This file deals with JPEG format image files (reading/writing)
+ * jpeg.c - This file deals with JPEG format image files (reading/writing)
  *
- *  $Id: jpeg.c,v 1.9 2011/02/07 07:41:51 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: jpeg.c,v 1.10 2022/02/18 17:55:28 johns Exp $
+ *
  */ 
 
 /*

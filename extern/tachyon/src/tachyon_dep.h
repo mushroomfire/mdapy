@@ -4,10 +4,18 @@
  *                 Existing applications should be updated to avoid using
  *                 these APIs as they will be removed in a future version.
  *
- * $Id: tachyon_dep.h,v 1.2 2011/02/15 20:27:58 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: tachyon_dep.h,v 1.4 2022/02/21 17:02:17 johns Exp $
  *
  */
 
+/**
+ *  \file tachyon_dep.h
+ *  \brief Old now-deprecated Tachyon APIs that have been replaced by 
+ *         newer APIs and/or improved functionality.
+ */
 
 #if !defined(TACHYON_NO_DEPRECATED)
 

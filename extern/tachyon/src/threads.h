@@ -1,8 +1,23 @@
 /*
- * threads.h - code for spawning threads on various platforms.
+ * threads.h - platform-dependent CPU feature query, threads, and atomic ops
  *
- *  $Id: threads.h,v 1.50 2013/04/20 19:59:46 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: threads.h,v 1.67 2022/02/21 16:45:19 johns Exp $
+ *
  */ 
+
+/**
+ *  \file threads.h
+ *  \brief Tachyon cross-platform thread creation and management,
+ *         atomic operations, and CPU feature query APIs.
+ */
+
+/* 
+ * XXX will need to rename threads.[ch] src to avoid collision with
+ * the new headers included in the C11 standard and later
+ */
 
 #ifndef RT_THREADS_INC
 #define RT_THREADS_INC 1
@@ -17,7 +32,7 @@ extern "C" {
 #endif
 
 /* POSIX Threads */
-#if defined(_AIX) || defined(__APPLE__) || defined(_CRAY) || defined(__hpux) || defined(__irix) || defined(__linux) || defined(__osf__) ||  defined(__PARAGON__) || defined(__CYGWIN__)
+#if defined(_AIX) || defined(__APPLE__) || defined(_CRAY) || defined(__hpux) || defined(__irix) || defined(__linux) || defined(__osf__) ||  defined(__PARAGON__)
 #if !defined(USEUITHREADS) && !defined(USEPOSIXTHREADS)
 #define USEPOSIXTHREADS
 #endif
@@ -30,15 +45,61 @@ extern "C" {
 #endif
 #endif
 
+/*
+ * CPU capability flags 
+ */
+#define CPU_SMTDEPTH_UNKNOWN           0  /**< Unknown SMT depth */
+#define CPU_UNKNOWN           0x00000001  /**< Unknown CPU type */
+
+/* Intel x86 CPU features we may need at runtime */
+#define CPU_HT                0x00000010  /**< x86 Hyperthreading detected */
+#define CPU_HYPERVISOR        0x00000020  /**< VM/Hypervisor environment */
+#define CPU_SSE2              0x00000100  /**< SSE2 SIMD avail */
+#define CPU_SSE4_1            0x00000200  /**< SSE4.1 SIMD avail */
+#define CPU_F16C              0x00000400  /**< F16C insns avail*/
+#define CPU_FMA               0x00000800  /**< FMA insns avail*/
+#define CPU_AVX               0x00001000  /**< AVX SIMD avail*/
+#define CPU_AVX2              0x00002000  /**< AVX2 SIMD avail */
+#define CPU_AVX512F           0x00010000  /**< AVX-512F SIMD avail */
+#define CPU_AVX512CD          0x00020000  /**< AVX-512CD SIMD avail */
+#define CPU_AVX512ER          0x00040000  /**< AVX-512ER SIMD avail */
+#define CPU_AVX512PF          0x00080000  /**< AVX-512PF SIMD avail */
+#define CPU_KNL         (CPU_AVX512F | CPU_AVX512CD | \
+                         CPU_AVX512ER | CPU_AVX512PF)   /**< Intel KNL */
+
+/* ARM CPU features we may need at runtime */
+#define CPU_ARM64_CPUID       0x00000010  /**< ARM64 CPUID */
+#define CPU_ARM64_CRC32       0x00000020  /**< CRC32 insns avail */
+#define CPU_ARM64_FP          0x00000080  /**< FP insns avail */
+#define CPU_ARM64_HPFP        0x00000080  /**< High-prec FP insns avail */
+#define CPU_ARM64_AES         0x00000100  /**< AES insns avail */
+#define CPU_ARM64_ATOMICS     0x00000200  /**< Atomic insns avail */
+#define CPU_ARM64_ASIMD       0x00000400  /**< Advanced SIMD avail */
+#define CPU_ARM64_ASIMDDP     0x00000800  /**< Advanced SIMD DP avail */
+#define CPU_ARM64_ASIMDHP     0x00001000  /**< Advanced SIMD HP avail */
+#define CPU_ARM64_ASIMDRDM    0x00002000  /**< Advanced SIMD RDM avail */
+#define CPU_ARM64_ASIMDFHM    0x00004000  /**< Advanced SIMD FHM avail */
+#define CPU_ARM64_SVE         0x00008000  /**< Scalable Vector Extns avail */
+#define CPU_ARM64_SHA512      0x00010000  /**< SHA-512 insns avail */
+#define CPU_ARM64_SHA1        0x00020000  /**< SHA-1 insns avail */
+#define CPU_ARM64_SHA2        0x00040000  /**< SHA-2 insns avail */
+#define CPU_ARM64_SHA3        0x00080000  /**< SHA-3 insns avail */
+
+typedef struct rt_cpu_caps_struct {
+  unsigned int flags;
+  int smtdepth;
+} rt_cpu_caps_t;
+
 
 #ifdef THR
 #ifdef USEPOSIXTHREADS
 #include <pthread.h>
 
-typedef pthread_t        rt_thread_t;
-typedef pthread_mutex_t   rt_mutex_t;
-typedef pthread_cond_t     rt_cond_t;
+typedef pthread_t        rt_thread_t;  /**< map pthread to rt_thread */
+typedef pthread_mutex_t   rt_mutex_t;  /**< map pthread mutes to rt_mutex */
+typedef pthread_cond_t     rt_cond_t;  /**< map pthread cond var to rt_cont */
 
+/** reader/writer lock */
 typedef struct rwlock_struct {
   pthread_mutex_t lock;          /**< read/write monitor lock */
   int rwlock;                    /**< if >0 = #rdrs, if <0 = wrtr, 0=none */
@@ -59,7 +120,7 @@ typedef rwlock_t  rt_rwlock_t;
 #endif
 
 
-#ifdef WIN32
+#ifdef _MSC_VER
 #include <windows.h>
 typedef HANDLE rt_thread_t;
 typedef CRITICAL_SECTION rt_mutex_t;
@@ -97,7 +158,7 @@ typedef struct rwlock_struct {
 } rt_rwlock_t;
 
 #endif
-#endif /* WIN32 */
+#endif /* _MSC_VER */
 
 
 #ifndef THR
@@ -107,15 +168,30 @@ typedef int rt_cond_t;
 typedef int rt_rwlock_t;
 #endif
 
+#if defined(USENETBSDATOMICS) 
+#include <sys/atomic.h>
+#elif defined(USESOLARISATOMICS)
+#include <atomic.h>
+#endif
 
+/** atomic int structure with padding to prevent false sharing */
 typedef struct atomic_int_struct {
   int padding1[8];        /**< Pad to avoid false sharing, cache aliasing */
   rt_mutex_t lock;        /**< Mutex lock for the structure */
+#if defined(USENETBSDATOMICS)
+  unsigned int val;       /**< Integer value to be atomically manipulated */
+#elif defined(USESOLARISATOMICS)
+  unsigned int val;       /**< Integer value to be atomically manipulated */
+#elif defined(USEWIN32ATOMICS)
+  LONG val;               /**< Integer value to be atomically manipulated */
+#else
   int val;                /**< Integer value to be atomically manipulated */
+#endif
   int padding2[8];        /**< Pad to avoid false sharing, cache aliasing */
 } rt_atomic_int_t;
 
 
+/** barrier sync object with padding to prevent false sharing */
 typedef struct barrier_struct {
   int padding1[8];        /**< Pad to avoid false sharing, cache aliasing */
   rt_mutex_t lock;        /**< Mutex lock for the structure */
@@ -128,6 +204,8 @@ typedef struct barrier_struct {
   int padding2[8];        /**< Pad to avoid false sharing, cache aliasing */
 } rt_barrier_t;
 
+
+/** run-barrier sync object with padding to prevent false sharing */
 typedef struct rt_run_barrier_struct {
   int padding1[8];        /**< Pad to avoid false sharing, cache aliasing */
   rt_mutex_t lock;        /**< Mutex lock for the structure */
@@ -151,6 +229,13 @@ int rt_thread_numphysprocessors(void);
 
 /** number of processors available, subject to user override */
 int rt_thread_numprocessors(void);
+
+/** CPU optional instruction set capability flags */
+int rt_cpu_capability_flags(rt_cpu_caps_t *cpucaps);
+
+/** CPU logical processors (SMT depth / aka hyperthreading) */
+/* A return value of zero means we don't know */
+int rt_cpu_smt_depth(void);
 
 /** query CPU affinity of the calling process (if allowed by host system) */
 int * rt_cpu_affinitylist(int *cpuaffinitycount);
@@ -256,6 +341,16 @@ int rt_rwlock_unlock(rt_rwlock_t *);
  */
 /** initialize counting barrier primitive */
 rt_barrier_t * rt_thread_barrier_init(int n_clients);
+
+/**
+ * When rendering in the CAVE we use a special synchronization
+ * mode so that shared memory mutexes and condition variables
+ * will work correctly when accessed from multiple processes.
+ * Inter-process synchronization involves the kernel to a greater
+ * degree, so these barriers are substantially more costly to use
+ * than the ones designed for use within a single-process.
+ */
+int rt_thread_barrier_init_proc_shared(rt_barrier_t *, int n_clients);
 
 /** destroy counting barrier primitive */
 void rt_thread_barrier_destroy(rt_barrier_t *barrier);
@@ -398,6 +493,8 @@ typedef struct rt_threadpool_workerdata_struct {
   int padding2[8];                        /**< avoid false sharing */
 } rt_threadpool_workerdata_t;
 
+
+/** persistent thread pool */
 typedef struct rt_threadpool_struct {
   int workercount;                        /**< number of worker threads */
   int *devlist;                           /**< per-worker CPU/GPU device IDs */
@@ -407,6 +504,7 @@ typedef struct rt_threadpool_struct {
   rt_threadpool_workerdata_t *workerdata; /**< per-worker data */
   rt_run_barrier_t runbar;                /**< master/worker run barrier */
 } rt_threadpool_t;
+
 
 /** create a thread pool with a specified number of worker threads */
 rt_threadpool_t * rt_threadpool_create(int workercount, int *devlist);

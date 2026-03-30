@@ -1,7 +1,11 @@
 /* 
  * shade.c - This file contains the functions that perform surface shading.
  *
- *  $Id: shade.c,v 1.115 2012/10/17 04:25:57 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: shade.c,v 1.120 2022/03/25 06:02:56 johns Exp $
+ *
  */
 
 #include <stdio.h>
@@ -25,11 +29,11 @@
  *
  */
 
-colora lowest_shader(ray * incident) {
+color lowest_shader(ray * incident) {
   int numints;
   object const * obj;
   flt t = FHUGE;
-  colora col;
+  color col;
 
   numints=closest_intersection(&t, &obj, incident);
                 /* find the number of intersections */
@@ -41,7 +45,6 @@ colora lowest_shader(ray * incident) {
     col.r = 0.0;
     col.g = 0.0;
     col.b = 0.0;
-    col.a = 0.0;
 
     return col;
   }
@@ -49,7 +52,6 @@ colora lowest_shader(ray * incident) {
   col.r = 1.0;
   col.g = 1.0;
   col.b = 1.0;
-  col.a = 1.0;
 
   return col;
 }
@@ -60,7 +62,7 @@ colora lowest_shader(ray * incident) {
  *
  */
 
-colora low_shader(ray * incident) {
+color low_shader(ray * incident) {
   int numints;
   object const * obj;
   vector hit;
@@ -78,7 +80,7 @@ colora low_shader(ray * incident) {
 
   RAYPNT(hit, (*incident), t) /* find the point of intersection from t */
   incident->opticdist = FHUGE; 
-  return tocolora(obj->tex->texfunc(&hit, obj->tex, incident));
+  return obj->tex->texfunc(&hit, obj->tex, incident);
 }
 
 
@@ -88,9 +90,8 @@ colora low_shader(ray * incident) {
  *
  */
 
-colora medium_shader(ray * incident) {
-  colora cola;
-  color col, diffuse, phongcol;
+color medium_shader(ray * incident) {
+  color col, diffuse, phongcol; 
   shadedata shadevars;
   flt inten;
   flt t = FHUGE;
@@ -105,16 +106,16 @@ colora medium_shader(ray * incident) {
   if (numints < 1) {         
     /* if there weren't any object intersections then return the */
     /* background texture for the pixel color.                   */
-    cola=incident->scene->bgtexfunc(incident);
+    col=incident->scene->bgtexfunc(incident);
 
     /* Fog overrides the background color if we're using         */
     /* Tachyon radial fog, but not for OpenGL style fog.         */
     if (incident->scene->fog.type == RT_FOG_NORMAL &&
         incident->scene->fog.fog_fctn != NULL) {
-      cola = tocolora(fog_color(incident, col, t));
+      col = fog_color(incident, col, t);
     }
 
-    return cola;
+    return col;
   }
 
   RAYPNT(shadevars.hit, (*incident), t) /* find point of intersection from t */ 
@@ -125,7 +126,7 @@ colora medium_shader(ray * incident) {
   if ((obj->tex->opacity < 1.0) && (incident->transcnt < 1)) {      
     /* spawn transmission rays / refraction */
     /* note: this will overwrite the old intersection list */
-    return tocolora(shade_transmission(incident, &shadevars, 1.0));
+    return shade_transmission(incident, &shadevars, 1.0);
   }
 
   /* execute the object's texture function */
@@ -133,7 +134,7 @@ colora medium_shader(ray * incident) {
 
   if (obj->tex->flags & RT_TEXTURE_ISLIGHT) {  
                   /* if the current object is a light, then we  */
-    return tocolora(col);   /* will only use the object's base color      */
+    return col;   /* will only use the object's base color      */
   }
 
   diffuse.r = 0.0; 
@@ -219,7 +220,7 @@ colora medium_shader(ray * incident) {
     col = fog_color(incident, col, t);
   }
 
-  return tocolora(col);    /* return the color of the shaded pixel... */
+  return col;    /* return the color of the shaded pixel... */
 }
 
 
@@ -229,8 +230,7 @@ colora medium_shader(ray * incident) {
  *
  */
 
-colora full_shader(ray * incident) {
-  colora cola;
+color full_shader(ray * incident) {
   color col, diffuse, ambocccol, phongcol;
   shadedata shadevars;
   ray shadowray;
@@ -247,16 +247,16 @@ colora full_shader(ray * incident) {
   if (numints < 1) {         
     /* if there weren't any object intersections then return the */
     /* background texture for the pixel color.                   */
-    cola=incident->scene->bgtexfunc(incident);
+    col=incident->scene->bgtexfunc(incident);
 
     /* Fog overrides the background color if we're using         */
     /* Tachyon radial fog, but not for OpenGL style fog.         */
     if (incident->scene->fog.type == RT_FOG_NORMAL &&
         incident->scene->fog.fog_fctn != NULL) {
-      cola = tocolora(fog_color(incident, col, t));
+      col = fog_color(incident, col, t);
     }
 
-    return cola;
+    return col;
   }
 
   RAYPNT(shadevars.hit, (*incident), t) /* find point of intersection from t */ 
@@ -267,7 +267,7 @@ colora full_shader(ray * incident) {
   if ((obj->tex->opacity < 1.0) && (incident->transcnt < 1)) {      
     /* spawn transmission rays / refraction */
     /* note: this will overwrite the old intersection list */
-    return tocolora(shade_transmission(incident, &shadevars, 1.0));
+    return shade_transmission(incident, &shadevars, 1.0);
   }
 
   /* execute the object's texture function */
@@ -275,7 +275,7 @@ colora full_shader(ray * incident) {
 
   if (obj->tex->flags & RT_TEXTURE_ISLIGHT) {  
                   /* if the current object is a light, then we  */
-    return tocolora(col);   /* will only use the object's base color      */
+    return col;   /* will only use the object's base color      */
   }
 
   diffuse.r = 0.0; 
@@ -398,7 +398,7 @@ colora full_shader(ray * incident) {
     col = fog_color(incident, col, t);
   }
 
-  return tocolora(col);    /* return the color of the shaded pixel... */
+  return col;    /* return the color of the shaded pixel... */
 }
 
 
@@ -430,6 +430,7 @@ color shade_ambient_occlusion(ray * incident, const shadedata * shadevars) {
   ambray.d=shadevars->N;
   ambray.o=Raypnt(&ambray, EPSILON);    /* avoid numerical precision bugs */
   ambray.serial = incident->serial + 1; /* next serial number */
+  ambray.idx=incident->idx;             /* 1-D pixel index for RNG seeding */
   ambray.randval=incident->randval;     /* random number seed */
   ambray.frng=incident->frng;           /* 32-bit FP RNG handle */
   if (incident->scene->flags & RT_SHADE_CLIPPING) {
@@ -442,7 +443,7 @@ color shade_ambient_occlusion(ray * incident, const shadedata * shadevars) {
 
   for (i=0; i<incident->scene->ambocc.numsamples; i++) {
     float dir[3];
-    ambray.maxdist = FHUGE;         /* take any intersection */
+    ambray.maxdist = incident->scene->ambocc.ao_maxdist; /* occ dist limit */
     ambray.flags = RT_RAY_SHADOW;   /* shadow ray */
     ambray.serial++;
 
@@ -463,7 +464,7 @@ color shade_ambient_occlusion(ray * incident, const shadedata * shadevars) {
 
     intersect_objects(&ambray); /* trace the shadow ray */
 
-    /* if no objects were hit, add an ambient contribution */
+    /* if no occlusions found within ao_maxdist, add AO contribution */
     if (!shadow_intersection(&ambray)) {
       /* If the light isn't occluded, then we modulate it by any */
       /* transparent surfaces the shadow ray encountered, and    */
@@ -484,20 +485,16 @@ color shade_ambient_occlusion(ray * incident, const shadedata * shadevars) {
 }
 
 
+
 color shade_reflection(ray * incident, const shadedata * shadevars, flt specular) {
   ray specray;
   color col;
-  colora cola;
   vector R;
 
   /* Do recursion depth test immediately to early-exit ASAP */
   if (incident->depth <= 1) {
     /* if ray is truncated, return the background texture as its color */
-	cola = incident->scene->bgtexfunc(incident);
-	col.r = cola.r;
-	col.g = cola.g;
-	col.b = cola.b;
-    return col;
+    return incident->scene->bgtexfunc(incident);
   }
   specray.depth=incident->depth - 1;     /* go up a level in recursion depth */
   specray.transcnt=incident->transcnt;   /* maintain trans surface count */
@@ -516,15 +513,13 @@ color shade_reflection(ray * incident, const shadedata * shadevars, flt specular
   specray.serial = incident->serial + 1; /* next serial number */
   specray.mbox = incident->mbox; 
   specray.scene=incident->scene;         /* global scenedef info */
+  specray.idx=incident->idx;             /* 1-D pixel index for RNG seeding */
   specray.randval=incident->randval;     /* random number seed */
   specray.frng=incident->frng;           /* 32-bit FP RNG handle */
 
   /* inlined code from trace() to eliminate one level of recursion */
   intersect_objects(&specray);           /* trace specular reflection ray */
-  cola=specray.scene->shader(&specray);
-  col.r = cola.r;
-  col.g = cola.g;
-  col.b = cola.b;
+  col=specray.scene->shader(&specray);
 
   incident->serial = specray.serial;     /* update the serial number */
   incident->frng = specray.frng;         /* update AO RNG state      */
@@ -538,16 +533,11 @@ color shade_reflection(ray * incident, const shadedata * shadevars, flt specular
 color shade_transmission(ray * incident, const shadedata * shadevars, flt trans) {
   ray transray;
   color col;
-  colora cola;
 
   /* Do recursion depth test immediately to early-exit ASAP */
   if (incident->depth <= 1) {
     /* if ray is truncated, return the background texture as its color */
-    cola = incident->scene->bgtexfunc(incident);
-	col.r = cola.r;
-	col.g = cola.g;
-	col.b = cola.b;
-    return col;
+    return incident->scene->bgtexfunc(incident);
   }
   transray.o=shadevars->hit; 
   transray.d=incident->d;                 /* ray continues on incident path */
@@ -561,15 +551,13 @@ color shade_transmission(ray * incident, const shadedata * shadevars, flt trans)
   transray.serial = incident->serial + 1; /* update serial number */
   transray.mbox = incident->mbox;
   transray.scene=incident->scene;         /* global scenedef info */
+  transray.idx=incident->idx;             /* 1-D pixel index for RNG seeding */
   transray.randval=incident->randval;     /* random number seed */
   transray.frng=incident->frng;           /* 32-bit FP RNG handle */
 
   /* inlined code from trace() to eliminate one level of recursion */
   intersect_objects(&transray);           /* trace transmission ray */
-  cola=transray.scene->shader(&transray);
-  col.r = cola.r;
-  col.g = cola.g;
-  col.b = cola.b;
+  col=transray.scene->shader(&transray);
 
   incident->serial = transray.serial;     /* update the serial number */
   incident->frng = transray.frng;         /* update AO RNG state      */
@@ -671,10 +659,7 @@ flt shade_phong(const ray * incident, const shadedata * shadevars, flt specpower
   VScale(&V, -1.0);
   VNorm(&R);            /* normalize reflection vector */
   inten = VDot(&V, &R); /* dot product of halfway vector and surface normal */
-  if (inten > 0.0)     
-    inten = POW(inten, specpower);
-  else 
-    inten = 0.0;
+  inten = (inten > 0.0) ? POW(inten, specpower) : 0.0;
 
   return inten;
 } 
@@ -685,7 +670,7 @@ flt shade_phong(const ray * incident, const shadedata * shadevars, flt specpower
  */
 
 /**
- * Compute the fot color, given the active fogging function and
+ * Compute the fog color, given the active fogging function and
  * fog parameters.
  */
 color fog_color(const ray * incident, color col, flt t) {
@@ -710,14 +695,11 @@ color fog_color(const ray * incident, color col, flt t) {
  */
 color fog_color_linear(struct fogdata_t * fog, color col, flt r) {
   color c; 
-  flt f;
+  flt f, t;
 
   f = (fog->end - r) / (fog->end - fog->start);
-  if (f > 1.0) {
-    f = 1.0;
-  } else if (f < 0.0) {
-    f = 0.0;
-  } 
+  t = (f > 1.0) ? 1.0 : f;
+  f = (t < 0.0) ? 0.0 : t;
 
   c.r = (f * col.r) + ((1 - f) * fog->col.r);
   c.g = (f * col.g) + ((1 - f) * fog->col.g);
@@ -732,15 +714,12 @@ color fog_color_linear(struct fogdata_t * fog, color col, flt r) {
  */
 color fog_color_exp(struct fogdata_t * fog, color col, flt r) {
   color c; 
-  flt f, v;
+  flt f, t, v;
 
   v = fog->density * (r - fog->start);
   f = EXP(-v);
-  if (f > 1.0) {
-    f = 1.0;
-  } else if (f < 0.0) {
-    f = 0.0;
-  } 
+  t = (f > 1.0) ? 1.0 : f;
+  f = (t < 0.0) ? 0.0 : t;
 
   c.r = (f * col.r) + ((1 - f) * fog->col.r);
   c.g = (f * col.g) + ((1 - f) * fog->col.g);
@@ -755,15 +734,12 @@ color fog_color_exp(struct fogdata_t * fog, color col, flt r) {
  */
 color fog_color_exp2(struct fogdata_t * fog, color col, flt r) {
   color c; 
-  flt f, v;
+  flt f, t, v;
   
   v = fog->density * (r - fog->start);
   f = EXP(-v*v);
-  if (f > 1.0) {
-    f = 1.0;
-  } else if (f < 0.0) {
-    f = 0.0;
-  } 
+  t = (f > 1.0) ? 1.0 : f;
+  f = (t < 0.0) ? 0.0 : t;
 
   c.r = (f * col.r) + ((1 - f) * fog->col.r);
   c.g = (f * col.g) + ((1 - f) * fog->col.g);

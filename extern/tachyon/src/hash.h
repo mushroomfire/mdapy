@@ -1,7 +1,10 @@
 /*
  * hash.h - This file contains prototypes for hash table code etc.
  *
- * $Id: hash.h,v 1.4 2011/02/05 08:10:11 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: hash.h,v 1.5 2022/02/18 17:55:28 johns Exp $
  */
 
 #ifndef HASH_H

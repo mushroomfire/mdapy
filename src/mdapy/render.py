@@ -1,9 +1,9 @@
 """
-mdapy/render.py  —  Tachyon 渲染器 Python 封装
-================================================
+mdapy/render.py  -  Python wrapper for the Tachyon ray-tracing renderer (Tachyon 0.99.5)
+==========================================================================================
 
-快速开始
---------
+Quick start
+-----------
 ::
 
     import mdapy as mp
@@ -11,34 +11,57 @@ mdapy/render.py  —  Tachyon 渲染器 Python 封装
 
     sys = mp.System("model.xyz")
     ren = TachyonRender(width=800, height=600)
-    img = ren.render_system(sys)          # numpy (H,W,4) uint8 RGBA
+    img = ren.render_system(sys)  # numpy (H, W, 4) uint8 RGBA
 
     from PIL import Image
     Image.fromarray(img).save("out.png")
 
-相机参数（与 OVITO 完全对应）
-------------------------------
+Camera parameters (OVITO-compatible)
+--------------------------------------
 ::
 
-    from mdapy.render import CameraParams
+    from mdapy.render import CameraParams, preset_camera
     import math
 
-    # 透视（默认）
+    # Perspective (default)
     cam = CameraParams(
-        is_perspective = True,
-        field_of_view  = math.radians(40),   # 垂直视角，单位弧度
-        position       = (0, 0, 60),
-        direction      = (0, 0, -1),
-        up             = (0, 1,  0),
+        is_perspective=True,
+        field_of_view=math.radians(40),  # vertical FOV in radians
+        position=(0, 0, 60),
+        direction=(0, 0, -1),
+        up=(0, 1, 0),
     )
 
-    # 正交
+    # Orthographic
     cam_ortho = CameraParams(
-        is_perspective = False,
-        field_of_view  = 25.0,               # 视口半高，世界坐标
-        position       = (0, 0, 100),
-        direction      = (0, 0, -1),
-        up             = (0, 1,  0),
+        is_perspective=False,
+        field_of_view=25.0,  # viewport half-height in world units
+        position=(0, 0, 100),
+        direction=(0, 0, -1),
+        up=(0, 1, 0),
+    )
+
+Preset views matching OVITO GUI defaults
+-----------------------------------------
+::
+
+    pos = system.get_positions().to_numpy()
+    r   = 1.3  # atom radius
+
+    cam = preset_camera("top",         pos, max_radius=r)  # OVITO Top
+    cam = preset_camera("left",        pos, max_radius=r)  # OVITO Left
+    cam = preset_camera("perspective", pos, max_radius=r)  # OVITO Perspective
+    cam = preset_camera("orthographic",pos, max_radius=r)  # OVITO Ortho
+
+Custom box edge appearance
+---------------------------
+::
+
+    img = ren.render_system(
+        sys,
+        draw_box=True,
+        box_edge_radius=0.08,
+        box_color=(0.0, 0.0, 0.0),   # black, (R,G,B) or (R,G,B,A)
     )
 """
 
@@ -50,123 +73,137 @@ import numpy as np
 
 from mdapy._tachyon import (
     TachyonRenderer as _TachyonRenderer,
-    RenderParams    as _RenderParams,
-    CameraParams    as _CameraParams,
-    Vec3            as _Vec3,
+    RenderParams as _RenderParams,
+    CameraParams as _CameraParams,
+    Vec3 as _Vec3,
 )
 
 
 # ─── CameraParams ─────────────────────────────────────────────────────────────
 class CameraParams:
     """
-    相机参数，与 OVITO ``ViewProjectionParameters`` 完全对应。
+    Camera parameters compatible with OVITO's ViewProjectionParameters.
 
-    透视模式
-    ~~~~~~~~
-    ``field_of_view`` : 垂直视角（**弧度**）
-    zoom = 0.5 / tan(fov/2)   ← 与 OVITO 公式相同
+    Perspective mode
+    ~~~~~~~~~~~~~~~~
+    ``field_of_view``: vertical angle in **radians**.
+    Tachyon zoom = 0.5 / tan(fov/2)  — same formula as OVITO.
 
-    正交模式
-    ~~~~~~~~
-    ``field_of_view`` : 视口半高（世界坐标）
-    zoom = 0.5 / field_of_view
+    Orthographic mode
+    ~~~~~~~~~~~~~~~~~
+    ``field_of_view``: viewport half-height in world units.
+    Tachyon zoom = 0.5 / field_of_view.
     """
 
-    def __init__(self,
-                 is_perspective: bool  = True,
-                 field_of_view : float = math.radians(40),
-                 position      : Tuple[float,float,float] = (0., 0., 50.),
-                 direction     : Tuple[float,float,float] = (0., 0., -1.),
-                 up            : Tuple[float,float,float] = (0., 1.,  0.),
-                 znear         : float = 0.0,
-                 dof_enabled   : bool  = False,
-                 dof_focal_len : float = 40.0,
-                 dof_aperture  : float = 0.01):
+    def __init__(
+        self,
+        is_perspective: bool = True,
+        field_of_view: float = math.radians(40),
+        position: Tuple[float, float, float] = (0.0, 0.0, 50.0),
+        direction: Tuple[float, float, float] = (0.0, 0.0, -1.0),
+        up: Tuple[float, float, float] = (0.0, 1.0, 0.0),
+        znear: float = 0.0,
+        dof_enabled: bool = False,
+        dof_focal_len: float = 40.0,
+        dof_aperture: float = 0.01,
+    ):
         self.is_perspective = bool(is_perspective)
-        self.field_of_view  = float(field_of_view)
-        self.position  = tuple(float(v) for v in position)
+        self.field_of_view = float(field_of_view)
+        self.position = tuple(float(v) for v in position)
         self.direction = tuple(float(v) for v in direction)
-        self.up        = tuple(float(v) for v in up)
-        self.znear     = float(znear)
-        self.dof_enabled   = bool(dof_enabled)
+        self.up = tuple(float(v) for v in up)
+        self.znear = float(znear)
+        self.dof_enabled = bool(dof_enabled)
         self.dof_focal_len = float(dof_focal_len)
-        self.dof_aperture  = float(dof_aperture)
+        self.dof_aperture = float(dof_aperture)
 
     def _to_cpp(self) -> _CameraParams:
         cp = _CameraParams()
         cp.is_perspective = self.is_perspective
-        cp.field_of_view  = self.field_of_view
-        cp.position  = _Vec3(*self.position)
+        cp.field_of_view = self.field_of_view
+        cp.position = _Vec3(*self.position)
         cp.direction = _Vec3(*self.direction)
-        cp.up        = _Vec3(*self.up)
-        cp.znear     = self.znear
-        cp.dof_enabled   = self.dof_enabled
+        cp.up = _Vec3(*self.up)
+        cp.znear = self.znear
+        cp.dof_enabled = self.dof_enabled
         cp.dof_focal_len = self.dof_focal_len
-        cp.dof_aperture  = self.dof_aperture
+        cp.dof_aperture = self.dof_aperture
         return cp
 
     def __repr__(self):
         mode = "perspective" if self.is_perspective else "orthographic"
-        fov  = math.degrees(self.field_of_view) if self.is_perspective \
-               else self.field_of_view
-        unit = "deg" if self.is_perspective else "world"
-        return (f"CameraParams({mode}, fov={fov:.1f}{unit}, "
-                f"pos={self.position})")
+        fov = (
+            math.degrees(self.field_of_view)
+            if self.is_perspective
+            else self.field_of_view
+        )
+        unit = "deg" if self.is_perspective else "world units"
+        return f"CameraParams({mode}, fov={fov:.1f}{unit}, pos={self.position})"
 
 
 # ─── TachyonRender ────────────────────────────────────────────────────────────
 class TachyonRender:
     """
-    mdapy Tachyon 渲染器。
+    mdapy Tachyon ray-tracing renderer (Tachyon 0.99.5).
 
     Parameters
     ----------
     width, height : int
-        输出分辨率（像素）。
+        Output image resolution in pixels.
     antialiasing : bool
-        抗锯齿，默认 True。
+        Enable anti-aliasing.  Default True.
     aa_samples : int
-        抗锯齿采样数，默认 12。
+        Number of anti-aliasing samples per pixel.  Default 12.
     ao : bool
-        Ambient Occlusion，默认 True。
+        Enable ambient occlusion.  Default True.
     ao_samples : int
-        AO 采样数，默认 12。
+        Number of AO samples.  Default 12.
     ao_brightness : float
-        AO 天光亮度，默认 0.8。
+        Sky-light brightness for AO.  Default 0.8.
+    ao_max_dist : float
+        Maximum AO occlusion distance.  Default is unlimited
+        (``RT_AO_MAXDIST_UNLIMITED``).  A smaller value speeds up
+        rendering but limits the AO effect range.
     shadows : bool
-        阴影，默认 True。
+        Enable hard shadows.  Default True.
     direct_light_intensity : float
-        直接光强度，默认 0.9。
+        Intensity of the directional light.  Default 0.9.
     background : tuple
-        背景色 (R,G,B) 或 (R,G,B,A)，值域 [0,1]，默认黑色。
+        Background colour as (R, G, B) or (R, G, B, A) in [0, 1].
+        Default black.  Note: Tachyon 0.99.5 does not natively support
+        alpha in the background; ``bgA`` only sets the alpha channel
+        of background pixels in the output RGBA image.
     num_threads : int
-        渲染线程数，0 = Tachyon 自动，默认 0。
+        Number of rendering threads.  0 = Tachyon auto-detect.  Default 0.
     """
 
-    def __init__(self,
-                 width                 : int   = 800,
-                 height                : int   = 600,
-                 antialiasing          : bool  = True,
-                 aa_samples            : int   = 12,
-                 ao                   : bool  = True,
-                 ao_samples            : int   = 12,
-                 ao_brightness         : float = 0.8,
-                 shadows               : bool  = True,
-                 direct_light_intensity: float = 0.9,
-                 background            : tuple = (0., 0., 0.),
-                 num_threads           : int   = 0):
-
+    def __init__(
+        self,
+        width: int = 800,
+        height: int = 600,
+        antialiasing: bool = True,
+        aa_samples: int = 12,
+        ao: bool = True,
+        ao_samples: int = 12,
+        ao_brightness: float = 0.8,
+        ao_max_dist: float = 3.402823e+38,  # RT_AO_MAXDIST_UNLIMITED
+        shadows: bool = True,
+        direct_light_intensity: float = 0.9,
+        background: tuple = (0.0, 0.0, 0.0),
+        num_threads: int = 0,
+    ):
         self._renderer = _TachyonRenderer()
 
         rp = _RenderParams()
-        rp.width                  = int(width)
-        rp.height                 = int(height)
-        rp.antialiasing_enabled   = bool(antialiasing)
-        rp.antialiasing_samples   = int(aa_samples)
-        rp.ao_enabled             = bool(ao)
-        rp.ao_samples             = int(ao_samples)
-        rp.ao_brightness          = float(ao_brightness)
-        rp.shadows_enabled        = bool(shadows)
+        rp.width = int(width)
+        rp.height = int(height)
+        rp.antialiasing_enabled = bool(antialiasing)
+        rp.antialiasing_samples = int(aa_samples)
+        rp.ao_enabled = bool(ao)
+        rp.ao_samples = int(ao_samples)
+        rp.ao_brightness = float(ao_brightness)
+        rp.ao_max_dist = float(ao_max_dist)
+        rp.shadows_enabled = bool(shadows)
         rp.direct_light_intensity = float(direct_light_intensity)
         bg = tuple(background)
         rp.bg_r = float(bg[0])
@@ -176,100 +213,111 @@ class TachyonRender:
         rp.num_threads = int(num_threads)
         self._rp = rp
 
-    # ── 主渲染接口 ─────────────────────────────────────────────────────────
-    def render(self,
-               positions       : np.ndarray,
-               colors          : np.ndarray,
-               radii           : np.ndarray,
-               camera          : Optional[CameraParams] = None,
-               box_edges       : Optional[np.ndarray]   = None,
-               box_edge_radius : float = 0.05,
-               box_color       : tuple = (1., 1., 1., 1.),
-               ) -> np.ndarray:
+    # Main rendering interface
+    def render(
+        self,
+        positions: np.ndarray,
+        colors: np.ndarray,
+        radii: np.ndarray,
+        camera: Optional[CameraParams] = None,
+        box_edges: Optional[np.ndarray] = None,
+        box_edge_radius: float = 0.05,
+        box_color: tuple = (1.0, 1.0, 1.0, 1.0),
+    ) -> np.ndarray:
         """
-        渲染球形粒子（及可选的晶胞框）。
+        Render spherical particles and optional simulation-cell box edges.
 
         Parameters
         ----------
-        positions  : (N,3) float64  粒子坐标
-        colors     : (N,4) float32  RGBA ∈ [0,1]
-        radii      : (N,)  float32  粒子半径
-        camera     : CameraParams；None 时根据包围盒自动估算透视相机
-        box_edges  : (M,2,3) float64  晶胞棱线端点；None 则不画
-        box_edge_radius : 棱线圆柱半径
-        box_color  : 棱线颜色 (R,G,B) 或 (R,G,B,A)
+        positions       : (N, 3) float64  Particle positions.
+        colors          : (N, 4) float32  Per-particle RGBA colour, values in [0, 1].
+        radii           : (N,)  float32   Per-particle radius.
+        camera          : CameraParams or None.  If None, a perspective camera
+                          is generated automatically from the bounding box.
+        box_edges       : (M, 2, 3) float64 or None.  Pairs of endpoints for each
+                          box edge cylinder.  Pass None to skip drawing.
+        box_edge_radius : float.  Cylinder radius for box edges.  Default 0.05.
+        box_color       : tuple (R, G, B) or (R, G, B, A), values in [0, 1].
+                          Default opaque white (1, 1, 1, 1).
 
         Returns
         -------
-        numpy.ndarray  shape (H,W,4)  dtype uint8  RGBA
+        numpy.ndarray, shape (H, W, 4), dtype uint8, RGBA image.
         """
-        # 确保正确的内存布局和类型
         positions = np.ascontiguousarray(positions, dtype=np.float64)
         colors    = np.ascontiguousarray(colors,    dtype=np.float32)
         radii     = np.ascontiguousarray(radii,     dtype=np.float32)
 
         if positions.ndim != 2 or positions.shape[1] != 3:
-            raise ValueError(f"positions 必须是 (N,3)，实际为 {positions.shape}")
+            raise ValueError(f"positions must be (N,3), got {positions.shape}")
         if colors.ndim != 2 or colors.shape[1] != 4:
-            raise ValueError(f"colors 必须是 (N,4)，实际为 {colors.shape}")
+            raise ValueError(f"colors must be (N,4), got {colors.shape}")
         if radii.ndim != 1:
-            raise ValueError(f"radii 必须是 (N,)，实际为 {radii.shape}")
+            raise ValueError(f"radii must be (N,), got {radii.shape}")
 
         if camera is None:
-            camera = _auto_camera(positions)
+            max_r = float(radii.max()) if len(radii) > 0 else 0.0
+            camera = _auto_camera(positions, max_radius=max_r)
         cpp_cam = camera._to_cpp()
 
-        # 处理 box_edges
+        # Validate and prepare box_edges
         if box_edges is not None:
             box_edges = np.ascontiguousarray(box_edges, dtype=np.float64)
             if box_edges.ndim != 3 or box_edges.shape[1:] != (2, 3):
-                raise ValueError(f"box_edges 必须是 (M,2,3)，实际为 {box_edges.shape}")
+                raise ValueError(f"box_edges must be (M,2,3), got {box_edges.shape}")
             if box_edges.shape[0] == 0:
                 box_edges = None
 
-        # 把 box_color 和 radius 写入 RenderParams 之外单独传递
-        # 用临时 RenderParams 覆盖不合适，改为在 C++ 侧 BoxEdgeData 里设置
-        # 这里的做法：把颜色信息编码进 box_edges 之前先调整
-        # 实际上 C++ 侧 BoxEdgeData 的颜色固定为白色(1,1,1,1), radius=0.05
-        # 如果需要自定义，在这里预处理或扩展 C++ 接口
-        # 当前版本：通过更新 _rp 不影响其他参数，直接传 box_edges 即可
-        # 如需自定义 box 颜色/半径，可在此处先对数据做处理
+        # Parse box edge colour
+        bc = tuple(float(v) for v in box_color)
+        box_r = bc[0]
+        box_g = bc[1]
+        box_b = bc[2]
+        box_a = bc[3] if len(bc) > 3 else 1.0
 
-        # 调用 C++ 渲染
         img = self._renderer.render(
-            self._rp, cpp_cam,
-            positions, colors, radii,
+            self._rp,
+            cpp_cam,
+            positions,
+            colors,
+            radii,
             box_edges,
+            float(box_edge_radius),
+            box_r, box_g, box_b, box_a,
         )
         return np.array(img, copy=False)
 
-    # ── 从 mdapy.System 渲染 ───────────────────────────────────────────────
-    def render_system(self,
-                      system,
-                      colors         : Optional[np.ndarray] = None,
-                      radii          : Optional[np.ndarray] = None,
-                      camera         : Optional[CameraParams] = None,
-                      draw_box       : bool  = True,
-                      box_edge_radius: float = 0.05,
-                      box_color      : tuple = (1., 1., 1., 1.),
-                      default_radius : float = 1.0,
-                      ) -> np.ndarray:
+    # Convenience wrapper for mdapy.System
+    def render_system(
+        self,
+        system,
+        colors: Optional[np.ndarray] = None,
+        radii: Optional[np.ndarray] = None,
+        camera: Optional[CameraParams] = None,
+        draw_box: bool = True,
+        box_edge_radius: float = 0.05,
+        box_color: tuple = (1.0, 1.0, 1.0, 1.0),
+        default_radius: float = 1.0,
+    ) -> np.ndarray:
         """
-        从 ``mdapy.System`` 一键渲染。
+        Render a ``mdapy.System`` object in one call.
 
         Parameters
         ----------
-        system         : mp.System
-        colors         : (N,4) float32；None 时按元素 Jmol 配色
-        radii          : (N,)  float32；None 时使用 default_radius
-        camera         : None 时自动估算
-        draw_box       : 是否画晶胞框
-        box_edge_radius: 晶胞棱线半径
-        box_color      : 晶胞棱线颜色
-        default_radius : 默认粒子半径
+        system          : mp.System  The atomistic system to render.
+        colors          : (N, 4) float32 or None.  If None, Jmol colours are
+                          assigned by element type.
+        radii           : (N,) float32 or None.  If None, ``default_radius`` is
+                          used for every particle.
+        camera          : CameraParams or None.  Auto-generated if not provided.
+        draw_box        : bool.  Whether to draw simulation-cell edges.  Default True.
+        box_edge_radius : float.  Cylinder radius for cell edges.  Default 0.05.
+        box_color       : tuple (R, G, B) or (R, G, B, A), values in [0, 1].
+                          Default opaque white (1, 1, 1, 1).
+        default_radius  : float.  Fallback radius when ``radii`` is None.  Default 1.0.
         """
-        pos = system.get_positions().to_numpy()   # (N,3)
-        N   = len(pos)
+        pos = system.get_positions().to_numpy()  # (N,3)
+        N = len(pos)
 
         if colors is None:
             colors = _default_colors(system, N)
@@ -281,57 +329,272 @@ class TachyonRender:
 
         box_edges = _box_edges(system) if draw_box else None
 
-        return self.render(pos, colors, radii,
-                           camera=camera,
-                           box_edges=box_edges,
-                           box_edge_radius=box_edge_radius,
-                           box_color=box_color)
+        return self.render(
+            pos,
+            colors,
+            radii,
+            camera=camera,
+            box_edges=box_edges,
+            box_edge_radius=box_edge_radius,
+            box_color=box_color,
+        )
 
 
-# ─── 辅助函数（模块级）────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Module-level helper functions
+# ---------------------------------------------------------------------------
 
-def _auto_camera(positions: np.ndarray) -> CameraParams:
-    """根据粒子包围盒自动估算透视相机。"""
-    pmin   = positions.min(axis=0)
-    pmax   = positions.max(axis=0)
+
+def _bbox(positions: np.ndarray, max_radius: float = 0.0):
+    """
+    Compute the bounding box of particle positions.
+
+    Parameters
+    ----------
+    positions  : (N,3) float64
+    max_radius : largest particle radius; added to each half-extent so that
+                 the camera frustum covers the full sphere, not just the centre.
+
+    Returns
+    -------
+    center : (3,) centroid of the bounding box
+    half   : (3,) half-extents (already inflated by max_radius)
+    pmin   : (3,) minimum corner of the coordinate range
+    pmax   : (3,) maximum corner of the coordinate range
+    """
+    pmin = positions.min(axis=0)
+    pmax = positions.max(axis=0)
     center = (pmin + pmax) * 0.5
-    extent = float(np.linalg.norm(pmax - pmin))
-    fov    = math.radians(40.0)
-    dist   = (extent * 0.5) / math.tan(fov * 0.5) * 1.3 + 1.0
+    half = (pmax - pmin) * 0.5 + max_radius
+    return center, half, pmin, pmax
+
+
+def _auto_camera(positions: np.ndarray, max_radius: float = 0.0) -> CameraParams:
+    """Return a perspective camera looking at the structure from +Z (OVITO default)."""
+    return preset_camera("perspective", positions, max_radius=max_radius)
+
+
+# ---------------------------------------------------------------------------
+# Preset camera factory
+# ---------------------------------------------------------------------------
+
+#: All supported preset view names.
+PRESET_VIEWS = ("perspective", "orthographic", "top", "bottom",
+                "front", "back", "left", "right")
+
+
+def preset_camera(
+    view: str,
+    positions: np.ndarray,
+    fov_deg: float = 40.0,
+    margin: float = 1.0,
+    max_radius: float = 0.0,
+) -> CameraParams:
+    """
+    Build a camera that matches one of OVITO's four default viewport orientations.
+
+    OVITO coordinate convention
+    ---------------------------
+    OVITO uses a right-handed coordinate system where **Z is the global up axis**
+    (configurable, but Z by default).  The four standard viewports are:
+
+    +-----------------+-------------------------------+------------------+----------+
+    | Name            | Meaning                       | camera_dir (OVITO)| up      |
+    +=================+===============================+==================+==========+
+    | ``"top"``       | Look down the -Z axis         | (0, 0, -1)       | (0,1,0)  |
+    |                 | → sees XY plane               |                  |          |
+    +-----------------+-------------------------------+------------------+----------+
+    | ``"left"``      | Look along -X                 | (-1, 0, 0)       | (0,1,0)  |
+    |                 | → sees ZY plane (Z→right)     |                  |          |
+    +-----------------+-------------------------------+------------------+----------+
+    | ``"perspective"``| Tilted view from +X+Y+Z      | (-1,-1,-1)/√3    | (0,0,1)  |
+    | / ``"ortho"``   | → 3D isometric look           |                  |          |
+    +-----------------+-------------------------------+------------------+----------+
+
+    All eight available view names
+    -------------------------------
+    - ``"perspective"``  – Perspective projection, tilted isometric camera
+                           (matches OVITO *Perspective* viewport)
+    - ``"orthographic"`` – Same direction as perspective but parallel projection
+                           (matches OVITO *Ortho* viewport)
+    - ``"top"``          – Orthographic, camera_dir=(0,0,-1), up=(0,1,0)
+                           looks at the XY plane
+                           (matches OVITO *Top* viewport)
+    - ``"bottom"``       – Orthographic, camera_dir=(0,0,+1), up=(0,1,0)
+    - ``"left"``         – Orthographic, camera_dir=(-1,0,0), up=(0,1,0)
+                           looks at the ZY plane, Z points right, Y points up
+                           (matches OVITO *Left* viewport)
+    - ``"right"``        – Orthographic, camera_dir=(+1,0,0), up=(0,1,0)
+    - ``"front"``        – Orthographic, camera_dir=(0,-1,0), up=(0,0,1)
+                           looks at the XZ plane from above in the Y direction
+    - ``"back"``         – Orthographic, camera_dir=(0,+1,0), up=(0,0,1)
+
+    Parameters
+    ----------
+    view       : str
+        View name.  Must be one of :data:`PRESET_VIEWS`.
+    positions  : (N, 3) array_like
+        Particle positions in world coordinates.
+    fov_deg    : float, optional
+        Vertical field of view in *degrees* for the perspective camera.
+        Default is 40°.
+    margin     : float, optional
+        Extra padding around the structure in world units (Å).
+        Applied to all views.  Default is 1.0 Å.
+    max_radius : float, optional
+        Largest particle radius.  Pass ``radii.max()`` so that edge atoms
+        are not clipped.  Default 0 (uses only atom centres).
+
+    Returns
+    -------
+    CameraParams
+
+    Notes
+    -----
+    **About** ``CameraParams.znear`` **(orthographic cross-section clipping)**
+
+    ``znear`` defaults to 0 and you normally do not need to change it.
+    Setting it to a positive value shifts the camera plane forward along the
+    view direction by that many world units, effectively clipping away the
+    front portion of the structure.  This is useful for cross-section renders::
+
+        cam = preset_camera("top", pos, max_radius=1.3)
+        cam.znear = 9.0   # discard atoms in front of the z=9 Å plane
+    """
+    view = view.lower().strip()
+    if view not in PRESET_VIEWS:
+        raise ValueError(f"Unknown view '{view}'. Choose from: {PRESET_VIEWS}")
+
+    center, half, pmin, pmax = _bbox(positions, max_radius)
+
+    # ------------------------------------------------------------------
+    # Isometric views: perspective and orthographic
+    # Both look from the +X+Y+Z octant toward the structure centre,
+    # matching OVITO's default Perspective / Ortho viewport orientation.
+    # camera_dir = (-1,-1,-1)/sqrt(3),  up = (0,0,1) (OVITO global up = Z)
+    # ------------------------------------------------------------------
+    if view in ("perspective", "orthographic"):
+        # Tilted direction: equal components along -X, -Y, -Z
+        d = np.array([-1.0, -1.0, -1.0]) / np.sqrt(3.0)
+        up = np.array([0.0, 0.0, 1.0])
+
+        # For the isometric view the "screen half-size" is the projection
+        # of the bounding-box half-diagonal onto the plane perpendicular to d.
+        # A conservative bound: use the full 3-D half-diagonal.
+        screen_half = float(np.linalg.norm(half))
+        cam_dist = screen_half * 3.0 + margin * 2.0  # generous pull-back
+
+        if view == "perspective":
+            fov = math.radians(fov_deg)
+            dist = (screen_half + margin) / math.tan(fov * 0.5)
+            dist = max(dist, cam_dist)  # never closer than cam_dist
+            return CameraParams(
+                is_perspective=True,
+                field_of_view=fov,
+                position=tuple(center - d * dist),
+                direction=tuple(d),
+                up=tuple(up),
+            )
+        else:
+            fov_ortho = screen_half + margin
+            return CameraParams(
+                is_perspective=False,
+                field_of_view=fov_ortho,
+                position=tuple(center - d * cam_dist),
+                direction=tuple(d),
+                up=tuple(up),
+            )
+
+    # ------------------------------------------------------------------
+    # Axis-aligned orthographic views
+    #
+    # OVITO conventions confirmed from GUI axis tripods and Python API docs:
+    #
+    #   "top"    camera_dir=(0,0,-1), up=(0,1,0) → XY plane, X→right, Y→up
+    #   "bottom" camera_dir=(0,0,+1), up=(0,1,0)
+    #   "left"   camera_dir=(-1,0,0), up=(0,1,0) → ZY plane, Z→right, Y→up
+    #   "right"  camera_dir=(+1,0,0), up=(0,1,0)
+    #   "front"  camera_dir=(0,-1,0), up=(0,0,1) → XZ plane, X→right, Z→up
+    #   "back"   camera_dir=(0,+1,0), up=(0,0,1)
+    #
+    # ax_h : world axis index that maps to screen-right  (horizontal)
+    # ax_v : world axis index that maps to screen-up     (vertical)
+    # ------------------------------------------------------------------
+    VIEW_DEFS = {
+        #            direction         up_vec        ax_h  ax_v
+        "top":    (( 0,  0, -1), ( 0,  1,  0),       0,    1),
+        "bottom": (( 0,  0, +1), ( 0,  1,  0),       0,    1),
+        "left":   ((-1,  0,  0), ( 0,  1,  0),       2,    1),
+        "right":  ((+1,  0,  0), ( 0,  1,  0),       2,    1),
+        "front":  (( 0, -1,  0), ( 0,  0,  1),       0,    2),
+        "back":   (( 0, +1,  0), ( 0,  0,  1),       0,    2),
+    }
+
+    direction, up_vec, ax_h, ax_v = VIEW_DEFS[view]
+    direction = np.array(direction, dtype=float)
+    up_vec    = np.array(up_vec,    dtype=float)
+
+    # fov_ortho = half-height of the viewport in world units.
+    # Take the max of horizontal and vertical half-extents so the full
+    # structure fits regardless of image aspect ratio (assumes square output;
+    # for non-square you may need to adjust fov_ortho manually).
+    fov_ortho = float(max(half[ax_v], half[ax_h])) + margin
+
+    # Pull the camera back far enough so the entire depth of the structure
+    # is in front of the camera plane.
+    depth_axis = int(np.argmax(np.abs(direction)))
+    depth_span = float(half[depth_axis])
+    cam_dist = depth_span + float(np.linalg.norm(half)) + 1.0
+    cam_pos = center - direction * cam_dist
+
     return CameraParams(
-        is_perspective = True,
-        field_of_view  = fov,
-        position       = tuple(center + np.array([0., 0., dist])),
-        direction      = (0., 0., -1.),
-        up             = (0., 1.,  0.),
+        is_perspective=False,
+        field_of_view=fov_ortho,
+        position=tuple(cam_pos),
+        direction=tuple(direction),
+        up=tuple(up_vec),
     )
 
 
 def _default_colors(system, N: int) -> np.ndarray:
-    """Jmol 配色方案，未知元素用灰色。"""
+    """Jmol colour scheme; returns grey (0.7, 0.7, 0.7) for unknown elements."""
     JMOL = {
-        'H' :(1.00,1.00,1.00), 'He':(0.85,1.00,1.00),
-        'Li':(0.80,0.50,1.00), 'Be':(0.76,1.00,0.00),
-        'B' :(1.00,0.71,0.71), 'C' :(0.56,0.56,0.56),
-        'N' :(0.19,0.31,0.97), 'O' :(1.00,0.05,0.05),
-        'F' :(0.56,0.88,0.31), 'Na':(0.67,0.36,0.95),
-        'Mg':(0.54,1.00,0.00), 'Al':(0.75,0.65,0.65),
-        'Si':(0.94,0.78,0.63), 'P' :(1.00,0.50,0.00),
-        'S' :(1.00,1.00,0.19), 'Cl':(0.12,0.94,0.12),
-        'K' :(0.56,0.25,0.83), 'Ca':(0.24,1.00,0.00),
-        'Ti':(0.75,0.76,0.78), 'Cr':(0.54,0.60,0.78),
-        'Mn':(0.61,0.48,0.78), 'Fe':(0.88,0.40,0.20),
-        'Co':(0.94,0.56,0.63), 'Ni':(0.31,0.82,0.31),
-        'Cu':(0.78,0.50,0.20), 'Zn':(0.49,0.50,0.69),
-        'Au':(1.00,0.82,0.14), 'Ag':(0.75,0.75,0.75),
-        'Pt':(0.82,0.82,0.88), 'Pd':(0.00,0.41,0.52),
+        "H":  (1.00, 1.00, 1.00),
+        "He": (0.85, 1.00, 1.00),
+        "Li": (0.80, 0.50, 1.00),
+        "Be": (0.76, 1.00, 0.00),
+        "B":  (1.00, 0.71, 0.71),
+        "C":  (0.56, 0.56, 0.56),
+        "N":  (0.19, 0.31, 0.97),
+        "O":  (1.00, 0.05, 0.05),
+        "F":  (0.56, 0.88, 0.31),
+        "Na": (0.67, 0.36, 0.95),
+        "Mg": (0.54, 1.00, 0.00),
+        "Al": (0.75, 0.65, 0.65),
+        "Si": (0.94, 0.78, 0.63),
+        "P":  (1.00, 0.50, 0.00),
+        "S":  (1.00, 1.00, 0.19),
+        "Cl": (0.12, 0.94, 0.12),
+        "K":  (0.56, 0.25, 0.83),
+        "Ca": (0.24, 1.00, 0.00),
+        "Ti": (0.75, 0.76, 0.78),
+        "Cr": (0.54, 0.60, 0.78),
+        "Mn": (0.61, 0.48, 0.78),
+        "Fe": (0.88, 0.40, 0.20),
+        "Co": (0.94, 0.56, 0.63),
+        "Ni": (0.31, 0.82, 0.31),
+        "Cu": (0.78, 0.50, 0.20),
+        "Zn": (0.49, 0.50, 0.69),
+        "Au": (1.00, 0.82, 0.14),
+        "Ag": (0.75, 0.75, 0.75),
+        "Pt": (0.82, 0.82, 0.88),
+        "Pd": (0.00, 0.41, 0.52),
     }
     colors = np.ones((N, 4), dtype=np.float32)
     try:
-        
-        type_names = system.data['element']
+        type_names = system.data["element"]
         for i, tn in enumerate(type_names):
-            col  = JMOL.get(tn.capitalize(), (0.7, 0.7, 0.7))
+            col = JMOL.get(tn.capitalize(), (0.7, 0.7, 0.7))
             colors[i, 0] = col[0]
             colors[i, 1] = col[1]
             colors[i, 2] = col[2]
@@ -343,22 +606,36 @@ def _default_colors(system, N: int) -> np.ndarray:
 
 def _box_edges(system) -> Optional[np.ndarray]:
     """
-    从 system.box 生成 12 条晶胞棱线，返回 (12,2,3) float64。
+    Generate the 12 edges of the simulation cell as line segments.
 
-    system.box.box    : (3,3)  每行是 a/b/c 向量
-    system.box.origin : (3,)   原点坐标
+    Parameters
+    ----------
+    system : mdapy.System
+        system.box.box    : (3,3) row vectors a, b, c
+        system.box.origin : (3,)  cell origin
+
+    Returns
+    -------
+    (12, 2, 3) float64  or  None if box information is unavailable.
     """
     try:
-        box    = np.asarray(system.box.box,    dtype=np.float64)  # (3,3)
+        box = np.asarray(system.box.box, dtype=np.float64)    # (3,3)
         origin = np.asarray(system.box.origin, dtype=np.float64)  # (3,)
     except AttributeError:
         return None
     a, b, c = box[0], box[1], box[2]
     o = origin
-    v = np.array([o, o+a, o+b, o+a+b, o+c, o+a+c, o+b+c, o+a+b+c])
-    idx = [(0,1),(2,3),(4,5),(6,7),  # 沿 a
-           (0,2),(1,3),(4,6),(5,7),  # 沿 b
-           (0,4),(1,5),(2,6),(3,7)]  # 沿 c
+    v = np.array([
+        o,           o + a,
+        o + b,       o + a + b,
+        o + c,       o + a + c,
+        o + b + c,   o + a + b + c,
+    ])
+    idx = [
+        (0, 1), (2, 3), (4, 5), (6, 7),  # along a
+        (0, 2), (1, 3), (4, 6), (5, 7),  # along b
+        (0, 4), (1, 5), (2, 6), (3, 7),  # along c
+    ]
     edges = np.empty((12, 2, 3), dtype=np.float64)
     for k, (i, j) in enumerate(idx):
         edges[k, 0] = v[i]
@@ -366,128 +643,60 @@ def _box_edges(system) -> Optional[np.ndarray]:
     return edges
 
 
-# ─── 独立示例（python render.py 直接运行）────────────────────────────────────
-if __name__ == '__main__':
+if __name__ == "__main__":
     import math
     import numpy as np
-    try:
-        import mdapy as mp
-        _HAS_MDAPY = True
-    except ImportError:
-        _HAS_MDAPY = False
-
-    # # ── 示例 1：纯 numpy 数组，无需 mdapy ──────────────────────────────────
-    # print("=" * 50)
-    # print("示例 1：纯 numpy 粒子 + 手动晶胞框")
-    # print("=" * 50)
-
-    # np.random.seed(0)
-    # N   = 100
-    # pos = np.random.uniform(-8, 8, (N, 3)).astype(np.float64)
-    # col = np.ones((N, 4), dtype=np.float32)
-    # col[:, 0] = 0.2; col[:, 1] = 0.5; col[:, 2] = 0.9
-    # rad = np.full(N, 0.8, dtype=np.float32)
-
-    # # 手动构建 12 条晶胞棱线
-    # o  = np.array([-9., -9., -9.])
-    # av = np.array([18.,  0.,  0.])
-    # bv = np.array([ 0., 18.,  0.])
-    # cv = np.array([ 0.,  0., 18.])
-    # verts = [o, o+av, o+bv, o+av+bv, o+cv, o+av+cv, o+bv+cv, o+av+bv+cv]
-    # eidx  = [(0,1),(2,3),(4,5),(6,7),(0,2),(1,3),(4,6),(5,7),(0,4),(1,5),(2,6),(3,7)]
-    # box_edges = np.zeros((12, 2, 3), dtype=np.float64)
-    # for k, (i, j) in enumerate(eidx):
-    #     box_edges[k, 0] = verts[i]
-    #     box_edges[k, 1] = verts[j]
-
-    # # 透视相机
-    # cam = CameraParams(
-    #     is_perspective = True,
-    #     field_of_view  = math.radians(40),
-    #     position       = (12., 8., 45.),
-    #     direction      = (-0.25, -0.15, -1.),
-    #     up             = (0., 1., 0.),
-    # )
-    # # 归一化 direction
-    # d = np.array(cam.direction)
-    # cam.direction = tuple(d / np.linalg.norm(d))
-
-    # ren = TachyonRender(width=800, height=600, background=(0.05, 0.05, 0.12))
-    # img = ren.render(pos, col, rad, camera=cam, box_edges=box_edges)
-    # print(f"  图像 shape={img.shape}  非零像素={( img[:,:,:3]>0).any(2).sum()}")
-
-    # try:
-    #     from PIL import Image
-    #     Image.fromarray(img).save("example1_numpy.png")
-    #     print("  已保存 example1_numpy.png")
-    # except ImportError:
-    #     import struct, zlib
-    #     # 手写最小 PNG（RGB）
-    #     def save_png_rgb(path, arr):
-    #         H, W = arr.shape[:2]
-    #         raw = b"".join(b'\x00' + arr[y, :, :3].tobytes() for y in range(H))
-    #         def chunk(tag, data):
-    #             c = zlib.crc32(tag+data) & 0xffffffff
-    #             return struct.pack('>I',len(data))+tag+data+struct.pack('>I',c)
-    #         sig = b'\x89PNG\r\n\x1a\n'
-    #         ihdr= chunk(b'IHDR', struct.pack('>IIBBBBB',W,H,8,2,0,0,0))
-    #         idat= chunk(b'IDAT', zlib.compress(raw,9))
-    #         iend= chunk(b'IEND', b'')
-    #         with open(path,'wb') as f: f.write(sig+ihdr+idat+iend)
-    #     save_png_rgb("example1_numpy.png", img)
-    #     print("  已保存 example1_numpy.png（内置 PNG 写入器）")
-
-    # # ── 示例 2：正交相机 ────────────────────────────────────────────────────
-    # print()
-    # print("=" * 50)
-    # print("示例 2：正交相机（俯视）")
-    # print("=" * 50)
-
-    # cam_ortho = CameraParams(
-    #     is_perspective = False,
-    #     field_of_view  = 12.0,    # 视口半高 = 12 世界单位
-    #     position       = (0., 0., 100.),
-    #     direction      = (0., 0., -1.),
-    #     up             = (0., 1.,  0.),
-    # )
-    # img2 = ren.render(pos, col, rad, camera=cam_ortho, box_edges=box_edges)
-    # print(f"  图像 shape={img2.shape}  非零像素={(img2[:,:,:3]>0).any(2).sum()}")
-    # try:
-    #     from PIL import Image
-    #     Image.fromarray(img2).save("example2_ortho.png")
-    #     print("  已保存 example2_ortho.png")
-    # except ImportError:
-    #     pass
-
-    # # ── 示例 3：稳定性测试（10 次重复渲染）────────────────────────────────
-    # print()
-    # print("=" * 50)
-    # print("示例 3：稳定性测试（10 次重复渲染）")
-    # print("=" * 50)
-    # ren_fast = TachyonRender(width=200, height=150,
-    #                          antialiasing=False, ao=False, shadows=False)
-    # for i in range(10):
-    #     img_t = ren_fast.render(pos, col, rad, box_edges=box_edges)
-    #     assert img_t.shape == (150, 200, 4), f"第 {i} 次形状错误"
-    # print("  10 次全部通过 ✓")
-
-    # ── 示例 4：从 mdapy.System（如果可用）───────────────────────────────
+    import mdapy as mp
     import matplotlib.pyplot as plt
-    if _HAS_MDAPY:
-        print()
-        print("=" * 50)
-        print("示例 4：从 mdapy.System 渲染 FCC Al")
-        print("=" * 50)
-        sys_al = mp.build_crystal('Ni', 'fcc', 3.6, nx=5, ny=5, nz=5)
-        # sys_al.write_xyz('test.xyz')
-        print(f"  原子数：{sys_al.N}")
-        cam = CameraParams(False, field_of_view=13.42, position=(6.59559, 5.99291, 9.8026), direction=(0.58, 0.76, -0.31),
-                            up=(0.19, 0.25, 0.95), znear=-15 ,dof_enabled=True)
-        ren2  = TachyonRender(width=900, height=900,
-                              background=(1, 1, 1), direct_light_intensity=1.2, 
-                              aa_samples=20, ao_brightness=1.)
-        img_al = ren2.render_system(sys_al, camera=cam, 
-                                    default_radius=1.3, box_color=(0, 0, 0, 1))
-        plt.imshow(img_al); plt.axis("off"); plt.tight_layout(); plt.show()
-    else:
-        print("\n（mdapy 未安装，跳过示例 4）")
+
+    sys_al = mp.build_hea(
+        ["Cr", "Co", "Ni"], [1/3, 1/3, 1/3],
+        "fcc", 3.6, nx=10, ny=10, nz=10, random_seed=1
+    )
+    print(f"  N atoms: {sys_al.N}")
+
+    ren = TachyonRender(
+        width=600,
+        height=600,
+        background=(1, 1, 1),
+        direct_light_intensity=1.2,
+        aa_samples=12,
+        ao_brightness=1.0,
+    )
+
+    pos = sys_al.get_positions().to_numpy()
+    r   = 1.3  # atom radius
+
+    # Render four views matching OVITO's default viewport layout
+    views  = ["perspective", "top", "front", "left"]
+    titles = ["Perspective (-Z dir)", "Top (dir=-Z)", "Front (dir=-Y)", "Left (dir=-X)"]
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+    for ax, view_name, title in zip(axes.flat, views, titles):
+        # max_radius ensures edge atom spheres are fully visible (not just centres)
+        cam = preset_camera(view_name, pos, max_radius=r)
+        img = ren.render_system(
+            sys_al,
+            camera=cam,
+            default_radius=r,
+            box_color=(0, 0, 0, 1),
+            box_edge_radius=0.04,
+        )
+        ax.imshow(img)
+        ax.set_title(title, fontsize=13)
+        ax.axis("off")
+
+    plt.suptitle("mdapy TachyonRender — 4 views (OVITO style)", fontsize=15)
+    plt.tight_layout()
+    plt.show()
+
+    # Single-view examples:
+    # cam = preset_camera("top",         pos, max_radius=r)   # top-down
+    # cam = preset_camera("front",       pos, max_radius=r)   # front face
+    # cam = preset_camera("left",        pos, max_radius=r)   # left side
+    # cam = preset_camera("perspective", pos, max_radius=r)   # perspective (default)
+    # cam = preset_camera("perspective", pos, fov_deg=60, max_radius=r)
+
+    # Cross-section example using znear:
+    # cam = preset_camera("top", pos, max_radius=r)
+    # cam.znear = pos[:, 2].max() / 2  # clip away the front half along Z

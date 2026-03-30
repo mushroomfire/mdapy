@@ -1,16 +1,20 @@
 /*
- * texture.h This file contains all of the includes and defines for the texture 
- * mapping part of the shader.
+ * texture.h - This file contains prototypes for the texture 
+ *             mapping part of the shader code.
  *
- *  $Id: texture.h,v 1.15 2011/02/15 20:27:58 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: texture.h,v 1.17 2022/03/13 23:30:01 johns Exp $
+ *
  */
 
 void InitTextures(void);
 
 /* background texturing routines */
-colora solid_background_texture(const ray *ry);
-colora sky_sphere_background_texture(const ray *ry);
-colora sky_plane_background_texture(const ray *ry);
+color solid_background_texture(ray *ry);
+color sky_sphere_background_texture(ray *ry);
+color sky_plane_background_texture(ray *ry);
 
 /* object texturing routines */
 color     constant_texture(const vector *, const texture *, const ray *);

@@ -1,7 +1,11 @@
 /* 
- * tgafile.h - this file contains defines and structures for tgafile.c
+ * tgafile.h - this file contains fctn prototypes for Targa image parsing
  *
- *  $Id: tgafile.h,v 1.9 2003/08/22 05:05:12 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: tgafile.h,v 1.10 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 /* declare other functions */

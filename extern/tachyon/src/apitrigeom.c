@@ -2,7 +2,11 @@
  * apitrigeom.c - This file contains code for generating triangle tesselated
  *                geometry, for use with OpenGL, XGL, etc.
  * 
- *  $Id: apitrigeom.c,v 1.11 2012/10/17 04:25:57 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: apitrigeom.c,v 1.12 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 #include <stdio.h>

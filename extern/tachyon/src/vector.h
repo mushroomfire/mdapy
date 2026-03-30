@@ -1,7 +1,11 @@
 /*
  * vector.h - This file contains declarations of vector functions
  *
- *  $Id: vector.h,v 1.5 2002/07/09 00:48:40 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: vector.h,v 1.6 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 flt VDot(const vector *, const vector *);

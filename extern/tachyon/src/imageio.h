@@ -1,11 +1,17 @@
 /*
- *  imageio.h - This file deals with reading/writing image files 
+ * imageio.h - This file deals with reading/writing image files 
  *
- *  $Id: imageio.h,v 1.9 2011/02/05 08:10:11 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: imageio.h,v 1.10 2022/02/18 17:55:28 johns Exp $
+ *
  */ 
 
-/* For our puposes, we're interested only in the 3 byte per pixel 24 bit
-   truecolor sort of file.. */
+/*
+ * For our puposes, we're interested only in the 3 byte per pixel 24 bit
+ * truecolor sort of file.. 
+ */
 
 #define IMAGENOERR     0  /**< no error */
 #define IMAGEBADFILE   1  /**< can't find or can't open the file */

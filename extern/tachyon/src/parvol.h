@@ -1,8 +1,11 @@
 /*
  * parvol.h - Volume rendering definitions etc.
  *
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
  *
- *  $Id: parvol.h,v 1.5 2011/02/05 08:10:11 johns Exp $
+ * $Id: parvol.h,v 1.6 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 typedef struct {

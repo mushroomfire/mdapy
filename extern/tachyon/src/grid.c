@@ -1,7 +1,10 @@
 /*
  * grid.c - spatial subdivision efficiency structures
  *
- * $Id: grid.c,v 1.60 2011/02/07 07:41:51 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: grid.c,v 1.62 2022/02/18 17:55:28 johns Exp $
  * 
  */
 
@@ -9,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stddef.h>
 
 #define TACHYON_INTERNAL 1
 #include "tachyon.h"
@@ -36,7 +40,7 @@ static object_methods grid_methods = {
 
 object * newgrid(scenedef * scene, int xsize, int ysize, int zsize, vector min, vector max) {
   grid * g;
-  int numcells;
+  ptrdiff_t numcells;
 
   g = (grid *) malloc(sizeof(grid));
   memset(g, 0, sizeof(grid));  
@@ -48,7 +52,7 @@ object * newgrid(scenedef * scene, int xsize, int ysize, int zsize, vector min, 
   g->ysize = ysize;
   g->zsize = zsize;
 
-  numcells = xsize * ysize * zsize;
+  numcells = ((ptrdiff_t) xsize) * ((ptrdiff_t) ysize) * ((ptrdiff_t) zsize);
 
   g->min = min;
   g->max = max;
@@ -74,11 +78,11 @@ static int grid_bbox(void * obj, vector * min, vector * max) {
 }
 
 static void grid_free(void * v) {
-  int i, numvoxels;
+  ptrdiff_t i, numvoxels;
   grid * g = (grid *) v;
 
   /* loop through all voxels and free the object lists */
-  numvoxels = g->xsize * g->ysize * g->zsize; 
+  numvoxels = ((ptrdiff_t) g->xsize) * ((ptrdiff_t) g->ysize) * ((ptrdiff_t) g->zsize); 
   for (i=0; i<numvoxels; i++) {
     objectlist * lcur;
     objectlist * lnext;
@@ -130,12 +134,14 @@ static void globalbound(object ** rootlist, vector * gmin, vector * gmax) {
 }
 
 
-static int cellbound(const grid *g, const gridindex *index, vector * cmin, vector * cmax) {
+static ptrdiff_t cellbound(const grid *g, const gridindex *index, vector * cmin, vector * cmax) {
   vector min, max, cellmin, cellmax;
   objectlist * cur;
-  int numinbounds = 0;
+  ptrdiff_t numinbounds = 0;
 
-  cur = g->cells[index->z*g->xsize*g->ysize + index->y*g->xsize + index->x]; 
+  cur = g->cells[index->z*((ptrdiff_t) g->xsize)*((ptrdiff_t) g->ysize) + 
+                 index->y*((ptrdiff_t) g->xsize) + 
+                 index->x]; 
 
   if (cur == NULL)  /* don't bound non-existant objects */
     return 0;
@@ -279,9 +285,9 @@ int engrid_scene(scenedef * scene, int boundthresh) {
 }
 
 
-static int engrid_objlist(grid * g, object ** list) {
+static ptrdiff_t engrid_objlist(grid * g, object ** list) {
   object * cur, * next, **prev;
-  int numsucceeded = 0;
+  ptrdiff_t numsucceeded = 0;
 
   if (*list == NULL) 
     return 0;
@@ -309,19 +315,21 @@ static int engrid_objlist(grid * g, object ** list) {
 static int engrid_cell(scenedef * scene, int boundthresh, grid * gold, gridindex *index) {
   vector gmin, gmax, gsize;
   flt len;
-  int numobj, numcbrt, xs, ys, zs;
+  ptrdiff_t numobj;
+  int numcbrt, xs, ys, zs;
   grid * g;
   objectlist **list;
   objectlist * newobj;
-  int numsucceeded;
+  ptrdiff_t numsucceeded;
 
-  list = &gold->cells[index->z*gold->xsize*gold->ysize + 
-                     index->y*gold->xsize  + index->x];
+  list = &gold->cells[index->z*((ptrdiff_t) gold->xsize)*((ptrdiff_t) gold->ysize) + 
+                      index->y*((ptrdiff_t) gold->xsize) + 
+                      index->x];
 
   if (*list == NULL)
     return 0;
 
-  numobj =  cellbound(gold, index, &gmin, &gmax);
+  numobj = cellbound(gold, index, &gmin, &gmax);
 
   VSub(&gmax, &gmin, &gsize);
   len = 1.0 / (MYMAX( MYMAX(gsize.x, gsize.y), gsize.z ));
@@ -359,7 +367,7 @@ static int engrid_cell(scenedef * scene, int boundthresh, grid * gold, gridindex
 
 static int engrid_objectlist(grid * g, objectlist ** list) {
   objectlist * cur, * next, **prev;
-  int numsucceeded = 0; 
+  ptrdiff_t numsucceeded = 0; 
 
   if (*list == NULL) 
     return 0;
@@ -388,7 +396,8 @@ static int engrid_objectlist(grid * g, objectlist ** list) {
 static int engrid_object(grid * g, object * obj, int addtolist) {
   vector omin, omax; 
   gridindex low, high;
-  int x, y, z, zindex, yindex, voxindex;
+  int x, y, z; 
+  ptrdiff_t zindex, yindex, voxindex;
   objectlist * tmp;
  
   if (obj->methods->bbox(obj, &omin, &omax)) { 
@@ -423,9 +432,9 @@ static int engrid_object(grid * g, object * obj, int addtolist) {
 
   /* add this object to all voxels it inhabits */
   for (z=low.z; z<=high.z; z++) {
-    zindex = z * g->xsize * g->ysize;
+    zindex = z * ((ptrdiff_t) g->xsize) * ((ptrdiff_t) g->ysize);
     for (y=low.y; y<=high.y; y++) {
-      yindex = y * g->xsize;
+      yindex = y * ((ptrdiff_t) g->xsize);
       for (x=low.x; x<=high.x; x++) {
         voxindex = x + yindex + zindex; 
         tmp = (objectlist *) malloc(sizeof(objectlist));
@@ -471,7 +480,7 @@ static void grid_intersect(const grid * g, ray * ry) {
   flt tnear, tfar;
   vector curpos, tmax, tdelta;
   gridindex curvox, step, out; 
-  int voxindex, SY, SZ;
+  ptrdiff_t voxindex, SY, SZ;
   unsigned long serial;
 #if !defined(DISABLEMBOX)
   unsigned long * mbox;
@@ -560,11 +569,13 @@ static void grid_intersect(const grid * g, ray * ry) {
   }
 
   /* pre-calculate row/column/plane offsets for stepping through grid */
-  SY = step.y * g->xsize;
-  SZ = step.z * g->xsize * g->ysize;
+  SY = step.y * ((ptrdiff_t) g->xsize);
+  SZ = step.z * ((ptrdiff_t) g->xsize) * ((ptrdiff_t) g->ysize);
 
   /* first cell we'll be testing */
-  voxindex = curvox.z*g->xsize*g->ysize + curvox.y*g->xsize + curvox.x; 
+  voxindex = curvox.z*((ptrdiff_t) g->xsize)*((ptrdiff_t) g->ysize) + 
+             curvox.y*((ptrdiff_t) g->xsize) + 
+             curvox.x; 
 
   /* Unrolled while loop by one... */
   /* Test all objects in the current cell for intersection */

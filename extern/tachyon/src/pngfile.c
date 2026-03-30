@@ -1,7 +1,11 @@
 /*
- *  pngfile.c - This file deals with PNG format image files (reading/writing)
+ * pngfile.c - This file deals with PNG format image files (reading/writing)
  *
- *  $Id: pngfile.c,v 1.10 2011/02/07 07:41:51 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: pngfile.c,v 1.16 2022/02/18 17:55:28 johns Exp $
+ *
  */ 
 
 /*
@@ -113,6 +117,7 @@ int readpng(const char *name, int *xres, int *yres, unsigned char **imgdata) {
 }
 
 
+
 int writepng(const char *name, int xres, int yres, unsigned char *imgdata) {
   FILE *ofp;
   png_structp png_ptr;
@@ -136,6 +141,7 @@ int writepng(const char *name, int xres, int yres, unsigned char *imgdata) {
 
   /* open output file before doing any more PNG compression setup */
   if ((ofp = fopen(name, "wb")) == NULL) {
+    png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
     return IMAGEBADFILE;
   }
 
@@ -176,7 +182,7 @@ int writepng(const char *name, int xres, int yres, unsigned char *imgdata) {
 
   row_pointers = png_malloc(png_ptr, yres*sizeof(png_bytep));
   for (y=0; y<yres; y++) {
-    row_pointers[yres - y - 1] = &imgdata[y * xres * 3];
+    row_pointers[yres - y - 1] = (png_bytep) &imgdata[y * xres * 3];
   }
 
   png_set_rows(png_ptr, info_ptr, row_pointers); 
@@ -194,5 +200,110 @@ int writepng(const char *name, int xres, int yres, unsigned char *imgdata) {
 
   return IMAGENOERR; /* No fatal errors */
 }
+
+
+
+int writepng_alpha(const char *name, int xres, int yres, unsigned char *imgdata) {
+  FILE *ofp;
+  png_structp png_ptr;
+  png_infop info_ptr;
+  png_bytep *row_pointers;
+  png_textp text_ptr;
+  int y;
+
+  /* Create and initialize the png_struct with the default error handlers */
+  png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+  if (png_ptr == NULL) {
+    return IMAGEALLOCERR; /* Could not initialize PNG library, return error */
+  }
+
+  /* Allocate/initialize the memory for image information.  REQUIRED. */
+  info_ptr = png_create_info_struct(png_ptr);
+  if (info_ptr == NULL) {
+    png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
+    return IMAGEALLOCERR; /* Could not initialize PNG library, return error */
+  }
+
+  /* open output file before doing any more PNG compression setup */
+  if ((ofp = fopen(name, "wb")) == NULL) {
+    png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
+    return IMAGEBADFILE;
+  }
+
+  /* Set error handling for setjmp/longjmp method of libpng error handling */
+  if (setjmp(png_jmpbuf(png_ptr))) {
+    /* Free all of the memory associated with the png_ptr and info_ptr */
+    png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
+    /* If we get here, we had a problem writing the file */
+    fclose(ofp);
+    return IMAGEBADFILE; /* Could not open image, return error */
+  }
+
+  /* Set up the input control if you are using standard C streams */
+  png_init_io(png_ptr, ofp);
+
+#if 0
+  /* this API apparently doesn't exist on all revs of libpng */
+  /* png_set_alpha_mode(png_ptr, PNG_ALPHA_STANDARD, PNG_GAMMA_LINEAR); */
+
+  /* optional significant bit chunk */
+  png_color_8 sig_bit;
+  memset(&sig_bit, 0, sizeof(sig_bit));
+
+  sig_bit.red = 8;
+  sig_bit.green = 8;
+  sig_bit.blue = 8;
+  sig_bit.alpha = 8;
+
+  png_set_sBIT(png_ptr, info_ptr, &sig_bit);
+#endif
+
+  png_set_IHDR(png_ptr, info_ptr, xres, yres, 
+               8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE, 
+               PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+
+  png_set_gAMA(png_ptr, info_ptr, 1.0);
+
+  text_ptr = (png_textp) png_malloc(png_ptr, (png_uint_32)sizeof(png_text) * 2);
+   
+  text_ptr[0].key = "Description";
+  text_ptr[0].text = "A scene rendered by the Tachyon ray tracer";
+  text_ptr[0].compression = PNG_TEXT_COMPRESSION_NONE; 
+#ifdef PNG_iTXt_SUPPORTED
+  text_ptr[0].lang = NULL;
+#endif
+
+  text_ptr[1].key = "Software";
+  text_ptr[1].text = "Tachyon Parallel/Multiprocessor Ray Tracer";
+  text_ptr[1].compression = PNG_TEXT_COMPRESSION_NONE; 
+#ifdef PNG_iTXt_SUPPORTED
+  text_ptr[1].lang = NULL;
+#endif
+  png_set_text(png_ptr, info_ptr, text_ptr, 1);
+
+  row_pointers = png_malloc(png_ptr, yres*sizeof(png_bytep));
+  for (y=0; y<yres; y++) {
+    row_pointers[yres - y - 1] = (png_bytep) &imgdata[y * xres * 4];
+  }
+
+  png_set_rows(png_ptr, info_ptr, row_pointers); 
+
+  /* write out metadata first */
+  /* png_write_info(png_ptr, info_ptr); */
+
+  /* one-shot call to write the whole PNG file into memory */
+  png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
+
+  png_free(png_ptr, row_pointers);
+  png_free(png_ptr, text_ptr);
+ 
+  /* clean up after the write and free any memory allocated - REQUIRED */
+  png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
+
+  fclose(ofp); /* close the output file */
+
+  return IMAGENOERR; /* No fatal errors */
+}
+
 
 #endif

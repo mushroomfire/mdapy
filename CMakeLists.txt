@@ -112,7 +112,7 @@ set(TACHYON_SOURCES
     ${TACHYON_SRC}/apitrigeom.c
     ${TACHYON_SRC}/box.c
     ${TACHYON_SRC}/camera.c
-    ${TACHYON_SRC}/cone.c
+    # cone.c 在 0.99.5 中已移除
     ${TACHYON_SRC}/coordsys.c
     ${TACHYON_SRC}/cylinder.c
     ${TACHYON_SRC}/extvol.c
@@ -125,6 +125,7 @@ set(TACHYON_SOURCES
     ${TACHYON_SRC}/jpeg.c
     ${TACHYON_SRC}/light.c
     ${TACHYON_SRC}/parallel.c
+    # parvol.c 依赖 TACHYON_INTERNAL 内部结构体，无法在库外编译，已排除
     ${TACHYON_SRC}/plane.c
     ${TACHYON_SRC}/pngfile.c
     ${TACHYON_SRC}/ppm.c
@@ -144,7 +145,6 @@ set(TACHYON_SOURCES
     ${TACHYON_SRC}/util.c
     ${TACHYON_SRC}/vector.c
     ${TACHYON_SRC}/vol.c
-    ${TACHYON_SRC}/ppm.c
     ${TACHYON_SRC}/winbmp.c
 )
 # 去重（ppm.c 上面写了两次，CMake 会自动去重，此处保持明确）

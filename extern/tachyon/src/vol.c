@@ -1,8 +1,11 @@
 /*
  * vol.c - Volume rendering helper routines etc.
  *
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
  *
- *  $Id: vol.c,v 1.52 2013/04/21 02:30:46 johns Exp $
+ * $Id: vol.c,v 1.56 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 #include <stdio.h>
@@ -140,19 +143,20 @@ color VoxelColor(flt scalar) {
   return col;
 } 
 
+
 color scalar_volume_texture(const vector * hit, const texture * tx, ray * ry) {
   color col, col2;
   box * bx;
   flt a, tx1, tx2, ty1, ty2, tz1, tz2;
   flt tnear, tfar;
   flt t, tdist, dt, sum, tt; 
-  vector pnt, bln;
+  vector pnt, bln, bln_1;
   scalarvol * vol;
   flt scalar, transval; 
-  int x, y, z;
+  long x, y, z, lxyres, lxres;
   unsigned char * ptr;
   standard_texture * tex = (standard_texture *) tx;
-
+  const flt voxel_inv = 1.0f / 255.0;
   bx=(box *) tex->obj;
   vol=(scalarvol *) ((standard_texture *) bx->tex)->img;
    
@@ -165,8 +169,7 @@ color scalar_volume_texture(const vector * hit, const texture * tx, ray * ry) {
  
   if (ry->d.x == 0.0) {
     if ((ry->o.x < bx->min.x) || (ry->o.x > bx->max.x)) return col;
-  }
-  else {
+  } else {
     tx1 = (bx->min.x - ry->o.x) / ry->d.x;
     tx2 = (bx->max.x - ry->o.x) / ry->d.x;
     if (tx1 > tx2) { a=tx1; tx1=tx2; tx2=a; }
@@ -176,10 +179,9 @@ color scalar_volume_texture(const vector * hit, const texture * tx, ray * ry) {
   if (tnear > tfar) return col;
   if (tfar < 0.0) return col;
  
- if (ry->d.y == 0.0) {
+  if (ry->d.y == 0.0) {
     if ((ry->o.y < bx->min.y) || (ry->o.y > bx->max.y)) return col;
-  }
-  else {
+  } else {
     ty1 = (bx->min.y - ry->o.y) / ry->d.y;
     ty2 = (bx->max.y - ry->o.y) / ry->d.y;
     if (ty1 > ty2) { a=ty1; ty1=ty2; ty2=a; }
@@ -191,8 +193,7 @@ color scalar_volume_texture(const vector * hit, const texture * tx, ray * ry) {
  
   if (ry->d.z == 0.0) {
     if ((ry->o.z < bx->min.z) || (ry->o.z > bx->max.z)) return col;
-  }
-  else {
+  } else {
     tz1 = (bx->min.z - ry->o.z) / ry->d.z;
     tz2 = (bx->max.z - ry->o.z) / ry->d.z;
     if (tz1 > tz2) { a=tz1; tz1=tz2; tz2=a; }
@@ -220,22 +221,31 @@ color scalar_volume_texture(const vector * hit, const texture * tx, ray * ry) {
   bln.x=FABS(bx->min.x - bx->max.x);
   bln.y=FABS(bx->min.y - bx->max.y);
   bln.z=FABS(bx->min.z - bx->max.z);
-  
   dt=SQRT(bln.x*bln.x + bln.y*bln.y + bln.z*bln.z) / tdist; 
   sum=0.0;
 
+  /* promote int types to long to prevent integer overflows in index calcs */
+  lxyres = vol->xres * vol->yres;
+  lxres = vol->xres;
+
+  
+  /* avoid divides in the voxel traversal loop */
+  bln_1.x = 1.0 / bln.x;
+  bln_1.y = 1.0 / bln.y;
+  bln_1.z = 1.0 / bln.z;
+
   for (t=tnear; t<=tfar; t+=dt) {
-    pnt.x=((ry->o.x + (ry->d.x * t)) - bx->min.x) / bln.x;
-    pnt.y=((ry->o.y + (ry->d.y * t)) - bx->min.y) / bln.y;
-    pnt.z=((ry->o.z + (ry->d.z * t)) - bx->min.z) / bln.z;
+    pnt.x=((ry->o.x + (ry->d.x * t)) - bx->min.x) * bln_1.x;
+    pnt.y=((ry->o.y + (ry->d.y * t)) - bx->min.y) * bln_1.y;
+    pnt.z=((ry->o.z + (ry->d.z * t)) - bx->min.z) * bln_1.z;
  
-    x=(int) ((vol->xres - 1.5) * pnt.x + 0.5);
-    y=(int) ((vol->yres - 1.5) * pnt.y + 0.5);
-    z=(int) ((vol->zres - 1.5) * pnt.z + 0.5);
+    x=(long) ((vol->xres - 1.5) * pnt.x + 0.5);
+    y=(long) ((vol->yres - 1.5) * pnt.y + 0.5);
+    z=(long) ((vol->zres - 1.5) * pnt.z + 0.5);
    
-    ptr = vol->data + ((vol->xres * vol->yres * z) + (vol->xres * y) + x);
+    ptr = vol->data + ((lxyres * z) + (lxres * y) + x);
    
-    scalar = (flt) ((flt) 1.0 * ((int) ptr[0])) / 255.0;
+    scalar = ((int) ptr[0]) * voxel_inv;
 
     sum += tt * scalar; 
 
@@ -248,8 +258,7 @@ color scalar_volume_texture(const vector * hit, const texture * tx, ray * ry) {
       col.g += transval * col2.g;
       col.b += transval * col2.b;
       if (sum < 0.0) sum=0.0;
-    }  
-    else { 
+    } else { 
       sum=1.0;
     }
   }

@@ -1,7 +1,11 @@
 /*
- *  sgirgb.h - This file deals with SGI RGB format image files (reading/writing)
+ * sgirgb.h - This file deals with SGI RGB format image files (reading/writing)
  *
- *  $Id: sgirgb.h,v 1.1 1999/09/01 16:26:14 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: sgirgb.h,v 1.2 2022/02/18 17:55:28 johns Exp $
+ *
  */ 
 
 int writergb(char *name, int xres, int yres, unsigned char *imgdata);

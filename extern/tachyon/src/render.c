@@ -1,7 +1,11 @@
 /* 
  * render.c - This file contains the main program and driver for the raytracer.
  *
- *  $Id: render.c,v 1.110 2013/04/21 08:28:14 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: render.c,v 1.123 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 #include <stdio.h>
@@ -38,7 +42,7 @@ static void rt_autoshader(scenedef * scene) {
    */
   if (scene->shader == NULL) {
     /* No logic yet, just use max quality */
-    scene->shader = (colora (*)(void *)) full_shader;
+    scene->shader = (color (*)(void *)) full_shader;
   }
 }
 
@@ -63,10 +67,19 @@ void * thread_worker(void * voidparms) {
   cpuaffinity = parms->tid / 4;
 #endif
 
+#if 0 && defined(_ARCH_PPC64) 
+  /* On POWER7/8 platforms, CPUs are numbered sequentially including    */
+  /* indices for all per-core SMT threads which may be enabled/disabled */
+  /* in a consecutive sequence.                                         */
+  cpuaffinity = parms->tid;
+#endif
+
   if (cpuaffinity > 0) {
     rt_thread_set_self_cpuaffinity(cpuaffinity); 
 #if 0
-    printf("Thread[%d] setting affinity to %d\n", parms->tid, parms->tid / 4);
+    if (scene->verbosemode && scene->mynode == 0) {
+      printf("Thread[%d] setting affinity to %d\n", parms->tid, cpuaffinity);
+    }
 #endif
   }
 #endif
@@ -83,6 +96,7 @@ void * thread_worker(void * voidparms) {
  * state variables they need, and start them waiting on the barrier.
  */
 void create_render_threads(scenedef * scene) {
+  int thr;
   thr_parms * parms;
   rt_thread_t * threads;
   rt_barrier_t * bar;
@@ -91,13 +105,34 @@ void create_render_threads(scenedef * scene) {
   rt_atomic_int_t * rowbars;
   rt_atomic_int_t * rowsdone;
 #endif
-  int thr;
+#if defined(THR)
+  rt_atomic_int_t * pixelsched;
+  int sched_dynamic = 0; /* leave dynamic pixel scheduling off by default */
+
+#if 1
+  /* determine whether to enable dynamic pixel scheduling based   */
+  /* on whether the scene uses any particularly costly rendering  */
+  /* features such as ambient occlusion lighting, or greater than */
+  /* 4-samples per-pixel antialiasing...                          */
+  if (scene->ambocc.numsamples > 0 || scene->antialiasing > 4) {
+    sched_dynamic = 1;
+  } 
+#else
+  sched_dynamic = (getenv("SCHED_DYNAMIC") != NULL);
+#endif
+#endif
 
   /* allocate and initialize thread parameter buffers */
   threads = (rt_thread_t *) malloc(scene->numthreads * sizeof(rt_thread_t));
   parms = (thr_parms *) malloc(scene->numthreads * sizeof(thr_parms));
 
   bar = rt_thread_barrier_init(scene->numthreads);
+
+#if defined(THR)
+  /* initialize atomic pixel scheduler used for dynamic load balancing */
+  pixelsched = (rt_atomic_int_t *) calloc(1, sizeof(rt_atomic_int_t));
+  rt_atomic_int_init(pixelsched, 0);
+#endif
 
 #if defined(MPI) && defined(THR)
   /* initialize row barriers for MPI builds */
@@ -147,6 +182,12 @@ void create_render_threads(scenedef * scene) {
       parms[thr].stopy  = scene->vres;
       parms[thr].yinc   = scene->nodes;
     }
+
+#if defined(THR)
+    parms[thr].sched_dynamic = sched_dynamic;
+    parms[thr].pixelsched = pixelsched;
+#endif
+
 #if defined(MPI) && defined(THR)
     parms[thr].numrowbars = numrowbars;
     parms[thr].rowbars = rowbars;
@@ -199,6 +240,12 @@ void destroy_render_threads(scenedef * scene) {
         free(parms[thr].local_mbox);
     }
 
+#if defined(THR)
+    /* destroy the atomic pixel scheduler counter */
+    rt_atomic_int_destroy(parms[0].pixelsched);
+    free(parms[0].pixelsched);
+#endif
+
 #if defined(MPI) && defined(THR)
     /* destroy and free row barriers for MPI builds */
     for (row=0; row<parms[0].numrowbars; row++) {
@@ -223,7 +270,7 @@ void destroy_render_threads(scenedef * scene) {
  * the thread pool, the persistent message passing primitives, or other
  * infrastructure needs to be reconfigured before rendering commences.
  */
-void rendercheck(scenedef * scene) {
+static void rendercheck(scenedef * scene) {
   flt runtime;
   rt_timerhandle stth; /* setup time timer handle */
 
@@ -233,6 +280,89 @@ void rendercheck(scenedef * scene) {
     flt totalspeed;
 
     rt_ui_message(MSG_0, "CPU Information:");
+    memset(msgtxt, 0, sizeof(msgtxt));
+    if ((scene->nodes == 1) && (scene->cpuinfo[0].cpucaps != NULL)) {
+      rt_cpu_caps_t *cpucaps = (rt_cpu_caps_t *) scene->cpuinfo[0].cpucaps;
+
+      strcpy(msgtxt, "  CPU features: ");
+
+#if (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_AMD64))
+      if (cpucaps->flags & CPU_SSE2)
+        strcat(msgtxt, "SSE2 ");
+      if (cpucaps->flags & CPU_SSE4_1)
+        strcat(msgtxt, "SSE4.1 ");
+      if (cpucaps->flags & CPU_AVX)
+        strcat(msgtxt, "AVX ");
+      if (cpucaps->flags & CPU_AVX2)
+        strcat(msgtxt, "AVX2 ");
+      if (cpucaps->flags & CPU_FMA)
+        strcat(msgtxt, "FMA ");
+      if (cpucaps->flags & CPU_F16C)
+        strcat(msgtxt, "F16 ");
+
+      if ((cpucaps->flags & CPU_KNL) == CPU_KNL) {
+        strcat(msgtxt, "KNL:AVX-512F+CD+ER+PF ");
+      } else {
+        if (cpucaps->flags & CPU_AVX512F)
+          strcat(msgtxt, "AVX512F ");
+        if (cpucaps->flags & CPU_AVX512CD)
+          strcat(msgtxt, "AVX512CD ");
+        if (cpucaps->flags & CPU_AVX512ER)
+          strcat(msgtxt, "AVX512ER ");
+        if (cpucaps->flags & CPU_AVX512PF)
+          strcat(msgtxt, "AVX512PF ");
+      }
+
+      if (cpucaps->flags & CPU_HT)
+        strcat(msgtxt, "HT ");
+
+      if (cpucaps->flags & CPU_HYPERVISOR) {
+        rt_ui_message(MSG_0, msgtxt);
+        rt_ui_message(MSG_0, "  Detected VM or hypervisor execution environment");
+      }
+#endif
+
+#if (defined(__ARM_ARCH_ISA_A64) || defined(__ARM_NEON))
+      if (cpucaps->flags & CPU_ARM64_FP)
+        strcat(msgtxt, "FP ");
+      if (cpucaps->flags & CPU_ARM64_SVE)
+        strcat(msgtxt, "SVE ");
+
+      if (cpucaps->flags & CPU_ARM64_ASIMD)
+        strcat(msgtxt, "ASIMD ");
+      if (cpucaps->flags & CPU_ARM64_ASIMDHP)
+        strcat(msgtxt, "ASIMDHP ");
+      if (cpucaps->flags & CPU_ARM64_ASIMDRDM)
+        strcat(msgtxt, "ASIMDRDM ");
+      if (cpucaps->flags & CPU_ARM64_ASIMDDP)
+        strcat(msgtxt, "ASIMDDP ");
+      if (cpucaps->flags & CPU_ARM64_ASIMDFHM)
+        strcat(msgtxt, "ASIMDFHM ");
+
+      if (cpucaps->flags & CPU_ARM64_AES)
+        strcat(msgtxt, "AES ");
+      if (cpucaps->flags & CPU_ARM64_CRC32)
+        strcat(msgtxt, "CRC32 ");
+      if (cpucaps->flags & CPU_ARM64_SHA1)
+        strcat(msgtxt, "SHA1 ");
+      if (cpucaps->flags & CPU_ARM64_SHA2)
+        strcat(msgtxt, "SHA2 ");
+      if (cpucaps->flags & CPU_ARM64_SHA3)
+        strcat(msgtxt, "SHA3 ");
+      if (cpucaps->flags & CPU_ARM64_SHA512)
+        strcat(msgtxt, "SHA512 ");
+
+#if defined(VMDCPUDISPATCH) && defined(__ARM_FEATURE_SVE)
+      if (cpucaps->flags & CPU_ARM64_SVE) {
+        rt_ui_message(MSG_0, msgtxt);
+        sprintf(msgtxt, "  ARM64 SVE vector lengths  32-bit: %d,  64-bit: %d",
+                arm_sve_vecsize_32bits(), arm_sve_vecsize_64bits());
+      }
+#endif
+#endif
+
+      rt_ui_message(MSG_0, msgtxt); 
+    }
 
     totalspeed = 0.0;
     totalcpus = 0;
@@ -253,7 +383,7 @@ void rendercheck(scenedef * scene) {
     rt_ui_message(MSG_0, msgtxt);
   }
 
-  rt_barrier_sync();     /* synchronize all nodes at this point             */
+  rt_par_barrier_sync(scene->parhnd); /* synchronize all nodes at this point */
   stth=rt_timer_create();
   rt_timer_start(stth);  /* Time the preprocessing of the scene database    */
   rt_autoshader(scene);  /* Adapt to the shading features needed at runtime */
@@ -284,8 +414,6 @@ void rendercheck(scenedef * scene) {
     /* allocate the image buffer accordinate to pixel format */
     if (scene->imgbufformat == RT_IMAGE_BUFFER_RGB24) {
       scene->img = malloc(scene->hres * scene->vres * 3);
-    } else if (scene->imgbufformat == RT_IMAGE_BUFFER_RGBA32) {
-        scene->img = malloc(scene->hres * scene->vres * 4);
     } else if (scene->imgbufformat == RT_IMAGE_BUFFER_RGB96F) {
       scene->img = malloc(sizeof(float) * scene->hres * scene->vres * 3);
     } else {
@@ -298,6 +426,33 @@ void rendercheck(scenedef * scene) {
     } 
   }
 
+#if defined(RT_ACCUMULATE_ON)
+  /* Allocate the accumulation buffer if necessary */
+  if ((scene->accum_mode == RT_ACCUMULATE_ON) ||
+      (scene->accum_mode == RT_ACCUMULATE_CLEAR)) {
+    int bufsz = sizeof(float) * scene->hres * scene->vres * 3;
+
+    /* handle resize events */
+    if (scene->accum_buf != NULL) {
+      free(scene->accum_buf);
+      scene->accum_buf = NULL;
+    }
+
+    if (scene->accum_buf == NULL) {
+      scene->accum_buf = calloc(1, bufsz);  /* allocate and clear buffer */
+      scene->accum_mode = RT_ACCUMULATE_ON; /* reset to on from clear    */
+      scene->accum_count = 0;               /* reset accumulation count  */
+    } 
+
+    if (scene->accum_mode == RT_ACCUMULATE_CLEAR) {
+      int bufsz = sizeof(float) * scene->hres * scene->vres * 3;
+      memset(scene->accum_buf, 0, bufsz);   /* clear accumulation buffer */
+      scene->accum_count = 0;               /* reset accumulation count  */
+      scene->accum_mode = RT_ACCUMULATE_ON; /* reset to on from clear    */
+    }
+  }
+#endif
+
   /* if any threads are leftover from a previous scene, and the  */
   /* scene has changed significantly, we have to collect, and    */
   /* respawn the worker threads, since lots of things may have   */
@@ -307,7 +462,7 @@ void rendercheck(scenedef * scene) {
 
   /* allocate and initialize persistent scanline receive buffers */
   /* which are used by the parallel message passing code.        */
-  scene->parbuf = rt_init_scanlinereceives(scene);
+  scene->parbuf = rt_par_init_scanlinereceives(scene->parhnd, scene);
 
   /* the scene has been successfully prepared for rendering      */
   /* unless it gets modified in certain ways, we don't need to   */
@@ -402,9 +557,19 @@ void renderscene(scenedef * scene) {
   if (scene->scenecheck)
     rendercheck(scene);
 
+#if defined(RT_ACCUMULATE_ON)
+  /* update accumulation buffer state on every frame */ 
+  if (scene->accum_mode == RT_ACCUMULATE_CLEAR) {
+    int bufsz = sizeof(float) * scene->hres * scene->vres * 3;
+    memset(scene->accum_buf, 0, bufsz);   /* clear accumulation buffer */
+    scene->accum_count = 0;               /* reset accumulation count  */
+    scene->accum_mode = RT_ACCUMULATE_ON; /* reset to on from clear    */
+  }
+  scene->accum_count++;               /* increment accumulation count */
+#endif
+
   if (scene->mynode == 0) 
     rt_ui_progress(0);     /* print 0% progress at start of rendering */
-
 
   /* 
    * Core Ray Tracing Code
@@ -421,6 +586,11 @@ void renderscene(scenedef * scene) {
 
   camera_init(scene);      /* Initialize all aspects of camera system  */
 
+#if defined(THR)
+  /* reset the pixel counter for this frame */
+  rt_atomic_int_set(((thr_parms *) scene->threadparms)[0].pixelsched, 0);
+#endif
+
 #if defined(MPI) && defined(THR)
   /* reset the rows counter for this frame */
   rt_atomic_int_set(((thr_parms *) scene->threadparms)[0].rowsdone, 0);
@@ -433,14 +603,15 @@ void renderscene(scenedef * scene) {
 
 #ifdef MPI
   /* if using message passing, start persistent receives */
-  rt_start_scanlinereceives(scene->parbuf); /* start scanline receives */
+  rt_par_start_scanlinereceives(scene->parhnd, scene->parbuf);
 #endif
 
   /* Actually Ray Trace The Image */
   thread_trace(&((thr_parms *) scene->threadparms)[0]);
 
 #ifdef MPI
-  rt_waitscanlines(scene->parbuf);  /* wait for all scanlines to recv/send  */
+  /* wait for all scanlines to recv/send  */
+  rt_par_waitscanlines(scene->parhnd, scene->parbuf);
 #endif
 
   rt_timer_stop(rtth);              /* stop timer for ray tracing runtime   */

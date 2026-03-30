@@ -1,7 +1,17 @@
 /*
  * util.c - Contains all of the timing functions for various platforms.
  *
- *  $Id: util.c,v 1.63 2011/02/07 15:20:39 johns Exp $ 
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: util.c,v 1.72 2022/02/21 16:59:29 johns Exp $ 
+ *
+ */
+
+/**
+ *  \file util.c
+ *  \brief Tachyon cross-platform timers, special math function wrappers,
+ *         and RNGs.
  */
 
 #include <stdio.h>
@@ -52,7 +62,7 @@
 void rt_finalize(void); /* UGLY! tachyon.h needs more cleanup before it can */
                         /* be properly included without risk of bogosity    */
 
-#if defined(__linux) || defined(Bsd) || defined(AIX) || defined(__APPLE__) || defined(__sun) || defined(__hpux) || defined(_CRAYT3E) || defined(_CRAY) || defined(_CRAYC) || defined(__osf__) || defined(__BEOS__) || defined(__CYGWIN__)
+#if defined(__linux) || defined(Bsd) || defined(AIX) || defined(__APPLE__) || defined(__sun) || defined(__hpux) || defined(_CRAYT3E) || defined(_CRAY) || defined(_CRAYC) || defined(__osf__) || defined(__BEOS__)
 #include <sys/time.h>
 #endif
 
@@ -150,14 +160,14 @@ double rt_timer_time(rt_timerhandle v) {
 #ifdef STDTIME 
 typedef struct {
   struct timeval starttime, endtime;
-#ifndef VMS
+#if !defined(VMS) && (__STDC_VERSION__ < 201112L)
   struct timezone tz;
 #endif
 } rt_timer;
 
 void rt_timer_start(rt_timerhandle v) {
   rt_timer * t = (rt_timer *) v;
-#ifdef VMS
+#if defined(VMS) || (__STDC_VERSION__ >= 201112L)
   gettimeofday(&t->starttime, NULL);
 #else
   gettimeofday(&t->starttime, &t->tz);
@@ -166,7 +176,7 @@ void rt_timer_start(rt_timerhandle v) {
   
 void rt_timer_stop(rt_timerhandle v) {
   rt_timer * t = (rt_timer *) v;
-#ifdef VMS
+#if defined(VMS) || (__STDC_VERSION__ >= 201112L)
   gettimeofday(&t->endtime, NULL);
 #else
   gettimeofday(&t->endtime, &t->tz);
@@ -588,21 +598,178 @@ unsigned int rng_seed_from_tid_nodeid(int tid, int node) {
   return seedbuf[tid % 11] + node * 31337;
 }
 
+
+/*
+ * TEA, a tiny encryption algorithm.
+ * D. Wheeler and R. Needham, 2nd Intl. Workshop Fast Software Encryption,
+ * LNCS, pp. 363-366, 1994.
+ *
+ * GPU Random Numbers via the Tiny Encryption Algorithm
+ * F. Zafar, M. Olano, and A. Curtis.
+ * HPG '10 Proceedings of the Conference on High Performance Graphics,
+ * pp. 133-141, 2010.
+ */
+
+/* two rounds... */
+unsigned int tea2(unsigned int v0, unsigned int v1) {
+  unsigned int n;
+  unsigned int s0 = 0;
+  for (n=0; n<2; n++) {
+    s0 += 0x9e3779b9;
+    v0 += ((v1<<4)+0xa341316c)^(v1+s0)^((v1>>5)+0xc8013ea4);
+    v1 += ((v0<<4)+0xad90777d)^(v0+s0)^((v0>>5)+0x7e95761e);
+  }
+  return v0;
+}
+
+/* four rounds... */
+unsigned int tea4(unsigned int v0, unsigned int v1) {
+  unsigned int n;
+  unsigned int s0 = 0;
+  for (n=0; n<4; n++) {
+    s0 += 0x9e3779b9;
+    v0 += ((v1<<4)+0xa341316c)^(v1+s0)^((v1>>5)+0xc8013ea4);
+    v1 += ((v0<<4)+0xad90777d)^(v0+s0)^((v0>>5)+0x7e95761e);
+  }
+  return v0;
+}
+
+
+
+/*
+ * Low discrepancy sequences based on the Golden Ratio, described in
+ * Golden Ratio Sequences for Low-Discrepancy Sampling,
+ * Colas Schretter and Leif Kobbelt, pp. 95-104, JGT 16(2), 2012.
+ */
+
+/* compute phi using newton-raphson */
+double compute_goldenratio_phi(int dim) {
+  double x = 1.0;
+  int i;
+  /* 20 iterations should do it */
+  for (i=0; i<20; i++) {
+    x = x - (pow(x, dim+1) - x - 1) / ((dim+1)*pow(x, dim)-1);
+  }
+  return x;
+}
+
+
+/* compute Nth value in 1-D sequence */
+float goldenratioseq1d(int n) {
+  const double g = 1.61803398874989484820458683436563;
+  const double a1 = 1.0 / g;
+  const double seed = 0.5;
+  double ngold;
+  ngold = (seed + (a1 * n));
+  return ngold - trunc(ngold);
+}
+
+/* incremental formulation to obtain the next value in the sequence */
+void goldenratioseq1d_incr(float *x) {
+  const double g = 1.61803398874989484820458683436563;
+  const double a1 = 1.0 / g;
+  float ngold = (*x) + a1;
+  *x = ngold - trunc(ngold);
+}
+
+
+/* compute Nth value in 2-D sequence */
+void goldenratioseq2d(int n, float *x, float *y) {
+  const double g = 1.32471795724474602596;
+  const double a1 = 1.0 / g;
+  const double a2 = 1.0 / (g*g);
+  const double seed = 0.5;
+  double ngold;
+
+  ngold = (seed + (a1 * n));
+  *x = (float) (ngold - trunc(ngold));
+
+  ngold = (seed + (a2 * n));
+  *y = (float) (ngold - trunc(ngold));
+}
+
+/* incremental formulation to obtain the next value in the sequence */
+void goldenratioseq2d_incr(float *x, float *y) {
+  const float g = 1.32471795724474602596;
+  const float a1 = 1.0 / g;
+  const float a2 = 1.0 / (g*g);
+  float ngold;
+
+  ngold = (*x) + a1;
+  *x = (ngold - trunc(ngold));
+
+  ngold = (*y) + a2;
+  *y = (ngold - trunc(ngold));
+}
+
+
+/* compute Nth value in 3-D sequence */
+void goldenratioseq3d(int n, float *x, float *y, float *z) {
+  const double g = 1.22074408460575947536;
+  const double a1 = 1.0 / g;
+  const double a2 = 1.0 / (g*g);
+  const double a3 = 1.0 / (g*g*g);
+  const double seed = 0.5;
+  double ngold;
+
+  ngold = (seed + (a1 * n));
+  *x = (float) (ngold - trunc(ngold));
+
+  ngold = (seed + (a2 * n));
+  *y = (float) (ngold - trunc(ngold));
+
+  ngold = (seed + (a3 * n));
+  *z = (float) (ngold - trunc(ngold));
+}
+
+/* incremental formulation to obtain the next value in the sequence */
+void goldenratioseq3d_incr(float *x, float *y, float *z) {
+  const float g = 1.22074408460575947536;
+  const float a1 = 1.0 / g;
+  const float a2 = 1.0 / (g*g);
+  const float a3 = 1.0 / (g*g*g);
+  float ngold;
+
+  ngold = (*x) + a1;
+  *x = (ngold - trunc(ngold));
+
+  ngold = (*y) + a2;
+  *y = (ngold - trunc(ngold));
+
+  ngold = (*z) + a3;
+  *z = (ngold - trunc(ngold));
+}
+
+
+
+/*
+ * Helper functions for stochastic sampling
+ */
+
 /* calculate a pair of pixel jitter offset values */
 /* that range from -0.5 to 0.5                    */
 void jitter_offset2f(unsigned int *pval, float *xy) {
-  xy[0] = (rt_rand(pval) / RT_RAND_MAX) - 0.5f;
-  xy[1] = (rt_rand(pval) / RT_RAND_MAX) - 0.5f;
+  xy[0] = (rt_rand(pval) * RT_RAND_MAX_INV) - 0.5f;
+  xy[1] = (rt_rand(pval) * RT_RAND_MAX_INV) - 0.5f;
 }
 
 /* calculate a pair of pixel jitter offset values */
 /* that range from -0.5 to 0.5                    */
 void jitter_disc2f(unsigned int *pval, float *dir) {
+#if 1
+  float r, phi, dx, dy;
+  r   = (rt_rand(pval) * RT_RAND_MAX_INV);
+  phi = (rt_rand(pval) * RT_RAND_MAX_INV) * TWOPI;
+  r = SQRT(r) * 0.5f; 
+  dx = SIN(phi) * r; 
+  dy = COS(phi) * r; 
+#else
   float dx, dy;
   do {
-    dx = (rt_rand(pval) / RT_RAND_MAX) - 0.5f;
-    dy = (rt_rand(pval) / RT_RAND_MAX) - 0.5f;
+    dx = (rt_rand(pval) * RT_RAND_MAX_INV) - 0.5f;
+    dy = (rt_rand(pval) * RT_RAND_MAX_INV) - 0.5f;
   } while ((dx*dx + dy*dy) > 0.250f);
+#endif
 
   dir[0] = dx;
   dir[1] = dy;
@@ -610,12 +777,38 @@ void jitter_disc2f(unsigned int *pval, float *dir) {
 
 /* Generate a randomly oriented ray */
 void jitter_sphere3f(rng_frand_handle *rngh, float *dir) {
-  float dx, dy, dz, len, invlen;
+#if 1
+  /* Archimedes' cylindrical projection scheme       */
+  /* generate a point on a unit cylinder and project */
+  /* back onto the sphere.  This approach is likely  */
+  /* faster for SIMD hardware, despite the use of    */
+  /* transcendental functions.                       */
+  float u1 = rng_frand(rngh);
+  float z = 2.0f * u1 - 1.0f;
+#if defined(_MSC_VER)
+  float R = (float) sqrt(1.0f - z*z);
+#else
+  float R = sqrtf(1.0f - z*z);
+#endif
+  
+  float u2 = rng_frand(rngh);
+  float phi = TWOPI * u2;
+#if defined(_MSC_VER)
+  dir[0] = (float) R * cos(phi);
+  dir[1] = (float) R * sin(phi);
+#else
+  dir[0] = R * cosf(phi);
+  dir[1] = R * sinf(phi);
+#endif
+  dir[2] = z;
+#else
+  /* Marsaglia's uniform sphere sampling scheme           */
   /* In order to correctly sample a sphere, using rays    */
   /* generated randomly within a cube we must throw out   */
   /* direction vectors longer than 1.0, otherwise we'll   */
   /* oversample the corners of the cube relative to       */
   /* a true sphere.                                       */
+  float dx, dy, dz, len, invlen;
   do {
     dx = rng_frand(rngh) - 0.5f;
     dy = rng_frand(rngh) - 0.5f;
@@ -628,6 +821,7 @@ void jitter_sphere3f(rng_frand_handle *rngh, float *dir) {
   dir[0] = dx * invlen;
   dir[1] = dy * invlen;
   dir[2] = dz * invlen;
+#endif
 }
 
 

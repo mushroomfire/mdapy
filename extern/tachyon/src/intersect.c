@@ -1,7 +1,11 @@
 /* 
  * intersect.c - This file contains code for CSG and intersection routines.
  *
- *  $Id: intersect.c,v 1.43 2012/12/09 06:49:32 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: intersect.c,v 1.44 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 #include <stdio.h>

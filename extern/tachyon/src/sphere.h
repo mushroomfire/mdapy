@@ -1,7 +1,11 @@
 /* 
  * sphere.h - This file contains the defines for spheres etc.
  *
- *  $Id: sphere.h,v 1.13 2011/02/05 08:10:11 johns Exp $
+ * (C) Copyright 1994-2022 John E. Stone
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * $Id: sphere.h,v 1.15 2022/02/18 17:55:28 johns Exp $
+ *
  */
 
 object * newsphere(void *, vector, flt);
@@ -11,7 +15,7 @@ object * newsphere(void *, vector, flt);
 typedef struct {
   RT_OBJECT_HEAD
   vector ctr;    /**< sphere center */
-  flt rad;       /**< spher radius */
+  flt rad;       /**< sphere radius */
 } sphere;
 
 static int sphere_bbox(void * obj, vector * min, vector * max);

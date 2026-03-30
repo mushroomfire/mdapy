@@ -41,12 +41,12 @@
 //
 //   "Interactive Ray Tracing Techniques for
 //    High-Fidelity Scientific Visualization"
-//    J. E. Stone. In, Eric Haines and Tomas Akenine-Mï¿½ller, editors,
+//    J. E. Stone. In, Eric Haines and Tomas Akenine-Möller, editors,
 //    Ray Tracing Gems, Apress, Chapter 27, pp. 493-515, 2019.
 //    https://link.springer.com/book/10.1007/978-1-4842-4427-2
 //
 //   "A Planetarium Dome Master Camera"
-//    J. E. Stone.  In, Eric Haines and Tomas Akenine-Mï¿½ller, editors,
+//    J. E. Stone.  In, Eric Haines and Tomas Akenine-Möller, editors,
 //    Ray Tracing Gems, Apress, Chapter 4, pp. 49-60, 2019.
 //    https://link.springer.com/book/10.1007/978-1-4842-4427-2
 //
@@ -270,8 +270,10 @@ TachyonOptiX::TachyonOptiX(void) {
   regen_optix_sbt=1;                  // force regen of SBT
   regen_optix_lights=1;               // force regen of lights
 
-  create_context();                   // create CUDA/OptiX hardware contexts
-  destroy_scene();                    // zero obj counters, ready for rendering
+  // NOTE: create_context() is intentionally NOT called here.
+  // The caller (mdapy Impl) must call set_shader_path() first, then
+  // create_context() + destroy_scene() manually after construction.
+  // This avoids loading TachyonOptiXShaders.ptx from the wrong cwd.
 
   PROFILE_POP_RANGE();
 }

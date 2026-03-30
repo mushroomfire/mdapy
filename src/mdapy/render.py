@@ -71,12 +71,24 @@ from typing import Optional, Tuple
 
 import numpy as np
 
+import mdapy._tachyon as _tachyon_mod
 from mdapy._tachyon import (
     TachyonRenderer as _TachyonRenderer,
     RenderParams as _RenderParams,
     CameraParams as _CameraParams,
     Vec3 as _Vec3,
 )
+
+# GPU backend: only available when mdapy was built with OptiX.
+_HAS_OPTIX: bool = _tachyon_mod.has_optix()
+if _HAS_OPTIX:
+    print('have optix')
+    from mdapy._tachyon import TachyonOptiXRenderer as _TachyonOptiXRenderer
+
+
+def is_gpu_available() -> bool:
+    """Return True if this mdapy build supports GPU rendering (OptiX 7+)."""
+    return _HAS_OPTIX
 
 
 # ─── CameraParams ─────────────────────────────────────────────────────────────
@@ -141,46 +153,69 @@ class CameraParams:
         return f"CameraParams({mode}, fov={fov:.1f}{unit}, pos={self.position})"
 
 
-# ─── TachyonRender ────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# TachyonRender
+# ---------------------------------------------------------------------------
 class TachyonRender:
     """
     mdapy Tachyon ray-tracing renderer (Tachyon 0.99.5).
+
+    Supports two backends selectable via the ``backend`` parameter:
+
+    ``"cpu"``  (default)
+        Classic multi-threaded CPU renderer.  Always available.
+        Uses Tachyon's POSIX-thread parallelism.
+
+    ``"gpu"``
+        NVIDIA OptiX 7 GPU ray-tracing backend (RTX hardware acceleration).
+        Only available when mdapy was compiled with CUDA + OptiX support.
+        Raises ``RuntimeError`` at construction time if no CUDA GPU is found.
+        Check availability with :func:`is_gpu_available`.
+
+    ``"auto"``
+        Use GPU if available, fall back to CPU silently.
 
     Parameters
     ----------
     width, height : int
         Output image resolution in pixels.
+    backend : str
+        Rendering backend: ``"cpu"``, ``"gpu"``, or ``"auto"``.  Default ``"cpu"``.
     antialiasing : bool
         Enable anti-aliasing.  Default True.
     aa_samples : int
-        Number of anti-aliasing samples per pixel.  Default 12.
+        Anti-aliasing samples per pixel.  Default 12.
     ao : bool
         Enable ambient occlusion.  Default True.
     ao_samples : int
-        Number of AO samples.  Default 12.
+        AO samples.  Default 12.
     ao_brightness : float
         Sky-light brightness for AO.  Default 0.8.
     ao_max_dist : float
-        Maximum AO occlusion distance.  Default is unlimited
-        (``RT_AO_MAXDIST_UNLIMITED``).  A smaller value speeds up
-        rendering but limits the AO effect range.
+        Maximum AO occlusion distance.  Default unlimited.
     shadows : bool
-        Enable hard shadows.  Default True.
+        Enable hard shadows (CPU only; GPU always uses shadows).  Default True.
     direct_light_intensity : float
-        Intensity of the directional light.  Default 0.9.
+        Directional light intensity.  Default 0.9.
     background : tuple
-        Background colour as (R, G, B) or (R, G, B, A) in [0, 1].
-        Default black.  Note: Tachyon 0.99.5 does not natively support
-        alpha in the background; ``bgA`` only sets the alpha channel
-        of background pixels in the output RGBA image.
+        Background colour (R, G, B) or (R, G, B, A) in [0, 1].  Default black.
     num_threads : int
-        Number of rendering threads.  0 = Tachyon auto-detect.  Default 0.
+        CPU thread count (CPU backend only).  0 = auto.  Default 0.
+
+    Examples
+    --------
+    >>> ren_cpu = TachyonRender(width=800, height=600)                  # CPU
+    >>> ren_gpu = TachyonRender(width=800, height=600, backend="gpu")   # GPU
+    >>> ren_auto= TachyonRender(width=800, height=600, backend="auto")  # auto
+    >>> print(ren_cpu.backend)
+    cpu
     """
 
     def __init__(
         self,
         width: int = 800,
         height: int = 600,
+        backend: str = "cpu",
         antialiasing: bool = True,
         aa_samples: int = 12,
         ao: bool = True,
@@ -192,7 +227,26 @@ class TachyonRender:
         background: tuple = (0.0, 0.0, 0.0),
         num_threads: int = 0,
     ):
-        self._renderer = _TachyonRenderer()
+        backend = backend.lower().strip()
+        if backend not in ("cpu", "gpu", "auto"):
+            raise ValueError(f"backend must be 'cpu', 'gpu', or 'auto', got {backend!r}")
+
+        # Resolve "auto": pick GPU if available, else CPU.
+        if backend == "auto":
+            backend = "gpu" if _HAS_OPTIX else "cpu"
+
+        if backend == "gpu":
+            if not _HAS_OPTIX:
+                raise RuntimeError(
+                    "GPU backend requested but mdapy was not compiled with "
+                    "OptiX support.  Rebuild with CUDA + OptiX, or use "
+                    "backend='cpu'."
+                )
+            self._renderer = _TachyonOptiXRenderer()
+        else:
+            self._renderer = _TachyonRenderer()
+
+        self._backend = backend   # "cpu" or "gpu" (resolved)
 
         rp = _RenderParams()
         rp.width = int(width)
@@ -212,6 +266,17 @@ class TachyonRender:
         rp.bg_a = float(bg[3]) if len(bg) > 3 else 1.0
         rp.num_threads = int(num_threads)
         self._rp = rp
+
+    @property
+    def backend(self) -> str:
+        """The active rendering backend: ``'cpu'`` or ``'gpu'``."""
+        return self._backend
+
+    def __repr__(self) -> str:
+        rp = self._rp
+        return (f"TachyonRender(backend={self._backend!r}, "
+                f"size=({rp.width}x{rp.height}), "
+                f"ao={rp.ao_enabled}, aa={rp.antialiasing_enabled})")
 
     # Main rendering interface
     def render(
@@ -651,13 +716,14 @@ if __name__ == "__main__":
 
     sys_al = mp.build_hea(
         ["Cr", "Co", "Ni"], [1/3, 1/3, 1/3],
-        "fcc", 3.6, nx=10, ny=10, nz=10, random_seed=1
+        "fcc", 3.6, nx=5, ny=5, nz=5, random_seed=1
     )
     print(f"  N atoms: {sys_al.N}")
 
     ren = TachyonRender(
         width=600,
         height=600,
+        backend='cpu',
         background=(1, 1, 1),
         direct_light_intensity=1.2,
         aa_samples=12,

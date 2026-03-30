@@ -45,12 +45,12 @@
 //
 //   "Interactive Ray Tracing Techniques for
 //    High-Fidelity Scientific Visualization"
-//    J. E. Stone. In, Eric Haines and Tomas Akenine-Mï¿½ller, editors,
+//    J. E. Stone. In, Eric Haines and Tomas Akenine-Möller, editors,
 //    Ray Tracing Gems, Apress, Chapter 27, pp. 493-515, 2019.
 //    https://link.springer.com/book/10.1007/978-1-4842-4427-2
 //
 //   "A Planetarium Dome Master Camera"
-//    J. E. Stone.  In, Eric Haines and Tomas Akenine-Mï¿½ller, editors,
+//    J. E. Stone.  In, Eric Haines and Tomas Akenine-Möller, editors,
 //    Ray Tracing Gems, Apress, Chapter 4, pp. 49-60, 2019.
 //    https://link.springer.com/book/10.1007/978-1-4842-4427-2
 //
@@ -933,8 +933,6 @@ private:
   // Internal methods
   //
 
-  /// initialize the underlying CUDA/OptiX hardware contexts
-  void create_context(void);
   void destroy_context(void);
 
   void check_verbose_env();                 ///< check env vars for verbose out
@@ -1067,6 +1065,11 @@ public:
       shaderpath[sizeof(shaderpath) - 1] = '\0';
     }
   }
+
+  /// Explicitly initialize the OptiX context.
+  /// Must be called after set_shader_path() and before any rendering.
+  /// (Moved out of the constructor so callers can set shaderpath first.)
+  void create_context(void);
 
   /// reduce active memory footprint without destroying the scene
   /// by freeing internal temporary buffers used during AS builds etc.
@@ -1324,3 +1327,4 @@ public:
 
 
 #endif
+

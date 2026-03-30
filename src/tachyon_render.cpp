@@ -1,16 +1,16 @@
 /**
- * tachyon_render.cpp  —  mdapy Tachyon nanobind 绑定（适配 0.99.5）
+ * tachyon_render.cpp  -  mdapy Tachyon nanobind bindings
  *
- * 暴露的 Python 接口：
- *   _tachyon.TachyonRenderer
- *   _tachyon.RenderParams
- *   _tachyon.CameraParams
- *   _tachyon.Vec3
+ * Exposes a unified Python interface for both CPU (Tachyon classic) and
+ * GPU (TachyonOptiX, NVIDIA OptiX 7+) backends.
  *
- * 相较旧版新增/修改：
- *   - RenderParams 新增 ao_max_dist（AO 最大距离）
- *   - render() 的 box_edges 参数扩展为可传 dict，支持自定义颜色和半径
- *   - 内部使用 BoxEdgeParams 辅助结构传递 box 外观参数
+ * Python classes exposed in _tachyon:
+ *   Vec3
+ *   CameraParams
+ *   RenderParams
+ *   TachyonRenderer          (CPU backend, always available)
+ *   TachyonOptiXRenderer     (GPU backend, only when MDAPY_OPTIX=1)
+ *   has_optix()              -> bool
  */
 
 #include <nanobind/nanobind.h>
@@ -22,154 +22,243 @@
 #include <cstdint>
 #include <stdexcept>
 
-#include "tachyon_render.h"
+#include "tachyon_render.h"   // CPU renderer + shared data structs
+
+#if defined(MDAPY_OPTIX)
+#  include "tachyon_optix_render.h"   // GPU renderer
+#endif
 
 namespace nb = nanobind;
 using namespace mdapy_tachyon;
 
-// ndarray 类型别名
+// ---------------------------------------------------------------------------
+// ndarray type aliases (shared by both backends)
+// ---------------------------------------------------------------------------
 using PosArray = nb::ndarray<double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 using ColArray = nb::ndarray<float,  nb::shape<-1, 4>, nb::c_contig, nb::device::cpu>;
 using RadArray = nb::ndarray<float,  nb::shape<-1>,    nb::c_contig, nb::device::cpu>;
 using BoxArray = nb::ndarray<double, nb::shape<-1, 2, 3>, nb::c_contig, nb::device::cpu>;
 
-NB_MODULE(_tachyon, m) {
-    m.doc() = "Tachyon ray-tracing renderer for mdapy (Tachyon 0.99.5)";
+// ---------------------------------------------------------------------------
+// Shared helper: parse box_obj + optional colour/radius params into
+// BoxEdgeData and a backing buffer.  Returns hasBox flag.
+// The box_buf must outlive the returned BoxEdgeData.
+// ---------------------------------------------------------------------------
+static bool parse_box(nb::object box_obj,
+                      float box_r, float box_g, float box_b, float box_a,
+                      float box_radius,
+                      std::vector<double> &box_buf,
+                      BoxEdgeData &be)
+{
+    be.r      = box_r;
+    be.g      = box_g;
+    be.b      = box_b;
+    be.a      = box_a;
+    be.radius = box_radius;
 
-    // ── Vec3 ─────────────────────────────────────────────────────────────
-    nb::class_<Vec3>(m, "Vec3")
+    if (box_obj.is_none()) return false;
+
+    BoxArray ba = nb::cast<BoxArray>(box_obj);
+    const size_t M = ba.shape(0);
+    if (M == 0) return false;
+
+    // Deep-copy: the temporary BoxArray will be destroyed after this call.
+    box_buf.assign(ba.data(), ba.data() + M * 6);
+    be.points = box_buf.data();
+    be.count  = M;
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Shared helper: wrap a std::vector<uint8_t> in a numpy array via capsule.
+// ---------------------------------------------------------------------------
+static nb::ndarray<nb::numpy, uint8_t, nb::shape<-1,-1,4>>
+wrap_image(std::vector<uint8_t> raw, int height, int width)
+{
+    uint8_t *heap = new uint8_t[raw.size()];
+    std::memcpy(heap, raw.data(), raw.size());
+    nb::capsule owner(heap,
+        [](void *p) noexcept { delete[] static_cast<uint8_t *>(p); });
+    size_t shape[3] = { size_t(height), size_t(width), 4 };
+    return nb::ndarray<nb::numpy, uint8_t, nb::shape<-1,-1,4>>(
+        heap, 3, shape, owner);
+}
+
+// ---------------------------------------------------------------------------
+// NB_MODULE
+// ---------------------------------------------------------------------------
+NB_MODULE(_tachyon, m) {
+    m.doc() = "Tachyon ray-tracing renderer for mdapy  "
+              "(CPU + optional GPU/OptiX backend)";
+
+    // -----------------------------------------------------------------------
+    // Vec3
+    // -----------------------------------------------------------------------
+    nb::class_<Vec3>(m, "Vec3",
+        "3-component double-precision vector (world-space coordinates).")
         .def(nb::init<double, double, double>(),
-             nb::arg("x")=0., nb::arg("y")=0., nb::arg("z")=0.)
+             nb::arg("x") = 0., nb::arg("y") = 0., nb::arg("z") = 0.)
         .def_rw("x", &Vec3::x)
         .def_rw("y", &Vec3::y)
         .def_rw("z", &Vec3::z)
-        .def("__repr__", [](const Vec3& v) {
+        .def("__repr__", [](const Vec3 &v) {
             return "Vec3(" + std::to_string(v.x) + ", "
                            + std::to_string(v.y) + ", "
                            + std::to_string(v.z) + ")";
         });
 
-    // ── CameraParams ─────────────────────────────────────────────────────
-    nb::class_<CameraParams>(m, "CameraParams")
+    // -----------------------------------------------------------------------
+    // CameraParams
+    // -----------------------------------------------------------------------
+    nb::class_<CameraParams>(m, "CameraParams",
+        "Camera parameters compatible with OVITO's ViewProjectionParameters.")
         .def(nb::init<>())
-        .def_rw("is_perspective",  &CameraParams::isPerspective)
-        .def_rw("field_of_view",   &CameraParams::fieldOfView)
-        .def_rw("position",        &CameraParams::position)
-        .def_rw("direction",       &CameraParams::direction)
-        .def_rw("up",              &CameraParams::up)
-        .def_rw("znear",           &CameraParams::znear)
-        .def_rw("dof_enabled",     &CameraParams::dofEnabled)
-        .def_rw("dof_focal_len",   &CameraParams::dofFocalLen)
-        .def_rw("dof_aperture",    &CameraParams::dofAperture);
+        .def_rw("is_perspective",  &CameraParams::isPerspective,
+                "True = perspective projection, False = orthographic.")
+        .def_rw("field_of_view",   &CameraParams::fieldOfView,
+                "Perspective: vertical FOV in radians.  "
+                "Orthographic: viewport half-height in world units.")
+        .def_rw("position",        &CameraParams::position,
+                "Camera position in world coordinates.")
+        .def_rw("direction",       &CameraParams::direction,
+                "Camera view direction (need not be normalised).")
+        .def_rw("up",              &CameraParams::up,
+                "Camera up vector (need not be normalised).")
+        .def_rw("znear",           &CameraParams::znear,
+                "Orthographic near-plane offset for cross-section clipping. "
+                "Default 0 (disabled).")
+        .def_rw("dof_enabled",     &CameraParams::dofEnabled,
+                "Enable depth-of-field (perspective only).")
+        .def_rw("dof_focal_len",   &CameraParams::dofFocalLen,
+                "DoF focal distance in world units.")
+        .def_rw("dof_aperture",    &CameraParams::dofAperture,
+                "DoF aperture radius (CPU) / f-number denominator (GPU).");
 
-    // ── RenderParams ──────────────────────────────────────────────────────
-    nb::class_<RenderParams>(m, "RenderParams")
+    // -----------------------------------------------------------------------
+    // RenderParams
+    // -----------------------------------------------------------------------
+    nb::class_<RenderParams>(m, "RenderParams",
+        "Global rendering settings shared by both CPU and GPU backends.")
         .def(nb::init<>())
         .def_rw("width",                  &RenderParams::width)
         .def_rw("height",                 &RenderParams::height)
         .def_rw("antialiasing_enabled",   &RenderParams::antialiasingEnabled)
         .def_rw("antialiasing_samples",   &RenderParams::antialiasingSamples)
         .def_rw("direct_light_enabled",   &RenderParams::directLightEnabled)
-        .def_rw("shadows_enabled",        &RenderParams::shadowsEnabled)
+        .def_rw("shadows_enabled",        &RenderParams::shadowsEnabled,
+                "Enable hard shadows (CPU only; GPU always uses shadows).")
         .def_rw("direct_light_intensity", &RenderParams::directLightIntensity)
         .def_rw("ao_enabled",             &RenderParams::aoEnabled)
         .def_rw("ao_samples",             &RenderParams::aoSamples)
         .def_rw("ao_brightness",          &RenderParams::aoBrightness)
-        .def_rw("ao_max_dist",            &RenderParams::aoMaxDist)   // 新增
+        .def_rw("ao_max_dist",            &RenderParams::aoMaxDist,
+                "Maximum AO occlusion distance.  "
+                "Default: unlimited (RT_AO_MAXDIST_UNLIMITED).")
         .def_rw("bg_r",                   &RenderParams::bgR)
         .def_rw("bg_g",                   &RenderParams::bgG)
         .def_rw("bg_b",                   &RenderParams::bgB)
-        .def_rw("bg_a",                   &RenderParams::bgA)
-        .def_rw("num_threads",            &RenderParams::numThreads);
+        .def_rw("bg_a",                   &RenderParams::bgA,
+                "Alpha of background pixels in the output RGBA image.")
+        .def_rw("num_threads",            &RenderParams::numThreads,
+                "CPU thread count (CPU backend only).  0 = Tachyon auto.");
 
-    // ── TachyonRenderer ───────────────────────────────────────────────────
-    nb::class_<TachyonRenderer>(m, "TachyonRenderer")
-        .def(nb::init<>())
-        .def("render",
-            [](TachyonRenderer& self,
-               const RenderParams& rp,
-               const CameraParams& cp,
-               PosArray positions,          // (N,3) float64
-               ColArray colors,             // (N,4) float32
-               RadArray radii,              // (N,)  float32
-               nb::object box_obj,          // None | (M,2,3) float64
-               float     box_radius,        // 棱线圆柱半径
-               float     box_r,             // 棱线颜色 R
-               float     box_g,             // 棱线颜色 G
-               float     box_b,             // 棱线颜色 B
-               float     box_a             // 棱线颜色 A（透明度）
-            ) -> nb::ndarray<nb::numpy, uint8_t, nb::shape<-1,-1,4>>
-        {
-            // ── 粒子 ────────────────────────────────────────────────────
-            const size_t N = positions.shape(0);
-            if (colors.shape(0) != N || radii.shape(0) != N)
-                throw std::runtime_error("positions/colors/radii size mismatch");
+    // -----------------------------------------------------------------------
+    // Shared render lambda (avoids duplicating 50 lines for each backend).
+    // BackendT must have: render(rp, cp, pd, box*) -> vector<uint8_t>
+    // -----------------------------------------------------------------------
+    // Typed render helper — avoids generic lambda so nanobind can resolve
+    // operator() unambiguously.  One instantiation per backend class.
+    auto do_render = [](auto *self_ptr,
+               const RenderParams &rp,
+               const CameraParams &cp,
+               PosArray positions,
+               ColArray colors,
+               RadArray radii,
+               nb::object box_obj,
+               float box_radius,
+               float box_r, float box_g, float box_b, float box_a)
+            -> nb::ndarray<nb::numpy, uint8_t, nb::shape<-1,-1,4>>
+    {
+        const size_t N = positions.shape(0);
+        if (colors.shape(0) != N || radii.shape(0) != N)
+            throw std::runtime_error("positions/colors/radii size mismatch");
 
-            ParticleData pd;
-            pd.positions = positions.data();
-            pd.colors    = colors.data();
-            pd.radii     = radii.data();
-            pd.count     = N;
+        ParticleData pd;
+        pd.positions = positions.data();
+        pd.colors    = colors.data();
+        pd.radii     = radii.data();
+        pd.count     = N;
 
-            // ── 晶胞棱线（深拷贝，防止 BoxArray 临时对象析构后指针悬空）──
-            std::vector<double> box_buf;
-            BoxEdgeData be{};
-            be.r      = box_r;
-            be.g      = box_g;
-            be.b      = box_b;
-            be.a      = box_a;
-            be.radius = box_radius;
+        std::vector<double> box_buf;
+        BoxEdgeData be{};
+        bool hasBox = parse_box(box_obj,
+            box_r, box_g, box_b, box_a, box_radius, box_buf, be);
 
-            bool hasBox = !box_obj.is_none();
-            if (hasBox) {
-                BoxArray ba = nb::cast<BoxArray>(box_obj);
-                const size_t M = ba.shape(0);
-                if (M > 0) {
-                    box_buf.assign(ba.data(), ba.data() + M * 6);
-                    be.points = box_buf.data();
-                    be.count  = M;
-                } else {
-                    hasBox = false;
-                }
-            }
+        std::vector<uint8_t> raw = self_ptr->render(
+            rp, cp, pd, hasBox ? &be : nullptr);
 
-            // ── 渲染 ────────────────────────────────────────────────────
-            std::vector<uint8_t> raw = self.render(
-                rp, cp, pd,
-                hasBox ? &be : nullptr);
+        return wrap_image(std::move(raw), rp.height, rp.width);
+    };
 
-            // ── 把结果移交给 Python（capsule 管理堆内存）────────────────
-            const size_t H = static_cast<size_t>(rp.height);
-            const size_t W = static_cast<size_t>(rp.width);
-            uint8_t* heap = new uint8_t[raw.size()];
-            std::memcpy(heap, raw.data(), raw.size());
-            nb::capsule owner(heap,
-                [](void* p) noexcept { delete[] static_cast<uint8_t*>(p); });
-            size_t shape[3] = {H, W, 4};
-            return nb::ndarray<nb::numpy, uint8_t, nb::shape<-1,-1,4>>(
-                heap, 3, shape, owner);
-        },
-        nb::arg("render_params"),
-        nb::arg("camera_params"),
-        nb::arg("positions"),
-        nb::arg("colors"),
-        nb::arg("radii"),
-        nb::arg("box_edges")   = nb::none(),
-        nb::arg("box_radius")  = 0.05f,
-        nb::arg("box_r")       = 1.0f,
-        nb::arg("box_g")       = 1.0f,
-        nb::arg("box_b")       = 1.0f,
-        nb::arg("box_a")       = 1.0f,
-        "Render sphere particles + optional box edges.\n\n"
-        "Parameters\n"
-        "----------\n"
-        "positions  : (N,3) float64\n"
-        "colors     : (N,4) float32  RGBA in [0,1]\n"
-        "radii      : (N,)  float32\n"
-        "box_edges  : (M,2,3) float64 or None\n"
-        "box_radius : float  cylinder radius for box edges (default 0.05)\n"
-        "box_r/g/b/a: float  RGBA color for box edges (default white, opaque)\n\n"
-        "Returns\n"
-        "-------\n"
-        "numpy.ndarray shape (H,W,4) uint8 RGBA");
-}
+    // Macro to bind render() for a concrete class — avoids auto &self ambiguity.
+#define BIND_RENDER(CLS_VAR, CLASS_T)                              \
+    (CLS_VAR).def("render",                                        \
+        [do_render](CLASS_T &self,                                  \
+               const RenderParams &rp,                             \
+               const CameraParams &cp,                             \
+               PosArray positions, ColArray colors, RadArray radii, \
+               nb::object box_obj, float box_radius,               \
+               float box_r, float box_g, float box_b, float box_a) \
+            -> nb::ndarray<nb::numpy, uint8_t, nb::shape<-1,-1,4>> \
+        {                                                           \
+            return do_render(&self, rp, cp, positions, colors,     \
+                radii, box_obj, box_radius,                        \
+                box_r, box_g, box_b, box_a);                       \
+        },                                                          \
+        nb::arg("render_params"),  nb::arg("camera_params"),       \
+        nb::arg("positions"),      nb::arg("colors"),              \
+        nb::arg("radii"),                                           \
+        nb::arg("box_edges")  = nb::none(),                        \
+        nb::arg("box_radius") = 0.05f,                             \
+        nb::arg("box_r") = 1.0f, nb::arg("box_g") = 1.0f,        \
+        nb::arg("box_b") = 1.0f, nb::arg("box_a") = 1.0f,        \
+        "Render sphere particles and optional simulation-cell box edges.\n\n" \
+        "positions  : (N, 3) float64\n"                           \
+        "colors     : (N, 4) float32  RGBA in [0, 1]\n"          \
+        "radii      : (N,)   float32\n"                           \
+        "box_edges  : (M, 2, 3) float64 or None\n"               \
+        "Returns: numpy (H, W, 4) uint8 RGBA")
+
+    // -----------------------------------------------------------------------
+    // TachyonRenderer  (CPU backend)
+    // -----------------------------------------------------------------------
+    {
+        auto cls = nb::class_<TachyonRenderer>(m, "TachyonRenderer",
+            "CPU ray-tracing renderer using the classic Tachyon engine.\n"
+            "Always available regardless of GPU hardware.");
+        cls.def(nb::init<>());
+        BIND_RENDER(cls, TachyonRenderer);
+    }
+
+    // -----------------------------------------------------------------------
+    // TachyonOptiXRenderer  (GPU backend, only when compiled with OptiX)
+    // -----------------------------------------------------------------------
+#if defined(MDAPY_OPTIX)
+    {
+        auto cls = nb::class_<TachyonOptiXRenderer>(m, "TachyonOptiXRenderer",
+            "GPU ray-tracing renderer using TachyonOptiX (NVIDIA OptiX 7+).\n"
+            "Only available when mdapy was built with CUDA and OptiX support.\n"
+            "Typically 5-20x faster than the CPU backend for large scenes.");
+        cls.def(nb::init<>(),
+            "Construct and initialise the OptiX context.\n"
+            "Raises RuntimeError if no CUDA-capable GPU is available.");
+        BIND_RENDER(cls, TachyonOptiXRenderer);
+    }
+    m.def("has_optix", []{ return true; },
+          "Return True if this mdapy build includes GPU/OptiX support.");
+#else
+    m.def("has_optix", []{ return false; },
+          "Return False: this mdapy build was compiled without OptiX support.");
+#endif
+
+} // NB_MODULE

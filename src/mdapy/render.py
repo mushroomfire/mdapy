@@ -82,7 +82,6 @@ from mdapy._tachyon import (
 # GPU backend: only available when mdapy was built with OptiX.
 _HAS_OPTIX: bool = _tachyon_mod.has_optix()
 if _HAS_OPTIX:
-    print('have optix')
     from mdapy._tachyon import TachyonOptiXRenderer as _TachyonOptiXRenderer
 
 
@@ -716,22 +715,22 @@ if __name__ == "__main__":
 
     sys_al = mp.build_hea(
         ["Cr", "Co", "Ni"], [1/3, 1/3, 1/3],
-        "fcc", 3.6, nx=5, ny=5, nz=5, random_seed=1
+        "fcc", 3.6, nx=30, ny=30, nz=30, random_seed=1
     )
     print(f"  N atoms: {sys_al.N}")
 
     ren = TachyonRender(
         width=600,
         height=600,
-        backend='cpu',
+        backend='gpu',
         background=(1, 1, 1),
-        direct_light_intensity=1.2,
+        direct_light_intensity=0.5,
         aa_samples=12,
-        ao_brightness=1.0,
+        ao_brightness=0.5,
     )
 
     pos = sys_al.get_positions().to_numpy()
-    r   = 1.3  # atom radius
+    r   = 1.5  # atom radius
 
     # Render four views matching OVITO's default viewport layout
     views  = ["perspective", "top", "front", "left"]

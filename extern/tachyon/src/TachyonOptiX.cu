@@ -171,7 +171,7 @@ __global__ static void post_denoise_rgba4u(uchar4 *rgba4u,
 //
 
 TachyonOptiX::TachyonOptiX(void) {
-  verbose = RT_VERB_DEBUG;     // ensure debug macro produces output first time
+  verbose = RT_VERB_MIN;       // quiet by default; set to RT_VERB_DEBUG for diagnostics
   DBG();
 
   PROFILE_PUSH_RANGE("TachyonOptiX::TachyonOptiX()", RTPROF_GENERAL);
@@ -413,7 +413,9 @@ void TachyonOptiX::create_context() {
         printf("TachyonOptiX) Loading PTX src from disk\n"); 
       }
       if (read_ptx_src(shaderpath, &rt_ptx_code_string) != 0) {
-        printf("TachyonOptiX) Failed to load PTX shaders: '%s'\n", shaderpath);
+        if (verbose >= RT_VERB_DEBUG) {
+          printf("TachyonOptiX) Failed to load PTX shaders: '%s'\n", shaderpath);
+        }
         return;
       }
     }

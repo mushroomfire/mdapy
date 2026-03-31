@@ -1,5 +1,6 @@
 /.vscode
 /.conda_envs
+/.claude
 /build
 /test.py
 /*.xyz

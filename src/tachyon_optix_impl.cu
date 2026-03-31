@@ -182,7 +182,9 @@ static void build_onb(const CameraParams &cp,
     Vec3 dir = cp.direction.normalized(); dir.z = -dir.z;
     Vec3 up  = cp.up.normalized();        up.z  = -up.z;
     Vec3 w = dir;
-    Vec3 u = w.cross(up).normalized();
+    // Tachyon CPU convention: rightvec = upvec × viewvec
+    // GPU U must match CPU rightvec; using w.cross(up) gives the opposite sign.
+    Vec3 u = up.cross(w).normalized();
     Vec3 v = u.cross(w);
     U[0]=float(u.x); U[1]=float(u.y); U[2]=float(u.z);
     V[0]=float(v.x); V[1]=float(v.y); V[2]=float(v.z);
@@ -241,7 +243,6 @@ struct TachyonOptiXRenderer::Impl {
         // our explicit call below will correctly retry with the resolved path.
         std::string dir      = get_so_directory();
         std::string ptx_path = dir + "TachyonOptiXShaders.ptx";
-        printf("[mdapy] TachyonOptiX shader path: %s\n", ptx_path.c_str());
 
         // ── Pre-flight check 2: PTX file must exist ──────────────────────
         // Fail early with a clear message instead of a later segfault.
@@ -263,24 +264,19 @@ struct TachyonOptiXRenderer::Impl {
         // create_context() checks `if (context_created) return;` so if the
         // constructor's internal call failed (no PTX at relative path), this
         // second call will succeed with the resolved absolute path.
-        // ── Pre-flight check 3: CUDA runtime init ────────────────────────
-        printf("[mdapy] Step 1: CUDA runtime init...\n"); fflush(stdout);
-        cudaError_t cuda_init = cudaFree(0);
-        printf("[mdapy] Step 1 done: %s\n", cudaGetErrorString(cuda_init)); fflush(stdout);
+        // ── Initialize CUDA runtime (required before OptiX) ──────────────
+        cudaFree(0);  // no-op that triggers CUDA runtime initialization
 
         // ── create_context() calls optixInit() internally.
         // TachyonOptiX.cu has been patched to return early (instead of
         // crashing) if optixInit() fails for any reason other than
         // OPTIX_ERROR_UNSUPPORTED_ABI_VERSION.
-        printf("[mdapy] Step 2: create_context()...\n"); fflush(stdout);
         ctx.set_shader_path(ptx_path.c_str());
         ctx.create_context();
-        printf("[mdapy] Step 2 done.\n"); fflush(stdout);
         ctx.destroy_scene();
 
         // ── Post-flight check: CUDA error after context creation ─────────
         cudaError_t cuda_err = cudaGetLastError();
-        printf("[mdapy] Step 3: post-create CUDA check: %s\n", cudaGetErrorString(cuda_err)); fflush(stdout);
         if (cuda_err != cudaSuccess) {
             throw std::runtime_error(
                 std::string("[mdapy] TachyonOptiX GPU context creation failed: ") +
@@ -297,7 +293,13 @@ struct TachyonOptiXRenderer::Impl {
         // (out-of-bounds crash) in add_material_textured when the cache is
         // empty after destroy_scene().  Use an explicit counter so each call
         // gets a fresh, valid slot within the current frame.
-        return ctx.add_material(0.3f,0.8f,0.0f,40.0f,0.0f,alpha,0.0f,0.0f,0,matCounter++);
+        //
+        // ambient=0.0: when AO is enabled, the GPU shader always adds
+        // p_Ka (= mat.ambient) as WHITE constant ambient regardless of whether
+        // AO is on.  The AO system already provides the ambient skylight via
+        // ao_ambient*Kd*shade_ao().  Setting ambient=0.0 avoids double-counting
+        // that matches the CPU Tachyon AO behavior (rt_ambient(scene, 0.0)).
+        return ctx.add_material(0.0f,0.8f,0.0f,40.0f,0.0f,alpha,0.0f,0.0f,0,matCounter++);
     }
 
     void setupCamera(const CameraParams &cp) {
@@ -310,6 +312,12 @@ struct TachyonOptiXRenderer::Impl {
             ctx.set_camera_type(CT::RT_PERSPECTIVE);
             ctx.set_camera_pos(pos);
             ctx.set_camera_ONB(U,V,W);
+            // GPU OptiX shader ray direction: normalize(d.x*U + d.y*V + W)
+            // where d.y ranges from -cam_zoom to +cam_zoom across the image.
+            // → half-FoV = arctan(cam_zoom), so cam_zoom = tan(half_fov).
+            // NOTE: The Tachyon CPU renderer uses the DIFFERENT formula
+            //       camzoom = 0.5/tan(half_fov)  (as in rt_camera_zoom).
+            // Do NOT use the CPU formula here.
             double zs = 1.0;
             if (cp.dofEnabled && cp.dofFocalLen>0 && cp.dofAperture>0) {
                 ctx.camera_dof_enable(1);
@@ -317,7 +325,7 @@ struct TachyonOptiXRenderer::Impl {
                 ctx.set_camera_dof_fnumber(float(cp.dofFocalLen/(2.0*cp.dofAperture)));
                 zs = cp.dofFocalLen;
             } else { ctx.camera_dof_enable(0); }
-            ctx.set_camera_zoom(float(0.5/std::tan(cp.fieldOfView*0.5)/zs));
+            ctx.set_camera_zoom(float(std::tan(cp.fieldOfView*0.5)/zs));
         } else {
             ctx.set_camera_type(CT::RT_ORTHOGRAPHIC);
             Vec3 dir=cp.direction.normalized(); dir.z=-dir.z;
@@ -326,7 +334,12 @@ struct TachyonOptiXRenderer::Impl {
             pos[2]+=float(dir.z)*float(cp.znear);
             ctx.set_camera_pos(pos);
             ctx.set_camera_ONB(U,V,W);
-            ctx.set_camera_zoom(float(0.5/cp.fieldOfView));
+            // GPU OptiX ortho shader: ray origin offset d.y = cam_zoom*(2*iy/H-1),
+            // so cam_zoom is the half-height of the viewport in world units.
+            // fieldOfView is already that half-height.
+            // NOTE: The Tachyon CPU formula is camzoom = 0.5/fieldOfView.
+            // Do NOT use the CPU formula here.
+            ctx.set_camera_zoom(float(cp.fieldOfView));
         }
     }
 
@@ -345,15 +358,19 @@ struct TachyonOptiXRenderer::Impl {
 
     void addBoxEdges(const BoxEdgeData &be) {
         int mat = makeMaterial(be.r,be.g,be.b,be.a);
+        float3 col = make_float3(be.r, be.g, be.b);
         CylinderArray ca; ca.materialindex=mat;
         RingArray ra;     ra.materialindex=mat;
         for (size_t i=0; i<be.count; ++i) {
             const double *p1=be.points+i*6, *p2=be.points+i*6+3;
             float3 a=tvec3(p1[0],p1[1],p1[2]), b=tvec3(p2[0],p2[1],p2[2]);
             ca.start.push_back(a); ca.end.push_back(b); ca.radius.push_back(be.radius);
+            ca.primcolors3f.push_back(col);
             float3 ax={b.x-a.x,b.y-a.y,b.z-a.z}, nax={-ax.x,-ax.y,-ax.z};
             ra.center.push_back(a); ra.normal.push_back(nax); ra.inrad.push_back(0); ra.outrad.push_back(be.radius);
+            ra.primcolors3f.push_back(col);
             ra.center.push_back(b); ra.normal.push_back(ax);  ra.inrad.push_back(0); ra.outrad.push_back(be.radius);
+            ra.primcolors3f.push_back(col);
         }
         if (!ca.start.empty())  ctx.add_cylarray(ca,mat);
         if (!ra.center.empty()) ctx.add_ringarray(ra,mat);
@@ -364,12 +381,15 @@ struct TachyonOptiXRenderer::Impl {
                                 const ParticleData &pd,
                                 const BoxEdgeData  *box)
     {
+        // destroy_scene() must come FIRST: it calls destroy_lights() and
+        // destroy_materials(), so any lights/materials added before it would
+        // be silently discarded.
+        ctx.destroy_scene();
         matCounter = 0; // reset per-frame material slot counter
-        printf("[mdapy] render R1: framebuffer_config\n"); fflush(stdout);
+
         ctx.framebuffer_config(rp.width, rp.height, 0);
-        printf("[mdapy] render R2: framebuffer_clear\n"); fflush(stdout);
         ctx.framebuffer_clear();
-        printf("[mdapy] render R3: set_bg\n"); fflush(stdout);
+
         ctx.set_bg_mode(TachyonOptiX::RT_BACKGROUND_TEXTURE_SOLID);
         float bgcol[3]={rp.bgR,rp.bgG,rp.bgB};
         ctx.set_bg_color(bgcol);
@@ -377,33 +397,28 @@ struct TachyonOptiXRenderer::Impl {
         if (rp.aoEnabled) {
             ctx.set_ao_samples(rp.aoSamples);
             ctx.set_ao_ambient(float(rp.aoBrightness));
-            ctx.set_ao_direct(0.2f);
+            ctx.set_ao_direct(1.0f);  // ao_direct scales the direct-light result before AO is added
             ctx.set_ao_maxdist(float(rp.aoMaxDist));
         } else { ctx.set_ao_samples(0); }
+
         if (rp.directLightEnabled) {
             Vec3 d=cp.direction.normalized(), up=cp.up.normalized();
             Vec3 r=d.cross(up).normalized(), u=r.cross(d).normalized();
             Vec3 wl=r*0.2+u*(-0.2)+d*(-1.0);
             float ldir[3]={float(wl.x),float(wl.y),float(-wl.z)};
             float lcol[3]={float(rp.directLightIntensity),float(rp.directLightIntensity),float(rp.directLightIntensity)};
-            printf("[mdapy] render R4: add_directional_light\n"); fflush(stdout);
             ctx.add_directional_light(ldir,lcol);
         }
-        printf("[mdapy] render R5: setupCamera\n"); fflush(stdout);
+
         setupCamera(cp);
-        printf("[mdapy] render R6: destroy_scene\n"); fflush(stdout);
-        ctx.destroy_scene();
-        printf("[mdapy] render R7: addParticles(%zu)\n", pd.count); fflush(stdout);
+
         addParticles(pd);
         if (box && box->count>0) {
-            printf("[mdapy] render R8: addBoxEdges\n"); fflush(stdout);
             addBoxEdges(*box);
         }
-        printf("[mdapy] render R9: update_rendering_state\n"); fflush(stdout);
+
         ctx.update_rendering_state(0);
-        printf("[mdapy] render R10: ctx.render()\n"); fflush(stdout);
         ctx.render();
-        printf("[mdapy] render R11: render done\n"); fflush(stdout);
 
         // framebuffer_download_rgb4u downloads width*height*sizeof(int) bytes,
         // i.e. 4 bytes per pixel (RGBA unsigned bytes), NOT 3 bytes.

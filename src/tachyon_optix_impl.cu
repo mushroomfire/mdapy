@@ -294,12 +294,11 @@ struct TachyonOptiXRenderer::Impl {
         // empty after destroy_scene().  Use an explicit counter so each call
         // gets a fresh, valid slot within the current frame.
         //
-        // ambient=0.0: when AO is enabled, the GPU shader always adds
-        // p_Ka (= mat.ambient) as WHITE constant ambient regardless of whether
-        // AO is on.  The AO system already provides the ambient skylight via
-        // ao_ambient*Kd*shade_ao().  Setting ambient=0.0 avoids double-counting
-        // that matches the CPU Tachyon AO behavior (rt_ambient(scene, 0.0)).
-        return ctx.add_material(0.0f,0.8f,0.0f,40.0f,0.0f,alpha,0.0f,0.0f,0,matCounter++);
+        // ambient=0.3: matches the CPU Tachyon material (ambient=0.3, diffuse=0.8).
+        // The GPU shader adds p_Ka as white constant ambient (result += p_Ka),
+        // which provides a base illumination floor that prevents shadow sides
+        // from going completely black — consistent with the CPU renderer.
+        return ctx.add_material(0.3f,0.8f,0.0f,40.0f,0.0f,alpha,0.0f,0.0f,0,matCounter++);
     }
 
     void setupCamera(const CameraParams &cp) {
@@ -397,7 +396,13 @@ struct TachyonOptiXRenderer::Impl {
         if (rp.aoEnabled) {
             ctx.set_ao_samples(rp.aoSamples);
             ctx.set_ao_ambient(float(rp.aoBrightness));
-            ctx.set_ao_direct(1.0f);  // ao_direct scales the direct-light result before AO is added
+            // Match CPU behavior: rt_rescale_lights(scene, 0.2f) scales the
+            // direct light contribution to 0.2 when AO is enabled.
+            // ao_direct is the GPU equivalent — it multiplies the summed
+            // direct-light result before the AO term is added (see shader:
+            //   result *= ao_direct;
+            //   result += ao_ambient * col * Kd * shade_ao(...); ).
+            ctx.set_ao_direct(0.2f);
             ctx.set_ao_maxdist(float(rp.aoMaxDist));
         } else { ctx.set_ao_samples(0); }
 

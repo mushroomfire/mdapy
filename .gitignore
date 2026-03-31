@@ -11,3 +11,4 @@
 /doc/get*/.*
 *pyc
 /dist/*
+/*.png

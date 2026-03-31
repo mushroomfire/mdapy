@@ -459,21 +459,24 @@ def preset_camera(
 
     OVITO coordinate convention
     ---------------------------
-    OVITO uses a right-handed coordinate system where **Z is the global up axis**
-    (configurable, but Z by default).  The four standard viewports are:
+    OVITO uses a right-handed coordinate system where **Z is the global up axis**.
+    The eight standard viewports are:
 
-    +-----------------+-------------------------------+------------------+----------+
+    +-----------------+-------------------------------+-------------------+---------+
     | Name            | Meaning                       | camera_dir (OVITO)| up      |
-    +=================+===============================+==================+==========+
-    | ``"top"``       | Look down the -Z axis         | (0, 0, -1)       | (0,1,0)  |
-    |                 | → sees XY plane               |                  |          |
-    +-----------------+-------------------------------+------------------+----------+
-    | ``"left"``      | Look along -X                 | (-1, 0, 0)       | (0,1,0)  |
-    |                 | → sees ZY plane (Z→right)     |                  |          |
-    +-----------------+-------------------------------+------------------+----------+
-    | ``"perspective"``| Tilted view from +X+Y+Z      | (-1,-1,-1)/√3    | (0,0,1)  |
-    | / ``"ortho"``   | → 3D isometric look           |                  |          |
-    +-----------------+-------------------------------+------------------+----------+
+    +=================+===============================+===================+=========+
+    | ``"top"``       | Look down the -Z axis         | (0, 0, -1)        | (0,1,0) |
+    |                 | → sees XY plane               |                   |         |
+    +-----------------+-------------------------------+-------------------+---------+
+    | ``"front"``     | Look along +Y axis            | (0, 1, 0)         | (0,0,1) |
+    |                 | → sees XZ plane               |                   |         |
+    +-----------------+-------------------------------+-------------------+---------+
+    | ``"left"``      | Look along +X axis            | (1, 0, 0)         | (0,0,1) |
+    |                 | → sees YZ plane               |                   |         |
+    +-----------------+-------------------------------+-------------------+---------+
+    | ``"perspective"``| Tilted view from +X+Y+Z      | (-1,-1,-1)/√3     | (0,0,1) |
+    | / ``"ortho"``   | → 3D isometric look           |                   |         |
+    +-----------------+-------------------------------+-------------------+---------+
 
     All eight available view names
     -------------------------------
@@ -485,13 +488,14 @@ def preset_camera(
                            looks at the XY plane
                            (matches OVITO *Top* viewport)
     - ``"bottom"``       – Orthographic, camera_dir=(0,0,+1), up=(0,1,0)
-    - ``"left"``         – Orthographic, camera_dir=(-1,0,0), up=(0,1,0)
-                           looks at the ZY plane, Z points right, Y points up
+    - ``"front"``        – Orthographic, camera_dir=(0,+1,0), up=(0,0,1)
+                           looks at the XZ plane, X points right, Z points up
+                           (matches OVITO *Front* viewport)
+    - ``"back"``         – Orthographic, camera_dir=(0,-1,0), up=(0,0,1)
+    - ``"left"``         – Orthographic, camera_dir=(+1,0,0), up=(0,0,1)
+                           looks at the YZ plane, Y points right, Z points up
                            (matches OVITO *Left* viewport)
-    - ``"right"``        – Orthographic, camera_dir=(+1,0,0), up=(0,1,0)
-    - ``"front"``        – Orthographic, camera_dir=(0,-1,0), up=(0,0,1)
-                           looks at the XZ plane from above in the Y direction
-    - ``"back"``         – Orthographic, camera_dir=(0,+1,0), up=(0,0,1)
+    - ``"right"``        – Orthographic, camera_dir=(-1,0,0), up=(0,0,1)
 
     Parameters
     ----------
@@ -572,14 +576,14 @@ def preset_camera(
     # ------------------------------------------------------------------
     # Axis-aligned orthographic views
     #
-    # OVITO conventions confirmed from GUI axis tripods and Python API docs:
+    # OVITO conventions (verified against OVITO GUI axis tripods):
     #
     #   "top"    camera_dir=(0,0,-1), up=(0,1,0) → XY plane, X→right, Y→up
     #   "bottom" camera_dir=(0,0,+1), up=(0,1,0)
-    #   "left"   camera_dir=(-1,0,0), up=(0,1,0) → ZY plane, Z→right, Y→up
-    #   "right"  camera_dir=(+1,0,0), up=(0,1,0)
-    #   "front"  camera_dir=(0,-1,0), up=(0,0,1) → XZ plane, X→right, Z→up
-    #   "back"   camera_dir=(0,+1,0), up=(0,0,1)
+    #   "front"  camera_dir=(0,+1,0), up=(0,0,1) → XZ plane, X→right, Z→up
+    #   "back"   camera_dir=(0,-1,0), up=(0,0,1)
+    #   "left"   camera_dir=(+1,0,0), up=(0,0,1) → YZ plane, Y→right, Z→up
+    #   "right"  camera_dir=(-1,0,0), up=(0,0,1)
     #
     # ax_h : world axis index that maps to screen-right  (horizontal)
     # ax_v : world axis index that maps to screen-up     (vertical)
@@ -588,10 +592,10 @@ def preset_camera(
         #            direction         up_vec        ax_h  ax_v
         "top":    (( 0,  0, -1), ( 0,  1,  0),       0,    1),
         "bottom": (( 0,  0, +1), ( 0,  1,  0),       0,    1),
-        "left":   ((-1,  0,  0), ( 0,  1,  0),       2,    1),
-        "right":  ((+1,  0,  0), ( 0,  1,  0),       2,    1),
-        "front":  (( 0, -1,  0), ( 0,  0,  1),       0,    2),
-        "back":   (( 0, +1,  0), ( 0,  0,  1),       0,    2),
+        "front":  (( 0, +1,  0), ( 0,  0,  1),       0,    2),
+        "back":   (( 0, -1,  0), ( 0,  0,  1),       0,    2),
+        "left":   ((+1,  0,  0), ( 0,  0,  1),       1,    2),
+        "right":  ((-1,  0,  0), ( 0,  0,  1),       1,    2),
     }
 
     direction, up_vec, ax_h, ax_v = VIEW_DEFS[view]
@@ -712,48 +716,53 @@ if __name__ == "__main__":
     import numpy as np
     import mdapy as mp
     import matplotlib.pyplot as plt
+    from time import time
 
     sys_al = mp.build_hea(
         ["Cr", "Co", "Ni"], [1/3, 1/3, 1/3],
-        "fcc", 3.6, nx=30, ny=30, nz=30, random_seed=1
+        "fcc", 3.6, nx=10, ny=10, nz=10, random_seed=1
     )
-    print(f"  N atoms: {sys_al.N}")
-
-    ren = TachyonRender(
-        width=600,
-        height=600,
-        backend='gpu',
-        background=(1, 1, 1),
-        direct_light_intensity=0.5,
-        aa_samples=12,
-        ao_brightness=0.5,
-    )
-
-    pos = sys_al.get_positions().to_numpy()
-    r   = 1.5  # atom radius
-
-    # Render four views matching OVITO's default viewport layout
-    views  = ["perspective", "top", "front", "left"]
-    titles = ["Perspective (-Z dir)", "Top (dir=-Z)", "Front (dir=-Y)", "Left (dir=-X)"]
-
-    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
-    for ax, view_name, title in zip(axes.flat, views, titles):
-        # max_radius ensures edge atom spheres are fully visible (not just centres)
-        cam = preset_camera(view_name, pos, max_radius=r)
-        img = ren.render_system(
-            sys_al,
-            camera=cam,
-            default_radius=r,
-            box_color=(0, 0, 0, 1),
-            box_edge_radius=0.04,
+    
+    for backend in ['cpu', 'gpu']:
+        print(f"  N atoms: {sys_al.N}, backend: {backend}.")
+        start = time()
+        ren = TachyonRender(
+            width=600,
+            height=600,
+            backend=backend,
+            background=(1, 1, 1),
+            direct_light_intensity=1.2,
+            aa_samples=12,
+            ao_brightness=1,
         )
-        ax.imshow(img)
-        ax.set_title(title, fontsize=13)
-        ax.axis("off")
 
-    plt.suptitle("mdapy TachyonRender — 4 views (OVITO style)", fontsize=15)
-    plt.tight_layout()
-    plt.show()
+        pos = sys_al.get_positions().to_numpy()
+        r   = 1.5  # atom radius
+
+        # Render four views matching OVITO's default viewport layout
+        views  = ["perspective", "top", "front", "left"]
+        titles = ["Perspective", "Top (dir=(0,0,-1))", "Front (dir=(0,+1,0))", "Left (dir=(+1,0,0))"]
+
+        fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+        for ax, view_name, title in zip(axes.flat, views, titles):
+            # max_radius ensures edge atom spheres are fully visible (not just centres)
+            cam = preset_camera(view_name, pos, max_radius=r)
+            img = ren.render_system(
+                sys_al,
+                camera=cam,
+                default_radius=r,
+                box_color=(0, 0, 0, 1),
+                box_edge_radius=0.05,
+            )
+            ax.imshow(img)
+            ax.set_title(title, fontsize=13)
+            ax.axis("off")
+
+        print(f'backend {backend} time is: {time()-start} s.')
+        plt.suptitle(f"mdapy TachyonRender — 4 views ({backend})", fontsize=15)
+        plt.tight_layout()
+        plt.savefig(f'{backend}.png')
+        plt.show()
 
     # Single-view examples:
     # cam = preset_camera("top",         pos, max_radius=r)   # top-down

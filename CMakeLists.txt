@@ -390,6 +390,15 @@ if(MDAPY_OPTIX)
             set(OPTIX_SHADERS_CU  "${TACHYON_SRC}/TachyonOptiXShaders.cu")
             set(OPTIX_SHADERS_PTX "${CMAKE_CURRENT_BINARY_DIR}/TachyonOptiXShaders.ptx")
 
+            # Windows-only: `uint` is not built-in (no POSIX <sys/types.h>) and
+            # strcasecmp is not available (use _stricmp). On Linux these macros
+            # conflict with sys/types.h, so they must be omitted.
+            if(WIN32)
+                set(_PTX_PLATFORM_DEFS "-Duint=unsigned int" "-Dstrcasecmp=_stricmp")
+            else()
+                set(_PTX_PLATFORM_DEFS "")
+            endif()
+
             add_custom_command(
                 OUTPUT  "${OPTIX_SHADERS_PTX}"
                 COMMAND "${NVCC_EXECUTABLE}"
@@ -398,8 +407,7 @@ if(MDAPY_OPTIX)
                         ${_NVCC_INCS}
                         -DTACHYON_INTERNAL=1 -DTACHYONINTERNAL=1
                         -UTACHYON_OPTIXDENOISER
-                        "-Duint=unsigned int"
-                        "-Dstrcasecmp=_stricmp"
+                        ${_PTX_PLATFORM_DEFS}
                         -Wno-deprecated-gpu-targets
                         -o "${OPTIX_SHADERS_PTX}"
                         "${OPTIX_SHADERS_CU}"

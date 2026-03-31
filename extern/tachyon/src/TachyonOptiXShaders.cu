@@ -37,12 +37,12 @@
 //
 //   "Interactive Ray Tracing Techniques for
 //    High-Fidelity Scientific Visualization"  
-//    J. E. Stone. In, Eric Haines and Tomas Akenine-Möller, editors,
+//    J. E. Stone. In, Eric Haines and Tomas Akenine-Mï¿½ller, editors,
 //    Ray Tracing Gems, Apress, Chapter 27, pp. 493-515, 2019.
 //    https://link.springer.com/book/10.1007/978-1-4842-4427-2
 //
 //   "A Planetarium Dome Master Camera"  
-//    J. E. Stone.  In, Eric Haines and Tomas Akenine-Möller, editors,
+//    J. E. Stone.  In, Eric Haines and Tomas Akenine-Mï¿½ller, editors,
 //    Ray Tracing Gems, Apress, Chapter 4, pp. 49-60, 2019.
 //    https://link.springer.com/book/10.1007/978-1-4842-4427-2
 //
@@ -1226,7 +1226,7 @@ extern "C" __global__ void __raygen__camera_cubemap_stereo_dof() {
 //
 // A variation of this implementation is described here:
 //   A Planetarium Dome Master Camera.  John E. Stone.
-//   In, Eric Haines and Tomas Akenine-Möller, editors, 
+//   In, Eric Haines and Tomas Akenine-Mï¿½ller, editors, 
 //   Ray Tracing Gems, Apress, Chapter 4, pp. 49-60, 2019.
 //   https://doi.org/10.1007/978-1-4842-4427-2_4
 //
@@ -2065,7 +2065,7 @@ extern "C" __global__ void cylinder_array_color_bounds(int primIdx, float result
 //
 // Quadrilateral mesh primitive
 //
-// Based on the ray-quad approach by Ares Lagae and Philip Dutré,
+// Based on the ray-quad approach by Ares Lagae and Philip Dutrï¿½,
 // "An efficient ray-quadrilateral intersection test"
 // Journal of graphics tools, 10(4):23-32, 2005
 //   https://graphics.cs.kuleuven.be/publications/LD05ERQIT/LD05ERQIT_paper.pdf
@@ -2096,7 +2096,7 @@ extern "C" __global__ void __intersection__quadmesh() {
     index = qmesh.indices[primID];
   }
 
-  // use key variable names as per Lagae and Dutré paper
+  // use key variable names as per Lagae and Dutrï¿½ paper
   const float3 &v00 = qmesh.vertices[index.x];
   const float3 &v10 = qmesh.vertices[index.y];
   const float3 &v11 = qmesh.vertices[index.z];
@@ -2178,7 +2178,7 @@ void quad_calc_barycentrics_v11(const GeomSBTHG &sbtHG,
 
   const int4 index = qmesh.indices[primID];
 
-  // use key variable names and vertex order per Lagae and Dutré paper
+  // use key variable names and vertex order per Lagae and Dutrï¿½ paper
   // vertices are listed in counterclockwise order (v00, v10, v11, v01)
   const float3 &v00 = qmesh.vertices[index.x];
   const float3 &v10 = qmesh.vertices[index.y];
@@ -3119,7 +3119,7 @@ static __device__ void shader_template(float3 prim_color, float3 N,
   // in the CPU version of Tachyon, and is described in:
   //   Interactive Ray Tracing Techniques for High-Fidelity 
   //   Scientific Visualization.  John E. Stone.
-  //   In, Eric Haines and Tomas Akenine-Möller, editors, 
+  //   In, Eric Haines and Tomas Akenine-Mï¿½ller, editors, 
   //   Ray Tracing Gems, Apress, Chapter 27, pp. 493-515, 2019.
   //   https://doi.org/10.1007/978-1-4842-4427-2_27
   // 
@@ -3217,7 +3217,12 @@ static __device__ void shader_template(float3 prim_color, float3 N,
   // add ambient occlusion diffuse lighting, if enabled
   if (AO_ON && rtLaunch.lights.ao_samples > 0) {
     result *= rtLaunch.lights.ao_direct;
-    result += rtLaunch.lights.ao_ambient * col * p_Kd * shade_ambient_occlusion(hit_point, N, fogmod * p_opacity);
+    // Compute AO shade factor first, then combine with colored ambient in a
+    // single col multiply.  This keeps col in registers and avoids the spill/
+    // reload that would occur if col * p_Ka were added after the outline block.
+    // Matches CPU formula: col * (Kd * ao_ambient * shade_ao + Ka)
+    float ao_shade = shade_ambient_occlusion(hit_point, N, fogmod * p_opacity);
+    result += col * (rtLaunch.lights.ao_ambient * p_Kd * ao_shade + p_Ka);
 
 #if defined(TACHYON_RAYSTATS)
     rtLaunch.frame.raystats1_buffer[idx].z+=rtLaunch.lights.ao_samples; // increment AO shadow ray counter
@@ -3234,7 +3239,15 @@ static __device__ void shader_template(float3 prim_color, float3 N,
     result *= outlinefactor;
   }
 
-  result += make_float3(p_Ka); // white ambient contribution
+  // When AO is enabled, colored ambient was already included in the AO block
+  // above.  For non-AO paths (AO_ON == 0) add white ambient here.
+  // IMPORTANT: do NOT reference `col` here â€” keeping col live past the AO
+  // block forces the register allocator to spill it during the AO ray loop,
+  // causing a severe (up to 8x) performance regression.
+  // AO_ON is a compile-time template int: the ternary resolves at compile time
+  // to make_float3(0.0f) (no-op, eliminated) for AO_ON=1, or make_float3(p_Ka)
+  // (white ambient) for AO_ON=0.
+  result += make_float3(AO_ON ? 0.0f : p_Ka);
   result += phongcol;          // add phong highlights
 
   //

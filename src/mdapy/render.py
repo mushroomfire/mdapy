@@ -723,7 +723,7 @@ if __name__ == "__main__":
     ren = TachyonRender(
         width=600,
         height=600,
-        backend='gpu',
+        backend='cpu',
         background=(1, 1, 1),
         direct_light_intensity=1.2,
         aa_samples=12,

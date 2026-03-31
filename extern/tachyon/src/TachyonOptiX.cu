@@ -428,20 +428,27 @@ void TachyonOptiX::create_context() {
   cudaFree(0); // initialize CUDA
  
   lasterr = optixInit();
-  if (lasterr == OPTIX_ERROR_UNSUPPORTED_ABI_VERSION) {
-    //
-    // Correspondence of OptiX versions with driver ABI versions:
-    // OptiX: 7.0.0  7.1.0  7.2.0  7.3.0  7.4.0
-    //   ABI:    22     36     41     47     55
-    //
-    printf("TachyonOptiX) OptiX initialization failed driver is too old.\n");
-    printf("TachyonOptiX) Driver does not support ABI version %d\n", 
-           OPTIX_ABI_VERSION);
+  if (lasterr != OPTIX_SUCCESS) {
+    // optixInit() loads nvoptix.dll (Windows) / libnvoptix.so (Linux) from the
+    // display driver.  Any failure here means the function-pointer table is NOT
+    // populated — calling ANY optix* function afterwards crashes immediately.
+    // We therefore return early for every error, not just ABI mismatch.
+    if (lasterr == OPTIX_ERROR_UNSUPPORTED_ABI_VERSION) {
+      printf("TachyonOptiX) OptiX initialization failed: driver is too old.\n");
+      printf("TachyonOptiX) Driver does not support ABI version %d\n",
+             OPTIX_ABI_VERSION);
+    } else {
+      printf("TachyonOptiX) optixInit() failed (error %d).\n", (int)lasterr);
+      printf("TachyonOptiX) Possible causes:\n");
+      printf("TachyonOptiX)   - nvoptix.dll not found (update NVIDIA display driver)\n");
+      printf("TachyonOptiX)   - Driver too old for OptiX 7.6 (need >= 520.xx)\n");
+      printf("TachyonOptiX)   - No CUDA-capable GPU present\n");
+    }
     return;
   }
 
   cudaStreamCreate(&stream);
-  
+
   OptixDeviceContextOptions options = {};
   optixDeviceContextCreate(cuda_ctx, &options, &optix_ctx);
 
@@ -517,21 +524,30 @@ void TachyonOptiX::minimize_memory_use(void) {
 
 int TachyonOptiX::read_ptx_src(const char *ptxfilename, char **ptxstring) {
   DBG();
+  // Open in text mode so the OS converts CRLF -> LF on Windows.
+  // This is critical: the OptiX PTX parser does not tolerate \r bytes and will
+  // crash silently if they appear in the source string.
   FILE *ptxfp = fopen(ptxfilename, "r");
   if (ptxfp == NULL) {
     return -1;
-  } 
+  }
 
   // find size and load RT PTX source
   fseek(ptxfp, 0, SEEK_END);
-  long ptxsize = ftell(ptxfp);
+  long ptxsize = ftell(ptxfp);  // raw byte count (includes \r on Windows)
   fseek(ptxfp, 0, SEEK_SET);
-  *ptxstring = (char *) calloc(1, ptxsize + 1);
-  if (fread(*ptxstring, ptxsize, 1, ptxfp) != 1) {
+  *ptxstring = (char *) calloc(1, ptxsize + 1); // ptxsize+1 is always enough
+  // Use element-size=1 so fread() returns the actual number of bytes placed in
+  // the buffer.  In text mode on Windows, CRLF->LF means fewer bytes are
+  // written than ptxsize, so the old fread(buf, ptxsize, 1, fp) form returned
+  // 0 (partial read) and the function incorrectly reported failure.
+  long nread = (long) fread(*ptxstring, 1, ptxsize, ptxfp);
+  if (nread <= 0) {
     return -1;
   }
-  
-  return 0; 
+  (*ptxstring)[nread] = '\0';  // null-terminate at the real end
+
+  return 0;
 }
 
 

@@ -263,14 +263,24 @@ struct TachyonOptiXRenderer::Impl {
         // create_context() checks `if (context_created) return;` so if the
         // constructor's internal call failed (no PTX at relative path), this
         // second call will succeed with the resolved absolute path.
+        // ── Pre-flight check 3: CUDA runtime init ────────────────────────
+        printf("[mdapy] Step 1: CUDA runtime init...\n"); fflush(stdout);
+        cudaError_t cuda_init = cudaFree(0);
+        printf("[mdapy] Step 1 done: %s\n", cudaGetErrorString(cuda_init)); fflush(stdout);
+
+        // ── create_context() calls optixInit() internally.
+        // TachyonOptiX.cu has been patched to return early (instead of
+        // crashing) if optixInit() fails for any reason other than
+        // OPTIX_ERROR_UNSUPPORTED_ABI_VERSION.
+        printf("[mdapy] Step 2: create_context()...\n"); fflush(stdout);
         ctx.set_shader_path(ptx_path.c_str());
         ctx.create_context();
+        printf("[mdapy] Step 2 done.\n"); fflush(stdout);
         ctx.destroy_scene();
 
         // ── Post-flight check: CUDA error after context creation ─────────
-        // If create_context() encountered an OptiX/CUDA error, that error
-        // will surface here.  This catches driver-too-old or other GPU faults.
         cudaError_t cuda_err = cudaGetLastError();
+        printf("[mdapy] Step 3: post-create CUDA check: %s\n", cudaGetErrorString(cuda_err)); fflush(stdout);
         if (cuda_err != cudaSuccess) {
             throw std::runtime_error(
                 std::string("[mdapy] TachyonOptiX GPU context creation failed: ") +
@@ -280,8 +290,14 @@ struct TachyonOptiXRenderer::Impl {
         }
     }
 
+    int matCounter = 0; // per-frame material slot counter, reset in render()
+
     int makeMaterial(float r, float g, float b, float alpha) {
-        return ctx.add_material(0.3f,0.8f,0.0f,40.0f,0.0f,alpha,0.0f,0.0f,0,-1);
+        // userindex must be >= 0.  Passing -1 causes materialcache[-1]
+        // (out-of-bounds crash) in add_material_textured when the cache is
+        // empty after destroy_scene().  Use an explicit counter so each call
+        // gets a fresh, valid slot within the current frame.
+        return ctx.add_material(0.3f,0.8f,0.0f,40.0f,0.0f,alpha,0.0f,0.0f,0,matCounter++);
     }
 
     void setupCamera(const CameraParams &cp) {
@@ -348,8 +364,12 @@ struct TachyonOptiXRenderer::Impl {
                                 const ParticleData &pd,
                                 const BoxEdgeData  *box)
     {
+        matCounter = 0; // reset per-frame material slot counter
+        printf("[mdapy] render R1: framebuffer_config\n"); fflush(stdout);
         ctx.framebuffer_config(rp.width, rp.height, 0);
+        printf("[mdapy] render R2: framebuffer_clear\n"); fflush(stdout);
         ctx.framebuffer_clear();
+        printf("[mdapy] render R3: set_bg\n"); fflush(stdout);
         ctx.set_bg_mode(TachyonOptiX::RT_BACKGROUND_TEXTURE_SOLID);
         float bgcol[3]={rp.bgR,rp.bgG,rp.bgB};
         ctx.set_bg_color(bgcol);
@@ -366,14 +386,24 @@ struct TachyonOptiXRenderer::Impl {
             Vec3 wl=r*0.2+u*(-0.2)+d*(-1.0);
             float ldir[3]={float(wl.x),float(wl.y),float(-wl.z)};
             float lcol[3]={float(rp.directLightIntensity),float(rp.directLightIntensity),float(rp.directLightIntensity)};
+            printf("[mdapy] render R4: add_directional_light\n"); fflush(stdout);
             ctx.add_directional_light(ldir,lcol);
         }
+        printf("[mdapy] render R5: setupCamera\n"); fflush(stdout);
         setupCamera(cp);
+        printf("[mdapy] render R6: destroy_scene\n"); fflush(stdout);
         ctx.destroy_scene();
+        printf("[mdapy] render R7: addParticles(%zu)\n", pd.count); fflush(stdout);
         addParticles(pd);
-        if (box && box->count>0) addBoxEdges(*box);
+        if (box && box->count>0) {
+            printf("[mdapy] render R8: addBoxEdges\n"); fflush(stdout);
+            addBoxEdges(*box);
+        }
+        printf("[mdapy] render R9: update_rendering_state\n"); fflush(stdout);
         ctx.update_rendering_state(0);
+        printf("[mdapy] render R10: ctx.render()\n"); fflush(stdout);
         ctx.render();
+        printf("[mdapy] render R11: render done\n"); fflush(stdout);
 
         // framebuffer_download_rgb4u downloads width*height*sizeof(int) bytes,
         // i.e. 4 bytes per pixel (RGBA unsigned bytes), NOT 3 bytes.

@@ -266,6 +266,14 @@ mdapy.radial\_distribution\_function module
    :show-inheritance:
    :undoc-members:
 
+mdapy.render module
+-------------------
+
+.. automodule:: mdapy.render
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 mdapy.spatial\_binning module
 -----------------------------
 

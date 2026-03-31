@@ -58,6 +58,7 @@ Getting Started
    gettingstarted/phonon_calculation
    gettingstarted/eam_analysis
    gettingstarted/load_save
+   gettingstarted/render_structure
    gettingstarted/benchmark
    
 

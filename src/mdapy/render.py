@@ -1,71 +1,3 @@
-"""
-mdapy/render.py  -  Python wrapper for the Tachyon ray-tracing renderer (Tachyon 0.99.5)
-==========================================================================================
-
-Quick start
------------
-::
-
-    import mdapy as mp
-    from mdapy.render import TachyonRender
-
-    sys = mp.System("model.xyz")
-    ren = TachyonRender(width=800, height=600)
-    img = ren.render_system(sys)  # numpy (H, W, 4) uint8 RGBA
-
-    from PIL import Image
-    Image.fromarray(img).save("out.png")
-
-Camera parameters (OVITO-compatible)
---------------------------------------
-::
-
-    from mdapy.render import CameraParams, preset_camera
-    import math
-
-    # Perspective (default)
-    cam = CameraParams(
-        is_perspective=True,
-        field_of_view=math.radians(40),  # vertical FOV in radians
-        position=(0, 0, 60),
-        direction=(0, 0, -1),
-        up=(0, 1, 0),
-    )
-
-    # Orthographic
-    cam_ortho = CameraParams(
-        is_perspective=False,
-        field_of_view=25.0,  # viewport half-height in world units
-        position=(0, 0, 100),
-        direction=(0, 0, -1),
-        up=(0, 1, 0),
-    )
-
-Preset views matching OVITO GUI defaults
------------------------------------------
-::
-
-    pos = system.get_positions().to_numpy()
-    r   = 1.3  # atom radius
-
-    cam = preset_camera("top",         pos, max_radius=r)  # OVITO Top
-    cam = preset_camera("left",        pos, max_radius=r)  # OVITO Left
-    cam = preset_camera("perspective", pos, max_radius=r)  # OVITO Perspective
-    cam = preset_camera("orthographic",pos, max_radius=r)  # OVITO Ortho
-
-Custom box edge appearance
----------------------------
-::
-
-    img = ren.render_system(
-        sys,
-        draw_box=True,
-        box_edge_radius=0.08,
-        box_color=(0.0, 0.0, 0.0),   # black, (R,G,B) or (R,G,B,A)
-    )
-"""
-
-from __future__ import annotations
 import math
 from typing import Optional, Tuple
 
@@ -78,6 +10,10 @@ from mdapy._tachyon import (
     CameraParams as _CameraParams,
     Vec3 as _Vec3,
 )
+
+from mdapy.system import System
+from mdapy.data import ele_radius, ele_rgb, type_rgb
+import polars as pl
 
 # GPU backend: only available when mdapy was built with OptiX.
 _HAS_OPTIX: bool = _tachyon_mod.has_optix()
@@ -203,9 +139,9 @@ class TachyonRender:
 
     Examples
     --------
-    >>> ren_cpu = TachyonRender(width=800, height=600)                  # CPU
-    >>> ren_gpu = TachyonRender(width=800, height=600, backend="gpu")   # GPU
-    >>> ren_auto= TachyonRender(width=800, height=600, backend="auto")  # auto
+    >>> ren_cpu = TachyonRender(width=800, height=600)  # CPU
+    >>> ren_gpu = TachyonRender(width=800, height=600, backend="gpu")  # GPU
+    >>> ren_auto = TachyonRender(width=800, height=600, backend="auto")  # auto
     >>> print(ren_cpu.backend)
     cpu
     """
@@ -220,7 +156,7 @@ class TachyonRender:
         ao: bool = True,
         ao_samples: int = 12,
         ao_brightness: float = 0.8,
-        ao_max_dist: float = 3.402823e+38,  # RT_AO_MAXDIST_UNLIMITED
+        ao_max_dist: float = 3.402823e38,  # RT_AO_MAXDIST_UNLIMITED
         shadows: bool = True,
         direct_light_intensity: float = 0.9,
         background: tuple = (0.0, 0.0, 0.0),
@@ -228,7 +164,9 @@ class TachyonRender:
     ):
         backend = backend.lower().strip()
         if backend not in ("cpu", "gpu", "auto"):
-            raise ValueError(f"backend must be 'cpu', 'gpu', or 'auto', got {backend!r}")
+            raise ValueError(
+                f"backend must be 'cpu', 'gpu', or 'auto', got {backend!r}"
+            )
 
         # Resolve "auto": pick GPU if available, else CPU.
         if backend == "auto":
@@ -245,7 +183,7 @@ class TachyonRender:
         else:
             self._renderer = _TachyonRenderer()
 
-        self._backend = backend   # "cpu" or "gpu" (resolved)
+        self._backend = backend  # "cpu" or "gpu" (resolved)
 
         rp = _RenderParams()
         rp.width = int(width)
@@ -273,9 +211,11 @@ class TachyonRender:
 
     def __repr__(self) -> str:
         rp = self._rp
-        return (f"TachyonRender(backend={self._backend!r}, "
-                f"size=({rp.width}x{rp.height}), "
-                f"ao={rp.ao_enabled}, aa={rp.antialiasing_enabled})")
+        return (
+            f"TachyonRender(backend={self._backend!r}, "
+            f"size=({rp.width}x{rp.height}), "
+            f"ao={rp.ao_enabled}, aa={rp.antialiasing_enabled})"
+        )
 
     # Main rendering interface
     def render(
@@ -309,8 +249,8 @@ class TachyonRender:
         numpy.ndarray, shape (H, W, 4), dtype uint8, RGBA image.
         """
         positions = np.ascontiguousarray(positions, dtype=np.float64)
-        colors    = np.ascontiguousarray(colors,    dtype=np.float32)
-        radii     = np.ascontiguousarray(radii,     dtype=np.float32)
+        colors = np.ascontiguousarray(colors, dtype=np.float32)
+        radii = np.ascontiguousarray(radii, dtype=np.float32)
 
         if positions.ndim != 2 or positions.shape[1] != 3:
             raise ValueError(f"positions must be (N,3), got {positions.shape}")
@@ -347,14 +287,17 @@ class TachyonRender:
             radii,
             box_edges,
             float(box_edge_radius),
-            box_r, box_g, box_b, box_a,
+            box_r,
+            box_g,
+            box_b,
+            box_a,
         )
         return np.array(img, copy=False)
 
     # Convenience wrapper for mdapy.System
     def render_system(
         self,
-        system,
+        system: System,
         colors: Optional[np.ndarray] = None,
         radii: Optional[np.ndarray] = None,
         camera: Optional[CameraParams] = None,
@@ -381,15 +324,29 @@ class TachyonRender:
         default_radius  : float.  Fallback radius when ``radii`` is None.  Default 1.0.
         """
         pos = system.get_positions().to_numpy()  # (N,3)
-        N = len(pos)
 
         if colors is None:
-            colors = _default_colors(system, N)
+            colors = _default_colors(system)
         colors = np.ascontiguousarray(colors, dtype=np.float32)
 
-        if radii is None:
-            radii = np.full(N, default_radius, dtype=np.float32)
-        radii = np.ascontiguousarray(radii, dtype=np.float32)
+        if radii is not None:
+            radii = np.ascontiguousarray(radii, dtype=np.float32)
+        else:
+            if "element" in system.data.columns:
+                radii = np.array(
+                    system.data.with_columns(
+                        pl.col("element")
+                        .replace_strict(
+                            ele_radius,
+                            default=default_radius,
+                        )
+                        .alias("radius")
+                    )["radius"]
+                    / 2,
+                    np.float32,
+                )
+            else:
+                radii = np.full(system.N, default_radius, dtype=np.float32)
 
         box_edges = _box_edges(system) if draw_box else None
 
@@ -443,8 +400,16 @@ def _auto_camera(positions: np.ndarray, max_radius: float = 0.0) -> CameraParams
 # ---------------------------------------------------------------------------
 
 #: All supported preset view names.
-PRESET_VIEWS = ("perspective", "orthographic", "top", "bottom",
-                "front", "back", "left", "right")
+PRESET_VIEWS = (
+    "perspective",
+    "orthographic",
+    "top",
+    "bottom",
+    "front",
+    "back",
+    "left",
+    "right",
+)
 
 
 def preset_camera(
@@ -527,7 +492,7 @@ def preset_camera(
     front portion of the structure.  This is useful for cross-section renders::
 
         cam = preset_camera("top", pos, max_radius=1.3)
-        cam.znear = 9.0   # discard atoms in front of the z=9 Å plane
+        cam.znear = 9.0  # discard atoms in front of the z=9 Å plane
     """
     view = view.lower().strip()
     if view not in PRESET_VIEWS:
@@ -590,17 +555,17 @@ def preset_camera(
     # ------------------------------------------------------------------
     VIEW_DEFS = {
         #            direction         up_vec        ax_h  ax_v
-        "top":    (( 0,  0, -1), ( 0,  1,  0),       0,    1),
-        "bottom": (( 0,  0, +1), ( 0,  1,  0),       0,    1),
-        "front":  (( 0, +1,  0), ( 0,  0,  1),       0,    2),
-        "back":   (( 0, -1,  0), ( 0,  0,  1),       0,    2),
-        "left":   ((+1,  0,  0), ( 0,  0,  1),       1,    2),
-        "right":  ((-1,  0,  0), ( 0,  0,  1),       1,    2),
+        "top": ((0, 0, -1), (0, 1, 0), 0, 1),
+        "bottom": ((0, 0, +1), (0, 1, 0), 0, 1),
+        "front": ((0, +1, 0), (0, 0, 1), 0, 2),
+        "back": ((0, -1, 0), (0, 0, 1), 0, 2),
+        "left": ((+1, 0, 0), (0, 0, 1), 1, 2),
+        "right": ((-1, 0, 0), (0, 0, 1), 1, 2),
     }
 
     direction, up_vec, ax_h, ax_v = VIEW_DEFS[view]
     direction = np.array(direction, dtype=float)
-    up_vec    = np.array(up_vec,    dtype=float)
+    up_vec = np.array(up_vec, dtype=float)
 
     # fov_ortho = half-height of the viewport in world units.
     # Take the max of horizontal and vertical half-extents so the full
@@ -624,51 +589,40 @@ def preset_camera(
     )
 
 
-def _default_colors(system, N: int) -> np.ndarray:
+def _default_colors(system: System) -> np.ndarray:
     """Jmol colour scheme; returns grey (0.7, 0.7, 0.7) for unknown elements."""
-    JMOL = {
-        "H":  (1.00, 1.00, 1.00),
-        "He": (0.85, 1.00, 1.00),
-        "Li": (0.80, 0.50, 1.00),
-        "Be": (0.76, 1.00, 0.00),
-        "B":  (1.00, 0.71, 0.71),
-        "C":  (0.56, 0.56, 0.56),
-        "N":  (0.19, 0.31, 0.97),
-        "O":  (1.00, 0.05, 0.05),
-        "F":  (0.56, 0.88, 0.31),
-        "Na": (0.67, 0.36, 0.95),
-        "Mg": (0.54, 1.00, 0.00),
-        "Al": (0.75, 0.65, 0.65),
-        "Si": (0.94, 0.78, 0.63),
-        "P":  (1.00, 0.50, 0.00),
-        "S":  (1.00, 1.00, 0.19),
-        "Cl": (0.12, 0.94, 0.12),
-        "K":  (0.56, 0.25, 0.83),
-        "Ca": (0.24, 1.00, 0.00),
-        "Ti": (0.75, 0.76, 0.78),
-        "Cr": (0.54, 0.60, 0.78),
-        "Mn": (0.61, 0.48, 0.78),
-        "Fe": (0.88, 0.40, 0.20),
-        "Co": (0.94, 0.56, 0.63),
-        "Ni": (0.31, 0.82, 0.31),
-        "Cu": (0.78, 0.50, 0.20),
-        "Zn": (0.49, 0.50, 0.69),
-        "Au": (1.00, 0.82, 0.14),
-        "Ag": (0.75, 0.75, 0.75),
-        "Pt": (0.82, 0.82, 0.88),
-        "Pd": (0.00, 0.41, 0.52),
-    }
-    colors = np.ones((N, 4), dtype=np.float32)
-    try:
-        type_names = system.data["element"]
-        for i, tn in enumerate(type_names):
-            col = JMOL.get(tn.capitalize(), (0.7, 0.7, 0.7))
-            colors[i, 0] = col[0]
-            colors[i, 1] = col[1]
-            colors[i, 2] = col[2]
-            colors[i, 3] = 1.0
-    except Exception:
-        colors[:] = [0.7, 0.7, 0.7, 1.0]
+
+    if "element" in system.data.columns:
+        colors = (
+            system.data.with_columns(
+                pl.col("element")
+                .replace_strict(
+                    ele_rgb,
+                    default=[255 * 0.7] * 3,
+                    return_dtype=pl.Array(pl.Float32, 3),
+                )
+                .alias("color")
+            )["color"].to_numpy()
+            / 255
+        )
+        colors = np.c_[colors, np.ones(system.N)].astype(np.float32)
+    elif "type" in system.data.columns:
+        colors = (
+            system.data.with_columns(
+                (pl.col("type") % 9)
+                .replace_strict(
+                    type_rgb,
+                    default=[255 * 0.7] * 3,
+                    return_dtype=pl.Array(pl.Float32, 3),
+                )
+                .alias("color")
+            )["color"].to_numpy()
+            / 255
+        )
+        colors = np.c_[colors, np.ones(system.N)].astype(np.float32)
+    else:
+        colors = np.full((system.N, 4), [0.7, 0.7, 0.7, 1.0], np.float32)
+
     return colors
 
 
@@ -687,22 +641,37 @@ def _box_edges(system) -> Optional[np.ndarray]:
     (12, 2, 3) float64  or  None if box information is unavailable.
     """
     try:
-        box = np.asarray(system.box.box, dtype=np.float64)    # (3,3)
+        box = np.asarray(system.box.box, dtype=np.float64)  # (3,3)
         origin = np.asarray(system.box.origin, dtype=np.float64)  # (3,)
     except AttributeError:
         return None
     a, b, c = box[0], box[1], box[2]
     o = origin
-    v = np.array([
-        o,           o + a,
-        o + b,       o + a + b,
-        o + c,       o + a + c,
-        o + b + c,   o + a + b + c,
-    ])
+    v = np.array(
+        [
+            o,
+            o + a,
+            o + b,
+            o + a + b,
+            o + c,
+            o + a + c,
+            o + b + c,
+            o + a + b + c,
+        ]
+    )
     idx = [
-        (0, 1), (2, 3), (4, 5), (6, 7),  # along a
-        (0, 2), (1, 3), (4, 6), (5, 7),  # along b
-        (0, 4), (1, 5), (2, 6), (3, 7),  # along c
+        (0, 1),
+        (2, 3),
+        (4, 5),
+        (6, 7),  # along a
+        (0, 2),
+        (1, 3),
+        (4, 6),
+        (5, 7),  # along b
+        (0, 4),
+        (1, 5),
+        (2, 6),
+        (3, 7),  # along c
     ]
     edges = np.empty((12, 2, 3), dtype=np.float64)
     for k, (i, j) in enumerate(idx):
@@ -719,29 +688,39 @@ if __name__ == "__main__":
     from time import time
 
     sys_al = mp.build_hea(
-        ["Cr", "Co", "Ni"], [1/3, 1/3, 1/3],
-        "fcc", 3.6, nx=10, ny=10, nz=10, random_seed=1
+        ["Cr", "Co", "Ni", "Fe", "Mn"],
+        [0.2] * 5,
+        "fcc",
+        3.6,
+        nx=20,
+        ny=20,
+        nz=20,
+        random_seed=1,
     )
-    
-    for backend in ['cpu', 'gpu']:
+    pos = sys_al.get_positions().to_numpy()
+    for backend in ["gpu"]:
         print(f"  N atoms: {sys_al.N}, backend: {backend}.")
         start = time()
         ren = TachyonRender(
-            width=600,
-            height=600,
+            width=1000,
+            height=1000,
             backend=backend,
             background=(1, 1, 1),
             direct_light_intensity=1.2,
-            aa_samples=12,
+            aa_samples=15,
             ao_brightness=1,
+            ao_samples=15,
         )
 
-        pos = sys_al.get_positions().to_numpy()
-        r   = 1.5  # atom radius
-
+        r = 1.0  # atom radius
         # Render four views matching OVITO's default viewport layout
-        views  = ["perspective", "top", "front", "left"]
-        titles = ["Perspective", "Top (dir=(0,0,-1))", "Front (dir=(0,+1,0))", "Left (dir=(+1,0,0))"]
+        views = ["perspective", "top", "front", "left"]
+        titles = [
+            "Perspective",
+            "Top (dir=(0,0,-1))",
+            "Front (dir=(0,+1,0))",
+            "Left (dir=(+1,0,0))",
+        ]
 
         fig, axes = plt.subplots(2, 2, figsize=(10, 10))
         for ax, view_name, title in zip(axes.flat, views, titles):
@@ -752,16 +731,16 @@ if __name__ == "__main__":
                 camera=cam,
                 default_radius=r,
                 box_color=(0, 0, 0, 1),
-                box_edge_radius=0.05,
+                box_edge_radius=0.1,
             )
             ax.imshow(img)
             ax.set_title(title, fontsize=13)
             ax.axis("off")
 
-        print(f'backend {backend} time is: {time()-start} s.')
+        print(f"backend {backend} time is: {time() - start} s.")
         plt.suptitle(f"mdapy TachyonRender — 4 views ({backend})", fontsize=15)
         plt.tight_layout()
-        plt.savefig(f'{backend}.png')
+        plt.savefig(f"{backend}.png")
         plt.show()
 
     # Single-view examples:

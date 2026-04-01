@@ -127,6 +127,7 @@ Machine-Learning Potential Workflows
 - Equation-of-state (EOS) fitting
 - Stacking-fault energy curves
 - Phonon dispersion via phonopy
+- Dataset extraction, PCA, FPS, diaplay Train/Thermo results, etc.
 
 Visualization
 ~~~~~~~~~~~~~
@@ -228,8 +229,6 @@ Quick Examples
 
 .. code-block:: python
 
-   import mdapy as mp
-
    unit = mp.build_crystal("Al", "fcc", 4.05)
    poly = mp.CreatePolycrystal(unit, box=100, seed_number=10, metal_overlap_dis=2.0)
    system = poly.compute()
@@ -255,7 +254,7 @@ Supported File Formats
 +------------------------+---------------------------+
 | ASE Atoms              | ✅ (import / export)      |
 +------------------------+---------------------------+
-| OVITO DataCollection   | ✅ (import)               |
+| OVITO DataCollection   | ✅ (import / export)      |         |
 +------------------------+---------------------------+
 
 ----

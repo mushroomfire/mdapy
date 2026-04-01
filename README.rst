@@ -127,7 +127,7 @@ Machine-Learning Potential Workflows
 - Equation-of-state (EOS) fitting
 - Stacking-fault energy curves
 - Phonon dispersion via phonopy
-- Dataset extraction, PCA, FPS, diaplay Train/Thermo results, etc.
+- Dataset extraction, PCA, FPS, display Train/Thermo results, etc.
 
 Visualization
 ~~~~~~~~~~~~~

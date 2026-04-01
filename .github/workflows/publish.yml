@@ -115,14 +115,17 @@ jobs:
         if: matrix.os == 'windows-2022'
         shell: powershell
         run: |
-          # Install CUDA 12.6 build tools.
-          # cuda-nvcc and cuda-cudart-dev need vs2017_win-64 and cuda-version
-          # from the defaults channel, so we include both channels.
-          # The explicit "=12.6.*" pins prevent conda from upgrading to CUDA 13.
+          # Install CUDA 12.8 build tools.
+          # CUDA 12.6 Windows packages are absent from the nvidia conda channel
+          # (only 12.4, 12.8, 12.9, 13.x have complete win-64 package sets).
+          # 12.8 is the latest CUDA 12.x release and fully supports sm_60–sm_90.
+          # cuda-nvcc/cudart-dev depend on vs2017_win-64 and cuda-version from
+          # the defaults channel, so both channels must be present.
+          # The "=12.8.*" pins prevent conda from upgrading to CUDA 13.
           & "$env:CONDA\Scripts\conda.exe" install -y `
-            -c "nvidia/label/cuda-12.6.0" `
+            -c "nvidia/label/cuda-12.8.0" `
             -c defaults `
-            "cuda-nvcc=12.6.*" "cuda-cudart-dev=12.6.*"
+            "cuda-nvcc=12.8.*" "cuda-cudart-dev=12.8.*"
           $cudaLib = "$env:CONDA\Library"
           echo "CUDA_PATH=$cudaLib" | Out-File -Append -FilePath $env:GITHUB_ENV
           echo "$cudaLib\bin"       | Out-File -Append -FilePath $env:GITHUB_PATH

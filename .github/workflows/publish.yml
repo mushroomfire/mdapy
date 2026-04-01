@@ -100,8 +100,10 @@ jobs:
           fetch-depth: 0
 
       # ── Windows only: install CUDA Toolkit (provides nvcc + static libs) ──
-      # The Jimver/cuda-toolkit action adds nvcc to PATH so CMake FindCUDAToolkit
-      # can locate it.  We install the minimal set needed for compilation.
+      # Jimver/cuda-toolkit adds nvcc to PATH and sets CUDA_PATH.
+      # We capture CUDA_PATH as a step output so we can forward it explicitly
+      # to cibuildwheel's subprocess environment (it doesn't inherit runner PATH
+      # on Windows automatically).
       - name: Install CUDA Toolkit (Windows)
         if: matrix.os == 'windows-latest'
         uses: Jimver/cuda-toolkit@v0.2.19
@@ -109,10 +111,17 @@ jobs:
         with:
           cuda: '12.4.0'
           method: 'network'
-          # nvcc: compiler; cudart: runtime dev headers; nvml: driver API
           sub-packages: '["nvcc", "cudart", "cudart-dev", "nvml-dev", "visual_studio_integration"]'
 
-      - name: Show CUDA version (Windows)
+      # Explicitly add CUDA bin to GITHUB_PATH so cibuildwheel's subprocess
+      # sees nvcc.  Jimver sets PATH for the current shell, but cibuildwheel
+      # spawns a fresh subprocess that may not inherit it.
+      - name: Add CUDA bin to GITHUB_PATH (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin" >> "$GITHUB_PATH"
+
+      - name: Verify nvcc (Windows)
         if: matrix.os == 'windows-latest'
         run: nvcc --version
 
@@ -146,8 +155,11 @@ jobs:
             auditwheel repair --exclude libcuda.so.1 -w {dest_dir} {wheel}
 
           # ── Windows ────────────────────────────────────────────────────────
-          # CUDA was installed above by Jimver/cuda-toolkit; nvcc is on PATH.
-          CIBW_BEFORE_BUILD_WINDOWS: 'pip install delvewheel'
+          # Forward CUDA_PATH into cibuildwheel's subprocess so CMake's
+          # FindCUDAToolkit can locate nvcc.  nvcc itself is already on
+          # GITHUB_PATH from the step above.
+          CIBW_ENVIRONMENT_WINDOWS: 'CUDA_PATH="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"'
+          CIBW_BEFORE_BUILD_WINDOWS: 'pip install delvewheel && nvcc --version'
           CIBW_ARCHS_WINDOWS: AMD64
 
           # nvcuda.dll is the NVIDIA driver — always present on GPU machines,

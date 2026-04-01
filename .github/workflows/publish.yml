@@ -93,7 +93,7 @@ jobs:
       matrix:
         # windows-latest maps to Windows Server 2025 (build 26100) as of early 2026;
         # the CUDA 12.4.0 installer fails on that OS (exit code 3772776473).
-        # windows-2022 (Server 2022 / build 20348) is stable with CUDA 12.4.0.
+        # windows-2022 (Server 2022 / build 20348) is used for CUDA compatibility.
         os: [ubuntu-latest, windows-2022]
 
     steps:
@@ -112,7 +112,7 @@ jobs:
         uses: Jimver/cuda-toolkit@v0.2.19
         id: cuda-toolkit
         with:
-          cuda: '12.4.0'
+          cuda: '12.6.0'
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cudart-dev", "nvml-dev", "visual_studio_integration"]'
 
@@ -147,19 +147,20 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: 'sameli/manylinux_2_28_x86_64_cuda_12.3'
           CIBW_ARCHS_LINUX: x86_64
 
-          # Force gcc-12 as the host compiler.
-          # sameli/manylinux_2_28_x86_64_cuda_12.3 activates gcc-toolset-14 by
-          # default; GCC 14 STL headers (__bfloat16_t, _Float128, etc.) are
-          # incompatible with CUDA 12.3 even with -allow-unsupported-compiler.
-          # Pinning CC/CXX to gcc-toolset-12 and prepending it to PATH ensures
-          # both CMake and nvcc -ccbin use the same compatible compiler.
+          # Force the default system GCC as the host compiler.
+          # sameli/manylinux_2_28_x86_64_cuda_12.3 activates gcc-toolset-14 via
+          # /etc/profile.d, but that toolset is NOT installed in the image.
+          # The system GCC at /usr/bin/gcc is 8.5 (AlmaLinux 8 default) — fully
+          # C++17-capable and officially supported by CUDA 12.3.  By pinning
+          # CC/CXX here, both CMake and nvcc -ccbin use gcc 8.5, avoiding the
+          # GCC 14 STL incompatibility (__bfloat16_t, _Float128, etc.).
           CIBW_ENVIRONMENT_LINUX: >
-            CC=/opt/rh/gcc-toolset-12/root/usr/bin/gcc
-            CXX=/opt/rh/gcc-toolset-12/root/usr/bin/g++
-            PATH=/opt/rh/gcc-toolset-12/root/usr/bin:/usr/local/cuda/bin:$PATH
+            CC=/usr/bin/gcc
+            CXX=/usr/bin/g++
+            PATH=/usr/local/cuda/bin:$PATH
 
-          # Verify gcc-12 and nvcc are available inside the container.
-          CIBW_BEFORE_ALL_LINUX: '/opt/rh/gcc-toolset-12/root/usr/bin/gcc --version && nvcc --version && echo "Build env OK"'
+          # Verify the compiler and nvcc inside the container.
+          CIBW_BEFORE_ALL_LINUX: '/usr/bin/gcc --version && nvcc --version && echo "Build env OK"'
 
           # Repair: bundle all shared-library dependencies EXCEPT libcuda.so.1.
           # libcuda.so.1 is the NVIDIA driver stub — it is always provided by the

@@ -1,107 +1,218 @@
 name: Publish to PyPI
 
+# Triggered by version tags (e.g. v1.0.0, v1.0.0a1) or manual dispatch.
 on:
-  # tag like v1.0.0a1, v1.0.0
   push:
     tags:
       - 'v*'
   workflow_dispatch:
 
+# ---------------------------------------------------------------------------
+# Wheel strategy
+#
+#  Platform     GPU?    manylinux tag          Notes
+#  -----------  ------  ---------------------  ------------------------------
+#  macOS arm64  no      macosx_14_0_arm64      Apple Silicon, no CUDA
+#  Linux x86_64 yes     manylinux_2_28_x86_64  CUDA + OptiX; needs glibc≥2.28
+#  Linux x86_64 no      manylinux_2_17_x86_64  Fallback for older glibc
+#  Windows      yes     win_amd64              CUDA runtime linked statically
+#
+# pip automatically picks the best-matching wheel for the user's platform.
+# On modern Linux (glibc≥2.28) the GPU wheel is preferred; older systems get
+# the CPU-only fallback.  On Windows only one wheel is published (GPU-capable,
+# works on CPU-only machines too).
+#
+# GPU backend requirements at runtime:
+#   Linux  : NVIDIA GPU + driver ≥ 520 (libnvoptix.so / libcuda.so.1)
+#   Windows: NVIDIA GPU + driver ≥ 520 (nvcuda.dll)
+#   CUDA Toolkit installation is NOT required — the runtime is static.
+# ---------------------------------------------------------------------------
+
 jobs:
-  build_wheels:
-    name: Build wheels on ${{ matrix.os }}
+
+  # =========================================================================
+  # 1. CPU-only wheels  (macOS arm64 + Linux x86_64 fallback)
+  # =========================================================================
+  build_wheels_cpu:
+    name: CPU wheel — ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-14]
-    
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-        fetch-depth: 0  
-    
-    - name: Build wheels
-      uses: pypa/cibuildwheel@v2.22
-      env:
-        CIBW_BUILD: 'cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*'
-        
-        # skip PyPy, musllinux, 32bit
-        CIBW_SKIP: pp* *-musllinux_* *-manylinux_i686
-        
-        # macOS 
-        CIBW_BEFORE_BUILD_MACOS: brew install libomp
-        MACOSX_DEPLOYMENT_TARGET: 14.0
-        CIBW_ARCHS_MACOS: arm64
-        # macOS repair wheel, libomp
-        CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
-          delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
-        
-        # Linux - only x86_64, remove aarch64
-        CIBW_ARCHS_LINUX: auto
-        # Linux repair wheel,use auditwheel
-        CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
-          auditwheel repair -w {dest_dir} {wheel}
-        
-        # Windows 
-        CIBW_BEFORE_BUILD_WINDOWS: "pip install delvewheel"
-        # Windows repair wheel, OpenMP DLL
-        CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
-          delvewheel repair -w {dest_dir} {wheel}
-    
-    - uses: actions/upload-artifact@v4
-      with:
-        name: wheels-${{ matrix.os }}-${{ strategy.job-index }}
-        path: wheelhouse/*.whl
+        os: [macos-14, ubuntu-latest]
 
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Build CPU-only wheels
+        uses: pypa/cibuildwheel@v2.22
+        env:
+          # Explicitly disable GPU backend so the build never accidentally
+          # picks up a system CUDA installation on the runner.
+          CIBW_CONFIG_SETTINGS: "cmake.define.MDAPY_OPTIX=OFF"
+
+          CIBW_BUILD: 'cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*'
+          CIBW_SKIP:  'pp* *-musllinux_* *-manylinux_i686'
+
+          # macOS (Apple Silicon — arm64 only, no x86_64 Rosetta build)
+          CIBW_BEFORE_BUILD_MACOS: brew install libomp
+          MACOSX_DEPLOYMENT_TARGET: '14.0'
+          CIBW_ARCHS_MACOS: arm64
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
+
+          # Linux x86_64 — standard manylinux2014 / manylinux_2_17 image.
+          # This gives a broad-compatibility CPU wheel that works on any x86_64
+          # Linux with glibc ≥ 2.17 (CentOS 7 era and newer).
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            auditwheel repair -w {dest_dir} {wheel}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-cpu-${{ matrix.os }}-${{ strategy.job-index }}
+          path: wheelhouse/*.whl
+
+  # =========================================================================
+  # 2. GPU-enabled wheels  (Linux x86_64 + Windows x86_64)
+  #
+  #    • CUDA Runtime is linked STATICALLY (cudart_static), so no
+  #      CUDA Toolkit install is needed on the user's machine.
+  #    • Only the NVIDIA display driver (≥ 520) is required at runtime.
+  #    • libcuda.so.1 / nvcuda.dll (driver stubs) are intentionally excluded
+  #      from wheel bundling — they are always provided by the driver.
+  # =========================================================================
+  build_wheels_gpu:
+    name: GPU wheel — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      # ── Windows only: install CUDA Toolkit (provides nvcc + static libs) ──
+      # The Jimver/cuda-toolkit action adds nvcc to PATH so CMake FindCUDAToolkit
+      # can locate it.  We install the minimal set needed for compilation.
+      - name: Install CUDA Toolkit (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: Jimver/cuda-toolkit@v0.2.19
+        id: cuda-toolkit
+        with:
+          cuda: '12.4.0'
+          method: 'network'
+          # nvcc: compiler; cudart: runtime dev headers; nvml: driver API
+          sub-packages: '["nvcc", "cudart", "cudart-dev", "nvml-dev", "visual_studio_integration"]'
+
+      - name: Show CUDA version (Windows)
+        if: matrix.os == 'windows-latest'
+        run: nvcc --version
+
+      - name: Build GPU-enabled wheels
+        uses: pypa/cibuildwheel@v2.22
+        env:
+          # Enable GPU backend.  MDAPY_OPTIX defaults to ON when CUDA is found,
+          # but we set it explicitly to fail fast if CUDA is missing.
+          CIBW_CONFIG_SETTINGS: "cmake.define.MDAPY_OPTIX=ON"
+
+          CIBW_BUILD: 'cp39-* cp310-* cp311-* cp312-* cp313-*'
+          CIBW_SKIP:  'pp* *-musllinux_* *-manylinux_i686'
+
+          # ── Linux ──────────────────────────────────────────────────────────
+          # sameli/manylinux_2_28_x86_64_cuda_12.3 is a pre-built image that
+          # combines the official PyPA manylinux_2_28 (AlmaLinux 8 / glibc 2.28)
+          # base with CUDA 12.3 (nvcc + dev headers).
+          # Resulting wheels are tagged manylinux_2_28_x86_64, which pip prefers
+          # over the manylinux_2_17 CPU wheels on modern Linux systems.
+          CIBW_MANYLINUX_X86_64_IMAGE: 'sameli/manylinux_2_28_x86_64_cuda_12.3'
+          CIBW_ARCHS_LINUX: x86_64
+
+          # Verify nvcc is available inside the container.
+          CIBW_BEFORE_ALL_LINUX: 'nvcc --version && echo "CUDA OK"'
+
+          # Repair: bundle all shared-library dependencies EXCEPT libcuda.so.1.
+          # libcuda.so.1 is the NVIDIA driver stub — it is always provided by the
+          # user's GPU driver and must NOT be bundled in the wheel.
+          # libcudart is statically linked (cudart_static), so it is not a dep.
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            auditwheel repair --exclude libcuda.so.1 -w {dest_dir} {wheel}
+
+          # ── Windows ────────────────────────────────────────────────────────
+          # CUDA was installed above by Jimver/cuda-toolkit; nvcc is on PATH.
+          CIBW_BEFORE_BUILD_WINDOWS: 'pip install delvewheel'
+          CIBW_ARCHS_WINDOWS: AMD64
+
+          # nvcuda.dll is the NVIDIA driver — always present on GPU machines,
+          # must NOT be bundled.  cudart is static, so no cudart*.dll is a dep.
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
+            delvewheel repair --no-dll "nvcuda.dll" -w {dest_dir} {wheel}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-gpu-${{ matrix.os }}-${{ strategy.job-index }}
+          path: wheelhouse/*.whl
+
+  # =========================================================================
+  # 3. Source distribution
+  # =========================================================================
   build_sdist:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-        fetch-depth: 0
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Install build
-      run: python -m pip install build
-    
-    - name: Build sdist
-      run: python -m build --sdist
-    
-    - uses: actions/upload-artifact@v4
-      with:
-        name: sdist
-        path: dist/*.tar.gz
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build
+        run: python -m pip install build
+
+      - name: Build sdist
+        run: python -m build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  # =========================================================================
+  # 4. Publish all artifacts to PyPI
+  # =========================================================================
   publish_to_pypi:
     name: Publish to PyPI
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels_cpu, build_wheels_gpu, build_sdist]
     runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/p/mdapy
     permissions:
-      id-token: write  # PyPI trusted publishing
-    
+      id-token: write   # required for PyPI trusted publishing
+
     steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: dist
-        merge-multiple: true
-    
-    - name: List distributions
-      run: ls -lh dist/
-    
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        skip-existing: true
-        verbose: true
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List distributions
+        run: ls -lh dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true   # allow re-runs without failure if some wheels are already uploaded
+          verbose: true

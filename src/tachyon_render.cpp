@@ -13,14 +13,25 @@
  *   has_optix()              -> bool
  */
 
+// ── STB image I/O ────────────────────────────────────────────────────────────
+// Define the implementation exactly once here (before any other includes).
+// stb_image_write uses only fopen/fwrite/fclose, which are cross-platform on
+// Windows, Linux, and macOS.  No extra platform handling is needed.
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image.h"
+#include "stb_image_write.h"
+
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/string.h>
 
+#include <cctype>
 #include <cstring>
 #include <vector>
 #include <cstdint>
 #include <stdexcept>
+#include <string>
 
 #include "tachyon_render.h"   // CPU renderer + shared data structs
 
@@ -30,6 +41,84 @@
 
 namespace nb = nanobind;
 using namespace mdapy_tachyon;
+
+// ---------------------------------------------------------------------------
+// Image I/O helpers (stb_image / stb_image_write)
+// ---------------------------------------------------------------------------
+using ImgArray = nb::ndarray<uint8_t, nb::shape<-1,-1,4>, nb::c_contig, nb::device::cpu>;
+
+// save_image(path, rgba_array)
+// Format is determined by file extension: .png (RGBA), .jpg/.jpeg (RGB, quality 95),
+// .bmp (RGB), .tga (RGBA).  Unknown extensions default to PNG.
+static void save_image(const std::string &path, ImgArray img)
+{
+    const int H   = (int)img.shape(0);
+    const int W   = (int)img.shape(1);
+    const uint8_t *data = img.data();
+
+    // Extract lower-case extension.
+    std::string ext;
+    auto dot = path.rfind('.');
+    if (dot != std::string::npos) {
+        ext = path.substr(dot + 1);
+        for (auto &c : ext) c = (char)std::tolower((unsigned char)c);
+    }
+
+    int ok = 0;
+    if (ext == "jpg" || ext == "jpeg") {
+        // JPEG does not support alpha; convert RGBA → RGB.
+        std::vector<uint8_t> rgb(size_t(H) * W * 3);
+        for (int i = 0; i < H * W; ++i) {
+            rgb[i*3+0] = data[i*4+0];
+            rgb[i*3+1] = data[i*4+1];
+            rgb[i*3+2] = data[i*4+2];
+        }
+        ok = stbi_write_jpg(path.c_str(), W, H, 3, rgb.data(), 95);
+    } else if (ext == "bmp") {
+        // BMP variant used here is RGB-only.
+        std::vector<uint8_t> rgb(size_t(H) * W * 3);
+        for (int i = 0; i < H * W; ++i) {
+            rgb[i*3+0] = data[i*4+0];
+            rgb[i*3+1] = data[i*4+1];
+            rgb[i*3+2] = data[i*4+2];
+        }
+        ok = stbi_write_bmp(path.c_str(), W, H, 3, rgb.data());
+    } else if (ext == "tga") {
+        ok = stbi_write_tga(path.c_str(), W, H, 4, data);
+    } else {
+        // PNG (default, including unknown extensions): full RGBA.
+        ok = stbi_write_png(path.c_str(), W, H, 4, data, W * 4);
+    }
+
+    if (!ok)
+        throw std::runtime_error("save_image: failed to write '" + path + "'");
+}
+
+// load_image(path) → numpy (H, W, 4) uint8 RGBA
+static nb::ndarray<nb::numpy, uint8_t, nb::shape<-1,-1,4>>
+load_image(const std::string &path)
+{
+    int W = 0, H = 0, n = 0;
+    // Always request 4 channels (RGBA) regardless of source format.
+    uint8_t *raw = stbi_load(path.c_str(), &W, &H, &n, 4);
+    if (!raw) {
+        const char *reason = stbi_failure_reason();
+        throw std::runtime_error(
+            "load_image: cannot read '" + path + "': " +
+            (reason ? reason : "unknown error"));
+    }
+
+    const size_t nbytes = size_t(W) * H * 4;
+    uint8_t *heap = new uint8_t[nbytes];
+    std::memcpy(heap, raw, nbytes);
+    stbi_image_free(raw);
+
+    nb::capsule owner(heap,
+        [](void *p) noexcept { delete[] static_cast<uint8_t *>(p); });
+    size_t shape[3] = { size_t(H), size_t(W), 4 };
+    return nb::ndarray<nb::numpy, uint8_t, nb::shape<-1,-1,4>>(
+        heap, 3, shape, owner);
+}
 
 // ---------------------------------------------------------------------------
 // ndarray type aliases (shared by both backends)
@@ -260,5 +349,25 @@ NB_MODULE(_tachyon, m) {
     m.def("has_optix", []{ return false; },
           "Return False: this mdapy build was compiled without OptiX support.");
 #endif
+
+    // -----------------------------------------------------------------------
+    // Image I/O
+    // -----------------------------------------------------------------------
+    m.def("save_image", &save_image,
+          nb::arg("path"), nb::arg("img"),
+          "Save a (H, W, 4) uint8 RGBA image to *path*.\n\n"
+          "Format is determined by the file extension:\n"
+          "  .png          — RGBA (alpha preserved)\n"
+          "  .jpg / .jpeg  — RGB  (alpha discarded, quality 95)\n"
+          "  .bmp          — RGB\n"
+          "  .tga          — RGBA\n"
+          "  other         — treated as .png\n\n"
+          "Cross-platform: uses stb_image_write (fopen/fwrite).");
+
+    m.def("load_image", &load_image,
+          nb::arg("path"),
+          "Load an image from *path* and return a (H, W, 4) uint8 RGBA array.\n\n"
+          "Supports PNG, JPEG, BMP, TGA, GIF, PSD, HDR, PIC, PNM (via stb_image).\n"
+          "Raises RuntimeError if the file cannot be read.");
 
 } // NB_MODULE

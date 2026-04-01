@@ -192,8 +192,9 @@ nanobind_add_module(_tachyon STABLE_ABI
 )
 
 target_include_directories(_tachyon PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/src"   # tachyon_render.h / tachyon_optix_render.h
-    "${TACHYON_SRC}"                    # tachyon.h
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"          # tachyon_render.h / tachyon_optix_render.h
+    "${TACHYON_SRC}"                           # tachyon.h
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/stb"   # stb_image.h / stb_image_write.h
 )
 target_link_libraries(_tachyon PRIVATE TachyonLib)
 
@@ -511,16 +512,22 @@ if(MDAPY_OPTIX)
                     /ignore:4217   # symbol imported by object (harmless)
                     /ignore:4286   # symbol imported by multiple objects (harmless)
                 )
+                # cudart_static: statically link CUDA Runtime so cudart64_1xx.dll
+                # is not a runtime dependency of the wheel.  Only nvcuda.dll (the
+                # NVIDIA display driver, always present on GPU machines) is needed.
                 target_link_libraries(_tachyon PRIVATE
-                    CUDA::cudart CUDA::cuda_driver)
+                    CUDA::cudart_static CUDA::cuda_driver)
             else()
                 target_link_options(_tachyon PRIVATE
                     "${_TACHYON_OPTIX_OBJ}"
                     "${_IMPL_OBJ}"
                     "${_DLINK_OBJ}"
                 )
+                # cudart_static: statically link CUDA Runtime so libcudart.so is
+                # not bundled in the manylinux wheel.  Only libcuda.so.1 (the NVIDIA
+                # driver stub, always present on GPU machines) is needed at runtime.
                 target_link_libraries(_tachyon PRIVATE
-                    CUDA::cudart CUDA::cuda_driver dl)
+                    CUDA::cudart_static CUDA::cuda_driver dl)
             endif()
 
             add_dependencies(_tachyon TachyonOptiXBuild TachyonOptiXShadersPTX)

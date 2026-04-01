@@ -26,6 +26,49 @@ def is_gpu_available() -> bool:
     return _HAS_OPTIX
 
 
+def load_image(path: str) -> np.ndarray:
+    """
+    Load an image file and return a ``(H, W, 4)`` uint8 RGBA numpy array.
+
+    Supports PNG, JPEG, BMP, TGA, GIF, PSD, HDR, PIC, PNM (via stb_image).
+
+    Parameters
+    ----------
+    path : str
+        Path to the image file.
+
+    Returns
+    -------
+    numpy.ndarray, shape (H, W, 4), dtype uint8, RGBA.
+    """
+    return np.array(_tachyon_mod.load_image(path), copy=False)
+
+
+def save_image(path: str, img: np.ndarray) -> None:
+    """
+    Save a ``(H, W, 4)`` uint8 RGBA image array to a file.
+
+    Format is determined by the file extension:
+
+    - ``.png``        — RGBA, lossless (alpha preserved)
+    - ``.jpg/.jpeg``  — RGB, lossy (alpha discarded, quality 95)
+    - ``.bmp``        — RGB
+    - ``.tga``        — RGBA
+    - other           — treated as ``.png``
+
+    Parameters
+    ----------
+    path : str
+        Destination file path.
+    img  : numpy.ndarray, shape (H, W, 4), dtype uint8
+        RGBA image to save.
+    """
+    img = np.ascontiguousarray(img, dtype=np.uint8)
+    if img.ndim != 3 or img.shape[2] != 4:
+        raise ValueError(f"img must be (H, W, 4) uint8, got shape {img.shape}")
+    _tachyon_mod.save_image(path, img)
+
+
 # ─── CameraParams ─────────────────────────────────────────────────────────────
 class CameraParams:
     """
@@ -112,8 +155,6 @@ class TachyonRender:
 
     Parameters
     ----------
-    width, height : int
-        Output image resolution in pixels.
     backend : str
         Rendering backend: ``"cpu"``, ``"gpu"``, or ``"auto"``.  Default ``"cpu"``.
     antialiasing : bool
@@ -137,19 +178,27 @@ class TachyonRender:
     num_threads : int
         CPU thread count (CPU backend only).  0 = auto.  Default 0.
 
+    Image size (``width`` / ``height``) is specified per-call in
+    :meth:`render` / :meth:`render_system`, so the same renderer instance
+    can produce images at different resolutions without re-initialisation.
+
     Examples
     --------
-    >>> ren_cpu = TachyonRender(width=800, height=600)  # CPU
-    >>> ren_gpu = TachyonRender(width=800, height=600, backend="gpu")  # GPU
-    >>> ren_auto = TachyonRender(width=800, height=600, backend="auto")  # auto
+    >>> ren_cpu = TachyonRender()                     # CPU, default settings
+    >>> ren_gpu = TachyonRender(backend="gpu")         # GPU
+    >>> ren_auto = TachyonRender(backend="auto")       # auto-select
+    >>> # render at 1920×1080; save directly to PNG
+    >>> ren_cpu.render_system(sys, width=1920, height=1080,
+    ...                       output_figure="out.png")
+    >>> # render with transparent background
+    >>> ren_cpu.render_system(sys, width=800, height=600,
+    ...                       output_figure="out.png", transparent=True)
     >>> print(ren_cpu.backend)
     cpu
     """
 
     def __init__(
         self,
-        width: int = 800,
-        height: int = 600,
         backend: str = "cpu",
         antialiasing: bool = True,
         aa_samples: int = 12,
@@ -186,8 +235,6 @@ class TachyonRender:
         self._backend = backend  # "cpu" or "gpu" (resolved)
 
         rp = _RenderParams()
-        rp.width = int(width)
-        rp.height = int(height)
         rp.antialiasing_enabled = bool(antialiasing)
         rp.antialiasing_samples = int(aa_samples)
         rp.ao_enabled = bool(ao)
@@ -213,7 +260,6 @@ class TachyonRender:
         rp = self._rp
         return (
             f"TachyonRender(backend={self._backend!r}, "
-            f"size=({rp.width}x{rp.height}), "
             f"ao={rp.ao_enabled}, aa={rp.antialiasing_enabled})"
         )
 
@@ -227,7 +273,11 @@ class TachyonRender:
         box_edges: Optional[np.ndarray] = None,
         box_edge_radius: float = 0.05,
         box_color: tuple = (1.0, 1.0, 1.0, 1.0),
-    ) -> np.ndarray:
+        width: int = 800,
+        height: int = 600,
+        output_figure: Optional[str] = None,
+        transparent: bool = False,
+    ) -> Optional[np.ndarray]:
         """
         Render spherical particles and optional simulation-cell box edges.
 
@@ -243,10 +293,19 @@ class TachyonRender:
         box_edge_radius : float.  Cylinder radius for box edges.  Default 0.05.
         box_color       : tuple (R, G, B) or (R, G, B, A), values in [0, 1].
                           Default opaque white (1, 1, 1, 1).
+        width, height   : int.  Output image size in pixels.  Default 800 × 600.
+        output_figure   : str or None.  If given, save the image to this path
+                          (format inferred from extension: png/jpg/bmp/tga) and
+                          return None.  If None, return the RGBA numpy array.
+        transparent     : bool.  When True, pixels whose RGB matches the background
+                          colour are made fully transparent (alpha=0).  Only
+                          meaningful for PNG output or when inspecting the array.
+                          Default False.
 
         Returns
         -------
-        numpy.ndarray, shape (H, W, 4), dtype uint8, RGBA image.
+        numpy.ndarray, shape (H, W, 4), dtype uint8, RGBA image — or None if
+        ``output_figure`` is provided.
         """
         positions = np.ascontiguousarray(positions, dtype=np.float64)
         colors = np.ascontiguousarray(colors, dtype=np.float32)
@@ -258,6 +317,11 @@ class TachyonRender:
             raise ValueError(f"colors must be (N,4), got {colors.shape}")
         if radii.ndim != 1:
             raise ValueError(f"radii must be (N,), got {radii.shape}")
+
+        # Update resolution per-call so the same renderer can be reused at
+        # different sizes without reconstructing the backend object.
+        self._rp.width = int(width)
+        self._rp.height = int(height)
 
         if camera is None:
             max_r = float(radii.max()) if len(radii) > 0 else 0.0
@@ -279,7 +343,7 @@ class TachyonRender:
         box_b = bc[2]
         box_a = bc[3] if len(bc) > 3 else 1.0
 
-        img = self._renderer.render(
+        raw = self._renderer.render(
             self._rp,
             cpp_cam,
             positions,
@@ -292,7 +356,25 @@ class TachyonRender:
             box_b,
             box_a,
         )
-        return np.array(img, copy=False)
+
+        # transparent: detect background pixels by comparing to bg RGB and zero
+        # out their alpha channel.  Pixels that differ from the background by
+        # more than 1 LSB in any channel are treated as geometry (alpha=255).
+        if transparent:
+            img = np.array(raw)  # writable copy
+            bg = np.array(
+                [self._rp.bg_r, self._rp.bg_g, self._rp.bg_b], dtype=np.float32
+            ) * 255.0
+            diff = np.abs(img[:, :, :3].astype(np.float32) - bg).max(axis=2)
+            img[:, :, 3] = np.where(diff < 1.5, 0, 255).astype(np.uint8)
+        else:
+            img = np.array(raw, copy=False)
+
+        if output_figure is not None:
+            _tachyon_mod.save_image(output_figure, img)
+            return None
+
+        return img
 
     # Convenience wrapper for mdapy.System
     def render_system(
@@ -305,7 +387,11 @@ class TachyonRender:
         box_edge_radius: float = 0.05,
         box_color: tuple = (1.0, 1.0, 1.0, 1.0),
         default_radius: float = 1.0,
-    ) -> np.ndarray:
+        width: int = 800,
+        height: int = 600,
+        output_figure: Optional[str] = None,
+        transparent: bool = False,
+    ) -> Optional[np.ndarray]:
         """
         Render a ``mdapy.System`` object in one call.
 
@@ -322,6 +408,10 @@ class TachyonRender:
         box_color       : tuple (R, G, B) or (R, G, B, A), values in [0, 1].
                           Default opaque white (1, 1, 1, 1).
         default_radius  : float.  Fallback radius when ``radii`` is None.  Default 1.0.
+        width, height   : int.  Output image size in pixels.  Default 800 × 600.
+        output_figure   : str or None.  If given, save image to this path and
+                          return None.  Format inferred from extension.
+        transparent     : bool.  Transparent background (PNG recommended).
         """
         pos = system.get_positions().to_numpy()  # (N,3)
 
@@ -358,6 +448,10 @@ class TachyonRender:
             box_edges=box_edges,
             box_edge_radius=box_edge_radius,
             box_color=box_color,
+            width=width,
+            height=height,
+            output_figure=output_figure,
+            transparent=transparent,
         )
 
 
@@ -698,12 +792,10 @@ if __name__ == "__main__":
         random_seed=1,
     )
     pos = sys_al.get_positions().to_numpy()
-    for backend in ["gpu"]:
+    for backend in ["cpu", "gpu"]:
         print(f"  N atoms: {sys_al.N}, backend: {backend}.")
         start = time()
         ren = TachyonRender(
-            width=1000,
-            height=1000,
             backend=backend,
             background=(1, 1, 1),
             direct_light_intensity=1.2,
@@ -732,6 +824,8 @@ if __name__ == "__main__":
                 default_radius=r,
                 box_color=(0, 0, 0, 1),
                 box_edge_radius=0.1,
+                width=1000,
+                height=1000,
             )
             ax.imshow(img)
             ax.set_title(title, fontsize=13)
@@ -740,7 +834,7 @@ if __name__ == "__main__":
         print(f"backend {backend} time is: {time() - start} s.")
         plt.suptitle(f"mdapy TachyonRender — 4 views ({backend})", fontsize=15)
         plt.tight_layout()
-        plt.savefig(f"{backend}.png")
+        # plt.savefig(f"{backend}.png")
         plt.show()
 
     # Single-view examples:

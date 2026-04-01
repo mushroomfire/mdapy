@@ -204,6 +204,32 @@ trajectories generated from Molecular Dynamics (MD) simulations.
    # Identify crystal structures
    system.cal_polyhedral_template_matching()
 
+🎨 **Ray-tracing Visualization**
+
+.. code-block:: python
+
+   import mdapy as mp
+   from mdapy.render import TachyonRender, load_image, save_image
+
+   system = mp.System('your_file.dump')
+
+   # CPU rendering (always available)
+   ren = TachyonRender(backend='cpu')
+   img = ren.render_system(system, width=800, height=600)
+
+   # GPU rendering (automatic on supported platforms, falls back gracefully)
+   ren = TachyonRender(backend='auto')   # 'auto' selects GPU if available
+
+   # Save directly to PNG (transparent background optional)
+   ren.render_system(system, width=1920, height=1080,
+                     output_figure='result.png')
+   ren.render_system(system, width=1920, height=1080,
+                     output_figure='result_transparent.png', transparent=True)
+
+   # Load/save images
+   img = load_image('result.png')          # (H, W, 4) uint8 RGBA
+   save_image('copy.jpg', img)             # format inferred from extension
+
 --------
 
 📚 **Documentation & Resources**

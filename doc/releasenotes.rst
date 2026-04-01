@@ -7,8 +7,7 @@ Mdapy 1.0.4 (Under development)
 🏆 New Features
 ----------------
 
-- Added support for rendering structures with Tachyon method, accelerated by multi core CPU and GPU.
-
+- Added support for rendering structures using the Tachyon method, accelerated by multi-core CPU and GPU (an order of magnitude faster).
 
 Mdapy 1.0.3 (March 28, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

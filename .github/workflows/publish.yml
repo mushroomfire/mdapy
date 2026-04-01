@@ -113,7 +113,10 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '12.6.0'
-          method: 'network'
+          # 'local' downloads the full offline installer (~3 GB) before running it.
+          # The 'network' stub installer consistently fails on Windows Server 2022
+          # with exit code 3772776473 for CUDA 12.4 and 12.6.
+          method: 'local'
           sub-packages: '["nvcc", "cudart", "cudart-dev", "nvml-dev", "visual_studio_integration"]'
 
       # Explicitly add CUDA bin to GITHUB_PATH so cibuildwheel's subprocess

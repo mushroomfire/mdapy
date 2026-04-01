@@ -336,14 +336,10 @@ if(MDAPY_OPTIX)
                 list(APPEND _NVCC_INCS "-I${_inc}")
             endforeach()
 
-            # Build the list of -gencode flags for all supported GPU architectures.
-            # sm_60 (Pascal) was removed in CUDA 13; only include it for CUDA < 13.
-            # sm_70 is the new minimum for CUDA 13+ builds.
-            set(_GENCODE_FLAGS "")
-            if(CUDAToolkit_VERSION_MAJOR LESS 13)
-                list(APPEND _GENCODE_FLAGS -gencode arch=compute_60,code=sm_60)
-            endif()
-            list(APPEND _GENCODE_FLAGS
+            # GPU architecture targets.  We build for Pascal and newer (sm_60+)
+            # which covers all CUDA 12.x-supported hardware.
+            set(_GENCODE_FLAGS
+                -gencode arch=compute_60,code=sm_60
                 -gencode arch=compute_70,code=sm_70
                 -gencode arch=compute_75,code=sm_75
                 -gencode arch=compute_80,code=sm_80
@@ -351,12 +347,7 @@ if(MDAPY_OPTIX)
                 -gencode arch=compute_89,code=sm_89
                 -gencode arch=compute_90,code=sm_90
             )
-            # PTX baseline arch: sm_60 for CUDA <13, sm_70 for CUDA 13+.
-            if(CUDAToolkit_VERSION_MAJOR LESS 13)
-                set(_PTX_ARCH "sm_60")
-            else()
-                set(_PTX_ARCH "sm_70")
-            endif()
+            set(_PTX_ARCH "sm_60")
 
             # Common nvcc flags for compiling .cu -> relocatable object (-dc).
             # -dc emits device code that must be device-linked before host linking.

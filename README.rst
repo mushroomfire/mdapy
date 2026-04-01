@@ -69,7 +69,7 @@ Why mdapy?
 
    * - 🤝
      - **Ecosystem Friendly**
-     - First-class interop with OVITO, ASE, freud, phonopy, and LAMMPS.
+     - First-class interop with OVITO, ASE, freud, phonopy, LAMMPS and GPUMD.
 
    * - 📖
      - **Thoroughly Documented**
@@ -193,8 +193,8 @@ Quick Examples
 
    import mdapy as mp
 
-   sys = mp.System("dump.lammps")
-   sys.cal_polyhedral_template_matching()   # adds 'structure_types' column
+   sys = mp.System("fcc.dump")
+   sys.cal_polyhedral_template_matching()   # adds 'ptm' column
    sys.cal_centro_symmetry_parameter(N=12)  # CSP for FCC
    print(sys.data)                          # Polars DataFrame
 
@@ -210,9 +210,9 @@ Quick Examples
 .. code-block:: python
 
    from mdapy import get_elastic_constant
-
-   C = get_elastic_constant("nep.txt", "POSCAR")
-   print(C)   # 6×6 elastic tensor in GPa
+   calc = mp.NEP('nep.txt')
+   C = get_elastic_constant(sys, calc)
+   C.print()   # 6×6 elastic tensor in GPa
 
 **Ray-tracing render:**
 
@@ -230,13 +230,10 @@ Quick Examples
 
    import mdapy as mp
 
-   poly = mp.CreatePolycrystal(
-       box_length=[100, 100, 100],
-       num_grains=50,
-       metal="Al",
-   )
-   poly.compute()
-   poly.system.write("polycrystal.dump")
+   unit = mp.build_crystal("Al", "fcc", 4.05)
+   poly = mp.CreatePolycrystal(unit, box=100, seed_number=10, metal_overlap_dis=2.0)
+   system = poly.compute()
+   system.write_xyz("polycrystal.xyz")
 
 ----
 
@@ -268,8 +265,6 @@ Documentation & Resources
 
 +----------------------------------+------------------------------------------------------+
 | 📖 Full documentation            | https://mdapy.readthedocs.io                         |
-+----------------------------------+------------------------------------------------------+
-| 🎓 Jupyter notebook tutorials    | https://github.com/mushroomfire/mdapy-tutorial       |
 +----------------------------------+------------------------------------------------------+
 | 🏠 Source code                   | https://github.com/mushroomfire/mdapy                |
 +----------------------------------+------------------------------------------------------+

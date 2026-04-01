@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2025, Yongchao Wu in Aalto University
+// Copyright (c) 2022-2026, Yongchao Wu in Aalto University
 // This file is from the mdapy project, released under the BSD 3-Clause License.
 // Some part codes come from the ovito CNA modifier. see https://gitlab.com/stuko/ovito/-/tree/master/src/ovito/particles/modifier/analysis/cna?ref_type=heads
 

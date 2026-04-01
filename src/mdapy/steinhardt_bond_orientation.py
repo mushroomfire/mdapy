@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, Yongchao Wu in Aalto University
+# Copyright (c) 2022-2026, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 import numpy as np

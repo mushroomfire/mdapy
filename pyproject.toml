@@ -61,7 +61,8 @@ sdist.exclude = [
     "doc",
     ".github",
     ".readthedocs.yaml",
-    ".gitignore"
+    ".gitignore",
+    "add_copyright.py"
 ]
 
 [tool.scikit-build.metadata.version]

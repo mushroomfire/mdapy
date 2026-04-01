@@ -13,6 +13,7 @@ Mdapy 1.0.4 (Under development)
 ----------------------
 
 - Refactor documentation, remove all warnings and errors.
+- Add copyright for all codes.
 
 Mdapy 1.0.3 (March 28, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

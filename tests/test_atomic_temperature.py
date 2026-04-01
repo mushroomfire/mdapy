@@ -1,3 +1,5 @@
+# Copyright (c) 2022-2026, Yongchao Wu in Aalto University
+# This file is from the mdapy project, released under the BSD 3-Clause License.
 from mdapy import build_crystal
 from mdapy.tool_function import generate_velocity
 from mdapy.data import atomic_masses, atomic_numbers

@@ -1,3 +1,5 @@
+# Copyright (c) 2022-2026, Yongchao Wu in Aalto University
+# This file is from the mdapy project, released under the BSD 3-Clause License.
 from mdapy.elastic import get_elastic_constant, _get_stress
 from mdapy import build_crystal, FIRE, System
 from mdapy.nep import NEP

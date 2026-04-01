@@ -1,3 +1,5 @@
+# Copyright (c) 2022-2026, Yongchao Wu in Aalto University
+# This file is from the mdapy project, released under the BSD 3-Clause License.
 from ase.build import bulk
 from ase.lattice.cubic import FaceCenteredCubic, BodyCenteredCubic, Diamond
 from mdapy import build_crystal

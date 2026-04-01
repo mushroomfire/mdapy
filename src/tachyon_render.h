@@ -1,3 +1,5 @@
+// Copyright (c) 2022-2026, Yongchao Wu in Aalto University
+// This file is from the mdapy project, released under the BSD 3-Clause License.
 #pragma once
 /**
  * tachyon_render.h  —  mdapy Tachyon 渲染器（适配 Tachyon 0.99.5）

@@ -105,20 +105,22 @@ jobs:
       # ── Windows only: install CUDA via conda ──────────────────────────────
       # The Jimver/cuda-toolkit action consistently fails on Windows Server 2022
       # with exit code 3772776473 (CUDA 12.4 and 12.6, both network and local
-      # methods).  conda packages are lightweight (~200 MB vs 3 GB full toolkit)
-      # and install cleanly without the NVIDIA GUI installer.
-      # We only need nvcc + development headers + static cudart to build the wheel.
+      # methods).  conda packages are lightweight and install without the NVIDIA
+      # GUI installer.  GitHub's windows-2022 runner ships Miniconda at the path
+      # stored in $env:CONDA — use that directly since conda is not on PATH.
+      # On Windows, conda puts nvcc.exe in %CONDA%\Library\bin and headers/libs
+      # in %CONDA%\Library\include|lib, which matches what CMake FindCUDAToolkit
+      # expects when CUDA_PATH=%CONDA%\Library.
       - name: Install CUDA via conda (Windows)
         if: matrix.os == 'windows-2022'
         shell: powershell
         run: |
-          conda install -y -c "nvidia/label/cuda-12.6.0" `
-            cuda-nvcc cuda-cudart-dev cuda-nvml-dev
-          $cudaPrefix = (conda info --json | ConvertFrom-Json).active_prefix
-          # conda puts nvcc.exe in Library\bin on Windows
-          $nvccDir = "$cudaPrefix\Library\bin"
-          echo "CUDA_PATH=$cudaPrefix\Library" | Out-File -Append -FilePath $env:GITHUB_ENV
-          echo "$nvccDir" | Out-File -Append -FilePath $env:GITHUB_PATH
+          & "$env:CONDA\Scripts\conda.exe" install -y `
+            -c "nvidia/label/cuda-12.6.0" `
+            cuda-nvcc cuda-cudart-dev
+          $cudaLib = "$env:CONDA\Library"
+          echo "CUDA_PATH=$cudaLib" | Out-File -Append -FilePath $env:GITHUB_ENV
+          echo "$cudaLib\bin"       | Out-File -Append -FilePath $env:GITHUB_PATH
 
       - name: Verify nvcc (Windows)
         if: matrix.os == 'windows-2022'

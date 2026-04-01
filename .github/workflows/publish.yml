@@ -102,33 +102,27 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      # ── Windows only: install CUDA Toolkit (provides nvcc + static libs) ──
-      # Jimver/cuda-toolkit adds nvcc to PATH and sets CUDA_PATH.
-      # We capture CUDA_PATH as a step output so we can forward it explicitly
-      # to cibuildwheel's subprocess environment (it doesn't inherit runner PATH
-      # on Windows automatically).
-      - name: Install CUDA Toolkit (Windows)
+      # ── Windows only: install CUDA via conda ──────────────────────────────
+      # The Jimver/cuda-toolkit action consistently fails on Windows Server 2022
+      # with exit code 3772776473 (CUDA 12.4 and 12.6, both network and local
+      # methods).  conda packages are lightweight (~200 MB vs 3 GB full toolkit)
+      # and install cleanly without the NVIDIA GUI installer.
+      # We only need nvcc + development headers + static cudart to build the wheel.
+      - name: Install CUDA via conda (Windows)
         if: matrix.os == 'windows-2022'
-        uses: Jimver/cuda-toolkit@v0.2.19
-        id: cuda-toolkit
-        with:
-          cuda: '12.6.0'
-          # 'local' downloads the full offline installer (~3 GB) before running it.
-          # The 'network' stub installer consistently fails on Windows Server 2022
-          # with exit code 3772776473 for CUDA 12.4 and 12.6.
-          method: 'local'
-          sub-packages: '["nvcc", "cudart", "cudart-dev", "nvml-dev", "visual_studio_integration"]'
-
-      # Explicitly add CUDA bin to GITHUB_PATH so cibuildwheel's subprocess
-      # sees nvcc.  Jimver sets PATH for the current shell, but cibuildwheel
-      # spawns a fresh subprocess that may not inherit it.
-      - name: Add CUDA bin to GITHUB_PATH (Windows)
-        if: matrix.os == 'windows-2022'
-        shell: bash
-        run: echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin" >> "$GITHUB_PATH"
+        shell: powershell
+        run: |
+          conda install -y -c "nvidia/label/cuda-12.6.0" `
+            cuda-nvcc cuda-cudart-dev cuda-nvml-dev
+          $cudaPrefix = (conda info --json | ConvertFrom-Json).active_prefix
+          # conda puts nvcc.exe in Library\bin on Windows
+          $nvccDir = "$cudaPrefix\Library\bin"
+          echo "CUDA_PATH=$cudaPrefix\Library" | Out-File -Append -FilePath $env:GITHUB_ENV
+          echo "$nvccDir" | Out-File -Append -FilePath $env:GITHUB_PATH
 
       - name: Verify nvcc (Windows)
         if: matrix.os == 'windows-2022'
+        shell: powershell
         run: nvcc --version
 
       - name: Build GPU-enabled wheels
@@ -173,10 +167,10 @@ jobs:
             auditwheel repair --exclude libcuda.so.1 -w {dest_dir} {wheel}
 
           # ── Windows ────────────────────────────────────────────────────────
-          # Forward CUDA_PATH into cibuildwheel's subprocess so CMake's
-          # FindCUDAToolkit can locate nvcc.  nvcc itself is already on
-          # GITHUB_PATH from the step above.
-          CIBW_ENVIRONMENT_WINDOWS: 'CUDA_PATH="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"'
+          # CUDA_PATH is set to the conda Library prefix by the install step.
+          # Forward it into cibuildwheel's subprocess so CMake's FindCUDAToolkit
+          # can locate nvcc and the CUDA headers/libs.
+          CIBW_ENVIRONMENT_WINDOWS: 'CUDA_PATH="$CUDA_PATH"'
           CIBW_BEFORE_BUILD_WINDOWS: 'pip install delvewheel && nvcc --version'
           CIBW_ARCHS_WINDOWS: AMD64
 

@@ -91,7 +91,7 @@ Neighbor Search
 +---------------------------+---------------------------------------------+
 | Fixed-radius cutoff       | Efficient cell-list algorithm               |
 +---------------------------+---------------------------------------------+
-| k-Nearest neighbors       | Exact kNN via KD-tree                       |
+| k-Nearest neighbors       | Exact kNN via aabb tree                       |
 +---------------------------+---------------------------------------------+
 | Voronoi neighbors         | Topology-based, powered by Voro++           |
 +---------------------------+---------------------------------------------+

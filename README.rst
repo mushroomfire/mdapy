@@ -1,6 +1,6 @@
-===================================================
-🚀 mdapy - Molecular Dynamics Analysis with Python
-===================================================
+====================================================================
+mdapy — Molecular Dynamics Analysis in Python
+====================================================================
 
 .. image:: https://img.shields.io/pypi/v/mdapy.svg
    :target: https://pypi.org/project/mdapy/
@@ -10,148 +10,163 @@
    :target: https://pypi.org/project/mdapy/
    :alt: Python versions
 
+.. image:: https://img.shields.io/pypi/dm/mdapy.svg
+   :target: https://pypi.org/project/mdapy/
+   :alt: PyPI downloads
+
 .. image:: https://img.shields.io/github/license/mushroomfire/mdapy.svg
    :target: https://github.com/mushroomfire/mdapy/blob/master/LICENSE
    :alt: License
 
 .. image:: https://readthedocs.org/projects/mdapy/badge/?version=latest
-   :target: https://mdapy.readthedocs.io/en/latest/?badge=latest
-   :alt: ReadTheDocs
+   :target: https://mdapy.readthedocs.io/en/latest/
+   :alt: Documentation
 
 .. image:: https://img.shields.io/github/stars/mushroomfire/mdapy.svg?style=social
    :target: https://github.com/mushroomfire/mdapy
    :alt: GitHub stars
 
-A simple, fast, and powerful Python library designed for Molecular Dynamics (MD) simulation data analysis! 💪
+|
 
---------
-
-📖 **Introduction**
-========================================
-
-**mdapy** provides a comprehensive suite of powerful, 
-flexible, and straightforward tools for analyzing atomic 
-trajectories generated from Molecular Dynamics (MD) simulations.
-
-🎯 **Why Choose mdapy?**
---------
-
-✨ **Cross-Platform Support**
-   Fully compatible with Windows, Linux, and Mac OS - run anywhere seamlessly
-
-⚡ **Blazing Fast Performance**
-   - Accelerated by C++ using Nanobind
-   - Highly parallelized, fully utilizing multicore CPU resources
-   - Lightning-fast file I/O for large datasets
-
-🔧 **Comprehensive Format Support**
-   Native support for mainstream MD formats:
-   
-   - LAMMPS (DUMP/DATA)
-   - VASP (POSCAR)
-   - Universal XYZ format
-   - Custom MP format
-
-🔗 **Seamless Integration**
-   - All data stored in Polars DataFrame and transfer with NumPy NDARRAY format
-   - Easy integration with Python scientific ecosystem
-   - Perfect compatibility with post-processing tools like OVITO, ASE and freud
-
---------
-
-🎨 **Core Features**
-========================================
-
-🔬 **Neighbor Search**
---------
-
-- Fixed cutoff distance neighbor
-- Fixed number nearest neighbor
-- Voronoi neighbor
-
-📊 **Structural Analysis**
---------
-
-- Ackland Jones Analysis
-- Common Neighbor Parameter
-- CentroSymmetry Parameter
-- Common Neighbor Analysis
-- Polyhedral Template Matching
-- Identify Fcc Planar Faults
-- Identify Diamond Structure
-- Structure Entropy
-- AtomicStrain
-- Steinhardt Bond Orientation
-- Radial Distribution Function
-- Bond Analysis
-- Angular Distribution Function
-- Structure Factor
-
-📦 **Model Building**
---------
-
-- **Large scale** polycrystalline structure generation
-- Standard lattice configuration creation
-- High entropy alloy structure
-
-🤖 **Machine Learning Potential**
---------
-
-- NEP/qNEP potential support
-- Elastic constant
-- Minimization with cell optimization
-- Equation of state
-- Stacking faults energy
-- Phonon dispersion 
-
-📚 **Miscellaneous**
---------
-
-- Generate EAM potential
-- Average EAM potential 
-- Mean Square Displacement
-- Lindemann Parameter
-- Cluster Analysis 
-- Void Analysis 
-- Warren Cowley Parameter
-- Average Atomic Temperature
-- Average by Neighbor 
-- Atomic Voronoi Volume
-- Multi-dimensional Spatial Binning
-- Parallelly Compress file to .gz format
-
---------
-
-🚀 **Quick Start**
-========================================
-
-💾 **Installation**
---------
-
-**Method 1: Install via pip (Recommended)**
+**mdapy** is a fast, full-featured Python library for analyzing Molecular Dynamics (MD)
+simulation data — from structural characterization and machine-learning potential
+workflows to built-in ray-tracing visualization, all in a clean Pythonic API.
 
 .. code-block:: bash
 
    pip install mdapy
 
-**Method 2: Install with all optional features**
+|
+
+----
+
+Why mdapy?
+----------
+
+.. list-table::
+   :widths: 5 25 70
+   :header-rows: 0
+
+   * - ⚡
+     - **Blazing Fast**
+     - C++ core (via Nanobind) with full OpenMP parallelism. Analyses that take minutes
+       elsewhere finish in seconds.
+
+   * - 🐍
+     - **Pythonic by Design**
+     - One-liner analyses. All data lives in a
+       `Polars <https://pola.rs>`_ DataFrame and interops natively with NumPy.
+
+   * - 🌍
+     - **Truly Cross-Platform**
+     - Pre-built wheels for Windows, Linux, and macOS (including Apple Silicon).
+       No compiler needed for standard installs.
+
+   * - 🎨
+     - **Built-in Ray-Tracing**
+     - Tachyon-powered CPU *and* GPU (NVIDIA OptiX) renderer baked right in —
+       no third-party renderer required.
+
+   * - 🤝
+     - **Ecosystem Friendly**
+     - First-class interop with OVITO, ASE, freud, phonopy, and LAMMPS.
+
+   * - 📖
+     - **Thoroughly Documented**
+     - Full API reference, tutorials, and Jupyter notebooks on
+       `ReadTheDocs <https://mdapy.readthedocs.io>`_.
+
+   * - 🔄
+     - **Actively Maintained**
+     - Regular releases, responsive issue tracker, and a growing feature set.
+
+----
+
+Feature Overview
+----------------
+
+Neighbor Search
+~~~~~~~~~~~~~~~
+
++---------------------------+---------------------------------------------+
+| Fixed-radius cutoff       | Efficient cell-list algorithm               |
++---------------------------+---------------------------------------------+
+| k-Nearest neighbors       | Exact kNN via KD-tree                       |
++---------------------------+---------------------------------------------+
+| Voronoi neighbors         | Topology-based, powered by Voro++           |
++---------------------------+---------------------------------------------+
+
+Structural Analysis
+~~~~~~~~~~~~~~~~~~~
+
+- **Structure identification** — Polyhedral Template Matching (PTM),
+  Common Neighbor Analysis (CNA), Ackland-Jones Analysis,
+  Common Neighbor Parameter, Identify Diamond Structure
+- **Defect characterization** — Centro-Symmetry Parameter (CSP),
+  Identify FCC Planar Faults (ISF / TB / ESF), Atomic Strain,
+  Wigner-Seitz defect analysis
+- **Order parameters** — Steinhardt Bond Orientation (q₂…q₁₂, averaged),
+  Structure Entropy, Warren-Cowley SRO parameter
+- **Distributions** — Radial Distribution Function, Structure Factor
+  (total + partial + X-ray weighted), Angular Distribution Function,
+  Bond Analysis
+
+Model Building
+~~~~~~~~~~~~~~
+
+- Single-crystal lattices (FCC, BCC, HCP, diamond, and more)
+- **Large-scale polycrystalline** structures via Voronoi tessellation
+- High-entropy alloy (HEA) configurations
+
+Machine-Learning Potential Workflows
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **NEP / qNEP** potential evaluation (energy, forces, stress, virials)
+- ASE-compatible ``NEP4ASE`` calculator
+- Elastic constant tensor calculation
+- Equation-of-state (EOS) fitting
+- Stacking-fault energy curves
+- Phonon dispersion via phonopy
+
+Visualization
+~~~~~~~~~~~~~
+
+- **TachyonRender** — CPU or NVIDIA OptiX GPU ray-tracing, renders
+  any ``System`` to a PNG/JPEG with one method call
+- Per-element colors and radii, transparent background, anti-aliasing,
+  ambient occlusion, shadows — all configurable
+
+Utilities
+~~~~~~~~~
+
+- EAM potential generation and averaging
+- Mean Squared Displacement (FFT-accelerated or direct)
+- Lindemann parameter, Void analysis, Cluster analysis
+- Spatial binning (multi-dimensional)
+- Atomic temperature averaging
+- Parallel ``.gz`` compression
+- Multi-frame XYZ trajectory reader / splitter
+
+----
+
+Installation
+------------
+
+**One command (recommended):**
 
 .. code-block:: bash
 
-   # Install with matplotlib
-   pip install mdapy[plot]
+   pip install mdapy
+
+**With optional extras:**
 
 .. code-block:: bash
 
-   # Install with k3d
-   pip install mdapy[k3d]
+   pip install mdapy[plot]      # + matplotlib
+   pip install mdapy[k3d]       # + k3d 3-D widget
+   pip install mdapy[all]       # + matplotlib, k3d, pyfftw, phonopy
 
-.. code-block:: bash
-
-   # Install all optional packages (matplotlib, k3d, phonopy, pyfftw), except lammps
-   pip install mdapy[all]
-
-**Method 3: Install from source**
+**From source** (requires C++17 compiler + OpenMP):
 
 .. code-block:: bash
 
@@ -159,222 +174,192 @@ trajectories generated from Molecular Dynamics (MD) simulations.
    cd mdapy
    pip install .
 
-**Method 4: Install directly from GitHub**
+Tested compilers: MSVC (Windows 10), GCC (Ubuntu), Clang (macOS M1).
+
+**Verify:**
 
 .. code-block:: bash
 
-   pip install https://github.com/mushroomfire/mdapy/archive/master.zip
+   python -c "import mdapy as mp; print('mdapy', mp.__version__, '— ready!')"
 
-📋 **System Requirements for Method 3 and 4**
-~~~~~~~~
+----
 
-- Python 3.8+
-- C++ compilation environment (C++17 or newer)
-- OpenMP support
-- Tested platforms: Windows 10 (MSVC), Ubuntu (GCC), Mac OS M1 (Clang)
+Quick Examples
+--------------
 
-✅ **Verify Installation**
-~~~~~~~~
-
-.. code-block:: bash
-
-   python -c "import mdapy as mp; print('mdapy version is:', mp.__version__)"
-
---------
-
-💡 **Usage Examples**
-========================================
-
-🎬 **Basic Usage**
+**Load & analyse in three lines:**
 
 .. code-block:: python
 
    import mdapy as mp
-   
-   # Load LAMMPS DUMP file
-   system = mp.System('your_file.dump')
-   
-   # View system information
-   print(system)
-   
-   # Calculate radial distribution function
-   rdf = system.cal_radial_distribution_function(rc=5.0)
-   rdf.plot()
-   
-   # Identify crystal structures
-   system.cal_polyhedral_template_matching()
 
-🎨 **Ray-tracing Visualization**
+   sys = mp.System("dump.lammps")
+   sys.cal_polyhedral_template_matching()   # adds 'structure_types' column
+   sys.cal_centro_symmetry_parameter(N=12)  # CSP for FCC
+   print(sys.data)                          # Polars DataFrame
+
+**Radial distribution function:**
+
+.. code-block:: python
+
+   rdf = sys.cal_radial_distribution_function(rc=6.0)
+   rdf.plot()           # matplotlib figure — one line
+
+**Machine-learning potential workflow:**
+
+.. code-block:: python
+
+   from mdapy import get_elastic_constant
+
+   C = get_elastic_constant("nep.txt", "POSCAR")
+   print(C)   # 6×6 elastic tensor in GPa
+
+**Ray-tracing render:**
+
+.. code-block:: python
+
+   from mdapy.render import TachyonRender
+
+   ren = TachyonRender(backend="auto")          # GPU if available, else CPU
+   ren.render_system(sys, width=1920, height=1080,
+                     output_figure="structure.png")
+
+**Build a polycrystal:**
 
 .. code-block:: python
 
    import mdapy as mp
-   from mdapy.render import TachyonRender, load_image, save_image
 
-   system = mp.System('your_file.dump')
+   poly = mp.CreatePolycrystal(
+       box_length=[100, 100, 100],
+       num_grains=50,
+       metal="Al",
+   )
+   poly.compute()
+   poly.system.write("polycrystal.dump")
 
-   # CPU rendering (always available)
-   ren = TachyonRender(backend='cpu')
-   img = ren.render_system(system, width=800, height=600)
+----
 
-   # GPU rendering (automatic on supported platforms, falls back gracefully)
-   ren = TachyonRender(backend='auto')   # 'auto' selects GPU if available
+Supported File Formats
+----------------------
 
-   # Save directly to PNG (transparent background optional)
-   ren.render_system(system, width=1920, height=1080,
-                     output_figure='result.png')
-   ren.render_system(system, width=1920, height=1080,
-                     output_figure='result_transparent.png', transparent=True)
++------------------------+---------------------------+
+| Format                 | Read / Write              |
++========================+===========================+
+| LAMMPS DUMP            | ✅ / ✅                   |
++------------------------+---------------------------+
+| LAMMPS DATA            | ✅ / ✅                   |
++------------------------+---------------------------+
+| VASP POSCAR/CONTCAR    | ✅ / ✅                   |
++------------------------+---------------------------+
+| XYZ (extended)         | ✅ / ✅                   |
++------------------------+---------------------------+
+| MP (mdapy native)      | ✅ / ✅                   |
++------------------------+---------------------------+
+| ASE Atoms              | ✅ (import / export)      |
++------------------------+---------------------------+
+| OVITO DataCollection   | ✅ (import)               |
++------------------------+---------------------------+
 
-   # Load/save images
-   img = load_image('result.png')          # (H, W, 4) uint8 RGBA
-   save_image('copy.jpg', img)             # format inferred from extension
+----
 
---------
+Documentation & Resources
+--------------------------
 
-📚 **Documentation & Resources**
-========================================
++----------------------------------+------------------------------------------------------+
+| 📖 Full documentation            | https://mdapy.readthedocs.io                         |
++----------------------------------+------------------------------------------------------+
+| 🎓 Jupyter notebook tutorials    | https://github.com/mushroomfire/mdapy-tutorial       |
++----------------------------------+------------------------------------------------------+
+| 🏠 Source code                   | https://github.com/mushroomfire/mdapy                |
++----------------------------------+------------------------------------------------------+
+| 🐛 Issue tracker                 | https://github.com/mushroomfire/mdapy/issues         |
++----------------------------------+------------------------------------------------------+
 
-📖 **Full Documentation**
-   https://mdapy.readthedocs.io/
+----
 
-🎓 **Tutorial Repository**
-   https://github.com/mushroomfire/mdapy-tutorial
+Dependencies
+------------
 
-💬 **Issue Tracker**
-   https://github.com/mushroomfire/mdapy/issues
+**Required:**
 
-🏠 **Project Homepage**
-   https://github.com/mushroomfire/mdapy
+- `numpy <https://numpy.org>`_ — array engine
+- `polars <https://pola.rs>`_ — fast DataFrame backend
 
---------
+**Optional:**
 
-📦 **Dependencies**
-========================================
+- ``matplotlib`` — plotting (``pip install mdapy[plot]``)
+- ``k3d`` — interactive 3-D notebook viewer (``pip install mdapy[k3d]``)
+- ``pyfftw`` — faster FFT for MSD calculations
+- ``phonopy`` — phonon dispersion
+- ``lammps`` — LAMMPS-based potential calculations
 
-**Core Dependencies**
+----
 
-.. list-table::
-   :widths: 30 20 50
-   :header-rows: 1
-
-   * - Package
-     - Version
-     - Purpose
-   * - numpy
-     - latest
-     - Array computations
-   * - polars
-     - latest
-     - Data processing
-
-**Optional Dependencies**
-
-.. list-table::
-   :widths: 30 20 50
-   :header-rows: 1
-
-   * - Package
-     - Version
-     - Purpose
-   * - matplotlib
-     - latest
-     - Data visualization
-   * - k3d
-     - latest
-     - Atom 3D visualization
-   * - pyfftw
-     - latest
-     - Fast Fourier Transform
-   * - phonopy
-     - latest
-     - Phonon calculations
-   * - lammps
-     - latest
-     - Potential calculations
-
---------
-
-**Test**
-=========
-
-Some dependencies need to be installed before running the tests:
+Running the Tests
+-----------------
 
 .. code-block:: bash
 
    pip install pytest scikit-learn ase freud-analysis pyfftw pymatgen
    pip install git+https://github.com/bigd4/PyNEP.git
+   # also install OVITO and LAMMPS via your preferred method
+   cd tests && pytest
 
+----
 
-You also need to install OVITO and LAMMPS using your preferred method. Once everything is installed, you can run the tests with:
-
-.. code-block:: bash
-
-   cd tests
-   pytest 
-
-
-🔄 **Version Updates**
-========================================
-
-⚠️ **Important Notice**
-
-We have undergone a major upgrade from mdapy 1.0 (almost rewriting everyting). The old version of mdapy (≤0.11.5) can be found in this `branch <https://github.com/mushroomfire/mdapy/tree/mdapy_old>`_.
-
+Citation
 --------
 
-📜 **Citation**
-========================================
-
-If you use mdapy in your scientific publications, please cite the following paper:
+If mdapy contributes to a scientific publication, please cite:
 
 .. code-block:: bibtex
 
    @article{mdapy2023,
-     title = {mdapy: A flexible and efficient analysis software for molecular dynamics simulations},
+     title   = {mdapy: A flexible and efficient analysis software for
+                molecular dynamics simulations},
      journal = {Computer Physics Communications},
-     pages = {108764},
-     year = {2023},
-     issn = {0010-4655},
-     doi = {https://doi.org/10.1016/j.cpc.2023.108764},
-     url = {https://www.sciencedirect.com/science/article/pii/S0010465523001091},
-     author = {Yong-Chao Wu and Jian-Li Shao},
-     keywords = {Simulation analysis, Molecular dynamics, Polycrystal, TaiChi, Parallel computing}
+     pages   = {108764},
+     year    = {2023},
+     issn    = {0010-4655},
+     doi     = {10.1016/j.cpc.2023.108764},
+     url     = {https://www.sciencedirect.com/science/article/pii/S0010465523001091},
+     author  = {Yong-Chao Wu and Jian-Li Shao},
    }
 
---------
+----
 
-⭐ **Support the Project**
-========================================
+Version Notice
+--------------
 
-If you find mdapy useful, please give us a `Star ⭐ <https://github.com/mushroomfire/mdapy>`_!
+mdapy 1.0 is a ground-up rewrite with a new, cleaner API.
+The legacy release (≤ 0.11.5) is preserved on the
+`mdapy_old branch <https://github.com/mushroomfire/mdapy/tree/mdapy_old>`_.
 
-Your support is our motivation for continuous improvement! 🙏
+----
 
---------
+Contributing
+------------
 
-📄 **License**
-========================================
+Bug reports, feature requests, and pull requests are all very welcome!
+Please open an `issue <https://github.com/mushroomfire/mdapy/issues>`_ or
+submit a PR on GitHub.
 
-This project is licensed under the BSD 3-Clause License - see the `LICENSE <https://github.com/mushroomfire/mdapy/blob/master/LICENSE>`_ file for details.
+----
 
---------
+License
+-------
 
-🤝 **Contributing**
-========================================
+BSD 3-Clause — see `LICENSE <https://github.com/mushroomfire/mdapy/blob/master/LICENSE>`_
+for details.
 
-Issues and Pull Requests are welcome!
+----
 
-Let's make mdapy better together! 💪
+Contact
+-------
 
---------
+- **Issues / feature requests:** https://github.com/mushroomfire/mdapy/issues
+- **Email:** 934313174@qq.com
 
-📧 **Contact**
-========================================
-
-If you have any questions or suggestions, feel free to reach us through:
-
-- 📬 Submit an Issue: https://github.com/mushroomfire/mdapy/issues
-- 💬 Email to Author: 934313174@qq.com 
-
---------
+If mdapy helps your research, a ⭐ on
+`GitHub <https://github.com/mushroomfire/mdapy>`_ is always appreciated!

@@ -372,10 +372,14 @@ if(MDAPY_OPTIX)
             else()
                 set(_NVCC_FLAGS
                     -dc --generate-line-info
-                    # manylinux_2_28 ships GCC 13 while CUDA 12.x only officially
-                    # supports up to GCC 12.  The flag suppresses the version check;
-                    # the generated code is correct for our use-case.
+                    # manylinux_2_28 ships GCC 13/14 while CUDA 12.x only officially
+                    # supports up to GCC 12.  -allow-unsupported-compiler suppresses
+                    # the version check.  -ccbin pins nvcc to the same host compiler
+                    # that CMake uses (set via CC/CXX env vars in CI to gcc-12), so
+                    # nvcc doesn't pick up gcc-14 from PATH whose STL headers
+                    # (__bfloat16_t, _Float128, etc.) are incompatible with CUDA 12.3.
                     -allow-unsupported-compiler
+                    -ccbin "${CMAKE_CXX_COMPILER}"
                     -gencode arch=compute_60,code=sm_60
                     -gencode arch=compute_70,code=sm_70
                     -gencode arch=compute_75,code=sm_75
@@ -409,6 +413,7 @@ if(MDAPY_OPTIX)
                 COMMAND "${NVCC_EXECUTABLE}"
                         -ptx --generate-line-info
                         -allow-unsupported-compiler
+                        -ccbin "${CMAKE_CXX_COMPILER}"
                         -arch sm_60
                         ${_NVCC_INCS}
                         -DTACHYON_INTERNAL=1 -DTACHYONINTERNAL=1

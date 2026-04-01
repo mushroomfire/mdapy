@@ -154,11 +154,11 @@ class SteinhardtBondOrientation:
 
     References
     ----------
-    .. [1] Paul J. Steinhardt. Bond-orientational order in liquids and glasses. Physical Review B, 28(2):784-805, 1983. doi:10.1103/PhysRevB.28.784.
+    Paul J. Steinhardt. Bond-orientational order in liquids and glasses. Physical Review B, 28(2):784-805, 1983. doi:10.1103/PhysRevB.28.784.
 
-    .. [2] Wolfgang Lechner and Christoph Dellago. Accurate determination of crystal structures based on averaged local bond order parameters. The Journal of Chemical Physics, 129(11):114707, 2008. http://dx.doi.org/10.1063/1.2977970
+    Wolfgang Lechner and Christoph Dellago. Accurate determination of crystal structures based on averaged local bond order parameters. The Journal of Chemical Physics, 129(11):114707, 2008. http://dx.doi.org/10.1063/1.2977970
 
-    .. [3] L. Filion, M. Hermes, R. Ni, and M. Dijkstra. Crystal nucleation of hard spheres using molecular dynamics, umbrella sampling, and forward flux sampling: a comparison of simulation techniques. The Journal of Chemical Physics, 133(24):244115, http://dx.doi.org/10.1063/1.3506838.
+    L. Filion, M. Hermes, R. Ni, and M. Dijkstra. Crystal nucleation of hard spheres using molecular dynamics, umbrella sampling, and forward flux sampling: a comparison of simulation techniques. The Journal of Chemical Physics, 133(24):244115, http://dx.doi.org/10.1063/1.3506838.
     """
 
     def __init__(

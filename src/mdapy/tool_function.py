@@ -276,10 +276,11 @@ def split_xyz(input_file, output_dir="res", output_prefix=None, in_memory=True):
     input_file : str
         Path to the input XYZ file containing multiple frames.
         The file should follow standard XYZ format:
-            - Line 1: Number of atoms (integer)
-            - Line 2: Comment line
-            - Lines 3 to N+2: Atomic coordinates (element x y z ...)
-            - Repeat for each frame
+
+        - Line 1: Number of atoms (integer)
+        - Line 2: Comment line
+        - Lines 3 to N+2: Atomic coordinates (element x y z ...)
+        - Repeat for each frame
 
     output_dir : str, optional
         Directory where individual frame files will be saved.

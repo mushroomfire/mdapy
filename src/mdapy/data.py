@@ -425,14 +425,6 @@ atomic_masses: np.ndarray = np.array(
 )
 atomic_masses.flags.writeable = False
 
-"""
-    X-ray form factors are taken from:
-    Brown P J, Fox A G, Maslen E N, O'Keefe M A and Willis B T M 2004 Intensity
-    of diffraction intensities International Tables for Crystallography
-    Volume C: Mathematical, Physical, and Chemical Tables
-    Table 6.1.1.4
-"""
-
 xray_form_factor: Dict[str, List[float]] = {
     "H": [
         0.489918,
@@ -2756,6 +2748,10 @@ xray_form_factor: Dict[str, List[float]] = {
         13.2674,
     ],
 }
+"""X-ray form factors (Cromer-Mann coefficients) from International Tables for
+Crystallography, Volume C (Brown et al., 2004), Table 6.1.1.4.
+Keys are element/ion symbols (str), values are lists of 9 float coefficients
+``[a1, b1, a2, b2, a3, b3, a4, b4, c]``."""
 
 
 """

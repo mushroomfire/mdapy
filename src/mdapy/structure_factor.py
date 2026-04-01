@@ -88,12 +88,14 @@ class StructureFactor:
 
     References
     ----------
-    .. [1] Frenkel, D. & Smit, B. Understanding Molecular Simulation.
-           Academic Press (2002)
-    .. [2] Hansen, J.-P. & McDonald, I. R. Theory of Simple Liquids.
-           Academic Press (2006)
-    .. [3] freud.diffraction.StaticStructureFactorDirect
-           https://freud.readthedocs.io/en/stable/modules/diffraction.html
+    Frenkel, D. & Smit, B. Understanding Molecular Simulation.
+    Academic Press (2002).
+
+    Hansen, J.-P. & McDonald, I. R. Theory of Simple Liquids.
+    Academic Press (2006).
+
+    freud.diffraction.StaticStructureFactorDirect.
+    https://freud.readthedocs.io/en/stable/modules/diffraction.html
     """
 
     def __init__(

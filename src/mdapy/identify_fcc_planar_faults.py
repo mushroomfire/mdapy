@@ -11,7 +11,7 @@ class IdentifyFccPlanarFaults:
 
     This class identifies intrinsic and extrinsic stacking faults as well as coherent twin
     boundaries in FCC crystal structures. The algorithm is based on the method described in
-    the OVITO documentation [1]_, with an additional capability to identify Extrinsic
+    the `OVITO documentation <https://www.ovito.org/manual/reference/pipelines/modifiers/identify_fcc_planar_faults.html>`_, with an additional capability to identify Extrinsic
     Stacking Faults (ESF).
 
     Parameters
@@ -50,8 +50,8 @@ class IdentifyFccPlanarFaults:
 
     References
     ----------
-    .. [1] OVITO Identify FCC Planar Faults Modifier.
-           https://www.ovito.org/manual/reference/pipelines/modifiers/identify_fcc_planar_faults.html
+    OVITO Identify FCC Planar Faults Modifier.
+    https://www.ovito.org/manual/reference/pipelines/modifiers/identify_fcc_planar_faults.html
     """
 
     def __init__(

@@ -87,17 +87,8 @@ class System:
 
     Attributes
     ----------
-    data : pl.DataFrame
-        Polars DataFrame containing per-atom properties. Always includes
-        'x', 'y', 'z' columns for positions.
     box : Box
         Simulation box object containing cell vectors and boundary conditions.
-    global_info : dict
-        Dictionary of global system properties.
-    N : int
-        Number of atoms in the system.
-    calc : CalculatorMP or None
-        Attached calculator for energy/force/virial computations.
     verlet_list : np.ndarray, optional
         Neighbor list array when neighbors are built.
     distance_list : np.ndarray, optional

@@ -37,13 +37,13 @@ The stress tensor is computed from the virial theorem:
 
 References
 ----------
-.. [1] Daw, M. S., & Baskes, M. I. (1984). Embedded-atom method: Derivation and
-       application to impurities, surfaces, and other defects in metals.
-       Physical Review B, 29(12), 6443.
+Daw, M. S., & Baskes, M. I. (1984). Embedded-atom method: Derivation and
+application to impurities, surfaces, and other defects in metals.
+Physical Review B, 29(12), 6443.
 
-.. [2] Foiles, S. M., Baskes, M. I., & Daw, M. S. (1986). Embedded-atom-method
-       functions for the fcc metals Cu, Ag, Au, Ni, Pd, Pt, and their alloys.
-       Physical Review B, 33(12), 7983.
+Foiles, S. M., Baskes, M. I., & Daw, M. S. (1986). Embedded-atom-method
+functions for the fcc metals Cu, Ag, Au, Ni, Pd, Pt, and their alloys.
+Physical Review B, 33(12), 7983.
 
 """
 

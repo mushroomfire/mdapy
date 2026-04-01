@@ -53,9 +53,9 @@ class AcklandJonesAnalysis:
 
     References
     ----------
-    .. [1] Ackland, G. J., & Jones, A. P. (2006). Applications of local crystal
-           structure measures in experiment and simulation. Physical Review B,
-           73(5), 054104.
+    Ackland, G. J., & Jones, A. P. (2006). Applications of local crystal
+    structure measures in experiment and simulation. Physical Review B,
+    73(5), 054104.
     """
 
     def __init__(

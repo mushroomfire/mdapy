@@ -66,9 +66,10 @@ class WarrenCowleyParameter:
 
     References
     ----------
-    .. [1] Warren, B. E. (1990). X-ray Diffraction. Dover Publications.
-    .. [2] Cowley, J. M. (1950). An approximate theory of order in alloys.
-           Physical Review, 77(5), 669.
+    Warren, B. E. (1990). X-ray Diffraction. Dover Publications.
+
+    Cowley, J. M. (1950). An approximate theory of order in alloys.
+    Physical Review, 77(5), 669.
     """
 
     def __init__(

@@ -61,9 +61,9 @@ class CentroSymmetryParameter:
 
     References
     ----------
-    .. [1] Kelchner, C. L., Plimpton, S. J., & Hamilton, J. C. (1998).
-           Dislocation nucleation and defect structure during surface indentation.
-           Physical Review B, 58(17), 11085.
+    Kelchner, C. L., Plimpton, S. J., & Hamilton, J. C. (1998).
+    Dislocation nucleation and defect structure during surface indentation.
+    Physical Review B, 58(17), 11085.
     """
 
     def __init__(

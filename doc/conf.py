@@ -50,3 +50,7 @@ napoleon_use_rtype = False
 napoleon_use_param = True
 
 html_theme = "furo"
+
+# Suppress ambiguous cross-reference warnings for short attribute names (e.g. "N")
+# that appear in multiple classes on the same documentation page.
+suppress_warnings = ["ref.python"]

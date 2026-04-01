@@ -28,17 +28,6 @@ class CalculatorMP(ABC):
     Calculators are responsible for computing physical properties such as
     energies, forces, stresses, and virials for a given atomic configuration.
 
-    Attributes
-    ----------
-    results : dict
-        Dictionary storing computed results. Keys typically include:
-
-        - 'energies': per-atom potential energies (eV)
-        - 'forces': per-atom forces (eV/A)
-        - 'stress': system stress tensor (eV/A^3)
-        - 'virials': per-atom virial tensors (eV)
-        - 'energy': system potential energy (eV)
-
     Notes
     -----
     All subclasses must implement the five abstract methods defined here.

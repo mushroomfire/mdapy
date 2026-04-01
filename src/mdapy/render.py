@@ -178,6 +178,8 @@ class TachyonRender:
     num_threads : int
         CPU thread count (CPU backend only).  0 = auto.  Default 0.
 
+    Notes
+    -----
     Image size (``width`` / ``height``) is specified per-call in
     :meth:`render` / :meth:`render_system`, so the same renderer instance
     can produce images at different resolutions without re-initialisation.

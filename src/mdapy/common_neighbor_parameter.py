@@ -62,9 +62,9 @@ class CommonNeighborParameter:
 
     References
     ----------
-    .. [1] Tsuzuki, H., Branicio, P. S., & Rino, J. P. (2007). Structural
-           characterization of deformed crystals by analysis of common atomic
-           neighborhood. Computer Physics Communications, 177(6), 518-523.
+    Tsuzuki, H., Branicio, P. S., & Rino, J. P. (2007). Structural
+    characterization of deformed crystals by analysis of common atomic
+    neighborhood. Computer Physics Communications, 177(6), 518-523.
     """
 
     def __init__(

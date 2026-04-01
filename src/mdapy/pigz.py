@@ -31,32 +31,40 @@ def compress_file(input_file, output_file=None):
     of large files. It automatically uses all available CPU cores and
     maintains full gzip format compatibility.
 
-    Args:
-        input_file (str): Path to input file to compress
-        output_file (str, optional): Path to output file.
-            If not specified, adds .gz to input filename.
+    Parameters
+    ----------
+    input_file : str
+        Path to input file to compress.
+    output_file : str, optional
+        Path to output file. If not specified, adds ``.gz`` to input filename.
 
-    Returns:
-        str: Path to the created compressed file
+    Returns
+    -------
+    str
+        Path to the created compressed file.
 
-    Raises:
-        FileNotFoundError: If input file doesn't exist
-        ValueError: If input file already has .gz extension
-        Exception: If compression fails for any reason
+    Raises
+    ------
+    FileNotFoundError
+        If input file doesn't exist.
+    ValueError
+        If input file already has ``.gz`` extension.
+    Exception
+        If compression fails for any reason.
 
-    Examples:
-        >>> # Compress with automatic output name
-        >>> compress_file("data.txt")
-        'data.txt.gz'
+    Notes
+    -----
+    - Small files (<5 MB) use single-process compression.
+    - Large files automatically use all available CPU cores.
+    - Uses 512 KB chunks for optimal parallelism.
 
-        >>> # Compress with custom output name
-        >>> compress_file("input.txt", "output.gz")
-        'output.gz'
+    Examples
+    --------
+    >>> compress_file("data.txt")
+    'data.txt.gz'
 
-    Note:
-        - Small files (<5MB) use single-process compression
-        - Large files automatically use all CPU cores
-        - Uses 512KB chunks for optimal parallelism
+    >>> compress_file("input.txt", "output.gz")
+    'output.gz'
     """
     compressor = _ParallelGzip(input_file, output_file)
     return compressor.compress()

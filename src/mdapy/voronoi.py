@@ -13,10 +13,10 @@ periodic boundary conditions.
 
 References
 ----------
-.. [1] Lu J, Lazar E A, Rycroft C H. An extension to
-    Voro++ for multithreaded computation of Voronoi cells[J].
-    Computer Physics Communications, 2023, 291: 108832.
-    https://doi.org/10.1016/j.cpc.2023.108832
+Lu J, Lazar E A, Rycroft C H. An extension to
+Voro++ for multithreaded computation of Voronoi cells.
+Computer Physics Communications, 2023, 291: 108832.
+https://doi.org/10.1016/j.cpc.2023.108832
 """
 
 from mdapy import _voronoi

@@ -29,9 +29,6 @@ class NEP4ASE(Calculator):
 
     Attributes
     ----------
-    implemented_properties : list
-        Properties that this calculator can compute:
-        ['energy', 'energies', 'forces', 'stress', 'virials']
     calc : nepcal.NEPCalculator
         Underlying NEP calculator object
     results : dict

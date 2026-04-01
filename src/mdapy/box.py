@@ -35,21 +35,6 @@ class Box:
         The origin position of the box in 3D space.
         Defaults to [0.0, 0.0, 0.0].
     
-    Attributes
-    ----------
-    box : np.ndarray
-        The 3x3 box matrix where each row represents a box vector.
-    origin : np.ndarray
-        The origin position of the box.
-    boundary : np.ndarray
-        Boundary condition flags for each dimension.
-    triclinic : bool
-        True if the box is triclinic (non-orthogonal), False otherwise.
-    volume : float
-        The volume of the simulation box.
-    inverse_box : np.ndarray
-        The inverse of the box matrix for coordinate transformations.
-    
     Examples
     --------
     Creating different types of boxes:

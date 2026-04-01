@@ -78,11 +78,12 @@ class MeanSquaredDisplacement:
               MSD(t) =& \dfrac{1}{N} \sum_{i=1}^{N} (r_i(t) - r_i(0))^2 \\
           \end{eqnarray*}
 
-    **Important**:
+    .. note::
+
         - Input positions must be **unwrapped**. Wrapped coordinates across periodic boundaries
           will produce incorrect MSD.
         - For diffusive motion in 3D: :math:`MSD(t) \approx 6 D t` where :math:`D` is the diffusion coefficient.
-        - Using `pyFFTW` (if installed) can accelerate FFT computation significantly for large trajectories.
+        - Using ``pyFFTW`` (if installed) can accelerate FFT computation significantly for large trajectories.
 
     Attributes
     ----------
@@ -97,11 +98,12 @@ class MeanSquaredDisplacement:
 
     References
     ----------
-    [1] Vania Calandrini, Eric Pellegrini, Paolo Calligari, Konrad Hinsen, Gerald R. Kneller.
-        "Nmoldyn – interfacing spectroscopic experiments, molecular dynamics simulations
-        and models for time correlation functions." École thématique de la Société Française
-        de la Neutronique, 12:201–232, 2011.
-    [2] pyFFTW: https://github.com/pyFFTW/pyFFTW
+    Vania Calandrini, Eric Pellegrini, Paolo Calligari, Konrad Hinsen, Gerald R. Kneller.
+    "Nmoldyn – interfacing spectroscopic experiments, molecular dynamics simulations
+    and models for time correlation functions." École thématique de la Société Française
+    de la Neutronique, 12:201–232, 2011.
+
+    pyFFTW: https://github.com/pyFFTW/pyFFTW
     """
 
     def __init__(

@@ -18,9 +18,9 @@ averaging of the entropy field.
 
 References
 ----------
-.. [1] P.M. Piaggi and M. Parrinello,Entropy based fingerprint for local crystalline order,
-        J. Chem. Phys. 147, 114112 (2017)
-        https://doi.org/10.1063/1.4998408
+P.M. Piaggi and M. Parrinello, Entropy based fingerprint for local crystalline order,
+J. Chem. Phys. 147, 114112 (2017)
+https://doi.org/10.1063/1.4998408
 """
 
 from mdapy import _structure_entropy

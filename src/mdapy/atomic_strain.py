@@ -97,9 +97,9 @@ class AtomicStrain:
 
     References
     ----------
-    .. [1] Shimizu, F., Ogata, S., & Li, J. (2007). Theory of shear banding in
-           metallic glasses and molecular dynamics calculations. Materials
-           Transactions, 48(11), 2923-2927.
+    Shimizu, F., Ogata, S., & Li, J. (2007). Theory of shear banding in
+    metallic glasses and molecular dynamics calculations. Materials
+    Transactions, 48(11), 2923-2927.
 
     Examples
     --------

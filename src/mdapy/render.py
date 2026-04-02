@@ -796,7 +796,7 @@ if __name__ == "__main__":
         random_seed=1,
     )
     pos = sys_al.get_positions().to_numpy()
-    for backend in ["cpu", "gpu"]:
+    for backend in ["cpu", 'gpu']:
         print(f"  N atoms: {sys_al.N}, backend: {backend}.")
         start = time()
         ren = TachyonRender(
@@ -817,15 +817,18 @@ if __name__ == "__main__":
             "Front (dir=(0,+1,0))",
             "Left (dir=(+1,0,0))",
         ]
-
+        radii = np.array([0.5]*8000 + [1.]*8000 + [1.5]*8000 + [2.0]*8000, np.float32)
+        np.random.seed(1)
+        np.random.shuffle(radii)
         fig, axes = plt.subplots(2, 2, figsize=(10, 10))
         for ax, view_name, title in zip(axes.flat, views, titles):
             # max_radius ensures edge atom spheres are fully visible (not just centres)
             cam = preset_camera(view_name, pos, max_radius=r)
+            
             img = ren.render_system(
                 sys_al,
                 camera=cam,
-                default_radius=r,
+                radii= radii,
                 box_color=(0, 0, 0, 1),
                 box_edge_radius=0.1,
                 width=1000,

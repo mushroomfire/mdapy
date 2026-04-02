@@ -2467,7 +2467,7 @@ OptixTraversableHandle TachyonOptiX::build_custprims_GAS() {
     int sz = m.radius.size();
     std::vector<float4 PINALLOCS(float4)> tmp(sz);
     for (int j=0; j<sz; j++) {
-      tmp[j] = make_float4(m.center[j], m.radius[i]);
+      tmp[j] = make_float4(m.center[j], m.radius[j]);
     }
     spPosRadiusBuffers[i].resize_upload(tmp);
     spPrimColorBuffers[i].resize_upload(m.primcolors3f);

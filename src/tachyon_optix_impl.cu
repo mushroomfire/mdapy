@@ -171,6 +171,13 @@ struct BoxEdgeData {
     float radius = 0.05f;
 };
 
+struct BondData {
+    const double* points = nullptr;
+    const float*  colors = nullptr;
+    size_t        count  = 0;
+    float         radius = 0.1f;
+};
+
 // ---------------------------------------------------------------------------
 // Coordinate helpers (flip Z for Tachyon's left-handed frame)
 // ---------------------------------------------------------------------------
@@ -209,6 +216,7 @@ public:
     std::vector<uint8_t> render(const RenderParams &rp,
                                 const CameraParams &cp,
                                 const ParticleData &pd,
+                                const BondData     *bonds = nullptr,
                                 const BoxEdgeData  *box = nullptr);
 private:
     struct Impl;
@@ -377,9 +385,79 @@ struct TachyonOptiXRenderer::Impl {
         if (!ra.center.empty()) ctx.add_ringarray(ra,mat);
     }
 
+    void addBonds(const BondData &bd) {
+        if (!bd.count) return;
+
+        struct BondBatch {
+            CylinderArray cylinders;
+            RingArray rings;
+        };
+
+        std::vector<BondBatch> batches;
+        std::vector<uint8_t> alpha_levels;
+
+        auto get_batch = [&](uint8_t alpha_byte, const float3 &col) -> BondBatch& {
+            for (size_t idx = 0; idx < alpha_levels.size(); ++idx) {
+                if (alpha_levels[idx] == alpha_byte) {
+                    return batches[idx];
+                }
+            }
+            alpha_levels.push_back(alpha_byte);
+            batches.emplace_back();
+            const float alpha = float(alpha_byte) / 255.0f;
+            const int mat = makeMaterial(col.x, col.y, col.z, alpha);
+            batches.back().cylinders.materialindex = mat;
+            batches.back().rings.materialindex = mat;
+            return batches.back();
+        };
+
+        for (size_t i = 0; i < bd.count; ++i) {
+            const double *p1 = bd.points + i * 6;
+            const double *p2 = bd.points + i * 6 + 3;
+            const float3 col = make_float3(
+                bd.colors[i * 4 + 0],
+                bd.colors[i * 4 + 1],
+                bd.colors[i * 4 + 2]);
+            const uint8_t alpha_byte = static_cast<uint8_t>(
+                std::max(0.f, std::min(1.f, bd.colors[i * 4 + 3])) * 255.f + 0.5f);
+            if (alpha_byte == 0) continue;
+
+            BondBatch &batch = get_batch(alpha_byte, col);
+            float3 a = tvec3(p1[0], p1[1], p1[2]);
+            float3 b = tvec3(p2[0], p2[1], p2[2]);
+            batch.cylinders.start.push_back(a);
+            batch.cylinders.end.push_back(b);
+            batch.cylinders.radius.push_back(bd.radius);
+            batch.cylinders.primcolors3f.push_back(col);
+
+            float3 ax = {b.x - a.x, b.y - a.y, b.z - a.z};
+            float3 nax = {-ax.x, -ax.y, -ax.z};
+            batch.rings.center.push_back(a);
+            batch.rings.normal.push_back(nax);
+            batch.rings.inrad.push_back(0);
+            batch.rings.outrad.push_back(bd.radius);
+            batch.rings.primcolors3f.push_back(col);
+            batch.rings.center.push_back(b);
+            batch.rings.normal.push_back(ax);
+            batch.rings.inrad.push_back(0);
+            batch.rings.outrad.push_back(bd.radius);
+            batch.rings.primcolors3f.push_back(col);
+        }
+
+        for (auto &batch : batches) {
+            if (!batch.cylinders.start.empty()) {
+                ctx.add_cylarray(batch.cylinders, batch.cylinders.materialindex);
+            }
+            if (!batch.rings.center.empty()) {
+                ctx.add_ringarray(batch.rings, batch.rings.materialindex);
+            }
+        }
+    }
+
     std::vector<uint8_t> render(const RenderParams &rp,
                                 const CameraParams &cp,
                                 const ParticleData &pd,
+                                const BondData     *bonds,
                                 const BoxEdgeData  *box)
     {
         // destroy_scene() must come FIRST: it calls destroy_lights() and
@@ -420,6 +498,9 @@ struct TachyonOptiXRenderer::Impl {
         setupCamera(cp);
 
         addParticles(pd);
+        if (bonds && bonds->count>0) {
+            addBonds(*bonds);
+        }
         if (box && box->count>0) {
             addBoxEdges(*box);
         }
@@ -451,7 +532,9 @@ TachyonOptiXRenderer::TachyonOptiXRenderer() : impl_(std::make_unique<Impl>()) {
 TachyonOptiXRenderer::~TachyonOptiXRenderer() = default;
 std::vector<uint8_t>
 TachyonOptiXRenderer::render(const RenderParams &rp, const CameraParams &cp,
-                              const ParticleData &pd, const BoxEdgeData *box)
-{ return impl_->render(rp,cp,pd,box); }
+                              const ParticleData &pd,
+                              const BondData *bonds,
+                              const BoxEdgeData *box)
+{ return impl_->render(rp,cp,pd,bonds,box); }
 
 } // namespace mdapy_tachyon

@@ -36,6 +36,7 @@ from mdapy.ackland_jones_analysis import AcklandJonesAnalysis
 from mdapy.common_neighbor_parameter import CommonNeighborParameter
 from mdapy.atomic_temperature import AtomicTemperature
 from mdapy.bond_analysis import BondAnalysis
+from mdapy.build_bond import build_bond as _build_bond_pairs
 from mdapy.angular_distribution_function import AngularDistributionFunction
 import mdapy.tool_function as tool
 from mdapy.data import atomic_numbers, vdw_radii
@@ -694,6 +695,8 @@ class System:
                 del self.verlet_list, self.neighbor_number, self.distance_list
             if hasattr(self, "rc"):
                 del self.rc
+            if hasattr(self, "bond"):
+                del self.bond
             if hasattr(self, "voro_verlet_list"):
                 del (
                     self.voro_verlet_list,
@@ -776,6 +779,8 @@ class System:
             del self.verlet_list, self.neighbor_number, self.distance_list
         if hasattr(self, "rc"):
             del self.rc
+        if hasattr(self, "bond"):
+            del self.bond
         if hasattr(self, "voro_verlet_list"):
             del (
                 self.voro_verlet_list,
@@ -1102,6 +1107,158 @@ class System:
             self._enlarge_data: pl.DataFrame = kdt._enlarge_data
         self.verlet_list, self.distance_list = kdt.indices_py, kdt.distances_py
         self.neighbor_number = np.full(self.verlet_list.shape[0], k, np.int32)
+
+    @staticmethod
+    def _normalize_bond_cutoff(
+        rc: Union[float, Dict[Tuple[Union[int, str], Union[int, str]], float], np.ndarray],
+        data: pl.DataFrame,
+    ) -> Tuple[float, np.ndarray, np.ndarray]:
+        if np.isscalar(rc):
+            rc = float(rc)
+            assert rc > 0, "rc should be larger than 0."
+            return rc, np.zeros(data.shape[0], np.int32), np.array([[rc]], float)
+
+        if isinstance(rc, dict):
+            assert len(rc) > 0, "pairwise rc should not be empty."
+            first_pair = next(iter(rc))
+            assert len(first_pair) == 2, "pairwise rc key should have two entries."
+            first_value = first_pair[0]
+
+            if isinstance(first_value, str):
+                assert "element" in data.columns, (
+                    "Data must contain element column for element-pair bond cutoff."
+                )
+                labels = data["element"].to_numpy()
+                unique_labels = np.unique(labels)
+            else:
+                assert "type" in data.columns, (
+                    "Data must contain type column for type-pair bond cutoff."
+                )
+                labels = data["type"].to_numpy(allow_copy=False)
+                unique_labels = np.unique(labels)
+
+            compact_type = np.searchsorted(unique_labels, labels).astype(np.int32)
+            ntype = unique_labels.shape[0]
+            cutoff_matrix = np.full((ntype, ntype), -1.0, float)
+            label_to_index = {value: idx for idx, value in enumerate(unique_labels.tolist())}
+            for pair, cutoff in rc.items():
+                assert len(pair) == 2, "pairwise rc key should have two type indices."
+                i, j = pair[0], pair[1]
+                assert i in label_to_index and j in label_to_index, (
+                    f"type/element pair {(i, j)} is not in current system."
+                )
+                cutoff = float(cutoff)
+                assert cutoff > 0, "pairwise rc should be larger than 0."
+                ii, jj = label_to_index[i], label_to_index[j]
+                cutoff_matrix[ii, jj] = cutoff
+                cutoff_matrix[jj, ii] = cutoff
+            if np.any(cutoff_matrix < 0):
+                missing_pairs = []
+                for i in range(ntype):
+                    for j in range(i, ntype):
+                        if cutoff_matrix[i, j] < 0:
+                            missing_pairs.append((unique_labels[i], unique_labels[j]))
+                raise ValueError(f"Missing rc for type pairs: {missing_pairs}")
+        else:
+            assert "type" in data.columns, (
+                "Data must contain type column for matrix bond cutoff."
+            )
+            type_list = data["type"].to_numpy(allow_copy=False)
+            unique_labels = np.unique(type_list)
+            compact_type = np.searchsorted(unique_labels, type_list).astype(np.int32)
+            ntype = unique_labels.shape[0]
+            cutoff_matrix = np.asarray(rc, float)
+            assert cutoff_matrix.ndim == 2, "pairwise rc should be a 2D array."
+            assert cutoff_matrix.shape == (ntype, ntype), (
+                f"pairwise rc shape should be {(ntype, ntype)}."
+            )
+            assert np.all(cutoff_matrix > 0), "pairwise rc should be larger than 0."
+
+        return float(cutoff_matrix.max()), compact_type, cutoff_matrix
+
+    def cal_build_bond(
+        self,
+        rc: Union[
+            float,
+            Dict[Tuple[Union[int, str], Union[int, str]], float],
+            np.ndarray,
+        ],
+        max_neigh: Optional[int] = None,
+    ) -> np.ndarray:
+        """
+        Build bond pairs from neighbor information.
+
+        Parameters
+        ----------
+        rc : float, dict, or np.ndarray
+            Bond cutoff definition. If a float is given, all bonds use the same
+            cutoff. If a dict is given, it should map ``(type_i, type_j)`` or
+            ``(element_i, element_j)`` to the corresponding cutoff. If a 2D
+            array is given, its rows and columns follow the sorted unique atom
+            types in the system.
+        max_neigh : int, optional
+            Maximum number of neighbors per atom when building the neighbor list.
+
+        Returns
+        -------
+        np.ndarray
+            A 2D integer array of shape ``(Nbond, 2)`` containing 0-based atom
+            indices for each bond pair.
+
+        Notes
+        -----
+        This method stores the result in ``self.bond`` and also returns it.
+        """
+        if np.isscalar(rc):
+            max_rc = float(rc)
+        else:
+            if isinstance(rc, dict):
+                max_rc = float(np.max(np.asarray(list(rc.values()), float)))
+            else:
+                assert "type" in self.data.columns, (
+                    "Data must contain type column for matrix bond cutoff."
+                )
+                max_rc = float(np.max(np.asarray(rc, float)))
+        assert max_rc > 0, "rc should be larger than 0."
+
+        has_neigh = False
+        if hasattr(self, "rc") and self.rc >= max_rc:
+            has_neigh = True
+        if not has_neigh:
+            self.build_neighbor(max_rc, max_neigh)
+
+        if hasattr(self, "_enlarge_data"):
+            data = self._enlarge_data
+        else:
+            data = self.__data
+
+        _, compact_type, cutoff_matrix = self._normalize_bond_cutoff(rc, data)
+        bond = np.asarray(
+            _build_bond_pairs(
+                self.verlet_list,
+                self.distance_list,
+                self.neighbor_number,
+                compact_type,
+                cutoff_matrix,
+            ),
+            dtype=np.int32,
+        )
+
+        if bond.size == 0:
+            self.bond = np.empty((0, 2), np.int32)
+            return self.bond
+
+        if hasattr(self, "_enlarge_data"):
+            bond %= self.N
+
+        bond.sort(axis=1)
+        bond = bond[bond[:, 0] != bond[:, 1]]
+        if bond.size == 0:
+            self.bond = np.empty((0, 2), np.int32)
+            return self.bond
+
+        self.bond = np.unique(bond, axis=0)
+        return self.bond
 
     def cal_identify_diamond_structure(self) -> None:
         """

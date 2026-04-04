@@ -274,6 +274,10 @@ class TachyonRender:
         colors: np.ndarray,
         radii: np.ndarray,
         camera: Optional[CameraParams] = None,
+        bond_edges: Optional[np.ndarray] = None,
+        bond_colors: Optional[np.ndarray] = None,
+        bond_radius: float = 0.1,
+        bond_color: tuple = (0.8, 0.8, 0.8, 1.0),
         box_edges: Optional[np.ndarray] = None,
         box_edge_radius: float = 0.05,
         box_color: tuple = (1.0, 1.0, 1.0, 1.0),
@@ -283,7 +287,7 @@ class TachyonRender:
         transparent: bool = False,
     ) -> Optional[np.ndarray]:
         """
-        Render spherical particles and optional simulation-cell box edges.
+        Render spherical particles and optional bond / box cylinders.
 
         Parameters
         ----------
@@ -292,6 +296,13 @@ class TachyonRender:
         radii           : (N,)  float32   Per-particle radius.
         camera          : CameraParams or None.  If None, a perspective camera
                           is generated automatically from the bounding box.
+        bond_edges      : (K, 2, 3) float64 or None. Pairs of endpoints for each
+                          bond cylinder. Pass None to skip drawing bonds.
+        bond_colors     : (K, 4) float32 or None. Per-bond RGBA colours.
+                          If None, `bond_color` is used for all bond cylinders.
+        bond_radius     : float. Cylinder radius for bonds. Default 0.1.
+        bond_color      : tuple (R, G, B) or (R, G, B, A), values in [0, 1].
+                          Default opaque grey.
         box_edges       : (M, 2, 3) float64 or None.  Pairs of endpoints for each
                           box edge cylinder.  Pass None to skip drawing.
         box_edge_radius : float.  Cylinder radius for box edges.  Default 0.05.
@@ -332,6 +343,32 @@ class TachyonRender:
             camera = _auto_camera(positions, max_radius=max_r)
         cpp_cam = camera._to_cpp()
 
+        if bond_edges is not None:
+            bond_edges = np.ascontiguousarray(bond_edges, dtype=np.float64)
+            if bond_edges.ndim != 3 or bond_edges.shape[1:] != (2, 3):
+                raise ValueError(f"bond_edges must be (K,2,3), got {bond_edges.shape}")
+            if bond_edges.shape[0] == 0:
+                bond_edges = None
+            elif bond_colors is None:
+                bc = tuple(float(v) for v in bond_color)
+                bond_colors = np.tile(
+                    np.array(
+                        [bc[0], bc[1], bc[2], bc[3] if len(bc) > 3 else 1.0],
+                        dtype=np.float32,
+                    ),
+                    (bond_edges.shape[0], 1),
+                )
+            else:
+                bond_colors = np.ascontiguousarray(bond_colors, dtype=np.float32)
+                if bond_colors.ndim != 2 or bond_colors.shape[1] != 4:
+                    raise ValueError(
+                        f"bond_colors must be (K,4), got {bond_colors.shape}"
+                    )
+                if bond_colors.shape[0] != bond_edges.shape[0]:
+                    raise ValueError(
+                        "bond_edges and bond_colors must contain the same number of cylinders"
+                    )
+
         # Validate and prepare box_edges
         if box_edges is not None:
             box_edges = np.ascontiguousarray(box_edges, dtype=np.float64)
@@ -353,6 +390,9 @@ class TachyonRender:
             positions,
             colors,
             radii,
+            bond_edges,
+            bond_colors,
+            float(bond_radius),
             box_edges,
             float(box_edge_radius),
             box_r,
@@ -387,6 +427,11 @@ class TachyonRender:
         colors: Optional[np.ndarray] = None,
         radii: Optional[np.ndarray] = None,
         camera: Optional[CameraParams] = None,
+        draw_bond: bool = False,
+        bond: Optional[np.ndarray] = None,
+        bond_radius: float = 0.1,
+        bond_color: tuple = (0.8, 0.8, 0.8, 1.0),
+        bond_color_mode: str = "uniform",
         draw_box: bool = True,
         box_edge_radius: float = 0.05,
         box_color: tuple = (1.0, 1.0, 1.0, 1.0),
@@ -407,6 +452,15 @@ class TachyonRender:
         radii           : (N,) float32 or None.  If None, ``default_radius`` is
                           used for every particle.
         camera          : CameraParams or None.  Auto-generated if not provided.
+        draw_bond       : bool. Whether to draw bond cylinders. Default False.
+        bond            : (Nbond, 2) int array or None. If None and
+                          ``draw_bond=True``, ``system.bond`` is used.
+        bond_radius     : float. Cylinder radius for bonds. Default 0.1.
+        bond_color      : tuple (R, G, B) or (R, G, B, A), values in [0, 1].
+                          Used when ``bond_color_mode='uniform'``.
+        bond_color_mode : str. ``'uniform'`` or ``'atom'``. In ``'atom'`` mode
+                          each bond is split into two half-cylinders coloured
+                          by the connected atoms.
         draw_box        : bool.  Whether to draw simulation-cell edges.  Default True.
         box_edge_radius : float.  Cylinder radius for cell edges.  Default 0.05.
         box_color       : tuple (R, G, B) or (R, G, B, A), values in [0, 1].
@@ -443,12 +497,33 @@ class TachyonRender:
                 radii = np.full(system.N, default_radius, dtype=np.float32)
 
         box_edges = _box_edges(system) if draw_box else None
+        bond_edges = None
+        bond_colors = None
+        if draw_bond:
+            if bond is None:
+                if not hasattr(system, "bond"):
+                    raise ValueError(
+                        "draw_bond=True requires a bond array or system.cal_build_bond() first."
+                    )
+                bond = system.bond
+            bond_edges, bond_colors = _bond_edges(
+                system,
+                bond,
+                colors,
+                radii,
+                bond_radius,
+                bond_color_mode,
+            )
 
         return self.render(
             pos,
             colors,
             radii,
             camera=camera,
+            bond_edges=bond_edges,
+            bond_colors=bond_colors if bond_color_mode == "atom" else None,
+            bond_radius=bond_radius,
+            bond_color=bond_color,
             box_edges=box_edges,
             box_edge_radius=box_edge_radius,
             box_color=box_color,
@@ -778,79 +853,248 @@ def _box_edges(system) -> Optional[np.ndarray]:
     return edges
 
 
-if __name__ == "__main__":
-    import math
-    import numpy as np
-    import mdapy as mp
-    import matplotlib.pyplot as plt
-    from time import time
-
-    sys_al = mp.build_hea(
-        ["Cr", "Co", "Ni", "Fe", "Mn"],
-        [0.2] * 5,
-        "fcc",
-        3.6,
-        nx=20,
-        ny=20,
-        nz=20,
-        random_seed=1,
-    )
-    pos = sys_al.get_positions().to_numpy()
-    for backend in ["cpu", 'gpu']:
-        print(f"  N atoms: {sys_al.N}, backend: {backend}.")
-        start = time()
-        ren = TachyonRender(
-            backend=backend,
-            background=(1, 1, 1),
-            direct_light_intensity=1.2,
-            aa_samples=15,
-            ao_brightness=1,
-            ao_samples=15,
+def _bond_edges(
+    system: System,
+    bond: np.ndarray,
+    atom_colors: np.ndarray,
+    atom_radii: Optional[np.ndarray] = None,
+    bond_radius: float = 0.1,
+    color_mode: str = "uniform",
+) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    """Generate bond cylinder segments from a bond index array."""
+    color_mode = color_mode.lower().strip()
+    if color_mode not in {"uniform", "atom"}:
+        raise ValueError(
+            f"bond_color_mode must be 'uniform' or 'atom', got {color_mode!r}"
         )
 
-        r = 1.0  # atom radius
-        # Render four views matching OVITO's default viewport layout
-        views = ["perspective", "top", "front", "left"]
-        titles = [
-            "Perspective",
-            "Top (dir=(0,0,-1))",
-            "Front (dir=(0,+1,0))",
-            "Left (dir=(+1,0,0))",
-        ]
-        radii = np.array([0.5]*8000 + [1.]*8000 + [1.5]*8000 + [2.0]*8000, np.float32)
-        np.random.seed(1)
-        np.random.shuffle(radii)
-        fig, axes = plt.subplots(2, 2, figsize=(10, 10))
-        for ax, view_name, title in zip(axes.flat, views, titles):
-            # max_radius ensures edge atom spheres are fully visible (not just centres)
-            cam = preset_camera(view_name, pos, max_radius=r)
-            
-            img = ren.render_system(
-                sys_al,
-                camera=cam,
-                radii= radii,
-                box_color=(0, 0, 0, 1),
-                box_edge_radius=0.1,
-                width=1000,
-                height=1000,
-            )
-            ax.imshow(img)
-            ax.set_title(title, fontsize=13)
-            ax.axis("off")
+    bond = np.ascontiguousarray(bond, dtype=np.int32)
+    if bond.ndim != 2 or bond.shape[1] != 2:
+        raise ValueError(f"bond must be (Nbond,2), got {bond.shape}")
+    if bond.shape[0] == 0:
+        return np.empty((0, 2, 3), dtype=np.float64), None
 
-        print(f"backend {backend} time is: {time() - start} s.")
-        plt.suptitle(f"mdapy TachyonRender — 4 views ({backend})", fontsize=15)
-        plt.tight_layout()
-        # plt.savefig(f"{backend}.png")
+    pos = system.get_positions().to_numpy()
+    origin = np.asarray(system.box.origin, dtype=np.float64)
+    box = np.asarray(system.box.box, dtype=np.float64)
+    inv_box = np.asarray(system.box.inverse_box, dtype=np.float64)
+    boundary = np.asarray(system.box.boundary, dtype=np.int32)
+    if atom_radii is None:
+        atom_radii = np.zeros(system.N, dtype=np.float64)
+    else:
+        atom_radii = np.ascontiguousarray(atom_radii, dtype=np.float64)
+        if atom_radii.ndim != 1 or atom_radii.shape[0] != system.N:
+            raise ValueError(
+                f"atom_radii must be (N,), got {atom_radii.shape}"
+            )
+
+    def _split_fractional_segment(s0: np.ndarray, ds: np.ndarray) -> list[tuple[np.ndarray, np.ndarray]]:
+        pieces = []
+        current = s0.copy()
+        remaining = ds.copy()
+
+        while np.linalg.norm(remaining) > 1e-12:
+            target = current + remaining
+            t_hit = 1.0
+            hit_dims = []
+            for dim in range(3):
+                if boundary[dim] != 1 or abs(remaining[dim]) < 1e-12:
+                    continue
+                if target[dim] < 0.0:
+                    t = (0.0 - current[dim]) / remaining[dim]
+                elif target[dim] >= 1.0:
+                    t = (1.0 - current[dim]) / remaining[dim]
+                else:
+                    continue
+                if t < 1e-12 or t > 1.0 + 1e-12:
+                    continue
+                if t < t_hit - 1e-12:
+                    t_hit = t
+                    hit_dims = [dim]
+                elif abs(t - t_hit) < 1e-12:
+                    hit_dims.append(dim)
+
+            if not hit_dims:
+                pieces.append((current.copy(), target.copy()))
+                break
+
+            hit_point = current + t_hit * remaining
+            inside_point = hit_point.copy()
+            for dim in hit_dims:
+                inside_point[dim] = 0.0 if remaining[dim] < 0.0 else 1.0
+            pieces.append((current.copy(), inside_point))
+
+            remaining = (1.0 - t_hit) * remaining
+            current = hit_point.copy()
+            for dim in hit_dims:
+                if remaining[dim] < 0.0:
+                    current[dim] += 1.0
+                else:
+                    current[dim] -= 1.0
+
+        return pieces
+
+    edge_list = []
+    color_list = []
+
+    def _segment_crosses_boundary(start: np.ndarray, disp: np.ndarray) -> bool:
+        s0 = (start - origin) @ inv_box
+        s0 = s0 - np.floor(s0)
+        target = s0 + disp @ inv_box
+        for dim in range(3):
+            if boundary[dim] != 1:
+                continue
+            if target[dim] < -1e-12 or target[dim] >= 1.0 + 1e-12:
+                return True
+        return False
+
+    def _append_segment(
+        start: np.ndarray,
+        disp: np.ndarray,
+        color: Optional[np.ndarray] = None,
+    ) -> None:
+        if np.linalg.norm(disp) < 1e-12:
+            return
+        s0 = (start - origin) @ inv_box
+        ds = disp @ inv_box
+        s0 = s0 - np.floor(s0)
+        pieces = _split_fractional_segment(s0, ds)
+        for s_a, s_b in pieces:
+            a = origin + s_a @ box
+            b = origin + s_b @ box
+            if np.linalg.norm(b - a) < 1e-12:
+                continue
+            edge_list.append(np.stack((a, b), axis=0))
+            if color is not None:
+                color_list.append(color)
+
+    for i, j in bond:
+        p0 = pos[i].astype(np.float64)
+        rij = system.box.pbc(pos[j] - pos[i]).astype(np.float64)
+        total_len = float(np.linalg.norm(rij))
+        if total_len < 1e-12:
+            continue
+        unit = rij / total_len
+        ri = max(0.0, float(atom_radii[i]))
+        rj = max(0.0, float(atom_radii[j]))
+
+        # For visualization we let the cylinder embed slightly into each atom
+        # sphere so the seam is hidden by the atom, which looks more natural
+        # than trimming exactly at the sphere boundary.
+        trim_i = max(0.0, ri - 1.15 * bond_radius)
+        trim_j = max(0.0, rj - 1.15 * bond_radius)
+
+        # Trim the cylinder so it starts at the atom surface instead of
+        # penetrating the sphere interior.
+        visible_len = total_len - trim_i - trim_j
+        if visible_len <= 1e-12:
+            continue
+
+        crosses_boundary = _segment_crosses_boundary(p0, rij)
+        if crosses_boundary:
+            half_len = total_len * 0.5
+            seg0_len = half_len - trim_i
+            seg1_len = half_len - trim_j
+            if seg0_len > 1e-12:
+                _append_segment(
+                    p0 + unit * trim_i,
+                    unit * seg0_len,
+                    atom_colors[i] if color_mode == "atom" else None,
+                )
+            if seg1_len > 1e-12:
+                _append_segment(
+                    pos[j].astype(np.float64) - unit * trim_j,
+                    -unit * seg1_len,
+                    atom_colors[j] if color_mode == "atom" else None,
+                )
+        elif color_mode == "atom":
+            half_visible = visible_len * 0.5
+            _append_segment(
+                p0 + unit * trim_i,
+                unit * half_visible,
+                atom_colors[i],
+            )
+            _append_segment(
+                pos[j].astype(np.float64) - unit * trim_j,
+                -unit * half_visible,
+                atom_colors[j],
+            )
+        else:
+            _append_segment(p0 + unit * trim_i, unit * visible_len, None)
+
+    if len(edge_list) == 0:
+        return np.empty((0, 2, 3), dtype=np.float64), None
+
+    edges = np.asarray(edge_list, dtype=np.float64)
+    if color_mode == "uniform":
+        return edges, None
+    colors = np.asarray(color_list, dtype=np.float32)
+    return edges, colors
+
+
+if __name__ == "__main__":
+    from pathlib import Path
+    import mdapy as mp
+    import matplotlib.pyplot as plt
+    import polars as pl
+
+    demo = mp.System(
+        data=pl.DataFrame(
+            {
+                "x": [0.000, 0.9572, -0.2390, 3.000, 3.9572, 2.7610],
+                "y": [0.000, 0.0000, 0.9270, 0.000, 0.0000, 0.9270],
+                "z": [0.000, 0.0000, 0.0000, 0.000, 0.0000, 0.0000],
+                "element": ["O", "H", "H", "O", "H", "H"],
+            }
+        ),
+        box=[8.0, 6.0, 6.0],
+    )
+    demo.cal_build_bond({("O", "H"): 1.2, ("H", "H"): 0.8, ("O", "O"): 1.5})
+
+    ren = TachyonRender(
+        backend="cpu",
+        background=(1, 1, 1),
+        antialiasing=True,
+        aa_samples=16,
+        ao=True,
+        ao_samples=16,
+        ao_brightness=0.9,
+        direct_light_intensity=1.1,
+    )
+
+    pos = demo.get_positions().to_numpy()
+    radii = np.array([0.55 if e == "O" else 0.32 for e in demo.data["element"]], np.float32)
+    cam = preset_camera("perspective", pos, max_radius=float(radii.max()), margin=1.5)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), dpi=160)
+    for ax, mode, title in zip(
+        axes,
+        ["uniform", "atom"],
+        ["Uniform Bond Color", "Bond Color From Atoms"],
+    ):
+        img = ren.render_system(
+            demo,
+            camera=cam,
+            radii=radii,
+            draw_bond=True,
+            bond_radius=0.12,
+            bond_color=(0.20, 0.20, 0.20, 1.0),
+            bond_color_mode=mode,
+            draw_box=False,
+            width=900,
+            height=700,
+        )
+        ax.imshow(img)
+        ax.set_title(title, fontsize=13)
+        ax.axis("off")
+
+    out = Path(__file__).resolve().parents[2] / "build" / "render_bond_demo.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    plt.tight_layout()
+    plt.savefig(out, bbox_inches="tight")
+    print(f"Bond render demo saved to: {out}")
+    if "agg" not in plt.get_backend().lower():
         plt.show()
 
-    # Single-view examples:
-    # cam = preset_camera("top",         pos, max_radius=r)   # top-down
-    # cam = preset_camera("front",       pos, max_radius=r)   # front face
-    # cam = preset_camera("left",        pos, max_radius=r)   # left side
-    # cam = preset_camera("perspective", pos, max_radius=r)   # perspective (default)
-    # cam = preset_camera("perspective", pos, fov_deg=60, max_radius=r)
-
-    # Cross-section example using znear:
-    # cam = preset_camera("top", pos, max_radius=r)
-    # cam.znear = pos[:, 2].max() / 2  # clip away the front half along Z
+    # Previous atom-only stress test example has been intentionally commented
+    # out to keep `python -m mdapy.render` focused on the new bond rendering.

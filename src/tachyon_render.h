@@ -116,6 +116,14 @@ struct BoxEdgeData {
     float radius = 0.05f; // 棱线圆柱半径
 };
 
+// ─── Bond 圆柱输入 ───────────────────────────────────────────────────────────
+struct BondData {
+    const double* points = nullptr;  // [M,2,3] float64，每根 bond 两端点
+    const float*  colors = nullptr;  // [M,4] float32，每根圆柱的 RGBA 颜色
+    size_t        count  = 0;
+    float         radius = 0.1f;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  TachyonRenderer
 // ─────────────────────────────────────────────────────────────────────────────
@@ -140,6 +148,7 @@ public:
         const RenderParams& rp,
         const CameraParams& cp,
         const ParticleData& pd,
+        const BondData*     bonds = nullptr,
         const BoxEdgeData*  box = nullptr)
     {
         SceneHandle scene = rt_newscene();
@@ -197,6 +206,8 @@ public:
 
         // ── 几何体 ────────────────────────────────────────────────────────
         addParticles(scene, pd);
+        if (bonds && bonds->count > 0)
+            addBonds(scene, *bonds);
         if (box && box->count > 0)
             addBoxEdges(scene, *box);
 
@@ -298,6 +309,30 @@ private:
                      pd.positions[i*3+1],
                      pd.positions[i*3+2]),
                 pd.radii[i]);
+        }
+    }
+
+    // ── Bond 圆柱 ────────────────────────────────────────────────────────────
+    static void addBonds(SceneHandle scene, const BondData& bd) {
+        for (size_t i = 0; i < bd.count; i++) {
+            const double* p1 = bd.points + i * 6;
+            const double* p2 = bd.points + i * 6 + 3;
+            const float alpha = bd.colors[i * 4 + 3];
+            if (alpha <= 0.f) continue;
+
+            void* tex = makeTex(scene,
+                bd.colors[i * 4 + 0],
+                bd.colors[i * 4 + 1],
+                bd.colors[i * 4 + 2],
+                alpha);
+
+            const Vec3 a{p1[0], p1[1], p1[2]};
+            const Vec3 b{p2[0], p2[1], p2[2]};
+            const Vec3 axis = b - a;
+            const Vec3 neg  = axis * (-1.0);
+            rt_fcylinder(scene, tex, tvec(a), tvec(axis), bd.radius);
+            rt_ring(scene, tex, tvec(a), tvec(neg),  0.f, bd.radius);
+            rt_ring(scene, tex, tvec(b), tvec(axis), 0.f, bd.radius);
         }
     }
 

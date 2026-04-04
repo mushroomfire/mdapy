@@ -128,7 +128,8 @@ load_image(const std::string &path)
 using PosArray = nb::ndarray<double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 using ColArray = nb::ndarray<float,  nb::shape<-1, 4>, nb::c_contig, nb::device::cpu>;
 using RadArray = nb::ndarray<float,  nb::shape<-1>,    nb::c_contig, nb::device::cpu>;
-using BoxArray = nb::ndarray<double, nb::shape<-1, 2, 3>, nb::c_contig, nb::device::cpu>;
+using EdgeArray = nb::ndarray<double, nb::shape<-1, 2, 3>, nb::c_contig, nb::device::cpu>;
+using BondColArray = nb::ndarray<float, nb::shape<-1, 4>, nb::c_contig, nb::device::cpu>;
 
 // ---------------------------------------------------------------------------
 // Shared helper: parse box_obj + optional colour/radius params into
@@ -149,7 +150,7 @@ static bool parse_box(nb::object box_obj,
 
     if (box_obj.is_none()) return false;
 
-    BoxArray ba = nb::cast<BoxArray>(box_obj);
+    EdgeArray ba = nb::cast<EdgeArray>(box_obj);
     const size_t M = ba.shape(0);
     if (M == 0) return false;
 
@@ -157,6 +158,33 @@ static bool parse_box(nb::object box_obj,
     box_buf.assign(ba.data(), ba.data() + M * 6);
     be.points = box_buf.data();
     be.count  = M;
+    return true;
+}
+
+static bool parse_bonds(nb::object bond_obj,
+                        nb::object bond_color_obj,
+                        float bond_radius,
+                        std::vector<double> &bond_buf,
+                        std::vector<float> &bond_col_buf,
+                        BondData &bd)
+{
+    bd.radius = bond_radius;
+    if (bond_obj.is_none()) return false;
+    if (bond_color_obj.is_none())
+        throw std::runtime_error("bond_colors must be provided when bond_edges is given");
+
+    EdgeArray ba = nb::cast<EdgeArray>(bond_obj);
+    BondColArray ca = nb::cast<BondColArray>(bond_color_obj);
+    const size_t M = ba.shape(0);
+    if (M == 0) return false;
+    if (ca.shape(0) != M)
+        throw std::runtime_error("bond_edges and bond_colors size mismatch");
+
+    bond_buf.assign(ba.data(), ba.data() + M * 6);
+    bond_col_buf.assign(ca.data(), ca.data() + M * 4);
+    bd.points = bond_buf.data();
+    bd.colors = bond_col_buf.data();
+    bd.count = M;
     return true;
 }
 
@@ -265,6 +293,9 @@ NB_MODULE(_tachyon, m) {
                PosArray positions,
                ColArray colors,
                RadArray radii,
+               nb::object bond_obj,
+               nb::object bond_color_obj,
+               float bond_radius,
                nb::object box_obj,
                float box_radius,
                float box_r, float box_g, float box_b, float box_a)
@@ -280,13 +311,19 @@ NB_MODULE(_tachyon, m) {
         pd.radii     = radii.data();
         pd.count     = N;
 
+        std::vector<double> bond_buf;
+        std::vector<float> bond_col_buf;
+        BondData bd{};
+        bool hasBonds = parse_bonds(
+            bond_obj, bond_color_obj, bond_radius, bond_buf, bond_col_buf, bd);
+
         std::vector<double> box_buf;
         BoxEdgeData be{};
         bool hasBox = parse_box(box_obj,
             box_r, box_g, box_b, box_a, box_radius, box_buf, be);
 
         std::vector<uint8_t> raw = self_ptr->render(
-            rp, cp, pd, hasBox ? &be : nullptr);
+            rp, cp, pd, hasBonds ? &bd : nullptr, hasBox ? &be : nullptr);
 
         return wrap_image(std::move(raw), rp.height, rp.width);
     };
@@ -298,25 +335,33 @@ NB_MODULE(_tachyon, m) {
                const RenderParams &rp,                             \
                const CameraParams &cp,                             \
                PosArray positions, ColArray colors, RadArray radii, \
+               nb::object bond_obj, nb::object bond_color_obj,     \
+               float bond_radius,                                  \
                nb::object box_obj, float box_radius,               \
                float box_r, float box_g, float box_b, float box_a) \
             -> nb::ndarray<nb::numpy, uint8_t, nb::shape<-1,-1,4>> \
         {                                                           \
             return do_render(&self, rp, cp, positions, colors,     \
-                radii, box_obj, box_radius,                        \
+                radii, bond_obj, bond_color_obj, bond_radius,      \
+                box_obj, box_radius,                               \
                 box_r, box_g, box_b, box_a);                       \
         },                                                          \
         nb::arg("render_params"),  nb::arg("camera_params"),       \
         nb::arg("positions"),      nb::arg("colors"),              \
         nb::arg("radii"),                                           \
+        nb::arg("bond_edges") = nb::none(),                        \
+        nb::arg("bond_colors") = nb::none(),                       \
+        nb::arg("bond_radius") = 0.1f,                             \
         nb::arg("box_edges")  = nb::none(),                        \
         nb::arg("box_radius") = 0.05f,                             \
         nb::arg("box_r") = 1.0f, nb::arg("box_g") = 1.0f,        \
         nb::arg("box_b") = 1.0f, nb::arg("box_a") = 1.0f,        \
-        "Render sphere particles and optional simulation-cell box edges.\n\n" \
+        "Render sphere particles, optional bonds, and optional simulation-cell box edges.\n\n" \
         "positions  : (N, 3) float64\n"                           \
         "colors     : (N, 4) float32  RGBA in [0, 1]\n"          \
         "radii      : (N,)   float32\n"                           \
+        "bond_edges : (K, 2, 3) float64 or None\n"               \
+        "bond_colors: (K, 4) float32 or None\n"                  \
         "box_edges  : (M, 2, 3) float64 or None\n"               \
         "Returns: numpy (H, W, 4) uint8 RGBA")
 

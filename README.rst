@@ -32,9 +32,10 @@
 
 |
 
-**mdapy** is a fast, full-featured Python library for analyzing Molecular Dynamics (MD)
-simulation data — from structural characterization and machine-learning potential
-workflows to built-in ray-tracing visualization, all in a clean Pythonic API.
+**mdapy** (Molecular Dynamics Analysis in Python) is a fast, full-featured
+Python library for analyzing Molecular Dynamics (MD) simulation data — from
+structural characterization and machine-learning potential workflows to built-in
+ray-tracing visualization, all in a clean Pythonic API.
 
 .. code-block:: bash
 

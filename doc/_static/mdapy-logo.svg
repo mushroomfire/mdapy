@@ -1,0 +1,76 @@
+<svg width="836" height="228" viewBox="24 38 836 228" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="eyeUpper" x1="54" y1="111" x2="278" y2="111" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2FC3E7"/>
+      <stop offset="1" stop-color="#1ED993"/>
+    </linearGradient>
+    <linearGradient id="eyeLower" x1="42" y1="171" x2="291" y2="171" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#33BFE8"/>
+      <stop offset="1" stop-color="#17CF7E"/>
+    </linearGradient>
+    <linearGradient id="bond" x1="98" y1="86" x2="241" y2="211" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#97E9F8"/>
+      <stop offset="1" stop-color="#6CE0B0"/>
+    </linearGradient>
+    <radialGradient id="node" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(177 136) rotate(136.548) scale(102.469 105.299)">
+      <stop offset="0" stop-color="#9BF4DA"/>
+      <stop offset="1" stop-color="#78D8F5"/>
+    </radialGradient>
+    <linearGradient id="word" x1="354" y1="84" x2="820" y2="214" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#15324E"/>
+      <stop offset="1" stop-color="#2A6D8A"/>
+    </linearGradient>
+    <filter id="softGlow" x="24" y="34" width="318" height="212" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="1 0 0 0 0
+                0 1 0 0 0
+                0 0 1 0 0
+                0 0 0 0.16 0"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#softGlow)">
+    <path d="M56 172C88 112 145 72 214 62C255 56 294 60 332 81" stroke="#2ADAA0" stroke-opacity="0.35" stroke-width="20" stroke-linecap="round"/>
+    <path d="M44 170C74 206 114 230 161 240C219 252 279 241 333 204" stroke="#34C6EA" stroke-opacity="0.28" stroke-width="16" stroke-linecap="round"/>
+  </g>
+
+  <path d="M58 170C90 111 145 72 211 63C249 58 286 61 320 75" stroke="url(#eyeUpper)" stroke-width="18" stroke-linecap="round"/>
+  <path d="M47 171C77 207 116 230 163 239C220 251 279 241 334 205" stroke="url(#eyeLower)" stroke-width="18" stroke-linecap="round"/>
+
+  <g opacity="0.88">
+    <path d="M331 112L367 112" stroke="#78E6D0" stroke-width="10" stroke-linecap="round"/>
+    <path d="M343 144L389 144" stroke="#59D4E7" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <g stroke="url(#bond)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M102 169L141 106"/>
+    <path d="M141 106L221 94"/>
+    <path d="M141 106L178 161"/>
+    <path d="M102 169L178 161"/>
+    <path d="M178 161L235 145"/>
+    <path d="M221 94L235 145"/>
+    <path d="M102 169L132 213"/>
+    <path d="M132 213L178 161"/>
+    <path d="M132 213L219 199"/>
+    <path d="M219 199L235 145"/>
+  </g>
+
+  <g fill="url(#node)" stroke="#DFFBFF" stroke-width="5">
+    <circle cx="102" cy="169" r="14"/>
+    <circle cx="141" cy="106" r="14"/>
+    <circle cx="221" cy="94" r="14"/>
+    <circle cx="178" cy="161" r="17"/>
+    <circle cx="235" cy="145" r="14"/>
+    <circle cx="132" cy="213" r="14"/>
+    <circle cx="219" cy="199" r="14"/>
+  </g>
+
+  <text x="418" y="178"
+        fill="url(#word)"
+        font-family="DejaVu Sans, Arial, Helvetica, sans-serif"
+        font-size="138"
+        font-weight="700"
+        letter-spacing="-5">mdapy</text>
+
+</svg>

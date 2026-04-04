@@ -50,6 +50,13 @@ napoleon_use_rtype = False
 napoleon_use_param = True
 
 html_theme = "furo"
+html_title = f"{project} {release}"
+html_logo = "_static/mdapy-logo.svg"
+html_favicon = "_static/mdapy-icon.svg"
+html_theme_options = {
+    "light_logo": "mdapy-logo.svg",
+    "dark_logo": "mdapy-logo.svg",
+}
 
 # Suppress ambiguous cross-reference warnings for short attribute names (e.g. "N")
 # that appear in multiple classes on the same documentation page.

@@ -2,28 +2,58 @@
 🚀 mdapy - Molecular Dynamics Analysis with Python
 ===================================================
 
-.. raw:: html
-
-   <iframe src="https://mushroomfire.com/mdapy.html" height="200px" width="1000px", frameBorder="0"></iframe>
+.. image:: _static/mdapy-logo.svg
+   :alt: mdapy logo
+   :align: center
+   :width: 720
 
 Overview
 --------
 
-**mdapy** provides a comprehensive suite of powerful, 
-flexible, and straightforward tools for analyzing atomic 
-trajectories generated from Molecular Dynamics (MD) simulations.
+**mdapy** is a fast, full-featured Python library for analyzing Molecular
+Dynamics (MD) simulation data. It combines high-performance C++ kernels,
+a lightweight Python interface, built-in ray-tracing visualization, and
+machine-learning potential workflows in one package.
 
+.. code-block:: bash
+
+   pip install mdapy
+
+Why mdapy?
+----------
+
+- **Fast core**: Nanobind-wrapped C++ kernels with OpenMP acceleration.
+- **Lightweight**: the core package depends only on NumPy and Polars.
+- **Practical**: structure analysis, model building, rendering, and NEP workflows in one API.
+- **Cross-platform**: wheels for Windows, Linux, and macOS.
+
+Key Capabilities
+----------------
+
+- Neighbor search: fixed-radius neighbors, kNN, and Voronoi neighbors.
+- Structural analysis: PTM, CNA, CSP, IDS, SRO, RDF, ADF, structure factor, bond analysis, and more.
+- Model building: FCC/BCC/HCP/diamond crystals, HEAs, and polycrystals.
+- Rendering: Tachyon CPU/GPU rendering with configurable colors, radii, shadows, and transparent backgrounds.
+- Machine-learning workflows: NEP/qNEP evaluation, elastic constants, EOS, stacking faults, and phonons.
+
+Quick Links
+-----------
+
+- `GitHub repository <https://github.com/mushroomfire/mdapy>`_
+- `PyPI package <https://pypi.org/project/mdapy/>`_
+- `Issue tracker <https://github.com/mushroomfire/mdapy/issues>`_
+- `Paper (Computer Physics Communications) <https://doi.org/10.1016/j.cpc.2023.108764>`_
 
 Dependencies
 ------------
 
-* `numpy <https://numpy.org/>`_
-* `polars <https://pola-rs.github.io/polars/>`_
+- `numpy <https://numpy.org/>`_
+- `polars <https://pola.rs/>`_
 
 Citation
----------
-If you find **mdapy** useful, you can `star it! <https://github.com/mushroomfire/mdapy>`_
-If you use **mdapy** in your scientific publications, please `cite the paper: <https://doi.org/10.1016/j.cpc.2023.108764>`_
+--------
+
+If you use **mdapy** in research, please cite:
 
 .. code-block:: bibtex
 
@@ -38,6 +68,12 @@ If you use **mdapy** in your scientific publications, please `cite the paper: <h
       author = {Yong-Chao Wu and Jian-Li Shao},
       keywords = {Simulation analysis, Molecular dynamics, Polycrystal, TaiChi, Parallel computing}
       }
+
+Documentation
+-------------
+
+Use the sections below to jump directly to installation, tutorials, release
+notes, or the Python API reference.
 
 Release Notes
 --------------

@@ -1,6 +1,10 @@
-====================================================================
-mdapy — Molecular Dynamics Analysis in Python
-====================================================================
+.. raw:: html
+
+   <div align="center">
+     <img src="doc/_static/mdapy-logo.svg" alt="mdapy logo" width="760">
+   </div>
+
+|
 
 .. image:: https://img.shields.io/pypi/v/mdapy.svg
    :target: https://pypi.org/project/mdapy/
@@ -28,9 +32,10 @@ mdapy — Molecular Dynamics Analysis in Python
 
 |
 
-**mdapy** is a fast, full-featured Python library for analyzing Molecular Dynamics (MD)
-simulation data — from structural characterization and machine-learning potential
-workflows to built-in ray-tracing visualization, all in a clean Pythonic API.
+**mdapy** (Molecular Dynamics Analysis in Python) is a fast, full-featured
+Python library for analyzing Molecular Dynamics (MD) simulation data — from
+structural characterization and machine-learning potential workflows to built-in
+ray-tracing visualization, all in a clean Pythonic API.
 
 .. code-block:: bash
 
@@ -56,6 +61,11 @@ Why mdapy?
      - **Pythonic by Design**
      - One-liner analyses. All data lives in a
        `Polars <https://pola.rs>`_ DataFrame and interops natively with NumPy.
+
+   * - 🪶
+     - **Minimal Dependencies**
+     - The core package depends only on NumPy and Polars, keeping installation
+       lightweight and easy to reproduce across environments.
 
    * - 🌍
      - **Truly Cross-Platform**

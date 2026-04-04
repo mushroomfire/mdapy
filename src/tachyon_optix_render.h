@@ -53,6 +53,7 @@ public:
     std::vector<uint8_t> render(const RenderParams &rp,
                                 const CameraParams &cp,
                                 const ParticleData &pd,
+                                const BondData     *bonds = nullptr,
                                 const BoxEdgeData  *box = nullptr);
 
 private:

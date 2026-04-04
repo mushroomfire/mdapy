@@ -2,11 +2,6 @@
 🚀 mdapy - Molecular Dynamics Analysis with Python
 ===================================================
 
-.. image:: _static/mdapy-logo.svg
-   :alt: mdapy logo
-   :align: center
-   :width: 720
-
 Overview
 --------
 
@@ -32,6 +27,7 @@ Key Capabilities
 
 - Neighbor search: fixed-radius neighbors, kNN, and Voronoi neighbors.
 - Structural analysis: PTM, CNA, CSP, IDS, SRO, RDF, ADF, structure factor, bond analysis, and more.
+- Connectivity: build bond pairs directly from neighbor lists with a global cutoff or type-/element-specific cutoffs.
 - Model building: FCC/BCC/HCP/diamond crystals, HEAs, and polycrystals.
 - Rendering: Tachyon CPU/GPU rendering with configurable colors, radii, shadows, and transparent backgrounds.
 - Machine-learning workflows: NEP/qNEP evaluation, elastic constants, EOS, stacking faults, and phonons.

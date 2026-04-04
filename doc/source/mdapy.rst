@@ -50,6 +50,14 @@ mdapy.box module
    :show-inheritance:
    :undoc-members:
 
+mdapy.build\_bond module
+------------------------
+
+.. automodule:: mdapy.build_bond
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 mdapy.build\_lattice module
 ---------------------------
 

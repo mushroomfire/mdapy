@@ -51,7 +51,6 @@ napoleon_use_param = True
 
 html_theme = "furo"
 html_title = f"{project} {release}"
-html_logo = "_static/mdapy-logo.svg"
 html_favicon = "_static/mdapy-icon.svg"
 html_theme_options = {
     "light_logo": "mdapy-logo.svg",

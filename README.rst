@@ -1,11 +1,10 @@
-====================================================================
-mdapy — Molecular Dynamics Analysis in Python
-====================================================================
+.. raw:: html
 
-.. image:: doc/_static/mdapy-logo.svg
-   :alt: mdapy logo
-   :align: center
-   :width: 720
+   <div align="center">
+     <img src="doc/_static/mdapy-logo.svg" alt="mdapy logo" width="760">
+   </div>
+
+|
 
 .. image:: https://img.shields.io/pypi/v/mdapy.svg
    :target: https://pypi.org/project/mdapy/

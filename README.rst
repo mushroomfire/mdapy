@@ -2,6 +2,11 @@
 mdapy — Molecular Dynamics Analysis in Python
 ====================================================================
 
+.. image:: doc/_static/mdapy-logo.svg
+   :alt: mdapy logo
+   :align: center
+   :width: 720
+
 .. image:: https://img.shields.io/pypi/v/mdapy.svg
    :target: https://pypi.org/project/mdapy/
    :alt: PyPI version
@@ -56,6 +61,11 @@ Why mdapy?
      - **Pythonic by Design**
      - One-liner analyses. All data lives in a
        `Polars <https://pola.rs>`_ DataFrame and interops natively with NumPy.
+
+   * - 🪶
+     - **Minimal Dependencies**
+     - The core package depends only on NumPy and Polars, keeping installation
+       lightweight and easy to reproduce across environments.
 
    * - 🌍
      - **Truly Cross-Platform**

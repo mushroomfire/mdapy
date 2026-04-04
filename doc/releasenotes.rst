@@ -8,6 +8,7 @@ Mdapy 1.0.4 (Under development)
 ----------------
 
 - Added support for rendering structures using the Tachyon method, accelerated by multi-core CPU and GPU (an order of magnitude faster).
+- Added ``System.cal_build_bond()`` to generate bond index arrays directly from neighbor information, supporting a single cutoff as well as type-pair and element-pair cutoffs.
 
 🛠️ Other Improvements
 ----------------------

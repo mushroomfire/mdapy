@@ -1,7 +1,7 @@
 .. raw:: html
 
    <div align="center">
-     <img src="doc/_static/mdapy-logo.svg" alt="mdapy logo" width="760">
+     <img src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/doc/_static/mdapy-logo.svg" alt="mdapy logo" width="760">
    </div>
 
 |
@@ -177,13 +177,28 @@ Installation
    pip install mdapy[k3d]       # + k3d 3-D widget
    pip install mdapy[all]       # + matplotlib, k3d, pyfftw, phonopy
 
-**From source** (requires C++17 compiler + OpenMP):
+**From the PyPI source distribution** (requires C++17 compiler + OpenMP):
+
+If no pre-built wheel fits your platform, build from the sdist we also
+publish to PyPI. It is the smallest way to build from source — no git
+history, no docs, no test inputs — and pip handles the download:
+
+.. code-block:: bash
+
+   pip install --no-binary mdapy mdapy
+
+The ``--no-binary mdapy`` flag skips the wheel for mdapy only;
+dependencies (``numpy``, ``polars``) still install as wheels.
+
+**From a git clone** (recommended for development):
 
 .. code-block:: bash
 
    git clone https://github.com/mushroomfire/mdapy.git
    cd mdapy
-   pip install .
+   pip install .                  # regular install
+   # or:
+   pip install -e .               # editable, for modifying the source
 
 Tested compilers: MSVC (Windows 10), GCC (Ubuntu), Clang (macOS M1).
 
@@ -192,6 +207,49 @@ Tested compilers: MSVC (Windows 10), GCC (Ubuntu), Clang (macOS M1).
 .. code-block:: bash
 
    python -c "import mdapy as mp; print('mdapy', mp.__version__, '— ready!')"
+
+Interoperability with PyTorch / OVITO / freud
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+mdapy, PyTorch, OVITO, freud and scikit-learn all use OpenMP for internal
+parallelism. Because each project ships its own pre-built binaries, a
+single Python process can end up with more than one copy of the OpenMP
+runtime, which LLVM libomp detects and aborts with
+``OMP Error #15: Initializing libomp.dylib, but found libomp.dylib already initialized``.
+
+mdapy handles this in two ways depending on how it was installed:
+
+- **From a PyPI wheel** (``pip install mdapy``) the wheel bundles its own
+  OpenMP runtime so it works in a fresh environment. If you then import
+  it alongside another package that bundles its own copy (commonly
+  PyTorch) and hit the error above, set the flag yourself before
+  importing any of the affected libraries:
+
+  .. code-block:: python
+
+     import os
+     os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+  or at the shell level:
+
+  .. code-block:: bash
+
+     export KMP_DUPLICATE_LIB_OK=TRUE
+
+- **From source inside a conda env** (``pip install .`` with
+  ``CONDA_PREFIX`` set) mdapy's build system detects the conda env and
+  links against the OpenMP runtime that already lives there — the same
+  one that conda-installed OVITO / PyTorch / freud are using — so only a
+  single libomp ends up in the process and the conflict never arises.
+  This is the recommended setup for development and for any environment
+  that mixes these libraries heavily.
+
+On macOS ``arm64`` specifically, OVITO and freud both bundle voro++ and
+TBB, and importing both in one Python process crashes inside
+``freud.locality.Voronoi.compute`` (or the equivalent OVITO modifier).
+This is an upstream incompatibility — not something mdapy can fix. Run
+mdapy's own test suite with ``./run_tests.sh`` (one subprocess per test
+file) to sidestep it.
 
 ----
 
@@ -264,7 +322,7 @@ Supported File Formats
 +------------------------+---------------------------+
 | ASE Atoms              | ✅ (import / export)      |
 +------------------------+---------------------------+
-| OVITO DataCollection   | ✅ (import / export)      |         |
+| OVITO DataCollection   | ✅ (import / export)      |
 +------------------------+---------------------------+
 
 ----
@@ -303,12 +361,35 @@ Dependencies
 Running the Tests
 -----------------
 
+Set up a dedicated environment with the reference libraries mdapy compares
+against:
+
 .. code-block:: bash
 
-   pip install pytest scikit-learn ase freud-analysis pyfftw pymatgen
+   conda create -n mda python=3.13
+   conda activate mda
+   conda install --strict-channel-priority -c https://conda.ovito.org -c conda-forge ovito
+   conda install -c conda-forge freud scipy scikit-learn pyfftw pymatgen ase
+   pip install pytest
    pip install git+https://github.com/bigd4/PyNEP.git
-   # also install OVITO and LAMMPS via your preferred method
-   cd tests && pytest
+   pip install .
+   # also install LAMMPS via your preferred method
+
+Then run the suite:
+
+.. code-block:: bash
+
+   bash run_tests.sh
+
+``run_tests.sh`` invokes ``pytest`` once per test file. This is required on
+macOS because ovito and freud both ship voro++ + TBB and cannot coexist in a
+single Python process — an upstream incompatibility, not mdapy's.
+
+To run a subset:
+
+.. code-block:: bash
+
+   ./run_tests.sh test_centro_symmetry_parameter.py test_voronoi.py
 
 ----
 

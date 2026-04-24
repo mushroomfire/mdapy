@@ -9,11 +9,42 @@ endif()
 
 find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
+# ---------------------------------------------------------------------------
+# OpenMP discovery
+#
+# Strategy: when building inside a conda env ($CONDA_PREFIX set), link against
+# whatever OpenMP runtime that env already provides. That way mdapy shares a
+# single runtime with ovito / torch / sklearn installed in the same env —
+# no duplicate libomp in the process, no "OMP Error #15", no segfaults.
+#
+# Outside a conda env (e.g. the cibuildwheel CI job that produces the PyPI
+# wheels) we fall back to a platform default: Homebrew on macOS, system
+# libgomp on Linux, MSVC's bundled libomp on Windows. Those wheels are
+# self-contained (delocate / auditwheel / delvewheel bundle what's needed),
+# so end users installing the wheel still get a working setup.
+# ---------------------------------------------------------------------------
 if(APPLE)
   set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp")
   set(OpenMP_CXX_LIB_NAMES "omp")
-  set(OpenMP_omp_LIBRARY "/opt/homebrew/opt/libomp/lib/libomp.dylib")
-  set(OpenMP_CXX_INCLUDE_DIR "/opt/homebrew/opt/libomp/include")
+  if(DEFINED ENV{CONDA_PREFIX} AND EXISTS "$ENV{CONDA_PREFIX}/lib/libomp.dylib")
+    set(OpenMP_omp_LIBRARY "$ENV{CONDA_PREFIX}/lib/libomp.dylib")
+    set(OpenMP_CXX_INCLUDE_DIR "$ENV{CONDA_PREFIX}/include")
+  else()
+    set(OpenMP_omp_LIBRARY "/opt/homebrew/opt/libomp/lib/libomp.dylib")
+    set(OpenMP_CXX_INCLUDE_DIR "/opt/homebrew/opt/libomp/include")
+  endif()
+elseif(UNIX)
+  # Linux: GCC's -fopenmp auto-links libgomp.so.1 from the toolchain's
+  # runtime. To make the installed .so files resolve libgomp at runtime to
+  # the conda env's copy (matching whatever ovito / torch / sklearn loaded),
+  # add $CONDA_PREFIX/lib to the RPATH. Conda-forge's llvm-openmp also
+  # installs libomp.so here, so this covers both the GCC-libgomp and the
+  # clang-libomp cases without branching on the compiler.
+  if(DEFINED ENV{CONDA_PREFIX} AND EXISTS "$ENV{CONDA_PREFIX}/lib")
+    list(APPEND CMAKE_BUILD_RPATH   "$ENV{CONDA_PREFIX}/lib")
+    list(APPEND CMAKE_INSTALL_RPATH "$ENV{CONDA_PREFIX}/lib")
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+  endif()
 endif()
 
 find_package(OpenMP COMPONENTS CXX REQUIRED)

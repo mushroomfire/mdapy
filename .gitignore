@@ -12,3 +12,5 @@
 *pyc
 /dist/*
 /*.png
+/doc/_esbonio
+

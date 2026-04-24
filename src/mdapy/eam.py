@@ -79,39 +79,26 @@ class EAM(CalculatorMP):
     ----------
     filename : str
         Path to the EAM potential file in LAMMPS alloy format.
+    mass_list : List[float], optional
+        Atomic masses in the same order as ``elements_list``. When ``None``
+        (default) masses are looked up from the built-in periodic table via
+        the element symbols read from the potential file.
 
-    Attributes
-    ----------
-    filename : str
-        Path to the EAM potential file.
-    header : List[str]
-        Header lines from the potential file (first 3 lines).
-    Nelements : int
-        Number of elements in the potential.
-    elements_list : List[str]
-        List of element symbols supported by this potential.
-    nrho : int
-        Number of points in the electron density grid.
-    drho : float
-        Spacing of the electron density grid.
-    nr : int
-        Number of points in the distance grid.
-    dr : float
-        Spacing of the distance grid.
-    rc : float
-        Cutoff radius for the potential (in Angstroms).
-    F_rho : NDArray[np.float64]
-        Embedding function F(ρ) for each element. Shape: (Nelements, nrho).
-    rho_r : NDArray[np.float64]
-        Electron density function ρ(r) for each element. Shape: (Nelements, nr).
-    phi_r : NDArray[np.float64]
-        Pair potential φ(r) between element pairs. Shape: (Nelements, Nelements, nr).
-    r : NDArray[np.float64]
-        Distance grid points. Shape: (nr,).
-    rho : NDArray[np.float64]
-        Electron density grid points. Shape: (nrho,).
-    results : Dict[str, NDArray]
-        Dictionary storing calculation results (energies, forces, stress, virials).
+    Notes
+    -----
+    After parsing, the instance exposes the potential as these attributes:
+
+    * ``filename`` — path to the EAM file.
+    * ``header`` — the first 3 lines of the file.
+    * ``Nelements``, ``elements_list`` — element count and symbols.
+    * ``nrho`` / ``drho`` — size and spacing of the electron-density grid.
+    * ``nr`` / ``dr`` — size and spacing of the distance grid.
+    * ``rc`` — cutoff radius, in Å.
+    * ``F_rho`` — embedding function F(ρ), shape ``(Nelements, nrho)``.
+    * ``rho_r`` — electron density ρ(r), shape ``(Nelements, nr)``.
+    * ``phi_r`` — pair potential φ(r), shape ``(Nelements, Nelements, nr)``.
+    * ``r``, ``rho`` — grid points, shape ``(nr,)`` and ``(nrho,)``.
+    * ``results`` — dict storing computed energies, forces, stresses, virials.
 
     """
 
@@ -147,33 +134,19 @@ class EAM(CalculatorMP):
             assert len(mass_list) == len(self.elements_list)
         self.mass_list = mass_list
         self._eam = _eam.EAM(
-            self.rc, self.F_rho, self.rho_r, self.phi_r, self.r, self.rho
+            self.rc, self.dr, self.drho, self.F_rho, self.rho_r, self._rphi_r
         )
 
     def _read_eam_alloy(self) -> None:
         """
         Read EAM potential file in LAMMPS alloy format.
 
-        This method parses the EAM potential file and extracts:
-
-        - Header information
-        - Element symbols and count
-        - Grid parameters (nrho, drho, nr, dr, rc)
-        - Embedding functions F(ρ)
-        - Electron density functions ρ(r)
-        - Pair potentials φ(r)
-
-        Raises
-        ------
-        FileNotFoundError
-            If the potential file cannot be found.
-        ValueError
-            If the file format is invalid or data is inconsistent.
-
-        Notes
-        -----
-        The pair potential is stored as r*φ(r) in the file and converted to φ(r)
-        internally. Special handling is applied at r=0 to avoid division by zero.
+        Each data section (F(rho), rho(r), r*phi(r)) is parsed starting on its
+        own line. Any trailing tokens on the line where a section ends are
+        discarded — matching LAMMPS' ``pair_eam_alloy`` reader and GPUMD's
+        ``eam_alloy`` reader. This avoids the off-by-one shift that would occur
+        if values from the padding past the end of one section were fed into
+        the next section.
         """
         with open(self.filename) as f:
             lines = f.readlines()
@@ -199,66 +172,48 @@ class EAM(CalculatorMP):
         self.r = np.arange(0, self.nr) * self.dr
         self.rho = np.arange(0, self.nrho) * self.drho
 
-        # Process interleaved data and parameter lines
-        line_idx = 5
-        for element in range(self.Nelements):
-            # skip this line (element information)
-            line_idx += 1
+        line_idx = [5]
 
-            # Read embedding function and electron density data for this element
-            # Total needed: nrho + nr values
-            needed = self.nrho + self.nr
-            element_data = []
-            while len(element_data) < needed and line_idx < len(lines):
-                line = lines[line_idx]
-                line = line.split("#")[0]  # Remove comments
-                values = line.split()
-                # Collect all numerical values from this line
-                for v in values:
-                    try:
-                        element_data.append(float(v))
-                    except ValueError:
-                        # Stop when encountering non-numeric string
+        def read_section(n: int) -> NDArray[np.float64]:
+            """Read ``n`` floats starting at ``lines[line_idx[0]]``; discard
+            any leftover tokens on the last touched line."""
+            out = np.empty(n, dtype=np.float64)
+            count = 0
+            while count < n and line_idx[0] < len(lines):
+                toks = lines[line_idx[0]].split("#")[0].split()
+                for t in toks:
+                    if count >= n:
                         break
-                line_idx += 1
-                if len(element_data) >= needed:
-                    break
+                    try:
+                        out[count] = float(t)
+                        count += 1
+                    except ValueError:
+                        break
+                line_idx[0] += 1
+            if count < n:
+                raise ValueError(
+                    f"EAM file '{self.filename}' ended while expecting {n} "
+                    f"values (got {count})."
+                )
+            return out
 
-            # Store data for this element
-            self.F_rho[element] = np.array(element_data[: self.nrho], dtype=float)
-            self.rho_r[element] = np.array(
-                element_data[self.nrho : self.nrho + self.nr], dtype=float
-            )
+        for element in range(self.Nelements):
+            # skip the per-element info line (atomic number, mass, ...)
+            line_idx[0] += 1
+            self.F_rho[element] = read_section(self.nrho)
+            self.rho_r[element] = read_section(self.nr)
 
-        # Read phi_r (pair potentials stored as r*phi)
-        rphi_data = []
-        while line_idx < len(lines):
-            line = lines[line_idx]
-            line = line.split("#")[0]
-            values = line.split()
-
-            for v in values:
-                try:
-                    rphi_data.append(float(v))
-                except ValueError:
-                    pass
-            line_idx += 1
-
-        data_idx = 0
-
+        # r*phi(r) stored in the lower triangle (j <= i); mirror to j > i.
         self._rphi_r = np.zeros_like(self.phi_r)
         for element_i in range(self.Nelements):
             for element_j in range(element_i + 1):
-                self._rphi_r[element_i, element_j] = np.array(
-                    rphi_data[data_idx : data_idx + self.nr], dtype=float
-                )
-                data_idx += self.nr
+                self._rphi_r[element_i, element_j] = read_section(self.nr)
                 if element_i != element_j:
                     self._rphi_r[element_j, element_i] = self._rphi_r[
                         element_i, element_j
                     ]
 
-        # Convert r*phi to phi (avoiding division by zero at r=0)
+        # Convert r*phi to phi (avoid division by zero at r=0)
         self.phi_r[:, :, 1:] = self._rphi_r[:, :, 1:] / self.r[1:]
         self.phi_r[:, :, 0] = self.phi_r[:, :, 1]
 
@@ -479,9 +434,9 @@ class EAM(CalculatorMP):
         for i in ["x", "y", "z", "element"]:
             assert i in data.columns, f"Required column '{i}' not found in data."
         for i in data["element"].unique():
-            assert i in self.elements_list, (
-                f"{i} not in current EAM potential supported elements: {self.elements_list}."
-            )
+            assert (
+                i in self.elements_list
+            ), f"{i} not in current EAM potential supported elements: {self.elements_list}."
         old_N = data.shape[0]
         ele2type = {j: i for i, j in enumerate(self.elements_list)}
         data = data.with_columns(
@@ -642,12 +597,12 @@ class EAMAverage(EAM):
         super().__init__(filename)
         self.concentration = concentration
 
-        assert len(self.concentration) == self.Nelements, (
-            f"Number of concentration list should be equal to {self.Nelements}."
-        )
-        assert np.isclose(np.sum(concentration), 1.0), (
-            "Concentration summation should be equal to 1."
-        )
+        assert (
+            len(self.concentration) == self.Nelements
+        ), f"Number of concentration list should be equal to {self.Nelements}."
+        assert np.isclose(
+            np.sum(concentration), 1.0
+        ), "Concentration summation should be equal to 1."
 
         # Perform averaging
         self._average()
@@ -1519,15 +1474,22 @@ class EAMGenerator:
 if __name__ == "__main__":
     # import os
 
-    EAMGenerator(
-        ["Co", "Ni", "Fe", "Al", "Cu"], "tests/input_files/CoNiFeAlCu.eam.alloy"
-    )
+    # EAMGenerator(
+    #     ["Co", "Ni", "Fe", "Al", "Cu"], "tests/input_files/CoNiFeAlCu.eam.alloy"
+    # )
     # EAMAverage("CuNiAl.eam.alloy", [0.25, 0.25, 0.5])
 
     # eam = EAM("CuNiAl.average.eam.alloy")
-    # # eam = EAM(r'tests/input_files/ZrCu.lammps.eam.alloy')
-    # eam.plot()
-    # import matplotlib.pyplot as plt
+    eam = EAM(r"tests/input_files/NiCoCr.lammps.eam")
+    eam.plot()
+    import matplotlib.pyplot as plt
 
-    # plt.show()
+    plt.show()
+
+    eam2 = EAMAverage(r"tests/input_files/NiCoCr.lammps.eam", [0.2, 0.2, 0.6])
+    eam2.plot()
+    plt.show()
+    eam1 = EAM(r"tests/input_files/FeNiCrCoTi-heamix.setfl")
+    eam1.plot()
+    plt.show()
     # os.system("rm CuNiAl*.eam.alloy")

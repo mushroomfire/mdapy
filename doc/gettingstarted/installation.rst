@@ -46,7 +46,24 @@ Installation
    # Install all optional packages (matplotlib, k3d, phonopy, pyfftw), except lammps
    pip install mdapy[all]
 
-**Method 3: Install from source**
+**Method 3: Build from the PyPI source distribution**
+
+If no pre-built wheel fits your platform, or you want to compile with
+your own compiler flags, install from the **sdist** we also publish to
+PyPI. This is the smallest way to build from source — the sdist contains
+only the C++ sources, Python package, and build configuration (no git
+history, no documentation, no test input files), and pip downloads it
+for you automatically:
+
+.. code-block:: bash
+
+   pip install --no-binary mdapy mdapy
+
+The ``--no-binary mdapy`` flag tells pip to skip the wheel and fetch the
+sdist from PyPI. Dependencies (``numpy``, ``polars``) are still installed
+as wheels — only ``mdapy`` itself is built locally.
+
+**Method 4: Install from a git clone (for development)**
 
 .. code-block:: bash
 
@@ -54,13 +71,19 @@ Installation
    cd mdapy
    pip install .
 
-**Method 4: Install directly from GitHub**
+Use this if you intend to modify the source, run the tests, or build the
+documentation. For an editable install (source changes are picked up
+without reinstalling) use ``pip install -e .``.
+
+**Method 5: Install directly from GitHub**
 
 .. code-block:: bash
 
    pip install https://github.com/mushroomfire/mdapy/archive/master.zip
 
-**System Requirements for Method 3 and 4**
+**System Requirements for Methods 3 – 5**
+
+All three compile mdapy's C++ extensions locally and therefore need:
 
 - Python 3.8+
 - C++ compilation environment (C++17 or newer)

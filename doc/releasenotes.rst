@@ -1,7 +1,7 @@
 Release Notes
 ===============
 
-Mdapy 1.0.4 (Under development)
+Mdapy 1.0.4 (April 24, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🏆 New Features
@@ -9,10 +9,20 @@ Mdapy 1.0.4 (Under development)
 
 - Added support for rendering structures using the Tachyon method, accelerated by multi-core CPU and GPU (an order of magnitude faster).
 - Added ``System.cal_build_bond()`` to generate bond index arrays directly from neighbor information, supporting a single cutoff as well as type-pair and element-pair cutoffs.
+- ``Spline`` now supports three boundary conditions via the ``bc_type`` argument: ``"not-a-knot"`` (new default, matches ``scipy.interpolate.CubicSpline``).
+
+🐞 Bug Fixes
+-------------
+
+- Fixed the EAM potential file reader for LAMMPS ``eam/alloy`` format.
+- Fixed EAM interpolation past the tabulated rho range. 
 
 🛠️ Other Improvements
 ----------------------
 
+- Added ``tests/test_spline.py`` (36 tests) comparing all three boundary
+  conditions against ``scipy.interpolate.CubicSpline`` to floating-point
+  precision.
 - Refactor documentation, remove all warnings and errors.
 - Add copyright for all codes.
 

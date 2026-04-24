@@ -7,71 +7,46 @@
 #include <omp.h>
 
 EAM::EAM(const double rc,
+         const double dr,
+         const double drho,
          const RTwoArrayD F_rho_py,
          const RTwoArrayD rho_r_py,
-         const RThreeArrayD phi_r_py,
-         const ROneArrayD r_list_py,
-         const ROneArrayD rho_list_py)
+         const RThreeArrayD rphi_r_py)
     : rc_(rc)
 {
-    auto r_list = r_list_py.view();
-    auto rho_list = rho_list_py.view();
-    const int nrho = rho_list.shape(0);
-    const int nr = r_list.shape(0);
+    const int nrho = F_rho_py.shape(1);
+    const int nr = rho_r_py.shape(1);
     Nelements_ = F_rho_py.shape(0);
 
     auto F_rho_data = F_rho_py.view();
     auto rho_r_data = rho_r_py.view();
-    auto phi_r_data = phi_r_py.view();
+    auto rphi_r_data = rphi_r_py.view();
 
     F_rho_spline_.resize(Nelements_);
     rho_r_spline_.resize(Nelements_);
-    phi_r_spline_.resize(Nelements_, std::vector<CubicSpline>(Nelements_));
+    rphi_r_spline_.resize(Nelements_, std::vector<UniformCubicSpline>(Nelements_));
 
-    std::vector<double> rho_vec(nrho);
-    std::vector<double> r_vec(nr);
-    for (int i = 0; i < nrho; ++i)
-    {
-        rho_vec[i] = rho_list(i);
-    }
-    for (int i = 0; i < nr; ++i)
-    {
-        r_vec[i] = r_list(i);
-    }
-
-    // spline F_rho
-    std::vector<double> F_rho_values(nrho);
+    std::vector<double> tmp;
+    tmp.resize(nrho);
     for (int i = 0; i < Nelements_; ++i)
     {
-        for (int j = 0; j < nrho; ++j)
-        {
-            F_rho_values[j] = F_rho_data(i, j);
-        }
-        F_rho_spline_[i] = CubicSpline(rho_vec, F_rho_values);
+        for (int j = 0; j < nrho; ++j) tmp[j] = F_rho_data(i, j);
+        F_rho_spline_[i] = UniformCubicSpline(drho, tmp);
     }
 
-    // spline rho_r
-    std::vector<double> rho_r_values(nr);
+    tmp.resize(nr);
     for (int i = 0; i < Nelements_; ++i)
     {
-        for (int j = 0; j < nr; ++j)
-        {
-            rho_r_values[j] = rho_r_data(i, j);
-        }
-        rho_r_spline_[i] = CubicSpline(r_vec, rho_r_values);
+        for (int j = 0; j < nr; ++j) tmp[j] = rho_r_data(i, j);
+        rho_r_spline_[i] = UniformCubicSpline(dr, tmp);
     }
 
-    // spline phi_r
-    std::vector<double> phi_r_values(nr);
     for (int i = 0; i < Nelements_; ++i)
     {
         for (int j = 0; j < Nelements_; ++j)
         {
-            for (int k = 0; k < nr; ++k)
-            {
-                phi_r_values[k] = phi_r_data(i, j, k);
-            }
-            phi_r_spline_[i][j] = CubicSpline(r_vec, phi_r_values);
+            for (int k = 0; k < nr; ++k) tmp[k] = rphi_r_data(i, j, k);
+            rphi_r_spline_[i][j] = UniformCubicSpline(dr, tmp);
         }
     }
 }
@@ -106,90 +81,99 @@ void EAM::calculate(
     auto virial = virial_py.view();
     auto energy = energy_py.view();
 
+    // Pass 1: electron density at each atom, plus dF/drho.
     std::vector<double> rho(N, 0.0);
+    std::vector<double> dF(N, 0.0);
+
 #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < N; ++i)
     {
-        int type_i = type_list(i);
         double rho_i = 0.0;
-
-        int num_neighbors = neighbor_number(i);
+        const int num_neighbors = neighbor_number(i);
         for (int jj = 0; jj < num_neighbors; ++jj)
         {
-            int j = verlet_list(i, jj);
-            int type_j = type_list(j);
-            double rij = distance_list(i, jj);
-
+            const int j = verlet_list(i, jj);
+            const double rij = distance_list(i, jj);
             if (rij <= rc_)
             {
-                double rho_j_val = rho_r_spline_[type_j].evaluate(rij);
-                rho_i += rho_j_val;
+                rho_i += rho_r_spline_[type_list(j)].evaluate(rij);
             }
         }
         rho[i] = rho_i;
     }
 
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < N; ++i)
+    {
+        double F_i, dF_i;
+        F_rho_spline_[type_list(i)].evaluate_and_derivative(rho[i], F_i, dF_i);
+        energy(i) += F_i;
+        dF[i] = dF_i;
+    }
+
+    // Pass 2: pair energy, forces, virials.
 #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < N; ++i)
     {
         const int type_i = type_list(i);
+        const double dF_i = dF[i];
 
-        double F_i = F_rho_spline_[type_i].evaluate(rho[i]);
-        double dF_i = F_rho_spline_[type_i].derivative(rho[i]);
-
-        double e_i = F_i;
+        double e_pair = 0.0;
         double f_x = 0.0, f_y = 0.0, f_z = 0.0;
         double v[9] = {0.0};
 
-        int num_neighbors = neighbor_number(i);
+        const int num_neighbors = neighbor_number(i);
         for (int jj = 0; jj < num_neighbors; ++jj)
         {
-            int j = verlet_list(i, jj);
-            int type_j = type_list(j);
+            const int j = verlet_list(i, jj);
+            const int type_j = type_list(j);
 
             double dx = x(j) - x(i);
             double dy = y(j) - y(i);
             double dz = z(j) - z(i);
             box.pbc(dx, dy, dz);
-            double rij = distance_list(i, jj);
+            const double rij = distance_list(i, jj);
+            if (rij > rc_) continue;
 
-            if (rij <= rc_)
-            {
-                double phi_ij = phi_r_spline_[type_i][type_j].evaluate(rij);
-                double dphi_ij = phi_r_spline_[type_i][type_j].derivative(rij);
-                double rho_j_contrib_deriv = rho_r_spline_[type_j].derivative(rij);
-                double rho_i_contrib_deriv = rho_r_spline_[type_i].derivative(rij);
-                double dF_j = F_rho_spline_[type_j].derivative(rho[j]);
+            // r*phi and its r-derivative
+            double z2, dz2_dr;
+            rphi_r_spline_[type_i][type_j].evaluate_and_derivative(rij, z2, dz2_dr);
+            const double rinv = 1.0 / rij;
+            const double phi_ij = z2 * rinv;
+            const double dphi_ij = (dz2_dr - phi_ij) * rinv; // d(phi)/dr
 
-                e_i += 0.5 * phi_ij;
+            // d(rho_j)/dr and d(rho_i)/dr for cross terms
+            const double d_rho_j_dr = rho_r_spline_[type_j].derivative(rij);
+            const double d_rho_i_dr = rho_r_spline_[type_i].derivative(rij);
+            const double dF_j = dF[j];
 
-                double pair_force = dphi_ij + dF_i * rho_j_contrib_deriv + dF_j * rho_i_contrib_deriv;
-                pair_force /= rij;
+            e_pair += 0.5 * phi_ij;
 
-                const double pair_force_dx = pair_force * dx;
-                f_x += pair_force_dx;
-                const double pair_force_dy = pair_force * dy;
-                f_y += pair_force_dy;
-                const double pair_force_dz = pair_force * dz;
-                f_z += pair_force_dz;
+            double pair_force = dphi_ij + dF_i * d_rho_j_dr + dF_j * d_rho_i_dr;
+            pair_force *= rinv;
 
-                v[0] -= dx * pair_force_dx;
-                v[1] -= dx * pair_force_dy;
-                v[2] -= dx * pair_force_dz;
-                v[3] -= dy * pair_force_dx;
-                v[4] -= dy * pair_force_dy;
-                v[5] -= dy * pair_force_dz;
-                v[6] -= dz * pair_force_dx;
-                v[7] -= dz * pair_force_dy;
-                v[8] -= dz * pair_force_dz;
-            }
+            const double fpx = pair_force * dx;
+            const double fpy = pair_force * dy;
+            const double fpz = pair_force * dz;
+            f_x += fpx;
+            f_y += fpy;
+            f_z += fpz;
+
+            v[0] -= dx * fpx;
+            v[1] -= dx * fpy;
+            v[2] -= dx * fpz;
+            v[3] -= dy * fpx;
+            v[4] -= dy * fpy;
+            v[5] -= dy * fpz;
+            v[6] -= dz * fpx;
+            v[7] -= dz * fpy;
+            v[8] -= dz * fpz;
         }
 
-        energy(i) += e_i;
+        energy(i) += e_pair;
         force(i, 0) += f_x;
         force(i, 1) += f_y;
         force(i, 2) += f_z;
-
         for (int k = 0; k < 9; ++k)
         {
             virial(i, k) += v[k] * 0.5;
@@ -203,17 +187,17 @@ NB_MODULE(_eam, m)
 {
     nb::class_<EAM>(m, "EAM")
         .def(nb::init<const double,
+                      const double,
+                      const double,
                       const RTwoArrayD,
                       const RTwoArrayD,
-                      const RThreeArrayD,
-                      const ROneArrayD,
-                      const ROneArrayD>(),
+                      const RThreeArrayD>(),
              nb::arg("rc"),
+             nb::arg("dr"),
+             nb::arg("drho"),
              nb::arg("F_rho"),
              nb::arg("rho_r"),
-             nb::arg("phi_r"),
-             nb::arg("r_list"),
-             nb::arg("rho_list"))
+             nb::arg("rphi_r"))
         .def("calculate", &EAM::calculate,
              nb::arg("x"),
              nb::arg("y"),

@@ -65,11 +65,6 @@ If you use **mdapy** in research, please cite:
       keywords = {Simulation analysis, Molecular dynamics, Polycrystal, TaiChi, Parallel computing}
       }
 
-Documentation
--------------
-
-Use the sections below to jump directly to installation, tutorials, release
-notes, or the Python API reference.
 
 Release Notes
 --------------
@@ -102,4 +97,9 @@ Mdapy Python API
    source/mdapy
 
 
+Project README
+--------------
+.. toctree::
+   :maxdepth: 1
 
+   readme

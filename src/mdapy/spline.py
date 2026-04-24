@@ -3,286 +3,185 @@
 
 from mdapy import _spline
 import numpy as np
-from typing import Union, Tuple, List
+from typing import Union, Tuple, List, Optional
 
 
 class Spline:
-    """
-    Cubic Spline Interpolation with clamped boundary conditions, where the spline's endpoint derivatives are set equal to the original derivatives
+    """Cubic spline interpolation on a strictly-increasing grid.
 
-    This class provides a convenient interface for cubic spline interpolation.
-    It supports evaluation of the spline function and its first derivative at
-    arbitrary points within the interpolation range.
+    Constructs a piecewise-cubic :math:`s(x)` that is :math:`C^2` over the whole
+    range, reproduces the sample points :math:`(x_i, y_i)` exactly, and satisfies
+    the chosen boundary condition at the two endpoints. The grid need not be
+    uniform — if it is, prefer the internal ``UniformCubicSpline`` (used by the
+    EAM code, not exposed here) which is O(1) per lookup.
 
     Parameters
     ----------
     x : array_like
-        1-D array of x-coordinates of data points. Must be strictly increasing
-        and contain at least 2 points. Can be list, tuple, or numpy array.
+        1-D array of x-coordinates. Must be strictly increasing and contain at
+        least two points.
     y : array_like
-        1-D array of y-coordinates of data points. Must have the same length as x.
-        Can be list, tuple, or numpy array.
+        1-D array of y-coordinates, same length as ``x``.
+    bc_type : {"not-a-knot", "natural", "clamped"}, default "not-a-knot"
+        Boundary condition at the two endpoints:
 
-    Attributes
-    ----------
-    x : np.ndarray
-        The x-coordinates of interpolation points (sorted and validated).
-    y : np.ndarray
-        The y-coordinates of interpolation points.
-
-    Examples
-    --------
-    >>> # Basic usage with lists
-    >>> x = [0, 1, 2, 3, 4]
-    >>> y = [0, 1, 4, 9, 16]
-    >>> sp = Spline(x, y)
-    >>>
-    >>> # Evaluate at a single point
-    >>> value = sp.evaluate(2.5)
-    >>> print(f"f(2.5) = {value}")
-    >>>
-    >>> # Evaluate at multiple points
-    >>> x_new = np.linspace(0, 4, 100)
-    >>> y_new = sp.evaluate(x_new)
-    >>>
-    >>> # Compute derivative
-    >>> derivative = sp.derivative(2.5)
-    >>> print(f"f'(2.5) = {derivative}")
-    >>>
-    >>> # Using numpy arrays
-    >>> x = np.array([0.0, 1.0, 2.0, 3.0])
-    >>> y = np.array([1.0, 2.0, 1.5, 3.0])
-    >>> sp = Spline(x, y)
-    >>> sp.evaluate([0.5, 1.5, 2.5])
+        - ``"not-a-knot"`` — the third derivative is continuous at ``x[1]`` and
+          ``x[n-2]`` (equivalently, the first two and last two cubic pieces are
+          each a single polynomial). Same default as
+          ``scipy.interpolate.CubicSpline``. Best for general data when the
+          endpoint slopes are unknown.
+        - ``"natural"`` — :math:`s''(x_0) = s''(x_{n-1}) = 0`. Produces a
+          minimum-curvature interpolant that flattens out at the ends.
+        - ``"clamped"`` — :math:`s'(x_0) = \\texttt{dy0}`,
+          :math:`s'(x_{n-1}) = \\texttt{dyn}`. If ``dy0`` and ``dyn`` are not
+          given, they are estimated by fitting a quadratic through the first
+          (last) three points and taking its analytic derivative at the
+          endpoint.
+    dy0, dyn : float, optional
+        Endpoint first derivatives, only used when ``bc_type="clamped"``. Both
+        must be provided together; if either is ``None`` the three-point
+        estimates are used.
 
     Notes
     -----
-    - The spline is only valid within the range [x[0], x[-1]]. Attempting to
-      evaluate outside this range will raise an assertion error.
-    - The spline uses natural boundary conditions (zero second derivatives at
-      endpoints).
+    Evaluation is O(log n) per point via binary search. Batch evaluation is
+    OpenMP-parallelised.
+
+    Out-of-range queries raise ``IndexError`` for scalar calls and return
+    ``NaN`` element-wise for array calls. There is deliberately no silent
+    extrapolation — cubic extrapolation past the last knot can swing wildly
+    on smooth-looking data (see the EAM rho-clamping incident for a live
+    example).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> x = np.linspace(0, 2 * np.pi, 13)
+    >>> y = np.sin(x)
+    >>> sp = Spline(x, y)                 # default: not-a-knot
+    >>> abs(sp.evaluate(np.pi / 4) - np.sin(np.pi / 4)) < 1e-4
+    True
+    >>> sp.derivative(0.0)                # should be ~cos(0) = 1
+    1.0000... # doctest: +SKIP
+
+    A clamped spline with user-supplied endpoint slopes — useful when you know
+    the analytic derivative at the ends (here we know :math:`\\cos(0) = 1` and
+    :math:`\\cos(2\\pi) = 1`):
+
+    >>> sp_c = Spline(x, y, bc_type="clamped", dy0=1.0, dyn=1.0)
+
+    The natural spline, by contrast, forces :math:`s'' = 0` at the ends, which
+    is appropriate when you expect the data to flatten beyond the sample range.
     """
 
+    _BC_MAP = {
+        "not-a-knot": _spline.BCType.NotAKnot,
+        "natural": _spline.BCType.Natural,
+        "clamped": _spline.BCType.Clamped,
+    }
+
     def __init__(
-        self, x: Union[List, Tuple, np.ndarray], y: Union[List, Tuple, np.ndarray]
+        self,
+        x: Union[List, Tuple, np.ndarray],
+        y: Union[List, Tuple, np.ndarray],
+        bc_type: str = "not-a-knot",
+        dy0: Optional[float] = None,
+        dyn: Optional[float] = None,
     ):
-        # Validate and store the interpolation points
-        self.x, self.y = self._check_uniform_grid(x, y)
+        self.x, self.y = self._validate(x, y)
+        self.bc_type = bc_type
 
-        # Create the underlying C++ spline object
-        self._sp = _spline.CubicSpline(self.x, self.y)
+        if bc_type not in self._BC_MAP:
+            raise ValueError(
+                f"Unknown bc_type {bc_type!r}. "
+                f"Expected one of {list(self._BC_MAP)}."
+            )
 
+        if bc_type == "clamped" and (dy0 is not None or dyn is not None):
+            if dy0 is None or dyn is None:
+                raise ValueError(
+                    "For clamped with explicit derivatives both dy0 and dyn "
+                    "must be given."
+                )
+            self._sp = _spline.CubicSpline(self.x, self.y, float(dy0), float(dyn))
+        else:
+            self._sp = _spline.CubicSpline(self.x, self.y, self._BC_MAP[bc_type])
+
+    # ------------------------------------------------------------------
+    # Evaluation helpers
+    # ------------------------------------------------------------------
     def evaluate(
         self, x: Union[float, int, List, Tuple, np.ndarray]
     ) -> Union[float, np.ndarray]:
+        """Evaluate :math:`s(x)` at scalar or array ``x``.
+
+        Array inputs return an ``np.ndarray`` of the same length; entries
+        outside the interpolation range become ``NaN``. Scalar inputs raise
+        ``IndexError`` if out of range.
         """
-        Evaluate the spline at given point(s).
-
-        Computes the interpolated value of the spline function at the specified
-        x-coordinate(s). Supports both scalar and array inputs.
-
-        Parameters
-        ----------
-        x : float, int, list, tuple, or np.ndarray
-            Point(s) at which to evaluate the spline. Must be within the range
-            [self.x[0], self.x[-1]]. Can be:
-            - A single number (int or float)
-            - A list or tuple of numbers
-            - A numpy array
-
-        Returns
-        -------
-        float or np.ndarray
-            The interpolated value(s) at x. Returns a float if input is scalar,
-            otherwise returns a numpy array of the same shape as input.
-
-        Raises
-        ------
-        AssertionError
-            If any value in x is outside the interpolation range [self.x[0], self.x[-1]].
-
-        Examples
-        --------
-        >>> sp = Spline([0, 1, 2, 3], [0, 1, 4, 9])
-        >>>
-        >>> # Scalar evaluation
-        >>> sp.evaluate(1.5)
-        2.125
-        >>>
-        >>> # List evaluation
-        >>> sp.evaluate([0.5, 1.5, 2.5])
-        array([0.375, 2.125, 6.125])
-        >>>
-        >>> # Numpy array evaluation
-        >>> x = np.linspace(0, 3, 10)
-        >>> y = sp.evaluate(x)
-        """
-        # Handle scalar input directly (no conversion to array)
-        if isinstance(x, (int, float)):
-            assert (x >= self.x[0]) and (x <= self.x[-1]), (
-                f"Input x ({x}) is outside interpolation range [{self.x[0]}, {self.x[-1]}]"
-            )
-            return self._sp.evaluate(float(x))
-
-        # Handle array-like inputs
-        else:
-            # Convert to numpy array if needed
-            if isinstance(x, (list, tuple)):
-                x_eval = np.asarray(x, dtype=float)
-            elif isinstance(x, np.ndarray):
-                x_eval = x
-            else:
-                raise TypeError(
-                    f"Input type {type(x)} not supported. "
-                    "Expected float, int, list, tuple, or numpy.ndarray"
-                )
-
-            # Check bounds
-            assert x_eval.min() >= self.x[0], (
-                f"Input x ({x_eval.min()}) is below interpolation range ({self.x[0]})"
-            )
-            assert x_eval.max() <= self.x[-1], (
-                f"Input x ({x_eval.max()}) is above interpolation range ({self.x[-1]})"
-            )
-
-            # Evaluate and return array
-            return self._sp.evaluate(x_eval)
+        return self._call(self._sp.evaluate, x, "value")
 
     def derivative(
         self, x: Union[float, int, List, Tuple, np.ndarray]
     ) -> Union[float, np.ndarray]:
+        """Evaluate :math:`s'(x)` at scalar or array ``x``.
+
+        The derivative is computed analytically from the stored cubic
+        coefficients, not by finite differencing.
         """
-        Evaluate the first derivative of the spline at given point(s).
+        return self._call(self._sp.derivative, x, "derivative")
 
-        Computes the first derivative (slope) of the interpolated spline function
-        at the specified x-coordinate(s). Supports both scalar and array inputs.
+    def second_derivative(
+        self, x: Union[float, int, List, Tuple, np.ndarray]
+    ) -> Union[float, np.ndarray]:
+        """Evaluate :math:`s''(x)` at scalar or array ``x``.
 
-        Parameters
-        ----------
-        x : float, int, list, tuple, or np.ndarray
-            Point(s) at which to evaluate the derivative. Must be within the range
-            [self.x[0], self.x[-1]]. Can be:
-            - A single number (int or float)
-            - A list or tuple of numbers
-            - A numpy array
-
-        Returns
-        -------
-        float or np.ndarray
-            The derivative value(s) at x. Returns a float if input is scalar,
-            otherwise returns a numpy array of the same shape as input.
-
-        Raises
-        ------
-        AssertionError
-            If any value in x is outside the interpolation range [self.x[0], self.x[-1]].
-
-        Examples
-        --------
-        >>> sp = Spline([0, 1, 2, 3], [0, 1, 4, 9])
-        >>>
-        >>> # Scalar derivative
-        >>> sp.derivative(1.5)
-        3.5
-        >>>
-        >>> # Array derivative
-        >>> x = np.array([0.5, 1.5, 2.5])
-        >>> derivatives = sp.derivative(x)
-        >>> print(derivatives)
-
-        Notes
-        -----
-        The derivative is computed analytically from the cubic spline coefficients,
-        not by numerical differentiation, ensuring high accuracy.
+        :math:`s''` is piecewise-linear between the knots (a property of
+        cubic splines), so this is exact up to floating-point rounding.
         """
-        # Handle scalar input directly (no conversion to array)
-        if isinstance(x, (int, float)):
-            assert (x >= self.x[0]) and (x <= self.x[-1]), (
-                f"Input x ({x}) is outside interpolation range [{self.x[0]}, {self.x[-1]}]"
-            )
-            return self._sp.derivative(float(x))
+        return self._call(self._sp.second_derivative, x, "second derivative")
 
-        # Handle array-like inputs
-        else:
-            # Convert to numpy array if needed
-            if isinstance(x, (list, tuple)):
-                x_eval = np.asarray(x, dtype=float)
-            elif isinstance(x, np.ndarray):
-                x_eval = x
-            else:
-                raise TypeError(
-                    f"Input type {type(x)} not supported. "
-                    "Expected float, int, list, tuple, or numpy.ndarray"
+    # Convenience: ``sp(x)`` and ``sp.evaluate(x)`` do the same thing.
+    __call__ = evaluate
+
+    # ------------------------------------------------------------------
+    # Internals
+    # ------------------------------------------------------------------
+    def _call(self, backend, x, kind):
+        if isinstance(x, (int, float, np.integer, np.floating)):
+            xf = float(x)
+            if xf < self.x[0] or xf > self.x[-1]:
+                raise IndexError(
+                    f"Cannot evaluate {kind} at x={xf}: outside interpolation "
+                    f"range [{self.x[0]}, {self.x[-1]}]."
                 )
+            return backend(xf)
 
-            # Check bounds
-            assert x_eval.min() >= self.x[0], (
-                f"Input x ({x_eval.min()}) is below interpolation range ({self.x[0]})"
+        if isinstance(x, np.ndarray):
+            x_arr = x if x.dtype == np.float64 else x.astype(np.float64)
+        elif isinstance(x, (list, tuple)):
+            x_arr = np.asarray(x, dtype=np.float64)
+        else:
+            raise TypeError(
+                f"Input type {type(x)} not supported. "
+                "Expected float, int, list, tuple, or numpy.ndarray."
             )
-            assert x_eval.max() <= self.x[-1], (
-                f"Input x ({x_eval.max()}) is above interpolation range ({self.x[-1]})"
-            )
+        return backend(x_arr)
 
-            # Evaluate and return array
-            return self._sp.derivative(x_eval)
-
-    def _check_uniform_grid(
-        self, x: Union[List, Tuple, np.ndarray], y: Union[List, Tuple, np.ndarray]
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Validate and convert interpolation points.
-
-        Internal method to validate the input x and y arrays, ensuring they meet
-        the requirements for cubic spline interpolation.
-
-        Parameters
-        ----------
-        x : array_like
-            X-coordinates of data points.
-        y : array_like
-            Y-coordinates of data points.
-
-        Returns
-        -------
-        x : np.ndarray
-            Validated and converted x-coordinates as 1-D float array.
-        y : np.ndarray
-            Validated and converted y-coordinates as 1-D float array.
-
-        Raises
-        ------
-        ValueError
-            If x or y are not 1-dimensional, if they have different lengths,
-            or if x has fewer than 2 points.
-
-        Notes
-        -----
-        This method ensures:
-        - Both x and y are 1-dimensional arrays
-        - Both arrays have the same length
-        - At least 2 data points are provided
-        - Arrays are converted to float64 dtype
-        """
-        # Convert to numpy arrays
-        x = np.asarray(x, dtype=float)
-        y = np.asarray(y, dtype=float)
-
-        # Validate dimensions
+    @staticmethod
+    def _validate(x, y):
+        x = np.asarray(x, dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64)
         if x.ndim != 1:
             raise ValueError(f"x must be 1-dimensional, got {x.ndim}D array")
         if y.ndim != 1:
             raise ValueError(f"y must be 1-dimensional, got {y.ndim}D array")
-
-        # Validate minimum number of points
         if len(x) < 2:
             raise ValueError(f"x must have at least 2 points, got {len(x)}")
-
-        # Validate lengths match
         if len(x) != len(y):
             raise ValueError(
-                f"Length of x and y must be equal. Got x: {len(x)}, y: {len(y)}"
+                f"Length of x and y must match. Got x: {len(x)}, y: {len(y)}"
             )
-
         return x, y
 
 

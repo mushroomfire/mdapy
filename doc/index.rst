@@ -102,4 +102,4 @@ Project README
 .. toctree::
    :maxdepth: 1
 
-   readme
+   breadme

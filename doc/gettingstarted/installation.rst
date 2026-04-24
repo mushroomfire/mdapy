@@ -1,7 +1,8 @@
 Installation
 =============
 
-**Method 1: Install via pip (Recommended)**
+Method 1 — pip install (recommended)
+------------------------------------
 
 .. code-block:: bash
 
@@ -13,11 +14,11 @@ Installation
    **GPU-accelerated ray-tracing (NVIDIA OptiX 7)**
 
    Pre-compiled wheels with GPU rendering support are published for
-   **Linux x86_64** and **Windows x86_64**.  The GPU wheel is selected
+   **Linux x86_64** and **Windows x86_64**. The GPU wheel is selected
    automatically by pip on supported platforms:
 
    - **Linux** (glibc ≥ 2.28, e.g. Ubuntu 20.04+): pip automatically installs
-     the GPU-capable wheel.  Older Linux systems receive the CPU-only wheel.
+     the GPU-capable wheel. Older Linux systems receive the CPU-only wheel.
    - **Windows**: the published wheel always includes GPU support.
    - **macOS**: CPU-only (Apple Silicon does not support CUDA).
 
@@ -39,59 +40,118 @@ Installation
       print(render.is_gpu_available())   # True if GPU backend is usable
 
 
-**Method 2: Install with all optional features**
+Method 2 — install with optional extras
+---------------------------------------
 
 .. code-block:: bash
 
-   # Install all optional packages (matplotlib, k3d, phonopy, pyfftw), except lammps
-   pip install mdapy[all]
+   pip install mdapy[plot]      # + matplotlib
+   pip install mdapy[k3d]       # + k3d 3-D widget
+   pip install mdapy[all]       # + matplotlib, k3d, pyfftw, phonopy
 
-**Method 3: Build from the PyPI source distribution**
+LAMMPS is not an extra — install it via your preferred channel
+(conda-forge, system package manager, or build from source).
+
+
+Method 3 — build from the PyPI source distribution
+--------------------------------------------------
 
 If no pre-built wheel fits your platform, or you want to compile with
-your own compiler flags, install from the **sdist** we also publish to
-PyPI. This is the smallest way to build from source — the sdist contains
-only the C++ sources, Python package, and build configuration (no git
-history, no documentation, no test input files), and pip downloads it
-for you automatically:
+your own compiler flags, install from the **sdist** also published to
+PyPI. The sdist contains only the C++ sources, Python package and build
+configuration (no git history, no docs, no test input files), and pip
+downloads it automatically:
 
 .. code-block:: bash
 
    pip install --no-binary mdapy mdapy
 
-The ``--no-binary mdapy`` flag tells pip to skip the wheel and fetch the
-sdist from PyPI. Dependencies (``numpy``, ``polars``) are still installed
-as wheels — only ``mdapy`` itself is built locally.
+The ``--no-binary mdapy`` flag skips the wheel for ``mdapy`` only —
+``numpy`` and ``polars`` still install as wheels.
 
-**Method 4: Install from a git clone (for development)**
+
+Method 4 — install from a git clone (for development)
+-----------------------------------------------------
 
 .. code-block:: bash
 
    git clone https://github.com/mushroomfire/mdapy.git
    cd mdapy
-   pip install .
+   pip install .          # regular install
+   # or:
+   pip install -e .       # editable, picks up source changes without reinstall
 
-Use this if you intend to modify the source, run the tests, or build the
-documentation. For an editable install (source changes are picked up
-without reinstalling) use ``pip install -e .``.
+Use this if you intend to modify the source, run the tests, or build
+the documentation.
 
-**Method 5: Install directly from GitHub**
+
+Method 5 — install directly from GitHub
+---------------------------------------
 
 .. code-block:: bash
 
    pip install https://github.com/mushroomfire/mdapy/archive/master.zip
 
-**System Requirements for Methods 3 – 5**
+
+System requirements for Methods 3 – 5
+-------------------------------------
 
 All three compile mdapy's C++ extensions locally and therefore need:
 
-- Python 3.8+
-- C++ compilation environment (C++17 or newer)
+- Python 3.9+
+- C++17-capable compiler
 - OpenMP support
-- Tested platforms: Windows 10 (MSVC), Ubuntu (GCC), Mac OS M1 (Clang)
+- Tested platforms: Windows 10 (MSVC), Ubuntu (GCC), macOS Apple Silicon (Clang)
 
-**Verify Installation**
+
+Verify the installation
+-----------------------
 
 .. code-block:: bash
 
-   python -c "import mdapy as mp; print('mdapy version is:', mp.__version__)"
+   python -c "import mdapy as mp; print('mdapy', mp.__version__, '— ready!')"
+
+
+Interoperability with PyTorch / OVITO / freud / scikit-learn
+------------------------------------------------------------
+
+mdapy, PyTorch, OVITO, freud and scikit-learn all use OpenMP for internal
+parallelism. Because each project ships its own pre-built binaries, a
+single Python process can end up with more than one copy of the OpenMP
+runtime, which LLVM libomp detects and aborts with::
+
+   OMP Error #15: Initializing libomp.dylib, but found libomp.dylib already initialized.
+
+mdapy handles this in two ways depending on how it was installed:
+
+**From a PyPI wheel** (``pip install mdapy``) the wheel bundles its own
+OpenMP runtime so it works in a fresh environment. If you then import
+it alongside another package that bundles its own copy (commonly
+PyTorch) and hit the error above, set the flag yourself before
+importing any of the affected libraries:
+
+.. code-block:: python
+
+   import os
+   os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+or at the shell level:
+
+.. code-block:: bash
+
+   export KMP_DUPLICATE_LIB_OK=TRUE
+
+**From source inside a conda env** (``pip install .`` with
+``CONDA_PREFIX`` set) mdapy's build system detects the conda env and
+links against the OpenMP runtime that already lives there — the same
+one that conda-installed OVITO / PyTorch / freud are using — so only a
+single libomp ends up in the process and the conflict never arises.
+This is the recommended setup for development and for any environment
+that mixes these libraries heavily.
+
+On macOS ``arm64`` specifically, OVITO and freud both bundle voro++ and
+TBB, and importing both in one Python process crashes inside
+``freud.locality.Voronoi.compute`` (or the equivalent OVITO modifier).
+This is an upstream incompatibility — not something mdapy can fix. Run
+mdapy's own test suite with ``./run_tests.sh`` (one subprocess per test
+file) to sidestep it.

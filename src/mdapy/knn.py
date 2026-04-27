@@ -1,7 +1,7 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
-from mdapy import _aabbtree
+from mdapy import _fast_knn
 from mdapy.box import Box
 import mdapy.tool_function as tool
 import polars as pl
@@ -79,7 +79,7 @@ class NearestNeighbor:
         self.indices_py = np.zeros((N, self.k), np.int32)
         self.distances_py = np.zeros((N, self.k), np.float64)
 
-        _aabbtree.knn(
+        _fast_knn.knn(
             data["x"].to_numpy(allow_copy=False),
             data["y"].to_numpy(allow_copy=False),
             data["z"].to_numpy(allow_copy=False),

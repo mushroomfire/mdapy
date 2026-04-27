@@ -3,7 +3,7 @@
 from typing import Union, Dict
 import numpy as np
 import polars as pl
-from mdapy import _aabbtree
+from mdapy import _fast_knn
 from mdapy import System
 
 
@@ -51,7 +51,7 @@ class WignerSeitzAnalysis:
         The tree is built using the reference positions, box, origin, and boundary
         conditions for handling periodic systems if applicable.
         """
-        self._tree = _aabbtree.AABBTree()
+        self._tree = _fast_knn.Tree()
         self._tree.build_with_coords(
             self.ref.data["x"].to_numpy(allow_copy=False),
             self.ref.data["y"].to_numpy(allow_copy=False),

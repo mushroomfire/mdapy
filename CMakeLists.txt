@@ -74,7 +74,7 @@ nanobind_add_module(_voronoi          STABLE_ABI src/voronoi.cpp
                     ${CMAKE_CURRENT_SOURCE_DIR}/extern/voro++/src/voro++.cc)
 nanobind_add_module(_nepcal           STABLE_ABI src/neppy.cpp ${NEP_SOURCES})
 nanobind_add_module(_repeat_cell      STABLE_ABI src/repeat_cell.cpp)
-nanobind_add_module(_aabbtree         STABLE_ABI src/aabb_tree.cpp)
+nanobind_add_module(_fast_knn         STABLE_ABI src/fast_knn.cpp)
 nanobind_add_module(_cluster          STABLE_ABI src/cluster.cpp)
 nanobind_add_module(_spline           STABLE_ABI src/spline.cpp)
 nanobind_add_module(_cna              STABLE_ABI src/cna.cpp)
@@ -99,7 +99,7 @@ nanobind_add_module(_build_bond       STABLE_ABI src/build_bond.cpp)
 
 set(MODULES
     _neighbor _structure_entropy _voronoi _nepcal _repeat_cell
-    _aabbtree _cluster _spline _cna _polycrystal _ptm _eam _sbo
+    _fast_knn _cluster _spline _cna _polycrystal _ptm _eam _sbo
     _rdf _sfc _csp _wcp _strain _fccpft _aja _cnp _split
     _atomtemp _lindemann _bond_analysis _build_bond
 )
@@ -368,18 +368,29 @@ if(MDAPY_OPTIX)
                 list(APPEND _NVCC_INCS "-I${_inc}")
             endforeach()
 
-            # GPU architecture targets.  We build for Pascal and newer (sm_60+)
-            # which covers all CUDA 12.x-supported hardware.
-            set(_GENCODE_FLAGS
-                -gencode arch=compute_60,code=sm_60
-                -gencode arch=compute_70,code=sm_70
-                -gencode arch=compute_75,code=sm_75
-                -gencode arch=compute_80,code=sm_80
-                -gencode arch=compute_86,code=sm_86
-                -gencode arch=compute_89,code=sm_89
-                -gencode arch=compute_90,code=sm_90
-            )
-            set(_PTX_ARCH "sm_60")
+            # GPU architecture targets.  Pascal/Volta (sm_60/70) were dropped
+            # in CUDA 13; keep Turing (sm_75) and newer.
+            if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL "13.0")
+                set(_GENCODE_FLAGS
+                    -gencode arch=compute_75,code=sm_75
+                    -gencode arch=compute_80,code=sm_80
+                    -gencode arch=compute_86,code=sm_86
+                    -gencode arch=compute_89,code=sm_89
+                    -gencode arch=compute_90,code=sm_90
+                )
+                set(_PTX_ARCH "sm_75")
+            else()
+                set(_GENCODE_FLAGS
+                    -gencode arch=compute_60,code=sm_60
+                    -gencode arch=compute_70,code=sm_70
+                    -gencode arch=compute_75,code=sm_75
+                    -gencode arch=compute_80,code=sm_80
+                    -gencode arch=compute_86,code=sm_86
+                    -gencode arch=compute_89,code=sm_89
+                    -gencode arch=compute_90,code=sm_90
+                )
+                set(_PTX_ARCH "sm_60")
+            endif()
 
             # Common nvcc flags for compiling .cu -> relocatable object (-dc).
             # -dc emits device code that must be device-linked before host linking.
@@ -507,13 +518,7 @@ if(MDAPY_OPTIX)
                 OUTPUT  "${_DLINK_OBJ}"
                 COMMAND "${NVCC_EXECUTABLE}"
                         -dlink
-                        -gencode arch=compute_60,code=sm_60
-                        -gencode arch=compute_70,code=sm_70
-                        -gencode arch=compute_75,code=sm_75
-                        -gencode arch=compute_80,code=sm_80
-                        -gencode arch=compute_86,code=sm_86
-                        -gencode arch=compute_89,code=sm_89
-                        -gencode arch=compute_90,code=sm_90
+                        ${_GENCODE_FLAGS}
                         ${_DLINK_EXTRA}
                         -o "${_DLINK_OBJ}"
                         "${_TACHYON_OPTIX_OBJ}" "${_IMPL_OBJ}"

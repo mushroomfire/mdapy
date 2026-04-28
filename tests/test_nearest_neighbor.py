@@ -132,12 +132,12 @@ def _check_knn(system, k, sample_idx=None, atol=1e-6, n_shells=3):
 # ---------------------------------------------------------------------------
 
 FILES = [
-    "tests/input_files/HexDiamond.xyz",
-    "tests/input_files/tri_box_small.xyz",
-    "tests/input_files/rec_box_small.xyz",
-    "tests/input_files/rec_box_big.xyz",
-    "tests/input_files/AlCrNi.xyz",
-    "tests/input_files/tri_box_big.xyz",
+    "input_files/HexDiamond.xyz",
+    "input_files/tri_box_small.xyz",
+    "input_files/rec_box_small.xyz",
+    "input_files/rec_box_big.xyz",
+    "input_files/AlCrNi.xyz",
+    "input_files/tri_box_big.xyz",
 ]
 
 

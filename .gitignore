@@ -13,4 +13,5 @@
 /dist/*
 /*.png
 /doc/_esbonio
+/bench*
 

@@ -1,50 +1,35 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
-from mdapy import System, AtomicStrain
-from ovito.modifiers import AtomicStrainModifier
-from ovito.pipeline import ReferenceConfigurationModifier
-from ovito.io import import_file
+"""Atomic strain — fixture-driven, no OVITO at runtime."""
+
 import numpy as np
 
+from mdapy import System, AtomicStrain
+from _fixture_helper import load_misc, input_path
 
-def test_atom_strain():
-    ref = System("input_files/strain.0.xyz")
-    cur = System("input_files/strain.1.xyz")
 
-    AS = AtomicStrain(3.0, ref, max_neigh=30)
+def _run(affine: bool):
+    data = load_misc("atomic_strain")
+    ref = System(input_path("strain.0.xyz"))
+    cur = System(input_path("strain.1.xyz"))
+    AS = AtomicStrain(float(data["cutoff"]), ref, max_neigh=30, affine=affine)
     AS.compute(cur)
+    return cur
 
-    pipeline = import_file("input_files/strain.*.xyz")
-    pipeline.modifiers.append(AtomicStrainModifier(cutoff=3.0))
-    data = pipeline.compute(1)
 
-    assert np.allclose(
-        data.particles["Shear Strain"][...],
-        cur.data["shear_strain"].to_numpy(allow_copy=False),
-    ), "shear strain is wrong."
-    assert np.allclose(
-        data.particles["Volumetric Strain"][...],
-        cur.data["volumetric_strain"].to_numpy(allow_copy=False),
-    ), "volumetric strain is wrong."
+def test_atom_strain_plain():
+    data = load_misc("atomic_strain")
+    cur = _run(affine=False)
+    assert np.allclose(cur.data["shear_strain"].to_numpy(allow_copy=False),
+                       data["shear_strain"], atol=1e-6), "shear strain (plain) differs"
+    assert np.allclose(cur.data["volumetric_strain"].to_numpy(allow_copy=False),
+                       data["volumetric_strain"], atol=1e-6), "volumetric strain (plain) differs"
 
-    AS = AtomicStrain(3.0, ref, max_neigh=30, affine=True)
-    AS.compute(cur)
 
-    pipeline = import_file("input_files/strain.*.xyz")
-    pipeline.modifiers.append(
-        AtomicStrainModifier(
-            cutoff=3.0,
-            affine_mapping=ReferenceConfigurationModifier.AffineMapping.ToReference,
-            reference_frame=0,
-        )
-    )
-    data = pipeline.compute(1)
-
-    assert np.allclose(
-        data.particles["Shear Strain"][...],
-        cur.data["shear_strain"].to_numpy(allow_copy=False),
-    ), "shear strain is wrong."
-    assert np.allclose(
-        data.particles["Volumetric Strain"][...],
-        cur.data["volumetric_strain"].to_numpy(allow_copy=False),
-    ), "volumetric strain is wrong."
+def test_atom_strain_affine():
+    data = load_misc("atomic_strain")
+    cur = _run(affine=True)
+    assert np.allclose(cur.data["shear_strain"].to_numpy(allow_copy=False),
+                       data["shear_strain_affine"], atol=1e-6), "shear strain (affine) differs"
+    assert np.allclose(cur.data["volumetric_strain"].to_numpy(allow_copy=False),
+                       data["volumetric_strain_affine"], atol=1e-6), "volumetric strain (affine) differs"

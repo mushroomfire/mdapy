@@ -1,13 +1,28 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
-from mdapy import System
-from ovito.modifiers import BondAnalysisModifier, CreateBondsModifier
+"""Per-element-triplet angular distribution function — fixture-driven."""
+
 import numpy as np
+
+from mdapy import System
+from _fixture_helper import load_misc, input_path
+
+# mdapy's index → OVITO histogram component name. mdapy returns the
+# histograms in a fixed dict-key order corresponding to the dict that the
+# user passed in; the original test maps each index to a name.
+_MDAPY_INDEX_TO_NAME = {
+    0: "H-O-H",
+    1: "O-O-H",
+    2: "H-H-H",
+    3: "O-H-O",
+    4: "O-O-O",
+    5: "O-H-H",
+}
 
 
 def test_adf():
-    system = System("input_files/water.xyz")
-    ovi_atom = system.to_ovito()
+    data = load_misc("adf")
+    system = System(input_path("water.xyz"))
     adf = system.cal_angular_distribution_function(
         {
             "O-H-H": [0, 2.0, 0, 2.0],
@@ -17,30 +32,14 @@ def test_adf():
             "O-O-O": [0, 2.0, 0, 2.0],
             "H-O-H": [0, 2.0, 0, 2.0],
         },
-        40,
+        int(data["bins"]),
     )
 
-    ovi_atom.apply(CreateBondsModifier(cutoff=2.0))
-    ovi_atom.apply(
-        BondAnalysisModifier(
-            bins=40,
-            length_cutoff=2.0,
-            partition=BondAnalysisModifier.Partition.ByParticleType,
-        )
-    )
-
-    histogram = ovi_atom.tables["bond-angle-distr"].y
-
-    for column, name in enumerate(histogram.component_names):
-        if name == "H-O-H":
-            assert np.allclose(histogram[:, column], adf.bond_angle_distribution[0])
-        elif name == "O-O-H":
-            assert np.allclose(histogram[:, column], adf.bond_angle_distribution[1])
-        elif name == "H-H-H":
-            assert np.allclose(histogram[:, column], adf.bond_angle_distribution[2])
-        elif name == "O-H-O":
-            assert np.allclose(histogram[:, column], adf.bond_angle_distribution[3])
-        elif name == "O-O-O":
-            assert np.allclose(histogram[:, column], adf.bond_angle_distribution[4])
-        elif name == "O-H-H":
-            assert np.allclose(histogram[:, column], adf.bond_angle_distribution[5])
+    for mdapy_idx, name in _MDAPY_INDEX_TO_NAME.items():
+        key = f"adf_{name.replace('-', '_')}"
+        if key in data.files:
+            assert np.allclose(
+                adf.bond_angle_distribution[mdapy_idx],
+                data[key],
+                atol=1e-6,
+            ), f"{name} ADF differs"

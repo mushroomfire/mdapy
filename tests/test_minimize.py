@@ -1,72 +1,54 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
+"""FIRE minimization (8 modes) — fixture-driven, no ASE at runtime.
+
+Reference final stress / forces / energies were generated once by running
+ASE's FIRE2 (with UnitCellFilter when optimize_cell=True) under the NEP
+potential for 5 steps. We compare mdapy's FIRE minimizer to those values.
+"""
+
+import numpy as np
+import pytest
+
 from mdapy import System
 from mdapy.minimizer import FIRE
 from mdapy.nep import NEP
-from mdapy.nep4ase import NEP4ASE
-from ase.io import read
-from ase.optimize import FIRE2
-from ase.filters import UnitCellFilter
-import numpy as np
+from _fixture_helper import load_advanced, input_path
 
 
-def _test_minimize_full(
-    use_abc: bool = False,
-    optimize_cell: bool = False,
-    mask=None,
-    hydrostatic_strain: bool = False,
-    constant_volume: bool = False,
-    scalar_pressure: float = 0,
-):
-    atoms = read("input_files/AlCrNi.xyz", format="extxyz")
-    system = System(ase_atom=atoms)
-    system.calc = NEP("input_files/UNEP-v1.txt")
-    atoms.calc = NEP4ASE("input_files/UNEP-v1.txt")
-    if optimize_cell:
-        aa = UnitCellFilter(
-            atoms,
-            mask=mask,
-            hydrostatic_strain=hydrostatic_strain,
-            constant_volume=constant_volume,
-            scalar_pressure=scalar_pressure,
-        )
-    else:
-        aa = atoms
-    fy = FIRE2(aa, use_abc=use_abc)
-    steps = 5
-    fy.run(steps=steps)
+_MODES = [
+    # (use_abc, optimize_cell, mask, hydrostatic_strain, constant_volume, scalar_pressure)
+    (False, False, None,                 False, False, 0),
+    (True,  False, None,                 False, False, 0),
+    (False, True,  None,                 False, False, 0),
+    (True,  True,  None,                 False, False, 0),
+    (False, True,  [1, 0, 0, 0, 0, 0],   False, False, 0),
+    (False, True,  None,                 True,  False, 0),
+    (False, True,  None,                 False, True,  0),
+    (False, True,  None,                 False, False, 1),
+]
+
+
+@pytest.mark.parametrize("idx,params", list(enumerate(_MODES)))
+def test_minimize_mode(idx, params):
+    use_abc, optimize_cell, mask, hydro, const_v, p = params
+    data = load_advanced("minimize")
+
+    system = System(input_path("AlCrNi.xyz"))
+    system.calc = NEP(input_path("UNEP-v1.txt"))
 
     fire = FIRE(
         system,
         use_abc=use_abc,
         optimize_cell=optimize_cell,
         mask=mask,
-        hydrostatic_strain=hydrostatic_strain,
-        constant_volume=constant_volume,
-        scalar_pressure=scalar_pressure,
+        hydrostatic_strain=hydro,
+        constant_volume=const_v,
+        scalar_pressure=p,
     )
-    fire.run(steps=steps)
-    assert np.allclose(atoms.get_stress(), system.get_stress()), "stress is wrong."
-    assert np.allclose(atoms.get_forces(), system.get_force()), "force is wrong"
-    assert np.allclose(atoms.get_potential_energies(), system.get_energies()), (
-        "energy is wrong"
-    )
+    fire.run(steps=int(data["steps"]))
 
-
-def test_energy_mini():
-    _test_minimize_full()
-    print("passed 1")
-    _test_minimize_full(use_abc=True)
-    print("passed 2")
-    _test_minimize_full(optimize_cell=True)
-    print("passed 3")
-    _test_minimize_full(optimize_cell=True, use_abc=True)
-    print("passed 4")
-    _test_minimize_full(optimize_cell=True, mask=[1, 0, 0, 0, 0, 0])
-    print("passed 5")
-    _test_minimize_full(optimize_cell=True, hydrostatic_strain=True)
-    print("passed 6")
-    _test_minimize_full(optimize_cell=True, constant_volume=True)
-    print("passed 7")
-    _test_minimize_full(optimize_cell=True, scalar_pressure=1)
-    print("passed 8")
+    key = f"mode_{idx}"
+    assert np.allclose(system.get_stress(),    data[f"{key}__stress"]),   f"mode {idx}: stress wrong"
+    assert np.allclose(system.get_force(),     data[f"{key}__forces"]),   f"mode {idx}: force wrong"
+    assert np.allclose(system.get_energies(),  data[f"{key}__energies"]), f"mode {idx}: energy wrong"

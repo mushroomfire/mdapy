@@ -1,40 +1,36 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
-import mdapy as mp
-from ovito.io import import_file
-from ovito.modifiers import VoronoiAnalysisModifier
+"""Voronoi cell volume / cavity radius / coordination — fixture-driven."""
+
 import numpy as np
+import pytest
+
+from _fixture_helper import fixtures_with, fixture_ids, system_from_fixture
+
+PATHS = fixtures_with("voronoi_volume")
 
 
-class TestVoronoiVolume:
-    def calculate_voronoi_volume(self, filename):
-        system = mp.System(filename)
-        system.cal_voronoi_volume()
-        pipeline = import_file(filename)
-        pipeline.modifiers.append(VoronoiAnalysisModifier())
-        data = pipeline.compute()
+@pytest.mark.parametrize("path", PATHS, ids=fixture_ids(PATHS))
+def test_voronoi_against_fixture(path):
+    data = np.load(path)
+    system = system_from_fixture(data)
+    system.cal_voronoi_volume()
 
-        assert np.allclose(
-            data.particles["Atomic Volume"][...], system.data["volume"].to_numpy(), 1e-6
-        ), "Atomic volumes are different."
-        assert np.allclose(
-            data.particles["Cavity Radius"][...],
-            system.data["cavity_radius"].to_numpy() * 0.5,
-            1e-6,
-        ), "Cavity radius is different."
-        assert np.all(
-            data.particles["Coordination"][...]
-            == system.data["neighbor_number"].to_numpy()
-        ), "Neighbor number is different."
+    assert np.allclose(
+        data["voronoi_volume"],
+        system.data["volume"].to_numpy(allow_copy=False),
+        atol=1e-6,
+    ), f"{path.name}: atomic volumes differ"
 
-    def test_box_big_rec(self):
-        self.calculate_voronoi_volume("input_files/rec_box_big.xyz")
+    # OVITO's Cavity Radius is half of mdapy's convention; reference
+    # values are stored as OVITO outputs.
+    assert np.allclose(
+        data["voronoi_cavity_radius"],
+        system.data["cavity_radius"].to_numpy(allow_copy=False) * 0.5,
+        atol=1e-6,
+    ), f"{path.name}: cavity radius differs"
 
-    def test_box_small_rec(self):
-        self.calculate_voronoi_volume("input_files/rec_box_small.xyz")
-
-    def test_box_big_tri(self):
-        self.calculate_voronoi_volume("input_files/tri_box_big.xyz")
-
-    def test_box_small_tri(self):
-        self.calculate_voronoi_volume("input_files/tri_box_small.xyz")
+    assert np.array_equal(
+        data["voronoi_coord"],
+        system.data["neighbor_number"].to_numpy(allow_copy=False),
+    ), f"{path.name}: coordination differs"

@@ -1,35 +1,26 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
-import mdapy as mp
-from ovito.io import import_file
-from ovito.modifiers import ComputePropertyModifier
+"""Average-by-neighbor (per-atom property smoothing) — fixture-driven."""
+
 import numpy as np
+import pytest
+
+import mdapy as mp
+from _fixture_helper import load_misc, input_path
+
+CONFIGS = ["rec_box_big", "tri_box_big"]
 
 
-class TestAverageNeighbor:
-    def average_neighbor(self, filename, average_cutoff):
-        pipeline = import_file(filename)
-        modifier = ComputePropertyModifier(
-            output_property="x_ave",
-            operate_on="particles",
-            cutoff_radius=average_cutoff,
-            expressions=["Position.X / (NumNeighbors + 1)"],
-            neighbor_expressions=["Position.X / (NumNeighbors + 1)"],
-        )
-        pipeline.modifiers.append(modifier)
-        data = pipeline.compute()
+@pytest.mark.parametrize("name", CONFIGS)
+def test_average_neighbor(name):
+    data = load_misc("average_neighbor")
+    rc = float(data[f"{name}__cutoff"])
+    expected = data[f"{name}__x_ave"]
 
-        system = mp.System(filename)
-        system.average_by_neighbor(average_cutoff, "x", include_self=True)
+    system = mp.System(input_path(f"{name}.xyz"))
+    system.average_by_neighbor(rc, "x", include_self=True)
+    got = system.data["x_ave"].to_numpy(allow_copy=False)
 
-        assert np.allclose(
-            data.particles["x_ave"][...],
-            system.data["x_ave"].to_numpy(allow_copy=False),
-            atol=1e-6,
-        )
-
-    def test_box_big_rec(self):
-        self.average_neighbor("input_files/rec_box_big.xyz", 4.0)
-
-    def test_box_big_tri(self):
-        self.average_neighbor("input_files/tri_box_big.xyz", 4.0)
+    assert np.allclose(got, expected, atol=1e-6), (
+        f"{name}: max |Δ| = {np.abs(got - expected).max():.3g}"
+    )

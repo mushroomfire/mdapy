@@ -1,29 +1,23 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
-import mdapy as mp
-from ovito.modifiers import CoordinationAnalysisModifier
+"""Radial distribution function (partial RDFs) — fixture-driven."""
+
 import numpy as np
+
+import mdapy as mp
+from _fixture_helper import load_misc, input_path
 
 
 def test_rdf():
-    system = mp.System("input_files/AlCrNi.xyz")
-
-    rdf = system.cal_radial_distribution_function(5.0, 50)
-    mytype = system.data["element"].unique().sort()
-    ovi_atom = system.to_ovito()
-    ovi_atom.apply(
-        CoordinationAnalysisModifier(cutoff=5.0, number_of_bins=50, partial=True)
-    )
-
-    rdf_table = ovi_atom.tables["coordination-rdf"]
-    rdf_names = rdf_table.y.component_names
-
-    for i in range(len(mytype)):
-        for j in range(i, len(mytype)):
-            name = f"{mytype[i]}-{mytype[j]}"
-            if name not in rdf_names:
-                name = f"{mytype[j]}-{mytype[i]}"
-                assert name in rdf_names
-            assert np.allclose(rdf.g[i, j], rdf_table.y[:, rdf_names.index(name)]), (
-                f"{name} rdf is wrong."
+    data = load_misc("rdf")
+    system = mp.System(input_path("AlCrNi.xyz"))
+    rdf = system.cal_radial_distribution_function(
+        float(data["cutoff"]), int(data["nbins"]))
+    elements = list(data["elements"])
+    K = len(elements)
+    g_ref = data["g"]
+    for i in range(K):
+        for j in range(i, K):
+            assert np.allclose(rdf.g[i, j], g_ref[i, j], atol=1e-6), (
+                f"{elements[i]}-{elements[j]} RDF differs"
             )

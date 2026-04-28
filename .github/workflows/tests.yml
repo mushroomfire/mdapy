@@ -1,0 +1,86 @@
+name: Tests
+
+# The mdapy test suite is fully self-contained — every reference value
+# lives under tests/fixtures/, so we don't need OVITO / freud / pymatgen
+# / pynep / LAMMPS at CI time. Just build the package, install pytest,
+# run the suite.
+
+on:
+  # Trigger on direct pushes to master (the maintainer's normal workflow)
+  # and on incoming pull requests from contributors. Doc-only changes
+  # don't need to fire CI — `paths-ignore` keeps them off the runners.
+  push:
+    branches: [master]
+    paths-ignore:
+      - 'doc/**'
+      - 'README.rst'
+      - '**/*.md'
+  pull_request:
+    paths-ignore:
+      - 'doc/**'
+      - 'README.rst'
+      - '**/*.md'
+  workflow_dispatch:
+
+# Cancel older runs on the same PR/branch when a new commit lands.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest — ${{ matrix.os }}, py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      # mdapy is a public repo so GitHub Actions minutes are unlimited;
+      # the matrix is still kept lean to stay polite to the queue.
+      # Linux gets two Python versions for compat coverage; macOS and
+      # Windows each get one, since their job is to confirm the build
+      # and OpenMP runtime work on those platforms — Python version
+      # compatibility is already exercised by the Linux legs.
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: '3.11'
+          - os: ubuntu-latest
+            python-version: '3.12'
+          - os: macos-14
+            python-version: '3.12'
+          - os: windows-latest
+            python-version: '3.12'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install build prerequisites (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libomp
+
+      - name: Install mdapy (CPU build, no GPU backend)
+        # CPU-only build — the GPU backend isn't relevant to the test
+        # surface and adds heavy CUDA dependencies on Linux/Windows.
+        # `shell: bash` so this script works identically on every runner;
+        # GitHub-hosted Windows ships Git-Bash, so the same line works.
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -v . --config-settings=cmake.define.MDAPY_OPTIX=OFF
+
+      - name: Install pytest
+        shell: bash
+        run: pip install pytest
+
+      - name: Run tests
+        # Tests are self-contained — no OVITO / freud / sklearn / ASE /
+        # pymatgen / pynep / LAMMPS needed at runtime.
+        shell: bash
+        working-directory: tests
+        run: pytest -q

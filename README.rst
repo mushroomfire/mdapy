@@ -26,6 +26,10 @@
    :target: https://mdapy.readthedocs.io/en/latest/
    :alt: Documentation
 
+.. image:: https://github.com/mushroomfire/mdapy/actions/workflows/tests.yml/badge.svg
+   :target: https://github.com/mushroomfire/mdapy/actions/workflows/tests.yml
+   :alt: Tests
+
 .. image:: https://img.shields.io/github/stars/mushroomfire/mdapy.svg?style=social
    :target: https://github.com/mushroomfire/mdapy
    :alt: GitHub stars
@@ -101,7 +105,7 @@ Neighbor Search
 +---------------------------+---------------------------------------------+
 | Fixed-radius cutoff       | Efficient cell-list algorithm               |
 +---------------------------+---------------------------------------------+
-| k-Nearest neighbors       | Exact kNN via aabb tree                     |
+| k-Nearest neighbors       | Exact kNN via kd-tree                       |
 +---------------------------+---------------------------------------------+
 | Voronoi neighbors         | Topology-based, powered by Voro++           |
 +---------------------------+---------------------------------------------+
@@ -289,35 +293,31 @@ Dependencies
 Running the Tests
 -----------------
 
-Set up a dedicated environment with the reference libraries mdapy compares
-against:
+The test suite is fully self-contained. Reference values for every
+algorithm live as small ``.npz`` files under ``tests/fixtures/`` (committed
+to the repo), so you don't need OVITO, freud, ASE, pymatgen, pynep, or
+LAMMPS at test time:
 
 .. code-block:: bash
 
-   conda create -n mda python=3.13
-   conda activate mda
-   conda install --strict-channel-priority -c https://conda.ovito.org -c conda-forge ovito
-   conda install -c conda-forge freud scipy scikit-learn pyfftw pymatgen ase
    pip install pytest
-   pip install git+https://github.com/bigd4/PyNEP.git
    pip install .
-   # also install LAMMPS via your preferred method
+   cd tests && pytest -q
 
-Then run the suite:
-
-.. code-block:: bash
-
-   bash run_tests.sh
-
-``run_tests.sh`` invokes ``pytest`` once per test file. This is required on
-macOS because ovito and freud both ship voro++ + TBB and cannot coexist in a
-single Python process — an upstream incompatibility, not mdapy's.
-
-To run a subset:
+To refresh the reference data (only needed when the underlying mdapy
+algorithm changes), install the upstream libraries and run the matching
+generator script:
 
 .. code-block:: bash
 
-   ./run_tests.sh test_centro_symmetry_parameter.py test_voronoi.py
+   # Requires: ovito, freud
+   python tests/_generate_fixtures/generate_structure_analysis.py
+   python tests/_generate_fixtures/generate_misc.py
+
+   # Requires: scikit-learn, ase, pymatgen, pynep, lammps (with NEP plugin)
+   python tests/_generate_fixtures/generate_advanced.py
+
+See ``tests/_generate_fixtures/README.md`` for details.
 
 ----
 

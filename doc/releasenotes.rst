@@ -1,6 +1,25 @@
 Release Notes
 ===============
 
+Mdapy 1.0.5a1 (April 28, 2026)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🏆 New Features
+----------------
+
+- Rewrote and optimized the k-nearest-neighbor algorithm; significantly
+  faster than the previous implementation across all tested geometries.
+
+🛠️ Other Improvements
+----------------------
+
+- Reworked the entire test suite to be self-contained: reference values
+  for every algorithm are pre-computed and committed as small ``.npz``
+  fixtures under ``tests/fixtures/``. Running the tests no longer
+  requires OVITO, freud, ASE, pymatgen, pynep, or LAMMPS.
+- Added a GitHub Actions workflow that runs the suite on every push and
+  pull request (Linux + macOS, Python 3.11 / 3.12).
+
 Mdapy 1.0.4 (April 24, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

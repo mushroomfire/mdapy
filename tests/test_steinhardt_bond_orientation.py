@@ -1,166 +1,59 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
-from mdapy import System
-import freud
+"""
+Steinhardt bond-orientation parameters Q_l — fixture-driven, no
+freud at runtime. Reference values were generated once with
+`freud.order.Steinhardt` (with and without averaging) and stored as
+.npz files; see `tests/_generate_fixtures/generate_structure_analysis.py`.
+
+The fixtures cover the cutoff mode (rc) only. Other modes — nnn,
+voronoi, weighted, wl/wlhat — are still freud-coupled in the codebase
+and will be migrated in a follow-up.
+"""
+
 import numpy as np
+import pytest
+
+import mdapy as mp
+
+from _fixture_helper import fixtures_with, fixture_ids, system_from_fixture
+
+PATHS = fixtures_with("q4")    # all qlm fixtures store both q4 and q6
+LL = (4, 6)
 
 
-def test_cutoffNeigh():
-    box, points = freud.data.make_random_system(10, 100, seed=0)
-    system = System(box=box.to_matrix(), pos=points)
-    llist = [4, 6, 8]
-    ql = freud.order.Steinhardt(l=llist)
-    ql.compute((box, points), {"r_max": 3})
-    system.cal_steinhardt_bond_orientation(llist, rc=3.0)
+@pytest.mark.parametrize("path", PATHS, ids=fixture_ids(PATHS))
+def test_ql_against_fixture(path):
+    data = np.load(path)
+    system = system_from_fixture(data)
+    rc = float(data["ql_cutoff"])
 
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i], system.data[f"ql{j}"].to_numpy(allow_copy=False)
-        ), f"q{j} is wrong in rc model."
+    # Plain Q_l
+    system.cal_steinhardt_bond_orientation(list(LL), rc=rc)
+    for l in LL:
+        got = system.data[f"ql{l}"].to_numpy(allow_copy=False)
+        expected = data[f"q{l}"]
+        assert np.allclose(got, expected, atol=1e-6, rtol=1e-6), (
+            f"{path.name}: Q_{l} differs (max |Δ|={np.abs(got - expected).max():.3g})"
+        )
 
-    ql = freud.order.Steinhardt(l=llist, average=True)
-    ql.compute((box, points), {"r_max": 3})
-    system.cal_steinhardt_bond_orientation(llist, rc=3.0, average=True)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i], system.data[f"ql{j}"].to_numpy(allow_copy=False)
-        ), f"q{j} is wrong in rc model with average."
-
-    ql = freud.order.Steinhardt(l=llist, wl=True)
-    ql.compute((box, points), {"r_max": 3})
-    system.cal_steinhardt_bond_orientation(llist, rc=3.0, wl=True)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i],
-            system.data[f"wl{j}"].to_numpy(allow_copy=False),
-            atol=1e-5,
-        ), f"wl{j} is wrong in rc model with wl."
-
-    ql = freud.order.Steinhardt(l=llist, wl=True, wl_normalize=True)
-    ql.compute((box, points), {"r_max": 3})
-    system.cal_steinhardt_bond_orientation(llist, rc=3.0, wlhat=True)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i],
-            system.data[f"wlh{j}"].to_numpy(allow_copy=False),
-            atol=1e-5,
-        ), f"wlh{j} is wrong in rc model with wlh."
+    # Averaged Q_l
+    system.cal_steinhardt_bond_orientation(list(LL), rc=rc, average=True)
+    for l in LL:
+        got = system.data[f"ql{l}"].to_numpy(allow_copy=False)
+        expected = data[f"q{l}_avg"]
+        assert np.allclose(got, expected, atol=1e-6, rtol=1e-6), (
+            f"{path.name}: <Q_{l}> differs (max |Δ|={np.abs(got - expected).max():.3g})"
+        )
 
 
-def test_nnnNeigh():
-    box, points = freud.data.make_random_system(10, 100, seed=0)
-    system = System(box=box.to_matrix(), pos=points)
-    llist = [4, 6, 8]
-    ql = freud.order.Steinhardt(l=llist)
-    ql.compute((box, points), {"num_neighbors": 12})
-    system.cal_steinhardt_bond_orientation(llist, nnn=12)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i], system.data[f"ql{j}"].to_numpy(allow_copy=False)
-        ), f"q{j} is wrong in nnn model."
-
-    ql = freud.order.Steinhardt(l=llist, average=True)
-    ql.compute((box, points), {"num_neighbors": 12})
-    system.cal_steinhardt_bond_orientation(llist, nnn=12, average=True)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i], system.data[f"ql{j}"].to_numpy(allow_copy=False)
-        ), f"q{j} is wrong in nnn model with average."
-
-    ql = freud.order.Steinhardt(l=llist, wl=True)
-    ql.compute((box, points), {"num_neighbors": 12})
-    system.cal_steinhardt_bond_orientation(llist, nnn=12, wl=True)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i],
-            system.data[f"wl{j}"].to_numpy(allow_copy=False),
-            atol=1e-5,
-        ), f"wl{j} is wrong in nnn model with wl."
-
-    ql = freud.order.Steinhardt(l=llist, wl=True, wl_normalize=True)
-    ql.compute((box, points), {"num_neighbors": 12})
-    system.cal_steinhardt_bond_orientation(llist, nnn=12, wlhat=True)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i],
-            system.data[f"wlh{j}"].to_numpy(allow_copy=False),
-            atol=1e-5,
-        ), f"wlh{j} is wrong in nnn model with wlh."
-
-
-def test_vorNeigh():
-    box, points = freud.data.make_random_system(10, 100, seed=0)
-    system = System(box=box.to_matrix(), pos=points)
-    vor = freud.locality.Voronoi()
-    vor.compute((box, points))
-    llist = [4, 6, 8]
-    ql = freud.order.Steinhardt(l=llist)
-    ql.compute((box, points), vor.nlist)
-    system.cal_steinhardt_bond_orientation(llist, use_voronoi=True)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i], system.data[f"ql{j}"].to_numpy(allow_copy=False)
-        ), f"q{j} is wrong in vor model."
-
-    ql = freud.order.Steinhardt(l=llist, average=True)
-    ql.compute((box, points), vor.nlist)
-    system.cal_steinhardt_bond_orientation(llist, use_voronoi=True, average=True)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i], system.data[f"ql{j}"].to_numpy(allow_copy=False)
-        ), f"q{j} is wrong in vor model with average."
-
-    ql = freud.order.Steinhardt(l=llist, wl=True)
-    ql.compute((box, points), vor.nlist)
-    system.cal_steinhardt_bond_orientation(llist, use_voronoi=True, wl=True)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i],
-            system.data[f"wl{j}"].to_numpy(allow_copy=False),
-            atol=1e-5,
-        ), f"wl{j} is wrong in vor model with wl."
-
-    ql = freud.order.Steinhardt(l=llist, wl=True, wl_normalize=True)
-    ql.compute((box, points), vor.nlist)
-    system.cal_steinhardt_bond_orientation(llist, use_voronoi=True, wlhat=True)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i],
-            system.data[f"wlh{j}"].to_numpy(allow_copy=False),
-            atol=1e-5,
-        ), f"wlh{j} is wrong in vor model with wlh."
-
-    ql = freud.order.Steinhardt(l=llist, weighted=True)
-    ql.compute((box, points), vor.nlist)
-    system.cal_steinhardt_bond_orientation(llist, use_voronoi=True, use_weight=True)
-
-    for i, j in enumerate(llist):
-        assert np.allclose(
-            ql.particle_order[:, i], system.data[f"ql{j}"].to_numpy(allow_copy=False)
-        ), f"q{j} is wrong in vor model with weight."
-
-
-def test_solidliquid():
-    system = System("input_files/Mo.xyz")
-    box = system.box.box
-    points = system.data.select("x", "y", "z").to_numpy()
-
-    ql = freud.order.SolidLiquid(6, q_threshold=0.7, solid_threshold=7)
-    ql.compute((box, points), {"num_neighbors": 12})
-
-    system.cal_steinhardt_bond_orientation([6], nnn=12, identify_liquid=True)
-
-    assert np.allclose(system.data["nbond"], ql.num_connections), (
-        "number of solid bond is different."
-    )
+def test_ql_perfect_fcc_known_values():
+    """Closed-form: a perfect FCC lattice has Q_4 ≈ 0.190941 and
+    Q_6 ≈ 0.574524 for every atom (independent of any reference impl)."""
+    a = 4.05
+    s = mp.build_crystal("Al", "fcc", a, nx=4, ny=4, nz=4)
+    s.cal_steinhardt_bond_orientation([4, 6], rc=0.95 * a)
+    q4 = s.data["ql4"].to_numpy()
+    q6 = s.data["ql6"].to_numpy()
+    assert np.allclose(q4, 0.190941, atol=1e-5), f"Q_4 mean={q4.mean():.6f}"
+    assert np.allclose(q6, 0.574524, atol=1e-5), f"Q_6 mean={q6.mean():.6f}"

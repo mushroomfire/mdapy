@@ -293,31 +293,11 @@ Dependencies
 Running the Tests
 -----------------
 
-The test suite is fully self-contained. Reference values for every
-algorithm live as small ``.npz`` files under ``tests/fixtures/`` (committed
-to the repo), so you don't need OVITO, freud, ASE, pymatgen, pynep, or
-LAMMPS at test time:
-
 .. code-block:: bash
 
    pip install pytest
    pip install .
    cd tests && pytest -q
-
-To refresh the reference data (only needed when the underlying mdapy
-algorithm changes), install the upstream libraries and run the matching
-generator script:
-
-.. code-block:: bash
-
-   # Requires: ovito, freud
-   python tests/_generate_fixtures/generate_structure_analysis.py
-   python tests/_generate_fixtures/generate_misc.py
-
-   # Requires: scikit-learn, ase, pymatgen, pynep, lammps (with NEP plugin)
-   python tests/_generate_fixtures/generate_advanced.py
-
-See ``tests/_generate_fixtures/README.md`` for details.
 
 ----
 

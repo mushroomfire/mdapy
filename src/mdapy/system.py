@@ -210,6 +210,10 @@ class System:
             raise RuntimeError(
                 "One must at least provide filename or [data, box] or [pos, box] or ase_atom or ovito_atom."
             )
+        # Make sure the initial DataFrame is single-chunked. The various
+        # BuildSystem readers are inconsistent on this point and a multi-
+        # chunk frame would later break `Series.to_numpy(allow_copy=False)`.
+        self.__data = self.__data.rechunk()
         if not len(self.__global_info):
             self.__global_info = global_info
         self.__calc: Optional[CalculatorMP] = None
@@ -686,8 +690,14 @@ class System:
         -----
         When `reset_calcolator=True`, any cached energy, force, or stress
         calculations are invalidated and will be recomputed on next access.
+
+        The DataFrame is rechunked into a single contiguous chunk on write.
+        Polars operations such as ``filter()`` or ``concat()`` can leave a
+        DataFrame with multiple internal chunks; downstream code that calls
+        ``Series.to_numpy(allow_copy=False)`` then raises. Rechunking once at
+        the assignment boundary makes every consumer safe.
         """
-        self.__data = data
+        self.__data = data.rechunk()
         if reset_calcolator and isinstance(self.calc, CalculatorMP):
             self.calc.results = {}
         if reset_neighbor:

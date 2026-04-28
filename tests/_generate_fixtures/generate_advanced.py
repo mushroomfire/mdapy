@@ -248,6 +248,74 @@ def gen_nep():
 
 
 # ===========================================================================
+# EAM via LAMMPS — energies/forces/stress/virials on multiple HEA configs
+# ===========================================================================
+
+def gen_eam():
+    """LAMMPS-EAM reference for two scenarios (different alloy + potential)."""
+    from mdapy.lammps_potential import LammpsPotential
+    from mdapy import build_hea
+
+    out = {}
+
+    # --- Case 1: 5-element CoNiFeAlCu, 3x3x3 cell, no displacement
+    elements_1 = ["Co", "Ni", "Fe", "Al", "Cu"]
+    eam_lmp_1 = LammpsPotential(
+        pair_parameter=f"""
+    pair_style eam/alloy
+    pair_coeff * * {INPUT_DIR / "CoNiFeAlCu.eam.alloy"} Co Ni Fe Al Cu
+    """,
+        element_list=elements_1,
+    )
+    model = build_hea(
+        elements_1, [0.25, 0.25, 0.25, 0.075, 0.175], "fcc",
+        3.6, nx=3, ny=3, nz=3, random_seed=1,
+    )
+    model.calc = eam_lmp_1
+    out["case1__energies"] = np.asarray(model.get_energies(), dtype=np.float64)
+    out["case1__forces"]   = np.asarray(model.get_force(), dtype=np.float64)
+    out["case1__virials"]  = np.asarray(model.get_virials(), dtype=np.float64)
+    out["case1__stress"]   = np.asarray(model.get_stress(), dtype=np.float64)
+
+    # --- Case 2 / 3: 3-element CoNiCr, 4x4x4 cell, with random displacement
+    #     Two different EAM potential files.
+    import polars as pl
+    elements_2 = ["Co", "Ni", "Cr"]
+    for case_idx, fname in enumerate([
+        "NiCoCr.lammps.eam",
+        "FeNiCrCoTi-heamix.setfl",
+    ], start=2):
+        eam_lmp = LammpsPotential(
+            pair_parameter=f"""
+        pair_style eam/alloy
+        pair_coeff * * {INPUT_DIR / fname} Co Ni Cr
+        """,
+            element_list=elements_2,
+        )
+        model = build_hea(
+            elements_2, [0.2, 0.3, 0.5], "fcc",
+            3.6, nx=4, ny=4, nz=4, random_seed=1,
+        )
+        np.random.seed(1)
+        noise = (np.random.random((model.N, 3)) - 0.5) * 1.4
+        model.update_data(
+            model.data.with_columns(
+                pl.col("x") + noise[:, 0],
+                pl.col("y") + noise[:, 1],
+                pl.col("z") + noise[:, 2],
+            )
+        )
+        model.calc = eam_lmp
+        out[f"case{case_idx}__potential"] = fname
+        out[f"case{case_idx}__energies"] = np.asarray(model.get_energies(), dtype=np.float64)
+        out[f"case{case_idx}__forces"]   = np.asarray(model.get_force(), dtype=np.float64)
+        out[f"case{case_idx}__virials"]  = np.asarray(model.get_virials(), dtype=np.float64)
+        out[f"case{case_idx}__stress"]   = np.asarray(model.get_stress(), dtype=np.float64)
+
+    np.savez_compressed(OUT_DIR / "eam.npz", **out)
+
+
+# ===========================================================================
 # NEP via LAMMPS — energies/forces/stress/virials on hea1 + hea2
 # ===========================================================================
 
@@ -292,6 +360,7 @@ GENERATORS = [
     ("nep",                 gen_nep),
     ("minimize",            gen_minimize),
     ("elastic_constant",    gen_elastic_constant),
+    ("eam",                 gen_eam),
     ("nep_lmp",             gen_nep_lmp),
 ]
 

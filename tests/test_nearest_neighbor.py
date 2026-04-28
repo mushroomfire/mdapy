@@ -145,11 +145,6 @@ FILES = [
 @pytest.mark.parametrize("k", K_VALUES)
 def test_files(filename, k):
     s = mp.System(filename)
-    # Degenerate: k <= N AND N == 1 means there are no real neighbors and
-    # mdapy never replicates (replication only triggers when k > N), so it
-    # returns a -1 sentinel. Skip that single combination.
-    if s.N == 1 and k <= s.N:
-        pytest.skip("single-atom system with k<=N returns no neighbor")
     s.build_nearest_neighbor(k)
     _check_knn(s, k)
 

@@ -62,7 +62,9 @@ inline apivector tvec(const Vec3& v)                { return rt_vector(v.x, v.y,
 struct CameraParams {
     bool   isPerspective = true;
     // 透视: 垂直视角(弧度)  正交: 视口半高(世界坐标)
-    double fieldOfView   = 40.0 * M_PI / 180.0;
+    // 注：不用 M_PI 是因为 MSVC 默认不暴露它（要求 _USE_MATH_DEFINES），
+    // 直接写常量更稳，不引入额外的宏依赖。
+    double fieldOfView   = 40.0 * 3.14159265358979323846 / 180.0;
 
     Vec3   position  { 0,  0, 50};
     Vec3   direction { 0,  0, -1};

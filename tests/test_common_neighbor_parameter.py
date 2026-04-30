@@ -46,6 +46,6 @@ def test_cnp_perfect_bcc_is_zero():
 def test_cnp_perfect_hcp_known_value():
     """Known reference value: HCP at c/a=1.633 has CNP = 8.71215."""
     a = 3.615
-    s = mp.build_crystal("Cu", "hcp", a, c_over_a=1.633)
+    s = mp.build_crystal("Cu", "hcp", a, c=a * 1.633)
     s.cal_common_neighbor_parameter(1.21 * a)
     assert np.allclose(s.data["cnp"].max(), 8.71215)

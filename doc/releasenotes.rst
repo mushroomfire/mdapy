@@ -4,29 +4,58 @@ Release Notes
 Mdapy 1.0.5a2 (April 30, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-🐞 Bug Fixes
--------------
+🏆 New Features
+----------------
 
-- ``System.__init__``: ``global_info`` no longer leaks across instances
-  (mutable-default trap).
-- ``System.cal_centro_symmetry_parameter``: respect the user's ``N``
-  instead of a hardcoded 18 when sorting existing neighbors.
-- ``System.cal_structure_entropy``: keep both ``entropy`` and
-  ``entropy_ave`` columns when ``average_rc > 0``.
-- ``System.cal_cluster_analysis``: invalid ``rc`` now raises
-  ``TypeError`` (previously raised a bare string).
-- ``System.write_data``: writing no longer mutates ``self.data`` —
-  ``element_list`` is applied to a local copy.
-- ``BuildSystem.from_ovito``: tolerate sources without a
-  ``particle_type`` table (e.g. systems built from raw positions).
-- ``cal_steinhardt_bond_orientation`` / ``cal_cluster_analysis`` /
-  ``cal_chemical_species`` / ``cal_radial_distribution_function``:
-  go through ``update_data`` so the DataFrame stays single-chunked
-  and ``cal_radial_distribution_function`` no longer overwrites a
-  user-provided ``type`` column.
-- ``System.average_by_neighbor``: fix typo and removed unreachable
-  branch.
-- Fixed wrong ``write_mp`` docstring (was copied from ``replicate``).
+- ``build_crystal`` now supports nine additional crystal structures: ``sc``,
+  ``rocksalt`` (B1, NaCl), ``cscl`` (B2), ``zincblende`` (B3),
+  ``fluorite``, ``L1_2``, ``perovskite``, ``wurtzite`` (B4) and
+  ``graphite`` (A9).
+- ``build_crystal`` accepts a tuple/list of element symbols as
+  ``name`` for multi-species structures; the length must equal one
+  of the structure's allowed species counts. A single string is
+  still accepted and broadcast to every basis atom.
+- New ``c`` parameter for hexagonal/tetragonal structures (used by
+  ``wurtzite``, ``graphite``); ``c_over_a`` continues to work for
+  ``hcp``.
+- Miller-indexed orientation now works for every cubic structure
+  (rocksalt, fluorite, etc.), not just FCC/BCC/diamond.
+- New ``tests/_generate_fixtures/generate_build_crystal.py`` invokes
+  the atomsk binary to produce reference fixtures, and
+  ``tests/test_build_crystal.py`` compares mdapy output against them
+  for every supported structure (17 fixtures).
+- ``hcp`` now emits atomsk's 2-atom 120°-angle primitive cell
+  (replacing the legacy 4-atom orthogonal supercell). Atom counts
+  with ``nx, ny, nz`` therefore halve. Downstream structure-analysis
+  fixtures that depend on ``perfect_hcp`` have been regenerated; the
+  ``Q_ℓ`` reference is now skipped for ``perfect_hcp`` because freud
+  returns edge-atom artifacts on the strongly-tilted cell while
+  mdapy returns the analytic ideal value.
+- ``build_crystal`` now supports Miller-Bravais ``[hkil]`` orientation
+  (and the equivalent 3-index ``[uvw]``) for the hexagonal structures
+  ``hcp``, ``wurtzite``, ``graphite``, ``graphene`` and
+  ``lonsdaleite``, matching atomsk's ``--create ... orient`` output.
+  Conversion uses ``u = 2h + k``, ``v = h + 2k``, ``w = l`` with GCD
+  reduction; the ``h + k + i = 0`` Miller-Bravais constraint is
+  enforced.
+- Added hexagonal-diamond / lonsdaleite as a single-species
+  ``wurtzite`` alias (``"lonsdaleite"`` / ``"hex_diamond"``).
+- ``graphene`` is now an atomsk-compatible 2-atom hexagonal primitive
+  (single layer, ``c`` is vacuum spacing). Replaces the legacy 4-atom
+  orthogonal supercell. Supports 1 or 2 species (e.g. C-only graphene
+  or hex-BN monolayer) and Miller orientation. Atom counts with
+  ``nx, ny, nz`` therefore halve.
+- ``c_over_a`` parameter removed from ``build_crystal`` and
+  ``build_hea``; pass ``c`` directly. Hexagonal structures keep their
+  ideal ``c = a * sqrt(8/3)`` default when ``c`` is omitted; ``graphite``
+  / ``graphene`` require ``c`` explicitly.
+- ``fcc``, ``bcc`` and ``diamond`` now also accept two species
+  (ordered alloy on the conventional cubic cell, matching atomsk's
+  two-species output for these CASEs).
+- Internal cleanup: dropped the legacy ``_get_basispos_and_box_cubic``
+  + ``legacy_orth`` branch; every structure now goes through the
+  unified dispatch table.
+
 
 🛠️ Other Improvements
 ----------------------
@@ -53,41 +82,27 @@ Mdapy 1.0.5a2 (April 30, 2026)
   (``rc`` / ``max_neigh`` / ``k`` ranges, required columns,
   non-empty data). ``knn.MAX_K`` is exposed as a module constant
   in place of the previous magic ``25``.
+- ``System.__init__``: ``global_info`` no longer leaks across instances
+  (mutable-default trap).
+- ``System.cal_centro_symmetry_parameter``: respect the user's ``N``
+  instead of a hardcoded 18 when sorting existing neighbors.
+- ``System.cal_structure_entropy``: keep both ``entropy`` and
+  ``entropy_ave`` columns when ``average_rc > 0``.
+- ``System.cal_cluster_analysis``: invalid ``rc`` now raises
+  ``TypeError`` (previously raised a bare string).
+- ``System.write_data``: writing no longer mutates ``self.data`` —
+  ``element_list`` is applied to a local copy.
+- ``BuildSystem.from_ovito``: tolerate sources without a
+  ``particle_type`` table (e.g. systems built from raw positions).
+- ``cal_steinhardt_bond_orientation`` / ``cal_cluster_analysis`` /
+  ``cal_chemical_species`` / ``cal_radial_distribution_function``:
+  go through ``update_data`` so the DataFrame stays single-chunked
+  and ``cal_radial_distribution_function`` no longer overwrites a
+  user-provided ``type`` column.
+- ``System.average_by_neighbor``: fix typo and removed unreachable
+  branch.
+- Fixed wrong ``write_mp`` docstring (was copied from ``replicate``).
 
-🏆 New Features
-----------------
-
-- ``build_crystal`` now supports nine additional crystal structures
-  bit-exactly matching atomsk's ``--create`` output: ``sc``,
-  ``rocksalt`` (B1, NaCl), ``cscl`` (B2), ``zincblende`` (B3),
-  ``fluorite``, ``L1_2``, ``perovskite``, ``wurtzite`` (B4) and
-  ``graphite`` (A9).
-- ``build_crystal`` accepts a tuple/list of element symbols as
-  ``name`` for multi-species structures; the length must equal one
-  of the structure's allowed species counts. A single string is
-  still accepted and broadcast to every basis atom.
-- New ``c`` parameter for hexagonal/tetragonal structures (used by
-  ``wurtzite``, ``graphite``); ``c_over_a`` continues to work for
-  ``hcp``.
-- Miller-indexed orientation now works for every cubic structure
-  (rocksalt, fluorite, etc.), not just FCC/BCC/diamond.
-- New ``tests/_generate_fixtures/generate_build_crystal.py`` invokes
-  the atomsk binary to produce reference fixtures, and
-  ``tests/test_build_crystal.py`` compares mdapy output against them
-  for every supported structure (17 fixtures).
-- ``hcp`` now emits atomsk's 2-atom 120°-angle primitive cell
-  (replacing the legacy 4-atom orthogonal supercell). Atom counts
-  with ``nx, ny, nz`` therefore halve. Downstream structure-analysis
-  fixtures that depend on ``perfect_hcp`` have been regenerated; the
-  ``Q_ℓ`` reference is now skipped for ``perfect_hcp`` because freud
-  returns edge-atom artifacts on the strongly-tilted cell while
-  mdapy returns the analytic ideal value.
-- ``build_crystal`` now supports Miller-Bravais ``[hkil]`` orientation
-  (and the equivalent 3-index ``[uvw]``) for the hexagonal structures
-  ``hcp``, ``wurtzite`` and ``graphite``, matching atomsk's
-  ``--create ... orient`` output. Conversion uses
-  ``u = 2h + k``, ``v = h + 2k``, ``w = l`` with GCD reduction; the
-  ``h + k + i = 0`` Miller-Bravais constraint is enforced.
 
 Mdapy 1.0.5a1 (April 28, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

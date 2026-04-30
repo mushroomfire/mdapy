@@ -73,6 +73,7 @@ PLAIN_CASES = [
     ("Mg_hcp",       "Mg",            dict(structure="hcp", a=3.21, c=5.21304)),
     ("GaN_wurtzite", ("Ga", "N"),     dict(structure="wurtzite", a=3.19, c=5.18)),
     ("C_graphite",   "C",             dict(structure="graphite", a=2.46, c=6.71)),
+    ("C_lonsdaleite", "C",            dict(structure="lonsdaleite", a=2.51, c=4.12)),
 ]
 
 
@@ -161,3 +162,30 @@ def test_3index_hex_miller_accepted():
 def test_replication_scales_atom_count():
     s = mp.build_crystal(("Na", "Cl"), "rocksalt", a=5.64, nx=2, ny=3, nz=4)
     assert s.N == 8 * 2 * 3 * 4
+
+
+def test_graphene_layer_smoke():
+    """Atomsk has no native graphene; we use the 2-atom honeycomb
+    primitive with a vacuum c. Smoke-check the layout: 2 atoms per cell,
+    in-plane positions at (0,0,0) and (a/3 + 2a/6 ... ish), C-C bond
+    length = a/sqrt(3)."""
+    a = 2.46
+    s = mp.build_crystal("C", "graphene", a=a, c=20.0)
+    assert s.N == 2
+    pos = s.data.select("x", "y", "z").to_numpy()
+    # Both atoms at z=0 (single layer).
+    np.testing.assert_allclose(pos[:, 2], 0.0, atol=1e-9)
+    # Graphene C-C nearest-neighbor distance = a / sqrt(3).
+    bond = np.linalg.norm(pos[1] - pos[0])
+    np.testing.assert_allclose(bond, a / np.sqrt(3), atol=1e-9)
+
+
+def test_hex_diamond_aliases():
+    """`lonsdaleite` / `hex_diamond` / `hexagonal_diamond` all resolve
+    to the same wurtzite-with-one-species cell."""
+    s1 = mp.build_crystal("C", "lonsdaleite", a=2.51, c=4.12)
+    s2 = mp.build_crystal("C", "hex_diamond", a=2.51, c=4.12)
+    s3 = mp.build_crystal("C", "hexagonal_diamond", a=2.51, c=4.12)
+    np.testing.assert_allclose(s1.data.select("x", "y", "z").to_numpy(),
+                               s2.data.select("x", "y", "z").to_numpy())
+    np.testing.assert_allclose(s1.box.box, s3.box.box)

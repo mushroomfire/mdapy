@@ -822,27 +822,31 @@ class BuildSystem:
         filename: str,
     ) -> Tuple[pl.DataFrame, Box, Optional[Dict[str, Any]]]:
         """
-        Read a VASP POSCAR file (supports .gz compression).
+        Read a VASP POSCAR file (supports ``.gz`` compression).
 
-        Format (line indices in this docstring are 0-based):
+        Format (line indices below are 0-based):
 
-          0  Free-form comment.
-          1  Universal scale factor (multiplies the lattice AND the
-             Cartesian atom positions).
-          2-4  Three lattice vectors a, b, c (one per row).
-          5  Either an element-symbol line (e.g. "Al Cu") OR the per-
-             species count line (e.g. "1 1") — distinguished by whether
-             the first non-whitespace char is alphabetic vs. numeric.
-          6  Per-species count line (only present when line 5 is symbols).
-          ?  Optional "Selective dynamics" header (first non-blank char S/s).
-          ?  Coordinate type line — first non-blank char in {D,d}=Direct,
-             {C,c,K,k}=Cartesian/K-point.
-          ?  N atom rows (3 floats each, plus 3 T/F flags if SD on).
-          +  Optional lattice-velocity / ion-velocity blocks.
+        - line 0: free-form comment.
+        - line 1: universal scale factor (multiplies both the lattice
+          and the Cartesian atom positions).
+        - lines 2–4: three lattice vectors ``a``, ``b``, ``c`` (one per
+          row).
+        - line 5: element-symbol line (e.g. ``"Al Cu"``) *or* the
+          per-species count line (e.g. ``"1 1"``) — distinguished by
+          whether the first non-whitespace char is alphabetic vs.
+          numeric.
+        - line 6: per-species count line (only when line 5 is symbols).
+        - optional ``Selective dynamics`` header (first non-blank char
+          ``S`` / ``s``).
+        - coordinate-type line: first non-blank char in
+          ``{D, d}`` → Direct, ``{C, c, K, k}`` → Cartesian / K-point.
+        - ``N`` atom rows (3 floats each, plus 3 T/F flags when SD is
+          on).
+        - optional lattice-velocity / ion-velocity blocks.
 
         Returns
         -------
-        (pl.DataFrame, mdapy.box.Box, dict)
+        Tuple[pl.DataFrame, mdapy.box.Box, dict]
         """
         global_info: Dict[str, Any] = {}
         with _open_file(filename, "r") as op:

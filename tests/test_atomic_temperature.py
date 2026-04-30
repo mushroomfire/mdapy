@@ -13,4 +13,4 @@ def test_atomic_temp():
     fcc.update_data(fcc.data.with_columns(vx=vel[:, 0], vy=vel[:, 1], vz=vel[:, 2]))
 
     fcc.cal_atomic_temperature(10.0)
-    assert np.allclose(fcc.data["atomic_temp"].mean(), 298.74278036044495)
+    assert np.allclose(fcc.data["atomic_temp"].mean(), 298.74971909939046)

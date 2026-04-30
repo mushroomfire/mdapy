@@ -122,6 +122,13 @@ CATALOG = [
      dict(structure="wurtzite", a=3.19, c=5.18), ("Ga", "N")),
     ("C_graphite",   "graphite",  ["2.46", "6.71"],          ["C"],
      dict(structure="graphite", a=2.46, c=6.71), "C"),
+    # Lonsdaleite (hexagonal diamond) — generated via wurtzite + single C.
+    ("C_lonsdaleite", "wurtzite", ["2.51", "4.12"],          ["C", "C"],
+     dict(structure="lonsdaleite", a=2.51, c=4.12), "C"),
+    # Single-layer graphene (mdapy-only — atomsk has no graphene mode,
+    # so we generate a 1-layer graphite slab and drop the upper-layer
+    # atoms in the fixture step). Skipped from the catalog; covered by
+    # an mdapy-internal positional smoke test instead.
 ]
 
 

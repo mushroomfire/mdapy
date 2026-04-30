@@ -9,86 +9,6 @@ import numpy as np
 from typing import Optional, Tuple
 
 
-def _get_basispos_and_box_cubic(
-    structure: str, a: float, c_over_a: Optional[float] = None
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Build the orthogonal-supercell representation used by the legacy
-    ``hcp`` and ``graphene`` paths and by the cubic FCC/BCC/diamond cases.
-    Returns ``(box, basis_pos)`` only — species ordering is the implicit
-    "first species at every site". For multi-species or non-orthogonal
-    cells, use :func:`_get_structure_definition`.
-    """
-    if c_over_a is None:
-        c_over_a = np.sqrt(8 / 3)
-    s = structure.lower()
-    if s in ("fcc", "bcc", "diamond"):
-        box = np.array([[a, 0, 0], [0, a, 0], [0, 0, a]], dtype=float)
-        if s == "fcc":
-            basis_pos = np.array(
-                [
-                    (0.0, 0.0, 0.0),
-                    (0.0, 0.5, 0.5),
-                    (0.5, 0.0, 0.5),
-                    (0.5, 0.5, 0.0),
-                ]
-            )
-
-        elif s == "bcc":
-            basis_pos = np.array(
-                [
-                    (0.0, 0.0, 0.0),
-                    (0.5, 0.5, 0.5),
-                ]
-            )
-        elif s == "diamond":
-            basis_pos = np.array(
-                [
-                    (0.0, 0.0, 0.0),
-                    (0.25, 0.25, 0.25),
-                    (0.0, 0.5, 0.5),
-                    (0.25, 0.75, 0.75),
-                    (0.5, 0.0, 0.5),
-                    (0.75, 0.25, 0.75),
-                    (0.5, 0.5, 0.0),
-                    (0.75, 0.75, 0.25),
-                ]
-            )
-    elif s == "hcp":
-        box = np.array(
-            [
-                [a, 0.0, 0.0],
-                [0.0, np.sqrt(3) * a, 0.0],
-                [0.0, 0.0, a * c_over_a],
-            ]
-        )
-        basis_pos = np.array(
-            [
-                [0.0, 0.0, 0.0],
-                [0.5, 0.5, 0.0],
-                [0.5, 5 / 6, 0.5],
-                [0.0, 1 / 3, 0.5],
-            ]
-        )
-    elif s == "graphene":
-        box = np.array(
-            [
-                [3.0 * a, 0.0, 0.0],
-                [0.0, np.sqrt(3) * a, 0.0],
-                [0.0, 0.0, 3.4],
-            ]
-        )
-        basis_pos = np.array(
-            [[1 / 6, 0.0, 0.0], [0.5, 0.0, 0.0], [0.0, 0.5, 0.0], [2 / 3, 0.5, 0.0]]
-        )
-
-    else:
-        raise ValueError(
-            f"Unsupported structure: {structure}, only support fcc, bcc, hcp, graphene, and diamond"
-        )
-
-    return box, basis_pos
-
-
 # ===========================================================================
 # Atomsk-compatible structure definitions
 # ===========================================================================
@@ -115,6 +35,50 @@ def _basis_sc(a, c=None):
     return box, basis, species
 
 
+def _basis_fcc(a, c=None):
+    """FCC / A1: 4 atoms / cell, atomsk basis order (P(1)=corner, then
+    three face centres). Two-species form places species 1 on two of
+    the four sublattices, matching atomsk's two-species FCC."""
+    box = a * np.eye(3)
+    basis = np.array([
+        [0.0, 0.0, 0.0],
+        [0.5, 0.5, 0.0],
+        [0.0, 0.5, 0.5],
+        [0.5, 0.0, 0.5],
+    ])
+    species = np.array([0, 0, 1, 1], dtype=np.int32)
+    return box, basis, species
+
+
+def _basis_bcc(a, c=None):
+    """BCC / A2: 2 atoms / cell. Two-species variant is the same as the
+    CsCl/B2 ordering."""
+    box = a * np.eye(3)
+    basis = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]])
+    species = np.array([0, 1], dtype=np.int32)
+    return box, basis, species
+
+
+def _basis_diamond(a, c=None):
+    """Cubic diamond (A4) in atomsk basis order: 4 fcc sites first,
+    then 4 tetrahedral sites. Two-species variant is the zincblende
+    (B3) structure with the same Cartesian positions but distinct
+    species indices on the two interpenetrating fcc sublattices."""
+    box = a * np.eye(3)
+    basis = np.array([
+        [0.0, 0.0, 0.0],
+        [0.5, 0.5, 0.0],
+        [0.0, 0.5, 0.5],
+        [0.5, 0.0, 0.5],
+        [0.25, 0.25, 0.25],
+        [0.75, 0.75, 0.25],
+        [0.75, 0.25, 0.75],
+        [0.25, 0.75, 0.75],
+    ])
+    species = np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=np.int32)
+    return box, basis, species
+
+
 def _basis_bcc_2sp(a, c=None):
     """B2 / CsCl: identical to BCC but with two distinct species."""
     box = a * np.eye(3)
@@ -127,16 +91,18 @@ def _basis_rocksalt(a, c=None):
     """B1 / NaCl: two interpenetrating fcc lattices, species 1 (4 atoms)
     + species 2 (4 atoms) = 8 atoms / cell."""
     box = a * np.eye(3)
-    basis = np.array([
-        [0.0, 0.0, 0.0],
-        [0.5, 0.5, 0.0],
-        [0.0, 0.5, 0.5],
-        [0.5, 0.0, 0.5],
-        [0.5, 0.0, 0.0],
-        [0.0, 0.5, 0.0],
-        [0.0, 0.0, 0.5],
-        [0.5, 0.5, 0.5],
-    ])
+    basis = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.0],
+            [0.0, 0.5, 0.5],
+            [0.5, 0.0, 0.5],
+            [0.5, 0.0, 0.0],
+            [0.0, 0.5, 0.0],
+            [0.0, 0.0, 0.5],
+            [0.5, 0.5, 0.5],
+        ]
+    )
     species = np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=np.int32)
     return box, basis, species
 
@@ -145,16 +111,18 @@ def _basis_zincblende(a, c=None):
     """B3: diamond with two distinct species. species 1 occupies the 4 fcc
     sites, species 2 the 4 tetrahedral sites."""
     box = a * np.eye(3)
-    basis = np.array([
-        [0.0, 0.0, 0.0],
-        [0.5, 0.5, 0.0],
-        [0.0, 0.5, 0.5],
-        [0.5, 0.0, 0.5],
-        [0.25, 0.25, 0.25],
-        [0.75, 0.75, 0.25],
-        [0.75, 0.25, 0.75],
-        [0.25, 0.75, 0.75],
-    ])
+    basis = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.0],
+            [0.0, 0.5, 0.5],
+            [0.5, 0.0, 0.5],
+            [0.25, 0.25, 0.25],
+            [0.75, 0.75, 0.25],
+            [0.75, 0.25, 0.75],
+            [0.25, 0.75, 0.75],
+        ]
+    )
     species = np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=np.int32)
     return box, basis, species
 
@@ -163,22 +131,24 @@ def _basis_fluorite(a, c=None):
     """Fluorite (CaF2): 4 cation FCC sites + 8 anion sites at the corners
     of two interior cubes (species ratio 1:2)."""
     box = a * np.eye(3)
-    basis = np.array([
-        # cations (species 0) — 4 fcc sites
-        [0.0, 0.0, 0.0],
-        [0.5, 0.5, 0.0],
-        [0.0, 0.5, 0.5],
-        [0.5, 0.0, 0.5],
-        # anions (species 1) — 8 sites at z=1/4 and z=3/4
-        [0.25, 0.25, 0.25],
-        [0.75, 0.25, 0.25],
-        [0.25, 0.75, 0.25],
-        [0.75, 0.75, 0.25],
-        [0.25, 0.25, 0.75],
-        [0.75, 0.25, 0.75],
-        [0.25, 0.75, 0.75],
-        [0.75, 0.75, 0.75],
-    ])
+    basis = np.array(
+        [
+            # cations (species 0) — 4 fcc sites
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.0],
+            [0.0, 0.5, 0.5],
+            [0.5, 0.0, 0.5],
+            # anions (species 1) — 8 sites at z=1/4 and z=3/4
+            [0.25, 0.25, 0.25],
+            [0.75, 0.25, 0.25],
+            [0.25, 0.75, 0.25],
+            [0.75, 0.75, 0.25],
+            [0.25, 0.25, 0.75],
+            [0.75, 0.25, 0.75],
+            [0.25, 0.75, 0.75],
+            [0.75, 0.75, 0.75],
+        ]
+    )
     species = np.array([0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.int32)
     return box, basis, species
 
@@ -187,12 +157,14 @@ def _basis_l1_2(a, c=None):
     """L1_2 (Ni3Al / Cu3Au): species 0 occupies the 3 face centers,
     species 1 occupies the corner."""
     box = a * np.eye(3)
-    basis = np.array([
-        [0.5, 0.5, 0.0],
-        [0.0, 0.5, 0.5],
-        [0.5, 0.0, 0.5],
-        [0.0, 0.0, 0.0],
-    ])
+    basis = np.array(
+        [
+            [0.5, 0.5, 0.0],
+            [0.0, 0.5, 0.5],
+            [0.5, 0.0, 0.5],
+            [0.0, 0.0, 0.0],
+        ]
+    )
     species = np.array([0, 0, 0, 1], dtype=np.int32)
     return box, basis, species
 
@@ -202,24 +174,28 @@ def _basis_perovskite(a, c=None):
     species 0 at body centre, species 1 at corner, species 2 at face
     centres."""
     box = a * np.eye(3)
-    basis = np.array([
-        [0.5, 0.5, 0.5],   # B
-        [0.0, 0.0, 0.0],   # A
-        [0.5, 0.0, 0.0],   # O
-        [0.0, 0.5, 0.0],   # O
-        [0.0, 0.0, 0.5],   # O
-    ])
+    basis = np.array(
+        [
+            [0.5, 0.5, 0.5],  # B
+            [0.0, 0.0, 0.0],  # A
+            [0.5, 0.0, 0.0],  # O
+            [0.0, 0.5, 0.0],  # O
+            [0.0, 0.0, 0.5],  # O
+        ]
+    )
     species = np.array([0, 1, 2, 2, 2], dtype=np.int32)
     return box, basis, species
 
 
 def _hexagonal_box(a, c):
     """atomsk-compatible hexagonal primitive cell with 120° angle."""
-    return np.array([
-        [a, 0.0, 0.0],
-        [-0.5 * a, 0.5 * _SQRT3 * a, 0.0],
-        [0.0, 0.0, c],
-    ])
+    return np.array(
+        [
+            [a, 0.0, 0.0],
+            [-0.5 * a, 0.5 * _SQRT3 * a, 0.0],
+            [0.0, 0.0, c],
+        ]
+    )
 
 
 def _basis_hcp(a, c):
@@ -230,10 +206,12 @@ def _basis_hcp(a, c):
     ``_get_basispos_and_box_cubic`` for callers that depend on the old
     layout."""
     box = _hexagonal_box(a, c)
-    basis = np.array([
-        [0.0, 0.0, 0.0],
-        [1.0 / 3.0, 2.0 / 3.0, 0.5],
-    ])
+    basis = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0 / 3.0, 2.0 / 3.0, 0.5],
+        ]
+    )
     species = np.array([0, 1], dtype=np.int32)
     return box, basis, species
 
@@ -241,13 +219,29 @@ def _basis_hcp(a, c):
 def _basis_wurtzite(a, c):
     """Wurtzite B4 (e.g. GaN): 4-atom hexagonal primitive."""
     box = _hexagonal_box(a, c)
-    basis = np.array([
-        [1.0 / 3.0, 2.0 / 3.0, 0.0],
-        [2.0 / 3.0, 1.0 / 3.0, 0.5],
-        [1.0 / 3.0, 2.0 / 3.0, 3.0 / 8.0],
-        [2.0 / 3.0, 1.0 / 3.0, 7.0 / 8.0],
-    ])
+    basis = np.array(
+        [
+            [1.0 / 3.0, 2.0 / 3.0, 0.0],
+            [2.0 / 3.0, 1.0 / 3.0, 0.5],
+            [1.0 / 3.0, 2.0 / 3.0, 3.0 / 8.0],
+            [2.0 / 3.0, 1.0 / 3.0, 7.0 / 8.0],
+        ]
+    )
     species = np.array([0, 0, 1, 1], dtype=np.int32)
+    return box, basis, species
+
+
+def _basis_graphene(a, c):
+    """Single-layer hexagonal honeycomb. Same primitive cell as graphite
+    but with only the first ``z = 0`` layer (2 atoms / cell), and
+    ``c`` chosen as a vacuum spacing so periodic images do not interact
+    along z. Two-species form gives a hex-BN-style monolayer."""
+    box = _hexagonal_box(a, c)
+    basis = np.array([
+        [0.0, 0.0, 0.0],
+        [1.0 / 3.0, 2.0 / 3.0, 0.0],
+    ])
+    species = np.array([0, 1], dtype=np.int32)
     return box, basis, species
 
 
@@ -255,12 +249,14 @@ def _basis_graphite(a, c):
     """Hexagonal graphite (A9): two layers along ``c`` with AB stacking,
     4 atoms per primitive cell."""
     box = _hexagonal_box(a, c)
-    basis = np.array([
-        [0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.5],
-        [1.0 / 3.0, 2.0 / 3.0, 0.0],
-        [2.0 / 3.0, 1.0 / 3.0, 0.5],
-    ])
+    basis = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.5],
+            [1.0 / 3.0, 2.0 / 3.0, 0.0],
+            [2.0 / 3.0, 1.0 / 3.0, 0.5],
+        ]
+    )
     # Per atomsk: P(3,4)=P(1,4) (species 0), P(4,4)=P(2,4) (species 1 if
     # two species else 0). With nspecies==2 the A-layer is species 0 and
     # the B-layer is species 1 — useful for hexagonal BN-like structures
@@ -274,49 +270,54 @@ def _basis_graphite(a, c):
 # is unused (cubic structures).
 _STRUCTURES = {
     # CUBIC
-    "sc":         (_basis_sc,         (1,),     None),
-    "fcc":        ("legacy_orth",     (1,),     None),
-    "bcc":        ("legacy_orth",     (1,),     None),
-    "diamond":    ("legacy_orth",     (1,),     None),
-    "cscl":       (_basis_bcc_2sp,    (2,),     None),
-    "b2":         (_basis_bcc_2sp,    (2,),     None),
-    "rocksalt":   (_basis_rocksalt,   (2,),     None),
-    "b1":         (_basis_rocksalt,   (2,),     None),
-    "zincblende": (_basis_zincblende, (2,),     None),
-    "b3":         (_basis_zincblende, (2,),     None),
-    "fluorite":   (_basis_fluorite,   (2,),     None),
-    "l1_2":       (_basis_l1_2,       (2,),     None),
-    "l12":        (_basis_l1_2,       (2,),     None),
-    "perovskite": (_basis_perovskite, (3,),     None),
+    "sc": (_basis_sc, (1,), None),
+    "fcc": (_basis_fcc, (1, 2), None),
+    "bcc": (_basis_bcc, (1, 2), None),
+    "diamond": (_basis_diamond, (1, 2), None),
+    "cscl": (_basis_bcc_2sp, (2,), None),
+    "rocksalt": (_basis_rocksalt, (2,), None),
+    "zincblende": (_basis_zincblende, (2,), None),
+    "fluorite": (_basis_fluorite, (2,), None),
+    "l1_2": (_basis_l1_2, (2,), None),
+    "perovskite": (_basis_perovskite, (3,), None),
     # HEXAGONAL — atomsk-compatible 120° primitive cell.
-    "hcp":        (_basis_hcp,        (1, 2),   np.sqrt(8 / 3)),
-    "wurtzite":   (_basis_wurtzite,   (1, 2),   np.sqrt(8 / 3)),
-    "graphite":   (_basis_graphite,   (1, 2),   None),  # c must be given
-    # LEGACY — orthogonal mdapy-specific supercell, kept for backward compat.
-    "graphene":   ("legacy_orth",     (1,),     None),
+    "hcp": (_basis_hcp, (1, 2), np.sqrt(8 / 3)),
+    "wurtzite": (_basis_wurtzite, (1, 2), np.sqrt(8 / 3)),
+    "graphite": (_basis_graphite, (1, 2), None),    # c must be given
+    "graphene": (_basis_graphene, (1, 2), None),    # c must be given
+    # Hexagonal diamond (lonsdaleite) — alias for single-species wurtzite.
+    "lonsdaleite": (_basis_wurtzite, (1,), np.sqrt(8 / 3)),
 }
 
 # Cubic structures supporting Miller-indexed orientation.
 _MILLER_CUBIC = {
-    "sc", "fcc", "bcc", "diamond", "cscl", "b2", "rocksalt", "b1",
-    "zincblende", "b3", "fluorite", "l1_2", "l12", "perovskite",
+    "sc", "fcc", "bcc", "diamond", "cscl", "rocksalt",
+    "zincblende", "fluorite", "l1_2", "perovskite",
 }
 # Hexagonal structures supporting Miller-Bravais [hkil] (or 3-index [uvw])
 # orientation.
-_MILLER_HEX = {"hcp", "wurtzite", "graphite"}
+_MILLER_HEX = {"hcp", "wurtzite", "graphite", "graphene", "lonsdaleite"}
 _MILLER_SUPPORTED = _MILLER_CUBIC | _MILLER_HEX
+
+
+# Common synonyms — resolved to the canonical key used by
+# ``_STRUCTURES``. Add new aliases here, not in the dispatch table itself.
+_STRUCTURE_ALIASES = {
+    "rs": "rocksalt",   "nacl": "rocksalt",   "b1": "rocksalt",
+    "zb": "zincblende", "b3": "zincblende",
+    "wz": "wurtzite",   "b4": "wurtzite",
+    "a9": "graphite",
+    "b2": "cscl",
+    "l12": "l1_2",
+    "hex_diamond": "lonsdaleite",
+    "hexagonal_diamond": "lonsdaleite",
+    "diamond_hex": "lonsdaleite",
+}
 
 
 def _normalize_structure_name(structure: str) -> str:
     s = structure.lower().strip()
-    # Handful of common synonyms.
-    aliases = {
-        "rs": "rocksalt", "nacl": "rocksalt",
-        "zb": "zincblende", "gas": "zincblende",
-        "wz": "wurtzite", "b4": "wurtzite",
-        "a9": "graphite",
-    }
-    return aliases.get(s, s)
+    return _STRUCTURE_ALIASES.get(s, s)
 
 
 def _gcd(a: int, b: int) -> int:
@@ -517,7 +518,9 @@ def _hkil_to_uvw(miller) -> Tuple[int, int, int]:
 
 def _build_lattice_from_miller_hex(
     structure: str,
-    miller1, miller2, miller3,
+    miller1,
+    miller2,
+    miller3,
     a: float,
     c: float,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -535,27 +538,27 @@ def _build_lattice_from_miller_hex(
 
     s = _normalize_structure_name(structure)
     build_fn, _, _ = _STRUCTURES[s]
-    if build_fn == "legacy_orth":
-        raise ValueError(
-            f"Hexagonal Miller orientation is not supported for legacy "
-            f"structure '{structure}'."
-        )
     box, basis, species = build_fn(a, c)
     # Build M with new vectors as COLUMNS, mirroring _build_transform_matrix.
-    M = np.array([
-        [u1, u2, u3],
-        [v1, v2, v3],
-        [w1, w2, w3],
-    ], dtype=int)
+    M = np.array(
+        [
+            [u1, u2, u3],
+            [v1, v2, v3],
+            [w1, w2, w3],
+        ],
+        dtype=int,
+    )
     # Cartesian new lattice vectors. Row k = sum_j M[j, k] * box[j, :].
     new_lattice = M.T @ box
 
     # Orthogonality + right-hand check in Cartesian.
     eps = 1e-6
     nl = new_lattice
-    if (abs(np.dot(nl[0], nl[1])) > eps or
-            abs(np.dot(nl[0], nl[2])) > eps or
-            abs(np.dot(nl[1], nl[2])) > eps):
+    if (
+        abs(np.dot(nl[0], nl[1])) > eps
+        or abs(np.dot(nl[0], nl[2])) > eps
+        or abs(np.dot(nl[1], nl[2])) > eps
+    ):
         raise ValueError(
             "Hexagonal Miller directions must be mutually orthogonal in "
             "Cartesian space."
@@ -593,11 +596,7 @@ def _build_lattice_from_miller(
         raise ValueError("Miller indices must satisfy right-hand rule")
 
     build_fn, _, _ = _STRUCTURES[_normalize_structure_name(structure)]
-    if build_fn == "legacy_orth":
-        box, basis = _get_basispos_and_box_cubic(structure, lattice_constant)
-        species = np.zeros(len(basis), dtype=np.int32)
-    else:
-        box, basis, species = build_fn(lattice_constant)
+    box, basis, species = build_fn(lattice_constant)
 
     M = _build_transform_matrix(miller1, miller2, miller3)
     new_lattice = box @ M.T
@@ -616,7 +615,6 @@ def build_crystal(
     nx: int = 1,
     ny: int = 1,
     nz: int = 1,
-    c_over_a: float = np.sqrt(8 / 3),
     c: Optional[float] = None,
 ) -> System:
     """
@@ -630,63 +628,61 @@ def build_crystal(
         Element symbols. Pass a single string to broadcast it to every
         basis atom (single-species crystal); pass a tuple/list whose
         length equals one of the structure's *allowed species counts*
-        for an ordered multi-species structure (NaCl, GaN, SrTiO\\ :sub:`3`,
+        for an ordered multi-species structure (NaCl, GaN, SrTiO3,
         ...). Each element must be a recognised symbol from
         ``mdapy.data.atomic_numbers``.
 
     structure : str
-        Crystal type. Case-insensitive; common synonyms accepted (e.g.
-        ``"NaCl"`` → ``"rocksalt"``, ``"zb"`` → ``"zincblende"``,
-        ``"wz"`` → ``"wurtzite"``).
+        Crystal type. Case-insensitive; common synonyms accepted
+        (``"nacl"`` → ``"rocksalt"``, ``"zb"`` → ``"zincblende"``,
+        ``"b2"`` → ``"cscl"``, ``"hex_diamond"`` → ``"lonsdaleite"``,
+        ...). Supported structures and their allowed species counts:
 
-        ============== ============= ============================== =================
-        Structure name n_species     Common prototype               Miller-rotatable
-        ============== ============= ============================== =================
-        ``sc``         1             α-Po                            yes (cubic)
-        ``fcc``        1             Cu, Al, Ni                      yes (cubic)
-        ``bcc``        1             Fe, W                           yes (cubic)
-        ``diamond``    1             C, Si                           yes (cubic)
-        ``cscl`` /``b2`` 2           CsCl, NiAl                      yes (cubic)
-        ``rocksalt``/``b1`` 2        NaCl, MgO                       yes (cubic)
-        ``zincblende``/``b3`` 2      GaAs, ZnS                       yes (cubic)
-        ``fluorite``   2             CaF\\ :sub:`2`, UO\\ :sub:`2`    yes (cubic)
-        ``l1_2``       2             Ni\\ :sub:`3`\\ Al, Cu\\ :sub:`3`\\ Au yes (cubic)
-        ``perovskite`` 3 (B, A, O)   SrTiO\\ :sub:`3`                yes (cubic)
-        ``hcp``        1 or 2        Mg, Ti, Zr                      yes (hexagonal)
-        ``wurtzite``/``b4`` 1 or 2   GaN, ZnO                        yes (hexagonal)
-        ``graphite``   1 or 2        graphite, hex-BN                yes (hexagonal)
-        ``graphene``   1             single-layer graphene           no (legacy)
-        ============== ============= ============================== =================
+        Cubic (Miller-rotatable, 3-index ``[h, k, l]``):
 
-        For ``perovskite`` the species order follows atomsk: ``(B, A,
-        O)``. e.g. ``name=("Ti", "Sr", "O")`` for SrTiO\\ :sub:`3`.
+        - ``sc`` (1): simple cubic, e.g. α-Po
+        - ``fcc`` (1 or 2): Cu, Al, Ni; or ordered FCC
+        - ``bcc`` (1 or 2): Fe, W; B2 alloy with two species
+        - ``diamond`` (1 or 2): C, Si; ``zincblende`` for two species
+        - ``cscl`` / B2 (2): CsCl, NiAl
+        - ``rocksalt`` / B1 (2): NaCl, MgO
+        - ``zincblende`` / B3 (2): GaAs, ZnS
+        - ``fluorite`` (2): CaF2, UO2
+        - ``l1_2`` (2): Ni3Al, Cu3Au
+        - ``perovskite`` (3, **B-A-O ordering**): SrTiO3 → ``("Ti","Sr","O")``
+
+        Hexagonal (Miller-rotatable, 3-index ``[u, v, w]`` or 4-index
+        ``[h, k, i, l]``):
+
+        - ``hcp`` (1 or 2): Mg, Ti, Zr
+        - ``wurtzite`` / B4 (1 or 2): GaN, ZnO
+        - ``lonsdaleite`` / hex-diamond (1): hexagonal carbon polytype
+        - ``graphite`` (1 or 2): graphite, hex-BN — ``c`` required
+        - ``graphene`` (1 or 2): single-layer honeycomb — ``c`` required
 
     a : float
-        Primary lattice constant in Å (cubic edge, hexagonal basal
-        spacing, or in-plane spacing for graphene).
+        Primary lattice constant in Å (cubic edge, hexagonal in-plane
+        spacing).
 
     miller1, miller2, miller3 : sequence of int, optional
         Crystallographic axes for the three sides of the supercell.
         For cubic structures pass three integers ``[h, k, l]``; for
-        hexagonal structures (``hcp`` / ``wurtzite`` / ``graphite``)
-        pass either Miller-Bravais ``[h, k, i, l]`` (with
-        ``h + k + i == 0``) or 3-index ``[u, v, w]`` directly. The
-        three vectors must be mutually orthogonal in Cartesian space
-        and obey the right-hand rule. When all three are ``None``,
-        the canonical orientation is used.
+        hexagonal structures pass either Miller-Bravais
+        ``[h, k, i, l]`` (with ``h + k + i == 0``) or 3-index
+        ``[u, v, w]`` directly. The three vectors must be mutually
+        orthogonal in Cartesian space and obey the right-hand rule.
+        When all three are ``None``, the canonical orientation is used.
 
     nx, ny, nz : int, default=1
         Replication counts along the (possibly Miller-rotated) axes.
         Total atom count = ``len(basis) * nx * ny * nz``.
 
-    c_over_a : float, default=sqrt(8/3)
-        Ratio of c to a for hexagonal structures. Used only when ``c``
-        is not given explicitly. The default is the ideal hcp packing.
-
     c : float, optional
-        Out-of-plane lattice constant in Å for hexagonal/tetragonal
-        structures. Takes precedence over ``c_over_a``. Required for
-        ``graphite`` (no sensible interlayer default).
+        Out-of-plane lattice constant in Å for hexagonal structures.
+        For ``hcp``, ``wurtzite`` and ``lonsdaleite`` defaults to
+        ``a * sqrt(8/3)`` (ideal close-packing). For ``graphite`` and
+        ``graphene`` it must be supplied — no sensible default exists
+        (interlayer / vacuum spacing).
 
     Returns
     -------
@@ -705,13 +701,21 @@ def build_crystal(
 
     >>> nacl = build_crystal(("Na", "Cl"), "rocksalt", a=5.64, nx=4, ny=4, nz=4)
 
-    Three-species perovskite — note B-A-O ordering:
+    Three-species perovskite (B, A, O ordering):
 
     >>> sto = build_crystal(("Ti", "Sr", "O"), "perovskite", a=3.905)
 
     Hexagonal — wurtzite GaN with explicit ``c``:
 
     >>> gan = build_crystal(("Ga", "N"), "wurtzite", a=3.19, c=5.18)
+
+    Hexagonal diamond (lonsdaleite) — single-species wurtzite:
+
+    >>> lons = build_crystal("C", "lonsdaleite", a=2.51, c=4.12)
+
+    Single-layer graphene (vacuum-padded along c):
+
+    >>> g = build_crystal("C", "graphene", a=2.46, c=20.0)
 
     Cubic Miller-rotated — FCC ``[111]`` slab orientation:
 
@@ -729,18 +733,17 @@ def build_crystal(
 
     Notes
     -----
-    - Output is **bit-for-bit equivalent to atomsk**: for every supported
-      structure, ``tests/_generate_fixtures/generate_build_crystal.py``
-      generates an atomsk reference and ``tests/test_build_crystal.py``
+    - Output is bit-for-bit equivalent to atomsk for every supported
+      structure; ``tests/_generate_fixtures/generate_build_crystal.py``
+      generates atomsk references and ``tests/test_build_crystal.py``
       asserts the box, sorted positions and sorted element list match.
-    - Hexagonal structures (``hcp``, ``wurtzite``, ``graphite``) emit a
-      2-axis 120° primitive cell (``H1=[2-1-10]``, ``H2=[-12-10]``,
-      ``H3=[0001]``); the resulting LAMMPS box has a negative ``xy``
-      tilt of ``-a/2``.
-    - Multi-species structures attach the ``element`` column directly
-      from the structure's basis ordering — there is no random-alloy
-      placement here. Use :func:`build_hea` if you want random
-      multi-element substitution on a single sublattice.
+    - Hexagonal structures emit a 2-axis 120° primitive cell
+      (``H1 = [2-1-10]``, ``H2 = [-12-10]``, ``H3 = [0001]``); the
+      resulting LAMMPS box has a negative ``xy`` tilt of ``-a/2``.
+    - Multi-species structures attach ``element`` directly from the
+      structure's basis ordering — there is no random-alloy placement.
+      Use :func:`build_hea` for random multi-element substitution on a
+      single sublattice.
     """
     s = _normalize_structure_name(structure)
     if s not in _STRUCTURES:
@@ -771,54 +774,68 @@ def build_crystal(
         )
 
     # --- Resolve `c` for hexagonal/tetragonal structures ---
-    # Precedence: explicit `c` > explicit `c_over_a` (computed against `a`)
-    # > the structure's default factor.
+    # If the structure has a canonical c/a factor, fall back to it when
+    # `c` is not supplied; otherwise the user must provide `c`.
     if c is None and c_default_factor is not None:
-        # If the caller did not override c_over_a from the function
-        # default, fall back to the structure's canonical factor.
-        if c_over_a == np.sqrt(8 / 3):
-            c = a * float(c_default_factor)
-        else:
-            c = a * float(c_over_a)
-    if c is None and s == "graphite":
-        # No sensible default for inter-layer spacing; user must set it.
-        raise ValueError("`graphite` requires an explicit `c` parameter.")
+        c = a * float(c_default_factor)
+    if c is None and s in ("graphite", "graphene"):
+        raise ValueError(f"`{s}` requires an explicit `c` parameter.")
 
     # --- Build the (possibly Miller-rotated) unit cell + species index ---
     if miller1 is None and miller2 is None and miller3 is None:
         # Standard orientation
-        if build_fn == "legacy_orth":
-            old_box, old_pos = _get_basispos_and_box_cubic(structure, a, c_over_a)
-            species_idx = np.zeros(len(old_pos), dtype=np.int32)
-        else:
-            old_box, old_pos, species_idx = build_fn(a, c)
+        old_box, old_pos, species_idx = build_fn(a, c)
+        # Single-name broadcast → every basis atom is physically the
+        # same element, so collapse the species index to zero. This is
+        # what lets the elements column come out uniform AND lets the
+        # Miller-path minimal-cell reduction below treat the cell as
+        # single-species when the user is.
+        if len(name_tuple) == 1:
+            species_idx = np.zeros(len(species_idx), dtype=np.int32)
     else:
         if s not in _MILLER_SUPPORTED:
             raise ValueError(
-                f"Miller orientation is not yet supported for structure "
-                f"'{s}'."
+                f"Miller orientation is not yet supported for structure " f"'{s}'."
             )
         if s in _MILLER_HEX:
             # Hexagonal: accept 3-index [uvw] or 4-index [hkil].
-            for label, m in (("miller1", miller1), ("miller2", miller2),
-                             ("miller3", miller3)):
+            for label, m in (
+                ("miller1", miller1),
+                ("miller2", miller2),
+                ("miller3", miller3),
+            ):
                 if len(m) not in (3, 4):
                     raise ValueError(
                         f"Hexagonal Miller indices must be 3-index [uvw] "
                         f"or 4-index [hkil]. Got {label}={tuple(m)}."
                     )
             old_box, old_pos, species_idx = _build_lattice_from_miller_hex(
-                s, miller1, miller2, miller3, a, c,
+                s,
+                miller1,
+                miller2,
+                miller3,
+                a,
+                c,
             )
         else:
-            if (len(miller1) != 3 or len(miller2) != 3 or len(miller3) != 3):
+            if len(miller1) != 3 or len(miller2) != 3 or len(miller3) != 3:
                 raise ValueError(
                     f"Cubic structures require 3-index Miller indices [h,k,l]. "
                     f"Got miller1={miller1}, miller2={miller2}, miller3={miller3}"
                 )
             old_box, old_pos, species_idx = _build_lattice_from_miller(
-                s, miller1, miller2, miller3, a,
+                s,
+                miller1,
+                miller2,
+                miller3,
+                a,
             )
+        # Single-name broadcast → all atoms physically the same; treat
+        # the cell as single-species so the minimal-cell reduction can
+        # shrink to atomsk's primitive (matters for fcc/bcc/diamond
+        # whose dispatch entries return an ordered-alloy basis).
+        if len(name_tuple) == 1:
+            species_idx = np.zeros(len(species_idx), dtype=np.int32)
         # Carry species through the minimal-cell reduction.
         old_box, old_pos, species_idx = _find_minimal_cell_with_species(
             old_box, old_pos, species_idx
@@ -847,8 +864,11 @@ def build_crystal(
 
 
 def _find_minimal_cell_with_species(
-    box: np.ndarray, basis: np.ndarray, species: np.ndarray,
-    tolerance: float = 1e-6, max_search: int = 10,
+    box: np.ndarray,
+    basis: np.ndarray,
+    species: np.ndarray,
+    tolerance: float = 1e-6,
+    max_search: int = 10,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Brute-force smallest periodic sub-cell, species-aware.
 
@@ -882,9 +902,7 @@ def _find_minimal_cell_with_species(
                 expected = n_atoms // n_div
                 if expected >= min_atoms:
                     continue
-                test_box = np.array(
-                    [[a_ / nx, 0, 0], [0, b_ / ny, 0], [0, 0, c_ / nz]]
-                )
+                test_box = np.array([[a_ / nx, 0, 0], [0, b_ / ny, 0], [0, 0, c_ / nz]])
 
                 # Atoms inside the proposed first sub-cell (with their
                 # species). If two distinct species share the same site,
@@ -892,9 +910,14 @@ def _find_minimal_cell_with_species(
                 small_atoms = []
                 small_species = []
                 for atom, sp in zip(basis_w, species):
-                    if (atom[0] >= -tolerance and atom[0] < 1.0 / nx - tolerance and
-                            atom[1] >= -tolerance and atom[1] < 1.0 / ny - tolerance and
-                            atom[2] >= -tolerance and atom[2] < 1.0 / nz - tolerance):
+                    if (
+                        atom[0] >= -tolerance
+                        and atom[0] < 1.0 / nx - tolerance
+                        and atom[1] >= -tolerance
+                        and atom[1] < 1.0 / ny - tolerance
+                        and atom[2] >= -tolerance
+                        and atom[2] < 1.0 / nz - tolerance
+                    ):
                         frac = atom * np.array([nx, ny, nz])
                         frac = frac - np.floor(frac + tolerance)
                         is_dup = False
@@ -974,80 +997,51 @@ def build_hea(
     nx: int = 1,
     ny: int = 1,
     nz: int = 1,
-    c_over_a: float = np.sqrt(8 / 3),
+    c: Optional[float] = None,
     random_seed: Optional[int] = None,
 ) -> System:
     """
-    Build a high-entropy alloy (HEA) crystal structure with an optional orientation
-    defined by Miller indices.
+    Build a random high-entropy alloy (HEA) on a single sublattice.
 
     Parameters
     ----------
-    element_list : Tuple[str]
-        List of element symbols, e.g., ``('Cu', 'Al', 'Mg')``.
-    element_ratio : Tuple[float]
-        Corresponding atomic ratios. The sum must equal 1.
+    element_list : tuple of str
+        Element symbols, e.g. ``('Cu', 'Al', 'Mg')``. Must be unique.
+    element_ratio : tuple of float
+        Corresponding atomic ratios; must sum to 1.
     structure : str
-        Crystal structure type. Supported values are:
-
-        - ``'fcc'`` — Face-centered cubic
-        - ``'bcc'`` — Body-centered cubic
-        - ``'hcp'`` — Hexagonal close-packed
-
+        Single-species crystal type — typically ``'fcc'``, ``'bcc'`` or
+        ``'hcp'``. Any structure from :func:`build_crystal` whose
+        allowed species count includes 1 will work; only one sublattice
+        is randomly substituted.
     a : float
-        Lattice constant in Ångströms.
-        - For cubic structures (FCC/BCC): edge length of the cubic unit cell.
-        - For HCP: basal plane lattice parameter.
-
-    miller1, miller2, miller3 : tuple of int, optional
-        Miller indices ``(h, k, l)`` defining the orientation of x-, y-, and z-axes.
-        Only applicable to cubic structures.
-        If any are ``None``, the standard orthogonal orientation ([1,0,0], [0,1,0], [0,0,1]) is used.
-
-        .. note::
-           The three Miller indices must be orthogonal and follow the right-hand rule:
-           ``miller1 × miller2 = miller3``.
-
+        Primary lattice constant in Å.
+    miller1, miller2, miller3 : sequence of int, optional
+        Crystallographic axes (3-index for cubic, 3- or 4-index for
+        hexagonal). See :func:`build_crystal` for the conventions.
     nx, ny, nz : int, default=1
-        Number of unit cell repetitions along x, y, and z directions.
-    c_over_a : float, default=sqrt(8/3)
-        The ``c/a`` ratio for the HCP structure.
-        The default corresponds to the ideal HCP packing.
-        Ignored for other structures.
+        Replication counts along each box axis.
+    c : float, optional
+        Out-of-plane lattice constant for hexagonal structures.
     random_seed : int, optional
-        Random seed for reproducible element assignment.
+        Seed for the per-atom element assignment.
 
     Returns
     -------
     System
-        A :class:`System` object containing the generated crystal structure
-        with atomic positions and simulation box information.
+        Crystal with the ``element`` column randomly populated by
+        ``element_list`` according to ``element_ratio``.
 
     Examples
     --------
-    >>> system = build_hea(
-    ...     ("Cr", "Co", "Ni"),
-    ...     (0.1, 0.2, 0.7),
-    ...     "fcc",
-    ...     3.526,
-    ...     nx=5,
-    ...     ny=5,
-    ...     nz=5,
-    ...     random_seed=1,
+    >>> sys_ = build_hea(
+    ...     ("Cr", "Co", "Ni"), (0.1, 0.2, 0.7),
+    ...     "fcc", 3.526, nx=5, ny=5, nz=5, random_seed=1,
     ... )
     """
-
-    assert structure.lower() in {"fcc", "bcc", "hcp"}, (
-        f"Unsupported structure '{structure}'. Choose from 'fcc', 'bcc', or 'hcp'."
-    )
-    if miller1 is not None and miller2 is not None and miller3 is not None:
-        assert structure.lower() != "hcp", "hcp does not support miller orientations."
-
-    # --- Build base crystal ---
     system = build_crystal(
-        "X", structure, a, miller1, miller2, miller3, nx, ny, nz, c_over_a
+        "X", structure, a, miller1, miller2, miller3, nx, ny, nz, c=c,
     )
-
     return build_hea_fromsystem(system, element_list, element_ratio, random_seed)
 
 
@@ -1077,15 +1071,15 @@ def build_hea_fromsystem(
     """
     # --- Input validation ---
     assert len(element_list) > 1, "At least two elements are required to form an HEA."
-    assert len(set(element_list)) == len(element_list), (
-        "Each element in element_list must be unique."
-    )
-    assert len(element_list) == len(element_ratio), (
-        "element_list and element_ratio must have the same length."
-    )
-    assert abs(np.sum(element_ratio) - 1.0) < 1e-6, (
-        f"Element ratios must sum to 1 (got {np.sum(element_ratio):.6f})."
-    )
+    assert len(set(element_list)) == len(
+        element_list
+    ), "Each element in element_list must be unique."
+    assert len(element_list) == len(
+        element_ratio
+    ), "element_list and element_ratio must have the same length."
+    assert (
+        abs(np.sum(element_ratio) - 1.0) < 1e-6
+    ), f"Element ratios must sum to 1 (got {np.sum(element_ratio):.6f})."
     # --- Assign elements by ratio ---
     type_counts = np.floor(system.N * np.array(element_ratio)).astype(int)
     for i in range(len(element_ratio)):

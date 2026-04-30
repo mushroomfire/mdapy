@@ -332,9 +332,13 @@ def test_data_write_num_type_validation(tmp_path):
         SaveSystem.write_data(str(out), s.box, s.data, num_type=1)
 
     # element_list longer than num_type → file written; only first
-    # num_type elements end up in the Masses block.
-    SaveSystem.write_data(str(out), s.box, s.data,
-                          num_type=2, element_list=["Al", "Cu", "Ni"])
+    # num_type elements end up in the Masses block. The writer emits a
+    # UserWarning naming the dropped trailing entries, which the test
+    # explicitly captures so it does not surface as an unhandled
+    # warning in pytest's summary.
+    with pytest.warns(UserWarning, match="element_list has 3 entries"):
+        SaveSystem.write_data(str(out), s.box, s.data,
+                              num_type=2, element_list=["Al", "Cu", "Ni"])
     s2 = mp.System(str(out))
     assert set(s2.data["element"].to_list()) == {"Al", "Cu"}
 

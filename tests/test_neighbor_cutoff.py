@@ -205,3 +205,53 @@ def test_dense_random_orthogonal_full_check():
     s = mp.System(pos=pos, box=Box(box_mat, boundary=[1, 1, 1]))
     s.build_neighbor(2.5)
     _check(s, 2.5, sample_idx=list(range(s.N)))
+
+
+# ---------------------------------------------------------------------------
+# Constructor validation + max_neigh safety
+# ---------------------------------------------------------------------------
+
+def test_neighbor_rejects_non_positive_rc():
+    from mdapy.neighbor import Neighbor
+    s = mp.System(pos=np.zeros((4, 3)), box=10.0)
+    with pytest.raises(AssertionError, match="rc must be positive"):
+        Neighbor(0.0, s.box, s.data)
+    with pytest.raises(AssertionError, match="rc must be positive"):
+        Neighbor(-1.0, s.box, s.data)
+
+
+def test_neighbor_rejects_non_positive_max_neigh():
+    from mdapy.neighbor import Neighbor
+    s = mp.System(pos=np.zeros((4, 3)), box=10.0)
+    with pytest.raises(AssertionError, match="max_neigh must be positive"):
+        Neighbor(2.0, s.box, s.data, max_neigh=0)
+
+
+def test_neighbor_max_neigh_too_small_raises():
+    """Regression: previously the kernel overran the array (no bounds check)
+    when the user-supplied max_neigh was too low, leading to silent memory
+    corruption or segfaults. The C++ kernel now guards every write against
+    the slot bound, so the wrapper can post-check and surface a clean
+    ValueError naming the required size."""
+    rng = np.random.default_rng(13)
+    box_mat = np.diag([10.0, 10.0, 10.0])
+    pos = _rand_pos(rng, 200, box_mat)  # dense — many atoms within rc=4
+    s = mp.System(pos=pos, box=Box(box_mat, boundary=[1, 1, 1]))
+    with pytest.raises(ValueError, match=r"max_neigh=2 is too small"):
+        s.build_neighbor(rc=4.0, max_neigh=2)
+
+
+def test_neighbor_max_neigh_exact_size_succeeds():
+    """If the user-supplied max_neigh is exactly the true max coordination,
+    the fast path must succeed (no off-by-one)."""
+    rng = np.random.default_rng(21)
+    box_mat = np.diag([10.0, 10.0, 10.0])
+    pos = _rand_pos(rng, 200, box_mat)
+    s = mp.System(pos=pos, box=Box(box_mat, boundary=[1, 1, 1]))
+    # Probe true max via the unbounded path.
+    s.build_neighbor(rc=3.0)
+    true_max = int(s.neighbor_number.max())
+    # Re-run with exact max_neigh.
+    s2 = mp.System(pos=pos, box=Box(box_mat, boundary=[1, 1, 1]))
+    s2.build_neighbor(rc=3.0, max_neigh=true_max)
+    _check(s2, 3.0, sample_idx=list(range(0, 200, 17)))

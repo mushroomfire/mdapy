@@ -19,7 +19,7 @@ class Neighbor:
     Parameters
     ----------
     rc : float
-        Cutoff radius for neighbor searching.
+        Cutoff radius for neighbor searching. Must be positive.
     box : Box
         Simulation box represented by a :class:`mdapy.box.Box` instance. Supports
         both orthogonal and triclinic boxes.
@@ -27,8 +27,15 @@ class Neighbor:
         Atomic data containing at least the columns ``"x"``, ``"y"``, and ``"z"``,
         representing atomic coordinates.
     max_neigh : int, optional
-        Maximum number of neighbors allowed for each atom. If not provided, the
-        neighbor list will be estimated as a largest safe value, and it will raise some performance overhead, expecially for memory.
+        Pre-allocated per-atom slot count. The fast path (used when
+        ``max_neigh`` is given) writes directly into a ``(N, max_neigh)``
+        buffer and is significantly faster than the dynamic-sizer
+        fallback. The C++ kernel guards each write against the slot
+        bound, so an over-tight ``max_neigh`` cannot corrupt memory; if
+        the true coordination exceeds ``max_neigh`` for any atom,
+        :meth:`compute` raises ``ValueError`` reporting the required
+        size. When omitted, the dynamic-sizer kernel runs (slower, no
+        size hint required).
 
     Attributes
     ----------
@@ -59,101 +66,74 @@ class Neighbor:
     def __init__(
         self, rc: float, box: Box, data: pl.DataFrame, max_neigh: Optional[int] = None
     ):
+        rc = float(rc)
+        assert rc > 0, f"rc must be positive, got {rc}."
+        if max_neigh is not None:
+            max_neigh = int(max_neigh)
+            assert max_neigh > 0, f"max_neigh must be positive, got {max_neigh}."
+        for col in ("x", "y", "z"):
+            assert col in data.columns, f"data must contain column {col!r}."
         self.rc = rc
         self.box = box
         self.data = data
         self.max_neigh = max_neigh
         self.N = self.data.shape[0]
+        assert self.N > 0, "data must contain at least one atom."
 
     def compute(self):
         """
         Build the neighbor list and compute interatomic distances.
 
-        This method determines whether the box is large enough to directly perform
-        neighbor searching or needs to be replicated.
-
-        Raises
-        ------
-        AssertionError
-            If ``max_neigh`` is provided but smaller than the actual maximum neighbor count.
+        Modifies ``self`` in place; ``self.verlet_list``,
+        ``self.distance_list`` and ``self.neighbor_number`` are populated.
+        For systems whose box is too small for ``rc`` along periodic
+        directions, ``self._enlarge_data`` and ``self._enlarge_box`` are
+        also populated and the neighbor arrays index into them.
         """
         repeat = self.box.check_small_box(self.rc)
 
         if sum(repeat) != 3:
-            # Small box: replicate system
             self._enlarge_data, self._enlarge_box = tool.replicate(
                 self.data, self.box, *repeat
             )
-            # tool._replicate_pos(self.data, self.box, *repeat)
-
-            N = self._enlarge_data.shape[0]
-            if self.max_neigh is None:
-                self.verlet_list, self.distance_list, self.neighbor_number = (
-                    _neighbor.build_neighbor_without_max_neigh(
-                        self._enlarge_data["x"].to_numpy(allow_copy=False),
-                        self._enlarge_data["y"].to_numpy(allow_copy=False),
-                        self._enlarge_data["z"].to_numpy(allow_copy=False),
-                        self._enlarge_box.box,
-                        self._enlarge_box.origin,
-                        self._enlarge_box.boundary,
-                        self.rc,
-                    )
-                )
-            else:
-                assert self.max_neigh > 0, "max_neigh should be larger than 0."
-                self.verlet_list = np.full((N, self.max_neigh), -1, np.int32)
-                self.distance_list = np.full(
-                    (N, self.max_neigh), self.rc + 1.0, np.float64
-                )
-                self.neighbor_number = np.zeros(N, np.int32)
-                _neighbor.build_neighbor(
-                    self._enlarge_data["x"].to_numpy(allow_copy=False),
-                    self._enlarge_data["y"].to_numpy(allow_copy=False),
-                    self._enlarge_data["z"].to_numpy(allow_copy=False),
-                    self._enlarge_box.box,
-                    self._enlarge_box.origin,
-                    self._enlarge_box.boundary,
-                    self.rc,
-                    self.verlet_list,
-                    self.distance_list,
-                    self.neighbor_number,
-                )
+            data, box = self._enlarge_data, self._enlarge_box
         else:
-            # Large box: direct computation
-            if self.max_neigh is None:
-                self.verlet_list, self.distance_list, self.neighbor_number = (
-                    _neighbor.build_neighbor_without_max_neigh(
-                        self.data["x"].to_numpy(allow_copy=False),
-                        self.data["y"].to_numpy(allow_copy=False),
-                        self.data["z"].to_numpy(allow_copy=False),
-                        self.box.box,
-                        self.box.origin,
-                        self.box.boundary,
-                        self.rc,
-                    )
-                )
-            else:
-                assert self.max_neigh > 0, "max_neigh should be larger than 0."
-                self.verlet_list = np.full((self.N, self.max_neigh), -1, np.int32)
-                self.distance_list = np.full(
-                    (self.N, self.max_neigh), self.rc + 1.0, np.float64
-                )
-                self.neighbor_number = np.zeros(self.N, np.int32)
-                _neighbor.build_neighbor(
-                    self.data["x"].to_numpy(allow_copy=False),
-                    self.data["y"].to_numpy(allow_copy=False),
-                    self.data["z"].to_numpy(allow_copy=False),
-                    self.box.box,
-                    self.box.origin,
-                    self.box.boundary,
-                    self.rc,
-                    self.verlet_list,
-                    self.distance_list,
-                    self.neighbor_number,
-                )
+            data, box = self.data, self.box
 
-        if self.max_neigh is not None:
-            real_max_neigh = self.neighbor_number.max()
-            assert real_max_neigh <= self.max_neigh, (
-                f"Increase max_neigh to {real_max_neigh}!"
+        x = data["x"].to_numpy(allow_copy=False)
+        y = data["y"].to_numpy(allow_copy=False)
+        z = data["z"].to_numpy(allow_copy=False)
+        N = data.shape[0]
+
+        if self.max_neigh is None:
+            # Dynamic sizer — slower (counts first, then fills) but
+            # always returns the exact size.
+            self.verlet_list, self.distance_list, self.neighbor_number = (
+                _neighbor.build_neighbor_without_max_neigh(
+                    x, y, z, box.box, box.origin, box.boundary, self.rc,
+                )
+            )
+            return
+
+        # Fast path: pre-allocated buffer, single kernel pass. The C++
+        # kernel guards every write against shape(1) so an over-tight
+        # max_neigh cannot corrupt memory; it instead leaves
+        # `neighbor_number[i]` recording the true count, which we check
+        # below and surface as a clean ValueError.
+        self.verlet_list = np.full((N, self.max_neigh), -1, np.int32)
+        self.distance_list = np.full(
+            (N, self.max_neigh), self.rc + 1.0, np.float64
+        )
+        self.neighbor_number = np.zeros(N, np.int32)
+        _neighbor.build_neighbor(
+            x, y, z, box.box, box.origin, box.boundary, self.rc,
+            self.verlet_list, self.distance_list, self.neighbor_number,
+        )
+        real_max = int(self.neighbor_number.max(initial=0))
+        if real_max > self.max_neigh:
+            raise ValueError(
+                f"max_neigh={self.max_neigh} is too small: at least one "
+                f"atom has {real_max} neighbors within rc={self.rc}. "
+                f"Re-run with max_neigh>={real_max} (or omit max_neigh "
+                "to let mdapy size the buffer automatically)."
             )

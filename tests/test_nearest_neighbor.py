@@ -195,6 +195,28 @@ def test_small_box_replication():
     _check_knn(s, 20, sample_idx=list(range(s.N)))
 
 
+# ---------------------------------------------------------------------------
+# Constructor validation
+# ---------------------------------------------------------------------------
+
+def test_knn_rejects_k_out_of_range():
+    from mdapy.knn import NearestNeighbor, MAX_K
+    s = mp.System(pos=np.zeros((4, 3)), box=10.0)
+    with pytest.raises(AssertionError, match=r"k must be in"):
+        NearestNeighbor(s.data, s.box, k=0)
+    with pytest.raises(AssertionError, match=r"k must be in"):
+        NearestNeighbor(s.data, s.box, k=MAX_K + 1)
+
+
+def test_knn_rejects_empty_data():
+    from mdapy.knn import NearestNeighbor
+    import polars as pl
+    empty = pl.DataFrame({"x": [], "y": [], "z": []}, schema={"x": pl.Float64, "y": pl.Float64, "z": pl.Float64})
+    s = mp.System(pos=np.zeros((1, 3)), box=10.0)  # any valid box
+    with pytest.raises(AssertionError, match="at least one atom"):
+        NearestNeighbor(empty, s.box, k=1)
+
+
 def test_perfect_fcc_first_shell_is_12():
     """In a perfect FCC lattice the 12 nearest neighbors are equidistant."""
     a = 4.05

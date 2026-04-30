@@ -44,6 +44,15 @@ Mdapy 1.0.5a2 (April 30, 2026)
 - New ``tests/test_system.py`` (47 tests) covers construction,
   mutators, calculator hook, neighbor invalidation, ASE/OVITO
   bridges, and regression tests for every fix above.
+- ``Neighbor`` C++ kernel now bounds-checks every write. An
+  over-tight ``max_neigh`` previously overran the buffer silently
+  and caused memory corruption / segfaults; it now raises a
+  ``ValueError`` reporting the required size. The fast path is
+  unchanged when ``max_neigh`` is given correctly.
+- ``Neighbor`` / ``NearestNeighbor`` constructors validate inputs
+  (``rc`` / ``max_neigh`` / ``k`` ranges, required columns,
+  non-empty data). ``knn.MAX_K`` is exposed as a module constant
+  in place of the previous magic ``25``.
 
 Mdapy 1.0.5a1 (April 28, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

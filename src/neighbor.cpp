@@ -118,6 +118,11 @@ void build_verlet_list(const ROneArrayD x_py,
     auto distance_list = distance_list_py.view();
     auto neighbor_number = neighbor_number_py.view();
     const int N{static_cast<int>(x.shape(0))};
+    // shape(1) is the per-atom slot capacity (the user's max_neigh, or
+    // the dynamic-sizer's exact max). Writes are guarded against this
+    // bound; nindex keeps counting past it so the Python wrapper can
+    // detect "max_neigh too small" without touching invalid memory.
+    const int max_neigh{static_cast<int>(verlet_list.shape(1))};
     const double rc_inverse{1.0 / rc};
     const double rcsq{rc * rc};
 
@@ -163,8 +168,11 @@ void build_verlet_list(const ROneArrayD x_py,
 
                             if (dis_sq <= rcsq)
                             {
-                                verlet_list(i, nindex) = j;
-                                distance_list(i, nindex) = std::sqrt(dis_sq);
+                                if (nindex < max_neigh)
+                                {
+                                    verlet_list(i, nindex) = j;
+                                    distance_list(i, nindex) = std::sqrt(dis_sq);
+                                }
                                 ++nindex;
                             }
                         }

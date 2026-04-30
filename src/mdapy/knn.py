@@ -8,6 +8,11 @@ import polars as pl
 import numpy as np
 
 
+# The C++ KNN kernel uses a fixed-size on-stack heap; raising this beyond
+# 24 requires recompiling the extension with a larger buffer.
+MAX_K = 24
+
+
 class NearestNeighbor:
     """
     Perform a nearest-neighbor search for atoms within a periodic or non-periodic box.
@@ -45,9 +50,13 @@ class NearestNeighbor:
     """
 
     def __init__(self, data: pl.DataFrame, box: Box, k: int):
+        for col in ("x", "y", "z"):
+            assert col in data.columns, f"data must contain column {col!r}."
+        assert data.shape[0] > 0, "data must contain at least one atom."
+        k = int(k)
+        assert 1 <= k <= MAX_K, f"k must be in [1, {MAX_K}], got {k}."
         self.data = data
         self.box = box
-        assert k < 25, "k cannot be larger than 25."
         self.k = k
 
     def compute(self):

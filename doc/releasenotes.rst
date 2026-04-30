@@ -55,6 +55,15 @@ Mdapy 1.0.5a2 (April 30, 2026)
 - Internal cleanup: dropped the legacy ``_get_basispos_and_box_cubic``
   + ``legacy_orth`` branch; every structure now goes through the
   unified dispatch table.
+- New ``mdapy.orthogonal_cell(system, find_minimal=False)``: ports
+  atomsk's ``-orthogonal-cell`` option to mdapy. Converts a triclinic,
+  fully-periodic :class:`System` to an equivalent orthogonal
+  supercell by searching the shortest integer-combination of the
+  input lattice vectors aligned with each Cartesian axis, then
+  replicating + wrapping atoms into the new box. ``find_minimal``
+  additionally collapses the result to the smallest periodic
+  sub-cell (species-aware). Validated bit-for-bit against atomsk on
+  HCP / wurtzite inputs.
 
 
 🛠️ Other Improvements

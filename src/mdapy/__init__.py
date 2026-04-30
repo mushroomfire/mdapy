@@ -18,6 +18,7 @@ from mdapy.atomic_strain import AtomicStrain
 from mdapy.trajectory import XYZTrajectory, Trajectory
 from mdapy.lindemann_parameter import LindemannParameter
 from mdapy.void_analysis import VoidAnalysis
+from mdapy.orthogonal_cell import orthogonal_cell
 
 __all__ = [
     "System",
@@ -42,5 +43,6 @@ __all__ = [
     "Trajectory",
     "LindemannParameter",
     "VoidAnalysis",
+    "orthogonal_cell",
 ]
 __version__ = "1.0.5a2"

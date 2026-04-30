@@ -1,0 +1,22 @@
+## Edge case: Masses comes AFTER Atoms but BEFORE Velocities.
+## Order: Header, Atoms, Masses, Velocities — must still parse correctly.
+2 atoms
+1 atom types
+
+0.0 4.0 xlo xhi
+0.0 4.0 ylo yhi
+0.0 4.0 zlo zhi
+
+Atoms  # atomic
+
+1 1 0.0 0.0 0.0
+2 1 2.0 0.0 0.0
+
+Masses
+
+1 12.0
+
+Velocities
+
+1 1.0 2.0 3.0
+2 4.0 5.0 6.0

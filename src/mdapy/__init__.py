@@ -15,7 +15,7 @@ from mdapy.spline import Spline
 from mdapy.pigz import compress_file
 from mdapy.wigner_seitz_defect import WignerSeitzAnalysis
 from mdapy.atomic_strain import AtomicStrain
-from mdapy.trajectory import XYZTrajectory
+from mdapy.trajectory import XYZTrajectory, Trajectory
 from mdapy.lindemann_parameter import LindemannParameter
 from mdapy.void_analysis import VoidAnalysis
 
@@ -39,7 +39,8 @@ __all__ = [
     "WignerSeitzAnalysis",
     "AtomicStrain",
     "XYZTrajectory",
+    "Trajectory",
     "LindemannParameter",
     "VoidAnalysis",
 ]
-__version__ = "1.0.5a1"
+__version__ = "1.0.5a2"

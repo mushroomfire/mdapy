@@ -1,0 +1,9 @@
+Universal scale factor != 1 — must scale both lattice and Cartesian coords
+2.0
+2.0 0.0 0.0
+0.0 2.0 0.0
+0.0 0.0 2.0
+Al
+1
+Cartesian
+1.0 0.0 0.0

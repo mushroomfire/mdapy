@@ -1,0 +1,13 @@
+ITEM: TIMESTEP
+0
+ITEM: NUMBER OF ATOMS
+4
+ITEM: BOX BOUNDS pp pp pp
+0.0 4.0
+0.0 4.0
+0.0 4.0
+ITEM: ATOMS id type element x y z vx vy vz
+1 1 Al 0.0 0.0 0.0 0.1 0.2 0.3
+2 2 Cu 2.0 0.0 0.0 0.0 0.0 0.0
+3 1 Al 0.0 2.0 0.0 0.0 0.0 0.0
+4 2 Cu 2.0 2.0 0.0 0.0 0.0 0.0

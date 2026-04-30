@@ -848,18 +848,190 @@ class XYZTrajectory:
             f.write(" ".join(line_data) + "\n")
 
 
-if __name__ == "__main__":
-    from time import time
+# ===========================================================================
+#  Unified multi-frame trajectory: XYZ or LAMMPS dump (read + write)
+# ===========================================================================
 
-    start = time()
-    systems = XYZTrajectory(
-        r"/u/22/wuy33/unix/Desktop/18335947/reference-structures-training-water-SCAN.xyz"
+def _infer_trajectory_format(filename: str) -> str:
+    """Infer 'xyz' vs 'dump' from the filename, accepting `.gz` suffix."""
+    f = filename.lower()
+    if f.endswith(".gz"):
+        f = f[:-3]
+    if f.endswith(".xyz"):
+        return "xyz"
+    if f.endswith(".dump") or f.endswith(".lammpstrj"):
+        return "dump"
+    raise ValueError(
+        f"Cannot infer trajectory format from {filename!r}; "
+        f"pass format='xyz' or format='dump' explicitly."
     )
-    print(f"serial time: {time() - start} s.")
-    systems.save("t.xyz", [8, 11, 12])
 
-    # start = time()
-    # systems = XYZTrajectory(r"C:\Users\HerrW\Desktop\test.xyz", fast_mode=True)
-    # print(f"fast mode: {time() - start} s.")
 
-    # systems.save('test2.xyz', [0, 10, 20])
+def _read_multi_dump(filename: str) -> List[System]:
+    """Split a LAMMPS dump file into frames at every ITEM: TIMESTEP and
+    parse each one with `BuildSystem.parse_dump_frame`.
+    """
+    from mdapy.load_save import _open_file, BuildSystem
+    with _open_file(filename, "r") as fp:
+        lines = fp.readlines()
+
+    ts_idx = [i for i, l in enumerate(lines)
+              if l.strip().startswith("ITEM: TIMESTEP")]
+    if not ts_idx:
+        raise ValueError(f"{filename}: no ITEM: TIMESTEP header found")
+
+    boundaries = ts_idx + [len(lines)]
+    systems: List[System] = []
+    for i in range(len(ts_idx)):
+        frame = lines[boundaries[i] : boundaries[i + 1]]
+        df, box, info = BuildSystem.parse_dump_frame(
+            frame, source=f"{filename}[frame {i}]"
+        )
+        systems.append(System(data=df, box=box, global_info=info))
+    return systems
+
+
+def _write_multi_dump(filename: str, systems: List[System], mode: str) -> None:
+    from mdapy.load_save import SaveSystem
+    if mode not in ("w", "a"):
+        raise ValueError(f"mode must be 'w' or 'a', got {mode!r}")
+    with open(filename, mode + "b") as fp:
+        for sys_obj in systems:
+            ts = sys_obj.global_info.get("timestep", 0) if sys_obj.global_info else 0
+            try:
+                ts = int(ts)
+            except (TypeError, ValueError):
+                ts = 0
+            SaveSystem.write_dump_frame_to(fp, sys_obj.box, sys_obj.data, ts)
+
+
+class Trajectory:
+    """Multi-frame trajectory container — supports XYZ and LAMMPS dump
+    (read + write).
+
+    Parameters
+    ----------
+    filename : str, optional
+        Path to load (`.xyz`, `.dump`, `.lammpstrj`, optionally `.gz`).
+    systems : list of mdapy.System, optional
+        Pre-built list of frames.
+    format : {'xyz', 'dump'}, optional
+        Override file-format detection. Defaults to inferring from the
+        filename extension.
+
+    Examples
+    --------
+    >>> traj = mp.Trajectory("dump.lammpstrj")
+    >>> for frame in traj: print(frame.N)
+    >>> traj.save("subset.xyz", frames=[0, 2, 4])
+    >>> traj.append(other_system)
+    """
+
+    def __init__(self,
+                 filename: Optional[str] = None,
+                 systems: Optional[List[System]] = None,
+                 format: Optional[str] = None) -> None:
+        self._systems: List[System] = []
+        self._filename = filename
+        self._format = format
+        if systems is not None:
+            self._systems = list(systems)
+        elif filename is not None:
+            self._load()
+        else:
+            raise ValueError("Trajectory needs either filename= or systems=")
+
+    def _load(self) -> None:
+        fmt = self._format or _infer_trajectory_format(self._filename)
+        if fmt == "xyz":
+            # Reuse the existing XYZ multi-frame reader for now (it has its
+            # own parser pipeline). Wrap it so the resulting object behaves
+            # like a list of System.
+            self._systems = XYZTrajectory(self._filename)._systems
+        elif fmt == "dump":
+            self._systems = _read_multi_dump(self._filename)
+        else:
+            raise ValueError(f"Unsupported trajectory format: {fmt!r}")
+
+    def save(self, filename: str,
+             frames: Optional[Union[int, List[int]]] = None,
+             mode: str = "w",
+             format: Optional[str] = None) -> None:
+        """Write the trajectory to disk.
+
+        Parameters
+        ----------
+        filename : str
+            Output path.  Format is auto-detected from the suffix.
+        frames : int or list of int, optional
+            Subset of frame indices to save.  Default: all frames.
+        mode : {'w', 'a'}, default 'w'
+            Open mode (write/truncate vs. append).
+        format : {'xyz', 'dump'}, optional
+            Override format detection.
+        """
+        if frames is None:
+            sel = self._systems
+        elif isinstance(frames, int):
+            sel = [self._systems[frames]]
+        else:
+            sel = [self._systems[i] for i in frames]
+        if mode not in ("w", "a"):
+            raise ValueError(f"mode must be 'w' or 'a', got {mode!r}")
+
+        fmt = format or _infer_trajectory_format(filename)
+        if fmt == "xyz":
+            # Delegate to the existing XYZTrajectory writer.
+            tmp = XYZTrajectory(systems=sel)
+            tmp.save(filename, mode=mode)
+        elif fmt == "dump":
+            _write_multi_dump(filename, sel, mode)
+        else:
+            raise ValueError(f"Unsupported trajectory format: {fmt!r}")
+
+    # -- list-like API --------------------------------------------------
+    def __len__(self) -> int:
+        return len(self._systems)
+
+    def __getitem__(self, idx):
+        if isinstance(idx, slice):
+            return Trajectory(systems=self._systems[idx])
+        return self._systems[idx]
+
+    def __setitem__(self, idx: int, system: System) -> None:
+        if not isinstance(system, System):
+            raise TypeError("can only assign System instances")
+        self._systems[idx] = system
+
+    def __iter__(self) -> Iterator[System]:
+        return iter(self._systems)
+
+    def __repr__(self) -> str:
+        return f"<Trajectory: {len(self)} frame(s)>"
+
+    def append(self, system: System) -> None:
+        if not isinstance(system, System):
+            raise TypeError("only System instances can be appended")
+        self._systems.append(system)
+
+    def extend(self, systems: List[System]) -> None:
+        for s in systems:
+            self.append(s)
+
+    def insert(self, index: int, system: System) -> None:
+        if not isinstance(system, System):
+            raise TypeError("only System instances can be inserted")
+        self._systems.insert(index, system)
+
+    def pop(self, index: int = -1) -> System:
+        return self._systems.pop(index)
+
+    def remove(self, indices: Union[int, List[int]]) -> None:
+        if isinstance(indices, int):
+            indices = [indices]
+        for i in sorted(indices, reverse=True):
+            self._systems.pop(i)
+
+
+if __name__ == "__main__":
+    pass

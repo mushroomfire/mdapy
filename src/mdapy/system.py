@@ -188,7 +188,7 @@ class System:
         ase_atom: Optional["Atoms"] = None,
         ovito_atom: Optional["DataCollection"] = None,
         format: Optional[str] = None,
-        global_info: Optional[Dict[str, Any]] = {},
+        global_info: Optional[Dict[str, Any]] = None,
     ):
         """Initialize a System object from various data sources."""
         self.__global_info = {}
@@ -214,9 +214,36 @@ class System:
         # BuildSystem readers are inconsistent on this point and a multi-
         # chunk frame would later break `Series.to_numpy(allow_copy=False)`.
         self.__data = self.__data.rechunk()
-        if not len(self.__global_info):
-            self.__global_info = global_info
+        if not len(self.__global_info) and global_info is not None:
+            self.__global_info = dict(global_info)
         self.__calc: Optional[CalculatorMP] = None
+
+    @property
+    def box(self) -> Box:
+        """The simulation box.
+
+        Assigning to this attribute (``system.box = ...``) is equivalent to
+        calling :meth:`update_box` *without* ``scale_pos`` — i.e. atoms keep
+        their Cartesian coordinates while the cell vectors change. Any
+        cached neighbor / bond / Voronoi data is invalidated, since indices
+        and distances depend on the box.
+        """
+        return self.__box
+
+    @box.setter
+    def box(self, value: Union[int, float, Iterable[float], np.ndarray, Box]):
+        new_box = value if isinstance(value, Box) else Box(value)
+        self.__box = new_box
+        # Invalidate caches that depend on the box. During __init__ none of
+        # these attrs exist yet, so the hasattr guards make this a no-op.
+        if isinstance(getattr(self, "_System__calc", None), CalculatorMP):
+            self.__calc.results = {}
+        for attr in ("verlet_list", "neighbor_number", "distance_list", "rc",
+                     "bond", "voro_verlet_list", "voro_distance_list",
+                     "voro_face_area", "voro_neighbor_number",
+                     "_enlarge_box", "_enlarge_data"):
+            if hasattr(self, attr):
+                delattr(self, attr)
 
     @property
     def calc(self) -> Optional[CalculatorMP]:
@@ -336,8 +363,9 @@ class System:
         if isinstance(element, str):
             df = self.__data.with_columns(pl.lit(element).alias("element"))
         else:
-            assert len(element) == self.data.shape[0], (
-                "Length of element should be equal to the atom number."
+            assert len(element) == self.N, (
+                f"Length of element ({len(element)}) must equal the atom "
+                f"number ({self.N})."
             )
             if "element" in self.data.columns:
                 df = self.__data.select(pl.all().exclude("element")).with_columns(
@@ -388,7 +416,10 @@ class System:
         """
         assert "element" in self.data.columns, "Data must contain element column."
         for i in self.data["element"].unique():
-            assert i in element_list, f"Element should have {i}."
+            assert i in element_list, (
+                f"element_list must include element {i!r} "
+                "(seen in data['element'])."
+            )
         ele2type = {j: i for i, j in enumerate(element_list, start=1)}
         self.update_data(
             self.data.with_columns(
@@ -656,8 +687,9 @@ class System:
     def update_data(
         self,
         data: pl.DataFrame,
-        reset_calcolator: bool = False,
+        reset_calculator: bool = False,
         reset_neighbor: bool = False,
+        reset_calcolator: Optional[bool] = None,
     ) -> None:
         """
         Update the atomic data DataFrame.
@@ -667,12 +699,17 @@ class System:
         data : pl.DataFrame
             New DataFrame containing updated atomic information.
             Should maintain the same structure (columns) as the original data.
-        reset_calcolator : bool, optional
+        reset_calculator : bool, optional
             If True, clears cached results from the attached calculator.
-            Set to True when atomic positions or types/element change. Default is False.
+            Set to True when atomic positions or types/element change.
+            Default is False.
         reset_neighbor : bool, optional
             If True, clear all neighbor information.
             Set to True when atomic positions change. Default is False.
+        reset_calcolator : bool, optional
+            *Deprecated.* Misspelled alias for ``reset_calculator`` kept
+            for backwards compatibility; emits a ``DeprecationWarning``
+            and will be removed in a future release.
 
         Examples
         --------
@@ -684,11 +721,11 @@ class System:
 
         >>> # Update positions (reset calculator)
         >>> new_data = system.data.with_columns(x=system.data["x"] + 0.1)
-        >>> system.update_data(new_data, reset_calcolator=True)
+        >>> system.update_data(new_data, reset_calculator=True)
 
         Notes
         -----
-        When `reset_calcolator=True`, any cached energy, force, or stress
+        When ``reset_calculator=True``, any cached energy, force, or stress
         calculations are invalidated and will be recomputed on next access.
 
         The DataFrame is rechunked into a single contiguous chunk on write.
@@ -697,8 +734,17 @@ class System:
         ``Series.to_numpy(allow_copy=False)`` then raises. Rechunking once at
         the assignment boundary makes every consumer safe.
         """
+        if reset_calcolator is not None:
+            import warnings
+            warnings.warn(
+                "`reset_calcolator` is a misspelling and is deprecated; "
+                "use `reset_calculator` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            reset_calculator = reset_calculator or reset_calcolator
         self.__data = data.rechunk()
-        if reset_calcolator and isinstance(self.calc, CalculatorMP):
+        if reset_calculator and isinstance(self.calc, CalculatorMP):
             self.calc.results = {}
         if reset_neighbor:
             if hasattr(self, "verlet_list"):
@@ -716,6 +762,27 @@ class System:
                 )
             if hasattr(self, "_enlarge_box"):
                 del self._enlarge_box, self._enlarge_data
+
+    def _get_compute_view(self) -> Tuple[Box, pl.DataFrame]:
+        """Return ``(box, data)`` to feed to per-atom analysis kernels.
+
+        When :meth:`build_neighbor` (or :meth:`build_voronoi_neighbor` /
+        :meth:`build_nearest_neighbor`) detects a system whose box is smaller
+        than required, it transparently builds a replicated copy and stores
+        it as ``self._enlarge_box`` / ``self._enlarge_data``. Analysis
+        methods must then operate on the *enlarged* view (so neighbour
+        indices align), and the caller is responsible for slicing the
+        result back to ``self.N``.
+
+        Returns
+        -------
+        Tuple[Box, pl.DataFrame]
+            The enlarged view if one exists, otherwise the system's own box
+            and DataFrame.
+        """
+        if hasattr(self, "_enlarge_data"):
+            return self._enlarge_box, self._enlarge_data
+        return self.box, self.data
 
     def update_box(
         self,
@@ -781,25 +848,9 @@ class System:
                 + new_box.origin[2],
             )
 
+        # The `box` setter handles all neighbor / calculator cache
+        # invalidation (see the property definition at the top of the class).
         self.box = new_box
-
-        if isinstance(self.calc, CalculatorMP):
-            self.calc.results = {}
-        if hasattr(self, "verlet_list"):
-            del self.verlet_list, self.neighbor_number, self.distance_list
-        if hasattr(self, "rc"):
-            del self.rc
-        if hasattr(self, "bond"):
-            del self.bond
-        if hasattr(self, "voro_verlet_list"):
-            del (
-                self.voro_verlet_list,
-                self.voro_distance_list,
-                self.voro_face_area,
-                self.voro_neighbor_number,
-            )
-        if hasattr(self, "_enlarge_box"):
-            del self._enlarge_box, self._enlarge_data
 
     def wrap_pos(self) -> None:
         """Wrap positions into box for PBC boundary."""
@@ -888,34 +939,48 @@ class System:
 
     def write_mp(self, output_name: str) -> None:
         """
-        Save system to mp format file.
+        Save system to mdapy `.mp` (parquet-based) format.
 
         Parameters
         ----------
-        nx : int
-            Number of replications along x-direction.
-        ny : int
-            Number of replications along y-direction.
-        nz : int
-            Number of replications along z-direction.
+        output_name : str
+            Output file path. The `.mp` extension is recommended.
 
-        Raises
-        ------
-        ImportError
-            If ASE is not installed.
-        AssertionError
-            If data does not contain an 'element' column.
+        Notes
+        -----
+        The `.mp` format round-trips `box`, the full per-atom DataFrame, and
+        `global_info` (including non-numeric metadata) without loss.
 
         Examples
         --------
-        >>> atoms = system.to_ase()
-        >>> # Use ASE's functionality
-        >>> from ase.io import write
-        >>> write("output.xyz", atoms)
+        >>> system.write_mp("config.mp")
         """
         SaveSystem.write_mp(output_name, self.data, self.box, self.global_info)
 
     def write_xyz(self, output_name: str, classical: bool = False, compress=False):
+        """
+        Save the system to XYZ format.
+
+        Parameters
+        ----------
+        output_name : str
+            Output file path. ``.xyz`` (or ``.xyz.gz`` with ``compress=True``)
+            is the conventional extension.
+        classical : bool, optional
+            If True, write the legacy 4-column XYZ ``element x y z`` form
+            (no Properties / Lattice metadata). Defaults to False, i.e.
+            extended XYZ that round-trips box, velocities, forces, etc.
+        compress : bool, optional
+            If True, gzip the output (``.gz`` is appended if missing).
+            Defaults to False.
+
+        Notes
+        -----
+        The system's ``global_info`` is forwarded to the XYZ comment line as
+        extra metadata keys. Existing keys (``Lattice``, ``Properties``,
+        ``pbc``) are reserved by the writer and must not appear in
+        ``global_info``.
+        """
         SaveSystem.write_xyz(
             output_name, self.box, self.data, classical, compress, **self.global_info
         )
@@ -927,6 +992,28 @@ class System:
         selective_dynamics: bool = False,
         compress=False,
     ):
+        """
+        Save the system to a VASP POSCAR file.
+
+        Parameters
+        ----------
+        output_name : str
+            Output file path.
+        reduced_pos : bool, optional
+            If True, write fractional ``Direct`` coordinates instead of
+            Cartesian. Defaults to False.
+        selective_dynamics : bool, optional
+            If True, append a ``Selective dynamics`` block. The data must
+            contain ``sdx``, ``sdy``, ``sdz`` boolean-flag columns.
+            Defaults to False.
+        compress : bool, optional
+            If True, gzip the output. Defaults to False.
+
+        Notes
+        -----
+        Atoms are grouped by element in ``self.data``'s row order; if you
+        need a specific element ordering, sort the DataFrame first.
+        """
         SaveSystem.write_poscar(
             output_name,
             self.box,
@@ -944,12 +1031,52 @@ class System:
         data_format: str = "atomic",
         compress=False,
     ):
-        if element_list is not None:
-            self.set_type_by_element(element_list)
+        """
+        Save the system to a LAMMPS data file.
+
+        Parameters
+        ----------
+        output_name : str
+            Output file path.
+        element_list : list of str, optional
+            Element ordering for the LAMMPS ``Masses`` section. When the
+            system has an ``element`` column, the LAMMPS ``type`` column is
+            derived locally from this ordering (the System's own DataFrame
+            is *not* mutated by this call). Element names not present in
+            the data raise ``AssertionError``. If the data already has a
+            ``type`` column and no ``element`` column, the existing types
+            are used and ``element_list`` is recorded only in the
+            ``Masses`` block.
+        num_type : int, optional
+            Total number of atom types declared in the file. Defaults to
+            ``data['type'].max()``. Must be at least that maximum.
+        data_format : str, optional
+            ``'atomic'`` (id type x y z) or ``'charge'`` (id type q x y z).
+            Defaults to ``'atomic'``.
+        compress : bool, optional
+            If True, gzip the output. Defaults to False.
+        """
+        # When element_list is provided AND the data has an element column,
+        # derive the LAMMPS `type` column from the element ordering — but on
+        # a *local copy* so the System's own DataFrame is not mutated by a
+        # write call.
+        data = self.data
+        if element_list is not None and "element" in data.columns:
+            for ele in data["element"].unique():
+                assert ele in element_list, (
+                    f"element_list must include element {ele!r}."
+                )
+            ele2type = {j: i for i, j in enumerate(element_list, start=1)}
+            data = data.with_columns(
+                pl.col("element")
+                .replace_strict(ele2type, return_dtype=pl.Int32)
+                .rechunk()
+                .alias("type")
+            )
         SaveSystem.write_data(
             output_name,
             self.box,
-            self.data,
+            data,
             element_list=element_list,
             num_type=num_type,
             data_format=data_format,
@@ -957,6 +1084,24 @@ class System:
         )
 
     def write_dump(self, output_name: str, timestep: float = 0, compress=False):
+        """
+        Save the system to a single-frame LAMMPS dump file.
+
+        Parameters
+        ----------
+        output_name : str
+            Output file path. ``.dump`` / ``.lammpstrj`` are conventional.
+        timestep : float, optional
+            Value written into the ``ITEM: TIMESTEP`` header. Defaults to 0.
+        compress : bool, optional
+            If True, gzip the output. Defaults to False.
+
+        Notes
+        -----
+        For multi-frame trajectories use :class:`mdapy.Trajectory` instead.
+        Numeric columns plus the ``element`` string column are preserved;
+        other non-numeric columns are dropped.
+        """
         SaveSystem.write_dump(
             output_name, self.box, self.data, timestep=timestep, compress=compress
         )
@@ -1237,10 +1382,7 @@ class System:
         if not has_neigh:
             self.build_neighbor(max_rc, max_neigh)
 
-        if hasattr(self, "_enlarge_data"):
-            data = self._enlarge_data
-        else:
-            data = self.__data
+        _, data = self._get_compute_view()
 
         _, compact_type, cutoff_matrix = self._normalize_bond_cutoff(rc, data)
         bond = np.asarray(
@@ -1302,12 +1444,7 @@ class System:
                     )
                     verlet_list = self.verlet_list
 
-        if hasattr(self, "_enlarge_data"):
-            box = self._enlarge_box
-            data = self._enlarge_data
-        else:
-            box = self.box
-            data = self.__data
+        box, data = self._get_compute_view()
 
         ids = IdentifyDiamondStructure(data, box, verlet_list)
         ids.compute()
@@ -1338,12 +1475,7 @@ class System:
                 has_neigh = True
         if not has_neigh:
             self.build_neighbor(rc, max_neigh)
-        if hasattr(self, "_enlarge_data"):
-            data = self._enlarge_data
-            box = self._enlarge_box
-        else:
-            data = self.__data
-            box = self.box
+        box, data = self._get_compute_view()
 
         cnp = CommonNeighborParameter(
             data, box, rc, self.verlet_list, self.distance_list, self.neighbor_number
@@ -1378,12 +1510,7 @@ class System:
         else:
             self.build_nearest_neighbor(N_neigh)
 
-        if hasattr(self, "_enlarge_data"):
-            box = self._enlarge_box
-            data = self._enlarge_data
-        else:
-            box = self.box
-            data = self.__data
+        box, data = self._get_compute_view()
 
         aja = AcklandJonesAnalysis(data, box, self.verlet_list, self.distance_list)
         aja.compute()
@@ -1423,10 +1550,7 @@ class System:
                 has_neigh = True
         if not has_neigh:
             self.build_neighbor(rc, max_neigh)
-        if hasattr(self, "_enlarge_data"):
-            data = self._enlarge_data
-        else:
-            data = self.__data
+        _, data = self._get_compute_view()
 
         wcp = WarrenCowleyParameter(self.verlet_list, self.neighbor_number, data)
         wcp.compute()
@@ -1462,10 +1586,7 @@ class System:
                 has_neigh = True
         if not has_neigh:
             self.build_neighbor(rc, max_neigh)
-        if hasattr(self, "_enlarge_data"):
-            data = self._enlarge_data
-        else:
-            data = self.__data
+        _, data = self._get_compute_view()
 
         atomTemp = AtomicTemperature(
             data, self.verlet_list, self.distance_list, rc, factor
@@ -1577,12 +1698,7 @@ class System:
                 self.distance_list,
                 self.neighbor_number,
             )
-        if hasattr(self, "_enlarge_data"):
-            box = self._enlarge_box
-            data = self._enlarge_data
-        else:
-            box = self.box
-            data = self.__data
+        box, data = self._get_compute_view()
         SBO = SteinhardtBondOrientation(
             box,
             data,
@@ -1603,32 +1719,27 @@ class System:
             n_bond,
         )
         SBO.compute()
+        new_data = self.data
         if SBO.qnarray.shape[1] > 1:
-            columns = []
-            for i in llist:
-                columns.append(f"ql{i}")
+            columns = [f"ql{i}" for i in llist]
             if wl:
-                for i in llist:
-                    columns.append(f"wl{i}")
+                columns.extend(f"wl{i}" for i in llist)
             if wlhat:
-                for i in llist:
-                    columns.append(f"wlh{i}")
-
+                columns.extend(f"wlh{i}" for i in llist)
             for i, name in enumerate(columns):
-                self.__data = self.__data.with_columns(
+                new_data = new_data.with_columns(
                     pl.lit(SBO.qnarray[: self.N, i]).alias(name)
                 )
         else:
-            self.__data = self.__data.with_columns(
+            new_data = new_data.with_columns(
                 pl.lit(SBO.qnarray.flatten()[: self.N]).alias(f"ql{llist[0]}")
             )
         if identify_liquid:
-            self.__data = self.__data.with_columns(
-                pl.lit(SBO.solidliquid[: self.N]).alias("solidliquid")
+            new_data = new_data.with_columns(
+                pl.lit(SBO.solidliquid[: self.N]).alias("solidliquid"),
+                pl.lit(SBO.nbond[: self.N]).alias("nbond"),
             )
-            self.__data = self.__data.with_columns(
-                pl.lit(SBO.nbond[: self.N]).alias("nbond")
-            )
+        self.update_data(new_data)
 
     def cal_polyhedral_template_matching(
         self,
@@ -1708,12 +1819,7 @@ class System:
                     )
                     verlet_list = self.verlet_list
 
-        if hasattr(self, "_enlarge_data"):
-            box = self._enlarge_box
-            data = self._enlarge_data
-        else:
-            box = self.box
-            data = self.__data
+        box, data = self._get_compute_view()
 
         ptm = PolyhedralTemplateMatching(
             structure, data, box, rmsd_threshold, verlet_list
@@ -1766,17 +1872,12 @@ class System:
             if hasattr(self, "neighbor_number"):
                 if self.neighbor_number.min() >= N and hasattr(self, "rc"):
                     tool.sort_neighbor(
-                        self.verlet_list, self.distance_list, self.neighbor_number, 18
+                        self.verlet_list, self.distance_list, self.neighbor_number, N
                     )
                     has_verlet = True
             if not has_verlet:
                 self.build_nearest_neighbor(N)
-            if hasattr(self, "_enlarge_data"):
-                box = self._enlarge_box
-                data = self._enlarge_data
-            else:
-                box = self.box
-                data = self.__data
+            box, data = self._get_compute_view()
             csp = CentroSymmetryParameter(data, box, N, self.verlet_list)
             csp.compute()
             res = csp.csp[: self.N]
@@ -1837,12 +1938,7 @@ class System:
                     verlet_list = self.verlet_list
                     neighbor_number = self.neighbor_number
 
-        if hasattr(self, "_enlarge_data"):
-            box = self._enlarge_box
-            data = self._enlarge_data
-        else:
-            box = self.box
-            data = self.__data
+        box, data = self._get_compute_view()
 
         cna = CommonNeighborAnalysis(data, box, verlet_list, neighbor_number, rc)
         cna.compute()
@@ -1935,12 +2031,7 @@ class System:
         if not has_neigh:
             self.build_neighbor(rc, max_neigh)
 
-        if hasattr(self, "_enlarge_box"):
-            box = self._enlarge_box
-            data = self._enlarge_data
-        else:
-            box = self.box
-            data = self.data
+        box, data = self._get_compute_view()
         ba = BondAnalysis(
             data,
             box,
@@ -1995,12 +2086,7 @@ class System:
         if not has_neigh:
             self.build_neighbor(rc, max_neigh)
 
-        if hasattr(self, "_enlarge_box"):
-            box = self._enlarge_box
-            data = self._enlarge_data
-        else:
-            box = self.box
-            data = self.data
+        box, data = self._get_compute_view()
         adf = AngularDistributionFunction(
             data,
             box,
@@ -2045,21 +2131,23 @@ class System:
         if not has_neigh:
             self.build_neighbor(rc, max_neigh)
 
-        if hasattr(self, "_enlarge_box"):
-            box = self._enlarge_box
-            data = self._enlarge_data
-        else:
-            box = self.box
-            data = self.data
+        box, data = self._get_compute_view()
 
-        if "element" in data.columns:
-            ele2type = {j: i + 1 for i, j in enumerate(data["element"].unique().sort())}
-            type_list = data.with_columns(
-                pl.col("element").replace_strict(ele2type).rechunk().alias("type")
-            )["type"].to_numpy()
-            self.__data = self.data.with_columns(type=type_list[: self.N])
-        elif "type" in data.columns:
+        # Prefer the explicit `type` column if present — derive types from
+        # `element` only as a fallback so we never silently overwrite a
+        # user-provided type column. The locally-derived type array is for
+        # this RDF call's partial bookkeeping; it is *not* written back.
+        if "type" in data.columns:
             type_list = data["type"].to_numpy()
+        elif "element" in data.columns:
+            ele2type = {j: i + 1 for i, j in enumerate(data["element"].unique().sort())}
+            type_list = (
+                data.select(
+                    pl.col("element").replace_strict(ele2type).cast(pl.Int32)
+                )
+                .to_numpy()
+                .ravel()
+            )
         else:
             type_list = np.zeros(data.shape[0], np.int32)
 
@@ -2111,10 +2199,11 @@ class System:
                 self.build_neighbor(average_rc, max_neigh)
         else:
             self.build_neighbor(average_rc, max_neigh)
-        assert not hasattr(self, "_enlarge_data"), "Only supprot for big box."
+        assert not hasattr(self, "_enlarge_data"), (
+            "average_by_neighbor only supports systems whose box is large enough "
+            "that no replica was built (i.e. self._enlarge_data must not exist)."
+        )
         data = self.data
-        if hasattr(self, "_enlarge_data"):
-            data = self._enlarge_data
         data = tool.average_by_neighbor(
             average_rc,
             data,
@@ -2164,12 +2253,14 @@ class System:
         >>> system.cal_cluster_analysis(rc=rc_dict)
         >>> # cluster_id column added to system.data
         """
-        if isinstance(rc, float) or isinstance(rc, int):
-            max_rc = rc
+        if isinstance(rc, (int, float, np.integer, np.floating)):
+            max_rc = float(rc)
         elif isinstance(rc, dict):
             max_rc = max([i for i in rc.values()])
         else:
-            raise "rc should be a positive number, or a dict like {'1-1':1.5, '1-2':1.3}"
+            raise TypeError(
+                "rc should be a positive number, or a dict like {'1-1':1.5, '1-2':1.3}"
+            )
         if hasattr(self, "rc"):
             if self.rc < max_rc:
                 self.build_neighbor(max_rc, max_neigh)
@@ -2186,7 +2277,9 @@ class System:
             rc, self.verlet_list, self.distance_list, self.neighbor_number, type_list
         )
         ca.compute()
-        self.__data = self.data.with_columns(cluster_id=ca.particleClusters[: self.N])
+        self.update_data(
+            self.data.with_columns(cluster_id=ca.particleClusters[: self.N])
+        )
 
     def cal_structure_entropy(
         self,
@@ -2234,10 +2327,7 @@ class System:
         else:
             self.build_neighbor(rc, max_neigh)
 
-        if hasattr(self, "_enlarge_data"):
-            box = self._enlarge_box
-        else:
-            box = self.box
+        box, _ = self._get_compute_view()
         SE = StructureEntropy(
             box,
             self.verlet_list,
@@ -2251,7 +2341,7 @@ class System:
         SE.compute()
         data = self.data.with_columns(entropy=SE.entropy[: self.N])
         if average_rc > 0:
-            data = self.data.with_columns(entropy_ave=SE.entropy_ave[: self.N])
+            data = data.with_columns(entropy_ave=SE.entropy_ave[: self.N])
         self.update_data(data)
 
     def cal_voronoi_volume(self) -> None:
@@ -2347,8 +2437,10 @@ class System:
         if "element" in self.data.columns:
             element_list = self.data["element"].unique().sort()
             ele2type = {j: i + 1 for i, j in enumerate(element_list)}
-            self.__data = self.__data.with_columns(
-                pl.col("element").replace_strict(ele2type).rechunk().alias("type")
+            self.update_data(
+                self.data.with_columns(
+                    pl.col("element").replace_strict(ele2type).rechunk().alias("type")
+                )
             )
         else:
             assert element_list is not None, (
@@ -2419,13 +2511,15 @@ class System:
                     .alias("mol_id")
                 )
 
-                self.__data = self.__data.with_columns(
-                    pl.col("cluster_id")
-                    .replace_strict(
-                        dict(zip(clus_mol["cluster_id"], clus_mol["mol_id"]))
+                self.update_data(
+                    self.data.with_columns(
+                        pl.col("cluster_id")
+                        .replace_strict(
+                            dict(zip(clus_mol["cluster_id"], clus_mol["mol_id"]))
+                        )
+                        .rechunk()
+                        .alias("mol_id")
                     )
-                    .rechunk()
-                    .alias("mol_id")
                 )
 
         else:

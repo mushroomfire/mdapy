@@ -1,0 +1,18 @@
+## atom_style = full → mdapy must raise a clear error.
+2 atoms
+1 atom types
+1 bonds
+1 bond types
+
+0.0 4.0 xlo xhi
+0.0 4.0 ylo yhi
+0.0 4.0 zlo zhi
+
+Atoms  # full
+
+1 1 1 0.0 0.0 0.0 0.0
+2 1 1 0.0 2.0 0.0 0.0
+
+Bonds
+
+1 1 1 2

@@ -228,7 +228,7 @@ def get_sfe_fcc(name: str, a: float, calc: CalculatorMP) -> float:
             .otherwise(pl.col("x"))
             .alias("x")
         ),
-        reset_calcolator=True,
+        reset_calculator=True,
     )
     system.wrap_pos()
     e2 = system.get_energy()
@@ -294,7 +294,7 @@ def get_average_sfe_fcc_hea(
                 .otherwise(pl.col("x"))
                 .alias("x")
             ),
-            reset_calcolator=True,
+            reset_calculator=True,
         )
         system.wrap_pos()
         e2 = system.get_energy()

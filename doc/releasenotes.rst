@@ -1,6 +1,50 @@
 Release Notes
 ===============
 
+Mdapy 1.0.5a2 (April 30, 2026)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🐞 Bug Fixes
+-------------
+
+- ``System.__init__``: ``global_info`` no longer leaks across instances
+  (mutable-default trap).
+- ``System.cal_centro_symmetry_parameter``: respect the user's ``N``
+  instead of a hardcoded 18 when sorting existing neighbors.
+- ``System.cal_structure_entropy``: keep both ``entropy`` and
+  ``entropy_ave`` columns when ``average_rc > 0``.
+- ``System.cal_cluster_analysis``: invalid ``rc`` now raises
+  ``TypeError`` (previously raised a bare string).
+- ``System.write_data``: writing no longer mutates ``self.data`` —
+  ``element_list`` is applied to a local copy.
+- ``BuildSystem.from_ovito``: tolerate sources without a
+  ``particle_type`` table (e.g. systems built from raw positions).
+- ``cal_steinhardt_bond_orientation`` / ``cal_cluster_analysis`` /
+  ``cal_chemical_species`` / ``cal_radial_distribution_function``:
+  go through ``update_data`` so the DataFrame stays single-chunked
+  and ``cal_radial_distribution_function`` no longer overwrites a
+  user-provided ``type`` column.
+- ``System.average_by_neighbor``: fix typo and removed unreachable
+  branch.
+- Fixed wrong ``write_mp`` docstring (was copied from ``replicate``).
+
+🛠️ Other Improvements
+----------------------
+
+- ``System.box`` is now a property; assigning to it
+  (``system.box = ...``) clears all neighbor / Voronoi / calculator
+  caches automatically, matching ``update_box``'s contract.
+- ``System.update_data``: misspelled ``reset_calcolator`` kwarg
+  renamed to ``reset_calculator`` (old name kept as a deprecated
+  alias with a ``DeprecationWarning``).
+- Added ``System._get_compute_view()`` and collapsed 14 copies of
+  the ``hasattr(self, "_enlarge_data")`` branch into a single helper.
+- Added docstrings to ``write_xyz`` / ``write_poscar`` /
+  ``write_data`` / ``write_dump``.
+- New ``tests/test_system.py`` (47 tests) covers construction,
+  mutators, calculator hook, neighbor invalidation, ASE/OVITO
+  bridges, and regression tests for every fix above.
+
 Mdapy 1.0.5a1 (April 28, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

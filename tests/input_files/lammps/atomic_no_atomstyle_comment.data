@@ -1,0 +1,15 @@
+## Same as atomic_basic but the Atoms header has NO "# atomic" comment.
+## Tests that mdapy can infer the atom_style from the column count.
+4 atoms
+2 atom types
+
+0.0 4.0 xlo xhi
+0.0 4.0 ylo yhi
+0.0 4.0 zlo zhi
+
+Atoms
+
+1 1 0.0 0.0 0.0
+2 2 2.0 0.0 0.0
+3 1 0.0 2.0 0.0
+4 2 2.0 2.0 0.0

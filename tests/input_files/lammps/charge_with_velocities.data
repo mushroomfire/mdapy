@@ -1,0 +1,25 @@
+## charge style with Velocities section.
+## Order: Header, Masses, Atoms, Velocities (canonical).
+3 atoms
+2 atom types
+
+-1.0 5.0 xlo xhi
+-1.0 5.0 ylo yhi
+-1.0 5.0 zlo zhi
+
+Masses
+
+1 22.99
+2 35.45
+
+Atoms  # charge
+
+1 1  1.0  0.0 0.0 0.0
+2 2 -1.0  3.0 0.0 0.0
+3 1  1.0  0.0 3.0 0.0
+
+Velocities
+
+1  0.1  0.2  0.3
+2 -0.1 -0.2 -0.3
+3  0.0  0.0  0.0

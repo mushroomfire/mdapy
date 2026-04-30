@@ -1,0 +1,5 @@
+3
+A classical XYZ file (no Lattice= comment).
+Al 0.0 0.0 0.0
+Cu 1.5 0.0 0.0
+Ni 0.0 1.5 0.0

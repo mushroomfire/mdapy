@@ -1,0 +1,11 @@
+Selective-dynamics example
+1.0
+4.0 0.0 0.0
+0.0 4.0 0.0
+0.0 0.0 4.0
+Al
+2
+Selective dynamics
+Cartesian
+0.0 0.0 0.0  T T T
+2.0 0.0 0.0  F F F

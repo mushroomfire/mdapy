@@ -222,6 +222,22 @@ def _hexagonal_box(a, c):
     ])
 
 
+def _basis_hcp(a, c):
+    """atomsk-compatible 2-atom hexagonal primitive cell. The legacy
+    orthogonal 4-atom supercell that mdapy used to emit is *not*
+    selected via this entry — it is preserved only for the
+    ``"legacy_orth"`` dispatch tag and accessible via
+    ``_get_basispos_and_box_cubic`` for callers that depend on the old
+    layout."""
+    box = _hexagonal_box(a, c)
+    basis = np.array([
+        [0.0, 0.0, 0.0],
+        [1.0 / 3.0, 2.0 / 3.0, 0.5],
+    ])
+    species = np.array([0, 1], dtype=np.int32)
+    return box, basis, species
+
+
 def _basis_wurtzite(a, c):
     """Wurtzite B4 (e.g. GaN): 4-atom hexagonal primitive."""
     box = _hexagonal_box(a, c)
@@ -273,19 +289,22 @@ _STRUCTURES = {
     "l12":        (_basis_l1_2,       (2,),     None),
     "perovskite": (_basis_perovskite, (3,),     None),
     # HEXAGONAL — atomsk-compatible 120° primitive cell.
+    "hcp":        (_basis_hcp,        (1, 2),   np.sqrt(8 / 3)),
     "wurtzite":   (_basis_wurtzite,   (1, 2),   np.sqrt(8 / 3)),
     "graphite":   (_basis_graphite,   (1, 2),   None),  # c must be given
-    # LEGACY hexagonal — orthogonal supercell, kept for backward compat.
-    "hcp":        ("legacy_orth",     (1,),     None),
+    # LEGACY — orthogonal mdapy-specific supercell, kept for backward compat.
     "graphene":   ("legacy_orth",     (1,),     None),
 }
 
-# Whether Miller-indexed orientation is supported. Currently cubic only;
-# atomsk supports hexagonal Miller via [hkil] but mdapy does not yet.
-_MILLER_SUPPORTED = {
+# Cubic structures supporting Miller-indexed orientation.
+_MILLER_CUBIC = {
     "sc", "fcc", "bcc", "diamond", "cscl", "b2", "rocksalt", "b1",
     "zincblende", "b3", "fluorite", "l1_2", "l12", "perovskite",
 }
+# Hexagonal structures supporting Miller-Bravais [hkil] (or 3-index [uvw])
+# orientation.
+_MILLER_HEX = {"hcp", "wurtzite", "graphite"}
+_MILLER_SUPPORTED = _MILLER_CUBIC | _MILLER_HEX
 
 
 def _normalize_structure_name(structure: str) -> str:
@@ -571,6 +590,98 @@ def _find_minimal_cell(
     return best_box, best_basis
 
 
+def _hkil_to_uvw(miller) -> Tuple[int, int, int]:
+    """Convert a 3- or 4-index hexagonal direction to ``(u, v, w)``
+    relative to the (a1, a2, c) primitive basis.
+
+    For a 4-index ``[hkil]`` direction the conversion follows atomsk's
+    ``HKIL2UVW``: ``u = 2h + k``, ``v = h + 2k``, ``w = l``, then the
+    triplet is GCD-reduced so the result is the *minimal* integer
+    direction. The Miller-Bravais constraint ``h + k + i == 0`` is
+    enforced.
+
+    For a 3-index ``[uvw]`` the values are returned unchanged (also
+    GCD-reduced).
+    """
+    if len(miller) == 4:
+        h, k, i, L = miller
+        if abs(h + k + i) > 1e-9:
+            raise ValueError(
+                f"4-index hexagonal direction {tuple(miller)} violates "
+                "the Miller-Bravais constraint h + k + i = 0."
+            )
+        u, v, w = 2 * h + k, h + 2 * k, L
+    elif len(miller) == 3:
+        u, v, w = miller
+    else:
+        raise ValueError(
+            f"Hexagonal Miller indices must be length 3 ([uvw]) or 4 "
+            f"([hkil]); got {tuple(miller)}."
+        )
+    g = _gcd_three(int(u), int(v), int(w))
+    if g > 0:
+        u, v, w = u // g, v // g, w // g
+    return int(u), int(v), int(w)
+
+
+def _build_lattice_from_miller_hex(
+    structure: str,
+    miller1, miller2, miller3,
+    a: float,
+    c: float,
+    species_aware: bool = True,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Hexagonal counterpart of :func:`_build_lattice_from_miller`.
+
+    Each Miller direction is given in 3-index ``[uvw]`` or 4-index
+    ``[hkil]`` notation; the latter is converted via atomsk's
+    ``HKIL2UVW`` rule. Orthogonality and right-handedness are checked in
+    Cartesian coordinates because the hexagonal basis is non-orthogonal
+    and the integer-Miller test would be wrong here.
+    """
+    u1, v1, w1 = _hkil_to_uvw(miller1)
+    u2, v2, w2 = _hkil_to_uvw(miller2)
+    u3, v3, w3 = _hkil_to_uvw(miller3)
+
+    s = _normalize_structure_name(structure)
+    build_fn, _, _ = _STRUCTURES[s]
+    if build_fn == "legacy_orth":
+        raise ValueError(
+            f"Hexagonal Miller orientation is not supported for legacy "
+            f"structure '{structure}'."
+        )
+    box, basis, species = build_fn(a, c)
+    # Build M with new vectors as COLUMNS, mirroring _build_transform_matrix.
+    M = np.array([
+        [u1, u2, u3],
+        [v1, v2, v3],
+        [w1, w2, w3],
+    ], dtype=int)
+    # Cartesian new lattice vectors. Row k = sum_j M[j, k] * box[j, :].
+    new_lattice = M.T @ box
+
+    # Orthogonality + right-hand check in Cartesian.
+    eps = 1e-6
+    nl = new_lattice
+    if (abs(np.dot(nl[0], nl[1])) > eps or
+            abs(np.dot(nl[0], nl[2])) > eps or
+            abs(np.dot(nl[1], nl[2])) > eps):
+        raise ValueError(
+            "Hexagonal Miller directions must be mutually orthogonal in "
+            "Cartesian space."
+        )
+    if np.dot(np.cross(nl[0], nl[1]), nl[2]) <= 0:
+        raise ValueError(
+            "Hexagonal Miller indices must satisfy the right-hand rule "
+            "(miller1 × miller2 must be parallel to and same-sign as miller3)."
+        )
+
+    new_basis, new_species = _find_atoms_in_new_cell(M, basis, species)
+
+    aligned_lattice, aligned_basis = _align_box_to_axes(new_lattice, new_basis)
+    return aligned_lattice, aligned_basis, (new_species if species_aware else None)
+
+
 def _build_lattice_from_miller(
     structure: str,
     miller1: Tuple[int, int, int],
@@ -772,8 +883,15 @@ def build_crystal(
         )
 
     # --- Resolve `c` for hexagonal/tetragonal structures ---
+    # Precedence: explicit `c` > explicit `c_over_a` (computed against `a`)
+    # > the structure's default factor.
     if c is None and c_default_factor is not None:
-        c = a * float(c_default_factor)
+        # If the caller did not override c_over_a from the function
+        # default, fall back to the structure's canonical factor.
+        if c_over_a == np.sqrt(8 / 3):
+            c = a * float(c_default_factor)
+        else:
+            c = a * float(c_over_a)
     if c is None and s == "graphite":
         # No sensible default for inter-layer spacing; user must set it.
         raise ValueError("`graphite` requires an explicit `c` parameter.")
@@ -790,16 +908,29 @@ def build_crystal(
         if s not in _MILLER_SUPPORTED:
             raise ValueError(
                 f"Miller orientation is not yet supported for structure "
-                f"'{s}' (cubic structures only)."
+                f"'{s}'."
             )
-        if (len(miller1) != 3 or len(miller2) != 3 or len(miller3) != 3):
-            raise ValueError(
-                f"Cubic structures require 3-index Miller indices [h,k,l]. "
-                f"Got miller1={miller1}, miller2={miller2}, miller3={miller3}"
+        if s in _MILLER_HEX:
+            # Hexagonal: accept 3-index [uvw] or 4-index [hkil].
+            for label, m in (("miller1", miller1), ("miller2", miller2),
+                             ("miller3", miller3)):
+                if len(m) not in (3, 4):
+                    raise ValueError(
+                        f"Hexagonal Miller indices must be 3-index [uvw] "
+                        f"or 4-index [hkil]. Got {label}={tuple(m)}."
+                    )
+            old_box, old_pos, species_idx = _build_lattice_from_miller_hex(
+                s, miller1, miller2, miller3, a, c,
             )
-        old_box, old_pos, species_idx = _build_lattice_from_miller(
-            s, miller1, miller2, miller3, a, species_aware=True,
-        )
+        else:
+            if (len(miller1) != 3 or len(miller2) != 3 or len(miller3) != 3):
+                raise ValueError(
+                    f"Cubic structures require 3-index Miller indices [h,k,l]. "
+                    f"Got miller1={miller1}, miller2={miller2}, miller3={miller3}"
+                )
+            old_box, old_pos, species_idx = _build_lattice_from_miller(
+                s, miller1, miller2, miller3, a, species_aware=True,
+            )
         # Carry species through the minimal-cell reduction.
         old_box, old_pos, species_idx = _find_minimal_cell_with_species(
             old_box, old_pos, species_idx

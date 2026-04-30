@@ -74,7 +74,20 @@ Mdapy 1.0.5a2 (April 30, 2026)
 - New ``tests/_generate_fixtures/generate_build_crystal.py`` invokes
   the atomsk binary to produce reference fixtures, and
   ``tests/test_build_crystal.py`` compares mdapy output against them
-  for every supported structure (15 fixtures).
+  for every supported structure (17 fixtures).
+- ``hcp`` now emits atomsk's 2-atom 120°-angle primitive cell
+  (replacing the legacy 4-atom orthogonal supercell). Atom counts
+  with ``nx, ny, nz`` therefore halve. Downstream structure-analysis
+  fixtures that depend on ``perfect_hcp`` have been regenerated; the
+  ``Q_ℓ`` reference is now skipped for ``perfect_hcp`` because freud
+  returns edge-atom artifacts on the strongly-tilted cell while
+  mdapy returns the analytic ideal value.
+- ``build_crystal`` now supports Miller-Bravais ``[hkil]`` orientation
+  (and the equivalent 3-index ``[uvw]``) for the hexagonal structures
+  ``hcp``, ``wurtzite`` and ``graphite``, matching atomsk's
+  ``--create ... orient`` output. Conversion uses
+  ``u = 2h + k``, ``v = h + 2k``, ``w = l`` with GCD reduction; the
+  ``h + k + i = 0`` Miller-Bravais constraint is enforced.
 
 Mdapy 1.0.5a1 (April 28, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

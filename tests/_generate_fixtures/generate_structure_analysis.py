@@ -83,6 +83,9 @@ QLM_SKIP = {
     "random_atoms",                  # degenerate neighbor counts
     "highly_tilted_fcc",             # extreme shear, MIC ties
     "sheared_fcc",                   # mild shear: freud per-atom floor diffs
+    "perfect_hcp",                   # 120° primitive: freud edge-atom Qℓ
+                                     #   diverges from the analytic ideal
+                                     #   (7/72 for Q_4) that mdapy returns
 }
 
 

@@ -70,6 +70,7 @@ PLAIN_CASES = [
     ("SrTiO3_perovskite", ("Ti", "Sr", "O"),
                                       dict(structure="perovskite", a=3.905)),
 
+    ("Mg_hcp",       "Mg",            dict(structure="hcp", a=3.21, c=5.21304)),
     ("GaN_wurtzite", ("Ga", "N"),     dict(structure="wurtzite", a=3.19, c=5.18)),
     ("C_graphite",   "C",             dict(structure="graphite", a=2.46, c=6.71)),
 ]
@@ -96,6 +97,13 @@ MILLER_CASES = [
     ("NaCl_rocksalt_111", ("Na", "Cl"),
      dict(structure="rocksalt", a=5.64,
           miller1=(1, -1, 0), miller2=(1, 1, -2), miller3=(1, 1, 1))),
+    # Hexagonal Miller-Bravais [hkil]
+    ("Mg_hcp_prismatic", "Mg",
+     dict(structure="hcp", a=3.21, c=5.21,
+          miller1=(1, -1, 0, 0), miller2=(1, 1, -2, 0), miller3=(0, 0, 0, 1))),
+    ("GaN_wurtzite_prismatic", ("Ga", "N"),
+     dict(structure="wurtzite", a=3.19, c=5.18,
+          miller1=(1, -1, 0, 0), miller2=(1, 1, -2, 0), miller3=(0, 0, 0, 1))),
 ]
 
 
@@ -126,10 +134,28 @@ def test_graphite_requires_c():
         mp.build_crystal("C", "graphite", a=2.46)
 
 
-def test_miller_unsupported_for_hexagonal():
-    with pytest.raises(ValueError, match="Miller"):
-        mp.build_crystal(("Ga", "N"), "wurtzite", a=3.19, c=5.18,
-                         miller1=(1, 0, 0), miller2=(0, 1, 0), miller3=(0, 0, 1))
+def test_hkil_constraint_enforced():
+    # h+k+i must equal 0 in 4-index notation.
+    with pytest.raises(ValueError, match="h \\+ k \\+ i"):
+        mp.build_crystal("Mg", "hcp", a=3.21, c=5.21,
+                         miller1=(1, 0, 0, 0),  # i=0 but h+k+i=1, violates
+                         miller2=(0, 1, -1, 0),
+                         miller3=(0, 0, 0, 1))
+
+
+def test_3index_hex_miller_accepted():
+    """[uvw] (3-index) form should also work for hexagonal structures."""
+    # [1-100] in 4-index ↔ HKIL2UVW(1,-1,0,0)=(1,-1,0) in 3-index.
+    s4 = mp.build_crystal("Mg", "hcp", a=3.21, c=5.21,
+                          miller1=(1, -1, 0, 0),
+                          miller2=(1, 1, -2, 0),
+                          miller3=(0, 0, 0, 1))
+    s3 = mp.build_crystal("Mg", "hcp", a=3.21, c=5.21,
+                          miller1=(1, -1, 0),
+                          miller2=(3, 3, 0),  # = HKIL2UVW(1,1,-2,0)*3 — same direction
+                          miller3=(0, 0, 1))
+    np.testing.assert_allclose(s4.box.box, s3.box.box, atol=1e-9)
+    assert s4.N == s3.N
 
 
 def test_replication_scales_atom_count():

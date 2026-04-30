@@ -115,7 +115,9 @@ CATALOG = [
     ("SrTiO3_perovskite", "perovskite", ["3.905"],           ["Ti", "Sr", "O"],
      dict(structure="perovskite", a=3.905), ("Ti", "Sr", "O")),
 
-    # HEXAGONAL, two species
+    # HEXAGONAL, single + two species
+    ("Mg_hcp",       "hcp",       ["3.21", "5.21304"],       ["Mg"],
+     dict(structure="hcp", a=3.21, c=5.21304), "Mg"),
     ("GaN_wurtzite", "wurtzite",  ["3.19", "5.18"],          ["Ga", "N"],
      dict(structure="wurtzite", a=3.19, c=5.18), ("Ga", "N")),
     ("C_graphite",   "graphite",  ["2.46", "6.71"],          ["C"],
@@ -145,6 +147,17 @@ MILLER_CATALOG = [
      dict(structure="rocksalt", a=5.64,
           miller1=(1, -1, 0), miller2=(1, 1, -2), miller3=(1, 1, 1)),
      ("Na", "Cl")),
+    # HEXAGONAL Miller (4-index [hkil])
+    ("Mg_hcp_prismatic", "hcp", ["3.21", "5.21"], ["Mg"],
+     ("[1-100]", "[11-20]", "[0001]"),
+     dict(structure="hcp", a=3.21, c=5.21,
+          miller1=(1, -1, 0, 0), miller2=(1, 1, -2, 0), miller3=(0, 0, 0, 1)),
+     "Mg"),
+    ("GaN_wurtzite_prismatic", "wurtzite", ["3.19", "5.18"], ["Ga", "N"],
+     ("[1-100]", "[11-20]", "[0001]"),
+     dict(structure="wurtzite", a=3.19, c=5.18,
+          miller1=(1, -1, 0, 0), miller2=(1, 1, -2, 0), miller3=(0, 0, 0, 1)),
+     ("Ga", "N")),
 ]
 
 

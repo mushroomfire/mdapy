@@ -611,12 +611,26 @@ class CreatePolycrystal:
         # Replicate unit cell
         data, _ = _replicate_pos(self.unitcell.data, self.unitcell.box, *replicate_nums)
 
-        # Prepare graphene if needed
+        # Prepare graphene if needed.
+        #
+        # Note: the new ``build_crystal("graphene", a=...)`` follows
+        # atomsk and treats ``a`` as the hexagonal in-plane lattice
+        # parameter (= C-C bond * sqrt(3) ≈ 2.46 Å). The old API used
+        # the C-C bond directly. We size the sheet so its (x, y)
+        # bounding box covers ≥ 2 * r_max, which is enough for any face
+        # of any Voronoi cell after centering at the face center.
         if self.add_graphene:
-            gra_lattice = 1.42  # Angstrom
-            x1 = int(np.ceil(r_max / (gra_lattice * 3)))
-            y1 = int(np.ceil(r_max / (gra_lattice * 3**0.5)))
-            gra = build_crystal("C", "graphene", gra_lattice, nx=x1, ny=y1, nz=1)
+            cc_bond = 1.42  # Angstrom — graphene C-C bond
+            gra_lattice = cc_bond * 3**0.5  # hex in-plane parameter
+            target = 2.0 * r_max
+            x1 = int(np.ceil(target / gra_lattice))
+            # H2 contributes sqrt(3)/2 * a along y per cell.
+            y1 = int(np.ceil(target / (gra_lattice * 3**0.5 / 2.0)))
+            # `c` is just a vacuum spacer along z; atoms stay at z=0,
+            # only the box height uses it.
+            gra = build_crystal(
+                "C", "graphene", gra_lattice, nx=x1, ny=y1, nz=1, c=1.0,
+            )
 
         # Preallocate lists
         pos_list = []

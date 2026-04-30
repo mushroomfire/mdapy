@@ -88,8 +88,6 @@ class System:
 
     Attributes
     ----------
-    box : Box
-        Simulation box object containing cell vectors and boundary conditions.
     verlet_list : np.ndarray, optional
         Neighbor list array when neighbors are built.
     distance_list : np.ndarray, optional

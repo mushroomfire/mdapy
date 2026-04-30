@@ -12,7 +12,12 @@ from typing import Optional, Tuple
 def _get_basispos_and_box_cubic(
     structure: str, a: float, c_over_a: Optional[float] = None
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Get basis positions and box for cubic/HCP/graphene structures (internal helper)."""
+    """Build the orthogonal-supercell representation used by the legacy
+    ``hcp`` and ``graphene`` paths and by the cubic FCC/BCC/diamond cases.
+    Returns ``(box, basis_pos)`` only — species ordering is the implicit
+    "first species at every site". For multi-species or non-orthogonal
+    cells, use :func:`_get_structure_definition`.
+    """
     if c_over_a is None:
         c_over_a = np.sqrt(8 / 3)
     s = structure.lower()
@@ -84,6 +89,217 @@ def _get_basispos_and_box_cubic(
     return box, basis_pos
 
 
+# ===========================================================================
+# Atomsk-compatible structure definitions
+# ===========================================================================
+#
+# Each entry returns ``(box_3x3, basis_frac, basis_species_idx)``, where:
+#   - ``box_3x3``  rows are the lattice vectors in Cartesian coordinates.
+#   - ``basis_frac`` is an ``(N, 3)`` array of fractional coordinates inside
+#                   that box.
+#   - ``basis_species_idx`` is an ``(N,)`` int array; ``0..M-1`` index into
+#                   the user-supplied ``name`` tuple. ``M`` must be in
+#                   ``allowed_n_species``.
+#
+# All positions, orderings and box conventions match the corresponding
+# CASE block in atomsk's ``mode_create.f90`` so byte-equivalent output is
+# possible after sorting on Cartesian position.
+
+_SQRT3 = np.sqrt(3.0)
+
+
+def _basis_sc(a, c=None):
+    box = a * np.eye(3)
+    basis = np.array([[0.0, 0.0, 0.0]])
+    species = np.array([0], dtype=np.int32)
+    return box, basis, species
+
+
+def _basis_bcc_2sp(a, c=None):
+    """B2 / CsCl: identical to BCC but with two distinct species."""
+    box = a * np.eye(3)
+    basis = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]])
+    species = np.array([0, 1], dtype=np.int32)
+    return box, basis, species
+
+
+def _basis_rocksalt(a, c=None):
+    """B1 / NaCl: two interpenetrating fcc lattices, species 1 (4 atoms)
+    + species 2 (4 atoms) = 8 atoms / cell."""
+    box = a * np.eye(3)
+    basis = np.array([
+        [0.0, 0.0, 0.0],
+        [0.5, 0.5, 0.0],
+        [0.0, 0.5, 0.5],
+        [0.5, 0.0, 0.5],
+        [0.5, 0.0, 0.0],
+        [0.0, 0.5, 0.0],
+        [0.0, 0.0, 0.5],
+        [0.5, 0.5, 0.5],
+    ])
+    species = np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=np.int32)
+    return box, basis, species
+
+
+def _basis_zincblende(a, c=None):
+    """B3: diamond with two distinct species. species 1 occupies the 4 fcc
+    sites, species 2 the 4 tetrahedral sites."""
+    box = a * np.eye(3)
+    basis = np.array([
+        [0.0, 0.0, 0.0],
+        [0.5, 0.5, 0.0],
+        [0.0, 0.5, 0.5],
+        [0.5, 0.0, 0.5],
+        [0.25, 0.25, 0.25],
+        [0.75, 0.75, 0.25],
+        [0.75, 0.25, 0.75],
+        [0.25, 0.75, 0.75],
+    ])
+    species = np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=np.int32)
+    return box, basis, species
+
+
+def _basis_fluorite(a, c=None):
+    """Fluorite (CaF2): 4 cation FCC sites + 8 anion sites at the corners
+    of two interior cubes (species ratio 1:2)."""
+    box = a * np.eye(3)
+    basis = np.array([
+        # cations (species 0) — 4 fcc sites
+        [0.0, 0.0, 0.0],
+        [0.5, 0.5, 0.0],
+        [0.0, 0.5, 0.5],
+        [0.5, 0.0, 0.5],
+        # anions (species 1) — 8 sites at z=1/4 and z=3/4
+        [0.25, 0.25, 0.25],
+        [0.75, 0.25, 0.25],
+        [0.25, 0.75, 0.25],
+        [0.75, 0.75, 0.25],
+        [0.25, 0.25, 0.75],
+        [0.75, 0.25, 0.75],
+        [0.25, 0.75, 0.75],
+        [0.75, 0.75, 0.75],
+    ])
+    species = np.array([0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.int32)
+    return box, basis, species
+
+
+def _basis_l1_2(a, c=None):
+    """L1_2 (Ni3Al / Cu3Au): species 0 occupies the 3 face centers,
+    species 1 occupies the corner."""
+    box = a * np.eye(3)
+    basis = np.array([
+        [0.5, 0.5, 0.0],
+        [0.0, 0.5, 0.5],
+        [0.5, 0.0, 0.5],
+        [0.0, 0.0, 0.0],
+    ])
+    species = np.array([0, 0, 0, 1], dtype=np.int32)
+    return box, basis, species
+
+
+def _basis_perovskite(a, c=None):
+    """Cubic perovskite ABO3. atomsk's ordering is **B, A, O**:
+    species 0 at body centre, species 1 at corner, species 2 at face
+    centres."""
+    box = a * np.eye(3)
+    basis = np.array([
+        [0.5, 0.5, 0.5],   # B
+        [0.0, 0.0, 0.0],   # A
+        [0.5, 0.0, 0.0],   # O
+        [0.0, 0.5, 0.0],   # O
+        [0.0, 0.0, 0.5],   # O
+    ])
+    species = np.array([0, 1, 2, 2, 2], dtype=np.int32)
+    return box, basis, species
+
+
+def _hexagonal_box(a, c):
+    """atomsk-compatible hexagonal primitive cell with 120° angle."""
+    return np.array([
+        [a, 0.0, 0.0],
+        [-0.5 * a, 0.5 * _SQRT3 * a, 0.0],
+        [0.0, 0.0, c],
+    ])
+
+
+def _basis_wurtzite(a, c):
+    """Wurtzite B4 (e.g. GaN): 4-atom hexagonal primitive."""
+    box = _hexagonal_box(a, c)
+    basis = np.array([
+        [1.0 / 3.0, 2.0 / 3.0, 0.0],
+        [2.0 / 3.0, 1.0 / 3.0, 0.5],
+        [1.0 / 3.0, 2.0 / 3.0, 3.0 / 8.0],
+        [2.0 / 3.0, 1.0 / 3.0, 7.0 / 8.0],
+    ])
+    species = np.array([0, 0, 1, 1], dtype=np.int32)
+    return box, basis, species
+
+
+def _basis_graphite(a, c):
+    """Hexagonal graphite (A9): two layers along ``c`` with AB stacking,
+    4 atoms per primitive cell."""
+    box = _hexagonal_box(a, c)
+    basis = np.array([
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.5],
+        [1.0 / 3.0, 2.0 / 3.0, 0.0],
+        [2.0 / 3.0, 1.0 / 3.0, 0.5],
+    ])
+    # Per atomsk: P(3,4)=P(1,4) (species 0), P(4,4)=P(2,4) (species 1 if
+    # two species else 0). With nspecies==2 the A-layer is species 0 and
+    # the B-layer is species 1 — useful for hexagonal BN-like structures
+    # but with the graphite z-spacing.
+    species = np.array([0, 1, 0, 1], dtype=np.int32)
+    return box, basis, species
+
+
+# Each entry: (build_fn, allowed_n_species, c_default_factor_or_None)
+# c_default_factor: when c is not given, c = a * factor. If None, ``c``
+# is unused (cubic structures).
+_STRUCTURES = {
+    # CUBIC
+    "sc":         (_basis_sc,         (1,),     None),
+    "fcc":        ("legacy_orth",     (1,),     None),
+    "bcc":        ("legacy_orth",     (1,),     None),
+    "diamond":    ("legacy_orth",     (1,),     None),
+    "cscl":       (_basis_bcc_2sp,    (2,),     None),
+    "b2":         (_basis_bcc_2sp,    (2,),     None),
+    "rocksalt":   (_basis_rocksalt,   (2,),     None),
+    "b1":         (_basis_rocksalt,   (2,),     None),
+    "zincblende": (_basis_zincblende, (2,),     None),
+    "b3":         (_basis_zincblende, (2,),     None),
+    "fluorite":   (_basis_fluorite,   (2,),     None),
+    "l1_2":       (_basis_l1_2,       (2,),     None),
+    "l12":        (_basis_l1_2,       (2,),     None),
+    "perovskite": (_basis_perovskite, (3,),     None),
+    # HEXAGONAL — atomsk-compatible 120° primitive cell.
+    "wurtzite":   (_basis_wurtzite,   (1, 2),   np.sqrt(8 / 3)),
+    "graphite":   (_basis_graphite,   (1, 2),   None),  # c must be given
+    # LEGACY hexagonal — orthogonal supercell, kept for backward compat.
+    "hcp":        ("legacy_orth",     (1,),     None),
+    "graphene":   ("legacy_orth",     (1,),     None),
+}
+
+# Whether Miller-indexed orientation is supported. Currently cubic only;
+# atomsk supports hexagonal Miller via [hkil] but mdapy does not yet.
+_MILLER_SUPPORTED = {
+    "sc", "fcc", "bcc", "diamond", "cscl", "b2", "rocksalt", "b1",
+    "zincblende", "b3", "fluorite", "l1_2", "l12", "perovskite",
+}
+
+
+def _normalize_structure_name(structure: str) -> str:
+    s = structure.lower().strip()
+    # Handful of common synonyms.
+    aliases = {
+        "rs": "rocksalt", "nacl": "rocksalt",
+        "zb": "zincblende", "gas": "zincblende",
+        "wz": "wurtzite", "b4": "wurtzite",
+        "a9": "graphite",
+    }
+    return aliases.get(s, s)
+
+
 def _gcd(a: int, b: int) -> int:
     """Calculate greatest common divisor (internal helper)."""
     while b:
@@ -148,11 +364,22 @@ def _build_transform_matrix(
 
 
 def _find_atoms_in_new_cell(
-    transform_matrix: np.ndarray, basis_positions: np.ndarray
-) -> np.ndarray:
-    """Find all atoms in the new unit cell (internal helper)."""
+    transform_matrix: np.ndarray,
+    basis_positions: np.ndarray,
+    basis_species: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Find all atoms in the new unit cell (internal helper).
+
+    Each basis atom carries an optional species index that follows it
+    through the transform; deduplicated atoms inherit the species of the
+    first occurrence (which is canonical because the lattice is
+    periodic — every duplicate must share the same species index for a
+    well-defined ordered structure)."""
     M = transform_matrix.astype(float)
     M_inv = np.linalg.inv(M)
+
+    if basis_species is None:
+        basis_species = np.zeros(len(basis_positions), dtype=np.int32)
 
     # Calculate search range
     det = abs(np.linalg.det(M))
@@ -163,12 +390,13 @@ def _find_atoms_in_new_cell(
     search_range = max_coef + 1
 
     new_basis_list = []
+    new_species_list = []
 
     # Iterate through periodic replicas of original lattice
     for i in range(-search_range, search_range + 1):
         for j in range(-search_range, search_range + 1):
             for k in range(-search_range, search_range + 1):
-                for basis_atom in basis_positions:
+                for basis_idx, basis_atom in enumerate(basis_positions):
                     # Fractional coordinates in original lattice
                     frac_old = basis_atom + np.array([i, j, k], dtype=float)
 
@@ -191,14 +419,16 @@ def _find_atoms_in_new_cell(
 
                         if not is_duplicate:
                             new_basis_list.append(frac_new.copy())
+                            new_species_list.append(int(basis_species[basis_idx]))
 
     new_basis = np.array(new_basis_list)
+    new_species = np.array(new_species_list, dtype=np.int32)
 
     # Verify atom count
     if len(new_basis) != expected_atoms:
         print(f"Warning: Expected {expected_atoms} atoms but found {len(new_basis)}")
 
-    return new_basis
+    return new_basis, new_species
 
 
 def _align_box_to_axes(
@@ -347,8 +577,16 @@ def _build_lattice_from_miller(
     miller2: Tuple[int, int, int],
     miller3: Tuple[int, int, int],
     lattice_constant: float,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Build lattice from Miller indices (internal helper)."""
+    species_aware: bool = False,
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """Build lattice from Miller indices (internal helper).
+
+    When ``species_aware`` is True the structure is taken from the
+    dispatch table (multi-species support) and a species-index array is
+    returned alongside the basis. When False, the legacy single-species
+    path through ``_get_basispos_and_box_cubic`` is used and the species
+    return value is ``None``.
+    """
     # Reduce Miller indices
     miller1 = _reduce_miller(miller1)
     miller2 = _reduce_miller(miller2)
@@ -363,8 +601,17 @@ def _build_lattice_from_miller(
     if not _check_right_hand_miller(miller1, miller2, miller3):
         raise ValueError("Miller indices must satisfy right-hand rule")
 
-    # Get original lattice (cubic)
-    box, basis = _get_basispos_and_box_cubic(structure, lattice_constant)
+    # Get original (cubic) lattice + basis [+ species]
+    if species_aware:
+        build_fn, _, _ = _STRUCTURES[_normalize_structure_name(structure)]
+        if build_fn == "legacy_orth":
+            box, basis = _get_basispos_and_box_cubic(structure, lattice_constant)
+            species = np.zeros(len(basis), dtype=np.int32)
+        else:
+            box, basis, species = build_fn(lattice_constant)
+    else:
+        box, basis = _get_basispos_and_box_cubic(structure, lattice_constant)
+        species = None
 
     # Build transformation matrix
     M = _build_transform_matrix(miller1, miller2, miller3)
@@ -372,17 +619,17 @@ def _build_lattice_from_miller(
     # Calculate new lattice vectors
     new_lattice = box @ M.T
 
-    # Find atoms in new cell
-    new_basis = _find_atoms_in_new_cell(M, basis)
+    # Find atoms (and species) in new cell
+    new_basis, new_species = _find_atoms_in_new_cell(M, basis, species)
 
     # Align box to axes for rectangular shape
     aligned_lattice, aligned_basis = _align_box_to_axes(new_lattice, new_basis)
 
-    return aligned_lattice, aligned_basis
+    return aligned_lattice, aligned_basis, (new_species if species_aware else None)
 
 
 def build_crystal(
-    name: str,
+    name,
     structure: str,
     a: float,
     miller1: Optional[Tuple[int, int, int]] = None,
@@ -392,6 +639,7 @@ def build_crystal(
     ny: int = 1,
     nz: int = 1,
     c_over_a: float = np.sqrt(8 / 3),
+    c: Optional[float] = None,
 ) -> System:
     """
     Build crystal structure with optional Miller indices orientation.
@@ -495,29 +743,69 @@ def build_crystal(
     - Atomic positions are generated by replicating the unit cell nx×ny×nz times.
 
     """
+    s = _normalize_structure_name(structure)
+    if s not in _STRUCTURES:
+        raise ValueError(
+            f"Unsupported structure '{structure}'. Supported: "
+            f"{sorted(set(_STRUCTURES))}"
+        )
+    build_fn, allowed_n_species, c_default_factor = _STRUCTURES[s]
+
+    # --- Normalize the `name` argument ---
+    # Accept either a single element string (broadcast to every basis atom)
+    # or a tuple/list of element strings whose length must equal one of the
+    # structure's allowed species counts.
+    if isinstance(name, str):
+        name_tuple = (name,)
+    else:
+        name_tuple = tuple(name)
+        for ele in name_tuple:
+            if not isinstance(ele, str):
+                raise TypeError(
+                    f"`name` entries must be element symbols (str); got {type(ele).__name__}."
+                )
+    if len(name_tuple) not in allowed_n_species and len(name_tuple) != 1:
+        raise ValueError(
+            f"`name` must be a single element symbol or a tuple of length "
+            f"{allowed_n_species} for structure '{s}'; got length "
+            f"{len(name_tuple)}."
+        )
+
+    # --- Resolve `c` for hexagonal/tetragonal structures ---
+    if c is None and c_default_factor is not None:
+        c = a * float(c_default_factor)
+    if c is None and s == "graphite":
+        # No sensible default for inter-layer spacing; user must set it.
+        raise ValueError("`graphite` requires an explicit `c` parameter.")
+
+    # --- Build the (possibly Miller-rotated) unit cell + species index ---
     if miller1 is None and miller2 is None and miller3 is None:
         # Standard orientation
-        old_box, old_pos = _get_basispos_and_box_cubic(structure, a, c_over_a)
-    else:
-        # Custom Miller orientation
-        if structure.lower() in ["fcc", "bcc", "diamond"]:
-            # Cubic: 3-index Miller
-            if len(miller1) != 3 or len(miller2) != 3 or len(miller3) != 3:
-                raise ValueError(
-                    f"Cubic structures require 3-index Miller indices [h,k,l]. "
-                    f"Got miller1={miller1}, miller2={miller2}, miller3={miller3}"
-                )
-            old_box, old_pos = _build_lattice_from_miller(
-                structure, miller1, miller2, miller3, a
-            )
+        if build_fn == "legacy_orth":
+            old_box, old_pos = _get_basispos_and_box_cubic(structure, a, c_over_a)
+            species_idx = np.zeros(len(old_pos), dtype=np.int32)
         else:
+            old_box, old_pos, species_idx = build_fn(a, c)
+    else:
+        if s not in _MILLER_SUPPORTED:
             raise ValueError(
-                f"Miller indices are only supported for cubic structures (fcc, bcc, diamond). "
-                f"Got structure='{structure}'"
+                f"Miller orientation is not yet supported for structure "
+                f"'{s}' (cubic structures only)."
             )
+        if (len(miller1) != 3 or len(miller2) != 3 or len(miller3) != 3):
+            raise ValueError(
+                f"Cubic structures require 3-index Miller indices [h,k,l]. "
+                f"Got miller1={miller1}, miller2={miller2}, miller3={miller3}"
+            )
+        old_box, old_pos, species_idx = _build_lattice_from_miller(
+            s, miller1, miller2, miller3, a, species_aware=True,
+        )
+        # Carry species through the minimal-cell reduction.
+        old_box, old_pos, species_idx = _find_minimal_cell_with_species(
+            old_box, old_pos, species_idx
+        )
 
-        old_box, old_pos = _find_minimal_cell(old_box, old_pos)
-
+    # --- Replicate ---
     old_pos = old_pos @ old_box
     n_old = old_pos.shape[0]
     total = n_old * nx * ny * nz * 3
@@ -525,10 +813,134 @@ def build_crystal(
     _repeat_cell.repeat_cell(new_pos, old_box, old_pos, nx, ny, nz)
     new_pos = new_pos.reshape((-1, 3))
     new_box = old_box * np.array([nx, ny, nz]).reshape((3, 1))
+
+    # --- Attach element column ---
+    species_full = np.tile(species_idx, nx * ny * nz)
+    if len(name_tuple) == 1:
+        # Broadcast: all atoms share the same element.
+        elements = np.full(species_full.shape[0], name_tuple[0], dtype=object)
+    else:
+        elements = np.array(name_tuple, dtype=object)[species_full]
     data = pl.from_numpy(new_pos, schema=["x", "y", "z"]).with_columns(
-        pl.lit(name).alias("element")
+        pl.lit(elements).alias("element")
     )
     return System(data=data, box=Box(new_box))
+
+
+def _find_minimal_cell_with_species(
+    box: np.ndarray, basis: np.ndarray, species: np.ndarray,
+    tolerance: float = 1e-6, max_search: int = 10,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Species-aware variant of :func:`_find_minimal_cell`.
+
+    A sub-cell is valid only if every replicated image carries the same
+    species as the corresponding atom in the original cell. We try the
+    same brute-force divisor sweep as the single-species version but
+    bind species to position when checking the match."""
+    off_diag = [box[0, 1], box[0, 2], box[1, 0], box[1, 2], box[2, 0], box[2, 1]]
+    if any(abs(x) > tolerance for x in off_diag):
+        return box, basis, species
+    a_, b_, c_ = box[0, 0], box[1, 1], box[2, 2]
+    n_atoms = len(basis)
+    if n_atoms == 0:
+        return box, basis, species
+    basis_w = basis - np.floor(basis + tolerance)
+
+    best_box = box.copy()
+    best_basis = basis_w.copy()
+    best_species = species.copy()
+    min_atoms = n_atoms
+
+    for nx in range(1, max_search + 1):
+        for ny in range(1, max_search + 1):
+            for nz in range(1, max_search + 1):
+                if nx == ny == nz == 1:
+                    continue
+                n_div = nx * ny * nz
+                if n_atoms % n_div != 0:
+                    continue
+                expected = n_atoms // n_div
+                if expected >= min_atoms:
+                    continue
+                test_box = np.array(
+                    [[a_ / nx, 0, 0], [0, b_ / ny, 0], [0, 0, c_ / nz]]
+                )
+
+                # Atoms inside the proposed first sub-cell (with their
+                # species). If two distinct species share the same site,
+                # the sub-cell is invalid → skip.
+                small_atoms = []
+                small_species = []
+                for atom, sp in zip(basis_w, species):
+                    if (atom[0] >= -tolerance and atom[0] < 1.0 / nx - tolerance and
+                            atom[1] >= -tolerance and atom[1] < 1.0 / ny - tolerance and
+                            atom[2] >= -tolerance and atom[2] < 1.0 / nz - tolerance):
+                        frac = atom * np.array([nx, ny, nz])
+                        frac = frac - np.floor(frac + tolerance)
+                        is_dup = False
+                        for k, ex in enumerate(small_atoms):
+                            d = frac - ex
+                            d = d - np.round(d)
+                            if np.linalg.norm(d) < tolerance:
+                                if small_species[k] != sp:
+                                    small_atoms = None  # signal invalid
+                                    break
+                                is_dup = True
+                                break
+                        if small_atoms is None:
+                            break
+                        if not is_dup:
+                            small_atoms.append(frac)
+                            small_species.append(int(sp))
+                    if small_atoms is None:
+                        break
+                if small_atoms is None:
+                    continue
+                if len(small_atoms) != expected:
+                    continue
+
+                # Replicate and confirm every position+species matches.
+                replicated_pos = []
+                replicated_sp = []
+                for ix in range(nx):
+                    for iy in range(ny):
+                        for iz in range(nz):
+                            for atom, sp in zip(small_atoms, small_species):
+                                frac = (atom + np.array([ix, iy, iz])) / np.array(
+                                    [nx, ny, nz]
+                                )
+                                frac = frac - np.floor(frac + tolerance)
+                                replicated_pos.append(frac)
+                                replicated_sp.append(sp)
+                if len(replicated_pos) != n_atoms:
+                    continue
+
+                matched = [False] * n_atoms
+                ok = True
+                for rep, rsp in zip(replicated_pos, replicated_sp):
+                    found = False
+                    for idx, orig in enumerate(basis_w):
+                        if matched[idx]:
+                            continue
+                        d = rep - orig
+                        d = d - np.round(d)
+                        if np.linalg.norm(d) < tolerance:
+                            if int(species[idx]) != rsp:
+                                ok = False
+                                break
+                            matched[idx] = True
+                            found = True
+                            break
+                    if not ok or not found:
+                        ok = False
+                        break
+                if ok and all(matched) and expected < min_atoms:
+                    min_atoms = expected
+                    best_box = test_box.copy()
+                    best_basis = np.array(small_atoms)
+                    best_species = np.array(small_species, dtype=np.int32)
+
+    return best_box, best_basis, best_species
 
 
 def build_hea(

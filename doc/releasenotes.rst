@@ -54,6 +54,28 @@ Mdapy 1.0.5a2 (April 30, 2026)
   non-empty data). ``knn.MAX_K`` is exposed as a module constant
   in place of the previous magic ``25``.
 
+🏆 New Features
+----------------
+
+- ``build_crystal`` now supports nine additional crystal structures
+  bit-exactly matching atomsk's ``--create`` output: ``sc``,
+  ``rocksalt`` (B1, NaCl), ``cscl`` (B2), ``zincblende`` (B3),
+  ``fluorite``, ``L1_2``, ``perovskite``, ``wurtzite`` (B4) and
+  ``graphite`` (A9).
+- ``build_crystal`` accepts a tuple/list of element symbols as
+  ``name`` for multi-species structures; the length must equal one
+  of the structure's allowed species counts. A single string is
+  still accepted and broadcast to every basis atom.
+- New ``c`` parameter for hexagonal/tetragonal structures (used by
+  ``wurtzite``, ``graphite``); ``c_over_a`` continues to work for
+  ``hcp``.
+- Miller-indexed orientation now works for every cubic structure
+  (rocksalt, fluorite, etc.), not just FCC/BCC/diamond.
+- New ``tests/_generate_fixtures/generate_build_crystal.py`` invokes
+  the atomsk binary to produce reference fixtures, and
+  ``tests/test_build_crystal.py`` compares mdapy output against them
+  for every supported structure (15 fixtures).
+
 Mdapy 1.0.5a1 (April 28, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

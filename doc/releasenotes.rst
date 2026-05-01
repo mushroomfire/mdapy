@@ -17,7 +17,11 @@ Mdapy 1.0.5a2 (April 30, 2026)
 - New ``mdapy.orthogonal_cell(system, find_minimal=False)`` — atomsk's
   ``-orthogonal-cell`` option.
 - New unified ``mdapy.Trajectory`` class for multi-frame XYZ + LAMMPS
-  dump (read + write).
+  dump (read + write). Supports fancy indexing with integer arrays
+  and boolean masks (e.g. ``traj[traj.get_atoms_count() > 100]``),
+  optional ``fast_mode=True`` for vectorised XYZ reading (~5–7×
+  speedup on regular files), and an in-place progress bar
+  (``verbose=True``, default on).
 
 🐞 Bug Fixes
 -------------
@@ -57,6 +61,15 @@ Mdapy 1.0.5a2 (April 30, 2026)
 - Tests: +85 cases (``test_system.py``, ``test_build_crystal.py``,
   ``test_orthogonal_cell.py``, ``test_io_*``); IO references match
   atomsk byte-for-byte. CI is fully self-contained.
+- Trajectory IO speedups: per-frame XYZ parser now picks ``pl.read_csv``
+  (uniform single-space) or numpy split + per-column ``pl.Series``
+  (multi-space); the previous Python dict-of-lists path was dropped.
+  Wall-clock on a 7343-frame, ~150-atom GAP-CN training set:
+  ``serial`` 6.1 s (multi-space) / 9.5 s (uniform), ``fast_mode=True``
+  1.4 s (uniform only). On a 2616-frame, ~514-atom training set:
+  ``serial`` 2.5 s. ``fast_mode=True`` is intentionally not provided
+  for LAMMPS dump (the per-frame reader already vectorises via
+  ``pl.read_csv``); passing it raises ``ValueError`` with that note.
 
 
 Mdapy 1.0.5a1 (April 28, 2026)

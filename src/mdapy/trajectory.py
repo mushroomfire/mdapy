@@ -427,10 +427,15 @@ class XYZTrajectory(_TrajectoryListBase):
                 systems.append(System(data=df, box=box, global_info=global_info))
                 frame_idx += 1
                 if verbose and frame_idx % 200 == 0:
-                    print(f"  [xyz.serial] frame {frame_idx} read", flush=True)
+                    # XYZ is a streaming format — we don't know the total
+                    # frame count without a full pre-scan, so print just
+                    # the running counter and refresh the same line.
+                    print(f"\r  [xyz.serial] frame {frame_idx} read   ",
+                          end="", flush=True)
 
         if verbose:
-            print(f"  [xyz.serial] done — {frame_idx} frames", flush=True)
+            print(f"\r  [xyz.serial] done — {frame_idx} frames        ",
+                  flush=True)
         return systems
 
     def save(
@@ -543,29 +548,40 @@ class XYZTrajectory(_TrajectoryListBase):
             }
             origin = np.zeros(3, float)
 
-        # Per-frame parsing: numpy `str.split()` + per-column polars
-        # Series construction. Profiling on a 7343-frame, 1-217-atom
-        # GAP-CN trajectory showed `pl.read_csv` per-frame is ~300 μs
-        # of pure C-side startup vs ~70 μs for the numpy path on tiny
-        # frames — the numpy path wins overall on many-small-frames
-        # workloads. The numpy split also handles multi-space and tabs
-        # for free, so we don't need an `_is_uniform_single_space`
-        # branch here. Bulk-vectorised reading is available via
-        # `fast_mode=True`, which amortises the per-frame Python
-        # bookkeeping (regex-parsing the comment, building the schema,
-        # constructing a Box) into one pass.
-        cells = np.array([row.split()[: len(columns)] for row in data_lines])
-        df_cols = {}
-        for j, c in enumerate(columns):
-            col = cells[:, j]
-            if schema[c] == pl.Int32:
-                df_cols[c] = pl.Series(c, col.astype(np.int32), dtype=pl.Int32)
-            elif schema[c] == pl.Utf8:
-                df_cols[c] = pl.Series(c, col.tolist(), dtype=pl.Utf8)
-            else:
-                df_cols[c] = pl.Series(c, col.astype(np.float64),
-                                       dtype=pl.Float64)
-        df = pl.DataFrame(df_cols)
+        # Per-frame parsing strategy (chosen empirically; see the
+        # benchmarks in tests/_generate_fixtures/README or the release
+        # notes for the numbers):
+        #   * uniform single-space block → `pl.read_csv` (fastest;
+        #     ~0.4 ms / 1k atoms when the text really is single-space).
+        #   * any irregular whitespace   → numpy `str.split` + per-column
+        #     `pl.Series(.astype(...))`. Hot-cache head-to-head on a
+        #     2616×514 multi-space training set gave numpy 2.2 s vs
+        #     pure-Python dict 2.6 s; on a 7343×~150 13-column file
+        #     it was numpy 4.3 s vs dict 5.7 s. `np.loadtxt` was the
+        #     slowest (3+ ms / 1k atoms) — Python-side parser overhead.
+        # Bulk-vectorised reading remains available via `fast_mode=True`
+        # which amortises ALL per-frame work (regex on the comment
+        # line, `_parse_properties`, Box construction) into one pass.
+        from mdapy.load_save import _is_uniform_single_space
+        import io as _io
+
+        if _is_uniform_single_space(data_lines, len(columns)):
+            buf = _io.StringIO("".join(data_lines))
+            df = pl.read_csv(buf, separator=" ", schema=schema, has_header=False)
+        else:
+            cells = np.array([row.split()[: len(columns)] for row in data_lines])
+            df_cols = {}
+            for j, c in enumerate(columns):
+                col = cells[:, j]
+                if schema[c] == pl.Int32:
+                    df_cols[c] = pl.Series(c, col.astype(np.int32),
+                                           dtype=pl.Int32)
+                elif schema[c] == pl.Utf8:
+                    df_cols[c] = pl.Series(c, col.tolist(), dtype=pl.Utf8)
+                else:
+                    df_cols[c] = pl.Series(c, col.astype(np.float64),
+                                           dtype=pl.Float64)
+            df = pl.DataFrame(df_cols)
 
         if classical:
             coor = df.select("x", "y", "z")
@@ -974,12 +990,27 @@ def _infer_trajectory_format(filename: str) -> str:
 
 
 def _progress(stream_name: str, current: int, total: int, every: int = 200) -> None:
-    """Tiny progress printer used by the verbose=True trajectory loaders.
-    Prints one update every `every` frames plus a final tick at completion."""
-    if current == total or (current and current % every == 0):
-        pct = 100.0 * current / max(total, 1)
-        print(f"  [{stream_name}] frame {current}/{total} ({pct:.0f}%)",
-              flush=True)
+    """In-place progress bar used by the verbose=True trajectory loaders.
+
+    Refreshes a single line via carriage-return so the terminal doesn't
+    fill up with hundreds of progress messages. The line stays visible
+    after completion (we end with ``\\n`` on the final tick) so the user
+    can still tell what the file was.
+
+    Layout::
+
+        [xyz.serial] [#####.....]  500/1000 (50%)\\r
+    """
+    if not (current == total or (current and current % every == 0)):
+        return
+    pct = 100.0 * current / max(total, 1)
+    bar_w = 30
+    filled = int(round(pct / 100.0 * bar_w))
+    bar = "#" * filled + "." * (bar_w - filled)
+    end = "\n" if current == total else ""
+    # Trailing space pads over any leftover characters from a wider line.
+    print(f"  [{stream_name}] [{bar}]  {current}/{total} ({pct:.0f}%)   ",
+          end=end + ("\r" if not end else ""), flush=True)
 
 
 def _read_multi_dump_serial(filename: str, verbose: bool = False) -> List[System]:

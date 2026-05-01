@@ -45,4 +45,4 @@ __all__ = [
     "VoidAnalysis",
     "orthogonal_cell",
 ]
-__version__ = "1.0.5a2"
+__version__ = "1.0.5"

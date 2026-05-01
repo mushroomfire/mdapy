@@ -8,7 +8,6 @@ import polars as pl
 import numpy as np
 from typing import Optional, Tuple
 
-
 # ===========================================================================
 # Atomsk-compatible structure definitions
 # ===========================================================================
@@ -40,12 +39,14 @@ def _basis_fcc(a, c=None):
     three face centres). Two-species form places species 1 on two of
     the four sublattices, matching atomsk's two-species FCC."""
     box = a * np.eye(3)
-    basis = np.array([
-        [0.0, 0.0, 0.0],
-        [0.5, 0.5, 0.0],
-        [0.0, 0.5, 0.5],
-        [0.5, 0.0, 0.5],
-    ])
+    basis = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.0],
+            [0.0, 0.5, 0.5],
+            [0.5, 0.0, 0.5],
+        ]
+    )
     species = np.array([0, 0, 1, 1], dtype=np.int32)
     return box, basis, species
 
@@ -65,16 +66,18 @@ def _basis_diamond(a, c=None):
     (B3) structure with the same Cartesian positions but distinct
     species indices on the two interpenetrating fcc sublattices."""
     box = a * np.eye(3)
-    basis = np.array([
-        [0.0, 0.0, 0.0],
-        [0.5, 0.5, 0.0],
-        [0.0, 0.5, 0.5],
-        [0.5, 0.0, 0.5],
-        [0.25, 0.25, 0.25],
-        [0.75, 0.75, 0.25],
-        [0.75, 0.25, 0.75],
-        [0.25, 0.75, 0.75],
-    ])
+    basis = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.0],
+            [0.0, 0.5, 0.5],
+            [0.5, 0.0, 0.5],
+            [0.25, 0.25, 0.25],
+            [0.75, 0.75, 0.25],
+            [0.75, 0.25, 0.75],
+            [0.25, 0.75, 0.75],
+        ]
+    )
     species = np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=np.int32)
     return box, basis, species
 
@@ -237,10 +240,12 @@ def _basis_graphene(a, c):
     ``c`` chosen as a vacuum spacing so periodic images do not interact
     along z. Two-species form gives a hex-BN-style monolayer."""
     box = _hexagonal_box(a, c)
-    basis = np.array([
-        [0.0, 0.0, 0.0],
-        [1.0 / 3.0, 2.0 / 3.0, 0.0],
-    ])
+    basis = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0 / 3.0, 2.0 / 3.0, 0.0],
+        ]
+    )
     species = np.array([0, 1], dtype=np.int32)
     return box, basis, species
 
@@ -283,16 +288,24 @@ _STRUCTURES = {
     # HEXAGONAL — atomsk-compatible 120° primitive cell.
     "hcp": (_basis_hcp, (1, 2), np.sqrt(8 / 3)),
     "wurtzite": (_basis_wurtzite, (1, 2), np.sqrt(8 / 3)),
-    "graphite": (_basis_graphite, (1, 2), None),    # c must be given
-    "graphene": (_basis_graphene, (1, 2), None),    # c must be given
+    "graphite": (_basis_graphite, (1, 2), None),  # c must be given
+    "graphene": (_basis_graphene, (1, 2), None),  # c must be given
     # Hexagonal diamond (lonsdaleite) — alias for single-species wurtzite.
     "lonsdaleite": (_basis_wurtzite, (1,), np.sqrt(8 / 3)),
 }
 
 # Cubic structures supporting Miller-indexed orientation.
 _MILLER_CUBIC = {
-    "sc", "fcc", "bcc", "diamond", "cscl", "rocksalt",
-    "zincblende", "fluorite", "l1_2", "perovskite",
+    "sc",
+    "fcc",
+    "bcc",
+    "diamond",
+    "cscl",
+    "rocksalt",
+    "zincblende",
+    "fluorite",
+    "l1_2",
+    "perovskite",
 }
 # Hexagonal structures supporting Miller-Bravais [hkil] (or 3-index [uvw])
 # orientation.
@@ -303,9 +316,13 @@ _MILLER_SUPPORTED = _MILLER_CUBIC | _MILLER_HEX
 # Common synonyms — resolved to the canonical key used by
 # ``_STRUCTURES``. Add new aliases here, not in the dispatch table itself.
 _STRUCTURE_ALIASES = {
-    "rs": "rocksalt",   "nacl": "rocksalt",   "b1": "rocksalt",
-    "zb": "zincblende", "b3": "zincblende",
-    "wz": "wurtzite",   "b4": "wurtzite",
+    "rs": "rocksalt",
+    "nacl": "rocksalt",
+    "b1": "rocksalt",
+    "zb": "zincblende",
+    "b3": "zincblende",
+    "wz": "wurtzite",
+    "b4": "wurtzite",
     "a9": "graphite",
     "b2": "cscl",
     "l12": "l1_2",
@@ -731,19 +748,6 @@ def build_crystal(
     ...     miller1=(1, -1, 0, 0), miller2=(1, 1, -2, 0), miller3=(0, 0, 0, 1),
     ... )
 
-    Notes
-    -----
-    - Output is bit-for-bit equivalent to atomsk for every supported
-      structure; ``tests/_generate_fixtures/generate_build_crystal.py``
-      generates atomsk references and ``tests/test_build_crystal.py``
-      asserts the box, sorted positions and sorted element list match.
-    - Hexagonal structures emit a 2-axis 120° primitive cell
-      (``H1 = [2-1-10]``, ``H2 = [-12-10]``, ``H3 = [0001]``); the
-      resulting LAMMPS box has a negative ``xy`` tilt of ``-a/2``.
-    - Multi-species structures attach ``element`` directly from the
-      structure's basis ordering — there is no random-alloy placement.
-      Use :func:`build_hea` for random multi-element substitution on a
-      single sublattice.
     """
     s = _normalize_structure_name(structure)
     if s not in _STRUCTURES:
@@ -1040,7 +1044,16 @@ def build_hea(
     ... )
     """
     system = build_crystal(
-        "X", structure, a, miller1, miller2, miller3, nx, ny, nz, c=c,
+        "X",
+        structure,
+        a,
+        miller1,
+        miller2,
+        miller3,
+        nx,
+        ny,
+        nz,
+        c=c,
     )
     return build_hea_fromsystem(system, element_list, element_ratio, random_seed)
 

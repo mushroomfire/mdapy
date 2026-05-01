@@ -226,6 +226,14 @@ mdapy.nep4ase module
    :show-inheritance:
    :undoc-members:
 
+mdapy.orthogonal\_cell module
+-----------------------------
+
+.. automodule:: mdapy.orthogonal_cell
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 mdapy.phonon module
 -------------------
 

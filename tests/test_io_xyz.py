@@ -83,7 +83,7 @@ def test_extended_xyz_crlf():
     assert s.data["element"].to_list() == ["Al", "Cu"]
 
 
-def test_extended_xyz_extra_metadata_kept():
+def test_extended_xyz_extra_metadata_kept(tmp_path):
     """Free-form key=value tokens on the comment line beyond the well-known
     `lattice/properties/pbc/origin` ones should be preserved in
     System.global_info."""
@@ -94,14 +94,11 @@ def test_extended_xyz_extra_metadata_kept():
         'energy=-3.5 timestep=42\n'
         "Al 0.0 0.0 0.0\n"
     )
-    p = Path("/tmp/_mdapy_xyz_meta.xyz")
+    p = tmp_path / "_mdapy_xyz_meta.xyz"
     p.write_text(text)
-    try:
-        s = mp.System(str(p))
-        assert s.global_info.get("energy") == "-3.5"
-        assert s.global_info.get("timestep") == "42"
-    finally:
-        p.unlink(missing_ok=True)
+    s = mp.System(str(p))
+    assert s.global_info.get("energy") == "-3.5"
+    assert s.global_info.get("timestep") == "42"
 
 
 # ===========================================================================

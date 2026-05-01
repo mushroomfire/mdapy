@@ -298,19 +298,17 @@ def test_save_xyz_vacuum_zero_is_passthrough(tmp_path):
     assert list(back[0].box.boundary) == [0, 0, 0]
 
 
-def test_save_xyz_vacuum_does_not_mutate_input():
+def test_save_xyz_vacuum_does_not_mutate_input(tmp_path):
     """The vacuum padding must be applied to a *copy* of each frame —
     the in-memory trajectory the user holds onto is untouched."""
     s = _classical_cluster(3)
     traj = mp.Trajectory(systems=[s])
     original_box = s.box.box.copy()
     original_pos = s.data.select("x", "y", "z").to_numpy().copy()
-    import io as _io
-    # Don't actually write to disk — the side-effect we care about is
-    # whether `s` mutates. Use BytesIO via a tmp file would also work.
-    import tempfile
-    with tempfile.NamedTemporaryFile(suffix=".xyz") as tmp:
-        traj.save(tmp.name, vacuum=200.0)
+    # Use pytest's `tmp_path` (cross-platform; on Windows a stdlib
+    # NamedTemporaryFile holds an exclusive lock that blocks re-opening
+    # the same path for write inside this same process).
+    traj.save(str(tmp_path / "vac.xyz"), vacuum=200.0)
     np.testing.assert_array_equal(s.box.box, original_box)
     np.testing.assert_array_equal(
         s.data.select("x", "y", "z").to_numpy(), original_pos,
@@ -329,12 +327,10 @@ def test_save_dump_vacuum_warns(tmp_path):
         mp.Trajectory(systems=[s]).save(str(out), vacuum=50.0)
 
 
-def test_save_xyz_vacuum_negative_raises():
+def test_save_xyz_vacuum_negative_raises(tmp_path):
     s = _classical_cluster(2)
-    import tempfile
-    with tempfile.NamedTemporaryFile(suffix=".xyz") as tmp:
-        with pytest.raises(ValueError, match="vacuum must be >= 0"):
-            mp.Trajectory(systems=[s]).save(tmp.name, vacuum=-1.0)
+    with pytest.raises(ValueError, match="vacuum must be >= 0"):
+        mp.Trajectory(systems=[s]).save(str(tmp_path / "x.xyz"), vacuum=-1.0)
 
 
 # ===========================================================================

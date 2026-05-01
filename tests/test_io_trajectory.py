@@ -85,69 +85,37 @@ def test_trajectory_read_singleframe_dump():
 # Dump fast mode
 # ===========================================================================
 
-def test_dump_fast_matches_serial():
-    """5×8-atom regular dump: fast and serial paths return the same atom
-    positions, types, velocities, timesteps and box."""
+def test_dump_rejects_fast_mode_with_clear_message():
+    """`fast_mode=True` is intentionally not supported for LAMMPS dump
+    (the serial reader is already vectorised per-frame via pl.read_csv).
+    The error must say so explicitly so users know to drop the flag."""
     path = str(LAMMPS_DIR / "dump_multiframe_5x8.dump")
-    serial = mp.Trajectory(path)
-    fast = mp.Trajectory(path, fast_mode=True)
-    assert len(fast) == len(serial) == 5
-    for k in range(len(serial)):
-        s, f = serial[k], fast[k]
-        assert s.N == f.N == 8
-        np.testing.assert_allclose(s.box.box, f.box.box, atol=1e-9)
-        for col in ("id", "type", "x", "y", "z", "vx", "vy", "vz"):
-            np.testing.assert_allclose(
-                s.data[col].to_numpy(), f.data[col].to_numpy(), atol=1e-9,
-                err_msg=f"frame {k} column {col} differs",
-            )
-        assert s.global_info.get("timestep") == f.global_info.get("timestep")
-
-
-def test_dump_fast_rejects_irregular_spacing():
-    """Multi-space dump: fast mode should fail with a helpful error
-    that names `fast_mode=False` as the workaround. Serial mode keeps
-    working on the same file."""
-    path = str(LAMMPS_DIR / "dump_multispace_2frames.dump")
-    # Serial path tolerant of multi-space: works fine.
-    serial = mp.Trajectory(path)
-    assert len(serial) == 2
-    # Fast path: single-character separator only — error message must
-    # mention fast_mode=False as the workaround.
-    with pytest.raises(ValueError, match=r"(?i)fast_mode=False"):
+    with pytest.raises(ValueError, match=r"(?i)not supported.*dump"):
         mp.Trajectory(path, fast_mode=True)
-
-
-def test_dump_fast_rejects_schema_drift(tmp_path):
-    """If the ATOMS column header changes between frames, fast mode
-    must abort with a clear message. Serial tolerates it."""
-    # Build a 2-frame dump where frame 1 has different columns.
-    frame0 = (LAMMPS_DIR / "dump_multiframe_5x8.dump").read_text().split(
-        "ITEM: TIMESTEP"
-    )[1]  # everything after the first marker, including the body of frame 0
-    frame0 = "ITEM: TIMESTEP" + frame0.split("ITEM: TIMESTEP")[0]
-    # Hand-write a second frame with a different ATOMS header.
-    frame1 = (
-        "ITEM: TIMESTEP\n100\nITEM: NUMBER OF ATOMS\n2\n"
-        "ITEM: BOX BOUNDS pp pp pp\n0.0 10.0\n0.0 10.0\n0.0 10.0\n"
-        "ITEM: ATOMS id type x y z\n"
-        "1 1 0.0 0.0 0.0\n2 1 5.0 0.0 0.0\n"
-    )
-    out = tmp_path / "schema_drift.dump"
-    out.write_text(frame0 + frame1)
-    with pytest.raises(ValueError, match=r"(?i)ATOMS column layout"):
-        mp.Trajectory(str(out), fast_mode=True)
+    # Serial path works regardless.
+    traj = mp.Trajectory(path, verbose=False)
+    assert len(traj) == 5
 
 
 def test_dump_serial_verbose_emits_progress(capsys):
-    """`verbose=True` must print at least one progress line by the time
-    a small file is fully read (the final tick fires at completion)."""
+    """``verbose=True`` (the new default) must print at least one
+    progress line during the read."""
     mp.Trajectory(
         str(LAMMPS_DIR / "dump_multiframe_5x8.dump"),
         verbose=True,
     )
     captured = capsys.readouterr().out
     assert "[dump.serial]" in captured
+
+
+def test_dump_serial_verbose_off_is_silent(capsys):
+    """``verbose=False`` must produce no progress output at all."""
+    mp.Trajectory(
+        str(LAMMPS_DIR / "dump_multiframe_5x8.dump"),
+        verbose=False,
+    )
+    captured = capsys.readouterr().out
+    assert "[dump.serial]" not in captured
 
 
 # ===========================================================================
@@ -184,6 +152,81 @@ def test_xyztrajectory_inherits_list_api():
     assert len(traj) == 4
     popped = traj.pop()
     assert popped is frames[0]
+
+
+# ===========================================================================
+# Fancy indexing — bool mask + integer array
+# ===========================================================================
+
+def test_trajectory_int_array_indexing():
+    frames = _make_frames(5)
+    traj = mp.Trajectory(systems=frames)
+    sub = traj[[0, 2, 4]]
+    assert isinstance(sub, mp.Trajectory)
+    assert len(sub) == 3
+    assert sub[0] is frames[0]
+    assert sub[1] is frames[2]
+    assert sub[2] is frames[4]
+
+
+def test_trajectory_int_array_negative_indices():
+    frames = _make_frames(5)
+    traj = mp.Trajectory(systems=frames)
+    sub = traj[np.array([-1, -2])]
+    assert len(sub) == 2
+    assert sub[0] is frames[-1]
+    assert sub[1] is frames[-2]
+
+
+def test_trajectory_int_array_out_of_bounds_raises():
+    traj = mp.Trajectory(systems=_make_frames(3))
+    with pytest.raises(IndexError, match="out of bounds"):
+        _ = traj[[0, 7]]
+
+
+def test_trajectory_bool_mask_indexing():
+    frames = _make_frames(5)
+    traj = mp.Trajectory(systems=frames)
+    mask = np.array([True, False, True, False, True])
+    sub = traj[mask]
+    assert isinstance(sub, mp.Trajectory)
+    assert len(sub) == 3
+    assert sub[0] is frames[0]
+    assert sub[1] is frames[2]
+    assert sub[2] is frames[4]
+
+
+def test_trajectory_bool_mask_wrong_length_raises():
+    traj = mp.Trajectory(systems=_make_frames(3))
+    with pytest.raises(IndexError, match="boolean mask"):
+        _ = traj[np.array([True, False])]
+
+
+def test_trajectory_filter_by_atom_count():
+    """Real-world use case: filter frames by per-frame atom count
+    using the new bool-array indexing + ``get_atoms_count`` array."""
+    # Build trajectories with mixed atom counts.
+    frames = []
+    for n in (1, 5, 8, 2, 10):
+        rng = np.random.default_rng(n)
+        s = mp.System(pos=rng.uniform(0, 5, (n, 3)), box=Box(np.eye(3) * 5,
+                                                              boundary=[1, 1, 1]))
+        frames.append(s)
+    traj = mp.Trajectory(systems=frames)
+    big = traj[traj.get_atoms_count() >= 5]
+    assert len(big) == 3
+    assert [s.N for s in big] == [5, 8, 10]
+    # Compose with another filter.
+    biggest = traj[traj.get_atoms_count() == traj.get_atoms_count().max()]
+    assert len(biggest) == 1
+    assert biggest[0].N == 10
+
+
+def test_get_atoms_count_returns_ndarray():
+    traj = mp.Trajectory(systems=_make_frames(4))
+    counts = traj.get_atoms_count()
+    assert isinstance(counts, np.ndarray)
+    assert counts.dtype == np.int64
 
 
 # ===========================================================================

@@ -48,12 +48,55 @@ class _TrajectoryListBase:
     def __len__(self) -> int:
         return len(self._systems)
 
-    def __getitem__(self, idx: Union[int, slice]):
+    def __getitem__(self, idx):
+        """Index by ``int`` (single frame), ``slice``, ``list``/``tuple`` or
+        a 1-D ``numpy.ndarray`` (integer or boolean).
+
+        - ``traj[3]`` → :class:`System` (the frame at index 3)
+        - ``traj[1:4]`` → same-type container holding 3 frames
+        - ``traj[[0, 5, 7]]`` → same-type container holding 3 frames
+        - ``traj[np.array([True, False, True, ...])]`` → frames at the
+          ``True`` positions (the mask must have length ``len(traj)``)
+
+        Boolean masks support filtering on derived per-frame quantities,
+        e.g. ``traj[traj.get_atoms_count() > 100]``.
+        """
         if isinstance(idx, slice):
             # Wrap the slice in the same concrete subclass so users
             # who do `traj[:5]` get back the same class they started
             # with (XYZTrajectory or Trajectory).
             return type(self)(systems=self._systems[idx])
+
+        # Fancy indexing: bool mask or integer index array / list / tuple.
+        if isinstance(idx, (list, tuple, np.ndarray)):
+            arr = np.asarray(idx)
+            if arr.dtype == bool:
+                if arr.shape != (len(self._systems),):
+                    raise IndexError(
+                        f"boolean mask must have length {len(self._systems)} "
+                        f"to index a {len(self._systems)}-frame trajectory; "
+                        f"got length {arr.shape[0] if arr.ndim else 'scalar'}."
+                    )
+                picked = [self._systems[i] for i in np.flatnonzero(arr)]
+            elif np.issubdtype(arr.dtype, np.integer):
+                # Allow negative indices the same way numpy does.
+                n = len(self._systems)
+                norm = [int(i) + n if int(i) < 0 else int(i) for i in arr]
+                for i in norm:
+                    if i < 0 or i >= n:
+                        raise IndexError(
+                            f"frame index {i} out of bounds for "
+                            f"{n}-frame trajectory."
+                        )
+                picked = [self._systems[i] for i in norm]
+            else:
+                raise TypeError(
+                    f"trajectory index array must be bool or integer; "
+                    f"got dtype {arr.dtype}."
+                )
+            return type(self)(systems=picked)
+
+        # Plain int — return the underlying System.
         return self._systems[idx]
 
     def __setitem__(self, idx: int, system: System) -> None:
@@ -90,9 +133,15 @@ class _TrajectoryListBase:
         for i in sorted(indices, reverse=True):
             self._systems.pop(i)
 
-    def get_atoms_count(self) -> List[int]:
-        """Per-frame atom counts."""
-        return [s.N for s in self._systems]
+    def get_atoms_count(self) -> np.ndarray:
+        """Per-frame atom counts as a 1-D ``int64`` numpy array.
+
+        Returning a numpy array (rather than a Python list) lets users
+        write boolean filters directly:
+
+        >>> hot_frames = traj[traj.get_atoms_count() > 100]
+        """
+        return np.array([s.N for s in self._systems], dtype=np.int64)
 
     def concatenate(self, other: "_TrajectoryListBase") -> "_TrajectoryListBase":
         """Return a new container holding ``self`` followed by ``other``."""
@@ -157,10 +206,12 @@ class XYZTrajectory(_TrajectoryListBase):
         filename: Optional[str] = None,
         systems: Optional[List[System]] = None,
         fast_mode: bool = False,
+        verbose: bool = True,
     ) -> None:
         self._systems: List[System] = []
         self._filename = filename
         self._fast_mode = fast_mode
+        self._verbose = verbose
 
         if systems is not None:
             self._systems = systems
@@ -174,7 +225,8 @@ class XYZTrajectory(_TrajectoryListBase):
         if self._fast_mode:
             self._systems = self._read_xyz_fast(self._filename)
         else:
-            self._systems = self._read_xyz_serial(self._filename)
+            self._systems = self._read_xyz_serial(self._filename,
+                                                  verbose=self._verbose)
 
     def _read_xyz_fast(self, filename: str) -> List[System]:
         """
@@ -491,34 +543,29 @@ class XYZTrajectory(_TrajectoryListBase):
             }
             origin = np.zeros(3, float)
 
-        # Per-frame fast path: when the whole atom block is single-space
-        # separated with the right column count, parse it via polars
-        # `read_csv` (~vectorised C path). Falls through to the
-        # Python `str.split()` path on irregular whitespace, tabs, or
-        # CRLF endings — same dispatch the LAMMPS readers use. A
-        # mixed-format trajectory (classical + extended, varying N,
-        # different separators per frame) handles each frame on its own
-        # merits because the check runs per-frame.
-        from mdapy.load_save import _is_uniform_single_space
-        import io as _io
-
-        if _is_uniform_single_space(data_lines, len(columns)):
-            buf = _io.StringIO("".join(data_lines))
-            df = pl.read_csv(buf, separator=" ", schema=schema, has_header=False)
-        else:
-            cells = np.array([row.split()[: len(columns)] for row in data_lines])
-            df_cols = {}
-            for j, c in enumerate(columns):
-                col = cells[:, j]
-                if schema[c] == pl.Int32:
-                    df_cols[c] = pl.Series(c, col.astype(np.int32),
-                                           dtype=pl.Int32)
-                elif schema[c] == pl.Utf8:
-                    df_cols[c] = pl.Series(c, col.tolist(), dtype=pl.Utf8)
-                else:
-                    df_cols[c] = pl.Series(c, col.astype(np.float64),
-                                           dtype=pl.Float64)
-            df = pl.DataFrame(df_cols)
+        # Per-frame parsing: numpy `str.split()` + per-column polars
+        # Series construction. Profiling on a 7343-frame, 1-217-atom
+        # GAP-CN trajectory showed `pl.read_csv` per-frame is ~300 μs
+        # of pure C-side startup vs ~70 μs for the numpy path on tiny
+        # frames — the numpy path wins overall on many-small-frames
+        # workloads. The numpy split also handles multi-space and tabs
+        # for free, so we don't need an `_is_uniform_single_space`
+        # branch here. Bulk-vectorised reading is available via
+        # `fast_mode=True`, which amortises the per-frame Python
+        # bookkeeping (regex-parsing the comment, building the schema,
+        # constructing a Box) into one pass.
+        cells = np.array([row.split()[: len(columns)] for row in data_lines])
+        df_cols = {}
+        for j, c in enumerate(columns):
+            col = cells[:, j]
+            if schema[c] == pl.Int32:
+                df_cols[c] = pl.Series(c, col.astype(np.int32), dtype=pl.Int32)
+            elif schema[c] == pl.Utf8:
+                df_cols[c] = pl.Series(c, col.tolist(), dtype=pl.Utf8)
+            else:
+                df_cols[c] = pl.Series(c, col.astype(np.float64),
+                                       dtype=pl.Float64)
+        df = pl.DataFrame(df_cols)
 
         if classical:
             coor = df.select("x", "y", "z")
@@ -937,9 +984,11 @@ def _progress(stream_name: str, current: int, total: int, every: int = 200) -> N
 
 def _read_multi_dump_serial(filename: str, verbose: bool = False) -> List[System]:
     """Split a LAMMPS dump file into frames at every ITEM: TIMESTEP and
-    parse each one with `BuildSystem.parse_dump_frame`. Robust to
-    multi-space separators and per-frame schema variation; significantly
-    slower than :func:`_read_multi_dump_fast` on regular dumps.
+    parse each one with `BuildSystem.parse_dump_frame`. Each per-frame
+    parser already uses ``pl.read_csv`` on uniform-space blocks (see
+    ``_parse_dump_frame_impl``), so the dump path is already
+    vectorised — there's no separate `fast_mode` path that would add
+    measurable speedup, by design.
     """
     from mdapy.load_save import _open_file, BuildSystem
 
@@ -967,216 +1016,6 @@ def _read_multi_dump_serial(filename: str, verbose: bool = False) -> List[System
 # Back-compat alias.
 _read_multi_dump = _read_multi_dump_serial
 
-
-def _read_multi_dump_fast(filename: str, verbose: bool = False) -> List[System]:
-    """Vectorised LAMMPS dump reader.
-
-    Assumes:
-      * every frame uses the **same** ``ITEM: ATOMS`` column layout;
-      * every frame uses the **same** ``ITEM: BOX BOUNDS`` geometry
-        keywords (orthogonal vs. ``xy xz yz`` triclinic vs. ``abc origin``
-        general triclinic);
-      * the per-atom data block is whitespace-separated by single
-        characters (no tabs, no runs of multiple spaces).
-
-    Atom data is bulk-parsed via a single ``pl.read_csv`` over a
-    StringIO of all frames concatenated, then partitioned by frame.
-    Per-frame box / timestep parsing stays in Python — that's O(n_frames)
-    and never the bottleneck.
-
-    Falls back gracefully with a ``ValueError`` whose message names the
-    failing frame when an assumption is violated.
-    """
-    from mdapy.load_save import _open_file
-    import io as _io
-
-    with _open_file(filename, "r") as fp:
-        lines = fp.readlines()
-
-    ts_idx = [i for i, l in enumerate(lines) if l.strip().startswith("ITEM: TIMESTEP")]
-    if not ts_idx:
-        raise ValueError(f"{filename}: no ITEM: TIMESTEP header found")
-    n_frames = len(ts_idx)
-    boundaries = ts_idx + [len(lines)]
-
-    # ----- Parse each frame's 9-line header in Python ------------------
-    timesteps: List[int] = []
-    n_atoms_list: List[int] = []
-    box_per_frame: List[Tuple[np.ndarray, List[int]]] = []
-    atom_blocks: List[List[str]] = []  # list of (variable-length) line lists
-
-    expected_cols: Optional[List[str]] = None
-    expected_geom: Optional[Tuple[bool, bool]] = None  # (is_abc, is_triclinic)
-
-    for f_idx in range(n_frames):
-        frame = lines[boundaries[f_idx] : boundaries[f_idx + 1]]
-        if len(frame) < 9:
-            raise ValueError(
-                f"{filename}[frame {f_idx}]: dump frame has only "
-                f"{len(frame)} lines (<9); use fast_mode=False for "
-                "tolerant parsing."
-            )
-        try:
-            timesteps.append(int(frame[1].strip()))
-            n_atoms_list.append(int(frame[3].strip()))
-        except ValueError as e:
-            raise ValueError(
-                f"{filename}[frame {f_idx}]: malformed TIMESTEP / "
-                f"NUMBER OF ATOMS — {e}"
-            ) from None
-
-        bb_line = frame[4].strip()
-        if not bb_line.startswith("ITEM: BOX BOUNDS"):
-            raise ValueError(
-                f"{filename}[frame {f_idx}]: expected 'ITEM: BOX BOUNDS' "
-                "on header line 5."
-            )
-        bb_tokens = bb_line.split()[3:]
-        if bb_tokens and all(t in {"pp", "ff", "ss", "mm"} for t in bb_tokens[-3:]):
-            boundary = [1 if t == "pp" else 0 for t in bb_tokens[-3:]]
-            geom_tok = bb_tokens[:-3]
-        else:
-            boundary = [1, 1, 1]
-            geom_tok = bb_tokens
-        is_abc = "abc" in geom_tok and "origin" in geom_tok
-        is_triclinic = ("xy" in geom_tok and "xz" in geom_tok and "yz" in geom_tok)
-        if expected_geom is None:
-            expected_geom = (is_abc, is_triclinic)
-        elif expected_geom != (is_abc, is_triclinic):
-            raise ValueError(
-                f"{filename}[frame {f_idx}]: BOX BOUNDS geometry differs "
-                f"from frame 0 — fast_mode requires identical geometry "
-                "across frames; use fast_mode=False."
-            )
-
-        bb_rows = [frame[5].split(), frame[6].split(), frame[7].split()]
-        if is_abc:
-            avec = np.array(bb_rows[0][:3], dtype=np.float64)
-            bvec = np.array(bb_rows[1][:3], dtype=np.float64)
-            cvec = np.array(bb_rows[2][:3], dtype=np.float64)
-            origin = np.array([bb_rows[0][3], bb_rows[1][3], bb_rows[2][3]],
-                              dtype=np.float64)
-            box = np.vstack([avec, bvec, cvec, origin])
-        elif is_triclinic:
-            xlo_b, xhi_b, xy = (float(bb_rows[0][0]), float(bb_rows[0][1]),
-                                 float(bb_rows[0][2]))
-            ylo_b, yhi_b, xz = (float(bb_rows[1][0]), float(bb_rows[1][1]),
-                                 float(bb_rows[1][2]))
-            zlo_b, zhi_b, yz = (float(bb_rows[2][0]), float(bb_rows[2][1]),
-                                 float(bb_rows[2][2]))
-            xlo = xlo_b - min(0.0, xy, xz, xy + xz)
-            xhi = xhi_b - max(0.0, xy, xz, xy + xz)
-            ylo = ylo_b - min(0.0, yz)
-            yhi = yhi_b - max(0.0, yz)
-            zlo, zhi = zlo_b, zhi_b
-            box = np.array([
-                [xhi - xlo, 0,         0        ],
-                [xy,        yhi - ylo, 0        ],
-                [xz,        yz,        zhi - zlo],
-                [xlo,       ylo,       zlo      ],
-            ])
-        else:
-            xlo, xhi = float(bb_rows[0][0]), float(bb_rows[0][1])
-            ylo, yhi = float(bb_rows[1][0]), float(bb_rows[1][1])
-            zlo, zhi = float(bb_rows[2][0]), float(bb_rows[2][1])
-            box = np.array([
-                [xhi - xlo, 0,         0        ],
-                [0,         yhi - ylo, 0        ],
-                [0,         0,         zhi - zlo],
-                [xlo,       ylo,       zlo      ],
-            ])
-        box_per_frame.append((box, boundary))
-
-        atoms_header = frame[8].rstrip()
-        if not atoms_header.startswith("ITEM: ATOMS"):
-            raise ValueError(
-                f"{filename}[frame {f_idx}]: expected 'ITEM: ATOMS' "
-                "on header line 9."
-            )
-        cols = atoms_header.split()[2:]
-        if expected_cols is None:
-            expected_cols = cols
-        elif cols != expected_cols:
-            raise ValueError(
-                f"{filename}[frame {f_idx}]: ATOMS column layout "
-                f"{cols} differs from frame 0 {expected_cols} — "
-                "fast_mode requires identical schema; use fast_mode=False."
-            )
-
-        body = frame[9 : 9 + n_atoms_list[-1]]
-        if len(body) != n_atoms_list[-1]:
-            raise ValueError(
-                f"{filename}[frame {f_idx}]: expected "
-                f"{n_atoms_list[-1]} atom rows, got {len(body)}."
-            )
-        atom_blocks.append(body)
-
-    assert expected_cols is not None  # n_frames >= 1 already enforced
-
-    # ----- Bulk-parse the concatenated atom blocks ---------------------
-    INT_COLS = {"id", "type", "ix", "iy", "iz", "mol", "proc", "procp1"}
-    STR_COLS = {"element", "typelabel"}
-    schema: Dict[str, "pl.DataType"] = {}
-    for name in expected_cols:
-        if name in INT_COLS:
-            schema[name] = pl.Int32
-        elif name in STR_COLS:
-            schema[name] = pl.Utf8
-        else:
-            schema[name] = pl.Float64
-
-    big_buf = _io.StringIO("".join(line for block in atom_blocks for line in block))
-    try:
-        all_data = pl.read_csv(big_buf, separator=" ", schema=schema,
-                               has_header=False)
-    except Exception as e:
-        # Most likely: the file has multi-space separators or tabs, which
-        # the fast path cannot handle. Surface a clear, actionable error.
-        raise ValueError(
-            f"{filename}: fast dump reader could not parse the per-atom "
-            f"block. The data is probably whitespace-irregular (multiple "
-            f"spaces, tabs) or a column has unexpected dtype. Re-run with "
-            f"fast_mode=False. Underlying error: {e}"
-        ) from None
-
-    if all_data.shape[0] != sum(n_atoms_list):
-        raise ValueError(
-            f"{filename}: bulk parser returned {all_data.shape[0]} rows; "
-            f"expected {sum(n_atoms_list)} from the per-frame headers."
-        )
-
-    # ----- Slice into per-frame DataFrames + apply coord normalisation -
-    systems: List[System] = []
-    cursor = 0
-    cols_set = set(expected_cols)
-    has_xs = {"xs", "ys", "zs"}.issubset(cols_set)
-    has_xsu = {"xsu", "ysu", "zsu"}.issubset(cols_set)
-    has_xu = {"xu", "yu", "zu"}.issubset(cols_set)
-    for f_idx in range(n_frames):
-        n = n_atoms_list[f_idx]
-        df = all_data.slice(cursor, n)
-        cursor += n
-        box, boundary = box_per_frame[f_idx]
-        if has_xs or has_xsu:
-            tag = "xs" if has_xs else "xsu"
-            ty, tz = tag.replace("x", "y"), tag.replace("x", "z")
-            scaled = df.select(tag, ty, tz).to_numpy()
-            absolute = box[3] + scaled @ box[:3]
-            df = df.with_columns(
-                x=pl.Series(absolute[:, 0]),
-                y=pl.Series(absolute[:, 1]),
-                z=pl.Series(absolute[:, 2]),
-            ).select(pl.all().exclude(tag, ty, tz))
-        elif has_xu:
-            df = df.rename({"xu": "x", "yu": "y", "zu": "z"})
-        systems.append(System(
-            data=df.rechunk(),
-            box=Box(box, boundary),
-            global_info={"timestep": timesteps[f_idx]},
-        ))
-        if verbose:
-            _progress("dump.fast", f_idx + 1, n_frames)
-    return systems
 
 
 def _write_multi_dump(filename: str, systems: List[System], mode: str) -> None:
@@ -1209,16 +1048,22 @@ class Trajectory(_TrajectoryListBase):
         Override file-format detection. Defaults to inferring from the
         filename extension.
     fast_mode : bool, default=False
-        Use a vectorised reader (`_read_xyz_fast` for XYZ,
-        `_read_multi_dump_fast` for LAMMPS dumps). Requires the file to
-        be regular: identical schema across frames AND single-character
-        whitespace separators in the per-atom block. Significantly
-        faster on large LAMMPS-written files; raises ``ValueError`` with
-        a clear message if the file does not satisfy the assumptions.
-    verbose : bool, default=False
-        Print one ``frame i/N`` progress line every 200 frames during
-        loading. Useful for very large trajectories so the user can see
-        the read is making progress.
+        Use the vectorised XYZ reader (`_read_xyz_fast`). Amortises
+        per-frame overhead (regex-parsing the comment line, building
+        the column schema, constructing :class:`Box`) over a single
+        bulk pass — typically 5–7× faster on a long, regular XYZ
+        trajectory. Requires identical column schema across frames AND
+        single-character whitespace separators in the per-atom block;
+        raises a ``ValueError`` naming the offending frame otherwise.
+        ``fast_mode=True`` is **not supported for LAMMPS dump** — the
+        dump serial reader already vectorises each frame internally
+        (via ``pl.read_csv``), so a separate "bulk" path adds
+        complexity without measurable speedup. Pass ``fast_mode=True``
+        on a dump file and you get a ``ValueError`` saying so.
+    verbose : bool, default=True
+        Print a one-line ``frame i/N`` progress update every 200
+        frames during loading. Pass ``verbose=False`` to silence the
+        output (useful for tests / scripts).
 
     Examples
     --------
@@ -1226,8 +1071,11 @@ class Trajectory(_TrajectoryListBase):
     >>> for frame in traj: print(frame.N)
     >>> traj.save("subset.xyz", frames=[0, 2, 4])
     >>> traj.append(other_system)
-    >>> # large LAMMPS dump — fast path, with progress
-    >>> traj = mp.Trajectory("big.dump", fast_mode=True, verbose=True)
+    >>> # boolean / integer-array indexing for filtering frames
+    >>> hot = traj[traj.get_atoms_count() > 100]      # bool mask
+    >>> first_few = traj[[0, 5, 7]]                    # integer mask
+    >>> # silence progress output
+    >>> traj = mp.Trajectory("big.xyz", fast_mode=True, verbose=False)
     """
 
     def __init__(
@@ -1236,7 +1084,7 @@ class Trajectory(_TrajectoryListBase):
         systems: Optional[List[System]] = None,
         format: Optional[str] = None,
         fast_mode: bool = False,
-        verbose: bool = False,
+        verbose: bool = True,
     ) -> None:
         self._systems: List[System] = []
         self._filename = filename
@@ -1268,11 +1116,15 @@ class Trajectory(_TrajectoryListBase):
             self._systems = xt._systems
         elif fmt == "dump":
             if self._fast_mode:
-                self._systems = _read_multi_dump_fast(self._filename,
-                                                     verbose=self._verbose)
-            else:
-                self._systems = _read_multi_dump_serial(self._filename,
-                                                       verbose=self._verbose)
+                raise ValueError(
+                    "fast_mode is not supported for LAMMPS dump format. "
+                    "The dump serial reader already vectorises each "
+                    "frame internally via pl.read_csv, so a separate "
+                    "bulk path would add complexity without measurable "
+                    "speedup. Pass fast_mode=False (the default)."
+                )
+            self._systems = _read_multi_dump_serial(self._filename,
+                                                   verbose=self._verbose)
         else:
             raise ValueError(f"Unsupported trajectory format: {fmt!r}")
 

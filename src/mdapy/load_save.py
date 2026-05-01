@@ -757,17 +757,33 @@ class BuildSystem:
                 n_col = int(n_col_str)
 
                 # Convention aliases (well-known per ASE / OVITO).
-                if name == "pos" and ptype == "R" and n_col == 3:
+                # If the canonical alias names are already taken (the
+                # Properties string mentions e.g. both `force:R:3` and
+                # `forces:R:3`), the *second* occurrence falls through
+                # to the generic ``<name>_<j>`` path so every column
+                # stays unique and the data row split lines up.
+                if (name == "pos" and ptype == "R" and n_col == 3
+                        and "x" not in schema):
                     sub = ["x", "y", "z"]
-                elif name in ("species", "element") and ptype == "S" and n_col == 1:
+                elif (name in ("species", "element") and ptype == "S"
+                        and n_col == 1 and "element" not in schema):
                     sub = ["element"]
-                elif name in ("vel", "velo") and ptype == "R" and n_col == 3:
+                elif (name in ("vel", "velo") and ptype == "R" and n_col == 3
+                        and "vx" not in schema):
                     sub = ["vx", "vy", "vz"]
-                elif name in ("force", "forces") and ptype == "R" and n_col == 3:
+                elif (name in ("force", "forces") and ptype == "R" and n_col == 3
+                        and "fx" not in schema):
                     sub = ["fx", "fy", "fz"]
                 else:
                     sub = [name] if n_col == 1 else [f"{name}_{j}" for j in range(n_col)]
                 for c in sub:
+                    # Defensive uniqueness: in the rare case the
+                    # generic name collides too, append a suffix.
+                    base = c
+                    suffix = 0
+                    while c in schema:
+                        suffix += 1
+                        c = f"{base}__{suffix}"
                     columns.append(c)
                     schema[c] = dtype
                 i += 3

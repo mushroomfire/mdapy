@@ -199,6 +199,34 @@ def test_xyz_extended_handles_noncanonical_column_order(tmp_path):
     )
 
 
+def test_xyz_extended_duplicate_alias_in_properties():
+    """Regression: a Properties string containing both ``force:R:3``
+    and ``forces:R:3`` (two distinct entries that would alias to the
+    same canonical ``fx/fy/fz`` triplet) used to crash with a Polars
+    ShapeError because the parser appended values to the same column
+    list twice per atom. The first occurrence keeps the canonical
+    aliases; subsequent ones fall through to ``<name>_<j>``."""
+    s = mp.System(str(XYZ_DIR / "extended_dup_force.xyz"))
+    assert s.N == 2
+    # First `force:R:3` claims fx/fy/fz; second `forces:R:3` falls
+    # through to `forces_0/forces_1/forces_2` so every column is unique.
+    for col in ("fx", "fy", "fz", "forces_0", "forces_1", "forces_2"):
+        assert col in s.data.columns
+    # First triplet (force) → fx/fy/fz. Second (forces) → forces_0..2
+    # so each column carries a distinct value rather than mashing the
+    # two triplets together.
+    np.testing.assert_allclose(
+        s.data.select("fx", "fy", "fz").to_numpy(),
+        [[0.0, 6.825, 0.0], [0.0, -6.825, 0.0]],
+        atol=1e-6,
+    )
+    np.testing.assert_allclose(
+        s.data.select("forces_0", "forces_1", "forces_2").to_numpy(),
+        [[0.0, 6.825, 0.0], [0.0, -6.825, 0.0]],
+        atol=1e-6,
+    )
+
+
 def test_xyz_classical_roundtrip(tmp_path):
     s = _make_extended_system()
     out = tmp_path / "rt_classical.xyz"

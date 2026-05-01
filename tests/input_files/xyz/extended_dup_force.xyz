@@ -1,0 +1,4 @@
+2
+Lattice="10.0 0.0 0.0 0.0 10.0 0.0 0.0 0.0 10.0" Properties=species:S:1:pos:R:3:initial_magmoms:R:1:initial_charges:R:1:force:R:3:Z:I:1:forces:R:3 energy=-1.0 pbc="T T T"
+C 0.0 1.12 0.0 0.857 0.37 0.0 6.825 0.0 6 0.0 6.825 0.0
+N 0.0 0.0 0.0 0.143 -0.37 0.0 -6.825 0.0 7 0.0 -6.825 0.0

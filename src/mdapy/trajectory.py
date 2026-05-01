@@ -655,7 +655,19 @@ class XYZTrajectory:
             else:
                 raise ValueError(f"Unrecognized type {content[i + 1]}")
 
-            if content[i] == "pos" and content[i + 1] == "R" and n_col == 3:
+            # Magic-name mapping is applied only for the *first*
+            # occurrence; if a second property in the same Properties
+            # string would alias to the same canonical names (e.g. both
+            # `force:R:3` and `forces:R:3` → fx/fy/fz), the alias is
+            # disabled for the second one and it falls through to the
+            # generic `<name>_<j>` path. This keeps every column unique
+            # so the data-row split lines up with the column list.
+            if (
+                content[i] == "pos"
+                and content[i + 1] == "R"
+                and n_col == 3
+                and "x" not in schema
+            ):
                 columns.extend(["x", "y", "z"])
                 for coord in ["x", "y", "z"]:
                     schema[coord] = dtype
@@ -663,10 +675,16 @@ class XYZTrajectory:
                 content[i] in ["species", "element"]
                 and content[i + 1] == "S"
                 and n_col == 1
+                and "element" not in schema
             ):
                 columns.append("element")
                 schema["element"] = dtype
-            elif content[i] in ["velo", "vel"] and content[i + 1] == "R" and n_col == 3:
+            elif (
+                content[i] in ["velo", "vel"]
+                and content[i + 1] == "R"
+                and n_col == 3
+                and "vx" not in schema
+            ):
                 columns.extend(["vx", "vy", "vz"])
                 for vel in ["vx", "vy", "vz"]:
                     schema[vel] = dtype
@@ -674,6 +692,7 @@ class XYZTrajectory:
                 content[i] in ["force", "forces"]
                 and content[i + 1] == "R"
                 and n_col == 3
+                and "fx" not in schema
             ):
                 columns.extend(["fx", "fy", "fz"])
                 for force in ["fx", "fy", "fz"]:
@@ -682,11 +701,26 @@ class XYZTrajectory:
                 if n_col > 1:
                     for j in range(n_col):
                         col_name = f"{content[i]}_{j}"
-                        columns.append(col_name)
-                        schema[col_name] = dtype
+                        # Defensive: if the generic name *also*
+                        # collides (extremely rare but possible when
+                        # two properties share a base name), tack on
+                        # extra suffixes until unique.
+                        suffix = 0
+                        unique_name = col_name
+                        while unique_name in schema:
+                            suffix += 1
+                            unique_name = f"{col_name}__{suffix}"
+                        columns.append(unique_name)
+                        schema[unique_name] = dtype
                 else:
-                    columns.append(content[i])
-                    schema[content[i]] = dtype
+                    base = content[i]
+                    suffix = 0
+                    unique_name = base
+                    while unique_name in schema:
+                        suffix += 1
+                        unique_name = f"{base}__{suffix}"
+                    columns.append(unique_name)
+                    schema[unique_name] = dtype
             i += 3
 
         return columns, schema
@@ -852,6 +886,7 @@ class XYZTrajectory:
 #  Unified multi-frame trajectory: XYZ or LAMMPS dump (read + write)
 # ===========================================================================
 
+
 def _infer_trajectory_format(filename: str) -> str:
     """Infer 'xyz' vs 'dump' from the filename, accepting `.gz` suffix."""
     f = filename.lower()
@@ -872,11 +907,11 @@ def _read_multi_dump(filename: str) -> List[System]:
     parse each one with `BuildSystem.parse_dump_frame`.
     """
     from mdapy.load_save import _open_file, BuildSystem
+
     with _open_file(filename, "r") as fp:
         lines = fp.readlines()
 
-    ts_idx = [i for i, l in enumerate(lines)
-              if l.strip().startswith("ITEM: TIMESTEP")]
+    ts_idx = [i for i, l in enumerate(lines) if l.strip().startswith("ITEM: TIMESTEP")]
     if not ts_idx:
         raise ValueError(f"{filename}: no ITEM: TIMESTEP header found")
 
@@ -893,6 +928,7 @@ def _read_multi_dump(filename: str) -> List[System]:
 
 def _write_multi_dump(filename: str, systems: List[System], mode: str) -> None:
     from mdapy.load_save import SaveSystem
+
     if mode not in ("w", "a"):
         raise ValueError(f"mode must be 'w' or 'a', got {mode!r}")
     with open(filename, mode + "b") as fp:
@@ -927,10 +963,12 @@ class Trajectory:
     >>> traj.append(other_system)
     """
 
-    def __init__(self,
-                 filename: Optional[str] = None,
-                 systems: Optional[List[System]] = None,
-                 format: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        filename: Optional[str] = None,
+        systems: Optional[List[System]] = None,
+        format: Optional[str] = None,
+    ) -> None:
         self._systems: List[System] = []
         self._filename = filename
         self._format = format
@@ -953,10 +991,13 @@ class Trajectory:
         else:
             raise ValueError(f"Unsupported trajectory format: {fmt!r}")
 
-    def save(self, filename: str,
-             frames: Optional[Union[int, List[int]]] = None,
-             mode: str = "w",
-             format: Optional[str] = None) -> None:
+    def save(
+        self,
+        filename: str,
+        frames: Optional[Union[int, List[int]]] = None,
+        mode: str = "w",
+        format: Optional[str] = None,
+    ) -> None:
         """Write the trajectory to disk.
 
         Parameters
@@ -1034,4 +1075,5 @@ class Trajectory:
 
 
 if __name__ == "__main__":
-    pass
+    traj = XYZTrajectory("/u/22/wuy33/unix/Desktop/GAP_CN/gap_cn_training_dataset.xyz")
+    print(traj)

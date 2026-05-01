@@ -32,7 +32,74 @@ _STANDARD_COLS = (
 )
 
 
-class XYZTrajectory:
+class _TrajectoryListBase:
+    """Common list-like API shared by :class:`XYZTrajectory` and
+    :class:`Trajectory`. Subclasses are expected to own a
+    ``self._systems: list[System]`` attribute and a ``save`` method.
+
+    Splitting the list-API into a mixin keeps the per-format readers
+    (which still live on :class:`XYZTrajectory`) free of bookkeeping
+    code, and eliminates the duplicated list-method implementations
+    that used to live on both classes.
+    """
+
+    _systems: List[System]
+
+    def __len__(self) -> int:
+        return len(self._systems)
+
+    def __getitem__(self, idx: Union[int, slice]):
+        if isinstance(idx, slice):
+            # Wrap the slice in the same concrete subclass so users
+            # who do `traj[:5]` get back the same class they started
+            # with (XYZTrajectory or Trajectory).
+            return type(self)(systems=self._systems[idx])
+        return self._systems[idx]
+
+    def __setitem__(self, idx: int, system: System) -> None:
+        if not isinstance(system, System):
+            raise TypeError("can only assign System instances")
+        self._systems[idx] = system
+
+    def __iter__(self) -> Iterator[System]:
+        return iter(self._systems)
+
+    def __repr__(self) -> str:
+        return f"<{type(self).__name__}: {len(self)} frame(s)>"
+
+    def append(self, system: System) -> None:
+        if not isinstance(system, System):
+            raise TypeError("only System instances can be appended")
+        self._systems.append(system)
+
+    def extend(self, systems: List[System]) -> None:
+        for s in systems:
+            self.append(s)
+
+    def insert(self, index: int, system: System) -> None:
+        if not isinstance(system, System):
+            raise TypeError("only System instances can be inserted")
+        self._systems.insert(index, system)
+
+    def pop(self, index: int = -1) -> System:
+        return self._systems.pop(index)
+
+    def remove(self, indices: Union[int, List[int]]) -> None:
+        if isinstance(indices, int):
+            indices = [indices]
+        for i in sorted(indices, reverse=True):
+            self._systems.pop(i)
+
+    def get_atoms_count(self) -> List[int]:
+        """Per-frame atom counts."""
+        return [s.N for s in self._systems]
+
+    def concatenate(self, other: "_TrajectoryListBase") -> "_TrajectoryListBase":
+        """Return a new container holding ``self`` followed by ``other``."""
+        return type(self)(systems=self._systems + other._systems)
+
+
+class XYZTrajectory(_TrajectoryListBase):
     """
     XYZ trajectory file reader and manager.
 
@@ -207,11 +274,15 @@ class XYZTrajectory:
         )
         frame = np.repeat(np.arange(Nframe), rep)
 
-        # Get the first data line to determine the actual separator
+        # Get the first data line to determine the actual separator. We
+        # match the whitespace run immediately after the first
+        # non-whitespace token rather than using `str.find` on the
+        # second token — `find` returns the FIRST occurrence and if the
+        # second token happens to equal the first (e.g. `0.5 0.5 ...`)
+        # it would mis-identify the separator as the empty string.
         first_data_line: str = df_raw.item(row_list[0] + 2, 1)
-        # Find the separator pattern between first and second field
-        first_field_end = first_data_line.find(first_data_line.split()[1])
-        separator = first_data_line[len(first_data_line.split()[0]) : first_field_end]
+        sep_match = re.match(r"\S+(\s+)", first_data_line)
+        separator = sep_match.group(1) if sep_match else " "
 
         all_data = (
             df_raw.filter(~pl.col("index").is_in(sele))
@@ -264,24 +335,21 @@ class XYZTrajectory:
 
         return systems
 
-    def _read_xyz_serial(self, filename: str) -> List[System]:
+    def _read_xyz_serial(self, filename: str, verbose: bool = False
+                          ) -> List[System]:
         """
-        Serial trajectory reading mode.
-
-        Reads frames sequentially, parsing each frame's structure individually.
-        This mode is slower but handles trajectories with varying column structures.
+        Serial trajectory reading mode. Slower than the fast path but
+        tolerant of multi-space separators and per-frame schema drift.
 
         Parameters
         ----------
         filename : str
-            Path to XYZ file
-
-        Returns
-        -------
-        List[System]
-            List of System objects for each frame
+            Path to XYZ file.
+        verbose : bool, default=False
+            Print progress every 200 frames during the read.
         """
         systems = []
+        frame_idx = 0
         with open(filename, "r") as f:
             while True:
                 natom_line = f.readline()
@@ -305,7 +373,12 @@ class XYZTrajectory:
 
                 df, box, global_info = self._parse_frame(info_line, data_lines)
                 systems.append(System(data=df, box=box, global_info=global_info))
+                frame_idx += 1
+                if verbose and frame_idx % 200 == 0:
+                    print(f"  [xyz.serial] frame {frame_idx} read", flush=True)
 
+        if verbose:
+            print(f"  [xyz.serial] done — {frame_idx} frames", flush=True)
         return systems
 
     def save(
@@ -348,181 +421,10 @@ class XYZTrajectory:
             for system in systems_to_save:
                 self._write_single_frame(f, system)
 
-    def append(self, system: System) -> None:
-        """
-        Append a frame to the trajectory.
-
-        Parameters
-        ----------
-        system : System
-            System object to append
-
-        Raises
-        ------
-        TypeError
-            If system is not a System object
-        """
-        if not isinstance(system, System):
-            raise TypeError("Can only append System type objects")
-        self._systems.append(system)
-
-    def extend(self, systems: List[System]) -> None:
-        """
-        Extend trajectory with multiple frames.
-
-        Parameters
-        ----------
-        systems : List[System]
-            List of System objects to append
-
-        Raises
-        ------
-        TypeError
-            If any element is not a System object
-        """
-        for system in systems:
-            if not isinstance(system, System):
-                raise TypeError("Can only append System type objects")
-        self._systems.extend(systems)
-
-    def insert(self, index: int, system: System) -> None:
-        """
-        Insert a frame at specified position.
-
-        Parameters
-        ----------
-        index : int
-            Position to insert at
-        system : System
-            System object to insert
-
-        Raises
-        ------
-        TypeError
-            If system is not a System object
-        """
-        if not isinstance(system, System):
-            raise TypeError("Can only insert System type objects")
-        self._systems.insert(index, system)
-
-    def pop(self, index: int = -1) -> System:
-        """
-        Remove and return frame at specified position.
-
-        Parameters
-        ----------
-        index : int, default=-1
-            Position to pop from (default is last frame)
-
-        Returns
-        -------
-        System
-            The removed System object
-        """
-        return self._systems.pop(index)
-
-    def remove(self, indices: int) -> None:
-        """
-        Remove frame at specified index.
-
-        Parameters
-        ----------
-        indices : int
-            Frame index to remove
-        """
-        del self._systems[indices]
-
-    def get_atoms_count(self) -> List[int]:
-        """
-        Get atom count for each frame.
-
-        Returns
-        -------
-        List[int]
-            List of atom counts
-        """
-        return [len(s.N) for s in self._systems]
-
-    def concatenate(self, other: "XYZTrajectory") -> "XYZTrajectory":
-        """
-        Concatenate two trajectories.
-
-        Parameters
-        ----------
-        other : XYZTrajectory
-            Another trajectory to concatenate
-
-        Returns
-        -------
-        XYZTrajectory
-            New trajectory containing frames from both trajectories
-
-        Examples
-        --------
-        >>> traj1 = XYZTrajectory("file1.xyz")
-        >>> traj2 = XYZTrajectory("file2.xyz")
-        >>> combined = traj1.concatenate(traj2)
-        """
-        return XYZTrajectory(systems=self._systems + other._systems)
-
-    def __len__(self) -> int:
-        """Return number of frames in trajectory."""
-        return len(self._systems)
-
-    def __getitem__(self, index: Union[int, slice]) -> Union[System, "XYZTrajectory"]:
-        """
-        Access frames by index or slice.
-
-        Parameters
-        ----------
-        index : Union[int, slice]
-            Frame index or slice
-
-        Returns
-        -------
-        Union[System, XYZTrajectory]
-            Single System if index is int, new XYZTrajectory if slice
-
-        Examples
-        --------
-        >>> frame = traj[0]  # Get first frame
-        >>> sub_traj = traj[0:10]  # Get first 10 frames
-        >>> sub_traj = traj[::10]  # Get every 10th frame
-        """
-        if isinstance(index, slice):
-            return XYZTrajectory(systems=self._systems[index])
-        return self._systems[index]
-
-    def __setitem__(self, index: int, system: System) -> None:
-        """
-        Set frame at specified index.
-
-        Parameters
-        ----------
-        index : int
-            Frame index
-        system : System
-            System object to set
-
-        Raises
-        ------
-        TypeError
-            If system is not a System object
-        """
-        if not isinstance(system, System):
-            raise TypeError("Can only set System type objects")
-        self._systems[index] = system
-
-    def __iter__(self) -> Iterator[System]:
-        """Iterate over all frames."""
-        return iter(self._systems)
-
-    def __repr__(self) -> str:
-        """String representation of trajectory."""
-        return (
-            f"XYZTrajectory(frames={len(self._systems)}, "
-            f"file='{self._filename if self._filename else 'memory'}')"
-        )
+    # NOTE: list-like API (__len__, __getitem__, __setitem__, __iter__,
+    # __repr__, append, extend, insert, pop, remove, get_atoms_count,
+    # concatenate) is inherited from `_TrajectoryListBase` so it stays
+    # in sync between XYZTrajectory and Trajectory.
 
     def _parse_frame(
         self, info_line: str, data_lines: List[str]
@@ -883,6 +785,103 @@ class XYZTrajectory:
 
 
 # ===========================================================================
+#  Module-level XYZ writers (used by both XYZTrajectory and Trajectory)
+# ===========================================================================
+
+
+def _write_xyz_frame_to(f: TextIO, system: System) -> None:
+    """Write one XYZ frame to an open text file. Same logic as
+    :meth:`XYZTrajectory._write_single_frame` but as a free function so
+    :class:`Trajectory` can call it without instantiating XYZTrajectory."""
+    df = system.data
+    natom = len(df)
+    f.write(f"{natom}\n")
+    info_parts = []
+    is_extended = system.box.boundary.sum() > 0
+    if is_extended:
+        lattice = system.box.box.flatten()
+        lattice_str = " ".join(f"{x:.10f}" for x in lattice)
+        info_parts.append(f'Lattice="{lattice_str}"')
+        pbc = " ".join("T" if b else "F" for b in system.box.boundary)
+        info_parts.append(f'pbc="{pbc}"')
+        if hasattr(system.box, "origin") and np.any(system.box.origin != 0):
+            origin_str = " ".join(f"{x:.10f}" for x in system.box.origin)
+            info_parts.append(f'Origin="{origin_str}"')
+        properties = []
+        if "element" in df.columns:
+            properties.append("species:S:1")
+        properties.append("pos:R:3")
+        if all(c in df.columns for c in ["vx", "vy", "vz"]):
+            properties.append("vel:R:3")
+        if all(c in df.columns for c in ["fx", "fy", "fz"]):
+            properties.append("force:R:3")
+        bec_cols = [f"bec_{i}" for i in range(9)]
+        if all(c in df.columns for c in bec_cols):
+            properties.append("bec:R:9")
+        for col in df.columns:
+            if col not in _STANDARD_COLS:
+                dtype = df.schema[col]
+                if dtype == pl.Utf8:
+                    properties.append(f"{col}:S:1")
+                elif dtype in (pl.Float32, pl.Float64):
+                    properties.append(f"{col}:R:1")
+                elif dtype in (pl.Int8, pl.Int16, pl.Int32, pl.Int64):
+                    properties.append(f"{col}:I:1")
+        info_parts.append(f"Properties={':'.join(properties)}")
+
+    if system.global_info:
+        for key, value in system.global_info.items():
+            try:
+                value_str = str(value)
+                if not value_str.startswith("<") and not value_str.startswith("["):
+                    if "energy" in key:
+                        info_parts.append(f"{key}={value_str}")
+                    else:
+                        info_parts.append(f'{key}="{value_str}"')
+            except Exception:
+                continue
+
+    if info_parts:
+        f.write(" ".join(info_parts) + "\n")
+    else:
+        f.write("\n")
+
+    write_columns = []
+    if "element" in df.columns:
+        write_columns.append("element")
+    write_columns.extend(["x", "y", "z"])
+    if is_extended:
+        if all(c in df.columns for c in ["vx", "vy", "vz"]):
+            write_columns.extend(["vx", "vy", "vz"])
+        if all(c in df.columns for c in ["fx", "fy", "fz"]):
+            write_columns.extend(["fx", "fy", "fz"])
+        bec_cols = [f"bec_{i}" for i in range(9)]
+        if all(c in df.columns for c in bec_cols):
+            write_columns.extend(bec_cols)
+        for col in df.columns:
+            if col not in _STANDARD_COLS:
+                write_columns.append(col)
+
+    for row in df.select(write_columns).iter_rows():
+        line_data = []
+        for val in row:
+            if isinstance(val, float):
+                line_data.append(f"{val:.10f}")
+            else:
+                line_data.append(str(val))
+        f.write(" ".join(line_data) + "\n")
+
+
+def _write_multi_xyz(filename: str, systems: List[System], mode: str = "w") -> None:
+    """Write a list of System frames to an XYZ file."""
+    if mode not in ("w", "a"):
+        raise ValueError(f"mode must be 'w' or 'a', got {mode!r}")
+    with open(filename, mode) as f:
+        for s in systems:
+            _write_xyz_frame_to(f, s)
+
+
+# ===========================================================================
 #  Unified multi-frame trajectory: XYZ or LAMMPS dump (read + write)
 # ===========================================================================
 
@@ -902,9 +901,20 @@ def _infer_trajectory_format(filename: str) -> str:
     )
 
 
-def _read_multi_dump(filename: str) -> List[System]:
+def _progress(stream_name: str, current: int, total: int, every: int = 200) -> None:
+    """Tiny progress printer used by the verbose=True trajectory loaders.
+    Prints one update every `every` frames plus a final tick at completion."""
+    if current == total or (current and current % every == 0):
+        pct = 100.0 * current / max(total, 1)
+        print(f"  [{stream_name}] frame {current}/{total} ({pct:.0f}%)",
+              flush=True)
+
+
+def _read_multi_dump_serial(filename: str, verbose: bool = False) -> List[System]:
     """Split a LAMMPS dump file into frames at every ITEM: TIMESTEP and
-    parse each one with `BuildSystem.parse_dump_frame`.
+    parse each one with `BuildSystem.parse_dump_frame`. Robust to
+    multi-space separators and per-frame schema variation; significantly
+    slower than :func:`_read_multi_dump_fast` on regular dumps.
     """
     from mdapy.load_save import _open_file, BuildSystem
 
@@ -916,13 +926,231 @@ def _read_multi_dump(filename: str) -> List[System]:
         raise ValueError(f"{filename}: no ITEM: TIMESTEP header found")
 
     boundaries = ts_idx + [len(lines)]
+    n_frames = len(ts_idx)
     systems: List[System] = []
-    for i in range(len(ts_idx)):
+    for i in range(n_frames):
         frame = lines[boundaries[i] : boundaries[i + 1]]
         df, box, info = BuildSystem.parse_dump_frame(
             frame, source=f"{filename}[frame {i}]"
         )
         systems.append(System(data=df, box=box, global_info=info))
+        if verbose:
+            _progress("dump.serial", i + 1, n_frames)
+    return systems
+
+
+# Back-compat alias.
+_read_multi_dump = _read_multi_dump_serial
+
+
+def _read_multi_dump_fast(filename: str, verbose: bool = False) -> List[System]:
+    """Vectorised LAMMPS dump reader.
+
+    Assumes:
+      * every frame uses the **same** ``ITEM: ATOMS`` column layout;
+      * every frame uses the **same** ``ITEM: BOX BOUNDS`` geometry
+        keywords (orthogonal vs. ``xy xz yz`` triclinic vs. ``abc origin``
+        general triclinic);
+      * the per-atom data block is whitespace-separated by single
+        characters (no tabs, no runs of multiple spaces).
+
+    Atom data is bulk-parsed via a single ``pl.read_csv`` over a
+    StringIO of all frames concatenated, then partitioned by frame.
+    Per-frame box / timestep parsing stays in Python — that's O(n_frames)
+    and never the bottleneck.
+
+    Falls back gracefully with a ``ValueError`` whose message names the
+    failing frame when an assumption is violated.
+    """
+    from mdapy.load_save import _open_file
+    import io as _io
+
+    with _open_file(filename, "r") as fp:
+        lines = fp.readlines()
+
+    ts_idx = [i for i, l in enumerate(lines) if l.strip().startswith("ITEM: TIMESTEP")]
+    if not ts_idx:
+        raise ValueError(f"{filename}: no ITEM: TIMESTEP header found")
+    n_frames = len(ts_idx)
+    boundaries = ts_idx + [len(lines)]
+
+    # ----- Parse each frame's 9-line header in Python ------------------
+    timesteps: List[int] = []
+    n_atoms_list: List[int] = []
+    box_per_frame: List[Tuple[np.ndarray, List[int]]] = []
+    atom_blocks: List[List[str]] = []  # list of (variable-length) line lists
+
+    expected_cols: Optional[List[str]] = None
+    expected_geom: Optional[Tuple[bool, bool]] = None  # (is_abc, is_triclinic)
+
+    for f_idx in range(n_frames):
+        frame = lines[boundaries[f_idx] : boundaries[f_idx + 1]]
+        if len(frame) < 9:
+            raise ValueError(
+                f"{filename}[frame {f_idx}]: dump frame has only "
+                f"{len(frame)} lines (<9); use fast_mode=False for "
+                "tolerant parsing."
+            )
+        try:
+            timesteps.append(int(frame[1].strip()))
+            n_atoms_list.append(int(frame[3].strip()))
+        except ValueError as e:
+            raise ValueError(
+                f"{filename}[frame {f_idx}]: malformed TIMESTEP / "
+                f"NUMBER OF ATOMS — {e}"
+            ) from None
+
+        bb_line = frame[4].strip()
+        if not bb_line.startswith("ITEM: BOX BOUNDS"):
+            raise ValueError(
+                f"{filename}[frame {f_idx}]: expected 'ITEM: BOX BOUNDS' "
+                "on header line 5."
+            )
+        bb_tokens = bb_line.split()[3:]
+        if bb_tokens and all(t in {"pp", "ff", "ss", "mm"} for t in bb_tokens[-3:]):
+            boundary = [1 if t == "pp" else 0 for t in bb_tokens[-3:]]
+            geom_tok = bb_tokens[:-3]
+        else:
+            boundary = [1, 1, 1]
+            geom_tok = bb_tokens
+        is_abc = "abc" in geom_tok and "origin" in geom_tok
+        is_triclinic = ("xy" in geom_tok and "xz" in geom_tok and "yz" in geom_tok)
+        if expected_geom is None:
+            expected_geom = (is_abc, is_triclinic)
+        elif expected_geom != (is_abc, is_triclinic):
+            raise ValueError(
+                f"{filename}[frame {f_idx}]: BOX BOUNDS geometry differs "
+                f"from frame 0 — fast_mode requires identical geometry "
+                "across frames; use fast_mode=False."
+            )
+
+        bb_rows = [frame[5].split(), frame[6].split(), frame[7].split()]
+        if is_abc:
+            avec = np.array(bb_rows[0][:3], dtype=np.float64)
+            bvec = np.array(bb_rows[1][:3], dtype=np.float64)
+            cvec = np.array(bb_rows[2][:3], dtype=np.float64)
+            origin = np.array([bb_rows[0][3], bb_rows[1][3], bb_rows[2][3]],
+                              dtype=np.float64)
+            box = np.vstack([avec, bvec, cvec, origin])
+        elif is_triclinic:
+            xlo_b, xhi_b, xy = (float(bb_rows[0][0]), float(bb_rows[0][1]),
+                                 float(bb_rows[0][2]))
+            ylo_b, yhi_b, xz = (float(bb_rows[1][0]), float(bb_rows[1][1]),
+                                 float(bb_rows[1][2]))
+            zlo_b, zhi_b, yz = (float(bb_rows[2][0]), float(bb_rows[2][1]),
+                                 float(bb_rows[2][2]))
+            xlo = xlo_b - min(0.0, xy, xz, xy + xz)
+            xhi = xhi_b - max(0.0, xy, xz, xy + xz)
+            ylo = ylo_b - min(0.0, yz)
+            yhi = yhi_b - max(0.0, yz)
+            zlo, zhi = zlo_b, zhi_b
+            box = np.array([
+                [xhi - xlo, 0,         0        ],
+                [xy,        yhi - ylo, 0        ],
+                [xz,        yz,        zhi - zlo],
+                [xlo,       ylo,       zlo      ],
+            ])
+        else:
+            xlo, xhi = float(bb_rows[0][0]), float(bb_rows[0][1])
+            ylo, yhi = float(bb_rows[1][0]), float(bb_rows[1][1])
+            zlo, zhi = float(bb_rows[2][0]), float(bb_rows[2][1])
+            box = np.array([
+                [xhi - xlo, 0,         0        ],
+                [0,         yhi - ylo, 0        ],
+                [0,         0,         zhi - zlo],
+                [xlo,       ylo,       zlo      ],
+            ])
+        box_per_frame.append((box, boundary))
+
+        atoms_header = frame[8].rstrip()
+        if not atoms_header.startswith("ITEM: ATOMS"):
+            raise ValueError(
+                f"{filename}[frame {f_idx}]: expected 'ITEM: ATOMS' "
+                "on header line 9."
+            )
+        cols = atoms_header.split()[2:]
+        if expected_cols is None:
+            expected_cols = cols
+        elif cols != expected_cols:
+            raise ValueError(
+                f"{filename}[frame {f_idx}]: ATOMS column layout "
+                f"{cols} differs from frame 0 {expected_cols} — "
+                "fast_mode requires identical schema; use fast_mode=False."
+            )
+
+        body = frame[9 : 9 + n_atoms_list[-1]]
+        if len(body) != n_atoms_list[-1]:
+            raise ValueError(
+                f"{filename}[frame {f_idx}]: expected "
+                f"{n_atoms_list[-1]} atom rows, got {len(body)}."
+            )
+        atom_blocks.append(body)
+
+    assert expected_cols is not None  # n_frames >= 1 already enforced
+
+    # ----- Bulk-parse the concatenated atom blocks ---------------------
+    INT_COLS = {"id", "type", "ix", "iy", "iz", "mol", "proc", "procp1"}
+    STR_COLS = {"element", "typelabel"}
+    schema: Dict[str, "pl.DataType"] = {}
+    for name in expected_cols:
+        if name in INT_COLS:
+            schema[name] = pl.Int32
+        elif name in STR_COLS:
+            schema[name] = pl.Utf8
+        else:
+            schema[name] = pl.Float64
+
+    big_buf = _io.StringIO("".join(line for block in atom_blocks for line in block))
+    try:
+        all_data = pl.read_csv(big_buf, separator=" ", schema=schema,
+                               has_header=False)
+    except Exception as e:
+        # Most likely: the file has multi-space separators or tabs, which
+        # the fast path cannot handle. Surface a clear, actionable error.
+        raise ValueError(
+            f"{filename}: fast dump reader could not parse the per-atom "
+            f"block. The data is probably whitespace-irregular (multiple "
+            f"spaces, tabs) or a column has unexpected dtype. Re-run with "
+            f"fast_mode=False. Underlying error: {e}"
+        ) from None
+
+    if all_data.shape[0] != sum(n_atoms_list):
+        raise ValueError(
+            f"{filename}: bulk parser returned {all_data.shape[0]} rows; "
+            f"expected {sum(n_atoms_list)} from the per-frame headers."
+        )
+
+    # ----- Slice into per-frame DataFrames + apply coord normalisation -
+    systems: List[System] = []
+    cursor = 0
+    cols_set = set(expected_cols)
+    has_xs = {"xs", "ys", "zs"}.issubset(cols_set)
+    has_xsu = {"xsu", "ysu", "zsu"}.issubset(cols_set)
+    has_xu = {"xu", "yu", "zu"}.issubset(cols_set)
+    for f_idx in range(n_frames):
+        n = n_atoms_list[f_idx]
+        df = all_data.slice(cursor, n)
+        cursor += n
+        box, boundary = box_per_frame[f_idx]
+        if has_xs or has_xsu:
+            tag = "xs" if has_xs else "xsu"
+            ty, tz = tag.replace("x", "y"), tag.replace("x", "z")
+            scaled = df.select(tag, ty, tz).to_numpy()
+            absolute = box[3] + scaled @ box[:3]
+            df = df.with_columns(
+                x=pl.Series(absolute[:, 0]),
+                y=pl.Series(absolute[:, 1]),
+                z=pl.Series(absolute[:, 2]),
+            ).select(pl.all().exclude(tag, ty, tz))
+        elif has_xu:
+            df = df.rename({"xu": "x", "yu": "y", "zu": "z"})
+        systems.append(System(
+            data=df.rechunk(),
+            box=Box(box, boundary),
+            global_info={"timestep": timesteps[f_idx]},
+        ))
+        if verbose:
+            _progress("dump.fast", f_idx + 1, n_frames)
     return systems
 
 
@@ -941,19 +1169,31 @@ def _write_multi_dump(filename: str, systems: List[System], mode: str) -> None:
             SaveSystem.write_dump_frame_to(fp, sys_obj.box, sys_obj.data, ts)
 
 
-class Trajectory:
+class Trajectory(_TrajectoryListBase):
     """Multi-frame trajectory container — supports XYZ and LAMMPS dump
     (read + write).
 
     Parameters
     ----------
     filename : str, optional
-        Path to load (`.xyz`, `.dump`, `.lammpstrj`, optionally `.gz`).
+        Path to load (``.xyz``, ``.dump``, ``.lammpstrj``, optionally
+        ``.gz``).
     systems : list of mdapy.System, optional
         Pre-built list of frames.
     format : {'xyz', 'dump'}, optional
         Override file-format detection. Defaults to inferring from the
         filename extension.
+    fast_mode : bool, default=False
+        Use a vectorised reader (`_read_xyz_fast` for XYZ,
+        `_read_multi_dump_fast` for LAMMPS dumps). Requires the file to
+        be regular: identical schema across frames AND single-character
+        whitespace separators in the per-atom block. Significantly
+        faster on large LAMMPS-written files; raises ``ValueError`` with
+        a clear message if the file does not satisfy the assumptions.
+    verbose : bool, default=False
+        Print one ``frame i/N`` progress line every 200 frames during
+        loading. Useful for very large trajectories so the user can see
+        the read is making progress.
 
     Examples
     --------
@@ -961,6 +1201,8 @@ class Trajectory:
     >>> for frame in traj: print(frame.N)
     >>> traj.save("subset.xyz", frames=[0, 2, 4])
     >>> traj.append(other_system)
+    >>> # large LAMMPS dump — fast path, with progress
+    >>> traj = mp.Trajectory("big.dump", fast_mode=True, verbose=True)
     """
 
     def __init__(
@@ -968,10 +1210,14 @@ class Trajectory:
         filename: Optional[str] = None,
         systems: Optional[List[System]] = None,
         format: Optional[str] = None,
+        fast_mode: bool = False,
+        verbose: bool = False,
     ) -> None:
         self._systems: List[System] = []
         self._filename = filename
         self._format = format
+        self._fast_mode = fast_mode
+        self._verbose = verbose
         if systems is not None:
             self._systems = list(systems)
         elif filename is not None:
@@ -982,12 +1228,26 @@ class Trajectory:
     def _load(self) -> None:
         fmt = self._format or _infer_trajectory_format(self._filename)
         if fmt == "xyz":
-            # Reuse the existing XYZ multi-frame reader for now (it has its
-            # own parser pipeline). Wrap it so the resulting object behaves
-            # like a list of System.
-            self._systems = XYZTrajectory(self._filename)._systems
+            # XYZTrajectory owns the XYZ parser pipeline; we instantiate it
+            # purely as a parser (no list-API surface; XYZTrajectory now
+            # inherits from Trajectory itself, see below).
+            xt = XYZTrajectory.__new__(XYZTrajectory)
+            xt._filename = self._filename
+            xt._fast_mode = self._fast_mode
+            xt._verbose = self._verbose
+            if self._fast_mode:
+                xt._systems = xt._read_xyz_fast(self._filename)
+            else:
+                xt._systems = xt._read_xyz_serial(self._filename,
+                                                  verbose=self._verbose)
+            self._systems = xt._systems
         elif fmt == "dump":
-            self._systems = _read_multi_dump(self._filename)
+            if self._fast_mode:
+                self._systems = _read_multi_dump_fast(self._filename,
+                                                     verbose=self._verbose)
+            else:
+                self._systems = _read_multi_dump_serial(self._filename,
+                                                       verbose=self._verbose)
         else:
             raise ValueError(f"Unsupported trajectory format: {fmt!r}")
 
@@ -1022,58 +1282,19 @@ class Trajectory:
 
         fmt = format or _infer_trajectory_format(filename)
         if fmt == "xyz":
-            # Delegate to the existing XYZTrajectory writer.
-            tmp = XYZTrajectory(systems=sel)
-            tmp.save(filename, mode=mode)
+            _write_multi_xyz(filename, sel, mode)
         elif fmt == "dump":
             _write_multi_dump(filename, sel, mode)
         else:
             raise ValueError(f"Unsupported trajectory format: {fmt!r}")
 
-    # -- list-like API --------------------------------------------------
-    def __len__(self) -> int:
-        return len(self._systems)
-
-    def __getitem__(self, idx):
-        if isinstance(idx, slice):
-            return Trajectory(systems=self._systems[idx])
-        return self._systems[idx]
-
-    def __setitem__(self, idx: int, system: System) -> None:
-        if not isinstance(system, System):
-            raise TypeError("can only assign System instances")
-        self._systems[idx] = system
-
-    def __iter__(self) -> Iterator[System]:
-        return iter(self._systems)
-
-    def __repr__(self) -> str:
-        return f"<Trajectory: {len(self)} frame(s)>"
-
-    def append(self, system: System) -> None:
-        if not isinstance(system, System):
-            raise TypeError("only System instances can be appended")
-        self._systems.append(system)
-
-    def extend(self, systems: List[System]) -> None:
-        for s in systems:
-            self.append(s)
-
-    def insert(self, index: int, system: System) -> None:
-        if not isinstance(system, System):
-            raise TypeError("only System instances can be inserted")
-        self._systems.insert(index, system)
-
-    def pop(self, index: int = -1) -> System:
-        return self._systems.pop(index)
-
-    def remove(self, indices: Union[int, List[int]]) -> None:
-        if isinstance(indices, int):
-            indices = [indices]
-        for i in sorted(indices, reverse=True):
-            self._systems.pop(i)
+    # NOTE: list-like API (__len__, __getitem__, __setitem__, __iter__,
+    # __repr__, append, extend, insert, pop, remove, get_atoms_count,
+    # concatenate) is inherited from `_TrajectoryListBase`.
 
 
 if __name__ == "__main__":
-    traj = XYZTrajectory("/u/22/wuy33/unix/Desktop/GAP_CN/gap_cn_training_dataset.xyz")
+    traj = XYZTrajectory(
+        "/u/22/wuy33/unix/Desktop/GAP_CN/gap_cn_training_dataset.xyz"
+    )
     print(traj)

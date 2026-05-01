@@ -82,6 +82,111 @@ def test_trajectory_read_singleframe_dump():
 
 
 # ===========================================================================
+# Dump fast mode
+# ===========================================================================
+
+def test_dump_fast_matches_serial():
+    """5×8-atom regular dump: fast and serial paths return the same atom
+    positions, types, velocities, timesteps and box."""
+    path = str(LAMMPS_DIR / "dump_multiframe_5x8.dump")
+    serial = mp.Trajectory(path)
+    fast = mp.Trajectory(path, fast_mode=True)
+    assert len(fast) == len(serial) == 5
+    for k in range(len(serial)):
+        s, f = serial[k], fast[k]
+        assert s.N == f.N == 8
+        np.testing.assert_allclose(s.box.box, f.box.box, atol=1e-9)
+        for col in ("id", "type", "x", "y", "z", "vx", "vy", "vz"):
+            np.testing.assert_allclose(
+                s.data[col].to_numpy(), f.data[col].to_numpy(), atol=1e-9,
+                err_msg=f"frame {k} column {col} differs",
+            )
+        assert s.global_info.get("timestep") == f.global_info.get("timestep")
+
+
+def test_dump_fast_rejects_irregular_spacing():
+    """Multi-space dump: fast mode should fail with a helpful error
+    that names `fast_mode=False` as the workaround. Serial mode keeps
+    working on the same file."""
+    path = str(LAMMPS_DIR / "dump_multispace_2frames.dump")
+    # Serial path tolerant of multi-space: works fine.
+    serial = mp.Trajectory(path)
+    assert len(serial) == 2
+    # Fast path: single-character separator only — error message must
+    # mention fast_mode=False as the workaround.
+    with pytest.raises(ValueError, match=r"(?i)fast_mode=False"):
+        mp.Trajectory(path, fast_mode=True)
+
+
+def test_dump_fast_rejects_schema_drift(tmp_path):
+    """If the ATOMS column header changes between frames, fast mode
+    must abort with a clear message. Serial tolerates it."""
+    # Build a 2-frame dump where frame 1 has different columns.
+    frame0 = (LAMMPS_DIR / "dump_multiframe_5x8.dump").read_text().split(
+        "ITEM: TIMESTEP"
+    )[1]  # everything after the first marker, including the body of frame 0
+    frame0 = "ITEM: TIMESTEP" + frame0.split("ITEM: TIMESTEP")[0]
+    # Hand-write a second frame with a different ATOMS header.
+    frame1 = (
+        "ITEM: TIMESTEP\n100\nITEM: NUMBER OF ATOMS\n2\n"
+        "ITEM: BOX BOUNDS pp pp pp\n0.0 10.0\n0.0 10.0\n0.0 10.0\n"
+        "ITEM: ATOMS id type x y z\n"
+        "1 1 0.0 0.0 0.0\n2 1 5.0 0.0 0.0\n"
+    )
+    out = tmp_path / "schema_drift.dump"
+    out.write_text(frame0 + frame1)
+    with pytest.raises(ValueError, match=r"(?i)ATOMS column layout"):
+        mp.Trajectory(str(out), fast_mode=True)
+
+
+def test_dump_serial_verbose_emits_progress(capsys):
+    """`verbose=True` must print at least one progress line by the time
+    a small file is fully read (the final tick fires at completion)."""
+    mp.Trajectory(
+        str(LAMMPS_DIR / "dump_multiframe_5x8.dump"),
+        verbose=True,
+    )
+    captured = capsys.readouterr().out
+    assert "[dump.serial]" in captured
+
+
+# ===========================================================================
+# XYZ fast mode
+# ===========================================================================
+
+def test_xyz_fast_matches_serial(tmp_path):
+    """Round-trip through the writer normalises spacing, so the saved
+    file is fast-mode-readable. Compare the result to the serial path."""
+    frames = _make_frames(4)
+    out = tmp_path / "uniform.xyz"
+    mp.Trajectory(systems=frames).save(str(out))
+    serial = mp.Trajectory(str(out))
+    fast = mp.Trajectory(str(out), fast_mode=True)
+    assert len(serial) == len(fast) == 4
+    for k in range(4):
+        np.testing.assert_allclose(
+            serial[k].data.select("x", "y", "z").to_numpy(),
+            fast[k].data.select("x", "y", "z").to_numpy(),
+            atol=1e-9,
+        )
+
+
+# ===========================================================================
+# Slim XYZTrajectory: still has the list-API via the shared mixin
+# ===========================================================================
+
+def test_xyztrajectory_inherits_list_api():
+    frames = _make_frames(3)
+    traj = mp.XYZTrajectory(systems=frames)
+    assert len(traj) == 3
+    assert isinstance(traj[1:], mp.XYZTrajectory)
+    traj.append(frames[0])
+    assert len(traj) == 4
+    popped = traj.pop()
+    assert popped is frames[0]
+
+
+# ===========================================================================
 # Writing
 # ===========================================================================
 

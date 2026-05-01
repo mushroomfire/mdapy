@@ -1,7 +1,7 @@
 Release Notes
 ===============
 
-Mdapy 1.0.5a2 (April 30, 2026)
+Mdapy 1.0.5 (May 1, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🏆 New Features
@@ -20,8 +20,13 @@ Mdapy 1.0.5a2 (April 30, 2026)
   dump (read + write). Supports fancy indexing with integer arrays
   and boolean masks (e.g. ``traj[traj.get_atoms_count() > 100]``),
   optional ``fast_mode=True`` for vectorised XYZ reading (~5–7×
-  speedup on regular files), and an in-place progress bar
-  (``verbose=True``, default on).
+  speedup on regular files), an in-place progress bar
+  (``verbose=True``, default on), and a ``vacuum=`` option on
+  ``save("out.xyz", vacuum=200.0)`` that pads every non-periodic axis
+  by ``vacuum`` Å and centres the cluster — useful for auto-boxing
+  classical-XYZ training-set frames so downstream MD code sees a
+  well-defined supercell.
+
 
 🐞 Bug Fixes
 -------------
@@ -44,6 +49,8 @@ Mdapy 1.0.5a2 (April 30, 2026)
 🛠️ Other Improvements
 ----------------------
 
+- Rewrote and optimized the k-nearest-neighbor algorithm; significantly
+  faster than the previous implementation across all tested geometries.
 - API: ``c_over_a`` removed from ``build_crystal`` / ``build_hea`` —
   pass ``c`` directly. ``System.box`` is now a property whose setter
   invalidates neighbor / Voronoi / calculator caches automatically.
@@ -64,32 +71,13 @@ Mdapy 1.0.5a2 (April 30, 2026)
 - Trajectory IO speedups: per-frame XYZ parser now picks ``pl.read_csv``
   (uniform single-space) or numpy split + per-column ``pl.Series``
   (multi-space); the previous Python dict-of-lists path was dropped.
-  Wall-clock on a 7343-frame, ~150-atom GAP-CN training set:
-  ``serial`` 6.1 s (multi-space) / 9.5 s (uniform), ``fast_mode=True``
-  1.4 s (uniform only). On a 2616-frame, ~514-atom training set:
-  ``serial`` 2.5 s. ``fast_mode=True`` is intentionally not provided
-  for LAMMPS dump (the per-frame reader already vectorises via
-  ``pl.read_csv``); passing it raises ``ValueError`` with that note.
-
-
-Mdapy 1.0.5a1 (April 28, 2026)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-🏆 New Features
-----------------
-
-- Rewrote and optimized the k-nearest-neighbor algorithm; significantly
-  faster than the previous implementation across all tested geometries.
-
-🛠️ Other Improvements
-----------------------
-
 - Reworked the entire test suite to be self-contained: reference values
   for every algorithm are pre-computed and committed as small ``.npz``
   fixtures under ``tests/fixtures/``. Running the tests no longer
   requires OVITO, freud, ASE, pymatgen, pynep, or LAMMPS.
 - Added a GitHub Actions workflow that runs the suite on every push and
   pull request (Windows + Linux + macOS, Python 3.11 / 3.12).
+
 
 Mdapy 1.0.4 (April 24, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

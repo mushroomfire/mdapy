@@ -230,6 +230,114 @@ def test_get_atoms_count_returns_ndarray():
 
 
 # ===========================================================================
+# vacuum= option on Trajectory.save (XYZ output only)
+# ===========================================================================
+
+def _classical_cluster(n=3):
+    """Tiny FFF-boundary System (mirrors a classical XYZ training-set
+    frame). Includes the element column so the writer / reader round-trip
+    is unambiguous."""
+    pos = np.array([[i * 1.5, 0.0, 0.0] for i in range(n)])
+    s = mp.System(pos=pos, box=Box(np.eye(3) * (1.5 * (n - 1)),
+                                    boundary=[0, 0, 0]))
+    s.update_data(s.data.with_columns(element=pl.Series(["C"] * n)))
+    return s
+
+
+def test_save_xyz_vacuum_pads_open_boundaries(tmp_path):
+    """An FFF cluster saved with ``vacuum=200`` round-trips as a 200 Å+
+    fully-periodic supercell with the atoms centred."""
+    s = _classical_cluster(3)
+    out = tmp_path / "vac.xyz"
+    mp.Trajectory(systems=[s]).save(str(out), vacuum=200.0)
+    back = mp.Trajectory(str(out), verbose=False)
+    assert list(back[0].box.boundary) == [1, 1, 1]
+    # New box edge = original extent (2 * 1.5 = 3, then padded by Box's
+    # 1e-9 floor on classical reads is irrelevant here because we wrote
+    # a real box) + 200.
+    np.testing.assert_allclose(np.diag(back[0].box.box),
+                               [3.0 + 200, 3.0 + 200, 3.0 + 200], atol=1e-6)
+    # Atoms should be shifted by 100 along each open axis.
+    expected = np.array([[100.0, 100.0, 100.0],
+                         [101.5, 100.0, 100.0],
+                         [103.0, 100.0, 100.0]])
+    got = back[0].data.select("x", "y", "z").to_numpy()
+    np.testing.assert_allclose(got, expected, atol=1e-6)
+
+
+def test_save_xyz_vacuum_only_pads_open_axes(tmp_path):
+    """When boundary is mixed (e.g. PBC in xy, open in z), only the
+    open axes get padded; the periodic axes are left untouched."""
+    pos = np.array([[1.0, 1.0, 0.0], [3.0, 3.0, 0.0]])
+    s = mp.System(pos=pos,
+                  box=Box(np.eye(3) * np.array([5.0, 5.0, 1.0]),
+                          boundary=[1, 1, 0]))
+    s.update_data(s.data.with_columns(element=pl.Series(["C", "C"])))
+    out = tmp_path / "vac_z.xyz"
+    mp.Trajectory(systems=[s]).save(str(out), vacuum=50.0)
+    back = mp.Trajectory(str(out), verbose=False)
+    np.testing.assert_allclose(np.diag(back[0].box.box),
+                               [5.0, 5.0, 51.0], atol=1e-6)
+    assert list(back[0].box.boundary) == [1, 1, 1]
+    # x, y unchanged; z shifted by 25.
+    np.testing.assert_allclose(
+        back[0].data.select("x", "y", "z").to_numpy(),
+        [[1.0, 1.0, 25.0], [3.0, 3.0, 25.0]], atol=1e-6,
+    )
+
+
+def test_save_xyz_vacuum_zero_is_passthrough(tmp_path):
+    """``vacuum=0`` (the default) must be a no-op."""
+    s = _classical_cluster(3)
+    out = tmp_path / "rt.xyz"
+    mp.Trajectory(systems=[s]).save(str(out), vacuum=0.0)
+    back = mp.Trajectory(str(out), verbose=False)
+    # Boundary stays open; box stays roughly the original (the classical
+    # reader pads zero-extent axes to 1e-9 — that's a separate
+    # invariant we don't touch here).
+    assert list(back[0].box.boundary) == [0, 0, 0]
+
+
+def test_save_xyz_vacuum_does_not_mutate_input():
+    """The vacuum padding must be applied to a *copy* of each frame —
+    the in-memory trajectory the user holds onto is untouched."""
+    s = _classical_cluster(3)
+    traj = mp.Trajectory(systems=[s])
+    original_box = s.box.box.copy()
+    original_pos = s.data.select("x", "y", "z").to_numpy().copy()
+    import io as _io
+    # Don't actually write to disk — the side-effect we care about is
+    # whether `s` mutates. Use BytesIO via a tmp file would also work.
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".xyz") as tmp:
+        traj.save(tmp.name, vacuum=200.0)
+    np.testing.assert_array_equal(s.box.box, original_box)
+    np.testing.assert_array_equal(
+        s.data.select("x", "y", "z").to_numpy(), original_pos,
+    )
+
+
+def test_save_dump_vacuum_warns(tmp_path):
+    """``vacuum>0`` is meaningless for LAMMPS dump (which already
+    requires an explicit box) — issuing a warning is friendlier than
+    silently ignoring or applying the pad."""
+    s = _classical_cluster(3)
+    # Give it a real box so dump-write can run.
+    s.box = Box(np.eye(3) * 10.0, boundary=[1, 1, 1])
+    out = tmp_path / "x.dump"
+    with pytest.warns(UserWarning, match=r"(?i)vacuum.*ignored.*dump"):
+        mp.Trajectory(systems=[s]).save(str(out), vacuum=50.0)
+
+
+def test_save_xyz_vacuum_negative_raises():
+    s = _classical_cluster(2)
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".xyz") as tmp:
+        with pytest.raises(ValueError, match="vacuum must be >= 0"):
+            mp.Trajectory(systems=[s]).save(tmp.name, vacuum=-1.0)
+
+
+# ===========================================================================
 # Mixed XYZ trajectories: classical + extended frames in one file, plus
 # tiny frames (single atom, dimer) — all must parse cleanly via the
 # per-frame uniform-space-detection fast path.

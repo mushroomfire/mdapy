@@ -225,8 +225,7 @@ class XYZTrajectory(_TrajectoryListBase):
         if self._fast_mode:
             self._systems = self._read_xyz_fast(self._filename)
         else:
-            self._systems = self._read_xyz_serial(self._filename,
-                                                  verbose=self._verbose)
+            self._systems = self._read_xyz_serial(self._filename, verbose=self._verbose)
 
     def _read_xyz_fast(self, filename: str) -> List[System]:
         """
@@ -387,8 +386,7 @@ class XYZTrajectory(_TrajectoryListBase):
 
         return systems
 
-    def _read_xyz_serial(self, filename: str, verbose: bool = False
-                          ) -> List[System]:
+    def _read_xyz_serial(self, filename: str, verbose: bool = False) -> List[System]:
         """
         Serial trajectory reading mode. Slower than the fast path but
         tolerant of multi-space separators and per-frame schema drift.
@@ -430,12 +428,14 @@ class XYZTrajectory(_TrajectoryListBase):
                     # XYZ is a streaming format — we don't know the total
                     # frame count without a full pre-scan, so print just
                     # the running counter and refresh the same line.
-                    print(f"\r  [xyz.serial] frame {frame_idx} read   ",
-                          end="", flush=True)
+                    print(
+                        f"\r  [xyz.serial] frame {frame_idx} read   ",
+                        end="",
+                        flush=True,
+                    )
 
         if verbose:
-            print(f"\r  [xyz.serial] done — {frame_idx} frames        ",
-                  flush=True)
+            print(f"\r  [xyz.serial] done — {frame_idx} frames        ", flush=True)
         return systems
 
     def save(
@@ -443,6 +443,7 @@ class XYZTrajectory(_TrajectoryListBase):
         filename: str,
         frames: Optional[Union[List[int], int]] = None,
         mode: str = "w",
+        vacuum: float = 0.0,
     ) -> None:
         """
         Save trajectory to XYZ file.
@@ -460,13 +461,24 @@ class XYZTrajectory(_TrajectoryListBase):
             Writing mode can be:
             - 'w' : write mode
             - 'a' : append mode
+        vacuum : float, default=0.0
+            When ``> 0``, every non-periodic axis of every saved frame
+            is padded by ``vacuum`` Å (atoms shifted by ``vacuum / 2``
+            so they sit centred in the new cell, boundary flipped to
+            periodic). Useful for auto-boxing classical-XYZ frames so
+            downstream MD code sees a well-defined supercell. The
+            in-memory trajectory is not mutated — padding is applied
+            to a per-frame copy at write time.
 
         Examples
         --------
-        >>> traj.save("output.xyz")  # Save all frames
-        >>> traj.save("output.xyz", 0)  # Save first frame only
-        >>> traj.save("output.xyz", [0, 5, 10])  # Save specific frames
+        >>> traj.save("output.xyz")              # save all frames
+        >>> traj.save("output.xyz", 0)           # save first frame only
+        >>> traj.save("output.xyz", [0, 5, 10])  # save specific frames
+        >>> traj.save("output.xyz", vacuum=200)  # auto-box FFF frames
         """
+        if vacuum < 0:
+            raise ValueError(f"vacuum must be >= 0, got {vacuum}.")
         if frames is None:
             systems_to_save = self._systems
         elif isinstance(frames, int):
@@ -476,6 +488,8 @@ class XYZTrajectory(_TrajectoryListBase):
         assert mode in ["w", "a"]
         with open(filename, mode) as f:
             for system in systems_to_save:
+                if vacuum > 0:
+                    system = _pad_with_vacuum(system, vacuum)
                 self._write_single_frame(f, system)
 
     # NOTE: list-like API (__len__, __getitem__, __setitem__, __iter__,
@@ -574,13 +588,11 @@ class XYZTrajectory(_TrajectoryListBase):
             for j, c in enumerate(columns):
                 col = cells[:, j]
                 if schema[c] == pl.Int32:
-                    df_cols[c] = pl.Series(c, col.astype(np.int32),
-                                           dtype=pl.Int32)
+                    df_cols[c] = pl.Series(c, col.astype(np.int32), dtype=pl.Int32)
                 elif schema[c] == pl.Utf8:
                     df_cols[c] = pl.Series(c, col.tolist(), dtype=pl.Utf8)
                 else:
-                    df_cols[c] = pl.Series(c, col.astype(np.float64),
-                                           dtype=pl.Float64)
+                    df_cols[c] = pl.Series(c, col.astype(np.float64), dtype=pl.Float64)
             df = pl.DataFrame(df_cols)
 
         if classical:
@@ -877,10 +889,63 @@ class XYZTrajectory(_TrajectoryListBase):
 # ===========================================================================
 
 
-def _write_xyz_frame_to(f: TextIO, system: System) -> None:
+def _pad_with_vacuum(system: System, vacuum: float) -> System:
+    """Return a new :class:`System` with a vacuum buffer added along
+    every non-periodic axis.
+
+    For each axis ``i`` whose boundary is open (``box.boundary[i] == 0``)
+    the cell is extended by ``vacuum`` Å, the atoms are shifted by
+    ``vacuum / 2`` along ``i`` so the original cluster sits centred in
+    the padded box, and the boundary on those axes flips to periodic.
+    Periodic axes are left untouched. ``vacuum == 0`` is a no-op and
+    returns the input system unchanged.
+
+    Used by the trajectory writers to auto-box training-set frames that
+    came in as classical XYZ (PBC = FFF) so downstream MD code sees a
+    well-defined supercell.
+    """
+    if vacuum < 0:
+        raise ValueError(f"vacuum must be >= 0, got {vacuum}.")
+    if vacuum == 0:
+        return system
+    boundary = list(system.box.boundary)
+    if all(b == 1 for b in boundary):
+        return system  # nothing to pad
+
+    new_box_mat = np.asarray(system.box.box, dtype=float).copy()
+    new_origin = np.asarray(system.box.origin, dtype=float).copy()
+    new_boundary = list(boundary)
+    shift = np.zeros(3, dtype=float)
+    for i in range(3):
+        if boundary[i] == 0:
+            new_box_mat[i, i] += vacuum
+            shift[i] = vacuum / 2.0
+            new_boundary[i] = 1
+
+    new_data = system.data.with_columns(
+        pl.col("x") + shift[0],
+        pl.col("y") + shift[1],
+        pl.col("z") + shift[2],
+    )
+    return System(
+        data=new_data,
+        box=Box(new_box_mat, new_boundary, new_origin),
+        global_info=system.global_info,
+    )
+
+
+def _write_xyz_frame_to(f: TextIO, system: System,
+                        vacuum: float = 0.0) -> None:
     """Write one XYZ frame to an open text file. Same logic as
     :meth:`XYZTrajectory._write_single_frame` but as a free function so
-    :class:`Trajectory` can call it without instantiating XYZTrajectory."""
+    :class:`Trajectory` can call it without instantiating XYZTrajectory.
+
+    When ``vacuum > 0`` and the system has any non-periodic axis, the
+    written frame is the result of :func:`_pad_with_vacuum` — a padded
+    copy of the input. The original ``system`` object is not mutated.
+    """
+    if vacuum > 0:
+        system = _pad_with_vacuum(system, vacuum)
     df = system.data
     natom = len(df)
     f.write(f"{natom}\n")
@@ -960,13 +1025,19 @@ def _write_xyz_frame_to(f: TextIO, system: System) -> None:
         f.write(" ".join(line_data) + "\n")
 
 
-def _write_multi_xyz(filename: str, systems: List[System], mode: str = "w") -> None:
-    """Write a list of System frames to an XYZ file."""
+def _write_multi_xyz(filename: str, systems: List[System], mode: str = "w",
+                     vacuum: float = 0.0) -> None:
+    """Write a list of System frames to an XYZ file.
+
+    ``vacuum`` is forwarded to :func:`_write_xyz_frame_to` per frame,
+    so each frame's open axes get padded independently — useful when
+    the trajectory is a mix of classical and extended frames.
+    """
     if mode not in ("w", "a"):
         raise ValueError(f"mode must be 'w' or 'a', got {mode!r}")
     with open(filename, mode) as f:
         for s in systems:
-            _write_xyz_frame_to(f, s)
+            _write_xyz_frame_to(f, s, vacuum=vacuum)
 
 
 # ===========================================================================
@@ -1009,8 +1080,11 @@ def _progress(stream_name: str, current: int, total: int, every: int = 200) -> N
     bar = "#" * filled + "." * (bar_w - filled)
     end = "\n" if current == total else ""
     # Trailing space pads over any leftover characters from a wider line.
-    print(f"  [{stream_name}] [{bar}]  {current}/{total} ({pct:.0f}%)   ",
-          end=end + ("\r" if not end else ""), flush=True)
+    print(
+        f"  [{stream_name}] [{bar}]  {current}/{total} ({pct:.0f}%)   ",
+        end=end + ("\r" if not end else ""),
+        flush=True,
+    )
 
 
 def _read_multi_dump_serial(filename: str, verbose: bool = False) -> List[System]:
@@ -1046,7 +1120,6 @@ def _read_multi_dump_serial(filename: str, verbose: bool = False) -> List[System
 
 # Back-compat alias.
 _read_multi_dump = _read_multi_dump_serial
-
 
 
 def _write_multi_dump(filename: str, systems: List[System], mode: str) -> None:
@@ -1142,8 +1215,7 @@ class Trajectory(_TrajectoryListBase):
             if self._fast_mode:
                 xt._systems = xt._read_xyz_fast(self._filename)
             else:
-                xt._systems = xt._read_xyz_serial(self._filename,
-                                                  verbose=self._verbose)
+                xt._systems = xt._read_xyz_serial(self._filename, verbose=self._verbose)
             self._systems = xt._systems
         elif fmt == "dump":
             if self._fast_mode:
@@ -1154,8 +1226,9 @@ class Trajectory(_TrajectoryListBase):
                     "bulk path would add complexity without measurable "
                     "speedup. Pass fast_mode=False (the default)."
                 )
-            self._systems = _read_multi_dump_serial(self._filename,
-                                                   verbose=self._verbose)
+            self._systems = _read_multi_dump_serial(
+                self._filename, verbose=self._verbose
+            )
         else:
             raise ValueError(f"Unsupported trajectory format: {fmt!r}")
 
@@ -1165,6 +1238,7 @@ class Trajectory(_TrajectoryListBase):
         frames: Optional[Union[int, List[int]]] = None,
         mode: str = "w",
         format: Optional[str] = None,
+        vacuum: float = 0.0,
     ) -> None:
         """Write the trajectory to disk.
 
@@ -1178,7 +1252,20 @@ class Trajectory(_TrajectoryListBase):
             Open mode (write/truncate vs. append).
         format : {'xyz', 'dump'}, optional
             Override format detection.
+        vacuum : float, default=0.0
+            **XYZ output only.** When ``> 0``, every non-periodic axis
+            of every saved frame is padded by ``vacuum`` Å (atoms
+            shifted by ``vacuum / 2`` so they sit centred in the new
+            cell, boundary flipped to periodic). Useful for
+            auto-boxing training-set frames that came in as classical
+            XYZ (PBC = FFF) so downstream MD code sees a well-defined
+            supercell. The in-memory trajectory is **not** mutated —
+            padding is applied to a per-frame copy at write time.
+            Ignored for the dump format (LAMMPS dumps already require
+            an explicit box).
         """
+        if vacuum < 0:
+            raise ValueError(f"vacuum must be >= 0, got {vacuum}.")
         if frames is None:
             sel = self._systems
         elif isinstance(frames, int):
@@ -1190,8 +1277,15 @@ class Trajectory(_TrajectoryListBase):
 
         fmt = format or _infer_trajectory_format(filename)
         if fmt == "xyz":
-            _write_multi_xyz(filename, sel, mode)
+            _write_multi_xyz(filename, sel, mode, vacuum=vacuum)
         elif fmt == "dump":
+            if vacuum > 0:
+                import warnings
+                warnings.warn(
+                    "vacuum>0 is ignored for LAMMPS dump output (dumps "
+                    "already require a fully defined box).",
+                    UserWarning, stacklevel=2,
+                )
             _write_multi_dump(filename, sel, mode)
         else:
             raise ValueError(f"Unsupported trajectory format: {fmt!r}")
@@ -1202,7 +1296,5 @@ class Trajectory(_TrajectoryListBase):
 
 
 if __name__ == "__main__":
-    traj = XYZTrajectory(
-        "/u/22/wuy33/unix/Desktop/GAP_CN/gap_cn_training_dataset.xyz"
-    )
+    traj = Trajectory("/u/22/wuy33/unix/Desktop/GAP_CN/gap_cn_training_dataset.xyz")
     print(traj)

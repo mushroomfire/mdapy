@@ -187,6 +187,71 @@ def test_xyztrajectory_inherits_list_api():
 
 
 # ===========================================================================
+# Mixed XYZ trajectories: classical + extended frames in one file, plus
+# tiny frames (single atom, dimer) — all must parse cleanly via the
+# per-frame uniform-space-detection fast path.
+# ===========================================================================
+
+def test_xyz_mixed_classical_and_extended():
+    """One file containing six frames of varying shape:
+       classical 1-atom, extended 2-atom, extended 3-atom with forces,
+       classical 4-atom dimer pair, extended 2-atom alloy, classical 1-atom.
+    All must parse without raising and yield the right N + element list
+    per frame."""
+    traj = mp.XYZTrajectory(str(XYZ_DIR / "mixed_traj.xyz"))
+    assert len(traj) == 6
+    assert [s.N for s in traj] == [1, 2, 3, 4, 2, 1]
+    assert traj[0].data["element"].to_list() == ["C"]
+    assert traj[1].data["element"].to_list() == ["C", "N"]
+    assert traj[2].data["element"].to_list() == ["C", "H", "H"]
+    # Frame 2 is extended XYZ with force columns — check they came through.
+    for col in ("fx", "fy", "fz"):
+        assert col in traj[2].data.columns
+    np.testing.assert_allclose(
+        traj[2].data["fx"].to_numpy(), [0.1, -0.05, -0.05], atol=1e-9,
+    )
+    # Frame 3 is classical (no Lattice) — boundary should be all-open.
+    assert list(traj[3].box.boundary) == [0, 0, 0]
+    # Frame 4 is extended again — boundary should be all-PBC.
+    assert list(traj[4].box.boundary) == [1, 1, 1]
+    # Frame 5: single classical Ne — Box() must still construct (zero
+    # extents are padded to 1e-9 inside the parser).
+    assert traj[5].N == 1
+    assert traj[5].data["element"].to_list() == ["Ne"]
+
+
+def test_xyz_mixed_multispace_falls_back_per_frame(tmp_path):
+    """A frame with multi-space separators must parse via the Python
+    fallback while frames with uniform spacing in the same file go
+    through the polars CSV fast path. The check is per-frame."""
+    traj = mp.XYZTrajectory(str(XYZ_DIR / "mixed_multispace.xyz"))
+    assert len(traj) == 2
+    np.testing.assert_allclose(
+        traj[0].data.select("x", "y", "z").to_numpy(),
+        [[0.0, 0.0, 0.0], [1.2, 0.0, 0.0]],
+        atol=1e-9,
+    )
+    np.testing.assert_allclose(
+        traj[1].data.select("x", "y", "z").to_numpy(),
+        [[0.1, 0.0, 0.0], [1.3, 0.0, 0.0]],
+        atol=1e-9,
+    )
+
+
+def test_xyz_single_atom_no_box_does_not_singular():
+    """Regression: a 1-atom classical frame has zero box extent on
+    every axis. The cell matrix must still be invertible (Box() rejects
+    singular matrices), so the parser pads zero extents to 1e-9."""
+    s = mp.System(str(XYZ_DIR / "classical.xyz"))
+    # Classical fixture is 3 atoms in a plane; just sanity-check the
+    # path runs. Then parse a 1-atom Ne frame from mixed_traj.
+    traj = mp.XYZTrajectory(str(XYZ_DIR / "mixed_traj.xyz"))
+    sing = traj[5]
+    # Box should be invertible.
+    np.linalg.inv(sing.box.box)
+
+
+# ===========================================================================
 # Writing
 # ===========================================================================
 

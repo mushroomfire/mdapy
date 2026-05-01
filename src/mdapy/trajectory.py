@@ -491,17 +491,42 @@ class XYZTrajectory(_TrajectoryListBase):
             }
             origin = np.zeros(3, float)
 
-        data = {col: [] for col in columns}
-        for line in data_lines:
-            values = line.split()
-            for col, val in zip(columns, values):
-                data[col].append(val)
+        # Per-frame fast path: when the whole atom block is single-space
+        # separated with the right column count, parse it via polars
+        # `read_csv` (~vectorised C path). Falls through to the
+        # Python `str.split()` path on irregular whitespace, tabs, or
+        # CRLF endings — same dispatch the LAMMPS readers use. A
+        # mixed-format trajectory (classical + extended, varying N,
+        # different separators per frame) handles each frame on its own
+        # merits because the check runs per-frame.
+        from mdapy.load_save import _is_uniform_single_space
+        import io as _io
 
-        df = pl.DataFrame(data).cast(schema)
+        if _is_uniform_single_space(data_lines, len(columns)):
+            buf = _io.StringIO("".join(data_lines))
+            df = pl.read_csv(buf, separator=" ", schema=schema, has_header=False)
+        else:
+            cells = np.array([row.split()[: len(columns)] for row in data_lines])
+            df_cols = {}
+            for j, c in enumerate(columns):
+                col = cells[:, j]
+                if schema[c] == pl.Int32:
+                    df_cols[c] = pl.Series(c, col.astype(np.int32),
+                                           dtype=pl.Int32)
+                elif schema[c] == pl.Utf8:
+                    df_cols[c] = pl.Series(c, col.tolist(), dtype=pl.Utf8)
+                else:
+                    df_cols[c] = pl.Series(c, col.astype(np.float64),
+                                           dtype=pl.Float64)
+            df = pl.DataFrame(df_cols)
 
         if classical:
             coor = df.select("x", "y", "z")
-            box_array = np.eye(3) * (coor.max() - coor.min()).to_numpy()
+            extents = (coor.max() - coor.min()).to_numpy().flatten()
+            # Pad zero extents (e.g. a single atom or a planar config)
+            # so Box() can still invert the cell matrix.
+            extents = np.where(extents > 0, extents, 1e-9)
+            box_array = np.diag(extents)
 
         for key in ["pbc", "properties", "origin", "lattice"]:
             global_info.pop(key, None)

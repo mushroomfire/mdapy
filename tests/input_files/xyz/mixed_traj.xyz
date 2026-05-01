@@ -1,0 +1,25 @@
+1
+classical single atom — no Lattice
+C 0.0 0.0 0.0
+2
+Lattice="10.0 0.0 0.0 0.0 10.0 0.0 0.0 0.0 10.0" Properties=species:S:1:pos:R:3 pbc="T T T"
+C 0.0 0.0 0.0
+N 1.2 0.0 0.0
+3
+Lattice="20.0 0.0 0.0 0.0 20.0 0.0 0.0 0.0 20.0" Properties=species:S:1:pos:R:3:force:R:3 pbc="T T T" energy=-12.34
+C 0.0 0.0 0.0 0.1 0.0 0.0
+H 1.0 0.0 0.0 -0.05 0.0 0.0
+H 0.0 1.0 0.0 -0.05 0.0 0.0
+4
+classical 4-atom dimer pair — no box
+H -1.0 0.0 0.0
+H  1.0 0.0 0.0
+O  0.0 -1.0 0.0
+O  0.0  1.0 0.0
+2
+Lattice="5.0 0.0 0.0 0.0 5.0 0.0 0.0 0.0 5.0" Properties=species:S:1:pos:R:3 pbc="T T T"
+Cu 0.0   0.0   0.0
+Al 2.5   2.5   2.5
+1
+classical single Ne again
+Ne 0.0 0.0 0.0

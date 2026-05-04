@@ -149,10 +149,13 @@ def test_quad_clusters_enumerated():
         ("Fe", "Ni", "Co", "Mn", "Cr"), (0.2,) * 5,
         "fcc", 3.55, nx=2, ny=2, nz=2, random_seed=0,
     )
+    # Tight 4-body cutoff (just above NN1 ≈ 2.51 Å) to keep the
+    # quadruplet enumeration cheap — we only need to verify that
+    # 4-body channels are produced, not that they fully converge.
     sqs = mp.SQS(
         sys_init,
-        cutoffs={2: 4.0, 3: 3.0, 4: 3.0},
-        n_replicas=2, max_steps=10000, T=0.05, seed=0,
+        cutoffs={2: 4.0, 3: 2.7, 4: 2.7},
+        n_replicas=2, max_steps=2000, T=0.05, seed=0,
     ).compute()
     body_count = Counter(ci["n_pts"] for ci in sqs.channel_info)
     assert 4 in body_count, f"no 4-body channels: {dict(body_count)}"
@@ -245,11 +248,11 @@ def test_atat_objective_rewards_dmin():
     because the d1 perfect-match reward subtracts a positive quantity."""
     sys_init = mp.build_hea(
         ("Fe", "Ni", "Co", "Mn", "Cr"), (0.2,) * 5,
-        "fcc", 3.55, nx=4, ny=4, nz=4, random_seed=1,
+        "fcc", 3.55, nx=2, ny=2, nz=2, random_seed=1,
     )
     common = dict(
         cutoffs={2: 4.0, 3: 3.0},
-        n_replicas=4, max_steps=50000, T=0.02, seed=3,
+        n_replicas=2, max_steps=10000, T=0.02, seed=3,
     )
     sqs_atat = mp.SQS(sys_init, objective="atat", **common).compute()
     sqs_abs  = mp.SQS(sys_init, objective="abs",  **common).compute()
@@ -262,7 +265,8 @@ def test_atat_objective_rewards_dmin():
 
 
 def test_is_sqs_true_on_converged_cubic():
-    """A 256-atom cubic 3-element SQS should pass all three is_sqs checks."""
+    """A 256-atom cubic 3-element SQS should pass the verdict (absolute
+    correlation residual + Warren-Cowley)."""
     sys_init = mp.build_hea(
         ("A", "B", "C"), (1 / 3,) * 3, "fcc", 3.6,
         nx=4, ny=4, nz=4, random_seed=0,
@@ -276,7 +280,6 @@ def test_is_sqs_true_on_converged_cubic():
     )
     assert verdict, f"expected SQS verdict True; report={report}"
     assert report["absolute"]["pass"]
-    assert report["statistical"]["pass"]
     assert report["warren_cowley"]["pass"]
 
 

@@ -49,7 +49,9 @@ namespace {
 std::vector<std::vector<double>> build_trigo_basis(int m) {
     const int n_func = m - 1;
     std::vector<std::vector<double>> table(n_func, std::vector<double>(m, 0.0));
-    const double TWO_PI = 2.0 * M_PI;
+    // 2π hard-coded so we don't need M_PI (MSVC <cmath> hides it unless
+    // _USE_MATH_DEFINES is set before any system header).
+    const double TWO_PI = 6.283185307179586476925286766559;
     for (int s = 0; s < m; ++s) {
         for (int t = 1; t <= m / 2; ++t) {
             table[2 * t - 2][s] = -std::cos(TWO_PI * s * t / m);

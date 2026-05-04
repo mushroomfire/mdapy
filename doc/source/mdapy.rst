@@ -42,6 +42,14 @@ mdapy.bond\_analysis module
    :show-inheritance:
    :undoc-members:
 
+mdapy.bond\_stiffness module
+----------------------------
+
+.. automodule:: mdapy.bond_stiffness
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 mdapy.box module
 ----------------
 
@@ -302,6 +310,14 @@ mdapy.spline module
 -------------------
 
 .. automodule:: mdapy.spline
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+mdapy.sqs module
+----------------
+
+.. automodule:: mdapy.sqs
    :members:
    :show-inheritance:
    :undoc-members:

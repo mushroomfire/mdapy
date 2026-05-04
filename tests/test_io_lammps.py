@@ -188,6 +188,41 @@ def test_dump_unwrapped_kept_as_xyz():
         assert c not in s.data.columns
 
 
+def test_dump_xyz_takes_priority_over_xs_xu():
+    """When a dump has explicit x/y/z together with xs/ys/zs and/or xu/yu/zu,
+    the explicit Cartesian columns are kept and the scaled / unwrapped
+    variants stay under their original names. Previously, the loader
+    unconditionally tried to overwrite x/y/z from xs, raising a duplicate
+    column error or losing the user's data."""
+    s = mp.System(str(LAMMPS_DIR / "dump_xyz_with_xs_xu.dump"))
+    assert s.N == 3
+    # Cartesian columns kept verbatim
+    np.testing.assert_allclose(
+        s.data.select("x", "y", "z").to_numpy(),
+        [[0.5, 0.5, 0.5], [2.0, 0.5, 0.5], [0.5, 2.0, 0.5]],
+    )
+    # the alternate forms remain accessible under their original names
+    for c in ("xs", "ys", "zs", "xu", "yu", "zu"):
+        assert c in s.data.columns
+
+
+def test_trajectory_dump_xyz_with_xs_xu(tmp_path):
+    """Same priority rule must hold for the multi-frame Trajectory reader."""
+    src = LAMMPS_DIR / "dump_xyz_with_xs_xu.dump"
+    multi = tmp_path / "multi.dump"
+    # concatenate two copies → 2-frame dump
+    multi.write_text(src.read_text() + src.read_text())
+    traj = mp.Trajectory(str(multi))
+    assert len(traj) == 2
+    s0 = traj[0]
+    np.testing.assert_allclose(
+        s0.data.select("x", "y", "z").to_numpy(),
+        [[0.5, 0.5, 0.5], [2.0, 0.5, 0.5], [0.5, 2.0, 0.5]],
+    )
+    for c in ("xs", "ys", "zs", "xu", "yu", "zu"):
+        assert c in s0.data.columns
+
+
 def test_dump_image_flags():
     """When ix/iy/iz are present they are kept verbatim as integer columns
     alongside the wrapped x/y/z coordinates."""

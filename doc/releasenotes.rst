@@ -1,6 +1,28 @@
 Release Notes
 ===============
 
+Mdapy 1.0.6a1 (May 4, 2026)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🏆 New Features
+----------------
+
+- New :class:`mdapy.SQS` class for generating Special Quasirandom
+  Structures from a random alloy.
+- New :class:`mdapy.BondStiffness` class for fitting bond
+  longitudinal / transverse stiffnesses vs bond length.
+
+🐞 Bug Fixes
+-------------
+
+- ``read_dump`` no longer fails (or silently overwrites) when a dump
+  contains explicit ``x y z`` together with ``xs ys zs`` and/or
+  ``xu yu zu``. Cartesian columns now take priority and the
+  scaled/unwrapped variants stay under their original names; the
+  fallback promotion only triggers when ``x y z`` is absent. Applies
+  to both single-frame :class:`mdapy.System` and multi-frame
+  :class:`mdapy.Trajectory` loaders.
+
 Mdapy 1.0.5 (May 1, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

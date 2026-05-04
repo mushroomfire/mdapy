@@ -19,6 +19,8 @@ from mdapy.trajectory import XYZTrajectory, Trajectory
 from mdapy.lindemann_parameter import LindemannParameter
 from mdapy.void_analysis import VoidAnalysis
 from mdapy.orthogonal_cell import orthogonal_cell
+from mdapy.sqs import SQS
+from mdapy.bond_stiffness import BondStiffness
 
 __all__ = [
     "System",
@@ -44,5 +46,7 @@ __all__ = [
     "LindemannParameter",
     "VoidAnalysis",
     "orthogonal_cell",
+    "SQS",
+    "BondStiffness",
 ]
-__version__ = "1.0.5"
+__version__ = "1.0.6a1"

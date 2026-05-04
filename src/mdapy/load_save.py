@@ -174,20 +174,26 @@ def _parse_dump_frame_impl(lines: List[str], source: str
                                           dtype=pl.Float64)
         data = pl.DataFrame(df_cols)
 
-    # Coordinate-variant normalisation.
+    # Coordinate-variant normalisation. Preference order: an explicit
+    # ``x y z`` triplet wins over scaled/unwrapped variants; the other
+    # columns are kept under their original names so the user can still
+    # access them. Only when ``x y z`` is missing do we promote
+    # ``xs ys zs``/``xsu ysu zsu``/``xu yu zu`` into ``x y z``.
     cols = set(data.columns)
-    if {"xs", "ys", "zs"}.issubset(cols) or {"xsu", "ysu", "zsu"}.issubset(cols):
-        tag = "xs" if {"xs", "ys", "zs"}.issubset(cols) else "xsu"
-        tag_y, tag_z = tag.replace("x", "y"), tag.replace("x", "z")
-        scaled = data.select(tag, tag_y, tag_z).to_numpy()
-        absolute = box[3] + scaled @ box[:3]
-        data = data.with_columns(
-            x=pl.Series(absolute[:, 0]),
-            y=pl.Series(absolute[:, 1]),
-            z=pl.Series(absolute[:, 2]),
-        ).select(pl.all().exclude(tag, tag_y, tag_z))
-    elif {"xu", "yu", "zu"}.issubset(cols):
-        data = data.rename({"xu": "x", "yu": "y", "zu": "z"})
+    has_xyz = {"x", "y", "z"}.issubset(cols)
+    if not has_xyz:
+        if {"xs", "ys", "zs"}.issubset(cols) or {"xsu", "ysu", "zsu"}.issubset(cols):
+            tag = "xs" if {"xs", "ys", "zs"}.issubset(cols) else "xsu"
+            tag_y, tag_z = tag.replace("x", "y"), tag.replace("x", "z")
+            scaled = data.select(tag, tag_y, tag_z).to_numpy()
+            absolute = box[3] + scaled @ box[:3]
+            data = data.with_columns(
+                x=pl.Series(absolute[:, 0]),
+                y=pl.Series(absolute[:, 1]),
+                z=pl.Series(absolute[:, 2]),
+            ).select(pl.all().exclude(tag, tag_y, tag_z))
+        elif {"xu", "yu", "zu"}.issubset(cols):
+            data = data.rename({"xu": "x", "yu": "y", "zu": "z"})
 
     return data.rechunk(), Box(box, boundary), {"timestep": timestep}
 

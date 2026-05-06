@@ -4,6 +4,7 @@
 from mdapy import _csp
 import polars as pl
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 import numpy as np
 
 
@@ -98,6 +99,7 @@ class CentroSymmetryParameter:
             self.verlet_list,
             self.N,
             self.csp,
+            get_num_threads(),
         )
 
 

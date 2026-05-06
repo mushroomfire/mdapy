@@ -18,7 +18,8 @@ void get_csp(
     const ROneArrayI boundary,
     const RTwoArrayI verlet_list_py,
     const int N,
-    OneArrayD csp_py)
+    OneArrayD csp_py,
+    const int num_t)
 {
     const int num_atoms = x_py.shape(0);
     auto x = x_py.view();
@@ -41,7 +42,7 @@ void get_csp(
         }
     }
 
-    #pragma omp parallel
+    #pragma omp parallel num_threads(num_t)
     {
 
         std::vector<double> pair_distances(num_pairs);

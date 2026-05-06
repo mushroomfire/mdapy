@@ -11,7 +11,8 @@ void get_wcp(
     const ROneArrayI neighbor_number_py,
     const ROneArrayI type_list_py,
     const int Ntype,
-    TwoArrayD WCP_py
+    TwoArrayD WCP_py,
+    const int num_t
 ) {
     const int N = verlet_list_py.shape(0);
     auto verlet_list = verlet_list_py.view();
@@ -24,7 +25,7 @@ void get_wcp(
     std::vector<double> Alpha_n(Ntype, 0.0);
 
     // ✅ 使用 OpenMP 并行化
-    #pragma omp parallel
+    #pragma omp parallel num_threads(num_t)
     {
         std::vector<int> Zmn_local(Ntype * Ntype, 0);
         std::vector<int> Zm_local(Ntype, 0);
@@ -64,7 +65,7 @@ void get_wcp(
     }
 
     // 计算 WCP
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for num_threads(num_t) collapse(2)
     for (int i = 0; i < Ntype; ++i) {
         for (int j = 0; j < Ntype; ++j) {
             if (Alpha_n[j] > 0 && Zm[i] > 0) {

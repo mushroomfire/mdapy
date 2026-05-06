@@ -109,7 +109,8 @@ void build_verlet_list(const ROneArrayD x_py,
                        const double rc,
                        TwoArrayI verlet_list_py,
                        TwoArrayD distance_list_py,
-                       OneArrayI neighbor_number_py)
+                       OneArrayI neighbor_number_py,
+                       const int num_t)
 {
     auto x = x_py.view();
     auto y = y_py.view();
@@ -126,7 +127,7 @@ void build_verlet_list(const ROneArrayD x_py,
     const double rc_inverse{1.0 / rc};
     const double rcsq{rc * rc};
 
-#pragma omp parallel for firstprivate(x, y, z, verlet_list, distance_list, neighbor_number)
+#pragma omp parallel for num_threads(num_t) firstprivate(x, y, z, verlet_list, distance_list, neighbor_number)
     for (int i = 0; i < N; ++i)
     {
         int nindex{0};
@@ -192,7 +193,8 @@ auto build_neighbor_without_max_neigh(
     const RTwoArrayD box_py,
     const ROneArrayD origin,
     const ROneArrayI boundary,
-    const double rc)
+    const double rc,
+    const int num_t)
 {
     Box box = get_box(box_py, origin, boundary);
     int ncell[3]{};
@@ -207,7 +209,7 @@ auto build_neighbor_without_max_neigh(
     int *atom_cell_list = new int[N]{};
     int *cell_id_list = new int[total_cell];
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < total_cell; ++i)
     {
         cell_id_list[i] = -1;
@@ -226,7 +228,7 @@ auto build_neighbor_without_max_neigh(
     const double rcsq{rc * rc};
 
     // 使用 vector 动态存储
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         double xi = x(i);
@@ -316,7 +318,7 @@ auto build_neighbor_without_max_neigh(
 
     // 初始化数组（填充无效值）
     const double rc_plus = rc + 1.0;
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         for (int j = 0; j < max_neigh; ++j)
@@ -327,7 +329,7 @@ auto build_neighbor_without_max_neigh(
     }
 
     // 从 vector 复制到最终数组
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         int n_neigh = static_cast<int>(neighbor_lists[i].size());
@@ -355,7 +357,8 @@ void build_neighbor(const ROneArrayD x_py,
                     const double rc,
                     TwoArrayI verlet_list_py,
                     TwoArrayD distance_list_py,
-                    OneArrayI neighbor_number_py)
+                    OneArrayI neighbor_number_py,
+                    const int num_t)
 {
     Box box = get_box(box_py, origin, boundary);
     int ncell[3]{};
@@ -369,7 +372,7 @@ void build_neighbor(const ROneArrayD x_py,
     int *atom_cell_list = new int[N]{};
     int *cell_id_list = new int[total_cell];
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < total_cell; ++i)
     {
         cell_id_list[i] = -1;
@@ -378,7 +381,7 @@ void build_neighbor(const ROneArrayD x_py,
     build_cell(x_py, y_py, z_py, atom_cell_list, cell_id_list, box, ncell, rc);
     build_verlet_list(x_py, y_py, z_py, atom_cell_list,
                       cell_id_list, box, ncell, rc,
-                      verlet_list_py, distance_list_py, neighbor_number_py);
+                      verlet_list_py, distance_list_py, neighbor_number_py, num_t);
 
     delete[] atom_cell_list;
     delete[] cell_id_list;
@@ -390,7 +393,8 @@ auto filter_overlap_atom(const ROneArrayD x_py,
                          const RTwoArrayD box_py,
                          const ROneArrayD origin,
                          const ROneArrayI boundary,
-                         const double rc)
+                         const double rc,
+                         const int num_t)
 {
     Box box = get_box(box_py, origin, boundary);
     int ncell[3]{};
@@ -404,7 +408,7 @@ auto filter_overlap_atom(const ROneArrayD x_py,
     int *atom_cell_list = new int[N]{};
     int *cell_id_list = new int[total_cell];
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < total_cell; ++i)
     {
         cell_id_list[i] = -1;
@@ -421,13 +425,13 @@ auto filter_overlap_atom(const ROneArrayD x_py,
 
     nb::capsule filter_owner(filter_data, [](void *p) noexcept
                              { delete[] (bool *)p; });
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         filter_data[i] = true;
     }
 
-#pragma omp parallel for firstprivate(x, y, z)
+#pragma omp parallel for num_threads(num_t) firstprivate(x, y, z)
     for (int i = 0; i < N; ++i)
     {
         double xi = x(i);
@@ -493,7 +497,8 @@ auto filter_overlap_atom_with_grain(
     const ROneArrayI boundary,
     const double rc_metal_metal, // Metal-Metal 截断距离
     const double rc_cc,          // C-C 截断距离
-    const double rc_metal_c)     // Metal-C 截断距离
+    const double rc_metal_c,     // Metal-C 截断距离
+    const int num_t)
 {
     Box box = get_box(box_py, origin, boundary);
     int ncell[3]{};
@@ -511,7 +516,7 @@ auto filter_overlap_atom_with_grain(
     int *atom_cell_list = new int[N]{};
     int *cell_id_list = new int[total_cell];
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < total_cell; ++i)
     {
         cell_id_list[i] = -1;
@@ -535,7 +540,7 @@ auto filter_overlap_atom_with_grain(
                              { delete[] (bool *)p; });
 
     // 初始化全部保留
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         filter_data[i] = true;
@@ -548,7 +553,7 @@ auto filter_overlap_atom_with_grain(
         atom_removed[i].store(false);
     }
 
-#pragma omp parallel for firstprivate(x, y, z, type, grain_id)
+#pragma omp parallel for num_threads(num_t) firstprivate(x, y, z, type, grain_id)
     for (int i = 0; i < N; ++i)
     {
         // 如果原子已被标记删除，跳过
@@ -672,7 +677,8 @@ void wrap_positions(OneArrayD x_py,
                     OneArrayD z_py,
                     const RTwoArrayD box_py,
                     const ROneArrayD origin,
-                    const ROneArrayI boundary)
+                    const ROneArrayI boundary,
+                    const int num_t)
 {
     Box box = get_box(box_py, origin, boundary);
     auto x = x_py.view();
@@ -680,7 +686,7 @@ void wrap_positions(OneArrayD x_py,
     auto z = z_py.view();
     const int N{static_cast<int>(x.shape(0))};
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         double xi = x(i);
@@ -701,7 +707,8 @@ void average_by_neighbor(const double rc,
                          const ROneArrayI neighbor_number_py,
                          const ROneArrayD value_py,
                          OneArrayD value_ave_py,
-                         const bool include_self)
+                         const bool include_self,
+                         const int num_t)
 {
     auto verlet_list = verlet_list_py.view();
     auto distance_list = distance_list_py.view();
@@ -710,7 +717,7 @@ void average_by_neighbor(const double rc,
     auto value_ave = value_ave_py.view();
     const int N{static_cast<int>(value.shape(0))};
 
-#pragma omp parallel for firstprivate(verlet_list, distance_list, neighbor_number, value, value_ave)
+#pragma omp parallel for num_threads(num_t) firstprivate(verlet_list, distance_list, neighbor_number, value, value_ave)
     for (int i = 0; i < N; ++i)
     {
         double sum{0.0};
@@ -738,7 +745,8 @@ void average_by_neighbor(const double rc,
 void sort_verlet_by_distance(
     TwoArrayI verlet_list_py,
     TwoArrayD distance_list_py,
-    const int sortNum)
+    const int sortNum,
+    const int num_t)
 {
     auto verlet_list = verlet_list_py.view();
     auto distance_list = distance_list_py.view();
@@ -746,7 +754,7 @@ void sort_verlet_by_distance(
     const int N{static_cast<int>(verlet_list.shape(0))};
     const int NumNeigh{static_cast<int>(verlet_list.shape(1))};
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         int effective_sort = std::min(sortNum, NumNeigh);
@@ -775,7 +783,8 @@ auto _fill_cell_for_void(const ROneArrayD x_py,
                          const RTwoArrayD box_py,
                          const ROneArrayD origin,
                          const ROneArrayI boundary,
-                         const double rc)
+                         const double rc,
+                         const int num_t)
 {
     Box box = get_box(box_py, origin, boundary);
     int ncell[3]{};
@@ -793,13 +802,13 @@ auto _fill_cell_for_void(const ROneArrayD x_py,
     const int total_cell = ncell[0] * ncell[1] * ncell[2];
     int *cell_id_list = new int[total_cell];
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < total_cell; ++i)
     {
         cell_id_list[i] = 0;
     }
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         double xi = x(i);

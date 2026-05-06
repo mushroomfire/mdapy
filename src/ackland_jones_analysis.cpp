@@ -15,7 +15,8 @@ void compute_aja(
     const ROneArrayI boundary_array,
     const RTwoArrayI verlet_list,
     const RTwoArrayD distance_list,
-    OneArrayI aja)
+    OneArrayI aja,
+    const int num_t)
 {
     const int n_atoms = x.shape(0);
     Box box = get_box(box_array, origin_array, boundary_array);
@@ -30,7 +31,7 @@ void compute_aja(
     const int verlet_stride = verlet_list.shape(1);
     const int dist_stride = distance_list.shape(1);
 
-#pragma omp parallel for schedule(dynamic, 64)
+#pragma omp parallel for num_threads(num_t) schedule(dynamic, 64)
     for (int i = 0; i < n_atoms; ++i)
     {
 

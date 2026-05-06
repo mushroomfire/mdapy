@@ -143,7 +143,8 @@ void get_ptm(const char *structure,
              const ROneArrayI atom_types_py,
              const double rmsd_threshold,
              TwoArrayD output_py,
-             TwoArrayI ptm_indices_py)
+             TwoArrayI ptm_indices_py,
+             const int num_t)
 {
     const int N = static_cast<int>(x_py.shape(0));
 
@@ -254,7 +255,7 @@ void get_ptm(const char *structure,
     }
 
 // ⭐ 第二步：使用预排序的邻居进行 PTM 分析
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
     {
         ptm_local_handle_t local_handle = ptm_initialize_local();
 
@@ -332,5 +333,6 @@ NB_MODULE(_ptm, m)
           nanobind::arg("rmsd_threshold"),
           nanobind::arg("output"),
           nanobind::arg("ptm_indices"),
+          nanobind::arg("num_t"),
           "Polyhedral Template Matching with OVITO-style neighbor ordering");
 }

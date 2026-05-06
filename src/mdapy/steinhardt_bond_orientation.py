@@ -5,6 +5,7 @@ import numpy as np
 import polars as pl
 from mdapy.box import Box
 from mdapy import _sbo
+from mdapy.parallel import get_num_threads
 
 
 class SteinhardtBondOrientation:
@@ -275,6 +276,7 @@ class SteinhardtBondOrientation:
             self.qlm_r,
             self.qlm_i,
             self.qnarray,
+            get_num_threads(),
         )
         if self.identify_liquid:
             Q6index = int(np.where(self.llist == 6)[0][0])
@@ -296,4 +298,5 @@ class SteinhardtBondOrientation:
                 self.use_voronoi,
                 self.nnn,
                 self.rc,
+                get_num_threads(),
             )

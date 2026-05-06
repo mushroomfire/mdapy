@@ -118,7 +118,8 @@ void filter_by_type(
     const ROneArrayI type_list_py,
     const ROneArrayI type1_py,
     const ROneArrayI type2_py,
-    const ROneArrayD r_py)
+    const ROneArrayD r_py,
+    const int num_t)
 {
     auto verlet_list = verlet_list_py.view();
     auto distance_list = distance_list_py.view();
@@ -130,7 +131,7 @@ void filter_by_type(
 
     const int N = verlet_list_py.shape(0);
     const int ntype = type1_py.shape(0);
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         const int n_neighbor = neighbor_number(i);

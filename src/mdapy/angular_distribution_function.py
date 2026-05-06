@@ -4,6 +4,7 @@
 from __future__ import annotations
 from mdapy import _bond_analysis
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 import polars as pl
 import numpy as np
 from typing import TYPE_CHECKING, Optional, Tuple, Dict, List
@@ -161,6 +162,7 @@ class AngularDistributionFunction:
             type_list,
             self.nbin,
             self.bond_angle_distribution,
+            get_num_threads(),
         )
         r = np.linspace(0, 180.0, self.nbin + 1)
         self.r_angle = (r[1:] + r[:-1]) / 2

@@ -340,7 +340,8 @@ public:
            int max_steps,
            double T,
            int n_replicas,
-           uint64_t seed) {
+           uint64_t seed,
+           const int num_t) {
         if ((int)init_types.size() != n_atoms)
             throw std::runtime_error("init_types size != n_atoms");
 
@@ -362,7 +363,7 @@ public:
 
         const int n_inst = (int)instances.size();
 
-        #pragma omp parallel for schedule(dynamic, 1)
+        #pragma omp parallel for num_threads(num_t) schedule(dynamic, 1)
         for (int r = 0; r < n_replicas; ++r) {
             auto& rep = reps[r];
             std::mt19937_64 rng(seed + 1009ULL * (uint64_t)r + 1);

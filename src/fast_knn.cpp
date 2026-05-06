@@ -180,7 +180,7 @@ public:
     KdTree() = default;
 
     void build(const double* x, const double* y, const double* z,
-               size_t N, const Box& box, int bucket_size, int depth_limit)
+               size_t N, const Box& box, int bucket_size, int depth_limit, const int num_t)
     {
         box_ = box;
         bucket_ = std::max(8, bucket_size);
@@ -237,7 +237,7 @@ public:
             const double Lx = box_.data[0], Ly = box_.data[4], Lz = box_.data[8];
             const double invLx = 1.0 / Lx, invLy = 1.0 / Ly, invLz = 1.0 / Lz;
             const int bx = box_.boundary[0], by = box_.boundary[1], bz = box_.boundary[2];
-#pragma omp parallel for schedule(static) if((long long)N > kWrapParThreshold)
+#pragma omp parallel for num_threads(num_t) schedule(static) if((long long)N > kWrapParThreshold)
             for (long long i = 0; i < (long long)N; ++i) {
                 double px = x[i], py = y[i], pz = z[i];
                 double rx = px * invLx, ry = py * invLy, rz = pz * invLz;
@@ -248,7 +248,7 @@ public:
                 red_[i] = { rx, ry, rz };
             }
         } else {
-#pragma omp parallel for schedule(static) if((long long)N > kWrapParThreshold)
+#pragma omp parallel for num_threads(num_t) schedule(static) if((long long)N > kWrapParThreshold)
             for (long long i = 0; i < (long long)N; ++i) {
                 double p[3] = { x[i], y[i], z[i] };
                 double r[3];
@@ -311,7 +311,7 @@ public:
         nodes_[root_id].atom_end = static_cast<int>(N);
         copy_reduced_bounds(nodes_[root_id], rmn, rmx);
 
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
         {
 #pragma omp single
             build_recursive(root_id, 0, rmn, rmx);
@@ -653,7 +653,7 @@ static void query_ortho(const OrthoAtom* atoms, int n, const double q[3],
 class OrthoKdTree {
 public:
     void build(const double* x, const double* y, const double* z,
-               size_t N, const Box& box)
+               size_t N, const Box& box, const int num_t)
     {
         box_ = box;
         // Wrap each atom into the primary cell and stage in atoms_. Track
@@ -664,7 +664,7 @@ public:
         const int bx = box_.boundary[0], by = box_.boundary[1], bz = box_.boundary[2];
         const double Ox = box_.origin[0], Oy = box_.origin[1], Oz = box_.origin[2];
         atoms_.resize(N);
-#pragma omp parallel for schedule(static) if((long long)N > 50000)
+#pragma omp parallel for num_threads(num_t) schedule(static) if((long long)N > 50000)
         for (long long i = 0; i < (long long)N; ++i) {
             double px = x[i], py = y[i], pz = z[i];
             if (bx) {
@@ -709,7 +709,7 @@ public:
 
         // Recursive build, parallelized via OpenMP tasks at the top levels.
         if (N > kOrthoBucket) {
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
             {
 #pragma omp single
                 build_ortho(atoms_.data(), static_cast<int>(N), 0);
@@ -806,7 +806,8 @@ build_pbc_shifts(const Box& box, size_t N)
 static void knn(const ROneArrayD x_py, const ROneArrayD y_py, const ROneArrayD z_py,
                 const RTwoArrayD box_py, const ROneArrayD origin,
                 const ROneArrayI boundary, int k,
-                TwoArrayI indices_py, TwoArrayD distances_py)
+                TwoArrayI indices_py, TwoArrayD distances_py,
+                const int num_t)
 {
     size_t N = x_py.shape(0);
     auto idx_view = indices_py.view();
@@ -819,15 +820,15 @@ static void knn(const ROneArrayD x_py, const ROneArrayD y_py, const ROneArrayD z
     const double* yp = y_py.data();
     const double* zp = z_py.data();
 
-    int nthreads = omp_get_max_threads();
+    int nthreads = num_t;
     int chunk = std::max(64, static_cast<int>(N / (nthreads * 16)));
 
     if (!box.triclinic) {
         // Orthogonal fast path: bosque-style implicit kd-tree.
         OrthoKdTree tree;
-        tree.build(xp, yp, zp, N, box);
+        tree.build(xp, yp, zp, N, box, num_t);
 
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
         {
             TopK heap(k);
 #pragma omp for schedule(dynamic, chunk) nowait
@@ -852,9 +853,9 @@ static void knn(const ROneArrayD x_py, const ROneArrayD y_py, const ROneArrayD z
     // non-axis-aligned cell normals correctly).
     int bucket = std::max(8, k / 2);
     KdTree tree;
-    tree.build(xp, yp, zp, N, box, bucket, /*depth_limit*/ 20);
+    tree.build(xp, yp, zp, N, box, bucket, /*depth_limit*/ 20, num_t);
 
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
     {
         TopK heap(k);
 #pragma omp for schedule(dynamic, chunk) nowait
@@ -886,23 +887,25 @@ public:
 
     void build_with_coords(const ROneArrayD x_py, const ROneArrayD y_py, const ROneArrayD z_py,
                            const RTwoArrayD box_py, const ROneArrayD origin,
-                           const ROneArrayI boundary)
+                           const ROneArrayI boundary,
+                           const int num_t)
     {
         size_t N = x_py.shape(0);
         box_ = get_box(box_py, origin, boundary);
         shifts_ = build_pbc_shifts(box_, N);
         if (!box_.triclinic) {
             ortho_tree_ = std::make_unique<OrthoKdTree>();
-            ortho_tree_->build(x_py.data(), y_py.data(), z_py.data(), N, box_);
+            ortho_tree_->build(x_py.data(), y_py.data(), z_py.data(), N, box_, num_t);
         } else {
             tri_tree_ = std::make_unique<KdTree>();
             tri_tree_->build(x_py.data(), y_py.data(), z_py.data(), N, box_,
-                             /*bucket*/ 8, /*depth_limit*/ 20);
+                             /*bucket*/ 8, /*depth_limit*/ 20, num_t);
         }
     }
 
     void query_nearest_batch(const ROneArrayD qx, const ROneArrayD qy, const ROneArrayD qz,
-                             OneArrayI indices_py) const
+                             OneArrayI indices_py,
+                             const int num_t) const
     {
         size_t M = qx.shape(0);
         auto out = indices_py.view();
@@ -910,10 +913,10 @@ public:
         const double* yp = qy.data();
         const double* zp = qz.data();
 
-        int nthreads = omp_get_max_threads();
+        int nthreads = num_t;
         int chunk = std::max(64, static_cast<int>(M / (nthreads * 16)));
 
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
         {
             TopK heap(1);
 #pragma omp for schedule(dynamic, chunk) nowait
@@ -933,7 +936,8 @@ public:
     // are skipped (mimics the `knn` free function used by build_nearest_neighbor).
     void query_knn_batch(const ROneArrayD qx, const ROneArrayD qy, const ROneArrayD qz,
                          int k, bool exclude_self,
-                         TwoArrayI indices_py, TwoArrayD distances_py) const
+                         TwoArrayI indices_py, TwoArrayD distances_py,
+                         const int num_t) const
     {
         size_t M = qx.shape(0);
         auto idx_view = indices_py.view();
@@ -942,10 +946,10 @@ public:
         const double* yp = qy.data();
         const double* zp = qz.data();
 
-        int nthreads = omp_get_max_threads();
+        int nthreads = num_t;
         int chunk = std::max(64, static_cast<int>(M / (nthreads * 16)));
 
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
         {
             TopK heap(k);
 #pragma omp for schedule(dynamic, chunk) nowait

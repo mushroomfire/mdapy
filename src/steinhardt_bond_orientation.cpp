@@ -312,14 +312,15 @@ void _compute_ql(
     double *qnarray,
     const bool wl,
     const bool wlhat,
-    const double *cglist)
+    const double *cglist,
+    const int num_t)
 {
     constexpr double MY_EPSILON{1e-15};
     constexpr double My_PI = 3.14159265358979323846;
     const int nz{lmax * 2 + 1};
 
 // 第一阶段：计算 qlm - 并行化
-#pragma omp parallel for schedule(dynamic, 16)
+#pragma omp parallel for num_threads(num_t) schedule(dynamic, 16)
     for (int i = 0; i < N; ++i)
     {
         double weight_val{0.0};
@@ -439,7 +440,7 @@ void _compute_ql(
     {
         // ✅ 正确：在这里复制已经计算好的 qlm 值
         const int total_size = N * ndegrees * nz;
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
         for (int i = 0; i < total_size; i++)
         {
             aqlm_r[i] = qlm_r[i];
@@ -447,7 +448,7 @@ void _compute_ql(
         }
 
 // 然后进行平均化操作
-#pragma omp parallel for schedule(dynamic, 16)
+#pragma omp parallel for num_threads(num_t) schedule(dynamic, 16)
         for (int i = 0; i < N; ++i)
         {
             int i_neigh = NN[i];
@@ -502,7 +503,7 @@ void _compute_ql(
     }
 
 // 第三阶段：计算 qn 和 wl - 并行化
-#pragma omp parallel for schedule(dynamic, 16)
+#pragma omp parallel for num_threads(num_t) schedule(dynamic, 16)
     for (int i = 0; i < N; ++i)
     {
         const int base_qlm_idx = i * (ndegrees * nz);
@@ -588,7 +589,8 @@ void identifySolidLiquid(
     OneArrayI nbond_py,
     const bool use_voronoi,
     const int nnn,
-    const double rc)
+    const double rc,
+    const int num_t)
 {
     const int N = verlet_list_py.shape(0);
     auto verlet_list = verlet_list_py.view();
@@ -600,7 +602,7 @@ void identifySolidLiquid(
     int *solidliquid = solidliquid_py.data();
     int *nbond = nbond_py.data();
     constexpr double My_PI = 3.14159265358979323846;
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         int n_solid_bond = 0;
@@ -640,7 +642,7 @@ void identifySolidLiquid(
         }
         nbond[i] = n_solid_bond;
     }
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         if (solidliquid[i] == 1)
@@ -694,7 +696,8 @@ void get_sq(
     const bool use_weight,
     ThreeArrayD qlm_r_py,
     ThreeArrayD qlm_i_py,
-    TwoArrayD qnarray_py)
+    TwoArrayD qnarray_py,
+    const int num_t)
 {
     const Box box = get_box(box_py, origin, boundary);
     const int ndegrees_ = llist_py.shape(0);
@@ -776,7 +779,8 @@ void get_sq(
         qnarray,
         wl_,
         wlhat_,
-        cglist.data());
+        cglist.data(),
+        num_t);
 }
 
 NB_MODULE(_sbo, m)

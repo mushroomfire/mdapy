@@ -14,10 +14,12 @@ import os
 import sys
 import time
 import zlib
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 from pathlib import Path
 from queue import PriorityQueue
 from threading import Lock, Thread
+
+from mdapy.parallel import get_num_threads
 
 
 __all__ = ["compress_file"]  # 只导出这个函数给Sphinx
@@ -28,8 +30,8 @@ def compress_file(input_file, output_file=None):
     Compress a file to .gz format using multiprocessing.
 
     This function provides parallel gzip compression for faster processing
-    of large files. It automatically uses all available CPU cores and
-    maintains full gzip format compatibility.
+    of large files. The number of worker processes is controlled by the
+    ``MDAPY_NUM_THREADS`` environment variable (defaults to ``os.cpu_count()``).
 
     Parameters
     ----------
@@ -55,7 +57,6 @@ def compress_file(input_file, output_file=None):
     Notes
     -----
     - Small files (<5 MB) use single-process compression.
-    - Large files automatically use all available CPU cores.
     - Uses 512 KB chunks for optimal parallelism.
 
     Examples
@@ -92,7 +93,7 @@ class _ParallelGzip:
     GZIP_FLAG_FNAME = b"\x08"
     GZIP_EXTRA_MAX_COMPRESSION = b"\x02"
 
-    def __init__(self, input_file, output_file=None, blocksize_kb=None, workers=None):
+    def __init__(self, input_file, output_file=None, blocksize_kb=None):
         """Initialize compressor with validated parameters."""
         # Validate input
         if not os.path.exists(input_file):
@@ -103,7 +104,7 @@ class _ParallelGzip:
         self.input_file = input_file
         self.output_file = output_file or (input_file + ".gz")
         self.blocksize = (blocksize_kb or self.DEFAULT_BLOCKSIZE_KB) * 1024
-        self.workers = workers or cpu_count()
+        self.workers = get_num_threads()
 
         # Optimize for small files
         file_size_mb = os.path.getsize(input_file) / (1024 * 1024)

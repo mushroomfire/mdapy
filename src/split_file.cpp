@@ -21,7 +21,8 @@ namespace fs = std::filesystem;
 void split_xyz(
     const std::string input_file,
     const std::string output_dir,
-    const std::string output_prefix)
+    const std::string output_prefix,
+    const int num_t)
 {
     // 创建输出目录
     fs::create_directories(output_dir);
@@ -110,7 +111,7 @@ void split_xyz(
     const int num_digits = static_cast<int>(std::log10(total_frames - 1)) + 1;
 
 // 并行写入所有帧
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
     {
         // 每个线程使用独立的字符串流，避免锁竞争
         std::ostringstream oss;
@@ -149,5 +150,6 @@ NB_MODULE(_split, m)
           nb::arg("input_file"),
           nb::arg("output_dir"),
           nb::arg("output_prefix"),
+          nb::arg("num_t"),
           "Ultra-fast parallel splitting of multi-frame XYZ file (maximum I/O performance)");
 }

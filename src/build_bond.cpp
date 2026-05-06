@@ -12,7 +12,8 @@ auto build_bond(
     const RTwoArrayD distance_list,
     const ROneArrayI neighbor_number,
     const ROneArrayI type_list,
-    const RTwoArrayD cutoff_matrix)
+    const RTwoArrayD cutoff_matrix,
+    const int num_t)
 {
     const int *verlet = verlet_list.data();
     const double *distances = distance_list.data();
@@ -24,10 +25,10 @@ auto build_bond(
     const int max_neigh = static_cast<int>(verlet_list.shape(1));
     const int ntype = static_cast<int>(cutoff_matrix.shape(1));
 
-    const int nthread = omp_get_max_threads();
+    const int nthread = num_t;
     std::vector<std::vector<int>> local_bonds(nthread);
 
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
     {
         const int tid = omp_get_thread_num();
         auto &bonds = local_bonds[tid];

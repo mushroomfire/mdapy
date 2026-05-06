@@ -20,7 +20,8 @@ namespace nb = nanobind;
 double compute_global(
     const RThreeArrayD pos_list_py,
     TwoArrayD pos_mean_py,
-    TwoArrayD pos_variance_py
+    TwoArrayD pos_variance_py,
+    const int num_t
 ) {
     auto pos_list = pos_list_py.view();
     auto pos_mean = pos_mean_py.view();
@@ -30,7 +31,7 @@ double compute_global(
     size_t Natoms = pos_list.shape(1);
     
     // 计算所有原子对之间的距离均值和方差
-    #pragma omp parallel for 
+    #pragma omp parallel for num_threads(num_t)
     for (size_t i = 0; i < Natoms; ++i) {
         for (size_t j = i + 1; j < Natoms; ++j) {
             double sum_rij = 0.0;
@@ -56,7 +57,7 @@ double compute_global(
     double lin_index = 0.0;
     double factor = static_cast<double>(Natoms * (Natoms - 1)) / 2.0;
     
-    #pragma omp parallel for reduction(+:lin_index)
+    #pragma omp parallel for num_threads(num_t) reduction(+:lin_index)
     for (size_t i = 0; i < Natoms; ++i) {
         for (size_t j = i + 1; j < Natoms; ++j) {
             double rij_squared_mean = pos_variance(i, j) / Nframes;

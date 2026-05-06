@@ -3,6 +3,7 @@
 
 from mdapy import _fast_knn
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 import mdapy.tool_function as tool
 import polars as pl
 import numpy as np
@@ -98,6 +99,7 @@ class NearestNeighbor:
             self.k,
             self.indices_py,
             self.distances_py,
+            get_num_threads(),
         )
 
     def _check_repeat_nearest(self):

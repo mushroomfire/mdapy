@@ -4,6 +4,7 @@
 from mdapy import _repeat_cell
 from mdapy.system import System
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 import polars as pl
 import numpy as np
 from typing import Optional, Tuple
@@ -850,7 +851,7 @@ def build_crystal(
     n_old = old_pos.shape[0]
     total = n_old * nx * ny * nz * 3
     new_pos = np.zeros(total, dtype=np.float64)
-    _repeat_cell.repeat_cell(new_pos, old_box, old_pos, nx, ny, nz)
+    _repeat_cell.repeat_cell(new_pos, old_box, old_pos, nx, ny, nz, get_num_threads())
     new_pos = new_pos.reshape((-1, 3))
     new_box = old_box * np.array([nx, ny, nz]).reshape((3, 1))
 

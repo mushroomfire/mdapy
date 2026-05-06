@@ -3,6 +3,7 @@
 
 import numpy as np
 from mdapy import _cluster
+from mdapy.parallel import get_num_threads
 from typing import Optional, Union, Dict
 
 
@@ -94,6 +95,7 @@ class ClusterAnalysis:
             type1,
             type2,
             r,
+            get_num_threads(),
         )
 
     def compute(self):

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 from mdapy import _lindemann
+from mdapy.parallel import get_num_threads
 import numpy as np
 from typing import TYPE_CHECKING, Optional, Tuple
 
@@ -132,7 +133,7 @@ class LindemannParameter:
         if self.only_global:
             # Compute only global Lindemann index (parallel)
             self.lindemann_trj = _lindemann.compute_global(
-                self.pos_list, pos_mean, pos_variance
+                self.pos_list, pos_mean, pos_variance, get_num_threads()
             )
         else:
             # Compute local and global Lindemann indices (serial)

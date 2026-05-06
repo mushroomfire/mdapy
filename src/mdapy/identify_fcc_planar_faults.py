@@ -2,6 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 from mdapy import _fccpft
+from mdapy.parallel import get_num_threads
 import numpy as np
 
 
@@ -79,4 +80,5 @@ class IdentifyFccPlanarFaults:
             self.structure_types,
             self.fault_types,
             self.cal_esf,
+            get_num_threads(),
         )

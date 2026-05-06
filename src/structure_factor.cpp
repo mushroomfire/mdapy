@@ -120,7 +120,8 @@ private:
     std::vector<Vec3> generateKPoints(
         const Box &box,
         double k_max,
-        double k_min) const
+        double k_min,
+        const int num_t) const
     {
         const Vec3 bx = getReciprocalVector(box, 0);
         const Vec3 by = getReciprocalVector(box, 1);
@@ -136,9 +137,9 @@ private:
         const int N_kz = static_cast<int>(std::ceil(q_max / (bz.norm() / constants::TWO_PI)));
 
         // 每个线程维护自己的 k 点列表
-        std::vector<std::vector<Vec3>> thread_k_points(omp_get_max_threads());
+        std::vector<std::vector<Vec3>> thread_k_points(num_t);
 
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
         {
             const int thread_id = omp_get_thread_num();
 
@@ -222,12 +223,13 @@ private:
         const double *z,
         size_t n_points,
         unsigned int n_total,
-        const std::vector<Vec3> &k_points) const
+        const std::vector<Vec3> &k_points,
+        const int num_t) const
     {
         std::vector<std::complex<double>> F_k(k_points.size());
         const double normalization = 1.0 / std::sqrt(static_cast<double>(n_total));
 
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for num_threads(num_t) schedule(dynamic)
         for (size_t k_idx = 0; k_idx < k_points.size(); ++k_idx)
         {
             std::complex<double> F_ki(0.0, 0.0);
@@ -249,7 +251,8 @@ private:
     /// 计算 S(k)
     std::vector<double> computeSK(
         const std::vector<std::complex<double>> &F_k_points,
-        const std::vector<std::complex<double>> &F_k_query) const
+        const std::vector<std::complex<double>> &F_k_query,
+        const int num_t) const
     {
         if (F_k_points.size() != F_k_query.size())
         {
@@ -258,7 +261,7 @@ private:
 
         std::vector<double> S_k(F_k_points.size());
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
         for (size_t k_idx = 0; k_idx < F_k_points.size(); ++k_idx)
         {
             S_k[k_idx] = std::real(std::conj(F_k_points[k_idx]) * F_k_query[k_idx]);
@@ -285,10 +288,11 @@ public:
         RTwoArrayD box_py, ROneArrayD origin, ROneArrayI boundary,
         OneArrayD structure_factor_py,
         unsigned int bins, double k_max, double k_min,
-        nb::object query_x_py = nb::none(),
-        nb::object query_y_py = nb::none(),
-        nb::object query_z_py = nb::none(),
-        unsigned int N_total = 0)
+        nb::object query_x_py,
+        nb::object query_y_py,
+        nb::object query_z_py,
+        unsigned int N_total,
+        const int num_t)
     {
         // 参数验证
         if (bins == 0)
@@ -321,7 +325,7 @@ public:
         const Box box = get_box(box_py, origin, boundary);
 
         // 生成所有 k 点（无随机采样）
-        const auto k_points = generateKPoints(box, k_max, k_min);
+        const auto k_points = generateKPoints(box, k_max, k_min, num_t);
 
         if (k_points.empty())
         {
@@ -345,7 +349,7 @@ public:
             {
                 n_total_calc = static_cast<unsigned int>(n_points);
             }
-            F_k_points = computeFK(x, y, z, n_points, n_total_calc, k_points);
+            F_k_points = computeFK(x, y, z, n_points, n_total_calc, k_points, num_t);
             F_k_query = F_k_points;
         }
         else
@@ -377,12 +381,12 @@ public:
             const double *qy = query_y.data();
             const double *qz = query_z.data();
 
-            F_k_points = computeFK(x, y, z, n_points, n_total_calc, k_points);
-            F_k_query = computeFK(qx, qy, qz, n_query_points, n_total_calc, k_points);
+            F_k_points = computeFK(x, y, z, n_points, n_total_calc, k_points, num_t);
+            F_k_query = computeFK(qx, qy, qz, n_query_points, n_total_calc, k_points, num_t);
         }
 
         // 计算 S(k)
-        const auto S_k_all = computeSK(F_k_points, F_k_query);
+        const auto S_k_all = computeSK(F_k_points, F_k_query, num_t);
 
         // 分 bin 并平均
         double *structure_factor = structure_factor_py.data();
@@ -394,7 +398,7 @@ public:
             structure_factor[i] = 0.0;
         }
 
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
         {
             std::vector<double> local_sf(bins, 0.0);
             std::vector<unsigned int> local_counts(bins, 0);
@@ -452,7 +456,8 @@ public:
         ROneArrayI type_list_py, int Ntype,
         RTwoArrayD box_py, ROneArrayD origin, ROneArrayI boundary,
         ThreeArrayD partial_out_py,
-        unsigned int bins, double k_max, double k_min)
+        unsigned int bins, double k_max, double k_min,
+        const int num_t)
     {
         if (bins == 0)
             throw std::invalid_argument("bins must be non-zero");
@@ -467,7 +472,7 @@ public:
         const Box box = get_box(box_py, origin, boundary);
 
         StructureFactorDirect helper;  // reuse the kpoint generator + binner
-        const auto k_points = helper_kpoints(box, k_max, k_min);
+        const auto k_points = helper_kpoints(box, k_max, k_min, num_t);
         if (k_points.empty())
             throw std::runtime_error("No k-points generated; check k_min/k_max.");
 
@@ -478,7 +483,7 @@ public:
                                             std::complex<double>(0.0, 0.0));
         const double inv_sqrt_N = 1.0 / std::sqrt(static_cast<double>(n_points));
 
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for num_threads(num_t) schedule(dynamic)
         for (size_t k_idx = 0; k_idx < nk; ++k_idx)
         {
             const Vec3 &kv = k_points[k_idx];
@@ -521,7 +526,7 @@ public:
             for (int b = a; b < Ntype; ++b)
                 pairs.emplace_back(a, b);
 
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for num_threads(num_t) schedule(dynamic)
         for (size_t pi = 0; pi < pairs.size(); ++pi)
         {
             const int a = pairs[pi].first;
@@ -590,7 +595,7 @@ private:
         return r * constants::TWO_PI;
     }
 
-    std::vector<Vec3> helper_kpoints(const Box &box, double k_max, double k_min) const
+    std::vector<Vec3> helper_kpoints(const Box &box, double k_max, double k_min, const int num_t) const
     {
         const Vec3 bx = reciprocal(box, 0);
         const Vec3 by = reciprocal(box, 1);
@@ -599,8 +604,8 @@ private:
         const int N_kx = static_cast<int>(std::ceil(q_max / (bx.norm() / constants::TWO_PI)));
         const int N_ky = static_cast<int>(std::ceil(q_max / (by.norm() / constants::TWO_PI)));
         const int N_kz = static_cast<int>(std::ceil(q_max / (bz.norm() / constants::TWO_PI)));
-        std::vector<std::vector<Vec3>> tk(omp_get_max_threads());
-#pragma omp parallel
+        std::vector<std::vector<Vec3>> tk(num_t);
+#pragma omp parallel num_threads(num_t)
         {
             const int tid = omp_get_thread_num();
 #pragma omp for schedule(dynamic)
@@ -653,13 +658,14 @@ NB_MODULE(_sfc, m)
            OneArrayD structure_factor_py,
            unsigned int bins, double k_max, double k_min,
            nb::object query_x, nb::object query_y, nb::object query_z,
-           unsigned int N_total)
+           unsigned int N_total,
+           int num_t)
         {
             StructureFactorDirect calc;
             calc.compute(
                 x, y, z, box, origin, boundary, structure_factor_py,
                 bins, k_max, k_min,
-                query_x, query_y, query_z, N_total);
+                query_x, query_y, query_z, N_total, num_t);
         },
         nb::arg("x"), nb::arg("y"), nb::arg("z"),
         nb::arg("box"), nb::arg("origin"), nb::arg("boundary"),
@@ -669,6 +675,7 @@ NB_MODULE(_sfc, m)
         nb::arg("query_y") = nb::none(),
         nb::arg("query_z") = nb::none(),
         nb::arg("N_total") = 0,
+        nb::arg("num_t"),
         "Compute the total / cross-pair direct structure factor on the "
         "deterministic reciprocal-lattice grid.");
 
@@ -678,18 +685,20 @@ NB_MODULE(_sfc, m)
            ROneArrayI type_list, int Ntype,
            RTwoArrayD box, ROneArrayD origin, ROneArrayI boundary,
            ThreeArrayD partial_out,
-           unsigned int bins, double k_max, double k_min)
+           unsigned int bins, double k_max, double k_min,
+           int num_t)
         {
             StructureFactorDirectPartial calc;
             calc.compute(
                 x, y, z, type_list, Ntype, box, origin, boundary,
-                partial_out, bins, k_max, k_min);
+                partial_out, bins, k_max, k_min, num_t);
         },
         nb::arg("x"), nb::arg("y"), nb::arg("z"),
         nb::arg("type_list"), nb::arg("Ntype"),
         nb::arg("box"), nb::arg("origin"), nb::arg("boundary"),
         nb::arg("partial_out"),
         nb::arg("bins"), nb::arg("k_max"), nb::arg("k_min"),
+        nb::arg("num_t"),
         "Compute every Ashcroft-Langreth partial S_alpha_beta(k) at once. "
         "F_alpha(k) is computed once per species; the cost scales as "
         "O(Ntype * N * n_k) instead of O(Ntype^2 * N * n_k) for the "

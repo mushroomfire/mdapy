@@ -6,6 +6,7 @@ import polars as pl
 from mdapy.box import Box
 from mdapy.knn import NearestNeighbor
 from mdapy.neighbor import Neighbor
+from mdapy.parallel import get_num_threads
 from typing import Optional
 import mdapy.tool_function as tool
 
@@ -135,6 +136,7 @@ class CommonNeighborAnalysis:
                 box.boundary,
                 verlet_list,
                 self.pattern,
+                get_num_threads(),
             )
         else:
             _cna.fcna(
@@ -148,4 +150,5 @@ class CommonNeighborAnalysis:
                 neighbor_number,
                 self.pattern,
                 self.rc,
+                get_num_threads(),
             )

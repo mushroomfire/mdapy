@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 from mdapy import _build_bond
+from mdapy.parallel import get_num_threads
 import numpy as np
 
 
@@ -20,4 +21,5 @@ def build_bond(
         neighbor_number,
         type_list,
         cutoff_matrix,
+        get_num_threads(),
     )

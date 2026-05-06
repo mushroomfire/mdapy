@@ -5,6 +5,7 @@ from mdapy import _aja
 import numpy as np
 import polars as pl
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 
 
 class AcklandJonesAnalysis:
@@ -93,6 +94,7 @@ class AcklandJonesAnalysis:
             self.verlet_list,
             self.distance_list,
             self.aja,
+            get_num_threads(),
         )
 
 

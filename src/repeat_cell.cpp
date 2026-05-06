@@ -20,7 +20,8 @@ void repeat_cell(
     OneArrayD new_pos,
     RTwoArrayD old_box,
     RTwoArrayD old_pos,
-    int nx, int ny, int nz)
+    int nx, int ny, int nz,
+    const int num_t)
 {
 
     auto box = old_box.view();
@@ -36,7 +37,7 @@ void repeat_cell(
     double a3x = box(2, 0), a3y = box(2, 1), a3z = box(2, 2);
 
 // Parallel fill with OpenMP
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for num_threads(num_t) schedule(static)
     for (long long cell_idx = 0; cell_idx < (long long)total_cells; ++cell_idx)
     {
         long long tmp = cell_idx;

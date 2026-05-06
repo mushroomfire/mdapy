@@ -242,6 +242,14 @@ mdapy.orthogonal\_cell module
    :show-inheritance:
    :undoc-members:
 
+mdapy.parallel module
+---------------------
+
+.. automodule:: mdapy.parallel
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 mdapy.phonon module
 -------------------
 

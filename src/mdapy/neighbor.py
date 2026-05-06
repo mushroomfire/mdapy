@@ -3,6 +3,7 @@
 
 from mdapy import _neighbor
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 from typing import Optional
 import numpy as np
 import polars as pl
@@ -111,6 +112,7 @@ class Neighbor:
             self.verlet_list, self.distance_list, self.neighbor_number = (
                 _neighbor.build_neighbor_without_max_neigh(
                     x, y, z, box.box, box.origin, box.boundary, self.rc,
+                    get_num_threads(),
                 )
             )
             return
@@ -128,6 +130,7 @@ class Neighbor:
         _neighbor.build_neighbor(
             x, y, z, box.box, box.origin, box.boundary, self.rc,
             self.verlet_list, self.distance_list, self.neighbor_number,
+            get_num_threads(),
         )
         real_max = int(self.neighbor_number.max(initial=0))
         if real_max > self.max_neigh:

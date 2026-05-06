@@ -29,7 +29,8 @@ public:
                   const ROneArrayD x_py,
                   const ROneArrayD y_py,
                   const ROneArrayD z_py,
-                  const RTwoArrayD box_py);
+                  const RTwoArrayD box_py,
+                  const int num_t);
     void calculate(const ROneArrayI type_py,
                    const ROneArrayD x_py,
                    const ROneArrayD y_py,
@@ -37,7 +38,8 @@ public:
                    const RTwoArrayD box_py,
                    OneArrayD potention_py,
                    TwoArrayD force_py,
-                   TwoArrayD virial_py);
+                   TwoArrayD virial_py,
+                   const int num_t);
     void calculate_charge(const ROneArrayI type_py,
                           const ROneArrayD x_py,
                           const ROneArrayD y_py,
@@ -47,7 +49,8 @@ public:
                           TwoArrayD force_py,
                           TwoArrayD virial_py,
                           OneArrayD charge_py,
-                          TwoArrayD bec_py);
+                          TwoArrayD bec_py,
+                          const int num_t);
 
     nb::dict info;
     void get_descriptors(const ROneArrayI type_py,
@@ -55,14 +58,16 @@ public:
                          const ROneArrayD y_py,
                          const ROneArrayD z_py,
                          const RTwoArrayD box_py,
-                         TwoArrayD descriptor_py);
+                         TwoArrayD descriptor_py,
+                         const int num_t);
 
     void get_latentspace(const ROneArrayI type_py,
                          const ROneArrayD x_py,
                          const ROneArrayD y_py,
                          const ROneArrayD z_py,
                          const RTwoArrayD box_py,
-                         TwoArrayD latentspace_py);
+                         TwoArrayD latentspace_py,
+                         const int num_t);
 
 private:
     Atom atom;
@@ -101,7 +106,8 @@ void NEPCalculator::setAtoms(
     const ROneArrayD x_py,
     const ROneArrayD y_py,
     const ROneArrayD z_py,
-    const RTwoArrayD box_py)
+    const RTwoArrayD box_py,
+    const int num_t)
 {
     Atom _atom;
     auto type = type_py.view();
@@ -149,7 +155,7 @@ void NEPCalculator::setAtoms(
         _atom.bec.resize(_atom.N * 9);
     }
 
-#pragma omp parallel for firstprivate(x, y, z, type)
+#pragma omp parallel for num_threads(num_t) firstprivate(x, y, z, type)
     for (int i = 0; i < _atom.N; ++i)
     {
         _atom.type[i] = type(i);
@@ -169,9 +175,10 @@ void NEPCalculator::calculate(
     const RTwoArrayD box_py,
     OneArrayD potention_py,
     TwoArrayD force_py,
-    TwoArrayD virial_py)
+    TwoArrayD virial_py,
+    const int num_t)
 {
-    setAtoms(type_py, x_py, y_py, z_py, box_py);
+    setAtoms(type_py, x_py, y_py, z_py, box_py, num_t);
     calc.compute(atom.type, atom.box, atom.position, atom.potential, atom.force, atom.virial);
     auto potential = potention_py.view();
     auto force = force_py.view();
@@ -181,7 +188,7 @@ void NEPCalculator::calculate(
 // virial[num_atoms * 9] is ordered as v_xx[num_atoms], v_xy[num_atoms], v_xz[num_atoms],
 // v_yx[num_atoms], v_yy[num_atoms], v_yz[num_atoms], v_zx[num_atoms], v_zy[num_atoms],
 // v_zz[num_atoms]
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < atom.N; ++i)
     {
         potential(i) = atom.potential[i];
@@ -205,9 +212,10 @@ void NEPCalculator::calculate_charge(
     TwoArrayD force_py,
     TwoArrayD virial_py,
     OneArrayD charge_py,
-    TwoArrayD bec_py)
+    TwoArrayD bec_py,
+    const int num_t)
 {
-    setAtoms(type_py, x_py, y_py, z_py, box_py);
+    setAtoms(type_py, x_py, y_py, z_py, box_py, num_t);
     calc.compute(atom.type, atom.box, atom.position, atom.potential, atom.force, atom.virial, atom.charge, atom.bec);
     auto potential = potention_py.view();
     auto force = force_py.view();
@@ -215,7 +223,7 @@ void NEPCalculator::calculate_charge(
     auto charge = charge_py.view();
     auto bec = bec_py.view();
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < atom.N; ++i)
     {
         potential(i) = atom.potential[i];
@@ -237,13 +245,14 @@ void NEPCalculator::get_descriptors(
     const ROneArrayD y_py,
     const ROneArrayD z_py,
     const RTwoArrayD box_py,
-    TwoArrayD descriptor_py)
+    TwoArrayD descriptor_py,
+    const int num_t)
 {
-    setAtoms(type_py, x_py, y_py, z_py, box_py);
+    setAtoms(type_py, x_py, y_py, z_py, box_py, num_t);
     calc.find_descriptor(atom.type, atom.box, atom.position, atom.descriptor);
     // descriptor[num_atoms * dim] is ordered as d0[num_atoms], d1[num_atoms], ...
     auto descriptor = descriptor_py.view();
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < atom.N; ++i)
     {
 
@@ -260,13 +269,14 @@ void NEPCalculator::get_latentspace(
     const ROneArrayD y_py,
     const ROneArrayD z_py,
     const RTwoArrayD box_py,
-    TwoArrayD latentspace_py)
+    TwoArrayD latentspace_py,
+    const int num_t)
 {
-    setAtoms(type_py, x_py, y_py, z_py, box_py);
+    setAtoms(type_py, x_py, y_py, z_py, box_py, num_t);
     calc.find_latent_space(atom.type, atom.box, atom.position, atom.latentspace);
     auto latentspace = latentspace_py.view();
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < atom.N; ++i)
     {
 

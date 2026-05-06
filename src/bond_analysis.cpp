@@ -20,7 +20,8 @@ void compute_bond(
     const double delta_r,
     const double delta_theta,
     const double rc,
-    const int nbins)
+    const int nbins,
+    const int num_t)
 {
     Box box = get_box(box_py, origin, boundary);
     const double PI = 3.14159265358979323846;
@@ -41,7 +42,7 @@ void compute_bond(
     double delta_theta_inv = 1.0 / delta_theta;
 
 // 并行计算键长和键角分布
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
     {
         // 每个线程有自己的局部数组,避免race condition
         int *local_bond_len = new int[nbins]();
@@ -150,7 +151,8 @@ void compute_adf(
     const RTwoArrayI pair_list,
     const ROneArrayI type_list,
     const int nbins,
-    TwoArrayI bond_angle_distribution)
+    TwoArrayI bond_angle_distribution,
+    const int num_t)
 {
     Box box = get_box(box_py, origin, boundary);
     const double PI = 3.14159265358979323846;
@@ -173,7 +175,7 @@ void compute_adf(
 
     double delta_theta_inv = 1.0 / delta_theta;
 
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
     {
         int *local_dist = new int[Npair * nbins]();
 

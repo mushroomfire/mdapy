@@ -13,7 +13,8 @@ void calculate_structure_entropy(const double rc, const double sigma,
                                  const double volume,
                                  const RTwoArrayD distance_list_py,
                                  const ROneArrayI neighbor_number_py,
-                                 OneArrayD entropy_py)
+                                 OneArrayD entropy_py,
+                                 const int num_t)
 {
     const double MY_PI{3.14159265358979323846};
 
@@ -43,7 +44,7 @@ void calculate_structure_entropy(const double rc, const double sigma,
     const double sigma_sq = sigma * sigma;
     const double local_vol = 4. / 3. * MY_PI * rc * rc * rc;
 
-#pragma omp parallel for firstprivate(distance_list, neighbor_number, entropy)
+#pragma omp parallel for num_threads(num_t) firstprivate(distance_list, neighbor_number, entropy)
     for (int i = 0; i < N; ++i)
     {
         int n_neigh = 0;

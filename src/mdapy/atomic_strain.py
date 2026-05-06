@@ -6,6 +6,7 @@ import polars as pl
 from mdapy import _strain
 from mdapy import System
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 from typing import Optional
 import mdapy.tool_function as tool
 
@@ -230,6 +231,7 @@ class AtomicStrain:
             cur_data["z"].to_numpy(allow_copy=False),
             shear_strain,
             volumetric_strain,
+            get_num_threads(),
         )
 
         current.update_data(

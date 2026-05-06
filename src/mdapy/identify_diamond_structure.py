@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 import polars as pl
 from mdapy.box import Box
 from mdapy.knn import NearestNeighbor
+from mdapy.parallel import get_num_threads
 from typing import Optional
 import mdapy.tool_function as tool
 
@@ -120,6 +121,7 @@ class IdentifyDiamondStructure:
             verlet_list,
             new_verlet_list,
             self.pattern,
+            get_num_threads(),
         )
 
 

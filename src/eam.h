@@ -34,7 +34,8 @@ public:
         const ROneArrayI neighbor_number_py,
         TwoArrayD force_py,
         TwoArrayD virial_py,
-        OneArrayD energy_py);
+        OneArrayD energy_py,
+        const int num_t);
 
 private:
     double rc_;

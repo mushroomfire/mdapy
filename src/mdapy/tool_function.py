@@ -2,6 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 from mdapy import _neighbor, _repeat_cell, _split
+from mdapy.parallel import get_num_threads
 from typing import Optional, Tuple
 import numpy as np
 import polars as pl
@@ -64,6 +65,7 @@ def average_by_neighbor(
         data[property_name].to_numpy(allow_copy=False),
         property_ave,
         include_self,
+        get_num_threads(),
     )
     if output_name is None:
         output_name = f"{property_name}_ave"
@@ -114,7 +116,7 @@ def sort_neighbor(
     """
     minNumber = neighbor_number.min()
     assert minNumber >= k, f"The min neighbor number {minNumber} is lower than k {k}."
-    _neighbor.sort_verlet_by_distance(verlet_list, distance_list, k)
+    _neighbor.sort_verlet_by_distance(verlet_list, distance_list, k, get_num_threads())
 
 
 def wrap_pos(data: pl.DataFrame, box: Box) -> pl.DataFrame:
@@ -132,7 +134,7 @@ def wrap_pos(data: pl.DataFrame, box: Box) -> pl.DataFrame:
         data["y"].to_numpy(writable=True),
         data["z"].to_numpy(writable=True),
     )
-    _neighbor.wrap_positions(x, y, z, box.box, box.origin, box.boundary)
+    _neighbor.wrap_positions(x, y, z, box.box, box.origin, box.boundary, get_num_threads())
     return data.with_columns(x=x, y=y, z=z)
 
 
@@ -162,7 +164,7 @@ def replicate(
     n_old = old_pos.shape[0]
     total = n_old * nx * ny * nz * 3
     new_pos = np.zeros(total, dtype=np.float64)
-    _repeat_cell.repeat_cell(new_pos, old_box, old_pos, nx, ny, nz)
+    _repeat_cell.repeat_cell(new_pos, old_box, old_pos, nx, ny, nz, get_num_threads())
     new_pos = new_pos.reshape((-1, 3))
     new_box = old_box * np.array([nx, ny, nz]).reshape((3, 1))
     new_data = pl.concat([data] * nx * ny * nz).with_columns(
@@ -183,7 +185,7 @@ def _replicate_pos(
     n_old = old_pos.shape[0]
     total = n_old * nx * ny * nz * 3
     new_pos = np.zeros(total, dtype=np.float64)
-    _repeat_cell.repeat_cell(new_pos, old_box, old_pos, nx, ny, nz)
+    _repeat_cell.repeat_cell(new_pos, old_box, old_pos, nx, ny, nz, get_num_threads())
     new_pos = new_pos.reshape((-1, 3))
     new_box = old_box * np.array([nx, ny, nz]).reshape((3, 1))
     new_data = pl.from_numpy(new_pos, schema=["x", "y", "z"])
@@ -326,7 +328,7 @@ def split_xyz(input_file, output_dir="res", output_prefix=None, in_memory=True):
     if output_prefix is None:
         output_prefix = os.path.splitext(os.path.basename(input_file))[0]
     if in_memory:
-        _split.split_xyz(input_file, output_dir, output_prefix)
+        _split.split_xyz(input_file, output_dir, output_prefix, get_num_threads())
     else:
         with open(input_file, "r") as file:
             frame = 0

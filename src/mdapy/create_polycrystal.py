@@ -9,6 +9,7 @@ from mdapy.system import System
 from mdapy.build_lattice import build_crystal
 from mdapy.box import Box
 from mdapy import _polycrystal, _neighbor
+from mdapy.parallel import get_num_threads
 from mdapy.tool_function import _replicate_pos
 from time import time
 
@@ -307,6 +308,7 @@ class CreatePolycrystal:
             pos_center,
             cell.pos,
             coeffs,
+            get_num_threads(),
         )
 
         return filtered_pos
@@ -792,6 +794,7 @@ class CreatePolycrystal:
                 metal_metal_distance,
                 cc_distance,
                 metal_c_distance,
+                get_num_threads(),
             )
             data = data.filter(filter_mask)
         elif self.metal_overlap_dis is not None:
@@ -807,6 +810,7 @@ class CreatePolycrystal:
                 self.box.origin,
                 self.box.boundary,
                 self.metal_overlap_dis,
+                get_num_threads(),
             )
             data = data.filter(filter_mask)
 

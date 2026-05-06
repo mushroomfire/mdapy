@@ -55,6 +55,7 @@ import polars as pl
 from mdapy.box import Box
 from mdapy.calculator import CalculatorMP
 from mdapy import _eam
+from mdapy.parallel import get_num_threads
 import mdapy.tool_function as tool
 from mdapy.data import atomic_masses, atomic_numbers
 from typing import TYPE_CHECKING, Optional, Tuple, List, Dict
@@ -474,6 +475,7 @@ class EAM(CalculatorMP):
             force,
             virial,
             potential,
+            get_num_threads(),
         )
 
         # Store results

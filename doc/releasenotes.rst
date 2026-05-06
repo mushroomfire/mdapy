@@ -20,6 +20,11 @@ Mdapy 1.0.6a2 (May 6, 2026)
 - New :func:`mdapy.unwrap_trajectory` / ``Trajectory.unwrap()``.
 - Extended-XYZ I/O recognises GPUMD's ``unwrapped_position:R:3`` and
   aliases it to ``xu``/``yu``/``zu``.
+- Unified thread-count control via the ``MDAPY_NUM_THREADS`` environment
+  variable (set before ``import mdapy``); drives both OpenMP and polars.
+  Defaults to ``os.cpu_count()``. Query via :func:`mdapy.get_num_threads`.
+  The public ``workers`` / ``num_threads`` arguments on
+  ``mdapy.compress_file`` and ``mdapy.render.TachyonRender`` are removed.
 
 🐞 Bug Fixes
 -------------

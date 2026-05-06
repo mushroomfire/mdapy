@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from mdapy import _rdf
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -155,6 +156,7 @@ class RadialDistributionFunction:
                 self._x, self._y, self._z, self.type_list,
                 self.box.box, self.box.origin, self.box.boundary,
                 counts, self.rc, self.nbin,
+                get_num_threads(),
             )
         else:
             if self.Ntype > 1:

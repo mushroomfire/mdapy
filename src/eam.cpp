@@ -64,7 +64,8 @@ void EAM::calculate(
     const ROneArrayI neighbor_number_py,
     TwoArrayD force_py,
     TwoArrayD virial_py,
-    OneArrayD energy_py)
+    OneArrayD energy_py,
+    const int num_t)
 {
     const int N = x_py.shape(0);
     const Box box = get_box(box_py, origin, boundary);
@@ -85,7 +86,7 @@ void EAM::calculate(
     std::vector<double> rho(N, 0.0);
     std::vector<double> dF(N, 0.0);
 
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for num_threads(num_t) schedule(dynamic)
     for (int i = 0; i < N; ++i)
     {
         double rho_i = 0.0;
@@ -102,7 +103,7 @@ void EAM::calculate(
         rho[i] = rho_i;
     }
 
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for num_threads(num_t) schedule(static)
     for (int i = 0; i < N; ++i)
     {
         double F_i, dF_i;
@@ -112,7 +113,7 @@ void EAM::calculate(
     }
 
     // Pass 2: pair energy, forces, virials.
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for num_threads(num_t) schedule(dynamic)
     for (int i = 0; i < N; ++i)
     {
         const int type_i = type_list(i);
@@ -211,5 +212,6 @@ NB_MODULE(_eam, m)
              nb::arg("neighbor_number"),
              nb::arg("force"),
              nb::arg("virial"),
-             nb::arg("energy"));
+             nb::arg("energy"),
+             nb::arg("num_t"));
 }

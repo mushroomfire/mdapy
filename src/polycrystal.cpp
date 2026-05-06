@@ -25,7 +25,8 @@ auto transform_and_filter(
     const RTwoArrayD rotation_matrix,
     const ROneArrayD center,
     const ROneArrayD target_center,
-    const RTwoArrayD coeffs
+    const RTwoArrayD coeffs,
+    const int num_t
 ) {
     const size_t n_atoms = x_py.shape(0);
     const size_t n_faces = coeffs.shape(0);
@@ -66,7 +67,7 @@ auto transform_and_filter(
     std::vector<bool> inside_mask(n_atoms);
     size_t count = 0;
     
-    #pragma omp parallel reduction(+:count)
+    #pragma omp parallel num_threads(num_t) reduction(+:count)
     {
         // Thread-local copy of planes for even better cache performance
         const double* planes_local = planes.data();
@@ -134,8 +135,9 @@ NB_MODULE(_polycrystal, m) {
     
     m.def("transform_and_filter", &transform_and_filter,
           nb::arg("x"), nb::arg("y"), nb::arg("z"),
-          nb::arg("rotation_matrix"), nb::arg("center"), 
+          nb::arg("rotation_matrix"), nb::arg("center"),
           nb::arg("target_center"), nb::arg("coeffs"),
+          nb::arg("num_t"),
           "Transform atom positions and filter by Voronoi cell boundaries.\n\n"
           "Performs: pos_new = (pos - center) @ R.T + target, then filters\n"
           "atoms inside the polyhedron defined by plane equations.");

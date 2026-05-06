@@ -242,7 +242,7 @@ auto get_voronoi_neighbor_tri(const ROneArrayD x_py,
     nb::capsule facearea_owner(face_area_data, [](void *p) noexcept
                                { delete[] (double *)p; });
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         int i_neigh = neighbor_number_data[i];
@@ -383,7 +383,7 @@ auto get_voronoi_neighbor(const ROneArrayD x_py,
     nb::capsule facearea_owner(face_area_data, [](void *p) noexcept
                                { delete[] (double *)p; });
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_t)
     for (int i = 0; i < N; ++i)
     {
         int i_neigh = neighbor_number_data[i];

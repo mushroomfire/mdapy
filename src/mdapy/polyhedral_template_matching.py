@@ -5,6 +5,7 @@ import numpy as np
 import polars as pl
 from mdapy.box import Box
 from mdapy.knn import NearestNeighbor
+from mdapy.parallel import get_num_threads
 from typing import Optional
 import mdapy.tool_function as tool
 from mdapy import _ptm
@@ -162,4 +163,5 @@ class PolyhedralTemplateMatching:
             self.rmsd_threshold,
             self.output,
             self.ptm_indices,
+            get_num_threads(),
         )

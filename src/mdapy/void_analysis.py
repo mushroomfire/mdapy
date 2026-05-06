@@ -3,6 +3,7 @@
 
 from mdapy import _neighbor
 from mdapy.system import System
+from mdapy.parallel import get_num_threads
 import numpy as np
 import polars as pl
 from typing import Optional
@@ -68,6 +69,7 @@ class VoidAnalysis:
             self.system.box.origin,
             self.system.box.boundary,
             self.rc,
+            get_num_threads(),
         )
 
         if 0 in cell_id_list:

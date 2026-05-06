@@ -7,6 +7,7 @@ try:
 except ImportError:
     raise ImportError("One can install ase by pip install ase.")
 from mdapy import _nepcal
+from mdapy.parallel import get_num_threads
 from typing import Optional, List, Tuple
 import numpy as np
 import os
@@ -192,11 +193,11 @@ class NEP4ASE(Calculator):
         # Handle special properties: descriptor and latent space
         if "descriptor" in properties:
             descriptor = np.zeros((N, self.calc.info["num_ndim"]), float)
-            self.calc.get_descriptors(*self.set_nep(atoms), descriptor)
+            self.calc.get_descriptors(*self.set_nep(atoms), descriptor, get_num_threads())
             self.results["descriptor"] = descriptor
         elif "latentspace" in properties:
             latentspace = np.zeros((N, self.calc.info["num_nlatent"]), float)
-            self.calc.get_latentspace(*self.set_nep(atoms), latentspace)
+            self.calc.get_latentspace(*self.set_nep(atoms), latentspace, get_num_threads())
             self.results["latentspace"] = latentspace
         else:
             # Standard calculation: energy, forces, stress, virials
@@ -210,10 +211,10 @@ class NEP4ASE(Calculator):
             # Perform NEP calculation
             if self._is_qnep:
                 self.calc.calculate_charge(
-                    *self.set_nep(atoms), potential, force, virial, charge, bec
+                    *self.set_nep(atoms), potential, force, virial, charge, bec, get_num_threads()
                 )
             else:
-                self.calc.calculate(*self.set_nep(atoms), potential, force, virial)
+                self.calc.calculate(*self.set_nep(atoms), potential, force, virial, get_num_threads())
 
             # Store results in ASE format
             self.results["energy"] = potential.sum()  # Total energy

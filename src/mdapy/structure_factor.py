@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 from mdapy import _sfc
+from mdapy.parallel import get_num_threads
 import numpy as np
 import polars as pl
 from mdapy.box import Box
@@ -410,6 +411,7 @@ class StructureFactor:
                 box.box, box.origin, box.boundary,
                 partial_AL,
                 self.nbins, self.k_max, self.k_min,
+                get_num_threads(),
             )
 
             # Convert Ashcroft-Langreth partial to Faber-Ziman so the
@@ -444,6 +446,7 @@ class StructureFactor:
                 x_all, y_all, z_all,
                 box.box, box.origin, box.boundary,
                 self.Sk, self.nbins, self.k_max, self.k_min,
+                num_t=get_num_threads(),
             )
 
     # ------------------------------------------------------------------

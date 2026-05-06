@@ -187,6 +187,7 @@ import numpy as np
 import polars as pl
 
 from mdapy import _sqs
+from mdapy.parallel import get_num_threads
 
 if TYPE_CHECKING:
     from mdapy.system import System
@@ -528,6 +529,7 @@ class SQS:
                 float(self.T),
                 int(self.n_replicas),
                 int(self.seed),
+                get_num_threads(),
             )
 
         from mdapy.system import System

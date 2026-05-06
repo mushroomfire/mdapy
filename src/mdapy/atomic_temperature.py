@@ -5,6 +5,7 @@ from mdapy import _atomtemp
 import polars as pl
 import numpy as np
 from mdapy.data import atomic_masses, atomic_numbers
+from mdapy.parallel import get_num_threads
 
 
 class AtomicTemperature:
@@ -108,6 +109,7 @@ class AtomicTemperature:
             amass,
             self.T,
             self.rc,
+            get_num_threads(),
         )
 
 

@@ -122,7 +122,8 @@ void cal_atomic_strain(
     const ROneArrayD cur_y_py,
     const ROneArrayD cur_z_py,
     OneArrayD shear_strain_py,
-    OneArrayD volumetric_strain_py
+    OneArrayD volumetric_strain_py,
+    const int num_t
 )
 {
     size_t N = verlet_list_py.shape(0);
@@ -148,7 +149,7 @@ void cal_atomic_strain(
     identity.set_identity();
     
     // 并行处理每个原子
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(num_t)
     for (size_t i = 0; i < N; ++i) {
         Matrix3x3 V, W;
         

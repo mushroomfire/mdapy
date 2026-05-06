@@ -26,6 +26,7 @@ https://doi.org/10.1063/1.4998408
 from mdapy import _structure_entropy
 from mdapy import _neighbor
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 import numpy as np
 
 
@@ -126,6 +127,7 @@ class StructureEntropy:
             self.distance_list,
             self.neighbor_number,
             self.entropy,
+            get_num_threads(),
         )
 
         if self.average_rc > 0:
@@ -139,4 +141,5 @@ class StructureEntropy:
                 self.entropy,
                 self.entropy_ave,
                 True,
+                get_num_threads(),
             )

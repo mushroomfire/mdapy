@@ -5,6 +5,7 @@ import numpy as np
 import polars as pl
 from mdapy import _fast_knn
 from mdapy import System
+from mdapy.parallel import get_num_threads
 
 
 class WignerSeitzAnalysis:
@@ -59,6 +60,7 @@ class WignerSeitzAnalysis:
             self.ref.box.box,
             self.ref.box.origin,
             self.ref.box.boundary,
+            get_num_threads(),
         )
 
     def compute(self, current: System) -> Dict[str, Union[int, np.ndarray]]:
@@ -110,6 +112,7 @@ class WignerSeitzAnalysis:
             data["y"].to_numpy(allow_copy=False),
             data["z"].to_numpy(allow_copy=False),
             indice,
+            get_num_threads(),
         )
         site_occ = np.zeros(self.ref.N, np.int32)
         np.add.at(site_occ, indice, 1)

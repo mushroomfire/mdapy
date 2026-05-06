@@ -5,6 +5,7 @@ from mdapy import _cnp
 import numpy as np
 import polars as pl
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 
 
 class CommonNeighborParameter:
@@ -110,4 +111,5 @@ class CommonNeighborParameter:
             self.neighbor_number,
             self.cnp,
             self.rc,
+            get_num_threads(),
         )

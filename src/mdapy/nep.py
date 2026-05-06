@@ -3,6 +3,7 @@
 
 from mdapy import _nepcal
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 from typing import Tuple
 import numpy as np
 import polars as pl
@@ -201,10 +202,10 @@ class NEP(CalculatorMP):
         # Call the C++NEP calculator
         if self._is_qnep:
             self.calc.calculate_charge(
-                *self.setAtoms(data, box), potential, force, virial, charge, bec
+                *self.setAtoms(data, box), potential, force, virial, charge, bec, get_num_threads()
             )
         else:
-            self.calc.calculate(*self.setAtoms(data, box), potential, force, virial)
+            self.calc.calculate(*self.setAtoms(data, box), potential, force, virial, get_num_threads())
 
         # Store results
         self.results["energies"] = potential
@@ -396,7 +397,7 @@ class NEP(CalculatorMP):
         """
         N = data.shape[0]
         descriptor = np.zeros((N, self.calc.info["num_ndim"]), float)
-        self.calc.get_descriptors(*self.setAtoms(data, box), descriptor)
+        self.calc.get_descriptors(*self.setAtoms(data, box), descriptor, get_num_threads())
         return descriptor
 
     def get_latentspace(self, data: pl.DataFrame, box: Box) -> np.ndarray:
@@ -422,7 +423,7 @@ class NEP(CalculatorMP):
         """
         N = data.shape[0]
         latentspace = np.zeros((N, self.calc.info["num_nlatent"]), float)
-        self.calc.get_latentspace(*self.setAtoms(data, box), latentspace)
+        self.calc.get_latentspace(*self.setAtoms(data, box), latentspace, get_num_threads())
         return latentspace
 
 

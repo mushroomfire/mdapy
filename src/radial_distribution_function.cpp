@@ -149,7 +149,8 @@ void _rdf_streaming(const ROneArrayD x_py,
                     const ROneArrayI boundary_py,
                     ThreeArrayD g_py,
                     const double rc,
-                    const int nbin)
+                    const int nbin,
+                    const int num_t)
 {
     auto x = x_py.view();
     auto y = y_py.view();
@@ -175,7 +176,7 @@ void _rdf_streaming(const ROneArrayD x_py,
     }
 
     const int hist_size = Ntype * Ntype * nbin;
-    const int n_threads = omp_get_max_threads();
+    const int n_threads = num_t;
 
     // Each thread writes into its own contiguous (Ntype, Ntype, nbin) buffer.
     // Final reduction merges them into the caller's view.
@@ -202,7 +203,7 @@ void _rdf_streaming(const ROneArrayD x_py,
             cell_head[idx] = i;
         }
 
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
         {
             const int tid = omp_get_thread_num();
             double *local = thread_hist.data() + static_cast<size_t>(tid) * hist_size;
@@ -267,7 +268,7 @@ void _rdf_streaming(const ROneArrayD x_py,
         // All-pairs streaming. rc is large relative to box thickness, so a
         // safe cell grid would have <3 cells per periodic axis and double-
         // count — go direct.
-#pragma omp parallel
+#pragma omp parallel num_threads(num_t)
         {
             const int tid = omp_get_thread_num();
             double *local = thread_hist.data() + static_cast<size_t>(tid) * hist_size;
@@ -324,6 +325,7 @@ NB_MODULE(_rdf, m)
           nb::arg("type_list"),
           nb::arg("box"), nb::arg("origin"), nb::arg("boundary"),
           nb::arg("g"), nb::arg("rc"), nb::arg("nbin"),
+          nb::arg("num_t"),
           "Streaming RDF: bin pair distances into a (Ntype,Ntype,nbin) "
           "histogram with no Verlet list materialised.");
 }

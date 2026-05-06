@@ -18,7 +18,8 @@ void compute_cnp(
     const RTwoArrayD distance_list,
     const ROneArrayI neighbor_number,
     OneArrayD cnp,
-    const double rc)
+    const double rc,
+    const int num_t)
 {
     const int n_atoms = x.shape(0);
 
@@ -36,7 +37,7 @@ void compute_cnp(
     const int dist_stride = distance_list.shape(1);
 
 // OpenMP并行
-#pragma omp parallel for schedule(dynamic, 64)
+#pragma omp parallel for num_threads(num_t) schedule(dynamic, 64)
     for (int i = 0; i < n_atoms; ++i)
     {
         int N = 0;

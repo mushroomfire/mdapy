@@ -2,6 +2,7 @@
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 
 from mdapy import _wcp
+from mdapy.parallel import get_num_threads
 from typing import Optional, List, Tuple, TYPE_CHECKING
 import polars as pl
 import numpy as np
@@ -106,7 +107,8 @@ class WarrenCowleyParameter:
         """
         self.WCP = np.zeros((self.Ntype, self.Ntype), float)
         _wcp.get_wcp(
-            self.verlet_list, self.neighbor_number, self.type_list, self.Ntype, self.WCP
+            self.verlet_list, self.neighbor_number, self.type_list, self.Ntype, self.WCP,
+            get_num_threads()
         )
 
     def plot(

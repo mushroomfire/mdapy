@@ -169,7 +169,8 @@ void IdentifyDiamond(
     const ROneArrayI boundary_py,
     const RTwoArrayI verlet_list_py,
     TwoArrayI new_verlet_list_py,
-    OneArrayI pattern_py)
+    OneArrayI pattern_py,
+    const int num_t)
 {
     const double *x = x_py.data();
     const double *y = y_py.data();
@@ -180,7 +181,7 @@ void IdentifyDiamond(
     auto pattern = pattern_py.view();
     const int N{static_cast<int>(x_py.shape(0))};
 
-#pragma omp parallel for firstprivate(x, y, z, verlet_list)
+#pragma omp parallel for num_threads(num_t) firstprivate(x, y, z, verlet_list)
     for (int i = 0; i < N; i++)
     {
         int count = 0;
@@ -293,7 +294,8 @@ void AdaptiveCNA(
     const ROneArrayD origin_py,
     const ROneArrayI boundary_py,
     const RTwoArrayI verlet_list_py,
-    OneArrayI pattern_py)
+    OneArrayI pattern_py,
+    const int num_t)
 {
     const double *x = x_py.data();
     const double *y = y_py.data();
@@ -303,7 +305,7 @@ void AdaptiveCNA(
     auto pattern = pattern_py.view();
     const int N{static_cast<int>(x_py.shape(0))};
 
-#pragma omp parallel for firstprivate(x, y, z, verlet_list)
+#pragma omp parallel for num_threads(num_t) firstprivate(x, y, z, verlet_list)
     for (int i = 0; i < N; i++)
     {
 
@@ -433,7 +435,8 @@ void FixedCNA(const ROneArrayD x_py,
               const RTwoArrayI verlet_list_py,
               const ROneArrayI neighbor_number_py,
               OneArrayI pattern_py,
-              const double rc)
+              const double rc,
+              const int num_t)
 {
     const double *x = x_py.data();
     const double *y = y_py.data();
@@ -446,7 +449,7 @@ void FixedCNA(const ROneArrayD x_py,
 
     const double localCutoffSquared = rc * rc;
 
-#pragma omp parallel for firstprivate(x, y, z, verlet_list, neighbor_number)
+#pragma omp parallel for num_threads(num_t) firstprivate(x, y, z, verlet_list, neighbor_number)
     for (int i = 0; i < N; i++)
     {
         const int nn = neighbor_number(i);

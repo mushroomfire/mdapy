@@ -15,6 +15,7 @@ from mdapy._tachyon import (
 
 from mdapy.system import System
 from mdapy.data import ele_radius, ele_rgb, type_rgb
+from mdapy.parallel import get_num_threads
 import polars as pl
 
 # GPU backend: only available when mdapy was built with OptiX.
@@ -177,8 +178,6 @@ class TachyonRender:
         Directional light intensity.  Default 0.9.
     background : tuple
         Background colour (R, G, B) or (R, G, B, A) in [0, 1].  Default black.
-    num_threads : int
-        CPU thread count (CPU backend only).  0 = auto.  Default 0.
 
     Notes
     -----
@@ -213,7 +212,6 @@ class TachyonRender:
         shadows: bool = True,
         direct_light_intensity: float = 0.9,
         background: tuple = (0.0, 0.0, 0.0),
-        num_threads: int = 0,
     ):
         backend = backend.lower().strip()
         if backend not in ("cpu", "gpu", "auto"):
@@ -252,7 +250,7 @@ class TachyonRender:
         rp.bg_g = float(bg[1])
         rp.bg_b = float(bg[2])
         rp.bg_a = float(bg[3]) if len(bg) > 3 else 1.0
-        rp.num_threads = int(num_threads)
+        rp.num_threads = int(get_num_threads())
         self._rp = rp
 
     @property

@@ -21,9 +21,9 @@ https://doi.org/10.1016/j.cpc.2023.108832
 
 from mdapy import _voronoi
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 import numpy as np
 import polars as pl
-import os
 from typing import Tuple, List, Union
 import mdapy.tool_function as tool
 from dataclasses import dataclass
@@ -112,7 +112,7 @@ class Voronoi:
         - OpenMP parallelization is used for performance with large systems.
 
         """
-        num_t = os.cpu_count()
+        num_t = get_num_threads()
         repeat = [1, 1, 1]
         N = self.data.shape[0]
         nopbc = False
@@ -233,7 +233,7 @@ class Voronoi:
         """
         assert not self.box.triclinic, "Only support orthogonal box."
         assert self.data.shape[0] > 1, "At least has one atom."
-        num_t = os.cpu_count()
+        num_t = get_num_threads()
         face_vertices_indices, face_vertices_positions, volume, radius, face_areas = (
             _voronoi.get_cell_info(
                 self.data["x"].to_numpy(allow_copy=False),
@@ -276,7 +276,7 @@ class Voronoi:
             (containing no other atoms) that touches the atom.
 
         """
-        num_t = os.cpu_count()
+        num_t = get_num_threads()
         volume = np.zeros(self.data.shape[0])
         neighbor_number = np.zeros(self.data.shape[0], np.int32)
         cavity_radius = np.zeros(self.data.shape[0])

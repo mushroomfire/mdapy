@@ -12,7 +12,8 @@ void compute_temp(
     const ROneArrayD vz_py,
     const ROneArrayD mass_list,
     OneArrayD T,
-    const double rc)
+    const double rc,
+    const int num_t)
 {
     // 物理常数
     constexpr double kb = 1.380649e-23;                // Boltzmann constant (J/K)
@@ -33,7 +34,7 @@ void compute_temp(
     double *T_ptr = T.data();
 
 // OpenMP并行
-#pragma omp parallel for schedule(dynamic, 64)
+#pragma omp parallel for num_threads(num_t) schedule(dynamic, 64)
     for (int i = 0; i < n_atoms; ++i)
     {
         const int *verlet_i = verlet_ptr + i * max_neigh;

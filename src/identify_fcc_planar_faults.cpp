@@ -57,7 +57,8 @@ void identify_sftb_fcc(
     const RTwoArrayI ptm_indices,
     const ROneArrayI structure_types,
     OneArrayI fault_types,
-    const bool identify_esf
+    const bool identify_esf,
+    const int num_t
 ) {
     
     // 获取数组维度
@@ -77,7 +78,7 @@ void identify_sftb_fcc(
     const int outofplane_neighbors[6] = {2, 3, 4, 9, 10, 11};
     
     // ========== 第一步：建立HCP邻居映射 ==========
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for num_threads(num_t) schedule(static)
     for (size_t i = 0; i < n_hcp; i++) {
         int aindex = hcp_idx_ptr[i];
         int* hcp_neigh_row = hcp_neigh_ptr + i * 12;
@@ -94,11 +95,11 @@ void identify_sftb_fcc(
     }
     
     // ========== 第二步：初步分类每个HCP原子 ==========
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for num_threads(num_t) schedule(static)
     for (size_t i = 0; i < n_hcp; i++) {
         int aindex = hcp_idx_ptr[i];
         const int* hcp_neigh_row = hcp_neigh_ptr + i * 12;
-        
+
         int n_basal = 0;         // 同一基面的HCP邻居数
         int n_positive = 0;      // 上方的HCP邻居数
         int n_negative = 0;      // 下方的HCP邻居数
@@ -204,7 +205,7 @@ void identify_sftb_fcc(
         return;
     }
     // ========== 第四步：识别外禀层错 ==========
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for num_threads(num_t) schedule(static)
     for (size_t i = 0; i < n_hcp; i++) {
         int aindex = hcp_idx_ptr[i];
         

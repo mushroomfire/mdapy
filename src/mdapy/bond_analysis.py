@@ -4,6 +4,7 @@
 from __future__ import annotations
 from mdapy import _bond_analysis
 from mdapy.box import Box
+from mdapy.parallel import get_num_threads
 import polars as pl
 import numpy as np
 from typing import TYPE_CHECKING, Optional, Tuple
@@ -151,6 +152,7 @@ class BondAnalysis:
             delta_theta,
             self.rc,
             self.nbin,
+            get_num_threads(),
         )
         r = np.linspace(0, self.rc, self.nbin + 1)
         self.r_length = (r[1:] + r[:-1]) / 2

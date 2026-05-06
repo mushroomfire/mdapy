@@ -3474,10 +3474,10 @@ neutron_form_factor: Dict[str, Union[float, complex]] = {
     "248Cm": 7.7,
 }
 
-"""Coherent neutron scattering lengths (in fm) from NIST,
+r"""Coherent neutron scattering lengths (in fm) from NIST,
 https://www.ncnr.nist.gov/resources/n-lengths/list.html.
-Keys are element / isotope symbols (str). Values are real numbers for elements
-without significant absorption and complex numbers (with imaginary part for
-absorptive elements/isotopes such as :math:`^{10}`B, Cd, Sm, Eu, Gd). The
-constant value is the form factor at every k since neutron form factors are
-k-independent."""
+Keys are element / isotope symbols (str). Values are real numbers for
+elements without significant absorption and complex numbers (with
+imaginary part) for absorptive isotopes such as :math:`{}^{10}\mathrm{B}`,
+Cd, Sm, Eu, Gd. The same value is used at every k since neutron form
+factors are k-independent."""

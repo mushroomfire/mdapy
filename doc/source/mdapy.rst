@@ -370,6 +370,14 @@ mdapy.trajectory module
    :show-inheritance:
    :undoc-members:
 
+mdapy.unwrap\_trajectory module
+-------------------------------
+
+.. automodule:: mdapy.unwrap_trajectory
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 mdapy.visualize module
 ----------------------
 

@@ -97,12 +97,13 @@ nanobind_add_module(_lindemann        STABLE_ABI src/lindemann.cpp)
 nanobind_add_module(_bond_analysis    STABLE_ABI src/bond_analysis.cpp)
 nanobind_add_module(_build_bond       STABLE_ABI src/build_bond.cpp)
 nanobind_add_module(_sqs              STABLE_ABI src/sqs.cpp)
+nanobind_add_module(_chill_plus       STABLE_ABI src/chill_plus.cpp)
 
 set(MODULES
     _neighbor _structure_entropy _voronoi _nepcal _repeat_cell
     _fast_knn _cluster _spline _cna _polycrystal _ptm _eam _sbo
     _rdf _sfc _csp _wcp _strain _fccpft _aja _cnp _split
-    _atomtemp _lindemann _bond_analysis _build_bond _sqs
+    _atomtemp _lindemann _bond_analysis _build_bond _sqs _chill_plus
 )
 
 foreach(mod IN LISTS MODULES)

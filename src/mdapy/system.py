@@ -36,6 +36,7 @@ from mdapy.ackland_jones_analysis import AcklandJonesAnalysis
 from mdapy.common_neighbor_parameter import CommonNeighborParameter
 from mdapy.atomic_temperature import AtomicTemperature
 from mdapy.bond_analysis import BondAnalysis
+from mdapy.chill_plus import ChillPlus
 from mdapy.build_bond import build_bond as _build_bond_pairs
 from mdapy.angular_distribution_function import AngularDistributionFunction
 import mdapy.tool_function as tool
@@ -1447,6 +1448,47 @@ class System:
         ids = IdentifyDiamondStructure(data, box, verlet_list)
         ids.compute()
         self.update_data(self.__data.with_columns(ids=ids.pattern[: self.N]))
+
+    def cal_chill_plus(self, cutoff: float = 3.5) -> None:
+        """
+        Run the CHILL+ water-phase identification on this system. The
+        result is written to ``self.data['chill_plus']``:
+
+        - 0 Other
+        - 1 Hexagonal ice
+        - 2 Cubic ice
+        - 3 Interfacial ice
+        - 4 Gas hydrate
+        - 5 Interfacial gas hydrate
+
+        The system must contain only the molecule centres (e.g. oxygen atoms
+        or coarse-grained water beads); strip hydrogens beforehand.
+
+        Parameters
+        ----------
+        cutoff : float, optional
+            O-O cutoff radius in Å. Default 3.5.
+
+        Notes
+        -----
+        See :class:`~mdapy.chill_plus.ChillPlus` for implementation details.
+        """
+        has_neigh = hasattr(self, "rc") and self.rc >= cutoff
+        if not has_neigh:
+            self.build_neighbor(cutoff)
+        box, data = self._get_compute_view()
+        cp = ChillPlus(
+            data,
+            box,
+            cutoff,
+            self.verlet_list,
+            self.distance_list,
+            self.neighbor_number,
+        )
+        cp.compute()
+        self.update_data(
+            self.__data.with_columns(chill_plus=cp.pattern[: self.N])
+        )
 
     def cal_common_neighbor_parameter(
         self, rc: float, max_neigh: Optional[int] = None

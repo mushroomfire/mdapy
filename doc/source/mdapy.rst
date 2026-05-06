@@ -90,6 +90,14 @@ mdapy.centro\_symmetry\_parameter module
    :show-inheritance:
    :undoc-members:
 
+mdapy.chill\_plus module
+------------------------
+
+.. automodule:: mdapy.chill_plus
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 mdapy.cluster\_analysis module
 ------------------------------
 

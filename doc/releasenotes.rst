@@ -1,7 +1,7 @@
 Release Notes
 ===============
 
-Mdapy 1.0.6a2 (May 6, 2026)
+Mdapy 1.0.6 (May 6, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🏆 New Features
@@ -25,6 +25,10 @@ Mdapy 1.0.6a2 (May 6, 2026)
   Defaults to ``os.cpu_count()``. Query via :func:`mdapy.get_num_threads`.
   The public ``workers`` / ``num_threads`` arguments on
   ``mdapy.compress_file`` and ``mdapy.render.TachyonRender`` are removed.
+- New :meth:`System.cal_chill_plus` (CHILL+ algorithm) for identifying
+  hexagonal ice, cubic ice, gas hydrate and interfacial phases in water
+  simulations. 
+
 
 🐞 Bug Fixes
 -------------

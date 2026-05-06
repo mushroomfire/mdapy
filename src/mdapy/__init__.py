@@ -19,9 +19,7 @@ if _env is not None:
             f"MDAPY_NUM_THREADS must be a positive integer, got {_env!r}."
         ) from _e
     if _n <= 0:
-        raise ValueError(
-            f"MDAPY_NUM_THREADS must be > 0, got {_n}."
-        )
+        raise ValueError(f"MDAPY_NUM_THREADS must be > 0, got {_n}.")
     _cpu = _os.cpu_count() or 1
     if _n > _cpu:
         _warnings.warn(
@@ -85,4 +83,4 @@ __all__ = [
     "BondStiffness",
     "unwrap_trajectory",
 ]
-__version__ = "1.0.6a2"
+__version__ = "1.0.6"

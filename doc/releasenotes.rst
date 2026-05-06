@@ -1,16 +1,25 @@
 Release Notes
 ===============
 
-Mdapy 1.0.6a1 (May 4, 2026)
+Mdapy 1.0.6a2 (May 6, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🏆 New Features
 ----------------
 
-- New :class:`mdapy.SQS` class for generating Special Quasirandom
-  Structures from a random alloy.
-- New :class:`mdapy.BondStiffness` class for fitting bond
-  longitudinal / transverse stiffnesses vs bond length.
+- New :class:`mdapy.SQS` for Special Quasirandom Structure generation.
+- New :class:`mdapy.BondStiffness` for fitting longitudinal / transverse
+  bond stiffnesses vs bond length.
+- :class:`mdapy.RadialDistributionFunction` adds a streaming kernel for
+  arbitrary cutoffs (no Verlet list materialised).
+- :class:`mdapy.StructureFactor` rewritten in the Faber-Ziman convention
+  of [Erhard2024]_, with X-ray / neutron / electron totals and the
+  corresponding real-space PDFs.
+- Partial outputs of ``RadialDistributionFunction`` /
+  ``StructureFactor`` are now dicts keyed by element-pair tuples.
+- New :func:`mdapy.unwrap_trajectory` / ``Trajectory.unwrap()``.
+- Extended-XYZ I/O recognises GPUMD's ``unwrapped_position:R:3`` and
+  aliases it to ``xu``/``yu``/``zu``.
 
 🐞 Bug Fixes
 -------------

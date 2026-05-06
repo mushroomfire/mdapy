@@ -674,6 +674,20 @@ class XYZTrajectory(_TrajectoryListBase):
                 for coord in ["x", "y", "z"]:
                     schema[coord] = dtype
             elif (
+                # GPUMD writes "unwrapped_position:R:3" for trajectories
+                # already unwrapped at the simulator side. Map it to the
+                # LAMMPS-style ``xu/yu/zu`` triplet so downstream code
+                # (``unwrap_trajectory``, MSD, etc.) sees a uniform column
+                # name regardless of source.
+                content[i] in ("unwrapped_position", "unwrapped_pos")
+                and content[i + 1] == "R"
+                and n_col == 3
+                and "xu" not in schema
+            ):
+                columns.extend(["xu", "yu", "zu"])
+                for coord in ["xu", "yu", "zu"]:
+                    schema[coord] = dtype
+            elif (
                 content[i] in ["species", "element"]
                 and content[i + 1] == "S"
                 and n_col == 1
@@ -1293,6 +1307,14 @@ class Trajectory(_TrajectoryListBase):
     # NOTE: list-like API (__len__, __getitem__, __setitem__, __iter__,
     # __repr__, append, extend, insert, pop, remove, get_atoms_count,
     # concatenate) is inherited from `_TrajectoryListBase`.
+
+    def unwrap(self) -> "Trajectory":
+        """Return a new :class:`Trajectory` with continuous (unwrapped)
+        particle positions. See :func:`mdapy.unwrap_trajectory` for the
+        full algorithm description and edge cases."""
+        from mdapy.unwrap_trajectory import unwrap_trajectory
+
+        return unwrap_trajectory(self)
 
 
 if __name__ == "__main__":

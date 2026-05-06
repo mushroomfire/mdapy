@@ -30,14 +30,15 @@ def test_sfc(mode):
     sf1 = system.cal_structure_factor(k_min, k_max, nbins, cal_partial=True, mode=mode)
     atol = 1e-4
 
-    assert np.allclose(sf1.Sk_partial["1-1"], data[f"{mode}_11"], atol=atol, equal_nan=True), (
-        f"1-1 differs in {mode} mode"
+    # Sk_partial keys are element/type tuples (e.g. (1, 1)).
+    assert np.allclose(sf1.Sk_partial[(1, 1)], data[f"{mode}_11"], atol=atol, equal_nan=True), (
+        f"(1, 1) differs in {mode} mode"
     )
-    assert np.allclose(sf1.Sk_partial["1-2"], data[f"{mode}_12"], atol=atol, equal_nan=True), (
-        f"1-2 differs in {mode} mode"
+    assert np.allclose(sf1.Sk_partial[(1, 2)], data[f"{mode}_12"], atol=atol, equal_nan=True), (
+        f"(1, 2) differs in {mode} mode"
     )
-    assert np.allclose(sf1.Sk_partial["2-2"], data[f"{mode}_22"], atol=atol, equal_nan=True), (
-        f"2-2 differs in {mode} mode"
+    assert np.allclose(sf1.Sk_partial[(2, 2)], data[f"{mode}_22"], atol=atol, equal_nan=True), (
+        f"(2, 2) differs in {mode} mode"
     )
     assert np.allclose(sf1.Sk, data[f"{mode}_all"], atol=atol, equal_nan=True), (
         f"all differs in {mode} mode (partial=True)"

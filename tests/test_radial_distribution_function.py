@@ -16,8 +16,9 @@ def test_rdf():
     elements = list(data["elements"])
     K = len(elements)
     g_ref = data["g"]
+    # g_partial is keyed by element-pair tuples (e.g. ("Al", "Cr"))
     for i in range(K):
         for j in range(i, K):
-            assert np.allclose(rdf.g[i, j], g_ref[i, j], atol=1e-6), (
-                f"{elements[i]}-{elements[j]} RDF differs"
-            )
+            assert np.allclose(
+                rdf.g_partial[(elements[i], elements[j])], g_ref[i, j], atol=1e-6
+            ), f"{elements[i]}-{elements[j]} RDF differs"

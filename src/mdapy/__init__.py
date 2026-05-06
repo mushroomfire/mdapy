@@ -21,6 +21,7 @@ from mdapy.void_analysis import VoidAnalysis
 from mdapy.orthogonal_cell import orthogonal_cell
 from mdapy.sqs import SQS
 from mdapy.bond_stiffness import BondStiffness
+from mdapy.unwrap_trajectory import unwrap_trajectory
 
 __all__ = [
     "System",
@@ -48,5 +49,6 @@ __all__ = [
     "orthogonal_cell",
     "SQS",
     "BondStiffness",
+    "unwrap_trajectory",
 ]
-__version__ = "1.0.6a1"
+__version__ = "1.0.6a2"

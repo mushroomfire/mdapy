@@ -1950,6 +1950,9 @@ class System:
         cal_partial: bool = False,
         atomic_form_factors: bool = False,
         mode: str = "direct",
+        rc: Optional[float] = None,
+        nbin_rdf: int = 200,
+        window: bool = False,
     ) -> StructureFactor:
         """
         Calculate static structure factor S(k).
@@ -1967,7 +1970,15 @@ class System:
         atomic_form_factors : bool, default=False
             If True, use atomic form factors f to weigh the atoms' individual contributions to S(k). Atomic form factors are taken from `TU Graz <https://lampz.tugraz.at/~hadley/ss1/crystaldiffraction/atomicformfactors/formfactors.php>`_.
         mode : str, optional
-            Calculation mode: 'direct' or 'debye'. Default is 'direct'.
+            Calculation mode: 'direct', 'debye', or 'rdf'. Default is 'direct'.
+        rc : float, optional
+            Cutoff for the RDF intermediate (only used by ``mode='rdf'``).
+            Defaults to half of the smallest periodic box thickness.
+        nbin_rdf : int, default=200
+            Number of radial bins for the RDF (only used by ``mode='rdf'``).
+        window : bool, default=True
+            Apply the Lorch window when transforming g(r) → S(k) (only used
+            by ``mode='rdf'``).
 
         Returns
         -------
@@ -1988,6 +1999,9 @@ class System:
             cal_partial,
             atomic_form_factors,
             mode,
+            rc=rc,
+            nbin_rdf=nbin_rdf,
+            window=window,
         )
         sfc.compute()
         return sfc
@@ -2098,7 +2112,11 @@ class System:
         return adf
 
     def cal_radial_distribution_function(
-        self, rc: float, nbin: int = 100, max_neigh: Optional[int] = None
+        self,
+        rc: float,
+        nbin: int = 100,
+        max_neigh: Optional[int] = None,
+        streaming: Optional[bool] = None,
     ) -> RadialDistributionFunction:
         """
         Calculate radial distribution function g(r).
@@ -2110,7 +2128,16 @@ class System:
         nbin : int, optional
             Number of distance bins. Default is 100.
         max_neigh : int, optional
-            Maximum number of neighbors per atom.
+            Maximum number of neighbors per atom (only used by the Verlet path).
+        streaming : bool, optional
+            Selects the kernel:
+
+            * ``None`` (default): auto-pick — streaming when ``rc`` is large
+              relative to the box (``2*rc`` exceeds the smallest periodic
+              thickness divided by 3, i.e. the cutoff that makes the Verlet
+              list bloat up); Verlet path otherwise.
+            * ``True``: force the streaming kernel (no neighbour list built).
+            * ``False``: force the Verlet path (build/reuse a neighbour list).
 
         Returns
         -------
@@ -2122,42 +2149,93 @@ class System:
         See :class:`~mdapy.radial_distribution_function.RadialDistributionFunction`
         for implementation details and returned attributes.
         """
-        has_neigh = False
-        if hasattr(self, "rc"):
-            if self.rc >= rc:
-                has_neigh = True
-        if not has_neigh:
-            self.build_neighbor(rc, max_neigh)
-
         box, data = self._get_compute_view()
 
-        # Prefer the explicit `type` column if present — derive types from
-        # `element` only as a fallback so we never silently overwrite a
-        # user-provided type column. The locally-derived type array is for
-        # this RDF call's partial bookkeeping; it is *not* written back.
-        if "type" in data.columns:
-            type_list = data["type"].to_numpy()
-        elif "element" in data.columns:
-            ele2type = {j: i + 1 for i, j in enumerate(data["element"].unique().sort())}
-            type_list = (
-                data.select(
-                    pl.col("element").replace_strict(ele2type).cast(pl.Int32)
-                )
-                .to_numpy()
-                .ravel()
-            )
-        else:
-            type_list = np.zeros(data.shape[0], np.int32)
+        # Auto-pick streaming when rc is so large that a Verlet list would
+        # store ~all atoms per atom. Threshold: rc above 1/3 of the smallest
+        # periodic thickness — at that point the cell list degenerates anyway
+        # so the streaming kernel's memory savings are the deciding factor.
+        if streaming is None:
+            try:
+                thickness = box.get_thickness()
+            except AttributeError:
+                thickness = np.linalg.norm(box.box, axis=1)
+            periodic_thicknesses = [
+                thickness[i] for i in range(3) if box.boundary[i]
+            ]
+            min_thick = min(periodic_thicknesses) if periodic_thicknesses else float("inf")
+            streaming = rc >= min_thick / 3.0
 
-        rdf = RadialDistributionFunction(
-            rc,
-            nbin,
-            box,
-            self.verlet_list,
-            self.distance_list,
-            self.neighbor_number,
-            type_list,
-        )
+        # Pick species labels for the partial-RDF dict keys: prefer chemical
+        # ``element`` strings (so g_partial keys read as ``("Al", "Cu")``);
+        # fall back to integer ``type`` ids; otherwise everyone is species 0.
+        def _species_labels(view):
+            if "element" in view.columns:
+                return view["element"].to_numpy()
+            if "type" in view.columns:
+                return view["type"].to_numpy()
+            return np.zeros(view.shape[0], np.int32)
+
+        type_list = _species_labels(data)
+
+        if streaming:
+            # Match the legacy Verlet path's replication semantics: when the
+            # original box is too thin for the requested rc (rc > L/2 along
+            # any periodic axis), replicate just enough that rc fits the
+            # min-image convention in the enlarged cell. Streaming on the
+            # enlarged cell is still cheap because we only carry positions,
+            # not a Verlet list.
+            repeat = self.box.check_small_box(rc)
+            if sum(repeat) != 3:
+                from mdapy.tool_function import replicate
+
+                rep_data, rep_box = replicate(data, box, *repeat)
+                rep_x = rep_data["x"].to_numpy()
+                rep_y = rep_data["y"].to_numpy()
+                rep_z = rep_data["z"].to_numpy()
+                rep_types = _species_labels(rep_data)
+                rdf = RadialDistributionFunction(
+                    rc,
+                    nbin,
+                    rep_box,
+                    type_list=rep_types,
+                    streaming=True,
+                    x=rep_x,
+                    y=rep_y,
+                    z=rep_z,
+                )
+            else:
+                rdf = RadialDistributionFunction(
+                    rc,
+                    nbin,
+                    box,
+                    type_list=type_list,
+                    streaming=True,
+                    x=data["x"].to_numpy(),
+                    y=data["y"].to_numpy(),
+                    z=data["z"].to_numpy(),
+                )
+        else:
+            has_neigh = False
+            if hasattr(self, "rc"):
+                if self.rc >= rc:
+                    has_neigh = True
+            if not has_neigh:
+                self.build_neighbor(rc, max_neigh)
+            # Refresh box/data: build_neighbor may have replicated the system
+            # into _enlarge_box/_enlarge_data; the verlet list now indexes
+            # into the enlarged frame, so type_list must come from there too.
+            box, data = self._get_compute_view()
+            type_list = _species_labels(data)
+            rdf = RadialDistributionFunction(
+                rc,
+                nbin,
+                box,
+                verlet_list=self.verlet_list,
+                distance_list=self.distance_list,
+                neighbor_number=self.neighbor_number,
+                type_list=type_list,
+            )
         rdf.compute()
         return rdf
 

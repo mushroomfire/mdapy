@@ -1,7 +1,7 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
 # This file is from the mdapy project, released under the BSD 3-Clause License.
 from __future__ import annotations
-from typing import Optional, Tuple, List, TYPE_CHECKING
+from typing import Optional, Tuple, List, Dict, Any, TYPE_CHECKING
 import numpy as np
 from numpy.typing import NDArray
 from mdapy import _rdf
@@ -13,65 +13,70 @@ if TYPE_CHECKING:
 
 
 class RadialDistributionFunction:
-    r"""Calculate the radial distribution function (RDF) for atomic systems.
+    r"""Radial distribution function :math:`g(r)` of an atomic system.
 
-    The radial distribution function g(r) describes the probability of finding
-    an atom at distance r from a reference atom, normalized by the probability
-    expected for a completely random distribution at the same density.
-
-    For multi-component systems, the total RDF is a weighted sum of partial RDFs:
+    For a multi-component system, the total RDF is the
+    concentration-weighted sum of the partial RDFs:
 
     .. math::
-        g(r) = c_{\alpha}^2 g_{\alpha\alpha}(r) + 2c_{\alpha}c_{\beta}g_{\alpha\beta}(r) + c_{\beta}^2 g_{\beta\beta}(r)
 
-    where :math:`c_{\alpha}` and :math:`c_{\beta}` denote the concentration of
-    atom types α and β, respectively, and :math:`g_{\alpha\beta}(r) = g_{\beta\alpha}(r)`.
+        g(r) = \sum_{\alpha \beta} c_{\alpha} c_{\beta} g_{\alpha \beta}(r)
 
-    The RDF is computed as:
+    where :math:`c_{\alpha}` is the concentration of species :math:`\alpha`
+    and :math:`g_{\alpha \beta}(r) = g_{\beta \alpha}(r)`. The partial RDFs
+    are normalised so that :math:`g_{\alpha \beta}(r) \to 1` for an ideal
+    homogeneous system.
 
-    .. math::
-        g_{\alpha\beta}(r) = \frac{V}{N_{\alpha}N_{\beta}} \sum_{i \in \alpha} \sum_{j \in \beta} \delta(r - r_{ij})
+    Two execution paths are supported:
 
-    where V is the system volume, :math:`N_{\alpha}` and :math:`N_{\beta}` are
-    the number of atoms of types α and β, and :math:`r_{ij}` is the distance
-    between atoms i and j.
+    * **Verlet-list path** (default): supply a pre-built neighbour list via
+      ``verlet_list`` / ``distance_list`` / ``neighbor_number``. Best when
+      the cutoff is small relative to the box.
+    * **Streaming path** (``streaming=True``): supply atomic positions via
+      ``x`` / ``y`` / ``z``. Pair distances are binned directly into the
+      histogram with no neighbour list materialised, so memory stays
+      :math:`\mathcal{O}(N)` regardless of cutoff.
 
     Parameters
     ----------
     rc : float
         Cutoff distance for RDF calculation (in Angstroms).
     nbin : int
-        Number of bins for histogram.
+        Number of histogram bins.
     box : Box
-        System box object containing boundary information.
-    verlet_list : NDArray[np.int32]
-        Shape (N_particles, max_neigh). Verlet neighbor list where
-        verlet_list[i, j] gives the index of the j-th neighbor of particle i.
-        Value of -1 indicates no neighbor at that position.
-    distance_list : NDArray[np.float64]
-        Shape (N_particles, max_neigh). Distance list where distance_list[i, j]
-        gives the distance between particle i and its j-th neighbor.
-    neighbor_number : NDArray[np.int32]
-        Shape (N_particles,). Number of neighbors for each particle.
-    type_list : NDArray[np.int32]
-        Shape (N_particles,). Atom type indices for each particle.
+        Simulation box.
+    verlet_list : NDArray[np.int32], optional
+        Required when ``streaming=False``.
+    distance_list : NDArray[np.float64], optional
+        Required when ``streaming=False``.
+    neighbor_number : NDArray[np.int32], optional
+        Required when ``streaming=False``.
+    type_list : NDArray, optional
+        Per-atom species labels (int type ids or str element symbols). Used
+        as keys in :attr:`g_partial`. If omitted, all atoms share label 0.
+    streaming : bool, default=False
+        Use the streaming kernel (no Verlet list).
+    x, y, z : NDArray[np.float64], optional
+        Atomic Cartesian coordinates. Required when ``streaming=True``.
 
     Attributes
     ----------
     r : NDArray[np.float64]
-        Shape (nbin,). Distance values at bin centers.
+        Bin centres, shape ``(nbin,)``.
     g_total : NDArray[np.float64]
-        Shape (nbin,). Total (averaged) radial distribution function.
+        Total :math:`g(r)`, shape ``(nbin,)``.
+    g_partial : dict
+        Mapping ``(species_a, species_b) -> NDArray`` for :math:`a \leq b`
+        (upper triangle). Each value is the partial :math:`g_{\alpha\beta}(r)`.
+    elements : list
+        Sorted list of unique species labels — the same labels used as keys
+        in :attr:`g_partial`.
     Ntype : int
-        Number of distinct atom types in the system.
-    g : NDArray[np.float64]
-        Shape (Ntype, Ntype, nbin). Partial RDFs for each pair of atom types.
-        g[i, j, :] gives the RDF between type i and type j atoms.
+        Number of distinct species.
     vol : float
-        Volume of the simulation box.
+        Simulation box volume.
     N : int
-        Total number of particles in the system.
-
+        Total number of particles.
     """
 
     def __init__(
@@ -79,118 +84,132 @@ class RadialDistributionFunction:
         rc: float,
         nbin: int,
         box: Box,
-        verlet_list: NDArray[np.int32],
-        distance_list: NDArray[np.float64],
-        neighbor_number: NDArray[np.int32],
-        type_list: NDArray[np.int32],
+        verlet_list: Optional[NDArray[np.int32]] = None,
+        distance_list: Optional[NDArray[np.float64]] = None,
+        neighbor_number: Optional[NDArray[np.int32]] = None,
+        type_list: Optional[NDArray] = None,
+        streaming: bool = False,
+        x: Optional[NDArray[np.float64]] = None,
+        y: Optional[NDArray[np.float64]] = None,
+        z: Optional[NDArray[np.float64]] = None,
     ) -> None:
-        self.rc = rc
-        self.nbin = nbin
+        self.rc = float(rc)
+        self.nbin = int(nbin)
         self.box = box
-        self.verlet_list = verlet_list
-        self.distance_list = distance_list
-        self.neighbor_number = neighbor_number
         self.vol = self.box.volume
+        self.streaming = bool(streaming)
 
-        # Process type list
-        type_list = np.asarray(type_list, np.int32)
-        unitype = np.sort(np.unique(type_list))
-        self.Ntype = len(unitype)
-        self._old_type = unitype
+        if self.streaming:
+            if x is None or y is None or z is None:
+                raise ValueError(
+                    "streaming=True requires x, y, z position arrays."
+                )
+            self._x = np.ascontiguousarray(x, dtype=np.float64)
+            self._y = np.ascontiguousarray(y, dtype=np.float64)
+            self._z = np.ascontiguousarray(z, dtype=np.float64)
+            assert self._x.shape == self._y.shape == self._z.shape, (
+                "x, y, z must have the same shape"
+            )
+            self.N = int(self._x.shape[0])
+            self.verlet_list = None
+            self.distance_list = None
+            self.neighbor_number = None
+        else:
+            if verlet_list is None or distance_list is None or neighbor_number is None:
+                raise ValueError(
+                    "streaming=False requires verlet_list, distance_list, "
+                    "neighbor_number."
+                )
+            self.verlet_list = verlet_list
+            self.distance_list = distance_list
+            self.neighbor_number = neighbor_number
+            self.N = int(self.verlet_list.shape[0])
 
-        # Remap types to consecutive integers starting from 0
-        new_type = type_list.copy()
-        for i, j in enumerate(unitype):
-            new_type[type_list == j] = i
-        self.type_list = new_type
-        self.N = self.verlet_list.shape[0]
+        # Species labels: keep the user-supplied identifiers (int or str) as
+        # the dict keys in g_partial, while internally remapping to a dense
+        # 0..Ntype-1 range for the C++ kernel.
+        if type_list is None:
+            raw = np.zeros(self.N, dtype=np.int32)
+        else:
+            raw = np.asarray(type_list)
+        unique_sorted = sorted(set(raw.tolist()))
+        self.elements: List[Any] = list(unique_sorted)
+        self.Ntype = len(self.elements)
+        label_to_idx = {label: i for i, label in enumerate(self.elements)}
+        self.type_list = np.array(
+            [label_to_idx[v] for v in raw.tolist()], dtype=np.int32
+        )
 
     def compute(self) -> None:
-        """Compute the radial distribution function.
+        """Run the kernel and populate :attr:`g_total`, :attr:`g_partial`,
+        and :attr:`r`."""
+        edges = np.linspace(0, self.rc, self.nbin + 1)
+        const = (4.0 * np.pi / 3.0 * (edges[1:] ** 3 - edges[:-1] ** 3)) / self.vol
+        self.r = (edges[1:] + edges[:-1]) / 2
 
-        This method calculates both the total RDF and partial RDFs for all
-        pair combinations of atom types. The results are stored in the
-        `g_total`, `g`, and `r` attributes.
+        # Raw histogram counts in shape (Ntype, Ntype, nbin).
+        counts = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
 
-        """
-        r = np.linspace(0, self.rc, self.nbin + 1)
-        # Normalization constant: shell volume divided by total volume
-        const = (4.0 * np.pi / 3.0 * (r[1:] ** 3 - r[:-1] ** 3)) / self.vol
-
-        if self.Ntype > 1:
-            # Multi-component system
-            number_per_type = np.array(
-                [len(self.type_list[self.type_list == i]) for i in range(self.Ntype)]
+        if self.streaming:
+            _rdf._rdf_streaming(
+                self._x, self._y, self._z, self.type_list,
+                self.box.box, self.box.origin, self.box.boundary,
+                counts, self.rc, self.nbin,
             )
-            self.g = np.zeros((self.Ntype, self.Ntype, self.nbin), dtype=np.float64)
-
-            # Calculate partial RDFs using Cython backend
-            _rdf._rdf(
-                self.verlet_list,
-                self.distance_list,
-                self.neighbor_number,
-                self.type_list,
-                self.g,
-                self.rc,
-                self.nbin,
-            )
-
-            self.r = (r[1:] + r[:-1]) / 2
-            self.g_total = np.zeros_like(self.r)
-
-            # Sum all partial RDFs to get total RDF
-            for i in range(self.Ntype):
-                for j in range(self.Ntype):
-                    self.g_total += self.g[i, j]
-
-            self.g_total = self.g_total / const / (self.N) ** 2
-
-            # Normalize partial RDFs
-            for i in range(self.Ntype):
-                for j in range(self.Ntype):
-                    self.g[i, j] = (
-                        self.g[i, j] / number_per_type[i] / number_per_type[j]
-                    )
-            self.g = self.g / const
         else:
-            # Single-component system
-            self.g_total = np.zeros(self.nbin, dtype=np.float64)
+            if self.Ntype > 1:
+                _rdf._rdf(
+                    self.verlet_list, self.distance_list, self.neighbor_number,
+                    self.type_list, counts, self.rc, self.nbin,
+                )
+            else:
+                # Single-species fast path returns 2× the upper-triangle count
+                # in a 1D array; expand into the (1, 1, nbin) histogram.
+                flat = np.zeros(self.nbin, dtype=np.float64)
+                _rdf._rdf_single_species(
+                    self.verlet_list, self.distance_list, self.neighbor_number,
+                    flat, self.rc, self.nbin,
+                )
+                counts[0, 0] = flat
 
-            # Calculate RDF using optimized single-species routine
-            _rdf._rdf_single_species(
-                self.verlet_list,
-                self.distance_list,
-                self.neighbor_number,
-                self.g_total,
-                self.rc,
-                self.nbin,
-            )
+        number_per_type = np.bincount(self.type_list, minlength=self.Ntype)
 
-            self.g_total = self.g_total / const / (self.N) ** 2
-            self.r = (r[1:] + r[:-1]) / 2
+        # Total g(r). Sum of all (alpha, beta) histogram entries divided by
+        # N^2 and the shell volume gives the concentration-weighted total
+        # (matches the textbook g(r) = sum_{ab} c_a c_b g_ab(r)).
+        total = np.zeros(self.nbin, dtype=np.float64)
+        for a in range(self.Ntype):
+            for b in range(self.Ntype):
+                total += counts[a, b]
+        self.g_total = total / const / self.N**2
 
-            # Store as partial RDF for consistency
-            self.g = np.zeros((1, 1, self.nbin), dtype=np.float64)
-            self.g[0, 0] = self.g_total
+        # Partial g_{ab}(r) keyed by (label_a, label_b) for a <= b.
+        self.g_partial: Dict[Tuple[Any, Any], NDArray[np.float64]] = {}
+        for a in range(self.Ntype):
+            n_a = number_per_type[a]
+            for b in range(a, self.Ntype):
+                n_b = number_per_type[b]
+                if a == b:
+                    raw = counts[a, b]
+                else:
+                    # Symmetric pair: both ordered halves of the histogram
+                    # exist; combining gives counts(unordered pair) without
+                    # double-counting in the normalisation below.
+                    raw = counts[a, b] + counts[b, a]
+                if n_a > 0 and n_b > 0:
+                    g_ab = raw / (n_a * n_b) / const
+                    if a != b:
+                        # raw above already counted both (a→b) and (b→a)
+                        # contributions; the standard partial-RDF
+                        # normalisation expects the unordered count, hence
+                        # the factor 1/2.
+                        g_ab *= 0.5
+                else:
+                    g_ab = np.zeros_like(self.r)
+                self.g_partial[(self.elements[a], self.elements[b])] = g_ab
 
-    def plot(self, fig: Optional[Figure] = None, ax: Optional[Axes] = None) -> Tuple:
-        """Plot the total (global) radial distribution function.
-
-        Parameters
-        ----------
-        fig : Optional[Figure]
-            Existing matplotlib figure.
-        ax : Optional[Axes]
-            Existing matplotlib axes.
-
-        Returns
-        -------
-        fig : matplotlib.figure.Figure
-            The matplotlib figure object.
-        ax : matplotlib.axes.Axes
-            The matplotlib axes object.
-
-        """
+    def plot(self, fig: Optional["Figure"] = None, ax: Optional["Axes"] = None) -> Tuple:
+        """Plot the total RDF :math:`g(r)`."""
         if fig is None and ax is None:
             from mdapy.plotset import set_figure
 
@@ -205,39 +224,22 @@ class RadialDistributionFunction:
     def plot_partial(
         self,
         elements_list: Optional[List[str]] = None,
-        fig: Optional[Figure] = None,
-        ax: Optional[Axes] = None,
+        fig: Optional["Figure"] = None,
+        ax: Optional["Axes"] = None,
     ) -> Tuple:
-        """Plot partial radial distribution functions for all atom type pairs.
+        """Plot all partial RDFs :math:`g_{\\alpha\\beta}(r)`.
 
         Parameters
         ----------
         elements_list : list of str, optional
-            List of element symbols corresponding to each atom type,
-            e.g., ['Al', 'Ni']. If None, numeric labels are used.
-            Length must match the number of atom types (Ntype).
-        fig : Optional[Figure]
-            Existing matplotlib figure.
-        ax : Optional[Axes]
-            Existing matplotlib axes.
-
-        Returns
-        -------
-        fig : matplotlib.figure.Figure
-            The matplotlib figure object.
-        ax : matplotlib.axes.Axes
-            The matplotlib axes object containing the partial RDF plot.
-
-        Raises
-        ------
-        AssertionError
-            If length of elements_list does not match Ntype.
-
+            Override the element labels used in the legend. Length must
+            match :attr:`Ntype`. If ``None``, uses the keys of
+            :attr:`g_partial` directly.
         """
         if elements_list is not None:
             assert len(elements_list) == self.Ntype, (
                 f"Length of elements_list ({len(elements_list)}) must match "
-                f"number of atom types ({self.Ntype})"
+                f"number of species ({self.Ntype})"
             )
         if fig is None and ax is None:
             from mdapy.plotset import set_figure
@@ -246,33 +248,22 @@ class RadialDistributionFunction:
 
         import matplotlib.pyplot as plt
 
-        lw = 1.0
-        # Select appropriate colormap based on number of types
         if self.Ntype > 3:
             colorlist = plt.cm.get_cmap("tab20").colors[::2]
         else:
             colorlist = [i["color"] for i in plt.rcParams["axes.prop_cycle"]]
 
         n = 0
-        for i in range(self.Ntype):
-            for j in range(self.Ntype):
-                if j >= i:  # Only plot upper triangle (including diagonal)
-                    if n > len(colorlist) - 1:
-                        n = 0
-
-                    if elements_list is not None:
-                        label = f"{elements_list[i]}-{elements_list[j]}"
-                    else:
-                        label = f"{self._old_type[i]}-{self._old_type[j]}"
-
-                    ax.plot(
-                        self.r,
-                        self.g[i, j],
-                        c=colorlist[n],
-                        lw=lw,
-                        label=label,
-                    )
-                    n += 1
+        for (a, b), g_ab in self.g_partial.items():
+            if elements_list is not None:
+                ia = self.elements.index(a)
+                ib = self.elements.index(b)
+                label = f"{elements_list[ia]}-{elements_list[ib]}"
+            else:
+                label = f"{a}-{b}"
+            color = colorlist[n % len(colorlist)]
+            ax.plot(self.r, g_ab, c=color, lw=1.0, label=label)
+            n += 1
 
         ax.legend(ncol=2, fontsize=6)
         ax.set_xlabel(r"r ($\AA$)")

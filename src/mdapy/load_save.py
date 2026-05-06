@@ -222,9 +222,10 @@ def _build_xyz_properties(columns: List[str],
         raise ValueError(f"Unrecognised dtype {dt} in extended XYZ output")
 
     THREE_ALIASES = [
-        (("x",  "y",  "z"),  "pos",    "R"),
-        (("vx", "vy", "vz"), "vel",    "R"),
-        (("fx", "fy", "fz"), "forces", "R"),
+        (("x",  "y",  "z"),  "pos",                "R"),
+        (("xu", "yu", "zu"), "unwrapped_position", "R"),
+        (("vx", "vy", "vz"), "vel",                "R"),
+        (("fx", "fy", "fz"), "forces",             "R"),
     ]
 
     tokens: List[str] = []
@@ -771,6 +772,13 @@ class BuildSystem:
                 if (name == "pos" and ptype == "R" and n_col == 3
                         and "x" not in schema):
                     sub = ["x", "y", "z"]
+                elif (name in ("unwrapped_position", "unwrapped_pos")
+                        and ptype == "R" and n_col == 3
+                        and "xu" not in schema):
+                    # GPUMD writes "unwrapped_position:R:3"; map to the
+                    # LAMMPS-style xu/yu/zu so the rest of the toolchain
+                    # (unwrap_trajectory, MSD, ...) sees a uniform name.
+                    sub = ["xu", "yu", "zu"]
                 elif (name in ("species", "element") and ptype == "S"
                         and n_col == 1 and "element" not in schema):
                     sub = ["element"]

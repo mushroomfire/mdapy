@@ -438,119 +438,206 @@ public:
 };
 
 // =============================================================================
-// Debye 方法计算结构因子
+// 直接法（partial-friendly）：一次性计算所有 species 的 F_alpha(k)
+//
+// 输入位置 + 0..Ntype-1 的 type_list；返回 (Ntype, Ntype, nbins) 形状的
+// Ashcroft-Langreth partial. 复杂度 O(Ntype * N * n_k) — 比对每个 (alpha,
+// beta) 重新组装位置子集再各自累加 F 节省了 Ntype 倍。
 // =============================================================================
-void compute_sfc_debye(
-    const ROneArrayD x_py, const ROneArrayD y_py, const ROneArrayD z_py,
-    const RTwoArrayD box_py, const ROneArrayD origin, const ROneArrayI boundary,
-    const ROneArrayD k_values_py, OneArrayD structure_factor_py,
-    nb::object query_x_py = nb::none(),
-    nb::object query_y_py = nb::none(),
-    nb::object query_z_py = nb::none(),
-    int N_total = 0)
+class StructureFactorDirectPartial
 {
-    const int n_points = x_py.shape(0);
-    const int n_total = (N_total > 0) ? N_total : n_points;
-
-    const double *x = x_py.data();
-    const double *y = y_py.data();
-    const double *z = z_py.data();
-    const double *k_values = k_values_py.data();
-    double *structure_factor = structure_factor_py.data();
-
-    const int num_k_values = k_values_py.shape(0);
-
-    const Box box = get_box(box_py, origin, boundary);
-
-    // 确定查询点
-    const double *qx = nullptr, *qy = nullptr, *qz = nullptr;
-    int n_query = 0;
-
-    const bool has_query = !query_x_py.is_none() &&
-                           !query_y_py.is_none() &&
-                           !query_z_py.is_none();
-
-    if (!has_query)
+public:
+    void compute(
+        ROneArrayD x_py, ROneArrayD y_py, ROneArrayD z_py,
+        ROneArrayI type_list_py, int Ntype,
+        RTwoArrayD box_py, ROneArrayD origin, ROneArrayI boundary,
+        ThreeArrayD partial_out_py,
+        unsigned int bins, double k_max, double k_min)
     {
-        qx = x;
-        qy = y;
-        qz = z;
-        n_query = n_points;
-    }
-    else
-    {
-        ROneArrayD qx_arr = nb::cast<ROneArrayD>(query_x_py);
-        ROneArrayD qy_arr = nb::cast<ROneArrayD>(query_y_py);
-        ROneArrayD qz_arr = nb::cast<ROneArrayD>(query_z_py);
+        if (bins == 0)
+            throw std::invalid_argument("bins must be non-zero");
+        if (k_max <= k_min || k_min < 0)
+            throw std::invalid_argument("require 0 <= k_min < k_max");
 
-        n_query = qx_arr.shape(0);
-        qx = qx_arr.data();
-        qy = qy_arr.data();
-        qz = qz_arr.data();
-    }
+        const size_t n_points = x_py.shape(0);
+        const double *x = x_py.data();
+        const double *y = y_py.data();
+        const double *z = z_py.data();
+        const int *type_list = type_list_py.data();
+        const Box box = get_box(box_py, origin, boundary);
 
-    // 计算所有距离
-    const size_t total_pairs = static_cast<size_t>(n_points) * n_query;
-    std::vector<double> distances(total_pairs);
+        StructureFactorDirect helper;  // reuse the kpoint generator + binner
+        const auto k_points = helper_kpoints(box, k_max, k_min);
+        if (k_points.empty())
+            throw std::runtime_error("No k-points generated; check k_min/k_max.");
 
-#pragma omp parallel for collapse(2)
-    for (int i = 0; i < n_points; ++i)
-    {
-        for (int j = 0; j < n_query; ++j)
+        // Compute F_alpha(k) for each species in one parallel pass.
+        // Layout: F[alpha * nk + k_idx]
+        const size_t nk = k_points.size();
+        std::vector<std::complex<double>> F(static_cast<size_t>(Ntype) * nk,
+                                            std::complex<double>(0.0, 0.0));
+        const double inv_sqrt_N = 1.0 / std::sqrt(static_cast<double>(n_points));
+
+#pragma omp parallel for schedule(dynamic)
+        for (size_t k_idx = 0; k_idx < nk; ++k_idx)
         {
-            const double xi = x[i];
-            const double yi = y[i];
-            const double zi = z[i];
+            const Vec3 &kv = k_points[k_idx];
+            // Per-thread accumulator across species, indexed by alpha.
+            std::vector<std::complex<double>> acc(Ntype,
+                                                  std::complex<double>(0.0, 0.0));
+            for (size_t i = 0; i < n_points; ++i)
+            {
+                const double phase = kv.x * x[i] + kv.y * y[i] + kv.z * z[i];
+                acc[type_list[i]] += std::exp(std::complex<double>(0.0, phase));
+            }
+            for (int a = 0; a < Ntype; ++a)
+                F[static_cast<size_t>(a) * nk + k_idx] = acc[a] * inv_sqrt_N;
+        }
 
-            double xij = qx[j] - xi;
-            double yij = qy[j] - yi;
-            double zij = qz[j] - zi;
+        // Bin the cross-correlations into the (Ntype, Ntype, bins) array.
+        auto out = partial_out_py.view();
+        for (int a = 0; a < Ntype; ++a)
+            for (int b = 0; b < Ntype; ++b)
+                for (unsigned int k = 0; k < bins; ++k)
+                    out(a, b, k) = 0.0;
 
-            box.pbc(xij, yij, zij);
+        // Per-bin counts shared across partials (the k-point distribution
+        // is the same for all (a, b)).
+        std::vector<unsigned int> bin_counts(bins, 0);
+        for (size_t k_idx = 0; k_idx < nk; ++k_idx)
+        {
+            const double k_mag = k_points[k_idx].norm();
+            const int bin = bin_of(k_mag, k_min, k_max, bins);
+            if (bin < 0)
+                continue;
+            bin_counts[bin]++;
+        }
 
-            const double dis = std::sqrt(xij * xij + yij * yij + zij * zij);
-            distances[i * n_query + j] = dis;
+        // Flatten the upper-triangular pair loop so OpenMP can schedule
+        // each (a, b) independently without colliding with the
+        // non-rectangular ``b >= a`` constraint.
+        std::vector<std::pair<int, int>> pairs;
+        for (int a = 0; a < Ntype; ++a)
+            for (int b = a; b < Ntype; ++b)
+                pairs.emplace_back(a, b);
+
+#pragma omp parallel for schedule(dynamic)
+        for (size_t pi = 0; pi < pairs.size(); ++pi)
+        {
+            const int a = pairs[pi].first;
+            const int b = pairs[pi].second;
+            {
+                std::vector<double> local(bins, 0.0);
+                for (size_t k_idx = 0; k_idx < nk; ++k_idx)
+                {
+                    const double k_mag = k_points[k_idx].norm();
+                    const int bin = bin_of(k_mag, k_min, k_max, bins);
+                    if (bin < 0)
+                        continue;
+                    const auto &fa = F[static_cast<size_t>(a) * nk + k_idx];
+                    const auto &fb = F[static_cast<size_t>(b) * nk + k_idx];
+                    local[bin] += std::real(std::conj(fa) * fb);
+                }
+                for (unsigned int k = 0; k < bins; ++k)
+                {
+                    if (bin_counts[k] > 0)
+                    {
+                        const double val = local[k] / static_cast<double>(bin_counts[k]);
+                        out(a, b, k) = val;
+                        if (a != b)
+                            out(b, a, k) = val;  // symmetric
+                    }
+                    else
+                    {
+                        out(a, b, k) = std::numeric_limits<double>::quiet_NaN();
+                        if (a != b)
+                            out(b, a, k) = std::numeric_limits<double>::quiet_NaN();
+                    }
+                }
+            }
         }
     }
 
-    // 初始化输出
-    for (int b = 0; b < num_k_values; ++b)
+private:
+    // Re-implement the small kernel pieces to avoid friend access into
+    // StructureFactorDirect. The k-point generator below mirrors the one
+    // used for the total mode, so partial and total see identical k-grids.
+    Vec3 reciprocal(const Box &box, int axis) const
     {
-        structure_factor[b] = 0.0;
+        const double *a = box.data;
+        const double *bv = box.data + 3;
+        const double *cv = box.data + 6;
+        const double V = box.get_volume();
+        Vec3 r;
+        if (axis == 0)
+        {
+            r.x = (bv[1] * cv[2] - bv[2] * cv[1]) / V;
+            r.y = (bv[2] * cv[0] - bv[0] * cv[2]) / V;
+            r.z = (bv[0] * cv[1] - bv[1] * cv[0]) / V;
+        }
+        else if (axis == 1)
+        {
+            r.x = (cv[1] * a[2] - cv[2] * a[1]) / V;
+            r.y = (cv[2] * a[0] - cv[0] * a[2]) / V;
+            r.z = (cv[0] * a[1] - cv[1] * a[0]) / V;
+        }
+        else
+        {
+            r.x = (a[1] * bv[2] - a[2] * bv[1]) / V;
+            r.y = (a[2] * bv[0] - a[0] * bv[2]) / V;
+            r.z = (a[0] * bv[1] - a[1] * bv[0]) / V;
+        }
+        return r * constants::TWO_PI;
     }
 
-    // 计算结构因子
+    std::vector<Vec3> helper_kpoints(const Box &box, double k_max, double k_min) const
+    {
+        const Vec3 bx = reciprocal(box, 0);
+        const Vec3 by = reciprocal(box, 1);
+        const Vec3 bz = reciprocal(box, 2);
+        const double q_max = k_max / constants::TWO_PI;
+        const int N_kx = static_cast<int>(std::ceil(q_max / (bx.norm() / constants::TWO_PI)));
+        const int N_ky = static_cast<int>(std::ceil(q_max / (by.norm() / constants::TWO_PI)));
+        const int N_kz = static_cast<int>(std::ceil(q_max / (bz.norm() / constants::TWO_PI)));
+        std::vector<std::vector<Vec3>> tk(omp_get_max_threads());
 #pragma omp parallel
-    {
-        std::vector<double> local_sf(num_k_values, 0.0);
-
-#pragma omp for nowait
-        for (size_t idx = 0; idx < distances.size(); ++idx)
         {
-            const double r = distances[idx];
-            for (int b = 0; b < num_k_values; ++b)
+            const int tid = omp_get_thread_num();
+#pragma omp for schedule(dynamic)
+            for (int i = 0; i < N_kx; ++i)
             {
-                const double kr = k_values[b] * r;
-                local_sf[b] += sinc(kr);
+                const Vec3 kx = bx * static_cast<double>(i);
+                for (int j = 0; j < N_ky; ++j)
+                {
+                    const Vec3 kxy = kx + by * static_cast<double>(j);
+                    for (int k = 0; k < N_kz; ++k)
+                    {
+                        const Vec3 kvec = kxy + bz * static_cast<double>(k);
+                        const double mag = kvec.norm();
+                        if (mag > k_min && mag <= k_max)
+                            tk[tid].push_back(kvec);
+                    }
+                }
             }
         }
-
-#pragma omp critical
-        {
-            for (int b = 0; b < num_k_values; ++b)
-            {
-                structure_factor[b] += local_sf[b];
-            }
-        }
+        size_t total = 0;
+        for (const auto &v : tk)
+            total += v.size();
+        std::vector<Vec3> out;
+        out.reserve(total);
+        for (const auto &v : tk)
+            out.insert(out.end(), v.begin(), v.end());
+        return out;
     }
 
-    // 归一化
-    const double norm = 1.0 / n_total;
-    for (int b = 0; b < num_k_values; ++b)
+    int bin_of(double k_mag, double k_min, double k_max, unsigned int bins) const
     {
-        structure_factor[b] *= norm;
+        if (k_mag < k_min || k_mag >= k_max)
+            return -1;
+        const int b = static_cast<int>((k_mag - k_min) / (k_max - k_min) * bins);
+        return std::min(b, static_cast<int>(bins) - 1);
     }
-}
+};
 
 // =============================================================================
 // Python 绑定
@@ -559,19 +646,52 @@ NB_MODULE(_sfc, m)
 {
     m.doc() = "Structure factor calculation module (deterministic, no random sampling)";
 
-    m.def("compute_sfc_direct", [](ROneArrayD x, ROneArrayD y, ROneArrayD z, RTwoArrayD box, ROneArrayD origin, ROneArrayI boundary, OneArrayD structure_factor_py, unsigned int bins, double k_max, double k_min, nb::object query_x, nb::object query_y, nb::object query_z, unsigned int N_total)
-          {
+    m.def(
+        "compute_sfc_direct",
+        [](ROneArrayD x, ROneArrayD y, ROneArrayD z,
+           RTwoArrayD box, ROneArrayD origin, ROneArrayI boundary,
+           OneArrayD structure_factor_py,
+           unsigned int bins, double k_max, double k_min,
+           nb::object query_x, nb::object query_y, nb::object query_z,
+           unsigned int N_total)
+        {
             StructureFactorDirect calc;
-            calc.compute(x, y, z, box, origin, boundary, structure_factor_py,
-                       bins, k_max, k_min,
-                       query_x, query_y, query_z, N_total); }, nb::arg("x"), nb::arg("y"), nb::arg("z"), nb::arg("box"), nb::arg("origin"), nb::arg("boundary"), nb::arg("structure_factor_py"), nb::arg("bins"), nb::arg("k_max"), nb::arg("k_min"), nb::arg("query_x") = nb::none(), nb::arg("query_y") = nb::none(), nb::arg("query_z") = nb::none(), nb::arg("N_total") = 0, "Compute structure factor using direct method (uses all k-points, no sampling)");
+            calc.compute(
+                x, y, z, box, origin, boundary, structure_factor_py,
+                bins, k_max, k_min,
+                query_x, query_y, query_z, N_total);
+        },
+        nb::arg("x"), nb::arg("y"), nb::arg("z"),
+        nb::arg("box"), nb::arg("origin"), nb::arg("boundary"),
+        nb::arg("structure_factor_py"),
+        nb::arg("bins"), nb::arg("k_max"), nb::arg("k_min"),
+        nb::arg("query_x") = nb::none(),
+        nb::arg("query_y") = nb::none(),
+        nb::arg("query_z") = nb::none(),
+        nb::arg("N_total") = 0,
+        "Compute the total / cross-pair direct structure factor on the "
+        "deterministic reciprocal-lattice grid.");
 
-    m.def("compute_sfc_debye",
-          &compute_sfc_debye,
-          nb::arg("x_py"), nb::arg("y_py"), nb::arg("z_py"),
-          nb::arg("box_py"), nb::arg("origin"), nb::arg("boundary"),
-          nb::arg("k_values_py"), nb::arg("structure_factor_py"),
-          nb::arg("query_x_py") = nb::none(), nb::arg("query_y_py") = nb::none(),
-          nb::arg("query_z_py") = nb::none(), nb::arg("N_total") = 0,
-          "Compute structure factor using Debye method");
+    m.def(
+        "compute_sfc_direct_partial",
+        [](ROneArrayD x, ROneArrayD y, ROneArrayD z,
+           ROneArrayI type_list, int Ntype,
+           RTwoArrayD box, ROneArrayD origin, ROneArrayI boundary,
+           ThreeArrayD partial_out,
+           unsigned int bins, double k_max, double k_min)
+        {
+            StructureFactorDirectPartial calc;
+            calc.compute(
+                x, y, z, type_list, Ntype, box, origin, boundary,
+                partial_out, bins, k_max, k_min);
+        },
+        nb::arg("x"), nb::arg("y"), nb::arg("z"),
+        nb::arg("type_list"), nb::arg("Ntype"),
+        nb::arg("box"), nb::arg("origin"), nb::arg("boundary"),
+        nb::arg("partial_out"),
+        nb::arg("bins"), nb::arg("k_max"), nb::arg("k_min"),
+        "Compute every Ashcroft-Langreth partial S_alpha_beta(k) at once. "
+        "F_alpha(k) is computed once per species; the cost scales as "
+        "O(Ntype * N * n_k) instead of O(Ntype^2 * N * n_k) for the "
+        "pair-by-pair workflow.");
 }

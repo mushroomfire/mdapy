@@ -12,7 +12,7 @@ from mdapy.box import Box
 
 import numpy as np
 import polars as pl
-from typing import List, Any
+from typing import List, Any, Optional
 
 import os
 import contextlib
@@ -55,6 +55,17 @@ class LammpsPotential(CalculatorMP):
     centroid_stress : bool, optional
         If True, uses `compute centroid/stress/atom NULL` in LAMMPS;
         otherwise uses `compute stress/atom NULL`.
+    cmdargs : list of str, optional
+        Extra command-line arguments forwarded to ``lammps(cmdargs=...)``.
+        Useful for accelerator packages, e.g. Kokkos:
+        ``["-k", "on", "g", "1", "-sf", "kk", "-pk", "kokkos", "newton", "on", "neigh", "half"]``.
+        These are appended after the default
+        ``["-echo", "none", "-log", "none", "-screen", "none"]``.
+    extra_commands : str, optional
+        Extra LAMMPS commands executed right after the box/atoms are set up
+        and before ``pair_parameter``. Use this for things that must come
+        before the pair style (e.g. ``"package kokkos newton on neigh half"``,
+        ``"newton on"``, ``"atom_modify ..."`` overrides handled in-script).
     """
 
     def __init__(
@@ -63,12 +74,16 @@ class LammpsPotential(CalculatorMP):
         element_list: List[str],
         units: str = "metal",
         centroid_stress: bool = False,
+        cmdargs: Optional[List[str]] = None,
+        extra_commands: Optional[str] = None,
     ) -> None:
         self.pair_parameter = pair_parameter
         self.element_list = element_list
         self.units = units
         assert units == "metal", "Only support metal units now."
         self.centroid_stress = centroid_stress
+        self.cmdargs = list(cmdargs) if cmdargs else []
+        self.extra_commands = extra_commands
 
     def calculate(self, data: pl.DataFrame, box: Box) -> None:
         """
@@ -107,7 +122,8 @@ class LammpsPotential(CalculatorMP):
         boundary = " ".join(["p" if i == 1 else "s" for i in box.boundary])
         N_atom = data.shape[0]
         with silence():
-            lmp = lammps(cmdargs=["-echo", "none", "-log", "none", "-screen", "none"])
+            base_cmdargs = ["-echo", "none", "-log", "none", "-screen", "none"]
+            lmp = lammps(cmdargs=base_cmdargs + self.cmdargs)
 
             try:
                 lmp.commands_string(f"units {self.units}")
@@ -154,6 +170,9 @@ class LammpsPotential(CalculatorMP):
                 else:
                     lmp.commands_string("compute 1 all stress/atom NULL")
                 lmp.commands_string("compute 2 all pe/atom")
+
+                if self.extra_commands:
+                    lmp.commands_string(self.extra_commands)
 
                 lmp.commands_string(self.pair_parameter)
                 # lmp.commands_string(
@@ -322,4 +341,35 @@ class LammpsPotential(CalculatorMP):
 
 
 if __name__ == "__main__":
-    pass
+    import os
+    import sys
+
+    if sys.platform == "darwin":
+        os.environ.setdefault("OMP_NUM_THREADS", "1")
+        os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
+    from mdapy import build_crystal, EAM
+
+    ni = build_crystal("Ni", "fcc", 3.53, nx=3, ny=3, nz=3)
+
+    pot = LammpsPotential(
+        pair_parameter="""pair_style eam/alloy/kk
+        pair_coeff * * /Users/herrwu/mypkg/mdapy/tests/input_files/NiCoCr.lammps.eam Ni""",
+        element_list=["Ni"],
+        cmdargs=[
+            "-k",
+            "on",
+            "-sf",
+            "kk",
+            "-pk",
+            "kokkos",
+        ],
+    )
+    ni.calc = pot
+    e_kokkos = ni.get_energy()
+
+    eam = EAM("/Users/herrwu/mypkg/mdapy/tests/input_files/NiCoCr.lammps.eam")
+    ni.calc = eam
+    e_eam = ni.get_energy()
+
+    print(e_kokkos, e_eam)

@@ -1313,7 +1313,7 @@ def _read_dfpt_force_constants(vasprun: Path) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    from mdapy import NEP, build_crystal, FIRE, SQS, build_hea
+    from mdapy import NEP, FIRE, SQS, build_hea
 
     hea = build_hea(
         ("Cr", "Co", "Ni"),
@@ -1335,7 +1335,7 @@ if __name__ == "__main__":
     ).compute()
     sqs.is_sqs()
     hea = sqs.system
-    hea.calc = NEP("/u/22/wuy33/unix/Study/elasT/nep_CrCoNi.txt")
+    hea.calc = NEP("/Users/herrwu/mypkg/nep_gen400000.txt")
     fy = FIRE(hea, optimize_cell=True, hydrostatic_strain=True)
     fy.run(fmax=1e-4, steps=1000, show_process=False)
 
@@ -1350,11 +1350,13 @@ if __name__ == "__main__":
         supercell=(1, 1, 1),
         mesh=(10, 10, 10),
         ignore_elements_for_symmetry=True,
+        force_constants_method="dfpt",
     )
-    qha.run()
-    df = qha.compute()
-    print(df)
-    import matplotlib.pyplot as plt
+    qha.export_inputs("qha_dft")
+    # qha.run()
+    # df = qha.compute()
+    # print(df)
+    # import matplotlib.pyplot as plt
 
-    qha.plot()
-    plt.show()
+    # qha.plot()
+    # plt.show()

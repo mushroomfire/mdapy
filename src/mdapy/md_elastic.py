@@ -55,7 +55,7 @@ except ImportError:
     )
 
 
-_EAA_PER_BAR = 1.0e-4   # 1 bar = 1e-4 GPa
+_EAA_PER_BAR = 1.0e-4  # 1 bar = 1e-4 GPa
 
 
 # ============================================================
@@ -147,26 +147,53 @@ class MDElasticResult:
 
 
 def _spawn_lammps(args: dict):
-    """Build a LAMMPS instance from cmdargs in ``args``.
+    """Build a LAMMPS instance with the chosen accelerator backend.
 
-    If ``args['n_threads'] > 1`` we set ``OMP_NUM_THREADS`` accordingly and
-    prepend ``-k on t N -sf kk`` to the cmdargs. ``n_threads = 1`` prepends
-    ``-k on -sf kk``.
+    ``args['accelerator']`` selects the prefix injected into ``cmdargs``:
 
-    The stage-level LAMMPS log goes to ``args['stage_log']`` if given;
-    otherwise log output is suppressed.
+    - ``"kokkos"`` (default): ``-k on [t N] [g M] -sf kk``. ``N`` from
+      ``args['n_threads']``, ``M`` from ``args['n_gpus']``.
+    - ``"omp"``: ``-pk omp N -sf omp`` (LAMMPS USER-OMP package). ``N``
+      from ``args['n_threads']``.
+    - ``"gpu"``: ``-pk gpu M -sf gpu`` (LAMMPS GPU package). ``M`` from
+      ``args['n_gpus']``.
+    - ``"none"``: no accelerator prefix; pure serial / MPI LAMMPS.
+
+    The pair_style ``-sf X`` makes LAMMPS auto-append ``/X`` to the
+    pair_style, so ``eam/alloy`` becomes ``eam/alloy/kk`` etc. — no need
+    to mangle the user's pair_style string.
+
+    Stage-level log goes to ``args['stage_log']`` if set, else suppressed.
     """
     from lammps import lammps  # local import: subprocess-safe
 
+    acc = args.get("accelerator", "kokkos")
     n_threads = int(args.get("n_threads", 1))
+    n_gpus = int(args.get("n_gpus", 0))
+
     if n_threads > 1:
         os.environ["OMP_NUM_THREADS"] = str(n_threads)
-    user_args = list(args.get("lammps_cmdargs") or [])
-    if n_threads > 1:
-        kk_prefix = ["-k", "on", "t", str(n_threads), "-sf", "kk"]
+
+    if acc == "kokkos":
+        kk = []
+        if n_gpus > 0:
+            kk += ["g", str(n_gpus)]
+        if n_threads > 1:
+            kk += ["t", str(n_threads)]
+        prefix = ["-k", "on", *kk, "-sf", "kk"]
+    elif acc == "omp":
+        prefix = ["-pk", "omp", str(max(n_threads, 1)), "-sf", "omp"]
+    elif acc == "gpu":
+        prefix = ["-pk", "gpu", str(max(n_gpus, 1)), "-sf", "gpu"]
+    elif acc in ("none", None, "serial"):
+        prefix = []
     else:
-        kk_prefix = ["-k", "on", "-sf", "kk"]
-    cmdargs = kk_prefix + user_args
+        raise ValueError(
+            f"unknown accelerator {acc!r}; expected 'kokkos'|'omp'|'gpu'|'none'"
+        )
+
+    user_args = list(args.get("lammps_cmdargs") or [])
+    cmdargs = prefix + user_args
     if "-screen" not in cmdargs:
         cmdargs += ["-screen", "none"]
     if "-log" not in cmdargs:
@@ -230,9 +257,7 @@ change_box all triclinic
         lmp.command(f"pair_style {args['pair_style']}")
         lmp.command(f"pair_coeff {args['pair_coeff']}")
         lmp.command(f"timestep {args['timestep']}")
-        lmp.command(
-            f"velocity all create {args['T']} {args['seed']} loop geom"
-        )
+        lmp.command(f"velocity all create {args['T']} {args['seed']} loop geom")
 
         # Configure thermo style (used for the NPT log + console output).
         lmp.commands_string("""
@@ -242,20 +267,42 @@ thermo 100
 """)
 
         T = args["T"]
-        # Stage 1a: optional NPT pre-relax. Thermo + LAMMPS log already
-        # carry full output via the -log flag set in _spawn_lammps, so the
-        # whole stage 1 (NPT + ref NVT + averaging) ends up in one file
-        # ``ref_T{T}.log``.
+        # Stage 1a: NH NPT relax. The first half equilibrates the
+        # barostat; the second half time-averages box dimensions
+        # (lx, ly, lz). The averaged values feed V_eq and len0, giving a
+        # noise-free V(T) without rescaling the cell. The NVT averaging
+        # stage runs at the NPT-end size (slightly noisy), but the
+        # deformation Cij is differential so the cell-size mismatch
+        # cancels in (sigma_pos - sigma_neg)/(2δ).
+        len_avg = None
         if args["relax_volume"]:
             lmp.command(
                 f"fix npt_relax all npt temp {T} {T} {args['tdamp']} "
                 f"{args['pressure_coupling']} "
                 f"{args['P']} {args['P']} {args['pdamp']}"
             )
-            lmp.command(f"run {args['n_relax']}")
+
+            n_eq = max(args["n_relax"] // 2, args["nfreq"])
+            n_avg = max(args["n_relax"] - n_eq, args["nfreq"])
+            lmp.command(f"run {n_eq}")
+
+            lmp.commands_string("""
+variable rlx equal lx
+variable rly equal ly
+variable rlz equal lz
+""")
+            lmp.command(
+                f"fix r_avg all ave/time {args['nevery']} {args['nrepeat']} "
+                f"{args['nfreq']} v_rlx v_rly v_rlz mode scalar ave running"
+            )
+            lmp.command(f"run {n_avg}")
+            len_avg = tuple(
+                float(lmp.extract_fix("r_avg", 0, 1, i, 0)) for i in range(3)
+            )
+            lmp.command("unfix r_avg")
             lmp.command("unfix npt_relax")
 
-        # Stage 1: reference NVT equilibration + averaging.
+        # Stage 1b: reference NVT equilibration + stress averaging.
         _apply_thermostat(lmp, T, args["thermostat"], args["tdamp"], args["seed"])
         lmp.command(f"run {args['n_equil']}")
         if args["ensemble"] == "adiabatic":
@@ -275,10 +322,19 @@ thermo 100
         lmp.command(f"run {args['n_run']}")
         sigma_ref = _read_avp(lmp)
         T_actual = float(lmp.extract_fix("avT", 0, 0, 0, 0))
-        V_eq = float(lmp.get_thermo("vol"))
-        lx0 = float(lmp.get_thermo("lx"))
-        ly0 = float(lmp.get_thermo("ly"))
-        lz0 = float(lmp.get_thermo("lz"))
+
+        if len_avg is not None:
+            # Use box dims time-averaged over the NPT second half. The
+            # actual NVT cell is at the noisier NPT-end size, but
+            # deformation Cij is differential so this drops out. V_eq
+            # and len0 reported here come from the clean averages.
+            lx0, ly0, lz0 = len_avg
+            V_eq = lx0 * ly0 * lz0
+        else:
+            V_eq = float(lmp.get_thermo("vol"))
+            lx0 = float(lmp.get_thermo("lx"))
+            ly0 = float(lmp.get_thermo("ly"))
+            lz0 = float(lmp.get_thermo("lz"))
 
         lmp.command("unfix avp")
         lmp.command("unfix avT")
@@ -306,7 +362,6 @@ units metal
 dimension 3
 boundary p p p
 atom_modify map array
-box tilt large
 """)
         lmp.command(f"read_restart {args['restart_path']}")
         lmp.command(f"pair_style {args['pair_style']}")
@@ -323,8 +378,14 @@ thermo 100
         len0 = args["len0"]
         # Reference length per direction (matches LAMMPS displace.mod):
         # dir 1: lx0; dir 2: ly0; dirs 3, 4, 5: lz0; dir 6: ly0.
-        ref_len = {1: len0[0], 2: len0[1], 3: len0[2],
-                   4: len0[2], 5: len0[2], 6: len0[1]}[d]
+        ref_len = {
+            1: len0[0],
+            2: len0[1],
+            3: len0[2],
+            4: len0[2],
+            5: len0[2],
+            6: len0[1],
+        }[d]
         d_abs = signed_delta * ref_len
         xy = float(lmp.get_thermo("xy"))
         xz = float(lmp.get_thermo("xz"))
@@ -342,9 +403,7 @@ thermo 100
                 f"change_box all y delta 0 {d_abs} yz delta {dyz} remap units box"
             )
         elif d == 3:
-            lmp.command(
-                f"change_box all z delta 0 {d_abs} remap units box"
-            )
+            lmp.command(f"change_box all z delta 0 {d_abs} remap units box")
         elif d == 4:
             lmp.command(f"change_box all yz delta {d_abs} remap units box")
         elif d == 5:
@@ -431,21 +490,33 @@ class MDElastic:
     relax_volume : bool, optional
         Run NPT pre-relax. Default True.
     n_relax : int, optional
-        NPT pre-relax steps. Default 50000.
+        NPT pre-relax steps. The first half equilibrates the barostat;
+        the second half time-averages box dimensions (lx, ly, lz). The
+        averaged values are reported as ``V_eq`` and used as ``len0`` for
+        the deformation strains, giving a noise-free V(T) without
+        rescaling the actual cell. Default 50000.
     pdamp : float, optional
         Barostat tau in ps. Default ``1000 * timestep``.
+    accelerator : {"kokkos", "omp", "gpu", "none"}, optional
+        LAMMPS accelerator backend. ``kokkos`` (default) injects
+        ``-k on [t N] [g M] -sf kk`` and uses ``pair_style/kk`` variants.
+        ``omp`` uses the USER-OMP package: ``-pk omp N -sf omp``.
+        ``gpu`` uses the GPU package: ``-pk gpu M -sf gpu``. ``none``
+        runs serial / MPI LAMMPS without any per-process accelerator.
+        Pair-style suffix is added automatically by ``-sf X`` so the
+        user's ``pair_style`` string need not be modified.
     n_workers : int, optional
         Number of *deformation* worker processes. The 12 deformations are
         scheduled across this pool. Default ``min(12, os.cpu_count())``.
         Set to 1 to run sequentially in the main process.
-    n_threads_ref : int, optional
-        OpenMP threads used by the *reference* (NPT + ref-NVT) LAMMPS
-        instance. With Kokkos OpenMP backend this becomes ``-k on t N -sf
-        kk``. Default 1. Increase when the reference phase is the
-        bottleneck (e.g. n_relax >> n_run + n_equil).
-    n_threads_def : int, optional
-        OpenMP threads per deformation worker. Default 1 (deformation
-        phase usually wants more processes than threads).
+    n_threads_ref, n_threads_def : int, optional
+        OpenMP threads per LAMMPS process for the reference / deformation
+        phases. Used by ``accelerator="kokkos"`` (as ``-k on t N``) and
+        ``accelerator="omp"`` (as ``-pk omp N``). Default 1.
+    n_gpus_ref, n_gpus_def : int, optional
+        GPUs per LAMMPS process. Used by ``accelerator="kokkos"`` (as
+        ``-k on g M``) and ``accelerator="gpu"`` (as ``-pk gpu M``).
+        Default 0.
     log_dir : str or Path, optional
         Per-stage log files written here. The reference (NPT + ref NVT)
         log is ``log_dir/ref_T{T}.log`` (one per temperature); each
@@ -453,8 +524,9 @@ class MDElastic:
         carries thermo every 100 steps with columns
         ``step temp press lx ly lz vol pe ke etotal pxx pyy pzz pxy pxz pyz``.
     lammps_cmdargs : list of str, optional
-        Extra args for ``lammps(cmdargs=...)``. ``-k on [t N] -sf kk`` is
-        injected automatically based on ``n_threads_*``.
+        Extra args appended to ``lammps(cmdargs=...)``. The accelerator
+        prefix is injected automatically based on ``accelerator`` /
+        ``n_threads_*`` / ``n_gpus_*``.
     work_dir : str, optional
         Directory for data + restart files. Default a tmpdir cleaned up
         on completion.
@@ -486,17 +558,20 @@ class MDElastic:
         relax_volume: bool = True,
         n_relax: int = 50000,
         pdamp: Optional[float] = None,
+        accelerator: str = "kokkos",
         n_workers: Optional[int] = None,
         n_threads_ref: int = 1,
         n_threads_def: int = 1,
+        n_gpus_ref: int = 0,
+        n_gpus_def: int = 0,
         log_dir: Optional[Union[str, os.PathLike]] = None,
         lammps_cmdargs: Optional[List[str]] = None,
         work_dir: Optional[str] = None,
         quiet: bool = False,
     ) -> None:
-        assert "element" in system.data.columns, (
-            "system must contain element information."
-        )
+        assert (
+            "element" in system.data.columns
+        ), "system must contain element information."
         if ensemble not in ("isothermal", "adiabatic"):
             raise ValueError(
                 f"ensemble must be 'isothermal' or 'adiabatic', got {ensemble!r}"
@@ -508,6 +583,10 @@ class MDElastic:
         if pressure_coupling not in ("iso", "aniso"):
             raise ValueError(
                 f"pressure_coupling must be 'iso' or 'aniso', got {pressure_coupling!r}"
+            )
+        if accelerator not in ("kokkos", "omp", "gpu", "none"):
+            raise ValueError(
+                f"accelerator must be 'kokkos'|'omp'|'gpu'|'none', got {accelerator!r}"
             )
         self.system = system
         self.pair_style = pair_style
@@ -530,21 +609,22 @@ class MDElastic:
         self.ensemble = ensemble
         self.thermostat = thermostat
         self.thermostat_damp = (
-            float(thermostat_damp) if thermostat_damp is not None
+            float(thermostat_damp)
+            if thermostat_damp is not None
             else 100.0 * self.timestep
         )
         self.seed = int(seed)
         self.relax_volume = bool(relax_volume)
         self.n_relax = int(n_relax)
-        self.pdamp = (
-            float(pdamp) if pdamp is not None else 1000.0 * self.timestep
-        )
+        self.pdamp = float(pdamp) if pdamp is not None else 1000.0 * self.timestep
+        self.accelerator = accelerator
         self.n_workers = (
-            int(n_workers) if n_workers is not None
-            else min(12, os.cpu_count() or 1)
+            int(n_workers) if n_workers is not None else min(12, os.cpu_count() or 1)
         )
         self.n_threads_ref = int(n_threads_ref)
         self.n_threads_def = int(n_threads_def)
+        self.n_gpus_ref = int(n_gpus_ref)
+        self.n_gpus_def = int(n_gpus_def)
         self.log_dir = Path(log_dir) if log_dir is not None else None
         if self.log_dir is not None:
             self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -585,7 +665,7 @@ class MDElastic:
         work_dir: Union[str, os.PathLike],
         n_workers_ref: Optional[int] = None,
         n_workers_def: Optional[int] = None,
-        n_workers: Optional[int] = None,        # alias: same for both phases
+        n_workers: Optional[int] = None,  # alias: same for both phases
         log_dir: Optional[Union[str, os.PathLike]] = None,
         **kwargs,
     ) -> pl.DataFrame:
@@ -643,7 +723,8 @@ class MDElastic:
             n_workers_ref = n_workers if n_workers is not None else len(temperatures)
         if n_workers_def is None:
             n_workers_def = (
-                n_workers if n_workers is not None
+                n_workers
+                if n_workers is not None
                 else min(12 * len(temperatures), os.cpu_count() or 1)
             )
 
@@ -660,8 +741,11 @@ class MDElastic:
             data_paths.append(data_path)
             # Drop kwargs that we set explicitly so the user can still pass
             # `quiet=...` via kwargs without TypeError.
-            kw = {k: v for k, v in kwargs.items()
-                  if k not in ("temperature", "log_dir", "work_dir")}
+            kw = {
+                k: v
+                for k, v in kwargs.items()
+                if k not in ("temperature", "log_dir", "work_dir")
+            }
             stub = MDElastic(
                 system,
                 temperature=float(T),
@@ -709,7 +793,7 @@ class MDElastic:
         per_T_def = {}  # T -> list of deform-result dicts
         # Group deform_tasks by T (preserved by order: 12 per T in the order built).
         for i, T in enumerate(temperatures):
-            chunk = def_results[i * 12:(i + 1) * 12]
+            chunk = def_results[i * 12 : (i + 1) * 12]
             per_T_def[float(T)] = chunk
 
         for i, T in enumerate(temperatures):
@@ -729,7 +813,8 @@ class MDElastic:
                 for k in range(6):
                     cij[k, d] = (
                         -(sigma_pos[d, k] - sigma_neg[d, k])
-                        / (2.0 * delta) * _EAA_PER_BAR
+                        / (2.0 * delta)
+                        * _EAA_PER_BAR
                     )
             cij = 0.5 * (cij + cij.T)
             res = MDElasticResult(
@@ -743,10 +828,17 @@ class MDElastic:
             c11, c12, c44 = res.cubic_average()
             v = res.vrh()
             row = {
-                "T": float(T), "V_eq": res.V_eq, "T_actual": res.T_actual,
-                "C11": c11, "C12": c12, "C44": c44,
-                "K_VRH": v["K_H"], "G_VRH": v["G_H"], "E_VRH": v["E"],
-                "nu_VRH": v["nu"], "stable": res.born_stable_cubic(),
+                "T": float(T),
+                "V_eq": res.V_eq,
+                "T_actual": res.T_actual,
+                "C11": c11,
+                "C12": c12,
+                "C44": c44,
+                "K_VRH": v["K_H"],
+                "G_VRH": v["G_H"],
+                "E_VRH": v["E"],
+                "nu_VRH": v["nu"],
+                "stable": res.born_stable_cubic(),
                 "stress_ref_max": float(np.abs(res.stress_ref).max()),
             }
             for ii in range(6):
@@ -835,8 +927,24 @@ class MDElastic:
         ``V_avg`` (Å^3), ``n_samples``, plus ``stress_voigt`` 6-vector
         ``[pxx, pyy, pzz, pyz, pxz, pxy]`` in bar.
         """
-        cols = ("step", "temp", "press", "lx", "ly", "lz", "vol",
-                "pe", "ke", "etotal", "pxx", "pyy", "pzz", "pxy", "pxz", "pyz")
+        cols = (
+            "step",
+            "temp",
+            "press",
+            "lx",
+            "ly",
+            "lz",
+            "vol",
+            "pe",
+            "ke",
+            "etotal",
+            "pxx",
+            "pyy",
+            "pzz",
+            "pxy",
+            "pxz",
+            "pyz",
+        )
         n_cols = len(cols)
         rows: List[List[float]] = []
         in_block = False
@@ -866,17 +974,26 @@ class MDElastic:
             T_avg=float(eq[:, i["temp"]].mean()),
             press_avg=float(eq[:, i["press"]].mean()),
             V_avg=float(eq[:, i["vol"]].mean()),
-            a_avg=float(((eq[:, i["lx"]].mean() *
-                          eq[:, i["ly"]].mean() *
-                          eq[:, i["lz"]].mean()) ** (1.0 / 3.0))),
-            stress_voigt=np.array([
-                eq[:, i["pxx"]].mean(),
-                eq[:, i["pyy"]].mean(),
-                eq[:, i["pzz"]].mean(),
-                eq[:, i["pyz"]].mean(),
-                eq[:, i["pxz"]].mean(),
-                eq[:, i["pxy"]].mean(),
-            ]),
+            a_avg=float(
+                (
+                    (
+                        eq[:, i["lx"]].mean()
+                        * eq[:, i["ly"]].mean()
+                        * eq[:, i["lz"]].mean()
+                    )
+                    ** (1.0 / 3.0)
+                )
+            ),
+            stress_voigt=np.array(
+                [
+                    eq[:, i["pxx"]].mean(),
+                    eq[:, i["pyy"]].mean(),
+                    eq[:, i["pzz"]].mean(),
+                    eq[:, i["pyz"]].mean(),
+                    eq[:, i["pxz"]].mean(),
+                    eq[:, i["pxy"]].mean(),
+                ]
+            ),
         )
 
     # ----------------------------------------------------------
@@ -885,9 +1002,7 @@ class MDElastic:
 
     def _write_initial_data(self) -> None:
         self._data_path = self._work_dir / "init.data"
-        self.system.write_data(
-            str(self._data_path), element_list=self.elements
-        )
+        self.system.write_data(str(self._data_path), element_list=self.elements)
 
     def _build_reference_args(self) -> dict:
         ref_log = None
@@ -896,18 +1011,26 @@ class MDElastic:
         return dict(
             lammps_cmdargs=self.lammps_cmdargs,
             stage_log=ref_log,
+            accelerator=self.accelerator,
             n_threads=self.n_threads_ref,
+            n_gpus=self.n_gpus_ref,
             data_path=str(self._data_path),
             pair_style=self.pair_style,
             pair_coeff=self.pair_coeff,
-            T=self.temperature, P=self.pressure,
+            T=self.temperature,
+            P=self.pressure,
             pressure_coupling=self.pressure_coupling,
             timestep=self.timestep,
             n_relax=self.n_relax,
-            n_equil=self.n_equil, n_run=self.n_run,
-            nevery=self.nevery, nrepeat=self.nrepeat, nfreq=self.nfreq,
-            ensemble=self.ensemble, thermostat=self.thermostat,
-            tdamp=self.thermostat_damp, pdamp=self.pdamp,
+            n_equil=self.n_equil,
+            n_run=self.n_run,
+            nevery=self.nevery,
+            nrepeat=self.nrepeat,
+            nfreq=self.nfreq,
+            ensemble=self.ensemble,
+            thermostat=self.thermostat,
+            tdamp=self.thermostat_damp,
+            pdamp=self.pdamp,
             seed=self.seed,
             relax_volume=self.relax_volume,
             restart_path=str(self._work_dir / "ref.restart"),
@@ -924,7 +1047,9 @@ class MDElastic:
         return dict(
             lammps_cmdargs=self.lammps_cmdargs,
             stage_log=def_log,
+            accelerator=self.accelerator,
             n_threads=self.n_threads_def,
+            n_gpus=self.n_gpus_def,
             restart_path=ref["restart_path"],
             pair_style=self.pair_style,
             pair_coeff=self.pair_coeff,
@@ -933,10 +1058,15 @@ class MDElastic:
             direction=int(direction),
             signed_delta=sign * self.delta,
             len0=ref["len0"],
-            n_equil=self.n_equil, n_run=self.n_run,
-            nevery=self.nevery, nrepeat=self.nrepeat, nfreq=self.nfreq,
-            ensemble=self.ensemble, thermostat=self.thermostat,
-            tdamp=self.thermostat_damp, seed=self.seed,
+            n_equil=self.n_equil,
+            n_run=self.n_run,
+            nevery=self.nevery,
+            nrepeat=self.nrepeat,
+            nfreq=self.nfreq,
+            ensemble=self.ensemble,
+            thermostat=self.thermostat,
+            tdamp=self.thermostat_damp,
+            seed=self.seed,
         )
 
     def _execute_single(self) -> MDElasticResult:
@@ -982,7 +1112,8 @@ class MDElastic:
             for i in range(6):
                 cij[i, d] = (
                     -(sigma_pos[d, i] - sigma_neg[d, i])
-                    / (2.0 * self.delta) * _EAA_PER_BAR
+                    / (2.0 * self.delta)
+                    * _EAA_PER_BAR
                 )
         cij = 0.5 * (cij + cij.T)
 
@@ -994,3 +1125,75 @@ class MDElastic:
             ensemble=self.ensemble,
             temperature=self.temperature,
         )
+
+
+if __name__ == "__main__":
+    # Mac-only: numpy loads libomp.dylib on import; if OMP_NUM_THREADS is
+    # unset it grabs an OpenMP thread pool, which then prevents Kokkos
+    # OpenMP from initialising in subprocesses (pthread_mutex_init EINVAL).
+    # Force single-thread OpenMP + tolerate duplicate libomp loads BEFORE
+    # importing anything that pulls numpy/mdapy. Per-LAMMPS-process
+    # threading is therefore disabled on Mac; parallelise across processes
+    # via n_workers_ref / n_workers_def instead. Linux is unaffected.
+    import os
+    import sys
+
+    if sys.platform == "darwin":
+        os.environ.setdefault("OMP_NUM_THREADS", "1")
+        os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+    from mdapy import SQS, build_hea
+
+    hea = build_hea(
+        ("Cr", "Co", "Ni"),
+        (1 / 3, 1 / 3, 1 / 3),
+        "fcc",
+        3.53,
+        nx=5,
+        ny=5,
+        nz=5,
+        random_seed=1,
+    )
+    sqs = SQS(
+        hea,
+        cutoffs={2: 4.0, 3: 3.0, 4: 3.0},
+        max_steps=20000,
+        n_replicas=4,
+        seed=1,
+        T=1.0,
+    ).compute()
+    sqs.is_sqs()
+
+    temperatures = (200.0, 400.0, 600.0, 800.0, 1000.0)
+    # accelerator + threading combos:
+    #   Kokkos OMP (default) : accelerator="kokkos", n_threads_ref/def=N
+    #   Kokkos GPU           : accelerator="kokkos", n_gpus_ref/def=1
+    #   USER-OMP package     : accelerator="omp",    n_threads_ref/def=N
+    #   GPU package          : accelerator="gpu",    n_gpus_ref/def=1
+    #   serial / MPI         : accelerator="none"
+    df = MDElastic.scan_parallel(
+        sqs.system,
+        temperatures=temperatures,
+        pair_style="eam/alloy",
+        pair_coeff="* * tests/input_files/NiCoCr.lammps.eam Cr Co Ni",
+        elements=["Cr", "Co", "Ni"],
+        delta=0.01,
+        timestep=1e-3,
+        n_relax=30000,
+        n_equil=30000,
+        n_run=20000,
+        relax_volume=True,
+        pressure_coupling="iso",
+        thermostat="nose-hoover",
+        ensemble="isothermal",
+        accelerator="kokkos",
+        n_workers_ref=5,
+        n_threads_ref=1,
+        n_workers_def=15,
+        n_threads_def=1,
+        work_dir="md_elastic_run",
+        log_dir="md_elastic_run/logs",
+    )
+    # nx*ny*nz conventional FCC unit cells in the simulation box.
+    df = MDElastic.thermal_expansion(df, n_unit_cells=5 * 5 * 5)
+    print(df)
+    df.write_csv("md_elastic_run/md_elastic_CrCoNi.csv")

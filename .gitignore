@@ -16,4 +16,5 @@
 /bench*
 /.VS*
 /compare*
-
+/md_elas*
+/qha*

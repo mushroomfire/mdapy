@@ -40,13 +40,13 @@ two coordination shells (NN1, NN2) for the common metallic lattices, with
 Practical choice — covering NN1+NN2 with pairs and NN1 alone with
 triplets is a good default:
 
-==============  ====================  ====================
-Lattice         ``cutoffs[2]``        ``cutoffs[3]`` (opt.)
-==============  ====================  ====================
-fcc, ``a=3.53`` ``4.0`` (NN1+NN2)     ``3.0`` (NN1 only)
-bcc, ``a=2.87`` ``3.5`` (NN1+NN2)     ``2.7`` (NN1 only)
-hcp, ``a=2.95`` ``4.5`` (NN1+NN2)     ``3.1`` (NN1 only)
-==============  ====================  ====================
+================  ====================  =====================
+Lattice           ``cutoffs[2]``        ``cutoffs[3]`` (opt.)
+================  ====================  =====================
+fcc, ``a=3.53``   ``4.0`` (NN1+NN2)     ``3.0`` (NN1 only)
+bcc, ``a=2.87``   ``3.5`` (NN1+NN2)     ``2.7`` (NN1 only)
+hcp, ``a=2.95``   ``4.5`` (NN1+NN2)     ``3.1`` (NN1 only)
+================  ====================  =====================
 
 If you don't know ``a``: build a quick neighbor list, plot the RDF, and pick
 ``cutoffs[2]`` halfway between the second and third RDF peaks.
@@ -466,7 +466,7 @@ class SQS:
         van de Walle ATAT 2013): an SQS is a configuration whose cluster
         correlation residuals all sit below tolerance,
 
-            max_alpha |pi_alpha - pi_target_alpha| < tol
+            ``max_alpha |pi_alpha - pi_target_alpha| < tol``
 
         across every cluster channel (pair / triplet / quad) the optimiser
         was given. ``tol=0.03`` is fine for ~100-atom equiatomic cells;

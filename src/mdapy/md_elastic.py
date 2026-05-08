@@ -779,12 +779,12 @@ class MDElastic:
 
         Returns
         -------
-        pl.DataFrame with the original columns plus:
-            ``a``        : lattice constant (Å), ``(V / n_unit_cells)^(1/3)``
-            ``alpha_V``  : volumetric thermal expansion (1/K), centred
-                           finite-difference of ``V(T)``.
-            ``alpha_L``  : linear thermal expansion (1/K), ``alpha_V / 3``
-                           (cubic-symmetry assumption).
+        pl.DataFrame
+            Original columns plus ``a`` (lattice constant in Å, equal to
+            ``(V / n_unit_cells)**(1/3)``), ``alpha_V`` (volumetric thermal
+            expansion in 1/K, centred finite-difference of ``V(T)``) and
+            ``alpha_L`` (linear thermal expansion, ``alpha_V / 3`` under the
+            cubic-symmetry assumption).
         """
         assert "T" in df.columns and "V_eq" in df.columns, (
             "thermal_expansion() needs T and V_eq columns "

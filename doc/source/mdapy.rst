@@ -202,6 +202,14 @@ mdapy.load\_save module
    :show-inheritance:
    :undoc-members:
 
+mdapy.md\_elastic module
+------------------------
+
+.. automodule:: mdapy.md_elastic
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 mdapy.mean\_squared\_displacement module
 ----------------------------------------
 
@@ -294,6 +302,14 @@ mdapy.potential\_tool module
 ----------------------------
 
 .. automodule:: mdapy.potential_tool
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+mdapy.qha\_elastic module
+-------------------------
+
+.. automodule:: mdapy.qha_elastic
    :members:
    :show-inheritance:
    :undoc-members:

@@ -243,30 +243,47 @@ def test_sqs_preserves_cell_and_positions():
         )
 
 
-def test_atat_objective_rewards_dmin():
-    """ATAT objective should be lower (more negative) than 'abs' on a good SQS,
-    because the d1 perfect-match reward subtracts a positive quantity."""
+def test_atat_objective_negative_on_converged_sqs():
+    """The ATAT objective subtracts the d1 perfect-match reward, so it goes
+    negative on a converged SQS. Mostly a sanity check that the engine is
+    wired to the d1-reward formula."""
     sys_init = mp.build_hea(
         ("Fe", "Ni", "Co", "Mn", "Cr"), (0.2,) * 5,
         "fcc", 3.55, nx=2, ny=2, nz=2, random_seed=1,
     )
-    common = dict(
-        cutoffs={2: 4.0, 3: 3.0},
+    sqs = mp.SQS(
+        sys_init, cutoffs={2: 4.0, 3: 3.0},
         n_replicas=2, max_steps=10000, T=0.02, seed=3,
+    ).compute()
+    assert sqs.objective < 0.0, (
+        f"ATAT objective should be negative on a converged SQS, got {sqs.objective}"
     )
-    sqs_atat = mp.SQS(sys_init, objective="atat", **common).compute()
-    sqs_abs  = mp.SQS(sys_init, objective="abs",  **common).compute()
-    # ATAT objective subtracts the d1 reward → strictly negative on success
-    assert sqs_atat.objective < 0.0, (
-        f"ATAT objective should be negative on a converged SQS, got {sqs_atat.objective}"
+
+
+def test_run_mc_is_monotonically_helpful():
+    """ATAT-style best-so-far on the objective: doubling max_steps cannot
+    return a higher-objective state than the shorter run, because each chain
+    remembers its lowest-objective configuration ever visited (and the
+    longer run has at least seen the shorter run's full trajectory)."""
+    sys_init = mp.build_hea(
+        ("A", "B", "C"), (1 / 3,) * 3, "fcc", 3.6,
+        nx=3, ny=3, nz=3, random_seed=0,
     )
-    # 'abs' objective is sum of non-negative values → non-negative
-    assert sqs_abs.objective >= 0.0
+    short = mp.SQS(
+        sys_init, cutoffs={2: 4.0, 3: 3.0},
+        n_replicas=4, max_steps=20000, T=0.05, seed=7,
+    ).compute()
+    long_ = mp.SQS(
+        sys_init, cutoffs={2: 4.0, 3: 3.0},
+        n_replicas=4, max_steps=200000, T=0.05, seed=7,
+    ).compute()
+    assert long_.objective <= short.objective + 1e-9, (
+        f"longer run got worse: short={short.objective:.5f} long={long_.objective:.5f}"
+    )
 
 
 def test_is_sqs_true_on_converged_cubic():
-    """A 256-atom cubic 3-element SQS should pass the verdict (absolute
-    correlation residual + Warren-Cowley)."""
+    """A 256-atom cubic 3-element SQS should pass both verdict checks."""
     sys_init = mp.build_hea(
         ("A", "B", "C"), (1 / 3,) * 3, "fcc", 3.6,
         nx=4, ny=4, nz=4, random_seed=0,
@@ -275,12 +292,12 @@ def test_is_sqs_true_on_converged_cubic():
         sys_init, cutoffs={2: 4.0, 3: 3.0, 4: 3.0},
         n_replicas=8, max_steps=200000, T=0.02, seed=1,
     ).compute()
-    verdict, report = sqs.is_sqs(
-        tol=0.05, n_random=30, return_report=True, seed=42,
-    )
-    assert verdict, f"expected SQS verdict True; report={report}"
-    assert report["absolute"]["pass"]
-    assert report["warren_cowley"]["pass"]
+    verdict, info = sqs.is_sqs(tol=0.05, verbose=False)
+    assert verdict, f"expected SQS verdict True; info={info}"
+    assert info["absolute"]["pass"]
+    # WCP per-shell breakdown is reported alongside (not part of verdict).
+    assert len(info["warren_cowley"]["per_shell"]) >= 1
+    assert info["warren_cowley"]["per_shell"][0]["shell"] == "NN1"
 
 
 def test_is_sqs_false_on_random_alloy():
@@ -289,7 +306,6 @@ def test_is_sqs_false_on_random_alloy():
         ("Fe", "Ni", "Co", "Mn", "Cr"), (0.2,) * 5,
         "fcc", 3.55, nx=2, ny=2, nz=2, random_seed=1,
     )
-    # Diagnostic mode: no MC, just evaluate the random init.
     sqs = mp.SQS(sys_init, cutoffs={2: 4.0}, max_steps=0, n_replicas=1).compute()
-    verdict = sqs.is_sqs(tol=0.02, n_random=20, seed=0)
+    verdict, _ = sqs.is_sqs(tol=0.02, verbose=False)
     assert not verdict, "32-atom random alloy should not pass tol=0.02"

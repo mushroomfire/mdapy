@@ -128,8 +128,24 @@ public:
 
     // tuples_flat: (n_clusters * n_pts) atom indices.
     // shell_ids:   (n_clusters,) shell index per cluster.
-    // Each cluster expands into n_func^n_pts (shell, function-tuple) channels;
-    // distinct cluster instances sharing the same channel are aggregated.
+    //
+    // Each cluster is expanded into one channel per *canonical* (sorted,
+    // non-decreasing) function tuple. The cluster correlation is symmetric
+    // under any permutation of cluster atoms (atoms within a cluster are
+    // physically interchangeable), so two ordered function tuples that
+    // differ only by a permutation describe the SAME observable. Listing
+    // them as separate channels — as we used to — would force the optimiser
+    // to satisfy artificial labelling-dependent constraints, which is what
+    // ATAT mcsqs avoids by enumerating only canonical tuples (atat
+    // clusters.out shows 3 NN1 pair channels for ternary, not 4).
+    //
+    // For ternary alloys this gives:
+    //   pair    : C(2+2-1, 2) = 3 channels per shell  (was 2^2=4)
+    //   triplet : C(2+3-1, 3) = 4 channels per shell  (was 2^3=8)
+    //   quad    : C(2+4-1, 4) = 5 channels per shell  (was 2^4=16)
+    //
+    // The symmetric instance sigma — average over n_pts! atom permutations
+    // — is computed in instance_sigma() below.
     void add_cluster_body(
         int n_pts,
         const std::vector<int>& tuples_flat,
@@ -141,17 +157,14 @@ public:
             throw std::runtime_error("tuples_flat size mismatch");
         if (n_func == 0) throw std::runtime_error("set_species() must be called first");
 
-        int tuples_per_cluster = 1;
-        for (int p = 0; p < n_pts; ++p) tuples_per_cluster *= n_func;
-
         std::vector<int> ftuple(n_pts, 0);
         for (int c = 0; c < n_clusters; ++c) {
             const int* atoms = &tuples_flat[c * n_pts];
             int shell = shell_ids[c];
             std::fill(ftuple.begin(), ftuple.end(), 0);
 
-            for (int t = 0; t < tuples_per_cluster; ++t) {
-                // pack function tuple into a 64-bit key for the map lookup
+            // Iterate canonical (non-decreasing) function tuples — 0 ≤ f₁ ≤ ... ≤ f_n ≤ n_func-1.
+            while (true) {
                 int64_t fkey = 0;
                 for (int p = 0; p < n_pts; ++p) fkey = fkey * 16 + ftuple[p];
 
@@ -179,11 +192,12 @@ public:
                 instances.push_back(inst);
                 channels[ch_idx].n_instances += 1;
 
-                // increment function-tuple in mixed radix n_func
-                for (int p = 0; p < n_pts; ++p) {
-                    if (++ftuple[p] < n_func) break;
-                    ftuple[p] = 0;
-                }
+                // step ftuple to the next non-decreasing combination
+                int p = n_pts - 1;
+                while (p >= 0 && ftuple[p] == n_func - 1) p--;
+                if (p < 0) break;
+                int v = ftuple[p] + 1;
+                for (int q = p; q < n_pts; ++q) ftuple[q] = v;
             }
         }
     }
@@ -223,14 +237,31 @@ public:
     }
 
     // ----- evaluation ---------------------------------------------------------
+    // Symmetric per-instance sigma: average of  prod_p phi_{f_p}(s_{a_p})
+    // over all n_pts! permutations of the cluster atoms. This is the
+    // physically correct cluster correlation — atoms within a single cluster
+    // instance are interchangeable, and averaging removes the artificial
+    // dependence on the order in which Python emitted the cluster's atoms.
+    // (Compare ATAT mcsqs's symmetric multiplicities in clusters.out.)
     inline double instance_sigma(int inst_idx, const std::vector<int>& types) const {
-        const Instance& inst  = instances[inst_idx];
-        const Channel&  ch    = channels[inst.channel_idx];
-        double s = 1.0;
-        for (int p = 0; p < inst.n_pts; ++p) {
-            s *= corrfunc[ch.funcs[p]][types[inst.atoms[p]]];
-        }
-        return s;
+        const Instance& inst = instances[inst_idx];
+        const Channel&  ch   = channels[inst.channel_idx];
+
+        int perm_atoms[4];
+        for (int p = 0; p < inst.n_pts; ++p) perm_atoms[p] = inst.atoms[p];
+        std::sort(perm_atoms, perm_atoms + inst.n_pts);
+
+        double sum = 0.0;
+        int    count = 0;
+        do {
+            double term = 1.0;
+            for (int p = 0; p < inst.n_pts; ++p) {
+                term *= corrfunc[ch.funcs[p]][types[perm_atoms[p]]];
+            }
+            sum += term;
+            ++count;
+        } while (std::next_permutation(perm_atoms, perm_atoms + inst.n_pts));
+        return sum / (double)count;
     }
 
     // Compute per-instance sigma and per-channel sum_sigma for given types.
@@ -333,8 +364,18 @@ public:
     }
 
     // ----- Monte Carlo --------------------------------------------------------
-    // Runs n_replicas independent Markov chains via OpenMP and returns the
-    // (best types, best objective, best correlations).
+    // n_replicas independent Markov chains run concurrently via OpenMP. Each
+    // chain remembers the configuration with the lowest objective it ever
+    // visits (Metropolis at T > 0 accepts uphill moves, so the *current*
+    // state can drift above the chain's minimum). The returned tuple is the
+    // global best across replicas, selected by the same criterion.
+    //
+    // This matches ATAT mcsqs (atat/src/mcsqs.c++:532, "if (mc(c).obj <
+    // best.obj) best = mc(c)"). The Warren-Cowley parameter is *not* part
+    // of the optimisation criterion — it's a derived physical quantity
+    // reported by is_sqs() for inspection. ATAT mcsqs doesn't track WCP at
+    // all; cells that converge by the ATAT objective may still show small
+    // WCP fluctuations across step counts, which is expected.
     std::tuple<std::vector<int>, double, std::vector<double>>
     run_mc(const std::vector<int>& init_types,
            int max_steps,
@@ -350,6 +391,10 @@ public:
             std::vector<double> sigma;       // per instance
             std::vector<double> sum_sigma;   // per channel
             double              objective = 0.0;
+            // Best-so-far (lowest objective ever observed in this chain).
+            std::vector<int>    best_types;
+            std::vector<double> best_sum_sigma;
+            double              best_objective = 0.0;
         };
 
         std::vector<Replica> reps(n_replicas);
@@ -358,7 +403,10 @@ public:
             std::mt19937_64 rng(seed + 7919ULL * (uint64_t)r);
             std::shuffle(reps[r].types.begin(), reps[r].types.end(), rng);
             compute_state(reps[r].types, reps[r].sigma, reps[r].sum_sigma);
-            reps[r].objective = objective_from_sumsigma(reps[r].sum_sigma);
+            reps[r].objective       = objective_from_sumsigma(reps[r].sum_sigma);
+            reps[r].best_types      = reps[r].types;
+            reps[r].best_sum_sigma  = reps[r].sum_sigma;
+            reps[r].best_objective  = reps[r].objective;
         }
 
         const int n_inst = (int)instances.size();
@@ -429,6 +477,11 @@ public:
                         rep.sigma[touched_inst[k]] = new_sigmas[k];
                     }
                     rep.objective = new_obj;
+                    if (new_obj < rep.best_objective) {
+                        rep.best_objective  = new_obj;
+                        rep.best_types      = rep.types;
+                        rep.best_sum_sigma  = rep.sum_sigma;
+                    }
                 } else {
                     // revert sum_sigma and types
                     for (size_t m = 0; m < ch_touched.size(); ++m) {
@@ -444,13 +497,15 @@ public:
 
         int best = 0;
         for (int r = 1; r < n_replicas; ++r) {
-            if (reps[r].objective < reps[best].objective) best = r;
+            if (reps[r].best_objective < reps[best].best_objective) best = r;
         }
         std::vector<double> best_corr(channels.size());
         for (size_t i = 0; i < channels.size(); ++i) {
-            best_corr[i] = reps[best].sum_sigma[i] / (double)channels[i].n_instances;
+            best_corr[i] = reps[best].best_sum_sigma[i] / (double)channels[i].n_instances;
         }
-        return std::make_tuple(reps[best].types, reps[best].objective, best_corr);
+        return std::make_tuple(reps[best].best_types,
+                               reps[best].best_objective,
+                               best_corr);
     }
 };
 

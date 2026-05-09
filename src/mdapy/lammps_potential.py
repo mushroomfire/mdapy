@@ -19,7 +19,11 @@ import contextlib
 
 
 @contextlib.contextmanager
-def silence():
+def silence(enabled: bool = True):
+    """Redirect stdout/stderr to /dev/null when ``enabled`` is True; otherwise no-op."""
+    if not enabled:
+        yield
+        return
     devnull = os.open(os.devnull, os.O_WRONLY)
     old_stdout = os.dup(1)
     old_stderr = os.dup(2)
@@ -66,6 +70,9 @@ class LammpsPotential(CalculatorMP):
         and before ``pair_parameter``. Use this for things that must come
         before the pair style (e.g. ``"package kokkos newton on neigh half"``,
         ``"newton on"``, ``"atom_modify ..."`` overrides handled in-script).
+    silence_lammps : bool, optional
+        If True (default), redirect LAMMPS stdout/stderr to /dev/null while
+        the calculator runs. Set to False to see LAMMPS output for debugging.
     """
 
     def __init__(
@@ -76,6 +83,7 @@ class LammpsPotential(CalculatorMP):
         centroid_stress: bool = False,
         cmdargs: Optional[List[str]] = None,
         extra_commands: Optional[str] = None,
+        silence_lammps: bool = True,
     ) -> None:
         self.pair_parameter = pair_parameter
         self.element_list = element_list
@@ -84,6 +92,7 @@ class LammpsPotential(CalculatorMP):
         self.centroid_stress = centroid_stress
         self.cmdargs = list(cmdargs) if cmdargs else []
         self.extra_commands = extra_commands
+        self.silence_lammps = silence_lammps
 
     def calculate(self, data: pl.DataFrame, box: Box) -> None:
         """
@@ -121,7 +130,7 @@ class LammpsPotential(CalculatorMP):
             assert i in self.element_list, f"element_list dose not have {i} element."
         boundary = " ".join(["p" if i == 1 else "s" for i in box.boundary])
         N_atom = data.shape[0]
-        with silence():
+        with silence(self.silence_lammps):
             base_cmdargs = ["-echo", "none", "-log", "none", "-screen", "none"]
             lmp = lammps(cmdargs=base_cmdargs + self.cmdargs)
 

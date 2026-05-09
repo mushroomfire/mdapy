@@ -50,6 +50,22 @@ Mdapy 1.0.7a1 (May 8, 2026)
 🏆 New Features
 ----------------
 
+- New :class:`mdapy.lammps_runner.LammpsRunner` — persistent LAMMPS
+  driver for common tasks: :meth:`~LammpsRunner.minimize`,
+  :meth:`~LammpsRunner.minimize_box` (``fix box/relax``) and
+  :meth:`~LammpsRunner.run_md` (NVE / NVT / NPT) on top of an mdapy
+  :class:`System`. Supports linear T/P ramps, log/dump/thermo control,
+  Kokkos/OMP/GPU via ``cmdargs``, and per-element mass override.
+  ``get_system()`` returns a fresh :class:`System` with the updated
+  box, positions and velocities.
+
+- :class:`mdapy.LammpsPotential` gains ``cmdargs`` and
+  ``extra_commands`` for accelerator packages (e.g.
+  ``["-k","on","-sf","kk","-pk","kokkos","newton","on","neigh","half"]``)
+  and pre-pair LAMMPS commands. Both ``LammpsPotential`` and
+  ``LammpsRunner`` accept ``silence_lammps=False`` to surface LAMMPS
+  stdout/stderr for debugging.
+
 - New :class:`mdapy.QHAElastic` for temperature-dependent elastic
   constants under the quasi-harmonic approximation (energy-strain
   method). Supports cubic and hexagonal crystal classes (auto-detected

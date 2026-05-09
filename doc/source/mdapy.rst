@@ -186,6 +186,14 @@ mdapy.lammps\_potential module
    :show-inheritance:
    :undoc-members:
 
+mdapy.lammps\_runner module
+---------------------------
+
+.. automodule:: mdapy.lammps_runner
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 mdapy.lindemann\_parameter module
 ---------------------------------
 

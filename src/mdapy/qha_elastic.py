@@ -87,11 +87,17 @@ EV_PER_A3_TO_GPA = 160.21766208  # 1 eV/A^3 = 160.218 GPa
 # elastemp (Karthik et al., Comp. Mater. Sci. 2023).
 
 # Cubic: 3 independent C_ij (C11, C12, C44), 3 strain modes.
-#   mode 0 [e,e,0,0,0,0]   -> kappa_0 = C11 + C12
-#   mode 1 [e,e,e,0,0,0]   -> kappa_1 = (3/2)(C11 + 2 C12)   (also bulk EOS)
+#   mode 0 [e,-e,0,0,0,0]  -> kappa_0 = C11 - C12          (volume-preserving,
+#                                                           pure tetragonal shear)
+#   mode 1 [e,e,e,0,0,0]   -> kappa_1 = (3/2)(C11 + 2 C12) (also bulk EOS)
 #   mode 2 [0,0,0,e,e,e]   -> kappa_2 = (3/2) C44
+#
+# Mode 0 is intentionally volume-preserving so the curvature does not mix
+# bulk and shear: extracting C11-C12 directly avoids the subtraction
+# (C11+C12) vs (C11+2*C12)*2/3 that amplifies fit noise (and gives strange
+# C12 trends in low-symmetry / magnetic DFT runs).
 CUBIC_STRAIN_MODES: Tuple[np.ndarray, ...] = (
-    np.array([1.0, 1.0, 0.0, 0.0, 0.0, 0.0]),
+    np.array([1.0, -1.0, 0.0, 0.0, 0.0, 0.0]),
     np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0]),
     np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]),
 )
@@ -113,10 +119,18 @@ HEXAGONAL_STRAIN_MODES: Tuple[np.ndarray, ...] = (
 
 
 def _cubic_curvatures_to_cij(kappa: Sequence[float]) -> Tuple[float, float, float]:
-    """Cubic inversion: returns (C11, C12, C44) in GPa given (k0, k1, k2)."""
+    """Cubic inversion: returns (C11, C12, C44) in GPa given (k0, k1, k2).
+
+    With CUBIC_STRAIN_MODES:
+        k0 = C11 - C12           (mode [e,-e,0,0,0,0])
+        k1 = (3/2)(C11 + 2 C12)  (mode [e,e,e,0,0,0])
+        k2 = (3/2) C44           (mode [0,0,0,e,e,e])
+    """
     k0, k1, k2 = kappa
-    c12 = (2.0 / 3.0) * k1 - k0
-    c11 = k0 - c12
+    c11_plus_2c12 = (2.0 / 3.0) * k1
+    c11_minus_c12 = k0
+    c11 = (c11_plus_2c12 + 2.0 * c11_minus_c12) / 3.0
+    c12 = (c11_plus_2c12 - c11_minus_c12) / 3.0
     c44 = (2.0 / 3.0) * k2
     return c11, c12, c44
 
@@ -680,7 +694,9 @@ class QHAElastic:
         root.mkdir(parents=True, exist_ok=True)
 
         manifest = {
-            "version": 1,
+            "version": 2,
+            "crystal_class": self.crystal_class,
+            "strain_modes": [m.tolist() for m in self.strain_modes],
             "spacegroup": self.spacegroup if self.spacegroup is not None else "skipped",
             "supercell": list(self.supercell),
             "displacement": self.displacement,
@@ -768,6 +784,36 @@ class QHAElastic:
                 "Re-create the QHAElastic with the same parameters."
             )
 
+        # Strict check: strain-mode patterns must match. This catches the case
+        # where existing DFT data was generated with an older version of the
+        # CUBIC_STRAIN_MODES (e.g. mode 0 = [e,e,0] from version 1) and the
+        # current code expects a different pattern (mode 0 = [e,-e,0]). Silent
+        # mismatch would give garbage C_ij.
+        manifest_modes = manifest.get("strain_modes")
+        if manifest_modes is not None:
+            mm = np.asarray(manifest_modes, dtype=float)
+            sm = np.stack([np.asarray(m, dtype=float) for m in self.strain_modes])
+            if mm.shape != sm.shape or not np.allclose(mm, sm):
+                raise ValueError(
+                    "manifest.json strain_modes do not match the current "
+                    "CUBIC_STRAIN_MODES / HEXAGONAL_STRAIN_MODES. "
+                    "This usually means your DFT data was generated with an "
+                    "older version of mdapy. Re-run the relevant strain cells "
+                    "with the new modes (run qha.export_inputs() again).\n"
+                    f"  manifest: {mm.tolist()}\n"
+                    f"  current:  {sm.tolist()}"
+                )
+        elif manifest.get("version", 1) < 2:
+            import warnings
+
+            warnings.warn(
+                "manifest.json is version 1 (no strain_modes field). The "
+                "cubic mode 0 changed from [e,e,0] to [e,-e,0] in version 2; "
+                "if your DFT data predates that change, C12 / C11 will be "
+                "incorrect. Re-export with the current code if unsure.",
+                stacklevel=2,
+            )
+
         for entry, uc in zip(manifest["unique_cells"], self.unique_cells):
             sub = root / entry["path"]
             if self.force_constants_method == "dfpt":
@@ -830,18 +876,32 @@ class QHAElastic:
         return T
 
     def _eos_fit_at_T(self, T_idx: int) -> Tuple[float, float, np.ndarray]:
-        """Fit Birch-Murnaghan F(V) at temperature index T_idx using the
-        eps=0 (V_i base) cells. Returns (V_eq_base, B_T_GPa, fit_params).
+        """Fit Birch-Murnaghan F(V) at temperature index T_idx.
 
-        V_eq_base is the equilibrium *outer* volume V_base = V_ref*(1+v_str)
-        — for base configs this equals the actual cell volume.
+        Uses both the base cells (eps=0) and the isotropic-mode strain cells
+        ([e,e,e,0,0,0] applied to each V_base). The latter cells are exact
+        isotropic deformations of the base lattice; their actual volume is
+        ``V_base * det(F) = V_base * (1+2*eps)**1.5`` (the Cholesky-of-I+2E
+        convention used here). Including them gives 3x the V-range and a
+        much more stable BM3 fit at high T — without these the 4-parameter
+        BM3 on 5 base cells frequently produces unphysical Bp<0 once V_eq
+        drifts near the edge of the V_base window.
+
+        Returns (V_eq, B_T_GPa, fit_params).
         """
-        volumes = []
-        F_total = []
+        iso = self._isotropic_mode_index()
+        volumes: list[float] = []
+        F_total: list[float] = []
         for uc in self.unique_cells:
-            if uc["key"][0] != "base":
+            key = uc["key"]
+            if key[0] == "base":
+                V_actual = uc["V_base"]
+            elif iso is not None and key[0] == "strain" and key[2] == iso:
+                eps_val = float(self.strain_values[key[3]])
+                V_actual = uc["V_base"] * (1.0 + 2.0 * eps_val) ** 1.5
+            else:
                 continue
-            volumes.append(uc["V_base"])
+            volumes.append(V_actual)
             F_total.append(uc["E_static"] + uc["F_phonon_T"][T_idx])
         volumes = np.asarray(volumes, dtype=float)
         F_total = np.asarray(F_total, dtype=float)
@@ -858,6 +918,16 @@ class QHAElastic:
             float(B_0 * EV_PER_A3_TO_GPA),
             np.asarray(params, dtype=float),
         )
+
+    def _isotropic_mode_index(self) -> Optional[int]:
+        """Index of the pure isotropic strain mode [1,1,1,0,0,0] in
+        ``self.strain_modes``, or None if absent. For cubic this is mode 1;
+        for hexagonal it is mode 4 (the [e,e,e,...] entry)."""
+        target = np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0])
+        for i, pat in enumerate(self.strain_modes):
+            if np.allclose(pat, target):
+                return i
+        return None
 
     def _interp_F_at_V(
         self, V_target: float, i_mode: int, i_eps: int, T_idx: int
@@ -1313,50 +1383,75 @@ def _read_dfpt_force_constants(vasprun: Path) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    from mdapy import NEP, FIRE, SQS, build_hea
+    # from mdapy import NEP, FIRE, SQS, build_hea
 
-    hea = build_hea(
-        ("Cr", "Co", "Ni"),
-        (1 / 3, 1 / 3, 1 / 3),
-        "fcc",
-        3.53,
-        nx=2,
-        ny=2,
-        nz=2,
-        random_seed=2,
-    )
-    sqs = SQS(
-        hea,
-        cutoffs={2: 4.0, 3: 3.0},
-        max_steps=20000,
-        n_replicas=4,
-        seed=1,
-        T=2.0,
-    ).compute()
-    sqs.is_sqs()
-    hea = sqs.system
-    hea.calc = NEP("/Users/herrwu/mypkg/nep_gen400000.txt")
-    fy = FIRE(hea, optimize_cell=True, hydrostatic_strain=True)
-    fy.run(fmax=1e-4, steps=1000, show_process=False)
+    # hea = build_hea(
+    #     ("Cr", "Co", "Ni"),
+    #     (1 / 3, 1 / 3, 1 / 3),
+    #     "fcc",
+    #     3.53,
+    #     nx=2,
+    #     ny=2,
+    #     nz=2,
+    #     random_seed=2,
+    # )
+    # sqs = SQS(
+    #     hea,
+    #     cutoffs={2: 4.0, 3: 3.0},
+    #     max_steps=20000,
+    #     n_replicas=4,
+    #     seed=1,
+    #     T=2.0,
+    # ).compute()
+    # sqs.is_sqs()
+    # hea = sqs.system
+    # hea.calc = NEP("/Users/herrwu/mypkg/nep_gen400000.txt")
+    # fy = FIRE(hea, optimize_cell=True, hydrostatic_strain=True)
+    # fy.run(fmax=1e-4, steps=1000, show_process=False)
 
-    qha = QHAElastic(
-        hea,
-        calc=hea.calc,
-        t_min=0,
-        t_max=1000,
-        t_step=100,
-        volume_strains=(-0.06, -0.03, 0.0, 0.03, 0.06),
-        strain_values=(-0.02, -0.01, 0.0, 0.01, 0.02),
-        supercell=(1, 1, 1),
-        mesh=(10, 10, 10),
-        ignore_elements_for_symmetry=True,
-        force_constants_method="dfpt",
-    )
-    qha.export_inputs("qha_dft")
+    # qha = QHAElastic(
+    #     hea,
+    #     calc=hea.calc,
+    #     t_min=0,
+    #     t_max=1000,
+    #     t_step=100,
+    #     volume_strains=(-0.06, -0.03, 0.0, 0.03, 0.06),
+    #     strain_values=(-0.02, -0.01, 0.0, 0.01, 0.02),
+    #     supercell=(1, 1, 1),
+    #     mesh=(10, 10, 10),
+    #     ignore_elements_for_symmetry=True,
+    #     force_constants_method="dfpt",
+    # )
+    # qha.export_inputs("qha_dft")
     # qha.run()
     # df = qha.compute()
     # print(df)
     # import matplotlib.pyplot as plt
 
     # qha.plot()
+    # plt.show()
+    from mdapy import System, build_crystal, FIRE, NEP
+    import matplotlib.pyplot as plt
+
+    # nep = NEP("tests/input_files/UNEP-v1.txt")
+    # unit = build_crystal("Ni", "fcc", 3.52)
+    # unit.calc = nep
+    # fy = FIRE(unit, optimize_cell=True, hydrostatic_strain=True)
+    # assert fy.run(fmax=1e-4, steps=1000, show_process=False)
+    unit = System("compare_qha_md/Ni.POSCAR")
+    qha_dft = QHAElastic(
+        unit,
+        calc=unit.calc,
+        t_min=0,
+        t_max=1000,
+        t_step=100,
+        volume_strains=(-0.06, -0.03, 0.0, 0.03, 0.06),
+        strain_values=(-0.02, -0.01, 0.0, 0.01, 0.02),
+        supercell=(2, 2, 2),
+        mesh=(10, 10, 10),
+    )
+    qha_dft.export_inputs("compare_qha_md/dft_out_new")
+    # qha_dft.import_results("compare_qha_md/dft_out")
+    # df = qha_dft.compute()
+    # qha_dft.plot()
     # plt.show()

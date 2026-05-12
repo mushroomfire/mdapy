@@ -609,7 +609,8 @@ class QHAElastic:
                 f"crystal_class={self.crystal_class}, "
                 f"force_constants={self.force_constants_method}, "
                 f"supercell={self.supercell}, "
-                f"V0={self._ref_volume:.3f} A^3"
+                f"V0={self._ref_volume:.3f} A^3",
+                flush=True,
             )
 
     # ----------------------------------------------------------
@@ -648,7 +649,8 @@ class QHAElastic:
                     f"[QHAElastic] run {k + 1}/{len(self.unique_cells)}: "
                     f"V_strain={uc['V_strain']:+.3f}, "
                     f"E_static={uc['E_static']:.4f} eV, "
-                    f"n_disp={uc['n_disp']}"
+                    f"n_disp={uc['n_disp']}",
+                    flush=True,
                 )
 
     # ----------------------------------------------------------
@@ -761,13 +763,15 @@ class QHAElastic:
                     f"[QHAElastic] exported {len(self.unique_cells)} POSCAR files "
                     f"to {root}/. Run VASP DFPT (IBRION=8) on each, drop "
                     f"vasprun.xml back into the same directory, then call "
-                    f"qha.import_results({root!r})."
+                    f"qha.import_results({root!r}).",
+                    flush=True,
                 )
             else:
                 print(
                     f"[QHAElastic] exported {len(self.unique_cells)} unique unitcells "
                     f"to {root}/. Run VASP static SCF in each */static and each "
-                    f"*/disp-NNN subdirectory."
+                    f"*/disp-NNN subdirectory.",
+                    flush=True,
                 )
 
     def import_results(self, root: Union[str, os.PathLike]) -> None:
@@ -840,7 +844,10 @@ class QHAElastic:
                 uc["phonon"].produce_force_constants(show_drift=False)
 
         if not self.quiet:
-            print(f"[QHAElastic] imported {len(self.unique_cells)} VASP results.")
+            print(
+                f"[QHAElastic] imported {len(self.unique_cells)} VASP results.",
+                flush=True,
+            )
 
     # ----------------------------------------------------------
     # Post-processing
@@ -1438,20 +1445,20 @@ if __name__ == "__main__":
     # unit.calc = nep
     # fy = FIRE(unit, optimize_cell=True, hydrostatic_strain=True)
     # assert fy.run(fmax=1e-4, steps=1000, show_process=False)
+    calc = NEP("compare_qha_md/nep_gen400000.txt")
     unit = System("compare_qha_md/Ni.POSCAR")
     qha_dft = QHAElastic(
         unit,
-        calc=unit.calc,
         t_min=0,
         t_max=1000,
         t_step=100,
         volume_strains=(-0.06, -0.03, 0.0, 0.03, 0.06),
-        strain_values=(-0.02, -0.01, 0.0, 0.01, 0.02),
+        strain_values=(-0.02, 0.0, 0.02),
         supercell=(2, 2, 2),
         mesh=(10, 10, 10),
     )
-    qha_dft.export_inputs("compare_qha_md/dft_out_new")
-    # qha_dft.import_results("compare_qha_md/dft_out")
-    # df = qha_dft.compute()
-    # qha_dft.plot()
-    # plt.show()
+    # qha_dft.export_inputs("compare_qha_md/nospin")
+    qha_dft.import_results("compare_qha_md/nospin")
+    df = qha_dft.compute()
+    qha_dft.plot()
+    plt.show()

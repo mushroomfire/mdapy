@@ -125,16 +125,19 @@ class MDElasticResult:
         c11, c12, c44 = self.cubic_average()
         K, G = (c11 + 2 * c12) / 3.0, (c11 - c12 + 3 * c44) / 5.0
         E = 9 * K * G / (3 * K + G) if (3 * K + G) > 0 else 0.0
-        print(f"MDElastic @ T={self.temperature:.0f} K ({self.ensemble}):")
-        print(f"  V_eq           = {self.V_eq:.3f} A^3")
-        print(f"  T_actual       = {self.T_actual:.1f} K")
-        print(f"  reference sigma= {np.array2string(self.stress_ref, precision=3)} GPa")
-        print(f"  C11 (cubic avg)= {c11:.2f} GPa")
-        print(f"  C12 (cubic avg)= {c12:.2f} GPa")
-        print(f"  C44 (cubic avg)= {c44:.2f} GPa")
-        print(f"  K (V)          = {K:.2f} GPa")
-        print(f"  G (V)          = {G:.2f} GPa")
-        print(f"  E              = {E:.2f} GPa")
+        lines = [
+            f"MDElastic @ T={self.temperature:.0f} K ({self.ensemble}):",
+            f"  V_eq           = {self.V_eq:.3f} A^3",
+            f"  T_actual       = {self.T_actual:.1f} K",
+            f"  reference sigma= {np.array2string(self.stress_ref, precision=3)} GPa",
+            f"  C11 (cubic avg)= {c11:.2f} GPa",
+            f"  C12 (cubic avg)= {c12:.2f} GPa",
+            f"  C44 (cubic avg)= {c44:.2f} GPa",
+            f"  K (V)          = {K:.2f} GPa",
+            f"  G (V)          = {G:.2f} GPa",
+            f"  E              = {E:.2f} GPa",
+        ]
+        print("\n".join(lines), flush=True)
 
 
 # ============================================================
@@ -766,7 +769,8 @@ class MDElastic:
         if not quiet:
             print(
                 f"[MDElastic.scan_parallel] phase 1: {len(ref_tasks)} ref runs "
-                f"on {n_workers_ref} workers x {n_threads_ref} threads ..."
+                f"on {n_workers_ref} workers x {n_threads_ref} threads ...",
+                flush=True,
             )
         ctx = _mp.get_context("spawn")
         with ProcessPoolExecutor(max_workers=n_workers_ref, mp_context=ctx) as ex:
@@ -783,7 +787,8 @@ class MDElastic:
         if not quiet:
             print(
                 f"[MDElastic.scan_parallel] phase 2: {len(deform_tasks)} deformation "
-                f"runs on {n_workers_def} workers x {n_threads_def} threads ..."
+                f"runs on {n_workers_def} workers x {n_threads_def} threads ...",
+                flush=True,
             )
         with ProcessPoolExecutor(max_workers=n_workers_def, mp_context=ctx) as ex:
             def_results = list(ex.map(_run_deform_segment, deform_tasks))
@@ -1074,7 +1079,8 @@ class MDElastic:
         if not self.quiet:
             print(
                 f"[MDElastic] T={self.temperature} K reference "
-                f"({self.thermostat}, ensemble={self.ensemble}) ..."
+                f"({self.thermostat}, ensemble={self.ensemble}) ...",
+                flush=True,
             )
         ref = _run_reference_segment(self._build_reference_args())
 
@@ -1088,7 +1094,8 @@ class MDElastic:
         if not self.quiet:
             print(
                 f"[MDElastic] T={self.temperature} K: "
-                f"{len(deform_args)} deformations on {n_w} workers ..."
+                f"{len(deform_args)} deformations on {n_w} workers ...",
+                flush=True,
             )
         if n_w > 1:
             ctx = _mp.get_context("spawn")

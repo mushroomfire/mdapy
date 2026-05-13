@@ -1,83 +1,28 @@
 Release Notes
 ===============
 
-Mdapy 1.0.7a1 (May 8, 2026)
+Mdapy 1.0.7a1 (May 13, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-🐛 Bug Fixes
--------------
-
-- :class:`mdapy.SQS` rewritten to be **point-for-point equivalent to
-  ATAT mcsqs**:
-
-  * Per-replica best-so-far now tracks the lowest objective ever seen
-    (was the final state). Increasing ``max_steps`` is no longer able
-    to make the result worse.
-  * Cluster expansion uses **canonical (sorted) function tuples** with
-    sigma averaged over all atom permutations within each cluster — so
-    the channel set matches ATAT's ``clusters.out`` exactly (3 pair
-    channels per shell for ternary instead of 4, 4 triplet channels
-    instead of 8).
-  * Pair / triplet / quad enumeration no longer goes through
-    ``mdapy.Neighbor`` and so no longer has the small-cell over-count
-    that biased correlations when ``rc > half-box``. We now iterate
-    every periodic image direction directly, the same way
-    ATAT's ``LatticePointInCellIterator × equivalent_clusters`` loop
-    does. Per-channel π values now agree byte-for-byte with ATAT
-    ``bestcorr.out`` on the same configuration (verified on both 36-atom
-    1×3×3 and 108-atom 3×3×3 fcc CrCoNi cells; see ``compare_atat/``).
-
-- :meth:`SQS.is_sqs` verdict follows the formal SQS definition (Zunger
-  1990 / van de Walle 2013): ``max |π − π_target| < tol`` over the
-  cluster set. The Warren–Cowley parameter is reported alongside for
-  inspection but does **not** enter the verdict — matching ATAT's
-  practice. WCP is shown for every pair shell within ``cutoffs[2]`` and
-  taken over the full matrix (including diagonal) so it stays correct
-  in non-equiatomic systems.
 
 🔧 API Changes
 ---------------
 
-- :class:`mdapy.SQS`: simplified constructor to ``(system, cutoffs,
-  n_replicas, max_steps, T, seed)``. Removed rarely-tuned parameters
-  (``objective``, ``atat_tol``, ``shell_tol``, ``weight_decay``,
-  ``weight_npts``); the ATAT d1-reward objective is now the only mode.
-  ``is_sqs()`` rewritten with a printed one-screen verification report
-  and per-pair-shell Warren–Cowley breakdown — useful for BCC where
-  NN1 and NN2 are physically close. New signature:
-  ``is_sqs(tol=0.03, verbose=True) -> (passed, info)``.
+- :class:`mdapy.SQS`: simplified constructor; new
+  ``is_sqs(tol=0.03, verbose=True)`` returns ``(passed, info)``.
 
 🏆 New Features
 ----------------
 
-- New :class:`mdapy.lammps_runner.LammpsRunner` — persistent LAMMPS
-  driver for common tasks: :meth:`~LammpsRunner.minimize`,
-  :meth:`~LammpsRunner.minimize_box` (``fix box/relax``) and
-  :meth:`~LammpsRunner.run_md` (NVE / NVT / NPT) on top of an mdapy
-  :class:`System`. Supports linear T/P ramps, log/dump/thermo control,
-  Kokkos/OMP/GPU via ``cmdargs``, and per-element mass override.
-  ``get_system()`` returns a fresh :class:`System` with the updated
-  box, positions and velocities.
+- New :class:`mdapy.lammps_runner.LammpsRunner`: persistent LAMMPS
+  driver for minimize / minimize_box / NVE / NVT / NPT on an mdapy
+  :class:`System`.
 
-- :class:`mdapy.LammpsPotential` gains ``cmdargs`` and
-  ``extra_commands`` for accelerator packages (e.g.
-  ``["-k","on","-sf","kk","-pk","kokkos","newton","on","neigh","half"]``)
-  and pre-pair LAMMPS commands. Both ``LammpsPotential`` and
-  ``LammpsRunner`` accept ``silence_lammps=False`` to surface LAMMPS
-  stdout/stderr for debugging.
+- :class:`mdapy.LammpsPotential` accepts ``cmdargs`` and
+  ``extra_commands`` for accelerator packages and pre-pair LAMMPS setup.
 
-- New :class:`mdapy.QHAElastic` for temperature-dependent elastic
-  constants under the quasi-harmonic approximation (energy-strain
-  method). Supports cubic and hexagonal crystal classes (auto-detected
-  via spglib). Optional ``ignore_elements_for_symmetry`` recognises
-  the parent lattice of SQS / chemically-disordered cells. Two
-  force-constant backends: ``finite-displacement`` (default; for the
-  in-Python MD path or small DFT systems) and ``dfpt`` (one VASP
-  IBRION=8 SCF per (V, mode, eps) cell — drops DFT cost from
-  ``3N × N_cells`` to ``N_cells`` SCFs). DFT users export POSCARs via
-  :meth:`QHAElastic.export_inputs` and feed vasprun.xml back through
-  :meth:`QHAElastic.import_results`. Requires ``phonopy``; not imported
-  unless explicitly used.
+- New :class:`mdapy.QHAElastic`: temperature-dependent elastic constants
+  via QHA (cubic + hexagonal), works with any mdapy calculator or
+  external DFT. Requires ``phonopy``.
 
 
 Mdapy 1.0.6 (May 6, 2026)

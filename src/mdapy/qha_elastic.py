@@ -958,12 +958,21 @@ class QHAElastic:
         order = np.argsort(V_arr)
         V_arr = V_arr[order]
         F_arr = F_arr[order]
-        if len(V_arr) >= 4:
-            from scipy.interpolate import CubicSpline
+        # __init__ enforces len(volume_strains) >= 5 (BM3 needs 4 free params),
+        # so V_arr always has >= 5 points — cubic spline is always well-defined.
+        from mdapy.spline import Spline
 
-            cs = CubicSpline(V_arr, F_arr, extrapolate=True)
-            return float(cs(V_target))
-        return float(np.interp(V_target, V_arr, F_arr))
+        sp = Spline(V_arr, F_arr)  # not-a-knot, bit-exact match to scipy.CubicSpline
+        # mdapy Spline does not silently extrapolate; if V_target is outside
+        # [V_arr[0], V_arr[-1]] we issue a linear extension off the nearest
+        # endpoint using the spline's analytic slope. compute() already warns
+        # when V_eq drifts outside the V_base window, so this only matters for
+        # that flagged case.
+        if V_target < V_arr[0]:
+            return float(F_arr[0] + (V_target - V_arr[0]) * sp.derivative(V_arr[0]))
+        if V_target > V_arr[-1]:
+            return float(F_arr[-1] + (V_target - V_arr[-1]) * sp.derivative(V_arr[-1]))
+        return float(sp.evaluate(V_target))
 
     def _curvatures_at_T(self, T_idx: int, V_eq: float) -> Tuple[float, ...]:
         """Parabolic fit of F vs eps at fixed V = V_eq for each strain mode.

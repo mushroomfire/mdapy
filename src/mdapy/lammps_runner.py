@@ -8,6 +8,13 @@ except ImportError:
         "One can install lammps python package: https://docs.lammps.org/Python_install.html"
     )
 
+import os
+import sys
+
+if sys.platform == "darwin":
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
 import ctypes
 
 import numpy as np

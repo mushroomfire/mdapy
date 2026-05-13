@@ -7,6 +7,12 @@ except ImportError:
     raise ImportError(
         "One can install lammps python package: https://docs.lammps.org/Python_install.html"
     )
+import os
+import sys
+
+if sys.platform == "darwin":
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 from mdapy.calculator import CalculatorMP
 from mdapy.box import Box
 
@@ -14,7 +20,6 @@ import numpy as np
 import polars as pl
 from typing import List, Any, Optional
 
-import os
 import contextlib
 
 
@@ -350,12 +355,6 @@ class LammpsPotential(CalculatorMP):
 
 
 if __name__ == "__main__":
-    import os
-    import sys
-
-    if sys.platform == "darwin":
-        os.environ.setdefault("OMP_NUM_THREADS", "1")
-        os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
     from mdapy import build_crystal, EAM
 

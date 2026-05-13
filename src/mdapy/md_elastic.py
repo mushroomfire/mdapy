@@ -30,6 +30,11 @@ runs use ``-k on -sf kk`` only (no ``g 1`` and no ``-pk kokkos`` GPU args).
 from __future__ import annotations
 
 import os
+import sys
+
+if sys.platform == "darwin":
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 import tempfile
 import multiprocessing as _mp
 from concurrent.futures import ProcessPoolExecutor
@@ -1135,19 +1140,7 @@ class MDElastic:
 
 
 if __name__ == "__main__":
-    # Mac-only: numpy loads libomp.dylib on import; if OMP_NUM_THREADS is
-    # unset it grabs an OpenMP thread pool, which then prevents Kokkos
-    # OpenMP from initialising in subprocesses (pthread_mutex_init EINVAL).
-    # Force single-thread OpenMP + tolerate duplicate libomp loads BEFORE
-    # importing anything that pulls numpy/mdapy. Per-LAMMPS-process
-    # threading is therefore disabled on Mac; parallelise across processes
-    # via n_workers_ref / n_workers_def instead. Linux is unaffected.
-    import os
-    import sys
 
-    if sys.platform == "darwin":
-        os.environ.setdefault("OMP_NUM_THREADS", "1")
-        os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
     from mdapy import SQS, build_hea
 
     hea = build_hea(

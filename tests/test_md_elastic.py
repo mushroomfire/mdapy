@@ -50,9 +50,9 @@ def test_md_elastic_basic_300K():
     assert 1100 < res.V_eq < 1400, f"V_eq = {res.V_eq:.1f} unexpected"
 
     # Reference stress should be small after NPT (a few GPa max with short runs).
-    assert np.abs(res.stress_ref).max() < 5.0, (
-        f"|sigma_ref| = {np.abs(res.stress_ref).max():.2f} GPa too large"
-    )
+    assert (
+        np.abs(res.stress_ref).max() < 5.0
+    ), f"|sigma_ref| = {np.abs(res.stress_ref).max():.2f} GPa too large"
 
     # Temperature roughly correct (within ~30 K of target).
     assert abs(res.T_actual - 300.0) < 50.0, f"T_actual = {res.T_actual:.1f}"
@@ -68,13 +68,19 @@ def test_md_elastic_basic_300K():
     # should be small compared to the diagonal block.
     C = res.cij_voigt
     coupling = max(
-        abs(C[0, 3]), abs(C[0, 4]), abs(C[0, 5]),
-        abs(C[1, 3]), abs(C[1, 4]), abs(C[1, 5]),
-        abs(C[2, 3]), abs(C[2, 4]), abs(C[2, 5]),
+        abs(C[0, 3]),
+        abs(C[0, 4]),
+        abs(C[0, 5]),
+        abs(C[1, 3]),
+        abs(C[1, 4]),
+        abs(C[1, 5]),
+        abs(C[2, 3]),
+        abs(C[2, 4]),
+        abs(C[2, 5]),
     )
-    assert coupling < 30.0, (
-        f"normal-shear coupling block too large for cubic-like SQS: {coupling:.1f} GPa"
-    )
+    assert (
+        coupling < 30.0
+    ), f"normal-shear coupling block too large for cubic-like SQS: {coupling:.1f} GPa"
 
     # Symmetric.
     assert np.allclose(C, C.T, atol=1e-8), "Cij should be symmetric"
@@ -100,8 +106,19 @@ def test_md_elastic_scan_two_temperatures(tmp_path):
         ensemble="isothermal",
         **_common_kwargs(),
     )
-    expected = {"T", "V_eq", "T_actual", "C11", "C12", "C44",
-                "K_VRH", "G_VRH", "E_VRH", "nu_VRH", "stable"}
+    expected = {
+        "T",
+        "V_eq",
+        "T_actual",
+        "C11",
+        "C12",
+        "C44",
+        "K_VRH",
+        "G_VRH",
+        "E_VRH",
+        "nu_VRH",
+        "stable",
+    }
     assert expected.issubset(set(df.columns))
     # Per-component Cij also present.
     for i in range(1, 7):

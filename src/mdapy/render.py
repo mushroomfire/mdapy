@@ -501,7 +501,7 @@ class TachyonRender:
             if bond is None:
                 if not hasattr(system, "bond"):
                     raise ValueError(
-                        "draw_bond=True requires a bond array or system.cal_build_bond() first."
+                        "draw_bond=True requires a bond array or system.create_bonds() first."
                     )
                 bond = system.bond
             bond_edges, bond_colors = _bond_edges(
@@ -1047,7 +1047,7 @@ if __name__ == "__main__":
         ),
         box=[8.0, 6.0, 6.0],
     )
-    demo.cal_build_bond({("O", "H"): 1.2, ("H", "H"): 0.8, ("O", "O"): 1.5})
+    demo.create_bonds({("O", "H"): 1.2, ("H", "H"): 0.8, ("O", "O"): 1.5})
 
     ren = TachyonRender(
         backend="cpu",

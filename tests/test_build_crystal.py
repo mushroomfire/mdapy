@@ -105,6 +105,17 @@ MILLER_CASES = [
     ("GaN_wurtzite_prismatic", ("Ga", "N"),
      dict(structure="wurtzite", a=3.19, c=5.18,
           miller1=(1, -1, 0, 0), miller2=(1, 1, -2, 0), miller3=(0, 0, 0, 1))),
+    # Left-handed cubic Miller frame: miller1 × miller2 is anti-parallel
+    # to miller3. atomsk does not enforce the right-hand rule, so neither
+    # does mdapy — the result is a valid (mirror-image) crystal.
+    ("Ni_fcc_111_lefthand", "Ni",
+     dict(structure="fcc", a=3.52,
+          miller1=(1, 1, -2), miller2=(1, -1, 0), miller3=(1, 1, 1))),
+    # Non-orthogonal hexagonal Miller frame: [10-10] and [11-20] are 30°
+    # apart in the hexagonal basis, so the oriented cell is triclinic.
+    ("Co_hcp_nonortho", "Co",
+     dict(structure="hcp", a=3.52, c=1.63,
+          miller1=(1, 0, -1, 0), miller2=(1, 1, -2, 0), miller3=(0, 0, 0, 1))),
 ]
 
 
@@ -157,6 +168,57 @@ def test_3index_hex_miller_accepted():
                           miller3=(0, 0, 1))
     np.testing.assert_allclose(s4.box.box, s3.box.box, atol=1e-9)
     assert s4.N == s3.N
+
+
+def test_lefthanded_cubic_miller_accepted():
+    """A left-handed cubic Miller frame is accepted (atomsk parity) and
+    yields the same orthogonal box as its right-handed mirror, just with
+    miller1/miller2 swapped."""
+    left = mp.build_crystal("Ni", "fcc", a=3.52,
+                            miller1=(1, 1, -2), miller2=(1, -1, 0),
+                            miller3=(1, 1, 1))
+    right = mp.build_crystal("Ni", "fcc", a=3.52,
+                             miller1=(1, -1, 0), miller2=(1, 1, -2),
+                             miller3=(1, 1, 1))
+    # Swapping the first two axes swaps box[0,0] and box[1,1].
+    assert left.N == right.N == 6
+    np.testing.assert_allclose(left.box.box[0, 0], right.box.box[1, 1], atol=1e-9)
+    np.testing.assert_allclose(left.box.box[1, 1], right.box.box[0, 0], atol=1e-9)
+    np.testing.assert_allclose(left.box.box[2, 2], right.box.box[2, 2], atol=1e-9)
+    # Output box stays right-handed (positive determinant) after alignment.
+    assert np.linalg.det(left.box.box) > 0
+
+
+def test_nonorthogonal_hex_miller_produces_triclinic():
+    """Non-orthogonal hexagonal Miller directions yield a triclinic box
+    (lower-triangular form) instead of raising."""
+    s = mp.build_crystal("Co", "hcp", a=3.52, c=1.63,
+                         miller1=(1, 0, -1, 0), miller2=(1, 1, -2, 0),
+                         miller3=(0, 0, 0, 1))
+    box = s.box.box
+    # box[1,0] is the xy tilt — non-zero for this 30°-apart frame.
+    assert abs(box[1, 0]) > 1e-6
+    # Lower-triangular: no upper-triangle components.
+    assert abs(box[0, 1]) < 1e-9 and abs(box[0, 2]) < 1e-9 and abs(box[1, 2]) < 1e-9
+    assert s.N == 2
+
+
+def test_nonorthogonal_cubic_miller_still_raises():
+    """Cubic Miller indices must still be orthogonal — atomsk enforces
+    this for cubic lattices and so does mdapy."""
+    with pytest.raises(ValueError, match="orthogonal"):
+        mp.build_crystal("Cu", "fcc", a=3.6,
+                         miller1=(1, 0, 0), miller2=(1, 1, 0),
+                         miller3=(0, 0, 1))
+
+
+def test_linearly_dependent_hex_miller_raises():
+    """Coplanar hexagonal Miller directions (zero triple product) are
+    rejected."""
+    with pytest.raises(ValueError, match="linearly independent"):
+        mp.build_crystal("Mg", "hcp", a=3.21, c=5.21,
+                         miller1=(1, 0, 0), miller2=(0, 1, 0),
+                         miller3=(1, 1, 0))
 
 
 def test_replication_scales_atom_count():

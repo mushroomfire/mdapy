@@ -1,7 +1,7 @@
 Release Notes
 ===============
 
-Mdapy 1.0.7a1 (May 13, 2026)
+Mdapy 1.0.7a1 (May 18, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🔧 API Changes
@@ -9,6 +9,14 @@ Mdapy 1.0.7a1 (May 13, 2026)
 
 - :class:`mdapy.SQS`: simplified constructor; new
   ``is_sqs(tol=0.03, verbose=True)`` returns ``(passed, info)``.
+
+- ``System.cal_build_bond()`` renamed to :meth:`System.create_bonds`.
+
+- :func:`mdapy.build_crystal` Miller orientation now matches atomsk:
+  cubic indices no longer need to obey the right-hand rule (left-handed
+  frames give a mirror-image crystal), and hexagonal indices only need
+  to be linearly independent — non-orthogonal frames produce a
+  triclinic cell instead of raising.
 
 🏆 New Features
 ----------------
@@ -23,6 +31,9 @@ Mdapy 1.0.7a1 (May 13, 2026)
 - New :class:`mdapy.QHAElastic`: temperature-dependent elastic constants
   via QHA (cubic + hexagonal), works with any mdapy calculator or
   external DFT. Requires ``phonopy``.
+
+- New :meth:`System.delete_overlap`: remove atoms closer than a cutoff
+  ``rc``, keeping the lowest-index atom of each overlapping cluster.
 
 
 Mdapy 1.0.6 (May 6, 2026)
@@ -150,7 +161,7 @@ Mdapy 1.0.4 (April 24, 2026)
 ----------------
 
 - Added support for rendering structures using the Tachyon method, accelerated by multi-core CPU and GPU (an order of magnitude faster).
-- Added ``System.cal_build_bond()`` to generate bond index arrays directly from neighbor information, supporting a single cutoff as well as type-pair and element-pair cutoffs.
+- Added ``System.create_bonds()`` to generate bond index arrays directly from neighbor information, supporting a single cutoff as well as type-pair and element-pair cutoffs.
 - ``Spline`` now supports three boundary conditions matches ``scipy.interpolate.CubicSpline``.
 
 🐞 Bug Fixes

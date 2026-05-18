@@ -1330,7 +1330,7 @@ class System:
 
         return float(cutoff_matrix.max()), compact_type, cutoff_matrix
 
-    def cal_build_bond(
+    def create_bonds(
         self,
         rc: Union[
             float,
@@ -1410,6 +1410,85 @@ class System:
 
         self.bond = np.unique(bond, axis=0)
         return self.bond
+
+    def delete_overlap(self, rc: float, max_neigh: Optional[int] = None) -> int:
+        """
+        Delete overlapping atoms that are closer than ``rc`` to another atom.
+
+        For every pair of atoms within ``rc`` (respecting periodic
+        boundary conditions), the atom with the **larger** index is
+        removed and the one with the smaller index is kept. An atom that
+        has already been removed cannot itself trigger further removals,
+        so each atom is deleted at most once and clusters of mutually
+        overlapping atoms collapse to their single lowest-index member.
+
+        Parameters
+        ----------
+        rc : float
+            Distance threshold. Atom pairs separated by less than ``rc``
+            are considered overlapping.
+        max_neigh : int, optional
+            Maximum number of neighbors per atom when building the
+            neighbor list. If None, the buffer is sized automatically.
+
+        Returns
+        -------
+        int
+            The number of atoms removed.
+
+        Notes
+        -----
+        This method modifies ``self.data`` in place; neighbor lists and
+        cached calculator results are reset because atom indices change.
+
+        Examples
+        --------
+        >>> n_removed = system.delete_overlap(0.1)
+        >>> print(f"removed {n_removed} overlapping atoms")
+        """
+        rc = float(rc)
+        assert rc > 0, "rc should be larger than 0."
+
+        N = self.N
+        has_neigh = hasattr(self, "rc") and self.rc >= rc
+        if not has_neigh:
+            self.build_neighbor(rc, max_neigh)
+
+        verlet = self.verlet_list
+        distance = self.distance_list
+        neigh_num = self.neighbor_number
+
+        # When the box was too small for `rc`, the neighbor list indexes
+        # into the enlarged (replicated) system; map those indices back
+        # to the original atoms. Cell 0 holds the originals at indices
+        # 0..N-1, so `enlarged_index % N` recovers the original atom.
+        verlet_orig = verlet % N if hasattr(self, "_enlarge_data") else verlet
+
+        # Sequential sweep in index order: atom j is removed iff it has a
+        # still-surviving neighbor with a smaller index. Because lower
+        # indices are finalized before we reach j, one pass suffices.
+        deleted = np.zeros(N, dtype=bool)
+        for j in range(N):
+            cnt = int(neigh_num[j])
+            if cnt == 0:
+                continue
+            nbr = verlet_orig[j, :cnt]
+            d = distance[j, :cnt]
+            smaller = nbr[(nbr < j) & (d < rc)]
+            if smaller.size and not deleted[smaller].all():
+                deleted[j] = True
+
+        n_removed = int(deleted.sum())
+        if n_removed == 0:
+            return 0
+
+        keep = ~deleted
+        self.update_data(
+            self.data.filter(keep),
+            reset_calculator=True,
+            reset_neighbor=True,
+        )
+        return n_removed
 
     def cal_identify_diamond_structure(self) -> None:
         """

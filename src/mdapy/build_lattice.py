@@ -373,16 +373,6 @@ def _check_orthogonality_miller(
     return dot12 == 0 and dot13 == 0 and dot23 == 0
 
 
-def _check_right_hand_miller(
-    m1: Tuple[int, int, int], m2: Tuple[int, int, int], m3: Tuple[int, int, int]
-) -> bool:
-    """Check if three Miller indices satisfy right-hand rule (internal helper)."""
-    # m1 × m2 should be parallel and in same direction as m3
-    cross = np.cross(np.array(m1), np.array(m2))
-    dot = np.dot(cross, np.array(m3))
-    return dot > 0
-
-
 def _build_transform_matrix(
     miller1: Tuple[int, int, int],
     miller2: Tuple[int, int, int],
@@ -534,6 +524,47 @@ def _hkil_to_uvw(miller) -> Tuple[int, int, int]:
     return int(u), int(v), int(w)
 
 
+def _to_lower_triangular_box(new_lattice: np.ndarray) -> np.ndarray:
+    """Rotate ``new_lattice`` (rows = lattice vectors) into atomsk's
+    standard lower-triangular form: ``v1`` along ``+x``, ``v2`` in the
+    ``+xy`` half-plane, ``v3`` with non-negative ``z``. Preserves all
+    lengths and angles, so fractional coordinates in the original cell
+    are also valid fractional coordinates of the returned cell.
+
+    Equivalent to ``CONVMAT(|v1|,|v2|,|v3|, α, β, γ, H)`` in atomsk
+    (called after orienting hexagonal cells in ``mode_create.f90``).
+    For a right-handed input this is a proper rotation; for a
+    left-handed input it is an improper rotation (a reflection composed
+    with a rotation) — the returned box is always right-handed."""
+    v1, v2, v3 = new_lattice[0], new_lattice[1], new_lattice[2]
+    a = float(np.linalg.norm(v1))
+    b = float(np.linalg.norm(v2))
+    c = float(np.linalg.norm(v3))
+    if a < 1e-12 or b < 1e-12 or c < 1e-12:
+        raise ValueError("Lattice vectors must be non-zero.")
+    cos_gamma = float(np.dot(v1, v2) / (a * b))
+    cos_beta = float(np.dot(v3, v1) / (c * a))
+    cos_alpha = float(np.dot(v2, v3) / (b * c))
+    sin_gamma = float(np.sqrt(max(0.0, 1.0 - cos_gamma * cos_gamma)))
+    if sin_gamma < 1e-12:
+        raise ValueError("First two lattice vectors are colinear.")
+    aligned = np.zeros((3, 3))
+    aligned[0, 0] = a
+    aligned[1, 0] = b * cos_gamma
+    aligned[1, 1] = b * sin_gamma
+    aligned[2, 0] = c * cos_beta
+    aligned[2, 1] = c * (cos_alpha - cos_beta * cos_gamma) / sin_gamma
+    z_sq = c * c - aligned[2, 0] ** 2 - aligned[2, 1] ** 2
+    if z_sq < -1e-9:
+        raise ValueError("Lattice angles are geometrically inconsistent.")
+    aligned[2, 2] = float(np.sqrt(max(0.0, z_sq)))
+    # Snap near-zero off-diagonals so downstream orthogonality checks
+    # (e.g. _find_minimal_cell_with_species) treat genuinely orthogonal
+    # cells as orthogonal.
+    aligned[np.abs(aligned) < 1e-12] = 0.0
+    return aligned
+
+
 def _build_lattice_from_miller_hex(
     structure: str,
     miller1,
@@ -546,9 +577,13 @@ def _build_lattice_from_miller_hex(
 
     Each Miller direction is given in 3-index ``[uvw]`` or 4-index
     ``[hkil]`` notation; the latter is converted via atomsk's
-    ``HKIL2UVW`` rule. Orthogonality and right-handedness are checked in
-    Cartesian coordinates because the hexagonal basis is non-orthogonal
-    and the integer-Miller test would be wrong here.
+    ``HKIL2UVW`` rule.
+
+    Matches atomsk's hexagonal-orient branch in ``mode_create.f90``:
+    **neither orthogonality nor the right-hand rule is enforced** —
+    only linear independence (non-zero triple product). When the chosen
+    Miller frame is non-orthogonal, a triclinic cell in lower-triangular
+    form is returned, identical to what atomsk's ``CONVMAT`` produces.
     """
     u1, v1, w1 = _hkil_to_uvw(miller1)
     u2, v2, w2 = _hkil_to_uvw(miller2)
@@ -569,28 +604,19 @@ def _build_lattice_from_miller_hex(
     # Cartesian new lattice vectors. Row k = sum_j M[j, k] * box[j, :].
     new_lattice = M.T @ box
 
-    # Orthogonality + right-hand check in Cartesian.
-    eps = 1e-6
-    nl = new_lattice
-    if (
-        abs(np.dot(nl[0], nl[1])) > eps
-        or abs(np.dot(nl[0], nl[2])) > eps
-        or abs(np.dot(nl[1], nl[2])) > eps
-    ):
+    # Linear-independence guard (atomsk's SCALAR_TRIPLE_PRODUCT check).
+    triple = float(
+        np.dot(np.cross(new_lattice[0], new_lattice[1]), new_lattice[2])
+    )
+    if abs(triple) < 1e-9:
         raise ValueError(
-            "Hexagonal Miller directions must be mutually orthogonal in "
-            "Cartesian space."
-        )
-    if np.dot(np.cross(nl[0], nl[1]), nl[2]) <= 0:
-        raise ValueError(
-            "Hexagonal Miller indices must satisfy the right-hand rule "
-            "(miller1 × miller2 must be parallel to and same-sign as miller3)."
+            "Hexagonal Miller directions must be linearly independent "
+            f"(got {tuple(miller1)}, {tuple(miller2)}, {tuple(miller3)})."
         )
 
     new_basis, new_species = _find_atoms_in_new_cell(M, basis, species)
-
-    aligned_lattice, aligned_basis = _align_box_to_axes(new_lattice, new_basis)
-    return aligned_lattice, aligned_basis, new_species
+    aligned_lattice = _to_lower_triangular_box(new_lattice)
+    return aligned_lattice, new_basis, new_species
 
 
 def _build_lattice_from_miller(
@@ -601,7 +627,14 @@ def _build_lattice_from_miller(
     lattice_constant: float,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Cubic Miller-indexed cell builder. Returns ``(box, basis_frac,
-    species_idx)`` for the rotated rectangular cell."""
+    species_idx)`` for the rotated rectangular cell.
+
+    Matches atomsk's ``--create ... orient`` semantics: orthogonality is
+    required, but **the right-hand rule is not** — atomsk accepts
+    left-handed Miller frames and the alignment step is equivalent to a
+    mirror reflection, which is a lattice symmetry of every supported
+    cubic structure (FCC, BCC, diamond, etc.) so the output is still a
+    valid crystal."""
     miller1 = _reduce_miller(miller1)
     miller2 = _reduce_miller(miller2)
     miller3 = _reduce_miller(miller3)
@@ -610,8 +643,6 @@ def _build_lattice_from_miller(
         raise ValueError(
             f"Miller indices must be orthogonal. Got {miller1}, {miller2}, {miller3}"
         )
-    if not _check_right_hand_miller(miller1, miller2, miller3):
-        raise ValueError("Miller indices must satisfy right-hand rule")
 
     build_fn, _, _ = _STRUCTURES[_normalize_structure_name(structure)]
     box, basis, species = build_fn(lattice_constant)
@@ -687,9 +718,16 @@ def build_crystal(
         For cubic structures pass three integers ``[h, k, l]``; for
         hexagonal structures pass either Miller-Bravais
         ``[h, k, i, l]`` (with ``h + k + i == 0``) or 3-index
-        ``[u, v, w]`` directly. The three vectors must be mutually
-        orthogonal in Cartesian space and obey the right-hand rule.
-        When all three are ``None``, the canonical orientation is used.
+        ``[u, v, w]`` directly. When all three are ``None``, the
+        canonical orientation is used.
+
+        Cubic Miller indices must be mutually orthogonal in Cartesian
+        space; left-handed frames are accepted and yield a mirror-image
+        crystal (a lattice symmetry for every supported cubic
+        structure). Hexagonal Miller indices only need to be linearly
+        independent — non-orthogonal frames are returned as triclinic
+        boxes in lower-triangular form. This matches atomsk's
+        ``--create ... orient`` semantics.
 
     nx, ny, nz : int, default=1
         Replication counts along the (possibly Miller-rotated) axes.

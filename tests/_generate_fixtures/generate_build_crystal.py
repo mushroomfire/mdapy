@@ -165,6 +165,22 @@ MILLER_CATALOG = [
      dict(structure="wurtzite", a=3.19, c=5.18,
           miller1=(1, -1, 0, 0), miller2=(1, 1, -2, 0), miller3=(0, 0, 0, 1)),
      ("Ga", "N")),
+    # CUBIC, left-handed Miller frame — atomsk accepts it (no right-hand
+    # check); mdapy must too. miller1 × miller2 is anti-parallel to
+    # miller3, so the output is the mirror image of Cu_fcc_111.
+    ("Ni_fcc_111_lefthand", "fcc", ["3.52"], ["Ni"],
+     ("[11-2]", "[1-10]", "[111]"),
+     dict(structure="fcc", a=3.52,
+          miller1=(1, 1, -2), miller2=(1, -1, 0), miller3=(1, 1, 1)),
+     "Ni"),
+    # HEXAGONAL, non-orthogonal Miller frame — [10-10] and [11-20] are
+    # not perpendicular in the hexagonal basis (30° apart), so atomsk
+    # emits a triclinic cell. mdapy must reproduce the same triclinic box.
+    ("Co_hcp_nonortho", "hcp", ["3.52", "1.63"], ["Co"],
+     ("[10-10]", "[11-20]", "[0001]"),
+     dict(structure="hcp", a=3.52, c=1.63,
+          miller1=(1, 0, -1, 0), miller2=(1, 1, -2, 0), miller3=(0, 0, 0, 1)),
+     "Co"),
 ]
 
 

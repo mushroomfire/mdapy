@@ -53,10 +53,10 @@ import polars as pl
 
 from mdapy.system import System
 from mdapy.calculator import CalculatorMP
+from mdapy.parallel import get_num_threads
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
-    from matplotlib.axes import Axes
 
 try:
     from phonopy import Phonopy
@@ -205,6 +205,30 @@ def _born_stable(crystal_class: str, C: np.ndarray) -> bool:
 
 
 # ============================================================
+# Phonon thermal worker (process-parallel over unique cells)
+# ============================================================
+
+
+def _thermal_one(args):
+    """Run mesh + thermal_properties on a single (picklable) Phonopy object.
+
+    Module-level so it can be dispatched to a ProcessPoolExecutor worker.
+    Returns the raw phonopy arrays (kJ/mol & J/K/mol per primitive cell) plus
+    the primitive-cell size; the caller does the per-unit-cell scaling.
+    """
+    phon, mesh, t_min, t_max, t_step = args
+    phon.run_mesh(mesh)
+    phon.run_thermal_properties(t_min=t_min, t_max=t_max, t_step=t_step)
+    td = phon.get_thermal_properties_dict()
+    return (
+        np.asarray(td["temperatures"], dtype=float),
+        np.asarray(td["free_energy"], dtype=float),
+        np.asarray(td["heat_capacity"], dtype=float),
+        len(phon.primitive),
+    )
+
+
+# ============================================================
 # Geometry helpers
 # ============================================================
 
@@ -252,24 +276,6 @@ def _system_to_phonopy(sys: System) -> PhonopyAtoms:
         cell=np.asarray(sys.box.box, dtype=float),
         positions=sys.get_positions().to_numpy(),
     )
-
-
-def _phonopy_to_system(atoms: PhonopyAtoms) -> System:
-    data = pl.DataFrame(
-        {
-            "element": atoms.symbols,
-            "x": atoms.positions[:, 0],
-            "y": atoms.positions[:, 1],
-            "z": atoms.positions[:, 2],
-        },
-        schema={
-            "element": pl.Utf8,
-            "x": pl.Float64,
-            "y": pl.Float64,
-            "z": pl.Float64,
-        },
-    )
-    return System(data=data, box=np.asarray(atoms.cell, dtype=float))
 
 
 # ============================================================
@@ -584,7 +590,6 @@ class QHAElastic:
                                 "forces": None,  # list of (N, 3) ndarray
                                 "F_phonon_T": None,  # ndarray (N_T,) eV per unit cell
                                 "Cv_T": None,  # ndarray (N_T,) eV/K per unit cell
-                                "T": None,  # ndarray (N_T,)
                             }
                         )
                         cell_key_to_idx[key] = unique_idx
@@ -855,32 +860,70 @@ class QHAElastic:
 
     def _phonon_thermal(self) -> np.ndarray:
         """Run thermal_properties on every unique cell; cache F_phonon and Cv
-        on each entry. Returns the temperature grid."""
-        T = None
-        for uc in self.unique_cells:
-            phon = uc["phonon"]
-            phon.run_mesh(self.mesh)
-            phon.run_thermal_properties(
-                t_min=self.t_min, t_max=self.t_max, t_step=self.t_step
-            )
-            td = phon.get_thermal_properties_dict()
-            if T is None:
-                T = np.asarray(td["temperatures"], dtype=float)
+        on each entry. Returns the temperature grid.
 
+        The (independent) unique cells are distributed over a process pool —
+        each worker runs phonopy single-threaded. This is the right axis of
+        parallelism for large (alloy) primitives, where every cell's mesh
+        diagonalisation is expensive; phonopy's own OpenMP over q-points
+        saturates at 2-4 threads then degrades, so process-level parallelism
+        over cells scales much better. The pool size follows mdapy's
+        ``MDAPY_NUM_THREADS`` (all cores when unset)."""
+        results = self._run_thermal()
+        T = None
+        for uc, (temps, free_e, cv, n_prim) in zip(self.unique_cells, results):
+            if T is None:
+                T = temps
             # phonopy returns kJ/mol per primitive cell.
-            n_prim = len(phon.primitive)
             scale_eV_per_unit = EV_PER_KJMOL * (self._n_unitcell / n_prim)
-            uc["F_phonon_T"] = (
-                np.asarray(td["free_energy"], dtype=float) * scale_eV_per_unit
-            )
+            uc["F_phonon_T"] = free_e * scale_eV_per_unit
             # heat_capacity in J/K/mol per primitive -> eV/K per unit cell
             uc["Cv_T"] = (
-                np.asarray(td["heat_capacity"], dtype=float)
+                cv
                 * (EV_PER_KJMOL / 1000.0)  # J/(K*mol) -> kJ/(K*mol)/1000 -> eV/K
                 * (self._n_unitcell / n_prim)
             )
-            uc["T"] = T
         return T
+
+    def _run_thermal(self) -> list:
+        """Dispatch the per-cell mesh+thermal_properties work, serially or
+        across a spawn process pool. The worker count follows mdapy's
+        ``get_num_threads()`` (``MDAPY_NUM_THREADS``, else all cores), capped
+        at the number of cells."""
+        args = [
+            (uc["phonon"], self.mesh, self.t_min, self.t_max, self.t_step)
+            for uc in self.unique_cells
+        ]
+        n_jobs = max(1, min(get_num_threads(), len(args)))
+        if n_jobs == 1:
+            return [_thermal_one(a) for a in args]
+
+        import multiprocessing as _mp
+        from concurrent.futures import ProcessPoolExecutor
+
+        # Each worker runs one cell at a time; phonopy's own OpenMP must be
+        # pinned to a single thread or n_jobs workers x N OpenMP threads would
+        # oversubscribe the cores catastrophically. libgomp reads
+        # OMP_NUM_THREADS when it is first loaded (at phonopy import), so the
+        # variable has to be set in the *parent* environment before the spawn
+        # children inherit it — setting it inside the worker after import is
+        # too late. We set it, spawn, then restore the previous value.
+        _saved = {
+            k: os.environ.get(k)
+            for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
+        }
+        for k in _saved:
+            os.environ[k] = "1"
+        try:
+            ctx = _mp.get_context("spawn")
+            with ProcessPoolExecutor(max_workers=n_jobs, mp_context=ctx) as ex:
+                return list(ex.map(_thermal_one, args))
+        finally:
+            for k, v in _saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
 
     def _eos_fit_at_T(self, T_idx: int) -> Tuple[float, float, np.ndarray]:
         """Fit Birch-Murnaghan F(V) at temperature index T_idx.
@@ -1036,7 +1079,12 @@ class QHAElastic:
         return C_iso + delta
 
     def compute(self) -> pl.DataFrame:
-        """Execute all post-processing. Returns the results DataFrame."""
+        """Execute all post-processing. Returns the results DataFrame.
+
+        The per-cell phonon thermal-properties step (the dominant cost) is
+        parallelised over processes following mdapy's ``MDAPY_NUM_THREADS``
+        (all cores when unset). Set ``MDAPY_NUM_THREADS=1`` to force serial.
+        """
         # Sanity check: every unique cell must have E_static and forces filled.
         for k, uc in enumerate(self.unique_cells):
             if uc["E_static"] is None or uc["forces"] is None:
@@ -1059,9 +1107,6 @@ class QHAElastic:
         nu_arr = np.zeros(n_T)
         stable_arr = np.zeros(n_T, dtype=bool)
         eos_params = []
-
-        # Equilibrium volume at T=0 for alpha computation.
-        V_eq_prev = None
 
         V_base_min = self._ref_volume * (1.0 + float(self.volume_strains.min()))
         V_base_max = self._ref_volume * (1.0 + float(self.volume_strains.max()))
@@ -1399,75 +1444,43 @@ def _read_dfpt_force_constants(vasprun: Path) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    # from mdapy import NEP, FIRE, SQS, build_hea
+    from mdapy import NEP, FIRE, build_hea
+    from time import time
 
-    # hea = build_hea(
-    #     ("Cr", "Co", "Ni"),
-    #     (1 / 3, 1 / 3, 1 / 3),
-    #     "fcc",
-    #     3.53,
-    #     nx=2,
-    #     ny=2,
-    #     nz=2,
-    #     random_seed=2,
-    # )
-    # sqs = SQS(
-    #     hea,
-    #     cutoffs={2: 4.0, 3: 3.0},
-    #     max_steps=20000,
-    #     n_replicas=4,
-    #     seed=1,
-    #     T=2.0,
-    # ).compute()
-    # sqs.is_sqs()
-    # hea = sqs.system
-    # hea.calc = NEP("/Users/herrwu/mypkg/nep_gen400000.txt")
-    # fy = FIRE(hea, optimize_cell=True, hydrostatic_strain=True)
-    # fy.run(fmax=1e-4, steps=1000, show_process=False)
+    hea = build_hea(
+        ("Cr", "Co", "Ni"),
+        (1 / 3, 1 / 3, 1 / 3),
+        "fcc",
+        3.53,
+        nx=3,
+        ny=3,
+        nz=3,
+        random_seed=1,
+    )
 
-    # qha = QHAElastic(
-    #     hea,
-    #     calc=hea.calc,
-    #     t_min=0,
-    #     t_max=1000,
-    #     t_step=100,
-    #     volume_strains=(-0.06, -0.03, 0.0, 0.03, 0.06),
-    #     strain_values=(-0.02, -0.01, 0.0, 0.01, 0.02),
-    #     supercell=(1, 1, 1),
-    #     mesh=(10, 10, 10),
-    #     ignore_elements_for_symmetry=True,
-    #     force_constants_method="dfpt",
-    # )
-    # qha.export_inputs("qha_dft")
-    # qha.run()
-    # df = qha.compute()
-    # print(df)
-    # import matplotlib.pyplot as plt
+    hea.calc = NEP("compare_qha_md/nep_gen400000.txt")
+    fy = FIRE(hea, optimize_cell=True, hydrostatic_strain=True)
+    fy.run(fmax=1e-4, steps=1000, show_process=False)
 
-    # qha.plot()
-    # plt.show()
-    from mdapy import System, build_crystal, FIRE, NEP
-    import matplotlib.pyplot as plt
-
-    # nep = NEP("tests/input_files/UNEP-v1.txt")
-    # unit = build_crystal("Ni", "fcc", 3.52)
-    # unit.calc = nep
-    # fy = FIRE(unit, optimize_cell=True, hydrostatic_strain=True)
-    # assert fy.run(fmax=1e-4, steps=1000, show_process=False)
-    calc = NEP("compare_qha_md/nep_gen400000.txt")
-    unit = System("compare_qha_md/Ni.POSCAR")
-    qha_dft = QHAElastic(
-        unit,
+    qha = QHAElastic(
+        hea,
+        calc=hea.calc,
         t_min=0,
         t_max=1000,
         t_step=100,
         volume_strains=(-0.06, -0.03, 0.0, 0.03, 0.06),
-        strain_values=(-0.02, 0.0, 0.02),
-        supercell=(2, 2, 2),
+        strain_values=(-0.02, -0.01, 0.0, 0.01, 0.02),
+        supercell=(1, 1, 1),
         mesh=(10, 10, 10),
+        ignore_elements_for_symmetry=True,
     )
-    # qha_dft.export_inputs("compare_qha_md/nospin")
-    qha_dft.import_results("compare_qha_md/nospin")
-    df = qha_dft.compute()
-    qha_dft.plot()
+    start = time()
+    qha.run()
+    end1 = time()
+    print(f"run time: {end1-start} s.")
+    df = qha.compute()
+    print(f"compute time: {time()-end1} s.")
+    import matplotlib.pyplot as plt
+
+    qha.plot()
     plt.show()

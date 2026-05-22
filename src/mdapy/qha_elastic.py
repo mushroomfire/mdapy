@@ -922,19 +922,6 @@ class QHAElastic:
         self._check_imaginary_modes()
         return T
 
-    def _cell_label(self, uc: dict) -> str:
-        """Human-readable tag for a unique cell, e.g.
-        ``V_strain=-0.060  mode0[1,-1,0,0,0,0] eps=+0.020``."""
-        key = uc["key"]
-        vstr = uc["V_strain"]
-        if key[0] == "base":
-            return f"V_strain={vstr:+.3f}  base(eps=0)"
-        i_mode, i_eps = key[2], key[3]
-        eps = float(self.strain_values[i_eps])
-        pat = self.strain_modes[i_mode]
-        pat_str = "[" + ",".join(f"{int(round(x))}" for x in pat) + "]"
-        return f"V_strain={vstr:+.3f}  mode{i_mode}{pat_str} eps={eps:+.3f}"
-
     def _check_imaginary_modes(self) -> None:
         """Flag unique cells whose phonon mesh has imaginary frequencies and
         warn once with the offenders.
@@ -962,28 +949,12 @@ class QHAElastic:
         if not offenders:
             return
 
-        lines = [
-            f"      {self._cell_label(uc):42s} "
-            f"f_min={uc['f_min_THz']:+7.3f} THz  imag={uc['imag_fraction'] * 100:5.1f}%"
-            for uc in sorted(
-                offenders, key=lambda u: np.nan_to_num(u["f_min_THz"], nan=-1e9)
-            )
-        ]
         msg = (
-            f"\n[QHAElastic] {len(offenders)} of {len(self.unique_cells)} cells "
-            f"have IMAGINARY phonon modes (f_min < -{tol:g} THz). phonopy silently "
-            f"drops these from the free energy, so F(T) and ALL C_ij(T) / G(T) "
-            f"derived from it are UNRELIABLE at every temperature (typical "
-            f"symptoms: shear constants collapsing or oscillating, G going "
-            f"negative, B_T rising with T).\n"
-            f"    Affected cells (most negative first):\n" + "\n".join(lines) + "\n"
-            f"    This is a dynamical instability of the potential for these "
-            f"strained/compressed cells, NOT a deformation-mode bug. For 0 K "
-            f"elastic constants use the q=0 deformation method "
-            f"(mdapy.elastic.get_elastic_constant), which is immune. Try a "
-            f"different potential, check the 0 K phonon spectrum, or increase "
-            f"'supercell' (removes folding artifacts, not genuine instabilities). "
-            f"Inspect per-cell values via qha.unique_cells[i]['f_min_THz']."
+            f"[QHAElastic] dynamical instability: {len(offenders)}/"
+            f"{len(self.unique_cells)} cells have imaginary phonon modes "
+            f"(min f = {self.min_frequency_THz:+.3f} THz). phonopy drops them, so "
+            f"C_ij(T) is UNRELIABLE — use the deformation method for elastic "
+            f"constants. Details: qha.unique_cells[i]['f_min_THz']."
         )
         import warnings
 

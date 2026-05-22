@@ -213,11 +213,23 @@ def _thermal_one(args):
     """Run mesh + thermal_properties on a single (picklable) Phonopy object.
 
     Module-level so it can be dispatched to a ProcessPoolExecutor worker.
-    Returns the raw phonopy arrays (kJ/mol & J/K/mol per primitive cell) plus
-    the primitive-cell size; the caller does the per-unit-cell scaling.
+    Returns the raw phonopy arrays (kJ/mol & J/K/mol per primitive cell), the
+    primitive-cell size, and the mesh minimum frequency + (weight-aware)
+    imaginary-mode fraction so the caller can warn about dynamical
+    instabilities that phonopy would otherwise silently drop. The caller does
+    the per-unit-cell scaling.
     """
     phon, mesh, t_min, t_max, t_step = args
     phon.run_mesh(mesh)
+    md = phon.get_mesh_dict()
+    freqs = np.asarray(md["frequencies"], dtype=float)  # (nq_irr, nbands), THz
+    weights = np.asarray(md["weights"], dtype=float)  # (nq_irr,)
+    finite = freqs[np.isfinite(freqs)]
+    f_min = float(finite.min()) if finite.size else float("nan")
+    # Mask True for negative OR nan frequencies (phonopy drops both).
+    imag_mask = ~(freqs >= 0.0)
+    n_imag = float((imag_mask * weights[:, None]).sum())
+    n_total = float(weights.sum() * freqs.shape[1])
     phon.run_thermal_properties(t_min=t_min, t_max=t_max, t_step=t_step)
     td = phon.get_thermal_properties_dict()
     return (
@@ -225,6 +237,9 @@ def _thermal_one(args):
         np.asarray(td["free_energy"], dtype=float),
         np.asarray(td["heat_capacity"], dtype=float),
         len(phon.primitive),
+        f_min,
+        n_imag,
+        n_total,
     )
 
 
@@ -396,6 +411,16 @@ class QHAElastic:
         ``"dfpt"``: DFT-only. Each (V, mode, eps) cell is one VASP DFPT SCF
         (``IBRION=8``) that returns the full force-constant matrix in one
         shot. Drops cost from ``3N x N_cells`` SCFs to ``N_cells`` SCFs.
+    imaginary_freq_tol : float
+        Tolerance (THz) for the imaginary-mode check run during ``compute()``.
+        A unique cell is flagged (and a warning emitted) if its phonon-mesh
+        minimum frequency falls below ``-imaginary_freq_tol``. phonopy silently
+        drops imaginary modes from the free energy, so any flagged cell makes
+        the QHA ``C_ij(T)`` unreliable. Small negative wisps near Gamma (from
+        the acoustic sum rule) are tolerated; raise this if you see spurious
+        warnings, lower it to be stricter. Results are exposed on
+        ``has_imaginary_modes``, ``min_frequency_THz`` and per cell in
+        ``unique_cells[i]['f_min_THz']``.
     """
 
     def __init__(
@@ -414,6 +439,7 @@ class QHAElastic:
         quiet: bool = False,
         ignore_elements_for_symmetry: bool = False,
         force_constants_method: str = "finite-displacement",
+        imaginary_freq_tol: float = 1e-2,
     ) -> None:
         assert "element" in unitcell.data.columns, (
             "unitcell must contain 'element' column. "
@@ -436,6 +462,7 @@ class QHAElastic:
                 "force_constants_method must be 'finite-displacement' or 'dfpt'"
             )
         self.force_constants_method = force_constants_method
+        self.imaginary_freq_tol = float(imaginary_freq_tol)
 
         # Strain values must include 0 — it's the parabola anchor / V_i base.
         if not np.any(np.isclose(self.strain_values, 0.0, atol=1e-12)):
@@ -483,6 +510,11 @@ class QHAElastic:
         self.cij_iso: Optional[np.ndarray] = None  # shape (N_T, 6, 6) full Voigt
         self.cij_adi: Optional[np.ndarray] = None
         self.eos_params: Optional[List[np.ndarray]] = None  # BM3 fit per T
+
+        # Imaginary-mode diagnostics (filled by compute() via _phonon_thermal()).
+        self.has_imaginary_modes: bool = False
+        self.min_frequency_THz: Optional[float] = None  # min over all cells/mesh
+        self._imaginary_cells: List[dict] = []
 
     # ----------------------------------------------------------
     # Grid construction
@@ -871,7 +903,9 @@ class QHAElastic:
         ``MDAPY_NUM_THREADS`` (all cores when unset)."""
         results = self._run_thermal()
         T = None
-        for uc, (temps, free_e, cv, n_prim) in zip(self.unique_cells, results):
+        for uc, (temps, free_e, cv, n_prim, f_min, n_imag, n_total) in zip(
+            self.unique_cells, results
+        ):
             if T is None:
                 T = temps
             # phonopy returns kJ/mol per primitive cell.
@@ -883,7 +917,77 @@ class QHAElastic:
                 * (EV_PER_KJMOL / 1000.0)  # J/(K*mol) -> kJ/(K*mol)/1000 -> eV/K
                 * (self._n_unitcell / n_prim)
             )
+            uc["f_min_THz"] = f_min
+            uc["imag_fraction"] = (n_imag / n_total) if n_total > 0 else 0.0
+        self._check_imaginary_modes()
         return T
+
+    def _cell_label(self, uc: dict) -> str:
+        """Human-readable tag for a unique cell, e.g.
+        ``V_strain=-0.060  mode0[1,-1,0,0,0,0] eps=+0.020``."""
+        key = uc["key"]
+        vstr = uc["V_strain"]
+        if key[0] == "base":
+            return f"V_strain={vstr:+.3f}  base(eps=0)"
+        i_mode, i_eps = key[2], key[3]
+        eps = float(self.strain_values[i_eps])
+        pat = self.strain_modes[i_mode]
+        pat_str = "[" + ",".join(f"{int(round(x))}" for x in pat) + "]"
+        return f"V_strain={vstr:+.3f}  mode{i_mode}{pat_str} eps={eps:+.3f}"
+
+    def _check_imaginary_modes(self) -> None:
+        """Flag unique cells whose phonon mesh has imaginary frequencies and
+        warn once with the offenders.
+
+        phonopy's ``thermal_properties`` silently drops every mode with
+        frequency <= 0, so a dynamically unstable strained/compressed cell
+        corrupts the QHA free energy — and every ``C_ij(T)`` derived from it —
+        without raising any error. We collect cells whose mesh minimum drops
+        below ``-imaginary_freq_tol`` (THz; small negative wisps near Gamma from
+        the acoustic sum rule are ignored) and emit a single explicit warning.
+        Per-cell values are kept in ``uc['f_min_THz']`` / ``uc['imag_fraction']``
+        and summarised in ``self.has_imaginary_modes`` / ``self.min_frequency_THz``.
+        """
+        tol = self.imaginary_freq_tol
+        # ``not (f_min >= -tol)`` is True for f_min < -tol and for nan.
+        offenders = [
+            uc for uc in self.unique_cells if not (uc.get("f_min_THz", 0.0) >= -tol)
+        ]
+        fmins = [
+            uc["f_min_THz"] for uc in self.unique_cells if "f_min_THz" in uc
+        ]
+        self.min_frequency_THz = float(np.nanmin(fmins)) if fmins else None
+        self.has_imaginary_modes = bool(offenders)
+        self._imaginary_cells = offenders
+        if not offenders:
+            return
+
+        lines = [
+            f"      {self._cell_label(uc):42s} "
+            f"f_min={uc['f_min_THz']:+7.3f} THz  imag={uc['imag_fraction'] * 100:5.1f}%"
+            for uc in sorted(
+                offenders, key=lambda u: np.nan_to_num(u["f_min_THz"], nan=-1e9)
+            )
+        ]
+        msg = (
+            f"\n[QHAElastic] {len(offenders)} of {len(self.unique_cells)} cells "
+            f"have IMAGINARY phonon modes (f_min < -{tol:g} THz). phonopy silently "
+            f"drops these from the free energy, so F(T) and ALL C_ij(T) / G(T) "
+            f"derived from it are UNRELIABLE at every temperature (typical "
+            f"symptoms: shear constants collapsing or oscillating, G going "
+            f"negative, B_T rising with T).\n"
+            f"    Affected cells (most negative first):\n" + "\n".join(lines) + "\n"
+            f"    This is a dynamical instability of the potential for these "
+            f"strained/compressed cells, NOT a deformation-mode bug. For 0 K "
+            f"elastic constants use the q=0 deformation method "
+            f"(mdapy.elastic.get_elastic_constant), which is immune. Try a "
+            f"different potential, check the 0 K phonon spectrum, or increase "
+            f"'supercell' (removes folding artifacts, not genuine instabilities). "
+            f"Inspect per-cell values via qha.unique_cells[i]['f_min_THz']."
+        )
+        import warnings
+
+        warnings.warn(msg, stacklevel=2)
 
     def _run_thermal(self) -> list:
         """Dispatch the per-cell mesh+thermal_properties work, serially or

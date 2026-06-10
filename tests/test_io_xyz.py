@@ -101,6 +101,30 @@ def test_extended_xyz_extra_metadata_kept(tmp_path):
     assert s.global_info.get("timestep") == "42"
 
 
+def test_xyz_no_lattice_but_properties_keeps_forces(tmp_path):
+    """Regression: a non-periodic frame (no ``Lattice=``, ``pbc="F F F"``)
+    that still declares force columns in its Properties string must NOT
+    be treated as plain classical XYZ. Before the fix the cell-less
+    branch hardcoded ``element/x/y/z`` and silently dropped ``fx/fy/fz``
+    — which lost every force on isolated-monomer training configs."""
+    text = (
+        "1\n"
+        'Properties=species:S:1:pos:R:3:forces:R:3 energy=-12.35 pbc="F F F"\n'
+        "H 0.0 0.0 0.0 0.1 0.2 0.3\n"
+    )
+    p = tmp_path / "monomer.xyz"
+    p.write_text(text)
+    s = mp.System(str(p))
+    assert s.N == 1
+    for c in ("fx", "fy", "fz"):
+        assert c in s.data.columns
+    np.testing.assert_allclose(
+        s.data.select("fx", "fy", "fz").to_numpy(), [[0.1, 0.2, 0.3]]
+    )
+    # No cell → box inferred from coords, boundary fully open.
+    assert s.box.boundary.tolist() == [0, 0, 0]
+
+
 # ===========================================================================
 # Compressed (.gz)
 # ===========================================================================

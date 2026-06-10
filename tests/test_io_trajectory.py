@@ -495,3 +495,46 @@ def test_trajectory_explicit_format(tmp_path):
     mp.Trajectory(systems=frames).save(str(out), format="dump")
     traj = mp.Trajectory(str(out), format="dump")
     assert len(traj) == 2
+
+
+def test_xyz_traj_no_lattice_frames_keep_forces(tmp_path):
+    """Regression: trajectory frames that omit ``Lattice=`` but declare
+    forces in their Properties string (e.g. isolated monomers written
+    with ``pbc="F F F"``) must keep their ``fx/fy/fz`` columns. A whole
+    training set of such single-atom configs previously lost every force
+    silently, because the cell-less branch was hardcoded to
+    ``element/x/y/z`` and ignored Properties entirely."""
+    text = (
+        # cell-less monomer that nonetheless declares forces
+        "1\n"
+        'Properties=species:S:1:pos:R:3:forces:R:3 pbc="F F F" energy=-1.0\n'
+        "H 0.0 0.0 0.0 0.1 0.2 0.3\n"
+        # celled frame with forces
+        "2\n"
+        'Lattice="10 0 0 0 10 0 0 0 10" '
+        'Properties=species:S:1:pos:R:3:forces:R:3 pbc="T T T"\n'
+        "C 0.0 0.0 0.0 -0.1 0.0 0.0\n"
+        "O 1.2 0.0 0.0 0.1 0.0 0.0\n"
+        # truly classical frame (no Properties) — no forces expected
+        "1\n"
+        "plain classical comment\n"
+        "Ne 0.0 0.0 0.0\n"
+    )
+    p = tmp_path / "mixed_forces.xyz"
+    p.write_text(text)
+    traj = mp.Trajectory(str(p), verbose=False)
+    assert len(traj) == 3
+
+    # Frame 0: cell-less but declared forces — must be preserved.
+    assert {"fx", "fy", "fz"} <= set(traj[0].data.columns)
+    np.testing.assert_allclose(
+        traj[0].data.select("fx", "fy", "fz").to_numpy(), [[0.1, 0.2, 0.3]]
+    )
+    assert traj[0].box.boundary.tolist() == [0, 0, 0]
+
+    # Frame 1: celled frame with forces.
+    assert {"fx", "fy", "fz"} <= set(traj[1].data.columns)
+    assert traj[1].box.boundary.tolist() == [1, 1, 1]
+
+    # Frame 2: genuine classical XYZ (no Properties) → no force columns.
+    assert "fx" not in traj[2].data.columns

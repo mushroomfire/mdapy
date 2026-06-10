@@ -717,41 +717,20 @@ class BuildSystem:
             key = match[0].lower()
             global_info[key] = match[1] if match[1] else match[2]
 
+        # "classical" means *no explicit cell* — the box is derived from
+        # the coordinate extents rather than read from a Lattice= field.
+        # It does NOT imply "no Properties": ASE/GPUMD write non-periodic
+        # frames (isolated monomers, pbc="F F F") that omit Lattice but
+        # still declare a full Properties string with force/energy
+        # columns. So the column schema must come from Properties whenever
+        # it is present, regardless of whether a cell exists — otherwise
+        # those frames silently lose every column past x/y/z.
         classical = "lattice" not in global_info
 
         # ------------------------------------------------------------------
         # 2. Build column list + per-column dtype.
         # ------------------------------------------------------------------
-        if classical:
-            boundary = [0, 0, 0]
-            columns = ["element", "x", "y", "z"]
-            schema = {
-                "element": pl.Utf8,
-                "x": pl.Float64,
-                "y": pl.Float64,
-                "z": pl.Float64,
-            }
-        else:
-            if "properties" not in global_info:
-                raise ValueError(
-                    f"{filename}: extended XYZ must contain a 'properties=' field"
-                )
-
-            # Boundary: pbc="T T F" / pbc="1 1 0" / etc. Default fully PBC.
-            boundary = [1, 1, 1]
-            if "pbc" in global_info:
-                boundary = [
-                    1 if t in ("T", "1") else 0
-                    for t in global_info["pbc"].split()
-                ]
-
-            # Box: 9 reals = a/b/c stacked rows.
-            box_mat = np.array(global_info["lattice"].split(), float).reshape(3, 3)
-            origin = np.zeros(3, float)
-            if "origin" in global_info:
-                origin = np.array(global_info["origin"].split(), float)
-            box = np.vstack([box_mat, origin.reshape(1, 3)])
-
+        if "properties" in global_info:
             content = global_info["properties"].strip().split(":")
             columns, schema = [], {}
             DTYPE_MAP = {"S": pl.Utf8, "R": pl.Float64, "I": pl.Int32}
@@ -801,6 +780,40 @@ class BuildSystem:
                     columns.append(c)
                     schema[c] = dtype
                 i += 3
+        elif not classical:
+            raise ValueError(
+                f"{filename}: extended XYZ must contain a 'properties=' field"
+            )
+        else:
+            columns = ["element", "x", "y", "z"]
+            schema = {
+                "element": pl.Utf8,
+                "x": pl.Float64,
+                "y": pl.Float64,
+                "z": pl.Float64,
+            }
+
+        # Boundary: pbc="T T F" / pbc="1 1 0" / etc. Without an explicit
+        # pbc field a celled frame defaults to fully periodic and a
+        # cell-less frame to fully open.
+        if "pbc" in global_info:
+            boundary = [
+                1 if t in ("T", "1") else 0
+                for t in global_info["pbc"].split()
+            ]
+        else:
+            boundary = [0, 0, 0] if classical else [1, 1, 1]
+
+        origin = np.zeros(3, float)
+        if "origin" in global_info:
+            origin = np.array(global_info["origin"].split(), float)
+
+        # Box from Lattice= (9 reals = a/b/c stacked rows) when present;
+        # the cell-less case is filled in from the coordinate extents
+        # after the per-atom block is parsed (see below).
+        if not classical:
+            box_mat = np.array(global_info["lattice"].split(), float).reshape(3, 3)
+            box = np.vstack([box_mat, origin.reshape(1, 3)])
 
         # ------------------------------------------------------------------
         # 3. Parse the per-atom block.

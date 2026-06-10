@@ -1,6 +1,15 @@
 Release Notes
 ===============
 
+Mdapy 1.0.8a1 (June 10, 2026)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🐞 Bug Fixes
+-------------
+
+- Load XYZ files without cell information; Trajectory can now correctly read property data.
+
+
 Mdapy 1.0.7 (May 22, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

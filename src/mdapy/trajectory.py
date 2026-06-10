@@ -532,27 +532,22 @@ class XYZTrajectory(_TrajectoryListBase):
             value = match[1] if match[1] else match[2]
             global_info[key] = value
 
+        # "classical" here means *no explicit cell* — the box is derived
+        # from the coordinate extents rather than read from a Lattice=
+        # field. It is NOT the same as "has no per-column Properties":
+        # ASE/GPUMD write non-periodic frames (e.g. isolated monomers,
+        # pbc="F F F") that omit Lattice but still carry a full
+        # Properties string declaring force/energy columns. So the
+        # column schema must come from Properties whenever it is present,
+        # independent of whether a cell exists — otherwise those frames
+        # silently lose every column past x/y/z (forces, etc.).
         classical = "lattice" not in global_info
 
-        if not classical:
-            if "properties" not in global_info:
-                raise ValueError("Extended XYZ must contain 'properties'")
-
-            boundary = [1, 1, 1]
-            if "pbc" in global_info:
-                boundary = [
-                    1 if i in ("T", "1") else 0 for i in global_info["pbc"].split()
-                ]
-
-            box_array = np.array(global_info["lattice"].split(), float).reshape(3, 3)
-
-            origin = np.zeros(3, float)
-            if "origin" in global_info:
-                origin = np.array(global_info["origin"].split(), float)
-
+        if "properties" in global_info:
             columns, schema = self._parse_properties(global_info["properties"])
+        elif not classical:
+            raise ValueError("Extended XYZ must contain 'properties'")
         else:
-            boundary = [0, 0, 0]
             columns = ["element", "x", "y", "z"]
             schema = {
                 "element": pl.Utf8,
@@ -560,7 +555,20 @@ class XYZTrajectory(_TrajectoryListBase):
                 "y": pl.Float64,
                 "z": pl.Float64,
             }
-            origin = np.zeros(3, float)
+
+        if "pbc" in global_info:
+            boundary = [
+                1 if i in ("T", "1") else 0 for i in global_info["pbc"].split()
+            ]
+        else:
+            boundary = [0, 0, 0] if classical else [1, 1, 1]
+
+        origin = np.zeros(3, float)
+        if "origin" in global_info:
+            origin = np.array(global_info["origin"].split(), float)
+
+        if not classical:
+            box_array = np.array(global_info["lattice"].split(), float).reshape(3, 3)
 
         # Per-frame parsing strategy (chosen empirically; see the
         # benchmarks in tests/_generate_fixtures/README or the release

@@ -185,6 +185,75 @@ def test_synthetic_triclinic(k):
     _check_knn(s, k, sample_idx=list(range(0, 400, 23)))
 
 
+def _rotation_matrix(rng):
+    """A uniformly random proper rotation (QR of a Gaussian matrix)."""
+    q, r = np.linalg.qr(rng.normal(size=(3, 3)))
+    q *= np.sign(np.diag(r))
+    if np.linalg.det(q) < 0:
+        q[:, 0] = -q[:, 0]
+    return q
+
+
+def _diamond_fcc_primitive(n, a=3.567):
+    """Diamond lattice in its fcc-primitive (heavily slanted) cell."""
+    prim = 0.5 * a * np.array([[0.0, 1.0, 1.0],
+                               [1.0, 0.0, 1.0],
+                               [1.0, 1.0, 0.0]])
+    basis = np.array([[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]])
+    cells = np.stack(np.meshgrid(*[np.arange(n)] * 3, indexing="ij"),
+                     axis=-1).reshape(-1, 3)
+    frac = (cells[:, None, :] + basis[None, :, :]).reshape(-1, 3) / n
+    return frac, prim * n
+
+
+@pytest.mark.parametrize("k", [4, 12])
+@pytest.mark.parametrize("seed", [0, 1])
+def test_general_rotated_cell(k, seed):
+    """Cell vectors with arbitrary orientation (none axis-aligned).
+
+    Regression test for the kd-tree pruning bound: node bounds must be the
+    parallelepiped corners, not an axis-aligned AABB — the AABB version
+    grossly over-estimated min_dist_sq for rotated cells and silently
+    dropped true first-shell neighbors (e.g. GPUMD outputs whose lattice
+    is rotated relative to the lab frame).
+    """
+    rng = np.random.default_rng(seed)
+    frac, box_mat = _diamond_fcc_primitive(4)
+    box_mat = box_mat @ _rotation_matrix(rng)
+    pos = frac @ box_mat + rng.normal(0.0, 0.05, (len(frac), 3))
+    s = mp.System(pos=pos, box=Box(box_mat, boundary=[1, 1, 1]))
+    s.build_nearest_neighbor(k)
+    # Full-atom check: pruning errors hit scattered individual atoms, so
+    # spot-checking a handful of indices can easily miss them.
+    _check_knn(s, k, sample_idx=list(range(s.N)))
+
+
+@pytest.mark.parametrize("k", [4, 12])
+def test_triclinic_atoms_outside_box(k):
+    """Atoms slightly outside a triclinic box must not match themselves.
+
+    Regression test for the exact `d2 == 0.0` self-exclusion: the wrap
+    applied at tree build used a different floating-point operation order
+    than the query-time image shifts, so an atom outside the box found its
+    own wrapped image at a distance of ~1e-15 and the true k-th neighbor
+    was pushed out of the list.
+    """
+    rng = np.random.default_rng(7)
+    frac, box_mat = _diamond_fcc_primitive(3)
+    # Gaussian noise pushes boundary atoms slightly outside the box.
+    pos = frac @ box_mat + rng.normal(0.0, 0.05, (len(frac), 3))
+    red = pos @ np.linalg.inv(box_mat)
+    assert np.any((red < 0) | (red >= 1)), "fixture should have outside atoms"
+    s = mp.System(pos=pos, box=Box(box_mat, boundary=[1, 1, 1]))
+    s.build_nearest_neighbor(k)
+    for i in range(s.N):
+        assert i not in s.verlet_list[i, :k], (
+            f"atom {i} returned itself as a neighbor "
+            f"(d={s.distance_list[i, 0]})"
+        )
+    _check_knn(s, k, sample_idx=list(range(s.N)))
+
+
 def test_small_box_replication():
     """k larger than N forces internal replication."""
     rng = np.random.default_rng(0)

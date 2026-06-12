@@ -75,9 +75,35 @@ inline void absolute_to_reduced(const Box& box, const double p[3], double out[3]
     out[2] = p[0] * box.data[11] + p[1] * box.data[14] + p[2] * box.data[17];
 }
 
-// Outward face normal of the cell face perpendicular to axis `dim`, with
-// length 1 / thickness so that normal · (point - corner) gives the signed
-// distance in absolute units. (See Ovito's cellNormalVector.)
+// Wrap an absolute point into the primary cell along periodic axes,
+// updating `p` in place and returning the wrapped reduced coordinate in
+// `r`. Used by both the tree build and the queries. IMPORTANT: the leaf
+// scans exclude the query atom itself via an exact `d2 == 0.0` test, so a
+// wrapped query point must be bitwise identical to the wrapped copy of the
+// same atom stored in the tree — both sides must go through *this exact
+// sequence of floating-point operations* (a mathematically equivalent
+// formula with a different operation order rounds differently).
+inline void wrap_triclinic(const Box& box, double p[3], double r[3]) {
+    absolute_to_reduced(box, p, r);
+    for (int d = 0; d < 3; ++d) {
+        if (box.boundary[d]) {
+            double s = std::floor(r[d]);
+            if (s != 0.0) {
+                r[d] -= s;
+                p[0] -= s * box.data[d * 3 + 0];
+                p[1] -= s * box.data[d * 3 + 1];
+                p[2] -= s * box.data[d * 3 + 2];
+            }
+        }
+    }
+}
+
+// Unit normal of the cell faces perpendicular (in reduced space) to axis
+// `dim`, oriented so that normal · box_vector[dim] > 0. With that
+// orientation, for any point x inside a reduced slab rmn[dim] ≤ s ≤
+// rmx[dim] the signed distances normal·(x - corner_min) and
+// normal·(corner_max - x) are both non-negative, which is what
+// min_dist_sq() relies on. (See Ovito's cellNormalVector.)
 static Vec3 cell_normal(const Box& box, int dim) {
     const double* a = box.data + 0;
     const double* b = box.data + 3;
@@ -99,9 +125,10 @@ static Vec3 cell_normal(const Box& box, int dim) {
     }
     double L2 = cross.x * cross.x + cross.y * cross.y + cross.z * cross.z;
     double inv = (L2 > 0.0) ? 1.0 / std::sqrt(L2) : 0.0;
-    // Length of the box vector along `dim` projected onto this normal is
-    // |volume| / cross_length, so dividing by that length gives a normal
-    // with the right magnitude for signed distance ⇒ scale by 1/thickness.
+    // Flip for left-handed cells so the normal always points towards
+    // increasing reduced coordinate along `dim`.
+    const double* v = box.data + dim * 3;
+    if (cross.x * v[0] + cross.y * v[1] + cross.z * v[2] < 0.0) inv = -inv;
     return Vec3{cross.x * inv, cross.y * inv, cross.z * inv};
 }
 
@@ -170,7 +197,10 @@ struct Node {
     int atom_begin = 0;
     int atom_end   = 0;
 
-    // Bounds of this node in absolute coordinates (axis-aligned).
+    // Node bounds. During build: reduced-coordinate AABB. After build:
+    // the absolute positions of the reduced-min/max corners of the node's
+    // parallelepiped (consumed by min_dist_sq together with the cell face
+    // normals).
     double bmn[3]{0.0, 0.0, 0.0};
     double bmx[3]{0.0, 0.0, 0.0};
 };
@@ -252,18 +282,7 @@ public:
             for (long long i = 0; i < (long long)N; ++i) {
                 double p[3] = { x[i], y[i], z[i] };
                 double r[3];
-                absolute_to_reduced(box_, p, r);
-                for (int d = 0; d < 3; ++d) {
-                    if (box_.boundary[d]) {
-                        double s = std::floor(r[d]);
-                        if (s != 0.0) {
-                            r[d] -= s;
-                            p[0] -= s * box_.data[d * 3 + 0];
-                            p[1] -= s * box_.data[d * 3 + 1];
-                            p[2] -= s * box_.data[d * 3 + 2];
-                        }
-                    }
-                }
+                wrap_triclinic(box_, p, r);
                 atoms_[i] = Atom{p[0], p[1], p[2], static_cast<int>(i)};
                 red_[i] = { r[0], r[1], r[2] };
             }
@@ -342,30 +361,20 @@ public:
         red_.clear();   red_.shrink_to_fit();
 
         // Convert all node bounds from reduced to absolute coordinates.
+        // A node covers the *parallelepiped* {s·M : rmn ≤ s ≤ rmx}; store
+        // the absolute positions of its reduced-min and reduced-max corners.
+        // min_dist_sq() dots the cell face normals against these corners,
+        // and that formula is only exact for the true parallelepiped
+        // corners: the components along the other two cell vectors cancel
+        // against the face normal. (An axis-aligned AABB over all 8 corners
+        // breaks that cancellation and can grossly *over*-estimate the
+        // bound for rotated/tilted cells, pruning away true neighbors.)
         for (Node& n : nodes_) {
             double cmn[3] = { n.bmn[0], n.bmn[1], n.bmn[2] };
             double cmx[3] = { n.bmx[0], n.bmx[1], n.bmx[2] };
-            // For each of the 8 corners of the reduced AABB, transform to
-            // absolute coords and rebuild an axis-aligned absolute AABB.
-            double amn[3] = { std::numeric_limits<double>::infinity(),
-                              std::numeric_limits<double>::infinity(),
-                              std::numeric_limits<double>::infinity() };
-            double amx[3] = { -std::numeric_limits<double>::infinity(),
-                              -std::numeric_limits<double>::infinity(),
-                              -std::numeric_limits<double>::infinity() };
-            for (int corner = 0; corner < 8; ++corner) {
-                double r[3] = {
-                    (corner & 1) ? cmx[0] : cmn[0],
-                    (corner & 2) ? cmx[1] : cmn[1],
-                    (corner & 4) ? cmx[2] : cmn[2]
-                };
-                double a[3];
-                reduced_to_absolute(box_, r, a);
-                for (int d = 0; d < 3; ++d) {
-                    if (a[d] < amn[d]) amn[d] = a[d];
-                    if (a[d] > amx[d]) amx[d] = a[d];
-                }
-            }
+            double amn[3], amx[3];
+            reduced_to_absolute(box_, cmn, amn);
+            reduced_to_absolute(box_, cmx, amx);
             for (int d = 0; d < 3; ++d) { n.bmn[d] = amn[d]; n.bmx[d] = amx[d]; }
         }
     }
@@ -397,11 +406,22 @@ public:
     void query(const double q_orig[3], int self_index, TopK& heap,
                const std::vector<std::array<double, 3>>& pbc_shifts) const
     {
+        // Wrap the query point into the primary cell with the same code
+        // path used when the tree atoms were wrapped. This (a) makes the
+        // exact `d2 == 0.0` self-exclusion in the leaf scan reliable for
+        // atoms that lie outside the box (the zero shift is processed
+        // first, where q is bitwise identical to the stored wrapped self
+        // atom), and (b) keeps query points that are arbitrarily far
+        // outside the box within reach of the finite image-shift list.
+        double qw[3] = { q_orig[0], q_orig[1], q_orig[2] };
+        double rscratch[3];
+        wrap_triclinic(box_, qw, rscratch);
+
         for (const auto& shift : pbc_shifts) {
             double q[3] = {
-                q_orig[0] - shift[0],
-                q_orig[1] - shift[1],
-                q_orig[2] - shift[2]
+                qw[0] - shift[0],
+                qw[1] - shift[1],
+                qw[2] - shift[2]
             };
             // Skip this image entirely if its closest-possible reach is
             // already farther than the current k-th best.
@@ -720,11 +740,31 @@ public:
     void query(const double q_orig[3], int self_idx, TopK& heap,
                const std::vector<std::array<double, 3>>& shifts) const
     {
+        // Wrap the query point with the exact same arithmetic used in
+        // build() so the `d2 == 0.0` self-exclusion stays exact, and so
+        // query points far outside the box remain within reach of the
+        // finite image-shift list.
+        double qw[3] = { q_orig[0], q_orig[1], q_orig[2] };
+        const double Lx = box_.data[0], Ly = box_.data[4], Lz = box_.data[8];
+        const double invLx = 1.0 / Lx, invLy = 1.0 / Ly, invLz = 1.0 / Lz;
+        if (box_.boundary[0]) {
+            double s = std::floor((qw[0] - box_.origin[0]) * invLx);
+            if (s != 0.0) qw[0] -= s * Lx;
+        }
+        if (box_.boundary[1]) {
+            double s = std::floor((qw[1] - box_.origin[1]) * invLy);
+            if (s != 0.0) qw[1] -= s * Ly;
+        }
+        if (box_.boundary[2]) {
+            double s = std::floor((qw[2] - box_.origin[2]) * invLz);
+            if (s != 0.0) qw[2] -= s * Lz;
+        }
+
         for (const auto& shift : shifts) {
             double q[3] = {
-                q_orig[0] - shift[0],
-                q_orig[1] - shift[1],
-                q_orig[2] - shift[2]
+                qw[0] - shift[0],
+                qw[1] - shift[1],
+                qw[2] - shift[2]
             };
             // Per-image whole-domain prune.
             if (heap.full() && bbox_min_dist_sq(q) >= heap.worst()) continue;

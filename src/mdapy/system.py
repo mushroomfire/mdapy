@@ -45,7 +45,6 @@ from typing import Optional, Dict, TYPE_CHECKING, Union, Iterable, Any, List, Tu
 import numpy as np
 import polars as pl
 
-
 if TYPE_CHECKING:
     from ase import Atoms
     from ovito.data import DataCollection
@@ -237,10 +236,19 @@ class System:
         # these attrs exist yet, so the hasattr guards make this a no-op.
         if isinstance(getattr(self, "_System__calc", None), CalculatorMP):
             self.__calc.results = {}
-        for attr in ("verlet_list", "neighbor_number", "distance_list", "rc",
-                     "bond", "voro_verlet_list", "voro_distance_list",
-                     "voro_face_area", "voro_neighbor_number",
-                     "_enlarge_box", "_enlarge_data"):
+        for attr in (
+            "verlet_list",
+            "neighbor_number",
+            "distance_list",
+            "rc",
+            "bond",
+            "voro_verlet_list",
+            "voro_distance_list",
+            "voro_face_area",
+            "voro_neighbor_number",
+            "_enlarge_box",
+            "_enlarge_data",
+        ):
             if hasattr(self, attr):
                 delattr(self, attr)
 
@@ -416,8 +424,7 @@ class System:
         assert "element" in self.data.columns, "Data must contain element column."
         for i in self.data["element"].unique():
             assert i in element_list, (
-                f"element_list must include element {i!r} "
-                "(seen in data['element'])."
+                f"element_list must include element {i!r} (seen in data['element'])."
             )
         ele2type = {j: i for i, j in enumerate(element_list, start=1)}
         self.update_data(
@@ -735,6 +742,7 @@ class System:
         """
         if reset_calcolator is not None:
             import warnings
+
             warnings.warn(
                 "`reset_calcolator` is a misspelling and is deprecated; "
                 "use `reset_calculator` instead.",
@@ -1264,7 +1272,9 @@ class System:
 
     @staticmethod
     def _normalize_bond_cutoff(
-        rc: Union[float, Dict[Tuple[Union[int, str], Union[int, str]], float], np.ndarray],
+        rc: Union[
+            float, Dict[Tuple[Union[int, str], Union[int, str]], float], np.ndarray
+        ],
         data: pl.DataFrame,
     ) -> Tuple[float, np.ndarray, np.ndarray]:
         if np.isscalar(rc):
@@ -1294,7 +1304,9 @@ class System:
             compact_type = np.searchsorted(unique_labels, labels).astype(np.int32)
             ntype = unique_labels.shape[0]
             cutoff_matrix = np.full((ntype, ntype), -1.0, float)
-            label_to_index = {value: idx for idx, value in enumerate(unique_labels.tolist())}
+            label_to_index = {
+                value: idx for idx, value in enumerate(unique_labels.tolist())
+            }
             for pair, cutoff in rc.items():
                 assert len(pair) == 2, "pairwise rc key should have two type indices."
                 i, j = pair[0], pair[1]
@@ -1323,9 +1335,10 @@ class System:
             ntype = unique_labels.shape[0]
             cutoff_matrix = np.asarray(rc, float)
             assert cutoff_matrix.ndim == 2, "pairwise rc should be a 2D array."
-            assert cutoff_matrix.shape == (ntype, ntype), (
-                f"pairwise rc shape should be {(ntype, ntype)}."
-            )
+            assert cutoff_matrix.shape == (
+                ntype,
+                ntype,
+            ), f"pairwise rc shape should be {(ntype, ntype)}."
             assert np.all(cutoff_matrix > 0), "pairwise rc should be larger than 0."
 
         return float(cutoff_matrix.max()), compact_type, cutoff_matrix
@@ -1565,9 +1578,7 @@ class System:
             self.neighbor_number,
         )
         cp.compute()
-        self.update_data(
-            self.__data.with_columns(chill_plus=cp.pattern[: self.N])
-        )
+        self.update_data(self.__data.with_columns(chill_plus=cp.pattern[: self.N]))
 
     def cal_common_neighbor_parameter(
         self, rc: float, max_neigh: Optional[int] = None
@@ -2281,10 +2292,10 @@ class System:
                 thickness = box.get_thickness()
             except AttributeError:
                 thickness = np.linalg.norm(box.box, axis=1)
-            periodic_thicknesses = [
-                thickness[i] for i in range(3) if box.boundary[i]
-            ]
-            min_thick = min(periodic_thicknesses) if periodic_thicknesses else float("inf")
+            periodic_thicknesses = [thickness[i] for i in range(3) if box.boundary[i]]
+            min_thick = (
+                min(periodic_thicknesses) if periodic_thicknesses else float("inf")
+            )
             streaming = rc >= min_thick / 3.0
 
         # Pick species labels for the partial-RDF dict keys: prefer chemical

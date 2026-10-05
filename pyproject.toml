@@ -49,8 +49,8 @@ Homepage = "https://github.com/mushroomfire/mdapy"
 plot = ["matplotlib"]
 k3d = ["k3d"]
 pyfftw = ["pyfftw"]
-phonopy = ["phonopy"]
-all = ["matplotlib", "k3d", "pyfftw", "phonopy"]
+phonopy = ["phonopy", "seekpath"]
+all = ["matplotlib", "k3d", "pyfftw", "phonopy", "seekpath"]
 
 [tool.scikit-build]
 minimum-version = "0.4"

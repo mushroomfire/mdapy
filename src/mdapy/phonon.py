@@ -12,6 +12,7 @@ except ImportError:
 
 from mdapy.system import System
 from mdapy.calculator import CalculatorMP
+from mdapy.data import atomic_numbers
 import numpy as np
 import polars as pl
 
@@ -28,19 +29,30 @@ class Phonon:
 
     Parameters
     ----------
-    path : str or list-like
-        Path specification in reciprocal coordinates. If a string, it is split by
-        whitespace and interpreted as a flat list of floats which is then
-        reshaped into (1, npoints, 3). If a list is provided it must be
-        convertible to shape (1, npoints, 3).
-    labels : str or List[str]
-        Labels corresponding to q-points on the path. If a single string it is
-        split by whitespace.
+    path : str or list-like, optional
+        Band-path specification in reciprocal (fractional) coordinates. Several
+        forms are accepted:
+
+        * ``"auto"`` / ``"seekpath"`` (default) -- the standard high-symmetry
+          path is generated automatically from ``unitcell`` with seekpath,
+          including any path discontinuities (e.g. fcc ``U|K``). ``labels`` is
+          then filled in automatically and may be left as ``None``.
+        * a single whitespace-separated string of floats (or a flat list /
+          ``(n, 3)`` array) -- a single *continuous* path, as before.
+        * a list of such strings/arrays -- each item is a continuous sub-path;
+          consecutive sub-paths are drawn with a *discontinuity* between them.
+          This is how a broken path such as ``... U | K ...`` is specified by
+          hand.
+    labels : str or List[str], optional
+        Labels of the high-symmetry q-points. A single string is split on
+        whitespace. For a discontinuous manual path, pass a list with one
+        string/list per sub-path. Ignored (and auto-generated) when
+        ``path="auto"``.
     unitcell : System
         The primitive/unit cell wrapped in MDAPY `System`. Must have a
         `calc` attribute set to a `CalculatorMP` instance.
     symprec : float, optional
-        Symmetry tolerance passed to Phonopy (default: 1e-5).
+        Symmetry tolerance passed to Phonopy and seekpath (default: 1e-5).
     repeat : list of int, optional
         Supercell repeat vector. If None, computed automatically based on box
         thickness to reach ~15 Å in each direction.
@@ -48,30 +60,43 @@ class Phonon:
         Finite displacement distance for generating supercells (default: 0.01).
     cutoff : float, optional
         If set, zero force constants beyond this radius (in same units as cell).
+    with_time_reversal : bool, optional
+        Passed to seekpath when ``path="auto"`` (default: True).
+
+    Notes
+    -----
+    With ``path="auto"`` the q-points come from seekpath's standardized
+    primitive cell. For the standardized conventional cells produced by
+    :func:`mdapy.build_crystal` this matches Phonopy's auto primitive cell, so
+    the labels line up with the computed bands.
     """
 
     def __init__(
         self,
-        path: Union[str, List[float], List[List[float]]],
-        labels: Union[str, List[str]],
-        unitcell: System,
+        path: Union[str, List[float], List[List[float]], None] = "auto",
+        labels: Union[str, List[str], None] = None,
+        unitcell: System = None,
         symprec: float = 1e-5,
         repeat: Optional[List[int]] = None,
         displacement: float = 0.01,
         cutoff: Optional[float] = None,
+        with_time_reversal: bool = True,
     ) -> None:
-        if isinstance(path, str):
-            self.path = np.array(path.split(), float).reshape(1, -1, 3)
+        assert unitcell is not None, "Must provide a unitcell."
+        # Resolve the band path into a list of continuous sub-paths
+        # (``band_paths``) plus a flat list of point labels (``self.labels``).
+        if isinstance(path, str) and path.lower() in ("auto", "seekpath"):
+            self.band_paths, self.labels = self._seekpath_band_path(
+                unitcell, symprec, with_time_reversal
+            )
         else:
-            assert len(path[0]) == 3
-            self.path = np.array(path).reshape(1, -1, 3)
-        if isinstance(labels, str):
-            self.labels = labels.split()
-        else:
-            self.labels = labels
-        assert len(self.labels) == self.path.shape[1], (
-            "The length of path should be equal to labels."
+            self.band_paths, self.labels = self._parse_manual_path(path, labels)
+        assert sum(len(r) for r in self.band_paths) == len(self.labels), (
+            "The number of labels should equal the number of path points."
         )
+        # Filled by ``compute_band_structure``; one bool per segment, False at a
+        # path discontinuity.
+        self.connections: Optional[List[bool]] = None
         self.unitcell = unitcell
         assert isinstance(self.unitcell.calc, CalculatorMP), (
             "Must set calculator for unitcell."
@@ -105,6 +130,90 @@ class Phonon:
         ]
         # Build force constants immediately
         self.get_force_constants()
+
+    # ------------------------------------------------------------------
+    # Band-path construction
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _format_label(label: str) -> str:
+        """Turn a seekpath label into a matplotlib-friendly string."""
+        if label.upper() == "GAMMA":
+            return r"$\Gamma$"
+        if "_" in label:  # e.g. ``H_2`` -> ``$H_2$``
+            return f"${label}$"
+        return label
+
+    def _seekpath_band_path(
+        self, unitcell: System, symprec: float, with_time_reversal: bool
+    ) -> Tuple[List[np.ndarray], List[str]]:
+        """
+        Generate the standard high-symmetry band path with seekpath.
+
+        Returns
+        -------
+        band_paths : list of (n_i, 3) ndarray
+            One array of high-symmetry q-points per *continuous* sub-path; a
+            break between consecutive arrays marks a path discontinuity.
+        labels : list of str
+            Flat list of formatted labels, one per q-point across all
+            sub-paths.
+        """
+        try:
+            import seekpath
+        except ImportError:
+            raise ImportError("path='auto' needs seekpath: pip install seekpath")
+        cell = np.asarray(unitcell.box.box, float)
+        frac = unitcell.get_positions().to_numpy() @ np.linalg.inv(cell)
+        numbers = [atomic_numbers[e] for e in unitcell.data["element"].to_numpy()]
+        res = seekpath.get_path(
+            (cell.tolist(), frac.tolist(), numbers),
+            with_time_reversal=with_time_reversal,
+            symprec=symprec,
+        )
+        pc, path = res["point_coords"], res["path"]
+
+        band_paths, labels = [], []
+        run_pts, run_lab = [np.array(pc[path[0][0]], float)], [path[0][0]]
+        for i, (a, b) in enumerate(path):
+            if i > 0 and path[i - 1][1] != a:  # discontinuity: close current run
+                band_paths.append(np.array(run_pts, float))
+                labels.extend(run_lab)
+                run_pts, run_lab = [np.array(pc[a], float)], [a]
+            run_pts.append(np.array(pc[b], float))
+            run_lab.append(b)
+        band_paths.append(np.array(run_pts, float))
+        labels.extend(run_lab)
+        return band_paths, [self._format_label(l) for l in labels]
+
+    @staticmethod
+    def _parse_manual_path(
+        path: Union[str, List], labels: Union[str, List[str], None]
+    ) -> Tuple[List[np.ndarray], List[str]]:
+        """Parse a user-supplied (possibly discontinuous) band path."""
+        assert labels is not None, "labels are required for a manual path."
+        # Decide whether ``path`` holds several sub-paths (discontinuous) or a
+        # single continuous one. Multi-run if the first item is a string or a
+        # 2D block of q-points; single run if it is a scalar or a 3-vector.
+        multirun = False
+        if not isinstance(path, str) and len(path):
+            first = path[0]
+            multirun = isinstance(first, str) or np.asarray(first).ndim >= 2
+        if multirun:
+            runs, run_labels = path, labels
+        else:  # single continuous path
+            runs, run_labels = [path], [labels]
+
+        band_paths, flat_labels = [], []
+        for p, lab in zip(runs, run_labels):
+            if isinstance(p, str):
+                pts = np.array(p.split(), float).reshape(-1, 3)
+            else:
+                pts = np.array(p, float).reshape(-1, 3)
+            lab = lab.split() if isinstance(lab, str) else list(lab)
+            assert len(lab) == len(pts), "Each sub-path needs one label per q-point."
+            band_paths.append(pts)
+            flat_labels.extend(lab)
+        return band_paths, flat_labels
 
     def _system2phononAtoms(self, system: System) -> PhonopyAtoms:
         """
@@ -196,8 +305,9 @@ class Phonon:
         `get_band_structure_dict()`.
         """
         qpoints, connections = get_band_qpoints_and_path_connections(
-            self.path, npoints=npoints
+            self.band_paths, npoints=npoints
         )
+        self.connections = connections
         self.phonon.run_band_structure(
             qpoints, path_connections=connections, labels=self.labels
         )
@@ -416,7 +526,7 @@ class Phonon:
 
         frequencies = self.band_dict["frequencies"]
         distances = self.band_dict["distances"]
-        xticks = [distances[0][0]] + [i[-1] for i in distances]
+        xticks, xlabels = self._xticks_and_labels()
         if fig is None and ax is None:
             from mdapy.plotset import set_figure
 
@@ -426,12 +536,39 @@ class Phonon:
             for band in f.T:
                 ax.plot(d, band, c="grey")
 
+        # vertical guide lines at the high-symmetry q-points
+        for xt in xticks:
+            ax.axvline(xt, c="grey", lw=0.5)
         ax.set_xlim(xticks[0], xticks[-1])
         ax.set_xticks(xticks)
-        ax.set_xticklabels(self.labels)
+        ax.set_xticklabels(xlabels)
         ax.set_ylabel("Frequency (THz)")
 
         return fig, ax
+
+    def _xticks_and_labels(self) -> Tuple[List[float], List[str]]:
+        """Tick positions and labels, merging ``X|Y`` at path discontinuities."""
+        distances = self.band_dict["distances"]
+        connections = self.connections
+        labels = self.labels
+        if connections is None:  # single continuous path fallback
+            connections = [True] * (len(distances) - 1) + [False]
+
+        positions = [distances[0][0]]
+        out_labels = [labels[0]]
+        li = 1
+        for i, connected in enumerate(connections):
+            positions.append(distances[i][-1])
+            if connected:  # interior high-symmetry point
+                out_labels.append(labels[li])
+                li += 1
+            elif i < len(connections) - 1:  # discontinuity: merge both labels
+                out_labels.append(f"{labels[li]}|{labels[li + 1]}")
+                li += 2
+            else:  # final point
+                out_labels.append(labels[li])
+                li += 1
+        return positions, out_labels
 
 
 if __name__ == "__main__":
@@ -442,12 +579,9 @@ if __name__ == "__main__":
     Al.calc = NEP("tests/input_files/UNEP-v1.txt")
     fy = FIRE(Al, optimize_cell=True)
     fy.run(100, show_process=False)
-    pho = Phonon(
-        path="0.0 0.0 0.0 0.5 0.0 0.5 0.625 0.25 0.625 0.375 0.375 0.75 0.0 0.0 0.0 0.5 0.5 0.5",
-        labels="$\\Gamma$ X U K $\\Gamma$ L",
-        unitcell=Al,
-        symprec=1e-3,
-    )
+    # path="auto" builds the standard seekpath high-symmetry path
+    # (with the fcc U|K discontinuity) automatically.
+    pho = Phonon(path="auto", unitcell=Al, symprec=1e-3)
     pho.compute_band_structure()
     pho.plot_band_structure()
     plt.show()

@@ -1,14 +1,49 @@
 Release Notes
 ===============
 
-Mdapy 1.0.8a1 (June 12, 2026)
+Mdapy 1.0.8a1 (October 5, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🏆 New Features
+----------------
+
+- :func:`mdapy.get_elastic_constant` supports 2D materials with
+  ``dim=2``. The layer must lie in the xy plane with vacuum along the
+  third cell vector. Only the in-plane cell is relaxed and only in-plane
+  strains (xx, yy, xy) are applied. The result is a new
+  :class:`mdapy.elastic.ElasticTensor2D` (3x3, in N/m), which does not
+  depend on the vacuum thickness. It provides 2D Voigt-Reuss-Hill
+  averages (layer modulus, shear modulus, Young's modulus, Poisson's
+  ratio), ``engineering_constants()`` (E_x, E_y, nu_xy, nu_yx, G_xy),
+  a Born stability check ``is_stable()`` and ``to_gpa(thickness)``.
+  For DFT workflows, use ``DeformedStructureSet(system, dim=2)`` and
+  ``ElasticTensor2D.from_independent_strains(..., height=...)``. In 2D
+  the default shear strain is ±1% (3D keeps ±6%), because large shear
+  strains underestimate C66 of soft sheets such as graphene.
+
+- :class:`mdapy.phonon.Phonon` builds the band path automatically:
+  ``path="auto"`` (the new default) generates the standard
+  high-symmetry path with seekpath, including path breaks such as fcc
+  ``U|K``, and fills in ``labels``. Manual paths can now be
+  discontinuous: pass a list of sub-paths, one label string per
+  sub-path. The band-structure plot merges labels at a break
+  (``U|K``) and draws vertical lines at high-symmetry points.
+  ``seekpath`` is added to the ``phonopy`` and ``all`` extras.
+
+🔧 API Changes
+---------------
+
+- :class:`mdapy.phonon.Phonon`: ``path`` defaults to ``"auto"`` and
+  ``labels`` is optional. Existing calls that pass a path string and
+  labels work as before.
 
 🐞 Bug Fixes
 -------------
 
 - Load XYZ files without cell information; Trajectory can now correctly read property data.
 - kNN now can correctly handle general triclinic box.
+- :class:`mdapy.minimizer.FIRE` accepts ``mask`` as a plain list, as
+  documented; it used to raise ``AttributeError``.
 
 Mdapy 1.0.7 (May 22, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

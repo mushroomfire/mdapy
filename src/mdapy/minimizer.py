@@ -173,7 +173,7 @@ class FIRE:
                 mask = np.ones((3, 3))
             elif len(mask) == 6:
                 mask = _voigt_6_to_full_3x3_stress(mask)
-            self.mask = mask
+            self.mask = np.asarray(mask, dtype=float)
         else:
             self.orig_box = None
             self.cell_factor = None

@@ -27,7 +27,7 @@ reading and writing.
 ## Sign conventions
 
 - **Stress** is positive under tension:
-  \(\sigma_{\alpha\beta} = -\frac{1}{V}\frac{\partial E}{\partial \varepsilon_{\alpha\beta}}\).
+  \(\sigma_{\alpha\beta} = \frac{1}{V}\frac{\partial E}{\partial \varepsilon_{\alpha\beta}}\).
 - **Pressure** is \(p = -\frac{1}{3}\operatorname{tr}\sigma\), positive under
   compression.
 - **Virial** is \(W = -V\sigma\), in eV, positive under compression (the GPUMD

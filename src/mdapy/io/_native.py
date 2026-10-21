@@ -241,6 +241,42 @@ def _write(file: BinaryIO, systems: Iterable[System]) -> None:
 # ---------------------------------------------------------------- reading
 
 
+class _BufferFile(io.RawIOBase):
+    """A read-only file over bytes or an mmap, without copying them. (An mmap
+    itself has no seekable() before Python 3.13, which zipfile needs.)"""
+
+    def __init__(self, buffer):
+        self._buffer = buffer
+        self._position = 0
+
+    def readable(self) -> bool:
+        return True
+
+    def seekable(self) -> bool:
+        return True
+
+    def tell(self) -> int:
+        return self._position
+
+    def seek(self, offset: int, whence: int = io.SEEK_SET) -> int:
+        start = {
+            io.SEEK_SET: 0,
+            io.SEEK_CUR: self._position,
+            io.SEEK_END: len(self._buffer),
+        }
+        position = start[whence] + offset
+        if position < 0:
+            raise OSError("negative seek position")  # as for a real file
+        self._position = position
+        return position
+
+    def readinto(self, target) -> int:
+        data = self._buffer[self._position : self._position + len(target)]
+        target[: len(data)] = data
+        self._position += len(data)
+        return len(data)
+
+
 class _Archive:
     """The members of an mdapy file, also when it was not closed properly."""
 
@@ -249,11 +285,9 @@ class _Archive:
         buffer = source.buffer
         self._buffer = buffer
         try:
-            self._zip = zipfile.ZipFile(
-                io.BytesIO(buffer) if isinstance(buffer, bytes) else buffer
-            )
+            self._zip = zipfile.ZipFile(_BufferFile(buffer))
             self.members = None
-        except (zipfile.BadZipFile, ValueError):
+        except zipfile.BadZipFile:
             # No central directory: the writer stopped. Read the local headers.
             self._zip = None
             self.members = _local_members(buffer)

@@ -36,3 +36,33 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - **LAMMPS dump（文本 atom/custom）完成并已推送**：多帧、UNITS 只在第一帧、TIME、三斜外接盒换算、一般三斜、缩放/展开坐标、`c_x[1..k]` 合并成数组列。用 LAMMPS 2026 实测了两个方向（LAMMPS 写→mdapy 读逐位一致；mdapy 写→LAMMPS `read_dump` 一致）。
 - 正在做 POSCAR/CONTCAR，测试写好了，还在修几个细节。
 
+### 23:16
+- **今晚计划内的读写部分全部完成并已推送：** LAMMPS dump、VASP POSCAR/CONTCAR、`.mdapy` 原生格式、惰性轨迹 `read_trajectory`。每项都有测试、文档页和发布说明，新文件覆盖率都是 100%。
+  - POSCAR：支持三种缩放系数、POTCAR 标签、Selective dynamics（存成 `movable` 列）、CONTCAR 速度块；用 ASE 双向验证过。
+  - `.mdapy`：ZIP+Parquet，所有列类型和 info 都能精确往返；`frames.parquet` 可以直接读出整条轨迹的能量等；写到一半进程被杀，也能从各帧的元数据恢复。
+  - 轨迹：按需扫描，切片共享同一个打开的文件，不再引用时自动关闭文件。
+- **邻居列表草稿在分支 `neighbor-draft`（未合并）：** 支持任意盒子，盒子比截断半径小也行，结果和暴力枚举逐位一致，和线程数无关。25.6 万个原子、截断 5 Å，单线程 0.39 s，10 线程 0.13 s。API 明天给你确认。
+- 修了 Python 3.10 才有的问题：3.10 的 mmap 没有 `seekable()`。本地在建 3.10 环境，以后提交前先跑一遍。
+
+### 23:29
+- **计算器草稿在分支 `calculator-draft`（基于 `neighbor-draft`，未合并）：**
+  - 接口：`Calculator`、`CalculatorResult`，有 energy、atomic_energies、forces、virial、atomic_virials，`stress()` 给 GPa，`attach()` 把结果写回 System。
+  - 通用检查工具 `mdapy.calculators.testing.check_calculator(calc, system)`：检查求和一致、力和 virial 与有限差分一致、平移/旋转/重排不变、超胞能量加倍、传入邻居列表结果不变。torchnep 那边可以直接拿来测。每一项都用故意写错的计算器验证过能抓到错误。
+  - `EAM`（C++）：读 LAMMPS eam/alloy 文件，样条插值和 LAMMPS 一样。和独立的 NumPy 实现相差 1e-11；和 LAMMPS 2026 本机实测相比，能量差 1e-12，力和 virial 差 1e-9。比较 virial 时发现 LAMMPS metal 单位用的换算常数是四舍五入过的（1.6021765e6），测试里已注明。
+  - 所有 C++ 编译时关闭了 FMA 合并，同样的输入在不同编译器和 CPU 上结果逐位相同（邻居列表分支里改的）。
+- 接下来做 FIRE 最小化（含晶胞弛豫），同样放在草稿分支。
+
+### 23:58
+- **`mdapy.minimize` 草稿已推送到 `calculator-draft`**：FIRE（参数同 ASE），每个原子单步位移有上限，可传回调中途停止，结果和线程数无关。测试：谐振子二聚体收敛到键长（1e-8 Å），扰动过的 fcc 弛豫回完美晶格。**目前只弛豫原子位置，不动晶胞**：晶胞弛豫的收敛判据（应力阈值、是否保持形状）要和你商量，所以先没做。
+- **开始写 NEP 计算器草稿**（新分支 `nep-draft`）。为避免 GPL 代码进 BSD 的 mdapy，所有常数都由我自己从数学定义推导：角向用正交实球谐，三体项 $q_{nl}=\sum_m A_{nlm}^2$，四体项由 Wigner 3j 耦合得到，五体项正好等于 $\tfrac{7}{15}q_{n1}^2$（中间耦合 L=0,1,2 求和）。推导结果和 GPUMD 的常数表逐项一致（相对差 1e-12，来自对方表格只印了 15 位）。
+- 测试计划：独立的 NumPy 参考实现（角向用 Legendre 双重求和，与 C++ 路线不同），对比 GPUMD 的描述符、能量、力、virial 参考数据（测试时从本地 torchnep 目录读取，不复制文件），再加 `check_calculator`。
+
+### 00:58
+- **NEP 计算器草稿完成并已推送到分支 `nep-draft`**（基于 `calculator-draft`，未合并）：`NEP("nep.txt")` 支持 nep4 / nep4_zbl、三种 ZBL（通用、按元素截断、flexible）、每种元素单独截断半径，能算能量、力、virial、每原子 virial，`NEP.descriptors(system)` 直接给描述符。C++ 实现，结果和线程数无关。
+- **精度**：和 NEP_CPU（双精度）对比 14 个势函数（1~4 种元素、各种 ZBL），能量、力、virial、每原子 virial 都相差约 1e-13（相对最大值），最大的力 2.4e5 eV/Å 也一样。和 GPUMD（单精度、只打印 6 位）对比，能量差 1e-5 eV/原子。NumPy 参考实现和 C++ 描述符差 1e-15。
+  - 中途发现：GPUMD 的 ZBL 屏蔽长度常数用的是四舍五入的 2.134563（不是 1/0.46848），不照搬的话大 ZBL 能量会差 1e-7 相对误差，已注明。
+- **性能**：5.5 万原子、CrCoNi 模型（描述符 63 维、80 个神经元），单线程 35 µs/原子，10 线程 8 µs/原子。还有优化空间，先保证正确。
+- 测试：CI 里用随机参数的合成势函数（48 个测试，覆盖率 100%）；对比 GPUMD/NEP_CPU 的 22 个测试只在本机有 torchnep 数据时运行。已手动触发 `nep-draft` 分支的 CI，三个草稿分支一起在 Linux/Windows/macOS 上验证。
+- **需要你明天决定**：每原子 virial 的分配方式。我让 NEP 跟 GPUMD/NEP_CPU 一致（i 的能量对 r_ij 的导数记到 j 上），这样每原子应力能和 GPUMD 对上；EAM 则是每对一人一半（和 LAMMPS 一致）。两种总 virial 一样，只是每原子不同。
+- 顺手修了文档 `units.md` 里应力定义的符号错误（写成了 −1/V·∂E/∂ε，和"拉伸为正"矛盾），在 v2 上。
+

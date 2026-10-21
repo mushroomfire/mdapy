@@ -91,6 +91,87 @@ and each pair's virial is shared equally by its two atoms. The atoms need an
 `element` column; elements the file does not have raise
 [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter).
 
+## NEP
+
+`NEP(path)` reads a neuroevolution potential of version 4 in the `nep.txt`
+format of GPUMD, without (`nep4`) or with (`nep4_zbl`) a ZBL repulsion, and
+computes every property. `NEP.descriptors(system)` returns the descriptors of
+each atom, scaled as the network sees them. Other models of GPUMD (NEP3,
+NEP5, charge, dipole and polarizability models) raise
+[`FileFormatError`](../reference/api.md#mdapy.errors.FileFormatError).
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import NEP
+
+potential = NEP("nep.txt")
+result = potential.compute(system, ("energy", "forces", "virial"))
+descriptors = potential.descriptors(system)  # (N, dim)
+```
+
+The radial descriptors of atom $i$ sum functions of the distances to its
+neighbors $j$ within the pair's radial cutoff $r_c$,
+
+$$
+q^i_n = \sum_j g_n(r_{ij}), \qquad
+g_n(r) = \sum_{k=0}^{K} c^{t_i t_j}_{nk} f_k(r), \qquad
+f_k(r) = \tfrac{1}{2}\big[T_k\big(2(r/r_c - 1)^2 - 1\big) + 1\big] f_c(r),
+$$
+
+with Chebyshev polynomials $T_k$, the cutoff function
+$f_c(r) = \tfrac{1}{2}[1 + \cos(\pi r / r_c)]$ below $r_c$, and coefficients
+$c$ for each ordered pair of elements. The cutoff of a pair is the mean of the
+two elements' cutoffs. The angular descriptors use other functions $g_n$, with
+their own coefficients and the angular cutoff, and real orthonormal spherical
+harmonics $Y_{lm}$:
+
+$$
+A^i_{nlm} = \sum_j g_n(r_{ij})\, Y_{lm}(\hat{\mathbf r}_{ij}), \qquad
+q^i_{nl} = \sum_m \big(A^i_{nlm}\big)^2
+= \frac{2l + 1}{4\pi} \sum_{j,k} g_n(r_{ij})\, g_n(r_{ik})\, P_l(\cos\theta_{jik})
+$$
+
+for $l = 1, \ldots, l_\text{max}$. The four-body descriptors couple three
+$l = 2$ terms and the five-body descriptors four $l = 1$ terms, written here
+with complex harmonics and Wigner 3j symbols:
+
+$$
+q^{i,4}_n = \sum_{m_1 m_2 m_3}
+\begin{pmatrix} 2 & 2 & 2 \\ m_1 & m_2 & m_3 \end{pmatrix}
+A^i_{n2m_1} A^i_{n2m_2} A^i_{n2m_3}, \qquad
+q^{i,5}_n = \sum_{L=0}^{2} \sum_{M, m_k} (-1)^{L+M}
+\begin{pmatrix} 1 & 1 & L \\ m_1 & m_2 & -M \end{pmatrix}
+\begin{pmatrix} L & 1 & 1 \\ M & m_3 & m_4 \end{pmatrix}
+A^i_{n1m_1} A^i_{n1m_2} A^i_{n1m_3} A^i_{n1m_4} = \tfrac{7}{15} \big(q^i_{n1}\big)^2.
+$$
+
+The descriptors, each multiplied by its scale factor $s_d$ from the file, are
+the input of one hidden layer of $\tanh$ neurons with weights of the atom's
+element:
+
+$$
+E_i = \sum_k w^{(1)}_k \tanh\Big(\sum_d w^{(0)}_{kd}\, s_d\, q^i_d - b^{(0)}_k\Big) - b^{(1)}.
+$$
+
+With ZBL, each pair within the angular cutoff adds the screened Coulomb
+repulsion $V(r) = \frac{k_e Z_i Z_j}{r}\,\phi(r/a)\, f_s(r)$, half to each
+atom, with $a = 0.46848\,\text{Å} / (Z_i^{0.23} + Z_j^{0.23})$ (as in GPUMD,
+$1/0.46848$ is rounded to 2.134563), $k_e = 14.399645$ eV Å and
+$\phi(x) = \sum_{k=1}^{4} a_k e^{-b_k x}$. The switch $f_s$ is 1 below an
+inner cutoff and falls as a cosine to 0 at an outer cutoff. The `zbl` line of
+the file chooses among three forms:
+
+| `zbl` line | $a_k$, $b_k$ | inner cutoff | outer cutoff |
+|---|---|---|---|
+| `zbl r1 r2` | universal ZBL | r1 | r2 |
+| `zbl r1 r2 f` | universal ZBL | 0 | the smaller of r2 and f times the sum of the two covalent radii GPUMD uses |
+| `zbl 0 0` | from a table at the end of the file, per pair of elements | from the table | from the table |
+
+The derivative of $E_i$ by the vector to neighbor $j$ adds to the atomic
+virial of atom $j$, as in GPUMD and NEP_CPU, so atomic virials agree with
+theirs. (EAM shares each pair's virial equally instead; both sum to the same
+virial.)
+
 ## Energy minimization
 
 `mdapy.minimize(system, calculator, *, max_force=1e-3, max_steps=1000,
@@ -135,12 +216,42 @@ the energy agrees to 10<sup>−12</sup>, atomic energies to 10<sup>−11</sup>,
 and forces, the virial and atomic virials to 10<sup>−9</sup> (with the
 pressure converted by LAMMPS's own constant for metal units).
 
+The tests in `tests/calculators/test_nep.py`, on synthetic potentials with
+random parameters written by the tests, check that:
+
+- descriptors and atomic energies agree with an independent NumPy
+  implementation to 10<sup>−12</sup>, for each form of ZBL, shared and
+  per-element cutoffs, periodic, partly periodic and non-periodic systems, a
+  box smaller than the cutoff, and $l_\text{max}$ from 1 to 8 with and without
+  four- and five-body terms. The NumPy implementation computes the three-body
+  terms as the double sums of Legendre polynomials and the four- and five-body
+  terms with Wigner 3j symbols, a different route from mdapy's;
+- `check_calculator` passes;
+- results are the same for any number of threads;
+- malformed files raise `FileFormatError` with the line.
+
+`tests/calculators/test_nep_reference_data.py` runs where the test data of
+torchnep are found and compares with results of GPUMD and NEP_CPU computed for
+those potentials. Against NEP_CPU, in double precision, for 14 potentials of
+one to four elements with every form of ZBL, the energies, forces, virials and
+atomic virials agree to 10<sup>−13</sup> of their largest value. Against GPUMD,
+which computes in single precision and prints six digits, energies agree to
+10<sup>−5</sup> eV/atom and descriptors to 10<sup>−5</sup>.
+
 ## References
 
 - M. S. Daw and M. I. Baskes, Embedded-atom method: derivation and
   application to impurities, surfaces, and other defects in metals,
   *Phys. Rev. B* **29**, 6443 (1984). doi:10.1103/PhysRevB.29.6443
 - LAMMPS `pair_style eam`: <https://docs.lammps.org/pair_eam.html>
+- Z. Fan et al., GPUMD: A package for constructing accurate machine-learned
+  potentials and performing highly efficient atomistic simulations,
+  *J. Chem. Phys.* **157**, 114801 (2022). doi:10.1063/5.0106617
+- K. Song et al., General-purpose machine-learned potential for 16 elemental
+  metals and their alloys, *Nat. Commun.* **15**, 10208 (2024).
+  doi:10.1038/s41467-024-54554-x
+- J. F. Ziegler, J. P. Biersack and U. Littmark, *The Stopping and Range of
+  Ions in Solids* (Pergamon, 1985).
 - E. Bitzek, P. Koskinen, F. Gähler, M. Moseler and P. Gumbsch, Structural
   relaxation made simple, *Phys. Rev. Lett.* **97**, 170201 (2006).
   doi:10.1103/PhysRevLett.97.170201

@@ -10,11 +10,16 @@ from typing import Any
 import numpy as np
 
 from mdapy._core import calculators as _native
-from mdapy.calculators._base import Calculator, CalculatorResult
+from mdapy.calculators._base import (
+    Calculator,
+    CalculatorResult,
+    _element_indices,
+    _neighbor_list,
+)
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
-from mdapy.errors import FileFormatError, InvalidParameter, MissingProperty
+from mdapy.errors import FileFormatError
 from mdapy.neighbor import NeighborList
 
 
@@ -144,9 +149,6 @@ class EAM(Calculator):
             data["dr"],
             data["cutoff"],
         )
-        self._species = np.full(len(SYMBOLS), -1, dtype=np.int32)
-        for index, element in enumerate(self.elements):
-            self._species[SYMBOLS.index(element)] = index
 
     def compute(
         self,
@@ -158,24 +160,8 @@ class EAM(Calculator):
         cancel: Any = None,
     ) -> CalculatorResult:
         self._check_properties(properties)
-        if "element" not in system.table.columns:
-            raise MissingProperty("EAM needs the element column")
-        numbers = system.table["element"].to_physical().to_numpy()
-        species = self._species[numbers]
-        if (species < 0).any():
-            missing = sorted({SYMBOLS[z] for z in numbers[species < 0]})
-            raise InvalidParameter(
-                f"the potential has no parameters for {missing}; it has {list(self.elements)}"
-            )
-        if neighbors is None:
-            neighbors = NeighborList.build(system, self.cutoff)
-        elif neighbors.system is not system:
-            raise InvalidParameter("the neighbor list was built for another system")
-        elif neighbors.cutoff < self.cutoff:
-            raise InvalidParameter(
-                f"the neighbor list has cutoff {neighbors.cutoff}, below the potential's "
-                f"{self.cutoff}"
-            )
+        species = _element_indices(system, self.elements, "EAM")
+        neighbors = _neighbor_list(system, self.cutoff, neighbors)
         energies, forces, virials = _native.compute_eam(
             self._potential,
             species,

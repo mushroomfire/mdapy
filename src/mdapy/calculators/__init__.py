@@ -6,6 +6,7 @@
 from mdapy.calculators._base import PROPERTIES, Calculator, CalculatorResult
 from mdapy.calculators._eam import EAM
 from mdapy.calculators._minimize import MinimizeResult, minimize
+from mdapy.calculators._nep import NEP
 
 __all__ = [
     "Calculator",
@@ -13,5 +14,6 @@ __all__ = [
     "EAM",
     "PROPERTIES",
     "MinimizeResult",
+    "NEP",
     "minimize",
 ]

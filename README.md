@@ -77,3 +77,16 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - **新分支 `cell-draft`**（基于 `nep-draft`）：`minimize` 支持晶胞弛豫，`cell=None/"isotropic"/"axes"/"full"`，可加外压 `pressure`（GPa），收敛判据 `max_stress`（GPa，默认 0.01）。非周期方向不动。测试：拉伸、四方、剪切的 fcc 盒子都弛豫回立方，且用能量有限差分验证是 E(a) 的极小点；5 GPa 下应力为 −5 GPa，且等于能量对体积的有限差分。
 - **NEP 性能对比**：同一个 CrCoNi 模型，NEP_CPU 单线程 28~31 µs/原子（含邻居搜索），mdapy 35 µs/原子（不含）。差距主要是为了"结果和线程数无关"，力用 gather 方式，每对原子的导数算了两遍。如果邻居列表能提供"反向对"的索引，可以只算一遍，估计能快到 20 µs 左右——这涉及邻居列表的 API，明天和你商量。
 - 三个草稿分支早先的 CI 失败只有 Python 3.10 一项，原因是它们从 v2 分出来时还没有那个 3.10 修复；已把 v2 合并进草稿分支，CI 重新在跑。NEP 和 EAM 内核已加进 TSan 检查，本机 clang TSan 和 GCC 都通过。
+
+### 00:42
+- **CI：四个草稿分支（nep / cell / analysis / interop）全部通过**（三平台、Python 3.10~3.14、ASan、TSan）。
+- **NEP 提速**（`nep-draft`）：每对原子的导数只算一次，再在核内找"反向对"汇总力和 virial，不改任何接口，结果仍与线程数无关、与 NEP_CPU 一致到 1e-13。单线程 35 → 28 µs/原子（和 NEP_CPU 持平），10 线程 8.2 → 5.3 µs/原子。
+- **`analysis-draft` 又加了**：
+  - `SteinhardtParameters`（q_l，l ≤ 20，可做邻居平均）：和文献值、加法定理公式（不经球谐）一致；和 **LAMMPS orientorder/atom 一致到 1e-10**。
+  - 和 LAMMPS 2026 对比：固定截断 CNA 与 `cna/atom` 在扰动晶体上逐原子一致，CSP 与 `centro/atom` 一致到 1e-10（本地测试，CI 跳过）。
+  - `ClusterAnalysis`（按截断或按元素对成键的团簇）、`BondAngleDistribution`（键角分布）、`WarrenCowley`（化学短程序）。
+  - `IdentifyDiamond`（立方/六方金刚石，Maras 2016 的二近邻 CNA 方法）。
+  - Ackland-Jones 没做：LAMMPS 现行版本里有一条"全部不满足则 unknown"的判断总会被后面覆盖，还有旧版本，要按论文还是按 LAMMPS 需要你定。
+- **新分支 `voronoi-draft`**（基于 analysis-draft）：**自己写的 Voronoi**（不再依赖 voro++）。每个原子从立方体开始按距离用中垂面切割，切到更远的原子不可能再切为止；邻居不够时自动加大范围。非周期方向用盒子的面封闭。fcc 正好是菱形十二面体、bcc 是截角八面体、金刚石 12 个三角形 + 4 个六边形，体积和面积到 1e-12；随机原子的胞体积之和等于盒子体积；每个面在两侧原子里都出现且面积相同；用 4 万个随机点按最近原子归属检验每个胞的体积。性能：10.8 万原子单线程 13 µs/原子、10 线程 4.9 µs/原子（含邻居搜索）。
+- **新分支 `interop-draft`**（基于 v2）：`mdapy.interop.to_ase / from_ase`，速度、电荷、约束（movable）、额外数组、盒子原点、info、能量/力/应力都能往返。
+- CI 提示 GitHub 的 Node 20 已弃用，已把 `actions/checkout` 升到 v5、`actions/setup-python` 升到 v6（在 v2 上）。

@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <numeric>
 #include <stdexcept>
 #include <utility>
 
@@ -485,9 +484,16 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
     const double volume = std::fabs(dot({h[0], h[1], h[2]}, cross({h[3], h[4], h[5]}, {h[6], h[7], h[8]})));
     double reach = 2.5 * std::cbrt(volume / static_cast<double>(n));
     std::vector<std::int64_t> todo(static_cast<std::size_t>(n));
-    std::iota(todo.begin(), todo.end(), 0);
+    bool all = true;
     while (!todo.empty()) {
         const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, reach);
+        if (all) {
+            // every atom, in cell order
+            for (std::int64_t t = 0; t < n; ++t) {
+                todo[static_cast<std::size_t>(t)] = grid.atom(t);
+            }
+            all = false;
+        }
         const auto count = static_cast<std::int64_t>(todo.size());
         const std::int64_t grain = default_grain(count);
         const std::size_t first_buffer = collector.buffers.size();

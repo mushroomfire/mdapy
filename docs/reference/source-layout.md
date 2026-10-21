@@ -12,7 +12,6 @@
 | `src/cpp/bindings/core.cpp` | Bindings for thread control. |
 | `src/cpp/bindings/testing.cpp` | Kernels used only by the test suite. |
 | `tests/` | Test suite; mirrors the package layout. |
-| `tools/check_coverage.py` | Per-file coverage check used in CI. |
 | `docs/` | This documentation. |
 
 All compiled code is one extension module, `mdapy._core`. Each functional

@@ -59,11 +59,10 @@ generated from them.
 Coverage thresholds:
 
 - **Total:** at least 90 %, enforced by `pytest --cov`.
-- **Per file:** at least 95 %, enforced by `tools/check_coverage.py`.
+- **Per file:** at least 95 %, checked in CI from the JSON coverage report.
 
 ```bash
-pytest --cov --cov-report=json
-python tools/check_coverage.py coverage.json
+pytest --cov --cov-report=term
 ```
 
 ## Compiled code

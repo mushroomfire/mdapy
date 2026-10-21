@@ -6,7 +6,7 @@ mdapy is a Python package for analysing and modelling atomistic simulations.
 > rewrite and is not compatible with mdapy 1.x. For the stable release, see
 > [mdapy 1.0.8](https://pypi.org/project/mdapy/1.0.8/) and the `master` branch.
 
-- Documentation: https://mushroomfire.github.io/mdapy/
+- Documentation: sources in [`docs/`](docs/); preview with `mkdocs serve`
 - Issues: https://github.com/mushroomfire/mdapy/issues
 
 ## Install from source

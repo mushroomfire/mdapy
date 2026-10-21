@@ -60,7 +60,18 @@ jobs:
       - name: Test with coverage (total >= 90 %)
         run: pytest -q --cov --cov-report=term --cov-report=json
       - name: Per-file coverage (each file >= 95 %)
-        run: python tools/check_coverage.py coverage.json
+        shell: python
+        run: |
+          import json, sys
+          files = json.load(open("coverage.json"))["files"]
+          low = []
+          for path, data in sorted(files.items()):
+              percent = data["summary"]["percent_covered"]
+              print(f"{percent:6.1f}%  {path}")
+              if percent < 95.0:
+                  low.append(path)
+          if low:
+              sys.exit("below 95 %: " + ", ".join(low))
 
   sanitizers:
     name: sanitizer — ${{ matrix.sanitizer }}

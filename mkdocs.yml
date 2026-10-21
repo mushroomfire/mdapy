@@ -1,6 +1,5 @@
 site_name: mdapy
 site_description: Analysis and modelling of atomistic simulations
-site_url: https://mushroomfire.github.io/mdapy/
 repo_url: https://github.com/mushroomfire/mdapy
 repo_name: mushroomfire/mdapy
 edit_uri: edit/v2/docs/

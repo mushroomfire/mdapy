@@ -56,3 +56,4 @@ is raised.
 | `mdapy.analysis.ClusterAnalysis` | [Clusters, bond angles and short-range order](bonds.md) |
 | `mdapy.analysis.BondAngleDistribution` | [Clusters, bond angles and short-range order](bonds.md) |
 | `mdapy.analysis.WarrenCowley` | [Clusters, bond angles and short-range order](bonds.md) |
+| `mdapy.analysis.VoronoiAnalysis` | [Voronoi cells](voronoi.md) |

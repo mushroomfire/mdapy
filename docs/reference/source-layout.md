@@ -24,6 +24,7 @@
 | `src/mdapy/identify/_structure.py` | `CommonNeighborAnalysis`, `CentroSymmetryParameter`. |
 | `src/mdapy/analysis/_distribution.py` | `RadialDistributionFunction`, `CoordinationNumber`. |
 | `src/mdapy/analysis/_steinhardt.py` | `SteinhardtParameters`. |
+| `src/mdapy/analysis/_voronoi.py` | `VoronoiAnalysis`. |
 | `src/mdapy/analysis/_bonds.py` | `ClusterAnalysis`, `BondAngleDistribution`, `WarrenCowley`, and bonds by cutoff per pair of elements. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
@@ -32,6 +33,7 @@
 | `src/cpp/identify/structure.h`, `structure.cpp` | Common neighbor analysis and the centro-symmetry parameter. |
 | `src/cpp/analysis/steinhardt.h`, `steinhardt.cpp` | Real spherical harmonics and Steinhardt order parameters. |
 | `src/cpp/analysis/geometry.h`, `geometry.cpp` | Clusters of bonded atoms and bond angles. |
+| `src/cpp/analysis/voronoi.h`, `voronoi.cpp` | Voronoi cells, cut plane by plane. |
 | `src/cpp/io/powers_of_five.h` | Generated table used by the number parser. |
 | `src/cpp/bindings/module.cpp` | The extension module `mdapy._core` and its submodules. |
 | `src/cpp/bindings/control.h` | `run_released`: runs a kernel without the GIL, with progress and cancellation. |

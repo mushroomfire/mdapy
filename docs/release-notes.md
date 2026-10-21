@@ -80,6 +80,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   `WarrenCowley` for clusters of bonded atoms, bond angles and chemical
   short-range order. See
   [Clusters, bond angles and short-range order](guide/bonds.md).
+- `mdapy.analysis.VoronoiAnalysis`: Voronoi cells with their volumes, faces
+  and Voronoi indices, computed by mdapy's own code, also in boxes that are
+  not periodic. See [Voronoi cells](guide/voronoi.md).
 
 ### Foundations
 

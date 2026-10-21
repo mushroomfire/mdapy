@@ -68,6 +68,10 @@ import mdapy
 
 ::: mdapy.analysis.WarrenCowleyResult
 
+::: mdapy.analysis.VoronoiAnalysis
+
+::: mdapy.analysis.VoronoiResult
+
 ::: mdapy.core.box.LammpsBox
 
 ## Threads

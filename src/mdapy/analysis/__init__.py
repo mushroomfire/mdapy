@@ -18,6 +18,7 @@ from mdapy.analysis._distribution import (
     RadialDistributionResult,
 )
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
+from mdapy.analysis._voronoi import VoronoiAnalysis, VoronoiResult
 
 __all__ = [
     "BondAngleDistribution",
@@ -30,6 +31,8 @@ __all__ = [
     "RadialDistributionResult",
     "SteinhardtParameters",
     "SteinhardtResult",
+    "VoronoiAnalysis",
+    "VoronoiResult",
     "WarrenCowley",
     "WarrenCowleyResult",
 ]

@@ -24,6 +24,7 @@
 
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
+#include "analysis/voronoi.h"
 #include "core/parallel.h"
 #include "identify/structure.h"
 #include "io/text.h"
@@ -389,7 +390,7 @@ void structure_identification() {
         }
     }
     std::vector<std::int8_t> first_types;
-    std::vector<double> first_csp, first_q;
+    std::vector<double> first_csp, first_q, first_volumes, first_areas;
     std::vector<std::int64_t> first_angles;
     const std::vector<int> degrees = {4, 6, 12};
     for (int threads : kThreads) {
@@ -408,6 +409,15 @@ void structure_identification() {
               "no atom of fcc is diamond");
         std::vector<std::int64_t> angles(90);
         mdapy::analysis::bond_angles(n, pairs.offsets.data(), vectors.data(), 90, angles.data());
+        const mdapy::analysis::VoronoiCells voronoi =
+            mdapy::analysis::voronoi(n, positions.data(), matrix, origin, pbc,
+                                     pairs.offsets.data(), vectors.data(), 3.07);
+        if (threads == kThreads[0]) {
+            first_volumes = voronoi.volumes;
+            first_areas = voronoi.areas;
+        }
+        check(voronoi.volumes == first_volumes && voronoi.areas == first_areas,
+              "the Voronoi cells are the same for any thread count");
         if (threads == kThreads[0]) {
             first_types = types;
             first_csp = csp;

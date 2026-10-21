@@ -10,10 +10,12 @@
 #include <algorithm>
 #include <cstdint>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
+#include "analysis/voronoi.h"
 #include "bindings/control.h"
 #include "core/parallel.h"
 
@@ -95,6 +97,43 @@ nb::object bond_angles(Offsets offsets, Vectors vectors, int bins, nb::handle pr
     return result;
 }
 
+using Positions = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using Matrix = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
+using Vector3 = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
+using Flags = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device::cpu>;
+
+// A NumPy array that owns the memory of a vector, without copying it.
+template <class T>
+nb::object owned(std::vector<T>&& values) {
+    auto* kept = new std::vector<T>(std::move(values));
+    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<T>*>(p); });
+    const std::size_t shape[1] = {kept->size()};
+    return nb::ndarray<nb::numpy, T>(kept->data(), 1, shape, owner).cast();
+}
+
+nb::tuple voronoi(Positions positions, Matrix matrix, Vector3 origin, Flags pbc, Offsets offsets,
+                  Vectors vectors, double reach, nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
+        offsets.data()[n] != static_cast<std::int64_t>(vectors.shape(0))) {
+        throw std::invalid_argument("the offsets do not fit the vectors");
+    }
+    if (!(reach > 0.0)) {
+        throw std::invalid_argument("reach must be positive");
+    }
+    analysis::VoronoiCells cells;
+    run_released(
+        [&](const Control& control) {
+            cells = analysis::voronoi(n, positions.data(), matrix.data(), origin.data(), pbc.data(),
+                                      offsets.data(), vectors.data(), reach, control);
+        },
+        progress, cancel);
+    return nb::make_tuple(owned(std::move(cells.volumes)), owned(std::move(cells.radii)),
+                          owned(std::move(cells.complete)), owned(std::move(cells.offsets)),
+                          owned(std::move(cells.pairs)), owned(std::move(cells.areas)),
+                          owned(std::move(cells.vertices)));
+}
+
 }  // namespace
 
 void bind_analysis(nb::module_& m) {
@@ -102,6 +141,9 @@ void bind_analysis(nb::module_& m) {
           nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"));
+    m.def("voronoi", &voronoi, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
+          nb::arg("pbc"), nb::arg("offsets"), nb::arg("vectors"), nb::arg("reach"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("bond_angles", &bond_angles, nb::arg("offsets"), nb::arg("vectors"), nb::arg("bins"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
 }

@@ -30,8 +30,7 @@ struct Pair {
 }  // namespace
 
 CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix,
-                   const double* origin, const bool* pbc, double cutoff)
-    : positions_(positions) {
+                   const double* origin, const bool* pbc, double cutoff) {
     if (!(cutoff > 0.0) || !std::isfinite(cutoff)) {
         throw std::invalid_argument("cutoff must be a positive number");
     }
@@ -66,7 +65,7 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
 
     // Fractional coordinates, wrapped into [0, 1) along periodic directions.
     std::vector<double> fractional(static_cast<std::size_t>(n) * 3);
-    wraps_.assign(static_cast<std::size_t>(n) * 3, 0);
+    std::vector<std::int32_t> wraps(static_cast<std::size_t>(n) * 3, 0);
     for (std::int64_t i = 0; i < n; ++i) {
         const double x[3] = {positions[3 * i] - origin[0], positions[3 * i + 1] - origin[1],
                              positions[3 * i + 2] - origin[2]};
@@ -76,7 +75,7 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
             if (pbc[d]) {
                 const double k = std::floor(f);
                 f -= k;
-                wraps_[3 * i + d] = static_cast<std::int32_t>(k);
+                wraps[3 * i + d] = static_cast<std::int32_t>(k);
             }
             fractional[3 * i + d] = f;
         }
@@ -125,7 +124,7 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
 
     // Counting sort of the atoms into cells, in increasing index order.
     std::vector<std::int64_t> cell_of(static_cast<std::size_t>(n));
-    cell_index_.assign(static_cast<std::size_t>(n) * 3, 0);
+    std::vector<std::int64_t> cells(static_cast<std::size_t>(n) * 3);
     const std::int64_t total_cells = axes_[0].cells * axes_[1].cells * axes_[2].cells;
     cell_start_.assign(static_cast<std::size_t>(total_cells) + 1, 0);
     for (std::int64_t i = 0; i < n; ++i) {
@@ -134,7 +133,7 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
             const Axis& axis = axes_[d];
             auto k = static_cast<std::int64_t>((fractional[3 * i + d] - axis.low) / axis.width);
             k = std::clamp<std::int64_t>(k, 0, axis.cells - 1);
-            cell_index_[3 * i + d] = k;
+            cells[3 * i + d] = k;
             index = index * axis.cells + k;
         }
         cell_of[i] = index;
@@ -143,10 +142,21 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
     for (std::int64_t k = 0; k < total_cells; ++k) {
         cell_start_[k + 1] += cell_start_[k];
     }
-    cell_atoms_.assign(static_cast<std::size_t>(n), 0);
+    slot_atoms_.resize(static_cast<std::size_t>(n));
+    slot_positions_.resize(static_cast<std::size_t>(n) * 3);
+    slot_wraps_.resize(static_cast<std::size_t>(n) * 3);
+    slot_cells_.resize(static_cast<std::size_t>(n) * 3);
+    slot_of_.resize(static_cast<std::size_t>(n));
     std::vector<std::int64_t> fill(cell_start_.begin(), cell_start_.end() - 1);
     for (std::int64_t i = 0; i < n; ++i) {
-        cell_atoms_[fill[cell_of[i]]++] = static_cast<std::int32_t>(i);
+        const std::int64_t t = fill[cell_of[i]]++;
+        slot_atoms_[t] = static_cast<std::int32_t>(i);
+        slot_of_[i] = static_cast<std::int32_t>(t);
+        for (int d = 0; d < 3; ++d) {
+            slot_positions_[3 * t + d] = positions[3 * i + d];
+            slot_wraps_[3 * t + d] = wraps[3 * i + d];
+            slot_cells_[3 * t + d] = cells[3 * i + d];
+        }
     }
 }
 
@@ -154,45 +164,58 @@ NeighborPairs build(const double* positions, std::int64_t n, const double* matri
                     const double* origin, const bool* pbc, double cutoff,
                     const Control& control) {
     const CellGrid grid(positions, n, matrix, origin, pbc, cutoff);
+    // the atoms are searched in cell order; each chunk of slots keeps its
+    // pairs, and each atom where its pairs are
     const std::int64_t grain = default_grain(n);
     const std::int64_t nchunks = n > 0 ? (n + grain - 1) / grain : 0;
     std::vector<std::vector<Pair>> chunk_pairs(static_cast<std::size_t>(nchunks));
-    std::vector<std::int64_t> counts(static_cast<std::size_t>(n), 0);
+    std::vector<std::int64_t> chunk(static_cast<std::size_t>(n), 0), start(static_cast<std::size_t>(n), 0);
+    NeighborPairs result;
+    result.offsets.resize(static_cast<std::size_t>(n) + 1, 0);
     parallel_for(
         n, grain,
         [&](std::int64_t begin, std::int64_t end) {
             std::vector<Pair>& out = chunk_pairs[static_cast<std::size_t>(begin / grain)];
-            std::vector<Pair> found;
-            for (std::int64_t i = begin; i < end; ++i) {
-                found.clear();
+            for (std::int64_t t = begin; t < end; ++t) {
+                const std::int64_t i = grid.atom(t);
+                const std::size_t first = out.size();
                 grid.visit(i, [&](std::int32_t j, const std::int32_t* shift, double r2) {
-                    found.push_back({j, {shift[0], shift[1], shift[2]}, std::sqrt(r2)});
+                    out.push_back({j, {shift[0], shift[1], shift[2]}, std::sqrt(r2)});
                 });
-                std::sort(found.begin(), found.end(), [](const Pair& p, const Pair& q) {
-                    return std::tie(p.j, p.shift) < std::tie(q.j, q.shift);
-                });
-                counts[i] = static_cast<std::int64_t>(found.size());
-                out.insert(out.end(), found.begin(), found.end());
+                std::sort(out.begin() + static_cast<std::ptrdiff_t>(first), out.end(),
+                          [](const Pair& p, const Pair& q) {
+                              return std::tie(p.j, p.shift) < std::tie(q.j, q.shift);
+                          });
+                chunk[i] = begin / grain;
+                start[i] = static_cast<std::int64_t>(first);
+                result.offsets[i + 1] = static_cast<std::int64_t>(out.size() - first);
             }
         },
         control);
-
-    NeighborPairs result;
-    result.offsets.resize(static_cast<std::size_t>(n) + 1, 0);
     for (std::int64_t i = 0; i < n; ++i) {
-        result.offsets[i + 1] = result.offsets[i] + counts[i];
+        result.offsets[i + 1] += result.offsets[i];
     }
     const auto total = static_cast<std::size_t>(result.offsets[n]);
-    result.neighbors.reserve(total);
-    result.shifts.reserve(3 * total);
-    result.distances.reserve(total);
-    for (const std::vector<Pair>& pairs : chunk_pairs) {
-        for (const Pair& p : pairs) {
-            result.neighbors.push_back(p.j);
-            result.shifts.insert(result.shifts.end(), p.shift.begin(), p.shift.end());
-            result.distances.push_back(p.distance);
-        }
-    }
+    result.neighbors.resize(total);
+    result.shifts.resize(3 * total);
+    result.distances.resize(total);
+    parallel_for(
+        n, grain,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                const Pair* pairs = chunk_pairs[static_cast<std::size_t>(chunk[i])].data() + start[i];
+                const std::int64_t first = result.offsets[i];
+                for (std::int64_t p = 0; p < result.offsets[i + 1] - first; ++p) {
+                    const auto at = static_cast<std::size_t>(first + p);
+                    result.neighbors[at] = pairs[p].j;
+                    for (int e = 0; e < 3; ++e) {
+                        result.shifts[3 * at + e] = pairs[p].shift[e];
+                    }
+                    result.distances[at] = pairs[p].distance;
+                }
+            }
+        },
+        control);
     return result;
 }
 
@@ -247,9 +270,16 @@ NeighborPairs nearest(const double* positions, std::int64_t n, const double* mat
                                    h[2] * (h[3] * h[7] - h[4] * h[6]));
     double cutoff = 1.2 * std::cbrt(3.0 * k * volume / (4.0 * 3.14159265358979323846 * n));
     std::vector<std::int64_t> todo(static_cast<std::size_t>(n));
-    std::iota(todo.begin(), todo.end(), 0);
+    bool all = true;
     while (!todo.empty()) {
         const CellGrid grid(positions, n, matrix, origin, pbc, cutoff);
+        if (all) {
+            // every atom, in cell order
+            for (std::int64_t t = 0; t < n; ++t) {
+                todo[static_cast<std::size_t>(t)] = grid.atom(t);
+            }
+            all = false;
+        }
         std::vector<std::uint8_t> short_of(todo.size(), 0);
         parallel_for(
             static_cast<std::int64_t>(todo.size()), 0,

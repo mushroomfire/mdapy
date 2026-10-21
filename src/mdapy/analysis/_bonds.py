@@ -315,11 +315,7 @@ class WarrenCowley:
         elif neighbors is None:
             nl = NeighborList.nearest(system, self.num_neighbors)
         else:
-            nl = (
-                _given_or_built(system, 0.0, neighbors)
-                .sorted()
-                ._first(self.num_neighbors)
-            )
+            nl = _given_or_built(system, 0.0, neighbors)._nearest(self.num_neighbors)
         types = len(names)
         pairs = np.bincount(
             index[nl.i] * types + index[nl.j], minlength=types * types

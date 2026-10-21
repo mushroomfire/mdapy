@@ -12,6 +12,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -333,6 +334,26 @@ void neighbor_search() {
             }
         }
         check(sorted, "the nearest neighbors come in order of distance");
+        const mdapy::neighbor::NeighborPairs near =
+            mdapy::neighbor::nearest(positions.data(), n, matrix, origin, pbc, 12);
+        bool same = true;
+        for (std::int64_t i = 0; i < n && same; ++i) {
+            for (int k = 0; k < 12; ++k) {
+                same = same && near.distances[12 * i + k] == pairs.distances[order[kept[i] + k]];
+            }
+        }
+        check(same, "the nearest search finds the first pairs of the ordered list");
+        std::vector<double> vectors(3 * pairs.neighbors.size());
+        mdapy::neighbor::pair_vectors(positions.data(), n, pairs.offsets.data(),
+                                      pairs.neighbors.data(), pairs.shifts.data(), matrix,
+                                      vectors.data());
+        bool lengths = true;
+        for (std::size_t p = 0; p < pairs.neighbors.size(); ++p) {
+            const double* v = &vectors[3 * p];
+            lengths = lengths && std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) ==
+                                     pairs.distances[p];
+        }
+        check(lengths, "the pair vectors have the lengths of the distances");
     }
 }
 

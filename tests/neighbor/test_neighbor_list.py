@@ -110,8 +110,9 @@ def test_vectors_and_distances():
     system = random_system("rotated", seed=5)
     nl = NeighborList.build(system, 4.0)
     x = system.positions
+    # computed as the search computes the distances, in compiled code
     np.testing.assert_allclose(
-        nl.vectors, x[nl.j] - x[nl.i] + nl.shifts @ system.box.matrix, rtol=0, atol=0
+        nl.vectors, x[nl.j] - x[nl.i] + nl.shifts @ system.box.matrix, rtol=0, atol=1e-12
     )
     np.testing.assert_allclose(
         np.linalg.norm(nl.vectors, axis=1), nl.distances, rtol=1e-14

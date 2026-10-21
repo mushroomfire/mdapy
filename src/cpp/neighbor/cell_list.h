@@ -124,6 +124,17 @@ NeighborPairs build(const double* positions, std::int64_t n, const double* matri
                     const double* origin, const bool* pbc, double cutoff,
                     const Control& control = {});
 
+// The k nearest neighbors of every atom, nearest first (ties by neighbor and
+// then shift), k per atom. A non-periodic system needs more than k atoms.
+NeighborPairs nearest(const double* positions, std::int64_t n, const double* matrix,
+                      const double* origin, const bool* pbc, int k, const Control& control = {});
+
+// The vectors (pairs x 3) from each atom to its neighbors, x_j - x_i + shift . H,
+// computed as the search computes the distances.
+void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* offsets,
+                  const std::int32_t* neighbors, const std::int32_t* shifts, const double* matrix,
+                  double* vectors, const Control& control = {});
+
 // The pairs of each atom by distance, ties in their order, keeping the first
 // count of each atom (all when count < 0): the positions of the kept pairs,
 // in order, and the new offsets (n + 1).

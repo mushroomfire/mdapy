@@ -114,3 +114,23 @@ def test_ideal_gas_threads_and_errors():
         StructureFactor(0.0)
     with pytest.raises(InvalidParameter, match="bins must be at least 1"):
         StructureFactor(5.0, bins=0)
+
+
+def test_blocks_of_atoms():
+    """Atoms are summed in blocks that keep the phase tables small."""
+    from mdapy._core import analysis as native
+
+    system = crystal("fcc", 3.6, (3, 3, 3), jitter=0.2, seed=5)
+    args = (
+        system.positions,
+        system.box.matrix,
+        np.zeros(len(system), np.int32),
+        1,
+        5.0,
+        20,
+    )
+    whole, vectors = native.structure_factor(*args, 0)
+    for block in (1, 7, 50):
+        parts, counted = native.structure_factor(*args, block)
+        np.testing.assert_array_equal(counted, vectors)
+        np.testing.assert_allclose(parts, whole, rtol=1e-12)

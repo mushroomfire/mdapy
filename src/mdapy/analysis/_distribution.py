@@ -317,6 +317,7 @@ class StructureFactor:
             types,
             self.q_max,
             bins,
+            0,
             progress,
             _native_token(cancel),
         )

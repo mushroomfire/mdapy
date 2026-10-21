@@ -197,7 +197,7 @@ nb::object pair_histogram(Positions3 positions, Matrix3 matrix, Origin3 origin, 
 }
 
 nb::tuple structure_factor(Positions3 positions, Matrix3 matrix, Types type, int types,
-                           double q_max, int bins, nb::handle progress,
+                           double q_max, int bins, std::int64_t block, nb::handle progress,
                            const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
     if (type.shape(0) != positions.shape(0) || bins < 1 || types < 1 || !(q_max > 0.0)) {
@@ -213,7 +213,7 @@ nb::tuple structure_factor(Positions3 positions, Matrix3 matrix, Types type, int
     run_released(
         [&](const Control& control) {
             analysis::structure_factor(positions.data(), n, matrix.data(), type.data(), types,
-                                       q_max, bins, sums, vectors, control);
+                                       q_max, bins, sums, vectors, block, control);
         },
         progress, cancel);
     auto* kept = new std::vector<double>(std::move(sums));
@@ -282,7 +282,8 @@ void bind_analysis(nb::module_& m) {
           nb::arg("cancel").none() = nullptr);
     m.def("structure_factor", &structure_factor, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("type"), nb::arg("types"), nb::arg("q_max"), nb::arg("bins"),
-          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+          nb::arg("block") = 0, nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("pair_histogram", &pair_histogram, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("origin"), nb::arg("pbc"), nb::arg("r_max"), nb::arg("bins"), nb::arg("type"),
           nb::arg("types"), nb::arg("progress") = nb::none(),

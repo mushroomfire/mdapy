@@ -69,6 +69,10 @@ number of `vectors` per shell and the `partial` factors; `pair(a, b)` takes
 them in either order. A perfect crystal gives $N$ at its Bragg reflections and
 0 elsewhere; an ideal gas gives 1.
 
+The work is the number of wave vectors, about $q_\text{max}^3 V / (12\pi^2)$
+for a box of volume $V$, times the number of atoms; the atoms are taken in
+blocks so that memory stays small.
+
 <!-- skip-test -->
 ```python
 from mdapy.analysis import StructureFactor

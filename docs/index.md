@@ -30,7 +30,8 @@ minimization with interatomic potentials.
 | Area | State |
 |---|---|
 | Thread control, units, errors | available |
-| Structures (`System`, `Box`), file I/O, neighbor lists | next |
+| Simulation box (`Box`) | available |
+| Structures (`System`), file I/O, neighbor lists | next |
 | Calculators (NEP, EAM), energy minimization | planned |
 | Structure identification and analysis | planned |
 

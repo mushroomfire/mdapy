@@ -4,6 +4,13 @@
 
 mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 
+### Structures
+
+- `mdapy.Box`: immutable simulation box with lattice vectors, origin and
+  periodicity; fractional coordinates, wrapping with image flags, exact
+  minimum images, and conversion to LAMMPS restricted triclinic form. See
+  [Simulation box](guide/box.md).
+
 ### Foundations
 
 - Python 3.10 or newer; NumPy 2 and polars 2 are the only required

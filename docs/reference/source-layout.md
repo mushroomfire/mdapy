@@ -6,6 +6,7 @@
 | `src/mdapy/errors.py` | Exception types. |
 | `src/mdapy/units.py` | Physical constants and conversion factors. |
 | `src/mdapy/elements.py` | Chemical symbols and standard atomic weights. |
+| `src/mdapy/core/box.py` | `Box`, the simulation box. |
 | `src/mdapy/core/threads.py` | Number of threads, `CancelToken`. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
 | `src/cpp/bindings/module.cpp` | The extension module `mdapy._core` and its submodules. |

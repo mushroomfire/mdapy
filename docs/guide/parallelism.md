@@ -51,6 +51,7 @@ A cancelled computation raises
 cancelled from any thread, including from inside `progress`, and can be
 reused after `token.reset()`.
 
+<!-- skip-test -->
 ```python
 token = mdapy.CancelToken()
 # in a GUI: connect a "Stop" button to token.cancel

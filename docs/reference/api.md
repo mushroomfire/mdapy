@@ -8,6 +8,12 @@ and references are on the pages of the [user guide](../guide/parallelism.md).
 import mdapy
 ```
 
+## Structures
+
+::: mdapy.Box
+
+::: mdapy.core.box.LammpsBox
+
 ## Threads
 
 ::: mdapy.get_num_threads

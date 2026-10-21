@@ -43,7 +43,8 @@ in unit A to unit B by multiplication:
 ```python
 from mdapy import units
 
-stress_gpa = stress_ev_per_a3 * units.EV_PER_A3_TO_GPA
+stress_ev_per_a3 = 0.01
+stress_gpa = stress_ev_per_a3 * units.EV_PER_A3_TO_GPA  # 1.602 GPa
 ```
 
 The defining constants are the exact 2019 SI values (elementary charge,

@@ -3,6 +3,7 @@
 
 """Core building blocks: the data model and thread control."""
 
+from mdapy.core.box import Box, LammpsBox
 from mdapy.core.threads import (
     CancelToken,
     get_num_threads,
@@ -11,6 +12,8 @@ from mdapy.core.threads import (
 )
 
 __all__ = [
+    "Box",
+    "LammpsBox",
     "CancelToken",
     "get_num_threads",
     "set_num_threads",

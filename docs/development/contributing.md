@@ -19,7 +19,9 @@ A feature is merged only when it has all of the following:
 Each feature has a hand-written page with these sections, in this order:
 
 1. **Title and one sentence** saying what the feature does.
-2. **Minimal example** that runs as shown.
+2. **Minimal example** that runs as shown. `tests/test_docs.py` runs every
+   Python block of every page, in order, with shared variables. A block that
+   is only an illustration is preceded by the line `<!-- skip-test -->`.
 3. **Parameters**, as a table: `| Name | Type | Default | Unit | Meaning |`.
 4. **Outputs**, as a table.
 5. **Method**: what is computed, with formulas.

@@ -5,7 +5,7 @@
 
 __version__ = "2.0.0.dev0"
 
-from mdapy import errors, units
+from mdapy import elements, errors, units
 from mdapy.core.threads import (
     CancelToken,
     get_num_threads,
@@ -15,6 +15,7 @@ from mdapy.core.threads import (
 
 __all__ = [
     "__version__",
+    "elements",
     "errors",
     "units",
     "CancelToken",

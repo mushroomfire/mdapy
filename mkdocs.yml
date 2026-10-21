@@ -91,6 +91,7 @@ nav:
       - Parallelism: guide/parallelism.md
   - Reference:
       - Units and conventions: reference/units.md
+      - Elements: reference/elements.md
       - Glossary: reference/glossary.md
       - Python API: reference/api.md
       - Source layout: reference/source-layout.md

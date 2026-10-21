@@ -25,6 +25,13 @@ import mdapy
       show_root_heading: true
       heading_level: 3
 
+## Elements
+
+::: mdapy.elements
+    options:
+      show_root_heading: true
+      heading_level: 3
+
 ## Units
 
 ::: mdapy.units

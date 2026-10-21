@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -82,13 +83,15 @@ private:
     double h_[9];
     double inverse_[9];  // columns of H^-1
     double origin_[3];
-    double cutoff2_;
+    double cutoff_, cutoff2_;
+    double scale_ = 0.0;  // bounds the size of every term of a distance
     Axis axes_[3];
     std::vector<std::int64_t> cell_start_;  // first slot of each cell, and one past the end
-    // per slot: the atom, its position, the periodic wraps that bring it
-    // into the box and the three indices of its cell
+    // per slot: the atom, its position, the same wrapped into the box, the
+    // periodic wraps that do it and the three indices of its cell
     std::vector<std::int32_t> slot_atoms_;
     std::vector<double> slot_positions_;
+    std::vector<double> slot_wrapped_;  // wrapped into the box
     std::vector<std::int32_t> slot_wraps_;
     std::vector<std::int64_t> slot_cells_;
     std::vector<std::int32_t> slot_of_;  // per atom
@@ -116,6 +119,16 @@ void CellGrid::visit_point(const double* x, Visit&& visit) const {
 template <class Visit>
 void CellGrid::scan(const std::int64_t* cell, const std::int32_t* wrap, const double* xi,
                     std::int64_t self, Visit&& visit) const {
+    // Candidates are screened with the positions wrapped into the box, whose
+    // image offset is the same for a whole cell, with a margin far above the
+    // rounding; the pairs that pass are measured exactly as documented.
+    double xw[3], size = scale_;
+    for (int e = 0; e < 3; ++e) {
+        xw[e] = xi[e] - (wrap[0] * h_[e] + wrap[1] * h_[3 + e] + wrap[2] * h_[6 + e]);
+        size = std::max(size, std::abs(xi[e]));
+    }
+    const double screen = cutoff_ + 1e-12 * size;
+    const double screen2 = screen * screen;
     for (std::int64_t dx = -axes_[0].reach; dx <= axes_[0].reach; ++dx) {
         for (std::int64_t dy = -axes_[1].reach; dy <= axes_[1].reach; ++dy) {
             for (std::int64_t dz = -axes_[2].reach; dz <= axes_[2].reach; ++dz) {
@@ -138,7 +151,16 @@ void CellGrid::scan(const std::int64_t* cell, const std::int32_t* wrap, const do
                 if (!inside) {
                     continue;
                 }
+                double base[3];
+                for (int e = 0; e < 3; ++e) {
+                    base[e] = xw[e] - (image[0] * h_[e] + image[1] * h_[3 + e] + image[2] * h_[6 + e]);
+                }
                 for (std::int64_t s = cell_start_[target]; s < cell_start_[target + 1]; ++s) {
+                    const double* yj = &slot_wrapped_[3 * s];
+                    const double ax = yj[0] - base[0], ay = yj[1] - base[1], az = yj[2] - base[2];
+                    if (ax * ax + ay * ay + az * az >= screen2) {
+                        continue;
+                    }
                     // shift in the original (unwrapped) coordinates
                     const std::int32_t* wj = &slot_wraps_[3 * s];
                     const std::int32_t shift[3] = {image[0] + wrap[0] - wj[0],

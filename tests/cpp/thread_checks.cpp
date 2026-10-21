@@ -22,6 +22,7 @@
 #include <thread>
 #include <vector>
 
+#include "analysis/distribution.h"
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
 #include "analysis/voronoi.h"
@@ -401,7 +402,7 @@ void structure_identification() {
     }
     std::vector<std::int8_t> first_types;
     std::vector<double> first_csp, first_q, first_volumes, first_areas, first_entropy;
-    std::vector<std::int64_t> first_angles;
+    std::vector<std::int64_t> first_angles, first_histogram;
     const std::vector<int> degrees = {4, 6, 12};
     for (int threads : kThreads) {
         mdapy::set_num_threads(threads);
@@ -425,6 +426,13 @@ void structure_identification() {
             first_entropy = entropy;
         }
         check(entropy == first_entropy, "the pair entropy is the same for any thread count");
+        const std::vector<std::int32_t> species(static_cast<std::size_t>(n), 0);
+        const std::vector<std::int64_t> histogram = mdapy::analysis::pair_histogram(
+            positions.data(), n, matrix, origin, pbc, 6.0, 60, species.data(), 1);
+        if (threads == kThreads[0]) {
+            first_histogram = histogram;
+        }
+        check(histogram == first_histogram, "the pair histogram is the same for any thread count");
         std::vector<std::int64_t> angles(90);
         mdapy::analysis::bond_angles(n, pairs.offsets.data(), vectors.data(), 90, angles.data());
         const mdapy::analysis::VoronoiCells voronoi =

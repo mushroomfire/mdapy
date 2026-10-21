@@ -108,7 +108,7 @@ jobs:
           -o thread_checks src/cpp/core/parallel.cpp src/cpp/io/text.cpp
           src/cpp/neighbor/cell_list.cpp src/cpp/identify/structure.cpp
           src/cpp/analysis/steinhardt.cpp src/cpp/analysis/geometry.cpp
-          src/cpp/analysis/voronoi.cpp
+          src/cpp/analysis/voronoi.cpp src/cpp/analysis/distribution.cpp
           tests/cpp/thread_checks.cpp
       - name: Run them
         run: |

@@ -34,6 +34,7 @@
 | `src/cpp/neighbor/cell_list.h`, `cell_list.cpp` | The neighbor search with cells. |
 | `src/cpp/identify/structure.h`, `structure.cpp` | Common neighbor analysis and the centro-symmetry parameter. |
 | `src/cpp/analysis/steinhardt.h`, `steinhardt.cpp` | Real spherical harmonics and Steinhardt order parameters. |
+| `src/cpp/analysis/distribution.h`, `distribution.cpp` | Histograms of pair distances counted during the neighbor search. |
 | `src/cpp/analysis/geometry.h`, `geometry.cpp` | Clusters of bonded atoms, bond angles and the pair entropy. |
 | `src/cpp/analysis/voronoi.h`, `voronoi.cpp` | Voronoi cells, cut plane by plane. |
 | `src/cpp/io/powers_of_five.h` | Generated table used by the number parser. |

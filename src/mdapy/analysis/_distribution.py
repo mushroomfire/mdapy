@@ -9,9 +9,11 @@ from typing import Any
 
 import numpy as np
 
+from mdapy._core import analysis as _native
 from mdapy.analysis._bonds import _Bonds, _elements
 from mdapy.core.result import Result
 from mdapy.core.system import System
+from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
 from mdapy.neighbor._neighbor_list import _given_or_built
@@ -92,28 +94,43 @@ class RadialDistributionFunction:
         RadialDistributionResult
             The functions, normalized by the number density of the box.
         """
-        nl = _given_or_built(system, self.r_max, neighbors)
         n, bins = len(system), self.bins
-        edges = np.linspace(0.0, self.r_max, bins + 1)
-        keep = nl.distances < self.r_max
-        which = np.minimum(
-            (nl.distances[keep] / self.r_max * bins).astype(np.int64), bins - 1
-        )
-        shells = 4.0 / 3.0 * np.pi * np.diff(edges**3)
-        volume = system.box.volume
-        counts = np.bincount(which, minlength=bins).astype(np.float64)
-        g = counts * volume / (n * n * shells) if n else np.zeros(bins)
-        coordination = np.cumsum(counts) / n if n else np.zeros(bins)
-        partial = {}
         found = _elements(system)
-        if found is not None and n:
-            names, index = found
-            types = len(names)
-            first = np.repeat(index, nl.counts)[keep]
-            second = index[nl.j[keep]]
+        names, index = found if found is not None else ((), np.zeros(n, dtype=np.int64))
+        types = max(len(names), 1)
+        if neighbors is None:
+            # counted during the search, without storing the pairs
+            box = system.box
+            table = _native.pair_histogram(
+                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(box.matrix),
+                np.ascontiguousarray(box.origin),
+                np.ascontiguousarray(box.pbc),
+                self.r_max,
+                bins,
+                index.astype(np.int32),
+                types,
+                progress,
+                _native_token(cancel),
+            )
+        else:
+            nl = _given_or_built(system, self.r_max, neighbors)
+            keep = nl.distances < self.r_max
+            which = np.minimum(
+                (nl.distances[keep] / self.r_max * bins).astype(np.int64), bins - 1
+            )
+            first, second = index[nl.i[keep]], index[nl.j[keep]]
             table = np.bincount(
                 (first * types + second) * bins + which, minlength=types * types * bins
             ).reshape(types, types, bins)
+        edges = np.linspace(0.0, self.r_max, bins + 1)
+        shells = 4.0 / 3.0 * np.pi * np.diff(edges**3)
+        volume = system.box.volume
+        counts = table.sum(axis=(0, 1)).astype(np.float64)
+        g = counts * volume / (n * n * shells) if n else np.zeros(bins)
+        coordination = np.cumsum(counts) / n if n else np.zeros(bins)
+        partial = {}
+        if found is not None and n:
             sizes = np.bincount(index, minlength=types)
             for a in range(types):
                 for b in range(a, types):

@@ -5,6 +5,7 @@
 
 from mdapy.calculators._base import PROPERTIES, Calculator, CalculatorResult
 from mdapy.calculators._eam import EAM
+from mdapy.calculators._elastic import ElasticResult, elastic_constants
 from mdapy.calculators._minimize import MinimizeResult, minimize
 from mdapy.calculators._nep import NEP
 
@@ -12,8 +13,10 @@ __all__ = [
     "Calculator",
     "CalculatorResult",
     "EAM",
+    "ElasticResult",
     "PROPERTIES",
     "MinimizeResult",
     "NEP",
+    "elastic_constants",
     "minimize",
 ]

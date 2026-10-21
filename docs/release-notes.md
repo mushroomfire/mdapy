@@ -73,6 +73,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   with NEP_CPU in double precision; `NEP.descriptors` gives the descriptors.
 - `mdapy.minimize`: FIRE minimization of the positions and, optionally, the
   box (isotropic, along the axes or any strain), at a given pressure.
+- `mdapy.calculators.elastic_constants`: the (6, 6) elastic constants from
+  the stress under small strains, with relaxed positions, and Voigt, Reuss
+  and Hill moduli.
 
 ### Foundations
 

@@ -44,6 +44,10 @@ import mdapy
 
 ::: mdapy.calculators.MinimizeResult
 
+::: mdapy.calculators.elastic_constants
+
+::: mdapy.calculators.ElasticResult
+
 ::: mdapy.core.box.LammpsBox
 
 ## Threads

@@ -220,6 +220,34 @@ of 0.1, a largest time step of 1.0, five steps before the time step grows by
 and shrinking by 1 % per step. Unlike ASE, the step limit applies to each
 atom rather than to the displacement of all atoms together.
 
+## Elastic constants
+
+`mdapy.calculators.elastic_constants(system, calculator, *, strain=1e-3,
+relax=True, max_force=1e-4, max_steps=5000)` strains a periodic crystal by
+$\pm\delta$ in each of the six Voigt components xx, yy, zz, yz, xz, xy (shear
+components as engineering strains), relaxes the positions in the strained box
+with `minimize` unless `relax=False`, and takes the central difference of the
+stress:
+
+$$
+C_{jk} = \frac{\sigma_j(+\delta\, e_k) - \sigma_j(-\delta\, e_k)}{2\delta}.
+$$
+
+The crystal should be at zero stress first, for example after
+`minimize(system, calculator, cell="full")`. The `ElasticResult` holds the
+(6, 6) `constants` in GPa and gives `bulk_modulus(average)` and
+`shear_modulus(average)` as the Voigt, Reuss or Hill average.
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import elastic_constants, minimize
+
+relaxed = minimize(crystal, potential, cell="full", max_stress=1e-4).system
+result = elastic_constants(relaxed, potential)
+result.constants  # (6, 6) GPa
+result.bulk_modulus(), result.shear_modulus("voigt")
+```
+
 ## Validation
 
 The tests in `tests/calculators/test_minimize.py` check that a harmonic dimer
@@ -232,6 +260,13 @@ minimum of $E(a)$ (by finite differences of the energy) with every stress
 component below 10<sup>−5</sup> GPa; that at 5 GPa the stress is −5 GPa and
 equals $-\mathrm dE/\mathrm dV$ by finite differences; and that a slab
 relaxes only along its periodic directions.
+
+The tests in `tests/calculators/test_elastic.py` check that the elastic
+constants of fcc copper of the synthetic potential have cubic symmetry and
+that $C_{11}$, $C_{44}$ and the bulk modulus agree to 10<sup>−4</sup> with
+the curvature of the energy under uniaxial, shear and uniform strain; that
+relaxing the positions softens the diagonal constants of a disordered alloy;
+and the errors.
 
 The tests in `tests/calculators/test_eam.py`, on a synthetic two-element
 potential written by the tests, check that:

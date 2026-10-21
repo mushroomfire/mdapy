@@ -101,3 +101,21 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - **新分支 `build-draft`**（基于 v2）：`build_crystal`（sc/bcc/fcc/diamond 任意正交 Miller 取向，hcp）、`random_alloy`（按比例精确计数的随机合金）。
 - **新分支 `polycrystal-draft`**（= voronoi + build）：`build_polycrystal`，每个晶粒填满种子的周期 Voronoi 胞，取向随机或指定，晶界处距离过近的原子删除；测试里晶粒内部全部被 CNA 识别为 fcc。
 - 所有草稿的公开 API 一览已整理（本地 `design/api-overview.md`），明早给你看。
+
+### 01:35
+- **和 mdapy 1.0.8 实测对比后做了一轮提速**（100 万原子、10 线程、各自从头算）。一开始 2.0 草稿在 CNA、CSP、Steinhardt、Voronoi 上反而比 1.0.8 慢 2~6 倍，原因不在计算核，而在 Python 层构建邻居列表和计算键向量。现在 k 近邻搜索和键向量都改成 C++，Voronoi 直接在格子上搜邻居、不存邻居对：
+
+  | 分析 | 1.0.8 | 2.0 |
+  |---|---|---|
+  | CNA | 0.29 s | 0.39 s |
+  | CSP | 0.22 | 0.24 |
+  | Steinhardt | 0.28 | 0.31 |
+  | RDF 8 Å | 3.69 | **0.73** |
+  | 熵 | 0.77 | 0.99 |
+  | 团簇 | 0.33 | 0.37 |
+  | Voronoi | 0.80（voro++） | 1.43 |
+
+  剩下的差距：Voronoi 要改成 voro++ 那样的顶点-边图结构才能再快；CNA/熵可以把邻居搜索和计算合并到一个核里。这些明天和你商量要不要做。
+- **新增**：`ChillPlus`（冰/水合物/液态水，规则同 1.x，测试用加法定理写的独立实现逐分子对照）、`StructureFactor`（静态结构因子，按盒子的倒格矢直接求和，含 Ashcroft–Thornton 偏结构因子；完美 fcc 只在 111/200/220/311 处有峰且峰高精确为 N）。
+- **新分支 `elastic-draft`**（基于 cell-draft）：`elastic_constants` 弹性常数（±应变、内部弛豫、应力中心差分；Voigt/Reuss/Hill 模量），C11、C44、体模量和能量曲率一致到 1e-4。
+- **新分支 `preview-all`**：把所有草稿合在一起（1114 个测试通过），方便你明天一次性试用；CI 也验证组合后没有冲突。

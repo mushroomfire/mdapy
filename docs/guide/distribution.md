@@ -46,6 +46,37 @@ Without `neighbors=`, the pairs are counted during the neighbor search and
 never stored, so long distances in large systems need little memory: 8 Å in
 a million-atom crystal takes under a second on ten threads.
 
+## Structure factor
+
+`StructureFactor(q_max, bins=200)` computes the static structure factor of a
+box periodic in every direction from the wave vectors that fit the box, the
+reciprocal lattice vectors $\mathbf q = h\mathbf b_1 + k\mathbf b_2 +
+l\mathbf b_3$ with $0 < |\mathbf q| \le q_\text{max}$:
+
+$$
+S(\mathbf q) = \frac{1}{N} \Big| \sum_j e^{i\mathbf q \cdot \mathbf r_j} \Big|^2,
+\qquad
+S_{ab}(\mathbf q) = \frac{\operatorname{Re}\big[\rho_a(\mathbf q)\, \rho_b(\mathbf q)^*\big]}{\sqrt{N_a N_b}},
+\quad \rho_a(\mathbf q) = \sum_{j \in a} e^{i\mathbf q \cdot \mathbf r_j},
+$$
+
+averaged over the vectors in each of `bins` shells of $|\mathbf q|$ (one of
+each pair $\pm\mathbf q$, which have the same factor). The partial factors
+follow Ashcroft and Thornton and recombine as
+$S = \sum_{a,b} \sqrt{c_a c_b}\, S_{ab}$. The `StructureFactorResult` has the
+bin centers `q` (1/Å), the `edges`, `s` (NaN in shells without vectors), the
+number of `vectors` per shell and the `partial` factors; `pair(a, b)` takes
+them in either order. A perfect crystal gives $N$ at its Bragg reflections and
+0 elsewhere; an ideal gas gives 1.
+
+<!-- skip-test -->
+```python
+from mdapy.analysis import StructureFactor
+
+factor = StructureFactor(q_max=8.0, bins=200).compute(system)
+factor.q, factor.s
+```
+
 ## Coordination number
 
 `CoordinationNumber(cutoff)` counts the neighbors of each atom closer than
@@ -56,6 +87,12 @@ an `element` column, the `partial` counts of neighbors of each element. Its
 columns are `coordination` and `coordination_<element>`.
 
 ## Validation
+
+`tests/analysis/test_structure_factor.py` checks that perfect fcc has
+exactly $N$ per Bragg vector at its 111, 200, 220 and 311 reflections and
+nothing elsewhere, agreement with a NumPy sum over the wave vectors to
+10<sup>−10</sup> for the total and partial factors of a disordered alloy,
+that the partial factors recombine, and that an ideal gas gives 1 within 2 %.
 
 The tests in `tests/analysis/test_distribution.py` check:
 

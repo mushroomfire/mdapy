@@ -195,6 +195,40 @@ nb::object pair_histogram(Positions3 positions, Matrix3 matrix, Origin3 origin, 
     return nb::ndarray<nb::numpy, std::int64_t>(kept->data(), 3, shape, owner).cast();
 }
 
+nb::tuple structure_factor(Positions3 positions, Matrix3 matrix, Types type, int types,
+                           double q_max, int bins, nb::handle progress,
+                           const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (type.shape(0) != positions.shape(0) || bins < 1 || types < 1 || !(q_max > 0.0)) {
+        throw std::invalid_argument("invalid arguments to the structure factor");
+    }
+    for (std::int64_t i = 0; i < n; ++i) {
+        if (type.data()[i] < 0 || type.data()[i] >= types) {
+            throw std::invalid_argument("a type is outside the range");
+        }
+    }
+    std::vector<double> sums;
+    std::vector<std::int64_t> vectors;
+    run_released(
+        [&](const Control& control) {
+            analysis::structure_factor(positions.data(), n, matrix.data(), type.data(), types,
+                                       q_max, bins, sums, vectors, control);
+        },
+        progress, cancel);
+    auto* kept = new std::vector<double>(std::move(sums));
+    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<double>*>(p); });
+    const std::size_t shape[3] = {static_cast<std::size_t>(types),
+                                  static_cast<std::size_t>(types), static_cast<std::size_t>(bins)};
+    auto* counted = new std::vector<std::int64_t>(std::move(vectors));
+    nb::capsule counted_owner(counted, [](void* p) noexcept {
+        delete static_cast<std::vector<std::int64_t>*>(p);
+    });
+    const std::size_t count_shape[1] = {static_cast<std::size_t>(bins)};
+    return nb::make_tuple(
+        nb::ndarray<nb::numpy, double>(kept->data(), 3, shape, owner),
+        nb::ndarray<nb::numpy, std::int64_t>(counted->data(), 1, count_shape, counted_owner));
+}
+
 }  // namespace
 
 void bind_analysis(nb::module_& m) {
@@ -204,6 +238,9 @@ void bind_analysis(nb::module_& m) {
     m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"));
     m.def("voronoi", &voronoi, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("offsets"), nb::arg("vectors"), nb::arg("reach"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("structure_factor", &structure_factor, nb::arg("positions"), nb::arg("matrix"),
+          nb::arg("type"), nb::arg("types"), nb::arg("q_max"), nb::arg("bins"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("pair_histogram", &pair_histogram, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("origin"), nb::arg("pbc"), nb::arg("r_max"), nb::arg("bins"), nb::arg("type"),

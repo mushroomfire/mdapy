@@ -16,6 +16,8 @@ from mdapy.analysis._distribution import (
     CoordinationResult,
     RadialDistributionFunction,
     RadialDistributionResult,
+    StructureFactor,
+    StructureFactorResult,
 )
 from mdapy.analysis._entropy import EntropyFingerprint, EntropyResult
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
@@ -36,6 +38,8 @@ __all__ = [
     "RadialDistributionResult",
     "SteinhardtParameters",
     "SteinhardtResult",
+    "StructureFactor",
+    "StructureFactorResult",
     "TemperatureResult",
     "VoronoiAnalysis",
     "VoronoiResult",

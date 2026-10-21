@@ -95,6 +95,7 @@ nav:
   - File formats:
       - Extended XYZ: formats/extxyz.md
       - LAMMPS data: formats/lammps-data.md
+      - LAMMPS dump: formats/lammps-dump.md
   - Reference:
       - Units and conventions: reference/units.md
       - Elements: reference/elements.md

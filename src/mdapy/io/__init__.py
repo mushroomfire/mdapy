@@ -7,7 +7,8 @@ The functions are also available at the top level, as ``mdapy.read`` and so
 on.
 """
 
-from mdapy.io import _extxyz, _lammps_data  # noqa: F401  (register the formats)
+# Importing the format modules registers the formats.
+from mdapy.io import _extxyz, _lammps_data, _lammps_dump  # noqa: F401
 from mdapy.io._registry import detect_format, formats, read, write
 
 __all__ = ["read", "write", "formats", "detect_format"]

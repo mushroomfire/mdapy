@@ -35,6 +35,11 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   coefficients kept unchanged, image flags, velocities, metal and real units,
   and restricted and general triclinic boxes. See
   [LAMMPS data](formats/lammps-data.md).
+- LAMMPS text dumps of the atom and custom styles, with any number of frames:
+  units and time items, orthogonal, triclinic and general triclinic boxes,
+  scaled and unwrapped coordinates, elements and type labels, and every other
+  column, array columns such as `c_stress[1]` to `c_stress[6]` kept together.
+  See [LAMMPS dump](formats/lammps-dump.md).
 
 ### Foundations
 

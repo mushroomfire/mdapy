@@ -1,0 +1,120 @@
+# LAMMPS dump
+
+The format `lammps-dump` reads and writes the text dump files of the LAMMPS
+`dump atom` and `dump custom` commands, following LAMMPS stable_30Sep2026,
+with any number of frames. Files with extension `.dump` or `.lammpstrj`, or
+names starting with `dump.`, are recognized.
+
+```python
+import numpy as np
+import mdapy
+
+rng = np.random.default_rng(0)
+system = mdapy.System(
+    positions=rng.random((4, 3)) * 5,
+    box=mdapy.Box(5.0),
+    elements=["Cu", "Cu", "Zr", "Zr"],
+).with_columns(velocities=rng.standard_normal((4, 3)))
+frames = (
+    system.with_positions(system.positions + 0.1 * k).with_info(timestep=100 * k)
+    for k in range(3)
+)
+mdapy.write("run.dump", frames)
+last = mdapy.read("run.dump", frame=-1)
+last.info["timestep"]  # 200
+```
+
+## Options
+
+| Name | Type | Default | Meaning |
+|---|---|---|---|
+| `units` | str | from the file, else `"metal"` | `"metal"` or `"real"`. Reading: overrides `ITEM: UNITS`. Writing: the units of the file. |
+| `elements` | list of str | | Reading: the element of each atom type, in type order, for dumps without an `element` column. Writing: the order of the elements as atom types, for a system without a `type` column. |
+| `triclinic` | str | `"auto"` | Writing only: `"auto"`, `"general"` or `"restricted"`, as for [LAMMPS data](lammps-data.md#box). |
+| `columns` | list of str | all columns | Writing only: the columns to write besides `id`, `type`, `element`, `type_label` and the positions. |
+
+## Frames
+
+Each frame has these items, as LAMMPS writes them:
+
+| Item | Meaning | In mdapy |
+|---|---|---|
+| `ITEM: UNITS` | unit system; LAMMPS writes it only in the first frame, and it applies to all | |
+| `ITEM: TIME` | elapsed time, in ps (metal) or fs (real) | `info["time"]`, ps |
+| `ITEM: TIMESTEP` | timestep | `info["timestep"]` |
+| `ITEM: NUMBER OF ATOMS` | | number of rows |
+| `ITEM: BOX BOUNDS` | the box and its boundary flags | `box` |
+| `ITEM: ATOMS` | the names of the columns | the columns |
+
+A boundary flag `pp` makes a direction periodic; `f`, `s` and `m` flags do
+not. A triclinic box (`xy xz yz`) is written by LAMMPS as its bounding box,
+from which the box is recovered as described in the LAMMPS documentation of
+triclinic boxes; a general triclinic box (`abc origin`) keeps its edge
+vectors and origin. The same forms are written. Dumps of other styles (local,
+cfg, yaml, xyz) and binary dumps raise
+[`UnsupportedFormat`](../reference/api.md#mdapy.errors.UnsupportedFormat);
+xyz dumps can be read as [extended XYZ](extxyz.md).
+
+## Columns
+
+| Dump columns | mdapy column | Conversion |
+|---|---|---|
+| `id` | `id` | |
+| `type` | `type` | |
+| `element` | `element` | |
+| `typelabel` | `type_label` | |
+| `mol` | `molecule` | |
+| `q` | `charge` | |
+| `mass` | `mass` | |
+| `x y z`, else `xs ys zs`, else `xu yu zu`, else `xsu ysu zsu` | `positions` | scaled coordinates become Cartesian |
+| `ix iy iz` | `image` | |
+| `vx vy vz` | `velocities` | real: Å/fs to Å/ps, in decimal |
+| `fx fy fz` | `forces` | real: kcal/mol/Å to eV/Å |
+| `name[1]` ... `name[k]` | `name`, an array column | |
+
+Vectors need all three components. Other columns, including the coordinate
+sets not used for the positions, keep their names and values; they are read
+as integers when their name starts with `i_` and as floats otherwise. Rows
+keep the order of the file.
+
+When writing, `id` (or 1 to N), `type` (from the `type` column, or from the
+elements as for [LAMMPS data](lammps-data.md#types-masses-and-elements)),
+`element` and `typelabel` if present, and `x y z` come first, followed by
+`mol`, `q`, `mass`, `ix iy iz`, `vx vy vz` and `fx fy fz` for the columns
+that exist, and then every other numeric column under its own name, array
+columns as `name[1]` to `name[k]`. Booleans are written as 0 and 1. The
+first frame starts with `ITEM: UNITS`; `ITEM: TIME` is written when `info`
+has `time`. Other `info` values are not written.
+
+## Validation
+
+The tests in `tests/io/test_lammps_dump.py` check that:
+
+- a two-frame file as LAMMPS writes it, in real units with a triclinic box,
+  gives the expected columns, units, box, periodicity, time and timestep in
+  each frame, the units of the first frame applying to the second;
+- coordinates are taken in the documented order, scaled and unwrapped
+  coordinates are converted, and incomplete vectors and arrays stay columns;
+- orthogonal, triclinic (with tilt factors of each sign) and general boxes,
+  boundary flags, blank lines between frames and the `elements` and `units`
+  options work;
+- writing and reading gives back every column (booleans as integers, 3×3
+  arrays flattened), velocities in real units exactly, and boxes of each
+  form, also through the `restricted` rotation;
+- 14 malformed files raise `FileFormatError` with the right line, and 8
+  systems that cannot be written raise the documented error and leave no
+  file.
+
+`tests/io/test_lammps_dump_lammps.py` runs where the LAMMPS Python module is
+installed: dumps written by LAMMPS stable_30Sep2026 at full precision, in
+metal and real units, read to the positions, velocities, forces and charges
+LAMMPS holds; and LAMMPS `read_dump` reads a triclinic dump written by mdapy
+to the same box, positions and velocities.
+
+## References
+
+- LAMMPS documentation of `dump`, `dump_modify` and `read_dump`:
+  <https://docs.lammps.org/dump.html>,
+  <https://docs.lammps.org/dump_modify.html>,
+  <https://docs.lammps.org/read_dump.html>
+- Triclinic boxes in LAMMPS: <https://docs.lammps.org/Howto_triclinic.html>

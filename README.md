@@ -36,3 +36,11 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - **LAMMPS dump（文本 atom/custom）完成并已推送**：多帧、UNITS 只在第一帧、TIME、三斜外接盒换算、一般三斜、缩放/展开坐标、`c_x[1..k]` 合并成数组列。用 LAMMPS 2026 实测了两个方向（LAMMPS 写→mdapy 读逐位一致；mdapy 写→LAMMPS `read_dump` 一致）。
 - 正在做 POSCAR/CONTCAR，测试写好了，还在修几个细节。
 
+### 23:16
+- **今晚计划内的读写部分全部完成并已推送：** LAMMPS dump、VASP POSCAR/CONTCAR、`.mdapy` 原生格式、惰性轨迹 `read_trajectory`。每项都有测试、文档页和发布说明，新文件覆盖率都是 100%。
+  - POSCAR：支持三种缩放系数、POTCAR 标签、Selective dynamics（存成 `movable` 列）、CONTCAR 速度块；用 ASE 双向验证过。
+  - `.mdapy`：ZIP+Parquet，所有列类型和 info 都能精确往返；`frames.parquet` 可以直接读出整条轨迹的能量等；写到一半进程被杀，也能从各帧的元数据恢复。
+  - 轨迹：按需扫描，切片共享同一个打开的文件，不再引用时自动关闭文件。
+- **邻居列表草稿在分支 `neighbor-draft`（未合并）：** 支持任意盒子，盒子比截断半径小也行，结果和暴力枚举逐位一致，和线程数无关。25.6 万个原子、截断 5 Å，单线程 0.39 s，10 线程 0.13 s。API 明天给你确认。
+- 修了 Python 3.10 才有的问题：3.10 的 mmap 没有 `seekable()`。本地在建 3.10 环境，以后提交前先跑一遍。
+

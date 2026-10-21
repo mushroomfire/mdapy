@@ -15,7 +15,7 @@ from mdapy.core.threads import (
     set_num_threads,
 )
 from mdapy.core.topology import Topology
-from mdapy.io import detect_format, formats, read, write
+from mdapy.io import Trajectory, detect_format, formats, read, read_trajectory, write
 
 __all__ = [
     "Box",
@@ -31,6 +31,8 @@ __all__ = [
     "num_threads",
     "read",
     "write",
+    "read_trajectory",
+    "Trajectory",
     "formats",
     "detect_format",
 ]

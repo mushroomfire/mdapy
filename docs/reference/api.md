@@ -14,6 +14,10 @@ import mdapy
 
 ::: mdapy.write
 
+::: mdapy.read_trajectory
+
+::: mdapy.Trajectory
+
 ::: mdapy.formats
 
 ::: mdapy.detect_format

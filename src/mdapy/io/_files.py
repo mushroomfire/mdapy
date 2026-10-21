@@ -60,6 +60,8 @@ class Source:
         self.path = Path(path)
         #: File name used in error messages.
         self.name = os.fspath(path)
+        #: Values a format computes once per file, such as an index of frames.
+        self.cache: dict = {}
         self._file = None
         self._map = None
         with open(self.path, "rb") as f:

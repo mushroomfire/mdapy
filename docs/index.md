@@ -32,7 +32,8 @@ minimization with interatomic potentials.
 | Thread control, units, errors | available |
 | Systems, topology and box (`System`, `Topology`, `Box`) | available |
 | Reading and writing files: extended XYZ, LAMMPS data and dump, VASP POSCAR, mdapy files | available |
-| Trajectories, neighbor lists | next |
+| Trajectories | available |
+| Neighbor lists | next |
 | Calculators (NEP, EAM), energy minimization | planned |
 | Structure identification and analysis | planned |
 

@@ -349,17 +349,23 @@ def _headers(archive: _Archive) -> list[dict[str, Any]]:
     return headers
 
 
+def _open(source: Source) -> tuple[_Archive, list[dict[str, Any]]]:
+    """The archive and the frame headers of a file, read once per file."""
+    if "mdapy" not in source.cache:
+        archive = _Archive(source)
+        _check_manifest(archive)
+        source.cache["mdapy"] = (archive, _headers(archive))
+    return source.cache["mdapy"]
+
+
 def _scan(source: Source) -> Iterator[FramePosition]:
-    archive = _Archive(source)
-    _check_manifest(archive)
-    for index in range(len(_headers(archive))):
+    for index in range(len(_open(source)[1])):
         yield (index, 0)
 
 
 def _read(source: Source, position: FramePosition) -> System:
-    archive = _Archive(source)
-    _check_manifest(archive)
-    header = _headers(archive)[position[0]]
+    archive, headers = _open(source)
+    header = headers[position[0]]
     table = pl.read_parquet(io.BytesIO(archive.read(header["member"])))
     box = header["box"]
     topology = None

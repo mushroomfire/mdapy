@@ -48,6 +48,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   each frame, a table of frames with typed columns of the information, and
   recovery of files whose writing stopped early. See
   [mdapy files](formats/mdapy.md).
+- `mdapy.read_trajectory` opens the frames of any file lazily: frames are
+  found and read when used, slices share the open file, and iteration starts
+  at once. See [Trajectories](guide/trajectory.md).
 
 ### Foundations
 

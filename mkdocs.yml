@@ -91,6 +91,7 @@ nav:
       - Systems and topology: guide/system.md
       - Simulation box: guide/box.md
       - Reading and writing files: guide/io.md
+      - Trajectories: guide/trajectory.md
       - Parallelism: guide/parallelism.md
   - File formats:
       - Extended XYZ: formats/extxyz.md

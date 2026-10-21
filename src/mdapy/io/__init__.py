@@ -16,5 +16,6 @@ from mdapy.io import (  # noqa: F401
     _poscar,
 )
 from mdapy.io._registry import detect_format, formats, read, write
+from mdapy.io._trajectory import Trajectory, read_trajectory
 
-__all__ = ["read", "write", "formats", "detect_format"]
+__all__ = ["read", "write", "read_trajectory", "Trajectory", "formats", "detect_format"]

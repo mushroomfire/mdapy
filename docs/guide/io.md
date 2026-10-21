@@ -1,7 +1,8 @@
 # Reading and writing files
 
 `mdapy.read` reads one frame of a file into a [`System`](system.md), and
-`mdapy.write` writes one or more systems to a file. The format is found from
+`mdapy.write` writes one or more systems to a file. To go through the frames
+of a file one at a time, see [Trajectories](trajectory.md). The format is found from
 the file name, and compressed files are handled transparently.
 
 ```python

@@ -1,11 +1,18 @@
 name: Publish to PyPI
 
 # Triggered by version tags (e.g. v1.0.0, v1.0.0a1) or manual dispatch.
+# A manual dispatch with publish=false builds every wheel without uploading,
+# which is handy for checking a CI change before a release.
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Upload the built distributions to PyPI'
+        type: boolean
+        default: true
 
 # ---------------------------------------------------------------------------
 # Wheel strategy
@@ -48,7 +55,9 @@ jobs:
           fetch-depth: 0
 
       - name: Build CPU-only wheels
-        uses: pypa/cibuildwheel@v2.22
+        # cibuildwheel >= 3.0 is needed for CPython 3.14; older versions
+        # silently skip the cp314-* selector.
+        uses: pypa/cibuildwheel@v4.3
         env:
           # Explicitly disable GPU backend so the build never accidentally
           # picks up a system CUDA installation on the runner.
@@ -67,9 +76,15 @@ jobs:
           # Linux x86_64 — standard manylinux2014 / manylinux_2_17 image.
           # This gives a broad-compatibility CPU wheel that works on any x86_64
           # Linux with glibc ≥ 2.17 (CentOS 7 era and newer).
+          # cibuildwheel >= 3.0 defaults to manylinux_2_28, which would give
+          # the CPU wheel the same file name as the GPU wheel, so pin it.
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
           CIBW_ARCHS_LINUX: x86_64
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
             auditwheel repair -w {dest_dir} {wheel}
+
+          # Smoke test: install each wheel in a clean env and import it.
+          CIBW_TEST_COMMAND: python -c "import mdapy; print(mdapy.__version__)"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -136,13 +151,13 @@ jobs:
         run: nvcc --version
 
       - name: Build GPU-enabled wheels
-        uses: pypa/cibuildwheel@v2.22
+        uses: pypa/cibuildwheel@v4.3
         env:
           # Enable GPU backend.  MDAPY_OPTIX defaults to ON when CUDA is found,
           # but we set it explicitly to fail fast if CUDA is missing.
           CIBW_CONFIG_SETTINGS: "cmake.define.MDAPY_OPTIX=ON"
 
-          CIBW_BUILD: 'cp39-* cp310-* cp311-* cp312-* cp313-*'
+          CIBW_BUILD: 'cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*'
           CIBW_SKIP:  'pp* *-musllinux_* *-manylinux_i686'
 
           # ── Linux ──────────────────────────────────────────────────────────
@@ -228,6 +243,8 @@ jobs:
   publish_to_pypi:
     name: Publish to PyPI
     needs: [build_wheels_cpu, build_wheels_gpu, build_sdist]
+    # Tag pushes always publish; manual runs only when publish=true.
+    if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-latest
     environment:
       name: pypi

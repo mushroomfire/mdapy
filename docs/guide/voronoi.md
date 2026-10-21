@@ -12,9 +12,8 @@ cells = VoronoiAnalysis().compute(system)
 cells.volume  # (N,) Å³
 cells.coordination  # (N,) faces shared with other atoms
 cells.index()  # (N, 6) faces with 3, 4, ..., 8 vertices
-system = system.with_columns(
-    cells
-)  # voronoi_volume, voronoi_coordination, cavity_radius
+# columns voronoi_volume, voronoi_coordination and cavity_radius
+system = system.with_columns(cells)
 ```
 
 Each cell starts as a cube around its atom and is cut by the plane halfway to

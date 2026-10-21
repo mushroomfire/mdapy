@@ -43,6 +43,11 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - VASP POSCAR and CONTCAR: scaling factors, POTCAR labels, selective
   dynamics as the `movable` column, Direct and Cartesian coordinates, and the
   velocity block of a CONTCAR. See [VASP POSCAR](formats/poscar.md).
+- The mdapy file format `.mdapy`: a ZIP archive of Parquet tables that keeps
+  every column with its type, the box, the information and the topology of
+  each frame, a table of frames with typed columns of the information, and
+  recovery of files whose writing stopped early. See
+  [mdapy files](formats/mdapy.md).
 
 ### Foundations
 

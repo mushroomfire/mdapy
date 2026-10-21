@@ -8,7 +8,13 @@ on.
 """
 
 # Importing the format modules registers the formats.
-from mdapy.io import _extxyz, _lammps_data, _lammps_dump, _poscar  # noqa: F401
+from mdapy.io import (  # noqa: F401
+    _extxyz,
+    _lammps_data,
+    _lammps_dump,
+    _native,
+    _poscar,
+)
 from mdapy.io._registry import detect_format, formats, read, write
 
 __all__ = ["read", "write", "formats", "detect_format"]

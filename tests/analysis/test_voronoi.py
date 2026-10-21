@@ -157,3 +157,11 @@ def test_one_atom_and_atoms_outside_the_box():
     result = VoronoiAnalysis().compute(outside)
     # the closed direction reaches out to the atom at z = 7
     assert result.volume.sum() == pytest.approx(25.0 * 7.0, rel=1e-12)
+
+
+def test_atoms_at_the_same_position():
+    twins = mdapy.System(
+        [[1.0, 1, 1], [1.0, 1, 1], [3.0, 3, 3]], mdapy.Box(6.0), elements="Ar"
+    )
+    with pytest.raises(ValueError, match="same position"):
+        VoronoiAnalysis().compute(twins)

@@ -23,7 +23,7 @@ neighbors are searched on a grid of cells without being stored; the cells
 they do not close are computed again with a longer reach. A million atoms
 take about 1.5 s on ten threads. In
 directions that are not periodic, the cells are closed by the faces of the
-box, moved out to include every atom.
+box, moved out to include every atom. Two atoms at the same position raise `ValueError`.
 
 The `VoronoiResult` has, per atom, the `volume`, the `coordination` (faces
 shared with other atoms) and the `radius`, the distance to the farthest vertex

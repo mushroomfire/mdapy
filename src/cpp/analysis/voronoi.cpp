@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <stdexcept>
 #include <tuple>
 #include <utility>
 
@@ -410,6 +411,9 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
                     const double* xi = positions + 3 * i;
                     candidates.clear();
                     grid.visit(i, [&](std::int32_t j, const std::int32_t* s, double r2) {
+                        if (r2 == 0.0) {
+                            throw std::invalid_argument("two atoms are at the same position");
+                        }
                         const double* xj = positions + 3 * static_cast<std::int64_t>(j);
                         Vec v;
                         for (int e = 0; e < 3; ++e) {

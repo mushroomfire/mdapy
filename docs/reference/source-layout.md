@@ -27,6 +27,7 @@
 | `src/mdapy/analysis/_voronoi.py` | `VoronoiAnalysis`. |
 | `src/mdapy/analysis/_entropy.py` | `EntropyFingerprint`. |
 | `src/mdapy/analysis/_temperature.py` | `AtomicTemperature`. |
+| `src/mdapy/analysis/_strain.py` | `AtomicStrain`. |
 | `src/mdapy/analysis/_bonds.py` | `ClusterAnalysis`, `BondAngleDistribution`, `WarrenCowley`, and bonds by cutoff per pair of elements. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
@@ -35,6 +36,7 @@
 | `src/cpp/identify/structure.h`, `structure.cpp` | Common neighbor analysis and the centro-symmetry parameter. |
 | `src/cpp/analysis/steinhardt.h`, `steinhardt.cpp` | Real spherical harmonics and Steinhardt order parameters. |
 | `src/cpp/analysis/distribution.h`, `distribution.cpp` | Histograms of pair distances counted during the neighbor search, and the structure factor. |
+| `src/cpp/analysis/strain.h`, `strain.cpp` | Atomic strain from neighbor vectors. |
 | `src/cpp/analysis/geometry.h`, `geometry.cpp` | Clusters of bonded atoms, bond angles and the pair entropy. |
 | `src/cpp/analysis/voronoi.h`, `voronoi.cpp` | Voronoi cells, cut plane by plane. |
 | `src/cpp/io/powers_of_five.h` | Generated table used by the number parser. |

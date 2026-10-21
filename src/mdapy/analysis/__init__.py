@@ -21,10 +21,12 @@ from mdapy.analysis._distribution import (
 )
 from mdapy.analysis._entropy import EntropyFingerprint, EntropyResult
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
+from mdapy.analysis._strain import AtomicStrain, StrainResult
 from mdapy.analysis._temperature import AtomicTemperature, TemperatureResult
 from mdapy.analysis._voronoi import VoronoiAnalysis, VoronoiResult
 
 __all__ = [
+    "AtomicStrain",
     "AtomicTemperature",
     "BondAngleDistribution",
     "BondAngleResult",
@@ -38,6 +40,7 @@ __all__ = [
     "RadialDistributionResult",
     "SteinhardtParameters",
     "SteinhardtResult",
+    "StrainResult",
     "StructureFactor",
     "StructureFactorResult",
     "TemperatureResult",

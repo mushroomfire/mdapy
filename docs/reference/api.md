@@ -70,6 +70,10 @@ import mdapy
 
 ::: mdapy.analysis.TemperatureResult
 
+::: mdapy.analysis.AtomicStrain
+
+::: mdapy.analysis.StrainResult
+
 ::: mdapy.analysis.ClusterAnalysis
 
 ::: mdapy.analysis.ClusterResult

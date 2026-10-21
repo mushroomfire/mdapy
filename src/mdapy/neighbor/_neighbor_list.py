@@ -152,15 +152,14 @@ class NeighborList:
             if pairs.counts.min() >= k:
                 break
             cutoff *= 1.5
-        ordered = pairs.sorted()
-        keep = (ordered.offsets[:-1, None] + np.arange(k)).ravel()
-        distances = ordered.distances[keep]
+        keep, offsets = _native.order_by_distance(pairs.offsets, pairs.distances, k)
+        distances = pairs.distances[keep]
         return cls(
             system,
             float(np.nextafter(distances.max(), np.inf)),
-            np.arange(n + 1, dtype=np.int64) * k,
-            ordered.j[keep],
-            ordered.shifts[keep],
+            offsets,
+            pairs.j[keep],
+            pairs.shifts[keep],
             distances,
         )
 
@@ -212,7 +211,7 @@ class NeighborList:
 
     def sorted(self) -> "NeighborList":
         """The same pairs, each atom's sorted by distance (ties keep their order)."""
-        order = np.lexsort((np.arange(len(self)), self.distances, self.i))
+        order, _ = _native.order_by_distance(self.offsets, self.distances)
         return NeighborList(
             self.system,
             self.cutoff,

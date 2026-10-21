@@ -101,6 +101,11 @@ void pair_entropy(std::int64_t n, const std::int64_t* offsets, const double* dis
                   double cutoff, double sigma, const double* density, double* entropy,
                   const Control& control) {
     const int bins = static_cast<int>(cutoff / sigma) + 1;
+    std::vector<double> shell(static_cast<std::size_t>(bins), 0.0);  // 1 / r_k^2
+    for (int k = 1; k < bins; ++k) {  // r = 0 has no shell
+        shell[k] = 1.0 / ((k * sigma) * (k * sigma));
+    }
+    const double decay = std::exp(-1.0);
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
@@ -115,10 +120,17 @@ void pair_entropy(std::int64_t n, const std::int64_t* offsets, const double* dis
                     if (!(r < cutoff)) {
                         continue;
                     }
-                    for (int k = 1; k < bins; ++k) {  // r = 0 has no shell
-                        const double rk = k * sigma;
-                        const double d = r - rk;
-                        g[k] += scale / (rk * rk) * std::exp(-d * d / (2.0 * sigma * sigma));
+                    // the Gaussian at r_k = k sigma, exp(-(u - k)^2 / 2) with
+                    // u = r / sigma, grows from k to k + 1 by exp(u - k - 1/2),
+                    // a factor that shrinks by 1/e at each step: two
+                    // exponentials per pair instead of one per bin
+                    const double u = r / sigma;
+                    double gauss = std::exp(-0.5 * (u - 1.0) * (u - 1.0));
+                    double step = std::exp(u - 1.5);
+                    for (int k = 1; k < bins; ++k) {
+                        g[k] += scale * shell[k] * gauss;
+                        gauss *= step;
+                        step *= decay;
                     }
                 }
                 // -2 pi rho integral of (g ln g - g + 1) r^2 by the trapezoid rule

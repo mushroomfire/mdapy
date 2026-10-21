@@ -56,8 +56,8 @@ struct Column {
 // of the table.
 class ParseError : public std::runtime_error {
 public:
-    ParseError(std::int64_t row, const std::string& message)
-        : std::runtime_error(message), row(row) {}
+    ParseError(std::int64_t at, const std::string& message)
+        : std::runtime_error(message), row(at) {}
     std::int64_t row;
 };
 

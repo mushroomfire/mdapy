@@ -106,4 +106,8 @@ jobs:
           for lib in ${{ matrix.preload }}; do preload="$preload:$(gcc -print-file-name=$lib)"; done
           export LD_PRELOAD="${preload#:}"
           export ${{ matrix.options }}
+          # Temporary probe: which import crashes under the sanitizer?
+          for module in numpy polars mdapy; do
+            python -c "import $module" && echo "import $module: ok" || echo "import $module: exit $?"
+          done
           pytest -q

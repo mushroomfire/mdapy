@@ -44,12 +44,13 @@ struct NepModel {
 
 // Energies (n), forces (n x 3), virials (n x 9, may be null) and scaled
 // descriptors (n x dim, may be null) of n atoms with a full neighbor list in
-// CSR form; vectors (pairs x 3) go from atom i to its neighbor. The virial
-// of each derivative of the energy of atom i by a neighbor vector goes to
-// that neighbor, as in GPUMD.
+// CSR form: the neighbor, its periodic image (pairs x 3) and the vector from
+// atom i to it (pairs x 3). The virial of each derivative of the energy of
+// atom i by a neighbor vector goes to that neighbor, as in GPUMD.
 void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* species,
                  const std::int64_t* offsets, const std::int32_t* neighbors,
-                 const double* vectors, double* energies, double* forces, double* virials,
-                 double* descriptors, const Control& control = {});
+                 const std::int32_t* shifts, const double* vectors, double* energies,
+                 double* forces, double* virials, double* descriptors,
+                 const Control& control = {});
 
 }  // namespace mdapy::calculators

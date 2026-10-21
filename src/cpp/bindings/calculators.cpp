@@ -25,6 +25,7 @@ using Offsets = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::d
 using Neighbors = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Vectors = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 using Flat = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Shifts = nb::ndarray<const std::int32_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
 template <class T>
 nb::object new_array(std::size_t ndim, const std::size_t* shape, T*& data) {
@@ -134,12 +135,18 @@ calculators::NepModel make_nep(const std::vector<int>& sizes, Flat rc_radial, Fl
 }
 
 nb::tuple compute_nep(const calculators::NepModel& model, Species species, Offsets offsets,
-                      Neighbors neighbors, Vectors vectors, bool descriptors,
+                      Neighbors neighbors, Shifts shifts, Vectors vectors, bool descriptors,
                       nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(species.shape(0));
     if (offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
-        neighbors.shape(0) != vectors.shape(0)) {
+        neighbors.shape(0) != vectors.shape(0) || shifts.shape(0) != vectors.shape(0) ||
+        offsets.data()[n] != static_cast<std::int64_t>(vectors.shape(0))) {
         throw std::invalid_argument("the neighbor list does not fit the atoms");
+    }
+    for (std::size_t p = 0; p < neighbors.shape(0); ++p) {
+        if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
+            throw std::invalid_argument("a neighbor index is outside the atoms");
+        }
     }
     for (std::int64_t i = 0; i < n; ++i) {
         if (species.data()[i] < 0 || species.data()[i] >= model.types) {
@@ -159,7 +166,8 @@ nb::tuple compute_nep(const calculators::NepModel& model, Species species, Offse
     run_released(
         [&](const Control& control) {
             calculators::compute_nep(model, n, species.data(), offsets.data(), neighbors.data(),
-                                     vectors.data(), energies, forces, virials, q, control);
+                                     shifts.data(), vectors.data(), energies, forces, virials, q,
+                                     control);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w, d);
@@ -184,7 +192,8 @@ void bind_calculators(nb::module_& m) {
           nb::arg("w0"), nb::arg("b0"), nb::arg("w1"), nb::arg("b1"), nb::arg("c_radial"),
           nb::arg("c_angular"), nb::arg("q_scaler"), nb::arg("zbl"));
     m.def("compute_nep", &compute_nep, nb::arg("model"), nb::arg("species"), nb::arg("offsets"),
-          nb::arg("neighbors"), nb::arg("vectors"), nb::arg("descriptors") = false,
+          nb::arg("neighbors"), nb::arg("shifts"), nb::arg("vectors"),
+          nb::arg("descriptors") = false,
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
 }
 

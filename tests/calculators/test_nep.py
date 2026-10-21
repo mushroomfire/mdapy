@@ -207,3 +207,12 @@ def test_blank_lines_before_the_header(tmp_path):
     b = NEP(path)
     system = alloy(seed=6)
     assert a.compute(system).energy == b.compute(system).energy
+
+
+def test_neighbor_lists_must_be_symmetric(tmp_path):
+    potential = NEP(write_nep(tmp_path / "nep.txt"))
+    system = alloy(seed=7)
+    nearest = mdapy.NeighborList.nearest(system, 120)  # i near j, not j near i
+    assert nearest.cutoff > potential.cutoff
+    with pytest.raises(ValueError, match="not symmetric"):
+        potential.compute(system, neighbors=nearest)

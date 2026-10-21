@@ -55,6 +55,12 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
     }
     // Columns of H^-1 are (b x c, c x a, a x b) / det.
     const Vector inverse_columns[3] = {bc, ca, ab};
+    for (int d = 0; d < 3; ++d) {
+        for (int e = 0; e < 3; ++e) {
+            inverse_[3 * d + e] = inverse_columns[d][e] / det;
+        }
+        origin_[d] = origin[d];
+    }
     const double thickness[3] = {std::abs(det) / norm(bc), std::abs(det) / norm(ca),
                                  std::abs(det) / norm(ab)};
 
@@ -307,6 +313,56 @@ void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* o
             }
         },
         control);
+}
+
+void nearest_sites(const double* sites, std::int64_t n, const double* matrix,
+                   const double* origin, const bool* pbc, const double* points, std::int64_t m,
+                   std::int64_t* site, double* distance2, const Control& control) {
+    if (n == 0 && m > 0) {
+        throw std::invalid_argument("there are no sites");
+    }
+    const double* h = matrix;
+    const double volume = std::abs(h[0] * (h[4] * h[8] - h[5] * h[7]) -
+                                   h[1] * (h[3] * h[8] - h[5] * h[6]) +
+                                   h[2] * (h[3] * h[7] - h[4] * h[6]));
+    // a sphere holding a few sites at the mean density, larger where needed
+    double cutoff = 1.5 * std::cbrt(volume / static_cast<double>(std::max<std::int64_t>(n, 1)));
+    std::vector<std::int64_t> todo(static_cast<std::size_t>(m));
+    std::iota(todo.begin(), todo.end(), 0);
+    while (!todo.empty()) {
+        const CellGrid grid(sites, n, matrix, origin, pbc, cutoff);
+        std::vector<std::uint8_t> missed(todo.size(), 0);
+        parallel_for(
+            static_cast<std::int64_t>(todo.size()), 0,
+            [&](std::int64_t begin, std::int64_t end) {
+                for (std::int64_t t = begin; t < end; ++t) {
+                    const std::int64_t p = todo[static_cast<std::size_t>(t)];
+                    std::int64_t best = -1;
+                    double best2 = 0.0;
+                    grid.visit_point(points + 3 * p, [&](std::int32_t j, const std::int32_t*, double r2) {
+                        if (best < 0 || r2 < best2 || (r2 == best2 && j < best)) {
+                            best = j;
+                            best2 = r2;
+                        }
+                    });
+                    if (best < 0) {
+                        missed[static_cast<std::size_t>(t)] = 1;
+                    } else {
+                        site[p] = best;
+                        distance2[p] = best2;
+                    }
+                }
+            },
+            control);
+        std::vector<std::int64_t> left;
+        for (std::size_t t = 0; t < todo.size(); ++t) {
+            if (missed[t]) {
+                left.push_back(todo[t]);
+            }
+        }
+        todo.swap(left);
+        cutoff *= 2.0;
+    }
 }
 
 }  // namespace mdapy::neighbor

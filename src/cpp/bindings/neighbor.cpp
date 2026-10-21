@@ -108,6 +108,22 @@ nb::object pair_vectors(Positions positions, Offsets offsets, Neighbors neighbor
     return to_array(std::move(vectors), neighbors.shape(0), 3);
 }
 
+nb::tuple nearest_sites(Positions sites, Matrix matrix, Vector3 origin, Flags pbc,
+                        Positions points, nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(sites.shape(0));
+    const auto m = static_cast<std::int64_t>(points.shape(0));
+    std::vector<std::int64_t> site(static_cast<std::size_t>(m));
+    std::vector<double> distance2(static_cast<std::size_t>(m));
+    run_released(
+        [&](const Control& control) {
+            neighbor::nearest_sites(sites.data(), n, matrix.data(), origin.data(), pbc.data(),
+                                    points.data(), m, site.data(), distance2.data(), control);
+        },
+        progress, cancel);
+    return nb::make_tuple(to_array(std::move(site), static_cast<std::size_t>(m), 0),
+                          to_array(std::move(distance2), static_cast<std::size_t>(m), 0));
+}
+
 }  // namespace
 
 void bind_neighbor(nb::module_& m) {
@@ -119,6 +135,9 @@ void bind_neighbor(nb::module_& m) {
           nb::arg("cancel").none() = nullptr);
     m.def("pair_vectors", &pair_vectors, nb::arg("positions"), nb::arg("offsets"),
           nb::arg("neighbors"), nb::arg("shifts"), nb::arg("matrix"));
+    m.def("nearest_sites", &nearest_sites, nb::arg("sites"), nb::arg("matrix"), nb::arg("origin"),
+          nb::arg("pbc"), nb::arg("points"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("order_by_distance", &order_by_distance, nb::arg("offsets"), nb::arg("distances"),
           nb::arg("count") = -1, nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);

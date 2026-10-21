@@ -361,6 +361,16 @@ void neighbor_search() {
                                      pairs.distances[p];
         }
         check(lengths, "the pair vectors have the lengths of the distances");
+        // every atom is its own nearest site
+        std::vector<std::int64_t> site(static_cast<std::size_t>(n));
+        std::vector<double> distance2(static_cast<std::size_t>(n));
+        mdapy::neighbor::nearest_sites(positions.data(), n, matrix, origin, pbc, positions.data(),
+                                       n, site.data(), distance2.data());
+        bool own = true;
+        for (std::int64_t i = 0; i < n; ++i) {
+            own = own && site[i] == i && distance2[i] == 0.0;
+        }
+        check(own, "every atom is its own nearest site");
     }
 }
 

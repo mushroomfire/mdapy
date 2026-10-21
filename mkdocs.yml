@@ -100,6 +100,7 @@ nav:
       - Entropy fingerprint: guide/entropy.md
       - Atomic temperature: guide/temperature.md
       - Atomic strain: guide/strain.md
+      - Point defects: guide/defects.md
       - Clusters, bond angles and short-range order: guide/bonds.md
       - Voronoi cells: guide/voronoi.md
       - Parallelism: guide/parallelism.md

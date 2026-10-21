@@ -50,6 +50,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `voronoi_volume`, `voronoi_coordination`, `cavity_radius` | f64, int64, f64 | Å³, , Å | volume and number of shared faces of the Voronoi cell, and the distance to its farthest vertex |
 | `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint; `entropy_average` when averaged over neighbors |
 | `temperature` | f64 | K | temperature of an atom and its neighbors |
+| `site`, `occupancy` | int64 | | the nearest reference site of an atom, and the number of atoms on it |
 | `shear_strain`, `volumetric_strain`, `d2min` | f64 | , , Å² | von Mises and volumetric atomic strain against a reference, and the non-affine squared displacement |
 
 ## Energies and virials

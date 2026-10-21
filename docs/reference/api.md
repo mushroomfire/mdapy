@@ -74,6 +74,10 @@ import mdapy
 
 ::: mdapy.analysis.StrainResult
 
+::: mdapy.analysis.WignerSeitz
+
+::: mdapy.analysis.WignerSeitzResult
+
 ::: mdapy.analysis.ClusterAnalysis
 
 ::: mdapy.analysis.ClusterResult

@@ -24,6 +24,7 @@ from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
 from mdapy.analysis._strain import AtomicStrain, StrainResult
 from mdapy.analysis._temperature import AtomicTemperature, TemperatureResult
 from mdapy.analysis._voronoi import VoronoiAnalysis, VoronoiResult
+from mdapy.analysis._wigner_seitz import WignerSeitz, WignerSeitzResult
 
 __all__ = [
     "AtomicStrain",
@@ -48,4 +49,6 @@ __all__ = [
     "VoronoiResult",
     "WarrenCowley",
     "WarrenCowleyResult",
+    "WignerSeitz",
+    "WignerSeitzResult",
 ]

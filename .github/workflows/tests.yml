@@ -76,7 +76,9 @@ jobs:
               UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
           - sanitizer: thread
             preload: libtsan.so
-            options: TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1
+            # die_after_fork=0: the fork test starts the pool in a forked child,
+            # which TSan otherwise refuses.
+            options: TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1:die_after_fork=0
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

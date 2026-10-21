@@ -24,7 +24,9 @@ find_package(Threads REQUIRED)
 file(GLOB_RECURSE MDAPY_CPP_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/*.cpp")
 
-nanobind_add_module(_core STABLE_ABI NB_STATIC ${MDAPY_CPP_SOURCES})
+# NB_SUPPRESS_WARNINGS marks nanobind's headers as system headers, so the strict
+# warning flags below (and -Werror) apply to mdapy's own code only.
+nanobind_add_module(_core STABLE_ABI NB_STATIC NB_SUPPRESS_WARNINGS ${MDAPY_CPP_SOURCES})
 target_include_directories(_core PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp")
 target_link_libraries(_core PRIVATE Threads::Threads)
 

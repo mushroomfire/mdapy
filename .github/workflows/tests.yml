@@ -15,8 +15,8 @@ jobs:
     name: ruff
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - run: pip install ruff
@@ -36,8 +36,8 @@ jobs:
           # MSVC also warns inside third-party headers, so no -Werror here.
           - { os: windows-latest, python: "3.13", werror: "OFF" }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
       - name: Install
@@ -51,8 +51,8 @@ jobs:
     name: coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       # Editable install so that reported paths point into src/.
@@ -77,8 +77,8 @@ jobs:
     name: sanitizer — address
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - name: Install with AddressSanitizer and UndefinedBehaviorSanitizer
@@ -100,7 +100,7 @@ jobs:
     name: sanitizer — thread
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build the thread checks with ThreadSanitizer
         run: >
           g++ -std=c++17 -O1 -g -fsanitize=thread -fno-omit-frame-pointer -ffp-contract=off

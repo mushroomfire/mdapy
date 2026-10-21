@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -39,7 +40,14 @@ public:
     // Calls visit(j, shift, r2) for every pair (i, j, shift) closer than the
     // cutoff, shift an int32 array of 3; r2 is the squared distance.
     template <class Visit>
-    void visit(std::int64_t i, Visit&& visit) const;
+    void visit(std::int64_t i, Visit&& visit) const {
+        scan(&cell_index_[3 * i], &wraps_[3 * i], positions_ + 3 * i, i, visit);
+    }
+
+    // The same for any point x: every atom j and image shift with
+    // |x_j + shift . H - x| below the cutoff.
+    template <class Visit>
+    void visit_point(const double* x, Visit&& visit) const;
 
 private:
     struct Axis {
@@ -58,8 +66,16 @@ private:
         return q;
     }
 
+    // atoms within reach of the cell cell (3) and the point x wrapped by wrap
+    // (3); the pair with self and no shift is skipped
+    template <class Visit>
+    void scan(const std::int64_t* cell, const std::int32_t* wrap, const double* x,
+              std::int64_t self, Visit&& visit) const;
+
     const double* positions_;
     double h_[9];
+    double inverse_[9];  // columns of H^-1
+    double origin_[3];
     double cutoff2_;
     Axis axes_[3];
     std::vector<std::int32_t> wraps_;        // 3 per atom
@@ -69,8 +85,27 @@ private:
 };
 
 template <class Visit>
-void CellGrid::visit(std::int64_t i, Visit&& visit) const {
-    const double* xi = positions_ + 3 * i;
+void CellGrid::visit_point(const double* x, Visit&& visit) const {
+    std::int64_t cell[3];
+    std::int32_t wrap[3] = {0, 0, 0};
+    const double r[3] = {x[0] - origin_[0], x[1] - origin_[1], x[2] - origin_[2]};
+    for (int d = 0; d < 3; ++d) {
+        const Axis& axis = axes_[d];
+        double f = r[0] * inverse_[3 * d] + r[1] * inverse_[3 * d + 1] + r[2] * inverse_[3 * d + 2];
+        if (axis.periodic) {
+            const double k = std::floor(f);
+            f -= k;
+            wrap[d] = static_cast<std::int32_t>(k);
+        }
+        auto k = static_cast<std::int64_t>(std::floor((f - axis.low) / axis.width));
+        cell[d] = k < 0 ? 0 : (k >= axis.cells ? axis.cells - 1 : k);
+    }
+    scan(cell, wrap, x, -1, visit);
+}
+
+template <class Visit>
+void CellGrid::scan(const std::int64_t* cell, const std::int32_t* wrap, const double* xi,
+                    std::int64_t self, Visit&& visit) const {
     for (std::int64_t dx = -axes_[0].reach; dx <= axes_[0].reach; ++dx) {
         for (std::int64_t dy = -axes_[1].reach; dy <= axes_[1].reach; ++dy) {
             for (std::int64_t dz = -axes_[2].reach; dz <= axes_[2].reach; ++dz) {
@@ -80,11 +115,11 @@ void CellGrid::visit(std::int64_t i, Visit&& visit) const {
                 bool inside = true;
                 for (int d = 0; d < 3 && inside; ++d) {
                     const Axis& axis = axes_[d];
-                    std::int64_t k = cell_index_[3 * i + d] + step[d];
+                    std::int64_t k = cell[d] + step[d];
                     if (axis.periodic) {
-                        const std::int64_t wrap = floor_div(k, axis.cells);
-                        k -= wrap * axis.cells;
-                        image[d] = static_cast<std::int32_t>(wrap);
+                        const std::int64_t shift = floor_div(k, axis.cells);
+                        k -= shift * axis.cells;
+                        image[d] = static_cast<std::int32_t>(shift);
                     } else if (k < 0 || k >= axis.cells) {
                         inside = false;
                     }
@@ -96,10 +131,10 @@ void CellGrid::visit(std::int64_t i, Visit&& visit) const {
                 for (std::int64_t s = cell_start_[target]; s < cell_start_[target + 1]; ++s) {
                     const std::int32_t j = cell_atoms_[s];
                     // shift in the original (unwrapped) coordinates
-                    const std::int32_t shift[3] = {image[0] + wraps_[3 * i] - wraps_[3 * j],
-                                                   image[1] + wraps_[3 * i + 1] - wraps_[3 * j + 1],
-                                                   image[2] + wraps_[3 * i + 2] - wraps_[3 * j + 2]};
-                    if (j == i && shift[0] == 0 && shift[1] == 0 && shift[2] == 0) {
+                    const std::int32_t shift[3] = {image[0] + wrap[0] - wraps_[3 * j],
+                                                   image[1] + wrap[1] - wraps_[3 * j + 1],
+                                                   image[2] + wrap[2] - wraps_[3 * j + 2]};
+                    if (j == self && shift[0] == 0 && shift[1] == 0 && shift[2] == 0) {
                         continue;
                     }
                     const double* xj = positions_ + 3 * j;
@@ -117,6 +152,12 @@ void CellGrid::visit(std::int64_t i, Visit&& visit) const {
         }
     }
 }
+
+// The nearest atom (site) to each of m points, with the squared distance;
+// ties go to the lower index. sites: n x 3 in the box; points: m x 3.
+void nearest_sites(const double* sites, std::int64_t n, const double* matrix,
+                   const double* origin, const bool* pbc, const double* points, std::int64_t m,
+                   std::int64_t* site, double* distance2, const Control& control = {});
 
 // positions: n x 3; matrix: 3 x 3, rows a, b, c; origin: 3; pbc: 3.
 // Throws std::invalid_argument for a non-positive cutoff or a singular box.

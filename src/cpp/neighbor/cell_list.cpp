@@ -27,6 +27,50 @@ struct Pair {
     double distance;
 };
 
+// Puts the k pairs with the smallest (distance, j, shift) first, in order,
+// all distances below limit. A counting sort into distance bins comes first,
+// then an insertion sort of the bins that hold the k: nearly in order, they
+// need few comparisons, unlike a heap whose comparisons the processor cannot
+// predict.
+void select_nearest(std::vector<Pair>& pairs, std::size_t k, double limit,
+                    std::vector<Pair>& sorted) {
+    constexpr std::size_t kBins = 32;
+    std::array<std::uint32_t, kBins + 1> start{};
+    const double scale = static_cast<double>(kBins) / limit;
+    for (const Pair& p : pairs) {
+        ++start[std::min(kBins - 1, static_cast<std::size_t>(p.distance * scale)) + 1];
+    }
+    for (std::size_t b = 0; b < kBins; ++b) {
+        start[b + 1] += start[b];
+    }
+    std::array<std::uint32_t, kBins> next;
+    std::copy(start.begin(), start.end() - 1, next.begin());
+    sorted.resize(pairs.size());
+    for (const Pair& p : pairs) {
+        sorted[next[std::min(kBins - 1, static_cast<std::size_t>(p.distance * scale))]++] = p;
+    }
+    // the bins up to the one holding the k-th pair
+    std::size_t end = k;
+    for (std::size_t b = 0; b < kBins; ++b) {
+        if (start[b + 1] >= k) {
+            end = start[b + 1];
+            break;
+        }
+    }
+    const auto less = [](const Pair& p, const Pair& q) {
+        return std::tie(p.distance, p.j, p.shift) < std::tie(q.distance, q.j, q.shift);
+    };
+    for (std::size_t a = 1; a < end; ++a) {
+        const Pair p = sorted[a];
+        std::size_t b = a;
+        for (; b > 0 && less(p, sorted[b - 1]); --b) {
+            sorted[b] = sorted[b - 1];
+        }
+        sorted[b] = p;
+    }
+    pairs.swap(sorted);
+}
+
 }  // namespace
 
 CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix,
@@ -284,7 +328,7 @@ NeighborPairs nearest(const double* positions, std::int64_t n, const double* mat
         parallel_for(
             static_cast<std::int64_t>(todo.size()), 0,
             [&](std::int64_t begin, std::int64_t end) {
-                std::vector<Pair> found;
+                std::vector<Pair> found, sorted;
                 for (std::int64_t t = begin; t < end; ++t) {
                     const std::int64_t i = todo[static_cast<std::size_t>(t)];
                     found.clear();
@@ -295,11 +339,7 @@ NeighborPairs nearest(const double* positions, std::int64_t n, const double* mat
                         short_of[static_cast<std::size_t>(t)] = 1;
                         continue;
                     }
-                    std::partial_sort(found.begin(), found.begin() + k, found.end(),
-                                      [](const Pair& p, const Pair& q) {
-                                          return std::tie(p.distance, p.j, p.shift) <
-                                                 std::tie(q.distance, q.j, q.shift);
-                                      });
+                    select_nearest(found, static_cast<std::size_t>(k), cutoff * cutoff, sorted);
                     for (int a = 0; a < k; ++a) {
                         const std::size_t at = static_cast<std::size_t>(i) * k + a;
                         result.neighbors[at] = found[a].j;

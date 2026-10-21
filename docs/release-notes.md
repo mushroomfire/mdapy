@@ -33,6 +33,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   computations.
 - `mdapy.units` defines every physical constant and conversion factor. See
   [Units and conventions](reference/units.md).
-- `mdapy.errors` defines the exception types.
+- `mdapy.errors` defines the exception types. `FileFormatError` reports a
+  malformed file with its name and line number.
+- Text files are parsed and written by compiled kernels in parallel. Numbers
+  are read correctly rounded and written in the shortest form that reads back
+  to the same value, whatever the locale of the process.
 - `mdapy.elements` holds chemical symbols and IUPAC standard atomic weights,
   and identifies elements from masses. See [Elements](reference/elements.md).

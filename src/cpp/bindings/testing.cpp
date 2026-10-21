@@ -18,6 +18,7 @@
 
 #include "bindings/control.h"
 #include "core/parallel.h"
+#include "io/powers_of_five.h"
 
 namespace mdapy::bindings {
 namespace {
@@ -150,9 +151,19 @@ std::int64_t count_threads(std::int64_t n, double seconds_per_item) {
     return static_cast<std::int64_t>(ids.size());
 }
 
+// The table used by the float parser, as (high, low) pairs.
+nb::list powers_of_five() {
+    nb::list table;
+    for (const auto& entry : io::kPowersOfFive) {
+        table.append(nb::make_tuple(entry[0], entry[1]));
+    }
+    return table;
+}
+
 }  // namespace
 
 void bind_testing(nb::module_& m) {
+    m.def("powers_of_five", &powers_of_five);
     m.def("parallel_sum", &parallel_sum, nb::arg("values"), nb::arg("grain") = 0,
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("parallel_square", &parallel_square, nb::arg("values"), nb::arg("grain") = 0);

@@ -26,6 +26,9 @@ NB_MODULE(_core, m) {
     nb::module_ core = m.def_submodule("core", "Thread pool control.");
     mdapy::bindings::bind_core(core);
 
+    nb::module_ io = m.def_submodule("io", "Text table parsing and formatting.");
+    mdapy::bindings::bind_io(io);
+
     nb::module_ testing = m.def_submodule("testing", "Kernels used only by the test suite.");
     mdapy::bindings::bind_testing(testing);
 }

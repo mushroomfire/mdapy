@@ -8,6 +8,7 @@ __all__ = [
     "InvalidParameter",
     "MissingProperty",
     "UnsupportedFormat",
+    "FileFormatError",
     "Cancelled",
 ]
 
@@ -29,6 +30,23 @@ class MissingProperty(MdapyError, LookupError):
 
 class UnsupportedFormat(MdapyError, ValueError):
     """A file format is unknown, or an operation is not supported for it."""
+
+
+class FileFormatError(MdapyError, ValueError):
+    """A file does not follow its format.
+
+    The message starts with the file name and, when known, the line number.
+
+    Attributes:
+        path: Name of the file, or None.
+        line: Line number, counting from 1, or None.
+    """
+
+    def __init__(self, message: str, path: str | None = None, line: int | None = None):
+        location = "" if path is None else path if line is None else f"{path}:{line}"
+        super().__init__(f"{location}: {message}" if location else message)
+        self.path = path
+        self.line = line
 
 
 class Cancelled(MdapyError):

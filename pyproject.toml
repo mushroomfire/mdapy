@@ -62,6 +62,8 @@ regex = '__version__ = "(?P<value>[^"]+)"'
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --import-mode=importlib"
+# shared helpers such as lattices.py
+pythonpath = ["tests"]
 xfail_strict = true
 # Warnings are errors: an unexpected warning is a test failure. Add
 # targeted ignores here, each with a comment saying why.

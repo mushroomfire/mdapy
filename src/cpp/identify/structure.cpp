@@ -1,0 +1,210 @@
+// Copyright (c) 2022-2026, Yongchao Wu
+// This file is part of mdapy, released under the BSD 3-Clause License.
+
+#include "identify/structure.h"
+
+#include <algorithm>
+#include <bitset>
+#include <cmath>
+#include <cstdint>
+#include <vector>
+
+namespace mdapy::identify {
+namespace {
+
+constexpr int kMaxNeighbors = 14;
+
+int count(std::uint32_t bits) {
+    return static_cast<int>(std::bitset<32>(bits).count());
+}
+
+// The CNA signature of the bond to neighbor j among m neighbors whose
+// bonds are given as bitmasks: the number of common neighbors, the number
+// of bonds among them and the number of bonds in the largest connected
+// group of those bonds.
+struct Signature {
+    int common, bonds, chain;
+};
+
+Signature signature(const std::uint32_t* bonds, int j) {
+    const std::uint32_t common = bonds[j];
+    int total = 0;
+    for (int a = 0; a < kMaxNeighbors; ++a) {
+        if (common >> a & 1u) {
+            total += count(bonds[a] & common);
+        }
+    }
+    // connected groups of the common neighbors joined by bonds
+    int chain = 0;
+    std::uint32_t left = common;
+    while (left != 0) {
+        std::uint32_t group = left & (~left + 1u);  // lowest remaining neighbor
+        std::uint32_t frontier = group;
+        while (frontier != 0) {
+            std::uint32_t next = 0;
+            for (int a = 0; a < kMaxNeighbors; ++a) {
+                if (frontier >> a & 1u) {
+                    next |= bonds[a] & common;
+                }
+            }
+            frontier = next & ~group;
+            group |= next;
+        }
+        int inside = 0;
+        for (int a = 0; a < kMaxNeighbors; ++a) {
+            if (group >> a & 1u) {
+                inside += count(bonds[a] & group);
+            }
+        }
+        chain = std::max(chain, inside / 2);
+        left &= ~group;
+    }
+    return {count(common), total / 2, chain};
+}
+
+// Bonds among the first m neighbor vectors no longer than the cutoff.
+void bond_masks(const double* v, int m, double cutoff2, std::uint32_t* bonds) {
+    for (int a = 0; a < m; ++a) {
+        bonds[a] = 0;
+    }
+    for (int a = 0; a < m; ++a) {
+        for (int b = a + 1; b < m; ++b) {
+            const double dx = v[3 * a] - v[3 * b];
+            const double dy = v[3 * a + 1] - v[3 * b + 1];
+            const double dz = v[3 * a + 2] - v[3 * b + 2];
+            if (dx * dx + dy * dy + dz * dz <= cutoff2) {
+                bonds[a] |= 1u << b;
+                bonds[b] |= 1u << a;
+            }
+        }
+    }
+    for (int a = m; a < kMaxNeighbors; ++a) {
+        bonds[a] = 0;
+    }
+}
+
+// fcc, hcp or ico from 12 neighbors, else other.
+Structure twelve(const double* v, double cutoff2) {
+    std::uint32_t bonds[kMaxNeighbors];
+    bond_masks(v, 12, cutoff2, bonds);
+    int n421 = 0, n422 = 0, n555 = 0;
+    for (int j = 0; j < 12; ++j) {
+        const Signature s = signature(bonds, j);
+        if (s.common == 4 && s.bonds == 2 && s.chain == 1) {
+            ++n421;
+        } else if (s.common == 4 && s.bonds == 2 && s.chain == 2) {
+            ++n422;
+        } else if (s.common == 5 && s.bonds == 5 && s.chain == 5) {
+            ++n555;
+        } else {
+            return kOther;
+        }
+    }
+    if (n421 == 12) {
+        return kFcc;
+    }
+    if (n421 == 6 && n422 == 6) {
+        return kHcp;
+    }
+    return n555 == 12 ? kIco : kOther;
+}
+
+// bcc from 14 neighbors, else other.
+Structure fourteen(const double* v, double cutoff2) {
+    std::uint32_t bonds[kMaxNeighbors];
+    bond_masks(v, 14, cutoff2, bonds);
+    int n444 = 0, n666 = 0;
+    for (int j = 0; j < 14; ++j) {
+        const Signature s = signature(bonds, j);
+        if (s.common == 4 && s.bonds == 4 && s.chain == 4) {
+            ++n444;
+        } else if (s.common == 6 && s.bonds == 6 && s.chain == 6) {
+            ++n666;
+        } else {
+            return kOther;
+        }
+    }
+    return n444 == 6 && n666 == 8 ? kBcc : kOther;
+}
+
+double length(const double* v) {
+    return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+}
+
+}  // namespace
+
+void centro_symmetry(std::int64_t n, int k, const double* vectors, double* csp,
+                     const Control& control) {
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            std::vector<double> values(static_cast<std::size_t>(k) * (k - 1) / 2);
+            for (std::int64_t i = begin; i < end; ++i) {
+                const double* v = vectors + 3 * k * i;
+                std::size_t at = 0;
+                for (int a = 0; a < k; ++a) {
+                    for (int b = a + 1; b < k; ++b) {
+                        const double x = v[3 * a] + v[3 * b];
+                        const double y = v[3 * a + 1] + v[3 * b + 1];
+                        const double z = v[3 * a + 2] + v[3 * b + 2];
+                        values[at++] = x * x + y * y + z * z;
+                    }
+                }
+                const auto half = static_cast<std::ptrdiff_t>(k / 2);
+                std::partial_sort(values.begin(), values.begin() + half, values.end());
+                double sum = 0.0;
+                for (std::ptrdiff_t a = 0; a < half; ++a) {
+                    sum += values[a];
+                }
+                csp[i] = sum;
+            }
+        },
+        control);
+}
+
+void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const double* vectors,
+                              double cutoff, std::int8_t* types, const Control& control) {
+    // (1 + sqrt 2) / 2 lies halfway between the first and second shells of fcc
+    const double scale = 0.5 * (1.0 + std::sqrt(2.0));
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                const std::int64_t m = offsets[i + 1] - offsets[i];
+                const double* v = vectors + 3 * offsets[i];
+                Structure type = kOther;
+                if (cutoff > 0.0) {
+                    if (m == 12) {
+                        type = twelve(v, cutoff * cutoff);
+                    } else if (m == 14) {
+                        type = fourteen(v, cutoff * cutoff);
+                    }
+                } else {
+                    if (m >= 12) {
+                        double sum = 0.0;
+                        for (int a = 0; a < 12; ++a) {
+                            sum += length(v + 3 * a);
+                        }
+                        const double local = scale * sum / 12.0;
+                        type = twelve(v, local * local);
+                    }
+                    if (type == kOther && m >= 14) {
+                        double first = 0.0, second = 0.0;
+                        for (int a = 0; a < 8; ++a) {
+                            first += length(v + 3 * a);
+                        }
+                        for (int a = 8; a < 14; ++a) {
+                            second += length(v + 3 * a);
+                        }
+                        const double local =
+                            scale * (2.0 / std::sqrt(3.0) * first + second) / 14.0;
+                        type = fourteen(v, local * local);
+                    }
+                }
+                types[i] = type;
+            }
+        },
+        control);
+}
+
+}  // namespace mdapy::identify

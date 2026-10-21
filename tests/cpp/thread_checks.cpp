@@ -10,6 +10,7 @@
 //
 // Every check also verifies its result; the program exits with 1 on a failure.
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -22,6 +23,7 @@
 #include <vector>
 
 #include "core/parallel.h"
+#include "identify/structure.h"
 #include "io/text.h"
 #include "neighbor/cell_list.h"
 
@@ -326,6 +328,73 @@ void neighbor_search() {
     }
 }
 
+void structure_identification() {
+    // a jittered fcc crystal: some atoms stay fcc, others do not
+    const int cells = 6;
+    const double a = 3.6;
+    const double matrix[9] = {cells * a, 0.0, 0.0, 0.0, cells * a, 0.0, 0.0, 0.0, cells * a};
+    const double origin[3] = {0.0, 0.0, 0.0};
+    const bool pbc[3] = {true, true, true};
+    const double basis[4][3] = {{0, 0, 0}, {0.5, 0.5, 0}, {0.5, 0, 0.5}, {0, 0.5, 0.5}};
+    std::mt19937_64 random(9);
+    std::normal_distribution<double> jitter(0.0, 0.12);
+    std::vector<double> positions;
+    for (int x = 0; x < cells; ++x) {
+        for (int y = 0; y < cells; ++y) {
+            for (int z = 0; z < cells; ++z) {
+                for (const auto& b : basis) {
+                    positions.push_back((x + b[0]) * a + jitter(random));
+                    positions.push_back((y + b[1]) * a + jitter(random));
+                    positions.push_back((z + b[2]) * a + jitter(random));
+                }
+            }
+        }
+    }
+    const auto n = static_cast<std::int64_t>(positions.size() / 3);
+    const mdapy::neighbor::NeighborPairs pairs =
+        mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 3.07);
+    std::vector<double> vectors;
+    for (std::int64_t i = 0; i < n; ++i) {
+        for (std::int64_t k = pairs.offsets[i]; k < pairs.offsets[i + 1]; ++k) {
+            const std::int32_t j = pairs.neighbors[k];
+            for (int e = 0; e < 3; ++e) {
+                double v = positions[3 * j + e] - positions[3 * i + e];
+                for (int s = 0; s < 3; ++s) {
+                    v += pairs.shifts[3 * k + s] * matrix[3 * s + e];
+                }
+                vectors.push_back(v);
+            }
+        }
+    }
+    // the first 8 neighbor vectors of every atom for the centro-symmetry
+    std::vector<double> eight;
+    for (std::int64_t i = 0; i < n; ++i) {
+        for (int k = 0; k < 8; ++k) {
+            for (int e = 0; e < 3; ++e) {
+                eight.push_back(vectors[3 * (pairs.offsets[i] + k) + e]);
+            }
+        }
+    }
+    std::vector<std::int8_t> first_types;
+    std::vector<double> first_csp;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::vector<std::int8_t> types(static_cast<std::size_t>(n));
+        std::vector<double> csp(static_cast<std::size_t>(n));
+        mdapy::identify::common_neighbor_analysis(n, pairs.offsets.data(), vectors.data(), 3.07,
+                                                  types.data());
+        mdapy::identify::centro_symmetry(n, 8, eight.data(), csp.data());
+        if (threads == kThreads[0]) {
+            first_types = types;
+            first_csp = csp;
+        }
+        check(types == first_types && csp == first_csp,
+              "structure identification gives the same results for any thread count");
+        check(std::count(types.begin(), types.end(), mdapy::identify::kFcc) > 0,
+              "common neighbor analysis finds fcc atoms");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -334,6 +403,7 @@ int main() {
     nested_and_concurrent_regions();
     text_tables();
     neighbor_search();
+    structure_identification();
     if (failures == 0) {
         std::printf("all checks passed\n");
     }

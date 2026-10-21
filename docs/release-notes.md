@@ -60,6 +60,19 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   are the same for any number of threads. See
   [Neighbor lists](guide/neighbor.md).
 
+### Analyses
+
+- Analyses are classes whose `compute(system)` returns an immutable result;
+  `System.with_columns(result)` adds its per-atom values. See
+  [Analyses](guide/analyses.md).
+- `mdapy.identify.CommonNeighborAnalysis`, adaptive or with a fixed cutoff,
+  for fcc, hcp, bcc and icosahedral atoms, and
+  `mdapy.identify.CentroSymmetryParameter`. See
+  [Structure identification](guide/structure.md).
+- `mdapy.analysis.RadialDistributionFunction` with partial functions, and
+  `mdapy.analysis.CoordinationNumber` with cutoffs per pair of elements. See
+  [Radial distribution and coordination](guide/distribution.md).
+
 ### Foundations
 
 - Python 3.10 or newer; NumPy 2 and polars 2 are the only required

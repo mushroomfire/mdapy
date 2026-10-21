@@ -5,7 +5,7 @@
 
 __version__ = "2.0.0.dev0"
 
-from mdapy import elements, errors, units
+from mdapy import analysis, elements, errors, identify, units
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.core.threads import (
@@ -23,6 +23,8 @@ __all__ = [
     "System",
     "Topology",
     "__version__",
+    "analysis",
+    "identify",
     "elements",
     "errors",
     "units",

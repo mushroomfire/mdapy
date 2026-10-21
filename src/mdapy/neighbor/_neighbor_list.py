@@ -210,6 +210,11 @@ class NeighborList:
             )
         return self._subset(self.distances < cutoff, cutoff)
 
+    def _first(self, k: int) -> "NeighborList":
+        """The first k pairs of each atom, or all of an atom with fewer."""
+        position = np.arange(len(self)) - np.repeat(self.offsets[:-1], self.counts)
+        return self._subset(position < k, self.cutoff)
+
     def sorted(self) -> "NeighborList":
         """The same pairs, each atom's sorted by distance (ties keep their order)."""
         order = np.lexsort((np.arange(len(self)), self.distances, self.i))
@@ -227,3 +232,18 @@ class NeighborList:
             f"NeighborList(atoms={len(self.counts)}, pairs={len(self)}, "
             f"cutoff={self.cutoff!r})"
         )
+
+
+def _given_or_built(
+    system: System, cutoff: float, neighbors: "NeighborList | None"
+) -> NeighborList:
+    """The given neighbor list after checking that it fits, or a new one."""
+    if neighbors is None:
+        return NeighborList.build(system, cutoff)
+    if neighbors.system is not system:
+        raise InvalidParameter("the neighbor list was built for another system")
+    if neighbors.cutoff < cutoff:
+        raise InvalidParameter(
+            f"the neighbor list has cutoff {neighbors.cutoff}, below the required {cutoff}"
+        )
+    return neighbors

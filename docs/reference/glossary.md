@@ -42,6 +42,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `charge` | f64 | e | charge |
 | `image` | Array(i32, 3) | | periodic image flags |
 | `movable` | Array(bool, 3) | | whether the atom may move along x, y, z (VASP selective dynamics) |
+| `structure` | int8 | | structure type from an identification such as `CommonNeighborAnalysis`; the result names the types |
+| `csp` | f64 | Å² | centro-symmetry parameter |
+| `coordination` | int64 | | number of neighbors; `coordination_<element>` counts those of one element |
 
 ## Energies and virials
 

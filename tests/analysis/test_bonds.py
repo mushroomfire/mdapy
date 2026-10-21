@@ -149,6 +149,71 @@ def test_warren_cowley_errors():
     assert repr(WarrenCowley(cutoff=3.0)) == "WarrenCowley(cutoff=3.0)"
 
 
+def test_bond_angles_by_triplet_of_elements_match_numpy():
+    system = crystal("fcc", 3.6, jitter=0.2, seed=4)
+    rng = np.random.default_rng(4)
+    elements = rng.choice(["Ni", "Al", "Cu"], len(system))
+    system = system.with_columns(element=elements)
+    cutoffs = {("Ni", "Ni"): 3.0, ("Al", "Ni"): 3.2, ("Cu", "Al"): 2.9}
+    result = BondAngleDistribution(bins=36, cutoffs=cutoffs).compute(system)
+    # brute force: the bonds of each atom, then every two of them
+    limit = {}
+    for (a, b), r in cutoffs.items():
+        limit[a, b] = limit[b, a] = r
+    nl = mdapy.NeighborList.build(system, 3.2)
+    order = {"Al": 13, "Ni": 28, "Cu": 29}
+    expected = {}
+    for i in range(len(system)):
+        block = slice(nl.offsets[i], nl.offsets[i + 1])
+        js, d, v = nl.j[block], nl.distances[block], nl.vectors[block]
+        bonded = np.array(
+            [
+                d[k] < limit.get((elements[i], elements[j]), 0.0)
+                for k, j in enumerate(js)
+            ],
+            dtype=bool,
+        )
+        js, v = js[bonded], v[bonded]
+        u = v / np.linalg.norm(v, axis=1, keepdims=True)
+        for a, b in zip(*np.triu_indices(len(u), 1)):
+            pair = sorted((elements[js[a]], elements[js[b]]), key=order.get)
+            angle = np.degrees(np.arccos(np.clip(u[a] @ u[b], -1, 1)))
+            expected.setdefault((elements[i], *pair), []).append(angle)
+    assert set(result.partial) == {
+        (a, b, c) for a in order for b in order for c in order if order[b] <= order[c]
+    }
+    for key, counts in result.partial.items():
+        reference, _ = np.histogram(expected.get(key, []), bins=36, range=(0, 180))
+        np.testing.assert_array_equal(counts, reference)
+    np.testing.assert_array_equal(sum(result.partial.values()), result.counts)
+    np.testing.assert_array_equal(
+        result.triplet("Ni", "Cu", "Al"), result.partial["Ni", "Al", "Cu"]
+    )
+    with mdapy.num_threads(3):
+        again = BondAngleDistribution(bins=36, cutoffs=cutoffs).compute(system)
+    np.testing.assert_array_equal(again.counts, result.counts)
+
+
+def test_bond_angle_of_water():
+    angle = np.radians(104.5)
+    oxygen = np.array([5.0, 5.0, 5.0])
+    hydrogens = oxygen + 0.96 * np.array(
+        [[1.0, 0.0, 0.0], [np.cos(angle), np.sin(angle), 0.0]]
+    )
+    water = mdapy.System(
+        np.vstack([oxygen, hydrogens]), mdapy.Box(10.0), elements=["O", "H", "H"]
+    )
+    result = BondAngleDistribution(bins=180, cutoffs={("O", "H"): 1.2}).compute(water)
+    hoh = result.triplet("O", "H", "H")
+    assert hoh.sum() == 1 and hoh[104] == 1
+    assert result.triplet("H", "O", "O").sum() == 0
+    assert result.counts.sum() == 1
+    with pytest.raises(InvalidParameter, match="no partial distribution"):
+        result.triplet("O", "C", "H")
+    plain = BondAngleDistribution(1.2).compute(mdapy.System(water.positions, water.box))
+    assert plain.partial == {} and plain.counts.sum() == 1
+
+
 @pytest.mark.parametrize(
     "make, message",
     [

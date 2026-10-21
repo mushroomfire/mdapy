@@ -90,8 +90,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   Wigner–Seitz cells of a reference lattice. See
   [Point defects](guide/defects.md).
 - `mdapy.analysis.ClusterAnalysis`, `BondAngleDistribution` and
-  `WarrenCowley` for clusters of bonded atoms, bond angles and chemical
-  short-range order. See
+  `WarrenCowley` for clusters of bonded atoms, bond angles (in total and for
+  each triplet of elements) and chemical short-range order. See
   [Clusters, bond angles and short-range order](guide/bonds.md).
 
 ### Foundations

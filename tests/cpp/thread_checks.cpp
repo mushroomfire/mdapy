@@ -493,8 +493,13 @@ void structure_identification() {
             first_strain = strain;
         }
         check(strain == first_strain, "the atomic strain is the same for any thread count");
-        std::vector<std::int64_t> angles(90);
-        mdapy::analysis::bond_angles(n, pairs.offsets.data(), vectors.data(), 90, angles.data());
+        std::vector<std::int32_t> two_types(static_cast<std::size_t>(n));
+        for (std::int64_t i = 0; i < n; ++i) {
+            two_types[i] = static_cast<std::int32_t>(i % 2);
+        }
+        std::vector<std::int64_t> angles(2 * 3 * 90);
+        mdapy::analysis::bond_angles(n, pairs.offsets.data(), pairs.neighbors.data(), vectors.data(),
+                                     two_types.data(), 2, 90, angles.data());
         if (threads == kThreads[0]) {
             first_types = types;
             first_csp = csp;

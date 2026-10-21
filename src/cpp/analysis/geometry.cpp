@@ -63,17 +63,29 @@ std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const std::in
     return static_cast<std::int64_t>(roots.size());
 }
 
-void bond_angles(std::int64_t n, const std::int64_t* offsets, const double* vectors, int bins,
+void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+                 const double* vectors, const std::int32_t* type, int types, int bins,
                  std::int64_t* counts, const Control& control) {
     using Histogram = std::vector<std::int64_t>;
+    const std::int64_t pairs = static_cast<std::int64_t>(types) * (types + 1) / 2;
+    const auto size = static_cast<std::size_t>(types * pairs * bins);
+    // the pair (a, b), a <= b, comes after the a pairs that start below a
+    std::vector<std::int64_t> first(static_cast<std::size_t>(types));
+    for (int a = 0; a < types; ++a) {
+        first[a] = static_cast<std::int64_t>(a) * types - static_cast<std::int64_t>(a) * (a - 1) / 2 - a;
+    }
+    // at most 64 histograms in flight, whatever the number of types
+    const std::int64_t grain = std::max(default_grain(n), (n + 63) / 64);
     const Histogram total = parallel_reduce(
-        n, 0, Histogram(static_cast<std::size_t>(bins), 0),
+        n, grain, Histogram(size, 0),
         [&](std::int64_t begin, std::int64_t end) {
-            Histogram local(static_cast<std::size_t>(bins), 0);
+            Histogram local(size, 0);
             for (std::int64_t i = begin; i < end; ++i) {
+                const std::int64_t center = type[i] * pairs;
                 for (std::int64_t a = offsets[i]; a < offsets[i + 1]; ++a) {
                     const double* u = vectors + 3 * a;
                     const double ru = std::sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+                    const std::int32_t ta = type[neighbors[a]];
                     for (std::int64_t b = a + 1; b < offsets[i + 1]; ++b) {
                         const double* v = vectors + 3 * b;
                         const double rv = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
@@ -81,7 +93,9 @@ void bond_angles(std::int64_t n, const std::int64_t* offsets, const double* vect
                         c = std::max(-1.0, std::min(1.0, c));
                         const double angle = std::acos(c) * 180.0 / kPi;
                         const int bin = std::min(static_cast<int>(angle / 180.0 * bins), bins - 1);
-                        ++local[bin];
+                        const std::int32_t tb = type[neighbors[b]];
+                        const std::int32_t low = std::min(ta, tb), high = std::max(ta, tb);
+                        ++local[static_cast<std::size_t>((center + first[low] + high) * bins + bin)];
                     }
                 }
             }

@@ -76,23 +76,34 @@ nb::tuple clusters(Offsets offsets, Neighbors neighbors) {
                           nb::ndarray<nb::numpy, std::int64_t>(found, 1, found_shape, found_owner));
 }
 
-nb::object bond_angles(Offsets offsets, Vectors vectors, int bins, nb::handle progress,
-                       const CancelToken* cancel) {
-    if (offsets.shape(0) < 1 ||
-        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(vectors.shape(0))) {
+nb::object bond_angles(Offsets offsets, Neighbors neighbors, Vectors vectors, Neighbors type,
+                       int types, int bins, nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    if (n < 0 || offsets.data()[n] != static_cast<std::int64_t>(vectors.shape(0)) ||
+        neighbors.shape(0) != vectors.shape(0)) {
         throw std::invalid_argument("the offsets do not fit the vectors");
     }
-    if (bins < 1) {
-        throw std::invalid_argument("bins must be at least 1");
+    if (type.shape(0) != static_cast<std::size_t>(n)) {
+        throw std::invalid_argument("type must have one value per atom");
     }
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
-    auto* counts = new std::int64_t[static_cast<std::size_t>(bins)];
+    if (bins < 1 || types < 1) {
+        throw std::invalid_argument("bins and types must be at least 1");
+    }
+    for (std::int64_t i = 0; i < n; ++i) {
+        if (type.data()[i] < 0 || type.data()[i] >= types) {
+            throw std::invalid_argument("types must be from 0 to types - 1");
+        }
+    }
+    const std::size_t pairs = static_cast<std::size_t>(types) * (types + 1) / 2;
+    const std::size_t size = static_cast<std::size_t>(types) * pairs * bins;
+    auto* counts = new std::int64_t[size];
     nb::capsule owner(counts, [](void* p) noexcept { delete[] static_cast<std::int64_t*>(p); });
-    const std::size_t shape[1] = {static_cast<std::size_t>(bins)};
-    nb::object result = nb::ndarray<nb::numpy, std::int64_t>(counts, 1, shape, owner).cast();
+    const std::size_t shape[3] = {static_cast<std::size_t>(types), pairs, static_cast<std::size_t>(bins)};
+    nb::object result = nb::ndarray<nb::numpy, std::int64_t>(counts, 3, shape, owner).cast();
     run_released(
         [&](const Control& control) {
-            analysis::bond_angles(n, offsets.data(), vectors.data(), bins, counts, control);
+            analysis::bond_angles(n, offsets.data(), neighbors.data(), vectors.data(), type.data(),
+                                  types, bins, counts, control);
         },
         progress, cancel);
     return result;
@@ -250,8 +261,9 @@ void bind_analysis(nb::module_& m) {
     m.def("pair_entropy", &pair_entropy, nb::arg("offsets"), nb::arg("distances"),
           nb::arg("cutoff"), nb::arg("sigma"), nb::arg("density"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
-    m.def("bond_angles", &bond_angles, nb::arg("offsets"), nb::arg("vectors"), nb::arg("bins"),
-          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("bond_angles", &bond_angles, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("vectors"),
+          nb::arg("type"), nb::arg("types"), nb::arg("bins"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
 }
 
 }  // namespace mdapy::bindings

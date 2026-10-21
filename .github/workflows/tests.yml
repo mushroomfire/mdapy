@@ -25,7 +25,7 @@ jobs:
 
   test:
     name: pytest — ${{ matrix.os }}, py${{ matrix.python }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -75,28 +75,21 @@ jobs:
 
   sanitizers:
     name: sanitizer — ${{ matrix.sanitizer }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - sanitizer: address
-            os: ubuntu-latest
             preload: libasan.so libubsan.so
             options: >-
               ASAN_OPTIONS=detect_leaks=0:abort_on_error=1
               UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
-          # ThreadSanitizer runs on macOS: on Linux, importing polars (whose
-          # wheels bring their own allocator) crashes under a preloaded TSan.
           - sanitizer: thread
-            os: macos-14
-            preload: libclang_rt.tsan_osx_dynamic.dylib
+            preload: libtsan.so
             # die_after_fork=0: the fork test starts the pool in a forked child,
             # which TSan otherwise refuses.
             options: TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1:die_after_fork=0
-            # These tests start Python subprocesses, which on macOS do not get
-            # the injected sanitizer runtime.
-            pytest-args: -k "not environment_variable"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -109,12 +102,11 @@ jobs:
           -Ccmake.build-type=RelWithDebInfo
       - name: Test under the sanitizer
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            preload=""
-            for lib in ${{ matrix.preload }}; do preload="$preload:$(gcc -print-file-name=$lib)"; done
-            export LD_PRELOAD="${preload#:}"
-          else
-            export DYLD_INSERT_LIBRARIES="$(clang -print-file-name=${{ matrix.preload }})"
-          fi
+          # With the 32 bits of mmap randomization of recent kernels, large
+          # libraries such as polars are mapped where TSan does not expect them.
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          preload=""
+          for lib in ${{ matrix.preload }}; do preload="$preload:$(gcc -print-file-name=$lib)"; done
+          export LD_PRELOAD="${preload#:}"
           export ${{ matrix.options }}
-          pytest -q ${{ matrix.pytest-args }}
+          pytest -q

@@ -90,3 +90,14 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - **新分支 `voronoi-draft`**（基于 analysis-draft）：**自己写的 Voronoi**（不再依赖 voro++）。每个原子从立方体开始按距离用中垂面切割，切到更远的原子不可能再切为止；邻居不够时自动加大范围。非周期方向用盒子的面封闭。fcc 正好是菱形十二面体、bcc 是截角八面体、金刚石 12 个三角形 + 4 个六边形，体积和面积到 1e-12；随机原子的胞体积之和等于盒子体积；每个面在两侧原子里都出现且面积相同；用 4 万个随机点按最近原子归属检验每个胞的体积。性能：10.8 万原子单线程 13 µs/原子、10 线程 4.9 µs/原子（含邻居搜索）。
 - **新分支 `interop-draft`**（基于 v2）：`mdapy.interop.to_ase / from_ase`，速度、电荷、约束（movable）、额外数组、盒子原点、info、能量/力/应力都能往返。
 - CI 提示 GitHub 的 Node 20 已弃用，已把 `actions/checkout` 升到 v5、`actions/setup-python` 升到 v6（在 v2 上）。
+
+### 01:10
+- **邻居列表提速**（`neighbor-draft`，已合并到所有下游草稿）：`sorted()` / `nearest()` 改为 C++ 按原子并行排序，10 万原子 900 万对：sorted 1.9 → 0.1 s，nearest(14) 1.86 → 0.18 s。另把格子搜索重构成可复用的"按原子访问"接口（结果逐位不变），RDF 现在**边搜索边计数、不存邻居对**：100 万原子、8 Å 的 RDF 从 6.2 s、数 GB 内存降到 0.72 s（10 线程）。
+- **`analysis-draft` 新增**：
+  - `EntropyFingerprint`（Piaggi–Parrinello 熵指纹）：网格和积分同 LAMMPS，但用完整高斯（LAMMPS 只展开 ±3 格，完美晶体里各原子值都不同），与 LAMMPS 差 <1%。
+  - `AtomicTemperature`（原子及其近邻相对质心的温度）：自由度用 3(n−1)（1.x 用 3n），300 K 的麦克斯韦分布给出 300 K；整体漂移不影响结果。
+- **100 万原子实测**（10 线程，含邻居搜索）：CNA 1.1 s、CSP 0.8 s、Steinhardt 0.9 s、熵 1.0 s、团簇 0.4 s、键角 0.8 s、Voronoi 5.2 s、RDF(8 Å) 0.7 s。
+- **Voronoi 稳健性**：完美晶格加 1e-14 ~ 1e-5 Å 扰动、二维层、强烈倾斜的盒子、稀疏气体中的致密团、几乎重合的原子，体积之和都等于盒子体积（误差 ≤ 3e-11）。
+- **新分支 `build-draft`**（基于 v2）：`build_crystal`（sc/bcc/fcc/diamond 任意正交 Miller 取向，hcp）、`random_alloy`（按比例精确计数的随机合金）。
+- **新分支 `polycrystal-draft`**（= voronoi + build）：`build_polycrystal`，每个晶粒填满种子的周期 Voronoi 胞，取向随机或指定，晶界处距离过近的原子删除；测试里晶粒内部全部被 CNA 识别为 fcc。
+- 所有草稿的公开 API 一览已整理（本地 `design/api-overview.md`），明早给你看。

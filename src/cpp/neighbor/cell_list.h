@@ -29,19 +29,26 @@ struct NeighborPairs {
 };
 
 // The atoms sorted into cells, and the search of the neighbors of an atom.
+// The grid keeps its own copy of the atoms in cell order, so a search reads
+// memory in sequence whatever the order of the atoms; searching the atoms in
+// that order (atom(0), atom(1), ...) also reuses the cells just read.
 class CellGrid {
 public:
-    // positions: n x 3, kept by pointer; matrix: 3 x 3, rows a, b, c;
-    // origin: 3; pbc: 3. Throws std::invalid_argument for a non-positive
-    // cutoff or a singular box.
+    // positions: n x 3; matrix: 3 x 3, rows a, b, c; origin: 3; pbc: 3.
+    // Throws std::invalid_argument for a non-positive cutoff or a singular
+    // box.
     CellGrid(const double* positions, std::int64_t n, const double* matrix, const double* origin,
              const bool* pbc, double cutoff);
+
+    // The atom in slot t of the cell order.
+    std::int32_t atom(std::int64_t t) const { return slot_atoms_[t]; }
 
     // Calls visit(j, shift, r2) for every pair (i, j, shift) closer than the
     // cutoff, shift an int32 array of 3; r2 is the squared distance.
     template <class Visit>
     void visit(std::int64_t i, Visit&& visit) const {
-        scan(&cell_index_[3 * i], &wraps_[3 * i], positions_ + 3 * i, i, visit);
+        const std::int64_t t = slot_of_[i];
+        scan(&slot_cells_[3 * t], &slot_wraps_[3 * t], &slot_positions_[3 * t], i, visit);
     }
 
     // The same for any point x: every atom j and image shift with
@@ -72,16 +79,19 @@ private:
     void scan(const std::int64_t* cell, const std::int32_t* wrap, const double* x,
               std::int64_t self, Visit&& visit) const;
 
-    const double* positions_;
     double h_[9];
     double inverse_[9];  // columns of H^-1
     double origin_[3];
     double cutoff2_;
     Axis axes_[3];
-    std::vector<std::int32_t> wraps_;        // 3 per atom
-    std::vector<std::int64_t> cell_index_;   // 3 per atom
-    std::vector<std::int64_t> cell_start_;   // per cell, and one past the end
-    std::vector<std::int32_t> cell_atoms_;
+    std::vector<std::int64_t> cell_start_;  // first slot of each cell, and one past the end
+    // per slot: the atom, its position, the periodic wraps that bring it
+    // into the box and the three indices of its cell
+    std::vector<std::int32_t> slot_atoms_;
+    std::vector<double> slot_positions_;
+    std::vector<std::int32_t> slot_wraps_;
+    std::vector<std::int64_t> slot_cells_;
+    std::vector<std::int32_t> slot_of_;  // per atom
 };
 
 template <class Visit>
@@ -129,15 +139,12 @@ void CellGrid::scan(const std::int64_t* cell, const std::int32_t* wrap, const do
                     continue;
                 }
                 for (std::int64_t s = cell_start_[target]; s < cell_start_[target + 1]; ++s) {
-                    const std::int32_t j = cell_atoms_[s];
                     // shift in the original (unwrapped) coordinates
-                    const std::int32_t shift[3] = {image[0] + wrap[0] - wraps_[3 * j],
-                                                   image[1] + wrap[1] - wraps_[3 * j + 1],
-                                                   image[2] + wrap[2] - wraps_[3 * j + 2]};
-                    if (j == self && shift[0] == 0 && shift[1] == 0 && shift[2] == 0) {
-                        continue;
-                    }
-                    const double* xj = positions_ + 3 * j;
+                    const std::int32_t* wj = &slot_wraps_[3 * s];
+                    const std::int32_t shift[3] = {image[0] + wrap[0] - wj[0],
+                                                   image[1] + wrap[1] - wj[1],
+                                                   image[2] + wrap[2] - wj[2]};
+                    const double* xj = &slot_positions_[3 * s];
                     double r2 = 0.0;
                     for (int e = 0; e < 3; ++e) {
                         const double r = xj[e] - xi[e] + shift[0] * h_[e] + shift[1] * h_[3 + e] +
@@ -145,6 +152,10 @@ void CellGrid::scan(const std::int64_t* cell, const std::int32_t* wrap, const do
                         r2 += r * r;
                     }
                     if (r2 < cutoff2_) {
+                        const std::int32_t j = slot_atoms_[s];
+                        if (j == self && shift[0] == 0 && shift[1] == 0 && shift[2] == 0) {
+                            continue;
+                        }
                         visit(j, shift, r2);
                     }
                 }

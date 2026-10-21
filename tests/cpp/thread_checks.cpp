@@ -26,6 +26,7 @@
 #include "analysis/distribution.h"
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
+#include "analysis/strain.h"
 #include "core/parallel.h"
 #include "identify/structure.h"
 #include "io/text.h"
@@ -422,6 +423,7 @@ void structure_identification() {
     }
     std::vector<std::int8_t> first_types, first_water;
     std::vector<double> first_csp, first_q, first_entropy, first_factor;
+    std::vector<double> first_strain;
     std::vector<std::int64_t> first_angles, first_histogram;
     const std::vector<int> degrees = {4, 6, 12};
     for (int threads : kThreads) {
@@ -468,6 +470,19 @@ void structure_identification() {
             first_factor = factor;
         }
         check(factor == first_factor, "the structure factor is the same for any thread count");
+        // the strain of the crystal against itself moved by its jitter again
+        std::vector<double> fractional(positions.size()), moved(positions.size(), 0.01);
+        for (std::size_t k = 0; k < positions.size(); ++k) {
+            fractional[k] = positions[k] / (cells * a);
+        }
+        std::vector<double> strain(9 * static_cast<std::size_t>(n)), d2(static_cast<std::size_t>(n));
+        mdapy::analysis::atomic_strain(n, pairs.offsets.data(), pairs.neighbors.data(),
+                                       pairs.shifts.data(), fractional.data(), moved.data(), matrix,
+                                       matrix, strain.data(), d2.data());
+        if (threads == kThreads[0]) {
+            first_strain = strain;
+        }
+        check(strain == first_strain, "the atomic strain is the same for any thread count");
         std::vector<std::int64_t> angles(90);
         mdapy::analysis::bond_angles(n, pairs.offsets.data(), vectors.data(), 90, angles.data());
         if (threads == kThreads[0]) {

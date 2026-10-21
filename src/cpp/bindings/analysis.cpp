@@ -16,6 +16,7 @@
 #include "analysis/distribution.h"
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
+#include "analysis/strain.h"
 #include "bindings/control.h"
 #include "core/parallel.h"
 
@@ -191,6 +192,42 @@ nb::tuple structure_factor(Positions3 positions, Matrix3 matrix, Types type, int
         nb::ndarray<nb::numpy, std::int64_t>(counted->data(), 1, count_shape, counted_owner));
 }
 
+using Shifts3 = nb::ndarray<const std::int32_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+
+// A one-dimensional NumPy array that owns the memory of a vector.
+template <class T>
+nb::object as_array(std::vector<T>&& values) {
+    auto* kept = new std::vector<T>(std::move(values));
+    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<T>*>(p); });
+    const std::size_t shape[1] = {kept->size()};
+    return nb::ndarray<nb::numpy, T>(kept->data(), 1, shape, owner).cast();
+}
+
+nb::tuple atomic_strain(Offsets offsets, Neighbors neighbors, Shifts3 shifts, Positions3 reference,
+                        Positions3 displacement, Matrix3 reference_matrix, Matrix3 matrix,
+                        nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(reference.shape(0));
+    if (offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
+        displacement.shape(0) != reference.shape(0) || shifts.shape(0) != neighbors.shape(0) ||
+        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
+        throw std::invalid_argument("the pairs do not fit the atoms");
+    }
+    std::vector<double> strain(static_cast<std::size_t>(n) * 9), nonaffine(static_cast<std::size_t>(n));
+    run_released(
+        [&](const Control& control) {
+            analysis::atomic_strain(n, offsets.data(), neighbors.data(), shifts.data(),
+                                    reference.data(), displacement.data(),
+                                    reference_matrix.data(), matrix.data(), strain.data(),
+                                    nonaffine.data(), control);
+        },
+        progress, cancel);
+    auto* kept = new std::vector<double>(std::move(strain));
+    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<double>*>(p); });
+    const std::size_t shape[3] = {static_cast<std::size_t>(n), 3, 3};
+    return nb::make_tuple(nb::ndarray<nb::numpy, double>(kept->data(), 3, shape, owner),
+                          as_array(std::move(nonaffine)));
+}
+
 }  // namespace
 
 void bind_analysis(nb::module_& m) {
@@ -198,6 +235,10 @@ void bind_analysis(nb::module_& m) {
           nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"));
+    m.def("atomic_strain", &atomic_strain, nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("reference"), nb::arg("displacement"),
+          nb::arg("reference_matrix"), nb::arg("matrix"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("structure_factor", &structure_factor, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("type"), nb::arg("types"), nb::arg("q_max"), nb::arg("bins"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);

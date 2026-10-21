@@ -83,6 +83,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   order. See [Entropy fingerprint](guide/entropy.md).
 - `mdapy.analysis.AtomicTemperature`: the temperature of each atom and its
   neighbors. See [Atomic temperature](guide/temperature.md).
+- `mdapy.analysis.AtomicStrain`: Green–Lagrange, von Mises and volumetric
+  atomic strain and $D^2_\text{min}$ against a reference. See
+  [Atomic strain](guide/strain.md).
 - `mdapy.analysis.ClusterAnalysis`, `BondAngleDistribution` and
   `WarrenCowley` for clusters of bonded atoms, bond angles and chemical
   short-range order. See

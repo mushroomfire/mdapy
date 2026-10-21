@@ -57,6 +57,7 @@ is raised.
 | `mdapy.analysis.SteinhardtParameters` | [Bond-orientational order](steinhardt.md) |
 | `mdapy.analysis.EntropyFingerprint` | [Entropy fingerprint](entropy.md) |
 | `mdapy.analysis.AtomicTemperature` | [Atomic temperature](temperature.md) |
+| `mdapy.analysis.AtomicStrain` | [Atomic strain](strain.md) |
 | `mdapy.analysis.ClusterAnalysis` | [Clusters, bond angles and short-range order](bonds.md) |
 | `mdapy.analysis.BondAngleDistribution` | [Clusters, bond angles and short-range order](bonds.md) |
 | `mdapy.analysis.WarrenCowley` | [Clusters, bond angles and short-range order](bonds.md) |

@@ -41,6 +41,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `mass` | f64 | amu | mass |
 | `charge` | f64 | e | charge |
 | `image` | Array(i32, 3) | | periodic image flags |
+| `movable` | Array(bool, 3) | | whether the atom may move along x, y, z (VASP selective dynamics) |
 
 ## Energies and virials
 

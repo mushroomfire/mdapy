@@ -16,6 +16,7 @@
 | `src/mdapy/io/_extxyz.py` | The extended XYZ format. |
 | `src/mdapy/io/_lammps_data.py` | The LAMMPS data format. |
 | `src/mdapy/io/_lammps_dump.py` | The LAMMPS dump format. |
+| `src/mdapy/io/_poscar.py` | The VASP POSCAR format. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
 | `src/cpp/io/text.h`, `text.cpp` | Parsing and formatting of text tables, in parallel over lines; numbers are correctly rounded and independent of the locale. |

@@ -65,6 +65,7 @@ incomplete file is removed.
 | `extxyz` | `.xyz`, `.extxyz` | yes | yes | several | [Extended XYZ](../formats/extxyz.md) |
 | `lammps-data` | `.data`, `.lmp`, names `data.*` | yes | yes | one | [LAMMPS data](../formats/lammps-data.md) |
 | `lammps-dump` | `.dump`, `.lammpstrj`, names `dump.*` | yes | yes | several | [LAMMPS dump](../formats/lammps-dump.md) |
+| `poscar` | `.vasp`, `.poscar`, names `POSCAR*`, `CONTCAR*` | yes | yes | one | [VASP POSCAR](../formats/poscar.md) |
 
 `mdapy.detect_format(path)` returns the format of a file name. It ignores a
 compression suffix and compares the extension without regard to case; name

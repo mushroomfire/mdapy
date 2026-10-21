@@ -40,6 +40,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   scaled and unwrapped coordinates, elements and type labels, and every other
   column, array columns such as `c_stress[1]` to `c_stress[6]` kept together.
   See [LAMMPS dump](formats/lammps-dump.md).
+- VASP POSCAR and CONTCAR: scaling factors, POTCAR labels, selective
+  dynamics as the `movable` column, Direct and Cartesian coordinates, and the
+  velocity block of a CONTCAR. See [VASP POSCAR](formats/poscar.md).
 
 ### Foundations
 

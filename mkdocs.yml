@@ -96,6 +96,7 @@ nav:
       - Extended XYZ: formats/extxyz.md
       - LAMMPS data: formats/lammps-data.md
       - LAMMPS dump: formats/lammps-dump.md
+      - VASP POSCAR: formats/poscar.md
   - Reference:
       - Units and conventions: reference/units.md
       - Elements: reference/elements.md

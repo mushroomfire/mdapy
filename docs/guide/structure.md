@@ -79,6 +79,32 @@ diamond, and adaptive common neighbor analysis of those twelve decides. The
 Every atom needs four neighbors. The neighbors of diamond atoms that are not
 diamond themselves, which some programs mark separately, are `other` here.
 
+## Ice and hydrates
+
+`ChillPlus(cutoff=3.5)` applies CHILL+ to water: give it one atom per
+molecule, the oxygen atoms, whose neighbors are those closer than `cutoff`
+(Å). Each molecule $i$ gets $q_{3m}(i) = \sum_j Y_{3m}(\hat{\mathbf r}_{ij})$,
+and each bond the correlation
+
+$$
+c(i, j) = \frac{\operatorname{Re} \sum_m q_{3m}(i)\, q_{3m}(j)^*}{|q_3(i)|\, |q_3(j)|},
+$$
+
+a bond being staggered when $c < -0.8$ and eclipsed when $-0.35 < c < 0.25$.
+A molecule with four neighbors is
+
+| Index | Name | Bonds |
+|---|---|---|
+| 0 | `other` | any other molecule |
+| 1 | `hexagonal_ice` | 3 staggered and 1 eclipsed |
+| 2 | `cubic_ice` | 4 staggered |
+| 3 | `interfacial_ice` | 3 staggered and no eclipsed, or 2 staggered |
+| 4 | `hydrate` | 4 eclipsed |
+| 5 | `interfacial_hydrate` | 3 eclipsed |
+
+checked from the top of the table down, as in the original method; the
+result is a `StructureResult`.
+
 ## Centro-symmetry parameter
 
 `CentroSymmetryParameter(num_neighbors=12)` measures how far the neighbors of
@@ -108,6 +134,12 @@ The tests in `tests/identify/test_structure.py` check that:
 - perfect cubic and hexagonal diamond are identified completely, also when
   rotated, fcc and bcc are not diamond, and on disordered diamonds the types
   agree atom by atom with a plain Python implementation;
+- the oxygen atoms of perfect cubic and hexagonal ice are identified
+  completely, and on hot ice and random points, where every type occurs, the
+  types agree with a Python implementation that computes the correlations
+  from the addition theorem, $\sum_m q_{3m}(i)\, q_{3m}(j)^* = \frac{7}{4\pi}
+  \sum_{a, b} P_3(\hat{\mathbf r}_a \cdot \hat{\mathbf r}_b)$, without
+  spherical harmonics;
 - the centro-symmetry parameter is zero for perfect fcc and bcc, exactly
   $a^2$ for hcp, agrees with a plain Python implementation to 10<sup>−12</sup>
   on disordered crystals and does not change under rotation;
@@ -131,6 +163,9 @@ parameter agrees with `compute centro/atom` to 10<sup>−10</sup>.
 - E. Maras, O. Trushin, A. Stukowski, T. Ala-Nissila and H. Jónsson, Global
   transition path search for dislocation formation in Ge on Si(001),
   *Comput. Phys. Commun.* **205**, 13 (2016). doi:10.1016/j.cpc.2016.04.001
+- A. H. Nguyen and V. Molinero, Identification of clathrate hydrates, hexagonal
+  ice, cubic ice, and liquid water in simulations: the CHILL+ algorithm,
+  *J. Phys. Chem. B* **119**, 9369 (2015). doi:10.1021/jp510289t
 - C. L. Kelchner, S. J. Plimpton and J. C. Hamilton, Dislocation nucleation
   and defect structure during surface indentation, *Phys. Rev. B* **58**,
   11085 (1998). doi:10.1103/PhysRevB.58.11085

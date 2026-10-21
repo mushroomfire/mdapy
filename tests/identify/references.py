@@ -111,3 +111,43 @@ def diamond(system):
             {"fcc": "cubic_diamond", "hcp": "hexagonal_diamond"}.get(name, "other")
         )
     return names
+
+
+def chill_plus(system, cutoff):
+    """CHILL+ types, with the q_3m correlations from the addition theorem:
+    sum_m q_3m(i) q_3m(j)* is 7 / (4 pi) times the sum of P_3 over the
+    bonds of i and j."""
+    nl = mdapy.NeighborList.build(system, cutoff).within(cutoff)
+    bonds = []
+    for i in range(len(system)):
+        v = nl.vectors[nl.offsets[i] : nl.offsets[i + 1]]
+        bonds.append(v / np.linalg.norm(v, axis=1, keepdims=True))
+
+    def overlap(i, j):
+        if len(bonds[i]) == 0 or len(bonds[j]) == 0:
+            return 0.0
+        x = bonds[i] @ bonds[j].T
+        return (0.5 * (5 * x**3 - 3 * x)).sum()  # P_3
+
+    names = []
+    for i in range(len(system)):
+        eclipsed = staggered = 0
+        for j in nl.j[nl.offsets[i] : nl.offsets[i + 1]]:
+            scale = np.sqrt(overlap(i, i) * overlap(j, j))
+            c = overlap(i, j) / scale if scale > 0 else 0.0
+            eclipsed += -0.35 < c < 0.25
+            staggered += c < -0.8
+        name = "other"
+        if nl.counts[i] == 4:
+            if eclipsed == 4:
+                name = "hydrate"
+            elif eclipsed == 3:
+                name = "interfacial_hydrate"
+            elif staggered == 4:
+                name = "cubic_ice"
+            elif staggered == 3 and eclipsed == 1:
+                name = "hexagonal_ice"
+            elif staggered in (2, 3):
+                name = "interfacial_ice"
+        names.append(name)
+    return names

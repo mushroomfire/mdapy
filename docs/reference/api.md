@@ -40,6 +40,8 @@ import mdapy
 
 ::: mdapy.identify.IdentifyDiamond
 
+::: mdapy.identify.ChillPlus
+
 ::: mdapy.identify.CentroSymmetryParameter
 
 ::: mdapy.identify.CentroSymmetryResult

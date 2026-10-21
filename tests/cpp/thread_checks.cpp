@@ -421,9 +421,15 @@ void structure_identification() {
             }
         }
     }
+    // results of the first thread count, one per line
     std::vector<std::int8_t> first_types;
-    std::vector<double> first_csp, first_q, first_volumes, first_areas, first_entropy,
-        first_factor;
+    std::vector<std::int8_t> first_water;
+    std::vector<double> first_csp;
+    std::vector<double> first_q;
+    std::vector<double> first_entropy;
+    std::vector<double> first_factor;
+    std::vector<double> first_volumes;
+    std::vector<double> first_areas;
     std::vector<std::int64_t> first_angles, first_histogram;
     const std::vector<int> degrees = {4, 6, 12};
     for (int threads : kThreads) {
@@ -436,6 +442,13 @@ void structure_identification() {
         std::vector<double> q(static_cast<std::size_t>(n) * degrees.size());
         mdapy::analysis::steinhardt(n, pairs.offsets.data(), pairs.neighbors.data(),
                                     vectors.data(), degrees, true, q.data());
+        std::vector<std::int8_t> water(static_cast<std::size_t>(n));
+        mdapy::identify::chill_plus(n, pairs.offsets.data(), pairs.neighbors.data(),
+                                    vectors.data(), water.data());
+        if (threads == kThreads[0]) {
+            first_water = water;
+        }
+        check(water == first_water, "CHILL+ gives the same types for any thread count");
         std::vector<std::int8_t> diamond(static_cast<std::size_t>(n));
         mdapy::identify::identify_diamond(n, four.data(), four_vectors.data(), diamond.data());
         check(diamond == std::vector<std::int8_t>(static_cast<std::size_t>(n), 0),

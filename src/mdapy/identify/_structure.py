@@ -176,6 +176,78 @@ class IdentifyDiamond:
         return "IdentifyDiamond()"
 
 
+class ChillPlus:
+    """CHILL+: ice, clathrate hydrate and liquid water, from the correlation
+    of the bond order of neighboring molecules.
+
+    Parameters
+    ----------
+    cutoff : float, optional
+        Neighbors are the molecules closer than cutoff, in Å. Default 3.5,
+        for the oxygen atoms of water.
+    """
+
+    #: Names of the structure types.
+    NAMES = (
+        "other",
+        "hexagonal_ice",
+        "cubic_ice",
+        "interfacial_ice",
+        "hydrate",
+        "interfacial_hydrate",
+    )
+    #: Their default colors.
+    COLORS = (
+        (0.95, 0.95, 0.95),
+        (0.0, 0.8, 1.0),
+        (1.0, 0.6, 0.0),
+        (0.6, 0.2, 0.6),
+        (0.2, 0.6, 0.2),
+        (0.6, 0.8, 0.2),
+    )
+
+    def __init__(self, cutoff: float = 3.5):
+        if not cutoff > 0:
+            raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
+        self.cutoff = float(cutoff)
+
+    def compute(
+        self,
+        system: System,
+        *,
+        neighbors: NeighborList | None = None,
+        progress: Any = None,
+        cancel: Any = None,
+    ) -> StructureResult:
+        """The type of each molecule.
+
+        Parameters
+        ----------
+        system : System
+            One atom per molecule, for water its oxygen atoms.
+        neighbors : NeighborList, optional
+            A neighbor list of this system reaching at least ``cutoff``.
+
+        Returns
+        -------
+        StructureResult
+            Types ``other``, ``hexagonal_ice``, ``cubic_ice``,
+            ``interfacial_ice``, ``hydrate`` and ``interfacial_hydrate``.
+        """
+        nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
+        structure = _native.chill_plus(
+            nl.offsets,
+            nl.j,
+            np.ascontiguousarray(nl.vectors),
+            progress,
+            _native_token(cancel),
+        )
+        return StructureResult(structure, self.NAMES, self.COLORS)
+
+    def __repr__(self) -> str:
+        return f"ChillPlus(cutoff={self.cutoff!r})"
+
+
 @dataclass(frozen=True)
 class CentroSymmetryResult(Result):
     """The centro-symmetry parameter of each atom.

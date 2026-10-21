@@ -88,6 +88,30 @@ nb::object identify_diamond(Nearest neighbors, Vectors4 vectors, nb::handle prog
     return result;
 }
 
+using Pairs = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+nb::object chill_plus(Offsets offsets, Pairs neighbors, Vectors vectors, nb::handle progress,
+                      const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    if (n < 0 || neighbors.shape(0) != vectors.shape(0) ||
+        offsets.data()[n] != static_cast<std::int64_t>(vectors.shape(0))) {
+        throw std::invalid_argument("the offsets do not fit the vectors");
+    }
+    for (std::size_t p = 0; p < neighbors.shape(0); ++p) {
+        if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
+            throw std::invalid_argument("a neighbor index is outside the atoms");
+        }
+    }
+    std::int8_t* types;
+    nb::object result = new_array(static_cast<std::size_t>(n), types);
+    run_released(
+        [&](const Control& control) {
+            identify::chill_plus(n, offsets.data(), neighbors.data(), vectors.data(), types, control);
+        },
+        progress, cancel);
+    return result;
+}
+
 }  // namespace
 
 void bind_identify(nb::module_& m) {
@@ -96,6 +120,8 @@ void bind_identify(nb::module_& m) {
     m.def("common_neighbor_analysis", &common_neighbor_analysis, nb::arg("offsets"),
           nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
+    m.def("chill_plus", &chill_plus, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("vectors"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("identify_diamond", &identify_diamond, nb::arg("neighbors"), nb::arg("vectors"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
 }

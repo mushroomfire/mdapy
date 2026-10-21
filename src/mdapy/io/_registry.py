@@ -97,7 +97,9 @@ def formats() -> pl.DataFrame:
 def detect_format(path: str | os.PathLike) -> str:
     """The format of a file, from its name.
 
-    A compression suffix (.gz, .bz2, .xz, .zst) is ignored.
+    A compression suffix (.gz, .bz2, .xz, .zst) is ignored. The extension is
+    compared first; file name patterns, such as ``data.*`` for LAMMPS data
+    files, are used only when no extension matches.
 
     Parameters
     ----------
@@ -120,12 +122,13 @@ def detect_format(path: str | os.PathLike) -> str:
             name = name[: -len(suffix)]
             break
     extension = Path(name).suffix.lower()
-    matches = [
-        f.name
-        for f in FORMATS.values()
-        if extension in f.extensions
-        or any(fnmatch.fnmatchcase(name, p) for p in f.patterns)
-    ]
+    matches = [f.name for f in FORMATS.values() if extension in f.extensions]
+    if not matches:
+        matches = [
+            f.name
+            for f in FORMATS.values()
+            if any(fnmatch.fnmatchcase(name, p) for p in f.patterns)
+        ]
     if len(matches) == 1:
         return matches[0]
     if not matches:

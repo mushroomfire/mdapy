@@ -63,9 +63,11 @@ incomplete file is removed.
 | Name | Extensions | Read | Write | Frames | Page |
 |---|---|---|---|---|---|
 | `extxyz` | `.xyz`, `.extxyz` | yes | yes | several | [Extended XYZ](../formats/extxyz.md) |
+| `lammps-data` | `.data`, `.lmp`, names `data.*` | yes | yes | one | [LAMMPS data](../formats/lammps-data.md) |
 
 `mdapy.detect_format(path)` returns the format of a file name. It ignores a
-compression suffix, compares the extension without regard to case, and
+compression suffix and compares the extension without regard to case; name
+patterns such as `data.*` count only when no extension matches. It
 raises [`UnsupportedFormat`](../reference/api.md#mdapy.errors.UnsupportedFormat)
 when no format, or more than one, fits the name; pass `format=` in that case.
 `mdapy.formats()` returns this table as a polars DataFrame.

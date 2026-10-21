@@ -29,6 +29,12 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   (Å/fs) or ASE `momenta`, stress in GPa, any per-atom column and any global
   value, written so that they read back unchanged. See
   [Extended XYZ](formats/extxyz.md).
+- LAMMPS data files of the atom styles atomic, charge, bond, angle, molecular
+  and full, following LAMMPS stable_30Sep2026: type labels, masses with
+  element guessing, bonds to impropers as the topology, force-field
+  coefficients kept unchanged, image flags, velocities, metal and real units,
+  and restricted and general triclinic boxes. See
+  [LAMMPS data](formats/lammps-data.md).
 
 ### Foundations
 

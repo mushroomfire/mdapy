@@ -126,12 +126,6 @@ def test_invariance_threads_and_columns():
     assert {"voronoi_volume", "voronoi_coordination", "cavity_radius"} <= set(
         table.columns
     )
-    small = mdapy.NeighborList.build(system, 2.0)  # too short: a longer one is built
-    np.testing.assert_allclose(
-        VoronoiAnalysis().compute(system, neighbors=small).volume,
-        result.volume,
-        rtol=1e-12,
-    )
 
 
 def test_area_threshold():

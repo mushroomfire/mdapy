@@ -18,8 +18,10 @@ system = system.with_columns(cells)
 
 Each cell starts as a cube around its atom and is cut by the plane halfway to
 each neighbor, nearest first, until the next neighbor is more than twice as
-far as the farthest vertex of the cell; no farther atom can cut it then. When
-the neighbors run out first, the search is repeated with a longer reach. In
+far as the farthest vertex of the cell; no farther atom can cut it then. The
+neighbors are searched on a grid of cells without being stored; the cells
+they do not close are computed again with a longer reach. A million atoms
+take about 1.5 s on ten threads. In
 directions that are not periodic, the cells are closed by the faces of the
 box, moved out to include every atom.
 

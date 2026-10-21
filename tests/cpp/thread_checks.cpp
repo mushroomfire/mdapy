@@ -466,8 +466,7 @@ void structure_identification() {
         std::vector<std::int64_t> angles(90);
         mdapy::analysis::bond_angles(n, pairs.offsets.data(), vectors.data(), 90, angles.data());
         const mdapy::analysis::VoronoiCells voronoi =
-            mdapy::analysis::voronoi(n, positions.data(), matrix, origin, pbc,
-                                     pairs.offsets.data(), vectors.data(), 3.07);
+            mdapy::analysis::voronoi(positions.data(), n, matrix, origin, pbc, 0.0);
         if (threads == kThreads[0]) {
             first_volumes = voronoi.volumes;
             first_areas = voronoi.areas;

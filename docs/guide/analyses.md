@@ -41,7 +41,8 @@ An analysis builds the neighbor list it needs. `neighbors=` passes one that
 was built before, so that several analyses share a single search; it must
 belong to the same `System` object and reach at least as far as the analysis
 needs, or [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter)
-is raised.
+is raised. `VoronoiAnalysis` and `StructureFactor` take no neighbor list: the
+former searches as far as each cell needs, the latter uses no neighbors.
 
 ## Available analyses
 

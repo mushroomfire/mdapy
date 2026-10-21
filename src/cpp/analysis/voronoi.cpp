@@ -7,7 +7,11 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <numeric>
+#include <tuple>
 #include <utility>
+
+#include "neighbor/cell_list.h"
 
 namespace mdapy::analysis {
 namespace {
@@ -26,6 +30,17 @@ Vec cross(const Vec& a, const Vec& b) {
 
 double norm(const Vec& a) {
     return std::sqrt(dot(a, a));
+}
+
+// A number from 0 to 4 that grows with the angle of (x, y) as atan2 does, at
+// the cost of a division.
+double pseudo_angle(double x, double y) {
+    const double sum = std::fabs(x) + std::fabs(y);
+    if (sum == 0.0) {
+        return 0.0;
+    }
+    const double p = y / sum;  // from -1 to 1
+    return x >= 0.0 ? (p < 0.0 ? 4.0 + p : p) : 2.0 - p;
 }
 
 // A face: the plane normal . x = offset (normal of unit length, pointing
@@ -189,7 +204,7 @@ private:
         for (std::size_t k = 0; k < distinct_.size(); ++k) {
             const Vec d = {distinct_[k][0] - center[0], distinct_[k][1] - center[1],
                            distinct_[k][2] - center[2]};
-            order_.emplace_back(std::atan2(dot(d, w), dot(d, u)), k);
+            order_.emplace_back(pseudo_angle(dot(d, u), dot(d, w)), k);
         }
         std::sort(order_.begin(), order_.end());
         next_faces_.push_back({id, normal, offset, next_points_.size(), distinct_.size()});
@@ -205,24 +220,16 @@ private:
     std::vector<std::pair<double, std::size_t>> order_;
 };
 
-// A face of a finished cell.
-struct Out {
-    std::int64_t id;
-    double area;
-    std::int32_t vertices;
+// A wall of a direction that is not periodic: the atoms lie between
+// normal . x = low and normal . x = high.
+struct Wall {
+    Vec normal;
+    double low, high;
+    int axis;
 };
 
-}  // namespace
-
-VoronoiCells voronoi(std::int64_t n, const double* positions, const double* matrix,
-                     const double* origin, const bool* pbc, const std::int64_t* offsets,
-                     const double* vectors, double reach, const Control& control) {
-    // walls of the directions that are not periodic, moved out to every atom
-    struct Wall {
-        Vec normal;
-        double low, high;
-        int axis;
-    };
+std::vector<Wall> make_walls(std::int64_t n, const double* positions, const double* matrix,
+                             const double* origin, const bool* pbc) {
     std::vector<Wall> walls;
     for (int axis = 0; axis < 3; ++axis) {
         if (pbc[axis]) {
@@ -246,76 +253,195 @@ VoronoiCells voronoi(std::int64_t n, const double* positions, const double* matr
         }
         walls.push_back(wall);
     }
+    return walls;
+}
 
-    std::vector<std::vector<Out>> faces(static_cast<std::size_t>(n));
+// A neighbor that may cut the cell.
+struct Candidate {
+    double r2;
+    std::int32_t j;
+    std::array<std::int32_t, 3> shift;
+    Vec vector;
+};
+
+// A face of a finished cell.
+struct Out {
+    std::int32_t j;
+    std::array<std::int32_t, 3> shift;
+    double area;
+    std::int32_t vertices;
+};
+
+// The cell of the atom at x from its candidates sorted by distance, all those
+// closer than reach. Returns whether no farther atom can cut the cell; faces
+// get the volume and the faces above the threshold.
+bool build_cell(Cell& cell, const std::vector<Wall>& walls, const Vec& x,
+                const std::vector<Candidate>& candidates, double reach, double eps,
+                double area_threshold, double& volume, double& radius, std::vector<Out>& faces) {
+    cell.reset(reach);
+    for (const Wall& wall : walls) {
+        const double s = dot(wall.normal, x);
+        const Vec back = {-wall.normal[0], -wall.normal[1], -wall.normal[2]};
+        cell.cut(back, s - wall.low, -1 - 2 * wall.axis);
+        cell.cut(wall.normal, wall.high - s, -2 - 2 * wall.axis);
+    }
+    bool complete = false;
+    for (std::size_t c = 0; c < candidates.size(); ++c) {
+        const double d = std::sqrt(candidates[c].r2);
+        if (0.5 * d > cell.radius() + eps) {
+            complete = true;  // this and every farther neighbor miss the cell
+            break;
+        }
+        if (d > 0.0) {
+            const Vec& v = candidates[c].vector;
+            cell.cut({v[0] / d, v[1] / d, v[2] / d}, 0.5 * d, static_cast<std::int64_t>(c));
+        }
+    }
+    complete = complete || cell.radius() <= 0.5 * reach + eps;
+    volume = 0.0;
+    double surface = 0.0;
+    const std::size_t first = faces.size();
+    for (const Face& face : cell.faces()) {
+        if (face.id == kCube) {
+            complete = false;
+        }
+        const double a = cell.area(face);
+        volume += face.offset * a / 3.0;
+        surface += a;
+        if (a > 0.0) {
+            Out out{-1, {0, 0, 0}, a, static_cast<std::int32_t>(face.count)};
+            if (face.id >= 0) {
+                const Candidate& other = candidates[static_cast<std::size_t>(face.id)];
+                out.j = other.j;
+                out.shift = other.shift;
+            }
+            faces.push_back(out);
+        }
+    }
+    // drop the faces below the threshold
+    std::size_t kept = first;
+    for (std::size_t f = first; f < faces.size(); ++f) {
+        if (faces[f].area > area_threshold * surface) {
+            faces[kept++] = faces[f];
+        }
+    }
+    faces.resize(kept);
+    radius = cell.radius();
+    return complete;
+}
+
+bool by_distance(const Candidate& p, const Candidate& q) {
+    return std::tie(p.r2, p.j, p.shift) < std::tie(q.r2, q.j, q.shift);
+}
+
+// Collects the faces of each atom, computed in any order, into CSR form.
+struct Collector {
+    std::vector<std::vector<Out>> buffers;    // one per chunk of work
+    std::vector<std::int64_t> buffer, start;  // per atom: where its faces are
+    std::vector<std::int32_t> count;
+
+    explicit Collector(std::int64_t n)
+        : buffer(static_cast<std::size_t>(n), -1), start(static_cast<std::size_t>(n), 0),
+          count(static_cast<std::size_t>(n), 0) {}
+
+    void assemble(std::int64_t n, VoronoiCells& cells) const {
+        cells.offsets.assign(static_cast<std::size_t>(n) + 1, 0);
+        cells.coordination.assign(static_cast<std::size_t>(n), 0);
+        for (std::int64_t i = 0; i < n; ++i) {
+            cells.offsets[i + 1] = cells.offsets[i] + count[i];
+        }
+        const auto total = static_cast<std::size_t>(cells.offsets[n]);
+        cells.neighbors.resize(total);
+        cells.shifts.resize(3 * total);
+        cells.areas.resize(total);
+        cells.vertices.resize(total);
+        for (std::int64_t i = 0; i < n; ++i) {
+            const Out* faces = buffers[static_cast<std::size_t>(buffer[i])].data() + start[i];
+            for (std::int32_t f = 0; f < count[i]; ++f) {
+                const auto at = static_cast<std::size_t>(cells.offsets[i] + f);
+                cells.neighbors[at] = faces[f].j;
+                for (int e = 0; e < 3; ++e) {
+                    cells.shifts[3 * at + e] = faces[f].shift[e];
+                }
+                cells.areas[at] = faces[f].area;
+                cells.vertices[at] = faces[f].vertices;
+                cells.coordination[i] += faces[f].j >= 0;
+            }
+        }
+    }
+};
+
+}  // namespace
+
+VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matrix,
+                     const double* origin, const bool* pbc, double area_threshold,
+                     const Control& control) {
+    const std::vector<Wall> walls = make_walls(n, positions, matrix, origin, pbc);
     VoronoiCells cells;
     cells.volumes.assign(static_cast<std::size_t>(n), 0.0);
     cells.radii.assign(static_cast<std::size_t>(n), 0.0);
-    cells.complete.assign(static_cast<std::size_t>(n), 0);
-    const double eps = 1e-10 * reach;
-    parallel_for(
-        n, 0,
-        [&](std::int64_t begin, std::int64_t end) {
-            Cell cell(eps);
-            std::vector<std::pair<double, std::int64_t>> nearest;
-            for (std::int64_t i = begin; i < end; ++i) {
-                cell.reset(reach);
-                // the neighbors by distance, ties by their order in the list
-                nearest.clear();
-                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const Vec v = {vectors[3 * p], vectors[3 * p + 1], vectors[3 * p + 2]};
-                    nearest.emplace_back(dot(v, v), p);
-                }
-                std::sort(nearest.begin(), nearest.end());
-                const Vec x = {positions[3 * i] - origin[0], positions[3 * i + 1] - origin[1],
-                               positions[3 * i + 2] - origin[2]};
-                for (const Wall& wall : walls) {
-                    const double s = dot(wall.normal, x);
-                    const Vec back = {-wall.normal[0], -wall.normal[1], -wall.normal[2]};
-                    cell.cut(back, s - wall.low, -1 - 2 * wall.axis);
-                    cell.cut(wall.normal, wall.high - s, -2 - 2 * wall.axis);
-                }
-                bool complete = false;
-                for (const auto& [square, p] : nearest) {
-                    const Vec v = {vectors[3 * p], vectors[3 * p + 1], vectors[3 * p + 2]};
-                    const double d = std::sqrt(square);
-                    if (0.5 * d > cell.radius() + eps) {
-                        complete = true;  // this and every farther neighbor miss the cell
-                        break;
+    Collector collector(n);
+    if (n == 0) {
+        collector.assemble(n, cells);
+        return cells;
+    }
+    const double* h = matrix;
+    const double volume = std::fabs(dot({h[0], h[1], h[2]}, cross({h[3], h[4], h[5]}, {h[6], h[7], h[8]})));
+    double reach = 2.5 * std::cbrt(volume / static_cast<double>(n));
+    std::vector<std::int64_t> todo(static_cast<std::size_t>(n));
+    std::iota(todo.begin(), todo.end(), 0);
+    while (!todo.empty()) {
+        const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, reach);
+        const auto count = static_cast<std::int64_t>(todo.size());
+        const std::int64_t grain = default_grain(count);
+        const std::size_t first_buffer = collector.buffers.size();
+        collector.buffers.resize(first_buffer + static_cast<std::size_t>((count + grain - 1) / grain));
+        std::vector<std::uint8_t> open(todo.size(), 0);
+        const double eps = 1e-10 * reach;
+        parallel_for(
+            count, grain,
+            [&](std::int64_t begin, std::int64_t end) {
+                const std::size_t id = first_buffer + static_cast<std::size_t>(begin / grain);
+                std::vector<Out>& faces = collector.buffers[id];
+                Cell cell(eps);
+                std::vector<Candidate> candidates;
+                for (std::int64_t t = begin; t < end; ++t) {
+                    const std::int64_t i = todo[static_cast<std::size_t>(t)];
+                    const double* xi = positions + 3 * i;
+                    candidates.clear();
+                    grid.visit(i, [&](std::int32_t j, const std::int32_t* s, double r2) {
+                        const double* xj = positions + 3 * static_cast<std::int64_t>(j);
+                        Vec v;
+                        for (int e = 0; e < 3; ++e) {
+                            v[e] = xj[e] - xi[e] + s[0] * h[e] + s[1] * h[3 + e] + s[2] * h[6 + e];
+                        }
+                        candidates.push_back({r2, j, {s[0], s[1], s[2]}, v});
+                    });
+                    std::sort(candidates.begin(), candidates.end(), by_distance);
+                    const std::size_t mark = faces.size();
+                    const Vec x = {xi[0] - origin[0], xi[1] - origin[1], xi[2] - origin[2]};
+                    if (build_cell(cell, walls, x, candidates, reach, eps, area_threshold,
+                                   cells.volumes[i], cells.radii[i], faces)) {
+                        collector.buffer[i] = static_cast<std::int64_t>(id);
+                        collector.start[i] = static_cast<std::int64_t>(mark);
+                        collector.count[i] = static_cast<std::int32_t>(faces.size() - mark);
+                    } else {
+                        faces.resize(mark);
+                        open[static_cast<std::size_t>(t)] = 1;
                     }
-                    if (d > 0.0) {
-                        cell.cut({v[0] / d, v[1] / d, v[2] / d}, 0.5 * d, p);
-                    }
                 }
-                complete = complete || cell.radius() <= 0.5 * reach + eps;
-                double volume = 0.0;
-                std::vector<Out>& mine = faces[static_cast<std::size_t>(i)];
-                for (const Face& face : cell.faces()) {
-                    const double a = cell.area(face);
-                    volume += face.offset * a / 3.0;
-                    complete = complete && face.id != kCube;
-                    if (a > 0.0) {
-                        mine.push_back({face.id, a, static_cast<std::int32_t>(face.count)});
-                    }
-                }
-                cells.volumes[i] = volume;
-                cells.radii[i] = cell.radius();
-                cells.complete[i] = complete;
+            },
+            control);
+        std::vector<std::int64_t> left;
+        for (std::size_t t = 0; t < todo.size(); ++t) {
+            if (open[t]) {
+                left.push_back(todo[t]);
             }
-        },
-        control);
-
-    cells.offsets.assign(static_cast<std::size_t>(n) + 1, 0);
-    for (std::int64_t i = 0; i < n; ++i) {
-        cells.offsets[i + 1] = cells.offsets[i] + static_cast<std::int64_t>(faces[i].size());
-    }
-    for (std::int64_t i = 0; i < n; ++i) {
-        for (const Out& face : faces[i]) {
-            cells.pairs.push_back(face.id);
-            cells.areas.push_back(face.area);
-            cells.vertices.push_back(face.vertices);
         }
+        todo.swap(left);
+        reach *= 1.5;
     }
+    collector.assemble(n, cells);
     return cells;
 }
 

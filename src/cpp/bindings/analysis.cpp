@@ -112,27 +112,27 @@ nb::object owned(std::vector<T>&& values) {
     return nb::ndarray<nb::numpy, T>(kept->data(), 1, shape, owner).cast();
 }
 
-nb::tuple voronoi(Positions positions, Matrix matrix, Vector3 origin, Flags pbc, Offsets offsets,
-                  Vectors vectors, double reach, nb::handle progress, const CancelToken* cancel) {
+nb::tuple voronoi(Positions positions, Matrix matrix, Vector3 origin, Flags pbc,
+                  double area_threshold, nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
-    if (offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
-        offsets.data()[n] != static_cast<std::int64_t>(vectors.shape(0))) {
-        throw std::invalid_argument("the offsets do not fit the vectors");
-    }
-    if (!(reach > 0.0)) {
-        throw std::invalid_argument("reach must be positive");
-    }
     analysis::VoronoiCells cells;
     run_released(
         [&](const Control& control) {
-            cells = analysis::voronoi(n, positions.data(), matrix.data(), origin.data(), pbc.data(),
-                                      offsets.data(), vectors.data(), reach, control);
+            cells = analysis::voronoi(positions.data(), n, matrix.data(), origin.data(), pbc.data(),
+                                      area_threshold, control);
         },
         progress, cancel);
+    const std::size_t faces = cells.areas.size();
+    auto* shifts = new std::vector<std::int32_t>(std::move(cells.shifts));
+    nb::capsule owner(shifts, [](void* p) noexcept {
+        delete static_cast<std::vector<std::int32_t>*>(p);
+    });
+    const std::size_t shape[2] = {faces, 3};
     return nb::make_tuple(owned(std::move(cells.volumes)), owned(std::move(cells.radii)),
-                          owned(std::move(cells.complete)), owned(std::move(cells.offsets)),
-                          owned(std::move(cells.pairs)), owned(std::move(cells.areas)),
-                          owned(std::move(cells.vertices)));
+                          owned(std::move(cells.coordination)), owned(std::move(cells.offsets)),
+                          owned(std::move(cells.neighbors)),
+                          nb::ndarray<nb::numpy, std::int32_t>(shifts->data(), 2, shape, owner),
+                          owned(std::move(cells.areas)), owned(std::move(cells.vertices)));
 }
 
 using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
@@ -237,7 +237,7 @@ void bind_analysis(nb::module_& m) {
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"));
     m.def("voronoi", &voronoi, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
-          nb::arg("pbc"), nb::arg("offsets"), nb::arg("vectors"), nb::arg("reach"),
+          nb::arg("pbc"), nb::arg("area_threshold"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("structure_factor", &structure_factor, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("type"), nb::arg("types"), nb::arg("q_max"), nb::arg("bins"),

@@ -280,3 +280,13 @@ def test_info_that_cannot_be_written(tmp_path, info, message):
 def test_format_detection():
     assert mdapy.detect_format("run.mdapy") == "mdapy"
     assert mdapy.detect_format("run.mdapy.zst") == "mdapy"
+
+
+def test_buffer_file():
+    file = _native._BufferFile(b"0123456789")
+    assert file.seekable() and file.readable()
+    assert file.seek(-3, 2) == 7 and file.read() == b"789"
+    assert file.seek(2) == 2 and file.read(3) == b"234" and file.tell() == 5
+    assert file.seek(1, 1) == 6 and file.read(10) == b"6789"
+    with pytest.raises(OSError, match="negative"):
+        file.seek(-11, 2)

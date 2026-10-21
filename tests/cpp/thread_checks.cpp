@@ -335,6 +335,7 @@ struct Pairs {
     std::vector<std::int32_t> species;
     std::vector<std::int64_t> offsets;
     std::vector<std::int32_t> neighbors;
+    std::vector<std::int32_t> shifts;
     std::vector<double> vectors;
 };
 
@@ -366,6 +367,7 @@ Pairs alloy_pairs(double cutoff) {
         mdapy::neighbor::build(positions.data(), p.n, matrix, origin, pbc, cutoff);
     p.offsets = pairs.offsets;
     p.neighbors = pairs.neighbors;
+    p.shifts = pairs.shifts;
     for (std::int64_t i = 0; i < p.n; ++i) {
         for (std::int64_t k = p.offsets[i]; k < p.offsets[i + 1]; ++k) {
             const std::int32_t j = p.neighbors[k];
@@ -462,7 +464,7 @@ void calculators() {
                                         results[0][0].data(), results[0][1].data(),
                                         results[0][2].data());
         mdapy::calculators::compute_nep(nep, p.n, p.species.data(), p.offsets.data(),
-                                        p.neighbors.data(), p.vectors.data(),
+                                        p.neighbors.data(), p.shifts.data(), p.vectors.data(),
                                         results[1][0].data(), results[1][1].data(),
                                         results[1][2].data(), nullptr);
         for (int c = 0; c < 2; ++c) {

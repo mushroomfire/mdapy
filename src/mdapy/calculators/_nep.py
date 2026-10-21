@@ -306,6 +306,7 @@ class NEP(Calculator):
             species,
             neighbors.offsets,
             neighbors.j,
+            np.ascontiguousarray(neighbors.shifts),
             np.ascontiguousarray(neighbors.vectors),
             descriptors,
             progress,

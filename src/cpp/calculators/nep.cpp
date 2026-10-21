@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <stdexcept>
 
 namespace mdapy::calculators {
@@ -144,6 +145,66 @@ void zbl_pair(const double* row, double r, double& energy, double& derivative) {
     derivative = vp * s + v * sp;
 }
 
+// For each pair p = (i, j, s) of a full neighbor list, the pair (j, i, -s).
+std::vector<std::int64_t> reverse_pairs(std::int64_t n, const std::int64_t* offsets,
+                                        const std::int32_t* neighbors,
+                                        const std::int32_t* shifts, const Control& control) {
+    const std::int64_t count = offsets[n];
+    // each atom's pairs ordered by neighbor and shift
+    std::vector<std::int64_t> order(static_cast<std::size_t>(count));
+    const auto before = [&](std::int64_t a, std::int64_t b) {
+        if (neighbors[a] != neighbors[b]) {
+            return neighbors[a] < neighbors[b];
+        }
+        for (int e = 0; e < 3; ++e) {
+            if (shifts[3 * a + e] != shifts[3 * b + e]) {
+                return shifts[3 * a + e] < shifts[3 * b + e];
+            }
+        }
+        return false;
+    };
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                std::iota(order.begin() + offsets[i], order.begin() + offsets[i + 1], offsets[i]);
+                std::sort(order.begin() + offsets[i], order.begin() + offsets[i + 1], before);
+            }
+        },
+        control);
+    std::vector<std::int64_t> reverse(static_cast<std::size_t>(count), -1);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    const std::int64_t j = neighbors[p];
+                    const std::int32_t key[4] = {static_cast<std::int32_t>(i), -shifts[3 * p],
+                                                 -shifts[3 * p + 1], -shifts[3 * p + 2]};
+                    const auto below = [&](std::int64_t q, const std::int32_t* k) {
+                        const std::int32_t mine[4] = {neighbors[q], shifts[3 * q],
+                                                      shifts[3 * q + 1], shifts[3 * q + 2]};
+                        return std::lexicographical_compare(mine, mine + 4, k, k + 4);
+                    };
+                    const auto first = order.begin() + offsets[j];
+                    const auto last = order.begin() + offsets[j + 1];
+                    const auto found = std::lower_bound(first, last, key, below);
+                    if (found != last && !below(*found, key) &&
+                        neighbors[*found] == static_cast<std::int32_t>(i) &&
+                        shifts[3 * *found] == key[1] && shifts[3 * *found + 1] == key[2] &&
+                        shifts[3 * *found + 2] == key[3]) {
+                        reverse[p] = *found;
+                    }
+                }
+            }
+        },
+        control);
+    if (std::find(reverse.begin(), reverse.end(), -1) != reverse.end()) {
+        throw std::invalid_argument("the neighbor list is not symmetric");
+    }
+    return reverse;
+}
+
 }  // namespace
 
 void NepModel::prepare() {
@@ -203,8 +264,8 @@ void NepModel::prepare() {
 
 void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* species,
                  const std::int64_t* offsets, const std::int32_t* neighbors,
-                 const double* vectors, double* energies, double* forces, double* virials,
-                 double* descriptors, const Control& control) {
+                 const std::int32_t* shifts, const double* vectors, double* energies,
+                 double* forces, double* virials, double* descriptors, const Control& control) {
     const int types = model.types, dim = model.dim, harmonics = model.harmonic_count();
     const int nr = model.n_radial + 1, na = model.n_angular + 1;
     const int kr = model.k_radial + 1, ka = model.k_angular + 1;
@@ -358,41 +419,36 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
         },
         control);
 
-    // Forces and virials; each atom gathers the derivatives of its own
-    // energy and of its neighbors' energies by their pair vectors.
+    // The derivative t_p = dE_i / dr_p of the energy of atom i by the vector
+    // of each of its pairs p.
+    const std::int64_t count = offsets[n];
+    std::vector<double> derivative(3 * static_cast<std::size_t>(count));
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
-            std::vector<double> f(k_size), fp(k_size), g_ij(n_size), gp_ij(n_size), g_ji(n_size),
-                gp_ji(n_size), y(harmonics), gradient(3 * static_cast<std::size_t>(harmonics));
+            std::vector<double> f(k_size), fp(k_size), g(n_size), gp(n_size), y(harmonics),
+                gradient(3 * static_cast<std::size_t>(harmonics));
             for (std::int64_t i = begin; i < end; ++i) {
                 const int ti = species[i];
-                double force[3] = {0.0, 0.0, 0.0};
-                double w[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
                 const double* gi = &angular_slope[static_cast<std::size_t>(i) * na * harmonics];
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const std::int32_t j = neighbors[p];
-                    const int tj = species[j];
+                    const int tj = species[neighbors[p]];
                     const double* v = vectors + 3 * p;
                     const double r = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
                     const double u[3] = {v[0] / r, v[1] / r, v[2] / r};
-                    // t_ij = dE_i / dr_ij and t_ji = dE_j / dr_ji at r_ji = -r_ij
-                    double t_ij[3] = {0.0, 0.0, 0.0}, t_ji[3] = {0.0, 0.0, 0.0};
+                    double* t = &derivative[3 * static_cast<std::size_t>(p)];
+                    t[0] = t[1] = t[2] = 0.0;
                     const double rc_r = 0.5 * (model.rc_radial[ti] + model.rc_radial[tj]);
                     if (r < rc_r) {
                         chebyshev_basis(r, rc_r, kr - 1, f.data(), fp.data());
                         contract(&model.c_radial[static_cast<std::size_t>(ti * types + tj) * nr * kr],
-                                 nr, kr, fp.data(), gp_ij.data());
-                        contract(&model.c_radial[static_cast<std::size_t>(tj * types + ti) * nr * kr],
-                                 nr, kr, fp.data(), gp_ji.data());
-                        double a = 0.0, b = 0.0;
+                                 nr, kr, fp.data(), gp.data());
+                        double a = 0.0;
                         for (int k = 0; k < nr; ++k) {
-                            a += radial_slope[i * nr + k] * gp_ij[k];
-                            b += radial_slope[static_cast<std::size_t>(j) * nr + k] * gp_ji[k];
+                            a += radial_slope[i * nr + k] * gp[k];
                         }
                         for (int c = 0; c < 3; ++c) {
-                            t_ij[c] += a * u[c];
-                            t_ji[c] -= b * u[c];
+                            t[c] += a * u[c];
                         }
                     }
                     const double rc_a = 0.5 * (model.rc_angular[ti] + model.rc_angular[tj]);
@@ -400,32 +456,20 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                         chebyshev_basis(r, rc_a, ka - 1, f.data(), fp.data());
                         const double* c_ij =
                             &model.c_angular[static_cast<std::size_t>(ti * types + tj) * na * ka];
-                        const double* c_ji =
-                            &model.c_angular[static_cast<std::size_t>(tj * types + ti) * na * ka];
-                        contract(c_ij, na, ka, f.data(), g_ij.data());
-                        contract(c_ij, na, ka, fp.data(), gp_ij.data());
-                        contract(c_ji, na, ka, f.data(), g_ji.data());
-                        contract(c_ji, na, ka, fp.data(), gp_ji.data());
+                        contract(c_ij, na, ka, f.data(), g.data());
+                        contract(c_ij, na, ka, fp.data(), gp.data());
                         evaluate_harmonics(model, u, r, y.data(), gradient.data());
-                        const double* gj =
-                            &angular_slope[static_cast<std::size_t>(j) * na * harmonics];
                         for (int k = 0; k < na; ++k) {
                             const double* gik = gi + k * harmonics;
-                            const double* gjk = gj + k * harmonics;
-                            double a_i = 0.0, a_j = 0.0;
-                            double b_i[3] = {0.0, 0.0, 0.0}, b_j[3] = {0.0, 0.0, 0.0};
+                            double a = 0.0, b[3] = {0.0, 0.0, 0.0};
                             for (int h = 0; h < harmonics; ++h) {
-                                const double sj = parity[h] * gjk[h];
-                                a_i += gik[h] * y[h];
-                                a_j += sj * y[h];
+                                a += gik[h] * y[h];
                                 for (int c = 0; c < 3; ++c) {
-                                    b_i[c] += gik[h] * gradient[3 * h + c];
-                                    b_j[c] += sj * gradient[3 * h + c];
+                                    b[c] += gik[h] * gradient[3 * h + c];
                                 }
                             }
                             for (int c = 0; c < 3; ++c) {
-                                t_ij[c] += gp_ij[k] * a_i * u[c] + g_ij[k] * b_i[c];
-                                t_ji[c] -= gp_ji[k] * a_j * u[c] + g_ji[k] * b_j[c];
+                                t[c] += gp[k] * a * u[c] + g[k] * b[c];
                             }
                         }
                         if (zbl) {
@@ -433,11 +477,29 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                             zbl_pair(&model.zbl[static_cast<std::size_t>(ti * types + tj) * 12], r,
                                      e, de);
                             for (int c = 0; c < 3; ++c) {
-                                t_ij[c] += 0.5 * de * u[c];
-                                t_ji[c] -= 0.5 * de * u[c];
+                                t[c] += 0.5 * de * u[c];
                             }
                         }
                     }
+                }
+            }
+        },
+        control);
+
+    // Forces and virials: each atom gathers the derivatives of its own energy
+    // and those of its neighbors' energies by the reverse pairs, r_ji = -r_ij;
+    // the virial of a derivative of a neighbor's energy goes to the atom.
+    const std::vector<std::int64_t> reverse = reverse_pairs(n, offsets, neighbors, shifts, control);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                double force[3] = {0.0, 0.0, 0.0};
+                double w[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    const double* v = vectors + 3 * p;
+                    const double* t_ij = &derivative[3 * static_cast<std::size_t>(p)];
+                    const double* t_ji = &derivative[3 * static_cast<std::size_t>(reverse[p])];
                     for (int a = 0; a < 3; ++a) {
                         force[a] += t_ij[a] - t_ji[a];
                         for (int b = 0; b < 3; ++b) {

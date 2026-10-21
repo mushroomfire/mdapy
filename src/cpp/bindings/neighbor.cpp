@@ -7,6 +7,7 @@
 #include <nanobind/ndarray.h>
 
 #include <cstdint>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -48,11 +49,36 @@ nb::tuple build(Positions positions, Matrix matrix, Vector3 origin, Flags pbc, d
                           to_array(std::move(pairs.distances), count, 0));
 }
 
+using Offsets = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Distances = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+nb::tuple order_by_distance(Offsets offsets, Distances distances, std::int64_t count,
+                            nb::handle progress, const CancelToken* cancel) {
+    if (offsets.shape(0) < 1 ||
+        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(distances.shape(0))) {
+        throw std::invalid_argument("the offsets do not fit the distances");
+    }
+    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    std::vector<std::int64_t> order, kept;
+    run_released(
+        [&](const Control& control) {
+            neighbor::order_by_distance(n, offsets.data(), distances.data(), count, order, kept,
+                                        control);
+        },
+        progress, cancel);
+    const std::size_t size = order.size();
+    return nb::make_tuple(to_array(std::move(order), size, 0),
+                          to_array(std::move(kept), static_cast<std::size_t>(n) + 1, 0));
+}
+
 }  // namespace
 
 void bind_neighbor(nb::module_& m) {
     m.def("build", &build, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("order_by_distance", &order_by_distance, nb::arg("offsets"), nb::arg("distances"),
+          nb::arg("count") = -1, nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
 }
 

@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -246,6 +247,33 @@ NeighborPairs build(const double* positions, std::int64_t n, const double* matri
         }
     }
     return result;
+}
+
+void order_by_distance(std::int64_t n, const std::int64_t* offsets, const double* distances,
+                       std::int64_t count, std::vector<std::int64_t>& order,
+                       std::vector<std::int64_t>& kept, const Control& control) {
+    kept.assign(static_cast<std::size_t>(n) + 1, 0);
+    for (std::int64_t i = 0; i < n; ++i) {
+        const std::int64_t m = offsets[i + 1] - offsets[i];
+        kept[i + 1] = kept[i] + (count < 0 ? m : std::min(m, count));
+    }
+    order.resize(static_cast<std::size_t>(kept[n]));
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            std::vector<std::int64_t> pairs;
+            for (std::int64_t i = begin; i < end; ++i) {
+                pairs.resize(static_cast<std::size_t>(offsets[i + 1] - offsets[i]));
+                std::iota(pairs.begin(), pairs.end(), offsets[i]);
+                const auto closer = [&](std::int64_t a, std::int64_t b) {
+                    return distances[a] < distances[b] || (distances[a] == distances[b] && a < b);
+                };
+                const auto take = static_cast<std::ptrdiff_t>(kept[i + 1] - kept[i]);
+                std::partial_sort(pairs.begin(), pairs.begin() + take, pairs.end(), closer);
+                std::copy(pairs.begin(), pairs.begin() + take, order.begin() + kept[i]);
+            }
+        },
+        control);
 }
 
 }  // namespace mdapy::neighbor

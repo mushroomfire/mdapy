@@ -22,4 +22,14 @@ std::vector<std::int64_t> pair_histogram(const double* positions, std::int64_t n
                                          const std::int32_t* type, int types,
                                          const Control& control = {});
 
+// Static structure factor of a periodic box at every reciprocal lattice
+// vector q = h b1 + k b2 + l b3 with 0 < |q| <= q_max, one of each pair +q,
+// -q: sums over bins of equal width of Re(rho_a(q) rho_b(q)*) for the types a,
+// b (types x types x bins, rho_t the sum of exp(i q . r) over the atoms of
+// type t), and the number of vectors in each bin. matrix: rows a1, a2, a3.
+void structure_factor(const double* positions, std::int64_t n, const double* matrix,
+                      const std::int32_t* type, int types, double q_max, int bins,
+                      std::vector<double>& sums, std::vector<std::int64_t>& vectors,
+                      const Control& control = {});
+
 }  // namespace mdapy::analysis

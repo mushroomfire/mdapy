@@ -22,7 +22,7 @@
 | `src/mdapy/io/_trajectory.py` | `Trajectory` and `read_trajectory`. |
 | `src/mdapy/neighbor/_neighbor_list.py` | `NeighborList`. |
 | `src/mdapy/identify/_structure.py` | `CommonNeighborAnalysis`, `CentroSymmetryParameter`. |
-| `src/mdapy/analysis/_distribution.py` | `RadialDistributionFunction`, `CoordinationNumber`. |
+| `src/mdapy/analysis/_distribution.py` | `RadialDistributionFunction`, `CoordinationNumber`, `StructureFactor`. |
 | `src/mdapy/analysis/_steinhardt.py` | `SteinhardtParameters`. |
 | `src/mdapy/analysis/_entropy.py` | `EntropyFingerprint`. |
 | `src/mdapy/analysis/_temperature.py` | `AtomicTemperature`. |
@@ -33,7 +33,7 @@
 | `src/cpp/neighbor/cell_list.h`, `cell_list.cpp` | The neighbor search with cells. |
 | `src/cpp/identify/structure.h`, `structure.cpp` | Common neighbor analysis and the centro-symmetry parameter. |
 | `src/cpp/analysis/steinhardt.h`, `steinhardt.cpp` | Real spherical harmonics and Steinhardt order parameters. |
-| `src/cpp/analysis/distribution.h`, `distribution.cpp` | Histograms of pair distances counted during the neighbor search. |
+| `src/cpp/analysis/distribution.h`, `distribution.cpp` | Histograms of pair distances counted during the neighbor search, and the structure factor. |
 | `src/cpp/analysis/geometry.h`, `geometry.cpp` | Clusters of bonded atoms, bond angles and the pair entropy. |
 | `src/cpp/io/powers_of_five.h` | Generated table used by the number parser. |
 | `src/cpp/bindings/module.cpp` | The extension module `mdapy._core` and its submodules. |

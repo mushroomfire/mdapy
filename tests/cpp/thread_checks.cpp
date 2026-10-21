@@ -400,7 +400,7 @@ void structure_identification() {
         }
     }
     std::vector<std::int8_t> first_types;
-    std::vector<double> first_csp, first_q, first_entropy;
+    std::vector<double> first_csp, first_q, first_entropy, first_factor;
     std::vector<std::int64_t> first_angles, first_histogram;
     const std::vector<int> degrees = {4, 6, 12};
     for (int threads : kThreads) {
@@ -432,6 +432,14 @@ void structure_identification() {
             first_histogram = histogram;
         }
         check(histogram == first_histogram, "the pair histogram is the same for any thread count");
+        std::vector<double> factor;
+        std::vector<std::int64_t> shells;
+        mdapy::analysis::structure_factor(positions.data(), n, matrix, species.data(), 1, 3.0, 30,
+                                          factor, shells);
+        if (threads == kThreads[0]) {
+            first_factor = factor;
+        }
+        check(factor == first_factor, "the structure factor is the same for any thread count");
         std::vector<std::int64_t> angles(90);
         mdapy::analysis::bond_angles(n, pairs.offsets.data(), vectors.data(), 90, angles.data());
         if (threads == kThreads[0]) {

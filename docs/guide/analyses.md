@@ -52,6 +52,7 @@ is raised.
 | `mdapy.identify.IdentifyDiamond` | [Structure identification](structure.md) |
 | `mdapy.analysis.RadialDistributionFunction` | [Radial distribution and coordination](distribution.md) |
 | `mdapy.analysis.CoordinationNumber` | [Radial distribution and coordination](distribution.md) |
+| `mdapy.analysis.StructureFactor` | [Radial distribution and coordination](distribution.md) |
 | `mdapy.analysis.SteinhardtParameters` | [Bond-orientational order](steinhardt.md) |
 | `mdapy.analysis.EntropyFingerprint` | [Entropy fingerprint](entropy.md) |
 | `mdapy.analysis.AtomicTemperature` | [Atomic temperature](temperature.md) |

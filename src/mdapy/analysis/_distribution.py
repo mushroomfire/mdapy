@@ -229,3 +229,115 @@ class CoordinationNumber:
 
     def __repr__(self) -> str:
         return f"CoordinationNumber({self._bonds})"
+
+
+@dataclass(frozen=True)
+class StructureFactorResult(Result):
+    """A static structure factor and its partial factors.
+
+    Attributes
+    ----------
+    q : numpy.ndarray
+        (bins,) centers of the bins of |q| in 1/Å.
+    edges : numpy.ndarray
+        (bins + 1,) edges of the bins in 1/Å.
+    s : numpy.ndarray
+        (bins,) the structure factor averaged over the vectors of each bin;
+        NaN in bins without vectors.
+    vectors : numpy.ndarray
+        (bins,) int64 number of vectors in each bin, one of each pair q, -q.
+    partial : dict
+        (bins,) partial factor of each pair of elements ``(a, b)``, ``a``
+        not after ``b`` by atomic number; empty without an element column.
+    """
+
+    q: np.ndarray
+    edges: np.ndarray
+    s: np.ndarray
+    vectors: np.ndarray
+    partial: dict[tuple[str, str], np.ndarray]
+
+    def pair(self, a: str, b: str) -> np.ndarray:
+        """The partial factor of elements a and b, in either order."""
+        if (a, b) in self.partial:
+            return self.partial[a, b]
+        if (b, a) in self.partial:
+            return self.partial[b, a]
+        raise InvalidParameter(f"no partial factor for {(a, b)}")
+
+
+class StructureFactor:
+    """The static structure factor S(q) of a periodic system, summed over the
+    wave vectors that fit the box.
+
+    Parameters
+    ----------
+    q_max : float
+        Largest |q| in 1/Å.
+    bins : int, optional
+        Number of bins of |q| of equal width. Default 200.
+    """
+
+    def __init__(self, q_max: float, bins: int = 200):
+        if not q_max > 0:
+            raise InvalidParameter(f"q_max must be positive, not {q_max!r}")
+        if bins < 1:
+            raise InvalidParameter(f"bins must be at least 1, not {bins!r}")
+        self.q_max = float(q_max)
+        self.bins = int(bins)
+
+    def compute(
+        self, system: System, *, progress: Any = None, cancel: Any = None
+    ) -> StructureFactorResult:
+        """The structure factor of a system.
+
+        Parameters
+        ----------
+        system : System
+            The atoms in a box periodic in every direction; partial factors
+            need an ``element`` column.
+
+        Returns
+        -------
+        StructureFactorResult
+            The factor averaged over shells of |q|.
+        """
+        if not system.box.pbc.all():
+            raise InvalidParameter(
+                "the structure factor needs a box periodic in every direction"
+            )
+        n, bins = len(system), self.bins
+        found = _elements(system)
+        names, index = found if found is not None else ((), np.zeros(n, dtype=np.int64))
+        types = max(len(names), 1)
+        sums, vectors = _native.structure_factor(
+            np.ascontiguousarray(system.positions),
+            np.ascontiguousarray(system.box.matrix),
+            index.astype(np.int32),
+            types,
+            self.q_max,
+            bins,
+            progress,
+            _native_token(cancel),
+        )
+        with np.errstate(invalid="ignore", divide="ignore"):
+            s = sums.sum(axis=(0, 1)) / n / vectors if n else np.full(bins, np.nan)
+            partial = {}
+            if found is not None and n:
+                sizes = np.bincount(index, minlength=types)
+                for a in range(types):
+                    for b in range(a, types):
+                        partial[names[a], names[b]] = (
+                            sums[a, b] / np.sqrt(sizes[a] * sizes[b]) / vectors
+                        )
+        edges = np.linspace(0.0, self.q_max, bins + 1)
+        return StructureFactorResult(
+            q=0.5 * (edges[1:] + edges[:-1]),
+            edges=edges,
+            s=s,
+            vectors=vectors,
+            partial=partial,
+        )
+
+    def __repr__(self) -> str:
+        return f"StructureFactor(q_max={self.q_max!r}, bins={self.bins})"

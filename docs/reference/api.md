@@ -48,6 +48,10 @@ import mdapy
 
 ::: mdapy.analysis.RadialDistributionResult
 
+::: mdapy.analysis.StructureFactor
+
+::: mdapy.analysis.StructureFactorResult
+
 ::: mdapy.analysis.CoordinationNumber
 
 ::: mdapy.analysis.CoordinationResult

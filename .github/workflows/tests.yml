@@ -103,7 +103,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the thread checks with ThreadSanitizer
         run: >
-          g++ -std=c++17 -O1 -g -fsanitize=thread -fno-omit-frame-pointer
+          g++ -std=c++17 -O1 -g -fsanitize=thread -fno-omit-frame-pointer -ffp-contract=off
           -Wall -Wextra -Wpedantic -Wshadow -Werror -Isrc/cpp -pthread
           -o thread_checks src/cpp/core/parallel.cpp src/cpp/io/text.cpp
           src/cpp/neighbor/cell_list.cpp src/cpp/identify/structure.cpp

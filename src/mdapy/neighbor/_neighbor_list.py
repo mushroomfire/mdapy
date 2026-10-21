@@ -145,21 +145,20 @@ class NeighborList:
             raise InvalidParameter(
                 f"num_neighbors is {k}, but the system has only {n} atoms and no periodic images"
             )
-        density = n / system.box.volume
-        cutoff = 1.2 * (3.0 * k / (4.0 * math.pi * density)) ** (1.0 / 3.0)
-        while True:
-            pairs = cls.build(system, cutoff)
-            if pairs.counts.min() >= k:
-                break
-            cutoff *= 1.5
-        keep, offsets = _native.order_by_distance(pairs.offsets, pairs.distances, k)
-        distances = pairs.distances[keep]
+        box = system.box
+        offsets, j, shifts, distances = _native.nearest(
+            np.ascontiguousarray(system.positions),
+            np.ascontiguousarray(box.matrix),
+            np.ascontiguousarray(box.origin),
+            np.ascontiguousarray(box.pbc),
+            k,
+        )
         return cls(
             system,
             float(np.nextafter(distances.max(), np.inf)),
             offsets,
-            pairs.j[keep],
-            pairs.shifts[keep],
+            j,
+            shifts,
             distances,
         )
 
@@ -182,8 +181,13 @@ class NeighborList:
     def vectors(self) -> np.ndarray:
         """(P, 3) float64 vectors from the first atom to the second, in Å."""
         if self._vectors is None:
-            x = self.system.positions
-            self._vectors = x[self.j] - x[self.i] + self.shifts @ self.system.box.matrix
+            self._vectors = _native.pair_vectors(
+                np.ascontiguousarray(self.system.positions),
+                self.offsets,
+                self.j,
+                self.shifts,
+                np.ascontiguousarray(self.system.box.matrix),
+            )
             self._vectors.flags.writeable = False
         return self._vectors
 

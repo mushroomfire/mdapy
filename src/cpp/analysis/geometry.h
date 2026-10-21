@@ -18,9 +18,13 @@ namespace mdapy::analysis {
 std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
                       std::int64_t* cluster, std::int64_t* sizes);
 
-// Counts of the angles between the bonds of each atom, given as vectors in
-// CSR form, in bins of equal width from 0 to 180 degrees.
-void bond_angles(std::int64_t n, const std::int64_t* offsets, const double* vectors, int bins,
+// Counts of the angles between the bonds of each atom, given as neighbors
+// and vectors in CSR form, in bins of equal width from 0 to 180 degrees, by
+// the type of the atom and the types a <= b of the two neighbors (type: n
+// values below types): counts is types x pairs x bins, the pair (a, b)
+// numbered in the order (0, 0), (0, 1), ..., (1, 1), (1, 2), ...
+void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+                 const double* vectors, const std::int32_t* type, int types, int bins,
                  std::int64_t* counts, const Control& control = {});
 
 // The pair entropy fingerprint of n atoms (Piaggi and Parrinello) from the

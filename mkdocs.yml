@@ -98,6 +98,7 @@ nav:
       - Radial distribution and coordination: guide/distribution.md
       - Bond-orientational order: guide/steinhardt.md
       - Entropy fingerprint: guide/entropy.md
+      - Atomic temperature: guide/temperature.md
       - Clusters, bond angles and short-range order: guide/bonds.md
       - Voronoi cells: guide/voronoi.md
       - Parallelism: guide/parallelism.md

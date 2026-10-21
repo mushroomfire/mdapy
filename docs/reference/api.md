@@ -60,6 +60,10 @@ import mdapy
 
 ::: mdapy.analysis.EntropyResult
 
+::: mdapy.analysis.AtomicTemperature
+
+::: mdapy.analysis.TemperatureResult
+
 ::: mdapy.analysis.ClusterAnalysis
 
 ::: mdapy.analysis.ClusterResult

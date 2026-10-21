@@ -18,6 +18,18 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   minimum images, and conversion to LAMMPS restricted triclinic form. See
   [Simulation box](guide/box.md).
 
+### Reading and writing
+
+- `mdapy.read` and `mdapy.write` read one frame and write one or more
+  frames, finding the format from the file name. Files compressed with gzip,
+  bzip2, xz or zstd (Python 3.14) are read and written transparently.
+  `mdapy.formats` and `mdapy.detect_format` list and identify formats. See
+  [Reading and writing files](guide/io.md).
+- Extended XYZ with the conventions of ASE and GPUMD: velocities from `vel`
+  (Å/fs) or ASE `momenta`, stress in GPa, any per-atom column and any global
+  value, written so that they read back unchanged. See
+  [Extended XYZ](formats/extxyz.md).
+
 ### Foundations
 
 - Python 3.10 or newer; NumPy 2 and polars 2 are the only required
@@ -37,6 +49,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   malformed file with its name and line number.
 - Text files are parsed and written by compiled kernels in parallel. Numbers
   are read correctly rounded and written in the shortest form that reads back
-  to the same value, whatever the locale of the process.
+  to the same value, whatever the locale of the process; unit conversions by
+  powers of ten are exact.
+- macOS wheels need macOS 14 or newer.
 - `mdapy.elements` holds chemical symbols and IUPAC standard atomic weights,
   and identifies elements from masses. See [Elements](reference/elements.md).

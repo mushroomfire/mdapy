@@ -10,6 +10,14 @@ import mdapy
 
 ## Structures
 
+::: mdapy.read
+
+::: mdapy.write
+
+::: mdapy.formats
+
+::: mdapy.detect_format
+
 ::: mdapy.System
 
 ::: mdapy.Topology

@@ -7,6 +7,7 @@
 
 #include <cfloat>
 #include <charconv>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -99,7 +100,7 @@ inline int leading_zeros(std::uint64_t x) {  // x != 0
 
 // Correctly rounded w * 10^q for 0 < w < 10^19, by the Eisel-Lemire algorithm
 // (D. Lemire, Softw. Pract. Exp. 51, 1700 (2021)). For at most 19 digits it
-// needs no fallback (N. Mushtak and D. Lemire, Softw. Pract. Exp. 53, 1338
+// needs no fallback (N. Mushtak and D. Lemire, Softw. Pract. Exp. 53, 1467
 // (2023)).
 double eisel_lemire(std::uint64_t w, std::int64_t q, bool negative) {
     constexpr int kMantissaBits = 52;
@@ -167,20 +168,14 @@ double eisel_lemire(std::uint64_t w, std::int64_t q, bool negative) {
     return value;
 }
 
-// Correctly rounded value of a token that is known to be a decimal number.
-double parse_slow(const char* first, const char* last) {
-    const auto n = static_cast<std::size_t>(last - first);
-    char local[64];
-    std::string heap;
-    char* text = local;
-    if (n >= sizeof(local)) {
-        heap.assign(first, n);
-        text = heap.data();
-    } else {
-        std::memcpy(local, first, n);
-        local[n] = '\0';
-    }
-    return strtod_c(text, nullptr);
+// Correctly rounded value of a token that is known to be a decimal number:
+// [first, mark) is its sign and digits, exponent is the value of its exponent
+// part (0 if it has none).
+double parse_slow(const char* first, const char* mark, std::int64_t exponent, int shift) {
+    std::string text(first, mark);
+    text += 'e';
+    text += std::to_string(exponent + shift);
+    return strtod_c(text.c_str(), nullptr);
 }
 
 // --------------------------------------------------------------- tables
@@ -266,7 +261,8 @@ std::string parse_row(const char* p, const char* end, std::int64_t row,
             const std::int64_t index = row * column.width + k;
             switch (column.kind) {
                 case Kind::Float:
-                    if (!parse_double(token, p, static_cast<double*>(column.data)[index])) {
+                    if (!parse_double(token, p, static_cast<double*>(column.data)[index],
+                                      column.shift)) {
                         return "cannot read " + quoted(token, p) + " as a number";
                     }
                     break;
@@ -305,12 +301,66 @@ std::int64_t next_line(const char* text, std::int64_t size, std::int64_t positio
     return newline ? static_cast<const char*>(newline) - text + 1 : size;
 }
 
+// Appends value * 10^shift for a finite, non-zero value: the shortest
+// digits of value with the decimal exponent moved, written as Python's repr
+// writes floats (scientific notation for exponents below -4 or above 15).
+void append_shifted(std::string& out, double value, int shift) {
+    char buffer[32];
+    const char* end =
+        std::to_chars(buffer, buffer + sizeof(buffer), value, std::chars_format::scientific).ptr;
+    const char* p = buffer;
+    if (*p == '-') {
+        out.push_back('-');
+        ++p;
+    }
+    char digits[20];  // at most 17 significant digits
+    int n = 0;
+    for (; *p != 'e'; ++p) {
+        if (*p != '.') {
+            digits[n++] = *p;
+        }
+    }
+    int exponent = 0;  // value = d.ddd * 10^exponent
+    std::from_chars(p + (p[1] == '+' ? 2 : 1), end, exponent);
+    exponent += shift;
+    const int point = exponent + 1;  // digits before the decimal point
+    if (point <= -4 || point > 16) {
+        out.push_back(digits[0]);
+        if (n > 1) {
+            out.push_back('.');
+            out.append(digits + 1, static_cast<std::size_t>(n - 1));
+        }
+        out.push_back('e');
+        out.push_back(exponent < 0 ? '-' : '+');
+        const int magnitude = exponent < 0 ? -exponent : exponent;
+        if (magnitude < 10) {
+            out.push_back('0');
+        }
+        out.append(std::to_string(magnitude));
+    } else if (point <= 0) {
+        out.append("0.");
+        out.append(static_cast<std::size_t>(-point), '0');
+        out.append(digits, static_cast<std::size_t>(n));
+    } else if (point < n) {
+        out.append(digits, static_cast<std::size_t>(point));
+        out.push_back('.');
+        out.append(digits + point, static_cast<std::size_t>(n - point));
+    } else {
+        out.append(digits, static_cast<std::size_t>(n));
+        out.append(static_cast<std::size_t>(point - n), '0');
+    }
+}
+
 void append_value(std::string& out, const Column& column, std::int64_t index) {
     char buffer[32];  // enough for any double or int64
     switch (column.kind) {
         case Kind::Float: {
             const double value = static_cast<const double*>(column.data)[index];
-            out.append(buffer, std::to_chars(buffer, buffer + sizeof(buffer), value).ptr);
+            if (column.shift != 0 && value != 0.0 && std::isfinite(value)) {
+                append_shifted(out, value, column.shift);
+            } else {
+                out.append(buffer, std::to_chars(buffer, buffer + sizeof(buffer), value).ptr);
+            }
             break;
         }
         case Kind::Int: {
@@ -331,7 +381,7 @@ void append_value(std::string& out, const Column& column, std::int64_t index) {
 
 }  // namespace
 
-bool parse_double(const char* first, const char* last, double& value) {
+bool parse_double(const char* first, const char* last, double& value, int shift) {
     const char* p = first;
     bool negative = false;
     if (p != last && (*p == '+' || *p == '-')) {
@@ -380,6 +430,8 @@ bool parse_double(const char* first, const char* last, double& value) {
         }
         return false;
     }
+    const char* mark = p;          // start of the exponent part, if any
+    std::int64_t written = 0;      // value of the exponent part
     if (p != last && (*p == 'e' || *p == 'E')) {
         ++p;
         bool negative_exponent = false;
@@ -396,13 +448,14 @@ bool parse_double(const char* first, const char* last, double& value) {
                 e = e * 10 + (*p - '0');
             }
         }
-        exponent += negative_exponent ? -e : e;
+        written = negative_exponent ? -e : e;
     }
     if (p != last) {
         return false;
     }
+    exponent += written + shift;
     if (!exact) {  // more than 19 significant digits
-        value = parse_slow(first, last);
+        value = parse_slow(first, mark, written, shift);
     } else if (mantissa == 0) {
         value = negative ? -0.0 : 0.0;
     } else if (kExactArithmetic && mantissa <= kMaxExactMantissa && exponent >= -22 &&

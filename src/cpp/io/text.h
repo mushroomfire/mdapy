@@ -18,9 +18,11 @@ namespace mdapy::io {
 
 // Parses all of [first, last) as a decimal number, as Python's float() does:
 // an optional sign, digits with an optional decimal point and an optional
-// exponent, or nan, inf or infinity in any letter case. The result is
-// correctly rounded. Returns false if the text is not such a number.
-bool parse_double(const char* first, const char* last, double& value);
+// exponent, or nan, inf or infinity in any letter case. The value is the
+// number times 10^shift, correctly rounded: the power of ten is applied to
+// the decimal number, so it adds no rounding. Returns false if the text is not
+// such a number.
+bool parse_double(const char* first, const char* last, double& value, int shift = 0);
 
 // Parses all of [first, last) as a decimal integer with an optional sign.
 // Returns false if the text is not an integer or does not fit in 64 bits.
@@ -40,6 +42,11 @@ struct Column {
     Kind kind = Kind::Float;
     int width = 1;
     void* data = nullptr;
+    // Float columns: parse_table stores the numbers of the text times
+    // 10^shift, and format_table writes the values times 10^shift. Both are
+    // exact in decimal, so a value written with shift s and read with -s comes
+    // back unchanged.
+    int shift = 0;
     // String columns: the text of each code. parse_table fills it in order of
     // first appearance; format_table reads it.
     std::vector<std::string> categories;
@@ -71,8 +78,9 @@ std::int64_t parse_table(const char* text, std::int64_t size, std::int64_t offse
 
 // Writes rows lines: the values of the columns in order separated by one
 // space, each line ending with a newline. Floats use the shortest text that
-// reads back to the same value. Throws std::invalid_argument for a string
-// code without a category.
+// reads back to the same value; with a shift, the same digits with the
+// decimal exponent moved. Throws std::invalid_argument for a string code
+// without a category.
 std::string format_table(std::int64_t rows, const std::vector<Column>& columns,
                          const Control& control = {});
 

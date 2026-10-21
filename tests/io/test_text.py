@@ -1,11 +1,13 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
+import decimal
 import io
 import locale
 import math
 import mmap
 import random
+import re
 
 import numpy as np
 import polars as pl
@@ -226,6 +228,91 @@ def test_floats_near_the_subnormal_boundary():
     tokens = [f"{v:.18e}" for v in values] + [repr(float(v)) for v in values]
     tokens += ["2.2250738585072013e-308", "2.2250738585072012e-308"]
     assert_same_bits(parse_floats(tokens), [float(t) for t in tokens])
+
+
+# ----------------------------------------------------------------- shifts
+
+
+def scaled(token, shift):
+    """float(token * 10**shift), computed exactly in decimal."""
+    return float(decimal.Decimal(token).scaleb(shift))
+
+
+@pytest.mark.parametrize("shift", [-3, 3, -17, 22, 100, -100])
+def test_parse_with_shift_scales_exactly_in_decimal(shift):
+    rng = np.random.default_rng(9)
+    tokens = [repr(float(v)) for v in random_doubles(rng, 20_000)]
+    tokens += [random_decimal(rng) for _ in range(20_000)]  # some above 19 digits
+    tokens += ["0", "-0", "1", "0.001", "1e-320", "1.7976931348623157e308"]
+    text = "\n".join(tokens).encode()
+    (values,), _ = native.parse_table(text, 0, len(tokens), [("f", 1, shift)])
+    assert_same_bits(values, [scaled(t, shift) for t in tokens])
+
+
+def test_parse_with_shift_keeps_nan_and_infinity():
+    (values,), _ = native.parse_table(b"nan -inf", 0, 1, [("f", 2, 3)])
+    assert math.isnan(values[0, 0]) and values[0, 1] == -math.inf
+
+
+@pytest.mark.parametrize("shift", [-3, 3, -20, 20])
+def test_format_with_shift_moves_the_decimal_exponent(shift):
+    values = random_doubles(np.random.default_rng(10), 50_000)
+    values = np.concatenate([values, [0.0, -0.0, math.inf, -math.inf, 1.0, 1e-3]])
+    lines = native.format_table([("f", values, [], shift)]).decode().splitlines()
+    for text, value in zip(lines, values):
+        if value == 0 or not math.isfinite(value):
+            assert float(text) == value and text in ("0", "-0", "inf", "-inf")
+        else:
+            expected = decimal.Decimal(repr(float(value))).scaleb(shift)
+            assert decimal.Decimal(text) == expected, (text, value)
+    (back,), _ = native.parse_table(
+        "\n".join(lines).encode(), 0, len(lines), [("f", 1, -shift)]
+    )
+    assert_same_bits(back, values)
+
+
+@pytest.mark.parametrize(
+    "value, shift, text",
+    [
+        (1.0, -3, "0.001"),
+        (1000.0, -3, "1"),
+        (1234.5, -3, "1.2345"),
+        (-2.0, -3, "-0.002"),
+        (1.5, -5, "1.5e-05"),
+        (1.5, -4, "0.00015"),
+        (1.0, 16, "1e+16"),
+        (1.0, 15, "1000000000000000"),
+        (0.1, 3, "100"),
+        (1e-300, -30, "1e-330"),
+        (1.25e200, 100, "1.25e+300"),
+    ],
+)
+def test_format_with_shift_uses_python_notation(value, shift, text):
+    assert (
+        native.format_table([("f", np.array([value]), [], shift)])
+        == text.encode() + b"\n"
+    )
+
+
+@pytest.mark.parametrize(
+    "call, message",
+    [
+        (lambda: native.parse_table(b"1", 0, 1, [("i", 1, 3)]), "only float columns"),
+        (
+            lambda: native.parse_table(b"1", 0, 1, [("f", 1, 101)]),
+            "between -100 and 100",
+        ),
+        (lambda: native.parse_table(b"1", 0, 1, [("f",)]), "(kind, width)"),
+        (
+            lambda: native.format_table([("i", np.array([1]), [], 2)]),
+            "only float columns",
+        ),
+        (lambda: native.format_table([("f", np.array([1.0]))]), "(kind, values"),
+    ],
+)
+def test_invalid_shifts(call, message):
+    with pytest.raises(ValueError, match=re.escape(message)):
+        call()
 
 
 # ----------------------------------------------------------------- tables
@@ -459,8 +546,10 @@ def test_format_rows_writes_in_blocks(monkeypatch):
     blocks = list(format_rows([("i", np.arange(10))]))
     assert [b.count(b"\n") for b in blocks] == [4, 4, 2]
     file = io.BytesIO()
-    write_rows(file, [("i", np.arange(10)), ("f", np.arange(10) / 2)])
-    assert file.getvalue().splitlines()[3] == b"3 1.5"
+    write_rows(
+        file, [("i", np.arange(10)), ("f", np.arange(10) / 2), ("f", np.ones(10), -3)]
+    )
+    assert file.getvalue().splitlines()[3] == b"3 1.5 0.001"
     assert list(format_rows([])) == []
 
 
@@ -480,8 +569,8 @@ def test_text_reader_lines_and_tables():
     reader = TextReader(text, "a.txt")
     assert reader.readline() == "title" and reader.line == 1
     assert int(reader.readline()) == 2
-    (values,) = reader.table(2, [("i", 2)])
-    assert values.tolist() == [[1, 2], [3, 4]] and reader.line == 4
+    (values,) = reader.table(2, [("f", 2, 3)])
+    assert values.tolist() == [[1000, 2000], [3000, 4000]] and reader.line == 4
     assert not reader.at_end()
     assert reader.readline() == "end" and reader.at_end()
     with pytest.raises(FileFormatError, match=r"^a\.txt:6: unexpected end of file$"):

@@ -37,9 +37,12 @@ class FileFormatError(MdapyError, ValueError):
 
     The message starts with the file name and, when known, the line number.
 
-    Attributes:
-        path: Name of the file, or None.
-        line: Line number, counting from 1, or None.
+    Attributes
+    ----------
+    path : str or None
+        Name of the file.
+    line : int or None
+        Line number, counting from 1.
     """
 
     def __init__(self, message: str, path: str | None = None, line: int | None = None):

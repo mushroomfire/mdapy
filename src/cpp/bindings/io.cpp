@@ -2,19 +2,17 @@
 // This file is part of mdapy, released under the BSD 3-Clause License.
 //
 // Bindings of the text table kernels. A ParseError reaches Python as
-// ValueError(message, row).
+// ValueError(message, row). Columns are given as tuples whose optional last
+// element is the decimal shift of a float column.
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
-#include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
-#include <nanobind/stl/tuple.h>
 #include <nanobind/stl/vector.h>
 
 #include <cstdint>
 #include <stdexcept>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -68,6 +66,21 @@ io::Kind to_kind(const std::string& name) {
     throw std::invalid_argument("unknown column kind '" + name + "'");
 }
 
+// Decimal shift of a column: the optional element `index` of its tuple.
+int column_shift(const nb::tuple& spec, std::size_t index, io::Kind kind) {
+    if (spec.size() <= index) {
+        return 0;
+    }
+    const int shift = nb::cast<int>(spec[index]);
+    if (shift != 0 && kind != io::Kind::Float) {
+        throw std::invalid_argument("only float columns can have a shift");
+    }
+    if (shift < -100 || shift > 100) {
+        throw std::invalid_argument("shift must be between -100 and 100");
+    }
+    return shift;
+}
+
 // New NumPy array of shape (rows,) or (rows, width); data receives its memory.
 template <class T>
 nb::object new_array(std::int64_t rows, int width, void*& data) {
@@ -89,9 +102,9 @@ std::int64_t skip_lines(nb::handle text, std::int64_t offset, std::int64_t n) {
     }
 }
 
+// spec: (kind, width) or (kind, width, shift) for each column.
 nb::tuple parse_table(nb::handle text, std::int64_t offset, std::int64_t rows,
-                      const std::vector<std::pair<std::string, int>>& spec,
-                      const std::string& comment) {
+                      const std::vector<nb::tuple>& spec, const std::string& comment) {
     if (rows < 0) {
         throw std::invalid_argument("rows must be at least 0");
     }
@@ -102,13 +115,18 @@ nb::tuple parse_table(nb::handle text, std::int64_t offset, std::int64_t rows,
     buffer.check_offset(offset);
     std::vector<io::Column> columns;
     nb::list arrays;
-    for (const auto& [name, width] : spec) {
+    for (const nb::tuple& item : spec) {
+        if (item.size() != 2 && item.size() != 3) {
+            throw std::invalid_argument("columns are (kind, width) or (kind, width, shift)");
+        }
+        const int width = nb::cast<int>(item[1]);
         if (width < 1) {
             throw std::invalid_argument("column width must be at least 1");
         }
         io::Column column;
-        column.kind = to_kind(name);
+        column.kind = to_kind(nb::cast<std::string>(item[0]));
         column.width = width;
+        column.shift = column_shift(item, 2, column.kind);
         switch (column.kind) {
             case io::Kind::Float:
                 arrays.append(new_array<double>(rows, width, column.data));
@@ -151,13 +169,23 @@ nb::tuple parse_table(nb::handle text, std::int64_t offset, std::int64_t rows,
     return nb::make_tuple(arrays, end);
 }
 
-nb::bytes format_table(
-    const std::vector<std::tuple<std::string, AnyArray, std::vector<std::string>>>& spec) {
+// spec: (kind, values, categories) or (kind, values, categories, shift) for
+// each column.
+nb::bytes format_table(const std::vector<nb::tuple>& spec) {
     std::vector<io::Column> columns;
+    std::vector<AnyArray> arrays;  // keeps the converted arrays alive
     std::int64_t rows = -1;
-    for (const auto& [name, array, categories] : spec) {
+    for (const nb::tuple& item : spec) {
+        if (item.size() != 3 && item.size() != 4) {
+            throw std::invalid_argument(
+                "columns are (kind, values, categories) or (kind, values, categories, shift)");
+        }
+        const std::string name = nb::cast<std::string>(item[0]);
+        const AnyArray array = nb::cast<AnyArray>(item[1]);
+        arrays.push_back(array);
         io::Column column;
         column.kind = to_kind(name);
+        column.shift = column_shift(item, 3, column.kind);
         const bool matches =
             (column.kind == io::Kind::Float && array.dtype() == nb::dtype<double>()) ||
             (column.kind == io::Kind::Int && array.dtype() == nb::dtype<std::int64_t>()) ||
@@ -176,7 +204,7 @@ nb::bytes format_table(
         rows = n;
         column.width = array.ndim() == 2 ? static_cast<int>(array.shape(1)) : 1;
         column.data = const_cast<void*>(array.data());
-        column.categories = categories;
+        column.categories = nb::cast<std::vector<std::string>>(item[2]);
         columns.push_back(std::move(column));
     }
     std::string text;

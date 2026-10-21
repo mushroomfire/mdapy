@@ -18,6 +18,7 @@ implemented.
 | `info` | Global information of a `System`, such as `energy` or `timestep`. |
 | `NeighborList` | Pairs of atoms within a cutoff, including periodic images. |
 | `Topology` | Bonds, angles, dihedrals and impropers of a system; each a table with `atoms` (0-based row indices), `type` and optional `type_label`. |
+| format | Name of a file format, passed as `format=`, such as `extxyz`. See [Reading and writing files](../guide/io.md). |
 | `Calculator` | Interface that computes energy, forces and virial for a `System`. |
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |

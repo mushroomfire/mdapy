@@ -21,11 +21,16 @@ _DTYPES = {"f": np.float64, "i": np.int64, "b": np.bool_, "s": np.uint32}
 class TextReader:
     """Reads a text buffer line by line and table by table.
 
-    Args:
-        buffer: The text, as bytes or an mmap.
-        name: File name used in error messages.
-        offset: Byte offset to start reading at.
-        line: Number of lines before offset.
+    Parameters
+    ----------
+    buffer : bytes or mmap.mmap
+        The text.
+    name : str
+        File name used in error messages.
+    offset : int, optional
+        Byte offset to start reading at.
+    line : int, optional
+        Number of lines before offset.
     """
 
     def __init__(self, buffer, name: str, offset: int = 0, line: int = 0):
@@ -66,13 +71,21 @@ class TextReader:
     ) -> list:
         """Reads rows lines of values.
 
-        Args:
-            rows: Number of lines.
-            columns: (kind, width) of each column: kind "f" float, "i" integer,
-                "b" boolean (T or F), "s" string, "x" ignored.
-            comment: Character that starts a comment, or "".
+        Parameters
+        ----------
+        rows : int
+            Number of lines.
+        columns : sequence of tuple
+            ``(kind, width)`` or ``(kind, width, shift)`` of each column.
+            Kinds: "f" float, "i" integer, "b" boolean (T or F), "s" string,
+            "x" ignored. A float column with a shift holds the numbers of the
+            text times 10**shift, applied exactly in decimal.
+        comment : str, optional
+            Character that starts a comment, or "".
 
-        Returns:
+        Returns
+        -------
+        list
             One entry per column: an array of shape (rows,) for width 1 or
             (rows, width), a (codes, categories) pair for strings, and None
             for ignored columns.
@@ -126,24 +139,29 @@ def categorize(values: pl.Series) -> tuple[np.ndarray, list[str]]:
 def format_rows(columns: Sequence[tuple[str, object]]) -> Iterator[bytes]:
     """Formats rows of values, in blocks of at most WRITE_BLOCK_ROWS lines.
 
-    Args:
-        columns: (kind, values) of each column: kind "f", "i" or "b" with an
-            array of shape (rows,) or (rows, width), or "s" with a
-            (codes, categories) pair.
+    Parameters
+    ----------
+    columns : sequence of tuple
+        ``(kind, values)`` or ``(kind, values, shift)`` of each column: kind
+        "f", "i" or "b" with an array of shape (rows,) or (rows, width), or
+        "s" with a (codes, categories) pair. A float column with a shift is
+        written times 10**shift, applied exactly in decimal.
     """
     prepared = []
-    for kind, values in columns:
+    for kind, values, *shift in columns:
         if kind == "s":
             codes, categories = values
             array = np.ascontiguousarray(codes, dtype=np.uint32)
         else:
             array = np.ascontiguousarray(values, dtype=_DTYPES[kind])
             categories = []
-        prepared.append((kind, array, categories))
+        prepared.append((kind, array, categories, *shift))
     rows = len(prepared[0][1]) if prepared else 0
     for start in range(0, rows, WRITE_BLOCK_ROWS):
         stop = start + WRITE_BLOCK_ROWS
-        yield _native.format_table([(k, a[start:stop], c) for k, a, c in prepared])
+        yield _native.format_table(
+            [(kind, array[start:stop], *rest) for kind, array, *rest in prepared]
+        )
 
 
 def write_rows(file: BinaryIO, columns: Sequence[tuple[str, object]]) -> None:

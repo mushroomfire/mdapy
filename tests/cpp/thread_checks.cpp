@@ -327,6 +327,16 @@ void neighbor_search() {
                   pairs.shifts == first.shifts && pairs.distances == first.distances,
               "the neighbor search gives the same pairs for any thread count");
         check(pairs.offsets.back() > 0, "the neighbor search finds pairs");
+        std::vector<std::int64_t> order, kept;
+        mdapy::neighbor::order_by_distance(n, pairs.offsets.data(), pairs.distances.data(), 12,
+                                           order, kept);
+        bool sorted = kept.back() == 12 * n;
+        for (std::int64_t i = 0; i < n && sorted; ++i) {
+            for (std::int64_t k = kept[i] + 1; k < kept[i + 1]; ++k) {
+                sorted = sorted && pairs.distances[order[k - 1]] <= pairs.distances[order[k]];
+            }
+        }
+        check(sorted, "the nearest neighbors come in order of distance");
     }
 }
 

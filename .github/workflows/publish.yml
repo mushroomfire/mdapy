@@ -1,0 +1,76 @@
+name: publish
+
+# Triggered by version tags (e.g. v2.0.0a1) or manual dispatch. A manual
+# dispatch with publish=false builds and tests every wheel without uploading.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Upload the built distributions to PyPI"
+        type: boolean
+        default: true
+
+jobs:
+  wheels:
+    name: wheels — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-2022]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pypa/cibuildwheel@v4.3
+        env:
+          # cp312 produces one abi3 wheel that covers Python >= 3.12.
+          CIBW_BUILD: "cp310-* cp311-* cp312-*"
+          CIBW_SKIP: "*-musllinux_*"
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_ARCHS_MACOS: arm64
+          CIBW_ARCHS_WINDOWS: AMD64
+          MACOSX_DEPLOYMENT_TARGET: "14.0"
+          # Run the full test suite against every built wheel.
+          CIBW_TEST_REQUIRES: pytest
+          CIBW_TEST_COMMAND: pytest {project}/tests -q -p no:cacheprovider
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install build
+      - run: python -m build --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  publish:
+    needs: [wheels, sdist]
+    # Tag pushes always publish; manual runs only when publish=true.
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/mdapy
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: ls -lh dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          verbose: true

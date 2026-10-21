@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+wheelhouse/
+
+# Build
+/build/
+/_skbuild/
+
+# Tests and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+coverage.json
+htmlcov/
+
+# Tools
+.ruff_cache/
+.mypy_cache/
+
+# Docs
+/site/
+
+# Editors and local tooling
+/.vscode/
+/.idea/
+/.claude/
+.DS_Store

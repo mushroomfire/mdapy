@@ -1,0 +1,44 @@
+name: docs
+
+# Builds the documentation in strict mode on every push and pull request.
+# Only pushes to master deploy it to GitHub Pages.
+# One-time setup: Settings -> Pages -> Source: "GitHub Actions".
+on:
+  push:
+    branches: [master, v2]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      # mkdocstrings reads the sources statically, so mdapy is not built here.
+      - run: pip install "mkdocs>=1.6,<2" "mkdocs-material>=9.5" "mkdocstrings[python]>=0.26"
+      - run: mkdocs build --strict
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

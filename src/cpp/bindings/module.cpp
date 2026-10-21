@@ -1,0 +1,31 @@
+// Copyright (c) 2022-2026, Yongchao Wu
+// This file is part of mdapy, released under the BSD 3-Clause License.
+//
+// The single compiled extension module mdapy._core. Each functional area
+// registers its own submodule.
+
+#include <nanobind/nanobind.h>
+
+#include "bindings/control.h"
+#include "core/parallel.h"
+
+namespace nb = nanobind;
+
+NB_MODULE(_core, m) {
+    m.doc() = "Compiled kernels of mdapy (internal; use the Python API).";
+
+    nb::register_exception_translator([](const std::exception_ptr& p, void*) {
+        try {
+            std::rethrow_exception(p);
+        } catch (const mdapy::Cancelled& e) {
+            nb::object cls = nb::module_::import_("mdapy.errors").attr("Cancelled");
+            PyErr_SetString(cls.ptr(), e.what());
+        }
+    });
+
+    nb::module_ core = m.def_submodule("core", "Thread pool control.");
+    mdapy::bindings::bind_core(core);
+
+    nb::module_ testing = m.def_submodule("testing", "Kernels used only by the test suite.");
+    mdapy::bindings::bind_testing(testing);
+}

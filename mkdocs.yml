@@ -1,0 +1,100 @@
+site_name: mdapy
+site_description: Analysis and modelling of atomistic simulations
+site_url: https://mushroomfire.github.io/mdapy/
+repo_url: https://github.com/mushroomfire/mdapy
+repo_name: mushroomfire/mdapy
+edit_uri: edit/v2/docs/
+copyright: Copyright &copy; 2022–2026 Yongchao Wu · BSD-3-Clause
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to system preference
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            heading_level: 3
+            separate_signature: true
+            show_signature_annotations: true
+            merge_init_into_class: true
+            members_order: source
+            filters: ["!^_"]
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+nav:
+  - Home: index.md
+  - Get started:
+      - Installation: getting-started/installation.md
+  - User guide:
+      - Parallelism: guide/parallelism.md
+  - Reference:
+      - Units and conventions: reference/units.md
+      - Glossary: reference/glossary.md
+      - Python API: reference/api.md
+      - Source layout: reference/source-layout.md
+  - Development:
+      - Contributing: development/contributing.md
+  - Release notes: release-notes.md

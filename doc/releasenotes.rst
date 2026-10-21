@@ -1,11 +1,14 @@
 Release Notes
 ===============
 
-Mdapy 1.0.8a1 (October 5, 2026)
+Mdapy 1.0.8 (October 21, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 🏆 New Features
 ----------------
+
+- Pre-built wheels for Python 3.14 on Linux (CPU and GPU), macOS and
+  Windows.
 
 - :func:`mdapy.get_elastic_constant` supports 2D materials with
   ``dim=2``. The layer must lie in the xy plane with vacuum along the
@@ -44,6 +47,8 @@ Mdapy 1.0.8a1 (October 5, 2026)
 - kNN now can correctly handle general triclinic box.
 - :class:`mdapy.minimizer.FIRE` accepts ``mask`` as a plain list, as
   documented; it used to raise ``AttributeError``.
+- Require ``polars<2``. polars 2.0 removed APIs that mdapy uses, so a
+  fresh install with polars 2.0 failed.
 
 Mdapy 1.0.7 (May 22, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

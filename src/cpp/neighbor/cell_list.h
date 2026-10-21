@@ -33,4 +33,11 @@ NeighborPairs build(const double* positions, std::int64_t n, const double* matri
                     const double* origin, const bool* pbc, double cutoff,
                     const Control& control = {});
 
+// The pairs of each atom by distance, ties in their order, keeping the first
+// count of each atom (all when count < 0): the positions of the kept pairs,
+// in order, and the new offsets (n + 1).
+void order_by_distance(std::int64_t n, const std::int64_t* offsets, const double* distances,
+                       std::int64_t count, std::vector<std::int64_t>& order,
+                       std::vector<std::int64_t>& kept, const Control& control = {});
+
 }  // namespace mdapy::neighbor

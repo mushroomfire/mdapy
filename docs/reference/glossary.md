@@ -17,6 +17,7 @@ implemented.
 | `table` | The per-atom table of a `System`, a polars DataFrame with one row per atom. |
 | `info` | Global information of a `System`, such as `energy` or `timestep`. |
 | `NeighborList` | Pairs of atoms within a cutoff, including periodic images. |
+| `Topology` | Bonds, angles, dihedrals and impropers of a system; each a table with `atoms` (0-based row indices), `type` and optional `type_label`. |
 | `Calculator` | Interface that computes energy, forces and virial for a `System`. |
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |
@@ -34,6 +35,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `element` | str | | chemical symbol |
 | `type` | int | | LAMMPS atom type, starting at 1 |
 | `id` | int | | atom ID, starting at 1 |
+| `molecule` | int | | molecule ID (LAMMPS molecule-ID) |
+| `type_label` | str | | name of the atom type, for example a force-field type |
 | `mass` | f64 | amu | mass |
 | `charge` | f64 | e | charge |
 | `image` | Array(i32, 3) | | periodic image flags |
@@ -71,8 +74,9 @@ Boolean options are named positively, for example `include_self=True`.
   `CommonNeighborAnalysis`. Parameters are given to the constructor and
   validated there; `compute(system, ...)` returns a result object.
 - **Changing a `System`** uses `with_*` methods and `select`, which return a
-  new `System`. Geometric transformations such as `replicate` and `wrap` are
-  functions in `mdapy.transform`.
+  new `System`; a `System` itself has no other methods. Geometric
+  transformations such as `replicate` and `wrap` are functions in
+  `mdapy.transform`.
 - **Building structures** uses `build_*` functions.
 - **Reading and writing** uses `read`, `write` and `read_trajectory`.
 - **Conversion** to other packages lives in `mdapy.interop`, as `to_*` and

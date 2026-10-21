@@ -7,15 +7,19 @@ __version__ = "2.0.0.dev0"
 
 from mdapy import elements, errors, units
 from mdapy.core.box import Box
+from mdapy.core.system import System
 from mdapy.core.threads import (
     CancelToken,
     get_num_threads,
     num_threads,
     set_num_threads,
 )
+from mdapy.core.topology import Topology
 
 __all__ = [
     "Box",
+    "System",
+    "Topology",
     "__version__",
     "elements",
     "errors",

@@ -10,6 +10,10 @@ import mdapy
 
 ## Structures
 
+::: mdapy.System
+
+::: mdapy.Topology
+
 ::: mdapy.Box
 
 ::: mdapy.core.box.LammpsBox

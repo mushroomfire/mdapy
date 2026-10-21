@@ -88,6 +88,7 @@ nav:
   - Get started:
       - Installation: getting-started/installation.md
   - User guide:
+      - Systems and topology: guide/system.md
       - Simulation box: guide/box.md
       - Parallelism: guide/parallelism.md
   - Reference:

@@ -6,6 +6,13 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 
 ### Structures
 
+- `mdapy.System`: one atomic configuration with a polars table of per-atom
+  properties, a box, global information and an optional topology. Systems
+  are immutable; `with_*` methods and `select` return new systems that share
+  unchanged columns. Positions are an (N, 3) array column read without
+  copying. See [Systems and topology](guide/system.md).
+- `mdapy.Topology`: bonds, angles, dihedrals and impropers with types and
+  labels, kept consistent when atoms are selected or reordered.
 - `mdapy.Box`: immutable simulation box with lattice vectors, origin and
   periodicity; fractional coordinates, wrapping with image flags, exact
   minimum images, and conversion to LAMMPS restricted triclinic form. See

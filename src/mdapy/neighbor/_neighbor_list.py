@@ -213,10 +213,18 @@ class NeighborList:
             )
         return self._subset(self.distances < cutoff, cutoff)
 
-    def _first(self, k: int) -> "NeighborList":
-        """The first k pairs of each atom, or all of an atom with fewer."""
-        position = np.arange(len(self)) - np.repeat(self.offsets[:-1], self.counts)
-        return self._subset(position < k, self.cutoff)
+    def _nearest(self, k: int) -> "NeighborList":
+        """The k nearest pairs of each atom, nearest first (ties keep their
+        order), or all of an atom with fewer."""
+        order, offsets = _native.order_by_distance(self.offsets, self.distances, k)
+        return NeighborList(
+            self.system,
+            self.cutoff,
+            offsets,
+            self.j[order],
+            self.shifts[order],
+            self.distances[order],
+        )
 
     def sorted(self) -> "NeighborList":
         """The same pairs, each atom's sorted by distance (ties keep their order)."""

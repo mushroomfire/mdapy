@@ -97,7 +97,7 @@ class CommonNeighborAnalysis:
         if self.cutoff is not None:
             nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
         elif neighbors is not None:
-            nl = _given_or_built(system, 0.0, neighbors).sorted()._first(14)
+            nl = _given_or_built(system, 0.0, neighbors)._nearest(14)
         else:
             # without periodic images, small systems have fewer neighbors
             k = 14 if system.box.pbc.any() else min(14, len(system) - 1)
@@ -162,7 +162,7 @@ class IdentifyDiamond:
                 raise InvalidParameter(
                     f"an atom has {nl.counts.min()} neighbors in the list, fewer than 4"
                 )
-            nl = nl.sorted()._first(4)
+            nl = nl._nearest(4)
         n = len(system)
         structure = _native.identify_diamond(
             np.ascontiguousarray(nl.j.reshape(n, 4)),
@@ -317,7 +317,7 @@ class CentroSymmetryParameter:
                 raise InvalidParameter(
                     f"an atom has {nl.counts.min()} neighbors in the list, fewer than {k}"
                 )
-            nl = nl.sorted()._first(k)
+            nl = nl._nearest(k)
         vectors = np.ascontiguousarray(nl.vectors).reshape(len(system), k, 3)
         csp = _native.centro_symmetry(vectors, progress, _native_token(cancel))
         return CentroSymmetryResult(csp)

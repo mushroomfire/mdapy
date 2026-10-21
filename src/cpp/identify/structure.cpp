@@ -28,13 +28,17 @@ struct Signature {
     int common, bonds, chain;
 };
 
+// The loops below run over all neighbors and mask out those not in a set,
+// rather than branch on membership, which the processor cannot predict.
+std::uint32_t member(std::uint32_t set, int a) {
+    return 0u - ((set >> a) & 1u);  // all bits when a is in the set
+}
+
 Signature signature(const std::uint32_t* bonds, int j) {
     const std::uint32_t common = bonds[j];
     int total = 0;
     for (int a = 0; a < kMaxNeighbors; ++a) {
-        if (common >> a & 1u) {
-            total += count(bonds[a] & common);
-        }
+        total += count(bonds[a] & common & member(common, a));
     }
     // connected groups of the common neighbors joined by bonds
     int chain = 0;
@@ -45,18 +49,14 @@ Signature signature(const std::uint32_t* bonds, int j) {
         while (frontier != 0) {
             std::uint32_t next = 0;
             for (int a = 0; a < kMaxNeighbors; ++a) {
-                if (frontier >> a & 1u) {
-                    next |= bonds[a] & common;
-                }
+                next |= bonds[a] & common & member(frontier, a);
             }
             frontier = next & ~group;
             group |= next;
         }
         int inside = 0;
         for (int a = 0; a < kMaxNeighbors; ++a) {
-            if (group >> a & 1u) {
-                inside += count(bonds[a] & group);
-            }
+            inside += count(bonds[a] & group & member(group, a));
         }
         chain = std::max(chain, inside / 2);
         left &= ~group;
@@ -66,7 +66,7 @@ Signature signature(const std::uint32_t* bonds, int j) {
 
 // Bonds among the first m neighbor vectors no longer than the cutoff.
 void bond_masks(const double* v, int m, double cutoff2, std::uint32_t* bonds) {
-    for (int a = 0; a < m; ++a) {
+    for (int a = 0; a < kMaxNeighbors; ++a) {
         bonds[a] = 0;
     }
     for (int a = 0; a < m; ++a) {
@@ -74,14 +74,10 @@ void bond_masks(const double* v, int m, double cutoff2, std::uint32_t* bonds) {
             const double dx = v[3 * a] - v[3 * b];
             const double dy = v[3 * a + 1] - v[3 * b + 1];
             const double dz = v[3 * a + 2] - v[3 * b + 2];
-            if (dx * dx + dy * dy + dz * dz <= cutoff2) {
-                bonds[a] |= 1u << b;
-                bonds[b] |= 1u << a;
-            }
+            const auto bond = static_cast<std::uint32_t>(dx * dx + dy * dy + dz * dz <= cutoff2);
+            bonds[a] |= bond << b;
+            bonds[b] |= bond << a;
         }
-    }
-    for (int a = m; a < kMaxNeighbors; ++a) {
-        bonds[a] = 0;
     }
 }
 

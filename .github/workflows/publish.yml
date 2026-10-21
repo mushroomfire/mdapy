@@ -84,7 +84,10 @@ jobs:
             auditwheel repair -w {dest_dir} {wheel}
 
           # Smoke test: install each wheel in a clean env and import it.
+          # Skipped in the manylinux2014 (glibc 2.17) container: recent NumPy
+          # ships no manylinux2014 wheels there, so pip tries to compile it.
           CIBW_TEST_COMMAND: python -c "import mdapy; print(mdapy.__version__)"
+          CIBW_TEST_SKIP: '*-manylinux_x86_64'
 
       - uses: actions/upload-artifact@v4
         with:

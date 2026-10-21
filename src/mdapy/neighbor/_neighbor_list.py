@@ -211,6 +211,8 @@ class NeighborList:
             raise InvalidParameter(
                 f"cutoff must be positive and at most {self.cutoff}, not {cutoff!r}"
             )
+        if cutoff == self.cutoff:
+            return self  # every pair is closer already
         return self._subset(self.distances < cutoff, cutoff)
 
     def sorted(self) -> "NeighborList":

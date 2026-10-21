@@ -3,6 +3,14 @@
 
 """Analyses of the properties of systems."""
 
+from mdapy.analysis._bonds import (
+    BondAngleDistribution,
+    BondAngleResult,
+    ClusterAnalysis,
+    ClusterResult,
+    WarrenCowley,
+    WarrenCowleyResult,
+)
 from mdapy.analysis._distribution import (
     CoordinationNumber,
     CoordinationResult,
@@ -12,10 +20,16 @@ from mdapy.analysis._distribution import (
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
 
 __all__ = [
+    "BondAngleDistribution",
+    "BondAngleResult",
+    "ClusterAnalysis",
+    "ClusterResult",
     "CoordinationNumber",
     "CoordinationResult",
     "RadialDistributionFunction",
     "RadialDistributionResult",
     "SteinhardtParameters",
     "SteinhardtResult",
+    "WarrenCowley",
+    "WarrenCowleyResult",
 ]

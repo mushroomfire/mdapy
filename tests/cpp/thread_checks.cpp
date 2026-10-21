@@ -22,6 +22,7 @@
 #include <thread>
 #include <vector>
 
+#include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
 #include "core/parallel.h"
 #include "identify/structure.h"
@@ -378,6 +379,7 @@ void structure_identification() {
     }
     std::vector<std::int8_t> first_types;
     std::vector<double> first_csp, first_q;
+    std::vector<std::int64_t> first_angles;
     const std::vector<int> degrees = {4, 6, 12};
     for (int threads : kThreads) {
         mdapy::set_num_threads(threads);
@@ -389,12 +391,15 @@ void structure_identification() {
         std::vector<double> q(static_cast<std::size_t>(n) * degrees.size());
         mdapy::analysis::steinhardt(n, pairs.offsets.data(), pairs.neighbors.data(),
                                     vectors.data(), degrees, true, q.data());
+        std::vector<std::int64_t> angles(90);
+        mdapy::analysis::bond_angles(n, pairs.offsets.data(), vectors.data(), 90, angles.data());
         if (threads == kThreads[0]) {
             first_types = types;
             first_csp = csp;
             first_q = q;
+            first_angles = angles;
         }
-        check(types == first_types && csp == first_csp && q == first_q,
+        check(types == first_types && csp == first_csp && q == first_q && angles == first_angles,
               "structure identification gives the same results for any thread count");
         check(std::count(types.begin(), types.end(), mdapy::identify::kFcc) > 0,
               "common neighbor analysis finds fcc atoms");

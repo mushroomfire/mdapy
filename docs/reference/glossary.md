@@ -46,6 +46,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `csp` | f64 | Å² | centro-symmetry parameter |
 | `coordination` | int64 | | number of neighbors; `coordination_<element>` counts those of one element |
 | `q4`, `q6`, … | f64 | | Steinhardt order parameters; `q4_average`, … when averaged over neighbors |
+| `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
 
 ## Energies and virials
 

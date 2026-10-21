@@ -54,6 +54,18 @@ import mdapy
 
 ::: mdapy.analysis.SteinhardtResult
 
+::: mdapy.analysis.ClusterAnalysis
+
+::: mdapy.analysis.ClusterResult
+
+::: mdapy.analysis.BondAngleDistribution
+
+::: mdapy.analysis.BondAngleResult
+
+::: mdapy.analysis.WarrenCowley
+
+::: mdapy.analysis.WarrenCowleyResult
+
 ::: mdapy.core.box.LammpsBox
 
 ## Threads

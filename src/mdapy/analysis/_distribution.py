@@ -9,21 +9,12 @@ from typing import Any
 
 import numpy as np
 
+from mdapy.analysis._bonds import _Bonds, _elements
 from mdapy.core.result import Result
 from mdapy.core.system import System
-from mdapy.elements import SYMBOLS
-from mdapy.errors import InvalidParameter, MissingProperty
+from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
 from mdapy.neighbor._neighbor_list import _given_or_built
-
-
-def _elements(system: System) -> tuple[tuple[str, ...], np.ndarray] | None:
-    """The elements present, by atomic number, and each atom's index among them."""
-    if "element" not in system.table.columns:
-        return None
-    numbers = system.table["element"].to_physical().to_numpy()
-    present, index = np.unique(numbers, return_inverse=True)
-    return tuple(SYMBOLS[z] for z in present), index.astype(np.int64)
 
 
 @dataclass(frozen=True)
@@ -182,23 +173,8 @@ class CoordinationNumber:
         *,
         cutoffs: Mapping[tuple[str, str], float] | None = None,
     ):
-        if (cutoff is None) == (cutoffs is None):
-            raise InvalidParameter("give either cutoff or cutoffs")
-        if cutoff is not None and not cutoff > 0:
-            raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
-        self.cutoff = None if cutoff is None else float(cutoff)
-        self.cutoffs = None
-        if cutoffs is not None:
-            self.cutoffs = {}
-            for (a, b), value in cutoffs.items():
-                for element in (a, b):
-                    if element not in SYMBOLS[1:]:
-                        raise InvalidParameter(
-                            f"unknown element {element!r} in cutoffs"
-                        )
-                if not value > 0:
-                    raise InvalidParameter(f"the cutoff of {(a, b)} must be positive")
-                self.cutoffs[a, b] = self.cutoffs[b, a] = float(value)
+        self._bonds = _Bonds(cutoff, cutoffs)
+        self.cutoff, self.cutoffs = self._bonds.cutoff, self._bonds.cutoffs
 
     def compute(
         self,
@@ -222,35 +198,17 @@ class CoordinationNumber:
         CoordinationResult
             The counts of each atom.
         """
-        found = _elements(system)
-        largest = self.cutoff if self.cutoffs is None else max(self.cutoffs.values())
-        nl = _given_or_built(system, largest, neighbors)
-        if self.cutoffs is not None and found is None:
-            raise MissingProperty(
-                "cutoffs per pair of elements need the element column"
-            )
-        first = nl.i
-        if self.cutoffs is None:
-            keep = nl.distances < self.cutoff
-        else:
-            names, index = found
-            limits = np.array(
-                [[self.cutoffs.get((a, b), 0.0) for b in names] for a in names]
-            )
-            keep = nl.distances < limits[index[first], index[nl.j]]
+        bonds, found = self._bonds.select(system, neighbors)
         n = len(system)
-        coordination = np.bincount(first[keep], minlength=n)
         partial = {}
         if found is not None:
             names, index = found
             types = len(names)
             table = np.bincount(
-                first[keep] * types + index[nl.j[keep]], minlength=n * types
+                bonds.i * types + index[bonds.j], minlength=n * types
             ).reshape(n, types)
             partial = {name: table[:, t].copy() for t, name in enumerate(names)}
-        return CoordinationResult(coordination, partial)
+        return CoordinationResult(bonds.counts, partial)
 
     def __repr__(self) -> str:
-        if self.cutoffs is None:
-            return f"CoordinationNumber(cutoff={self.cutoff!r})"
-        return f"CoordinationNumber(cutoffs={self.cutoffs!r})"
+        return f"CoordinationNumber({self._bonds})"

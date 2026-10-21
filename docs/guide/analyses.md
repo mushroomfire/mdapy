@@ -52,3 +52,6 @@ is raised.
 | `mdapy.analysis.RadialDistributionFunction` | [Radial distribution and coordination](distribution.md) |
 | `mdapy.analysis.CoordinationNumber` | [Radial distribution and coordination](distribution.md) |
 | `mdapy.analysis.SteinhardtParameters` | [Bond-orientational order](steinhardt.md) |
+| `mdapy.analysis.ClusterAnalysis` | [Clusters, bond angles and short-range order](bonds.md) |
+| `mdapy.analysis.BondAngleDistribution` | [Clusters, bond angles and short-range order](bonds.md) |
+| `mdapy.analysis.WarrenCowley` | [Clusters, bond angles and short-range order](bonds.md) |

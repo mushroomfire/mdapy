@@ -1,0 +1,335 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This file is part of mdapy, released under the BSD 3-Clause License.
+
+"""Bonds between atoms: clusters, bond angles and chemical short-range order."""
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+
+from mdapy._core import analysis as _native
+from mdapy.core.result import Result
+from mdapy.core.system import System
+from mdapy.core.threads import _native_token
+from mdapy.elements import SYMBOLS
+from mdapy.errors import InvalidParameter, MissingProperty
+from mdapy.neighbor import NeighborList
+from mdapy.neighbor._neighbor_list import _given_or_built
+
+
+def _elements(system: System) -> tuple[tuple[str, ...], np.ndarray] | None:
+    """The elements present, by atomic number, and each atom's index among them."""
+    if "element" not in system.table.columns:
+        return None
+    numbers = system.table["element"].to_physical().to_numpy()
+    present, index = np.unique(numbers, return_inverse=True)
+    return tuple(SYMBOLS[z] for z in present), index.astype(np.int64)
+
+
+class _Bonds:
+    """Bonded pairs: closer than one cutoff, or than a cutoff per pair of
+    elements (pairs not given are never bonded)."""
+
+    def __init__(
+        self, cutoff: float | None, cutoffs: Mapping[tuple[str, str], float] | None
+    ):
+        if (cutoff is None) == (cutoffs is None):
+            raise InvalidParameter("give either cutoff or cutoffs")
+        if cutoff is not None and not cutoff > 0:
+            raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
+        self.cutoff = None if cutoff is None else float(cutoff)
+        self.cutoffs = None
+        if cutoffs is not None:
+            self.cutoffs = {}
+            for (a, b), value in cutoffs.items():
+                for element in (a, b):
+                    if element not in SYMBOLS[1:]:
+                        raise InvalidParameter(
+                            f"unknown element {element!r} in cutoffs"
+                        )
+                if not value > 0:
+                    raise InvalidParameter(f"the cutoff of {(a, b)} must be positive")
+                self.cutoffs[a, b] = self.cutoffs[b, a] = float(value)
+
+    def select(
+        self, system: System, neighbors: NeighborList | None
+    ) -> tuple[NeighborList, tuple[tuple[str, ...], np.ndarray] | None]:
+        """The bonds as a neighbor list, and the elements of the system."""
+        found = _elements(system)
+        largest = self.cutoff if self.cutoffs is None else max(self.cutoffs.values())
+        nl = _given_or_built(system, largest, neighbors)
+        if self.cutoffs is None:
+            keep = nl.distances < self.cutoff
+        else:
+            if found is None:
+                raise MissingProperty(
+                    "cutoffs per pair of elements need the element column"
+                )
+            names, index = found
+            limits = np.array(
+                [[self.cutoffs.get((a, b), 0.0) for b in names] for a in names]
+            )
+            keep = nl.distances < limits[index[nl.i], index[nl.j]]
+        return nl._subset(keep, largest), found
+
+    def __repr__(self) -> str:
+        if self.cutoffs is None:
+            return f"cutoff={self.cutoff!r}"
+        return f"cutoffs={self.cutoffs!r}"
+
+
+@dataclass(frozen=True)
+class ClusterResult(Result):
+    """Clusters of bonded atoms.
+
+    Attributes
+    ----------
+    cluster : numpy.ndarray
+        (N,) int64 cluster of each atom, numbered from 0 by decreasing size.
+    sizes : numpy.ndarray
+        (clusters,) int64 number of atoms of each cluster.
+    """
+
+    cluster: np.ndarray
+    sizes: np.ndarray
+
+    def columns(self) -> dict[str, np.ndarray]:
+        return {"cluster": self.cluster}
+
+
+class ClusterAnalysis:
+    """Clusters of atoms joined by bonds shorter than a cutoff.
+
+    Parameters
+    ----------
+    cutoff : float, optional
+        Bond length in Å for every pair.
+    cutoffs : dict, optional
+        Bond length in Å for each pair of elements ``(a, b)``, in either
+        order; pairs not given are never bonded. Give ``cutoff`` or
+        ``cutoffs``.
+    """
+
+    def __init__(
+        self,
+        cutoff: float | None = None,
+        *,
+        cutoffs: Mapping[tuple[str, str], float] | None = None,
+    ):
+        self._bonds = _Bonds(cutoff, cutoffs)
+
+    def compute(
+        self,
+        system: System,
+        *,
+        neighbors: NeighborList | None = None,
+        progress: Any = None,
+        cancel: Any = None,
+    ) -> ClusterResult:
+        """The clusters of a system.
+
+        Parameters
+        ----------
+        system : System
+            The atoms; per-element cutoffs need an ``element`` column.
+        neighbors : NeighborList, optional
+            A neighbor list of this system with at least the largest cutoff.
+
+        Returns
+        -------
+        ClusterResult
+            The cluster of each atom; ties in size are ordered by their first
+            atom.
+        """
+        bonds, _ = self._bonds.select(system, neighbors)
+        cluster, sizes = _native.clusters(bonds.offsets, bonds.j)
+        return ClusterResult(cluster, sizes)
+
+    def __repr__(self) -> str:
+        return f"ClusterAnalysis({self._bonds})"
+
+
+@dataclass(frozen=True)
+class BondAngleResult(Result):
+    """The distribution of angles between bonds of the same atom.
+
+    Attributes
+    ----------
+    angle : numpy.ndarray
+        (bins,) centers of the bins in degrees.
+    edges : numpy.ndarray
+        (bins + 1,) edges of the bins in degrees.
+    counts : numpy.ndarray
+        (bins,) int64 number of angles in each bin.
+    density : numpy.ndarray
+        (bins,) the counts normalized to unit area, per degree.
+    """
+
+    angle: np.ndarray
+    edges: np.ndarray
+    counts: np.ndarray
+    density: np.ndarray
+
+
+class BondAngleDistribution:
+    """The distribution of the angles between the bonds of each atom.
+
+    Parameters
+    ----------
+    cutoff : float
+        Bond length in Å.
+    bins : int, optional
+        Number of bins from 0 to 180 degrees. Default 180.
+    """
+
+    def __init__(self, cutoff: float, bins: int = 180):
+        if not cutoff > 0:
+            raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
+        if bins < 1:
+            raise InvalidParameter(f"bins must be at least 1, not {bins!r}")
+        self.cutoff = float(cutoff)
+        self.bins = int(bins)
+
+    def compute(
+        self,
+        system: System,
+        *,
+        neighbors: NeighborList | None = None,
+        progress: Any = None,
+        cancel: Any = None,
+    ) -> BondAngleResult:
+        """The distribution of a system.
+
+        Parameters
+        ----------
+        system : System
+            The atoms.
+        neighbors : NeighborList, optional
+            A neighbor list of this system with at least the cutoff.
+
+        Returns
+        -------
+        BondAngleResult
+            Counts of the angles between every two bonds of an atom.
+        """
+        bonds = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
+        counts = _native.bond_angles(
+            bonds.offsets,
+            np.ascontiguousarray(bonds.vectors),
+            self.bins,
+            progress,
+            _native_token(cancel),
+        )
+        edges = np.linspace(0.0, 180.0, self.bins + 1)
+        total = counts.sum()
+        density = (
+            counts / (total * (180.0 / self.bins)) if total else np.zeros(self.bins)
+        )
+        return BondAngleResult(0.5 * (edges[1:] + edges[:-1]), edges, counts, density)
+
+    def __repr__(self) -> str:
+        return f"BondAngleDistribution(cutoff={self.cutoff!r}, bins={self.bins})"
+
+
+@dataclass(frozen=True)
+class WarrenCowleyResult(Result):
+    """Warren-Cowley short-range order parameters.
+
+    Attributes
+    ----------
+    elements : tuple of str
+        The elements, by atomic number.
+    alpha : numpy.ndarray
+        (elements, elements) parameter of each pair: row a, column b is
+        1 - p(b | a) / c_b.
+    """
+
+    elements: tuple[str, ...]
+    alpha: np.ndarray
+
+    def __getitem__(self, pair: tuple[str, str]) -> float:
+        """The parameter of a pair of elements (a, b)."""
+        a, b = pair
+        try:
+            return float(self.alpha[self.elements.index(a), self.elements.index(b)])
+        except ValueError:
+            raise InvalidParameter(f"no parameter for {pair}") from None
+
+
+class WarrenCowley:
+    """Warren-Cowley parameters of chemical short-range order.
+
+    Parameters
+    ----------
+    cutoff : float, optional
+        Neighbors closer than cutoff, in Å.
+    num_neighbors : int, optional
+        The num_neighbors nearest neighbors. Give ``cutoff`` or
+        ``num_neighbors``.
+    """
+
+    def __init__(
+        self, cutoff: float | None = None, *, num_neighbors: int | None = None
+    ):
+        if (cutoff is None) == (num_neighbors is None):
+            raise InvalidParameter("give either cutoff or num_neighbors")
+        if cutoff is not None and not cutoff > 0:
+            raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
+        if num_neighbors is not None and num_neighbors < 1:
+            raise InvalidParameter("num_neighbors must be at least 1")
+        self.cutoff = None if cutoff is None else float(cutoff)
+        self.num_neighbors = None if num_neighbors is None else int(num_neighbors)
+
+    def compute(
+        self,
+        system: System,
+        *,
+        neighbors: NeighborList | None = None,
+        progress: Any = None,
+        cancel: Any = None,
+    ) -> WarrenCowleyResult:
+        """The parameters of a system.
+
+        Parameters
+        ----------
+        system : System
+            The atoms, with an ``element`` column.
+        neighbors : NeighborList, optional
+            A neighbor list of this system: with at least the cutoff, or at
+            least num_neighbors per atom.
+
+        Returns
+        -------
+        WarrenCowleyResult
+            The parameter of each pair of elements; NaN for an element whose
+            atoms have no neighbors.
+        """
+        found = _elements(system)
+        if found is None:
+            raise MissingProperty("Warren-Cowley parameters need the element column")
+        names, index = found
+        if self.cutoff is not None:
+            nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
+        elif neighbors is None:
+            nl = NeighborList.nearest(system, self.num_neighbors)
+        else:
+            nl = (
+                _given_or_built(system, 0.0, neighbors)
+                .sorted()
+                ._first(self.num_neighbors)
+            )
+        types = len(names)
+        pairs = np.bincount(
+            index[nl.i] * types + index[nl.j], minlength=types * types
+        ).reshape(types, types)
+        fractions = np.bincount(index, minlength=types) / len(system)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            probability = pairs / pairs.sum(axis=1, keepdims=True)
+        return WarrenCowleyResult(names, 1.0 - probability / fractions[None, :])
+
+    def __repr__(self) -> str:
+        if self.cutoff is not None:
+            return f"WarrenCowley(cutoff={self.cutoff!r})"
+        return f"WarrenCowley(num_neighbors={self.num_neighbors})"

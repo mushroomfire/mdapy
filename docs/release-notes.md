@@ -76,6 +76,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.analysis.SteinhardtParameters`: bond-orientational order $q_l$ up
   to degree 20, optionally averaged over neighbors. See
   [Bond-orientational order](guide/steinhardt.md).
+- `mdapy.analysis.EntropyFingerprint`: the pair entropy fingerprint of local
+  order. See [Entropy fingerprint](guide/entropy.md).
 - `mdapy.analysis.ClusterAnalysis`, `BondAngleDistribution` and
   `WarrenCowley` for clusters of bonded atoms, bond angles and chemical
   short-range order. See

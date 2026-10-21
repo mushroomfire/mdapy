@@ -56,6 +56,10 @@ import mdapy
 
 ::: mdapy.analysis.SteinhardtResult
 
+::: mdapy.analysis.EntropyFingerprint
+
+::: mdapy.analysis.EntropyResult
+
 ::: mdapy.analysis.ClusterAnalysis
 
 ::: mdapy.analysis.ClusterResult

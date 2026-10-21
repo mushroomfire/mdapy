@@ -9,7 +9,7 @@ import pytest
 from lattices import crystal
 
 import mdapy
-from mdapy.analysis import SteinhardtParameters
+from mdapy.analysis import EntropyFingerprint, SteinhardtParameters
 from mdapy.identify import CentroSymmetryParameter, CommonNeighborAnalysis
 
 lammps = pytest.importorskip("lammps")
@@ -79,3 +79,19 @@ def test_steinhardt(tmp_path):
     )
     result = SteinhardtParameters((2, 4, 6, 8)).compute(system)
     np.testing.assert_allclose(result.q, values["q"], rtol=1e-10, atol=1e-12)
+
+
+def test_entropy_fingerprint(tmp_path):
+    """LAMMPS smears each neighbor over seven bins only; mdapy over all of
+    them, so that equal atoms get equal values. They agree to 1 %."""
+    system = crystal("fcc", 3.6, (4, 4, 4), jitter=0.1, seed=7)
+    values = per_atom(
+        tmp_path,
+        system,
+        "compute e all entropy/atom 0.2 5.0\ncompute a all entropy/atom 0.2 5.0 avg yes 3.0",
+        ["e", "a"],
+    )
+    plain = EntropyFingerprint(5.0, 0.2).compute(system).entropy
+    averaged = EntropyFingerprint(5.0, 0.2, average_cutoff=3.0).compute(system).entropy
+    np.testing.assert_allclose(plain, values["e"], rtol=1e-2)
+    np.testing.assert_allclose(averaged, values["a"], rtol=1e-2)

@@ -97,4 +97,42 @@ void bond_angles(std::int64_t n, const std::int64_t* offsets, const double* vect
     std::copy(total.begin(), total.end(), counts);
 }
 
+void pair_entropy(std::int64_t n, const std::int64_t* offsets, const double* distances,
+                  double cutoff, double sigma, const double* density, double* entropy,
+                  const Control& control) {
+    const int bins = static_cast<int>(cutoff / sigma) + 1;
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            std::vector<double> g(static_cast<std::size_t>(bins));
+            for (std::int64_t i = begin; i < end; ++i) {
+                std::fill(g.begin(), g.end(), 0.0);
+                // 4 pi rho r^2 g(r) = sum of normalized Gaussians
+                const double scale =
+                    1.0 / (4.0 * kPi * density[i] * std::sqrt(2.0 * kPi) * sigma);
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    const double r = distances[p];
+                    if (!(r < cutoff)) {
+                        continue;
+                    }
+                    for (int k = 1; k < bins; ++k) {  // r = 0 has no shell
+                        const double rk = k * sigma;
+                        const double d = r - rk;
+                        g[k] += scale / (rk * rk) * std::exp(-d * d / (2.0 * sigma * sigma));
+                    }
+                }
+                // -2 pi rho integral of (g ln g - g + 1) r^2 by the trapezoid rule
+                double sum = 0.0;
+                for (int k = 0; k < bins; ++k) {
+                    const double rk = k * sigma;
+                    const double term =
+                        g[k] < 1e-10 ? rk * rk : (g[k] * std::log(g[k]) - g[k] + 1.0) * rk * rk;
+                    sum += (k == 0 || k == bins - 1) ? 0.5 * term : term;
+                }
+                entropy[i] = -2.0 * kPi * density[i] * sum * sigma;
+            }
+        },
+        control);
+}
+
 }  // namespace mdapy::analysis

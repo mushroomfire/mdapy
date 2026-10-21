@@ -95,6 +95,31 @@ nb::object bond_angles(Offsets offsets, Vectors vectors, int bins, nb::handle pr
     return result;
 }
 
+using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+nb::object pair_entropy(Offsets offsets, Values distances, double cutoff, double sigma,
+                        Values density, nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    if (n < 0 || offsets.data()[n] != static_cast<std::int64_t>(distances.shape(0)) ||
+        density.shape(0) != static_cast<std::size_t>(n)) {
+        throw std::invalid_argument("the offsets do not fit the distances");
+    }
+    if (!(cutoff > 0.0) || !(sigma > 0.0)) {
+        throw std::invalid_argument("cutoff and sigma must be positive");
+    }
+    auto* entropy = new double[static_cast<std::size_t>(n)];
+    nb::capsule owner(entropy, [](void* p) noexcept { delete[] static_cast<double*>(p); });
+    const std::size_t shape[1] = {static_cast<std::size_t>(n)};
+    nb::object result = nb::ndarray<nb::numpy, double>(entropy, 1, shape, owner).cast();
+    run_released(
+        [&](const Control& control) {
+            analysis::pair_entropy(n, offsets.data(), distances.data(), cutoff, sigma,
+                                   density.data(), entropy, control);
+        },
+        progress, cancel);
+    return result;
+}
+
 }  // namespace
 
 void bind_analysis(nb::module_& m) {
@@ -102,6 +127,9 @@ void bind_analysis(nb::module_& m) {
           nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"));
+    m.def("pair_entropy", &pair_entropy, nb::arg("offsets"), nb::arg("distances"),
+          nb::arg("cutoff"), nb::arg("sigma"), nb::arg("density"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("bond_angles", &bond_angles, nb::arg("offsets"), nb::arg("vectors"), nb::arg("bins"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
 }

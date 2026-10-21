@@ -24,8 +24,10 @@ def _elements(system: System) -> tuple[tuple[str, ...], np.ndarray] | None:
     if "element" not in system.table.columns:
         return None
     numbers = system.table["element"].to_physical().to_numpy()
-    present, index = np.unique(numbers, return_inverse=True)
-    return tuple(SYMBOLS[z] for z in present), index.astype(np.int64)
+    present = np.flatnonzero(np.bincount(numbers))
+    lookup = np.zeros(len(SYMBOLS), dtype=np.int64)
+    lookup[present] = np.arange(len(present))
+    return tuple(SYMBOLS[z] for z in present), lookup[numbers]
 
 
 class _Bonds:
@@ -61,17 +63,16 @@ class _Bonds:
         largest = self.cutoff if self.cutoffs is None else max(self.cutoffs.values())
         nl = _given_or_built(system, largest, neighbors)
         if self.cutoffs is None:
-            keep = nl.distances < self.cutoff
-        else:
-            if found is None:
-                raise MissingProperty(
-                    "cutoffs per pair of elements need the element column"
-                )
-            names, index = found
-            limits = np.array(
-                [[self.cutoffs.get((a, b), 0.0) for b in names] for a in names]
+            return nl.within(self.cutoff), found
+        if found is None:
+            raise MissingProperty(
+                "cutoffs per pair of elements need the element column"
             )
-            keep = nl.distances < limits[index[nl.i], index[nl.j]]
+        names, index = found
+        limits = np.array(
+            [[self.cutoffs.get((a, b), 0.0) for b in names] for a in names]
+        )
+        keep = nl.distances < limits[index[nl.i], index[nl.j]]
         return nl._subset(keep, largest), found
 
     def __repr__(self) -> str:

@@ -23,6 +23,7 @@ from mdapy.analysis._entropy import EntropyFingerprint, EntropyResult
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
 from mdapy.analysis._strain import AtomicStrain, StrainResult
 from mdapy.analysis._temperature import AtomicTemperature, TemperatureResult
+from mdapy.analysis._wigner_seitz import WignerSeitz, WignerSeitzResult
 
 __all__ = [
     "AtomicStrain",
@@ -45,4 +46,6 @@ __all__ = [
     "TemperatureResult",
     "WarrenCowley",
     "WarrenCowleyResult",
+    "WignerSeitz",
+    "WignerSeitzResult",
 ]

@@ -58,6 +58,7 @@ is raised.
 | `mdapy.analysis.EntropyFingerprint` | [Entropy fingerprint](entropy.md) |
 | `mdapy.analysis.AtomicTemperature` | [Atomic temperature](temperature.md) |
 | `mdapy.analysis.AtomicStrain` | [Atomic strain](strain.md) |
+| `mdapy.analysis.WignerSeitz` | [Point defects](defects.md) |
 | `mdapy.analysis.ClusterAnalysis` | [Clusters, bond angles and short-range order](bonds.md) |
 | `mdapy.analysis.BondAngleDistribution` | [Clusters, bond angles and short-range order](bonds.md) |
 | `mdapy.analysis.WarrenCowley` | [Clusters, bond angles and short-range order](bonds.md) |

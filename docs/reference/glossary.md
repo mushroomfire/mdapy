@@ -49,6 +49,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
 | `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint; `entropy_average` when averaged over neighbors |
 | `temperature` | f64 | K | temperature of an atom and its neighbors |
+| `site`, `occupancy` | int64 | | the nearest reference site of an atom, and the number of atoms on it |
 | `shear_strain`, `volumetric_strain`, `d2min` | f64 | , , Å² | von Mises and volumetric atomic strain against a reference, and the non-affine squared displacement |
 
 ## Energies and virials

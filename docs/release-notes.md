@@ -86,6 +86,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.analysis.AtomicStrain`: Green–Lagrange, von Mises and volumetric
   atomic strain and $D^2_\text{min}$ against a reference. See
   [Atomic strain](guide/strain.md).
+- `mdapy.analysis.WignerSeitz`: vacancies and interstitials by the
+  Wigner–Seitz cells of a reference lattice. See
+  [Point defects](guide/defects.md).
 - `mdapy.analysis.ClusterAnalysis`, `BondAngleDistribution` and
   `WarrenCowley` for clusters of bonded atoms, bond angles and chemical
   short-range order. See

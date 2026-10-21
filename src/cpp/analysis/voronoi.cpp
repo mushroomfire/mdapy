@@ -137,7 +137,7 @@ public:
                     out[size++] = crossing(a, b, largest);
                 }
                 out[size] = renumber_[b];
-                size += db <= eps_;  // without a branch: kept or not is hard to predict
+                size += static_cast<std::size_t>(db <= eps_);  // no branch: hard to predict
                 a = b;
                 da = db;
             }

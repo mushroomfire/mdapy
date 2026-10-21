@@ -17,11 +17,11 @@ system = system.with_columns(cells)
 ```
 
 Each cell starts as a cube around its atom and is cut by the plane halfway to
-each neighbor, nearest first, until the next neighbor is more than twice as
-far as the farthest vertex of the cell; no farther atom can cut it then. The
-neighbors are searched on a grid of cells without being stored; the cells
-they do not close are computed again with a longer reach. A million atoms
-take about 1.5 s on ten threads. In
+each neighbor, roughly nearest first (in narrow distance bins), until the
+next neighbors are more than twice as far as the farthest vertex of the cell;
+no farther atom can cut it then. The neighbors are searched on a grid of
+cells; the cells they do not close are computed again with a longer reach. A
+million atoms take about 6 s on one thread and 1.1 s on ten. In
 directions that are not periodic, the cells are closed by the faces of the
 box, moved out to include every atom. Two atoms at the same position raise `ValueError`.
 

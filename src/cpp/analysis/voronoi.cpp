@@ -6,10 +6,11 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <numeric>
 #include <stdexcept>
-#include <tuple>
 #include <utility>
 
 #include "neighbor/cell_list.h"
@@ -45,7 +46,8 @@ double pseudo_angle(double x, double y) {
 }
 
 // A face: the plane normal . x = offset (normal of unit length, pointing
-// out of the cell) and its convex polygon, points[start, start + count).
+// out of the cell) and its convex polygon, the points corners[start, start +
+// count) in order around it.
 struct Face {
     std::int64_t id;
     Vec normal;
@@ -53,7 +55,9 @@ struct Face {
     std::size_t start, count;
 };
 
-// A convex polyhedron around the origin, cut down plane by plane. The
+// A convex polyhedron around the origin, cut down plane by plane. Each point
+// is stored once and the faces list the points around them, so a point that
+// a cut creates on an edge is shared by the two faces of the edge. The
 // buffers are kept from cell to cell to avoid allocations.
 class Cell {
 public:
@@ -62,19 +66,21 @@ public:
     // Starts from the cube of half side half.
     void reset(double half) {
         points_.clear();
+        corners_.clear();
         faces_.clear();
-        const double corners[4][2] = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
-        for (int axis = 0; axis < 3; ++axis) {
-            for (double sign : {-1.0, 1.0}) {
-                Face face{kCube, {0.0, 0.0, 0.0}, half, points_.size(), 4};
-                face.normal[axis] = sign;
-                const int u = (axis + 1) % 3, w = (axis + 2) % 3;
-                for (const auto& corner : corners) {
-                    Vec p;
-                    p[axis] = sign * half;
-                    p[u] = corner[0] * half;
-                    p[w] = corner[1] * half;
-                    points_.push_back(p);
+        // the corner with bit e of its index set lies on the + side of axis e
+        for (std::uint32_t c = 0; c < 8; ++c) {
+            points_.push_back({(c & 1U) ? half : -half, (c & 2U) ? half : -half,
+                               (c & 4U) ? half : -half});
+        }
+        const std::uint32_t around[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+        for (std::uint32_t axis = 0; axis < 3; ++axis) {
+            for (std::uint32_t side = 0; side < 2; ++side) {
+                Face face{kCube, {0.0, 0.0, 0.0}, half, corners_.size(), 4};
+                face.normal[axis] = side ? 1.0 : -1.0;
+                const std::uint32_t u = (axis + 1) % 3, w = (axis + 2) % 3;
+                for (const auto& corner : around) {
+                    corners_.push_back((side << axis) | (corner[0] << u) | (corner[1] << w));
                 }
                 faces_.push_back(face);
             }
@@ -84,58 +90,80 @@ public:
 
     // Keeps the part with normal . x <= offset; the plane's face gets id.
     void cut(const Vec& normal, double offset, std::int64_t id) {
+        const std::size_t n = points_.size();
+        side_.resize(n);
         bool beyond = false;
-        for (const Vec& p : points_) {
-            if (dot(normal, p) - offset > eps_) {
-                beyond = true;
-                break;
-            }
+        for (std::size_t v = 0; v < n; ++v) {
+            side_[v] = dot(normal, points_[v]) - offset;
+            beyond = beyond || side_[v] > eps_;
         }
         if (!beyond) {
             return;
         }
+        // the points beyond the plane go; those within eps of it stay and
+        // join the new face
+        renumber_.resize(n);
         next_points_.clear();
+        section_.clear();
+        double largest = 0.0;
+        for (std::size_t v = 0; v < n; ++v) {
+            if (side_[v] <= eps_) {
+                renumber_[v] = static_cast<std::uint32_t>(next_points_.size());
+                if (side_[v] >= -eps_) {
+                    section_.push_back(renumber_[v]);
+                }
+                next_points_.push_back(points_[v]);
+                largest = std::max(largest, dot(points_[v], points_[v]));
+            } else {
+                renumber_[v] = kUnused;
+            }
+        }
+        // an edge from one side of the plane to the other gets a point on
+        // it; a face gains at most one corner, as it loses one for each two
+        // it gains
         next_faces_.clear();
-        fresh_.clear();
+        crossings_.clear();
+        next_corners_.resize(corners_.size() + faces_.size());
+        std::uint32_t* out = next_corners_.data();
+        std::size_t size = 0;
         for (const Face& face : faces_) {
-            const std::size_t first = next_points_.size();
+            const std::size_t first = size;
+            const std::uint32_t* loop = corners_.data() + face.start;
+            std::uint32_t a = loop[face.count - 1];
+            double da = side_[a];
             for (std::size_t k = 0; k < face.count; ++k) {
-                const Vec& a = points_[face.start + k];
-                const Vec& b = points_[face.start + (k + 1) % face.count];
-                const double da = dot(normal, a) - offset, db = dot(normal, b) - offset;
-                if (da <= eps_) {
-                    keep(a, first);
-                    if (da >= -eps_) {
-                        fresh_.push_back(a);
-                    }
+                const std::uint32_t b = loop[k];
+                const double db = side_[b];
+                if ((da < -eps_ && db > eps_) || (da > eps_ && db < -eps_)) {
+                    out[size++] = crossing(a, b, largest);
                 }
-                if ((da <= eps_) != (db <= eps_)) {
-                    const double t = da / (da - db);
-                    const Vec p = {a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]),
-                                   a[2] + t * (b[2] - a[2])};
-                    keep(p, first);
-                    fresh_.push_back(p);
-                }
+                out[size] = renumber_[b];
+                size += db <= eps_;  // without a branch: kept or not is hard to predict
+                a = b;
+                da = db;
             }
-            // the last point may repeat the first
-            while (next_points_.size() - first > 1 &&
-                   close(next_points_.back(), next_points_[first])) {
-                next_points_.pop_back();
-            }
-            const std::size_t count = next_points_.size() - first;
+            const std::size_t count = size - first;
             if (count >= 3) {
                 next_faces_.push_back({face.id, face.normal, face.offset, first, count});
             } else {
-                next_points_.resize(first);
+                size = first;
             }
         }
-        add_face(normal, offset, id);
-        points_.swap(next_points_);
-        faces_.swap(next_faces_);
-        double largest = 0.0;
-        for (const Vec& p : points_) {
-            largest = std::max(largest, dot(p, p));
+        next_corners_.resize(size);
+        if (section_.size() >= 3) {
+            add_face(normal, offset, id);
+        } else {
+            // the plane only grazes the cell: no new face, and the points
+            // on the plane may belong to no face any more
+            prune();
+            largest = 0.0;
+            for (const Vec& p : next_points_) {
+                largest = std::max(largest, dot(p, p));
+            }
         }
+        points_.swap(next_points_);
+        corners_.swap(next_corners_);
+        faces_.swap(next_faces_);
         radius_ = std::sqrt(largest);
     }
 
@@ -145,8 +173,8 @@ public:
     double area(const Face& face) const {
         Vec sum = {0.0, 0.0, 0.0};
         for (std::size_t k = 0; k < face.count; ++k) {
-            const Vec c =
-                cross(points_[face.start + k], points_[face.start + (k + 1) % face.count]);
+            const Vec c = cross(points_[corners_[face.start + k]],
+                                points_[corners_[face.start + (k + 1) % face.count]]);
             for (int e = 0; e < 3; ++e) {
                 sum[e] += c[e];
             }
@@ -155,46 +183,41 @@ public:
     }
 
 private:
-    bool close(const Vec& a, const Vec& b) const {
-        const Vec d = {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
-        return dot(d, d) <= eps_ * eps_;
-    }
+    static constexpr std::uint32_t kUnused = std::numeric_limits<std::uint32_t>::max();
 
-    // Appends p to the polygon that starts at first unless it repeats the
-    // previous point.
-    void keep(const Vec& p, std::size_t first) {
-        if (next_points_.size() == first || !close(p, next_points_.back())) {
-            next_points_.push_back(p);
+    // The point where the plane crosses the edge from a to b, made once for
+    // the two faces of the edge.
+    std::uint32_t crossing(std::uint32_t a, std::uint32_t b, double& largest) {
+        const std::uint32_t low = std::min(a, b), high = std::max(a, b);
+        for (const auto& known : crossings_) {
+            if (known[0] == low && known[1] == high) {
+                return known[2];
+            }
         }
+        const double t = side_[low] / (side_[low] - side_[high]);
+        const Vec& p = points_[low];
+        const Vec& q = points_[high];
+        const Vec x = {p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1]),
+                       p[2] + t * (q[2] - p[2])};
+        const auto index = static_cast<std::uint32_t>(next_points_.size());
+        next_points_.push_back(x);
+        largest = std::max(largest, dot(x, x));
+        section_.push_back(index);
+        crossings_.push_back({low, high, index});
+        return index;
     }
 
-    // The face of the cutting plane: the distinct points on it, in angular
-    // order around their center.
+    // The face of the cutting plane: the section points in angular order
+    // around their center.
     void add_face(const Vec& normal, double offset, std::int64_t id) {
-        distinct_.clear();
-        for (const Vec& p : fresh_) {
-            bool seen = false;
-            for (const Vec& q : distinct_) {
-                if (close(p, q)) {
-                    seen = true;
-                    break;
-                }
-            }
-            if (!seen) {
-                distinct_.push_back(p);
-            }
-        }
-        if (distinct_.size() < 3) {
-            return;
-        }
         Vec center = {0.0, 0.0, 0.0};
-        for (const Vec& p : distinct_) {
+        for (const std::uint32_t v : section_) {
             for (int e = 0; e < 3; ++e) {
-                center[e] += p[e];
+                center[e] += next_points_[v][e];
             }
         }
         for (int e = 0; e < 3; ++e) {
-            center[e] /= static_cast<double>(distinct_.size());
+            center[e] /= static_cast<double>(section_.size());
         }
         const Vec helper = std::fabs(normal[0]) < 0.9 ? Vec{1.0, 0.0, 0.0} : Vec{0.0, 1.0, 0.0};
         Vec u = cross(normal, helper);
@@ -202,23 +225,41 @@ private:
         u = {u[0] / length, u[1] / length, u[2] / length};
         const Vec w = cross(normal, u);
         order_.clear();
-        for (std::size_t k = 0; k < distinct_.size(); ++k) {
-            const Vec d = {distinct_[k][0] - center[0], distinct_[k][1] - center[1],
-                           distinct_[k][2] - center[2]};
-            order_.emplace_back(pseudo_angle(dot(d, u), dot(d, w)), k);
+        for (const std::uint32_t v : section_) {
+            const Vec d = {next_points_[v][0] - center[0], next_points_[v][1] - center[1],
+                           next_points_[v][2] - center[2]};
+            order_.emplace_back(pseudo_angle(dot(d, u), dot(d, w)), v);
         }
         std::sort(order_.begin(), order_.end());
-        next_faces_.push_back({id, normal, offset, next_points_.size(), distinct_.size()});
+        next_faces_.push_back({id, normal, offset, next_corners_.size(), section_.size()});
         for (const auto& item : order_) {
-            next_points_.push_back(distinct_[item.second]);
+            next_corners_.push_back(item.second);
         }
+    }
+
+    // Keeps only the new points that some face uses, renumbered in order of
+    // use; the old points are no longer needed.
+    void prune() {
+        renumber_.assign(next_points_.size(), kUnused);
+        points_.clear();
+        for (std::uint32_t& v : next_corners_) {
+            if (renumber_[v] == kUnused) {
+                renumber_[v] = static_cast<std::uint32_t>(points_.size());
+                points_.push_back(next_points_[v]);
+            }
+            v = renumber_[v];
+        }
+        next_points_.swap(points_);
     }
 
     double eps_;
     double radius_ = 0.0;
-    std::vector<Vec> points_, next_points_, fresh_, distinct_;
+    std::vector<Vec> points_, next_points_;
+    std::vector<double> side_;
+    std::vector<std::uint32_t> corners_, next_corners_, renumber_, section_;
+    std::vector<std::array<std::uint32_t, 3>> crossings_;
     std::vector<Face> faces_, next_faces_;
-    std::vector<std::pair<double, std::size_t>> order_;
+    std::vector<std::pair<double, std::uint32_t>> order_;
 };
 
 // A wall of a direction that is not periodic: the atoms lie between
@@ -262,7 +303,53 @@ struct Candidate {
     double r2;
     std::int32_t j;
     std::array<std::int32_t, 3> shift;
-    Vec vector;
+};
+
+// The neighbors of an atom closer than reach in distance bins: bin b holds
+// those with b <= kBins r^2 / reach^2 < b + 1 in the order found. This is
+// enough order to stop at the first bin too far to cut the cell, and costs
+// less than a sort, whose comparisons the processor cannot predict.
+class Neighbors {
+public:
+    static constexpr std::size_t kBins = 64;
+
+    void clear() { found_.clear(); }
+
+    void add(double r2, std::int32_t j, const std::int32_t* shift) {
+        found_.push_back({r2, j, {shift[0], shift[1], shift[2]}});
+    }
+
+    void sort(double reach) {
+        scale_ = static_cast<double>(kBins) / (reach * reach);
+        start_.fill(0);
+        bin_.resize(found_.size());
+        for (std::size_t c = 0; c < found_.size(); ++c) {
+            bin_[c] = static_cast<std::uint32_t>(
+                std::min(static_cast<double>(kBins - 1), found_[c].r2 * scale_));
+            ++start_[bin_[c] + 1];
+        }
+        for (std::size_t b = 0; b < kBins; ++b) {
+            start_[b + 1] += start_[b];
+        }
+        std::array<std::uint32_t, kBins> next;
+        std::copy(start_.begin(), start_.end() - 1, next.begin());
+        sorted_.resize(found_.size());
+        for (std::size_t c = 0; c < found_.size(); ++c) {
+            sorted_[next[bin_[c]]++] = found_[c];
+        }
+    }
+
+    // The distance below which no neighbor of bin b lies.
+    double low(std::size_t b) const { return std::sqrt(static_cast<double>(b) / scale_); }
+    std::size_t begin(std::size_t b) const { return start_[b]; }
+    std::size_t end(std::size_t b) const { return start_[b + 1]; }
+    const Candidate& operator[](std::size_t k) const { return sorted_[k]; }
+
+private:
+    std::vector<Candidate> found_, sorted_;
+    std::vector<std::uint32_t> bin_;
+    std::array<std::uint32_t, kBins + 1> start_{};
+    double scale_ = 1.0;
 };
 
 // A face of a finished cell.
@@ -273,12 +360,14 @@ struct Out {
     std::int32_t vertices;
 };
 
-// The cell of the atom at x from its candidates sorted by distance, all those
-// closer than reach. Returns whether no farther atom can cut the cell; faces
-// get the volume and the faces above the threshold.
-bool build_cell(Cell& cell, const std::vector<Wall>& walls, const Vec& x,
-                const std::vector<Candidate>& candidates, double reach, double eps,
-                double area_threshold, double& volume, double& radius, std::vector<Out>& faces) {
+// The cell of the atom i from its sorted neighbors, all those closer than
+// reach; x is its position from the origin of the box. Returns whether no
+// farther atom can cut the cell; faces get the volume and the faces above
+// the threshold.
+bool build_cell(Cell& cell, const std::vector<Wall>& walls, const Vec& x, const double* positions,
+                std::int64_t i, const double* h, const Neighbors& neighbors, double reach,
+                double eps, double area_threshold, double& volume, double& radius,
+                std::vector<Out>& faces) {
     cell.reset(reach);
     for (const Wall& wall : walls) {
         const double s = dot(wall.normal, x);
@@ -286,16 +375,26 @@ bool build_cell(Cell& cell, const std::vector<Wall>& walls, const Vec& x,
         cell.cut(back, s - wall.low, -1 - 2 * wall.axis);
         cell.cut(wall.normal, wall.high - s, -2 - 2 * wall.axis);
     }
+    const double* xi = positions + 3 * i;
     bool complete = false;
-    for (std::size_t c = 0; c < candidates.size(); ++c) {
-        const double d = std::sqrt(candidates[c].r2);
-        if (0.5 * d > cell.radius() + eps) {
-            complete = true;  // this and every farther neighbor miss the cell
+    for (std::size_t b = 0; b < Neighbors::kBins && !complete; ++b) {
+        if (0.5 * neighbors.low(b) > cell.radius() + eps) {
+            complete = true;  // every neighbor from this bin on misses the cell
             break;
         }
-        if (d > 0.0) {
-            const Vec& v = candidates[c].vector;
-            cell.cut({v[0] / d, v[1] / d, v[2] / d}, 0.5 * d, static_cast<std::int64_t>(c));
+        for (std::size_t c = neighbors.begin(b); c < neighbors.end(b); ++c) {
+            const Candidate& other = neighbors[c];
+            const double d = std::sqrt(other.r2);
+            if (0.5 * d > cell.radius() + eps) {
+                continue;
+            }
+            const double* xj = positions + 3 * static_cast<std::int64_t>(other.j);
+            const std::int32_t* s = other.shift.data();
+            Vec normal;
+            for (int e = 0; e < 3; ++e) {
+                normal[e] = (xj[e] - xi[e] + s[0] * h[e] + s[1] * h[3 + e] + s[2] * h[6 + e]) / d;
+            }
+            cell.cut(normal, 0.5 * d, static_cast<std::int64_t>(c));
         }
     }
     complete = complete || cell.radius() <= 0.5 * reach + eps;
@@ -312,7 +411,7 @@ bool build_cell(Cell& cell, const std::vector<Wall>& walls, const Vec& x,
         if (a > 0.0) {
             Out out{-1, {0, 0, 0}, a, static_cast<std::int32_t>(face.count)};
             if (face.id >= 0) {
-                const Candidate& other = candidates[static_cast<std::size_t>(face.id)];
+                const Candidate& other = neighbors[static_cast<std::size_t>(face.id)];
                 out.j = other.j;
                 out.shift = other.shift;
             }
@@ -329,10 +428,6 @@ bool build_cell(Cell& cell, const std::vector<Wall>& walls, const Vec& x,
     faces.resize(kept);
     radius = cell.radius();
     return complete;
-}
-
-bool by_distance(const Candidate& p, const Candidate& q) {
-    return std::tie(p.r2, p.j, p.shift) < std::tie(q.r2, q.j, q.shift);
 }
 
 // Collects the faces of each atom, computed in any order, into CSR form.
@@ -405,27 +500,22 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
                 const std::size_t id = first_buffer + static_cast<std::size_t>(begin / grain);
                 std::vector<Out>& faces = collector.buffers[id];
                 Cell cell(eps);
-                std::vector<Candidate> candidates;
+                Neighbors neighbors;
                 for (std::int64_t t = begin; t < end; ++t) {
                     const std::int64_t i = todo[static_cast<std::size_t>(t)];
                     const double* xi = positions + 3 * i;
-                    candidates.clear();
+                    neighbors.clear();
                     grid.visit(i, [&](std::int32_t j, const std::int32_t* s, double r2) {
                         if (r2 == 0.0) {
                             throw std::invalid_argument("two atoms are at the same position");
                         }
-                        const double* xj = positions + 3 * static_cast<std::int64_t>(j);
-                        Vec v;
-                        for (int e = 0; e < 3; ++e) {
-                            v[e] = xj[e] - xi[e] + s[0] * h[e] + s[1] * h[3 + e] + s[2] * h[6 + e];
-                        }
-                        candidates.push_back({r2, j, {s[0], s[1], s[2]}, v});
+                        neighbors.add(r2, j, s);
                     });
-                    std::sort(candidates.begin(), candidates.end(), by_distance);
+                    neighbors.sort(reach);
                     const std::size_t mark = faces.size();
                     const Vec x = {xi[0] - origin[0], xi[1] - origin[1], xi[2] - origin[2]};
-                    if (build_cell(cell, walls, x, candidates, reach, eps, area_threshold,
-                                   cells.volumes[i], cells.radii[i], faces)) {
+                    if (build_cell(cell, walls, x, positions, i, h, neighbors, reach, eps,
+                                   area_threshold, cells.volumes[i], cells.radii[i], faces)) {
                         collector.buffer[i] = static_cast<std::int64_t>(id);
                         collector.start[i] = static_cast<std::int64_t>(mark);
                         collector.count[i] = static_cast<std::int32_t>(faces.size() - mark);

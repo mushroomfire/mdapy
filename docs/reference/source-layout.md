@@ -23,11 +23,13 @@
 | `src/mdapy/neighbor/_neighbor_list.py` | `NeighborList`. |
 | `src/mdapy/identify/_structure.py` | `CommonNeighborAnalysis`, `CentroSymmetryParameter`. |
 | `src/mdapy/analysis/_distribution.py` | `RadialDistributionFunction`, `CoordinationNumber`. |
+| `src/mdapy/analysis/_steinhardt.py` | `SteinhardtParameters`. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
 | `src/cpp/io/text.h`, `text.cpp` | Parsing and formatting of text tables, in parallel over lines; numbers are correctly rounded and independent of the locale. |
 | `src/cpp/neighbor/cell_list.h`, `cell_list.cpp` | The neighbor search with cells. |
 | `src/cpp/identify/structure.h`, `structure.cpp` | Common neighbor analysis and the centro-symmetry parameter. |
+| `src/cpp/analysis/steinhardt.h`, `steinhardt.cpp` | Real spherical harmonics and Steinhardt order parameters. |
 | `src/cpp/io/powers_of_five.h` | Generated table used by the number parser. |
 | `src/cpp/bindings/module.cpp` | The extension module `mdapy._core` and its submodules. |
 | `src/cpp/bindings/control.h` | `run_released`: runs a kernel without the GIL, with progress and cancellation. |
@@ -35,6 +37,7 @@
 | `src/cpp/bindings/io.cpp` | Bindings for the text table kernels. |
 | `src/cpp/bindings/neighbor.cpp` | Bindings for the neighbor search. |
 | `src/cpp/bindings/identify.cpp` | Bindings for structure identification. |
+| `src/cpp/bindings/analysis.cpp` | Bindings for the analyses. |
 | `src/cpp/bindings/testing.cpp` | Kernels used only by the test suite. |
 | `tests/` | Test suite; mirrors the package layout. |
 | `tests/lattices.py` | Perfect crystals and clusters shared by the tests. |

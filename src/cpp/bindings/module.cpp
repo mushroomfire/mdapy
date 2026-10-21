@@ -32,6 +32,9 @@ NB_MODULE(_core, m) {
     nb::module_ neighbor = m.def_submodule("neighbor", "Neighbor search.");
     mdapy::bindings::bind_neighbor(neighbor);
 
+    nb::module_ analysis = m.def_submodule("analysis", "Analyses of the properties of systems.");
+    mdapy::bindings::bind_analysis(analysis);
+
     nb::module_ identify = m.def_submodule("identify", "Structure identification.");
     mdapy::bindings::bind_identify(identify);
 

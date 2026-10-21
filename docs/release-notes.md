@@ -72,6 +72,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.analysis.RadialDistributionFunction` with partial functions, and
   `mdapy.analysis.CoordinationNumber` with cutoffs per pair of elements. See
   [Radial distribution and coordination](guide/distribution.md).
+- `mdapy.analysis.SteinhardtParameters`: bond-orientational order $q_l$ up
+  to degree 20, optionally averaged over neighbors. See
+  [Bond-orientational order](guide/steinhardt.md).
 
 ### Foundations
 

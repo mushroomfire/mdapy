@@ -51,3 +51,4 @@ is raised.
 | `mdapy.identify.CentroSymmetryParameter` | [Structure identification](structure.md) |
 | `mdapy.analysis.RadialDistributionFunction` | [Radial distribution and coordination](distribution.md) |
 | `mdapy.analysis.CoordinationNumber` | [Radial distribution and coordination](distribution.md) |
+| `mdapy.analysis.SteinhardtParameters` | [Bond-orientational order](steinhardt.md) |

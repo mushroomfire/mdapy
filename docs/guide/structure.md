@@ -92,6 +92,12 @@ The tests in `tests/identify/test_structure.py` check that:
 - results are the same for any number of threads and with a given neighbor
   list.
 
+`tests/identify/test_lammps.py` runs where LAMMPS is installed and compares
+with LAMMPS stable_30Sep2026 on disordered fcc, hcp and bcc crystals where
+only part of the atoms keep their structure: the conventional analysis gives
+the type of `compute cna/atom` for every atom, and the centro-symmetry
+parameter agrees with `compute centro/atom` to 10<sup>−10</sup>.
+
 ## References
 
 - J. D. Honeycutt and H. C. Andersen, Molecular dynamics study of melting and

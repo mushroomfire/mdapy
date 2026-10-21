@@ -64,6 +64,7 @@ void run_released(Work&& work, nb::handle progress, const CancelToken* cancel) {
     }
 }
 
+void bind_analysis(nb::module_& m);
 void bind_core(nb::module_& m);
 void bind_identify(nb::module_& m);
 void bind_io(nb::module_& m);

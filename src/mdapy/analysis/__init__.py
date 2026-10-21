@@ -9,10 +9,13 @@ from mdapy.analysis._distribution import (
     RadialDistributionFunction,
     RadialDistributionResult,
 )
+from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
 
 __all__ = [
     "CoordinationNumber",
     "CoordinationResult",
     "RadialDistributionFunction",
     "RadialDistributionResult",
+    "SteinhardtParameters",
+    "SteinhardtResult",
 ]

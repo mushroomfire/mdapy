@@ -50,6 +50,10 @@ import mdapy
 
 ::: mdapy.analysis.CoordinationResult
 
+::: mdapy.analysis.SteinhardtParameters
+
+::: mdapy.analysis.SteinhardtResult
+
 ::: mdapy.core.box.LammpsBox
 
 ## Threads

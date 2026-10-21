@@ -96,6 +96,7 @@ nav:
       - Analyses: guide/analyses.md
       - Structure identification: guide/structure.md
       - Radial distribution and coordination: guide/distribution.md
+      - Bond-orientational order: guide/steinhardt.md
       - Parallelism: guide/parallelism.md
   - File formats:
       - Extended XYZ: formats/extxyz.md

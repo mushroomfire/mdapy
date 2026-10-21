@@ -78,6 +78,14 @@ import mdapy
 
 ::: mdapy.analysis.WignerSeitzResult
 
+::: mdapy.analysis.MeanSquaredDisplacement
+
+::: mdapy.analysis.DisplacementResult
+
+::: mdapy.analysis.LindemannIndex
+
+::: mdapy.analysis.LindemannResult
+
 ::: mdapy.analysis.ClusterAnalysis
 
 ::: mdapy.analysis.ClusterResult

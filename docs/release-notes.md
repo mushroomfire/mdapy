@@ -89,6 +89,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.analysis.WignerSeitz`: vacancies and interstitials by the
   Wigner–Seitz cells of a reference lattice. See
   [Point defects](guide/defects.md).
+- `mdapy.analysis.MeanSquaredDisplacement` and `LindemannIndex` for
+  trajectories, with wrapped positions followed by the nearest image. See
+  [Displacements and melting](guide/dynamics.md).
 - `mdapy.analysis.ClusterAnalysis`, `BondAngleDistribution` and
   `WarrenCowley` for clusters of bonded atoms, bond angles and chemical
   short-range order. See

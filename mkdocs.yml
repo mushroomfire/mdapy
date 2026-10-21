@@ -101,6 +101,7 @@ nav:
       - Atomic temperature: guide/temperature.md
       - Atomic strain: guide/strain.md
       - Point defects: guide/defects.md
+      - Displacements and melting: guide/dynamics.md
       - Clusters, bond angles and short-range order: guide/bonds.md
       - Parallelism: guide/parallelism.md
   - File formats:

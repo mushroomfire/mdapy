@@ -122,7 +122,7 @@ class SteinhardtParameters:
                     f"an atom has {nl.counts.min()} neighbors in the list, "
                     f"fewer than {self.num_neighbors}"
                 )
-            nl = nl.sorted()._first(self.num_neighbors)
+            nl = nl._nearest(self.num_neighbors)
         q = _native.steinhardt(
             nl.offsets,
             nl.j,

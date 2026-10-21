@@ -44,3 +44,11 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - **邻居列表草稿在分支 `neighbor-draft`（未合并）：** 支持任意盒子，盒子比截断半径小也行，结果和暴力枚举逐位一致，和线程数无关。25.6 万个原子、截断 5 Å，单线程 0.39 s，10 线程 0.13 s。API 明天给你确认。
 - 修了 Python 3.10 才有的问题：3.10 的 mmap 没有 `seekable()`。本地在建 3.10 环境，以后提交前先跑一遍。
 
+### 23:29
+- **计算器草稿在分支 `calculator-draft`（基于 `neighbor-draft`，未合并）：**
+  - 接口：`Calculator`、`CalculatorResult`，有 energy、atomic_energies、forces、virial、atomic_virials，`stress()` 给 GPa，`attach()` 把结果写回 System。
+  - 通用检查工具 `mdapy.calculators.testing.check_calculator(calc, system)`：检查求和一致、力和 virial 与有限差分一致、平移/旋转/重排不变、超胞能量加倍、传入邻居列表结果不变。torchnep 那边可以直接拿来测。每一项都用故意写错的计算器验证过能抓到错误。
+  - `EAM`（C++）：读 LAMMPS eam/alloy 文件，样条插值和 LAMMPS 一样。和独立的 NumPy 实现相差 1e-11；和 LAMMPS 2026 本机实测相比，能量差 1e-12，力和 virial 差 1e-9。比较 virial 时发现 LAMMPS metal 单位用的换算常数是四舍五入过的（1.6021765e6），测试里已注明。
+  - 所有 C++ 编译时关闭了 FMA 合并，同样的输入在不同编译器和 CPU 上结果逐位相同（邻居列表分支里改的）。
+- 接下来做 FIRE 最小化（含晶胞弛豫），同样放在草稿分支。
+

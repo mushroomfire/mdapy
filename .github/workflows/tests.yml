@@ -73,40 +73,42 @@ jobs:
           if low:
               sys.exit("below 95 %: " + ", ".join(low))
 
-  sanitizers:
-    name: sanitizer — ${{ matrix.sanitizer }}
+  address-sanitizer:
+    name: sanitizer — address
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - sanitizer: address
-            preload: libasan.so libubsan.so
-            options: >-
-              ASAN_OPTIONS=detect_leaks=0:abort_on_error=1
-              UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
-          - sanitizer: thread
-            preload: libtsan.so
-            # die_after_fork=0: the fork test starts the pool in a forked child,
-            # which TSan otherwise refuses.
-            options: TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1:die_after_fork=0
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Install with ${{ matrix.sanitizer }} sanitizer
+      - name: Install with AddressSanitizer and UndefinedBehaviorSanitizer
         run: >
           pip install ".[dev]"
-          -Ccmake.define.MDAPY_SANITIZE=${{ matrix.sanitizer }}
+          -Ccmake.define.MDAPY_SANITIZE=address
           -Ccmake.build-type=RelWithDebInfo
-      - name: Test under the sanitizer
+      - name: Test under the sanitizers
         run: |
-          # With the 32 bits of mmap randomization of recent kernels, large
-          # libraries such as polars are mapped where TSan does not expect them.
-          sudo sysctl -w vm.mmap_rnd_bits=28
-          preload=""
-          for lib in ${{ matrix.preload }}; do preload="$preload:$(gcc -print-file-name=$lib)"; done
-          export LD_PRELOAD="${preload#:}"
-          export ${{ matrix.options }}
+          export LD_PRELOAD="$(gcc -print-file-name=libasan.so):$(gcc -print-file-name=libubsan.so)"
+          export ASAN_OPTIONS=detect_leaks=0:abort_on_error=1
+          export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
           pytest -q
+
+  # ThreadSanitizer checks the thread pool and the parallel kernels with a
+  # C++ program: under a preloaded TSan, importing polars crashes on Linux,
+  # so the Python test suite cannot run with it.
+  thread-sanitizer:
+    name: sanitizer — thread
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the thread checks with ThreadSanitizer
+        run: >
+          g++ -std=c++17 -O1 -g -fsanitize=thread -fno-omit-frame-pointer
+          -Wall -Wextra -Wpedantic -Wshadow -Werror -Isrc/cpp -pthread
+          -o thread_checks src/cpp/core/parallel.cpp src/cpp/io/text.cpp
+          tests/cpp/thread_checks.cpp
+      - name: Run them
+        run: |
+          # Recent kernels randomize mmap with 32 bits, which TSan does not expect.
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1 ./thread_checks

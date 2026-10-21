@@ -79,6 +79,9 @@ pytest --cov --cov-report=term
 - Code compiles without warnings with `-Wall -Wextra -Wpedantic -Wshadow`; CI
   builds with warnings as errors and also runs the tests under
   AddressSanitizer and UndefinedBehaviorSanitizer.
+- `tests/cpp/thread_checks.cpp` checks the thread pool and the parallel
+  kernels without Python; CI runs it under ThreadSanitizer. New parallel
+  kernels get a check there.
 
 ## Style
 

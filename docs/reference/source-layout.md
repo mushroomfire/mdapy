@@ -25,6 +25,7 @@
 | `src/cpp/bindings/io.cpp` | Bindings for the text table kernels. |
 | `src/cpp/bindings/testing.cpp` | Kernels used only by the test suite. |
 | `tests/` | Test suite; mirrors the package layout. |
+| `tests/cpp/thread_checks.cpp` | Checks of the thread pool and the parallel kernels, run under ThreadSanitizer. |
 | `docs/` | This documentation. |
 
 All compiled code is one extension module, `mdapy._core`. Each functional

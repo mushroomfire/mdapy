@@ -1,0 +1,309 @@
+// Copyright (c) 2022-2026, Yongchao Wu
+// This file is part of mdapy, released under the BSD 3-Clause License.
+//
+// Checks of the thread pool and the parallel text kernels, without Python.
+// CI builds this program with ThreadSanitizer, which cannot run the Python
+// test suite on Linux (polars crashes on import under it):
+//
+//   g++ -std=c++17 -O1 -g -fsanitize=thread -Isrc/cpp -pthread -o thread_checks
+//       src/cpp/core/parallel.cpp src/cpp/io/text.cpp tests/cpp/thread_checks.cpp
+//
+// Every check also verifies its result; the program exits with 1 on a failure.
+
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <random>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include "core/parallel.h"
+#include "io/text.h"
+
+namespace {
+
+int failures = 0;
+
+void check(bool ok, const char* what) {
+    if (!ok) {
+        std::printf("FAILED: %s\n", what);
+        ++failures;
+    }
+}
+
+const int kThreads[] = {1, 2, 3, 8};
+
+void loops_and_reductions() {
+    const std::int64_t n = 100000;
+    std::vector<double> values(n);
+    std::mt19937_64 random(1);
+    std::uniform_real_distribution<double> uniform(-1.0, 1.0);
+    for (double& v : values) {
+        v = uniform(random);
+    }
+    double reference = 0.0;
+    bool first = true;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        for (std::int64_t grain : {std::int64_t{0}, std::int64_t{7}, n}) {
+            std::vector<std::int64_t> out(n, -1);
+            mdapy::parallel_for(n, grain, [&](std::int64_t begin, std::int64_t end) {
+                for (std::int64_t i = begin; i < end; ++i) {
+                    out[i] = i * i;
+                }
+            });
+            bool ok = true;
+            for (std::int64_t i = 0; i < n; ++i) {
+                ok = ok && out[i] == i * i;
+            }
+            check(ok, "parallel_for writes every item once");
+        }
+        const double sum = mdapy::parallel_reduce(
+            n, 0, 0.0,
+            [&](std::int64_t begin, std::int64_t end) {
+                double s = 0.0;
+                for (std::int64_t i = begin; i < end; ++i) {
+                    s += values[i];
+                }
+                return s;
+            },
+            [](double a, double b) { return a + b; });
+        if (first) {
+            reference = sum;
+            first = false;
+        }
+        check(std::memcmp(&sum, &reference, sizeof(sum)) == 0,
+              "parallel_reduce gives the same bits for any thread count");
+    }
+}
+
+void progress_cancellation_and_errors() {
+    mdapy::set_num_threads(4);
+    const auto pause = std::chrono::microseconds(200);
+    auto slow = [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t i = begin; i < end; ++i) {
+            std::this_thread::sleep_for(pause);
+        }
+    };
+
+    // The monitor runs on the calling thread and ends with done == total.
+    std::int64_t calls = 0, last_done = -1, last_total = -1;
+    const std::thread::id caller = std::this_thread::get_id();
+    bool on_caller = true;
+    mdapy::Control control;
+    control.monitor = [&](std::int64_t done, std::int64_t total) {
+        ++calls;
+        on_caller = on_caller && std::this_thread::get_id() == caller;
+        last_done = done;
+        last_total = total;
+        return true;
+    };
+    mdapy::parallel_for(2000, 1, slow, control);
+    check(calls > 0 && on_caller, "the monitor runs on the calling thread");
+    check(last_done == last_total && last_total == 2000, "the last report is complete");
+
+    // A token set from another thread cancels the region.
+    mdapy::CancelToken token;
+    std::thread canceller([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        token.cancel();
+    });
+    mdapy::Control cancelled;
+    cancelled.cancel = &token;
+    bool thrown = false;
+    try {
+        mdapy::parallel_for(100000, 1, slow, cancelled);
+    } catch (const mdapy::Cancelled&) {
+        thrown = true;
+    }
+    canceller.join();
+    check(thrown, "a cancelled region throws Cancelled");
+
+    // A monitor that returns false cancels too.
+    mdapy::Control stop;
+    stop.monitor = [](std::int64_t, std::int64_t) { return false; };
+    thrown = false;
+    try {
+        mdapy::parallel_for(100000, 1, slow, stop);
+    } catch (const mdapy::Cancelled&) {
+        thrown = true;
+    }
+    check(thrown, "a monitor returning false cancels");
+
+    // Exceptions of the body reach the caller.
+    thrown = false;
+    try {
+        mdapy::parallel_for(1000, 3, [](std::int64_t begin, std::int64_t end) {
+            if (begin <= 500 && 500 < end) {
+                throw std::runtime_error("item 500");
+            }
+        });
+    } catch (const std::runtime_error& e) {
+        thrown = std::string(e.what()) == "item 500";
+    }
+    check(thrown, "an exception of the body is rethrown");
+}
+
+void nested_and_concurrent_regions() {
+    mdapy::set_num_threads(4);
+    const std::int64_t outer = 50, inner = 200;
+    std::int64_t expected = 0;
+    for (std::int64_t i = 0; i < outer; ++i) {
+        for (std::int64_t j = 0; j < inner; ++j) {
+            expected += i * j;
+        }
+    }
+    auto nested = [&] {
+        return mdapy::parallel_reduce(
+            outer, 1, std::int64_t{0},
+            [&](std::int64_t begin, std::int64_t end) {
+                std::int64_t sum = 0;
+                for (std::int64_t i = begin; i < end; ++i) {
+                    sum += mdapy::parallel_reduce(
+                        inner, 1, std::int64_t{0},
+                        [&](std::int64_t b, std::int64_t e) {
+                            std::int64_t s = 0;
+                            for (std::int64_t j = b; j < e; ++j) {
+                                s += i * j;
+                            }
+                            return s;
+                        },
+                        [](std::int64_t a, std::int64_t b) { return a + b; });
+                }
+                return sum;
+            },
+            [](std::int64_t a, std::int64_t b) { return a + b; });
+    };
+    check(nested() == expected, "nested regions run inline and are correct");
+
+    // Two threads start regions at once; the busy pool runs one inline.
+    std::int64_t results[2] = {0, 0};
+    std::thread a([&] { results[0] = nested(); });
+    std::thread b([&] { results[1] = nested(); });
+    a.join();
+    b.join();
+    check(results[0] == expected && results[1] == expected,
+          "concurrent regions from two threads are correct");
+}
+
+void text_tables() {
+    using mdapy::io::Column;
+    using mdapy::io::Kind;
+    const std::int64_t rows = 20000;
+    std::mt19937_64 random(2);
+    std::uniform_real_distribution<double> uniform(-1e3, 1e3);
+    std::vector<double> floats(rows * 3);
+    std::vector<std::int64_t> ints(rows);
+    std::vector<std::uint32_t> codes(rows);
+    for (std::int64_t i = 0; i < rows; ++i) {
+        for (int k = 0; k < 3; ++k) {
+            floats[i * 3 + k] = uniform(random);
+        }
+        ints[i] = static_cast<std::int64_t>(random() % 1000000) - 500000;
+        codes[i] = static_cast<std::uint32_t>(random() % 3);
+    }
+    std::vector<Column> out(3);
+    out[0].kind = Kind::String;
+    out[0].data = codes.data();
+    out[0].categories = {"Cu", "Zr", "Al"};
+    out[1].kind = Kind::Float;
+    out[1].width = 3;
+    out[1].data = floats.data();
+    out[1].shift = -3;
+    out[2].kind = Kind::Int;
+    out[2].data = ints.data();
+    std::string text;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        const std::string formatted = mdapy::io::format_table(rows, out);
+        if (text.empty()) {
+            text = formatted;
+        }
+        check(formatted == text, "format_table gives the same text for any thread count");
+    }
+
+    std::vector<std::string> first_categories;
+    std::vector<std::uint32_t> first_codes;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::vector<double> f(rows * 3);
+        std::vector<std::int64_t> n(rows);
+        std::vector<std::uint32_t> c(rows);
+        std::vector<Column> in(3);
+        in[0].kind = Kind::String;
+        in[0].data = c.data();
+        in[1].kind = Kind::Float;
+        in[1].width = 3;
+        in[1].data = f.data();
+        in[1].shift = 3;
+        in[2].kind = Kind::Int;
+        in[2].data = n.data();
+        const std::int64_t end = mdapy::io::parse_table(
+            text.data(), static_cast<std::int64_t>(text.size()), 0, rows, in, '\0');
+        check(end == static_cast<std::int64_t>(text.size()), "parse_table reads every line");
+        check(std::memcmp(f.data(), floats.data(), f.size() * sizeof(double)) == 0,
+              "floats read back exactly");
+        check(n == ints, "integers read back");
+        if (first_categories.empty()) {
+            first_categories = in[0].categories;
+            first_codes = c;
+        }
+        check(in[0].categories == first_categories && c == first_codes,
+              "string codes are the same for any thread count");
+        bool same = true;
+        for (std::int64_t i = 0; i < rows; ++i) {
+            same = same && in[0].categories[c[i]] == out[0].categories[codes[i]];
+        }
+        check(same, "strings read back");
+    }
+
+    // The first bad line is reported, whichever thread finds a bad line
+    // first: lines that start with the comment character have no values.
+    std::string bad = text;
+    for (std::int64_t row : {std::int64_t{15000}, std::int64_t{4000}, std::int64_t{4001}}) {
+        std::size_t position = 0;
+        for (std::int64_t r = 0; r < row; ++r) {
+            position = bad.find('\n', position) + 1;
+        }
+        bad[position] = '?';
+    }
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::vector<double> f(rows * 3);
+        std::vector<std::int64_t> n(rows);
+        std::vector<std::uint32_t> c(rows);
+        std::vector<Column> in(3);
+        in[0].kind = Kind::String;
+        in[0].data = c.data();
+        in[1].kind = Kind::Float;
+        in[1].width = 3;
+        in[1].data = f.data();
+        in[2].kind = Kind::Int;
+        in[2].data = n.data();
+        std::int64_t row = -1;
+        try {
+            mdapy::io::parse_table(bad.data(), static_cast<std::int64_t>(bad.size()), 0, rows,
+                                   in, '?');
+        } catch (const mdapy::io::ParseError& e) {
+            row = e.row;
+        }
+        check(row == 4000, "the first bad row is reported for any thread count");
+    }
+}
+
+}  // namespace
+
+int main() {
+    loops_and_reductions();
+    progress_cancellation_and_errors();
+    nested_and_concurrent_regions();
+    text_tables();
+    if (failures == 0) {
+        std::printf("all checks passed\n");
+    }
+    return failures == 0 ? 0 : 1;
+}

@@ -48,6 +48,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `q4`, `q6`, … | f64 | | Steinhardt order parameters; `q4_average`, … when averaged over neighbors |
 | `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
 | `voronoi_volume`, `voronoi_coordination`, `cavity_radius` | f64, int64, f64 | Å³, , Å | volume and number of shared faces of the Voronoi cell, and the distance to its farthest vertex |
+| `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint; `entropy_average` when averaged over neighbors |
 
 ## Energies and virials
 

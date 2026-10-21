@@ -23,4 +23,13 @@ std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const std::in
 void bond_angles(std::int64_t n, const std::int64_t* offsets, const double* vectors, int bins,
                  std::int64_t* counts, const Control& control = {});
 
+// The pair entropy fingerprint of n atoms (Piaggi and Parrinello) from the
+// distances to their neighbors in CSR form (those closer than cutoff count):
+// g(r) on the points k sigma up to the cutoff, each neighbor smeared by a
+// Gaussian of width sigma, integrated by the trapezoid rule. density gives
+// the number density of each atom (n).
+void pair_entropy(std::int64_t n, const std::int64_t* offsets, const double* distances,
+                  double cutoff, double sigma, const double* density, double* entropy,
+                  const Control& control = {});
+
 }  // namespace mdapy::analysis

@@ -400,7 +400,7 @@ void structure_identification() {
         }
     }
     std::vector<std::int8_t> first_types;
-    std::vector<double> first_csp, first_q, first_volumes, first_areas;
+    std::vector<double> first_csp, first_q, first_volumes, first_areas, first_entropy;
     std::vector<std::int64_t> first_angles;
     const std::vector<int> degrees = {4, 6, 12};
     for (int threads : kThreads) {
@@ -417,6 +417,14 @@ void structure_identification() {
         mdapy::identify::identify_diamond(n, four.data(), four_vectors.data(), diamond.data());
         check(diamond == std::vector<std::int8_t>(static_cast<std::size_t>(n), 0),
               "no atom of fcc is diamond");
+        std::vector<double> entropy(static_cast<std::size_t>(n)),
+            density(static_cast<std::size_t>(n), 0.08);
+        mdapy::analysis::pair_entropy(n, pairs.offsets.data(), pairs.distances.data(), 3.07,
+                                      0.2, density.data(), entropy.data());
+        if (threads == kThreads[0]) {
+            first_entropy = entropy;
+        }
+        check(entropy == first_entropy, "the pair entropy is the same for any thread count");
         std::vector<std::int64_t> angles(90);
         mdapy::analysis::bond_angles(n, pairs.offsets.data(), vectors.data(), 90, angles.data());
         const mdapy::analysis::VoronoiCells voronoi =

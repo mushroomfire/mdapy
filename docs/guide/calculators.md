@@ -175,14 +175,44 @@ virial.)
 ## Energy minimization
 
 `mdapy.minimize(system, calculator, *, max_force=1e-3, max_steps=1000,
-max_step=0.2, callback=None)` minimizes the energy over the positions in a
-fixed box with FIRE, the fast inertial relaxation engine. It returns a
-`MinimizeResult` with the last `system` (with `forces` and atomic energies as
-columns and `energy` in `info`), whether it `converged` (every force below
-`max_force`, in eV/Å), the number of `steps`, the `energy` and the largest
-force. No atom moves more than `max_step` Å in one step. `callback(step,
-system, energy, max_force)` is called after each step and stops the
-minimization by returning True.
+max_step=0.2, cell=None, pressure=0.0, max_stress=1e-2, callback=None)`
+minimizes the energy over the positions, and optionally the box, with FIRE,
+the fast inertial relaxation engine. It returns a `MinimizeResult` with the
+last `system` (with `forces` and atomic energies as columns and `energy` in
+`info`), whether it `converged`, the number of `steps`, the `energy`, the
+largest force and, when the box relaxed, the `stress` in GPa. No atom moves
+more than `max_step` Å in one step. `callback(step, system, energy,
+max_force)` is called after each step and stops the minimization by returning
+True.
+
+<!-- skip-test -->
+```python
+import mdapy
+
+result = mdapy.minimize(system, potential, cell="full", max_stress=1e-3)
+result.system.box  # the relaxed box
+result = mdapy.minimize(system, potential, cell="isotropic", pressure=10.0)
+```
+
+`cell` chooses how the box changes along its periodic directions; directions
+that are not periodic keep their lattice vector.
+
+| `cell` | The box |
+|---|---|
+| `None` | does not change |
+| `"isotropic"` | is scaled by one factor |
+| `"axes"` | is scaled along each Cartesian axis by its own factor |
+| `"full"` | takes any homogeneous strain |
+
+With a relaxing box, the atoms move with it: the variables are the positions
+$\mathbf u_i$ in the starting box and the deformation gradient $F$ of the
+box, with $\mathbf x_i = \mathbf o + F \mathbf u_i$. Their generalized forces
+are $F^T \mathbf f_i$ and $(W - pV I)\,F^{-T}$, the virial less the external
+pressure $p$ times the volume, projected onto the strains `cell` allows; $F$
+is scaled by the number of atoms so that its steps are comparable to those of
+the atoms. The minimization converges when every force is below `max_force`
+and every relaxed component of $\sigma + pI$ is below `max_stress` (GPa); at
+a pressure it minimizes the enthalpy $E + pV$.
 
 FIRE follows Bitzek et al. with the parameters ASE uses: a starting time step
 of 0.1, a largest time step of 1.0, five steps before the time step grows by
@@ -196,7 +226,12 @@ The tests in `tests/calculators/test_minimize.py` check that a harmonic dimer
 reaches its bond length to 10<sup>−8</sup> Å; that a rattled fcc crystal
 relaxes back to the perfect lattice, its energy and its twelve equal
 neighbor distances; that results are the same for any number of threads;
-and the step limit, the callback and the errors.
+and the step limit, the callback and the errors. For the box, they check that
+a stretched, a tetragonal and a sheared fcc box relax back to cubic at the
+minimum of $E(a)$ (by finite differences of the energy) with every stress
+component below 10<sup>−5</sup> GPa; that at 5 GPa the stress is −5 GPa and
+equals $-\mathrm dE/\mathrm dV$ by finite differences; and that a slab
+relaxes only along its periodic directions.
 
 The tests in `tests/calculators/test_eam.py`, on a synthetic two-element
 potential written by the tests, check that:

@@ -71,7 +71,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.calculators.NEP` for neuroevolution potentials (nep4 and nep4_zbl
   files of GPUMD) with every form of ZBL and per-element cutoffs, agreeing
   with NEP_CPU in double precision; `NEP.descriptors` gives the descriptors.
-- `mdapy.minimize`: FIRE minimization of the positions in a fixed box.
+- `mdapy.minimize`: FIRE minimization of the positions and, optionally, the
+  box (isotropic, along the axes or any strain), at a given pressure.
 
 ### Foundations
 

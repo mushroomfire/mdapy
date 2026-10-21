@@ -7,9 +7,13 @@ from lattices import crystal, icosahedron
 
 import mdapy
 from mdapy.errors import InvalidParameter
-from mdapy.identify import CentroSymmetryParameter, CommonNeighborAnalysis
+from mdapy.identify import (
+    CentroSymmetryParameter,
+    CommonNeighborAnalysis,
+    IdentifyDiamond,
+)
 
-from .references import adaptive_cna, centro_symmetry
+from .references import adaptive_cna, centro_symmetry, diamond
 
 CRYSTALS = [("fcc", 3.6), ("hcp", 2.5), ("bcc", 2.87)]
 # a cutoff between the shells that conventional CNA uses for each crystal
@@ -168,3 +172,42 @@ def test_centro_symmetry_options():
     for bad in (0, 3):
         with pytest.raises(InvalidParameter, match="even and at least 2"):
             CentroSymmetryParameter(bad)
+
+
+@pytest.mark.parametrize(
+    "kind, a, name",
+    [("diamond", 5.43, "cubic_diamond"), ("lonsdaleite", 2.51, "hexagonal_diamond")],
+)
+def test_diamond_structures(kind, a, name):
+    system = crystal(kind, a, (3, 3, 3))
+    result = IdentifyDiamond().compute(system)
+    assert result.counts()[name] == len(system)
+    np.testing.assert_array_equal(
+        IdentifyDiamond().compute(rotated(system)).structure, result.structure
+    )
+    for other in (crystal("fcc", 3.6), crystal("bcc", 2.87)):
+        assert IdentifyDiamond().compute(other).counts()["other"] == len(other)
+
+
+@pytest.mark.parametrize("kind, a", [("diamond", 5.43), ("lonsdaleite", 2.51)])
+def test_diamond_matches_a_python_reference(kind, a):
+    system = crystal(kind, a, (3, 3, 3), jitter=0.22, seed=4)
+    result = IdentifyDiamond().compute(system)
+    assert [result.names[t] for t in result.structure] == diamond(system)
+    assert 0 < result.counts()["other"] < len(system)  # a mixture
+
+
+def test_diamond_options():
+    system = crystal("diamond", 5.43, (2, 2, 2), jitter=0.1, seed=5)
+    expected = IdentifyDiamond().compute(system).structure
+    nl = mdapy.NeighborList.build(system, 3.0)
+    np.testing.assert_array_equal(
+        IdentifyDiamond().compute(system, neighbors=nl).structure, expected
+    )
+    with mdapy.num_threads(3):
+        np.testing.assert_array_equal(
+            IdentifyDiamond().compute(system).structure, expected
+        )
+    assert repr(IdentifyDiamond()) == "IdentifyDiamond()"
+    with pytest.raises(InvalidParameter, match="fewer than 4"):
+        IdentifyDiamond().compute(system, neighbors=nl.within(1.0))

@@ -38,6 +38,8 @@ import mdapy
 
 ::: mdapy.identify.StructureResult
 
+::: mdapy.identify.IdentifyDiamond
+
 ::: mdapy.identify.CentroSymmetryParameter
 
 ::: mdapy.identify.CentroSymmetryResult

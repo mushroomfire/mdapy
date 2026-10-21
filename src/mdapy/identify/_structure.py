@@ -118,6 +118,64 @@ class CommonNeighborAnalysis:
         return f"CommonNeighborAnalysis(cutoff={self.cutoff!r})"
 
 
+class IdentifyDiamond:
+    """Cubic and hexagonal diamond structures, from the arrangement of the
+    second neighbors of each atom."""
+
+    #: Names of the structure types.
+    NAMES = ("other", "cubic_diamond", "hexagonal_diamond")
+    #: Their default colors.
+    COLORS = ((0.95, 0.95, 0.95), (0.075, 0.24, 0.94), (1.0, 0.6, 0.2))
+
+    def compute(
+        self,
+        system: System,
+        *,
+        neighbors: NeighborList | None = None,
+        progress: Any = None,
+        cancel: Any = None,
+    ) -> StructureResult:
+        """The structure type of each atom.
+
+        Parameters
+        ----------
+        system : System
+            The atoms.
+        neighbors : NeighborList, optional
+            Neighbors of this system with at least the 4 nearest of each atom.
+
+        Returns
+        -------
+        StructureResult
+            Types ``other``, ``cubic_diamond`` and ``hexagonal_diamond``.
+
+        Raises
+        ------
+        InvalidParameter
+            If an atom has fewer than 4 neighbors.
+        """
+        if neighbors is None:
+            nl = NeighborList.nearest(system, 4)
+        else:
+            nl = _given_or_built(system, 0.0, neighbors)
+            if len(system) and nl.counts.min() < 4:
+                raise InvalidParameter(
+                    f"an atom has {nl.counts.min()} neighbors in the list, fewer than 4"
+                )
+            nl = nl.sorted()._first(4)
+        n = len(system)
+        structure = _native.identify_diamond(
+            np.ascontiguousarray(nl.j.reshape(n, 4)),
+            np.ascontiguousarray(nl.vectors).reshape(n, 4, 3),
+            progress,
+            _native_token(cancel),
+        )
+        return StructureResult(structure, self.NAMES, self.COLORS)
+
+    def __repr__(self) -> str:
+        return "IdentifyDiamond()"
+
+
 @dataclass(frozen=True)
 class CentroSymmetryResult(Result):
     """The centro-symmetry parameter of each atom.

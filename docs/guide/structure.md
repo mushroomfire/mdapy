@@ -60,6 +60,25 @@ cutoff, and an atom must have exactly 12 or 14 of them; the same cutoff decides
 the bonds between neighbors. A cutoff between the first and second neighbor
 shells is $0.854\,a$ for fcc and $1.207\,a$ for bcc of lattice constant $a$.
 
+## Diamond structures
+
+`IdentifyDiamond()` tells cubic from hexagonal diamond (lonsdaleite), for
+silicon, germanium, carbon and other tetrahedrally bonded crystals, where
+common neighbor analysis of the four nearest neighbors says nothing. The
+twelve second neighbors of an atom, reached through its four nearest
+neighbors, form an fcc shell in cubic diamond and an hcp shell in hexagonal
+diamond, and adaptive common neighbor analysis of those twelve decides. The
+`StructureResult` has the types
+
+| Index | Name | Default color |
+|---|---|---|
+| 0 | `other` | light grey |
+| 1 | `cubic_diamond` | blue |
+| 2 | `hexagonal_diamond` | orange |
+
+Every atom needs four neighbors. The neighbors of diamond atoms that are not
+diamond themselves, which some programs mark separately, are `other` here.
+
 ## Centro-symmetry parameter
 
 `CentroSymmetryParameter(num_neighbors=12)` measures how far the neighbors of
@@ -86,6 +105,9 @@ The tests in `tests/identify/test_structure.py` check that:
 - on crystals with random displacements, where some atoms are no longer
   identified, the adaptive analysis agrees atom by atom with a plain Python
   implementation written from the definitions;
+- perfect cubic and hexagonal diamond are identified completely, also when
+  rotated, fcc and bcc are not diamond, and on disordered diamonds the types
+  agree atom by atom with a plain Python implementation;
 - the centro-symmetry parameter is zero for perfect fcc and bcc, exactly
   $a^2$ for hcp, agrees with a plain Python implementation to 10<sup>−12</sup>
   on disordered crystals and does not change under rotation;
@@ -106,6 +128,9 @@ parameter agrees with `compute centro/atom` to 10<sup>−10</sup>.
 - A. Stukowski, Structure identification methods for atomistic simulations of
   crystalline materials, *Modelling Simul. Mater. Sci. Eng.* **20**, 045021
   (2012). doi:10.1088/0965-0393/20/4/045021
+- E. Maras, O. Trushin, A. Stukowski, T. Ala-Nissila and H. Jónsson, Global
+  transition path search for dislocation formation in Ge on Si(001),
+  *Comput. Phys. Commun.* **205**, 13 (2016). doi:10.1016/j.cpc.2016.04.001
 - C. L. Kelchner, S. J. Plimpton and J. C. Hamilton, Dislocation nucleation
   and defect structure during surface indentation, *Phys. Rev. B* **58**,
   11085 (1998). doi:10.1103/PhysRevB.58.11085

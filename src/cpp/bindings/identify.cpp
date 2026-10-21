@@ -63,6 +63,31 @@ nb::object common_neighbor_analysis(Offsets offsets, Vectors vectors, double cut
     return result;
 }
 
+using Nearest = nb::ndarray<const std::int32_t, nb::shape<-1, 4>, nb::c_contig, nb::device::cpu>;
+using Vectors4 = nb::ndarray<const double, nb::shape<-1, 4, 3>, nb::c_contig, nb::device::cpu>;
+
+// neighbors: (n, 4) indices of the four nearest neighbors; vectors (n, 4, 3).
+nb::object identify_diamond(Nearest neighbors, Vectors4 vectors, nb::handle progress,
+                            const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(neighbors.shape(0));
+    if (vectors.shape(0) != neighbors.shape(0)) {
+        throw std::invalid_argument("the vectors do not fit the neighbors");
+    }
+    for (std::int64_t p = 0; p < 4 * n; ++p) {
+        if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
+            throw std::invalid_argument("a neighbor index is outside the atoms");
+        }
+    }
+    std::int8_t* types;
+    nb::object result = new_array(static_cast<std::size_t>(n), types);
+    run_released(
+        [&](const Control& control) {
+            identify::identify_diamond(n, neighbors.data(), vectors.data(), types, control);
+        },
+        progress, cancel);
+    return result;
+}
+
 }  // namespace
 
 void bind_identify(nb::module_& m) {
@@ -71,6 +96,8 @@ void bind_identify(nb::module_& m) {
     m.def("common_neighbor_analysis", &common_neighbor_analysis, nb::arg("offsets"),
           nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
+    m.def("identify_diamond", &identify_diamond, nb::arg("neighbors"), nb::arg("vectors"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
 }
 
 }  // namespace mdapy::bindings

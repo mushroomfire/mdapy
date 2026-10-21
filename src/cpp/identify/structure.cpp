@@ -207,4 +207,52 @@ void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const
         control);
 }
 
+void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const double* vectors,
+                      std::int8_t* types, const Control& control) {
+    const double scale = 0.5 * (1.0 + std::sqrt(2.0));
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            double second[12 * 3];
+            for (std::int64_t i = begin; i < end; ++i) {
+                int m = 0;
+                for (int a = 0; a < 4; ++a) {
+                    const double* v = vectors + 3 * (4 * i + a);
+                    const std::int64_t j = neighbors[4 * i + a];
+                    // the neighbors of j other than i: drop the bond back to i
+                    int back = 0;
+                    double shortest = 0.0;
+                    for (int b = 0; b < 4; ++b) {
+                        const double* w = vectors + 3 * (4 * j + b);
+                        const double x = v[0] + w[0], y = v[1] + w[1], z = v[2] + w[2];
+                        const double d = x * x + y * y + z * z;
+                        if (b == 0 || d < shortest) {
+                            shortest = d;
+                            back = b;
+                        }
+                    }
+                    for (int b = 0; b < 4; ++b) {
+                        if (b != back) {
+                            const double* w = vectors + 3 * (4 * j + b);
+                            for (int e = 0; e < 3; ++e) {
+                                second[3 * m + e] = v[e] + w[e];
+                            }
+                            ++m;
+                        }
+                    }
+                }
+                double sum = 0.0;
+                for (int a = 0; a < 12; ++a) {
+                    sum += length(second + 3 * a);
+                }
+                const double local = scale * sum / 12.0;
+                const Structure type = twelve(second, local * local);
+                types[i] = type == kFcc   ? kCubicDiamond
+                           : type == kHcp ? kHexagonalDiamond
+                                          : kNotDiamond;
+            }
+        },
+        control);
+}
+
 }  // namespace mdapy::identify

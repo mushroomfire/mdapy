@@ -377,6 +377,17 @@ void structure_identification() {
             }
         }
     }
+    // the first 4 neighbors of every atom, for the diamond identification
+    std::vector<std::int32_t> four;
+    std::vector<double> four_vectors;
+    for (std::int64_t i = 0; i < n; ++i) {
+        for (int k = 0; k < 4; ++k) {
+            four.push_back(pairs.neighbors[pairs.offsets[i] + k]);
+            for (int e = 0; e < 3; ++e) {
+                four_vectors.push_back(vectors[3 * (pairs.offsets[i] + k) + e]);
+            }
+        }
+    }
     std::vector<std::int8_t> first_types;
     std::vector<double> first_csp, first_q;
     std::vector<std::int64_t> first_angles;
@@ -391,6 +402,10 @@ void structure_identification() {
         std::vector<double> q(static_cast<std::size_t>(n) * degrees.size());
         mdapy::analysis::steinhardt(n, pairs.offsets.data(), pairs.neighbors.data(),
                                     vectors.data(), degrees, true, q.data());
+        std::vector<std::int8_t> diamond(static_cast<std::size_t>(n));
+        mdapy::identify::identify_diamond(n, four.data(), four_vectors.data(), diamond.data());
+        check(diamond == std::vector<std::int8_t>(static_cast<std::size_t>(n), 0),
+              "no atom of fcc is diamond");
         std::vector<std::int64_t> angles(90);
         mdapy::analysis::bond_angles(n, pairs.offsets.data(), vectors.data(), 90, angles.data());
         if (threads == kThreads[0]) {

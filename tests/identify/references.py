@@ -90,3 +90,24 @@ def centro_symmetry(system, k):
         )
         values.append(sum(pairs[: k // 2]))
     return np.array(values)
+
+
+def diamond(system):
+    """Diamond type of each atom: the CNA of its twelve second neighbors."""
+    nl = mdapy.NeighborList.nearest(system, 4)
+    v = nl.vectors.reshape(len(system), 4, 3)
+    j = nl.j.reshape(len(system), 4)
+    names = []
+    for i in range(len(system)):
+        second = []
+        for a in range(4):
+            reach = v[i, a] + v[j[i, a]]
+            back = np.argmin(np.linalg.norm(reach, axis=1))
+            second += [reach[b] for b in range(4) if b != back]
+        second = np.array(second)
+        local = (1 + np.sqrt(2)) / 2 * np.linalg.norm(second, axis=1).mean()
+        name = classify(signatures(second, local))
+        names.append(
+            {"fcc": "cubic_diamond", "hcp": "hexagonal_diamond"}.get(name, "other")
+        )
+    return names

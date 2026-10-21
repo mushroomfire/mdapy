@@ -28,4 +28,14 @@ void centro_symmetry(std::int64_t n, int k, const double* vectors, double* csp,
 void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const double* vectors,
                               double cutoff, std::int8_t* types, const Control& control = {});
 
+// Diamond structures: 0 other, 1 cubic, 2 hexagonal.
+enum Diamond : std::int8_t { kNotDiamond = 0, kCubicDiamond = 1, kHexagonalDiamond = 2 };
+
+// Cubic or hexagonal diamond for each of n atoms from its four nearest
+// neighbors (neighbors and vectors, n x 4): the twelve second neighbors,
+// reached through the first ones, must form fcc (cubic) or hcp (hexagonal)
+// under adaptive common neighbor analysis.
+void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const double* vectors,
+                      std::int8_t* types, const Control& control = {});
+
 }  // namespace mdapy::identify

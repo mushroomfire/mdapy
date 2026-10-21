@@ -57,3 +57,12 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - **开始写 NEP 计算器草稿**（新分支 `nep-draft`）。为避免 GPL 代码进 BSD 的 mdapy，所有常数都由我自己从数学定义推导：角向用正交实球谐，三体项 $q_{nl}=\sum_m A_{nlm}^2$，四体项由 Wigner 3j 耦合得到，五体项正好等于 $\tfrac{7}{15}q_{n1}^2$（中间耦合 L=0,1,2 求和）。推导结果和 GPUMD 的常数表逐项一致（相对差 1e-12，来自对方表格只印了 15 位）。
 - 测试计划：独立的 NumPy 参考实现（角向用 Legendre 双重求和，与 C++ 路线不同），对比 GPUMD 的描述符、能量、力、virial 参考数据（测试时从本地 torchnep 目录读取，不复制文件），再加 `check_calculator`。
 
+### 00:58
+- **NEP 计算器草稿完成并已推送到分支 `nep-draft`**（基于 `calculator-draft`，未合并）：`NEP("nep.txt")` 支持 nep4 / nep4_zbl、三种 ZBL（通用、按元素截断、flexible）、每种元素单独截断半径，能算能量、力、virial、每原子 virial，`NEP.descriptors(system)` 直接给描述符。C++ 实现，结果和线程数无关。
+- **精度**：和 NEP_CPU（双精度）对比 14 个势函数（1~4 种元素、各种 ZBL），能量、力、virial、每原子 virial 都相差约 1e-13（相对最大值），最大的力 2.4e5 eV/Å 也一样。和 GPUMD（单精度、只打印 6 位）对比，能量差 1e-5 eV/原子。NumPy 参考实现和 C++ 描述符差 1e-15。
+  - 中途发现：GPUMD 的 ZBL 屏蔽长度常数用的是四舍五入的 2.134563（不是 1/0.46848），不照搬的话大 ZBL 能量会差 1e-7 相对误差，已注明。
+- **性能**：5.5 万原子、CrCoNi 模型（描述符 63 维、80 个神经元），单线程 35 µs/原子，10 线程 8 µs/原子。还有优化空间，先保证正确。
+- 测试：CI 里用随机参数的合成势函数（48 个测试，覆盖率 100%）；对比 GPUMD/NEP_CPU 的 22 个测试只在本机有 torchnep 数据时运行。已手动触发 `nep-draft` 分支的 CI，三个草稿分支一起在 Linux/Windows/macOS 上验证。
+- **需要你明天决定**：每原子 virial 的分配方式。我让 NEP 跟 GPUMD/NEP_CPU 一致（i 的能量对 r_ij 的导数记到 j 上），这样每原子应力能和 GPUMD 对上；EAM 则是每对一人一半（和 LAMMPS 一致）。两种总 virial 一样，只是每原子不同。
+- 顺手修了文档 `units.md` 里应力定义的符号错误（写成了 −1/V·∂E/∂ε，和"拉伸为正"矛盾），在 v2 上。
+

@@ -30,6 +30,14 @@ import mdapy
 
 ::: mdapy.NeighborList
 
+::: mdapy.calculators.Calculator
+
+::: mdapy.calculators.CalculatorResult
+
+::: mdapy.calculators.EAM
+
+::: mdapy.calculators.testing.check_calculator
+
 ::: mdapy.core.box.LammpsBox
 
 ## Threads

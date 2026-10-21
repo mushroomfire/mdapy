@@ -93,6 +93,7 @@ nav:
       - Reading and writing files: guide/io.md
       - Trajectories: guide/trajectory.md
       - Neighbor lists: guide/neighbor.md
+      - Calculators: guide/calculators.md
       - Parallelism: guide/parallelism.md
   - File formats:
       - Extended XYZ: formats/extxyz.md

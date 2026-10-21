@@ -20,16 +20,21 @@
 | `src/mdapy/io/_native.py` | The mdapy file format. |
 | `src/mdapy/io/_trajectory.py` | `Trajectory` and `read_trajectory`. |
 | `src/mdapy/neighbor/_neighbor_list.py` | `NeighborList`. |
+| `src/mdapy/calculators/_base.py` | `Calculator` and `CalculatorResult`. |
+| `src/mdapy/calculators/testing.py` | `check_calculator`. |
+| `src/mdapy/calculators/_eam.py` | `EAM`. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
 | `src/cpp/io/text.h`, `text.cpp` | Parsing and formatting of text tables, in parallel over lines; numbers are correctly rounded and independent of the locale. |
 | `src/cpp/neighbor/cell_list.h`, `cell_list.cpp` | The neighbor search with cells. |
+| `src/cpp/calculators/eam.h`, `eam.cpp` | The embedded atom method. |
 | `src/cpp/io/powers_of_five.h` | Generated table used by the number parser. |
 | `src/cpp/bindings/module.cpp` | The extension module `mdapy._core` and its submodules. |
 | `src/cpp/bindings/control.h` | `run_released`: runs a kernel without the GIL, with progress and cancellation. |
 | `src/cpp/bindings/core.cpp` | Bindings for thread control. |
 | `src/cpp/bindings/io.cpp` | Bindings for the text table kernels. |
 | `src/cpp/bindings/neighbor.cpp` | Bindings for the neighbor search. |
+| `src/cpp/bindings/calculators.cpp` | Bindings for the compiled calculators. |
 | `src/cpp/bindings/testing.cpp` | Kernels used only by the test suite. |
 | `tests/` | Test suite; mirrors the package layout. |
 | `tests/cpp/thread_checks.cpp` | Checks of the thread pool and the parallel kernels, run under ThreadSanitizer. |

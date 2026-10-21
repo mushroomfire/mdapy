@@ -60,6 +60,15 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   are the same for any number of threads. See
   [Neighbor lists](guide/neighbor.md).
 
+### Calculators
+
+- `mdapy.calculators.Calculator`, the interface of every calculator, and
+  `CalculatorResult` with energies, forces, virials and stress.
+  `mdapy.calculators.testing.check_calculator` tests any implementation. See
+  [Calculators](guide/calculators.md).
+- `mdapy.calculators.EAM` for potentials in the LAMMPS eam/alloy format,
+  agreeing with LAMMPS.
+
 ### Foundations
 
 - Python 3.10 or newer; NumPy 2 and polars 2 are the only required

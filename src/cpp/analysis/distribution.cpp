@@ -24,7 +24,8 @@ std::vector<std::int64_t> pair_histogram(const double* positions, std::int64_t n
         n, 0, Histogram(size, 0),
         [&](std::int64_t begin, std::int64_t end) {
             Histogram local(size, 0);
-            for (std::int64_t i = begin; i < end; ++i) {
+            for (std::int64_t t = begin; t < end; ++t) {
+                const std::int64_t i = grid.atom(t);  // in cell order: integer counts add up the same
                 const std::size_t row = static_cast<std::size_t>(type[i]) * types;
                 grid.visit(i, [&](std::int32_t j, const std::int32_t*, double r2) {
                     const int bin =

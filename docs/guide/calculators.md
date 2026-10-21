@@ -91,7 +91,31 @@ and each pair's virial is shared equally by its two atoms. The atoms need an
 `element` column; elements the file does not have raise
 [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter).
 
+## Energy minimization
+
+`mdapy.minimize(system, calculator, *, max_force=1e-3, max_steps=1000,
+max_step=0.2, callback=None)` minimizes the energy over the positions in a
+fixed box with FIRE, the fast inertial relaxation engine. It returns a
+`MinimizeResult` with the last `system` (with `forces` and atomic energies as
+columns and `energy` in `info`), whether it `converged` (every force below
+`max_force`, in eV/Å), the number of `steps`, the `energy` and the largest
+force. No atom moves more than `max_step` Å in one step. `callback(step,
+system, energy, max_force)` is called after each step and stops the
+minimization by returning True.
+
+FIRE follows Bitzek et al. with the parameters ASE uses: a starting time step
+of 0.1, a largest time step of 1.0, five steps before the time step grows by
+10 %, halving it after an uphill step, and a mixing parameter starting at 0.1
+and shrinking by 1 % per step. Unlike ASE, the step limit applies to each
+atom rather than to the displacement of all atoms together.
+
 ## Validation
+
+The tests in `tests/calculators/test_minimize.py` check that a harmonic dimer
+reaches its bond length to 10<sup>−8</sup> Å; that a rattled fcc crystal
+relaxes back to the perfect lattice, its energy and its twelve equal
+neighbor distances; that results are the same for any number of threads;
+and the step limit, the callback and the errors.
 
 The tests in `tests/calculators/test_eam.py`, on a synthetic two-element
 potential written by the tests, check that:
@@ -117,3 +141,6 @@ pressure converted by LAMMPS's own constant for metal units).
   application to impurities, surfaces, and other defects in metals,
   *Phys. Rev. B* **29**, 6443 (1984). doi:10.1103/PhysRevB.29.6443
 - LAMMPS `pair_style eam`: <https://docs.lammps.org/pair_eam.html>
+- E. Bitzek, P. Koskinen, F. Gähler, M. Moseler and P. Gumbsch, Structural
+  relaxation made simple, *Phys. Rev. Lett.* **97**, 170201 (2006).
+  doi:10.1103/PhysRevLett.97.170201

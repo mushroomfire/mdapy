@@ -23,6 +23,7 @@
 | `src/mdapy/calculators/_base.py` | `Calculator` and `CalculatorResult`. |
 | `src/mdapy/calculators/testing.py` | `check_calculator`. |
 | `src/mdapy/calculators/_eam.py` | `EAM`. |
+| `src/mdapy/calculators/_minimize.py` | `minimize`, with FIRE. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
 | `src/cpp/io/text.h`, `text.cpp` | Parsing and formatting of text tables, in parallel over lines; numbers are correctly rounded and independent of the locale. |

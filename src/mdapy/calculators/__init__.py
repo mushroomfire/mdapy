@@ -5,5 +5,13 @@
 
 from mdapy.calculators._base import PROPERTIES, Calculator, CalculatorResult
 from mdapy.calculators._eam import EAM
+from mdapy.calculators._minimize import MinimizeResult, minimize
 
-__all__ = ["Calculator", "CalculatorResult", "EAM", "PROPERTIES"]
+__all__ = [
+    "Calculator",
+    "CalculatorResult",
+    "EAM",
+    "PROPERTIES",
+    "MinimizeResult",
+    "minimize",
+]

@@ -38,6 +38,10 @@ import mdapy
 
 ::: mdapy.calculators.testing.check_calculator
 
+::: mdapy.minimize
+
+::: mdapy.calculators.MinimizeResult
+
 ::: mdapy.core.box.LammpsBox
 
 ## Threads

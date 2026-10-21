@@ -68,6 +68,7 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [Calculators](guide/calculators.md).
 - `mdapy.calculators.EAM` for potentials in the LAMMPS eam/alloy format,
   agreeing with LAMMPS.
+- `mdapy.minimize`: FIRE minimization of the positions in a fixed box.
 
 ### Foundations
 

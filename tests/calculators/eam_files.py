@@ -184,13 +184,14 @@ def reference(system, elements=("Cu", "Ni")):
     return energies, forces, virials
 
 
-def alloy(seed=0, repeat=2, pbc=True, jitter=0.15):
-    """A perturbed fcc alloy."""
+def alloy(seed=0, repeat=2, pbc=True, jitter=0.15, a=3.6):
+    """A perturbed fcc alloy with lattice constant a (the potential's fcc Cu
+    has its minimum near 3.3 Å)."""
     rng = np.random.default_rng(seed)
     basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
     cells = np.array(list(itertools.product(range(repeat), repeat=3)))
     fractional = (cells[:, None, :] + basis[None]).reshape(-1, 3) / repeat
-    box = mdapy.Box(3.6 * repeat, pbc=pbc)
+    box = mdapy.Box(a * repeat, pbc=pbc)
     positions = box.to_cartesian(fractional) + rng.normal(
         scale=jitter, size=(len(fractional), 3)
     )

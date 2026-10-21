@@ -78,6 +78,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [Bond-orientational order](guide/steinhardt.md).
 - `mdapy.analysis.EntropyFingerprint`: the pair entropy fingerprint of local
   order. See [Entropy fingerprint](guide/entropy.md).
+- `mdapy.analysis.AtomicTemperature`: the temperature of each atom and its
+  neighbors. See [Atomic temperature](guide/temperature.md).
 - `mdapy.analysis.ClusterAnalysis`, `BondAngleDistribution` and
   `WarrenCowley` for clusters of bonded atoms, bond angles and chemical
   short-range order. See

@@ -19,8 +19,10 @@ from mdapy.analysis._distribution import (
 )
 from mdapy.analysis._entropy import EntropyFingerprint, EntropyResult
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
+from mdapy.analysis._temperature import AtomicTemperature, TemperatureResult
 
 __all__ = [
+    "AtomicTemperature",
     "BondAngleDistribution",
     "BondAngleResult",
     "ClusterAnalysis",
@@ -33,6 +35,7 @@ __all__ = [
     "RadialDistributionResult",
     "SteinhardtParameters",
     "SteinhardtResult",
+    "TemperatureResult",
     "WarrenCowley",
     "WarrenCowleyResult",
 ]

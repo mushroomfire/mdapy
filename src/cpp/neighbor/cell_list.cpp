@@ -217,4 +217,96 @@ void order_by_distance(std::int64_t n, const std::int64_t* offsets, const double
         control);
 }
 
+NeighborPairs nearest(const double* positions, std::int64_t n, const double* matrix,
+                      const double* origin, const bool* pbc, int k, const Control& control) {
+    if (k < 1) {
+        throw std::invalid_argument("the number of neighbors must be at least 1");
+    }
+    NeighborPairs result;
+    result.offsets.resize(static_cast<std::size_t>(n) + 1);
+    for (std::int64_t i = 0; i <= n; ++i) {
+        result.offsets[i] = i * k;
+    }
+    result.neighbors.assign(static_cast<std::size_t>(n) * k, 0);
+    result.shifts.assign(static_cast<std::size_t>(n) * k * 3, 0);
+    result.distances.assign(static_cast<std::size_t>(n) * k, 0.0);
+    if (n == 0) {
+        return result;
+    }
+    // a sphere holding k atoms at the mean density, then larger for the atoms
+    // that have fewer neighbors in it
+    const double* h = matrix;
+    const double volume = std::abs(h[0] * (h[4] * h[8] - h[5] * h[7]) -
+                                   h[1] * (h[3] * h[8] - h[5] * h[6]) +
+                                   h[2] * (h[3] * h[7] - h[4] * h[6]));
+    double cutoff = 1.2 * std::cbrt(3.0 * k * volume / (4.0 * 3.14159265358979323846 * n));
+    std::vector<std::int64_t> todo(static_cast<std::size_t>(n));
+    std::iota(todo.begin(), todo.end(), 0);
+    while (!todo.empty()) {
+        const CellGrid grid(positions, n, matrix, origin, pbc, cutoff);
+        std::vector<std::uint8_t> short_of(todo.size(), 0);
+        parallel_for(
+            static_cast<std::int64_t>(todo.size()), 0,
+            [&](std::int64_t begin, std::int64_t end) {
+                std::vector<Pair> found;
+                for (std::int64_t t = begin; t < end; ++t) {
+                    const std::int64_t i = todo[static_cast<std::size_t>(t)];
+                    found.clear();
+                    grid.visit(i, [&](std::int32_t j, const std::int32_t* shift, double r2) {
+                        found.push_back({j, {shift[0], shift[1], shift[2]}, r2});
+                    });
+                    if (found.size() < static_cast<std::size_t>(k)) {
+                        short_of[static_cast<std::size_t>(t)] = 1;
+                        continue;
+                    }
+                    std::partial_sort(found.begin(), found.begin() + k, found.end(),
+                                      [](const Pair& p, const Pair& q) {
+                                          return std::tie(p.distance, p.j, p.shift) <
+                                                 std::tie(q.distance, q.j, q.shift);
+                                      });
+                    for (int a = 0; a < k; ++a) {
+                        const std::size_t at = static_cast<std::size_t>(i) * k + a;
+                        result.neighbors[at] = found[a].j;
+                        for (int e = 0; e < 3; ++e) {
+                            result.shifts[3 * at + e] = found[a].shift[e];
+                        }
+                        result.distances[at] = std::sqrt(found[a].distance);
+                    }
+                }
+            },
+            control);
+        std::vector<std::int64_t> left;
+        for (std::size_t t = 0; t < todo.size(); ++t) {
+            if (short_of[t]) {
+                left.push_back(todo[t]);
+            }
+        }
+        todo.swap(left);
+        cutoff *= 1.5;
+    }
+    return result;
+}
+
+void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* offsets,
+                  const std::int32_t* neighbors, const std::int32_t* shifts, const double* matrix,
+                  double* vectors, const Control& control) {
+    const double* h = matrix;
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                const double* xi = positions + 3 * i;
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    const double* xj = positions + 3 * static_cast<std::int64_t>(neighbors[p]);
+                    const std::int32_t* s = shifts + 3 * p;
+                    for (int e = 0; e < 3; ++e) {
+                        vectors[3 * p + e] =
+                            xj[e] - xi[e] + s[0] * h[e] + s[1] * h[3 + e] + s[2] * h[6 + e];
+                    }
+                }
+            }
+        },
+        control);
+}
+
 }  // namespace mdapy::neighbor

@@ -28,6 +28,8 @@ import mdapy
 
 ::: mdapy.Box
 
+::: mdapy.NeighborList
+
 ::: mdapy.core.box.LammpsBox
 
 ## Threads

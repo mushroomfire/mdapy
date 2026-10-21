@@ -52,6 +52,14 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   found and read when used, slices share the open file, and iteration starts
   at once. See [Trajectories](guide/trajectory.md).
 
+### Neighbor search
+
+- `mdapy.NeighborList`: every pair within a cutoff in any box, with periodic
+  images enumerated so that small boxes work, in CSR form with integer image
+  shifts; `within`, `sorted` and `nearest` for k nearest neighbors. Results
+  are the same for any number of threads. See
+  [Neighbor lists](guide/neighbor.md).
+
 ### Foundations
 
 - Python 3.10 or newer; NumPy 2 and polars 2 are the only required

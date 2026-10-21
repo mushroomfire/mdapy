@@ -16,6 +16,7 @@ from mdapy.core.threads import (
 )
 from mdapy.core.topology import Topology
 from mdapy.io import Trajectory, detect_format, formats, read, read_trajectory, write
+from mdapy.neighbor import NeighborList
 
 __all__ = [
     "Box",
@@ -33,6 +34,7 @@ __all__ = [
     "write",
     "read_trajectory",
     "Trajectory",
+    "NeighborList",
     "formats",
     "detect_format",
 ]

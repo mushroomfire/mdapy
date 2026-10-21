@@ -33,7 +33,7 @@ minimization with interatomic potentials.
 | Systems, topology and box (`System`, `Topology`, `Box`) | available |
 | Reading and writing files: extended XYZ, LAMMPS data and dump, VASP POSCAR, mdapy files | available |
 | Trajectories | available |
-| Neighbor lists | next |
+| Neighbor lists | draft (branch `neighbor-draft`) |
 | Calculators (NEP, EAM), energy minimization | planned |
 | Structure identification and analysis | planned |
 

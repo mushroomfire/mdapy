@@ -23,6 +23,7 @@
 
 #include "core/parallel.h"
 #include "io/text.h"
+#include "neighbor/cell_list.h"
 
 namespace {
 
@@ -295,6 +296,36 @@ void text_tables() {
     }
 }
 
+void neighbor_search() {
+    const std::int64_t n = 3000;
+    std::mt19937_64 random(3);
+    std::uniform_real_distribution<double> uniform(0.0, 1.0);
+    const double matrix[9] = {20.0, 0.0, 0.0, 3.0, 18.0, 0.0, -2.0, 1.5, 22.0};
+    const double origin[3] = {1.0, -2.0, 0.5};
+    const bool pbc[3] = {true, true, false};
+    std::vector<double> positions(n * 3);
+    for (std::int64_t i = 0; i < n; ++i) {
+        const double f[3] = {uniform(random), uniform(random), uniform(random)};
+        for (int e = 0; e < 3; ++e) {
+            positions[3 * i + e] =
+                origin[e] + f[0] * matrix[e] + f[1] * matrix[3 + e] + f[2] * matrix[6 + e];
+        }
+    }
+    mdapy::neighbor::NeighborPairs first;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        mdapy::neighbor::NeighborPairs pairs = mdapy::neighbor::build(
+            positions.data(), n, matrix, origin, pbc, 3.5);
+        if (threads == kThreads[0]) {
+            first = pairs;
+        }
+        check(pairs.offsets == first.offsets && pairs.neighbors == first.neighbors &&
+                  pairs.shifts == first.shifts && pairs.distances == first.distances,
+              "the neighbor search gives the same pairs for any thread count");
+        check(pairs.offsets.back() > 0, "the neighbor search finds pairs");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -302,6 +333,7 @@ int main() {
     progress_cancellation_and_errors();
     nested_and_concurrent_regions();
     text_tables();
+    neighbor_search();
     if (failures == 0) {
         std::printf("all checks passed\n");
     }

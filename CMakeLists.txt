@@ -36,7 +36,9 @@ if(MSVC)
     target_compile_options(_core PRIVATE /WX)
   endif()
 else()
-  target_compile_options(_core PRIVATE -Wall -Wextra -Wpedantic -Wshadow)
+  # No fused multiply-add contraction: results are the same bits with every
+  # compiler and processor.
+  target_compile_options(_core PRIVATE -Wall -Wextra -Wpedantic -Wshadow -ffp-contract=off)
   if(MDAPY_WERROR)
     target_compile_options(_core PRIVATE -Werror)
   endif()

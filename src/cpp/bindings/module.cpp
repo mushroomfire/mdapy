@@ -29,6 +29,9 @@ NB_MODULE(_core, m) {
     nb::module_ io = m.def_submodule("io", "Text table parsing and formatting.");
     mdapy::bindings::bind_io(io);
 
+    nb::module_ neighbor = m.def_submodule("neighbor", "Neighbor search.");
+    mdapy::bindings::bind_neighbor(neighbor);
+
     nb::module_ testing = m.def_submodule("testing", "Kernels used only by the test suite.");
     mdapy::bindings::bind_testing(testing);
 }

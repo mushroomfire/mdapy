@@ -52,12 +52,12 @@ BSD 3-Clause. See [LICENSE](LICENSE).
   - 所有 C++ 编译时关闭了 FMA 合并，同样的输入在不同编译器和 CPU 上结果逐位相同（邻居列表分支里改的）。
 - 接下来做 FIRE 最小化（含晶胞弛豫），同样放在草稿分支。
 
-### 23:58
+### 23:43
 - **`mdapy.minimize` 草稿已推送到 `calculator-draft`**：FIRE（参数同 ASE），每个原子单步位移有上限，可传回调中途停止，结果和线程数无关。测试：谐振子二聚体收敛到键长（1e-8 Å），扰动过的 fcc 弛豫回完美晶格。**目前只弛豫原子位置，不动晶胞**：晶胞弛豫的收敛判据（应力阈值、是否保持形状）要和你商量，所以先没做。
 - **开始写 NEP 计算器草稿**（新分支 `nep-draft`）。为避免 GPL 代码进 BSD 的 mdapy，所有常数都由我自己从数学定义推导：角向用正交实球谐，三体项 $q_{nl}=\sum_m A_{nlm}^2$，四体项由 Wigner 3j 耦合得到，五体项正好等于 $\tfrac{7}{15}q_{n1}^2$（中间耦合 L=0,1,2 求和）。推导结果和 GPUMD 的常数表逐项一致（相对差 1e-12，来自对方表格只印了 15 位）。
 - 测试计划：独立的 NumPy 参考实现（角向用 Legendre 双重求和，与 C++ 路线不同），对比 GPUMD 的描述符、能量、力、virial 参考数据（测试时从本地 torchnep 目录读取，不复制文件），再加 `check_calculator`。
 
-### 00:58
+### 23:56
 - **NEP 计算器草稿完成并已推送到分支 `nep-draft`**（基于 `calculator-draft`，未合并）：`NEP("nep.txt")` 支持 nep4 / nep4_zbl、三种 ZBL（通用、按元素截断、flexible）、每种元素单独截断半径，能算能量、力、virial、每原子 virial，`NEP.descriptors(system)` 直接给描述符。C++ 实现，结果和线程数无关。
 - **精度**：和 NEP_CPU（双精度）对比 14 个势函数（1~4 种元素、各种 ZBL），能量、力、virial、每原子 virial 都相差约 1e-13（相对最大值），最大的力 2.4e5 eV/Å 也一样。和 GPUMD（单精度、只打印 6 位）对比，能量差 1e-5 eV/原子。NumPy 参考实现和 C++ 描述符差 1e-15。
   - 中途发现：GPUMD 的 ZBL 屏蔽长度常数用的是四舍五入的 2.134563（不是 1/0.46848），不照搬的话大 ZBL 能量会差 1e-7 相对误差，已注明。
@@ -66,3 +66,14 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - **需要你明天决定**：每原子 virial 的分配方式。我让 NEP 跟 GPUMD/NEP_CPU 一致（i 的能量对 r_ij 的导数记到 j 上），这样每原子应力能和 GPUMD 对上；EAM 则是每对一人一半（和 LAMMPS 一致）。两种总 virial 一样，只是每原子不同。
 - 顺手修了文档 `units.md` 里应力定义的符号错误（写成了 −1/V·∂E/∂ε，和"拉伸为正"矛盾），在 v2 上。
 
+### 00:15
+- （更正：上两条的时间标错了，实际是 23:43 和 23:56，已改。）
+- **新分支 `analysis-draft`**（基于 `neighbor-draft`，未合并），把第 3 阶段分析的框架先搭出来给你看：
+  - `mdapy.core.Result`：所有分析结果的基类，不可变、数组只读；`system.with_columns(result)` 直接把逐原子结果加成列。分析类的用法按术语表定的：构造时给参数并检查，`compute(system, *, neighbors=None)` 返回结果。
+  - `mdapy.identify.CommonNeighborAnalysis`（自适应 a-CNA，或固定截断）：fcc/hcp/bcc/ico/other，C++ 实现。和我按定义写的纯 Python 参考实现逐原子一致（有扰动、部分原子识别失败的晶体上也一致）；空位周围正好 12 个原子变成 other；单原子的 fcc 原胞也能识别。
+  - `mdapy.identify.CentroSymmetryParameter`：C++ 实现，和 LAMMPS 的定义一致；完美 fcc/bcc 为 0，理想 hcp 正好是 a²，与参考实现差 1e-15。
+  - `mdapy.analysis.RadialDistributionFunction`（含偏 RDF、累积配位数）和 `CoordinationNumber`（可按元素对给截断）。
+  - 每项都有测试（覆盖率 100%）、文档页。
+- **新分支 `cell-draft`**（基于 `nep-draft`）：`minimize` 支持晶胞弛豫，`cell=None/"isotropic"/"axes"/"full"`，可加外压 `pressure`（GPa），收敛判据 `max_stress`（GPa，默认 0.01）。非周期方向不动。测试：拉伸、四方、剪切的 fcc 盒子都弛豫回立方，且用能量有限差分验证是 E(a) 的极小点；5 GPa 下应力为 −5 GPa，且等于能量对体积的有限差分。
+- **NEP 性能对比**：同一个 CrCoNi 模型，NEP_CPU 单线程 28~31 µs/原子（含邻居搜索），mdapy 35 µs/原子（不含）。差距主要是为了"结果和线程数无关"，力用 gather 方式，每对原子的导数算了两遍。如果邻居列表能提供"反向对"的索引，可以只算一遍，估计能快到 20 µs 左右——这涉及邻居列表的 API，明天和你商量。
+- 三个草稿分支早先的 CI 失败只有 Python 3.10 一项，原因是它们从 v2 分出来时还没有那个 3.10 修复；已把 v2 合并进草稿分支，CI 重新在跑。NEP 和 EAM 内核已加进 TSan 检查，本机 clang TSan 和 GCC 都通过。

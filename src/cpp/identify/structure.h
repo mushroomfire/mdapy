@@ -38,4 +38,21 @@ enum Diamond : std::int8_t { kNotDiamond = 0, kCubicDiamond = 1, kHexagonalDiamo
 void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const double* vectors,
                       std::int8_t* types, const Control& control = {});
 
+// CHILL+ types of water molecules: 0 other, 1 hexagonal ice, 2 cubic ice,
+// 3 interfacial ice, 4 hydrate, 5 interfacial hydrate.
+enum Water : std::int8_t {
+    kLiquid = 0,
+    kHexagonalIce = 1,
+    kCubicIce = 2,
+    kInterfacialIce = 3,
+    kHydrate = 4,
+    kInterfacialHydrate = 5
+};
+
+// CHILL+ type of each of n molecules from the vectors to its neighbors in
+// CSR form (neighbors gives the molecule of each pair): bonds are staggered or
+// eclipsed by the correlation of the q_3m of their two molecules.
+void chill_plus(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+                const double* vectors, std::int8_t* types, const Control& control = {});
+
 }  // namespace mdapy::identify

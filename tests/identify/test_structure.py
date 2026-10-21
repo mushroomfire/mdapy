@@ -9,11 +9,12 @@ import mdapy
 from mdapy.errors import InvalidParameter
 from mdapy.identify import (
     CentroSymmetryParameter,
+    ChillPlus,
     CommonNeighborAnalysis,
     IdentifyDiamond,
 )
 
-from .references import adaptive_cna, centro_symmetry, diamond
+from .references import adaptive_cna, centro_symmetry, chill_plus, diamond
 
 CRYSTALS = [("fcc", 3.6), ("hcp", 2.5), ("bcc", 2.87)]
 # a cutoff between the shells that conventional CNA uses for each crystal
@@ -211,3 +212,40 @@ def test_diamond_options():
     assert repr(IdentifyDiamond()) == "IdentifyDiamond()"
     with pytest.raises(InvalidParameter, match="fewer than 4"):
         IdentifyDiamond().compute(system, neighbors=nl.within(1.0))
+
+
+@pytest.mark.parametrize(
+    "kind, a, name",
+    [("diamond", 6.36, "cubic_ice"), ("lonsdaleite", 4.5, "hexagonal_ice")],
+)
+def test_chill_plus_ice(kind, a, name):
+    ice = crystal(kind, a, (3, 3, 3), element="O")
+    assert ChillPlus().compute(ice).counts()[name] == len(ice)
+    hot = crystal(kind, a, (3, 3, 3), element="O", jitter=0.25, seed=1)
+    result = ChillPlus().compute(hot)
+    assert [result.names[t] for t in result.structure] == chill_plus(hot, 3.5)
+    assert 0 < result.counts()["other"] + result.counts()["interfacial_ice"] < len(hot)
+
+
+def test_chill_plus_liquid_and_options():
+    rng = np.random.default_rng(0)
+    liquid = mdapy.System(rng.random((1000, 3)) * 31, mdapy.Box(31.0), elements="O")
+    result = ChillPlus().compute(liquid)
+    assert [result.names[t] for t in result.structure] == chill_plus(liquid, 3.5)
+    counts = result.counts()
+    assert (
+        counts["other"] > 900
+        and counts["hydrate"] > 0
+        and counts["interfacial_hydrate"] > 0
+    )
+    nl = mdapy.NeighborList.build(liquid, 4.0)
+    np.testing.assert_array_equal(
+        ChillPlus().compute(liquid, neighbors=nl).structure, result.structure
+    )
+    with mdapy.num_threads(3):
+        np.testing.assert_array_equal(
+            ChillPlus().compute(liquid).structure, result.structure
+        )
+    assert repr(ChillPlus(3.2)) == "ChillPlus(cutoff=3.2)"
+    with pytest.raises(InvalidParameter, match="cutoff must be positive"):
+        ChillPlus(0.0)

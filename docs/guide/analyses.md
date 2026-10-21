@@ -50,6 +50,7 @@ is raised.
 | `mdapy.identify.CommonNeighborAnalysis` | [Structure identification](structure.md) |
 | `mdapy.identify.CentroSymmetryParameter` | [Structure identification](structure.md) |
 | `mdapy.identify.IdentifyDiamond` | [Structure identification](structure.md) |
+| `mdapy.identify.ChillPlus` | [Structure identification](structure.md) |
 | `mdapy.analysis.RadialDistributionFunction` | [Radial distribution and coordination](distribution.md) |
 | `mdapy.analysis.CoordinationNumber` | [Radial distribution and coordination](distribution.md) |
 | `mdapy.analysis.StructureFactor` | [Radial distribution and coordination](distribution.md) |

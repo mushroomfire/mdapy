@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "analysis/steinhardt.h"
+
 namespace mdapy::identify {
 namespace {
 
@@ -250,6 +252,70 @@ void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const doubl
                 types[i] = type == kFcc   ? kCubicDiamond
                            : type == kHcp ? kHexagonalDiamond
                                           : kNotDiamond;
+            }
+        },
+        control);
+}
+
+void chill_plus(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+                const double* vectors, std::int8_t* types, const Control& control) {
+    // the sums of the real l = 3 harmonics over each molecule's bonds
+    std::vector<double> q(static_cast<std::size_t>(n) * 7, 0.0);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            double y[7];
+            for (std::int64_t i = begin; i < end; ++i) {
+                double* qi = &q[static_cast<std::size_t>(i) * 7];
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    const double* v = vectors + 3 * p;
+                    const double r = length(v);
+                    const double u[3] = {v[0] / r, v[1] / r, v[2] / r};
+                    analysis::real_harmonics(3, u, y);
+                    for (int m = 0; m < 7; ++m) {
+                        qi[m] += y[m];
+                    }
+                }
+            }
+        },
+        control);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                const double* qi = &q[static_cast<std::size_t>(i) * 7];
+                double own = 0.0;
+                for (int m = 0; m < 7; ++m) {
+                    own += qi[m] * qi[m];
+                }
+                int eclipsed = 0, staggered = 0;
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    const double* qj = &q[static_cast<std::size_t>(neighbors[p]) * 7];
+                    double product = 0.0, other = 0.0;
+                    for (int m = 0; m < 7; ++m) {
+                        product += qi[m] * qj[m];
+                        other += qj[m] * qj[m];
+                    }
+                    const double scale = std::sqrt(own) * std::sqrt(other);
+                    const double c = scale > 0.0 ? product / scale : 0.0;
+                    eclipsed += c > -0.35 && c < 0.25;
+                    staggered += c < -0.8;
+                }
+                Water type = kLiquid;
+                if (offsets[i + 1] - offsets[i] == 4) {
+                    if (eclipsed == 4) {
+                        type = kHydrate;
+                    } else if (eclipsed == 3) {
+                        type = kInterfacialHydrate;
+                    } else if (staggered == 4) {
+                        type = kCubicIce;
+                    } else if (staggered == 3 && eclipsed == 1) {
+                        type = kHexagonalIce;
+                    } else if (staggered == 3 || staggered == 2) {
+                        type = kInterfacialIce;
+                    }
+                }
+                types[i] = type;
             }
         },
         control);

@@ -166,31 +166,54 @@ class BondAngleResult(Result):
         (bins,) int64 number of angles in each bin.
     density : numpy.ndarray
         (bins,) the counts normalized to unit area, per degree.
+    partial : dict
+        (bins,) int64 counts of the angles b-a-c for each triplet of elements
+        ``(a, b, c)``: the atom ``a`` at the vertex, its neighbors ``b`` and
+        ``c``, ``b`` not after ``c`` by atomic number; empty without an
+        element column.
     """
 
     angle: np.ndarray
     edges: np.ndarray
     counts: np.ndarray
     density: np.ndarray
+    partial: dict[tuple[str, str, str], np.ndarray]
+
+    def triplet(self, vertex: str, b: str, c: str) -> np.ndarray:
+        """The counts of the angles b-vertex-c, b and c in either order."""
+        if (vertex, b, c) in self.partial:
+            return self.partial[vertex, b, c]
+        if (vertex, c, b) in self.partial:
+            return self.partial[vertex, c, b]
+        raise InvalidParameter(f"no partial distribution for {(vertex, b, c)}")
 
 
 class BondAngleDistribution:
-    """The distribution of the angles between the bonds of each atom.
+    """The distribution of the angles between the bonds of each atom, in
+    total and for each triplet of elements.
 
     Parameters
     ----------
-    cutoff : float
-        Bond length in Å.
+    cutoff : float, optional
+        Bond length in Å for every pair.
     bins : int, optional
         Number of bins from 0 to 180 degrees. Default 180.
+    cutoffs : dict, optional
+        Bond length in Å for each pair of elements ``(a, b)``, in either
+        order; pairs not given are never bonded. Give ``cutoff`` or
+        ``cutoffs``.
     """
 
-    def __init__(self, cutoff: float, bins: int = 180):
-        if not cutoff > 0:
-            raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
+    def __init__(
+        self,
+        cutoff: float | None = None,
+        bins: int = 180,
+        *,
+        cutoffs: Mapping[tuple[str, str], float] | None = None,
+    ):
         if bins < 1:
             raise InvalidParameter(f"bins must be at least 1, not {bins!r}")
-        self.cutoff = float(cutoff)
+        self._bonds = _Bonds(cutoff, cutoffs)
         self.bins = int(bins)
 
     def compute(
@@ -206,32 +229,47 @@ class BondAngleDistribution:
         Parameters
         ----------
         system : System
-            The atoms.
+            The atoms; per-element cutoffs need an ``element`` column.
         neighbors : NeighborList, optional
-            A neighbor list of this system with at least the cutoff.
+            A neighbor list of this system with at least the largest cutoff.
 
         Returns
         -------
         BondAngleResult
             Counts of the angles between every two bonds of an atom.
         """
-        bonds = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
+        bonds, found = self._bonds.select(system, neighbors)
+        names, index = found if found is not None else ((), np.zeros(len(system), int))
+        types = max(len(names), 1)
         counts = _native.bond_angles(
             bonds.offsets,
+            bonds.j,
             np.ascontiguousarray(bonds.vectors),
+            index.astype(np.int32),
+            types,
             self.bins,
             progress,
             _native_token(cancel),
         )
+        pairs = [(b, c) for b in range(types) for c in range(b, types)]
+        partial = {
+            (names[a], names[b], names[c]): counts[a, p]
+            for a in range(len(names))
+            for p, (b, c) in enumerate(pairs)
+        }
+        total = counts.sum(axis=(0, 1))
         edges = np.linspace(0.0, 180.0, self.bins + 1)
-        total = counts.sum()
         density = (
-            counts / (total * (180.0 / self.bins)) if total else np.zeros(self.bins)
+            total / (total.sum() * (180.0 / self.bins))
+            if total.sum()
+            else np.zeros(self.bins)
         )
-        return BondAngleResult(0.5 * (edges[1:] + edges[:-1]), edges, counts, density)
+        return BondAngleResult(
+            0.5 * (edges[1:] + edges[:-1]), edges, total, density, partial
+        )
 
     def __repr__(self) -> str:
-        return f"BondAngleDistribution(cutoff={self.cutoff!r}, bins={self.bins})"
+        return f"BondAngleDistribution({self._bonds}, bins={self.bins})"
 
 
 @dataclass(frozen=True)

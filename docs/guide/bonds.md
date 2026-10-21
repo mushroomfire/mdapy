@@ -13,6 +13,7 @@ system = system.with_columns(clusters)  # column 'cluster'
 
 angles = BondAngleDistribution(cutoff=3.0, bins=180).compute(system)
 angles.angle, angles.density  # degrees, per degree
+angles.triplet("O", "H", "H")  # counts of the H-O-H angles
 
 order = WarrenCowley(num_neighbors=12).compute(system)
 order["Cu", "Ni"]
@@ -32,10 +33,16 @@ An atom without bonds is a cluster of its own.
 
 `BondAngleDistribution(cutoff, bins=180)` counts the angles $\theta_{jik}$
 between every two bonds $ij$ and $ik$ of each atom $i$ shorter than `cutoff`,
-in `bins` bins of equal width from 0 to 180 degrees. The
+in `bins` bins of equal width from 0 to 180 degrees. As for clusters,
+`cutoffs={(a, b): r, ...}` gives each pair of elements its own bond length;
+for water, `cutoffs={("O", "H"): 1.2}` keeps only the O–H bonds. The
 `BondAngleResult` has the bin centers `angle`, the `edges`, the `counts` and
 the `density`, the counts normalized so that their integral over degrees
-is 1.
+is 1. With an element column, `partial` also holds the counts for each
+triplet of elements: `partial[a, b, c]` counts the angles with an atom of
+element `a` at the vertex and neighbors of elements `b` and `c`, `b` not after
+`c` by atomic number, and `triplet(a, b, c)` takes `b` and `c` in either
+order. The partial counts add up to `counts`.
 
 ## Warren–Cowley parameters
 
@@ -65,6 +72,10 @@ The tests in `tests/analysis/test_bonds.py` check that:
 - the bond angles of perfect fcc (24 at 60°, 12 at 90°, 24 at 120°, 6 at
   180° per atom) and bcc are counted exactly, and the counts on a disordered
   crystal equal a NumPy histogram for any number of threads;
+- the counts for each triplet of elements in a disordered ternary crystal
+  with a bond length per pair equal a NumPy histogram of a brute-force
+  enumeration, and add up to the total; a water molecule has one H–O–H angle
+  of 104.5°;
 - the Warren–Cowley parameters are exactly ±1 in the CsCl structure, the
   same by cutoff and by nearest neighbors, and near 0 in a random alloy.
 

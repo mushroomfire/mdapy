@@ -465,7 +465,7 @@ void structure_identification() {
         std::vector<double> factor;
         std::vector<std::int64_t> shells;
         mdapy::analysis::structure_factor(positions.data(), n, matrix, species.data(), 1, 3.0, 30,
-                                          factor, shells);
+                                          factor, shells, 100);
         if (threads == kThreads[0]) {
             first_factor = factor;
         }

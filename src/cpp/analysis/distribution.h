@@ -27,9 +27,11 @@ std::vector<std::int64_t> pair_histogram(const double* positions, std::int64_t n
 // -q: sums over bins of equal width of Re(rho_a(q) rho_b(q)*) for the types a,
 // b (types x types x bins, rho_t the sum of exp(i q . r) over the atoms of
 // type t), and the number of vectors in each bin. matrix: rows a1, a2, a3.
+// The atoms are taken in blocks of block atoms (0: as many as fit 256 MB of
+// tables).
 void structure_factor(const double* positions, std::int64_t n, const double* matrix,
                       const std::int32_t* type, int types, double q_max, int bins,
                       std::vector<double>& sums, std::vector<std::int64_t>& vectors,
-                      const Control& control = {});
+                      std::int64_t block = 0, const Control& control = {});
 
 }  // namespace mdapy::analysis

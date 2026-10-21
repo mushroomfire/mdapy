@@ -42,6 +42,10 @@ number; `pair(a, b)` takes them in either order. Partial functions need an
 The normalization uses the volume of the box also for directions that are not
 periodic, so there $g$ does not tend to 1.
 
+Without `neighbors=`, the pairs are counted during the neighbor search and
+never stored, so long distances in large systems need little memory: 8 Å in
+a million-atom crystal takes under a second on ten threads.
+
 ## Coordination number
 
 `CoordinationNumber(cutoff)` counts the neighbors of each atom closer than

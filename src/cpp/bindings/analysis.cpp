@@ -10,8 +10,10 @@
 #include <algorithm>
 #include <cstdint>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
+#include "analysis/distribution.h"
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
 #include "bindings/control.h"
@@ -120,6 +122,41 @@ nb::object pair_entropy(Offsets offsets, Values distances, double cutoff, double
     return result;
 }
 
+using Positions3 = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using Matrix3 = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
+using Origin3 = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
+using Periodic = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device::cpu>;
+using Types = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+nb::object pair_histogram(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
+                          double r_max, int bins, Types type, int types, nb::handle progress,
+                          const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (type.shape(0) != positions.shape(0) || bins < 1 || types < 1) {
+        throw std::invalid_argument("the types do not fit the atoms");
+    }
+    for (std::int64_t i = 0; i < n; ++i) {
+        if (type.data()[i] < 0 || type.data()[i] >= types) {
+            throw std::invalid_argument("a type is outside the range");
+        }
+    }
+    std::vector<std::int64_t> counts;
+    run_released(
+        [&](const Control& control) {
+            counts = analysis::pair_histogram(positions.data(), n, matrix.data(), origin.data(),
+                                              pbc.data(), r_max, bins, type.data(), types,
+                                              control);
+        },
+        progress, cancel);
+    auto* kept = new std::vector<std::int64_t>(std::move(counts));
+    nb::capsule owner(kept, [](void* p) noexcept {
+        delete static_cast<std::vector<std::int64_t>*>(p);
+    });
+    const std::size_t shape[3] = {static_cast<std::size_t>(types),
+                                  static_cast<std::size_t>(types), static_cast<std::size_t>(bins)};
+    return nb::ndarray<nb::numpy, std::int64_t>(kept->data(), 3, shape, owner).cast();
+}
+
 }  // namespace
 
 void bind_analysis(nb::module_& m) {
@@ -127,6 +164,10 @@ void bind_analysis(nb::module_& m) {
           nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"));
+    m.def("pair_histogram", &pair_histogram, nb::arg("positions"), nb::arg("matrix"),
+          nb::arg("origin"), nb::arg("pbc"), nb::arg("r_max"), nb::arg("bins"), nb::arg("type"),
+          nb::arg("types"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("pair_entropy", &pair_entropy, nb::arg("offsets"), nb::arg("distances"),
           nb::arg("cutoff"), nb::arg("sigma"), nb::arg("density"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);

@@ -182,3 +182,18 @@ def test_coordination_needs_elements_for_pairs():
         CoordinationNumber(cutoffs={("Cu", "Zn"): 2.7}).compute(
             mdapy.System(system.positions, system.box)
         )
+
+
+def test_counting_during_the_search_equals_counting_a_list():
+    system = alloy(seed=8)
+    direct = RadialDistributionFunction(6.0, bins=60).compute(system)
+    listed = RadialDistributionFunction(6.0, bins=60).compute(
+        system, neighbors=mdapy.NeighborList.build(system, 7.0)
+    )
+    np.testing.assert_array_equal(direct.g, listed.g)
+    for pair in direct.partial:
+        np.testing.assert_array_equal(direct.partial[pair], listed.partial[pair])
+    with mdapy.num_threads(3):
+        np.testing.assert_array_equal(
+            RadialDistributionFunction(6.0, bins=60).compute(system).g, direct.g
+        )

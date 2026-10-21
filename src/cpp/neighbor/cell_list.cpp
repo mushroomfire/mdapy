@@ -82,6 +82,7 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
         throw std::invalid_argument("too many atoms for 32-bit neighbor indices");
     }
     std::copy(matrix, matrix + 9, h_);
+    cutoff_ = cutoff;
     cutoff2_ = cutoff * cutoff;
     const double* h = matrix;
     // Inverse of H and the thickness of the cell along each lattice direction.
@@ -110,20 +111,22 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
     // Fractional coordinates, wrapped into [0, 1) along periodic directions.
     std::vector<double> fractional(static_cast<std::size_t>(n) * 3);
     std::vector<std::int32_t> wraps(static_cast<std::size_t>(n) * 3, 0);
-    for (std::int64_t i = 0; i < n; ++i) {
-        const double x[3] = {positions[3 * i] - origin[0], positions[3 * i + 1] - origin[1],
-                             positions[3 * i + 2] - origin[2]};
-        for (int d = 0; d < 3; ++d) {
-            const Vector& column = inverse_columns[d];
-            double f = (x[0] * column[0] + x[1] * column[1] + x[2] * column[2]) / det;
-            if (pbc[d]) {
-                const double k = std::floor(f);
-                f -= k;
-                wraps[3 * i + d] = static_cast<std::int32_t>(k);
+    parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t i = begin; i < end; ++i) {
+            const double x[3] = {positions[3 * i] - origin[0], positions[3 * i + 1] - origin[1],
+                                 positions[3 * i + 2] - origin[2]};
+            for (int d = 0; d < 3; ++d) {
+                const Vector& column = inverse_columns[d];
+                double f = (x[0] * column[0] + x[1] * column[1] + x[2] * column[2]) / det;
+                if (pbc[d]) {
+                    const double k = std::floor(f);
+                    f -= k;
+                    wraps[3 * i + d] = static_cast<std::int32_t>(k);
+                }
+                fractional[3 * i + d] = f;
             }
-            fractional[3 * i + d] = f;
         }
-    }
+    });
 
     // Cells at least as wide as the cutoff where possible; along periodic
     // directions narrower boxes are covered by searching more cells.
@@ -169,38 +172,63 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
     // Counting sort of the atoms into cells, in increasing index order.
     std::vector<std::int64_t> cell_of(static_cast<std::size_t>(n));
     std::vector<std::int64_t> cells(static_cast<std::size_t>(n) * 3);
+    parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t i = begin; i < end; ++i) {
+            std::int64_t index = 0;
+            for (int d = 0; d < 3; ++d) {
+                const Axis& axis = axes_[d];
+                auto k = static_cast<std::int64_t>((fractional[3 * i + d] - axis.low) / axis.width);
+                k = std::clamp<std::int64_t>(k, 0, axis.cells - 1);
+                cells[3 * i + d] = k;
+                index = index * axis.cells + k;
+            }
+            cell_of[i] = index;
+        }
+    });
     const std::int64_t total_cells = axes_[0].cells * axes_[1].cells * axes_[2].cells;
     cell_start_.assign(static_cast<std::size_t>(total_cells) + 1, 0);
     for (std::int64_t i = 0; i < n; ++i) {
-        std::int64_t index = 0;
-        for (int d = 0; d < 3; ++d) {
-            const Axis& axis = axes_[d];
-            auto k = static_cast<std::int64_t>((fractional[3 * i + d] - axis.low) / axis.width);
-            k = std::clamp<std::int64_t>(k, 0, axis.cells - 1);
-            cells[3 * i + d] = k;
-            index = index * axis.cells + k;
-        }
-        cell_of[i] = index;
-        ++cell_start_[index + 1];
+        ++cell_start_[cell_of[i] + 1];
     }
     for (std::int64_t k = 0; k < total_cells; ++k) {
         cell_start_[k + 1] += cell_start_[k];
     }
-    slot_atoms_.resize(static_cast<std::size_t>(n));
-    slot_positions_.resize(static_cast<std::size_t>(n) * 3);
-    slot_wraps_.resize(static_cast<std::size_t>(n) * 3);
-    slot_cells_.resize(static_cast<std::size_t>(n) * 3);
     slot_of_.resize(static_cast<std::size_t>(n));
     std::vector<std::int64_t> fill(cell_start_.begin(), cell_start_.end() - 1);
     for (std::int64_t i = 0; i < n; ++i) {
-        const std::int64_t t = fill[cell_of[i]]++;
-        slot_atoms_[t] = static_cast<std::int32_t>(i);
-        slot_of_[i] = static_cast<std::int32_t>(t);
-        for (int d = 0; d < 3; ++d) {
-            slot_positions_[3 * t + d] = positions[3 * i + d];
-            slot_wraps_[3 * t + d] = wraps[3 * i + d];
-            slot_cells_[3 * t + d] = cells[3 * i + d];
-        }
+        slot_of_[i] = static_cast<std::int32_t>(fill[cell_of[i]]++);
+    }
+    slot_atoms_.resize(static_cast<std::size_t>(n));
+    slot_positions_.resize(static_cast<std::size_t>(n) * 3);
+    slot_wrapped_.resize(static_cast<std::size_t>(n) * 3);
+    slot_wraps_.resize(static_cast<std::size_t>(n) * 3);
+    slot_cells_.resize(static_cast<std::size_t>(n) * 3);
+    const double largest = parallel_reduce(
+        n, 0, 0.0,
+        [&](std::int64_t begin, std::int64_t end) {
+            double size = 0.0;
+            for (std::int64_t i = begin; i < end; ++i) {
+                const std::int64_t t = slot_of_[i];
+                const std::int32_t* w = &wraps[3 * i];
+                slot_atoms_[t] = static_cast<std::int32_t>(i);
+                for (int e = 0; e < 3; ++e) {
+                    const double x = positions[3 * i + e];
+                    const double y = x - (w[0] * h[e] + w[1] * h[3 + e] + w[2] * h[6 + e]);
+                    slot_positions_[3 * t + e] = x;
+                    slot_wrapped_[3 * t + e] = y;
+                    slot_wraps_[3 * t + e] = w[e];
+                    slot_cells_[3 * t + e] = cells[3 * i + e];
+                    size = std::max(size, std::max(std::abs(x), std::abs(y)));
+                }
+            }
+            return size;
+        },
+        [](double p, double q) { return std::max(p, q); });
+    // every term of a distance stays below this, the images searched being
+    // at most a few box lengths away
+    scale_ = largest;
+    for (int d = 0; d < 3; ++d) {
+        scale_ += static_cast<double>(axes_[d].reach + 2) * norm(Vector{h[3 * d], h[3 * d + 1], h[3 * d + 2]});
     }
 }
 

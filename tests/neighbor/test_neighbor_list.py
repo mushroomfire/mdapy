@@ -220,6 +220,7 @@ def test_within_and_sorted():
     small = nl.within(3.0)
     assert as_dict(small) == as_dict(NeighborList.build(system, 3.0))
     assert small.cutoff == 3.0
+    assert nl.within(5.0) is nl
     ordered = nl.sorted()
     assert as_dict(ordered) == as_dict(nl)
     for i in range(len(system)):

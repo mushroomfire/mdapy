@@ -1,9 +1,16 @@
-# mdapy
+---
+title: mdapy
+---
 
-mdapy is a Python package for analysing and modelling atomistic simulations:
-reading and writing structures and trajectories, neighbor search, structure
-identification, property analysis, structure building, and energy
-minimization with interatomic potentials.
+# ![mdapy](assets/mdapy-logo.svg#only-light){ width="420" } ![mdapy](assets/mdapy-logo-dark.svg#only-dark){ width="420" }
+
+**mdapy**, short for *Molecular Dynamics Analysis in Python*, analyses and
+builds atomistic systems. It reads and writes structures and trajectories in
+the common formats, finds neighbors, identifies crystal structures and
+defects and measures their properties, builds crystals and polycrystals, and
+computes energies, forces, relaxed structures and elastic constants with
+interatomic potentials. The heavy work runs in compiled C++ on all cores of
+the machine.
 
 !!! warning "mdapy 2.0 is under development"
     This site documents mdapy 2.0, a complete rewrite on the `v2` branch that is
@@ -19,7 +26,7 @@ neighbors feed the analyses and the calculators. Dashed parts are planned.
 ```mermaid
 flowchart TB
     files[("<b>Files</b><br/>extended XYZ · LAMMPS · POSCAR · mdapy")]
-    build["<b>Model building</b><br/>crystals · polycrystals · dislocations · packing"]
+    build["<b>Structure builder</b><br/>crystals · polycrystals · dislocations · packing"]
     system(["<b>System</b><br/>box · topology · trajectory"])
     neighbors(["<b>Neighbor lists</b>"])
     render["<b>Rendering</b><br/>images of systems"]
@@ -90,7 +97,7 @@ flowchart TB
 
     Dynamics: [atomic temperature](analysis/temperature.md)
 
--   :material-cube-outline:{ .lg .middle } **Model building**
+-   :material-cube-outline:{ .lg .middle } **Structure builder**
 
     ---
 
@@ -98,7 +105,7 @@ flowchart TB
 
     Planned.
 
--   :material-atom-variant:{ .lg .middle } **Simulation**
+-   :material-sine-wave:{ .lg .middle } **Simulation**
 
     ---
 
@@ -148,9 +155,11 @@ development version contains.
   [Units and conventions](reference/units.md).
 - **Consistent names.** Every parameter and property follows the
   [Glossary](reference/glossary.md).
-- **No OpenMP.** Compiled kernels use mdapy's own thread pool, so mdapy runs
-  safely in the same process as PyTorch, NumPy and LAMMPS. Results do not
-  depend on the number of threads. See [Parallelism](getting-started/parallelism.md).
+- **Runs next to PyTorch and LAMMPS.** The compiled kernels use a thread
+  pool of mdapy's own instead of OpenMP, so mdapy shares a process with
+  PyTorch and LAMMPS without clashing OpenMP runtimes, and its results are
+  the same for any number of threads. See
+  [Parallelism](getting-started/parallelism.md).
 - **Tested and documented feature by feature.** Each feature is tested
   against independent references and has its own page describing how to use
   it and, for analyses, what it computes and which papers it follows.

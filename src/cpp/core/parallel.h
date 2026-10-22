@@ -3,7 +3,7 @@
 //
 // Thread pool used by every compiled kernel in mdapy. It does not use OpenMP,
 // so mdapy never loads an OpenMP runtime and cannot clash with the ones
-// shipped by PyTorch, NumPy or LAMMPS.
+// shipped by PyTorch or LAMMPS.
 
 #pragma once
 

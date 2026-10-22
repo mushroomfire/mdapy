@@ -1,5 +1,5 @@
 site_name: mdapy
-site_description: Analysis and modelling of atomistic simulations
+site_description: Molecular Dynamics Analysis in Python
 repo_url: https://github.com/mushroomfire/mdapy
 repo_name: mushroomfire/mdapy
 edit_uri: edit/v2/docs/
@@ -7,6 +7,8 @@ copyright: Copyright &copy; 2022–2026 Yongchao Wu · BSD-3-Clause
 
 theme:
   name: material
+  logo: assets/mdapy-icon.svg
+  favicon: assets/mdapy-icon.svg
   features:
     - navigation.tabs
     - navigation.sections

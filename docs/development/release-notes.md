@@ -138,7 +138,7 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   `-Ccmake.define.MDAPY_INDEX64=ON` uses 64-bit indices for more than
   2,147,483,647 atoms. See [Installation](../getting-started/installation.md#64-bit-atom-indices).
 - A thread pool of mdapy's own replaces OpenMP, so mdapy can run in the same
-  process as PyTorch, NumPy and LAMMPS. Results are identical for any number of
+  process as PyTorch and LAMMPS. Results are identical for any number of
   threads. See [Parallelism](../getting-started/parallelism.md).
 - `mdapy.set_num_threads`, `mdapy.get_num_threads`, `mdapy.num_threads` and
   the `MDAPY_NUM_THREADS` environment variable control the number of threads.

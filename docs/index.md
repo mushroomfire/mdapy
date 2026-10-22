@@ -39,7 +39,7 @@ flowchart TB
 
     classDef core fill:#2563eb40,stroke:#2563eb,stroke-width:4px
     classDef data fill:#3b82f61f,stroke:#3b82f6,stroke-width:2px
-    classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px
+    classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px,stroke-dasharray:6 4
     classDef simulation fill:#9333ea26,stroke:#9333ea,stroke-width:2px
     classDef build fill:#16a34a1f,stroke:#16a34a,stroke-width:2px,stroke-dasharray:6 4
     classDef render fill:#db27771f,stroke:#db2777,stroke-width:2px,stroke-dasharray:6 4

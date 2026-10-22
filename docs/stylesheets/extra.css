@@ -4,7 +4,7 @@
   border-top-width: 4px;
 }
 .md-typeset .grid.cards > ul > li:nth-child(1) { border-top-color: #3b82f6; }
-.md-typeset .grid.cards > ul > li:nth-child(2) { border-top-color: #ea580c; }
+.md-typeset .grid.cards > ul > li:nth-child(2) { border-top-color: #ea580c; border-top-style: dashed; }
 .md-typeset .grid.cards > ul > li:nth-child(3) { border-top-color: #16a34a; border-top-style: dashed; }
 .md-typeset .grid.cards > ul > li:nth-child(4) { border-top-color: #9333ea; }
 .md-typeset .grid.cards > ul > li:nth-child(5) { border-top-color: #db2777; border-top-style: dashed; }

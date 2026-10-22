@@ -81,11 +81,15 @@ def test_steinhardt(tmp_path):
     values = per_atom(
         tmp_path,
         system,
-        "compute q all orientorder/atom degrees 4 2 4 6 8 nnn 12 cutoff 5.0",
-        ["q"],
+        "compute q all orientorder/atom degrees 4 2 4 6 8 nnn 12 cutoff 5.0\n"
+        "compute qc all orientorder/atom degrees 3 2 4 6 nnn NULL cutoff 3.0",
+        ["q", "qc"],
     )
     result = SteinhardtParameters((2, 4, 6, 8)).compute(system)
     np.testing.assert_allclose(result.q, values["q"], rtol=1e-10, atol=1e-12)
+    # all neighbors closer than a cutoff
+    within = SteinhardtParameters((2, 4, 6), cutoff=3.0).compute(system)
+    np.testing.assert_allclose(within.q, values["qc"], rtol=1e-10, atol=1e-12)
 
 
 def test_entropy_fingerprint(tmp_path):

@@ -260,7 +260,10 @@ potential written by the tests, check that:
 is installed and compares with LAMMPS stable_30Sep2026 `pair_style eam/alloy`:
 the energy agrees to 10<sup>−12</sup>, atomic energies to 10<sup>−11</sup>,
 and forces, the virial and atomic virials to 10<sup>−9</sup> (with the
-pressure converted by LAMMPS's own constant for metal units).
+pressure converted by LAMMPS's own constant for metal units). Relaxing a
+vacancy in a perturbed alloy, `minimize` and LAMMPS `min_style fire` reach the
+same energy to 10<sup>−8</sup> eV and the same positions to 10<sup>−6</sup> Å,
+up to a rigid translation along which each run drifts.
 
 The tests in `tests/calculators/test_nep.py`, on synthetic potentials with
 random parameters written by the tests, check that:

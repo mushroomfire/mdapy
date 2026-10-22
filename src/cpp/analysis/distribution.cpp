@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <complex>
 #include <utility>
 
 #include "neighbor/cell_list.h"
@@ -49,7 +48,6 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
                       std::vector<double>& sums, std::vector<std::int64_t>& vectors,
                       std::int64_t block, const Control& control) {
     constexpr double kTwoPi = 6.283185307179586476925;
-    using Complex = std::complex<double>;
     const double* m = matrix;
     // reciprocal vectors b_i, rows of 2 pi (H^-1)^T
     const double det = m[0] * (m[4] * m[8] - m[5] * m[7]) - m[1] * (m[3] * m[8] - m[5] * m[6]) +
@@ -90,17 +88,35 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
     }
     // rho_t(q) for every vector and type, summed over blocks of atoms whose
     // phases exp(i h f_d) along each direction are tabulated, so that a vector
-    // costs two complex products per atom and the tables stay small
+    // costs two complex products per atom. The atoms go by type, and the
+    // tables of a block hold, for each h, the phases of its atoms side by side,
+    // so that a vector reads them in sequence; the complex products are written
+    // out, as std::complex calls a library function for each.
     const int width[3] = {2 * reach[0] + 1, 2 * reach[1] + 1, 2 * reach[2] + 1};
     const auto count = static_cast<std::int64_t>(found.size());
     const std::int64_t row = width[0] + width[1] + width[2];
     if (block <= 0) {
-        block = std::max<std::int64_t>(1, std::min<std::int64_t>(n, (std::int64_t{1} << 24) / row));
+        block = std::max<std::int64_t>(1, std::min<std::int64_t>(n, (std::int64_t{1} << 18) / row));
     }
-    std::vector<Complex> rho(static_cast<std::size_t>(count) * types, Complex(0.0, 0.0));
-    std::vector<Complex> phase[3];
+    std::vector<std::int64_t> order(static_cast<std::size_t>(n));
+    {
+        std::vector<std::int64_t> next(static_cast<std::size_t>(types) + 1, 0);
+        for (std::int64_t i = 0; i < n; ++i) {
+            ++next[type[i] + 1];
+        }
+        for (int t = 0; t < types; ++t) {
+            next[t + 1] += next[t];
+        }
+        for (std::int64_t i = 0; i < n; ++i) {
+            order[static_cast<std::size_t>(next[type[i]]++)] = i;
+        }
+    }
+    std::vector<double> rho_re(static_cast<std::size_t>(count) * types, 0.0);
+    std::vector<double> rho_im(static_cast<std::size_t>(count) * types, 0.0);
+    std::vector<double> re[3], im[3];
     for (int d = 0; d < 3; ++d) {
-        phase[d].resize(static_cast<std::size_t>(block) * width[d]);
+        re[d].resize(static_cast<std::size_t>(block) * width[d]);
+        im[d].resize(static_cast<std::size_t>(block) * width[d]);
     }
     for (std::int64_t first = 0; first < n; first += block) {
         const std::int64_t size = std::min(block, n - first);
@@ -108,29 +124,62 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
             size, 0,
             [&](std::int64_t begin, std::int64_t end) {
                 for (std::int64_t a = begin; a < end; ++a) {
-                    const double* x = positions + 3 * (first + a);
+                    const double* x = positions + 3 * order[static_cast<std::size_t>(first + a)];
                     for (int d = 0; d < 3; ++d) {
                         // q . r = h f_1 + k f_2 + l f_3 with f_d = r . b_d
                         const double f = x[0] * b[d][0] + x[1] * b[d][1] + x[2] * b[d][2];
-                        Complex* row_d = &phase[d][static_cast<std::size_t>(a) * width[d]];
                         for (int h = -reach[d]; h <= reach[d]; ++h) {
-                            row_d[h + reach[d]] = std::polar(1.0, h * f);
+                            const auto at = static_cast<std::size_t>((h + reach[d]) * size + a);
+                            re[d][at] = std::cos(h * f);
+                            im[d][at] = std::sin(h * f);
                         }
                     }
                 }
             },
             control);
+        // the runs of atoms of one type in the block
+        std::vector<std::pair<int, std::int64_t>> runs;  // type and first atom
+        for (std::int64_t a = 0; a < size; ++a) {
+            const int t = type[order[static_cast<std::size_t>(first + a)]];
+            if (runs.empty() || runs.back().first != t) {
+                runs.emplace_back(t, a);
+            }
+        }
+        runs.emplace_back(-1, size);
         parallel_for(
             count, 0,
             [&](std::int64_t begin, std::int64_t end) {
                 for (std::int64_t v = begin; v < end; ++v) {
                     const Vector& q = found[static_cast<std::size_t>(v)];
-                    Complex* sum = &rho[static_cast<std::size_t>(v) * types];
-                    for (std::int64_t a = 0; a < size; ++a) {
-                        sum[type[first + a]] +=
-                            phase[0][static_cast<std::size_t>(a) * width[0] + q.h + reach[0]] *
-                            phase[1][static_cast<std::size_t>(a) * width[1] + q.k + reach[1]] *
-                            phase[2][static_cast<std::size_t>(a) * width[2] + q.l + reach[2]];
+                    const double* r0 = &re[0][static_cast<std::size_t>((q.h + reach[0]) * size)];
+                    const double* i0 = &im[0][static_cast<std::size_t>((q.h + reach[0]) * size)];
+                    const double* r1 = &re[1][static_cast<std::size_t>((q.k + reach[1]) * size)];
+                    const double* i1 = &im[1][static_cast<std::size_t>((q.k + reach[1]) * size)];
+                    const double* r2 = &re[2][static_cast<std::size_t>((q.l + reach[2]) * size)];
+                    const double* i2 = &im[2][static_cast<std::size_t>((q.l + reach[2]) * size)];
+                    for (std::size_t run = 0; run + 1 < runs.size(); ++run) {
+                        // four partial sums, which the processor can add at once
+                        double sr[4] = {0.0, 0.0, 0.0, 0.0}, si[4] = {0.0, 0.0, 0.0, 0.0};
+                        const std::int64_t stop = runs[run + 1].second;
+                        std::int64_t a = runs[run].second;
+                        for (; a + 4 <= stop; a += 4) {
+                            for (int u = 0; u < 4; ++u) {
+                                const std::int64_t c = a + u;
+                                const double pr = r0[c] * r1[c] - i0[c] * i1[c];
+                                const double pi = r0[c] * i1[c] + i0[c] * r1[c];
+                                sr[u] += pr * r2[c] - pi * i2[c];
+                                si[u] += pr * i2[c] + pi * r2[c];
+                            }
+                        }
+                        for (; a < stop; ++a) {
+                            const double pr = r0[a] * r1[a] - i0[a] * i1[a];
+                            const double pi = r0[a] * i1[a] + i0[a] * r1[a];
+                            sr[0] += pr * r2[a] - pi * i2[a];
+                            si[0] += pr * i2[a] + pi * r2[a];
+                        }
+                        const auto at = static_cast<std::size_t>(v) * types + runs[run].first;
+                        rho_re[at] += (sr[0] + sr[1]) + (sr[2] + sr[3]);
+                        rho_im[at] += (si[0] + si[1]) + (si[2] + si[3]);
                     }
                 }
             },
@@ -145,11 +194,13 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
             Partial local(std::vector<double>(pairs * bins, 0.0), std::vector<std::int64_t>(bins, 0));
             for (std::int64_t v = begin; v < end; ++v) {
                 const Vector& q = found[static_cast<std::size_t>(v)];
-                const Complex* sum = &rho[static_cast<std::size_t>(v) * types];
+                const double* sr = &rho_re[static_cast<std::size_t>(v) * types];
+                const double* si = &rho_im[static_cast<std::size_t>(v) * types];
                 for (int a = 0; a < types; ++a) {
                     for (int c = 0; c < types; ++c) {
+                        // Re(rho_a conj(rho_c))
                         local.first[(static_cast<std::size_t>(a) * types + c) * bins + q.bin] +=
-                            (sum[a] * std::conj(sum[c])).real();
+                            sr[a] * sr[c] + si[a] * si[c];
                     }
                 }
                 ++local.second[q.bin];

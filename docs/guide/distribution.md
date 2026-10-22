@@ -71,7 +71,8 @@ them in either order. A perfect crystal gives $N$ at its Bragg reflections and
 
 The work is the number of wave vectors, about $q_\text{max}^3 V / (12\pi^2)$
 for a box of volume $V$, times the number of atoms; the atoms are taken in
-blocks so that memory stays small.
+blocks so that memory stays small. 32,000 atoms up to $q_\text{max} =
+8$ Å<sup>−1</sup> (1.6 million vectors) take about 6 s on ten threads.
 
 <!-- skip-test -->
 ```python

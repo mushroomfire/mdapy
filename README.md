@@ -279,3 +279,15 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - 总结里结构因子那条也更正了：1.x 的 `System.cal_structure_factor` 默认是直接法，不是 Debye 法。
 - 今晚新加的几个测试原先在收集阶段就建体系。本地 3.10 环境那个假的 matmul 警告会因此让整个测试中断，现改为在测试函数里建。3.10 下现在只剩那个警告导致的 26 个失败，其余 1146 个通过。
 - 所有分支 CI 通过；`preview-all` 现在有 1206 个测试。
+
+### 06:35
+- **又对照出 1.x 的一处差别**：1.x 直接法结构因子只用指数全非负的那个卦限的倒格矢，还把 k = 0（S = 原子数）算进第一个箱。用 NumPy 只取这个卦限暴力求和，与 1.x 一致到 1e-14。2.0 用 0 < |k| ≤ q_max 的全部倒格矢。两者在非 Bragg 箱差约 ±10%，Bragg 峰所在箱可差几倍。这可能是 1.x 有意的省算，写进了总结，你看。
+- **更多与 LAMMPS 的对照**（新分支 `lammps-checks-draft` 只加测试和文档；Voronoi 的放在 `voronoi-draft`）：
+  - 配位数、团簇：与 `coord/atom`、`cluster/atom` 逐原子相同。
+  - 键角分布：与 `compute adf` 差 ≤ 1e-12。
+  - Voronoi：体积与 `voronoi/atom`（voro++）一致到 1e-10，面数相同。LAMMPS 把盒子的墙也算作面。
+  - Steinhardt 截断模式：与 `orientorder/atom` 一致到 1e-10。
+  - preview-all 上 13 个 LAMMPS 对照测试全部通过，这时用的是不建表的格子路径。
+- **RDF 发现一个约定差别，加为第 16 条待定**：2.0 和 1.x 用 N² 归一化，LAMMPS 用 N(N−1)（只数其他原子）。差一个 N/(N−1)，只对小体系明显（500 原子时 0.2%）。我建议跟 LAMMPS。
+- 与 1.0.8 的对照也补全了：固定截断 CNA 逐原子相同；Steinhardt 截断模式和邻居平均差 ≤ 7e-15。
+- 所有分支 CI 通过；`preview-all` 现在有 1209 个测试。

@@ -91,6 +91,14 @@ class _Bonds:
             types = len(found[0]) if found is not None else 1
             table = np.bincount(bonds.i * types + index[bonds.j], minlength=n * types)
             return table.reshape(n, types), found
+        *grid, found = self._grid(system)
+        table = _native.count_neighbors(*grid, progress, _native_token(cancel))
+        return table, found
+
+    def _grid(self, system: System) -> tuple:
+        """The arguments of the searches on the cell grid: positions, box,
+        each atom's element, the bond length of each pair of elements and
+        whether they differ; and the elements."""
         found = _elements(system)
         if self.cutoffs is None:
             names, index = found if found is not None else ((), None)
@@ -107,7 +115,7 @@ class _Bonds:
         if index is None:
             index = np.zeros(len(system), dtype=np.int64)
         box = system.box
-        table = _native.count_neighbors(
+        return (
             np.ascontiguousarray(system.positions),
             np.ascontiguousarray(box.matrix),
             np.ascontiguousarray(box.origin),
@@ -116,10 +124,8 @@ class _Bonds:
             len(limits),
             np.ascontiguousarray(limits, dtype=np.float64),
             self.cutoffs is not None,
-            progress,
-            _native_token(cancel),
+            found,
         )
-        return table, found
 
     def __repr__(self) -> str:
         if self.cutoffs is None:
@@ -190,8 +196,15 @@ class ClusterAnalysis:
             The cluster of each atom; ties in size are ordered by their first
             atom.
         """
-        bonds, _ = self._bonds.select(system, neighbors)
-        cluster, sizes = _native.clusters(bonds.offsets, bonds.j)
+        if neighbors is None:
+            # bonds found on the grid, without a list
+            *grid, _ = self._bonds._grid(system)
+            cluster, sizes = _native.clusters_search(
+                *grid, progress, _native_token(cancel)
+            )
+        else:
+            bonds, _ = self._bonds.select(system, neighbors)
+            cluster, sizes = _native.clusters(bonds.offsets, bonds.j)
         return ClusterResult(cluster, sizes)
 
     def __repr__(self) -> str:

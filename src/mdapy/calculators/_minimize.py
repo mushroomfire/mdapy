@@ -11,6 +11,11 @@ import numpy as np
 from mdapy.calculators._base import Calculator
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
+from mdapy.neighbor import NeighborList
+
+# Neighbors are searched this much farther than the cutoff of the calculator,
+# in Å, so that one search serves the steps until an atom has moved half as far.
+_SKIN = 1.0
 
 
 @dataclass(frozen=True)
@@ -92,8 +97,17 @@ def minimize(
     velocities = np.zeros_like(positions)
     current = system
     step = 0
+    cutoff = float(calculator.cutoff)
+    wide = None
     while True:
-        result = calculator.compute(current, properties)
+        # the list of the calculator's cutoff, as a new search would give it
+        neighbors = None
+        if 0.0 < cutoff < np.inf:
+            neighbors = wide._follow(current, cutoff) if wide is not None else None
+            if neighbors is None:
+                wide = NeighborList.build(current, cutoff + _SKIN)
+                neighbors = wide._follow(current, cutoff)
+        result = calculator.compute(current, properties, neighbors=neighbors)
         forces = result.forces
         largest = (
             float(np.sqrt((forces * forces).sum(axis=1)).max()) if len(forces) else 0.0

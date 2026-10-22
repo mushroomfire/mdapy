@@ -108,6 +108,30 @@ nb::object pair_vectors(Positions positions, Offsets offsets, Neighbors neighbor
     return to_array(std::move(vectors), neighbors.shape(0), 3);
 }
 
+nb::tuple follow(Positions positions, Offsets offsets, Neighbors neighbors, Shifts shifts,
+                 Matrix matrix, double cutoff, nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
+        neighbors.shape(0) != shifts.shape(0) ||
+        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
+        throw std::invalid_argument("the pairs do not fit the atoms");
+    }
+    neighbor::NeighborPairs pairs;
+    std::vector<double> vectors;
+    run_released(
+        [&](const Control& control) {
+            pairs = neighbor::follow(positions.data(), n, offsets.data(), neighbors.data(),
+                                     shifts.data(), matrix.data(), cutoff, vectors, control);
+        },
+        progress, cancel);
+    const std::size_t count = pairs.neighbors.size();
+    return nb::make_tuple(to_array(std::move(pairs.offsets), static_cast<std::size_t>(n) + 1, 0),
+                          to_array(std::move(pairs.neighbors), count, 0),
+                          to_array(std::move(pairs.shifts), count, 3),
+                          to_array(std::move(pairs.distances), count, 0),
+                          to_array(std::move(vectors), count, 3));
+}
+
 nb::tuple nearest_sites(Positions sites, Matrix matrix, Vector3 origin, Flags pbc,
                         Positions points, nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(sites.shape(0));
@@ -135,6 +159,9 @@ void bind_neighbor(nb::module_& m) {
           nb::arg("cancel").none() = nullptr);
     m.def("pair_vectors", &pair_vectors, nb::arg("positions"), nb::arg("offsets"),
           nb::arg("neighbors"), nb::arg("shifts"), nb::arg("matrix"));
+    m.def("follow", &follow, nb::arg("positions"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("matrix"), nb::arg("cutoff"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("nearest_sites", &nearest_sites, nb::arg("sites"), nb::arg("matrix"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("points"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);

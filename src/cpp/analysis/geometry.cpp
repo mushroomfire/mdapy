@@ -111,6 +111,54 @@ void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t
     std::copy(total.begin(), total.end(), counts);
 }
 
+void lindemann(std::int64_t n, std::int64_t frames, const double* positions, double* atomic,
+               double* running, const Control& control) {
+    using Sums = std::vector<double>;
+    // every ordered pair, so that each atom's mean is its own; each pair
+    // is counted twice in running, which divides by n (n - 1)
+    const Sums total = parallel_reduce(
+        n, 0, Sums(static_cast<std::size_t>(frames), 0.0),
+        [&](std::int64_t begin, std::int64_t end) {
+            Sums local(static_cast<std::size_t>(frames), 0.0);
+            for (std::int64_t i = begin; i < end; ++i) {
+                const double* xi = positions + 3 * frames * i;
+                double sum = 0.0;
+                for (std::int64_t j = 0; j < n; ++j) {
+                    if (j == i) {
+                        continue;
+                    }
+                    const double* xj = positions + 3 * frames * j;
+                    double mean = 0.0, deviations = 0.0, ratio = 0.0;
+                    for (std::int64_t t = 0; t < frames; ++t) {
+                        const double dx = xi[3 * t] - xj[3 * t];
+                        const double dy = xi[3 * t + 1] - xj[3 * t + 1];
+                        const double dz = xi[3 * t + 2] - xj[3 * t + 2];
+                        const double d = std::sqrt(dx * dx + dy * dy + dz * dz);
+                        const double delta = d - mean;
+                        mean += delta / static_cast<double>(t + 1);
+                        deviations += delta * (d - mean);
+                        ratio = std::sqrt(deviations / static_cast<double>(t + 1)) / mean;
+                        local[static_cast<std::size_t>(t)] += ratio;
+                    }
+                    sum += ratio;
+                }
+                atomic[i] = sum / static_cast<double>(n - 1);
+            }
+            return local;
+        },
+        [](Sums a, const Sums& b) {
+            for (std::size_t k = 0; k < a.size(); ++k) {
+                a[k] += b[k];
+            }
+            return a;
+        },
+        control);
+    const double pairs = static_cast<double>(n) * static_cast<double>(n - 1);
+    for (std::int64_t t = 0; t < frames; ++t) {
+        running[t] = total[static_cast<std::size_t>(t)] / pairs;
+    }
+}
+
 void pair_entropy(std::int64_t n, const std::int64_t* offsets, const double* distances,
                   double cutoff, double sigma, const double* density, double* entropy,
                   const Control& control) {

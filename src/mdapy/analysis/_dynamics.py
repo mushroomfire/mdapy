@@ -5,11 +5,14 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
+from mdapy._core import analysis as _native
 from mdapy.core.result import Result
 from mdapy.core.system import System
+from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 
 
@@ -140,14 +143,16 @@ class LindemannIndex:
     """Lindemann index: the fluctuation of the distances between atoms
     relative to their mean, which rises sharply at melting."""
 
-    def compute(self, frames: Sequence[System]) -> LindemannResult:
+    def compute(
+        self, frames: Sequence[System], *, progress: Any = None, cancel: Any = None
+    ) -> LindemannResult:
         """The index of a sequence of frames.
 
         Parameters
         ----------
         frames : sequence of System
             The same atoms in the same order in every frame, moving less than
-            half the box between frames. Memory grows as the square of the
+            half the box between frames. Time grows as the square of the
             number of atoms.
 
         Returns
@@ -157,25 +162,11 @@ class LindemannIndex:
             frames.
         """
         r = unwrapped(frames)
-        count, n = r.shape[0], r.shape[1]
-        if n < 2:
+        if r.shape[1] < 2:
             raise InvalidParameter("the Lindemann index needs two atoms or more")
-        first, second = np.triu_indices(n, 1)
-        # Welford's running mean and sum of squared deviations of each distance
-        mean = np.zeros(len(first))
-        deviations = np.zeros(len(first))
-        running = np.zeros(count)
-        for t in range(count):
-            d = np.linalg.norm(r[t][first] - r[t][second], axis=1)
-            delta = d - mean
-            mean += delta / (t + 1)
-            deviations += delta * (d - mean)
-            ratio = np.sqrt(deviations / (t + 1)) / mean
-            running[t] = ratio.mean()
-        atomic = (
-            np.bincount(first, weights=ratio, minlength=n)
-            + np.bincount(second, weights=ratio, minlength=n)
-        ) / (n - 1)
+        atomic, running = _native.lindemann(
+            np.ascontiguousarray(r.transpose(1, 0, 2)), progress, _native_token(cancel)
+        )
         return LindemannResult(index=float(running[-1]), atomic=atomic, running=running)
 
     def __repr__(self) -> str:

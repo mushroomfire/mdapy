@@ -32,6 +32,14 @@ void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t
 // g(r) on the points k sigma up to the cutoff, each neighbor smeared by a
 // Gaussian of width sigma, integrated by the trapezoid rule. density gives
 // the number density of each atom (n).
+// The Lindemann index of n atoms over frames of their unwrapped positions
+// (n x frames x 3, each atom's trajectory in a row): for each pair, the
+// standard deviation of its distance over its mean, by Welford's running
+// sums. atomic (n) gets each atom's mean over its pairs and running (frames)
+// the mean over all pairs of the frames up to each one.
+void lindemann(std::int64_t n, std::int64_t frames, const double* positions, double* atomic,
+               double* running, const Control& control = {});
+
 void pair_entropy(std::int64_t n, const std::int64_t* offsets, const double* distances,
                   double cutoff, double sigma, const double* density, double* entropy,
                   const Control& control = {});

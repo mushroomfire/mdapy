@@ -71,7 +71,8 @@ class Searching(EAM):
 
 
 def test_one_search_serves_several_steps(potential, monkeypatch):
-    # the lists from a longer search are those of new searches, to the last bit
+    # the lists from a longer search hold the pairs of new searches, in
+    # another order, so forces differ in the last bits only
     system = alloy(seed=4, repeat=2, jitter=0.15)
     calls = []
     build = mdapy.NeighborList.__dict__["build"]
@@ -87,8 +88,10 @@ def test_one_search_serves_several_steps(potential, monkeypatch):
         system, Searching(potential.path), max_force=1e-4, max_steps=300
     )
     assert result.steps == reference.steps > 20
-    np.testing.assert_array_equal(result.system.positions, reference.system.positions)
-    assert result.energy == reference.energy
+    np.testing.assert_allclose(
+        result.system.positions, reference.system.positions, rtol=0, atol=1e-10
+    )
+    assert result.energy == pytest.approx(reference.energy, rel=1e-13)
     assert searches < result.steps / 2
 
 

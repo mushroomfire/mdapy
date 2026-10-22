@@ -50,7 +50,7 @@ void Spline::evaluate(double x, double& value, double& derivative) const {
 }
 
 void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32_t* species,
-                 const std::int64_t* offsets, const std::int32_t* neighbors,
+                 const std::int64_t* offsets, const index_t* neighbors,
                  const double* vectors, double* energies, double* forces, double* virials,
                  const Control& control) {
     const double cutoff2 = potential.cutoff * potential.cutoff;
@@ -99,7 +99,7 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
                     if (!(r2 < cutoff2)) {
                         continue;
                     }
-                    const std::int32_t j = neighbors[p];
+                    const index_t j = neighbors[p];
                     const int sj = species[j];
                     const double r = std::sqrt(r2);
                     double rho_i, rho_ip, rho_j, rho_jp, z2, z2p;

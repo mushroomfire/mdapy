@@ -11,6 +11,7 @@
 
 #include "bindings/control.h"
 #include "calculators/eam.h"
+#include "core/index.h"
 #include "core/parallel.h"
 
 namespace mdapy::bindings {
@@ -19,7 +20,7 @@ namespace {
 using Table = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
 using Species = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Offsets = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
-using Neighbors = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Neighbors = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Vectors = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
 template <class T>

@@ -282,3 +282,24 @@ class NeighborList:
         if self.num_neighbors is not None:
             return f"{size}, num_neighbors={self.num_neighbors})"
         return f"{size}, cutoff={self.cutoff!r})"
+
+
+def _given_or_built(
+    system: System, cutoff: float, neighbors: "NeighborList | None"
+) -> NeighborList:
+    """The given neighbor list after checking that it holds every pair of
+    system within cutoff, or a new one."""
+    if neighbors is None:
+        return NeighborList.build(system, cutoff)
+    if neighbors.system is not system:
+        raise InvalidParameter("the neighbor list was built for another system")
+    if neighbors.num_neighbors is not None:
+        raise InvalidParameter(
+            "a list of nearest neighbors does not hold every pair within a cutoff; "
+            "build the list with a cutoff"
+        )
+    if neighbors.cutoff < cutoff:
+        raise InvalidParameter(
+            f"the neighbor list has cutoff {neighbors.cutoff}, below the required {cutoff}"
+        )
+    return neighbors

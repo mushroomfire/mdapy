@@ -84,11 +84,14 @@ def test_errors(potential, tmp_path):
     with pytest.raises(InvalidParameter, match="unknown properties"):
         potential.compute(system, ("charges",))
     small = mdapy.NeighborList.build(system, 3.0)
-    with pytest.raises(InvalidParameter, match="below the potential"):
+    with pytest.raises(InvalidParameter, match="below the required"):
         potential.compute(system, neighbors=small)
     other = mdapy.NeighborList.build(alloy(seed=6), CUTOFF)
     with pytest.raises(InvalidParameter, match="another system"):
         potential.compute(system, neighbors=other)
+    nearest = mdapy.NeighborList.build(system, num_neighbors=40)
+    with pytest.raises(InvalidParameter, match="nearest neighbors"):
+        potential.compute(system, neighbors=nearest)
 
 
 @pytest.mark.parametrize(

@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "core/index.h"
 #include "core/parallel.h"
 
 namespace mdapy::calculators {
@@ -52,7 +53,7 @@ struct EamPotential {
 // neighbor list in CSR form; vectors (pairs x 3) go from atom i to its
 // neighbor. The virial of each pair is shared equally by its two atoms.
 void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32_t* species,
-                 const std::int64_t* offsets, const std::int32_t* neighbors,
+                 const std::int64_t* offsets, const index_t* neighbors,
                  const double* vectors, double* energies, double* forces, double* virials,
                  const Control& control = {});
 

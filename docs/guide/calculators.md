@@ -3,8 +3,7 @@
 A calculator computes the energy, forces and virial of a system. mdapy
 defines one interface, `mdapy.calculators.Calculator`, which its own
 potentials implement and which other packages can implement to work with
-everything in mdapy that needs energies and forces. `EAM` is the first
-calculator of mdapy.
+everything in mdapy that needs energies and forces.
 
 <!-- skip-test -->
 ```python
@@ -18,33 +17,56 @@ result.energy  # eV
 result.forces  # (N, 3) eV/Å
 result.stress(system)  # (3, 3) GPa
 system = result.attach(system)  # forces as a column, energy and virial in info
+
+relaxed = mdapy.minimize(system, potential, max_force=1e-4)
+relaxed.converged, relaxed.energy
 ```
 
-## The interface
+## The calculator interface
 
-| Member | Meaning |
-|---|---|
-| `cutoff` | interaction cutoff in Å |
-| `elements` | the elements the calculator handles, or None for any |
-| `implemented` | the properties `compute` can return |
-| `compute(system, properties=("energy", "forces"), *, neighbors=None)` | returns a `CalculatorResult` with at least the requested properties |
+Every calculator has these members:
+
+| Name | Type | Meaning |
+|---|---|---|
+| `cutoff` | float | interaction cutoff in Å |
+| `elements` | tuple of str or `None` | the elements the calculator handles, `None` for any |
+| `implemented` | frozenset of str | the properties `compute` can return |
+| `compute(system, properties=("energy", "forces"), *, neighbors=None)` | `CalculatorResult` | at least the requested properties |
+
+`properties` is any of `"energy"`, `"atomic_energies"`, `"forces"`,
+`"virial"` and `"atomic_virials"` (`mdapy.calculators.PROPERTIES`); a
+calculator may compute more than requested. `neighbors` is a
+[`NeighborList`](neighbor.md) of the same system built with a cutoff of at
+least `calculator.cutoff`, so that several calculators and analyses share
+one search; it is built when not given.
+
+`compute` raises
+[`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter) for
+an unknown or unimplemented property, and for a neighbor list built for
+another system, with a smaller cutoff, or of nearest neighbors;
+[`MissingProperty`](../reference/api.md#mdapy.errors.MissingProperty) when
+the system lacks a column the calculator needs.
+
+## Results
 
 A `CalculatorResult` holds:
 
 | Attribute | Shape | Unit | Meaning |
 |---|---|---|---|
-| `energy` | | eV | total energy |
+| `energy` | float | eV | total energy |
 | `atomic_energies` | (N,) | eV | they sum to `energy` |
 | `forces` | (N, 3) | eV/Å | |
 | `virial` | (3, 3) | eV | positive under compression |
 | `atomic_virials` | (N, 3, 3) | eV | they sum to `virial` |
 
-with `stress(system)`, the stress $\sigma = -W/V$ in GPa (positive under
-tension), and `attach(system)`, which returns the system with the per-atom
-values as columns and the energy and virial in `info`. Values that were not
-computed are None; the arrays are read-only.
+Values that were not computed are `None`; the arrays are read-only.
 
-The virial is defined by the response of the energy to a homogeneous strain
+| Method | Returns |
+|---|---|
+| `stress(system)` | (3, 3) stress $\sigma = -W/V$ in GPa, positive under tension; `InvalidParameter` without a virial |
+| `attach(system)` | the system with `forces`, `atomic_energies` and `atomic_virials` as columns and `energy` and `virial` in `info` |
+
+The virial is the response of the energy to a homogeneous strain
 $\varepsilon$ of the box and the positions,
 
 $$
@@ -53,99 +75,93 @@ $$
 
 the second form holding for systems without periodic directions.
 
-A neighbor list passed as `neighbors=` must have been built for the same
-system with at least the calculator's cutoff; it lets several calculators or
-analyses share one search.
+## Writing a calculator
 
-## Checking a calculator
+A calculator subclasses `Calculator`, sets `cutoff`, `elements` and
+`implemented`, and defines `compute`, which must accept `neighbors=`.
 
-`mdapy.calculators.testing.check_calculator(calculator, system)` tests any
-implementation and raises `AssertionError` naming the first failed check and
-its largest deviation:
+`mdapy.calculators.testing.check_calculator(calculator, system)` checks an
+implementation on a small system and raises `AssertionError` naming the first
+failed check and its largest deviation. It checks that atomic energies and
+atomic virials sum to the energy and the virial; that forces and the virial
+agree with finite differences of the energy; that translation, rotation and
+reordering of the atoms change nothing beyond rotating and reordering
+vectors; that a cell doubled along **a** has twice the energy; and that a
+neighbor list given with a larger cutoff changes nothing.
 
-- atomic energies and atomic virials sum to the energy and the virial;
-- forces agree with central finite differences of the energy, and the virial
-  with finite differences under strain;
-- translation, rotation and reordering of the atoms change nothing beyond
-  rotating and reordering vectors;
-- a cell doubled along **a** has twice the energy;
-- a neighbor list given with a larger cutoff changes nothing.
-
-Its tolerances, finite-difference step and the number of atoms checked are
-parameters.
+| Name | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `calculator` | `Calculator` | | | the calculator to check |
+| `system` | `System` | | | a few dozen atoms the calculator handles |
+| `displacement` | float | 1e-4 | Å | step of the finite differences, also used as strain |
+| `rtol`, `atol` | float | 1e-6 | | relative and absolute tolerances of the comparisons |
+| `atoms` | int | 3 | | atoms whose forces are checked by finite differences |
+| `seed` | int | 0 | | seed of the random rotation, translation and choice of atoms |
 
 ## EAM
 
-`EAM(path)` reads a potential in the `eam/alloy` (setfl) format of LAMMPS
-and computes every property. Each function is tabulated and interpolated
-exactly as LAMMPS `pair_style eam` does: a cubic spline through the
-tabulated values whose slopes come from fourth-order finite differences, and
-an embedding energy extended linearly beyond the largest tabulated density.
+`EAM(path)` reads an embedded atom method potential in the `eam/alloy`
+(setfl) format of LAMMPS and computes every property.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `path` | str | the potential file |
+| `elements` | tuple of str | the elements of the potential, in the order of the file |
+| `masses` | (n,) float64 | their masses in amu |
+| `cutoff` | float | cutoff radius in Å |
+
+`EAM.compute` also accepts the keyword-only `progress=` and `cancel=` of
+[Parallelism](parallelism.md#progress-and-cancellation). The atoms need an
+`element` column; elements the potential does not have raise
+`InvalidParameter`, and a malformed file raises
+[`FileFormatError`](../reference/api.md#mdapy.errors.FileFormatError) with
+its line.
+
 The energy of atom $i$ is
 
 $$
 E_i = F_{s_i}\Big(\sum_j \rho_{s_j}(r_{ij})\Big) + \frac{1}{2}\sum_j \phi_{s_i s_j}(r_{ij}),
 $$
 
-and each pair's virial is shared equally by its two atoms. The atoms need an
-`element` column; elements the file does not have raise
-[`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter).
+with the embedding energy $F$, the electron density $\rho$ and the pair
+potential $\phi$ of the species $s$ of the atoms, interpolated from the
+tables of the file as LAMMPS `pair_style eam/alloy` does. Each pair's virial
+is shared equally by its two atoms.
 
 ## Energy minimization
 
 `mdapy.minimize(system, calculator, *, max_force=1e-3, max_steps=1000,
-max_step=0.2, callback=None)` minimizes the energy over the positions in a
-fixed box with FIRE, the fast inertial relaxation engine. It returns a
-`MinimizeResult` with the last `system` (with `forces` and atomic energies as
-columns and `energy` in `info`), whether it `converged` (every force below
-`max_force`, in eV/Å), the number of `steps`, the `energy` and the largest
-force. No atom moves more than `max_step` Å in one step. `callback(step,
-system, energy, max_force)` is called after each step and stops the
-minimization by returning True.
+max_step=0.2, callback=None)` minimizes the energy over the
+positions, in a fixed box, with FIRE, the fast inertial relaxation engine.
 
-FIRE follows Bitzek et al. with the parameters ASE uses: a starting time step
-of 0.1, a largest time step of 1.0, five steps before the time step grows by
-10 %, halving it after an uphill step, and a mixing parameter starting at 0.1
-and shrinking by 1 % per step. Unlike ASE, the step limit applies to each
-atom rather than to the displacement of all atoms together.
+| Name | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `system` | `System` | | | the starting configuration |
+| `calculator` | `Calculator` | | | computes energies and forces |
+| `max_force` | float | 1e-3 | eV/Å | converged when every force is below it |
+| `max_steps` | int | 1000 | | largest number of steps |
+| `max_step` | float | 0.2 | Å | largest distance an atom moves in one step |
+| `callback` | callable | `None` | | called after each step as `callback(step, system, energy, max_force)`; returning True stops the minimization |
 
-Each step hands the calculator its neighbor list (`neighbors=`), which a
-calculator must accept. The neighbors are searched 1 Å beyond the
-calculator's cutoff, and the following steps take their pairs from that
-search until an atom has moved 0.5 Å; the list is exactly the one a new
-search would give, so the steps are the same, and a minimization with EAM
-is about twice as fast.
+It returns a `MinimizeResult`:
 
-## Validation
+| Attribute | Type | Meaning |
+|---|---|---|
+| `system` | `System` | the last configuration, with `forces` and `atomic_energies` columns and `energy` in `info` |
+| `converged` | bool | whether every force fell below `max_force` |
+| `steps` | int | number of steps taken |
+| `energy` | float | energy of the last configuration in eV |
+| `max_force` | float | largest force of the last configuration in eV/Å |
 
-The tests in `tests/calculators/test_minimize.py` check that a harmonic dimer
-reaches its bond length to 10<sup>−8</sup> Å; that a rattled fcc crystal
-relaxes back to the perfect lattice, its energy and its twelve equal
-neighbor distances; that results are the same for any number of threads;
-that reusing a neighbor search gives the same steps, to the last bit, as a
-calculator that searches at every step, with fewer than half as many
-searches; and the step limit, the callback and the errors.
+FIRE uses the parameters of ASE: a starting time step of 0.1, a largest time
+step of 1.0, five steps before the time step grows by 10 %, halving it after
+an uphill step, and a mixing parameter starting at 0.1 and shrinking by 1 %
+per step. Unlike in ASE, `max_step` limits each atom rather than the
+displacement of all atoms together.
 
-The tests in `tests/calculators/test_eam.py`, on a synthetic two-element
-potential written by the tests, check that:
-
-- energies, forces and atomic virials agree with an independent NumPy
-  implementation of the same interpolation and sums over periodic images to
-  10<sup>−11</sup>, for periodic, partly periodic and non-periodic systems
-  and for a box smaller than the cutoff;
-- `check_calculator` passes;
-- results are the same for any number of threads;
-- malformed files raise `FileFormatError` with the line, and the reading
-  follows LAMMPS (values continuing on further lines, comments).
-
-`tests/calculators/test_eam_lammps.py` runs where the LAMMPS Python module
-is installed and compares with LAMMPS stable_30Sep2026 `pair_style eam/alloy`:
-the energy agrees to 10<sup>−12</sup>, atomic energies to 10<sup>−11</sup>,
-and forces, the virial and atomic virials to 10<sup>−9</sup> (with the
-pressure converted by LAMMPS's own constant for metal units). Relaxing a
-vacancy in a perturbed alloy, `minimize` and LAMMPS `min_style fire` reach the
-same energy to 10<sup>−8</sup> eV and the same positions to 10<sup>−6</sup> Å,
-up to a rigid translation along which each run drifts.
+`minimize` raises `InvalidParameter` for a non-positive `max_force` or
+`max_step`, a negative `max_steps`, or a calculator that does not compute
+both energies and forces.
 
 ## References
 

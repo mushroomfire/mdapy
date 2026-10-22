@@ -16,6 +16,7 @@ from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
 from mdapy.errors import FileFormatError, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
+from mdapy.neighbor._neighbor_list import _given_or_built
 
 
 class _Numbers:
@@ -167,15 +168,7 @@ class EAM(Calculator):
             raise InvalidParameter(
                 f"the potential has no parameters for {missing}; it has {list(self.elements)}"
             )
-        if neighbors is None:
-            neighbors = NeighborList.build(system, self.cutoff)
-        elif neighbors.system is not system:
-            raise InvalidParameter("the neighbor list was built for another system")
-        elif neighbors.cutoff < self.cutoff:
-            raise InvalidParameter(
-                f"the neighbor list has cutoff {neighbors.cutoff}, below the potential's "
-                f"{self.cutoff}"
-            )
+        neighbors = _given_or_built(system, self.cutoff, neighbors)
         energies, forces, virials = _native.compute_eam(
             self._potential,
             species,

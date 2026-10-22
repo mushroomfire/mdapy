@@ -112,21 +112,13 @@ BOXES = {
 PBC = [True, (True, True, False), (False, True, False), False]
 
 
-def cartesian(box, fractional):
-    """box.to_cartesian without BLAS, whose matmul raises spurious warnings
-    with NumPy 2.2 on recent macOS."""
-    return box.origin + np.einsum(
-        "...j,jk->...k", np.asarray(fractional, float), box.matrix
-    )
-
-
 def random_system(box_name, pbc=True, n=40, seed=0, outside=False):
     rng = np.random.default_rng(seed)
     box = mdapy.Box(BOXES[box_name], origin=[1.0, -2.0, 0.5], pbc=pbc)
     fractional = rng.random((n, 3))
     if outside:  # atoms anywhere, not wrapped into the box
         fractional = fractional * 3 - 1
-    return mdapy.System(cartesian(box, fractional), box)
+    return mdapy.System(box.to_cartesian(fractional), box)
 
 
 def lattice(kind, a, repeat=1):
@@ -135,7 +127,7 @@ def lattice(kind, a, repeat=1):
     cells = np.array(list(itertools.product(range(repeat), repeat=3)))
     fractional = (cells[:, None, :] + np.array(basis)[None]).reshape(-1, 3) / repeat
     box = mdapy.Box(a * repeat)
-    return mdapy.System(cartesian(box, fractional), box)
+    return mdapy.System(box.to_cartesian(fractional), box)
 
 
 def check_arrays(nl, n):

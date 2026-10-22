@@ -96,8 +96,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 
 ### Foundations
 
-- Python 3.10 or newer; NumPy 2 and polars 2 are the only required
-  dependencies.
+- Python 3.11 or newer; NumPy 2.3.1 or newer and polars 2 are the only
+  required dependencies.
 - All compiled code is one extension module, built as a single abi3 wheel per
   platform for Python 3.12 and newer, optimized for speed.
 - Atom indices in results are 32-bit, `mdapy.index_dtype`; a build with

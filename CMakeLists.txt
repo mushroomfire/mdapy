@@ -15,7 +15,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 # SKBUILD_SABI_COMPONENT is set by scikit-build-core when building an abi3 wheel.
-find_package(Python 3.10 REQUIRED
+find_package(Python 3.11 REQUIRED
   COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT})
 find_package(nanobind CONFIG REQUIRED)
 find_package(Threads REQUIRED)

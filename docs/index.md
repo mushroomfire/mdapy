@@ -116,7 +116,7 @@ flowchart TB
 
     Planned.
 
--   :material-molecule:{ .lg .middle } **Simulation**
+-   :mdapy-simulation:{ .lg .middle } **Simulation**
 
     ---
 

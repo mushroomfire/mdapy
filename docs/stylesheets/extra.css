@@ -3,8 +3,11 @@
   text-align: center;
 }
 
-/* The cards of the home page, colored as the parts of the feature map
-   above them, in the order of the cards. */
+/* The cards of the home page, one per row, colored as the parts of the
+   feature map above them, in the order of the cards. */
+.md-typeset .grid.cards {
+  grid-template-columns: 1fr;
+}
 .md-typeset .grid.cards > ul > li {
   border-top-width: 4px;
 }

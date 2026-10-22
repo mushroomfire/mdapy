@@ -11,6 +11,7 @@ from os import PathLike
 from typing import Any
 
 import numpy as np
+import polars as pl
 from numpy.typing import ArrayLike
 
 from mdapy._core import visualization as _native
@@ -184,9 +185,22 @@ def _color(value: Any) -> np.ndarray:
     return color
 
 
-def element_colors(elements: Sequence[str]) -> np.ndarray:
+def _per_element(elements: Sequence[str] | pl.Series, values: Any) -> np.ndarray:
+    """values(element) of each element, looked up once per kind."""
+    series = elements if isinstance(elements, pl.Series) else pl.Series(list(elements))
+    series = series.cast(pl.String)
+    kinds = series.unique(maintain_order=True).to_list()
+    table = np.array([values(k) for k in kinds], dtype=float)
+    if not kinds:
+        return table
+    index = series.replace_strict(kinds, list(range(len(kinds))), return_dtype=pl.Int64)
+    return table[index.to_numpy()]
+
+
+def element_colors(elements: Sequence[str] | pl.Series) -> np.ndarray:
     """(N, 3) default sRGB colors of elements, from 0 to 1."""
-    return np.array([ELEMENTS.get(e, DEFAULT)[:3] for e in elements], dtype=float) / 255
+    colors = _per_element(elements, lambda e: ELEMENTS.get(e, DEFAULT)[:3]) / 255
+    return colors.reshape(-1, 3)
 
 
 _RADII = {
@@ -196,7 +210,9 @@ _RADII = {
 }
 
 
-def element_radii(elements: Sequence[str], kind: str = "display") -> np.ndarray:
+def element_radii(
+    elements: Sequence[str] | pl.Series, kind: str = "display"
+) -> np.ndarray:
     """(N,) radii of elements in Å.
 
     Parameters
@@ -216,8 +232,23 @@ def element_radii(elements: Sequence[str], kind: str = "display") -> np.ndarray:
     if kind not in _RADII:
         raise InvalidParameter(f"kind must be display, covalent or vdw, not {kind!r}")
     column, missing = _RADII[kind]
-    values = [ELEMENTS.get(e, DEFAULT)[column] for e in elements]
-    return np.array([missing if v is None else v for v in values], dtype=float)
+
+    def radius(element: str) -> float:
+        value = ELEMENTS.get(element, DEFAULT)[column]
+        return missing if value is None else value
+
+    return _per_element(elements, radius).reshape(-1)
+
+
+def gpu_available() -> bool:
+    """Whether pictures can be traced on a GPU: with Metal on macOS.
+
+    Returns
+    -------
+    bool
+        True when a GPU is found and its shader compiles.
+    """
+    return bool(_native.gpu_available())
 
 
 def write_png(path: str | PathLike, image: np.ndarray) -> None:
@@ -539,6 +570,7 @@ class Scene:
         zoom: float = 1.0,
         style: str = "studio",
         background: Any = "white",
+        device: str = "cpu",
         progress: Any = None,
         cancel: Any = None,
         **options: Any,
@@ -568,6 +600,11 @@ class Scene:
             One of ``STYLES``. Default studio.
         background : color or None, optional
             The background, or None for transparent. Default white.
+        device : {"cpu", "gpu", "auto"}, optional
+            Trace the rays on the processor, on the GPU (see
+            :func:`gpu_available`), or on the GPU when there is one.
+            Pictures on the GPU differ from those on the processor by
+            rounding only. Default cpu.
         progress, cancel : optional
             Progress reports and cancellation.
         **options
@@ -591,6 +628,11 @@ class Scene:
             raise InvalidParameter(f"unknown options {sorted(unknown)}")
         if width < 1 or height < 1:
             raise InvalidParameter("width and height must be positive")
+        if device not in ("cpu", "gpu", "auto"):
+            raise InvalidParameter(f"device must be cpu, gpu or auto, not {device!r}")
+        gpu = device == "gpu" or (device == "auto" and gpu_available())
+        if gpu and not gpu_available():
+            raise InvalidParameter("there is no GPU to trace pictures on")
         settings = dict(_DEFAULTS) | STYLES[style] | options
         if int(settings["samples"]) < 1:
             raise InvalidParameter(
@@ -695,6 +737,7 @@ class Scene:
             bounces=int(settings["bounces"]),
             samples=int(settings["samples"]),
             light_size=float(settings["light_size"]),
+            gpu=gpu,
             progress=progress,
             cancel=_native_token(cancel),
         )

@@ -192,7 +192,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   structure, values or by hand, with bonds, the box and Voronoi cells;
   molecules as balls and sticks, licorice or space filling, with covalent
   bonds found from the elements; a `Scene` of spheres, cylinders and
-  polygons; a million atoms in under two seconds.
+  polygons; a million atoms in under two seconds on the processor, or in a
+  third of a second on the GPU with Metal on macOS.
   See [Rendering](../visualization/rendering.md).
 - `mdapy.visualization.plot`: matplotlib set up for journals (widths of
   columns, Nature's artwork guide, Okabe–Ito colors, panel labels, saving

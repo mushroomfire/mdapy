@@ -123,6 +123,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | how atoms and bonds are drawn in a picture | `representation` (`"spheres"`, `"ball_and_stick"`, `"space_filling"`, `"licorice"`) | `model`, `drawing_method` |
 | radii of the elements | `radius="display"`, `"covalent"`, `"vdw"` | `radii_type` |
 | bounces of light in a picture | `bounces`, `samples` | `depth`, `spp` |
+| where the rays of a picture are traced | `device` (`"cpu"`, `"gpu"`, `"auto"`) | `backend`, `use_gpu` |
 | whether the positions relax | `relax` (bool) | `relax_atoms`, `minimize` |
 | average of a polycrystal | `average` (`"voigt"`, `"reuss"`, `"hill"`) | `method` |
 

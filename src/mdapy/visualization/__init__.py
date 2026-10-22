@@ -16,6 +16,7 @@ from mdapy.visualization._scene import (
     colormap,
     element_colors,
     element_radii,
+    gpu_available,
     write_png,
 )
 
@@ -29,6 +30,7 @@ __all__ = [
     "colormap",
     "element_colors",
     "element_radii",
+    "gpu_available",
     "render",
     "write_png",
 ]

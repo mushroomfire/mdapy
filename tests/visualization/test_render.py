@@ -23,6 +23,7 @@ from mdapy.visualization import (
     covalent_bonds,
     element_colors,
     element_radii,
+    gpu_available,
     render,
     write_png,
 )
@@ -591,3 +592,64 @@ def test_representations():
         render(molecule, representation="cartoon")
     with pytest.raises(InvalidParameter, match="bonds must be"):
         render(molecule, bonds="hydrogen")
+
+
+# ------------------------------------------------------------ on the GPU
+
+needs_gpu = pytest.mark.skipif(not gpu_available(), reason="no GPU")
+
+
+@needs_gpu
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"style": "studio"},
+        {"style": "goodsell"},
+        {"style": "toon", "perspective": True, "fog": 0.5},
+        {"style": "photo", "samples": 4},
+        {"style": "glossy", "background": None},
+    ],
+)
+def test_the_gpu_draws_what_the_processor_draws(options):
+    scene = random_scene()
+    scene.add_triangles([[[-3, -3, 0.5], [6, -3, 0.5], [0, 6, 0.5]]], "red", alpha=0.4)
+    cpu = scene.render(width=96, height=80, **options).astype(int)
+    gpu = scene.render(width=96, height=80, device="gpu", **options).astype(int)
+    difference = np.abs(cpu - gpu).max(axis=2)
+    # rounding moves a few edges by a subpixel, nothing else
+    assert (difference > 2).mean() < 0.01 and np.abs(cpu - gpu).mean() < 0.5
+    np.testing.assert_array_equal(
+        scene.render(width=96, height=80, device="auto", **options), gpu
+    )
+
+
+@needs_gpu
+def test_the_gpu_can_stop_and_report():
+    scene = random_scene()
+    reports = []
+    scene.render(
+        width=64, height=64, device="gpu", progress=lambda d, t: reports.append((d, t))
+    )
+    assert reports[-1][0] == reports[-1][1]
+    token = mdapy.CancelToken()
+    token.cancel()
+    with pytest.raises(Cancelled):
+        scene.render(width=64, height=64, device="gpu", cancel=token)
+
+    def stop(done, total):
+        raise RuntimeError("enough")
+
+    with pytest.raises(RuntimeError, match="enough"):
+        scene.render(width=64, height=64, device="gpu", progress=stop)
+
+
+def test_devices(monkeypatch):
+    scene = random_scene()
+    with pytest.raises(InvalidParameter, match="device must be"):
+        scene.render(width=8, height=8, device="tpu")
+    monkeypatch.setattr("mdapy.visualization._scene.gpu_available", lambda: False)
+    with pytest.raises(InvalidParameter, match="no GPU"):
+        scene.render(width=8, height=8, device="gpu")
+    np.testing.assert_array_equal(
+        scene.render(width=8, height=8, device="auto"), scene.render(width=8, height=8)
+    )

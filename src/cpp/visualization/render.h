@@ -73,7 +73,11 @@ struct Style {
     float light_size = 0.0f;
     std::array<float, 4> background{1, 1, 1, 1};
     int supersample = 2;  // samples per pixel along each axis
+    bool gpu = false;     // trace the rays on a GPU (see gpu_available)
 };
+
+// Whether pictures can be traced on a GPU: Metal on macOS.
+bool gpu_available();
 
 // An image of width by height pixels, RGBA in 8 bits, sRGB, rows from the top.
 std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const Style& style,

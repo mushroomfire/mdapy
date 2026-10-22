@@ -85,6 +85,7 @@ The `options` are those of `Scene.render`:
 | `zoom` | float | 1 | magnification of the scene framed to fill the picture |
 | `style` | str | `"studio"` | one of the styles below |
 | `background` | color or `None` | `"white"` | `None` for transparent |
+| `device` | str | `"cpu"` | `"cpu"`, `"gpu"`, or `"auto"` for the GPU when there is one; see below |
 | `progress`, `cancel` | | `None` | as in [Parallelism](../getting-started/parallelism.md#progress-and-cancellation) |
 
 | Style | Look |
@@ -106,6 +107,22 @@ right, up and toward the viewer), `fill_intensity`, `ao_samples`,
 (rays per pixel along each axis), and for global illumination `bounces`
 (0 for none), `samples` (paths per ray of `supersample`) and `light_size`
 (the angular radius of the key light in radians, 0 for a point).
+
+## On the GPU
+
+With `device="gpu"` the rays are traced on the GPU, with Metal on macOS;
+`gpu_available()` tells whether there is one. The picture is the same as on
+the processor, with the same random samples in the same precision, up to
+rounding at a few edges. A million atoms take 0.34 s for 1920 × 1080 in the
+studio style against 1.4 s on the processor, and 1.2 s for 3840 × 2160
+against 4.1 s; the photo style gains as much (Apple M5).
+
+```python
+from mdapy.visualization import gpu_available
+
+device = "gpu" if gpu_available() else "cpu"
+picture = render(grains, color=structures, device=device)
+```
 
 ## Molecules
 

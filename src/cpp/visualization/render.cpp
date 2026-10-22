@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include "visualization/render_gpu.h"
+
 namespace mdapy::visualization {
 namespace {
 
@@ -112,6 +114,8 @@ public:
 
     bool empty() const { return refs_.empty(); }
     const Bounds& scene_bounds() const { return all_; }
+    const std::vector<Node>& nodes() const { return nodes_; }
+    const std::vector<std::uint32_t>& refs() const { return refs_; }
 
     // The nearest hit beyond t_min and below hit.t.
     void closest(const Ray& ray, float t_min, Hit& hit) const {
@@ -357,6 +361,96 @@ private:
         return t_in <= t_out ? t_in : kInfinity;
     }
 
+    struct Task {
+        std::uint32_t node, begin, end;
+    };
+
+    // One node over order[begin, end): its bounds, and its children over the
+    // two parts of the range, split by the surface area heuristic over binned
+    // centroids; a leaf when it holds few references.
+    void split(std::vector<std::uint32_t>& order, const std::vector<V>& centroid,
+               std::vector<Node>& nodes, const Task& task, std::vector<Task>& children) const {
+        Bounds box, centers;
+        for (std::uint32_t k = task.begin; k < task.end; ++k) {
+            box.grow(bounds_[order[k]]);
+            centers.grow(centroid[order[k]]);
+        }
+        nodes[task.node].lo = box.lo;
+        nodes[task.node].hi = box.hi;
+        const std::uint32_t count = task.end - task.begin;
+        int axis = 0;
+        const V extent = centers.hi - centers.lo;
+        if (extent[1] > extent[axis]) {
+            axis = 1;
+        }
+        if (extent[2] > extent[axis]) {
+            axis = 2;
+        }
+        if (count <= 4 || extent[axis] <= 0) {
+            nodes[task.node].first = task.begin;
+            nodes[task.node].count = count;
+            return;
+        }
+        constexpr int kBins = 16;
+        const float low = centers.lo[axis];
+        const float scale = kBins / extent[axis];
+        const auto bin_of = [&](std::uint32_t k) {
+            return std::min(kBins - 1, static_cast<int>((centroid[k][axis] - low) * scale));
+        };
+        Bounds bin_box[kBins];
+        std::uint32_t bin_count[kBins] = {};
+        for (std::uint32_t k = task.begin; k < task.end; ++k) {
+            const int b = bin_of(order[k]);
+            ++bin_count[b];
+            bin_box[b].grow(bounds_[order[k]]);
+        }
+        float right_area[kBins] = {};
+        std::uint32_t right_count[kBins] = {};
+        Bounds sweep;
+        std::uint32_t total = 0;
+        for (int b = kBins - 1; b > 0; --b) {
+            sweep.grow(bin_box[b]);
+            total += bin_count[b];
+            right_area[b] = sweep.area();
+            right_count[b] = total;
+        }
+        Bounds left;
+        std::uint32_t left_count = 0;
+        float best = kInfinity;
+        int split_bin = -1;
+        for (int b = 0; b < kBins - 1; ++b) {
+            left.grow(bin_box[b]);
+            left_count += bin_count[b];
+            if (left_count == 0 || right_count[b + 1] == 0) {
+                continue;
+            }
+            const float cost = left_count * left.area() + right_count[b + 1] * right_area[b + 1];
+            if (cost < best) {
+                best = cost;
+                split_bin = b;
+            }
+        }
+        std::uint32_t middle;
+        if (split_bin < 0) {
+            middle = task.begin + count / 2;
+            std::nth_element(order.begin() + task.begin, order.begin() + middle,
+                             order.begin() + task.end, [&](std::uint32_t a, std::uint32_t b) {
+                                 return centroid[a][axis] < centroid[b][axis];
+                             });
+        } else {
+            const auto mid = std::partition(order.begin() + task.begin, order.begin() + task.end,
+                                            [&](std::uint32_t k) { return bin_of(k) <= split_bin; });
+            middle = static_cast<std::uint32_t>(mid - order.begin());
+        }
+        const auto left_node = static_cast<std::uint32_t>(nodes.size());
+        nodes.push_back(Node{});
+        nodes.push_back(Node{});
+        nodes[task.node].first = left_node;
+        nodes[task.node].count = 0;
+        children.push_back({left_node, task.begin, middle});
+        children.push_back({left_node + 1, middle, task.end});
+    }
+
     void build() {
         const std::size_t n = refs_.size();
         if (n == 0) {
@@ -371,94 +465,52 @@ private:
         for (std::size_t k = 0; k < n; ++k) {
             order[k] = static_cast<std::uint32_t>(k);
         }
-        struct Task {
-            std::uint32_t node, begin, end;
-        };
         nodes_.reserve(2 * n);
         nodes_.push_back(Node{});
-        std::vector<Task> tasks{{0, 0, static_cast<std::uint32_t>(n)}};
-        constexpr int kBins = 16;
-        while (!tasks.empty()) {
-            const Task task = tasks.back();
-            tasks.pop_back();
-            Bounds box, centers;
-            for (std::uint32_t k = task.begin; k < task.end; ++k) {
-                box.grow(bounds_[order[k]]);
-                centers.grow(centroid[order[k]]);
-            }
-            nodes_[task.node].lo = box.lo;
-            nodes_[task.node].hi = box.hi;
-            const std::uint32_t count = task.end - task.begin;
-            int axis = 0;
-            const V extent = centers.hi - centers.lo;
-            if (extent[1] > extent[axis]) {
-                axis = 1;
-            }
-            if (extent[2] > extent[axis]) {
-                axis = 2;
-            }
-            if (count <= 4 || extent[axis] <= 0) {
-                nodes_[task.node].first = task.begin;
-                nodes_[task.node].count = count;
+        // The top of the tree breadth first in this thread, until enough
+        // subtrees are left; the order of the work, and so the tree, does not
+        // depend on the threads.
+        constexpr std::size_t kSubtrees = 256;
+        constexpr std::uint32_t kSmall = 4096;
+        std::vector<Task> queue{{0, 0, static_cast<std::uint32_t>(n)}}, subtrees;
+        for (std::size_t head = 0; head < queue.size(); ++head) {
+            const Task task = queue[head];
+            if (task.end - task.begin <= kSmall ||
+                queue.size() - head - 1 + subtrees.size() >= kSubtrees) {
+                subtrees.push_back(task);
                 continue;
             }
-            const float low = centers.lo[axis];
-            const float scale = kBins / extent[axis];
-            const auto bin_of = [&](std::uint32_t k) {
-                return std::min(kBins - 1, static_cast<int>((centroid[k][axis] - low) * scale));
+            split(order, centroid, nodes_, task, queue);
+        }
+        // each subtree on its own, its root first, children numbered within
+        std::vector<std::vector<Node>> parts(subtrees.size());
+        parallel_for(static_cast<std::int64_t>(subtrees.size()), 1,
+                     [&](std::int64_t begin, std::int64_t end) {
+                         for (std::int64_t k = begin; k < end; ++k) {
+                             std::vector<Node>& part = parts[static_cast<std::size_t>(k)];
+                             part.push_back(Node{});
+                             std::vector<Task> tasks{
+                                 {0, subtrees[k].begin, subtrees[k].end}};
+                             while (!tasks.empty()) {
+                                 const Task task = tasks.back();
+                                 tasks.pop_back();
+                                 split(order, centroid, part, task, tasks);
+                             }
+                         }
+                     });
+        for (std::size_t k = 0; k < subtrees.size(); ++k) {
+            // node j > 0 of the part goes to offset + j
+            const auto offset = static_cast<std::uint32_t>(nodes_.size()) - 1;
+            const auto place = [&](Node node) {
+                if (node.count == 0) {
+                    node.first += offset;
+                }
+                return node;
             };
-            Bounds bin_box[kBins];
-            std::uint32_t bin_count[kBins] = {};
-            for (std::uint32_t k = task.begin; k < task.end; ++k) {
-                const int b = bin_of(order[k]);
-                ++bin_count[b];
-                bin_box[b].grow(bounds_[order[k]]);
+            nodes_[subtrees[k].node] = place(parts[k][0]);
+            for (std::size_t j = 1; j < parts[k].size(); ++j) {
+                nodes_.push_back(place(parts[k][j]));
             }
-            float right_area[kBins] = {};
-            std::uint32_t right_count[kBins] = {};
-            Bounds sweep;
-            std::uint32_t total = 0;
-            for (int b = kBins - 1; b > 0; --b) {
-                sweep.grow(bin_box[b]);
-                total += bin_count[b];
-                right_area[b] = sweep.area();
-                right_count[b] = total;
-            }
-            Bounds left;
-            std::uint32_t left_count = 0;
-            float best = kInfinity;
-            int split = -1;
-            for (int b = 0; b < kBins - 1; ++b) {
-                left.grow(bin_box[b]);
-                left_count += bin_count[b];
-                if (left_count == 0 || right_count[b + 1] == 0) {
-                    continue;
-                }
-                const float cost = left_count * left.area() + right_count[b + 1] * right_area[b + 1];
-                if (cost < best) {
-                    best = cost;
-                    split = b;
-                }
-            }
-            std::uint32_t middle;
-            if (split < 0) {
-                middle = task.begin + count / 2;
-                std::nth_element(order.begin() + task.begin, order.begin() + middle,
-                                 order.begin() + task.end, [&](std::uint32_t a, std::uint32_t b) {
-                                     return centroid[a][axis] < centroid[b][axis];
-                                 });
-            } else {
-                const auto mid = std::partition(order.begin() + task.begin, order.begin() + task.end,
-                                                [&](std::uint32_t k) { return bin_of(k) <= split; });
-                middle = static_cast<std::uint32_t>(mid - order.begin());
-            }
-            const auto left_node = static_cast<std::uint32_t>(nodes_.size());
-            nodes_.push_back(Node{});
-            nodes_.push_back(Node{});
-            nodes_[task.node].first = left_node;
-            nodes_[task.node].count = 0;
-            tasks.push_back({left_node, task.begin, middle});
-            tasks.push_back({left_node + 1, middle, task.end});
         }
         // the references in the order of the leaves
         std::vector<std::uint32_t> refs(n);
@@ -503,7 +555,27 @@ float to_srgb(float linear) {
                                 : 1.055f * std::pow(linear, 1.0f / 2.4f) - 0.055f;
 }
 
+// The nodes are handed to the GPU as they are.
+static_assert(sizeof(Node) == 32, "a node is 8 words");
+
+void copy3(float* to, const V& from) {
+    for (int e = 0; e < 3; ++e) {
+        to[e] = from[e];
+    }
+}
+
 }  // namespace
+
+#ifndef MDAPY_METAL
+namespace gpu {
+bool available() { return false; }
+void trace(const Geometry&, const Params&, float*, float*, std::int64_t*, const Control&) {
+    throw std::runtime_error("no GPU: this build of mdapy has none");
+}
+}  // namespace gpu
+#endif
+
+bool gpu_available() { return gpu::available(); }
 
 std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const Style& style,
                                  int width, int height, const Control& control) {
@@ -660,6 +732,55 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
     const int samples = global ? style.samples : 1;
 
     const std::int64_t grain = std::max<std::int64_t>(1, 64 / s);
+    if (style.gpu) {
+        gpu::Params params{};
+        copy3(params.center, center);
+        copy3(params.forward, forward);
+        copy3(params.right, right);
+        copy3(params.up, up);
+        params.half_width = camera.half_width;
+        params.half_height = camera.half_height;
+        params.start = start;
+        params.nearest = nearest;
+        params.farthest = farthest;
+        params.epsilon = epsilon;
+        copy3(params.key, key);
+        copy3(params.fill, fill);
+        copy3(params.key_tangent, key_tangent);
+        copy3(params.key_bitangent, key_bitangent);
+        params.ambient = style.ambient;
+        params.diffuse = style.diffuse;
+        params.specular = style.specular;
+        params.shininess = style.shininess;
+        params.fill_intensity = style.fill_intensity;
+        params.ao_distance = style.ao_distance;
+        params.ao_strength = style.ao_strength;
+        params.shadow_strength = style.shadow_strength;
+        params.fog = style.fog;
+        params.light_size = style.light_size;
+        params.cone = cone;
+        copy3(params.background, background);
+        params.perspective = camera.perspective ? 1 : 0;
+        params.ao_samples = style.ao_samples;
+        params.shadows = style.shadows ? 1 : 0;
+        params.flat = style.flat ? 1 : 0;
+        params.toon_levels = style.toon_levels;
+        params.bounces = style.bounces;
+        params.samples = samples;
+        params.width = sw;
+        params.height = sh;
+        params.refs = static_cast<std::uint32_t>(bvh.refs().size());
+        const gpu::Geometry geometry{scene.sphere_center.data(),   scene.sphere_radius.data(),
+                                     scene.sphere_color.data(),    scene.sphere_id.data(),
+                                     scene.sphere_radius.size(),   scene.cylinder_end.data(),
+                                     scene.cylinder_radius.data(), scene.cylinder_color.data(),
+                                     scene.cylinder_id.data(),     scene.cylinder_radius.size(),
+                                     scene.triangle_vertex.data(), scene.triangle_color.data(),
+                                     scene.triangle_alpha.data(),  scene.triangle_id.data(),
+                                     scene.triangle_alpha.size(),  bvh.nodes().data(),
+                                     bvh.nodes().size(),           bvh.refs().data()};
+        gpu::trace(geometry, params, rgba.data(), depth.data(), ids.data(), control);
+    } else {
     parallel_for(
         sh, grain,
         [&](std::int64_t row_begin, std::int64_t row_end) {
@@ -722,6 +843,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
             }
         },
         control);
+    }
 
     // outlines: a subpixel behind a different primitive nearest it, or the
     // background next to a primitive, takes the color of the line

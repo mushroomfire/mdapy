@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(MDAPY_WERROR "Treat compiler warnings as errors" OFF)
 option(MDAPY_INDEX64 "64-bit atom indices, for more than 2^31 - 1 atoms" OFF)
+option(MDAPY_METAL "Pictures traced on the GPU with Metal (macOS only)" ON)
 set(MDAPY_SANITIZE "" CACHE STRING
   "Sanitizer build: 'address' (AddressSanitizer + UndefinedBehaviorSanitizer) or 'thread' (ThreadSanitizer)")
 
@@ -35,6 +36,16 @@ target_include_directories(_core PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp")
 target_link_libraries(_core PRIVATE Threads::Threads)
 if(MDAPY_INDEX64)
   target_compile_definitions(_core PRIVATE MDAPY_INDEX64)
+endif()
+# The rays of pictures on the GPU: Objective-C++ for Metal, whose shader is
+# compiled when first used, so the build needs no Metal compiler.
+if(APPLE AND MDAPY_METAL)
+  enable_language(OBJCXX)
+  target_sources(_core PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/visualization/render_metal.mm")
+  set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/visualization/render_metal.mm"
+    PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+  target_compile_definitions(_core PRIVATE MDAPY_METAL)
+  target_link_libraries(_core PRIVATE "-framework Metal" "-framework Foundation")
 endif()
 
 if(MSVC)

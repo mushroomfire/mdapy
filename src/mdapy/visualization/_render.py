@@ -7,6 +7,7 @@ from os import PathLike
 from typing import Any
 
 import numpy as np
+import polars as pl
 from numpy.typing import ArrayLike
 
 from mdapy.core.system import System
@@ -68,9 +69,7 @@ def atom_colors(
     n = len(system)
     if color is None:
         names = (
-            system.table["element"].to_list()
-            if "element" in system.table.columns
-            else ["X"] * n
+            system.table["element"] if "element" in system.table.columns else ["X"] * n
         )
         return element_colors(names)
     if hasattr(color, "structure") and hasattr(color, "colors"):
@@ -119,9 +118,11 @@ def covalent_bonds(system: System) -> NeighborList:
     """
     if "element" not in system.table.columns:
         raise InvalidParameter("covalent bonds need an element column")
-    names = system.table["element"].to_list()
-    kinds, types = np.unique(np.array(names, dtype=object), return_inverse=True)
-    radii = element_radii(list(kinds), "covalent")
+    names = system.table["element"].cast(pl.String)
+    kinds = names.unique(maintain_order=True).to_list()
+    types = names.replace_strict(kinds, list(range(len(kinds))), return_dtype=pl.Int32)
+    types = types.to_numpy()
+    radii = element_radii(kinds, "covalent")
     limits = radii[:, None] + radii[None, :] + _BOND_TOLERANCE
     largest = float(limits.max(initial=_BOND_TOLERANCE))
     return NeighborList.build(system, largest)._cut(largest, limits, types)
@@ -225,11 +226,7 @@ def render(
     if radius is None:
         radius = bond_radius if default_radius is None else default_radius
     colors = atom_colors(system, color, colormap_name=colormap, value_range=value_range)
-    names = (
-        system.table["element"].to_list()
-        if "element" in system.table.columns
-        else ["X"] * n
-    )
+    names = system.table["element"] if "element" in system.table.columns else ["X"] * n
     if isinstance(radius, tuple) and len(radius) == 2 and isinstance(radius[0], str):
         radii = element_radii(names, radius[0]) * radius[1]  # a fraction of them
     elif isinstance(radius, str):

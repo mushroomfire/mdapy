@@ -146,3 +146,29 @@ def test_chill_plus(kind, a):
     check_types(
         ChillPlus().compute(system).structure, np.asarray(theirs["Structure Type"])
     )
+
+
+@pytest.mark.parametrize("repeat", [(1, 1, 1), (2, 1, 1), (2, 2, 2)])
+@pytest.mark.parametrize("kind", LATTICES)
+def test_boxes_smaller_than_the_neighbor_shells(kind, repeat):
+    """Atoms see their own periodic images among their neighbors."""
+    system = crystal(kind, LATTICES[kind], repeat, jitter=0.1, seed=5)
+    for ours, modifier in (
+        (CommonNeighborAnalysis(), CommonNeighborAnalysisModifier()),
+        (AcklandJonesAnalysis(), AcklandJonesModifier()),
+    ):
+        np.testing.assert_array_equal(
+            ours.compute(system).structure,
+            np.asarray(ovito_particles(system, modifier)["Structure Type"]),
+        )
+    k = 8 if kind == "bcc" else 12
+    np.testing.assert_allclose(
+        CentroSymmetryParameter(k).compute(system).csp,
+        np.asarray(
+            ovito_particles(system, CentroSymmetryModifier(num_neighbors=k))[
+                "Centrosymmetry"
+            ]
+        ),
+        rtol=1e-12,
+        atol=1e-12,
+    )

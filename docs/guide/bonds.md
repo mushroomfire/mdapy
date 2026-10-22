@@ -44,7 +44,9 @@ is 1. With an element column, `partial` also holds the counts for each
 triplet of elements: `partial[a, b, c]` counts the angles with an atom of
 element `a` at the vertex and neighbors of elements `b` and `c`, `b` not after
 `c` by atomic number, and `triplet(a, b, c)` takes `b` and `c` in either
-order. The partial counts add up to `counts`.
+order. The partial counts add up to `counts`. Without a given neighbor list
+the bonds are found on the cell grid, without storing a list; the counts are
+the same.
 
 ## Warren–Cowley parameters
 

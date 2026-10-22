@@ -126,51 +126,131 @@ std::int64_t clusters_search(const double* positions, std::int64_t n, const doub
     return number(parent, n, cluster, sizes);
 }
 
+namespace {
+
+// Histograms of bond angles by the type of the atom and the types a <= b of
+// its two neighbors, the pair (a, b) numbered after the pairs that start
+// below a.
+class AngleBins {
+public:
+    AngleBins(int types, int bins)
+        : types_(types), bins_(bins), pairs_(static_cast<std::int64_t>(types) * (types + 1) / 2),
+          first_(static_cast<std::size_t>(types)) {
+        for (int a = 0; a < types; ++a) {
+            first_[a] = static_cast<std::int64_t>(a) * types -
+                        static_cast<std::int64_t>(a) * (a - 1) / 2 - a;
+        }
+    }
+
+    std::size_t size() const { return static_cast<std::size_t>(types_ * pairs_ * bins_); }
+
+    // Counts the angles between every two of the count bond vectors (count x
+    // 3) of an atom of type center; type_of(a) is the type of neighbor a.
+    template <class TypeOf>
+    void add(const double* vectors, std::int64_t count, std::int32_t center, TypeOf type_of,
+             std::vector<std::int64_t>& histogram) const {
+        const std::int64_t base = center * pairs_;
+        for (std::int64_t a = 0; a < count; ++a) {
+            const double* u = vectors + 3 * a;
+            const double ru = std::sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+            const std::int32_t ta = type_of(a);
+            for (std::int64_t b = a + 1; b < count; ++b) {
+                const double* v = vectors + 3 * b;
+                const double rv = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+                double c = (u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / (ru * rv);
+                c = std::max(-1.0, std::min(1.0, c));
+                const double angle = std::acos(c) * 180.0 / kPi;
+                const int bin = std::min(static_cast<int>(angle / 180.0 * bins_), bins_ - 1);
+                const std::int32_t tb = type_of(b);
+                const std::int32_t low = std::min(ta, tb), high = std::max(ta, tb);
+                ++histogram[static_cast<std::size_t>((base + first_[low] + high) * bins_ + bin)];
+            }
+        }
+    }
+
+private:
+    int types_, bins_;
+    std::int64_t pairs_;
+    std::vector<std::int64_t> first_;
+};
+
+std::vector<std::int64_t> sum_histograms(std::vector<std::int64_t> a,
+                                         const std::vector<std::int64_t>& b) {
+    for (std::size_t k = 0; k < a.size(); ++k) {
+        a[k] += b[k];
+    }
+    return a;
+}
+
+}  // namespace
+
 void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
                  const double* vectors, const std::int32_t* type, int types, int bins,
                  std::int64_t* counts, const Control& control) {
     using Histogram = std::vector<std::int64_t>;
-    const std::int64_t pairs = static_cast<std::int64_t>(types) * (types + 1) / 2;
-    const auto size = static_cast<std::size_t>(types * pairs * bins);
-    // the pair (a, b), a <= b, comes after the a pairs that start below a
-    std::vector<std::int64_t> first(static_cast<std::size_t>(types));
-    for (int a = 0; a < types; ++a) {
-        first[a] = static_cast<std::int64_t>(a) * types - static_cast<std::int64_t>(a) * (a - 1) / 2 - a;
-    }
+    const AngleBins shape(types, bins);
     // at most 64 histograms in flight, whatever the number of types
     const std::int64_t grain = std::max(default_grain(n), (n + 63) / 64);
     const Histogram total = parallel_reduce(
-        n, grain, Histogram(size, 0),
+        n, grain, Histogram(shape.size(), 0),
         [&](std::int64_t begin, std::int64_t end) {
-            Histogram local(size, 0);
+            Histogram local(shape.size(), 0);
             for (std::int64_t i = begin; i < end; ++i) {
-                const std::int64_t center = type[i] * pairs;
-                for (std::int64_t a = offsets[i]; a < offsets[i + 1]; ++a) {
-                    const double* u = vectors + 3 * a;
-                    const double ru = std::sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
-                    const std::int32_t ta = type[neighbors[a]];
-                    for (std::int64_t b = a + 1; b < offsets[i + 1]; ++b) {
-                        const double* v = vectors + 3 * b;
-                        const double rv = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-                        double c = (u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / (ru * rv);
-                        c = std::max(-1.0, std::min(1.0, c));
-                        const double angle = std::acos(c) * 180.0 / kPi;
-                        const int bin = std::min(static_cast<int>(angle / 180.0 * bins), bins - 1);
-                        const std::int32_t tb = type[neighbors[b]];
-                        const std::int32_t low = std::min(ta, tb), high = std::max(ta, tb);
-                        ++local[static_cast<std::size_t>((center + first[low] + high) * bins + bin)];
-                    }
-                }
+                const std::int32_t* own = neighbors + offsets[i];
+                shape.add(vectors + 3 * offsets[i], offsets[i + 1] - offsets[i], type[i],
+                          [own, type](std::int64_t a) { return type[own[a]]; }, local);
             }
             return local;
         },
-        [](Histogram a, const Histogram& b) {
-            for (std::size_t k = 0; k < a.size(); ++k) {
-                a[k] += b[k];
+        sum_histograms, control);
+    std::copy(total.begin(), total.end(), counts);
+}
+
+void bond_angles_search(const double* positions, std::int64_t n, const double* matrix,
+                        const double* origin, const bool* pbc, const std::int32_t* type,
+                        int types, const double* limits, bool per_pair, int bins,
+                        std::int64_t* counts, const Control& control) {
+    using Histogram = std::vector<std::int64_t>;
+    const AngleBins shape(types, bins);
+    const auto pairs = static_cast<std::size_t>(types) * types;
+    const double reach = *std::max_element(limits, limits + pairs);
+    if (n == 0 || !(reach > 0.0)) {
+        std::fill(counts, counts + shape.size(), 0);
+        return;
+    }
+    const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, reach);
+    const double reach2 = reach * reach;
+    const double* h = matrix;
+    const std::int64_t grain = std::max(default_grain(n), (n + 63) / 64);
+    const Histogram total = parallel_reduce(
+        n, grain, Histogram(shape.size(), 0),
+        [&](std::int64_t begin, std::int64_t end) {
+            Histogram local(shape.size(), 0);
+            std::vector<double> found;  // the bond vectors of an atom, as pair_vectors gives them
+            std::vector<std::int32_t> kinds;
+            for (std::int64_t t = begin; t < end; ++t) {
+                const std::int64_t i = grid.atom(t);
+                const double* xi = positions + 3 * i;
+                const double* row = limits + static_cast<std::size_t>(type[i]) * types;
+                found.clear();
+                kinds.clear();
+                grid.visit(i, [&](std::int32_t j, const std::int32_t* s, double r2) {
+                    if (per_pair ? std::sqrt(r2) < row[type[j]] : r2 < reach2) {
+                        const double* xj = positions + 3 * static_cast<std::int64_t>(j);
+                        for (int e = 0; e < 3; ++e) {
+                            found.push_back(xj[e] - xi[e] + s[0] * h[e] + s[1] * h[3 + e] +
+                                            s[2] * h[6 + e]);
+                        }
+                        kinds.push_back(type[j]);
+                    }
+                });
+                shape.add(found.data(), static_cast<std::int64_t>(kinds.size()), type[i],
+                          [&kinds](std::int64_t a) { return kinds[static_cast<std::size_t>(a)]; },
+                          local);
             }
-            return a;
+            return local;
         },
-        control);
+        sum_histograms, control);
     std::copy(total.begin(), total.end(), counts);
 }
 

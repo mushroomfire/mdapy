@@ -9,8 +9,10 @@ from typing import Any
 import numpy as np
 
 from mdapy import units
+from mdapy._core import analysis as _native
 from mdapy.core.result import Result
 from mdapy.core.system import System
+from mdapy.core.threads import _native_token
 from mdapy.elements import atomic_masses
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
@@ -80,30 +82,17 @@ class AtomicTemperature:
         else:
             raise MissingProperty("the temperature needs a mass or an element column")
         v = table["velocities"].to_numpy()
-        nl = _given_or_built(system, self.cutoff, neighbors)
-        nl = nl.within(self.cutoff) if nl.cutoff > self.cutoff else nl
-        i, j = nl.i, nl.j
-        other = j != i  # images of the atom itself are the same atom
-        i, j = i[other], j[other]
-        n = len(system)
-        members = 1 + np.bincount(i, minlength=n)
-        total = mass + np.bincount(i, weights=mass[j], minlength=n)
-        momentum = mass[:, None] * v + np.stack(
-            [np.bincount(i, weights=mass[j] * v[j, a], minlength=n) for a in range(3)],
-            axis=1,
+        nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
+        temperature = _native.atomic_temperature(
+            nl.offsets,
+            nl.j,
+            np.ascontiguousarray(mass, dtype=np.float64),
+            np.ascontiguousarray(v, dtype=np.float64),
+            units.AMU_A2_PER_PS2_TO_EV,
+            units.BOLTZMANN,
+            progress,
+            _native_token(cancel),
         )
-        squares = mass * (v * v).sum(1) + np.bincount(
-            i, weights=mass[j] * (v[j] * v[j]).sum(1), minlength=n
-        )
-        # twice the kinetic energy relative to the center of mass of the group
-        twice = squares - (momentum * momentum).sum(1) / total
-        with np.errstate(invalid="ignore", divide="ignore"):
-            temperature = (
-                twice
-                * units.AMU_A2_PER_PS2_TO_EV
-                / (3.0 * (members - 1) * units.BOLTZMANN)
-            )
-        temperature[members == 1] = np.nan
         return TemperatureResult(temperature)
 
     def __repr__(self) -> str:

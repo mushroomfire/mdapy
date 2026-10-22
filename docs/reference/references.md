@@ -24,6 +24,12 @@ If mdapy contributes to a publication, please cite
 
 ## Papers
 
+**Ackland and Jones (2006).** G. J. Ackland and A. P. Jones, Applications of
+local crystal structure measures in experiment and simulation, *Phys. Rev. B*
+**73**, 054104 (2006).
+[doi:10.1103/PhysRevB.73.054104](https://doi.org/10.1103/PhysRevB.73.054104)
+{ #ackland2006 }
+
 **Bitzek et al. (2006).** E. Bitzek, P. Koskinen, F. Gähler, M. Moseler and
 P. Gumbsch, Structural relaxation made simple, *Phys. Rev. Lett.* **97**,
 170201 (2006).
@@ -35,6 +41,12 @@ derivation and application to impurities, surfaces, and other defects in
 metals, *Phys. Rev. B* **29**, 6443 (1984).
 [doi:10.1103/PhysRevB.29.6443](https://doi.org/10.1103/PhysRevB.29.6443)
 { #daw1984 }
+
+**Faken and Jónsson (1994).** D. Faken and H. Jónsson, Systematic analysis of
+local atomic structure combined with 3D computer graphics, *Comput. Mater.
+Sci.* **2**, 279 (1994).
+[doi:10.1016/0927-0256(94)90109-0](https://doi.org/10.1016/0927-0256(94)90109-0)
+{ #faken1994 }
 
 **Fan et al. (2022).** Z. Fan et al., GPUMD: A package for constructing
 accurate machine-learned potentials and performing highly efficient
@@ -55,6 +67,18 @@ simulations and its implementation in LAMMPS, *Comput. Mater. Sci.* **175**,
 [doi:10.1088/0370-1298/65/5/307](https://doi.org/10.1088/0370-1298/65/5/307)
 { #hill1952 }
 
+**Honeycutt and Andersen (1987).** J. D. Honeycutt and H. C. Andersen,
+Molecular dynamics study of melting and freezing of small Lennard-Jones
+clusters, *J. Phys. Chem.* **91**, 4950 (1987).
+[doi:10.1021/j100303a014](https://doi.org/10.1021/j100303a014)
+{ #honeycutt1987 }
+
+**Kelchner et al. (1998).** C. L. Kelchner, S. J. Plimpton and J. C.
+Hamilton, Dislocation nucleation and defect structure during surface
+indentation, *Phys. Rev. B* **58**, 11085 (1998).
+[doi:10.1103/PhysRevB.58.11085](https://doi.org/10.1103/PhysRevB.58.11085)
+{ #kelchner1998 }
+
 **Larsen et al. (2017).** A. H. Larsen et al., The atomic simulation
 environment—a Python library for working with atoms, *J. Phys.: Condens.
 Matter* **29**, 273002 (2017).
@@ -67,10 +91,22 @@ target irradiated by short laser pulses, *Phys. Rev. B* **77**, 214108
 (2008). [doi:10.1103/PhysRevB.77.214108](https://doi.org/10.1103/PhysRevB.77.214108)
 { #lin2008 }
 
+**Maras et al. (2016).** E. Maras, O. Trushin, A. Stukowski, T. Ala-Nissila
+and H. Jónsson, Global transition path search for dislocation formation in Ge
+on Si(001), *Comput. Phys. Commun.* **205**, 13 (2016).
+[doi:10.1016/j.cpc.2016.04.001](https://doi.org/10.1016/j.cpc.2016.04.001)
+{ #maras2016 }
+
 **Meija et al. (2016).** J. Meija et al., Atomic weights of the elements 2013
 (IUPAC Technical Report), *Pure Appl. Chem.* **88**, 265 (2016).
 [doi:10.1515/pac-2015-0305](https://doi.org/10.1515/pac-2015-0305)
 { #meija2016 }
+
+**Nguyen and Molinero (2015).** A. H. Nguyen and V. Molinero,
+Identification of clathrate hydrates, hexagonal ice, cubic ice, and liquid
+water in simulations: the CHILL+ algorithm, *J. Phys. Chem. B* **119**, 9369
+(2015). [doi:10.1021/jp510289t](https://doi.org/10.1021/jp510289t)
+{ #nguyen2015 }
 
 **Song et al. (2024).** K. Song et al., General-purpose machine-learned
 potential for 16 elemental metals and their alloys, *Nat. Commun.* **15**,
@@ -78,11 +114,23 @@ potential for 16 elemental metals and their alloys, *Nat. Commun.* **15**,
 [doi:10.1038/s41467-024-54554-x](https://doi.org/10.1038/s41467-024-54554-x)
 { #song2024 }
 
+**Stukowski (2012).** A. Stukowski, Structure identification methods for
+atomistic simulations of crystalline materials, *Modelling Simul. Mater. Sci.
+Eng.* **20**, 045021 (2012).
+[doi:10.1088/0965-0393/20/4/045021](https://doi.org/10.1088/0965-0393/20/4/045021)
+{ #stukowski2012 }
+
 **Thompson et al. (2022).** A. P. Thompson et al., LAMMPS - a flexible
 simulation tool for particle-based materials modeling at the atomic, meso,
 and continuum scales, *Comput. Phys. Commun.* **271**, 108171 (2022).
 [doi:10.1016/j.cpc.2021.108171](https://doi.org/10.1016/j.cpc.2021.108171)
 { #thompson2022 }
+
+**Tsuzuki et al. (2007).** H. Tsuzuki, P. S. Branicio and J. P. Rino,
+Structural characterization of deformed crystals by analysis of common atomic
+neighborhood, *Comput. Phys. Commun.* **177**, 518 (2007).
+[doi:10.1016/j.cpc.2007.05.018](https://doi.org/10.1016/j.cpc.2007.05.018)
+{ #tsuzuki2007 }
 
 **Varvenne et al. (2016).** C. Varvenne, A. Luque, W. G. Nöhring and
 W. A. Curtin, Average-atom interatomic potential for random alloys,

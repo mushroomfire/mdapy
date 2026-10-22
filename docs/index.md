@@ -84,7 +84,11 @@ flowchart TB
 
     [Overview](analysis/overview.md)
 
-    Structure identification: [CNA, CSP, diamond and CHILL+](analysis/structure.md)
+    Structure identification: [common neighbor analysis](analysis/cna.md) ·
+    [Ackland–Jones](analysis/ackland-jones.md) ·
+    [diamond](analysis/diamond.md) · [CHILL+](analysis/chill-plus.md) ·
+    [centro-symmetry](analysis/csp.md) ·
+    [common neighbor parameter](analysis/cnp.md)
 
     Local order and distributions:
     [radial distribution, coordination and structure factor](analysis/distribution.md) ·

@@ -41,6 +41,8 @@ import mdapy
 
 ::: mdapy.identify.StructureResult
 
+::: mdapy.identify.AcklandJonesAnalysis
+
 ::: mdapy.identify.DiamondStructure
 
 ::: mdapy.identify.ChillPlus

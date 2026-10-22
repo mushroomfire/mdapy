@@ -110,7 +110,12 @@ nav:
   - Analysis:
       - Overview: analysis/overview.md
       - Structure identification:
-          - CNA, CSP, diamond and CHILL+: analysis/structure.md
+          - Common neighbor analysis: analysis/cna.md
+          - Ackland–Jones analysis: analysis/ackland-jones.md
+          - Diamond structure: analysis/diamond.md
+          - CHILL+: analysis/chill-plus.md
+          - Centro-symmetry parameter: analysis/csp.md
+          - Common neighbor parameter: analysis/cnp.md
       - Local order and distributions:
           - Radial distribution, coordination and structure factor: analysis/distribution.md
           - Bond-orientational order: analysis/steinhardt.md

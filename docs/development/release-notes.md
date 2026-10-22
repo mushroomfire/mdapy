@@ -99,13 +99,14 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - Analyses are classes whose `compute(system)` returns an immutable result;
   `System.with_columns(result)` adds its per-atom values. See
   [Analyses](../analysis/overview.md).
-- `mdapy.identify.CommonNeighborAnalysis`, adaptive or with a fixed cutoff,
-  for fcc, hcp, bcc and icosahedral atoms, and
-  `mdapy.identify.CentroSymmetryParameter`, `CommonNeighborParameter`,
-  `DiamondStructure` for cubic
-  and hexagonal diamond, and `ChillPlus` for ice, hydrates and liquid water.
-  See
-  [Structure identification](../analysis/structure.md).
+- Structure identification in `mdapy.identify`:
+  [`CommonNeighborAnalysis`](../analysis/cna.md), adaptive or with a fixed
+  cutoff, and [`AcklandJonesAnalysis`](../analysis/ackland-jones.md), agreeing
+  atom by atom with LAMMPS, for fcc, hcp, bcc and icosahedral atoms;
+  [`DiamondStructure`](../analysis/diamond.md) for cubic and hexagonal
+  diamond; [`ChillPlus`](../analysis/chill-plus.md) for ice, hydrates and
+  liquid water; and the [centro-symmetry](../analysis/csp.md) and
+  [common neighbor](../analysis/cnp.md) parameters.
 - `mdapy.analysis.RadialDistributionFunction` with partial functions, and
   `mdapy.analysis.CoordinationNumber` with cutoffs per pair of elements. See
   [Radial distribution and coordination](../analysis/distribution.md).

@@ -89,7 +89,7 @@ the system lacks a column the analysis needs; and
 
 | Section | Classes |
 |---|---|
-| Structure identification | [`CommonNeighborAnalysis`, `CentroSymmetryParameter`, `DiamondStructure`, `ChillPlus`](structure.md) |
+| Structure identification | [`CommonNeighborAnalysis`](cna.md) · [`AcklandJonesAnalysis`](ackland-jones.md) · [`DiamondStructure`](diamond.md) · [`ChillPlus`](chill-plus.md) · [`CentroSymmetryParameter`](csp.md) · [`CommonNeighborParameter`](cnp.md) |
 | Local order and distributions | [`RadialDistributionFunction`, `CoordinationNumber`, `StructureFactor`](distribution.md) · [`SteinhardtParameters`](steinhardt.md) · [`EntropyFingerprint`](entropy.md) · [`BondAngleDistribution`, `WarrenCowley`, `ClusterAnalysis`](bonds.md) |
 | Defects and deformation | [`WignerSeitz`](defects.md) · [`AtomicStrain`](strain.md) |
 | Dynamics | [`AtomicTemperature`](temperature.md) |

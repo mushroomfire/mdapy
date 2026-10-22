@@ -22,6 +22,22 @@ enum Structure : std::int8_t { kOther = 0, kFcc = 1, kHcp = 2, kBcc = 3, kIco = 
 void centro_symmetry(std::int64_t n, int k, const double* vectors, double* csp,
                      const Control& control = {});
 
+// The common neighbor parameter (Tsuzuki, Branicio and Rino) of n atoms
+// from their neighbor vectors in CSR form, all closer than the cutoff: for
+// each neighbor j the sum of r_ik + r_jk over the neighbors k of i that are
+// closer than the cutoff to j, squared and averaged over j, in Å². NaN for
+// an atom without neighbors.
+void common_neighbor_parameter(std::int64_t n, const std::int64_t* offsets,
+                               const double* vectors, double cutoff, double* cnp,
+                               const Control& control = {});
+
+// The same with the neighbors found on a cell grid (positions: n x 3;
+// matrix: rows a, b, c; origin: 3; pbc: 3).
+void common_neighbor_parameter_search(const double* positions, std::int64_t n,
+                                      const double* matrix, const double* origin,
+                                      const bool* pbc, double cutoff, double* cnp,
+                                      const Control& control = {});
+
 // Common neighbor analysis of n atoms from the vectors to their neighbors in
 // CSR form. With cutoff > 0 the neighbors are those within the cutoff;
 // otherwise the cutoff of each atom is adaptive and the neighbors must be

@@ -308,3 +308,83 @@ class CentroSymmetryParameter:
 
     def __repr__(self) -> str:
         return f"CentroSymmetryParameter(num_neighbors={self.num_neighbors})"
+
+
+@dataclass(frozen=True)
+class CommonNeighborParameterResult(Result):
+    """The common neighbor parameter of each atom.
+
+    Attributes
+    ----------
+    cnp : numpy.ndarray
+        (N,) float64 parameter in Å²; NaN for an atom without neighbors.
+    """
+
+    cnp: np.ndarray
+
+    def columns(self) -> dict[str, np.ndarray]:
+        return {"cnp": self.cnp}
+
+
+class CommonNeighborParameter:
+    """The common neighbor parameter: zero for an atom whose neighbors and
+    their common neighbors are arranged symmetrically, as in fcc and bcc.
+
+    Parameters
+    ----------
+    cutoff : float
+        Neighbors and common neighbors are closer than cutoff, in Å.
+    """
+
+    def __init__(self, cutoff: float):
+        if not cutoff > 0:
+            raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
+        self.cutoff = float(cutoff)
+
+    def compute(
+        self,
+        system: System,
+        *,
+        neighbors: NeighborList | None = None,
+        progress: Any = None,
+        cancel: Any = None,
+    ) -> CommonNeighborParameterResult:
+        """The parameter of each atom.
+
+        Parameters
+        ----------
+        system : System
+            The atoms.
+        neighbors : NeighborList, optional
+            A neighbor list of this system with at least the cutoff.
+
+        Returns
+        -------
+        CommonNeighborParameterResult
+            The parameter of each atom.
+        """
+        if neighbors is None:
+            # the neighbors found on the grid, without a list
+            box = system.box
+            cnp = _native.common_neighbor_parameter_search(
+                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(box.matrix),
+                np.ascontiguousarray(box.origin),
+                np.ascontiguousarray(box.pbc),
+                self.cutoff,
+                progress,
+                _native_token(cancel),
+            )
+        else:
+            nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
+            cnp = _native.common_neighbor_parameter(
+                nl.offsets,
+                np.ascontiguousarray(nl.vectors),
+                self.cutoff,
+                progress,
+                _native_token(cancel),
+            )
+        return CommonNeighborParameterResult(cnp)
+
+    def __repr__(self) -> str:
+        return f"CommonNeighborParameter(cutoff={self.cutoff!r})"

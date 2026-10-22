@@ -7,9 +7,12 @@
 #include <bitset>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "analysis/steinhardt.h"
+#include "neighbor/cell_list.h"
+#include "neighbor/frame.h"
 
 namespace mdapy::identify {
 namespace {
@@ -159,6 +162,78 @@ void centro_symmetry(std::int64_t n, int k, const double* vectors, double* csp,
                     sum += values[a];
                 }
                 csp[i] = sum;
+            }
+        },
+        control);
+}
+
+namespace {
+
+// The common neighbor parameter of one atom from the vectors (count x 3) to
+// its neighbors: with v the vectors from the atom, r_ik + r_jk = v_j - 2 v_k.
+double common_neighbor_sum(const double* vectors, std::int64_t count, double cutoff2) {
+    if (count == 0) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    double sum = 0.0;
+    for (std::int64_t j = 0; j < count; ++j) {
+        const double* vj = vectors + 3 * j;
+        double r[3] = {0.0, 0.0, 0.0};
+        for (std::int64_t k = 0; k < count; ++k) {
+            const double* vk = vectors + 3 * k;
+            const double d[3] = {vk[0] - vj[0], vk[1] - vj[1], vk[2] - vj[2]};
+            if (k != j && d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < cutoff2) {
+                for (int e = 0; e < 3; ++e) {
+                    r[e] += vj[e] - 2.0 * vk[e];
+                }
+            }
+        }
+        sum += r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
+    }
+    return sum / static_cast<double>(count);
+}
+
+}  // namespace
+
+void common_neighbor_parameter(std::int64_t n, const std::int64_t* offsets,
+                               const double* vectors, double cutoff, double* cnp,
+                               const Control& control) {
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                cnp[i] = common_neighbor_sum(vectors + 3 * offsets[i], offsets[i + 1] - offsets[i],
+                                             cutoff * cutoff);
+            }
+        },
+        control);
+}
+
+void common_neighbor_parameter_search(const double* positions, std::int64_t n,
+                                      const double* matrix, const double* origin,
+                                      const bool* pbc, double cutoff, double* cnp,
+                                      const Control& control) {
+    if (n == 0) {
+        return;
+    }
+    const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, cutoff);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            std::vector<double> found;  // the vectors to the neighbors, as pair_vectors gives them
+            for (std::int64_t t = begin; t < end; ++t) {
+                const std::int64_t i = grid.atom(t);
+                const double* xi = positions + 3 * i;
+                found.clear();
+                grid.visit(t, [&](index_t j, const std::int32_t* s, double) {
+                    double r[3];
+                    neighbor::pair_vector(xi, positions + 3 * static_cast<std::int64_t>(j), s,
+                                          matrix, r);
+                    found.insert(found.end(), r, r + 3);
+                });
+                cnp[i] = common_neighbor_sum(found.data(),
+                                             static_cast<std::int64_t>(found.size() / 3),
+                                             cutoff * cutoff);
             }
         },
         control);

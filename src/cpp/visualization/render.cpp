@@ -18,6 +18,7 @@ using V = std::array<float, 3>;
 inline V operator+(V a, V b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
 inline V operator-(V a, V b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
 inline V operator*(V a, float s) { return {a[0] * s, a[1] * s, a[2] * s}; }
+inline V operator*(V a, V b) { return {a[0] * b[0], a[1] * b[1], a[2] * b[2]}; }
 inline float dot(V a, V b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 inline V cross(V a, V b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
@@ -506,8 +507,10 @@ float to_srgb(float linear) {
 
 std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const Style& style,
                                  int width, int height, const Control& control) {
-    if (width < 1 || height < 1 || style.supersample < 1) {
-        throw std::invalid_argument("the picture needs a positive size and supersampling");
+    if (width < 1 || height < 1 || style.supersample < 1 || style.samples < 1 ||
+        style.bounces < 0) {
+        throw std::invalid_argument(
+            "the picture needs a positive size, supersampling and samples, and bounces of 0 or more");
     }
     const Bvh bvh(scene);
     const int s = style.supersample;
@@ -590,6 +593,72 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         return base * light + V{shine, shine, shine};
     };
 
+    // directions about a normal, cosine-weighted
+    const auto cosine = [](V n, Random& random) -> V {
+        const V helper = std::fabs(n[0]) < 0.9f ? V{1, 0, 0} : V{0, 1, 0};
+        const V tangent = unit(cross(n, helper));
+        const V bitangent = cross(n, tangent);
+        const float u = random.next(), phi = 6.2831853f * random.next();
+        const float r = std::sqrt(u);
+        return tangent * (r * std::cos(phi)) + bitangent * (r * std::sin(phi)) +
+               n * std::sqrt(std::max(0.0f, 1.0f - u));
+    };
+    // a direction toward the disk of the key light, uniform in its cone
+    const V key_helper = std::fabs(key[0]) < 0.9f ? V{1, 0, 0} : V{0, 1, 0};
+    const V key_tangent = unit(cross(key, key_helper));
+    const V key_bitangent = cross(key, key_tangent);
+    const float cone = std::cos(std::clamp(style.light_size, 0.0f, 1.5f));
+    const auto toward_light = [&](Random& random) -> V {
+        if (style.light_size <= 0) {
+            return key;
+        }
+        const float z = 1.0f - random.next() * (1.0f - cone);
+        const float phi = 6.2831853f * random.next();
+        const float r = std::sqrt(std::max(0.0f, 1.0f - z * z));
+        return key_tangent * (r * std::cos(phi)) + key_bitangent * (r * std::sin(phi)) + key * z;
+    };
+    // the light reaching the camera from a hit along one path: at each
+    // surface, the key light it sees, then a diffuse bounce that either
+    // escapes to the sky or reaches the next surface
+    const auto path = [&](const Hit& first, const Ray& primary, Random& random) -> V {
+        V radiance{0, 0, 0}, weight{1, 1, 1};
+        Hit hit = first;
+        Ray ray = primary;
+        for (int bounce = 0;; ++bounce) {
+            const V point = ray.origin + ray.direction * hit.t;
+            const V n = bvh.normal(hit.ref, point, ray.direction);
+            const V lifted = point + n * epsilon;
+            const V reflected = weight * bvh.color(hit.ref);
+            const V l = toward_light(random);
+            const float lit = dot(n, l);
+            if (lit > 0 && !bvh.occluded(make_ray(lifted, l), 0.0f, kInfinity)) {
+                radiance = radiance + reflected * (style.diffuse * lit);
+                if (bounce == 0 && style.specular > 0) {
+                    const float shine =
+                        style.specular *
+                        std::pow(std::max(0.0f, dot(n, unit(l - ray.direction))), style.shininess);
+                    radiance = radiance + V{shine, shine, shine};
+                }
+            }
+            const Ray next_ray = make_ray(lifted, cosine(n, random));
+            Hit next;
+            bvh.closest(next_ray, 0.0f, next);
+            if (next.t == kInfinity) {
+                radiance = radiance + reflected * style.ambient;
+                break;
+            }
+            if (bounce == style.bounces) {
+                break;
+            }
+            weight = reflected;
+            hit = next;
+            ray = next_ray;
+        }
+        return radiance;
+    };
+    const bool global = style.bounces > 0;
+    const int samples = global ? style.samples : 1;
+
     const std::int64_t grain = std::max<std::int64_t>(1, 64 / s);
     parallel_for(
         sh, grain,
@@ -598,44 +667,52 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
                 for (std::int64_t x = 0; x < sw; ++x) {
                     const std::size_t p = static_cast<std::size_t>(y) * static_cast<std::size_t>(sw) +
                                           static_cast<std::size_t>(x);
-                    Random random(mix(static_cast<std::uint32_t>(x), static_cast<std::uint32_t>(y)));
-                    // the sample at the center of the subpixel
-                    const float px = (2.0f * (static_cast<float>(x) + 0.5f) / static_cast<float>(sw)) - 1.0f;
-                    const float py = 1.0f - (2.0f * (static_cast<float>(y) + 0.5f) / static_cast<float>(sh));
-                    Ray ray;
-                    if (camera.perspective) {
-                        ray = make_ray(center, unit(forward + right * (px * camera.half_width) +
-                                                    up * (py * camera.half_height)));
-                    } else {
-                        ray = make_ray(center + right * (px * camera.half_width) +
-                                           up * (py * camera.half_height) + forward * start,
-                                       forward);
-                    }
+                    const std::uint32_t seed =
+                        mix(static_cast<std::uint32_t>(x), static_cast<std::uint32_t>(y));
                     V color{0, 0, 0};
-                    float remaining = 1.0f, t_min = 0.0f;
-                    bool first = true;
-                    for (int layer = 0; layer < 8 && remaining > 1e-3f; ++layer) {
-                        Hit hit;
-                        bvh.closest(ray, t_min, hit);
-                        if (hit.t == kInfinity) {
-                            break;
+                    float coverage = 0.0f;
+                    for (int sample = 0; sample < samples; ++sample) {
+                        Random random(sample == 0 ? seed : mix(seed, static_cast<std::uint32_t>(sample)));
+                        // the first sample at the center of the subpixel, the others
+                        // anywhere in it
+                        const float jx = sample == 0 ? 0.5f : random.next();
+                        const float jy = sample == 0 ? 0.5f : random.next();
+                        const float px = (2.0f * (static_cast<float>(x) + jx) / static_cast<float>(sw)) - 1.0f;
+                        const float py = 1.0f - (2.0f * (static_cast<float>(y) + jy) / static_cast<float>(sh));
+                        Ray ray;
+                        if (camera.perspective) {
+                            ray = make_ray(center, unit(forward + right * (px * camera.half_width) +
+                                                        up * (py * camera.half_height)));
+                        } else {
+                            ray = make_ray(center + right * (px * camera.half_width) +
+                                               up * (py * camera.half_height) + forward * start,
+                                           forward);
                         }
-                        if (first) {
-                            depth[p] = hit.t + (camera.perspective ? 0.0f : start);
-                            ids[p] = bvh.id(hit.ref);
-                            first = false;
+                        float remaining = 1.0f, t_min = 0.0f;
+                        for (int layer = 0; layer < 8 && remaining > 1e-3f; ++layer) {
+                            Hit hit;
+                            bvh.closest(ray, t_min, hit);
+                            if (hit.t == kInfinity) {
+                                break;
+                            }
+                            if (sample == 0 && layer == 0) {
+                                depth[p] = hit.t + (camera.perspective ? 0.0f : start);
+                                ids[p] = bvh.id(hit.ref);
+                            }
+                            V c = global ? path(hit, ray, random) : shade(hit, ray, random);
+                            if (style.fog > 0 && farthest > nearest) {
+                                const float f = style.fog * std::clamp((hit.t + start - nearest) / (farthest - nearest), 0.0f, 1.0f);
+                                c = c * (1.0f - f) + background * f;
+                            }
+                            const float alpha = bvh.alpha(hit.ref);
+                            color = color + c * (remaining * alpha);
+                            remaining *= 1.0f - alpha;
+                            t_min = hit.t + epsilon;
                         }
-                        V c = shade(hit, ray, random);
-                        if (style.fog > 0 && farthest > nearest) {
-                            const float f = style.fog * std::clamp((hit.t + start - nearest) / (farthest - nearest), 0.0f, 1.0f);
-                            c = c * (1.0f - f) + background * f;
-                        }
-                        const float alpha = bvh.alpha(hit.ref);
-                        color = color + c * (remaining * alpha);
-                        remaining *= 1.0f - alpha;
-                        t_min = hit.t + epsilon;
+                        coverage += 1.0f - remaining;
                     }
-                    const float coverage = 1.0f - remaining;
+                    color = color * (1.0f / static_cast<float>(samples));
+                    coverage /= static_cast<float>(samples);
                     // premultiplied by the opacity; the background is added later
                     rgba[4 * p + 0] = color[0];
                     rgba[4 * p + 1] = color[1];

@@ -30,6 +30,11 @@ local crystal structure measures in experiment and simulation, *Phys. Rev. B*
 [doi:10.1103/PhysRevB.73.054104](https://doi.org/10.1103/PhysRevB.73.054104)
 { #ackland2006 }
 
+**Alvarez (2013).** S. Alvarez, A cartography of the van der Waals
+territories, *Dalton Trans.* **42**, 8617 (2013).
+[doi:10.1039/C3DT50599E](https://doi.org/10.1039/C3DT50599E)
+{ #alvarez2013 }
+
 **Bitzek et al. (2006).** E. Bitzek, P. Koskinen, F. Gähler, M. Moseler and
 P. Gumbsch, Structural relaxation made simple, *Phys. Rev. Lett.* **97**,
 170201 (2006).
@@ -43,6 +48,12 @@ functions, *École thématique de la Société Française de la Neutronique*
 **12**, 201 (2011).
 [doi:10.1051/sfn/201112010](https://doi.org/10.1051/sfn/201112010)
 { #calandrini2011 }
+
+**Cordero et al. (2008).** B. Cordero, V. Gómez, A. E. Platero-Prats, M. Revés,
+J. Echeverría, E. Cremades, F. Barragán and S. Alvarez, Covalent radii
+revisited, *Dalton Trans.*, 2832 (2008).
+[doi:10.1039/B801115J](https://doi.org/10.1039/B801115J)
+{ #cordero2008 }
 
 **Cowley (1950).** J. M. Cowley, An approximate theory of order in alloys,
 *Phys. Rev.* **77**, 669 (1950).

@@ -62,6 +62,15 @@ struct Style {
     float outline_depth = 0.5f;  // smallest jump of depth, in length units
     std::array<float, 3> outline_color{0, 0, 0};
     float fog = 0.0f;  // fraction of the background mixed in at the far end
+    // global illumination: with bounces > 0, the light of each sample is
+    // traced along a path that bounces diffusely off up to bounces more
+    // primitives, lit by a sky of brightness ambient and by the key light of
+    // brightness diffuse, a disk light_size wide (radians) for soft shadows;
+    // samples paths per subpixel. The fill light, the occlusion, flat and
+    // toon_levels are not used then.
+    int bounces = 0;
+    int samples = 1;
+    float light_size = 0.0f;
     std::array<float, 4> background{1, 1, 1, 1};
     int supersample = 2;  // samples per pixel along each axis
 };

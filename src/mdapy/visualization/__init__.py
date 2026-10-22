@@ -3,7 +3,12 @@
 
 """Visualization: pictures of atoms by ray tracing."""
 
-from mdapy.visualization._render import atom_colors, render
+from mdapy.visualization._render import (
+    REPRESENTATIONS,
+    atom_colors,
+    covalent_bonds,
+    render,
+)
 from mdapy.visualization._scene import (
     STYLES,
     VIEWS,
@@ -15,6 +20,8 @@ from mdapy.visualization._scene import (
 )
 
 __all__ = [
+    "REPRESENTATIONS",
+    "covalent_bonds",
     "STYLES",
     "VIEWS",
     "Scene",

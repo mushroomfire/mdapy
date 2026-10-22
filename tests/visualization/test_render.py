@@ -14,11 +14,13 @@ from mdapy.build import build_crystal
 from mdapy.errors import Cancelled, InvalidParameter
 from mdapy.identify import CommonNeighborAnalysis
 from mdapy.visualization import (
+    REPRESENTATIONS,
     STYLES,
     VIEWS,
     Scene,
     atom_colors,
     colormap,
+    covalent_bonds,
     element_colors,
     element_radii,
     render,
@@ -447,3 +449,145 @@ def test_bonds_across_the_boundary_stay_in_the_box():
     assert not (covered.any(axis=0) & ~inside).any()
     row = covered[100]
     assert row[:15].any() and row[-15:].any()  # the halves reach both faces
+
+
+# ------------------------------------------------------------ global illumination
+
+
+def test_a_lone_sphere_lit_by_the_sky_and_the_key_light():
+    # every bounce off a lone sphere leaves for the sky: no noise at all
+    color = np.array([0.2, 0.6, 0.9])
+    settings = {"ambient": 0.45, "diffuse": 0.8, "specular": 0.2, "shininess": 60.0}
+    image = one_sphere(
+        color, style="photo", light_size=0.0, supersample=1, samples=4, **settings
+    )
+    key = np.array([-0.45, 0.6, 0.66]) / np.linalg.norm([-0.45, 0.6, 0.66])
+    normal = np.array([0.0, 0, 1])  # at the middle, toward the camera
+    halfway = (key + normal) / np.linalg.norm(key + normal)
+    light = (
+        srgb_to_linear(color)
+        * (settings["ambient"] + settings["diffuse"] * key @ normal)
+        + settings["specular"] * (normal @ halfway) ** settings["shininess"]
+    )
+    np.testing.assert_allclose(
+        image[100, 100, :3], np.round(255 * srgb(np.minimum(light, 1))), atol=2
+    )
+    with mdapy.num_threads(3):
+        again = one_sphere(color, style="photo", samples=4)
+    np.testing.assert_array_equal(again, one_sphere(color, style="photo", samples=4))
+    with pytest.raises(InvalidParameter, match="samples must be"):
+        one_sphere(style="photo", samples=0)
+    with pytest.raises(InvalidParameter, match="bounces must be"):
+        one_sphere(bounces=-1)
+
+
+def floor_and_ball(ball_color, center, size=20.0):
+    scene = Scene()
+    corners = np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]) * size
+    scene.add_triangles(corners[[[0, 1, 2], [0, 2, 3]]], (0.6, 0.6, 0.6))
+    scene.add_spheres([center], 1.0, ball_color)
+    return scene
+
+
+def test_soft_shadows():
+    # a small ball high above the floor, toward the key light from the middle
+    key = np.array([-0.45, 0.6, 0.66]) / np.linalg.norm([-0.45, 0.6, 0.66])
+    scene = floor_and_ball("green", 15 * key)
+    shadow = {}
+    for size in (0.0, 0.4):
+        image = scene.render(
+            width=120,
+            height=120,
+            view="top",
+            style="photo",
+            light_size=size,
+            samples=16,
+        )
+        rgb = image[..., :3].astype(float)
+        floor = rgb[..., 0] > rgb[..., 1] - 5  # gray, not the green ball
+        lit = np.median(rgb[..., 0][floor])
+        shadow[size] = (rgb[..., 0][floor] < 0.85 * lit).sum()
+    # a point light casts a dark shadow; a light wider than the ball, none
+    assert shadow[0.0] > 20 and shadow[0.4] == 0
+
+
+def test_light_reflected_in_color():
+    scene = floor_and_ball("red", [0.0, 0, 1.0], size=4.0)
+    options = {"width": 120, "height": 120, "view": "iso"}
+    flat = scene.render(style="flat", outline_width=0, **options)[..., :3].astype(int)
+    ball = flat[..., 0] > flat[..., 1] + 50
+    near = np.zeros_like(ball)  # the ball and the pixels next to it
+    for dy in range(-2, 3):
+        for dx in range(-2, 3):
+            near |= np.roll(np.roll(ball, dy, axis=0), dx, axis=1)
+    floor = ~near & (flat[..., 1] > 30)
+    for style, tinted in (("studio", False), ("photo", True)):
+        rgb = scene.render(style=style, **options)[..., :3].astype(int)
+        red = (rgb[..., 0] - rgb[..., 1])[floor]
+        # light off the red ball turns the floor next to it red
+        share = (red >= 3).mean()
+        assert (share > 0.01) == tinted and (share > 0) == tinted, (style, share)
+        assert (red >= 0).all()
+
+
+# ------------------------------------------------------------ molecules
+
+
+def benzene():
+    """Benzene in the xy plane: C-C 1.39 Å, C-H 1.09 Å."""
+    angles = np.arange(6) * np.pi / 3
+    ring = np.stack([np.cos(angles), np.sin(angles), np.zeros(6)], axis=1)
+    positions = np.vstack([1.39 * ring, (1.39 + 1.09) * ring])
+    return mdapy.System(positions, elements=["C"] * 6 + ["H"] * 6)
+
+
+def test_covalent_bonds_and_radii():
+    molecule = benzene()
+    bonds = covalent_bonds(molecule)
+    pairs = {tuple(sorted(p)) for p in zip(bonds.i.tolist(), bonds.j.tolist())}
+    ring = {tuple(sorted((k, (k + 1) % 6))) for k in range(6)}
+    assert pairs == ring | {(k, k + 6) for k in range(6)}  # no H-H, no C-H across
+    assert len(bonds) == 24  # each bond both ways
+    np.testing.assert_allclose(
+        element_radii(["H", "C", "Og"], "covalent"), [0.31, 0.76, 1.5]
+    )
+    np.testing.assert_allclose(element_radii(["H", "C", "Og"], "vdw"), [1.2, 1.77, 2.0])
+    np.testing.assert_allclose(element_radii(["H", "Zz"]), [0.46, 1.0])
+    with pytest.raises(InvalidParameter, match="kind must be"):
+        element_radii(["H"], "ionic")
+    with pytest.raises(InvalidParameter, match="element column"):
+        covalent_bonds(mdapy.System(molecule.positions))
+
+
+def test_representations():
+    molecule = benzene()
+    options = {
+        "width": 120,
+        "height": 120,
+        "view": "top",
+        "box": False,
+        "style": "flat",
+    }
+    pictures = {
+        r: render(molecule, representation=r, **options) for r in REPRESENTATIONS
+    }
+    covered = {r: (p[..., :3].sum(axis=2) < 3 * 250).sum() for r, p in pictures.items()}
+    # van der Waals spheres cover most, sticks the least
+    assert covered["space_filling"] > covered["spheres"] > covered["licorice"]
+    assert covered["ball_and_stick"] > covered["licorice"]
+    # the parts can still be given by hand
+    np.testing.assert_array_equal(
+        render(molecule, representation="ball_and_stick", **options),
+        render(
+            molecule,
+            radius=("vdw", 0.25),
+            bonds="covalent",
+            bond_radius=0.15,
+            **options,
+        ),
+    )
+    assert render(molecule, radius="covalent", **options).shape == (120, 120, 4)
+    with pytest.raises(InvalidParameter, match="representation must be"):
+        render(molecule, representation="cartoon")
+    with pytest.raises(InvalidParameter, match="bonds must be"):
+        render(molecule, bonds="hydrogen")

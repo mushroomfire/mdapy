@@ -29,7 +29,8 @@ goodsell and glossy above; toon, flat and preview below.*
 ## Parameters
 
 `render(system, path=None, *, atoms=None, color=None, colormap="viridis",
-value_range=None, radius=None, bonds=None, bond_radius=0.25, box=True,
+value_range=None, representation="spheres", radius=None, bonds=None,
+bond_radius=None, box=True,
 box_radius=None, polyhedra=None, polyhedra_alpha=0.6,
 polyhedra_color="atom", polyhedra_edges=None, **options)`
 
@@ -40,20 +41,35 @@ polyhedra_color="atom", polyhedra_edges=None, **options)`
 | `color` | | elements | | the colors of the atoms, below |
 | `colormap` | str | `"viridis"` | | `viridis`, `plasma`, `coolwarm`, `jet` or `gray`, for values |
 | `value_range` | (low, high) | finite range | | the values at the ends of the colormap |
-| `radius` | float or (N,) | elements | Å | the radius of the atoms |
-| `bonds` | float or `NeighborList` | `None` | Å | bonds between atoms closer than a cutoff, or the pairs of a list |
-| `bond_radius` | float | 0.25 | Å | |
+| `representation` | str | `"spheres"` | | how atoms and bonds are drawn, below; it sets the defaults of `radius`, `bonds` and `bond_radius` |
+| `radius` | float, (N,) or str | of the representation | Å | the radius of the atoms, or those of the elements: `"display"`, `"covalent"` or `"vdw"` |
+| `bonds` | float, `NeighborList` or `"covalent"` | of the representation | Å | bonds between atoms closer than a cutoff, the pairs of a list, or covalent bonds |
+| `bond_radius` | float | of the representation | Å | |
 | `box`, `box_radius` | bool, float | `True`, 0.1 × radius | Å | the edges of the box |
 | `polyhedra` | `VoronoiPolyhedra` | `None` | | the [Voronoi cells](../analysis/voronoi.md) of the atoms shown |
 | `polyhedra_alpha` | float | 0.6 | | their opacity |
 | `polyhedra_color` | str | `"atom"` | | faces colored as their atoms, or `"edges"` by their number of edges |
 | `polyhedra_edges` | float | 0.05 × radius | Å | the radius of the edges of the cells, 0 for none |
 
+| Representation | Atoms | Bonds |
+|---|---|---|
+| `spheres` | display radii | none, radius 0.25 Å when given |
+| `ball_and_stick` | a quarter of the van der Waals radii | covalent, radius 0.15 Å |
+| `space_filling` | van der Waals radii | none |
+| `licorice` | as wide as the bonds | covalent, radius 0.2 Å |
+
 `color` is one of: `None` for the colors of the elements; a single color,
 `"#rrggbb"`, a name such as `"red"` or three numbers from 0 to 1; (N, 3)
 colors; a column name or (N,) values, through the colormap; or a structure
 result such as that of [`CommonNeighborAnalysis`](../analysis/cna.md), in
-its colors. The colors and radii of the elements are those of OVITO.
+its colors. The colors and display radii of the elements are those of
+OVITO, and for the elements OVITO leaves out the colors of Jmol and the
+covalent radii; covalent radii are those of
+[Cordero et al. (2008)](../reference/references.md#cordero2008), van der
+Waals radii those of [Alvarez (2013)](../reference/references.md#alvarez2013),
+1.5 Å and 2 Å for elements without one. Covalent bonds,
+`covalent_bonds(system)`, join the atoms closer than the sum of their
+covalent radii and 0.45 Å, as in Jmol.
 Bonds are drawn as two halves in the colors of their atoms; a bond to a
 periodic image is drawn as the half next to each atom only, so nothing
 leaves the box.
@@ -79,14 +95,39 @@ The `options` are those of `Scene.render`:
 | `toon` | cel shading in three levels, outlined |
 | `flat` | flat colors, every atom outlined |
 | `preview` | quick: no occlusion, no shadows, one ray per pixel |
+| `photo` | global illumination: light that bounces between the atoms from a bright sky and a wide key light, with soft shadows; about ten times slower than `studio` |
 
 Any setting of a style can be changed by name: `ambient`, `diffuse`,
 `specular`, `shininess`, `key` and `fill` (directions of the lights,
 right, up and toward the viewer), `fill_intensity`, `ao_samples`,
 `ao_distance` (Å, default 3 times the median radius), `ao_strength`,
 `shadows`, `shadow_strength`, `flat`, `toon_levels`, `outline_width`
-(pixels), `outline_depth` (Å), `outline_color`, `fog` and `supersample`
-(rays per pixel along each axis).
+(pixels), `outline_depth` (Å), `outline_color`, `fog`, `supersample`
+(rays per pixel along each axis), and for global illumination `bounces`
+(0 for none), `samples` (paths per ray of `supersample`) and `light_size`
+(the angular radius of the key light in radians, 0 for a point).
+
+## Molecules
+
+Organic molecules are drawn with covalent bonds, found from the elements:
+
+```python
+import numpy as np
+
+# benzene: C-C 1.39 Å, C-H 1.09 Å
+angles = np.arange(6) * np.pi / 3
+ring = np.stack([np.cos(angles), np.sin(angles), np.zeros(6)], axis=1)
+benzene = mdapy.System(
+    np.vstack([1.39 * ring, 2.48 * ring]), elements=["C"] * 6 + ["H"] * 6
+)
+sticks = render(benzene, representation="ball_and_stick", box=False, view="iso")
+spheres = render(benzene, representation="space_filling", box=False, view="iso")
+```
+
+![Molecules](images/molecules.png)
+
+*Benzene, ethanol and C60 in the representations ball_and_stick, licorice
+and space_filling.*
 
 ## Scenes
 
@@ -112,7 +153,7 @@ picture = scene.render(width=400, height=300, style="glossy", view="front")
 
 Outlines separate primitives of different `ids`. `write_png(path, image)`
 writes a picture; `colormap(values, name, value_range)`,
-`element_colors(elements)` and `element_radii(elements)` give the colors
+`element_colors(elements)` and `element_radii(elements, kind="display")` give the colors
 and radii used by `render`.
 
 ## Results
@@ -140,3 +181,13 @@ add their color and let the ray go on. An outline is drawn on the pixels
 next to a different primitive that lies at least `outline_depth` closer, or
 next to the background. The rays of a pixel are averaged, over the
 background, into sRGB.
+
+With `bounces` above 0, each ray instead follows `samples` paths, the first
+through the center of its part of the pixel and the others anywhere in it.
+At each surface a path adds the light of the key light, sampled over a disk
+`light_size` wide and blocked by anything in the way, then turns into a
+cosine-weighted direction about the normal: if it leaves the scene it adds
+the sky, of brightness `ambient`, otherwise it goes on to the next surface,
+its light now colored by the surfaces it met, for at most `bounces` more
+surfaces. Shadows soften and corners darken without ambient occlusion, and
+colors bleed onto neighbors; the noise falls as the samples grow.

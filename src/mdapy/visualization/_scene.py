@@ -17,7 +17,12 @@ from mdapy._core import visualization as _native
 from mdapy.core.box import Box
 from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
-from mdapy.visualization._elements import DEFAULT, ELEMENTS
+from mdapy.visualization._elements import (
+    DEFAULT,
+    ELEMENTS,
+    MISSING_COVALENT,
+    MISSING_VDW,
+)
 
 #: The looks of a picture: lights, shadows, ambient occlusion and outlines.
 STYLES: dict[str, dict[str, Any]] = {
@@ -58,6 +63,17 @@ STYLES: dict[str, dict[str, Any]] = {
     },
     # quick: no occlusion, no shadows, one sample per pixel
     "preview": {"ao_samples": 0, "shadows": False, "supersample": 1},
+    # light traced along paths that bounce between the atoms, from a bright
+    # sky and a wide key light: soft shadows and light reflected in color
+    "photo": {
+        "bounces": 2,
+        "samples": 16,
+        "light_size": 0.2,
+        "ambient": 0.45,
+        "diffuse": 0.8,
+        "specular": 0.2,
+        "shininess": 60.0,
+    },
 }
 
 _DEFAULTS = {
@@ -80,6 +96,9 @@ _DEFAULTS = {
     "outline_color": (0.0, 0.0, 0.0),
     "fog": 0.0,
     "supersample": 2,
+    "bounces": 0,
+    "samples": 1,
+    "light_size": 0.0,
 }
 
 #: Directions of view: (forward, up).
@@ -170,9 +189,35 @@ def element_colors(elements: Sequence[str]) -> np.ndarray:
     return np.array([ELEMENTS.get(e, DEFAULT)[:3] for e in elements], dtype=float) / 255
 
 
-def element_radii(elements: Sequence[str]) -> np.ndarray:
-    """(N,) default display radii of elements in Å."""
-    return np.array([ELEMENTS.get(e, DEFAULT)[3] for e in elements], dtype=float)
+_RADII = {
+    "display": (3, 1.0),
+    "covalent": (4, MISSING_COVALENT),
+    "vdw": (5, MISSING_VDW),
+}
+
+
+def element_radii(elements: Sequence[str], kind: str = "display") -> np.ndarray:
+    """(N,) radii of elements in Å.
+
+    Parameters
+    ----------
+    elements : sequence of str
+        Chemical symbols.
+    kind : {"display", "covalent", "vdw"}, optional
+        The radii pictures show, the covalent radii or the van der Waals
+        radii. Default display.
+
+    Returns
+    -------
+    numpy.ndarray
+        (N,) radii; elements without a value take 1.5 Å as covalent radius
+        and 2 Å as van der Waals radius.
+    """
+    if kind not in _RADII:
+        raise InvalidParameter(f"kind must be display, covalent or vdw, not {kind!r}")
+    column, missing = _RADII[kind]
+    values = [ELEMENTS.get(e, DEFAULT)[column] for e in elements]
+    return np.array([missing if v is None else v for v in values], dtype=float)
 
 
 def write_png(path: str | PathLike, image: np.ndarray) -> None:
@@ -529,7 +574,8 @@ class Scene:
             Settings of the style to change: ambient, diffuse, specular,
             shininess, key, fill, fill_intensity, ao_samples, ao_distance,
             ao_strength, shadows, shadow_strength, flat, toon_levels,
-            outline_width, outline_depth, outline_color, fog, supersample.
+            outline_width, outline_depth, outline_color, fog, supersample,
+            bounces, samples, light_size.
 
         Returns
         -------
@@ -546,6 +592,14 @@ class Scene:
         if width < 1 or height < 1:
             raise InvalidParameter("width and height must be positive")
         settings = dict(_DEFAULTS) | STYLES[style] | options
+        if int(settings["samples"]) < 1:
+            raise InvalidParameter(
+                f"samples must be at least 1, not {settings['samples']!r}"
+            )
+        if int(settings["bounces"]) < 0:
+            raise InvalidParameter(
+                f"bounces must be at least 0, not {settings['bounces']!r}"
+            )
         if isinstance(view, str):
             if view not in VIEWS:
                 raise InvalidParameter(
@@ -638,6 +692,9 @@ class Scene:
             fog=float(settings["fog"]),
             background=back.astype(f32),
             supersample=int(settings["supersample"]),
+            bounces=int(settings["bounces"]),
+            samples=int(settings["samples"]),
+            light_size=float(settings["light_size"]),
             progress=progress,
             cancel=_native_token(cancel),
         )

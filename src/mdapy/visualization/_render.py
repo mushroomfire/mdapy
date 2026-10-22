@@ -86,6 +86,47 @@ def atom_colors(
     return np.broadcast_to(_color(color), (n, 3)).copy()
 
 
+#: The ways atoms and bonds are drawn: the radius of the atoms, the bonds
+#: drawn and the radius of the bonds, each unless given.
+REPRESENTATIONS: dict[str, tuple[Any, Any, float]] = {
+    # atoms as spheres of their display radius
+    "spheres": ("display", None, 0.25),
+    # small balls, a quarter of the van der Waals radius, and covalent bonds
+    "ball_and_stick": (("vdw", 0.25), "covalent", 0.15),
+    # atoms as spheres of their van der Waals radius
+    "space_filling": ("vdw", None, 0.25),
+    # covalent bonds as sticks with round ends
+    "licorice": (None, "covalent", 0.2),
+}
+
+# added to the sum of two covalent radii for a bond, as in Jmol
+_BOND_TOLERANCE = 0.45
+
+
+def covalent_bonds(system: System) -> NeighborList:
+    """The covalent bonds of a system: the pairs of atoms closer than the sum
+    of their covalent radii and 0.45 Å.
+
+    Parameters
+    ----------
+    system : System
+        The atoms, with an element column.
+
+    Returns
+    -------
+    NeighborList
+        The bonds, each pair both ways.
+    """
+    if "element" not in system.table.columns:
+        raise InvalidParameter("covalent bonds need an element column")
+    names = system.table["element"].to_list()
+    kinds, types = np.unique(np.array(names, dtype=object), return_inverse=True)
+    radii = element_radii(list(kinds), "covalent")
+    limits = radii[:, None] + radii[None, :] + _BOND_TOLERANCE
+    largest = float(limits.max(initial=_BOND_TOLERANCE))
+    return NeighborList.build(system, largest)._cut(largest, limits, types)
+
+
 def render(
     system: System,
     path: str | PathLike | None = None,
@@ -94,9 +135,10 @@ def render(
     color: Any = None,
     colormap: str = "viridis",
     value_range: Any = None,
+    representation: str = "spheres",
     radius: Any = None,
     bonds: Any = None,
-    bond_radius: float = 0.25,
+    bond_radius: float | None = None,
     box: bool = True,
     box_radius: float | None = None,
     polyhedra: Any = None,
@@ -123,14 +165,20 @@ def render(
         The colormap of values. Default viridis.
     value_range : sequence of float, optional
         The values at the two ends of the colormap.
-    radius : float or array_like, optional
-        Radius of the atoms in Å, one or (N,) each. Default those of the
-        elements.
-    bonds : float or NeighborList, optional
-        Bonds between the atoms closer than this cutoff in Å, or the pairs
-        of a neighbor list. Default none.
+    representation : str, optional
+        How atoms and bonds are drawn, one of ``REPRESENTATIONS``: spheres,
+        ball_and_stick, space_filling or licorice. It sets the defaults of
+        radius, bonds and bond_radius. Default spheres.
+    radius : float, array_like or str, optional
+        Radius of the atoms in Å, one or (N,) each, or the radii of the
+        elements: "display", "covalent" or "vdw". Default that of the
+        representation.
+    bonds : float, NeighborList or "covalent", optional
+        Bonds between the atoms closer than this cutoff in Å, the pairs of a
+        neighbor list, or covalent bonds (see :func:`covalent_bonds`).
+        Default that of the representation.
     bond_radius : float, optional
-        Radius of the bonds in Å. Default 0.25.
+        Radius of the bonds in Å. Default that of the representation.
     box : bool, optional
         Draw the edges of the box. Default True.
     box_radius : float, optional
@@ -165,26 +213,43 @@ def render(
         else:
             shown = np.zeros(n, dtype=bool)
             shown[mask.astype(np.int64)] = True
+    if representation not in REPRESENTATIONS:
+        raise InvalidParameter(
+            f"representation must be one of {tuple(REPRESENTATIONS)}, "
+            f"not {representation!r}"
+        )
+    default_radius, default_bonds, default_bond_radius = REPRESENTATIONS[representation]
+    bond_radius = default_bond_radius if bond_radius is None else float(bond_radius)
+    if bonds is None:
+        bonds = default_bonds
+    if radius is None:
+        radius = bond_radius if default_radius is None else default_radius
     colors = atom_colors(system, color, colormap_name=colormap, value_range=value_range)
     names = (
         system.table["element"].to_list()
         if "element" in system.table.columns
         else ["X"] * n
     )
-    radii = (
-        element_radii(names)
-        if radius is None
-        else np.broadcast_to(np.asarray(radius, dtype=float), (n,)).copy()
-    )
+    if isinstance(radius, tuple) and len(radius) == 2 and isinstance(radius[0], str):
+        radii = element_radii(names, radius[0]) * radius[1]  # a fraction of them
+    elif isinstance(radius, str):
+        radii = element_radii(names, radius)
+    else:
+        radii = np.broadcast_to(np.asarray(radius, dtype=float), (n,)).copy()
     index = np.flatnonzero(shown)
     scene = Scene()
     scene.add_spheres(system.positions[index], radii[index], colors[index], ids=index)
     if bonds is not None:
-        nl = (
-            bonds
-            if isinstance(bonds, NeighborList)
-            else NeighborList.build(system, float(bonds))
-        )
+        if isinstance(bonds, NeighborList):
+            nl = bonds
+        elif isinstance(bonds, str):
+            if bonds != "covalent":
+                raise InvalidParameter(
+                    f"bonds must be a cutoff, a NeighborList or covalent, not {bonds!r}"
+                )
+            nl = covalent_bonds(system)
+        else:
+            nl = NeighborList.build(system, float(bonds))
         i, j = nl.i.astype(np.int64), nl.j.astype(np.int64)
         both = shown[i] & shown[j]
         inside = (nl.shifts == 0).all(axis=1)

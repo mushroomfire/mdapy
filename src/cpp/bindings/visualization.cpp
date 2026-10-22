@@ -71,8 +71,8 @@ nb::object render(Rows<3> sphere_center, Floats sphere_radius, Rows<3> sphere_co
                   float fill_intensity, int ao_samples, float ao_distance, float ao_strength,
                   bool shadows, float shadow_strength, bool flat, int toon_levels,
                   float outline_width, float outline_depth, Three outline_color, float fog,
-                  Four background, int supersample, nb::handle progress,
-                  const CancelToken* cancel) {
+                  Four background, int supersample, int bounces, int samples, float light_size,
+                  nb::handle progress, const CancelToken* cancel) {
     const visualization::Scene scene =
         make_scene(sphere_center, sphere_radius, sphere_color, sphere_id, cylinder_end,
                    cylinder_radius, cylinder_color, cylinder_id, triangle_vertex, triangle_color,
@@ -106,6 +106,9 @@ nb::object render(Rows<3> sphere_center, Floats sphere_radius, Rows<3> sphere_co
     style.background = {background.data()[0], background.data()[1], background.data()[2],
                         background.data()[3]};
     style.supersample = supersample;
+    style.bounces = bounces;
+    style.samples = samples;
+    style.light_size = light_size;
     auto* image = new std::vector<std::uint8_t>();
     nb::capsule owner(image, [](void* p) noexcept { delete static_cast<std::vector<std::uint8_t>*>(p); });
     run_released(
@@ -159,8 +162,9 @@ void bind_visualization(nb::module_& m) {
           nb::arg("ao_strength"), nb::arg("shadows"), nb::arg("shadow_strength"),
           nb::arg("flat"), nb::arg("toon_levels"), nb::arg("outline_width"),
           nb::arg("outline_depth"), nb::arg("outline_color"), nb::arg("fog"),
-          nb::arg("background"), nb::arg("supersample"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+          nb::arg("background"), nb::arg("supersample"), nb::arg("bounces") = 0,
+          nb::arg("samples") = 1, nb::arg("light_size") = 0.0f,
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("trace", &trace, nb::arg("sphere_center"), nb::arg("sphere_radius"),
           nb::arg("sphere_color"), nb::arg("sphere_id"), nb::arg("cylinder_end"),
           nb::arg("cylinder_radius"), nb::arg("cylinder_color"), nb::arg("cylinder_id"),

@@ -29,6 +29,8 @@ implemented.
 | unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries, or, along a trajectory, so that atoms move continuously through them. |
 | lag | The number of frames between two frames of a trajectory. |
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
+| covalent bond | A pair of atoms closer than the sum of their covalent radii and 0.45 Å, as pictures draw them. |
+| global illumination | Light that reaches a surface after bouncing off others, as the photo style of pictures traces it. |
 | ionic step | One configuration of a VASP relaxation or molecular dynamics, with its energy, forces and virial; one frame of `read_outcar`. |
 | training set | Frames with reference energies, forces and virials, usually from DFT, in extended XYZ, to fit a machine-learned potential. |
 | structure descriptor | The mean of the descriptors of the atoms of a frame, one point per frame. |
@@ -118,6 +120,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | size of random displacements of atoms (Å) | `displacement` | `atom_pert_distance`, `sigma` |
 | frames already chosen | `selected=` | `train_des`, `existing` |
 | number of principal components | `n` | `n_components` |
+| how atoms and bonds are drawn in a picture | `representation` (`"spheres"`, `"ball_and_stick"`, `"space_filling"`, `"licorice"`) | `model`, `drawing_method` |
+| radii of the elements | `radius="display"`, `"covalent"`, `"vdw"` | `radii_type` |
+| bounces of light in a picture | `bounces`, `samples` | `depth`, `spp` |
 | whether the positions relax | `relax` (bool) | `relax_atoms`, `minimize` |
 | average of a polycrystal | `average` (`"voigt"`, `"reuss"`, `"hill"`) | `method` |
 

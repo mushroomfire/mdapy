@@ -209,6 +209,16 @@ void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* o
                   const std::int32_t* neighbors, const std::int32_t* shifts, const double* matrix,
                   double* vectors, const Control& control = {});
 
+// The pairs of a list (offsets, neighbors, shifts) that are closer than the
+// cutoff with the atoms at positions, in the order of the list, with their
+// distances and vectors (pairs x 3); the test and the distances are those of
+// the search, so a list from a search with a longer cutoff gives the list of
+// a new search when no atom has moved half the difference of the cutoffs.
+NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t* offsets,
+                     const std::int32_t* neighbors, const std::int32_t* shifts,
+                     const double* matrix, double cutoff, std::vector<double>& vectors,
+                     const Control& control = {});
+
 // The pairs of each atom by distance, ties in their order, keeping the first
 // count of each atom (all when count < 0): the positions of the kept pairs,
 // in order, and the new offsets (n + 1).

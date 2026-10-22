@@ -37,11 +37,15 @@ columns.
 
 ## Neighbor lists
 
-An analysis builds the neighbor list it needs. `neighbors=` passes one that
+An analysis searches the neighbors it needs. The radial distribution,
+coordination numbers, clusters, bond angles, entropy fingerprints and atomic
+temperatures use each atom's neighbors as the search on the cell grid finds
+them, without storing a list of pairs, which keeps the memory small for large
+systems; the others build a `NeighborList`. `neighbors=` passes a list that
 was built before, so that several analyses share a single search; it must
 belong to the same `System` object and reach at least as far as the analysis
 needs, or [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter)
-is raised.
+is raised. Results are the same either way, up to the order of sums.
 
 ## Available analyses
 

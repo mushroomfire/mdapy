@@ -60,7 +60,9 @@ Everything else is read from the table with polars, for example
 ## Changing a system
 
 Each method returns a new system. Columns that are not changed are shared
-between the old and the new system rather than copied.
+between the old and the new system rather than copied. Arrays given to a
+system, by its constructor or by these methods, are copied, so changing
+them afterwards does not change the system.
 
 | Method | Meaning |
 |---|---|

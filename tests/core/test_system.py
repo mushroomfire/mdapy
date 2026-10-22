@@ -194,6 +194,20 @@ def test_info_is_read_only_and_copied():
         s.info["meta"]["a"] = 2
 
 
+def test_arrays_given_are_copied():
+    """A system never changes, even when the arrays it was given change."""
+    positions, types = np.zeros((2, 3)), np.array([1, 2])
+    charges, moved = np.array([1.0, -1.0]), np.ones((2, 3))
+    s = System(positions, types=types)
+    charged = s.with_columns(charge=charges)
+    shifted = s.with_positions(moved)
+    for array in (positions, types, charges, moved):
+        array[0] = 7
+    assert s.positions[0, 0] == 0.0 and s.table["type"][0] == 1
+    assert charged.table["charge"][0] == 1.0
+    assert shifted.positions[0, 0] == 1.0
+
+
 # --- new systems -----------------------------------------------------------------
 
 

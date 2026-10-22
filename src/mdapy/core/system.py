@@ -37,11 +37,12 @@ _STANDARD_COLUMNS = {
 
 
 def _column(name: str, values: ArrayLike, n: int) -> pl.Series:
-    """A table column from an array, a sequence or a single value."""
+    """A table column from an array, a sequence or a single value; arrays
+    are copied, so that changing them later does not change a system."""
     if isinstance(values, pl.Series):
         series = values.alias(name)
     else:
-        array = np.asarray(values)
+        array = np.array(values)
         if array.ndim == 0:
             array = np.repeat(array, n)
         series = pl.Series(name, array)
@@ -107,9 +108,9 @@ def _freeze(value: Any) -> Any:
 class System:
     """One atomic configuration: a table of per-atom properties in a box.
 
-    A system never changes. Methods named ``with_*`` and :meth:`select`
-    return a new system; columns that are not changed are shared, not
-    copied.
+    A system never changes. Arrays given to it are copied. Methods named
+    ``with_*`` and :meth:`select` return a new system; columns that are not
+    changed are shared, not copied.
 
     Parameters
     ----------
@@ -158,7 +159,7 @@ class System:
         if (positions is None) == (table is None):
             raise InvalidParameter("give either positions or table")
         if table is None:
-            r = np.asarray(positions, dtype=np.float64)
+            r = np.array(positions, dtype=np.float64)  # a copy of its own
             if r.size == 0:
                 r = r.reshape(0, 3)
             if r.ndim != 2 or r.shape[1] != 3:
@@ -322,7 +323,7 @@ class System:
         positions : array_like
             (N, 3) positions in Å.
         """
-        r = np.asarray(positions, dtype=np.float64)
+        r = np.array(positions, dtype=np.float64)  # a copy of its own
         if r.shape != (len(self), 3):
             raise InvalidParameter(
                 f"positions must have shape ({len(self)}, 3), got {r.shape}"

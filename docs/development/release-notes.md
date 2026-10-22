@@ -9,7 +9,7 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.System`: one atomic configuration with a polars table of per-atom
   properties, a box, global information and an optional topology. Systems
   are immutable; `with_*` methods and `select` return new systems that share
-  unchanged columns. Positions are an (N, 3) array column read without
+  unchanged columns, and arrays given to a system are copied. Positions are an (N, 3) array column read without
   copying. See [Systems and topology](../getting-started/system.md).
 - `mdapy.Topology`: bonds, angles, dihedrals and impropers with types and
   labels, kept consistent when atoms are selected or reordered.

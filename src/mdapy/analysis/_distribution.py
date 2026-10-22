@@ -115,14 +115,17 @@ class RadialDistributionFunction:
             )
         else:
             nl = _given_or_built(system, self.r_max, neighbors)
-            keep = nl.distances < self.r_max
-            which = np.minimum(
-                (nl.distances[keep] / self.r_max * bins).astype(np.int64), bins - 1
+            table = _native.pair_histogram_list(
+                nl.offsets,
+                nl.j,
+                nl.distances,
+                self.r_max,
+                bins,
+                index.astype(np.int32),
+                types,
+                progress,
+                _native_token(cancel),
             )
-            first, second = index[nl.i[keep]], index[nl.j[keep]]
-            table = np.bincount(
-                (first * types + second) * bins + which, minlength=types * types * bins
-            ).reshape(types, types, bins)
         edges = np.linspace(0.0, self.r_max, bins + 1)
         shells = 4.0 / 3.0 * np.pi * np.diff(edges**3)
         volume = system.box.volume

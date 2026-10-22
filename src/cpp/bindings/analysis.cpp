@@ -210,6 +210,68 @@ nb::object pair_histogram(Positions3 positions, Matrix3 matrix, Origin3 origin, 
 
 using Limits = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
 
+// Checks that a list in CSR form fits its distances and the types of its atoms.
+std::int64_t check_list(Offsets offsets, Neighbors neighbors, Values distances, Types type,
+                        int types) {
+    if (offsets.shape(0) < 1 || distances.shape(0) != neighbors.shape(0) ||
+        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(neighbors.shape(0)) ||
+        type.shape(0) != offsets.shape(0) - 1 || types < 1) {
+        throw std::invalid_argument("the pairs do not fit the atoms or their types");
+    }
+    const auto n = static_cast<std::int64_t>(type.shape(0));
+    for (std::int64_t i = 0; i < n; ++i) {
+        if (type.data()[i] < 0 || type.data()[i] >= types) {
+            throw std::invalid_argument("a type is outside the range");
+        }
+    }
+    return n;
+}
+
+nb::object pair_histogram_list(Offsets offsets, Neighbors neighbors, Values distances,
+                               double r_max, int bins, Types type, int types,
+                               nb::handle progress, const CancelToken* cancel) {
+    const std::int64_t n = check_list(offsets, neighbors, distances, type, types);
+    if (bins < 1 || !(r_max > 0.0)) {
+        throw std::invalid_argument("bins and r_max must be positive");
+    }
+    std::vector<std::int64_t> counts;
+    run_released(
+        [&](const Control& control) {
+            counts = analysis::pair_histogram_list(n, offsets.data(), neighbors.data(),
+                                                   distances.data(), r_max, bins, type.data(),
+                                                   types, control);
+        },
+        progress, cancel);
+    auto* kept = new std::vector<std::int64_t>(std::move(counts));
+    nb::capsule owner(kept, [](void* p) noexcept {
+        delete static_cast<std::vector<std::int64_t>*>(p);
+    });
+    const std::size_t shape[3] = {static_cast<std::size_t>(types),
+                                  static_cast<std::size_t>(types), static_cast<std::size_t>(bins)};
+    return nb::ndarray<nb::numpy, std::int64_t>(kept->data(), 3, shape, owner).cast();
+}
+
+nb::object count_neighbors_list(Offsets offsets, Neighbors neighbors, Values distances,
+                                Types type, int types, Limits limits, nb::handle progress,
+                                const CancelToken* cancel) {
+    const std::int64_t n = check_list(offsets, neighbors, distances, type, types);
+    if (limits.shape(0) != static_cast<std::size_t>(types) ||
+        limits.shape(1) != static_cast<std::size_t>(types)) {
+        throw std::invalid_argument("the limits do not fit the types");
+    }
+    auto* counts = new std::int64_t[static_cast<std::size_t>(n) * types];
+    nb::capsule owner(counts, [](void* p) noexcept { delete[] static_cast<std::int64_t*>(p); });
+    const std::size_t shape[2] = {static_cast<std::size_t>(n), static_cast<std::size_t>(types)};
+    nb::object result = nb::ndarray<nb::numpy, std::int64_t>(counts, 2, shape, owner).cast();
+    run_released(
+        [&](const Control& control) {
+            analysis::count_neighbors_list(n, offsets.data(), neighbors.data(), distances.data(),
+                                           type.data(), types, limits.data(), counts, control);
+        },
+        progress, cancel);
+    return result;
+}
+
 nb::object count_neighbors(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
                            Types type, int types, Limits limits, bool per_pair,
                            nb::handle progress, const CancelToken* cancel) {
@@ -474,6 +536,14 @@ void bind_analysis(nb::module_& m) {
     m.def("pair_entropy_search", &pair_entropy_search, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("origin"), nb::arg("pbc"), nb::arg("cutoff"), nb::arg("sigma"),
           nb::arg("density"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("pair_histogram_list", &pair_histogram_list, nb::arg("offsets"),
+          nb::arg("neighbors"), nb::arg("distances"), nb::arg("r_max"), nb::arg("bins"),
+          nb::arg("type"), nb::arg("types"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("count_neighbors_list", &count_neighbors_list, nb::arg("offsets"),
+          nb::arg("neighbors"), nb::arg("distances"), nb::arg("type"), nb::arg("types"),
+          nb::arg("limits"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     m.def("count_neighbors", &count_neighbors, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("origin"), nb::arg("pbc"), nb::arg("type"), nb::arg("types"),

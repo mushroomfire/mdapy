@@ -3,6 +3,7 @@
 
 import numpy as np
 import pytest
+from mdapy._core import analysis as _analysis
 
 import mdapy
 from mdapy.analysis import CoordinationNumber, RadialDistributionFunction
@@ -111,6 +112,12 @@ def test_rdf_options_and_errors():
     np.testing.assert_array_equal(
         rdf.compute(system, neighbors=nl).g, rdf.compute(system).g
     )
+    mixed = alloy(seed=2, jitter=0.2)  # every pair of elements, from a list
+    listed = rdf.compute(mixed, neighbors=mdapy.NeighborList.build(mixed, 6.0))
+    searched = rdf.compute(mixed)
+    np.testing.assert_array_equal(listed.coordination, searched.coordination)
+    for pair in searched.partial:
+        np.testing.assert_array_equal(listed.partial[pair], searched.partial[pair])
     plain = mdapy.System(system.positions, system.box)
     assert rdf.compute(plain).partial == {}
     empty = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0), elements=[])
@@ -160,6 +167,39 @@ def test_coordination_per_pair_of_elements():
         "cutoffs" in repr(both)
         and repr(CoordinationNumber(2.0)) == "CoordinationNumber(cutoff=2.0)"
     )
+
+
+def test_kernels_of_lists_check_their_arguments():
+    offsets, j, d = np.array([0, 1, 2]), np.array([1, 0], np.int32), np.ones(2)
+    types = np.zeros(2, np.int32)
+    histogram = _analysis.pair_histogram_list(offsets, j, d, 2.0, 4, types, 1)
+    np.testing.assert_array_equal(histogram.ravel(), [0, 0, 2, 0])
+    counts = _analysis.count_neighbors_list(
+        offsets, j, d, types, 1, np.full((1, 1), 2.0)
+    )
+    np.testing.assert_array_equal(counts.ravel(), [1, 1])
+    for call, message in [
+        (
+            lambda: _analysis.pair_histogram_list(offsets, j, d[:1], 2.0, 4, types, 1),
+            "fit",
+        ),
+        (
+            lambda: _analysis.pair_histogram_list(offsets, j, d, 2.0, 0, types, 1),
+            "positive",
+        ),
+        (
+            lambda: _analysis.pair_histogram_list(offsets, j, d, 2.0, 4, types + 1, 1),
+            "range",
+        ),
+        (
+            lambda: _analysis.count_neighbors_list(
+                offsets, j, d, types, 1, np.ones((2, 2))
+            ),
+            "limits",
+        ),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            call()
 
 
 def test_coordination_on_the_grid_and_from_a_list_agree():

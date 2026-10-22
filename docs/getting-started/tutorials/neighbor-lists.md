@@ -93,37 +93,44 @@ print(f"{before:.0f} ms alone, {after:.0f} ms with one list")
 
 ## Neighbors within a cutoff
 
-Analyses with a cutoff, such as the radial distribution function, the
-coordination number, common neighbor analysis with a cutoff or the bond
-angle distribution, need no list: without one they count or classify the
-neighbors of each atom while they find them, in parallel and without
-storing the pairs. Given a list, they read it instead, which is slower
-today than searching again:
+Analyses with a cutoff, such as the coordination number, common neighbor
+analysis with a cutoff, the bond angle distribution or the radial
+distribution function, take a list with their cutoff or a longer one and
+use the pairs closer than theirs. Without a list they count or classify the
+neighbors of each atom while they find them, without storing the pairs,
+which is already fast; a list of just their cutoff still saves a little:
 
 ```python
-from mdapy.analysis import CoordinationNumber, RadialDistributionFunction
+from mdapy.analysis import BondAngleDistribution, CoordinationNumber
 
 within = [
-    RadialDistributionFunction(5.0, bins=100),
-    CoordinationNumber(3.0),
+    CoordinationNumber(3.086),
     CommonNeighborAnalysis(3.086),
+    BondAngleDistribution(cutoff=3.086, bins=180),
 ]
-_, without_list = timed(lambda: [a.compute(system) for a in within])
-nl = NeighborList.build(system, 5.0)
-_, with_list = timed(lambda: [a.compute(system, neighbors=nl) for a in within])
-print(f"{without_list:.0f} ms without a list, {with_list:.0f} ms with one")
+_, before = timed(lambda: [a.compute(system) for a in within])
+
+
+def shared_within():
+    nl = NeighborList.build(system, 3.086)
+    return [a.compute(system, neighbors=nl) for a in within]
+
+
+_, after = timed(shared_within)
+print(f"{before:.0f} ms alone, {after:.0f} ms with one list")
 ```
 
-On an Apple M5 with 10 threads, the list built inside the timing except
-for the last row:
+A list longer than the analyses need costs more to build than it saves.
+
+On an Apple M5 with 10 threads, each list built inside the timing:
 
 | Analyses | Each alone | One list for all |
 |---|---:|---:|
-| four on the nearest neighbors | 110 ms | 75 ms |
-| three on Voronoi neighbors | 450 ms | 165 ms |
-| three within a cutoff | 35 ms | 160 ms |
+| four on the nearest neighbors | 115 ms | 72 ms |
+| three on Voronoi neighbors | 440 ms | 170 ms |
+| three within a cutoff | 42 ms | 34 ms |
 
-A list within a cutoff is still the way to your own sums over pairs, with
+A list within a cutoff is also the way to your own sums over pairs, with
 NumPy, as in [Neighbor lists](../neighbor.md#methods).
 
 ## One list, one system

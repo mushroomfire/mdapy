@@ -5,10 +5,12 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
 
 #include <cstdint>
 #include <initializer_list>
 #include <new>
+#include <optional>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -31,6 +33,8 @@ using Offsets = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::d
 using Distances = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Neighbors = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Shifts = nb::ndarray<const std::int8_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using Types = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Limits = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
 
 // A NumPy array that owns the memory of a vector, without copying it.
 template <class T, class A>
@@ -113,6 +117,39 @@ nb::object pair_vectors(Positions positions, Offsets offsets, Neighbors neighbor
     return to_array(std::move(vectors), {neighbors.shape(0), 3});
 }
 
+nb::tuple within(Offsets offsets, Neighbors neighbors, Shifts shifts, Distances distances,
+                 std::optional<Types> type, Limits limits, nb::handle progress,
+                 const CancelToken* cancel) {
+    if (offsets.shape(0) < 1 || distances.shape(0) != neighbors.shape(0)) {
+        throw std::invalid_argument("the pairs do not fit the atoms");
+    }
+    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    check_pairs(n, offsets, neighbors, shifts);
+    const auto types = static_cast<int>(limits.shape(0));
+    if (types < 1 || limits.shape(1) != limits.shape(0)) {
+        throw std::invalid_argument("limits must be a square table");
+    }
+    if (type) {
+        if (type->shape(0) != static_cast<std::size_t>(n)) {
+            throw std::invalid_argument("type must have a value for each atom");
+        }
+        for (std::int64_t i = 0; i < n; ++i) {
+            if (type->data()[i] < 0 || type->data()[i] >= types) {
+                throw std::invalid_argument("type must be from 0 to the size of limits");
+            }
+        }
+    }
+    neighbor::NeighborPairs pairs;
+    run_released(
+        [&](const Control& control) {
+            pairs = neighbor::within(n, offsets.data(), neighbors.data(), shifts.data(),
+                                     distances.data(), type ? type->data() : nullptr, types,
+                                     limits.data(), control);
+        },
+        progress, cancel);
+    return to_arrays(std::move(pairs));
+}
+
 nb::tuple follow(Positions positions, Offsets offsets, Neighbors neighbors, Shifts shifts,
                  Matrix matrix, double cutoff, nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
@@ -173,6 +210,9 @@ void bind_neighbor(nb::module_& m) {
           nb::arg("neighbors"), nb::arg("shifts"), nb::arg("matrix"));
     m.def("follow", &follow, nb::arg("positions"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("matrix"), nb::arg("cutoff"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("within", &within, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"),
+          nb::arg("distances"), nb::arg("type").none(), nb::arg("limits"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("order_by_distance", &order_by_distance, nb::arg("positions"), nb::arg("offsets"),
           nb::arg("neighbors"), nb::arg("shifts"), nb::arg("matrix"), nb::arg("count") = -1, nb::arg("progress") = nb::none(),

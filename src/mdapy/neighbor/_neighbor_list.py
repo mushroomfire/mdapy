@@ -284,16 +284,20 @@ class NeighborList:
     def __len__(self) -> int:
         return len(self.j)
 
-    def _subset(self, mask: np.ndarray, cutoff: float) -> "NeighborList":
-        kept = np.concatenate([[0], np.cumsum(mask)])
-        return NeighborList(
-            self.system,
-            cutoff,
-            kept[self.offsets].astype(np.int64),
-            self.j[mask],
-            self.shifts[mask],
-            self.distances[mask],
+    def _cut(
+        self, cutoff: float, limits: np.ndarray, types: np.ndarray | None = None
+    ) -> "NeighborList":
+        """The pairs closer than their limit, in their order: limits[0, 0]
+        for every pair, or limits[types[i], types[j]] with types."""
+        offsets, j, shifts, distances = _native.within(
+            self.offsets,
+            self.j,
+            np.ascontiguousarray(self.shifts),
+            self.distances,
+            None if types is None else np.ascontiguousarray(types, dtype=np.int32),
+            np.ascontiguousarray(limits, dtype=np.float64),
         )
+        return NeighborList(self.system, cutoff, offsets, j, shifts, distances)
 
     def within(self, cutoff: float) -> "NeighborList":
         """The pairs closer than a smaller cutoff, without a new search.
@@ -317,7 +321,7 @@ class NeighborList:
             )
         if cutoff == self.cutoff:
             return self  # every pair is closer already
-        return self._subset(self.distances < cutoff, cutoff)
+        return self._cut(cutoff, np.array([[cutoff]]))
 
     def _order(self, k: int) -> tuple[np.ndarray, np.ndarray]:
         # the first k pairs of each atom (all when k < 0) in the order of a

@@ -64,10 +64,7 @@ class _Bonds:
         nl = _given_or_built(system, largest, neighbors)
         if self.cutoffs is None:
             return nl.within(self.cutoff), found
-        limits = self._limits(found)
-        index = found[1]
-        keep = nl.distances < limits[index[nl.i], index[nl.j]]
-        return nl._subset(keep, largest), found
+        return nl._cut(largest, self._limits(found), found[1]), found
 
     def _limits(self, found: tuple[tuple[str, ...], np.ndarray] | None) -> np.ndarray:
         """The bond length of each pair of the elements found, 0 for none."""
@@ -87,14 +84,24 @@ class _Bonds:
     ) -> tuple[np.ndarray, tuple[tuple[str, ...], np.ndarray] | None]:
         """Each atom's bonds by the element of the other atom, (N, elements)
         or (N, 1) without an element column, and the elements."""
-        if neighbors is not None:
-            bonds, found = self.select(system, neighbors)
-            n = len(system)
-            index = found[1] if found is not None else np.zeros(n, dtype=np.int64)
-            types = len(found[0]) if found is not None else 1
-            table = np.bincount(bonds.i * types + index[bonds.j], minlength=n * types)
-            return table.reshape(n, types), found
         *grid, found = self._grid(system)
+        if neighbors is not None:
+            largest = (
+                self.cutoff if self.cutoffs is None else max(self.cutoffs.values())
+            )
+            nl = _given_or_built(system, largest, neighbors)
+            index, types, limits = grid[4], grid[5], grid[6]
+            table = _native.count_neighbors_list(
+                nl.offsets,
+                nl.j,
+                nl.distances,
+                index,
+                types,
+                limits,
+                progress,
+                _native_token(cancel),
+            )
+            return table, found
         table = _native.count_neighbors(*grid, progress, _native_token(cancel))
         return table, found
 

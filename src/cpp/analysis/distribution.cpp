@@ -43,6 +43,59 @@ std::vector<std::int64_t> pair_histogram(const double* positions, std::int64_t n
         control);
 }
 
+std::vector<std::int64_t> pair_histogram_list(std::int64_t n, const std::int64_t* offsets,
+                                              const index_t* neighbors, const double* distances,
+                                              double r_max, int bins, const std::int32_t* type,
+                                              int types, const Control& control) {
+    using Histogram = std::vector<std::int64_t>;
+    const std::size_t size = static_cast<std::size_t>(types) * types * bins;
+    return parallel_reduce(
+        n, 0, Histogram(size, 0),
+        [&](std::int64_t begin, std::int64_t end) {
+            Histogram local(size, 0);
+            for (std::int64_t i = begin; i < end; ++i) {
+                const std::size_t row = static_cast<std::size_t>(type[i]) * types;
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    if (distances[p] < r_max) {
+                        // as NumPy bins the distances: (d / r_max * bins) truncated
+                        const auto bin = std::min(
+                            static_cast<std::int64_t>(distances[p] / r_max * bins),
+                            static_cast<std::int64_t>(bins) - 1);
+                        ++local[(row + static_cast<std::size_t>(type[neighbors[p]])) * bins +
+                                static_cast<std::size_t>(bin)];
+                    }
+                }
+            }
+            return local;
+        },
+        [](Histogram a, const Histogram& b) {
+            for (std::size_t k = 0; k < a.size(); ++k) {
+                a[k] += b[k];
+            }
+            return a;
+        },
+        control);
+}
+
+void count_neighbors_list(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
+                          const double* distances, const std::int32_t* type, int types,
+                          const double* limits, std::int64_t* counts, const Control& control) {
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                const double* row = limits + static_cast<std::size_t>(type[i]) * types;
+                std::int64_t* own = counts + i * types;
+                std::fill(own, own + types, 0);
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    const std::int32_t other = type[neighbors[p]];
+                    own[other] += static_cast<std::int64_t>(distances[p] < row[other]);
+                }
+            }
+        },
+        control);
+}
+
 void count_neighbors(const double* positions, std::int64_t n, const double* matrix,
                      const double* origin, const bool* pbc, const std::int32_t* type, int types,
                      const double* limits, bool per_pair, std::int64_t* counts,

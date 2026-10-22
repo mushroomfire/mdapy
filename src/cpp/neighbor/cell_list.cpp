@@ -332,4 +332,58 @@ NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t
     return result;
 }
 
+NeighborPairs within(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
+                     const std::int8_t* shifts, const double* distances,
+                     const std::int32_t* type, int types, const double* limits,
+                     const Control& control) {
+    const auto limit = [&](std::int64_t i, std::int64_t p) {
+        if (type == nullptr) {
+            return limits[0];
+        }
+        return limits[static_cast<std::size_t>(type[i]) * types +
+                      static_cast<std::size_t>(type[neighbors[p]])];
+    };
+    NeighborPairs result;
+    result.offsets.resize(static_cast<std::size_t>(n) + 1);
+    result.offsets[0] = 0;
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                std::int64_t kept = 0;
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    kept += static_cast<std::int64_t>(distances[p] < limit(i, p));
+                }
+                result.offsets[i + 1] = kept;
+            }
+        },
+        stage(control, 0, 2));
+    for (std::int64_t i = 0; i < n; ++i) {
+        result.offsets[i + 1] += result.offsets[i];
+    }
+    const auto total = static_cast<std::size_t>(result.offsets[n]);
+    result.neighbors.resize(total);
+    result.shifts.resize(3 * total);
+    result.distances.resize(total);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                auto at = static_cast<std::size_t>(result.offsets[i]);
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    if (distances[p] < limit(i, p)) {
+                        result.neighbors[at] = neighbors[p];
+                        for (int e = 0; e < 3; ++e) {
+                            result.shifts[3 * at + e] = shifts[3 * p + e];
+                        }
+                        result.distances[at] = distances[p];
+                        ++at;
+                    }
+                }
+            }
+        },
+        stage(control, 1, 2));
+    return result;
+}
+
 }  // namespace mdapy::neighbor

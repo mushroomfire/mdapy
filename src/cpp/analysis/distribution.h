@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "core/index.h"
 #include "core/parallel.h"
 
 namespace mdapy::analysis {
@@ -32,6 +33,20 @@ std::vector<std::int64_t> pair_histogram(const double* positions, std::int64_t n
                                          const bool* pbc, double r_max, int bins,
                                          const std::int32_t* type, int types,
                                          const Control& control = {});
+
+// The same counts from a neighbor list in CSR form (offsets: n + 1;
+// neighbors and distances: one per pair), of the pairs closer than r_max.
+std::vector<std::int64_t> pair_histogram_list(std::int64_t n, const std::int64_t* offsets,
+                                              const index_t* neighbors, const double* distances,
+                                              double r_max, int bins, const std::int32_t* type,
+                                              int types, const Control& control = {});
+
+// count_neighbors from a neighbor list in CSR form: the pairs whose distance
+// is below the limit of their pair of types.
+void count_neighbors_list(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
+                          const double* distances, const std::int32_t* type, int types,
+                          const double* limits, std::int64_t* counts,
+                          const Control& control = {});
 
 // Static structure factor of a periodic box at every reciprocal lattice
 // vector q = h b1 + k b2 + l b3 with 0 < |q| <= q_max, one of each pair +q,

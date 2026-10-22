@@ -220,6 +220,14 @@ def test_neighbor_lists_must_be_symmetric(tmp_path):
     full = mdapy.NeighborList.build(system, potential.cutoff)
     keep = np.ones(len(full), dtype=bool)
     keep[0] = False
-    broken = full._subset(keep, full.cutoff)
+    kept = np.concatenate([[0], np.cumsum(keep)])
+    broken = mdapy.NeighborList(
+        system,
+        full.cutoff,
+        kept[full.offsets],
+        full.j[keep],
+        full.shifts[keep],
+        full.distances[keep],
+    )
     with pytest.raises(ValueError, match="not symmetric"):
         potential.compute(system, neighbors=broken)

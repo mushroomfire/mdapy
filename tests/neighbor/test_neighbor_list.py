@@ -473,6 +473,44 @@ def test_follow_moved_atoms_without_a_search(box_name):
     assert NeighborList.build(system, num_neighbors=4)._follow(system, 0.1) is None
 
 
+def test_within_keeps_the_order_of_the_list():
+    system = random_system("triclinic", seed=10)
+    nl = NeighborList.build(system, 5.0).sorted()  # an order unlike the search
+    small = nl.within(3.5)
+    keep = nl.distances < 3.5
+    np.testing.assert_array_equal(small.j, nl.j[keep])
+    np.testing.assert_array_equal(small.shifts, nl.shifts[keep])
+    np.testing.assert_array_equal(small.distances, nl.distances[keep])
+    np.testing.assert_array_equal(
+        small.counts, np.bincount(nl.i[keep], minlength=len(system))
+    )
+    # a limit for each pair of types
+    types = np.arange(len(system)) % 2
+    limits = np.array([[3.0, 4.0], [4.0, 5.0]])
+    cut = nl._cut(5.0, limits, types)
+    keep = nl.distances < limits[types[nl.i], types[nl.j]]
+    np.testing.assert_array_equal(cut.j, nl.j[keep])
+    np.testing.assert_array_equal(cut.distances, nl.distances[keep])
+    native = mdapy._core.neighbor
+    arrays = (nl.offsets, nl.j, np.ascontiguousarray(nl.shifts), nl.distances)
+    for kind, wrong, message in [
+        (None, np.ones((1, 2)), "square"),
+        (np.full(len(system), 2, np.int32), limits, "from 0"),
+        (np.zeros(3, np.int32), limits, "each atom"),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            native.within(*arrays, kind, wrong)
+    with pytest.raises(ValueError, match="do not fit"):
+        native.within(
+            nl.offsets,
+            nl.j,
+            np.ascontiguousarray(nl.shifts),
+            nl.distances[1:],
+            None,
+            limits,
+        )
+
+
 def test_within_and_sorted():
     system = random_system("triclinic", seed=9)
     nl = NeighborList.build(system, 5.0)

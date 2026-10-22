@@ -208,6 +208,14 @@ void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* o
                   const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
                   double* vectors, const Control& control = {});
 
+// The pairs of a list closer than their limit, in the order of the list:
+// pair (i, j) is kept when its distance is below limits[type[i] * types +
+// type[j]] (limits: types x types), or below limits[0] when type is null.
+NeighborPairs within(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
+                     const std::int8_t* shifts, const double* distances,
+                     const std::int32_t* type, int types, const double* limits,
+                     const Control& control = {});
+
 // The pairs of a list (offsets, neighbors, shifts) that are closer than the
 // cutoff with the atoms at positions, in the order of the list, with their
 // distances and vectors (pairs x 3); the test and the distances are those of

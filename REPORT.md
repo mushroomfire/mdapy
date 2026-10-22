@@ -18,7 +18,9 @@
 | `render-draft` | photo 风格、有机分子渲染、完整元素表、Metal GPU 渲染，基于 fused-nearest-draft | 已推送，CI 全绿（含 macOS 上的 Metal 测试） |
 | `system-immutable-draft` | System/Topology 的表对外只给拷贝，基于 fused-nearest-draft | 已推送，CI 全绿 |
 | `dxa-draft` | 位错分析（位错线、Burgers 矢量、扩展位错与不全位错）和位错线渲染，基于 render-draft | 已推送，CI 全绿 |
-| `dxa-partials-draft` | 不全位错的 Burgers 矢量（Shockley、Frank 等）；面缺陷的判据更严，基于 dxa-draft | 已推送，CI 中 |
+| `dxa-partials-draft` | 不全位错的 Burgers 矢量（Shockley、Frank 等）；面缺陷的判据更严，基于 dxa-draft | 已推送，CI 全绿 |
+| `neighbor-fits-draft` | 合并 system-immutable-draft（含原子应变/网格提速）；邻居表按“坐标和盒子相同”复用（`NeighborList.fits`）；最新的 OVITO 性能对比，基于 dxa-partials-draft | 已推送 |
+| `dxa-network-draft` | 位错网络（节点、线段）、扩展位错只给两条不全位错、Burgers 矢量箭头、和 OVITO 的 DXA 现场对比，基于 neighbor-fits-draft | 已推送，CI 中 |
 
 ## 进展
 
@@ -203,6 +205,31 @@
 | 左：Shockley 环现在是绿色（a/6⟨112⟩）；右：扩展刃位错的两条 Shockley 不全位错 | ![](images/31_dxa_partials.png) |
 | 弛豫后的 Frank 环（28 Å 空位盘塌缩）：a/3⟨111⟩，青色；0 K 弛豫后环不是平的 | ![](images/30_frank.png) |
 
+### 02:40（你 00:40 的意见）
+- **邻居表复用**（`neighbor-fits-draft`）：不再要求是同一个 System 对象。`NeighborList.fits(system)`：坐标和盒子都相同就能用（先比内存地址，不同再逐值比较），所以 `with_columns` 加列、重新读同一帧都能复用；原子动了或盒子变了才拒绝。文档（邻居表页、两篇教程、计算器页）都改了。
+- **新的性能对比**（同一分支，Performance 页和下图已更新）：发现 render-draft 是从 fused-nearest-draft 较早的提交分出来的，没带上“原子应变和网格提速”；这次把 system-immutable-draft 合进来后在最终代码上重跑。200 万原子：近邻类分析（自适应 CNA、AJA、CSP、Steinhardt、金刚石）比 OVITO 快 1.2–1.6 倍，内存 80–170 MB（OVITO 130–370 MB）；RDF 1.7 倍、键角 1.9 倍、团簇 3.2 倍、Voronoi 6.5 倍、Voronoi 加权 Steinhardt 40–120 倍；原子应变 0.15 s 对 0.075 s（之前 0.38 s），是唯一还慢的。这次 OVITO 的时间比上次整体慢一点，机器发热有 ±15% 的波动。
+- **DXA 重写成网络**（`dxa-network-draft`）：
+  - 原来“一个缺陷簇取一条最长路径”处理不了压痕产生的位错网。现在把核心原子收缩后放进格子里建图（原子相邻的格子连边，保证连通），最小生成树 + 补回真实的环（包括穿过周期边界的），剪掉短枝，在三条及以上线相交处切成线段，每段单独做 Burgers 回路。
+  - **扩展位错不再画中间的全位错线**：只给两条 Shockley 不全位错，另有 `result.dissociations` 记录成对关系、整体的 Burgers 矢量和宽度。
+  - **箭头**：`render(..., dislocations=r, burgers_vectors=True, burgers_scale=3)`，在每条线中点画 Burgers 矢量箭头。
+  - 表面原子改成按缺失的近邻数判断（压痕的凹坑也能识别，空洞表面也算），线的自由端会延伸到表面。
+  - 回路可以穿过层错和畸变的晶体，两个回路要一致才采纳。
+- **和 OVITO 的 DXA 对比**（测试里现场对比）：
+  - 孤立位错（fcc/bcc 螺位错、薄膜里的开放线、fcc/bcc 剪切环、Shockley 环、弛豫的扩展刃位错）：类型和 Burgers 矢量完全一致，长度差 <10%。
+  - **符号约定**：同样的线方向，OVITO 的 Burgers 矢量和我们正好相反。我核对过，我们的是 Hirth–Lothe 的 FS/RH（也和 insert_dislocation 一致），所以没改，文档里写明。
+  - **压痕（LAMMPS，7.2 万原子，10 K，压深 5–17 Å）**：结构大体对得上（见下图，红是 OVITO，蓝是我们），Shockley 为主、压杆和 Hirth 都有；但定量差距明显：OVITO 线长 1113 Å 时，约 45% 在我们这边有同 Burgers 矢量的线贴着，我们的线约 55% 和 OVITO 一致。原因：相距两个近邻距离以内的几条不全位错会被我们合成一条（给出它们的净 Burgers 矢量），贴着压头高畸变区的线回路走不通被丢掉。节点处的 Frank 守恒也大多不满足。弛豫后的“Frank 环”也是这样：OVITO 看到的是 Shockley + 压杆的网络，我们给一个 a/3⟨111⟩ 的环。
+  - 要和 OVITO 在密集网络上接近，需要实现 Stukowski 的完整 DXA（四面体剖分、晶格映射、在界面网格上追踪回路），大概要几天。这是下面的问题 12。
+- 1724 个测试全过。
+
+| | |
+|---|---|
+| 新的性能对比（最终代码） | ![](images/34_performance.png) |
+| 网络版：左为位错环，右为扩展刃位错的两条 Shockley + 箭头（不再有中间那条全位错） | ![](images/35_dxa_network.png) |
+| 压深 13 Å 的压痕：我们的位错线和 Burgers 矢量箭头（绿 Shockley、紫压杆、黄 Hirth、红为不在标准列表里的矢量） | ![](images/32_indent_lines.png) |
+| 同一帧：红为 OVITO，蓝为我们（左俯视，右侧视） | ![](images/33_indent_vs_ovito.png) |
+
+- 接下来：把所有草稿合成一个 preview 分支并跑通测试；WCP 多壳层；VASP 计算器。
+
 ## 早上需要你决定的事
 
 1. 草稿分支是一条链，合并顺序：build-defects → defect-energies → visualization → mlip（后面的 performance、tutorials 也会接在 mlip 后面）。
@@ -215,3 +242,5 @@
 8. 网格搜索要不要再做一版"简单快速路径"（像 OVITO 那样只用盒内坐标判断，不保证与列表逐位相同的距离），用于只需要邻居集合、不需要精确距离的分析（如原子应变、计数）？大约还能快 1.5–2 倍，代价是两套代码。
 9. 渲染默认 `device`：现在默认 `"cpu"`（结果与线程数无关、逐位可复现），GPU 要显式打开。要不要改成默认 `"auto"`（有 GPU 就用，结果只差舍入）？
 10. **位错分析的边界**：不全位错的 Burgers 矢量已在 `dxa-partials-draft` 做了（见 00:32），你决定是否合并。还剩：只支持单晶取向（`orientation` 一个），晶界里的位错和多晶不处理；hcp、金刚石结构没做。要不要继续往这个方向做？
+11. **PTM（多面体模板匹配）怎么做**：路线图第 5 阶段有"PTM 及平面缺陷识别"，它给出每个原子的局部取向（四元数）、结构（fcc/hcp/bcc/ico/sc/金刚石/六方金刚石/石墨烯）和 RMSD，是晶粒分割、多晶里的位错分析、层错/孪晶分类的基础。Larsen 的 PTM 库是 MIT 许可（LAMMPS 的 PTM 包和 OVITO 都直接带着它），约 8700 行，其中一半是数据表（模板、自同构、规范图）。两种做法：(A) 按 mdapy 的风格移植它（保留 MIT 许可声明，用我们的线程池），和 OVITO/LAMMPS 能逐原子一致，工作量大约一天；(B) 按论文自己写，凸包 + 图同构 + QCP 都要自己实现，要和 OVITO 逐原子一致很难（凸包拓扑判定、邻居排序、RMSD 归一化的细节都得一样）。我倾向 (A)。你定了我就开始。
+12. **DXA 要不要做成完整版**：现在的“精简版”在孤立位错上和 OVITO 一致，在压痕这种密集网络里大约只有一半能对上（见 02:40）。完整的 DXA（Delaunay 四面体剖分 → 用晶格映射给每条边标理想矢量 → 好/坏四面体之间的界面网格 → 在网格上追踪回路并沿线推进）能做到和 OVITO 接近，但需要四面体剖分（我们有 Voronoi，可以从它导出 Delaunay）和较大的工作量（估计 2–3 天）。你觉得值得的话我就开始。

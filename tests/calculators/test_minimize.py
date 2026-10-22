@@ -111,6 +111,72 @@ def test_step_limit_callback_and_empty_systems(potential):
     assert minimize(empty, potential).converged
 
 
+def lammps_fire(system, calculator, steps, dmax=0.1, dt0=0.001):
+    """LAMMPS min_style fire with its default settings, transcribed atom by
+    atom from min_fire.cpp, for the given number of steps."""
+    ftm2v = 1.0 / mdapy.units.AMU_A2_PER_PS2_TO_EV
+    mass = mdapy.elements.atomic_masses(system.table["element"].to_physical())
+    x = system.positions.copy()
+    v = np.zeros_like(x)
+    n = len(x)
+
+    def forces_at(positions):
+        return calculator.compute(system.with_positions(positions)).forces
+
+    f = forces_at(x)
+    dt, alpha, last_negative, flagv0 = dt0, 0.25, 0, True
+    for ntimestep in range(1, steps + 1):
+        vdotf = sum(v[i] @ f[i] for i in range(n))
+        if vdotf > 0.0:
+            vdotv = sum(v[i] @ v[i] for i in range(n))
+            fdotf = sum(f[i] @ f[i] for i in range(n))
+            scale1 = 1.0 - alpha
+            scale2 = 0.0 if fdotf <= 1e-20 else alpha * np.sqrt(vdotv / fdotf)
+            if ntimestep - last_negative > 20:
+                dt = min(dt * 1.1, 10.0 * dt0)
+                alpha *= 0.99
+        else:
+            last_negative = ntimestep
+            if not ntimestep < 20:
+                alpha = 0.25
+                if dt * 0.5 >= 0.02 * dt0:
+                    dt *= 0.5
+            for i in range(n):
+                x[i] -= 0.5 * dt * v[i]
+            v[:] = 0.0
+            flagv0 = True
+        if flagv0:
+            f = forces_at(x)
+            for i in range(n):
+                v[i] = dt * ftm2v / mass[i] * f[i]
+        dtv = dt
+        for i in range(n):
+            vmax = np.abs(v[i]).max()
+            if dtv * vmax > dmax:
+                dtv = dmax / vmax
+        if flagv0:
+            v[:] = 0.0
+        for i in range(n):
+            v[i] += dtv * ftm2v / mass[i] * f[i]
+            if vdotf > 0.0:
+                v[i] = scale1 * v[i] + scale2 * f[i]
+            x[i] += dtv * v[i]
+        f = forces_at(x)
+        flagv0 = False
+    return x
+
+
+@pytest.mark.parametrize("steps", [1, 2, 5, 40])
+def test_steps_of_lammps_fire(potential, steps):
+    # rounding apart, the steps are those of LAMMPS, transcribed in NumPy;
+    # the jitter makes uphill steps, which reset and shrink the time step
+    system = alloy(seed=7, repeat=2, jitter=0.25)
+    result = minimize(system, potential, max_force=1e-12, max_steps=steps)
+    assert result.steps == steps
+    expected = lammps_fire(system, potential, steps)
+    np.testing.assert_allclose(result.system.positions, expected, rtol=0, atol=1e-9)
+
+
 def test_large_steps_are_limited():
     dimer = mdapy.System(
         [[0.0, 0, 0], [2.9, 0, 0]], mdapy.Box(20.0, pbc=False), elements="H"
@@ -120,11 +186,32 @@ def test_large_steps_are_limited():
     def callback(step, current, energy, largest):
         moves.append(current.positions.copy())
 
-    minimize(
-        dimer, Harmonic(k=1000.0, r0=2.5), max_step=0.01, max_steps=5, callback=callback
+    calculator = Harmonic(k=20.0, r0=2.5)
+    result = minimize(dimer, calculator, max_step=0.01, max_steps=8, callback=callback)
+    assert result.steps == 8
+    steps = np.abs(np.diff(np.array([dimer.positions] + moves), axis=0))
+    assert 0.0 < steps[0].max() <= 0.01  # from rest, at most max_step along an axis
+    np.testing.assert_allclose(
+        moves[-1], lammps_fire(dimer, calculator, 8, dmax=0.01), rtol=0, atol=1e-12
     )
-    steps = np.diff(np.array([dimer.positions] + moves), axis=0)
-    assert np.linalg.norm(steps, axis=2).max() <= 0.01 + 1e-15
+    free = minimize(dimer, calculator, max_steps=8).system.positions
+    assert np.abs(free - moves[-1]).max() > 0.01  # the limit changed the path
+
+
+def test_masses_set_the_path_not_the_minimum(potential):
+    system = alloy(seed=8, repeat=2, jitter=0.1)
+    light = minimize(system, potential, max_force=1e-6, max_steps=5000)
+    heavy = minimize(
+        system.with_columns(mass=np.full(len(system), 500.0)),
+        potential,
+        max_force=1e-6,
+        max_steps=5000,
+    )
+    assert light.converged and heavy.converged and light.steps != heavy.steps
+    assert light.energy == pytest.approx(heavy.energy, abs=1e-8)
+    bare = mdapy.System(system.positions, system.box)
+    with pytest.raises(mdapy.errors.MissingProperty, match="mass or an element"):
+        minimize(bare, potential)
 
 
 @pytest.mark.parametrize(
@@ -132,7 +219,8 @@ def test_large_steps_are_limited():
     [
         ({"max_force": 0.0}, "max_force must be positive"),
         ({"max_steps": -1}, "max_steps must be at least 0"),
-        ({"max_step": 0.0}, "max_step positive"),
+        ({"max_step": 0.0}, "max_step and timestep positive"),
+        ({"timestep": -1.0}, "max_step and timestep positive"),
     ],
 )
 def test_invalid_options(potential, options, message):

@@ -131,16 +131,18 @@ is shared equally by its two atoms.
 ## Energy minimization
 
 `mdapy.minimize(system, calculator, *, max_force=1e-3, max_steps=1000,
-max_step=0.2, callback=None)` minimizes the energy over the
-positions, in a fixed box, with FIRE, the fast inertial relaxation engine.
+max_step=0.1, timestep=0.001, callback=None)` minimizes the energy over the
+positions, in a fixed box, with FIRE 2.0, as LAMMPS `min_style fire` does
+with its default settings.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `system` | `System` | | | the starting configuration |
+| `system` | `System` | | | the starting configuration, with a `mass` or an `element` column |
 | `calculator` | `Calculator` | | | computes energies and forces |
 | `max_force` | float | 1e-3 | eV/Å | converged when every force is below it |
 | `max_steps` | int | 1000 | | largest number of steps |
-| `max_step` | float | 0.2 | Å | largest distance an atom moves in one step |
+| `max_step` | float | 0.1 | Å | an atom moving at its current velocity goes at most this far along x, y or z in one step (LAMMPS `dmax`) |
+| `timestep` | float | 0.001 | ps | first time step of the dynamics (the LAMMPS `timestep` in metal units) |
 | `callback` | callable | `None` | | called after each step as `callback(step, system, energy, max_force)`; returning True stops the minimization |
 
 It returns a `MinimizeResult`:
@@ -153,15 +155,17 @@ It returns a `MinimizeResult`:
 | `energy` | float | energy of the last configuration in eV |
 | `max_force` | float | largest force of the last configuration in eV/Å |
 
-FIRE uses the parameters of ASE: a starting time step of 0.1, a largest time
-step of 1.0, five steps before the time step grows by 10 %, halving it after
-an uphill step, and a mixing parameter starting at 0.1 and shrinking by 1 %
-per step. Unlike in ASE, `max_step` limits each atom rather than the
-displacement of all atoms together.
+The steps are those of LAMMPS: the same time step control, mixing and half
+step back after an uphill step, with masses from the `mass` column or, when
+there is none, the standard atomic weights of the elements. Masses change
+the path, not the minimum; LAMMPS takes them from the data file or, for EAM,
+from the potential file.
 
-`minimize` raises `InvalidParameter` for a non-positive `max_force` or
-`max_step`, a negative `max_steps`, or a calculator that does not compute
-both energies and forces.
+`minimize` raises `InvalidParameter` for a non-positive `max_force`,
+`max_step` or `timestep`, a negative `max_steps`, or a calculator that does
+not compute both energies and forces, and
+[`MissingProperty`](../reference/api.md#mdapy.errors.MissingProperty) for a
+system with neither masses nor elements.
 
 ## References
 
@@ -172,3 +176,9 @@ both energies and forces.
 - E. Bitzek, P. Koskinen, F. Gähler, M. Moseler and P. Gumbsch, Structural
   relaxation made simple, *Phys. Rev. Lett.* **97**, 170201 (2006).
   doi:10.1103/PhysRevLett.97.170201
+- J. Guénolé, W. G. Nöhring, A. Vaid, F. Houllé, Z. Xie, A. Prakash and
+  E. Bitzek, Assessment and optimization of the fast inertial relaxation
+  engine (FIRE) for energy minimization in atomistic simulations and its
+  implementation in LAMMPS, *Comput. Mater. Sci.* **175**, 109584 (2020).
+  doi:10.1016/j.commatsci.2020.109584
+- LAMMPS `min_style fire`: <https://docs.lammps.org/min_style.html>

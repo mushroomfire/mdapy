@@ -36,8 +36,12 @@ struct NepModel {
     // Coefficients of the real spherical harmonics, from l = 1, m = 0 by
     // (l, m): the polynomial in z of degree l - m, lowest power first.
     std::vector<double> harmonics;
+    // w0 and the coefficients with their last two axes swapped, so that
+    // their sums run across neurons and radial functions:
+    // (types, dim, neurons), (types, types, k + 1, n + 1).
+    std::vector<double> w0_swapped, c_radial_swapped, c_angular_swapped;
 
-    // Fills dim and harmonics from the other members.
+    // Fills dim, harmonics and the swapped arrays from the other members.
     void prepare();
     int harmonic_count() const { return (l_max + 1) * (l_max + 1) - 1; }
 };

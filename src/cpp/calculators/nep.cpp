@@ -50,15 +50,24 @@ void chebyshev_basis(double r, double rc, int k_max, double* f, double* fp) {
     }
 }
 
-// g_n = sum_k c[n][k] f_k for n < count.
-void contract(const double* c, int count, int k_count, const double* f, double* g) {
-    for (int n = 0; n < count; ++n) {
-        double sum = 0.0;
-        for (int k = 0; k < k_count; ++k) {
-            sum += c[n * k_count + k] * f[k];
+// At most this many radial functions, or Chebyshev polynomials, of each
+// kind (GPUMD allows 20).
+constexpr int kMaxFunctions = 32;
+
+// g_n = sum_k c[n][k] f_k and gp_n = sum_k c[n][k] fp_k for n < count,
+// from c swapped to [k][n]: each sum runs over k in order, across n at once.
+void contract(const double* c, int count, int k_count, const double* f, const double* fp,
+              double* g, double* gp) {
+    double sum[kMaxFunctions] = {}, sum_p[kMaxFunctions] = {};
+    for (int k = 0; k < k_count; ++k) {
+        const double* row = c + k * count;
+        for (int n = 0; n < count; ++n) {
+            sum[n] += row[n] * f[k];
+            sum_p[n] += row[n] * fp[k];
         }
-        g[n] = sum;
     }
+    std::copy(sum, sum + count, g);
+    std::copy(sum_p, sum_p + count, gp);
 }
 
 // The real spherical harmonics of the unit vector u, in the order of
@@ -208,9 +217,10 @@ std::vector<std::int64_t> reverse_pairs(std::int64_t n, const std::int64_t* offs
 }  // namespace
 
 void NepModel::prepare() {
-    if (types < 1 || l_max < 1 || l_max > 8 || neurons < 1 || n_radial < 0 || n_angular < 0 ||
-        k_radial < 0 || k_angular < 0 || (four_body && l_max < 2) ||
-        (five_body && !four_body)) {
+    const auto valid = [](int size) { return size >= 0 && size < kMaxFunctions; };
+    if (types < 1 || l_max < 1 || l_max > 8 || neurons < 1 || !valid(n_radial) ||
+        !valid(n_angular) || !valid(k_radial) || !valid(k_angular) ||
+        (four_body && l_max < 2) || (five_body && !four_body)) {
         throw std::invalid_argument("invalid NEP sizes");
     }
     const auto t = static_cast<std::size_t>(types);
@@ -224,6 +234,21 @@ void NepModel::prepare() {
         (!zbl.empty() && zbl.size() != t * t * 12)) {
         throw std::invalid_argument("inconsistent NEP parameters");
     }
+    const auto swap = [](const std::vector<double>& a, std::size_t blocks, std::size_t rows,
+                         std::size_t columns) {
+        std::vector<double> b(a.size());
+        for (std::size_t z = 0; z < blocks; ++z) {
+            for (std::size_t r = 0; r < rows; ++r) {
+                for (std::size_t c = 0; c < columns; ++c) {
+                    b[(z * columns + c) * rows + r] = a[(z * rows + r) * columns + c];
+                }
+            }
+        }
+        return b;
+    };
+    w0_swapped = swap(w0, t, neurons, dim);
+    c_radial_swapped = swap(c_radial, t * t, n_radial + 1, k_radial + 1);
+    c_angular_swapped = swap(c_angular, t * t, n_angular + 1, k_angular + 1);
     // Legendre polynomials by their recurrence, then the m-th derivatives
     // scaled to orthonormal real harmonics.
     std::vector<std::vector<double>> legendre{{1.0}, {0.0, 1.0}};
@@ -272,56 +297,71 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
     const int l_max = model.l_max, neurons = model.neurons;
     const int k_size = std::max(kr, ka), n_size = std::max(nr, na);
     const bool zbl = !model.zbl.empty();
-    std::vector<double> parity(static_cast<std::size_t>(harmonics));
-    for (int l = 1; l <= l_max; ++l) {
-        for (int h = l * l - 1; h < (l + 1) * (l + 1) - 1; ++h) {
-            parity[h] = l % 2 == 0 ? 1.0 : -1.0;
-        }
-    }
-    // dE_i / dq_n of the radial descriptors and dE_i / ds_nh of the sums of
-    // harmonics, kept for the forces on the neighbors.
-    std::vector<double> radial_slope(static_cast<std::size_t>(n) * nr);
-    std::vector<double> angular_slope(static_cast<std::size_t>(n) * na * harmonics);
-
+    // Each atom in one pass: its descriptors, energy and the derivatives
+    // t_p = dE_i / dr_p of its energy by the vector of each of its pairs p.
+    // What a pair needs for both, its basis functions and harmonics, is kept
+    // from the first loop over the pairs to the second.
+    const std::int64_t count = offsets[n];
+    std::vector<double> derivative(3 * static_cast<std::size_t>(count));
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
-            std::vector<double> f(k_size), fp(k_size), g(n_size), y(harmonics);
+            std::vector<double> f(k_size), fp(k_size), g(n_size);
             std::vector<double> s(static_cast<std::size_t>(na) * harmonics), q(dim), slope(dim);
+            std::vector<double> angular_slope(static_cast<std::size_t>(na) * harmonics);
+            std::vector<double> input(static_cast<std::size_t>(neurons));
+            std::vector<double> along(static_cast<std::size_t>(harmonics));
+            std::vector<double> across(static_cast<std::size_t>(harmonics));
+            // per pair of the atom: the radial gp (nr), the angular g and gp
+            // (na each), the harmonics and their gradients, the ZBL slope
+            std::vector<double> radial_gp, angular_g, angular_gp, y, gradient, zbl_slope;
             for (std::int64_t i = begin; i < end; ++i) {
                 const int ti = species[i];
+                const std::int64_t first = offsets[i];
+                const auto pairs = static_cast<std::size_t>(offsets[i + 1] - first);
+                radial_gp.resize(pairs * nr);
+                angular_g.resize(pairs * na);
+                angular_gp.resize(pairs * na);
+                y.resize(pairs * harmonics);
+                gradient.resize(pairs * 3 * harmonics);
+                zbl_slope.resize(pairs);
                 std::fill(q.begin(), q.end(), 0.0);
                 std::fill(s.begin(), s.end(), 0.0);
                 double repulsion = 0.0;
-                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                for (std::size_t k = 0; k < pairs; ++k) {
+                    const std::int64_t p = first + static_cast<std::int64_t>(k);
                     const int tj = species[neighbors[p]];
                     const double* v = vectors + 3 * p;
                     const double r = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
                     const double rc_r = 0.5 * (model.rc_radial[ti] + model.rc_radial[tj]);
                     if (r < rc_r) {
+                        const double* c_ij =
+                            &model.c_radial_swapped[static_cast<std::size_t>(ti * types + tj) * nr * kr];
                         chebyshev_basis(r, rc_r, kr - 1, f.data(), fp.data());
-                        contract(&model.c_radial[static_cast<std::size_t>(ti * types + tj) * nr * kr],
-                                 nr, kr, f.data(), g.data());
-                        for (int k = 0; k < nr; ++k) {
-                            q[k] += g[k];
+                        contract(c_ij, nr, kr, f.data(), fp.data(), g.data(), &radial_gp[k * nr]);
+                        for (int m = 0; m < nr; ++m) {
+                            q[m] += g[m];
                         }
                     }
                     const double rc_a = 0.5 * (model.rc_angular[ti] + model.rc_angular[tj]);
                     if (r < rc_a) {
+                        const double* c_ij =
+                            &model.c_angular_swapped[static_cast<std::size_t>(ti * types + tj) * na * ka];
+                        double* gk = &angular_g[k * na];
                         chebyshev_basis(r, rc_a, ka - 1, f.data(), fp.data());
-                        contract(&model.c_angular[static_cast<std::size_t>(ti * types + tj) * na * ka],
-                                 na, ka, f.data(), g.data());
+                        contract(c_ij, na, ka, f.data(), fp.data(), gk, &angular_gp[k * na]);
                         const double u[3] = {v[0] / r, v[1] / r, v[2] / r};
-                        evaluate_harmonics(model, u, r, y.data(), nullptr);
-                        for (int k = 0; k < na; ++k) {
+                        const double* yk = &y[k * harmonics];
+                        evaluate_harmonics(model, u, r, &y[k * harmonics], &gradient[k * 3 * harmonics]);
+                        for (int m = 0; m < na; ++m) {
                             for (int h = 0; h < harmonics; ++h) {
-                                s[k * harmonics + h] += g[k] * y[h];
+                                s[m * harmonics + h] += gk[m] * yk[h];
                             }
                         }
                         if (zbl) {
-                            double e, de;
+                            double e;
                             zbl_pair(&model.zbl[static_cast<std::size_t>(ti * types + tj) * 12], r,
-                                     e, de);
+                                     e, zbl_slope[k]);
                             repulsion += 0.5 * e;
                         }
                     }
@@ -359,17 +399,24 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                     std::copy(q.begin(), q.end(), descriptors + i * dim);
                 }
 
-                // one hidden layer of tanh neurons
+                // one hidden layer of tanh neurons, the inputs summed over the
+                // descriptors in order, across the neurons at once
                 double energy = -model.b1;
                 std::fill(slope.begin(), slope.end(), 0.0);
+                const std::size_t layer = static_cast<std::size_t>(ti) * neurons;
                 for (int k = 0; k < neurons; ++k) {
-                    const std::size_t at = static_cast<std::size_t>(ti) * neurons + k;
-                    const double* w = &model.w0[at * dim];
-                    double x = -model.b0[at];
-                    for (int d = 0; d < dim; ++d) {
-                        x += w[d] * q[d];
+                    input[k] = -model.b0[layer + k];
+                }
+                for (int d = 0; d < dim; ++d) {
+                    const double* w = &model.w0_swapped[(static_cast<std::size_t>(ti) * dim + d) * neurons];
+                    for (int k = 0; k < neurons; ++k) {
+                        input[k] += w[k] * q[d];
                     }
-                    const double t = std::tanh(x);
+                }
+                for (int k = 0; k < neurons; ++k) {
+                    const std::size_t at = layer + k;
+                    const double* w = &model.w0[at * dim];
+                    const double t = std::tanh(input[k]);
                     energy += model.w1[at] * t;
                     const double factor = model.w1[at] * (1.0 - t * t);
                     for (int d = 0; d < dim; ++d) {
@@ -381,8 +428,8 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                 }
                 energies[i] = energy + repulsion;
 
-                std::copy(slope.begin(), slope.begin() + nr, &radial_slope[i * nr]);
-                double* gi = &angular_slope[static_cast<std::size_t>(i) * na * harmonics];
+                // dE_i / ds_nh of the sums of harmonics
+                double* gi = angular_slope.data();
                 for (int k = 0; k < na; ++k) {
                     const double* sk = &s[k * harmonics];
                     double* gk = gi + k * harmonics;
@@ -415,23 +462,10 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                         }
                     }
                 }
-            }
-        },
-        control);
 
-    // The derivative t_p = dE_i / dr_p of the energy of atom i by the vector
-    // of each of its pairs p.
-    const std::int64_t count = offsets[n];
-    std::vector<double> derivative(3 * static_cast<std::size_t>(count));
-    parallel_for(
-        n, 0,
-        [&](std::int64_t begin, std::int64_t end) {
-            std::vector<double> f(k_size), fp(k_size), g(n_size), gp(n_size), y(harmonics),
-                gradient(3 * static_cast<std::size_t>(harmonics));
-            for (std::int64_t i = begin; i < end; ++i) {
-                const int ti = species[i];
-                const double* gi = &angular_slope[static_cast<std::size_t>(i) * na * harmonics];
-                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                // the derivatives by the pair vectors
+                for (std::size_t k = 0; k < pairs; ++k) {
+                    const std::int64_t p = first + static_cast<std::int64_t>(k);
                     const int tj = species[neighbors[p]];
                     const double* v = vectors + 3 * p;
                     const double r = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
@@ -440,12 +474,10 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                     t[0] = t[1] = t[2] = 0.0;
                     const double rc_r = 0.5 * (model.rc_radial[ti] + model.rc_radial[tj]);
                     if (r < rc_r) {
-                        chebyshev_basis(r, rc_r, kr - 1, f.data(), fp.data());
-                        contract(&model.c_radial[static_cast<std::size_t>(ti * types + tj) * nr * kr],
-                                 nr, kr, fp.data(), gp.data());
+                        const double* gp = &radial_gp[k * nr];
                         double a = 0.0;
-                        for (int k = 0; k < nr; ++k) {
-                            a += radial_slope[i * nr + k] * gp[k];
+                        for (int m = 0; m < nr; ++m) {
+                            a += slope[m] * gp[m];
                         }
                         for (int c = 0; c < 3; ++c) {
                             t[c] += a * u[c];
@@ -453,31 +485,34 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                     }
                     const double rc_a = 0.5 * (model.rc_angular[ti] + model.rc_angular[tj]);
                     if (r < rc_a) {
-                        chebyshev_basis(r, rc_a, ka - 1, f.data(), fp.data());
-                        const double* c_ij =
-                            &model.c_angular[static_cast<std::size_t>(ti * types + tj) * na * ka];
-                        contract(c_ij, na, ka, f.data(), g.data());
-                        contract(c_ij, na, ka, fp.data(), gp.data());
-                        evaluate_harmonics(model, u, r, y.data(), gradient.data());
-                        for (int k = 0; k < na; ++k) {
-                            const double* gik = gi + k * harmonics;
-                            double a = 0.0, b[3] = {0.0, 0.0, 0.0};
+                        // sum_n (g'_n Y_h u + g_n grad Y_h) dE/ds_nh, the sums
+                        // over n first, across the harmonics at once
+                        const double* gk = &angular_g[k * na];
+                        const double* gp = &angular_gp[k * na];
+                        const double* yk = &y[k * harmonics];
+                        const double* dy = &gradient[k * 3 * harmonics];
+                        std::fill(along.begin(), along.end(), 0.0);
+                        std::fill(across.begin(), across.end(), 0.0);
+                        for (int m = 0; m < na; ++m) {
+                            const double* gim = gi + m * harmonics;
                             for (int h = 0; h < harmonics; ++h) {
-                                a += gik[h] * y[h];
-                                for (int c = 0; c < 3; ++c) {
-                                    b[c] += gik[h] * gradient[3 * h + c];
-                                }
-                            }
-                            for (int c = 0; c < 3; ++c) {
-                                t[c] += gp[k] * a * u[c] + g[k] * b[c];
+                                along[h] += gp[m] * gim[h];
+                                across[h] += gk[m] * gim[h];
                             }
                         }
-                        if (zbl) {
-                            double e, de;
-                            zbl_pair(&model.zbl[static_cast<std::size_t>(ti * types + tj) * 12], r,
-                                     e, de);
+                        double a = 0.0, b[3] = {0.0, 0.0, 0.0};
+                        for (int h = 0; h < harmonics; ++h) {
+                            a += along[h] * yk[h];
                             for (int c = 0; c < 3; ++c) {
-                                t[c] += 0.5 * de * u[c];
+                                b[c] += across[h] * dy[3 * h + c];
+                            }
+                        }
+                        for (int c = 0; c < 3; ++c) {
+                            t[c] += a * u[c] + b[c];
+                        }
+                        if (zbl) {
+                            for (int c = 0; c < 3; ++c) {
+                                t[c] += 0.5 * zbl_slope[k] * u[c];
                             }
                         }
                     }

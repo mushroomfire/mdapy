@@ -347,9 +347,7 @@ class Scene:
         opacity = self._per(t, alpha, 1, "alpha")
         if ((opacity < 0) | (opacity > 1)).any():
             raise InvalidParameter("alpha must be from 0 to 1")
-        self._triangles.append(
-            (v, self._colors(t, colors), opacity, self._ids(t, ids))
-        )
+        self._triangles.append((v, self._colors(t, colors), opacity, self._ids(t, ids)))
 
     def add_polygons(
         self,

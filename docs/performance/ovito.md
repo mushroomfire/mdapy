@@ -17,41 +17,39 @@ memory of the process minus its peak before the timings.
 
 | Case | Atoms | mdapy (s) | OVITO (s) | OVITO / mdapy | mdapy (MB) | OVITO (MB) |
 |---|---:|---:|---:|---:|---:|---:|
-| Neighbor list, 5 Å | 256,000 | 0.058 | 0.071 | 1.22 | 208 | 799 |
-| 12 nearest neighbors | 2,048,000 | 0.353 | 0.430 | 1.22 | 437 | 857 |
-| Adaptive common neighbor analysis | 2,048,000 | 0.534 | 0.656 | 1.23 | 1154 | 147 |
-| Common neighbor analysis, cutoff 3.09 Å | 2,048,000 | 0.211 | 0.185 | 0.88 | 133 | 120 |
-| Ackland–Jones analysis | 2,048,000 | 0.606 | 0.647 | 1.07 | 1151 | 150 |
-| Centro-symmetry parameter, 12 neighbors | 2,048,000 | 0.477 | 0.497 | 1.04 | 1001 | 112 |
-| Diamond structure | 2,000,376 | 0.303 | 0.394 | 1.30 | 369 | 382 |
-| Steinhardt q2–q6, 12 neighbors | 2,048,000 | 0.563 | 0.537 | 0.95 | 1077 | 190 |
-| Steinhardt q2–q6, Voronoi faces weighted by area | 256,000 | 0.347 | 15.320 | 44.09 | 499 | 57 |
-| Radial distribution function, 6 Å, 200 bins | 2,048,000 | 0.333 | 0.459 | 1.38 | 121 | 77 |
-| Bond angle distribution, 3 Å, 180 bins | 2,048,000 | 0.401 | 0.632 | 1.58 | 147 | 1427 |
-| Voronoi volumes and coordination | 2,048,000 | 2.024 | 10.037 | 4.96 | 1968 | 89 |
-| Cluster analysis, 2 Å | 2,048,000 | 0.363 | 1.001 | 2.76 | 537 | 221 |
-| Wigner–Seitz occupancies | 2,037,841 | 0.120 | 0.190 | 1.58 | 115 | 140 |
-| Atomic strain, 3 Å | 2,048,000 | 0.370 | 0.083 | 0.23 | 756 | 261 |
+| Neighbor list, 5 Å | 256,000 | 0.059 | 0.073 | 1.24 | 192 | 765 |
+| 12 nearest neighbors | 2,048,000 | 0.368 | 0.466 | 1.27 | 438 | 860 |
+| Adaptive common neighbor analysis | 2,048,000 | 0.511 | 0.806 | 1.58 | 86 | 165 |
+| Common neighbor analysis, cutoff 3.09 Å | 2,048,000 | 0.177 | 0.231 | 1.30 | 243 | 114 |
+| Ackland–Jones analysis | 2,048,000 | 0.558 | 0.814 | 1.46 | 86 | 158 |
+| Centro-symmetry parameter, 12 neighbors | 2,048,000 | 0.424 | 0.611 | 1.44 | 79 | 127 |
+| Diamond structure | 2,000,376 | 0.303 | 0.486 | 1.60 | 329 | 370 |
+| Steinhardt q2–q6, 12 neighbors | 2,048,000 | 0.546 | 0.658 | 1.21 | 165 | 205 |
+| Steinhardt q2–q6, Voronoi faces weighted by area | 256,000 | 0.325 | 38.333 | 117.80 | 469 | 47 |
+| Radial distribution function, 6 Å, 200 bins | 2,048,000 | 0.296 | 0.509 | 1.72 | 183 | 86 |
+| Bond angle distribution, 3 Å, 180 bins | 2,048,000 | 0.322 | 0.600 | 1.86 | 255 | 1395 |
+| Voronoi volumes and coordination | 2,048,000 | 1.810 | 11.832 | 6.54 | 1952 | 67 |
+| Cluster analysis, 2 Å | 2,048,000 | 0.342 | 1.101 | 3.22 | 558 | 217 |
+| Wigner–Seitz occupancies | 2,037,841 | 0.118 | 0.192 | 1.63 | 121 | 141 |
+| Atomic strain, 3 Å | 2,048,000 | 0.147 | 0.075 | 0.51 | 483 | 268 |
 
 - From some 30 000 atoms on, the ratios hardly change with the size; below,
   a fixed cost of a few milliseconds per call in OVITO's pipelines favors
-  mdapy.
+  mdapy. Timings vary by some 15 % between runs on this machine, which
+  slows down as it heats up.
 - The analyses on the neighbors of each atom (structure identification,
-  Steinhardt parameters, distributions) take about as long in both, within
-  some 30 %. Voronoi tessellation is five times faster in mdapy, and
-  Steinhardt parameters over Voronoi neighbors weighted by area 20 to 40
-  times; OVITO took more than five minutes for the latter at two million
-  atoms, which was stopped.
-- mdapy builds a list of neighbors first and then computes, so analyses on
-  the nearest neighbors take more memory than in OVITO, which finds the
-  neighbors of each atom as it goes: about 0.5 kB per atom against less
-  than 0.1 kB. Common neighbor analysis with a cutoff finds them as it goes
-  in mdapy too, and takes as much memory as in OVITO. The Voronoi analysis
-  of mdapy keeps every face of every cell, about 1 kB per atom, for
-  Voronoi neighbors and indices later.
-- The atomic strain of mdapy includes building the neighbor list of the
-  reference, which serves every later frame; computing a frame then takes
-  0.14 s for two million atoms, against OVITO's 0.08 s.
+  Steinhardt parameters, distributions) are 1.2 to 1.9 times faster in
+  mdapy. Those on the nearest neighbors find them atom by atom as they go,
+  without a list, and take less memory than in OVITO. Voronoi tessellation
+  is six times faster in mdapy, and Steinhardt parameters over Voronoi
+  neighbors weighted by area 40 to 120 times; OVITO took more than five
+  minutes for the latter at two million atoms, which was stopped.
+- The Voronoi analysis of mdapy keeps every face of every cell, about 1 kB
+  per atom, for Voronoi neighbors and indices later.
+- Atomic strain is the one case where OVITO is faster, by two times: most of
+  mdapy's time goes into finding the neighbors in the reference, with the
+  exact distances of a neighbor list. Given a list of the reference
+  (`neighbors=`), built once for every frame, a frame takes 0.05 s.
 
 ## Cases
 

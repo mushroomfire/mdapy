@@ -35,6 +35,9 @@ NB_MODULE(_core, m) {
     nb::module_ neighbor = m.def_submodule("neighbor", "Neighbor search.");
     mdapy::bindings::bind_neighbor(neighbor);
 
+    nb::module_ calculators = m.def_submodule("calculators", "Compiled calculators.");
+    mdapy::bindings::bind_calculators(calculators);
+
     nb::module_ testing = m.def_submodule("testing", "Kernels used only by the test suite.");
     mdapy::bindings::bind_testing(testing);
 }

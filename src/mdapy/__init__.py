@@ -5,7 +5,8 @@
 
 __version__ = "2.0.0.dev0"
 
-from mdapy import elements, errors, units
+from mdapy import calculators, elements, errors, units
+from mdapy.calculators import minimize
 from mdapy.core.box import Box
 from mdapy.core.indices import index_dtype
 from mdapy.core.system import System
@@ -24,6 +25,7 @@ __all__ = [
     "System",
     "Topology",
     "__version__",
+    "calculators",
     "elements",
     "errors",
     "units",
@@ -37,6 +39,7 @@ __all__ = [
     "read_trajectory",
     "Trajectory",
     "NeighborList",
+    "minimize",
     "formats",
     "detect_format",
 ]

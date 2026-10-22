@@ -34,7 +34,8 @@ minimization with interatomic potentials.
 | Reading and writing files: extended XYZ, LAMMPS data and dump, VASP POSCAR, mdapy files | available |
 | Trajectories | available |
 | Neighbor lists | available |
-| Calculators (NEP, EAM), energy minimization | planned |
+| Calculators: interface and EAM, energy minimization | available |
+| NEP | planned |
 | Structure identification and analysis | planned |
 
 See the [release notes](release-notes.md) for what each development version

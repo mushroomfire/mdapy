@@ -10,6 +10,7 @@ import pytest
 import mdapy
 from mdapy import NeighborList
 from mdapy.errors import Cancelled, InvalidParameter
+from mdapy.neighbor._neighbor_list import _given_or_built
 
 # ------------------------------------------------------------ references
 
@@ -522,3 +523,19 @@ def test_repr():
         repr(NeighborList.build(system, num_neighbors=12))
         == "NeighborList(atoms=4, pairs=48, num_neighbors=12)"
     )
+
+
+def test_given_or_built():
+    system = random_system("triclinic", seed=15)
+    built = _given_or_built(system, 3.0, None)
+    assert built.cutoff == 3.0 and as_dict(built) == as_dict(
+        NeighborList.build(system, 3.0)
+    )
+    wide = NeighborList.build(system, 4.0)
+    assert _given_or_built(system, 3.0, wide) is wide
+    with pytest.raises(InvalidParameter, match="below the required 4.5"):
+        _given_or_built(system, 4.5, wide)
+    with pytest.raises(InvalidParameter, match="another system"):
+        _given_or_built(system.with_positions(system.positions), 3.0, wide)
+    with pytest.raises(InvalidParameter, match="nearest neighbors"):
+        _given_or_built(system, 1.0, NeighborList.build(system, num_neighbors=30))

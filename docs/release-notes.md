@@ -64,6 +64,17 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   any number of threads. A k-d tree finds nearest neighbors in clusters and
   slabs as fast as in crystals. See [Neighbor lists](guide/neighbor.md).
 
+### Calculators
+
+- `mdapy.calculators.Calculator`, the interface of every calculator, and
+  `CalculatorResult` with energies, forces, virials and stress.
+  `mdapy.calculators.testing.check_calculator` tests any implementation. See
+  [Calculators](guide/calculators.md).
+- `mdapy.calculators.EAM` for potentials in the LAMMPS eam/alloy format,
+  agreeing with LAMMPS.
+- `mdapy.minimize`: FIRE 2.0 minimization of the positions in a fixed box,
+  step for step as LAMMPS `min_style fire`.
+
 ### Foundations
 
 - Python 3.10 or newer; NumPy 2 and polars 2 are the only required

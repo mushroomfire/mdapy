@@ -72,6 +72,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [Calculators](guide/calculators.md).
 - `mdapy.calculators.EAM` for potentials in the LAMMPS eam/alloy format,
   agreeing with LAMMPS.
+- `mdapy.calculators.NEP` for neuroevolution potentials (nep4 and nep4_zbl
+  files of GPUMD) with every form of ZBL and per-element cutoffs, agreeing
+  with NEP_CPU in double precision; `NEP.descriptors` gives the descriptors.
 - `EAM.write` writes potentials in the LAMMPS eam/alloy format;
   `EAM.zhou` builds the potentials of Zhou, Johnson and Wadley for 17
   elements, as the LAMMPS database tool tabulates them; `EAM.average` gives

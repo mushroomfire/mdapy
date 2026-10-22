@@ -26,6 +26,7 @@
 | `src/mdapy/calculators/_eam.py` | `EAM`. |
 | `src/mdapy/calculators/_zhou.py` | The parameters and tables of the potentials of Zhou et al. |
 | `src/mdapy/calculators/_lammps.py` | `LAMMPS`, the calculator of any LAMMPS interaction. |
+| `src/mdapy/calculators/_nep.py` | `NEP` and its file reader. |
 | `src/mdapy/calculators/_minimize.py` | `minimize`, with FIRE. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
@@ -36,6 +37,7 @@
 | `src/cpp/neighbor/cell_list.h`, `cell_list.cpp` | The search within a cutoff, with cells. |
 | `src/cpp/neighbor/kd_tree.h`, `kd_tree.cpp` | The search of nearest neighbors, with a k-d tree. |
 | `src/cpp/calculators/eam.h`, `eam.cpp` | The embedded atom method. |
+| `src/cpp/calculators/nep.h`, `nep.cpp` | Neuroevolution potentials. |
 | `src/cpp/io/powers_of_five.h` | Generated table used by the number parser. |
 | `src/cpp/bindings/module.cpp` | The extension module `mdapy._core` and its submodules. |
 | `src/cpp/bindings/control.h` | `run_released`: runs a kernel without the GIL, with progress and cancellation. |

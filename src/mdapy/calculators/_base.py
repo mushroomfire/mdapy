@@ -12,7 +12,8 @@ import numpy as np
 
 from mdapy import units
 from mdapy.core.system import System
-from mdapy.errors import InvalidParameter
+from mdapy.elements import SYMBOLS
+from mdapy.errors import InvalidParameter, MissingProperty
 
 #: Every property a calculator may compute.
 PROPERTIES = frozenset(
@@ -145,3 +146,22 @@ class Calculator(ABC):
                 f"{type(self).__name__} does not compute {sorted(missing)}"
             )
         return wanted
+
+
+def _element_indices(
+    system: System, elements: tuple[str, ...], name: str
+) -> np.ndarray:
+    """The index in ``elements`` of each atom's element, as int32."""
+    if "element" not in system.table.columns:
+        raise MissingProperty(f"{name} needs the element column")
+    lookup = np.full(len(SYMBOLS), -1, dtype=np.int32)
+    for index, element in enumerate(elements):
+        lookup[SYMBOLS.index(element)] = index
+    numbers = system.table["element"].to_physical().to_numpy()
+    indices = lookup[numbers]
+    if (indices < 0).any():
+        missing = sorted({SYMBOLS[z] for z in numbers[indices < 0]})
+        raise InvalidParameter(
+            f"the potential has no parameters for {missing}; it has {list(elements)}"
+        )
+    return indices

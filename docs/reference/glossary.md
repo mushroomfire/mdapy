@@ -55,6 +55,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `atomic_energies` | per-atom energies (eV) |
 | `virial` | total virial, (3, 3) (eV) |
 | `atomic_virials` | per-atom virials, (N, 3, 3) (eV) |
+| descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 
 ## Parameters
 

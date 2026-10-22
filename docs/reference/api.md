@@ -36,6 +36,8 @@ import mdapy
 
 ::: mdapy.calculators.EAM
 
+::: mdapy.calculators.NEP
+
 ::: mdapy.calculators.LAMMPS
 
 ::: mdapy.calculators.testing.check_calculator

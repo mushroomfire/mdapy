@@ -7,7 +7,8 @@
 //
 //   g++ -std=c++17 -O1 -g -fsanitize=thread -Isrc/cpp -pthread -o thread_checks
 //       src/cpp/core/parallel.cpp src/cpp/io/text.cpp src/cpp/neighbor/cell_list.cpp
-//       src/cpp/neighbor/kd_tree.cpp tests/cpp/thread_checks.cpp
+//       src/cpp/neighbor/kd_tree.cpp src/cpp/calculators/eam.cpp src/cpp/calculators/nep.cpp
+//       tests/cpp/thread_checks.cpp
 //
 // Every check also verifies its result; the program exits with 1 on a failure.
 
@@ -25,6 +26,8 @@
 #include <tuple>
 #include <vector>
 
+#include "calculators/eam.h"
+#include "calculators/nep.h"
 #include "core/parallel.h"
 #include "io/text.h"
 #include "neighbor/cell_list.h"
@@ -408,6 +411,148 @@ void neighbor_search() {
     check(thrown, "2^31 atoms need 64-bit indices");
 }
 
+// A small binary alloy and its full neighbor list as pair vectors.
+struct Pairs {
+    std::int64_t n = 0;
+    std::vector<std::int32_t> species;
+    std::vector<double> positions;
+    double matrix[9];
+    mdapy::neighbor::NeighborPairs pairs;
+};
+
+Pairs alloy_pairs(double cutoff) {
+    Pairs p;
+    const int cells = 6;
+    const double a = 3.0;
+    const double matrix[9] = {cells * a, 0.0, 0.0, 0.0, cells * a, 0.0, 0.0, 0.0, cells * a};
+    std::copy(matrix, matrix + 9, p.matrix);
+    const double origin[3] = {0.0, 0.0, 0.0};
+    const bool pbc[3] = {true, true, true};
+    const double basis[4][3] = {{0, 0, 0}, {0.5, 0.5, 0}, {0.5, 0, 0.5}, {0, 0.5, 0.5}};
+    std::mt19937_64 random(5);
+    std::normal_distribution<double> jitter(0.0, 0.2);
+    for (int x = 0; x < cells; ++x) {
+        for (int y = 0; y < cells; ++y) {
+            for (int z = 0; z < cells; ++z) {
+                for (const auto& b : basis) {
+                    p.positions.push_back((x + b[0]) * a + jitter(random));
+                    p.positions.push_back((y + b[1]) * a + jitter(random));
+                    p.positions.push_back((z + b[2]) * a + jitter(random));
+                    p.species.push_back(static_cast<std::int32_t>(random() % 2));
+                }
+            }
+        }
+    }
+    p.n = static_cast<std::int64_t>(p.species.size());
+    p.pairs = mdapy::neighbor::build(p.positions.data(), p.n, matrix, origin, pbc, cutoff);
+    return p;
+}
+
+void calculators() {
+    // EAM with smooth analytic tables
+    const double cutoff = 4.5;
+    const Pairs p = alloy_pairs(cutoff);
+    mdapy::calculators::EamPotential eam;
+    eam.elements = 2;
+    eam.cutoff = cutoff;
+    const int nr = 500, nrho = 500;
+    const double dr = 0.01, drho = 0.05;
+    eam.rho_max = (nrho - 1) * drho;
+    for (int e = 0; e < 2; ++e) {
+        std::vector<double> f(nrho), rho(nr);
+        for (int k = 0; k < nrho; ++k) {
+            f[k] = -std::sqrt(k * drho + 0.1 * e);
+        }
+        for (int k = 0; k < nr; ++k) {
+            const double r = k * dr;
+            rho[k] = r < cutoff ? (1.0 + e) * std::exp(-r) * (cutoff - r) * (cutoff - r) : 0.0;
+        }
+        eam.embedding.emplace_back(f.data(), nrho, drho);
+        eam.density.emplace_back(rho.data(), nr, dr);
+    }
+    for (int k = 0; k < 3; ++k) {
+        std::vector<double> z(nr);
+        for (int m = 0; m < nr; ++m) {
+            const double r = m * dr;
+            z[m] = r < cutoff ? (1.0 + 0.1 * k) * std::exp(-2.0 * r) * (cutoff - r) : 0.0;
+        }
+        eam.pair.emplace_back(z.data(), nr, dr);
+    }
+
+    // NEP with random parameters and ZBL
+    mdapy::calculators::NepModel nep;
+    nep.types = 2;
+    nep.n_radial = 4;
+    nep.n_angular = 3;
+    nep.k_radial = 6;
+    nep.k_angular = 5;
+    nep.l_max = 4;
+    nep.four_body = true;
+    nep.five_body = true;
+    nep.neurons = 5;
+    nep.dim = nep.n_radial + 1 + (nep.n_angular + 1) * (nep.l_max + 2);
+    std::mt19937_64 random(7);
+    std::normal_distribution<double> normal(0.0, 0.3);
+    auto fill = [&](std::vector<double>& v, std::size_t size) {
+        v.resize(size);
+        for (double& x : v) {
+            x = normal(random);
+        }
+    };
+    nep.rc_radial = {4.5, 4.0};
+    nep.rc_angular = {3.5, 3.0};
+    fill(nep.w0, 2 * 5 * static_cast<std::size_t>(nep.dim));
+    fill(nep.b0, 10);
+    fill(nep.w1, 10);
+    fill(nep.c_radial, 4 * 5 * 7);
+    fill(nep.c_angular, 4 * 4 * 6);
+    nep.q_scaler.assign(static_cast<std::size_t>(nep.dim), 0.5);
+    for (int pair = 0; pair < 4; ++pair) {
+        const double row[12] = {1.0, 2.0, 14.4 * 29 * 28, 2.1 * 4.3, 0.18175, 3.1998,
+                                0.50986, 0.94229, 0.28022, 0.4029, 0.02817, 0.20162};
+        nep.zbl.insert(nep.zbl.end(), row, row + 12);
+    }
+    nep.prepare();
+
+    const std::size_t n = static_cast<std::size_t>(p.n);
+    std::vector<double> first[2][3];
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::vector<double> results[2][3];
+        for (int c = 0; c < 2; ++c) {
+            results[c][0].resize(n);
+            results[c][1].resize(3 * n);
+            results[c][2].resize(9 * n);
+        }
+        const mdapy::neighbor::NeighborPairs& q = p.pairs;
+        mdapy::calculators::compute_eam(eam, p.n, p.species.data(), p.positions.data(), p.matrix,
+                                        q.offsets.data(), q.neighbors.data(), q.shifts.data(),
+                                        results[0][0].data(), results[0][1].data(),
+                                        results[0][2].data());
+        std::vector<double> full(static_cast<std::size_t>(n) * nep.dim);
+        std::vector<double> alone(static_cast<std::size_t>(n) * nep.dim);
+        mdapy::calculators::compute_nep(nep, p.n, p.species.data(), p.positions.data(), p.matrix,
+                                        q.offsets.data(), q.neighbors.data(), q.shifts.data(),
+                                        results[1][0].data(), results[1][1].data(),
+                                        results[1][2].data(), full.data());
+        mdapy::calculators::compute_nep(nep, p.n, p.species.data(), p.positions.data(), p.matrix,
+                                        q.offsets.data(), q.neighbors.data(), q.shifts.data(),
+                                        nullptr, nullptr, nullptr, alone.data());
+        check(alone == full, "NEP descriptors alone are those of the full computation");
+        for (int c = 0; c < 2; ++c) {
+            if (threads == kThreads[0]) {
+                for (int k = 0; k < 3; ++k) {
+                    first[c][k] = results[c][k];
+                }
+            }
+            check(results[c][0] == first[c][0] && results[c][1] == first[c][1] &&
+                      results[c][2] == first[c][2],
+                  c == 0 ? "EAM gives the same results for any thread count"
+                         : "NEP gives the same results for any thread count");
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -416,6 +561,7 @@ int main() {
     nested_and_concurrent_regions();
     text_tables();
     neighbor_search();
+    calculators();
     if (failures == 0) {
         std::printf("all checks passed\n");
     }

@@ -10,9 +10,28 @@ A feature is merged only when it has all of the following:
 1. the implementation;
 2. tests that establish its correctness (see below), meeting the coverage
    thresholds;
-3. its own page in the user guide, following the page template below;
+3. its own page, placed by the documentation layout and following the page
+   template below;
 4. entries in the [Glossary](../reference/glossary.md) for any new names;
-5. a line in the [release notes](../release-notes.md).
+5. a line in the [release notes](release-notes.md).
+
+## Documentation layout
+
+The site has one tab per kind of content, each a directory of `docs/`:
+
+| Tab | Directory | Holds |
+|---|---|---|
+| Getting started | `getting-started/` | installation, the quick tour, and the basics every user needs: systems, the box, files, trajectories, neighbor lists, parallelism |
+| Analysis | `analysis/` | analyses of structures and trajectories, in sections: structure identification; local order and distributions; defects and deformation; dynamics |
+| Modelling | `modelling/` | building and transforming structures, calculators, simulation (minimization, molecular dynamics through other programs), and elasticity and phonons |
+| Reference | `reference/` | file formats, units and conventions, elements, the glossary, the references and the Python API |
+| Development | `development/` | contributing, the source layout and the release notes |
+
+Each feature has its own page, named after it (`eam.md`, `minimize.md`), in
+the section of its tab that fits it; closely tied classes, such as an
+analysis and its result, share the page. A feature that fits no section goes
+to a section **Misc** of its tab until a section for it exists. A new page is
+added to the navigation in `mkdocs.yml` and to the map on the home page.
 
 ## Feature pages
 
@@ -30,7 +49,7 @@ sections, in this order:
 6. For analyses, **Definition**: what is computed, with formulas, so that a
    result can be interpreted.
 7. **Please cite**: for a feature built on published work, a box
-   (`!!! quote "Please cite"`) at the end of its section, linking the
+   (`!!! quote "Please cite"`) at the end of the page, linking the
    papers to cite when the feature is used.
 
 Papers are listed once, on the [References](../reference/references.md)

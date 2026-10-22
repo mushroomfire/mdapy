@@ -259,7 +259,6 @@ class EAM(Calculator):
             t["pair"][index[max(i, j), min(i, j)]] for i in range(n) for j in range(n)
         ]
         pair = np.array(pair).reshape(n, n, -1)
-        # sums without BLAS, whose matmul warns falsely with NumPy 2.2 on macOS
         mixed = np.einsum("a,abr->br", weights, pair)  # average atom with each element
         tables = dict(t)
         tables["elements"] = names + ("A",)

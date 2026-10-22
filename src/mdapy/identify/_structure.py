@@ -118,7 +118,7 @@ class CommonNeighborAnalysis:
         return f"CommonNeighborAnalysis(cutoff={self.cutoff!r})"
 
 
-class IdentifyDiamond:
+class DiamondStructure:
     """Cubic and hexagonal diamond structures, from the arrangement of the
     second neighbors of each atom."""
 
@@ -165,7 +165,7 @@ class IdentifyDiamond:
         return StructureResult(structure, self.NAMES, self.COLORS)
 
     def __repr__(self) -> str:
-        return "IdentifyDiamond()"
+        return "DiamondStructure()"
 
 
 class ChillPlus:

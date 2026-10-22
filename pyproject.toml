@@ -7,18 +7,17 @@ name = "mdapy"
 dynamic = ["version"]
 description = "Analysis and modelling of atomistic simulations"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 authors = [{ name = "Yongchao Wu", email = "934313174@qq.com" }]
-dependencies = ["numpy>=2", "polars>=2"]
+dependencies = ["numpy>=2.3.1", "polars>=2"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics",
     "Programming Language :: C++",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -67,12 +66,7 @@ pythonpath = ["tests"]
 xfail_strict = true
 # Warnings are errors: an unexpected warning is a test failure. Add
 # targeted ignores here, each with a comment saying why.
-filterwarnings = [
-    "error",
-    # NumPy 2.2 with Apple Accelerate reports floating-point flags left by
-    # its kernels as these warnings for matmul of small, finite values
-    "ignore:(divide by zero|overflow|invalid value) encountered in matmul:RuntimeWarning",
-]
+filterwarnings = ["error"]
 
 [tool.coverage.run]
 source = ["mdapy"]
@@ -89,7 +83,7 @@ exclude_also = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]

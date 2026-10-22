@@ -8,7 +8,7 @@ from mdapy.identify._structure import (
     CentroSymmetryResult,
     ChillPlus,
     CommonNeighborAnalysis,
-    IdentifyDiamond,
+    DiamondStructure,
     StructureResult,
 )
 
@@ -17,6 +17,6 @@ __all__ = [
     "CentroSymmetryResult",
     "ChillPlus",
     "CommonNeighborAnalysis",
-    "IdentifyDiamond",
+    "DiamondStructure",
     "StructureResult",
 ]

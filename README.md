@@ -15,9 +15,9 @@ mdapy is a Python package for analysing and modelling atomistic simulations.
 pip install ".[dev]"
 ```
 
-mdapy needs Python 3.10 or newer, NumPy 2 and polars 2. Its compiled kernels
-use their own thread pool rather than OpenMP, so they run safely in the same
-process as PyTorch, NumPy and LAMMPS.
+mdapy needs Python 3.11 or newer, NumPy 2.3.1 or newer and polars 2. Its
+compiled kernels use their own thread pool rather than OpenMP, so they run
+safely in the same process as PyTorch, NumPy and LAMMPS.
 
 ## License
 

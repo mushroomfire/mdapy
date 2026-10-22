@@ -65,7 +65,7 @@ each as its own pair; a single atom in a small periodic cell has a full list.
 | `num_neighbors` | int or `None` | pairs per atom in a list of nearest neighbors, `None` in a list within a cutoff |
 
 The arrays are read-only. `mdapy.index_dtype` is int32, or int64 in mdapy
-built with [64-bit atom indices](../getting-started/installation.md#64-bit-atom-indices).
+built with [64-bit atom indices](installation.md#64-bit-atom-indices).
 The vector from atom `i` to the image of atom `j` is
 
 $$

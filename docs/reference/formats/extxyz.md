@@ -3,8 +3,8 @@
 The format `extxyz` (extensions `.xyz` and `.extxyz`) stores one or more
 frames, each with per-atom columns, a lattice and global values such as the
 energy. mdapy reads and writes the conventions of ASE
-([Larsen et al. (2017)](../reference/references.md#larsen2017)) and GPUMD
-([Fan et al. (2022)](../reference/references.md#fan2022)).
+([Larsen et al. (2017)](../references.md#larsen2017)) and GPUMD
+([Fan et al. (2022)](../references.md#fan2022)).
 
 ```python
 from pathlib import Path
@@ -89,7 +89,7 @@ contain blanks cannot be written.
 
 These keys are recognized in any letter case, as GPUMD writes them in lower
 case. A frame without `Lattice` gets a non-periodic box around its atoms
-(see [Simulation box](../guide/box.md)), and may then not have `pbc` true or
+(see [Simulation box](../../getting-started/box.md)), and may then not have `pbc` true or
 an `Origin`. A `Lattice` of zeros with `pbc` false counts as no `Lattice`.
 
 Every other key becomes an entry of `info`, keeping its case. Its value is

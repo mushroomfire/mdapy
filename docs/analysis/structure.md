@@ -62,7 +62,7 @@ shells is $0.854\,a$ for fcc and $1.207\,a$ for bcc of lattice constant $a$.
 
 ## Diamond structures
 
-`IdentifyDiamond()` tells cubic from hexagonal diamond (lonsdaleite), for
+`DiamondStructure()` tells cubic from hexagonal diamond (lonsdaleite), for
 silicon, germanium, carbon and other tetrahedrally bonded crystals, where
 common neighbor analysis of the four nearest neighbors says nothing. The
 twelve second neighbors of an atom, reached through its four nearest

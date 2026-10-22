@@ -52,7 +52,7 @@ from which the box is recovered as described in the LAMMPS documentation of
 triclinic boxes; a general triclinic box (`abc origin`) keeps its edge
 vectors and origin. The same forms are written. Dumps of other styles (local,
 cfg, yaml, xyz) and binary dumps raise
-[`UnsupportedFormat`](../reference/api.md#mdapy.errors.UnsupportedFormat);
+[`UnsupportedFormat`](../api.md#mdapy.errors.UnsupportedFormat);
 xyz dumps can be read as [extended XYZ](extxyz.md).
 
 ## Columns

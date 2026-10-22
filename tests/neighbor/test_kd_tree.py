@@ -21,14 +21,6 @@ BOXES = {
 }
 
 
-def cartesian(box, fractional):
-    """box.to_cartesian without BLAS, whose matmul raises spurious warnings
-    with NumPy 2.2 on recent macOS."""
-    return box.origin + np.einsum(
-        "...j,jk->...k", np.asarray(fractional, float), box.matrix
-    )
-
-
 def tree_of(system):
     box = system.box
     return _native.KdTree(
@@ -78,13 +70,13 @@ def as_rows(j, shifts, distances):
 def test_nearest_atoms_of_points(box_name, pbc):
     rng = np.random.default_rng(2)
     box = mdapy.Box(BOXES[box_name], origin=[1.0, -2.0, 0.5], pbc=pbc)
-    system = mdapy.System(cartesian(box, rng.random((30, 3))), box)
+    system = mdapy.System(box.to_cartesian(rng.random((30, 3))), box)
     tree = tree_of(system)
     assert len(tree) == 30
     # points inside and outside the box, one on an atom, one far away
-    points = cartesian(box, rng.random((20, 3)) * 3 - 1)
+    points = box.to_cartesian(rng.random((20, 3)) * 3 - 1)
     points[0] = system.positions[4]
-    points[1] = cartesian(box, [0.5, 0.5, 40.0])
+    points[1] = box.to_cartesian([0.5, 0.5, 40.0])
     for k in (1, 3):
         j, shifts, distances = tree.nearest(points, k)
         assert (

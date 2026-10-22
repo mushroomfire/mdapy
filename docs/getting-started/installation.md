@@ -1,7 +1,7 @@
 # Installation
 
-mdapy needs Python 3.10 or newer, and on macOS, macOS 14 or newer. Its only
-required dependencies are NumPy 2 and polars 2.
+mdapy needs Python 3.11 or newer, and on macOS, macOS 14 or newer. Its only
+required dependencies are NumPy 2.3.1 or newer and polars 2.
 
 ## From source
 

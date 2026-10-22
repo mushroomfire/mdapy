@@ -2,7 +2,7 @@
 
 `mdapy.elements` holds the chemical symbols and standard atomic weights used
 everywhere in mdapy. The atomic weights are those of IUPAC
-([Meija et al. (2016)](../reference/references.md#meija2016)); for an element without stable
+([Meija et al. (2016)](references.md#meija2016)); for an element without stable
 isotopes, the mass of its longest-lived isotope.
 
 ```python

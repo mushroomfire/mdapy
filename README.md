@@ -296,3 +296,12 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - **更正上一条的建议**：RDF 归一化（第 16 条）上一条说"建议跟 LAMMPS"，再想了一下改为建议保留 N²。原因：r 小于盒长时 LAMMPS 的 N(N−1) 精确；但 2.0 允许 r_max 超过盒长，这时每个原子会数到自己的像，N² 更合适。两者只差 1/N。总结里已改。
 - **最后一轮全面检查（06:44）**：全部 23 个分支逐个重新编译，跑全部测试、逐文件覆盖率门槛、文档严格构建、ruff，并查冲突标记，全部通过；所有分支 CI 通过。
 - 明早的总结和给你的要点已经整理好（`design/morning-summary.md`，16 条待定，每条附建议；另有审阅指引和与 1.0.8、LAMMPS 的全部对照结果）。
+
+### 06:55
+- **又加了两项与 LAMMPS 的对照**（只加测试和文档）：
+  - MSD（`dynamics-draft`）：随机行走写成带 image 的 dump，LAMMPS 用 `rerun` 加 `compute msd` 算，与 2.0 一致到 1e-10。2.0 按相邻帧最近像展开，LAMMPS 用 image 标志，两种展开结果一致。
+  - FIRE 最小化（`calculator-draft`，已合进 nep/cell/elastic/ase-calculator 各分支）：含空位的扰动合金，与 LAMMPS `min_style fire` 的最终能量差 ≤ 1e-8 eV，位置差 ≤ 1e-6 Å（扣除整体平移；周期体系里平移不耗能，两边各自漂移）。
+  - 现在 preview-all 上与 LAMMPS 有关的 172 个测试全部通过。
+- **进度回调问题写了具体方案**（本地 `design/progress-proposal.md`，总结第 14 条）：`Control::stage(k, count)` 把每段进度换算到整个计算，轮数不定的 k 近邻搜索单独处理，测试遍历所有带进度的分析。约半天工作量，等草稿合并后在 v2 上一次改完。
+- 总结里的审阅指引（每个草稿的提交数、改动量、先看哪里）已按最新状态更新。
+- 所有分支 CI 通过；`preview-all` 现在有 1211 个测试。

@@ -28,7 +28,6 @@ classifiers = [
 [project.optional-dependencies]
 plot = ["matplotlib>=3.8"]
 ase = ["ase>=3.22"]
-lammps = ["lammps>=2024.8.29"]
 dev = [
     "pytest>=8",
     "pytest-cov>=5",

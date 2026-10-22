@@ -77,7 +77,7 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   elements, as the LAMMPS database tool tabulates them; `EAM.average` gives
   the average-atom potential of a random alloy.
 - `mdapy.calculators.LAMMPS` makes any interaction of LAMMPS a calculator,
-  through the LAMMPS Python module (extra `lammps`).
+  through the LAMMPS Python module.
 - `mdapy.minimize`: FIRE 2.0 minimization of the positions in a fixed box,
   step for step as LAMMPS `min_style fire`.
 

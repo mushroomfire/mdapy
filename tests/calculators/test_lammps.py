@@ -173,6 +173,19 @@ def test_zhou_potentials_read_by_lammps(tmp_path):
     calculator.close()
 
 
+def test_cutoff_given_or_from_lammps(tmp_path, monkeypatch):
+    path = write_setfl(tmp_path / "CuNi.eam.alloy")
+    pair = f"pair_style eam/alloy\npair_coeff * * {path} Cu Ni"
+    assert LAMMPS(pair, ["Cu", "Ni"], cutoff=6.5).cutoff == 6.5
+    with pytest.raises(InvalidParameter, match="cutoff must be positive"):
+        LAMMPS(pair, ["Cu", "Ni"], cutoff=0.0)
+    # LAMMPS before 30 Sep 2026 does not report it
+    monkeypatch.setattr(lammps.lammps, "extract_global", lambda self, name: None)
+    with pytest.raises(InvalidParameter, match="give cutoff="):
+        LAMMPS(pair, ["Cu", "Ni"])
+    assert LAMMPS(pair, ["Cu", "Ni"], cutoff=5.0).cutoff == 5.0
+
+
 def test_errors(potentials):
     _, calculator = potentials
     with pytest.raises(InvalidParameter, match="LAMMPS: .*Unrecognized pair style"):

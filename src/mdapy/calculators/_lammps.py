@@ -80,18 +80,22 @@ class LAMMPS(Calculator):
     cmdargs : sequence of str, optional
         Command-line arguments of LAMMPS, such as ``["-k", "on", "t", "4",
         "-sf", "kk"]`` for Kokkos with four threads.
+    cutoff : float, optional
+        The largest cutoff of the interaction in Å; asked from LAMMPS when
+        not given, which LAMMPS older than 30 Sep 2026 cannot tell.
 
     Attributes
     ----------
     elements : tuple of str
         The element of each atom type.
     cutoff : float
-        The largest cutoff of the interaction in Å, from LAMMPS.
+        The largest cutoff of the interaction in Å.
 
     Raises
     ------
     InvalidParameter
-        If LAMMPS rejects the commands.
+        If LAMMPS rejects the commands, or cannot tell the cutoff when it is
+        not given.
     ImportError
         If the LAMMPS Python module is not installed.
     """
@@ -103,6 +107,7 @@ class LAMMPS(Calculator):
         *,
         commands: str = "",
         cmdargs: Sequence[str] = (),
+        cutoff: float | None = None,
     ):
         self.pair = pair
         self.elements = tuple(elements)
@@ -120,11 +125,21 @@ class LAMMPS(Calculator):
         try:
             self._setup(lmp, Box(10.0))
             lmp.command("run 0 post no")
-            self.cutoff = float(lmp.extract_global("neigh_cutmax"))
+            reported = lmp.extract_global("neigh_cutmax")  # None before 30 Sep 2026
         except Exception as error:
             raise InvalidParameter(f"LAMMPS: {error}") from None
         finally:
             lmp.close()
+        if cutoff is not None:
+            if not cutoff > 0:
+                raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
+            self.cutoff = float(cutoff)
+        elif reported is None:
+            raise InvalidParameter(
+                "this LAMMPS does not report the cutoff of the interaction; give cutoff="
+            )
+        else:
+            self.cutoff = float(reported)
 
     def _setup(self, lmp: Any, box: Box) -> None:
         lammps_box = box.to_lammps()

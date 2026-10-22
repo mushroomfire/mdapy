@@ -39,7 +39,6 @@ python -c "import mdapy; print(mdapy.index_dtype)"   # int64
 |---|---|---|
 | `plot` | matplotlib | plotting helpers |
 | `ase` | ASE | conversion to and from ASE |
-| `lammps` | the LAMMPS Python module | the LAMMPS calculator |
 | `dev` | pytest, pytest-cov, pytest-xdist, coverage, ruff | running the tests |
 | `docs` | MkDocs Material, mkdocstrings | building this site |
 

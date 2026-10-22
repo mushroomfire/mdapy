@@ -9,8 +9,8 @@
 | `v2` | 11a 晶体建模已合入；atomsk 进 CI；删除 `overrides/` | 已推送 |
 | `build-defects-draft` | 位错、点缺陷、层错、表面、SQS 合金、多晶与孪晶（11b/11c） | 已推送，待检查 |
 | `defect-energies-draft` | 层错能（GSFE）、表面能、空位形成能（simulation），基于 build-defects-draft | 已推送，待检查 |
-| `visualization-draft` | 渲染器（已完成）与画图模板（进行中），基于 defect-energies-draft | 渲染器已推送 |
-| `mlip-draft` | OUTCAR → xyz、NEP 描述符 PCA、最远点采样、扰动 | 待开始 |
+| `visualization-draft` | 渲染器与画图模板，基于 defect-energies-draft | 已推送，待检查 |
+| `mlip-draft` | OUTCAR → xyz、NEP 描述符 PCA、最远点采样、扰动，基于 visualization-draft | 已推送，待检查 |
 | `performance-draft` | 与 OVITO 的性能对比 | 待开始 |
 | `tutorials-draft` | 进阶教程 | 待开始 |
 
@@ -35,7 +35,7 @@
 - atomsk 已进 CI：v2 的 CI（3eec8a6）里 atomsk 从源码编译成功并缓存，建模对比测试在 CI 里实际运行（没有被跳过），9 个任务全绿。
 - 发现并修复：pytest 默认的 `norecursedirs` 含 `build`，`tests/build` 之前一直没被收集（已在 v2 修好）。
 
-### 21:25
+### 21:20
 - `defect-energies-draft`（f5b66b1）推送：`vacancy_formation_energy`、`surface_energy`、`stacking_fault_energy`（广义层错能曲线，只沿法向弛豫）。`minimize` 现在认 `movable` 列（VASP 的 selective dynamics 那一列，False 的方向不动）。
   - 与 LAMMPS 现场对比（同一张 Zhou Cu EAM 表）：空位形成能、(111) 表面能、GSFE 曲线都一致到 1e-6。注意要用 LAMMPS 的 `min_style fire`：CG 会在 slab 上走到另一个能量低 3e-4 eV 的极小点。
   - Zhou Cu 的数值：E_v = 1.275 eV，γ(100) = 1.56 J/m²，γ_isf ≈ 26 mJ/m²，γ_us ≈ 119 mJ/m²。
@@ -65,7 +65,24 @@
 | h-BN 球棍模型（跨边界的键只画半段） | ![](images/11_hbn_ball_and_stick.png) |
 | 97.6 万原子的多晶，1920×1080，1.4 s | ![](images/12_million_atoms.png) |
 
+### 21:35
+- `visualization-draft` 又推了 8312cb5：**画图模板** `mdapy.visualization.plot`。参考了之前的期刊模板：Nature 美术规范（5–7 pt 无衬线、细线、去上右边框、字体嵌入）、单栏 88 mm / 双栏 180 mm、Okabe–Ito 色盲友好配色、面板标签 a/b/c、一次存 PDF/SVG/PNG；结果直接画：parity（RMSE 写进图例，可选密度图）、g(r)（含分偏）、S(q)、键角分布、MSD（可拟合出扩散系数）、GSFE 曲线、结构类型计数。文档 Visualization → Plots。
+- `mlip-draft`（42bd0ca）推送，并在 GitHub 上手动触发了这个分支的 CI（它包含前面三个草稿分支的全部内容，正好一起检查）：
+  - **VASP → 训练集** `read_outcar(path, *, unconverged=False)`：单点、relax、MD 每个离子步一个 System（forces 列，info 里 energy = TOTEN、virial、converged），默认丢掉电子步没收敛的离子步。`outcar_to_xyz(outcars, path, *, unconverged=False, max_force=None)` 多个 OUTCAR 合成一个 extxyz，可以按最大力过滤。和 ASE 对比：本地 4 个真实 OUTCAR 和测试里生成的 OUTCAR 都逐位一致（能量、力、坐标、晶格、应力）。
+  - **选帧** `structure_descriptors(frames, calculator)`（每帧原子描述符的平均）、`farthest_point_sampling(points, count, *, start=0, selected=None)`（可以给已有训练集，挑离它们最远的新帧）、`principal_components(points, n=2)`（带 `transform`，新点投影到同一组主成分上）。测试：PCA 与 SVD 一致到 1e-10，FPS 与暴力逐个挑选一致。
+  - **扰动** `perturb(system, count, *, displacement=0.05, strain=0.03, style="normal"|"uniform"|"const", seed)`：对称应变 + 原子位移（参考 dpdata 的 perturb：normal / uniform 球内 / 定长三种），会去掉原来的能量、力、维里。
+  - 文档：新的 **MLIP** 标签（三页），导航顺序按约定改成 Simulation → MLIP → Visualization；首页地图里 MLIP 改成实线（已完成）。
+- 下图用 GPUMD 自带的 UNEP-v1 模型：四组扰动结构（fcc Cu 小/大位移、CuNi 合金、bcc Cu）的结构描述符做 PCA，黑圈是最远点采样挑出的 24 帧，能看到它优先挑边缘和稀疏区域。
+
+| | |
+|---|---|
+| 画图模板：g(r) 分偏、parity、MSD 拟合、GSFE（双栏） | ![](images/13_plot_templates.png) |
+| UNEP-v1 描述符的 PCA + 最远点采样 | ![](images/14_mlip_pca.png) |
+
+- 接下来：`performance-draft`，和 OVITO 3.17 的性能对比（只比结果一致的功能；规模逐级加大，盯着内存，峰值控制在 8 GB 以内）。
+
 ## 早上需要你决定的事
 
-1. 可视化分支基于 defect-energies-draft（为了渲染新的建模结构），合并顺序：build-defects → defect-energies → visualization。
+1. 草稿分支是一条链，合并顺序：build-defects → defect-energies → visualization → mlip（后面的 performance、tutorials 也会接在 mlip 后面）。
 2. 渲染的默认风格、配色（元素颜色沿用 OVITO/1.x）、风格名字，你看图后定。
+3. OUTCAR 的能量取 `free  energy TOTEN`（与力一致，dpdata 也取它）；ASE 的 `get_potential_energy()` 默认取 `energy(sigma->0)`。要不要加个选项？

@@ -24,7 +24,8 @@ namespace mdapy::bindings {
 namespace {
 
 using Offsets = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
-using Neighbors = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Neighbors = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Types = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Vectors = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
 nb::object steinhardt(Offsets offsets, Neighbors neighbors, Vectors vectors,
@@ -76,7 +77,7 @@ nb::tuple clusters(Offsets offsets, Neighbors neighbors) {
                           nb::ndarray<nb::numpy, std::int64_t>(found, 1, found_shape, found_owner));
 }
 
-nb::object bond_angles(Offsets offsets, Neighbors neighbors, Vectors vectors, Neighbors type,
+nb::object bond_angles(Offsets offsets, Neighbors neighbors, Vectors vectors, Types type,
                        int types, int bins, nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
     if (n < 0 || offsets.data()[n] != static_cast<std::int64_t>(vectors.shape(0)) ||
@@ -138,7 +139,6 @@ using Positions3 = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb:
 using Matrix3 = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
 using Origin3 = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
 using Periodic = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device::cpu>;
-using Types = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 nb::object pair_histogram(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
                           double r_max, int bins, Types type, int types, nb::handle progress,
@@ -233,7 +233,7 @@ nb::tuple structure_factor(Positions3 positions, Matrix3 matrix, Types type, int
         nb::ndarray<nb::numpy, std::int64_t>(counted->data(), 1, count_shape, counted_owner));
 }
 
-using Shifts3 = nb::ndarray<const std::int32_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using Shifts3 = nb::ndarray<const std::int8_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
 // A one-dimensional NumPy array that owns the memory of a vector.
 template <class T>

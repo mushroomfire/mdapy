@@ -62,12 +62,17 @@ regex = '__version__ = "(?P<value>[^"]+)"'
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --import-mode=importlib"
-# shared helpers such as lattices.py
+# test packages share helpers, such as lattices.py and calculators.eam_files
 pythonpath = ["tests"]
 xfail_strict = true
 # Warnings are errors: an unexpected warning is a test failure. Add
 # targeted ignores here, each with a comment saying why.
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # NumPy 2.2 with Apple Accelerate reports floating-point flags left by
+    # its kernels as these warnings for matmul of small, finite values
+    "ignore:(divide by zero|overflow|invalid value) encountered in matmul:RuntimeWarning",
+]
 
 [tool.coverage.run]
 source = ["mdapy"]
@@ -88,6 +93,10 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+# the test helpers shared through pytest's pythonpath
+known-local-folder = ["calculators"]
 
 [tool.ruff.format]
 quote-style = "double"

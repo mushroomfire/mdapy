@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "core/index.h"
 #include "core/parallel.h"
 
 namespace mdapy::identify {
@@ -35,7 +36,7 @@ enum Diamond : std::int8_t { kNotDiamond = 0, kCubicDiamond = 1, kHexagonalDiamo
 // neighbors (neighbors and vectors, n x 4): the twelve second neighbors,
 // reached through the first ones, must form fcc (cubic) or hcp (hexagonal)
 // under adaptive common neighbor analysis.
-void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const double* vectors,
+void identify_diamond(std::int64_t n, const index_t* neighbors, const double* vectors,
                       std::int8_t* types, const Control& control = {});
 
 // CHILL+ types of water molecules: 0 other, 1 hexagonal ice, 2 cubic ice,
@@ -52,7 +53,7 @@ enum Water : std::int8_t {
 // CHILL+ type of each of n molecules from the vectors to its neighbors in
 // CSR form (neighbors gives the molecule of each pair): bonds are staggered or
 // eclipsed by the correlation of the q_3m of their two molecules.
-void chill_plus(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+void chill_plus(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
                 const double* vectors, std::int8_t* types, const Control& control = {});
 
 }  // namespace mdapy::identify

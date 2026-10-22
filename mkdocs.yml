@@ -102,6 +102,8 @@ nav:
       - Atomic strain: guide/strain.md
       - Point defects: guide/defects.md
       - Clusters, bond angles and short-range order: guide/bonds.md
+      - Calculators: guide/calculators.md
+      - Simulation: guide/simulation.md
       - Parallelism: guide/parallelism.md
   - File formats:
       - Extended XYZ: formats/extxyz.md
@@ -113,6 +115,7 @@ nav:
       - Units and conventions: reference/units.md
       - Elements: reference/elements.md
       - Glossary: reference/glossary.md
+      - References: reference/references.md
       - Python API: reference/api.md
       - Source layout: reference/source-layout.md
   - Development:

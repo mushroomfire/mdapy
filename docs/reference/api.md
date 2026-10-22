@@ -28,6 +28,8 @@ import mdapy
 
 ::: mdapy.Box
 
+::: mdapy.core.box.LammpsBox
+
 ::: mdapy.NeighborList
 
 ## Analyses
@@ -90,9 +92,31 @@ import mdapy
 
 ::: mdapy.analysis.WarrenCowleyResult
 
-::: mdapy.core.box.LammpsBox
+## Calculators
 
-## Threads
+::: mdapy.calculators.Calculator
+
+::: mdapy.calculators.CalculatorResult
+
+::: mdapy.calculators.EAM
+
+::: mdapy.calculators.NEP
+
+::: mdapy.calculators.LAMMPS
+
+::: mdapy.calculators.testing.check_calculator
+
+## Simulation
+
+::: mdapy.simulation.minimize
+
+::: mdapy.simulation.MinimizeResult
+
+::: mdapy.simulation.elastic_constants
+
+::: mdapy.simulation.ElasticResult
+
+## Threads and indices
 
 ::: mdapy.get_num_threads
 
@@ -101,6 +125,8 @@ import mdapy
 ::: mdapy.num_threads
 
 ::: mdapy.CancelToken
+
+::: mdapy.core.indices.index_dtype
 
 ## Errors
 

@@ -70,7 +70,7 @@ void real_harmonics(int l, const double* u, double* y) {
     }
 }
 
-void steinhardt(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
                 const double* vectors, const std::vector<int>& degrees, bool average, double* q,
                 const Control& control) {
     std::size_t width = 0;

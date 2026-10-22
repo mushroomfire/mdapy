@@ -14,7 +14,7 @@ from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built
+from mdapy.neighbor._neighbor_list import _given_or_built, _nearest_given_or_built
 
 
 @dataclass(frozen=True)
@@ -94,14 +94,14 @@ class CommonNeighborAnalysis:
         StructureResult
             Types ``other``, ``fcc``, ``hcp``, ``bcc`` and ``ico``.
         """
+        # without periodic images, small systems have fewer neighbors
+        k = 14 if system.box.pbc.any() else min(14, len(system) - 1)
         if self.cutoff is not None:
             nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
-        elif neighbors is not None:
-            nl = _given_or_built(system, 0.0, neighbors)._nearest(14)
+        elif k > 0:
+            nl = _nearest_given_or_built(system, k, neighbors)
         else:
-            # without periodic images, small systems have fewer neighbors
-            k = 14 if system.box.pbc.any() else min(14, len(system) - 1)
-            nl = NeighborList.nearest(system, k) if k > 0 else None
+            nl = None
         if nl is None:
             structure = np.zeros(len(system), dtype=np.int8)
         else:
@@ -154,15 +154,7 @@ class IdentifyDiamond:
         InvalidParameter
             If an atom has fewer than 4 neighbors.
         """
-        if neighbors is None:
-            nl = NeighborList.nearest(system, 4)
-        else:
-            nl = _given_or_built(system, 0.0, neighbors)
-            if len(system) and nl.counts.min() < 4:
-                raise InvalidParameter(
-                    f"an atom has {nl.counts.min()} neighbors in the list, fewer than 4"
-                )
-            nl = nl._nearest(4)
+        nl = _nearest_given_or_built(system, 4, neighbors)
         n = len(system)
         structure = _native.identify_diamond(
             np.ascontiguousarray(nl.j.reshape(n, 4)),
@@ -309,15 +301,7 @@ class CentroSymmetryParameter:
             If an atom has fewer neighbors.
         """
         k = self.num_neighbors
-        if neighbors is None:
-            nl = NeighborList.nearest(system, k)
-        else:
-            nl = _given_or_built(system, 0.0, neighbors)
-            if len(system) and nl.counts.min() < k:
-                raise InvalidParameter(
-                    f"an atom has {nl.counts.min()} neighbors in the list, fewer than {k}"
-                )
-            nl = nl._nearest(k)
+        nl = _nearest_given_or_built(system, k, neighbors)
         vectors = np.ascontiguousarray(nl.vectors).reshape(len(system), k, 3)
         csp = _native.centro_symmetry(vectors, progress, _native_token(cancel))
         return CentroSymmetryResult(csp)

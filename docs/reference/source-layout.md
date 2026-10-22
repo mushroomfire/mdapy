@@ -10,6 +10,7 @@
 | `src/mdapy/core/topology.py` | `Topology`: bonds, angles, dihedrals, impropers. |
 | `src/mdapy/core/box.py` | `Box`, the simulation box. |
 | `src/mdapy/core/threads.py` | Number of threads, `CancelToken`. |
+| `src/mdapy/core/indices.py` | `index_dtype`, the type of atom indices in results. |
 | `src/mdapy/core/result.py` | `Result`, the base class of the results of analyses. |
 | `src/mdapy/io/__init__.py` | `read`, `write`, `formats`, `detect_format`; imports each format module. |
 | `src/mdapy/io/_registry.py` | The format registry, format detection, `read` and `write`. |
@@ -21,6 +22,14 @@
 | `src/mdapy/io/_native.py` | The mdapy file format. |
 | `src/mdapy/io/_trajectory.py` | `Trajectory` and `read_trajectory`. |
 | `src/mdapy/neighbor/_neighbor_list.py` | `NeighborList`. |
+| `src/mdapy/calculators/_base.py` | `Calculator` and `CalculatorResult`. |
+| `src/mdapy/calculators/testing.py` | `check_calculator`. |
+| `src/mdapy/calculators/_eam.py` | `EAM`. |
+| `src/mdapy/calculators/_zhou.py` | The parameters and tables of the potentials of Zhou et al. |
+| `src/mdapy/calculators/_lammps.py` | `LAMMPS`, the calculator of any LAMMPS interaction. |
+| `src/mdapy/calculators/_nep.py` | `NEP` and its file reader. |
+| `src/mdapy/simulation/_minimize.py` | `minimize`, with FIRE 2.0, of the positions and the box. |
+| `src/mdapy/simulation/_elastic.py` | `elastic_constants`. |
 | `src/mdapy/identify/_structure.py` | `CommonNeighborAnalysis`, `CentroSymmetryParameter`. |
 | `src/mdapy/analysis/_distribution.py` | `RadialDistributionFunction`, `CoordinationNumber`, `StructureFactor`. |
 | `src/mdapy/analysis/_steinhardt.py` | `SteinhardtParameters`. |
@@ -31,8 +40,14 @@
 | `src/mdapy/analysis/_bonds.py` | `ClusterAnalysis`, `BondAngleDistribution`, `WarrenCowley`, and bonds by cutoff per pair of elements. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
+| `src/cpp/core/index.h` | `index_t`, the type of atom indices, 32 or 64 bits (`MDAPY_INDEX64`). |
+| `src/cpp/core/buffer.h` | Vectors left uninitialized, for large results written by threads. |
 | `src/cpp/io/text.h`, `text.cpp` | Parsing and formatting of text tables, in parallel over lines; numbers are correctly rounded and independent of the locale. |
-| `src/cpp/neighbor/cell_list.h`, `cell_list.cpp` | The neighbor search with cells. |
+| `src/cpp/neighbor/frame.h` | The box as the neighbor searches see it, and the vector of a pair. |
+| `src/cpp/neighbor/cell_list.h`, `cell_list.cpp` | The search within a cutoff, with cells. |
+| `src/cpp/neighbor/kd_tree.h`, `kd_tree.cpp` | The search of nearest neighbors, with a k-d tree. |
+| `src/cpp/calculators/eam.h`, `eam.cpp` | The embedded atom method. |
+| `src/cpp/calculators/nep.h`, `nep.cpp` | Neuroevolution potentials. |
 | `src/cpp/identify/structure.h`, `structure.cpp` | Common neighbor analysis and the centro-symmetry parameter. |
 | `src/cpp/analysis/steinhardt.h`, `steinhardt.cpp` | Real spherical harmonics and Steinhardt order parameters. |
 | `src/cpp/analysis/distribution.h`, `distribution.cpp` | Histograms of pair distances counted during the neighbor search, and the structure factor. |
@@ -44,6 +59,7 @@
 | `src/cpp/bindings/core.cpp` | Bindings for thread control. |
 | `src/cpp/bindings/io.cpp` | Bindings for the text table kernels. |
 | `src/cpp/bindings/neighbor.cpp` | Bindings for the neighbor search. |
+| `src/cpp/bindings/calculators.cpp` | Bindings for the compiled calculators. |
 | `src/cpp/bindings/identify.cpp` | Bindings for structure identification. |
 | `src/cpp/bindings/analysis.cpp` | Bindings for the analyses. |
 | `src/cpp/bindings/testing.cpp` | Kernels used only by the test suite. |

@@ -1,7 +1,7 @@
 # LAMMPS data
 
 The format `lammps-data` reads and writes the data files of LAMMPS
-`read_data` and `write_data`, following LAMMPS stable_30Sep2026, for the
+([Thompson et al. (2022)](../reference/references.md#thompson2022)) `read_data` and `write_data`, following LAMMPS stable_30Sep2026, for the
 atom styles of molecular dynamics: `atomic`, `charge`, `bond`, `angle`,
 `molecular` and `full`. Files with extension `.data` or `.lmp`, or names
 starting with `data.`, are recognized.
@@ -177,43 +177,8 @@ The conversion moves the decimal point, so it adds no rounding. Other unit
 systems raise `UnsupportedFormat`; `units="metal"` reads such a file with
 its numbers unchanged.
 
-## Validation
-
-The tests in `tests/io/test_lammps_data.py` check that:
-
-- a hand-written `full` file in real units gives the expected IDs, molecules,
-  types, labels, charges, positions, image flags, velocities, masses,
-  elements, topology, coefficients and timestep;
-- each atom style reads its columns, with and without image flags, and the
-  style is inferred, or reported as ambiguous, from the number of values;
-- header comments and defaults, tilt factors, general triclinic boxes, type
-  labels in every place where LAMMPS accepts them, and all 15 coefficient
-  sections are read;
-- elements are guessed in the documented order and only when every type is
-  named;
-- writing and reading gives back the same table, box, information and
-  topology, including types without atoms, image flags and `extra` values;
-  boxes of each form, left-handed boxes and the `restricted` rotation keep
-  the lattice, distances and speeds;
-- 35 malformed files raise `FileFormatError` with the right line, and 16
-  systems that cannot be written raise the documented error and leave no
-  file.
-
-`tests/io/test_lammps_data_lammps.py` runs where the LAMMPS Python module is
-installed: LAMMPS stable_30Sep2026 reads files written by mdapy in the
-`atomic`, `charge` and `full` styles, in metal and real units and with
-restricted and general triclinic boxes, writes them back with `write_data`,
-and mdapy reads the same atoms, types, labels, elements, masses, topology,
-unwrapped fractional coordinates (to 10<sup>−15</sup>) and velocities
-(exactly in metal units, within one unit in the last place in real units,
-where LAMMPS stores Å/fs).
-
-## References
+## See also
 
 - LAMMPS documentation of `read_data` and `write_data`:
   <https://docs.lammps.org/read_data.html>,
   <https://docs.lammps.org/write_data.html>
-- A. P. Thompson et al., LAMMPS - a flexible simulation tool for
-  particle-based materials modeling at the atomic, meso, and continuum
-  scales, *Comput. Phys. Commun.* **271**, 108171 (2022).
-  doi:10.1016/j.cpc.2021.108171

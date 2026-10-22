@@ -205,7 +205,7 @@ void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const
         control);
 }
 
-void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const double* vectors,
+void identify_diamond(std::int64_t n, const index_t* neighbors, const double* vectors,
                       std::int8_t* types, const Control& control) {
     const double scale = 0.5 * (1.0 + std::sqrt(2.0));
     parallel_for(
@@ -253,7 +253,7 @@ void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const doubl
         control);
 }
 
-void chill_plus(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+void chill_plus(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
                 const double* vectors, std::int8_t* types, const Control& control) {
     // the sums of the real l = 3 harmonics over each molecule's bonds
     std::vector<double> q(static_cast<std::size_t>(n) * 7, 0.0);

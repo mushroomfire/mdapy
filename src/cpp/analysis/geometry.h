@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "core/index.h"
 #include "core/parallel.h"
 
 namespace mdapy::analysis {
@@ -15,7 +16,7 @@ namespace mdapy::analysis {
 // The cluster of each of n atoms, given its bonds in CSR form: clusters are
 // numbered from 0 by decreasing size, ties by their first atom. Returns the
 // number of clusters; sizes (at least n long) gets the size of each.
-std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
                       std::int64_t* cluster, std::int64_t* sizes);
 
 // The same with the bonds found on a cell grid (positions: n x 3; matrix:
@@ -32,7 +33,7 @@ std::int64_t clusters_search(const double* positions, std::int64_t n, const doub
 // the type of the atom and the types a <= b of the two neighbors (type: n
 // values below types): counts is types x pairs x bins, the pair (a, b)
 // numbered in the order (0, 0), (0, 1), ..., (1, 1), (1, 2), ...
-void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+void bond_angles(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
                  const double* vectors, const std::int32_t* type, int types, int bins,
                  std::int64_t* counts, const Control& control = {});
 
@@ -48,7 +49,7 @@ void bond_angles_search(const double* positions, std::int64_t n, const double* m
 // mass, 3 (members - 1) degrees of freedom: twice that energy times
 // energy_unit over (3 (members - 1) boltzmann); NaN without neighbors.
 void atomic_temperature(std::int64_t n, const std::int64_t* offsets,
-                        const std::int32_t* neighbors, const double* mass,
+                        const index_t* neighbors, const double* mass,
                         const double* velocities, double energy_unit, double boltzmann,
                         double* temperature, const Control& control = {});
 

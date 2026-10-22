@@ -63,7 +63,7 @@ nb::object common_neighbor_analysis(Offsets offsets, Vectors vectors, double cut
     return result;
 }
 
-using Nearest = nb::ndarray<const std::int32_t, nb::shape<-1, 4>, nb::c_contig, nb::device::cpu>;
+using Nearest = nb::ndarray<const index_t, nb::shape<-1, 4>, nb::c_contig, nb::device::cpu>;
 using Vectors4 = nb::ndarray<const double, nb::shape<-1, 4, 3>, nb::c_contig, nb::device::cpu>;
 
 // neighbors: (n, 4) indices of the four nearest neighbors; vectors (n, 4, 3).
@@ -88,7 +88,7 @@ nb::object identify_diamond(Nearest neighbors, Vectors4 vectors, nb::handle prog
     return result;
 }
 
-using Pairs = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Pairs = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 nb::object chill_plus(Offsets offsets, Pairs neighbors, Vectors vectors, nb::handle progress,
                       const CancelToken* cancel) {

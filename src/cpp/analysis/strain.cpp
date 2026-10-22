@@ -42,8 +42,8 @@ void times(const double* f, const double* h, double* out) {
 
 }  // namespace
 
-void atomic_strain(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
-                   const std::int32_t* shifts, const double* reference, const double* displacement,
+void atomic_strain(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
+                   const std::int8_t* shifts, const double* reference, const double* displacement,
                    const double* reference_matrix, const double* matrix, double* strain,
                    double* nonaffine, const Control& control) {
     const double nan = std::numeric_limits<double>::quiet_NaN();

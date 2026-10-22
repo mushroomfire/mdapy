@@ -12,7 +12,7 @@ from mdapy.errors import InvalidParameter
 
 
 def unit_vectors(system, k):
-    nl = mdapy.NeighborList.nearest(system, k)
+    nl = mdapy.NeighborList.build(system, num_neighbors=k)
     v = nl.vectors.reshape(len(system), k, 3)
     return v / np.linalg.norm(v, axis=2, keepdims=True), nl.j.reshape(len(system), k)
 

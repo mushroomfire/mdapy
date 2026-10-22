@@ -26,7 +26,7 @@ std::vector<std::int64_t> pair_histogram(const double* positions, std::int64_t n
             for (std::int64_t t = begin; t < end; ++t) {
                 const std::int64_t i = grid.atom(t);  // in cell order: integer counts add up the same
                 const std::size_t row = static_cast<std::size_t>(type[i]) * types;
-                grid.visit(i, [&](std::int32_t j, const std::int32_t*, double r2) {
+                grid.visit(t, [&](index_t j, const std::int32_t*, double r2) {
                     const int bin =
                         std::min(static_cast<int>(std::sqrt(r2) / r_max * bins), bins - 1);
                     ++local[(row + type[j]) * bins + bin];
@@ -62,7 +62,7 @@ void count_neighbors(const double* positions, std::int64_t n, const double* matr
                 const std::int64_t i = grid.atom(t);  // in cell order
                 const double* row = limits + static_cast<std::size_t>(type[i]) * types;
                 std::int64_t* own = counts + i * types;
-                grid.visit(i, [&](std::int32_t j, const std::int32_t*, double r2) {
+                grid.visit(t, [&](index_t j, const std::int32_t*, double r2) {
                     const bool bonded =
                         per_pair ? std::sqrt(r2) < row[type[j]] : r2 < reach2;
                     own[type[j]] += static_cast<std::int64_t>(bonded);

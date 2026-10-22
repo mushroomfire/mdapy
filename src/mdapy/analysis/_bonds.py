@@ -16,7 +16,7 @@ from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built
+from mdapy.neighbor._neighbor_list import _given_or_built, _nearest_given_or_built
 
 
 def _elements(system: System) -> tuple[tuple[str, ...], np.ndarray] | None:
@@ -423,12 +423,7 @@ class WarrenCowley:
             pairs = np.zeros((types, types), dtype=np.int64)
             np.add.at(pairs, index, table)
         else:
-            if neighbors is None:
-                nl = NeighborList.nearest(system, self.num_neighbors)
-            else:
-                nl = _given_or_built(system, 0.0, neighbors)._nearest(
-                    self.num_neighbors
-                )
+            nl = _nearest_given_or_built(system, self.num_neighbors, neighbors)
             pairs = np.bincount(
                 index[nl.i] * types + index[nl.j], minlength=types * types
             ).reshape(types, types)

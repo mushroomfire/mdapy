@@ -15,7 +15,7 @@ NAMES = ("other", "fcc", "hcp", "bcc", "ico")
 
 def neighbor_vectors(system, k):
     """The k nearest neighbor vectors of each atom, nearest first."""
-    nl = mdapy.NeighborList.nearest(system, k)
+    nl = mdapy.NeighborList.build(system, num_neighbors=k)
     return nl.vectors.reshape(len(system), k, 3)
 
 
@@ -94,7 +94,7 @@ def centro_symmetry(system, k):
 
 def diamond(system):
     """Diamond type of each atom: the CNA of its twelve second neighbors."""
-    nl = mdapy.NeighborList.nearest(system, 4)
+    nl = mdapy.NeighborList.build(system, num_neighbors=4)
     v = nl.vectors.reshape(len(system), 4, 3)
     j = nl.j.reshape(len(system), 4)
     names = []

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "neighbor/cell_list.h"
+#include "neighbor/frame.h"
 
 namespace mdapy::analysis {
 namespace {
@@ -72,7 +73,7 @@ std::int64_t number(std::vector<std::int64_t>& parent, std::int64_t n, std::int6
 
 }  // namespace
 
-std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
                       std::int64_t* cluster, std::int64_t* sizes) {
     std::vector<std::int64_t> parent(static_cast<std::size_t>(n));
     std::iota(parent.begin(), parent.end(), 0);
@@ -99,16 +100,16 @@ std::int64_t clusters_search(const double* positions, std::int64_t n, const doub
         const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, reach);
         const double reach2 = reach * reach;
         const std::int64_t grain = default_grain(n);
-        std::vector<std::vector<std::array<std::int32_t, 2>>> bonds(
+        std::vector<std::vector<std::array<index_t, 2>>> bonds(
             static_cast<std::size_t>((n + grain - 1) / grain));
         parallel_for(
             n, grain,
             [&](std::int64_t begin, std::int64_t end) {
                 auto& out = bonds[static_cast<std::size_t>(begin / grain)];
                 for (std::int64_t t = begin; t < end; ++t) {
-                    const std::int32_t i = grid.atom(t);
+                    const index_t i = grid.atom(t);
                     const double* row = limits + static_cast<std::size_t>(type[i]) * types;
-                    grid.visit(i, [&](std::int32_t j, const std::int32_t*, double r2) {
+                    grid.visit(t, [&](index_t j, const std::int32_t*, double r2) {
                         // j <= i: the bond is the other atom's, or an image of i
                         if (j > i && (per_pair ? std::sqrt(r2) < row[type[j]] : r2 < reach2)) {
                             out.push_back({i, j});
@@ -184,7 +185,7 @@ std::vector<std::int64_t> sum_histograms(std::vector<std::int64_t> a,
 
 }  // namespace
 
-void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+void bond_angles(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
                  const double* vectors, const std::int32_t* type, int types, int bins,
                  std::int64_t* counts, const Control& control) {
     using Histogram = std::vector<std::int64_t>;
@@ -196,7 +197,7 @@ void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t
         [&](std::int64_t begin, std::int64_t end) {
             Histogram local(shape.size(), 0);
             for (std::int64_t i = begin; i < end; ++i) {
-                const std::int32_t* own = neighbors + offsets[i];
+                const index_t* own = neighbors + offsets[i];
                 shape.add(vectors + 3 * offsets[i], offsets[i + 1] - offsets[i], type[i],
                           [own, type](std::int64_t a) { return type[own[a]]; }, local);
             }
@@ -220,7 +221,6 @@ void bond_angles_search(const double* positions, std::int64_t n, const double* m
     }
     const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, reach);
     const double reach2 = reach * reach;
-    const double* h = matrix;
     const std::int64_t grain = std::max(default_grain(n), (n + 63) / 64);
     const Histogram total = parallel_reduce(
         n, grain, Histogram(shape.size(), 0),
@@ -234,13 +234,12 @@ void bond_angles_search(const double* positions, std::int64_t n, const double* m
                 const double* row = limits + static_cast<std::size_t>(type[i]) * types;
                 found.clear();
                 kinds.clear();
-                grid.visit(i, [&](std::int32_t j, const std::int32_t* s, double r2) {
+                grid.visit(t, [&](index_t j, const std::int32_t* s, double r2) {
                     if (per_pair ? std::sqrt(r2) < row[type[j]] : r2 < reach2) {
-                        const double* xj = positions + 3 * static_cast<std::int64_t>(j);
-                        for (int e = 0; e < 3; ++e) {
-                            found.push_back(xj[e] - xi[e] + s[0] * h[e] + s[1] * h[3 + e] +
-                                            s[2] * h[6 + e]);
-                        }
+                        double r[3];
+                        neighbor::pair_vector(xi, positions + 3 * static_cast<std::int64_t>(j), s,
+                                              matrix, r);
+                        found.insert(found.end(), r, r + 3);
                         kinds.push_back(type[j]);
                     }
                 });
@@ -290,7 +289,7 @@ struct Group {
 }  // namespace
 
 void atomic_temperature(std::int64_t n, const std::int64_t* offsets,
-                        const std::int32_t* neighbors, const double* mass,
+                        const index_t* neighbors, const double* mass,
                         const double* velocities, double energy_unit, double boltzmann,
                         double* temperature, const Control& control) {
     parallel_for(
@@ -325,7 +324,7 @@ void atomic_temperature_search(const double* positions, std::int64_t n, const do
             for (std::int64_t t = begin; t < end; ++t) {
                 const std::int64_t i = grid.atom(t);
                 Group group;
-                grid.visit(i, [&](std::int32_t j, const std::int32_t*, double) {
+                grid.visit(t, [&](index_t j, const std::int32_t*, double) {
                     if (j != i) {  // not an image of the atom itself
                         group.add(mass[j], velocities + 3 * static_cast<std::int64_t>(j));
                     }
@@ -432,7 +431,7 @@ void pair_entropy_search(const double* positions, std::int64_t n, const double* 
             for (std::int64_t t = begin; t < end; ++t) {
                 const std::int64_t i = grid.atom(t);  // in cell order
                 found.clear();
-                grid.visit(i, [&](std::int32_t, const std::int32_t*, double r2) {
+                grid.visit(t, [&](index_t, const std::int32_t*, double r2) {
                     found.push_back(std::sqrt(r2));
                 });
                 const double rho =

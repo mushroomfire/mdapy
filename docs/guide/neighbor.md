@@ -1,8 +1,9 @@
 # Neighbor lists
 
-A `NeighborList` holds every pair of atoms closer than a cutoff, including
-periodic images, in any box. Analyses and calculators take one with the
-keyword `neighbors=`, so a list can be built once and shared.
+A `NeighborList` holds pairs of atoms, including periodic images, in any box:
+either every pair closer than a cutoff, or the nearest neighbors of each atom.
+Analyses and calculators take one with the keyword `neighbors=`, so a list can
+be built once and shared.
 
 ```python
 import numpy as np
@@ -17,86 +18,94 @@ nl.counts  # neighbors of each atom
 nl.i, nl.j, nl.shifts  # the pairs
 nl.distances, nl.vectors
 shorter = nl.within(3.0)  # no new search
-twelve = mdapy.NeighborList.nearest(system, num_neighbors=12)
+
+twelve = mdapy.NeighborList.build(system, num_neighbors=12)
+twelve.distances.reshape(-1, 12)  # nearest first
 ```
 
 ## Building
 
-| Method | Parameters | Result |
-|---|---|---|
-| `NeighborList.build(system, cutoff, *, progress=None, cancel=None)` | `cutoff` in Å, positive | every pair closer than `cutoff` |
-| `NeighborList.nearest(system, num_neighbors)` | `num_neighbors`, positive | the `num_neighbors` nearest neighbors of every atom, nearest first |
+`NeighborList.build(system, cutoff=None, *, num_neighbors=None, progress=None, cancel=None)`
+
+| Name | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `system` | `System` | | | the atoms and the box |
+| `cutoff` | float | | Å | build every pair closer than this, positive |
+| `num_neighbors` | int | | | build the `num_neighbors` nearest neighbors of each atom, positive |
+| `progress` | callable | `None` | | called as `progress(done, total)`, see [Parallelism](parallelism.md#progress-and-cancellation) |
+| `cancel` | `CancelToken` | `None` | | stops the search |
+
+Give exactly one of `cutoff` and `num_neighbors`.
 
 Any box works: triclinic, left-handed, periodic in some directions only, and
-smaller than the cutoff. An atom then sees several images of the same
-neighbor, and images of itself, each as its own pair. `nearest` raises
-[`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter) when
-a system without periodic directions has too few atoms.
+thinner than the cutoff or than the distance to the farthest neighbor. An
+atom then sees several images of the same neighbor, and images of itself,
+each as its own pair; a single atom in a small periodic cell has a full list.
+
+`build` raises
+[`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter) when:
+
+- both or neither of `cutoff` and `num_neighbors` are given, or either is not
+  a positive number (an integer for `num_neighbors`);
+- a system without periodic directions has `num_neighbors` atoms or fewer;
+- a pair is more than 127 boxes away, which comes from positions far outside
+  the box, such as unwrapped coordinates after a long diffusion; wrap them
+  into the box first with [`Box.wrap`](box.md).
 
 ## Contents
 
 | Attribute | Shape and type | Meaning |
 |---|---|---|
+| `system` | `System` | the system the list was built for |
 | `offsets` | (N + 1,) int64 | the pairs of atom `i` are `offsets[i]:offsets[i + 1]` |
-| `counts` | (N,) int64 | number of pairs of each atom |
-| `i`, `j` | (P,) int32 | the two atoms of each pair |
-| `shifts` | (P, 3) int32 | the periodic image of `j`: zero along non-periodic directions |
+| `j` | (P,) `mdapy.index_dtype` | the second atom of each pair |
+| `shifts` | (P, 3) int8 | the periodic image of `j`: zero along non-periodic directions |
 | `distances` | (P,) float64 | distance in Å |
-| `vectors` | (P, 3) float64 | from atom `i` to the image of atom `j`, in Å |
-| `cutoff` | float | every pair is closer than it |
+| `cutoff` | float | every pair is closer than it, in Å; for nearest neighbors, the largest distance, slightly enlarged |
+| `num_neighbors` | int or `None` | pairs per atom in a list of nearest neighbors, `None` in a list within a cutoff |
 
-The vector of a pair is
+The arrays are read-only. `mdapy.index_dtype` is int32, or int64 in mdapy
+built with [64-bit atom indices](../getting-started/installation.md#64-bit-atom-indices).
+The vector from atom `i` to the image of atom `j` is
 
 $$
 \mathbf{r}_{ij} = \mathbf{x}_j - \mathbf{x}_i + \mathbf{n}_{ij} \mathbf{H},
 $$
 
-with $\mathbf{n}_{ij}$ the integer `shifts` and $\mathbf{H}$ the box matrix,
-whose rows are the lattice vectors; this holds for the positions as stored,
-inside the box or not. Every pair appears in both directions. Within an atom,
-pairs are sorted by `j` and then by the image; `sorted()` sorts them by
-distance instead, and `within(r)` keeps the pairs closer than a smaller
-cutoff. The arrays are read-only.
+with $\mathbf{n}_{ij}$ the `shifts` and $\mathbf{H}$ the box matrix, whose
+rows are the lattice vectors, for the positions as stored, inside the box or
+not. Both kinds of list compute a distance the same way, so a pair has the
+same distance, to the last bit, in either.
 
-## Method
+In a list within a cutoff every pair appears in both directions. The pairs of
+an atom come in an order that depends on the positions, the box and the
+cutoff, never on the number of threads. In a list of nearest neighbors each
+atom has `num_neighbors` pairs, nearest first; pairs at the same distance are
+ordered by `j` and then by the image, so the equal neighbors of a perfect
+crystal come in a definite order. There `j` may be among the nearest of `i`
+without `i` being among the nearest of `j`.
 
-The search bins the atoms into cells in fractional coordinates. Along each
-lattice direction a cell is at least as thick as the cutoff where the box
-allows it; a thinner box is covered by searching more cells, which enumerates
-the periodic images it needs. Each atom looks at the cells within reach and
-keeps the candidates whose vector, computed as above, is shorter than the
-cutoff; a cheaper distance from the positions wrapped into the box, with a
-margin far above rounding, screens the candidates first. The cells keep a copy
-of their atoms side by side and the atoms are searched cell by cell, so memory
-is read in sequence even when the atoms come in random order, as in the dump
-of a parallel run. The atoms are divided among threads; each atom's pairs are
-sorted, so the result does not depend on the number of threads.
+## Methods
 
-`nearest` estimates a cutoff from the density, enlarges it by half until
-every atom has enough neighbors, and keeps the nearest ones.
+| Name | Returns |
+|---|---|
+| `counts` | (N,) int64 number of pairs of each atom |
+| `i` | (P,) `mdapy.index_dtype` first atom of each pair, computed when first used |
+| `vectors` | (P, 3) float64 vectors $\mathbf{r}_{ij}$ in Å, computed when first used |
+| `within(cutoff)` | the pairs closer than a smaller cutoff, in their order, without a new search; the list itself for its own cutoff. From a list of nearest neighbors it gives a list within a cutoff. |
+| `sorted()` | the same pairs, each atom's sorted by distance, pairs at the same distance by atom and then image, as in a list of nearest neighbors |
+| `len(nl)` | the number of pairs P |
 
-## Validation
+The arrays work directly with NumPy, for example to sum over the neighbors of
+each atom or to look at the pairs of one atom:
 
-The tests in `tests/neighbor/test_neighbor_list.py` check that:
+```python
+weights = np.exp(-nl.distances)
+per_atom = np.bincount(nl.i, weights=weights, minlength=len(system))
 
-- for five boxes (orthogonal, triclinic, rotated, left-handed, flat), four
-  combinations of periodic directions and three cutoffs, up to larger than
-  the box, the pairs are exactly those of a brute-force enumeration of
-  periodic images in NumPy, with the same distances to the last bit;
-- atoms outside the box, and a box smaller than the cutoff, give the right
-  pairs and images;
-- pairs are symmetric and sorted, and `vectors` and `distances` follow the
-  formula above;
-- translation, rotation and reordering of the atoms change nothing, perfect
-  fcc and bcc lattices have 12, 18 and 8, 14 neighbors in their first shells,
-  and a primitive cell agrees with a supercell;
-- `within`, `sorted` and `nearest` agree with a new search and with the brute
-  force;
-- results are the same for 1, 3 and 8 threads, which
-  `tests/cpp/thread_checks.cpp` also checks under ThreadSanitizer.
+pairs = slice(nl.offsets[5], nl.offsets[6])
+nl.j[pairs], nl.distances[pairs]  # the neighbors of atom 5
 
-## Performance
-
-On an Apple M5 laptop, 256,000 fcc atoms with a 5 Å cutoff (10.8 million
-pairs) take 0.24 s on one thread and 0.10 s on ten; in random order, 0.46 s
-and 0.13 s.
+ordered = nl.sorted()
+nearest = ordered.j[ordered.offsets[:-1][nl.counts > 0]]  # each atom's nearest
+```

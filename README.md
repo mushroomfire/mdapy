@@ -213,3 +213,13 @@ BSD 3-Clause. See [LICENSE](LICENSE).
   - 随机一致性测试：60 个随机体系，包括各种斜盒子、混合周期、截断大于半个盒子、原子在盒外。格子算法与邻居表算法的结果全部一致，Voronoi 体积和等于盒子体积；80 组随机位移下，最小化复用的邻居表与重新搜索得到的逐位相同。
   - 每个分支单独重跑了全部测试和逐文件覆盖率门槛，全部通过。
   - 从源码打 wheel，装进全新的虚拟环境，冒烟测试通过。
+
+### 04:55
+- **新草稿分支 `ase-calculator-draft`**：对应待定项"ASE 计算器适配器要不要做"，先做出来给你看。`to_ase_calculator(EAM(...))` 让任何 mdapy 计算器都能当 ASE 计算器用：能量、力、应力（eV/Å³，ASE 的分量顺序）、逐原子能量和应力，可以直接用 ASE 的 BFGS、`FrechetCellFilter` 和 MD。测试结果：
+  - 与 mdapy 直接计算的结果相同；
+  - 应力与 ASE 的有限差分一致到 1e-8 eV/Å³；
+  - ASE 的 BFGS 弛豫后能量与 `mdapy.minimize` 一致到 1e-8 eV；
+  - ASE 晶胞弛豫后应力为零。
+  - 覆盖率 100%，CI 通过。
+- **`mdapy.transform` 的设计草案**（本地 design 目录，不进 git）：replicate、wrap、unwrap 的 id、molecule、image 和拓扑处理，照 LAMMPS `replicate` 的做法（按 image 摆放原子，这样拓扑只需加偏移），列了 6 个需要你定的点。明早一起看。
+- `cnp-draft` 的公共近邻参数也改成不建邻居表；文档的分析总览页写明了哪些分析在格子上直接算。

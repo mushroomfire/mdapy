@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "core/index.h"
 #include "core/parallel.h"
 
 namespace mdapy::calculators {
@@ -47,14 +48,15 @@ struct NepModel {
 };
 
 // Energies (n), forces (n x 3), virials (n x 9, may be null) and scaled
-// descriptors (n x dim, may be null) of n atoms with a full neighbor list in
-// CSR form: the neighbor, its periodic image (pairs x 3) and the vector from
-// atom i to it (pairs x 3). With forces null, only the descriptors; energies
-// and virials are left untouched. The virial of each derivative of the energy
-// of atom i by a neighbor vector goes to that neighbor, as in GPUMD.
+// descriptors (n x dim, may be null) of n atoms at positions (n x 3) in a box
+// with lattice vectors as rows of matrix (3 x 3), with a full neighbor list in
+// CSR form: the neighbor and its periodic image (pairs x 3), whose vectors are
+// those of neighbor::pair_vector. With forces null, only the descriptors;
+// energies and virials are left untouched. The virial of each derivative of
+// the energy of atom i by a neighbor vector goes to that neighbor, as in GPUMD.
 void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* species,
-                 const std::int64_t* offsets, const std::int32_t* neighbors,
-                 const std::int32_t* shifts, const double* vectors, double* energies,
+                 const double* positions, const double* matrix, const std::int64_t* offsets,
+                 const index_t* neighbors, const std::int8_t* shifts, double* energies,
                  double* forces, double* virials, double* descriptors,
                  const Control& control = {});
 

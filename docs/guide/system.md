@@ -112,20 +112,3 @@ are renumbered, and terms that lose an atom are dropped.
 oxygen = water.select([0])
 len(oxygen.topology)  # 0: both bonds and the angle lost a hydrogen
 ```
-
-## Validation
-
-The tests in `tests/core/test_system.py` and `tests/core/test_topology.py`
-check that:
-
-- standard columns get their types from many kinds of input, and invalid
-  values (unknown symbols, types below 1, non-integral integers, missing
-  values, non-finite positions) are rejected;
-- `positions` is a read-only view of the table, and the table is a single
-  contiguous chunk even when built from pieces;
-- no method changes the system it is called on;
-- scaling with the box keeps fractional coordinates;
-- for a water dimer and for ethane (7 bonds, 12 angles, 9 dihedrals),
-  selecting atoms renumbers the topology and drops exactly the terms that
-  lose an atom, and selecting a random permutation and its inverse restores
-  the original system.

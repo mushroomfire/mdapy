@@ -14,13 +14,13 @@ from mdapy.calculators._base import (
     Calculator,
     CalculatorResult,
     _element_indices,
-    _neighbor_list,
 )
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
 from mdapy.errors import FileFormatError
 from mdapy.neighbor import NeighborList
+from mdapy.neighbor._neighbor_list import _given_or_built
 
 #: e^2 / (4 pi epsilon_0) in eV Å, as GPUMD has it.
 _COULOMB = 14.399645
@@ -309,14 +309,15 @@ class NEP(Calculator):
     ) -> CalculatorResult:
         self._check_properties(properties)
         species = _element_indices(system, self.elements, "NEP")
-        neighbors = _neighbor_list(system, self.cutoff, neighbors)
+        neighbors = _given_or_built(system, self.cutoff, neighbors)
         energies, forces, virials = _native.compute_nep(
             self._model,
             species,
+            np.ascontiguousarray(system.positions),
+            np.ascontiguousarray(system.box.matrix),
             neighbors.offsets,
             neighbors.j,
-            np.ascontiguousarray(neighbors.shifts),
-            np.ascontiguousarray(neighbors.vectors),
+            neighbors.shifts,
             progress,
             _native_token(cancel),
         )
@@ -352,14 +353,15 @@ class NEP(Calculator):
             l and n, then the four-body and five-body ones by n.
         """
         species = _element_indices(system, self.elements, "NEP")
-        neighbors = _neighbor_list(system, self.cutoff, neighbors)
+        neighbors = _given_or_built(system, self.cutoff, neighbors)
         return _native.nep_descriptors(
             self._model,
             species,
+            np.ascontiguousarray(system.positions),
+            np.ascontiguousarray(system.box.matrix),
             neighbors.offsets,
             neighbors.j,
-            np.ascontiguousarray(neighbors.shifts),
-            np.ascontiguousarray(neighbors.vectors),
+            neighbors.shifts,
             progress,
             _native_token(cancel),
         )

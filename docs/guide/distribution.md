@@ -30,7 +30,9 @@ $$
 where $n_k$ counts ordered pairs $(i, j)$ in shell $k$, $n^{ab}_k$ those with
 $i$ of element $a$ and $j$ of element $b$, and $V$ is the volume of the box.
 The partial functions satisfy $g = \sum_{a,b} x_a x_b\, g_{ab}$ with the
-fractions $x_a = N_a / N$.
+fractions $x_a = N_a / N$. LAMMPS `compute rdf` divides by $N(N - 1)$
+instead of $N^2$ (and by $N_a(N_a - 1)$ for like pairs), counting only the
+other atoms, so its values are larger by $N / (N - 1)$.
 
 The `RadialDistributionResult` has the bin centers `r`, the `edges`, `g`,
 the running coordination number `coordination` (the mean number of neighbors
@@ -112,3 +114,8 @@ The tests in `tests/analysis/test_distribution.py` check:
   the same functions;
 - coordination 12 in fcc, and 8 unlike neighbors, 6 like neighbors or 14 of
   both in the CsCl structure with cutoffs per pair of elements.
+
+`tests/analysis/test_lammps.py` runs where LAMMPS is installed: on a
+disordered fcc crystal, $g$ times $N / (N - 1)$ agrees with `compute rdf` to
+10<sup>−10</sup>, and the coordination numbers are those of `compute
+coord/atom` for every atom.

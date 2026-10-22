@@ -297,19 +297,30 @@ class BondAngleDistribution:
         BondAngleResult
             Counts of the angles between every two bonds of an atom.
         """
-        bonds, found = self._bonds.select(system, neighbors)
-        names, index = found if found is not None else ((), np.zeros(len(system), int))
-        types = max(len(names), 1)
-        counts = _native.bond_angles(
-            bonds.offsets,
-            bonds.j,
-            np.ascontiguousarray(bonds.vectors),
-            index.astype(np.int32),
-            types,
-            self.bins,
-            progress,
-            _native_token(cancel),
-        )
+        if neighbors is None:
+            # bonds found on the grid, without a list
+            *grid, found = self._bonds._grid(system)
+            counts = _native.bond_angles_search(
+                *grid, self.bins, progress, _native_token(cancel)
+            )
+            names = found[0] if found is not None else ()
+            types = max(len(names), 1)
+        else:
+            bonds, found = self._bonds.select(system, neighbors)
+            names, index = (
+                found if found is not None else ((), np.zeros(len(system), int))
+            )
+            types = max(len(names), 1)
+            counts = _native.bond_angles(
+                bonds.offsets,
+                bonds.j,
+                np.ascontiguousarray(bonds.vectors),
+                index.astype(np.int32),
+                types,
+                self.bins,
+                progress,
+                _native_token(cancel),
+            )
         pairs = [(b, c) for b in range(types) for c in range(b, types)]
         partial = {
             (names[a], names[b], names[c]): counts[a, p]

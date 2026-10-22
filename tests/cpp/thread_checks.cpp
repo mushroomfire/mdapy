@@ -542,6 +542,19 @@ void structure_identification() {
         check(listed_count == searched_count && listed == searched_clusters &&
                   listed_sizes == searched_sizes,
               "clusters on the grid are those of the list for any thread count");
+        // bond angles on the grid and from the list
+        std::vector<double> bond_vectors(3 * bonded.neighbors.size());
+        mdapy::neighbor::pair_vectors(positions.data(), n, bonded.offsets.data(),
+                                      bonded.neighbors.data(), bonded.shifts.data(), matrix,
+                                      bond_vectors.data());
+        std::vector<std::int64_t> listed_angles(90), searched_angles(90);
+        mdapy::analysis::bond_angles(n, bonded.offsets.data(), bonded.neighbors.data(),
+                                     bond_vectors.data(), species.data(), 1, 90,
+                                     listed_angles.data());
+        mdapy::analysis::bond_angles_search(positions.data(), n, matrix, origin, pbc,
+                                            species.data(), 1, &bond, false, 90,
+                                            searched_angles.data());
+        check(listed_angles == searched_angles, "bond angles on the grid are those of the list");
         if (threads == kThreads[0]) {
             first_histogram = histogram;
         }

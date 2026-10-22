@@ -320,3 +320,9 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - **合并演练**：在临时工作区里按"先删 README 夜间汇报，再把 preview-all 合进 v2"的顺序试过，没有冲突，结果与 preview-all 只差被删的汇报。具体命令写进了总结。临时提交没有推送。
 - **更正总结第 5 条**：我原来说 Wigner–Seitz 的 `interstitial_count` 与 1.x 定义不同，核对 1.x 代码和实际运行后发现两者相同，都是多出的原子数；只是 1.x 的 docstring 写成了"occupancy>1 的格点数"。原子应变也与 1.x 相同（差 ≤ 1e-15，含原子出盒）。
 - 按第 5 条的建议，起草了 release notes 里"与 1.x 的差别"一节（英文，本地 design 目录），定了就能贴进去。
+
+### 07:25
+- **取向晶体也和 LAMMPS 对照了**（`build-draft`，只加测试和文档）：fcc、bcc、金刚石、简单立方的取向晶体，与 LAMMPS `lattice ... orient` 在同一盒子里生成的原子集合相同（差一个平移）。原有测试只比邻居壳层，看不出取向本身对不对。
+- preview-all 上 ASan 全量测试又跑了一遍（新加了 Ackland–Jones 和金刚石修正的 C++），没有问题。
+- preview-all 现在共 1216 个测试，其中与 LAMMPS 有关的 177 个全部通过。
+- 所有分支 CI 通过。

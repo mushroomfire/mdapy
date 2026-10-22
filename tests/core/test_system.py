@@ -357,3 +357,30 @@ def test_repr():
     assert "Topology(bonds=4, angles=2" in text
     assert "columns: positions, element, type" in text
     assert repr(System(np.zeros((0, 3)))).startswith("System(0 atoms; box")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda t: t.insert_column(0, pl.Series("z", [0, 0, 0, 0, 0, 0])),
+        lambda t: t.replace_column(0, pl.Series("positions", np.ones((6, 3)))),
+        lambda t: t.drop_in_place("element"),
+        lambda t: setattr(t, "columns", [c + "_x" for c in t.columns]),
+        lambda t: t.extend(t.clone()),
+        lambda t: t.vstack(t.clone(), in_place=True),
+        lambda t: t["element"].scatter(0, "H"),
+        lambda t: t["mass"].append(pl.Series("mass", [1.0])),
+    ],
+)
+def test_the_table_cannot_be_changed_in_place(change):
+    s = water_dimer().with_columns(mass=np.arange(6.0))
+    before = s.table
+    change(s.table)
+    assert s.table.equals(before) and len(s) == 6
+    with pytest.raises(ValueError):
+        s.table["mass"].to_numpy()[0] = 5.0
+    # nor through the table it was made from
+    table = s.table
+    made = System(table=table)
+    table.insert_column(0, pl.Series("z", np.zeros(6)))
+    assert "z" not in made.table.columns

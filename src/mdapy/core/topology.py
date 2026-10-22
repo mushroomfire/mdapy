@@ -109,26 +109,26 @@ class Topology:
     @property
     def bonds(self) -> pl.DataFrame:
         """Bonds: ``atoms`` holds 2 atom indices."""
-        return self._bonds
+        return self._bonds.clone()
 
     @property
     def angles(self) -> pl.DataFrame:
         """Angles: ``atoms`` holds 3 atom indices, the vertex in the middle."""
-        return self._angles
+        return self._angles.clone()
 
     @property
     def dihedrals(self) -> pl.DataFrame:
         """Dihedrals: ``atoms`` holds 4 atom indices along the chain."""
-        return self._dihedrals
+        return self._dihedrals.clone()
 
     @property
     def impropers(self) -> pl.DataFrame:
         """Impropers: ``atoms`` holds 4 atom indices."""
-        return self._impropers
+        return self._impropers.clone()
 
     def tables(self) -> dict[str, pl.DataFrame]:
         """All four tables, keyed by kind."""
-        return {kind: getattr(self, f"_{kind}") for kind in KINDS}
+        return {kind: getattr(self, f"_{kind}").clone() for kind in KINDS}
 
     def max_atom_index(self) -> int:
         """Largest atom index used by any term, or -1 if there are none."""

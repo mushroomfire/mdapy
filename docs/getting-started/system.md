@@ -47,10 +47,10 @@ Inconsistent input raises
 
 | Name | Meaning |
 |---|---|
-| `table` | Per-atom properties as a polars DataFrame. |
+| `table` | Per-atom properties as a polars DataFrame: a copy that shares the columns, so changing it in place, with `insert_column` for example, does not change the system. |
 | `box` | The `Box`. |
 | `info` | Global information, read-only. |
-| `topology` | The `Topology`, or `None`. |
+| `topology` | The `Topology`, or `None`; its tables are copies in the same way. |
 | `positions` | (N, 3) positions in Å: a read-only NumPy view of the table, without a copy. |
 | `len(system)` | Number of atoms. |
 

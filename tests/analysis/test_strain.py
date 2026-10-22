@@ -118,3 +118,29 @@ def test_errors():
     shuffled = numbered.with_columns(id=np.arange(32, 0, -1))
     with pytest.raises(InvalidParameter, match="not in the order of the reference"):
         AtomicStrain(numbered, 3.0).compute(shuffled)
+
+
+@pytest.mark.parametrize("affine", [False, True])
+def test_a_given_list_gives_what_a_search_gives(affine):
+    rng = np.random.default_rng(4)
+    reference = crystal("fcc", 3.6, (4, 4, 4), jitter=0.1, seed=4)
+    current = deformed(reference, F0).with_positions(
+        deformed(reference, F0).positions + rng.normal(0, 0.05, (256, 3))
+    )
+    searched = AtomicStrain(reference, 3.0, affine=affine).compute(current)
+    for cutoff in (3.0, 4.5):  # the list's own cutoff, or a longer one
+        nl = mdapy.NeighborList.build(reference, cutoff)
+        listed = AtomicStrain(reference, 3.0, affine=affine, neighbors=nl)
+        result = listed.compute(current)
+        for name in ("strain", "shear", "volumetric", "d2min"):
+            np.testing.assert_allclose(
+                getattr(result, name), getattr(searched, name), rtol=1e-12, atol=1e-14
+            )
+    strain, d2 = reference_strain(reference, current, 3.0)
+    if not affine:
+        np.testing.assert_allclose(searched.strain, strain, atol=1e-10)
+        np.testing.assert_allclose(searched.d2min, d2, atol=1e-10)
+    with pytest.raises(InvalidParameter, match="below the required"):
+        AtomicStrain(reference, 3.0, neighbors=mdapy.NeighborList.build(reference, 2.0))
+    with pytest.raises(InvalidParameter, match="another system"):
+        AtomicStrain(reference, 3.0, neighbors=mdapy.NeighborList.build(current, 3.0))

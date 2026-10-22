@@ -43,7 +43,7 @@ public:
              const bool* pbc, double cutoff);
 
     // The atom in slot t.
-    index_t atom(std::int64_t t) const { return slot_atoms_[t]; }
+    index_t atom(std::int64_t t) const { return slots_[t].atom; }
 
     // Calls visit(j, shift, r2) for every pair (i, j, shift) closer than the
     // cutoff, i the atom in slot t, shift an int32 array of 3 and r2 the
@@ -51,14 +51,23 @@ public:
     // order that depends on the positions, the box and the cutoff only.
     template <class Visit>
     void visit(std::int64_t t, Visit&& visit) const {
-        scan<true>(t, visit);
+        scan<true, false>(t, visit);
+    }
+
+    // Calls visit(s, shift) for the same pairs as visit, in the same order,
+    // with the slot s of the second atom instead of the atom and without
+    // their distances: data of the atoms copied into slot order is read
+    // nearly in sequence.
+    template <class Visit>
+    void visit_slots(std::int64_t t, Visit&& visit) const {
+        scan<false, true>(t, visit);
     }
 
     // The number of pairs of the atom in slot t. Throws std::overflow_error
     // for a shift outside int8.
     std::int64_t count(std::int64_t t) const {
         std::int64_t pairs = 0;
-        scan<false>(t, [&](index_t, const std::int32_t* shift, double) {
+        scan<false, false>(t, [&](index_t, const std::int32_t* shift, double) {
             check_shift(shift);
             ++pairs;
         });
@@ -75,9 +84,25 @@ private:
     };
 
     // visit, but without kExact the pairs far enough inside the cutoff
-    // come with the squared distance of the screen, not the exact one.
-    template <bool kExact, class Visit>
+    // come with the squared distance of the screen, not the exact one; with
+    // kSlots, visit(s, shift) gets the slot of the second atom.
+    template <bool kExact, bool kSlots, class Visit>
     void scan(std::int64_t t, Visit&& visit) const;
+
+    // floor(k / cells): the periodic image of cell k, without a division when
+    // it is next to the box, as it nearly always is
+    static std::int64_t wrap_shift(std::int64_t k, std::int64_t cells) {
+        if (k >= 0 && k < cells) {
+            return 0;
+        }
+        if (k < 0 && k >= -cells) {
+            return -1;
+        }
+        if (k >= cells && k < 2 * cells) {
+            return 1;
+        }
+        return floor_div(k, cells);
+    }
 
     static std::int64_t floor_div(std::int64_t a, std::int64_t b) {
         std::int64_t q = a / b;
@@ -97,41 +122,44 @@ private:
     std::vector<std::int64_t> cell_start_;  // first slot of each cell, and one past the end
     // per slot: the atom, its position, its image in the box, the periodic
     // images w between them (position - w . H is in the box) and its cell
-    std::vector<index_t> slot_atoms_;
-    std::vector<double> slot_positions_;
-    std::vector<double> slot_wrapped_;
-    std::vector<std::int32_t> slot_wraps_;
-    std::vector<std::int64_t> slot_cells_;
+    // what a search reads of a slot, in one cache line
+    struct alignas(64) Slot {
+        double wrapped[3];      // the image of the atom in the box
+        double position[3];
+        std::int32_t wraps[3];  // periodic images w with position - w . H in the box
+        index_t atom;
+    };
+    std::vector<Slot> slots_;
+    std::vector<std::int32_t> slot_cells_;  // the cell of each slot, 3 coordinates
 };
 
-template <bool kExact, class Visit>
+template <bool kExact, bool kSlots, class Visit>
 void CellGrid::scan(std::int64_t t, Visit&& visit) const {
     const double* h = frame_.h;
-    const double* xi = &slot_positions_[3 * t];
-    const std::int32_t* wrap = &slot_wraps_[3 * t];
-    const index_t self = slot_atoms_[t];
-    std::int64_t cell[3];
-    for (std::int64_t c = slot_cells_[t], d = 2; d >= 0; --d) {
-        cell[d] = c % axes_[d].cells;
-        c /= axes_[d].cells;
-    }
+    const Slot& own = slots_[t];
+    const double* xi = own.position;
+    const std::int32_t* wrap = own.wraps;
+    const index_t self = own.atom;
+    const std::int64_t cell[3] = {slot_cells_[3 * t], slot_cells_[3 * t + 1],
+                                  slot_cells_[3 * t + 2]};
     // Candidates are screened with the positions in the box, whose image
     // offset is the same for a whole cell; the pairs that pass are measured
-    // exactly as documented. The cells along the last direction are read in
-    // runs, each run a range of slots in one periodic image.
-    const double* xw = &slot_wrapped_[3 * t];
-    const Axis& last = axes_[2];
-    for (std::int64_t dx = -axes_[0].reach; dx <= axes_[0].reach; ++dx) {
+    // exactly as documented. The cells along the first direction, which
+    // varies fastest in the order of the cells, are read in runs, each run a
+    // range of slots in one periodic image.
+    const double* xw = own.wrapped;
+    const Axis& last = axes_[0];
+    for (std::int64_t dz = -axes_[2].reach; dz <= axes_[2].reach; ++dz) {
         for (std::int64_t dy = -axes_[1].reach; dy <= axes_[1].reach; ++dy) {
-            const std::int64_t step[2] = {dx, dy};
+            const std::int64_t step[3] = {0, dy, dz};
             std::int64_t row = 0;
             std::int32_t image[3] = {0, 0, 0};
             bool inside = true;
-            for (int d = 0; d < 2 && inside; ++d) {
+            for (int d = 2; d >= 1 && inside; --d) {
                 const Axis& axis = axes_[d];
                 std::int64_t k = cell[d] + step[d];
                 if (axis.periodic) {
-                    const std::int64_t shift = floor_div(k, axis.cells);
+                    const std::int64_t shift = wrap_shift(k, axis.cells);
                     k -= shift * axis.cells;
                     image[d] = static_cast<std::int32_t>(shift);
                 } else if (k < 0 || k >= axis.cells) {
@@ -142,50 +170,59 @@ void CellGrid::scan(std::int64_t t, Visit&& visit) const {
             if (!inside) {
                 continue;
             }
-            std::int64_t z = cell[2] - last.reach, z_end = cell[2] + last.reach;
+            std::int64_t z = cell[0] - last.reach, z_end = cell[0] + last.reach;
             if (!last.periodic) {
                 z = std::max<std::int64_t>(z, 0);
                 z_end = std::min(z_end, last.cells - 1);
             }
             while (z <= z_end) {
-                const std::int64_t shift = last.periodic ? floor_div(z, last.cells) : 0;
+                const std::int64_t shift = last.periodic ? wrap_shift(z, last.cells) : 0;
                 const std::int64_t k = z - shift * last.cells;
                 const std::int64_t run = std::min(z_end - z, last.cells - 1 - k);
                 const std::int64_t first = row * last.cells + k;
                 z += run + 1;
-                image[2] = static_cast<std::int32_t>(shift);
+                image[0] = static_cast<std::int32_t>(shift);
                 double base[3];
                 for (int e = 0; e < 3; ++e) {
                     base[e] = xw[e] - (image[0] * h[e] + image[1] * h[3 + e] + image[2] * h[6 + e]);
                 }
                 for (std::int64_t s = cell_start_[first]; s < cell_start_[first + run + 1]; ++s) {
-                    const double* yj = &slot_wrapped_[3 * s];
+                    const Slot& other = slots_[s];
+                    const double* yj = other.wrapped;
                     const double ax = yj[0] - base[0], ay = yj[1] - base[1], az = yj[2] - base[2];
                     const double a2 = ax * ax + ay * ay + az * az;
                     if (a2 >= screen2_) {
                         continue;
                     }
                     // shift in the original coordinates
-                    const std::int32_t* wj = &slot_wraps_[3 * s];
+                    const std::int32_t* wj = other.wraps;
                     const std::int32_t pair_shift[3] = {image[0] + wrap[0] - wj[0],
                                                         image[1] + wrap[1] - wj[1],
                                                         image[2] + wrap[2] - wj[2]};
                     if (!kExact && a2 < inner2_) {
                         if (s != t || pair_shift[0] != 0 || pair_shift[1] != 0 ||
                             pair_shift[2] != 0) {
-                            visit(slot_atoms_[s], pair_shift, a2);
+                            if constexpr (kSlots) {
+                                visit(s, pair_shift);
+                            } else {
+                                visit(other.atom, pair_shift, a2);
+                            }
                         }
                         continue;
                     }
                     double r[3];
-                    const double r2 = pair_vector(xi, &slot_positions_[3 * s], pair_shift, h, r);
+                    const double r2 = pair_vector(xi, other.position, pair_shift, h, r);
                     if (r2 < cutoff2_) {
-                        const index_t j = slot_atoms_[s];
+                        const index_t j = other.atom;
                         if (j == self && pair_shift[0] == 0 && pair_shift[1] == 0 &&
                             pair_shift[2] == 0) {
                             continue;
                         }
-                        visit(j, pair_shift, r2);
+                        if constexpr (kSlots) {
+                            visit(s, pair_shift);
+                        } else {
+                            visit(j, pair_shift, r2);
+                        }
                     }
                 }
             }

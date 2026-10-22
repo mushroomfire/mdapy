@@ -89,7 +89,9 @@ factor.q, factor.s
 each pair of elements, in either order, and pairs not given are never
 neighbors. The `CoordinationResult` has the per-atom `coordination` and, with
 an `element` column, the `partial` counts of neighbors of each element. Its
-columns are `coordination` and `coordination_<element>`.
+columns are `coordination` and `coordination_<element>`. Without a given
+neighbor list the neighbors are counted on the cell grid as they are found,
+without storing a list; the counts are the same.
 
 ## Validation
 

@@ -43,6 +43,35 @@ std::vector<std::int64_t> pair_histogram(const double* positions, std::int64_t n
         control);
 }
 
+void count_neighbors(const double* positions, std::int64_t n, const double* matrix,
+                     const double* origin, const bool* pbc, const std::int32_t* type, int types,
+                     const double* limits, bool per_pair, std::int64_t* counts,
+                     const Control& control) {
+    const auto pairs = static_cast<std::size_t>(types) * types;
+    const double reach = *std::max_element(limits, limits + pairs);
+    std::fill(counts, counts + n * types, 0);
+    if (!(reach > 0.0) || n == 0) {
+        return;
+    }
+    const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, reach);
+    const double reach2 = reach * reach;
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t t = begin; t < end; ++t) {
+                const std::int64_t i = grid.atom(t);  // in cell order
+                const double* row = limits + static_cast<std::size_t>(type[i]) * types;
+                std::int64_t* own = counts + i * types;
+                grid.visit(i, [&](std::int32_t j, const std::int32_t*, double r2) {
+                    const bool bonded =
+                        per_pair ? std::sqrt(r2) < row[type[j]] : r2 < reach2;
+                    own[type[j]] += static_cast<std::int64_t>(bonded);
+                });
+            }
+        },
+        control);
+}
+
 void structure_factor(const double* positions, std::int64_t n, const double* matrix,
                       const std::int32_t* type, int types, double q_max, int bins,
                       std::vector<double>& sums, std::vector<std::int64_t>& vectors,

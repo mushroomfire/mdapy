@@ -16,7 +16,10 @@ implemented.
 | frame | One `System` of a `Trajectory`. |
 | `table` | The per-atom table of a `System`, a polars DataFrame with one row per atom. |
 | `info` | Global information of a `System`, such as `energy` or `timestep`. |
-| `NeighborList` | Pairs of atoms within a cutoff, including periodic images. |
+| `NeighborList` | Pairs of atoms within a cutoff, or the nearest neighbors of each atom, including periodic images. |
+| pair | One entry of a `NeighborList`: atoms `i` and `j` and the periodic image `shifts` of `j`. |
+| `shifts` | Periodic image of the second atom of a pair, (3,) int8: the pair vector is `x[j] - x[i] + shifts @ box.matrix`. |
+| `index_dtype` | Integer type of atom indices in results such as `NeighborList.j`: int32, or int64 in a build with 64-bit indices. |
 | `Topology` | Bonds, angles, dihedrals and impropers of a system; each a table with `atoms` (0-based row indices), `type` and optional `type_label`. |
 | format | Name of a file format, passed as `format=`, such as `extxyz`. See [Reading and writing files](../guide/io.md). |
 | `Calculator` | Interface that computes energy, forces and virial for a `System`. |

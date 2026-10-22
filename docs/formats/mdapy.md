@@ -74,20 +74,3 @@ This works for uncompressed files.
 
 A file written by a newer mdapy with a higher `version` raises
 [`UnsupportedFormat`](../reference/api.md#mdapy.errors.UnsupportedFormat).
-
-## Validation
-
-The tests in `tests/io/test_native.py` check that:
-
-- a system with columns of many types, a triclinic box with an origin and
-  partial periodicity, information of every kind and a topology with labels
-  and an extra column reads back identical;
-- frames share a topology only while it does not change, and the typed
-  columns appear exactly for information that every frame has with one
-  simple type;
-- members are stored and identical when the same systems are written twice;
-- files cut before the end, after or in the middle of a frame, also with
-  ZIP64 members, give back every complete frame;
-- invalid files and newer versions raise the documented errors, and
-  information that cannot be stored raises `InvalidParameter` and leaves no
-  file.

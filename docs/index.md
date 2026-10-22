@@ -21,9 +21,9 @@ minimization with interatomic potentials.
 - **No OpenMP.** Compiled kernels use mdapy's own thread pool, so mdapy runs
   safely in the same process as PyTorch, NumPy and LAMMPS. Results do not
   depend on the number of threads. See [Parallelism](guide/parallelism.md).
-- **Tested and documented feature by feature.** Each feature has its own
-  page describing what it computes, how it is validated, and which papers it
-  follows.
+- **Tested and documented feature by feature.** Each feature is tested
+  against independent references and has its own page describing how to use
+  it and, for analyses, what it computes and which papers it follows.
 
 ## Status
 
@@ -33,9 +33,9 @@ minimization with interatomic potentials.
 | Systems, topology and box (`System`, `Topology`, `Box`) | available |
 | Reading and writing files: extended XYZ, LAMMPS data and dump, VASP POSCAR, mdapy files | available |
 | Trajectories | available |
-| Neighbor lists | draft (branch `neighbor-draft`) |
-| Calculators: interface and EAM | draft (branch `calculator-draft`) |
-| NEP, energy minimization | planned |
+| Neighbor lists | available |
+| Calculators: interface and EAM, energy minimization | draft (branch `calculator-draft`) |
+| NEP | planned |
 | Structure identification and analysis | planned |
 
 See the [release notes](release-notes.md) for what each development version

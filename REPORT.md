@@ -14,9 +14,10 @@
 | `performance-draft` | 与 OVITO 的性能对比框架和结果；CNA（固定截断）与 Steinhardt 提速，基于 mlip-draft | 已推送，待检查 |
 | `tutorials-draft` | 五篇进阶教程；System 输入数组复制的修复，基于 performance-draft | 已推送，待检查 |
 | `neighbor-reuse-draft` | 读邻居表的路径改成 C++ 并行内核（问题 7 的实现），基于 tutorials-draft | 已推送，待检查 |
-| `fused-nearest-draft` | 近邻类分析边找边算；原子应变和网格提速，基于 neighbor-reuse-draft | 已推送，CI 中 |
-| `render-draft` | photo 风格、有机分子渲染、完整元素表、Metal GPU 渲染，基于 fused-nearest-draft | 已推送，CI 中 |
-| `system-immutable-draft` | System/Topology 的表对外只给拷贝，基于 fused-nearest-draft | 已推送，CI 中 |
+| `fused-nearest-draft` | 近邻类分析边找边算；原子应变和网格提速，基于 neighbor-reuse-draft | 已推送，CI 全绿 |
+| `render-draft` | photo 风格、有机分子渲染、完整元素表、Metal GPU 渲染，基于 fused-nearest-draft | 已推送，CI 全绿（含 macOS 上的 Metal 测试） |
+| `system-immutable-draft` | System/Topology 的表对外只给拷贝，基于 fused-nearest-draft | 已推送，CI 全绿 |
+| `dxa-draft` | 位错分析（位错线、Burgers 矢量、扩展位错与不全位错）和位错线渲染，基于 render-draft | 已推送，CI 中 |
 
 ## 进展
 
@@ -166,6 +167,26 @@
 
 - 接下来：DXA（位错提取与位错线可视化）。
 
+### 00:20
+- `render-draft`、`system-immutable-draft` 的 CI 全绿；GitHub 的 macOS 机器上 Metal GPU 测试也跑通了。
+- **位错分析**（`dxa-draft`，dfed60d，基于 render-draft）：`DislocationAnalysis(structure, a, orientation=None, *, cutoff=None, spacing=None).compute(system, *, structures=None)`，支持 fcc 和 bcc。没有照搬 OVITO 的 DXA（它的界面网格 + 弹性映射太重），按我的理解做了一个更直接的版本：
+  1. CNA 找出非完美晶体原子，去掉非周期方向自由表面附近两层；按截断聚类，每个簇是一个缺陷。
+  2. **位错线**：沿一个周期方向贯穿盒子的簇按切片取核心中心，得到穿过周期边界的直线；其余的簇先轻微收缩、体素取点、最小生成树取最长路径，再判断是否成环（把路径中段切掉后两端仍连通就是环）；最后 Taubin 平滑（不会把环缩小）。沿两个以上周期方向贯穿、或原子离线太远的簇是面缺陷，不算位错线。
+  3. **Burgers 矢量**：在线上 1/4、1/2、3/4 处，取核心外一圈完美晶体原子按右手方向排序，每一步换成最近的晶格矢量，求和取负（FS/RH 约定，和 `insert_dislocation` 的符号一致）；三个回路投票。回路穿过层错（hcp 原子）说明围住的是不全位错。
+  4. **fcc 层错**：簇里有 hcp 原子时，先把非 hcp 原子再聚类：恰好两条 → 扩展位错，整体给出全位错 b、两条不全位错（parent 指向全位错）和扩展宽度；否则是只由不全位错包围的层错（Frank 环、Shockley 环），给出不全位错线，b 记 NaN。
+  5. 结果：`lines`（点、是否闭合、周期、b、晶体坐标下的 b、族 `1/2<110>` 等、长度、与 b 的平均夹角、是否不全、parent、宽度、核心原子）、每个原子属于哪条线（列 `dislocation`）、位错密度；`table()` 一行一条线。
+- **验证**（21 个测试，单文件覆盖率 97%）：fcc 螺位错 ±b（b 和方向都对）、bcc 螺位错 a/2[111]、晶体绕线旋转后结果不变、薄膜里两端止于表面的开放位错线、弛豫后的扩展刃位错（全位错 a/2[1-10]、90°、两条不全位错、宽 28.7 Å）、用立体角位移场 bΩ/4π 构造的 fcc 和 bcc 剪切位错环（闭合、半径、周长、平均夹角 45°、b 反号时线反向）、Shockley 不全位错环、弛豫后的 Frank 环、贯穿盒子的层错面（无线）、空位/间隙/完美晶体（无线）、参数错误。
+- **速度**：31 万原子、5 个环：0.15 s（CNA 另算约 0.06 s）。回路只查附近的原子（简单的网格），原来每个回路扫一遍全部原子。
+- **位错线渲染**：`render(..., dislocations=result, dislocation_radius=0.6)`，线画成管子，在周期边界处切断，按 Burgers 矢量族着色（1/2⟨110⟩ 蓝、1/2⟨111⟩ 绿、⟨100⟩ 品红、⟨110⟩ 紫、不全位错橙、其他红）；`line_segments(box, points, ...)` 单独可用。
+- 文档：Analysis → Defects and deformation 下新增 Dislocation analysis 页（含下图），术语表、参考文献（Hirth & Lothe、Stukowski & Albe 2010）、API、发布说明都已更新。
+
+| | |
+|---|---|
+| 左：铜板里的 a/2⟨110⟩ 位错环（蓝，有的穿过周期边界被切开）和一个包围层错（红）的 Shockley 环（橙）；右：弛豫后的扩展刃位错，全位错线在层错带中间，两侧是两条不全位错 | ![](images/28_dxa.png) |
+| 只画位错线（photo，GPU） | ![](images/29_dxa_lines.png) |
+
+- 接下来：自己找可以补充和完善的地方，在新分支上做（不合并）。
+
 ## 早上需要你决定的事
 
 1. 草稿分支是一条链，合并顺序：build-defects → defect-energies → visualization → mlip（后面的 performance、tutorials 也会接在 mlip 后面）。
@@ -176,4 +197,5 @@
 6. **GSFE 的周期盒子不收敛**：`stacking_fault_energy` 对沿法向周期的晶体，盒子高度固定，层错附近面间距膨胀被约束，内禀层错能随厚度慢慢下降（9/18/27/36 层：27.3/24.5/23.3/22.6 mJ/m²）；两侧自由表面的 slab 在 18 层就收敛到 22.46。未弛豫的值完全不随厚度变，确认是这个原因。另外默认 `max_force=1e-4` 会让层错能抖动约 0.3 mJ/m²，1e-6 才稳定。建议：周期情况下同时弛豫盒子沿法向的长度（像 LAMMPS 的 `fix box/relax z 0`），并把默认 `max_force` 收紧到 1e-6。这个功能在 `defect-energies-draft` 上，改它要把后面的分支都 rebase，所以今晚没动，等你定。教程里先用自由表面 slab。
 7. **截断类分析给了邻居表反而慢**：RDF、配位数、固定截断 CNA 等不传表时在 C++ 里边找边算（多线程），传了表则走单线程 NumPy（掩码、`within` 子集复制、bincount），10.8 万原子上 35 ms 变 160 ms。建议给这些分析的“读表”路径也写 C++ 并行内核，并让它们直接跳过超出截断的对，而不是先 `within` 复制子集。这样复用才总是划算。**已在 `neighbor-reuse-draft` 实现（见 22:35），你决定是否合并。**
 8. 网格搜索要不要再做一版"简单快速路径"（像 OVITO 那样只用盒内坐标判断，不保证与列表逐位相同的距离），用于只需要邻居集合、不需要精确距离的分析（如原子应变、计数）？大约还能快 1.5–2 倍，代价是两套代码。
+10. **位错分析的边界**：不全位错现在只给线、不给 Burgers 矢量（NaN）。要给出 a/6⟨112⟩、a/3⟨111⟩ 这类矢量，回路必须能穿过层错，需要把 hcp 原子也映射到参考晶格（OVITO 的 DXA 就是这样做的，工作量较大）。另外目前只支持单晶取向（`orientation` 一个），晶界里的位错不处理。要不要继续往这个方向做？
 9. 渲染默认 `device`：现在默认 `"cpu"`（结果与线程数无关、逐位可复现），GPU 要显式打开。要不要改成默认 `"auto"`（有 GPU 就用，结果只差舍入）？

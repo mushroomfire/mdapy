@@ -220,13 +220,23 @@ of 0.1, a largest time step of 1.0, five steps before the time step grows by
 and shrinking by 1 % per step. Unlike ASE, the step limit applies to each
 atom rather than to the displacement of all atoms together.
 
+Each step hands the calculator its neighbor list (`neighbors=`), which a
+calculator must accept. The neighbors are searched 1 Å beyond the
+calculator's cutoff, and the following steps take their pairs from that
+search until an atom has moved 0.5 Å; the list is exactly the one a new
+search would give, so the steps are the same, and a minimization with EAM
+is about twice as fast. While the box relaxes, its change makes a new search
+at every step.
+
 ## Validation
 
 The tests in `tests/calculators/test_minimize.py` check that a harmonic dimer
 reaches its bond length to 10<sup>−8</sup> Å; that a rattled fcc crystal
 relaxes back to the perfect lattice, its energy and its twelve equal
 neighbor distances; that results are the same for any number of threads;
-and the step limit, the callback and the errors. For the box, they check that
+that reusing a neighbor search gives the same steps, to the last bit, as a
+calculator that searches at every step, with fewer than half as many
+searches; and the step limit, the callback and the errors. For the box, they check that
 a stretched, a tetragonal and a sheared fcc box relax back to cubic at the
 minimum of $E(a)$ (by finite differences of the energy) with every stress
 component below 10<sup>−5</sup> GPa; that at 5 GPa the stress is −5 GPa and

@@ -103,8 +103,8 @@ flowchart TB
     [entropy fingerprint](analysis/entropy.md)
 
     Defects and deformation: [clusters](analysis/clusters.md) ·
-    [point defects](analysis/defects.md) ·
-    [atomic strain](analysis/strain.md)
+    [Wigner–Seitz](analysis/wigner-seitz.md) ·
+    [atomic strain](analysis/atomic-strain.md)
 
     Dynamics: [atomic temperature](analysis/temperature.md)
 

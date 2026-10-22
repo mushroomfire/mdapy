@@ -58,6 +58,11 @@ Sci.* **2**, 279 (1994).
 [doi:10.1016/0927-0256(94)90109-0](https://doi.org/10.1016/0927-0256(94)90109-0)
 { #faken1994 }
 
+**Falk and Langer (1998).** M. L. Falk and J. S. Langer, Dynamics of
+viscoplastic deformation in amorphous solids, *Phys. Rev. E* **57**, 7192
+(1998). [doi:10.1103/PhysRevE.57.7192](https://doi.org/10.1103/PhysRevE.57.7192)
+{ #falk1998 }
+
 **Fan et al. (2022).** Z. Fan et al., GPUMD: A package for constructing
 accurate machine-learned potentials and performing highly efficient
 atomistic simulations, *J. Chem. Phys.* **157**, 114801 (2022).
@@ -124,11 +129,24 @@ water in simulations: the CHILL+ algorithm, *J. Phys. Chem. B* **119**, 9369
 (2015). [doi:10.1021/jp510289t](https://doi.org/10.1021/jp510289t)
 { #nguyen2015 }
 
+**Nordlund et al. (1998).** K. Nordlund, M. Ghaly, R. S. Averback, M.
+Caturla, T. Diaz de la Rubia and J. Tarus, Defect production in collision
+cascades in elemental semiconductors and fcc metals, *Phys. Rev. B* **57**,
+7556 (1998).
+[doi:10.1103/PhysRevB.57.7556](https://doi.org/10.1103/PhysRevB.57.7556)
+{ #nordlund1998 }
+
 **Piaggi and Parrinello (2017).** P. M. Piaggi and M. Parrinello, Entropy
 based fingerprint for local crystalline order, *J. Chem. Phys.* **147**,
 114112 (2017).
 [doi:10.1063/1.4998408](https://doi.org/10.1063/1.4998408)
 { #piaggi2017 }
+
+**Shimizu et al. (2007).** F. Shimizu, S. Ogata and J. Li, Theory of shear
+banding in metallic glasses and molecular dynamics calculations, *Mater.
+Trans.* **48**, 2923 (2007).
+[doi:10.2320/matertrans.MJ200769](https://doi.org/10.2320/matertrans.MJ200769)
+{ #shimizu2007 }
 
 **Song et al. (2024).** K. Song et al., General-purpose machine-learned
 potential for 16 elemental metals and their alloys, *Nat. Commun.* **15**,

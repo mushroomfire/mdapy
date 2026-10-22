@@ -126,8 +126,8 @@ nav:
           - Entropy fingerprint: analysis/entropy.md
       - Defects and deformation:
           - Cluster analysis: analysis/clusters.md
-          - Point defects: analysis/defects.md
-          - Atomic strain: analysis/strain.md
+          - Wigner–Seitz analysis: analysis/wigner-seitz.md
+          - Atomic strain: analysis/atomic-strain.md
       - Dynamics:
           - Atomic temperature: analysis/temperature.md
   - Simulation:

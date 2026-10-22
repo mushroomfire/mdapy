@@ -121,14 +121,13 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [`EntropyFingerprint`](../analysis/entropy.md).
 - `mdapy.analysis.AtomicTemperature`: the temperature of each atom and its
   neighbors. See [Atomic temperature](../analysis/temperature.md).
-- `mdapy.analysis.AtomicStrain`: Green–Lagrange, von Mises and volumetric
-  atomic strain and $D^2_\text{min}$ against a reference. See
-  [Atomic strain](../analysis/strain.md).
-- `mdapy.analysis.WignerSeitz`: vacancies and interstitials by the
-  Wigner–Seitz cells of a reference lattice. See
-  [Point defects](../analysis/defects.md).
-- `mdapy.analysis.ClusterAnalysis` for clusters of bonded atoms. See
-  [Cluster analysis](../analysis/clusters.md).
+- Defects and deformation in `mdapy.analysis`, agreeing with OVITO:
+  [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms;
+  [`WignerSeitz`](../analysis/wigner-seitz.md) for vacancies and
+  interstitials, the sites of the reference kept in a k-d tree for every
+  configuration; and [`AtomicStrain`](../analysis/atomic-strain.md), the
+  Green–Lagrange, von Mises and volumetric strains and $D^2_\text{min}$
+  against a reference.
 
 ### Foundations
 

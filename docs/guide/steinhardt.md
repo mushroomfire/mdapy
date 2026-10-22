@@ -55,7 +55,8 @@ which needs no spherical harmonics, for degrees up to 12 with and without
 averaging, on a disordered crystal. They also check invariance under rotation,
 the same results for any number of threads and with a given neighbor list.
 `tests/identify/test_lammps.py`, where LAMMPS is installed, compares $q_2$
-to $q_8$ with LAMMPS `compute orientorder/atom` to 10<sup>−10</sup>.
+to $q_8$ with LAMMPS `compute orientorder/atom` to 10<sup>−10</sup>, with the
+12 nearest neighbors and with all neighbors within a cutoff.
 
 ## References
 

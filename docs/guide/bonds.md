@@ -85,7 +85,8 @@ The tests in `tests/analysis/test_bonds.py` check that:
 
 `tests/analysis/test_lammps.py` runs where LAMMPS is installed: on a
 disordered fcc crystal broken into many clusters, every atom is in the same
-cluster as with `compute cluster/atom`.
+cluster as with `compute cluster/atom`, and the normalized bond angle
+distribution agrees with `compute adf` to 10<sup>−12</sup>.
 
 ## References
 

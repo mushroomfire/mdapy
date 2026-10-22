@@ -1,8 +1,8 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
-"""Radial distribution, coordination numbers and clusters against LAMMPS
-computes. Skipped where LAMMPS is not installed."""
+"""Radial distribution, bond angles, coordination numbers and clusters
+against LAMMPS computes. Skipped where LAMMPS is not installed."""
 
 import numpy as np
 import pytest
@@ -10,6 +10,7 @@ from lattices import crystal
 
 import mdapy
 from mdapy.analysis import (
+    BondAngleDistribution,
     ClusterAnalysis,
     CoordinationNumber,
     RadialDistributionFunction,
@@ -49,16 +50,17 @@ run 0
     return values
 
 
-def test_rdf_coordination_and_clusters(tmp_path):
+def test_rdf_bond_angles_coordination_and_clusters(tmp_path):
     system = crystal("fcc", 3.6, (5, 5, 5), jitter=0.25, seed=12)
     values = computed(
         tmp_path,
         system,
         "compute rdf all rdf 120\n"
         "compute coord all coord/atom cutoff 3.0\n"
-        "compute cluster all cluster/atom 2.3",
+        "compute cluster all cluster/atom 2.3\n"
+        "compute adf all adf 180 * * * 0.0 3.0 0.0 3.0",
         per_atom=("coord", "cluster"),
-        arrays=("rdf",),
+        arrays=("rdf", "adf"),
     )
     rdf = RadialDistributionFunction(6.0, 120).compute(system)
     np.testing.assert_allclose(rdf.r, values["rdf"][:, 0], rtol=1e-12)
@@ -66,6 +68,11 @@ def test_rdf_coordination_and_clusters(tmp_path):
     n = len(system)
     np.testing.assert_allclose(
         rdf.g * n / (n - 1), values["rdf"][:, 1], rtol=1e-10, atol=1e-12
+    )
+    angles = BondAngleDistribution(3.0, 180).compute(system)
+    np.testing.assert_allclose(angles.angle, values["adf"][:, 0], rtol=1e-12)
+    np.testing.assert_allclose(
+        angles.density, values["adf"][:, 1], rtol=1e-12, atol=1e-15
     )
     coordination = CoordinationNumber(3.0).compute(system).coordination
     np.testing.assert_array_equal(coordination, values["coord"])

@@ -15,7 +15,8 @@
 | `tutorials-draft` | 五篇进阶教程；System 输入数组复制的修复，基于 performance-draft | 已推送，待检查 |
 | `neighbor-reuse-draft` | 读邻居表的路径改成 C++ 并行内核（问题 7 的实现），基于 tutorials-draft | 已推送，待检查 |
 | `fused-nearest-draft` | 近邻类分析边找边算；原子应变和网格提速，基于 neighbor-reuse-draft | 已推送，CI 中 |
-| `render-draft` | photo（路径追踪）风格；接下来：元素颜色/半径表、有机分子渲染、GPU，基于 fused-nearest-draft | 进行中 |
+| `render-draft` | photo 风格、有机分子渲染、完整元素表、Metal GPU 渲染，基于 fused-nearest-draft | 已推送，CI 中 |
+| `system-immutable-draft` | System/Topology 的表对外只给拷贝，基于 fused-nearest-draft | 已推送，CI 中 |
 
 ## 进展
 
@@ -143,6 +144,28 @@
 - **为什么原子应变还慢**：我读了 OVITO 的 CutoffNeighborFinder 源码并做了对照实验：它的查询非常简单（单元等于截断、27 个单元、只用盒内坐标比距离），在完美晶格上分支预测很规整，单线程每次查询约 55 ns；我们的网格要保证"与列表逐位相同的精确距离"，每个原子约 100 ns。基准里原子应变的参考构型恰好是完美晶格，对它最有利。在有热扰动的晶格上两边都慢一倍。再往下压需要改网格的整体设计，我先记下，不在今晚动。
 - 另外：机器连续跑了几个小时，计时有明显降频漂移（同一测试从 114 ms 漂到 128 ms），报告里的数字有 ±15% 的误差。
 
+### 23:37
+- `fused-nearest-draft`（含原子应变和网格提速）CI 9 个任务全绿。
+- **System 严格不可变**（`system-immutable-draft`，e827418）：实测发现 `system.table.insert_column(...)`、`replace_column`、`drop_in_place`、改 `columns` 这些 polars 原地方法会直接改掉 System 内部的表。现在 `table` 每次返回一份共享列的浅拷贝（开销只是复制列引用），构造时也存自己的一份；Topology 的四张表同样处理。测试逐个试了 polars 所有原地修改途径（插列、换列、删列、改名、extend、vstack、Series 的 scatter/append、to_numpy 写入），System 都不变。NumPy 输入复制（tutorials-draft 里那个修复）也在这条链上。
+- **渲染**（`render-draft`，3088a9c + 2052d0e）：
+  - **元素表**：118 个元素全了：OVITO 有的保留 OVITO 的颜色和显示半径，其余用 Jmol 颜色；新增共价半径（Cordero 2008）和范德华半径（Alvarez 2013），缺的用 1.5/2.0 Å。`element_radii(elements, kind="display"|"covalent"|"vdw")`。
+  - **有机分子**：`render(..., representation=...)`：`spheres`（默认）、`ball_and_stick`（四分之一范德华半径 + 共价键）、`space_filling`（范德华半径）、`licorice`（甘草棒）；`bonds="covalent"` 按共价半径之和 + 0.45 Å 自动成键（Jmol 的判据），`covalent_bonds(system)` 单独可用。见下图（苯、乙醇、C60）。
+  - **photo 风格**：路径追踪（面光源软阴影、天空光、颜色在相邻原子间反射），光强调低了一些。
+  - **GPU（Metal）**：`render(..., device="gpu"|"auto")`，`gpu_available()`。着色器逐行对照 CPU 的实现、同样的单精度和同样的随机数，所以和 CPU 的图只在少数边缘像素上差一点舍入（测试里 5 种风格逐像素对比）。着色器在运行时编译，编译 mdapy 不需要 Xcode/Metal 编译器；非 macOS 或 `MDAPY_METAL=OFF` 时没有 GPU，`auto` 自动回落 CPU。按行分块提交，块之间可以取消、报告进度。
+  - 同时把 BVH 改成确定性的并行构建（树与线程数无关），元素查表改用 polars 映射（原来 100 万个元素字符串排序要 0.2 s）。
+  - **速度**（100 万原子）：1920×1080 studio：CPU 1.4 s → GPU 0.34 s；3840×2160 studio：4.1 s → 1.2 s；photo 1080p：7.1 s → 2.3 s。2.8 万原子 1600×1200、每像素 32×4 条路径的 photo 图 GPU 4.3 s（CPU 14 s）。峰值内存 2.4 GB。
+  - 没做 CUDA：本机是 Mac，先把 Metal 做好；CUDA 版可以照着同一个着色器移植，在 Triton 上测。
+
+| | |
+|---|---|
+| 有机分子：苯、乙醇、C60 × 球棍 / 甘草棒 / 空间填充 | ![](images/27_molecules.png) |
+| studio vs photo（GPU）：铜多晶 | ![](images/21_photo_polycrystal.png) |
+| glossy vs photo：金纳米颗粒 | ![](images/22_photo_gold.png) |
+| studio vs photo：位错 | ![](images/23_photo_dislocation.png) |
+| photo 大图 1600×1200（GPU 4.3 s） | ![](images/26_photo_polycrystal_large.png) |
+
+- 接下来：DXA（位错提取与位错线可视化）。
+
 ## 早上需要你决定的事
 
 1. 草稿分支是一条链，合并顺序：build-defects → defect-energies → visualization → mlip（后面的 performance、tutorials 也会接在 mlip 后面）。
@@ -153,3 +176,4 @@
 6. **GSFE 的周期盒子不收敛**：`stacking_fault_energy` 对沿法向周期的晶体，盒子高度固定，层错附近面间距膨胀被约束，内禀层错能随厚度慢慢下降（9/18/27/36 层：27.3/24.5/23.3/22.6 mJ/m²）；两侧自由表面的 slab 在 18 层就收敛到 22.46。未弛豫的值完全不随厚度变，确认是这个原因。另外默认 `max_force=1e-4` 会让层错能抖动约 0.3 mJ/m²，1e-6 才稳定。建议：周期情况下同时弛豫盒子沿法向的长度（像 LAMMPS 的 `fix box/relax z 0`），并把默认 `max_force` 收紧到 1e-6。这个功能在 `defect-energies-draft` 上，改它要把后面的分支都 rebase，所以今晚没动，等你定。教程里先用自由表面 slab。
 7. **截断类分析给了邻居表反而慢**：RDF、配位数、固定截断 CNA 等不传表时在 C++ 里边找边算（多线程），传了表则走单线程 NumPy（掩码、`within` 子集复制、bincount），10.8 万原子上 35 ms 变 160 ms。建议给这些分析的“读表”路径也写 C++ 并行内核，并让它们直接跳过超出截断的对，而不是先 `within` 复制子集。这样复用才总是划算。**已在 `neighbor-reuse-draft` 实现（见 22:35），你决定是否合并。**
 8. 网格搜索要不要再做一版"简单快速路径"（像 OVITO 那样只用盒内坐标判断，不保证与列表逐位相同的距离），用于只需要邻居集合、不需要精确距离的分析（如原子应变、计数）？大约还能快 1.5–2 倍，代价是两套代码。
+9. 渲染默认 `device`：现在默认 `"cpu"`（结果与线程数无关、逐位可复现），GPU 要显式打开。要不要改成默认 `"auto"`（有 GPU 就用，结果只差舍入）？

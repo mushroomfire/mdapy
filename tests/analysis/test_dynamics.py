@@ -102,5 +102,8 @@ def test_errors():
     two = mdapy.System([[1.0, 1, 1], [2.0, 2, 2]], BOX, elements="Ar")
     with pytest.raises(InvalidParameter, match="frame 1 has 2 atoms"):
         MeanSquaredDisplacement().compute([one, two])
+    empty = mdapy.System(np.zeros((0, 3)), BOX, elements=[])
+    with pytest.raises(InvalidParameter, match="no atoms"):
+        MeanSquaredDisplacement().compute([empty, empty])
     with pytest.raises(InvalidParameter, match="two atoms or more"):
         LindemannIndex().compute([one, one])

@@ -91,6 +91,8 @@ class MeanSquaredDisplacement:
             The mean squared displacement for each lag.
         """
         r = unwrapped(frames)  # (T, N, 3)
+        if r.shape[1] == 0:
+            raise InvalidParameter("the frames have no atoms")
         count = len(r)
         if not self.window:
             parts = ((r - r[0]) ** 2).mean(axis=1)

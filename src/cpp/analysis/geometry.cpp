@@ -254,6 +254,41 @@ void bond_angles_search(const double* positions, std::int64_t n, const double* m
     std::copy(total.begin(), total.end(), counts);
 }
 
+namespace {
+
+// The atoms around one atom, its neighbors summed first, for the temperature
+// relative to their center of mass.
+struct Group {
+    std::int64_t members = 1;
+    double masses = 0.0, momentum[3] = {0.0, 0.0, 0.0}, squares = 0.0;
+
+    void add(double mass, const double* v) {
+        ++members;
+        masses += mass;
+        for (int e = 0; e < 3; ++e) {
+            momentum[e] += mass * v[e];
+        }
+        squares += mass * (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    }
+
+    // With the atom itself of the mass and velocity given; NaN when alone.
+    double temperature(double mass, const double* v, double energy_unit, double boltzmann) const {
+        if (members == 1) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        const double total = mass + masses;
+        double p2 = 0.0;
+        for (int e = 0; e < 3; ++e) {
+            const double pe = mass * v[e] + momentum[e];
+            p2 += pe * pe;
+        }
+        const double twice = (mass * (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) + squares) - p2 / total;
+        return twice * energy_unit / (3.0 * static_cast<double>(members - 1) * boltzmann);
+    }
+};
+
+}  // namespace
+
 void atomic_temperature(std::int64_t n, const std::int64_t* offsets,
                         const std::int32_t* neighbors, const double* mass,
                         const double* velocities, double energy_unit, double boltzmann,
@@ -262,37 +297,41 @@ void atomic_temperature(std::int64_t n, const std::int64_t* offsets,
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t i = begin; i < end; ++i) {
-                // the sums over the neighbors first, then the atom's own terms
-                std::int64_t members = 1;
-                double masses = 0.0, momentum[3] = {0.0, 0.0, 0.0}, squares = 0.0;
+                Group group;
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
                     const std::int64_t j = neighbors[p];
-                    if (j == i) {
-                        continue;  // an image of the atom itself
+                    if (j != i) {  // not an image of the atom itself
+                        group.add(mass[j], velocities + 3 * j);
                     }
-                    const double* v = velocities + 3 * j;
-                    ++members;
-                    masses += mass[j];
-                    for (int e = 0; e < 3; ++e) {
-                        momentum[e] += mass[j] * v[e];
-                    }
-                    squares += mass[j] * (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
                 }
-                if (members == 1) {
-                    temperature[i] = std::numeric_limits<double>::quiet_NaN();
-                    continue;
-                }
-                const double* v = velocities + 3 * i;
-                const double total = mass[i] + masses;
-                double p2 = 0.0;
-                for (int e = 0; e < 3; ++e) {
-                    const double pe = mass[i] * v[e] + momentum[e];
-                    p2 += pe * pe;
-                }
-                const double twice =
-                    (mass[i] * (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) + squares) - p2 / total;
                 temperature[i] =
-                    twice * energy_unit / (3.0 * static_cast<double>(members - 1) * boltzmann);
+                    group.temperature(mass[i], velocities + 3 * i, energy_unit, boltzmann);
+            }
+        },
+        control);
+}
+
+void atomic_temperature_search(const double* positions, std::int64_t n, const double* matrix,
+                               const double* origin, const bool* pbc, double cutoff,
+                               const double* mass, const double* velocities, double energy_unit,
+                               double boltzmann, double* temperature, const Control& control) {
+    if (n == 0) {
+        return;
+    }
+    const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, cutoff);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t t = begin; t < end; ++t) {
+                const std::int64_t i = grid.atom(t);
+                Group group;
+                grid.visit(i, [&](std::int32_t j, const std::int32_t*, double) {
+                    if (j != i) {  // not an image of the atom itself
+                        group.add(mass[j], velocities + 3 * static_cast<std::int64_t>(j));
+                    }
+                });
+                temperature[i] =
+                    group.temperature(mass[i], velocities + 3 * i, energy_unit, boltzmann);
             }
         },
         control);

@@ -52,6 +52,13 @@ void atomic_temperature(std::int64_t n, const std::int64_t* offsets,
                         const double* velocities, double energy_unit, double boltzmann,
                         double* temperature, const Control& control = {});
 
+// The same with the neighbors closer than cutoff found on a cell grid
+// (positions: n x 3; matrix: rows a, b, c; origin: 3; pbc: 3).
+void atomic_temperature_search(const double* positions, std::int64_t n, const double* matrix,
+                               const double* origin, const bool* pbc, double cutoff,
+                               const double* mass, const double* velocities, double energy_unit,
+                               double boltzmann, double* temperature, const Control& control = {});
+
 // The pair entropy fingerprint of n atoms (Piaggi and Parrinello) from the
 // distances to their neighbors in CSR form (those closer than cutoff count):
 // g(r) on the points k sigma up to the cutoff, each neighbor smeared by a

@@ -198,6 +198,27 @@ def test_diamond_matches_a_python_reference(kind, a):
     assert 0 < result.counts()["other"] < len(system)  # a mixture
 
 
+@pytest.mark.parametrize(
+    "kind, a, repeat, seed",
+    [("diamond", 5.43, (4, 4, 4), 2), ("lonsdaleite", 3.84, (5, 5, 4), 7)],
+)
+def test_diamond_needs_the_bond_back_from_every_neighbor(kind, a, repeat, seed):
+    """An atom that is not among the four nearest of one of its neighbors is
+    other, whatever its second neighbors look like; in these systems two such
+    atoms have second neighbors of diamond."""
+    system = crystal(kind, a, repeat, jitter=0.3, seed=seed)
+    nl = mdapy.NeighborList.nearest(system, 4)
+    first = nl.j.reshape(-1, 4)
+    one_way = np.array(
+        [any(i not in first[j] for j in first[i]) for i in range(len(system))]
+    )
+    assert one_way.sum() > 10
+    result = IdentifyDiamond().compute(system)
+    assert np.all(result.structure[one_way] == 0)
+    assert result.counts()["other"] < len(system)  # some atoms are diamond
+    assert [result.names[t] for t in result.structure] == diamond(system)
+
+
 def test_diamond_options():
     system = crystal("diamond", 5.43, (2, 2, 2), jitter=0.1, seed=5)
     expected = DiamondStructure().compute(system).structure

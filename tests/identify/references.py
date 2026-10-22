@@ -93,17 +93,23 @@ def centro_symmetry(system, k):
 
 
 def diamond(system):
-    """Diamond type of each atom: the CNA of its twelve second neighbors."""
+    """Diamond type of each atom: the CNA of its twelve second neighbors,
+    when it is among the four nearest of each of its neighbors."""
     nl = mdapy.NeighborList.build(system, num_neighbors=4)
     v = nl.vectors.reshape(len(system), 4, 3)
     j = nl.j.reshape(len(system), 4)
     names = []
     for i in range(len(system)):
-        second = []
+        second, whole = [], True
         for a in range(4):
             reach = v[i, a] + v[j[i, a]]
             back = np.argmin(np.linalg.norm(reach, axis=1))
+            # the atom must be among the four nearest of each of its neighbors
+            whole = whole and np.linalg.norm(reach[back]) < 1e-2
             second += [reach[b] for b in range(4) if b != back]
+        if not whole:
+            names.append("other")
+            continue
         second = np.array(second)
         local = (1 + np.sqrt(2)) / 2 * np.linalg.norm(second, axis=1).mean()
         name = classify(signatures(second, local))

@@ -379,14 +379,27 @@ class CommonNeighborParameter:
         CommonNeighborParameterResult
             The parameter of each atom.
         """
-        nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
-        cnp = _native.common_neighbor_parameter(
-            nl.offsets,
-            np.ascontiguousarray(nl.vectors),
-            self.cutoff,
-            progress,
-            _native_token(cancel),
-        )
+        if neighbors is None:
+            # the neighbors found on the grid, without a list
+            box = system.box
+            cnp = _native.common_neighbor_parameter_search(
+                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(box.matrix),
+                np.ascontiguousarray(box.origin),
+                np.ascontiguousarray(box.pbc),
+                self.cutoff,
+                progress,
+                _native_token(cancel),
+            )
+        else:
+            nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
+            cnp = _native.common_neighbor_parameter(
+                nl.offsets,
+                np.ascontiguousarray(nl.vectors),
+                self.cutoff,
+                progress,
+                _native_token(cancel),
+            )
         return CommonNeighborParameterResult(cnp)
 
     def __repr__(self) -> str:

@@ -30,6 +30,13 @@ void common_neighbor_parameter(std::int64_t n, const std::int64_t* offsets,
                                const double* vectors, double cutoff, double* cnp,
                                const Control& control = {});
 
+// The same with the neighbors found on a cell grid (positions: n x 3;
+// matrix: rows a, b, c; origin: 3; pbc: 3).
+void common_neighbor_parameter_search(const double* positions, std::int64_t n,
+                                      const double* matrix, const double* origin,
+                                      const bool* pbc, double cutoff, double* cnp,
+                                      const Control& control = {});
+
 // Common neighbor analysis of n atoms from the vectors to their neighbors in
 // CSR form. With cutoff > 0 the neighbors are those within the cutoff;
 // otherwise the cutoff of each atom is adaptive and the neighbors must be

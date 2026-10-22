@@ -58,10 +58,13 @@ def test_matches_the_definition():
     with mdapy.num_threads(3):
         again = CommonNeighborParameter(3.1).compute(system).cnp
     np.testing.assert_array_equal(again, result.cnp)
-    # a longer neighbor list gives the same
+    # a longer neighbor list gives the same, summed in another order than
+    # the grid search
     nl = mdapy.NeighborList.build(system, 4.0)
-    np.testing.assert_array_equal(
-        CommonNeighborParameter(3.1).compute(system, neighbors=nl).cnp, result.cnp
+    np.testing.assert_allclose(
+        CommonNeighborParameter(3.1).compute(system, neighbors=nl).cnp,
+        result.cnp,
+        rtol=1e-13,
     )
 
 

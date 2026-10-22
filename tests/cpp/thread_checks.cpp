@@ -471,6 +471,15 @@ void structure_identification() {
             first_cnp = cnp;
         }
         check(cnp == first_cnp, "the common neighbor parameter is the same for any thread count");
+        std::vector<double> searched_cnp(static_cast<std::size_t>(n));
+        mdapy::identify::common_neighbor_parameter_search(positions.data(), n, matrix, origin, pbc,
+                                                          3.07, searched_cnp.data());
+        bool cnp_near = true;
+        for (std::int64_t i = 0; i < n; ++i) {
+            cnp_near = cnp_near &&
+                       std::abs(searched_cnp[i] - cnp[i]) <= 1e-12 * std::abs(cnp[i]) + 1e-12;
+        }
+        check(cnp_near, "the common neighbor parameter on the grid is that of the list");
         std::vector<double> temperature(static_cast<std::size_t>(n));
         mdapy::analysis::atomic_temperature(n, pairs.offsets.data(), pairs.neighbors.data(),
                                             masses.data(), velocities.data(), 1.0, 1.0,

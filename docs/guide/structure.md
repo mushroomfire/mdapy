@@ -143,7 +143,8 @@ $2a^2/3$ in ideal hcp of lattice constant $a$, and large at defects and
 surfaces. Unlike the centro-symmetry parameter it needs a cutoff rather than
 a number of neighbors, and is defined for any structure. The result is a
 `CommonNeighborParameterResult` with the per-atom `cnp`, also its column; an
-atom without neighbors gets NaN.
+atom without neighbors gets NaN. Without a given neighbor list the neighbors
+are found on the cell grid, without storing a list.
 
 ## Validation
 

@@ -215,6 +215,47 @@ class NeighborList:
             return self  # every pair is closer already
         return self._subset(self.distances < cutoff, cutoff)
 
+    def _follow(self, system: System, cutoff: float) -> "NeighborList | None":
+        """The list NeighborList.build(system, cutoff) for the atoms of this
+        list moved to their places in system, from the pairs of this list
+        without a new search; None when the box changed or an atom moved too
+        far, half the difference of the cutoffs or more."""
+        old = self.system
+        if (
+            len(system) != len(old)
+            or not np.array_equal(system.box.matrix, old.box.matrix)
+            or not np.array_equal(system.box.origin, old.box.origin)
+            or not np.array_equal(system.box.pbc, old.box.pbc)
+        ):
+            return None
+        step = system.positions - old.positions
+        moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
+        if not cutoff + 2.0 * moved < self.cutoff:
+            return None
+        vectors = _native.pair_vectors(
+            np.ascontiguousarray(system.positions),
+            self.offsets,
+            self.j,
+            self.shifts,
+            np.ascontiguousarray(system.box.matrix),
+        )
+        # the test of the search itself, and its distances
+        r2 = vectors[:, 0] * vectors[:, 0] + vectors[:, 1] * vectors[:, 1]
+        r2 = r2 + vectors[:, 2] * vectors[:, 2]
+        keep = r2 < cutoff * cutoff
+        kept = np.concatenate([[0], np.cumsum(keep)])
+        followed = NeighborList(
+            system,
+            cutoff,
+            kept[self.offsets].astype(np.int64),
+            self.j[keep],
+            self.shifts[keep],
+            np.sqrt(r2[keep]),
+        )
+        followed._vectors = vectors[keep]
+        followed._vectors.flags.writeable = False
+        return followed
+
     def sorted(self) -> "NeighborList":
         """The same pairs, each atom's sorted by distance (ties keep their order)."""
         order, _ = _native.order_by_distance(self.offsets, self.distances)

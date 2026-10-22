@@ -45,6 +45,27 @@ nb::object centro_symmetry(Neighbors3 vectors, nb::handle progress, const Cancel
     return result;
 }
 
+nb::object common_neighbor_parameter(Offsets offsets, Vectors vectors, double cutoff,
+                                     nb::handle progress, const CancelToken* cancel) {
+    if (offsets.shape(0) < 1 ||
+        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(vectors.shape(0))) {
+        throw std::invalid_argument("the offsets do not fit the vectors");
+    }
+    if (!(cutoff > 0.0)) {
+        throw std::invalid_argument("cutoff must be positive");
+    }
+    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    double* cnp;
+    nb::object result = new_array(static_cast<std::size_t>(n), cnp);
+    run_released(
+        [&](const Control& control) {
+            identify::common_neighbor_parameter(n, offsets.data(), vectors.data(), cutoff, cnp,
+                                                control);
+        },
+        progress, cancel);
+    return result;
+}
+
 nb::object common_neighbor_analysis(Offsets offsets, Vectors vectors, double cutoff,
                                     nb::handle progress, const CancelToken* cancel) {
     if (offsets.shape(0) < 1 ||
@@ -117,6 +138,9 @@ nb::object chill_plus(Offsets offsets, Pairs neighbors, Vectors vectors, nb::han
 void bind_identify(nb::module_& m) {
     m.def("centro_symmetry", &centro_symmetry, nb::arg("vectors"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("common_neighbor_parameter", &common_neighbor_parameter, nb::arg("offsets"),
+          nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("common_neighbor_analysis", &common_neighbor_analysis, nb::arg("offsets"),
           nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);

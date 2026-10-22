@@ -7,6 +7,7 @@
 #include <bitset>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "analysis/steinhardt.h"
@@ -155,6 +156,41 @@ void centro_symmetry(std::int64_t n, int k, const double* vectors, double* csp,
                     sum += values[a];
                 }
                 csp[i] = sum;
+            }
+        },
+        control);
+}
+
+void common_neighbor_parameter(std::int64_t n, const std::int64_t* offsets,
+                               const double* vectors, double cutoff, double* cnp,
+                               const Control& control) {
+    const double cutoff2 = cutoff * cutoff;
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                const std::int64_t first = offsets[i], last = offsets[i + 1];
+                if (first == last) {
+                    cnp[i] = std::numeric_limits<double>::quiet_NaN();
+                    continue;
+                }
+                // with v the vectors from i, r_ik + r_jk = v_j - 2 v_k
+                double sum = 0.0;
+                for (std::int64_t j = first; j < last; ++j) {
+                    const double* vj = vectors + 3 * j;
+                    double r[3] = {0.0, 0.0, 0.0};
+                    for (std::int64_t k = first; k < last; ++k) {
+                        const double* vk = vectors + 3 * k;
+                        const double d[3] = {vk[0] - vj[0], vk[1] - vj[1], vk[2] - vj[2]};
+                        if (k != j && d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < cutoff2) {
+                            for (int e = 0; e < 3; ++e) {
+                                r[e] += vj[e] - 2.0 * vk[e];
+                            }
+                        }
+                    }
+                    sum += r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
+                }
+                cnp[i] = sum / static_cast<double>(last - first);
             }
         },
         control);

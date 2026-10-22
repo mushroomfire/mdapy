@@ -433,6 +433,7 @@ void structure_identification() {
     }
     std::vector<std::int8_t> first_types, first_water;
     std::vector<double> first_csp, first_q, first_entropy, first_factor;
+    std::vector<double> first_cnp;
     std::vector<double> first_strain;
     std::vector<std::int64_t> first_angles, first_histogram;
     const std::vector<int> degrees = {4, 6, 12};
@@ -443,6 +444,13 @@ void structure_identification() {
         mdapy::identify::common_neighbor_analysis(n, pairs.offsets.data(), vectors.data(), 3.07,
                                                   types.data());
         mdapy::identify::centro_symmetry(n, 8, eight.data(), csp.data());
+        std::vector<double> cnp(static_cast<std::size_t>(n));
+        mdapy::identify::common_neighbor_parameter(n, pairs.offsets.data(), vectors.data(), 3.07,
+                                                   cnp.data());
+        if (threads == kThreads[0]) {
+            first_cnp = cnp;
+        }
+        check(cnp == first_cnp, "the common neighbor parameter is the same for any thread count");
         std::vector<double> q(static_cast<std::size_t>(n) * degrees.size());
         mdapy::analysis::steinhardt(n, pairs.offsets.data(), pairs.neighbors.data(),
                                     vectors.data(), degrees, true, q.data());

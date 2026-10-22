@@ -4,13 +4,18 @@
 
 <!-- skip-test -->
 ```python
-from mdapy.identify import CentroSymmetryParameter, CommonNeighborAnalysis
+from mdapy.identify import (
+    CentroSymmetryParameter,
+    CommonNeighborAnalysis,
+    CommonNeighborParameter,
+)
 
 types = CommonNeighborAnalysis().compute(system)
 types.structure  # (N,) int8, an index into types.names
 types.counts()  # {'other': ..., 'fcc': ..., 'hcp': ..., 'bcc': ..., 'ico': ...}
 csp = CentroSymmetryParameter(num_neighbors=12).compute(system)
 system = system.with_columns(types, csp)  # columns 'structure' and 'csp'
+cnp = CommonNeighborParameter(cutoff=3.0).compute(system)  # column 'cnp'
 ```
 
 ## Common neighbor analysis
@@ -120,9 +125,29 @@ The sum of the smallest values is the definition of LAMMPS `compute
 centro/atom`; it can pair one neighbor twice, which a pairing of each neighbor
 with exactly one other would not.
 
+## Common neighbor parameter
+
+`CommonNeighborParameter(cutoff)` (Tsuzuki, Branicio and Rino) looks at the
+common neighbors of an atom $i$ and each of its neighbors $j$: the atoms $k$
+closer than `cutoff` to both. With $\mathbf r_{ik} = \mathbf x_i - \mathbf
+x_k$,
+
+$$
+Q_i = \frac{1}{N_i} \sum_{j} \Bigl| \sum_{k} (\mathbf r_{ik} + \mathbf
+r_{jk}) \Bigr|^2,
+$$
+
+in Å², over the $N_i$ neighbors $j$ of $i$. It is zero in perfect fcc and bcc
+(with the cutoff between the second and third shells) and in diamond,
+$2a^2/3$ in ideal hcp of lattice constant $a$, and large at defects and
+surfaces. Unlike the centro-symmetry parameter it needs a cutoff rather than
+a number of neighbors, and is defined for any structure. The result is a
+`CommonNeighborParameterResult` with the per-atom `cnp`, also its column; an
+atom without neighbors gets NaN.
+
 ## Validation
 
-The tests in `tests/identify/test_structure.py` check that:
+The tests in `tests/identify/test_structure.py` and `test_cnp.py` check that:
 
 - perfect fcc, hcp and bcc crystals are identified completely by both forms,
   also when rotated; the center of an icosahedral cluster is `ico`; diamond is
@@ -143,6 +168,11 @@ The tests in `tests/identify/test_structure.py` check that:
 - the centro-symmetry parameter is zero for perfect fcc and bcc, exactly
   $a^2$ for hcp, agrees with a plain Python implementation to 10<sup>−12</sup>
   on disordered crystals and does not change under rotation;
+- the common neighbor parameter is zero for perfect fcc, bcc and diamond,
+  exactly $2a^2/3$ for ideal hcp, agrees to 10<sup>−12</sup> with a Python
+  implementation that finds the common neighbors by atom and periodic image in
+  both neighbor lists, also in a box shorter than twice the cutoff, and does
+  not change under rotation and translation;
 - results are the same for any number of threads and with a given neighbor
   list.
 
@@ -157,15 +187,18 @@ parameter agrees with `compute centro/atom` to 10<sup>−10</sup>.
 - J. D. Honeycutt and H. C. Andersen, Molecular dynamics study of melting and
   freezing of small Lennard-Jones clusters, *J. Phys. Chem.* **91**, 4950
   (1987). doi:10.1021/j100303a014
-- A. Stukowski, Structure identification methods for atomistic simulations of
-  crystalline materials, *Modelling Simul. Mater. Sci. Eng.* **20**, 045021
-  (2012). doi:10.1088/0965-0393/20/4/045021
+- C. L. Kelchner, S. J. Plimpton and J. C. Hamilton, Dislocation nucleation
+  and defect structure during surface indentation, *Phys. Rev. B* **58**,
+  11085 (1998). doi:10.1103/PhysRevB.58.11085
 - E. Maras, O. Trushin, A. Stukowski, T. Ala-Nissila and H. Jónsson, Global
   transition path search for dislocation formation in Ge on Si(001),
   *Comput. Phys. Commun.* **205**, 13 (2016). doi:10.1016/j.cpc.2016.04.001
 - A. H. Nguyen and V. Molinero, Identification of clathrate hydrates, hexagonal
   ice, cubic ice, and liquid water in simulations: the CHILL+ algorithm,
   *J. Phys. Chem. B* **119**, 9369 (2015). doi:10.1021/jp510289t
-- C. L. Kelchner, S. J. Plimpton and J. C. Hamilton, Dislocation nucleation
-  and defect structure during surface indentation, *Phys. Rev. B* **58**,
-  11085 (1998). doi:10.1103/PhysRevB.58.11085
+- A. Stukowski, Structure identification methods for atomistic simulations of
+  crystalline materials, *Modelling Simul. Mater. Sci. Eng.* **20**, 045021
+  (2012). doi:10.1088/0965-0393/20/4/045021
+- H. Tsuzuki, P. S. Branicio and J. P. Rino, Structural characterization of
+  deformed crystals by analysis of common atomic neighborhood, *Comput. Phys.
+  Commun.* **177**, 518 (2007). doi:10.1016/j.cpc.2007.05.018

@@ -67,7 +67,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [Analyses](guide/analyses.md).
 - `mdapy.identify.CommonNeighborAnalysis`, adaptive or with a fixed cutoff,
   for fcc, hcp, bcc and icosahedral atoms, and
-  `mdapy.identify.CentroSymmetryParameter`, `IdentifyDiamond` for cubic
+  `mdapy.identify.CentroSymmetryParameter`, `CommonNeighborParameter`,
+  `IdentifyDiamond` for cubic
   and hexagonal diamond, and `ChillPlus` for ice, hydrates and liquid water.
   See
   [Structure identification](guide/structure.md).

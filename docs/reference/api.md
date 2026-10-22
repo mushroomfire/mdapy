@@ -46,6 +46,10 @@ import mdapy
 
 ::: mdapy.identify.CentroSymmetryResult
 
+::: mdapy.identify.CommonNeighborParameter
+
+::: mdapy.identify.CommonNeighborParameterResult
+
 ::: mdapy.analysis.RadialDistributionFunction
 
 ::: mdapy.analysis.RadialDistributionResult

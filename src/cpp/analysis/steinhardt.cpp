@@ -11,17 +11,45 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 
+// What real_harmonics needs for each l and m: (2m - 1)!!, and the
+// normalization, computed once as each call used to compute it.
+struct HarmonicTables {
+    double factorial[kMaxDegree + 1];
+    double norm[kMaxDegree + 1][kMaxDegree + 1];
+
+    HarmonicTables() {
+        for (int m = 0; m <= kMaxDegree; ++m) {
+            double current = 1.0;
+            for (int k = 1; k <= m; ++k) {
+                current *= 2 * k - 1;
+            }
+            factorial[m] = current;
+        }
+        for (int l = 0; l <= kMaxDegree; ++l) {
+            double ratio = 1.0;  // (l - m)! / (l + m)!
+            norm[l][0] = std::sqrt((2 * l + 1) / (4.0 * kPi));
+            for (int m = 1; m <= l; ++m) {
+                ratio /= static_cast<double>((l + m) * (l - m + 1));
+                norm[l][m] = std::sqrt(2.0 * (2 * l + 1) / (4.0 * kPi) * ratio);
+            }
+        }
+    }
+};
+
+const HarmonicTables& tables() {
+    static const HarmonicTables kTables;
+    return kTables;
+}
+
 }  // namespace
 
 void real_harmonics(int l, const double* u, double* y) {
+    const HarmonicTables& t = tables();
     // q[m] = d^m P_l / dz^m, from the recurrences in l at fixed m
     double q[kMaxDegree + 1];
     for (int m = 0; m <= l; ++m) {
         double previous = 0.0;
-        double current = 1.0;  // (2m - 1)!!
-        for (int k = 1; k <= m; ++k) {
-            current *= 2 * k - 1;
-        }
+        double current = t.factorial[m];  // (2m - 1)!!
         for (int degree = m + 1; degree <= l; ++degree) {
             const double next =
                 ((2 * degree - 1) * u[2] * current - (degree + m - 1) * previous) / (degree - m);
@@ -31,14 +59,12 @@ void real_harmonics(int l, const double* u, double* y) {
         q[m] = current;
     }
     double re = 1.0, im = 0.0;  // (x + iy)^m
-    double ratio = 1.0;         // (l - m)! / (l + m)!
-    y[0] = std::sqrt((2 * l + 1) / (4.0 * kPi)) * q[0];
+    y[0] = t.norm[l][0] * q[0];
     for (int m = 1; m <= l; ++m) {
         const double r = re * u[0] - im * u[1];
         im = re * u[1] + im * u[0];
         re = r;
-        ratio /= static_cast<double>((l + m) * (l - m + 1));
-        const double norm = std::sqrt(2.0 * (2 * l + 1) / (4.0 * kPi) * ratio) * q[m];
+        const double norm = t.norm[l][m] * q[m];
         y[2 * m - 1] = norm * re;
         y[2 * m] = norm * im;
     }

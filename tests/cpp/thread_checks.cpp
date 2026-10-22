@@ -517,6 +517,16 @@ void structure_identification() {
         const std::vector<std::int32_t> species(static_cast<std::size_t>(n), 0);
         const std::vector<std::int64_t> histogram = mdapy::analysis::pair_histogram(
             positions.data(), n, matrix, origin, pbc, 6.0, 60, species.data(), 1);
+        // the neighbors within 3.07 counted on the grid are those of the list
+        std::vector<std::int64_t> counted(static_cast<std::size_t>(n));
+        const double limit = 3.07;
+        mdapy::analysis::count_neighbors(positions.data(), n, matrix, origin, pbc,
+                                         species.data(), 1, &limit, false, counted.data());
+        bool counts_match = true;
+        for (std::int64_t i = 0; i < n; ++i) {
+            counts_match = counts_match && counted[i] == pairs.offsets[i + 1] - pairs.offsets[i];
+        }
+        check(counts_match, "neighbors counted on the grid are those of the list");
         if (threads == kThreads[0]) {
             first_histogram = histogram;
         }

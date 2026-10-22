@@ -161,6 +161,29 @@ def test_coordination_per_pair_of_elements():
     )
 
 
+def test_coordination_on_the_grid_and_from_a_list_agree():
+    # without a list the neighbors are counted on the grid
+    system = alloy(seed=5, jitter=0.25)
+    nl = mdapy.NeighborList.build(system, 4.0)
+    for counter in (
+        CoordinationNumber(3.0),
+        CoordinationNumber(cutoffs={("Cu", "Ni"): 2.9, ("Al", "Al"): 3.1}),
+    ):
+        grid, listed = counter.compute(system), counter.compute(system, neighbors=nl)
+        np.testing.assert_array_equal(grid.coordination, listed.coordination)
+        for element in grid.partial:
+            np.testing.assert_array_equal(
+                grid.partial[element], listed.partial[element]
+            )
+    plain = mdapy.System(system.positions, system.box)
+    np.testing.assert_array_equal(
+        CoordinationNumber(3.0).compute(plain).coordination,
+        CoordinationNumber(3.0)
+        .compute(plain, neighbors=mdapy.NeighborList.build(plain, 3.5))
+        .coordination,
+    )
+
+
 @pytest.mark.parametrize(
     "options, message",
     [

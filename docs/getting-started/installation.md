@@ -17,6 +17,22 @@ Building needs a C++17 compiler and CMake 3.18 or newer; `pip` installs the
 remaining build tools (scikit-build-core and nanobind) automatically. No
 OpenMP library is needed.
 
+## 64-bit atom indices
+
+Atom indices in results such as neighbor lists are 32-bit integers, enough
+for 2,147,483,647 atoms and half the memory of 64-bit ones. For larger
+systems, build mdapy with 64-bit indices:
+
+```bash
+pip install . -Ccmake.define.MDAPY_INDEX64=ON
+```
+
+`mdapy.index_dtype` tells which build is installed:
+
+```bash
+python -c "import mdapy; print(mdapy.index_dtype)"   # int64
+```
+
 ## Optional extras
 
 | Extra | Installs | Needed for |

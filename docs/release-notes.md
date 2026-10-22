@@ -54,11 +54,15 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 
 ### Neighbor search
 
-- `mdapy.NeighborList`: every pair within a cutoff in any box, with periodic
-  images enumerated so that small boxes work, in CSR form with integer image
-  shifts; `within`, `sorted` and `nearest` for k nearest neighbors. Results
-  are the same for any number of threads. See
-  [Neighbor lists](guide/neighbor.md).
+- `mdapy.NeighborList.build(system, cutoff)` and
+  `NeighborList.build(system, num_neighbors=k)`: every pair within a cutoff,
+  or the k nearest neighbors of each atom, in any box, with periodic images
+  enumerated so that small boxes work, in CSR form with int8 image shifts
+  (15 bytes per pair); `within` and `sorted` derive lists without a new
+  search. Distances are computed by one formula in both, nearest neighbors are
+  ordered exactly with ties by atom and image, and results are the same for
+  any number of threads. A k-d tree finds nearest neighbors in clusters and
+  slabs as fast as in crystals. See [Neighbor lists](guide/neighbor.md).
 
 ### Calculators
 
@@ -71,8 +75,17 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.calculators.NEP` for neuroevolution potentials (nep4 and nep4_zbl
   files of GPUMD) with every form of ZBL and per-element cutoffs, agreeing
   with NEP_CPU in double precision; `NEP.descriptors` gives the descriptors.
-- `mdapy.minimize`: FIRE minimization of the positions and, optionally, the
-  box (isotropic, along the axes or any strain), at a given pressure.
+- `EAM.write` writes potentials in the LAMMPS eam/alloy format;
+  `EAM.zhou` builds the potentials of Zhou, Johnson and Wadley for 17
+  elements, as the LAMMPS database tool tabulates them; `EAM.average` gives
+  the average-atom potential of a random alloy.
+- `mdapy.calculators.LAMMPS` makes any interaction of LAMMPS a calculator,
+  through the LAMMPS Python module.
+- `mdapy.minimize`: FIRE 2.0 minimization of the positions, step for step as
+  LAMMPS `min_style fire`, and optionally of the box (`cell="isotropic"`,
+  `"axes"` or `"full"`, at a `pressure`) to the minimum of LAMMPS
+  `fix box/relax`; keeps a frame every `save_every` steps when asked, with the
+  virial and the stress of each.
 - `mdapy.calculators.elastic_constants`: the (6, 6) elastic constants from
   the stress under small strains, with relaxed positions, and Voigt, Reuss
   and Hill moduli.
@@ -82,7 +95,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - Python 3.10 or newer; NumPy 2 and polars 2 are the only required
   dependencies.
 - All compiled code is one extension module, built as a single abi3 wheel per
-  platform for Python 3.12 and newer.
+  platform for Python 3.12 and newer, optimized for speed.
+- Atom indices in results are 32-bit, `mdapy.index_dtype`; a build with
+  `-Ccmake.define.MDAPY_INDEX64=ON` uses 64-bit indices for more than
+  2,147,483,647 atoms. See [Installation](getting-started/installation.md#64-bit-atom-indices).
 - A thread pool of mdapy's own replaces OpenMP, so mdapy can run in the same
   process as PyTorch, NumPy and LAMMPS. Results are identical for any number of
   threads. See [Parallelism](guide/parallelism.md).

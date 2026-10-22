@@ -38,6 +38,8 @@ import mdapy
 
 ::: mdapy.calculators.NEP
 
+::: mdapy.calculators.LAMMPS
+
 ::: mdapy.calculators.testing.check_calculator
 
 ::: mdapy.minimize
@@ -50,7 +52,7 @@ import mdapy
 
 ::: mdapy.core.box.LammpsBox
 
-## Threads
+## Threads and indices
 
 ::: mdapy.get_num_threads
 
@@ -59,6 +61,8 @@ import mdapy
 ::: mdapy.num_threads
 
 ::: mdapy.CancelToken
+
+::: mdapy.core.indices.index_dtype
 
 ## Errors
 

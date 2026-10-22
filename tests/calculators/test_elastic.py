@@ -92,8 +92,12 @@ def test_errors(potential, copper):
     class NoVirial(Harmonic):
         implemented = frozenset({"energy", "forces"})
 
-    with pytest.raises(InvalidParameter, match="does not compute the virial"):
+    with pytest.raises(
+        InvalidParameter, match=r"does not compute \['energy', 'forces', 'virial'\]"
+    ):
         elastic_constants(copper, NoVirial())
+    with pytest.raises(InvalidParameter, match=r"does not compute \['virial'\]"):
+        elastic_constants(copper, NoVirial(), relax=False)
     rattled = copper.with_positions(
         copper.positions
         + np.random.default_rng(1).normal(scale=0.1, size=copper.positions.shape)

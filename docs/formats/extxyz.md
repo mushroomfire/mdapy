@@ -2,7 +2,9 @@
 
 The format `extxyz` (extensions `.xyz` and `.extxyz`) stores one or more
 frames, each with per-atom columns, a lattice and global values such as the
-energy. mdapy reads and writes the conventions of ASE and GPUMD.
+energy. mdapy reads and writes the conventions of ASE
+([Larsen et al. (2017)](../reference/references.md#larsen2017)) and GPUMD
+([Fan et al. (2022)](../reference/references.md#fan2022)).
 
 ```python
 from pathlib import Path
@@ -114,35 +116,6 @@ unchanged. `info` cannot use the keys `Lattice`, `pbc`, `Origin` and
   positive under compression, the opposite sign. mdapy reads the value as
   written, so check the sign of `stress` from such files.
 
-## Validation
-
-The tests in `tests/io/test_extxyz.py` check that:
-
-- writing and reading gives back every column bit for bit: each standard
-  column, float, integer, boolean and string columns, array columns of each
-  type, and 3×3 per-atom arrays; also the box with an origin and partial
-  periodicity, and `info` values of every kind;
-- frames with different atoms and columns follow each other, and frames
-  with no atoms work;
-- hand-written files in the styles of ASE (momenta, stress in eV/Å<sup>3</sup>)
-  and GPUMD (lower-case keys, `force`, velocities in Å/fs, `energy_atom`)
-  give the expected values;
-- the comment line is split as ASE splits it, including quotes, escapes and
-  spaces around `=`;
-- each of 30 malformed files raises `FileFormatError` with the right line,
-  and each system that cannot be written raises the documented error and
-  leaves no file.
-
-`tests/io/test_extxyz_ase.py` runs where ASE is installed: files written by
-ASE read to the same values in mdapy as in ASE, and files written by mdapy
-read in ASE to the values that were written.
-
-## References
+## See also
 
 - Extended XYZ specification, libAtoms: <https://github.com/libAtoms/extxyz>
-- A. H. Larsen et al., The atomic simulation environment—a Python library
-  for working with atoms, *J. Phys.: Condens. Matter* **29**, 273002 (2017).
-  doi:10.1088/1361-648X/aa680e
-- Z. Fan et al., GPUMD: A package for constructing accurate machine-learned
-  potentials and performing highly efficient atomistic simulations,
-  *J. Chem. Phys.* **157**, 114801 (2022). doi:10.1063/5.0106617

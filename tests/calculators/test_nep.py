@@ -116,7 +116,7 @@ def test_errors(tmp_path):
         potential.compute(mdapy.System(system.positions, system.box))
     with pytest.raises(InvalidParameter, match=r"no parameters for \['Al'\]"):
         potential.descriptors(system.with_columns(element=["Al"] * len(system)))
-    with pytest.raises(InvalidParameter, match="below the potential"):
+    with pytest.raises(InvalidParameter, match="below the required"):
         potential.compute(system, neighbors=mdapy.NeighborList.build(system, 3.0))
     shared = mdapy.NeighborList.build(system, 6.0)
     np.testing.assert_array_equal(
@@ -212,7 +212,14 @@ def test_blank_lines_before_the_header(tmp_path):
 def test_neighbor_lists_must_be_symmetric(tmp_path):
     potential = NEP(write_nep(tmp_path / "nep.txt"))
     system = alloy(seed=7)
-    nearest = mdapy.NeighborList.nearest(system, 120)  # i near j, not j near i
+    nearest = mdapy.NeighborList.build(system, num_neighbors=120)
     assert nearest.cutoff > potential.cutoff
-    with pytest.raises(ValueError, match="not symmetric"):
+    with pytest.raises(InvalidParameter, match="nearest neighbors"):
         potential.compute(system, neighbors=nearest)
+    # a list within a cutoff without one of the two directions of a pair
+    full = mdapy.NeighborList.build(system, potential.cutoff)
+    keep = np.ones(len(full), dtype=bool)
+    keep[0] = False
+    broken = full._subset(keep, full.cutoff)
+    with pytest.raises(ValueError, match="not symmetric"):
+        potential.compute(system, neighbors=broken)

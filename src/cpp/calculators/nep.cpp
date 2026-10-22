@@ -8,6 +8,8 @@
 #include <numeric>
 #include <stdexcept>
 
+#include "neighbor/frame.h"
+
 namespace mdapy::calculators {
 namespace {
 
@@ -167,8 +169,8 @@ void zbl_pair(const double* row, double r, double& energy, double& derivative) {
 
 // For each pair p = (i, j, s) of a full neighbor list, the pair (j, i, -s).
 std::vector<std::int64_t> reverse_pairs(std::int64_t n, const std::int64_t* offsets,
-                                        const std::int32_t* neighbors,
-                                        const std::int32_t* shifts, const Control& control) {
+                                        const index_t* neighbors, const std::int8_t* shifts,
+                                        const Control& control) {
     const std::int64_t count = offsets[n];
     // each atom's pairs ordered by neighbor and shift
     std::vector<std::int64_t> order(static_cast<std::size_t>(count));
@@ -199,18 +201,17 @@ std::vector<std::int64_t> reverse_pairs(std::int64_t n, const std::int64_t* offs
             for (std::int64_t i = begin; i < end; ++i) {
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
                     const std::int64_t j = neighbors[p];
-                    const std::int32_t key[4] = {static_cast<std::int32_t>(i), -shifts[3 * p],
-                                                 -shifts[3 * p + 1], -shifts[3 * p + 2]};
-                    const auto below = [&](std::int64_t q, const std::int32_t* k) {
-                        const std::int32_t mine[4] = {neighbors[q], shifts[3 * q],
+                    const std::int64_t key[4] = {i, -shifts[3 * p], -shifts[3 * p + 1],
+                                                 -shifts[3 * p + 2]};
+                    const auto below = [&](std::int64_t q, const std::int64_t* k) {
+                        const std::int64_t mine[4] = {neighbors[q], shifts[3 * q],
                                                       shifts[3 * q + 1], shifts[3 * q + 2]};
                         return std::lexicographical_compare(mine, mine + 4, k, k + 4);
                     };
                     const auto first = order.begin() + offsets[j];
                     const auto last = order.begin() + offsets[j + 1];
                     const auto found = std::lower_bound(first, last, key, below);
-                    if (found != last && !below(*found, key) &&
-                        neighbors[*found] == static_cast<std::int32_t>(i) &&
+                    if (found != last && neighbors[*found] == i &&
                         shifts[3 * *found] == key[1] && shifts[3 * *found + 1] == key[2] &&
                         shifts[3 * *found + 2] == key[3]) {
                         reverse[p] = *found;
@@ -299,9 +300,15 @@ void NepModel::prepare() {
 }
 
 void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* species,
-                 const std::int64_t* offsets, const std::int32_t* neighbors,
-                 const std::int32_t* shifts, const double* vectors, double* energies,
+                 const double* positions, const double* matrix, const std::int64_t* offsets,
+                 const index_t* neighbors, const std::int8_t* shifts, double* energies,
                  double* forces, double* virials, double* descriptors, const Control& control) {
+    // the vector of pair p of atom i, as NeighborList.vectors gives it
+    const auto vector_of = [&](std::int64_t i, std::int64_t p, double* v) {
+        neighbor::pair_vector(positions + 3 * i,
+                              positions + 3 * static_cast<std::int64_t>(neighbors[p]),
+                              shifts + 3 * p, matrix, v);
+    };
     const int types = model.types, dim = model.dim, harmonics = model.harmonic_count();
     const int nr = model.n_radial + 1, na = model.n_angular + 1;
     const int kr = model.k_radial + 1, ka = model.k_angular + 1;
@@ -344,7 +351,8 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                 for (std::size_t k = 0; k < pairs; ++k) {
                     const std::int64_t p = first + static_cast<std::int64_t>(k);
                     const int tj = species[neighbors[p]];
-                    const double* v = vectors + 3 * p;
+                    double v[3];
+                    vector_of(i, p, v);
                     const double r = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
                     const double rc_r = 0.5 * (model.rc_radial[ti] + model.rc_radial[tj]);
                     if (r < rc_r) {
@@ -486,7 +494,8 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                 for (std::size_t k = 0; k < pairs; ++k) {
                     const std::int64_t p = first + static_cast<std::int64_t>(k);
                     const int tj = species[neighbors[p]];
-                    const double* v = vectors + 3 * p;
+                    double v[3];
+                    vector_of(i, p, v);
                     const double r = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
                     const double u[3] = {v[0] / r, v[1] / r, v[2] / r};
                     double* t = &derivative[3 * static_cast<std::size_t>(p)];
@@ -554,7 +563,8 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                 double force[3] = {0.0, 0.0, 0.0};
                 double w[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const double* v = vectors + 3 * p;
+                    double v[3];
+                    vector_of(i, p, v);
                     const double* t_ij = &derivative[3 * static_cast<std::size_t>(p)];
                     const double* t_ji = &derivative[3 * static_cast<std::size_t>(reverse[p])];
                     for (int a = 0; a < 3; ++a) {

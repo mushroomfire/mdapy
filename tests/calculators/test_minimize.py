@@ -71,7 +71,8 @@ class Searching(EAM):
 
 
 def test_one_search_serves_several_steps(potential, monkeypatch):
-    # the lists from a longer search are those of new searches, to the last bit
+    # the lists from a longer search hold the pairs of new searches, in
+    # another order, so forces differ in the last bits only
     system = alloy(seed=4, repeat=2, jitter=0.15)
     calls = []
     build = mdapy.NeighborList.__dict__["build"]
@@ -87,8 +88,10 @@ def test_one_search_serves_several_steps(potential, monkeypatch):
         system, Searching(potential.path), max_force=1e-4, max_steps=300
     )
     assert result.steps == reference.steps > 20
-    np.testing.assert_array_equal(result.system.positions, reference.system.positions)
-    assert result.energy == reference.energy
+    np.testing.assert_allclose(
+        result.system.positions, reference.system.positions, rtol=0, atol=1e-10
+    )
+    assert result.energy == pytest.approx(reference.energy, rel=1e-13)
     assert searches < result.steps / 2
 
 
@@ -106,6 +109,73 @@ def test_step_limit_callback_and_empty_systems(potential):
     assert seen == [1, 2, 3, 4, 5] and result.steps == 5 and not result.converged
     empty = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0), elements=[])
     assert minimize(empty, potential).converged
+    assert minimize(empty, potential, cell="full").converged
+
+
+def lammps_fire(system, calculator, steps, dmax=0.1, dt0=0.001):
+    """LAMMPS min_style fire with its default settings, transcribed atom by
+    atom from min_fire.cpp, for the given number of steps."""
+    ftm2v = 1.0 / mdapy.units.AMU_A2_PER_PS2_TO_EV
+    mass = mdapy.elements.atomic_masses(system.table["element"].to_physical())
+    x = system.positions.copy()
+    v = np.zeros_like(x)
+    n = len(x)
+
+    def forces_at(positions):
+        return calculator.compute(system.with_positions(positions)).forces
+
+    f = forces_at(x)
+    dt, alpha, last_negative, flagv0 = dt0, 0.25, 0, True
+    for ntimestep in range(1, steps + 1):
+        vdotf = sum(v[i] @ f[i] for i in range(n))
+        if vdotf > 0.0:
+            vdotv = sum(v[i] @ v[i] for i in range(n))
+            fdotf = sum(f[i] @ f[i] for i in range(n))
+            scale1 = 1.0 - alpha
+            scale2 = 0.0 if fdotf <= 1e-20 else alpha * np.sqrt(vdotv / fdotf)
+            if ntimestep - last_negative > 20:
+                dt = min(dt * 1.1, 10.0 * dt0)
+                alpha *= 0.99
+        else:
+            last_negative = ntimestep
+            if not ntimestep < 20:
+                alpha = 0.25
+                if dt * 0.5 >= 0.02 * dt0:
+                    dt *= 0.5
+            for i in range(n):
+                x[i] -= 0.5 * dt * v[i]
+            v[:] = 0.0
+            flagv0 = True
+        if flagv0:
+            f = forces_at(x)
+            for i in range(n):
+                v[i] = dt * ftm2v / mass[i] * f[i]
+        dtv = dt
+        for i in range(n):
+            vmax = np.abs(v[i]).max()
+            if dtv * vmax > dmax:
+                dtv = dmax / vmax
+        if flagv0:
+            v[:] = 0.0
+        for i in range(n):
+            v[i] += dtv * ftm2v / mass[i] * f[i]
+            if vdotf > 0.0:
+                v[i] = scale1 * v[i] + scale2 * f[i]
+            x[i] += dtv * v[i]
+        f = forces_at(x)
+        flagv0 = False
+    return x
+
+
+@pytest.mark.parametrize("steps", [1, 2, 5, 40])
+def test_steps_of_lammps_fire(potential, steps):
+    # rounding apart, the steps are those of LAMMPS, transcribed in NumPy;
+    # the jitter makes uphill steps, which reset and shrink the time step
+    system = alloy(seed=7, repeat=2, jitter=0.25)
+    result = minimize(system, potential, max_force=1e-12, max_steps=steps)
+    assert result.steps == steps
+    expected = lammps_fire(system, potential, steps)
+    np.testing.assert_allclose(result.system.positions, expected, rtol=0, atol=1e-9)
 
 
 def test_large_steps_are_limited():
@@ -117,11 +187,77 @@ def test_large_steps_are_limited():
     def callback(step, current, energy, largest):
         moves.append(current.positions.copy())
 
-    minimize(
-        dimer, Harmonic(k=1000.0, r0=2.5), max_step=0.01, max_steps=5, callback=callback
+    calculator = Harmonic(k=20.0, r0=2.5)
+    result = minimize(dimer, calculator, max_step=0.01, max_steps=8, callback=callback)
+    assert result.steps == 8
+    steps = np.abs(np.diff(np.array([dimer.positions] + moves), axis=0))
+    assert 0.0 < steps[0].max() <= 0.01  # from rest, at most max_step along an axis
+    np.testing.assert_allclose(
+        moves[-1], lammps_fire(dimer, calculator, 8, dmax=0.01), rtol=0, atol=1e-12
     )
-    steps = np.diff(np.array([dimer.positions] + moves), axis=0)
-    assert np.linalg.norm(steps, axis=2).max() <= 0.01 + 1e-15
+    free = minimize(dimer, calculator, max_steps=8).system.positions
+    assert np.abs(free - moves[-1]).max() > 0.01  # the limit changed the path
+
+
+def test_masses_set_the_path_not_the_minimum(potential):
+    system = alloy(seed=8, repeat=2, jitter=0.1)
+    light = minimize(system, potential, max_force=1e-6, max_steps=5000)
+    heavy = minimize(
+        system.with_columns(mass=np.full(len(system), 500.0)),
+        potential,
+        max_force=1e-6,
+        max_steps=5000,
+    )
+    assert light.converged and heavy.converged and light.steps != heavy.steps
+    assert light.energy == pytest.approx(heavy.energy, abs=1e-8)
+    bare = mdapy.System(system.positions, system.box)
+    with pytest.raises(mdapy.errors.MissingProperty, match="mass or an element"):
+        minimize(bare, potential)
+
+
+@pytest.mark.parametrize("every", [1, 7, 50])
+def test_frames_every_few_steps(potential, tmp_path, every):
+    system = alloy(seed=9, repeat=2, jitter=0.15)
+    plain = minimize(system, potential, max_force=1e-4, max_steps=40)
+    result = minimize(system, potential, max_force=1e-4, max_steps=40, save_every=every)
+    assert plain.frames is None and result.steps == plain.steps == 40
+    steps = [frame.info["timestep"] for frame in result.frames]
+    assert steps == sorted(set(list(range(0, 41, every)) + [40]))
+    first, last = result.frames[0], result.frames[-1]
+    np.testing.assert_array_equal(first.positions, system.positions)
+    np.testing.assert_array_equal(last.positions, plain.system.positions)
+    start = potential.compute(system, ("energy", "virial"))
+    assert first.info["energy"] == start.energy
+    np.testing.assert_array_equal(first.info["virial"], start.virial)
+    np.testing.assert_array_equal(first.info["stress"], start.stress(system))
+    assert last.info["energy"] == plain.energy
+    np.testing.assert_array_equal(last.info["stress"], plain.stress)
+    np.testing.assert_array_equal(plain.system.info["stress"], plain.stress)
+    np.testing.assert_array_equal(
+        last.table["forces"].to_numpy(), plain.system.table["forces"].to_numpy()
+    )
+    # the frames as the callback sees them
+    seen = {}
+    minimize(system, potential, max_force=1e-4, max_steps=40,
+             callback=lambda step, current, energy, largest: seen.update({step: current}))  # fmt: skip
+    for frame in result.frames[1:]:
+        np.testing.assert_array_equal(
+            frame.positions, seen[frame.info["timestep"]].positions
+        )
+    # written as a trajectory
+    mdapy.write(tmp_path / "relax.xyz", result.frames)
+    back = mdapy.read_trajectory(tmp_path / "relax.xyz")
+    assert len(back) == len(result.frames)
+    np.testing.assert_allclose(back[-1].info["stress"], plain.stress, atol=1e-12)
+
+
+def test_frames_of_a_converged_start(potential):
+    perfect = alloy(seed=1, repeat=2, jitter=0.0, a=3.3).with_columns(
+        element=["Cu"] * 32
+    )
+    result = minimize(perfect, potential, max_force=1e-3, save_every=10)
+    assert result.converged and result.steps == 0
+    assert [f.info["timestep"] for f in result.frames] == [0]
 
 
 @pytest.mark.parametrize(
@@ -129,7 +265,11 @@ def test_large_steps_are_limited():
     [
         ({"max_force": 0.0}, "max_force must be positive"),
         ({"max_steps": -1}, "max_steps must be at least 0"),
-        ({"max_step": 0.0}, "max_step positive"),
+        ({"max_step": 0.0}, "max_step and timestep positive"),
+        ({"timestep": -1.0}, "max_step and timestep positive"),
+        ({"save_every": 0}, "save_every must be a positive integer"),
+        ({"save_every": 2.5}, "save_every must be a positive integer"),
+        ({"save_every": True}, "save_every must be a positive integer"),
     ],
 )
 def test_invalid_options(potential, options, message):
@@ -169,6 +309,9 @@ def test_the_box_relaxes_to_zero_stress(potential, cell):
     assert result.converged
     assert np.abs(result.stress).max() < 1e-5
     matrix = result.system.box.matrix
+    # strained without rotating: a symmetric deformation of the start
+    deformation = np.linalg.solve(start.box.matrix, matrix)
+    np.testing.assert_allclose(deformation, deformation.T, rtol=0, atol=1e-14)
     a = np.sqrt(np.trace(matrix @ matrix.T) / 3) / 2
     # cubic again (a stress of 1e-5 GPa leaves strains of about 1e-6), at the
     # minimum of E(a) by finite differences of the energy
@@ -200,6 +343,40 @@ def test_the_box_relaxes_under_pressure(potential):
     assert -slope * mdapy.units.EV_PER_A3_TO_GPA == pytest.approx(5.0, abs=1e-4)
 
 
+def test_the_box_relaxes_alike_at_any_size(potential):
+    # a strained perfect crystal, whose atoms feel no forces: its box takes
+    # the same path whatever the number of unit cells
+    strain = np.array([[1.02, 0.01, 0.0], [0.0, 0.99, 0.01], [0.0, 0.0, 1.01]])
+    runs = []
+    for repeat in (2, 4):
+        start = copper(3.3, repeat)
+        start = start.with_box(
+            mdapy.Box(start.box.matrix @ strain.T), scale_positions=True
+        )
+        runs.append(minimize(start, potential, cell="full", max_stress=1e-6))
+    assert runs[0].converged and runs[1].converged
+    assert runs[0].steps == runs[1].steps > 10
+    np.testing.assert_allclose(
+        runs[1].system.box.matrix, 2 * runs[0].system.box.matrix, rtol=1e-9
+    )
+
+
+def test_frames_of_a_relaxing_box(potential):
+    start = copper(3.4)
+    result = minimize(start, potential, cell="isotropic", save_every=5)
+    assert result.converged
+    volumes = [frame.box.volume for frame in result.frames]
+    assert volumes[0] == start.box.volume and volumes[-1] < volumes[0]
+    for frame in result.frames:
+        values = potential.compute(frame, ("energy", "virial"))
+        assert frame.info["energy"] == pytest.approx(values.energy, abs=1e-12)
+        np.testing.assert_allclose(
+            frame.info["stress"], values.stress(frame), atol=1e-10
+        )
+    assert result.frames[0].info["stress"][0, 0] > 1.0  # stretched: tension
+    np.testing.assert_array_equal(result.frames[-1].info["stress"], result.stress)
+
+
 def test_only_periodic_directions_relax(potential):
     slab = copper(3.4).with_box(mdapy.Box(2 * 3.4, pbc=(True, True, False)))
     result = minimize(slab, potential, cell="full", max_force=1e-4, max_stress=1e-4)
@@ -226,4 +403,6 @@ def test_cell_options(potential):
         InvalidParameter, match=r"does not compute \['energy', 'forces', 'virial'\]"
     ):
         minimize(copper(3.3), NoVirial(), cell="isotropic")
-    assert minimize(copper(3.3), NoVirial(), max_steps=2).stress is None
+    plain = minimize(copper(3.3), NoVirial(), max_steps=2, save_every=1)
+    assert plain.stress is None
+    assert all("stress" not in frame.info for frame in plain.frames)

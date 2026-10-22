@@ -97,7 +97,7 @@ def elastic_constants(
         The crystal, periodic in every direction, best at zero stress (relax
         its box first with ``minimize(..., cell="full")``).
     calculator : Calculator
-        Computes forces and the virial.
+        Computes the virial, and energies and forces to relax the positions.
     strain : float, optional
         Magnitude of the strains applied in each direction, positive and
         negative; shear strains are engineering strains. Default 1e-3.
@@ -125,9 +125,10 @@ def elastic_constants(
         )
     if not strain > 0:
         raise InvalidParameter(f"strain must be positive, not {strain!r}")
-    if not {"forces", "virial"} <= calculator.implemented:
+    needed = {"virial"} | ({"energy", "forces"} if relax else set())
+    if not needed <= calculator.implemented:
         raise InvalidParameter(
-            f"{type(calculator).__name__} does not compute the virial"
+            f"{type(calculator).__name__} does not compute {sorted(needed)}"
         )
     constants = np.zeros((6, 6))
     for k, (a, b) in enumerate(_PAIRS):
@@ -147,8 +148,9 @@ def elastic_constants(
                     raise InvalidParameter(
                         f"the relaxation under strain {k} did not converge in {max_steps} steps"
                     )
-                strained = outcome.system
-            stress = calculator.compute(strained, ("virial",)).stress(strained)
+                stress = outcome.stress
+            else:
+                stress = calculator.compute(strained, ("virial",)).stress(strained)
             stresses.append(_voigt(stress))
         constants[:, k] = (stresses[0] - stresses[1]) / (2 * strain)
     return ElasticResult(constants)

@@ -33,6 +33,7 @@ dev = [
     "pytest-xdist>=3",
     "coverage>=7.10",
     "ruff>=0.6",
+    "matplotlib>=3.8",
 ]
 docs = [
     "mkdocs>=1.6,<2",

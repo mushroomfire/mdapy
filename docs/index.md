@@ -173,7 +173,7 @@ flowchart TB
 
     Images of systems, colored by any property, and plots of results.
 
-    [Rendering](visualization/rendering.md); plot templates are planned.
+    [Rendering](visualization/rendering.md) · [plots](visualization/plots.md)
 
 -   :material-speedometer:{ .lg .middle } **Performance**
 

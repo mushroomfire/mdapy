@@ -178,6 +178,11 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   element, structure, values or by hand, with bonds, the box and Voronoi
   cells; a `Scene` of spheres, cylinders and polygons; a million atoms in
   under two seconds. See [Rendering](../visualization/rendering.md).
+- `mdapy.visualization.plot`: matplotlib set up for journals (widths of
+  columns, Nature's artwork guide, Okabe–Ito colors, panel labels, saving
+  as PDF, SVG and PNG) and plots of results: parity, g(r), S(q), bond
+  angles, MSD with the diffusion coefficient, stacking fault energies,
+  counts of structures. See [Plots](../visualization/plots.md).
 
 ### Foundations
 

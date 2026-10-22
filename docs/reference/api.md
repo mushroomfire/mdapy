@@ -153,6 +153,8 @@ import mdapy
 
 ::: mdapy.visualization.write_png
 
+::: mdapy.visualization.plot
+
 ## Calculators
 
 ::: mdapy.calculators.Calculator

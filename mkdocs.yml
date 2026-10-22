@@ -141,6 +141,7 @@ nav:
       - Polycrystals and twins: build/polycrystals.md
   - Visualization:
       - Rendering: visualization/rendering.md
+      - Plots: visualization/plots.md
   - Simulation:
       - Calculators:
           - The calculator interface: simulation/calculators.md

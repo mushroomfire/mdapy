@@ -6,12 +6,13 @@ import pytest
 
 import mdapy
 from mdapy import units
-from mdapy.calculators import EAM, elastic_constants, minimize
-from mdapy.calculators._elastic import _strained
+from mdapy.calculators import EAM
 from mdapy.errors import InvalidParameter
+from mdapy.simulation import elastic_constants, minimize
+from mdapy.simulation._elastic import _strained
 
-from .eam_files import alloy, write_setfl
-from .test_testing import Harmonic
+from calculators.eam_files import alloy, write_setfl
+from calculators.test_testing import Harmonic
 
 
 @pytest.fixture(scope="module")

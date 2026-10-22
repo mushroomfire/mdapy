@@ -94,6 +94,7 @@ nav:
       - Trajectories: guide/trajectory.md
       - Neighbor lists: guide/neighbor.md
       - Calculators: guide/calculators.md
+      - Simulation: guide/simulation.md
       - Parallelism: guide/parallelism.md
   - File formats:
       - Extended XYZ: formats/extxyz.md

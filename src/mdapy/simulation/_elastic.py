@@ -8,10 +8,10 @@ from dataclasses import dataclass
 import numpy as np
 
 from mdapy.calculators._base import Calculator
-from mdapy.calculators._minimize import minimize
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
+from mdapy.simulation._minimize import minimize
 
 # Voigt order xx, yy, zz, yz, xz, xy
 _PAIRS = ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))

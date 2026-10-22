@@ -12,10 +12,11 @@ import numpy as np
 import pytest
 
 import mdapy
-from mdapy.calculators import EAM, LAMMPS, minimize
+from mdapy.calculators import EAM, LAMMPS
 from mdapy.calculators import _lammps as module
 from mdapy.calculators.testing import check_calculator
 from mdapy.errors import InvalidParameter, MissingProperty
+from mdapy.simulation import minimize
 
 from .eam_files import alloy, write_setfl
 

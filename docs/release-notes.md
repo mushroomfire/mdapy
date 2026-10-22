@@ -81,12 +81,16 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   the average-atom potential of a random alloy.
 - `mdapy.calculators.LAMMPS` makes any interaction of LAMMPS a calculator,
   through the LAMMPS Python module.
-- `mdapy.minimize`: FIRE 2.0 minimization of the positions, step for step as
-  LAMMPS `min_style fire`, and optionally of the box (`cell="isotropic"`,
-  `"axes"` or `"full"`, at a `pressure`) to the minimum of LAMMPS
-  `fix box/relax`; keeps a frame every `save_every` steps when asked, with the
-  virial and the stress of each.
-- `mdapy.calculators.elastic_constants`: the (6, 6) elastic constants from
+
+### Simulation
+
+- `mdapy.simulation.minimize`: FIRE 2.0 minimization of the positions, step
+  for step as LAMMPS `min_style fire`, and optionally of the box
+  (`cell="isotropic"`, `"axes"` or `"full"`, at a `pressure`) to the minimum
+  of LAMMPS `fix box/relax`; keeps a frame every `save_every` steps when
+  asked, with the virial and the stress of each. See
+  [Simulation](guide/simulation.md).
+- `mdapy.simulation.elastic_constants`: the (6, 6) elastic constants from
   the stress under small strains, with relaxed positions, and Voigt, Reuss
   and Hill moduli.
 

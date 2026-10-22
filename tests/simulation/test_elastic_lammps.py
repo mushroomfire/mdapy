@@ -9,9 +9,10 @@ import pytest
 
 import mdapy
 from mdapy import units
-from mdapy.calculators import EAM, elastic_constants, minimize
+from mdapy.calculators import EAM
+from mdapy.simulation import elastic_constants, minimize
 
-from .eam_files import alloy, write_setfl
+from calculators.eam_files import alloy, write_setfl
 
 lammps = pytest.importorskip("lammps")
 

@@ -5,11 +5,12 @@ import numpy as np
 import pytest
 
 import mdapy
-from mdapy.calculators import EAM, minimize
+from mdapy.calculators import EAM
 from mdapy.errors import InvalidParameter
+from mdapy.simulation import minimize
 
-from .eam_files import alloy, write_setfl
-from .test_testing import EnergyOnly, Harmonic
+from calculators.eam_files import alloy, write_setfl
+from calculators.test_testing import EnergyOnly, Harmonic
 
 
 @pytest.fixture

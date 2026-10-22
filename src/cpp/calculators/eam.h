@@ -13,6 +13,7 @@
 
 #include "core/index.h"
 #include "core/parallel.h"
+#include "neighbor/frame.h"
 
 namespace mdapy::calculators {
 
@@ -49,12 +50,14 @@ struct EamPotential {
     }
 };
 
-// Energies (n), forces (n x 3) and virials (n x 9) of n atoms with a full
-// neighbor list in CSR form; vectors (pairs x 3) go from atom i to its
-// neighbor. The virial of each pair is shared equally by its two atoms.
+// Energies (n), forces (n x 3) and virials (n x 9) of n atoms at positions
+// (n x 3) in a box with lattice vectors as rows of matrix (3 x 3), with a
+// full neighbor list in CSR form whose pair vectors are those of
+// neighbor::pair_vector. The virial of each pair is shared equally by its
+// two atoms.
 void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32_t* species,
-                 const std::int64_t* offsets, const index_t* neighbors,
-                 const double* vectors, double* energies, double* forces, double* virials,
-                 const Control& control = {});
+                 const double* positions, const double* matrix, const std::int64_t* offsets,
+                 const index_t* neighbors, const std::int8_t* shifts, double* energies,
+                 double* forces, double* virials, const Control& control = {});
 
 }  // namespace mdapy::calculators

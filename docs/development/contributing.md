@@ -21,7 +21,7 @@ The site has one tab per kind of content, each a directory of `docs/`:
 
 | Tab | Directory | Holds |
 |---|---|---|
-| Getting started | `getting-started/` | installation, the quick tour, and the basics every user needs: systems, the box, files, trajectories, neighbor lists, parallelism |
+| Getting started | `getting-started/` | installation, the quick tour, the basics every user needs (systems, the box, files, trajectories, neighbor lists, parallelism), and tutorials in `getting-started/tutorials/`: worked examples that combine several features, every one run by the tests |
 | Analysis | `analysis/` | analyses of structures and trajectories, in sections: structure identification; local order and distributions; defects and deformation; dynamics |
 | Structure builder | `build/` | building structures (crystals, polycrystals, defects, alloys, packed molecules) and transforming them |
 | Simulation | `simulation/` | calculators; minimization and dynamics (molecular dynamics through other programs); lattice dynamics (elastic constants, force constants, phonons) |

@@ -89,7 +89,8 @@ flowchart TB
 
     ---
 
-    Install mdapy, take the quick tour and learn the basics.
+    Install mdapy, take the quick tour, learn the basics and work through
+    the tutorials.
 
     [Installation](getting-started/installation.md) ·
     [Quick tour](getting-started/quick-tour.md)
@@ -100,6 +101,12 @@ flowchart TB
     [Trajectories](getting-started/trajectory.md) ·
     [Neighbor lists](getting-started/neighbor.md) ·
     [Parallelism](getting-started/parallelism.md)
+
+    Tutorials: [fcc and bcc grains](getting-started/tutorials/two-phase-polycrystal.md) ·
+    [columnar grains](getting-started/tutorials/columnar-polycrystal.md) ·
+    [defect energies of copper](getting-started/tutorials/defect-energies.md) ·
+    [sharing neighbor lists](getting-started/tutorials/neighbor-lists.md) ·
+    [what a System copies](getting-started/tutorials/sharing.md)
 
 -   :material-chart-bell-curve-cumulative:{ .lg .middle } **Analysis**
 

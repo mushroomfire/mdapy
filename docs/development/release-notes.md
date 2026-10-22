@@ -204,6 +204,14 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   program in a process of its own with limits of memory and time. See
   [mdapy and OVITO](../performance/ovito.md).
 
+### Tutorials
+
+- Worked examples that combine several parts of mdapy: a polycrystal of fcc
+  and bcc grains, columnar grains on a hexagonal pattern with chosen
+  misorientations, the defect energies of copper with checks of their
+  convergence, when sharing neighbor lists pays, and what a `System` shares
+  and copies. See the Tutorials under Getting started.
+
 ### Foundations
 
 - Python 3.11 or newer; NumPy 2.3.1 or newer and polars 2 are the only

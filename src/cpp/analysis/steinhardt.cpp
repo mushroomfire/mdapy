@@ -46,7 +46,7 @@ const HarmonicTables& tables() {
 void real_harmonics(int l, const double* u, double* y) {
     const HarmonicTables& t = tables();
     // q[m] = d^m P_l / dz^m, from the recurrences in l at fixed m
-    double q[kMaxDegree + 1];
+    double q[kMaxDegree + 1] = {};
     for (int m = 0; m <= l; ++m) {
         double previous = 0.0;
         double current = t.factorial[m];  // (2m - 1)!!

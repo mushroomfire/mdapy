@@ -113,11 +113,15 @@ nav:
           - Centro-symmetry parameter: analysis/csp.md
           - Common neighbor parameter: analysis/cnp.md
       - Local order and distributions:
-          - Radial distribution, coordination and structure factor: analysis/distribution.md
-          - Bond-orientational order: analysis/steinhardt.md
+          - Radial distribution function: analysis/rdf.md
+          - Coordination number: analysis/coordination.md
+          - Structure factor: analysis/structure-factor.md
+          - Bond angle distribution: analysis/bond-angles.md
+          - Warren–Cowley parameters: analysis/warren-cowley.md
+          - Steinhardt parameters: analysis/steinhardt.md
           - Entropy fingerprint: analysis/entropy.md
-          - Clusters, bond angles and short-range order: analysis/bonds.md
       - Defects and deformation:
+          - Cluster analysis: analysis/clusters.md
           - Point defects: analysis/defects.md
           - Atomic strain: analysis/strain.md
       - Dynamics:

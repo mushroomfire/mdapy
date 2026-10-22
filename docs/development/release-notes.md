@@ -107,16 +107,18 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   diamond; [`ChillPlus`](../analysis/chill-plus.md) for ice, hydrates and
   liquid water; and the [centro-symmetry](../analysis/csp.md) and
   [common neighbor](../analysis/cnp.md) parameters.
-- `mdapy.analysis.RadialDistributionFunction` with partial functions, and
-  `mdapy.analysis.CoordinationNumber` with cutoffs per pair of elements. See
-  [Radial distribution and coordination](../analysis/distribution.md).
-- `mdapy.analysis.StructureFactor`: the static structure factor and its
-  partial factors from the wave vectors of a periodic box.
-- `mdapy.analysis.SteinhardtParameters`: bond-orientational order $q_l$ up
-  to degree 20, optionally averaged over neighbors. See
-  [Bond-orientational order](../analysis/steinhardt.md).
-- `mdapy.analysis.EntropyFingerprint`: the pair entropy fingerprint of local
-  order. See [Entropy fingerprint](../analysis/entropy.md).
+- Distributions and order parameters in `mdapy.analysis`, agreeing with
+  OVITO where it has them: the
+  [`RadialDistributionFunction`](../analysis/rdf.md) and its partial
+  functions; [`CoordinationNumber`](../analysis/coordination.md) with
+  cutoffs per pair of elements; the
+  [`StructureFactor`](../analysis/structure-factor.md), exact over the wave
+  vectors of the box or by the Debye method, with Faber–Ziman partial
+  factors; the [`BondAngleDistribution`](../analysis/bond-angles.md) for
+  each triplet of elements; [`WarrenCowley`](../analysis/warren-cowley.md)
+  short-range order; [`SteinhardtParameters`](../analysis/steinhardt.md) up
+  to degree 20, optionally averaged; and the
+  [`EntropyFingerprint`](../analysis/entropy.md).
 - `mdapy.analysis.AtomicTemperature`: the temperature of each atom and its
   neighbors. See [Atomic temperature](../analysis/temperature.md).
 - `mdapy.analysis.AtomicStrain`: Green–Lagrange, von Mises and volumetric
@@ -125,10 +127,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.analysis.WignerSeitz`: vacancies and interstitials by the
   Wigner–Seitz cells of a reference lattice. See
   [Point defects](../analysis/defects.md).
-- `mdapy.analysis.ClusterAnalysis`, `BondAngleDistribution` and
-  `WarrenCowley` for clusters of bonded atoms, bond angles (in total and for
-  each triplet of elements) and chemical short-range order. See
-  [Clusters, bond angles and short-range order](../analysis/bonds.md).
+- `mdapy.analysis.ClusterAnalysis` for clusters of bonded atoms. See
+  [Cluster analysis](../analysis/clusters.md).
 
 ### Foundations
 

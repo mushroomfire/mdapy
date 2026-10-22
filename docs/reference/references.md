@@ -36,11 +36,21 @@ P. Gumbsch, Structural relaxation made simple, *Phys. Rev. Lett.* **97**,
 [doi:10.1103/PhysRevLett.97.170201](https://doi.org/10.1103/PhysRevLett.97.170201)
 { #bitzek2006 }
 
+**Cowley (1950).** J. M. Cowley, An approximate theory of order in alloys,
+*Phys. Rev.* **77**, 669 (1950).
+[doi:10.1103/PhysRev.77.669](https://doi.org/10.1103/PhysRev.77.669)
+{ #cowley1950 }
+
 **Daw and Baskes (1984).** M. S. Daw and M. I. Baskes, Embedded-atom method:
 derivation and application to impurities, surfaces, and other defects in
 metals, *Phys. Rev. B* **29**, 6443 (1984).
 [doi:10.1103/PhysRevB.29.6443](https://doi.org/10.1103/PhysRevB.29.6443)
 { #daw1984 }
+
+**Faber and Ziman (1965).** T. E. Faber and J. M. Ziman, A theory of the
+electrical properties of liquid metals, *Phil. Mag.* **11**, 153 (1965).
+[doi:10.1080/14786436508211931](https://doi.org/10.1080/14786436508211931)
+{ #faber1965 }
 
 **Faken and Jónsson (1994).** D. Faken and H. Jónsson, Systematic analysis of
 local atomic structure combined with 3D computer graphics, *Comput. Mater.
@@ -85,6 +95,12 @@ Matter* **29**, 273002 (2017).
 [doi:10.1088/1361-648X/aa680e](https://doi.org/10.1088/1361-648X/aa680e)
 { #larsen2017 }
 
+**Lechner and Dellago (2008).** W. Lechner and C. Dellago, Accurate
+determination of crystal structures based on averaged local bond order
+parameters, *J. Chem. Phys.* **129**, 114707 (2008).
+[doi:10.1063/1.2977970](https://doi.org/10.1063/1.2977970)
+{ #lechner2008 }
+
 **Lin et al. (2008).** Z. Lin, R. A. Johnson and L. V. Zhigilei,
 Computational study of the generation of crystal defects in a bcc metal
 target irradiated by short laser pulses, *Phys. Rev. B* **77**, 214108
@@ -108,11 +124,23 @@ water in simulations: the CHILL+ algorithm, *J. Phys. Chem. B* **119**, 9369
 (2015). [doi:10.1021/jp510289t](https://doi.org/10.1021/jp510289t)
 { #nguyen2015 }
 
+**Piaggi and Parrinello (2017).** P. M. Piaggi and M. Parrinello, Entropy
+based fingerprint for local crystalline order, *J. Chem. Phys.* **147**,
+114112 (2017).
+[doi:10.1063/1.4998408](https://doi.org/10.1063/1.4998408)
+{ #piaggi2017 }
+
 **Song et al. (2024).** K. Song et al., General-purpose machine-learned
 potential for 16 elemental metals and their alloys, *Nat. Commun.* **15**,
 10208 (2024).
 [doi:10.1038/s41467-024-54554-x](https://doi.org/10.1038/s41467-024-54554-x)
 { #song2024 }
+
+**Steinhardt et al. (1983).** P. J. Steinhardt, D. R. Nelson and M.
+Ronchetti, Bond-orientational order in liquids and glasses, *Phys. Rev. B*
+**28**, 784 (1983).
+[doi:10.1103/PhysRevB.28.784](https://doi.org/10.1103/PhysRevB.28.784)
+{ #steinhardt1983 }
 
 **Stukowski (2012).** A. Stukowski, Structure identification methods for
 atomistic simulations of crystalline materials, *Modelling Simul. Mater. Sci.

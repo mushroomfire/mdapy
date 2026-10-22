@@ -90,6 +90,6 @@ the system lacks a column the analysis needs; and
 | Section | Classes |
 |---|---|
 | Structure identification | [`CommonNeighborAnalysis`](cna.md) · [`AcklandJonesAnalysis`](ackland-jones.md) · [`DiamondStructure`](diamond.md) · [`ChillPlus`](chill-plus.md) · [`CentroSymmetryParameter`](csp.md) · [`CommonNeighborParameter`](cnp.md) |
-| Local order and distributions | [`RadialDistributionFunction`, `CoordinationNumber`, `StructureFactor`](distribution.md) · [`SteinhardtParameters`](steinhardt.md) · [`EntropyFingerprint`](entropy.md) · [`BondAngleDistribution`, `WarrenCowley`, `ClusterAnalysis`](bonds.md) |
-| Defects and deformation | [`WignerSeitz`](defects.md) · [`AtomicStrain`](strain.md) |
+| Local order and distributions | [`RadialDistributionFunction`](rdf.md) · [`CoordinationNumber`](coordination.md) · [`StructureFactor`](structure-factor.md) · [`BondAngleDistribution`](bond-angles.md) · [`WarrenCowley`](warren-cowley.md) · [`SteinhardtParameters`](steinhardt.md) · [`EntropyFingerprint`](entropy.md) |
+| Defects and deformation | [`ClusterAnalysis`](clusters.md) · [`WignerSeitz`](defects.md) · [`AtomicStrain`](strain.md) |
 | Dynamics | [`AtomicTemperature`](temperature.md) |

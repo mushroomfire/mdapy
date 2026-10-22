@@ -77,7 +77,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | cutoff per pair of elements | `cutoffs: dict[tuple[str, str], float]` | `rc_dict` |
 | number of nearest neighbors | `num_neighbors` | `k`, `N`, `nnn` |
 | number of histogram bins | `bins` | `nbin`, `nbins` |
-| upper limit of a distribution | `r_max`, `k_max` | |
+| upper limit of a distribution | `r_max`, `q_max` | `rc`, `k_max` |
+| way of computing a quantity | `method` | `mode` |
 | result for each pair or triplet of elements, ordered by atomic number | `partial[a, b]` with `pair(a, b)`; `partial[a, b, c]` (vertex `a`) with `triplet(a, b, c)` | `rdf_partial`, `adf` |
 | random seed | `seed` (int or `numpy.random.Generator`) | `random_seed` |
 | list of elements | `elements` | `element_list` |

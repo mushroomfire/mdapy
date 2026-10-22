@@ -94,13 +94,16 @@ flowchart TB
     [centro-symmetry](analysis/csp.md) ·
     [common neighbor parameter](analysis/cnp.md)
 
-    Local order and distributions:
-    [radial distribution, coordination and structure factor](analysis/distribution.md) ·
-    [bond-orientational order](analysis/steinhardt.md) ·
-    [entropy fingerprint](analysis/entropy.md) ·
-    [clusters, bond angles and short-range order](analysis/bonds.md)
+    Local order and distributions: [radial distribution](analysis/rdf.md) ·
+    [coordination](analysis/coordination.md) ·
+    [structure factor](analysis/structure-factor.md) ·
+    [bond angles](analysis/bond-angles.md) ·
+    [Warren–Cowley](analysis/warren-cowley.md) ·
+    [Steinhardt](analysis/steinhardt.md) ·
+    [entropy fingerprint](analysis/entropy.md)
 
-    Defects and deformation: [point defects](analysis/defects.md) ·
+    Defects and deformation: [clusters](analysis/clusters.md) ·
+    [point defects](analysis/defects.md) ·
     [atomic strain](analysis/strain.md)
 
     Dynamics: [atomic temperature](analysis/temperature.md)

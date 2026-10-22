@@ -35,8 +35,13 @@ minimization with interatomic potentials.
 | Trajectories | available |
 | Neighbor lists | available |
 | Calculators: interface, EAM, NEP, LAMMPS, energy minimization | available |
-| NEP | planned |
 | Structure identification and analysis | planned |
 
 See the [release notes](release-notes.md) for what each development version
 contains.
+
+## Citing mdapy
+
+If mdapy contributes to a publication, please cite
+[Wu and Shao (2023)](reference/references.md#wu2023), and the papers that
+the pages of the features you use ask to cite.

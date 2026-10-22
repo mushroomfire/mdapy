@@ -77,7 +77,7 @@ in the last digit, as in the example above. The comment line is
 and with `velocities` a velocity block in Å/fs after a blank line, as VASP
 writes it.
 
-## References
+## See also
 
 - POSCAR in the VASP wiki: <https://www.vasp.at/wiki/index.php/POSCAR>
 - CONTCAR in the VASP wiki: <https://www.vasp.at/wiki/index.php/CONTCAR>

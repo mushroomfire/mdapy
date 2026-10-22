@@ -2,7 +2,9 @@
 
 The format `extxyz` (extensions `.xyz` and `.extxyz`) stores one or more
 frames, each with per-atom columns, a lattice and global values such as the
-energy. mdapy reads and writes the conventions of ASE and GPUMD.
+energy. mdapy reads and writes the conventions of ASE
+([Larsen et al. (2017)](../reference/references.md#larsen2017)) and GPUMD
+([Fan et al. (2022)](../reference/references.md#fan2022)).
 
 ```python
 from pathlib import Path
@@ -114,12 +116,6 @@ unchanged. `info` cannot use the keys `Lattice`, `pbc`, `Origin` and
   positive under compression, the opposite sign. mdapy reads the value as
   written, so check the sign of `stress` from such files.
 
-## References
+## See also
 
 - Extended XYZ specification, libAtoms: <https://github.com/libAtoms/extxyz>
-- A. H. Larsen et al., The atomic simulation environment—a Python library
-  for working with atoms, *J. Phys.: Condens. Matter* **29**, 273002 (2017).
-  doi:10.1088/1361-648X/aa680e
-- Z. Fan et al., GPUMD: A package for constructing accurate machine-learned
-  potentials and performing highly efficient atomistic simulations,
-  *J. Chem. Phys.* **157**, 114801 (2022). doi:10.1063/5.0106617

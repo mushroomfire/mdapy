@@ -72,7 +72,8 @@ class LAMMPS(Calculator):
     ----------
     pair : str
         The LAMMPS commands of the interaction, such as ``pair_style`` and
-        ``pair_coeff``, in metal units.
+        ``pair_coeff``. LAMMPS runs in metal units (Å, eV, ps, amu), the only
+        units supported: the interaction must be defined for them.
     elements : sequence of str
         The element of each LAMMPS atom type, from type 1.
     commands : str, optional

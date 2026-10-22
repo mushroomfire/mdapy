@@ -28,8 +28,17 @@ sections, in this order:
    conventions needed to read them.
 5. **Errors**: when the documented exceptions are raised.
 6. For analyses, **Definition**: what is computed, with formulas, so that a
-   result can be interpreted; and **References**: the papers the analysis
-   follows. File formats list the specifications they follow.
+   result can be interpreted.
+7. **Please cite**: for a feature built on published work, a box
+   (`!!! quote "Please cite"`) at the end of its section, linking the
+   papers to cite when the feature is used.
+
+Papers are listed once, on the [References](../reference/references.md)
+page, each with an anchor such as `#zhou2004`; pages cite them as links,
+for example `[Zhou et al. (2004)](../reference/references.md#zhou2004)`,
+and never repeat them. Web pages a feature follows, such as the
+specification of a file format or the LAMMPS documentation of a command, are
+plain links on the feature's page, in a **See also** section.
 
 Pages do not describe how a feature is implemented, how it is tested or how
 fast it is: the tests are the record of correctness, and timings belong on

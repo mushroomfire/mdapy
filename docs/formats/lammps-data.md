@@ -1,7 +1,7 @@
 # LAMMPS data
 
 The format `lammps-data` reads and writes the data files of LAMMPS
-`read_data` and `write_data`, following LAMMPS stable_30Sep2026, for the
+([Thompson et al. (2022)](../reference/references.md#thompson2022)) `read_data` and `write_data`, following LAMMPS stable_30Sep2026, for the
 atom styles of molecular dynamics: `atomic`, `charge`, `bond`, `angle`,
 `molecular` and `full`. Files with extension `.data` or `.lmp`, or names
 starting with `data.`, are recognized.
@@ -177,12 +177,8 @@ The conversion moves the decimal point, so it adds no rounding. Other unit
 systems raise `UnsupportedFormat`; `units="metal"` reads such a file with
 its numbers unchanged.
 
-## References
+## See also
 
 - LAMMPS documentation of `read_data` and `write_data`:
   <https://docs.lammps.org/read_data.html>,
   <https://docs.lammps.org/write_data.html>
-- A. P. Thompson et al., LAMMPS - a flexible simulation tool for
-  particle-based materials modeling at the atomic, meso, and continuum
-  scales, *Comput. Phys. Commun.* **271**, 108171 (2022).
-  doi:10.1016/j.cpc.2021.108171

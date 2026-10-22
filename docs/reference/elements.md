@@ -1,7 +1,9 @@
 # Elements
 
 `mdapy.elements` holds the chemical symbols and standard atomic weights used
-everywhere in mdapy.
+everywhere in mdapy. The atomic weights are those of IUPAC
+([Meija et al. (2016)](../reference/references.md#meija2016)); for an element without stable
+isotopes, the mass of its longest-lived isotope.
 
 ```python
 from mdapy import elements
@@ -49,10 +51,3 @@ H to Bi, except Tc and Pm. No two of them have atomic weights within 0.02 amu
 of each other, so the match is unique. Radioactive elements must be listed in
 `candidates`, because their atomic weights can be almost equal to another
 element's: ²⁰⁹Po and Bi differ by 0.002 amu, ²⁴⁷Cm and ²⁴⁷Bk by 0.00004 amu.
-
-## References
-
-- Standard atomic weights: J. Meija et al., *Atomic weights of the elements
-  2013 (IUPAC Technical Report)*, Pure Appl. Chem. **88**, 265 (2016). For
-  elements without stable isotopes the value is the mass of the longest-lived
-  isotope.

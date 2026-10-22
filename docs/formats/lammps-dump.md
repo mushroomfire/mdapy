@@ -86,7 +86,7 @@ columns as `name[1]` to `name[k]`. Booleans are written as 0 and 1. The
 first frame starts with `ITEM: UNITS`; `ITEM: TIME` is written when `info`
 has `time`. Other `info` values are not written.
 
-## References
+## See also
 
 - LAMMPS documentation of `dump`, `dump_modify` and `read_dump`:
   <https://docs.lammps.org/dump.html>,

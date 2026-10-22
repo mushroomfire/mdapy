@@ -12,7 +12,7 @@
 | `visualization-draft` | 渲染器与画图模板，基于 defect-energies-draft | 已推送，待检查 |
 | `mlip-draft` | OUTCAR → xyz、NEP 描述符 PCA、最远点采样、扰动，基于 visualization-draft | 已推送，待检查 |
 | `performance-draft` | 与 OVITO 的性能对比框架和结果；CNA（固定截断）与 Steinhardt 提速，基于 mlip-draft | 已推送，待检查 |
-| `tutorials-draft` | 进阶教程；System 输入数组复制的修复（见下） | 进行中 |
+| `tutorials-draft` | 五篇进阶教程；System 输入数组复制的修复，基于 performance-draft | 已推送，待检查 |
 
 ## 进展
 
@@ -96,6 +96,25 @@
 - **发现一个不可变性的漏洞**：`System(positions)`、`with_columns(q=array)`、`with_positions(array)` 都是零拷贝把 NumPy 数组放进 polars 表，之后改原数组会悄悄改掉“不可变”的 System（也会让已经建好的邻居表失效而不报错）。`info` 本来就复制，列却没复制。我会在 `tutorials-draft` 里单独提交一个修复：NumPy 输入在进入表时复制一次（读取仍然零拷贝）。见问题 5。
 - 接下来：`tutorials-draft`，五篇进阶教程（fcc+bcc 双相多晶、六边形柱状多晶、铜的缺陷能、邻居表复用、System 共享与复制），代码都会在本地跑通（docs 测试会执行页面里的每段代码）。
 
+### 22:20
+- `performance-draft` 的第一次 CI 只有 coverage 失败：Linux 上光导入 OVITO 进程就占 1 GB 多，内存预测把这部分也按原子数放大，把 2000 原子的检查跳过了。已修（604739f）：只放大随原子数增长的部分；重新跑 CI 中。
+- `tutorials-draft`（aa250fa + 5653f48）推送，CI 已触发：
+  - **System 复制修复**（aa250fa，单独一个提交）：`System(...)`、`with_columns`、`with_positions` 的 NumPy 输入复制一次，`info` 本来就复制；读取仍零拷贝。加了测试。
+  - **五篇教程**（Getting started → Tutorials），页面里每段代码都由 docs 测试执行，全部五篇约 10 s：
+    1. **fcc + bcc 双相多晶**：同样的种子和取向各建一次 Cu（fcc）和 Ta（bcc）多晶，按晶粒拼起来，删掉相界处过近的原子，CNA + polars `group_by` 统计每个晶粒的结构。原本想用 Fe 的奥氏体+铁素体，但 Zhou 的 Fe 势在 0 K 下 fcc 不稳定，一弛豫全变 bcc；Cu–Ta 用 Zhou 的通用交叉项弛豫后界面大面积无序，所以教程只建模不弛豫，并提示要用专门拟合的势。
+    2. **六边形柱状多晶**：种子在三角格子上（12 个晶粒，每个 40 Å），[111] 柱轴，手选转角，EAM 弛豫，用邻居表找出相邻晶粒对并算取向差（模 60°），小角晶界显示为一串分立的位错芯。
+    3. **铜的缺陷能**：先弛豫晶格常数；空位能随超胞收敛（32→500 原子：1.301→1.273 eV）；三个低指数面的表面能；GSFE 两个方向。这里发现了一个问题，见问题 6。
+    4. **邻居表复用**：近邻类分析共享一张 14 近邻表快 1.5 倍；Voronoi 邻居共享快 2.7 倍；但**截断类分析给了邻居表反而慢 4–5 倍**（见问题 7），教程如实写了“不要给它们传表”。
+    5. **System 共享与复制**：什么零拷贝、什么共享、什么复制，用 `np.shares_memory` 逐条演示；邻居表只认原来那个 System 对象。
+
+| | |
+|---|---|
+| Cu/Ta 双相多晶（剖开一半）：按结构 | ![](images/16_cu_ta_composite.png) |
+| 同上：按元素 | ![](images/17_cu_ta_elements.png) |
+| 六边形柱状多晶（俯视，弛豫后）：按结构，小角晶界是分立的位错芯 | ![](images/18_columnar_cna.png) |
+| 同上：按晶粒 | ![](images/19_columnar_grains.png) |
+| 铜的 GSFE（自由表面 slab，18 层） | ![](images/20_gsfe_copper.png) |
+
 ## 早上需要你决定的事
 
 1. 草稿分支是一条链，合并顺序：build-defects → defect-energies → visualization → mlip（后面的 performance、tutorials 也会接在 mlip 后面）。
@@ -103,3 +122,5 @@
 3. OUTCAR 的能量取 `free  energy TOTEN`（与力一致，dpdata 也取它）；ASE 的 `get_potential_energy()` 默认取 `energy(sigma->0)`。要不要加个选项？
 4. 性能：要不要把“边找邻居边算”推广到近邻类分析（自适应 CNA、AJA、CSP、Steinhardt、金刚石）？需要一个按原子找 k 近邻的 C++ 接口，内存能从约 0.5 kB/原子降到 OVITO 的水平，时间也会更快。原子应变也可以同样处理。
 5. System 输入数组复制：我的方案是 NumPy 输入复制一次（和 `info` 一致），代价是构造时多一次拷贝（200 万原子的坐标约 10 ms）。另一种是保持零拷贝、只在文档里写明“交给 System 的数组不要再改”。我倾向复制。
+6. **GSFE 的周期盒子不收敛**：`stacking_fault_energy` 对沿法向周期的晶体，盒子高度固定，层错附近面间距膨胀被约束，内禀层错能随厚度慢慢下降（9/18/27/36 层：27.3/24.5/23.3/22.6 mJ/m²）；两侧自由表面的 slab 在 18 层就收敛到 22.46。未弛豫的值完全不随厚度变，确认是这个原因。另外默认 `max_force=1e-4` 会让层错能抖动约 0.3 mJ/m²，1e-6 才稳定。建议：周期情况下同时弛豫盒子沿法向的长度（像 LAMMPS 的 `fix box/relax z 0`），并把默认 `max_force` 收紧到 1e-6。这个功能在 `defect-energies-draft` 上，改它要把后面的分支都 rebase，所以今晚没动，等你定。教程里先用自由表面 slab。
+7. **截断类分析给了邻居表反而慢**：RDF、配位数、固定截断 CNA 等不传表时在 C++ 里边找边算（多线程），传了表则走单线程 NumPy（掩码、`within` 子集复制、bincount），10.8 万原子上 35 ms 变 160 ms。建议给这些分析的“读表”路径也写 C++ 并行内核，并让它们直接跳过超出截断的对，而不是先 `within` 复制子集。这样复用才总是划算。

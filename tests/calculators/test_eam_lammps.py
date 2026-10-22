@@ -116,3 +116,50 @@ write_data {out}
     # a rigid translation costs nothing in a periodic box; each run drifts
     np.testing.assert_allclose(step - step.mean(axis=0), 0.0, atol=1e-6)
     assert np.abs(relaxed.system.positions - system.positions).max() > 0.01
+
+
+def test_cell_relaxation_as_lammps(tmp_path):
+    """A strained alloy relaxed with its box, by minimize and by LAMMPS fix
+    box/relax tri: the same energy, volume and shape of the box (its metric,
+    which does not change when LAMMPS rotates the box)."""
+    potential_file = write_setfl(tmp_path / "CuNi.eam.alloy")
+    system = alloy(seed=16, repeat=3, jitter=0.03, a=3.45)
+    data = tmp_path / "in.data"
+    mdapy.write(data, system, elements=["Cu", "Ni"])
+    lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
+    try:
+        lmp.commands_string(
+            f"""
+units metal
+atom_style atomic
+boundary p p p
+read_data {data}
+change_box all triclinic
+pair_style eam/alloy
+pair_coeff * * {potential_file} Cu Ni
+fix relax all box/relax tri 0.0 vmax 0.001
+min_style cg
+min_modify norm max
+minimize 0.0 1.0e-10 100000 1000000
+minimize 0.0 1.0e-10 100000 1000000
+"""
+        )
+        energy = lmp.get_thermo("pe")
+        lo, hi, xy, yz, xz, _, _ = lmp.extract_box()
+    finally:
+        lmp.close()
+    lengths = np.array(hi) - np.array(lo)
+    matrix = np.array([[lengths[0], 0, 0], [xy, lengths[1], 0], [xz, yz, lengths[2]]])
+    relaxed = minimize(
+        system,
+        EAM(potential_file),
+        cell="full",
+        max_force=1e-9,
+        max_stress=1e-6,
+        max_steps=50000,
+    )
+    assert relaxed.converged
+    assert relaxed.energy == pytest.approx(energy, abs=1e-10)
+    ours = relaxed.system.box.matrix
+    np.testing.assert_allclose(ours @ ours.T, matrix @ matrix.T, rtol=1e-6, atol=1e-6)
+    assert relaxed.system.box.volume < system.box.volume * 0.9  # it shrank

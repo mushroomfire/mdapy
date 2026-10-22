@@ -234,10 +234,12 @@ void order_by_distance(const double* positions, std::int64_t n, const std::int64
                                              positions + 3 * static_cast<std::int64_t>(neighbors[p]),
                                              shifts + 3 * p, matrix, r);
                 }
-                const double* r2 = squares.data() - offsets[i];
+                const std::int64_t first = offsets[i];
                 const auto closer = [&](std::int64_t a, std::int64_t b) {
-                    if (r2[a] != r2[b]) {
-                        return r2[a] < r2[b];
+                    const double ra = squares[static_cast<std::size_t>(a - first)];
+                    const double rb = squares[static_cast<std::size_t>(b - first)];
+                    if (ra != rb) {
+                        return ra < rb;
                     }
                     if (neighbors[a] != neighbors[b]) {
                         return neighbors[a] < neighbors[b];

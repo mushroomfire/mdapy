@@ -2,7 +2,7 @@
 
 `WarrenCowley` measures the chemical short-range order of an alloy: whether
 the neighbors of each element are richer or poorer in another element than
-the alloy as a whole.
+the alloy as a whole, among the nearest neighbors or shell by shell.
 
 ```python
 import numpy as np
@@ -20,14 +20,21 @@ system = mdapy.System(positions, mdapy.Box(4 * a), elements=["Cu", "Zn"] * 64)
 order = WarrenCowley(num_neighbors=8).compute(system)
 order["Cu", "Zn"]  # -1: every neighbor of Cu is Zn
 order.alpha  # rows and columns by atomic number
+
+# shells: the 8 nearest, then the 6 next; or between cutoffs
+shells = WarrenCowley(num_neighbors=(8, 6)).compute(system)
+shells["Cu", "Zn"]  # [-1, 1]: Zn around Cu, then Cu
+shells["Cu", "Zn", 1]  # 1.0, the second shell only
+shells.alpha.shape  # (2, 2, 2): shell, row, column
+same = WarrenCowley(cutoff=(2.7, 3.3)).compute(system)
 ```
 
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `cutoff` | float | `None` | Å | neighbors are closer than it |
-| `num_neighbors` | int | `None` | | instead of `cutoff`, the number of nearest neighbors |
+| `cutoff` | float or sequence | `None` | Å | neighbors are closer than it; increasing cutoffs make shells, each from the cutoff before it to its own |
+| `num_neighbors` | int or sequence | `None` | | instead of `cutoff`, the number of nearest neighbors; a sequence makes shells of so many nearest neighbors one after the other, such as (12, 6, 24) in fcc |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters); the system needs an
@@ -41,16 +48,18 @@ A `WarrenCowleyResult`:
 | Attribute or method | Type | Meaning |
 |---|---|---|
 | `elements` | tuple of str | the elements, by atomic number |
-| `alpha` | (n, n) float64 | $\alpha_{ab}$, row $a$ and column $b$; NaN for an element whose atoms have no neighbors |
-| `result[a, b]` | float | one parameter |
+| `alpha` | (n, n) float64 | $\alpha_{ab}$, row $a$ and column $b$; NaN for an element whose atoms have no neighbors; (shells, n, n) for shells |
+| `result[a, b]` | float | one parameter; an array over the shells for shells |
+| `result[a, b, shell]` | float | the parameter of one shell |
 
 ## Errors
 
 The constructor raises `InvalidParameter` without exactly one of `cutoff`
-and `num_neighbors`, or for one that is not positive; `compute` raises it
+and `num_neighbors`, for one that is not positive, cutoffs that do not
+increase, or numbers of neighbors that are not integers; `compute` raises it
 for a neighbor list that does not fit, and `MissingProperty` without an
 `element` column; `result[a, b]` raises `InvalidParameter` for an element
-not in the system.
+not in the system, and `result[a, b, shell]` for parameters of one shell.
 
 ## Definition
 
@@ -60,7 +69,8 @@ $$
 
 where $p(b \mid a)$ is the fraction of atoms of element $b$ among the
 neighbors of all atoms of element $a$, and $x_b$ the fraction of $b$ in the
-system. It is 0 for a random alloy, negative for pairs that attract each
+system; in a shell, the neighbors are those of the shell. It is 0 for a
+random alloy, negative for pairs that attract each
 other and positive for pairs that avoid each other; in the CsCl structure
 with 8 neighbors, $\alpha_{ab} = -1$ between unlike and 1 between like
 elements.

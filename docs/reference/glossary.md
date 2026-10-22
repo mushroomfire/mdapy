@@ -101,6 +101,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | atoms chosen by index or mask, or a number of them at random | `atoms=`, `count` | `index`, `num` |
 | Burgers vector (Å), dislocation line and normal of the cut | `burgers`, `line`, `normal` | `b`, `xi`, `n` |
 | shells of neighbors of a lattice | `shells` | `nshell` |
+| shells of neighbors, by distance or by number | `cutoff=(r1, r2, …)`, `num_neighbors=(n1, n2, …)` | `rc_list`, `shell_number` |
 | seeds of grains, or their number | `grains` | `seed_number`, `seed_position` |
 | prebuilt neighbor list | `neighbors=` (keyword-only) | |
 | systems of a trajectory | `frames` | `pos_list`, `traj` |

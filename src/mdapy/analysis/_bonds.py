@@ -3,7 +3,7 @@
 
 """Bonds between atoms: clusters, bond angles and chemical short-range order."""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -426,19 +426,27 @@ class WarrenCowleyResult(Result):
         The elements, by atomic number.
     alpha : numpy.ndarray
         (elements, elements) parameter of each pair: row a, column b is
-        1 - p(b | a) / c_b.
+        1 - p(b | a) / c_b; (shells, elements, elements) for shells of
+        neighbors.
     """
 
     elements: tuple[str, ...]
     alpha: np.ndarray
 
-    def __getitem__(self, pair: tuple[str, str]) -> float:
-        """The parameter of a pair of elements (a, b)."""
-        a, b = pair
+    def __getitem__(self, key: tuple) -> Any:
+        """The parameter of a pair of elements (a, b), an array over the
+        shells for shells of neighbors, or that of one shell (a, b, shell)."""
+        a, b, *shell = key
         try:
-            return float(self.alpha[self.elements.index(a), self.elements.index(b)])
+            pair = (self.elements.index(a), self.elements.index(b))
         except ValueError:
-            raise InvalidParameter(f"no parameter for {pair}") from None
+            raise InvalidParameter(f"no parameter for {(a, b)}") from None
+        if self.alpha.ndim == 2:
+            if shell:
+                raise InvalidParameter("the parameters are of one shell")
+            return float(self.alpha[pair])
+        values = self.alpha[(slice(None), *pair)]
+        return values.copy() if not shell else float(values[shell[0]])
 
 
 class WarrenCowley:
@@ -446,22 +454,42 @@ class WarrenCowley:
 
     Parameters
     ----------
-    cutoff : float, optional
-        Neighbors closer than cutoff, in Å.
-    num_neighbors : int, optional
-        The num_neighbors nearest neighbors. Give ``cutoff`` or
-        ``num_neighbors``.
+    cutoff : float or sequence of float, optional
+        Neighbors closer than cutoff, in Å; increasing cutoffs make shells
+        of neighbors, each from the cutoff before it to its own.
+    num_neighbors : int or sequence of int, optional
+        The num_neighbors nearest neighbors; a sequence makes shells of the
+        nearest neighbors, the first so many nearest, then the next so many.
+        Give ``cutoff`` or ``num_neighbors``.
     """
 
     def __init__(
-        self, cutoff: float | None = None, *, num_neighbors: int | None = None
+        self,
+        cutoff: float | Sequence[float] | None = None,
+        *,
+        num_neighbors: int | Sequence[int] | None = None,
     ):
         if (cutoff is None) == (num_neighbors is None):
             raise InvalidParameter("give either cutoff or num_neighbors")
-        if cutoff is not None and not cutoff > 0:
-            raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
-        if num_neighbors is not None and num_neighbors < 1:
-            raise InvalidParameter("num_neighbors must be at least 1")
+        self.shells = None
+        if cutoff is not None:
+            values = np.atleast_1d(np.asarray(cutoff, dtype=float))
+            if values.ndim != 1 or not (values > 0).all():
+                raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
+            if (np.diff(values) <= 0).any():
+                raise InvalidParameter("the cutoffs of shells must increase")
+            if np.ndim(cutoff):
+                self.shells = values
+            cutoff = float(values[-1])
+        if num_neighbors is not None:
+            counts = np.atleast_1d(np.asarray(num_neighbors))
+            if counts.ndim != 1 or not np.issubdtype(counts.dtype, np.integer):
+                raise InvalidParameter("num_neighbors must be integers")
+            if (counts < 1).any():
+                raise InvalidParameter("num_neighbors must be at least 1")
+            if np.ndim(num_neighbors):
+                self.shells = np.cumsum(counts)
+            num_neighbors = int(counts.sum())
         self.cutoff = None if cutoff is None else float(cutoff)
         self.num_neighbors = None if num_neighbors is None else int(num_neighbors)
 
@@ -494,24 +522,42 @@ class WarrenCowley:
             raise MissingProperty("Warren-Cowley parameters need the element column")
         names, index = found
         types = len(names)
-        if self.cutoff is not None:
+        if self.cutoff is not None and self.shells is None:
             # each atom's neighbors by element, summed by the atom's element
             table, _ = _Bonds(self.cutoff, None).counts(
                 system, neighbors, progress, cancel
             )
             pairs = np.zeros((types, types), dtype=np.int64)
             np.add.at(pairs, index, table)
+            pairs = pairs[None]
         else:
-            nl = _nearest_given_or_built(system, self.num_neighbors, neighbors)
+            if self.cutoff is not None:
+                nl = _given_or_built(system, self.cutoff, neighbors)
+                nl = nl.within(self.cutoff)
+                shell = np.searchsorted(self.shells, nl.distances, side="right")
+            else:
+                nl = _nearest_given_or_built(system, self.num_neighbors, neighbors)
+                shell = np.zeros(len(nl.j), dtype=np.int64)
+                if self.shells is not None:
+                    # the rank of each pair among the nearest of its atom
+                    rank = np.arange(len(nl.j)) - np.repeat(nl.offsets[:-1], nl.counts)
+                    shell = np.searchsorted(self.shells, rank, side="right")
+            count = 1 if self.shells is None else len(self.shells)
             pairs = np.bincount(
-                index[nl.i] * types + index[nl.j], minlength=types * types
-            ).reshape(types, types)
+                (shell * types + index[nl.i]) * types + index[nl.j],
+                minlength=count * types * types,
+            ).reshape(count, types, types)
         fractions = np.bincount(index, minlength=types) / len(system)
         with np.errstate(invalid="ignore", divide="ignore"):
-            probability = pairs / pairs.sum(axis=1, keepdims=True)
-        return WarrenCowleyResult(names, 1.0 - probability / fractions[None, :])
+            probability = pairs / pairs.sum(axis=2, keepdims=True)
+        alpha = 1.0 - probability / fractions[None, None, :]
+        return WarrenCowleyResult(names, alpha if self.shells is not None else alpha[0])
 
     def __repr__(self) -> str:
         if self.cutoff is not None:
-            return f"WarrenCowley(cutoff={self.cutoff!r})"
+            value = self.cutoff if self.shells is None else self.shells.tolist()
+            return f"WarrenCowley(cutoff={value!r})"
+        if self.shells is not None:
+            sizes = np.diff(np.concatenate([[0], self.shells])).tolist()
+            return f"WarrenCowley(num_neighbors={sizes})"
         return f"WarrenCowley(num_neighbors={self.num_neighbors})"

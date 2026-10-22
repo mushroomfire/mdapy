@@ -235,6 +235,83 @@ def test_warren_cowley_errors():
         WarrenCowley(cutoff=3.0).compute(mdapy.System(np.zeros((2, 3)), mdapy.Box(5.0)))
     assert repr(WarrenCowley(num_neighbors=8)) == "WarrenCowley(num_neighbors=8)"
     assert repr(WarrenCowley(cutoff=3.0)) == "WarrenCowley(cutoff=3.0)"
+    assert repr(WarrenCowley(cutoff=(3, 4.5))) == "WarrenCowley(cutoff=[3.0, 4.5])"
+    assert (
+        repr(WarrenCowley(num_neighbors=(12, 6)))
+        == "WarrenCowley(num_neighbors=[12, 6])"
+    )
+    with pytest.raises(InvalidParameter, match="must increase"):
+        WarrenCowley(cutoff=(3.0, 3.0))
+    with pytest.raises(InvalidParameter, match="positive"):
+        WarrenCowley(cutoff=(0.0, 3.0))
+    with pytest.raises(InvalidParameter, match="integers"):
+        WarrenCowley(num_neighbors=(12.0, 6.0))
+    with pytest.raises(InvalidParameter, match="at least 1"):
+        WarrenCowley(num_neighbors=(12, 0))
+    with pytest.raises(InvalidParameter, match="one shell"):
+        WarrenCowley(num_neighbors=8).compute(b2())["Cu", "Zn", 0]
+
+
+def test_warren_cowley_of_shells_in_l12():
+    """Cu3Au-type order: around Au (the minority here), first the 12
+    neighbors are all of the majority, then the 6 next all Au."""
+    from mdapy.build import build_crystal
+
+    system = build_crystal("l1_2", 3.75, elements=("Cu", "Au"), repeat=(4, 4, 4))
+    by_count = WarrenCowley(num_neighbors=(12, 6)).compute(system)
+    assert by_count.elements == ("Cu", "Au") and by_count.alpha.shape == (2, 2, 2)
+    expected = [[[1 / 9, -1 / 3], [-1 / 3, 1.0]], [[-1 / 3, 1.0], [1.0, -3.0]]]
+    np.testing.assert_allclose(by_count.alpha, expected, atol=1e-12)
+    np.testing.assert_allclose(by_count["Au", "Au"], [1.0, -3.0])
+    assert by_count["Au", "Cu", 1] == pytest.approx(1.0)
+    # the same shells by distance: 2.65 and 3.75 Å
+    by_distance = WarrenCowley(cutoff=(3.2, 4.2)).compute(system)
+    np.testing.assert_allclose(by_distance.alpha, by_count.alpha, atol=1e-12)
+    # one shell given as a sequence
+    one = WarrenCowley(cutoff=[3.2]).compute(system)
+    np.testing.assert_allclose(
+        one.alpha[0], WarrenCowley(cutoff=3.2).compute(system).alpha
+    )
+
+
+@pytest.mark.parametrize("kind", ["cutoff", "num_neighbors"])
+def test_warren_cowley_of_shells_match_numpy(kind):
+    system = crystal("fcc", 3.6, (5, 5, 5), jitter=0.1, seed=6)
+    rng = np.random.default_rng(6)
+    elements = rng.choice(["Ni", "Cu", "Al"], len(system), p=[0.5, 0.3, 0.2])
+    system = system.with_columns(element=elements)
+    if kind == "cutoff":
+        analysis = WarrenCowley(cutoff=(3.0, 4.0, 4.7))
+    else:
+        analysis = WarrenCowley(num_neighbors=(12, 6, 24))
+    result = analysis.compute(system)
+    # brute force: every pair of atoms, its image nearest, in shells
+    positions, box = system.positions, system.box
+    vectors = positions[None] - positions[:, None]
+    fractional = vectors @ box.inverse
+    fractional -= np.round(fractional)
+    distances = np.linalg.norm(fractional @ box.matrix, axis=2)
+    np.fill_diagonal(distances, np.inf)
+    names = result.elements
+    index = np.array([names.index(e) for e in elements])
+    pairs = np.zeros((3, 3, 3))
+    for i in range(len(system)):
+        if kind == "cutoff":
+            shell = np.searchsorted([3.0, 4.0, 4.7], distances[i], side="right")
+            keep = shell < 3
+            neighbors, shell = np.flatnonzero(keep), shell[keep]
+        else:
+            neighbors = np.argsort(distances[i], kind="stable")[:42]
+            shell = np.searchsorted([12, 18, 42], np.arange(42), side="right")
+        np.add.at(pairs, (shell, index[i], index[neighbors]), 1)
+    fractions = np.bincount(index) / len(system)
+    expected = 1 - pairs / pairs.sum(axis=2, keepdims=True) / fractions
+    np.testing.assert_allclose(result.alpha, expected, atol=1e-12)
+    # with a given list
+    nl = mdapy.NeighborList.build(system, 5.0)
+    np.testing.assert_array_equal(
+        analysis.compute(system, neighbors=nl).alpha, result.alpha
+    )
 
 
 def test_bond_angles_by_triplet_of_elements_match_numpy():

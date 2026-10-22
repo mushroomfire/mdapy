@@ -21,7 +21,7 @@ each neighbor, roughly nearest first (in narrow distance bins), until the
 next neighbors are more than twice as far as the farthest vertex of the cell;
 no farther atom can cut it then. The neighbors are searched on a grid of
 cells; the cells they do not close are computed again with a longer reach. A
-million atoms take about 6 s on one thread and 1.1 s on ten. In
+million atoms take about 6 s on one thread and 1.0 s on ten. In
 directions that are not periodic, the cells are closed by the faces of the
 box, moved out to include every atom. Two atoms at the same position raise `ValueError`.
 

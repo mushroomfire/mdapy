@@ -63,6 +63,11 @@ def test_matches_a_reference_and_ignores_drift():
         reference(heavy, 4.0),
         rtol=1e-12,
     )
+    # a given neighbor list, rather than the grid, sums in another order
+    listed = AtomicTemperature(4.0).compute(
+        heavy, neighbors=mdapy.NeighborList.build(heavy, 4.5)
+    )
+    np.testing.assert_allclose(listed.temperature, reference(heavy, 4.0), rtol=1e-12)
 
 
 def test_columns_isolated_atoms_and_errors():

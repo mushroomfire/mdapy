@@ -82,17 +82,36 @@ class AtomicTemperature:
         else:
             raise MissingProperty("the temperature needs a mass or an element column")
         v = table["velocities"].to_numpy()
-        nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
-        temperature = _native.atomic_temperature(
-            nl.offsets,
-            nl.j,
-            np.ascontiguousarray(mass, dtype=np.float64),
-            np.ascontiguousarray(v, dtype=np.float64),
-            units.AMU_A2_PER_PS2_TO_EV,
-            units.BOLTZMANN,
-            progress,
-            _native_token(cancel),
-        )
+        mass = np.ascontiguousarray(mass, dtype=np.float64)
+        v = np.ascontiguousarray(v, dtype=np.float64)
+        if neighbors is None:
+            # the neighbors found on the grid, without a list
+            box = system.box
+            temperature = _native.atomic_temperature_search(
+                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(box.matrix),
+                np.ascontiguousarray(box.origin),
+                np.ascontiguousarray(box.pbc),
+                self.cutoff,
+                mass,
+                v,
+                units.AMU_A2_PER_PS2_TO_EV,
+                units.BOLTZMANN,
+                progress,
+                _native_token(cancel),
+            )
+        else:
+            nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
+            temperature = _native.atomic_temperature(
+                nl.offsets,
+                nl.j,
+                mass,
+                v,
+                units.AMU_A2_PER_PS2_TO_EV,
+                units.BOLTZMANN,
+                progress,
+                _native_token(cancel),
+            )
         return TemperatureResult(temperature)
 
     def __repr__(self) -> str:

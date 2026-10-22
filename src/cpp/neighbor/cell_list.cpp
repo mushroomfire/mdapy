@@ -413,6 +413,71 @@ void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* o
         control);
 }
 
+NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t* offsets,
+                     const std::int32_t* neighbors, const std::int32_t* shifts,
+                     const double* matrix, double cutoff, std::vector<double>& vectors,
+                     const Control& control) {
+    const double* h = matrix;
+    const double cutoff2 = cutoff * cutoff;
+    // the vector of pair p, as the search and pair_vectors compute it
+    const auto vector = [&](std::int64_t i, std::int64_t p, double* v) {
+        const double* xi = positions + 3 * i;
+        const double* xj = positions + 3 * static_cast<std::int64_t>(neighbors[p]);
+        const std::int32_t* s = shifts + 3 * p;
+        double r2 = 0.0;
+        for (int e = 0; e < 3; ++e) {
+            v[e] = xj[e] - xi[e] + s[0] * h[e] + s[1] * h[3 + e] + s[2] * h[6 + e];
+            r2 += v[e] * v[e];
+        }
+        return r2;
+    };
+    NeighborPairs result;
+    result.offsets.assign(static_cast<std::size_t>(n) + 1, 0);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                std::int64_t kept = 0;
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    double v[3];
+                    kept += static_cast<std::int64_t>(vector(i, p, v) < cutoff2);
+                }
+                result.offsets[i + 1] = kept;
+            }
+        },
+        control);
+    for (std::int64_t i = 0; i < n; ++i) {
+        result.offsets[i + 1] += result.offsets[i];
+    }
+    const auto total = static_cast<std::size_t>(result.offsets[n]);
+    result.neighbors.resize(total);
+    result.shifts.resize(3 * total);
+    result.distances.resize(total);
+    vectors.resize(3 * total);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                auto at = static_cast<std::size_t>(result.offsets[i]);
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    double v[3];
+                    const double r2 = vector(i, p, v);
+                    if (r2 < cutoff2) {
+                        result.neighbors[at] = neighbors[p];
+                        for (int e = 0; e < 3; ++e) {
+                            result.shifts[3 * at + e] = shifts[3 * p + e];
+                            vectors[3 * at + e] = v[e];
+                        }
+                        result.distances[at] = std::sqrt(r2);
+                        ++at;
+                    }
+                }
+            }
+        },
+        control);
+    return result;
+}
+
 void nearest_sites(const double* sites, std::int64_t n, const double* matrix,
                    const double* origin, const bool* pbc, const double* points, std::int64_t m,
                    std::int64_t* site, double* distance2, const Control& control) {

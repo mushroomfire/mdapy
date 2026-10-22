@@ -215,6 +215,36 @@ class NeighborList:
             return self  # every pair is closer already
         return self._subset(self.distances < cutoff, cutoff)
 
+    def _follow(self, system: System, cutoff: float) -> "NeighborList | None":
+        """The list NeighborList.build(system, cutoff) for the atoms of this
+        list moved to their places in system, from the pairs of this list
+        without a new search; None when the box changed or an atom moved too
+        far, half the difference of the cutoffs or more."""
+        old = self.system
+        if (
+            len(system) != len(old)
+            or not np.array_equal(system.box.matrix, old.box.matrix)
+            or not np.array_equal(system.box.origin, old.box.origin)
+            or not np.array_equal(system.box.pbc, old.box.pbc)
+        ):
+            return None
+        step = system.positions - old.positions
+        moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
+        if not cutoff + 2.0 * moved < self.cutoff:
+            return None
+        offsets, j, shifts, distances, vectors = _native.follow(
+            np.ascontiguousarray(system.positions),
+            self.offsets,
+            self.j,
+            self.shifts,
+            np.ascontiguousarray(system.box.matrix),
+            float(cutoff),
+        )
+        followed = NeighborList(system, cutoff, offsets, j, shifts, distances)
+        vectors.flags.writeable = False
+        followed._vectors = vectors
+        return followed
+
     def sorted(self) -> "NeighborList":
         """The same pairs, each atom's sorted by distance (ties keep their order)."""
         order, _ = _native.order_by_distance(self.offsets, self.distances)

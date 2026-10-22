@@ -63,6 +63,35 @@ def test_results_do_not_depend_on_threads(potential):
     np.testing.assert_array_equal(runs[0].system.positions, runs[1].system.positions)
 
 
+class Searching(EAM):
+    """EAM that always searches its own neighbors."""
+
+    def compute(self, system, properties=("energy", "forces"), *, neighbors=None):
+        return super().compute(system, properties)
+
+
+def test_one_search_serves_several_steps(potential, monkeypatch):
+    # the lists from a longer search are those of new searches, to the last bit
+    system = alloy(seed=4, repeat=2, jitter=0.15)
+    calls = []
+    build = mdapy.NeighborList.__dict__["build"]
+
+    def counted(cls, *args, **kwargs):
+        calls.append(1)
+        return build.__func__(cls, *args, **kwargs)
+
+    monkeypatch.setattr(mdapy.NeighborList, "build", classmethod(counted))
+    result = minimize(system, potential, max_force=1e-4, max_steps=300)
+    searches = len(calls)
+    reference = minimize(
+        system, Searching(potential.path), max_force=1e-4, max_steps=300
+    )
+    assert result.steps == reference.steps > 20
+    np.testing.assert_array_equal(result.system.positions, reference.system.positions)
+    assert result.energy == reference.energy
+    assert searches < result.steps / 2
+
+
 def test_step_limit_callback_and_empty_systems(potential):
     system = alloy(seed=4, repeat=2, jitter=0.2)
     stopped = minimize(system, potential, max_steps=3)

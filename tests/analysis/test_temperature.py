@@ -3,12 +3,13 @@
 
 import numpy as np
 import pytest
-from lattices import crystal
 
 import mdapy
 from mdapy import units
 from mdapy.analysis import AtomicTemperature
 from mdapy.errors import InvalidParameter, MissingProperty
+
+from lattices import crystal
 
 
 def thermal(temperature=300.0, repeat=(10, 10, 10), seed=0):

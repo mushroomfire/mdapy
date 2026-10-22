@@ -5,8 +5,18 @@
 
 __version__ = "2.0.0.dev0"
 
-from mdapy import analysis, elements, errors, identify, units
+from mdapy import (
+    analysis,
+    calculators,
+    elements,
+    errors,
+    identify,
+    lattice_dynamics,
+    simulation,
+    units,
+)
 from mdapy.core.box import Box
+from mdapy.core.indices import index_dtype
 from mdapy.core.system import System
 from mdapy.core.threads import (
     CancelToken,
@@ -24,14 +34,18 @@ __all__ = [
     "Topology",
     "__version__",
     "analysis",
+    "calculators",
     "identify",
     "elements",
     "errors",
+    "lattice_dynamics",
+    "simulation",
     "units",
     "CancelToken",
     "get_num_threads",
     "set_num_threads",
     "num_threads",
+    "index_dtype",
     "read",
     "write",
     "read_trajectory",

@@ -3,11 +3,12 @@
 
 import numpy as np
 import pytest
-from lattices import crystal
 
 import mdapy
 from mdapy.analysis import VoronoiAnalysis
 from mdapy.errors import InvalidParameter
+
+from lattices import crystal
 
 BOX = [[12.0, 0, 0], [2.0, 11.0, 0], [-1.5, 1.0, 13.0]]
 
@@ -20,7 +21,7 @@ def random_system(n=300, pbc=True, seed=0):
 
 def faces_of(result, i):
     s = slice(result.offsets[i], result.offsets[i + 1])
-    return result.neighbors[s], result.shifts[s], result.areas[s], result.vertices[s]
+    return result.j[s], result.shifts[s], result.areas[s], result.edges[s]
 
 
 def test_fcc_is_a_rhombic_dodecahedron():
@@ -28,7 +29,8 @@ def test_fcc_is_a_rhombic_dodecahedron():
     result = VoronoiAnalysis().compute(crystal("fcc", a))
     np.testing.assert_allclose(result.volume, a**3 / 4, rtol=1e-12)
     np.testing.assert_allclose(result.areas, a**2 * np.sqrt(2) / 8, rtol=1e-12)
-    assert (result.coordination == 12).all() and (result.vertices == 4).all()
+    assert (result.coordination == 12).all() and (result.edges == 4).all()
+    assert result.j.dtype == mdapy.index_dtype and result.shifts.dtype == np.int8
     np.testing.assert_array_equal(result.index()[:, :2], [[0, 12]] * len(result.volume))
     np.testing.assert_allclose(result.radius, a / 2, rtol=1e-12)
 
@@ -38,7 +40,7 @@ def test_bcc_is_a_truncated_octahedron():
     result = VoronoiAnalysis().compute(crystal("bcc", a))
     np.testing.assert_allclose(result.volume, a**3 / 2, rtol=1e-12)
     edge = a * np.sqrt(2) / 4
-    squares, hexagons = result.vertices == 4, result.vertices == 6
+    squares, hexagons = result.edges == 4, result.edges == 6
     np.testing.assert_allclose(result.areas[squares], edge**2, rtol=1e-12)
     np.testing.assert_allclose(
         result.areas[hexagons], 1.5 * np.sqrt(3) * edge**2, rtol=1e-12
@@ -65,7 +67,7 @@ def test_cells_fill_the_box(pbc):
     system = random_system(pbc=pbc)
     result = VoronoiAnalysis().compute(system)
     np.testing.assert_allclose(result.volume.sum(), system.box.volume, rtol=1e-12)
-    walls = result.neighbors < 0
+    walls = result.j < 0
     assert walls.any() == (not np.all(pbc))
     # the walls of each closed direction add up to two faces of the box
     m = system.box.matrix
@@ -128,27 +130,52 @@ def test_invariance_threads_and_columns():
     )
 
 
-def test_area_threshold():
+def test_thresholds():
     system = crystal("fcc", 3.6, jitter=0.03, seed=6)
     every = VoronoiAnalysis().compute(system)
     assert every.coordination.max() > 12  # slivers between second neighbors
-    large = VoronoiAnalysis(area_threshold=0.01).compute(system)
-    assert (large.coordination == 12).all()
-    np.testing.assert_array_equal(large.volume, every.volume)
-    assert (
-        repr(VoronoiAnalysis(area_threshold=0.01))
-        == "VoronoiAnalysis(area_threshold=0.01)"
+    for analysis in (
+        VoronoiAnalysis(relative_face_threshold=0.01),
+        VoronoiAnalysis(face_threshold=0.05),
+    ):
+        large = analysis.compute(system)
+        assert (large.coordination == 12).all()
+        np.testing.assert_array_equal(large.volume, every.volume)
+        np.testing.assert_array_equal(large.radius, every.radius)
+    # the faces kept are those of every face above the larger threshold
+    surface = np.add.reduceat(every.areas, every.offsets[:-1])
+    atom = np.repeat(np.arange(len(system)), np.diff(every.offsets))
+    smallest = np.maximum(0.2, 0.05 * surface)[atom]
+    kept = VoronoiAnalysis(face_threshold=0.2, relative_face_threshold=0.05).compute(
+        system
     )
-    for bad in (-0.1, 1.0):
-        with pytest.raises(InvalidParameter, match="area_threshold"):
-            VoronoiAnalysis(area_threshold=bad)
+    np.testing.assert_array_equal(kept.areas, every.areas[every.areas > smallest])
+    # short edges no longer count: the slivers keep fewer than three
+    short = VoronoiAnalysis(edge_threshold=0.3).compute(system)
+    assert (short.coordination == 12).all()
+    np.testing.assert_array_equal(short.index(4)[:, 1], 12)
+    assert repr(VoronoiAnalysis(edge_threshold=0.3)) == (
+        "VoronoiAnalysis(face_threshold=0.0, relative_face_threshold=0.0, "
+        "edge_threshold=0.3)"
+    )
+    bad = [
+        ("face_threshold", -0.1),
+        ("relative_face_threshold", -0.1),
+        ("relative_face_threshold", 1.0),
+        ("edge_threshold", -1.0),
+    ]
+    for name, value in bad:
+        with pytest.raises(InvalidParameter, match=name):
+            VoronoiAnalysis(**{name: value})
+    with pytest.raises(InvalidParameter, match="largest"):
+        every.index(2)
 
 
 def test_one_atom_and_atoms_outside_the_box():
     single = mdapy.System([[0.5, 0.5, 0.5]], mdapy.Box([3.0, 4.0, 5.0]), elements="Ar")
     result = VoronoiAnalysis().compute(single)
     assert result.volume[0] == pytest.approx(60.0, rel=1e-12)
-    assert result.coordination[0] == 6 and (result.neighbors == 0).all()
+    assert result.coordination[0] == 6 and (result.j == 0).all()
     outside = mdapy.System(
         [[1.0, 1, 1], [2.0, 2, 7.0]],
         mdapy.Box(5.0, pbc=(True, True, False)),
@@ -163,5 +190,5 @@ def test_atoms_at_the_same_position():
     twins = mdapy.System(
         [[1.0, 1, 1], [1.0, 1, 1], [3.0, 3, 3]], mdapy.Box(6.0), elements="Ar"
     )
-    with pytest.raises(ValueError, match="same position"):
+    with pytest.raises(InvalidParameter, match="same position"):
         VoronoiAnalysis().compute(twins)

@@ -22,7 +22,8 @@ class WignerSeitzResult(Result):
     Attributes
     ----------
     site : numpy.ndarray
-        (N,) int64 reference site of each atom: the nearest one.
+        (N,) reference site of each atom, the nearest one (the first of
+        equally near sites), as ``mdapy.index_dtype``.
     occupancy : numpy.ndarray
         (M,) int64 number of atoms on each reference site.
     """
@@ -74,6 +75,13 @@ class WignerSeitz:
             raise InvalidParameter("the reference has no sites")
         self.reference = reference
         self.affine = bool(affine)
+        box = reference.box
+        self._tree = _search.KdTree(
+            np.ascontiguousarray(reference.positions),
+            np.ascontiguousarray(box.matrix),
+            np.ascontiguousarray(box.origin),
+            np.ascontiguousarray(box.pbc),
+        )
 
     def compute(
         self, system: System, *, progress: Any = None, cancel: Any = None
@@ -97,15 +105,10 @@ class WignerSeitz:
         positions = system.positions
         if self.affine:
             positions = box.to_cartesian(system.box.to_fractional(positions))
-        site, _ = _search.nearest_sites(
-            np.ascontiguousarray(self.reference.positions),
-            np.ascontiguousarray(box.matrix),
-            np.ascontiguousarray(box.origin),
-            np.ascontiguousarray(box.pbc),
-            np.ascontiguousarray(positions),
-            progress,
-            _native_token(cancel),
+        nearest, _, _ = self._tree.nearest(
+            np.ascontiguousarray(positions), 1, progress, _native_token(cancel)
         )
+        site = nearest[:, 0]
         occupancy = np.bincount(site, minlength=len(self.reference))
         return WignerSeitzResult(site, occupancy)
 

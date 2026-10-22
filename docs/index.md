@@ -1,9 +1,16 @@
-# mdapy
+---
+title: mdapy
+---
 
-mdapy is a Python package for analysing and modelling atomistic simulations:
-reading and writing structures and trajectories, neighbor search, structure
-identification, property analysis, structure building, and energy
-minimization with interatomic potentials.
+# ![mdapy](assets/mdapy-logo.svg#only-light){ width="420" } ![mdapy](assets/mdapy-logo-dark.svg#only-dark){ width="420" } { .logo }
+
+**mdapy**, short for *Molecular Dynamics Analysis in Python*, analyses and
+builds atomistic systems. It reads and writes structures and trajectories in
+the common formats, finds neighbors, identifies crystal structures and
+defects and measures their properties, builds crystals and polycrystals, and
+computes energies, forces, relaxed structures and elastic constants with
+interatomic potentials. The heavy work runs in compiled C++ on all cores of
+the machine.
 
 !!! warning "mdapy 2.0 is under development"
     This site documents mdapy 2.0, a complete rewrite on the `v2` branch that is
@@ -11,31 +18,190 @@ minimization with interatomic potentials.
     its own tests and documentation page. For the stable release use
     [mdapy 1.0.8](https://pypi.org/project/mdapy/1.0.8/).
 
+## What mdapy does
+
+Structures come from files or are built, live in a `System`, and its
+neighbors feed the analyses and the calculators. Dashed parts are planned.
+
+```mermaid
+flowchart TB
+    files[("<b>Files</b><br/>extended XYZ · LAMMPS · POSCAR · mdapy")]
+    build["<b>Structure builder</b><br/>crystals · polycrystals · dislocations · packing"]
+    system(["<b>System</b><br/>box · topology · trajectory"])
+    neighbors(["<b>Neighbor lists</b>"])
+    visual["<b>Visualization</b><br/>rendering · plots"]
+    mlip["<b>MLIP</b><br/>descriptors · frames<br/>training sets"]
+    analysis["<b>Analysis</b><br/>structures · local order · defects · dynamics"]
+    calculators["<b>Calculators</b><br/>EAM · NEP · LAMMPS"]
+    minimization["<b>Minimization</b><br/>and dynamics"]
+    lattice["<b>Lattice dynamics</b><br/>elastic constants<br/>phonons"]
+
+    files <--> system
+    build -.-> system
+    system --> neighbors
+    system -.-> visual
+    calculators -.-> mlip
+    neighbors --> analysis
+    neighbors --> calculators
+    calculators --> minimization
+    calculators --> lattice
+
+    classDef core fill:#2563eb40,stroke:#2563eb,stroke-width:4px
+    classDef data fill:#3b82f61f,stroke:#3b82f6,stroke-width:2px
+    classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px
+    classDef simulation fill:#9333ea26,stroke:#9333ea,stroke-width:2px
+    classDef build fill:#16a34a1f,stroke:#16a34a,stroke-width:2px,stroke-dasharray:6 4
+    classDef visual fill:#db27771f,stroke:#db2777,stroke-width:2px,stroke-dasharray:6 4
+    classDef mlip fill:#0d94881f,stroke:#0d9488,stroke-width:2px,stroke-dasharray:6 4
+    class system,neighbors core
+    class files data
+    class analysis analysis
+    class calculators,minimization,lattice simulation
+    class build build
+    class visual visual
+    class mlip mlip
+```
+
 ## Design in brief
 
-- **Two dependencies.** NumPy 2 and polars 2. Everything else is optional.
+- **Two dependencies.** NumPy and polars. Everything else is optional.
 - **One unit system.** Å, eV, ps, amu, K, and GPa for stress. See
   [Units and conventions](reference/units.md).
 - **Consistent names.** Every parameter and property follows the
   [Glossary](reference/glossary.md).
-- **No OpenMP.** Compiled kernels use mdapy's own thread pool, so mdapy runs
-  safely in the same process as PyTorch, NumPy and LAMMPS. Results do not
-  depend on the number of threads. See [Parallelism](guide/parallelism.md).
-- **Tested and documented feature by feature.** Each feature has its own
-  page describing what it computes, how it is validated, and which papers it
-  follows.
+- **Runs next to PyTorch and LAMMPS.** The compiled kernels use a thread
+  pool of mdapy's own instead of OpenMP, so mdapy shares a process with
+  PyTorch and LAMMPS without clashing OpenMP runtimes, and its results are
+  the same for any number of threads. See
+  [Parallelism](getting-started/parallelism.md).
+- **Tested and documented feature by feature.** Each feature is tested
+  against independent references, analytic results and NumPy
+  implementations, and against LAMMPS and OVITO where they compute the same,
+  and has its own page describing how to use it and, for analyses, what it
+  computes and which papers it follows.
 
-## Status
+## Features
 
-| Area | State |
-|---|---|
-| Thread control, units, errors | available |
-| Systems, topology and box (`System`, `Topology`, `Box`) | available |
-| Reading and writing files: extended XYZ, LAMMPS data and dump, VASP POSCAR, mdapy files | available |
-| Trajectories | available |
-| Neighbor lists | draft (branch `neighbor-draft`) |
-| Calculators (NEP, EAM), energy minimization | planned |
-| Structure identification and analysis | planned |
+<div class="grid cards" markdown>
 
-See the [release notes](release-notes.md) for what each development version
-contains.
+-   :material-rocket-launch-outline:{ .lg .middle } **Getting started**
+
+    ---
+
+    Install mdapy, take the quick tour and learn the basics.
+
+    [Installation](getting-started/installation.md) ·
+    [Quick tour](getting-started/quick-tour.md)
+
+    [Systems and topology](getting-started/system.md) ·
+    [Simulation box](getting-started/box.md) ·
+    [Reading and writing files](getting-started/io.md) ·
+    [Trajectories](getting-started/trajectory.md) ·
+    [Neighbor lists](getting-started/neighbor.md) ·
+    [Parallelism](getting-started/parallelism.md)
+
+-   :material-chart-bell-curve-cumulative:{ .lg .middle } **Analysis**
+
+    ---
+
+    Identify structures and measure order, defects and dynamics.
+
+    [Overview](analysis/overview.md)
+
+    Structure identification: [common neighbor analysis](analysis/cna.md) ·
+    [Ackland–Jones](analysis/ackland-jones.md) ·
+    [diamond](analysis/diamond.md) · [CHILL+](analysis/chill-plus.md) ·
+    [centro-symmetry](analysis/csp.md) ·
+    [common neighbor parameter](analysis/cnp.md)
+
+    Local order and distributions: [radial distribution](analysis/rdf.md) ·
+    [coordination](analysis/coordination.md) ·
+    [structure factor](analysis/structure-factor.md) ·
+    [bond angles](analysis/bond-angles.md) ·
+    [Warren–Cowley](analysis/warren-cowley.md) ·
+    [Steinhardt](analysis/steinhardt.md) ·
+    [entropy fingerprint](analysis/entropy.md) ·
+    [Voronoi](analysis/voronoi.md)
+
+    Defects and deformation: [clusters](analysis/clusters.md) ·
+    [Wigner–Seitz](analysis/wigner-seitz.md) ·
+    [atomic strain](analysis/atomic-strain.md)
+
+    Dynamics: [mean squared displacement](analysis/msd.md) ·
+    [Lindemann index](analysis/lindemann.md) ·
+    [atomic temperature](analysis/temperature.md)
+
+-   :material-cube-outline:{ .lg .middle } **Structure builder**
+
+    ---
+
+    Build crystals, polycrystals, dislocations and packed molecules.
+
+    Planned.
+
+-   :mdapy-simulation:{ .lg .middle } **Simulation**
+
+    ---
+
+    Energies and forces from potentials, minimization and lattice dynamics.
+
+    Calculators: [the interface](simulation/calculators.md) ·
+    [EAM](simulation/eam.md) · [NEP](simulation/nep.md) ·
+    [LAMMPS](simulation/lammps.md)
+
+    Minimization and dynamics: [energy minimization](simulation/minimize.md)
+
+    Lattice dynamics: [elastic constants](simulation/elastic-constants.md)
+
+-   :material-sine-wave:{ .lg .middle } **MLIP**
+
+    ---
+
+    Training data for machine-learned potentials.
+
+    Planned: NEP descriptors and their principal components · selection of
+    frames · training sets in extended XYZ from VASP single points.
+
+-   :material-palette-outline:{ .lg .middle } **Visualization**
+
+    ---
+
+    Images of systems, colored by any property, and plots of results.
+
+    Planned: rendering · plot templates.
+
+-   :material-speedometer:{ .lg .middle } **Performance**
+
+    ---
+
+    Timings of mdapy and of other programs, from thousands to millions of
+    atoms.
+
+    Planned.
+
+-   :material-book-open-variant:{ .lg .middle } **Reference**
+
+    ---
+
+    File formats, units, the glossary, the papers and the Python API.
+
+    [Extended XYZ](reference/formats/extxyz.md) ·
+    [LAMMPS data](reference/formats/lammps-data.md) ·
+    [LAMMPS dump](reference/formats/lammps-dump.md) ·
+    [VASP POSCAR](reference/formats/poscar.md) ·
+    [mdapy files](reference/formats/mdapy.md)
+
+    [Units and conventions](reference/units.md) ·
+    [Elements](reference/elements.md) · [Glossary](reference/glossary.md) ·
+    [References](reference/references.md) · [Python API](reference/api.md)
+
+</div>
+
+See the [release notes](development/release-notes.md) for what each
+development version contains.
+
+## Citing mdapy
+
+If mdapy contributes to a publication, please cite
+[Wu and Shao (2023)](reference/references.md#wu2023), and the papers that
+the pages of the features you use ask to cite.

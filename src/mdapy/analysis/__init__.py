@@ -19,6 +19,12 @@ from mdapy.analysis._distribution import (
     StructureFactor,
     StructureFactorResult,
 )
+from mdapy.analysis._dynamics import (
+    DisplacementResult,
+    LindemannIndex,
+    LindemannResult,
+    MeanSquaredDisplacement,
+)
 from mdapy.analysis._entropy import EntropyFingerprint, EntropyResult
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
 from mdapy.analysis._strain import AtomicStrain, StrainResult
@@ -27,6 +33,10 @@ from mdapy.analysis._voronoi import VoronoiAnalysis, VoronoiResult
 from mdapy.analysis._wigner_seitz import WignerSeitz, WignerSeitzResult
 
 __all__ = [
+    "DisplacementResult",
+    "LindemannIndex",
+    "LindemannResult",
+    "MeanSquaredDisplacement",
     "AtomicStrain",
     "AtomicTemperature",
     "BondAngleDistribution",

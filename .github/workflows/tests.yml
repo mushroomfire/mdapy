@@ -30,7 +30,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, python: "3.10", werror: "ON" }
+          - { os: ubuntu-latest, python: "3.11", werror: "ON" }
           - { os: ubuntu-latest, python: "3.14", werror: "ON" }
           - { os: macos-14, python: "3.13", werror: "ON" }
           # MSVC also warns inside third-party headers, so no -Werror here.
@@ -47,6 +47,22 @@ jobs:
         shell: bash
         run: pytest -q -n auto
 
+  # 64-bit atom indices, the build for more than 2^31 - 1 atoms.
+  index64:
+    name: pytest — 64-bit indices
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install ".[dev]" -Ccmake.define.MDAPY_WERROR=ON -Ccmake.define.MDAPY_INDEX64=ON
+      - name: Test
+        run: |
+          python -c "import mdapy; assert mdapy.index_dtype == 'int64'"
+          pytest -q -n auto
+
   coverage:
     name: coverage
     runs-on: ubuntu-latest
@@ -55,8 +71,30 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      # LAMMPS for the LAMMPS calculator and the comparisons with LAMMPS: the
+      # reference version, built once and kept as a wheel of its Python module.
+      - uses: actions/cache@v4
+        id: lammps
+        with:
+          path: lammps-wheel
+          key: lammps-stable_30Sep2026-manybody-molecule-${{ runner.os }}-py3.13
+      - name: Build LAMMPS
+        if: steps.lammps.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch stable_30Sep2026 https://github.com/lammps/lammps.git
+          cmake -S lammps/cmake -B lammps-build -D CMAKE_BUILD_TYPE=Release \
+            -D BUILD_SHARED_LIBS=on -D BUILD_MPI=no -D BUILD_OMP=no \
+            -D PKG_MANYBODY=on -D PKG_MOLECULE=on -D Python_EXECUTABLE="$(which python)"
+          cmake --build lammps-build -j 4
+          cmake --build lammps-build --target install-python
+          mkdir -p lammps-wheel && cp lammps-build/lammps-*.whl lammps-wheel/
+      - run: pip install lammps-wheel/lammps-*.whl
       # Editable install so that reported paths point into src/.
       - run: pip install -e ".[dev]"
+      - run: python -c "import lammps; assert lammps.lammps(cmdargs=['-screen', 'none', '-log', 'none']).version() == 20260930"
+      # OVITO for the comparisons with OVITO, at its reference version
+      - run: pip install ovito==3.17.0
+      - run: python -c "import ovito; assert ovito.version_string == '3.17.0'"
       - name: Test with coverage (total >= 90 %)
         run: pytest -q --cov --cov-report=term --cov-report=json
       - name: Per-file coverage (each file >= 95 %)
@@ -106,11 +144,12 @@ jobs:
           g++ -std=c++17 -O1 -g -fsanitize=thread -fno-omit-frame-pointer -ffp-contract=off
           -Wall -Wextra -Wpedantic -Wshadow -Werror -Isrc/cpp -pthread
           -o thread_checks src/cpp/core/parallel.cpp src/cpp/io/text.cpp
-          src/cpp/neighbor/cell_list.cpp src/cpp/identify/structure.cpp
-          src/cpp/analysis/steinhardt.cpp src/cpp/analysis/geometry.cpp
-          src/cpp/analysis/voronoi.cpp src/cpp/analysis/distribution.cpp
-          src/cpp/analysis/strain.cpp
-          tests/cpp/thread_checks.cpp
+          src/cpp/neighbor/cell_list.cpp src/cpp/neighbor/kd_tree.cpp
+          src/cpp/calculators/eam.cpp src/cpp/calculators/nep.cpp
+          src/cpp/identify/structure.cpp src/cpp/analysis/steinhardt.cpp
+          src/cpp/analysis/geometry.cpp src/cpp/analysis/distribution.cpp
+          src/cpp/analysis/voronoi.cpp
+          src/cpp/analysis/strain.cpp tests/cpp/thread_checks.cpp
       - name: Run them
         run: |
           # Recent kernels randomize mmap with 32 bits, which TSan does not expect.

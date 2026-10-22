@@ -7,14 +7,21 @@
 #include <bitset>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "analysis/steinhardt.h"
+#include "neighbor/cell_list.h"
+#include "neighbor/frame.h"
 
 namespace mdapy::identify {
 namespace {
 
 constexpr int kMaxNeighbors = 14;
+
+// Squared length below which a first and a second neighbor vector lead back
+// to the atom itself, in Å².
+constexpr double kBackBond = 1e-4;
 
 int count(std::uint32_t bits) {
     return static_cast<int>(std::bitset<32>(bits).count());
@@ -129,6 +136,75 @@ double length(const double* v) {
     return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 }
 
+// Ackland-Jones type of one atom from the vectors to its m nearest neighbors,
+// nearest first, of which the first 14 count.
+Structure ackland_jones_of(const double* v, std::int64_t m) {
+    if (m < 6) {
+        return kOther;
+    }
+    const int k = static_cast<int>(std::min<std::int64_t>(m, kMaxNeighbors));
+    double r2[kMaxNeighbors];
+    for (int a = 0; a < k; ++a) {
+        r2[a] = v[3 * a] * v[3 * a] + v[3 * a + 1] * v[3 * a + 1] + v[3 * a + 2] * v[3 * a + 2];
+    }
+    // the mean squared distance of the six nearest
+    double r0 = 0.0;
+    for (int a = 0; a < 6; ++a) {
+        r0 += r2[a];
+    }
+    r0 /= 6.0;
+    int n0 = 0, n1 = 0;
+    for (int a = 0; a < k; ++a) {
+        n1 += r2[a] < 1.55 * r0;
+        n0 += r2[a] < 1.45 * r0;
+    }
+    // the cosines of the angles between the n0 nearest, binned
+    int chi[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    for (int a = 0; a < n0; ++a) {
+        for (int b = a + 1; b < n0; ++b) {
+            const double c = (v[3 * a] * v[3 * b] + v[3 * a + 1] * v[3 * b + 1] +
+                              v[3 * a + 2] * v[3 * b + 2]) /
+                             (std::sqrt(r2[a]) * std::sqrt(r2[b]));
+            const int bin = c < -0.945  ? 0
+                            : c < -0.915 ? 1
+                            : c < -0.755 ? 2
+                            : c < -0.195 ? 3
+                            : c < 0.195  ? 4
+                            : c < 0.245  ? 5
+                            : c < 0.795  ? 6
+                                         : 7;
+            ++chi[bin];
+        }
+    }
+    // deviations from each structure; without the bcc denominator, not bcc
+    const double delta_cp = std::abs(1.0 - chi[6] / 24.0);
+    const int denominator = chi[5] + chi[6] - chi[4];
+    double delta_bcc = denominator != 0 ? 0.35 * chi[4] / denominator : delta_cp + 1.0;
+    double delta_fcc = 0.61 * (std::abs(chi[0] + chi[1] - 6) + chi[2]) / 6.0;
+    double delta_hcp =
+        (std::abs(chi[0] - 3.0) + std::abs(chi[0] + chi[1] + chi[2] + chi[3] - 9)) / 12.0;
+    if (chi[0] == 7) {
+        delta_bcc = 0.0;
+    } else if (chi[0] == 6) {
+        delta_fcc = 0.0;
+    } else if (chi[0] <= 3) {
+        delta_hcp = 0.0;
+    }
+    if (chi[7] > 0) {
+        return kOther;
+    }
+    if (chi[4] < 3) {
+        return n1 > 13 || n1 < 11 ? kOther : kIco;
+    }
+    if (delta_bcc <= delta_cp) {
+        return n1 < 11 ? kOther : kBcc;
+    }
+    if (n1 > 12 || n1 < 11) {
+        return kOther;
+    }
+    return delta_fcc < delta_hcp ? kFcc : kHcp;
+}
+
 }  // namespace
 
 void centro_symmetry(std::int64_t n, int k, const double* vectors, double* csp,
@@ -155,6 +231,78 @@ void centro_symmetry(std::int64_t n, int k, const double* vectors, double* csp,
                     sum += values[a];
                 }
                 csp[i] = sum;
+            }
+        },
+        control);
+}
+
+namespace {
+
+// The common neighbor parameter of one atom from the vectors (count x 3) to
+// its neighbors: with v the vectors from the atom, r_ik + r_jk = v_j - 2 v_k.
+double common_neighbor_sum(const double* vectors, std::int64_t count, double cutoff2) {
+    if (count == 0) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    double sum = 0.0;
+    for (std::int64_t j = 0; j < count; ++j) {
+        const double* vj = vectors + 3 * j;
+        double r[3] = {0.0, 0.0, 0.0};
+        for (std::int64_t k = 0; k < count; ++k) {
+            const double* vk = vectors + 3 * k;
+            const double d[3] = {vk[0] - vj[0], vk[1] - vj[1], vk[2] - vj[2]};
+            if (k != j && d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < cutoff2) {
+                for (int e = 0; e < 3; ++e) {
+                    r[e] += vj[e] - 2.0 * vk[e];
+                }
+            }
+        }
+        sum += r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
+    }
+    return sum / static_cast<double>(count);
+}
+
+}  // namespace
+
+void common_neighbor_parameter(std::int64_t n, const std::int64_t* offsets,
+                               const double* vectors, double cutoff, double* cnp,
+                               const Control& control) {
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                cnp[i] = common_neighbor_sum(vectors + 3 * offsets[i], offsets[i + 1] - offsets[i],
+                                             cutoff * cutoff);
+            }
+        },
+        control);
+}
+
+void common_neighbor_parameter_search(const double* positions, std::int64_t n,
+                                      const double* matrix, const double* origin,
+                                      const bool* pbc, double cutoff, double* cnp,
+                                      const Control& control) {
+    if (n == 0) {
+        return;
+    }
+    const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, cutoff);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            std::vector<double> found;  // the vectors to the neighbors, as pair_vectors gives them
+            for (std::int64_t t = begin; t < end; ++t) {
+                const std::int64_t i = grid.atom(t);
+                const double* xi = positions + 3 * i;
+                found.clear();
+                grid.visit(t, [&](index_t j, const std::int32_t* s, double) {
+                    double r[3];
+                    neighbor::pair_vector(xi, positions + 3 * static_cast<std::int64_t>(j), s,
+                                          matrix, r);
+                    found.insert(found.end(), r, r + 3);
+                });
+                cnp[i] = common_neighbor_sum(found.data(),
+                                             static_cast<std::int64_t>(found.size() / 3),
+                                             cutoff * cutoff);
             }
         },
         control);
@@ -205,7 +353,19 @@ void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const
         control);
 }
 
-void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const double* vectors,
+void ackland_jones(std::int64_t n, const std::int64_t* offsets, const double* vectors,
+                   std::int8_t* types, const Control& control) {
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                types[i] = ackland_jones_of(vectors + 3 * offsets[i], offsets[i + 1] - offsets[i]);
+            }
+        },
+        control);
+}
+
+void identify_diamond(std::int64_t n, const index_t* neighbors, const double* vectors,
                       std::int8_t* types, const Control& control) {
     const double scale = 0.5 * (1.0 + std::sqrt(2.0));
     parallel_for(
@@ -214,6 +374,7 @@ void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const doubl
             double second[12 * 3];
             for (std::int64_t i = begin; i < end; ++i) {
                 int m = 0;
+                bool back_to_i = true;  // i is among the four nearest of each neighbor
                 for (int a = 0; a < 4; ++a) {
                     const double* v = vectors + 3 * (4 * i + a);
                     const std::int64_t j = neighbors[4 * i + a];
@@ -229,6 +390,7 @@ void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const doubl
                             back = b;
                         }
                     }
+                    back_to_i = back_to_i && shortest < kBackBond;
                     for (int b = 0; b < 4; ++b) {
                         if (b != back) {
                             const double* w = vectors + 3 * (4 * j + b);
@@ -244,7 +406,7 @@ void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const doubl
                     sum += length(second + 3 * a);
                 }
                 const double local = scale * sum / 12.0;
-                const Structure type = twelve(second, local * local);
+                const Structure type = back_to_i ? twelve(second, local * local) : kOther;
                 types[i] = type == kFcc   ? kCubicDiamond
                            : type == kHcp ? kHexagonalDiamond
                                           : kNotDiamond;
@@ -253,7 +415,7 @@ void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const doubl
         control);
 }
 
-void chill_plus(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+void chill_plus(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
                 const double* vectors, std::int8_t* types, const Control& control) {
     // the sums of the real l = 3 harmonics over each molecule's bonds
     std::vector<double> q(static_cast<std::size_t>(n) * 7, 0.0);

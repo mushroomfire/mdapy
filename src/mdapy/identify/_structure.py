@@ -14,7 +14,7 @@ from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built
+from mdapy.neighbor._neighbor_list import _given_or_built, _nearest_given_or_built
 
 
 @dataclass(frozen=True)
@@ -94,14 +94,14 @@ class CommonNeighborAnalysis:
         StructureResult
             Types ``other``, ``fcc``, ``hcp``, ``bcc`` and ``ico``.
         """
+        # without periodic images, small systems have fewer neighbors
+        k = 14 if system.box.pbc.any() else min(14, len(system) - 1)
         if self.cutoff is not None:
             nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
-        elif neighbors is not None:
-            nl = _given_or_built(system, 0.0, neighbors)._nearest(14)
+        elif k > 0:
+            nl = _nearest_given_or_built(system, k, neighbors)
         else:
-            # without periodic images, small systems have fewer neighbors
-            k = 14 if system.box.pbc.any() else min(14, len(system) - 1)
-            nl = NeighborList.nearest(system, k) if k > 0 else None
+            nl = None
         if nl is None:
             structure = np.zeros(len(system), dtype=np.int8)
         else:
@@ -118,7 +118,62 @@ class CommonNeighborAnalysis:
         return f"CommonNeighborAnalysis(cutoff={self.cutoff!r})"
 
 
-class IdentifyDiamond:
+class AcklandJonesAnalysis:
+    """Ackland-Jones bond-angle analysis: fcc, hcp, bcc and icosahedral atoms."""
+
+    #: Names of the structure types.
+    NAMES = CommonNeighborAnalysis.NAMES
+    #: Their default colors.
+    COLORS = CommonNeighborAnalysis.COLORS
+
+    def compute(
+        self,
+        system: System,
+        *,
+        neighbors: NeighborList | None = None,
+        progress: Any = None,
+        cancel: Any = None,
+    ) -> StructureResult:
+        """The structure type of each atom.
+
+        Parameters
+        ----------
+        system : System
+            The atoms.
+        neighbors : NeighborList, optional
+            Neighbors of this system with at least the 14 nearest of each
+            atom.
+
+        Returns
+        -------
+        StructureResult
+            Types ``other``, ``fcc``, ``hcp``, ``bcc`` and ``ico``.
+
+        Raises
+        ------
+        InvalidParameter
+            If an atom has fewer than 14 neighbors in the given list.
+        """
+        # without periodic images, small systems have fewer neighbors
+        k = 14 if system.box.pbc.any() else min(14, len(system) - 1)
+        if k < 6:
+            return StructureResult(
+                np.zeros(len(system), dtype=np.int8), self.NAMES, self.COLORS
+            )
+        nl = _nearest_given_or_built(system, k, neighbors)
+        structure = _native.ackland_jones(
+            nl.offsets,
+            np.ascontiguousarray(nl.vectors),
+            progress,
+            _native_token(cancel),
+        )
+        return StructureResult(structure, self.NAMES, self.COLORS)
+
+    def __repr__(self) -> str:
+        return "AcklandJonesAnalysis()"
+
+
+class DiamondStructure:
     """Cubic and hexagonal diamond structures, from the arrangement of the
     second neighbors of each atom."""
 
@@ -154,15 +209,7 @@ class IdentifyDiamond:
         InvalidParameter
             If an atom has fewer than 4 neighbors.
         """
-        if neighbors is None:
-            nl = NeighborList.nearest(system, 4)
-        else:
-            nl = _given_or_built(system, 0.0, neighbors)
-            if len(system) and nl.counts.min() < 4:
-                raise InvalidParameter(
-                    f"an atom has {nl.counts.min()} neighbors in the list, fewer than 4"
-                )
-            nl = nl._nearest(4)
+        nl = _nearest_given_or_built(system, 4, neighbors)
         n = len(system)
         structure = _native.identify_diamond(
             np.ascontiguousarray(nl.j.reshape(n, 4)),
@@ -173,7 +220,7 @@ class IdentifyDiamond:
         return StructureResult(structure, self.NAMES, self.COLORS)
 
     def __repr__(self) -> str:
-        return "IdentifyDiamond()"
+        return "DiamondStructure()"
 
 
 class ChillPlus:
@@ -309,18 +356,90 @@ class CentroSymmetryParameter:
             If an atom has fewer neighbors.
         """
         k = self.num_neighbors
-        if neighbors is None:
-            nl = NeighborList.nearest(system, k)
-        else:
-            nl = _given_or_built(system, 0.0, neighbors)
-            if len(system) and nl.counts.min() < k:
-                raise InvalidParameter(
-                    f"an atom has {nl.counts.min()} neighbors in the list, fewer than {k}"
-                )
-            nl = nl._nearest(k)
+        nl = _nearest_given_or_built(system, k, neighbors)
         vectors = np.ascontiguousarray(nl.vectors).reshape(len(system), k, 3)
         csp = _native.centro_symmetry(vectors, progress, _native_token(cancel))
         return CentroSymmetryResult(csp)
 
     def __repr__(self) -> str:
         return f"CentroSymmetryParameter(num_neighbors={self.num_neighbors})"
+
+
+@dataclass(frozen=True)
+class CommonNeighborParameterResult(Result):
+    """The common neighbor parameter of each atom.
+
+    Attributes
+    ----------
+    cnp : numpy.ndarray
+        (N,) float64 parameter in Å²; NaN for an atom without neighbors.
+    """
+
+    cnp: np.ndarray
+
+    def columns(self) -> dict[str, np.ndarray]:
+        return {"cnp": self.cnp}
+
+
+class CommonNeighborParameter:
+    """The common neighbor parameter: zero for an atom whose neighbors and
+    their common neighbors are arranged symmetrically, as in fcc and bcc.
+
+    Parameters
+    ----------
+    cutoff : float
+        Neighbors and common neighbors are closer than cutoff, in Å.
+    """
+
+    def __init__(self, cutoff: float):
+        if not cutoff > 0:
+            raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
+        self.cutoff = float(cutoff)
+
+    def compute(
+        self,
+        system: System,
+        *,
+        neighbors: NeighborList | None = None,
+        progress: Any = None,
+        cancel: Any = None,
+    ) -> CommonNeighborParameterResult:
+        """The parameter of each atom.
+
+        Parameters
+        ----------
+        system : System
+            The atoms.
+        neighbors : NeighborList, optional
+            A neighbor list of this system with at least the cutoff.
+
+        Returns
+        -------
+        CommonNeighborParameterResult
+            The parameter of each atom.
+        """
+        if neighbors is None:
+            # the neighbors found on the grid, without a list
+            box = system.box
+            cnp = _native.common_neighbor_parameter_search(
+                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(box.matrix),
+                np.ascontiguousarray(box.origin),
+                np.ascontiguousarray(box.pbc),
+                self.cutoff,
+                progress,
+                _native_token(cancel),
+            )
+        else:
+            nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
+            cnp = _native.common_neighbor_parameter(
+                nl.offsets,
+                np.ascontiguousarray(nl.vectors),
+                self.cutoff,
+                progress,
+                _native_token(cancel),
+            )
+        return CommonNeighborParameterResult(cnp)
+
+    def __repr__(self) -> str:
+        return f"CommonNeighborParameter(cutoff={self.cutoff!r})"

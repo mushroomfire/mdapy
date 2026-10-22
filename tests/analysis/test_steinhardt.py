@@ -3,16 +3,17 @@
 
 import numpy as np
 import pytest
-from lattices import crystal, icosahedron
 from numpy.polynomial import legendre
 
 import mdapy
 from mdapy.analysis import SteinhardtParameters
 from mdapy.errors import InvalidParameter
 
+from lattices import crystal, icosahedron
+
 
 def unit_vectors(system, k):
-    nl = mdapy.NeighborList.nearest(system, k)
+    nl = mdapy.NeighborList.build(system, num_neighbors=k)
     v = nl.vectors.reshape(len(system), k, 3)
     return v / np.linalg.norm(v, axis=2, keepdims=True), nl.j.reshape(len(system), k)
 

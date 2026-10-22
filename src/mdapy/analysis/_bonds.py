@@ -13,10 +13,10 @@ from mdapy._core import analysis as _native
 from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
-from mdapy.elements import SYMBOLS
+from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built
+from mdapy.neighbor._neighbor_list import _given_or_built, _nearest_given_or_built
 
 
 def _elements(system: System) -> tuple[tuple[str, ...], np.ndarray] | None:
@@ -138,13 +138,46 @@ class ClusterResult(Result):
         (N,) int64 cluster of each atom, numbered from 0 by decreasing size.
     sizes : numpy.ndarray
         (clusters,) int64 number of atoms of each cluster.
+    spanning : numpy.ndarray
+        (clusters,) bool, whether the cluster joins another periodic image of
+        itself, spanning the box; its unwrapped positions, center of mass and
+        gyration then depend on the order of the bonds.
+    unwrapped : numpy.ndarray
+        (N, 3) positions in Å with each cluster unbroken by the periodic
+        boundaries, the first atom of each cluster at its own position.
+    masses : numpy.ndarray
+        (clusters,) total mass of each cluster in amu, or its number of atoms
+        when the system has neither masses nor elements.
+    center_of_mass : numpy.ndarray
+        (clusters, 3) center of mass of each cluster in Å, from ``unwrapped``.
+    radius_of_gyration : numpy.ndarray
+        (clusters,) radius of gyration of each cluster in Å.
+    gyration_tensor : numpy.ndarray
+        (clusters, 3, 3) gyration tensor of each cluster in Å².
     """
 
     cluster: np.ndarray
     sizes: np.ndarray
+    spanning: np.ndarray
+    unwrapped: np.ndarray
+    masses: np.ndarray
+    center_of_mass: np.ndarray
+    radius_of_gyration: np.ndarray
+    gyration_tensor: np.ndarray
 
     def columns(self) -> dict[str, np.ndarray]:
         return {"cluster": self.cluster}
+
+
+def _weights(system: System) -> np.ndarray:
+    """The mass of each atom in amu: the mass column, else that of its
+    element, else 1."""
+    table = system.table
+    if "mass" in table.columns:
+        return table["mass"].to_numpy().astype(np.float64)
+    if "element" in table.columns:
+        return atomic_masses(table["element"].to_physical().to_numpy())
+    return np.ones(len(system))
 
 
 class ClusterAnalysis:
@@ -194,13 +227,52 @@ class ClusterAnalysis:
         if neighbors is None:
             # bonds found on the grid, without a list
             *grid, _ = self._bonds._grid(system)
-            cluster, sizes = _native.clusters_search(
+            cluster, sizes, images, spanning = _native.clusters_search(
                 *grid, progress, _native_token(cancel)
             )
         else:
             bonds, _ = self._bonds.select(system, neighbors)
-            cluster, sizes = _native.clusters(bonds.offsets, bonds.j)
-        return ClusterResult(cluster, sizes)
+            cluster, sizes, images, spanning = _native.clusters(
+                bonds.offsets, bonds.j, np.ascontiguousarray(bonds.shifts)
+            )
+        n, count = len(system), len(sizes)
+        unwrapped = system.positions + images.reshape(n, 3) @ system.box.matrix
+        weights = _weights(system)
+        masses = np.bincount(cluster, weights=weights, minlength=count)
+        center = (
+            np.stack(
+                [
+                    np.bincount(
+                        cluster, weights=weights * unwrapped[:, e], minlength=count
+                    )
+                    for e in range(3)
+                ],
+                axis=1,
+            )
+            / masses[:, None]
+        )
+        delta = unwrapped - center[cluster]
+        gyration = np.empty((count, 3, 3))
+        for a in range(3):
+            for b in range(a, 3):
+                gyration[:, a, b] = gyration[:, b, a] = (
+                    np.bincount(
+                        cluster,
+                        weights=weights * delta[:, a] * delta[:, b],
+                        minlength=count,
+                    )
+                    / masses
+                )
+        return ClusterResult(
+            cluster=cluster,
+            sizes=sizes,
+            spanning=spanning.astype(bool),
+            unwrapped=unwrapped,
+            masses=masses,
+            center_of_mass=center,
+            radius_of_gyration=np.sqrt(np.trace(gyration, axis1=1, axis2=2)),
+            gyration_tensor=gyration,
+        )
 
     def __repr__(self) -> str:
         return f"ClusterAnalysis({self._bonds})"
@@ -423,12 +495,7 @@ class WarrenCowley:
             pairs = np.zeros((types, types), dtype=np.int64)
             np.add.at(pairs, index, table)
         else:
-            if neighbors is None:
-                nl = NeighborList.nearest(system, self.num_neighbors)
-            else:
-                nl = _given_or_built(system, 0.0, neighbors)._nearest(
-                    self.num_neighbors
-                )
+            nl = _nearest_given_or_built(system, self.num_neighbors, neighbors)
             pairs = np.bincount(
                 index[nl.i] * types + index[nl.j], minlength=types * types
             ).reshape(types, types)

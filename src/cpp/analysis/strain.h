@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "core/index.h"
 #include "core/parallel.h"
 
 namespace mdapy::analysis {
@@ -18,8 +19,8 @@ namespace mdapy::analysis {
 // fractional coordinates and D the fractional displacements (n x 3 each).
 // Gives the Green-Lagrange strain (n x 9) and the non-affine squared
 // displacement (n); NaN where the neighbors do not span three dimensions.
-void atomic_strain(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
-                   const std::int32_t* shifts, const double* reference, const double* displacement,
+void atomic_strain(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
+                   const std::int8_t* shifts, const double* reference, const double* displacement,
                    const double* reference_matrix, const double* matrix, double* strain,
                    double* nonaffine, const Control& control = {});
 

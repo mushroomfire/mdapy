@@ -16,12 +16,19 @@ implemented.
 | frame | One `System` of a `Trajectory`. |
 | `table` | The per-atom table of a `System`, a polars DataFrame with one row per atom. |
 | `info` | Global information of a `System`, such as `energy` or `timestep`. |
-| `NeighborList` | Pairs of atoms within a cutoff, including periodic images. |
+| `NeighborList` | Pairs of atoms within a cutoff, or the nearest neighbors of each atom, including periodic images. |
+| pair | One entry of a `NeighborList`: atoms `i` and `j` and the periodic image `shifts` of `j`. |
+| `shifts` | Periodic image of the second atom of a pair, (3,) int8: the pair vector is `x[j] - x[i] + shifts @ box.matrix`. |
+| `index_dtype` | Integer type of atom indices in results such as `NeighborList.j`: int32, or int64 in a build with 64-bit indices. |
 | `Topology` | Bonds, angles, dihedrals and impropers of a system; each a table with `atoms` (0-based row indices), `type` and optional `type_label`. |
-| format | Name of a file format, passed as `format=`, such as `extxyz`. See [Reading and writing files](../guide/io.md). |
+| format | Name of a file format, passed as `format=`, such as `extxyz`. See [Reading and writing files](../getting-started/io.md). |
 | `Calculator` | Interface that computes energy, forces and virial for a `System`. |
+| average atom | The single species of an average-atom potential, standing for a random alloy; `A` in potential files. |
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |
+| unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries, or, along a trajectory, so that atoms move continuously through them. |
+| lag | The number of frames between two frames of a trajectory. |
+| spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
 
 ## Per-atom properties
 
@@ -44,13 +51,15 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `movable` | Array(bool, 3) | | whether the atom may move along x, y, z (VASP selective dynamics) |
 | `structure` | int8 | | structure type from an identification such as `CommonNeighborAnalysis`; the result names the types |
 | `csp` | f64 | Å² | centro-symmetry parameter |
+| `cnp` | f64 | Å² | common neighbor parameter |
 | `coordination` | int64 | | number of neighbors; `coordination_<element>` counts those of one element |
 | `q4`, `q6`, … | f64 | | Steinhardt order parameters; `q4_average`, … when averaged over neighbors |
 | `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
-| `voronoi_volume`, `voronoi_coordination`, `cavity_radius` | f64, int64, f64 | Å³, , Å | volume and number of shared faces of the Voronoi cell, and the distance to its farthest vertex |
+| `voronoi_volume`, `voronoi_coordination`, `cavity_radius` | f64, int64, f64 | Å³, , Å | volume and number of faces shared with atoms of the Voronoi cell, and the distance to its farthest vertex |
 | `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint; `entropy_average` when averaged over neighbors |
 | `temperature` | f64 | K | temperature of an atom and its neighbors |
-| `site`, `occupancy` | int64 | | the nearest reference site of an atom, and the number of atoms on it |
+| `lindemann` | f64 | | Lindemann index of an atom over a trajectory |
+| `site`, `occupancy` | `index_dtype`, int64 | | the nearest reference site of an atom, and the number of atoms on it |
 | `shear_strain`, `volumetric_strain`, `d2min` | f64 | , , Å² | von Mises and volumetric atomic strain against a reference, and the non-affine squared displacement |
 
 ## Energies and virials
@@ -61,6 +70,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `atomic_energies` | per-atom energies (eV) |
 | `virial` | total virial, (3, 3) (eV) |
 | `atomic_virials` | per-atom virials, (N, 3, 3) (eV) |
+| `stress` | stress, (3, 3) (GPa), positive under tension: −`virial` / volume |
+| elastic constants | (6, 6) (GPa) in Voigt order xx, yy, zz, yz, xz, xy |
+| descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 
 ## Parameters
 
@@ -70,14 +82,26 @@ column of fixed-size arrays of length 3 and use the plural name.
 | cutoff per pair of elements | `cutoffs: dict[tuple[str, str], float]` | `rc_dict` |
 | number of nearest neighbors | `num_neighbors` | `k`, `N`, `nnn` |
 | number of histogram bins | `bins` | `nbin`, `nbins` |
-| upper limit of a distribution | `r_max`, `k_max` | |
+| upper limit of a distribution | `r_max`, `q_max` | `rc`, `k_max` |
+| way of computing a quantity | `method` | `mode` |
 | result for each pair or triplet of elements, ordered by atomic number | `partial[a, b]` with `pair(a, b)`; `partial[a, b, c]` (vertex `a`) with `triplet(a, b, c)` | `rdf_partial`, `adf` |
 | random seed | `seed` (int or `numpy.random.Generator`) | `random_seed` |
 | list of elements | `elements` | `element_list` |
 | fractions of elements | `fractions` | `element_ratio` |
 | prebuilt neighbor list | `neighbors=` (keyword-only) | |
+| systems of a trajectory | `frames` | `pos_list`, `traj` |
+| average over every time origin | `window` (bool) | `mode` |
+| smallest Voronoi face (Å²), fraction of the cell's surface, shortest edge (Å) | `face_threshold`, `relative_face_threshold`, `edge_threshold` | `area_threshold` |
+| follow atoms through the periodic boundaries | `unwrap` (bool) | `wrapped`, `unwrapped` |
 | reference configuration | `reference=` | `ref` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
+| interval between kept frames | `save_every` | `dump_freq`, `interval` |
+| convergence of a minimization | `max_force` (eV/Å), `max_stress` (GPa) | `fmax`, `ftol`, `etol` |
+| how the box may relax | `cell` (`None`, `"isotropic"`, `"axes"`, `"full"`) | `relax_box`, `box_relax` |
+| external hydrostatic pressure (GPa) | `pressure` | `press`, `p` |
+| magnitude of an applied strain | `strain` | `delta`, `eps` |
+| whether the positions relax | `relax` (bool) | `relax_atoms`, `minimize` |
+| average of a polycrystal | `average` (`"voigt"`, `"reuss"`, `"hill"`) | `method` |
 
 Boolean options are named positively, for example `include_self=True`.
 

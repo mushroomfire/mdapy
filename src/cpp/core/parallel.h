@@ -3,7 +3,7 @@
 //
 // Thread pool used by every compiled kernel in mdapy. It does not use OpenMP,
 // so mdapy never loads an OpenMP runtime and cannot clash with the ones
-// shipped by PyTorch, NumPy or LAMMPS.
+// shipped by PyTorch or LAMMPS.
 
 #pragma once
 
@@ -40,6 +40,20 @@ struct Control {
     const CancelToken* cancel = nullptr;  // optional
     Monitor monitor;                      // optional
 };
+
+// The control of part `part` (from 0) of `parts` regions of equal size run
+// one after the other: its monitor sees them as a single region.
+inline Control stage(const Control& control, std::int64_t part, std::int64_t parts) {
+    Control result;
+    result.cancel = control.cancel;
+    if (control.monitor) {
+        result.monitor = [monitor = control.monitor, part, parts](std::int64_t done,
+                                                                  std::int64_t total) {
+            return monitor(part * total + done, parts * total);
+        };
+    }
+    return result;
+}
 
 // Number of worker threads used by parallel regions (at least 1).
 int get_num_threads();

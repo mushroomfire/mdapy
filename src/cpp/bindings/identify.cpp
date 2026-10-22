@@ -45,6 +45,50 @@ nb::object centro_symmetry(Neighbors3 vectors, nb::handle progress, const Cancel
     return result;
 }
 
+nb::object common_neighbor_parameter(Offsets offsets, Vectors vectors, double cutoff,
+                                     nb::handle progress, const CancelToken* cancel) {
+    if (offsets.shape(0) < 1 ||
+        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(vectors.shape(0))) {
+        throw std::invalid_argument("the offsets do not fit the vectors");
+    }
+    if (!(cutoff > 0.0)) {
+        throw std::invalid_argument("cutoff must be positive");
+    }
+    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    double* cnp;
+    nb::object result = new_array(static_cast<std::size_t>(n), cnp);
+    run_released(
+        [&](const Control& control) {
+            identify::common_neighbor_parameter(n, offsets.data(), vectors.data(), cutoff, cnp,
+                                                control);
+        },
+        progress, cancel);
+    return result;
+}
+
+using Box3 = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
+using Origin3 = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
+using Periodic = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device::cpu>;
+
+nb::object common_neighbor_parameter_search(Vectors positions, Box3 matrix, Origin3 origin,
+                                            Periodic pbc, double cutoff, nb::handle progress,
+                                            const CancelToken* cancel) {
+    if (!(cutoff > 0.0)) {
+        throw std::invalid_argument("cutoff must be positive");
+    }
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    double* cnp;
+    nb::object result = new_array(static_cast<std::size_t>(n), cnp);
+    run_released(
+        [&](const Control& control) {
+            identify::common_neighbor_parameter_search(positions.data(), n, matrix.data(),
+                                                       origin.data(), pbc.data(), cutoff, cnp,
+                                                       control);
+        },
+        progress, cancel);
+    return result;
+}
+
 nb::object common_neighbor_analysis(Offsets offsets, Vectors vectors, double cutoff,
                                     nb::handle progress, const CancelToken* cancel) {
     if (offsets.shape(0) < 1 ||
@@ -63,7 +107,24 @@ nb::object common_neighbor_analysis(Offsets offsets, Vectors vectors, double cut
     return result;
 }
 
-using Nearest = nb::ndarray<const std::int32_t, nb::shape<-1, 4>, nb::c_contig, nb::device::cpu>;
+nb::object ackland_jones(Offsets offsets, Vectors vectors, nb::handle progress,
+                        const CancelToken* cancel) {
+    if (offsets.shape(0) < 1 ||
+        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(vectors.shape(0))) {
+        throw std::invalid_argument("the offsets do not fit the vectors");
+    }
+    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    std::int8_t* types;
+    nb::object result = new_array(static_cast<std::size_t>(n), types);
+    run_released(
+        [&](const Control& control) {
+            identify::ackland_jones(n, offsets.data(), vectors.data(), types, control);
+        },
+        progress, cancel);
+    return result;
+}
+
+using Nearest = nb::ndarray<const index_t, nb::shape<-1, 4>, nb::c_contig, nb::device::cpu>;
 using Vectors4 = nb::ndarray<const double, nb::shape<-1, 4, 3>, nb::c_contig, nb::device::cpu>;
 
 // neighbors: (n, 4) indices of the four nearest neighbors; vectors (n, 4, 3).
@@ -88,7 +149,7 @@ nb::object identify_diamond(Nearest neighbors, Vectors4 vectors, nb::handle prog
     return result;
 }
 
-using Pairs = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Pairs = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 nb::object chill_plus(Offsets offsets, Pairs neighbors, Vectors vectors, nb::handle progress,
                       const CancelToken* cancel) {
@@ -117,10 +178,19 @@ nb::object chill_plus(Offsets offsets, Pairs neighbors, Vectors vectors, nb::han
 void bind_identify(nb::module_& m) {
     m.def("centro_symmetry", &centro_symmetry, nb::arg("vectors"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("common_neighbor_parameter_search", &common_neighbor_parameter_search,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"),
+          nb::arg("cutoff"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("common_neighbor_parameter", &common_neighbor_parameter, nb::arg("offsets"),
+          nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("common_neighbor_analysis", &common_neighbor_analysis, nb::arg("offsets"),
           nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     m.def("chill_plus", &chill_plus, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("vectors"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("ackland_jones", &ackland_jones, nb::arg("offsets"), nb::arg("vectors"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("identify_diamond", &identify_diamond, nb::arg("neighbors"), nb::arg("vectors"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);

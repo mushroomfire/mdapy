@@ -8,15 +8,22 @@
 
 #include <cstdint>
 
+#include "core/index.h"
 #include "core/parallel.h"
 
 namespace mdapy::analysis {
 
-// The cluster of each of n atoms, given its bonds in CSR form: clusters are
+// The cluster of each of n atoms, given its bonds in CSR form with the
+// shift of each (the bond vector x_j - x_i + shift . H): clusters are
 // numbered from 0 by decreasing size, ties by their first atom. Returns the
-// number of clusters; sizes (at least n long) gets the size of each.
-std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
-                      std::int64_t* cluster, std::int64_t* sizes);
+// number of clusters; sizes and spanning (at least n long) get the size of
+// each and whether it joins another image of itself across the periodic
+// boundaries, and images (n x 3) the periodic image of each atom that places
+// it next to the atoms it is bonded to, the first atom of each cluster at
+// image 0. The images of a spanning cluster depend on the order of the bonds.
+std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
+                      const std::int8_t* shifts, std::int64_t* cluster, std::int64_t* sizes,
+                      std::int32_t* images, std::uint8_t* spanning);
 
 // The same with the bonds found on a cell grid (positions: n x 3; matrix:
 // rows a, b, c; origin: 3; pbc: 3): two atoms are bonded when closer than the
@@ -24,15 +31,15 @@ std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const std::in
 std::int64_t clusters_search(const double* positions, std::int64_t n, const double* matrix,
                              const double* origin, const bool* pbc, const std::int32_t* type,
                              int types, const double* limits, bool per_pair,
-                             std::int64_t* cluster, std::int64_t* sizes,
-                             const Control& control = {});
+                             std::int64_t* cluster, std::int64_t* sizes, std::int32_t* images,
+                             std::uint8_t* spanning, const Control& control = {});
 
 // Counts of the angles between the bonds of each atom, given as neighbors
 // and vectors in CSR form, in bins of equal width from 0 to 180 degrees, by
 // the type of the atom and the types a <= b of the two neighbors (type: n
 // values below types): counts is types x pairs x bins, the pair (a, b)
 // numbered in the order (0, 0), (0, 1), ..., (1, 1), (1, 2), ...
-void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+void bond_angles(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
                  const double* vectors, const std::int32_t* type, int types, int bins,
                  std::int64_t* counts, const Control& control = {});
 
@@ -43,12 +50,20 @@ void bond_angles_search(const double* positions, std::int64_t n, const double* m
                         int types, const double* limits, bool per_pair, int bins,
                         std::int64_t* counts, const Control& control = {});
 
+// The Lindemann index of n atoms over frames of their unwrapped positions
+// (n x frames x 3, each atom's trajectory in a row): for each pair, the
+// standard deviation of its distance over its mean, by Welford's running
+// sums. atomic (n) gets each atom's mean over its pairs and running (frames)
+// the mean over all pairs of the frames up to each one.
+void lindemann(std::int64_t n, std::int64_t frames, const double* positions, double* atomic,
+               double* running, const Control& control = {});
+
 // The temperature of each of n atoms with its neighbors (CSR, images of the
 // atom itself left out) from the kinetic energy relative to their center of
 // mass, 3 (members - 1) degrees of freedom: twice that energy times
 // energy_unit over (3 (members - 1) boltzmann); NaN without neighbors.
 void atomic_temperature(std::int64_t n, const std::int64_t* offsets,
-                        const std::int32_t* neighbors, const double* mass,
+                        const index_t* neighbors, const double* mass,
                         const double* velocities, double energy_unit, double boltzmann,
                         double* temperature, const Control& control = {});
 

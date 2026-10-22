@@ -4,156 +4,93 @@
 #include "neighbor/cell_list.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <limits>
 #include <numeric>
 #include <stdexcept>
-#include <string>
-#include <tuple>
 
 namespace mdapy::neighbor {
 namespace {
 
-using Vector = std::array<double, 3>;
-
-// Bins are searched with a cutoff larger by this factor, so that rounding in
-// the fractional coordinates cannot hide a pair just inside the cutoff.
+// The search reaches this factor beyond the cutoff, so that rounding in the
+// fractional coordinates cannot hide a pair just inside the cutoff.
 constexpr double kMargin = 1.0 + 1e-10;
 
-struct Pair {
-    std::int32_t j;
-    std::array<std::int32_t, 3> shift;
-    double distance;
-};
+// Cells across the cutoff: smaller cells hold fewer atoms beyond the cutoff.
+constexpr double kCellsPerCutoff = 2.0;
 
-// Puts the k pairs with the smallest (distance, j, shift) first, in order,
-// all distances below limit. A counting sort into distance bins comes first,
-// then an insertion sort of the bins that hold the k: nearly in order, they
-// need few comparisons, unlike a heap whose comparisons the processor cannot
-// predict.
-void select_nearest(std::vector<Pair>& pairs, std::size_t k, double limit,
-                    std::vector<Pair>& sorted) {
-    constexpr std::size_t kBins = 32;
-    std::array<std::uint32_t, kBins + 1> start{};
-    const double scale = static_cast<double>(kBins) / limit;
-    for (const Pair& p : pairs) {
-        ++start[std::min(kBins - 1, static_cast<std::size_t>(p.distance * scale)) + 1];
-    }
-    for (std::size_t b = 0; b < kBins; ++b) {
-        start[b + 1] += start[b];
-    }
-    std::array<std::uint32_t, kBins> next;
-    std::copy(start.begin(), start.end() - 1, next.begin());
-    sorted.resize(pairs.size());
-    for (const Pair& p : pairs) {
-        sorted[next[std::min(kBins - 1, static_cast<std::size_t>(p.distance * scale))]++] = p;
-    }
-    // the bins up to the one holding the k-th pair
-    std::size_t end = k;
-    for (std::size_t b = 0; b < kBins; ++b) {
-        if (start[b + 1] >= k) {
-            end = start[b + 1];
-            break;
-        }
-    }
-    const auto less = [](const Pair& p, const Pair& q) {
-        return std::tie(p.distance, p.j, p.shift) < std::tie(q.distance, q.j, q.shift);
-    };
-    for (std::size_t a = 1; a < end; ++a) {
-        const Pair p = sorted[a];
-        std::size_t b = a;
-        for (; b > 0 && less(p, sorted[b - 1]); --b) {
-            sorted[b] = sorted[b - 1];
-        }
-        sorted[b] = p;
-    }
-    pairs.swap(sorted);
-}
+// Most cells along one direction, so that cell indices stay far from overflow.
+constexpr std::int64_t kMostCells = std::int64_t{1} << 30;
+
+struct Extent {
+    double low[3];
+    double high[3];
+    double size;  // largest component of a position or its image in the box
+};
 
 }  // namespace
 
 CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix,
-                   const double* origin, const bool* pbc, double cutoff) {
+                   const double* origin, const bool* pbc, double cutoff)
+    : frame_(matrix, origin, pbc) {
     if (!(cutoff > 0.0) || !std::isfinite(cutoff)) {
         throw std::invalid_argument("cutoff must be a positive number");
     }
-    if (n > std::numeric_limits<std::int32_t>::max()) {
-        throw std::invalid_argument("too many atoms for 32-bit neighbor indices");
-    }
-    std::copy(matrix, matrix + 9, h_);
-    cutoff_ = cutoff;
+    check_atom_count(n);
     cutoff2_ = cutoff * cutoff;
-    const double* h = matrix;
-    // Inverse of H and the thickness of the cell along each lattice direction.
-    const Vector a{h[0], h[1], h[2]}, b{h[3], h[4], h[5]}, c{h[6], h[7], h[8]};
-    auto cross = [](const Vector& u, const Vector& v) {
-        return Vector{u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2],
-                      u[0] * v[1] - u[1] * v[0]};
-    };
-    auto norm = [](const Vector& u) { return std::sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]); };
-    const Vector bc = cross(b, c), ca = cross(c, a), ab = cross(a, b);
-    const double det = a[0] * bc[0] + a[1] * bc[1] + a[2] * bc[2];
-    if (!(std::abs(det) > 0.0) || !std::isfinite(det)) {
-        throw std::invalid_argument("the box is singular");
-    }
-    // Columns of H^-1 are (b x c, c x a, a x b) / det.
-    const Vector inverse_columns[3] = {bc, ca, ab};
-    for (int d = 0; d < 3; ++d) {
-        for (int e = 0; e < 3; ++e) {
-            inverse_[3 * d + e] = inverse_columns[d][e] / det;
-        }
-        origin_[d] = origin[d];
-    }
-    const double thickness[3] = {std::abs(det) / norm(bc), std::abs(det) / norm(ca),
-                                 std::abs(det) / norm(ab)};
+    const double* h = frame_.h;
 
-    // Fractional coordinates, wrapped into [0, 1) along periodic directions.
-    std::vector<double> fractional(static_cast<std::size_t>(n) * 3);
-    std::vector<std::int32_t> wraps(static_cast<std::size_t>(n) * 3, 0);
-    parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
-        for (std::int64_t i = begin; i < end; ++i) {
-            const double x[3] = {positions[3 * i] - origin[0], positions[3 * i + 1] - origin[1],
-                                 positions[3 * i + 2] - origin[2]};
-            for (int d = 0; d < 3; ++d) {
-                const Vector& column = inverse_columns[d];
-                double f = (x[0] * column[0] + x[1] * column[1] + x[2] * column[2]) / det;
-                if (pbc[d]) {
-                    const double k = std::floor(f);
-                    f -= k;
-                    wraps[3 * i + d] = static_cast<std::int32_t>(k);
+    // The periodic images that bring each atom into the box, and the extent
+    // of the atoms in fractional coordinates.
+    std::vector<std::int32_t> wraps(static_cast<std::size_t>(n) * 3);
+    constexpr double kInf = std::numeric_limits<double>::infinity();
+    const Extent none{{kInf, kInf, kInf}, {-kInf, -kInf, -kInf}, 0.0};
+    const Extent extent = parallel_reduce(
+        n, 0, none,
+        [&](std::int64_t begin, std::int64_t end) {
+            Extent part = none;
+            for (std::int64_t i = begin; i < end; ++i) {
+                const double* x = positions + 3 * i;
+                double f[3], y[3];
+                frame_.wrap(x, f, &wraps[3 * i]);
+                frame_.image(x, &wraps[3 * i], y);
+                for (int d = 0; d < 3; ++d) {
+                    part.low[d] = std::min(part.low[d], f[d]);
+                    part.high[d] = std::max(part.high[d], f[d]);
+                    part.size = std::max(part.size, std::max(std::abs(x[d]), std::abs(y[d])));
                 }
-                fractional[3 * i + d] = f;
             }
-        }
-    });
+            return part;
+        },
+        [](Extent p, const Extent& q) {
+            for (int d = 0; d < 3; ++d) {
+                p.low[d] = std::min(p.low[d], q.low[d]);
+                p.high[d] = std::max(p.high[d], q.high[d]);
+            }
+            p.size = std::max(p.size, q.size);
+            return p;
+        });
 
     // Cells at least as wide as the cutoff where possible; along periodic
     // directions narrower boxes are covered by searching more cells.
     const double search = cutoff * kMargin;
+    const auto reach = [&](const Axis& axis, int d) {
+        auto k = static_cast<std::int64_t>(std::ceil(search / (axis.width * frame_.thickness[d])));
+        return axis.periodic ? k : std::min(k, axis.cells - 1);
+    };
     for (int d = 0; d < 3; ++d) {
         Axis& axis = axes_[d];
         axis.periodic = pbc[d];
         double span = 1.0;
         if (!axis.periodic) {
-            double low = 0.0, high = 0.0;
-            if (n > 0) {
-                low = high = fractional[d];
-                for (std::int64_t i = 1; i < n; ++i) {
-                    low = std::min(low, fractional[3 * i + d]);
-                    high = std::max(high, fractional[3 * i + d]);
-                }
-            }
-            axis.low = low;
-            span = std::max(high - low, 1e-12);
+            axis.low = n > 0 ? extent.low[d] : 0.0;
+            span = n > 0 ? std::max(extent.high[d] - extent.low[d], 1e-12) : 1e-12;
         }
-        const double length = span * thickness[d];  // Å across the atoms
-        axis.cells = std::max<std::int64_t>(1, static_cast<std::int64_t>(length / search));
+        const double cells = std::floor(span * frame_.thickness[d] * kCellsPerCutoff / search);
+        axis.cells = std::clamp<std::int64_t>(static_cast<std::int64_t>(std::min(cells, 1e18)), 1,
+                                              kMostCells);
         axis.width = span / static_cast<double>(axis.cells);
-        axis.reach = static_cast<std::int64_t>(std::ceil(search / (axis.width * thickness[d])));
-        if (!axis.periodic) {
-            axis.reach = std::min(axis.reach, axis.cells - 1);
-        }
+        axis.reach = reach(axis, d);
     }
     // Keep the number of cells proportional to the number of atoms.
     while (axes_[0].cells * axes_[1].cells * axes_[2].cells > 8 * n + 64) {
@@ -162,25 +99,22 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
         const double span = widest.width * static_cast<double>(widest.cells);
         widest.cells = std::max<std::int64_t>(1, widest.cells / 2);
         widest.width = span / static_cast<double>(widest.cells);
-        const int d = static_cast<int>(&widest - axes_);
-        widest.reach = static_cast<std::int64_t>(std::ceil(search / (widest.width * thickness[d])));
-        if (!widest.periodic) {
-            widest.reach = std::min(widest.reach, widest.cells - 1);
-        }
+        widest.reach = reach(widest, static_cast<int>(&widest - axes_));
     }
 
     // Counting sort of the atoms into cells, in increasing index order.
     std::vector<std::int64_t> cell_of(static_cast<std::size_t>(n));
-    std::vector<std::int64_t> cells(static_cast<std::size_t>(n) * 3);
     parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
         for (std::int64_t i = begin; i < end; ++i) {
+            double f[3];
+            std::int32_t w[3];
+            frame_.wrap(positions + 3 * i, f, w);
             std::int64_t index = 0;
             for (int d = 0; d < 3; ++d) {
                 const Axis& axis = axes_[d];
-                auto k = static_cast<std::int64_t>((fractional[3 * i + d] - axis.low) / axis.width);
-                k = std::clamp<std::int64_t>(k, 0, axis.cells - 1);
-                cells[3 * i + d] = k;
-                index = index * axis.cells + k;
+                const double k = std::floor((f[d] - axis.low) / axis.width);
+                const double last = static_cast<double>(axis.cells - 1);
+                index = index * axis.cells + static_cast<std::int64_t>(std::clamp(k, 0.0, last));
             }
             cell_of[i] = index;
         }
@@ -193,77 +127,61 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
     for (std::int64_t k = 0; k < total_cells; ++k) {
         cell_start_[k + 1] += cell_start_[k];
     }
-    slot_of_.resize(static_cast<std::size_t>(n));
-    std::vector<std::int64_t> fill(cell_start_.begin(), cell_start_.end() - 1);
-    for (std::int64_t i = 0; i < n; ++i) {
-        slot_of_[i] = static_cast<std::int32_t>(fill[cell_of[i]]++);
+    slot_cells_.resize(static_cast<std::size_t>(n));
+    {
+        std::vector<std::int64_t> fill(cell_start_.begin(), cell_start_.end() - 1);
+        for (std::int64_t i = 0; i < n; ++i) {
+            const std::int64_t t = fill[cell_of[i]]++;
+            slot_cells_[t] = cell_of[i];
+            cell_of[i] = t;  // now the slot of atom i
+        }
     }
     slot_atoms_.resize(static_cast<std::size_t>(n));
     slot_positions_.resize(static_cast<std::size_t>(n) * 3);
     slot_wrapped_.resize(static_cast<std::size_t>(n) * 3);
     slot_wraps_.resize(static_cast<std::size_t>(n) * 3);
-    slot_cells_.resize(static_cast<std::size_t>(n) * 3);
-    const double largest = parallel_reduce(
-        n, 0, 0.0,
-        [&](std::int64_t begin, std::int64_t end) {
-            double size = 0.0;
-            for (std::int64_t i = begin; i < end; ++i) {
-                const std::int64_t t = slot_of_[i];
-                const std::int32_t* w = &wraps[3 * i];
-                slot_atoms_[t] = static_cast<std::int32_t>(i);
-                for (int e = 0; e < 3; ++e) {
-                    const double x = positions[3 * i + e];
-                    const double y = x - (w[0] * h[e] + w[1] * h[3 + e] + w[2] * h[6 + e]);
-                    slot_positions_[3 * t + e] = x;
-                    slot_wrapped_[3 * t + e] = y;
-                    slot_wraps_[3 * t + e] = w[e];
-                    slot_cells_[3 * t + e] = cells[3 * i + e];
-                    size = std::max(size, std::max(std::abs(x), std::abs(y)));
-                }
+    parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t i = begin; i < end; ++i) {
+            const std::int64_t t = cell_of[i];
+            slot_atoms_[t] = static_cast<index_t>(i);
+            frame_.image(positions + 3 * i, &wraps[3 * i], &slot_wrapped_[3 * t]);
+            for (int e = 0; e < 3; ++e) {
+                slot_positions_[3 * t + e] = positions[3 * i + e];
+                slot_wraps_[3 * t + e] = wraps[3 * i + e];
             }
-            return size;
-        },
-        [](double p, double q) { return std::max(p, q); });
-    // every term of a distance stays below this, the images searched being
-    // at most a few box lengths away
-    scale_ = largest;
+        }
+    });
+
+    // Every term of a distance stays below this size, the images searched
+    // being at most a few box lengths away.
+    double size = extent.size;
     for (int d = 0; d < 3; ++d) {
-        scale_ += static_cast<double>(axes_[d].reach + 2) * norm(Vector{h[3 * d], h[3 * d + 1], h[3 * d + 2]});
+        const double* v = h + 3 * d;
+        size += static_cast<double>(axes_[d].reach + 2) *
+                std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     }
+    const double screen = cutoff + 1e-12 * size, inner = cutoff - 1e-12 * size;
+    screen2_ = screen * screen;
+    inner2_ = inner > 0.0 ? inner * inner : 0.0;
 }
 
 NeighborPairs build(const double* positions, std::int64_t n, const double* matrix,
                     const double* origin, const bool* pbc, double cutoff,
                     const Control& control) {
     const CellGrid grid(positions, n, matrix, origin, pbc, cutoff);
-    // the atoms are searched in cell order; each chunk of slots keeps its
-    // pairs, and each atom where its pairs are
-    const std::int64_t grain = default_grain(n);
-    const std::int64_t nchunks = n > 0 ? (n + grain - 1) / grain : 0;
-    std::vector<std::vector<Pair>> chunk_pairs(static_cast<std::size_t>(nchunks));
-    std::vector<std::int64_t> chunk(static_cast<std::size_t>(n), 0), start(static_cast<std::size_t>(n), 0);
     NeighborPairs result;
-    result.offsets.resize(static_cast<std::size_t>(n) + 1, 0);
+    result.offsets.resize(static_cast<std::size_t>(n) + 1);
+    result.offsets[0] = 0;
+    // Count the pairs of each atom, then search again and write them where
+    // they belong.
     parallel_for(
-        n, grain,
+        n, 0,
         [&](std::int64_t begin, std::int64_t end) {
-            std::vector<Pair>& out = chunk_pairs[static_cast<std::size_t>(begin / grain)];
             for (std::int64_t t = begin; t < end; ++t) {
-                const std::int64_t i = grid.atom(t);
-                const std::size_t first = out.size();
-                grid.visit(i, [&](std::int32_t j, const std::int32_t* shift, double r2) {
-                    out.push_back({j, {shift[0], shift[1], shift[2]}, std::sqrt(r2)});
-                });
-                std::sort(out.begin() + static_cast<std::ptrdiff_t>(first), out.end(),
-                          [](const Pair& p, const Pair& q) {
-                              return std::tie(p.j, p.shift) < std::tie(q.j, q.shift);
-                          });
-                chunk[i] = begin / grain;
-                start[i] = static_cast<std::int64_t>(first);
-                result.offsets[i + 1] = static_cast<std::int64_t>(out.size() - first);
+                result.offsets[static_cast<std::int64_t>(grid.atom(t)) + 1] = grid.count(t);
             }
         },
-        control);
+        stage(control, 0, 2));
     for (std::int64_t i = 0; i < n; ++i) {
         result.offsets[i + 1] += result.offsets[i];
     }
@@ -272,26 +190,26 @@ NeighborPairs build(const double* positions, std::int64_t n, const double* matri
     result.shifts.resize(3 * total);
     result.distances.resize(total);
     parallel_for(
-        n, grain,
+        n, 0,
         [&](std::int64_t begin, std::int64_t end) {
-            for (std::int64_t i = begin; i < end; ++i) {
-                const Pair* pairs = chunk_pairs[static_cast<std::size_t>(chunk[i])].data() + start[i];
-                const std::int64_t first = result.offsets[i];
-                for (std::int64_t p = 0; p < result.offsets[i + 1] - first; ++p) {
-                    const auto at = static_cast<std::size_t>(first + p);
-                    result.neighbors[at] = pairs[p].j;
+            for (std::int64_t t = begin; t < end; ++t) {
+                auto at = static_cast<std::size_t>(result.offsets[grid.atom(t)]);
+                grid.visit(t, [&](index_t j, const std::int32_t* shift, double r2) {
+                    result.neighbors[at] = j;
                     for (int e = 0; e < 3; ++e) {
-                        result.shifts[3 * at + e] = pairs[p].shift[e];
+                        result.shifts[3 * at + e] = static_cast<std::int8_t>(shift[e]);
                     }
-                    result.distances[at] = pairs[p].distance;
-                }
+                    result.distances[at] = std::sqrt(r2);
+                    ++at;
+                });
             }
         },
-        control);
+        stage(control, 1, 2));
     return result;
 }
 
-void order_by_distance(std::int64_t n, const std::int64_t* offsets, const double* distances,
+void order_by_distance(const double* positions, std::int64_t n, const std::int64_t* offsets,
+                       const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
                        std::int64_t count, std::vector<std::int64_t>& order,
                        std::vector<std::int64_t>& kept, const Control& control) {
     kept.assign(static_cast<std::size_t>(n) + 1, 0);
@@ -304,11 +222,32 @@ void order_by_distance(std::int64_t n, const std::int64_t* offsets, const double
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
             std::vector<std::int64_t> pairs;
+            std::vector<double> squares;  // of the pairs of atom i, from offsets[i]
             for (std::int64_t i = begin; i < end; ++i) {
                 pairs.resize(static_cast<std::size_t>(offsets[i + 1] - offsets[i]));
                 std::iota(pairs.begin(), pairs.end(), offsets[i]);
+                squares.resize(pairs.size());
+                for (std::size_t q = 0; q < pairs.size(); ++q) {
+                    const std::int64_t p = pairs[q];
+                    double r[3];
+                    squares[q] = pair_vector(positions + 3 * i,
+                                             positions + 3 * static_cast<std::int64_t>(neighbors[p]),
+                                             shifts + 3 * p, matrix, r);
+                }
+                const double* r2 = squares.data() - offsets[i];
                 const auto closer = [&](std::int64_t a, std::int64_t b) {
-                    return distances[a] < distances[b] || (distances[a] == distances[b] && a < b);
+                    if (r2[a] != r2[b]) {
+                        return r2[a] < r2[b];
+                    }
+                    if (neighbors[a] != neighbors[b]) {
+                        return neighbors[a] < neighbors[b];
+                    }
+                    for (int e = 0; e < 3; ++e) {
+                        if (shifts[3 * a + e] != shifts[3 * b + e]) {
+                            return shifts[3 * a + e] < shifts[3 * b + e];
+                        }
+                    }
+                    return false;
                 };
                 const auto take = static_cast<std::ptrdiff_t>(kept[i + 1] - kept[i]);
                 std::partial_sort(pairs.begin(), pairs.begin() + take, pairs.end(), closer);
@@ -318,95 +257,16 @@ void order_by_distance(std::int64_t n, const std::int64_t* offsets, const double
         control);
 }
 
-NeighborPairs nearest(const double* positions, std::int64_t n, const double* matrix,
-                      const double* origin, const bool* pbc, int k, const Control& control) {
-    if (k < 1) {
-        throw std::invalid_argument("the number of neighbors must be at least 1");
-    }
-    NeighborPairs result;
-    result.offsets.resize(static_cast<std::size_t>(n) + 1);
-    for (std::int64_t i = 0; i <= n; ++i) {
-        result.offsets[i] = i * k;
-    }
-    result.neighbors.assign(static_cast<std::size_t>(n) * k, 0);
-    result.shifts.assign(static_cast<std::size_t>(n) * k * 3, 0);
-    result.distances.assign(static_cast<std::size_t>(n) * k, 0.0);
-    if (n == 0) {
-        return result;
-    }
-    // a sphere holding k atoms at the mean density, then larger for the atoms
-    // that have fewer neighbors in it
-    const double* h = matrix;
-    const double volume = std::abs(h[0] * (h[4] * h[8] - h[5] * h[7]) -
-                                   h[1] * (h[3] * h[8] - h[5] * h[6]) +
-                                   h[2] * (h[3] * h[7] - h[4] * h[6]));
-    double cutoff = 1.2 * std::cbrt(3.0 * k * volume / (4.0 * 3.14159265358979323846 * n));
-    std::vector<std::int64_t> todo(static_cast<std::size_t>(n));
-    bool all = true;
-    while (!todo.empty()) {
-        const CellGrid grid(positions, n, matrix, origin, pbc, cutoff);
-        if (all) {
-            // every atom, in cell order
-            for (std::int64_t t = 0; t < n; ++t) {
-                todo[static_cast<std::size_t>(t)] = grid.atom(t);
-            }
-            all = false;
-        }
-        std::vector<std::uint8_t> short_of(todo.size(), 0);
-        parallel_for(
-            static_cast<std::int64_t>(todo.size()), 0,
-            [&](std::int64_t begin, std::int64_t end) {
-                std::vector<Pair> found, sorted;
-                for (std::int64_t t = begin; t < end; ++t) {
-                    const std::int64_t i = todo[static_cast<std::size_t>(t)];
-                    found.clear();
-                    grid.visit(i, [&](std::int32_t j, const std::int32_t* shift, double r2) {
-                        found.push_back({j, {shift[0], shift[1], shift[2]}, r2});
-                    });
-                    if (found.size() < static_cast<std::size_t>(k)) {
-                        short_of[static_cast<std::size_t>(t)] = 1;
-                        continue;
-                    }
-                    select_nearest(found, static_cast<std::size_t>(k), cutoff * cutoff, sorted);
-                    for (int a = 0; a < k; ++a) {
-                        const std::size_t at = static_cast<std::size_t>(i) * k + a;
-                        result.neighbors[at] = found[a].j;
-                        for (int e = 0; e < 3; ++e) {
-                            result.shifts[3 * at + e] = found[a].shift[e];
-                        }
-                        result.distances[at] = std::sqrt(found[a].distance);
-                    }
-                }
-            },
-            control);
-        std::vector<std::int64_t> left;
-        for (std::size_t t = 0; t < todo.size(); ++t) {
-            if (short_of[t]) {
-                left.push_back(todo[t]);
-            }
-        }
-        todo.swap(left);
-        cutoff *= 1.5;
-    }
-    return result;
-}
-
 void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* offsets,
-                  const std::int32_t* neighbors, const std::int32_t* shifts, const double* matrix,
+                  const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
                   double* vectors, const Control& control) {
-    const double* h = matrix;
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t i = begin; i < end; ++i) {
-                const double* xi = positions + 3 * i;
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const double* xj = positions + 3 * static_cast<std::int64_t>(neighbors[p]);
-                    const std::int32_t* s = shifts + 3 * p;
-                    for (int e = 0; e < 3; ++e) {
-                        vectors[3 * p + e] =
-                            xj[e] - xi[e] + s[0] * h[e] + s[1] * h[3 + e] + s[2] * h[6 + e];
-                    }
+                    pair_vector(positions + 3 * i, positions + 3 * static_cast<std::int64_t>(neighbors[p]),
+                                shifts + 3 * p, matrix, vectors + 3 * p);
                 }
             }
         },
@@ -414,25 +274,17 @@ void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* o
 }
 
 NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t* offsets,
-                     const std::int32_t* neighbors, const std::int32_t* shifts,
-                     const double* matrix, double cutoff, std::vector<double>& vectors,
-                     const Control& control) {
-    const double* h = matrix;
+                     const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
+                     double cutoff, Buffer<double>& vectors, const Control& control) {
     const double cutoff2 = cutoff * cutoff;
     // the vector of pair p, as the search and pair_vectors compute it
     const auto vector = [&](std::int64_t i, std::int64_t p, double* v) {
-        const double* xi = positions + 3 * i;
-        const double* xj = positions + 3 * static_cast<std::int64_t>(neighbors[p]);
-        const std::int32_t* s = shifts + 3 * p;
-        double r2 = 0.0;
-        for (int e = 0; e < 3; ++e) {
-            v[e] = xj[e] - xi[e] + s[0] * h[e] + s[1] * h[3 + e] + s[2] * h[6 + e];
-            r2 += v[e] * v[e];
-        }
-        return r2;
+        return pair_vector(positions + 3 * i, positions + 3 * static_cast<std::int64_t>(neighbors[p]),
+                           shifts + 3 * p, matrix, v);
     };
     NeighborPairs result;
-    result.offsets.assign(static_cast<std::size_t>(n) + 1, 0);
+    result.offsets.resize(static_cast<std::size_t>(n) + 1);
+    result.offsets[0] = 0;
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
@@ -445,7 +297,7 @@ NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t
                 result.offsets[i + 1] = kept;
             }
         },
-        control);
+        stage(control, 0, 2));
     for (std::int64_t i = 0; i < n; ++i) {
         result.offsets[i + 1] += result.offsets[i];
     }
@@ -474,58 +326,8 @@ NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t
                 }
             }
         },
-        control);
+        stage(control, 1, 2));
     return result;
-}
-
-void nearest_sites(const double* sites, std::int64_t n, const double* matrix,
-                   const double* origin, const bool* pbc, const double* points, std::int64_t m,
-                   std::int64_t* site, double* distance2, const Control& control) {
-    if (n == 0 && m > 0) {
-        throw std::invalid_argument("there are no sites");
-    }
-    const double* h = matrix;
-    const double volume = std::abs(h[0] * (h[4] * h[8] - h[5] * h[7]) -
-                                   h[1] * (h[3] * h[8] - h[5] * h[6]) +
-                                   h[2] * (h[3] * h[7] - h[4] * h[6]));
-    // a sphere holding a few sites at the mean density, larger where needed
-    double cutoff = 1.5 * std::cbrt(volume / static_cast<double>(std::max<std::int64_t>(n, 1)));
-    std::vector<std::int64_t> todo(static_cast<std::size_t>(m));
-    std::iota(todo.begin(), todo.end(), 0);
-    while (!todo.empty()) {
-        const CellGrid grid(sites, n, matrix, origin, pbc, cutoff);
-        std::vector<std::uint8_t> missed(todo.size(), 0);
-        parallel_for(
-            static_cast<std::int64_t>(todo.size()), 0,
-            [&](std::int64_t begin, std::int64_t end) {
-                for (std::int64_t t = begin; t < end; ++t) {
-                    const std::int64_t p = todo[static_cast<std::size_t>(t)];
-                    std::int64_t best = -1;
-                    double best2 = 0.0;
-                    grid.visit_point(points + 3 * p, [&](std::int32_t j, const std::int32_t*, double r2) {
-                        if (best < 0 || r2 < best2 || (r2 == best2 && j < best)) {
-                            best = j;
-                            best2 = r2;
-                        }
-                    });
-                    if (best < 0) {
-                        missed[static_cast<std::size_t>(t)] = 1;
-                    } else {
-                        site[p] = best;
-                        distance2[p] = best2;
-                    }
-                }
-            },
-            control);
-        std::vector<std::int64_t> left;
-        for (std::size_t t = 0; t < todo.size(); ++t) {
-            if (missed[t]) {
-                left.push_back(todo[t]);
-            }
-        }
-        todo.swap(left);
-        cutoff *= 2.0;
-    }
 }
 
 }  // namespace mdapy::neighbor

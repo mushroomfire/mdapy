@@ -3,11 +3,12 @@
 
 import numpy as np
 import pytest
-from lattices import crystal
 
 import mdapy
 from mdapy.analysis import WignerSeitz
 from mdapy.errors import InvalidParameter
+
+from lattices import crystal
 
 A = 3.6
 

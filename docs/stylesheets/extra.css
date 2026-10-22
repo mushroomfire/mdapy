@@ -1,0 +1,24 @@
+/* The logo heading the home page, centered. */
+.md-typeset h1.logo {
+  text-align: center;
+}
+
+/* The cards of the home page, one per row, colored as the parts of the
+   feature map above them, in the order of the cards. */
+.md-typeset .grid.cards {
+  grid-template-columns: 1fr;
+}
+.md-typeset .grid.cards > ul > li {
+  border-top-width: 4px;
+}
+.md-typeset .grid.cards > ul > li:nth-child(1) { border-top-color: #3b82f6; }
+.md-typeset .grid.cards > ul > li:nth-child(2) { border-top-color: #ea580c; }
+.md-typeset .grid.cards > ul > li:nth-child(3) { border-top-color: #16a34a; border-top-style: dashed; }
+.md-typeset .grid.cards > ul > li:nth-child(4) { border-top-color: #9333ea; }
+.md-typeset .grid.cards > ul > li:nth-child(5) { border-top-color: #0d9488; border-top-style: dashed; }
+.md-typeset .grid.cards > ul > li:nth-child(6) { border-top-color: #db2777; border-top-style: dashed; }
+.md-typeset .grid.cards > ul > li:nth-child(7) { border-top-color: #d97706; border-top-style: dashed; }
+.md-typeset .grid.cards > ul > li:nth-child(8) { border-top-color: #64748b; }
+.md-typeset .grid.cards .lg {
+  font-size: 1.6em;
+}

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "core/index.h"
 #include "core/parallel.h"
 
 namespace mdapy::analysis {
@@ -23,7 +24,7 @@ void real_harmonics(int l, const double* u, double* y);
 // vectors to their neighbors in CSR form (neighbors gives the atom of each
 // pair). With average, the harmonics of each atom are averaged with those of
 // its neighbors first. q is (n, degrees).
-void steinhardt(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
                 const double* vectors, const std::vector<int>& degrees, bool average, double* q,
                 const Control& control = {});
 

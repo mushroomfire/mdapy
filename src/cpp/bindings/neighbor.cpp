@@ -7,13 +7,18 @@
 #include <nanobind/ndarray.h>
 
 #include <cstdint>
+#include <initializer_list>
+#include <new>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
 #include "bindings/control.h"
+#include "core/buffer.h"
+#include "core/index.h"
 #include "core/parallel.h"
 #include "neighbor/cell_list.h"
+#include "neighbor/kd_tree.h"
 
 namespace mdapy::bindings {
 namespace {
@@ -22,14 +27,33 @@ using Positions = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::
 using Matrix = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
 using Vector3 = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
 using Flags = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device::cpu>;
+using Offsets = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Distances = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Neighbors = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Shifts = nb::ndarray<const std::int8_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
 // A NumPy array that owns the memory of a vector, without copying it.
-template <class T>
-nb::object to_array(std::vector<T>&& values, std::size_t rows, std::size_t columns) {
-    auto* owned = new std::vector<T>(std::move(values));
-    nb::capsule owner(owned, [](void* p) noexcept { delete static_cast<std::vector<T>*>(p); });
-    const std::size_t shape[2] = {rows, columns};
-    return nb::ndarray<nb::numpy, T>(owned->data(), columns == 0 ? 1 : 2, shape, owner).cast();
+template <class T, class A>
+nb::object to_array(std::vector<T, A>&& values, std::initializer_list<std::size_t> shape) {
+    auto* owned = new std::vector<T, A>(std::move(values));
+    nb::capsule owner(owned, [](void* p) noexcept { delete static_cast<std::vector<T, A>*>(p); });
+    return nb::ndarray<nb::numpy, T>(owned->data(), shape.size(), shape.begin(), owner).cast();
+}
+
+nb::tuple to_arrays(neighbor::NeighborPairs&& pairs) {
+    const std::size_t n = pairs.offsets.size(), count = pairs.neighbors.size();
+    return nb::make_tuple(to_array(std::move(pairs.offsets), {n}),
+                          to_array(std::move(pairs.neighbors), {count}),
+                          to_array(std::move(pairs.shifts), {count, 3}),
+                          to_array(std::move(pairs.distances), {count}));
+}
+
+void check_pairs(std::int64_t n, Offsets offsets, Neighbors neighbors, Shifts shifts) {
+    if (offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
+        neighbors.shape(0) != shifts.shape(0) ||
+        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
+        throw std::invalid_argument("the pairs do not fit the atoms");
+    }
 }
 
 nb::tuple build(Positions positions, Matrix matrix, Vector3 origin, Flags pbc, double cutoff,
@@ -42,33 +66,7 @@ nb::tuple build(Positions positions, Matrix matrix, Vector3 origin, Flags pbc, d
                                     cutoff, control);
         },
         progress, cancel);
-    const std::size_t count = pairs.neighbors.size();
-    return nb::make_tuple(to_array(std::move(pairs.offsets), static_cast<std::size_t>(n) + 1, 0),
-                          to_array(std::move(pairs.neighbors), count, 0),
-                          to_array(std::move(pairs.shifts), count, 3),
-                          to_array(std::move(pairs.distances), count, 0));
-}
-
-using Offsets = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
-using Distances = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
-
-nb::tuple order_by_distance(Offsets offsets, Distances distances, std::int64_t count,
-                            nb::handle progress, const CancelToken* cancel) {
-    if (offsets.shape(0) < 1 ||
-        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(distances.shape(0))) {
-        throw std::invalid_argument("the offsets do not fit the distances");
-    }
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
-    std::vector<std::int64_t> order, kept;
-    run_released(
-        [&](const Control& control) {
-            neighbor::order_by_distance(n, offsets.data(), distances.data(), count, order, kept,
-                                        control);
-        },
-        progress, cancel);
-    const std::size_t size = order.size();
-    return nb::make_tuple(to_array(std::move(order), size, 0),
-                          to_array(std::move(kept), static_cast<std::size_t>(n) + 1, 0));
+    return to_arrays(std::move(pairs));
 }
 
 nb::tuple nearest(Positions positions, Matrix matrix, Vector3 origin, Flags pbc, int k,
@@ -77,47 +75,50 @@ nb::tuple nearest(Positions positions, Matrix matrix, Vector3 origin, Flags pbc,
     neighbor::NeighborPairs pairs;
     run_released(
         [&](const Control& control) {
-            pairs = neighbor::nearest(positions.data(), n, matrix.data(), origin.data(), pbc.data(),
-                                      k, control);
+            pairs = neighbor::nearest(positions.data(), n, matrix.data(), origin.data(),
+                                      pbc.data(), k, control);
         },
         progress, cancel);
-    const std::size_t count = pairs.neighbors.size();
-    return nb::make_tuple(to_array(std::move(pairs.offsets), static_cast<std::size_t>(n) + 1, 0),
-                          to_array(std::move(pairs.neighbors), count, 0),
-                          to_array(std::move(pairs.shifts), count, 3),
-                          to_array(std::move(pairs.distances), count, 0));
+    return to_arrays(std::move(pairs));
 }
 
-using Neighbors = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
-using Shifts = nb::ndarray<const std::int32_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+nb::tuple order_by_distance(Positions positions, Offsets offsets, Neighbors neighbors,
+                            Shifts shifts, Matrix matrix, std::int64_t count, nb::handle progress,
+                            const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    check_pairs(n, offsets, neighbors, shifts);
+    std::vector<std::int64_t> order, kept;
+    run_released(
+        [&](const Control& control) {
+            neighbor::order_by_distance(positions.data(), n, offsets.data(), neighbors.data(),
+                                        shifts.data(), matrix.data(), count, order, kept,
+                                        control);
+        },
+        progress, cancel);
+    const std::size_t size = order.size();
+    return nb::make_tuple(to_array(std::move(order), {size}),
+                          to_array(std::move(kept), {static_cast<std::size_t>(n) + 1}));
+}
 
 nb::object pair_vectors(Positions positions, Offsets offsets, Neighbors neighbors, Shifts shifts,
                         Matrix matrix) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
-    if (offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
-        neighbors.shape(0) != shifts.shape(0) ||
-        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
-        throw std::invalid_argument("the pairs do not fit the atoms");
-    }
-    std::vector<double> vectors(3 * neighbors.shape(0));
+    check_pairs(n, offsets, neighbors, shifts);
+    Buffer<double> vectors(3 * neighbors.shape(0));
     {
         nb::gil_scoped_release release;
         neighbor::pair_vectors(positions.data(), n, offsets.data(), neighbors.data(),
                                shifts.data(), matrix.data(), vectors.data());
     }
-    return to_array(std::move(vectors), neighbors.shape(0), 3);
+    return to_array(std::move(vectors), {neighbors.shape(0), 3});
 }
 
 nb::tuple follow(Positions positions, Offsets offsets, Neighbors neighbors, Shifts shifts,
                  Matrix matrix, double cutoff, nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
-    if (offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
-        neighbors.shape(0) != shifts.shape(0) ||
-        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
-        throw std::invalid_argument("the pairs do not fit the atoms");
-    }
+    check_pairs(n, offsets, neighbors, shifts);
     neighbor::NeighborPairs pairs;
-    std::vector<double> vectors;
+    Buffer<double> vectors;
     run_released(
         [&](const Control& control) {
             pairs = neighbor::follow(positions.data(), n, offsets.data(), neighbors.data(),
@@ -125,27 +126,38 @@ nb::tuple follow(Positions positions, Offsets offsets, Neighbors neighbors, Shif
         },
         progress, cancel);
     const std::size_t count = pairs.neighbors.size();
-    return nb::make_tuple(to_array(std::move(pairs.offsets), static_cast<std::size_t>(n) + 1, 0),
-                          to_array(std::move(pairs.neighbors), count, 0),
-                          to_array(std::move(pairs.shifts), count, 3),
-                          to_array(std::move(pairs.distances), count, 0),
-                          to_array(std::move(vectors), count, 3));
+    nb::tuple lists = to_arrays(std::move(pairs));
+    return nb::make_tuple(lists[0], lists[1], lists[2], lists[3],
+                          to_array(std::move(vectors), {count, 3}));
 }
 
-nb::tuple nearest_sites(Positions sites, Matrix matrix, Vector3 origin, Flags pbc,
-                        Positions points, nb::handle progress, const CancelToken* cancel) {
-    const auto n = static_cast<std::int64_t>(sites.shape(0));
-    const auto m = static_cast<std::int64_t>(points.shape(0));
-    std::vector<std::int64_t> site(static_cast<std::size_t>(m));
-    std::vector<double> distance2(static_cast<std::size_t>(m));
+void make_tree(neighbor::KdTree* tree, Positions positions, Matrix matrix, Vector3 origin,
+               Flags pbc) {
+    run_released(
+        [&](const Control&) {
+            new (tree) neighbor::KdTree(positions.data(), static_cast<std::int64_t>(positions.shape(0)),
+                                        matrix.data(), origin.data(), pbc.data());
+        },
+        nb::none(), nullptr);
+}
+
+nb::tuple tree_nearest(const neighbor::KdTree& tree, Positions points, int k, nb::handle progress,
+                       const CancelToken* cancel) {
+    const auto m = static_cast<std::size_t>(points.shape(0));
+    const std::size_t size = m * static_cast<std::size_t>(k > 0 ? k : 0);
+    Buffer<index_t> j(size);
+    Buffer<std::int8_t> shifts(3 * size);
+    Buffer<double> distances(size);
     run_released(
         [&](const Control& control) {
-            neighbor::nearest_sites(sites.data(), n, matrix.data(), origin.data(), pbc.data(),
-                                    points.data(), m, site.data(), distance2.data(), control);
+            tree.nearest_points(points.data(), static_cast<std::int64_t>(m), k, j.data(),
+                                shifts.data(), distances.data(), control);
         },
         progress, cancel);
-    return nb::make_tuple(to_array(std::move(site), static_cast<std::size_t>(m), 0),
-                          to_array(std::move(distance2), static_cast<std::size_t>(m), 0));
+    const auto columns = static_cast<std::size_t>(k);
+    return nb::make_tuple(to_array(std::move(j), {m, columns}),
+                          to_array(std::move(shifts), {m, columns, 3}),
+                          to_array(std::move(distances), {m, columns}));
 }
 
 }  // namespace
@@ -162,12 +174,17 @@ void bind_neighbor(nb::module_& m) {
     m.def("follow", &follow, nb::arg("positions"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("matrix"), nb::arg("cutoff"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
-    m.def("nearest_sites", &nearest_sites, nb::arg("sites"), nb::arg("matrix"), nb::arg("origin"),
-          nb::arg("pbc"), nb::arg("points"), nb::arg("progress") = nb::none(),
+    m.def("order_by_distance", &order_by_distance, nb::arg("positions"), nb::arg("offsets"),
+          nb::arg("neighbors"), nb::arg("shifts"), nb::arg("matrix"), nb::arg("count") = -1, nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
-    m.def("order_by_distance", &order_by_distance, nb::arg("offsets"), nb::arg("distances"),
-          nb::arg("count") = -1, nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+    nb::class_<neighbor::KdTree>(m, "KdTree",
+                                 "k-d tree of atoms in a box, searched for the nearest atom "
+                                 "images of any points.")
+        .def("__init__", &make_tree, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
+             nb::arg("pbc"))
+        .def("__len__", &neighbor::KdTree::size)
+        .def("nearest", &tree_nearest, nb::arg("points"), nb::arg("k"),
+             nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
 }
 
 }  // namespace mdapy::bindings

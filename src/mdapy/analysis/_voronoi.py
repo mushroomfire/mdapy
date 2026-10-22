@@ -24,41 +24,56 @@ class VoronoiResult(Result):
     volume : numpy.ndarray
         (N,) volume of each cell in Å³.
     coordination : numpy.ndarray
-        (N,) int64 number of faces shared with other atoms.
+        (N,) int64 number of faces that count shared with other atoms.
     radius : numpy.ndarray
         (N,) distance from each atom to the farthest vertex of its cell, in Å.
     offsets : numpy.ndarray
-        (N + 1,) int64: the faces of atom ``i`` are ``offsets[i]:offsets[i + 1]``.
-    neighbors : numpy.ndarray
-        (F,) int64 atom across each face, or -1 for a wall of the box.
+        (N + 1,) int64: the faces that count of atom ``i`` are
+        ``offsets[i]:offsets[i + 1]``.
+    j : numpy.ndarray
+        (F,) the atom across each face, or -1 for a wall of the box, of
+        ``mdapy.index_dtype``.
     shifts : numpy.ndarray
-        (F, 3) int32 periodic image of that atom.
+        (F, 3) int8 periodic image of that atom.
     areas : numpy.ndarray
         (F,) area of each face in Å².
-    vertices : numpy.ndarray
-        (F,) int32 number of vertices of each face.
+    edges : numpy.ndarray
+        (F,) int32 number of edges of each face that count.
     """
 
     volume: np.ndarray
     coordination: np.ndarray
     radius: np.ndarray
     offsets: np.ndarray
-    neighbors: np.ndarray
+    j: np.ndarray
     shifts: np.ndarray
     areas: np.ndarray
-    vertices: np.ndarray
+    edges: np.ndarray
 
     def index(self, largest: int = 8) -> np.ndarray:
-        """(N, largest - 2) Voronoi index: the number of faces with 3, 4,
-        ..., largest vertices of each cell (faces with more are not counted)."""
-        atom = np.repeat(np.arange(len(self.volume)), np.diff(self.offsets))
-        keep = (self.neighbors >= 0) & (self.vertices >= 3) & (self.vertices <= largest)
+        """The Voronoi index of each cell.
+
+        Parameters
+        ----------
+        largest : int, optional
+            The largest number of edges counted. Default 8.
+
+        Returns
+        -------
+        numpy.ndarray
+            (N, largest - 2) int64 number of faces with 3, 4, ..., largest
+            edges shared with other atoms.
+        """
+        if largest < 3:
+            raise InvalidParameter(f"largest must be at least 3, not {largest!r}")
+        n = len(self.volume)
+        atom = np.repeat(np.arange(n), np.diff(self.offsets))
+        keep = (self.j >= 0) & (self.edges <= largest)
         width = largest - 2
         counts = np.bincount(
-            atom[keep] * width + (self.vertices[keep] - 3),
-            minlength=len(self.volume) * width,
+            atom[keep] * width + (self.edges[keep] - 3), minlength=n * width
         )
-        return counts.reshape(len(self.volume), width)
+        return counts.reshape(n, width)
 
     def columns(self) -> dict[str, np.ndarray]:
         return {
@@ -69,22 +84,44 @@ class VoronoiResult(Result):
 
 
 class VoronoiAnalysis:
-    """Voronoi tessellation: the region of space closer to each atom than to
-    any other, including periodic images.
+    """Voronoi cells: the region of space closer to each atom than to any
+    other, periodic images included.
 
     Parameters
     ----------
-    area_threshold : float, optional
-        Faces smaller than this fraction of their cell's surface do not
-        count as neighbors, in the coordination and in the faces. Default 0.
+    face_threshold : float, optional
+        Faces of this area or less, in Å², do not count. Default 0.
+    relative_face_threshold : float, optional
+        Faces of this fraction of the surface of their cell or less do not
+        count, from 0 to below 1. Default 0.
+    edge_threshold : float, optional
+        Edges shorter than this, in Å, do not count; faces with fewer than
+        three edges that count do not count. Default 0.
     """
 
-    def __init__(self, *, area_threshold: float = 0.0):
-        if not 0.0 <= area_threshold < 1.0:
+    def __init__(
+        self,
+        *,
+        face_threshold: float = 0.0,
+        relative_face_threshold: float = 0.0,
+        edge_threshold: float = 0.0,
+    ):
+        if not face_threshold >= 0.0:
             raise InvalidParameter(
-                f"area_threshold must be from 0 to below 1, not {area_threshold!r}"
+                f"face_threshold must not be negative, not {face_threshold!r}"
             )
-        self.area_threshold = float(area_threshold)
+        if not 0.0 <= relative_face_threshold < 1.0:
+            raise InvalidParameter(
+                "relative_face_threshold must be from 0 to below 1, "
+                f"not {relative_face_threshold!r}"
+            )
+        if not edge_threshold >= 0.0:
+            raise InvalidParameter(
+                f"edge_threshold must not be negative, not {edge_threshold!r}"
+            )
+        self.face_threshold = float(face_threshold)
+        self.relative_face_threshold = float(relative_face_threshold)
+        self.edge_threshold = float(edge_threshold)
 
     def compute(
         self, system: System, *, progress: Any = None, cancel: Any = None
@@ -94,8 +131,9 @@ class VoronoiAnalysis:
         Parameters
         ----------
         system : System
-            The atoms. Directions that are not periodic are closed by the
-            faces of the box, moved out as far as needed to include every atom.
+            The atoms, no two at the same position. Directions that are not
+            periodic are closed by the faces of the box, moved out as far as
+            needed to include every atom.
 
         Returns
         -------
@@ -103,27 +141,36 @@ class VoronoiAnalysis:
             The cell of each atom.
         """
         box = system.box
-        volume, radius, coordination, offsets, neighbors, shifts, areas, vertices = (
-            _native.voronoi(
-                np.ascontiguousarray(system.positions),
-                np.ascontiguousarray(box.matrix),
-                np.ascontiguousarray(box.origin),
-                np.ascontiguousarray(box.pbc),
-                self.area_threshold,
-                progress,
-                _native_token(cancel),
+        try:
+            volume, radius, coordination, offsets, j, shifts, areas, edges = (
+                _native.voronoi(
+                    np.ascontiguousarray(system.positions),
+                    np.ascontiguousarray(box.matrix),
+                    np.ascontiguousarray(box.origin),
+                    np.ascontiguousarray(box.pbc),
+                    self.face_threshold,
+                    self.relative_face_threshold,
+                    self.edge_threshold,
+                    progress,
+                    _native_token(cancel),
+                )
             )
-        )
+        except ValueError as error:
+            raise InvalidParameter(str(error)) from None
         return VoronoiResult(
             volume=volume,
             coordination=coordination,
             radius=radius,
             offsets=offsets,
-            neighbors=neighbors.astype(np.int64),
-            shifts=shifts,
+            j=j,
+            shifts=shifts.reshape(-1, 3),
             areas=areas,
-            vertices=vertices,
+            edges=edges,
         )
 
     def __repr__(self) -> str:
-        return f"VoronoiAnalysis(area_threshold={self.area_threshold!r})"
+        return (
+            f"VoronoiAnalysis(face_threshold={self.face_threshold!r}, "
+            f"relative_face_threshold={self.relative_face_threshold!r}, "
+            f"edge_threshold={self.edge_threshold!r})"
+        )

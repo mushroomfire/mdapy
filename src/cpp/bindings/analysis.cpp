@@ -25,8 +25,19 @@ namespace mdapy::bindings {
 namespace {
 
 using Offsets = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
-using Neighbors = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Neighbors = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Types = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Vectors = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using Shifts3 = nb::ndarray<const std::int8_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+
+// A one-dimensional NumPy array that owns the memory of a vector.
+template <class T>
+nb::object as_array(std::vector<T>&& values) {
+    auto* kept = new std::vector<T>(std::move(values));
+    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<T>*>(p); });
+    const std::size_t shape[1] = {kept->size()};
+    return nb::ndarray<nb::numpy, T>(kept->data(), 1, shape, owner).cast();
+}
 
 nb::object steinhardt(Offsets offsets, Neighbors neighbors, Vectors vectors,
                       const std::vector<int>& degrees, bool average, nb::handle progress,
@@ -49,8 +60,8 @@ nb::object steinhardt(Offsets offsets, Neighbors neighbors, Vectors vectors,
     return result;
 }
 
-nb::tuple clusters(Offsets offsets, Neighbors neighbors) {
-    if (offsets.shape(0) < 1 ||
+nb::tuple clusters(Offsets offsets, Neighbors neighbors, Shifts3 shifts) {
+    if (offsets.shape(0) < 1 || shifts.shape(0) != neighbors.shape(0) ||
         offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(neighbors.shape(0))) {
         throw std::invalid_argument("the offsets do not fit the neighbors");
     }
@@ -60,24 +71,22 @@ nb::tuple clusters(Offsets offsets, Neighbors neighbors) {
             throw std::invalid_argument("a neighbor index is outside the atoms");
         }
     }
-    auto* cluster = new std::int64_t[static_cast<std::size_t>(n)];
-    nb::capsule owner(cluster, [](void* p) noexcept { delete[] static_cast<std::int64_t*>(p); });
-    std::vector<std::int64_t> sizes(static_cast<std::size_t>(n));
+    std::vector<std::int64_t> cluster(static_cast<std::size_t>(n)), sizes(static_cast<std::size_t>(n));
+    std::vector<std::int32_t> images(3 * static_cast<std::size_t>(n));
+    std::vector<std::uint8_t> spanning(static_cast<std::size_t>(n));
     std::int64_t count;
     {
         nb::gil_scoped_release release;
-        count = analysis::clusters(n, offsets.data(), neighbors.data(), cluster, sizes.data());
+        count = analysis::clusters(n, offsets.data(), neighbors.data(), shifts.data(),
+                                   cluster.data(), sizes.data(), images.data(), spanning.data());
     }
-    const std::size_t shape[1] = {static_cast<std::size_t>(n)};
-    auto* found = new std::int64_t[static_cast<std::size_t>(count)];
-    std::copy(sizes.begin(), sizes.begin() + count, found);
-    nb::capsule found_owner(found, [](void* p) noexcept { delete[] static_cast<std::int64_t*>(p); });
-    const std::size_t found_shape[1] = {static_cast<std::size_t>(count)};
-    return nb::make_tuple(nb::ndarray<nb::numpy, std::int64_t>(cluster, 1, shape, owner),
-                          nb::ndarray<nb::numpy, std::int64_t>(found, 1, found_shape, found_owner));
+    sizes.resize(static_cast<std::size_t>(count));
+    spanning.resize(static_cast<std::size_t>(count));
+    return nb::make_tuple(as_array(std::move(cluster)), as_array(std::move(sizes)),
+                          as_array(std::move(images)), as_array(std::move(spanning)));
 }
 
-nb::object bond_angles(Offsets offsets, Neighbors neighbors, Vectors vectors, Neighbors type,
+nb::object bond_angles(Offsets offsets, Neighbors neighbors, Vectors vectors, Types type,
                        int types, int bins, nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
     if (n < 0 || offsets.data()[n] != static_cast<std::int64_t>(vectors.shape(0)) ||
@@ -110,43 +119,6 @@ nb::object bond_angles(Offsets offsets, Neighbors neighbors, Vectors vectors, Ne
     return result;
 }
 
-using Positions = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
-using Matrix = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
-using Vector3 = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
-using Flags = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device::cpu>;
-
-// A NumPy array that owns the memory of a vector, without copying it.
-template <class T>
-nb::object owned(std::vector<T>&& values) {
-    auto* kept = new std::vector<T>(std::move(values));
-    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<T>*>(p); });
-    const std::size_t shape[1] = {kept->size()};
-    return nb::ndarray<nb::numpy, T>(kept->data(), 1, shape, owner).cast();
-}
-
-nb::tuple voronoi(Positions positions, Matrix matrix, Vector3 origin, Flags pbc,
-                  double area_threshold, nb::handle progress, const CancelToken* cancel) {
-    const auto n = static_cast<std::int64_t>(positions.shape(0));
-    analysis::VoronoiCells cells;
-    run_released(
-        [&](const Control& control) {
-            cells = analysis::voronoi(positions.data(), n, matrix.data(), origin.data(), pbc.data(),
-                                      area_threshold, control);
-        },
-        progress, cancel);
-    const std::size_t faces = cells.areas.size();
-    auto* shifts = new std::vector<std::int32_t>(std::move(cells.shifts));
-    nb::capsule owner(shifts, [](void* p) noexcept {
-        delete static_cast<std::vector<std::int32_t>*>(p);
-    });
-    const std::size_t shape[2] = {faces, 3};
-    return nb::make_tuple(owned(std::move(cells.volumes)), owned(std::move(cells.radii)),
-                          owned(std::move(cells.coordination)), owned(std::move(cells.offsets)),
-                          owned(std::move(cells.neighbors)),
-                          nb::ndarray<nb::numpy, std::int32_t>(shifts->data(), 2, shape, owner),
-                          owned(std::move(cells.areas)), owned(std::move(cells.vertices)));
-}
-
 using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 nb::object pair_entropy(Offsets offsets, Values distances, double cutoff, double sigma,
@@ -176,7 +148,25 @@ using Positions3 = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb:
 using Matrix3 = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
 using Origin3 = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
 using Periodic = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device::cpu>;
-using Types = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+nb::tuple voronoi(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
+                  double face_threshold, double relative_face_threshold, double edge_threshold,
+                  nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    analysis::VoronoiCells cells;
+    run_released(
+        [&](const Control& control) {
+            cells = analysis::voronoi(positions.data(), n, matrix.data(), origin.data(), pbc.data(),
+                                      {face_threshold, relative_face_threshold, edge_threshold},
+                                      control);
+        },
+        progress, cancel);
+    return nb::make_tuple(as_array(std::move(cells.volumes)), as_array(std::move(cells.radii)),
+                          as_array(std::move(cells.coordination)),
+                          as_array(std::move(cells.offsets)), as_array(std::move(cells.neighbors)),
+                          as_array(std::move(cells.shifts)), as_array(std::move(cells.areas)),
+                          as_array(std::move(cells.edges)));
+}
 
 nb::object pair_histogram(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
                           double r_max, int bins, Types type, int types, nb::handle progress,
@@ -271,16 +261,7 @@ nb::tuple structure_factor(Positions3 positions, Matrix3 matrix, Types type, int
         nb::ndarray<nb::numpy, std::int64_t>(counted->data(), 1, count_shape, counted_owner));
 }
 
-using Shifts3 = nb::ndarray<const std::int32_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
-// A one-dimensional NumPy array that owns the memory of a vector.
-template <class T>
-nb::object as_array(std::vector<T>&& values) {
-    auto* kept = new std::vector<T>(std::move(values));
-    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<T>*>(p); });
-    const std::size_t shape[1] = {kept->size()};
-    return nb::ndarray<nb::numpy, T>(kept->data(), 1, shape, owner).cast();
-}
 
 nb::tuple atomic_strain(Offsets offsets, Neighbors neighbors, Shifts3 shifts, Positions3 reference,
                         Positions3 displacement, Matrix3 reference_matrix, Matrix3 matrix,
@@ -308,6 +289,24 @@ nb::tuple atomic_strain(Offsets offsets, Neighbors neighbors, Shifts3 shifts, Po
 }
 
 }  // namespace
+
+using Trajectory = nb::ndarray<const double, nb::ndim<3>, nb::c_contig, nb::device::cpu>;
+
+// positions: (n, frames, 3), the trajectory of each atom in a row.
+nb::tuple lindemann(Trajectory positions, nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    const auto frames = static_cast<std::int64_t>(positions.shape(1));
+    if (positions.shape(2) != 3 || n < 2 || frames < 1) {
+        throw std::invalid_argument("positions must be (atoms >= 2, frames >= 1, 3)");
+    }
+    std::vector<double> atomic(static_cast<std::size_t>(n)), running(static_cast<std::size_t>(frames));
+    run_released(
+        [&](const Control& control) {
+            analysis::lindemann(n, frames, positions.data(), atomic.data(), running.data(), control);
+        },
+        progress, cancel);
+    return nb::make_tuple(as_array(std::move(atomic)), as_array(std::move(running)));
+}
 
 nb::object atomic_temperature(Offsets offsets, Neighbors neighbors, Values mass,
                               Positions3 velocities, double energy_unit, double boltzmann,
@@ -362,16 +361,21 @@ nb::tuple clusters_search(Positions3 positions, Matrix3 matrix, Origin3 origin, 
         }
     }
     std::vector<std::int64_t> cluster(static_cast<std::size_t>(n)), sizes(static_cast<std::size_t>(n));
+    std::vector<std::int32_t> images(3 * static_cast<std::size_t>(n));
+    std::vector<std::uint8_t> spanning(static_cast<std::size_t>(n));
     std::int64_t count = 0;
     run_released(
         [&](const Control& control) {
             count = analysis::clusters_search(positions.data(), n, matrix.data(), origin.data(),
                                               pbc.data(), type.data(), types, limits.data(),
-                                              per_pair, cluster.data(), sizes.data(), control);
+                                              per_pair, cluster.data(), sizes.data(),
+                                              images.data(), spanning.data(), control);
         },
         progress, cancel);
     sizes.resize(static_cast<std::size_t>(count));
-    return nb::make_tuple(as_array(std::move(cluster)), as_array(std::move(sizes)));
+    spanning.resize(static_cast<std::size_t>(count));
+    return nb::make_tuple(as_array(std::move(cluster)), as_array(std::move(sizes)),
+                          as_array(std::move(images)), as_array(std::move(spanning)));
 }
 
 nb::object bond_angles_search(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
@@ -431,10 +435,11 @@ void bind_analysis(nb::module_& m) {
     m.def("steinhardt", &steinhardt, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
-    m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"));
+    m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"));
     m.def("voronoi", &voronoi, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
-          nb::arg("pbc"), nb::arg("area_threshold"),
-          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+          nb::arg("pbc"), nb::arg("face_threshold"), nb::arg("relative_face_threshold"),
+          nb::arg("edge_threshold"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("atomic_strain", &atomic_strain, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("reference"), nb::arg("displacement"),
           nb::arg("reference_matrix"), nb::arg("matrix"), nb::arg("progress") = nb::none(),
@@ -450,6 +455,8 @@ void bind_analysis(nb::module_& m) {
     m.def("pair_entropy", &pair_entropy, nb::arg("offsets"), nb::arg("distances"),
           nb::arg("cutoff"), nb::arg("sigma"), nb::arg("density"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("lindemann", &lindemann, nb::arg("positions"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("atomic_temperature", &atomic_temperature, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("mass"), nb::arg("velocities"), nb::arg("energy_unit"), nb::arg("boltzmann"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);

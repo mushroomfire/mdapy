@@ -15,7 +15,7 @@ from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built
+from mdapy.neighbor._neighbor_list import _given_or_built, _nearest_given_or_built
 
 
 @dataclass(frozen=True)
@@ -113,16 +113,8 @@ class SteinhardtParameters:
         """
         if self.cutoff is not None:
             nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
-        elif neighbors is None:
-            nl = NeighborList.nearest(system, self.num_neighbors)
         else:
-            nl = _given_or_built(system, 0.0, neighbors)
-            if len(system) and nl.counts.min() < self.num_neighbors:
-                raise InvalidParameter(
-                    f"an atom has {nl.counts.min()} neighbors in the list, "
-                    f"fewer than {self.num_neighbors}"
-                )
-            nl = nl._nearest(self.num_neighbors)
+            nl = _nearest_given_or_built(system, self.num_neighbors, neighbors)
         q = _native.steinhardt(
             nl.offsets,
             nl.j,

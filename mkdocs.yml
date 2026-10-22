@@ -1,5 +1,5 @@
 site_name: mdapy
-site_description: Analysis and modelling of atomistic simulations
+site_description: Molecular Dynamics Analysis in Python
 repo_url: https://github.com/mushroomfire/mdapy
 repo_name: mushroomfire/mdapy
 edit_uri: edit/v2/docs/
@@ -7,6 +7,9 @@ copyright: Copyright &copy; 2022–2026 Yongchao Wu · BSD-3-Clause
 
 theme:
   name: material
+  custom_dir: overrides
+  logo: assets/mdapy-icon.svg
+  favicon: assets/mdapy-icon.svg
   features:
     - navigation.tabs
     - navigation.sections
@@ -17,10 +20,6 @@ theme:
     - content.code.copy
     - toc.follow
   palette:
-    - media: "(prefers-color-scheme)"
-      toggle:
-        icon: material/brightness-auto
-        name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
       primary: indigo
@@ -33,8 +32,8 @@ theme:
       primary: indigo
       accent: indigo
       toggle:
-        icon: material/brightness-auto
-        name: Switch to system preference
+        icon: material/weather-sunny
+        name: Switch to light mode
   icon:
     repo: fontawesome/brands/github
 
@@ -51,9 +50,22 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      options:
+        custom_icons:
+          - overrides/.icons
+
+extra_css:
+  - stylesheets/extra.css
 
 extra_javascript:
   - javascripts/mathjax.js
@@ -85,37 +97,65 @@ validation:
 
 nav:
   - Home: index.md
-  - Get started:
+  - Getting started:
       - Installation: getting-started/installation.md
-  - User guide:
-      - Systems and topology: guide/system.md
-      - Simulation box: guide/box.md
-      - Reading and writing files: guide/io.md
-      - Trajectories: guide/trajectory.md
-      - Neighbor lists: guide/neighbor.md
-      - Analyses: guide/analyses.md
-      - Structure identification: guide/structure.md
-      - Radial distribution and coordination: guide/distribution.md
-      - Bond-orientational order: guide/steinhardt.md
-      - Entropy fingerprint: guide/entropy.md
-      - Atomic temperature: guide/temperature.md
-      - Atomic strain: guide/strain.md
-      - Point defects: guide/defects.md
-      - Clusters, bond angles and short-range order: guide/bonds.md
-      - Voronoi cells: guide/voronoi.md
-      - Parallelism: guide/parallelism.md
-  - File formats:
-      - Extended XYZ: formats/extxyz.md
-      - LAMMPS data: formats/lammps-data.md
-      - LAMMPS dump: formats/lammps-dump.md
-      - VASP POSCAR: formats/poscar.md
-      - mdapy files: formats/mdapy.md
+      - Quick tour: getting-started/quick-tour.md
+      - Basics:
+          - Systems and topology: getting-started/system.md
+          - Simulation box: getting-started/box.md
+          - Reading and writing files: getting-started/io.md
+          - Trajectories: getting-started/trajectory.md
+          - Neighbor lists: getting-started/neighbor.md
+          - Parallelism: getting-started/parallelism.md
+  - Analysis:
+      - Overview: analysis/overview.md
+      - Structure identification:
+          - Common neighbor analysis: analysis/cna.md
+          - Ackland–Jones analysis: analysis/ackland-jones.md
+          - Diamond structure: analysis/diamond.md
+          - CHILL+: analysis/chill-plus.md
+          - Centro-symmetry parameter: analysis/csp.md
+          - Common neighbor parameter: analysis/cnp.md
+      - Local order and distributions:
+          - Radial distribution function: analysis/rdf.md
+          - Coordination number: analysis/coordination.md
+          - Structure factor: analysis/structure-factor.md
+          - Bond angle distribution: analysis/bond-angles.md
+          - Warren–Cowley parameters: analysis/warren-cowley.md
+          - Steinhardt parameters: analysis/steinhardt.md
+          - Entropy fingerprint: analysis/entropy.md
+          - Voronoi analysis: analysis/voronoi.md
+      - Defects and deformation:
+          - Cluster analysis: analysis/clusters.md
+          - Wigner–Seitz analysis: analysis/wigner-seitz.md
+          - Atomic strain: analysis/atomic-strain.md
+      - Dynamics:
+          - Mean squared displacement: analysis/msd.md
+          - Lindemann index: analysis/lindemann.md
+          - Atomic temperature: analysis/temperature.md
+  - Simulation:
+      - Calculators:
+          - The calculator interface: simulation/calculators.md
+          - EAM: simulation/eam.md
+          - NEP: simulation/nep.md
+          - LAMMPS: simulation/lammps.md
+      - Minimization and dynamics:
+          - Energy minimization: simulation/minimize.md
+      - Lattice dynamics:
+          - Elastic constants: simulation/elastic-constants.md
   - Reference:
+      - File formats:
+          - Extended XYZ: reference/formats/extxyz.md
+          - LAMMPS data: reference/formats/lammps-data.md
+          - LAMMPS dump: reference/formats/lammps-dump.md
+          - VASP POSCAR: reference/formats/poscar.md
+          - mdapy files: reference/formats/mdapy.md
       - Units and conventions: reference/units.md
       - Elements: reference/elements.md
       - Glossary: reference/glossary.md
+      - References: reference/references.md
       - Python API: reference/api.md
-      - Source layout: reference/source-layout.md
   - Development:
       - Contributing: development/contributing.md
-  - Release notes: release-notes.md
+      - Source layout: development/source-layout.md
+      - Release notes: development/release-notes.md

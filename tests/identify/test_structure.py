@@ -3,18 +3,25 @@
 
 import numpy as np
 import pytest
-from lattices import crystal, icosahedron
 
 import mdapy
 from mdapy.errors import InvalidParameter
 from mdapy.identify import (
+    AcklandJonesAnalysis,
     CentroSymmetryParameter,
     ChillPlus,
     CommonNeighborAnalysis,
-    IdentifyDiamond,
+    DiamondStructure,
 )
 
-from .references import adaptive_cna, centro_symmetry, chill_plus, diamond
+from .references import (
+    ackland_jones,
+    adaptive_cna,
+    centro_symmetry,
+    chill_plus,
+    diamond,
+)
+from lattices import crystal, icosahedron
 
 CRYSTALS = [("fcc", 3.6), ("hcp", 2.5), ("bcc", 2.87)]
 # a cutoff between the shells that conventional CNA uses for each crystal
@@ -181,37 +188,58 @@ def test_centro_symmetry_options():
 )
 def test_diamond_structures(kind, a, name):
     system = crystal(kind, a, (3, 3, 3))
-    result = IdentifyDiamond().compute(system)
+    result = DiamondStructure().compute(system)
     assert result.counts()[name] == len(system)
     np.testing.assert_array_equal(
-        IdentifyDiamond().compute(rotated(system)).structure, result.structure
+        DiamondStructure().compute(rotated(system)).structure, result.structure
     )
     for other in (crystal("fcc", 3.6), crystal("bcc", 2.87)):
-        assert IdentifyDiamond().compute(other).counts()["other"] == len(other)
+        assert DiamondStructure().compute(other).counts()["other"] == len(other)
 
 
 @pytest.mark.parametrize("kind, a", [("diamond", 5.43), ("lonsdaleite", 2.51)])
 def test_diamond_matches_a_python_reference(kind, a):
     system = crystal(kind, a, (3, 3, 3), jitter=0.22, seed=4)
-    result = IdentifyDiamond().compute(system)
+    result = DiamondStructure().compute(system)
     assert [result.names[t] for t in result.structure] == diamond(system)
     assert 0 < result.counts()["other"] < len(system)  # a mixture
 
 
+@pytest.mark.parametrize(
+    "kind, a, repeat, seed",
+    [("diamond", 5.43, (4, 4, 4), 2), ("lonsdaleite", 3.84, (5, 5, 4), 7)],
+)
+def test_diamond_needs_the_bond_back_from_every_neighbor(kind, a, repeat, seed):
+    """An atom that is not among the four nearest of one of its neighbors is
+    other, whatever its second neighbors look like; in these systems two such
+    atoms have second neighbors of diamond."""
+    system = crystal(kind, a, repeat, jitter=0.3, seed=seed)
+    nl = mdapy.NeighborList.build(system, num_neighbors=4)
+    first = nl.j.reshape(-1, 4)
+    one_way = np.array(
+        [any(i not in first[j] for j in first[i]) for i in range(len(system))]
+    )
+    assert one_way.sum() > 10
+    result = DiamondStructure().compute(system)
+    assert np.all(result.structure[one_way] == 0)
+    assert result.counts()["other"] < len(system)  # some atoms are diamond
+    assert [result.names[t] for t in result.structure] == diamond(system)
+
+
 def test_diamond_options():
     system = crystal("diamond", 5.43, (2, 2, 2), jitter=0.1, seed=5)
-    expected = IdentifyDiamond().compute(system).structure
+    expected = DiamondStructure().compute(system).structure
     nl = mdapy.NeighborList.build(system, 3.0)
     np.testing.assert_array_equal(
-        IdentifyDiamond().compute(system, neighbors=nl).structure, expected
+        DiamondStructure().compute(system, neighbors=nl).structure, expected
     )
     with mdapy.num_threads(3):
         np.testing.assert_array_equal(
-            IdentifyDiamond().compute(system).structure, expected
+            DiamondStructure().compute(system).structure, expected
         )
-    assert repr(IdentifyDiamond()) == "IdentifyDiamond()"
+    assert repr(DiamondStructure()) == "DiamondStructure()"
     with pytest.raises(InvalidParameter, match="fewer than 4"):
-        IdentifyDiamond().compute(system, neighbors=nl.within(1.0))
+        DiamondStructure().compute(system, neighbors=nl.within(1.0))
 
 
 @pytest.mark.parametrize(
@@ -249,3 +277,55 @@ def test_chill_plus_liquid_and_options():
     assert repr(ChillPlus(3.2)) == "ChillPlus(cutoff=3.2)"
     with pytest.raises(InvalidParameter, match="cutoff must be positive"):
         ChillPlus(0.0)
+
+
+@pytest.mark.parametrize("kind, a", CRYSTALS)
+def test_ackland_jones_perfect_crystals(kind, a):
+    result = AcklandJonesAnalysis().compute(crystal(kind, a, (3, 3, 3)))
+    assert result.counts()[kind] == len(result.structure)
+    center = AcklandJonesAnalysis().compute(icosahedron()).structure
+    np.testing.assert_array_equal(center, [4] + [0] * 12)
+    assert repr(AcklandJonesAnalysis()) == "AcklandJonesAnalysis()"
+
+
+@pytest.mark.parametrize(
+    "kind, a, jitter", [("fcc", 3.6, 0.2), ("hcp", 2.5, 0.15), ("bcc", 2.87, 0.15)]
+)
+def test_ackland_jones_matches_a_python_reference(kind, a, jitter):
+    """The reference takes every neighbor within 1.55 r0^2; mdapy the 14
+    nearest, which are all of them here."""
+    system = crystal(kind, a, (3, 3, 3), jitter=jitter, seed=11)
+    expected, largest = ackland_jones(system)
+    assert largest <= 14
+    analysis = AcklandJonesAnalysis()
+    result = analysis.compute(system).structure
+    np.testing.assert_array_equal(result, expected)
+    assert len(np.unique(result)) > 2
+    for nl in (
+        mdapy.NeighborList.build(system, num_neighbors=14),
+        mdapy.NeighborList.build(system, num_neighbors=16),
+        mdapy.NeighborList.build(system, 5.0),
+    ):
+        np.testing.assert_array_equal(
+            analysis.compute(system, neighbors=nl).structure, result
+        )
+    with mdapy.num_threads(3):
+        np.testing.assert_array_equal(analysis.compute(system).structure, result)
+
+
+def test_ackland_jones_small_systems_and_short_lists():
+    analysis = AcklandJonesAnalysis()
+    few = mdapy.System(np.eye(3) * 2.5, mdapy.Box(10.0, pbc=False), elements="Cu")
+    np.testing.assert_array_equal(analysis.compute(few).structure, 0)
+    empty = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0, pbc=False), elements=[])
+    assert len(analysis.compute(empty).structure) == 0
+    # a cluster: each atom takes the 14 nearest of its 31 others
+    cluster = crystal("fcc", 3.6, (2, 2, 2)).with_box(mdapy.Box(30.0, pbc=False))
+    expected, largest = ackland_jones(cluster)
+    assert largest <= 14
+    result = analysis.compute(cluster).structure
+    np.testing.assert_array_equal(result, expected)
+    assert 0 < (result == 1).sum() < len(cluster)  # inner atoms are fcc
+    system = crystal("fcc", 3.6, (3, 3, 3))
+    with pytest.raises(InvalidParameter, match="fewer than 14"):
+        analysis.compute(system, neighbors=mdapy.NeighborList.build(system, 3.0))

@@ -1,15 +1,16 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
-"""Voronoi cells against LAMMPS compute voronoi/atom (voro++). Skipped where
-LAMMPS with the VORONOI package is not installed."""
+"""Voronoi cells against LAMMPS compute voronoi/atom (voro++, the VORONOI
+package). Skipped where LAMMPS is not installed."""
 
 import numpy as np
 import pytest
-from lattices import crystal
 
 import mdapy
 from mdapy.analysis import VoronoiAnalysis
+
+from lattices import crystal
 
 lammps = pytest.importorskip("lammps")
 
@@ -28,8 +29,6 @@ def test_volumes_and_faces_as_voro(tmp_path, pbc):
     mdapy.write(data, system)
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
-        if "VORONOI" not in lmp.installed_packages:
-            pytest.skip("LAMMPS has no VORONOI package")
         boundary = " ".join("p" if p else "f" for p in system.box.pbc)
         lmp.commands_string(
             f"""
@@ -56,6 +55,6 @@ run 0
     # LAMMPS counts the walls of the box among the faces; coordination does not
     faces = np.diff(result.offsets)
     np.testing.assert_array_equal(faces, cells[:, 1])
-    walls = np.add.reduceat(result.neighbors < 0, result.offsets[:-1])
+    walls = np.add.reduceat(result.j < 0, result.offsets[:-1])
     np.testing.assert_array_equal(result.coordination, faces - walls)
     assert walls.any() == (not np.all(pbc))

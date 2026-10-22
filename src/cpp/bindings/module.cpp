@@ -7,12 +7,15 @@
 #include <nanobind/nanobind.h>
 
 #include "bindings/control.h"
+#include "core/index.h"
 #include "core/parallel.h"
 
 namespace nb = nanobind;
 
 NB_MODULE(_core, m) {
     m.doc() = "Compiled kernels of mdapy (internal; use the Python API).";
+    // 32, or 64 when built with MDAPY_INDEX64
+    m.attr("index_bits") = 8 * sizeof(mdapy::index_t);
 
     nb::register_exception_translator([](const std::exception_ptr& p, void*) {
         try {
@@ -31,6 +34,9 @@ NB_MODULE(_core, m) {
 
     nb::module_ neighbor = m.def_submodule("neighbor", "Neighbor search.");
     mdapy::bindings::bind_neighbor(neighbor);
+
+    nb::module_ calculators = m.def_submodule("calculators", "Compiled calculators.");
+    mdapy::bindings::bind_calculators(calculators);
 
     nb::module_ analysis = m.def_submodule("analysis", "Analyses of the properties of systems.");
     mdapy::bindings::bind_analysis(analysis);

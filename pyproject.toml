@@ -7,18 +7,17 @@ name = "mdapy"
 dynamic = ["version"]
 description = "Analysis and modelling of atomistic simulations"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 authors = [{ name = "Yongchao Wu", email = "934313174@qq.com" }]
-dependencies = ["numpy>=2", "polars>=2"]
+dependencies = ["numpy>=2.3.1", "polars>=2"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics",
     "Programming Language :: C++",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -52,7 +51,7 @@ build-dir = "build/{wheel_tag}"
 # version-specific wheels.
 wheel.py-api = "cp312"
 cmake.build-type = "Release"
-sdist.exclude = [".github", "docs", "tests", "mkdocs.yml"]
+sdist.exclude = [".github", "docs", "overrides", "tests", "mkdocs.yml"]
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
@@ -62,12 +61,17 @@ regex = '__version__ = "(?P<value>[^"]+)"'
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --import-mode=importlib"
-# shared helpers such as lattices.py
+# test packages share helpers, such as lattices.py and calculators.eam_files
 pythonpath = ["tests"]
 xfail_strict = true
 # Warnings are errors: an unexpected warning is a test failure. Add
 # targeted ignores here, each with a comment saying why.
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # OVITO from PyPI in a conda Python, as in local test environments, works
+    # but warns on import
+    "ignore:Did you accidentally install the OVITO package:UserWarning",
+]
 
 [tool.coverage.run]
 source = ["mdapy"]
@@ -84,10 +88,14 @@ exclude_also = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+# the test helpers shared through pytest's pythonpath
+known-local-folder = ["calculators", "lattices", "ovito_reference"]
 
 [tool.ruff.format]
 quote-style = "double"

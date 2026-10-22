@@ -4,19 +4,25 @@
 """Identification of the local structure of atoms."""
 
 from mdapy.identify._structure import (
+    AcklandJonesAnalysis,
     CentroSymmetryParameter,
     CentroSymmetryResult,
     ChillPlus,
     CommonNeighborAnalysis,
-    IdentifyDiamond,
+    CommonNeighborParameter,
+    CommonNeighborParameterResult,
+    DiamondStructure,
     StructureResult,
 )
 
 __all__ = [
+    "AcklandJonesAnalysis",
     "CentroSymmetryParameter",
     "CentroSymmetryResult",
     "ChillPlus",
     "CommonNeighborAnalysis",
-    "IdentifyDiamond",
+    "CommonNeighborParameter",
+    "CommonNeighborParameterResult",
+    "DiamondStructure",
     "StructureResult",
 ]

@@ -3,11 +3,12 @@
 
 import numpy as np
 import pytest
-from lattices import crystal
 
 import mdapy
 from mdapy.analysis import CoordinationNumber, RadialDistributionFunction
 from mdapy.errors import InvalidParameter, MissingProperty
+
+from lattices import crystal
 
 
 def alloy(repeat=(3, 3, 3), seed=0, jitter=0.1):

@@ -69,6 +69,7 @@ void bind_core(nb::module_& m);
 void bind_identify(nb::module_& m);
 void bind_io(nb::module_& m);
 void bind_neighbor(nb::module_& m);
+void bind_calculators(nb::module_& m);
 void bind_testing(nb::module_& m);
 
 }  // namespace mdapy::bindings

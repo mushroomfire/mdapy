@@ -214,6 +214,27 @@ def test_primitive_cell_and_supercell_agree():
 # ---------------------------------------------------- derived lists
 
 
+@pytest.mark.parametrize("box_name", ["triclinic", "flat"])
+def test_follow_moved_atoms_without_a_search(box_name):
+    system = random_system(box_name, pbc=(True, True, False), seed=4)
+    wide = NeighborList.build(system, 3.0)
+    rng = np.random.default_rng(5)
+    # steps shorter than half the difference of the cutoffs, 0.14 sqrt(3) < 0.25
+    for step in (0.0, 0.05, 0.14):
+        moved = system.with_columns(
+            positions=system.positions + rng.uniform(-step, step, (len(system), 3))
+        )
+        followed = wide._follow(moved, 2.5)
+        fresh = NeighborList.build(moved, 2.5)
+        for name in ("offsets", "j", "shifts", "distances", "vectors"):
+            np.testing.assert_array_equal(getattr(followed, name), getattr(fresh, name))
+        assert followed.system is moved and followed.cutoff == 2.5
+    # too far, or another box
+    far = system.with_columns(positions=system.positions + [0.26, 0.0, 0.0])
+    assert wide._follow(far, 2.5) is None
+    assert wide._follow(system.with_box(system.box.matrix * 1.01), 2.5) is None
+
+
 def test_within_and_sorted():
     system = random_system("triclinic", seed=9)
     nl = NeighborList.build(system, 5.0)

@@ -16,20 +16,24 @@ A feature is merged only when it has all of the following:
 
 ## Feature pages
 
-Each feature has a hand-written page with these sections, in this order:
+Each feature has a hand-written page that tells how to use it, with these
+sections, in this order:
 
 1. **Title and one sentence** saying what the feature does.
 2. **Minimal example** that runs as shown. `tests/test_docs.py` runs every
    Python block of every page, in order, with shared variables. A block that
    is only an illustration is preceded by the line `<!-- skip-test -->`.
 3. **Parameters**, as a table: `| Name | Type | Default | Unit | Meaning |`.
-4. **Outputs**, as a table.
-5. **Method**: what is computed, with formulas.
-6. **Validation**: what the tests guarantee.
-7. **Performance** notes, if relevant.
-8. **References**: the papers the method follows.
+4. **Results**: the attributes and every public method, as tables, with the
+   conventions needed to read them.
+5. **Errors**: when the documented exceptions are raised.
+6. For analyses, **Definition**: what is computed, with formulas, so that a
+   result can be interpreted; and **References**: the papers the analysis
+   follows. File formats list the specifications they follow.
 
-Sections that do not apply are left out.
+Pages do not describe how a feature is implemented, how it is tested or how
+fast it is: the tests are the record of correctness, and timings belong on
+a separate benchmark page. Sections that do not apply are left out.
 
 ## Docstrings
 

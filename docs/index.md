@@ -21,9 +21,9 @@ minimization with interatomic potentials.
 - **No OpenMP.** Compiled kernels use mdapy's own thread pool, so mdapy runs
   safely in the same process as PyTorch, NumPy and LAMMPS. Results do not
   depend on the number of threads. See [Parallelism](guide/parallelism.md).
-- **Tested and documented feature by feature.** Each feature has its own
-  page describing what it computes, how it is validated, and which papers it
-  follows.
+- **Tested and documented feature by feature.** Each feature is tested
+  against independent references and has its own page describing how to use
+  it and, for analyses, what it computes and which papers it follows.
 
 ## Status
 

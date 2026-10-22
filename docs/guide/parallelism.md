@@ -65,10 +65,8 @@ usual.
 
 ## Reproducible results
 
-Results do not depend on the number of threads. Work is split into chunks
-whose size depends only on the problem size, and sums over chunks are always
-added in the same order. Running the same computation with 1 or 64 threads
-therefore gives bit-for-bit identical numbers.
+Results do not depend on the number of threads: the same computation with 1
+or 64 threads gives bit-for-bit identical numbers.
 
 ## Working with PyTorch, NumPy and LAMMPS
 
@@ -100,28 +98,3 @@ instead of waiting. It gives the same result, only without parallel speed-up.
 
 Processes started with `multiprocessing` work with both the `fork` and
 `spawn` start methods; a forked child creates its own pool on first use.
-
-## Validation
-
-The test suite (`tests/core/`) checks that:
-
-- sums computed in parallel equal a sequential reference bit for bit, and are
-  identical for 1, 2, 3, 4 and 8 threads;
-- the configured number of threads is the maximum number used;
-- nested parallel regions give exact results;
-- exceptions raised inside a kernel or by `progress` reach the caller, and the
-  pool keeps working afterwards;
-- cancellation through a token (set in advance, from `progress`, or from
-  another thread) and Ctrl-C stop a running kernel within a fraction of its
-  run time;
-- the GIL is released while kernels run, concurrent calls from several Python
-  threads give correct results, and the pool works in a forked child process.
-
-## Implementation notes
-
-A computation over `n` items is split into chunks of a fixed size, by default
-`ceil(n / 512)` items, so there are at most 512 chunks. Worker threads take
-chunks one at a time. The calling thread does no chunk work itself: it waits,
-reports progress and checks for cancellation and Ctrl-C. Nested parallel
-regions, and regions started while the pool is busy, run on the calling
-thread.

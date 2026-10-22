@@ -43,29 +43,18 @@ Any format works; a format that holds one frame gives a trajectory of one
 frame. A trajectory is an iterable of systems, so `mdapy.write` writes it, or
 a slice of it, to any format that holds several frames.
 
-## How frames are found
+## Reading frames
 
-The first time a frame is needed, mdapy scans the file up to that frame and
-keeps the position where each frame starts; it never reads the atoms of the
-frames it skips. `len`, negative indices and slices scan the whole file once.
-Iterating scans and reads frame by frame, so it starts at once even for a
-file of many gigabytes. For mdapy files the table of frames is read once.
+A frame is read when it is used, and opening a trajectory reads nothing
+else: iteration starts at once even for a file of many gigabytes. `len`,
+negative indices and slices read through the whole file once, without
+keeping its atoms.
 
-Uncompressed files are memory-mapped; compressed files are decompressed into
-memory when the trajectory is opened. The file is released by `close()`, at
-the end of a `with` block, or once no trajectory of it is used any more.
+A compressed file is decompressed into memory when the trajectory is opened;
+an uncompressed one is not. The file is released by `close()`, at the end of
+a `with` block, or once no trajectory of it is used any more.
 
 If the file ends in the middle of a frame, the frames before it are read
 normally and the incomplete frame raises
 [`FileFormatError`](../reference/api.md#mdapy.errors.FileFormatError) when it
 is reached.
-
-## Validation
-
-The tests in `tests/io/test_trajectory.py` check, for extended XYZ, LAMMPS
-dump, mdapy and compressed files, that lengths, positive and negative
-indices, nested slices and iteration give the frames that were written; that
-reading the first frame scans only that frame; that iteration stops with an
-error at a truncated last frame after the complete frames; that options
-reach every frame; that an mdapy file reads its table of frames once; and
-that closed trajectories release the file.

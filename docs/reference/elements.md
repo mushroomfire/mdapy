@@ -50,19 +50,6 @@ of each other, so the match is unique. Radioactive elements must be listed in
 `candidates`, because their atomic weights can be almost equal to another
 element's: ²⁰⁹Po and Bi differ by 0.002 amu, ²⁴⁷Cm and ²⁴⁷Bk by 0.00004 amu.
 
-## Validation
-
-The tests check that:
-
-- symbols map to atomic numbers and back for all 118 elements;
-- tabulated atomic weights match the IUPAC values for a set of elements;
-- every element with a stable isotope is recovered from its atomic weight,
-  also when the mass is off by 0.009 amu;
-- no two stable elements lie within 0.02 amu of each other;
-- radioactive elements are matched only when listed as candidates, and
-  ambiguous matches raise an error;
-- the integer behind each `ELEMENT_DTYPE` value is the atomic number.
-
 ## References
 
 - Standard atomic weights: J. Meija et al., *Atomic weights of the elements

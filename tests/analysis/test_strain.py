@@ -3,11 +3,12 @@
 
 import numpy as np
 import pytest
-from lattices import crystal
 
 import mdapy
 from mdapy.analysis import AtomicStrain
 from mdapy.errors import InvalidParameter
+
+from lattices import crystal
 
 F0 = np.array([[1.05, 0.02, 0.0], [0.0, 0.97, 0.01], [0.03, 0.0, 1.02]])
 

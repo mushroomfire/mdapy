@@ -3,11 +3,12 @@
 
 import numpy as np
 import pytest
-from lattices import crystal
 
 import mdapy
 from mdapy.analysis import StructureFactor
 from mdapy.errors import InvalidParameter
+
+from lattices import crystal
 
 
 def reference(system, q_max, bins, names):

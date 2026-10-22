@@ -107,6 +107,23 @@ nb::object common_neighbor_analysis(Offsets offsets, Vectors vectors, double cut
     return result;
 }
 
+nb::object ackland_jones(Offsets offsets, Vectors vectors, nb::handle progress,
+                        const CancelToken* cancel) {
+    if (offsets.shape(0) < 1 ||
+        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(vectors.shape(0))) {
+        throw std::invalid_argument("the offsets do not fit the vectors");
+    }
+    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    std::int8_t* types;
+    nb::object result = new_array(static_cast<std::size_t>(n), types);
+    run_released(
+        [&](const Control& control) {
+            identify::ackland_jones(n, offsets.data(), vectors.data(), types, control);
+        },
+        progress, cancel);
+    return result;
+}
+
 using Nearest = nb::ndarray<const index_t, nb::shape<-1, 4>, nb::c_contig, nb::device::cpu>;
 using Vectors4 = nb::ndarray<const double, nb::shape<-1, 4, 3>, nb::c_contig, nb::device::cpu>;
 
@@ -172,6 +189,8 @@ void bind_identify(nb::module_& m) {
           nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     m.def("chill_plus", &chill_plus, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("vectors"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("ackland_jones", &ackland_jones, nb::arg("offsets"), nb::arg("vectors"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("identify_diamond", &identify_diamond, nb::arg("neighbors"), nb::arg("vectors"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);

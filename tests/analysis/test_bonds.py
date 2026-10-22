@@ -3,11 +3,12 @@
 
 import numpy as np
 import pytest
-from lattices import crystal
 
 import mdapy
 from mdapy.analysis import BondAngleDistribution, ClusterAnalysis, WarrenCowley
 from mdapy.errors import InvalidParameter, MissingProperty
+
+from lattices import crystal
 
 
 def b2(a=2.95, repeat=(3, 3, 3)):

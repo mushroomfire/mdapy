@@ -3,11 +3,12 @@
 
 import numpy as np
 import pytest
-from lattices import crystal
 
 import mdapy
 from mdapy.errors import InvalidParameter
 from mdapy.identify import CommonNeighborParameter
+
+from lattices import crystal
 
 
 def reference(system, cutoff):

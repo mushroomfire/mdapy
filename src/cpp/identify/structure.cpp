@@ -136,6 +136,75 @@ double length(const double* v) {
     return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 }
 
+// Ackland-Jones type of one atom from the vectors to its m nearest neighbors,
+// nearest first, of which the first 14 count.
+Structure ackland_jones_of(const double* v, std::int64_t m) {
+    if (m < 6) {
+        return kOther;
+    }
+    const int k = static_cast<int>(std::min<std::int64_t>(m, kMaxNeighbors));
+    double r2[kMaxNeighbors];
+    for (int a = 0; a < k; ++a) {
+        r2[a] = v[3 * a] * v[3 * a] + v[3 * a + 1] * v[3 * a + 1] + v[3 * a + 2] * v[3 * a + 2];
+    }
+    // the mean squared distance of the six nearest
+    double r0 = 0.0;
+    for (int a = 0; a < 6; ++a) {
+        r0 += r2[a];
+    }
+    r0 /= 6.0;
+    int n0 = 0, n1 = 0;
+    for (int a = 0; a < k; ++a) {
+        n1 += r2[a] < 1.55 * r0;
+        n0 += r2[a] < 1.45 * r0;
+    }
+    // the cosines of the angles between the n0 nearest, binned
+    int chi[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    for (int a = 0; a < n0; ++a) {
+        for (int b = a + 1; b < n0; ++b) {
+            const double c = (v[3 * a] * v[3 * b] + v[3 * a + 1] * v[3 * b + 1] +
+                              v[3 * a + 2] * v[3 * b + 2]) /
+                             (std::sqrt(r2[a]) * std::sqrt(r2[b]));
+            const int bin = c < -0.945  ? 0
+                            : c < -0.915 ? 1
+                            : c < -0.755 ? 2
+                            : c < -0.195 ? 3
+                            : c < 0.195  ? 4
+                            : c < 0.245  ? 5
+                            : c < 0.795  ? 6
+                                         : 7;
+            ++chi[bin];
+        }
+    }
+    // deviations from each structure; without the bcc denominator, not bcc
+    const double delta_cp = std::abs(1.0 - chi[6] / 24.0);
+    const int denominator = chi[5] + chi[6] - chi[4];
+    double delta_bcc = denominator != 0 ? 0.35 * chi[4] / denominator : delta_cp + 1.0;
+    double delta_fcc = 0.61 * (std::abs(chi[0] + chi[1] - 6) + chi[2]) / 6.0;
+    double delta_hcp =
+        (std::abs(chi[0] - 3.0) + std::abs(chi[0] + chi[1] + chi[2] + chi[3] - 9)) / 12.0;
+    if (chi[0] == 7) {
+        delta_bcc = 0.0;
+    } else if (chi[0] == 6) {
+        delta_fcc = 0.0;
+    } else if (chi[0] <= 3) {
+        delta_hcp = 0.0;
+    }
+    if (chi[7] > 0) {
+        return kOther;
+    }
+    if (chi[4] < 3) {
+        return n1 > 13 || n1 < 11 ? kOther : kIco;
+    }
+    if (delta_bcc <= delta_cp) {
+        return n1 < 11 ? kOther : kBcc;
+    }
+    if (n1 > 12 || n1 < 11) {
+        return kOther;
+    }
+    return delta_fcc < delta_hcp ? kFcc : kHcp;
+}
+
 }  // namespace
 
 void centro_symmetry(std::int64_t n, int k, const double* vectors, double* csp,
@@ -279,6 +348,18 @@ void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const
                     }
                 }
                 types[i] = type;
+            }
+        },
+        control);
+}
+
+void ackland_jones(std::int64_t n, const std::int64_t* offsets, const double* vectors,
+                   std::int8_t* types, const Control& control) {
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                types[i] = ackland_jones_of(vectors + 3 * offsets[i], offsets[i + 1] - offsets[i]);
             }
         },
         control);

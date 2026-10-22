@@ -157,3 +157,44 @@ def chill_plus(system, cutoff):
                 name = "interfacial_ice"
         names.append(name)
     return names
+
+
+def ackland_jones(system, cutoff=6.0):
+    """Ackland-Jones types from all neighbors within 1.55 r0^2, as in the
+    paper, and the largest number of them, n1, of any atom."""
+    nl = mdapy.NeighborList.build(system, cutoff)
+    bins = [-np.inf, -0.945, -0.915, -0.755, -0.195, 0.195, 0.245, 0.795, np.inf]
+    types, largest = [], 0
+    for i in range(len(system)):
+        v = nl.vectors[nl.offsets[i] : nl.offsets[i + 1]]
+        r2 = (v * v).sum(1)
+        order = np.argsort(r2, kind="stable")
+        v, r2 = v[order], r2[order]
+        r0 = r2[:6].mean()
+        n0, n1 = int((r2 < 1.45 * r0).sum()), int((r2 < 1.55 * r0).sum())
+        largest = max(largest, n1)
+        u = v[:n0] / np.sqrt(r2[:n0])[:, None]
+        chi = np.histogram((u @ u.T)[np.triu_indices(n0, 1)], bins)[0]
+        cp = abs(1 - chi[6] / 24)
+        below = chi[5] + chi[6] - chi[4]
+        bcc = 0.35 * chi[4] / below if below else np.inf
+        fcc = 0.61 * (abs(chi[0] + chi[1] - 6) + chi[2]) / 6
+        hcp = (abs(chi[0] - 3) + abs(chi[0] + chi[1] + chi[2] + chi[3] - 9)) / 12
+        if chi[0] == 7:
+            bcc = 0.0
+        elif chi[0] == 6:
+            fcc = 0.0
+        elif chi[0] <= 3:
+            hcp = 0.0
+        if chi[7] > 0:
+            name = "other"
+        elif chi[4] < 3:
+            name = "ico" if 11 <= n1 <= 13 else "other"
+        elif bcc <= cp:
+            name = "bcc" if n1 >= 11 else "other"
+        elif not 11 <= n1 <= 12:
+            name = "other"
+        else:
+            name = "fcc" if fcc < hcp else "hcp"
+        types.append(NAMES.index(name))
+    return np.array(types), largest

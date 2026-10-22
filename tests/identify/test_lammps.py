@@ -6,16 +6,23 @@ Skipped where LAMMPS is not installed."""
 
 import numpy as np
 import pytest
-from lattices import crystal
 
 import mdapy
 from mdapy.analysis import EntropyFingerprint, SteinhardtParameters
-from mdapy.identify import CentroSymmetryParameter, CommonNeighborAnalysis
+from mdapy.identify import (
+    AcklandJonesAnalysis,
+    CentroSymmetryParameter,
+    CommonNeighborAnalysis,
+)
+
+from lattices import crystal
 
 lammps = pytest.importorskip("lammps")
 
 # LAMMPS cna/atom: 1 fcc, 2 hcp, 3 bcc, 4 icosahedral, 5 other
 FROM_LAMMPS = np.array([0, 1, 2, 3, 4, 0])
+# LAMMPS ackland/atom: 0 unknown, 1 bcc, 2 fcc, 3 hcp, 4 icosahedral
+FROM_ACKLAND = np.array([0, 3, 1, 2, 4])
 
 
 def per_atom(tmp_path, system, commands, names):
@@ -95,3 +102,19 @@ def test_entropy_fingerprint(tmp_path):
     averaged = EntropyFingerprint(5.0, 0.2, average_cutoff=3.0).compute(system).entropy
     np.testing.assert_allclose(plain, values["e"], rtol=1e-2)
     np.testing.assert_allclose(averaged, values["a"], rtol=1e-2)
+
+
+@pytest.mark.parametrize(
+    "kind, a, jitter",
+    [("fcc", 3.6, 0.15), ("hcp", 2.5, 0.12), ("bcc", 2.87, 0.12)],
+)
+def test_ackland_jones_as_the_original_implementation(tmp_path, kind, a, jitter):
+    """LAMMPS with legacy yes; its neighbors are all those within the pair
+    cutoff, here never more than the 14 nearest that mdapy takes."""
+    system = crystal(kind, a, (4, 4, 4), jitter=jitter, seed=7)
+    values = per_atom(
+        tmp_path, system, "compute aja all ackland/atom legacy yes", ["aja"]
+    )
+    structure = AcklandJonesAnalysis().compute(system).structure
+    np.testing.assert_array_equal(structure, FROM_ACKLAND[values["aja"].astype(int)])
+    assert len(np.unique(structure)) > 1  # not all atoms keep their structure

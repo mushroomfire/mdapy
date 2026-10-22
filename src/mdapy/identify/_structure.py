@@ -118,6 +118,61 @@ class CommonNeighborAnalysis:
         return f"CommonNeighborAnalysis(cutoff={self.cutoff!r})"
 
 
+class AcklandJonesAnalysis:
+    """Ackland-Jones bond-angle analysis: fcc, hcp, bcc and icosahedral atoms."""
+
+    #: Names of the structure types.
+    NAMES = CommonNeighborAnalysis.NAMES
+    #: Their default colors.
+    COLORS = CommonNeighborAnalysis.COLORS
+
+    def compute(
+        self,
+        system: System,
+        *,
+        neighbors: NeighborList | None = None,
+        progress: Any = None,
+        cancel: Any = None,
+    ) -> StructureResult:
+        """The structure type of each atom.
+
+        Parameters
+        ----------
+        system : System
+            The atoms.
+        neighbors : NeighborList, optional
+            Neighbors of this system with at least the 14 nearest of each
+            atom.
+
+        Returns
+        -------
+        StructureResult
+            Types ``other``, ``fcc``, ``hcp``, ``bcc`` and ``ico``.
+
+        Raises
+        ------
+        InvalidParameter
+            If an atom has fewer than 14 neighbors in the given list.
+        """
+        # without periodic images, small systems have fewer neighbors
+        k = 14 if system.box.pbc.any() else min(14, len(system) - 1)
+        if k < 6:
+            return StructureResult(
+                np.zeros(len(system), dtype=np.int8), self.NAMES, self.COLORS
+            )
+        nl = _nearest_given_or_built(system, k, neighbors)
+        structure = _native.ackland_jones(
+            nl.offsets,
+            np.ascontiguousarray(nl.vectors),
+            progress,
+            _native_token(cancel),
+        )
+        return StructureResult(structure, self.NAMES, self.COLORS)
+
+    def __repr__(self) -> str:
+        return "AcklandJonesAnalysis()"
+
+
 class DiamondStructure:
     """Cubic and hexagonal diamond structures, from the arrangement of the
     second neighbors of each atom."""

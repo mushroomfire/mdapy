@@ -4,6 +4,7 @@
 """Identification of the local structure of atoms."""
 
 from mdapy.identify._structure import (
+    AcklandJonesAnalysis,
     CentroSymmetryParameter,
     CentroSymmetryResult,
     ChillPlus,
@@ -15,6 +16,7 @@ from mdapy.identify._structure import (
 )
 
 __all__ = [
+    "AcklandJonesAnalysis",
     "CentroSymmetryParameter",
     "CentroSymmetryResult",
     "ChillPlus",

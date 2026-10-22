@@ -617,6 +617,22 @@ void structure_identification() {
             }
         }
     }
+    // the 14 nearest neighbors of every atom, nearest first, for Ackland-Jones
+    const mdapy::neighbor::NeighborPairs wide =
+        mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 4.2);
+    std::vector<std::int64_t> nearest_order, nearest_offsets;
+    mdapy::neighbor::order_by_distance(positions.data(), n, wide.offsets.data(),
+                                       wide.neighbors.data(), wide.shifts.data(), matrix, 14,
+                                       nearest_order, nearest_offsets);
+    std::vector<double> fourteen(3 * nearest_order.size());
+    for (std::int64_t i = 0; i < n; ++i) {
+        for (std::int64_t q = nearest_offsets[i]; q < nearest_offsets[i + 1]; ++q) {
+            const std::int64_t p = nearest_order[q];
+            mdapy::neighbor::pair_vector(&positions[3 * i],
+                                         &positions[3 * static_cast<std::int64_t>(wide.neighbors[p])],
+                                         &wide.shifts[3 * p], matrix, &fourteen[3 * q]);
+        }
+    }
     std::vector<double> masses(static_cast<std::size_t>(n)), velocities(3 * static_cast<std::size_t>(n));
     std::normal_distribution<double> thermal(0.0, 3.0);
     for (std::int64_t i = 0; i < n; ++i) {
@@ -626,7 +642,7 @@ void structure_identification() {
         }
     }
     std::vector<double> first_temperature, first_searched, first_searched_temperature;
-    std::vector<std::int8_t> first_types, first_water;
+    std::vector<std::int8_t> first_types, first_water, first_aja;
     std::vector<double> first_csp, first_q, first_entropy, first_factor;
     std::vector<double> first_cnp;
     std::vector<double> first_strain;
@@ -687,6 +703,13 @@ void structure_identification() {
             first_water = water;
         }
         check(water == first_water, "CHILL+ gives the same types for any thread count");
+        std::vector<std::int8_t> aja(static_cast<std::size_t>(n));
+        mdapy::identify::ackland_jones(n, nearest_offsets.data(), fourteen.data(), aja.data());
+        if (threads == kThreads[0]) {
+            first_aja = aja;
+        }
+        check(aja == first_aja && std::count(aja.begin(), aja.end(), mdapy::identify::kFcc) > 0,
+              "Ackland-Jones gives the same types for any thread count, some of them fcc");
         std::vector<std::int8_t> diamond(static_cast<std::size_t>(n));
         mdapy::identify::identify_diamond(n, four.data(), four_vectors.data(), diamond.data());
         check(diamond == std::vector<std::int8_t>(static_cast<std::size_t>(n), 0),

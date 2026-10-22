@@ -3,12 +3,13 @@
 
 import numpy as np
 import pytest
-from lattices import crystal, icosahedron
 from numpy.polynomial import legendre
 
 import mdapy
 from mdapy.analysis import SteinhardtParameters
 from mdapy.errors import InvalidParameter
+
+from lattices import crystal, icosahedron
 
 
 def unit_vectors(system, k):

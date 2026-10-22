@@ -13,6 +13,8 @@
 | `mlip-draft` | OUTCAR → xyz、NEP 描述符 PCA、最远点采样、扰动，基于 visualization-draft | 已推送，待检查 |
 | `performance-draft` | 与 OVITO 的性能对比框架和结果；CNA（固定截断）与 Steinhardt 提速，基于 mlip-draft | 已推送，待检查 |
 | `tutorials-draft` | 五篇进阶教程；System 输入数组复制的修复，基于 performance-draft | 已推送，待检查 |
+| `neighbor-reuse-draft` | 读邻居表的路径改成 C++ 并行内核（问题 7 的实现），基于 tutorials-draft | 已推送，待检查 |
+| `fused-nearest-draft` | 近邻类分析边找边算（问题 4 的实现），基于 neighbor-reuse-draft | 进行中 |
 
 ## 进展
 
@@ -114,6 +116,19 @@
 | 六边形柱状多晶（俯视，弛豫后）：按结构，小角晶界是分立的位错芯 | ![](images/18_columnar_cna.png) |
 | 同上：按晶粒 | ![](images/19_columnar_grains.png) |
 | 铜的 GSFE（自由表面 slab，18 层） | ![](images/20_gsfe_copper.png) |
+
+### 22:35
+- `performance-draft` 修好后 CI 9 个任务全绿；`tutorials-draft` 的 CI 除了 py3.11 还在跑，其余全绿。
+- 问题 7 我先做了实现，放在 `neighbor-reuse-draft`（0b2960a + d0272b4），不改接口、结果逐位不变，你可以早上决定要不要：
+  - `NeighborList.within` 和按元素对截断的成键选择改成 C++ 并行压缩（原来是单线程 NumPy 掩码）；RDF、配位数读表时用 C++ 并行内核，直接跳过超出截断的对。
+  - 10.8 万原子：RDF 读表 41 → 1.6 ms，配位数 51 → 1.1 ms，固定截断 CNA 读表 50 → 8 ms。教程第 4 篇相应改了：截断类分析共享一张同截断的表现在也略快（42 → 34 ms）。
+  - CI 第一次 TSan 任务失败：thread_checks.cpp 里新变量与外层同名，Linux 的 GCC `-Wshadow -Werror` 报错（本地只用 GCC 检查了源文件，没检查这个测试文件）。已改名重推，并把这条检查加进了本地 CLAUDE.md 的命令。
+- 问题 4 也先做了实现，放在 `fused-nearest-draft`：k-d 树加了 `for_each_nearest`（`nearest_atoms` 也改用它，顺序完全一样），自适应 CNA、Ackland–Jones、CSP（k ≤ 14）、不做平均的近邻 Steinhardt 在不传邻居表时边找边算。和读表路径逐位一致（测试覆盖周期/三斜/团簇三种盒子，加 TSan 检查），和 OVITO 的逐原子对比测试照样全过。200 万原子：
+  - 自适应 CNA 0.534 → 0.48 s，内存 1154 → 87 MB（OVITO 0.66 s、139 MB）；
+  - Ackland–Jones 0.606 → 0.54 s，1151 → 83 MB（OVITO 0.65 s、147 MB）；
+  - CSP 0.477 → 0.42 s，1001 → 78 MB（OVITO 0.52 s、111 MB）；
+  - Steinhardt 0.563 → 0.52 s，1077 → 160 MB（OVITO 0.54 s、187 MB）。
+  - 现在正在用这个分支的代码把 15 个功能全部重跑一遍，跑完更新 Performance 页的表和图再提交。
 
 ## 早上需要你决定的事
 

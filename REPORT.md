@@ -21,6 +21,9 @@
 | `dxa-partials-draft` | 不全位错的 Burgers 矢量（Shockley、Frank 等）；面缺陷的判据更严，基于 dxa-draft | 已推送，CI 全绿 |
 | `neighbor-fits-draft` | 合并 system-immutable-draft（含原子应变/网格提速）；邻居表按“坐标和盒子相同”复用（`NeighborList.fits`）；最新的 OVITO 性能对比，基于 dxa-partials-draft | 已推送 |
 | `dxa-network-draft` | 位错网络（节点、线段）、扩展位错只给两条不全位错、Burgers 矢量箭头、和 OVITO 的 DXA 现场对比，基于 neighbor-fits-draft | 已推送，CI 中 |
+| `wcp-shells-draft` | Warren–Cowley 多壳层（按截断半径或按近邻数），基于 dxa-network-draft | 已推送 |
+| `vasp-calculator-draft` | VASP 计算器（超算上用），基于 wcp-shells-draft | 已推送 |
+| **`preview-2026-10-23`** | **上面所有草稿合在一起（就是 vasp-calculator-draft 的末端），1733 个测试全过** | 已推送，CI 中 |
 
 ## 进展
 
@@ -229,6 +232,12 @@
 | 同一帧：红为 OVITO，蓝为我们（左俯视，右侧视） | ![](images/33_indent_vs_ovito.png) |
 
 - 接下来：把所有草稿合成一个 preview 分支并跑通测试；WCP 多壳层；VASP 计算器。
+
+### 01:58
+- **WCP 多壳层**（`wcp-shells-draft`）：`WarrenCowley(cutoff=(3.0, 4.0, 4.7))` 按距离分壳层（每层从上一个截断到本层截断），`WarrenCowley(num_neighbors=(12, 6, 24))` 按近邻数分壳层（热扰动下也稳）。只给一个数时结果不变；给一串时 `alpha` 是（壳层, 元素, 元素），`result["Cu", "Au"]` 给各层的数组，`result["Cu", "Au", 1]` 给某一层。测试：L1₂ 有序结构的解析值（第一层 α_AuAu = 1、第二层 −3 等），以及 NumPy 暴力逐对计数（两种分层方式）。
+- **VASP 计算器**（`vasp-calculator-draft`）：`VASP(incar={...}, kpoints=(4, 4, 4), setups={"Ni": "Ni_pv"}, command="srun vasp_std", directory="relax")`。每次调用写 POSCAR/INCAR/KPOINTS/POTCAR，在目录里用 shell 执行命令（和作业脚本里一样），读 OUTCAR 的 TOTEN、力和 virial，原子顺序还原；默认保留 WAVECAR/CHGCAR，下一步直接续算（最小化很省时间）。NSW/IBRION/ISIF 固定为单点加应力，用户不能设。POTCAR 目录默认取 `VASP_PP_PATH`（或其下的 potpaw_PBE），命令默认取 `MDAPY_VASP_COMMAND`、再取 ASE 的 `ASE_VASP_COMMAND`、最后是 `vasp_std`。VASP 出错时抛新的 `mdapy.errors.CalculationFailed`，附上 VASP 最后输出的内容。没有真 VASP 也能测：测试里有一个“假 VASP”脚本，读 POSCAR、用 EAM 算、按 VASP 的格式写 OUTCAR；测试检查结果和 EAM 一致、输入文件内容、原子顺序、续算文件、出错处理，以及和 `minimize` 联用时前十步与直接用 EAM 完全一样。
+- **preview-2026-10-23**：全部草稿合在一起，1733 个测试、覆盖率、文档构建都通过，CI 在跑。你审的时候可以直接看这个分支。
+- 收到你的决定：接下来**先按方案 A 移植 PTM，再专心做完整版 DXA**。
 
 ## 早上需要你决定的事
 

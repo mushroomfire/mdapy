@@ -102,28 +102,41 @@ class EntropyFingerprint:
         EntropyResult
             The fingerprint of each atom.
         """
-        reach = max(self.cutoff, self.average_cutoff or 0.0)
-        nl = _given_or_built(system, reach, neighbors)
-        local = nl.within(self.cutoff) if nl.cutoff > self.cutoff else nl
         n = len(system)
-        if self.local_density:
-            density = local.counts / (4.0 / 3.0 * pi * self.cutoff**3)
+        if neighbors is None:
+            # the neighbors found on the grid, without a list
+            box = system.box
+            entropy = _native.pair_entropy_search(
+                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(box.matrix),
+                np.ascontiguousarray(box.origin),
+                np.ascontiguousarray(box.pbc),
+                self.cutoff,
+                self.sigma,
+                0.0 if self.local_density else n / box.volume,
+                progress,
+                _native_token(cancel),
+            )
         else:
-            density = np.full(n, n / system.box.volume)
-        entropy = _native.pair_entropy(
-            local.offsets,
-            np.ascontiguousarray(local.distances),
-            self.cutoff,
-            self.sigma,
-            np.ascontiguousarray(density, dtype=np.float64),
-            progress,
-            _native_token(cancel),
-        )
+            reach = max(self.cutoff, self.average_cutoff or 0.0)
+            nl = _given_or_built(system, reach, neighbors)
+            local = nl.within(self.cutoff)
+            if self.local_density:
+                density = local.counts / (4.0 / 3.0 * pi * self.cutoff**3)
+            else:
+                density = np.full(n, n / system.box.volume)
+            entropy = _native.pair_entropy(
+                local.offsets,
+                np.ascontiguousarray(local.distances),
+                self.cutoff,
+                self.sigma,
+                np.ascontiguousarray(density, dtype=np.float64),
+                progress,
+                _native_token(cancel),
+            )
         if self.average_cutoff is not None:
-            near = (
-                nl.within(self.average_cutoff)
-                if nl.cutoff > self.average_cutoff
-                else nl
+            near = _given_or_built(system, self.average_cutoff, neighbors).within(
+                self.average_cutoff
             )
             total = entropy + np.bincount(near.i, weights=entropy[near.j], minlength=n)
             entropy = total / (1 + near.counts)

@@ -1,7 +1,7 @@
 # References
 
 The papers that mdapy follows or that its pages cite, each listed once; the
-pages link here. A feature built on published work ends its section with the
+pages link here. A feature built on published work ends its page with the
 papers to cite when it is used.
 
 ## Citing mdapy

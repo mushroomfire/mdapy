@@ -63,11 +63,11 @@ incomplete file is removed.
 
 | Name | Extensions | Read | Write | Frames | Page |
 |---|---|---|---|---|---|
-| `extxyz` | `.xyz`, `.extxyz` | yes | yes | several | [Extended XYZ](../formats/extxyz.md) |
-| `lammps-data` | `.data`, `.lmp`, names `data.*` | yes | yes | one | [LAMMPS data](../formats/lammps-data.md) |
-| `lammps-dump` | `.dump`, `.lammpstrj`, names `dump.*` | yes | yes | several | [LAMMPS dump](../formats/lammps-dump.md) |
-| `poscar` | `.vasp`, `.poscar`, names `POSCAR*`, `CONTCAR*` | yes | yes | one | [VASP POSCAR](../formats/poscar.md) |
-| `mdapy` | `.mdapy` | yes | yes | several | [mdapy files](../formats/mdapy.md) |
+| `extxyz` | `.xyz`, `.extxyz` | yes | yes | several | [Extended XYZ](../reference/formats/extxyz.md) |
+| `lammps-data` | `.data`, `.lmp`, names `data.*` | yes | yes | one | [LAMMPS data](../reference/formats/lammps-data.md) |
+| `lammps-dump` | `.dump`, `.lammpstrj`, names `dump.*` | yes | yes | several | [LAMMPS dump](../reference/formats/lammps-dump.md) |
+| `poscar` | `.vasp`, `.poscar`, names `POSCAR*`, `CONTCAR*` | yes | yes | one | [VASP POSCAR](../reference/formats/poscar.md) |
+| `mdapy` | `.mdapy` | yes | yes | several | [mdapy files](../reference/formats/mdapy.md) |
 
 `mdapy.detect_format(path)` returns the format of a file name. It ignores a
 compression suffix and compares the extension without regard to case; name

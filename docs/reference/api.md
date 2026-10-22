@@ -2,7 +2,8 @@
 
 This reference is generated from the docstrings, which describe parameters,
 return values and units. What each function computes, the formulas, examples
-and references are on the pages of the [user guide](../guide/parallelism.md).
+and references are on the page of each feature, listed on the
+[home page](../index.md).
 
 ```python
 import mdapy

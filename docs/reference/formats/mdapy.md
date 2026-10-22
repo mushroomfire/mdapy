@@ -59,7 +59,7 @@ gives the same members.
   type and shape (including 0-dimensional and empty arrays), nested
   mappings and sequences, and NaN and infinities. NumPy scalars become
   Python numbers. Other values raise
-  [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter).
+  [`InvalidParameter`](../api.md#mdapy.errors.InvalidParameter).
 - **Box** and **topology**, with the type labels and extra columns of its
   tables.
 
@@ -73,4 +73,4 @@ topology from their metadata, so every frame written completely is read.
 This works for uncompressed files.
 
 A file written by a newer mdapy with a higher `version` raises
-[`UnsupportedFormat`](../reference/api.md#mdapy.errors.UnsupportedFormat).
+[`UnsupportedFormat`](../api.md#mdapy.errors.UnsupportedFormat).

@@ -21,7 +21,7 @@ implemented.
 | `shifts` | Periodic image of the second atom of a pair, (3,) int8: the pair vector is `x[j] - x[i] + shifts @ box.matrix`. |
 | `index_dtype` | Integer type of atom indices in results such as `NeighborList.j`: int32, or int64 in a build with 64-bit indices. |
 | `Topology` | Bonds, angles, dihedrals and impropers of a system; each a table with `atoms` (0-based row indices), `type` and optional `type_label`. |
-| format | Name of a file format, passed as `format=`, such as `extxyz`. See [Reading and writing files](../guide/io.md). |
+| format | Name of a file format, passed as `format=`, such as `extxyz`. See [Reading and writing files](../getting-started/io.md). |
 | `Calculator` | Interface that computes energy, forces and virial for a `System`. |
 | average atom | The single species of an average-atom potential, standing for a random alloy; `A` in potential files. |
 | `Result` | Base class of the objects returned by analyses. |

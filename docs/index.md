@@ -2,7 +2,7 @@
 title: mdapy
 ---
 
-# ![mdapy](assets/mdapy-logo.svg#only-light){ width="420" } ![mdapy](assets/mdapy-logo-dark.svg#only-dark){ width="420" }
+# ![mdapy](assets/mdapy-logo.svg#only-light){ width="420" } ![mdapy](assets/mdapy-logo-dark.svg#only-dark){ width="420" } { .logo }
 
 **mdapy**, short for *Molecular Dynamics Analysis in Python*, analyses and
 builds atomistic systems. It reads and writes structures and trajectories in
@@ -29,16 +29,18 @@ flowchart TB
     build["<b>Structure builder</b><br/>crystals · polycrystals · dislocations · packing"]
     system(["<b>System</b><br/>box · topology · trajectory"])
     neighbors(["<b>Neighbor lists</b>"])
-    render["<b>Rendering</b><br/>images of systems"]
+    visual["<b>Visualization</b><br/>rendering · plots"]
+    mlip["<b>MLIP</b><br/>descriptors · frames<br/>training sets"]
     analysis["<b>Analysis</b><br/>structures · local order · defects · dynamics"]
     calculators["<b>Calculators</b><br/>EAM · NEP · LAMMPS"]
-    minimization["<b>Minimization and dynamics</b>"]
-    lattice["<b>Lattice dynamics</b><br/>elastic constants · phonons"]
+    minimization["<b>Minimization</b><br/>and dynamics"]
+    lattice["<b>Lattice dynamics</b><br/>elastic constants<br/>phonons"]
 
     files <--> system
     build -.-> system
     system --> neighbors
-    system -.-> render
+    system -.-> visual
+    calculators -.-> mlip
     neighbors --> analysis
     neighbors --> calculators
     calculators --> minimization
@@ -49,13 +51,15 @@ flowchart TB
     classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px,stroke-dasharray:6 4
     classDef simulation fill:#9333ea26,stroke:#9333ea,stroke-width:2px
     classDef build fill:#16a34a1f,stroke:#16a34a,stroke-width:2px,stroke-dasharray:6 4
-    classDef render fill:#db27771f,stroke:#db2777,stroke-width:2px,stroke-dasharray:6 4
+    classDef visual fill:#db27771f,stroke:#db2777,stroke-width:2px,stroke-dasharray:6 4
+    classDef mlip fill:#0d94881f,stroke:#0d9488,stroke-width:2px,stroke-dasharray:6 4
     class system,neighbors core
     class files data
     class analysis analysis
     class calculators,minimization,lattice simulation
     class build build
-    class render render
+    class visual visual
+    class mlip mlip
 ```
 
 <div class="grid cards" markdown>
@@ -93,7 +97,7 @@ flowchart TB
 
     Planned.
 
--   :material-sine-wave:{ .lg .middle } **Simulation**
+-   :material-molecule:{ .lg .middle } **Simulation**
 
     ---
 
@@ -107,11 +111,29 @@ flowchart TB
 
     Lattice dynamics: [elastic constants](simulation/elastic-constants.md)
 
--   :material-palette-outline:{ .lg .middle } **Rendering**
+-   :material-sine-wave:{ .lg .middle } **MLIP**
 
     ---
 
-    Images of systems, colored by any property.
+    Training data for machine-learned potentials.
+
+    Planned: NEP descriptors and their principal components · selection of
+    frames · training sets in extended XYZ from VASP single points.
+
+-   :material-palette-outline:{ .lg .middle } **Visualization**
+
+    ---
+
+    Images of systems, colored by any property, and plots of results.
+
+    Planned: rendering · plot templates.
+
+-   :material-speedometer:{ .lg .middle } **Performance**
+
+    ---
+
+    Timings of mdapy and of other programs, from thousands to millions of
+    atoms.
 
     Planned.
 

@@ -2,7 +2,7 @@
 
 mdapy runs its compiled kernels on a thread pool of its own. This page shows
 how to choose the number of threads, how to follow and stop long
-computations, and how mdapy behaves next to PyTorch, NumPy and LAMMPS.
+computations, and how mdapy behaves next to PyTorch and LAMMPS.
 
 ```python
 import mdapy
@@ -68,7 +68,7 @@ usual.
 Results do not depend on the number of threads: the same computation with 1
 or 64 threads gives bit-for-bit identical numbers.
 
-## Working with PyTorch, NumPy and LAMMPS
+## Working with PyTorch and LAMMPS
 
 mdapy does not use OpenMP and loads no OpenMP runtime. Two copies of an
 OpenMP runtime in one process (for example mdapy's and PyTorch's) is a common

@@ -1,6 +1,13 @@
-# mdapy
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/mdapy-logo-dark.svg">
+    <img alt="mdapy" src="docs/assets/mdapy-logo.svg" width="560">
+  </picture>
+</p>
 
-mdapy is a Python package for analysing and modelling atomistic simulations.
+
+mdapy, short for Molecular Dynamics Analysis in Python, analyses and builds
+atomistic systems.
 
 > **mdapy 2.0 is under development** on the `v2` branch. It is a complete
 > rewrite and is not compatible with mdapy 1.x. For the stable release, see
@@ -17,7 +24,7 @@ pip install ".[dev]"
 
 mdapy needs Python 3.11 or newer, NumPy 2.3.1 or newer and polars 2. Its
 compiled kernels use their own thread pool rather than OpenMP, so they run
-safely in the same process as PyTorch, NumPy and LAMMPS.
+safely in the same process as PyTorch and LAMMPS.
 
 ## License
 

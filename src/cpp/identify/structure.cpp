@@ -16,6 +16,10 @@ namespace {
 
 constexpr int kMaxNeighbors = 14;
 
+// Squared length below which a first and a second neighbor vector lead back
+// to the atom itself, in Å².
+constexpr double kBackBond = 1e-4;
+
 int count(std::uint32_t bits) {
     return static_cast<int>(std::bitset<32>(bits).count());
 }
@@ -214,6 +218,7 @@ void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const doubl
             double second[12 * 3];
             for (std::int64_t i = begin; i < end; ++i) {
                 int m = 0;
+                bool back_to_i = true;  // i is among the four nearest of each neighbor
                 for (int a = 0; a < 4; ++a) {
                     const double* v = vectors + 3 * (4 * i + a);
                     const std::int64_t j = neighbors[4 * i + a];
@@ -229,6 +234,7 @@ void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const doubl
                             back = b;
                         }
                     }
+                    back_to_i = back_to_i && shortest < kBackBond;
                     for (int b = 0; b < 4; ++b) {
                         if (b != back) {
                             const double* w = vectors + 3 * (4 * j + b);
@@ -244,7 +250,7 @@ void identify_diamond(std::int64_t n, const std::int32_t* neighbors, const doubl
                     sum += length(second + 3 * a);
                 }
                 const double local = scale * sum / 12.0;
-                const Structure type = twelve(second, local * local);
+                const Structure type = back_to_i ? twelve(second, local * local) : kOther;
                 types[i] = type == kFcc   ? kCubicDiamond
                            : type == kHcp ? kHexagonalDiamond
                                           : kNotDiamond;

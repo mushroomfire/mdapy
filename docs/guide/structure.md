@@ -76,8 +76,10 @@ diamond, and adaptive common neighbor analysis of those twelve decides. The
 | 1 | `cubic_diamond` | blue |
 | 2 | `hexagonal_diamond` | orange |
 
-Every atom needs four neighbors. The neighbors of diamond atoms that are not
-diamond themselves, which some programs mark separately, are `other` here.
+Every atom needs four neighbors, and must be among the four nearest neighbors
+of each of its own, as in the method of Maras et al.; otherwise it is
+`other`. The neighbors of diamond atoms that are not diamond themselves,
+which some programs mark separately, are `other` here.
 
 ## Ice and hydrates
 

@@ -1,8 +1,8 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
-"""Distributions and order parameters against OVITO 3.17.0, for every
-analysis OVITO has. Skipped where OVITO is not installed."""
+"""Analyses against OVITO 3.17.0, for every analysis OVITO has. Skipped
+where OVITO is not installed."""
 
 import numpy as np
 import pytest
@@ -13,6 +13,7 @@ from mdapy.analysis import (
     BondAngleDistribution,
     ClusterAnalysis,
     CoordinationNumber,
+    MeanSquaredDisplacement,
     RadialDistributionFunction,
     SteinhardtParameters,
     WignerSeitz,
@@ -21,13 +22,16 @@ from mdapy.analysis import (
 from lattices import crystal
 
 ovito = pytest.importorskip("ovito")
+from ovito.io import import_file  # noqa: E402
 from ovito.modifiers import (  # noqa: E402
     AtomicStrainModifier,
     BondAngleDistributionModifier,
+    CalculateDisplacementsModifier,
     ClusterAnalysisModifier,
     CoordinationAnalysisModifier,
     CreateBondsModifier,
     SteinhardtParametersModifier,
+    UnwrapTrajectoriesModifier,
     WignerSeitzAnalysisModifier,
 )
 from ovito.pipeline import ReferenceConfigurationModifier  # noqa: E402
@@ -304,3 +308,38 @@ def test_cluster_geometry(box):
     np.testing.assert_allclose(
         voigt, np.asarray(table["Gyration Tensor"])[rows], rtol=1e-10, atol=1e-10
     )
+
+
+@pytest.mark.parametrize("step, flags", [(4.0, True), (0.4, False)])
+def test_displacement_from_the_first_frame(tmp_path, step, flags):
+    """A random walk written as a dump: OVITO unwraps it by the image flags,
+    or without them by following the jumps through the boundaries, and
+    measures the displacements from frame 0."""
+    box = mdapy.Box([[12.0, 0, 0], [2.0, 11.0, 0], [-1.0, 1.5, 13.0]])
+    rng = np.random.default_rng(7)
+    start = box.to_cartesian(rng.random((40, 3)))
+    walk = start + np.cumsum(rng.normal(scale=step, size=(12, 40, 3)), axis=0)
+    frames = []
+    for t, positions in enumerate(walk):
+        wrapped, image = box.wrap(positions)
+        frame = mdapy.System(wrapped, box, elements="Ar").with_columns(
+            id=np.arange(1, 41)
+        )
+        if flags:
+            frame = frame.with_columns(image=image)
+        frames.append(frame.with_info(timestep=t))
+    mdapy.write(tmp_path / "walk.dump", frames)
+    pipeline = import_file(str(tmp_path / "walk.dump"))
+    pipeline.modifiers.append(UnwrapTrajectoriesModifier())
+    pipeline.modifiers.append(
+        CalculateDisplacementsModifier(minimum_image_convention=False)
+    )
+    expected = np.array(
+        [
+            (pipeline.compute(t).particles["Displacement"][...] ** 2).mean(axis=0)
+            for t in range(len(frames))
+        ]
+    )
+    result = MeanSquaredDisplacement(window=False).compute(frames)
+    np.testing.assert_allclose(result.components, expected, rtol=1e-12, atol=1e-12)
+    assert box.wrap(walk[-1])[1].any()  # atoms crossed the boundaries

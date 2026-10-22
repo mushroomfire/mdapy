@@ -119,8 +119,14 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   short-range order; [`SteinhardtParameters`](../analysis/steinhardt.md) up
   to degree 20, optionally averaged; and the
   [`EntropyFingerprint`](../analysis/entropy.md).
-- `mdapy.analysis.AtomicTemperature`: the temperature of each atom and its
-  neighbors. See [Atomic temperature](../analysis/temperature.md).
+- Dynamics in `mdapy.analysis`: the
+  [`MeanSquaredDisplacement`](../analysis/msd.md) of a trajectory, over
+  every time origin or from the first frame, agreeing with LAMMPS and OVITO;
+  the [`LindemannIndex`](../analysis/lindemann.md) of each atom and of the
+  frames so far; both follow the atoms through the periodic boundaries by
+  their image flags or by the nearest image. The
+  [`AtomicTemperature`](../analysis/temperature.md) of each atom and its
+  neighbors, relative to their center of mass.
 - Defects and deformation in `mdapy.analysis`, agreeing with OVITO:
   [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms,
   with their unwrapped positions, centers of mass, gyration tensors and

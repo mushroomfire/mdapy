@@ -59,13 +59,21 @@ import mdapy
 
 ::: mdapy.analysis.RadialDistributionResult
 
+::: mdapy.analysis.CoordinationNumber
+
+::: mdapy.analysis.CoordinationResult
+
 ::: mdapy.analysis.StructureFactor
 
 ::: mdapy.analysis.StructureFactorResult
 
-::: mdapy.analysis.CoordinationNumber
+::: mdapy.analysis.BondAngleDistribution
 
-::: mdapy.analysis.CoordinationResult
+::: mdapy.analysis.BondAngleResult
+
+::: mdapy.analysis.WarrenCowley
+
+::: mdapy.analysis.WarrenCowleyResult
 
 ::: mdapy.analysis.SteinhardtParameters
 
@@ -75,29 +83,29 @@ import mdapy
 
 ::: mdapy.analysis.EntropyResult
 
-::: mdapy.analysis.AtomicTemperature
+::: mdapy.analysis.ClusterAnalysis
 
-::: mdapy.analysis.TemperatureResult
-
-::: mdapy.analysis.AtomicStrain
-
-::: mdapy.analysis.StrainResult
+::: mdapy.analysis.ClusterResult
 
 ::: mdapy.analysis.WignerSeitz
 
 ::: mdapy.analysis.WignerSeitzResult
 
-::: mdapy.analysis.ClusterAnalysis
+::: mdapy.analysis.AtomicStrain
 
-::: mdapy.analysis.ClusterResult
+::: mdapy.analysis.StrainResult
 
-::: mdapy.analysis.BondAngleDistribution
+::: mdapy.analysis.MeanSquaredDisplacement
 
-::: mdapy.analysis.BondAngleResult
+::: mdapy.analysis.DisplacementResult
 
-::: mdapy.analysis.WarrenCowley
+::: mdapy.analysis.LindemannIndex
 
-::: mdapy.analysis.WarrenCowleyResult
+::: mdapy.analysis.LindemannResult
+
+::: mdapy.analysis.AtomicTemperature
+
+::: mdapy.analysis.TemperatureResult
 
 ## Calculators
 

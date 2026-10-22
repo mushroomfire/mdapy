@@ -41,6 +41,9 @@ wrong value fails before any computation. `compute` takes:
 | `neighbors` | `NeighborList` | `None` | a neighbor list of this system to use instead of a new search, for analyses that take one |
 | `progress`, `cancel` | | `None` | progress reports and cancellation, as described in [Parallelism](../getting-started/parallelism.md#progress-and-cancellation) |
 
+Analyses of a trajectory, the mean squared displacement and the Lindemann
+index, take a sequence of systems, `frames`, instead of `system`.
+
 A neighbor list passed as `neighbors` must belong to the same `System`
 object. An analysis of the neighbors within a cutoff needs a list with at
 least that cutoff. An analysis of the k nearest neighbors of each atom takes
@@ -92,4 +95,4 @@ the system lacks a column the analysis needs; and
 | Structure identification | [`CommonNeighborAnalysis`](cna.md) · [`AcklandJonesAnalysis`](ackland-jones.md) · [`DiamondStructure`](diamond.md) · [`ChillPlus`](chill-plus.md) · [`CentroSymmetryParameter`](csp.md) · [`CommonNeighborParameter`](cnp.md) |
 | Local order and distributions | [`RadialDistributionFunction`](rdf.md) · [`CoordinationNumber`](coordination.md) · [`StructureFactor`](structure-factor.md) · [`BondAngleDistribution`](bond-angles.md) · [`WarrenCowley`](warren-cowley.md) · [`SteinhardtParameters`](steinhardt.md) · [`EntropyFingerprint`](entropy.md) |
 | Defects and deformation | [`ClusterAnalysis`](clusters.md) · [`WignerSeitz`](wigner-seitz.md) · [`AtomicStrain`](atomic-strain.md) |
-| Dynamics | [`AtomicTemperature`](temperature.md) |
+| Dynamics | [`MeanSquaredDisplacement`](msd.md) · [`LindemannIndex`](lindemann.md) · [`AtomicTemperature`](temperature.md) |

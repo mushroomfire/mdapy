@@ -129,6 +129,8 @@ nav:
           - Wigner–Seitz analysis: analysis/wigner-seitz.md
           - Atomic strain: analysis/atomic-strain.md
       - Dynamics:
+          - Mean squared displacement: analysis/msd.md
+          - Lindemann index: analysis/lindemann.md
           - Atomic temperature: analysis/temperature.md
   - Simulation:
       - Calculators:

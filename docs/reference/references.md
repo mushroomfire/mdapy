@@ -36,6 +36,14 @@ P. Gumbsch, Structural relaxation made simple, *Phys. Rev. Lett.* **97**,
 [doi:10.1103/PhysRevLett.97.170201](https://doi.org/10.1103/PhysRevLett.97.170201)
 { #bitzek2006 }
 
+**Calandrini et al. (2011).** V. Calandrini, E. Pellegrini, P. Calligari,
+K. Hinsen and G. R. Kneller, nMoldyn - Interfacing spectroscopic
+experiments, molecular dynamics simulations and models for time correlation
+functions, *École thématique de la Société Française de la Neutronique*
+**12**, 201 (2011).
+[doi:10.1051/sfn/201112010](https://doi.org/10.1051/sfn/201112010)
+{ #calandrini2011 }
+
 **Cowley (1950).** J. M. Cowley, An approximate theory of order in alloys,
 *Phys. Rev.* **77**, 669 (1950).
 [doi:10.1103/PhysRev.77.669](https://doi.org/10.1103/PhysRev.77.669)
@@ -112,7 +120,11 @@ target irradiated by short laser pulses, *Phys. Rev. B* **77**, 214108
 (2008). [doi:10.1103/PhysRevB.77.214108](https://doi.org/10.1103/PhysRevB.77.214108)
 { #lin2008 }
 
-**Maras et al. (2016).** E. Maras, O. Trushin, A. Stukowski, T. Ala-Nissila
+**Lindemann (1910).** F. A. Lindemann, Über die Berechnung molekularer
+Eigenfrequenzen, *Phys. Z.* **11**, 609 (1910).
+{ #lindemann1910 }
+
+**Maras et al. (2016). E. Maras, O. Trushin, A. Stukowski, T. Ala-Nissila
 and H. Jónsson, Global transition path search for dislocation formation in Ge
 on Si(001), *Comput. Phys. Commun.* **205**, 13 (2016).
 [doi:10.1016/j.cpc.2016.04.001](https://doi.org/10.1016/j.cpc.2016.04.001)
@@ -190,7 +202,14 @@ Phys. Commun.* **290**, 108764 (2023).
 [doi:10.1016/j.cpc.2023.108764](https://doi.org/10.1016/j.cpc.2023.108764)
 { #wu2023 }
 
-**Zhou et al. (2004).** X. W. Zhou, R. A. Johnson and H. N. G. Wadley,
+**Zhou et al. (2002).** Y. Zhou, M. Karplus, K. D. Ball and R. S. Berry,
+The distance fluctuation criterion for melting: Comparison of square-well
+and Morse potential models for clusters and homopolymers, *J. Chem. Phys.*
+**116**, 2323 (2002).
+[doi:10.1063/1.1426419](https://doi.org/10.1063/1.1426419)
+{ #zhou2002 }
+
+**Zhou et al. (2004). X. W. Zhou, R. A. Johnson and H. N. G. Wadley,
 Misfit-energy-increasing dislocations in vapor-deposited CoFe/NiFe
 multilayers, *Phys. Rev. B* **69**, 144113 (2004).
 [doi:10.1103/PhysRevB.69.144113](https://doi.org/10.1103/PhysRevB.69.144113)

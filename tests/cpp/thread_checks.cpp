@@ -831,6 +831,38 @@ void structure_identification() {
     }
 }
 
+void trajectories() {
+    // atoms vibrating about random sites, the trajectory of each in a row
+    const std::int64_t n = 60, frames = 12;
+    std::mt19937_64 rng(11);
+    std::uniform_real_distribution<double> site(0.0, 10.0);
+    std::normal_distribution<double> noise(0.0, 0.1);
+    std::vector<double> positions(static_cast<std::size_t>(n * frames * 3));
+    for (std::int64_t i = 0; i < n; ++i) {
+        const double x[3] = {site(rng), site(rng), site(rng)};
+        for (std::int64_t t = 0; t < frames; ++t) {
+            for (int e = 0; e < 3; ++e) {
+                positions[static_cast<std::size_t>((i * frames + t) * 3 + e)] = x[e] + noise(rng);
+            }
+        }
+    }
+    std::vector<double> first_atomic, first_running;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::vector<double> atomic(static_cast<std::size_t>(n));
+        std::vector<double> running(static_cast<std::size_t>(frames));
+        mdapy::analysis::lindemann(n, frames, positions.data(), atomic.data(), running.data());
+        if (threads == kThreads[0]) {
+            first_atomic = atomic;
+            first_running = running;
+        }
+        check(atomic == first_atomic && running == first_running,
+              "the Lindemann index is the same for any thread count");
+    }
+    check(first_running[0] == 0.0 && first_running[frames - 1] > 0.0,
+          "the Lindemann index starts at zero and grows");
+}
+
 }  // namespace
 
 int main() {
@@ -841,6 +873,7 @@ int main() {
     neighbor_search();
     structure_identification();
     calculators();
+    trajectories();
     if (failures == 0) {
         std::printf("all checks passed\n");
     }

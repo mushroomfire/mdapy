@@ -270,6 +270,24 @@ nb::tuple atomic_strain(Offsets offsets, Neighbors neighbors, Shifts3 shifts, Po
 
 }  // namespace
 
+using Trajectory = nb::ndarray<const double, nb::ndim<3>, nb::c_contig, nb::device::cpu>;
+
+// positions: (n, frames, 3), the trajectory of each atom in a row.
+nb::tuple lindemann(Trajectory positions, nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    const auto frames = static_cast<std::int64_t>(positions.shape(1));
+    if (positions.shape(2) != 3 || n < 2 || frames < 1) {
+        throw std::invalid_argument("positions must be (atoms >= 2, frames >= 1, 3)");
+    }
+    std::vector<double> atomic(static_cast<std::size_t>(n)), running(static_cast<std::size_t>(frames));
+    run_released(
+        [&](const Control& control) {
+            analysis::lindemann(n, frames, positions.data(), atomic.data(), running.data(), control);
+        },
+        progress, cancel);
+    return nb::make_tuple(as_array(std::move(atomic)), as_array(std::move(running)));
+}
+
 nb::object atomic_temperature(Offsets offsets, Neighbors neighbors, Values mass,
                               Positions3 velocities, double energy_unit, double boltzmann,
                               nb::handle progress, const CancelToken* cancel) {
@@ -413,6 +431,8 @@ void bind_analysis(nb::module_& m) {
     m.def("pair_entropy", &pair_entropy, nb::arg("offsets"), nb::arg("distances"),
           nb::arg("cutoff"), nb::arg("sigma"), nb::arg("density"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("lindemann", &lindemann, nb::arg("positions"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("atomic_temperature", &atomic_temperature, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("mass"), nb::arg("velocities"), nb::arg("energy_unit"), nb::arg("boltzmann"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);

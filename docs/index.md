@@ -126,7 +126,9 @@ flowchart TB
     [Wigner–Seitz](analysis/wigner-seitz.md) ·
     [atomic strain](analysis/atomic-strain.md)
 
-    Dynamics: [atomic temperature](analysis/temperature.md)
+    Dynamics: [mean squared displacement](analysis/msd.md) ·
+    [Lindemann index](analysis/lindemann.md) ·
+    [atomic temperature](analysis/temperature.md)
 
 -   :material-cube-outline:{ .lg .middle } **Structure builder**
 

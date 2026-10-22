@@ -50,6 +50,14 @@ void bond_angles_search(const double* positions, std::int64_t n, const double* m
                         int types, const double* limits, bool per_pair, int bins,
                         std::int64_t* counts, const Control& control = {});
 
+// The Lindemann index of n atoms over frames of their unwrapped positions
+// (n x frames x 3, each atom's trajectory in a row): for each pair, the
+// standard deviation of its distance over its mean, by Welford's running
+// sums. atomic (n) gets each atom's mean over its pairs and running (frames)
+// the mean over all pairs of the frames up to each one.
+void lindemann(std::int64_t n, std::int64_t frames, const double* positions, double* atomic,
+               double* running, const Control& control = {});
+
 // The temperature of each of n atoms with its neighbors (CSR, images of the
 // atom itself left out) from the kinetic energy relative to their center of
 // mass, 3 (members - 1) degrees of freedom: twice that energy times

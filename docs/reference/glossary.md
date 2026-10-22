@@ -26,7 +26,8 @@ implemented.
 | average atom | The single species of an average-atom potential, standing for a random alloy; `A` in potential files. |
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |
-| unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries. |
+| unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries, or, along a trajectory, so that atoms move continuously through them. |
+| lag | The number of frames between two frames of a trajectory. |
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
 
 ## Per-atom properties
@@ -56,6 +57,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
 | `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint; `entropy_average` when averaged over neighbors |
 | `temperature` | f64 | K | temperature of an atom and its neighbors |
+| `lindemann` | f64 | | Lindemann index of an atom over a trajectory |
 | `site`, `occupancy` | `index_dtype`, int64 | | the nearest reference site of an atom, and the number of atoms on it |
 | `shear_strain`, `volumetric_strain`, `d2min` | f64 | , , Å² | von Mises and volumetric atomic strain against a reference, and the non-affine squared displacement |
 
@@ -86,6 +88,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | list of elements | `elements` | `element_list` |
 | fractions of elements | `fractions` | `element_ratio` |
 | prebuilt neighbor list | `neighbors=` (keyword-only) | |
+| systems of a trajectory | `frames` | `pos_list`, `traj` |
+| average over every time origin | `window` (bool) | `mode` |
 | reference configuration | `reference=` | `ref` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
 | interval between kept frames | `save_every` | `dump_freq`, `interval` |

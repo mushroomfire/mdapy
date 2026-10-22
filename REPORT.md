@@ -11,8 +11,8 @@
 | `defect-energies-draft` | 层错能（GSFE）、表面能、空位形成能（simulation），基于 build-defects-draft | 已推送，待检查 |
 | `visualization-draft` | 渲染器与画图模板，基于 defect-energies-draft | 已推送，待检查 |
 | `mlip-draft` | OUTCAR → xyz、NEP 描述符 PCA、最远点采样、扰动，基于 visualization-draft | 已推送，待检查 |
-| `performance-draft` | 与 OVITO 的性能对比 | 待开始 |
-| `tutorials-draft` | 进阶教程 | 待开始 |
+| `performance-draft` | 与 OVITO 的性能对比框架和结果；CNA（固定截断）与 Steinhardt 提速，基于 mlip-draft | 已推送，待检查 |
+| `tutorials-draft` | 进阶教程；System 输入数组复制的修复（见下） | 进行中 |
 
 ## 进展
 
@@ -81,8 +81,25 @@
 
 - 接下来：`performance-draft`，和 OVITO 3.17 的性能对比（只比结果一致的功能；规模逐级加大，盯着内存，峰值控制在 8 GB 以内）。
 
+### 22:05
+- `mlip-draft` 的 CI 9 个任务全绿（这个分支包含前面三个草稿分支的全部内容）。
+- `performance-draft`（aff447f + 4f159ec）推送，CI 已手动触发：
+  - **对比框架** `benchmarks/ovito_comparison.py`：每个功能是一个 `Case`（怎么造体系、mdapy 怎么调、OVITO 怎么调、怎么比结果）。每个尺寸先在一个进程里两边都算一遍、逐原子比对（结构类型、团簇大小、占据数、直方图完全相同，浮点 1e-10），一致了才计时；计时时两边各自在**独立的新进程**里跑（同样的线程数，先用 500 原子预热，取三次最短），内存看门狗每 50 ms 查一次 RSS，超过 8 GB 直接杀掉，并按上一尺寸的峰值预测下一尺寸，超限就跳过；单进程还有超时（OVITO 的 Voronoi-Steinhardt 在 200 万原子时单次超过 5 分钟，被停掉）。结果逐行写 JSON，`table`/`plot` 子命令出表和图。整晚峰值内存没超过 2 GB。
+  - **结果**（M5，10 线程，15 个功能，4 千到 200 万原子，全部逐原子一致）：大多数功能两边相差 30% 以内，mdapy 略快；Voronoi 快 5 倍，Voronoi 面积加权 Steinhardt 快 20–44 倍，团簇分析快 2.8 倍，键角分布快 1.6 倍；小体系 mdapy 快 2–6 倍（OVITO 管线每次有几毫秒固定开销）。
+  - **OVITO 更快的地方**：一开始固定截断 CNA 慢 2 倍、Steinhardt 慢 1.3 倍，已优化：CNA 固定截断改成在网格上边找邻居边算（不建邻居表和向量数组），时间 −40%、内存只有原来的 1/8，现在 0.21 s 对 OVITO 0.185 s；Steinhardt 各阶球谐一次递推（运算顺序不变，结果逐位相同），不做平均时不再存所有原子的 qlm（2M×35 的大数组），给定的近邻表不再重排，现在 0.56 s 对 0.54 s。剩下**原子应变 OVITO 快 4.4 倍**：mdapy 计时里包含参考构型建邻居表（后续帧复用），单帧计算 0.14 s 对 OVITO 0.08 s。
+  - **内存是 mdapy 的弱项**：mdapy 先建完整邻居表再算，基于近邻的分析（自适应 CNA、AJA、CSP、Steinhardt）在 200 万原子时多占约 1 GB，OVITO 边找边算只要 0.15 GB；固定截断 CNA 改成边找边算后两边持平。见下面的问题 4。
+
+| | |
+|---|---|
+| OVITO 时间 / mdapy 时间（大于 1 表示 mdapy 快），4 个尺寸 | ![](images/15_ovito_comparison.png) |
+
+- **发现一个不可变性的漏洞**：`System(positions)`、`with_columns(q=array)`、`with_positions(array)` 都是零拷贝把 NumPy 数组放进 polars 表，之后改原数组会悄悄改掉“不可变”的 System（也会让已经建好的邻居表失效而不报错）。`info` 本来就复制，列却没复制。我会在 `tutorials-draft` 里单独提交一个修复：NumPy 输入在进入表时复制一次（读取仍然零拷贝）。见问题 5。
+- 接下来：`tutorials-draft`，五篇进阶教程（fcc+bcc 双相多晶、六边形柱状多晶、铜的缺陷能、邻居表复用、System 共享与复制），代码都会在本地跑通（docs 测试会执行页面里的每段代码）。
+
 ## 早上需要你决定的事
 
 1. 草稿分支是一条链，合并顺序：build-defects → defect-energies → visualization → mlip（后面的 performance、tutorials 也会接在 mlip 后面）。
 2. 渲染的默认风格、配色（元素颜色沿用 OVITO/1.x）、风格名字，你看图后定。
 3. OUTCAR 的能量取 `free  energy TOTEN`（与力一致，dpdata 也取它）；ASE 的 `get_potential_energy()` 默认取 `energy(sigma->0)`。要不要加个选项？
+4. 性能：要不要把“边找邻居边算”推广到近邻类分析（自适应 CNA、AJA、CSP、Steinhardt、金刚石）？需要一个按原子找 k 近邻的 C++ 接口，内存能从约 0.5 kB/原子降到 OVITO 的水平，时间也会更快。原子应变也可以同样处理。
+5. System 输入数组复制：我的方案是 NumPy 输入复制一次（和 `info` 一致），代价是构造时多一次拷贝（200 万原子的坐标约 10 ms）。另一种是保持零拷贝、只在文档里写明“交给 System 的数组不要再改”。我倾向复制。

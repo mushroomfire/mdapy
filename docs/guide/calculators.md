@@ -263,7 +263,10 @@ and forces, the virial and atomic virials to 10<sup>−9</sup> (with the
 pressure converted by LAMMPS's own constant for metal units). Relaxing a
 vacancy in a perturbed alloy, `minimize` and LAMMPS `min_style fire` reach the
 same energy to 10<sup>−8</sup> eV and the same positions to 10<sup>−6</sup> Å,
-up to a rigid translation along which each run drifts.
+up to a rigid translation along which each run drifts. Relaxing a strained
+alloy with its box, `minimize(cell="full")` and LAMMPS `fix box/relax tri`
+reach the same energy to 10<sup>−10</sup> eV and the same box, compared by
+its metric $HH^\mathsf{T}$ (LAMMPS rotates the box), to 10<sup>−6</sup>.
 
 The tests in `tests/calculators/test_nep.py`, on synthetic potentials with
 random parameters written by the tests, check that:

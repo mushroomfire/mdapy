@@ -64,16 +64,19 @@ class _Bonds:
         nl = _given_or_built(system, largest, neighbors)
         if self.cutoffs is None:
             return nl.within(self.cutoff), found
+        limits = self._limits(found)
+        index = found[1]
+        keep = nl.distances < limits[index[nl.i], index[nl.j]]
+        return nl._subset(keep, largest), found
+
+    def _limits(self, found: tuple[tuple[str, ...], np.ndarray] | None) -> np.ndarray:
+        """The bond length of each pair of the elements found, 0 for none."""
         if found is None:
             raise MissingProperty(
                 "cutoffs per pair of elements need the element column"
             )
-        names, index = found
-        limits = np.array(
-            [[self.cutoffs.get((a, b), 0.0) for b in names] for a in names]
-        )
-        keep = nl.distances < limits[index[nl.i], index[nl.j]]
-        return nl._subset(keep, largest), found
+        names = found[0]
+        return np.array([[self.cutoffs.get((a, b), 0.0) for b in names] for a in names])
 
     def counts(
         self,
@@ -98,22 +101,14 @@ class _Bonds:
     def _grid(self, system: System) -> tuple:
         """The arguments of the searches on the cell grid: positions, box,
         each atom's element, the bond length of each pair of elements and
-        whether they differ; and the elements."""
+        whether the lengths are per pair; and the elements."""
         found = _elements(system)
         if self.cutoffs is None:
-            names, index = found if found is not None else ((), None)
+            names = found[0] if found is not None else ()
             limits = np.full((max(len(names), 1),) * 2, self.cutoff)
         else:
-            if found is None:
-                raise MissingProperty(
-                    "cutoffs per pair of elements need the element column"
-                )
-            names, index = found
-            limits = np.array(
-                [[self.cutoffs.get((a, b), 0.0) for b in names] for a in names]
-            )
-        if index is None:
-            index = np.zeros(len(system), dtype=np.int64)
+            limits = self._limits(found)
+        index = found[1] if found is not None else np.zeros(len(system), dtype=np.int64)
         box = system.box
         return (
             np.ascontiguousarray(system.positions),

@@ -197,6 +197,13 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   angles, MSD with the diffusion coefficient, stacking fault energies,
   counts of structures. See [Plots](../visualization/plots.md).
 
+### Performance
+
+- `benchmarks/ovito_comparison.py` times the analyses that mdapy and OVITO
+  both have, on the same systems, where both give the same result, each
+  program in a process of its own with limits of memory and time. See
+  [mdapy and OVITO](../performance/ovito.md).
+
 ### Foundations
 
 - Python 3.11 or newer; NumPy 2.3.1 or newer and polars 2 are the only

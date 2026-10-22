@@ -157,6 +157,8 @@ nav:
   - Visualization:
       - Rendering: visualization/rendering.md
       - Plots: visualization/plots.md
+  - Performance:
+      - mdapy and OVITO: performance/ovito.md
   - Reference:
       - File formats:
           - Extended XYZ: reference/formats/extxyz.md

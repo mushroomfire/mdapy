@@ -80,6 +80,7 @@
 | `tests/lattices.py` | Perfect crystals and clusters shared by the tests. |
 | `tests/cpp/thread_checks.cpp` | Checks of the thread pool and the parallel kernels, run under ThreadSanitizer. |
 | `docs/` | This documentation. |
+| `benchmarks/ovito_comparison.py` | Timings of mdapy against OVITO; see [mdapy and OVITO](../performance/ovito.md). |
 
 All compiled code is one extension module, `mdapy._core`. Each functional
 area adds a submodule, for example `mdapy._core.core`. Compiled kernels never

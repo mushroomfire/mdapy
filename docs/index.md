@@ -184,7 +184,7 @@ flowchart TB
     Timings of mdapy and of other programs, from thousands to millions of
     atoms.
 
-    Planned.
+    [mdapy and OVITO](performance/ovito.md)
 
 -   :material-book-open-variant:{ .lg .middle } **Reference**
 

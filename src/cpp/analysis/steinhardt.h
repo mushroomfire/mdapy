@@ -29,4 +29,12 @@ void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neig
                 const double* vectors, const double* weights, const std::vector<int>& degrees,
                 bool average, double* q, const Control& control = {});
 
+// steinhardt without averaging, with the k nearest neighbors of every atom
+// found by a k-d tree as it goes, without a list (positions: n x 3; matrix:
+// rows a, b, c; origin: 3; pbc: 3). Throws as a search of the k nearest
+// neighbors does.
+void steinhardt_nearest(const double* positions, std::int64_t n, const double* matrix,
+                        const double* origin, const bool* pbc, int k,
+                        const std::vector<int>& degrees, double* q, const Control& control = {});
+
 }  // namespace mdapy::analysis

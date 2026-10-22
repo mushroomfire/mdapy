@@ -7,6 +7,10 @@
 #include <cmath>
 #include <memory>
 #include <stdexcept>
+#include <utility>
+
+#include "neighbor/frame.h"
+#include "neighbor/kd_tree.h"
 
 namespace mdapy::analysis {
 namespace {
@@ -164,9 +168,10 @@ void invariants(const double* harmonics, const std::vector<int>& degrees, double
 
 }  // namespace
 
-void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
-                const double* vectors, const double* weights, const std::vector<int>& degrees,
-                bool average, double* q, const Control& control) {
+namespace {
+
+// The width of the harmonics of the degrees, and the largest degree.
+std::pair<std::size_t, int> harmonics_of(const std::vector<int>& degrees) {
     std::size_t width = 0;
     int lmax = 0;
     for (int l : degrees) {
@@ -176,6 +181,48 @@ void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neig
         width += 2 * static_cast<std::size_t>(l) + 1;
         lmax = std::max(lmax, l);
     }
+    return {width, lmax};
+}
+
+}  // namespace
+
+void steinhardt_nearest(const double* positions, std::int64_t n, const double* matrix,
+                        const double* origin, const bool* pbc, int k,
+                        const std::vector<int>& degrees, double* q, const Control& control) {
+    const std::pair<std::size_t, int> shape = harmonics_of(degrees);
+    const std::size_t width = shape.first;
+    const int lmax = shape.second;
+    if (n == 0) {
+        return;
+    }
+    const neighbor::KdTree tree(positions, n, matrix, origin, pbc);
+    const std::int64_t bonds[2] = {0, k};  // the k bonds of one atom, in CSR form
+    tree.for_each_nearest(
+        k,
+        [&](std::int64_t i, const neighbor::Neighbor* found) {
+            // room per thread, kept between atoms
+            thread_local std::vector<double> vectors, y, sum;
+            vectors.resize(3 * static_cast<std::size_t>(k));
+            y.resize(width);
+            sum.resize(width);
+            const double* xi = positions + 3 * i;
+            for (int a = 0; a < k; ++a) {
+                neighbor::pair_vector(xi, positions + 3 * static_cast<std::int64_t>(found[a].j),
+                                      found[a].shift, matrix, &vectors[3 * a]);
+            }
+            bond_harmonics(0, bonds, vectors.data(), nullptr, degrees, lmax, width, y.data(),
+                           sum.data());
+            invariants(sum.data(), degrees, q + static_cast<std::size_t>(i) * degrees.size());
+        },
+        control);
+}
+
+void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
+                const double* vectors, const double* weights, const std::vector<int>& degrees,
+                bool average, double* q, const Control& control) {
+    const std::pair<std::size_t, int> shape = harmonics_of(degrees);
+    const std::size_t width = shape.first;
+    const int lmax = shape.second;
     const std::size_t count = degrees.size();
     if (!average) {
         // each atom alone: no harmonics kept between the atoms

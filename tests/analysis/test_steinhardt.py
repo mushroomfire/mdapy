@@ -216,3 +216,23 @@ def test_neighbor_lists_that_do_not_fit():
     other = crystal("fcc", 3.6)
     with pytest.raises(InvalidParameter, match="another system"):
         SteinhardtParameters(voronoi=True).compute(other, neighbors=voronoi)
+
+
+@pytest.mark.parametrize("box", ["periodic", "triclinic", "cluster"])
+def test_nearest_neighbors_found_as_they_go_give_what_a_list_gives(box):
+    system = crystal("fcc", 3.6, (3, 3, 3), jitter=0.15, seed=7)
+    if box == "triclinic":
+        tilted = system.box.matrix + [[0, 0, 0], [1.3, 0, 0], [0.4, -0.9, 0]]
+        system = mdapy.System(system.positions, mdapy.Box(tilted), elements="Cu")
+    elif box == "cluster":
+        system = system.with_box(mdapy.Box(system.box.matrix, pbc=False))
+    for k, degrees in [(8, (4, 6)), (12, (2, 3, 4, 5, 6, 7, 8)), (16, (6, 12))]:
+        parameters = SteinhardtParameters(degrees, num_neighbors=k)
+        nl = mdapy.NeighborList.build(system, num_neighbors=k)
+        np.testing.assert_array_equal(
+            parameters.compute(system).q,
+            parameters.compute(system, neighbors=nl).q,
+        )
+    small = mdapy.System(system.positions[:10], mdapy.Box(20.0, pbc=False))
+    with pytest.raises(InvalidParameter, match="has only 10 atoms"):
+        SteinhardtParameters((6,), num_neighbors=12).compute(small)

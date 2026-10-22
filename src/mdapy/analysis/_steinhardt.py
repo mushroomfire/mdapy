@@ -18,6 +18,7 @@ from mdapy.neighbor import NeighborList
 from mdapy.neighbor._neighbor_list import (
     _given_or_built,
     _nearest_given_or_built,
+    _run,
     _voronoi_given_or_built,
 )
 
@@ -128,6 +129,23 @@ class SteinhardtParameters:
         SteinhardtResult
             q_l of each atom; atoms without neighbors have 0.
         """
+        k = self.num_neighbors
+        nearest = not self.voronoi and self.cutoff is None and not self.average
+        if nearest and neighbors is None and (system.box.pbc.any() or len(system) > k):
+            # the nearest neighbors found as it goes, without a list
+            box = system.box
+            q = _run(
+                _native.steinhardt_nearest,
+                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(box.matrix),
+                np.ascontiguousarray(box.origin),
+                np.ascontiguousarray(box.pbc),
+                k,
+                list(self.degrees),
+                progress,
+                _native_token(cancel),
+            )
+            return SteinhardtResult(self.degrees, q, self.average)
         if self.voronoi:
             nl = _voronoi_given_or_built(system, neighbors)
         elif self.cutoff is not None:

@@ -719,6 +719,45 @@ void structure_identification() {
         }
         check(aja == first_aja && std::count(aja.begin(), aja.end(), mdapy::identify::kFcc) > 0,
               "Ackland-Jones gives the same types for any thread count, some of them fcc");
+        // the nearest neighbors found as the analyses go give what the list gives
+        std::vector<std::int8_t> found_types(static_cast<std::size_t>(n)),
+            listed_types(static_cast<std::size_t>(n));
+        mdapy::identify::ackland_jones_nearest(positions.data(), n, matrix, origin, pbc, 14,
+                                               found_types.data());
+        check(found_types == aja, "Ackland-Jones finds the nearest neighbors as the list has them");
+        mdapy::identify::common_neighbor_analysis(n, nearest_offsets.data(), fourteen.data(), 0.0,
+                                                  listed_types.data());
+        mdapy::identify::common_neighbor_analysis_nearest(positions.data(), n, matrix, origin,
+                                                          pbc, 14, found_types.data());
+        check(found_types == listed_types,
+              "adaptive common neighbor analysis finds the nearest neighbors as the list has them");
+        std::vector<double> nearest_eight;
+        for (std::int64_t i = 0; i < n; ++i) {
+            const double* v = &fourteen[3 * static_cast<std::size_t>(nearest_offsets[i])];
+            nearest_eight.insert(nearest_eight.end(), v, v + 24);
+        }
+        std::vector<double> listed_csp(static_cast<std::size_t>(n)),
+            found_csp(static_cast<std::size_t>(n));
+        mdapy::identify::centro_symmetry(n, 8, nearest_eight.data(), listed_csp.data());
+        mdapy::identify::centro_symmetry_nearest(positions.data(), n, matrix, origin, pbc, 8,
+                                                 found_csp.data());
+        check(found_csp == listed_csp,
+              "the centro-symmetry parameter finds the nearest neighbors as the list has them");
+        std::vector<std::int64_t> twelve_offsets(static_cast<std::size_t>(n) + 1);
+        std::vector<double> nearest_twelve;
+        for (std::int64_t i = 0; i < n; ++i) {
+            twelve_offsets[i + 1] = 12 * (i + 1);
+            const double* v = &fourteen[3 * static_cast<std::size_t>(nearest_offsets[i])];
+            nearest_twelve.insert(nearest_twelve.end(), v, v + 36);
+        }
+        std::vector<double> listed_q(static_cast<std::size_t>(n) * degrees.size()),
+            found_q(listed_q.size());
+        mdapy::analysis::steinhardt(n, twelve_offsets.data(), nullptr, nearest_twelve.data(),
+                                    nullptr, degrees, false, listed_q.data());
+        mdapy::analysis::steinhardt_nearest(positions.data(), n, matrix, origin, pbc, 12, degrees,
+                                            found_q.data());
+        check(found_q == listed_q,
+              "Steinhardt parameters find the nearest neighbors as the list has them");
         std::vector<std::int8_t> diamond(static_cast<std::size_t>(n));
         mdapy::identify::identify_diamond(n, four.data(), four_vectors.data(), diamond.data());
         check(diamond == std::vector<std::int8_t>(static_cast<std::size_t>(n), 0),

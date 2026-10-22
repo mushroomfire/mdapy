@@ -108,6 +108,42 @@ nb::object common_neighbor_analysis_search(Vectors positions, Box3 matrix, Origi
     return result;
 }
 
+// A kernel of the k nearest neighbors of every atom, without a list, into
+// a new array of one value of T per atom.
+template <class T, class Kernel>
+nb::object nearest_kernel(Vectors positions, Box3 matrix, Origin3 origin, Periodic pbc, int k,
+                          nb::handle progress, const CancelToken* cancel, Kernel kernel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    T* values;
+    nb::object result = new_array(static_cast<std::size_t>(n), values);
+    run_released(
+        [&](const Control& control) {
+            kernel(positions.data(), n, matrix.data(), origin.data(), pbc.data(), k, values,
+                   control);
+        },
+        progress, cancel);
+    return result;
+}
+
+nb::object centro_symmetry_nearest(Vectors positions, Box3 matrix, Origin3 origin, Periodic pbc,
+                                   int k, nb::handle progress, const CancelToken* cancel) {
+    return nearest_kernel<double>(positions, matrix, origin, pbc, k, progress, cancel,
+                                  identify::centro_symmetry_nearest);
+}
+
+nb::object common_neighbor_analysis_nearest(Vectors positions, Box3 matrix, Origin3 origin,
+                                            Periodic pbc, int k, nb::handle progress,
+                                            const CancelToken* cancel) {
+    return nearest_kernel<std::int8_t>(positions, matrix, origin, pbc, k, progress, cancel,
+                                       identify::common_neighbor_analysis_nearest);
+}
+
+nb::object ackland_jones_nearest(Vectors positions, Box3 matrix, Origin3 origin, Periodic pbc,
+                                 int k, nb::handle progress, const CancelToken* cancel) {
+    return nearest_kernel<std::int8_t>(positions, matrix, origin, pbc, k, progress, cancel,
+                                       identify::ackland_jones_nearest);
+}
+
 nb::object common_neighbor_analysis(Offsets offsets, Vectors vectors, double cutoff,
                                     nb::handle progress, const CancelToken* cancel) {
     if (offsets.shape(0) < 1 ||
@@ -208,6 +244,15 @@ void bind_identify(nb::module_& m) {
           nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"),
           nb::arg("cutoff"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
+    m.def("centro_symmetry_nearest", &centro_symmetry_nearest, nb::arg("positions"),
+          nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"), nb::arg("k"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("common_neighbor_analysis_nearest", &common_neighbor_analysis_nearest,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"),
+          nb::arg("k"), nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("ackland_jones_nearest", &ackland_jones_nearest, nb::arg("positions"),
+          nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"), nb::arg("k"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("common_neighbor_analysis", &common_neighbor_analysis, nb::arg("offsets"),
           nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);

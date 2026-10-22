@@ -14,7 +14,29 @@ from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built, _nearest_given_or_built
+from mdapy.neighbor._neighbor_list import (
+    _given_or_built,
+    _nearest_given_or_built,
+    _run,
+)
+
+
+def _nearest(
+    kernel: Any, system: System, k: int, progress: Any, cancel: Any
+) -> np.ndarray:
+    """A kernel of the k nearest neighbors of every atom, found as it goes,
+    without a list."""
+    box = system.box
+    return _run(
+        kernel,
+        np.ascontiguousarray(system.positions),
+        np.ascontiguousarray(box.matrix),
+        np.ascontiguousarray(box.origin),
+        np.ascontiguousarray(box.pbc),
+        k,
+        progress,
+        _native_token(cancel),
+    )
 
 
 @dataclass(frozen=True)
@@ -109,6 +131,12 @@ class CommonNeighborAnalysis:
                 _native_token(cancel),
             )
             return StructureResult(structure, self.NAMES, self.COLORS)
+        if self.cutoff is None and neighbors is None and k > 0:
+            # the nearest neighbors found as it goes, without a list
+            structure = _nearest(
+                _native.common_neighbor_analysis_nearest, system, k, progress, cancel
+            )
+            return StructureResult(structure, self.NAMES, self.COLORS)
         if self.cutoff is not None:
             nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
         elif k > 0:
@@ -173,6 +201,12 @@ class AcklandJonesAnalysis:
             return StructureResult(
                 np.zeros(len(system), dtype=np.int8), self.NAMES, self.COLORS
             )
+        if neighbors is None:
+            # the nearest neighbors found as it goes, without a list
+            structure = _nearest(
+                _native.ackland_jones_nearest, system, k, progress, cancel
+            )
+            return StructureResult(structure, self.NAMES, self.COLORS)
         nl = _nearest_given_or_built(system, k, neighbors)
         structure = _native.ackland_jones(
             nl.offsets,
@@ -369,6 +403,10 @@ class CentroSymmetryParameter:
             If an atom has fewer neighbors.
         """
         k = self.num_neighbors
+        if neighbors is None and k <= 14 and (system.box.pbc.any() or len(system) > k):
+            # the nearest neighbors found as it goes, without a list
+            csp = _nearest(_native.centro_symmetry_nearest, system, k, progress, cancel)
+            return CentroSymmetryResult(csp)
         nl = _nearest_given_or_built(system, k, neighbors)
         vectors = np.ascontiguousarray(nl.vectors).reshape(len(system), k, 3)
         csp = _native.centro_symmetry(vectors, progress, _native_token(cancel))

@@ -59,6 +59,22 @@ void common_neighbor_analysis_search(const double* positions, std::int64_t n,
 void ackland_jones(std::int64_t n, const std::int64_t* offsets, const double* vectors,
                    std::int8_t* types, const Control& control = {});
 
+// centro_symmetry (k from 2 to 14), common_neighbor_analysis with adaptive
+// cutoffs and ackland_jones (k from 1 to 14), each with the k nearest
+// neighbors of every atom found by a k-d tree as it goes, without a list
+// (positions: n x 3; matrix: rows a, b, c; origin: 3; pbc: 3). They throw as
+// a search of the k nearest neighbors does.
+void centro_symmetry_nearest(const double* positions, std::int64_t n, const double* matrix,
+                             const double* origin, const bool* pbc, int k, double* csp,
+                             const Control& control = {});
+void common_neighbor_analysis_nearest(const double* positions, std::int64_t n,
+                                      const double* matrix, const double* origin,
+                                      const bool* pbc, int k, std::int8_t* types,
+                                      const Control& control = {});
+void ackland_jones_nearest(const double* positions, std::int64_t n, const double* matrix,
+                           const double* origin, const bool* pbc, int k, std::int8_t* types,
+                           const Control& control = {});
+
 // Diamond structures: 0 other, 1 cubic, 2 hexagonal.
 enum Diamond : std::int8_t { kNotDiamond = 0, kCubicDiamond = 1, kHexagonalDiamond = 2 };
 

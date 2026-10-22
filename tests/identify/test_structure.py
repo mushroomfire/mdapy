@@ -142,6 +142,33 @@ def test_a_cutoff_on_the_grid_gives_what_a_list_gives(kind, a, cutoff, pbc):
     assert np.count_nonzero(found) > 0  # a fair test: structures are found
 
 
+@pytest.mark.parametrize("kind, a", [("fcc", 3.6), ("bcc", 2.87), ("hcp", 2.5)])
+@pytest.mark.parametrize("box", ["periodic", "triclinic", "cluster"])
+def test_nearest_neighbors_found_as_they_go_give_what_a_list_gives(kind, a, box):
+    system = crystal(kind, a, (3, 3, 3), jitter=0.15, seed=6)
+    if box == "triclinic":
+        tilted = system.box.matrix + [[0, 0, 0], [1.3, 0, 0], [0.4, -0.9, 0]]
+        system = mdapy.System(system.positions, mdapy.Box(tilted), elements="Cu")
+    elif box == "cluster":
+        system = system.with_box(mdapy.Box(system.box.matrix, pbc=False))
+    nl = mdapy.NeighborList.build(system, num_neighbors=14)
+    for analysis in (
+        CommonNeighborAnalysis(),
+        AcklandJonesAnalysis(),
+        CentroSymmetryParameter(12),
+        CentroSymmetryParameter(8),
+    ):
+        found = analysis.compute(system)
+        listed = analysis.compute(system, neighbors=nl)
+        for name, value in vars(found).items():
+            if isinstance(value, np.ndarray):
+                np.testing.assert_array_equal(value, vars(listed)[name])
+    small = mdapy.System(system.positions[:10], mdapy.Box(20.0, pbc=False))
+    with pytest.raises(InvalidParameter, match="has only 10 atoms"):
+        CentroSymmetryParameter(12).compute(small)
+    assert AcklandJonesAnalysis().compute(small).counts()["other"] == 10
+
+
 def test_results_become_columns():
     system = crystal("bcc", 2.87, (2, 2, 2))
     result = CommonNeighborAnalysis().compute(system)

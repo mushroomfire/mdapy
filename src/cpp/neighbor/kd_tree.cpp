@@ -480,26 +480,17 @@ NeighborPairs KdTree::nearest_atoms(int k, const Control& control) const {
     result.neighbors.resize(total);
     result.shifts.resize(3 * total);
     result.distances.resize(total);
-    const double reach = lattice_reach(k);
-    // the atoms in the order of the tree, near ones one after the other
-    parallel_for(
-        n, 0,
-        [&](std::int64_t begin, std::int64_t end) {
-            std::vector<Candidate> candidates;
-            std::vector<Neighbor> found;
-            for (std::int64_t t = begin; t < end; ++t) {
-                const auto i = static_cast<std::int64_t>(points_[t].atom);
-                search(&positions_[3 * t], i, k, reach, candidates, found);
-                for (int a = 0; a < k; ++a) {
-                    const Neighbor& p = found[a];
-                    const auto at = static_cast<std::size_t>(i * k + a);
-                    check_shift(p.shift);
-                    result.neighbors[at] = p.j;
-                    for (int e = 0; e < 3; ++e) {
-                        result.shifts[3 * at + e] = static_cast<std::int8_t>(p.shift[e]);
-                    }
-                    result.distances[at] = std::sqrt(p.r2);
+    for_each_nearest(
+        k,
+        [&](std::int64_t i, const Neighbor* found) {
+            for (int a = 0; a < k; ++a) {
+                const Neighbor& p = found[a];
+                const auto at = static_cast<std::size_t>(i * k + a);
+                result.neighbors[at] = p.j;
+                for (int e = 0; e < 3; ++e) {
+                    result.shifts[3 * at + e] = static_cast<std::int8_t>(p.shift[e]);
                 }
+                result.distances[at] = std::sqrt(p.r2);
             }
         },
         control);

@@ -46,6 +46,12 @@ public:
     // shift outside int8.
     NeighborPairs nearest_atoms(int k, const Control& control = {}) const;
 
+    // Calls visit(i, found) for every atom i of the tree, in the order of the
+    // tree, in parallel, with found its k nearest neighbors ordered as
+    // nearest_atoms orders them; throws as nearest_atoms.
+    template <class Visit>
+    void for_each_nearest(int k, Visit&& visit, const Control& control = {}) const;
+
     // The k nearest atom images of each of m points (m x 3), ordered as
     // above: j (m x k), shifts (m x k x 3) and distances (m x k). Throws
     // std::invalid_argument when k < 1, when there are no atoms or when a
@@ -95,6 +101,32 @@ private:
     std::vector<double> positions_;
     std::vector<std::int32_t> wraps_;
 };
+
+template <class Visit>
+void KdTree::for_each_nearest(int k, Visit&& visit, const Control& control) const {
+    const std::int64_t n = size();
+    if (n == 0) {
+        return;
+    }
+    check_count(k, n - 1);
+    const double reach = lattice_reach(k);
+    // the atoms in the order of the tree, near ones one after the other
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            std::vector<Candidate> candidates;
+            std::vector<Neighbor> found;
+            for (std::int64_t t = begin; t < end; ++t) {
+                const auto i = static_cast<std::int64_t>(points_[t].atom);
+                search(&positions_[3 * t], i, k, reach, candidates, found);
+                for (int a = 0; a < k; ++a) {
+                    check_shift(found[a].shift);
+                }
+                visit(i, static_cast<const Neighbor*>(found.data()));
+            }
+        },
+        control);
+}
 
 // The k nearest neighbors of every atom, as KdTree::nearest_atoms.
 NeighborPairs nearest(const double* positions, std::int64_t n, const double* matrix,

@@ -8,11 +8,13 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <stdexcept>
 #include <vector>
 
 #include "analysis/steinhardt.h"
 #include "neighbor/cell_list.h"
 #include "neighbor/frame.h"
+#include "neighbor/kd_tree.h"
 
 namespace mdapy::identify {
 namespace {
@@ -205,6 +207,80 @@ Structure ackland_jones_of(const double* v, std::int64_t m) {
     return delta_fcc < delta_hcp ? kFcc : kHcp;
 }
 
+// The centro-symmetry parameter of one atom from the vectors to its k
+// nearest neighbors; values is room for k (k - 1) / 2 numbers.
+double centro_symmetry_of(const double* v, int k, double* values) {
+    std::size_t at = 0;
+    for (int a = 0; a < k; ++a) {
+        for (int b = a + 1; b < k; ++b) {
+            const double x = v[3 * a] + v[3 * b];
+            const double y = v[3 * a + 1] + v[3 * b + 1];
+            const double z = v[3 * a + 2] + v[3 * b + 2];
+            values[at++] = x * x + y * y + z * z;
+        }
+    }
+    const auto half = static_cast<std::ptrdiff_t>(k / 2);
+    std::partial_sort(values, values + half, values + at);
+    double sum = 0.0;
+    for (std::ptrdiff_t a = 0; a < half; ++a) {
+        sum += values[a];
+    }
+    return sum;
+}
+
+// The common neighbor analysis type of one atom with adaptive cutoffs, from
+// the vectors to its m nearest neighbors, nearest first.
+Structure adaptive_common_neighbors(const double* v, std::int64_t m) {
+    // (1 + sqrt 2) / 2 lies halfway between the first and second shells of fcc
+    const double scale = 0.5 * (1.0 + std::sqrt(2.0));
+    Structure type = kOther;
+    if (m >= 12) {
+        double sum = 0.0;
+        for (int a = 0; a < 12; ++a) {
+            sum += length(v + 3 * a);
+        }
+        const double local = scale * sum / 12.0;
+        type = twelve(v, local * local);
+    }
+    if (type == kOther && m >= 14) {
+        double first = 0.0, second = 0.0;
+        for (int a = 0; a < 8; ++a) {
+            first += length(v + 3 * a);
+        }
+        for (int a = 8; a < 14; ++a) {
+            second += length(v + 3 * a);
+        }
+        const double local = scale * (2.0 / std::sqrt(3.0) * first + second) / 14.0;
+        type = fourteen(v, local * local);
+    }
+    return type;
+}
+
+// Calls compute(i, vectors) for each atom i with the vectors to its k
+// nearest neighbors, nearest first, found by a k-d tree, as pair_vectors
+// computes them for a list of nearest neighbors.
+template <class Compute>
+void with_nearest(const double* positions, std::int64_t n, const double* matrix,
+                  const double* origin, const bool* pbc, int k, Compute&& compute,
+                  const Control& control) {
+    if (n == 0) {
+        return;
+    }
+    const neighbor::KdTree tree(positions, n, matrix, origin, pbc);
+    tree.for_each_nearest(
+        k,
+        [&](std::int64_t i, const neighbor::Neighbor* found) {
+            double v[3 * kMaxNeighbors];
+            const double* xi = positions + 3 * i;
+            for (int a = 0; a < k; ++a) {
+                neighbor::pair_vector(xi, positions + 3 * static_cast<std::int64_t>(found[a].j),
+                                      found[a].shift, matrix, v + 3 * a);
+            }
+            compute(i, static_cast<const double*>(v));
+        },
+        control);
+}
+
 }  // namespace
 
 void centro_symmetry(std::int64_t n, int k, const double* vectors, double* csp,
@@ -214,25 +290,49 @@ void centro_symmetry(std::int64_t n, int k, const double* vectors, double* csp,
         [&](std::int64_t begin, std::int64_t end) {
             std::vector<double> values(static_cast<std::size_t>(k) * (k - 1) / 2);
             for (std::int64_t i = begin; i < end; ++i) {
-                const double* v = vectors + 3 * k * i;
-                std::size_t at = 0;
-                for (int a = 0; a < k; ++a) {
-                    for (int b = a + 1; b < k; ++b) {
-                        const double x = v[3 * a] + v[3 * b];
-                        const double y = v[3 * a + 1] + v[3 * b + 1];
-                        const double z = v[3 * a + 2] + v[3 * b + 2];
-                        values[at++] = x * x + y * y + z * z;
-                    }
-                }
-                const auto half = static_cast<std::ptrdiff_t>(k / 2);
-                std::partial_sort(values.begin(), values.begin() + half, values.end());
-                double sum = 0.0;
-                for (std::ptrdiff_t a = 0; a < half; ++a) {
-                    sum += values[a];
-                }
-                csp[i] = sum;
+                csp[i] = centro_symmetry_of(vectors + 3 * k * i, k, values.data());
             }
         },
+        control);
+}
+
+void centro_symmetry_nearest(const double* positions, std::int64_t n, const double* matrix,
+                             const double* origin, const bool* pbc, int k, double* csp,
+                             const Control& control) {
+    if (k < 2 || k > kMaxNeighbors) {
+        throw std::invalid_argument("k must be from 2 to 14");
+    }
+    with_nearest(
+        positions, n, matrix, origin, pbc, k,
+        [&](std::int64_t i, const double* v) {
+            double values[kMaxNeighbors * (kMaxNeighbors - 1) / 2];
+            csp[i] = centro_symmetry_of(v, k, values);
+        },
+        control);
+}
+
+void common_neighbor_analysis_nearest(const double* positions, std::int64_t n,
+                                      const double* matrix, const double* origin,
+                                      const bool* pbc, int k, std::int8_t* types,
+                                      const Control& control) {
+    if (k < 1 || k > kMaxNeighbors) {
+        throw std::invalid_argument("k must be from 1 to 14");
+    }
+    with_nearest(
+        positions, n, matrix, origin, pbc, k,
+        [&](std::int64_t i, const double* v) { types[i] = adaptive_common_neighbors(v, k); },
+        control);
+}
+
+void ackland_jones_nearest(const double* positions, std::int64_t n, const double* matrix,
+                           const double* origin, const bool* pbc, int k, std::int8_t* types,
+                           const Control& control) {
+    if (k < 1 || k > kMaxNeighbors) {
+        throw std::invalid_argument("k must be from 1 to 14");
+    }
+    with_nearest(
+        positions, n, matrix, origin, pbc, k,
+        [&](std::int64_t i, const double* v) { types[i] = ackland_jones_of(v, k); },
         control);
 }
 
@@ -310,8 +410,6 @@ void common_neighbor_parameter_search(const double* positions, std::int64_t n,
 
 void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const double* vectors,
                               double cutoff, std::int8_t* types, const Control& control) {
-    // (1 + sqrt 2) / 2 lies halfway between the first and second shells of fcc
-    const double scale = 0.5 * (1.0 + std::sqrt(2.0));
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
@@ -326,26 +424,7 @@ void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const
                         type = fourteen(v, cutoff * cutoff);
                     }
                 } else {
-                    if (m >= 12) {
-                        double sum = 0.0;
-                        for (int a = 0; a < 12; ++a) {
-                            sum += length(v + 3 * a);
-                        }
-                        const double local = scale * sum / 12.0;
-                        type = twelve(v, local * local);
-                    }
-                    if (type == kOther && m >= 14) {
-                        double first = 0.0, second = 0.0;
-                        for (int a = 0; a < 8; ++a) {
-                            first += length(v + 3 * a);
-                        }
-                        for (int a = 8; a < 14; ++a) {
-                            second += length(v + 3 * a);
-                        }
-                        const double local =
-                            scale * (2.0 / std::sqrt(3.0) * first + second) / 14.0;
-                        type = fourteen(v, local * local);
-                    }
+                    type = adaptive_common_neighbors(v, m);
                 }
                 types[i] = type;
             }

@@ -179,6 +179,23 @@ nb::tuple voronoi(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic
                           as_array(std::move(cells.edges)), shapes);
 }
 
+nb::object steinhardt_nearest(Positions3 positions, Matrix3 matrix, Origin3 origin,
+                              Periodic pbc, int k, const std::vector<int>& degrees,
+                              nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    auto* q = new double[static_cast<std::size_t>(n) * degrees.size()];
+    nb::capsule owner(q, [](void* p) noexcept { delete[] static_cast<double*>(p); });
+    const std::size_t shape[2] = {static_cast<std::size_t>(n), degrees.size()};
+    nb::object result = nb::ndarray<nb::numpy, double>(q, 2, shape, owner).cast();
+    run_released(
+        [&](const Control& control) {
+            analysis::steinhardt_nearest(positions.data(), n, matrix.data(), origin.data(),
+                                         pbc.data(), k, degrees, q, control);
+        },
+        progress, cancel);
+    return result;
+}
+
 nb::object pair_histogram(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
                           double r_max, int bins, Types type, int types, nb::handle progress,
                           const CancelToken* cancel) {
@@ -505,6 +522,9 @@ nb::object atomic_temperature_search(Positions3 positions, Matrix3 matrix, Origi
 }
 
 void bind_analysis(nb::module_& m) {
+    m.def("steinhardt_nearest", &steinhardt_nearest, nb::arg("positions"), nb::arg("matrix"),
+          nb::arg("origin"), nb::arg("pbc"), nb::arg("k"), nb::arg("degrees"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("steinhardt", &steinhardt, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("vectors"), nb::arg("weights").none(), nb::arg("degrees"), nb::arg("average"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);

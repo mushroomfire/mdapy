@@ -444,6 +444,8 @@ def _nearest_given_or_built(
             "a list of Voronoi neighbors does not hold the nearest neighbors; "
             "build the list with a cutoff or num_neighbors"
         )
+    if neighbors.num_neighbors == k:
+        return neighbors  # in the order of a search of nearest neighbors already
     fewest = int(neighbors.counts.min(initial=k))
     if fewest < k:
         raise InvalidParameter(

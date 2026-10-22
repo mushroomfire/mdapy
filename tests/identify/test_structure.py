@@ -98,6 +98,7 @@ def test_small_boxes_and_small_systems():
     assert CommonNeighborAnalysis(cutoff=3.0).compute(primitive).counts()["fcc"] == 1
     empty = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0, pbc=False), elements=[])
     assert len(CommonNeighborAnalysis().compute(empty).structure) == 0
+    assert len(CommonNeighborAnalysis(3.0).compute(empty).structure) == 0
     lonely = mdapy.System([[1.0, 1, 1]], mdapy.Box(5.0, pbc=False), elements="Cu")
     np.testing.assert_array_equal(
         CommonNeighborAnalysis().compute(lonely).structure, [0]
@@ -124,6 +125,21 @@ def test_given_neighbors_and_threads():
         fixed.compute(system, neighbors=mdapy.NeighborList.build(system, 2.0))
     with pytest.raises(InvalidParameter, match="another system"):
         fixed.compute(crystal("fcc", 3.6), neighbors=nl)
+
+
+@pytest.mark.parametrize(
+    "kind, a, cutoff", [("fcc", 3.6, 3.07), ("bcc", 2.87, 3.46), ("hcp", 2.5, 3.02)]
+)
+@pytest.mark.parametrize("pbc", [True, False])
+def test_a_cutoff_on_the_grid_gives_what_a_list_gives(kind, a, cutoff, pbc):
+    system = crystal(kind, a, (4, 4, 4), jitter=0.12, seed=4)
+    if not pbc:
+        system = system.with_box(mdapy.Box(system.box.matrix, pbc=False))
+    fixed = CommonNeighborAnalysis(cutoff)
+    nl = mdapy.NeighborList.build(system, cutoff)
+    found = fixed.compute(system).structure
+    np.testing.assert_array_equal(found, fixed.compute(system, neighbors=nl).structure)
+    assert np.count_nonzero(found) > 0  # a fair test: structures are found
 
 
 def test_results_become_columns():

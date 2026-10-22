@@ -353,6 +353,40 @@ void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const
         control);
 }
 
+void common_neighbor_analysis_search(const double* positions, std::int64_t n,
+                                     const double* matrix, const double* origin, const bool* pbc,
+                                     double cutoff, std::int8_t* types, const Control& control) {
+    if (n == 0) {
+        return;
+    }
+    const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, cutoff);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            double found[3 * kMaxNeighbors];  // as pair_vectors gives them
+            for (std::int64_t t = begin; t < end; ++t) {
+                const std::int64_t i = grid.atom(t);
+                const double* xi = positions + 3 * i;
+                int m = 0;
+                grid.visit(t, [&](index_t j, const std::int32_t* s, double) {
+                    if (m < kMaxNeighbors) {
+                        neighbor::pair_vector(xi, positions + 3 * static_cast<std::int64_t>(j), s,
+                                              matrix, found + 3 * m);
+                    }
+                    ++m;
+                });
+                Structure type = kOther;
+                if (m == 12) {
+                    type = twelve(found, cutoff * cutoff);
+                } else if (m == 14) {
+                    type = fourteen(found, cutoff * cutoff);
+                }
+                types[i] = type;
+            }
+        },
+        control);
+}
+
 void ackland_jones(std::int64_t n, const std::int64_t* offsets, const double* vectors,
                    std::int8_t* types, const Control& control) {
     parallel_for(

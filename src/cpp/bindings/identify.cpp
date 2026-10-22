@@ -89,6 +89,25 @@ nb::object common_neighbor_parameter_search(Vectors positions, Box3 matrix, Orig
     return result;
 }
 
+nb::object common_neighbor_analysis_search(Vectors positions, Box3 matrix, Origin3 origin,
+                                           Periodic pbc, double cutoff, nb::handle progress,
+                                           const CancelToken* cancel) {
+    if (!(cutoff > 0.0)) {
+        throw std::invalid_argument("cutoff must be positive");
+    }
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    std::int8_t* types;
+    nb::object result = new_array(static_cast<std::size_t>(n), types);
+    run_released(
+        [&](const Control& control) {
+            identify::common_neighbor_analysis_search(positions.data(), n, matrix.data(),
+                                                      origin.data(), pbc.data(), cutoff, types,
+                                                      control);
+        },
+        progress, cancel);
+    return result;
+}
+
 nb::object common_neighbor_analysis(Offsets offsets, Vectors vectors, double cutoff,
                                     nb::handle progress, const CancelToken* cancel) {
     if (offsets.shape(0) < 1 ||
@@ -184,6 +203,10 @@ void bind_identify(nb::module_& m) {
           nb::arg("cancel").none() = nullptr);
     m.def("common_neighbor_parameter", &common_neighbor_parameter, nb::arg("offsets"),
           nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("common_neighbor_analysis_search", &common_neighbor_analysis_search,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"),
+          nb::arg("cutoff"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     m.def("common_neighbor_analysis", &common_neighbor_analysis, nb::arg("offsets"),
           nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),

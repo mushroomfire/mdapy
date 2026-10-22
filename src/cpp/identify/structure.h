@@ -45,6 +45,13 @@ void common_neighbor_parameter_search(const double* positions, std::int64_t n,
 void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const double* vectors,
                               double cutoff, std::int8_t* types, const Control& control = {});
 
+// The same with a cutoff, with the neighbors found on a cell grid
+// (positions: n x 3; matrix: rows a, b, c; origin: 3; pbc: 3).
+void common_neighbor_analysis_search(const double* positions, std::int64_t n,
+                                     const double* matrix, const double* origin, const bool* pbc,
+                                     double cutoff, std::int8_t* types,
+                                     const Control& control = {});
+
 // Ackland-Jones analysis (Ackland and Jones 2006, the rules of its original
 // implementation) of n atoms from the vectors to their nearest neighbors in
 // CSR form, nearest first, of which the first 14 count; fewer than 6 give

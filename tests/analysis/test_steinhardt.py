@@ -92,6 +92,11 @@ def test_rotation_threads_and_columns():
         np.testing.assert_array_equal(parameters.compute(system).q, result.q)
     nl = mdapy.NeighborList.build(system, 4.0)
     np.testing.assert_array_equal(parameters.compute(system, neighbors=nl).q, result.q)
+    for k in (8, 10):  # lists of nearest neighbors, used as they are or cut
+        nearest = mdapy.NeighborList.build(system, num_neighbors=k)
+        np.testing.assert_array_equal(
+            parameters.compute(system, neighbors=nearest).q, result.q
+        )
     table = system.with_columns(result).table
     assert {"q4_average", "q6_average", "q8_average"} <= set(table.columns)
     assert list(SteinhardtParameters((6,)).compute(system).columns()) == ["q6"]

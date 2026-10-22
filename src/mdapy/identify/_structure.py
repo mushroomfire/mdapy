@@ -96,6 +96,19 @@ class CommonNeighborAnalysis:
         """
         # without periodic images, small systems have fewer neighbors
         k = 14 if system.box.pbc.any() else min(14, len(system) - 1)
+        if self.cutoff is not None and neighbors is None:
+            # the neighbors found on the grid, without a list
+            box = system.box
+            structure = _native.common_neighbor_analysis_search(
+                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(box.matrix),
+                np.ascontiguousarray(box.origin),
+                np.ascontiguousarray(box.pbc),
+                self.cutoff,
+                progress,
+                _native_token(cancel),
+            )
+            return StructureResult(structure, self.NAMES, self.COLORS)
         if self.cutoff is not None:
             nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
         elif k > 0:

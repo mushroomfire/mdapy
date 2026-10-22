@@ -658,6 +658,10 @@ void structure_identification() {
         std::vector<double> csp(static_cast<std::size_t>(n));
         mdapy::identify::common_neighbor_analysis(n, pairs.offsets.data(), vectors.data(), 3.07,
                                                   types.data());
+        std::vector<std::int8_t> searched_types(static_cast<std::size_t>(n));
+        mdapy::identify::common_neighbor_analysis_search(positions.data(), n, matrix, origin, pbc,
+                                                         3.07, searched_types.data());
+        check(searched_types == types, "common neighbor analysis on the grid is that of the list");
         mdapy::identify::centro_symmetry(n, 8, eight.data(), csp.data());
         std::vector<double> cnp(static_cast<std::size_t>(n));
         mdapy::identify::common_neighbor_parameter(n, pairs.offsets.data(), vectors.data(), 3.07,

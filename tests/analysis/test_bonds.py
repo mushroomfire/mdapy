@@ -217,6 +217,22 @@ def test_bond_angles_by_triplet_of_elements_match_numpy():
     np.testing.assert_array_equal(again.counts, result.counts)
 
 
+def test_bond_angles_on_the_grid_and_from_a_list_agree():
+    system = crystal("fcc", 3.6, (4, 4, 4), jitter=0.2, seed=8)
+    rng = np.random.default_rng(8)
+    system = system.with_columns(element=rng.choice(["Cu", "Ni", "Al"], len(system)))
+    nl = mdapy.NeighborList.build(system, 3.5)
+    for angles in (
+        BondAngleDistribution(3.0, bins=90),
+        BondAngleDistribution(bins=60, cutoffs={("Cu", "Ni"): 2.9, ("Al", "Al"): 3.1}),
+    ):
+        grid, listed = angles.compute(system), angles.compute(system, neighbors=nl)
+        np.testing.assert_array_equal(grid.counts, listed.counts)
+        assert grid.partial.keys() == listed.partial.keys()
+        for key in grid.partial:
+            np.testing.assert_array_equal(grid.partial[key], listed.partial[key])
+
+
 def test_bond_angle_of_water():
     angle = np.radians(104.5)
     oxygen = np.array([5.0, 5.0, 5.0])

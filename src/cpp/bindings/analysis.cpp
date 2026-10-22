@@ -336,6 +336,35 @@ nb::tuple clusters_search(Positions3 positions, Matrix3 matrix, Origin3 origin, 
     return nb::make_tuple(as_array(std::move(cluster)), as_array(std::move(sizes)));
 }
 
+nb::object bond_angles_search(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
+                              Types type, int types, Limits limits, bool per_pair, int bins,
+                              nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (type.shape(0) != positions.shape(0) || types < 1 || bins < 1 ||
+        limits.shape(0) != static_cast<std::size_t>(types) ||
+        limits.shape(1) != static_cast<std::size_t>(types)) {
+        throw std::invalid_argument("the types do not fit the atoms or the limits");
+    }
+    for (std::int64_t i = 0; i < n; ++i) {
+        if (type.data()[i] < 0 || type.data()[i] >= types) {
+            throw std::invalid_argument("a type is outside the range");
+        }
+    }
+    const std::size_t pairs = static_cast<std::size_t>(types) * (types + 1) / 2;
+    auto* counts = new std::int64_t[static_cast<std::size_t>(types) * pairs * bins];
+    nb::capsule owner(counts, [](void* p) noexcept { delete[] static_cast<std::int64_t*>(p); });
+    const std::size_t shape[3] = {static_cast<std::size_t>(types), pairs, static_cast<std::size_t>(bins)};
+    nb::object result = nb::ndarray<nb::numpy, std::int64_t>(counts, 3, shape, owner).cast();
+    run_released(
+        [&](const Control& control) {
+            analysis::bond_angles_search(positions.data(), n, matrix.data(), origin.data(),
+                                         pbc.data(), type.data(), types, limits.data(), per_pair,
+                                         bins, counts, control);
+        },
+        progress, cancel);
+    return result;
+}
+
 void bind_analysis(nb::module_& m) {
     m.def("steinhardt", &steinhardt, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
@@ -371,6 +400,10 @@ void bind_analysis(nb::module_& m) {
           nb::arg("origin"), nb::arg("pbc"), nb::arg("type"), nb::arg("types"),
           nb::arg("limits"), nb::arg("per_pair"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
+    m.def("bond_angles_search", &bond_angles_search, nb::arg("positions"), nb::arg("matrix"),
+          nb::arg("origin"), nb::arg("pbc"), nb::arg("type"), nb::arg("types"),
+          nb::arg("limits"), nb::arg("per_pair"), nb::arg("bins"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("bond_angles", &bond_angles, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("vectors"),
           nb::arg("type"), nb::arg("types"), nb::arg("bins"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);

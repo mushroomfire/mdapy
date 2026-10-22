@@ -62,6 +62,26 @@ flowchart TB
     class mlip mlip
 ```
 
+## Design in brief
+
+- **Two dependencies.** NumPy and polars. Everything else is optional.
+- **One unit system.** Å, eV, ps, amu, K, and GPa for stress. See
+  [Units and conventions](reference/units.md).
+- **Consistent names.** Every parameter and property follows the
+  [Glossary](reference/glossary.md).
+- **Runs next to PyTorch and LAMMPS.** The compiled kernels use a thread
+  pool of mdapy's own instead of OpenMP, so mdapy shares a process with
+  PyTorch and LAMMPS without clashing OpenMP runtimes, and its results are
+  the same for any number of threads. See
+  [Parallelism](getting-started/parallelism.md).
+- **Tested and documented feature by feature.** Each feature is tested
+  against independent references, analytic results and NumPy
+  implementations, and against LAMMPS and OVITO where they compute the same,
+  and has its own page describing how to use it and, for analyses, what it
+  computes and which papers it follows.
+
+## Features
+
 <div class="grid cards" markdown>
 
 -   :material-rocket-launch-outline:{ .lg .middle } **Getting started**
@@ -157,22 +177,6 @@ flowchart TB
 
 See the [release notes](development/release-notes.md) for what each
 development version contains.
-
-## Design in brief
-
-- **Two dependencies.** NumPy and polars. Everything else is optional.
-- **One unit system.** Å, eV, ps, amu, K, and GPa for stress. See
-  [Units and conventions](reference/units.md).
-- **Consistent names.** Every parameter and property follows the
-  [Glossary](reference/glossary.md).
-- **Runs next to PyTorch and LAMMPS.** The compiled kernels use a thread
-  pool of mdapy's own instead of OpenMP, so mdapy shares a process with
-  PyTorch and LAMMPS without clashing OpenMP runtimes, and its results are
-  the same for any number of threads. See
-  [Parallelism](getting-started/parallelism.md).
-- **Tested and documented feature by feature.** Each feature is tested
-  against independent references and has its own page describing how to use
-  it and, for analyses, what it computes and which papers it follows.
 
 ## Citing mdapy
 

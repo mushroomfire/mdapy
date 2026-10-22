@@ -22,6 +22,7 @@ memory of the process minus its peak before the timings.
 | Adaptive common neighbor analysis | 2,048,000 | 0.511 | 0.806 | 1.58 | 86 | 165 |
 | Common neighbor analysis, cutoff 3.09 Å | 2,048,000 | 0.177 | 0.231 | 1.30 | 243 | 114 |
 | Ackland–Jones analysis | 2,048,000 | 0.558 | 0.814 | 1.46 | 86 | 158 |
+| Polyhedral template matching | 2,048,000 | 2.834 | 3.409 | 1.20 | 619 | 139 |
 | Centro-symmetry parameter, 12 neighbors | 2,048,000 | 0.424 | 0.611 | 1.44 | 79 | 127 |
 | Diamond structure | 2,000,376 | 0.303 | 0.486 | 1.60 | 329 | 370 |
 | Steinhardt q2–q6, 12 neighbors | 2,048,000 | 0.546 | 0.658 | 1.21 | 165 | 205 |
@@ -44,6 +45,9 @@ memory of the process minus its peak before the timings.
   is six times faster in mdapy, and Steinhardt parameters over Voronoi
   neighbors weighted by area 40 to 120 times; OVITO took more than five
   minutes for the latter at two million atoms, which was stopped.
+- Polyhedral template matching runs the same library in both; mdapy
+  first lists the 18 nearest neighbors of every atom, which takes four
+  times the memory of OVITO, which finds them as it goes.
 - The Voronoi analysis of mdapy keeps every face of every cell, about 1 kB
   per atom, for Voronoi neighbors and indices later.
 - Atomic strain is the one case where OVITO is faster, by two times: most of
@@ -60,6 +64,7 @@ memory of the process minus its peak before the timings.
 | Adaptive common neighbor analysis | fcc Cu | `CommonNeighborAnalysis()` | `CommonNeighborAnalysisModifier()` |
 | Common neighbor analysis, cutoff 3.09 Å | fcc Cu | `CommonNeighborAnalysis(3.086)` | `CommonNeighborAnalysisModifier(mode=FixedCutoff, cutoff=3.086)` |
 | Ackland–Jones analysis | fcc Cu | `AcklandJonesAnalysis()` | `AcklandJonesModifier()` |
+| Polyhedral template matching | fcc Cu | `PolyhedralTemplateMatching()` | `PolyhedralTemplateMatchingModifier()` |
 | Centro-symmetry parameter | fcc Cu | `CentroSymmetryParameter(12)` | `CentroSymmetryModifier(num_neighbors=12)` |
 | Diamond structure | diamond Si | `DiamondStructure()` | `IdentifyDiamondModifier()` |
 | Steinhardt q2–q6, 12 neighbors | fcc Cu | `SteinhardtParameters((2, 3, 4, 5, 6), num_neighbors=12)` | `SteinhardtParametersModifier(neighbor_mode=NearestNeighbors, num_neighbors=12, max_l=6)` |

@@ -32,6 +32,7 @@
 | `src/mdapy/simulation/_minimize.py` | `minimize`, with FIRE 2.0, of the positions and the box. |
 | `src/mdapy/lattice_dynamics/_elastic.py` | `elastic_constants`. |
 | `src/mdapy/identify/_structure.py` | `CommonNeighborAnalysis`, `CentroSymmetryParameter`. |
+| `src/mdapy/identify/_ptm.py` | `PolyhedralTemplateMatching`. |
 | `src/mdapy/analysis/_distribution.py` | `RadialDistributionFunction`, `CoordinationNumber`, `StructureFactor`. |
 | `src/mdapy/analysis/_steinhardt.py` | `SteinhardtParameters`. |
 | `src/mdapy/analysis/_voronoi.py` | `VoronoiAnalysis`. |
@@ -63,6 +64,8 @@
 | `src/cpp/calculators/eam.h`, `eam.cpp` | The embedded atom method. |
 | `src/cpp/calculators/nep.h`, `nep.cpp` | Neuroevolution potentials. |
 | `src/cpp/identify/structure.h`, `structure.cpp` | Common neighbor analysis and the centro-symmetry parameter. |
+| `src/cpp/identify/ptm.h`, `ptm.cpp` | Polyhedral template matching of every atom with the PTM library. |
+| `src/cpp/identify/ptm/` | The PTM library of P. M. Larsen (MIT license), as OVITO ships it; see its README for the changes. |
 | `src/cpp/analysis/steinhardt.h`, `steinhardt.cpp` | Real spherical harmonics and Steinhardt order parameters. |
 | `src/cpp/analysis/distribution.h`, `distribution.cpp` | Histograms of pair distances counted during the neighbor search, and the structure factor. |
 | `src/cpp/analysis/strain.h`, `strain.cpp` | Atomic strain from neighbor vectors. |

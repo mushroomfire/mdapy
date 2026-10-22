@@ -43,6 +43,10 @@ import mdapy
 
 ::: mdapy.identify.AcklandJonesAnalysis
 
+::: mdapy.identify.PolyhedralTemplateMatching
+
+::: mdapy.identify.PTMResult
+
 ::: mdapy.identify.DiamondStructure
 
 ::: mdapy.identify.ChillPlus

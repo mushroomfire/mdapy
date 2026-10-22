@@ -34,6 +34,7 @@
 #include "calculators/eam.h"
 #include "calculators/nep.h"
 #include "core/parallel.h"
+#include "identify/ptm.h"
 #include "identify/structure.h"
 #include "io/text.h"
 #include "neighbor/cell_list.h"
@@ -924,6 +925,65 @@ void structure_identification() {
     }
 }
 
+// Polyhedral template matching: the library keeps data of its own, made
+// once, and a handle per chunk.
+void polyhedral_template_matching() {
+    // fcc of 5 x 5 x 5 cubic cells, displaced at random
+    const double a = 3.6;
+    std::vector<double> positions;
+    std::mt19937 rng(11);
+    std::normal_distribution<double> noise(0.0, 0.08);
+    const double basis[4][3] = {{0, 0, 0}, {0.5, 0.5, 0}, {0.5, 0, 0.5}, {0, 0.5, 0.5}};
+    for (int x = 0; x < 5; ++x) {
+        for (int y = 0; y < 5; ++y) {
+            for (int z = 0; z < 5; ++z) {
+                for (const auto& b : basis) {
+                    positions.push_back(a * (x + b[0]) + noise(rng));
+                    positions.push_back(a * (y + b[1]) + noise(rng));
+                    positions.push_back(a * (z + b[2]) + noise(rng));
+                }
+            }
+        }
+    }
+    const auto n = static_cast<std::int64_t>(positions.size() / 3);
+    const double matrix[9] = {5 * a, 0, 0, 0, 5 * a, 0, 0, 0, 5 * a};
+    const double origin[3] = {0, 0, 0};
+    const bool pbc[3] = {true, true, true};
+    const mdapy::neighbor::NeighborPairs nearest =
+        mdapy::neighbor::nearest(positions.data(), n, matrix, origin, pbc, 18);
+    mdapy::identify::PtmInput input;
+    input.n = n;
+    input.positions = positions.data();
+    input.matrix = matrix;
+    input.offsets = nearest.offsets.data();
+    input.j = nearest.neighbors.data();
+    input.shifts = nearest.shifts.data();
+    input.structures = 0xff;
+    input.deformation = true;
+    std::vector<std::int8_t> first_types;
+    std::vector<double> first_rmsd, first_deformation;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::vector<std::int8_t> types(static_cast<std::size_t>(n));
+        std::vector<double> rmsd(static_cast<std::size_t>(n)),
+            deformation(9 * static_cast<std::size_t>(n));
+        mdapy::identify::PtmOutput output;
+        output.structure = types.data();
+        output.rmsd = rmsd.data();
+        output.deformation = deformation.data();
+        mdapy::identify::polyhedral_template_matching(input, output);
+        if (threads == kThreads[0]) {
+            first_types = types;
+            first_rmsd = rmsd;
+            first_deformation = deformation;
+        }
+        check(types == first_types && rmsd == first_rmsd && deformation == first_deformation,
+              "polyhedral template matching is the same for any thread count");
+        check(std::count(types.begin(), types.end(), mdapy::identify::kPtmFcc) > n / 2,
+              "polyhedral template matching finds fcc");
+    }
+}
+
 void trajectories() {
     // atoms vibrating about random sites, the trajectory of each in a row
     const std::int64_t n = 60, frames = 12;
@@ -1019,6 +1079,7 @@ int main() {
     text_tables();
     neighbor_search();
     structure_identification();
+    polyhedral_template_matching();
     calculators();
     trajectories();
     pictures();

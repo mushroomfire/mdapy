@@ -120,6 +120,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   diamond; [`ChillPlus`](../analysis/chill-plus.md) for ice, hydrates and
   liquid water; and the [centro-symmetry](../analysis/csp.md) and
   [common neighbor](../analysis/cnp.md) parameters.
+- [`PolyhedralTemplateMatching`](../analysis/ptm.md): the structure,
+  orientation, elastic deformation and chemical ordering of each atom, for
+  nine structures, with the PTM library of P. M. Larsen as OVITO ships it;
+  the same as OVITO atom by atom.
 - Distributions and order parameters in `mdapy.analysis`, agreeing with
   OVITO where it has them: the
   [`RadialDistributionFunction`](../analysis/rdf.md) and its partial

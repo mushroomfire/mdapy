@@ -5,12 +5,17 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
 
 #include <cstdint>
+#include <initializer_list>
+#include <optional>
 #include <stdexcept>
 
 #include "bindings/control.h"
+#include "core/index.h"
 #include "core/parallel.h"
+#include "identify/ptm.h"
 #include "identify/structure.h"
 
 namespace mdapy::bindings {
@@ -26,6 +31,75 @@ nb::object new_array(std::size_t size, T*& data) {
     nb::capsule owner(data, [](void* p) noexcept { delete[] static_cast<T*>(p); });
     const std::size_t shape[1] = {size};
     return nb::ndarray<nb::numpy, T>(data, 1, shape, owner).cast();
+}
+
+template <class T>
+nb::object new_array(std::initializer_list<std::size_t> shape, T*& data) {
+    std::size_t size = 1;
+    for (std::size_t extent : shape) {
+        size *= extent;
+    }
+    data = new T[size];
+    nb::capsule owner(data, [](void* p) noexcept { delete[] static_cast<T*>(p); });
+    return nb::ndarray<nb::numpy, T>(data, shape.size(), shape.begin(), owner).cast();
+}
+
+using Positions = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using Matrix = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
+using Indices = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Shifts = nb::ndarray<const std::int8_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using Types = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+// The nearest neighbors of each atom, nearest first, in CSR form with their
+// periodic images; types for the chemical ordering, or none. Returns a
+// dictionary of the per-atom results.
+nb::dict polyhedral_template_matching(Positions positions, Matrix matrix, Offsets offsets,
+                                      Indices j, Shifts shifts, std::optional<Types> types,
+                                      std::int32_t structures, bool deformation, bool neighbors,
+                                      nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (offsets.shape(0) != static_cast<std::size_t>(n + 1) ||
+        offsets.data()[n] != static_cast<std::int64_t>(j.shape(0)) ||
+        shifts.shape(0) != j.shape(0)) {
+        throw std::invalid_argument("the neighbor list does not fit the atoms");
+    }
+    if (types && types->shape(0) != static_cast<std::size_t>(n)) {
+        throw std::invalid_argument("there must be a type for each atom");
+    }
+    const auto size = static_cast<std::size_t>(n);
+    identify::PtmInput input;
+    input.n = n;
+    input.positions = positions.data();
+    input.matrix = matrix.data();
+    input.offsets = offsets.data();
+    input.j = j.data();
+    input.shifts = shifts.data();
+    input.types = types ? types->data() : nullptr;
+    input.structures = structures;
+    input.deformation = deformation;
+    identify::PtmOutput output;
+    nb::dict result;
+    result["structure"] = new_array({size}, output.structure);
+    result["rmsd"] = new_array({size}, output.rmsd);
+    result["interatomic_distance"] = new_array({size}, output.interatomic_distance);
+    result["orientation"] = new_array({size, 4}, output.orientation);
+    result["correspondences"] = new_array({size}, output.correspondences);
+    result["template_index"] = new_array({size}, output.template_index);
+    if (deformation) {
+        result["deformation_gradient"] = new_array({size, 3, 3}, output.deformation);
+    }
+    if (types) {
+        result["ordering"] = new_array({size}, output.ordering);
+    }
+    if (neighbors) {
+        result["neighbors"] = new_array({size, 16}, output.neighbors);
+    }
+    run_released(
+        [&](const Control& control) {
+            identify::polyhedral_template_matching(input, output, control);
+        },
+        progress, cancel);
+    return result;
 }
 
 // vectors: (n, k, 3) from each atom to its k neighbors.
@@ -231,6 +305,11 @@ nb::object chill_plus(Offsets offsets, Pairs neighbors, Vectors vectors, nb::han
 }  // namespace
 
 void bind_identify(nb::module_& m) {
+    m.def("polyhedral_template_matching", &polyhedral_template_matching,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("j"),
+          nb::arg("shifts"), nb::arg("types").none(), nb::arg("structures"),
+          nb::arg("deformation"), nb::arg("neighbors"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("centro_symmetry", &centro_symmetry, nb::arg("vectors"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("common_neighbor_parameter_search", &common_neighbor_parameter_search,

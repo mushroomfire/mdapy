@@ -171,7 +171,8 @@ jobs:
           -o thread_checks src/cpp/core/parallel.cpp src/cpp/io/text.cpp
           src/cpp/neighbor/cell_list.cpp src/cpp/neighbor/kd_tree.cpp
           src/cpp/calculators/eam.cpp src/cpp/calculators/nep.cpp
-          src/cpp/identify/structure.cpp src/cpp/analysis/steinhardt.cpp
+          src/cpp/identify/structure.cpp src/cpp/identify/ptm.cpp src/cpp/identify/ptm/*.cpp
+          src/cpp/analysis/steinhardt.cpp
           src/cpp/analysis/geometry.cpp src/cpp/analysis/distribution.cpp
           src/cpp/analysis/voronoi.cpp src/cpp/build/sqs.cpp
           src/cpp/visualization/render.cpp

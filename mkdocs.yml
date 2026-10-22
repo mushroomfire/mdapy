@@ -117,6 +117,7 @@ nav:
       - Structure identification:
           - Common neighbor analysis: analysis/cna.md
           - Ackland–Jones analysis: analysis/ackland-jones.md
+          - Polyhedral template matching: analysis/ptm.md
           - Diamond structure: analysis/diamond.md
           - CHILL+: analysis/chill-plus.md
           - Centro-symmetry parameter: analysis/csp.md

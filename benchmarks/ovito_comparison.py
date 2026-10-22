@@ -261,6 +261,7 @@ def _cases() -> dict[str, Case]:
         CentroSymmetryParameter,
         CommonNeighborAnalysis,
         DiamondStructure,
+        PolyhedralTemplateMatching,
     )
 
     degrees = tuple(range(2, 7))
@@ -335,6 +336,13 @@ def _cases() -> dict[str, Case]:
             copper,
             analysis(lambda inputs: AcklandJonesAnalysis()),
             pipeline(modifier("AcklandJonesModifier")),
+            structures,
+        ),
+        "ptm": Case(
+            "Polyhedral template matching",
+            copper,
+            analysis(lambda inputs: PolyhedralTemplateMatching()),
+            pipeline(modifier("PolyhedralTemplateMatchingModifier")),
             structures,
         ),
         "csp": Case(

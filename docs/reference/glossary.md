@@ -66,6 +66,10 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `temperature` | f64 | K | temperature of an atom and its neighbors |
 | `lindemann` | f64 | | Lindemann index of an atom over a trajectory |
 | `site`, `occupancy` | `index_dtype`, int64 | | the nearest reference site of an atom, and the number of atoms on it |
+| `rmsd`, `interatomic_distance` | f64 | , Å | deviation from the best template of polyhedral template matching, and the distance between nearest neighbors of its lattice |
+| `orientation` | Array(f64, 4) | | rotation of the local lattice from its standard orientation, a quaternion (x, y, z, w) |
+| `deformation_gradient` | Array(f64, 9) | | elastic deformation gradient of the local lattice, by rows |
+| `ordering` | int8 | | chemical ordering of the local lattice from polyhedral template matching |
 | `shear_strain`, `volumetric_strain`, `d2min` | f64 | , , Å² | von Mises and volumetric atomic strain against a reference, and the non-affine squared displacement |
 
 ## Energies and virials
@@ -121,6 +125,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | size of random displacements of atoms (Å) | `displacement` | `atom_pert_distance`, `sigma` |
 | frames already chosen | `selected=` | `train_des`, `existing` |
 | number of principal components | `n` | `n_components` |
+| structures to look for, deviation above which an atom is other | `structures`, `rmsd_cutoff` | `check_fcc`, `rmsd_threshold` |
+| also compute deformation gradients, chemical ordering, neighbors in template order | `deformation_gradient`, `ordering`, `template_neighbors` (bool) | `output_*` |
 | how atoms and bonds are drawn in a picture | `representation` (`"spheres"`, `"ball_and_stick"`, `"space_filling"`, `"licorice"`) | `model`, `drawing_method` |
 | radii of the elements | `radius="display"`, `"covalent"`, `"vdw"` | `radii_type` |
 | bounces of light in a picture | `bounces`, `samples` | `depth`, `spp` |

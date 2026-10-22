@@ -3,6 +3,7 @@
 
 """Identification of the local structure of atoms."""
 
+from mdapy.identify._ptm import PolyhedralTemplateMatching, PTMResult
 from mdapy.identify._structure import (
     AcklandJonesAnalysis,
     CentroSymmetryParameter,
@@ -24,5 +25,7 @@ __all__ = [
     "CommonNeighborParameter",
     "CommonNeighborParameterResult",
     "DiamondStructure",
+    "PolyhedralTemplateMatching",
+    "PTMResult",
     "StructureResult",
 ]

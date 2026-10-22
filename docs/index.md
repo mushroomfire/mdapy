@@ -118,6 +118,7 @@ flowchart TB
 
     Structure identification: [common neighbor analysis](analysis/cna.md) ·
     [Ackland–Jones](analysis/ackland-jones.md) ·
+    [polyhedral template matching](analysis/ptm.md) ·
     [diamond](analysis/diamond.md) · [CHILL+](analysis/chill-plus.md) ·
     [centro-symmetry](analysis/csp.md) ·
     [common neighbor parameter](analysis/cnp.md)

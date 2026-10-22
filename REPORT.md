@@ -23,6 +23,7 @@
 | `dxa-network-draft` | 位错网络（节点、线段）、扩展位错只给两条不全位错、Burgers 矢量箭头、和 OVITO 的 DXA 现场对比，基于 neighbor-fits-draft | 已推送，CI 中 |
 | `wcp-shells-draft` | Warren–Cowley 多壳层（按截断半径或按近邻数），基于 dxa-network-draft | 已推送 |
 | `vasp-calculator-draft` | VASP 计算器（超算上用），基于 wcp-shells-draft | 已推送 |
+| `ptm-draft` | PTM（多面体模板匹配，按方案 A 移植），基于 preview-2026-10-23 | 已推送，CI 全绿 |
 | **`preview-2026-10-23`** | **上面所有草稿合在一起（就是 vasp-calculator-draft 的末端），1733 个测试全过** | 已推送，CI 中 |
 
 ## 进展
@@ -238,6 +239,30 @@
 - **VASP 计算器**（`vasp-calculator-draft`）：`VASP(incar={...}, kpoints=(4, 4, 4), setups={"Ni": "Ni_pv"}, command="srun vasp_std", directory="relax")`。每次调用写 POSCAR/INCAR/KPOINTS/POTCAR，在目录里用 shell 执行命令（和作业脚本里一样），读 OUTCAR 的 TOTEN、力和 virial，原子顺序还原；默认保留 WAVECAR/CHGCAR，下一步直接续算（最小化很省时间）。NSW/IBRION/ISIF 固定为单点加应力，用户不能设。POTCAR 目录默认取 `VASP_PP_PATH`（或其下的 potpaw_PBE），命令默认取 `MDAPY_VASP_COMMAND`、再取 ASE 的 `ASE_VASP_COMMAND`、最后是 `vasp_std`。VASP 出错时抛新的 `mdapy.errors.CalculationFailed`，附上 VASP 最后输出的内容。没有真 VASP 也能测：测试里有一个“假 VASP”脚本，读 POSCAR、用 EAM 算、按 VASP 的格式写 OUTCAR；测试检查结果和 EAM 一致、输入文件内容、原子顺序、续算文件、出错处理，以及和 `minimize` 联用时前十步与直接用 EAM 完全一样。
 - **preview-2026-10-23**：全部草稿合在一起，1733 个测试、覆盖率、文档构建都通过，CI 在跑。你审的时候可以直接看这个分支。
 - 收到你的决定：接下来**先按方案 A 移植 PTM，再专心做完整版 DXA**。
+
+### 02:50
+- **PTM 完成**（`ptm-draft`，基于 preview-2026-10-23，CI 9 个任务全绿）：按方案 A 移植了 Larsen 的 PTM 库（OVITO 带的版本，保留 MIT 许可，`src/cpp/identify/ptm/`，README 记录了来源和改动），用我们的 `parallel_for`。`PolyhedralTemplateMatching(structures=("fcc", "hcp", "bcc"), rmsd_cutoff=0.1, deformation_gradient=False, ordering=False, template_neighbors=False)`：结构类型（OVITO 的编号 0–8）、RMSD、原子间距、取向四元数、弹性形变梯度、合金有序类型、模板对应关系、模板邻居。和 OVITO 3.17 现场逐原子对比（类型、RMSD、取向、形变梯度、有序类型）。200 万原子 2.83 s（OVITO 3.41 s）。
+- **完整版 DXA 进行中**（还没提交）。已经能跑通的部分：
+  1. 从 Voronoi 对偶得到 Delaunay 四面体（带周期像，体积和盒子体积相等）。
+  2. 弹性映射：每条边取晶体原子的局部晶格（PTM 取向）下最近的晶格矢量，层错原子可加 Shockley/Frank 分矢量；**两端都不是晶体原子的边经同一四面体里的晶体原子走两步**（像 OVITO 的晶体路径），这让坏区从“所有含非晶体原子的四面体”缩成映射真正不闭合的细管——这是能把相距 3–4 Å 的 Shockley 和压杆位错分开的关键。PTM 偶尔给出转了 60° 的取向（压头下十几个原子），这些按“错配”原子处理。
+  3. 表面：外接球半径大于 1.5 倍近邻距离的四面体是真空，未配对面或真空交界面上的非晶体原子才是表面（之前按配位数判断，会把空位型 Frank 环的芯部当成表面）。
+  4. **在界面网格上追踪 Burgers 回路**（OVITO 的算法）：网格是好四面体的边界，对边绕棱在好区内转一圈找到；从每个顶点广度优先找最短的非零回路；所有回路一起推进，允许的最长回路一步步放宽；两个回路的边互为反向就是同一条线，三个以上回路围住一块且和为零就是结点（Frank 规则自动满足）。
+- 和 OVITO 现场对比（precision = 我们的线长里附近 3 Å 内有同 b 的 OVITO 线的比例，recall 反过来）：
+
+| 例子 | 精简版（旧） | 完整版（现在） |
+|---|---|---|
+| 螺/刃（分解）/剪切环/Shockley 环/bcc 环/平板螺位错 | 0.6–1.0 | 全部 ≈ 1.00 / 1.00 |
+| 弛豫后的 Frank 环（OVITO：6 条 Shockley + 6 条压杆位错） | 只得到一条 Frank 矢量的环 | **1.00 / 1.00**，12 条线、四度结点 |
+| 压痕 8000 步 | 0.26 / 0.04 | 0.79 / 0.83 |
+| 压痕 20000 步（OVITO 1849 Å） | 0.67 / 0.39 | 0.84 / 0.76 |
+
+![Frank 环](images/36_dxa_full_frank.png)
+
+粗的半透明线是 OVITO，细线是我们（蓝 Shockley，紫压杆位错），红点是线端。
+
+![压痕 20000 步](images/37_dxa_full_indent.png)
+
+- 接下来：线端到结点的连接（现在线在结点前断开，留了小缺口）、线的平滑、继续提高压痕的召回；然后把追踪改成 C++（现在原型是 Python，7.2 万原子压痕 4 s 映射 + 4 s 追踪），接入 `DislocationAnalysis`，补测试和文档。
 
 ## 早上需要你决定的事
 

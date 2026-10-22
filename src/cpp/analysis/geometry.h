@@ -36,6 +36,13 @@ void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t
                  const double* vectors, const std::int32_t* type, int types, int bins,
                  std::int64_t* counts, const Control& control = {});
 
+// The same with the bonds found on a cell grid (positions: n x 3; matrix:
+// rows a, b, c; origin: 3; pbc: 3), bonded as count_neighbors counts them.
+void bond_angles_search(const double* positions, std::int64_t n, const double* matrix,
+                        const double* origin, const bool* pbc, const std::int32_t* type,
+                        int types, const double* limits, bool per_pair, int bins,
+                        std::int64_t* counts, const Control& control = {});
+
 // The Lindemann index of n atoms over frames of their unwrapped positions
 // (n x frames x 3, each atom's trajectory in a row): for each pair, the
 // standard deviation of its distance over its mean, by Welford's running

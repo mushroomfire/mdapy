@@ -207,13 +207,13 @@ def test_diamond_needs_the_bond_back_from_every_neighbor(kind, a, repeat, seed):
     other, whatever its second neighbors look like; in these systems two such
     atoms have second neighbors of diamond."""
     system = crystal(kind, a, repeat, jitter=0.3, seed=seed)
-    nl = mdapy.NeighborList.nearest(system, 4)
+    nl = mdapy.NeighborList.build(system, num_neighbors=4)
     first = nl.j.reshape(-1, 4)
     one_way = np.array(
         [any(i not in first[j] for j in first[i]) for i in range(len(system))]
     )
     assert one_way.sum() > 10
-    result = IdentifyDiamond().compute(system)
+    result = DiamondStructure().compute(system)
     assert np.all(result.structure[one_way] == 0)
     assert result.counts()["other"] < len(system)  # some atoms are diamond
     assert [result.names[t] for t in result.structure] == diamond(system)

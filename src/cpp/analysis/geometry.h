@@ -40,6 +40,15 @@ void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t
 void lindemann(std::int64_t n, std::int64_t frames, const double* positions, double* atomic,
                double* running, const Control& control = {});
 
+// The temperature of each of n atoms with its neighbors (CSR, images of the
+// atom itself left out) from the kinetic energy relative to their center of
+// mass, 3 (members - 1) degrees of freedom: twice that energy times
+// energy_unit over (3 (members - 1) boltzmann); NaN without neighbors.
+void atomic_temperature(std::int64_t n, const std::int64_t* offsets,
+                        const std::int32_t* neighbors, const double* mass,
+                        const double* velocities, double energy_unit, double boltzmann,
+                        double* temperature, const Control& control = {});
+
 void pair_entropy(std::int64_t n, const std::int64_t* offsets, const double* distances,
                   double cutoff, double sigma, const double* density, double* entropy,
                   const Control& control = {});

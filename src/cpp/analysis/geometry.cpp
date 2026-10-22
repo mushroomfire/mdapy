@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numeric>
 #include <vector>
 
@@ -157,6 +158,50 @@ void lindemann(std::int64_t n, std::int64_t frames, const double* positions, dou
     for (std::int64_t t = 0; t < frames; ++t) {
         running[t] = total[static_cast<std::size_t>(t)] / pairs;
     }
+}
+
+void atomic_temperature(std::int64_t n, const std::int64_t* offsets,
+                        const std::int32_t* neighbors, const double* mass,
+                        const double* velocities, double energy_unit, double boltzmann,
+                        double* temperature, const Control& control) {
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                // the sums over the neighbors first, then the atom's own terms
+                std::int64_t members = 1;
+                double masses = 0.0, momentum[3] = {0.0, 0.0, 0.0}, squares = 0.0;
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    const std::int64_t j = neighbors[p];
+                    if (j == i) {
+                        continue;  // an image of the atom itself
+                    }
+                    const double* v = velocities + 3 * j;
+                    ++members;
+                    masses += mass[j];
+                    for (int e = 0; e < 3; ++e) {
+                        momentum[e] += mass[j] * v[e];
+                    }
+                    squares += mass[j] * (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+                }
+                if (members == 1) {
+                    temperature[i] = std::numeric_limits<double>::quiet_NaN();
+                    continue;
+                }
+                const double* v = velocities + 3 * i;
+                const double total = mass[i] + masses;
+                double p2 = 0.0;
+                for (int e = 0; e < 3; ++e) {
+                    const double pe = mass[i] * v[e] + momentum[e];
+                    p2 += pe * pe;
+                }
+                const double twice =
+                    (mass[i] * (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) + squares) - p2 / total;
+                temperature[i] =
+                    twice * energy_unit / (3.0 * static_cast<double>(members - 1) * boltzmann);
+            }
+        },
+        control);
 }
 
 void pair_entropy(std::int64_t n, const std::int64_t* offsets, const double* distances,

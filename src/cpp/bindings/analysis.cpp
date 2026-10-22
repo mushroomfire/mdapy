@@ -259,6 +259,26 @@ nb::tuple lindemann(Trajectory positions, nb::handle progress, const CancelToken
     return nb::make_tuple(as_array(std::move(atomic)), as_array(std::move(running)));
 }
 
+nb::object atomic_temperature(Offsets offsets, Neighbors neighbors, Values mass,
+                              Positions3 velocities, double energy_unit, double boltzmann,
+                              nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    if (n < 0 || offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0)) ||
+        mass.shape(0) != static_cast<std::size_t>(n) ||
+        velocities.shape(0) != static_cast<std::size_t>(n)) {
+        throw std::invalid_argument("the offsets do not fit the neighbors, masses and velocities");
+    }
+    std::vector<double> temperature(static_cast<std::size_t>(n));
+    run_released(
+        [&](const Control& control) {
+            analysis::atomic_temperature(n, offsets.data(), neighbors.data(), mass.data(),
+                                         velocities.data(), energy_unit, boltzmann,
+                                         temperature.data(), control);
+        },
+        progress, cancel);
+    return as_array(std::move(temperature));
+}
+
 void bind_analysis(nb::module_& m) {
     m.def("steinhardt", &steinhardt, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
@@ -281,6 +301,9 @@ void bind_analysis(nb::module_& m) {
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("lindemann", &lindemann, nb::arg("positions"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
+    m.def("atomic_temperature", &atomic_temperature, nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("mass"), nb::arg("velocities"), nb::arg("energy_unit"), nb::arg("boltzmann"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("bond_angles", &bond_angles, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("vectors"),
           nb::arg("type"), nb::arg("types"), nb::arg("bins"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);

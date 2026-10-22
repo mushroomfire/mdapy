@@ -259,16 +259,25 @@ class EAM(Calculator):
             t["pair"][index[max(i, j), min(i, j)]] for i in range(n) for j in range(n)
         ]
         pair = np.array(pair).reshape(n, n, -1)
-        mixed = np.tensordot(weights, pair, axes=1)  # average atom with each element
+        # sums without BLAS, whose matmul warns falsely with NumPy 2.2 on macOS
+        mixed = np.einsum("a,abr->br", weights, pair)  # average atom with each element
         tables = dict(t)
         tables["elements"] = names + ("A",)
         tables["numbers"] = t["numbers"] + (0,)
-        tables["masses"] = np.append(t["masses"], weights @ t["masses"])
+        tables["masses"] = np.append(
+            t["masses"], np.einsum("a,a->", weights, t["masses"])
+        )
         tables["lattice_constants"] = np.append(t["lattice_constants"], 0.0)
         tables["lattices"] = t["lattices"] + ("",)
-        tables["embedding"] = np.vstack([t["embedding"], weights @ t["embedding"]])
-        tables["density"] = np.vstack([t["density"], weights @ t["density"]])
-        tables["pair"] = np.vstack([t["pair"], mixed, weights @ mixed])
+        tables["embedding"] = np.vstack(
+            [t["embedding"], np.einsum("a,ar->r", weights, t["embedding"])]
+        )
+        tables["density"] = np.vstack(
+            [t["density"], np.einsum("a,ar->r", weights, t["density"])]
+        )
+        tables["pair"] = np.vstack(
+            [t["pair"], mixed, np.einsum("a,ar->r", weights, mixed)]
+        )
         return EAM._built(tables, average=True)
 
     def write(self, path: str | os.PathLike) -> None:

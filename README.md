@@ -160,3 +160,13 @@ BSD 3-Clause. See [LICENSE](LICENSE).
   | Voronoi | 0.82（voro++） | 1.43 | 1.04 |
 
   除了 Voronoi，2.0 现在都比 1.0.8 快。
+
+### 03:10
+- **NEP 提速**（`nep-draft`）：
+  - 每个原子的描述符和"能量对键向量的导数"合并成一遍计算，每对原子的基函数和球谐只算一次。
+  - 神经网络和径向收缩改成跨神经元、跨径向函数的向量化循环；求和顺序不变，结果逐位相同。
+  - 角向导数先对径向函数求和，这一步改变了舍入，力和 virial 与改前差 ≤ 2e-15。能量逐位相同，与 NEP_CPU、GPUMD 的 22 个对比测试全部通过。
+  - CrCoNi，5.5 万原子：单线程 28.8 → **24.7 µs/原子**（NEP_CPU 28–31），10 线程 0.317 → 0.267 s。
+  - （该提交的说明里写成"少三分之一"，不准确，实测整体快 14%；改提交说明需要 force push，所以没动。）
+- **新功能：按元素三元组的键角分布**（`analysis-draft`，对应 1.x 的 ADF）。`BondAngleDistribution(cutoffs={("O", "H"): 1.2})` 可以给每对元素单独设键长，结果新增 `partial[(顶点, b, c)]` 和 `triplet("O", "H", "H")`。测试用三元无序晶体的 NumPy 暴力枚举逐项对照，并用水分子验证 104.5°。1.x 的 ADF 每条键还能设最短距离；要不要也支持，明天请你定。
+- **CI**：neighbor-draft 和 calculator-draft 之前缺 v2 上 Python 3.10 的修复，CI 在 3.10 上失败。已把 v2 合并进去，重跑全绿。今晚改过代码的草稿分支（neighbor、calculator、analysis、voronoi、nep、preview-all）都手动触发了 CI，已完成的全部通过。

@@ -26,6 +26,8 @@ implemented.
 | average atom | The single species of an average-atom potential, standing for a random alloy; `A` in potential files. |
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |
+| unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries. |
+| spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
 
 ## Per-atom properties
 

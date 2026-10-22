@@ -13,11 +13,17 @@
 
 namespace mdapy::analysis {
 
-// The cluster of each of n atoms, given its bonds in CSR form: clusters are
+// The cluster of each of n atoms, given its bonds in CSR form with the
+// shift of each (the bond vector x_j - x_i + shift . H): clusters are
 // numbered from 0 by decreasing size, ties by their first atom. Returns the
-// number of clusters; sizes (at least n long) gets the size of each.
+// number of clusters; sizes and spanning (at least n long) get the size of
+// each and whether it joins another image of itself across the periodic
+// boundaries, and images (n x 3) the periodic image of each atom that places
+// it next to the atoms it is bonded to, the first atom of each cluster at
+// image 0. The images of a spanning cluster depend on the order of the bonds.
 std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
-                      std::int64_t* cluster, std::int64_t* sizes);
+                      const std::int8_t* shifts, std::int64_t* cluster, std::int64_t* sizes,
+                      std::int32_t* images, std::uint8_t* spanning);
 
 // The same with the bonds found on a cell grid (positions: n x 3; matrix:
 // rows a, b, c; origin: 3; pbc: 3): two atoms are bonded when closer than the
@@ -25,8 +31,8 @@ std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const index_t
 std::int64_t clusters_search(const double* positions, std::int64_t n, const double* matrix,
                              const double* origin, const bool* pbc, const std::int32_t* type,
                              int types, const double* limits, bool per_pair,
-                             std::int64_t* cluster, std::int64_t* sizes,
-                             const Control& control = {});
+                             std::int64_t* cluster, std::int64_t* sizes, std::int32_t* images,
+                             std::uint8_t* spanning, const Control& control = {});
 
 // Counts of the angles between the bonds of each atom, given as neighbors
 // and vectors in CSR form, in bins of equal width from 0 to 180 degrees, by

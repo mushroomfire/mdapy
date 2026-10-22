@@ -18,38 +18,97 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 
-std::int64_t root(std::vector<std::int64_t>& parent, std::int64_t a) {
-    while (parent[a] != a) {
-        parent[a] = parent[parent[a]];  // path halving
-        a = parent[a];
+// Atoms joined into clusters, each with the periodic image that places it
+// next to the atoms it is bonded to: atom i at x_i + image_i . H, the first
+// atom of its cluster at its own position. A union-find whose links carry
+// the image of an atom relative to its parent. A cluster spans the box when
+// a bond joins an atom to another image of its own cluster; its images then
+// depend on the order of the bonds.
+class Joined {
+public:
+    explicit Joined(std::int64_t n)
+        : parent_(static_cast<std::size_t>(n)), image_(3 * static_cast<std::size_t>(n), 0),
+          spans_(static_cast<std::size_t>(n), 0) {
+        std::iota(parent_.begin(), parent_.end(), std::int64_t{0});
     }
-    return a;
-}
 
-}  // namespace
+    // Whether the cluster of root r spans the box.
+    bool spans(std::int64_t r) const { return spans_[r] != 0; }
 
-namespace {
-
-// Joins the clusters of atoms a and b; the smaller root becomes the root, so
-// that the root is the first atom of its cluster.
-void join(std::vector<std::int64_t>& parent, std::int64_t a, std::int64_t b) {
-    a = root(parent, a);
-    b = root(parent, b);
-    if (a != b) {
-        if (b < a) {
-            std::swap(a, b);
+    // The root of the cluster of a, and the image of a relative to it.
+    std::int64_t find(std::int64_t a, std::int64_t* image) {
+        std::int64_t r = a;
+        image[0] = image[1] = image[2] = 0;
+        while (parent_[r] != r) {
+            for (int e = 0; e < 3; ++e) {
+                image[e] += image_[3 * r + e];
+            }
+            r = parent_[r];
         }
-        parent[b] = a;
+        // point the path at the root, each atom with its image relative to it
+        std::int64_t rest[3] = {image[0], image[1], image[2]};
+        while (parent_[a] != a) {
+            const std::int64_t next = parent_[a];
+            for (int e = 0; e < 3; ++e) {
+                const std::int64_t own = image_[3 * a + e];
+                image_[3 * a + e] = rest[e];
+                rest[e] -= own;
+            }
+            parent_[a] = r;
+            a = next;
+        }
+        return r;
     }
-}
+
+    // Joins the clusters of atoms a and b, bonded by the vector
+    // x_b - x_a + shift . H; the smaller root becomes the root, so that the
+    // root is the first atom of its cluster.
+    template <class Shift>
+    void join(std::int64_t a, std::int64_t b, const Shift* shift) {
+        std::int64_t ia[3], ib[3];
+        const std::int64_t ra = find(a, ia), rb = find(b, ib);
+        if (ra == rb) {
+            // a loop: around the box when b is at another image than the bond's
+            for (int e = 0; e < 3; ++e) {
+                if (ia[e] + static_cast<std::int64_t>(shift[e]) != ib[e]) {
+                    spans_[ra] = 1;
+                }
+            }
+            return;
+        }
+        // the image of the root of b relative to the root of a
+        std::int64_t d[3];
+        for (int e = 0; e < 3; ++e) {
+            d[e] = ia[e] + static_cast<std::int64_t>(shift[e]) - ib[e];
+        }
+        const bool under_a = ra < rb;
+        const std::int64_t child = under_a ? rb : ra;
+        const std::int64_t root = under_a ? ra : rb;
+        parent_[child] = root;
+        spans_[root] = static_cast<std::uint8_t>(spans_[root] | spans_[child]);
+        for (int e = 0; e < 3; ++e) {
+            image_[3 * child + e] = under_a ? d[e] : -d[e];
+        }
+    }
+
+private:
+    std::vector<std::int64_t> parent_;
+    std::vector<std::int64_t> image_;  // 3 per atom, relative to the parent
+    std::vector<std::uint8_t> spans_;  // per root
+};
 
 // Numbers the clusters of the joined atoms by decreasing size, ties by
-// their first atom.
-std::int64_t number(std::vector<std::int64_t>& parent, std::int64_t n, std::int64_t* cluster,
-                    std::int64_t* sizes) {
+// their first atom, and gives each atom its image and each cluster whether
+// it spans the box.
+std::int64_t number(Joined& joined, std::int64_t n, std::int64_t* cluster, std::int64_t* sizes,
+                    std::int32_t* images, std::uint8_t* spanning) {
     std::vector<std::int64_t> count(static_cast<std::size_t>(n), 0);
     for (std::int64_t i = 0; i < n; ++i) {
-        cluster[i] = root(parent, i);
+        std::int64_t image[3];
+        cluster[i] = joined.find(i, image);
+        for (int e = 0; e < 3; ++e) {
+            images[3 * i + e] = static_cast<std::int32_t>(image[e]);
+        }
         ++count[cluster[i]];
     }
     std::vector<std::int64_t> roots;
@@ -64,6 +123,7 @@ std::int64_t number(std::vector<std::int64_t>& parent, std::int64_t n, std::int6
     for (std::size_t k = 0; k < roots.size(); ++k) {
         label[roots[k]] = static_cast<std::int64_t>(k);
         sizes[k] = count[roots[k]];
+        spanning[k] = static_cast<std::uint8_t>(joined.spans(roots[k]));
     }
     for (std::int64_t i = 0; i < n; ++i) {
         cluster[i] = label[cluster[i]];
@@ -74,34 +134,36 @@ std::int64_t number(std::vector<std::int64_t>& parent, std::int64_t n, std::int6
 }  // namespace
 
 std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
-                      std::int64_t* cluster, std::int64_t* sizes) {
-    std::vector<std::int64_t> parent(static_cast<std::size_t>(n));
-    std::iota(parent.begin(), parent.end(), 0);
+                      const std::int8_t* shifts, std::int64_t* cluster, std::int64_t* sizes,
+                      std::int32_t* images, std::uint8_t* spanning) {
+    Joined joined(n);
     for (std::int64_t i = 0; i < n; ++i) {
         for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-            join(parent, i, neighbors[p]);
+            joined.join(i, neighbors[p], shifts + 3 * p);
         }
     }
-    return number(parent, n, cluster, sizes);
+    return number(joined, n, cluster, sizes, images, spanning);
 }
 
 std::int64_t clusters_search(const double* positions, std::int64_t n, const double* matrix,
                              const double* origin, const bool* pbc, const std::int32_t* type,
                              int types, const double* limits, bool per_pair,
-                             std::int64_t* cluster, std::int64_t* sizes,
-                             const Control& control) {
-    std::vector<std::int64_t> parent(static_cast<std::size_t>(n));
-    std::iota(parent.begin(), parent.end(), 0);
+                             std::int64_t* cluster, std::int64_t* sizes, std::int32_t* images,
+                             std::uint8_t* spanning, const Control& control) {
+    Joined joined(n);
     const auto pairs = static_cast<std::size_t>(types) * types;
     const double reach = *std::max_element(limits, limits + pairs);
     if (n > 0 && reach > 0.0) {
         // each bond once, as (i, j) with i < j, then joined in a fixed
         // order; the clusters do not depend on the order anyway
+        struct Bond {
+            index_t i, j;
+            std::int32_t shift[3];
+        };
         const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, reach);
         const double reach2 = reach * reach;
         const std::int64_t grain = default_grain(n);
-        std::vector<std::vector<std::array<index_t, 2>>> bonds(
-            static_cast<std::size_t>((n + grain - 1) / grain));
+        std::vector<std::vector<Bond>> bonds(static_cast<std::size_t>((n + grain - 1) / grain));
         parallel_for(
             n, grain,
             [&](std::int64_t begin, std::int64_t end) {
@@ -109,10 +171,11 @@ std::int64_t clusters_search(const double* positions, std::int64_t n, const doub
                 for (std::int64_t t = begin; t < end; ++t) {
                     const index_t i = grid.atom(t);
                     const double* row = limits + static_cast<std::size_t>(type[i]) * types;
-                    grid.visit(t, [&](index_t j, const std::int32_t*, double r2) {
-                        // j <= i: the bond is the other atom's, or an image of i
-                        if (j > i && (per_pair ? std::sqrt(r2) < row[type[j]] : r2 < reach2)) {
-                            out.push_back({i, j});
+                    grid.visit(t, [&](index_t j, const std::int32_t* s, double r2) {
+                        // j < i: the bond is the other atom's; j == i: a bond
+                        // to an image of i, which makes its cluster span the box
+                        if (j >= i && (per_pair ? std::sqrt(r2) < row[type[j]] : r2 < reach2)) {
+                            out.push_back({i, j, {s[0], s[1], s[2]}});
                         }
                     });
                 }
@@ -120,11 +183,11 @@ std::int64_t clusters_search(const double* positions, std::int64_t n, const doub
             control);
         for (const auto& chunk : bonds) {
             for (const auto& bond : chunk) {
-                join(parent, bond[0], bond[1]);
+                joined.join(bond.i, bond.j, bond.shift);
             }
         }
     }
-    return number(parent, n, cluster, sizes);
+    return number(joined, n, cluster, sizes, images, spanning);
 }
 
 namespace {

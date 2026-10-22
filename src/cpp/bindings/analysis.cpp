@@ -27,6 +27,16 @@ using Offsets = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::d
 using Neighbors = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Types = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Vectors = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using Shifts3 = nb::ndarray<const std::int8_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+
+// A one-dimensional NumPy array that owns the memory of a vector.
+template <class T>
+nb::object as_array(std::vector<T>&& values) {
+    auto* kept = new std::vector<T>(std::move(values));
+    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<T>*>(p); });
+    const std::size_t shape[1] = {kept->size()};
+    return nb::ndarray<nb::numpy, T>(kept->data(), 1, shape, owner).cast();
+}
 
 nb::object steinhardt(Offsets offsets, Neighbors neighbors, Vectors vectors,
                       const std::vector<int>& degrees, bool average, nb::handle progress,
@@ -49,8 +59,8 @@ nb::object steinhardt(Offsets offsets, Neighbors neighbors, Vectors vectors,
     return result;
 }
 
-nb::tuple clusters(Offsets offsets, Neighbors neighbors) {
-    if (offsets.shape(0) < 1 ||
+nb::tuple clusters(Offsets offsets, Neighbors neighbors, Shifts3 shifts) {
+    if (offsets.shape(0) < 1 || shifts.shape(0) != neighbors.shape(0) ||
         offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(neighbors.shape(0))) {
         throw std::invalid_argument("the offsets do not fit the neighbors");
     }
@@ -60,21 +70,19 @@ nb::tuple clusters(Offsets offsets, Neighbors neighbors) {
             throw std::invalid_argument("a neighbor index is outside the atoms");
         }
     }
-    auto* cluster = new std::int64_t[static_cast<std::size_t>(n)];
-    nb::capsule owner(cluster, [](void* p) noexcept { delete[] static_cast<std::int64_t*>(p); });
-    std::vector<std::int64_t> sizes(static_cast<std::size_t>(n));
+    std::vector<std::int64_t> cluster(static_cast<std::size_t>(n)), sizes(static_cast<std::size_t>(n));
+    std::vector<std::int32_t> images(3 * static_cast<std::size_t>(n));
+    std::vector<std::uint8_t> spanning(static_cast<std::size_t>(n));
     std::int64_t count;
     {
         nb::gil_scoped_release release;
-        count = analysis::clusters(n, offsets.data(), neighbors.data(), cluster, sizes.data());
+        count = analysis::clusters(n, offsets.data(), neighbors.data(), shifts.data(),
+                                   cluster.data(), sizes.data(), images.data(), spanning.data());
     }
-    const std::size_t shape[1] = {static_cast<std::size_t>(n)};
-    auto* found = new std::int64_t[static_cast<std::size_t>(count)];
-    std::copy(sizes.begin(), sizes.begin() + count, found);
-    nb::capsule found_owner(found, [](void* p) noexcept { delete[] static_cast<std::int64_t*>(p); });
-    const std::size_t found_shape[1] = {static_cast<std::size_t>(count)};
-    return nb::make_tuple(nb::ndarray<nb::numpy, std::int64_t>(cluster, 1, shape, owner),
-                          nb::ndarray<nb::numpy, std::int64_t>(found, 1, found_shape, found_owner));
+    sizes.resize(static_cast<std::size_t>(count));
+    spanning.resize(static_cast<std::size_t>(count));
+    return nb::make_tuple(as_array(std::move(cluster)), as_array(std::move(sizes)),
+                          as_array(std::move(images)), as_array(std::move(spanning)));
 }
 
 nb::object bond_angles(Offsets offsets, Neighbors neighbors, Vectors vectors, Types type,
@@ -233,16 +241,7 @@ nb::tuple structure_factor(Positions3 positions, Matrix3 matrix, Types type, int
         nb::ndarray<nb::numpy, std::int64_t>(counted->data(), 1, count_shape, counted_owner));
 }
 
-using Shifts3 = nb::ndarray<const std::int8_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
-// A one-dimensional NumPy array that owns the memory of a vector.
-template <class T>
-nb::object as_array(std::vector<T>&& values) {
-    auto* kept = new std::vector<T>(std::move(values));
-    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<T>*>(p); });
-    const std::size_t shape[1] = {kept->size()};
-    return nb::ndarray<nb::numpy, T>(kept->data(), 1, shape, owner).cast();
-}
 
 nb::tuple atomic_strain(Offsets offsets, Neighbors neighbors, Shifts3 shifts, Positions3 reference,
                         Positions3 displacement, Matrix3 reference_matrix, Matrix3 matrix,
@@ -324,16 +323,21 @@ nb::tuple clusters_search(Positions3 positions, Matrix3 matrix, Origin3 origin, 
         }
     }
     std::vector<std::int64_t> cluster(static_cast<std::size_t>(n)), sizes(static_cast<std::size_t>(n));
+    std::vector<std::int32_t> images(3 * static_cast<std::size_t>(n));
+    std::vector<std::uint8_t> spanning(static_cast<std::size_t>(n));
     std::int64_t count = 0;
     run_released(
         [&](const Control& control) {
             count = analysis::clusters_search(positions.data(), n, matrix.data(), origin.data(),
                                               pbc.data(), type.data(), types, limits.data(),
-                                              per_pair, cluster.data(), sizes.data(), control);
+                                              per_pair, cluster.data(), sizes.data(),
+                                              images.data(), spanning.data(), control);
         },
         progress, cancel);
     sizes.resize(static_cast<std::size_t>(count));
-    return nb::make_tuple(as_array(std::move(cluster)), as_array(std::move(sizes)));
+    spanning.resize(static_cast<std::size_t>(count));
+    return nb::make_tuple(as_array(std::move(cluster)), as_array(std::move(sizes)),
+                          as_array(std::move(images)), as_array(std::move(spanning)));
 }
 
 nb::object bond_angles_search(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
@@ -393,7 +397,7 @@ void bind_analysis(nb::module_& m) {
     m.def("steinhardt", &steinhardt, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
-    m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"));
+    m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"));
     m.def("atomic_strain", &atomic_strain, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("reference"), nb::arg("displacement"),
           nb::arg("reference_matrix"), nb::arg("matrix"), nb::arg("progress") = nb::none(),

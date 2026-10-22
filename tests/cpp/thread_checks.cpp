@@ -647,6 +647,7 @@ void structure_identification() {
     std::vector<double> first_cnp;
     std::vector<double> first_strain;
     std::vector<std::int64_t> first_angles, first_histogram;
+    std::vector<std::int32_t> first_images;
     const std::vector<int> degrees = {4, 6, 12};
     for (int threads : kThreads) {
         mdapy::set_num_threads(threads);
@@ -753,14 +754,25 @@ void structure_identification() {
         std::vector<std::int64_t> listed(static_cast<std::size_t>(n)),
             searched_clusters(static_cast<std::size_t>(n)), listed_sizes(static_cast<std::size_t>(n)),
             searched_sizes(static_cast<std::size_t>(n));
+        std::vector<std::int32_t> listed_images(3 * static_cast<std::size_t>(n)),
+            searched_images(3 * static_cast<std::size_t>(n));
+        std::vector<std::uint8_t> listed_spanning(static_cast<std::size_t>(n)),
+            searched_spanning(static_cast<std::size_t>(n));
         const std::int64_t listed_count = mdapy::analysis::clusters(
-            n, bonded.offsets.data(), bonded.neighbors.data(), listed.data(), listed_sizes.data());
+            n, bonded.offsets.data(), bonded.neighbors.data(), bonded.shifts.data(), listed.data(),
+            listed_sizes.data(), listed_images.data(), listed_spanning.data());
         const std::int64_t searched_count = mdapy::analysis::clusters_search(
             positions.data(), n, matrix, origin, pbc, species.data(), 1, &bond, false,
-            searched_clusters.data(), searched_sizes.data());
+            searched_clusters.data(), searched_sizes.data(), searched_images.data(),
+            searched_spanning.data());
         check(listed_count == searched_count && listed == searched_clusters &&
-                  listed_sizes == searched_sizes,
+                  listed_sizes == searched_sizes && listed_spanning == searched_spanning,
               "clusters on the grid are those of the list for any thread count");
+        if (threads == kThreads[0]) {
+            first_images = searched_images;
+        }
+        check(searched_images == first_images,
+              "the images of the clusters on the grid are the same for any thread count");
         // bond angles on the grid and from the list
         std::vector<double> bond_vectors(3 * bonded.neighbors.size());
         mdapy::neighbor::pair_vectors(positions.data(), n, bonded.offsets.data(),

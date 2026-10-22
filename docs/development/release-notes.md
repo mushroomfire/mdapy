@@ -122,7 +122,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.analysis.AtomicTemperature`: the temperature of each atom and its
   neighbors. See [Atomic temperature](../analysis/temperature.md).
 - Defects and deformation in `mdapy.analysis`, agreeing with OVITO:
-  [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms;
+  [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms,
+  with their unwrapped positions, centers of mass, gyration tensors and
+  whether they span the box;
   [`WignerSeitz`](../analysis/wigner-seitz.md) for vacancies and
   interstitials, the sites of the reference kept in a k-d tree for every
   configuration; and [`AtomicStrain`](../analysis/atomic-strain.md), the

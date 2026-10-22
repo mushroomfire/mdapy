@@ -72,6 +72,58 @@ def test_clusters_on_the_grid_and_from_a_list_agree():
         np.testing.assert_array_equal(grid.cluster, listed.cluster)
         np.testing.assert_array_equal(grid.sizes, listed.sizes)
         assert len(grid.sizes) > 1
+        np.testing.assert_array_equal(grid.spanning, listed.spanning)
+        np.testing.assert_allclose(grid.masses, listed.masses, rtol=1e-12)
+        # the same images, whatever the order of the bonds, for clusters that
+        # do not span the box
+        closed = ~grid.spanning
+        atoms = closed[grid.cluster]
+        np.testing.assert_allclose(
+            grid.unwrapped[atoms], listed.unwrapped[atoms], rtol=0, atol=1e-12
+        )
+        for name in ("center_of_mass", "radius_of_gyration", "gyration_tensor"):
+            np.testing.assert_allclose(
+                getattr(grid, name)[closed],
+                getattr(listed, name)[closed],
+                rtol=1e-12,
+                atol=1e-12,
+            )
+    assert grid.spanning.any() and not grid.spanning.all()  # both kinds occur
+
+
+def test_clusters_unwrapped_across_the_boundary():
+    # a water molecule split by the boundary at x = 0, and an argon atom
+    system = mdapy.System(
+        [[9.8, 5, 5], [0.6, 5, 5], [9.5, 5.9, 5], [4, 4, 4]],
+        mdapy.Box(10.0),
+        elements=["O", "H", "H", "Ar"],
+    )
+    result = ClusterAnalysis(cutoff=1.2).compute(system)
+    np.testing.assert_array_equal(result.cluster, [0, 0, 0, 1])
+    whole = np.array([[9.8, 5, 5], [10.6, 5, 5], [9.5, 5.9, 5]])  # O stays in place
+    np.testing.assert_allclose(result.unwrapped[:3], whole, atol=1e-12)
+    np.testing.assert_array_equal(result.unwrapped[3], [4, 4, 4])
+    m = mdapy.elements.atomic_masses(mdapy.elements.atomic_numbers(["O", "H", "H"]))
+    center = m @ whole / m.sum()
+    delta = whole - center
+    gyration = np.einsum("i,ia,ib->ab", m, delta, delta) / m.sum()
+    np.testing.assert_allclose(result.masses[0], m.sum(), rtol=1e-12)
+    np.testing.assert_allclose(result.center_of_mass[0], center, rtol=1e-12)
+    np.testing.assert_allclose(result.gyration_tensor[0], gyration, atol=1e-12)
+    np.testing.assert_allclose(
+        result.radius_of_gyration[0], np.sqrt(np.trace(gyration)), rtol=1e-12
+    )
+    np.testing.assert_array_equal(result.center_of_mass[1], [4, 4, 4])
+    assert result.radius_of_gyration[1] == 0.0
+    # masses: a mass column first, else the elements, else unit masses
+    heavy = system.with_columns(mass=[1.0, 1.0, 1.0, 5.0])
+    weighted = ClusterAnalysis(cutoff=1.2).compute(heavy)
+    np.testing.assert_allclose(weighted.center_of_mass[0], whole.mean(axis=0))
+    np.testing.assert_array_equal(weighted.masses, [3.0, 5.0])
+    bare = ClusterAnalysis(cutoff=1.2).compute(
+        mdapy.System(system.positions, system.box)
+    )
+    np.testing.assert_array_equal(bare.masses, [3.0, 1.0])
 
 
 def test_clusters_across_the_boundary_and_per_pair():
@@ -79,9 +131,21 @@ def test_clusters_across_the_boundary_and_per_pair():
     chain = mdapy.System(
         [[0.5, 5, 5], [9.5, 5, 5], [3.0, 5, 5]], mdapy.Box(10.0), elements="Ar"
     )
-    np.testing.assert_array_equal(
-        ClusterAnalysis(cutoff=1.5).compute(chain).cluster, [0, 0, 1]
-    )
+    result = ClusterAnalysis(cutoff=1.5).compute(chain)
+    np.testing.assert_array_equal(result.cluster, [0, 0, 1])
+    assert not result.spanning.any()
+    # a chain through the box, and an atom bonded to its own image
+    wire = mdapy.System([[0.5, 5, 5], [1.5, 5, 5], [2.5, 5, 5]], mdapy.Box(3.0))
+    nl = mdapy.NeighborList.build(wire, 1.2)
+    for given in (None, nl):
+        assert ClusterAnalysis(1.2).compute(
+            wire, neighbors=given
+        ).spanning.tolist() == [True]
+    tiny = mdapy.System([[0.5, 0.5, 0.5]], mdapy.Box([1.0, 9.0, 9.0]))
+    for given in (None, mdapy.NeighborList.build(tiny, 1.2)):
+        assert ClusterAnalysis(1.2).compute(
+            tiny, neighbors=given
+        ).spanning.tolist() == [True]
     system = b2()
     like = ClusterAnalysis(cutoffs={("Cu", "Cu"): 3.0}).compute(system)
     cu = system.table["element"].to_numpy() == "Cu"

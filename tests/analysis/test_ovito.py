@@ -41,11 +41,14 @@ def placed(system, box, seed=3):
     if box == "rotated":
         q, _ = np.linalg.qr(np.random.default_rng(seed).normal(size=(3, 3)))
         q[:, 0] *= np.sign(np.linalg.det(q))
-        return mdapy.System(
+        rotated = mdapy.System(
             system.positions @ q.T + 1.5,
             mdapy.Box(system.box.matrix @ q.T, origin=[1.5, 1.5, 1.5]),
             elements=system.table["element"].to_list(),
         )
+        if "mass" in system.table.columns:
+            rotated = rotated.with_columns(mass=system.table["mass"].to_numpy())
+        return rotated
     if box == "cluster":
         return system.with_box(mdapy.Box(system.box.matrix, pbc=False))
     return system
@@ -238,4 +241,66 @@ def test_atomic_strain(box, affine):
     )
     np.testing.assert_allclose(
         ours.d2min, theirs["Nonaffine Squared Displacement"], **tolerance
+    )
+
+
+def molecules(box, seed=4):
+    """Thirty chains of 2 to 8 atoms 1.4 Å apart, scattered in a 25 Å box
+    and wrapped into it, so that boundaries cut many of them; each atom has a
+    mass of its own."""
+    rng = np.random.default_rng(seed)
+    chains = []
+    for _ in range(30):
+        steps = rng.normal(size=(rng.integers(2, 9), 3))
+        steps *= 1.4 / np.linalg.norm(steps, axis=1)[:, None]
+        steps[0] = rng.random(3) * 25.0
+        chains.append(np.cumsum(steps, axis=0))
+    positions = np.vstack(chains) % 25.0
+    system = mdapy.System(positions, mdapy.Box(25.0), elements="Ar")
+    system = system.with_columns(mass=rng.uniform(1.0, 60.0, len(positions)))
+    return placed(system, box)
+
+
+@pytest.mark.parametrize("box", ["periodic", "rotated", "cluster"])
+def test_cluster_geometry(box):
+    system = molecules(box)
+    ours = ClusterAnalysis(cutoff=1.6).compute(system)
+    output = ovito_compute(
+        system,
+        ClusterAnalysisModifier(
+            cutoff=1.6,
+            sort_by_size=True,
+            compute_com=True,
+            compute_gyration=True,
+            unwrap_particles=True,
+            output_table=True,
+        ),
+    )
+    assert not ours.spanning.any()
+    # the first atom of each cluster stays in place, the others follow it
+    np.testing.assert_allclose(
+        ours.unwrapped, output.particles["Position"], rtol=0, atol=1e-10
+    )
+    if box != "cluster":
+        assert np.abs(ours.unwrapped - system.positions).max() > 10  # some were cut
+    table = output.tables["clusters"]
+    row = {int(c): r for r, c in enumerate(table["Cluster Identifier"])}
+    theirs = np.asarray(output.particles["Cluster"])
+    first = [np.flatnonzero(ours.cluster == c)[0] for c in range(len(ours.sizes))]
+    rows = [row[theirs[i]] for i in first]
+    np.testing.assert_allclose(
+        ours.center_of_mass, np.asarray(table["Center of Mass"])[rows], atol=1e-10
+    )
+    np.testing.assert_allclose(
+        ours.radius_of_gyration,
+        np.asarray(table["Radius of Gyration"])[rows],
+        rtol=1e-10,
+        atol=1e-10,
+    )
+    g = ours.gyration_tensor
+    voigt = np.stack(
+        [g[:, 0, 0], g[:, 1, 1], g[:, 2, 2], g[:, 0, 1], g[:, 0, 2], g[:, 1, 2]], axis=1
+    )
+    np.testing.assert_allclose(
+        voigt, np.asarray(table["Gyration Tensor"])[rows], rtol=1e-10, atol=1e-10
     )

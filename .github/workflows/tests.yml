@@ -103,6 +103,22 @@ jobs:
           "
       # OVITO for the comparisons with OVITO, at its reference version
       - run: pip install ovito==3.17.0
+      # atomsk for the comparisons of the structure builder, at its reference
+      # version, built once; it needs the Fortran and LAPACK libraries to run
+      - run: sudo apt-get update -q && sudo apt-get install -y -q gfortran liblapack-dev
+      - uses: actions/cache@v4
+        id: atomsk
+        with:
+          path: atomsk-bin
+          key: atomsk-Beta-0.13.1-${{ runner.os }}
+      - name: Build atomsk
+        if: steps.atomsk.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch Beta-0.13.1 https://github.com/pierrehirel/atomsk.git
+          make -C atomsk/src -j 4 atomsk
+          mkdir -p atomsk-bin && cp atomsk/src/atomsk atomsk-bin/
+      - run: echo "$PWD/atomsk-bin" >> "$GITHUB_PATH"
+      - run: atomsk --version | grep -q "Beta 0.13.1"
       - run: python -c "import ovito; assert ovito.version_string == '3.17.0'"
       - name: Test with coverage (total >= 90 %)
         run: pytest -q --cov --cov-report=term --cov-report=json

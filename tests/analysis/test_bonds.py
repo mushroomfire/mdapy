@@ -140,6 +140,10 @@ def test_warren_cowley_of_ordered_and_random_alloys():
         WarrenCowley(num_neighbors=12).compute(system, neighbors=nl).alpha,
         WarrenCowley(num_neighbors=12).compute(system).alpha,
     )
+    # by cutoff, counted on the grid or from a list
+    np.testing.assert_array_equal(
+        WarrenCowley(cutoff=3.0).compute(system, neighbors=nl).alpha, random.alpha
+    )
 
 
 def test_warren_cowley_errors():

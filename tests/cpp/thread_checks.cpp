@@ -431,6 +431,15 @@ void structure_identification() {
             }
         }
     }
+    std::vector<double> masses(static_cast<std::size_t>(n)), velocities(3 * static_cast<std::size_t>(n));
+    std::normal_distribution<double> thermal(0.0, 3.0);
+    for (std::int64_t i = 0; i < n; ++i) {
+        masses[i] = i % 2 == 0 ? 63.5 : 58.7;
+        for (int e = 0; e < 3; ++e) {
+            velocities[3 * i + e] = thermal(random);
+        }
+    }
+    std::vector<double> first_temperature;
     std::vector<std::int8_t> first_types, first_water;
     std::vector<double> first_csp, first_q, first_entropy, first_factor;
     std::vector<double> first_cnp;
@@ -451,6 +460,15 @@ void structure_identification() {
             first_cnp = cnp;
         }
         check(cnp == first_cnp, "the common neighbor parameter is the same for any thread count");
+        std::vector<double> temperature(static_cast<std::size_t>(n));
+        mdapy::analysis::atomic_temperature(n, pairs.offsets.data(), pairs.neighbors.data(),
+                                            masses.data(), velocities.data(), 1.0, 1.0,
+                                            temperature.data());
+        if (threads == kThreads[0]) {
+            first_temperature = temperature;
+        }
+        check(temperature == first_temperature,
+              "the atomic temperature is the same for any thread count");
         std::vector<double> q(static_cast<std::size_t>(n) * degrees.size());
         mdapy::analysis::steinhardt(n, pairs.offsets.data(), pairs.neighbors.data(),
                                     vectors.data(), degrees, true, q.data());

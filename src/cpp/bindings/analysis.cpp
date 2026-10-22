@@ -403,6 +403,30 @@ nb::object bond_angles_search(Positions3 positions, Matrix3 matrix, Origin3 orig
     return result;
 }
 
+nb::object atomic_temperature_search(Positions3 positions, Matrix3 matrix, Origin3 origin,
+                                     Periodic pbc, double cutoff, Values mass,
+                                     Positions3 velocities, double energy_unit, double boltzmann,
+                                     nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (mass.shape(0) != static_cast<std::size_t>(n) ||
+        velocities.shape(0) != static_cast<std::size_t>(n)) {
+        throw std::invalid_argument("the masses and velocities do not fit the atoms");
+    }
+    if (!(cutoff > 0.0)) {
+        throw std::invalid_argument("cutoff must be positive");
+    }
+    std::vector<double> temperature(static_cast<std::size_t>(n));
+    run_released(
+        [&](const Control& control) {
+            analysis::atomic_temperature_search(positions.data(), n, matrix.data(), origin.data(),
+                                                pbc.data(), cutoff, mass.data(),
+                                                velocities.data(), energy_unit, boltzmann,
+                                                temperature.data(), control);
+        },
+        progress, cancel);
+    return as_array(std::move(temperature));
+}
+
 void bind_analysis(nb::module_& m) {
     m.def("steinhardt", &steinhardt, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
@@ -444,6 +468,10 @@ void bind_analysis(nb::module_& m) {
     m.def("bond_angles_search", &bond_angles_search, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("origin"), nb::arg("pbc"), nb::arg("type"), nb::arg("types"),
           nb::arg("limits"), nb::arg("per_pair"), nb::arg("bins"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("atomic_temperature_search", &atomic_temperature_search, nb::arg("positions"),
+          nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"), nb::arg("cutoff"),
+          nb::arg("mass"), nb::arg("velocities"), nb::arg("energy_unit"), nb::arg("boltzmann"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("bond_angles", &bond_angles, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("vectors"),
           nb::arg("type"), nb::arg("types"), nb::arg("bins"), nb::arg("progress") = nb::none(),

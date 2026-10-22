@@ -90,6 +90,10 @@ simulations and its implementation in LAMMPS, *Comput. Mater. Sci.* **175**,
 [doi:10.1088/0370-1298/65/5/307](https://doi.org/10.1088/0370-1298/65/5/307)
 { #hill1952 }
 
+**Hirth and Lothe (1982).** J. P. Hirth and J. Lothe, *Theory of
+Dislocations*, 2nd ed. (Wiley, New York, 1982).
+{ #hirth1982 }
+
 **Honeycutt and Andersen (1987).** J. D. Honeycutt and H. C. Andersen,
 Molecular dynamics study of melting and freezing of small Lennard-Jones
 clusters, *J. Phys. Chem.* **91**, 4950 (1987).
@@ -228,6 +232,11 @@ Misfit-energy-increasing dislocations in vapor-deposited CoFe/NiFe
 multilayers, *Phys. Rev. B* **69**, 144113 (2004).
 [doi:10.1103/PhysRevB.69.144113](https://doi.org/10.1103/PhysRevB.69.144113)
 { #zhou2004 }
+
+**Zunger et al. (1990).** A. Zunger, S.-H. Wei, L. G. Ferreira and J. E.
+Bernard, Special quasirandom structures, *Phys. Rev. Lett.* **65**, 353
+(1990). [doi:10.1103/PhysRevLett.65.353](https://doi.org/10.1103/PhysRevLett.65.353)
+{ #zunger1990 }
 
 **Ziegler et al. (1985).** J. F. Ziegler, J. P. Biersack and U. Littmark,
 *The Stopping and Range of Ions in Solids* (Pergamon, New York, 1985).

@@ -92,6 +92,10 @@ column of fixed-size arrays of length 3 and use the plural name.
 | lattice constants (Å) | `a`, `c` | `lattice_constant` |
 | crystal directions along the box vectors | `orientation` | `miller1`, `miller2`, `miller3` |
 | number of periods along the box vectors | `repeat` | `nx`, `ny`, `nz` |
+| atoms chosen by index or mask, or a number of them at random | `atoms=`, `count` | `index`, `num` |
+| Burgers vector (Å), dislocation line and normal of the cut | `burgers`, `line`, `normal` | `b`, `xi`, `n` |
+| shells of neighbors of a lattice | `shells` | `nshell` |
+| seeds of grains, or their number | `grains` | `seed_number`, `seed_position` |
 | prebuilt neighbor list | `neighbors=` (keyword-only) | |
 | systems of a trajectory | `frames` | `pos_list`, `traj` |
 | average over every time origin | `window` (bool) | `mode` |

@@ -41,6 +41,9 @@ NB_MODULE(_core, m) {
     nb::module_ analysis = m.def_submodule("analysis", "Analyses of the properties of systems.");
     mdapy::bindings::bind_analysis(analysis);
 
+    nb::module_ build = m.def_submodule("build", "Structure builder.");
+    mdapy::bindings::bind_build(build);
+
     nb::module_ identify = m.def_submodule("identify", "Structure identification.");
     mdapy::bindings::bind_identify(identify);
 

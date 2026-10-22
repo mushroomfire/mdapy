@@ -135,6 +135,10 @@ nav:
   - Structure builder:
       - Crystals: build/crystals.md
       - Random alloys: build/alloys.md
+      - Special quasirandom structures: build/sqs.md
+      - Point defects, stacking faults and surfaces: build/defects.md
+      - Dislocations: build/dislocations.md
+      - Polycrystals and twins: build/polycrystals.md
   - Simulation:
       - Calculators:
           - The calculator interface: simulation/calculators.md

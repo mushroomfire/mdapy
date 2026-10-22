@@ -119,6 +119,28 @@ import mdapy
 
 ::: mdapy.build.random_alloy
 
+::: mdapy.build.sqs_alloy
+
+::: mdapy.build.add_vacancies
+
+::: mdapy.build.add_interstitials
+
+::: mdapy.build.substitute
+
+::: mdapy.build.slip
+
+::: mdapy.build.add_vacuum
+
+::: mdapy.build.insert_dislocation
+
+::: mdapy.build.edge_dislocation
+
+::: mdapy.build.build_polycrystal
+
+::: mdapy.build.random_rotations
+
+::: mdapy.build.twin_lamellae
+
 ## Calculators
 
 ::: mdapy.calculators.Calculator

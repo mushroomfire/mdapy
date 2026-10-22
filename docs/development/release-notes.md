@@ -152,6 +152,18 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   the same atoms as atomsk. See [Crystals](../build/crystals.md).
 - `mdapy.build.random_alloy`: elements at random in given fractions with
   exact counts. See [Random alloys](../build/alloys.md).
+- `mdapy.build.sqs_alloy`: special quasirandom structures, the pairs of the
+  nearest shells those of a random alloy. See
+  [SQS](../build/sqs.md).
+- Defects in `mdapy.build`: `add_vacancies`, `add_interstitials` and
+  `substitute`; `slip` for stacking faults; `add_vacuum` for surfaces;
+  `insert_dislocation`, the isotropic screw and edge dislocations of
+  atomsk, and `edge_dislocation` of two crystals. See
+  [Point defects](../build/defects.md) and
+  [Dislocations](../build/dislocations.md).
+- `mdapy.build.build_polycrystal`: Voronoi grains of any periodic unit,
+  columnar when the box is thin, and `twin_lamellae` for twinned grains. See
+  [Polycrystals](../build/polycrystals.md).
 
 ### Foundations
 

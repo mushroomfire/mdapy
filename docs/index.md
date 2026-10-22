@@ -26,7 +26,7 @@ neighbors feed the analyses and the calculators. Dashed parts are planned.
 ```mermaid
 flowchart TB
     files[("<b>Files</b><br/>extended XYZ · LAMMPS · POSCAR · mdapy")]
-    build["<b>Structure builder</b><br/>crystals · alloys<br/>polycrystals · defects · packing"]
+    build["<b>Structure builder</b><br/>crystals · alloys · defects<br/>polycrystals · packing"]
     system(["<b>System</b><br/>box · topology · trajectory"])
     neighbors(["<b>Neighbor lists</b>"])
     visual["<b>Visualization</b><br/>rendering · plots"]
@@ -135,10 +135,13 @@ flowchart TB
 
     ---
 
-    Build crystals and alloys; polycrystals, defects and packed molecules
-    are planned.
+    Build crystals, alloys, defects and polycrystals; packed molecules are
+    planned.
 
-    [Crystals](build/crystals.md) · [random alloys](build/alloys.md)
+    [Crystals](build/crystals.md) · [random alloys](build/alloys.md) ·
+    [SQS](build/sqs.md) · [point defects and faults](build/defects.md) ·
+    [dislocations](build/dislocations.md) ·
+    [polycrystals](build/polycrystals.md)
 
 -   :mdapy-simulation:{ .lg .middle } **Simulation**
 

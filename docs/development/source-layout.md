@@ -41,6 +41,10 @@
 | `src/mdapy/analysis/_dynamics.py` | `MeanSquaredDisplacement`, `LindemannIndex`. |
 | `src/mdapy/build/_crystal.py` | `build_crystal` and its table of structures. |
 | `src/mdapy/build/_alloy.py` | `random_alloy`. |
+| `src/mdapy/build/_sqs.py`, `src/cpp/build/sqs.cpp` | `sqs_alloy` and its annealing. |
+| `src/mdapy/build/_defects.py` | point defects, `slip`, `add_vacuum`. |
+| `src/mdapy/build/_dislocation.py` | `insert_dislocation`, `edge_dislocation`. |
+| `src/mdapy/build/_polycrystal.py` | `build_polycrystal`, `twin_lamellae`. |
 | `src/mdapy/analysis/_bonds.py` | `ClusterAnalysis`, `BondAngleDistribution`, `WarrenCowley`, and bonds by cutoff per pair of elements. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |

@@ -19,10 +19,6 @@ theme:
     - content.code.copy
     - toc.follow
   palette:
-    - media: "(prefers-color-scheme)"
-      toggle:
-        icon: material/brightness-auto
-        name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
       primary: indigo
@@ -35,8 +31,8 @@ theme:
       primary: indigo
       accent: indigo
       toggle:
-        icon: material/brightness-auto
-        name: Switch to system preference
+        icon: material/weather-sunny
+        name: Switch to light mode
   icon:
     repo: fontawesome/brands/github
 

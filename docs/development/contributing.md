@@ -25,7 +25,9 @@ The site has one tab per kind of content, each a directory of `docs/`:
 | Analysis | `analysis/` | analyses of structures and trajectories, in sections: structure identification; local order and distributions; defects and deformation; dynamics |
 | Structure builder | `build/` | building structures (crystals, polycrystals, defects, alloys, packed molecules) and transforming them |
 | Simulation | `simulation/` | calculators; minimization and dynamics (molecular dynamics through other programs); lattice dynamics (elastic constants, force constants, phonons) |
-| Rendering | `rendering/` | images of systems |
+| MLIP | `mlip/` | training data for machine-learned potentials: descriptors and their principal components, selection of frames, training sets from first-principles calculations |
+| Visualization | `visualization/` | rendering images of systems; plot templates for results |
+| Performance | `performance/` | timings of mdapy and of other programs |
 | Reference | `reference/` | file formats, units and conventions, elements, the glossary, the references and the Python API |
 | Development | `development/` | contributing, the source layout and the release notes |
 
@@ -83,8 +85,10 @@ generated from them.
       systems;
     - finite differences for forces and virials;
     - round trips and hand-written examples for file formats.
-- Results are not compared against snapshots produced by other analysis
-  software.
+- Where LAMMPS or OVITO implements the same method, the tests compare with
+  it, run live at the reference versions, LAMMPS stable_30Sep2026 and OVITO
+  3.17.0; they are skipped where these are not installed. Results are never
+  compared against stored snapshots of other software.
 - Parallel code is tested for identical results across thread counts.
 - Error paths are tested: invalid input raises the documented exception.
 - Comparisons state their tolerance and why, and failure messages show the

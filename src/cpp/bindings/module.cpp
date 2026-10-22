@@ -47,6 +47,9 @@ NB_MODULE(_core, m) {
     nb::module_ identify = m.def_submodule("identify", "Structure identification.");
     mdapy::bindings::bind_identify(identify);
 
+    nb::module_ visualization = m.def_submodule("visualization", "Rendering of pictures.");
+    mdapy::bindings::bind_visualization(visualization);
+
     nb::module_ testing = m.def_submodule("testing", "Kernels used only by the test suite.");
     mdapy::bindings::bind_testing(testing);
 }

@@ -16,7 +16,7 @@
 .md-typeset .grid.cards > ul > li:nth-child(3) { border-top-color: #16a34a; }
 .md-typeset .grid.cards > ul > li:nth-child(4) { border-top-color: #9333ea; }
 .md-typeset .grid.cards > ul > li:nth-child(5) { border-top-color: #0d9488; border-top-style: dashed; }
-.md-typeset .grid.cards > ul > li:nth-child(6) { border-top-color: #db2777; border-top-style: dashed; }
+.md-typeset .grid.cards > ul > li:nth-child(6) { border-top-color: #db2777; }
 .md-typeset .grid.cards > ul > li:nth-child(7) { border-top-color: #d97706; border-top-style: dashed; }
 .md-typeset .grid.cards > ul > li:nth-child(8) { border-top-color: #64748b; }
 .md-typeset .grid.cards .lg {

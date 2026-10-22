@@ -1,0 +1,648 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This file is part of mdapy, released under the BSD 3-Clause License.
+
+"""Pictures of atoms: a scene of spheres, cylinders and polygons, rendered by
+ray tracing."""
+
+import struct
+import zlib
+from collections.abc import Sequence
+from os import PathLike
+from typing import Any
+
+import numpy as np
+from numpy.typing import ArrayLike
+
+from mdapy._core import visualization as _native
+from mdapy.core.box import Box
+from mdapy.core.threads import _native_token
+from mdapy.errors import InvalidParameter
+from mdapy.visualization._elements import DEFAULT, ELEMENTS
+
+#: The looks of a picture: lights, shadows, ambient occlusion and outlines.
+STYLES: dict[str, dict[str, Any]] = {
+    # soft studio light with ambient occlusion and shadows
+    "studio": {},
+    # flat colors darkened by ambient occlusion, with outlines, after the
+    # pictures of D. Goodsell
+    "goodsell": {
+        "flat": True,
+        "ao_strength": 0.6,
+        "ao_samples": 12,
+        "shadows": False,
+        "outline_width": 1.2,
+    },
+    # glossy spheres
+    "glossy": {
+        "ambient": 0.2,
+        "diffuse": 0.8,
+        "specular": 0.7,
+        "shininess": 90.0,
+        "shadow_strength": 0.6,
+    },
+    # cel shading with outlines
+    "toon": {
+        "toon_levels": 3,
+        "ao_samples": 0,
+        "shadows": False,
+        "outline_width": 1.2,
+        "specular": 0.35,
+    },
+    # flat colors with an outline around every atom
+    "flat": {
+        "flat": True,
+        "ao_samples": 0,
+        "shadows": False,
+        "outline_width": 1.0,
+        "outline_depth": 0.0,
+    },
+    # quick: no occlusion, no shadows, one sample per pixel
+    "preview": {"ao_samples": 0, "shadows": False, "supersample": 1},
+}
+
+_DEFAULTS = {
+    "ambient": 0.35,
+    "diffuse": 0.75,
+    "specular": 0.25,
+    "shininess": 40.0,
+    "key": (-0.45, 0.6, 0.66),
+    "fill": (0.6, -0.2, 0.77),
+    "fill_intensity": 0.25,
+    "ao_samples": 8,
+    "ao_distance": None,  # 3 times the median radius
+    "ao_strength": 0.7,
+    "shadows": True,
+    "shadow_strength": 0.45,
+    "flat": False,
+    "toon_levels": 0,
+    "outline_width": 0.0,
+    "outline_depth": None,  # half the median radius
+    "outline_color": (0.0, 0.0, 0.0),
+    "fog": 0.0,
+    "supersample": 2,
+}
+
+#: Directions of view: (forward, up).
+VIEWS: dict[str, tuple[tuple[float, float, float], tuple[float, float, float]]] = {
+    "top": ((0, 0, -1), (0, 1, 0)),
+    "bottom": ((0, 0, 1), (0, -1, 0)),
+    "front": ((0, 1, 0), (0, 0, 1)),
+    "back": ((0, -1, 0), (0, 0, 1)),
+    "left": ((1, 0, 0), (0, 0, 1)),
+    "right": ((-1, 0, 0), (0, 0, 1)),
+    "iso": ((-1, -1, -1), (0, 0, 1)),
+}
+
+# Colormaps, sRGB from 0 to 1 at equal steps.
+_COLORMAPS = {
+    "viridis": ["#440154", "#482878", "#3e4a89", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6dcd59", "#b4de2c", "#fde725"],
+    "plasma": ["#0d0887", "#46039f", "#7201a8", "#9c179e", "#bd3786", "#d8576b", "#ed7953", "#fb9f3a", "#fdca26", "#f0f921"],
+    "coolwarm": ["#3b4cc0", "#6688ee", "#88bbff", "#b8d0f9", "#dddddd", "#f5c4ad", "#f49a7b", "#de604d", "#b40426"],
+    "jet": ["#00007f", "#0000ff", "#007fff", "#00ffff", "#7fff7f", "#ffff00", "#ff7f00", "#ff0000", "#7f0000"],
+    "gray": ["#000000", "#ffffff"],
+}  # fmt: skip
+
+
+def _hex(code: str) -> tuple[float, float, float]:
+    return tuple(int(code[k : k + 2], 16) / 255 for k in (1, 3, 5))  # type: ignore[return-value]
+
+
+def colormap(
+    values: ArrayLike, name: str = "viridis", value_range: Sequence[float] | None = None
+) -> np.ndarray:
+    """Colors of values through a colormap.
+
+    Parameters
+    ----------
+    values : array_like
+        (N,) the values.
+    name : str, optional
+        One of viridis, plasma, coolwarm, jet and gray. Default viridis.
+    value_range : sequence of float, optional
+        (low, high) values of the two ends; by default the smallest and the
+        largest finite value.
+
+    Returns
+    -------
+    numpy.ndarray
+        (N, 3) sRGB colors from 0 to 1.
+    """
+    if name not in _COLORMAPS:
+        raise InvalidParameter(
+            f"colormap must be one of {tuple(_COLORMAPS)}, not {name!r}"
+        )
+    v = np.asarray(values, dtype=float).reshape(-1)
+    if value_range is None:
+        finite = v[np.isfinite(v)]
+        low, high = (finite.min(), finite.max()) if len(finite) else (0.0, 1.0)
+    else:
+        low, high = (float(x) for x in value_range)
+    span = high - low if high > low else 1.0
+    t = np.clip(np.nan_to_num((v - low) / span), 0.0, 1.0)
+    table = np.array([_hex(c) for c in _COLORMAPS[name]])
+    x = np.linspace(0, 1, len(table))
+    return np.stack([np.interp(t, x, table[:, c]) for c in range(3)], axis=1)
+
+
+def _linear(srgb: np.ndarray) -> np.ndarray:
+    """Linear RGB of sRGB colors from 0 to 1."""
+    c = np.clip(np.asarray(srgb, dtype=float), 0.0, 1.0)
+    return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+
+
+def _color(value: Any) -> np.ndarray:
+    """An sRGB color from 0 to 1: a name of the form #rrggbb or a triplet."""
+    if isinstance(value, str):
+        if len(value) == 7 and value.startswith("#"):
+            return np.array(_hex(value))
+        named = {"white": "#ffffff", "black": "#000000", "gray": "#808080", "red": "#d62728", "blue": "#1f77b4", "green": "#2ca02c"}  # fmt: skip
+        if value in named:
+            return np.array(_hex(named[value]))
+        raise InvalidParameter(f"unknown color {value!r}")
+    color = np.asarray(value, dtype=float).reshape(-1)
+    if color.shape != (3,):
+        raise InvalidParameter(f"a color is three numbers from 0 to 1, not {value!r}")
+    return color
+
+
+def element_colors(elements: Sequence[str]) -> np.ndarray:
+    """(N, 3) default sRGB colors of elements, from 0 to 1."""
+    return np.array([ELEMENTS.get(e, DEFAULT)[:3] for e in elements], dtype=float) / 255
+
+
+def element_radii(elements: Sequence[str]) -> np.ndarray:
+    """(N,) default display radii of elements in Å."""
+    return np.array([ELEMENTS.get(e, DEFAULT)[3] for e in elements], dtype=float)
+
+
+def write_png(path: str | PathLike, image: np.ndarray) -> None:
+    """Writes an RGBA image to a PNG file.
+
+    Parameters
+    ----------
+    path : str or path-like
+        The file.
+    image : numpy.ndarray
+        (H, W, 4) uint8 image, rows from the top.
+    """
+    image = np.ascontiguousarray(image, dtype=np.uint8)
+    if image.ndim != 3 or image.shape[2] != 4:
+        raise InvalidParameter("the image must be (height, width, 4) RGBA")
+    height, width = image.shape[:2]
+    raw = np.zeros((height, 1 + 4 * width), dtype=np.uint8)  # filter 0 on each row
+    raw[:, 1:] = image.reshape(height, -1)
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(data))
+            + tag
+            + data
+            + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+        )
+
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n")
+        f.write(chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)))
+        f.write(chunk(b"IDAT", zlib.compress(raw.tobytes(), 6)))
+        f.write(chunk(b"IEND", b""))
+
+
+class Scene:
+    """Spheres, cylinders and polygons to render.
+
+    Colors are sRGB from 0 to 1, lengths in Å.
+    """
+
+    def __init__(self) -> None:
+        self._spheres: list[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
+        self._cylinders: list[
+            tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        ] = []
+        self._triangles: list[
+            tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        ] = []
+        self._next_id = 0
+
+    def _ids(self, count: int, ids: ArrayLike | None) -> np.ndarray:
+        if ids is None:
+            ids = np.arange(self._next_id, self._next_id + count)
+        ids = np.asarray(ids, dtype=np.int64).reshape(-1)
+        if len(ids) != count or (count and ids.min() < 0):
+            raise InvalidParameter("ids must be one non-negative integer per primitive")
+        if count:
+            self._next_id = max(self._next_id, int(ids.max()) + 1)
+        return ids.astype(np.int32)
+
+    @classmethod
+    def _colors(cls, count: int, value: Any) -> np.ndarray:
+        if isinstance(value, str):
+            value = _color(value)
+        return cls._per(count, value, 3, "colors")
+
+    @staticmethod
+    def _per(count: int, value: ArrayLike, width: int, name: str) -> np.ndarray:
+        array = np.asarray(value, dtype=float)
+        if array.ndim == (0 if width == 1 else 1):
+            array = np.broadcast_to(array, (count,) if width == 1 else (count, width))
+        expected = (count,) if width == 1 else (count, width)
+        if array.shape != expected:
+            raise InvalidParameter(
+                f"{name} must have shape {expected}, not {array.shape}"
+            )
+        return np.array(array, dtype=float)
+
+    def add_spheres(
+        self,
+        centers: ArrayLike,
+        radii: ArrayLike,
+        colors: ArrayLike,
+        *,
+        ids: ArrayLike | None = None,
+    ) -> None:
+        """Adds spheres, such as atoms.
+
+        Parameters
+        ----------
+        centers : array_like
+            (N, 3) centers.
+        radii : float or array_like
+            Radius of every sphere, or (N,) each.
+        colors : array_like
+            One color, as three numbers from 0 to 1 or a name such as
+            "#rrggbb", or (N, 3) each.
+        ids : array_like, optional
+            (N,) non-negative ids; outlines separate different ids. Default
+            new ids, one per sphere.
+        """
+        c = np.asarray(centers, dtype=float).reshape(-1, 3)
+        n = len(c)
+        self._spheres.append(
+            (
+                c,
+                self._per(n, radii, 1, "radii"),
+                self._colors(n, colors),
+                self._ids(n, ids),
+            )
+        )
+
+    def add_cylinders(
+        self,
+        starts: ArrayLike,
+        ends: ArrayLike,
+        radii: ArrayLike,
+        colors: ArrayLike,
+        *,
+        ids: ArrayLike | None = None,
+    ) -> None:
+        """Adds cylinders without caps, such as bonds.
+
+        Parameters
+        ----------
+        starts, ends : array_like
+            (M, 3) the two ends of each cylinder.
+        radii : float or array_like
+            Radius of every cylinder, or (M,) each.
+        colors : array_like
+            One color, or (M, 3) each.
+        ids : array_like, optional
+            (M,) non-negative ids. Default new ids.
+        """
+        a = np.asarray(starts, dtype=float).reshape(-1, 3)
+        b = np.asarray(ends, dtype=float).reshape(-1, 3)
+        if a.shape != b.shape:
+            raise InvalidParameter("starts and ends must have the same shape")
+        m = len(a)
+        self._cylinders.append(
+            (
+                np.hstack([a, b]),
+                self._per(m, radii, 1, "radii"),
+                self._colors(m, colors),
+                self._ids(m, ids),
+            )
+        )
+
+    def add_triangles(
+        self,
+        vertices: ArrayLike,
+        colors: ArrayLike,
+        *,
+        alpha: ArrayLike = 1.0,
+        ids: ArrayLike | None = None,
+    ) -> None:
+        """Adds triangles, seen from both sides.
+
+        Parameters
+        ----------
+        vertices : array_like
+            (T, 3, 3) the corners of each triangle.
+        colors : array_like
+            One color, or (T, 3) each.
+        alpha : float or array_like, optional
+            Opacity from 0 to 1 of every triangle, or (T,) each. Default 1.
+        ids : array_like, optional
+            (T,) non-negative ids. Default new ids.
+        """
+        v = np.asarray(vertices, dtype=float).reshape(-1, 9)
+        t = len(v)
+        opacity = self._per(t, alpha, 1, "alpha")
+        if ((opacity < 0) | (opacity > 1)).any():
+            raise InvalidParameter("alpha must be from 0 to 1")
+        self._triangles.append(
+            (v, self._colors(t, colors), opacity, self._ids(t, ids))
+        )
+
+    def add_polygons(
+        self,
+        vertices: ArrayLike,
+        corner_offsets: ArrayLike,
+        corners: ArrayLike,
+        colors: ArrayLike,
+        *,
+        alpha: ArrayLike = 1.0,
+        ids: ArrayLike | None = None,
+    ) -> None:
+        """Adds convex polygons, such as the faces of Voronoi cells.
+
+        Parameters
+        ----------
+        vertices : array_like
+            (V, 3) points.
+        corner_offsets : array_like
+            (F + 1,) the corners of polygon f are
+            ``corners[corner_offsets[f]:corner_offsets[f + 1]]``.
+        corners : array_like
+            (C,) the vertex of each corner, in order around its polygon.
+        colors : array_like
+            One color, or (F, 3) each.
+        alpha : float or array_like, optional
+            Opacity of every polygon, or (F,) each. Default 1.
+        ids : array_like, optional
+            (F,) ids, the same for the triangles of a polygon. Default new
+            ids.
+        """
+        points = np.asarray(vertices, dtype=float).reshape(-1, 3)
+        offsets = np.asarray(corner_offsets, dtype=np.int64)
+        loops = np.asarray(corners, dtype=np.int64)
+        f = len(offsets) - 1
+        colors = self._colors(f, colors)
+        opacity = self._per(f, alpha, 1, "alpha")
+        polygon_ids = self._ids(f, ids)
+        # a fan from the first corner of each polygon
+        size = np.diff(offsets)
+        if (size < 3).any():
+            raise InvalidParameter("a polygon has fewer than three corners")
+        owner = np.repeat(np.arange(f), size - 2)
+        step = np.arange(len(owner)) - np.repeat(
+            np.cumsum(size - 2) - (size - 2), size - 2
+        )
+        first = loops[offsets[owner]]
+        second = loops[offsets[owner] + 1 + step]
+        third = loops[offsets[owner] + 2 + step]
+        triangles = np.stack([points[first], points[second], points[third]], axis=1)
+        self.add_triangles(
+            triangles, colors[owner], alpha=opacity[owner], ids=polygon_ids[owner]
+        )
+
+    def add_box(
+        self, box: Box, *, radius: float = 0.15, color: Any = (0.0, 0.0, 0.0)
+    ) -> None:
+        """Adds the twelve edges of a box, with a sphere on each corner.
+
+        Parameters
+        ----------
+        box : Box
+            The box.
+        radius : float, optional
+            Radius of the edges in Å. Default 0.15.
+        color : color, optional
+            Default black.
+        """
+        h, o = box.matrix, box.origin
+        corners = np.array(
+            [
+                o + i * h[0] + j * h[1] + k * h[2]
+                for i in (0, 1)
+                for j in (0, 1)
+                for k in (0, 1)
+            ]
+        )
+        edges = [
+            (a, b)
+            for a in range(8)
+            for b in range(a + 1, 8)
+            if bin(a ^ b).count("1") == 1
+        ]
+        start = np.array([corners[a] for a, _ in edges])
+        end = np.array([corners[b] for _, b in edges])
+        rgb = _color(color)
+        edge_id = self._next_id
+        self.add_cylinders(start, end, radius, rgb, ids=np.full(12, edge_id))
+        self.add_spheres(corners, radius, rgb, ids=np.full(8, edge_id))
+
+    def _arrays(self) -> dict[str, np.ndarray]:
+        def join(parts: list, k: int, shape: tuple[int, ...], dtype: Any) -> np.ndarray:
+            if not parts:
+                return np.zeros(shape, dtype=dtype)
+            return np.ascontiguousarray(
+                np.concatenate([p[k] for p in parts]), dtype=dtype
+            )
+
+        f32 = np.float32
+        return {
+            "sphere_center": join(self._spheres, 0, (0, 3), f32),
+            "sphere_radius": join(self._spheres, 1, (0,), f32),
+            "sphere_color": np.ascontiguousarray(
+                _linear(join(self._spheres, 2, (0, 3), float)), dtype=f32
+            ),
+            "sphere_id": join(self._spheres, 3, (0,), np.int32),
+            "cylinder_end": join(self._cylinders, 0, (0, 6), f32),
+            "cylinder_radius": join(self._cylinders, 1, (0,), f32),
+            "cylinder_color": np.ascontiguousarray(
+                _linear(join(self._cylinders, 2, (0, 3), float)), dtype=f32
+            ),
+            "cylinder_id": join(self._cylinders, 3, (0,), np.int32),
+            "triangle_vertex": join(self._triangles, 0, (0, 9), f32),
+            "triangle_color": np.ascontiguousarray(
+                _linear(join(self._triangles, 1, (0, 3), float)), dtype=f32
+            ),
+            "triangle_alpha": join(self._triangles, 2, (0,), f32),
+            "triangle_id": join(self._triangles, 3, (0,), np.int32),
+        }
+
+    def _points(self) -> tuple[np.ndarray, np.ndarray]:
+        """Points of the scene with the radius around each, for the camera."""
+        points, pad = [np.zeros((0, 3))], [np.zeros(0)]
+        for c, r, _, _ in self._spheres:
+            points.append(c)
+            pad.append(r)
+        for ends, r, _, _ in self._cylinders:
+            points += [ends[:, :3], ends[:, 3:]]
+            pad += [r, r]
+        for v, _, _, _ in self._triangles:
+            points.append(v.reshape(-1, 3))
+            pad.append(np.zeros(len(v) * 3))
+        return np.concatenate(points), np.concatenate(pad)
+
+    def render(
+        self,
+        path: str | PathLike | None = None,
+        *,
+        width: int = 1200,
+        height: int = 900,
+        view: str | ArrayLike = "iso",
+        up: ArrayLike | None = None,
+        perspective: bool = False,
+        fov: float = 30.0,
+        zoom: float = 1.0,
+        style: str = "studio",
+        background: Any = "white",
+        progress: Any = None,
+        cancel: Any = None,
+        **options: Any,
+    ) -> np.ndarray:
+        """Renders the scene, framed to fill the picture.
+
+        Parameters
+        ----------
+        path : str or path-like, optional
+            A PNG file to write the picture to.
+        width, height : int, optional
+            Size of the picture in pixels. Default 1200 by 900.
+        view : str or array_like, optional
+            One of top, bottom, front, back, left, right and iso, or the
+            (3,) direction of view. Default iso.
+        up : array_like, optional
+            (3,) the direction up in the picture. Default that of the view,
+            or z.
+        perspective : bool, optional
+            A perspective camera, or orthographic. Default False.
+        fov : float, optional
+            Vertical angle of view of a perspective camera in degrees.
+            Default 30.
+        zoom : float, optional
+            Magnification of the framed scene. Default 1.
+        style : str, optional
+            One of ``STYLES``. Default studio.
+        background : color or None, optional
+            The background, or None for transparent. Default white.
+        progress, cancel : optional
+            Progress reports and cancellation.
+        **options
+            Settings of the style to change: ambient, diffuse, specular,
+            shininess, key, fill, fill_intensity, ao_samples, ao_distance,
+            ao_strength, shadows, shadow_strength, flat, toon_levels,
+            outline_width, outline_depth, outline_color, fog, supersample.
+
+        Returns
+        -------
+        numpy.ndarray
+            (height, width, 4) uint8 RGBA picture, rows from the top.
+        """
+        if style not in STYLES:
+            raise InvalidParameter(
+                f"style must be one of {tuple(STYLES)}, not {style!r}"
+            )
+        unknown = set(options) - set(_DEFAULTS)
+        if unknown:
+            raise InvalidParameter(f"unknown options {sorted(unknown)}")
+        if width < 1 or height < 1:
+            raise InvalidParameter("width and height must be positive")
+        settings = dict(_DEFAULTS) | STYLES[style] | options
+        if isinstance(view, str):
+            if view not in VIEWS:
+                raise InvalidParameter(
+                    f"view must be one of {tuple(VIEWS)}, not {view!r}"
+                )
+            forward, default_up = (np.array(v, dtype=float) for v in VIEWS[view])
+        else:
+            forward, default_up = (
+                np.asarray(view, dtype=float),
+                np.array([0.0, 0.0, 1.0]),
+            )
+        forward = forward / np.linalg.norm(forward)
+        up_vector = default_up if up is None else np.asarray(up, dtype=float)
+        if np.linalg.norm(np.cross(forward, up_vector)) < 1e-9:
+            up_vector = (
+                np.array([0.0, 1.0, 0.0])
+                if abs(forward[1]) < 0.9
+                else np.array([1.0, 0.0, 0.0])
+            )
+        right = np.cross(forward, up_vector)
+        right /= np.linalg.norm(right)
+        true_up = np.cross(right, forward)
+        points, pad = self._points()
+        radii = (
+            np.concatenate([s[1] for s in self._spheres])
+            if self._spheres
+            else np.ones(1)
+        )
+        scale = float(np.median(radii)) if len(radii) else 1.0
+        if settings["ao_distance"] is None:
+            settings["ao_distance"] = 3.0 * scale
+        if settings["outline_depth"] is None:
+            settings["outline_depth"] = 0.5 * scale
+        aspect = width / height
+        if len(points):
+            x, y, z = points @ right, points @ true_up, points @ forward
+            lo = np.array([(x - pad).min(), (y - pad).min(), (z - pad).min()])
+            hi = np.array([(x + pad).max(), (y + pad).max(), (z + pad).max()])
+        else:
+            lo, hi = -np.ones(3), np.ones(3)
+        middle = 0.5 * (lo + hi)
+        half_w, half_h = 0.5 * (hi[0] - lo[0]), 0.5 * (hi[1] - lo[1])
+        half_h = max(half_h, half_w / aspect, 1e-6) * 1.04 / zoom
+        center = middle[0] * right + middle[1] * true_up + middle[2] * forward
+        if perspective:
+            tangent = np.tan(np.radians(fov) / 2)
+            radius = (
+                float(np.sqrt(((points - center) ** 2).sum(axis=1).max()))
+                if len(points)
+                else 1.0
+            )
+            distance = max(half_h / tangent, radius) + 0.5 * (hi[2] - lo[2])
+            camera_at = center - forward * distance
+            half = (tangent / zoom, tangent * aspect / zoom)
+        else:
+            camera_at = center
+            half = (half_h, half_h * aspect)
+        if background is None:
+            back = np.array([1.0, 1.0, 1.0, 0.0])
+        else:
+            back = np.append(_linear(_color(background)), 1.0)
+        f32 = np.float32
+        image = _native.render(
+            **self._arrays(),
+            center=camera_at.astype(f32),
+            forward=forward.astype(f32),
+            up=true_up.astype(f32),
+            half_width=float(half[1]),
+            half_height=float(half[0]),
+            perspective=bool(perspective),
+            width=int(width),
+            height=int(height),
+            ambient=float(settings["ambient"]),
+            diffuse=float(settings["diffuse"]),
+            specular=float(settings["specular"]),
+            shininess=float(settings["shininess"]),
+            key=np.asarray(settings["key"], dtype=f32),
+            fill=np.asarray(settings["fill"], dtype=f32),
+            fill_intensity=float(settings["fill_intensity"]),
+            ao_samples=int(settings["ao_samples"]),
+            ao_distance=float(settings["ao_distance"]),
+            ao_strength=float(settings["ao_strength"]),
+            shadows=bool(settings["shadows"]),
+            shadow_strength=float(settings["shadow_strength"]),
+            flat=bool(settings["flat"]),
+            toon_levels=int(settings["toon_levels"]),
+            outline_width=float(settings["outline_width"]),
+            outline_depth=float(settings["outline_depth"]),
+            outline_color=_linear(_color(settings["outline_color"])).astype(f32),
+            fog=float(settings["fog"]),
+            background=back.astype(f32),
+            supersample=int(settings["supersample"]),
+            progress=progress,
+            cancel=_native_token(cancel),
+        )
+        if path is not None:
+            write_png(path, image)
+        return image

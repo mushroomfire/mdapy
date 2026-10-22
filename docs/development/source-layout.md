@@ -41,6 +41,8 @@
 | `src/mdapy/analysis/_dynamics.py` | `MeanSquaredDisplacement`, `LindemannIndex`. |
 | `src/mdapy/build/_crystal.py` | `build_crystal` and its table of structures. |
 | `src/mdapy/build/_alloy.py` | `random_alloy`. |
+| `src/mdapy/visualization/_scene.py`, `_render.py`, `_elements.py` | `Scene`, `render`, styles, colors. |
+| `src/cpp/visualization/render.h`, `render.cpp` | the ray tracer: bounding volume hierarchy, shading, outlines. |
 | `src/mdapy/build/_sqs.py`, `src/cpp/build/sqs.cpp` | `sqs_alloy` and its annealing. |
 | `src/mdapy/build/_defects.py` | point defects, `slip`, `add_vacuum`. |
 | `src/mdapy/build/_dislocation.py` | `insert_dislocation`, `edge_dislocation`. |

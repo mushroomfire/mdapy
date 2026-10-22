@@ -171,6 +171,14 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   columnar when the box is thin, and `twin_lamellae` for twinned grains. See
   [Polycrystals](../build/polycrystals.md).
 
+### Visualization
+
+- `mdapy.visualization.render`: pictures of systems by ray tracing, with
+  ambient occlusion, shadows and outlines in six styles, colored by
+  element, structure, values or by hand, with bonds, the box and Voronoi
+  cells; a `Scene` of spheres, cylinders and polygons; a million atoms in
+  under two seconds. See [Rendering](../visualization/rendering.md).
+
 ### Foundations
 
 - Python 3.11 or newer; NumPy 2.3.1 or newer and polars 2 are the only

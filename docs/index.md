@@ -39,7 +39,7 @@ flowchart TB
     files <--> system
     build --> system
     system --> neighbors
-    system -.-> visual
+    system --> visual
     calculators -.-> mlip
     neighbors --> analysis
     neighbors --> calculators
@@ -51,7 +51,7 @@ flowchart TB
     classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px
     classDef simulation fill:#9333ea26,stroke:#9333ea,stroke-width:2px
     classDef build fill:#16a34a26,stroke:#16a34a,stroke-width:2px
-    classDef visual fill:#db27771f,stroke:#db2777,stroke-width:2px,stroke-dasharray:6 4
+    classDef visual fill:#db277726,stroke:#db2777,stroke-width:2px
     classDef mlip fill:#0d94881f,stroke:#0d9488,stroke-width:2px,stroke-dasharray:6 4
     class system,neighbors core
     class files data
@@ -173,7 +173,7 @@ flowchart TB
 
     Images of systems, colored by any property, and plots of results.
 
-    Planned: rendering · plot templates.
+    [Rendering](visualization/rendering.md); plot templates are planned.
 
 -   :material-speedometer:{ .lg .middle } **Performance**
 

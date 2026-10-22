@@ -38,6 +38,7 @@
 #include "io/text.h"
 #include "neighbor/cell_list.h"
 #include "neighbor/kd_tree.h"
+#include "visualization/render.h"
 
 namespace {
 
@@ -877,6 +878,60 @@ void trajectories() {
           "the Lindemann index starts at zero and grows");
 }
 
+void pictures() {
+    // random spheres, cylinders and see-through triangles, with every
+    // effect of the renderer on
+    std::mt19937_64 rng(12);
+    std::uniform_real_distribution<float> place(0.0f, 10.0f), unit(0.0f, 1.0f);
+    mdapy::visualization::Scene scene;
+    for (int i = 0; i < 300; ++i) {
+        for (int e = 0; e < 3; ++e) {
+            scene.sphere_center.push_back(place(rng));
+            scene.sphere_color.push_back(unit(rng));
+        }
+        scene.sphere_radius.push_back(0.3f + unit(rng));
+        scene.sphere_id.push_back(i);
+    }
+    for (int i = 0; i < 40; ++i) {
+        for (int e = 0; e < 6; ++e) {
+            scene.cylinder_end.push_back(place(rng));
+        }
+        for (int e = 0; e < 3; ++e) {
+            scene.cylinder_color.push_back(unit(rng));
+        }
+        scene.cylinder_radius.push_back(0.2f);
+        scene.cylinder_id.push_back(1000);
+    }
+    for (int i = 0; i < 20; ++i) {
+        for (int e = 0; e < 9; ++e) {
+            scene.triangle_vertex.push_back(place(rng));
+        }
+        for (int e = 0; e < 3; ++e) {
+            scene.triangle_color.push_back(unit(rng));
+        }
+        scene.triangle_alpha.push_back(0.5f);
+        scene.triangle_id.push_back(2000 + i);
+    }
+    mdapy::visualization::Camera camera;
+    camera.center = {5, 5, 5};
+    camera.forward = {-1, -1, -1};
+    camera.up = {0, 0, 1};
+    camera.half_width = camera.half_height = 9;
+    mdapy::visualization::Style style;
+    style.outline_width = 1.5f;
+    style.fog = 0.3f;
+    std::vector<std::uint8_t> first;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        const std::vector<std::uint8_t> image =
+            mdapy::visualization::render(scene, camera, style, 96, 64);
+        if (threads == kThreads[0]) {
+            first = image;
+        }
+        check(image == first, "a picture is the same for any thread count");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -888,6 +943,7 @@ int main() {
     structure_identification();
     calculators();
     trajectories();
+    pictures();
     if (failures == 0) {
         std::printf("all checks passed\n");
     }

@@ -141,6 +141,18 @@ import mdapy
 
 ::: mdapy.build.twin_lamellae
 
+## Visualization
+
+::: mdapy.visualization.render
+
+::: mdapy.visualization.Scene
+
+::: mdapy.visualization.atom_colors
+
+::: mdapy.visualization.colormap
+
+::: mdapy.visualization.write_png
+
 ## Calculators
 
 ::: mdapy.calculators.Calculator

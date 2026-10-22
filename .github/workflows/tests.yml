@@ -173,7 +173,8 @@ jobs:
           src/cpp/calculators/eam.cpp src/cpp/calculators/nep.cpp
           src/cpp/identify/structure.cpp src/cpp/analysis/steinhardt.cpp
           src/cpp/analysis/geometry.cpp src/cpp/analysis/distribution.cpp
-          src/cpp/analysis/voronoi.cpp
+          src/cpp/analysis/voronoi.cpp src/cpp/build/sqs.cpp
+          src/cpp/visualization/render.cpp
           src/cpp/analysis/strain.cpp tests/cpp/thread_checks.cpp
       - name: Run them
         run: |

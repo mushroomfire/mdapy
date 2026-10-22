@@ -494,6 +494,12 @@ def test_within_and_sorted():
     inner = near.within(2.0)
     assert inner.num_neighbors is None and (inner.distances < 2.0).all()
     assert len(inner) == (near.distances < 2.0).sum()
+    # atoms without pairs
+    lone = mdapy.System(
+        [[0.0, 0, 0], [1.0, 0, 0], [9.0, 9, 9]], mdapy.Box(20.0, pbc=False)
+    )
+    ordered = NeighborList.build(lone, 2.0).sorted()
+    np.testing.assert_array_equal(ordered.counts, [1, 1, 0])
 
 
 # ------------------------------------------------------------ Voronoi neighbors

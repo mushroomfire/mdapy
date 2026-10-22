@@ -78,6 +78,13 @@ def test_options_threads_and_columns():
     np.testing.assert_allclose(
         fingerprint.compute(system, neighbors=nl).entropy, result.entropy, rtol=1e-14
     )
+    # with the local density too, the grid and a given list agree
+    local = EntropyFingerprint(4.5, 0.2, local_density=True)
+    np.testing.assert_allclose(
+        local.compute(system, neighbors=nl).entropy,
+        local.compute(system).entropy,
+        rtol=1e-14,
+    )
     assert list(system.with_columns(result).table.columns)[-1] == "entropy_average"
     assert list(EntropyFingerprint(4.5).compute(system).columns()) == ["entropy"]
     assert "average_cutoff=2.6" in repr(fingerprint)

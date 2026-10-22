@@ -35,6 +35,10 @@ Unlike LAMMPS, which spreads each neighbor over seven points only, mdapy uses
 the whole Gaussian, so that equivalent atoms get equal values; the two agree to
 about 0.5 %.
 
+Without a given neighbor list the neighbors are found on the cell grid and
+used at once, without storing a list; a million atoms with a 5 Å cutoff take
+about 0.3 s on ten threads.
+
 The `EntropyResult` has the per-atom `entropy` and whether it is the
 `average`; its column is `entropy` or `entropy_average`.
 

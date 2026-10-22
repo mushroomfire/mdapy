@@ -9,6 +9,8 @@
 #include <numeric>
 #include <vector>
 
+#include "neighbor/cell_list.h"
+
 namespace mdapy::analysis {
 namespace {
 
@@ -156,51 +158,112 @@ void atomic_temperature(std::int64_t n, const std::int64_t* offsets,
         control);
 }
 
+namespace {
+
+// The fingerprint of one atom: its g(r) on the points r_k = k sigma, each
+// neighbor a Gaussian, and the integral.
+class EntropyShape {
+public:
+    EntropyShape(double cutoff, double sigma)
+        : cutoff_(cutoff), sigma_(sigma), bins_(static_cast<int>(cutoff / sigma) + 1),
+          shell_(static_cast<std::size_t>(bins_), 0.0), decay_(std::exp(-1.0)) {
+        for (int k = 1; k < bins_; ++k) {  // r = 0 has no shell
+            shell_[k] = 1.0 / ((k * sigma) * (k * sigma));
+        }
+    }
+
+    int bins() const { return bins_; }
+
+    // The factor of each Gaussian at the number density.
+    double scale(double density) const {
+        // 4 pi rho r^2 g(r) = sum of normalized Gaussians
+        return 1.0 / (4.0 * kPi * density * std::sqrt(2.0 * kPi) * sigma_);
+    }
+
+    // Adds a neighbor at distance r to g; farther than the cutoff, none.
+    void add(double r, double scale, std::vector<double>& g) const {
+        if (!(r < cutoff_)) {
+            return;
+        }
+        // the Gaussian at r_k = k sigma, exp(-(u - k)^2 / 2) with u = r /
+        // sigma, grows from k to k + 1 by exp(u - k - 1/2), a factor that
+        // shrinks by 1/e at each step: two exponentials per pair instead of
+        // one per bin
+        const double u = r / sigma_;
+        double gauss = std::exp(-0.5 * (u - 1.0) * (u - 1.0));
+        double step = std::exp(u - 1.5);
+        for (int k = 1; k < bins_; ++k) {
+            g[k] += scale * shell_[k] * gauss;
+            gauss *= step;
+            step *= decay_;
+        }
+    }
+
+    // -2 pi rho integral of (g ln g - g + 1) r^2 by the trapezoid rule.
+    double entropy(const std::vector<double>& g, double density) const {
+        double sum = 0.0;
+        for (int k = 0; k < bins_; ++k) {
+            const double rk = k * sigma_;
+            const double term =
+                g[k] < 1e-10 ? rk * rk : (g[k] * std::log(g[k]) - g[k] + 1.0) * rk * rk;
+            sum += (k == 0 || k == bins_ - 1) ? 0.5 * term : term;
+        }
+        return -2.0 * kPi * density * sum * sigma_;
+    }
+
+private:
+    double cutoff_, sigma_;
+    int bins_;
+    std::vector<double> shell_;  // 1 / r_k^2
+    double decay_;
+};
+
+}  // namespace
+
 void pair_entropy(std::int64_t n, const std::int64_t* offsets, const double* distances,
                   double cutoff, double sigma, const double* density, double* entropy,
                   const Control& control) {
-    const int bins = static_cast<int>(cutoff / sigma) + 1;
-    std::vector<double> shell(static_cast<std::size_t>(bins), 0.0);  // 1 / r_k^2
-    for (int k = 1; k < bins; ++k) {  // r = 0 has no shell
-        shell[k] = 1.0 / ((k * sigma) * (k * sigma));
-    }
-    const double decay = std::exp(-1.0);
+    const EntropyShape shape(cutoff, sigma);
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
-            std::vector<double> g(static_cast<std::size_t>(bins));
+            std::vector<double> g(static_cast<std::size_t>(shape.bins()));
             for (std::int64_t i = begin; i < end; ++i) {
                 std::fill(g.begin(), g.end(), 0.0);
-                // 4 pi rho r^2 g(r) = sum of normalized Gaussians
-                const double scale =
-                    1.0 / (4.0 * kPi * density[i] * std::sqrt(2.0 * kPi) * sigma);
+                const double scale = shape.scale(density[i]);
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const double r = distances[p];
-                    if (!(r < cutoff)) {
-                        continue;
-                    }
-                    // the Gaussian at r_k = k sigma, exp(-(u - k)^2 / 2) with
-                    // u = r / sigma, grows from k to k + 1 by exp(u - k - 1/2),
-                    // a factor that shrinks by 1/e at each step: two
-                    // exponentials per pair instead of one per bin
-                    const double u = r / sigma;
-                    double gauss = std::exp(-0.5 * (u - 1.0) * (u - 1.0));
-                    double step = std::exp(u - 1.5);
-                    for (int k = 1; k < bins; ++k) {
-                        g[k] += scale * shell[k] * gauss;
-                        gauss *= step;
-                        step *= decay;
-                    }
+                    shape.add(distances[p], scale, g);
                 }
-                // -2 pi rho integral of (g ln g - g + 1) r^2 by the trapezoid rule
-                double sum = 0.0;
-                for (int k = 0; k < bins; ++k) {
-                    const double rk = k * sigma;
-                    const double term =
-                        g[k] < 1e-10 ? rk * rk : (g[k] * std::log(g[k]) - g[k] + 1.0) * rk * rk;
-                    sum += (k == 0 || k == bins - 1) ? 0.5 * term : term;
+                entropy[i] = shape.entropy(g, density[i]);
+            }
+        },
+        control);
+}
+
+void pair_entropy_search(const double* positions, std::int64_t n, const double* matrix,
+                         const double* origin, const bool* pbc, double cutoff, double sigma,
+                         double density, double* entropy, const Control& control) {
+    const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, cutoff);
+    const EntropyShape shape(cutoff, sigma);
+    const double sphere = 4.0 / 3.0 * kPi * cutoff * cutoff * cutoff;
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            std::vector<double> g(static_cast<std::size_t>(shape.bins())), found;
+            for (std::int64_t t = begin; t < end; ++t) {
+                const std::int64_t i = grid.atom(t);  // in cell order
+                found.clear();
+                grid.visit(i, [&](std::int32_t, const std::int32_t*, double r2) {
+                    found.push_back(std::sqrt(r2));
+                });
+                const double rho =
+                    density > 0.0 ? density : static_cast<double>(found.size()) / sphere;
+                std::fill(g.begin(), g.end(), 0.0);
+                const double scale = shape.scale(rho);
+                for (const double r : found) {
+                    shape.add(r, scale, g);
                 }
-                entropy[i] = -2.0 * kPi * density[i] * sum * sigma;
+                entropy[i] = shape.entropy(g, rho);
             }
         },
         control);

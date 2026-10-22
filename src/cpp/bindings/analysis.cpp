@@ -261,6 +261,24 @@ nb::object atomic_temperature(Offsets offsets, Neighbors neighbors, Values mass,
     return as_array(std::move(temperature));
 }
 
+nb::object pair_entropy_search(Positions3 positions, Matrix3 matrix, Origin3 origin,
+                               Periodic pbc, double cutoff, double sigma, double density,
+                               nb::handle progress, const CancelToken* cancel) {
+    if (!(cutoff > 0.0) || !(sigma > 0.0) || !(density >= 0.0)) {
+        throw std::invalid_argument("cutoff and sigma must be positive, density not negative");
+    }
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    std::vector<double> entropy(static_cast<std::size_t>(n));
+    run_released(
+        [&](const Control& control) {
+            analysis::pair_entropy_search(positions.data(), n, matrix.data(), origin.data(),
+                                          pbc.data(), cutoff, sigma, density, entropy.data(),
+                                          control);
+        },
+        progress, cancel);
+    return as_array(std::move(entropy));
+}
+
 void bind_analysis(nb::module_& m) {
     m.def("steinhardt", &steinhardt, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
@@ -284,6 +302,10 @@ void bind_analysis(nb::module_& m) {
     m.def("atomic_temperature", &atomic_temperature, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("mass"), nb::arg("velocities"), nb::arg("energy_unit"), nb::arg("boltzmann"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("pair_entropy_search", &pair_entropy_search, nb::arg("positions"), nb::arg("matrix"),
+          nb::arg("origin"), nb::arg("pbc"), nb::arg("cutoff"), nb::arg("sigma"),
+          nb::arg("density"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("bond_angles", &bond_angles, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("vectors"),
           nb::arg("type"), nb::arg("types"), nb::arg("bins"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);

@@ -170,3 +170,22 @@ BSD 3-Clause. See [LICENSE](LICENSE).
   - （该提交的说明里写成"少三分之一"，不准确，实测整体快 14%；改提交说明需要 force push，所以没动。）
 - **新功能：按元素三元组的键角分布**（`analysis-draft`，对应 1.x 的 ADF）。`BondAngleDistribution(cutoffs={("O", "H"): 1.2})` 可以给每对元素单独设键长，结果新增 `partial[(顶点, b, c)]` 和 `triplet("O", "H", "H")`。测试用三元无序晶体的 NumPy 暴力枚举逐项对照，并用水分子验证 104.5°。1.x 的 ADF 每条键还能设最短距离；要不要也支持，明天请你定。
 - **CI**：neighbor-draft 和 calculator-draft 之前缺 v2 上 Python 3.10 的修复，CI 在 3.10 上失败。已把 v2 合并进去，重跑全绿。今晚改过代码的草稿分支（neighbor、calculator、analysis、voronoi、nep、preview-all）都手动触发了 CI，已完成的全部通过。
+
+### 03:35
+- **新分支 `cnp-draft`**：公共近邻参数 `CommonNeighborParameter(cutoff)`（Tsuzuki 2007，1.x 有、2.0 计划表没列，所以单独建了分支，请你定去留）。
+  - fcc、bcc、金刚石为 0，理想 hcp 正好 2a²/3。
+  - 与按原子号+周期像在两份邻居表里找公共邻居的独立 Python 实现一致到 1e-12，小盒子多像、旋转平移下也成立。
+  - 已合进 preview-all。
+- **把 100 万原子的各项分析都跑了一遍，找出几处慢的并修好了：**
+
+  | | 之前 | 现在 | 说明 |
+  |---|---|---|---|
+  | `build_polycrystal`，66 万原子、20 个晶粒 | 18.3 s | **0.73 s** | 晶粒归属改用格子搜最近种子，结果逐位相同 |
+  | `AtomicTemperature`，100 万原子 | 0.87 s | **0.18 s** | 改为 C++，结果逐位相同 |
+  | `StructureFactor`，3.2 万原子、q_max = 8 Å⁻¹ | 141 s | **6.1 s** | 见下 |
+  | `LindemannIndex` | 内存随原子数平方增长，100 万原子直接内存不足 | 1 万原子 × 50 帧 2.3 s，内存只与轨迹大小有关 | 改为 C++ 逐对计算 |
+
+  - 结构因子慢的原因：`std::complex` 的每次乘法都会调用一个库函数，相位表也是跳着读。现在用实数展开计算、顺序读表，结果与原来差 1e-14。
+  - **需要你定**：1.x 的 `StructureFactor` 默认用 Debye 法（由 g(r) 做正弦变换，很快），还提供 X 射线、中子、电子衍射的加权；2.0 目前只有精确的直接求和。要不要加 Debye 法和这些加权？
+- **全面检查**（preview-all）：ASan 下全量测试通过，GCC 15 严格警告通过，TSan 线程检查覆盖了所有新核。CI 全绿。
+- 本地 Python 3.10 环境（numpy 2.2.6 + macOS Accelerate）会报假的 matmul 除零警告，导致 16 个测试失败。这是环境问题，Linux CI 的 3.10 全过，详见明早的总结。

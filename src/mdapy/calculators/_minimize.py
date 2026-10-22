@@ -49,6 +49,11 @@ class MinimizeResult:
         Energy of the last configuration in eV.
     max_force : float
         Largest force of the last configuration in eV/Å.
+    frames : tuple of System or None
+        With ``save_every``, the configurations at step 0, every
+        ``save_every`` steps and the last step, with ``forces`` and
+        ``atomic_energies`` columns and ``energy`` and the step number as
+        ``timestep`` in ``info``; None otherwise.
     """
 
     system: System
@@ -56,6 +61,7 @@ class MinimizeResult:
     steps: int
     energy: float
     max_force: float
+    frames: tuple[System, ...] | None = None
 
 
 def _masses(system: System) -> np.ndarray:
@@ -75,6 +81,7 @@ def minimize(
     max_steps: int = 1000,
     max_step: float = 0.1,
     timestep: float = 0.001,
+    save_every: int | None = None,
     callback: Any = None,
 ) -> MinimizeResult:
     """Minimizes the energy over the positions, in a fixed box, with FIRE 2.0.
@@ -94,6 +101,9 @@ def minimize(
         Default 0.1.
     timestep : float, optional
         First time step of the dynamics, in ps. Default 0.001.
+    save_every : int, optional
+        Keeps the configuration every this many steps, with the first and
+        the last, in ``frames`` of the result. Default None, keeping none.
     callback : callable, optional
         Called after every step as ``callback(step, system, energy,
         max_force)``; returning True stops the minimization.
@@ -115,6 +125,14 @@ def minimize(
     if max_steps < 0 or not max_step > 0 or not timestep > 0:
         raise InvalidParameter(
             "max_steps must be at least 0, and max_step and timestep positive"
+        )
+    if save_every is not None and (
+        isinstance(save_every, bool)
+        or not isinstance(save_every, int)
+        or save_every < 1
+    ):
+        raise InvalidParameter(
+            f"save_every must be a positive integer, not {save_every!r}"
         )
     if not {"energy", "forces"} <= calculator.implemented:
         raise InvalidParameter(
@@ -149,6 +167,13 @@ def minimize(
     current = system
     result, largest = evaluate(current)
     step, last_negative, reset = 0, 0, True
+    frames: list[System] = []
+
+    def save() -> None:
+        frames.append(result.attach(current).with_info(timestep=step))
+
+    if save_every is not None:
+        save()
     while not largest < max_force and step < max_steps:
         step += 1
         forces = result.forces
@@ -188,12 +213,17 @@ def minimize(
         current = current.with_positions(positions)
         result, largest = evaluate(current)
         reset = False
+        if save_every is not None and step % save_every == 0:
+            save()
         if callback is not None and callback(step, current, result.energy, largest):
             break
+    if save_every is not None and frames[-1].info["timestep"] != step:
+        save()
     return MinimizeResult(
         system=result.attach(current),
         converged=largest < max_force,
         steps=step,
         energy=float(result.energy),
         max_force=largest,
+        frames=tuple(frames) if save_every is not None else None,
     )

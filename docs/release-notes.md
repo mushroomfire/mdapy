@@ -72,8 +72,15 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [Calculators](guide/calculators.md).
 - `mdapy.calculators.EAM` for potentials in the LAMMPS eam/alloy format,
   agreeing with LAMMPS.
+- `EAM.write` writes potentials in the LAMMPS eam/alloy format;
+  `EAM.zhou` builds the potentials of Zhou, Johnson and Wadley for 17
+  elements, as the LAMMPS database tool tabulates them; `EAM.average` gives
+  the average-atom potential of a random alloy.
+- `mdapy.calculators.LAMMPS` makes any interaction of LAMMPS a calculator,
+  through the LAMMPS Python module.
 - `mdapy.minimize`: FIRE 2.0 minimization of the positions in a fixed box,
-  step for step as LAMMPS `min_style fire`.
+  step for step as LAMMPS `min_style fire`, keeping a frame every
+  `save_every` steps when asked.
 
 ### Foundations
 

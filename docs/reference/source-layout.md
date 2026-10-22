@@ -24,6 +24,8 @@
 | `src/mdapy/calculators/_base.py` | `Calculator` and `CalculatorResult`. |
 | `src/mdapy/calculators/testing.py` | `check_calculator`. |
 | `src/mdapy/calculators/_eam.py` | `EAM`. |
+| `src/mdapy/calculators/_zhou.py` | The parameters and tables of the potentials of Zhou et al. |
+| `src/mdapy/calculators/_lammps.py` | `LAMMPS`, the calculator of any LAMMPS interaction. |
 | `src/mdapy/calculators/_minimize.py` | `minimize`, with FIRE. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |

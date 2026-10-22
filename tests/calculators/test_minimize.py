@@ -214,6 +214,44 @@ def test_masses_set_the_path_not_the_minimum(potential):
         minimize(bare, potential)
 
 
+@pytest.mark.parametrize("every", [1, 7, 50])
+def test_frames_every_few_steps(potential, tmp_path, every):
+    system = alloy(seed=9, repeat=2, jitter=0.15)
+    plain = minimize(system, potential, max_force=1e-4, max_steps=40)
+    result = minimize(system, potential, max_force=1e-4, max_steps=40, save_every=every)
+    assert plain.frames is None and result.steps == plain.steps == 40
+    steps = [frame.info["timestep"] for frame in result.frames]
+    assert steps == sorted(set(list(range(0, 41, every)) + [40]))
+    first, last = result.frames[0], result.frames[-1]
+    np.testing.assert_array_equal(first.positions, system.positions)
+    np.testing.assert_array_equal(last.positions, plain.system.positions)
+    assert first.info["energy"] == potential.compute(system).energy
+    assert last.info["energy"] == plain.energy
+    np.testing.assert_array_equal(
+        last.table["forces"].to_numpy(), plain.system.table["forces"].to_numpy()
+    )
+    # the frames as the callback sees them
+    seen = {}
+    minimize(system, potential, max_force=1e-4, max_steps=40,
+             callback=lambda step, current, energy, largest: seen.update({step: current}))  # fmt: skip
+    for frame in result.frames[1:]:
+        np.testing.assert_array_equal(
+            frame.positions, seen[frame.info["timestep"]].positions
+        )
+    # written as a trajectory
+    mdapy.write(tmp_path / "relax.xyz", result.frames)
+    assert len(mdapy.read_trajectory(tmp_path / "relax.xyz")) == len(result.frames)
+
+
+def test_frames_of_a_converged_start(potential):
+    perfect = alloy(seed=1, repeat=2, jitter=0.0, a=3.3).with_columns(
+        element=["Cu"] * 32
+    )
+    result = minimize(perfect, potential, max_force=1e-3, save_every=10)
+    assert result.converged and result.steps == 0
+    assert [f.info["timestep"] for f in result.frames] == [0]
+
+
 @pytest.mark.parametrize(
     "options, message",
     [
@@ -221,6 +259,9 @@ def test_masses_set_the_path_not_the_minimum(potential):
         ({"max_steps": -1}, "max_steps must be at least 0"),
         ({"max_step": 0.0}, "max_step and timestep positive"),
         ({"timestep": -1.0}, "max_step and timestep positive"),
+        ({"save_every": 0}, "save_every must be a positive integer"),
+        ({"save_every": 2.5}, "save_every must be a positive integer"),
+        ({"save_every": True}, "save_every must be a positive integer"),
     ],
 )
 def test_invalid_options(potential, options, message):

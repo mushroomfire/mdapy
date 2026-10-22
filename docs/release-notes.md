@@ -54,18 +54,25 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 
 ### Neighbor search
 
-- `mdapy.NeighborList`: every pair within a cutoff in any box, with periodic
-  images enumerated so that small boxes work, in CSR form with integer image
-  shifts; `within`, `sorted` and `nearest` for k nearest neighbors. Results
-  are the same for any number of threads. See
-  [Neighbor lists](guide/neighbor.md).
+- `mdapy.NeighborList.build(system, cutoff)` and
+  `NeighborList.build(system, num_neighbors=k)`: every pair within a cutoff,
+  or the k nearest neighbors of each atom, in any box, with periodic images
+  enumerated so that small boxes work, in CSR form with int8 image shifts
+  (15 bytes per pair); `within` and `sorted` derive lists without a new
+  search. Distances are computed by one formula in both, nearest neighbors are
+  ordered exactly with ties by atom and image, and results are the same for
+  any number of threads. A k-d tree finds nearest neighbors in clusters and
+  slabs as fast as in crystals. See [Neighbor lists](guide/neighbor.md).
 
 ### Foundations
 
 - Python 3.10 or newer; NumPy 2 and polars 2 are the only required
   dependencies.
 - All compiled code is one extension module, built as a single abi3 wheel per
-  platform for Python 3.12 and newer.
+  platform for Python 3.12 and newer, optimized for speed.
+- Atom indices in results are 32-bit, `mdapy.index_dtype`; a build with
+  `-Ccmake.define.MDAPY_INDEX64=ON` uses 64-bit indices for more than
+  2,147,483,647 atoms. See [Installation](getting-started/installation.md#64-bit-atom-indices).
 - A thread pool of mdapy's own replaces OpenMP, so mdapy can run in the same
   process as PyTorch, NumPy and LAMMPS. Results are identical for any number of
   threads. See [Parallelism](guide/parallelism.md).

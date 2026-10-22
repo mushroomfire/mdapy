@@ -13,49 +13,57 @@
 #include <cstdint>
 #include <vector>
 
+#include "core/buffer.h"
+#include "core/index.h"
 #include "core/parallel.h"
+#include "neighbor/frame.h"
 
 namespace mdapy::neighbor {
 
-// The pairs (i, j, shift) with |x_j - x_i + shift . H| < cutoff, where H has
-// the lattice vectors as rows and shift is an integer vector (zero along
-// non-periodic directions); the pair (i, i, 0) is excluded. Pairs are
-// grouped by i in CSR form, and sorted by j and then shift within a group,
-// so the result does not depend on the number of threads.
+// Pairs (i, j, shift) grouped by i in CSR form, shift an integer vector
+// (zero along non-periodic directions) such that the vector of the pair is
+// x_j - x_i + shift . H, H with the lattice vectors as rows.
 struct NeighborPairs {
-    std::vector<std::int64_t> offsets;    // n + 1: pairs of atom i are [offsets[i], offsets[i + 1])
-    std::vector<std::int32_t> neighbors;  // j of each pair
-    std::vector<std::int32_t> shifts;     // 3 per pair
-    std::vector<double> distances;        // |r_ij| of each pair
+    Buffer<std::int64_t> offsets;  // n + 1: pairs of atom i are [offsets[i], offsets[i + 1])
+    Buffer<index_t> neighbors;     // j of each pair
+    Buffer<std::int8_t> shifts;    // 3 per pair
+    Buffer<double> distances;      // |r_ij| of each pair
 };
 
 // The atoms sorted into cells, and the search of the neighbors of an atom.
-// The grid keeps its own copy of the atoms in cell order, so a search reads
-// memory in sequence whatever the order of the atoms; searching the atoms in
-// that order (atom(0), atom(1), ...) also reuses the cells just read.
+// The grid keeps its own copy of the atoms in cell order (slots), so a search
+// reads memory in sequence whatever the order of the atoms; searching the
+// slots in order also reuses the cells just read.
 class CellGrid {
 public:
     // positions: n x 3; matrix: 3 x 3, rows a, b, c; origin: 3; pbc: 3.
     // Throws std::invalid_argument for a non-positive cutoff or a singular
-    // box.
+    // box, std::overflow_error when n does not fit index_t.
     CellGrid(const double* positions, std::int64_t n, const double* matrix, const double* origin,
              const bool* pbc, double cutoff);
 
-    // The atom in slot t of the cell order.
-    std::int32_t atom(std::int64_t t) const { return slot_atoms_[t]; }
+    // The atom in slot t.
+    index_t atom(std::int64_t t) const { return slot_atoms_[t]; }
 
     // Calls visit(j, shift, r2) for every pair (i, j, shift) closer than the
-    // cutoff, shift an int32 array of 3; r2 is the squared distance.
+    // cutoff, i the atom in slot t, shift an int32 array of 3 and r2 the
+    // squared distance; the pair (i, i, 0) is skipped. The pairs come in an
+    // order that depends on the positions, the box and the cutoff only.
     template <class Visit>
-    void visit(std::int64_t i, Visit&& visit) const {
-        const std::int64_t t = slot_of_[i];
-        scan(&slot_cells_[3 * t], &slot_wraps_[3 * t], &slot_positions_[3 * t], i, visit);
+    void visit(std::int64_t t, Visit&& visit) const {
+        scan<true>(t, visit);
     }
 
-    // The same for any point x: every atom j and image shift with
-    // |x_j + shift . H - x| below the cutoff.
-    template <class Visit>
-    void visit_point(const double* x, Visit&& visit) const;
+    // The number of pairs of the atom in slot t. Throws std::overflow_error
+    // for a shift outside int8.
+    std::int64_t count(std::int64_t t) const {
+        std::int64_t pairs = 0;
+        scan<false>(t, [&](index_t, const std::int32_t* shift, double) {
+            check_shift(shift);
+            ++pairs;
+        });
+        return pairs;
+    }
 
 private:
     struct Axis {
@@ -66,6 +74,11 @@ private:
         std::int64_t reach = 1;  // cells to search on each side
     };
 
+    // visit, but without kExact the pairs far enough inside the cutoff
+    // come with the squared distance of the screen, not the exact one.
+    template <bool kExact, class Visit>
+    void scan(std::int64_t t, Visit&& visit) const;
+
     static std::int64_t floor_div(std::int64_t a, std::int64_t b) {
         std::int64_t q = a / b;
         if ((a % b != 0) && ((a < 0) != (b < 0))) {
@@ -74,111 +87,105 @@ private:
         return q;
     }
 
-    // atoms within reach of the cell cell (3) and the point x wrapped by wrap
-    // (3); the pair with self and no shift is skipped
-    template <class Visit>
-    void scan(const std::int64_t* cell, const std::int32_t* wrap, const double* x,
-              std::int64_t self, Visit&& visit) const;
-
-    double h_[9];
-    double inverse_[9];  // columns of H^-1
-    double origin_[3];
-    double cutoff_, cutoff2_;
-    double scale_ = 0.0;  // bounds the size of every term of a distance
+    Frame frame_;
+    double cutoff2_;
+    // the square of the cutoff enlarged, and reduced, by a margin far above
+    // the rounding of a distance between positions in the box and between
+    // the originals
+    double screen2_, inner2_;
     Axis axes_[3];
     std::vector<std::int64_t> cell_start_;  // first slot of each cell, and one past the end
-    // per slot: the atom, its position, the same wrapped into the box, the
-    // periodic wraps that do it and the three indices of its cell
-    std::vector<std::int32_t> slot_atoms_;
+    // per slot: the atom, its position, its image in the box, the periodic
+    // images w between them (position - w . H is in the box) and its cell
+    std::vector<index_t> slot_atoms_;
     std::vector<double> slot_positions_;
-    std::vector<double> slot_wrapped_;  // wrapped into the box
+    std::vector<double> slot_wrapped_;
     std::vector<std::int32_t> slot_wraps_;
     std::vector<std::int64_t> slot_cells_;
-    std::vector<std::int32_t> slot_of_;  // per atom
 };
 
-template <class Visit>
-void CellGrid::visit_point(const double* x, Visit&& visit) const {
+template <bool kExact, class Visit>
+void CellGrid::scan(std::int64_t t, Visit&& visit) const {
+    const double* h = frame_.h;
+    const double* xi = &slot_positions_[3 * t];
+    const std::int32_t* wrap = &slot_wraps_[3 * t];
+    const index_t self = slot_atoms_[t];
     std::int64_t cell[3];
-    std::int32_t wrap[3] = {0, 0, 0};
-    const double r[3] = {x[0] - origin_[0], x[1] - origin_[1], x[2] - origin_[2]};
-    for (int d = 0; d < 3; ++d) {
-        const Axis& axis = axes_[d];
-        double f = r[0] * inverse_[3 * d] + r[1] * inverse_[3 * d + 1] + r[2] * inverse_[3 * d + 2];
-        if (axis.periodic) {
-            const double k = std::floor(f);
-            f -= k;
-            wrap[d] = static_cast<std::int32_t>(k);
-        }
-        auto k = static_cast<std::int64_t>(std::floor((f - axis.low) / axis.width));
-        cell[d] = k < 0 ? 0 : (k >= axis.cells ? axis.cells - 1 : k);
+    for (std::int64_t c = slot_cells_[t], d = 2; d >= 0; --d) {
+        cell[d] = c % axes_[d].cells;
+        c /= axes_[d].cells;
     }
-    scan(cell, wrap, x, -1, visit);
-}
-
-template <class Visit>
-void CellGrid::scan(const std::int64_t* cell, const std::int32_t* wrap, const double* xi,
-                    std::int64_t self, Visit&& visit) const {
-    // Candidates are screened with the positions wrapped into the box, whose
-    // image offset is the same for a whole cell, with a margin far above the
-    // rounding; the pairs that pass are measured exactly as documented.
-    double xw[3], size = scale_;
-    for (int e = 0; e < 3; ++e) {
-        xw[e] = xi[e] - (wrap[0] * h_[e] + wrap[1] * h_[3 + e] + wrap[2] * h_[6 + e]);
-        size = std::max(size, std::abs(xi[e]));
-    }
-    const double screen = cutoff_ + 1e-12 * size;
-    const double screen2 = screen * screen;
+    // Candidates are screened with the positions in the box, whose image
+    // offset is the same for a whole cell; the pairs that pass are measured
+    // exactly as documented. The cells along the last direction are read in
+    // runs, each run a range of slots in one periodic image.
+    const double* xw = &slot_wrapped_[3 * t];
+    const Axis& last = axes_[2];
     for (std::int64_t dx = -axes_[0].reach; dx <= axes_[0].reach; ++dx) {
         for (std::int64_t dy = -axes_[1].reach; dy <= axes_[1].reach; ++dy) {
-            for (std::int64_t dz = -axes_[2].reach; dz <= axes_[2].reach; ++dz) {
-                const std::int64_t step[3] = {dx, dy, dz};
-                std::int64_t target = 0;
-                std::int32_t image[3] = {0, 0, 0};
-                bool inside = true;
-                for (int d = 0; d < 3 && inside; ++d) {
-                    const Axis& axis = axes_[d];
-                    std::int64_t k = cell[d] + step[d];
-                    if (axis.periodic) {
-                        const std::int64_t shift = floor_div(k, axis.cells);
-                        k -= shift * axis.cells;
-                        image[d] = static_cast<std::int32_t>(shift);
-                    } else if (k < 0 || k >= axis.cells) {
-                        inside = false;
-                    }
-                    target = target * axis.cells + k;
+            const std::int64_t step[2] = {dx, dy};
+            std::int64_t row = 0;
+            std::int32_t image[3] = {0, 0, 0};
+            bool inside = true;
+            for (int d = 0; d < 2 && inside; ++d) {
+                const Axis& axis = axes_[d];
+                std::int64_t k = cell[d] + step[d];
+                if (axis.periodic) {
+                    const std::int64_t shift = floor_div(k, axis.cells);
+                    k -= shift * axis.cells;
+                    image[d] = static_cast<std::int32_t>(shift);
+                } else if (k < 0 || k >= axis.cells) {
+                    inside = false;
                 }
-                if (!inside) {
-                    continue;
-                }
+                row = row * axis.cells + k;
+            }
+            if (!inside) {
+                continue;
+            }
+            std::int64_t z = cell[2] - last.reach, z_end = cell[2] + last.reach;
+            if (!last.periodic) {
+                z = std::max<std::int64_t>(z, 0);
+                z_end = std::min(z_end, last.cells - 1);
+            }
+            while (z <= z_end) {
+                const std::int64_t shift = last.periodic ? floor_div(z, last.cells) : 0;
+                const std::int64_t k = z - shift * last.cells;
+                const std::int64_t run = std::min(z_end - z, last.cells - 1 - k);
+                const std::int64_t first = row * last.cells + k;
+                z += run + 1;
+                image[2] = static_cast<std::int32_t>(shift);
                 double base[3];
                 for (int e = 0; e < 3; ++e) {
-                    base[e] = xw[e] - (image[0] * h_[e] + image[1] * h_[3 + e] + image[2] * h_[6 + e]);
+                    base[e] = xw[e] - (image[0] * h[e] + image[1] * h[3 + e] + image[2] * h[6 + e]);
                 }
-                for (std::int64_t s = cell_start_[target]; s < cell_start_[target + 1]; ++s) {
+                for (std::int64_t s = cell_start_[first]; s < cell_start_[first + run + 1]; ++s) {
                     const double* yj = &slot_wrapped_[3 * s];
                     const double ax = yj[0] - base[0], ay = yj[1] - base[1], az = yj[2] - base[2];
-                    if (ax * ax + ay * ay + az * az >= screen2) {
+                    const double a2 = ax * ax + ay * ay + az * az;
+                    if (a2 >= screen2_) {
                         continue;
                     }
-                    // shift in the original (unwrapped) coordinates
+                    // shift in the original coordinates
                     const std::int32_t* wj = &slot_wraps_[3 * s];
-                    const std::int32_t shift[3] = {image[0] + wrap[0] - wj[0],
-                                                   image[1] + wrap[1] - wj[1],
-                                                   image[2] + wrap[2] - wj[2]};
-                    const double* xj = &slot_positions_[3 * s];
-                    double r2 = 0.0;
-                    for (int e = 0; e < 3; ++e) {
-                        const double r = xj[e] - xi[e] + shift[0] * h_[e] + shift[1] * h_[3 + e] +
-                                         shift[2] * h_[6 + e];
-                        r2 += r * r;
+                    const std::int32_t pair_shift[3] = {image[0] + wrap[0] - wj[0],
+                                                        image[1] + wrap[1] - wj[1],
+                                                        image[2] + wrap[2] - wj[2]};
+                    if (!kExact && a2 < inner2_) {
+                        if (s != t || pair_shift[0] != 0 || pair_shift[1] != 0 ||
+                            pair_shift[2] != 0) {
+                            visit(slot_atoms_[s], pair_shift, a2);
+                        }
+                        continue;
                     }
+                    double r[3];
+                    const double r2 = pair_vector(xi, &slot_positions_[3 * s], pair_shift, h, r);
                     if (r2 < cutoff2_) {
-                        const std::int32_t j = slot_atoms_[s];
-                        if (j == self && shift[0] == 0 && shift[1] == 0 && shift[2] == 0) {
+                        const index_t j = slot_atoms_[s];
+                        if (j == self && pair_shift[0] == 0 && pair_shift[1] == 0 &&
+                            pair_shift[2] == 0) {
                             continue;
                         }
-                        visit(j, shift, r2);
+                        visit(j, pair_shift, r2);
                     }
                 }
             }
@@ -186,38 +193,29 @@ void CellGrid::scan(const std::int64_t* cell, const std::int32_t* wrap, const do
     }
 }
 
-// The nearest atom (site) to each of m points, with the squared distance;
-// ties go to the lower index. sites: n x 3 in the box; points: m x 3.
-void nearest_sites(const double* sites, std::int64_t n, const double* matrix,
-                   const double* origin, const bool* pbc, const double* points, std::int64_t m,
-                   std::int64_t* site, double* distance2, const Control& control = {});
-
+// Every pair closer than the cutoff, the pair (i, i, 0) excluded; within an
+// atom the pairs come in the order of CellGrid::visit.
 // positions: n x 3; matrix: 3 x 3, rows a, b, c; origin: 3; pbc: 3.
-// Throws std::invalid_argument for a non-positive cutoff or a singular box.
+// Throws std::invalid_argument for a non-positive cutoff or a singular box,
+// std::overflow_error for a shift outside int8 or too many atoms.
 NeighborPairs build(const double* positions, std::int64_t n, const double* matrix,
                     const double* origin, const bool* pbc, double cutoff,
                     const Control& control = {});
 
-// The k nearest neighbors of every atom, nearest first (ties by neighbor and
-// then shift), k per atom. A non-periodic system needs more than k atoms.
-NeighborPairs nearest(const double* positions, std::int64_t n, const double* matrix,
-                      const double* origin, const bool* pbc, int k, const Control& control = {});
-
 // The vectors (pairs x 3) from each atom to its neighbors, x_j - x_i + shift . H,
 // computed as the search computes the distances.
 void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* offsets,
-                  const std::int32_t* neighbors, const std::int32_t* shifts, const double* matrix,
+                  const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
                   double* vectors, const Control& control = {});
 
 // The pairs of a list (offsets, neighbors, shifts) that are closer than the
 // cutoff with the atoms at positions, in the order of the list, with their
 // distances and vectors (pairs x 3); the test and the distances are those of
-// the search, so a list from a search with a longer cutoff gives the list of
-// a new search when no atom has moved half the difference of the cutoffs.
+// the search, so a list from a search with a longer cutoff gives the pairs
+// of a new search when no atom has moved half the difference of the cutoffs.
 NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t* offsets,
-                     const std::int32_t* neighbors, const std::int32_t* shifts,
-                     const double* matrix, double cutoff, std::vector<double>& vectors,
-                     const Control& control = {});
+                     const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
+                     double cutoff, Buffer<double>& vectors, const Control& control = {});
 
 // The pairs of each atom by distance, ties in their order, keeping the first
 // count of each atom (all when count < 0): the positions of the kept pairs,

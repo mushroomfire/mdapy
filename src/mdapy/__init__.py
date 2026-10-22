@@ -7,6 +7,7 @@ __version__ = "2.0.0.dev0"
 
 from mdapy import elements, errors, units
 from mdapy.core.box import Box
+from mdapy.core.indices import index_dtype
 from mdapy.core.system import System
 from mdapy.core.threads import (
     CancelToken,
@@ -30,6 +31,7 @@ __all__ = [
     "get_num_threads",
     "set_num_threads",
     "num_threads",
+    "index_dtype",
     "read",
     "write",
     "read_trajectory",

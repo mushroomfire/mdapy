@@ -120,7 +120,8 @@ flowchart TB
     [bond angles](analysis/bond-angles.md) ·
     [Warren–Cowley](analysis/warren-cowley.md) ·
     [Steinhardt](analysis/steinhardt.md) ·
-    [entropy fingerprint](analysis/entropy.md)
+    [entropy fingerprint](analysis/entropy.md) ·
+    [Voronoi](analysis/voronoi.md)
 
     Defects and deformation: [clusters](analysis/clusters.md) ·
     [Wigner–Seitz](analysis/wigner-seitz.md) ·

@@ -124,6 +124,7 @@ nav:
           - Warren–Cowley parameters: analysis/warren-cowley.md
           - Steinhardt parameters: analysis/steinhardt.md
           - Entropy fingerprint: analysis/entropy.md
+          - Voronoi analysis: analysis/voronoi.md
       - Defects and deformation:
           - Cluster analysis: analysis/clusters.md
           - Wigner–Seitz analysis: analysis/wigner-seitz.md

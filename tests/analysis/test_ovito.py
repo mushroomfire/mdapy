@@ -16,6 +16,7 @@ from mdapy.analysis import (
     MeanSquaredDisplacement,
     RadialDistributionFunction,
     SteinhardtParameters,
+    VoronoiAnalysis,
     WignerSeitz,
 )
 
@@ -32,6 +33,7 @@ from ovito.modifiers import (  # noqa: E402
     CreateBondsModifier,
     SteinhardtParametersModifier,
     UnwrapTrajectoriesModifier,
+    VoronoiAnalysisModifier,
     WignerSeitzAnalysisModifier,
 )
 from ovito.pipeline import ReferenceConfigurationModifier  # noqa: E402
@@ -346,3 +348,102 @@ def test_displacement_from_the_first_frame(tmp_path, step, flags):
     result = MeanSquaredDisplacement(window=False).compute(frames)
     np.testing.assert_allclose(result.components, expected, rtol=1e-12, atol=1e-12)
     assert box.wrap(walk[-1])[1].any()  # atoms crossed the boundaries
+
+
+def scattered(pbc, seed=0):
+    """Random atoms strictly inside a box, triclinic or not, as OVITO needs
+    in the directions that are not periodic."""
+    if pbc == "orthogonal":
+        box = mdapy.Box([12.0, 11.0, 13.0], pbc=(True, False, True))
+    else:
+        box = mdapy.Box(
+            [[12.0, 0, 0], [2.0, 11.0, 0], [-1.5, 1.0, 13.0]],
+            origin=[1, -2, 0.5],
+            pbc=pbc,
+        )
+    rng = np.random.default_rng(seed)
+    fractional = rng.random((300, 3)) * 0.98 + 0.01
+    return mdapy.System(box.to_cartesian(fractional), box, elements="Ar")
+
+
+@pytest.mark.parametrize(
+    "system",
+    [
+        pytest.param(scattered(True), id="periodic"),
+        pytest.param(scattered((True, True, False)), id="slab"),
+        pytest.param(scattered("orthogonal"), id="orthogonal-slab"),
+        pytest.param(crystal("fcc", 3.6, jitter=0.03, seed=6), id="fcc"),
+    ],
+)
+@pytest.mark.parametrize(
+    "thresholds",
+    [
+        {},
+        {"face_threshold": 0.5},
+        {"relative_face_threshold": 0.02},
+        {"edge_threshold": 0.3},
+        {"face_threshold": 0.1, "relative_face_threshold": 0.01, "edge_threshold": 0.2},
+    ],
+    ids=["none", "face", "relative", "edge", "all"],
+)
+def test_voronoi_cells(system, thresholds):
+    """OVITO counts the walls of the box among the faces of a cell, in the
+    coordination and the Voronoi index; mdapy counts faces shared with atoms."""
+    particles = ovito_compute(
+        system, VoronoiAnalysisModifier(compute_indices=True, **thresholds)
+    ).particles
+    result = VoronoiAnalysis(**thresholds).compute(system)
+    np.testing.assert_allclose(result.volume, particles["Atomic Volume"], atol=1e-12)
+    np.testing.assert_allclose(result.radius, particles["Cavity Radius"], atol=1e-12)
+    n = len(system)
+    atom = np.repeat(np.arange(n), np.diff(result.offsets))
+    walls = np.bincount(atom[result.j < 0], minlength=n)
+    np.testing.assert_array_equal(
+        result.coordination + walls, particles["Coordination"]
+    )
+    # OVITO's index counts the faces with 1, 2, ... edges, walls included
+    expected = np.asarray(particles["Voronoi Index"])
+    index = np.zeros_like(expected)
+    np.add.at(index, (atom, result.edges - 1), 1)
+    np.testing.assert_array_equal(index, expected)
+    # index() counts the faces shared with atoms only
+    shared = np.zeros_like(expected)
+    atoms = result.j >= 0
+    np.add.at(shared, (atom[atoms], result.edges[atoms] - 1), 1)
+    np.testing.assert_array_equal(result.index(expected.shape[1]), shared[:, 2:])
+
+
+def bond(i, j, shift):
+    """A pair as an unordered bond: the same for (i, j, s) and (j, i, -s)."""
+    shift = tuple(int(t) for t in shift)
+    back = tuple(-t for t in shift)
+    return min((int(i), int(j), shift), (int(j), int(i), back))
+
+
+@pytest.mark.parametrize(
+    "system",
+    [
+        pytest.param(scattered(True), id="periodic"),
+        pytest.param(scattered((True, True, False)), id="slab"),
+        pytest.param(crystal("fcc", 3.6, jitter=0.03, seed=6), id="fcc"),
+    ],
+)
+@pytest.mark.parametrize(
+    "thresholds",
+    [{}, {"face_threshold": 0.5}, {"edge_threshold": 0.3}],
+    ids=["none", "face", "edge"],
+)
+def test_voronoi_neighbors_as_bonds(system, thresholds):
+    """OVITO makes a bond for each face that counts; the thresholds here
+    treat both atoms of a face alike."""
+    bonds = ovito_compute(
+        system, VoronoiAnalysisModifier(generate_bonds=True, **thresholds)
+    ).particles.bonds
+    expected = {
+        bond(a, b, shift)
+        for (a, b), shift in zip(bonds.topology[...], bonds.pbc_vectors[...])
+    }
+    nl = mdapy.NeighborList.build(system, voronoi=True, **thresholds)
+    pairs = [bond(i, j, shift) for i, j, shift in zip(nl.i, nl.j, nl.shifts)]
+    assert set(pairs) == expected
+    assert len(pairs) == 2 * len(expected)  # each bond from both of its atoms

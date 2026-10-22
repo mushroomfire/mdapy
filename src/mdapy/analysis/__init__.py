@@ -29,6 +29,11 @@ from mdapy.analysis._entropy import EntropyFingerprint, EntropyResult
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
 from mdapy.analysis._strain import AtomicStrain, StrainResult
 from mdapy.analysis._temperature import AtomicTemperature, TemperatureResult
+from mdapy.analysis._voronoi import (
+    VoronoiAnalysis,
+    VoronoiPolyhedra,
+    VoronoiResult,
+)
 from mdapy.analysis._wigner_seitz import WignerSeitz, WignerSeitzResult
 
 __all__ = [
@@ -54,6 +59,9 @@ __all__ = [
     "StructureFactor",
     "StructureFactorResult",
     "TemperatureResult",
+    "VoronoiAnalysis",
+    "VoronoiPolyhedra",
+    "VoronoiResult",
     "WarrenCowley",
     "WarrenCowleyResult",
     "WignerSeitz",

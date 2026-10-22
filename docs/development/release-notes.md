@@ -117,8 +117,14 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   factors; the [`BondAngleDistribution`](../analysis/bond-angles.md) for
   each triplet of elements; [`WarrenCowley`](../analysis/warren-cowley.md)
   short-range order; [`SteinhardtParameters`](../analysis/steinhardt.md) up
-  to degree 20, optionally averaged; and the
-  [`EntropyFingerprint`](../analysis/entropy.md).
+  to degree 20, optionally averaged; the
+  [`EntropyFingerprint`](../analysis/entropy.md); and the
+  [`VoronoiAnalysis`](../analysis/voronoi.md), computed by mdapy's own code,
+  with the volumes, faces, coordination and Voronoi indices of the cells,
+  the face and edge thresholds of OVITO, boxes that are not periodic, and
+  the shapes of the cells as polyhedra; `NeighborList.build(system,
+  voronoi=True)` for the atoms that share a face, and Steinhardt parameters
+  over them, optionally weighted by the face areas.
 - Dynamics in `mdapy.analysis`: the
   [`MeanSquaredDisplacement`](../analysis/msd.md) of a trajectory, over
   every time origin or from the first frame, agreeing with LAMMPS and OVITO;

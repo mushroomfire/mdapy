@@ -42,7 +42,9 @@ wrong value fails before any computation. `compute` takes:
 | `progress`, `cancel` | | `None` | progress reports and cancellation, as described in [Parallelism](../getting-started/parallelism.md#progress-and-cancellation) |
 
 Analyses of a trajectory, the mean squared displacement and the Lindemann
-index, take a sequence of systems, `frames`, instead of `system`.
+index, take a sequence of systems, `frames`, instead of `system`. The
+Voronoi analysis takes no neighbor list: it searches as far as each cell
+needs.
 
 A neighbor list passed as `neighbors` must belong to the same `System`
 object. An analysis of the neighbors within a cutoff needs a list with at
@@ -93,6 +95,6 @@ the system lacks a column the analysis needs; and
 | Section | Classes |
 |---|---|
 | Structure identification | [`CommonNeighborAnalysis`](cna.md) · [`AcklandJonesAnalysis`](ackland-jones.md) · [`DiamondStructure`](diamond.md) · [`ChillPlus`](chill-plus.md) · [`CentroSymmetryParameter`](csp.md) · [`CommonNeighborParameter`](cnp.md) |
-| Local order and distributions | [`RadialDistributionFunction`](rdf.md) · [`CoordinationNumber`](coordination.md) · [`StructureFactor`](structure-factor.md) · [`BondAngleDistribution`](bond-angles.md) · [`WarrenCowley`](warren-cowley.md) · [`SteinhardtParameters`](steinhardt.md) · [`EntropyFingerprint`](entropy.md) |
+| Local order and distributions | [`RadialDistributionFunction`](rdf.md) · [`CoordinationNumber`](coordination.md) · [`StructureFactor`](structure-factor.md) · [`BondAngleDistribution`](bond-angles.md) · [`WarrenCowley`](warren-cowley.md) · [`SteinhardtParameters`](steinhardt.md) · [`EntropyFingerprint`](entropy.md) · [`VoronoiAnalysis`](voronoi.md) |
 | Defects and deformation | [`ClusterAnalysis`](clusters.md) · [`WignerSeitz`](wigner-seitz.md) · [`AtomicStrain`](atomic-strain.md) |
 | Dynamics | [`MeanSquaredDisplacement`](msd.md) · [`LindemannIndex`](lindemann.md) · [`AtomicTemperature`](temperature.md) |

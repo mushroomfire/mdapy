@@ -83,6 +83,12 @@ import mdapy
 
 ::: mdapy.analysis.EntropyResult
 
+::: mdapy.analysis.VoronoiAnalysis
+
+::: mdapy.analysis.VoronoiResult
+
+::: mdapy.analysis.VoronoiPolyhedra
+
 ::: mdapy.analysis.ClusterAnalysis
 
 ::: mdapy.analysis.ClusterResult

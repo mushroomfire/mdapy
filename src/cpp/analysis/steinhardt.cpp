@@ -71,8 +71,8 @@ void real_harmonics(int l, const double* u, double* y) {
 }
 
 void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
-                const double* vectors, const std::vector<int>& degrees, bool average, double* q,
-                const Control& control) {
+                const double* vectors, const double* weights, const std::vector<int>& degrees,
+                bool average, double* q, const Control& control) {
     std::size_t width = 0;
     for (int l : degrees) {
         if (l < 0 || l > kMaxDegree) {
@@ -88,8 +88,10 @@ void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neig
             std::vector<double> y(width);
             for (std::int64_t i = begin; i < end; ++i) {
                 double* sum = &qlm[static_cast<std::size_t>(i) * width];
-                const std::int64_t bonds = offsets[i + 1] - offsets[i];
+                double total = 0.0;  // of the weights
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    const double weight = weights != nullptr ? weights[p] : 1.0;
+                    total += weight;
                     const double* v = vectors + 3 * p;
                     const double r = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
                     const double u[3] = {v[0] / r, v[1] / r, v[2] / r};
@@ -99,12 +101,12 @@ void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neig
                         at += 2 * static_cast<std::size_t>(l) + 1;
                     }
                     for (std::size_t k = 0; k < width; ++k) {
-                        sum[k] += y[k];
+                        sum[k] += weight * y[k];
                     }
                 }
-                if (bonds > 0) {
+                if (total > 0.0) {
                     for (std::size_t k = 0; k < width; ++k) {
-                        sum[k] /= static_cast<double>(bonds);
+                        sum[k] /= total;
                     }
                 }
             }

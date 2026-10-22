@@ -26,7 +26,7 @@ neighbors feed the analyses and the calculators. Dashed parts are planned.
 ```mermaid
 flowchart TB
     files[("<b>Files</b><br/>extended XYZ · LAMMPS · POSCAR · mdapy")]
-    build["<b>Structure builder</b><br/>crystals · polycrystals · dislocations · packing"]
+    build["<b>Structure builder</b><br/>crystals · alloys<br/>polycrystals · defects · packing"]
     system(["<b>System</b><br/>box · topology · trajectory"])
     neighbors(["<b>Neighbor lists</b>"])
     visual["<b>Visualization</b><br/>rendering · plots"]
@@ -37,7 +37,7 @@ flowchart TB
     lattice["<b>Lattice dynamics</b><br/>elastic constants<br/>phonons"]
 
     files <--> system
-    build -.-> system
+    build --> system
     system --> neighbors
     system -.-> visual
     calculators -.-> mlip
@@ -50,7 +50,7 @@ flowchart TB
     classDef data fill:#3b82f61f,stroke:#3b82f6,stroke-width:2px
     classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px
     classDef simulation fill:#9333ea26,stroke:#9333ea,stroke-width:2px
-    classDef build fill:#16a34a1f,stroke:#16a34a,stroke-width:2px,stroke-dasharray:6 4
+    classDef build fill:#16a34a26,stroke:#16a34a,stroke-width:2px
     classDef visual fill:#db27771f,stroke:#db2777,stroke-width:2px,stroke-dasharray:6 4
     classDef mlip fill:#0d94881f,stroke:#0d9488,stroke-width:2px,stroke-dasharray:6 4
     class system,neighbors core
@@ -135,9 +135,10 @@ flowchart TB
 
     ---
 
-    Build crystals, polycrystals, dislocations and packed molecules.
+    Build crystals and alloys; polycrystals, defects and packed molecules
+    are planned.
 
-    Planned.
+    [Crystals](build/crystals.md) · [random alloys](build/alloys.md)
 
 -   :mdapy-simulation:{ .lg .middle } **Simulation**
 

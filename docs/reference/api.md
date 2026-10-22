@@ -113,6 +113,12 @@ import mdapy
 
 ::: mdapy.analysis.TemperatureResult
 
+## Structure builder
+
+::: mdapy.build.build_crystal
+
+::: mdapy.build.random_alloy
+
 ## Calculators
 
 ::: mdapy.calculators.Calculator

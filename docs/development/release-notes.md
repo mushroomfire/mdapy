@@ -144,6 +144,15 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   Green–Lagrange, von Mises and volumetric strains and $D^2_\text{min}$
   against a reference.
 
+### Structure builder
+
+- `mdapy.build.build_crystal`: perfect crystals of fifteen structures,
+  cubic and hexagonal, of one element or ordered on their sublattices,
+  along any crystal directions, with the shortest period along each;
+  the same atoms as atomsk. See [Crystals](../build/crystals.md).
+- `mdapy.build.random_alloy`: elements at random in given fractions with
+  exact counts. See [Random alloys](../build/alloys.md).
+
 ### Foundations
 
 - Python 3.11 or newer; NumPy 2.3.1 or newer and polars 2 are the only

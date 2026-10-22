@@ -133,6 +133,9 @@ nav:
           - Mean squared displacement: analysis/msd.md
           - Lindemann index: analysis/lindemann.md
           - Atomic temperature: analysis/temperature.md
+  - Structure builder:
+      - Crystals: build/crystals.md
+      - Random alloys: build/alloys.md
   - Simulation:
       - Calculators:
           - The calculator interface: simulation/calculators.md

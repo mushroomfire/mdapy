@@ -88,6 +88,10 @@ column of fixed-size arrays of length 3 and use the plural name.
 | random seed | `seed` (int or `numpy.random.Generator`) | `random_seed` |
 | list of elements | `elements` | `element_list` |
 | fractions of elements | `fractions` | `element_ratio` |
+| crystal structure | `structure` | `lattice_type` |
+| lattice constants (Å) | `a`, `c` | `lattice_constant` |
+| crystal directions along the box vectors | `orientation` | `miller1`, `miller2`, `miller3` |
+| number of periods along the box vectors | `repeat` | `nx`, `ny`, `nz` |
 | prebuilt neighbor list | `neighbors=` (keyword-only) | |
 | systems of a trajectory | `frames` | `pos_list`, `traj` |
 | average over every time origin | `window` (bool) | `mode` |

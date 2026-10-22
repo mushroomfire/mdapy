@@ -53,3 +53,31 @@ def icosahedron(r=2.5, element="Cu"):
     corners = np.array(corners) / np.sqrt(1 + phi**2) * r
     positions = np.vstack([[0, 0, 0], corners]) + 10.0
     return mdapy.System(positions, mdapy.Box(20.0, pbc=False), elements=element)
+
+
+def same_crystal(ours, theirs, tolerance=1e-8):
+    """Whether two systems have the same box and the same atoms, element by
+    element, up to a common translation and the order of the atoms."""
+    if not np.allclose(ours.box.matrix, theirs.box.matrix, atol=tolerance):
+        return False
+    if len(ours) != len(theirs):
+        return False
+    kinds = ours.table["element"].to_list()
+    others = theirs.table["element"].to_list()
+    box = ours.box
+    x = box.to_fractional(ours.positions)
+    y = box.to_fractional(theirs.positions)
+    target = others[0]
+    for k in [k for k, e in enumerate(kinds) if e == target]:
+        shift = y[0] - x[k]
+        d = (x + shift)[:, None, :] - y[None, :, :]
+        d -= np.round(d)
+        close = np.linalg.norm(d @ box.matrix, axis=2) < tolerance
+        match = close.argmax(axis=1)
+        if (
+            close.any(axis=1).all()
+            and len(set(match.tolist())) == len(x)
+            and all(kinds[i] == others[j] for i, j in enumerate(match))
+        ):
+            return True
+    return False

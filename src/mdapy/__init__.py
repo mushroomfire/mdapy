@@ -7,6 +7,7 @@ __version__ = "2.0.0.dev0"
 
 from mdapy import (
     analysis,
+    build,
     calculators,
     elements,
     errors,
@@ -34,6 +35,7 @@ __all__ = [
     "Topology",
     "__version__",
     "analysis",
+    "build",
     "calculators",
     "identify",
     "elements",

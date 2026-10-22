@@ -450,13 +450,19 @@ def measure(name: str, atoms: int, side: str, repeat: int) -> dict:
     """In a process of its own: whether both programs agree (side "check"),
     or the times of one of them."""
     case = _cases()[name]
+    if side != "mdapy":
+        import ovito.data  # noqa: F401
+        import ovito.modifiers  # noqa: F401
+        import ovito.pipeline  # noqa: F401
+    base = peak_memory()  # the libraries, before any system
     if side == "check":
         inputs = case.inputs(atoms)
         try:
             case.agree(case.mdapy(inputs)(), case.ovito(inputs)())
         except AssertionError as error:
             return {"agree": False, "message": str(error)[:2000]}
-        return {"agree": True, "atoms": len(inputs["system"]), "peak": peak_memory()}
+        size = len(inputs["system"])
+        return {"agree": True, "atoms": size, "base": base, "peak": peak_memory()}
     prepare = case.mdapy if side == "mdapy" else case.ovito
     prepare(case.inputs(WARM_UP))()
     inputs = case.inputs(atoms)
@@ -469,7 +475,7 @@ def measure(name: str, atoms: int, side: str, repeat: int) -> dict:
         result = run()
         times.append(time.perf_counter() - start)
         del result
-    return {"times": times, "before": before, "peak": peak_memory()}
+    return {"times": times, "base": base, "before": before, "peak": peak_memory()}
 
 
 # ------------------------------------------------------------ the runs
@@ -533,7 +539,8 @@ def run(names, sizes, threads, repeat, limit, output, timeout=None) -> list[dict
         ).stdout.strip(),
     }
     for name in names:
-        peaks: dict[str, tuple[int, int]] = {}  # side -> (atoms, peak memory)
+        # side -> atoms, peak memory and memory of the libraries alone
+        peaks: dict[str, tuple[int, int, int]] = {}
         stopped: set[str] = set()  # sides stopped at a smaller size
         for atoms in sizes:
             entry = {"case": name, "size": atoms, "atoms": atoms, **machine}
@@ -541,14 +548,14 @@ def run(names, sizes, threads, repeat, limit, output, timeout=None) -> list[dict
                 last = peaks.get(side)
                 if side in stopped:
                     entry[side] = {"skipped": "stopped at a smaller size"}
-                elif last is not None and last[1] * atoms / last[0] > limit:
+                elif last is not None and predicted(*last, atoms) > limit:
                     entry[side] = {"skipped": "would need too much memory"}
                 else:
                     entry[side] = spawn(
                         name, atoms, side, repeat, threads, limit, timeout
                     )
                     if "peak" in entry[side]:
-                        peaks[side] = (atoms, entry[side]["peak"])
+                        peaks[side] = (atoms, entry[side]["peak"], entry[side]["base"])
                     if "stopped" in entry[side]:
                         stopped.add(side)
                 if side == "check":
@@ -563,6 +570,12 @@ def run(names, sizes, threads, repeat, limit, output, timeout=None) -> list[dict
             if not entry["check"].get("agree"):
                 break
     return results
+
+
+def predicted(atoms: int, peak: int, base: int, more: int) -> float:
+    """The peak memory for more atoms: that of the libraries, and the rest
+    in proportion to the atoms."""
+    return base + (peak - base) * more / atoms
 
 
 def best(side: dict) -> float | None:

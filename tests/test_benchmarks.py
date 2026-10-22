@@ -38,7 +38,7 @@ def test_run_table_and_plot(tmp_path, capsys):
     options = ["--sizes", "300", "2000", "--repeat", "2", "--threads", "2"]
     comparison.main(["run", "csp", *options, "--output", str(results)])
     entries = comparison.load(results)
-    assert [e["atoms"] for e in entries] == [256, 2048]
+    assert [e["atoms"] for e in entries] == [256, 2048], entries
     assert all(len(e["mdapy"]["times"]) == 2 for e in entries)
     assert entries[0]["threads"] == 2
     comparison.main(["table", str(results)])

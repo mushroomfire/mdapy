@@ -5,7 +5,16 @@
 
 __version__ = "2.0.0.dev0"
 
-from mdapy import analysis, calculators, elements, errors, identify, simulation, units
+from mdapy import (
+    analysis,
+    calculators,
+    elements,
+    errors,
+    identify,
+    lattice_dynamics,
+    simulation,
+    units,
+)
 from mdapy.core.box import Box
 from mdapy.core.indices import index_dtype
 from mdapy.core.system import System
@@ -29,6 +38,7 @@ __all__ = [
     "identify",
     "elements",
     "errors",
+    "lattice_dynamics",
     "simulation",
     "units",
     "CancelToken",

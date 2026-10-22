@@ -55,7 +55,7 @@ result.energy / len(system)  # eV per atom
 result.stress(system)  # (3, 3) GPa
 ```
 
-See [Calculators](../modelling/calculators.md) and [EAM](../modelling/eam.md).
+See [Calculators](../simulation/calculators.md) and [EAM](../simulation/eam.md).
 
 ## Relaxation
 
@@ -74,4 +74,4 @@ relaxed.converged, relaxed.energy, relaxed.stress
 mdapy.write("relaxed.xyz", relaxed.system)  # with forces, energy and stress
 ```
 
-See [Energy minimization](../modelling/minimize.md).
+See [Energy minimization](../simulation/minimize.md).

@@ -58,6 +58,12 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra_css:
+  - stylesheets/extra.css
 
 extra_javascript:
   - javascripts/mathjax.js
@@ -113,16 +119,16 @@ nav:
           - Atomic strain: analysis/strain.md
       - Dynamics:
           - Atomic temperature: analysis/temperature.md
-  - Modelling:
+  - Simulation:
       - Calculators:
-          - The calculator interface: modelling/calculators.md
-          - EAM: modelling/eam.md
-          - NEP: modelling/nep.md
-          - LAMMPS: modelling/lammps.md
-      - Simulation:
-          - Energy minimization: modelling/minimize.md
-      - Elasticity and phonons:
-          - Elastic constants: modelling/elastic-constants.md
+          - The calculator interface: simulation/calculators.md
+          - EAM: simulation/eam.md
+          - NEP: simulation/nep.md
+          - LAMMPS: simulation/lammps.md
+      - Minimization and dynamics:
+          - Energy minimization: simulation/minimize.md
+      - Lattice dynamics:
+          - Elastic constants: simulation/elastic-constants.md
   - Reference:
       - File formats:
           - Extended XYZ: reference/formats/extxyz.md

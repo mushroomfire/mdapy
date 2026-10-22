@@ -29,7 +29,7 @@
 | `src/mdapy/calculators/_lammps.py` | `LAMMPS`, the calculator of any LAMMPS interaction. |
 | `src/mdapy/calculators/_nep.py` | `NEP` and its file reader. |
 | `src/mdapy/simulation/_minimize.py` | `minimize`, with FIRE 2.0, of the positions and the box. |
-| `src/mdapy/simulation/_elastic.py` | `elastic_constants`. |
+| `src/mdapy/lattice_dynamics/_elastic.py` | `elastic_constants`. |
 | `src/mdapy/identify/_structure.py` | `CommonNeighborAnalysis`, `CentroSymmetryParameter`. |
 | `src/mdapy/analysis/_distribution.py` | `RadialDistributionFunction`, `CoordinationNumber`, `StructureFactor`. |
 | `src/mdapy/analysis/_steinhardt.py` | `SteinhardtParameters`. |

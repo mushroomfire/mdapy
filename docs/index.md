@@ -13,42 +13,67 @@ minimization with interatomic potentials.
 
 ## What mdapy does
 
-Files become a `System`; its neighbors feed the analyses and the
-calculators; calculators drive minimization and the elastic constants.
-Dashed parts are planned.
+Structures come from files or are built, live in a `System`, and its
+neighbors feed the analyses and the calculators. Dashed parts are planned.
 
 ```mermaid
-flowchart LR
-    files["Files<br>extended XYZ · LAMMPS · POSCAR · mdapy"] <--> system["System<br>box · topology · trajectory"]
-    build["Build and transform<br>crystals · polycrystals · replicate"] -.-> system
-    system --> neighbors["Neighbor lists"]
-    neighbors --> analysis["Analysis<br>structure · order · defects · dynamics"]
-    neighbors --> calculators["Calculators<br>EAM · NEP · LAMMPS"]
-    calculators --> simulation["Simulation<br>energy minimization"]
-    calculators --> elasticity["Elasticity and phonons<br>elastic constants"]
-    classDef planned stroke-dasharray: 5 5
-    class build planned
+flowchart TB
+    files[("<b>Files</b><br/>extended XYZ · LAMMPS · POSCAR · mdapy")]
+    build["<b>Model building</b><br/>crystals · polycrystals · dislocations · packing"]
+    system(["<b>System</b><br/>box · topology · trajectory"])
+    neighbors(["<b>Neighbor lists</b>"])
+    render["<b>Rendering</b><br/>images of systems"]
+    analysis["<b>Analysis</b><br/>structures · local order · defects · dynamics"]
+    calculators["<b>Calculators</b><br/>EAM · NEP · LAMMPS"]
+    minimization["<b>Minimization and dynamics</b>"]
+    lattice["<b>Lattice dynamics</b><br/>elastic constants · phonons"]
+
+    files <--> system
+    build -.-> system
+    system --> neighbors
+    system -.-> render
+    neighbors --> analysis
+    neighbors --> calculators
+    calculators --> minimization
+    calculators --> lattice
+
+    classDef core fill:#2563eb40,stroke:#2563eb,stroke-width:4px
+    classDef data fill:#3b82f61f,stroke:#3b82f6,stroke-width:2px
+    classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px
+    classDef simulation fill:#9333ea26,stroke:#9333ea,stroke-width:2px
+    classDef build fill:#16a34a1f,stroke:#16a34a,stroke-width:2px,stroke-dasharray:6 4
+    classDef render fill:#db27771f,stroke:#db2777,stroke-width:2px,stroke-dasharray:6 4
+    class system,neighbors core
+    class files data
+    class analysis analysis
+    class calculators,minimization,lattice simulation
+    class build build
+    class render render
 ```
 
 <div class="grid cards" markdown>
 
--   **Getting started**
+-   :material-rocket-launch-outline:{ .lg .middle } **Getting started**
 
     ---
+
+    Install mdapy, take the quick tour and learn the basics.
 
     [Installation](getting-started/installation.md) ·
     [Quick tour](getting-started/quick-tour.md)
 
-    Basics: [Systems and topology](getting-started/system.md) ·
+    [Systems and topology](getting-started/system.md) ·
     [Simulation box](getting-started/box.md) ·
     [Reading and writing files](getting-started/io.md) ·
     [Trajectories](getting-started/trajectory.md) ·
     [Neighbor lists](getting-started/neighbor.md) ·
     [Parallelism](getting-started/parallelism.md)
 
--   **Analysis**
+-   :material-chart-bell-curve-cumulative:{ .lg .middle } **Analysis**
 
     ---
+
+    Identify structures and measure order, defects and dynamics.
 
     [Overview](analysis/overview.md)
 
@@ -65,25 +90,43 @@ flowchart LR
 
     Dynamics: [atomic temperature](analysis/temperature.md)
 
--   **Modelling**
+-   :material-cube-outline:{ .lg .middle } **Model building**
 
     ---
 
-    Build and transform (planned)
+    Build crystals, polycrystals, dislocations and packed molecules.
 
-    Calculators: [the interface](modelling/calculators.md) ·
-    [EAM](modelling/eam.md) · [NEP](modelling/nep.md) ·
-    [LAMMPS](modelling/lammps.md)
+    Planned.
 
-    Simulation: [Energy minimization](modelling/minimize.md)
-
-    Elasticity and phonons: [Elastic constants](modelling/elastic-constants.md)
-
--   **Reference**
+-   :material-atom-variant:{ .lg .middle } **Simulation**
 
     ---
 
-    File formats: [Extended XYZ](reference/formats/extxyz.md) ·
+    Energies and forces from potentials, minimization and lattice dynamics.
+
+    Calculators: [the interface](simulation/calculators.md) ·
+    [EAM](simulation/eam.md) · [NEP](simulation/nep.md) ·
+    [LAMMPS](simulation/lammps.md)
+
+    Minimization and dynamics: [energy minimization](simulation/minimize.md)
+
+    Lattice dynamics: [elastic constants](simulation/elastic-constants.md)
+
+-   :material-palette-outline:{ .lg .middle } **Rendering**
+
+    ---
+
+    Images of systems, colored by any property.
+
+    Planned.
+
+-   :material-book-open-variant:{ .lg .middle } **Reference**
+
+    ---
+
+    File formats, units, the glossary, the papers and the Python API.
+
+    [Extended XYZ](reference/formats/extxyz.md) ·
     [LAMMPS data](reference/formats/lammps-data.md) ·
     [LAMMPS dump](reference/formats/lammps-dump.md) ·
     [VASP POSCAR](reference/formats/poscar.md) ·

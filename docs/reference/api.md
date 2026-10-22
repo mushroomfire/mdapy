@@ -113,9 +113,11 @@ import mdapy
 
 ::: mdapy.simulation.MinimizeResult
 
-::: mdapy.simulation.elastic_constants
+## Lattice dynamics
 
-::: mdapy.simulation.ElasticResult
+::: mdapy.lattice_dynamics.elastic_constants
+
+::: mdapy.lattice_dynamics.ElasticResult
 
 ## Threads and indices
 

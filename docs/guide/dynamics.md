@@ -64,4 +64,7 @@ origin, and the MSD from the first frame, to 10<sup>−9</sup>; that ballistic
 motion gives $v^2 m^2$; that a trajectory read from a file gives the same
 result; that the Lindemann index of a vibrating cluster agrees with a direct
 computation to 10<sup>−10</sup> and is exactly zero for a rigid motion; and
-the errors.
+the errors. `tests/analysis/test_dynamics_lammps.py` runs where LAMMPS is
+installed: for a random walk in a triclinic box, written as a dump with image
+flags and read back by `rerun`, the MSD from the first frame agrees with
+`compute msd` to 10<sup>−10</sup>.

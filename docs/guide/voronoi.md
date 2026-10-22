@@ -60,6 +60,12 @@ The tests in `tests/analysis/test_voronoi.py` check that:
 - results do not change under rotation and translation, are the same for any
   number of threads, and a one-atom box is a single cell with six faces.
 
+`tests/analysis/test_voronoi_lammps.py` runs where LAMMPS with the VORONOI
+package (voro++) is installed: on a disordered fcc crystal, periodic and with
+an open direction, the volumes agree with `compute voronoi/atom` to
+10<sup>−10</sup> and the numbers of faces are the same for every atom.
+LAMMPS counts the walls of the box among the faces; `coordination` does not.
+
 ## References
 
 - G. Voronoi, Nouvelles applications des paramètres continus à la théorie des

@@ -215,17 +215,11 @@ class CoordinationNumber:
         CoordinationResult
             The counts of each atom.
         """
-        bonds, found = self._bonds.select(system, neighbors)
-        n = len(system)
+        table, found = self._bonds.counts(system, neighbors, progress, cancel)
         partial = {}
         if found is not None:
-            names, index = found
-            types = len(names)
-            table = np.bincount(
-                bonds.i * types + index[bonds.j], minlength=n * types
-            ).reshape(n, types)
-            partial = {name: table[:, t].copy() for t, name in enumerate(names)}
-        return CoordinationResult(bonds.counts, partial)
+            partial = {name: table[:, t].copy() for t, name in enumerate(found[0])}
+        return CoordinationResult(table.sum(axis=1), partial)
 
     def __repr__(self) -> str:
         return f"CoordinationNumber({self._bonds})"

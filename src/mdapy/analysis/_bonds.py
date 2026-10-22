@@ -75,6 +75,52 @@ class _Bonds:
         keep = nl.distances < limits[index[nl.i], index[nl.j]]
         return nl._subset(keep, largest), found
 
+    def counts(
+        self,
+        system: System,
+        neighbors: NeighborList | None,
+        progress: Any = None,
+        cancel: Any = None,
+    ) -> tuple[np.ndarray, tuple[tuple[str, ...], np.ndarray] | None]:
+        """Each atom's bonds by the element of the other atom, (N, elements)
+        or (N, 1) without an element column, and the elements."""
+        if neighbors is not None:
+            bonds, found = self.select(system, neighbors)
+            n = len(system)
+            index = found[1] if found is not None else np.zeros(n, dtype=np.int64)
+            types = len(found[0]) if found is not None else 1
+            table = np.bincount(bonds.i * types + index[bonds.j], minlength=n * types)
+            return table.reshape(n, types), found
+        found = _elements(system)
+        if self.cutoffs is None:
+            names, index = found if found is not None else ((), None)
+            limits = np.full((max(len(names), 1),) * 2, self.cutoff)
+        else:
+            if found is None:
+                raise MissingProperty(
+                    "cutoffs per pair of elements need the element column"
+                )
+            names, index = found
+            limits = np.array(
+                [[self.cutoffs.get((a, b), 0.0) for b in names] for a in names]
+            )
+        if index is None:
+            index = np.zeros(len(system), dtype=np.int64)
+        box = system.box
+        table = _native.count_neighbors(
+            np.ascontiguousarray(system.positions),
+            np.ascontiguousarray(box.matrix),
+            np.ascontiguousarray(box.origin),
+            np.ascontiguousarray(box.pbc),
+            index.astype(np.int32),
+            len(limits),
+            np.ascontiguousarray(limits, dtype=np.float64),
+            self.cutoffs is not None,
+            progress,
+            _native_token(cancel),
+        )
+        return table, found
+
     def __repr__(self) -> str:
         if self.cutoffs is None:
             return f"cutoff={self.cutoff!r}"
@@ -349,16 +395,24 @@ class WarrenCowley:
         if found is None:
             raise MissingProperty("Warren-Cowley parameters need the element column")
         names, index = found
-        if self.cutoff is not None:
-            nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
-        elif neighbors is None:
-            nl = NeighborList.nearest(system, self.num_neighbors)
-        else:
-            nl = _given_or_built(system, 0.0, neighbors)._nearest(self.num_neighbors)
         types = len(names)
-        pairs = np.bincount(
-            index[nl.i] * types + index[nl.j], minlength=types * types
-        ).reshape(types, types)
+        if self.cutoff is not None:
+            # each atom's neighbors by element, summed by the atom's element
+            table, _ = _Bonds(self.cutoff, None).counts(
+                system, neighbors, progress, cancel
+            )
+            pairs = np.zeros((types, types), dtype=np.int64)
+            np.add.at(pairs, index, table)
+        else:
+            if neighbors is None:
+                nl = NeighborList.nearest(system, self.num_neighbors)
+            else:
+                nl = _given_or_built(system, 0.0, neighbors)._nearest(
+                    self.num_neighbors
+                )
+            pairs = np.bincount(
+                index[nl.i] * types + index[nl.j], minlength=types * types
+            ).reshape(types, types)
         fractions = np.bincount(index, minlength=types) / len(system)
         with np.errstate(invalid="ignore", divide="ignore"):
             probability = pairs / pairs.sum(axis=1, keepdims=True)

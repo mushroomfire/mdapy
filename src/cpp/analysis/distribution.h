@@ -13,6 +13,17 @@
 
 namespace mdapy::analysis {
 
+// The neighbors of each of n atoms counted by type (counts: n x types), those
+// closer than the limit of their pair of types (limits: types x types, in Å;
+// none for 0), found on a cell grid. With per_pair false every limit is the
+// same and the squared distance is compared with its square, as a neighbor
+// search does; with per_pair true the distance is compared with each limit,
+// as NeighborList.within does.
+void count_neighbors(const double* positions, std::int64_t n, const double* matrix,
+                     const double* origin, const bool* pbc, const std::int32_t* type, int types,
+                     const double* limits, bool per_pair, std::int64_t* counts,
+                     const Control& control = {});
+
 // Counts of the ordered pairs (i, j) closer than r_max in bins of equal width,
 // by the types of i and j: counts[(type_i * types + type_j) * bins + bin].
 // positions: n x 3; matrix: rows a, b, c; types: n values from 0 to types - 1.

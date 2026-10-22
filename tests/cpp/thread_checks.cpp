@@ -354,6 +354,17 @@ void neighbor_search() {
                                      pairs.distances[p];
         }
         check(lengths, "the pair vectors have the lengths of the distances");
+        // the pairs within 3 of a list within 3.5, as a new search finds them
+        std::vector<double> followed_vectors;
+        const mdapy::neighbor::NeighborPairs followed = mdapy::neighbor::follow(
+            positions.data(), n, pairs.offsets.data(), pairs.neighbors.data(),
+            pairs.shifts.data(), matrix, 3.0, followed_vectors);
+        const mdapy::neighbor::NeighborPairs shorter =
+            mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 3.0);
+        check(followed.offsets == shorter.offsets && followed.neighbors == shorter.neighbors &&
+                  followed.shifts == shorter.shifts && followed.distances == shorter.distances &&
+                  followed_vectors.size() == 3 * shorter.neighbors.size(),
+              "following a longer list gives the pairs of a new search");
         // every atom is its own nearest site
         std::vector<std::int64_t> site(static_cast<std::size_t>(n));
         std::vector<double> distance2(static_cast<std::size_t>(n));

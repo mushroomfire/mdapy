@@ -232,28 +232,17 @@ class NeighborList:
         moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
         if not cutoff + 2.0 * moved < self.cutoff:
             return None
-        vectors = _native.pair_vectors(
+        offsets, j, shifts, distances, vectors = _native.follow(
             np.ascontiguousarray(system.positions),
             self.offsets,
             self.j,
             self.shifts,
             np.ascontiguousarray(system.box.matrix),
+            float(cutoff),
         )
-        # the test of the search itself, and its distances
-        r2 = vectors[:, 0] * vectors[:, 0] + vectors[:, 1] * vectors[:, 1]
-        r2 = r2 + vectors[:, 2] * vectors[:, 2]
-        keep = r2 < cutoff * cutoff
-        kept = np.concatenate([[0], np.cumsum(keep)])
-        followed = NeighborList(
-            system,
-            cutoff,
-            kept[self.offsets].astype(np.int64),
-            self.j[keep],
-            self.shifts[keep],
-            np.sqrt(r2[keep]),
-        )
-        followed._vectors = vectors[keep]
-        followed._vectors.flags.writeable = False
+        followed = NeighborList(system, cutoff, offsets, j, shifts, distances)
+        vectors.flags.writeable = False
+        followed._vectors = vectors
         return followed
 
     def sorted(self) -> "NeighborList":

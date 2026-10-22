@@ -20,7 +20,7 @@ result = minimize(system, potential, cell="isotropic", pressure=10.0)
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `system` | `System` | | | the starting configuration, with a `mass` or an `element` column |
+| `system` | `System` | | | the starting configuration, with a `mass` or an `element` column; a `movable` column, (N, 3) bool as VASP's selective dynamics, keeps each atom still where it is False |
 | `calculator` | `Calculator` | | | computes energies and forces, and the virial when the box relaxes |
 | `max_force` | float | 1e-3 | eV/Å | converged when every force is below it |
 | `max_steps` | int | 1000 | | largest number of steps |

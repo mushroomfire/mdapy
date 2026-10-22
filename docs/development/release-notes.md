@@ -94,6 +94,12 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   from the stress under small strains, with relaxed positions, and Voigt,
   Reuss and Hill moduli. See [Elastic constants](../simulation/elastic-constants.md).
 
+- `mdapy.simulation.vacancy_formation_energy`, `surface_energy` and
+  `stacking_fault_energy` (the generalized stacking fault energy, relaxed
+  along the normal), agreeing with LAMMPS; `minimize` keeps atoms still
+  along the directions where a `movable` column is False. See
+  [Defect energies](../simulation/defect-energies.md).
+
 ### Analyses
 
 - Analyses are classes whose `compute(system)` returns an immutable result;

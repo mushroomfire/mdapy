@@ -147,6 +147,7 @@ nav:
           - LAMMPS: simulation/lammps.md
       - Minimization and dynamics:
           - Energy minimization: simulation/minimize.md
+          - Defect energies: simulation/defect-energies.md
       - Lattice dynamics:
           - Elastic constants: simulation/elastic-constants.md
   - Reference:

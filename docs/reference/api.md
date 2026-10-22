@@ -161,6 +161,18 @@ import mdapy
 
 ::: mdapy.simulation.MinimizeResult
 
+::: mdapy.simulation.vacancy_formation_energy
+
+::: mdapy.simulation.VacancyResult
+
+::: mdapy.simulation.surface_energy
+
+::: mdapy.simulation.SurfaceResult
+
+::: mdapy.simulation.stacking_fault_energy
+
+::: mdapy.simulation.StackingFaultResult
+
 ## Lattice dynamics
 
 ::: mdapy.lattice_dynamics.elastic_constants

@@ -153,7 +153,8 @@ flowchart TB
     [EAM](simulation/eam.md) · [NEP](simulation/nep.md) ·
     [LAMMPS](simulation/lammps.md)
 
-    Minimization and dynamics: [energy minimization](simulation/minimize.md)
+    Minimization and dynamics: [energy minimization](simulation/minimize.md) ·
+    [defect energies](simulation/defect-energies.md)
 
     Lattice dynamics: [elastic constants](simulation/elastic-constants.md)
 

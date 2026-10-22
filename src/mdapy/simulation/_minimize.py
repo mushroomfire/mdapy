@@ -121,7 +121,9 @@ def minimize(
     Parameters
     ----------
     system : System
-        The starting configuration, with a ``mass`` or an ``element`` column.
+        The starting configuration, with a ``mass`` or an ``element`` column;
+        a ``movable`` column, (N, 3) bool, keeps each atom still along the
+        directions where it is False.
     calculator : Calculator
         Computes energies and forces, and the virial when the box relaxes.
     max_force : float, optional
@@ -191,6 +193,12 @@ def minimize(
         if p in calculator.implemented
     )
     masses = _masses(system)
+    # the directions in which each atom may move, as VASP's selective dynamics
+    movable = (
+        system.table["movable"].to_numpy().astype(bool)
+        if "movable" in system.table.columns
+        else None
+    )
 
     # The box relaxes by a symmetric deformation gradient F of the starting
     # box, a strain without rotation; the atoms move with it, so the
@@ -231,7 +239,7 @@ def minimize(
                 wide = NeighborList.build(current, cutoff + _SKIN)
                 neighbors = wide._follow(current, cutoff)
         result = calculator.compute(current, properties, neighbors=neighbors)
-        forces = result.forces
+        forces = result.forces if movable is None else result.forces * movable
         largest = float(np.sqrt((forces * forces).sum(axis=1)).max(initial=0.0))
         stress = result.stress(current) if "virial" in properties else None
         generalized, deviation = forces, 0.0

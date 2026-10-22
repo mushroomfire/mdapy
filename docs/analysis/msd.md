@@ -28,11 +28,17 @@ diffusion = slope / 6  # Å²/ps, about 0.05
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `window` | bool | `True` | | average over every time origin, or measure from the first frame only |
+| `unwrap` | bool | `True` | | follow the atoms through the periodic boundaries, or take the positions as they are, already unwrapped |
 
 `compute(frames)` takes a sequence of systems, such as a list or a
-[`Trajectory`](../getting-started/trajectory.md), with the same atoms in the
-same order in every frame. Each atom is followed from frame to frame through
-the periodic boundaries:
+[`Trajectory`](../getting-started/trajectory.md), with the same atoms in
+every frame. Where the first frame has an `id` column, as a LAMMPS dump
+does, every frame needs one and the atoms are matched by their ids, in
+whatever order each frame lists them; without ids, the atoms are in the same
+order in every frame.
+
+With `unwrap=True`, each atom is followed from frame to frame through the
+periodic boundaries:
 
 - by its image flags, the `image` column, as in a LAMMPS dump with
   `ix iy iz`, where two consecutive frames both have them;
@@ -40,8 +46,9 @@ the periodic boundaries:
   frame, which needs every atom to move less than half the box between two
   frames.
 
-The positions may be wrapped into the box or not, and the box may change
-from frame to frame.
+The box may change from frame to frame. With `unwrap=False`, for positions
+already unwrapped, such as `xu yu zu` of a LAMMPS dump, the positions are
+used as they are.
 
 ## Results
 
@@ -56,13 +63,14 @@ A `DisplacementResult`:
 ## Errors
 
 `compute` raises `InvalidParameter` without frames, for frames with
-different numbers of atoms and for frames without atoms.
+different numbers of atoms, for frames without atoms, and, where the first
+frame has ids, for repeated ids or a frame without the same ids.
 
 ## Definition
 
 With the positions $\mathbf r_i(k)$ of the $N$ atoms in frame $k$ of $T$,
-followed through the periodic boundaries as above, the mean squared
-displacement averaged over every time origin (`window=True`) is
+unwrapped as above, the mean squared displacement averaged over every time
+origin (`window=True`) is
 
 $$
 \text{MSD}(m) = \frac{1}{N} \sum_i \frac{1}{T - m} \sum_{k=0}^{T-m-1}

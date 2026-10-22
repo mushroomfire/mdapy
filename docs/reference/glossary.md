@@ -90,6 +90,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | prebuilt neighbor list | `neighbors=` (keyword-only) | |
 | systems of a trajectory | `frames` | `pos_list`, `traj` |
 | average over every time origin | `window` (bool) | `mode` |
+| follow atoms through the periodic boundaries | `unwrap` (bool) | `wrapped`, `unwrapped` |
 | reference configuration | `reference=` | `ref` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
 | interval between kept frames | `save_every` | `dump_freq`, `interval` |

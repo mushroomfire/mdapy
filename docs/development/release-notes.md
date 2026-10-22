@@ -123,8 +123,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [`MeanSquaredDisplacement`](../analysis/msd.md) of a trajectory, over
   every time origin or from the first frame, agreeing with LAMMPS and OVITO;
   the [`LindemannIndex`](../analysis/lindemann.md) of each atom and of the
-  frames so far; both follow the atoms through the periodic boundaries by
-  their image flags or by the nearest image. The
+  frames so far; both match the atoms of the frames by their ids and
+  follow them through the periodic boundaries by their image flags or by
+  the nearest image, unless the positions are already unwrapped. The
   [`AtomicTemperature`](../analysis/temperature.md) of each atom and its
   neighbors, relative to their center of mass.
 - Defects and deformation in `mdapy.analysis`, agreeing with OVITO:

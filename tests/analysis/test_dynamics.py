@@ -33,7 +33,10 @@ def test_msd_over_every_origin():
     np.testing.assert_allclose(
         first.msd, ((true - true[0]) ** 2).sum(-1).mean(1), atol=1e-12
     )
-    assert repr(MeanSquaredDisplacement()) == "MeanSquaredDisplacement(window=True)"
+    assert (
+        repr(MeanSquaredDisplacement())
+        == "MeanSquaredDisplacement(window=True, unwrap=True)"
+    )
 
 
 def test_ballistic_motion():
@@ -73,6 +76,48 @@ def test_image_flags():
         ((small - small[0]) ** 2).sum(-1).mean(1),
         atol=1e-12,
     )
+
+
+def test_unwrapped_positions_as_they_are():
+    # long steps of positions already unwrapped, outside the box
+    rng = np.random.default_rng(8)
+    true = np.cumsum(rng.normal(scale=3.0, size=(25, 15, 3)), axis=0)
+    frames = [mdapy.System(x, BOX, elements="Ar") for x in true]
+    for window in (True, False):
+        given = MeanSquaredDisplacement(window=window, unwrap=False).compute(frames)
+        expected = MeanSquaredDisplacement(window=window).compute(
+            [flagged(x) for x in true]
+        )
+        np.testing.assert_allclose(given.msd, expected.msd, rtol=1e-10, atol=1e-9)
+    followed = MeanSquaredDisplacement(window=False).compute(frames)
+    assert abs(followed.msd[-1] - expected.msd[-1]) > 0.1 * expected.msd[-1]
+    result = LindemannIndex(unwrap=False).compute(frames)
+    index, atomic = lindemann(true)
+    assert result.index == pytest.approx(index, rel=1e-10)
+    np.testing.assert_allclose(result.atomic, atomic, rtol=1e-10)
+    assert repr(LindemannIndex(unwrap=False)) == "LindemannIndex(unwrap=False)"
+
+
+def test_atoms_matched_by_id():
+    # every frame in another order of the atoms, with ids and image flags
+    rng = np.random.default_rng(9)
+    true = np.cumsum(rng.normal(scale=3.0, size=(20, 12, 3)), axis=0)
+    ids = rng.permutation(np.arange(100, 112))
+    ordered = [flagged(x).with_columns(id=ids) for x in true]
+    orders = [rng.permutation(12) for _ in ordered]
+    shuffled = [f.with_table(f.table[o]) for f, o in zip(ordered, orders)]
+    for window in (True, False):
+        np.testing.assert_allclose(
+            MeanSquaredDisplacement(window=window).compute(shuffled).components,
+            MeanSquaredDisplacement(window=window).compute(ordered).components,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+    # the atoms of the first frame, in its order
+    expected = LindemannIndex().compute(ordered)
+    result = LindemannIndex().compute(shuffled)
+    np.testing.assert_allclose(result.atomic, expected.atomic[orders[0]], rtol=1e-12)
+    assert result.index == pytest.approx(expected.index, rel=1e-12)
 
 
 def test_trajectory_files(tmp_path):
@@ -116,7 +161,7 @@ def test_lindemann_index():
         mdapy.System(cluster + [t * 0.3, 0, 0], big, elements="Ar") for t in range(10)
     ]
     assert LindemannIndex().compute(moving).index == pytest.approx(0.0, abs=1e-12)
-    assert repr(LindemannIndex()) == "LindemannIndex()"
+    assert repr(LindemannIndex()) == "LindemannIndex(unwrap=True)"
 
 
 def test_errors():
@@ -131,3 +176,10 @@ def test_errors():
         MeanSquaredDisplacement().compute([empty, empty])
     with pytest.raises(InvalidParameter, match="two atoms or more"):
         LindemannIndex().compute([one, one])
+    numbered = two.with_columns(id=[1, 2])
+    with pytest.raises(InvalidParameter, match="frame 1 has no id column"):
+        MeanSquaredDisplacement().compute([numbered, two])
+    with pytest.raises(InvalidParameter, match="frame 1 has other ids"):
+        MeanSquaredDisplacement().compute([numbered, two.with_columns(id=[1, 3])])
+    with pytest.raises(InvalidParameter, match="repeated ids"):
+        MeanSquaredDisplacement().compute([two.with_columns(id=[4, 4])])

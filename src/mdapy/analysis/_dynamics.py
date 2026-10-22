@@ -16,44 +16,60 @@ from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 
 
-def _imaged(frame: System) -> np.ndarray | None:
-    """The positions of a frame moved by its image flags, or None without an
-    image column."""
-    if "image" not in frame.table.columns:
-        return None
-    return frame.positions + frame.table["image"].to_numpy() @ frame.box.matrix
-
-
-def unwrapped(frames: Sequence[System]) -> np.ndarray:
-    """(T, N, 3) positions of the frames, followed from frame to frame by the
-    image flags where both frames have an image column, else by the periodic
-    image nearest to the previous position."""
+def _followed(frames: Sequence[System], unwrap: bool) -> np.ndarray:
+    """(T, N, 3) positions of the frames, the atoms in the order of the first
+    frame, matched by their ids where it has an id column. With unwrap, each
+    atom is followed from frame to frame by its image flags where both frames
+    have an image column, else by the periodic image nearest to its previous
+    position."""
     count = len(frames)
     if count == 0:
         raise InvalidParameter("there are no frames")
     first = frames[0]
-    positions = np.empty((count, len(first), 3))
-    previous, before = first, _imaged(first)
-    positions[0] = first.positions if before is None else before
-    for t in range(1, count):
+    n = len(first)
+    ids = first.table["id"].to_numpy() if "id" in first.table.columns else None
+    if ids is not None:
+        first_order = np.argsort(ids, kind="stable")
+        sorted_ids = ids[first_order]
+        if (sorted_ids[1:] == sorted_ids[:-1]).any():
+            raise InvalidParameter("frame 0 has repeated ids")
+    positions = np.empty((count, n, 3))
+    previous = before = None
+    for t in range(count):
         frame = frames[t]
-        if len(frame) != len(first):
-            raise InvalidParameter(
-                f"frame {t} has {len(frame)} atoms, frame 0 has {len(first)}"
-            )
-        now = _imaged(frame)
-        if now is not None and before is not None:
+        if len(frame) != n:
+            raise InvalidParameter(f"frame {t} has {len(frame)} atoms, frame 0 has {n}")
+        table = frame.table
+        x = frame.positions
+        image = table["image"].to_numpy() if "image" in table.columns else None
+        if ids is not None and t > 0:
+            if "id" not in table.columns:
+                raise InvalidParameter(f"frame {t} has no id column, frame 0 has one")
+            mine = table["id"].to_numpy()
+            order = np.argsort(mine, kind="stable")
+            if not np.array_equal(mine[order], sorted_ids):
+                raise InvalidParameter(f"frame {t} has other ids than frame 0")
+            # the atom of frame t with the id of each atom of frame 0
+            match = np.empty(n, dtype=np.int64)
+            match[first_order] = order
+            x = x[match]
+            image = None if image is None else image[match]
+        if not unwrap:
+            positions[t] = x
+            continue
+        now = None if image is None else x + image @ frame.box.matrix
+        if t == 0:
+            positions[0] = x if now is None else now
+        elif now is not None and before is not None:
             positions[t] = positions[t - 1] + (now - before)
         else:
             # the step in the fractional coordinates of this frame, by the
             # nearest image
-            step = frame.box.to_fractional(frame.positions) - frame.box.to_fractional(
-                previous.positions
-            )
+            step = frame.box.to_fractional(x) - frame.box.to_fractional(previous)
             periodic = frame.box.pbc
             step[:, periodic] -= np.round(step[:, periodic])
             positions[t] = positions[t - 1] + step @ frame.box.matrix
-        previous, before = frame, now
+        previous, before = x, now
     return positions
 
 
@@ -84,10 +100,14 @@ class MeanSquaredDisplacement:
     window : bool, optional
         Average over every time origin, by fast Fourier transforms (True,
         default), or measure from the first frame only (False).
+    unwrap : bool, optional
+        Follow the atoms through the periodic boundaries (True, default), or
+        take the positions as they are, already unwrapped (False).
     """
 
-    def __init__(self, *, window: bool = True):
+    def __init__(self, *, window: bool = True, unwrap: bool = True):
         self.window = bool(window)
+        self.unwrap = bool(unwrap)
 
     def compute(self, frames: Sequence[System]) -> DisplacementResult:
         """The displacement of a sequence of frames, such as a Trajectory.
@@ -95,16 +115,17 @@ class MeanSquaredDisplacement:
         Parameters
         ----------
         frames : sequence of System
-            The same atoms in the same order in every frame. Without an
-            ``image`` column, atoms must move less than half the box between
-            frames.
+            The same atoms in every frame: matched by the ``id`` column where
+            the first frame has one, else in the same order. With ``unwrap``
+            and without an ``image`` column, atoms must move less than half
+            the box between frames.
 
         Returns
         -------
         DisplacementResult
             The mean squared displacement for each lag.
         """
-        r = unwrapped(frames)  # (T, N, 3)
+        r = _followed(frames, self.unwrap)  # (T, N, 3)
         if r.shape[1] == 0:
             raise InvalidParameter("the frames have no atoms")
         count = len(r)
@@ -130,7 +151,7 @@ class MeanSquaredDisplacement:
         )
 
     def __repr__(self) -> str:
-        return f"MeanSquaredDisplacement(window={self.window})"
+        return f"MeanSquaredDisplacement(window={self.window}, unwrap={self.unwrap})"
 
 
 @dataclass(frozen=True)
@@ -142,7 +163,8 @@ class LindemannResult(Result):
     index : float
         The index averaged over every pair of atoms.
     atomic : numpy.ndarray
-        (N,) the index of each atom, averaged over its pairs.
+        (N,) the index of each atom, averaged over its pairs, the atoms in
+        the order of the first frame.
     running : numpy.ndarray
         (T,) the index of the frames up to each one.
     """
@@ -157,7 +179,17 @@ class LindemannResult(Result):
 
 class LindemannIndex:
     """Lindemann index: the fluctuation of the distances between atoms
-    relative to their mean, which rises sharply at melting."""
+    relative to their mean, which rises sharply at melting.
+
+    Parameters
+    ----------
+    unwrap : bool, optional
+        Follow the atoms through the periodic boundaries (True, default), or
+        take the positions as they are, already unwrapped (False).
+    """
+
+    def __init__(self, *, unwrap: bool = True):
+        self.unwrap = bool(unwrap)
 
     def compute(
         self, frames: Sequence[System], *, progress: Any = None, cancel: Any = None
@@ -167,9 +199,11 @@ class LindemannIndex:
         Parameters
         ----------
         frames : sequence of System
-            The same atoms in the same order in every frame. Without an
-            ``image`` column, atoms must move less than half the box between
-            frames. Time grows as the square of the number of atoms.
+            The same atoms in every frame: matched by the ``id`` column where
+            the first frame has one, else in the same order. With ``unwrap``
+            and without an ``image`` column, atoms must move less than half
+            the box between frames.
+            Time grows as the square of the number of atoms.
 
         Returns
         -------
@@ -177,7 +211,7 @@ class LindemannIndex:
             The index over every pair, of each atom and of each prefix of the
             frames.
         """
-        r = unwrapped(frames)
+        r = _followed(frames, self.unwrap)
         if r.shape[1] < 2:
             raise InvalidParameter("the Lindemann index needs two atoms or more")
         atomic, running = _native.lindemann(
@@ -186,4 +220,4 @@ class LindemannIndex:
         return LindemannResult(index=float(running[-1]), atomic=atomic, running=running)
 
     def __repr__(self) -> str:
-        return "LindemannIndex()"
+        return f"LindemannIndex(unwrap={self.unwrap})"

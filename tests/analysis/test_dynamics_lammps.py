@@ -16,7 +16,8 @@ lammps = pytest.importorskip("lammps")
 @pytest.mark.parametrize("scale", [0.4, 4.0])
 def test_msd_from_the_first_frame_as_lammps(tmp_path, scale):
     """Both unwrap by the image flags of the dump, so steps longer than half
-    the box count; with short steps the nearest image gives the same."""
+    the box count, and match the atoms by their ids; with short steps the
+    nearest image gives the same."""
     rng = np.random.default_rng(14)
     box = mdapy.Box([[12.0, 0, 0], [2.0, 11.0, 0], [-1.0, 1.5, 13.0]])
     start = box.to_cartesian(rng.random((60, 3)))
@@ -27,6 +28,8 @@ def test_msd_from_the_first_frame_as_lammps(tmp_path, scale):
         frame = mdapy.System(wrapped, box, elements="Ar").with_columns(
             id=np.arange(1, 61), image=image
         )
+        # each frame in another order of the atoms, matched by their ids
+        frame = frame.with_table(frame.table[rng.permutation(60)])
         frames.append(frame.with_info(timestep=t))
     data, dump, out = tmp_path / "in.data", tmp_path / "md.dump", tmp_path / "msd.txt"
     mdapy.write(data, frames[0])

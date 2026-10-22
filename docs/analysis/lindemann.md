@@ -22,18 +22,21 @@ frames = [
 result = LindemannIndex().compute(frames)
 result.index  # over every pair of atoms
 result.running  # of the frames up to each one
-system = frames[-1].with_columns(result)  # the column 'lindemann'
+system = frames[0].with_columns(result)  # the column 'lindemann'
 ```
 
 ## Parameters
 
-`LindemannIndex()` has no parameters.
+| Name | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `unwrap` | bool | `True` | | follow the atoms through the periodic boundaries, or take the positions as they are, already unwrapped |
+
 `compute(frames, *, progress=None, cancel=None)` takes a sequence of systems
-as the [mean squared displacement](msd.md#parameters) does, with each atom
-followed through the periodic boundaries in the same way, and the
-`progress` and `cancel` of [every analysis](overview.md#parameters). The
-distances are those between the followed positions, not between the nearest
-periodic images.
+as the [mean squared displacement](msd.md#parameters) does, with the atoms
+matched by their ids and unwrapped in the same way, and the `progress` and
+`cancel` of [every analysis](overview.md#parameters). The distances are
+those between the unwrapped positions, not between the nearest periodic
+images.
 
 ## Results
 
@@ -42,14 +45,14 @@ A `LindemannResult`:
 | Attribute | Type | Meaning |
 |---|---|---|
 | `index` | float | the index $\delta$ over every pair of atoms and every frame |
-| `atomic` | (N,) float64 | the index $\delta_i$ of each atom, averaged over its pairs; its column `lindemann` |
+| `atomic` | (N,) float64 | the index $\delta_i$ of each atom, averaged over its pairs, the atoms in the order of the first frame; its column `lindemann` |
 | `running` | (T,) float64 | $\delta$ over the frames from the first to each one; 0 for the first |
 
 ## Errors
 
-`compute` raises `InvalidParameter` without frames, for frames with
-different numbers of atoms and for fewer than two atoms, and `Cancelled`
-when cancelled.
+`compute` raises `InvalidParameter` as the
+[mean squared displacement](msd.md#errors) does and for fewer than two
+atoms, and `Cancelled` when cancelled.
 
 ## Definition
 

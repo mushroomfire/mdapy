@@ -312,7 +312,8 @@ def test_cluster_geometry(box):
 
 @pytest.mark.parametrize("step, flags", [(4.0, True), (0.4, False)])
 def test_displacement_from_the_first_frame(tmp_path, step, flags):
-    """A random walk written as a dump: OVITO unwraps it by the image flags,
+    """A random walk written as a dump, the atoms of each frame in another
+    order: OVITO matches them by their ids, unwraps them by the image flags,
     or without them by following the jumps through the boundaries, and
     measures the displacements from frame 0."""
     box = mdapy.Box([[12.0, 0, 0], [2.0, 11.0, 0], [-1.0, 1.5, 13.0]])
@@ -327,6 +328,8 @@ def test_displacement_from_the_first_frame(tmp_path, step, flags):
         )
         if flags:
             frame = frame.with_columns(image=image)
+        # each frame in another order of the atoms, matched by their ids
+        frame = frame.with_table(frame.table[rng.permutation(40)])
         frames.append(frame.with_info(timestep=t))
     mdapy.write(tmp_path / "walk.dump", frames)
     pipeline = import_file(str(tmp_path / "walk.dump"))

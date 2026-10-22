@@ -134,10 +134,8 @@ calculators::NepModel make_nep(const std::vector<int>& sizes, Flat rc_radial, Fl
     return model;
 }
 
-nb::tuple compute_nep(const calculators::NepModel& model, Species species, Offsets offsets,
-                      Neighbors neighbors, Shifts shifts, Vectors vectors, bool descriptors,
-                      nb::handle progress, const CancelToken* cancel) {
-    const auto n = static_cast<std::int64_t>(species.shape(0));
+void check_nep_input(const calculators::NepModel& model, std::int64_t n, Species species,
+                     Offsets offsets, Neighbors neighbors, Shifts shifts, Vectors vectors) {
     if (offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
         neighbors.shape(0) != vectors.shape(0) || shifts.shape(0) != vectors.shape(0) ||
         offsets.data()[n] != static_cast<std::int64_t>(vectors.shape(0))) {
@@ -153,24 +151,47 @@ nb::tuple compute_nep(const calculators::NepModel& model, Species species, Offse
             throw std::invalid_argument("a species index is outside the potential");
         }
     }
-    double *energies, *forces, *virials, *q = nullptr;
+}
+
+nb::tuple compute_nep(const calculators::NepModel& model, Species species, Offsets offsets,
+                      Neighbors neighbors, Shifts shifts, Vectors vectors, nb::handle progress,
+                      const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    check_nep_input(model, n, species, offsets, neighbors, shifts, vectors);
+    double *energies, *forces, *virials;
     const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
     const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
     const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
-    const std::size_t shape4[2] = {static_cast<std::size_t>(n),
-                                   static_cast<std::size_t>(model.dim)};
     nb::object e = new_array(1, shape1, energies);
     nb::object f = new_array(2, shape2, forces);
     nb::object w = new_array(3, shape3, virials);
-    nb::object d = descriptors ? new_array(2, shape4, q) : nb::none();
     run_released(
         [&](const Control& control) {
             calculators::compute_nep(model, n, species.data(), offsets.data(), neighbors.data(),
-                                     shifts.data(), vectors.data(), energies, forces, virials, q,
+                                     shifts.data(), vectors.data(), energies, forces, virials,
+                                     nullptr, control);
+        },
+        progress, cancel);
+    return nb::make_tuple(e, f, w);
+}
+
+// The descriptors alone, without the network and the forces.
+nb::object nep_descriptors(const calculators::NepModel& model, Species species, Offsets offsets,
+                           Neighbors neighbors, Shifts shifts, Vectors vectors,
+                           nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    check_nep_input(model, n, species, offsets, neighbors, shifts, vectors);
+    double* q;
+    const std::size_t shape[2] = {static_cast<std::size_t>(n), static_cast<std::size_t>(model.dim)};
+    nb::object d = new_array(2, shape, q);
+    run_released(
+        [&](const Control& control) {
+            calculators::compute_nep(model, n, species.data(), offsets.data(), neighbors.data(),
+                                     shifts.data(), vectors.data(), nullptr, nullptr, nullptr, q,
                                      control);
         },
         progress, cancel);
-    return nb::make_tuple(e, f, w, d);
+    return d;
 }
 
 }  // namespace
@@ -191,9 +212,11 @@ void bind_calculators(nb::module_& m) {
     m.def("make_nep", &make_nep, nb::arg("sizes"), nb::arg("rc_radial"), nb::arg("rc_angular"),
           nb::arg("w0"), nb::arg("b0"), nb::arg("w1"), nb::arg("b1"), nb::arg("c_radial"),
           nb::arg("c_angular"), nb::arg("q_scaler"), nb::arg("zbl"));
+    m.def("nep_descriptors", &nep_descriptors, nb::arg("model"), nb::arg("species"),
+          nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"), nb::arg("vectors"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("compute_nep", &compute_nep, nb::arg("model"), nb::arg("species"), nb::arg("offsets"),
           nb::arg("neighbors"), nb::arg("shifts"), nb::arg("vectors"),
-          nb::arg("descriptors") = false,
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
 }
 

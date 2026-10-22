@@ -514,10 +514,16 @@ void calculators() {
                                         p.neighbors.data(), p.vectors.data(),
                                         results[0][0].data(), results[0][1].data(),
                                         results[0][2].data());
+        std::vector<double> full(static_cast<std::size_t>(n) * nep.dim);
+        std::vector<double> alone(static_cast<std::size_t>(n) * nep.dim);
         mdapy::calculators::compute_nep(nep, p.n, p.species.data(), p.offsets.data(),
                                         p.neighbors.data(), p.shifts.data(), p.vectors.data(),
                                         results[1][0].data(), results[1][1].data(),
-                                        results[1][2].data(), nullptr);
+                                        results[1][2].data(), full.data());
+        mdapy::calculators::compute_nep(nep, p.n, p.species.data(), p.offsets.data(),
+                                        p.neighbors.data(), p.shifts.data(), p.vectors.data(),
+                                        nullptr, nullptr, nullptr, alone.data());
+        check(alone == full, "NEP descriptors alone are those of the full computation");
         for (int c = 0; c < 2; ++c) {
             if (threads == kThreads[0]) {
                 for (int k = 0; k < 3; ++k) {

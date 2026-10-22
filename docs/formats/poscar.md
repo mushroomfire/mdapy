@@ -77,27 +77,7 @@ in the last digit, as in the example above. The comment line is
 and with `velocities` a velocity block in Å/fs after a blank line, as VASP
 writes it.
 
-## Validation
-
-The tests in `tests/io/test_poscar.py` check that:
-
-- a CONTCAR with POTCAR labels, selective dynamics, site labels and comments,
-  and velocities gives the expected box, elements, positions, flags and
-  velocities (scaled exactly in decimal);
-- the three kinds of scaling factor, both coordinate modes, VASP 4 files with
-  `elements=`, and each kind of block after the coordinates are read as
-  documented;
-- writing groups elements in the order of first appearance and reads back to
-  the same elements, positions (to 10<sup>−14</sup> Å), flags and velocities;
-- 15 malformed files raise `FileFormatError` with the right line, and
-  systems that cannot be written raise the documented error and leave no
-  file.
-
-`tests/io/test_poscar_ase.py` runs where ASE is installed: files written by
-ASE read to the cell, positions, fixed atoms and velocities that ASE reads,
-and files written by mdapy read in ASE to the values that were written.
-
-## References
+## See also
 
 - POSCAR in the VASP wiki: <https://www.vasp.at/wiki/index.php/POSCAR>
 - CONTCAR in the VASP wiki: <https://www.vasp.at/wiki/index.php/CONTCAR>

@@ -86,32 +86,7 @@ columns as `name[1]` to `name[k]`. Booleans are written as 0 and 1. The
 first frame starts with `ITEM: UNITS`; `ITEM: TIME` is written when `info`
 has `time`. Other `info` values are not written.
 
-## Validation
-
-The tests in `tests/io/test_lammps_dump.py` check that:
-
-- a two-frame file as LAMMPS writes it, in real units with a triclinic box,
-  gives the expected columns, units, box, periodicity, time and timestep in
-  each frame, the units of the first frame applying to the second;
-- coordinates are taken in the documented order, scaled and unwrapped
-  coordinates are converted, and incomplete vectors and arrays stay columns;
-- orthogonal, triclinic (with tilt factors of each sign) and general boxes,
-  boundary flags, blank lines between frames and the `elements` and `units`
-  options work;
-- writing and reading gives back every column (booleans as integers, 3×3
-  arrays flattened), velocities in real units exactly, and boxes of each
-  form, also through the `restricted` rotation;
-- 14 malformed files raise `FileFormatError` with the right line, and 8
-  systems that cannot be written raise the documented error and leave no
-  file.
-
-`tests/io/test_lammps_dump_lammps.py` runs where the LAMMPS Python module is
-installed: dumps written by LAMMPS stable_30Sep2026 at full precision, in
-metal and real units, read to the positions, velocities, forces and charges
-LAMMPS holds; and LAMMPS `read_dump` reads a triclinic dump written by mdapy
-to the same box, positions and velocities.
-
-## References
+## See also
 
 - LAMMPS documentation of `dump`, `dump_modify` and `read_dump`:
   <https://docs.lammps.org/dump.html>,

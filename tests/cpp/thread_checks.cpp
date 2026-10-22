@@ -6,10 +6,13 @@
 // test suite on Linux (polars crashes on import under it):
 //
 //   g++ -std=c++17 -O1 -g -fsanitize=thread -Isrc/cpp -pthread -o thread_checks
-//       src/cpp/core/parallel.cpp src/cpp/io/text.cpp tests/cpp/thread_checks.cpp
+//       src/cpp/core/parallel.cpp src/cpp/io/text.cpp src/cpp/neighbor/cell_list.cpp
+//       src/cpp/neighbor/kd_tree.cpp src/cpp/calculators/eam.cpp src/cpp/calculators/nep.cpp
+//       tests/cpp/thread_checks.cpp
 //
 // Every check also verifies its result; the program exits with 1 on a failure.
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -20,6 +23,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include "calculators/eam.h"
@@ -27,6 +31,7 @@
 #include "core/parallel.h"
 #include "io/text.h"
 #include "neighbor/cell_list.h"
+#include "neighbor/kd_tree.h"
 
 namespace {
 
@@ -314,7 +319,20 @@ void neighbor_search() {
                 origin[e] + f[0] * matrix[e] + f[1] * matrix[3 + e] + f[2] * matrix[6 + e];
         }
     }
-    mdapy::neighbor::NeighborPairs first;
+    // the pairs of each atom as a sorted list, to compare lists in any order
+    using Key = std::tuple<mdapy::index_t, int, int, int, double>;
+    const auto keys = [&](const mdapy::neighbor::NeighborPairs& pairs) {
+        std::vector<std::vector<Key>> atoms(static_cast<std::size_t>(n));
+        for (std::int64_t i = 0; i < n; ++i) {
+            for (std::int64_t p = pairs.offsets[i]; p < pairs.offsets[i + 1]; ++p) {
+                const std::int8_t* s = &pairs.shifts[3 * p];
+                atoms[i].emplace_back(pairs.neighbors[p], s[0], s[1], s[2], pairs.distances[p]);
+            }
+            std::sort(atoms[i].begin(), atoms[i].end());
+        }
+        return atoms;
+    };
+    mdapy::neighbor::NeighborPairs first, first_near;
     for (int threads : kThreads) {
         mdapy::set_num_threads(threads);
         mdapy::neighbor::NeighborPairs pairs = mdapy::neighbor::build(
@@ -338,13 +356,19 @@ void neighbor_search() {
         check(sorted, "the nearest neighbors come in order of distance");
         const mdapy::neighbor::NeighborPairs near =
             mdapy::neighbor::nearest(positions.data(), n, matrix, origin, pbc, 12);
+        if (threads == kThreads[0]) {
+            first_near = near;
+        }
+        check(near.neighbors == first_near.neighbors && near.shifts == first_near.shifts &&
+                  near.distances == first_near.distances,
+              "the k-d tree gives the same neighbors for any thread count");
         bool same = true;
         for (std::int64_t i = 0; i < n && same; ++i) {
             for (int k = 0; k < 12; ++k) {
                 same = same && near.distances[12 * i + k] == pairs.distances[order[kept[i] + k]];
             }
         }
-        check(same, "the nearest search finds the first pairs of the ordered list");
+        check(same, "the k-d tree finds the first pairs of the ordered list");
         std::vector<double> vectors(3 * pairs.neighbors.size());
         mdapy::neighbor::pair_vectors(positions.data(), n, pairs.offsets.data(),
                                       pairs.neighbors.data(), pairs.shifts.data(), matrix,
@@ -357,37 +381,43 @@ void neighbor_search() {
         }
         check(lengths, "the pair vectors have the lengths of the distances");
         // the pairs within 3 of a list within 3.5, as a new search finds them
-        std::vector<double> followed_vectors;
+        mdapy::Buffer<double> followed_vectors;
         const mdapy::neighbor::NeighborPairs followed = mdapy::neighbor::follow(
             positions.data(), n, pairs.offsets.data(), pairs.neighbors.data(),
             pairs.shifts.data(), matrix, 3.0, followed_vectors);
         const mdapy::neighbor::NeighborPairs shorter =
             mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 3.0);
-        check(followed.offsets == shorter.offsets && followed.neighbors == shorter.neighbors &&
-                  followed.shifts == shorter.shifts && followed.distances == shorter.distances &&
+        check(followed.offsets == shorter.offsets && keys(followed) == keys(shorter) &&
                   followed_vectors.size() == 3 * shorter.neighbors.size(),
               "following a longer list gives the pairs of a new search");
-        // every atom is its own nearest site
-        std::vector<std::int64_t> site(static_cast<std::size_t>(n));
-        std::vector<double> distance2(static_cast<std::size_t>(n));
-        mdapy::neighbor::nearest_sites(positions.data(), n, matrix, origin, pbc, positions.data(),
-                                       n, site.data(), distance2.data());
+        // every atom is the nearest atom to its own position
+        const mdapy::neighbor::KdTree tree(positions.data(), n, matrix, origin, pbc);
+        std::vector<mdapy::index_t> j(static_cast<std::size_t>(n));
+        std::vector<std::int8_t> shifts(3 * static_cast<std::size_t>(n));
+        std::vector<double> distances(static_cast<std::size_t>(n));
+        tree.nearest_points(positions.data(), n, 1, j.data(), shifts.data(), distances.data());
         bool own = true;
         for (std::int64_t i = 0; i < n; ++i) {
-            own = own && site[i] == i && distance2[i] == 0.0;
+            own = own && j[i] == i && distances[i] == 0.0;
         }
-        check(own, "every atom is its own nearest site");
+        check(own, "every atom is the nearest atom to its position");
     }
+    bool thrown = sizeof(mdapy::index_t) == 8;
+    try {
+        mdapy::check_atom_count(std::int64_t{1} << 31);
+    } catch (const std::overflow_error&) {
+        thrown = true;
+    }
+    check(thrown, "2^31 atoms need 64-bit indices");
 }
 
 // A small binary alloy and its full neighbor list as pair vectors.
 struct Pairs {
     std::int64_t n = 0;
     std::vector<std::int32_t> species;
-    std::vector<std::int64_t> offsets;
-    std::vector<std::int32_t> neighbors;
-    std::vector<std::int32_t> shifts;
-    std::vector<double> vectors;
+    std::vector<double> positions;
+    double matrix[9];
+    mdapy::neighbor::NeighborPairs pairs;
 };
 
 Pairs alloy_pairs(double cutoff) {
@@ -395,42 +425,26 @@ Pairs alloy_pairs(double cutoff) {
     const int cells = 6;
     const double a = 3.0;
     const double matrix[9] = {cells * a, 0.0, 0.0, 0.0, cells * a, 0.0, 0.0, 0.0, cells * a};
+    std::copy(matrix, matrix + 9, p.matrix);
     const double origin[3] = {0.0, 0.0, 0.0};
     const bool pbc[3] = {true, true, true};
     const double basis[4][3] = {{0, 0, 0}, {0.5, 0.5, 0}, {0.5, 0, 0.5}, {0, 0.5, 0.5}};
     std::mt19937_64 random(5);
     std::normal_distribution<double> jitter(0.0, 0.2);
-    std::vector<double> positions;
     for (int x = 0; x < cells; ++x) {
         for (int y = 0; y < cells; ++y) {
             for (int z = 0; z < cells; ++z) {
                 for (const auto& b : basis) {
-                    positions.push_back((x + b[0]) * a + jitter(random));
-                    positions.push_back((y + b[1]) * a + jitter(random));
-                    positions.push_back((z + b[2]) * a + jitter(random));
+                    p.positions.push_back((x + b[0]) * a + jitter(random));
+                    p.positions.push_back((y + b[1]) * a + jitter(random));
+                    p.positions.push_back((z + b[2]) * a + jitter(random));
                     p.species.push_back(static_cast<std::int32_t>(random() % 2));
                 }
             }
         }
     }
     p.n = static_cast<std::int64_t>(p.species.size());
-    const mdapy::neighbor::NeighborPairs pairs =
-        mdapy::neighbor::build(positions.data(), p.n, matrix, origin, pbc, cutoff);
-    p.offsets = pairs.offsets;
-    p.neighbors = pairs.neighbors;
-    p.shifts = pairs.shifts;
-    for (std::int64_t i = 0; i < p.n; ++i) {
-        for (std::int64_t k = p.offsets[i]; k < p.offsets[i + 1]; ++k) {
-            const std::int32_t j = p.neighbors[k];
-            for (int e = 0; e < 3; ++e) {
-                double v = positions[3 * j + e] - positions[3 * i + e];
-                for (int s = 0; s < 3; ++s) {
-                    v += pairs.shifts[3 * k + s] * matrix[3 * s + e];
-                }
-                p.vectors.push_back(v);
-            }
-        }
-    }
+    p.pairs = mdapy::neighbor::build(p.positions.data(), p.n, matrix, origin, pbc, cutoff);
     return p;
 }
 
@@ -510,18 +524,19 @@ void calculators() {
             results[c][1].resize(3 * n);
             results[c][2].resize(9 * n);
         }
-        mdapy::calculators::compute_eam(eam, p.n, p.species.data(), p.offsets.data(),
-                                        p.neighbors.data(), p.vectors.data(),
+        const mdapy::neighbor::NeighborPairs& q = p.pairs;
+        mdapy::calculators::compute_eam(eam, p.n, p.species.data(), p.positions.data(), p.matrix,
+                                        q.offsets.data(), q.neighbors.data(), q.shifts.data(),
                                         results[0][0].data(), results[0][1].data(),
                                         results[0][2].data());
         std::vector<double> full(static_cast<std::size_t>(n) * nep.dim);
         std::vector<double> alone(static_cast<std::size_t>(n) * nep.dim);
-        mdapy::calculators::compute_nep(nep, p.n, p.species.data(), p.offsets.data(),
-                                        p.neighbors.data(), p.shifts.data(), p.vectors.data(),
+        mdapy::calculators::compute_nep(nep, p.n, p.species.data(), p.positions.data(), p.matrix,
+                                        q.offsets.data(), q.neighbors.data(), q.shifts.data(),
                                         results[1][0].data(), results[1][1].data(),
                                         results[1][2].data(), full.data());
-        mdapy::calculators::compute_nep(nep, p.n, p.species.data(), p.offsets.data(),
-                                        p.neighbors.data(), p.shifts.data(), p.vectors.data(),
+        mdapy::calculators::compute_nep(nep, p.n, p.species.data(), p.positions.data(), p.matrix,
+                                        q.offsets.data(), q.neighbors.data(), q.shifts.data(),
                                         nullptr, nullptr, nullptr, alone.data());
         check(alone == full, "NEP descriptors alone are those of the full computation");
         for (int c = 0; c < 2; ++c) {

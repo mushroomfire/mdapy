@@ -64,53 +64,31 @@ identical, and `box.allclose(other)` compares them within a tolerance.
 | `minimum_image(vectors)` | The shortest periodic image of each displacement vector. |
 | `to_lammps()` | The box in LAMMPS restricted triclinic form, with the rotation to apply to positions and other vectors. |
 
-## Method
+## Conventions
 
 With the lattice vectors as rows of the matrix \(H\), a position
 \(\mathbf r\) has fractional coordinates
 \(\mathbf s = (\mathbf r - \mathbf r_0) H^{-1}\), where \(\mathbf r_0\) is
 the origin.
 
-**Wrapping** sets \(\mathbf n = \lfloor \mathbf s \rfloor\) along periodic
-directions, so that the wrapped position has \(0 \le s_i < 1\) and
-\(\mathbf r = \mathbf r_\text{wrapped} + \mathbf n H\). The wrapped position is computed as \(\mathbf r - \mathbf n H\), so
-shifting a position by whole lattice vectors and wrapping it back returns
+**Wrapping** gives image flags \(\mathbf n = \lfloor \mathbf s \rfloor\)
+along periodic directions, so that the wrapped position has
+\(0 \le s_i < 1\) and \(\mathbf r = \mathbf r_\text{wrapped} + \mathbf n H\).
+Shifting a position by whole lattice vectors and wrapping it back returns
 the original numbers exactly.
 
-**Minimum image.** For a displacement \(\mathbf d\), rounding the fractional
-components, \(\mathbf d - \operatorname{round}(\mathbf d H^{-1}) H\), gives the
-shortest image only in orthogonal or slightly tilted boxes. mdapy then also
-tries the 26 neighboring images and keeps the shortest vector, which is exact
-for every box whose tilt factors are within half of the corresponding edge
+**Minimum image** returns the shortest periodic image of each vector for
+every box whose tilt factors are within half of the corresponding edge
 length, the limit LAMMPS uses.
 
-**Thickness.** The distance between the two faces not crossed by lattice
-vector \(i\) is \(1/\lVert \mathbf g_i \rVert\), where \(\mathbf g_i\) is
-column \(i\) of \(H^{-1}\) (a reciprocal lattice vector without the factor
-\(2\pi\)).
+**Thickness** is the distance between the two faces not crossed by lattice
+vector \(i\).
 
 **LAMMPS form.** LAMMPS needs **a** along +x, **b** in the xy plane and
 positive diagonal entries: \(H' = \begin{pmatrix} l_x & 0 & 0\\ xy & l_y & 0\\
-xz & yz & l_z \end{pmatrix}\). mdapy computes the QR decomposition
-\(H^\mathsf{T} = QR\), makes the diagonal of \(R\) positive, and uses
-\(H' = R^\mathsf{T}\) and the rotation \(Q\), so that \(H' = HQ\) and every
-vector \(\mathbf v\) becomes \(\mathbf v Q\). A box that is already in this
-form is returned exactly, with \(Q\) the identity. Left-handed lattice
-vectors, which LAMMPS rejects, are made right-handed first by swapping
-**b** and **c**, which describes the same lattice.
-
-## Validation
-
-The tests in `tests/core/test_box.py` check that:
-
-- volume, inverse, lengths and thickness agree with their geometric
-  definitions for random triclinic boxes;
-- boxes built from lengths and angles reproduce those lengths and angles;
-- fractional and Cartesian coordinates convert back and forth exactly;
-- wrapped positions lie in \([0, 1)\) along periodic directions, are unchanged
-  along the others, and satisfy \(\mathbf r = \mathbf r_\text{wrapped} + \mathbf n H\);
-- minimum images equal a brute-force search over \(7^3\) images;
-- the LAMMPS form preserves lengths, angles and volume, its rotation is a
-  proper rotation, already restricted boxes come back unchanged, and
-  left-handed boxes give the same lattice;
-- invalid inputs raise `InvalidParameter`.
+xz & yz & l_z \end{pmatrix}\). `to_lammps()` returns \(H'\) and the rotation
+\(Q\) with \(H' = HQ\); every vector \(\mathbf v\), positions and velocities
+included, becomes \(\mathbf v Q\). A box already in this form comes back
+unchanged, with \(Q\) the identity. Left-handed lattice vectors, which LAMMPS
+rejects, are made right-handed by swapping **b** and **c**, which describes
+the same lattice.

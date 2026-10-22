@@ -3,8 +3,7 @@
 A calculator computes the energy, forces and virial of a system. mdapy
 defines one interface, `mdapy.calculators.Calculator`, which its own
 potentials implement and which other packages can implement to work with
-everything in mdapy that needs energies and forces. `EAM` is the first
-calculator of mdapy.
+everything in mdapy that needs energies and forces.
 
 <!-- skip-test -->
 ```python
@@ -18,33 +17,56 @@ result.energy  # eV
 result.forces  # (N, 3) eV/Å
 result.stress(system)  # (3, 3) GPa
 system = result.attach(system)  # forces as a column, energy and virial in info
+
+relaxed = mdapy.minimize(system, potential, max_force=1e-4)
+relaxed.converged, relaxed.energy
 ```
 
-## The interface
+## The calculator interface
 
-| Member | Meaning |
-|---|---|
-| `cutoff` | interaction cutoff in Å |
-| `elements` | the elements the calculator handles, or None for any |
-| `implemented` | the properties `compute` can return |
-| `compute(system, properties=("energy", "forces"), *, neighbors=None)` | returns a `CalculatorResult` with at least the requested properties |
+Every calculator has these members:
+
+| Name | Type | Meaning |
+|---|---|---|
+| `cutoff` | float | interaction cutoff in Å |
+| `elements` | tuple of str or `None` | the elements the calculator handles, `None` for any |
+| `implemented` | frozenset of str | the properties `compute` can return |
+| `compute(system, properties=("energy", "forces"), *, neighbors=None)` | `CalculatorResult` | at least the requested properties |
+
+`properties` is any of `"energy"`, `"atomic_energies"`, `"forces"`,
+`"virial"` and `"atomic_virials"` (`mdapy.calculators.PROPERTIES`); a
+calculator may compute more than requested. `neighbors` is a
+[`NeighborList`](neighbor.md) of the same system built with a cutoff of at
+least `calculator.cutoff`, so that several calculators and analyses share
+one search; it is built when not given.
+
+`compute` raises
+[`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter) for
+an unknown or unimplemented property, and for a neighbor list built for
+another system, with a smaller cutoff, or of nearest neighbors;
+[`MissingProperty`](../reference/api.md#mdapy.errors.MissingProperty) when
+the system lacks a column the calculator needs.
+
+## Results
 
 A `CalculatorResult` holds:
 
 | Attribute | Shape | Unit | Meaning |
 |---|---|---|---|
-| `energy` | | eV | total energy |
+| `energy` | float | eV | total energy |
 | `atomic_energies` | (N,) | eV | they sum to `energy` |
 | `forces` | (N, 3) | eV/Å | |
 | `virial` | (3, 3) | eV | positive under compression |
 | `atomic_virials` | (N, 3, 3) | eV | they sum to `virial` |
 
-with `stress(system)`, the stress $\sigma = -W/V$ in GPa (positive under
-tension), and `attach(system)`, which returns the system with the per-atom
-values as columns and the energy and virial in `info`. Values that were not
-computed are None; the arrays are read-only.
+Values that were not computed are `None`; the arrays are read-only.
 
-The virial is defined by the response of the energy to a homogeneous strain
+| Method | Returns |
+|---|---|
+| `stress(system)` | (3, 3) stress $\sigma = -W/V$ in GPa, positive under tension; `InvalidParameter` without a virial |
+| `attach(system)` | the system with `forces`, `atomic_energies` and `atomic_virials` as columns and `energy` and `virial` in `info` |
+
+The virial is the response of the energy to a homogeneous strain
 $\varepsilon$ of the box and the positions,
 
 $$
@@ -53,53 +75,137 @@ $$
 
 the second form holding for systems without periodic directions.
 
-A neighbor list passed as `neighbors=` must have been built for the same
-system with at least the calculator's cutoff; it lets several calculators or
-analyses share one search.
+## Writing a calculator
 
-## Checking a calculator
+A calculator subclasses `Calculator`, sets `cutoff`, `elements` and
+`implemented`, and defines `compute`, which must accept `neighbors=`.
 
-`mdapy.calculators.testing.check_calculator(calculator, system)` tests any
-implementation and raises `AssertionError` naming the first failed check and
-its largest deviation:
+`mdapy.calculators.testing.check_calculator(calculator, system)` checks an
+implementation on a small system and raises `AssertionError` naming the first
+failed check and its largest deviation. It checks that atomic energies and
+atomic virials sum to the energy and the virial; that forces and the virial
+agree with finite differences of the energy; that translation, rotation and
+reordering of the atoms change nothing beyond rotating and reordering
+vectors; that a cell doubled along **a** has twice the energy; and that a
+neighbor list given with a larger cutoff changes nothing.
 
-- atomic energies and atomic virials sum to the energy and the virial;
-- forces agree with central finite differences of the energy, and the virial
-  with finite differences under strain;
-- translation, rotation and reordering of the atoms change nothing beyond
-  rotating and reordering vectors;
-- a cell doubled along **a** has twice the energy;
-- a neighbor list given with a larger cutoff changes nothing.
-
-Its tolerances, finite-difference step and the number of atoms checked are
-parameters.
+| Name | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `calculator` | `Calculator` | | | the calculator to check |
+| `system` | `System` | | | a few dozen atoms the calculator handles |
+| `displacement` | float | 1e-4 | Å | step of the finite differences, also used as strain |
+| `rtol`, `atol` | float | 1e-6 | | relative and absolute tolerances of the comparisons |
+| `atoms` | int | 3 | | atoms whose forces are checked by finite differences |
+| `seed` | int | 0 | | seed of the random rotation, translation and choice of atoms |
 
 ## EAM
 
-`EAM(path)` reads a potential in the `eam/alloy` (setfl) format of LAMMPS
-and computes every property. Each function is tabulated and interpolated
-exactly as LAMMPS `pair_style eam` does: a cubic spline through the
-tabulated values whose slopes come from fourth-order finite differences, and
-an embedding energy extended linearly beyond the largest tabulated density.
+`EAM(path)` reads an embedded atom method potential in the `eam/alloy`
+(setfl) format of LAMMPS and computes every property.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `path` | str or `None` | the potential file, `None` for a built potential |
+| `elements` | tuple of str or `None` | the elements of the potential, in the order of the file; `None` for an average-atom potential |
+| `masses` | (n,) float64 | their masses in amu; the mass of the average atom for an average-atom potential |
+| `cutoff` | float | cutoff radius in Å |
+
+| Method | Returns |
+|---|---|
+| `compute(system, properties, *, neighbors=None, progress=None, cancel=None)` | as every calculator, with the `progress=` and `cancel=` of [Parallelism](parallelism.md#progress-and-cancellation) |
+| `write(path)` | writes the potential as an `eam/alloy` file, which LAMMPS reads and which reads back to the same tables |
+| `EAM.zhou(elements, *, nr=2000, nrho=2000)` | the potential of Zhou, Johnson and Wadley for the elements |
+| `average(concentrations)` | the average-atom potential of an alloy of the elements |
+
+The atoms need an `element` column; elements the potential does not have
+raise `InvalidParameter`, and a malformed file raises
+[`FileFormatError`](../reference/api.md#mdapy.errors.FileFormatError) with
+its line. A file may name species that are not elements, such as the `A` of
+an average atom; they are kept when the potential is written, but no atom
+of a system is one of them.
+
 The energy of atom $i$ is
 
 $$
 E_i = F_{s_i}\Big(\sum_j \rho_{s_j}(r_{ij})\Big) + \frac{1}{2}\sum_j \phi_{s_i s_j}(r_{ij}),
 $$
 
-and each pair's virial is shared equally by its two atoms. The atoms need an
-`element` column; elements the file does not have raise
-[`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter).
+with the embedding energy $F$, the electron density $\rho$ and the pair
+potential $\phi$ of the species $s$ of the atoms, interpolated from the
+tables of the file as LAMMPS `pair_style eam/alloy` does. Each pair's virial
+is shared equally by its two atoms.
+
+!!! quote "Please cite"
+    [Daw and Baskes (1984)](../reference/references.md#daw1984), and the paper of the potential.
+
+### Potentials of Zhou, Johnson and Wadley
+
+<!-- skip-test -->
+```python
+potential = EAM.zhou(["Cu", "Ni", "Al"])
+potential.write("CuNiAl.eam.alloy")
+```
+
+`EAM.zhou` builds the potential for any of Cu, Ag, Au, Ni, Pd, Pt, Al, Pb,
+Fe, Mo, Ta, W, Mg, Co, Ti, Zr and Cr, with the tables that the database tool
+of LAMMPS (`tools/eam_database`) writes for them: the parameters of
+[Zhou et al. (2004)](../reference/references.md#zhou2004), those of
+[Lin et al. (2008)](../reference/references.md#lin2008) for Cr, and their rule for the pair
+potential between two elements,
+
+$$
+\phi_{ab}(r) = \frac{1}{2}\left(\frac{\rho_b(r)}{\rho_a(r)}\phi_{aa}(r)
++ \frac{\rho_a(r)}{\rho_b(r)}\phi_{bb}(r)\right).
+$$
+
+| Name | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `elements` | sequence of str | | | the elements, in the order of the file |
+| `nr` | int | 2000 | | points of the tables in distance, up to the cutoff $\sqrt{10}/2$ times the largest fcc lattice constant $\sqrt 2\, r_e$ |
+| `nrho` | int | 2000 | | points of the embedding tables in density |
+
+The parameters are fitted to the pure metals; the pair potentials between
+elements come from the rule above, not from a fit to alloys. An unknown or
+repeated element raises `InvalidParameter`.
+
+!!! quote "Please cite"
+    [Zhou et al. (2004)](../reference/references.md#zhou2004); with Cr, also [Lin et al. (2008)](../reference/references.md#lin2008).
+
+### Average atom
+
+<!-- skip-test -->
+```python
+average = potential.average({"Cu": 0.4, "Ni": 0.4, "Al": 0.2})
+average.compute(system)  # every atom is the average atom
+average.write("CuNiAl.average.eam.alloy")  # Cu, Ni, Al and the average atom A
+```
+
+`average(concentrations)` returns the average-atom potential of
+[Varvenne et al. (2016)](../reference/references.md#varvenne2016) for a random alloy with the
+fractions $c_a$ of the elements:
+
+$$
+F_A = \sum_a c_a F_a, \qquad \rho_A = \sum_a c_a \rho_a, \qquad
+\phi_{Ab} = \sum_a c_a \phi_{ab}, \qquad
+\phi_{AA} = \sum_{a,b} c_a c_b \phi_{ab}.
+$$
+
+`concentrations` is a mapping from element to fraction, or the fractions in
+the order of `elements`; elements left out have none, and the fractions sum
+to 1. In mdapy every atom of a system is the average atom, whatever its
+element. The written file holds the elements of the potential and the
+average atom, named `A`, last, so that LAMMPS can mix them, for example
+with `pair_coeff * * CuNiAl.average.eam.alloy A Cu` for a Cu solute in the
+average alloy. Invalid fractions raise `InvalidParameter`.
+
+!!! quote "Please cite"
+    [Varvenne et al. (2016)](../reference/references.md#varvenne2016), and the paper of the potential averaged.
 
 ## NEP
 
 `NEP(path)` reads a neuroevolution potential of version 4 in the `nep.txt`
 format of GPUMD, without (`nep4`) or with (`nep4_zbl`) a ZBL repulsion, and
-computes every property. `NEP.descriptors(system)` returns the descriptors of
-each atom, scaled as the network sees them, without the network and the
-forces, in about 40 % of the time of the forces. Other models of GPUMD (NEP3,
-NEP5, charge, dipole and polarizability models) raise
-[`FileFormatError`](../reference/api.md#mdapy.errors.FileFormatError).
+computes every property.
 
 <!-- skip-test -->
 ```python
@@ -110,200 +216,192 @@ result = potential.compute(system, ("energy", "forces", "virial"))
 descriptors = potential.descriptors(system)  # (N, dim)
 ```
 
-The radial descriptors of atom $i$ sum functions of the distances to its
-neighbors $j$ within the pair's radial cutoff $r_c$,
+| Attribute | Type | Meaning |
+|---|---|---|
+| `path` | str | the potential file |
+| `elements` | tuple of str | the elements of the potential, in the order of the file |
+| `cutoff` | float | the largest radial or angular cutoff in Å |
 
-$$
-q^i_n = \sum_j g_n(r_{ij}), \qquad
-g_n(r) = \sum_{k=0}^{K} c^{t_i t_j}_{nk} f_k(r), \qquad
-f_k(r) = \tfrac{1}{2}\big[T_k\big(2(r/r_c - 1)^2 - 1\big) + 1\big] f_c(r),
-$$
+| Method | Returns |
+|---|---|
+| `compute(system, properties, *, neighbors=None, progress=None, cancel=None)` | as every calculator, with the `progress=` and `cancel=` of [Parallelism](parallelism.md#progress-and-cancellation) |
+| `descriptors(system, *, neighbors=None, progress=None, cancel=None)` | (N, dim) descriptors of each atom, scaled as the network sees them: the radial ones, then the angular ones by $l$ and $n$, then the four-body and five-body ones by $n$ |
 
-with Chebyshev polynomials $T_k$, the cutoff function
-$f_c(r) = \tfrac{1}{2}[1 + \cos(\pi r / r_c)]$ below $r_c$, and coefficients
-$c$ for each ordered pair of elements. The cutoff of a pair is the mean of the
-two elements' cutoffs. The angular descriptors use other functions $g_n$, with
-their own coefficients and the angular cutoff, and real orthonormal spherical
-harmonics $Y_{lm}$:
+The atoms need an `element` column; elements the potential does not have
+raise `InvalidParameter`. Other models of GPUMD (NEP3, NEP5, charge, dipole
+and polarizability models) and malformed files raise
+[`FileFormatError`](../reference/api.md#mdapy.errors.FileFormatError).
 
-$$
-A^i_{nlm} = \sum_j g_n(r_{ij})\, Y_{lm}(\hat{\mathbf r}_{ij}), \qquad
-q^i_{nl} = \sum_m \big(A^i_{nlm}\big)^2
-= \frac{2l + 1}{4\pi} \sum_{j,k} g_n(r_{ij})\, g_n(r_{ik})\, P_l(\cos\theta_{jik})
-$$
+The model is that of GPUMD ([Fan et al. (2022)](../reference/references.md#fan2022)), version 4
+([Song et al. (2024)](../reference/references.md#song2024)): radial descriptors from Chebyshev functions of
+the distance, angular ones from real spherical harmonics up to
+$l_\text{max}$, with optional four-body and five-body invariants, each scaled
+by its factor in the file and fed to one hidden layer of $\tanh$ neurons per
+element, which gives the energy $E_i$ of atom $i$. The cutoff of a pair is
+the mean of the cutoffs of its two elements. With ZBL, each pair within the
+angular cutoff adds the screened Coulomb repulsion of
+[Ziegler et al. (1985)](../reference/references.md#ziegler1985),
+$V(r) = \frac{k_e Z_i Z_j}{r}\,\phi(r/a)\, f_s(r)$, half to each atom; the
+switch $f_s$ is 1 below an inner cutoff and falls as a cosine to 0 at an
+outer cutoff, as the `zbl` line of the file chooses:
 
-for $l = 1, \ldots, l_\text{max}$. The four-body descriptors couple three
-$l = 2$ terms and the five-body descriptors four $l = 1$ terms, written here
-with complex harmonics and Wigner 3j symbols:
-
-$$
-q^{i,4}_n = \sum_{m_1 m_2 m_3}
-\begin{pmatrix} 2 & 2 & 2 \\ m_1 & m_2 & m_3 \end{pmatrix}
-A^i_{n2m_1} A^i_{n2m_2} A^i_{n2m_3}, \qquad
-q^{i,5}_n = \sum_{L=0}^{2} \sum_{M, m_k} (-1)^{L+M}
-\begin{pmatrix} 1 & 1 & L \\ m_1 & m_2 & -M \end{pmatrix}
-\begin{pmatrix} L & 1 & 1 \\ M & m_3 & m_4 \end{pmatrix}
-A^i_{n1m_1} A^i_{n1m_2} A^i_{n1m_3} A^i_{n1m_4} = \tfrac{7}{15} \big(q^i_{n1}\big)^2.
-$$
-
-The descriptors, each multiplied by its scale factor $s_d$ from the file, are
-the input of one hidden layer of $\tanh$ neurons with weights of the atom's
-element:
-
-$$
-E_i = \sum_k w^{(1)}_k \tanh\Big(\sum_d w^{(0)}_{kd}\, s_d\, q^i_d - b^{(0)}_k\Big) - b^{(1)}.
-$$
-
-With ZBL, each pair within the angular cutoff adds the screened Coulomb
-repulsion $V(r) = \frac{k_e Z_i Z_j}{r}\,\phi(r/a)\, f_s(r)$, half to each
-atom, with $a = 0.46848\,\text{Å} / (Z_i^{0.23} + Z_j^{0.23})$ (as in GPUMD,
-$1/0.46848$ is rounded to 2.134563), $k_e = 14.399645$ eV Å and
-$\phi(x) = \sum_{k=1}^{4} a_k e^{-b_k x}$. The switch $f_s$ is 1 below an
-inner cutoff and falls as a cosine to 0 at an outer cutoff. The `zbl` line of
-the file chooses among three forms:
-
-| `zbl` line | $a_k$, $b_k$ | inner cutoff | outer cutoff |
+| `zbl` line | screening $\phi$ | inner cutoff | outer cutoff |
 |---|---|---|---|
 | `zbl r1 r2` | universal ZBL | r1 | r2 |
 | `zbl r1 r2 f` | universal ZBL | 0 | the smaller of r2 and f times the sum of the two covalent radii GPUMD uses |
 | `zbl 0 0` | from a table at the end of the file, per pair of elements | from the table | from the table |
 
-The derivative of $E_i$ by the vector to neighbor $j$ adds to the atomic
-virial of atom $j$, as in GPUMD and NEP_CPU, so atomic virials agree with
-theirs. (EAM shares each pair's virial equally instead; both sum to the same
-virial.)
+As in GPUMD, the derivative of $E_i$ by the vector to neighbor $j$ adds to
+the atomic virial of atom $j$, so atomic virials are those of GPUMD; EAM
+shares each pair's virial equally between its two atoms, as LAMMPS does. Both
+sum to the same virial.
+
+!!! quote "Please cite"
+    [Fan et al. (2022)](../reference/references.md#fan2022) and [Song et al. (2024)](../reference/references.md#song2024); with ZBL, also [Ziegler et al. (1985)](../reference/references.md#ziegler1985); and the paper of the potential.
+
+## LAMMPS
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import LAMMPS
+
+calculator = LAMMPS(
+    "pair_style eam/alloy\npair_coeff * * CuNi.eam.alloy Cu Ni",
+    elements=["Cu", "Ni"],
+)
+calculator.compute(system, ("energy", "forces", "virial"))
+mdapy.minimize(system, calculator)
+calculator.close()
+```
+
+`LAMMPS(pair, elements, *, commands="", cmdargs=(), cutoff=None)` makes any
+interaction that LAMMPS computes a calculator, through the LAMMPS Python
+module, installed as the
+[LAMMPS documentation](https://docs.lammps.org/Python_install.html)
+describes.
+
+!!! warning "Metal units only"
+    LAMMPS runs in metal units, those of mdapy: Å, eV, ps and amu. The
+    commands in `pair` must define the interaction for metal units;
+    potentials written for other units, such as real or si, give wrong
+    results.
+
+| Name | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `pair` | str | | | the LAMMPS commands of the interaction, such as `pair_style` and `pair_coeff`, for metal units |
+| `elements` | sequence of str | | | the element of each LAMMPS atom type, from type 1 |
+| `commands` | str | `""` | | LAMMPS commands run before `pair`, such as `newton on` |
+| `cmdargs` | sequence of str | `()` | | command-line arguments of LAMMPS, such as `["-k", "on", "t", "4", "-sf", "kk"]` for Kokkos with four threads |
+| `cutoff` | float | `None` | Å | the largest cutoff of the interaction; asked from LAMMPS when not given, which LAMMPS older than 30 Sep 2026 cannot tell |
+
+| Attribute or method | Meaning |
+|---|---|
+| `elements` | the element of each atom type |
+| `cutoff` | the largest cutoff of the interaction in Å |
+| `compute(system, properties, *, neighbors=None)` | every property; LAMMPS searches its own neighbors, so `neighbors` is not used |
+| `close()` | closes the LAMMPS instance; the next computation starts a new one |
+
+The calculator keeps one LAMMPS instance while the atoms and their elements
+stay the same, as during `minimize`, also when the box changes but not its
+periodic directions; it starts a new one for other atoms, elements or
+periodic directions. Any box works: LAMMPS receives it rotated to its restricted
+triclinic form, and forces and virials are rotated back. Along non-periodic
+directions LAMMPS has fixed boundaries around the atoms. With Kokkos, LAMMPS
+is shut down when Python exits.
+
+The constructor raises `InvalidParameter` when LAMMPS rejects the commands,
+with the message of LAMMPS, or cannot tell the cutoff that is not given, and
+`ImportError` without the LAMMPS Python module; `compute` raises
+`InvalidParameter` for atoms of an element that no atom type has.
+
+!!! quote "Please cite"
+    [Thompson et al. (2022)](../reference/references.md#thompson2022), and the paper of the potential.
 
 ## Energy minimization
 
 `mdapy.minimize(system, calculator, *, max_force=1e-3, max_steps=1000,
-max_step=0.2, cell=None, pressure=0.0, max_stress=1e-2, callback=None)`
-minimizes the energy over the positions, and optionally the box, with FIRE,
-the fast inertial relaxation engine. It returns a `MinimizeResult` with the
-last `system` (with `forces` and atomic energies as columns and `energy` in
-`info`), whether it `converged`, the number of `steps`, the `energy`, the
-largest force and, when the box relaxed, the `stress` in GPa. No atom moves
-more than `max_step` Å in one step. `callback(step, system, energy,
-max_force)` is called after each step and stops the minimization by returning
-True.
+max_step=0.1, timestep=0.001, cell=None, pressure=0.0, max_stress=1e-2,
+save_every=None, callback=None)` minimizes the energy over the positions, and
+optionally the box, with FIRE 2.0
+([Guénolé et al. (2020)](../reference/references.md#guenole2020)), the fast inertial relaxation
+engine of [Bitzek et al. (2006)](../reference/references.md#bitzek2006), as LAMMPS
+`min_style fire` does with its default settings.
 
 <!-- skip-test -->
 ```python
 import mdapy
 
-result = mdapy.minimize(system, potential, cell="full", max_stress=1e-3)
-result.system.box  # the relaxed box
+result = mdapy.minimize(system, potential)  # the positions in a fixed box
+result = mdapy.minimize(system, potential, cell="full")  # and the box
+result.system.box, result.stress  # the relaxed box and its stress in GPa
 result = mdapy.minimize(system, potential, cell="isotropic", pressure=10.0)
 ```
 
-`cell` chooses how the box changes along its periodic directions; directions
-that are not periodic keep their lattice vector.
+| Name | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `system` | `System` | | | the starting configuration, with a `mass` or an `element` column |
+| `calculator` | `Calculator` | | | computes energies and forces, and the virial when the box relaxes |
+| `max_force` | float | 1e-3 | eV/Å | converged when every force is below it |
+| `max_steps` | int | 1000 | | largest number of steps |
+| `max_step` | float | 0.1 | Å | an atom moving at its current velocity goes at most this far along x, y or z in one step (LAMMPS `dmax`) |
+| `timestep` | float | 0.001 | ps | first time step of the dynamics (the LAMMPS `timestep` in metal units) |
+| `cell` | str | `None` | | how the box may change, in the table below |
+| `pressure` | float | 0.0 | GPa | external hydrostatic pressure when the box relaxes |
+| `max_stress` | float | 1e-2 | GPa | when the box relaxes, converged when every relaxed component of the stress is this close to $-p$ (−`pressure` on the diagonal, 0 off it) |
+| `save_every` | int | `None` | | keeps the configuration every this many steps, with the first and the last, in `frames` |
+| `callback` | callable | `None` | | called after each step as `callback(step, system, energy, max_force)`; returning True stops the minimization |
 
-| `cell` | The box |
-|---|---|
-| `None` | does not change |
-| `"isotropic"` | is scaled by one factor |
-| `"axes"` | is scaled along each Cartesian axis by its own factor |
-| `"full"` | takes any homogeneous strain |
+`cell` chooses how the box changes along its periodic directions; the atoms
+move with it, and the lattice vectors along directions that are not periodic
+stay as they are. At a `pressure` $p$ the minimization minimizes the enthalpy
+$E + pV$, so the stress of the relaxed box is $-p$ on the diagonal.
 
-With a relaxing box, the atoms move with it: the variables are the positions
-$\mathbf u_i$ in the starting box and the deformation gradient $F$ of the
-box, with $\mathbf x_i = \mathbf o + F \mathbf u_i$. Their generalized forces
-are $F^T \mathbf f_i$ and $(W - pV I)\,F^{-T}$, the virial less the external
-pressure $p$ times the volume, projected onto the strains `cell` allows; $F$
-is scaled by the number of atoms so that its steps are comparable to those of
-the atoms. The minimization converges when every force is below `max_force`
-and every relaxed component of $\sigma + pI$ is below `max_stress` (GPa); at
-a pressure it minimizes the enthalpy $E + pV$.
+| `cell` | The box | Relaxed stress components |
+|---|---|---|
+| `None` | does not change | none |
+| `"isotropic"` | is scaled by one factor | the mean of the diagonal |
+| `"axes"` | is scaled along each Cartesian axis by its own factor | the diagonal |
+| `"full"` | takes any strain without rotation | all |
 
-FIRE follows Bitzek et al. with the parameters ASE uses: a starting time step
-of 0.1, a largest time step of 1.0, five steps before the time step grows by
-10 %, halving it after an uphill step, and a mixing parameter starting at 0.1
-and shrinking by 1 % per step. Unlike ASE, the step limit applies to each
-atom rather than to the displacement of all atoms together.
+It returns a `MinimizeResult`:
 
-Each step hands the calculator its neighbor list (`neighbors=`), which a
-calculator must accept. The neighbors are searched 1 Å beyond the
-calculator's cutoff, and the following steps take their pairs from that
-search until an atom has moved 0.5 Å; the list is exactly the one a new
-search would give, so the steps are the same, and a minimization with EAM
-is about twice as fast. While the box relaxes, its change makes a new search
-at every step.
+| Attribute | Type | Meaning |
+|---|---|---|
+| `system` | `System` | the last configuration, with `forces` and `atomic_energies` columns and `energy`, `virial` (eV) and `stress` (GPa) in `info` |
+| `converged` | bool | whether every force fell below `max_force` and, when the box relaxes, every relaxed stress component came within `max_stress` of $-p$ |
+| `steps` | int | number of steps taken |
+| `energy` | float | energy of the last configuration in eV |
+| `max_force` | float | largest force of the last configuration in eV/Å |
+| `stress` | `numpy.ndarray` or `None` | (3, 3) stress of the last configuration in GPa, positive under tension; `None` when the calculator does not compute the virial |
+| `frames` | tuple of `System` or `None` | with `save_every`, the kept configurations, with the columns and `info` of `system` and the step as `timestep` in `info`; `None` otherwise |
 
-## Validation
+`virial` and `stress` are in `info`, and `stress` is set, whenever the
+calculator computes the virial, also when the box does not change.
 
-The tests in `tests/calculators/test_minimize.py` check that a harmonic dimer
-reaches its bond length to 10<sup>−8</sup> Å; that a rattled fcc crystal
-relaxes back to the perfect lattice, its energy and its twelve equal
-neighbor distances; that results are the same for any number of threads;
-that reusing a neighbor search gives the same steps, to the last bit, as a
-calculator that searches at every step, with fewer than half as many
-searches; and the step limit, the callback and the errors. For the box, they check that
-a stretched, a tetragonal and a sheared fcc box relax back to cubic at the
-minimum of $E(a)$ (by finite differences of the energy) with every stress
-component below 10<sup>−5</sup> GPa; that at 5 GPa the stress is −5 GPa and
-equals $-\mathrm dE/\mathrm dV$ by finite differences; and that a slab
-relaxes only along its periodic directions.
+The steps on the positions are those of LAMMPS: the same time step control,
+mixing and half step back after an uphill step, with masses from the `mass`
+column or, when there is none, the standard atomic weights of the elements.
+Masses change the path, not the minimum; LAMMPS takes them from the data file
+or, for EAM, from the potential file. A box relaxation reaches the minimum of
+LAMMPS `fix box/relax` (which LAMMPS runs with `min_style cg`, not FIRE) by
+another path; LAMMPS keeps its box in restricted triclinic form, so the two
+boxes agree up to a rotation.
 
-The tests in `tests/calculators/test_eam.py`, on a synthetic two-element
-potential written by the tests, check that:
+The kept frames show the minimization on its way, with the box and the stress
+of each step, and can be written as a trajectory:
 
-- energies, forces and atomic virials agree with an independent NumPy
-  implementation of the same interpolation and sums over periodic images to
-  10<sup>−11</sup>, for periodic, partly periodic and non-periodic systems
-  and for a box smaller than the cutoff;
-- `check_calculator` passes;
-- results are the same for any number of threads;
-- malformed files raise `FileFormatError` with the line, and the reading
-  follows LAMMPS (values continuing on further lines, comments).
+<!-- skip-test -->
+```python
+result = mdapy.minimize(system, potential, cell="full", save_every=10)
+mdapy.write("relaxation.xyz", result.frames)
+```
 
-`tests/calculators/test_eam_lammps.py` runs where the LAMMPS Python module
-is installed and compares with LAMMPS stable_30Sep2026 `pair_style eam/alloy`:
-the energy agrees to 10<sup>−12</sup>, atomic energies to 10<sup>−11</sup>,
-and forces, the virial and atomic virials to 10<sup>−9</sup> (with the
-pressure converted by LAMMPS's own constant for metal units). Relaxing a
-vacancy in a perturbed alloy, `minimize` and LAMMPS `min_style fire` reach the
-same energy to 10<sup>−8</sup> eV and the same positions to 10<sup>−6</sup> Å,
-up to a rigid translation along which each run drifts. Relaxing a strained
-alloy with its box, `minimize(cell="full")` and LAMMPS `fix box/relax tri`
-reach the same energy to 10<sup>−10</sup> eV and the same box, compared by
-its metric $HH^\mathsf{T}$ (LAMMPS rotates the box), to 10<sup>−6</sup>.
+`minimize` raises `InvalidParameter` for a non-positive `max_force`,
+`max_step`, `timestep`, `max_stress` or `save_every`, a negative
+`max_steps`, an unknown `cell`, or a calculator that does not compute
+energies and forces, and the virial when the box relaxes, and
+[`MissingProperty`](../reference/api.md#mdapy.errors.MissingProperty) for a
+system with neither masses nor elements.
 
-The tests in `tests/calculators/test_nep.py`, on synthetic potentials with
-random parameters written by the tests, check that:
-
-- descriptors and atomic energies agree with an independent NumPy
-  implementation to 10<sup>−12</sup>, for each form of ZBL, shared and
-  per-element cutoffs, periodic, partly periodic and non-periodic systems, a
-  box smaller than the cutoff, and $l_\text{max}$ from 1 to 8 with and without
-  four- and five-body terms. The NumPy implementation computes the three-body
-  terms as the double sums of Legendre polynomials and the four- and five-body
-  terms with Wigner 3j symbols, a different route from mdapy's;
-- `check_calculator` passes;
-- results are the same for any number of threads;
-- malformed files raise `FileFormatError` with the line.
-
-`tests/calculators/test_nep_reference_data.py` runs where the test data of
-torchnep are found and compares with results of GPUMD and NEP_CPU computed for
-those potentials. Against NEP_CPU, in double precision, for 14 potentials of
-one to four elements with every form of ZBL, the energies, forces, virials and
-atomic virials agree to 10<sup>−13</sup> of their largest value. Against GPUMD,
-which computes in single precision and prints six digits, energies agree to
-10<sup>−5</sup> eV/atom and descriptors to 10<sup>−5</sup>.
-
-## References
-
-- M. S. Daw and M. I. Baskes, Embedded-atom method: derivation and
-  application to impurities, surfaces, and other defects in metals,
-  *Phys. Rev. B* **29**, 6443 (1984). doi:10.1103/PhysRevB.29.6443
-- LAMMPS `pair_style eam`: <https://docs.lammps.org/pair_eam.html>
-- Z. Fan et al., GPUMD: A package for constructing accurate machine-learned
-  potentials and performing highly efficient atomistic simulations,
-  *J. Chem. Phys.* **157**, 114801 (2022). doi:10.1063/5.0106617
-- K. Song et al., General-purpose machine-learned potential for 16 elemental
-  metals and their alloys, *Nat. Commun.* **15**, 10208 (2024).
-  doi:10.1038/s41467-024-54554-x
-- J. F. Ziegler, J. P. Biersack and U. Littmark, *The Stopping and Range of
-  Ions in Solids* (Pergamon, 1985).
-- E. Bitzek, P. Koskinen, F. Gähler, M. Moseler and P. Gumbsch, Structural
-  relaxation made simple, *Phys. Rev. Lett.* **97**, 170201 (2006).
-  doi:10.1103/PhysRevLett.97.170201
+!!! quote "Please cite"
+    [Guénolé et al. (2020)](../reference/references.md#guenole2020) and [Bitzek et al. (2006)](../reference/references.md#bitzek2006).

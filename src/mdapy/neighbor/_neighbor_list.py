@@ -1,7 +1,8 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
-"""Neighbor lists: pairs of atoms within a cutoff, including periodic images."""
+"""Neighbor lists: pairs of atoms within a cutoff, or the nearest neighbors of
+each atom, including periodic images."""
 
 import math
 from typing import Any
@@ -9,32 +10,44 @@ from typing import Any
 import numpy as np
 
 from mdapy._core import neighbor as _native
+from mdapy.core.indices import index_dtype
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 
 
-class NeighborList:
-    """Pairs of atoms within a cutoff, including periodic images.
+def _run(kernel: Any, *args: Any) -> Any:
+    """Calls a compiled kernel, its overflow errors as InvalidParameter."""
+    try:
+        return kernel(*args)
+    except OverflowError as error:
+        raise InvalidParameter(str(error)) from None
 
-    Build one with :meth:`build` or :meth:`nearest`. Pairs are grouped by the
-    first atom: the pairs of atom ``i`` are ``offsets[i]:offsets[i + 1]``.
-    The vector from atom ``i`` to the image of atom ``j`` is
-    ``x[j] - x[i] + shifts @ box.matrix``. Every pair appears in both
-    directions.
+
+class NeighborList:
+    """Pairs of atoms within a cutoff, or the nearest neighbors of each atom,
+    including periodic images.
+
+    Build one with :meth:`build`. Pairs are grouped by the first atom: the
+    pairs of atom ``i`` are ``offsets[i]:offsets[i + 1]``. The vector from
+    atom ``i`` to the image of atom ``j`` is
+    ``x[j] - x[i] + shifts @ box.matrix``.
 
     Attributes
     ----------
     system : System
         The system the list was built for.
     cutoff : float
-        Cutoff radius in Å; every pair is closer than it.
+        Every pair is closer than it, in Å.
+    num_neighbors : int or None
+        The number of pairs of each atom in a list of nearest neighbors,
+        None in a list within a cutoff.
     offsets : numpy.ndarray
         (N + 1,) int64.
     j : numpy.ndarray
-        (P,) int32, the second atom of each pair.
+        (P,) :data:`mdapy.index_dtype`, the second atom of each pair.
     shifts : numpy.ndarray
-        (P, 3) int32 periodic image of the second atom.
+        (P, 3) int8 periodic image of the second atom.
     distances : numpy.ndarray
         (P,) float64 distances in Å.
     """
@@ -47,9 +60,11 @@ class NeighborList:
         j: np.ndarray,
         shifts: np.ndarray,
         distances: np.ndarray,
+        num_neighbors: int | None = None,
     ):
         self.system = system
         self.cutoff = float(cutoff)
+        self.num_neighbors = num_neighbors
         self.offsets = offsets
         self.j = j
         self.shifts = shifts
@@ -63,21 +78,26 @@ class NeighborList:
     def build(
         cls,
         system: System,
-        cutoff: float,
+        cutoff: float | None = None,
         *,
+        num_neighbors: int | None = None,
         progress: Any = None,
         cancel: Any = None,
     ) -> "NeighborList":
-        """All pairs of atoms closer than cutoff.
+        """All pairs of atoms closer than a cutoff, or the nearest neighbors of
+        each atom.
 
         Parameters
         ----------
         system : System
-            The atoms and the box. Any box works; a cutoff larger than the box
-            gives several images of the same neighbor, and images of the atom
-            itself.
-        cutoff : float
+            The atoms and the box. Any box works; a box thinner than the
+            cutoff gives several images of the same neighbor, and images of
+            the atom itself.
+        cutoff : float, optional
             Cutoff radius in Å, positive.
+        num_neighbors : int, optional
+            Number of nearest neighbors of each atom, positive. Give either
+            cutoff or num_neighbors.
         progress : callable, optional
             Called as ``progress(done, total)`` while the list is built.
         cancel : CancelToken, optional
@@ -86,81 +106,60 @@ class NeighborList:
         Returns
         -------
         NeighborList
-            The pairs, sorted by the first atom, then the second, then the
-            image.
-        """
-        if not cutoff > 0 or not math.isfinite(cutoff):
-            raise InvalidParameter(f"cutoff must be a positive number, not {cutoff!r}")
-        box = system.box
-        offsets, j, shifts, distances = _native.build(
-            np.ascontiguousarray(system.positions),
-            np.ascontiguousarray(box.matrix),
-            np.ascontiguousarray(box.origin),
-            np.ascontiguousarray(box.pbc),
-            float(cutoff),
-            progress,
-            _native_token(cancel),
-        )
-        return cls(system, cutoff, offsets, j, shifts, distances)
-
-    @classmethod
-    def nearest(cls, system: System, num_neighbors: int) -> "NeighborList":
-        """The num_neighbors nearest neighbors of every atom, nearest first.
-
-        Parameters
-        ----------
-        system : System
-            The atoms and the box.
-        num_neighbors : int
-            Number of neighbors of each atom, positive.
-
-        Returns
-        -------
-        NeighborList
-            Exactly num_neighbors pairs per atom, sorted by distance (then by
-            the second atom and the image). Its cutoff is the largest of
-            these distances, slightly enlarged.
+            With a cutoff, every pair closer than it, grouped by the first
+            atom. With num_neighbors, that many pairs per atom, nearest first
+            (ties by the second atom, then the image), and as cutoff the
+            largest distance, slightly enlarged.
 
         Raises
         ------
         InvalidParameter
-            If an atom of a non-periodic system has fewer neighbors.
+            For an invalid cutoff or num_neighbors, when a system without
+            periodic directions has num_neighbors atoms or fewer, or when a
+            periodic image is more than 127 boxes away.
         """
-        k = int(num_neighbors)
-        if k < 1:
-            raise InvalidParameter("num_neighbors must be at least 1")
-        n = len(system)
-        if n == 0:
-            empty = np.zeros(0)
-            return cls(
-                system,
-                0.0,
-                np.zeros(1, np.int64),
-                empty.astype(np.int32),
-                np.zeros((0, 3), np.int32),
-                empty,
-            )
-        periodic = bool(system.box.pbc.any())
-        if not periodic and n - 1 < k:
-            raise InvalidParameter(
-                f"num_neighbors is {k}, but the system has only {n} atoms and no periodic images"
-            )
+        if (cutoff is None) == (num_neighbors is None):
+            raise InvalidParameter("give either cutoff or num_neighbors")
         box = system.box
-        offsets, j, shifts, distances = _native.nearest(
+        arrays = (
             np.ascontiguousarray(system.positions),
             np.ascontiguousarray(box.matrix),
             np.ascontiguousarray(box.origin),
             np.ascontiguousarray(box.pbc),
-            k,
         )
-        return cls(
-            system,
-            float(np.nextafter(distances.max(), np.inf)),
-            offsets,
-            j,
-            shifts,
-            distances,
+        if num_neighbors is None:
+            if not cutoff > 0 or not math.isfinite(cutoff):
+                raise InvalidParameter(
+                    f"cutoff must be a positive number, not {cutoff!r}"
+                )
+            offsets, j, shifts, distances = _run(
+                _native.build,
+                *arrays,
+                float(cutoff),
+                progress,
+                _native_token(cancel),
+            )
+            return cls(system, cutoff, offsets, j, shifts, distances)
+
+        if (
+            isinstance(num_neighbors, bool)
+            or not isinstance(num_neighbors, int | np.integer)
+            or num_neighbors < 1
+        ):
+            raise InvalidParameter(
+                f"num_neighbors must be a positive integer, not {num_neighbors!r}"
+            )
+        k, n = int(num_neighbors), len(system)
+        if n > 0 and not box.pbc.any() and n - 1 < k:
+            raise InvalidParameter(
+                f"num_neighbors is {k}, but the system has only {n} atoms "
+                "and no periodic images"
+            )
+        offsets, j, shifts, distances = _run(
+            _native.nearest, *arrays, k, progress, _native_token(cancel)
         )
+        reach = float(np.nextafter(distances.max(), np.inf)) if n else 0.0
+        return cls(system, reach, offsets, j, shifts, distances, num_neighbors=k)
 
     @property
     def counts(self) -> np.ndarray:
@@ -169,10 +168,10 @@ class NeighborList:
 
     @property
     def i(self) -> np.ndarray:
-        """(P,) int32 first atom of each pair."""
+        """(P,) :data:`mdapy.index_dtype` first atom of each pair."""
         if self._i is None:
             self._i = np.repeat(
-                np.arange(len(self.counts), dtype=np.int32), self.counts
+                np.arange(len(self.counts), dtype=index_dtype), self.counts
             )
             self._i.flags.writeable = False
         return self._i
@@ -206,7 +205,19 @@ class NeighborList:
         )
 
     def within(self, cutoff: float) -> "NeighborList":
-        """The pairs closer than a smaller cutoff, without a new search."""
+        """The pairs closer than a smaller cutoff, without a new search.
+
+        Parameters
+        ----------
+        cutoff : float
+            Cutoff radius in Å, positive and at most the cutoff of this list.
+
+        Returns
+        -------
+        NeighborList
+            The pairs closer than cutoff, in their order; this list itself
+            when cutoff is its own.
+        """
         if not 0 < cutoff <= self.cutoff:
             raise InvalidParameter(
                 f"cutoff must be positive and at most {self.cutoff}, not {cutoff!r}"
@@ -216,13 +227,15 @@ class NeighborList:
         return self._subset(self.distances < cutoff, cutoff)
 
     def _follow(self, system: System, cutoff: float) -> "NeighborList | None":
-        """The list NeighborList.build(system, cutoff) for the atoms of this
-        list moved to their places in system, from the pairs of this list
-        without a new search; None when the box changed or an atom moved too
-        far, half the difference of the cutoffs or more."""
+        """The pairs of NeighborList.build(system, cutoff), in another order,
+        for the atoms of this list moved to their places in system, from the
+        pairs of this list without a new search; None for a list of nearest
+        neighbors, when the box changed or when an atom moved too far, half
+        the difference of the cutoffs or more."""
         old = self.system
         if (
-            len(system) != len(old)
+            self.num_neighbors is not None
+            or len(system) != len(old)
             or not np.array_equal(system.box.matrix, old.box.matrix)
             or not np.array_equal(system.box.origin, old.box.origin)
             or not np.array_equal(system.box.pbc, old.box.pbc)
@@ -246,7 +259,13 @@ class NeighborList:
         return followed
 
     def sorted(self) -> "NeighborList":
-        """The same pairs, each atom's sorted by distance (ties keep their order)."""
+        """The same pairs, each atom's sorted by distance (ties keep their order).
+
+        Returns
+        -------
+        NeighborList
+            A list with the pairs of each atom nearest first.
+        """
         order, _ = _native.order_by_distance(self.offsets, self.distances)
         return NeighborList(
             self.system,
@@ -255,10 +274,32 @@ class NeighborList:
             self.j[order],
             self.shifts[order],
             self.distances[order],
+            self.num_neighbors,
         )
 
     def __repr__(self) -> str:
-        return (
-            f"NeighborList(atoms={len(self.counts)}, pairs={len(self)}, "
-            f"cutoff={self.cutoff!r})"
+        size = f"NeighborList(atoms={len(self.counts)}, pairs={len(self)}"
+        if self.num_neighbors is not None:
+            return f"{size}, num_neighbors={self.num_neighbors})"
+        return f"{size}, cutoff={self.cutoff!r})"
+
+
+def _given_or_built(
+    system: System, cutoff: float, neighbors: "NeighborList | None"
+) -> NeighborList:
+    """The given neighbor list after checking that it holds every pair of
+    system within cutoff, or a new one."""
+    if neighbors is None:
+        return NeighborList.build(system, cutoff)
+    if neighbors.system is not system:
+        raise InvalidParameter("the neighbor list was built for another system")
+    if neighbors.num_neighbors is not None:
+        raise InvalidParameter(
+            "a list of nearest neighbors does not hold every pair within a cutoff; "
+            "build the list with a cutoff"
         )
+    if neighbors.cutoff < cutoff:
+        raise InvalidParameter(
+            f"the neighbor list has cutoff {neighbors.cutoff}, below the required {cutoff}"
+        )
+    return neighbors

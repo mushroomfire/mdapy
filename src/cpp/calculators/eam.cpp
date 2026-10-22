@@ -50,9 +50,9 @@ void Spline::evaluate(double x, double& value, double& derivative) const {
 }
 
 void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32_t* species,
-                 const std::int64_t* offsets, const std::int32_t* neighbors,
-                 const double* vectors, double* energies, double* forces, double* virials,
-                 const Control& control) {
+                 const double* positions, const double* matrix, const std::int64_t* offsets,
+                 const index_t* neighbors, const std::int8_t* shifts, double* energies,
+                 double* forces, double* virials, const Control& control) {
     const double cutoff2 = potential.cutoff * potential.cutoff;
     std::vector<double> slope(static_cast<std::size_t>(n), 0.0);  // F'(rho)
 
@@ -63,8 +63,10 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
             for (std::int64_t i = begin; i < end; ++i) {
                 double sum = 0.0;
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const double* r = vectors + 3 * p;
-                    const double r2 = r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
+                    double r[3];
+                    const double r2 = neighbor::pair_vector(
+                        positions + 3 * i, positions + 3 * static_cast<std::int64_t>(neighbors[p]),
+                        shifts + 3 * p, matrix, r);
                     if (r2 < cutoff2) {
                         double value, derivative;
                         potential.density[species[neighbors[p]]].evaluate(std::sqrt(r2), value,
@@ -92,14 +94,17 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
                 double w[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
                 double pair_energy = 0.0;
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const double* v = vectors + 3 * p;
+                    double v[3];
+                    neighbor::pair_vector(positions + 3 * i,
+                                          positions + 3 * static_cast<std::int64_t>(neighbors[p]),
+                                          shifts + 3 * p, matrix, v);
                     // del = x_i - x_j, as in LAMMPS
                     const double del[3] = {-v[0], -v[1], -v[2]};
                     const double r2 = del[0] * del[0] + del[1] * del[1] + del[2] * del[2];
                     if (!(r2 < cutoff2)) {
                         continue;
                     }
-                    const std::int32_t j = neighbors[p];
+                    const index_t j = neighbors[p];
                     const int sj = species[j];
                     const double r = std::sqrt(r2);
                     double rho_i, rho_ip, rho_j, rho_jp, z2, z2p;

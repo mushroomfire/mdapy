@@ -16,10 +16,14 @@ implemented.
 | frame | One `System` of a `Trajectory`. |
 | `table` | The per-atom table of a `System`, a polars DataFrame with one row per atom. |
 | `info` | Global information of a `System`, such as `energy` or `timestep`. |
-| `NeighborList` | Pairs of atoms within a cutoff, including periodic images. |
+| `NeighborList` | Pairs of atoms within a cutoff, or the nearest neighbors of each atom, including periodic images. |
+| pair | One entry of a `NeighborList`: atoms `i` and `j` and the periodic image `shifts` of `j`. |
+| `shifts` | Periodic image of the second atom of a pair, (3,) int8: the pair vector is `x[j] - x[i] + shifts @ box.matrix`. |
+| `index_dtype` | Integer type of atom indices in results such as `NeighborList.j`: int32, or int64 in a build with 64-bit indices. |
 | `Topology` | Bonds, angles, dihedrals and impropers of a system; each a table with `atoms` (0-based row indices), `type` and optional `type_label`. |
 | format | Name of a file format, passed as `format=`, such as `extxyz`. See [Reading and writing files](../guide/io.md). |
 | `Calculator` | Interface that computes energy, forces and virial for a `System`. |
+| average atom | The single species of an average-atom potential, standing for a random alloy; `A` in potential files. |
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |
 
@@ -51,6 +55,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `atomic_energies` | per-atom energies (eV) |
 | `virial` | total virial, (3, 3) (eV) |
 | `atomic_virials` | per-atom virials, (N, 3, 3) (eV) |
+| `stress` | stress, (3, 3) (GPa), positive under tension: −`virial` / volume |
 | descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 
 ## Parameters
@@ -68,6 +73,10 @@ column of fixed-size arrays of length 3 and use the plural name.
 | prebuilt neighbor list | `neighbors=` (keyword-only) | |
 | reference configuration | `reference=` | `ref` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
+| interval between kept frames | `save_every` | `dump_freq`, `interval` |
+| convergence of a minimization | `max_force` (eV/Å), `max_stress` (GPa) | `fmax`, `ftol`, `etol` |
+| how the box may relax | `cell` (`None`, `"isotropic"`, `"axes"`, `"full"`) | `relax_box`, `box_relax` |
+| external hydrostatic pressure (GPa) | `pressure` | `press`, `p` |
 
 Boolean options are named positively, for example `include_self=True`.
 

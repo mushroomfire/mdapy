@@ -14,7 +14,6 @@ from mdapy import units
 from mdapy.core.system import System
 from mdapy.elements import SYMBOLS
 from mdapy.errors import InvalidParameter, MissingProperty
-from mdapy.neighbor import NeighborList
 
 #: Every property a calculator may compute.
 PROPERTIES = frozenset(
@@ -166,19 +165,3 @@ def _element_indices(
             f"the potential has no parameters for {missing}; it has {list(elements)}"
         )
     return indices
-
-
-def _neighbor_list(
-    system: System, cutoff: float, neighbors: NeighborList | None
-) -> NeighborList:
-    """The given neighbor list after checking that it fits, or a new one."""
-    if neighbors is None:
-        return NeighborList.build(system, cutoff)
-    if neighbors.system is not system:
-        raise InvalidParameter("the neighbor list was built for another system")
-    if neighbors.cutoff < cutoff:
-        raise InvalidParameter(
-            f"the neighbor list has cutoff {neighbors.cutoff}, below the potential's "
-            f"{cutoff}"
-        )
-    return neighbors

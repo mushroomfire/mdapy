@@ -17,10 +17,10 @@ result.energy  # eV
 result.forces  # (N, 3) eV/Å
 result.stress(system)  # (3, 3) GPa
 system = result.attach(system)  # forces as a column, energy and virial in info
-
-relaxed = mdapy.minimize(system, potential, max_force=1e-4)
-relaxed.converged, relaxed.energy
 ```
+
+Minimizations and elastic constants with a calculator are on the page
+[Simulation](simulation.md).
 
 ## The calculator interface
 
@@ -270,7 +270,6 @@ calculator = LAMMPS(
     elements=["Cu", "Ni"],
 )
 calculator.compute(system, ("energy", "forces", "virial"))
-mdapy.minimize(system, calculator)
 calculator.close()
 ```
 
@@ -301,9 +300,10 @@ describes.
 | `compute(system, properties, *, neighbors=None)` | every property; LAMMPS searches its own neighbors, so `neighbors` is not used |
 | `close()` | closes the LAMMPS instance; the next computation starts a new one |
 
-The calculator keeps one LAMMPS instance while only the positions change, as
-during `minimize`, and starts a new one for another box, other atoms or
-elements. Any box works: LAMMPS receives it rotated to its restricted
+The calculator keeps one LAMMPS instance while the atoms and their elements
+stay the same, as during [`minimize`](simulation.md#energy-minimization), also when the box changes but not its
+periodic directions; it starts a new one for other atoms, elements or
+periodic directions. Any box works: LAMMPS receives it rotated to its restricted
 triclinic form, and forces and virials are rotated back. Along non-periodic
 directions LAMMPS has fixed boundaries around the atoms. With Kokkos, LAMMPS
 is shut down when Python exits.
@@ -315,58 +315,3 @@ with the message of LAMMPS, or cannot tell the cutoff that is not given, and
 
 !!! quote "Please cite"
     [Thompson et al. (2022)](../reference/references.md#thompson2022), and the paper of the potential.
-
-## Energy minimization
-
-`mdapy.minimize(system, calculator, *, max_force=1e-3, max_steps=1000,
-max_step=0.1, timestep=0.001, save_every=None, callback=None)` minimizes the
-energy over the positions, in a fixed box, with FIRE 2.0
-([Guénolé et al. (2020)](../reference/references.md#guenole2020)), the fast inertial relaxation
-engine of [Bitzek et al. (2006)](../reference/references.md#bitzek2006), as LAMMPS
-`min_style fire` does with its default settings.
-
-| Name | Type | Default | Unit | Meaning |
-|---|---|---|---|---|
-| `system` | `System` | | | the starting configuration, with a `mass` or an `element` column |
-| `calculator` | `Calculator` | | | computes energies and forces |
-| `max_force` | float | 1e-3 | eV/Å | converged when every force is below it |
-| `max_steps` | int | 1000 | | largest number of steps |
-| `max_step` | float | 0.1 | Å | an atom moving at its current velocity goes at most this far along x, y or z in one step (LAMMPS `dmax`) |
-| `timestep` | float | 0.001 | ps | first time step of the dynamics (the LAMMPS `timestep` in metal units) |
-| `save_every` | int | `None` | | keeps the configuration every this many steps, with the first and the last, in `frames` |
-| `callback` | callable | `None` | | called after each step as `callback(step, system, energy, max_force)`; returning True stops the minimization |
-
-It returns a `MinimizeResult`:
-
-| Attribute | Type | Meaning |
-|---|---|---|
-| `system` | `System` | the last configuration, with `forces` and `atomic_energies` columns and `energy` in `info` |
-| `converged` | bool | whether every force fell below `max_force` |
-| `steps` | int | number of steps taken |
-| `energy` | float | energy of the last configuration in eV |
-| `max_force` | float | largest force of the last configuration in eV/Å |
-| `frames` | tuple of `System` or `None` | with `save_every`, the kept configurations, with `forces` and `atomic_energies` columns and `energy` and the step as `timestep` in `info`; `None` otherwise |
-
-The steps are those of LAMMPS: the same time step control, mixing and half
-step back after an uphill step, with masses from the `mass` column or, when
-there is none, the standard atomic weights of the elements. Masses change
-the path, not the minimum; LAMMPS takes them from the data file or, for EAM,
-from the potential file.
-
-The kept frames show the minimization on its way and can be written as a
-trajectory:
-
-<!-- skip-test -->
-```python
-result = mdapy.minimize(system, potential, save_every=10)
-mdapy.write("relaxation.xyz", result.frames)
-```
-
-`minimize` raises `InvalidParameter` for a non-positive `max_force`,
-`max_step`, `timestep` or `save_every`, a negative `max_steps`, or a
-calculator that does not compute both energies and forces, and
-[`MissingProperty`](../reference/api.md#mdapy.errors.MissingProperty) for a
-system with neither masses nor elements.
-
-!!! quote "Please cite"
-    [Guénolé et al. (2020)](../reference/references.md#guenole2020) and [Bitzek et al. (2006)](../reference/references.md#bitzek2006).

@@ -42,11 +42,17 @@ import mdapy
 
 ::: mdapy.calculators.testing.check_calculator
 
-::: mdapy.minimize
-
-::: mdapy.calculators.MinimizeResult
-
 ::: mdapy.core.box.LammpsBox
+
+## Simulation
+
+::: mdapy.simulation.minimize
+
+::: mdapy.simulation.MinimizeResult
+
+::: mdapy.simulation.elastic_constants
+
+::: mdapy.simulation.ElasticResult
 
 ## Threads and indices
 

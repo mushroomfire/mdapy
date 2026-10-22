@@ -12,10 +12,11 @@ import numpy as np
 import pytest
 
 import mdapy
-from mdapy.calculators import EAM, LAMMPS, minimize
+from mdapy.calculators import EAM, LAMMPS
 from mdapy.calculators import _lammps as module
 from mdapy.calculators.testing import check_calculator
 from mdapy.errors import InvalidParameter, MissingProperty
+from mdapy.simulation import minimize
 
 from .eam_files import alloy, write_setfl
 
@@ -106,7 +107,7 @@ def test_passes_the_calculator_checks(potentials):
     check_calculator(calculator, alloy(seed=5, jitter=0.1))
 
 
-def test_one_instance_while_only_positions_change(potentials, monkeypatch):
+def test_one_instance_for_the_same_atoms(potentials, monkeypatch):
     eam, calculator = potentials
     started = []
     original = module._lammps
@@ -120,12 +121,23 @@ def test_one_instance_while_only_positions_change(potentials, monkeypatch):
             system.positions + rng.normal(scale=0.05, size=(len(system), 3))
         )
         agree(calculator.compute(moved, ALL), eam.compute(moved, ALL))
-    assert len(started) == 1
-    # far along the non-periodic direction, out of the LAMMPS box: a new one
+    # far along the non-periodic direction, out of the LAMMPS box, and in
+    # another box
     away = system.with_positions(system.positions + [0.0, 0.0, 30.0])
     agree(calculator.compute(away, ALL), eam.compute(away, ALL))
-    # another box or other elements: a new one
+    strained = system.with_box(
+        mdapy.Box(
+            system.box.matrix * 1.05, origin=system.box.origin, pbc=system.box.pbc
+        ),
+        scale_positions=True,
+    )
+    agree(calculator.compute(strained, ALL), eam.compute(strained, ALL))
+    agree(calculator.compute(system, ALL), eam.compute(system, ALL))
+    assert len(started) == 1
+    # other atoms, other periodic directions: a new one
     agree(calculator.compute(alloy(seed=6), ALL), eam.compute(alloy(seed=6), ALL))
+    periodic = system.with_box(mdapy.Box(system.box.matrix, pbc=True))
+    agree(calculator.compute(periodic, ALL), eam.compute(periodic, ALL))
     assert len(started) == 3
     calculator.close()
     agree(calculator.compute(alloy(seed=6), ALL), eam.compute(alloy(seed=6), ALL))
@@ -140,13 +152,26 @@ def test_empty_systems(potentials):
     assert result.atomic_virials.shape == (0, 3, 3)
 
 
-def test_minimization(potentials):
+def test_minimization(potentials, monkeypatch):
     eam, calculator = potentials
     system = alloy(seed=8, repeat=2, jitter=0.15)
     a = minimize(system, calculator, max_force=1e-6, max_steps=2000)
     b = minimize(system, eam, max_force=1e-6, max_steps=2000)
     assert a.converged and b.converged and a.steps == b.steps
     np.testing.assert_allclose(a.system.positions, b.system.positions, atol=1e-8)
+    # with the box, in one LAMMPS instance
+    calculator.close()
+    started = []
+    original = module._lammps
+    monkeypatch.setattr(
+        module, "_lammps", lambda args: started.append(1) or original(args)
+    )
+    a = minimize(system, calculator, cell="full", max_force=1e-6, max_stress=1e-6)
+    b = minimize(system, eam, cell="full", max_force=1e-6, max_stress=1e-6)
+    assert a.converged and b.converged and a.steps == b.steps
+    assert len(started) == 1
+    np.testing.assert_allclose(a.system.box.matrix, b.system.box.matrix, atol=1e-8)
+    np.testing.assert_allclose(a.stress, b.stress, atol=1e-6)
 
 
 def test_zhou_potentials_read_by_lammps(tmp_path):

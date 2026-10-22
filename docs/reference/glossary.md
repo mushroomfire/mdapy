@@ -55,6 +55,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `atomic_energies` | per-atom energies (eV) |
 | `virial` | total virial, (3, 3) (eV) |
 | `atomic_virials` | per-atom virials, (N, 3, 3) (eV) |
+| `stress` | stress, (3, 3) (GPa), positive under tension: −`virial` / volume |
+| elastic constants | (6, 6) (GPa) in Voigt order xx, yy, zz, yz, xz, xy |
 | descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 
 ## Parameters
@@ -73,6 +75,12 @@ column of fixed-size arrays of length 3 and use the plural name.
 | reference configuration | `reference=` | `ref` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
 | interval between kept frames | `save_every` | `dump_freq`, `interval` |
+| convergence of a minimization | `max_force` (eV/Å), `max_stress` (GPa) | `fmax`, `ftol`, `etol` |
+| how the box may relax | `cell` (`None`, `"isotropic"`, `"axes"`, `"full"`) | `relax_box`, `box_relax` |
+| external hydrostatic pressure (GPa) | `pressure` | `press`, `p` |
+| magnitude of an applied strain | `strain` | `delta`, `eps` |
+| whether the positions relax | `relax` (bool) | `relax_atoms`, `minimize` |
+| average of a polycrystal | `average` (`"voigt"`, `"reuss"`, `"hill"`) | `method` |
 
 Boolean options are named positively, for example `include_self=True`.
 

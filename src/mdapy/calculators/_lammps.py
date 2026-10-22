@@ -119,7 +119,9 @@ class LAMMPS(Calculator):
         self.cmdargs = tuple(cmdargs)
         self._holder: list = []
         self._key: tuple | None = None
-        self._box = Box(10.0)
+        # the box of the system and the box LAMMPS has, which encloses the
+        # atoms along non-periodic directions
+        self._source = self._box = Box(10.0)
         self._finalizer = weakref.finalize(self, _close, self._holder)
         # the cutoff, from a box without atoms
         lmp = _lammps(self.cmdargs)
@@ -142,12 +144,17 @@ class LAMMPS(Calculator):
         else:
             self.cutoff = float(reported)
 
-    def _setup(self, lmp: Any, box: Box) -> None:
+    @staticmethod
+    def _shape(box: Box) -> tuple[float, ...]:
+        # lx, ly, lz, xy, xz, yz of the LAMMPS box
         lammps_box = box.to_lammps()
+        lengths = lammps_box.hi - lammps_box.lo
+        return tuple(float(v) for v in (*lengths, *lammps_box.tilt))
+
+    def _setup(self, lmp: Any, box: Box) -> None:
         pbc = box.pbc[[0, 2, 1]] if np.linalg.det(box.matrix) < 0 else box.pbc
         boundary = " ".join("p" if p else "f" for p in pbc)
-        lx, ly, lz = (float(v) for v in lammps_box.hi - lammps_box.lo)
-        xy, xz, yz = (float(v) for v in lammps_box.tilt)
+        lx, ly, lz, xy, xz, yz = self._shape(box)
         masses = [float(m) for m in atomic_masses(self.elements)]
         lmp.commands_string(
             f"""units metal
@@ -232,10 +239,11 @@ neigh_modify every 1 delay 0 check yes
                 virial=np.zeros((3, 3)),
                 atomic_virials=np.zeros((0, 3, 3)),
             )
-        key = (n, types.tobytes(), system.box)
-        if key != self._key or not self._inside(system.positions):
+        box = system.box
+        key = (n, types.tobytes(), box.pbc.tobytes(), np.linalg.det(box.matrix) < 0)
+        if key != self._key:
             self.close()
-            self._box = _enclosing(system.box, system.positions)
+            self._box, self._source = _enclosing(box, system.positions), box
             lmp = _lammps(self.cmdargs)
             self._holder.append(lmp)
             self._setup(lmp, self._box)
@@ -244,6 +252,20 @@ neigh_modify every 1 delay 0 check yes
                 n, list(range(1, n + 1)), types.tolist(), x.ravel().tolist()
             )
             self._key = key
+        elif box != self._source or not self._inside(system.positions):
+            # another box: the atoms leave, the box changes and they come back
+            lmp = self._holder[0]
+            self._box, self._source = _enclosing(box, system.positions), box
+            lx, ly, lz, xy, xz, yz = self._shape(self._box)
+            lmp.command("delete_atoms group all")
+            lmp.command(
+                f"change_box all x final 0 {lx!r} y final 0 {ly!r} z final 0 {lz!r}"
+                f" xy final {xy!r} xz final {xz!r} yz final {yz!r} units box"
+            )
+            x, _ = self._frame(system.positions)
+            lmp.create_atoms(
+                n, list(range(1, n + 1)), types.tolist(), x.ravel().tolist()
+            )
         else:
             lmp = self._holder[0]
             x, _ = self._frame(system.positions)

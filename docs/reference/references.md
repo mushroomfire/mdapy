@@ -50,6 +50,11 @@ simulations and its implementation in LAMMPS, *Comput. Mater. Sci.* **175**,
 [doi:10.1016/j.commatsci.2020.109584](https://doi.org/10.1016/j.commatsci.2020.109584)
 { #guenole2020 }
 
+**Hill (1952).** R. Hill, The elastic behaviour of a crystalline aggregate,
+*Proc. Phys. Soc. A* **65**, 349 (1952).
+[doi:10.1088/0370-1298/65/5/307](https://doi.org/10.1088/0370-1298/65/5/307)
+{ #hill1952 }
+
 **Larsen et al. (2017).** A. H. Larsen et al., The atomic simulation
 environment—a Python library for working with atoms, *J. Phys.: Condens.
 Matter* **29**, 273002 (2017).

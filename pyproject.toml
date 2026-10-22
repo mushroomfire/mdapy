@@ -98,7 +98,7 @@ select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.ruff.lint.isort]
 # the test helpers shared through pytest's pythonpath
-known-local-folder = ["atomsk_reference", "calculators", "lattices", "ovito_reference"]
+known-local-folder = ["atomsk_reference", "calculators", "lattices", "mlip", "ovito_reference"]
 
 [tool.ruff.format]
 quote-style = "double"

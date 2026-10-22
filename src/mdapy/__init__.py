@@ -13,6 +13,7 @@ from mdapy import (
     errors,
     identify,
     lattice_dynamics,
+    mlip,
     simulation,
     units,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "elements",
     "errors",
     "lattice_dynamics",
+    "mlip",
     "simulation",
     "units",
     "CancelToken",

@@ -141,6 +141,22 @@ import mdapy
 
 ::: mdapy.build.twin_lamellae
 
+## MLIP
+
+::: mdapy.mlip.read_outcar
+
+::: mdapy.mlip.outcar_to_xyz
+
+::: mdapy.mlip.structure_descriptors
+
+::: mdapy.mlip.farthest_point_sampling
+
+::: mdapy.mlip.principal_components
+
+::: mdapy.mlip.PrincipalComponents
+
+::: mdapy.mlip.perturb
+
 ## Visualization
 
 ::: mdapy.visualization.render

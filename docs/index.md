@@ -30,7 +30,7 @@ flowchart TB
     system(["<b>System</b><br/>box · topology · trajectory"])
     neighbors(["<b>Neighbor lists</b>"])
     visual["<b>Visualization</b><br/>rendering · plots"]
-    mlip["<b>MLIP</b><br/>descriptors · frames<br/>training sets"]
+    mlip["<b>MLIP</b><br/>VASP training sets · descriptors<br/>choosing frames · perturbation"]
     analysis["<b>Analysis</b><br/>structures · local order · defects · dynamics"]
     calculators["<b>Calculators</b><br/>EAM · NEP · LAMMPS"]
     minimization["<b>Minimization</b><br/>and dynamics"]
@@ -40,7 +40,8 @@ flowchart TB
     build --> system
     system --> neighbors
     system --> visual
-    calculators -.-> mlip
+    files --> mlip
+    calculators --> mlip
     neighbors --> analysis
     neighbors --> calculators
     calculators --> minimization
@@ -52,7 +53,7 @@ flowchart TB
     classDef simulation fill:#9333ea26,stroke:#9333ea,stroke-width:2px
     classDef build fill:#16a34a26,stroke:#16a34a,stroke-width:2px
     classDef visual fill:#db277726,stroke:#db2777,stroke-width:2px
-    classDef mlip fill:#0d94881f,stroke:#0d9488,stroke-width:2px,stroke-dasharray:6 4
+    classDef mlip fill:#0d948826,stroke:#0d9488,stroke-width:2px
     class system,neighbors core
     class files data
     class analysis analysis
@@ -164,8 +165,9 @@ flowchart TB
 
     Training data for machine-learned potentials.
 
-    Planned: NEP descriptors and their principal components · selection of
-    frames · training sets in extended XYZ from VASP single points.
+    [Training sets from VASP](mlip/vasp.md) ·
+    [choosing frames](mlip/selection.md) ·
+    [perturbed structures](mlip/perturbation.md)
 
 -   :material-palette-outline:{ .lg .middle } **Visualization**
 

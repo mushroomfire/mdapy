@@ -29,6 +29,10 @@ implemented.
 | unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries, or, along a trajectory, so that atoms move continuously through them. |
 | lag | The number of frames between two frames of a trajectory. |
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
+| ionic step | One configuration of a VASP relaxation or molecular dynamics, with its energy, forces and virial; one frame of `read_outcar`. |
+| training set | Frames with reference energies, forces and virials, usually from DFT, in extended XYZ, to fit a machine-learned potential. |
+| structure descriptor | The mean of the descriptors of the atoms of a frame, one point per frame. |
+| farthest point sampling | Choosing points one by one, each the farthest from those chosen before. |
 
 ## Per-atom properties
 
@@ -111,6 +115,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | how the box may relax | `cell` (`None`, `"isotropic"`, `"axes"`, `"full"`) | `relax_box`, `box_relax` |
 | external hydrostatic pressure (GPa) | `pressure` | `press`, `p` |
 | magnitude of an applied strain | `strain` | `delta`, `eps` |
+| size of random displacements of atoms (Å) | `displacement` | `atom_pert_distance`, `sigma` |
+| frames already chosen | `selected=` | `train_des`, `existing` |
+| number of principal components | `n` | `n_components` |
 | whether the positions relax | `relax` (bool) | `relax_atoms`, `minimize` |
 | average of a polycrystal | `average` (`"voigt"`, `"reuss"`, `"hill"`) | `method` |
 

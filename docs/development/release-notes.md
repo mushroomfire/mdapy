@@ -171,6 +171,19 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   columnar when the box is thin, and `twin_lamellae` for twinned grains. See
   [Polycrystals](../build/polycrystals.md).
 
+### MLIP
+
+- `mdapy.mlip.read_outcar` and `outcar_to_xyz`: the ionic steps of VASP
+  single points, relaxations and molecular dynamics, with energies, forces
+  and virials, to extended XYZ training sets, without unconverged steps or
+  frames of huge forces. See [Training sets from VASP](../mlip/vasp.md).
+- `mdapy.mlip.structure_descriptors`, `farthest_point_sampling` and
+  `principal_components`: frames chosen far from a training set and from
+  each other in the space of NEP descriptors, and their projection on a
+  plane. See [Choosing frames](../mlip/selection.md).
+- `mdapy.mlip.perturb`: copies of a structure with atoms displaced and the
+  box strained at random. See [Perturbed structures](../mlip/perturbation.md).
+
 ### Visualization
 
 - `mdapy.visualization.render`: pictures of systems by ray tracing, with

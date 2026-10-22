@@ -139,9 +139,6 @@ nav:
       - Point defects, stacking faults and surfaces: build/defects.md
       - Dislocations: build/dislocations.md
       - Polycrystals and twins: build/polycrystals.md
-  - Visualization:
-      - Rendering: visualization/rendering.md
-      - Plots: visualization/plots.md
   - Simulation:
       - Calculators:
           - The calculator interface: simulation/calculators.md
@@ -153,6 +150,13 @@ nav:
           - Defect energies: simulation/defect-energies.md
       - Lattice dynamics:
           - Elastic constants: simulation/elastic-constants.md
+  - MLIP:
+      - Training sets from VASP: mlip/vasp.md
+      - Choosing frames: mlip/selection.md
+      - Perturbed structures: mlip/perturbation.md
+  - Visualization:
+      - Rendering: visualization/rendering.md
+      - Plots: visualization/plots.md
   - Reference:
       - File formats:
           - Extended XYZ: reference/formats/extxyz.md

@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 import mdapy
-from mdapy.calculators import EAM
+from mdapy.calculators import EAM, minimize
 
 from .eam_files import alloy, write_setfl
 
@@ -75,3 +75,44 @@ run 0
     np.testing.assert_allclose(
         result.atomic_virials, atomic_virial, rtol=1e-9, atol=1e-9
     )
+
+
+def test_relaxation_as_lammps(tmp_path):
+    """FIRE in LAMMPS and in mdapy reach the same minimum from the same start:
+    a vacancy in a slightly perturbed alloy near the potential's lattice
+    constant."""
+    potential_file = write_setfl(tmp_path / "CuNi.eam.alloy")
+    full = alloy(seed=12, repeat=3, jitter=0.05, a=3.35)
+    system = full.select(np.arange(1, len(full))).with_columns(
+        id=np.arange(1, len(full))
+    )
+    data, out = tmp_path / "in.data", tmp_path / "out.data"
+    mdapy.write(data, system, elements=["Cu", "Ni"])
+    lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
+    try:
+        lmp.commands_string(
+            f"""
+units metal
+atom_style atomic
+boundary p p p
+read_data {data}
+pair_style eam/alloy
+pair_coeff * * {potential_file} Cu Ni
+min_style fire
+min_modify norm max
+minimize 0.0 1.0e-8 100000 1000000
+write_data {out}
+"""
+        )
+        energy = lmp.get_thermo("pe")
+    finally:
+        lmp.close()
+    relaxed = minimize(system, EAM(potential_file), max_force=1e-8, max_steps=100000)
+    assert relaxed.converged
+    assert relaxed.energy == pytest.approx(energy, abs=1e-8)
+    back = mdapy.read(out)
+    order = np.argsort(back.table["id"].to_numpy())
+    step = system.box.minimum_image(relaxed.system.positions - back.positions[order])
+    # a rigid translation costs nothing in a periodic box; each run drifts
+    np.testing.assert_allclose(step - step.mean(axis=0), 0.0, atol=1e-6)
+    assert np.abs(relaxed.system.positions - system.positions).max() > 0.01

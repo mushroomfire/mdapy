@@ -71,8 +71,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      # Editable install so that reported paths point into src/.
-      - run: pip install -e ".[dev]"
+      # Editable install so that reported paths point into src/; LAMMPS for
+      # the LAMMPS calculator and the comparisons with LAMMPS.
+      - run: pip install -e ".[dev,lammps]"
       - name: Test with coverage (total >= 90 %)
         run: pytest -q --cov --cov-report=term --cov-report=json
       - name: Per-file coverage (each file >= 95 %)

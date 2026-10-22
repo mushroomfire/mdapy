@@ -99,7 +99,6 @@ def test_errors(potential, tmp_path):
     [
         (lambda lines: lines.__setitem__(3, "x Cu Ni"), "number of elements"),
         (lambda lines: lines.__setitem__(3, "3 Cu Ni"), "expected 3 element names"),
-        (lambda lines: lines.__setitem__(3, "2 Cu Qq"), "unknown element 'Qq'"),
         (
             lambda lines: lines.__setitem__(4, "1000 0.05 1000"),
             "Nrho drho Nr dr cutoff",

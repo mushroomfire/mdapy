@@ -92,11 +92,10 @@ def as_dict(nl):
 
 
 def as_rows(nl):
-    k = nl.num_neighbors
     return [
         [
             (int(nl.j[p]), tuple(int(s) for s in nl.shifts[p]), float(nl.distances[p]))
-            for p in range(i * k, (i + 1) * k)
+            for p in range(nl.offsets[i], nl.offsets[i + 1])
         ]
         for i in range(len(nl.counts))
     ]
@@ -308,6 +307,18 @@ def test_nearest_agrees_with_a_sorted_cutoff_list():
         )
     # the farthest neighbor of some atom is just inside the list's cutoff
     assert wide.distances.max() == near.distances.max()
+    assert as_rows(NeighborList.build(system, near.cutoff)._nearest(k)) == as_rows(near)
+
+
+@pytest.mark.parametrize("k", [12, 14, 18])
+def test_ties_of_a_cutoff_list_as_in_nearest(k):
+    # 12 neighbors at the same distance and 6 next: the k nearest of a cutoff
+    # list are those of a list of nearest neighbors, ties by atom and image
+    system = lattice("fcc", 3.6, 2)
+    near = NeighborList.build(system, num_neighbors=k)
+    wide = NeighborList.build(system, 4.0)
+    assert as_rows(wide._nearest(k)) == as_rows(near)
+    assert as_rows(wide.sorted()._nearest(k)) == as_rows(near)
 
 
 def test_nearest_of_atoms_outside_the_box():

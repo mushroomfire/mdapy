@@ -26,6 +26,9 @@ implemented.
 | average atom | The single species of an average-atom potential, standing for a random alloy; `A` in potential files. |
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |
+| unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries, or, along a trajectory, so that atoms move continuously through them. |
+| lag | The number of frames between two frames of a trajectory. |
+| spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
 
 ## Per-atom properties
 
@@ -46,6 +49,17 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `charge` | f64 | e | charge |
 | `image` | Array(i32, 3) | | periodic image flags |
 | `movable` | Array(bool, 3) | | whether the atom may move along x, y, z (VASP selective dynamics) |
+| `structure` | int8 | | structure type from an identification such as `CommonNeighborAnalysis`; the result names the types |
+| `csp` | f64 | Å² | centro-symmetry parameter |
+| `cnp` | f64 | Å² | common neighbor parameter |
+| `coordination` | int64 | | number of neighbors; `coordination_<element>` counts those of one element |
+| `q4`, `q6`, … | f64 | | Steinhardt order parameters; `q4_average`, … when averaged over neighbors |
+| `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
+| `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint; `entropy_average` when averaged over neighbors |
+| `temperature` | f64 | K | temperature of an atom and its neighbors |
+| `lindemann` | f64 | | Lindemann index of an atom over a trajectory |
+| `site`, `occupancy` | `index_dtype`, int64 | | the nearest reference site of an atom, and the number of atoms on it |
+| `shear_strain`, `volumetric_strain`, `d2min` | f64 | , , Å² | von Mises and volumetric atomic strain against a reference, and the non-affine squared displacement |
 
 ## Energies and virials
 
@@ -67,11 +81,16 @@ column of fixed-size arrays of length 3 and use the plural name.
 | cutoff per pair of elements | `cutoffs: dict[tuple[str, str], float]` | `rc_dict` |
 | number of nearest neighbors | `num_neighbors` | `k`, `N`, `nnn` |
 | number of histogram bins | `bins` | `nbin`, `nbins` |
-| upper limit of a distribution | `r_max`, `k_max` | |
+| upper limit of a distribution | `r_max`, `q_max` | `rc`, `k_max` |
+| way of computing a quantity | `method` | `mode` |
+| result for each pair or triplet of elements, ordered by atomic number | `partial[a, b]` with `pair(a, b)`; `partial[a, b, c]` (vertex `a`) with `triplet(a, b, c)` | `rdf_partial`, `adf` |
 | random seed | `seed` (int or `numpy.random.Generator`) | `random_seed` |
 | list of elements | `elements` | `element_list` |
 | fractions of elements | `fractions` | `element_ratio` |
 | prebuilt neighbor list | `neighbors=` (keyword-only) | |
+| systems of a trajectory | `frames` | `pos_list`, `traj` |
+| average over every time origin | `window` (bool) | `mode` |
+| follow atoms through the periodic boundaries | `unwrap` (bool) | `wrapped`, `unwrapped` |
 | reference configuration | `reference=` | `ref` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
 | interval between kept frames | `save_every` | `dump_freq`, `interval` |

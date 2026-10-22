@@ -38,6 +38,12 @@ NB_MODULE(_core, m) {
     nb::module_ calculators = m.def_submodule("calculators", "Compiled calculators.");
     mdapy::bindings::bind_calculators(calculators);
 
+    nb::module_ analysis = m.def_submodule("analysis", "Analyses of the properties of systems.");
+    mdapy::bindings::bind_analysis(analysis);
+
+    nb::module_ identify = m.def_submodule("identify", "Structure identification.");
+    mdapy::bindings::bind_identify(identify);
+
     nb::module_ testing = m.def_submodule("testing", "Kernels used only by the test suite.");
     mdapy::bindings::bind_testing(testing);
 }

@@ -11,6 +11,7 @@
 | `src/mdapy/core/box.py` | `Box`, the simulation box. |
 | `src/mdapy/core/threads.py` | Number of threads, `CancelToken`. |
 | `src/mdapy/core/indices.py` | `index_dtype`, the type of atom indices in results. |
+| `src/mdapy/core/result.py` | `Result`, the base class of the results of analyses. |
 | `src/mdapy/io/__init__.py` | `read`, `write`, `formats`, `detect_format`; imports each format module. |
 | `src/mdapy/io/_registry.py` | The format registry, format detection, `read` and `write`. |
 | `src/mdapy/io/_files.py` | Opening files: compression and memory mapping. |
@@ -29,6 +30,15 @@
 | `src/mdapy/calculators/_nep.py` | `NEP` and its file reader. |
 | `src/mdapy/simulation/_minimize.py` | `minimize`, with FIRE 2.0, of the positions and the box. |
 | `src/mdapy/lattice_dynamics/_elastic.py` | `elastic_constants`. |
+| `src/mdapy/identify/_structure.py` | `CommonNeighborAnalysis`, `CentroSymmetryParameter`. |
+| `src/mdapy/analysis/_distribution.py` | `RadialDistributionFunction`, `CoordinationNumber`, `StructureFactor`. |
+| `src/mdapy/analysis/_steinhardt.py` | `SteinhardtParameters`. |
+| `src/mdapy/analysis/_entropy.py` | `EntropyFingerprint`. |
+| `src/mdapy/analysis/_temperature.py` | `AtomicTemperature`. |
+| `src/mdapy/analysis/_strain.py` | `AtomicStrain`. |
+| `src/mdapy/analysis/_wigner_seitz.py` | `WignerSeitz`. |
+| `src/mdapy/analysis/_dynamics.py` | `MeanSquaredDisplacement`, `LindemannIndex`. |
+| `src/mdapy/analysis/_bonds.py` | `ClusterAnalysis`, `BondAngleDistribution`, `WarrenCowley`, and bonds by cutoff per pair of elements. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
 | `src/cpp/core/index.h` | `index_t`, the type of atom indices, 32 or 64 bits (`MDAPY_INDEX64`). |
@@ -39,6 +49,11 @@
 | `src/cpp/neighbor/kd_tree.h`, `kd_tree.cpp` | The search of nearest neighbors, with a k-d tree. |
 | `src/cpp/calculators/eam.h`, `eam.cpp` | The embedded atom method. |
 | `src/cpp/calculators/nep.h`, `nep.cpp` | Neuroevolution potentials. |
+| `src/cpp/identify/structure.h`, `structure.cpp` | Common neighbor analysis and the centro-symmetry parameter. |
+| `src/cpp/analysis/steinhardt.h`, `steinhardt.cpp` | Real spherical harmonics and Steinhardt order parameters. |
+| `src/cpp/analysis/distribution.h`, `distribution.cpp` | Histograms of pair distances counted during the neighbor search, and the structure factor. |
+| `src/cpp/analysis/strain.h`, `strain.cpp` | Atomic strain from neighbor vectors. |
+| `src/cpp/analysis/geometry.h`, `geometry.cpp` | Clusters of bonded atoms, bond angles and the pair entropy. |
 | `src/cpp/io/powers_of_five.h` | Generated table used by the number parser. |
 | `src/cpp/bindings/module.cpp` | The extension module `mdapy._core` and its submodules. |
 | `src/cpp/bindings/control.h` | `run_released`: runs a kernel without the GIL, with progress and cancellation. |
@@ -46,8 +61,11 @@
 | `src/cpp/bindings/io.cpp` | Bindings for the text table kernels. |
 | `src/cpp/bindings/neighbor.cpp` | Bindings for the neighbor search. |
 | `src/cpp/bindings/calculators.cpp` | Bindings for the compiled calculators. |
+| `src/cpp/bindings/identify.cpp` | Bindings for structure identification. |
+| `src/cpp/bindings/analysis.cpp` | Bindings for the analyses. |
 | `src/cpp/bindings/testing.cpp` | Kernels used only by the test suite. |
 | `tests/` | Test suite; mirrors the package layout. |
+| `tests/lattices.py` | Perfect crystals and clusters shared by the tests. |
 | `tests/cpp/thread_checks.cpp` | Checks of the thread pool and the parallel kernels, run under ThreadSanitizer. |
 | `docs/` | This documentation. |
 

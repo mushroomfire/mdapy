@@ -12,6 +12,7 @@ import polars as pl
 from numpy.typing import ArrayLike
 
 from mdapy.core.box import Box
+from mdapy.core.result import Result
 from mdapy.core.topology import Topology
 from mdapy.elements import ELEMENT_DTYPE
 from mdapy.errors import InvalidParameter
@@ -284,7 +285,8 @@ class System:
         Parameters
         ----------
         *columns
-            polars expressions or Series, as for ``DataFrame.with_columns``.
+            polars expressions or Series, as for ``DataFrame.with_columns``,
+            or results of analyses, whose per-atom values are added.
         **named
             Columns by name: polars expressions or Series, NumPy arrays of
             shape (N,) or (N, ...), or single values for all atoms.
@@ -294,7 +296,13 @@ class System:
         System
             New system; other columns are shared with this one.
         """
-        exprs = list(columns)
+        exprs = []
+        named = dict(named)
+        for column in columns:
+            if isinstance(column, Result):
+                named.update(column.columns())
+            else:
+                exprs.append(column)
         for name, value in named.items():
             if isinstance(value, pl.Expr):
                 exprs.append(value.alias(name))

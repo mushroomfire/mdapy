@@ -48,7 +48,7 @@ flowchart TB
 
     classDef core fill:#2563eb40,stroke:#2563eb,stroke-width:4px
     classDef data fill:#3b82f61f,stroke:#3b82f6,stroke-width:2px
-    classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px,stroke-dasharray:6 4
+    classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px
     classDef simulation fill:#9333ea26,stroke:#9333ea,stroke-width:2px
     classDef build fill:#16a34a1f,stroke:#16a34a,stroke-width:2px,stroke-dasharray:6 4
     classDef visual fill:#db27771f,stroke:#db2777,stroke-width:2px,stroke-dasharray:6 4
@@ -106,8 +106,29 @@ flowchart TB
 
     Identify structures and measure order, defects and dynamics.
 
-    Planned: structure identification · local order and distributions ·
-    defects and deformation · dynamics
+    [Overview](analysis/overview.md)
+
+    Structure identification: [common neighbor analysis](analysis/cna.md) ·
+    [Ackland–Jones](analysis/ackland-jones.md) ·
+    [diamond](analysis/diamond.md) · [CHILL+](analysis/chill-plus.md) ·
+    [centro-symmetry](analysis/csp.md) ·
+    [common neighbor parameter](analysis/cnp.md)
+
+    Local order and distributions: [radial distribution](analysis/rdf.md) ·
+    [coordination](analysis/coordination.md) ·
+    [structure factor](analysis/structure-factor.md) ·
+    [bond angles](analysis/bond-angles.md) ·
+    [Warren–Cowley](analysis/warren-cowley.md) ·
+    [Steinhardt](analysis/steinhardt.md) ·
+    [entropy fingerprint](analysis/entropy.md)
+
+    Defects and deformation: [clusters](analysis/clusters.md) ·
+    [Wigner–Seitz](analysis/wigner-seitz.md) ·
+    [atomic strain](analysis/atomic-strain.md)
+
+    Dynamics: [mean squared displacement](analysis/msd.md) ·
+    [Lindemann index](analysis/lindemann.md) ·
+    [atomic temperature](analysis/temperature.md)
 
 -   :material-cube-outline:{ .lg .middle } **Structure builder**
 

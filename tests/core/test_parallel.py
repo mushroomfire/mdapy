@@ -5,6 +5,7 @@
 import multiprocessing
 import os
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -232,22 +233,42 @@ def test_concurrent_calls_from_python_threads(values):
     assert results == [expected] * len(results)
 
 
-def _sum_in_child(queue):
+# Run in a fresh interpreter: a forked child of a process that has imported
+# other packages with thread pools of their own, such as OVITO's Qt, can hang
+# in their handlers; this test is about mdapy's pool only.
+_FORKED_CHILD = """
+import multiprocessing
+import numpy as np
+import mdapy
+from mdapy import _core
+
+def child(queue):
     queue.put(_core.testing.parallel_sum(np.arange(10_000, dtype=np.float64)))
+
+if __name__ == "__main__":
+    mdapy.set_num_threads(4)
+    _core.testing.parallel_sum(np.ones(100_000))  # start the pool in the parent
+    ctx = multiprocessing.get_context("fork")
+    queue = ctx.Queue()
+    process = ctx.Process(target=child, args=(queue,))
+    process.start()
+    process.join(timeout=60)
+    assert process.exitcode == 0, process.exitcode
+    print(queue.get(timeout=10))
+"""
 
 
 @pytest.mark.skipif(
     "fork" not in multiprocessing.get_all_start_methods(), reason="needs fork"
 )
-# Forking a process that has started threads is what this test is about.
-@pytest.mark.filterwarnings("ignore:.*fork.*:DeprecationWarning")
-def test_pool_works_in_forked_child():
-    mdapy.set_num_threads(4)
-    kernels.parallel_sum(np.ones(100_000))  # start the pool in the parent
-    ctx = multiprocessing.get_context("fork")
-    queue = ctx.Queue()
-    child = ctx.Process(target=_sum_in_child, args=(queue,))
-    child.start()
-    child.join(timeout=60)
-    assert child.exitcode == 0
-    assert queue.get(timeout=10) == float(sum(range(10_000)))
+def test_pool_works_in_forked_child(tmp_path):
+    script = tmp_path / "forked_child.py"
+    script.write_text(_FORKED_CHILD)
+    done = subprocess.run(
+        [sys.executable, "-W", "ignore::DeprecationWarning", str(script)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert done.returncode == 0, done.stderr
+    assert float(done.stdout) == float(sum(range(10_000)))

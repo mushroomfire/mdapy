@@ -61,12 +61,17 @@ regex = '__version__ = "(?P<value>[^"]+)"'
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --import-mode=importlib"
-# test packages share helpers, such as calculators.eam_files
+# test packages share helpers, such as lattices.py and calculators.eam_files
 pythonpath = ["tests"]
 xfail_strict = true
 # Warnings are errors: an unexpected warning is a test failure. Add
 # targeted ignores here, each with a comment saying why.
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # OVITO from PyPI in a conda Python, as in local test environments, works
+    # but warns on import
+    "ignore:Did you accidentally install the OVITO package:UserWarning",
+]
 
 [tool.coverage.run]
 source = ["mdapy"]
@@ -90,7 +95,7 @@ select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.ruff.lint.isort]
 # the test helpers shared through pytest's pythonpath
-known-local-folder = ["calculators"]
+known-local-folder = ["calculators", "lattices", "ovito_reference"]
 
 [tool.ruff.format]
 quote-style = "double"

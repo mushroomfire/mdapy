@@ -107,6 +107,31 @@ nav:
           - Trajectories: getting-started/trajectory.md
           - Neighbor lists: getting-started/neighbor.md
           - Parallelism: getting-started/parallelism.md
+  - Analysis:
+      - Overview: analysis/overview.md
+      - Structure identification:
+          - Common neighbor analysis: analysis/cna.md
+          - Ackland–Jones analysis: analysis/ackland-jones.md
+          - Diamond structure: analysis/diamond.md
+          - CHILL+: analysis/chill-plus.md
+          - Centro-symmetry parameter: analysis/csp.md
+          - Common neighbor parameter: analysis/cnp.md
+      - Local order and distributions:
+          - Radial distribution function: analysis/rdf.md
+          - Coordination number: analysis/coordination.md
+          - Structure factor: analysis/structure-factor.md
+          - Bond angle distribution: analysis/bond-angles.md
+          - Warren–Cowley parameters: analysis/warren-cowley.md
+          - Steinhardt parameters: analysis/steinhardt.md
+          - Entropy fingerprint: analysis/entropy.md
+      - Defects and deformation:
+          - Cluster analysis: analysis/clusters.md
+          - Wigner–Seitz analysis: analysis/wigner-seitz.md
+          - Atomic strain: analysis/atomic-strain.md
+      - Dynamics:
+          - Mean squared displacement: analysis/msd.md
+          - Lindemann index: analysis/lindemann.md
+          - Atomic temperature: analysis/temperature.md
   - Simulation:
       - Calculators:
           - The calculator interface: simulation/calculators.md

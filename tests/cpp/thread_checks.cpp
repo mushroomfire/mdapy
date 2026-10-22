@@ -26,9 +26,14 @@
 #include <tuple>
 #include <vector>
 
+#include "analysis/distribution.h"
+#include "analysis/geometry.h"
+#include "analysis/steinhardt.h"
+#include "analysis/strain.h"
 #include "calculators/eam.h"
 #include "calculators/nep.h"
 #include "core/parallel.h"
+#include "identify/structure.h"
 #include "io/text.h"
 #include "neighbor/cell_list.h"
 #include "neighbor/kd_tree.h"
@@ -345,8 +350,9 @@ void neighbor_search() {
               "the neighbor search gives the same pairs for any thread count");
         check(pairs.offsets.back() > 0, "the neighbor search finds pairs");
         std::vector<std::int64_t> order, kept;
-        mdapy::neighbor::order_by_distance(n, pairs.offsets.data(), pairs.distances.data(), 12,
-                                           order, kept);
+        mdapy::neighbor::order_by_distance(positions.data(), n, pairs.offsets.data(),
+                                           pairs.neighbors.data(), pairs.shifts.data(),
+                                           matrix, 12, order, kept);
         bool sorted = kept.back() == 12 * n;
         for (std::int64_t i = 0; i < n && sorted; ++i) {
             for (std::int64_t k = kept[i] + 1; k < kept[i + 1]; ++k) {
@@ -553,6 +559,310 @@ void calculators() {
     }
 }
 
+void structure_identification() {
+    // a jittered fcc crystal: some atoms stay fcc, others do not
+    const int cells = 6;
+    const double a = 3.6;
+    const double matrix[9] = {cells * a, 0.0, 0.0, 0.0, cells * a, 0.0, 0.0, 0.0, cells * a};
+    const double origin[3] = {0.0, 0.0, 0.0};
+    const bool pbc[3] = {true, true, true};
+    const double basis[4][3] = {{0, 0, 0}, {0.5, 0.5, 0}, {0.5, 0, 0.5}, {0, 0.5, 0.5}};
+    std::mt19937_64 random(9);
+    std::normal_distribution<double> jitter(0.0, 0.12);
+    std::vector<double> positions;
+    for (int x = 0; x < cells; ++x) {
+        for (int y = 0; y < cells; ++y) {
+            for (int z = 0; z < cells; ++z) {
+                for (const auto& b : basis) {
+                    positions.push_back((x + b[0]) * a + jitter(random));
+                    positions.push_back((y + b[1]) * a + jitter(random));
+                    positions.push_back((z + b[2]) * a + jitter(random));
+                }
+            }
+        }
+    }
+    const auto n = static_cast<std::int64_t>(positions.size() / 3);
+    const mdapy::neighbor::NeighborPairs pairs =
+        mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 3.07);
+    std::vector<double> vectors;
+    for (std::int64_t i = 0; i < n; ++i) {
+        for (std::int64_t k = pairs.offsets[i]; k < pairs.offsets[i + 1]; ++k) {
+            const std::int32_t j = pairs.neighbors[k];
+            for (int e = 0; e < 3; ++e) {
+                double v = positions[3 * j + e] - positions[3 * i + e];
+                for (int s = 0; s < 3; ++s) {
+                    v += pairs.shifts[3 * k + s] * matrix[3 * s + e];
+                }
+                vectors.push_back(v);
+            }
+        }
+    }
+    // the first 8 neighbor vectors of every atom for the centro-symmetry
+    std::vector<double> eight;
+    for (std::int64_t i = 0; i < n; ++i) {
+        for (int k = 0; k < 8; ++k) {
+            for (int e = 0; e < 3; ++e) {
+                eight.push_back(vectors[3 * (pairs.offsets[i] + k) + e]);
+            }
+        }
+    }
+    // the first 4 neighbors of every atom, for the diamond identification
+    std::vector<std::int32_t> four;
+    std::vector<double> four_vectors;
+    for (std::int64_t i = 0; i < n; ++i) {
+        for (int k = 0; k < 4; ++k) {
+            four.push_back(pairs.neighbors[pairs.offsets[i] + k]);
+            for (int e = 0; e < 3; ++e) {
+                four_vectors.push_back(vectors[3 * (pairs.offsets[i] + k) + e]);
+            }
+        }
+    }
+    // the 14 nearest neighbors of every atom, nearest first, for Ackland-Jones
+    const mdapy::neighbor::NeighborPairs wide =
+        mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 4.2);
+    std::vector<std::int64_t> nearest_order, nearest_offsets;
+    mdapy::neighbor::order_by_distance(positions.data(), n, wide.offsets.data(),
+                                       wide.neighbors.data(), wide.shifts.data(), matrix, 14,
+                                       nearest_order, nearest_offsets);
+    std::vector<double> fourteen(3 * nearest_order.size());
+    for (std::int64_t i = 0; i < n; ++i) {
+        for (std::int64_t q = nearest_offsets[i]; q < nearest_offsets[i + 1]; ++q) {
+            const std::int64_t p = nearest_order[q];
+            mdapy::neighbor::pair_vector(&positions[3 * i],
+                                         &positions[3 * static_cast<std::int64_t>(wide.neighbors[p])],
+                                         &wide.shifts[3 * p], matrix, &fourteen[3 * q]);
+        }
+    }
+    std::vector<double> masses(static_cast<std::size_t>(n)), velocities(3 * static_cast<std::size_t>(n));
+    std::normal_distribution<double> thermal(0.0, 3.0);
+    for (std::int64_t i = 0; i < n; ++i) {
+        masses[i] = i % 2 == 0 ? 63.5 : 58.7;
+        for (int e = 0; e < 3; ++e) {
+            velocities[3 * i + e] = thermal(random);
+        }
+    }
+    std::vector<double> first_temperature, first_searched, first_searched_temperature;
+    std::vector<std::int8_t> first_types, first_water, first_aja;
+    std::vector<double> first_csp, first_q, first_entropy, first_factor;
+    std::vector<double> first_cnp;
+    std::vector<double> first_strain;
+    std::vector<std::int64_t> first_angles, first_histogram;
+    std::vector<std::int32_t> first_images;
+    const std::vector<int> degrees = {4, 6, 12};
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::vector<std::int8_t> types(static_cast<std::size_t>(n));
+        std::vector<double> csp(static_cast<std::size_t>(n));
+        mdapy::identify::common_neighbor_analysis(n, pairs.offsets.data(), vectors.data(), 3.07,
+                                                  types.data());
+        mdapy::identify::centro_symmetry(n, 8, eight.data(), csp.data());
+        std::vector<double> cnp(static_cast<std::size_t>(n));
+        mdapy::identify::common_neighbor_parameter(n, pairs.offsets.data(), vectors.data(), 3.07,
+                                                   cnp.data());
+        if (threads == kThreads[0]) {
+            first_cnp = cnp;
+        }
+        check(cnp == first_cnp, "the common neighbor parameter is the same for any thread count");
+        std::vector<double> searched_cnp(static_cast<std::size_t>(n));
+        mdapy::identify::common_neighbor_parameter_search(positions.data(), n, matrix, origin, pbc,
+                                                          3.07, searched_cnp.data());
+        bool cnp_near = true;
+        for (std::int64_t i = 0; i < n; ++i) {
+            cnp_near = cnp_near &&
+                       std::abs(searched_cnp[i] - cnp[i]) <= 1e-12 * std::abs(cnp[i]) + 1e-12;
+        }
+        check(cnp_near, "the common neighbor parameter on the grid is that of the list");
+        std::vector<double> temperature(static_cast<std::size_t>(n));
+        mdapy::analysis::atomic_temperature(n, pairs.offsets.data(), pairs.neighbors.data(),
+                                            masses.data(), velocities.data(), 1.0, 1.0,
+                                            temperature.data());
+        if (threads == kThreads[0]) {
+            first_temperature = temperature;
+        }
+        check(temperature == first_temperature,
+              "the atomic temperature is the same for any thread count");
+        std::vector<double> searched_temperature(static_cast<std::size_t>(n));
+        mdapy::analysis::atomic_temperature_search(positions.data(), n, matrix, origin, pbc, 3.07,
+                                                   masses.data(), velocities.data(), 1.0, 1.0,
+                                                   searched_temperature.data());
+        if (threads == kThreads[0]) {
+            first_searched_temperature = searched_temperature;
+        }
+        bool near = searched_temperature == first_searched_temperature;
+        for (std::int64_t i = 0; i < n; ++i) {
+            near = near && std::abs(searched_temperature[i] - temperature[i]) <=
+                               1e-12 * std::abs(temperature[i]);
+        }
+        check(near, "the atomic temperature on the grid is the same for any thread count");
+        std::vector<double> q(static_cast<std::size_t>(n) * degrees.size());
+        mdapy::analysis::steinhardt(n, pairs.offsets.data(), pairs.neighbors.data(),
+                                    vectors.data(), degrees, true, q.data());
+        std::vector<std::int8_t> water(static_cast<std::size_t>(n));
+        mdapy::identify::chill_plus(n, pairs.offsets.data(), pairs.neighbors.data(),
+                                    vectors.data(), water.data());
+        if (threads == kThreads[0]) {
+            first_water = water;
+        }
+        check(water == first_water, "CHILL+ gives the same types for any thread count");
+        std::vector<std::int8_t> aja(static_cast<std::size_t>(n));
+        mdapy::identify::ackland_jones(n, nearest_offsets.data(), fourteen.data(), aja.data());
+        if (threads == kThreads[0]) {
+            first_aja = aja;
+        }
+        check(aja == first_aja && std::count(aja.begin(), aja.end(), mdapy::identify::kFcc) > 0,
+              "Ackland-Jones gives the same types for any thread count, some of them fcc");
+        std::vector<std::int8_t> diamond(static_cast<std::size_t>(n));
+        mdapy::identify::identify_diamond(n, four.data(), four_vectors.data(), diamond.data());
+        check(diamond == std::vector<std::int8_t>(static_cast<std::size_t>(n), 0),
+              "no atom of fcc is diamond");
+        std::vector<double> entropy(static_cast<std::size_t>(n)),
+            density(static_cast<std::size_t>(n), 0.08);
+        mdapy::analysis::pair_entropy(n, pairs.offsets.data(), pairs.distances.data(), 3.07,
+                                      0.2, density.data(), entropy.data());
+        if (threads == kThreads[0]) {
+            first_entropy = entropy;
+        }
+        check(entropy == first_entropy, "the pair entropy is the same for any thread count");
+        std::vector<double> searched(static_cast<std::size_t>(n));
+        mdapy::analysis::pair_entropy_search(positions.data(), n, matrix, origin, pbc, 3.07, 0.2,
+                                             0.08, searched.data());
+        if (threads == kThreads[0]) {
+            first_searched = searched;
+        }
+        bool close = searched == first_searched;
+        for (std::int64_t i = 0; i < n; ++i) {
+            close = close && std::abs(searched[i] - entropy[i]) <= 1e-12 * std::abs(entropy[i]);
+        }
+        check(close, "the pair entropy on the grid is the same for any thread count and as listed");
+        const std::vector<std::int32_t> species(static_cast<std::size_t>(n), 0);
+        const std::vector<std::int64_t> histogram = mdapy::analysis::pair_histogram(
+            positions.data(), n, matrix, origin, pbc, 6.0, 60, species.data(), 1);
+        // the neighbors within 3.07 counted on the grid are those of the list
+        std::vector<std::int64_t> counted(static_cast<std::size_t>(n));
+        const double limit = 3.07;
+        mdapy::analysis::count_neighbors(positions.data(), n, matrix, origin, pbc,
+                                         species.data(), 1, &limit, false, counted.data());
+        bool counts_match = true;
+        for (std::int64_t i = 0; i < n; ++i) {
+            counts_match = counts_match && counted[i] == pairs.offsets[i + 1] - pairs.offsets[i];
+        }
+        check(counts_match, "neighbors counted on the grid are those of the list");
+        // clusters of bonds shorter than 2.6, on the grid and from the list
+        const double bond = 2.6;
+        const mdapy::neighbor::NeighborPairs bonded =
+            mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, bond);
+        std::vector<std::int64_t> listed(static_cast<std::size_t>(n)),
+            searched_clusters(static_cast<std::size_t>(n)), listed_sizes(static_cast<std::size_t>(n)),
+            searched_sizes(static_cast<std::size_t>(n));
+        std::vector<std::int32_t> listed_images(3 * static_cast<std::size_t>(n)),
+            searched_images(3 * static_cast<std::size_t>(n));
+        std::vector<std::uint8_t> listed_spanning(static_cast<std::size_t>(n)),
+            searched_spanning(static_cast<std::size_t>(n));
+        const std::int64_t listed_count = mdapy::analysis::clusters(
+            n, bonded.offsets.data(), bonded.neighbors.data(), bonded.shifts.data(), listed.data(),
+            listed_sizes.data(), listed_images.data(), listed_spanning.data());
+        const std::int64_t searched_count = mdapy::analysis::clusters_search(
+            positions.data(), n, matrix, origin, pbc, species.data(), 1, &bond, false,
+            searched_clusters.data(), searched_sizes.data(), searched_images.data(),
+            searched_spanning.data());
+        check(listed_count == searched_count && listed == searched_clusters &&
+                  listed_sizes == searched_sizes && listed_spanning == searched_spanning,
+              "clusters on the grid are those of the list for any thread count");
+        if (threads == kThreads[0]) {
+            first_images = searched_images;
+        }
+        check(searched_images == first_images,
+              "the images of the clusters on the grid are the same for any thread count");
+        // bond angles on the grid and from the list
+        std::vector<double> bond_vectors(3 * bonded.neighbors.size());
+        mdapy::neighbor::pair_vectors(positions.data(), n, bonded.offsets.data(),
+                                      bonded.neighbors.data(), bonded.shifts.data(), matrix,
+                                      bond_vectors.data());
+        std::vector<std::int64_t> listed_angles(90), searched_angles(90);
+        mdapy::analysis::bond_angles(n, bonded.offsets.data(), bonded.neighbors.data(),
+                                     bond_vectors.data(), species.data(), 1, 90,
+                                     listed_angles.data());
+        mdapy::analysis::bond_angles_search(positions.data(), n, matrix, origin, pbc,
+                                            species.data(), 1, &bond, false, 90,
+                                            searched_angles.data());
+        check(listed_angles == searched_angles, "bond angles on the grid are those of the list");
+        if (threads == kThreads[0]) {
+            first_histogram = histogram;
+        }
+        check(histogram == first_histogram, "the pair histogram is the same for any thread count");
+        std::vector<double> factor;
+        std::vector<std::int64_t> shells;
+        mdapy::analysis::structure_factor(positions.data(), n, matrix, species.data(), 1, 3.0, 30,
+                                          factor, shells, 100);
+        if (threads == kThreads[0]) {
+            first_factor = factor;
+        }
+        check(factor == first_factor, "the structure factor is the same for any thread count");
+        // the strain of the crystal against itself moved by its jitter again
+        std::vector<double> fractional(positions.size()), moved(positions.size(), 0.01);
+        for (std::size_t k = 0; k < positions.size(); ++k) {
+            fractional[k] = positions[k] / (cells * a);
+        }
+        std::vector<double> strain(9 * static_cast<std::size_t>(n)), d2(static_cast<std::size_t>(n));
+        mdapy::analysis::atomic_strain(n, pairs.offsets.data(), pairs.neighbors.data(),
+                                       pairs.shifts.data(), fractional.data(), moved.data(), matrix,
+                                       matrix, strain.data(), d2.data());
+        if (threads == kThreads[0]) {
+            first_strain = strain;
+        }
+        check(strain == first_strain, "the atomic strain is the same for any thread count");
+        std::vector<std::int32_t> two_types(static_cast<std::size_t>(n));
+        for (std::int64_t i = 0; i < n; ++i) {
+            two_types[i] = static_cast<std::int32_t>(i % 2);
+        }
+        std::vector<std::int64_t> angles(2 * 3 * 90);
+        mdapy::analysis::bond_angles(n, pairs.offsets.data(), pairs.neighbors.data(), vectors.data(),
+                                     two_types.data(), 2, 90, angles.data());
+        if (threads == kThreads[0]) {
+            first_types = types;
+            first_csp = csp;
+            first_q = q;
+            first_angles = angles;
+        }
+        check(types == first_types && csp == first_csp && q == first_q && angles == first_angles,
+              "structure identification gives the same results for any thread count");
+        check(std::count(types.begin(), types.end(), mdapy::identify::kFcc) > 0,
+              "common neighbor analysis finds fcc atoms");
+    }
+}
+
+void trajectories() {
+    // atoms vibrating about random sites, the trajectory of each in a row
+    const std::int64_t n = 60, frames = 12;
+    std::mt19937_64 rng(11);
+    std::uniform_real_distribution<double> site(0.0, 10.0);
+    std::normal_distribution<double> noise(0.0, 0.1);
+    std::vector<double> positions(static_cast<std::size_t>(n * frames * 3));
+    for (std::int64_t i = 0; i < n; ++i) {
+        const double x[3] = {site(rng), site(rng), site(rng)};
+        for (std::int64_t t = 0; t < frames; ++t) {
+            for (int e = 0; e < 3; ++e) {
+                positions[static_cast<std::size_t>((i * frames + t) * 3 + e)] = x[e] + noise(rng);
+            }
+        }
+    }
+    std::vector<double> first_atomic, first_running;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::vector<double> atomic(static_cast<std::size_t>(n));
+        std::vector<double> running(static_cast<std::size_t>(frames));
+        mdapy::analysis::lindemann(n, frames, positions.data(), atomic.data(), running.data());
+        if (threads == kThreads[0]) {
+            first_atomic = atomic;
+            first_running = running;
+        }
+        check(atomic == first_atomic && running == first_running,
+              "the Lindemann index is the same for any thread count");
+    }
+    check(first_running[0] == 0.0 && first_running[frames - 1] > 0.0,
+          "the Lindemann index starts at zero and grows");
+}
+
 }  // namespace
 
 int main() {
@@ -561,7 +871,9 @@ int main() {
     nested_and_concurrent_regions();
     text_tables();
     neighbor_search();
+    structure_identification();
     calculators();
+    trajectories();
     if (failures == 0) {
         std::printf("all checks passed\n");
     }

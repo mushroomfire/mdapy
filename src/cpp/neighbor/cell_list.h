@@ -217,10 +217,13 @@ NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t
                      const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
                      double cutoff, Buffer<double>& vectors, const Control& control = {});
 
-// The pairs of each atom by distance, ties in their order, keeping the first
-// count of each atom (all when count < 0): the positions of the kept pairs,
-// in order, and the new offsets (n + 1).
-void order_by_distance(std::int64_t n, const std::int64_t* offsets, const double* distances,
+// The pairs of each of n atoms (positions: n x 3; matrix: rows a, b, c) by
+// their squared distance from pair_vector, ties by atom and then image, as
+// a search of nearest neighbors orders them, keeping the first count of each
+// atom (all when count < 0): the positions of the kept pairs, in order, and
+// the new offsets (n + 1).
+void order_by_distance(const double* positions, std::int64_t n, const std::int64_t* offsets,
+                       const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
                        std::int64_t count, std::vector<std::int64_t>& order,
                        std::vector<std::int64_t>& kept, const Control& control = {});
 

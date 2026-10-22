@@ -94,6 +94,50 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   from the stress under small strains, with relaxed positions, and Voigt,
   Reuss and Hill moduli. See [Elastic constants](../simulation/elastic-constants.md).
 
+### Analyses
+
+- Analyses are classes whose `compute(system)` returns an immutable result;
+  `System.with_columns(result)` adds its per-atom values. See
+  [Analyses](../analysis/overview.md).
+- Structure identification in `mdapy.identify`:
+  [`CommonNeighborAnalysis`](../analysis/cna.md), adaptive or with a fixed
+  cutoff, and [`AcklandJonesAnalysis`](../analysis/ackland-jones.md), agreeing
+  atom by atom with LAMMPS, for fcc, hcp, bcc and icosahedral atoms;
+  [`DiamondStructure`](../analysis/diamond.md) for cubic and hexagonal
+  diamond; [`ChillPlus`](../analysis/chill-plus.md) for ice, hydrates and
+  liquid water; and the [centro-symmetry](../analysis/csp.md) and
+  [common neighbor](../analysis/cnp.md) parameters.
+- Distributions and order parameters in `mdapy.analysis`, agreeing with
+  OVITO where it has them: the
+  [`RadialDistributionFunction`](../analysis/rdf.md) and its partial
+  functions; [`CoordinationNumber`](../analysis/coordination.md) with
+  cutoffs per pair of elements; the
+  [`StructureFactor`](../analysis/structure-factor.md), exact over the wave
+  vectors of the box or by the Debye method, with Faber–Ziman partial
+  factors; the [`BondAngleDistribution`](../analysis/bond-angles.md) for
+  each triplet of elements; [`WarrenCowley`](../analysis/warren-cowley.md)
+  short-range order; [`SteinhardtParameters`](../analysis/steinhardt.md) up
+  to degree 20, optionally averaged; and the
+  [`EntropyFingerprint`](../analysis/entropy.md).
+- Dynamics in `mdapy.analysis`: the
+  [`MeanSquaredDisplacement`](../analysis/msd.md) of a trajectory, over
+  every time origin or from the first frame, agreeing with LAMMPS and OVITO;
+  the [`LindemannIndex`](../analysis/lindemann.md) of each atom and of the
+  frames so far; both match the atoms of the frames by their ids and
+  follow them through the periodic boundaries by their image flags or by
+  the nearest image, unless the positions are already unwrapped. The
+  [`AtomicTemperature`](../analysis/temperature.md) of each atom and its
+  neighbors, relative to their center of mass.
+- Defects and deformation in `mdapy.analysis`, agreeing with OVITO:
+  [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms,
+  with their unwrapped positions, centers of mass, gyration tensors and
+  whether they span the box;
+  [`WignerSeitz`](../analysis/wigner-seitz.md) for vacancies and
+  interstitials, the sites of the reference kept in a k-d tree for every
+  configuration; and [`AtomicStrain`](../analysis/atomic-strain.md), the
+  Green–Lagrange, von Mises and volumetric strains and $D^2_\text{min}$
+  against a reference.
+
 ### Foundations
 
 - Python 3.11 or newer; NumPy 2.3.1 or newer and polars 2 are the only

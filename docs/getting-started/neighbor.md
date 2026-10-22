@@ -93,7 +93,7 @@ without `i` being among the nearest of `j`.
 | `i` | (P,) `mdapy.index_dtype` first atom of each pair, computed when first used |
 | `vectors` | (P, 3) float64 vectors $\mathbf{r}_{ij}$ in Å, computed when first used |
 | `within(cutoff)` | the pairs closer than a smaller cutoff, in their order, without a new search; the list itself for its own cutoff. From a list of nearest neighbors it gives a list within a cutoff. |
-| `sorted()` | the same pairs, each atom's sorted by distance, pairs at the same distance in their order |
+| `sorted()` | the same pairs, each atom's sorted by distance, pairs at the same distance by atom and then image, as in a list of nearest neighbors |
 | `len(nl)` | the number of pairs P |
 
 The arrays work directly with NumPy, for example to sum over the neighbors of

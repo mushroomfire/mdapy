@@ -208,7 +208,8 @@ NeighborPairs build(const double* positions, std::int64_t n, const double* matri
     return result;
 }
 
-void order_by_distance(std::int64_t n, const std::int64_t* offsets, const double* distances,
+void order_by_distance(const double* positions, std::int64_t n, const std::int64_t* offsets,
+                       const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
                        std::int64_t count, std::vector<std::int64_t>& order,
                        std::vector<std::int64_t>& kept, const Control& control) {
     kept.assign(static_cast<std::size_t>(n) + 1, 0);
@@ -221,11 +222,32 @@ void order_by_distance(std::int64_t n, const std::int64_t* offsets, const double
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
             std::vector<std::int64_t> pairs;
+            std::vector<double> squares;  // of the pairs of atom i, from offsets[i]
             for (std::int64_t i = begin; i < end; ++i) {
                 pairs.resize(static_cast<std::size_t>(offsets[i + 1] - offsets[i]));
                 std::iota(pairs.begin(), pairs.end(), offsets[i]);
+                squares.resize(pairs.size());
+                for (std::size_t q = 0; q < pairs.size(); ++q) {
+                    const std::int64_t p = pairs[q];
+                    double r[3];
+                    squares[q] = pair_vector(positions + 3 * i,
+                                             positions + 3 * static_cast<std::int64_t>(neighbors[p]),
+                                             shifts + 3 * p, matrix, r);
+                }
+                const double* r2 = squares.data() - offsets[i];
                 const auto closer = [&](std::int64_t a, std::int64_t b) {
-                    return distances[a] < distances[b] || (distances[a] == distances[b] && a < b);
+                    if (r2[a] != r2[b]) {
+                        return r2[a] < r2[b];
+                    }
+                    if (neighbors[a] != neighbors[b]) {
+                        return neighbors[a] < neighbors[b];
+                    }
+                    for (int e = 0; e < 3; ++e) {
+                        if (shifts[3 * a + e] != shifts[3 * b + e]) {
+                            return shifts[3 * a + e] < shifts[3 * b + e];
+                        }
+                    }
+                    return false;
                 };
                 const auto take = static_cast<std::ptrdiff_t>(kept[i + 1] - kept[i]);
                 std::partial_sort(pairs.begin(), pairs.begin() + take, pairs.end(), closer);

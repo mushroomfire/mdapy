@@ -82,17 +82,16 @@ nb::tuple nearest(Positions positions, Matrix matrix, Vector3 origin, Flags pbc,
     return to_arrays(std::move(pairs));
 }
 
-nb::tuple order_by_distance(Offsets offsets, Distances distances, std::int64_t count,
-                            nb::handle progress, const CancelToken* cancel) {
-    if (offsets.shape(0) < 1 ||
-        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(distances.shape(0))) {
-        throw std::invalid_argument("the offsets do not fit the distances");
-    }
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+nb::tuple order_by_distance(Positions positions, Offsets offsets, Neighbors neighbors,
+                            Shifts shifts, Matrix matrix, std::int64_t count, nb::handle progress,
+                            const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    check_pairs(n, offsets, neighbors, shifts);
     std::vector<std::int64_t> order, kept;
     run_released(
         [&](const Control& control) {
-            neighbor::order_by_distance(n, offsets.data(), distances.data(), count, order, kept,
+            neighbor::order_by_distance(positions.data(), n, offsets.data(), neighbors.data(),
+                                        shifts.data(), matrix.data(), count, order, kept,
                                         control);
         },
         progress, cancel);
@@ -175,8 +174,8 @@ void bind_neighbor(nb::module_& m) {
     m.def("follow", &follow, nb::arg("positions"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("matrix"), nb::arg("cutoff"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
-    m.def("order_by_distance", &order_by_distance, nb::arg("offsets"), nb::arg("distances"),
-          nb::arg("count") = -1, nb::arg("progress") = nb::none(),
+    m.def("order_by_distance", &order_by_distance, nb::arg("positions"), nb::arg("offsets"),
+          nb::arg("neighbors"), nb::arg("shifts"), nb::arg("matrix"), nb::arg("count") = -1, nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     nb::class_<neighbor::KdTree>(m, "KdTree",
                                  "k-d tree of atoms in a box, searched for the nearest atom "

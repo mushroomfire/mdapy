@@ -226,6 +226,31 @@ class NeighborList:
             return self  # every pair is closer already
         return self._subset(self.distances < cutoff, cutoff)
 
+    def _order(self, k: int) -> tuple[np.ndarray, np.ndarray]:
+        # the first k pairs of each atom (all when k < 0) in the order of a
+        # search of nearest neighbors, and their offsets
+        return _native.order_by_distance(
+            np.ascontiguousarray(self.system.positions),
+            self.offsets,
+            self.j,
+            self.shifts,
+            np.ascontiguousarray(self.system.box.matrix),
+            k,
+        )
+
+    def _nearest(self, k: int) -> "NeighborList":
+        """The k nearest pairs of each atom, nearest first with ties by atom
+        and image, or all of an atom with fewer."""
+        order, offsets = self._order(k)
+        return NeighborList(
+            self.system,
+            self.cutoff,
+            offsets,
+            self.j[order],
+            self.shifts[order],
+            self.distances[order],
+        )
+
     def _follow(self, system: System, cutoff: float) -> "NeighborList | None":
         """The pairs of NeighborList.build(system, cutoff), in another order,
         for the atoms of this list moved to their places in system, from the
@@ -259,14 +284,15 @@ class NeighborList:
         return followed
 
     def sorted(self) -> "NeighborList":
-        """The same pairs, each atom's sorted by distance (ties keep their order).
+        """The same pairs, each atom's sorted by distance, ties by atom and
+        then image as in a list of nearest neighbors.
 
         Returns
         -------
         NeighborList
             A list with the pairs of each atom nearest first.
         """
-        order, _ = _native.order_by_distance(self.offsets, self.distances)
+        order, _ = self._order(-1)
         return NeighborList(
             self.system,
             self.cutoff,
@@ -303,3 +329,21 @@ def _given_or_built(
             f"the neighbor list has cutoff {neighbors.cutoff}, below the required {cutoff}"
         )
     return neighbors
+
+
+def _nearest_given_or_built(
+    system: System, k: int, neighbors: "NeighborList | None"
+) -> NeighborList:
+    """The k nearest neighbors of each atom, nearest first with ties by atom
+    and image, from the given list after checking that it holds them, or
+    from a new search."""
+    if neighbors is None:
+        return NeighborList.build(system, num_neighbors=k)
+    if neighbors.system is not system:
+        raise InvalidParameter("the neighbor list was built for another system")
+    fewest = int(neighbors.counts.min(initial=k))
+    if fewest < k:
+        raise InvalidParameter(
+            f"an atom has {fewest} neighbors in the list, fewer than {k}"
+        )
+    return neighbors._nearest(k)

@@ -54,11 +54,22 @@ void chebyshev_basis(double r, double rc, int k_max, double* f, double* fp) {
 // kind (GPUMD allows 20).
 constexpr int kMaxFunctions = 32;
 
-// g_n = sum_k c[n][k] f_k and gp_n = sum_k c[n][k] fp_k for n < count,
-// from c swapped to [k][n]: each sum runs over k in order, across n at once.
+// g_n = sum_k c[n][k] f_k and, unless gp is null, gp_n = sum_k c[n][k]
+// fp_k for n < count, from c swapped to [k][n]: each sum runs over k in
+// order, across n at once.
 void contract(const double* c, int count, int k_count, const double* f, const double* fp,
               double* g, double* gp) {
     double sum[kMaxFunctions] = {}, sum_p[kMaxFunctions] = {};
+    if (gp == nullptr) {
+        for (int k = 0; k < k_count; ++k) {
+            const double* row = c + k * count;
+            for (int n = 0; n < count; ++n) {
+                sum[n] += row[n] * f[k];
+            }
+        }
+        std::copy(sum, sum + count, g);
+        return;
+    }
     for (int k = 0; k < k_count; ++k) {
         const double* row = c + k * count;
         for (int n = 0; n < count; ++n) {
@@ -297,6 +308,8 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
     const int l_max = model.l_max, neurons = model.neurons;
     const int k_size = std::max(kr, ka), n_size = std::max(nr, na);
     const bool zbl = !model.zbl.empty();
+    // Without forces, only the descriptors.
+    const bool derivatives = forces != nullptr;
     // Each atom in one pass: its descriptors, energy and the derivatives
     // t_p = dE_i / dr_p of its energy by the vector of each of its pairs p.
     // What a pair needs for both, its basis functions and harmonics, is kept
@@ -338,7 +351,8 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                         const double* c_ij =
                             &model.c_radial_swapped[static_cast<std::size_t>(ti * types + tj) * nr * kr];
                         chebyshev_basis(r, rc_r, kr - 1, f.data(), fp.data());
-                        contract(c_ij, nr, kr, f.data(), fp.data(), g.data(), &radial_gp[k * nr]);
+                        contract(c_ij, nr, kr, f.data(), fp.data(), g.data(),
+                                 derivatives ? &radial_gp[k * nr] : nullptr);
                         for (int m = 0; m < nr; ++m) {
                             q[m] += g[m];
                         }
@@ -349,10 +363,12 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                             &model.c_angular_swapped[static_cast<std::size_t>(ti * types + tj) * na * ka];
                         double* gk = &angular_g[k * na];
                         chebyshev_basis(r, rc_a, ka - 1, f.data(), fp.data());
-                        contract(c_ij, na, ka, f.data(), fp.data(), gk, &angular_gp[k * na]);
+                        contract(c_ij, na, ka, f.data(), fp.data(), gk,
+                                 derivatives ? &angular_gp[k * na] : nullptr);
                         const double u[3] = {v[0] / r, v[1] / r, v[2] / r};
                         const double* yk = &y[k * harmonics];
-                        evaluate_harmonics(model, u, r, &y[k * harmonics], &gradient[k * 3 * harmonics]);
+                        evaluate_harmonics(model, u, r, &y[k * harmonics],
+                                           derivatives ? &gradient[k * 3 * harmonics] : nullptr);
                         for (int m = 0; m < na; ++m) {
                             for (int h = 0; h < harmonics; ++h) {
                                 s[m * harmonics + h] += gk[m] * yk[h];
@@ -397,6 +413,9 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                 }
                 if (descriptors != nullptr) {
                     std::copy(q.begin(), q.end(), descriptors + i * dim);
+                }
+                if (!derivatives) {
+                    continue;
                 }
 
                 // one hidden layer of tanh neurons, the inputs summed over the
@@ -521,6 +540,9 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
         },
         control);
 
+    if (!derivatives) {
+        return;
+    }
     // Forces and virials: each atom gathers the derivatives of its own energy
     // and those of its neighbors' energies by the reverse pairs, r_ji = -r_ij;
     // the virial of a derivative of a neighbor's energy goes to the atom.

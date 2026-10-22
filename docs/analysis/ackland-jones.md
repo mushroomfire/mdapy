@@ -50,9 +50,9 @@ count $\chi_0, \dots, \chi_7$. The deviations from the ideal structures are
 
 $$
 \begin{aligned}
-\delta_\mathrm{bcc} &= \frac{0.35\, \chi_4}{\chi_5 + \chi_6 - \chi_4}, &
+\delta_\mathrm{bcc} &= \frac{0.35\, \chi_4}{\chi_5 + \chi_6 - \chi_4}, \\
 \delta_\mathrm{cp} &= \Big|1 - \frac{\chi_6}{24}\Big|, \\
-\delta_\mathrm{fcc} &= \frac{0.61}{6} \big(|\chi_0 + \chi_1 - 6| + \chi_2\big), &
+\delta_\mathrm{fcc} &= \frac{0.61}{6} \big(|\chi_0 + \chi_1 - 6| + \chi_2\big), \\
 \delta_\mathrm{hcp} &= \frac{1}{12} \big(|\chi_0 - 3| + |\chi_0 + \chi_1 + \chi_2 + \chi_3 - 9|\big),
 \end{aligned}
 $$

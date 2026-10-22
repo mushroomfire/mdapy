@@ -277,7 +277,12 @@ constants of fcc copper of the synthetic potential have cubic symmetry and
 that $C_{11}$, $C_{44}$ and the bulk modulus agree to 10<sup>−4</sup> with
 the curvature of the energy under uniaxial, shear and uniform strain; that
 relaxing the positions softens the diagonal constants of a disordered alloy;
-and the errors.
+and the errors. `tests/calculators/test_elastic_lammps.py` runs where LAMMPS
+is installed: for a disordered alloy relaxed to zero stress, all 36 constants
+agree within 10<sup>−3</sup> GPa (of 1200) with the stress of the same
+strained boxes relaxed by LAMMPS. LAMMPS shears by tilting the box, which
+differs from a symmetric strain by a rotation that changes nothing at zero
+stress.
 
 The tests in `tests/calculators/test_eam.py`, on a synthetic two-element
 potential written by the tests, check that:

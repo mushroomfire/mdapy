@@ -309,6 +309,33 @@ nb::object pair_entropy_search(Positions3 positions, Matrix3 matrix, Origin3 ori
     return as_array(std::move(entropy));
 }
 
+nb::tuple clusters_search(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
+                          Types type, int types, Limits limits, bool per_pair,
+                          nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (type.shape(0) != positions.shape(0) || types < 1 ||
+        limits.shape(0) != static_cast<std::size_t>(types) ||
+        limits.shape(1) != static_cast<std::size_t>(types)) {
+        throw std::invalid_argument("the types do not fit the atoms or the limits");
+    }
+    for (std::int64_t i = 0; i < n; ++i) {
+        if (type.data()[i] < 0 || type.data()[i] >= types) {
+            throw std::invalid_argument("a type is outside the range");
+        }
+    }
+    std::vector<std::int64_t> cluster(static_cast<std::size_t>(n)), sizes(static_cast<std::size_t>(n));
+    std::int64_t count = 0;
+    run_released(
+        [&](const Control& control) {
+            count = analysis::clusters_search(positions.data(), n, matrix.data(), origin.data(),
+                                              pbc.data(), type.data(), types, limits.data(),
+                                              per_pair, cluster.data(), sizes.data(), control);
+        },
+        progress, cancel);
+    sizes.resize(static_cast<std::size_t>(count));
+    return nb::make_tuple(as_array(std::move(cluster)), as_array(std::move(sizes)));
+}
+
 void bind_analysis(nb::module_& m) {
     m.def("steinhardt", &steinhardt, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
@@ -337,6 +364,10 @@ void bind_analysis(nb::module_& m) {
           nb::arg("density"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     m.def("count_neighbors", &count_neighbors, nb::arg("positions"), nb::arg("matrix"),
+          nb::arg("origin"), nb::arg("pbc"), nb::arg("type"), nb::arg("types"),
+          nb::arg("limits"), nb::arg("per_pair"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("clusters_search", &clusters_search, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("origin"), nb::arg("pbc"), nb::arg("type"), nb::arg("types"),
           nb::arg("limits"), nb::arg("per_pair"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);

@@ -27,7 +27,9 @@ periodic boundaries, and finds the connected groups. With
 pairs not given are never bonded. The `ClusterResult` has the per-atom
 `cluster`, numbered from 0 by decreasing size (equal sizes in the order of
 their first atom), and the `sizes` of the clusters. Its column is `cluster`.
-An atom without bonds is a cluster of its own.
+An atom without bonds is a cluster of its own. Without a given neighbor list
+the bonds are found on the cell grid, each once, without storing a list; the
+clusters are the same.
 
 ## Bond angles
 

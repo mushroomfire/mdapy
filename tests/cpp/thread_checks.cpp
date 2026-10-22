@@ -526,6 +526,21 @@ void structure_identification() {
             counts_match = counts_match && counted[i] == pairs.offsets[i + 1] - pairs.offsets[i];
         }
         check(counts_match, "neighbors counted on the grid are those of the list");
+        // clusters of bonds shorter than 2.6, on the grid and from the list
+        const double bond = 2.6;
+        const mdapy::neighbor::NeighborPairs bonded =
+            mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, bond);
+        std::vector<std::int64_t> listed(static_cast<std::size_t>(n)),
+            searched_clusters(static_cast<std::size_t>(n)), listed_sizes(static_cast<std::size_t>(n)),
+            searched_sizes(static_cast<std::size_t>(n));
+        const std::int64_t listed_count = mdapy::analysis::clusters(
+            n, bonded.offsets.data(), bonded.neighbors.data(), listed.data(), listed_sizes.data());
+        const std::int64_t searched_count = mdapy::analysis::clusters_search(
+            positions.data(), n, matrix, origin, pbc, species.data(), 1, &bond, false,
+            searched_clusters.data(), searched_sizes.data());
+        check(listed_count == searched_count && listed == searched_clusters &&
+                  listed_sizes == searched_sizes,
+              "clusters on the grid are those of the list for any thread count");
         if (threads == kThreads[0]) {
             first_histogram = histogram;
         }

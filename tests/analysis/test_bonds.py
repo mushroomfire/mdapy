@@ -57,6 +57,22 @@ def test_clusters_of_blobs():
     )
 
 
+def test_clusters_on_the_grid_and_from_a_list_agree():
+    # without a list the bonds are found on the grid
+    system = crystal("fcc", 3.6, (4, 4, 4), jitter=0.35, seed=6)
+    rng = np.random.default_rng(6)
+    system = system.with_columns(element=rng.choice(["Cu", "Ni", "Al"], len(system)))
+    nl = mdapy.NeighborList.build(system, 3.0)
+    for analysis in (
+        ClusterAnalysis(2.1),
+        ClusterAnalysis(cutoffs={("Cu", "Ni"): 2.5, ("Al", "Al"): 2.6}),
+    ):
+        grid, listed = analysis.compute(system), analysis.compute(system, neighbors=nl)
+        np.testing.assert_array_equal(grid.cluster, listed.cluster)
+        np.testing.assert_array_equal(grid.sizes, listed.sizes)
+        assert len(grid.sizes) > 1
+
+
 def test_clusters_across_the_boundary_and_per_pair():
     # two halves of a chain joined only through the periodic boundary
     chain = mdapy.System(
@@ -72,9 +88,12 @@ def test_clusters_across_the_boundary_and_per_pair():
     assert (like.cluster[cu] == 0).all()
     assert ClusterAnalysis(cutoff=2.6).compute(system).sizes.tolist() == [len(system)]
     assert "cutoffs" in repr(ClusterAnalysis(cutoffs={("Cu", "Cu"): 3.0}))
+    plain = mdapy.System(system.positions, system.box)
+    with pytest.raises(MissingProperty, match="element column"):
+        ClusterAnalysis(cutoffs={("Cu", "Cu"): 3.0}).compute(plain)
     with pytest.raises(MissingProperty, match="element column"):
         ClusterAnalysis(cutoffs={("Cu", "Cu"): 3.0}).compute(
-            mdapy.System(system.positions, system.box)
+            plain, neighbors=mdapy.NeighborList.build(plain, 3.0)
         )
 
 

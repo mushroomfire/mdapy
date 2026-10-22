@@ -340,7 +340,9 @@ def test_nearest_errors_and_empty_systems():
             NeighborList.build(system, num_neighbors=bad)
     assert len(NeighborList.build(system, num_neighbors=np.int64(1))) == 3
     for kwargs in ({}, {"cutoff": 2.0, "num_neighbors": 2}):
-        with pytest.raises(InvalidParameter, match="either cutoff or num_neighbors"):
+        with pytest.raises(
+            InvalidParameter, match="one of cutoff, num_neighbors and voronoi"
+        ):
             NeighborList.build(system, **kwargs)
     empty = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0))
     for nl in (
@@ -354,7 +356,9 @@ def test_nearest_errors_and_empty_systems():
 # ------------------------------------------------------------ invariances
 
 
-@pytest.mark.parametrize("mode", [{"cutoff": 3.5}, {"num_neighbors": 12}])
+@pytest.mark.parametrize(
+    "mode", [{"cutoff": 3.5}, {"num_neighbors": 12}, {"voronoi": True}]
+)
 def test_same_result_for_any_thread_count(mode):
     system = random_system("triclinic", n=3000, seed=6)
     results = []
@@ -492,6 +496,96 @@ def test_within_and_sorted():
     assert len(inner) == (near.distances < 2.0).sum()
 
 
+# ------------------------------------------------------------ Voronoi neighbors
+
+
+@pytest.mark.parametrize("pbc", [True, (True, False, True)])
+def test_voronoi_neighbors_are_the_faces_of_the_cells(pbc):
+    from mdapy.analysis import VoronoiAnalysis
+
+    system = random_system("triclinic", pbc=pbc, n=200, seed=16)
+    nl = NeighborList.build(system, voronoi=True)
+    check_arrays(nl, len(system))
+    cells = VoronoiAnalysis().compute(system)
+    atoms = cells.j >= 0  # the walls are left out
+    np.testing.assert_array_equal(nl.counts, cells.coordination)
+    np.testing.assert_array_equal(nl.j, cells.j[atoms])
+    np.testing.assert_array_equal(nl.shifts, cells.shifts[atoms])
+    np.testing.assert_array_equal(nl.areas, cells.areas[atoms])
+    np.testing.assert_allclose(
+        nl.distances, np.linalg.norm(nl.vectors, axis=1), rtol=1e-14
+    )
+    assert nl.voronoi and nl.num_neighbors is None
+    assert nl.cutoff > nl.distances.max()
+    # every face is a pair of both of its atoms, with the same area
+    areas = {
+        (int(i), int(j), tuple(int(t) for t in shift)): a
+        for i, j, shift, a in zip(nl.i, nl.j, nl.shifts, nl.areas)
+    }
+    for (i, j, shift), area in areas.items():
+        assert areas[j, i, tuple(-t for t in shift)] == pytest.approx(area, rel=1e-9)
+
+
+@pytest.mark.parametrize("kind, a, shells", [("fcc", 3.6, [12]), ("bcc", 2.87, [8, 6])])
+def test_voronoi_neighbors_of_perfect_lattices(kind, a, shells):
+    nl = NeighborList.build(lattice(kind, a, repeat=3), voronoi=True)
+    assert (nl.counts == sum(shells)).all()
+    first = {"fcc": a / math.sqrt(2), "bcc": a * math.sqrt(3) / 2}[kind]
+    assert (
+        np.isclose(nl.distances, first, rtol=1e-12) | np.isclose(nl.distances, a)
+    ).all()
+    assert (
+        repr(nl)
+        == f"NeighborList(atoms={len(nl.counts)}, pairs={len(nl)}, voronoi=True)"
+    )
+
+
+def test_voronoi_neighbors_with_thresholds_and_errors():
+    from mdapy.analysis import VoronoiAnalysis
+
+    system = random_system("triclinic", n=200, seed=17)
+    thresholds = {
+        "face_threshold": 0.5,
+        "relative_face_threshold": 0.02,
+        "edge_threshold": 0.3,
+    }
+    nl = NeighborList.build(system, voronoi=True, **thresholds)
+    cells = VoronoiAnalysis(**thresholds).compute(system)
+    np.testing.assert_array_equal(nl.areas, cells.areas[cells.j >= 0])
+    assert len(nl) < len(NeighborList.build(system, voronoi=True))
+    ordered = nl.sorted()
+    assert ordered.voronoi and as_dict(ordered) == as_dict(nl)
+    by_pair = dict(
+        zip(zip(nl.i.tolist(), nl.j.tolist(), map(tuple, nl.shifts.tolist())), nl.areas)
+    )
+    for i, j, shift, area in zip(ordered.i, ordered.j, ordered.shifts, ordered.areas):
+        assert by_pair[int(i), int(j), tuple(shift.tolist())] == area
+    assert nl._follow(system, 1.0) is None
+    with pytest.raises(InvalidParameter, match="no pairs to cut"):
+        nl.within(1.0)
+    with pytest.raises(InvalidParameter, match="Voronoi neighbors does not hold every"):
+        _given_or_built(system, 1.0, nl)
+    with pytest.raises(
+        InvalidParameter, match="one of cutoff, num_neighbors and voronoi"
+    ):
+        NeighborList.build(system, 3.0, voronoi=True)
+    with pytest.raises(
+        InvalidParameter, match="one of cutoff, num_neighbors and voronoi"
+    ):
+        NeighborList.build(system)
+    with pytest.raises(InvalidParameter, match="need voronoi"):
+        NeighborList.build(system, 3.0, face_threshold=0.1)
+    with pytest.raises(InvalidParameter, match="relative_face_threshold"):
+        NeighborList.build(system, voronoi=True, relative_face_threshold=1.0)
+    twins = mdapy.System([[1.0, 1, 1], [1.0, 1, 1]], mdapy.Box(5.0))
+    with pytest.raises(InvalidParameter, match="same position"):
+        NeighborList.build(twins, voronoi=True)
+    empty = NeighborList.build(
+        mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0)), voronoi=True
+    )
+    assert len(empty) == 0 and empty.cutoff == 0.0
+
+
 # ------------------------------------------------------------ control
 
 
@@ -501,7 +595,9 @@ def test_invalid_cutoffs(cutoff):
         NeighborList.build(random_system("orthogonal"), cutoff)
 
 
-@pytest.mark.parametrize("mode", [{"cutoff": 2.0}, {"num_neighbors": 6}])
+@pytest.mark.parametrize(
+    "mode", [{"cutoff": 2.0}, {"num_neighbors": 6}, {"voronoi": True}]
+)
 def test_progress_and_cancellation(mode):
     system = random_system("orthogonal", n=20000, seed=11)
     reports = []

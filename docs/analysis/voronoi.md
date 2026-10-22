@@ -2,7 +2,8 @@
 
 `VoronoiAnalysis` divides space into the Voronoi cells of the atoms, the
 regions closer to one atom than to any other, and gives the volume, the
-faces, the coordination and the Voronoi index of each cell.
+faces, the coordination and the Voronoi index of each cell, and, when asked
+for, the shape of each cell as a polyhedron.
 
 ```python
 import numpy as np
@@ -24,6 +25,9 @@ result.volume  # Å³, a³/4 = 11.66 on average
 result.coordination  # 12 for every atom
 result.index(6)  # faces with 3, 4, 5 and 6 edges: [0, 12, 0, 0]
 system = system.with_columns(result)  # voronoi_volume, ..., cavity_radius
+
+shapes = VoronoiAnalysis(polyhedra=True).compute(system).polyhedra
+shapes.vertices  # Å, the corners of every cell
 ```
 
 ## Parameters
@@ -33,6 +37,7 @@ system = system.with_columns(result)  # voronoi_volume, ..., cavity_radius
 | `face_threshold` | float | 0 | Å² | faces of this area or less do not count |
 | `relative_face_threshold` | float | 0 | | faces of this fraction of the surface of their cell or less do not count; from 0 to below 1 |
 | `edge_threshold` | float | 0 | Å | edges shorter than this do not count, and faces with fewer than three edges that count do not count |
+| `polyhedra` | bool | `False` | | also give the shape of each cell |
 
 `compute(system, *, progress=None, cancel=None)` takes the `progress` and
 `cancel` of [every analysis](overview.md#parameters), but no neighbor list:
@@ -43,7 +48,10 @@ atom.
 
 The thresholds remove the small faces and short edges that thermal motion
 creates where a perfect crystal has a vertex shared by more than four
-cells, as in fcc; they do not change the volume or the radius.
+cells, as in fcc; they do not change the volume, the radius or the shapes.
+The atoms across the faces are also a kind of
+[neighbor list](../getting-started/neighbor.md#voronoi-neighbors), built
+with `NeighborList.build(system, voronoi=True)` and the same thresholds.
 
 ## Results
 
@@ -60,10 +68,37 @@ A `VoronoiResult`:
 | `areas` | (F,) float64 | the area of each face in Å² |
 | `edges` | (F,) int32 | the number of edges of each face that count |
 | `index(largest=8)` | (N, largest − 2) int64 | the Voronoi index: the number of faces with 3, 4, ..., `largest` edges shared with other atoms |
+| `polyhedra` | `VoronoiPolyhedra` or `None` | the shapes of the cells, with `polyhedra=True` |
 
 The faces are listed like the pairs of a
 [neighbor list](../getting-started/neighbor.md): the vector from atom `i`
 to the atom across a face is `x[j] - x[i] + shifts @ box.matrix`.
+
+The walls of the box are faces of the cells of the atoms next to them, in
+the faces with `j` = −1, but they are not neighbors: `coordination`,
+`index` and the Voronoi neighbors count only the faces shared with atoms.
+OVITO and LAMMPS count the walls in the coordination and the Voronoi index
+as well, so their values are larger for atoms next to a wall.
+
+A `VoronoiPolyhedra` holds every face of every cell, those that do not
+count included, so that each cell is a closed polyhedron, for example to
+draw it:
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `vertices` | (V, 3) float64 | the corners of the cells in Å, each cell with its own; a cell may reach out of the box |
+| `vertex_offsets` | (N + 1,) int64 | the vertices of the cell of atom `i` are `vertex_offsets[i]:vertex_offsets[i + 1]` |
+| `face_offsets` | (N + 1,) int64 | the faces of the cell of atom `i` are `face_offsets[i]:face_offsets[i + 1]` |
+| `corner_offsets` | (F + 1,) int64 | the corners of face `f` are `corners[corner_offsets[f]:corner_offsets[f + 1]]` |
+| `corners` | (C,) int64 | the vertex of each corner, counterclockwise seen from outside the cell |
+| `j` | (F,) `mdapy.index_dtype` | the atom across each face, −1 for a wall of the box |
+| `areas` | (F,) float64 | the area of each face in Å² |
+
+```python
+f = shapes.face_offsets[0]  # the first face of the cell of atom 0
+loop = shapes.corners[shapes.corner_offsets[f] : shapes.corner_offsets[f + 1]]
+polygon = shapes.vertices[loop]  # its corners in order
+```
 
 ## Errors
 
@@ -107,10 +142,6 @@ with no atom inside.
 | bcc | truncated octahedron | 6 squares, 8 hexagons | $a^3/2$ |
 | hcp | trapezo-rhombic dodecahedron | 12 quadrilaterals | $\sqrt 2\, a^3 / 2$ |
 | cubic diamond | | 12 triangles, 4 hexagons | $a^3/8$ |
-
-OVITO and LAMMPS count the walls of the box among the faces of a cell, in
-the coordination and in the Voronoi index; mdapy counts only the faces
-shared with atoms, and lists the walls among the faces with `j` = −1.
 
 !!! quote "Please cite"
     [Voronoi (1908)](../reference/references.md#voronoi1908).

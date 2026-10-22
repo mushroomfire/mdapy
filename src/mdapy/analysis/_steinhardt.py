@@ -15,7 +15,11 @@ from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built, _nearest_given_or_built
+from mdapy.neighbor._neighbor_list import (
+    _given_or_built,
+    _nearest_given_or_built,
+    _voronoi_given_or_built,
+)
 
 
 @dataclass(frozen=True)
@@ -57,9 +61,15 @@ class SteinhardtParameters:
         The degrees l, from 0 to 20. Default (4, 6).
     num_neighbors : int, optional
         The neighbors of an atom are its num_neighbors nearest; default 12
-        unless ``cutoff`` is given.
+        unless ``cutoff`` or ``voronoi`` is given.
     cutoff : float, optional
         The neighbors of an atom are those closer than cutoff, in Å.
+    voronoi : bool, optional
+        The neighbors of an atom are those that share a face of its Voronoi
+        cell. Default False.
+    weighted : bool, optional
+        With voronoi, weight each neighbor by the area of its face. Default
+        False.
     average : bool, optional
         Average the harmonics of each atom with those of its neighbors first
         (Lechner and Dellago). Default False.
@@ -71,21 +81,27 @@ class SteinhardtParameters:
         *,
         num_neighbors: int | None = None,
         cutoff: float | None = None,
+        voronoi: bool = False,
+        weighted: bool = False,
         average: bool = False,
     ):
         self.degrees = tuple(int(d) for d in degrees)
         if not self.degrees or any(not 0 <= d <= 20 for d in self.degrees):
             raise InvalidParameter(f"degrees must be from 0 to 20, not {degrees!r}")
-        if num_neighbors is not None and cutoff is not None:
-            raise InvalidParameter("give num_neighbors or cutoff, not both")
+        if (num_neighbors is not None) + (cutoff is not None) + bool(voronoi) > 1:
+            raise InvalidParameter("give one of num_neighbors, cutoff and voronoi")
+        if weighted and not voronoi:
+            raise InvalidParameter("weighted needs voronoi")
         if cutoff is not None and not cutoff > 0:
             raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
-        if cutoff is None:
+        if cutoff is None and not voronoi:
             num_neighbors = 12 if num_neighbors is None else int(num_neighbors)
             if num_neighbors < 1:
                 raise InvalidParameter("num_neighbors must be at least 1")
         self.num_neighbors = num_neighbors
         self.cutoff = None if cutoff is None else float(cutoff)
+        self.voronoi = bool(voronoi)
+        self.weighted = bool(weighted)
         self.average = bool(average)
 
     def compute(
@@ -103,15 +119,18 @@ class SteinhardtParameters:
         system : System
             The atoms.
         neighbors : NeighborList, optional
-            Neighbors of this system: within at least ``cutoff``, or at least
-            ``num_neighbors`` per atom.
+            Neighbors of this system: within at least ``cutoff``, at least
+            ``num_neighbors`` per atom, or, with ``voronoi``, Voronoi
+            neighbors.
 
         Returns
         -------
         SteinhardtResult
             q_l of each atom; atoms without neighbors have 0.
         """
-        if self.cutoff is not None:
+        if self.voronoi:
+            nl = _voronoi_given_or_built(system, neighbors)
+        elif self.cutoff is not None:
             nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
         else:
             nl = _nearest_given_or_built(system, self.num_neighbors, neighbors)
@@ -119,6 +138,7 @@ class SteinhardtParameters:
             nl.offsets,
             nl.j,
             np.ascontiguousarray(nl.vectors),
+            nl.areas if self.weighted else None,
             list(self.degrees),
             self.average,
             progress,
@@ -127,9 +147,10 @@ class SteinhardtParameters:
         return SteinhardtResult(self.degrees, q, self.average)
 
     def __repr__(self) -> str:
-        reach = (
-            f"cutoff={self.cutoff!r}"
-            if self.cutoff is not None
-            else f"num_neighbors={self.num_neighbors}"
-        )
+        if self.voronoi:
+            reach = f"voronoi=True, weighted={self.weighted}"
+        elif self.cutoff is not None:
+            reach = f"cutoff={self.cutoff!r}"
+        else:
+            reach = f"num_neighbors={self.num_neighbors}"
         return f"SteinhardtParameters(degrees={self.degrees}, {reach}, average={self.average})"

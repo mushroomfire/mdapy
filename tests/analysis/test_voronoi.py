@@ -156,7 +156,7 @@ def test_thresholds():
     np.testing.assert_array_equal(short.index(4)[:, 1], 12)
     assert repr(VoronoiAnalysis(edge_threshold=0.3)) == (
         "VoronoiAnalysis(face_threshold=0.0, relative_face_threshold=0.0, "
-        "edge_threshold=0.3)"
+        "edge_threshold=0.3, polyhedra=False)"
     )
     bad = [
         ("face_threshold", -0.1),
@@ -192,3 +192,79 @@ def test_atoms_at_the_same_position():
     )
     with pytest.raises(InvalidParameter, match="same position"):
         VoronoiAnalysis().compute(twins)
+
+
+def shape_of(polyhedra, i):
+    """The vertices of the cell of atom i and its faces as loops of them."""
+    v = polyhedra.vertices
+    faces = range(polyhedra.face_offsets[i], polyhedra.face_offsets[i + 1])
+    loops = [
+        v[
+            polyhedra.corners[
+                polyhedra.corner_offsets[f] : polyhedra.corner_offsets[f + 1]
+            ]
+        ]
+        for f in faces
+    ]
+    own = v[polyhedra.vertex_offsets[i] : polyhedra.vertex_offsets[i + 1]]
+    return own, loops, list(faces)
+
+
+@pytest.mark.parametrize("pbc", [True, (True, False, True)])
+def test_polyhedra(pbc):
+    system = random_system(n=120, pbc=pbc, seed=7)
+    result = VoronoiAnalysis(polyhedra=True).compute(system)
+    shapes = result.polyhedra
+    plain = VoronoiAnalysis().compute(system)
+    assert plain.polyhedra is None
+    np.testing.assert_array_equal(result.volume, plain.volume)
+    x = system.positions
+    h = system.box.matrix
+    images = np.array(np.meshgrid(*[[-1, 0, 1]] * 3, indexing="ij")).reshape(3, -1).T
+    images = images[(images[:, ~system.box.pbc] == 0).all(axis=1)]
+    everywhere = (x[None, :, :] + (images @ h)[:, None, :]).reshape(-1, 3)
+    for i in range(len(system)):
+        own, loops, faces = shape_of(shapes, i)
+        corners = sum(len(loop) for loop in loops)
+        assert len(own) - corners // 2 + len(loops) == 2  # Euler
+        volume = 0.0
+        for loop, f in zip(loops, faces):
+            # counterclockwise seen from outside: the normal points away
+            normal = 0.5 * np.cross(loop, np.roll(loop, -1, axis=0)).sum(axis=0)
+            assert np.linalg.norm(normal) == pytest.approx(shapes.areas[f], rel=1e-9)
+            assert normal @ (loop.mean(axis=0) - x[i]) > 0
+            volume += normal @ (loop[0] - x[i]) / 3
+        assert volume == pytest.approx(result.volume[i], rel=1e-9)
+        # no atom is closer to a vertex than its own, and a vertex that is
+        # not on a wall is as far from three others or more
+        d = np.linalg.norm(own - x[i], axis=1)
+        distances = np.linalg.norm(own[:, None] - everywhere[None], axis=2)
+        assert (d <= distances.min(axis=1) * (1 + 1e-9)).all()
+        wall = np.zeros(len(own), bool)
+        for loop, f in zip(loops, faces):
+            if shapes.j[f] < 0:
+                wall |= (np.abs(own[:, None] - loop[None]).sum(axis=2) == 0).any(axis=1)
+        alike = (np.abs(distances - d[:, None]) <= 1e-9 * d[:, None]).sum(axis=1)
+        assert (alike[~wall] >= 4).all()
+        assert d.max() == pytest.approx(result.radius[i], rel=1e-12)
+    # the faces that count are those of the shapes shared with atoms
+    np.testing.assert_array_equal(
+        np.bincount(
+            np.repeat(np.arange(len(system)), np.diff(shapes.face_offsets))[
+                shapes.j >= 0
+            ],
+            minlength=len(system),
+        ),
+        result.coordination,
+    )
+    assert repr(VoronoiAnalysis(polyhedra=True)).endswith("polyhedra=True)")
+
+
+def test_polyhedra_of_fcc():
+    a = 3.6
+    shapes = VoronoiAnalysis(polyhedra=True).compute(crystal("fcc", a)).polyhedra
+    assert (np.diff(shapes.vertex_offsets) == 14).all()
+    assert (np.diff(shapes.face_offsets) == 12).all()
+    assert (np.diff(shapes.corner_offsets) == 4).all()
+    np.testing.assert_allclose(shapes.areas, a**2 * np.sqrt(2) / 8, rtol=1e-12)
+    assert shapes.j.dtype == mdapy.index_dtype and not shapes.vertices.flags.writeable

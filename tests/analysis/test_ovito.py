@@ -411,3 +411,39 @@ def test_voronoi_cells(system, thresholds):
     atoms = result.j >= 0
     np.add.at(shared, (atom[atoms], result.edges[atoms] - 1), 1)
     np.testing.assert_array_equal(result.index(expected.shape[1]), shared[:, 2:])
+
+
+def bond(i, j, shift):
+    """A pair as an unordered bond: the same for (i, j, s) and (j, i, -s)."""
+    shift = tuple(int(t) for t in shift)
+    back = tuple(-t for t in shift)
+    return min((int(i), int(j), shift), (int(j), int(i), back))
+
+
+@pytest.mark.parametrize(
+    "system",
+    [
+        pytest.param(scattered(True), id="periodic"),
+        pytest.param(scattered((True, True, False)), id="slab"),
+        pytest.param(crystal("fcc", 3.6, jitter=0.03, seed=6), id="fcc"),
+    ],
+)
+@pytest.mark.parametrize(
+    "thresholds",
+    [{}, {"face_threshold": 0.5}, {"edge_threshold": 0.3}],
+    ids=["none", "face", "edge"],
+)
+def test_voronoi_neighbors_as_bonds(system, thresholds):
+    """OVITO makes a bond for each face that counts; the thresholds here
+    treat both atoms of a face alike."""
+    bonds = ovito_compute(
+        system, VoronoiAnalysisModifier(generate_bonds=True, **thresholds)
+    ).particles.bonds
+    expected = {
+        bond(a, b, shift)
+        for (a, b), shift in zip(bonds.topology[...], bonds.pbc_vectors[...])
+    }
+    nl = mdapy.NeighborList.build(system, voronoi=True, **thresholds)
+    pairs = [bond(i, j, shift) for i, j, shift in zip(nl.i, nl.j, nl.shifts)]
+    assert set(pairs) == expected
+    assert len(pairs) == 2 * len(expected)  # each bond from both of its atoms

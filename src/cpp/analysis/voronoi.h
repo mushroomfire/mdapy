@@ -35,6 +35,16 @@ struct VoronoiCells {
     std::vector<double> areas;
     std::vector<std::int32_t> edges;
     std::vector<std::int64_t> coordination;  // (n)
+    // with polyhedra, the shape of each cell: its vertices, each cell its
+    // own, and all its faces, each a loop of vertices counterclockwise seen
+    // from outside, with the atom across it (-1 for a wall) and its area
+    std::vector<double> vertices;              // 3 per vertex, in the frame of the box
+    std::vector<std::int64_t> vertex_offsets;  // (n + 1)
+    std::vector<std::int64_t> face_offsets;    // (n + 1)
+    std::vector<std::int64_t> corner_offsets;  // (faces + 1)
+    std::vector<std::int64_t> corners;         // vertex of each corner
+    std::vector<index_t> face_neighbors;
+    std::vector<double> face_areas;
 };
 
 // Voronoi cells of n atoms, with their neighbors searched on a cell grid out
@@ -44,6 +54,6 @@ struct VoronoiCells {
 // position, std::overflow_error for a face with a periodic image outside int8.
 VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matrix,
                      const double* origin, const bool* pbc, const VoronoiThresholds& thresholds,
-                     const Control& control = {});
+                     bool polyhedra, const Control& control = {});
 
 }  // namespace mdapy::analysis

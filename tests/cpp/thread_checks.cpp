@@ -646,7 +646,7 @@ void structure_identification() {
     std::vector<std::int8_t> first_types, first_water, first_aja;
     std::vector<double> first_csp, first_q, first_entropy, first_factor;
     std::vector<double> first_cnp;
-    std::vector<double> first_volumes, first_areas;
+    std::vector<double> first_volumes, first_areas, first_vertices;
     std::vector<double> first_strain;
     std::vector<std::int64_t> first_angles, first_histogram;
     std::vector<std::int32_t> first_images;
@@ -698,7 +698,8 @@ void structure_identification() {
         check(near, "the atomic temperature on the grid is the same for any thread count");
         std::vector<double> q(static_cast<std::size_t>(n) * degrees.size());
         mdapy::analysis::steinhardt(n, pairs.offsets.data(), pairs.neighbors.data(),
-                                    vectors.data(), degrees, true, q.data());
+                                    vectors.data(), pairs.distances.data(), degrees, true,
+                                    q.data());
         std::vector<std::int8_t> water(static_cast<std::size_t>(n));
         mdapy::identify::chill_plus(n, pairs.offsets.data(), pairs.neighbors.data(),
                                     vectors.data(), water.data());
@@ -821,12 +822,15 @@ void structure_identification() {
         mdapy::analysis::bond_angles(n, pairs.offsets.data(), pairs.neighbors.data(), vectors.data(),
                                      two_types.data(), 2, 90, angles.data());
         const mdapy::analysis::VoronoiCells voronoi =
-            mdapy::analysis::voronoi(positions.data(), n, matrix, origin, pbc, {0.0, 0.01, 0.1});
+            mdapy::analysis::voronoi(positions.data(), n, matrix, origin, pbc, {0.0, 0.01, 0.1},
+                                     true);
         if (threads == kThreads[0]) {
             first_volumes = voronoi.volumes;
             first_areas = voronoi.areas;
+            first_vertices = voronoi.vertices;
         }
-        check(voronoi.volumes == first_volumes && voronoi.areas == first_areas,
+        check(voronoi.volumes == first_volumes && voronoi.areas == first_areas &&
+                  voronoi.vertices == first_vertices,
               "the Voronoi cells are the same for any thread count");
         if (threads == kThreads[0]) {
             first_types = types;

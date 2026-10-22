@@ -5,10 +5,12 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/vector.h>
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -29,6 +31,7 @@ using Neighbors = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::devi
 using Types = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Vectors = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 using Shifts3 = nb::ndarray<const std::int8_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 // A one-dimensional NumPy array that owns the memory of a vector.
 template <class T>
@@ -40,12 +43,14 @@ nb::object as_array(std::vector<T>&& values) {
 }
 
 nb::object steinhardt(Offsets offsets, Neighbors neighbors, Vectors vectors,
-                      const std::vector<int>& degrees, bool average, nb::handle progress,
-                      const CancelToken* cancel) {
+                      std::optional<Values> weights, const std::vector<int>& degrees,
+                      bool average, nb::handle progress, const CancelToken* cancel) {
     if (offsets.shape(0) < 1 || neighbors.shape(0) != vectors.shape(0) ||
-        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(vectors.shape(0))) {
+        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(vectors.shape(0)) ||
+        (weights && weights->shape(0) != vectors.shape(0))) {
         throw std::invalid_argument("the offsets do not fit the vectors");
     }
+    const double* weight = weights ? weights->data() : nullptr;
     const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
     auto* q = new double[static_cast<std::size_t>(n) * degrees.size()];
     nb::capsule owner(q, [](void* p) noexcept { delete[] static_cast<double*>(p); });
@@ -53,7 +58,7 @@ nb::object steinhardt(Offsets offsets, Neighbors neighbors, Vectors vectors,
     nb::object result = nb::ndarray<nb::numpy, double>(q, 2, shape, owner).cast();
     run_released(
         [&](const Control& control) {
-            analysis::steinhardt(n, offsets.data(), neighbors.data(), vectors.data(), degrees,
+            analysis::steinhardt(n, offsets.data(), neighbors.data(), vectors.data(), weight, degrees,
                                  average, q, control);
         },
         progress, cancel);
@@ -119,8 +124,6 @@ nb::object bond_angles(Offsets offsets, Neighbors neighbors, Vectors vectors, Ty
     return result;
 }
 
-using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
-
 nb::object pair_entropy(Offsets offsets, Values distances, double cutoff, double sigma,
                         Values density, nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
@@ -151,21 +154,29 @@ using Periodic = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device:
 
 nb::tuple voronoi(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
                   double face_threshold, double relative_face_threshold, double edge_threshold,
-                  nb::handle progress, const CancelToken* cancel) {
+                  bool polyhedra, nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
     analysis::VoronoiCells cells;
     run_released(
         [&](const Control& control) {
             cells = analysis::voronoi(positions.data(), n, matrix.data(), origin.data(), pbc.data(),
                                       {face_threshold, relative_face_threshold, edge_threshold},
-                                      control);
+                                      polyhedra, control);
         },
         progress, cancel);
+    nb::object shapes = nb::none();
+    if (polyhedra) {
+        shapes = nb::make_tuple(
+            as_array(std::move(cells.vertices)), as_array(std::move(cells.vertex_offsets)),
+            as_array(std::move(cells.face_offsets)), as_array(std::move(cells.corner_offsets)),
+            as_array(std::move(cells.corners)), as_array(std::move(cells.face_neighbors)),
+            as_array(std::move(cells.face_areas)));
+    }
     return nb::make_tuple(as_array(std::move(cells.volumes)), as_array(std::move(cells.radii)),
                           as_array(std::move(cells.coordination)),
                           as_array(std::move(cells.offsets)), as_array(std::move(cells.neighbors)),
                           as_array(std::move(cells.shifts)), as_array(std::move(cells.areas)),
-                          as_array(std::move(cells.edges)));
+                          as_array(std::move(cells.edges)), shapes);
 }
 
 nb::object pair_histogram(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
@@ -433,12 +444,12 @@ nb::object atomic_temperature_search(Positions3 positions, Matrix3 matrix, Origi
 
 void bind_analysis(nb::module_& m) {
     m.def("steinhardt", &steinhardt, nb::arg("offsets"), nb::arg("neighbors"),
-          nb::arg("vectors"), nb::arg("degrees"), nb::arg("average"),
+          nb::arg("vectors"), nb::arg("weights").none(), nb::arg("degrees"), nb::arg("average"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"));
     m.def("voronoi", &voronoi, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("face_threshold"), nb::arg("relative_face_threshold"),
-          nb::arg("edge_threshold"), nb::arg("progress") = nb::none(),
+          nb::arg("edge_threshold"), nb::arg("polyhedra"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     m.def("atomic_strain", &atomic_strain, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("reference"), nb::arg("displacement"),

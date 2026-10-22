@@ -16,7 +16,7 @@ implemented.
 | frame | One `System` of a `Trajectory`. |
 | `table` | The per-atom table of a `System`, a polars DataFrame with one row per atom. |
 | `info` | Global information of a `System`, such as `energy` or `timestep`. |
-| `NeighborList` | Pairs of atoms within a cutoff, or the nearest neighbors of each atom, including periodic images. |
+| `NeighborList` | Pairs of atoms within a cutoff, the nearest neighbors of each atom, or the atoms that share a Voronoi face, including periodic images. |
 | pair | One entry of a `NeighborList`: atoms `i` and `j` and the periodic image `shifts` of `j`. |
 | `shifts` | Periodic image of the second atom of a pair, (3,) int8: the pair vector is `x[j] - x[i] + shifts @ box.matrix`. |
 | `index_dtype` | Integer type of atom indices in results such as `NeighborList.j`: int32, or int64 in a build with 64-bit indices. |
@@ -92,6 +92,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | systems of a trajectory | `frames` | `pos_list`, `traj` |
 | average over every time origin | `window` (bool) | `mode` |
 | smallest Voronoi face (Å²), fraction of the cell's surface, shortest edge (Å) | `face_threshold`, `relative_face_threshold`, `edge_threshold` | `area_threshold` |
+| neighbors that share a Voronoi face | `voronoi=True` | `use_voronoi` |
+| neighbors weighted by the area of their face | `weighted=True` | `use_weight` |
+| shapes of the Voronoi cells | `polyhedra=True` | `cell_info` |
 | follow atoms through the periodic boundaries | `unwrap` (bool) | `wrapped`, `unwrapped` |
 | reference configuration | `reference=` | `ref` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |

@@ -118,7 +118,9 @@ def test_atoms_without_neighbors():
     [
         ({"degrees": ()}, "degrees must be from 0 to 20"),
         ({"degrees": (21,)}, "degrees must be from 0 to 20"),
-        ({"num_neighbors": 4, "cutoff": 3.0}, "not both"),
+        ({"num_neighbors": 4, "cutoff": 3.0}, "give one of"),
+        ({"voronoi": True, "cutoff": 3.0}, "give one of"),
+        ({"weighted": True}, "weighted needs voronoi"),
         ({"cutoff": 0.0}, "cutoff must be positive"),
         ({"num_neighbors": 0}, "num_neighbors must be at least 1"),
     ],
@@ -126,3 +128,86 @@ def test_atoms_without_neighbors():
 def test_invalid_options(options, message):
     with pytest.raises(InvalidParameter, match=message):
         SteinhardtParameters(**options)
+
+
+def weighted_reference(nl, degree, weights, average=False):
+    """q_l of every atom from the addition theorem over the pairs of a list,
+    each pair weighted: (4 pi / (2l + 1)) sum_m q_lm(a) q_lm(b)* is the
+    weighted mean of P_l over the pairs of a and b."""
+    u = nl.vectors / nl.distances[:, None]
+    offsets = nl.offsets
+
+    def overlap(a, b):
+        sa, sb = slice(offsets[a], offsets[a + 1]), slice(offsets[b], offsets[b + 1])
+        if sa.start == sa.stop or sb.start == sb.stop:
+            return 0.0
+        p = legendre.legval(u[sa] @ u[sb].T, [0] * degree + [1])
+        return weights[sa] @ p @ weights[sb] / (weights[sa].sum() * weights[sb].sum())
+
+    q = []
+    for i in range(len(nl.counts)):
+        members = [i, *nl.j[offsets[i] : offsets[i + 1]]] if average else [i]
+        total = sum(overlap(a, b) for a in members for b in members)
+        q.append(np.sqrt(total) / len(members))
+    return np.array(q)
+
+
+@pytest.mark.parametrize("weighted", [False, True])
+@pytest.mark.parametrize("average", [False, True])
+def test_voronoi_neighbors(weighted, average):
+    system = crystal("bcc", 2.87, jitter=0.15, seed=4)
+    nl = mdapy.NeighborList.build(system, voronoi=True)
+    parameters = SteinhardtParameters(
+        (2, 4, 6, 8), voronoi=True, weighted=weighted, average=average
+    )
+    result = parameters.compute(system)
+    np.testing.assert_array_equal(parameters.compute(system, neighbors=nl).q, result.q)
+    weights = nl.areas if weighted else np.ones(len(nl))
+    for degree in (2, 4, 6, 8):
+        np.testing.assert_allclose(
+            result[degree],
+            weighted_reference(nl, degree, weights, average),
+            rtol=1e-10,
+            atol=1e-12,
+        )
+    # the weights matter where faces differ
+    other = SteinhardtParameters((6,), voronoi=True, weighted=not weighted)
+    assert not np.allclose(other.compute(system)[6], result[6])
+
+
+@pytest.mark.parametrize("kind, a, k", [("fcc", 3.6, 12), ("bcc", 2.87, 14)])
+def test_voronoi_neighbors_of_perfect_crystals(kind, a, k):
+    """fcc: twelve equal faces, the twelve nearest neighbors; bcc: the 8 + 6
+    nearest, on faces of two sizes."""
+    system = crystal(kind, a)
+    nearest = SteinhardtParameters((4, 6), num_neighbors=k).compute(system)
+    voronoi = SteinhardtParameters((4, 6), voronoi=True).compute(system)
+    np.testing.assert_allclose(voronoi.q, nearest.q, rtol=1e-12)
+    weighted = SteinhardtParameters((4, 6), voronoi=True, weighted=True).compute(system)
+    if kind == "fcc":
+        np.testing.assert_allclose(weighted.q, nearest.q, rtol=1e-12)
+    else:
+        nl = mdapy.NeighborList.build(system, voronoi=True)
+        np.testing.assert_allclose(
+            weighted[6], weighted_reference(nl, 6, nl.areas), rtol=1e-12
+        )
+        np.testing.assert_allclose(weighted[4], 0.224025, atol=1e-6)
+        np.testing.assert_allclose(weighted[6], 0.566940, atol=1e-6)
+    assert repr(SteinhardtParameters((6,), voronoi=True, weighted=True)) == (
+        "SteinhardtParameters(degrees=(6,), voronoi=True, weighted=True, average=False)"
+    )
+
+
+def test_neighbor_lists_that_do_not_fit():
+    system = crystal("fcc", 3.6)
+    voronoi = mdapy.NeighborList.build(system, voronoi=True)
+    cutoff = mdapy.NeighborList.build(system, 3.0)
+    with pytest.raises(InvalidParameter, match="does not hold Voronoi neighbors"):
+        SteinhardtParameters(voronoi=True).compute(system, neighbors=cutoff)
+    with pytest.raises(InvalidParameter, match="Voronoi neighbors does not hold every"):
+        SteinhardtParameters(cutoff=3.0).compute(system, neighbors=voronoi)
+    with pytest.raises(InvalidParameter, match="does not hold the nearest"):
+        SteinhardtParameters().compute(system, neighbors=voronoi)
+    other = crystal("fcc", 3.6)
+    with pytest.raises(InvalidParameter, match="another system"):
+        SteinhardtParameters(voronoi=True).compute(other, neighbors=voronoi)

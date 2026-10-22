@@ -1,7 +1,8 @@
 # Neighbor lists
 
 A `NeighborList` holds pairs of atoms, including periodic images, in any box:
-either every pair closer than a cutoff, or the nearest neighbors of each atom.
+every pair closer than a cutoff, the nearest neighbors of each atom, or the
+atoms that share a face of their Voronoi cells.
 Analyses and calculators take one with the keyword `neighbors=`, so a list can
 be built once and shared.
 
@@ -21,21 +22,26 @@ shorter = nl.within(3.0)  # no new search
 
 twelve = mdapy.NeighborList.build(system, num_neighbors=12)
 twelve.distances.reshape(-1, 12)  # nearest first
+
+faces = mdapy.NeighborList.build(system, voronoi=True)
+faces.areas  # Å², the face that each pair shares
 ```
 
 ## Building
 
-`NeighborList.build(system, cutoff=None, *, num_neighbors=None, progress=None, cancel=None)`
+`NeighborList.build(system, cutoff=None, *, num_neighbors=None, voronoi=False, face_threshold=0, relative_face_threshold=0, edge_threshold=0, progress=None, cancel=None)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms and the box |
 | `cutoff` | float | | Å | build every pair closer than this, positive |
 | `num_neighbors` | int | | | build the `num_neighbors` nearest neighbors of each atom, positive |
+| `voronoi` | bool | `False` | | build the [Voronoi neighbors](#voronoi-neighbors) of each atom |
+| `face_threshold`, `relative_face_threshold`, `edge_threshold` | float | 0 | Å², , Å | with `voronoi`, the faces that count, as in the [Voronoi analysis](../analysis/voronoi.md#parameters) |
 | `progress` | callable | `None` | | called as `progress(done, total)`, see [Parallelism](parallelism.md#progress-and-cancellation) |
 | `cancel` | `CancelToken` | `None` | | stops the search |
 
-Give exactly one of `cutoff` and `num_neighbors`.
+Give exactly one of `cutoff`, `num_neighbors` and `voronoi`.
 
 Any box works: triclinic, left-handed, periodic in some directions only, and
 thinner than the cutoff or than the distance to the farthest neighbor. An
@@ -45,8 +51,12 @@ each as its own pair; a single atom in a small periodic cell has a full list.
 `build` raises
 [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter) when:
 
-- both or neither of `cutoff` and `num_neighbors` are given, or either is not
-  a positive number (an integer for `num_neighbors`);
+- not exactly one of `cutoff`, `num_neighbors` and `voronoi` is given, or
+  `cutoff` or `num_neighbors` is not a positive number (an integer for
+  `num_neighbors`);
+- a threshold is negative, `relative_face_threshold` is 1 or more, or a
+  threshold is given without `voronoi`;
+- with `voronoi`, two atoms are at the same position;
 - a system without periodic directions has `num_neighbors` atoms or fewer;
 - a pair is more than 127 boxes away, which comes from positions far outside
   the box, such as unwrapped coordinates after a long diffusion; wrap them
@@ -61,8 +71,10 @@ each as its own pair; a single atom in a small periodic cell has a full list.
 | `j` | (P,) `mdapy.index_dtype` | the second atom of each pair |
 | `shifts` | (P, 3) int8 | the periodic image of `j`: zero along non-periodic directions |
 | `distances` | (P,) float64 | distance in Å |
-| `cutoff` | float | every pair is closer than it, in Å; for nearest neighbors, the largest distance, slightly enlarged |
-| `num_neighbors` | int or `None` | pairs per atom in a list of nearest neighbors, `None` in a list within a cutoff |
+| `areas` | (P,) float64 or `None` | in a list of Voronoi neighbors, the area in Å² of the face of each pair; `None` otherwise |
+| `cutoff` | float | every pair is closer than it, in Å; for nearest and Voronoi neighbors, the largest distance, slightly enlarged |
+| `num_neighbors` | int or `None` | pairs per atom in a list of nearest neighbors, `None` otherwise |
+| `voronoi` | bool | whether the list holds Voronoi neighbors |
 
 The arrays are read-only. `mdapy.index_dtype` is int32, or int64 in mdapy
 built with [64-bit atom indices](installation.md#64-bit-atom-indices).
@@ -85,6 +97,23 @@ ordered by `j` and then by the image, so the equal neighbors of a perfect
 crystal come in a definite order. There `j` may be among the nearest of `i`
 without `i` being among the nearest of `j`.
 
+## Voronoi neighbors
+
+With `voronoi=True`, the neighbors of an atom are the atoms across the faces
+of its [Voronoi cell](../analysis/voronoi.md), periodic images included, one
+pair for each face that counts, with the area of the face in `areas`. The
+walls that close a box in a direction that is not periodic are not
+neighbors. A face counts for each of its two atoms separately: with a
+`relative_face_threshold`, which depends on the surface of each cell, a pair
+may be in the list of one atom only; without it every pair appears in both
+directions, with the same area. The pairs of an atom come in an order that
+depends on the positions and the box only.
+
+A list of Voronoi neighbors goes to the analyses that take one, such as the
+[Steinhardt parameters](../analysis/steinhardt.md) with `voronoi=True`; the
+analyses of the neighbors within a cutoff or of the nearest neighbors refuse
+it, since it holds neither.
+
 ## Methods
 
 | Name | Returns |
@@ -92,8 +121,8 @@ without `i` being among the nearest of `j`.
 | `counts` | (N,) int64 number of pairs of each atom |
 | `i` | (P,) `mdapy.index_dtype` first atom of each pair, computed when first used |
 | `vectors` | (P, 3) float64 vectors $\mathbf{r}_{ij}$ in Å, computed when first used |
-| `within(cutoff)` | the pairs closer than a smaller cutoff, in their order, without a new search; the list itself for its own cutoff. From a list of nearest neighbors it gives a list within a cutoff. |
-| `sorted()` | the same pairs, each atom's sorted by distance, pairs at the same distance by atom and then image, as in a list of nearest neighbors |
+| `within(cutoff)` | the pairs closer than a smaller cutoff, in their order, without a new search; the list itself for its own cutoff. From a list of nearest neighbors it gives a list within a cutoff; a list of Voronoi neighbors refuses it. |
+| `sorted()` | the same pairs, each atom's sorted by distance, pairs at the same distance by atom and then image, as in a list of nearest neighbors; a list of Voronoi neighbors keeps its areas |
 | `len(nl)` | the number of pairs P |
 
 The arrays work directly with NumPy, for example to sum over the neighbors of

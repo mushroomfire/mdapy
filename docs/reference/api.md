@@ -87,6 +87,8 @@ import mdapy
 
 ::: mdapy.analysis.VoronoiResult
 
+::: mdapy.analysis.VoronoiPolyhedra
+
 ::: mdapy.analysis.ClusterAnalysis
 
 ::: mdapy.analysis.ClusterResult

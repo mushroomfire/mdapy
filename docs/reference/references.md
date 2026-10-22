@@ -135,6 +135,13 @@ on Si(001), *Comput. Phys. Commun.* **205**, 13 (2016).
 [doi:10.1515/pac-2015-0305](https://doi.org/10.1515/pac-2015-0305)
 { #meija2016 }
 
+**Mickel et al. (2013).** W. Mickel, S. C. Kapfer, G. E. Schröder-Turk and
+K. Mecke, Shortcomings of the bond orientational order parameters for the
+analysis of disordered particulate matter, *J. Chem. Phys.* **138**, 044501
+(2013).
+[doi:10.1063/1.4774084](https://doi.org/10.1063/1.4774084)
+{ #mickel2013 }
+
 **Nguyen and Molinero (2015).** A. H. Nguyen and V. Molinero,
 Identification of clathrate hydrates, hexagonal ice, cubic ice, and liquid
 water in simulations: the CHILL+ algorithm, *J. Phys. Chem. B* **119**, 9369

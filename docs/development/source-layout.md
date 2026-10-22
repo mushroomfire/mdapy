@@ -28,7 +28,7 @@
 | `src/mdapy/calculators/_lammps.py` | `LAMMPS`, the calculator of any LAMMPS interaction. |
 | `src/mdapy/calculators/_nep.py` | `NEP` and its file reader. |
 | `src/mdapy/simulation/_minimize.py` | `minimize`, with FIRE 2.0, of the positions and the box. |
-| `src/mdapy/simulation/_elastic.py` | `elastic_constants`. |
+| `src/mdapy/lattice_dynamics/_elastic.py` | `elastic_constants`. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
 | `src/cpp/core/index.h` | `index_t`, the type of atom indices, 32 or 64 bits (`MDAPY_INDEX64`). |

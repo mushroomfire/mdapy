@@ -1,12 +1,13 @@
 # Elastic constants
 
-`mdapy.simulation.elastic_constants(system, calculator, *, strain=1e-3,
+`mdapy.lattice_dynamics.elastic_constants(system, calculator, *, strain=1e-3,
 relax=True, max_force=1e-4, max_steps=5000)` gives the elastic constants of a
 periodic crystal from its stress under small strains.
 
 <!-- skip-test -->
 ```python
-from mdapy.simulation import elastic_constants, minimize
+from mdapy.lattice_dynamics import elastic_constants
+from mdapy.simulation import minimize
 
 relaxed = minimize(crystal, potential, cell="full", max_stress=1e-4).system
 result = elastic_constants(relaxed, potential)

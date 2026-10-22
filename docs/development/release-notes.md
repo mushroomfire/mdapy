@@ -69,7 +69,7 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.calculators.Calculator`, the interface of every calculator, and
   `CalculatorResult` with energies, forces, virials and stress.
   `mdapy.calculators.testing.check_calculator` tests any implementation. See
-  [Calculators](../modelling/calculators.md).
+  [Calculators](../simulation/calculators.md).
 - `mdapy.calculators.EAM` for potentials in the LAMMPS eam/alloy format,
   agreeing with LAMMPS.
 - `mdapy.calculators.NEP` for neuroevolution potentials (nep4 and nep4_zbl
@@ -89,10 +89,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   (`cell="isotropic"`, `"axes"` or `"full"`, at a `pressure`) to the minimum
   of LAMMPS `fix box/relax`; keeps a frame every `save_every` steps when
   asked, with the virial and the stress of each. See
-  [Simulation](../modelling/minimize.md).
-- `mdapy.simulation.elastic_constants`: the (6, 6) elastic constants from
-  the stress under small strains, with relaxed positions, and Voigt, Reuss
-  and Hill moduli.
+  [Energy minimization](../simulation/minimize.md).
+- `mdapy.lattice_dynamics.elastic_constants`: the (6, 6) elastic constants
+  from the stress under small strains, with relaxed positions, and Voigt,
+  Reuss and Hill moduli. See [Elastic constants](../simulation/elastic-constants.md).
 
 ### Foundations
 

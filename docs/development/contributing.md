@@ -23,7 +23,9 @@ The site has one tab per kind of content, each a directory of `docs/`:
 |---|---|---|
 | Getting started | `getting-started/` | installation, the quick tour, and the basics every user needs: systems, the box, files, trajectories, neighbor lists, parallelism |
 | Analysis | `analysis/` | analyses of structures and trajectories, in sections: structure identification; local order and distributions; defects and deformation; dynamics |
-| Modelling | `modelling/` | building and transforming structures, calculators, simulation (minimization, molecular dynamics through other programs), and elasticity and phonons |
+| Model building | `build/` | building structures (crystals, polycrystals, defects, alloys, packed molecules) and transforming them |
+| Simulation | `simulation/` | calculators; minimization and dynamics (molecular dynamics through other programs); lattice dynamics (elastic constants, force constants, phonons) |
+| Rendering | `rendering/` | images of systems |
 | Reference | `reference/` | file formats, units and conventions, elements, the glossary, the references and the Python API |
 | Development | `development/` | contributing, the source layout and the release notes |
 

@@ -8,8 +8,9 @@ import mdapy
 from mdapy import units
 from mdapy.calculators import EAM
 from mdapy.errors import InvalidParameter
-from mdapy.simulation import elastic_constants, minimize
-from mdapy.simulation._elastic import _strained
+from mdapy.lattice_dynamics import elastic_constants
+from mdapy.lattice_dynamics._elastic import _strained
+from mdapy.simulation import minimize
 
 from calculators.eam_files import alloy, write_setfl
 from calculators.test_testing import Harmonic

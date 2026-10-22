@@ -326,3 +326,9 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 - preview-all 上 ASan 全量测试又跑了一遍（新加了 Ackland–Jones 和金刚石修正的 C++），没有问题。
 - preview-all 现在共 1216 个测试，其中与 LAMMPS 有关的 177 个全部通过。
 - 所有分支 CI 通过。
+
+### 07:32
+- **晶胞弛豫也和 LAMMPS 对照了**（`cell-draft`，只加测试和文档，已合进 elastic-draft 和 preview-all）：应变后的合金连同盒子一起弛豫，`minimize(cell="full")` 与 LAMMPS `fix box/relax tri` 的最终能量差 2e-13 eV。盒子形状用度规 HHᵀ 比（LAMMPS 会转动盒子），差 ≤ 1e-6。
+- 至此，计划内的计算器和分析都有了与独立程序的对照：LAMMPS、NEP_CPU/GPUMD、ASE，或 1.0.8。
+- preview-all 现在共 1217 个测试，其中与 LAMMPS 有关的 178 个全部通过。
+- 所有分支 CI 通过。

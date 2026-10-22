@@ -66,7 +66,12 @@ pythonpath = ["tests"]
 xfail_strict = true
 # Warnings are errors: an unexpected warning is a test failure. Add
 # targeted ignores here, each with a comment saying why.
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # OVITO from PyPI in a conda Python, as in local test environments, works
+    # but warns on import
+    "ignore:Did you accidentally install the OVITO package:UserWarning",
+]
 
 [tool.coverage.run]
 source = ["mdapy"]

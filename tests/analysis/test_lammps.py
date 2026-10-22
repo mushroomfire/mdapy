@@ -6,7 +6,6 @@ against LAMMPS computes. Skipped where LAMMPS is not installed."""
 
 import numpy as np
 import pytest
-from lattices import crystal
 
 import mdapy
 from mdapy.analysis import (
@@ -15,6 +14,8 @@ from mdapy.analysis import (
     CoordinationNumber,
     RadialDistributionFunction,
 )
+
+from lattices import crystal
 
 lammps = pytest.importorskip("lammps")
 

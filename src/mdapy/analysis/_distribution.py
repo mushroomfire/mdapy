@@ -236,23 +236,32 @@ class StructureFactorResult(Result):
     edges : numpy.ndarray
         (bins + 1,) edges of the bins in 1/Å.
     s : numpy.ndarray
-        (bins,) the structure factor averaged over the vectors of each bin;
-        NaN in bins without vectors.
-    vectors : numpy.ndarray
-        (bins,) int64 number of vectors in each bin, one of each pair q, -q.
+        (bins,) the structure factor; with the direct method, averaged over
+        the vectors of each bin and NaN in bins without vectors.
+    vectors : numpy.ndarray or None
+        (bins,) int64 number of vectors in each bin, one of each pair q, -q,
+        with the direct method; None with the Debye method.
     partial : dict
-        (bins,) partial factor of each pair of elements ``(a, b)``, ``a``
-        not after ``b`` by atomic number; empty without an element column.
+        (bins,) partial factor S_ab of each pair of elements ``(a, b)``,
+        ``a`` not after ``b`` by atomic number, normalized so that ``s`` is
+        the sum of S_aa and twice S_ab; empty without an element column.
+    faber_ziman : dict
+        (bins,) Faber-Ziman partial factor A_ab of each pair, keyed as
+        ``partial``.
+    method : str
+        ``"direct"`` or ``"debye"``.
     """
 
     q: np.ndarray
     edges: np.ndarray
     s: np.ndarray
-    vectors: np.ndarray
+    vectors: np.ndarray | None
     partial: dict[tuple[str, str], np.ndarray]
+    faber_ziman: dict[tuple[str, str], np.ndarray]
+    method: str
 
     def pair(self, a: str, b: str) -> np.ndarray:
-        """The partial factor of elements a and b, in either order."""
+        """The partial factor S_ab of elements a and b, in either order."""
         if (a, b) in self.partial:
             return self.partial[a, b]
         if (b, a) in self.partial:
@@ -260,9 +269,18 @@ class StructureFactorResult(Result):
         raise InvalidParameter(f"no partial factor for {(a, b)}")
 
 
+#: Ways to compute the structure factor: the sum over the wave vectors of
+#: the box, or the Fourier transform of the radial distribution function.
+METHODS = ("direct", "debye")
+
+# Width of the bins of the radial distribution function of the Debye method,
+# in Å.
+_DEBYE_DR = 0.01
+
+
 class StructureFactor:
-    """The static structure factor S(q) of a periodic system, summed over the
-    wave vectors that fit the box.
+    """The static structure factor S(q) of a periodic system and its partial
+    factors.
 
     Parameters
     ----------
@@ -270,18 +288,44 @@ class StructureFactor:
         Largest |q| in 1/Å.
     bins : int, optional
         Number of bins of |q| of equal width. Default 200.
+    method : {"direct", "debye"}, optional
+        Sum over the wave vectors that fit the box (default), or transform
+        of the radial distribution function up to ``r_max``.
+    r_max : float, optional
+        Largest distance of the Debye method in Å; default half the length
+        of the longest lattice vector.
     """
 
-    def __init__(self, q_max: float, bins: int = 200):
+    def __init__(
+        self,
+        q_max: float,
+        bins: int = 200,
+        *,
+        method: str = "direct",
+        r_max: float | None = None,
+    ):
         if not q_max > 0:
             raise InvalidParameter(f"q_max must be positive, not {q_max!r}")
         if bins < 1:
             raise InvalidParameter(f"bins must be at least 1, not {bins!r}")
+        if method not in METHODS:
+            raise InvalidParameter(f"method must be one of {METHODS}, not {method!r}")
+        if r_max is not None and (method != "debye" or not r_max > 0):
+            raise InvalidParameter(
+                f"r_max must be positive and is used by the Debye method only, not {r_max!r}"
+            )
         self.q_max = float(q_max)
         self.bins = int(bins)
+        self.method = method
+        self.r_max = None if r_max is None else float(r_max)
 
     def compute(
-        self, system: System, *, progress: Any = None, cancel: Any = None
+        self,
+        system: System,
+        *,
+        neighbors: NeighborList | None = None,
+        progress: Any = None,
+        cancel: Any = None,
     ) -> StructureFactorResult:
         """The structure factor of a system.
 
@@ -290,6 +334,9 @@ class StructureFactor:
         system : System
             The atoms in a box periodic in every direction; partial factors
             need an ``element`` column.
+        neighbors : NeighborList, optional
+            With the Debye method, a neighbor list of this system reaching
+            ``r_max``.
 
         Returns
         -------
@@ -300,39 +347,80 @@ class StructureFactor:
             raise InvalidParameter(
                 "the structure factor needs a box periodic in every direction"
             )
+        if neighbors is not None and self.method != "debye":
+            raise InvalidParameter("the direct method takes no neighbor list")
         n, bins = len(system), self.bins
         found = _elements(system)
         names, index = found if found is not None else ((), np.zeros(n, dtype=np.int64))
         types = max(len(names), 1)
-        sums, vectors = _native.structure_factor(
-            np.ascontiguousarray(system.positions),
-            np.ascontiguousarray(system.box.matrix),
-            index.astype(np.int32),
-            types,
-            self.q_max,
-            bins,
-            0,
-            progress,
-            _native_token(cancel),
-        )
-        with np.errstate(invalid="ignore", divide="ignore"):
-            s = sums.sum(axis=(0, 1)) / n / vectors if n else np.full(bins, np.nan)
-            partial = {}
+        sizes = np.bincount(index, minlength=types)
+        fractions = sizes / n if n else np.zeros(types)
+        edges = np.linspace(0.0, self.q_max, bins + 1)
+        q = 0.5 * (edges[1:] + edges[:-1])
+        if self.method == "direct":
+            sums, vectors = _native.structure_factor(
+                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system.box.matrix),
+                index.astype(np.int32),
+                types,
+                self.q_max,
+                bins,
+                0,
+                progress,
+                _native_token(cancel),
+            )
+            with np.errstate(invalid="ignore", divide="ignore"):
+                s = sums.sum(axis=(0, 1)) / n / vectors if n else np.full(bins, np.nan)
+                pairs = {
+                    (a, b): sums[a, b] / n / vectors
+                    for a in range(types)
+                    for b in range(a, types)
+                }
+        else:
+            vectors = None
+            r_max = self.r_max or 0.5 * float(
+                np.linalg.norm(system.box.matrix, axis=1).max()
+            )
+            rdf = RadialDistributionFunction(
+                r_max, max(1, int(np.ceil(r_max / _DEBYE_DR)))
+            ).compute(system, neighbors=neighbors, progress=progress, cancel=cancel)
+            r, dr = rdf.r, rdf.edges[1] - rdf.edges[0]
+            # 4 pi rho r sin(qr) / q w(r) dr, w a window that goes to zero at
+            # r_max against the ripples of the cutoff
+            density = n / system.box.volume
+            kernel = (
+                4.0 * np.pi * density * dr
+                * np.sin(np.outer(q, r)) * (r * np.sinc(r / r_max)) / q[:, None]
+            )  # fmt: skip
+            s = 1.0 + kernel @ (rdf.g - 1.0) if n else np.full(bins, np.nan)
+            pairs = {}
             if found is not None and n:
-                sizes = np.bincount(index, minlength=types)
                 for a in range(types):
                     for b in range(a, types):
-                        partial[names[a], names[b]] = (
-                            sums[a, b] / np.sqrt(sizes[a] * sizes[b]) / vectors
+                        fz = 1.0 + kernel @ (rdf.pair(names[a], names[b]) - 1.0)
+                        pairs[a, b] = fractions[a] * fractions[b] * (fz - 1.0) + (
+                            fractions[a] if a == b else 0.0
                         )
-        edges = np.linspace(0.0, self.q_max, bins + 1)
+        partial, faber_ziman = {}, {}
+        if found is not None and n:
+            for (a, b), value in pairs.items():
+                partial[names[a], names[b]] = value
+                faber_ziman[names[a], names[b]] = (
+                    value - (fractions[a] if a == b else 0.0)
+                ) / (fractions[a] * fractions[b]) + 1.0
         return StructureFactorResult(
-            q=0.5 * (edges[1:] + edges[:-1]),
+            q=q,
             edges=edges,
             s=s,
             vectors=vectors,
             partial=partial,
+            faber_ziman=faber_ziman,
+            method=self.method,
         )
 
     def __repr__(self) -> str:
-        return f"StructureFactor(q_max={self.q_max!r}, bins={self.bins})"
+        extra = f", r_max={self.r_max!r}" if self.r_max is not None else ""
+        return (
+            f"StructureFactor(q_max={self.q_max!r}, bins={self.bins}, "
+            f"method={self.method!r}{extra})"
+        )

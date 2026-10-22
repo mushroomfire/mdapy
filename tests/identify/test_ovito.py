@@ -19,7 +19,6 @@ from mdapy.identify import (
 from lattices import crystal
 
 ovito = pytest.importorskip("ovito")
-from ovito.data import DataCollection  # noqa: E402
 from ovito.modifiers import (  # noqa: E402
     AcklandJonesModifier,
     CentroSymmetryModifier,
@@ -27,7 +26,8 @@ from ovito.modifiers import (  # noqa: E402
     CommonNeighborAnalysisModifier,
     IdentifyDiamondModifier,
 )
-from ovito.pipeline import Pipeline, StaticSource  # noqa: E402
+
+from ovito_reference import ovito_compute  # noqa: E402
 
 LATTICES = {"fcc": 3.6, "hcp": 2.5, "bcc": 2.87}
 # cutoffs between the first and second shells, for conventional CNA
@@ -36,16 +36,7 @@ FIXED = {"fcc": 0.854, "hcp": 1.207, "bcc": 1.207}
 
 def ovito_particles(system, modifier):
     """The particles of system after modifier, as OVITO computes them."""
-    data = DataCollection()
-    cell = np.zeros((3, 4))
-    cell[:, :3] = system.box.matrix.T  # OVITO keeps the cell vectors as columns
-    cell[:, 3] = system.box.origin
-    data.create_cell(cell, pbc=tuple(bool(p) for p in system.box.pbc))
-    particles = data.create_particles(count=len(system))
-    particles.create_property("Position", data=system.positions)
-    pipeline = Pipeline(source=StaticSource(data=data))
-    pipeline.modifiers.append(modifier)
-    return pipeline.compute().particles
+    return ovito_compute(system, modifier).particles
 
 
 def disordered(kind, a, box, jitter, seed):

@@ -77,22 +77,33 @@ def test_matches_numpy():
         rtol=1e-10,
     )
     counts = {e: np.sum(system.table["element"].to_numpy() == e) for e in names}
+    c = {e: counts[e] / len(system) for e in names}
     for x, first in enumerate(names):
         for y, second in enumerate(names):
+            expected = sums[x, y][filled] / len(system) / vectors[filled]
             np.testing.assert_allclose(
-                result.pair(first, second)[filled],
-                sums[x, y][filled]
-                / np.sqrt(counts[first] * counts[second])
-                / vectors[filled],
-                rtol=1e-9,
-                atol=1e-12,
+                result.pair(first, second)[filled], expected, rtol=1e-9, atol=1e-12
             )
-    # the partial factors recombine to the total one
-    c = {e: counts[e] / len(system) for e in names}
-    total = sum(np.sqrt(c[x] * c[y]) * result.pair(x, y) for x in names for y in names)
-    np.testing.assert_allclose(total[filled], result.s[filled], rtol=1e-10)
+            if x <= y:
+                np.testing.assert_allclose(
+                    result.faber_ziman[first, second][filled],
+                    (expected - (c[first] if x == y else 0.0)) / (c[first] * c[second])
+                    + 1.0,
+                    rtol=1e-9,
+                    atol=1e-12,
+                )
+    check_sum_rule(result)
     with pytest.raises(InvalidParameter, match="no partial factor"):
         result.pair("Cu", "Fe")
+
+
+def check_sum_rule(result):
+    """The partial factors S_ab add up to the total one, S_ab twice for a != b."""
+    total = sum(
+        (1 if a == b else 2) * value for (a, b), value in result.partial.items()
+    )
+    filled = np.isfinite(result.s)
+    np.testing.assert_allclose(total[filled], result.s[filled], rtol=1e-10, atol=1e-12)
 
 
 def test_ideal_gas_threads_and_errors():
@@ -106,7 +117,7 @@ def test_ideal_gas_threads_and_errors():
     assert (
         StructureFactor(2.0).compute(mdapy.System(gas.positions, gas.box)).partial == {}
     )
-    assert repr(factor) == "StructureFactor(q_max=8.0, bins=40)"
+    assert repr(factor) == "StructureFactor(q_max=8.0, bins=40, method='direct')"
     with pytest.raises(InvalidParameter, match="periodic in every direction"):
         factor.compute(
             mdapy.System(gas.positions, mdapy.Box(30.0, pbc=(True, True, False)))
@@ -115,6 +126,14 @@ def test_ideal_gas_threads_and_errors():
         StructureFactor(0.0)
     with pytest.raises(InvalidParameter, match="bins must be at least 1"):
         StructureFactor(5.0, bins=0)
+    with pytest.raises(InvalidParameter, match="method must be one of"):
+        StructureFactor(5.0, method="fft")
+    with pytest.raises(InvalidParameter, match="Debye method only"):
+        StructureFactor(5.0, r_max=10.0)
+    with pytest.raises(InvalidParameter, match="Debye method only"):
+        StructureFactor(5.0, method="debye", r_max=0.0)
+    with pytest.raises(InvalidParameter, match="takes no neighbor list"):
+        factor.compute(gas, neighbors=mdapy.NeighborList.build(gas, 3.0))
 
 
 def test_blocks_of_atoms():
@@ -135,3 +154,78 @@ def test_blocks_of_atoms():
         parts, counted = native.structure_factor(*args, block)
         np.testing.assert_array_equal(counted, vectors)
         np.testing.assert_allclose(parts, whole, rtol=1e-12)
+
+
+def debye_reference(system, q, r_max, names):
+    """The Debye transform of g(r) from all pair distances up to r_max,
+    found by brute force over the periodic images, with NumPy."""
+    m, x = system.box.matrix, system.positions
+    reach = np.ceil(r_max / system.box.thickness).astype(int)
+    images = (
+        np.array(np.meshgrid(*[np.arange(-r, r + 1) for r in reach], indexing="ij"))
+        .reshape(3, -1)
+        .T
+        @ m
+    )
+    elements = system.table["element"].to_numpy()
+    bins = int(np.ceil(r_max / 0.01))
+    edges = np.linspace(0.0, r_max, bins + 1)
+    r = 0.5 * (edges[1:] + edges[:-1])
+    shells = 4 / 3 * np.pi * np.diff(edges**3)
+    n, volume = len(system), system.box.volume
+    counts = {}
+    for i in range(n):
+        # x_j - x_i + image, in this order as every pair vector of mdapy
+        d = np.linalg.norm((x[None, :, :] - x[i]) + images[:, None, :], axis=2)
+        mask = (d > 0) & (d < r_max)
+        for b in names:
+            near = d[mask & (elements == b)[None, :]]
+            # bin k holds k dr <= r < (k + 1) dr, as the functions are defined
+            hist = np.bincount((near / r_max * bins).astype(int), minlength=bins)
+            counts[elements[i], b] = counts.get((elements[i], b), 0) + hist
+    kernel = (
+        4 * np.pi * n / volume * (edges[1] - edges[0])
+        * np.sin(np.outer(q, r)) * r * np.sinc(r / r_max) / q[:, None]
+    )  # fmt: skip
+    total = sum(counts.values()) * volume / (n * n * shells)
+    sizes = {e: np.sum(elements == e) for e in names}
+    fz = {
+        (a, b): 1
+        + kernel @ (counts[a, b] * volume / (sizes[a] * sizes[b] * shells) - 1)
+        for a in names
+        for b in names
+    }
+    return 1 + kernel @ (total - 1), fz
+
+
+def test_debye_matches_numpy():
+    system = crystal("fcc", 3.6, (2, 2, 2), jitter=0.3, seed=7)
+    rng = np.random.default_rng(8)
+    system = system.with_columns(element=rng.choice(["Cu", "Ni"], len(system)))
+    result = StructureFactor(6.0, bins=30, method="debye", r_max=9.0).compute(system)
+    s, fz = debye_reference(system, result.q, 9.0, ("Ni", "Cu"))
+    assert result.vectors is None and result.method == "debye"
+    np.testing.assert_allclose(result.s, s, rtol=1e-9, atol=1e-12)
+    for pair, value in result.faber_ziman.items():
+        np.testing.assert_allclose(value, fz[pair], rtol=1e-9, atol=1e-12)
+    check_sum_rule(result)
+    # a neighbor list gives the same, and r_max defaults to half the box
+    nl = mdapy.NeighborList.build(system, 9.0)
+    given = StructureFactor(6.0, bins=30, method="debye", r_max=9.0).compute(
+        system, neighbors=nl
+    )
+    np.testing.assert_allclose(given.s, result.s, rtol=1e-12)
+    half = StructureFactor(6.0, bins=30, method="debye").compute(system)
+    np.testing.assert_allclose(
+        half.s, debye_reference(system, half.q, 3.6, ("Ni", "Cu"))[0], rtol=1e-9
+    )
+    assert repr(StructureFactor(6.0, method="debye", r_max=9.0)) == (
+        "StructureFactor(q_max=6.0, bins=200, method='debye', r_max=9.0)"
+    )
+
+
+def test_debye_of_an_ideal_gas():
+    rng = np.random.default_rng(4)
+    gas = mdapy.System(rng.random((3000, 3)) * 30, mdapy.Box(30.0), elements="Ar")
+    result = StructureFactor(8.0, bins=40, method="debye", r_max=10.0).compute(gas)
+    assert np.abs(result.s[10:] - 1.0).max() < 0.05

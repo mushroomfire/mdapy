@@ -439,7 +439,7 @@ void structure_identification() {
             velocities[3 * i + e] = thermal(random);
         }
     }
-    std::vector<double> first_temperature;
+    std::vector<double> first_temperature, first_searched;
     std::vector<std::int8_t> first_types, first_water;
     std::vector<double> first_csp, first_q, first_entropy, first_factor;
     std::vector<double> first_strain;
@@ -483,6 +483,17 @@ void structure_identification() {
             first_entropy = entropy;
         }
         check(entropy == first_entropy, "the pair entropy is the same for any thread count");
+        std::vector<double> searched(static_cast<std::size_t>(n));
+        mdapy::analysis::pair_entropy_search(positions.data(), n, matrix, origin, pbc, 3.07, 0.2,
+                                             0.08, searched.data());
+        if (threads == kThreads[0]) {
+            first_searched = searched;
+        }
+        bool close = searched == first_searched;
+        for (std::int64_t i = 0; i < n; ++i) {
+            close = close && std::abs(searched[i] - entropy[i]) <= 1e-12 * std::abs(entropy[i]);
+        }
+        check(close, "the pair entropy on the grid is the same for any thread count and as listed");
         const std::vector<std::int32_t> species(static_cast<std::size_t>(n), 0);
         const std::vector<std::int64_t> histogram = mdapy::analysis::pair_histogram(
             positions.data(), n, matrix, origin, pbc, 6.0, 60, species.data(), 1);

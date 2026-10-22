@@ -77,14 +77,14 @@ jobs:
         id: lammps
         with:
           path: lammps-wheel
-          key: lammps-stable_30Sep2026-manybody-${{ runner.os }}-py3.13
+          key: lammps-stable_30Sep2026-manybody-molecule-${{ runner.os }}-py3.13
       - name: Build LAMMPS
         if: steps.lammps.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 --branch stable_30Sep2026 https://github.com/lammps/lammps.git
           cmake -S lammps/cmake -B lammps-build -D CMAKE_BUILD_TYPE=Release \
             -D BUILD_SHARED_LIBS=on -D BUILD_MPI=no -D BUILD_OMP=no \
-            -D PKG_MANYBODY=on -D Python_EXECUTABLE="$(which python)"
+            -D PKG_MANYBODY=on -D PKG_MOLECULE=on -D Python_EXECUTABLE="$(which python)"
           cmake --build lammps-build -j 4
           cmake --build lammps-build --target install-python
           mkdir -p lammps-wheel && cp lammps-build/lammps-*.whl lammps-wheel/

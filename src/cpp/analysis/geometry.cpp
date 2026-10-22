@@ -4,6 +4,7 @@
 #include "analysis/geometry.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <numeric>
@@ -26,22 +27,25 @@ std::int64_t root(std::vector<std::int64_t>& parent, std::int64_t a) {
 
 }  // namespace
 
-std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
-                      std::int64_t* cluster, std::int64_t* sizes) {
-    std::vector<std::int64_t> parent(static_cast<std::size_t>(n));
-    std::iota(parent.begin(), parent.end(), 0);
-    for (std::int64_t i = 0; i < n; ++i) {
-        for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-            std::int64_t a = root(parent, i), b = root(parent, neighbors[p]);
-            if (a != b) {
-                // the smaller index becomes the root: the root is the first atom
-                if (b < a) {
-                    std::swap(a, b);
-                }
-                parent[b] = a;
-            }
+namespace {
+
+// Joins the clusters of atoms a and b; the smaller root becomes the root, so
+// that the root is the first atom of its cluster.
+void join(std::vector<std::int64_t>& parent, std::int64_t a, std::int64_t b) {
+    a = root(parent, a);
+    b = root(parent, b);
+    if (a != b) {
+        if (b < a) {
+            std::swap(a, b);
         }
+        parent[b] = a;
     }
+}
+
+// Numbers the clusters of the joined atoms by decreasing size, ties by
+// their first atom.
+std::int64_t number(std::vector<std::int64_t>& parent, std::int64_t n, std::int64_t* cluster,
+                    std::int64_t* sizes) {
     std::vector<std::int64_t> count(static_cast<std::size_t>(n), 0);
     for (std::int64_t i = 0; i < n; ++i) {
         cluster[i] = root(parent, i);
@@ -64,6 +68,62 @@ std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const std::in
         cluster[i] = label[cluster[i]];
     }
     return static_cast<std::int64_t>(roots.size());
+}
+
+}  // namespace
+
+std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,
+                      std::int64_t* cluster, std::int64_t* sizes) {
+    std::vector<std::int64_t> parent(static_cast<std::size_t>(n));
+    std::iota(parent.begin(), parent.end(), 0);
+    for (std::int64_t i = 0; i < n; ++i) {
+        for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+            join(parent, i, neighbors[p]);
+        }
+    }
+    return number(parent, n, cluster, sizes);
+}
+
+std::int64_t clusters_search(const double* positions, std::int64_t n, const double* matrix,
+                             const double* origin, const bool* pbc, const std::int32_t* type,
+                             int types, const double* limits, bool per_pair,
+                             std::int64_t* cluster, std::int64_t* sizes,
+                             const Control& control) {
+    std::vector<std::int64_t> parent(static_cast<std::size_t>(n));
+    std::iota(parent.begin(), parent.end(), 0);
+    const auto pairs = static_cast<std::size_t>(types) * types;
+    const double reach = *std::max_element(limits, limits + pairs);
+    if (n > 0 && reach > 0.0) {
+        // each bond once, as (i, j) with i < j, then joined in a fixed
+        // order; the clusters do not depend on the order anyway
+        const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, reach);
+        const double reach2 = reach * reach;
+        const std::int64_t grain = default_grain(n);
+        std::vector<std::vector<std::array<std::int32_t, 2>>> bonds(
+            static_cast<std::size_t>((n + grain - 1) / grain));
+        parallel_for(
+            n, grain,
+            [&](std::int64_t begin, std::int64_t end) {
+                auto& out = bonds[static_cast<std::size_t>(begin / grain)];
+                for (std::int64_t t = begin; t < end; ++t) {
+                    const std::int32_t i = grid.atom(t);
+                    const double* row = limits + static_cast<std::size_t>(type[i]) * types;
+                    grid.visit(i, [&](std::int32_t j, const std::int32_t*, double r2) {
+                        // j <= i: the bond is the other atom's, or an image of i
+                        if (j > i && (per_pair ? std::sqrt(r2) < row[type[j]] : r2 < reach2)) {
+                            out.push_back({i, j});
+                        }
+                    });
+                }
+            },
+            control);
+        for (const auto& chunk : bonds) {
+            for (const auto& bond : chunk) {
+                join(parent, bond[0], bond[1]);
+            }
+        }
+    }
+    return number(parent, n, cluster, sizes);
 }
 
 void bond_angles(std::int64_t n, const std::int64_t* offsets, const std::int32_t* neighbors,

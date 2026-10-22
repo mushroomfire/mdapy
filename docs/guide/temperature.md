@@ -27,6 +27,8 @@ $$
 Removing the motion of the center of mass takes three degrees of freedom, so
 the kinetic energy is divided among $3(n_i - 1)$; a uniform drift of the
 atoms changes nothing. Periodic images of the atom itself are not counted.
+Without a given neighbor list the neighbors are found on the cell grid,
+without storing a list.
 Atoms without neighbors get NaN. The system needs `velocities` (Å/ps) and
 either `mass` or `element` (standard atomic weights).
 
@@ -35,5 +37,6 @@ either `mass` or `element` (standard atomic weights).
 `tests/analysis/test_temperature.py` checks that velocities drawn from the
 Maxwell–Boltzmann distribution at 300 K give a mean of 300 K within 2 %, that
 the values agree with a plain Python implementation to 10<sup>−12</sup> with
-given masses and with masses of the elements, that adding a uniform velocity
-changes nothing, and the errors.
+given masses and with masses of the elements, on the grid and with a given
+neighbor list, that adding a uniform velocity changes nothing, and the
+errors.

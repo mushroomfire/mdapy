@@ -450,7 +450,7 @@ void structure_identification() {
             velocities[3 * i + e] = thermal(random);
         }
     }
-    std::vector<double> first_temperature, first_searched;
+    std::vector<double> first_temperature, first_searched, first_searched_temperature;
     std::vector<std::int8_t> first_types, first_water;
     std::vector<double> first_csp, first_q, first_entropy, first_factor;
     std::vector<double> first_strain;
@@ -472,6 +472,19 @@ void structure_identification() {
         }
         check(temperature == first_temperature,
               "the atomic temperature is the same for any thread count");
+        std::vector<double> searched_temperature(static_cast<std::size_t>(n));
+        mdapy::analysis::atomic_temperature_search(positions.data(), n, matrix, origin, pbc, 3.07,
+                                                   masses.data(), velocities.data(), 1.0, 1.0,
+                                                   searched_temperature.data());
+        if (threads == kThreads[0]) {
+            first_searched_temperature = searched_temperature;
+        }
+        bool near = searched_temperature == first_searched_temperature;
+        for (std::int64_t i = 0; i < n; ++i) {
+            near = near && std::abs(searched_temperature[i] - temperature[i]) <=
+                               1e-12 * std::abs(temperature[i]);
+        }
+        check(near, "the atomic temperature on the grid is the same for any thread count");
         std::vector<double> q(static_cast<std::size_t>(n) * degrees.size());
         mdapy::analysis::steinhardt(n, pairs.offsets.data(), pairs.neighbors.data(),
                                     vectors.data(), degrees, true, q.data());

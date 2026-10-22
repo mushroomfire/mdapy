@@ -9,42 +9,58 @@ import pytest
 
 import mdapy
 from mdapy.analysis import (
+    AtomicStrain,
     BondAngleDistribution,
+    ClusterAnalysis,
     CoordinationNumber,
     RadialDistributionFunction,
     SteinhardtParameters,
+    WignerSeitz,
 )
 
 from lattices import crystal
 
 ovito = pytest.importorskip("ovito")
 from ovito.modifiers import (  # noqa: E402
+    AtomicStrainModifier,
     BondAngleDistributionModifier,
+    ClusterAnalysisModifier,
     CoordinationAnalysisModifier,
     CreateBondsModifier,
     SteinhardtParametersModifier,
+    WignerSeitzAnalysisModifier,
 )
+from ovito.pipeline import ReferenceConfigurationModifier  # noqa: E402
 
-from ovito_reference import ovito_compute  # noqa: E402
+from ovito_reference import ovito_compute, ovito_source  # noqa: E402
 
 
-def alloy(box, seed=3):
-    """A disordered fcc alloy of Cu and Ni, in an orthogonal periodic box, a
-    rotated triclinic box or no box at all."""
-    system = crystal("fcc", 3.6, (5, 5, 5), jitter=0.15, seed=seed)
-    elements = np.random.default_rng(seed).choice(["Cu", "Ni"], len(system))
-    system = system.with_columns(element=list(elements))
+def placed(system, box, seed=3):
+    """The system as it is, rotated with its box into a triclinic box, or
+    without periodic directions."""
     if box == "rotated":
         q, _ = np.linalg.qr(np.random.default_rng(seed).normal(size=(3, 3)))
         q[:, 0] *= np.sign(np.linalg.det(q))
         return mdapy.System(
             system.positions @ q.T + 1.5,
             mdapy.Box(system.box.matrix @ q.T, origin=[1.5, 1.5, 1.5]),
-            elements=list(elements),
+            elements=system.table["element"].to_list(),
         )
     if box == "cluster":
         return system.with_box(mdapy.Box(system.box.matrix, pbc=False))
     return system
+
+
+def alloy(box, seed=3):
+    """A disordered fcc alloy of Cu and Ni."""
+    system = crystal("fcc", 3.6, (5, 5, 5), jitter=0.15, seed=seed)
+    elements = np.random.default_rng(seed).choice(["Cu", "Ni"], len(system))
+    return placed(system.with_columns(element=list(elements)), box, seed)
+
+
+def mapping(affine):
+    affine_mapping = ReferenceConfigurationModifier.AffineMapping
+    return affine_mapping.ToReference if affine else affine_mapping.Off
 
 
 @pytest.mark.parametrize("box", ["periodic", "rotated"])
@@ -127,3 +143,99 @@ def test_steinhardt_parameters(box, average, neighbors):
         np.testing.assert_allclose(
             result[degree], theirs[:, degree - 2], rtol=1e-12, atol=1e-13
         )
+
+
+@pytest.mark.parametrize("box", ["periodic", "rotated", "cluster"])
+def test_cluster_analysis(box):
+    rng = np.random.default_rng(1)
+    gas = mdapy.System(rng.random((400, 3)) * 20, mdapy.Box(20.0), elements="Ar")
+    system = placed(gas, box)
+    ours = ClusterAnalysis(cutoff=2.6).compute(system)
+    modifier = ClusterAnalysisModifier(cutoff=2.6, sort_by_size=True)
+    theirs = np.asarray(ovito_compute(system, modifier).particles["Cluster"])
+    # the same clusters of the same sizes; OVITO orders equal sizes in no
+    # particular order, mdapy by their first atom
+    np.testing.assert_array_equal(ours.sizes, np.sort(np.bincount(theirs))[::-1])
+    assert len(set(zip(ours.cluster, theirs))) == len(ours.sizes)
+    unique = np.flatnonzero(np.bincount(ours.sizes)[ours.sizes] == 1)
+    for cluster in unique:
+        np.testing.assert_array_equal(theirs[ours.cluster == cluster], cluster)
+    assert len(unique) < len(ours.sizes)  # a fair test: some sizes repeat
+
+
+def defective(box, seed=1):
+    """A perfect fcc reference and the same crystal sheared by 3 %, its atoms
+    displaced, with 3 vacancies and 5 interstitials."""
+    rng = np.random.default_rng(seed)
+    reference = crystal("fcc", 3.6, (4, 4, 4), element="Cu")
+    moved = reference.positions + rng.normal(0, 0.2, reference.positions.shape)
+    moved = np.vstack(
+        [np.delete(moved, [3, 50, 77], axis=0), rng.random((5, 3)) * 14.4]
+    )
+    shear = np.eye(3) + np.array([[0, 0.03, 0], [0, 0, 0], [0, 0, 0]])
+    current = mdapy.System(
+        moved @ shear.T, mdapy.Box(reference.box.matrix @ shear.T), elements="Cu"
+    )
+    return placed(reference, box), placed(current, box)
+
+
+@pytest.mark.parametrize("box", ["periodic", "rotated", "cluster"])
+@pytest.mark.parametrize("affine", [False, True])
+def test_wigner_seitz(box, affine):
+    reference, current = defective(box)
+    ours = WignerSeitz(reference, affine=affine).compute(current)
+    sites = WignerSeitzAnalysisModifier(
+        output_displaced=True, affine_mapping=mapping(affine)
+    )
+    sites.reference = ovito_source(reference)
+    np.testing.assert_array_equal(
+        ours.site, ovito_compute(current, sites).particles["Site Index"]
+    )
+    occupancy = WignerSeitzAnalysisModifier(affine_mapping=mapping(affine))
+    occupancy.reference = ovito_source(reference)
+    output = ovito_compute(current, occupancy)
+    np.testing.assert_array_equal(ours.occupancy, output.particles["Occupancy"])
+    assert ours.vacancy_count == output.attributes["WignerSeitz.vacancy_count"] == 3
+    assert (
+        ours.interstitial_count == output.attributes["WignerSeitz.interstitial_count"]
+    )
+
+
+@pytest.mark.parametrize("box", ["periodic", "rotated", "cluster"])
+@pytest.mark.parametrize("affine", [False, True])
+def test_atomic_strain(box, affine):
+    rng = np.random.default_rng(2)
+    reference = crystal("fcc", 3.6, (5, 5, 5), element="Cu")
+    deformation = np.eye(3) + np.array(
+        [[0.02, 0.03, 0], [0, -0.01, 0.01], [0, 0, 0.01]]
+    )
+    moved = reference.positions + rng.normal(0, 0.05, reference.positions.shape)
+    current = mdapy.System(
+        moved @ deformation.T,
+        mdapy.Box(reference.box.matrix @ deformation.T),
+        elements="Cu",
+    )
+    reference, current = placed(reference, box), placed(current, box)
+    ours = AtomicStrain(reference, 3.0, affine=affine).compute(current)
+    modifier = AtomicStrainModifier(
+        cutoff=3.0,
+        output_strain_tensors=True,
+        output_nonaffine_squared_displacements=True,
+        affine_mapping=mapping(affine),
+    )
+    modifier.reference = ovito_source(reference)
+    theirs = ovito_compute(current, modifier).particles
+    e = ours.strain
+    voigt = np.stack(
+        [e[:, 0, 0], e[:, 1, 1], e[:, 2, 2], e[:, 0, 1], e[:, 0, 2], e[:, 1, 2]], axis=1
+    )
+    # sums over a dozen neighbor vectors and a 3 x 3 inverse: rounding only
+    tolerance = {"rtol": 1e-10, "atol": 1e-12}
+    np.testing.assert_allclose(voigt, theirs["Strain Tensor"], **tolerance)
+    np.testing.assert_allclose(ours.shear, theirs["Shear Strain"], **tolerance)
+    np.testing.assert_allclose(
+        ours.volumetric, theirs["Volumetric Strain"], **tolerance
+    )
+    np.testing.assert_allclose(
+        ours.d2min, theirs["Nonaffine Squared Displacement"], **tolerance
+    )

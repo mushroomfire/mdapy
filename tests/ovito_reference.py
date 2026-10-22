@@ -11,10 +11,9 @@ from ovito.pipeline import Pipeline, StaticSource
 from mdapy.elements import SYMBOLS
 
 
-def ovito_compute(system, *modifiers):
-    """The output data collection of OVITO for the system after modifiers;
-    with an element column, the elements are the particle types, numbered
-    from 1 by atomic number."""
+def ovito_source(system):
+    """The system as the source of an OVITO pipeline; with an element column,
+    the elements are the particle types, numbered from 1 by atomic number."""
     data = DataCollection()
     cell = np.zeros((3, 4))
     cell[:, :3] = system.box.matrix.T  # OVITO keeps the cell vectors as columns
@@ -30,7 +29,12 @@ def ovito_compute(system, *modifiers):
         )
         for k, name in enumerate(names):
             types.types.append(ParticleType(id=k + 1, name=name))
-    pipeline = Pipeline(source=StaticSource(data=data))
+    return StaticSource(data=data)
+
+
+def ovito_compute(system, *modifiers):
+    """The output data collection of OVITO for the system after modifiers."""
+    pipeline = Pipeline(source=ovito_source(system))
     for modifier in modifiers:
         pipeline.modifiers.append(modifier)
     return pipeline.compute()

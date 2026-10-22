@@ -252,6 +252,30 @@ class NeighborList:
         voronoi._vectors = vectors
         return voronoi
 
+    def fits(self, system: System) -> bool:
+        """Whether the list holds the pairs of a system: the one it was built
+        for, or any with the same positions in the same box, whatever its
+        other columns.
+
+        Parameters
+        ----------
+        system : System
+            The system.
+
+        Returns
+        -------
+        bool
+            True when the list serves the system.
+        """
+        own = self.system
+        if system is own:
+            return True
+        if len(system) != len(own) or system.box != own.box:
+            return False
+        mine, theirs = own.positions, system.positions
+        same = mine.ctypes.data == theirs.ctypes.data and mine.strides == theirs.strides
+        return same or bool(np.array_equal(mine, theirs))
+
     @property
     def counts(self) -> np.ndarray:
         """(N,) int64 number of pairs of each atom."""
@@ -418,8 +442,10 @@ def _given_or_built(
     system within cutoff, or a new one."""
     if neighbors is None:
         return NeighborList.build(system, cutoff)
-    if neighbors.system is not system:
-        raise InvalidParameter("the neighbor list was built for another system")
+    if not neighbors.fits(system):
+        raise InvalidParameter(
+            "the neighbor list was built for other positions or another box"
+        )
     if neighbors.num_neighbors is not None or neighbors.voronoi:
         kind = "nearest" if neighbors.num_neighbors is not None else "Voronoi"
         raise InvalidParameter(
@@ -441,8 +467,10 @@ def _nearest_given_or_built(
     from a new search."""
     if neighbors is None:
         return NeighborList.build(system, num_neighbors=k)
-    if neighbors.system is not system:
-        raise InvalidParameter("the neighbor list was built for another system")
+    if not neighbors.fits(system):
+        raise InvalidParameter(
+            "the neighbor list was built for other positions or another box"
+        )
     if neighbors.voronoi:
         raise InvalidParameter(
             "a list of Voronoi neighbors does not hold the nearest neighbors; "
@@ -464,8 +492,10 @@ def _voronoi_given_or_built(
     """The given list of Voronoi neighbors after checking it, or a new one."""
     if neighbors is None:
         return NeighborList.build(system, voronoi=True)
-    if neighbors.system is not system:
-        raise InvalidParameter("the neighbor list was built for another system")
+    if not neighbors.fits(system):
+        raise InvalidParameter(
+            "the neighbor list was built for other positions or another box"
+        )
     if not neighbors.voronoi:
         raise InvalidParameter("the neighbor list does not hold Voronoi neighbors")
     return neighbors

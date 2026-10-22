@@ -63,7 +63,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   search. Distances are computed by one formula in both, nearest neighbors are
   ordered exactly with ties by atom and image, and results are the same for
   any number of threads. A k-d tree finds nearest neighbors in clusters and
-  slabs as fast as in crystals. See [Neighbor lists](../getting-started/neighbor.md).
+  slabs as fast as in crystals. A list serves every system with the same
+  positions in the same box (`fits`), so it outlives `with_columns`.
+  See [Neighbor lists](../getting-started/neighbor.md).
 
 ### Calculators
 

@@ -44,7 +44,8 @@ one search; it is built when not given.
 `compute` raises
 [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter) for
 an unknown or unimplemented property, and for a neighbor list built for
-another system, with a smaller cutoff, or of nearest neighbors;
+other positions or another box, with a smaller cutoff, or of nearest
+neighbors;
 [`MissingProperty`](../reference/api.md#mdapy.errors.MissingProperty) when
 the system lacks a column the calculator needs.
 

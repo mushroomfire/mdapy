@@ -133,25 +133,28 @@ On an Apple M5 with 10 threads, each list built inside the timing:
 A list within a cutoff is also the way to your own sums over pairs, with
 NumPy, as in [Neighbor lists](../neighbor.md#methods).
 
-## One list, one system
+## One list, the same atoms
 
-A list belongs to the system it was built for, the object itself; an
-analysis refuses it for any other system, even one made from it with an
-extra column. Compute the analyses first and attach their results at the
-end:
+A list serves every system with the positions and the box it was built for:
+the system itself, one with more columns, or one read again from the same
+file. Moved atoms or another box need a new list; analyses refuse the old
+one. `nl.fits(system)` tells which.
 
 ```python
 from mdapy.errors import InvalidParameter
 
 nl = NeighborList.build(system, num_neighbors=14)
 cna = CommonNeighborAnalysis().compute(system, neighbors=nl)
-csp = CentroSymmetryParameter(12).compute(system, neighbors=nl)
-labelled = system.with_columns(cna, csp)  # attach at the end
+labelled = system.with_columns(cna)  # the same atoms, one more column
+csp = CentroSymmetryParameter(12).compute(labelled, neighbors=nl)
+nl.fits(labelled)  # True
 
+shifted = system.with_positions(system.positions + [0.1, 0.0, 0.0])
+nl.fits(shifted)  # False
 try:
-    CommonNeighborAnalysis().compute(labelled, neighbors=nl)
+    CommonNeighborAnalysis().compute(shifted, neighbors=nl)
 except InvalidParameter as error:
-    print(error)  # the neighbor list was built for another system
+    print(error)  # the neighbor list was built for other positions or another box
 ```
 
 [Energy minimization](../../simulation/minimize.md) keeps its own list

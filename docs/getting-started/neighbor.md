@@ -4,7 +4,8 @@ A `NeighborList` holds pairs of atoms, including periodic images, in any box:
 every pair closer than a cutoff, the nearest neighbors of each atom, or the
 atoms that share a face of their Voronoi cells.
 Analyses and calculators take one with the keyword `neighbors=`, so a list can
-be built once and shared.
+be built once and shared: it serves every system with the same positions in
+the same box, whatever their other columns.
 
 ```python
 import numpy as np
@@ -123,6 +124,7 @@ it, since it holds neither.
 | `vectors` | (P, 3) float64 vectors $\mathbf{r}_{ij}$ in Å, computed when first used |
 | `within(cutoff)` | the pairs closer than a smaller cutoff, in their order, without a new search; the list itself for its own cutoff. From a list of nearest neighbors it gives a list within a cutoff; a list of Voronoi neighbors refuses it. |
 | `sorted()` | the same pairs, each atom's sorted by distance, pairs at the same distance by atom and then image, as in a list of nearest neighbors; a list of Voronoi neighbors keeps its areas |
+| `fits(system)` | whether the list serves a system: the one it was built for, or any with equal positions in an equal box |
 | `len(nl)` | the number of pairs P |
 
 The arrays work directly with NumPy, for example to sum over the neighbors of

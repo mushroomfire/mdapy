@@ -142,5 +142,5 @@ def test_a_given_list_gives_what_a_search_gives(affine):
         np.testing.assert_allclose(searched.d2min, d2, atol=1e-10)
     with pytest.raises(InvalidParameter, match="below the required"):
         AtomicStrain(reference, 3.0, neighbors=mdapy.NeighborList.build(reference, 2.0))
-    with pytest.raises(InvalidParameter, match="another system"):
+    with pytest.raises(InvalidParameter, match="other positions or another box"):
         AtomicStrain(reference, 3.0, neighbors=mdapy.NeighborList.build(current, 3.0))

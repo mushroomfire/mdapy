@@ -101,8 +101,7 @@ with_structure = crystal.with_columns(result)  # a structure column
 with_structure.table["structure"].dtype  # Int8
 ```
 
-A [neighbor list](../neighbor.md) belongs to the system it was built for,
-the very object: analyses refuse it for another system, even one made from
-it with an extra column, since nothing then guarantees that the atoms are
-the same. Compute the analyses on one system with one list, and attach the
-results at the end; see [Sharing neighbor lists](neighbor-lists.md).
+A [neighbor list](../neighbor.md) serves every system with the positions
+and the box it was built for, so it still serves after `with_columns`, which
+shares the positions; analyses refuse it once the atoms have moved or the
+box has changed. See [Sharing neighbor lists](neighbor-lists.md).

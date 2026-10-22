@@ -678,7 +678,43 @@ def test_given_or_built():
     assert _given_or_built(system, 3.0, wide) is wide
     with pytest.raises(InvalidParameter, match="below the required 4.5"):
         _given_or_built(system, 4.5, wide)
-    with pytest.raises(InvalidParameter, match="another system"):
-        _given_or_built(system.with_positions(system.positions), 3.0, wide)
+    # the same atoms in the same box serve, whatever the other columns
+    assert _given_or_built(system.with_positions(system.positions), 3.0, wide) is wide
+    moved = system.positions.copy()
+    moved[0, 0] += 1e-9
+    with pytest.raises(InvalidParameter, match="other positions or another box"):
+        _given_or_built(system.with_positions(moved), 3.0, wide)
     with pytest.raises(InvalidParameter, match="nearest neighbors"):
         _given_or_built(system, 1.0, NeighborList.build(system, num_neighbors=30))
+
+
+def test_a_list_fits_systems_with_the_same_atoms():
+    system = random_system("triclinic", seed=16)
+    nl = NeighborList.build(system, 3.0)
+    assert nl.fits(system)
+    # new columns, elements or info: the same positions in the same box
+    labeled = system.with_columns(label=np.arange(len(system)))
+    assert labeled.positions.ctypes.data == system.positions.ctypes.data
+    assert nl.fits(labeled)
+    assert nl.fits(system.with_positions(system.positions.copy()))  # equal values
+    moved = system.positions.copy()
+    moved[-1] += [0.0, 1e-12, 0.0]
+    assert not nl.fits(system.with_positions(moved))
+    box = system.box
+    assert not nl.fits(
+        system.with_box(mdapy.Box(box.matrix * 1.01, origin=box.origin, pbc=box.pbc))
+    )
+    assert not nl.fits(
+        system.with_box(mdapy.Box(box.matrix, origin=box.origin + 1.0, pbc=box.pbc))
+    )
+    assert not nl.fits(
+        system.with_box(mdapy.Box(box.matrix, origin=box.origin, pbc=False))
+    )
+    assert not nl.fits(system.select(np.arange(len(system) - 1)))
+    # analyses take the list for the labeled system
+    from mdapy.analysis import RadialDistributionFunction
+
+    rdf = RadialDistributionFunction(3.0, bins=30)
+    np.testing.assert_array_equal(
+        rdf.compute(labeled, neighbors=nl).g, rdf.compute(system).g
+    )

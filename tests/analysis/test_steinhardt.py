@@ -213,8 +213,11 @@ def test_neighbor_lists_that_do_not_fit():
         SteinhardtParameters(cutoff=3.0).compute(system, neighbors=voronoi)
     with pytest.raises(InvalidParameter, match="does not hold the nearest"):
         SteinhardtParameters().compute(system, neighbors=voronoi)
-    other = crystal("fcc", 3.6)
-    with pytest.raises(InvalidParameter, match="another system"):
+    # the same crystal made again serves; a strained one does not
+    again = crystal("fcc", 3.6)
+    SteinhardtParameters(voronoi=True).compute(again, neighbors=voronoi)
+    other = crystal("fcc", 3.61)
+    with pytest.raises(InvalidParameter, match="other positions or another box"):
         SteinhardtParameters(voronoi=True).compute(other, neighbors=voronoi)
 
 

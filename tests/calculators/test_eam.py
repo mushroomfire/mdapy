@@ -87,7 +87,7 @@ def test_errors(potential, tmp_path):
     with pytest.raises(InvalidParameter, match="below the required"):
         potential.compute(system, neighbors=small)
     other = mdapy.NeighborList.build(alloy(seed=6), CUTOFF)
-    with pytest.raises(InvalidParameter, match="another system"):
+    with pytest.raises(InvalidParameter, match="other positions or another box"):
         potential.compute(system, neighbors=other)
     nearest = mdapy.NeighborList.build(system, num_neighbors=40)
     with pytest.raises(InvalidParameter, match="nearest neighbors"):

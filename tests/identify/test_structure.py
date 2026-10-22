@@ -123,7 +123,7 @@ def test_given_neighbors_and_threads():
             )
     with pytest.raises(InvalidParameter, match="below the required"):
         fixed.compute(system, neighbors=mdapy.NeighborList.build(system, 2.0))
-    with pytest.raises(InvalidParameter, match="another system"):
+    with pytest.raises(InvalidParameter, match="other positions or another box"):
         fixed.compute(crystal("fcc", 3.6), neighbors=nl)
 
 

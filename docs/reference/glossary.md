@@ -71,6 +71,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | prebuilt neighbor list | `neighbors=` (keyword-only) | |
 | reference configuration | `reference=` | `ref` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
+| interval between kept frames | `save_every` | `dump_freq`, `interval` |
 
 Boolean options are named positively, for example `include_self=True`.
 

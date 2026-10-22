@@ -241,7 +241,7 @@ atom type has.
 ## Energy minimization
 
 `mdapy.minimize(system, calculator, *, max_force=1e-3, max_steps=1000,
-max_step=0.1, timestep=0.001, callback=None)` minimizes the energy over the
+max_step=0.1, timestep=0.001, save_every=None, callback=None)` minimizes the energy over the
 positions, in a fixed box, with FIRE 2.0, as LAMMPS `min_style fire` does
 with its default settings.
 
@@ -253,6 +253,7 @@ with its default settings.
 | `max_steps` | int | 1000 | | largest number of steps |
 | `max_step` | float | 0.1 | Å | an atom moving at its current velocity goes at most this far along x, y or z in one step (LAMMPS `dmax`) |
 | `timestep` | float | 0.001 | ps | first time step of the dynamics (the LAMMPS `timestep` in metal units) |
+| `save_every` | int | `None` | | keeps the configuration every this many steps, with the first and the last, in `frames` |
 | `callback` | callable | `None` | | called after each step as `callback(step, system, energy, max_force)`; returning True stops the minimization |
 
 It returns a `MinimizeResult`:
@@ -264,6 +265,7 @@ It returns a `MinimizeResult`:
 | `steps` | int | number of steps taken |
 | `energy` | float | energy of the last configuration in eV |
 | `max_force` | float | largest force of the last configuration in eV/Å |
+| `frames` | tuple of `System` or `None` | with `save_every`, the kept configurations, with `forces` and `atomic_energies` columns and `energy` and the step as `timestep` in `info`; `None` otherwise |
 
 The steps are those of LAMMPS: the same time step control, mixing and half
 step back after an uphill step, with masses from the `mass` column or, when
@@ -271,9 +273,18 @@ there is none, the standard atomic weights of the elements. Masses change
 the path, not the minimum; LAMMPS takes them from the data file or, for EAM,
 from the potential file.
 
+The kept frames show the minimization on its way and can be written as a
+trajectory:
+
+<!-- skip-test -->
+```python
+result = mdapy.minimize(system, potential, save_every=10)
+mdapy.write("relaxation.xyz", result.frames)
+```
+
 `minimize` raises `InvalidParameter` for a non-positive `max_force`,
-`max_step` or `timestep`, a negative `max_steps`, or a calculator that does
-not compute both energies and forces, and
+`max_step`, `timestep` or `save_every`, a negative `max_steps`, or a
+calculator that does not compute both energies and forces, and
 [`MissingProperty`](../reference/api.md#mdapy.errors.MissingProperty) for a
 system with neither masses nor elements.
 

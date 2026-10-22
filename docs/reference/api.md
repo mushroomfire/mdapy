@@ -28,9 +28,11 @@ import mdapy
 
 ::: mdapy.Box
 
+::: mdapy.NeighborList
+
 ::: mdapy.core.box.LammpsBox
 
-## Threads
+## Threads and indices
 
 ::: mdapy.get_num_threads
 
@@ -39,6 +41,8 @@ import mdapy
 ::: mdapy.num_threads
 
 ::: mdapy.CancelToken
+
+::: mdapy.core.indices.index_dtype
 
 ## Errors
 

@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(MDAPY_WERROR "Treat compiler warnings as errors" OFF)
+option(MDAPY_INDEX64 "64-bit atom indices, for more than 2^31 - 1 atoms" OFF)
 set(MDAPY_SANITIZE "" CACHE STRING
   "Sanitizer build: 'address' (AddressSanitizer + UndefinedBehaviorSanitizer) or 'thread' (ThreadSanitizer)")
 
@@ -25,10 +26,16 @@ file(GLOB_RECURSE MDAPY_CPP_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/*.cpp")
 
 # NB_SUPPRESS_WARNINGS marks nanobind's headers as system headers, so the strict
-# warning flags below (and -Werror) apply to mdapy's own code only.
-nanobind_add_module(_core STABLE_ABI NB_STATIC NB_SUPPRESS_WARNINGS ${MDAPY_CPP_SOURCES})
+# warning flags below (and -Werror) apply to mdapy's own code only. NOMINSIZE
+# keeps the optimization of the build type: nanobind would otherwise compile
+# the whole module, kernels included, for size with -Os.
+nanobind_add_module(_core STABLE_ABI NB_STATIC NB_SUPPRESS_WARNINGS NOMINSIZE
+  ${MDAPY_CPP_SOURCES})
 target_include_directories(_core PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp")
 target_link_libraries(_core PRIVATE Threads::Threads)
+if(MDAPY_INDEX64)
+  target_compile_definitions(_core PRIVATE MDAPY_INDEX64)
+endif()
 
 if(MSVC)
   target_compile_options(_core PRIVATE /W4 /permissive- /EHsc)
@@ -36,7 +43,9 @@ if(MSVC)
     target_compile_options(_core PRIVATE /WX)
   endif()
 else()
-  target_compile_options(_core PRIVATE -Wall -Wextra -Wpedantic -Wshadow)
+  # No fused multiply-add contraction: results are the same bits with every
+  # compiler and processor.
+  target_compile_options(_core PRIVATE -Wall -Wextra -Wpedantic -Wshadow -ffp-contract=off)
   if(MDAPY_WERROR)
     target_compile_options(_core PRIVATE -Werror)
   endif()

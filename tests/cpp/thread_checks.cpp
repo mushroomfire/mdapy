@@ -6,12 +6,15 @@
 // test suite on Linux (polars crashes on import under it):
 //
 //   g++ -std=c++17 -O1 -g -fsanitize=thread -Isrc/cpp -pthread -o thread_checks
-//       src/cpp/core/parallel.cpp src/cpp/io/text.cpp tests/cpp/thread_checks.cpp
+//       src/cpp/core/parallel.cpp src/cpp/io/text.cpp src/cpp/neighbor/cell_list.cpp
+//       src/cpp/neighbor/kd_tree.cpp tests/cpp/thread_checks.cpp
 //
 // Every check also verifies its result; the program exits with 1 on a failure.
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -19,10 +22,13 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include "core/parallel.h"
 #include "io/text.h"
+#include "neighbor/cell_list.h"
+#include "neighbor/kd_tree.h"
 
 namespace {
 
@@ -295,6 +301,113 @@ void text_tables() {
     }
 }
 
+void neighbor_search() {
+    const std::int64_t n = 3000;
+    std::mt19937_64 random(3);
+    std::uniform_real_distribution<double> uniform(0.0, 1.0);
+    const double matrix[9] = {20.0, 0.0, 0.0, 3.0, 18.0, 0.0, -2.0, 1.5, 22.0};
+    const double origin[3] = {1.0, -2.0, 0.5};
+    const bool pbc[3] = {true, true, false};
+    std::vector<double> positions(n * 3);
+    for (std::int64_t i = 0; i < n; ++i) {
+        const double f[3] = {uniform(random), uniform(random), uniform(random)};
+        for (int e = 0; e < 3; ++e) {
+            positions[3 * i + e] =
+                origin[e] + f[0] * matrix[e] + f[1] * matrix[3 + e] + f[2] * matrix[6 + e];
+        }
+    }
+    // the pairs of each atom as a sorted list, to compare lists in any order
+    using Key = std::tuple<mdapy::index_t, int, int, int, double>;
+    const auto keys = [&](const mdapy::neighbor::NeighborPairs& pairs) {
+        std::vector<std::vector<Key>> atoms(static_cast<std::size_t>(n));
+        for (std::int64_t i = 0; i < n; ++i) {
+            for (std::int64_t p = pairs.offsets[i]; p < pairs.offsets[i + 1]; ++p) {
+                const std::int8_t* s = &pairs.shifts[3 * p];
+                atoms[i].emplace_back(pairs.neighbors[p], s[0], s[1], s[2], pairs.distances[p]);
+            }
+            std::sort(atoms[i].begin(), atoms[i].end());
+        }
+        return atoms;
+    };
+    mdapy::neighbor::NeighborPairs first, first_near;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        mdapy::neighbor::NeighborPairs pairs = mdapy::neighbor::build(
+            positions.data(), n, matrix, origin, pbc, 3.5);
+        if (threads == kThreads[0]) {
+            first = pairs;
+        }
+        check(pairs.offsets == first.offsets && pairs.neighbors == first.neighbors &&
+                  pairs.shifts == first.shifts && pairs.distances == first.distances,
+              "the neighbor search gives the same pairs for any thread count");
+        check(pairs.offsets.back() > 0, "the neighbor search finds pairs");
+        std::vector<std::int64_t> order, kept;
+        mdapy::neighbor::order_by_distance(n, pairs.offsets.data(), pairs.distances.data(), 12,
+                                           order, kept);
+        bool sorted = kept.back() == 12 * n;
+        for (std::int64_t i = 0; i < n && sorted; ++i) {
+            for (std::int64_t k = kept[i] + 1; k < kept[i + 1]; ++k) {
+                sorted = sorted && pairs.distances[order[k - 1]] <= pairs.distances[order[k]];
+            }
+        }
+        check(sorted, "the nearest neighbors come in order of distance");
+        const mdapy::neighbor::NeighborPairs near =
+            mdapy::neighbor::nearest(positions.data(), n, matrix, origin, pbc, 12);
+        if (threads == kThreads[0]) {
+            first_near = near;
+        }
+        check(near.neighbors == first_near.neighbors && near.shifts == first_near.shifts &&
+                  near.distances == first_near.distances,
+              "the k-d tree gives the same neighbors for any thread count");
+        bool same = true;
+        for (std::int64_t i = 0; i < n && same; ++i) {
+            for (int k = 0; k < 12; ++k) {
+                same = same && near.distances[12 * i + k] == pairs.distances[order[kept[i] + k]];
+            }
+        }
+        check(same, "the k-d tree finds the first pairs of the ordered list");
+        std::vector<double> vectors(3 * pairs.neighbors.size());
+        mdapy::neighbor::pair_vectors(positions.data(), n, pairs.offsets.data(),
+                                      pairs.neighbors.data(), pairs.shifts.data(), matrix,
+                                      vectors.data());
+        bool lengths = true;
+        for (std::size_t p = 0; p < pairs.neighbors.size(); ++p) {
+            const double* v = &vectors[3 * p];
+            lengths = lengths && std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) ==
+                                     pairs.distances[p];
+        }
+        check(lengths, "the pair vectors have the lengths of the distances");
+        // the pairs within 3 of a list within 3.5, as a new search finds them
+        mdapy::Buffer<double> followed_vectors;
+        const mdapy::neighbor::NeighborPairs followed = mdapy::neighbor::follow(
+            positions.data(), n, pairs.offsets.data(), pairs.neighbors.data(),
+            pairs.shifts.data(), matrix, 3.0, followed_vectors);
+        const mdapy::neighbor::NeighborPairs shorter =
+            mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 3.0);
+        check(followed.offsets == shorter.offsets && keys(followed) == keys(shorter) &&
+                  followed_vectors.size() == 3 * shorter.neighbors.size(),
+              "following a longer list gives the pairs of a new search");
+        // every atom is the nearest atom to its own position
+        const mdapy::neighbor::KdTree tree(positions.data(), n, matrix, origin, pbc);
+        std::vector<mdapy::index_t> j(static_cast<std::size_t>(n));
+        std::vector<std::int8_t> shifts(3 * static_cast<std::size_t>(n));
+        std::vector<double> distances(static_cast<std::size_t>(n));
+        tree.nearest_points(positions.data(), n, 1, j.data(), shifts.data(), distances.data());
+        bool own = true;
+        for (std::int64_t i = 0; i < n; ++i) {
+            own = own && j[i] == i && distances[i] == 0.0;
+        }
+        check(own, "every atom is the nearest atom to its position");
+    }
+    bool thrown = sizeof(mdapy::index_t) == 8;
+    try {
+        mdapy::check_atom_count(std::int64_t{1} << 31);
+    } catch (const std::overflow_error&) {
+        thrown = true;
+    }
+    check(thrown, "2^31 atoms need 64-bit indices");
+}
+
 }  // namespace
 
 int main() {
@@ -302,6 +415,7 @@ int main() {
     progress_cancellation_and_errors();
     nested_and_concurrent_regions();
     text_tables();
+    neighbor_search();
     if (failures == 0) {
         std::printf("all checks passed\n");
     }

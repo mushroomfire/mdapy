@@ -47,6 +47,22 @@ jobs:
         shell: bash
         run: pytest -q -n auto
 
+  # 64-bit atom indices, the build for more than 2^31 - 1 atoms.
+  index64:
+    name: pytest — 64-bit indices
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install ".[dev]" -Ccmake.define.MDAPY_WERROR=ON -Ccmake.define.MDAPY_INDEX64=ON
+      - name: Test
+        run: |
+          python -c "import mdapy; assert mdapy.index_dtype == 'int64'"
+          pytest -q -n auto
+
   coverage:
     name: coverage
     runs-on: ubuntu-latest
@@ -103,10 +119,10 @@ jobs:
       - uses: actions/checkout@v5
       - name: Build the thread checks with ThreadSanitizer
         run: >
-          g++ -std=c++17 -O1 -g -fsanitize=thread -fno-omit-frame-pointer
+          g++ -std=c++17 -O1 -g -fsanitize=thread -fno-omit-frame-pointer -ffp-contract=off
           -Wall -Wextra -Wpedantic -Wshadow -Werror -Isrc/cpp -pthread
           -o thread_checks src/cpp/core/parallel.cpp src/cpp/io/text.cpp
-          tests/cpp/thread_checks.cpp
+          src/cpp/neighbor/cell_list.cpp src/cpp/neighbor/kd_tree.cpp tests/cpp/thread_checks.cpp
       - name: Run them
         run: |
           # Recent kernels randomize mmap with 32 bits, which TSan does not expect.

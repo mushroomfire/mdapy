@@ -32,9 +32,8 @@ The setting is global to the process, not to the calling Python thread.
 
 ## Progress and cancellation
 
-Computations that can take long accept two keyword-only arguments. (This is
-the convention for every such computation; in 2.0.0.dev0 none of them is
-available yet.)
+Computations that can take long, such as
+[`NeighborList.build`](neighbor.md), accept two keyword-only arguments.
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|

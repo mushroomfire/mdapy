@@ -762,15 +762,15 @@ void structure_identification() {
         check(counted_listed == counted, "neighbors counted from a list are those of the grid");
         // a wider list: its histogram is that of the grid, and the pairs of it
         // within 3.07 are those of a search within 3.07
-        const mdapy::neighbor::NeighborPairs wide =
+        const mdapy::neighbor::NeighborPairs longer =
             mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 6.5);
-        check(mdapy::analysis::pair_histogram_list(n, wide.offsets.data(), wide.neighbors.data(),
-                                                   wide.distances.data(), 6.0, 60,
+        check(mdapy::analysis::pair_histogram_list(n, longer.offsets.data(), longer.neighbors.data(),
+                                                   longer.distances.data(), 6.0, 60,
                                                    species.data(), 1) == histogram,
               "the pair histogram of a list is that of the grid");
         const mdapy::neighbor::NeighborPairs cut = mdapy::neighbor::within(
-            n, wide.offsets.data(), wide.neighbors.data(), wide.shifts.data(),
-            wide.distances.data(), nullptr, 1, &limit);
+            n, longer.offsets.data(), longer.neighbors.data(), longer.shifts.data(),
+            longer.distances.data(), nullptr, 1, &limit);
         check(cut.offsets == pairs.offsets, "the pairs of a list within a cutoff are found");
         // clusters of bonds shorter than 2.6, on the grid and from the list
         const double bond = 2.6;

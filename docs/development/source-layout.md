@@ -27,6 +27,7 @@
 | `src/mdapy/calculators/_eam.py` | `EAM`. |
 | `src/mdapy/calculators/_zhou.py` | The parameters and tables of the potentials of Zhou et al. |
 | `src/mdapy/calculators/_lammps.py` | `LAMMPS`, the calculator of any LAMMPS interaction. |
+| `src/mdapy/calculators/_vasp.py` | `VASP`, single points of VASP run by a command. |
 | `src/mdapy/calculators/_nep.py` | `NEP` and its file reader. |
 | `src/mdapy/simulation/_minimize.py` | `minimize`, with FIRE 2.0, of the positions and the box. |
 | `src/mdapy/lattice_dynamics/_elastic.py` | `elastic_constants`. |

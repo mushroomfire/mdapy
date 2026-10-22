@@ -117,6 +117,12 @@ indentation, *Phys. Rev. B* **58**, 11085 (1998).
 [doi:10.1103/PhysRevB.58.11085](https://doi.org/10.1103/PhysRevB.58.11085)
 { #kelchner1998 }
 
+**Kresse and Furthmüller (1996).** G. Kresse and J. Furthmüller, Efficient
+iterative schemes for ab initio total-energy calculations using a
+plane-wave basis set, *Phys. Rev. B* **54**, 11169 (1996).
+[doi:10.1103/PhysRevB.54.11169](https://doi.org/10.1103/PhysRevB.54.11169)
+{ #kresse1996 }
+
 **Larsen et al. (2017).** A. H. Larsen et al., The atomic simulation
 environment—a Python library for working with atoms, *J. Phys.: Condens.
 Matter* **29**, 273002 (2017).

@@ -10,6 +10,7 @@ __all__ = [
     "UnsupportedFormat",
     "FileFormatError",
     "Cancelled",
+    "CalculationFailed",
 ]
 
 
@@ -54,3 +55,11 @@ class FileFormatError(MdapyError, ValueError):
 
 class Cancelled(MdapyError):
     """A computation was stopped through a :class:`mdapy.CancelToken`."""
+
+
+class CalculationFailed(MdapyError, RuntimeError):
+    """An external program behind a calculator, such as VASP, did not finish
+    a calculation.
+
+    The message holds the end of what the program wrote.
+    """

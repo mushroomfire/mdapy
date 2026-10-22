@@ -126,6 +126,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | bounces of light in a picture | `bounces`, `samples` | `depth`, `spp` |
 | where the rays of a picture are traced | `device` (`"cpu"`, `"gpu"`, `"auto"`) | `backend`, `use_gpu` |
 | whether the positions relax | `relax` (bool) | `relax_atoms`, `minimize` |
+| INCAR tags, mesh of k-points, folder of POTCARs and the POTCAR of each element | `incar`, `kpoints`, `potcars`, `setups` | `params`, `kpts`, `pp_path`, `potcar_map` |
+| command that runs a program, the folder it runs in | `command`, `directory` | `exe`, `workdir`, `label` |
+| keep the wave functions between calls | `restart` (bool) | `istart`, `keep_files` |
 | average of a polycrystal | `average` (`"voigt"`, `"reuss"`, `"hill"`) | `method` |
 
 Boolean options are named positively, for example `include_self=True`.

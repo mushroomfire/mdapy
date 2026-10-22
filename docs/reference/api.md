@@ -183,6 +183,8 @@ import mdapy
 
 ::: mdapy.calculators.LAMMPS
 
+::: mdapy.calculators.VASP
+
 ::: mdapy.calculators.testing.check_calculator
 
 ## Simulation

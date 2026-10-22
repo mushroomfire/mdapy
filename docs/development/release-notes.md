@@ -84,6 +84,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   the average-atom potential of a random alloy.
 - `mdapy.calculators.LAMMPS` makes any interaction of LAMMPS a calculator,
   through the LAMMPS Python module.
+- `mdapy.calculators.VASP` runs VASP for each calculation with a command,
+  as in the job script of a cluster: it writes the inputs, keeps the wave
+  functions between calls and reads the OUTCAR. `CalculationFailed` reports
+  a run that stopped. See [VASP](../simulation/vasp.md).
 
 ### Simulation
 

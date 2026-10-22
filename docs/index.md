@@ -159,7 +159,7 @@ flowchart TB
 
     Calculators: [the interface](simulation/calculators.md) ·
     [EAM](simulation/eam.md) · [NEP](simulation/nep.md) ·
-    [LAMMPS](simulation/lammps.md)
+    [LAMMPS](simulation/lammps.md) · [VASP](simulation/vasp.md)
 
     Minimization and dynamics: [energy minimization](simulation/minimize.md) ·
     [defect energies](simulation/defect-energies.md)

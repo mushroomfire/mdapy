@@ -151,6 +151,7 @@ nav:
           - EAM: simulation/eam.md
           - NEP: simulation/nep.md
           - LAMMPS: simulation/lammps.md
+          - VASP: simulation/vasp.md
       - Minimization and dynamics:
           - Energy minimization: simulation/minimize.md
           - Defect energies: simulation/defect-energies.md

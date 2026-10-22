@@ -96,7 +96,8 @@ and each pair's virial is shared equally by its two atoms. The atoms need an
 `NEP(path)` reads a neuroevolution potential of version 4 in the `nep.txt`
 format of GPUMD, without (`nep4`) or with (`nep4_zbl`) a ZBL repulsion, and
 computes every property. `NEP.descriptors(system)` returns the descriptors of
-each atom, scaled as the network sees them. Other models of GPUMD (NEP3,
+each atom, scaled as the network sees them, without the network and the
+forces, in about 40 % of the time of the forces. Other models of GPUMD (NEP3,
 NEP5, charge, dipole and polarizability models) raise
 [`FileFormatError`](../reference/api.md#mdapy.errors.FileFormatError).
 

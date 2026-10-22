@@ -298,21 +298,6 @@ class NEP(Calculator):
             _zbl_table(model).ravel(),
         )
 
-    def _run(self, system, neighbors, descriptors, progress, cancel):
-        species = _element_indices(system, self.elements, "NEP")
-        neighbors = _neighbor_list(system, self.cutoff, neighbors)
-        return _native.compute_nep(
-            self._model,
-            species,
-            neighbors.offsets,
-            neighbors.j,
-            np.ascontiguousarray(neighbors.shifts),
-            np.ascontiguousarray(neighbors.vectors),
-            descriptors,
-            progress,
-            _native_token(cancel),
-        )
-
     def compute(
         self,
         system: System,
@@ -323,8 +308,17 @@ class NEP(Calculator):
         cancel: Any = None,
     ) -> CalculatorResult:
         self._check_properties(properties)
-        energies, forces, virials, _ = self._run(
-            system, neighbors, False, progress, cancel
+        species = _element_indices(system, self.elements, "NEP")
+        neighbors = _neighbor_list(system, self.cutoff, neighbors)
+        energies, forces, virials = _native.compute_nep(
+            self._model,
+            species,
+            neighbors.offsets,
+            neighbors.j,
+            np.ascontiguousarray(neighbors.shifts),
+            np.ascontiguousarray(neighbors.vectors),
+            progress,
+            _native_token(cancel),
         )
         return CalculatorResult(
             energy=float(energies.sum()),
@@ -357,7 +351,18 @@ class NEP(Calculator):
             (N, dim) descriptors: the radial ones, then the angular ones by
             l and n, then the four-body and five-body ones by n.
         """
-        return self._run(system, neighbors, True, progress, cancel)[3]
+        species = _element_indices(system, self.elements, "NEP")
+        neighbors = _neighbor_list(system, self.cutoff, neighbors)
+        return _native.nep_descriptors(
+            self._model,
+            species,
+            neighbors.offsets,
+            neighbors.j,
+            np.ascontiguousarray(neighbors.shifts),
+            np.ascontiguousarray(neighbors.vectors),
+            progress,
+            _native_token(cancel),
+        )
 
     def __repr__(self) -> str:
         return f"NEP({self.path!r}, elements={self.elements}, cutoff={self.cutoff})"

@@ -214,7 +214,7 @@ BSD 3-Clause. See [LICENSE](LICENSE).
   - 每个分支单独重跑了全部测试和逐文件覆盖率门槛，全部通过。
   - 从源码打 wheel，装进全新的虚拟环境，冒烟测试通过。
 
-### 04:55
+### 04:52
 - **新草稿分支 `ase-calculator-draft`**：对应待定项"ASE 计算器适配器要不要做"，先做出来给你看。`to_ase_calculator(EAM(...))` 让任何 mdapy 计算器都能当 ASE 计算器用：能量、力、应力（eV/Å³，ASE 的分量顺序）、逐原子能量和应力，可以直接用 ASE 的 BFGS、`FrechetCellFilter` 和 MD。测试结果：
   - 与 mdapy 直接计算的结果相同；
   - 应力与 ASE 的有限差分一致到 1e-8 eV/Å³；

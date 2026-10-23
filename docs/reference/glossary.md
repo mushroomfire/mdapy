@@ -23,7 +23,7 @@ implemented.
 | `Topology` | Bonds, angles, dihedrals and impropers of a system; each a table with `atoms` (0-based row indices), `type` and optional `type_label`. |
 | format | Name of a file format, passed as `format=`, such as `extxyz`. See [Reading and writing files](../getting-started/io.md). |
 | `Calculator` | Interface that computes energy, forces and virial for a `System`. |
-| `interop` | The module that converts to and from the objects of other packages: `to_ase`, `from_ase`, `to_ase_calculator`. |
+| `interop` | The module that converts to and from the objects of other packages: `to_ase`, `from_ase`, `to_ase_calculator`, `from_ase_calculator`, `to_ovito`, `from_ovito`, `to_pymatgen`, `from_pymatgen`, `to_freud`, `from_freud`. |
 | average atom | The single species of an average-atom potential, standing for a random alloy; `A` in potential files. |
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |

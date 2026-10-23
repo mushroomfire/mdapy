@@ -1,8 +1,8 @@
-# ASE atoms
+# ASE
 
 `mdapy.interop.to_ase` and `from_ase` convert a `System` to an `ase.Atoms`
 and back, with velocities, charges, constraints and the results of a
-calculation, so that a structure can move between mdapy and ASE.
+calculation.
 
 ```python
 from ase.build import bulk
@@ -18,7 +18,8 @@ back = to_ase(system)
 back.constraints  # [FixAtoms(indices=[0, 1])]
 ```
 
-Both need ASE (`pip install mdapy[ase]`).
+Both need ASE (`pip install mdapy[ase]`). Calculators go between ASE and
+mdapy too; see [ASE calculators](ase-calculators.md).
 
 ## Parameters
 
@@ -56,5 +57,4 @@ for constraints other than `FixAtoms` and `FixCartesian`.
 
 ## See also
 
-- [ASE calculator](../simulation/ase.md): an mdapy calculator in ASE.
 - The [ase.Atoms](https://wiki.fysik.dtu.dk/ase/ase/atoms.html) object.

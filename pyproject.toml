@@ -77,6 +77,8 @@ filterwarnings = [
     "ignore:Did you accidentally install the OVITO package:UserWarning",
     # ASE sets the shape of NumPy arrays, which NumPy 2.5 deprecates
     "ignore:Setting the shape on a NumPy array:DeprecationWarning:ase",
+    # pymatgen asks spglib for the old error handling, which spglib deprecates
+    "ignore:Set OLD_ERROR_HANDLING to false:DeprecationWarning:spglib",
 ]
 
 [tool.coverage.run]

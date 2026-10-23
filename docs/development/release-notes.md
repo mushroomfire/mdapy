@@ -52,9 +52,6 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.read_trajectory` opens the frames of any file lazily: frames are
   found and read when used, slices share the open file, and iteration starts
   at once. See [Trajectories](../getting-started/trajectory.md).
-- `mdapy.interop.to_ase` and `from_ase` convert to and from `ase.Atoms`,
-  with velocities, charges, constraints, other numeric columns and the
-  results of a calculation. See [ASE atoms](../getting-started/ase.md).
 
 ### Neighbor search
 
@@ -91,9 +88,6 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   as in the job script of a cluster: it writes the inputs, keeps the wave
   functions between calls and reads the OUTCAR. `CalculationFailed` reports
   a run that stopped. See [VASP](../simulation/vasp.md).
-- `mdapy.interop.to_ase_calculator` makes any mdapy calculator an ASE
-  calculator, for the optimizers, cell filters and dynamics of ASE. See
-  [ASE calculator](../simulation/ase.md).
 
 ### Simulation
 
@@ -222,6 +216,27 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   as PDF, SVG and PNG) and plots of results: parity, g(r), S(q), bond
   angles, MSD with the diffusion coefficient, stacking fault energies,
   counts of structures. See [Plots](../visualization/plots.md).
+
+### Interoperability
+
+- `mdapy.interop.to_ase` and `from_ase` convert to and from `ase.Atoms`,
+  with velocities, charges, constraints, other numeric columns and the
+  results of a calculation. See [ASE](../interop/ase.md).
+- `mdapy.interop.to_ase_calculator` makes any mdapy calculator an ASE
+  calculator, and `from_ase_calculator` any ASE calculator, such as that
+  of torchnep, an mdapy calculator. See
+  [ASE calculators](../interop/ase-calculators.md).
+- `mdapy.interop.to_ovito` and `from_ovito` convert to and from OVITO data
+  collections, with types, standard properties, the topology and the
+  attributes, so that results of OVITO pipelines come back as columns.
+  See [OVITO](../interop/ovito.md).
+- `mdapy.interop.to_pymatgen` and `from_pymatgen` convert to and from
+  pymatgen structures and molecules. See [pymatgen](../interop/pymatgen.md).
+- `mdapy.interop.to_freud` gives the box and points of freud's analyses,
+  and `from_freud` takes them back. See [freud](../interop/freud.md).
+- Pages on exchanging files and calculators with
+  [LAMMPS](../interop/lammps.md), [VASP](../interop/vasp.md) and
+  [GPUMD](../interop/gpumd.md).
 
 ### Performance
 

@@ -27,6 +27,7 @@ The site has one tab per kind of content, each a directory of `docs/`:
 | Simulation | `simulation/` | calculators; minimization and dynamics (molecular dynamics through other programs); lattice dynamics (elastic constants, force constants, phonons) |
 | MLIP | `mlip/` | training data for machine-learned potentials: descriptors and their principal components, selection of frames, training sets from first-principles calculations |
 | Visualization | `visualization/` | rendering images of systems; plot templates for results |
+| Interoperability | `interop/` | conversions to and from other Python packages, and how files and calculators connect mdapy with simulation programs |
 | Performance | `performance/` | timings of mdapy and of other programs |
 | Reference | `reference/` | file formats, units and conventions, elements, the glossary, the references and the Python API |
 | Development | `development/` | contributing, the source layout and the release notes |
@@ -45,7 +46,10 @@ sections, in this order:
 1. **Title and one sentence** saying what the feature does.
 2. **Minimal example** that runs as shown. `tests/test_docs.py` runs every
    Python block of every page, in order, with shared variables. A block that
-   is only an illustration is preceded by the line `<!-- skip-test -->`.
+   is only an illustration is preceded by the line `<!-- skip-test -->`. A
+   page whose examples need an optional package starts with a line such as
+   `<!-- needs: ovito -->`; its examples are skipped where the package is
+   not installed.
 3. **Parameters**, as a table: `| Name | Type | Default | Unit | Meaning |`.
 4. **Results**: the attributes and every public method, as tables, with the
    conventions needed to read them.

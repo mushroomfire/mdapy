@@ -103,6 +103,8 @@ jobs:
           "
       # OVITO for the comparisons with OVITO, at its reference version
       - run: pip install ovito==3.17.0
+      # freud and pymatgen for the conversions to and from them
+      - run: pip install freud-analysis pymatgen-core
       # atomsk for the comparisons of the structure builder, at its reference
       # version, built once; it needs the Fortran and LAPACK libraries to run
       - run: sudo apt-get update -q && sudo apt-get install -y -q gfortran liblapack-dev

@@ -221,13 +221,27 @@ import mdapy
 
 ::: mdapy.lattice_dynamics.ElasticResult
 
-## Other packages
+## Interoperability
 
 ::: mdapy.interop.to_ase
 
 ::: mdapy.interop.from_ase
 
 ::: mdapy.interop.to_ase_calculator
+
+::: mdapy.interop.from_ase_calculator
+
+::: mdapy.interop.to_ovito
+
+::: mdapy.interop.from_ovito
+
+::: mdapy.interop.to_pymatgen
+
+::: mdapy.interop.from_pymatgen
+
+::: mdapy.interop.to_freud
+
+::: mdapy.interop.from_freud
 
 ## Threads and indices
 

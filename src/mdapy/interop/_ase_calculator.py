@@ -1,14 +1,17 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
-"""An mdapy calculator as an ASE calculator."""
+"""mdapy calculators as ASE calculators, and ASE calculators as mdapy
+calculators."""
 
+from collections.abc import Iterable
 from typing import Any
 
 import numpy as np
 
-from mdapy.calculators._base import Calculator
-from mdapy.interop._ase import from_ase
+from mdapy.calculators._base import Calculator, CalculatorResult
+from mdapy.core.system import System
+from mdapy.interop._ase import from_ase, to_ase
 
 # ASE properties, and the mdapy properties they need.
 _NEEDS = {
@@ -93,3 +96,102 @@ def to_ase_calculator(calculator: Calculator) -> Any:
             return f"to_ase_calculator({calculator!r})"
 
     return MdapyCalculator()
+
+
+# mdapy properties, and the ASE properties that give them.
+_GIVES = {
+    "energy": "energy",
+    "atomic_energies": "energies",
+    "forces": "forces",
+    "virial": "stress",
+    "atomic_virials": "stresses",
+}
+
+
+class _FromASE(Calculator):
+    """An ASE calculator as an mdapy calculator."""
+
+    cutoff = 0.0
+
+    def __init__(self, calculator: Any) -> None:
+        self.calculator = calculator
+        offered = set(calculator.implemented_properties)
+        self.implemented = frozenset(
+            name for name, needed in _GIVES.items() if needed in offered
+        )
+        # the free energy is the one the forces derive from
+        self._free = "free_energy" in offered
+
+    def compute(
+        self,
+        system: System,
+        properties: Iterable[str] = ("energy", "forces"),
+        *,
+        neighbors: Any = None,
+    ) -> CalculatorResult:
+        """Computes properties of a system with the ASE calculator.
+
+        Parameters
+        ----------
+        system : System
+            The atoms, with the columns the ASE calculator needs (usually
+            ``element``).
+        properties : iterable of str, optional
+            The properties to compute.
+        neighbors : NeighborList, optional
+            Not used.
+
+        Returns
+        -------
+        CalculatorResult
+            The requested properties.
+
+        Raises
+        ------
+        InvalidParameter
+            If a property is not one the ASE calculator computes.
+        """
+        wanted = self._check_properties(properties)
+        atoms = to_ase(system)
+        atoms.calc = self.calculator
+        values: dict[str, Any] = {}
+        if "energy" in wanted:
+            values["energy"] = float(
+                atoms.get_potential_energy(force_consistent=self._free)
+            )
+        if "atomic_energies" in wanted:
+            values["atomic_energies"] = np.array(
+                atoms.get_potential_energies(), dtype=np.float64
+            )
+        if "forces" in wanted:
+            values["forces"] = np.array(atoms.get_forces(), dtype=np.float64)
+        volume = system.box.volume
+        if "virial" in wanted:
+            values["virial"] = -atoms.get_stress(voigt=False) * volume
+        if "atomic_virials" in wanted:
+            values["atomic_virials"] = -atoms.get_stresses(voigt=False) * volume
+        return CalculatorResult(**values)
+
+    def __repr__(self) -> str:
+        return f"from_ase_calculator({self.calculator!r})"
+
+
+def from_ase_calculator(calculator: Any) -> Calculator:
+    """An ASE calculator as an mdapy calculator.
+
+    Parameters
+    ----------
+    calculator : ase.calculators.calculator.Calculator
+        Any ASE calculator, such as EMT or the calculator of a
+        machine-learned potential.
+
+    Returns
+    -------
+    Calculator
+        An mdapy calculator with the properties that the ASE calculator
+        computes: ``energy`` (the free energy where the ASE calculator gives
+        one), ``atomic_energies``, ``forces``, ``virial`` from the stress and
+        ``atomic_virials`` from the atomic stresses. Its ``cutoff`` is 0: it
+        uses no neighbor list of mdapy.
+    """
+    return _FromASE(calculator)

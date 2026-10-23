@@ -35,9 +35,12 @@ flowchart TB
     calculators["<b>Calculators</b><br/>EAM · NEP · LAMMPS"]
     minimization["<b>Minimization</b><br/>and dynamics"]
     lattice["<b>Lattice dynamics</b><br/>elastic constants<br/>phonons"]
+    packages["<b>Other packages</b><br/>ASE · OVITO · pymatgen · freud"]
 
     files <--> system
     build --> system
+    packages <--> system
+    packages <--> calculators
     system --> neighbors
     system --> visual
     files --> mlip
@@ -55,7 +58,7 @@ flowchart TB
     classDef visual fill:#db277726,stroke:#db2777,stroke-width:2px
     classDef mlip fill:#0d948826,stroke:#0d9488,stroke-width:2px
     class system,neighbors core
-    class files data
+    class files,packages data
     class analysis analysis
     class calculators,minimization,lattice simulation
     class build build
@@ -100,8 +103,7 @@ flowchart TB
     [Reading and writing files](getting-started/io.md) ·
     [Trajectories](getting-started/trajectory.md) ·
     [Neighbor lists](getting-started/neighbor.md) ·
-    [Parallelism](getting-started/parallelism.md) ·
-    [ASE atoms](getting-started/ase.md)
+    [Parallelism](getting-started/parallelism.md)
 
     Tutorials: [fcc and bcc grains](getting-started/tutorials/two-phase-polycrystal.md) ·
     [columnar grains](getting-started/tutorials/columnar-polycrystal.md) ·
@@ -162,8 +164,7 @@ flowchart TB
 
     Calculators: [the interface](simulation/calculators.md) ·
     [EAM](simulation/eam.md) · [NEP](simulation/nep.md) ·
-    [LAMMPS](simulation/lammps.md) · [VASP](simulation/vasp.md) ·
-    [ASE calculator](simulation/ase.md)
+    [LAMMPS](simulation/lammps.md) · [VASP](simulation/vasp.md)
 
     Minimization and dynamics: [energy minimization](simulation/minimize.md) ·
     [defect energies](simulation/defect-energies.md)
@@ -187,6 +188,21 @@ flowchart TB
     Images of systems, colored by any property, and plots of results.
 
     [Rendering](visualization/rendering.md) · [plots](visualization/plots.md)
+
+-   :material-puzzle-outline:{ .lg .middle } **Interoperability**
+
+    ---
+
+    Systems and calculators shared with other packages, and the files of
+    simulation programs.
+
+    Packages: [ASE](interop/ase.md) ·
+    [ASE calculators](interop/ase-calculators.md) ·
+    [OVITO](interop/ovito.md) · [pymatgen](interop/pymatgen.md) ·
+    [freud](interop/freud.md)
+
+    Programs: [LAMMPS](interop/lammps.md) · [VASP](interop/vasp.md) ·
+    [GPUMD](interop/gpumd.md)
 
 -   :material-speedometer:{ .lg .middle } **Performance**
 

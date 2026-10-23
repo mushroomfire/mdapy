@@ -22,7 +22,10 @@
 | `src/mdapy/io/_native.py` | The mdapy file format. |
 | `src/mdapy/io/_trajectory.py` | `Trajectory` and `read_trajectory`. |
 | `src/mdapy/interop/_ase.py` | `to_ase` and `from_ase`. |
-| `src/mdapy/interop/_ase_calculator.py` | `to_ase_calculator`. |
+| `src/mdapy/interop/_ase_calculator.py` | `to_ase_calculator`, `from_ase_calculator`. |
+| `src/mdapy/interop/_ovito.py` | `to_ovito`, `from_ovito`. |
+| `src/mdapy/interop/_pymatgen.py` | `to_pymatgen`, `from_pymatgen`. |
+| `src/mdapy/interop/_freud.py` | `to_freud`, `from_freud`. |
 | `src/mdapy/neighbor/_neighbor_list.py` | `NeighborList`. |
 | `src/mdapy/calculators/_base.py` | `Calculator` and `CalculatorResult`. |
 | `src/mdapy/calculators/testing.py` | `check_calculator`. |

@@ -106,7 +106,6 @@ nav:
           - Trajectories: getting-started/trajectory.md
           - Neighbor lists: getting-started/neighbor.md
           - Parallelism: getting-started/parallelism.md
-          - ASE atoms: getting-started/ase.md
       - Tutorials:
           - A polycrystal of fcc and bcc grains: getting-started/tutorials/two-phase-polycrystal.md
           - Columnar grains on a hexagonal pattern: getting-started/tutorials/columnar-polycrystal.md
@@ -155,7 +154,6 @@ nav:
           - NEP: simulation/nep.md
           - LAMMPS: simulation/lammps.md
           - VASP: simulation/vasp.md
-          - ASE calculator: simulation/ase.md
       - Minimization and dynamics:
           - Energy minimization: simulation/minimize.md
           - Defect energies: simulation/defect-energies.md
@@ -168,6 +166,17 @@ nav:
   - Visualization:
       - Rendering: visualization/rendering.md
       - Plots: visualization/plots.md
+  - Interoperability:
+      - Python packages:
+          - ASE: interop/ase.md
+          - ASE calculators: interop/ase-calculators.md
+          - OVITO: interop/ovito.md
+          - pymatgen: interop/pymatgen.md
+          - freud: interop/freud.md
+      - Simulation programs:
+          - LAMMPS: interop/lammps.md
+          - VASP: interop/vasp.md
+          - GPUMD: interop/gpumd.md
   - Performance:
       - mdapy and OVITO: performance/ovito.md
   - Reference:

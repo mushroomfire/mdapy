@@ -6,14 +6,20 @@ import pytest
 
 import mdapy
 from mdapy import units
-from mdapy.calculators import Calculator, CalculatorResult
+from mdapy.build import build_crystal, random_alloy
+from mdapy.calculators import NEP, Calculator, CalculatorResult
 from mdapy.calculators.testing import check_calculator
-from mdapy.interop import from_ase, to_ase, to_ase_calculator
+from mdapy.errors import InvalidParameter
+from mdapy.interop import from_ase, from_ase_calculator, to_ase, to_ase_calculator
 from mdapy.neighbor import NeighborList
 from mdapy.simulation import minimize
 
+from calculators.nep_files import write_nep
+
 ase = pytest.importorskip("ase")
+from ase.calculators.calculator import Calculator as AseCalculator  # noqa: E402
 from ase.calculators.calculator import PropertyNotImplementedError  # noqa: E402
+from ase.calculators.emt import EMT  # noqa: E402
 from ase.calculators.fd import calculate_numerical_stress  # noqa: E402
 from ase.filters import FrechetCellFilter  # noqa: E402
 from ase.optimize import BFGS  # noqa: E402
@@ -152,3 +158,89 @@ def test_properties_follow_the_mdapy_calculator():
     np.testing.assert_allclose(atoms.get_forces(), 0.0, atol=1e-12)  # perfect crystal
     with pytest.raises(PropertyNotImplementedError):
         atoms.get_potential_energy()
+
+
+# ------------------------------------------------- ASE calculators in mdapy
+
+
+def test_an_ase_calculator_passes_the_checks_of_mdapy():
+    # a smaller step than the default: the cutoff function of EMT bends the
+    # energy enough that the default step misses the virial by 2e-6
+    calculator = from_ase_calculator(EMT())
+    assert calculator.implemented == {"energy", "atomic_energies", "forces", "virial"}
+    assert calculator.cutoff == 0.0
+    check_calculator(
+        calculator, crystal(repeat=2, a=3.6, jitter=0.05), displacement=1e-5
+    )
+    assert repr(calculator).startswith("from_ase_calculator(")
+
+
+def test_both_ways_give_the_mdapy_calculator_back():
+    system = crystal(jitter=0.1, seed=5)
+    morse = Morse()
+    properties = sorted(morse.implemented)
+    direct = morse.compute(system, properties)
+    back = from_ase_calculator(to_ase_calculator(morse)).compute(system, properties)
+    assert back.energy == pytest.approx(direct.energy, rel=1e-14)
+    for name in ("atomic_energies", "forces", "virial", "atomic_virials"):
+        np.testing.assert_allclose(
+            getattr(back, name), getattr(direct, name), atol=1e-12, err_msg=name
+        )
+
+
+def test_the_free_energy_is_the_energy_where_there_is_one():
+    class Smeared(AseCalculator):
+        implemented_properties = ["energy", "free_energy", "forces"]
+
+        def __init__(self, free=True):
+            super().__init__()
+            if not free:
+                self.implemented_properties = ["energy", "forces"]
+
+        def calculate(self, atoms=None, properties=("energy",), system_changes=()):
+            super().calculate(atoms, properties, system_changes)
+            self.results = {
+                "energy": -1.0,
+                "free_energy": -1.5,
+                "forces": np.zeros((len(self.atoms), 3)),
+            }
+
+    system = crystal(repeat=1)
+    assert from_ase_calculator(Smeared()).compute(system).energy == -1.5
+    assert from_ase_calculator(Smeared(free=False)).compute(system).energy == -1.0
+
+
+def test_mdapy_relaxes_with_an_ase_calculator_as_ase_does():
+    system = crystal(repeat=2, a=3.6, jitter=0.08, seed=6)
+    relaxed = minimize(
+        system, from_ase_calculator(EMT()), max_force=1e-6, max_steps=5000
+    )
+    assert relaxed.converged
+    atoms = to_ase(system)
+    atoms.calc = EMT()
+    BFGS(atoms, logfile=None).run(fmax=1e-6, steps=500)
+    assert relaxed.energy == pytest.approx(atoms.get_potential_energy(), abs=1e-8)
+
+
+def test_properties_the_ase_calculator_lacks():
+    calculator = from_ase_calculator(EMT())
+    with pytest.raises(InvalidParameter, match="atomic_virials"):
+        calculator.compute(crystal(repeat=1, a=3.6), ["atomic_virials"])
+
+
+@pytest.mark.parametrize("zbl", [None, "universal"])
+def test_nep_of_torchnep_through_ase_is_nep_of_mdapy(tmp_path, zbl):
+    torchnep = pytest.importorskip("torchnep.ase_calculator")
+    path = write_nep(tmp_path / "nep.txt", zbl=zbl)
+    cu = build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 3))
+    alloy = random_alloy(cu, {"Cu": 0.5, "Ni": 0.5}, seed=1)
+    rng = np.random.default_rng(7)
+    alloy = alloy.with_positions(alloy.positions + rng.normal(0, 0.1, (108, 3)))
+    properties = ("energy", "atomic_energies", "forces", "virial")
+    expected = NEP(path).compute(alloy, properties)
+    result = from_ase_calculator(torchnep.NEP(str(path))).compute(alloy, properties)
+    assert result.energy == pytest.approx(expected.energy, rel=1e-12)
+    for name in properties[1:]:
+        np.testing.assert_allclose(
+            getattr(result, name), getattr(expected, name), atol=1e-10, err_msg=name
+        )

@@ -6,7 +6,7 @@ a system and its partial functions for each pair of elements.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import RadialDistributionFunction
 
 # a random Cu-Ni alloy on an fcc lattice of 5 x 5 x 5 cubic cells
@@ -15,7 +15,7 @@ basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
 cells = np.stack(np.meshgrid(*[np.arange(5)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 positions = ((cells + basis) * a).reshape(-1, 3)
 elements = np.random.default_rng(0).choice(["Cu", "Ni"], len(positions))
-system = mdapy.System(positions, mdapy.Box(5 * a), elements=list(elements))
+system = mp.System(positions, mp.Box(5 * a), elements=list(elements))
 
 rdf = RadialDistributionFunction(r_max=8.0, bins=160).compute(system)
 rdf.r, rdf.g  # bin centers in Å and g(r)

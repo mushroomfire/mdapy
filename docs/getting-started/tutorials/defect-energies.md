@@ -94,7 +94,7 @@ crystals periodic along the normal and in slabs between two free surfaces,
 whose energy cancels in the difference, for 9 to 36 (111) planes:
 
 ```python
-import mdapy
+import mdapy as mp
 from mdapy.simulation import stacking_fault_energy
 
 partial_period = [a * np.sqrt(6) / 2, 0, 0]  # [11-2]
@@ -102,7 +102,7 @@ for n in (3, 6, 9, 12):
     periodic = build_crystal(
         "fcc", a, elements="Cu", orientation=faces["(111)"], repeat=(1, 2, n)
     )
-    slab = periodic.with_box(mdapy.Box(periodic.box.matrix, pbc=[True, True, False]))
+    slab = periodic.with_box(mp.Box(periodic.box.matrix, pbc=[True, True, False]))
     energies = [
         stacking_fault_energy(
             crystal, copper, partial_period, points=4, max_force=1e-6
@@ -132,7 +132,7 @@ Then slip along both directions, with 24 steps per period:
 layers = build_crystal(
     "fcc", a, elements="Cu", orientation=faces["(111)"], repeat=(1, 2, 6)
 )
-slab = layers.with_box(mdapy.Box(layers.box.matrix, pbc=[True, True, False]))
+slab = layers.with_box(mp.Box(layers.box.matrix, pbc=[True, True, False]))
 partial = stacking_fault_energy(slab, copper, partial_period, points=25, max_force=1e-6)
 full = stacking_fault_energy(
     slab, copper, [0, a * np.sqrt(2) / 2, 0], points=25, max_force=1e-6

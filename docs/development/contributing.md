@@ -49,7 +49,9 @@ sections, in this order:
    is only an illustration is preceded by the line `<!-- skip-test -->`. A
    page whose examples need an optional package starts with a line such as
    `<!-- needs: ovito -->`; its examples are skipped where the package is
-   not installed.
+   not installed. Examples import mdapy as `import mdapy as mp` and write
+   `mp.read`, `mp.System`; the text names the functions in full, as
+   `mdapy.read`.
 3. **Parameters**, as a table: `| Name | Type | Default | Unit | Meaning |`.
 4. **Results**: the attributes and every public method, as tables, with the
    conventions needed to read them.

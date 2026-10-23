@@ -7,13 +7,13 @@ positions that keep each group unbroken by the boundaries.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import ClusterAnalysis
 
 # two groups of atoms far apart in a 30 Å box
 rng = np.random.default_rng(0)
 positions = np.vstack([rng.random((20, 3)) * 4, rng.random((10, 3)) * 4 + 15])
-system = mdapy.System(positions, mdapy.Box(30.0), elements="Cu")
+system = mp.System(positions, mp.Box(30.0), elements="Cu")
 
 result = ClusterAnalysis(cutoff=3.0).compute(system)
 result.sizes  # atoms in each cluster, largest first

@@ -7,7 +7,7 @@ common neighbor analysis of the four nearest neighbors says nothing.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.identify import DiamondStructure
 
 # cubic diamond silicon of 3 x 3 x 3 cells
@@ -18,7 +18,7 @@ basis = np.array([
 ])  # fmt: skip
 cells = np.stack(np.meshgrid(*[np.arange(3)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 positions = ((cells + basis) * a).reshape(-1, 3)
-system = mdapy.System(positions, mdapy.Box(3 * a), elements="Si")
+system = mp.System(positions, mp.Box(3 * a), elements="Si")
 
 result = DiamondStructure().compute(system)
 result.counts()  # {'other': 0, 'cubic_diamond': 216, 'hexagonal_diamond': 0}

@@ -6,13 +6,13 @@ occlusion, shadows and outlines, in a few styles. A `Scene` takes any
 spheres, cylinders and polygons for pictures made by hand.
 
 ```python
-import mdapy
+import mdapy as mp
 from mdapy.build import build_crystal, build_polycrystal
 from mdapy.identify import CommonNeighborAnalysis
 from mdapy.visualization import render
 
 copper = build_crystal("fcc", 3.615, elements="Cu")
-grains = build_polycrystal(copper, mdapy.Box(60.0), 6, seed=1)
+grains = build_polycrystal(copper, mp.Box(60.0), 6, seed=1)
 structures = CommonNeighborAnalysis().compute(grains)
 
 image = render(grains, color=structures, width=800, height=600)  # (600, 800, 4)
@@ -134,7 +134,7 @@ import numpy as np
 # benzene: C-C 1.39 Å, C-H 1.09 Å
 angles = np.arange(6) * np.pi / 3
 ring = np.stack([np.cos(angles), np.sin(angles), np.zeros(6)], axis=1)
-benzene = mdapy.System(
+benzene = mp.System(
     np.vstack([1.39 * ring, 2.48 * ring]), elements=["C"] * 6 + ["H"] * 6
 )
 sticks = render(benzene, representation="ball_and_stick", box=False, view="iso")

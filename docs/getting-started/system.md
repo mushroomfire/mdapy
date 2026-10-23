@@ -7,14 +7,14 @@ A system never changes; every operation returns a new one.
 
 ```python
 import numpy as np
-import mdapy
+import mdapy as mp
 
-water = mdapy.System(
+water = mp.System(
     positions=[[0.0, 0.0, 0.0], [0.96, 0.0, 0.0], [-0.24, 0.93, 0.0]],
-    box=mdapy.Box(10.0),
+    box=mp.Box(10.0),
     elements=["O", "H", "H"],
     info={"energy": -14.2},
-    topology=mdapy.Topology(bonds=[[0, 1], [0, 2]], angles=[[1, 0, 2]]),
+    topology=mp.Topology(bonds=[[0, 1], [0, 2]], angles=[[1, 0, 2]]),
 )
 water.table  # polars DataFrame with columns positions, element
 water.positions  # (3, 3) NumPy array, read-only, no copy
@@ -76,7 +76,7 @@ them afterwards does not change the system.
 
 ```python
 moved = water.with_positions(water.positions + [1.0, 0.0, 0.0])
-bigger = water.with_box(mdapy.Box(20.0), scale_positions=True)
+bigger = water.with_box(mp.Box(20.0), scale_positions=True)
 labelled = water.with_info(energy=None, label="monomer")
 ```
 
@@ -98,7 +98,7 @@ the improper order depends on the improper style.
 ```python
 import polars as pl
 
-t = mdapy.Topology(
+t = mp.Topology(
     bonds=pl.DataFrame(
         {"atoms": [[0, 1], [0, 2]], "type": [1, 1], "type_label": ["O-H", "O-H"]}
     ),

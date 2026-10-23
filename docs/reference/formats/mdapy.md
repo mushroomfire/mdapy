@@ -8,17 +8,17 @@ mdapy.
 
 ```python
 import numpy as np
-import mdapy
+import mdapy as mp
 
 rng = np.random.default_rng(0)
-system = mdapy.System(
+system = mp.System(
     positions=rng.random((4, 3)) * 5,
-    box=mdapy.Box(5.0),
+    box=mp.Box(5.0),
     elements=["Cu", "Cu", "Zr", "Zr"],
 )
 frames = [system.with_info(energy=-3.5 - 0.1 * k, step=k) for k in range(3)]
-mdapy.write("run.mdapy", frames)
-last = mdapy.read("run.mdapy", frame=-1)
+mp.write("run.mdapy", frames)
+last = mp.read("run.mdapy", frame=-1)
 assert last.table.equals(frames[-1].table)
 ```
 

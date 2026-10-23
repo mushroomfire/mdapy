@@ -7,7 +7,7 @@ negative) in crystals, high in liquids and gases.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import EntropyFingerprint
 
 # fcc copper of 4 x 4 x 4 cubic cells, slightly disordered
@@ -16,7 +16,7 @@ basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
 cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 rng = np.random.default_rng(0)
 positions = ((cells + basis) * a).reshape(-1, 3) + rng.normal(0, 0.05, (256, 3))
-system = mdapy.System(positions, mdapy.Box(4 * a), elements="Cu")
+system = mp.System(positions, mp.Box(4 * a), elements="Cu")
 
 result = EntropyFingerprint(cutoff=5.0, sigma=0.2, average_cutoff=3.0).compute(system)
 result.entropy  # in units of the Boltzmann constant

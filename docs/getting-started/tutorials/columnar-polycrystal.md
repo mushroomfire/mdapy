@@ -16,7 +16,7 @@ looks the same after a turn of 60°.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.build import build_crystal, build_polycrystal
 
 a = 3.615
@@ -65,7 +65,7 @@ columnar: the box takes the length of the unit there, and every grain spans
 it.
 
 ```python
-box = mdapy.Box([cells[0] * d, cells[1] * d * np.sqrt(3), 1.0])
+box = mp.Box([cells[0] * d, cells[1] * d * np.sqrt(3), 1.0])
 columns = build_polycrystal(unit, box, seeds, orientations=rotations)
 len(columns), columns.box.matrix[2, 2]  # 8536 atoms, 6.26 Å
 ```

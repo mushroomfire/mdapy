@@ -7,20 +7,20 @@ names starting with `dump.`, are recognized.
 
 ```python
 import numpy as np
-import mdapy
+import mdapy as mp
 
 rng = np.random.default_rng(0)
-system = mdapy.System(
+system = mp.System(
     positions=rng.random((4, 3)) * 5,
-    box=mdapy.Box(5.0),
+    box=mp.Box(5.0),
     elements=["Cu", "Cu", "Zr", "Zr"],
 ).with_columns(velocities=rng.standard_normal((4, 3)))
 frames = (
     system.with_positions(system.positions + 0.1 * k).with_info(timestep=100 * k)
     for k in range(3)
 )
-mdapy.write("run.dump", frames)
-last = mdapy.read("run.dump", frame=-1)
+mp.write("run.dump", frames)
+last = mp.read("run.dump", frame=-1)
 last.info["timestep"]  # 200
 ```
 

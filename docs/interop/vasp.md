@@ -7,14 +7,14 @@ machine-learned potentials.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.build import add_vacuum, build_crystal
 
 slab = add_vacuum(build_crystal("fcc", 3.52, elements="Ni", repeat=(2, 2, 4)), 10.0)
 bottom = slab.positions[:, 2] < 2.0
 movable = np.repeat(~bottom[:, None], 3, axis=1)  # the bottom layers fixed
-mdapy.write("POSCAR", slab.with_columns(movable=movable))  # selective dynamics
-mdapy.read("POSCAR").table["movable"]  # back as written
+mp.write("POSCAR", slab.with_columns(movable=movable))  # selective dynamics
+mp.read("POSCAR").table["movable"]  # back as written
 ```
 
 After the run:
@@ -23,7 +23,7 @@ After the run:
 ```python
 from mdapy.mlip import read_outcar
 
-relaxed = mdapy.read("CONTCAR")
+relaxed = mp.read("CONTCAR")
 steps = read_outcar("OUTCAR")  # every ionic step, with energies, forces, virials
 ```
 

@@ -10,15 +10,15 @@ energy. mdapy reads and writes the conventions of ASE
 from pathlib import Path
 
 import numpy as np
-import mdapy
+import mdapy as mp
 
-system = mdapy.System(
+system = mp.System(
     positions=[[0.0, 0.0, 0.0], [1.8, 1.8, 0.0]],
-    box=mdapy.Box(3.6),
+    box=mp.Box(3.6),
     elements=["Cu", "Cu"],
     info={"energy": -7.0, "config_type": "fcc"},
 ).with_columns(forces=np.zeros((2, 3)))
-mdapy.write("cu.xyz", system)
+mp.write("cu.xyz", system)
 print(Path("cu.xyz").read_text())
 ```
 

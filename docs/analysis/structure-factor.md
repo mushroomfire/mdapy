@@ -8,7 +8,7 @@ function.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import StructureFactor
 
 # a random Cu-Ni alloy on a disordered fcc lattice of 4 x 4 x 4 cubic cells
@@ -17,8 +17,8 @@ basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
 cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 rng = np.random.default_rng(0)
 positions = ((cells + basis) * a).reshape(-1, 3) + rng.normal(0, 0.1, (256, 3))
-system = mdapy.System(
-    positions, mdapy.Box(4 * a), elements=list(rng.choice(["Cu", "Ni"], 256))
+system = mp.System(
+    positions, mp.Box(4 * a), elements=list(rng.choice(["Cu", "Ni"], 256))
 )
 
 direct = StructureFactor(q_max=6.0, bins=60).compute(system)

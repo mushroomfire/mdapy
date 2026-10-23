@@ -6,7 +6,7 @@ element, within one cutoff or a cutoff for each pair of elements.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import CoordinationNumber
 
 # a CsCl-ordered CuZn crystal of 4 x 4 x 4 cubic cells
@@ -14,7 +14,7 @@ a = 2.95
 basis = np.array([[0, 0, 0], [0.5, 0.5, 0.5]])
 cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 positions = ((cells + basis) * a).reshape(-1, 3)
-system = mdapy.System(positions, mdapy.Box(4 * a), elements=["Cu", "Zn"] * 64)
+system = mp.System(positions, mp.Box(4 * a), elements=["Cu", "Zn"] * 64)
 
 result = CoordinationNumber(cutoff=3.2).compute(system)
 result.coordination  # 14 for every atom: 8 unlike and 6 like neighbors

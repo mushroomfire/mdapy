@@ -6,22 +6,22 @@ memory, and iterating over it starts at once.
 
 ```python
 import numpy as np
-import mdapy
+import mdapy as mp
 
 rng = np.random.default_rng(0)
-system = mdapy.System(rng.random((10, 3)) * 5, mdapy.Box(5.0), elements="Ar")
+system = mp.System(rng.random((10, 3)) * 5, mp.Box(5.0), elements="Ar")
 frames = (
     system.with_positions(system.positions + 0.01 * k).with_info(step=k)
     for k in range(100)
 )
-mdapy.write("run.xyz", frames)
+mp.write("run.xyz", frames)
 
-with mdapy.read_trajectory("run.xyz") as trajectory:
+with mp.read_trajectory("run.xyz") as trajectory:
     first = trajectory[0]  # reads one frame
     every_tenth = trajectory[::10]  # a trajectory of 10 frames, nothing read
     steps = [frame.info["step"] for frame in every_tenth]
     count = len(trajectory)  # 100
-    mdapy.write("every_tenth.mdapy", every_tenth)  # writes the selected frames
+    mp.write("every_tenth.mdapy", every_tenth)  # writes the selected frames
 ```
 
 ## Use

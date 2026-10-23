@@ -11,13 +11,13 @@ A `System` holds the atoms, as a table of columns, and the simulation box.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 
 a = 3.615  # Å
 cells = np.stack(np.meshgrid(*[np.arange(3)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
 positions = ((cells + basis) * a).reshape(-1, 3)
-system = mdapy.System(positions, mdapy.Box(3 * a), elements="Cu")
+system = mp.System(positions, mp.Box(3 * a), elements="Cu")
 len(system), system.box.volume  # 108 atoms, Å^3
 ```
 
@@ -26,8 +26,8 @@ See [Systems and topology](system.md) and [Simulation box](box.md).
 ## Files
 
 ```python
-mdapy.write("copper.xyz", system)
-back = mdapy.read("copper.xyz")
+mp.write("copper.xyz", system)
+back = mp.read("copper.xyz")
 np.abs(back.positions - system.positions).max()  # 0.0
 ```
 
@@ -37,7 +37,7 @@ See [Reading and writing files](io.md) and, for a whole trajectory,
 ## Neighbors
 
 ```python
-nl = mdapy.NeighborList.build(system, 3.0)
+nl = mp.NeighborList.build(system, 3.0)
 nl.counts  # 12 neighbors for every atom of fcc
 nl.distances.min()  # a / sqrt(2)
 ```
@@ -71,7 +71,7 @@ rattled = system.with_positions(
 )
 relaxed = minimize(rattled, potential, cell="full")
 relaxed.converged, relaxed.energy, relaxed.stress
-mdapy.write("relaxed.xyz", relaxed.system)  # with forces, energy and stress
+mp.write("relaxed.xyz", relaxed.system)  # with forces, energy and stress
 ```
 
 See [Energy minimization](../simulation/minimize.md).

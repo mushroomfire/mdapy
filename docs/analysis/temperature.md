@@ -8,7 +8,7 @@ or a moving crack.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy import units
 from mdapy.analysis import AtomicTemperature
 
@@ -20,7 +20,7 @@ positions = ((cells + basis) * a).reshape(-1, 3)
 mass = 63.546  # amu
 spread = np.sqrt(units.BOLTZMANN * 300 / (mass * units.AMU_A2_PER_PS2_TO_EV))
 velocities = np.random.default_rng(0).normal(scale=spread, size=positions.shape)
-system = mdapy.System(positions, mdapy.Box(6 * a), elements="Cu")
+system = mp.System(positions, mp.Box(6 * a), elements="Cu")
 system = system.with_columns(velocities=velocities)  # Å/ps
 
 result = AtomicTemperature(cutoff=3.0).compute(system)

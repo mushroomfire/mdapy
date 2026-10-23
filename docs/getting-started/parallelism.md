@@ -5,12 +5,12 @@ how to choose the number of threads, how to follow and stop long
 computations, and how mdapy behaves next to PyTorch and LAMMPS.
 
 ```python
-import mdapy
+import mdapy as mp
 
-mdapy.get_num_threads()  # default: number of logical CPUs
-mdapy.set_num_threads(8)  # for the rest of the process
+mp.get_num_threads()  # default: number of logical CPUs
+mp.set_num_threads(8)  # for the rest of the process
 
-with mdapy.num_threads(2):  # only inside this block
+with mp.num_threads(2):  # only inside this block
     ...
 ```
 
@@ -52,11 +52,11 @@ reused after `token.reset()`.
 
 <!-- skip-test -->
 ```python
-token = mdapy.CancelToken()
+token = mp.CancelToken()
 # in a GUI: connect a "Stop" button to token.cancel
 try:
     result = some_analysis.compute(system, progress=report, cancel=token)
-except mdapy.errors.Cancelled:
+except mp.errors.Cancelled:
     ...
 ```
 

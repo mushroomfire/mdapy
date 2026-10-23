@@ -13,11 +13,11 @@ does not change it.
 import numpy as np
 import polars as pl
 
-import mdapy
+import mdapy as mp
 from mdapy.build import build_crystal
 
 positions = np.zeros((2, 3))
-system = mdapy.System(positions, mdapy.Box(10.0))
+system = mp.System(positions, mp.Box(10.0))
 positions[0] = 5.0
 system.positions[0]  # still [0, 0, 0]
 ```

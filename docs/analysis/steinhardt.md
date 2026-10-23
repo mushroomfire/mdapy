@@ -8,7 +8,7 @@ Voronoi cell, optionally weighted by the areas of the Voronoi faces.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import SteinhardtParameters
 
 # fcc copper of 3 x 3 x 3 cubic cells
@@ -16,7 +16,7 @@ a = 3.615
 basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
 cells = np.stack(np.meshgrid(*[np.arange(3)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 positions = ((cells + basis) * a).reshape(-1, 3)
-system = mdapy.System(positions, mdapy.Box(3 * a), elements="Cu")
+system = mp.System(positions, mp.Box(3 * a), elements="Cu")
 
 result = SteinhardtParameters(degrees=(4, 6), num_neighbors=12).compute(system)
 result[6]  # q6 of each atom: 0.574524 in fcc

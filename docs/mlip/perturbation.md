@@ -5,13 +5,13 @@ strained at random: the first frames of a training set, to be computed by
 DFT, around a crystal or any other structure.
 
 ```python
-import mdapy
+import mdapy as mp
 from mdapy.build import build_crystal
 from mdapy.mlip import perturb
 
 crystal = build_crystal("bcc", 3.165, elements="W", repeat=(3, 3, 3))
 copies = perturb(crystal, 20, displacement=0.1, strain=0.03, seed=1)
-mdapy.write("perturbed.xyz", copies)
+mp.write("perturbed.xyz", copies)
 
 # displacements of exactly 0.05 Å, without strain
 small = perturb(crystal, 5, displacement=0.05, strain=0.0, style="const", seed=2)

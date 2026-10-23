@@ -7,23 +7,23 @@ makes a crystal of twin lamellae, which as the unit gives twinned grains.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.build import build_crystal, build_polycrystal, twin_lamellae
 
 copper = build_crystal("fcc", 3.615, elements="Cu")
-grains = build_polycrystal(copper, mdapy.Box(80.0), 8, seed=1)
+grains = build_polycrystal(copper, mp.Box(80.0), 8, seed=1)
 grains.table["grain"]  # the grain of each atom
 
 # twinned grains: lamellae of six (111) planes
 layers = build_crystal(
     "fcc", 3.615, elements="Cu", orientation=[(1, 1, -2), (-1, 1, 0), (1, 1, 1)]
 )
-twinned = build_polycrystal(twin_lamellae(layers, 6), mdapy.Box(80.0), 8, seed=1)
+twinned = build_polycrystal(twin_lamellae(layers, 6), mp.Box(80.0), 8, seed=1)
 
 # columnar grains along [111], seeds on a hexagonal lattice
 a = 40.0
 seeds = [[0.0, 0.0, 0.0], [a * np.sqrt(3) / 2, a / 2, 0.0]]
-columns = build_polycrystal(layers, mdapy.Box([a * np.sqrt(3), a, 1.0]), seeds, seed=2)
+columns = build_polycrystal(layers, mp.Box([a * np.sqrt(3), a, 1.0]), seeds, seed=2)
 ```
 
 ## Parameters

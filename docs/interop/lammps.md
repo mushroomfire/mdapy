@@ -5,12 +5,12 @@ energies and forces with any interaction of LAMMPS through its Python
 module.
 
 ```python
-import mdapy
+import mdapy as mp
 from mdapy.build import build_crystal
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(4, 4, 4))
-mdapy.write("copper.data", crystal)  # atom_style atomic, Cu as type 1
-mdapy.read("copper.data").table["element"]  # Cu, from the masses
+mp.write("copper.data", crystal)  # atom_style atomic, Cu as type 1
+mp.read("copper.data").table["element"]  # Cu, from the masses
 ```
 
 A LAMMPS input then starts from the file, and its dumps come back as a
@@ -26,7 +26,7 @@ dump            1 all custom 100 dump.lammpstrj id type x y z vx vy vz
 
 <!-- skip-test -->
 ```python
-with mdapy.read_trajectory("dump.lammpstrj", elements=["Cu"]) as frames:
+with mp.read_trajectory("dump.lammpstrj", elements=["Cu"]) as frames:
     last = frames[-1]  # velocities in Å/ps
 ```
 

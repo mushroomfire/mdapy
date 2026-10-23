@@ -6,7 +6,7 @@ and references are on the page of each feature, listed on the
 [home page](../index.md).
 
 ```python
-import mdapy
+import mdapy as mp
 ```
 
 ## Structures

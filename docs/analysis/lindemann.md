@@ -7,15 +7,15 @@ which makes it a criterion of melting for clusters and nanoparticles.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import LindemannIndex
 
 # a cluster of 30 atoms vibrating about its sites for 50 frames
 rng = np.random.default_rng(0)
 sites = rng.random((30, 3)) * 8 + 10
-box = mdapy.Box(30.0, pbc=False)
+box = mp.Box(30.0, pbc=False)
 frames = [
-    mdapy.System(sites + rng.normal(scale=0.1, size=(30, 3)), box, elements="Ar")
+    mp.System(sites + rng.normal(scale=0.1, size=(30, 3)), box, elements="Ar")
     for _ in range(50)
 ]
 

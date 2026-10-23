@@ -7,7 +7,7 @@ the alloy as a whole, among the nearest neighbors or shell by shell.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import WarrenCowley
 
 # a CsCl-ordered CuZn crystal of 4 x 4 x 4 cubic cells
@@ -15,7 +15,7 @@ a = 2.95
 basis = np.array([[0, 0, 0], [0.5, 0.5, 0.5]])
 cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 positions = ((cells + basis) * a).reshape(-1, 3)
-system = mdapy.System(positions, mdapy.Box(4 * a), elements=["Cu", "Zn"] * 64)
+system = mp.System(positions, mp.Box(4 * a), elements=["Cu", "Zn"] * 64)
 
 order = WarrenCowley(num_neighbors=8).compute(system)
 order["Cu", "Zn"]  # -1: every neighbor of Cu is Zn

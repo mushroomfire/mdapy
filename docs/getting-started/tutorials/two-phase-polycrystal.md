@@ -14,10 +14,10 @@ analysis.
 import numpy as np
 import polars as pl
 
-import mdapy
+import mdapy as mp
 from mdapy.build import build_crystal, build_polycrystal, random_rotations
 
-box = mdapy.Box(100.0)
+box = mp.Box(100.0)
 grains = 8
 seeds = np.random.default_rng(7).random((grains, 3)) * 100.0
 rotations = random_rotations(grains, seed=8)
@@ -40,7 +40,7 @@ table = pl.concat(
         bcc.table.filter(~pl.col("grain").is_in(in_copper)),
     ]
 )
-composite = mdapy.System(table=table, box=fcc.box)
+composite = mp.System(table=table, box=fcc.box)
 ```
 
 ## Atoms too close

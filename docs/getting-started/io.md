@@ -6,21 +6,21 @@ of a file one at a time, see [Trajectories](trajectory.md). The format is found 
 the file name, and compressed files are handled transparently.
 
 ```python
-import mdapy
+import mdapy as mp
 
-water = mdapy.System(
+water = mp.System(
     positions=[[0.0, 0.0, 0.0], [0.96, 0.0, 0.0], [-0.24, 0.93, 0.0]],
-    box=mdapy.Box(10.0),
+    box=mp.Box(10.0),
     elements=["O", "H", "H"],
     info={"energy": -14.2},
 )
-mdapy.write("water.xyz", water)
-same = mdapy.read("water.xyz")
+mp.write("water.xyz", water)
+same = mp.read("water.xyz")
 assert same.table.equals(water.table.select(same.table.columns))
 
-mdapy.write("frames.xyz.gz", [water, water.with_positions(water.positions + 1.0)])
-last = mdapy.read("frames.xyz.gz", frame=-1)
-mdapy.formats()  # the formats mdapy can read and write
+mp.write("frames.xyz.gz", [water, water.with_positions(water.positions + 1.0)])
+last = mp.read("frames.xyz.gz", frame=-1)
+mp.formats()  # the formats mdapy can read and write
 ```
 
 ## Reading

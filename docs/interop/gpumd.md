@@ -7,7 +7,7 @@ their training sets.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.build import build_crystal
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(10, 10, 10))
@@ -17,7 +17,7 @@ crystal = crystal.with_columns(
     velocities=rng.normal(0.0, 2.0, (len(crystal), 3)),  # Å/ps
     group=upper.astype(np.int64),  # one grouping method: lower 0, upper 1
 )
-mdapy.write("model.xyz", crystal)
+mp.write("model.xyz", crystal)
 # Properties=species:S:1:pos:R:3:vel:R:3:group:I:1, velocities in Å/fs
 ```
 
@@ -27,7 +27,7 @@ Then, after the run:
 ```python
 from mdapy.calculators import NEP
 
-with mdapy.read_trajectory("dump.xyz") as frames:  # from dump_exyz
+with mp.read_trajectory("dump.xyz") as frames:  # from dump_exyz
     last = frames[-1]
 potential = NEP("nep.txt")
 potential.compute(last, ("energy", "forces", "virial"))

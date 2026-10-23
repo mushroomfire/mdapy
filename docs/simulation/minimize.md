@@ -73,8 +73,10 @@ of each step, and can be written as a trajectory:
 
 <!-- skip-test -->
 ```python
+import mdapy as mp
+
 result = minimize(system, potential, cell="full", save_every=10)
-mdapy.write("relaxation.xyz", result.frames)
+mp.write("relaxation.xyz", result.frames)
 ```
 
 `minimize` raises `InvalidParameter` for a non-positive `max_force`,

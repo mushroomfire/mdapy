@@ -5,15 +5,15 @@ one structure per file. Files named `POSCAR*` or `CONTCAR*`, or with
 extension `.vasp` or `.poscar`, are recognized.
 
 ```python
-import mdapy
+import mdapy as mp
 
-si = mdapy.System(
+si = mp.System(
     positions=[[0.0, 0.0, 0.0], [1.3575, 1.3575, 1.3575]],
-    box=mdapy.Box([[0.0, 2.715, 2.715], [2.715, 0.0, 2.715], [2.715, 2.715, 0.0]]),
+    box=mp.Box([[0.0, 2.715, 2.715], [2.715, 0.0, 2.715], [2.715, 2.715, 0.0]]),
     elements=["Si", "Si"],
 ).with_columns(movable=[[False, False, False], [True, True, True]])
-mdapy.write("POSCAR", si)
-same = mdapy.read("POSCAR")
+mp.write("POSCAR", si)
+same = mp.read("POSCAR")
 ```
 
 writes

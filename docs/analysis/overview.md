@@ -7,7 +7,7 @@ returns a result.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import RadialDistributionFunction
 from mdapy.identify import CommonNeighborAnalysis
 
@@ -15,15 +15,15 @@ from mdapy.identify import CommonNeighborAnalysis
 a = 3.6
 cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-system = mdapy.System(
-    ((cells + basis) * a).reshape(-1, 3), mdapy.Box(4 * a), elements="Cu"
+system = mp.System(
+    ((cells + basis) * a).reshape(-1, 3), mp.Box(4 * a), elements="Cu"
 )
 
 result = CommonNeighborAnalysis().compute(system)
 result.counts()  # {'other': 0, 'fcc': 256, ...}
 system = system.with_columns(result)  # adds the column 'structure'
 
-nl = mdapy.NeighborList.build(system, 6.0)  # one search for several analyses
+nl = mp.NeighborList.build(system, 6.0)  # one search for several analyses
 rdf = RadialDistributionFunction(r_max=6.0).compute(system, neighbors=nl)
 ```
 

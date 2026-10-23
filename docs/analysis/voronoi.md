@@ -8,7 +8,7 @@ for, the shape of each cell as a polyhedron.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import VoronoiAnalysis
 
 # an fcc crystal of 5 x 5 x 5 cubic cells, atoms displaced by about 0.05 Å
@@ -17,7 +17,7 @@ cells = np.stack(np.meshgrid(*[np.arange(5)] * 3, indexing="ij"), -1).reshape(-1
 basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
 positions = ((cells + basis) * a).reshape(-1, 3)
 positions += np.random.default_rng(0).normal(scale=0.05, size=positions.shape)
-system = mdapy.System(positions, mdapy.Box(5 * a), elements="Cu")
+system = mp.System(positions, mp.Box(5 * a), elements="Cu")
 
 voronoi = VoronoiAnalysis(relative_face_threshold=0.01, edge_threshold=0.5)
 result = voronoi.compute(system)

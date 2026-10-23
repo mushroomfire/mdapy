@@ -7,7 +7,7 @@ occupancy of the sites shows the defects.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import WignerSeitz
 
 # perfect fcc copper of 4 x 4 x 4 cubic cells as the reference
@@ -15,12 +15,12 @@ a = 3.615
 basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
 cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 sites = ((cells + basis) * a).reshape(-1, 3)
-reference = mdapy.System(sites, mdapy.Box(4 * a), elements="Cu")
+reference = mp.System(sites, mp.Box(4 * a), elements="Cu")
 
 # the crystal after a Frenkel pair: atom 0 moved to an octahedral site
 moved = sites.copy()
 moved[0] = [0.5 * a, 0.5 * a, 0.5 * a]
-current = mdapy.System(moved, mdapy.Box(4 * a), elements="Cu")
+current = mp.System(moved, mp.Box(4 * a), elements="Cu")
 
 analysis = WignerSeitz(reference)  # the reference sites are prepared once
 result = analysis.compute(current)

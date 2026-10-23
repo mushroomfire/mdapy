@@ -8,7 +8,7 @@ $D^2_\text{min}$.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import AtomicStrain
 
 # fcc copper of 4 x 4 x 4 cubic cells as the reference
@@ -16,12 +16,12 @@ a = 3.615
 basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
 cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 positions = ((cells + basis) * a).reshape(-1, 3)
-reference = mdapy.System(positions, mdapy.Box(4 * a), elements="Cu")
+reference = mp.System(positions, mp.Box(4 * a), elements="Cu")
 
 # the crystal sheared by 2 % with its box
 shear = np.array([[1, 0.02, 0], [0, 1, 0], [0, 0, 1]])
-current = mdapy.System(
-    positions @ shear.T, mdapy.Box(reference.box.matrix @ shear.T), elements="Cu"
+current = mp.System(
+    positions @ shear.T, mp.Box(reference.box.matrix @ shear.T), elements="Cu"
 )
 
 strain = AtomicStrain(reference, cutoff=3.0)
@@ -30,7 +30,7 @@ result.shear  # von Mises shear strain, the same for every atom here
 current = current.with_columns(result)  # shear_strain, volumetric_strain, d2min
 
 # many frames against one reference: find its neighbors once
-neighbors = mdapy.NeighborList.build(reference, 3.0)
+neighbors = mp.NeighborList.build(reference, 3.0)
 strain = AtomicStrain(reference, cutoff=3.0, neighbors=neighbors)
 ```
 

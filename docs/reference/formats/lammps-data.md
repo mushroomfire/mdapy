@@ -8,16 +8,16 @@ starting with `data.`, are recognized.
 
 ```python
 import numpy as np
-import mdapy
+import mdapy as mp
 
-water = mdapy.System(
+water = mp.System(
     positions=[[1.0, 1.0, 1.0], [1.96, 1.0, 1.0], [0.76, 1.93, 1.0]],
-    box=mdapy.Box(10.0),
+    box=mp.Box(10.0),
     elements=["O", "H", "H"],
-    topology=mdapy.Topology(bonds=[[0, 1], [0, 2]], angles=[[1, 0, 2]]),
+    topology=mp.Topology(bonds=[[0, 1], [0, 2]], angles=[[1, 0, 2]]),
 ).with_columns(charge=[-0.8476, 0.4238, 0.4238], molecule=[1, 1, 1])
-mdapy.write("water.data", water)
-same = mdapy.read("water.data")
+mp.write("water.data", water)
+same = mp.read("water.data")
 same.table["element"].to_list()  # ['O', 'H', 'H'], from the Masses comments
 ```
 

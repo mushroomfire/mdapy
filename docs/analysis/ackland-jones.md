@@ -7,7 +7,7 @@ the angles between the bonds to its neighbors.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.identify import AcklandJonesAnalysis
 
 # bcc iron of 5 x 5 x 5 cubic cells
@@ -15,7 +15,7 @@ a = 2.866
 basis = np.array([[0, 0, 0], [0.5, 0.5, 0.5]])
 cells = np.stack(np.meshgrid(*[np.arange(5)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 positions = ((cells + basis) * a).reshape(-1, 3)
-system = mdapy.System(positions, mdapy.Box(5 * a), elements="Fe")
+system = mp.System(positions, mp.Box(5 * a), elements="Fe")
 
 result = AcklandJonesAnalysis().compute(system)
 result.counts()  # {'other': 0, 'fcc': 0, 'hcp': 0, 'bcc': 250, 'ico': 0}

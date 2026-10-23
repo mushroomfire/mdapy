@@ -9,22 +9,22 @@ the same box, whatever their other columns.
 
 ```python
 import numpy as np
-import mdapy
+import mdapy as mp
 
 rng = np.random.default_rng(0)
-box = mdapy.Box([[10.0, 0, 0], [2.0, 9.0, 0], [-1.0, 1.0, 11.0]])
-system = mdapy.System(box.to_cartesian(rng.random((200, 3))), box, elements="Ar")
+box = mp.Box([[10.0, 0, 0], [2.0, 9.0, 0], [-1.0, 1.0, 11.0]])
+system = mp.System(box.to_cartesian(rng.random((200, 3))), box, elements="Ar")
 
-nl = mdapy.NeighborList.build(system, cutoff=4.0)
+nl = mp.NeighborList.build(system, cutoff=4.0)
 nl.counts  # neighbors of each atom
 nl.i, nl.j, nl.shifts  # the pairs
 nl.distances, nl.vectors
 shorter = nl.within(3.0)  # no new search
 
-twelve = mdapy.NeighborList.build(system, num_neighbors=12)
+twelve = mp.NeighborList.build(system, num_neighbors=12)
 twelve.distances.reshape(-1, 12)  # nearest first
 
-faces = mdapy.NeighborList.build(system, voronoi=True)
+faces = mp.NeighborList.build(system, voronoi=True)
 faces.areas  # Å², the face that each pair shares
 ```
 

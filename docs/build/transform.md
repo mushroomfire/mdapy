@@ -5,11 +5,11 @@ periodic directions, as LAMMPS `replicate` does; `wrap` moves atoms into the
 box and `unwrap` puts them at their unwrapped positions.
 
 ```python
-import mdapy
+import mdapy as mp
 from mdapy.transform import replicate, unwrap, wrap
 
-box = mdapy.Box([[4.0, 0, 0], [1.0, 4.0, 0], [0, 0, 4.0]])
-system = mdapy.System([[0.5, 0.5, 0.5], [3.9, 2.0, 2.0]], box, elements="Cu")
+box = mp.Box([[4.0, 0, 0], [1.0, 4.0, 0], [0, 0, 4.0]])
+system = mp.System([[0.5, 0.5, 0.5], [3.9, 2.0, 2.0]], box, elements="Cu")
 system = system.with_columns(id=[1, 2], image=[[0, 0, 0], [-1, 0, 0]])
 
 bigger = replicate(system, (2, 3, 1))  # 12 atoms, ids 1 to 12

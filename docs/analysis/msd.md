@@ -7,14 +7,14 @@ coefficient follows.
 ```python
 import numpy as np
 
-import mdapy
+import mdapy as mp
 from mdapy.analysis import MeanSquaredDisplacement
 
 # 100 frames of 50 atoms on a random walk in a 10 Å box, positions wrapped
 rng = np.random.default_rng(0)
-box = mdapy.Box(10.0)
+box = mp.Box(10.0)
 walk = np.cumsum(rng.normal(scale=0.1, size=(100, 50, 3)), axis=0)
-frames = [mdapy.System(box.wrap(x)[0], box, elements="Ar") for x in walk]
+frames = [mp.System(box.wrap(x)[0], box, elements="Ar") for x in walk]
 
 result = MeanSquaredDisplacement().compute(frames)  # or a Trajectory
 result.lag, result.msd  # lag in frames, MSD in Å²

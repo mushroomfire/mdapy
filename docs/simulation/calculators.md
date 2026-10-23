@@ -7,11 +7,11 @@ everything in mdapy that needs energies and forces.
 
 <!-- skip-test -->
 ```python
-import mdapy
+import mdapy as mp
 from mdapy.calculators import EAM
 
 potential = EAM("CuNi.eam.alloy")
-system = mdapy.read("alloy.xyz")
+system = mp.read("alloy.xyz")
 result = potential.compute(system, ("energy", "forces", "virial"))
 result.energy  # eV
 result.forces  # (N, 3) eV/Å

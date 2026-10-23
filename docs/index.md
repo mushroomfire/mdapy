@@ -151,7 +151,8 @@ flowchart TB
     [Crystals](build/crystals.md) · [random alloys](build/alloys.md) ·
     [SQS](build/sqs.md) · [point defects and faults](build/defects.md) ·
     [dislocations](build/dislocations.md) ·
-    [polycrystals](build/polycrystals.md)
+    [polycrystals](build/polycrystals.md) ·
+    [periodic copies and images](build/transform.md)
 
 -   :mdapy-simulation:{ .lg .middle } **Simulation**
 

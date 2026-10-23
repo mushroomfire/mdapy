@@ -147,6 +147,7 @@ nav:
       - Point defects, stacking faults and surfaces: build/defects.md
       - Dislocations: build/dislocations.md
       - Polycrystals and twins: build/polycrystals.md
+      - Periodic copies and images: build/transform.md
   - Simulation:
       - Calculators:
           - The calculator interface: simulation/calculators.md

@@ -27,7 +27,8 @@ implemented.
 | average atom | The single species of an average-atom potential, standing for a random alloy; `A` in potential files. |
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |
-| unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries, or, along a trajectory, so that atoms move continuously through them. |
+| unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries, or, along a trajectory, so that atoms move continuously through them; with an `image` column, the positions plus the image flags times the lattice vectors. |
+| copy | One of the systems `replicate` places side by side; copy (i, j, l) of (n<sub>a</sub>, n<sub>b</sub>, n<sub>c</sub>) is number i + n<sub>a</sub>(j + n<sub>b</sub> l). |
 | lag | The number of frames between two frames of a trajectory. |
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
 | covalent bond | A pair of atoms closer than the sum of their covalent radii and 0.45 Å, as pictures draw them. |

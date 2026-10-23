@@ -187,6 +187,11 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.build.build_polycrystal`: Voronoi grains of any periodic unit,
   columnar when the box is thin, and `twin_lamellae` for twinned grains. See
   [Polycrystals](../build/polycrystals.md).
+- `mdapy.transform.replicate` copies a system along its periodic
+  directions as LAMMPS `replicate` does, with the ids, molecules and
+  topology of each copy and molecules kept whole through the image flags;
+  `wrap` and `unwrap` move atoms into the box or to their unwrapped
+  positions. See [Periodic copies and images](../build/transform.md).
 
 ### MLIP
 

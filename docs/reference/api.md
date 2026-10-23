@@ -145,6 +145,12 @@ import mdapy
 
 ::: mdapy.build.twin_lamellae
 
+::: mdapy.transform.replicate
+
+::: mdapy.transform.wrap
+
+::: mdapy.transform.unwrap
+
 ## MLIP
 
 ::: mdapy.mlip.read_outcar

@@ -16,6 +16,7 @@ from mdapy import (
     lattice_dynamics,
     mlip,
     simulation,
+    transform,
     units,
 )
 from mdapy.core.box import Box
@@ -46,6 +47,7 @@ __all__ = [
     "lattice_dynamics",
     "mlip",
     "simulation",
+    "transform",
     "units",
     "CancelToken",
     "get_num_threads",

@@ -72,11 +72,14 @@ flowchart TB
   of common programs or converted from another package. Every analysis is a
   class whose `compute(system)` returns plain NumPy arrays, ready to attach
   to the system as columns. **NumPy and polars are the only requirements.**
-- **High performance.** The heavy work runs in compiled C++ on every core,
-  and analyses of the nearest neighbors find them as they go, without a
-  list of pairs. From 30 000 atoms on, mdapy is faster than
-  [OVITO](https://www.ovito.org) in every analysis they share but atomic
-  strain, and than [freud](https://freud.readthedocs.io) in every one; see
+- **High performance.** The heavy work runs in compiled C++ on every core.
+  Analyses of the nearest neighbors find them as they go, without a list of
+  pairs, and one list of pairs serves every analysis it is given. On 40
+  cores, from 32 000 to 16 million atoms, mdapy is faster than
+  [OVITO](https://www.ovito.org) in every analysis they share but two,
+  common neighbor analysis with a fixed cutoff (on par) and atomic strain,
+  and faster than [freud](https://freud.readthedocs.io) in every one but
+  cluster analysis below 256 000 atoms; see
   [Performance](performance/comparison.md).
 - **Predictable API.** One unit system: Å, eV, ps, amu, K, and GPa for
   stress ([Units and conventions](reference/units.md)). One name for each

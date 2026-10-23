@@ -15,9 +15,7 @@ from mdapy.identify import CommonNeighborAnalysis
 a = 3.6
 cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
 basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-system = mp.System(
-    ((cells + basis) * a).reshape(-1, 3), mp.Box(4 * a), elements="Cu"
-)
+system = mp.System(((cells + basis) * a).reshape(-1, 3), mp.Box(4 * a), elements="Cu")
 
 result = CommonNeighborAnalysis().compute(system)
 result.counts()  # {'other': 0, 'fcc': 256, ...}

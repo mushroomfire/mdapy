@@ -19,6 +19,7 @@ from mdapy.neighbor._neighbor_list import (
     _given_or_built,
     _nearest_given_or_built,
     _run,
+    _view,
     _voronoi_given_or_built,
 )
 
@@ -148,20 +149,24 @@ class SteinhardtParameters:
             return SteinhardtResult(self.degrees, q, self.average)
         if self.voronoi:
             nl = _voronoi_given_or_built(system, neighbors)
+            count, cutoff = 0, 0.0
         elif self.cutoff is not None:
-            nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
+            nl = _given_or_built(system, self.cutoff, neighbors)
+            count, cutoff = 0, self.cutoff
         else:
             nl = _nearest_given_or_built(system, self.num_neighbors, neighbors)
-        q = _native.steinhardt(
-            nl.offsets,
-            nl.j,
-            np.ascontiguousarray(nl.vectors),
-            nl.areas if self.weighted else None,
-            list(self.degrees),
-            self.average,
-            progress,
-            _native_token(cancel),
-        )
+            count, cutoff = self.num_neighbors, 0.0
+        with nl._reading():
+            q = _native.steinhardt(
+                *_view(system, nl),
+                count,
+                cutoff,
+                nl.areas if self.weighted else None,
+                list(self.degrees),
+                self.average,
+                progress,
+                _native_token(cancel),
+            )
         return SteinhardtResult(self.degrees, q, self.average)
 
     def __repr__(self) -> str:

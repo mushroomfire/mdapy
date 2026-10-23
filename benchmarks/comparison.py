@@ -282,6 +282,40 @@ def analysis(make: Callable[[dict], Any]) -> Callable[[dict], Callable]:
     return prepare
 
 
+def together(make: Callable[[dict], list], cutoff: float) -> Callable[[dict], Callable]:
+    """The mdapy side of analyses together: one list within cutoff, built
+    inside the timing, given to each of make(inputs)."""
+
+    def prepare(inputs: dict) -> Callable:
+        from mdapy.neighbor import NeighborList
+
+        analyses, system = make(inputs), inputs["system"]
+
+        def run():
+            nl = NeighborList.build(system, cutoff)
+            return [a.compute(system, neighbors=nl) for a in analyses]
+
+        return run
+
+    return prepare
+
+
+def _freud_steinhardt_rdf(box, points):
+    """Steinhardt q2 to q6 of the 12 nearest and the radial distribution
+    function within 5 Å, with one tree of freud for both queries; given a
+    list of the pairs instead, freud's radial distribution function takes
+    fifty times as long."""
+    import freud
+
+    query = freud.locality.AABBQuery(box, points)
+    rdf = freud.density.RDF(bins=200, r_max=5.0).compute(query)
+    nearest = {"num_neighbors": 12, "exclude_ii": True}
+    steinhardt = freud.order.Steinhardt(list(range(2, 7))).compute(
+        query, neighbors=nearest
+    )
+    return steinhardt, rdf
+
+
 # ------------------------------------------------------------ cases
 
 
@@ -389,7 +423,8 @@ def _cases() -> dict[str, Case]:
 
         # a pair this close to the edge of a bin may fall into the next one in
         # single precision: each bin may differ by the pairs at its edges
-        distances = NeighborList.build(inputs["system"], 6.0 + SINGLE).distances
+        reach = ours.edges[-1] + SINGLE
+        distances = NeighborList.build(inputs["system"], reach).distances
         width = ours.edges[1] - ours.edges[0]
         edge = np.rint(distances / width).astype(np.int64)
         near = np.abs(distances - edge * width) < SINGLE
@@ -412,6 +447,22 @@ def _cases() -> dict[str, Case]:
         found = nlist.query_point_indices.astype(np.int64) * n + nlist.point_indices
         assert np.isin(mine[ours.areas > 1e-2], found).all()
         assert np.isin(found[nlist.weights > 1e-2], mine).all()
+
+    def metal(ours, data):
+        # Ackland-Jones analysis runs last of the two and leaves its types
+        structures(ours[1], data)
+        close(ours[2].csp, particles("Centrosymmetry")(data))
+        steinhardt(ours[3], data)
+        rdf(ours[4], data)
+        bond_angles(ours[5], data)
+
+    def steinhardt_rdf(ours, data):
+        steinhardt(ours[0], data)
+        rdf(ours[1], data)
+
+    def steinhardt_rdf_freud(ours, theirs, inputs):
+        steinhardt_freud(ours[0], theirs[0], inputs)
+        rdf_freud(ours[1], theirs[1], inputs)
 
     def clusters_freud(ours, theirs, inputs):
         equal(ours.sizes, np.sort(np.bincount(theirs.cluster_idx))[::-1])
@@ -660,6 +711,87 @@ def _cases() -> dict[str, Case]:
                 "ovito": ovito(
                     pipeline(modifier("WignerSeitzAnalysisModifier")), wigner_seitz
                 )
+            },
+        ),
+        "metal": Case(
+            "Six analyses of copper, one neighbor search",
+            copper,
+            together(
+                lambda inputs: [
+                    CommonNeighborAnalysis(),
+                    AcklandJonesAnalysis(),
+                    CentroSymmetryParameter(12),
+                    SteinhardtParameters(degrees, num_neighbors=12),
+                    RadialDistributionFunction(5.0, bins=200),
+                    BondAngleDistribution(cutoff=3.0, bins=180),
+                ],
+                5.0,
+            ),
+            {
+                "ovito": ovito(
+                    pipeline(
+                        lambda references: [
+                            m
+                            for make in (
+                                modifier(
+                                    "CommonNeighborAnalysisModifier",
+                                    mode=Member("Mode.AdaptiveCutoff"),
+                                ),
+                                modifier("AcklandJonesModifier"),
+                                modifier("CentroSymmetryModifier", num_neighbors=12),
+                                modifier(
+                                    "SteinhardtParametersModifier",
+                                    neighbor_mode=Member(
+                                        "NeighborMode.NearestNeighbors"
+                                    ),
+                                    num_neighbors=12,
+                                    max_l=6,
+                                ),
+                                modifier(
+                                    "CoordinationAnalysisModifier",
+                                    cutoff=5.0,
+                                    number_of_bins=200,
+                                ),
+                                modifier("CreateBondsModifier", cutoff=3.0),
+                                modifier("BondAngleDistributionModifier", bins=180),
+                            )
+                            for m in make(references)
+                        ]
+                    ),
+                    metal,
+                )
+            },
+        ),
+        "steinhardt-rdf": Case(
+            "Steinhardt q2–q6 and the RDF, one neighbor search",
+            copper,
+            together(
+                lambda inputs: [
+                    SteinhardtParameters(degrees, num_neighbors=12),
+                    RadialDistributionFunction(5.0, bins=200),
+                ],
+                5.0,
+            ),
+            {
+                "ovito": ovito(
+                    pipeline(
+                        lambda references: (
+                            modifier(
+                                "SteinhardtParametersModifier",
+                                neighbor_mode=Member("NeighborMode.NearestNeighbors"),
+                                num_neighbors=12,
+                                max_l=6,
+                            )(references)
+                            + modifier(
+                                "CoordinationAnalysisModifier",
+                                cutoff=5.0,
+                                number_of_bins=200,
+                            )(references)
+                        )
+                    ),
+                    steinhardt_rdf,
+                ),
+                "freud": Other(freud_side(_freud_steinhardt_rdf), steinhardt_rdf_freud),
             },
         ),
         "atomic-strain": Case(

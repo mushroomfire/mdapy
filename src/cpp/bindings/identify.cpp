@@ -13,6 +13,7 @@
 #include <stdexcept>
 
 #include "bindings/control.h"
+#include "bindings/list_view.h"
 #include "core/index.h"
 #include "core/parallel.h"
 #include "identify/ptm.h"
@@ -21,7 +22,6 @@
 namespace mdapy::bindings {
 namespace {
 
-using Neighbors3 = nb::ndarray<const double, nb::shape<-1, -1, 3>, nb::c_contig, nb::device::cpu>;
 using Offsets = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Vectors = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
@@ -42,6 +42,24 @@ nb::object new_array(std::initializer_list<std::size_t> shape, T*& data) {
     data = new T[size];
     nb::capsule owner(data, [](void* p) noexcept { delete[] static_cast<T*>(p); });
     return nb::ndarray<nb::numpy, T>(data, shape.size(), shape.begin(), owner).cast();
+}
+
+// A kernel of a neighbor list, read where it is, into a new array of one
+// value of T per atom.
+template <class T, class Kernel>
+nb::object list_kernel(lists::Positions positions, lists::Matrix matrix, lists::Offsets offsets,
+                       lists::Neighbors neighbors, lists::Shifts shifts,
+                       lists::Distances distances, std::int64_t sorted, std::int64_t count,
+                       double cutoff, nb::handle progress, const CancelToken* cancel,
+                       Kernel kernel) {
+    const neighbor::ListView list = lists::view(positions, matrix, offsets, neighbors, shifts,
+                                                distances, sorted, count, cutoff);
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    T* values;
+    nb::object result = new_array(static_cast<std::size_t>(n), values);
+    run_released([&](const Control& control) { kernel(list, n, values, control); }, progress,
+                 cancel);
+    return result;
 }
 
 using Positions = nb::ndarray<const double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
@@ -102,42 +120,36 @@ nb::dict polyhedral_template_matching(Positions positions, Matrix matrix, Offset
     return result;
 }
 
-// vectors: (n, k, 3) from each atom to its k neighbors.
-nb::object centro_symmetry(Neighbors3 vectors, nb::handle progress, const CancelToken* cancel) {
-    const auto n = static_cast<std::int64_t>(vectors.shape(0));
-    const auto k = static_cast<int>(vectors.shape(1));
+// The first k pairs of each atom, its nearest.
+nb::object centro_symmetry(lists::Positions positions, lists::Matrix matrix,
+                           lists::Offsets offsets, lists::Neighbors neighbors,
+                           lists::Shifts shifts, lists::Distances distances,
+                           std::int64_t sorted, int k, nb::handle progress,
+                           const CancelToken* cancel) {
     if (k < 2 || k % 2 != 0) {
         throw std::invalid_argument("the number of neighbors must be even and at least 2");
     }
-    double* csp;
-    nb::object result = new_array(static_cast<std::size_t>(n), csp);
-    run_released(
-        [&](const Control& control) {
-            identify::centro_symmetry(n, k, vectors.data(), csp, control);
-        },
-        progress, cancel);
-    return result;
+    return list_kernel<double>(
+        positions, matrix, offsets, neighbors, shifts, distances, sorted, k, 0.0, progress, cancel,
+        [k](const neighbor::ListView& list, std::int64_t n, double* csp, const Control& control) {
+            identify::centro_symmetry(list, n, k, csp, control);
+        });
 }
 
-nb::object common_neighbor_parameter(Offsets offsets, Vectors vectors, double cutoff,
-                                     nb::handle progress, const CancelToken* cancel) {
-    if (offsets.shape(0) < 1 ||
-        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(vectors.shape(0))) {
-        throw std::invalid_argument("the offsets do not fit the vectors");
-    }
+nb::object common_neighbor_parameter(lists::Positions positions, lists::Matrix matrix,
+                                     lists::Offsets offsets, lists::Neighbors neighbors,
+                                     lists::Shifts shifts, lists::Distances distances,
+                                     std::int64_t sorted, double cutoff, nb::handle progress,
+                                     const CancelToken* cancel) {
     if (!(cutoff > 0.0)) {
         throw std::invalid_argument("cutoff must be positive");
     }
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
-    double* cnp;
-    nb::object result = new_array(static_cast<std::size_t>(n), cnp);
-    run_released(
-        [&](const Control& control) {
-            identify::common_neighbor_parameter(n, offsets.data(), vectors.data(), cutoff, cnp,
-                                                control);
-        },
-        progress, cancel);
-    return result;
+    return list_kernel<double>(
+        positions, matrix, offsets, neighbors, shifts, distances, sorted, 0, 0.0, progress, cancel,
+        [cutoff](const neighbor::ListView& list, std::int64_t n, double* cnp,
+                 const Control& control) {
+            identify::common_neighbor_parameter(list, n, cutoff, cnp, control);
+        });
 }
 
 using Box3 = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
@@ -218,88 +230,71 @@ nb::object ackland_jones_nearest(Vectors positions, Box3 matrix, Origin3 origin,
                                        identify::ackland_jones_nearest);
 }
 
-nb::object common_neighbor_analysis(Offsets offsets, Vectors vectors, double cutoff,
+// The first count pairs of each atom, its nearest, for adaptive cutoffs;
+// those closer than cutoff otherwise.
+nb::object common_neighbor_analysis(lists::Positions positions, lists::Matrix matrix,
+                                    lists::Offsets offsets, lists::Neighbors neighbors,
+                                    lists::Shifts shifts, lists::Distances distances,
+                                    std::int64_t sorted, std::int64_t count, double cutoff,
                                     nb::handle progress, const CancelToken* cancel) {
-    if (offsets.shape(0) < 1 ||
-        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(vectors.shape(0))) {
-        throw std::invalid_argument("the offsets do not fit the vectors");
-    }
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
-    std::int8_t* types;
-    nb::object result = new_array(static_cast<std::size_t>(n), types);
-    run_released(
-        [&](const Control& control) {
-            identify::common_neighbor_analysis(n, offsets.data(), vectors.data(), cutoff, types,
-                                               control);
-        },
-        progress, cancel);
-    return result;
+    return list_kernel<std::int8_t>(positions, matrix, offsets, neighbors, shifts, distances,
+                                    sorted, count, cutoff, progress, cancel,
+                                    [](const neighbor::ListView& list, std::int64_t n,
+                                       std::int8_t* types, const Control& control) {
+                                        identify::common_neighbor_analysis(list, n, types,
+                                                                           control);
+                                    });
 }
 
-nb::object ackland_jones(Offsets offsets, Vectors vectors, nb::handle progress,
-                        const CancelToken* cancel) {
-    if (offsets.shape(0) < 1 ||
-        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(vectors.shape(0))) {
-        throw std::invalid_argument("the offsets do not fit the vectors");
-    }
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
-    std::int8_t* types;
-    nb::object result = new_array(static_cast<std::size_t>(n), types);
-    run_released(
-        [&](const Control& control) {
-            identify::ackland_jones(n, offsets.data(), vectors.data(), types, control);
-        },
-        progress, cancel);
-    return result;
+// The first count pairs of each atom, its nearest.
+nb::object ackland_jones(lists::Positions positions, lists::Matrix matrix, lists::Offsets offsets,
+                         lists::Neighbors neighbors, lists::Shifts shifts,
+                         lists::Distances distances, std::int64_t sorted, std::int64_t count,
+                         nb::handle progress, const CancelToken* cancel) {
+    return list_kernel<std::int8_t>(positions, matrix, offsets, neighbors, shifts, distances,
+                                    sorted, count, 0.0, progress, cancel,
+                                    [](const neighbor::ListView& list, std::int64_t n,
+                                       std::int8_t* types, const Control& control) {
+                                        identify::ackland_jones(list, n, types, control);
+                                    });
 }
 
-using Nearest = nb::ndarray<const index_t, nb::shape<-1, 4>, nb::c_contig, nb::device::cpu>;
-using Vectors4 = nb::ndarray<const double, nb::shape<-1, 4, 3>, nb::c_contig, nb::device::cpu>;
-
-// neighbors: (n, 4) indices of the four nearest neighbors; vectors (n, 4, 3).
-nb::object identify_diamond(Nearest neighbors, Vectors4 vectors, nb::handle progress,
-                            const CancelToken* cancel) {
-    const auto n = static_cast<std::int64_t>(neighbors.shape(0));
-    if (vectors.shape(0) != neighbors.shape(0)) {
-        throw std::invalid_argument("the vectors do not fit the neighbors");
-    }
-    for (std::int64_t p = 0; p < 4 * n; ++p) {
-        if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
-            throw std::invalid_argument("a neighbor index is outside the atoms");
-        }
-    }
-    std::int8_t* types;
-    nb::object result = new_array(static_cast<std::size_t>(n), types);
-    run_released(
-        [&](const Control& control) {
-            identify::identify_diamond(n, neighbors.data(), vectors.data(), types, control);
-        },
-        progress, cancel);
-    return result;
-}
-
-using Pairs = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
-
-nb::object chill_plus(Offsets offsets, Pairs neighbors, Vectors vectors, nb::handle progress,
-                      const CancelToken* cancel) {
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
-    if (n < 0 || neighbors.shape(0) != vectors.shape(0) ||
-        offsets.data()[n] != static_cast<std::int64_t>(vectors.shape(0))) {
-        throw std::invalid_argument("the offsets do not fit the vectors");
-    }
+// The first four pairs of each atom, its nearest.
+nb::object identify_diamond(lists::Positions positions, lists::Matrix matrix,
+                            lists::Offsets offsets, lists::Neighbors neighbors,
+                            lists::Shifts shifts, lists::Distances distances, std::int64_t sorted,
+                            nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
     for (std::size_t p = 0; p < neighbors.shape(0); ++p) {
         if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
             throw std::invalid_argument("a neighbor index is outside the atoms");
         }
     }
-    std::int8_t* types;
-    nb::object result = new_array(static_cast<std::size_t>(n), types);
-    run_released(
-        [&](const Control& control) {
-            identify::chill_plus(n, offsets.data(), neighbors.data(), vectors.data(), types, control);
-        },
-        progress, cancel);
-    return result;
+    return list_kernel<std::int8_t>(positions, matrix, offsets, neighbors, shifts, distances,
+                                    sorted, 4, 0.0, progress, cancel,
+                                    [](const neighbor::ListView& list, std::int64_t count,
+                                       std::int8_t* types, const Control& control) {
+                                        identify::identify_diamond(list, count, types, control);
+                                    });
+}
+
+// The pairs of each molecule closer than cutoff.
+nb::object chill_plus(lists::Positions positions, lists::Matrix matrix, lists::Offsets offsets,
+                      lists::Neighbors neighbors, lists::Shifts shifts,
+                      lists::Distances distances, std::int64_t sorted, double cutoff,
+                      nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    for (std::size_t p = 0; p < neighbors.shape(0); ++p) {
+        if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
+            throw std::invalid_argument("a neighbor index is outside the atoms");
+        }
+    }
+    return list_kernel<std::int8_t>(positions, matrix, offsets, neighbors, shifts, distances,
+                                    sorted, 0, cutoff, progress, cancel,
+                                    [](const neighbor::ListView& list, std::int64_t count,
+                                       std::int8_t* types, const Control& control) {
+                                        identify::chill_plus(list, count, types, control);
+                                    });
 }
 
 }  // namespace
@@ -310,15 +305,18 @@ void bind_identify(nb::module_& m) {
           nb::arg("shifts"), nb::arg("types").none(), nb::arg("structures"),
           nb::arg("deformation"), nb::arg("neighbors"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
-    m.def("centro_symmetry", &centro_symmetry, nb::arg("vectors"),
+    m.def("centro_symmetry", &centro_symmetry,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("k"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("common_neighbor_parameter_search", &common_neighbor_parameter_search,
           nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"),
           nb::arg("cutoff"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
-    m.def("common_neighbor_parameter", &common_neighbor_parameter, nb::arg("offsets"),
-          nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+    m.def("common_neighbor_parameter", &common_neighbor_parameter,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("cutoff"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("common_neighbor_analysis_search", &common_neighbor_analysis_search,
           nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"),
           nb::arg("cutoff"), nb::arg("progress") = nb::none(),
@@ -332,14 +330,21 @@ void bind_identify(nb::module_& m) {
     m.def("ackland_jones_nearest", &ackland_jones_nearest, nb::arg("positions"),
           nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"), nb::arg("k"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
-    m.def("common_neighbor_analysis", &common_neighbor_analysis, nb::arg("offsets"),
-          nb::arg("vectors"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
-    m.def("chill_plus", &chill_plus, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("vectors"),
+    m.def("common_neighbor_analysis", &common_neighbor_analysis,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("count"),
+          nb::arg("cutoff"), nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("chill_plus", &chill_plus,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("cutoff"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
-    m.def("ackland_jones", &ackland_jones, nb::arg("offsets"), nb::arg("vectors"),
+    m.def("ackland_jones", &ackland_jones,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("count"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
-    m.def("identify_diamond", &identify_diamond, nb::arg("neighbors"), nb::arg("vectors"),
+    m.def("identify_diamond", &identify_diamond,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), 
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
 }
 

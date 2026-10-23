@@ -4,6 +4,7 @@
 """Polyhedral template matching, with the PTM library of P. M. Larsen."""
 
 from collections.abc import Iterable
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
 
@@ -224,25 +225,27 @@ class PolyhedralTemplateMatching:
         k = _NEIGHBORS if system.box.pbc.any() else min(_NEIGHBORS, max(n - 1, 0))
         if k > 0:
             nl = _nearest_given_or_built(system, k, neighbors)
-            offsets, j, shifts = nl.offsets, nl.j, nl.shifts
+            offsets, j, shifts, reading = nl.offsets, nl.j, nl.shifts, nl._reading()
         else:
             offsets = np.zeros(n + 1, dtype=np.int64)
             j = np.zeros(0, dtype=np.int32)
             shifts = np.zeros((0, 3), dtype=np.int8)
+            reading = nullcontext()
         bits = sum(1 << (self.NAMES.index(name) - 1) for name in self.structures)
-        found = _native.polyhedral_template_matching(
-            np.ascontiguousarray(system.positions),
-            np.ascontiguousarray(system.box.matrix),
-            np.ascontiguousarray(offsets),
-            np.ascontiguousarray(j),
-            np.ascontiguousarray(shifts),
-            types,
-            bits,
-            self.deformation_gradient,
-            self.template_neighbors,
-            progress,
-            _native_token(cancel),
-        )
+        with reading:
+            found = _native.polyhedral_template_matching(
+                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system.box.matrix),
+                offsets,
+                j,
+                shifts,
+                types,
+                bits,
+                self.deformation_gradient,
+                self.template_neighbors,
+                progress,
+                _native_token(cancel),
+            )
         structure = found["structure"]
         if self.rmsd_cutoff > 0:
             # as OVITO: the other results stay those of the best template

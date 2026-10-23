@@ -120,19 +120,18 @@ void real_harmonics(int l, const double* u, double* y) {
 
 namespace {
 
-// The harmonics of the bonds of atom i, averaged with their weights, into
-// sum (width values); y is room for the harmonics of one bond.
-void bond_harmonics(std::int64_t i, const std::int64_t* offsets, const double* vectors,
-                    const double* weights, const std::vector<int>& degrees, int lmax,
+// The harmonics of the bonds that each_bond(add) passes to add(vector,
+// weight), averaged with their weights, into sum (width values); y is room
+// for the harmonics of one bond.
+template <class Bonds>
+void bond_harmonics(Bonds&& each_bond, const std::vector<int>& degrees, int lmax,
                     std::size_t width, double* y, double* sum) {
     for (std::size_t k = 0; k < width; ++k) {
         sum[k] = 0.0;
     }
     double total = 0.0;  // of the weights
-    for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-        const double weight = weights != nullptr ? weights[p] : 1.0;
+    each_bond([&](const double* v, double weight) {
         total += weight;
-        const double* v = vectors + 3 * p;
         const double r = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
         const double u[3] = {v[0] / r, v[1] / r, v[2] / r};
         const Harmonics harmonics(lmax, u);
@@ -144,12 +143,22 @@ void bond_harmonics(std::int64_t i, const std::int64_t* offsets, const double* v
         for (std::size_t k = 0; k < width; ++k) {
             sum[k] += weight * y[k];
         }
-    }
+    });
     if (total > 0.0) {
         for (std::size_t k = 0; k < width; ++k) {
             sum[k] /= total;
         }
     }
+}
+
+// The bonds of atom i in list, each weighted by weights at its pair, or by
+// 1 when weights is null.
+auto bonds_of(const neighbor::ListView& list, std::int64_t i, const double* weights) {
+    return [&list, i, weights](auto&& add) {
+        list.for_each(i, [&](std::int64_t p, index_t, const double* v) {
+            add(v, weights != nullptr ? weights[p] : 1.0);
+        });
+    };
 }
 
 // q_l of each degree from the harmonics of an atom.
@@ -196,7 +205,6 @@ void steinhardt_nearest(const double* positions, std::int64_t n, const double* m
         return;
     }
     const neighbor::KdTree tree(positions, n, matrix, origin, pbc);
-    const std::int64_t bonds[2] = {0, k};  // the k bonds of one atom, in CSR form
     tree.for_each_nearest(
         k,
         [&](std::int64_t i, const neighbor::Neighbor* found) {
@@ -210,16 +218,21 @@ void steinhardt_nearest(const double* positions, std::int64_t n, const double* m
                 neighbor::pair_vector(xi, positions + 3 * static_cast<std::int64_t>(found[a].j),
                                       found[a].shift, matrix, &vectors[3 * a]);
             }
-            bond_harmonics(0, bonds, vectors.data(), nullptr, degrees, lmax, width, y.data(),
-                           sum.data());
+            bond_harmonics(
+                [&](auto&& add) {
+                    for (int a = 0; a < k; ++a) {
+                        add(&vectors[3 * static_cast<std::size_t>(a)], 1.0);
+                    }
+                },
+                degrees, lmax, width, y.data(), sum.data());
             invariants(sum.data(), degrees, q + static_cast<std::size_t>(i) * degrees.size());
         },
         control);
 }
 
-void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
-                const double* vectors, const double* weights, const std::vector<int>& degrees,
-                bool average, double* q, const Control& control) {
+void steinhardt(const neighbor::ListView& list, std::int64_t n, const double* weights,
+                const std::vector<int>& degrees, bool average, double* q,
+                const Control& control) {
     const std::pair<std::size_t, int> shape = harmonics_of(degrees);
     const std::size_t width = shape.first;
     const int lmax = shape.second;
@@ -231,7 +244,7 @@ void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neig
             [&](std::int64_t begin, std::int64_t end) {
                 std::vector<double> y(width), sum(width);
                 for (std::int64_t i = begin; i < end; ++i) {
-                    bond_harmonics(i, offsets, vectors, weights, degrees, lmax, width, y.data(),
+                    bond_harmonics(bonds_of(list, i, weights), degrees, lmax, width, y.data(),
                                    sum.data());
                     invariants(sum.data(), degrees, q + static_cast<std::size_t>(i) * count);
                 }
@@ -246,7 +259,7 @@ void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neig
         [&](std::int64_t begin, std::int64_t end) {
             std::vector<double> y(width);
             for (std::int64_t i = begin; i < end; ++i) {
-                bond_harmonics(i, offsets, vectors, weights, degrees, lmax, width, y.data(),
+                bond_harmonics(bonds_of(list, i, weights), degrees, lmax, width, y.data(),
                                &qlm[static_cast<std::size_t>(i) * width]);
             }
         },
@@ -260,13 +273,14 @@ void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neig
                 for (std::size_t k = 0; k < width; ++k) {
                     mean[k] = own[k];
                 }
-                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const double* other = &qlm[static_cast<std::size_t>(neighbors[p]) * width];
+                const std::int64_t bonds = list.for_each(i, [&](std::int64_t, index_t j,
+                                                                const double*) {
+                    const double* other = &qlm[static_cast<std::size_t>(j) * width];
                     for (std::size_t k = 0; k < width; ++k) {
                         mean[k] += other[k];
                     }
-                }
-                const auto members = static_cast<double>(offsets[i + 1] - offsets[i] + 1);
+                });
+                const auto members = static_cast<double>(bonds + 1);
                 for (std::size_t k = 0; k < width; ++k) {
                     mean[k] /= members;
                 }

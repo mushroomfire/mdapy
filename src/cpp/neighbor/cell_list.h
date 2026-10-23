@@ -255,12 +255,12 @@ NeighborPairs within(std::int64_t n, const std::int64_t* offsets, const index_t*
 
 // The pairs of a list (offsets, neighbors, shifts) that are closer than the
 // cutoff with the atoms at positions, in the order of the list, with their
-// distances and vectors (pairs x 3); the test and the distances are those of
-// the search, so a list from a search with a longer cutoff gives the pairs
-// of a new search when no atom has moved half the difference of the cutoffs.
+// distances; the test and the distances are those of the search, so a list
+// from a search with a longer cutoff gives the pairs of a new search when no
+// atom has moved half the difference of the cutoffs.
 NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t* offsets,
                      const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
-                     double cutoff, Buffer<double>& vectors, const Control& control = {});
+                     double cutoff, const Control& control = {});
 
 // The pairs of each of n atoms (positions: n x 3; matrix: rows a, b, c) by
 // their squared distance from pair_vector, ties by atom and then image, as
@@ -271,5 +271,13 @@ void order_by_distance(const double* positions, std::int64_t n, const std::int64
                        const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
                        std::int64_t count, std::vector<std::int64_t>& order,
                        std::vector<std::int64_t>& kept, const Control& control = {});
+
+// The same order in place: the first count pairs of each of n atoms (all
+// when count < 0) come first, in the order of a search of nearest
+// neighbors, the pairs of each atom permuted among themselves with their
+// shifts and distances.
+void sort_nearest(const double* positions, std::int64_t n, const std::int64_t* offsets,
+                  index_t* neighbors, std::int8_t* shifts, double* distances,
+                  const double* matrix, std::int64_t count, const Control& control = {});
 
 }  // namespace mdapy::neighbor

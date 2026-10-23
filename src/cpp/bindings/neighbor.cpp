@@ -35,6 +35,9 @@ using Neighbors = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::devi
 using Shifts = nb::ndarray<const std::int8_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 using Types = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Limits = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
+using MutableNeighbors = nb::ndarray<index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using MutableShifts = nb::ndarray<std::int8_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using MutableDistances = nb::ndarray<double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 // A NumPy array that owns the memory of a vector, without copying it.
 template <class T, class A>
@@ -104,6 +107,24 @@ nb::tuple order_by_distance(Positions positions, Offsets offsets, Neighbors neig
                           to_array(std::move(kept), {static_cast<std::size_t>(n) + 1}));
 }
 
+void sort_nearest(Positions positions, Offsets offsets, MutableNeighbors neighbors,
+                  MutableShifts shifts, MutableDistances distances, Matrix matrix,
+                  std::int64_t count, nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
+        neighbors.shape(0) != shifts.shape(0) || distances.shape(0) != neighbors.shape(0) ||
+        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
+        throw std::invalid_argument("the pairs do not fit the atoms");
+    }
+    run_released(
+        [&](const Control& control) {
+            neighbor::sort_nearest(positions.data(), n, offsets.data(), neighbors.data(),
+                                   shifts.data(), distances.data(), matrix.data(), count,
+                                   control);
+        },
+        progress, cancel);
+}
+
 nb::object pair_vectors(Positions positions, Offsets offsets, Neighbors neighbors, Shifts shifts,
                         Matrix matrix) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
@@ -155,17 +176,13 @@ nb::tuple follow(Positions positions, Offsets offsets, Neighbors neighbors, Shif
     const auto n = static_cast<std::int64_t>(positions.shape(0));
     check_pairs(n, offsets, neighbors, shifts);
     neighbor::NeighborPairs pairs;
-    Buffer<double> vectors;
     run_released(
         [&](const Control& control) {
             pairs = neighbor::follow(positions.data(), n, offsets.data(), neighbors.data(),
-                                     shifts.data(), matrix.data(), cutoff, vectors, control);
+                                     shifts.data(), matrix.data(), cutoff, control);
         },
         progress, cancel);
-    const std::size_t count = pairs.neighbors.size();
-    nb::tuple lists = to_arrays(std::move(pairs));
-    return nb::make_tuple(lists[0], lists[1], lists[2], lists[3],
-                          to_array(std::move(vectors), {count, 3}));
+    return to_arrays(std::move(pairs));
 }
 
 void make_tree(neighbor::KdTree* tree, Positions positions, Matrix matrix, Vector3 origin,
@@ -213,6 +230,10 @@ void bind_neighbor(nb::module_& m) {
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("within", &within, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"),
           nb::arg("distances"), nb::arg("type").none(), nb::arg("limits"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("sort_nearest", &sort_nearest, nb::arg("positions"), nb::arg("offsets"),
+          nb::arg("neighbors"), nb::arg("shifts"), nb::arg("distances"), nb::arg("matrix"),
+          nb::arg("count"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("order_by_distance", &order_by_distance, nb::arg("positions"), nb::arg("offsets"),
           nb::arg("neighbors"), nb::arg("shifts"), nb::arg("matrix"), nb::arg("count") = -1, nb::arg("progress") = nb::none(),

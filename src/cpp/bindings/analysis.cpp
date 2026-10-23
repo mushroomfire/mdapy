@@ -21,6 +21,7 @@
 #include "analysis/strain.h"
 #include "analysis/voronoi.h"
 #include "bindings/control.h"
+#include "bindings/list_view.h"
 #include "core/buffer.h"
 #include "core/parallel.h"
 
@@ -43,35 +44,48 @@ nb::object as_array(std::vector<T, A>&& values) {
     return nb::ndarray<nb::numpy, T>(kept->data(), 1, shape, owner).cast();
 }
 
-nb::object steinhardt(Offsets offsets, Neighbors neighbors, Vectors vectors,
-                      std::optional<Values> weights, const std::vector<int>& degrees,
-                      bool average, nb::handle progress, const CancelToken* cancel) {
-    if (offsets.shape(0) < 1 || neighbors.shape(0) != vectors.shape(0) ||
-        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(vectors.shape(0)) ||
-        (weights && weights->shape(0) != vectors.shape(0))) {
-        throw std::invalid_argument("the offsets do not fit the vectors");
+// The first count pairs of each atom (all when 0) closer than cutoff (all
+// when 0), weighted by weights.
+nb::object steinhardt(lists::Positions positions, lists::Matrix matrix, lists::Offsets offsets,
+                      lists::Neighbors neighbors, lists::Shifts shifts,
+                      lists::Distances distances, std::int64_t sorted, std::int64_t count,
+                      double cutoff, std::optional<Values> weights,
+                      const std::vector<int>& degrees, bool average, nb::handle progress,
+                      const CancelToken* cancel) {
+    const neighbor::ListView list = lists::view(positions, matrix, offsets, neighbors, shifts,
+                                                distances, sorted, count, cutoff);
+    if (weights && weights->shape(0) != neighbors.shape(0)) {
+        throw std::invalid_argument("the weights do not fit the pairs");
     }
     const double* weight = weights ? weights->data() : nullptr;
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
     auto* q = new double[static_cast<std::size_t>(n) * degrees.size()];
     nb::capsule owner(q, [](void* p) noexcept { delete[] static_cast<double*>(p); });
     const std::size_t shape[2] = {static_cast<std::size_t>(n), degrees.size()};
     nb::object result = nb::ndarray<nb::numpy, double>(q, 2, shape, owner).cast();
     run_released(
         [&](const Control& control) {
-            analysis::steinhardt(n, offsets.data(), neighbors.data(), vectors.data(), weight, degrees,
-                                 average, q, control);
+            analysis::steinhardt(list, n, weight, degrees, average, q, control);
         },
         progress, cancel);
     return result;
 }
 
-nb::tuple clusters(Offsets offsets, Neighbors neighbors, Shifts3 shifts) {
-    if (offsets.shape(0) < 1 || shifts.shape(0) != neighbors.shape(0) ||
-        offsets.data()[offsets.shape(0) - 1] != static_cast<std::int64_t>(neighbors.shape(0))) {
-        throw std::invalid_argument("the offsets do not fit the neighbors");
+// The bonds are the pairs closer than cutoff, or than the limit of the types
+// of their atoms when limits is given.
+nb::tuple clusters(lists::Positions positions, lists::Matrix matrix, lists::Offsets offsets,
+                      lists::Neighbors neighbors, lists::Shifts shifts,
+                      lists::Distances distances, std::int64_t sorted, double cutoff,
+                   std::optional<Types> type, std::optional<lists::Limits> limits) {
+    neighbor::ListView list =
+        lists::view(positions, matrix, offsets, neighbors, shifts, distances, sorted, 0, cutoff);
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (limits) {
+        if (!type) {
+            throw std::invalid_argument("limits need a type for each atom");
+        }
+        list = lists::with_limits(list, n, *type, *limits);
     }
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
     for (std::size_t p = 0; p < neighbors.shape(0); ++p) {
         if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
             throw std::invalid_argument("a neighbor index is outside the atoms");
@@ -83,8 +97,8 @@ nb::tuple clusters(Offsets offsets, Neighbors neighbors, Shifts3 shifts) {
     std::int64_t count;
     {
         nb::gil_scoped_release release;
-        count = analysis::clusters(n, offsets.data(), neighbors.data(), shifts.data(),
-                                   cluster.data(), sizes.data(), images.data(), spanning.data());
+        count = analysis::clusters(list, n, cluster.data(), sizes.data(), images.data(),
+                                   spanning.data());
     }
     sizes.resize(static_cast<std::size_t>(count));
     spanning.resize(static_cast<std::size_t>(count));
@@ -92,13 +106,16 @@ nb::tuple clusters(Offsets offsets, Neighbors neighbors, Shifts3 shifts) {
                           as_array(std::move(images)), as_array(std::move(spanning)));
 }
 
-nb::object bond_angles(Offsets offsets, Neighbors neighbors, Vectors vectors, Types type,
-                       int types, int bins, nb::handle progress, const CancelToken* cancel) {
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
-    if (n < 0 || offsets.data()[n] != static_cast<std::int64_t>(vectors.shape(0)) ||
-        neighbors.shape(0) != vectors.shape(0)) {
-        throw std::invalid_argument("the offsets do not fit the vectors");
-    }
+// The bonds are the pairs closer than cutoff, or than the limit of the types
+// of their atoms when limits is given.
+nb::object bond_angles(lists::Positions positions, lists::Matrix matrix, lists::Offsets offsets,
+                      lists::Neighbors neighbors, lists::Shifts shifts,
+                      lists::Distances distances, std::int64_t sorted, double cutoff,
+                       Types type, int types, int bins, std::optional<lists::Limits> limits,
+                       nb::handle progress, const CancelToken* cancel) {
+    neighbor::ListView list =
+        lists::view(positions, matrix, offsets, neighbors, shifts, distances, sorted, 0, cutoff);
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
     if (type.shape(0) != static_cast<std::size_t>(n)) {
         throw std::invalid_argument("type must have one value per atom");
     }
@@ -110,6 +127,14 @@ nb::object bond_angles(Offsets offsets, Neighbors neighbors, Vectors vectors, Ty
             throw std::invalid_argument("types must be from 0 to types - 1");
         }
     }
+    if (limits) {
+        list = lists::with_limits(list, n, type, *limits);
+    }
+    for (std::size_t p = 0; p < neighbors.shape(0); ++p) {
+        if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
+            throw std::invalid_argument("a neighbor index is outside the atoms");
+        }
+    }
     const std::size_t pairs = static_cast<std::size_t>(types) * (types + 1) / 2;
     const std::size_t size = static_cast<std::size_t>(types) * pairs * bins;
     auto* counts = new std::int64_t[size];
@@ -118,31 +143,30 @@ nb::object bond_angles(Offsets offsets, Neighbors neighbors, Vectors vectors, Ty
     nb::object result = nb::ndarray<nb::numpy, std::int64_t>(counts, 3, shape, owner).cast();
     run_released(
         [&](const Control& control) {
-            analysis::bond_angles(n, offsets.data(), neighbors.data(), vectors.data(), type.data(),
-                                  types, bins, counts, control);
+            analysis::bond_angles(list, n, type.data(), types, bins, counts, control);
         },
         progress, cancel);
     return result;
 }
 
-nb::object pair_entropy(Offsets offsets, Values distances, double cutoff, double sigma,
-                        Values density, nb::handle progress, const CancelToken* cancel) {
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
-    if (n < 0 || offsets.data()[n] != static_cast<std::int64_t>(distances.shape(0)) ||
-        density.shape(0) != static_cast<std::size_t>(n)) {
-        throw std::invalid_argument("the offsets do not fit the distances");
+nb::object pair_entropy(lists::Positions positions, lists::Matrix matrix, lists::Offsets offsets,
+                      lists::Neighbors neighbors, lists::Shifts shifts,
+                      lists::Distances distances, std::int64_t sorted, double cutoff,
+                        double sigma, double density, nb::handle progress,
+                        const CancelToken* cancel) {
+    const neighbor::ListView list =
+        lists::view(positions, matrix, offsets, neighbors, shifts, distances, sorted, 0, 0.0);
+    if (!(cutoff > 0.0) || !(sigma > 0.0) || !(density >= 0.0)) {
+        throw std::invalid_argument("cutoff and sigma must be positive, density not negative");
     }
-    if (!(cutoff > 0.0) || !(sigma > 0.0)) {
-        throw std::invalid_argument("cutoff and sigma must be positive");
-    }
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
     auto* entropy = new double[static_cast<std::size_t>(n)];
     nb::capsule owner(entropy, [](void* p) noexcept { delete[] static_cast<double*>(p); });
     const std::size_t shape[1] = {static_cast<std::size_t>(n)};
     nb::object result = nb::ndarray<nb::numpy, double>(entropy, 1, shape, owner).cast();
     run_released(
         [&](const Control& control) {
-            analysis::pair_entropy(n, offsets.data(), distances.data(), cutoff, sigma,
-                                   density.data(), entropy, control);
+            analysis::pair_entropy(list, n, cutoff, sigma, density, entropy, control);
         },
         progress, cancel);
     return result;
@@ -448,21 +472,30 @@ nb::tuple lindemann(Trajectory positions, nb::handle progress, const CancelToken
     return nb::make_tuple(as_array(std::move(atomic)), as_array(std::move(running)));
 }
 
-nb::object atomic_temperature(Offsets offsets, Neighbors neighbors, Values mass,
+// The neighbors are the pairs closer than cutoff.
+nb::object atomic_temperature(lists::Positions positions, lists::Matrix matrix,
+                              lists::Offsets offsets, lists::Neighbors neighbors,
+                              lists::Shifts shifts, lists::Distances distances,
+                              std::int64_t sorted, double cutoff, Values mass,
                               Positions3 velocities, double energy_unit, double boltzmann,
                               nb::handle progress, const CancelToken* cancel) {
-    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
-    if (n < 0 || offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0)) ||
-        mass.shape(0) != static_cast<std::size_t>(n) ||
+    const neighbor::ListView list =
+        lists::view(positions, matrix, offsets, neighbors, shifts, distances, sorted, 0, cutoff);
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (mass.shape(0) != static_cast<std::size_t>(n) ||
         velocities.shape(0) != static_cast<std::size_t>(n)) {
-        throw std::invalid_argument("the offsets do not fit the neighbors, masses and velocities");
+        throw std::invalid_argument("the masses and velocities do not fit the atoms");
+    }
+    for (std::size_t p = 0; p < neighbors.shape(0); ++p) {
+        if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
+            throw std::invalid_argument("a neighbor index is outside the atoms");
+        }
     }
     std::vector<double> temperature(static_cast<std::size_t>(n));
     run_released(
         [&](const Control& control) {
-            analysis::atomic_temperature(n, offsets.data(), neighbors.data(), mass.data(),
-                                         velocities.data(), energy_unit, boltzmann,
-                                         temperature.data(), control);
+            analysis::atomic_temperature(list, n, mass.data(), velocities.data(), energy_unit,
+                                         boltzmann, temperature.data(), control);
         },
         progress, cancel);
     return as_array(std::move(temperature));
@@ -575,10 +608,15 @@ void bind_analysis(nb::module_& m) {
     m.def("steinhardt_nearest", &steinhardt_nearest, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("origin"), nb::arg("pbc"), nb::arg("k"), nb::arg("degrees"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
-    m.def("steinhardt", &steinhardt, nb::arg("offsets"), nb::arg("neighbors"),
-          nb::arg("vectors"), nb::arg("weights").none(), nb::arg("degrees"), nb::arg("average"),
+    m.def("steinhardt", &steinhardt,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("count"),
+          nb::arg("cutoff"), nb::arg("weights").none(), nb::arg("degrees"), nb::arg("average"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
-    m.def("clusters", &clusters, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"));
+    m.def("clusters", &clusters,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("cutoff"),
+          nb::arg("type").none() = nb::none(), nb::arg("limits").none() = nb::none());
     m.def("voronoi", &voronoi, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("face_threshold"), nb::arg("relative_face_threshold"),
           nb::arg("edge_threshold"), nb::arg("polyhedra"), nb::arg("progress") = nb::none(),
@@ -601,12 +639,16 @@ void bind_analysis(nb::module_& m) {
           nb::arg("origin"), nb::arg("pbc"), nb::arg("r_max"), nb::arg("bins"), nb::arg("type"),
           nb::arg("types"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
-    m.def("pair_entropy", &pair_entropy, nb::arg("offsets"), nb::arg("distances"),
-          nb::arg("cutoff"), nb::arg("sigma"), nb::arg("density"),
-          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("pair_entropy", &pair_entropy,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("cutoff"),
+          nb::arg("sigma"), nb::arg("density"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("lindemann", &lindemann, nb::arg("positions"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
-    m.def("atomic_temperature", &atomic_temperature, nb::arg("offsets"), nb::arg("neighbors"),
+    m.def("atomic_temperature", &atomic_temperature,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("cutoff"),
           nb::arg("mass"), nb::arg("velocities"), nb::arg("energy_unit"), nb::arg("boltzmann"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("pair_entropy_search", &pair_entropy_search, nb::arg("positions"), nb::arg("matrix"),
@@ -637,9 +679,11 @@ void bind_analysis(nb::module_& m) {
           nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"), nb::arg("cutoff"),
           nb::arg("mass"), nb::arg("velocities"), nb::arg("energy_unit"), nb::arg("boltzmann"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
-    m.def("bond_angles", &bond_angles, nb::arg("offsets"), nb::arg("neighbors"), nb::arg("vectors"),
-          nb::arg("type"), nb::arg("types"), nb::arg("bins"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+    m.def("bond_angles", &bond_angles,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("cutoff"),
+          nb::arg("type"), nb::arg("types"), nb::arg("bins"), nb::arg("limits").none(),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
 }
 
 }  // namespace mdapy::bindings

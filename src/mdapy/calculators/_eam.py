@@ -329,17 +329,18 @@ class EAM(Calculator):
                     f"the potential has no parameters for {missing}; it has {list(self.elements or ())}"
                 )
         neighbors = _given_or_built(system, self.cutoff, neighbors)
-        energies, forces, virials = _native.compute_eam(
-            self._potential,
-            species,
-            np.ascontiguousarray(system.positions),
-            np.ascontiguousarray(system.box.matrix),
-            neighbors.offsets,
-            neighbors.j,
-            neighbors.shifts,
-            progress,
-            _native_token(cancel),
-        )
+        with neighbors._reading():
+            energies, forces, virials = _native.compute_eam(
+                self._potential,
+                species,
+                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system.box.matrix),
+                neighbors.offsets,
+                neighbors.j,
+                neighbors.shifts,
+                progress,
+                _native_token(cancel),
+            )
         return CalculatorResult(
             energy=float(energies.sum()),
             atomic_energies=energies,

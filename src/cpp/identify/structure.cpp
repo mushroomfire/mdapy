@@ -283,14 +283,17 @@ void with_nearest(const double* positions, std::int64_t n, const double* matrix,
 
 }  // namespace
 
-void centro_symmetry(std::int64_t n, int k, const double* vectors, double* csp,
+void centro_symmetry(const neighbor::ListView& list, std::int64_t n, int k, double* csp,
                      const Control& control) {
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
             std::vector<double> values(static_cast<std::size_t>(k) * (k - 1) / 2);
+            std::vector<double> v(3 * static_cast<std::size_t>(k));
             for (std::int64_t i = begin; i < end; ++i) {
-                csp[i] = centro_symmetry_of(vectors + 3 * k * i, k, values.data());
+                csp[i] = list.gather(i, v.data(), k) < k
+                             ? std::numeric_limits<double>::quiet_NaN()
+                             : centro_symmetry_of(v.data(), k, values.data());
             }
         },
         control);
@@ -364,14 +367,21 @@ double common_neighbor_sum(const double* vectors, std::int64_t count, double cut
 
 }  // namespace
 
-void common_neighbor_parameter(std::int64_t n, const std::int64_t* offsets,
-                               const double* vectors, double cutoff, double* cnp,
-                               const Control& control) {
+void common_neighbor_parameter(const neighbor::ListView& list, std::int64_t n, double cutoff,
+                               double* cnp, const Control& control) {
+    neighbor::ListView within = list;
+    within.cutoff = cutoff;
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
+            std::vector<double> found;  // the vectors to the neighbors
             for (std::int64_t i = begin; i < end; ++i) {
-                cnp[i] = common_neighbor_sum(vectors + 3 * offsets[i], offsets[i + 1] - offsets[i],
+                found.clear();
+                within.for_each(i, [&](std::int64_t, index_t, const double* r) {
+                    found.insert(found.end(), r, r + 3);
+                });
+                cnp[i] = common_neighbor_sum(found.data(),
+                                             static_cast<std::int64_t>(found.size() / 3),
                                              cutoff * cutoff);
             }
         },
@@ -408,14 +418,15 @@ void common_neighbor_parameter_search(const double* positions, std::int64_t n,
         control);
 }
 
-void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const double* vectors,
-                              double cutoff, std::int8_t* types, const Control& control) {
+void common_neighbor_analysis(const neighbor::ListView& list, std::int64_t n,
+                              std::int8_t* types, const Control& control) {
+    const double cutoff = list.cutoff;
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
+            double v[3 * kMaxNeighbors];
             for (std::int64_t i = begin; i < end; ++i) {
-                const std::int64_t m = offsets[i + 1] - offsets[i];
-                const double* v = vectors + 3 * offsets[i];
+                const std::int64_t m = list.gather(i, v, kMaxNeighbors);
                 Structure type = kOther;
                 if (cutoff > 0.0) {
                     if (m == 12) {
@@ -424,7 +435,7 @@ void common_neighbor_analysis(std::int64_t n, const std::int64_t* offsets, const
                         type = fourteen(v, cutoff * cutoff);
                     }
                 } else {
-                    type = adaptive_common_neighbors(v, m);
+                    type = adaptive_common_neighbors(v, std::min<std::int64_t>(m, kMaxNeighbors));
                 }
                 types[i] = type;
             }
@@ -466,36 +477,48 @@ void common_neighbor_analysis_search(const double* positions, std::int64_t n,
         control);
 }
 
-void ackland_jones(std::int64_t n, const std::int64_t* offsets, const double* vectors,
-                   std::int8_t* types, const Control& control) {
+void ackland_jones(const neighbor::ListView& list, std::int64_t n, std::int8_t* types,
+                   const Control& control) {
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
+            double v[3 * kMaxNeighbors];
             for (std::int64_t i = begin; i < end; ++i) {
-                types[i] = ackland_jones_of(vectors + 3 * offsets[i], offsets[i + 1] - offsets[i]);
+                const std::int64_t m = list.gather(i, v, kMaxNeighbors);
+                types[i] = ackland_jones_of(v, std::min<std::int64_t>(m, kMaxNeighbors));
             }
         },
         control);
 }
 
-void identify_diamond(std::int64_t n, const index_t* neighbors, const double* vectors,
-                      std::int8_t* types, const Control& control) {
+void identify_diamond(const neighbor::ListView& list, std::int64_t n, std::int8_t* types,
+                      const Control& control) {
     const double scale = 0.5 * (1.0 + std::sqrt(2.0));
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
             double second[12 * 3];
+            double first[4 * 3], further[4 * 3];
+            index_t neighbors[4];
             for (std::int64_t i = begin; i < end; ++i) {
+                if (list.gather(i, first, 4, neighbors) < 4) {
+                    types[i] = kNotDiamond;
+                    continue;
+                }
                 int m = 0;
                 bool back_to_i = true;  // i is among the four nearest of each neighbor
+                bool enough = true;  // every neighbor has four neighbors of its own
                 for (int a = 0; a < 4; ++a) {
-                    const double* v = vectors + 3 * (4 * i + a);
-                    const std::int64_t j = neighbors[4 * i + a];
+                    const double* v = first + 3 * a;
+                    enough = list.gather(static_cast<std::int64_t>(neighbors[a]), further, 4) >= 4;
+                    if (!enough) {
+                        break;
+                    }
                     // the neighbors of j other than i: drop the bond back to i
                     int back = 0;
                     double shortest = 0.0;
                     for (int b = 0; b < 4; ++b) {
-                        const double* w = vectors + 3 * (4 * j + b);
+                        const double* w = further + 3 * b;
                         const double x = v[0] + w[0], y = v[1] + w[1], z = v[2] + w[2];
                         const double d = x * x + y * y + z * z;
                         if (b == 0 || d < shortest) {
@@ -506,13 +529,17 @@ void identify_diamond(std::int64_t n, const index_t* neighbors, const double* ve
                     back_to_i = back_to_i && shortest < kBackBond;
                     for (int b = 0; b < 4; ++b) {
                         if (b != back) {
-                            const double* w = vectors + 3 * (4 * j + b);
+                            const double* w = further + 3 * b;
                             for (int e = 0; e < 3; ++e) {
                                 second[3 * m + e] = v[e] + w[e];
                             }
                             ++m;
                         }
                     }
+                }
+                if (!enough) {
+                    types[i] = kNotDiamond;
+                    continue;
                 }
                 double sum = 0.0;
                 for (int a = 0; a < 12; ++a) {
@@ -528,8 +555,8 @@ void identify_diamond(std::int64_t n, const index_t* neighbors, const double* ve
         control);
 }
 
-void chill_plus(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
-                const double* vectors, std::int8_t* types, const Control& control) {
+void chill_plus(const neighbor::ListView& list, std::int64_t n, std::int8_t* types,
+                const Control& control) {
     // the sums of the real l = 3 harmonics over each molecule's bonds
     std::vector<double> q(static_cast<std::size_t>(n) * 7, 0.0);
     parallel_for(
@@ -538,15 +565,14 @@ void chill_plus(std::int64_t n, const std::int64_t* offsets, const index_t* neig
             double y[7];
             for (std::int64_t i = begin; i < end; ++i) {
                 double* qi = &q[static_cast<std::size_t>(i) * 7];
-                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const double* v = vectors + 3 * p;
+                list.for_each(i, [&](std::int64_t, index_t, const double* v) {
                     const double r = length(v);
                     const double u[3] = {v[0] / r, v[1] / r, v[2] / r};
                     analysis::real_harmonics(3, u, y);
                     for (int m = 0; m < 7; ++m) {
                         qi[m] += y[m];
                     }
-                }
+                });
             }
         },
         control);
@@ -560,8 +586,9 @@ void chill_plus(std::int64_t n, const std::int64_t* offsets, const index_t* neig
                     own += qi[m] * qi[m];
                 }
                 int eclipsed = 0, staggered = 0;
-                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const double* qj = &q[static_cast<std::size_t>(neighbors[p]) * 7];
+                const std::int64_t bonds = list.for_each(i, [&](std::int64_t, index_t j,
+                                                                const double*) {
+                    const double* qj = &q[static_cast<std::size_t>(j) * 7];
                     double product = 0.0, other = 0.0;
                     for (int m = 0; m < 7; ++m) {
                         product += qi[m] * qj[m];
@@ -571,9 +598,9 @@ void chill_plus(std::int64_t n, const std::int64_t* offsets, const index_t* neig
                     const double c = scale > 0.0 ? product / scale : 0.0;
                     eclipsed += c > -0.35 && c < 0.25;
                     staggered += c < -0.8;
-                }
+                });
                 Water type = kLiquid;
-                if (offsets[i + 1] - offsets[i] == 4) {
+                if (bonds == 4) {
                     if (eclipsed == 4) {
                         type = kHydrate;
                     } else if (eclipsed == 3) {

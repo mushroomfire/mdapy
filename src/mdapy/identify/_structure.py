@@ -18,6 +18,7 @@ from mdapy.neighbor._neighbor_list import (
     _given_or_built,
     _nearest_given_or_built,
     _run,
+    _view,
 )
 
 
@@ -138,21 +139,20 @@ class CommonNeighborAnalysis:
             )
             return StructureResult(structure, self.NAMES, self.COLORS)
         if self.cutoff is not None:
-            nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
+            nl = _given_or_built(system, self.cutoff, neighbors)
+            count, cutoff = 0, self.cutoff
         elif k > 0:
             nl = _nearest_given_or_built(system, k, neighbors)
+            count, cutoff = k, 0.0
         else:
             nl = None
         if nl is None:
             structure = np.zeros(len(system), dtype=np.int8)
         else:
-            structure = _native.common_neighbor_analysis(
-                nl.offsets,
-                np.ascontiguousarray(nl.vectors),
-                self.cutoff or 0.0,
-                progress,
-                _native_token(cancel),
-            )
+            with nl._reading():
+                structure = _native.common_neighbor_analysis(
+                    *_view(system, nl), count, cutoff, progress, _native_token(cancel)
+                )
         return StructureResult(structure, self.NAMES, self.COLORS)
 
     def __repr__(self) -> str:
@@ -208,12 +208,10 @@ class AcklandJonesAnalysis:
             )
             return StructureResult(structure, self.NAMES, self.COLORS)
         nl = _nearest_given_or_built(system, k, neighbors)
-        structure = _native.ackland_jones(
-            nl.offsets,
-            np.ascontiguousarray(nl.vectors),
-            progress,
-            _native_token(cancel),
-        )
+        with nl._reading():
+            structure = _native.ackland_jones(
+                *_view(system, nl), k, progress, _native_token(cancel)
+            )
         return StructureResult(structure, self.NAMES, self.COLORS)
 
     def __repr__(self) -> str:
@@ -257,13 +255,10 @@ class DiamondStructure:
             If an atom has fewer than 4 neighbors.
         """
         nl = _nearest_given_or_built(system, 4, neighbors)
-        n = len(system)
-        structure = _native.identify_diamond(
-            np.ascontiguousarray(nl.j.reshape(n, 4)),
-            np.ascontiguousarray(nl.vectors).reshape(n, 4, 3),
-            progress,
-            _native_token(cancel),
-        )
+        with nl._reading():
+            structure = _native.identify_diamond(
+                *_view(system, nl), progress, _native_token(cancel)
+            )
         return StructureResult(structure, self.NAMES, self.COLORS)
 
     def __repr__(self) -> str:
@@ -328,14 +323,11 @@ class ChillPlus:
             Types ``other``, ``hexagonal_ice``, ``cubic_ice``,
             ``interfacial_ice``, ``hydrate`` and ``interfacial_hydrate``.
         """
-        nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
-        structure = _native.chill_plus(
-            nl.offsets,
-            nl.j,
-            np.ascontiguousarray(nl.vectors),
-            progress,
-            _native_token(cancel),
-        )
+        nl = _given_or_built(system, self.cutoff, neighbors)
+        with nl._reading():
+            structure = _native.chill_plus(
+                *_view(system, nl), self.cutoff, progress, _native_token(cancel)
+            )
         return StructureResult(structure, self.NAMES, self.COLORS)
 
     def __repr__(self) -> str:
@@ -408,8 +400,10 @@ class CentroSymmetryParameter:
             csp = _nearest(_native.centro_symmetry_nearest, system, k, progress, cancel)
             return CentroSymmetryResult(csp)
         nl = _nearest_given_or_built(system, k, neighbors)
-        vectors = np.ascontiguousarray(nl.vectors).reshape(len(system), k, 3)
-        csp = _native.centro_symmetry(vectors, progress, _native_token(cancel))
+        with nl._reading():
+            csp = _native.centro_symmetry(
+                *_view(system, nl), k, progress, _native_token(cancel)
+            )
         return CentroSymmetryResult(csp)
 
     def __repr__(self) -> str:
@@ -482,14 +476,11 @@ class CommonNeighborParameter:
                 _native_token(cancel),
             )
         else:
-            nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
-            cnp = _native.common_neighbor_parameter(
-                nl.offsets,
-                np.ascontiguousarray(nl.vectors),
-                self.cutoff,
-                progress,
-                _native_token(cancel),
-            )
+            nl = _given_or_built(system, self.cutoff, neighbors)
+            with nl._reading():
+                cnp = _native.common_neighbor_parameter(
+                    *_view(system, nl), self.cutoff, progress, _native_token(cancel)
+                )
         return CommonNeighborParameterResult(cnp)
 
     def __repr__(self) -> str:

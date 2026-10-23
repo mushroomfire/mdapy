@@ -16,7 +16,7 @@ from mdapy.core.threads import _native_token
 from mdapy.elements import atomic_masses
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built
+from mdapy.neighbor._neighbor_list import _given_or_built, _view
 
 
 @dataclass(frozen=True)
@@ -101,17 +101,18 @@ class AtomicTemperature:
                 _native_token(cancel),
             )
         else:
-            nl = _given_or_built(system, self.cutoff, neighbors).within(self.cutoff)
-            temperature = _native.atomic_temperature(
-                nl.offsets,
-                nl.j,
-                mass,
-                v,
-                units.AMU_A2_PER_PS2_TO_EV,
-                units.BOLTZMANN,
-                progress,
-                _native_token(cancel),
-            )
+            nl = _given_or_built(system, self.cutoff, neighbors)
+            with nl._reading():
+                temperature = _native.atomic_temperature(
+                    *_view(system, nl),
+                    self.cutoff,
+                    mass,
+                    v,
+                    units.AMU_A2_PER_PS2_TO_EV,
+                    units.BOLTZMANN,
+                    progress,
+                    _native_token(cancel),
+                )
         return TemperatureResult(temperature)
 
     def __repr__(self) -> str:

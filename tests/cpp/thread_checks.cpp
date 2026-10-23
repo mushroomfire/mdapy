@@ -39,6 +39,7 @@
 #include "io/text.h"
 #include "neighbor/cell_list.h"
 #include "neighbor/kd_tree.h"
+#include "neighbor/list_view.h"
 #include "visualization/render.h"
 
 namespace {
@@ -390,14 +391,12 @@ void neighbor_search() {
         }
         check(lengths, "the pair vectors have the lengths of the distances");
         // the pairs within 3 of a list within 3.5, as a new search finds them
-        mdapy::Buffer<double> followed_vectors;
         const mdapy::neighbor::NeighborPairs followed = mdapy::neighbor::follow(
             positions.data(), n, pairs.offsets.data(), pairs.neighbors.data(),
-            pairs.shifts.data(), matrix, 3.0, followed_vectors);
+            pairs.shifts.data(), matrix, 3.0);
         const mdapy::neighbor::NeighborPairs shorter =
             mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 3.0);
-        check(followed.offsets == shorter.offsets && keys(followed) == keys(shorter) &&
-                  followed_vectors.size() == 3 * shorter.neighbors.size(),
+        check(followed.offsets == shorter.offsets && keys(followed) == keys(shorter),
               "following a longer list gives the pairs of a new search");
         // every atom is the nearest atom to its own position
         const mdapy::neighbor::KdTree tree(positions.data(), n, matrix, origin, pbc);
@@ -587,55 +586,39 @@ void structure_identification() {
     const auto n = static_cast<std::int64_t>(positions.size() / 3);
     const mdapy::neighbor::NeighborPairs pairs =
         mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 3.07);
-    std::vector<double> vectors;
-    for (std::int64_t i = 0; i < n; ++i) {
-        for (std::int64_t k = pairs.offsets[i]; k < pairs.offsets[i + 1]; ++k) {
-            const std::int32_t j = pairs.neighbors[k];
-            for (int e = 0; e < 3; ++e) {
-                double v = positions[3 * j + e] - positions[3 * i + e];
-                for (int s = 0; s < 3; ++s) {
-                    v += pairs.shifts[3 * k + s] * matrix[3 * s + e];
-                }
-                vectors.push_back(v);
-            }
-        }
-    }
-    // the first 8 neighbor vectors of every atom for the centro-symmetry
-    std::vector<double> eight;
-    for (std::int64_t i = 0; i < n; ++i) {
-        for (int k = 0; k < 8; ++k) {
-            for (int e = 0; e < 3; ++e) {
-                eight.push_back(vectors[3 * (pairs.offsets[i] + k) + e]);
-            }
-        }
-    }
-    // the first 4 neighbors of every atom, for the diamond identification
-    std::vector<std::int32_t> four;
-    std::vector<double> four_vectors;
-    for (std::int64_t i = 0; i < n; ++i) {
-        for (int k = 0; k < 4; ++k) {
-            four.push_back(pairs.neighbors[pairs.offsets[i] + k]);
-            for (int e = 0; e < 3; ++e) {
-                four_vectors.push_back(vectors[3 * (pairs.offsets[i] + k) + e]);
-            }
-        }
-    }
-    // the 14 nearest neighbors of every atom, nearest first, for Ackland-Jones
-    const mdapy::neighbor::NeighborPairs wide =
+    // the list read where it is, and the same with a cutoff, as within keeps it
+    const mdapy::neighbor::ListView all{positions.data(),        matrix,
+                                        pairs.offsets.data(),    pairs.neighbors.data(),
+                                        pairs.shifts.data(),     pairs.distances.data()};
+    mdapy::neighbor::ListView within = all;
+    within.cutoff = 3.07;
+    // a wider list with the 14 nearest neighbors of every atom first, nearest
+    // first, sorted in place: in the order order_by_distance gives
+    mdapy::neighbor::NeighborPairs wide =
         mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 4.2);
     std::vector<std::int64_t> nearest_order, nearest_offsets;
     mdapy::neighbor::order_by_distance(positions.data(), n, wide.offsets.data(),
                                        wide.neighbors.data(), wide.shifts.data(), matrix, 14,
                                        nearest_order, nearest_offsets);
-    std::vector<double> fourteen(3 * nearest_order.size());
+    const std::vector<mdapy::index_t> unsorted(wide.neighbors.begin(), wide.neighbors.end());
+    const std::vector<double> unsorted_distances(wide.distances.begin(), wide.distances.end());
+    mdapy::neighbor::sort_nearest(positions.data(), n, wide.offsets.data(), wide.neighbors.data(),
+                                  wide.shifts.data(), wide.distances.data(), matrix, 14);
+    bool in_order = true;
     for (std::int64_t i = 0; i < n; ++i) {
-        for (std::int64_t q = nearest_offsets[i]; q < nearest_offsets[i + 1]; ++q) {
-            const std::int64_t p = nearest_order[q];
-            mdapy::neighbor::pair_vector(&positions[3 * i],
-                                         &positions[3 * static_cast<std::int64_t>(wide.neighbors[p])],
-                                         &wide.shifts[3 * p], matrix, &fourteen[3 * q]);
+        for (std::int64_t q = 0; q < 14; ++q) {
+            const std::int64_t p = nearest_order[nearest_offsets[i] + q];
+            in_order = in_order && wide.neighbors[wide.offsets[i] + q] == unsorted[p] &&
+                       wide.distances[wide.offsets[i] + q] == unsorted_distances[p];
         }
     }
+    check(in_order, "a list sorted in place has the nearest neighbors of order_by_distance");
+    const auto nearest = [&](std::int64_t count) {
+        return mdapy::neighbor::ListView{positions.data(),       matrix,
+                                         wide.offsets.data(),    wide.neighbors.data(),
+                                         wide.shifts.data(),     wide.distances.data(),
+                                         count};
+    };
     std::vector<double> masses(static_cast<std::size_t>(n)), velocities(3 * static_cast<std::size_t>(n));
     std::normal_distribution<double> thermal(0.0, 3.0);
     for (std::int64_t i = 0; i < n; ++i) {
@@ -657,16 +640,16 @@ void structure_identification() {
         mdapy::set_num_threads(threads);
         std::vector<std::int8_t> types(static_cast<std::size_t>(n));
         std::vector<double> csp(static_cast<std::size_t>(n));
-        mdapy::identify::common_neighbor_analysis(n, pairs.offsets.data(), vectors.data(), 3.07,
-                                                  types.data());
+        mdapy::identify::common_neighbor_analysis(within, n, types.data());
         std::vector<std::int8_t> searched_types(static_cast<std::size_t>(n));
         mdapy::identify::common_neighbor_analysis_search(positions.data(), n, matrix, origin, pbc,
                                                          3.07, searched_types.data());
         check(searched_types == types, "common neighbor analysis on the grid is that of the list");
-        mdapy::identify::centro_symmetry(n, 8, eight.data(), csp.data());
+        mdapy::neighbor::ListView first_eight = all;
+        first_eight.count = 8;
+        mdapy::identify::centro_symmetry(first_eight, n, 8, csp.data());
         std::vector<double> cnp(static_cast<std::size_t>(n));
-        mdapy::identify::common_neighbor_parameter(n, pairs.offsets.data(), vectors.data(), 3.07,
-                                                   cnp.data());
+        mdapy::identify::common_neighbor_parameter(all, n, 3.07, cnp.data());
         if (threads == kThreads[0]) {
             first_cnp = cnp;
         }
@@ -681,8 +664,7 @@ void structure_identification() {
         }
         check(cnp_near, "the common neighbor parameter on the grid is that of the list");
         std::vector<double> temperature(static_cast<std::size_t>(n));
-        mdapy::analysis::atomic_temperature(n, pairs.offsets.data(), pairs.neighbors.data(),
-                                            masses.data(), velocities.data(), 1.0, 1.0,
+        mdapy::analysis::atomic_temperature(all, n, masses.data(), velocities.data(), 1.0, 1.0,
                                             temperature.data());
         if (threads == kThreads[0]) {
             first_temperature = temperature;
@@ -703,18 +685,15 @@ void structure_identification() {
         }
         check(near, "the atomic temperature on the grid is the same for any thread count");
         std::vector<double> q(static_cast<std::size_t>(n) * degrees.size());
-        mdapy::analysis::steinhardt(n, pairs.offsets.data(), pairs.neighbors.data(),
-                                    vectors.data(), pairs.distances.data(), degrees, true,
-                                    q.data());
+        mdapy::analysis::steinhardt(all, n, pairs.distances.data(), degrees, true, q.data());
         std::vector<std::int8_t> water(static_cast<std::size_t>(n));
-        mdapy::identify::chill_plus(n, pairs.offsets.data(), pairs.neighbors.data(),
-                                    vectors.data(), water.data());
+        mdapy::identify::chill_plus(all, n, water.data());
         if (threads == kThreads[0]) {
             first_water = water;
         }
         check(water == first_water, "CHILL+ gives the same types for any thread count");
         std::vector<std::int8_t> aja(static_cast<std::size_t>(n));
-        mdapy::identify::ackland_jones(n, nearest_offsets.data(), fourteen.data(), aja.data());
+        mdapy::identify::ackland_jones(nearest(14), n, aja.data());
         if (threads == kThreads[0]) {
             first_aja = aja;
         }
@@ -726,47 +705,31 @@ void structure_identification() {
         mdapy::identify::ackland_jones_nearest(positions.data(), n, matrix, origin, pbc, 14,
                                                found_types.data());
         check(found_types == aja, "Ackland-Jones finds the nearest neighbors as the list has them");
-        mdapy::identify::common_neighbor_analysis(n, nearest_offsets.data(), fourteen.data(), 0.0,
-                                                  listed_types.data());
+        mdapy::identify::common_neighbor_analysis(nearest(14), n, listed_types.data());
         mdapy::identify::common_neighbor_analysis_nearest(positions.data(), n, matrix, origin,
                                                           pbc, 14, found_types.data());
         check(found_types == listed_types,
               "adaptive common neighbor analysis finds the nearest neighbors as the list has them");
-        std::vector<double> nearest_eight;
-        for (std::int64_t i = 0; i < n; ++i) {
-            const double* v = &fourteen[3 * static_cast<std::size_t>(nearest_offsets[i])];
-            nearest_eight.insert(nearest_eight.end(), v, v + 24);
-        }
         std::vector<double> listed_csp(static_cast<std::size_t>(n)),
             found_csp(static_cast<std::size_t>(n));
-        mdapy::identify::centro_symmetry(n, 8, nearest_eight.data(), listed_csp.data());
+        mdapy::identify::centro_symmetry(nearest(8), n, 8, listed_csp.data());
         mdapy::identify::centro_symmetry_nearest(positions.data(), n, matrix, origin, pbc, 8,
                                                  found_csp.data());
         check(found_csp == listed_csp,
               "the centro-symmetry parameter finds the nearest neighbors as the list has them");
-        std::vector<std::int64_t> twelve_offsets(static_cast<std::size_t>(n) + 1);
-        std::vector<double> nearest_twelve;
-        for (std::int64_t i = 0; i < n; ++i) {
-            twelve_offsets[i + 1] = 12 * (i + 1);
-            const double* v = &fourteen[3 * static_cast<std::size_t>(nearest_offsets[i])];
-            nearest_twelve.insert(nearest_twelve.end(), v, v + 36);
-        }
         std::vector<double> listed_q(static_cast<std::size_t>(n) * degrees.size()),
             found_q(listed_q.size());
-        mdapy::analysis::steinhardt(n, twelve_offsets.data(), nullptr, nearest_twelve.data(),
-                                    nullptr, degrees, false, listed_q.data());
+        mdapy::analysis::steinhardt(nearest(12), n, nullptr, degrees, false, listed_q.data());
         mdapy::analysis::steinhardt_nearest(positions.data(), n, matrix, origin, pbc, 12, degrees,
                                             found_q.data());
         check(found_q == listed_q,
               "Steinhardt parameters find the nearest neighbors as the list has them");
         std::vector<std::int8_t> diamond(static_cast<std::size_t>(n));
-        mdapy::identify::identify_diamond(n, four.data(), four_vectors.data(), diamond.data());
+        mdapy::identify::identify_diamond(nearest(4), n, diamond.data());
         check(diamond == std::vector<std::int8_t>(static_cast<std::size_t>(n), 0),
               "no atom of fcc is diamond");
-        std::vector<double> entropy(static_cast<std::size_t>(n)),
-            density(static_cast<std::size_t>(n), 0.08);
-        mdapy::analysis::pair_entropy(n, pairs.offsets.data(), pairs.distances.data(), 3.07,
-                                      0.2, density.data(), entropy.data());
+        std::vector<double> entropy(static_cast<std::size_t>(n));
+        mdapy::analysis::pair_entropy(all, n, 3.07, 0.2, 0.08, entropy.data());
         if (threads == kThreads[0]) {
             first_entropy = entropy;
         }
@@ -812,6 +775,41 @@ void structure_identification() {
             n, longer.offsets.data(), longer.neighbors.data(), longer.shifts.data(),
             longer.distances.data(), nullptr, 1, &limit);
         check(cut.offsets == pairs.offsets, "the pairs of a list within a cutoff are found");
+        // the wider list read with the cutoff gives what the list of the cutoff gives
+        mdapy::neighbor::ListView wider{positions.data(),       matrix,
+                                        longer.offsets.data(),  longer.neighbors.data(),
+                                        longer.shifts.data(),   longer.distances.data()};
+        wider.cutoff = 3.07;
+        std::vector<std::int8_t> wider_types(static_cast<std::size_t>(n));
+        mdapy::identify::common_neighbor_analysis(wider, n, wider_types.data());
+        std::vector<double> wider_entropy(static_cast<std::size_t>(n)),
+            wider_temperature(static_cast<std::size_t>(n));
+        mdapy::analysis::pair_entropy(wider, n, 3.07, 0.2, 0.08, wider_entropy.data());
+        mdapy::analysis::atomic_temperature(wider, n, masses.data(), velocities.data(), 1.0, 1.0,
+                                            wider_temperature.data());
+        bool wider_close = wider_types == types;
+        for (std::int64_t i = 0; i < n; ++i) {
+            wider_close = wider_close &&
+                          std::abs(wider_entropy[i] - entropy[i]) <= 1e-12 * std::abs(entropy[i]) &&
+                          std::abs(wider_temperature[i] - temperature[i]) <=
+                              1e-12 * std::abs(temperature[i]);
+        }
+        check(wider_close, "a wider list read with a cutoff gives what the list of it gives");
+        // the sorted wider list stops at the first sorted pair beyond the cutoff
+        mdapy::neighbor::ListView ordered = nearest(0);
+        ordered.sorted = 14;
+        ordered.cutoff = 3.07;
+        std::vector<std::int8_t> ordered_types(static_cast<std::size_t>(n));
+        mdapy::identify::common_neighbor_analysis(ordered, n, ordered_types.data());
+        std::vector<double> ordered_temperature(static_cast<std::size_t>(n));
+        mdapy::analysis::atomic_temperature(ordered, n, masses.data(), velocities.data(), 1.0,
+                                            1.0, ordered_temperature.data());
+        bool same_set = ordered_types == types;
+        for (std::int64_t i = 0; i < n; ++i) {
+            same_set = same_set && std::abs(ordered_temperature[i] - temperature[i]) <=
+                                       1e-12 * std::abs(temperature[i]);
+        }
+        check(same_set, "a sorted list read with a cutoff stops where the cutoff ends its pairs");
         // clusters of bonds shorter than 2.6, on the grid and from the list
         const double bond = 2.6;
         const mdapy::neighbor::NeighborPairs bonded =
@@ -823,9 +821,12 @@ void structure_identification() {
             searched_images(3 * static_cast<std::size_t>(n));
         std::vector<std::uint8_t> listed_spanning(static_cast<std::size_t>(n)),
             searched_spanning(static_cast<std::size_t>(n));
-        const std::int64_t listed_count = mdapy::analysis::clusters(
-            n, bonded.offsets.data(), bonded.neighbors.data(), bonded.shifts.data(), listed.data(),
-            listed_sizes.data(), listed_images.data(), listed_spanning.data());
+        const mdapy::neighbor::ListView bonds{positions.data(),         matrix,
+                                              bonded.offsets.data(),    bonded.neighbors.data(),
+                                              bonded.shifts.data(),     bonded.distances.data()};
+        const std::int64_t listed_count =
+            mdapy::analysis::clusters(bonds, n, listed.data(), listed_sizes.data(),
+                                      listed_images.data(), listed_spanning.data());
         const std::int64_t searched_count = mdapy::analysis::clusters_search(
             positions.data(), n, matrix, origin, pbc, species.data(), 1, &bond, false,
             searched_clusters.data(), searched_sizes.data(), searched_images.data(),
@@ -839,14 +840,8 @@ void structure_identification() {
         check(searched_images == first_images,
               "the images of the clusters on the grid are the same for any thread count");
         // bond angles on the grid and from the list
-        std::vector<double> bond_vectors(3 * bonded.neighbors.size());
-        mdapy::neighbor::pair_vectors(positions.data(), n, bonded.offsets.data(),
-                                      bonded.neighbors.data(), bonded.shifts.data(), matrix,
-                                      bond_vectors.data());
         std::vector<std::int64_t> listed_angles(90), searched_angles(90);
-        mdapy::analysis::bond_angles(n, bonded.offsets.data(), bonded.neighbors.data(),
-                                     bond_vectors.data(), species.data(), 1, 90,
-                                     listed_angles.data());
+        mdapy::analysis::bond_angles(bonds, n, species.data(), 1, 90, listed_angles.data());
         mdapy::analysis::bond_angles_search(positions.data(), n, matrix, origin, pbc,
                                             species.data(), 1, &bond, false, 90,
                                             searched_angles.data());
@@ -899,8 +894,7 @@ void structure_identification() {
             two_types[i] = static_cast<std::int32_t>(i % 2);
         }
         std::vector<std::int64_t> angles(2 * 3 * 90);
-        mdapy::analysis::bond_angles(n, pairs.offsets.data(), pairs.neighbors.data(), vectors.data(),
-                                     two_types.data(), 2, 90, angles.data());
+        mdapy::analysis::bond_angles(all, n, two_types.data(), 2, 90, angles.data());
         const mdapy::analysis::VoronoiCells voronoi =
             mdapy::analysis::voronoi(positions.data(), n, matrix, origin, pbc, {0.0, 0.01, 0.1},
                                      true);

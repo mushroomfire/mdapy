@@ -4,7 +4,6 @@
 """The pair entropy fingerprint of local order."""
 
 from dataclasses import dataclass
-from math import pi
 from typing import Any
 
 import numpy as np
@@ -15,7 +14,7 @@ from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built
+from mdapy.neighbor._neighbor_list import _given_or_built, _view
 
 
 @dataclass(frozen=True)
@@ -120,26 +119,22 @@ class EntropyFingerprint:
         else:
             reach = max(self.cutoff, self.average_cutoff or 0.0)
             nl = _given_or_built(system, reach, neighbors)
-            local = nl.within(self.cutoff)
-            if self.local_density:
-                density = local.counts / (4.0 / 3.0 * pi * self.cutoff**3)
-            else:
-                density = np.full(n, n / system.box.volume)
-            entropy = _native.pair_entropy(
-                local.offsets,
-                np.ascontiguousarray(local.distances),
-                self.cutoff,
-                self.sigma,
-                np.ascontiguousarray(density, dtype=np.float64),
-                progress,
-                _native_token(cancel),
-            )
+            with nl._reading():
+                entropy = _native.pair_entropy(
+                    *_view(system, nl),
+                    self.cutoff,
+                    self.sigma,
+                    0.0 if self.local_density else n / system.box.volume,
+                    progress,
+                    _native_token(cancel),
+                )
         if self.average_cutoff is not None:
-            near = _given_or_built(system, self.average_cutoff, neighbors).within(
-                self.average_cutoff
-            )
-            total = entropy + np.bincount(near.i, weights=entropy[near.j], minlength=n)
-            entropy = total / (1 + near.counts)
+            near = _given_or_built(system, self.average_cutoff, neighbors)
+            with near._reading():
+                kept = near.distances < self.average_cutoff
+                i, j = near.i[kept], near.j[kept]
+            total = entropy + np.bincount(i, weights=entropy[j], minlength=n)
+            entropy = total / (1 + np.bincount(i, minlength=n))
         return EntropyResult(entropy, self.average_cutoff is not None)
 
     def __repr__(self) -> str:

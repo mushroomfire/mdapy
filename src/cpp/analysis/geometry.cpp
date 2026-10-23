@@ -133,13 +133,14 @@ std::int64_t number(Joined& joined, std::int64_t n, std::int64_t* cluster, std::
 
 }  // namespace
 
-std::int64_t clusters(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
-                      const std::int8_t* shifts, std::int64_t* cluster, std::int64_t* sizes,
-                      std::int32_t* images, std::uint8_t* spanning) {
+std::int64_t clusters(const neighbor::ListView& list, std::int64_t n, std::int64_t* cluster,
+                      std::int64_t* sizes, std::int32_t* images, std::uint8_t* spanning) {
     Joined joined(n);
     for (std::int64_t i = 0; i < n; ++i) {
-        for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-            joined.join(i, neighbors[p], shifts + 3 * p);
+        for (std::int64_t p = list.offsets[i]; p < list.offsets[i + 1]; ++p) {
+            if (list.close(i, p)) {
+                joined.join(i, list.neighbors[p], list.shifts + 3 * p);
+            }
         }
     }
     return number(joined, n, cluster, sizes, images, spanning);
@@ -214,13 +215,20 @@ public:
     void add(const double* vectors, std::int64_t count, std::int32_t center, TypeOf type_of,
              std::vector<std::int64_t>& histogram) const {
         const std::int64_t base = center * pairs_;
+        // the length of each bond once, as each angle would compute it
+        thread_local std::vector<double> lengths;
+        lengths.resize(static_cast<std::size_t>(count));
         for (std::int64_t a = 0; a < count; ++a) {
             const double* u = vectors + 3 * a;
-            const double ru = std::sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+            lengths[a] = std::sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+        }
+        for (std::int64_t a = 0; a < count; ++a) {
+            const double* u = vectors + 3 * a;
+            const double ru = lengths[a];
             const std::int32_t ta = type_of(a);
             for (std::int64_t b = a + 1; b < count; ++b) {
                 const double* v = vectors + 3 * b;
-                const double rv = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+                const double rv = lengths[b];
                 double c = (u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / (ru * rv);
                 c = std::max(-1.0, std::min(1.0, c));
                 const double angle = std::acos(c) * 180.0 / kPi;
@@ -248,9 +256,8 @@ std::vector<std::int64_t> sum_histograms(std::vector<std::int64_t> a,
 
 }  // namespace
 
-void bond_angles(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
-                 const double* vectors, const std::int32_t* type, int types, int bins,
-                 std::int64_t* counts, const Control& control) {
+void bond_angles(const neighbor::ListView& list, std::int64_t n, const std::int32_t* type,
+                 int types, int bins, std::int64_t* counts, const Control& control) {
     using Histogram = std::vector<std::int64_t>;
     const AngleBins shape(types, bins);
     // at most 64 histograms in flight, whatever the number of types
@@ -259,9 +266,17 @@ void bond_angles(std::int64_t n, const std::int64_t* offsets, const index_t* nei
         n, grain, Histogram(shape.size(), 0),
         [&](std::int64_t begin, std::int64_t end) {
             Histogram local(shape.size(), 0);
+            std::vector<double> found;  // the bond vectors of an atom
+            std::vector<index_t> others;
             for (std::int64_t i = begin; i < end; ++i) {
-                const index_t* own = neighbors + offsets[i];
-                shape.add(vectors + 3 * offsets[i], offsets[i + 1] - offsets[i], type[i],
+                found.clear();
+                others.clear();
+                list.for_each(i, [&](std::int64_t, index_t j, const double* r) {
+                    found.insert(found.end(), r, r + 3);
+                    others.push_back(j);
+                });
+                const index_t* own = others.data();
+                shape.add(found.data(), static_cast<std::int64_t>(others.size()), type[i],
                           [own, type](std::int64_t a) { return type[own[a]]; }, local);
             }
             return local;
@@ -399,8 +414,7 @@ struct Group {
 
 }  // namespace
 
-void atomic_temperature(std::int64_t n, const std::int64_t* offsets,
-                        const index_t* neighbors, const double* mass,
+void atomic_temperature(const neighbor::ListView& list, std::int64_t n, const double* mass,
                         const double* velocities, double energy_unit, double boltzmann,
                         double* temperature, const Control& control) {
     parallel_for(
@@ -408,12 +422,12 @@ void atomic_temperature(std::int64_t n, const std::int64_t* offsets,
         [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t i = begin; i < end; ++i) {
                 Group group;
-                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const std::int64_t j = neighbors[p];
+                list.for_each(i, [&](std::int64_t, index_t neighbor, const double*) {
+                    const auto j = static_cast<std::int64_t>(neighbor);
                     if (j != i) {  // not an image of the atom itself
                         group.add(mass[j], velocities + 3 * j);
                     }
-                }
+                });
                 temperature[i] =
                     group.temperature(mass[i], velocities + 3 * i, energy_unit, boltzmann);
             }
@@ -509,21 +523,29 @@ private:
 
 }  // namespace
 
-void pair_entropy(std::int64_t n, const std::int64_t* offsets, const double* distances,
-                  double cutoff, double sigma, const double* density, double* entropy,
-                  const Control& control) {
+void pair_entropy(const neighbor::ListView& list, std::int64_t n, double cutoff, double sigma,
+                  double density, double* entropy, const Control& control) {
+    neighbor::ListView within = list;
+    within.cutoff = cutoff;
     const EntropyShape shape(cutoff, sigma);
+    const double sphere = 4.0 / 3.0 * kPi * cutoff * cutoff * cutoff;
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
-            std::vector<double> g(static_cast<std::size_t>(shape.bins()));
+            std::vector<double> g(static_cast<std::size_t>(shape.bins())), found;
             for (std::int64_t i = begin; i < end; ++i) {
+                found.clear();
+                within.for_each(i, [&](std::int64_t p, index_t, const double*) {
+                    found.push_back(within.distances[p]);
+                });
+                const double rho =
+                    density > 0.0 ? density : static_cast<double>(found.size()) / sphere;
                 std::fill(g.begin(), g.end(), 0.0);
-                const double scale = shape.scale(density[i]);
-                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    shape.add(distances[p], scale, g);
+                const double scale = shape.scale(rho);
+                for (const double r : found) {
+                    shape.add(r, scale, g);
                 }
-                entropy[i] = shape.entropy(g, density[i]);
+                entropy[i] = shape.entropy(g, rho);
             }
         },
         control);

@@ -144,14 +144,15 @@ class AtomicStrain:
                 *arguments,
             )
         else:
-            strain, shear, volumetric, d2min = _native.atomic_strain_list(
-                nl.offsets,
-                nl.j,
-                np.ascontiguousarray(nl.shifts),
-                nl.distances,
-                self.cutoff,
-                *arguments,
-            )
+            with nl._reading():
+                strain, shear, volumetric, d2min = _native.atomic_strain_list(
+                    nl.offsets,
+                    nl.j,
+                    nl.shifts,
+                    nl.distances,
+                    self.cutoff,
+                    *arguments,
+                )
         return StrainResult(
             strain=strain, shear=shear, volumetric=volumetric, d2min=d2min
         )

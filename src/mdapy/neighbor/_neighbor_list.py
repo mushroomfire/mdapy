@@ -6,6 +6,7 @@ each atom, or the atoms that share a Voronoi face, including periodic
 images."""
 
 import math
+import threading
 from typing import Any
 
 import numpy as np
@@ -102,8 +103,9 @@ class NeighborList:
         for array in (offsets, j, shifts, distances, areas):
             if array is not None:
                 array.flags.writeable = False
-        self._i: np.ndarray | None = None
-        self._vectors: np.ndarray | None = None
+        # the first _sorted pairs of each atom are its nearest, nearest first
+        self._sorted = 0 if num_neighbors is None else num_neighbors
+        self._lock = threading.RLock()
 
     @classmethod
     def build(
@@ -247,10 +249,7 @@ class NeighborList:
         )
         distances = np.sqrt((vectors * vectors).sum(axis=1))
         reach = float(np.nextafter(distances.max(), np.inf)) if len(j) else 0.0
-        voronoi = cls(system, reach, offsets, j, shifts, distances, areas=areas[atoms])
-        vectors.flags.writeable = False
-        voronoi._vectors = vectors
-        return voronoi
+        return cls(system, reach, offsets, j, shifts, distances, areas=areas[atoms])
 
     def fits(self, system: System) -> bool:
         """Whether the list holds the pairs of a system: the one it was built
@@ -283,27 +282,23 @@ class NeighborList:
 
     @property
     def i(self) -> np.ndarray:
-        """(P,) :data:`mdapy.index_dtype` first atom of each pair."""
-        if self._i is None:
-            self._i = np.repeat(
-                np.arange(len(self.counts), dtype=index_dtype), self.counts
-            )
-            self._i.flags.writeable = False
-        return self._i
+        """(P,) :data:`mdapy.index_dtype` first atom of each pair, made from
+        the offsets on each access, not kept."""
+        return np.repeat(np.arange(len(self.counts), dtype=index_dtype), self.counts)
 
     @property
     def vectors(self) -> np.ndarray:
-        """(P, 3) float64 vectors from the first atom to the second, in Å."""
-        if self._vectors is None:
-            self._vectors = _native.pair_vectors(
+        """(P, 3) float64 vectors from the first atom to the second, in Å,
+        computed from the positions and the shifts on each access, not
+        kept."""
+        with self._reading():
+            return _native.pair_vectors(
                 np.ascontiguousarray(self.system.positions),
                 self.offsets,
                 self.j,
                 self.shifts,
                 np.ascontiguousarray(self.system.box.matrix),
             )
-            self._vectors.flags.writeable = False
-        return self._vectors
 
     def __len__(self) -> int:
         return len(self.j)
@@ -359,6 +354,40 @@ class NeighborList:
             k,
         )
 
+    def _reading(self) -> threading.RLock:
+        """The lock to hold while a kernel reads the pairs: sorting moves
+        them, so one kernel at a time uses the list."""
+        return self._lock
+
+    def _put_nearest_first(self, k: int) -> None:
+        """Puts the k nearest pairs of each atom first, nearest first with
+        ties by atom and image, in place: the pairs of each atom keep their
+        set and change their order, with their shifts and distances."""
+        with self._lock:
+            if self._sorted >= k:
+                return
+            arrays = [self.j, self.shifts, self.distances]
+            try:
+                for array in arrays:
+                    array.flags.writeable = True
+            except ValueError:  # arrays given read-only: the list takes copies
+                arrays = [np.array(array) for array in arrays]
+                self.j, self.shifts, self.distances = arrays
+            try:
+                _native.sort_nearest(
+                    np.ascontiguousarray(self.system.positions),
+                    self.offsets,
+                    self.j,
+                    self.shifts,
+                    self.distances,
+                    np.ascontiguousarray(self.system.box.matrix),
+                    k,
+                )
+            finally:
+                for array in arrays:
+                    array.flags.writeable = False
+            self._sorted = k
+
     def _nearest(self, k: int) -> "NeighborList":
         """The k nearest pairs of each atom, nearest first with ties by atom
         and image, or all of an atom with fewer."""
@@ -392,7 +421,7 @@ class NeighborList:
         moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
         if not cutoff + 2.0 * moved < self.cutoff:
             return None
-        offsets, j, shifts, distances, vectors = _native.follow(
+        offsets, j, shifts, distances = _native.follow(
             np.ascontiguousarray(system.positions),
             self.offsets,
             self.j,
@@ -400,10 +429,7 @@ class NeighborList:
             np.ascontiguousarray(system.box.matrix),
             float(cutoff),
         )
-        followed = NeighborList(system, cutoff, offsets, j, shifts, distances)
-        vectors.flags.writeable = False
-        followed._vectors = vectors
-        return followed
+        return NeighborList(system, cutoff, offsets, j, shifts, distances)
 
     def sorted(self) -> "NeighborList":
         """The same pairs, each atom's sorted by distance, ties by atom and
@@ -462,9 +488,9 @@ def _given_or_built(
 def _nearest_given_or_built(
     system: System, k: int, neighbors: "NeighborList | None"
 ) -> NeighborList:
-    """The k nearest neighbors of each atom, nearest first with ties by atom
-    and image, from the given list after checking that it holds them, or
-    from a new search."""
+    """A list whose first k pairs of each atom are its k nearest, nearest
+    first with ties by atom and image: the given list after checking that it
+    holds them, sorted in place as far as needed, or a new search."""
     if neighbors is None:
         return NeighborList.build(system, num_neighbors=k)
     if not neighbors.fits(system):
@@ -476,14 +502,28 @@ def _nearest_given_or_built(
             "a list of Voronoi neighbors does not hold the nearest neighbors; "
             "build the list with a cutoff or num_neighbors"
         )
-    if neighbors.num_neighbors == k:
-        return neighbors  # in the order of a search of nearest neighbors already
     fewest = int(neighbors.counts.min(initial=k))
     if fewest < k:
         raise InvalidParameter(
             f"an atom has {fewest} neighbors in the list, fewer than {k}"
         )
-    return neighbors._nearest(k)
+    neighbors._put_nearest_first(k)
+    return neighbors
+
+
+def _view(system: System, neighbors: NeighborList) -> tuple:
+    """The arguments of a kernel that reads a list where it is: the atoms,
+    the pairs and the number of nearest pairs of each atom that come first,
+    in order. Call it holding the list's lock."""
+    return (
+        np.ascontiguousarray(system.positions),
+        np.ascontiguousarray(system.box.matrix),
+        neighbors.offsets,
+        neighbors.j,
+        neighbors.shifts,
+        neighbors.distances,
+        neighbors._sorted,
+    )
 
 
 def _voronoi_given_or_built(

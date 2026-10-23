@@ -16,7 +16,11 @@ from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built, _nearest_given_or_built
+from mdapy.neighbor._neighbor_list import (
+    _given_or_built,
+    _nearest_given_or_built,
+    _view,
+)
 
 
 def _elements(system: System) -> tuple[tuple[str, ...], np.ndarray] | None:
@@ -55,16 +59,20 @@ class _Bonds:
                     raise InvalidParameter(f"the cutoff of {(a, b)} must be positive")
                 self.cutoffs[a, b] = self.cutoffs[b, a] = float(value)
 
-    def select(
+    def listed(
         self, system: System, neighbors: NeighborList | None
-    ) -> tuple[NeighborList, tuple[tuple[str, ...], np.ndarray] | None]:
-        """The bonds as a neighbor list, and the elements of the system."""
+    ) -> tuple[NeighborList, float, np.ndarray | None, np.ndarray | None, Any]:
+        """The bonds in a list, read where it is: the list, the cutoff (0
+        with cutoffs per pair of elements), each atom's element and the bond
+        length of each pair of elements (None with one cutoff); and the
+        elements of the system."""
         found = _elements(system)
         largest = self.cutoff if self.cutoffs is None else max(self.cutoffs.values())
         nl = _given_or_built(system, largest, neighbors)
         if self.cutoffs is None:
-            return nl.within(self.cutoff), found
-        return nl._cut(largest, self._limits(found), found[1]), found
+            return nl, self.cutoff, None, None, found
+        limits = self._limits(found)
+        return nl, 0.0, found[1].astype(np.int32), limits, found
 
     def _limits(self, found: tuple[tuple[str, ...], np.ndarray] | None) -> np.ndarray:
         """The bond length of each pair of the elements found, 0 for none."""
@@ -91,16 +99,17 @@ class _Bonds:
             )
             nl = _given_or_built(system, largest, neighbors)
             index, types, limits = grid[4], grid[5], grid[6]
-            table = _native.count_neighbors_list(
-                nl.offsets,
-                nl.j,
-                nl.distances,
-                index,
-                types,
-                limits,
-                progress,
-                _native_token(cancel),
-            )
+            with nl._reading():
+                table = _native.count_neighbors_list(
+                    nl.offsets,
+                    nl.j,
+                    nl.distances,
+                    index,
+                    types,
+                    limits,
+                    progress,
+                    _native_token(cancel),
+                )
             return table, found
         table = _native.count_neighbors(*grid, progress, _native_token(cancel))
         return table, found
@@ -238,10 +247,11 @@ class ClusterAnalysis:
                 *grid, progress, _native_token(cancel)
             )
         else:
-            bonds, _ = self._bonds.select(system, neighbors)
-            cluster, sizes, images, spanning = _native.clusters(
-                bonds.offsets, bonds.j, np.ascontiguousarray(bonds.shifts)
-            )
+            nl, cutoff, type, limits, _ = self._bonds.listed(system, neighbors)
+            with nl._reading():
+                cluster, sizes, images, spanning = _native.clusters(
+                    *_view(system, nl), cutoff, type, limits
+                )
         n, count = len(system), len(sizes)
         unwrapped = system.positions + images.reshape(n, 3) @ system.box.matrix
         weights = _weights(system)
@@ -380,21 +390,22 @@ class BondAngleDistribution:
             names = found[0] if found is not None else ()
             types = max(len(names), 1)
         else:
-            bonds, found = self._bonds.select(system, neighbors)
+            nl, cutoff, _, limits, found = self._bonds.listed(system, neighbors)
             names, index = (
                 found if found is not None else ((), np.zeros(len(system), int))
             )
             types = max(len(names), 1)
-            counts = _native.bond_angles(
-                bonds.offsets,
-                bonds.j,
-                np.ascontiguousarray(bonds.vectors),
-                index.astype(np.int32),
-                types,
-                self.bins,
-                progress,
-                _native_token(cancel),
-            )
+            with nl._reading():
+                counts = _native.bond_angles(
+                    *_view(system, nl),
+                    cutoff,
+                    index.astype(np.int32),
+                    types,
+                    self.bins,
+                    limits,
+                    progress,
+                    _native_token(cancel),
+                )
         pairs = [(b, c) for b in range(types) for c in range(b, types)]
         partial = {
             (names[a], names[b], names[c]): counts[a, p]
@@ -533,18 +544,25 @@ class WarrenCowley:
         else:
             if self.cutoff is not None:
                 nl = _given_or_built(system, self.cutoff, neighbors)
-                nl = nl.within(self.cutoff)
-                shell = np.searchsorted(self.shells, nl.distances, side="right")
             else:
                 nl = _nearest_given_or_built(system, self.num_neighbors, neighbors)
-                shell = np.zeros(len(nl.j), dtype=np.int64)
-                if self.shells is not None:
+            with nl._reading():
+                if self.cutoff is not None:
+                    kept = nl.distances < self.cutoff
+                    shell = np.searchsorted(
+                        self.shells, nl.distances[kept], side="right"
+                    )
+                else:
                     # the rank of each pair among the nearest of its atom
                     rank = np.arange(len(nl.j)) - np.repeat(nl.offsets[:-1], nl.counts)
-                    shell = np.searchsorted(self.shells, rank, side="right")
+                    kept = rank < self.num_neighbors
+                    shell = np.zeros(int(kept.sum()), dtype=np.int64)
+                    if self.shells is not None:
+                        shell = np.searchsorted(self.shells, rank[kept], side="right")
+                first, second = index[nl.i[kept]], index[nl.j[kept]]
             count = 1 if self.shells is None else len(self.shells)
             pairs = np.bincount(
-                (shell * types + index[nl.i]) * types + index[nl.j],
+                (shell * types + first) * types + second,
                 minlength=count * types * types,
             ).reshape(count, types, types)
         fractions = np.bincount(index, minlength=types) / len(system)

@@ -253,6 +253,69 @@ NeighborPairs build(const double* positions, std::int64_t n, const double* matri
     return result;
 }
 
+namespace {
+
+// Puts the first take of items in order by closer, the others after them in
+// any order: selection, then a sort of the selected, faster than a heap.
+template <class Closer>
+void first_in_order(std::vector<std::int64_t>& items, std::ptrdiff_t take, Closer&& closer) {
+    if (take < static_cast<std::ptrdiff_t>(items.size())) {
+        std::nth_element(items.begin(), items.begin() + take, items.end(), closer);
+    }
+    std::sort(items.begin(), items.begin() + take, closer);
+}
+
+// The pairs of atom i (positions in the list, from offsets[i]) with its
+// first take pairs in the order of a search of nearest neighbors: by their
+// squared distance from pair_vector, ties by atom and then image.
+void nearest_first(const double* positions, std::int64_t i, const std::int64_t* offsets,
+                   const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
+                   std::ptrdiff_t take, std::vector<std::int64_t>& pairs,
+                   std::vector<double>& squares) {
+    pairs.resize(static_cast<std::size_t>(offsets[i + 1] - offsets[i]));
+    std::iota(pairs.begin(), pairs.end(), offsets[i]);
+    squares.resize(pairs.size());
+    for (std::size_t q = 0; q < pairs.size(); ++q) {
+        const std::int64_t p = pairs[q];
+        double r[3];
+        squares[q] = pair_vector(positions + 3 * i,
+                                 positions + 3 * static_cast<std::int64_t>(neighbors[p]),
+                                 shifts + 3 * p, matrix, r);
+    }
+    const std::int64_t first = offsets[i];
+    const auto closer = [&](std::int64_t a, std::int64_t b) {
+        const double ra = squares[static_cast<std::size_t>(a - first)];
+        const double rb = squares[static_cast<std::size_t>(b - first)];
+        if (ra != rb) {
+            return ra < rb;
+        }
+        if (neighbors[a] != neighbors[b]) {
+            return neighbors[a] < neighbors[b];
+        }
+        for (int e = 0; e < 3; ++e) {
+            if (shifts[3 * a + e] != shifts[3 * b + e]) {
+                return shifts[3 * a + e] < shifts[3 * b + e];
+            }
+        }
+        return false;
+    };
+    first_in_order(pairs, take, closer);
+}
+
+// Places values (width per pair) of the pairs of one atom, from first, in
+// the order of pairs, through scratch.
+template <class T>
+void permute(T* values, int width, std::int64_t first, const std::vector<std::int64_t>& pairs,
+             std::vector<T>& scratch) {
+    scratch.resize(pairs.size() * static_cast<std::size_t>(width));
+    for (std::size_t q = 0; q < pairs.size(); ++q) {
+        std::copy_n(values + width * pairs[q], width, scratch.data() + width * q);
+    }
+    std::copy(scratch.begin(), scratch.end(), values + width * first);
+}
+
+}  // namespace
+
 void order_by_distance(const double* positions, std::int64_t n, const std::int64_t* offsets,
                        const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
                        std::int64_t count, std::vector<std::int64_t>& order,
@@ -269,20 +332,42 @@ void order_by_distance(const double* positions, std::int64_t n, const std::int64
             std::vector<std::int64_t> pairs;
             std::vector<double> squares;  // of the pairs of atom i, from offsets[i]
             for (std::int64_t i = begin; i < end; ++i) {
-                pairs.resize(static_cast<std::size_t>(offsets[i + 1] - offsets[i]));
-                std::iota(pairs.begin(), pairs.end(), offsets[i]);
-                squares.resize(pairs.size());
-                for (std::size_t q = 0; q < pairs.size(); ++q) {
-                    const std::int64_t p = pairs[q];
+                const auto take = static_cast<std::ptrdiff_t>(kept[i + 1] - kept[i]);
+                nearest_first(positions, i, offsets, neighbors, shifts, matrix, take, pairs,
+                              squares);
+                std::copy(pairs.begin(), pairs.begin() + take, order.begin() + kept[i]);
+            }
+        },
+        control);
+}
+
+void sort_nearest(const double* positions, std::int64_t n, const std::int64_t* offsets,
+                  index_t* neighbors, std::int8_t* shifts, double* distances,
+                  const double* matrix, std::int64_t count, const Control& control) {
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            std::vector<std::int64_t> pairs;
+            std::vector<double> scratch;
+            std::vector<index_t> scratch_neighbors;
+            std::vector<std::int8_t> scratch_shifts;
+            for (std::int64_t i = begin; i < end; ++i) {
+                const std::int64_t m = offsets[i + 1] - offsets[i];
+                const auto take = static_cast<std::ptrdiff_t>(count < 0 ? m : std::min(m, count));
+                // the distances are the roots of the squared distances, so they
+                // order the pairs as these do; equal ones are told apart by the
+                // squares themselves, then by atom and image
+                const auto square = [&](std::int64_t p) {
                     double r[3];
-                    squares[q] = pair_vector(positions + 3 * i,
-                                             positions + 3 * static_cast<std::int64_t>(neighbors[p]),
-                                             shifts + 3 * p, matrix, r);
-                }
-                const std::int64_t first = offsets[i];
+                    return pair_vector(positions + 3 * i,
+                                       positions + 3 * static_cast<std::int64_t>(neighbors[p]),
+                                       shifts + 3 * p, matrix, r);
+                };
                 const auto closer = [&](std::int64_t a, std::int64_t b) {
-                    const double ra = squares[static_cast<std::size_t>(a - first)];
-                    const double rb = squares[static_cast<std::size_t>(b - first)];
+                    if (distances[a] != distances[b]) {
+                        return distances[a] < distances[b];
+                    }
+                    const double ra = square(a), rb = square(b);
                     if (ra != rb) {
                         return ra < rb;
                     }
@@ -296,9 +381,12 @@ void order_by_distance(const double* positions, std::int64_t n, const std::int64
                     }
                     return false;
                 };
-                const auto take = static_cast<std::ptrdiff_t>(kept[i + 1] - kept[i]);
-                std::partial_sort(pairs.begin(), pairs.begin() + take, pairs.end(), closer);
-                std::copy(pairs.begin(), pairs.begin() + take, order.begin() + kept[i]);
+                pairs.resize(static_cast<std::size_t>(m));
+                std::iota(pairs.begin(), pairs.end(), offsets[i]);
+                first_in_order(pairs, take, closer);
+                permute(neighbors, 1, offsets[i], pairs, scratch_neighbors);
+                permute(shifts, 3, offsets[i], pairs, scratch_shifts);
+                permute(distances, 1, offsets[i], pairs, scratch);
             }
         },
         control);
@@ -322,7 +410,7 @@ void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* o
 
 NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t* offsets,
                      const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
-                     double cutoff, Buffer<double>& vectors, const Control& control) {
+                     double cutoff, const Control& control) {
     const double cutoff2 = cutoff * cutoff;
     // the vector of pair p, as the search and pair_vectors compute it
     const auto vector = [&](std::int64_t i, std::int64_t p, double* v) {
@@ -352,7 +440,6 @@ NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t
     result.neighbors.resize(total);
     result.shifts.resize(3 * total);
     result.distances.resize(total);
-    vectors.resize(3 * total);
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
@@ -365,7 +452,6 @@ NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t
                         result.neighbors[at] = neighbors[p];
                         for (int e = 0; e < 3; ++e) {
                             result.shifts[3 * at + e] = shifts[3 * p + e];
-                            vectors[3 * at + e] = v[e];
                         }
                         result.distances[at] = std::sqrt(r2);
                         ++at;

@@ -10,6 +10,7 @@
 
 #include "core/index.h"
 #include "core/parallel.h"
+#include "neighbor/list_view.h"
 
 namespace mdapy::analysis {
 
@@ -20,14 +21,13 @@ constexpr int kMaxDegree = 20;
 // values.
 void real_harmonics(int l, const double* u, double* y);
 
-// The order parameters q_l of n atoms for each degree in degrees, from the
-// vectors to their neighbors in CSR form (neighbors gives the atom of each
-// pair), each pair weighted by weights, or all alike when weights is null.
-// With average, the harmonics of each atom are averaged with those of its
-// neighbors first. q is (n, degrees).
-void steinhardt(std::int64_t n, const std::int64_t* offsets, const index_t* neighbors,
-                const double* vectors, const double* weights, const std::vector<int>& degrees,
-                bool average, double* q, const Control& control = {});
+// The order parameters q_l of n atoms for each degree in degrees, from
+// their pairs in list, each weighted by weights at its pair (P values), or
+// all alike when weights is null. With average, the harmonics of each atom
+// are averaged with those of its neighbors in list first. q is (n, degrees).
+void steinhardt(const neighbor::ListView& list, std::int64_t n, const double* weights,
+                const std::vector<int>& degrees, bool average, double* q,
+                const Control& control = {});
 
 // steinhardt without averaging, with the k nearest neighbors of every atom
 // found by a k-d tree as it goes, without a list (positions: n x 3; matrix:

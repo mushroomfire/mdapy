@@ -135,8 +135,10 @@ def check_arrays(nl, n):
     assert nl.j.dtype == mdapy.index_dtype and nl.i.dtype == mdapy.index_dtype
     assert nl.shifts.dtype == np.int8 and nl.shifts.shape == (len(nl), 3)
     assert nl.distances.dtype == np.float64
-    for array in (nl.offsets, nl.j, nl.shifts, nl.distances, nl.i):
+    for array in (nl.offsets, nl.j, nl.shifts, nl.distances):
         assert not array.flags.writeable
+    # made on each access, not kept
+    np.testing.assert_array_equal(nl.i, np.repeat(np.arange(n), nl.counts))
 
 
 # ------------------------------------------------------------ within a cutoff
@@ -204,8 +206,9 @@ def test_vectors_and_distances():
         atol=1e-12,
     )
     assert (np.sqrt((nl.vectors**2).sum(axis=1)) == nl.distances).all()
-    assert nl.vectors is nl.vectors  # computed once
-    assert not nl.vectors.flags.writeable
+    # computed on each access, not kept in the list
+    assert nl.vectors is not nl.vectors and nl.i is not nl.i
+    np.testing.assert_array_equal(nl.vectors, nl.vectors)
 
 
 def test_shifts_up_to_127_boxes():
@@ -319,6 +322,106 @@ def test_ties_of_a_cutoff_list_as_in_nearest(k):
     wide = NeighborList.build(system, 4.0)
     assert as_rows(wide._nearest(k)) == as_rows(near)
     assert as_rows(wide.sorted()._nearest(k)) == as_rows(near)
+
+
+def jittered(kind, a, repeat, seed=0):
+    system = lattice(kind, a, repeat)
+    rng = np.random.default_rng(seed)
+    return system.with_positions(
+        system.positions + rng.normal(0, 0.1, (len(system), 3))
+    )
+
+
+@pytest.mark.parametrize("system", [lattice("fcc", 3.6, 2), jittered("fcc", 3.6, 3)])
+@pytest.mark.parametrize("k", [12, 14, 18])
+def test_the_nearest_first_in_place(system, k):
+    wide = NeighborList.build(system, 5.0)
+    before = [sorted(row) for row in as_rows(wide)]
+    j = wide.j  # the arrays a user holds follow the list
+    wide._put_nearest_first(k)
+    assert wide.j is j and not j.flags.writeable
+    # the first k of each atom are its k nearest, in the order of a search
+    near = as_rows(NeighborList.build(system, num_neighbors=k))
+    assert [row[:k] for row in as_rows(wide)] == near
+    assert [sorted(row) for row in as_rows(wide)] == before  # the same pairs
+
+
+def test_analyses_sort_a_shared_list_once():
+    from mdapy.identify import CentroSymmetryParameter, CommonNeighborAnalysis
+
+    system = jittered("fcc", 3.6, 3, seed=1)
+    nl = NeighborList.build(system, 5.0)
+    alone = CentroSymmetryParameter(12).compute(system).csp
+    np.testing.assert_array_equal(
+        CentroSymmetryParameter(12).compute(system, neighbors=nl).csp, alone
+    )
+    assert nl._sorted == 12
+    order = nl.j.copy()
+    CentroSymmetryParameter(8).compute(system, neighbors=nl)  # fewer: no sorting
+    assert nl._sorted == 12 and np.array_equal(nl.j, order)
+    found = CommonNeighborAnalysis().compute(system, neighbors=nl).structure
+    np.testing.assert_array_equal(
+        found, CommonNeighborAnalysis().compute(system).structure
+    )
+    assert nl._sorted == 14
+    x, h = system.positions, system.box.matrix
+    np.testing.assert_allclose(
+        nl.vectors, x[nl.j] - x[nl.i] + nl.shifts @ h, atol=1e-12
+    )
+    assert (np.linalg.norm(nl.vectors, axis=1) == nl.distances).all()
+    # a list of nearest neighbors is sorted already
+    assert NeighborList.build(system, num_neighbors=12)._sorted == 12
+
+
+def test_read_only_arrays_of_a_list_are_copied_to_sort():
+    system = jittered("fcc", 3.6, 2, seed=2)
+    built = NeighborList.build(system, 5.0)
+    frozen = [
+        np.frombuffer(a.tobytes(), dtype=a.dtype).reshape(a.shape)
+        for a in (built.j, built.shifts, built.distances)
+    ]
+    nl = NeighborList(system, built.cutoff, built.offsets, *frozen)
+    nl._put_nearest_first(12)
+    assert nl.j is not frozen[0] and not nl.j.flags.writeable
+    np.testing.assert_array_equal(frozen[0], built.j)  # left as they were
+    near = as_rows(NeighborList.build(system, num_neighbors=12))
+    assert [row[:12] for row in as_rows(nl)] == near
+
+
+def test_analyses_of_one_list_in_threads():
+    # analyses that sort the list and analyses that read all of it, at once:
+    # one kernel at a time uses the list
+    from concurrent.futures import ThreadPoolExecutor
+
+    from mdapy.analysis import RadialDistributionFunction, SteinhardtParameters
+    from mdapy.identify import (
+        AcklandJonesAnalysis,
+        CentroSymmetryParameter,
+        CommonNeighborAnalysis,
+    )
+
+    system = jittered("fcc", 3.6, 4, seed=3)
+    analyses = [
+        RadialDistributionFunction(5.0, bins=100),
+        CentroSymmetryParameter(12),
+        CommonNeighborAnalysis(3.0),
+        CommonNeighborAnalysis(),
+        AcklandJonesAnalysis(),
+        SteinhardtParameters((4, 6), num_neighbors=10),
+    ] * 2
+    alone = [vars(a.compute(system)) for a in analyses]
+    for _ in range(3):
+        nl = NeighborList.build(system, 5.0)
+        with ThreadPoolExecutor(6) as pool:
+            shared = list(
+                pool.map(
+                    lambda a, nl=nl: vars(a.compute(system, neighbors=nl)), analyses
+                )
+            )
+        for one, other in zip(alone, shared):
+            for name, value in one.items():
+                if isinstance(value, np.ndarray):
+                    np.testing.assert_allclose(value, other[name], rtol=1e-14, atol=0)
 
 
 def test_nearest_of_atoms_outside_the_box():

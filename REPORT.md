@@ -24,6 +24,7 @@
 | `wcp-shells-draft` | Warren–Cowley 多壳层（按截断半径或按近邻数），基于 dxa-network-draft | 已推送 |
 | `vasp-calculator-draft` | VASP 计算器（超算上用），基于 wcp-shells-draft | 已推送 |
 | `ptm-draft` | PTM（多面体模板匹配，按方案 A 移植），基于 preview-2026-10-23 | 已推送，CI 全绿 |
+| `dxa-full-draft` | 完整版 DXA（界面网格上的 Burgers 回路，C++），基于 ptm-draft | 已推送，CI 中 |
 | **`preview-2026-10-23`** | **上面所有草稿合在一起（就是 vasp-calculator-draft 的末端），1733 个测试全过** | 已推送，CI 中 |
 
 ## 进展
@@ -263,6 +264,28 @@
 ![压痕 20000 步](images/37_dxa_full_indent.png)
 
 - 接下来：线端到结点的连接（现在线在结点前断开，留了小缺口）、线的平滑、继续提高压痕的召回；然后把追踪改成 C++（现在原型是 Python，7.2 万原子压痕 4 s 映射 + 4 s 追踪），接入 `DislocationAnalysis`，补测试和文档。
+
+### 03:40
+- **完整版 DXA 已提交**：新分支 `dxa-full-draft`（f9c49fd，基于 `ptm-draft`），已推送，CI 在跑。本地 1788 个测试全过，覆盖率、文档构建、TSan、GCC 警告都通过。
+  - 回路追踪写成了 C++（`src/cpp/analysis/circuits.{h,cpp}`）：界面网格、并行的原始回路搜索、逐级放宽的扫掠、相遇回路的连接（边对边相反的是同一条线；三个以上围住一块且和为零的是结点；最后一轮对“互为主要邻居”的两条做配对）。7.2 万原子的压痕追踪只要 0.1 s（Python 原型 4.5 s）。
+  - Python 部分：四面体剖分、弹性映射、表面、把线段串成线、按窗口平均后再平滑（和 OVITO 的粗化一样，热噪声下螺位错长度 10.3 Å，和 OVITO 相同）、芯部原子。
+  - 参数改成 `spacing`（默认 2.5 Å）、`trial`（14）、`stretch`（9），对应 OVITO 的 line point separation、trial circuit length、circuit stretchability；`structures` 改为 PTM 结果（需要取向）。
+  - 新测试：偶极子（两条相反的螺位错）、热噪声、平移和原子重新编号不变、盒子太小报错、Frank 环和 OVITO 对比（类别、长度 15% 内、precision/recall > 0.95）、压头下的位错网络和 OVITO 对比（准静态压痕，5184 个原子，4.5 s 生成；precision 0.98、recall 0.73）、每个结点的 Frank 规则。
+  - 文档页 Definition 改写为 DXA；“Compared with OVITO” 更新了数字；术语表加了 Delaunay 剖分、理想矢量、界面网格、Burgers 回路、DXA；参考文献加了 Stukowski, Bulatov & Arsenlis (2012)。
+- 和 OVITO 的对比（现在的 C++ 版本）：
+
+| 例子 | OVITO | mdapy |
+|---|---|---|
+| 螺位错 / 分解的刃位错 / 剪切环 | 10.2 / 17.7 / 85.1 Å | 10.2 / 17.7 / 86.2 Å，precision 和 recall 都是 1.00 |
+| Frank 环 | 6 Shockley 106 Å + 6 压杆 80 Å | 6 Shockley 117 Å + 6 压杆 83 Å，6 个四度结点，1.00 / 1.00 |
+| 压痕 20000 步 | 1849 Å | 1380 Å，97 条线，13 个结点；precision 0.86，recall 0.75 |
+
+![压痕 20000 步，mdapy 渲染](images/38_dxa_full_indent_render.png)
+
+绿：Shockley；紫：压杆位错；黄：Hirth；红色原子：层错（hcp）。
+
+- 还差的地方：密集网络里 OVITO 连成的结点多（我们 13 个），一些线端停在结点附近；OVITO 在压头下最畸变处还有一些 b 不是 a/6 整数倍的线（在转得很厉害的晶簇坐标系里），我们没有。
+- 接下来：把四面体剖分、面的配对和弹性映射也写成 C++（现在 NumPy 版本 7.2 万原子要 4.5 s，内存约每原子几 KB，100 万原子会超过 8 GB），再做 OVITO 的速度对比。
 
 ## 早上需要你决定的事
 

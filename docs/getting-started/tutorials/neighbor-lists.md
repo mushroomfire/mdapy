@@ -30,42 +30,66 @@ def timed(work):
     return result, 1000 * (time.perf_counter() - start)
 ```
 
-## Nearest neighbors
+## One list for a metal
 
-Adaptive common neighbor analysis and Ackland–Jones analysis look at the 14
-nearest neighbors of each atom, the centro-symmetry parameter and these
-Steinhardt parameters at the 12 nearest. A list of the 14 nearest serves
-all four: an analysis that needs fewer takes the nearest of them.
+The analyses of the structure of a metal look at its neighbors within some
+5 Å: the nearest 12 to 18 of each atom, or those within a cutoff. One list
+within 5 Å serves them all. An analysis of the nearest neighbors puts the
+nearest pairs of each atom first in the list, once, and reads them there;
+one within a cutoff reads the pairs closer than its own. Neither copies the
+list, and every result is the one the analysis gives alone.
 
 ```python
-from mdapy.analysis import SteinhardtParameters
+from mdapy.analysis import (
+    BondAngleDistribution,
+    CoordinationNumber,
+    RadialDistributionFunction,
+    SteinhardtParameters,
+)
 from mdapy.identify import (
     AcklandJonesAnalysis,
     CentroSymmetryParameter,
     CommonNeighborAnalysis,
+    PolyhedralTemplateMatching,
 )
 
-nearest = [
-    CommonNeighborAnalysis(),
-    AcklandJonesAnalysis(),
+metal = [
+    CommonNeighborAnalysis(),  # the 14 nearest
+    AcklandJonesAnalysis(),  # the 14 nearest
+    PolyhedralTemplateMatching(),  # the 18 nearest
     CentroSymmetryParameter(12),
     SteinhardtParameters((4, 6), num_neighbors=12),
+    CommonNeighborAnalysis(3.086),  # within cutoffs
+    CoordinationNumber(3.086),
+    BondAngleDistribution(cutoff=3.086, bins=180),
+    RadialDistributionFunction(5.0, bins=200),
 ]
-alone, before = timed(lambda: [a.compute(system) for a in nearest])
+alone, before = timed(lambda: [a.compute(system) for a in metal])
 
 
-def shared_nearest():
-    nl = NeighborList.build(system, num_neighbors=14)
-    return [a.compute(system, neighbors=nl) for a in nearest]
+def shared_metal():
+    nl = NeighborList.build(system, 5.0)
+    return [a.compute(system, neighbors=nl) for a in metal]
 
 
-shared, after = timed(shared_nearest)
+shared, after = timed(shared_metal)
 for one, other in zip(alone, shared):
     for name, value in vars(one).items():
         if isinstance(value, np.ndarray):
             assert np.array_equal(value, vars(other)[name])  # the same results
 print(f"{before:.0f} ms alone, {after:.0f} ms with one list")
 ```
+
+Without a list, each analysis finds the neighbors it needs as it goes,
+without storing the pairs; with one, the search is done once and the
+analyses only read it. The list must hold the neighbors each analysis
+needs: an analysis of the 18 nearest refuses a list in which an atom has
+fewer pairs.
+
+Building the list costs about as much as the search of one analysis, as it
+stores every pair, and putting the nearest first a third of that. One list
+pays for many analyses, as here; for two or three, finding the neighbors as
+they go is about as fast.
 
 ## Voronoi neighbors
 
@@ -91,44 +115,21 @@ _, after = timed(shared_voronoi)
 print(f"{before:.0f} ms alone, {after:.0f} ms with one list")
 ```
 
-## Neighbors within a cutoff
+On a node of two Intel Xeon Gold 6248 (40 cores) with 40 threads, each list
+built and sorted inside the timing, the best of three:
 
-Analyses with a cutoff, such as the coordination number, common neighbor
-analysis with a cutoff, the bond angle distribution or the radial
-distribution function, take a list with their cutoff or a longer one and
-use the pairs closer than theirs. Without a list they count or classify the
-neighbors of each atom while they find them, without storing the pairs,
-which is already fast; a list of just their cutoff still saves a little:
+| Analyses | Atoms | Each alone | One list for all |
+|---|---:|---:|---:|
+| nine of a metal, one list within 5 Å | 108 000 | 231 ms | 142 ms |
+| the same | 2 048 000 | 3.67 s | 2.31 s |
+| the same without polyhedral template matching | 4 000 000 | 4.16 s | 2.16 s |
+| three on Voronoi neighbors | 108 000 | 501 ms | 182 ms |
 
-```python
-from mdapy.analysis import BondAngleDistribution, CoordinationNumber
-
-within = [
-    CoordinationNumber(3.086),
-    CommonNeighborAnalysis(3.086),
-    BondAngleDistribution(cutoff=3.086, bins=180),
-]
-_, before = timed(lambda: [a.compute(system) for a in within])
-
-
-def shared_within():
-    nl = NeighborList.build(system, 3.086)
-    return [a.compute(system, neighbors=nl) for a in within]
-
-
-_, after = timed(shared_within)
-print(f"{before:.0f} ms alone, {after:.0f} ms with one list")
-```
-
-A list longer than the analyses need costs more to build than it saves.
-
-On an Apple M5 with 10 threads, each list built inside the timing:
-
-| Analyses | Each alone | One list for all |
-|---|---:|---:|
-| four on the nearest neighbors | 115 ms | 72 ms |
-| three on Voronoi neighbors | 440 ms | 170 ms |
-| three within a cutoff | 42 ms | 34 ms |
+At 4 000 000 atoms, building the list takes 0.47 s and putting the 14
+nearest of each atom first 0.15 s; then the centro-symmetry parameter takes
+0.08 s instead of 0.51 s alone, and the radial distribution function 0.06 s
+instead of 0.34 s. Polyhedral template matching spends most of its time
+matching templates, which a list does not shorten.
 
 A list within a cutoff is also the way to your own sums over pairs, with
 NumPy, as in [Neighbor lists](../neighbor.md#methods).
@@ -143,7 +144,7 @@ one. `nl.fits(system)` tells which.
 ```python
 from mdapy.errors import InvalidParameter
 
-nl = NeighborList.build(system, num_neighbors=14)
+nl = NeighborList.build(system, 5.0)
 cna = CommonNeighborAnalysis().compute(system, neighbors=nl)
 labelled = system.with_columns(cna)  # the same atoms, one more column
 csp = CentroSymmetryParameter(12).compute(labelled, neighbors=nl)

@@ -78,7 +78,9 @@ each as its own pair; a single atom in a small periodic cell has a full list.
 | `voronoi` | bool | whether the list holds Voronoi neighbors |
 
 The arrays are read-only. `mdapy.index_dtype` is int32, or int64 in mdapy
-built with [64-bit atom indices](installation.md#64-bit-atom-indices).
+built with [64-bit atom indices](installation.md#64-bit-atom-indices). A list
+keeps these arrays only, 15 bytes per pair with int32 indices; `i` and
+`vectors` (below) are computed when asked for and not kept.
 The vector from atom `i` to the image of atom `j` is
 
 $$
@@ -92,7 +94,8 @@ same distance, to the last bit, in either.
 
 In a list within a cutoff every pair appears in both directions. The pairs of
 an atom come in an order that depends on the positions, the box and the
-cutoff, never on the number of threads. In a list of nearest neighbors each
+cutoff, never on the number of threads, until an analysis puts the nearest
+first (below). In a list of nearest neighbors each
 atom has `num_neighbors` pairs, nearest first; pairs at the same distance are
 ordered by `j` and then by the image, so the equal neighbors of a perfect
 crystal come in a definite order. There `j` may be among the nearest of `i`
@@ -115,13 +118,33 @@ A list of Voronoi neighbors goes to the analyses that take one, such as the
 analyses of the neighbors within a cutoff or of the nearest neighbors refuse
 it, since it holds neither.
 
+## Lists given to analyses
+
+An analysis given a list with `neighbors=` reads it where it is, without a
+copy. An analysis of the neighbors within a cutoff takes a list with that
+cutoff or a longer one, and leaves out the pairs farther than its own.
+
+An analysis of the k nearest neighbors of each atom takes a list with at
+least k pairs per atom. From a list within a cutoff, the first such
+analysis puts the k nearest pairs of each atom first, in the order of a list
+of nearest neighbors, in the list itself: the pairs of each atom stay the
+same and change their order, in `j`, `shifts` and `distances` together. The list keeps the number sorted, so a later analysis of as many
+neighbors or fewer finds them in place, and one of more sorts a few more.
+Sums of floating-point numbers over the pairs of an atom, such as the
+Steinhardt parameters within a cutoff, may then differ in their last bits
+from those of the same list before. A list of nearest neighbors is in that
+order already. Read the arrays of a list after the analyses, not before.
+
+One kernel at a time reads a list and none while it is sorted, so analyses
+running in several threads may share one.
+
 ## Methods
 
 | Name | Returns |
 |---|---|
 | `counts` | (N,) int64 number of pairs of each atom |
-| `i` | (P,) `mdapy.index_dtype` first atom of each pair, computed when first used |
-| `vectors` | (P, 3) float64 vectors $\mathbf{r}_{ij}$ in Å, computed when first used |
+| `i` | (P,) `mdapy.index_dtype` first atom of each pair, a new array made from `offsets` on each access |
+| `vectors` | (P, 3) float64 vectors $\mathbf{r}_{ij}$ in Å, a new array computed from the positions and `shifts` on each access |
 | `within(cutoff)` | the pairs closer than a smaller cutoff, in their order, without a new search; the list itself for its own cutoff. From a list of nearest neighbors it gives a list within a cutoff; a list of Voronoi neighbors refuses it. |
 | `sorted()` | the same pairs, each atom's sorted by distance, pairs at the same distance by atom and then image, as in a list of nearest neighbors; a list of Voronoi neighbors keeps its areas |
 | `fits(system)` | whether the list serves a system: the one it was built for, or any with equal positions in an equal box |

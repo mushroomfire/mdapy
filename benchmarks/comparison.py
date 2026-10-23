@@ -1033,33 +1033,58 @@ def label(entries: list[dict], program: str) -> str:
     return " ".join([PROGRAMS.get(program, program), *sorted(found)])
 
 
+def outcome(side: dict | None) -> str:
+    """Why a program has no time at a size."""
+    if not side:
+        return "not run"
+    for key in ("stopped", "skipped", "failed"):
+        if key in side:
+            return f"{key}: {side[key]}"
+    return "differs" if side.get("agree") is False else "?"
+
+
 def table(entries: list[dict]) -> str:
-    """The results as Markdown tables, one per program, at the largest size
-    timed for each case: the time of each program, how many times faster
-    mdapy is, and the memory each computation took."""
+    """The results as Markdown tables, one per program, every case at every
+    size: the time of each program, how many times faster mdapy is, and the
+    memory each computation took; why a program has no time where it has
+    none."""
     titles = {name: case.title for name, case in _cases().items()}
     tables = []
     for program in PROGRAMS:
-        done = timed(entries, program)
-        if not done:
+        mine = [e for e in entries if program in e["check"]]
+        if not timed(entries, program):
             continue
-        largest = {}
-        for entry in done:
-            largest[entry["case"]] = entry  # sizes grow along the file
-        largest = {n: largest[n] for n in titles if n in largest}  # in case order
-        name = label(entries, program)
+        name, other = label(entries, program), PROGRAMS[program]
         rows = [
             f"| Case | Atoms | {label(entries, 'mdapy')} (s) | {name} (s) "
-            f"| {PROGRAMS[program]} / mdapy | mdapy (MB) | {PROGRAMS[program]} (MB) |",
+            f"| {other} / mdapy | mdapy (MB) | {other} (MB) |",
             "|---|---:|---:|---:|---:|---:|---:|",
         ]
-        for entry in largest.values():
-            ours, theirs = best(entry["mdapy"]), best(entry[program])
-            rows.append(
-                f"| {titles.get(entry['case'], entry['case'])} | {entry['atoms']:,d} "
-                f"| {ours:.3f} | {theirs:.3f} | {theirs / ours:.2f} "
-                f"| {extra(entry['mdapy']):.0f} | {extra(entry[program]):.0f} |"
-            )
+        for case in titles:
+            for entry in (e for e in mine if e["case"] == case):
+                ours = best(entry.get("mdapy", {}))
+                theirs = best(entry.get(program, {}))
+                cells = [titles[case], f"{entry['atoms']:,d}"]
+                cells.append(f"{ours:.3f}" if ours is not None else "")
+                if theirs is None:
+                    check = entry["check"][program]
+                    why = outcome(
+                        entry.get(program) or (None if check.get("agree") else check)
+                    )
+                    cells += [
+                        why,
+                        "",
+                        f"{extra(entry['mdapy']):.0f}" if ours else "",
+                        "",
+                    ]
+                else:
+                    cells += [
+                        f"{theirs:.3f}",
+                        f"{theirs / ours:.2f}",
+                        f"{extra(entry['mdapy']):.0f}",
+                        f"{extra(entry[program]):.0f}",
+                    ]
+                rows.append("| " + " | ".join(cells) + " |")
         tables.append("\n".join(rows))
     return "\n\n".join(tables)
 

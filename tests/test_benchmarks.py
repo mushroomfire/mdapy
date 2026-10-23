@@ -66,7 +66,10 @@ def test_run_table_and_plot(tmp_path, capsys):
     comparison.main(["table", str(results)])
     out = capsys.readouterr().out
     assert "Centro-symmetry parameter" in out and "| freud" in out
-    assert out.count("Radial distribution function") == 2  # a table per program
+    # a table per program, a row per size
+    assert out.count("| Radial distribution function, 6 Å, 200 bins |") == 4
+    rows = comparison.table(entries + [dict(entries[-1], ovito={"stopped": "x"})])
+    assert "stopped: x" in rows
     comparison.main(["plot", str(results), str(tmp_path / "ratio.png")])
     assert (tmp_path / "ratio.png").stat().st_size > 1000
 

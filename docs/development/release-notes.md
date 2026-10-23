@@ -66,6 +66,14 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   slabs as fast as in crystals. A list serves every system with the same
   positions in the same box (`fits`), so it outlives `with_columns`.
   See [Neighbor lists](../getting-started/neighbor.md).
+- Analyses given a list read it where it is, without a copy: those of the
+  k nearest neighbors put the k nearest pairs of each atom first in the
+  list itself, once, in parallel; those within a cutoff read the pairs
+  closer than theirs and stop at the first sorted pair beyond it. One list
+  within 5 Å serves every structure analysis of a metal; threads may share
+  a list. A list keeps 15 bytes per pair: `i` and `vectors` are computed
+  when asked for. See
+  [Sharing neighbor lists](../getting-started/tutorials/neighbor-lists.md).
 
 ### Calculators
 

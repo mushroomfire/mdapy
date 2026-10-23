@@ -117,3 +117,17 @@ def test_equality():
     assert ethane_topology() == ethane_topology()
     assert ethane_topology() != Topology(bonds=[[0, 1]])
     assert (Topology() == 1) is False
+
+
+def test_the_tables_cannot_be_changed_in_place():
+    t = ethane_topology()
+    bonds = t.bonds
+    t.bonds.drop_in_place("type")
+    t.angles.insert_column(0, pl.Series("z", np.zeros(12)))
+    t.tables()["dihedrals"].extend(t.dihedrals)
+    assert t.bonds.equals(bonds) and t.angles.columns == ["atoms", "type"]
+    assert len(t.dihedrals) == 9
+    indices = np.array([[0, 1]])
+    single = Topology(bonds=indices)
+    indices[0, 0] = 5
+    assert single.bonds["atoms"].to_list() == [[0, 1]]

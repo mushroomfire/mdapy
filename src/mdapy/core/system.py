@@ -185,7 +185,9 @@ class System:
             extra.append(_column("type", types, n))
         if extra:
             table = table.with_columns(extra)
-        self._table = _normalize_table(table)
+        # a table of its own: changing the given table in place does not
+        # change the system
+        self._table = _normalize_table(table).clone()
 
         if box is None:
             box = Box.enclosing(self.positions)
@@ -216,8 +218,10 @@ class System:
 
     @property
     def table(self) -> pl.DataFrame:
-        """Per-atom properties, one row per atom."""
-        return self._table
+        """Per-atom properties, one row per atom. A copy that shares the
+        columns: changing it in place does not change the system; use the
+        ``with_*`` methods for a changed system."""
+        return self._table.clone()
 
     @property
     def box(self) -> Box:

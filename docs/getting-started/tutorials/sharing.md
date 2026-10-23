@@ -11,6 +11,7 @@ does not change it.
 
 ```python
 import numpy as np
+import polars as pl
 
 import mdapy
 from mdapy.build import build_crystal
@@ -38,6 +39,15 @@ try:
     x[0, 0] = 1.0
 except ValueError as error:
     print(error)  # assignment destination is read-only
+```
+
+The table is a copy that shares the columns: polars methods that change a
+DataFrame in place change the copy only.
+
+```python
+table = crystal.table
+table.insert_column(0, pl.Series("tag", np.zeros(len(crystal))))
+"tag" in crystal.table.columns  # False
 ```
 
 To move atoms, change a copy and make a new system:

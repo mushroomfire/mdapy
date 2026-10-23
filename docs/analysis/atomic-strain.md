@@ -24,10 +24,14 @@ current = mdapy.System(
     positions @ shear.T, mdapy.Box(reference.box.matrix @ shear.T), elements="Cu"
 )
 
-strain = AtomicStrain(reference, cutoff=3.0)  # the reference neighbors are found once
+strain = AtomicStrain(reference, cutoff=3.0)
 result = strain.compute(current)
 result.shear  # von Mises shear strain, the same for every atom here
 current = current.with_columns(result)  # shear_strain, volumetric_strain, d2min
+
+# many frames against one reference: find its neighbors once
+neighbors = mdapy.NeighborList.build(reference, 3.0)
+strain = AtomicStrain(reference, cutoff=3.0, neighbors=neighbors)
 ```
 
 ## Parameters
@@ -37,6 +41,7 @@ current = current.with_columns(result)  # shear_strain, volumetric_strain, d2min
 | `reference` | `System` | | | the reference configuration, with the same atoms in the same order as the systems to compare |
 | `cutoff` | float | | Å | the neighbors closer than it in the reference define the neighbor vectors |
 | `affine` | bool | `False` | | measure the current vectors in the reference box, which removes the homogeneous deformation of the box |
+| `neighbors` | `NeighborList` | `None` | | neighbors of the reference within at least `cutoff`, used for every configuration; without, `compute` finds them as it goes each time |
 
 `compute(system, *, progress=None, cancel=None)` takes the current
 configuration: the atoms of the reference in the same order, each moved by

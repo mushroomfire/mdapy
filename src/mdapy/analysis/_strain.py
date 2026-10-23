@@ -14,6 +14,7 @@ from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
+from mdapy.neighbor._neighbor_list import _given_or_built, _run
 
 
 @dataclass(frozen=True)
@@ -62,16 +63,32 @@ class AtomicStrain:
     affine : bool, optional
         Measure the current vectors in the reference box, which removes the
         homogeneous deformation of the box. Default False.
+    neighbors : NeighborList, optional
+        Neighbors of the reference within at least cutoff, used for every
+        configuration; without, they are found again for each.
     """
 
-    def __init__(self, reference: System, cutoff: float, *, affine: bool = False):
+    def __init__(
+        self,
+        reference: System,
+        cutoff: float,
+        *,
+        affine: bool = False,
+        neighbors: NeighborList | None = None,
+    ):
         if not cutoff > 0:
             raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
         self.reference = reference
         self.cutoff = float(cutoff)
         self.affine = bool(affine)
-        self._pairs = NeighborList.build(reference, self.cutoff)
-        self._fractional = reference.box.to_fractional(reference.positions)
+        self._neighbors = (
+            None
+            if neighbors is None
+            else _given_or_built(reference, self.cutoff, neighbors)
+        )
+        self._fractional = np.ascontiguousarray(
+            reference.box.to_fractional(reference.positions)
+        )
 
     def compute(
         self, system: System, *, progress: Any = None, cancel: Any = None
@@ -103,35 +120,38 @@ class AtomicStrain:
                 raise InvalidParameter(
                     "the atoms are not in the order of the reference"
                 )
-        # displacements in fractional coordinates, each by the nearest image
-        displacement = system.box.to_fractional(system.positions) - self._fractional
-        periodic = system.box.pbc
-        displacement[:, periodic] -= np.round(displacement[:, periodic])
-        matrix = reference.box.matrix if self.affine else system.box.matrix
-        strain, d2min = _native.atomic_strain(
-            self._pairs.offsets,
-            self._pairs.j,
-            np.ascontiguousarray(self._pairs.shifts),
-            np.ascontiguousarray(self._fractional),
-            np.ascontiguousarray(displacement),
-            np.ascontiguousarray(reference.box.matrix),
+        box, reference_box = system.box, reference.box
+        matrix = reference_box.matrix if self.affine else box.matrix
+        arguments = (
+            self._fractional,
+            np.ascontiguousarray(system.positions),
+            np.ascontiguousarray(box.inverse),
+            np.ascontiguousarray(box.origin),
+            np.ascontiguousarray(box.pbc),
+            np.ascontiguousarray(reference_box.matrix),
             np.ascontiguousarray(matrix),
             progress,
             _native_token(cancel),
         )
-        e = strain
-        shear = np.sqrt(
-            e[:, 0, 1] ** 2
-            + e[:, 0, 2] ** 2
-            + e[:, 1, 2] ** 2
-            + (
-                (e[:, 0, 0] - e[:, 1, 1]) ** 2
-                + (e[:, 1, 1] - e[:, 2, 2]) ** 2
-                + (e[:, 0, 0] - e[:, 2, 2]) ** 2
+        nl = self._neighbors
+        if nl is None:
+            # the neighbors in the reference found as it goes
+            strain, shear, volumetric, d2min = _run(
+                _native.atomic_strain_search,
+                np.ascontiguousarray(reference.positions),
+                np.ascontiguousarray(reference_box.origin),
+                self.cutoff,
+                *arguments,
             )
-            / 6.0
-        )
-        volumetric = np.trace(e, axis1=1, axis2=2) / 3.0
+        else:
+            strain, shear, volumetric, d2min = _native.atomic_strain_list(
+                nl.offsets,
+                nl.j,
+                np.ascontiguousarray(nl.shifts),
+                nl.distances,
+                self.cutoff,
+                *arguments,
+            )
         return StrainResult(
             strain=strain, shear=shear, volumetric=volumetric, d2min=d2min
         )

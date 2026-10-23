@@ -867,14 +867,32 @@ void structure_identification() {
         for (std::size_t k = 0; k < positions.size(); ++k) {
             fractional[k] = positions[k] / (cells * a);
         }
-        std::vector<double> strain(9 * static_cast<std::size_t>(n)), d2(static_cast<std::size_t>(n));
-        mdapy::analysis::atomic_strain(n, pairs.offsets.data(), pairs.neighbors.data(),
-                                       pairs.shifts.data(), fractional.data(), moved.data(), matrix,
-                                       matrix, strain.data(), d2.data());
+        std::vector<double> current(positions.size()), inverse(9, 0.0);
+        for (std::size_t k = 0; k < positions.size(); ++k) {
+            current[k] = positions[k] + moved[k] * (cells * a);
+        }
+        inverse[0] = inverse[4] = inverse[8] = 1.0 / (cells * a);
+        const mdapy::analysis::StrainInput strain_input{n,      fractional.data(), current.data(),
+                                                        inverse.data(), origin,   pbc,
+                                                        matrix, matrix};
+        const auto n_size = static_cast<std::size_t>(n);
+        std::vector<double> strain(9 * n_size), shear(n_size), volumetric(n_size), d2(n_size);
+        std::vector<double> searched_strain(9 * n_size), searched_shear(n_size),
+            searched_volumetric(n_size), searched_d2(n_size);
+        mdapy::analysis::atomic_strain_list(
+            pairs.offsets.data(), pairs.neighbors.data(), pairs.shifts.data(),
+            pairs.distances.data(), 3.07, strain_input,
+            {strain.data(), shear.data(), volumetric.data(), d2.data()});
+        mdapy::analysis::atomic_strain_search(
+            positions.data(), origin, 3.07, strain_input,
+            {searched_strain.data(), searched_shear.data(), searched_volumetric.data(),
+             searched_d2.data()});
         if (threads == kThreads[0]) {
             first_strain = strain;
         }
         check(strain == first_strain, "the atomic strain is the same for any thread count");
+        check(searched_strain == strain && searched_d2 == d2,
+              "the atomic strain on the grid is that of the list");
         std::vector<std::int32_t> two_types(static_cast<std::size_t>(n));
         for (std::int64_t i = 0; i < n; ++i) {
             two_types[i] = static_cast<std::int32_t>(i % 2);

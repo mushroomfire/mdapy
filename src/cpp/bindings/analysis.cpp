@@ -21,6 +21,7 @@
 #include "analysis/strain.h"
 #include "analysis/voronoi.h"
 #include "bindings/control.h"
+#include "core/buffer.h"
 #include "core/parallel.h"
 
 namespace mdapy::bindings {
@@ -34,10 +35,10 @@ using Shifts3 = nb::ndarray<const std::int8_t, nb::shape<-1, 3>, nb::c_contig, n
 using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 // A one-dimensional NumPy array that owns the memory of a vector.
-template <class T>
-nb::object as_array(std::vector<T>&& values) {
-    auto* kept = new std::vector<T>(std::move(values));
-    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<T>*>(p); });
+template <class T, class A>
+nb::object as_array(std::vector<T, A>&& values) {
+    auto* kept = new std::vector<T, A>(std::move(values));
+    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<T, A>*>(p); });
     const std::size_t shape[1] = {kept->size()};
     return nb::ndarray<nb::numpy, T>(kept->data(), 1, shape, owner).cast();
 }
@@ -353,29 +354,78 @@ nb::tuple structure_factor(Positions3 positions, Matrix3 matrix, Types type, int
 
 
 
-nb::tuple atomic_strain(Offsets offsets, Neighbors neighbors, Shifts3 shifts, Positions3 reference,
-                        Positions3 displacement, Matrix3 reference_matrix, Matrix3 matrix,
-                        nb::handle progress, const CancelToken* cancel) {
-    const auto n = static_cast<std::int64_t>(reference.shape(0));
-    if (offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
-        displacement.shape(0) != reference.shape(0) || shifts.shape(0) != neighbors.shape(0) ||
-        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
-        throw std::invalid_argument("the pairs do not fit the atoms");
+// Arrays for the results of the atomic strain of n atoms, and the tuple
+// (strain (n, 3, 3), shear, volumetric, nonaffine) that owns them.
+struct StrainArrays {
+    Buffer<double> strain, shear, volumetric, nonaffine;
+    explicit StrainArrays(std::int64_t n)
+        : strain(9 * static_cast<std::size_t>(n)), shear(static_cast<std::size_t>(n)),
+          volumetric(static_cast<std::size_t>(n)), nonaffine(static_cast<std::size_t>(n)) {}
+    analysis::StrainOutput output() {
+        return {strain.data(), shear.data(), volumetric.data(), nonaffine.data()};
     }
-    std::vector<double> strain(static_cast<std::size_t>(n) * 9), nonaffine(static_cast<std::size_t>(n));
+    nb::tuple to_tuple() {
+        const std::size_t n = shear.size();
+        auto* kept = new Buffer<double>(std::move(strain));
+        nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<Buffer<double>*>(p); });
+        const std::size_t shape[3] = {n, 3, 3};
+        return nb::make_tuple(nb::ndarray<nb::numpy, double>(kept->data(), 3, shape, owner),
+                              as_array(std::move(shear)), as_array(std::move(volumetric)),
+                              as_array(std::move(nonaffine)));
+    }
+};
+
+analysis::StrainInput strain_input(Positions3 reference, Positions3 positions, Matrix3 inverse,
+                                   Origin3 origin, Periodic pbc, Matrix3 reference_matrix,
+                                   Matrix3 matrix) {
+    if (positions.shape(0) != reference.shape(0)) {
+        throw std::invalid_argument("the reference and the system have different atoms");
+    }
+    return {static_cast<std::int64_t>(reference.shape(0)), reference.data(), positions.data(),
+            inverse.data(), origin.data(), pbc.data(), reference_matrix.data(), matrix.data()};
+}
+
+nb::tuple atomic_strain_search(Positions3 reference_positions, Origin3 reference_origin,
+                               double cutoff, Positions3 reference, Positions3 positions,
+                               Matrix3 inverse, Origin3 origin, Periodic pbc,
+                               Matrix3 reference_matrix, Matrix3 matrix, nb::handle progress,
+                               const CancelToken* cancel) {
+    const analysis::StrainInput input =
+        strain_input(reference, positions, inverse, origin, pbc, reference_matrix, matrix);
+    if (reference_positions.shape(0) != reference.shape(0)) {
+        throw std::invalid_argument("the reference positions do not fit the reference");
+    }
+    StrainArrays arrays(input.n);
     run_released(
         [&](const Control& control) {
-            analysis::atomic_strain(n, offsets.data(), neighbors.data(), shifts.data(),
-                                    reference.data(), displacement.data(),
-                                    reference_matrix.data(), matrix.data(), strain.data(),
-                                    nonaffine.data(), control);
+            analysis::atomic_strain_search(reference_positions.data(), reference_origin.data(),
+                                           cutoff, input, arrays.output(), control);
         },
         progress, cancel);
-    auto* kept = new std::vector<double>(std::move(strain));
-    nb::capsule owner(kept, [](void* p) noexcept { delete static_cast<std::vector<double>*>(p); });
-    const std::size_t shape[3] = {static_cast<std::size_t>(n), 3, 3};
-    return nb::make_tuple(nb::ndarray<nb::numpy, double>(kept->data(), 3, shape, owner),
-                          as_array(std::move(nonaffine)));
+    return arrays.to_tuple();
+}
+
+nb::tuple atomic_strain_list(Offsets offsets, Neighbors neighbors, Shifts3 shifts,
+                             Values distances, double cutoff, Positions3 reference,
+                             Positions3 positions, Matrix3 inverse, Origin3 origin, Periodic pbc,
+                             Matrix3 reference_matrix, Matrix3 matrix, nb::handle progress,
+                             const CancelToken* cancel) {
+    const analysis::StrainInput input =
+        strain_input(reference, positions, inverse, origin, pbc, reference_matrix, matrix);
+    if (offsets.shape(0) != static_cast<std::size_t>(input.n) + 1 ||
+        shifts.shape(0) != neighbors.shape(0) || distances.shape(0) != neighbors.shape(0) ||
+        offsets.data()[input.n] != static_cast<std::int64_t>(neighbors.shape(0))) {
+        throw std::invalid_argument("the pairs do not fit the atoms");
+    }
+    StrainArrays arrays(input.n);
+    run_released(
+        [&](const Control& control) {
+            analysis::atomic_strain_list(offsets.data(), neighbors.data(), shifts.data(),
+                                         distances.data(), cutoff, input, arrays.output(),
+                                         control);
+        },
+        progress, cancel);
+    return arrays.to_tuple();
 }
 
 }  // namespace
@@ -533,8 +583,14 @@ void bind_analysis(nb::module_& m) {
           nb::arg("pbc"), nb::arg("face_threshold"), nb::arg("relative_face_threshold"),
           nb::arg("edge_threshold"), nb::arg("polyhedra"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
-    m.def("atomic_strain", &atomic_strain, nb::arg("offsets"), nb::arg("neighbors"),
-          nb::arg("shifts"), nb::arg("reference"), nb::arg("displacement"),
+    m.def("atomic_strain_search", &atomic_strain_search, nb::arg("reference_positions"),
+          nb::arg("reference_origin"), nb::arg("cutoff"), nb::arg("reference"),
+          nb::arg("positions"), nb::arg("inverse"), nb::arg("origin"), nb::arg("pbc"),
+          nb::arg("reference_matrix"), nb::arg("matrix"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("atomic_strain_list", &atomic_strain_list, nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("cutoff"), nb::arg("reference"),
+          nb::arg("positions"), nb::arg("inverse"), nb::arg("origin"), nb::arg("pbc"),
           nb::arg("reference_matrix"), nb::arg("matrix"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     m.def("structure_factor", &structure_factor, nb::arg("positions"), nb::arg("matrix"),

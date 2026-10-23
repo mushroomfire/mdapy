@@ -4,8 +4,10 @@
 #include "neighbor/cell_list.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <numeric>
 #include <stdexcept>
 
@@ -109,8 +111,9 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
             double f[3];
             std::int32_t w[3];
             frame_.wrap(positions + 3 * i, f, w);
+            // the first direction varies fastest, as in the usual order of atoms
             std::int64_t index = 0;
-            for (int d = 0; d < 3; ++d) {
+            for (int d = 2; d >= 0; --d) {
                 const Axis& axis = axes_[d];
                 const double k = std::floor((f[d] - axis.low) / axis.width);
                 const double last = static_cast<double>(axis.cells - 1);
@@ -119,35 +122,77 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
             cell_of[i] = index;
         }
     });
+    // Counting sort of the atoms into cells, in parallel; within a cell the
+    // atoms keep increasing index order, whatever the number of threads.
     const std::int64_t total_cells = axes_[0].cells * axes_[1].cells * axes_[2].cells;
-    cell_start_.assign(static_cast<std::size_t>(total_cells) + 1, 0);
-    for (std::int64_t i = 0; i < n; ++i) {
-        ++cell_start_[cell_of[i] + 1];
-    }
-    for (std::int64_t k = 0; k < total_cells; ++k) {
-        cell_start_[k + 1] += cell_start_[k];
-    }
-    slot_cells_.resize(static_cast<std::size_t>(n));
-    {
-        std::vector<std::int64_t> fill(cell_start_.begin(), cell_start_.end() - 1);
-        for (std::int64_t i = 0; i < n; ++i) {
-            const std::int64_t t = fill[cell_of[i]]++;
-            slot_cells_[t] = cell_of[i];
-            cell_of[i] = t;  // now the slot of atom i
-        }
-    }
-    slot_atoms_.resize(static_cast<std::size_t>(n));
-    slot_positions_.resize(static_cast<std::size_t>(n) * 3);
-    slot_wrapped_.resize(static_cast<std::size_t>(n) * 3);
-    slot_wraps_.resize(static_cast<std::size_t>(n) * 3);
+    std::unique_ptr<std::atomic<std::int64_t>[]> counts(
+        new std::atomic<std::int64_t>[static_cast<std::size_t>(total_cells)]);
+    const auto clear = [&]() {
+        parallel_for(total_cells, 0, [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t k = begin; k < end; ++k) {
+                counts[k].store(0, std::memory_order_relaxed);
+            }
+        });
+    };
+    clear();
     parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
         for (std::int64_t i = begin; i < end; ++i) {
-            const std::int64_t t = cell_of[i];
-            slot_atoms_[t] = static_cast<index_t>(i);
-            frame_.image(positions + 3 * i, &wraps[3 * i], &slot_wrapped_[3 * t]);
+            counts[cell_of[i]].fetch_add(1, std::memory_order_relaxed);
+        }
+    });
+    // the first slot of each cell: the sum of each block of cells, then the
+    // cells of each block from where the block starts
+    cell_start_.resize(static_cast<std::size_t>(total_cells) + 1);
+    const std::int64_t grain = default_grain(total_cells);
+    std::vector<std::int64_t> block_start((total_cells + grain - 1) / grain + 1, 0);
+    parallel_for(total_cells, grain, [&](std::int64_t begin, std::int64_t end) {
+        std::int64_t sum = 0;
+        for (std::int64_t k = begin; k < end; ++k) {
+            sum += counts[k].load(std::memory_order_relaxed);
+        }
+        block_start[begin / grain + 1] = sum;
+    });
+    for (std::size_t b = 1; b < block_start.size(); ++b) {
+        block_start[b] += block_start[b - 1];
+    }
+    parallel_for(total_cells, grain, [&](std::int64_t begin, std::int64_t end) {
+        std::int64_t sum = block_start[begin / grain];
+        for (std::int64_t k = begin; k < end; ++k) {
+            cell_start_[k] = sum;
+            sum += counts[k].load(std::memory_order_relaxed);
+        }
+    });
+    cell_start_[total_cells] = n;
+    // each atom into a free slot of its cell, then the slots of each cell in
+    // increasing atom order
+    clear();
+    std::vector<std::int64_t> order(static_cast<std::size_t>(n));
+    parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t i = begin; i < end; ++i) {
+            const std::int64_t c = cell_of[i];
+            order[cell_start_[c] + counts[c].fetch_add(1, std::memory_order_relaxed)] = i;
+        }
+    });
+    parallel_for(total_cells, 0, [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t k = begin; k < end; ++k) {
+            std::sort(order.begin() + cell_start_[k], order.begin() + cell_start_[k + 1]);
+        }
+    });
+    slot_cells_.resize(static_cast<std::size_t>(n) * 3);
+    slots_.resize(static_cast<std::size_t>(n));
+    parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t t = begin; t < end; ++t) {
+            const std::int64_t i = order[t];
+            for (std::int64_t c = cell_of[i], d = 0; d < 3; ++d) {
+                slot_cells_[3 * t + d] = static_cast<std::int32_t>(c % axes_[d].cells);
+                c /= axes_[d].cells;
+            }
+            Slot& slot = slots_[t];
+            slot.atom = static_cast<index_t>(i);
+            frame_.image(positions + 3 * i, &wraps[3 * i], slot.wrapped);
             for (int e = 0; e < 3; ++e) {
-                slot_positions_[3 * t + e] = positions[3 * i + e];
-                slot_wraps_[3 * t + e] = wraps[3 * i + e];
+                slot.position[e] = positions[3 * i + e];
+                slot.wraps[e] = wraps[3 * i + e];
             }
         }
     });

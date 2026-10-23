@@ -24,8 +24,8 @@
 | `wcp-shells-draft` | Warren–Cowley 多壳层（按截断半径或按近邻数），基于 dxa-network-draft | 已推送 |
 | `vasp-calculator-draft` | VASP 计算器（超算上用），基于 wcp-shells-draft | 已推送 |
 | `ptm-draft` | PTM（多面体模板匹配，按方案 A 移植），基于 preview-2026-10-23 | 已推送，CI 全绿 |
-| `dxa-full-draft` | 完整版 DXA（Delaunay 剖分、弹性映射、界面网格上的 Burgers 回路，全部 C++），基于 ptm-draft | 已推送，CI 全绿（9268a8e） |
-| **`preview-2026-10-23`** | **上面所有草稿合在一起，已快进到 dxa-full-draft 的末端（9268a8e），1794 个测试全过** | 已推送，CI 全绿 |
+| `dxa-full-draft` | 完整版 DXA（Delaunay 剖分、弹性映射、界面网格上的 Burgers 回路，全部 C++），基于 ptm-draft | 已推送，CI 全绿（a2b9ef1） |
+| **`preview-2026-10-23`** | **上面所有草稿合在一起，已快进到 dxa-full-draft 的末端（a2b9ef1），1794 个测试全过** | 已推送，CI 全绿 |
 
 
 ## 早上先看这里（05:06）

@@ -106,6 +106,7 @@ nav:
           - Trajectories: getting-started/trajectory.md
           - Neighbor lists: getting-started/neighbor.md
           - Parallelism: getting-started/parallelism.md
+          - ASE atoms: getting-started/ase.md
       - Tutorials:
           - A polycrystal of fcc and bcc grains: getting-started/tutorials/two-phase-polycrystal.md
           - Columnar grains on a hexagonal pattern: getting-started/tutorials/columnar-polycrystal.md
@@ -153,6 +154,7 @@ nav:
           - NEP: simulation/nep.md
           - LAMMPS: simulation/lammps.md
           - VASP: simulation/vasp.md
+          - ASE calculator: simulation/ase.md
       - Minimization and dynamics:
           - Energy minimization: simulation/minimize.md
           - Defect energies: simulation/defect-energies.md

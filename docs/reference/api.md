@@ -215,6 +215,14 @@ import mdapy
 
 ::: mdapy.lattice_dynamics.ElasticResult
 
+## Other packages
+
+::: mdapy.interop.to_ase
+
+::: mdapy.interop.from_ase
+
+::: mdapy.interop.to_ase_calculator
+
 ## Threads and indices
 
 ::: mdapy.get_num_threads

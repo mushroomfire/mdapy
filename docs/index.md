@@ -100,7 +100,8 @@ flowchart TB
     [Reading and writing files](getting-started/io.md) ·
     [Trajectories](getting-started/trajectory.md) ·
     [Neighbor lists](getting-started/neighbor.md) ·
-    [Parallelism](getting-started/parallelism.md)
+    [Parallelism](getting-started/parallelism.md) ·
+    [ASE atoms](getting-started/ase.md)
 
     Tutorials: [fcc and bcc grains](getting-started/tutorials/two-phase-polycrystal.md) ·
     [columnar grains](getting-started/tutorials/columnar-polycrystal.md) ·
@@ -160,7 +161,8 @@ flowchart TB
 
     Calculators: [the interface](simulation/calculators.md) ·
     [EAM](simulation/eam.md) · [NEP](simulation/nep.md) ·
-    [LAMMPS](simulation/lammps.md) · [VASP](simulation/vasp.md)
+    [LAMMPS](simulation/lammps.md) · [VASP](simulation/vasp.md) ·
+    [ASE calculator](simulation/ase.md)
 
     Minimization and dynamics: [energy minimization](simulation/minimize.md) ·
     [defect energies](simulation/defect-energies.md)

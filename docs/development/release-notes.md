@@ -52,6 +52,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.read_trajectory` opens the frames of any file lazily: frames are
   found and read when used, slices share the open file, and iteration starts
   at once. See [Trajectories](../getting-started/trajectory.md).
+- `mdapy.interop.to_ase` and `from_ase` convert to and from `ase.Atoms`,
+  with velocities, charges, constraints, other numeric columns and the
+  results of a calculation. See [ASE atoms](../getting-started/ase.md).
 
 ### Neighbor search
 
@@ -88,6 +91,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   as in the job script of a cluster: it writes the inputs, keeps the wave
   functions between calls and reads the OUTCAR. `CalculationFailed` reports
   a run that stopped. See [VASP](../simulation/vasp.md).
+- `mdapy.interop.to_ase_calculator` makes any mdapy calculator an ASE
+  calculator, for the optimizers, cell filters and dynamics of ASE. See
+  [ASE calculator](../simulation/ase.md).
 
 ### Simulation
 

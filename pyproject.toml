@@ -34,6 +34,7 @@ dev = [
     "coverage>=7.10",
     "ruff>=0.6",
     "matplotlib>=3.8",
+    "ase>=3.22",
 ]
 docs = [
     "mkdocs>=1.6,<2",
@@ -74,6 +75,8 @@ filterwarnings = [
     # OVITO from PyPI in a conda Python, as in local test environments, works
     # but warns on import
     "ignore:Did you accidentally install the OVITO package:UserWarning",
+    # ASE sets the shape of NumPy arrays, which NumPy 2.5 deprecates
+    "ignore:Setting the shape on a NumPy array:DeprecationWarning:ase",
 ]
 
 [tool.coverage.run]

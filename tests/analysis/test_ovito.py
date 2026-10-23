@@ -225,7 +225,9 @@ def test_atomic_strain(box, affine):
         elements="Cu",
     )
     reference, current = placed(reference, box), placed(current, box)
-    ours = AtomicStrain(reference, 3.0, affine=affine).compute(current)
+    ours = AtomicStrain(
+        reference, 3.0, affine=affine, strain_tensor=True, d2min=True
+    ).compute(current)
     modifier = AtomicStrainModifier(
         cutoff=3.0,
         output_strain_tensors=True,
@@ -234,7 +236,7 @@ def test_atomic_strain(box, affine):
     )
     modifier.reference = ovito_source(reference)
     theirs = ovito_compute(current, modifier).particles
-    e = ours.strain
+    e = ours.strain_tensor
     voigt = np.stack(
         [e[:, 0, 0], e[:, 1, 1], e[:, 2, 2], e[:, 0, 1], e[:, 0, 2], e[:, 1, 2]], axis=1
     )
@@ -270,7 +272,9 @@ def molecules(box, seed=4):
 @pytest.mark.parametrize("box", ["periodic", "rotated", "cluster"])
 def test_cluster_geometry(box):
     system = molecules(box)
-    ours = ClusterAnalysis(cutoff=1.6).compute(system)
+    ours = ClusterAnalysis(
+        cutoff=1.6, unwrap=True, center_of_mass=True, gyration=True
+    ).compute(system)
     output = ovito_compute(
         system,
         ClusterAnalysisModifier(

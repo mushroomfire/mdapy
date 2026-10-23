@@ -158,28 +158,32 @@ class ClusterResult(Result):
         (clusters,) bool, whether the cluster joins another periodic image of
         itself, spanning the box; its unwrapped positions, center of mass and
         gyration then depend on the order of the bonds.
-    unwrapped : numpy.ndarray
+    unwrapped : numpy.ndarray or None
         (N, 3) positions in Å with each cluster unbroken by the periodic
-        boundaries, the first atom of each cluster at its own position.
-    masses : numpy.ndarray
+        boundaries, the first atom of each cluster at its own position, when
+        computed.
+    masses : numpy.ndarray or None
         (clusters,) total mass of each cluster in amu, or its number of atoms
-        when the system has neither masses nor elements.
-    center_of_mass : numpy.ndarray
-        (clusters, 3) center of mass of each cluster in Å, from ``unwrapped``.
-    radius_of_gyration : numpy.ndarray
-        (clusters,) radius of gyration of each cluster in Å.
-    gyration_tensor : numpy.ndarray
-        (clusters, 3, 3) gyration tensor of each cluster in Å².
+        when the system has neither masses nor elements, with the center of
+        mass.
+    center_of_mass : numpy.ndarray or None
+        (clusters, 3) center of mass of each cluster in Å, from the unwrapped
+        positions, when computed.
+    radius_of_gyration : numpy.ndarray or None
+        (clusters,) radius of gyration of each cluster in Å, when computed.
+    gyration_tensor : numpy.ndarray or None
+        (clusters, 3, 3) gyration tensor of each cluster in Å², with the
+        radius of gyration.
     """
 
     cluster: np.ndarray
     sizes: np.ndarray
     spanning: np.ndarray
-    unwrapped: np.ndarray
-    masses: np.ndarray
-    center_of_mass: np.ndarray
-    radius_of_gyration: np.ndarray
-    gyration_tensor: np.ndarray
+    unwrapped: np.ndarray | None = None
+    masses: np.ndarray | None = None
+    center_of_mass: np.ndarray | None = None
+    radius_of_gyration: np.ndarray | None = None
+    gyration_tensor: np.ndarray | None = None
 
     def columns(self) -> dict[str, np.ndarray]:
         return {"cluster": self.cluster}
@@ -207,6 +211,15 @@ class ClusterAnalysis:
         Bond length in Å for each pair of elements ``(a, b)``, in either
         order; pairs not given are never bonded. Give ``cutoff`` or
         ``cutoffs``.
+    unwrap : bool, optional
+        Give the positions with each cluster unbroken by the periodic
+        boundaries. Default False.
+    center_of_mass : bool, optional
+        Compute the mass and the center of mass of each cluster. Default
+        False.
+    gyration : bool, optional
+        Compute the gyration tensor and the radius of gyration of each
+        cluster. Default False.
     """
 
     def __init__(
@@ -214,8 +227,14 @@ class ClusterAnalysis:
         cutoff: float | None = None,
         *,
         cutoffs: Mapping[tuple[str, str], float] | None = None,
+        unwrap: bool = False,
+        center_of_mass: bool = False,
+        gyration: bool = False,
     ):
         self._bonds = _Bonds(cutoff, cutoffs)
+        self.unwrap = bool(unwrap)
+        self.center_of_mass = bool(center_of_mass)
+        self.gyration = bool(gyration)
 
     def compute(
         self,
@@ -252,8 +271,15 @@ class ClusterAnalysis:
                 cluster, sizes, images, spanning = _native.clusters(
                     *_view(system, nl), cutoff, type, limits
                 )
+        found = {"cluster": cluster, "sizes": sizes, "spanning": spanning.astype(bool)}
+        if not (self.unwrap or self.center_of_mass or self.gyration):
+            return ClusterResult(**found)
         n, count = len(system), len(sizes)
         unwrapped = system.positions + images.reshape(n, 3) @ system.box.matrix
+        if self.unwrap:
+            found["unwrapped"] = unwrapped
+        if not (self.center_of_mass or self.gyration):
+            return ClusterResult(**found)
         weights = _weights(system)
         masses = np.bincount(cluster, weights=weights, minlength=count)
         center = (
@@ -268,28 +294,26 @@ class ClusterAnalysis:
             )
             / masses[:, None]
         )
-        delta = unwrapped - center[cluster]
-        gyration = np.empty((count, 3, 3))
-        for a in range(3):
-            for b in range(a, 3):
-                gyration[:, a, b] = gyration[:, b, a] = (
-                    np.bincount(
-                        cluster,
-                        weights=weights * delta[:, a] * delta[:, b],
-                        minlength=count,
+        if self.center_of_mass:
+            found.update(masses=masses, center_of_mass=center)
+        if self.gyration:
+            delta = unwrapped - center[cluster]
+            gyration = np.empty((count, 3, 3))
+            for a in range(3):
+                for b in range(a, 3):
+                    gyration[:, a, b] = gyration[:, b, a] = (
+                        np.bincount(
+                            cluster,
+                            weights=weights * delta[:, a] * delta[:, b],
+                            minlength=count,
+                        )
+                        / masses
                     )
-                    / masses
-                )
-        return ClusterResult(
-            cluster=cluster,
-            sizes=sizes,
-            spanning=spanning.astype(bool),
-            unwrapped=unwrapped,
-            masses=masses,
-            center_of_mass=center,
-            radius_of_gyration=np.sqrt(np.trace(gyration, axis1=1, axis2=2)),
-            gyration_tensor=gyration,
-        )
+            found.update(
+                radius_of_gyration=np.sqrt(np.trace(gyration, axis1=1, axis2=2)),
+                gyration_tensor=gyration,
+            )
+        return ClusterResult(**found)
 
     def __repr__(self) -> str:
         return f"ClusterAnalysis({self._bonds})"

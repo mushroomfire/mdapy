@@ -41,10 +41,14 @@ def reference_strain(reference, current, cutoff):
 def test_a_homogeneous_deformation():
     reference = crystal("fcc", 3.6, (4, 4, 4), jitter=0.05, seed=1)
     current = deformed(reference, F0)  # atoms wrapped back into the new box
-    result = AtomicStrain(reference, 3.0).compute(current)
+    result = AtomicStrain(reference, 3.0, strain_tensor=True, d2min=True).compute(
+        current
+    )
     expected = 0.5 * (F0.T @ F0 - np.eye(3))
     np.testing.assert_allclose(
-        result.strain, np.broadcast_to(expected, (len(reference), 3, 3)), atol=1e-13
+        result.strain_tensor,
+        np.broadcast_to(expected, (len(reference), 3, 3)),
+        atol=1e-13,
     )
     np.testing.assert_allclose(result.d2min, 0.0, atol=1e-20)
     e = expected
@@ -54,8 +58,8 @@ def test_a_homogeneous_deformation():
     )  # fmt: skip
     np.testing.assert_allclose(result.shear, shear, rtol=1e-12)
     np.testing.assert_allclose(result.volumetric, np.trace(e) / 3, rtol=1e-12)
-    removed = AtomicStrain(reference, 3.0, affine=True).compute(current)
-    np.testing.assert_allclose(removed.strain, 0.0, atol=1e-13)
+    removed = AtomicStrain(reference, 3.0, affine=True, strain_tensor=True)
+    np.testing.assert_allclose(removed.compute(current).strain_tensor, 0.0, atol=1e-13)
 
 
 def test_a_rotation_is_no_strain():
@@ -68,8 +72,9 @@ def test_a_rotation_is_no_strain():
             [0, 0, 1],
         ]
     )
-    result = AtomicStrain(reference, 3.0).compute(deformed(reference, rotation))
-    np.testing.assert_allclose(result.strain, 0.0, atol=1e-13)
+    strain = AtomicStrain(reference, 3.0, strain_tensor=True)
+    result = strain.compute(deformed(reference, rotation))
+    np.testing.assert_allclose(result.strain_tensor, 0.0, atol=1e-13)
 
 
 def test_matches_least_squares():
@@ -79,20 +84,24 @@ def test_matches_least_squares():
     current = current.with_positions(
         current.positions + rng.normal(scale=0.1, size=(len(current), 3))
     )
-    result = AtomicStrain(reference, 3.2).compute(current)
+    everything = AtomicStrain(reference, 3.2, strain_tensor=True, d2min=True)
+    result = everything.compute(current)
     strain, d2 = reference_strain(reference, current, 3.2)
-    np.testing.assert_allclose(result.strain, strain, atol=1e-12)
+    np.testing.assert_allclose(result.strain_tensor, strain, atol=1e-12)
     np.testing.assert_allclose(result.d2min, d2, rtol=1e-10, atol=1e-14)
     assert result.d2min.min() > 0
     table = current.with_columns(result).table
     assert {"shear_strain", "volumetric_strain", "d2min"} <= set(table.columns)
     with mdapy.num_threads(3):
         np.testing.assert_array_equal(
-            AtomicStrain(reference, 3.2).compute(current).strain, result.strain
+            everything.compute(current).strain_tensor, result.strain_tensor
         )
-    assert (
-        repr(AtomicStrain(reference, 3.2)) == "AtomicStrain(cutoff=3.2, affine=False)"
-    )
+    bare = AtomicStrain(reference, 3.2).compute(current)
+    assert bare.strain_tensor is None and bare.d2min is None
+    np.testing.assert_array_equal(bare.shear, result.shear)
+    np.testing.assert_array_equal(bare.volumetric, result.volumetric)
+    assert set(bare.columns()) == {"shear_strain", "volumetric_strain"}
+    assert repr(everything) == "AtomicStrain(cutoff=3.2, affine=False)"
 
 
 def test_flat_neighborhoods_are_nan():
@@ -101,8 +110,11 @@ def test_flat_neighborhoods_are_nan():
         mdapy.Box([10.0, 10.0, 10.0], pbc=(True, True, False)),
         elements="C",
     )
-    result = AtomicStrain(layer, 2.6).compute(layer)
-    assert np.isnan(result.strain).all() and np.isnan(result.d2min).all()
+    result = AtomicStrain(layer, 2.6, strain_tensor=True, d2min=True).compute(layer)
+    assert np.isnan(result.strain_tensor).all() and np.isnan(result.d2min).all()
+    assert np.isnan(result.shear).all() and np.isnan(result.volumetric).all()
+    bare = AtomicStrain(layer, 2.6).compute(layer)
+    assert np.isnan(bare.shear).all() and np.isnan(bare.volumetric).all()
 
 
 def test_errors():
@@ -127,18 +139,19 @@ def test_a_given_list_gives_what_a_search_gives(affine):
     current = deformed(reference, F0).with_positions(
         deformed(reference, F0).positions + rng.normal(0, 0.05, (256, 3))
     )
-    searched = AtomicStrain(reference, 3.0, affine=affine).compute(current)
+    options = {"affine": affine, "strain_tensor": True, "d2min": True}
+    searched = AtomicStrain(reference, 3.0, **options).compute(current)
     for cutoff in (3.0, 4.5):  # the list's own cutoff, or a longer one
         nl = mdapy.NeighborList.build(reference, cutoff)
-        listed = AtomicStrain(reference, 3.0, affine=affine, neighbors=nl)
+        listed = AtomicStrain(reference, 3.0, neighbors=nl, **options)
         result = listed.compute(current)
-        for name in ("strain", "shear", "volumetric", "d2min"):
+        for name in ("strain_tensor", "shear", "volumetric", "d2min"):
             np.testing.assert_allclose(
                 getattr(result, name), getattr(searched, name), rtol=1e-12, atol=1e-14
             )
     strain, d2 = reference_strain(reference, current, 3.0)
     if not affine:
-        np.testing.assert_allclose(searched.strain, strain, atol=1e-10)
+        np.testing.assert_allclose(searched.strain_tensor, strain, atol=1e-10)
         np.testing.assert_allclose(searched.d2min, d2, atol=1e-10)
     with pytest.raises(InvalidParameter, match="below the required"):
         AtomicStrain(reference, 3.0, neighbors=mdapy.NeighborList.build(reference, 2.0))

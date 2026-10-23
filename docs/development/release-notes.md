@@ -160,14 +160,15 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [`AtomicTemperature`](../analysis/temperature.md) of each atom and its
   neighbors, relative to their center of mass.
 - Defects and deformation in `mdapy.analysis`, agreeing with OVITO:
-  [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms,
-  with their unwrapped positions, centers of mass, gyration tensors and
-  whether they span the box;
+  [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms
+  and whether they span the box, and on request their unwrapped positions,
+  centers of mass and gyration tensors;
   [`WignerSeitz`](../analysis/wigner-seitz.md) for vacancies and
   interstitials, the sites of the reference kept in a k-d tree for every
   configuration; and [`AtomicStrain`](../analysis/atomic-strain.md), the
-  Green–Lagrange, von Mises and volumetric strains and $D^2_\text{min}$
-  against a reference.
+  von Mises and volumetric strains against a reference, and on request the
+  Green–Lagrange strain tensor and $D^2_\text{min}$. As in OVITO, the
+  results that cost more are computed only when asked for.
 
 ### Structure builder
 
@@ -273,7 +274,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   2,147,483,647 atoms. See [Installation](../getting-started/installation.md#64-bit-atom-indices).
 - A thread pool of mdapy's own replaces OpenMP, so mdapy can run in the same
   process as PyTorch and LAMMPS. Results are identical for any number of
-  threads. See [Parallelism](../getting-started/parallelism.md).
+  threads. The calling thread works too, idle threads wait for the next
+  step briefly before they sleep, and a step of a few pieces wakes only as
+  many threads, so small systems are not slowed down by many cores. See
+  [Parallelism](../getting-started/parallelism.md).
 - `mdapy.set_num_threads`, `mdapy.get_num_threads`, `mdapy.num_threads` and
   the `MDAPY_NUM_THREADS` environment variable control the number of threads.
 - `mdapy.CancelToken`, `progress` callbacks and Ctrl-C stop or follow long

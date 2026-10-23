@@ -63,6 +63,13 @@ public:
         scan<false, true>(t, visit);
     }
 
+    // Calls visit(s, shift, r2) for the pairs of visit, in the same order,
+    // with the slot s of the second atom and the squared distance of visit.
+    template <class Visit>
+    void visit_slots_measured(std::int64_t t, Visit&& visit) const {
+        scan<true, true>(t, visit);
+    }
+
     // The number of pairs of the atom in slot t. Throws std::overflow_error
     // for a shift outside int8.
     std::int64_t count(std::int64_t t) const {
@@ -85,7 +92,8 @@ private:
 
     // visit, but without kExact the pairs far enough inside the cutoff
     // come with the squared distance of the screen, not the exact one; with
-    // kSlots, visit(s, shift) gets the slot of the second atom.
+    // kSlots, visit(s, shift) gets the slot of the second atom, and with both
+    // visit(s, shift, r2).
     template <bool kExact, bool kSlots, class Visit>
     void scan(std::int64_t t, Visit&& visit) const;
 
@@ -119,7 +127,7 @@ private:
     // the originals
     double screen2_, inner2_;
     Axis axes_[3];
-    std::vector<std::int64_t> cell_start_;  // first slot of each cell, and one past the end
+    Buffer<std::int64_t> cell_start_;  // first slot of each cell, and one past the end
     // per slot: the atom, its position, its image in the box, the periodic
     // images w between them (position - w . H is in the box) and its cell
     // what a search reads of a slot, in one cache line
@@ -129,8 +137,8 @@ private:
         std::int32_t wraps[3];  // periodic images w with position - w . H in the box
         index_t atom;
     };
-    std::vector<Slot> slots_;
-    std::vector<std::int32_t> slot_cells_;  // the cell of each slot, 3 coordinates
+    Buffer<Slot> slots_;
+    Buffer<std::int32_t> slot_cells_;  // the cell of each slot, 3 coordinates
 };
 
 template <bool kExact, bool kSlots, class Visit>
@@ -199,16 +207,18 @@ void CellGrid::scan(std::int64_t t, Visit&& visit) const {
                     const std::int32_t pair_shift[3] = {image[0] + wrap[0] - wj[0],
                                                         image[1] + wrap[1] - wj[1],
                                                         image[2] + wrap[2] - wj[2]};
-                    if (!kExact && a2 < inner2_) {
-                        if (s != t || pair_shift[0] != 0 || pair_shift[1] != 0 ||
-                            pair_shift[2] != 0) {
-                            if constexpr (kSlots) {
-                                visit(s, pair_shift);
-                            } else {
-                                visit(other.atom, pair_shift, a2);
+                    if constexpr (!kExact) {
+                        if (a2 < inner2_) {
+                            if (s != t || pair_shift[0] != 0 || pair_shift[1] != 0 ||
+                                pair_shift[2] != 0) {
+                                if constexpr (kSlots) {
+                                    visit(s, pair_shift);
+                                } else {
+                                    visit(other.atom, pair_shift, a2);
+                                }
                             }
+                            continue;
                         }
-                        continue;
                     }
                     double r[3];
                     const double r2 = pair_vector(xi, other.position, pair_shift, h, r);
@@ -218,7 +228,9 @@ void CellGrid::scan(std::int64_t t, Visit&& visit) const {
                             pair_shift[2] == 0) {
                             continue;
                         }
-                        if constexpr (kSlots) {
+                        if constexpr (kSlots && kExact) {
+                            visit(s, pair_shift, r2);
+                        } else if constexpr (kSlots) {
                             visit(s, pair_shift);
                         } else {
                             visit(j, pair_shift, r2);

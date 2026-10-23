@@ -10,6 +10,7 @@
 #include <numeric>
 #include <vector>
 
+#include "core/buffer.h"
 #include "neighbor/cell_list.h"
 #include "neighbor/frame.h"
 
@@ -151,44 +152,91 @@ std::int64_t clusters_search(const double* positions, std::int64_t n, const doub
                              int types, const double* limits, bool per_pair,
                              std::int64_t* cluster, std::int64_t* sizes, std::int32_t* images,
                              std::uint8_t* spanning, const Control& control) {
-    Joined joined(n);
     const auto pairs = static_cast<std::size_t>(types) * types;
     const double reach = *std::max_element(limits, limits + pairs);
-    if (n > 0 && reach > 0.0) {
-        // each bond once, as (i, j) with i < j, then joined in a fixed
-        // order; the clusters do not depend on the order anyway
-        struct Bond {
-            index_t i, j;
-            std::int32_t shift[3];
-        };
-        const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, reach);
-        const double reach2 = reach * reach;
-        const std::int64_t grain = default_grain(n);
-        std::vector<std::vector<Bond>> bonds(static_cast<std::size_t>((n + grain - 1) / grain));
-        parallel_for(
-            n, grain,
-            [&](std::int64_t begin, std::int64_t end) {
-                auto& out = bonds[static_cast<std::size_t>(begin / grain)];
-                for (std::int64_t t = begin; t < end; ++t) {
-                    const index_t i = grid.atom(t);
-                    const double* row = limits + static_cast<std::size_t>(type[i]) * types;
-                    grid.visit(t, [&](index_t j, const std::int32_t* s, double r2) {
-                        // j < i: the bond is the other atom's; j == i: a bond
-                        // to an image of i, which makes its cluster span the box
-                        if (j >= i && (per_pair ? std::sqrt(r2) < row[type[j]] : r2 < reach2)) {
-                            out.push_back({i, j, {s[0], s[1], s[2]}});
-                        }
-                    });
-                }
-            },
-            control);
-        for (const auto& chunk : bonds) {
-            for (const auto& bond : chunk) {
-                joined.join(bond.i, bond.j, bond.shift);
+    if (n == 0 || !(reach > 0.0)) {
+        Joined joined(n);
+        return number(joined, n, cluster, sizes, images, spanning);
+    }
+    // Each bond once, as (i, j) with i < j, joined in a fixed order. The
+    // atoms are joined by their slots on the grid, where bonded atoms lie
+    // close together in memory; the clusters do not depend on the order.
+    struct Bond {
+        std::int64_t a, b;  // slots
+        std::int32_t shift[3];
+    };
+    const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, reach);
+    const double reach2 = reach * reach;
+    const std::int64_t grain = default_grain(n);
+    std::vector<std::vector<Bond>> bonds(static_cast<std::size_t>((n + grain - 1) / grain));
+    parallel_for(
+        n, grain,
+        [&](std::int64_t begin, std::int64_t end) {
+            auto& out = bonds[static_cast<std::size_t>(begin / grain)];
+            for (std::int64_t t = begin; t < end; ++t) {
+                const index_t i = grid.atom(t);
+                const double* row = limits + static_cast<std::size_t>(type[i]) * types;
+                grid.visit_slots_measured(t, [&](std::int64_t s, const std::int32_t* d, double r2) {
+                    // j < i: the bond is the other atom's; j == i: a bond
+                    // to an image of i, which makes its cluster span the box
+                    const index_t j = grid.atom(s);
+                    if (j >= i && (per_pair ? std::sqrt(r2) < row[type[j]] : r2 < reach2)) {
+                        out.push_back({t, s, {d[0], d[1], d[2]}});
+                    }
+                });
             }
+        },
+        control);
+    Joined joined(n);
+    for (const auto& chunk : bonds) {
+        for (const auto& bond : chunk) {
+            joined.join(bond.a, bond.b, bond.shift);
         }
     }
-    return number(joined, n, cluster, sizes, images, spanning);
+    // the root slot of each slot and its image relative to the root, then
+    // for each root the first atom of its cluster and the slot of that atom
+    const auto size = static_cast<std::size_t>(n);
+    Buffer<std::int64_t> root(size), image(3 * size);
+    std::vector<std::int64_t> first(size, n), first_slot(size, 0), count(size, 0);
+    for (std::int64_t t = 0; t < n; ++t) {
+        const std::int64_t r = joined.find(t, &image[3 * t]);
+        root[t] = r;
+        ++count[r];
+        const std::int64_t i = grid.atom(t);
+        if (i < first[r]) {
+            first[r] = i;
+            first_slot[r] = t;
+        }
+    }
+    // the clusters by decreasing size, ties by their first atom
+    std::vector<std::int64_t> roots;
+    for (std::int64_t t = 0; t < n; ++t) {
+        if (root[t] == t) {
+            roots.push_back(t);
+        }
+    }
+    std::sort(roots.begin(), roots.end(), [&](std::int64_t a, std::int64_t b) {
+        return count[a] != count[b] ? count[a] > count[b] : first[a] < first[b];
+    });
+    std::vector<std::int64_t> label(size);
+    for (std::size_t k = 0; k < roots.size(); ++k) {
+        label[roots[k]] = static_cast<std::int64_t>(k);
+        sizes[k] = count[roots[k]];
+        spanning[k] = static_cast<std::uint8_t>(joined.spans(roots[k]));
+    }
+    // each atom with its image relative to the first atom of its cluster
+    parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t t = begin; t < end; ++t) {
+            const std::int64_t r = root[t], i = grid.atom(t);
+            const std::int64_t* own = &image[3 * t];
+            const std::int64_t* base = &image[3 * first_slot[r]];
+            cluster[i] = label[r];
+            for (int e = 0; e < 3; ++e) {
+                images[3 * i + e] = static_cast<std::int32_t>(own[e] - base[e]);
+            }
+        }
+    });
+    return static_cast<std::int64_t>(roots.size());
 }
 
 namespace {

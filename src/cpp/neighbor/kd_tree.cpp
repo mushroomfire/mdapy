@@ -147,7 +147,7 @@ KdTree::KdTree(const double* positions, std::int64_t n, const double* matrix,
                const double* origin, const bool* pbc)
     : frame_(matrix, origin, pbc), periodic_(pbc[0] || pbc[1] || pbc[2]) {
     check_atom_count(n);
-    std::vector<std::int32_t> wraps(static_cast<std::size_t>(n) * 3);
+    Buffer<std::int32_t> wraps(static_cast<std::size_t>(n) * 3);
     points_.resize(static_cast<std::size_t>(n));
     struct Bounds {
         double low[3], high[3], size;

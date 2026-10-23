@@ -64,9 +64,10 @@ def test_clusters_on_the_grid_and_from_a_list_agree():
     rng = np.random.default_rng(6)
     system = system.with_columns(element=rng.choice(["Cu", "Ni", "Al"], len(system)))
     nl = mdapy.NeighborList.build(system, 3.0)
+    everything = {"unwrap": True, "center_of_mass": True, "gyration": True}
     for analysis in (
-        ClusterAnalysis(2.1),
-        ClusterAnalysis(cutoffs={("Cu", "Ni"): 2.5, ("Al", "Al"): 2.6}),
+        ClusterAnalysis(2.1, **everything),
+        ClusterAnalysis(cutoffs={("Cu", "Ni"): 2.5, ("Al", "Al"): 2.6}, **everything),
     ):
         grid, listed = analysis.compute(system), analysis.compute(system, neighbors=nl)
         np.testing.assert_array_equal(grid.cluster, listed.cluster)
@@ -98,7 +99,10 @@ def test_clusters_unwrapped_across_the_boundary():
         mdapy.Box(10.0),
         elements=["O", "H", "H", "Ar"],
     )
-    result = ClusterAnalysis(cutoff=1.2).compute(system)
+    everything = ClusterAnalysis(
+        cutoff=1.2, unwrap=True, center_of_mass=True, gyration=True
+    )
+    result = everything.compute(system)
     np.testing.assert_array_equal(result.cluster, [0, 0, 0, 1])
     whole = np.array([[9.8, 5, 5], [10.6, 5, 5], [9.5, 5.9, 5]])  # O stays in place
     np.testing.assert_allclose(result.unwrapped[:3], whole, atol=1e-12)
@@ -117,13 +121,29 @@ def test_clusters_unwrapped_across_the_boundary():
     assert result.radius_of_gyration[1] == 0.0
     # masses: a mass column first, else the elements, else unit masses
     heavy = system.with_columns(mass=[1.0, 1.0, 1.0, 5.0])
-    weighted = ClusterAnalysis(cutoff=1.2).compute(heavy)
+    weighted = everything.compute(heavy)
     np.testing.assert_allclose(weighted.center_of_mass[0], whole.mean(axis=0))
     np.testing.assert_array_equal(weighted.masses, [3.0, 5.0])
-    bare = ClusterAnalysis(cutoff=1.2).compute(
-        mdapy.System(system.positions, system.box)
-    )
+    bare = everything.compute(mdapy.System(system.positions, system.box))
     np.testing.assert_array_equal(bare.masses, [3.0, 1.0])
+    # each option gives its own results only, the same as all of them
+    fields = {
+        "unwrap": ("unwrapped",),
+        "center_of_mass": ("masses", "center_of_mass"),
+        "gyration": ("radius_of_gyration", "gyration_tensor"),
+    }
+    every = sum(fields.values(), ())
+    for option, names in (("none", ()), *fields.items()):
+        options = {} if option == "none" else {option: True}
+        alone = ClusterAnalysis(cutoff=1.2, **options).compute(system)
+        np.testing.assert_array_equal(alone.cluster, result.cluster)
+        for name in every:
+            if name in names:
+                np.testing.assert_array_equal(
+                    getattr(alone, name), getattr(result, name)
+                )
+            else:
+                assert getattr(alone, name) is None
 
 
 def test_clusters_across_the_boundary_and_per_pair():

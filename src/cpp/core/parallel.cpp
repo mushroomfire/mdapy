@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <thread>
@@ -18,12 +19,52 @@
 #define MDAPY_GETPID getpid
 #endif
 
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
+#include <immintrin.h>
+#elif defined(_M_ARM64)
+#include <intrin.h>
+#endif
+
 namespace mdapy {
 namespace {
 
 using Clock = std::chrono::steady_clock;
 constexpr auto kMonitorInterval = std::chrono::milliseconds(50);
 constexpr auto kWaitSlice = std::chrono::milliseconds(10);
+// How long an idle thread keeps checking for work before it sleeps: the
+// regions of one kernel follow each other within microseconds, and waking
+// sleeping threads costs far more.
+constexpr auto kSpin = std::chrono::microseconds(200);
+
+// A pause inside a busy wait.
+inline void cpu_relax() {
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
+    _mm_pause();
+#elif defined(__aarch64__) || defined(__arm__)
+    __asm__ __volatile__("yield");
+#elif defined(_M_ARM64)
+    __yield();
+#endif
+}
+
+// Calls done() until it is true, for at most kSpin, polling every so often;
+// returns whether it became true.
+template <class Done, class Poll>
+bool spin_until(Done&& done, Poll&& poll) {
+    const auto start = Clock::now();
+    for (unsigned k = 1;; ++k) {
+        if (done()) {
+            return true;
+        }
+        cpu_relax();
+        if (k % 64 == 0) {
+            poll();
+            if (Clock::now() - start > kSpin) {
+                return done();
+            }
+        }
+    }
+}
 
 // True on pool workers and on a thread that is inside a parallel region, so a
 // nested parallel_for runs inline instead of waiting for busy workers.
@@ -130,21 +171,23 @@ private:
     Clock::time_point last_ = Clock::now();
 };
 
+// Workers that help the calling thread with its regions. A region is
+// published as a new generation of one atomic word, which also says how many
+// workers take part; idle workers spin on it for a while, then each sleeps on
+// a condition of its own, so that waking them never makes them queue for a
+// lock.
 class ThreadPool {
 public:
-    explicit ThreadPool(int nworkers) {
+    explicit ThreadPool(int nworkers) : sleepers_(new Sleeper[static_cast<std::size_t>(nworkers)]) {
         threads_.reserve(static_cast<std::size_t>(nworkers));
         for (int i = 0; i < nworkers; ++i) {
-            threads_.emplace_back([this] { worker_loop(); });
+            threads_.emplace_back([this, i] { worker_loop(i); });
         }
     }
 
     ~ThreadPool() {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            shutdown_ = true;
-        }
-        start_.notify_all();
+        shutdown_.store(true);
+        wake(size());
         for (auto& thread : threads_) {
             thread.join();
         }
@@ -155,58 +198,92 @@ public:
 
     int size() const { return static_cast<int>(threads_.size()); }
 
-    // Runs the job on the workers. The calling thread only polls the monitor
-    // and returns once every worker has left the job.
+    // Runs the job on the calling thread and as many workers as it has
+    // chunks beyond one, and returns once each of them has left the job. The
+    // calling thread polls the monitor between its chunks and while it waits.
     void run(Job& job, MonitorClock& clock) {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            job_ = &job;
-            running_ = size();
-            ++generation_;
-        }
-        start_.notify_all();
-        std::unique_lock<std::mutex> lock(mutex_);
-        while (running_ > 0) {
-            finish_.wait_for(lock, kWaitSlice, [this] { return running_ == 0; });
-            if (running_ == 0) {
-                break;
-            }
-            lock.unlock();
+        const auto helpers = static_cast<int>(std::min<std::int64_t>(size(), job.nchunks - 1));
+        job_.store(&job, std::memory_order_relaxed);
+        running_.store(helpers, std::memory_order_relaxed);
+        const std::uint64_t generation = (state_.load(std::memory_order_relaxed) >> kHelperBits) + 1;
+        state_.store((generation << kHelperBits) | static_cast<std::uint64_t>(helpers));
+        wake(helpers);
+        while (job.run_one()) {
             clock.poll(job);
-            lock.lock();
         }
-        job_ = nullptr;
+        const auto finished = [this] { return running_.load(std::memory_order_acquire) == 0; };
+        if (!spin_until(finished, [&] { clock.poll(job); })) {
+            std::unique_lock<std::mutex> lock(done_mutex_);
+            while (!finished()) {
+                done_.wait_for(lock, kWaitSlice, finished);
+                lock.unlock();
+                clock.poll(job);
+                lock.lock();
+            }
+        }
     }
 
 private:
-    void worker_loop() {
+    static constexpr int kHelperBits = 24;
+    static constexpr std::uint64_t kHelpers = (std::uint64_t{1} << kHelperBits) - 1;
+
+    struct alignas(64) Sleeper {
+        std::mutex mutex;
+        std::condition_variable wake;
+        std::atomic<bool> asleep{false};
+    };
+
+    // Wakes the first count workers where they sleep.
+    void wake(int count) {
+        for (int i = 0; i < count; ++i) {
+            Sleeper& s = sleepers_[static_cast<std::size_t>(i)];
+            if (s.asleep.load()) {
+                // taken between the new state and the notice, so that a
+                // worker cannot miss both
+                { std::lock_guard<std::mutex> lock(s.mutex); }
+                s.wake.notify_one();
+            }
+        }
+    }
+
+    void worker_loop(int index) {
         tls_in_region = true;
+        Sleeper& sleeper = sleepers_[static_cast<std::size_t>(index)];
         std::uint64_t seen = 0;
-        std::unique_lock<std::mutex> lock(mutex_);
+        const auto news = [&] {
+            return shutdown_.load() || (state_.load() >> kHelperBits) != seen;
+        };
         for (;;) {
-            start_.wait(lock, [&] { return shutdown_ || generation_ != seen; });
-            if (shutdown_) {
+            if (!spin_until(news, [] {})) {
+                std::unique_lock<std::mutex> lock(sleeper.mutex);
+                sleeper.asleep.store(true);
+                sleeper.wake.wait(lock, news);
+                sleeper.asleep.store(false);
+            }
+            if (shutdown_.load()) {
                 return;
             }
-            seen = generation_;
-            Job* job = job_;
-            lock.unlock();
-            job->run_chunks();
-            lock.lock();
-            if (--running_ == 0) {
-                finish_.notify_all();
+            const std::uint64_t state = state_.load();
+            seen = state >> kHelperBits;
+            if (static_cast<std::uint64_t>(index) < (state & kHelpers)) {
+                job_.load(std::memory_order_relaxed)->run_chunks();
+                if (running_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+                    std::lock_guard<std::mutex> lock(done_mutex_);
+                    done_.notify_all();
+                }
             }
         }
     }
 
     std::vector<std::thread> threads_;
-    std::mutex mutex_;
-    std::condition_variable start_;
-    std::condition_variable finish_;
-    Job* job_ = nullptr;
-    std::uint64_t generation_ = 0;
-    int running_ = 0;
-    bool shutdown_ = false;
+    std::unique_ptr<Sleeper[]> sleepers_;
+    // the generation of the region (high bits) and its number of workers
+    std::atomic<std::uint64_t> state_{0};
+    std::atomic<Job*> job_{nullptr};
+    std::atomic<int> running_{0};  // workers still in the region
+    std::atomic<bool> shutdown_{false};
+    std::mutex done_mutex_;
+    std::condition_variable done_;
 };
 
 // Atomic rather than mutex-protected so a fork() can never leave it locked.
@@ -218,7 +295,8 @@ std::mutex g_pool_mutex;
 ThreadPool* g_pool = nullptr;
 long g_pool_pid = 0;
 
-// Returns a pool with nworkers threads. Must be called with g_pool_mutex held.
+// Returns a pool with nworkers threads besides the calling one. Must be
+// called with g_pool_mutex held.
 ThreadPool* pool_with(int nworkers) {
     const long pid = static_cast<long>(MDAPY_GETPID());
     if (g_pool != nullptr && g_pool_pid != pid) {
@@ -288,7 +366,7 @@ void parallel_for(std::int64_t n, std::int64_t grain,
         } else {
             std::unique_lock<std::mutex> owner(g_pool_mutex, std::try_to_lock);
             if (owner.owns_lock()) {
-                pool_with(nthreads)->run(job, clock);
+                pool_with(nthreads - 1)->run(job, clock);
             } else {
                 // Another thread is using the pool: run serially rather than wait.
                 run_inline(job, clock);

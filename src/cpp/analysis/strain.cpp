@@ -3,6 +3,7 @@
 
 #include "analysis/strain.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <vector>
@@ -48,70 +49,72 @@ void times(const double* f, const double* h, double* out) {
 
 namespace {
 
-// The displacement of every atom from the reference, in fractional
-// coordinates of the current box, by the nearest image along periodic
-// directions (n x 3).
-Buffer<double> displacements(const StrainInput& in, const Control& control) {
-    Buffer<double> d(3 * static_cast<std::size_t>(in.n));
-    parallel_for(
-        in.n, 0,
-        [&](std::int64_t begin, std::int64_t end) {
-            for (std::int64_t i = begin; i < end; ++i) {
-                const double* x = in.positions + 3 * i;
-                const double r[3] = {x[0] - in.origin[0], x[1] - in.origin[1], x[2] - in.origin[2]};
-                for (int e = 0; e < 3; ++e) {
-                    const double f = r[0] * in.inverse[e] + r[1] * in.inverse[3 + e] +
-                                     r[2] * in.inverse[6 + e];
-                    double step = f - in.reference[3 * i + e];
-                    if (in.pbc[e]) {
-                        step -= std::nearbyint(step);
-                    }
-                    d[3 * static_cast<std::size_t>(i) + e] = step;
-                }
-            }
-        },
-        stage(control, 0, 2));
-    return d;
+// The fractional coordinates s0 of atom i in the reference box, and its
+// displacement from them in fractional coordinates of the current box, by
+// the nearest image along periodic directions.
+void reference_and_step(const StrainInput& in, std::int64_t i, double* s0, double* step) {
+    const double* x0 = in.reference + 3 * i;
+    const double* x = in.positions + 3 * i;
+    const double r0[3] = {x0[0] - in.reference_origin[0], x0[1] - in.reference_origin[1],
+                          x0[2] - in.reference_origin[2]};
+    const double r[3] = {x[0] - in.origin[0], x[1] - in.origin[1], x[2] - in.origin[2]};
+    const double* g0 = in.reference_inverse;
+    const double* g = in.inverse;
+    for (int e = 0; e < 3; ++e) {
+        s0[e] = r0[0] * g0[e] + r0[1] * g0[3 + e] + r0[2] * g0[6 + e];
+        const double f = r[0] * g[e] + r[1] * g[3 + e] + r[2] * g[6 + e];
+        step[e] = f - s0[e];
+        if (in.pbc[e]) {
+            step[e] -= std::nearbyint(step[e]);
+        }
+    }
 }
 
-// The atomic strain of the atom at row i of the reference coordinates and
-// the displacements from its count reference neighbors at rows js with
-// their periodic images shift (count x 3), in the order given, written to
-// row o of the results.
+// The atomic strain of the atom at row i of the reference fractional
+// coordinates and the displacements, from its count reference neighbors at
+// rows js with their periodic images shift (count x 3), in the order given,
+// written to row o of the results; vectors holds the neighbor vectors for
+// the non-affine displacement.
 template <class Index, class Shift>
 void strain_of(std::int64_t i, std::int64_t o, std::int64_t count, const Index* js,
-               const Shift* shifts, const StrainInput& in, const double* displacement,
-               const StrainOutput& out) {
-    const auto vectors = [&](std::int64_t p, double* d0, double* d) {
+               const Shift* shifts, const double* reference, const double* displacement,
+               const StrainInput& in, const StrainOutput& out, std::vector<double>& vectors) {
+    const bool nonaffine = out.nonaffine != nullptr;
+    if (nonaffine) {
+        vectors.resize(6 * static_cast<std::size_t>(count));
+    }
+    // V = sum d0 d0^T, W = sum d d0^T; F = W V^-1
+    double v[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0}, w[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    for (std::int64_t p = 0; p < count; ++p) {
         const std::int64_t j = js[p];
-        double f0[3], f[3];
+        double f0[3], f[3], d0[3], d[3];
         for (int e = 0; e < 3; ++e) {
-            f0[e] = in.reference[3 * j + e] + shifts[3 * p + e] - in.reference[3 * i + e];
+            f0[e] = reference[3 * j + e] + shifts[3 * p + e] - reference[3 * i + e];
             f[e] = f0[e] + displacement[3 * j + e] - displacement[3 * i + e];
         }
         times(f0, in.reference_matrix, d0);
         times(f, in.matrix, d);
-    };
-    // V = sum d0 d0^T, W = sum d d0^T; F = W V^-1
-    double v[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0}, w[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-    for (std::int64_t p = 0; p < count; ++p) {
-        double d0[3], d[3];
-        vectors(p, d0, d);
         for (int a = 0; a < 3; ++a) {
             for (int b = 0; b < 3; ++b) {
                 v[3 * a + b] += d0[a] * d0[b];
                 w[3 * a + b] += d[a] * d0[b];
             }
         }
+        if (nonaffine) {
+            std::copy(d0, d0 + 3, &vectors[6 * p]);
+            std::copy(d, d + 3, &vectors[6 * p + 3]);
+        }
     }
-    double* e = out.strain + 9 * o;
-    double inverse[9], gradient[9];
+    double inverse[9], gradient[9], e[9];
     if (!invert(v, inverse)) {
         const double nan = std::numeric_limits<double>::quiet_NaN();
-        for (int k = 0; k < 9; ++k) {
-            e[k] = nan;
+        if (out.strain != nullptr) {
+            std::fill(out.strain + 9 * o, out.strain + 9 * o + 9, nan);
         }
-        out.shear[o] = out.volumetric[o] = out.nonaffine[o] = nan;
+        out.shear[o] = out.volumetric[o] = nan;
+        if (nonaffine) {
+            out.nonaffine[o] = nan;
+        }
         return;
     }
     for (int a = 0; a < 3; ++a) {
@@ -130,56 +133,57 @@ void strain_of(std::int64_t i, std::int64_t o, std::int64_t count, const Index* 
             e[3 * a + b] = 0.5 * (sum - (a == b ? 1.0 : 0.0));
         }
     }
+    if (out.strain != nullptr) {
+        std::copy(e, e + 9, out.strain + 9 * o);
+    }
     out.shear[o] = std::sqrt(e[1] * e[1] + e[2] * e[2] + e[5] * e[5] +
                              ((e[0] - e[4]) * (e[0] - e[4]) + (e[4] - e[8]) * (e[4] - e[8]) +
                               (e[0] - e[8]) * (e[0] - e[8])) /
                                  6.0);
     out.volumetric[o] = (e[0] + e[4] + e[8]) / 3.0;
-    // sum of |d - F d0|^2
-    double residual = 0.0;
-    for (std::int64_t p = 0; p < count; ++p) {
-        double d0[3], d[3];
-        vectors(p, d0, d);
-        for (int a = 0; a < 3; ++a) {
-            const double mapped =
-                gradient[3 * a] * d0[0] + gradient[3 * a + 1] * d0[1] + gradient[3 * a + 2] * d0[2];
-            residual += (d[a] - mapped) * (d[a] - mapped);
+    if (nonaffine) {
+        // sum of |d - F d0|^2
+        double residual = 0.0;
+        for (std::int64_t p = 0; p < count; ++p) {
+            const double* d0 = &vectors[6 * p];
+            const double* d = d0 + 3;
+            for (int a = 0; a < 3; ++a) {
+                const double mapped = gradient[3 * a] * d0[0] + gradient[3 * a + 1] * d0[1] +
+                                      gradient[3 * a + 2] * d0[2];
+                residual += (d[a] - mapped) * (d[a] - mapped);
+            }
         }
+        out.nonaffine[o] = residual;
     }
-    out.nonaffine[o] = residual;
 }
 
 }  // namespace
 
-void atomic_strain_search(const double* reference_positions, const double* reference_origin,
-                          double cutoff, const StrainInput& input, const StrainOutput& output,
+void atomic_strain_search(double cutoff, const StrainInput& input, const StrainOutput& output,
                           const Control& control) {
     if (input.n == 0) {
         return;
     }
-    const Buffer<double> displacement = displacements(input, control);
-    const neighbor::CellGrid grid(reference_positions, input.n, input.reference_matrix,
-                                  reference_origin, input.pbc, cutoff);
+    const neighbor::CellGrid grid(input.reference, input.n, input.reference_matrix,
+                                  input.reference_origin, input.pbc, cutoff);
     // the reference coordinates and the displacements in the order of the
     // slots, where the neighbors of an atom lie close together
     const auto n = static_cast<std::size_t>(input.n);
     Buffer<double> reference(3 * n), moved(3 * n);
-    parallel_for(input.n, 0, [&](std::int64_t begin, std::int64_t end) {
-        for (std::int64_t t = begin; t < end; ++t) {
-            const std::int64_t i = grid.atom(t);
-            for (int e = 0; e < 3; ++e) {
-                reference[3 * t + e] = input.reference[3 * i + e];
-                moved[3 * t + e] = displacement[3 * i + e];
+    parallel_for(
+        input.n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t t = begin; t < end; ++t) {
+                reference_and_step(input, grid.atom(t), &reference[3 * t], &moved[3 * t]);
             }
-        }
-    });
-    StrainInput slotted = input;
-    slotted.reference = reference.data();
+        },
+        stage(control, 0, 2));
     parallel_for(
         input.n, 0,
         [&](std::int64_t begin, std::int64_t end) {
             std::vector<std::int64_t> slots;
             std::vector<std::int32_t> shifts;
+            std::vector<double> vectors;
             for (std::int64_t t = begin; t < end; ++t) {
                 slots.clear();
                 shifts.clear();
@@ -188,7 +192,7 @@ void atomic_strain_search(const double* reference_positions, const double* refer
                     shifts.insert(shifts.end(), shift, shift + 3);
                 });
                 strain_of(t, grid.atom(t), static_cast<std::int64_t>(slots.size()), slots.data(),
-                          shifts.data(), slotted, moved.data(), output);
+                          shifts.data(), reference.data(), moved.data(), input, output, vectors);
             }
         },
         stage(control, 1, 2));
@@ -201,12 +205,22 @@ void atomic_strain_list(const std::int64_t* offsets, const index_t* neighbors,
     if (input.n == 0) {
         return;
     }
-    const Buffer<double> displacement = displacements(input, control);
+    const auto n = static_cast<std::size_t>(input.n);
+    Buffer<double> reference(3 * n), moved(3 * n);
+    parallel_for(
+        input.n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                reference_and_step(input, i, &reference[3 * i], &moved[3 * i]);
+            }
+        },
+        stage(control, 0, 2));
     parallel_for(
         input.n, 0,
         [&](std::int64_t begin, std::int64_t end) {
             std::vector<index_t> js;
             std::vector<std::int8_t> kept;
+            std::vector<double> vectors;
             for (std::int64_t i = begin; i < end; ++i) {
                 js.clear();
                 kept.clear();
@@ -216,8 +230,8 @@ void atomic_strain_list(const std::int64_t* offsets, const index_t* neighbors,
                         kept.insert(kept.end(), shifts + 3 * p, shifts + 3 * p + 3);
                     }
                 }
-                strain_of(i, i, static_cast<std::int64_t>(js.size()), js.data(), kept.data(), input,
-                          displacement.data(), output);
+                strain_of(i, i, static_cast<std::int64_t>(js.size()), js.data(), kept.data(),
+                          reference.data(), moved.data(), input, output, vectors);
             }
         },
         stage(control, 1, 2));

@@ -128,7 +128,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | frames already chosen | `selected=` | `train_des`, `existing` |
 | number of principal components | `n` | `n_components` |
 | structures to look for, deviation above which an atom is other | `structures`, `rmsd_cutoff` | `check_fcc`, `rmsd_threshold` |
-| also compute deformation gradients, chemical ordering, neighbors in template order | `deformation_gradient`, `ordering`, `template_neighbors` (bool) | `output_*` |
+| also compute results that cost more: deformation gradients, chemical ordering, neighbors in template order, strain tensors, $D^2_\text{min}$, centers of mass and gyration of clusters | `deformation_gradient`, `ordering`, `template_neighbors`, `strain_tensor`, `d2min`, `center_of_mass`, `gyration` (bool), named after the result | `output_*`, `compute_*` |
 | how atoms and bonds are drawn in a picture | `representation` (`"spheres"`, `"ball_and_stick"`, `"space_filling"`, `"licorice"`) | `model`, `drawing_method` |
 | radii of the elements | `radius="display"`, `"covalent"`, `"vdw"` | `radii_type` |
 | bounces of light in a picture | `bounces`, `samples` | `depth`, `spp` |

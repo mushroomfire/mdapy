@@ -44,7 +44,7 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
 
     // The periodic images that bring each atom into the box, and the extent
     // of the atoms in fractional coordinates.
-    std::vector<std::int32_t> wraps(static_cast<std::size_t>(n) * 3);
+    Buffer<std::int32_t> wraps(static_cast<std::size_t>(n) * 3);
     constexpr double kInf = std::numeric_limits<double>::infinity();
     const Extent none{{kInf, kInf, kInf}, {-kInf, -kInf, -kInf}, 0.0};
     const Extent extent = parallel_reduce(
@@ -105,7 +105,7 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
     }
 
     // Counting sort of the atoms into cells, in increasing index order.
-    std::vector<std::int64_t> cell_of(static_cast<std::size_t>(n));
+    Buffer<std::int64_t> cell_of(static_cast<std::size_t>(n));
     parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
         for (std::int64_t i = begin; i < end; ++i) {
             double f[3];
@@ -166,7 +166,7 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
     // each atom into a free slot of its cell, then the slots of each cell in
     // increasing atom order
     clear();
-    std::vector<std::int64_t> order(static_cast<std::size_t>(n));
+    Buffer<std::int64_t> order(static_cast<std::size_t>(n));
     parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
         for (std::int64_t i = begin; i < end; ++i) {
             const std::int64_t c = cell_of[i];

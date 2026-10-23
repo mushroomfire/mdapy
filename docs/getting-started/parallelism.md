@@ -40,8 +40,9 @@ Computations that can take long, such as
 | `progress` | callable or `None` | `None` | Called as `progress(done, total)` with the number of finished and total work items. |
 | `cancel` | [`CancelToken`](../reference/api.md#mdapy.CancelToken) or `None` | `None` | Stops the computation once `token.cancel()` is called. |
 
-`progress` is called on the thread that started the computation, about every
-50 ms while it runs, and once more with `done == total` when it finishes.
+`progress` is called on the thread that started the computation, which
+also does a share of the work, between its pieces of work and at most every
+50 ms, and once more with `done == total` when it finishes.
 `done` never decreases. If `progress` raises an exception, the computation
 stops and that exception propagates to the caller.
 
@@ -84,7 +85,9 @@ Other libraries keep their own thread settings:
   before polars is first imported.
 
 When several libraries compute at the same time, keep the total number of
-threads close to the number of CPU cores.
+threads close to the number of CPU cores. After each piece of parallel work,
+mdapy's idle threads keep checking for more for 0.2 ms before they sleep, so
+that the steps of one computation follow each other without waking them.
 
 ## Calling mdapy from several threads
 

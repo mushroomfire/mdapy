@@ -99,6 +99,31 @@ void loops_and_reductions() {
     }
 }
 
+void idle_and_partial_pools() {
+    // Regions right after each other, after the workers fall asleep, with
+    // fewer chunks than workers, and with the pool resized in between.
+    for (int threads : {8, 3, 8}) {
+        mdapy::set_num_threads(threads);
+        for (int round = 0; round < 300; ++round) {
+            const std::int64_t n = 1 + round % 17;
+            std::vector<std::int64_t> out(static_cast<std::size_t>(n), -1);
+            mdapy::parallel_for(n, 1 + round % 3, [&](std::int64_t begin, std::int64_t end) {
+                for (std::int64_t i = begin; i < end; ++i) {
+                    out[static_cast<std::size_t>(i)] = i + round;
+                }
+            });
+            bool ok = true;
+            for (std::int64_t i = 0; i < n; ++i) {
+                ok = ok && out[static_cast<std::size_t>(i)] == i + round;
+            }
+            check(ok, "regions of a few chunks write every item once");
+            if (round % 50 == 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            }
+        }
+    }
+}
+
 void progress_cancellation_and_errors() {
     mdapy::set_num_threads(4);
     const auto pause = std::chrono::microseconds(200);
@@ -859,36 +884,37 @@ void structure_identification() {
         }
         check(factor == first_factor, "the structure factor is the same for any thread count");
         // the strain of the crystal against itself moved by its jitter again
-        std::vector<double> fractional(positions.size()), moved(positions.size(), 0.01);
-        for (std::size_t k = 0; k < positions.size(); ++k) {
-            fractional[k] = positions[k] / (cells * a);
-        }
         std::vector<double> current(positions.size()), inverse(9, 0.0);
         for (std::size_t k = 0; k < positions.size(); ++k) {
-            current[k] = positions[k] + moved[k] * (cells * a);
+            current[k] = positions[k] + 0.01 * (cells * a);
         }
         inverse[0] = inverse[4] = inverse[8] = 1.0 / (cells * a);
-        const mdapy::analysis::StrainInput strain_input{n,      fractional.data(), current.data(),
-                                                        inverse.data(), origin,   pbc,
-                                                        matrix, matrix};
+        const mdapy::analysis::StrainInput strain_input{
+            n, positions.data(), inverse.data(), origin, current.data(), inverse.data(),
+            origin, pbc, matrix, matrix};
         const auto n_size = static_cast<std::size_t>(n);
         std::vector<double> strain(9 * n_size), shear(n_size), volumetric(n_size), d2(n_size);
         std::vector<double> searched_strain(9 * n_size), searched_shear(n_size),
-            searched_volumetric(n_size), searched_d2(n_size);
+            searched_volumetric(n_size), searched_d2(n_size), bare_shear(n_size),
+            bare_volumetric(n_size);
         mdapy::analysis::atomic_strain_list(
             pairs.offsets.data(), pairs.neighbors.data(), pairs.shifts.data(),
             pairs.distances.data(), 3.07, strain_input,
             {strain.data(), shear.data(), volumetric.data(), d2.data()});
         mdapy::analysis::atomic_strain_search(
-            positions.data(), origin, 3.07, strain_input,
+            3.07, strain_input,
             {searched_strain.data(), searched_shear.data(), searched_volumetric.data(),
              searched_d2.data()});
+        mdapy::analysis::atomic_strain_search(
+            3.07, strain_input, {nullptr, bare_shear.data(), bare_volumetric.data(), nullptr});
         if (threads == kThreads[0]) {
             first_strain = strain;
         }
         check(strain == first_strain, "the atomic strain is the same for any thread count");
         check(searched_strain == strain && searched_d2 == d2,
               "the atomic strain on the grid is that of the list");
+        check(bare_shear == shear && bare_volumetric == volumetric,
+              "the shear and volumetric strain do not depend on the other outputs");
         std::vector<std::int32_t> two_types(static_cast<std::size_t>(n));
         for (std::int64_t i = 0; i < n; ++i) {
             two_types[i] = static_cast<std::int32_t>(i % 2);
@@ -1068,6 +1094,7 @@ void pictures() {
 
 int main() {
     loops_and_reductions();
+    idle_and_partial_pools();
     progress_cancellation_and_errors();
     nested_and_concurrent_regions();
     text_tables();

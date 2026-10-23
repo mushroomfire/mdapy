@@ -23,29 +23,29 @@ class StrainResult(Result):
 
     Attributes
     ----------
-    strain : numpy.ndarray
-        (N, 3, 3) Green-Lagrange strain; NaN where the reference neighbors
-        do not span three dimensions.
     shear : numpy.ndarray
-        (N,) von Mises shear strain.
+        (N,) von Mises shear strain; NaN where the reference neighbors do not
+        span three dimensions.
     volumetric : numpy.ndarray
-        (N,) volumetric strain, a third of the trace.
-    d2min : numpy.ndarray
+        (N,) volumetric strain, a third of the trace of the strain tensor.
+    strain_tensor : numpy.ndarray or None
+        (N, 3, 3) Green-Lagrange strain, when computed.
+    d2min : numpy.ndarray or None
         (N,) non-affine squared displacement in Å², the part of the neighbor
-        vectors that the deformation gradient does not explain.
+        vectors that the deformation gradient does not explain, when
+        computed.
     """
 
-    strain: np.ndarray
     shear: np.ndarray
     volumetric: np.ndarray
-    d2min: np.ndarray
+    strain_tensor: np.ndarray | None = None
+    d2min: np.ndarray | None = None
 
     def columns(self) -> dict[str, np.ndarray]:
-        return {
-            "shear_strain": self.shear,
-            "volumetric_strain": self.volumetric,
-            "d2min": self.d2min,
-        }
+        found = {"shear_strain": self.shear, "volumetric_strain": self.volumetric}
+        if self.d2min is not None:
+            found["d2min"] = self.d2min
+        return found
 
 
 class AtomicStrain:
@@ -63,6 +63,11 @@ class AtomicStrain:
     affine : bool, optional
         Measure the current vectors in the reference box, which removes the
         homogeneous deformation of the box. Default False.
+    strain_tensor : bool, optional
+        Give the Green-Lagrange strain tensor of each atom. Default False.
+    d2min : bool, optional
+        Compute the non-affine squared displacement of each atom. Default
+        False.
     neighbors : NeighborList, optional
         Neighbors of the reference within at least cutoff, used for every
         configuration; without, they are found again for each.
@@ -74,6 +79,8 @@ class AtomicStrain:
         cutoff: float,
         *,
         affine: bool = False,
+        strain_tensor: bool = False,
+        d2min: bool = False,
         neighbors: NeighborList | None = None,
     ):
         if not cutoff > 0:
@@ -81,13 +88,12 @@ class AtomicStrain:
         self.reference = reference
         self.cutoff = float(cutoff)
         self.affine = bool(affine)
+        self.strain_tensor = bool(strain_tensor)
+        self.d2min = bool(d2min)
         self._neighbors = (
             None
             if neighbors is None
             else _given_or_built(reference, self.cutoff, neighbors)
-        )
-        self._fractional = np.ascontiguousarray(
-            reference.box.to_fractional(reference.positions)
         )
 
     def compute(
@@ -123,29 +129,29 @@ class AtomicStrain:
         box, reference_box = system.box, reference.box
         matrix = reference_box.matrix if self.affine else box.matrix
         arguments = (
-            self._fractional,
+            np.ascontiguousarray(reference.positions),
+            np.ascontiguousarray(reference_box.inverse),
+            np.ascontiguousarray(reference_box.origin),
             np.ascontiguousarray(system.positions),
             np.ascontiguousarray(box.inverse),
             np.ascontiguousarray(box.origin),
             np.ascontiguousarray(box.pbc),
             np.ascontiguousarray(reference_box.matrix),
             np.ascontiguousarray(matrix),
+            self.strain_tensor,
+            self.d2min,
             progress,
             _native_token(cancel),
         )
         nl = self._neighbors
         if nl is None:
             # the neighbors in the reference found as it goes
-            strain, shear, volumetric, d2min = _run(
-                _native.atomic_strain_search,
-                np.ascontiguousarray(reference.positions),
-                np.ascontiguousarray(reference_box.origin),
-                self.cutoff,
-                *arguments,
+            shear, volumetric, tensor, d2min = _run(
+                _native.atomic_strain_search, self.cutoff, *arguments
             )
         else:
             with nl._reading():
-                strain, shear, volumetric, d2min = _native.atomic_strain_list(
+                shear, volumetric, tensor, d2min = _native.atomic_strain_list(
                     nl.offsets,
                     nl.j,
                     nl.shifts,
@@ -154,7 +160,7 @@ class AtomicStrain:
                     *arguments,
                 )
         return StrainResult(
-            strain=strain, shear=shear, volumetric=volumetric, d2min=d2min
+            shear=shear, volumetric=volumetric, strain_tensor=tensor, d2min=d2min
         )
 
     def __repr__(self) -> str:

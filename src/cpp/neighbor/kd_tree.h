@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "core/buffer.h"
 #include "core/index.h"
 #include "core/parallel.h"
 #include "neighbor/cell_list.h"
@@ -97,9 +98,9 @@ private:
     double low_[3], high_[3];  // the box of all points
     // per slot: the image of the atom in the box, its position and the
     // periodic images w between them (position - w . H is the image)
-    std::vector<Point> points_;
-    std::vector<double> positions_;
-    std::vector<std::int32_t> wraps_;
+    Buffer<Point> points_;
+    Buffer<double> positions_;
+    Buffer<std::int32_t> wraps_;
 };
 
 template <class Visit>

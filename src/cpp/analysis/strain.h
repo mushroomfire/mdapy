@@ -14,14 +14,17 @@
 namespace mdapy::analysis {
 
 // What the atomic strain of every atom needs besides its reference
-// neighbors: the reference fractional coordinates S (n x 3) and the current
-// positions x (n x 3) with the inverse (3 x 3, x . inverse gives fractional
-// coordinates) and origin of the current box, its periodic directions, and
-// the matrices that turn fractional vectors into reference and current
-// vectors (the current box, or the reference box for an affine mapping).
+// neighbors: the reference positions (n x 3) with the inverse (3 x 3,
+// x . inverse gives fractional coordinates) and origin of the reference box,
+// the current positions (n x 3) with the inverse and origin of the current
+// box, the periodic directions, and the matrices that turn fractional
+// vectors into reference and current vectors (the current box, or the
+// reference box for an affine mapping).
 struct StrainInput {
     std::int64_t n;
     const double* reference;
+    const double* reference_inverse;
+    const double* reference_origin;
     const double* positions;
     const double* inverse;
     const double* origin;
@@ -30,9 +33,10 @@ struct StrainInput {
     const double* matrix;
 };
 
-// The results for n atoms: the Green-Lagrange strain (n x 9), its von Mises
-// shear invariant and a third of its trace (n), and the non-affine squared
-// displacement (n); NaN where the neighbors do not span three dimensions.
+// The results for n atoms: the von Mises shear invariant of the
+// Green-Lagrange strain and a third of its trace (n), and where not null the
+// strain itself (n x 9) and the non-affine squared displacement (n); NaN
+// where the neighbors do not span three dimensions.
 struct StrainOutput {
     double* strain;
     double* shear;
@@ -41,10 +45,8 @@ struct StrainOutput {
 };
 
 // The atomic strain with the neighbors in the reference closer than cutoff,
-// found on a cell grid of the reference positions (n x 3) in the reference
-// box (reference_matrix, origin, pbc).
-void atomic_strain_search(const double* reference_positions, const double* reference_origin,
-                          double cutoff, const StrainInput& input, const StrainOutput& output,
+// found on a cell grid of the reference positions in the reference box.
+void atomic_strain_search(double cutoff, const StrainInput& input, const StrainOutput& output,
                           const Control& control = {});
 
 // The same with the neighbors of a list of the reference in CSR form, of

@@ -1,9 +1,9 @@
 # Atomic strain
 
 `AtomicStrain` measures the local deformation of each atom between a
-reference configuration and the current one: the strain tensor, the von
-Mises shear and volumetric strains, and the non-affine displacement
-$D^2_\text{min}$.
+reference configuration and the current one: the von Mises shear and
+volumetric strains and, when asked for, the strain tensor and the
+non-affine displacement $D^2_\text{min}$.
 
 ```python
 import numpy as np
@@ -27,7 +27,11 @@ current = mp.System(
 strain = AtomicStrain(reference, cutoff=3.0)
 result = strain.compute(current)
 result.shear  # von Mises shear strain, the same for every atom here
-current = current.with_columns(result)  # shear_strain, volumetric_strain, d2min
+current = current.with_columns(result)  # shear_strain, volumetric_strain
+
+# also the strain tensor and the non-affine displacement
+result = AtomicStrain(reference, 3.0, strain_tensor=True, d2min=True).compute(current)
+result.strain_tensor[0]  # (3, 3) of the first atom
 
 # many frames against one reference: find its neighbors once
 neighbors = mp.NeighborList.build(reference, 3.0)
@@ -41,6 +45,8 @@ strain = AtomicStrain(reference, cutoff=3.0, neighbors=neighbors)
 | `reference` | `System` | | | the reference configuration, with the same atoms in the same order as the systems to compare |
 | `cutoff` | float | | Å | the neighbors closer than it in the reference define the neighbor vectors |
 | `affine` | bool | `False` | | measure the current vectors in the reference box, which removes the homogeneous deformation of the box |
+| `strain_tensor` | bool | `False` | | also give the strain tensor of each atom |
+| `d2min` | bool | `False` | | also compute the non-affine squared displacement of each atom |
 | `neighbors` | `NeighborList` | `None` | | neighbors of the reference within at least `cutoff`, used for every configuration; without, `compute` finds them as it goes each time |
 
 `compute(system, *, progress=None, cancel=None)` takes the current
@@ -53,10 +59,10 @@ A `StrainResult`:
 
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
-| `strain` | (N, 3, 3) float64 | | the Green–Lagrange strain $\eta$; NaN where the reference neighbors do not span three dimensions |
-| `shear` | (N,) float64 | | the von Mises shear strain $\eta_\text{s}$; its column `shear_strain` |
+| `shear` | (N,) float64 | | the von Mises shear strain $\eta_\text{s}$, NaN where the reference neighbors do not span three dimensions; its column `shear_strain` |
 | `volumetric` | (N,) float64 | | the volumetric strain $\operatorname{tr}\eta / 3$; its column `volumetric_strain` |
-| `d2min` | (N,) float64 | Å² | the non-affine squared displacement $D^2_\text{min}$; its column `d2min` |
+| `strain_tensor` | (N, 3, 3) float64 | | the Green–Lagrange strain $\eta$, with `strain_tensor`, else `None` |
+| `d2min` | (N,) float64 | Å² | the non-affine squared displacement $D^2_\text{min}$, with `d2min`, else `None`; its column `d2min` |
 
 ## Errors
 

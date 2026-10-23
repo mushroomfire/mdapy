@@ -24,8 +24,22 @@
 | `wcp-shells-draft` | Warren–Cowley 多壳层（按截断半径或按近邻数），基于 dxa-network-draft | 已推送 |
 | `vasp-calculator-draft` | VASP 计算器（超算上用），基于 wcp-shells-draft | 已推送 |
 | `ptm-draft` | PTM（多面体模板匹配，按方案 A 移植），基于 preview-2026-10-23 | 已推送，CI 全绿 |
-| `dxa-full-draft` | 完整版 DXA（Delaunay 剖分、弹性映射、界面网格上的 Burgers 回路，全部 C++），基于 ptm-draft | 已推送，CI 中 |
-| **`preview-2026-10-23`** | **上面所有草稿合在一起（就是 vasp-calculator-draft 的末端），1733 个测试全过** | 已推送，CI 中 |
+| `dxa-full-draft` | 完整版 DXA（Delaunay 剖分、弹性映射、界面网格上的 Burgers 回路，全部 C++），基于 ptm-draft | 已推送，CI 全绿（9268a8e） |
+| **`preview-2026-10-23`** | **上面所有草稿合在一起，已快进到 dxa-full-draft 的末端（9268a8e），1794 个测试全过** | 已推送，CI 全绿 |
+
+
+## 早上先看这里（05:06）
+
+- 你说的两件事都做完了：**PTM**（方案 A，`ptm-draft`）和**完整版 DXA**（`dxa-full-draft`）。`preview-2026-10-23` 已快进到最新，包含今晚全部草稿，本地 1794 个测试、覆盖率、文档、TSan、GCC 警告通过，CI 9 项全绿。
+- DXA 现在是 OVITO 同样的算法：Delaunay 剖分 → 弹性映射 → 界面网格 → Burgers 回路扫掠，全部 C++。和 OVITO 3.17 对比：
+  - 螺/刃（分解）/剪切环/Shockley 环/bcc 环/平板/三斜盒子/热噪声 0.15 Å：线、类别、Burgers 矢量都一样，长度差几个百分点；
+  - Frank 环：OVITO 的 6 条 Shockley + 6 条压杆位错、6 个四度结点，一模一样；
+  - 交叉环反应：fcc 滑移结点、Lomer 锁、bcc ⟨100⟩ 结点，都和 OVITO 一致；
+  - LAMMPS 压痕（7.2 万原子）：线长的 84–99% 在 OVITO 同 Burgers 矢量的线 3 Å 内，OVITO 的 78–93% 在我们的线旁边；差别在压头下极畸变区（OVITO 的 “other” 线）和结点。
+  - 速度比 OVITO 快 10–25%，内存约 1.9 倍。
+- 要你定的在最后一节第 12 条（多晶、hcp/金刚石、按 PTM 模板拓扑映射）。
+
+![交叉环：a/2[1-10](111) 与 a/2[011](11-1) 交叉处反应成 a/2[101] 的短线（mdapy 渲染，箭头是 Burgers 矢量）](images/40_crossing_loops.png)
 
 ## 进展
 
@@ -327,6 +341,12 @@
 - **不给取向时自动确定**（cb45ef2）：以前不给 `orientation` 就当立方轴，任意转动的单晶所有原子都会被当成错配、什么都找不到（OVITO 不要求给取向）。现在从 PTM 求晶体的平均取向（各原子按立方对称对齐到拟合最好的那个原子后取平均、正交化），取离盒子轴最近的立方等价取向，离盒子轴 1° 以内就直接用盒子轴。结果新增 `orientation`（`lattice_burgers` 的坐标轴）。测试：任意取向的螺位错不给取向，b、芯部和给定取向时一致。
 - **热运动下更稳**（211c7aa）：随机位移 0.15 Å（远高于室温）时 PTM（RMSD 截断 0.1）把四分之一的晶体判成 other，剪切环断成 5 段，而 OVITO 仍是一整条。现在 PTM 判为 other、但自适应 CNA 判为晶格（fcc 里也包括 hcp 层错）的原子也算晶体，取向用它最佳模板的；没有取向的当错配。0.15 Å 下整条环（与 OVITO 一致，1.00/1.00），0.2 Å 两边都找不到；压痕结果基本不变。加了对应测试。放宽 PTM 截断本身（0.15–0.25）试过，会损害压痕的精度，所以没用。
 - cb45ef2 之前的提交 CI 全绿（9 项，含 ASan/TSan/覆盖率里的 OVITO 对比）；211c7aa 的 CI 在跑，绿了就把 `preview-2026-10-23` 快进过来。
+
+### 05:06
+- 三斜盒子的测试（剪切 4% 的偶极子，与 OVITO 一致）；网格对边找不到时当边界而不报错（9268a8e）。CI 9 项全绿，`preview-2026-10-23` 已快进到 9268a8e。
+- 压痕 20000 步的最终对比图：
+
+![压痕 20000 步：粗半透明是 OVITO，细线是 mdapy，红点线端，黑方块结点](images/39_dxa_final_indent.png)
 
 ## 早上需要你决定的事
 

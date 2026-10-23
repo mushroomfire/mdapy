@@ -68,10 +68,7 @@ def test_back_from_freud():
     assert max(abs(first[k] - second[k]) for k in first) < 1e-5
 
 
-def test_periodicity_and_a_box_of_freud():
-    system = mdapy.System([[0.5, 0.5, 0.5]], mdapy.Box(4.0, pbc=[True, True, False]))
-    box, _ = to_freud(system)
-    assert box.periodic.tolist() == [True, True, False]
+def test_a_box_of_freud():
     back = from_freud(freud.box.Box.cube(5.0), [[0.0, 0.0, 0.0], [1.0, 2.0, 2.4]])
     np.testing.assert_allclose(back.box.matrix, 5.0 * np.eye(3))
     np.testing.assert_allclose(back.box.origin, [-2.5, -2.5, -2.5])
@@ -80,6 +77,9 @@ def test_periodicity_and_a_box_of_freud():
 
 
 def test_boxes_freud_cannot_take():
+    slab = mdapy.System([[0.5, 0.5, 0.5]], mdapy.Box(4.0, pbc=[True, True, False]))
+    with pytest.raises(InvalidParameter, match="periodic in every direction"):
+        to_freud(slab)
     with pytest.raises(InvalidParameter, match="three-dimensional"):
         from_freud(freud.box.Box.square(5.0), [[0.0, 0.0, 0.0]])
     left = mdapy.Box([[0, 4.0, 0], [4.0, 0, 0], [0, 0, 4.0]])

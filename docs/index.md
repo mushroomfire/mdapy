@@ -35,7 +35,7 @@ flowchart TB
     calculators["<b>Calculators</b><br/>EAM · NEP · LAMMPS"]
     minimization["<b>Minimization</b><br/>and dynamics"]
     lattice["<b>Lattice dynamics</b><br/>elastic constants<br/>phonons"]
-    packages["<b>Other packages</b><br/>ASE · OVITO · pymatgen · freud"]
+    packages["<b>Interoperability</b><br/>ASE · OVITO · pymatgen · freud<br/>LAMMPS · VASP · GPUMD"]
 
     files <--> system
     build --> system
@@ -66,23 +66,38 @@ flowchart TB
     class mlip mlip
 ```
 
-## Design in brief
+## Design
 
-- **Two dependencies.** NumPy and polars. Everything else is optional.
-- **One unit system.** Å, eV, ps, amu, K, and GPa for stress. See
-  [Units and conventions](reference/units.md).
-- **Consistent names.** Every parameter and property follows the
-  [Glossary](reference/glossary.md).
-- **Runs next to PyTorch and LAMMPS.** The compiled kernels use a thread
-  pool of mdapy's own instead of OpenMP, so mdapy shares a process with
-  PyTorch and LAMMPS without clashing OpenMP runtimes, and its results are
-  the same for any number of threads. See
-  [Parallelism](getting-started/parallelism.md).
-- **Tested and documented feature by feature.** Each feature is tested
-  against independent references, analytic results and NumPy
-  implementations, and against LAMMPS and OVITO where they compute the same,
-  and has its own page describing how to use it and, for analyses, what it
-  computes and which papers it follows.
+- **Easy to use.** A structure is one `System`, built, read from the files
+  of common programs or converted from another package. Every analysis is a
+  class whose `compute(system)` returns plain NumPy arrays, ready to attach
+  to the system as columns. **NumPy and polars are the only requirements.**
+- **High performance.** The heavy work runs in compiled C++ on every core,
+  and analyses of the nearest neighbors find them as they go, without a
+  list of pairs. From 30 000 atoms on, mdapy is faster than
+  [OVITO](https://www.ovito.org) in every analysis they share but atomic
+  strain, and than [freud](https://freud.readthedocs.io) in every one; see
+  [Performance](performance/comparison.md).
+- **Predictable API.** One unit system: Å, eV, ps, amu, K, and GPa for
+  stress ([Units and conventions](reference/units.md)). One name for each
+  concept in every module ([Glossary](reference/glossary.md)). A `System`
+  never changes in place, every analysis takes the same arguments, and the
+  results are the same for any number of threads.
+- **Easy to integrate.** mdapy runs its own thread pool instead of OpenMP,
+  so it shares a process with [PyTorch](https://pytorch.org) and
+  [LAMMPS](https://www.lammps.org)
+  ([Parallelism](getting-started/parallelism.md)). It converts systems to
+  and from [ASE](https://wiki.fysik.dtu.dk/ase/),
+  [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and
+  [freud](https://freud.readthedocs.io), reads and writes the files of
+  [LAMMPS](https://www.lammps.org), [VASP](https://www.vasp.at) and
+  [GPUMD](https://gpumd.org), and takes any ASE calculator or LAMMPS
+  interaction as a calculator ([Interoperability](interop/ase.md)).
+- **Verified.** Each feature is tested against analytic results,
+  independent implementations and, where they compute the same, live runs
+  of [LAMMPS](https://www.lammps.org), [OVITO](https://www.ovito.org) and
+  [freud](https://freud.readthedocs.io), and has its own page on how to use
+  it and, for analyses, what it computes and which papers it follows.
 
 ## Features
 
@@ -211,7 +226,7 @@ flowchart TB
     Timings of mdapy and of other programs, from thousands to millions of
     atoms.
 
-    [mdapy and OVITO](performance/ovito.md)
+    [mdapy, OVITO and freud](performance/comparison.md)
 
 -   :material-book-open-variant:{ .lg .middle } **Reference**
 

@@ -25,30 +25,37 @@ Both need freud (`pip install freud-analysis`).
 
 | Function | Argument | Returns |
 |---|---|---|
-| `to_freud(system)` | a `System` in a right-handed box | a `freud.box.Box` and (N, 3) float32 points |
+| `to_freud(system)` | a `System` in a right-handed box periodic in every direction | a `freud.box.Box` and (N, 3) float32 points |
 | `from_freud(box, points)` | a three-dimensional `freud.box.Box` and (N, 3) points | a new `System` |
 
 ## Results
 
 freud keeps a box with its first vector along x and its second in the xy
 plane, centered on the origin, and points in single precision.
-`to_freud` gives that box, of the same shape and periodicity as the box of
-the system, and the atoms in it: their fractional coordinates are the same,
-moved into the box along periodic directions. The box and the atoms of a
-system in another orientation are turned together, so distances and angles
-do not change.
+`to_freud` gives that box, of the same shape as the box of the system, and
+the atoms in it: their fractional coordinates are the same, moved into the
+box. The box and the atoms of a system in another orientation are turned
+together, so distances and angles do not change.
 
 `from_freud` gives a box with freud's vectors, its origin at the corner of
 the box centered on the origin, and the periodicity of the freud box.
 
-The neighbor queries of freud need a box periodic in every direction.
+!!! warning "freud and OVITO in one process"
+    With freud 3.6.1 and OVITO 3.17.0 in one process, the Voronoi
+    tessellation of whichever was imported second crashes the process; both
+    use the Voronoi library voro++. Run them in separate processes, or
+    import the one whose Voronoi tessellation you need first.
 
 ## Errors
 
 `to_freud` raises
 [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter)
-for a left-handed box, and `from_freud` for a two-dimensional one.
+for a box not periodic in every direction, as freud finds neighbors only in
+such boxes, and for a left-handed box; `from_freud` raises it for a
+two-dimensional box.
 
 ## See also
 
 - freud [boxes](https://freud.readthedocs.io/en/latest/modules/box.html).
+- [mdapy, OVITO and freud](../performance/comparison.md): timings of the
+  analyses they share.

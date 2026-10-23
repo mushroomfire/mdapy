@@ -89,11 +89,12 @@ generated from them.
       systems;
     - finite differences for forces and virials;
     - round trips and hand-written examples for file formats.
-- Where LAMMPS, OVITO or atomsk implements the same method, the tests
-  compare with it, run live at the reference versions, LAMMPS
-  stable_30Sep2026, OVITO 3.17.0 and atomsk Beta 0.13.1; they are skipped
-  where these are not installed. Results are never compared against stored
-  snapshots of other software.
+- Where LAMMPS, OVITO, freud or atomsk implements the same method, the
+  tests compare with it, run live at the reference versions, LAMMPS
+  stable_30Sep2026, OVITO 3.17.0, freud 3.6.1 and atomsk Beta 0.13.1; freud
+  computes in single precision, so its values agree to about 1e-6. They
+  are skipped where these are not installed. Results are never compared
+  against stored snapshots of other software.
 - Parallel code is tested for identical results across thread counts.
 - Error paths are tested: invalid input raises the documented exception.
 - Comparisons state their tolerance and why, and failure messages show the

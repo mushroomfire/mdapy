@@ -26,25 +26,33 @@ def to_freud(system: System) -> tuple[Any, np.ndarray]:
     Parameters
     ----------
     system : System
-        The atoms.
+        The atoms, in a right-handed box periodic in every direction.
 
     Returns
     -------
     box : freud.box.Box
         The box, with its first vector along x and its second in the xy
-        plane, as freud keeps boxes, and the periodicity of the system.
+        plane, as freud keeps boxes.
     points : numpy.ndarray
         (N, 3) float32 positions in that box, centered on the origin as
-        freud expects, moved into the box along periodic directions.
+        freud expects, moved into the box.
+
+    Raises
+    ------
+    InvalidParameter
+        If the box is not periodic in every direction, or is left-handed.
     """
     freud = _freud()
     box = system.box
+    if not box.pbc.all():
+        raise InvalidParameter(
+            "freud finds neighbors only in a box periodic in every direction"
+        )
     if np.linalg.det(box.matrix) < 0:
         raise InvalidParameter("freud needs a right-handed box")
     converted = freud.box.Box.from_matrix(box.matrix.T)  # vectors as columns
-    converted.periodic = [bool(p) for p in box.pbc]
     fractional = box.to_fractional(system.positions)
-    fractional = np.where(box.pbc, fractional - np.floor(fractional), fractional)
+    fractional = fractional - np.floor(fractional)
     points = converted.make_absolute(fractional.astype(np.float32))
     return converted, np.asarray(points, dtype=np.float32)
 

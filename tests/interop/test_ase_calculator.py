@@ -6,21 +6,19 @@ import pytest
 
 import mdapy
 from mdapy import units
-from mdapy.build import build_crystal, random_alloy
-from mdapy.calculators import NEP, Calculator, CalculatorResult
+from mdapy.calculators import Calculator, CalculatorResult
 from mdapy.calculators.testing import check_calculator
 from mdapy.errors import InvalidParameter
 from mdapy.interop import from_ase, from_ase_calculator, to_ase, to_ase_calculator
 from mdapy.neighbor import NeighborList
 from mdapy.simulation import minimize
 
-from calculators.nep_files import write_nep
-
 ase = pytest.importorskip("ase")
 from ase.calculators.calculator import Calculator as AseCalculator  # noqa: E402
 from ase.calculators.calculator import PropertyNotImplementedError  # noqa: E402
 from ase.calculators.emt import EMT  # noqa: E402
 from ase.calculators.fd import calculate_numerical_stress  # noqa: E402
+from ase.calculators.lj import LennardJones  # noqa: E402
 from ase.filters import FrechetCellFilter  # noqa: E402
 from ase.optimize import BFGS  # noqa: E402
 
@@ -228,19 +226,23 @@ def test_properties_the_ase_calculator_lacks():
         calculator.compute(crystal(repeat=1, a=3.6), ["atomic_virials"])
 
 
-@pytest.mark.parametrize("zbl", [None, "universal"])
-def test_nep_of_torchnep_through_ase_is_nep_of_mdapy(tmp_path, zbl):
-    torchnep = pytest.importorskip("torchnep.ase_calculator")
-    path = write_nep(tmp_path / "nep.txt", zbl=zbl)
-    cu = build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 3))
-    alloy = random_alloy(cu, {"Cu": 0.5, "Ni": 0.5}, seed=1)
-    rng = np.random.default_rng(7)
-    alloy = alloy.with_positions(alloy.positions + rng.normal(0, 0.1, (108, 3)))
-    properties = ("energy", "atomic_energies", "forces", "virial")
-    expected = NEP(path).compute(alloy, properties)
-    result = from_ase_calculator(torchnep.NEP(str(path))).compute(alloy, properties)
-    assert result.energy == pytest.approx(expected.energy, rel=1e-12)
-    for name in properties[1:]:
-        np.testing.assert_allclose(
-            getattr(result, name), getattr(expected, name), atol=1e-10, err_msg=name
-        )
+def test_atomic_stresses_of_an_ase_calculator():
+    # Lennard-Jones of ASE gives the stress of each atom too
+    lennard_jones = LennardJones(sigma=2.3, epsilon=0.1, rc=6.0, smooth=True)
+    calculator = from_ase_calculator(lennard_jones)
+    assert calculator.implemented == {
+        "energy",
+        "atomic_energies",
+        "forces",
+        "virial",
+        "atomic_virials",
+    }
+    system = crystal(repeat=2, a=3.6, jitter=0.05, seed=8)
+    check_calculator(calculator, system, displacement=1e-5)
+    result = calculator.compute(system, ["atomic_virials"])
+    atoms = to_ase(system)
+    atoms.calc = lennard_jones
+    stresses = atoms.get_stresses(voigt=False)
+    np.testing.assert_allclose(
+        result.atomic_virials, -stresses * system.box.volume, atol=1e-12
+    )

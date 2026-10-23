@@ -233,17 +233,18 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.interop.to_pymatgen` and `from_pymatgen` convert to and from
   pymatgen structures and molecules. See [pymatgen](../interop/pymatgen.md).
 - `mdapy.interop.to_freud` gives the box and points of freud's analyses,
-  and `from_freud` takes them back. See [freud](../interop/freud.md).
+  for systems periodic in every direction, and `from_freud` takes them
+  back. See [freud](../interop/freud.md).
 - Pages on exchanging files and calculators with
   [LAMMPS](../interop/lammps.md), [VASP](../interop/vasp.md) and
   [GPUMD](../interop/gpumd.md).
 
 ### Performance
 
-- `benchmarks/ovito_comparison.py` times the analyses that mdapy and OVITO
-  both have, on the same systems, where both give the same result, each
-  program in a process of its own with limits of memory and time. See
-  [mdapy and OVITO](../performance/ovito.md).
+- `benchmarks/comparison.py` times the analyses that mdapy shares with
+  OVITO and freud, on the same systems, where each program gives the
+  result of mdapy, each program in a process of its own with limits of
+  memory and time. See [mdapy, OVITO and freud](../performance/comparison.md).
 
 ### Tutorials
 

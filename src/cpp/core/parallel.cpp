@@ -81,47 +81,80 @@ private:
     bool previous_;
 };
 
+// The chunks [next, end) of one party of a job: its own at first, which it
+// takes one at a time, and which the others take once theirs are done.
+struct alignas(64) Share {
+    std::atomic<std::int64_t> next{0};
+    std::int64_t end = 0;
+};
+
 struct Job {
+    // read by every chunk, written before the job starts
     const std::function<void(std::int64_t, std::int64_t)>* body = nullptr;
     const CancelToken* token = nullptr;
     std::int64_t n = 0;
     std::int64_t grain = 1;
     std::int64_t nchunks = 0;
-    std::atomic<std::int64_t> next{0};
-    std::atomic<std::int64_t> done{0};
-    std::atomic<bool> stop{false};
+    Share* shares = nullptr;
+    int parties = 1;
+    // written while the job runs, each on a cache line of its own
+    alignas(64) std::atomic<bool> stop{false};
+    alignas(64) std::atomic<std::int64_t> done{0};
     std::mutex error_mutex;
     std::exception_ptr error;
 
-    // Claims and runs one chunk. Returns false when no chunk is left or the
-    // job has been stopped.
-    bool run_one() {
-        if (stop.load(std::memory_order_relaxed)) {
-            return false;
+    // Splits the chunks into equal ranges, one for each of the parties.
+    void share(Share* ranges, int count) {
+        shares = ranges;
+        parties = count;
+        for (int p = 0; p < count; ++p) {
+            ranges[p].next.store(nchunks * p / count, std::memory_order_relaxed);
+            ranges[p].end = nchunks * (p + 1) / count;
         }
-        if (token != nullptr && token->cancelled()) {
-            stop.store(true, std::memory_order_relaxed);
-            return false;
-        }
-        const std::int64_t chunk = next.fetch_add(1, std::memory_order_relaxed);
-        if (chunk >= nchunks) {
-            return false;
-        }
-        const std::int64_t begin = chunk * grain;
-        const std::int64_t end = std::min(n, begin + grain);
-        try {
-            (*body)(begin, end);
-        } catch (...) {
-            fail(std::current_exception());
-            return false;
-        }
-        done.fetch_add(end - begin, std::memory_order_relaxed);
-        return true;
     }
 
-    void run_chunks() {
-        while (run_one()) {
+    // Runs the chunks of party own, then those left of the others, calling
+    // after() after each; stops early when the job is stopped.
+    template <class After>
+    void run_chunks(int own, After&& after) {
+        std::int64_t finished = 0;
+        int unreported = 0;
+        for (int k = 0; k < parties; ++k) {
+            Share& share = shares[(own + k) % parties];
+            for (;;) {
+                if (stop.load(std::memory_order_relaxed)) {
+                    done.fetch_add(finished, std::memory_order_relaxed);
+                    return;
+                }
+                if (token != nullptr && token->cancelled()) {
+                    stop.store(true, std::memory_order_relaxed);
+                    done.fetch_add(finished, std::memory_order_relaxed);
+                    return;
+                }
+                const std::int64_t chunk = share.next.fetch_add(1, std::memory_order_relaxed);
+                if (chunk >= share.end) {
+                    break;
+                }
+                const std::int64_t begin = chunk * grain;
+                const std::int64_t end = std::min(n, begin + grain);
+                try {
+                    (*body)(begin, end);
+                } catch (...) {
+                    fail(std::current_exception());
+                    done.fetch_add(finished, std::memory_order_relaxed);
+                    return;
+                }
+                // reported every few chunks, for the monitor
+                finished += end - begin;
+                if (++unreported == 8) {
+                    done.fetch_add(finished, std::memory_order_relaxed);
+                    finished = 0;
+                    unreported = 0;
+                }
+                after();
+            }
         }
+        done.fetch_add(finished, std::memory_order_relaxed);
     }
 
     // Records the first error and stops the job.
@@ -178,7 +211,9 @@ private:
 // lock.
 class ThreadPool {
 public:
-    explicit ThreadPool(int nworkers) : sleepers_(new Sleeper[static_cast<std::size_t>(nworkers)]) {
+    explicit ThreadPool(int nworkers)
+        : sleepers_(new Sleeper[static_cast<std::size_t>(nworkers)]),
+          shares_(new Share[static_cast<std::size_t>(nworkers) + 1]) {
         threads_.reserve(static_cast<std::size_t>(nworkers));
         for (int i = 0; i < nworkers; ++i) {
             threads_.emplace_back([this, i] { worker_loop(i); });
@@ -203,14 +238,14 @@ public:
     // calling thread polls the monitor between its chunks and while it waits.
     void run(Job& job, MonitorClock& clock) {
         const auto helpers = static_cast<int>(std::min<std::int64_t>(size(), job.nchunks - 1));
+        // the calling thread is the last party
+        job.share(shares_.get(), helpers + 1);
         job_.store(&job, std::memory_order_relaxed);
         running_.store(helpers, std::memory_order_relaxed);
         const std::uint64_t generation = (state_.load(std::memory_order_relaxed) >> kHelperBits) + 1;
         state_.store((generation << kHelperBits) | static_cast<std::uint64_t>(helpers));
         wake(helpers);
-        while (job.run_one()) {
-            clock.poll(job);
-        }
+        job.run_chunks(helpers, [&] { clock.poll(job); });
         const auto finished = [this] { return running_.load(std::memory_order_acquire) == 0; };
         if (!spin_until(finished, [&] { clock.poll(job); })) {
             std::unique_lock<std::mutex> lock(done_mutex_);
@@ -235,6 +270,10 @@ private:
 
     // Wakes the first count workers where they sleep.
     void wake(int count) {
+        if (sleepers_count_.load() == 0) {
+            // none was asleep when the new state was published: each sees it
+            return;
+        }
         for (int i = 0; i < count; ++i) {
             Sleeper& s = sleepers_[static_cast<std::size_t>(i)];
             if (s.asleep.load()) {
@@ -255,10 +294,14 @@ private:
         };
         for (;;) {
             if (!spin_until(news, [] {})) {
-                std::unique_lock<std::mutex> lock(sleeper.mutex);
-                sleeper.asleep.store(true);
-                sleeper.wake.wait(lock, news);
-                sleeper.asleep.store(false);
+                sleepers_count_.fetch_add(1);
+                {
+                    std::unique_lock<std::mutex> lock(sleeper.mutex);
+                    sleeper.asleep.store(true);
+                    sleeper.wake.wait(lock, news);
+                    sleeper.asleep.store(false);
+                }
+                sleepers_count_.fetch_sub(1);
             }
             if (shutdown_.load()) {
                 return;
@@ -266,7 +309,7 @@ private:
             const std::uint64_t state = state_.load();
             seen = state >> kHelperBits;
             if (static_cast<std::uint64_t>(index) < (state & kHelpers)) {
-                job_.load(std::memory_order_relaxed)->run_chunks();
+                job_.load(std::memory_order_relaxed)->run_chunks(index, [] {});
                 if (running_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
                     std::lock_guard<std::mutex> lock(done_mutex_);
                     done_.notify_all();
@@ -277,11 +320,14 @@ private:
 
     std::vector<std::thread> threads_;
     std::unique_ptr<Sleeper[]> sleepers_;
-    // the generation of the region (high bits) and its number of workers
-    std::atomic<std::uint64_t> state_{0};
+    std::unique_ptr<Share[]> shares_;  // of each worker, then of the calling thread
+    // what idle workers watch: the generation of the region (high bits) and
+    // its number of workers, and the job
+    alignas(64) std::atomic<std::uint64_t> state_{0};
     std::atomic<Job*> job_{nullptr};
-    std::atomic<int> running_{0};  // workers still in the region
     std::atomic<bool> shutdown_{false};
+    alignas(64) std::atomic<int> running_{0};  // workers still in the region
+    alignas(64) std::atomic<int> sleepers_count_{0};  // workers asleep or about to be
     std::mutex done_mutex_;
     std::condition_variable done_;
 };
@@ -317,9 +363,9 @@ ThreadPool* pool_with(int nworkers) {
 
 // Runs every chunk on the calling thread, polling the monitor between chunks.
 void run_inline(Job& job, MonitorClock& clock) {
-    while (job.run_one()) {
-        clock.poll(job);
-    }
+    Share all;
+    job.share(&all, 1);
+    job.run_chunks(0, [&] { clock.poll(job); });
 }
 
 }  // namespace

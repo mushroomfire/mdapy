@@ -113,3 +113,32 @@ def test_tree_errors():
     assert j.shape == (0, 2) and shifts.shape == (0, 2, 3) and distances.shape == (0, 2)
     with pytest.raises(ValueError, match="finite"):
         tree.nearest(np.array([[np.nan, 0.0, 0.0]]), 1)
+
+
+@pytest.mark.parametrize("layout", ["uniform", "layers", "duplicates", "plane"])
+def test_a_tree_of_many_atoms_matches_brute_force(layout):
+    # wide enough to be built by all threads together at its top levels
+    rng = np.random.default_rng(5)
+    n = 40000
+    x = rng.random((n, 3)) * 30.0
+    if layout == "layers":  # many equal coordinates along one axis
+        x[:, 2] = rng.integers(0, 5, n) * 3.0
+    elif layout == "duplicates":  # equal points, tied in distance
+        x = np.repeat(x[: n // 4], 4, axis=0)
+    elif layout == "plane":  # all coordinates equal along one axis
+        x[:, 1] = 7.0
+    system = mdapy.System(x, mdapy.Box(30.0, pbc=False))
+    points = np.vstack([rng.random((60, 3)) * 30.0, x[rng.integers(0, n, 20)]])
+    k = 9
+    tree = tree_of(system)
+    result = tree.nearest(points, k)
+    for q, found, d in zip(points, result[0], result[2]):
+        r = x - q
+        r2 = r[:, 0] * r[:, 0] + r[:, 1] * r[:, 1] + r[:, 2] * r[:, 2]
+        near = np.lexsort((np.arange(n), r2))[:k]
+        assert (found == near).all()
+        assert np.array_equal(d, np.sqrt(r2[near]))
+    # the same tree, whatever the number of threads
+    with mdapy.num_threads(1):
+        again = tree_of(system).nearest(points, k)
+    assert all(np.array_equal(a, b) for a, b in zip(result, again))

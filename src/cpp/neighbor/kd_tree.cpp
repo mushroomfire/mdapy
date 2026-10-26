@@ -26,6 +26,21 @@ constexpr std::int64_t kLeaf = 16;
 // Fewest points split by a chunk of a parallel region.
 constexpr std::int64_t kChunkPoints = 4096;
 
+// A node is split by all threads together, one node after the other, when it
+// has at least kWideNode points and at least 1 / kWideShare of all points;
+// the smaller ones are split one to a thread. The choice does not depend on
+// the number of threads, so the tree does not either.
+constexpr std::int64_t kWideNode = 1 << 14;
+constexpr std::int64_t kWideShare = 16;
+
+// Points in a chunk of the passes over a wide node, fixed for the same reason.
+constexpr std::int64_t kSplitChunk = 1 << 13;
+
+// Points sampled to pick the pivots of a wide node, and how far from the
+// sample's quantile of the median, in sample points, the pivots lie.
+constexpr int kSample = 4096;
+constexpr int kBand = 128;
+
 constexpr double kInf = std::numeric_limits<double>::infinity();
 
 // The order of neighbors: by distance, then atom, then image.
@@ -45,6 +60,89 @@ inline bool before(const Neighbor& p, const Neighbor& q) {
 }
 
 inline bool nearer(const KdTree::Candidate& p, const KdTree::Candidate& q) { return p.r2 < q.r2; }
+
+inline std::uint64_t mix(std::uint64_t x) {
+    x += 0x9e3779b97f4a7c15ULL;
+    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+    return x ^ (x >> 31);
+}
+
+// Puts the point of the given rank by the key y[axis] of the count points
+// from first in place, the points with a lesser key before it and the others
+// after it. Wide nodes go as in Floyd and Rivest's selection: two pivots
+// from a sample, near the quantile of the rank, split the points into those
+// below, between and above them in parallel passes, and only the points
+// between, a few of them, are selected from serially. The order of the
+// points that results depends on the points only: the passes have chunks of
+// fixed size. scratch has room for count points.
+template <class Point>
+void select_wide(Point* first, std::int64_t count, std::int64_t rank, int axis, Point* scratch) {
+    const auto key_before = [axis](const Point& p, const Point& q) { return p.y[axis] < q.y[axis]; };
+    std::vector<double> sample;
+    std::vector<std::int64_t> below, between;  // per chunk, then the first place of each
+    while (count >= kWideNode) {
+        sample.resize(kSample);
+        for (int s = 0; s < kSample; ++s) {
+            sample[s] = first[mix(static_cast<std::uint64_t>(s)) % static_cast<std::uint64_t>(count)].y[axis];
+        }
+        std::sort(sample.begin(), sample.end());
+        const std::int64_t at = rank * kSample / count;
+        const double low = sample[static_cast<std::size_t>(std::max<std::int64_t>(0, at - kBand))];
+        const double high =
+            sample[static_cast<std::size_t>(std::min<std::int64_t>(kSample - 1, at + kBand))];
+        const std::int64_t chunks = (count + kSplitChunk - 1) / kSplitChunk;
+        below.assign(static_cast<std::size_t>(chunks) + 1, 0);
+        between.assign(static_cast<std::size_t>(chunks) + 1, 0);
+        parallel_for(count, kSplitChunk, [&](std::int64_t begin, std::int64_t end) {
+            std::int64_t lower = 0, middle = 0;
+            for (std::int64_t t = begin; t < end; ++t) {
+                const double y = first[t].y[axis];
+                lower += static_cast<std::int64_t>(y < low);
+                middle += static_cast<std::int64_t>(!(y < low) && !(high < y));
+            }
+            below[static_cast<std::size_t>(begin / kSplitChunk) + 1] = lower;
+            between[static_cast<std::size_t>(begin / kSplitChunk) + 1] = middle;
+        });
+        for (std::int64_t c = 0; c < chunks; ++c) {
+            below[c + 1] += below[c];
+            between[c + 1] += between[c];
+        }
+        const std::int64_t lower = below[chunks], middle = between[chunks];
+        // below, between and above, each in the order of the points
+        parallel_for(count, kSplitChunk, [&](std::int64_t begin, std::int64_t end) {
+            const std::int64_t c = begin / kSplitChunk;
+            std::int64_t at_below = below[c], at_between = lower + between[c];
+            std::int64_t at_above = lower + middle + (begin - below[c] - between[c]);
+            for (std::int64_t t = begin; t < end; ++t) {
+                const double y = first[t].y[axis];
+                if (y < low) {
+                    scratch[at_below++] = first[t];
+                } else if (high < y) {
+                    scratch[at_above++] = first[t];
+                } else {
+                    scratch[at_between++] = first[t];
+                }
+            }
+        });
+        parallel_for(count, kSplitChunk, [&](std::int64_t begin, std::int64_t end) {
+            std::copy(scratch + begin, scratch + end, first + begin);
+        });
+        if (rank < lower) {
+            count = lower;
+        } else if (rank >= lower + middle) {
+            first += lower + middle;
+            rank -= lower + middle;
+            count -= lower + middle;
+        } else {
+            if (low < high) {
+                std::nth_element(first + lower, first + rank, first + lower + middle, key_before);
+            }
+            return;
+        }
+    }
+    std::nth_element(first, first + rank, first + count, key_before);
+}
 
 // A node: its points [begin, begin + count) and its depth.
 struct Range {
@@ -185,16 +283,30 @@ KdTree::KdTree(const double* positions, std::int64_t n, const double* matrix,
     size_ = bounds.size;
 
     // Level by level, the median point of each node in its middle.
-    std::vector<Range> level, next;
+    std::vector<Range> level, next, narrow;
     if (n > kLeaf) {
         level.push_back({0, n, 0});
     }
+    const std::int64_t wide = std::max(kWideNode, n / kWideShare);
+    Buffer<Point> scratch;
+    if (n >= wide) {
+        scratch.resize(static_cast<std::size_t>(n));
+    }
     while (!level.empty()) {
-        const auto count = static_cast<std::int64_t>(level.size());
+        narrow.clear();
+        for (const Range& node : level) {
+            if (node.count >= wide) {
+                select_wide(points_.data() + node.begin, node.count, node.count / 2,
+                            node.depth % 3, scratch.data());
+            } else {
+                narrow.push_back(node);
+            }
+        }
+        const auto count = static_cast<std::int64_t>(narrow.size());
         const std::int64_t grain = std::max<std::int64_t>(1, kChunkPoints * count / n);
         parallel_for(count, grain, [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t a = begin; a < end; ++a) {
-                const Range& node = level[a];
+                const Range& node = narrow[a];
                 const int axis = node.depth % 3;
                 const auto first = points_.begin() + node.begin;
                 std::nth_element(first, first + node.count / 2, first + node.count,
@@ -473,9 +585,11 @@ NeighborPairs KdTree::nearest_atoms(int k, const Control& control) const {
         return result;
     }
     check_count(k, n - 1);
-    for (std::int64_t i = 0; i <= n; ++i) {
-        result.offsets[i] = i * k;
-    }
+    parallel_for(n + 1, 0, [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t i = begin; i < end; ++i) {
+            result.offsets[i] = i * k;
+        }
+    });
     const auto total = static_cast<std::size_t>(n) * static_cast<std::size_t>(k);
     result.neighbors.resize(total);
     result.shifts.resize(3 * total);

@@ -435,6 +435,30 @@ void neighbor_search() {
         }
         check(own, "every atom is the nearest atom to its position");
     }
+    {
+        // a tree wide enough that its top levels are split by all threads together
+        const std::int64_t m = 40000;
+        std::vector<double> many(m * 3);
+        for (std::int64_t i = 0; i < m; ++i) {
+            const double f[3] = {uniform(random), uniform(random), uniform(random)};
+            for (int e = 0; e < 3; ++e) {
+                many[3 * i + e] =
+                    origin[e] + f[0] * matrix[e] + f[1] * matrix[3 + e] + f[2] * matrix[6 + e];
+            }
+        }
+        mdapy::neighbor::NeighborPairs reference;
+        for (int threads : kThreads) {
+            mdapy::set_num_threads(threads);
+            const mdapy::neighbor::NeighborPairs near =
+                mdapy::neighbor::nearest(many.data(), m, matrix, origin, pbc, 6);
+            if (threads == kThreads[0]) {
+                reference = near;
+            }
+            check(near.neighbors == reference.neighbors && near.shifts == reference.shifts &&
+                      near.distances == reference.distances,
+                  "a wide k-d tree gives the same neighbors for any thread count");
+        }
+    }
     bool thrown = sizeof(mdapy::index_t) == 8;
     try {
         mdapy::check_atom_count(std::int64_t{1} << 31);

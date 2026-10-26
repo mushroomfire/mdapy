@@ -17,6 +17,32 @@ mp.write("perturbed.xyz", copies)
 small = perturb(crystal, 5, displacement=0.05, strain=0.0, style="const", seed=2)
 ```
 
+The lengths of the displacements of the three styles, without strain:
+
+```python
+import numpy as np
+
+from mdapy.visualization import plot
+
+with plot.style():
+    fig, ax = plot.figure("single")
+    for style in ("normal", "uniform", "const"):
+        frames = perturb(crystal, 20, displacement=0.1, strain=0.0, style=style, seed=3)
+        moved = np.concatenate([f["positions"] - crystal["positions"] for f in frames])
+        length = np.linalg.norm(moved, axis=1)
+        ax.hist(length, bins=50, range=(0, 0.3), histtype="step", label=style)
+    ax.set_xlabel("Displacement (Å)")
+    ax.set_ylabel("Atoms")
+    ax.legend()
+    plot.save(fig, "images/perturbation", formats=("png",))
+```
+
+![Displacements of the three styles](images/perturbation.png)
+
+*`displacement=0.1`: Gaussian displacements of root mean square length
+0.1 Å, with a tail beyond it; uniform ones in a ball of radius 0.1 Å, most
+near its surface; and all exactly 0.1 Å long.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

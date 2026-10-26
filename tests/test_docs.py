@@ -10,7 +10,8 @@ working directory, so examples may write files. A block preceded by the line
 ``<!-- needs: name -->`` is skipped where the module ``name`` cannot be
 imported. The files of a folder next to a page with a line
 ``<!-- files: folder -->`` are copied into the working directory first, as
-readers download them.
+readers download them. The working directory has an empty folder ``images``,
+where examples save the pictures shown on their page.
 """
 
 import re
@@ -50,6 +51,7 @@ def test_examples_run(page, tmp_path, monkeypatch):
         pytest.importorskip(module)
     for folder in FILES.findall(page.read_text(encoding="utf-8")):
         shutil.copytree(page.parent / folder, tmp_path, dirs_exist_ok=True)
+    (tmp_path / "images").mkdir(exist_ok=True)
     monkeypatch.chdir(tmp_path)
     namespace: dict = {}
     for i, code in enumerate(python_blocks(page)):

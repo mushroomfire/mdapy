@@ -28,6 +28,30 @@ result.temperature.mean()  # about 300 K
 system = system.with_columns(result)  # the column 'temperature'
 ```
 
+A thermal spike: atoms near the middle of a larger crystal move as if at
+2300 K, the others at 300 K:
+
+```python
+from mdapy.build import build_crystal
+from mdapy.visualization import render
+
+crystal = build_crystal("fcc", a, elements="Cu", repeat=(14, 14, 14))
+x = crystal["positions"] - crystal.box.matrix.diagonal() / 2
+kelvin = 300 + 2000 * np.exp(-(x**2).sum(axis=1) / (2 * 8.0**2))
+spread = np.sqrt(units.BOLTZMANN * kelvin / (mass * units.AMU_A2_PER_PS2_TO_EV))
+rng = np.random.default_rng(1)
+spike = crystal.with_columns(velocities=rng.normal(size=x.shape) * spread[:, None])
+
+local = AtomicTemperature(cutoff=5.0).compute(spike).temperature
+render(spike, "images/temperature.png", atoms=x[:, 1] < 0, color=local, colormap="coolwarm",
+       value_range=(0, 2400), width=800, height=700)  # fmt: skip
+```
+
+![Atomic temperature of a thermal spike](images/temperature.png)
+
+*The crystal cut through the middle: the temperature averaged over the
+neighbors within 5 Å, from 300 K (blue) to about 2000 K in the core (red).*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

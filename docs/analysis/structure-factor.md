@@ -27,6 +27,21 @@ direct.faber_ziman["Ni", "Cu"]  # a Faber-Ziman partial factor
 debye = StructureFactor(q_max=6.0, bins=60, method="debye", r_max=7.2).compute(system)
 ```
 
+```python
+from mdapy.visualization import plot
+
+with plot.style():
+    fig, ax = plot.figure("single")
+    plot.structure_factor(direct, ax=ax)
+    plot.save(fig, "images/structure-factor", formats=("png",))
+```
+
+![Structure factor](images/structure-factor.png)
+
+*The disordered alloy scatters at the (111), (200), (220) and (311)
+reflections of fcc, $q = 2\pi\sqrt{h^2+k^2+l^2}/a$ = 3.02, 3.49, 4.94 and
+5.79 Å⁻¹; between them $S(q)$ stays near zero.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

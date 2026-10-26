@@ -38,6 +38,36 @@ neighbors = mp.NeighborList.build(reference, 3.0)
 strain = AtomicStrain(reference, cutoff=3.0, neighbors=neighbors)
 ```
 
+A rod of copper twisted about its axis shears more the farther from the axis:
+
+```python
+from mdapy.build import build_crystal
+from mdapy.visualization import render
+
+crystal = build_crystal("fcc", a, elements="Cu", repeat=(10, 10, 20))
+center = crystal.box.matrix.diagonal() / 2
+p = crystal["positions"] - center
+rod = crystal.filter(np.hypot(p[:, 0], p[:, 1]) < 15)
+rod = rod.with_box(mp.Box(crystal.box.matrix, pbc=False))
+
+p = rod["positions"] - center
+angle = 0.004 * p[:, 2]  # radians, growing along the axis
+twisted = rod.with_columns(positions=center + np.column_stack([
+    p[:, 0] * np.cos(angle) - p[:, 1] * np.sin(angle),
+    p[:, 0] * np.sin(angle) + p[:, 1] * np.cos(angle),
+    p[:, 2],
+]))  # fmt: skip
+shear = AtomicStrain(rod, cutoff=3.0).compute(twisted).shear
+render(twisted, "images/atomic-strain.png", atoms=p[:, 1] < 0, color=shear, colormap="plasma",
+       box=False, view=(0.5, -1, -0.3), width=900, height=600)  # fmt: skip
+```
+
+![Shear strain in a twisted rod](images/atomic-strain.png)
+
+*The rod cut along its axis: the von Mises shear strain grows from zero on the
+axis (dark) to about 0.03 at the surface (yellow), half the twist of
+0.004 rad/Å times the distance from the axis.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

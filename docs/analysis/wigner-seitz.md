@@ -29,6 +29,41 @@ result.vacancies  # the empty site, 0
 current = current.with_columns(result)  # columns site and occupancy
 ```
 
+Twelve Frenkel pairs in a larger crystal, the vacancies and the doubly
+occupied sites drawn alone:
+
+```python
+from mdapy.build import build_crystal
+from mdapy.visualization import render
+
+reference = build_crystal("fcc", a, elements="Cu", repeat=(8, 8, 8))
+rng = np.random.default_rng(5)
+moved = reference["positions"].copy()
+chosen = rng.choice(len(reference), 12, replace=False)
+moved[chosen] = (moved[chosen] + a * (rng.integers(0, 6, (12, 3)) + 0.5)) % (8 * a)
+current = reference.with_columns(positions=moved)
+
+result = WignerSeitz(reference).compute(current)
+occupancy = current.with_columns(result)["occupancy"]
+vacancies = reference["positions"][result.vacancies]
+crowded = current["positions"][occupancy > 1]
+defects = mp.System(np.vstack([vacancies, crowded]), reference.box)
+colors = [[0.23, 0.44, 0.85]] * len(vacancies) + [[0.88, 0.29, 0.2]] * len(crowded)
+render(
+    defects,
+    "images/wigner-seitz.png",
+    color=np.array(colors),
+    radius=1.2,
+    width=800,
+    height=600,
+)
+```
+
+![Vacancies and interstitials](images/wigner-seitz.png)
+
+*Blue: the 12 empty sites. Red: the 24 atoms of the 12 sites that hold two,
+each moved atom with the atom of the site it landed in.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

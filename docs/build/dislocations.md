@@ -28,6 +28,32 @@ cell = build_crystal(
 edge = edge_dislocation(cell, (30, 2, 12))
 ```
 
+Relaxed with a potential, the edge dislocation splits:
+
+```python
+from mdapy.calculators import EAM
+from mdapy.identify import CommonNeighborAnalysis
+from mdapy.simulation import minimize
+from mdapy.visualization import render, write_png
+
+relaxed = minimize(edge, EAM.zhou(["Cu"]), max_force=1e-3, max_steps=3000).system
+
+cna = CommonNeighborAnalysis()
+core = cna.compute(relaxed)
+size = {"width": 600, "height": 500}
+along_screw = render(screw, color=cna.compute(screw), view="top", **size)
+along_edge = render(relaxed, atoms=core.structure != 1, color=core, view="back", **size)
+write_png("images/dislocations.png", np.hstack([along_screw, along_edge]))
+```
+
+![Dislocations](images/dislocations.png)
+
+*Left: the screw dislocation in iron seen along its line: bcc atoms (blue)
+around the core (white); the faces of the box, where the cut ends, are not bcc
+either. Right: the relaxed edge dislocation in copper seen along its line,
+without the fcc atoms: two Shockley partials (white) around a ribbon of
+stacking fault (red), between the free surfaces at the top and the bottom.*
+
 ## Parameters
 
 `insert_dislocation(system, burgers, *, line=2, normal=1, center=None, poisson=1/3)`

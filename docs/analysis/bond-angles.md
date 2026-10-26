@@ -22,6 +22,38 @@ angles.angle, angles.counts
 angles.triplet("Cu", "Cu", "Cu")  # the angles at Cu between two Cu neighbors
 ```
 
+The three close-packed and body-centered lattices, each shaken by 0.05 Å:
+
+```python
+from mdapy.build import build_crystal
+from mdapy.visualization import plot
+
+rng = np.random.default_rng(0)
+crystals = {
+    "fcc": (build_crystal("fcc", 3.615, elements="Cu", repeat=(5, 5, 5)), 3.0),
+    "bcc": (build_crystal("bcc", 2.87, elements="Fe", repeat=(6, 6, 6)), 2.7),
+    "hcp": (build_crystal("hcp", 3.21, elements="Mg", repeat=(6, 6, 4)), 3.6),
+}
+with plot.style():
+    fig, ax = plot.figure("single")
+    for name, (crystal, cutoff) in crystals.items():
+        shaken = crystal.with_columns(
+            positions=crystal["positions"] + rng.normal(0, 0.05, (len(crystal), 3))
+        )
+        result = BondAngleDistribution(cutoff=cutoff, bins=180).compute(shaken)
+        ax.plot(result.angle, result.density, label=name)
+    ax.set_xlabel("Bond angle (°)")
+    ax.set_ylabel("Density (1/°)")
+    ax.legend(frameon=False)
+    plot.save(fig, "images/bond-angles", formats=("png",))
+```
+
+![Bond angles of fcc, bcc and hcp](images/bond-angles.png)
+
+*fcc and hcp share their angles at 60°, 90°, 120° and 180° and differ by
+those near 109° and 146° that only hcp has; bcc, with its 8 nearest
+neighbors, has 70.5°, 109.5° and 180°.*
+
 For water, `BondAngleDistribution(cutoffs={("O", "H"): 1.2})` keeps only
 the O–H bonds and `triplet("O", "H", "H")` gives the H–O–H angles.
 

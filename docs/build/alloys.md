@@ -14,6 +14,21 @@ steel = random_alloy(
 )
 ```
 
+```python
+import numpy as np
+
+from mdapy.visualization import render, write_png
+
+left = render(cantor, width=600, height=600)
+right = render(steel, width=600, height=600)
+write_png("images/alloys.png", np.hstack([left, right]))
+```
+
+![Random alloys](images/alloys.png)
+
+*Left: the Cantor alloy CoCrFeMnNi on fcc sites, one fifth of each element.
+Right: Fe-10Cr on bcc sites, chromium in grey-blue.*
+
 ## Parameters
 
 `random_alloy(system, fractions, *, seed=None)`

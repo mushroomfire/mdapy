@@ -344,6 +344,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   and copies, and a machine-learned potential for CrCoNi: the phonons of
   Cr, Co and Ni against DFT and the elastic constants of the alloy from 0 to
   1000 K against measurements. See the Tutorials under Getting started.
+- Pictures with the examples: the pages of the structure builders and of
+  most analyses show what their example makes or finds, drawn by mdapy's
+  renderer or plotted with `mdapy.visualization.plot`, from code on the
+  page that the documentation tests run.
 
 ### Foundations
 

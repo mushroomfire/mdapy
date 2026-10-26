@@ -21,6 +21,33 @@ result = AcklandJonesAnalysis().compute(system)
 result.counts()  # {'other': 0, 'fcc': 0, 'hcp': 0, 'bcc': 250, 'ico': 0}
 ```
 
+In a relaxed polycrystal of iron:
+
+```python
+from mdapy.build import build_crystal, build_polycrystal
+from mdapy.calculators import EAM
+from mdapy.simulation import minimize
+from mdapy.visualization import render
+
+grains = build_polycrystal(
+    build_crystal("bcc", 2.866, elements="Fe"),
+    mp.Box(50.0),
+    5,
+    seed=4,
+    min_distance=1.6,
+)
+grains = minimize(grains, EAM.zhou(["Fe"]), max_force=0.05, max_steps=300).system
+structures = AcklandJonesAnalysis().compute(grains)
+render(grains, "images/ackland-jones.png", color=structures, width=800, height=600)
+```
+
+![Ackland-Jones analysis of an iron polycrystal](images/ackland-jones.png)
+
+*Five grains of bcc iron (blue) after a short relaxation. The atoms of the
+boundaries take any type, mostly other (white) but also fcc (green), hcp
+(red) and ico (yellow): the analysis looks at the angles between bonds and
+knows nothing of grains.*
+
 ## Parameters
 
 `AcklandJonesAnalysis()` has no parameters.

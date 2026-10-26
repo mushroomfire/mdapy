@@ -23,6 +23,20 @@ slope = np.polyfit(result.lag[1:50] * dt, result.msd[1:50], 1)[0]
 diffusion = slope / 6  # Å²/ps, about 0.05
 ```
 
+```python
+from mdapy.visualization import plot
+
+with plot.style():
+    fig, ax = plot.figure("single")
+    plot.msd(result, timestep=dt, ax=ax, fit=(1, 50))
+    plot.save(fig, "images/msd", formats=("png",))
+```
+
+![Mean squared displacement](images/msd.png)
+
+*The random walk spreads linearly in time; the slope of the fit over 6 is the
+diffusion coefficient in the legend.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

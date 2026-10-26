@@ -51,7 +51,12 @@ sections, in this order:
    `<!-- needs: ovito -->`; its examples are skipped where the package is
    not installed. Examples import mdapy as `import mdapy as mp` and write
    `mp.read`, `mp.System`; the text names the functions in full, as
-   `mdapy.read`.
+   `mdapy.read`. Where a result can be seen, a short example after it draws
+   it with mdapy's renderer or plots it with `mdapy.visualization.plot`
+   into `images/name.png`; the tests run it in a folder with an empty
+   `images`. The picture, made by running the page's examples and kept
+   next to the page as a PNG of 256 colors, follows the block with a
+   caption in italics that says what it shows.
 3. **Parameters**, as a table: `| Name | Type | Default | Unit | Meaning |`.
 4. **Results**: the attributes and every public method, as tables, with the
    conventions needed to read them.

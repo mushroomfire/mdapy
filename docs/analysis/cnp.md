@@ -22,6 +22,24 @@ result.cnp.max()  # Å^2, at the neighbors of the vacancy
 system = system.with_columns(result)  # the column 'cnp'
 ```
 
+In a polycrystal, cut in half to show the boundaries inside:
+
+```python
+from mdapy.build import build_crystal, build_polycrystal
+from mdapy.visualization import render
+
+grains = build_polycrystal(
+    build_crystal("fcc", 3.615, elements="Cu"), mp.Box(50.0), 5, seed=4
+)
+cnp = CommonNeighborParameter(cutoff=3.08).compute(grains).cnp
+render(grains, "images/cnp.png", atoms=grains["positions"][:, 0] < 25, color=cnp,
+       colormap="plasma", value_range=(0, 20), width=800, height=600)  # fmt: skip
+```
+
+![Common neighbor parameter of a polycrystal](images/cnp.png)
+
+*Zero inside the grains (dark blue), up to 20 Å² and more at the boundaries.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

@@ -32,7 +32,13 @@ with plot.style():
     )
     plot.band_structure(bands, ax=left)
     plot.phonon_dos(dos, ax=right)
+    plot.save(fig, "images/phonons", formats=("png",))
 ```
+
+![Phonons of copper](images/phonons.png)
+
+*The phonon dispersion of copper along Γ–X–U|K–Γ–L–W–X with the EAM potential,
+and the density of states beside it.*
 
 !!! warning "Relax the crystal first"
     The force constants are those of the atoms where they are. Relax the

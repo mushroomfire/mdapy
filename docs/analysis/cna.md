@@ -23,6 +23,27 @@ system = system.with_columns(result)  # the column 'structure'
 fixed = CommonNeighborAnalysis(cutoff=0.854 * a).compute(system)  # conventional
 ```
 
+In a polycrystal the atoms that are not fcc mark the grain boundaries:
+
+```python
+from mdapy.build import build_crystal, build_polycrystal
+from mdapy.visualization import render, write_png
+
+copper = build_crystal("fcc", 3.615, elements="Cu")
+grains = build_polycrystal(copper, mp.Box(60.0), 6, seed=4)
+structures = CommonNeighborAnalysis().compute(grains)
+whole = render(grains, color=structures, width=600, height=600)
+fcc = structures.structure == 1
+boundaries = render(grains, atoms=~fcc, color=structures, width=600, height=600)
+write_png("images/cna.png", np.hstack([whole, boundaries]))
+```
+
+![Common neighbor analysis of a polycrystal](images/cna.png)
+
+*A copper polycrystal of six grains as built, colored by structure: fcc green,
+other white. Right: the same without the fcc atoms, which leaves the network
+of grain boundaries.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

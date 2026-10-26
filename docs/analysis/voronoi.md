@@ -1,9 +1,9 @@
 # Voronoi analysis
 
 `VoronoiAnalysis` divides space into the Voronoi cells of the atoms, the
-regions closer to one atom than to any other, and gives the volume, the
-faces, the coordination and the Voronoi index of each cell, and, when asked
-for, the shape of each cell as a polyhedron.
+regions closer to one atom than to any other, and gives the volume and the
+coordination of each cell, and, when asked for, its faces, its Voronoi index
+and its shape as a polyhedron.
 
 ```python
 import numpy as np
@@ -23,8 +23,12 @@ voronoi = VoronoiAnalysis(relative_face_threshold=0.01, edge_threshold=0.5)
 result = voronoi.compute(system)
 result.volume  # Å³, a³/4 = 11.66 on average
 result.coordination  # 12 for every atom
-result.index(6)  # faces with 3, 4, 5 and 6 edges: [0, 12, 0, 0]
 system = system.with_columns(result)  # voronoi_volume, ..., cavity_radius
+
+# the faces too: the atom across each, its area and its edges
+faces = VoronoiAnalysis(relative_face_threshold=0.01, edge_threshold=0.5, faces=True)
+result = faces.compute(system)
+result.index(6)  # faces with 3, 4, 5 and 6 edges: [0, 12, 0, 0]
 
 shapes = VoronoiAnalysis(polyhedra=True).compute(system).polyhedra
 shapes.vertices  # Å, the corners of every cell
@@ -37,7 +41,13 @@ shapes.vertices  # Å, the corners of every cell
 | `face_threshold` | float | 0 | Å² | faces of this area or less do not count |
 | `relative_face_threshold` | float | 0 | | faces of this fraction of the surface of their cell or less do not count; from 0 to below 1 |
 | `edge_threshold` | float | 0 | Å | edges shorter than this do not count, and faces with fewer than three edges that count do not count |
+| `faces` | bool | `False` | | also give the faces of each cell that count, with the atom across each, its area and its edges |
 | `polyhedra` | bool | `False` | | also give the shape of each cell |
+
+Without `faces`, the faces of each cell are counted and let go as soon as
+its volume and coordination are known, so that the memory a computation
+takes does not grow with the faces: some 14 per atom, which take as much as
+the rest of the result several times over.
 
 `compute(system, *, progress=None, cancel=None)` takes the `progress` and
 `cancel` of [every analysis](overview.md#parameters), but no neighbor list:
@@ -62,12 +72,12 @@ A `VoronoiResult`:
 | `volume` | (N,) float64 | the volume of each cell in Å³; its column `voronoi_volume` |
 | `coordination` | (N,) int64 | the number of faces that count shared with other atoms; its column `voronoi_coordination` |
 | `radius` | (N,) float64 | the distance from each atom to the farthest vertex of its cell in Å; its column `cavity_radius` |
-| `offsets` | (N + 1,) int64 | the faces that count of atom `i` are `offsets[i]:offsets[i + 1]` |
-| `j` | (F,) `mdapy.index_dtype` | the atom across each face, −1 for a wall of the box |
-| `shifts` | (F, 3) int8 | the periodic image of that atom |
-| `areas` | (F,) float64 | the area of each face in Å² |
-| `edges` | (F,) int32 | the number of edges of each face that count |
-| `index(largest=8)` | (N, largest − 2) int64 | the Voronoi index: the number of faces with 3, 4, ..., `largest` edges shared with other atoms |
+| `offsets` | (N + 1,) int64 | the faces that count of atom `i` are `offsets[i]:offsets[i + 1]`; with `faces`, else `None` |
+| `j` | (F,) `mdapy.index_dtype` | the atom across each face, −1 for a wall of the box; with `faces` |
+| `shifts` | (F, 3) int8 | the periodic image of that atom; with `faces` |
+| `areas` | (F,) float64 | the area of each face in Å²; with `faces` |
+| `edges` | (F,) int32 | the number of edges of each face that count; with `faces` |
+| `index(largest=8)` | (N, largest − 2) int64 | the Voronoi index: the number of faces with 3, 4, ..., `largest` edges shared with other atoms; with `faces` |
 | `polyhedra` | `VoronoiPolyhedra` or `None` | the shapes of the cells, with `polyhedra=True` |
 
 The faces are listed like the pairs of a

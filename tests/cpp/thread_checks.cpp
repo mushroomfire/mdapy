@@ -959,12 +959,17 @@ void structure_identification() {
         mdapy::analysis::bond_angles(all, n, two_types.data(), 2, 90, angles.data());
         const mdapy::analysis::VoronoiCells voronoi =
             mdapy::analysis::voronoi(positions.data(), n, matrix, origin, pbc, {0.0, 0.01, 0.1},
-                                     true);
+                                     true, true);
         if (threads == kThreads[0]) {
             first_volumes = voronoi.volumes;
             first_areas = voronoi.areas;
             first_vertices = voronoi.vertices;
         }
+        const mdapy::analysis::VoronoiCells bare = mdapy::analysis::voronoi(
+            positions.data(), n, matrix, origin, pbc, {0.0, 0.01, 0.1}, false, false);
+        check(bare.volumes == voronoi.volumes && bare.coordination == voronoi.coordination &&
+                  bare.neighbors.empty() && bare.vertices.empty(),
+              "Voronoi cells without faces have the same volumes and coordination");
         check(voronoi.volumes == first_volumes && voronoi.areas == first_areas &&
                   voronoi.vertices == first_vertices,
               "the Voronoi cells are the same for any thread count");

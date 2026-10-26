@@ -396,7 +396,7 @@ def test_voronoi_cells(system, thresholds):
     particles = ovito_compute(
         system, VoronoiAnalysisModifier(compute_indices=True, **thresholds)
     ).particles
-    result = VoronoiAnalysis(**thresholds).compute(system)
+    result = VoronoiAnalysis(faces=True, **thresholds).compute(system)
     np.testing.assert_allclose(result.volume, particles["Atomic Volume"], atol=1e-12)
     np.testing.assert_allclose(result.radius, particles["Cavity Radius"], atol=1e-12)
     n = len(system)

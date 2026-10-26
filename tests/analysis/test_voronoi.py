@@ -26,7 +26,7 @@ def faces_of(result, i):
 
 def test_fcc_is_a_rhombic_dodecahedron():
     a = 3.6
-    result = VoronoiAnalysis().compute(crystal("fcc", a))
+    result = VoronoiAnalysis(faces=True).compute(crystal("fcc", a))
     np.testing.assert_allclose(result.volume, a**3 / 4, rtol=1e-12)
     np.testing.assert_allclose(result.areas, a**2 * np.sqrt(2) / 8, rtol=1e-12)
     assert (result.coordination == 12).all() and (result.edges == 4).all()
@@ -37,7 +37,7 @@ def test_fcc_is_a_rhombic_dodecahedron():
 
 def test_bcc_is_a_truncated_octahedron():
     a = 2.87
-    result = VoronoiAnalysis().compute(crystal("bcc", a))
+    result = VoronoiAnalysis(faces=True).compute(crystal("bcc", a))
     np.testing.assert_allclose(result.volume, a**3 / 2, rtol=1e-12)
     edge = a * np.sqrt(2) / 4
     squares, hexagons = result.edges == 4, result.edges == 6
@@ -55,7 +55,7 @@ def test_bcc_is_a_truncated_octahedron():
 )
 def test_other_crystals(kind, a, index):
     system = crystal(kind, a)
-    result = VoronoiAnalysis().compute(system)
+    result = VoronoiAnalysis(faces=True).compute(system)
     np.testing.assert_allclose(
         result.volume, system.box.volume / len(system), rtol=1e-12
     )
@@ -65,7 +65,7 @@ def test_other_crystals(kind, a, index):
 @pytest.mark.parametrize("pbc", [True, (True, False, True), False])
 def test_cells_fill_the_box(pbc):
     system = random_system(pbc=pbc)
-    result = VoronoiAnalysis().compute(system)
+    result = VoronoiAnalysis(faces=True).compute(system)
     np.testing.assert_allclose(result.volume.sum(), system.box.volume, rtol=1e-12)
     walls = result.j < 0
     assert walls.any() == (not np.all(pbc))
@@ -80,7 +80,7 @@ def test_cells_fill_the_box(pbc):
 
 def test_faces_are_shared():
     system = random_system(seed=1)
-    result = VoronoiAnalysis().compute(system)
+    result = VoronoiAnalysis(faces=True).compute(system)
     faces = {}
     for i in range(len(system)):
         for j, shift, area, _ in zip(*faces_of(result, i)):
@@ -93,7 +93,7 @@ def test_faces_are_shared():
 def test_volumes_by_sampling():
     """Points belong to the cell of the nearest atom (minimum image)."""
     system = random_system(n=40, seed=2)
-    result = VoronoiAnalysis().compute(system)
+    result = VoronoiAnalysis(faces=True).compute(system)
     rng = np.random.default_rng(3)
     points = system.box.to_cartesian(rng.random((40000, 3)))
     images = np.array(np.meshgrid(*[[-1, 0, 1]] * 3, indexing="ij")).reshape(3, -1).T
@@ -110,7 +110,7 @@ def test_volumes_by_sampling():
 
 def test_invariance_threads_and_columns():
     system = random_system(seed=4)
-    result = VoronoiAnalysis().compute(system)
+    result = VoronoiAnalysis(faces=True).compute(system)
     q, _ = np.linalg.qr(np.random.default_rng(5).normal(size=(3, 3)))
     turned = mdapy.System(
         system["positions"] @ q.T + 3.0,
@@ -118,10 +118,10 @@ def test_invariance_threads_and_columns():
         elements="Ar",
     )
     np.testing.assert_allclose(
-        VoronoiAnalysis().compute(turned).volume, result.volume, rtol=1e-9
+        VoronoiAnalysis(faces=True).compute(turned).volume, result.volume, rtol=1e-9
     )
     with mdapy.num_threads(3):
-        again = VoronoiAnalysis().compute(system)
+        again = VoronoiAnalysis(faces=True).compute(system)
     np.testing.assert_array_equal(again.volume, result.volume)
     np.testing.assert_array_equal(again.areas, result.areas)
     table = system.with_columns(result).table
@@ -132,11 +132,11 @@ def test_invariance_threads_and_columns():
 
 def test_thresholds():
     system = crystal("fcc", 3.6, jitter=0.03, seed=6)
-    every = VoronoiAnalysis().compute(system)
+    every = VoronoiAnalysis(faces=True).compute(system)
     assert every.coordination.max() > 12  # slivers between second neighbors
     for analysis in (
-        VoronoiAnalysis(relative_face_threshold=0.01),
-        VoronoiAnalysis(face_threshold=0.05),
+        VoronoiAnalysis(faces=True, relative_face_threshold=0.01),
+        VoronoiAnalysis(faces=True, face_threshold=0.05),
     ):
         large = analysis.compute(system)
         assert (large.coordination == 12).all()
@@ -146,17 +146,17 @@ def test_thresholds():
     surface = np.add.reduceat(every.areas, every.offsets[:-1])
     atom = np.repeat(np.arange(len(system)), np.diff(every.offsets))
     smallest = np.maximum(0.2, 0.05 * surface)[atom]
-    kept = VoronoiAnalysis(face_threshold=0.2, relative_face_threshold=0.05).compute(
-        system
-    )
+    kept = VoronoiAnalysis(
+        faces=True, face_threshold=0.2, relative_face_threshold=0.05
+    ).compute(system)
     np.testing.assert_array_equal(kept.areas, every.areas[every.areas > smallest])
     # short edges no longer count: the slivers keep fewer than three
-    short = VoronoiAnalysis(edge_threshold=0.3).compute(system)
+    short = VoronoiAnalysis(faces=True, edge_threshold=0.3).compute(system)
     assert (short.coordination == 12).all()
     np.testing.assert_array_equal(short.index(4)[:, 1], 12)
-    assert repr(VoronoiAnalysis(edge_threshold=0.3)) == (
+    assert repr(VoronoiAnalysis(faces=True, edge_threshold=0.3)) == (
         "VoronoiAnalysis(face_threshold=0.0, relative_face_threshold=0.0, "
-        "edge_threshold=0.3, polyhedra=False)"
+        "edge_threshold=0.3)"
     )
     bad = [
         ("face_threshold", -0.1),
@@ -166,14 +166,35 @@ def test_thresholds():
     ]
     for name, value in bad:
         with pytest.raises(InvalidParameter, match=name):
-            VoronoiAnalysis(**{name: value})
+            VoronoiAnalysis(faces=True, **{name: value})
     with pytest.raises(InvalidParameter, match="largest"):
         every.index(2)
 
 
+def test_faces_only_when_asked_for():
+    system = crystal("fcc", 3.6, (3, 3, 3), jitter=0.2, seed=5)
+    bare = VoronoiAnalysis().compute(system)
+    full = VoronoiAnalysis(faces=True, polyhedra=True).compute(system)
+    shapes = VoronoiAnalysis(polyhedra=True).compute(system)
+    for result in (bare, shapes):
+        for name in ("volume", "coordination", "radius"):
+            np.testing.assert_array_equal(getattr(result, name), getattr(full, name))
+        assert all(
+            getattr(result, name) is None
+            for name in ("offsets", "j", "shifts", "areas", "edges")
+        )
+    assert bare.polyhedra is None and shapes.polyhedra is not None
+    np.testing.assert_array_equal(shapes.polyhedra.areas, full.polyhedra.areas)
+    np.testing.assert_array_equal(
+        full.coordination, np.add.reduceat(full.j >= 0, full.offsets[:-1])
+    )
+    with pytest.raises(InvalidParameter, match="needs the faces"):
+        bare.index()
+
+
 def test_one_atom_and_atoms_outside_the_box():
     single = mdapy.System([[0.5, 0.5, 0.5]], mdapy.Box([3.0, 4.0, 5.0]), elements="Ar")
-    result = VoronoiAnalysis().compute(single)
+    result = VoronoiAnalysis(faces=True).compute(single)
     assert result.volume[0] == pytest.approx(60.0, rel=1e-12)
     assert result.coordination[0] == 6 and (result.j == 0).all()
     outside = mdapy.System(
@@ -181,7 +202,7 @@ def test_one_atom_and_atoms_outside_the_box():
         mdapy.Box(5.0, pbc=(True, True, False)),
         elements="Ar",
     )
-    result = VoronoiAnalysis().compute(outside)
+    result = VoronoiAnalysis(faces=True).compute(outside)
     # the closed direction reaches out to the atom at z = 7
     assert result.volume.sum() == pytest.approx(25.0 * 7.0, rel=1e-12)
 
@@ -191,7 +212,7 @@ def test_atoms_at_the_same_position():
         [[1.0, 1, 1], [1.0, 1, 1], [3.0, 3, 3]], mdapy.Box(6.0), elements="Ar"
     )
     with pytest.raises(InvalidParameter, match="same position"):
-        VoronoiAnalysis().compute(twins)
+        VoronoiAnalysis(faces=True).compute(twins)
 
 
 def shape_of(polyhedra, i):
@@ -213,9 +234,9 @@ def shape_of(polyhedra, i):
 @pytest.mark.parametrize("pbc", [True, (True, False, True)])
 def test_polyhedra(pbc):
     system = random_system(n=120, pbc=pbc, seed=7)
-    result = VoronoiAnalysis(polyhedra=True).compute(system)
+    result = VoronoiAnalysis(faces=True, polyhedra=True).compute(system)
     shapes = result.polyhedra
-    plain = VoronoiAnalysis().compute(system)
+    plain = VoronoiAnalysis(faces=True).compute(system)
     assert plain.polyhedra is None
     np.testing.assert_array_equal(result.volume, plain.volume)
     x = system["positions"]
@@ -257,12 +278,16 @@ def test_polyhedra(pbc):
         ),
         result.coordination,
     )
-    assert repr(VoronoiAnalysis(polyhedra=True)).endswith("polyhedra=True)")
+    assert repr(VoronoiAnalysis(faces=True, polyhedra=True)).endswith(
+        "edge_threshold=0.0)"
+    )
 
 
 def test_polyhedra_of_fcc():
     a = 3.6
-    shapes = VoronoiAnalysis(polyhedra=True).compute(crystal("fcc", a)).polyhedra
+    shapes = (
+        VoronoiAnalysis(faces=True, polyhedra=True).compute(crystal("fcc", a)).polyhedra
+    )
     assert (np.diff(shapes.vertex_offsets) == 14).all()
     assert (np.diff(shapes.face_offsets) == 12).all()
     assert (np.diff(shapes.corner_offsets) == 4).all()

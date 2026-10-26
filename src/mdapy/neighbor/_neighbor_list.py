@@ -228,12 +228,13 @@ class NeighborList:
         box = system.box
         positions = np.ascontiguousarray(system["positions"])
         try:
-            *_, offsets, j, shifts, areas, _, _ = _analysis.voronoi(
+            _, _, _, (offsets, j, shifts, areas, _), _ = _analysis.voronoi(
                 positions,
                 np.ascontiguousarray(box.matrix),
                 np.ascontiguousarray(box.origin),
                 np.ascontiguousarray(box.pbc),
                 *thresholds,
+                True,
                 False,
                 progress,
                 _native_token(cancel),

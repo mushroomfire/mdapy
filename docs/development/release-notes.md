@@ -164,7 +164,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   to degree 20, optionally averaged; the
   [`EntropyFingerprint`](../analysis/entropy.md); and the
   [`VoronoiAnalysis`](../analysis/voronoi.md), computed by mdapy's own code,
-  with the volumes, faces, coordination and Voronoi indices of the cells,
+  with the volumes and coordination of the cells and, when asked for, their
+  faces and Voronoi indices (`faces=True`), which otherwise are not kept,
   the face and edge thresholds of OVITO, boxes that are not periodic, and
   the shapes of the cells as polyhedra; `NeighborList.build(system,
   voronoi=True)` for the atoms that share a face, and Steinhardt parameters

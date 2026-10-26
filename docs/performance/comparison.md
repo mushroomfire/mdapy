@@ -33,10 +33,6 @@ pip, each with 40 threads.
   cases timed apart (0.16 s against 0.29 s at 256 000; the radial
   distribution function apart reaches 6 Å instead of 5 Å). OVITO's pipeline
   of the six takes about the sum of its cases (4.15 s against 4.35 s).
-- **Memory**: mdapy's Voronoi analysis returns every face of every cell,
-  with the atom across it, its area and its edges (1.6 GB at 2 million
-  atoms); OVITO's keeps only the volumes and coordination unless asked for
-  bonds or polyhedra.
 - **4 000 atoms** take a few milliseconds; mdapy is faster there in every
   analysis but atomic strain.
 - **Not run**: Steinhardt parameters over Voronoi faces at 2 million atoms,
@@ -177,6 +173,7 @@ process minus its peak before the timings.
 | Radial distribution function | fcc Cu | `RadialDistributionFunction(6.0, bins=200)` | `CoordinationAnalysisModifier(cutoff=6.0, number_of_bins=200)` | `RDF(bins=200, r_max=6.0)` |
 | Bond angle distribution | fcc Cu | `BondAngleDistribution(cutoff=3.0, bins=180)` | `CreateBondsModifier(cutoff=3.0)`, `BondAngleDistributionModifier(bins=180)` | |
 | Voronoi volumes and coordination | fcc Cu | `VoronoiAnalysis()` | `VoronoiAnalysisModifier()` | `Voronoi()` |
+| Voronoi cells with their faces | fcc Cu | `VoronoiAnalysis(faces=True)` | `VoronoiAnalysisModifier(generate_bonds=True)` | `Voronoi()` |
 | Cluster analysis, 2 Å | random points | `ClusterAnalysis(cutoff=2.0)` | `ClusterAnalysisModifier(cutoff=2.0, sort_by_size=True)` | `Cluster()` with `{"r_max": 2.0}` |
 | Wigner–Seitz occupancies | fcc Cu, 0.5 % vacancies | `WignerSeitz(reference)` | `WignerSeitzAnalysisModifier()` | |
 | Atomic strain, 3 Å | strained fcc Cu | `AtomicStrain(reference, 3.0)` | `AtomicStrainModifier(cutoff=3.0)` | |

@@ -179,14 +179,14 @@ using Periodic = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device:
 
 nb::tuple voronoi(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
                   double face_threshold, double relative_face_threshold, double edge_threshold,
-                  bool polyhedra, nb::handle progress, const CancelToken* cancel) {
+                  bool faces, bool polyhedra, nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
     analysis::VoronoiCells cells;
     run_released(
         [&](const Control& control) {
             cells = analysis::voronoi(positions.data(), n, matrix.data(), origin.data(), pbc.data(),
                                       {face_threshold, relative_face_threshold, edge_threshold},
-                                      polyhedra, control);
+                                      faces, polyhedra, control);
         },
         progress, cancel);
     nb::object shapes = nb::none();
@@ -197,11 +197,15 @@ nb::tuple voronoi(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic
             as_array(std::move(cells.corners)), as_array(std::move(cells.face_neighbors)),
             as_array(std::move(cells.face_areas)));
     }
+    nb::object found = nb::none();
+    if (faces) {
+        found = nb::make_tuple(as_array(std::move(cells.offsets)),
+                               as_array(std::move(cells.neighbors)),
+                               as_array(std::move(cells.shifts)), as_array(std::move(cells.areas)),
+                               as_array(std::move(cells.edges)));
+    }
     return nb::make_tuple(as_array(std::move(cells.volumes)), as_array(std::move(cells.radii)),
-                          as_array(std::move(cells.coordination)),
-                          as_array(std::move(cells.offsets)), as_array(std::move(cells.neighbors)),
-                          as_array(std::move(cells.shifts)), as_array(std::move(cells.areas)),
-                          as_array(std::move(cells.edges)), shapes);
+                          as_array(std::move(cells.coordination)), found, shapes);
 }
 
 nb::object steinhardt_nearest(Positions3 positions, Matrix3 matrix, Origin3 origin,
@@ -641,8 +645,8 @@ void bind_analysis(nb::module_& m) {
           nb::arg("type").none() = nb::none(), nb::arg("limits").none() = nb::none());
     m.def("voronoi", &voronoi, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("face_threshold"), nb::arg("relative_face_threshold"),
-          nb::arg("edge_threshold"), nb::arg("polyhedra"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+          nb::arg("edge_threshold"), nb::arg("faces"), nb::arg("polyhedra"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("atomic_strain_search", &atomic_strain_search, nb::arg("cutoff"), nb::arg("reference"),
           nb::arg("reference_inverse"), nb::arg("reference_origin"), nb::arg("positions"),
           nb::arg("inverse"), nb::arg("origin"), nb::arg("pbc"), nb::arg("reference_matrix"),

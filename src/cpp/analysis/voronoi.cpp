@@ -489,14 +489,20 @@ bool build_cell(Cell& cell, const std::vector<Wall>& walls, const Vec& x, const 
 struct Collector {
     std::vector<std::vector<Out>> buffers;    // one per chunk of work
     std::vector<Shapes> shapes;               // one per chunk, with polyhedra
-    std::vector<std::int64_t> buffer, start;  // per atom: where its faces are
+    std::vector<std::int64_t> buffer;  // per atom: the chunk of its cell
+    std::vector<std::int64_t> start;   // with faces: where its faces are
     std::vector<std::int32_t> count;
     std::vector<std::int64_t> point_start, polygon_start;  // with polyhedra
     std::vector<std::int32_t> point_count, polygon_count;
 
-    Collector(std::int64_t n, bool polyhedra)
-        : buffer(static_cast<std::size_t>(n), -1), start(static_cast<std::size_t>(n), 0),
-          count(static_cast<std::size_t>(n), 0) {
+    Collector(std::int64_t n, bool faces, bool polyhedra) {
+        if (faces || polyhedra) {
+            buffer.assign(static_cast<std::size_t>(n), -1);
+        }
+        if (faces) {
+            start.assign(static_cast<std::size_t>(n), 0);
+            count.assign(static_cast<std::size_t>(n), 0);
+        }
         if (polyhedra) {
             point_start.assign(static_cast<std::size_t>(n), 0);
             polygon_start.assign(static_cast<std::size_t>(n), 0);
@@ -547,34 +553,43 @@ struct Collector {
         }
     }
 
-    void assemble(std::int64_t n, VoronoiCells& cells) const {
-        cells.offsets.assign(static_cast<std::size_t>(n) + 1, 0);
-        cells.coordination.assign(static_cast<std::size_t>(n), 0);
-        for (std::int64_t i = 0; i < n; ++i) {
-            cells.offsets[i + 1] = cells.offsets[i] + count[i];
-        }
-        const auto total = static_cast<std::size_t>(cells.offsets[n]);
-        cells.neighbors.resize(total);
-        cells.shifts.resize(3 * total);
-        cells.areas.resize(total);
-        cells.edges.resize(total);
-        for (std::int64_t i = 0; i < n; ++i) {
-            const Out* faces = buffers[static_cast<std::size_t>(buffer[i])].data() + start[i];
-            for (std::int32_t f = 0; f < count[i]; ++f) {
-                const auto at = static_cast<std::size_t>(cells.offsets[i] + f);
-                cells.neighbors[at] = faces[f].j;
-                for (int e = 0; e < 3; ++e) {
-                    const std::int32_t s = faces[f].shift[e];
-                    if (s < std::numeric_limits<std::int8_t>::min() ||
-                        s > std::numeric_limits<std::int8_t>::max()) {
-                        throw std::overflow_error("a periodic image of a face is outside int8");
-                    }
-                    cells.shifts[3 * at + e] = static_cast<std::int8_t>(s);
-                }
-                cells.areas[at] = faces[f].area;
-                cells.edges[at] = faces[f].edges;
-                cells.coordination[i] += faces[f].j >= 0;
+    // The faces kept, in CSR form, copied for the atoms in parallel; and the
+    // shapes of the cells, with polyhedra.
+    void assemble(std::int64_t n, bool faces, VoronoiCells& cells) const {
+        if (faces) {
+            cells.offsets.assign(static_cast<std::size_t>(n) + 1, 0);
+            for (std::int64_t i = 0; i < n; ++i) {
+                cells.offsets[i + 1] = count[i];
             }
+            prefix_sum(cells.offsets.data(), n + 1);
+            const auto total = static_cast<std::size_t>(cells.offsets[n]);
+            cells.neighbors.resize(total);
+            cells.shifts.resize(3 * total);
+            cells.areas.resize(total);
+            cells.edges.resize(total);
+            parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
+                for (std::int64_t i = begin; i < end; ++i) {
+                    if (count[i] == 0) {
+                        continue;
+                    }
+                    const Out* out = buffers[static_cast<std::size_t>(buffer[i])].data() + start[i];
+                    for (std::int32_t f = 0; f < count[i]; ++f) {
+                        const auto at = static_cast<std::size_t>(cells.offsets[i] + f);
+                        cells.neighbors[at] = out[f].j;
+                        for (int e = 0; e < 3; ++e) {
+                            const std::int32_t s = out[f].shift[e];
+                            if (s < std::numeric_limits<std::int8_t>::min() ||
+                                s > std::numeric_limits<std::int8_t>::max()) {
+                                throw std::overflow_error(
+                                    "a periodic image of a face is outside int8");
+                            }
+                            cells.shifts[3 * at + e] = static_cast<std::int8_t>(s);
+                        }
+                        cells.areas[at] = out[f].area;
+                        cells.edges[at] = out[f].edges;
+                    }
+                }
+            });
         }
         if (!point_count.empty()) {
             assemble_shapes(n, cells);
@@ -586,14 +601,15 @@ struct Collector {
 
 VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matrix,
                      const double* origin, const bool* pbc, const VoronoiThresholds& thresholds,
-                     bool polyhedra, const Control& control) {
+                     bool faces, bool polyhedra, const Control& control) {
     const std::vector<Wall> walls = make_walls(n, positions, matrix, origin, pbc);
     VoronoiCells cells;
     cells.volumes.assign(static_cast<std::size_t>(n), 0.0);
     cells.radii.assign(static_cast<std::size_t>(n), 0.0);
-    Collector collector(n, polyhedra);
+    cells.coordination.assign(static_cast<std::size_t>(n), 0);
+    Collector collector(n, faces, polyhedra);
     if (n == 0) {
-        collector.assemble(n, cells);
+        collector.assemble(n, faces, cells);
         return cells;
     }
     const double* h = matrix;
@@ -644,7 +660,7 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
             count, grain,
             [&](std::int64_t begin, std::int64_t end) {
                 const std::size_t id = first_buffer + static_cast<std::size_t>(begin / grain);
-                std::vector<Out>& faces = collector.buffers[id];
+                std::vector<Out>& found = collector.buffers[id];
                 Shapes* shapes = polyhedra ? &collector.shapes[id] : nullptr;
                 Cell cell(eps);
                 Neighbors neighbors;
@@ -661,15 +677,26 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
                         neighbors.add(r2, j, s);
                     });
                     neighbors.sort(reach);
-                    const std::size_t mark = faces.size();
+                    const std::size_t mark = found.size();
                     const std::size_t points = shapes ? shapes->points.size() : 0;
                     const std::size_t polygons = shapes ? shapes->polygons.size() : 0;
                     const Vec x = {xi[0] - origin[0], xi[1] - origin[1], xi[2] - origin[2]};
                     if (build_cell(cell, walls, x, positions, i, h, neighbors, reach, eps,
-                                   thresholds, cells.volumes[i], cells.radii[i], faces, shapes)) {
-                        collector.buffer[i] = static_cast<std::int64_t>(id);
-                        collector.start[i] = static_cast<std::int64_t>(mark);
-                        collector.count[i] = static_cast<std::int32_t>(faces.size() - mark);
+                                   thresholds, cells.volumes[i], cells.radii[i], found, shapes)) {
+                        std::int64_t shared = 0;  // the faces with atoms
+                        for (std::size_t f = mark; f < found.size(); ++f) {
+                            shared += found[f].j >= 0;
+                        }
+                        cells.coordination[i] = shared;
+                        if (faces) {
+                            collector.start[i] = static_cast<std::int64_t>(mark);
+                            collector.count[i] = static_cast<std::int32_t>(found.size() - mark);
+                        } else {
+                            found.resize(mark);  // only the cell's size and shape
+                        }
+                        if (faces || shapes != nullptr) {
+                            collector.buffer[i] = static_cast<std::int64_t>(id);
+                        }
                         if (shapes != nullptr) {
                             collector.point_start[i] = static_cast<std::int64_t>(points);
                             collector.point_count[i] =
@@ -679,7 +706,7 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
                                 static_cast<std::int32_t>(shapes->polygons.size() - polygons);
                         }
                     } else {
-                        faces.resize(mark);
+                        found.resize(mark);
                         open[static_cast<std::size_t>(t)] = 1;
                     }
                 }
@@ -698,7 +725,7 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
     if (control.monitor) {
         control.monitor(before, before);
     }
-    collector.assemble(n, cells);
+    collector.assemble(n, faces, cells);
     return cells;
 }
 

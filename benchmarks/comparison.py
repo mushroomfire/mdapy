@@ -884,6 +884,9 @@ def _cases() -> dict[str, Case]:
         # and freud normalizes in single precision
         assert np.all(np.abs(ours.g - theirs.rdf) <= allowed + SINGLE * ours.g + 1e-6)
 
+    def voronoi_volumes_freud(ours, theirs, inputs):
+        close(ours.volume, theirs.volumes, SINGLE)
+
     def voronoi_freud(ours, theirs, inputs):
         close(ours.volume, theirs.volumes, SINGLE)
         # freud leaves out some faces of distant neighbors, all below 2e-2 Å²
@@ -929,6 +932,15 @@ def _cases() -> dict[str, Case]:
         differ = ours.coordination != theirs
         assert differ.sum() <= max(1, 1e-5 * len(theirs))
         assert np.abs(ours.coordination - theirs).max(initial=0) <= 1
+
+    def voronoi_faces(ours, data):
+        # a bond for each two faces between two atoms, one of each
+        voronoi(ours, data)
+        bonds = np.asarray(data.particles.bonds.topology)
+        theirs = np.bincount(bonds.ravel(), minlength=len(ours.volume))
+        mine = np.bincount(ours.j[ours.j >= 0], minlength=len(ours.volume))
+        differ = (mine != theirs) | (ours.coordination != theirs)
+        assert differ.sum() <= max(2, 2e-5 * len(theirs))
 
     def clusters(ours, data):
         theirs = np.bincount(particles("Cluster")(data))
@@ -1134,6 +1146,18 @@ def _cases() -> dict[str, Case]:
             analysis(lambda inputs: VoronoiAnalysis()),
             {
                 "ovito": ovito(pipeline(modifier("VoronoiAnalysisModifier")), voronoi),
+                "freud": Other(_freud("locality.Voronoi"), voronoi_volumes_freud),
+            },
+        ),
+        "voronoi-faces": Case(
+            "Voronoi cells with their faces",
+            copper,
+            analysis(lambda inputs: VoronoiAnalysis(faces=True)),
+            {
+                "ovito": ovito(
+                    pipeline(modifier("VoronoiAnalysisModifier", generate_bonds=True)),
+                    voronoi_faces,
+                ),
                 "freud": Other(_freud("locality.Voronoi"), voronoi_freud),
             },
         ),

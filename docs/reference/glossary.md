@@ -120,6 +120,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | smallest Voronoi face (Å²), fraction of the cell's surface, shortest edge (Å) | `face_threshold`, `relative_face_threshold`, `edge_threshold` | `area_threshold` |
 | neighbors that share a Voronoi face | `voronoi=True` | `use_voronoi` |
 | neighbors weighted by the area of their face | `weighted=True` | `use_weight` |
+| faces of the Voronoi cells | `faces=True` | |
 | shapes of the Voronoi cells | `polyhedra=True` | `cell_info` |
 | follow atoms through the periodic boundaries | `unwrap` (bool) | `wrapped`, `unwrapped` |
 | reference configuration | `reference=` | `ref` |

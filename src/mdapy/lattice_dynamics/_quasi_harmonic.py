@@ -13,7 +13,7 @@ from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
-from mdapy.lattice_dynamics._phonons import _read_only, phonons
+from mdapy.lattice_dynamics._phonons import _default_supercell, _read_only, phonons
 from mdapy.simulation._minimize import minimize
 
 
@@ -218,6 +218,7 @@ def quasi_harmonic(
     max_force: float = 1e-6,
     max_stress: float = 1e-4,
     max_steps: int = 5000,
+    symmetry: bool | None = None,
 ) -> QuasiHarmonicResult:
     """Thermodynamic properties of a crystal in the quasi-harmonic
     approximation: harmonic phonons at several volumes.
@@ -253,6 +254,9 @@ def quasi_harmonic(
         GPa. Default 1e-4.
     max_steps : int, optional
         Largest number of steps of each relaxation. Default 5000.
+    symmetry : bool, optional
+        Use the symmetry of the cells in the phonons, as in
+        :func:`phonons`. Default whenever spglib is installed.
 
     Returns
     -------
@@ -275,6 +279,8 @@ def quasi_harmonic(
     if pressures is not None and volumes is not None:
         raise InvalidParameter("give pressures or volumes, not both")
     n = len(system)
+    if supercell is None:  # the same supercell at every volume
+        supercell = _default_supercell(system.box.matrix, 2 * calculator.cutoff)
     cells, energies, free, entropy, capacity = [], [], [], [], []
     for where, relaxed in _relaxed_cells(
         system, calculator, pressures, volumes, max_force, max_stress, max_steps
@@ -285,6 +291,7 @@ def quasi_harmonic(
                 calculator,
                 supercell=supercell,
                 displacement=displacement,
+                symmetry=symmetry,
             ).thermal(temperatures, mesh)
         except InvalidParameter as error:
             raise InvalidParameter(f"{where}: {error}") from None

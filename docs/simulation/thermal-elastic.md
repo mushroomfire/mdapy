@@ -48,6 +48,13 @@ a cubic polynomial through those cells.
 | `supercell`, `mesh`, `displacement` | | | | of the phonons of the strained cells, as in [`phonons`](phonons.md) |
 | `max_force` | float | 1e-6 | eV/Å | convergence of the relaxation of the positions in each strained cell |
 | `max_steps` | int | 5000 | | largest number of steps of each relaxation |
+| `symmetry` | bool or None | `None` | | compute one of each set of strains that the operations make from each other, and use symmetry in the phonons; with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
+
+A cubic crystal takes 12 of the 73 strains of the differences, hcp 36.
+The strained cells keep the supercell of their cell and the periodic images
+its force constants go to, so that their free energies change smoothly
+with the strain, even in a supercell thinner than the force constants
+reach.
 
 ## Results
 
@@ -67,8 +74,8 @@ give the speed of sound and the stability of the crystal under it.
 
 `thermal_elastic_constants` raises `InvalidParameter` for an unknown method,
 a strain that is not positive, a result without cells, a relaxation that
-does not converge within `max_steps`, and imaginary frequencies in a
-strained cell.
+does not converge within `max_steps`, imaginary frequencies in a strained
+cell, and `symmetry=True` without spglib.
 
 ## Definition
 

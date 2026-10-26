@@ -68,6 +68,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `cnp` | f64 | Å² | common neighbor parameter |
 | `coordination` | int64 | | number of neighbors; `coordination_<element>` counts those of one element |
 | `q4`, `q6`, … | f64 | | Steinhardt order parameters; `q4_average`, … when averaged over neighbors |
+| `solid`, `solid_bonds` | bool, int32 | | whether an atom is solid-like, and its number of solid-like bonds (Steinhardt `solid=True`) |
 | `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
 | `voronoi_volume`, `voronoi_coordination`, `cavity_radius` | f64, int64, f64 | Å³, , Å | volume and number of faces shared with atoms of the Voronoi cell, and the distance to its farthest vertex |
 | `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint; `entropy_average` when averaged over neighbors |

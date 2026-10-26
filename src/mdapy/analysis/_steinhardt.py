@@ -38,11 +38,18 @@ class SteinhardtResult(Result):
         (N, len(degrees)) the parameter q_l of each atom and degree.
     average : bool
         Whether the parameters are averaged over the neighbors.
+    solid_bonds : numpy.ndarray or None
+        (N,) int32 the number of solid-like bonds of each atom, with
+        ``solid``; else None.
+    solid : numpy.ndarray or None
+        (N,) bool whether each atom is solid-like, with ``solid``; else None.
     """
 
     degrees: tuple[int, ...]
     q: np.ndarray
     average: bool
+    solid_bonds: np.ndarray | None = None
+    solid: np.ndarray | None = None
 
     def __getitem__(self, degree: int) -> np.ndarray:
         """(N,) the parameter of one degree."""
@@ -53,7 +60,11 @@ class SteinhardtResult(Result):
 
     def columns(self) -> dict[str, np.ndarray]:
         suffix = "_average" if self.average else ""
-        return {f"q{d}{suffix}": self[d] for d in self.degrees}
+        columns = {f"q{d}{suffix}": self[d] for d in self.degrees}
+        if self.solid is not None:
+            columns["solid"] = self.solid
+            columns["solid_bonds"] = self.solid_bonds
+        return columns
 
 
 class SteinhardtParameters:
@@ -77,6 +88,17 @@ class SteinhardtParameters:
     average : bool, optional
         Average the harmonics of each atom with those of its neighbors first
         (Lechner and Dellago). Default False.
+    solid : bool, optional
+        Also tell solid-like atoms from liquid-like ones by their bonds (ten
+        Wolde, Ruiz-Montero and Frenkel). Default False.
+    solid_degree : int, optional
+        With solid, the degree l of the harmonics of the bonds. Default 6.
+    bond_threshold : float, optional
+        With solid, a bond is solid-like when the normalized product of the
+        harmonics of its two atoms exceeds it. Default 0.7.
+    min_solid_bonds : int, optional
+        With solid, an atom is solid-like with at least so many solid-like
+        bonds. Default 7.
     """
 
     def __init__(
@@ -88,6 +110,10 @@ class SteinhardtParameters:
         voronoi: bool = False,
         weighted: bool = False,
         average: bool = False,
+        solid: bool = False,
+        solid_degree: int = 6,
+        bond_threshold: float = 0.7,
+        min_solid_bonds: int = 7,
     ):
         self.degrees = tuple(int(d) for d in degrees)
         if not self.degrees or any(not 0 <= d <= 20 for d in self.degrees):
@@ -107,6 +133,22 @@ class SteinhardtParameters:
         self.voronoi = bool(voronoi)
         self.weighted = bool(weighted)
         self.average = bool(average)
+        if not 0 <= int(solid_degree) <= 20 or int(solid_degree) != solid_degree:
+            raise InvalidParameter(
+                f"solid_degree must be from 0 to 20, not {solid_degree!r}"
+            )
+        if not -1 <= bond_threshold <= 1:
+            raise InvalidParameter(
+                f"bond_threshold must be from -1 to 1, not {bond_threshold!r}"
+            )
+        if int(min_solid_bonds) != min_solid_bonds or min_solid_bonds < 0:
+            raise InvalidParameter(
+                f"min_solid_bonds must be an integer of at least 0, not {min_solid_bonds!r}"
+            )
+        self.solid = bool(solid)
+        self.solid_degree = int(solid_degree)
+        self.bond_threshold = float(bond_threshold)
+        self.min_solid_bonds = int(min_solid_bonds)
 
     def compute(
         self,
@@ -130,10 +172,16 @@ class SteinhardtParameters:
         Returns
         -------
         SteinhardtResult
-            q_l of each atom; atoms without neighbors have 0.
+            q_l of each atom; atoms without neighbors have 0. With solid,
+            also the solid-like bonds and atoms.
         """
         k = self.num_neighbors
-        nearest = not self.voronoi and self.cutoff is None and not self.average
+        nearest = (
+            not self.voronoi
+            and self.cutoff is None
+            and not self.average
+            and not self.solid
+        )
         if nearest and neighbors is None and (system.box.pbc.any() or len(system) > k):
             # the nearest neighbors found as it goes, without a list
             box = system.box
@@ -158,18 +206,33 @@ class SteinhardtParameters:
         else:
             nl = _nearest_given_or_built(system, self.num_neighbors, neighbors)
             count, cutoff = self.num_neighbors, 0.0
+        weights = nl.areas if self.weighted else None
         with nl._reading():
             q = _native.steinhardt(
                 *_view(system, nl),
                 count,
                 cutoff,
-                nl.areas if self.weighted else None,
+                weights,
                 list(self.degrees),
                 self.average,
                 progress,
                 _native_token(cancel),
             )
-        return SteinhardtResult(self.degrees, q, self.average)
+            if not self.solid:
+                return SteinhardtResult(self.degrees, q, self.average)
+            bonds = _native.solid_bonds(
+                *_view(system, nl),
+                count,
+                cutoff,
+                weights,
+                self.solid_degree,
+                self.bond_threshold,
+                progress,
+                _native_token(cancel),
+            )
+        return SteinhardtResult(
+            self.degrees, q, self.average, bonds, bonds >= self.min_solid_bonds
+        )
 
     def __repr__(self) -> str:
         if self.voronoi:
@@ -178,4 +241,13 @@ class SteinhardtParameters:
             reach = f"cutoff={self.cutoff!r}"
         else:
             reach = f"num_neighbors={self.num_neighbors}"
-        return f"SteinhardtParameters(degrees={self.degrees}, {reach}, average={self.average})"
+        solid = (
+            f", solid=True, solid_degree={self.solid_degree}, "
+            f"bond_threshold={self.bond_threshold!r}, min_solid_bonds={self.min_solid_bonds}"
+            if self.solid
+            else ""
+        )
+        return (
+            f"SteinhardtParameters(degrees={self.degrees}, {reach}, "
+            f"average={self.average}{solid})"
+        )

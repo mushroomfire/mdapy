@@ -221,7 +221,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   factors; the [`BondAngleDistribution`](../analysis/bond-angles.md) for
   each triplet of elements; [`WarrenCowley`](../analysis/warren-cowley.md)
   short-range order, over shells of neighbors by distance or by number; [`SteinhardtParameters`](../analysis/steinhardt.md) up
-  to degree 20, optionally averaged; the
+  to degree 20, optionally averaged, and with `solid=True` the solid-like
+  bonds and atoms of ten Wolde, Ruiz-Montero and Frenkel, as freud's
+  `SolidLiquid` (mdapy 1.x `identify_liquid`); the
   [`EntropyFingerprint`](../analysis/entropy.md); and the
   [`VoronoiAnalysis`](../analysis/voronoi.md), computed by mdapy's own code,
   with the volumes and coordination of the cells and, when asked for, their

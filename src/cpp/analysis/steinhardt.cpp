@@ -292,4 +292,49 @@ void steinhardt(const neighbor::ListView& list, std::int64_t n, const double* we
         control);
 }
 
+void solid_bonds(const neighbor::ListView& list, std::int64_t n, const double* weights, int l,
+                 double threshold, std::int32_t* bonds, const Control& control) {
+    const std::vector<int> degrees = {l};
+    const std::pair<std::size_t, int> shape = harmonics_of(degrees);
+    const std::size_t width = shape.first;
+    // the harmonics of every atom, of length 1, or 0 without pairs
+    std::unique_ptr<double[]> unit(new double[static_cast<std::size_t>(n) * width]);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            std::vector<double> y(width);
+            for (std::int64_t i = begin; i < end; ++i) {
+                double* own = &unit[static_cast<std::size_t>(i) * width];
+                bond_harmonics(bonds_of(list, i, weights), degrees, l, width, y.data(), own);
+                double norm = 0.0;
+                for (std::size_t k = 0; k < width; ++k) {
+                    norm += own[k] * own[k];
+                }
+                norm = std::sqrt(norm);
+                for (std::size_t k = 0; k < width; ++k) {
+                    own[k] = norm > 0.0 ? own[k] / norm : 0.0;
+                }
+            }
+        },
+        control);
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t i = begin; i < end; ++i) {
+                const double* own = &unit[static_cast<std::size_t>(i) * width];
+                std::int32_t solid = 0;
+                list.for_each(i, [&](std::int64_t, index_t j, const double*) {
+                    const double* other = &unit[static_cast<std::size_t>(j) * width];
+                    double product = 0.0;
+                    for (std::size_t k = 0; k < width; ++k) {
+                        product += own[k] * other[k];
+                    }
+                    solid += product > threshold ? 1 : 0;
+                });
+                bonds[i] = solid;
+            }
+        },
+        control);
+}
+
 }  // namespace mdapy::analysis

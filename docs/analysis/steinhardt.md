@@ -3,7 +3,9 @@
 `SteinhardtParameters` gives the bond-orientational order parameters $q_l$
 of each atom, which tell crystals, liquids and glasses apart, plain or
 averaged over the neighbors, with neighbors by number, by distance or by
-Voronoi cell, optionally weighted by the areas of the Voronoi faces.
+Voronoi cell, optionally weighted by the areas of the Voronoi faces; with
+`solid`, it also tells the solid-like atoms from the liquid-like ones by the
+order their bonds share.
 
 ```python
 import numpy as np
@@ -60,6 +62,43 @@ with plot.style():
 *Each atom of the three crystals as a point: fcc, hcp and bcc fall in
 separate clouds, as in [Lechner and Dellago (2008)](../reference/references.md#lechner2008).*
 
+With `solid`, each atom gets its number of solid-like bonds, those to
+neighbors whose harmonics of degree 6 are nearly parallel to its own, and is
+solid-like with at least 7: copper whose upper half is disordered like a
+liquid, the lower half shaken as at a high temperature:
+
+```python
+from mdapy.visualization import render
+
+melt = build_crystal("fcc", 3.615, elements="Cu", repeat=(8, 8, 12))
+upper = melt["positions"][:, 2] > 22.0
+shake = (
+    rng.normal(0, 0.1, (len(melt), 3))
+    + rng.normal(0, 0.6, (len(melt), 3)) * upper[:, None]
+)
+melt = melt.with_columns(positions=melt["positions"] + shake)
+
+phases = SteinhardtParameters(solid=True).compute(melt)
+phases.solid  # True for the solid-like atoms
+phases.solid_bonds  # their solid-like bonds, of 12
+melt = melt.with_columns(phases)  # columns q4, q6, solid and solid_bonds
+
+side = [0, -1, 0.15]
+render(
+    melt,
+    "images/steinhardt-solid.png",
+    color=phases.solid_bonds,
+    value_range=(0, 12),
+    view=side,
+)
+```
+
+![Solid-like and liquid-like atoms](images/steinhardt-solid.png)
+
+*The solid-like bonds of each atom, from 0 (dark) to 12 (yellow): all 12 in
+the crystal, few in the disordered half, a few layers in between at the
+interfaces, the lower one across the periodic boundary.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |
@@ -70,6 +109,10 @@ separate clouds, as in [Lechner and Dellago (2008)](../reference/references.md#l
 | `voronoi` | bool | `False` | | instead, the neighbors share a face of the [Voronoi cell](voronoi.md) |
 | `weighted` | bool | `False` | | with `voronoi`, weight each neighbor by the area of its face |
 | `average` | bool | `False` | | average the $q_{lm}$ over the atom and its neighbors |
+| `solid` | bool | `False` | | also count the solid-like bonds of each atom and tell the solid-like atoms |
+| `solid_degree` | int | 6 | | with `solid`, the degree $l$ of the harmonics of the bonds |
+| `bond_threshold` | float | 0.7 | | with `solid`, a bond is solid-like when the normalized product of the harmonics of its atoms exceeds it |
+| `min_solid_bonds` | int | 7 | | with `solid`, an atom is solid-like with at least so many solid-like bonds |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list
@@ -89,14 +132,19 @@ A `SteinhardtResult`:
 | `q` | (N, degrees) float64 | $q_l$ of each atom, one column per degree; 0 for an atom without neighbors |
 | `average` | bool | whether the parameters are averaged |
 | `result[l]` | (N,) float64 | the parameter of degree $l$ |
+| `solid_bonds` | (N,) int32 | with `solid`, the number of solid-like bonds of each atom; else `None` |
+| `solid` | (N,) bool | with `solid`, whether each atom is solid-like; else `None` |
 
-Its columns are `q4`, `q6`, …, or `q4_average`, … when averaged.
+Its columns are `q4`, `q6`, …, or `q4_average`, … when averaged, and with
+`solid` also `solid` and `solid_bonds`.
 
 ## Errors
 
 The constructor raises `InvalidParameter` for a degree outside 0 to 20, more
 than one of `num_neighbors`, `cutoff` and `voronoi`, either number not
-positive, or `weighted` without `voronoi`; `compute` raises it for a
+positive, `weighted` without `voronoi`, a `solid_degree` that is not an
+integer from 0 to 20, a `bond_threshold` outside −1 to 1, or a
+`min_solid_bonds` that is not an integer of at least 0; `compute` raises it for a
 neighbor list that does not fit or, with `voronoi`, two atoms at the same
 position, and `result[l]` for a degree not computed.
 
@@ -137,10 +185,30 @@ Values for perfect lattices:
 | bcc | Voronoi, weighted | 0.224025 | 0.566940 |
 | icosahedron | 12 | 0 | 0.663325 |
 
+With `solid`, the bond between atom $i$ and its neighbor $j$ is solid-like
+when the harmonics of the two atoms, of degree $l$ = `solid_degree`, point
+alike:
+
+$$
+d_l(i, j) = \frac{\operatorname{Re} \sum_{m=-l}^{l} q_{lm}(i)\, q_{lm}(j)^*}
+{\sqrt{\sum_m \lvert q_{lm}(i) \rvert^2} \sqrt{\sum_m \lvert q_{lm}(j) \rvert^2}}
+> d_c ,
+$$
+
+$d_c$ = `bond_threshold`, from the plain $q_{lm}$ (not averaged), with the
+neighbors and weights above; an atom with at least `min_solid_bonds` such
+bonds is solid-like ([ten Wolde et al. 1996](../reference/references.md#tenwolde1996)).
+For $l = 6$, $d_c = 0.7$ and 6 to 8 bonds suit fcc and bcc crystals
+([Filion et al. 2010](../reference/references.md#filion2010)); in a perfect
+crystal every bond is solid-like, $d_6 = 1$. An atom without neighbors has
+no bonds.
+
 ## See also
 
 - OVITO [Steinhardt parameters](https://docs.ovito.org/reference/pipelines/modifiers/steinhardt_parameters.html).
 - LAMMPS [`compute orientorder/atom`](https://docs.lammps.org/compute_orientorder_atom.html).
+- freud [`SolidLiquid`](https://freud.readthedocs.io/en/latest/modules/order.html#freud.order.SolidLiquid),
+  the same solid-like bonds and atoms.
 
 !!! quote "Please cite"
-    [Steinhardt et al. (1983)](../reference/references.md#steinhardt1983); with `average`, also [Lechner and Dellago (2008)](../reference/references.md#lechner2008); with `weighted`, also [Mickel et al. (2013)](../reference/references.md#mickel2013).
+    [Steinhardt et al. (1983)](../reference/references.md#steinhardt1983); with `average`, also [Lechner and Dellago (2008)](../reference/references.md#lechner2008); with `weighted`, also [Mickel et al. (2013)](../reference/references.md#mickel2013); with `solid`, also [ten Wolde et al. (1996)](../reference/references.md#tenwolde1996).

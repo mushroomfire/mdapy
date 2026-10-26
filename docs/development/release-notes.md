@@ -127,6 +127,14 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.lattice_dynamics.elastic_constants`: the (6, 6) elastic constants
   from the stress under small strains, with relaxed positions, and Voigt,
   Reuss and Hill moduli. See [Elastic constants](../simulation/elastic-constants.md).
+- `mdapy.lattice_dynamics.phonons`: harmonic phonons from the forces on
+  displaced atoms with any calculator, the force constants made symmetric
+  and free of translations; frequencies and polarization vectors at any
+  wave vector, band structures along standard or given paths, densities of
+  states by the tetrahedron method or Gaussians, projected on the atoms,
+  and the free energy, energy, entropy and heat capacity of the vibrations;
+  the same dynamical matrix as LAMMPS. `primitive_cell` finds the smallest
+  cell of a crystal. `units.PLANCK`. See [Phonons](../simulation/phonons.md).
 
 - `mdapy.simulation.vacancy_formation_energy`, `surface_energy` and
   `stacking_fault_energy` (the generalized stacking fault energy, relaxed

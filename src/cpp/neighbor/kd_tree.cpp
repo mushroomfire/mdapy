@@ -41,6 +41,9 @@ constexpr std::int64_t kSplitChunk = 1 << 13;
 constexpr int kSample = 4096;
 constexpr int kBand = 128;
 
+// Most neighbors sorted by insertion.
+constexpr std::size_t kInsertionSort = 32;
+
 constexpr double kInf = std::numeric_limits<double>::infinity();
 
 // The order of neighbors: by distance, then atom, then image.
@@ -509,8 +512,20 @@ void KdTree::search(const double* x, std::int64_t self, int k, double reach,
         if (static_cast<int>(found.size()) < k) {
             throw std::logic_error("the search found fewer than k neighbors");
         }
-        std::partial_sort(found.begin(), found.begin() + k, found.end(),
-                          [](const Neighbor& p, const Neighbor& q) { return before(p, q); });
+        if (found.size() <= kInsertionSort) {
+            // few and nearly all wanted: insertion beats the heap of a partial sort
+            for (std::size_t a = 1; a < found.size(); ++a) {
+                const Neighbor p = found[a];
+                std::size_t b = a;
+                for (; b > 0 && before(p, found[b - 1]); --b) {
+                    found[b] = found[b - 1];
+                }
+                found[b] = p;
+            }
+        } else {
+            std::partial_sort(found.begin(), found.begin() + k, found.end(),
+                              [](const Neighbor& p, const Neighbor& q) { return before(p, q); });
+        }
     };
     const std::int64_t zero[3] = {0, 0, 0};
     visit(zero);

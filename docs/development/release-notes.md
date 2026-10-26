@@ -140,6 +140,13 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   Gibbs energy, entropy, bulk modulus, thermal expansion and heat capacity
   at constant pressure against temperature, at any pressure. See
   [Quasi-harmonic approximation](../simulation/quasi-harmonic.md).
+- `mdapy.simulation.MolecularDynamics`: molecular dynamics in LAMMPS with
+  the interaction of a LAMMPS calculator: random velocities, runs at
+  constant energy, temperature or pressure with ramps, the thermodynamic
+  state as a polars table, frames and the final system back in the
+  orientation of the box, any LAMMPS command in between; the same
+  trajectory as the same LAMMPS input. See
+  [Molecular dynamics](../simulation/dynamics.md).
 
 - `mdapy.simulation.vacancy_formation_energy`, `surface_energy` and
   `stacking_fault_energy` (the generalized stacking fault energy, relaxed

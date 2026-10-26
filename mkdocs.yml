@@ -159,6 +159,7 @@ nav:
           - VASP: simulation/vasp.md
       - Minimization and dynamics:
           - Energy minimization: simulation/minimize.md
+          - Molecular dynamics: simulation/dynamics.md
           - Defect energies: simulation/defect-energies.md
       - Lattice dynamics:
           - Elastic constants: simulation/elastic-constants.md

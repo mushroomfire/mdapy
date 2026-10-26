@@ -259,6 +259,10 @@ sur les parallélloèdres primitifs, *J. Reine Angew. Math.* **134**, 198
 [doi:10.1515/crll.1908.134.198](https://doi.org/10.1515/crll.1908.134.198)
 { #voronoi1908 }
 
+**Wallace (1972).** D. C. Wallace, *Thermodynamics of Crystals* (Wiley,
+New York, 1972).
+{ #wallace1972 }
+
 **Wu and Shao (2023).** Y.-C. Wu and J.-L. Shao, mdapy: A flexible and
 efficient analysis software for molecular dynamics simulations, *Comput.
 Phys. Commun.* **290**, 108764 (2023).

@@ -140,6 +140,26 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   of states; band structures written and read as phonopy's band.dat;
   `plot.band_structure` and `plot.phonon_dos`. `units.PLANCK`.
   See [Phonons](../simulation/phonons.md).
+- `mdapy.lattice_dynamics.quasi_harmonic`: the quasi-harmonic
+  approximation from phonons at several volumes: the equilibrium volume,
+  Gibbs energy, entropy, bulk modulus, thermal expansion and heat capacity
+  at constant pressure against temperature, at any pressure, the shape of
+  the box relaxed at each volume. See
+  [Quasi-harmonic approximation](../simulation/quasi-harmonic.md).
+- `mdapy.lattice_dynamics.thermal_elastic_constants`: isothermal and
+  adiabatic elastic constants at finite temperature, quasi-harmonic or
+  quasi-static. See [Elastic constants at finite temperature](../simulation/thermal-elastic.md).
+- `mdapy.lattice_dynamics.md_elastic_constants`: isothermal elastic
+  constants at a temperature from the mean stress of molecular dynamics in
+  LAMMPS under small strains, with standard errors from block averages. See
+  [Elastic constants from molecular dynamics](../simulation/md-elastic.md).
+- `mdapy.simulation.MolecularDynamics`: molecular dynamics in LAMMPS with
+  the interaction of a LAMMPS calculator: random velocities, runs at
+  constant energy, temperature or pressure with ramps, the thermodynamic
+  state as a polars table, frames and the final system back in the
+  orientation of the box, any LAMMPS command in between; the same
+  trajectory as the same LAMMPS input. See
+  [Molecular dynamics](../simulation/dynamics.md).
 
 - `mdapy.simulation.vacancy_formation_energy`, `surface_energy` and
   `stacking_fault_energy` (the generalized stacking fault energy, relaxed

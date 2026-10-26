@@ -1,6 +1,6 @@
 Third-party code in mdapy
 
-mdapy itself is released under the BSD 3-Clause License (LICENSE). Its
+mdapy itself is released under the Mozilla Public License 2.0 (LICENSE). Its
 compiled module includes the code below, under the licenses that follow.
 
 1. Polyhedral template matching (src/cpp/identify/ptm), by P. M. Larsen,

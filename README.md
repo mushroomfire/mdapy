@@ -28,4 +28,6 @@ safely in the same process as PyTorch and LAMMPS.
 
 ## License
 
-BSD 3-Clause. See [LICENSE](LICENSE).
+Mozilla Public License 2.0 (MPL-2.0). See [LICENSE](LICENSE): mdapy may be
+used in any software, open or closed, and changes to its own files are shared
+under the same license. mdapy 1.x is under the GPL 3.0 or later.

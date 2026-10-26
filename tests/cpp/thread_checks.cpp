@@ -1,5 +1,7 @@
 // Copyright (c) 2022-2026, Yongchao Wu
-// This file is part of mdapy, released under the BSD 3-Clause License.
+// This Source Code Form is subject to the terms of the Mozilla Public License,
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can
+// obtain one at https://mozilla.org/MPL/2.0/.
 //
 // Checks of the thread pool and the parallel text kernels, without Python.
 // CI builds this program with ThreadSanitizer, which cannot run the Python

@@ -347,6 +347,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 
 ### Foundations
 
+- Released under the Mozilla Public License 2.0: mdapy may be used in any
+  software, open or closed, and changes to its own files are shared under
+  the same license. mdapy 1.x is under the GPL 3.0 or later.
 - Python 3.11 or newer; NumPy 2.3.1 or newer and polars 2 are the only
   required dependencies.
 - All compiled code is one extension module, built as a single abi3 wheel per

@@ -1,5 +1,7 @@
 // Copyright (c) 2022-2026, Yongchao Wu
-// This file is part of mdapy, released under the BSD 3-Clause License.
+// This Source Code Form is subject to the terms of the Mozilla Public License,
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can
+// obtain one at https://mozilla.org/MPL/2.0/.
 //
 // Generated file. Entry q - (-342) holds 5^q scaled by a power of two into
 // [2^127, 2^128), as {high 64 bits, low 64 bits}: truncated for q >= 0; for

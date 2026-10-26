@@ -91,7 +91,8 @@ def build_polycrystal(
     -------
     System
         The atoms with a ``grain`` column, numbered as the seeds; each seed
-        is a site of the unit in its grain.
+        is a site of the unit in its grain. ``info["seeds"]`` holds the
+        (G, 3) positions of the seeds.
     """
     if not unit.box.pbc.all() or len(unit) == 0:
         raise InvalidParameter("unit must be a periodic box with atoms")
@@ -212,7 +213,10 @@ def build_polycrystal(
             if keep[i] and keep[j]:
                 keep[j] = False
     elements = names[np.concatenate(kinds)[keep]]
-    return System(wrapped[keep], box, elements=elements).with_columns(grain=grain[keep])
+    crystal = System(wrapped[keep], box, elements=elements).with_columns(
+        grain=grain[keep]
+    )
+    return crystal.with_info(seeds=seeds)
 
 
 def twin_lamellae(cell: System, layers: int) -> System:

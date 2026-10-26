@@ -237,6 +237,12 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   atomsk, and `edge_dislocation` of two crystals. See
   [Point defects](../build/defects.md) and
   [Dislocations](../build/dislocations.md).
+- `mdapy.build.add_graphene`: graphene on the grain boundaries of a
+  polycrystal, one or more AB-stacked layers centered on each face between
+  two grains, each face once, in a random orientation, cut to the face;
+  a fraction of the boundary area covered by whole faces; the atoms of the
+  grains too close to the carbon removed. `build_polycrystal` keeps the
+  seeds in `info["seeds"]`. See [Graphene on grain boundaries](../build/graphene.md).
 - `mdapy.build.build_polycrystal`: Voronoi grains of any periodic unit,
   columnar when the box is thin, and `twin_lamellae` for twinned grains. See
   [Polycrystals](../build/polycrystals.md).

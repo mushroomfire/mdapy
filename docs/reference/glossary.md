@@ -92,6 +92,11 @@ column of fixed-size arrays of length 3 and use the plural name.
 | wave vector `q` | in units of the reciprocal lattice vectors of the cell: `(h, k, l)` is h **b**1 + k **b**2 + l **b**3, with **a**i · **b**j = 2π δij |
 | `mesh` | number of wave vectors along each reciprocal lattice vector, of a mesh through Γ |
 | primitive cell | the smallest periodic cell of a crystal, from `primitive_cell` |
+| `gibbs_energy` | Gibbs energy per atom (eV), with the static energy, the free energy of the vibrations and the pressure times the volume |
+| `free_energy` | Helmholtz free energy (eV); of the vibrations in `ThermalProperties`, with the zero-point energy |
+| `thermal_expansion` | volumetric thermal expansion coefficient (1/K) |
+| `bulk_modulus` | isothermal bulk modulus (GPa) |
+| `heat_capacity` | heat capacity per atom (eV/K): at constant volume of the vibrations, at constant pressure in the quasi-harmonic approximation |
 | descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 
 ## Parameters

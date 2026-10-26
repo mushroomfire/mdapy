@@ -1,7 +1,8 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
-"""Lattice dynamics with a calculator: elastic constants and phonons."""
+"""Lattice dynamics with a calculator: elastic constants, phonons and the
+quasi-harmonic approximation."""
 
 from mdapy.lattice_dynamics._elastic import ElasticResult, elastic_constants
 from mdapy.lattice_dynamics._phonons import (
@@ -12,14 +13,17 @@ from mdapy.lattice_dynamics._phonons import (
     phonons,
     primitive_cell,
 )
+from mdapy.lattice_dynamics._quasi_harmonic import QuasiHarmonicResult, quasi_harmonic
 
 __all__ = [
     "BandStructure",
     "ElasticResult",
     "PhononDOS",
     "Phonons",
+    "QuasiHarmonicResult",
     "ThermalProperties",
     "elastic_constants",
     "phonons",
     "primitive_cell",
+    "quasi_harmonic",
 ]

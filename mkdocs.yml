@@ -163,6 +163,7 @@ nav:
       - Lattice dynamics:
           - Elastic constants: simulation/elastic-constants.md
           - Phonons: simulation/phonons.md
+          - Quasi-harmonic approximation: simulation/quasi-harmonic.md
   - MLIP:
       - Training sets from VASP: mlip/vasp.md
       - Choosing frames: mlip/selection.md

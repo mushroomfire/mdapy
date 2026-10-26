@@ -197,8 +197,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   crystal, its symmetry operations and equivalent atoms, with spglib.
 - [`PolyhedralTemplateMatching`](../analysis/ptm.md): the structure,
   orientation, elastic deformation and chemical ordering of each atom, for
-  nine structures, with the PTM library of P. M. Larsen as OVITO ships it;
-  the same as OVITO atom by atom.
+  nine structures, implemented by mdapy itself; the same as OVITO atom by
+  atom.
 - [`PlanarFaults`](../analysis/planar-faults.md): intrinsic and multilayer
   stacking faults and coherent twin boundaries of fcc crystals from the
   hcp-like atoms of polyhedral template matching, and their areas; the same

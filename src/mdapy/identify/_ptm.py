@@ -3,7 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Polyhedral template matching, with the PTM library of P. M. Larsen."""
+"""Polyhedral template matching (Larsen, Schmidt and Schiøtz 2016)."""
 
 from collections.abc import Iterable
 from contextlib import nullcontext
@@ -21,7 +21,7 @@ from mdapy.identify._structure import StructureResult
 from mdapy.neighbor import NeighborList
 from mdapy.neighbor._neighbor_list import _nearest_given_or_built
 
-# the nearest neighbors the library orders and matches
+# the nearest neighbors that are ordered and matched
 _NEIGHBORS = 18
 
 

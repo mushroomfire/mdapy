@@ -70,8 +70,10 @@
 | `src/cpp/calculators/eam.h`, `eam.cpp` | The embedded atom method. |
 | `src/cpp/calculators/nep.h`, `nep.cpp` | Neuroevolution potentials. |
 | `src/cpp/identify/structure.h`, `structure.cpp` | Common neighbor analysis and the centro-symmetry parameter. |
-| `src/cpp/identify/ptm.h`, `ptm.cpp` | Polyhedral template matching of every atom with the PTM library. |
-| `src/cpp/identify/ptm/` | The PTM library of P. M. Larsen (MIT license), as OVITO ships it; see its README for the changes. |
+| `src/cpp/identify/ptm.h`, `ptm.cpp` | Polyhedral template matching of every atom: the neighbors in the order of their Voronoi faces, the matching, the results. |
+| `src/cpp/identify/ptm_tools.h`, `ptm_tools.cpp` | Its pieces: convex hulls, canonical forms of graphs, the rotation that fits a template, the codes of correspondences. |
+| `src/cpp/identify/ptm_data.h`, `ptm_data.cpp` | Its templates and what is built from them once: symmetry groups, the graphs of their hulls, the fundamental zones. |
+| `src/cpp/core/voronoi_cell.h` | A convex cell cut down plane by plane, for Voronoi cells. |
 | `src/cpp/analysis/steinhardt.h`, `steinhardt.cpp` | Real spherical harmonics and Steinhardt order parameters. |
 | `src/cpp/analysis/distribution.h`, `distribution.cpp` | Histograms of pair distances counted during the neighbor search, and the structure factor. |
 | `src/cpp/analysis/strain.h`, `strain.cpp` | Atomic strain from neighbor vectors. |

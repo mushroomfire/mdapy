@@ -175,7 +175,7 @@ jobs:
           -Wall -Wextra -Wpedantic -Wshadow -Werror -Isrc/cpp -pthread
           -o thread_checks src/cpp/core/parallel.cpp src/cpp/io/text.cpp
           src/cpp/neighbor/*.cpp src/cpp/calculators/*.cpp
-          src/cpp/identify/*.cpp src/cpp/identify/ptm/*.cpp src/cpp/analysis/*.cpp
+          src/cpp/identify/*.cpp src/cpp/analysis/*.cpp
           src/cpp/build/*.cpp src/cpp/visualization/*.cpp tests/cpp/thread_checks.cpp
       - name: Run them
         run: |

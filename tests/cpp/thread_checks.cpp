@@ -989,8 +989,8 @@ void structure_identification() {
     }
 }
 
-// Polyhedral template matching: the library keeps data of its own, made
-// once, and a handle per chunk.
+// Polyhedral template matching: data built once from the templates, shared
+// by the threads.
 void polyhedral_template_matching() {
     // fcc of 5 x 5 x 5 cubic cells, displaced at random
     const double a = 3.6;

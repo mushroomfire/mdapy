@@ -136,6 +136,7 @@ nav:
           - Voronoi analysis: analysis/voronoi.md
       - Defects and deformation:
           - Cluster analysis: analysis/clusters.md
+          - Chemical species: analysis/species.md
           - Wigner–Seitz analysis: analysis/wigner-seitz.md
           - Atomic strain: analysis/atomic-strain.md
       - Dynamics:

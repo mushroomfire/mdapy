@@ -54,7 +54,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `element` | str | | chemical symbol |
 | `type` | int | | LAMMPS atom type, starting at 1 |
 | `id` | int | | atom ID, starting at 1 |
-| `molecule` | int | | molecule ID (LAMMPS molecule-ID) |
+| `molecule` | int | | molecule ID (LAMMPS molecule-ID); from `ChemicalSpecies`, numbered from 1 by decreasing size |
+| formula | str | | chemical formula of a molecule in Hill order, such as `H2O`, `CO2`, `H3N` |
 | `type_label` | str | | name of the atom type, for example a force-field type |
 | `mass` | f64 | amu | mass |
 | `charge` | f64 | e | charge |

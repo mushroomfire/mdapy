@@ -1,3 +1,32 @@
+# mdapy 2.0 进展报告（2026-10-26 晚）
+
+本分支只放报告和图，不含代码。今晚的代码在各自的新分支上，等你检查后再合入 v2。
+
+## 今晚的分支
+
+| 分支 | 内容 | 状态 |
+|---|---|---|
+| `voronoi-outputs` | Voronoi 的面按需返回（`faces=True`），默认只算体积、配位数、空腔半径 | 已推送（f91b193），Triton 计时中 |
+| `faster-crystal` | `build_crystal` 不再对 200 万原子排序，元素列不经 Python 字符串 | 测试中 |
+
+## 进展
+
+### 14:58
+- **Voronoi 按需返回**（`voronoi-outputs`）：
+  - 接口：`VoronoiAnalysis(..., faces=False, polyhedra=False)`。默认结果只有 `volume`、`coordination`、`radius`；`faces=True` 才有 `offsets/j/shifts/areas/edges` 和 `index()`（没有面时 `index()` 报错并提示 `faces=True`）；`polyhedra=True` 照旧给形状，可以和 `faces` 独立开关。
+  - C++：每个原子的面数在算体积时就数出配位数，不要面时立刻丢掉，不再留在缓冲区；要面时 CSR 数组用 prefix_sum 并行拷贝。每原子的记录数组也只在需要时分配。
+  - 修了一个自己引入的段错误：只要形状不要面时，形状用的块号没记录。
+  - 内存：3.2 万原子 27 MB → 2 MB（本地冒烟）；200 万原子原来面数据约 1.6 GB。
+  - 测试 1919 个全过，覆盖率、TSan、GCC 警告、ruff、文档 strict 都过。
+  - benchmark 拆成两个用例：`voronoi`（默认，对 OVITO 默认和 freud 体积）和 `voronoi-faces`（对 OVITO `generate_bonds=True` 逐原子比键数、对 freud 邻居表）。OVITO 的 Voronoi 键和我们的面一一对应（小体系逐对检查过）。
+- **build_crystal 提速**（`faster-crystal`）：
+  - 瓶颈不是没并行，而是两件事：200 万个浮点三键 lexsort（约 0.13 s）和 200 万个 Python 字符串的元素列（约 0.2 s）。
+  - 现在先在一个晶胞里把原子按晶面分组（第三、第二、第一个晶格矢量方向），整体顺序直接由 repeat/tile 生成，不排序；元素用 polars Enum 的 gather。
+  - 本地 200 万原子 0.34 s → 0.053 s，坐标与旧版逐位相同（无取向时）。
+  - 取向晶体里旧版其实没有严格按 z→y→x 排：同一晶面的 z 有 1e-15 的舍入噪声，lexsort 按噪声排了。新版严格按晶面，再按 y、x。186 个结构/取向/重复组合与旧版比较：原子集合相同（1e-9），48 个取向用例顺序不同（都是这个原因）。
+
+---
+
 # mdapy 2.0 夜间进展报告（2026-10-22 → 23）
 
 本分支只放报告和渲染图，不含代码。今晚的代码都在各自的新分支上，明早检查后再合入 v2。

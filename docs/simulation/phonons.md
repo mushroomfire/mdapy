@@ -113,6 +113,28 @@ the same frequency are told apart by their order at the next wave vector.
 | `distances` | `numpy.ndarray` | (P,) their distance along the path in 1/Å |
 | `frequencies` | `numpy.ndarray` | (P, 3n) frequencies in THz, ascending, or a branch in each column when connected |
 | `labels` | tuple of (float, str) | the distance and label of each special point; where the path breaks, the two labels join, as in `"U\|K"` |
+| `write(path)` | | writes the band structure as phonopy writes `band.dat` |
+
+`BandStructure.write` writes the format of phonopy's `band.dat`: the
+distances of the ends of the lines, then each branch line by line, the
+distances without the factor 2π as phonopy has them; files of mdapy and of
+phonopy, from a calculation with VASP for example, plot the same way.
+`read_band_structure(path)` reads such a file into a `BandStructure`, its
+distances with the factor 2π, without the wave vectors, which the file
+does not hold. To draw a band structure of another calculation on one of
+mdapy's along the same path, its distances can be moved line by line onto
+those of mdapy, which differ as the lattice constants do:
+
+<!-- skip-test -->
+```python
+from mdapy.lattice_dynamics import read_band_structure
+
+dft = read_band_structure("band.dat")  # from phonopy
+ends = [d for d, _ in dft.labels]
+x = np.interp(dft.distances, ends, [d for d, _ in bands.labels])
+ax = plot.band_structure(bands)
+ax.plot(x, dft.frequencies, color="k", lw=0.8)
+```
 
 **Densities of states.** The modes on a mesh through Γ of `mesh` wave
 vectors along each reciprocal lattice vector give the density by the linear

@@ -9,8 +9,14 @@ from mdapy import units
 from mdapy.build import build_crystal, random_alloy
 from mdapy.calculators import EAM
 from mdapy.elements import atomic_masses
-from mdapy.errors import InvalidParameter
-from mdapy.lattice_dynamics import elastic_constants, phonons, primitive_cell
+from mdapy.errors import FileFormatError, InvalidParameter
+from mdapy.lattice_dynamics import (
+    BandStructure,
+    elastic_constants,
+    phonons,
+    primitive_cell,
+    read_band_structure,
+)
 from mdapy.lattice_dynamics._phonons import _displaced_forces, _symmetrized
 from mdapy.simulation import minimize
 from mdapy.transform import replicate
@@ -509,3 +515,45 @@ def test_calculator_without_forces():
     cell, _ = springs_fcc()
     with pytest.raises(InvalidParameter, match="does not compute forces"):
         phonons(cell, EnergyOnly())
+
+
+def test_band_dat_files(tmp_path):
+    # phonopy's band.dat: the ends of the lines without 2π, then each branch
+    # line by line, a blank line after each line and another after each branch
+    cell, springs = springs_fcc()
+    result = phonons(primitive_cell(cell), springs, supercell=3)
+    bands = result.band_structure("fcc", points=4)
+    path = tmp_path / "band.dat"
+    bands.write(path)
+    text = path.read_text().split("\n")
+    assert text[0] == "# End points of segments: "
+    ends = np.array(text[1].lstrip("#").split(), dtype=float)
+    np.testing.assert_allclose(
+        ends, [d / (2 * np.pi) for d, _ in bands.labels], atol=1e-8
+    )
+    assert (
+        text[2 : 2 + 4] and text[6] == "" and text[7].split()[0] == text[5].split()[0]
+    )
+    assert text.count("") == 3 * (6 + 1) + 1  # a blank line after each line and branch
+    again = read_band_structure(path)
+    np.testing.assert_allclose(again.distances, bands.distances, atol=1e-5)
+    np.testing.assert_allclose(again.frequencies, bands.frequencies, atol=1e-6)
+    assert np.isnan(again.q).all() and [x for _, x in again.labels] == [""] * 7
+    # written again, the same file
+    copy = tmp_path / "copy.dat"
+    again.write(copy)
+    assert copy.read_text() == path.read_text()
+    # labels that are not the ends of the lines: the ends from the distances
+    path_by_hand = [[("A", [0, 0, 0]), ("B", [0.5, 0, 0]), ("C", [0.5, 0.5, 0])]]
+    odd = result.band_structure(path_by_hand, points=3)
+    odd = BandStructure(odd.q, odd.distances, odd.frequencies, odd.labels[:1])
+    odd.write(tmp_path / "odd.dat")
+    assert len(read_band_structure(tmp_path / "odd.dat").labels) == 3
+    # a file without its last blank lines
+    (tmp_path / "short.dat").write_text(path.read_text().rstrip("\n") + "\n")
+    np.testing.assert_array_equal(
+        read_band_structure(tmp_path / "short.dat").frequencies, again.frequencies
+    )
+    (tmp_path / "bad.dat").write_text("# End points\n# a b\n")
+    with pytest.raises(FileFormatError, match="not a band.dat"):
+        read_band_structure(tmp_path / "bad.dat")

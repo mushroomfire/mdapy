@@ -3,6 +3,7 @@
 
 """Harmonic phonons from the forces on displaced atoms."""
 
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -16,7 +17,7 @@ from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.elements import atomic_masses
-from mdapy.errors import InvalidParameter
+from mdapy.errors import FileFormatError, InvalidParameter
 
 # the frequency in THz of an eigenvalue of 1 eV/(Å² amu) of a dynamical matrix
 _THZ = 1 / (2 * np.pi * np.sqrt(units.AMU_A2_PER_PS2_TO_EV))
@@ -60,6 +61,32 @@ class BandStructure:
 
     def __post_init__(self):
         _read_only(self.q, self.distances, self.frequencies)
+
+    def write(self, path: str | os.PathLike) -> None:
+        """Writes the band structure in the format of phonopy's band.dat:
+        the distances of the ends of the lines in 1/Å without the factor 2π,
+        then each branch, line by line.
+
+        Parameters
+        ----------
+        path : str or path-like
+            The file.
+        """
+        starts = np.flatnonzero(np.diff(self.distances) == 0) + 1
+        lines = np.split(np.arange(len(self.distances)), starts)
+        x = self.distances / (2 * np.pi)
+        ends = [d / (2 * np.pi) for d, _ in self.labels]
+        if len(ends) != len(lines) + 1:
+            ends = [x[lines[0][0]]] + [x[line[-1]] for line in lines]
+        with open(path, "w") as f:
+            f.write("# End points of segments: \n")
+            f.write("#  " + "".join(f" {e:.8f}" for e in ends) + " \n")
+            for branch in self.frequencies.T:
+                for line in lines:
+                    for k in line:
+                        f.write(f"{x[k]:f} {branch[k]:f}\n")
+                    f.write("\n")
+                f.write("\n")
 
 
 @dataclass(frozen=True)
@@ -157,6 +184,56 @@ _PATHS = {
         },
     ),
 }
+
+
+def read_band_structure(path: str | os.PathLike) -> BandStructure:
+    """A band structure from a file in the format of phonopy's band.dat.
+
+    Parameters
+    ----------
+    path : str or path-like
+        The file, such as one phonopy wrote from a calculation with VASP.
+
+    Returns
+    -------
+    BandStructure
+        The distances, in 1/Å with the factor 2π, and the frequencies; the
+        wave vectors are not in the file and are NaN, and the special points
+        at the ends of the lines have no names.
+
+    Raises
+    ------
+    FileFormatError
+        If the file is not in that format.
+    """
+    with open(path) as f:
+        lines = f.read().splitlines()
+    try:
+        ends = np.array(lines[1].lstrip("#").split(), dtype=float)
+        # the branches, each ended by two blank lines
+        branches, rows, blank = [], [], 0
+        for line in lines[2:]:
+            if line.strip():
+                rows.append(line.split())
+                blank = 0
+                continue
+            blank += 1
+            if blank == 2 and rows:
+                branches.append(np.array(rows, dtype=float))
+                rows = []
+        if rows:
+            branches.append(np.array(rows, dtype=float))
+        data = np.stack([b[:, 1] for b in branches], axis=1)
+        distances = branches[0][:, 0]
+    except (IndexError, ValueError):
+        raise FileFormatError("not a band.dat of phonopy", str(path)) from None
+    scale = 2 * np.pi
+    return BandStructure(
+        q=np.full((len(distances), 3), np.nan),
+        distances=distances * scale,
+        frequencies=data,
+        labels=tuple((float(e) * scale, "") for e in ends),
+    )
 
 
 def _masses(system: System) -> np.ndarray:

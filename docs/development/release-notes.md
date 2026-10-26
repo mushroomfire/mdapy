@@ -137,7 +137,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   cell of a crystal; supercells as integer matrices, by default the one
   nearest a cube; standard paths of any crystal with seekpath, and
   branches followed through crossings; imaginary frequencies in the density
-  of states; `plot.band_structure` and `plot.phonon_dos`. `units.PLANCK`.
+  of states; band structures written and read as phonopy's band.dat;
+  `plot.band_structure` and `plot.phonon_dos`. `units.PLANCK`.
   See [Phonons](../simulation/phonons.md).
 - `mdapy.lattice_dynamics.quasi_harmonic`: the quasi-harmonic
   approximation from phonons at several volumes: the equilibrium volume,

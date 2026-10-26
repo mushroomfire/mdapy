@@ -174,14 +174,9 @@ jobs:
           g++ -std=c++17 -O1 -g -fsanitize=thread -fno-omit-frame-pointer -ffp-contract=off
           -Wall -Wextra -Wpedantic -Wshadow -Werror -Isrc/cpp -pthread
           -o thread_checks src/cpp/core/parallel.cpp src/cpp/io/text.cpp
-          src/cpp/neighbor/cell_list.cpp src/cpp/neighbor/kd_tree.cpp
-          src/cpp/calculators/eam.cpp src/cpp/calculators/nep.cpp
-          src/cpp/identify/structure.cpp src/cpp/identify/ptm.cpp src/cpp/identify/ptm/*.cpp
-          src/cpp/analysis/steinhardt.cpp
-          src/cpp/analysis/geometry.cpp src/cpp/analysis/distribution.cpp
-          src/cpp/analysis/voronoi.cpp src/cpp/build/sqs.cpp
-          src/cpp/visualization/render.cpp
-          src/cpp/analysis/strain.cpp tests/cpp/thread_checks.cpp
+          src/cpp/neighbor/*.cpp src/cpp/calculators/*.cpp
+          src/cpp/identify/*.cpp src/cpp/identify/ptm/*.cpp src/cpp/analysis/*.cpp
+          src/cpp/build/*.cpp src/cpp/visualization/*.cpp tests/cpp/thread_checks.cpp
       - name: Run them
         run: |
           # Recent kernels randomize mmap with 32 bits, which TSan does not expect.

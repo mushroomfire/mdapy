@@ -265,6 +265,12 @@ Phys. Commun.* **290**, 108764 (2023).
 [doi:10.1016/j.cpc.2023.108764](https://doi.org/10.1016/j.cpc.2023.108764)
 { #wu2023 }
 
+**Wu et al. (2026).** Y.-C. Wu, T. Mäkinen, M. Alava and A. Esfandiarpour,
+Machine-learned interatomic potential for large-scale simulations of the
+CrCoNi medium-entropy alloys, *Commun. Mater.* **7**, 245 (2026).
+[doi:10.1038/s43246-026-01245-3](https://doi.org/10.1038/s43246-026-01245-3)
+{ #wu2026 }
+
 **Zhou et al. (2002).** Y. Zhou, M. Karplus, K. D. Ball and R. S. Berry,
 The distance fluctuation criterion for melting: Comparison of square-well
 and Morse potential models for clusters and homopolymers, *J. Chem. Phys.*
@@ -272,7 +278,7 @@ and Morse potential models for clusters and homopolymers, *J. Chem. Phys.*
 [doi:10.1063/1.1426419](https://doi.org/10.1063/1.1426419)
 { #zhou2002 }
 
-**Zhou et al. (2004). X. W. Zhou, R. A. Johnson and H. N. G. Wadley,
+**Zhou et al. (2004).** X. W. Zhou, R. A. Johnson and H. N. G. Wadley,
 Misfit-energy-increasing dislocations in vapor-deposited CoFe/NiFe
 multilayers, *Phys. Rev. B* **69**, 144113 (2004).
 [doi:10.1103/PhysRevB.69.144113](https://doi.org/10.1103/PhysRevB.69.144113)

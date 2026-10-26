@@ -292,8 +292,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - Worked examples that combine several parts of mdapy: a polycrystal of fcc
   and bcc grains, columnar grains on a hexagonal pattern with chosen
   misorientations, the defect energies of copper with checks of their
-  convergence, when sharing neighbor lists pays, and what a `System` shares
-  and copies. See the Tutorials under Getting started.
+  convergence, when sharing neighbor lists pays, what a `System` shares
+  and copies, and the phonons of Cr, Co and Ni from the NEP model of
+  CrCoNi alloys against DFT. See the Tutorials under Getting started.
 
 ### Foundations
 

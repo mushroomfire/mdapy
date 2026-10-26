@@ -17,7 +17,7 @@
   - master 的 CI 跑完后自动打 v1.0.9 标签、触发 PyPI 发布（进行中）。
 - **已合并的分支已删除**（本地和远程各 11 个草稿分支）；保留 master、v2、night-report、mdapy_old（旧存档，没动）和进行中的 ptm-rewrite。
 
-### 21:10
+### 20:55
 - **PTM 已改为我们自己的实现，并合入 v2**（81b5ba9，已推送；`ptm-rewrite` 分支已删除）。
   - 删掉了 `src/cpp/identify/ptm/` 下的 47 个外部文件和 `THIRD_PARTY_NOTICES`，v2 现在没有任何内置的第三方代码。
   - 新代码三个文件：`ptm_tools`（凸包、规范化图、Horn/QCP 四元数旋转、置换编码）、`ptm_data`（模板、对称群、参考图在首次使用时生成）、`ptm.cpp`（匹配和输出）；Voronoi 胞复用我们自己的 `core/voronoi_cell.h`（从 `analysis/voronoi.cpp` 抽出来共用）。

@@ -11,6 +11,7 @@ from mdapy.lattice_dynamics._phonons import (
     ThermalProperties,
     phonons,
     primitive_cell,
+    read_band_structure,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "elastic_constants",
     "phonons",
     "primitive_cell",
+    "read_band_structure",
 ]

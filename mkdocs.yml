@@ -152,6 +152,7 @@ nav:
       - Random alloys: build/alloys.md
       - Special quasirandom structures: build/sqs.md
       - Point defects, stacking faults and surfaces: build/defects.md
+      - Surfaces and slip systems: build/slip-systems.md
       - Dislocations: build/dislocations.md
       - Polycrystals and twins: build/polycrystals.md
       - Graphene on grain boundaries: build/graphene.md

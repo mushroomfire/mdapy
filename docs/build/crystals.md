@@ -136,3 +136,5 @@ that is not three positive integers.
   $\tfrac12[hkl]$ with $h$, $k$ and $l$ odd as a period, which does not
   keep the elements; `build_crystal` gives CsCl there as with `"cscl"`.
 - LAMMPS [`lattice`](https://docs.lammps.org/lattice.html) with `orient`.
+- [Surfaces and slip systems](slip-systems.md): the orientations of the
+  common surfaces and slip planes.

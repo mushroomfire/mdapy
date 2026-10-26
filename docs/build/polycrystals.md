@@ -26,6 +26,30 @@ seeds = [[0.0, 0.0, 0.0], [a * np.sqrt(3) / 2, a / 2, 0.0]]
 columns = build_polycrystal(layers, mp.Box([a * np.sqrt(3), a, 1.0]), seeds, seed=2)
 ```
 
+Colored by grain, by structure and seen along the columns:
+
+```python
+from mdapy.identify import CommonNeighborAnalysis
+from mdapy.transform import replicate
+from mdapy.visualization import render, write_png
+
+size = {"width": 600, "height": 600}
+boundaries = CommonNeighborAnalysis().compute(twinned)
+by_grain = render(grains, color="grain", colormap="jet", **size)
+twins = render(twinned, atoms=boundaries.structure != 1, color=boundaries, **size)
+tiled = replicate(columns, (2, 3, 1))
+from_above = render(tiled, color="grain", colormap="jet", view="top", **size)
+write_png("images/polycrystals.png", np.hstack([by_grain, twins, from_above]))
+```
+
+![Polycrystals](images/polycrystals.png)
+
+*Left: the eight grains. Middle: the twinned grains without their fcc atoms,
+which leaves the grain boundaries (white) and the twin boundaries (red, hcp
+by [common neighbor analysis](../analysis/cna.md)). Right: the columnar
+grains seen from above, repeated twice along x and three times along y to show
+the hexagonal pattern.*
+
 ## Parameters
 
 `build_polycrystal(unit, box, grains, *, orientations=None, min_distance=None, seed=None)`

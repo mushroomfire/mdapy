@@ -36,6 +36,32 @@ fault = slip(layers, [a / np.sqrt(6), 0, 0])
 slab = add_vacuum(layers, 15.0)  # two (111) surfaces
 ```
 
+Seen by their structure:
+
+```python
+from mdapy.identify import CommonNeighborAnalysis
+from mdapy.visualization import render, write_png
+
+cna = CommonNeighborAnalysis()
+vacancies = add_vacancies(
+    build_crystal("fcc", a, elements="Cu", repeat=(8, 8, 8)), 6, seed=3
+)
+around = cna.compute(vacancies)
+pictures = [
+    render(vacancies, atoms=around.structure != 1, color=around, width=500, height=500),
+    render(fault, color=cna.compute(fault), view="front", width=500, height=500),
+    render(slab, color=cna.compute(slab), view="front", width=500, height=500),
+]
+write_png("images/defects.png", np.hstack(pictures))
+```
+
+![Point and planar defects](images/defects.png)
+
+*Left: six vacancies in copper, shown by the twelve neighbors each one leaves
+without fcc order; the other atoms are hidden. Middle: the intrinsic stacking
+fault, two (111) planes of hcp order (red) in fcc (green), seen along y.
+Right: the slab, with its (111) surfaces (white) facing the vacuum.*
+
 ## Parameters
 
 | Function | Parameters |

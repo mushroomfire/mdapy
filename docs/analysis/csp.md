@@ -22,6 +22,38 @@ result.csp.max()  # Å^2, at the neighbors of the vacancy
 system = system.with_columns(result)  # the column 'csp'
 ```
 
+Around a dislocation, the stacking fault and the partial dislocations stand
+out:
+
+```python
+from mdapy.build import build_crystal, edge_dislocation
+from mdapy.calculators import EAM
+from mdapy.simulation import minimize
+from mdapy.visualization import render, write_png
+
+cell = build_crystal(
+    "fcc", 3.615, elements="Cu", orientation=[(1, -1, 0), (1, 1, -2), (1, 1, 1)]
+)
+edge = edge_dislocation(cell, (30, 6, 12))
+relaxed = minimize(edge, EAM.zhou(["Cu"]), max_force=1e-3, max_steps=3000).system
+csp = CentroSymmetryParameter().compute(relaxed).csp
+
+z = relaxed["positions"][:, 2]
+shown = (csp > 0.5) & (np.abs(z - z.mean()) < 15)  # not the free surfaces
+write_png(
+    "images/csp.png",
+    render(relaxed, atoms=shown, color=csp, colormap="plasma", value_range=(0, 6),
+           view="top", width=1000, height=500),
+)  # fmt: skip
+```
+
+![Centrosymmetry around a dissociated dislocation](images/csp.png)
+
+*A relaxed edge dislocation in copper seen from above its glide plane, the
+atoms with a parameter above 0.5 Å²: the stacking fault (yellow, about
+5.7 Å²) between the cores of the two Shockley partials (purple, about
+1.7 Å²).*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

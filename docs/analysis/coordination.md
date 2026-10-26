@@ -23,6 +23,28 @@ unlike = CoordinationNumber(cutoffs={("Cu", "Zn"): 2.7}).compute(system)
 system = system.with_columns(result)  # coordination, coordination_Cu, ...
 ```
 
+On a particle, the coordination shows the facets, edges and corners:
+
+```python
+from mdapy.build import build_crystal
+from mdapy.visualization import render
+
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(12, 12, 12))
+center = crystal.box.matrix.diagonal() / 2
+inside = np.linalg.norm(crystal["positions"] - center, axis=1) < 18.0
+particle = crystal.filter(inside).with_box(mp.Box(12 * 3.615, pbc=False))
+
+coordination = CoordinationNumber(cutoff=3.0).compute(particle).coordination
+render(particle, "images/coordination.png", color=coordination.astype(float),
+       value_range=(6, 12), box=False, width=800, height=700)  # fmt: skip
+```
+
+![Coordination of a copper particle](images/coordination.png)
+
+*A sphere of 18 Å radius cut from copper, colored from 6 neighbors or fewer
+(dark purple) to 12 (yellow, the inside). The (111) facets have 9 neighbors, the
+(100) facets 8 and the atoms at edges and corners fewer.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

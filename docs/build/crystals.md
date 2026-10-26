@@ -26,6 +26,38 @@ magnesium = build_crystal(
 )
 ```
 
+Eight of the structures, drawn with the [renderer](../visualization/rendering.md):
+
+```python
+import numpy as np
+
+from mdapy.visualization import element_radii, render, write_png
+
+crystals = [
+    build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 3)),
+    build_crystal("bcc", 2.87, elements="Fe", repeat=(4, 4, 4)),
+    build_crystal("hcp", 3.21, elements="Mg", repeat=(4, 4, 3)),
+    build_crystal("diamond", 5.43, elements="Si", repeat=(2, 2, 2)),
+    build_crystal("rocksalt", 5.64, elements=("Na", "Cl"), repeat=(2, 2, 2)),
+    build_crystal("perovskite", 3.9, elements=("Sr", "Ti", "O"), repeat=(3, 3, 3)),
+    build_crystal("wurtzite", 3.25, c=5.21, elements=("Zn", "O"), repeat=(4, 4, 3)),
+    build_crystal("graphite", 2.46, c=6.7, elements="C", repeat=(6, 6, 2)),
+]
+pictures = [
+    render(c, radius=0.75 * element_radii(c["element"]), width=400, height=400)
+    for c in crystals
+]
+write_png(
+    "images/crystals.png", np.vstack([np.hstack(pictures[:4]), np.hstack(pictures[4:])])
+)
+```
+
+![Eight crystal structures](images/crystals.png)
+
+*Top: fcc copper, bcc iron, hcp magnesium and diamond silicon. Bottom: rocksalt
+NaCl, perovskite SrTiO<sub>3</sub>, wurtzite ZnO and graphite. The spheres are
+three quarters of the display radii, so that the inner atoms show.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

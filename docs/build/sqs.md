@@ -12,6 +12,22 @@ cuni = sqs_alloy(sites, {"Cu": 1, "Ni": 1}, shells=3, seed=1)
 cantor = sqs_alloy(sites, {"Co": 1, "Cr": 1, "Fe": 1, "Mn": 1, "Ni": 1}, seed=1)
 ```
 
+```python
+import numpy as np
+
+from mdapy.visualization import render, write_png
+
+left = render(cuni, width=600, height=600)
+right = render(cantor, width=600, height=600)
+write_png("images/sqs.png", np.hstack([left, right]))
+```
+
+![Special quasi-random structures](images/sqs.png)
+
+*Left: equiatomic CuNi of 256 atoms whose pair correlations in the first three
+shells come as close as the cell allows to those of the random alloy. Right:
+the Cantor alloy on the same sites.*
+
 ## Parameters
 
 `sqs_alloy(system, fractions, *, shells=3, weights=None, steps=100000, temperature=1.0, seed=None, progress=None, cancel=None)`

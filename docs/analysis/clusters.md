@@ -27,6 +27,29 @@ whole = system.with_columns(
 )  # no cluster cut by the boundaries
 ```
 
+Copper particles, some of them touching, each cluster in its own color:
+
+```python
+from mdapy.build import build_crystal
+from mdapy.visualization import render
+
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(22, 22, 22))
+rng = np.random.default_rng(3)
+centers, radii = rng.uniform(15, 65, (9, 3)), rng.uniform(5, 10, 9)
+distance = np.linalg.norm(crystal["positions"][:, None] - centers, axis=2)
+particles = crystal.filter((distance < radii).any(axis=1))
+
+found = ClusterAnalysis(cutoff=3.0).compute(particles)
+found.sizes  # [396, 364, 322, 220, 79, 60, 48]: nine spheres, seven clusters
+render(particles, "images/clusters.png", color=found.cluster.astype(float), colormap="jet",
+       box=False, width=800, height=600)  # fmt: skip
+```
+
+![Clusters](images/clusters.png)
+
+*Nine spheres cut from a crystal make seven clusters: the spheres that
+overlap or touch within the cutoff of 3 Å join into one.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

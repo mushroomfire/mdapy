@@ -34,6 +34,33 @@ shapes = VoronoiAnalysis(polyhedra=True).compute(system).polyhedra
 shapes.vertices  # Å, the corners of every cell
 ```
 
+The cells of the atoms near the middle of an fcc and a bcc crystal, drawn by
+the [renderer](../visualization/rendering.md):
+
+```python
+from mdapy.build import build_crystal
+from mdapy.visualization import render, write_png
+
+pictures = []
+for crystal in (
+    build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 3)),
+    build_crystal("bcc", 2.87, elements="Fe", repeat=(4, 4, 4)),
+):
+    cells = VoronoiAnalysis(polyhedra=True).compute(crystal).polyhedra
+    middle = crystal.box.matrix.diagonal() / 2
+    near = np.linalg.norm(crystal["positions"] - middle, axis=1) < 3.0
+    pictures.append(
+        render(crystal, atoms=near, polyhedra=cells, box=False, width=600, height=600)
+    )
+write_png("images/voronoi.png", np.hstack(pictures))
+```
+
+![Voronoi cells of fcc and bcc crystals](images/voronoi.png)
+
+*Left: in fcc every cell is a rhombic dodecahedron of 12 faces. Right: in bcc
+a truncated octahedron of 8 hexagons, toward the nearest neighbors, and 6
+squares, toward the second neighbors.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

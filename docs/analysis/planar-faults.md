@@ -27,6 +27,34 @@ result.areas()["intrinsic stacking fault"]  # 271.6 Å², the area of the box
 faulted = faulted.with_columns(result)  # planar_fault
 ```
 
+An intrinsic and an extrinsic stacking fault and a twin in one crystal, made
+by slipping above chosen (111) planes:
+
+```python
+from mdapy.visualization import render
+
+crystal = replicate(cell, (6, 4, 20))  # 60 (111) planes
+b = [0, a / np.sqrt(6), 0]
+faults = slip(crystal, b, height=10.5 / 60)  # intrinsic
+for plane in (25.5, 26.5):  # extrinsic: two neighboring planes
+    faults = slip(faults, b, height=plane / 60)
+for plane in range(6):  # a twin six planes thick: six planes in a row
+    faults = slip(faults, b, height=(40.5 + plane) / 60)
+
+found = PlanarFaults(extrinsic=True).compute(faults)
+colors = np.asarray(found.colors)[found.fault]
+render(
+    faults, "images/planar-faults.png", color=colors, view="left", width=600, height=900
+)
+```
+
+![Planar faults](images/planar-faults.png)
+
+*Seen along x. From the bottom: the intrinsic stacking fault (orange, two
+planes), the extrinsic stacking fault (purple, two planes with one fcc plane
+between) and the two coherent twin boundaries (blue) around the twin, whose
+rows of atoms turn the other way.*
+
 ## Parameters
 
 `PlanarFaults(structures=("fcc", "hcp", "bcc"), *, rmsd_cutoff=0.1, extrinsic=False)`

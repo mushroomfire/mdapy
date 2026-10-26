@@ -23,6 +23,27 @@ result.entropy  # in units of the Boltzmann constant
 system = system.with_columns(result)  # the column entropy_average
 ```
 
+In a polycrystal, cut in half:
+
+```python
+from mdapy.build import build_crystal, build_polycrystal
+from mdapy.visualization import render
+
+grains = build_polycrystal(
+    build_crystal("fcc", 3.615, elements="Cu"), mp.Box(50.0), 5, seed=4
+)
+fingerprint = EntropyFingerprint(cutoff=5.0, sigma=0.2, average_cutoff=3.0).compute(
+    grains
+)
+render(grains, "images/entropy.png", atoms=grains["positions"][:, 0] < 25,
+       color=fingerprint.entropy, width=800, height=600)  # fmt: skip
+```
+
+![Entropy fingerprint of a polycrystal](images/entropy.png)
+
+*The averaged entropy is lowest in the ordered grains (dark) and highest at
+the boundaries and their junctions (green and yellow).*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

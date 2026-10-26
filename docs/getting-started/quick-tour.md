@@ -75,3 +75,37 @@ mp.write("relaxed.xyz", relaxed.system)  # with forces, energy and stress
 ```
 
 See [Energy minimization](../simulation/minimize.md).
+
+## Analysis and pictures
+
+A polycrystal, its grain boundaries found by common neighbor analysis and
+drawn by the ray tracer:
+
+```python
+from mdapy.build import build_crystal, build_polycrystal
+from mdapy.identify import CommonNeighborAnalysis
+from mdapy.visualization import render
+
+grains = build_polycrystal(
+    build_crystal("fcc", a, elements="Cu"), mp.Box(60.0), 6, seed=4
+)
+structures = CommonNeighborAnalysis().compute(grains)
+structures.counts()  # fcc, and other at the boundaries
+render(
+    grains,
+    "images/quick-tour.png",
+    atoms=grains["positions"][:, 0] < 30,  # the half at x < 30 Å
+    color=structures,
+    style="goodsell",
+    width=900,
+    height=600,
+)
+```
+
+![A polycrystal cut in half](images/quick-tour.png)
+
+*Six grains of copper cut in half: fcc atoms green, grain boundaries white,
+in the goodsell style.*
+
+See [Building structures](../build/polycrystals.md), [Common neighbor
+analysis](../analysis/cna.md) and [Rendering](../visualization/rendering.md).

@@ -23,6 +23,31 @@ rdf.pair("Cu", "Ni")  # a partial function
 rdf.coordination[-1]  # mean number of neighbors closer than 8 Å
 ```
 
+Plotted with [`mdapy.visualization.plot`](../visualization/plots.md), for a
+larger alloy whose atoms are shaken by 0.12 Å as at a finite temperature:
+
+```python
+from mdapy.build import build_crystal, random_alloy
+from mdapy.visualization import plot
+
+alloy = random_alloy(
+    build_crystal("fcc", 3.6, repeat=(6, 6, 6)), {"Cu": 1, "Ni": 1}, seed=1
+)
+shake = np.random.default_rng(0).normal(0, 0.12, (len(alloy), 3))
+hot = alloy.with_columns(positions=alloy["positions"] + shake)
+partials = RadialDistributionFunction(r_max=8.0, bins=160).compute(hot)
+with plot.style():
+    fig, ax = plot.figure("single")
+    plot.rdf(partials, ax=ax, partial=True)
+    plot.save(fig, "images/rdf", formats=("png",))
+```
+
+![Partial radial distribution functions](images/rdf.png)
+
+*The three partial functions of the random alloy agree: Cu and Ni share the
+sites at random. The peaks are the neighbor shells of fcc at
+a/√2, a, a√(3/2), a√2 and beyond.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

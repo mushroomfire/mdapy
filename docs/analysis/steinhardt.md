@@ -25,6 +25,41 @@ weighted = SteinhardtParameters(voronoi=True, weighted=True).compute(system)
 system = system.with_columns(result)  # columns q4 and q6
 ```
 
+The averaged parameters tell the structures apart even when the atoms are
+shaken by 0.15 Å:
+
+```python
+from mdapy.build import build_crystal
+from mdapy.visualization import plot
+
+rng = np.random.default_rng(0)
+crystals = {
+    "fcc": build_crystal("fcc", 3.615, elements="Cu", repeat=(5, 5, 5)),
+    "hcp": build_crystal("hcp", 3.21, elements="Mg", repeat=(6, 6, 4)),
+    "bcc": build_crystal("bcc", 2.87, elements="Fe", repeat=(6, 6, 6)),
+}
+with plot.style():
+    fig, ax = plot.figure("single")
+    for name, crystal in crystals.items():
+        shaken = crystal.with_columns(
+            positions=crystal["positions"] + rng.normal(0, 0.15, (len(crystal), 3))
+        )
+        neighbors = 14 if name == "bcc" else 12  # bcc: the first two shells
+        q = SteinhardtParameters(
+            degrees=(4, 6), num_neighbors=neighbors, average=True
+        ).compute(shaken)
+        ax.scatter(q[4], q[6], s=2, alpha=0.6, label=name)
+    ax.set_xlabel(r"$\bar q_4$")
+    ax.set_ylabel(r"$\bar q_6$")
+    ax.legend(frameon=False, markerscale=4)
+    plot.save(fig, "images/steinhardt", formats=("png",))
+```
+
+![Averaged Steinhardt parameters of shaken crystals](images/steinhardt.png)
+
+*Each atom of the three crystals as a point: fcc, hcp and bcc fall in
+separate clouds, as in [Lechner and Dellago (2008)](../reference/references.md#lechner2008).*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

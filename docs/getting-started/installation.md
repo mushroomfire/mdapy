@@ -82,7 +82,6 @@ all:
 | phonopy | 4.8.6 | force constants, frequencies, densities of states, thermal properties |
 | seekpath | 2.2.2 | the paths of `band_structure("auto")` |
 | pymatgen | `pymatgen-core` | conversions |
-| SciPy | | molecules against the connected components of ASE |
 
 ## Development setup
 

@@ -50,14 +50,7 @@ def brute_force(system, lengths):
     """Molecule partition by union-find over all pairs, minimum images."""
     x, n = system["positions"], len(system)
     names = system.table["element"].cast(str).to_list()
-    parent = list(range(n))
-
-    def root(i):
-        while parent[i] != i:
-            parent[i] = parent[parent[i]]
-            i = parent[i]
-        return i
-
+    bonds = []
     length = system.box.matrix[0, 0]
     for i in range(n):
         d = x[i + 1 :] - x[i]
@@ -71,7 +64,23 @@ def brute_force(system, lengths):
                 else (names[j], names[i])
             )
             if r[k] < lengths.get(pair, 0):
-                parent[root(i)] = root(j)
+                bonds.append((i, j))
+    return components(n, bonds)
+
+
+def components(n, bonds):
+    """The connected component of each of n atoms joined by bonds, by
+    union-find."""
+    parent = list(range(n))
+
+    def root(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i, j in bonds:
+        parent[root(i)] = root(j)
     return np.array([root(i) for i in range(n)])
 
 
@@ -124,9 +133,7 @@ def test_random_atoms_against_brute_force(seed):
 
 
 def test_against_ase():
-    pytest.importorskip("scipy")
     ase_neighbors = pytest.importorskip("ase.neighborlist")
-    from scipy.sparse.csgraph import connected_components
 
     from mdapy.interop import to_ase
 
@@ -143,7 +150,8 @@ def test_against_ase():
         cutoffs, skin=0.0, self_interaction=False, bothways=True
     )
     nl.update(atoms)
-    _, theirs = connected_components(nl.get_connectivity_matrix(sparse=True))
+    bonds = [(i, j) for i in range(len(atoms)) for j in nl.get_neighbors(i)[0]]
+    theirs = components(len(atoms), bonds)
     ours = ChemicalSpecies().compute(system)
     assert same_partition(ours.molecule, theirs)
     # and the same Hill formulas

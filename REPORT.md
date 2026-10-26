@@ -1,3 +1,41 @@
+# mdapy 2.0 夜间进展报告（2026-10-26 夜 → 27）
+
+本分支只放报告和图，不含代码。今晚的任务（你 19:45 的安排）：
+
+1. v2 的 PTM 改成我们自己的实现（分支 `ptm-rewrite`，完成并全部测试通过后合入 v2）；
+2. 许可证全部改好，说清楚 MPL-2.0 的限制；
+3. 完善文档：例子写清楚，能配图的都配图（建模、各种分析）。文档不涉及功能，我直接合入 v2，你明天检查。
+
+## 进展
+
+### 19:55
+- **v2 已改为 MPL-2.0**（5161d92，已推送）：LICENSE 换成 MPL-2.0 全文；235 个源文件的文件头换成 MPL 官方的 Exhibit A 声明；pyproject `license = "MPL-2.0"`；README、mkdocs 页脚、release notes 都已更新。全套测试通过，安装包元数据显示 `MPL-2.0`。
+- **1.0.9 已推到 master**（5f5f227），改动只涉及许可证：
+  - 1.x 整体改为 GPL-3.0-or-later（因为内含 NEP_CPU，GPL-3）；LICENSE 里按 GPL-3 第 7 条加了一条附加许可，允许与 NVIDIA CUDA、OptiX 组合（GPU wheel 静态链接 CUDA 运行时并编译了 OptiX）。
+  - `THIRD_PARTY_NOTICES` 列出 NEP_CPU、PTM、QCP、Voro++、Tachyon/TachyonOptiX、stb、OVITO（CNA 部分，按其 MIT 选项）、ASE 数据表，随每个 wheel 分发（本地构建验证过：`dist-info/licenses/` 里有 LICENSE 和 THIRD_PARTY_NOTICES）。
+  - NVIDIA OptiX 头文件不再放在仓库里：`extern/optix` 改成 NVIDIA/optix-dev 的 submodule（v7.6.0，与原来内置的逐文件相同），sdist 排除它。
+  - master 的 CI 跑完后自动打 v1.0.9 标签、触发 PyPI 发布（进行中）。
+- **已合并的分支已删除**（本地和远程各 11 个草稿分支）；保留 master、v2、night-report、mdapy_old（旧存档，没动）和进行中的 ptm-rewrite。
+
+### MPL-2.0 的限制（给使用者的义务）
+
+| 情况 | 要不要开源 |
+|---|---|
+| 只是使用 mdapy（脚本里 import、做研究、公司内部用） | 不用 |
+| 写自己的程序调用 mdapy，并发布（开源或闭源、免费或收费） | 不用：自己的文件可以用任何协议 |
+| **修改了 mdapy 的文件**，并把含修改的软件发布出去 | **要**：被修改的那些 mdapy 文件必须以 MPL-2.0 公开源码（只限这些文件，不传染到别的文件） |
+| 修改了 mdapy，只在公司/课题组内部用、不发布 | 不用（和 GPL 一样，只有“分发”才触发） |
+| 以网络服务方式提供（SaaS） | 不用（MPL 不像 AGPL，不管网络使用） |
+
+其他条款：
+- 必须保留文件头的许可声明和版权；分发二进制时要告诉接收者去哪里拿对应的 MPL 源码。
+- 贡献者自动授予其贡献相关的专利许可；谁拿专利起诉这个软件，谁的授权就终止。
+- 不授予商标权：别人不能用 “mdapy” 的名义给自己的修改版背书。
+- 与 GPL 兼容：GPL 项目可以把 mdapy 并进去（整体按 GPL 发布）。
+- 不能强制引用：引用请求放在 README 和 CITATION 里，属于学术惯例。
+
+---
+
 # mdapy 2.0 进展报告（2026-10-26 晚）
 
 本分支只放报告和图，不含代码。今晚的代码在各自的新分支上，等你检查后再合入 v2。

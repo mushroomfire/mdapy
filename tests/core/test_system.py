@@ -294,6 +294,71 @@ def test_with_topology():
         s.with_topology(Topology(bonds=[[0, 9]]))
 
 
+# --- values by name -----------------------------------------------------------------
+
+
+def test_values_of_columns_components_and_expressions():
+    s = water_dimer().with_columns(
+        charge=[-0.8, 0.4, 0.4] * 2,
+        flag=[True, False, False] * 2,
+        score=pl.Series([1.0, None, 3.0, 4.0, None, 6.0]),
+        group=pl.Series([[0, 1]] * 6, dtype=pl.Array(pl.Int64, 2)),
+        **{"Shear Strain": np.arange(6.0)},
+    )
+    r = s.positions
+    # columns and components are read where they are, without a copy
+    for name, expected in (
+        ("positions", r),
+        ("positions.z", r[:, 2]),
+        ("positions.0", r[:, 0]),
+    ):
+        values = s[name]
+        np.testing.assert_array_equal(values, expected)
+        assert np.shares_memory(values, r) and not values.flags.writeable
+    np.testing.assert_array_equal(s["charge"], [-0.8, 0.4, 0.4] * 2)
+    assert s["element"].tolist() == ["O", "H", "H"] * 2
+    assert s["flag"].dtype == bool and s["group.1"].tolist() == [1] * 6
+    np.testing.assert_array_equal(s["Shear Strain"], np.arange(6.0))
+    assert np.isnan(s["score"][[1, 4]]).all()
+    for name in ("element", "flag", "score", "charge", "group"):
+        assert not s[name].flags.writeable
+    # expressions are computed
+    np.testing.assert_allclose(
+        s["sqrt(positions.x**2 + positions.y**2)"], np.hypot(r[:, 0], r[:, 1])
+    )
+    np.testing.assert_array_equal(
+        s["`Shear Strain` * 2 + type"], np.arange(6.0) * 2 + [1, 2, 2] * 2
+    )
+    np.testing.assert_array_equal(s["charge > 0"], [False, True, True] * 2)
+    assert s["2.5"].tolist() == [2.5] * 6
+    assert len(s["positions.z"]) == len(s)
+
+
+@pytest.mark.parametrize(
+    "name, error, message",
+    [
+        (0, TypeError, "indexed by column names"),
+        (slice(0, 2), TypeError, "filter and gather"),
+        ("missing", InvalidParameter, "no column 'missing'"),
+        ("positions.q", InvalidParameter, "no component 'q'"),
+        ("positions + 1", InvalidParameter, "3 components"),
+        ("type >", InvalidParameter, "cannot read"),
+        ("element + 1", InvalidParameter, "cannot evaluate"),
+    ],
+)
+def test_values_invalid(name, error, message):
+    with pytest.raises(error, match=message):
+        water_dimer()[name]
+
+
+def test_a_system_is_not_a_sequence_of_atoms():
+    s = water_dimer()
+    with pytest.raises(TypeError):
+        iter(s)
+    with pytest.raises(TypeError):
+        "positions" in s  # noqa: B015
+
+
 # --- which columns are checked -----------------------------------------------------
 
 

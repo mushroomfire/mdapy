@@ -73,8 +73,13 @@ written directly in Python: Python would compute `"z" > 10` before mdapy
 sees it.
 
 **Columns** are written by their names, `charge`, `type`, `element`.
-A name that Python cannot read, with spaces for example, goes in
-backticks: `` `Shear Strain` > 0.1 ``.
+A name that is not a Python name, such as one with a space, a bracket or a
+leading digit, goes in backticks (the key left of 1), as in pandas:
+`` `Shear Strain` > 0.1 ``. This is rarely needed: the columns of mdapy are
+Python names, columns from OVITO become names in lowercase with
+underscores, and LAMMPS columns such as `c_stress[1]` … `c_stress[6]` become
+one array column `c_stress`. Outside an expression no backticks are needed:
+`system["Shear Strain"]` reads the column as it is.
 
 **Components** of array columns are written `column.component`, by name or
 by index from 0:
@@ -107,6 +112,10 @@ per-atom tensors as 9 components.
 `&`, `|` and `~` also mean and, or and not, as in pandas, but they bind
 tighter than comparisons, so each comparison needs parentheses:
 `(type == 1) | (charge > 0)`.
+
+The same expressions give values: `system["positions.x**2 + positions.y**2"]`
+is the value of each atom, see
+[Values by name](system.md#values-by-name).
 
 More examples:
 

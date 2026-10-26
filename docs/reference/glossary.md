@@ -15,6 +15,7 @@ implemented.
 | `Trajectory` | A sequence of frames, read lazily. |
 | frame | One `System` of a `Trajectory`. |
 | `table` | The per-atom table of a `System`, a polars DataFrame with one row per atom. |
+| `system["name"]` | The values of a column, a component or an expression over the columns, one per atom, as a read-only NumPy array. |
 | condition | A Python expression over the columns of a system that `System.filter` keeps atoms by, such as `"positions.z > 10 and element == 'Cu'"`. See [Selecting and ordering atoms](../getting-started/selecting.md). |
 | component | One value of an array column, written `column.component`: `x`, `y`, `z` for 3 values, `x`, `y`, `z`, `w` for 4, `xx` … `zz` by rows for 9, and the index from 0 for any number, such as `positions.z` or `group.1`. |
 | `info` | Global information of a `System`, such as `energy` or `timestep`. |

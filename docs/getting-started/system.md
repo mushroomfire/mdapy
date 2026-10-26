@@ -105,16 +105,20 @@ water.table["element"].to_physical().to_list()  # [8, 1, 1]
 
 | Name | Meaning |
 |---|---|
-| `positions` | (N, 3) positions in Å: a read-only NumPy view of the table, without a copy. |
+| `system["name"]` | The values of a column, a component or an expression, one per atom, as a read-only NumPy array. |
+| `positions` | (N, 3) positions in Å: a read-only NumPy view of the table, without a copy; the same as `system["positions"]`. |
 | `table` | The per-atom table as a polars DataFrame. |
 | `box` | The [`Box`](box.md). |
 | `info` | Global information, a read-only mapping. |
 | `topology` | The [`Topology`](topology.md), or `None`. |
 | `len(system)` | The number of atoms. |
 
-Everything else is read from the table. Columns become NumPy arrays with
-`to_numpy()`, and every polars operation works on the table, for example
-counts and averages by element:
+### Values by name
+
+`system["name"]` gives the values of each atom as a NumPy array. The name
+is a column, a component of an array column written `column.component`, or
+an expression over the columns, written as in the
+[conditions of `filter`](selecting.md#conditions-as-text):
 
 ```python
 from mdapy.build import build_crystal
@@ -124,9 +128,37 @@ alloy = alloy.with_columns(
     element=np.where(np.arange(len(alloy)) % 4 == 0, "Ni", "Cu"),
     charge=np.linspace(-1.0, 1.0, len(alloy)),
 )
-alloy.table["charge"].to_numpy()  # (108,) float64
+alloy["charge"]  # (108,) float64
+alloy["positions.z"].max()  # the largest z
+alloy["positions"]  # (108, 3)
+alloy["sqrt(positions.x**2 + positions.y**2)"]  # distance from the z axis
+alloy["element"]  # ['Ni', 'Cu', 'Cu', ...]
+```
+
+| Name | Example | Gives |
+|---|---|---|
+| a column | `"charge"`, `"element"`, `"positions"` | its values, (N,) or (N, k) for an array column |
+| a component | `"positions.z"`, `"velocities.x"`, `"group.1"` | one component, (N,) |
+| an expression | `"positions.x**2 + positions.y**2"`, `"charge > 0"` | the value of each atom, (N,) |
+
+Components are named as in conditions: `x`, `y`, `z` for 3 values, `x`, `y`,
+`z`, `w` for 4, `xx` to `zz` by rows for 9, and the index from 0 for any
+number. A column or a component is read where it is, without a copy, for
+numbers without missing values; an expression is computed. The arrays are
+read-only, so they cannot change the system.
+
+A system is indexed only by names: atoms are chosen with
+[`filter`, `gather` and `sort`](selecting.md), and a system is not a
+sequence of atoms to loop over.
+
+### The table
+
+Everything else is read from the table, a polars DataFrame on which every
+polars operation works, for example counts and averages by element:
+
+```python
 alloy.table.group_by("element").agg(pl.len(), pl.col("charge").mean())
-alloy.table["positions"].arr.get(2).max()  # the largest z
+alloy.table["positions"].arr.get(2).max()  # the largest z, as polars writes it
 ```
 
 The table is a copy of the system's own: changing it does not change the

@@ -22,7 +22,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   `"positions.x**2 + positions.y**2 < 25 and element == 'Cu'"`, with the
   components of array columns by name or index, comparisons, logic,
   membership, arithmetic and common functions; keywords, masks and polars
-  expressions work too. See
+  expressions work too. `system["positions.z"]` gives the values of a
+  column, a component or such an expression as a read-only NumPy array,
+  without a copy for columns and components. See
   [Selecting and ordering atoms](../getting-started/selecting.md).
 - `mdapy.Topology`: bonds, angles, dihedrals and impropers with types and
   labels, kept consistent when atoms are selected or reordered. See

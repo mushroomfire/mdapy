@@ -333,6 +333,56 @@ class System:
         """Number of atoms."""
         return len(self.__table)
 
+    def __getitem__(self, name: str) -> np.ndarray:
+        """The values of a column, a component or an expression, one per atom.
+
+        Parameters
+        ----------
+        name : str
+            A column, such as ``"charge"``; a component of an array column,
+            such as ``"positions.z"`` or ``"group.1"``; or an expression over
+            the columns, such as ``"sqrt(positions.x**2 + positions.y**2)"``.
+
+        Returns
+        -------
+        numpy.ndarray
+            Read-only values, (N,) or (N, k) for a whole array column; a
+            column or a component is read without a copy where its type
+            allows.
+
+        Raises
+        ------
+        TypeError
+            For a name that is not text.
+        InvalidParameter
+            For an unknown column or component, or an expression that cannot
+            be read or evaluated.
+        """
+        if not isinstance(name, str):
+            raise TypeError(
+                "a system is indexed by column names, such as system['positions.z']; "
+                "filter and gather choose atoms"
+            )
+        schema = self.__table.schema
+        found = _conditions.reference(name, schema)
+        if found is not None:
+            column, index = found
+            values = self.__table[column].to_numpy()
+            if index is not None:
+                values = values[:, index]
+        else:
+            expr = _conditions.expression(name, schema)
+            try:
+                values = self.__table.with_columns(expr.alias("_value"))["_value"]
+            except pl.exceptions.PolarsError as exc:
+                raise InvalidParameter(f"cannot evaluate {name!r}: {exc}") from None
+            values = values.to_numpy()
+        values.flags.writeable = False
+        return values
+
+    # a system is not a sequence of atoms
+    __iter__ = None
+
     # ------------------------------------------------------------------
     # New systems
     # ------------------------------------------------------------------
@@ -504,7 +554,7 @@ class System:
         exprs = []
         for condition in conditions:
             if isinstance(condition, str):
-                exprs.append((condition, _conditions.condition(condition, schema)))
+                exprs.append((condition, _conditions.expression(condition, schema)))
             elif isinstance(condition, pl.Expr):
                 exprs.append((str(condition), condition))
             else:

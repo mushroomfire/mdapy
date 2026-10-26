@@ -1,8 +1,8 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
-"""Conditions and sort keys on the columns of a system, written as Python
-expressions and turned into polars expressions."""
+"""Expressions over the columns of a system, such as conditions and sort
+keys, written as Python expressions and turned into polars expressions."""
 
 import ast
 import io
@@ -101,6 +101,21 @@ def column(
     return pl.col(name)
 
 
+def reference(
+    text: str, schema: Mapping[str, pl.DataType]
+) -> tuple[str, int | None] | None:
+    """The column that text names, and the index of the component it names,
+    if any; None when text names neither a column nor a component."""
+    if text in schema:
+        return text, None
+    name, dot, component = text.rpartition(".")
+    if dot and isinstance(schema.get(name), pl.Array):
+        index = components(schema[name]).get(component)
+        if index is not None:
+            return name, index
+    return None
+
+
 def key(text: str, schema: Mapping[str, pl.DataType]) -> pl.Expr:
     """A sort key: a column, or a component written column.component."""
     if text in schema or "." not in text:
@@ -109,9 +124,9 @@ def key(text: str, schema: Mapping[str, pl.DataType]) -> pl.Expr:
     return column(name, component, schema)
 
 
-def condition(text: str, schema: Mapping[str, pl.DataType]) -> pl.Expr:
-    """The polars expression of a condition written as a Python expression
-    over the columns, such as ``"positions.x > 5 and element == 'Cu'"``."""
+def expression(text: str, schema: Mapping[str, pl.DataType]) -> pl.Expr:
+    """The polars expression of a Python expression over the columns, such
+    as the condition ``"positions.x > 5 and element == 'Cu'"``."""
     source, quoted = _prepared(text)
     try:
         tree = ast.parse(source.strip(), mode="eval")

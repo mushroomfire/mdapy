@@ -48,6 +48,8 @@ class QuasiHarmonicResult:
     free_energies : numpy.ndarray
         (V, T) free energy of the vibrations at each volume and temperature
         in eV.
+    cells : tuple of System
+        The relaxed cell at each volume.
     """
 
     temperatures: np.ndarray
@@ -61,6 +63,7 @@ class QuasiHarmonicResult:
     volumes: np.ndarray
     energies: np.ndarray
     free_energies: np.ndarray
+    cells: tuple[System, ...] = ()
 
     def __post_init__(self):
         _read_only(
@@ -113,17 +116,107 @@ class _Fit:
         return None
 
 
+def _pressure(system: System, calculator: Calculator) -> float:
+    """The pressure of a system in GPa."""
+    return float(-np.trace(calculator.compute(system, ("virial",)).stress(system)) / 3)
+
+
+def _scaled(system: System, ratio: float) -> System:
+    """The system with its box and positions scaled to ratio times the
+    volume."""
+    scale = ratio ** (1 / 3)
+    box = system.box
+    origin = box.origin
+    return system.with_box(
+        Box(box.matrix * scale, origin=origin, pbc=box.pbc)
+    ).with_columns(positions=origin + (system["positions"] - origin) * scale)
+
+
+def _relaxed(system, calculator, pressure, max_force, max_stress, max_steps, where):
+    relaxed = minimize(
+        system,
+        calculator,
+        cell="full",
+        pressure=pressure,
+        max_force=max_force,
+        max_stress=max_stress,
+        max_steps=max_steps,
+    )
+    if not relaxed.converged:
+        raise InvalidParameter(
+            f"the crystal {where} did not relax within {max_steps} steps"
+        )
+    return relaxed
+
+
+def _relaxed_cells(
+    system, calculator, pressures, volumes, max_force, max_stress, max_steps
+):
+    """The relaxed cells of the grid: under each pressure, the box and the
+    positions; or at each volume, the shape of the box and the positions."""
+    if pressures is not None:
+        pressures = np.sort(np.asarray(pressures, dtype=float).reshape(-1))[::-1]
+        if len(pressures) < 5 or not np.isfinite(pressures).all():
+            raise InvalidParameter("pressures must be five or more numbers")
+        for p in pressures:
+            where = f"under {p:.4g} GPa"
+            yield (
+                where,
+                _relaxed(
+                    system,
+                    calculator,
+                    float(p),
+                    max_force,
+                    max_stress,
+                    max_steps,
+                    where,
+                ),
+            )
+        return
+    ratios = (
+        np.linspace(0.97, 1.09, 9)
+        if volumes is None
+        else np.sort(np.asarray(volumes, dtype=float).reshape(-1))
+    )
+    if len(ratios) < 5 or not (ratios > 0).all():
+        raise InvalidParameter("volumes must be five or more positive ratios")
+    for ratio in ratios:
+        # at a fixed volume: relaxed under the pressure of the box scaled to
+        # it, scaled back to it, until it keeps its volume
+        target = ratio * system.box.volume
+        where = f"at volume ratio {ratio:.4g}"
+        current = _scaled(system, ratio)
+        for _ in range(20):
+            relaxed = _relaxed(
+                current,
+                calculator,
+                _pressure(current, calculator),
+                max_force,
+                max_stress,
+                max_steps,
+                where,
+            )
+            if abs(relaxed.system.box.volume / target - 1) < 1e-6:
+                break
+            current = _scaled(relaxed.system, target / relaxed.system.box.volume)
+        else:
+            raise InvalidParameter(f"the crystal {where} did not keep its volume")
+        yield where, relaxed
+
+
 def quasi_harmonic(
     system: System,
     calculator: Calculator,
     temperatures: ArrayLike,
     *,
     volumes: ArrayLike | None = None,
+    pressures: ArrayLike | None = None,
     pressure: float = 0.0,
     supercell: int | ArrayLike | None = None,
     mesh: int | ArrayLike = 20,
     displacement: float = 0.01,
     max_force: float = 1e-6,
+    max_stress: float = 1e-4,
     max_steps: int = 5000,
 ) -> QuasiHarmonicResult:
     """Thermodynamic properties of a crystal in the quasi-harmonic
@@ -139,9 +232,12 @@ def quasi_harmonic(
     temperatures : array_like
         Temperatures in K, not negative.
     volumes : array_like, optional
-        The volumes at which to compute the phonons, as ratios to the volume
-        of system; the box is scaled alike in every direction and the
-        positions relax. Default 9 from 0.97 to 1.09.
+        The volumes at which to compute the phonons, five or more, as ratios
+        to the volume of system; at each the box keeps its volume while its
+        shape and the positions relax. Default 9 from 0.97 to 1.09.
+    pressures : array_like, optional
+        Instead of volumes, the pressures in GPa under which the box and the
+        positions relax, five or more.
     pressure : float, optional
         Pressure in GPa. Default 0.
     supercell : int or array_like, optional
@@ -151,8 +247,10 @@ def quasi_harmonic(
     displacement : float, optional
         Displacement of the atoms for the force constants in Å. Default 0.01.
     max_force : float, optional
-        Convergence of the relaxation of the positions at each volume in
-        eV/Å. Default 1e-6.
+        Convergence of the relaxation at each volume in eV/Å. Default 1e-6.
+    max_stress : float, optional
+        Convergence of the relaxation of the box under each pressure in
+        GPa. Default 1e-4.
     max_steps : int, optional
         Largest number of steps of each relaxation. Default 5000.
 
@@ -166,35 +264,21 @@ def quasi_harmonic(
     Raises
     ------
     InvalidParameter
-        For a negative temperature, fewer than five volumes, a relaxation
-        that does not converge, imaginary frequencies at a volume, or an
-        equilibrium volume outside the volumes.
+        For a negative temperature, both volumes and pressures, fewer than
+        five of them, a relaxation that does not converge, imaginary
+        frequencies at a volume, or an equilibrium volume outside the
+        volumes.
     """
     temperatures = np.atleast_1d(np.asarray(temperatures, dtype=float))
     if temperatures.ndim != 1 or not (temperatures >= 0).all():
         raise InvalidParameter("temperatures must not be negative")
-    ratios = (
-        np.linspace(0.97, 1.09, 9)
-        if volumes is None
-        else np.sort(np.asarray(volumes, dtype=float).reshape(-1))
-    )
-    if len(ratios) < 5 or not (ratios > 0).all():
-        raise InvalidParameter("volumes must be five or more positive ratios")
+    if pressures is not None and volumes is not None:
+        raise InvalidParameter("give pressures or volumes, not both")
     n = len(system)
-    box = system.box
-    energies, free, entropy, capacity = [], [], [], []
-    for ratio in ratios:
-        scale = ratio ** (1 / 3)
-        origin = box.origin
-        scaled = system.with_box(
-            Box(box.matrix * scale, origin=origin, pbc=box.pbc)
-        ).with_columns(positions=origin + (system["positions"] - origin) * scale)
-        relaxed = minimize(scaled, calculator, max_force=max_force, max_steps=max_steps)
-        if not relaxed.converged:
-            raise InvalidParameter(
-                f"the positions at volume ratio {ratio:.4g} did not relax within "
-                f"{max_steps} steps"
-            )
+    cells, energies, free, entropy, capacity = [], [], [], [], []
+    for where, relaxed in _relaxed_cells(
+        system, calculator, pressures, volumes, max_force, max_stress, max_steps
+    ):
         try:
             thermal = phonons(
                 relaxed.system,
@@ -203,14 +287,17 @@ def quasi_harmonic(
                 displacement=displacement,
             ).thermal(temperatures, mesh)
         except InvalidParameter as error:
-            raise InvalidParameter(f"at volume ratio {ratio:.4g}: {error}") from None
+            raise InvalidParameter(f"{where}: {error}") from None
+        cells.append(relaxed.system)
         energies.append(relaxed.energy / n)
         free.append(thermal.free_energy)
         entropy.append(thermal.entropy)
         capacity.append(thermal.heat_capacity)
-    per_atom = ratios * box.volume / n
-    energies = np.array(energies)
-    free, entropy, capacity = np.array(free), np.array(entropy), np.array(capacity)
+    order = np.argsort([c.box.volume for c in cells])
+    cells = tuple(cells[k] for k in order)
+    per_atom = np.array([c.box.volume / n for c in cells])
+    energies = np.array(energies)[order]
+    free, entropy, capacity = (np.array(x)[order] for x in (free, entropy, capacity))
     work = pressure * units.GPA_TO_EV_PER_A3 * per_atom
     results = []
     for k, t in enumerate(temperatures):
@@ -249,4 +336,5 @@ def quasi_harmonic(
         volumes=per_atom,
         energies=energies,
         free_energies=free,
+        cells=cells,
     )

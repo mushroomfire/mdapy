@@ -96,6 +96,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `free_energy` | Helmholtz free energy (eV); of the vibrations in `ThermalProperties`, with the zero-point energy |
 | `thermal_expansion` | volumetric thermal expansion coefficient (1/K) |
 | `bulk_modulus` | isothermal bulk modulus (GPa) |
+| isothermal, adiabatic | elastic constants at constant temperature, and at constant entropy (those of sound waves) |
 | `heat_capacity` | heat capacity per atom (eV/K): at constant volume of the vibrations, at constant pressure in the quasi-harmonic approximation |
 | descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 

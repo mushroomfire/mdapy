@@ -142,8 +142,12 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.lattice_dynamics.quasi_harmonic`: the quasi-harmonic
   approximation from phonons at several volumes: the equilibrium volume,
   Gibbs energy, entropy, bulk modulus, thermal expansion and heat capacity
-  at constant pressure against temperature, at any pressure. See
+  at constant pressure against temperature, at any pressure, the shape of
+  the box relaxed at each volume. See
   [Quasi-harmonic approximation](../simulation/quasi-harmonic.md).
+- `mdapy.lattice_dynamics.thermal_elastic_constants`: isothermal and
+  adiabatic elastic constants at finite temperature, quasi-harmonic or
+  quasi-static. See [Elastic constants at finite temperature](../simulation/thermal-elastic.md).
 
 - `mdapy.simulation.vacancy_formation_energy`, `surface_energy` and
   `stacking_fault_energy` (the generalized stacking fault energy, relaxed

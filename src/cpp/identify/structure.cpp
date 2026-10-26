@@ -10,6 +10,10 @@
 #include <stdexcept>
 #include <vector>
 
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
+
 #include "analysis/steinhardt.h"
 #include "neighbor/cell_list.h"
 #include "neighbor/frame.h"
@@ -43,17 +47,23 @@ struct Signature {
     int common, bonds, chain;
 };
 
-// The loops below run over all neighbors and mask out those not in a set,
-// rather than branch on membership, which the processor cannot predict.
-std::uint32_t member(std::uint32_t set, int a) {
-    return 0u - ((set >> a) & 1u);  // all bits when a is in the set
+// The index of the lowest bit set in bits, which is not zero.
+int lowest(std::uint32_t bits) {
+#if defined(_MSC_VER)
+    unsigned long index;
+    _BitScanForward(&index, bits);
+    return static_cast<int>(index);
+#else
+    return __builtin_ctz(bits);
+#endif
 }
 
 Signature signature(const std::uint32_t* bonds, int j) {
     const std::uint32_t common = bonds[j];
+    // the loops run over the neighbors of a set, a handful at most
     int total = 0;
-    for (int a = 0; a < kMaxNeighbors; ++a) {
-        total += count(bonds[a] & common & member(common, a));
+    for (std::uint32_t rest = common; rest != 0; rest &= rest - 1) {
+        total += count(bonds[lowest(rest)] & common);
     }
     // connected groups of the common neighbors joined by bonds
     int chain = 0;
@@ -63,15 +73,15 @@ Signature signature(const std::uint32_t* bonds, int j) {
         std::uint32_t frontier = group;
         while (frontier != 0) {
             std::uint32_t next = 0;
-            for (int a = 0; a < kMaxNeighbors; ++a) {
-                next |= bonds[a] & common & member(frontier, a);
+            for (std::uint32_t rest = frontier; rest != 0; rest &= rest - 1) {
+                next |= bonds[lowest(rest)] & common;
             }
             frontier = next & ~group;
             group |= next;
         }
         int inside = 0;
-        for (int a = 0; a < kMaxNeighbors; ++a) {
-            inside += count(bonds[a] & group & member(group, a));
+        for (std::uint32_t rest = group; rest != 0; rest &= rest - 1) {
+            inside += count(bonds[lowest(rest)] & group);
         }
         chain = std::max(chain, inside / 2);
         left &= ~group;

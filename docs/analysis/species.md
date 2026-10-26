@@ -24,28 +24,39 @@ result.formulas  # ['H2O', 'H2O', 'CO2']
 result.counts()  # formula and count: H2O 2, CO2 1
 system = system.with_columns(result)  # the column 'molecule', from 1
 
-# by the van der Waals radii, as VMD bonds atoms
-vdw = ChemicalSpecies("vdw", scale=0.6, tolerance=0.0).compute(system)
+# by the van der Waals radii, as VMD and OVITO bond atoms
+vdw = ChemicalSpecies("vdw").compute(system)
 ```
 
 ## Parameters
 
-`ChemicalSpecies(radii="covalent", *, scale=1.0, tolerance=0.45, cutoffs=None)`
+`ChemicalSpecies(radii="covalent", *, scale=None, tolerance=None, cutoffs=None)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `radii` | str or dict | `"covalent"` | Å | the radius of each element: `"covalent"`, the covalent radii, `"vdw"`, the van der Waals radii, or radii by element such as `{"H": 0.4, "O": 0.7}` |
-| `scale` | float | 1 | | factor on the sum of the radii of two atoms |
-| `tolerance` | float | 0.45 | Å | length added to it |
+| `scale` | float | 0.6 with `"vdw"`, else 1 | | factor on the sum of the radii of two atoms |
+| `tolerance` | float | 0.45 with `"covalent"`, else 0 | Å | length added to it |
 | `cutoffs` | dict | `None` | Å | bond lengths for pairs of elements `(a, b)`, in either order, instead of the radii; 0 for pairs never bonded |
 
 Two atoms are bonded when they are closer than
 $s(r_i + r_j) + t$, with $r$ their radii, $s$ the scale and $t$ the
-tolerance, or than the cutoff of their pair of elements. The defaults,
-covalent radii plus 0.45 Å, are the rule of Jmol and OpenBabel, and of the
-bonds mdapy draws in [pictures](../visualization/rendering.md); the van der
-Waals radii with a scale of 0.6 and no tolerance are the rule of VMD.
-Hydrogen bonds and other contacts are left out by both.
+tolerance, or than the cutoff of their pair of elements. Two rules come
+ready:
+
+- `"covalent"`, the default: the covalent radii plus 0.45 Å, the rule of
+  Jmol and OpenBabel, and of the bonds mdapy draws in
+  [pictures](../visualization/rendering.md);
+- `"vdw"`: 0.6 of the van der Waals radii, without tolerance, and two
+  hydrogen atoms never bonded, the rule of VMD and of OVITO's *Create
+  bonds* in its van der Waals mode. VMD and OVITO have tables of radii of
+  their own; with the same radii, the bonds are the same. A cutoff for
+  `("H", "H")` bonds hydrogen atoms again, as in the H<sub>2</sub>
+  molecule.
+
+Hydrogen bonds and other contacts are left out by both. Radii by element
+default to a scale of 1 and no tolerance: atoms closer than the sum of
+their radii.
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters); `neighbors` must

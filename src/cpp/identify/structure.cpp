@@ -4,7 +4,6 @@
 #include "identify/structure.h"
 
 #include <algorithm>
-#include <bitset>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -25,8 +24,15 @@ constexpr int kMaxNeighbors = 14;
 // to the atom itself, in Å².
 constexpr double kBackBond = 1e-4;
 
+// The number of set bits, by shifts and adds: std::bitset::count calls a
+// library function on processors without a popcount instruction in the
+// baseline instruction set, which keeps the loops below from being
+// vectorized.
 int count(std::uint32_t bits) {
-    return static_cast<int>(std::bitset<32>(bits).count());
+    bits = bits - ((bits >> 1) & 0x55555555u);
+    bits = (bits & 0x33333333u) + ((bits >> 2) & 0x33333333u);
+    bits = (bits + (bits >> 4)) & 0x0f0f0f0fu;
+    return static_cast<int>((bits * 0x01010101u) >> 24);
 }
 
 // The CNA signature of the bond to neighbor j among m neighbors whose

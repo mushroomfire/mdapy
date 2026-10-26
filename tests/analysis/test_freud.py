@@ -29,8 +29,8 @@ def copper(seed=0, repeat=6):
     origin."""
     rng = np.random.default_rng(seed)
     crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(repeat,) * 3)
-    return crystal.with_positions(
-        crystal.positions + rng.normal(0, 0.1, (len(crystal), 3))
+    return crystal.with_columns(
+        positions=crystal["positions"] + rng.normal(0, 0.1, (len(crystal), 3))
     )
 
 
@@ -39,7 +39,7 @@ def freud_input(system):
     and the atoms in it."""
     side = system.box.matrix[0, 0]
     box = freud.box.Box.cube(side)
-    return box, box.wrap((system.positions - side / 2).astype(np.float32))
+    return box, box.wrap((system["positions"] - side / 2).astype(np.float32))
 
 
 def test_radial_distribution_function():

@@ -28,7 +28,7 @@ See [Systems and topology](system.md) and [Simulation box](box.md).
 ```python
 mp.write("copper.xyz", system)
 back = mp.read("copper.xyz")
-np.abs(back.positions - system.positions).max()  # 0.0
+np.abs(back["positions"] - system["positions"]).max()  # 0.0
 ```
 
 See [Reading and writing files](io.md) and, for a whole trajectory,
@@ -66,8 +66,8 @@ the nearest minimum of the energy.
 from mdapy.simulation import minimize
 
 rng = np.random.default_rng(0)
-rattled = system.with_positions(
-    system.positions + rng.normal(scale=0.05, size=(108, 3))
+rattled = system.with_columns(
+    positions=system["positions"] + rng.normal(scale=0.05, size=(108, 3))
 )
 relaxed = minimize(rattled, potential, cell="full")
 relaxed.converged, relaxed.energy, relaxed.stress

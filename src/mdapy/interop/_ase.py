@@ -58,7 +58,7 @@ def to_ase(system: System) -> Any:
     )
     atoms = ase.Atoms(
         symbols=symbols,
-        positions=system.positions,
+        positions=system["positions"],
         cell=system.box.matrix,
         pbc=system.box.pbc,
         celldisp=system.box.origin,

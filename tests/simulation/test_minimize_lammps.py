@@ -51,10 +51,12 @@ write_data {out}
     assert relaxed.energy == pytest.approx(energy, abs=1e-8)
     back = mdapy.read(out)
     order = np.argsort(back.table["id"].to_numpy())
-    step = system.box.minimum_image(relaxed.system.positions - back.positions[order])
+    step = system.box.minimum_image(
+        relaxed.system["positions"] - back["positions"][order]
+    )
     # a rigid translation costs nothing in a periodic box; each run drifts
     np.testing.assert_allclose(step - step.mean(axis=0), 0.0, atol=1e-6)
-    assert np.abs(relaxed.system.positions - system.positions).max() > 0.01
+    assert np.abs(relaxed.system["positions"] - system["positions"]).max() > 0.01
 
 
 @pytest.mark.parametrize("steps", [1, 3, 30, 120])
@@ -94,9 +96,11 @@ write_data {out}
     assert result.steps == steps
     back = mdapy.read(out)
     order = np.argsort(back.table["id"].to_numpy())
-    step = system.box.minimum_image(result.system.positions - back.positions[order])
+    step = system.box.minimum_image(
+        result.system["positions"] - back["positions"][order]
+    )
     np.testing.assert_allclose(step, 0.0, atol=1e-7)
-    assert np.abs(result.system.positions - system.positions).max() > 1e-5
+    assert np.abs(result.system["positions"] - system["positions"]).max() > 1e-5
 
 
 def test_cell_relaxation_as_lammps(tmp_path):

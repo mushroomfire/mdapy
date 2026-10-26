@@ -18,7 +18,9 @@ mp.write("water.xyz", water)
 same = mp.read("water.xyz")
 assert same.table.equals(water.table.select(same.table.columns))
 
-mp.write("frames.xyz.gz", [water, water.with_positions(water.positions + 1.0)])
+mp.write(
+    "frames.xyz.gz", [water, water.with_columns(positions=water["positions"] + 1.0)]
+)
 last = mp.read("frames.xyz.gz", frame=-1)
 mp.formats()  # the formats mdapy can read and write
 ```

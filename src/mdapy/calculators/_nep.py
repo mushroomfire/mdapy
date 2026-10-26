@@ -314,7 +314,7 @@ class NEP(Calculator):
             energies, forces, virials = _native.compute_nep(
                 self.__model,
                 species,
-                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system["positions"]),
                 np.ascontiguousarray(system.box.matrix),
                 neighbors.offsets,
                 neighbors.j,
@@ -359,7 +359,7 @@ class NEP(Calculator):
             return _native.nep_descriptors(
                 self.__model,
                 species,
-                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system["positions"]),
                 np.ascontiguousarray(system.box.matrix),
                 neighbors.offsets,
                 neighbors.j,

@@ -333,7 +333,7 @@ class EAM(Calculator):
             energies, forces, virials = _native.compute_eam(
                 self.__potential,
                 species,
-                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system["positions"]),
                 np.ascontiguousarray(system.box.matrix),
                 neighbors.offsets,
                 neighbors.j,

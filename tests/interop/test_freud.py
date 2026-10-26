@@ -73,7 +73,7 @@ def test_a_box_of_freud():
     np.testing.assert_allclose(back.box.matrix, 5.0 * np.eye(3))
     np.testing.assert_allclose(back.box.origin, [-2.5, -2.5, -2.5])
     assert back.box.pbc.all()
-    np.testing.assert_allclose(back.positions[1], [1.0, 2.0, 2.4])
+    np.testing.assert_allclose(back["positions"][1], [1.0, 2.0, 2.4])
 
 
 def test_boxes_freud_cannot_take():

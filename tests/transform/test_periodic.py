@@ -38,7 +38,7 @@ def molecules(seed=0, pbc=True):
 
 
 def unwrapped(system):
-    return system.positions + system.table["image"].to_numpy() @ system.box.matrix
+    return system["positions"] + system.table["image"].to_numpy() @ system.box.matrix
 
 
 def test_copies_follow_the_unwrapped_molecules():
@@ -55,7 +55,7 @@ def test_copies_follow_the_unwrapped_molecules():
         unwrapped(copies), np.tile(unwrapped(system), (6, 1)) + shift, atol=1e-12
     )
     # inside the new box, and the image flags are those of the new box
-    fractions = copies.box.to_fractional(copies.positions)
+    fractions = copies.box.to_fractional(copies["positions"])
     assert fractions.min() >= 0 and fractions.max() < 1
     # a bond stays between the atoms of one copy, as long as before
     bonds = copies.topology.bonds["atoms"].to_numpy()
@@ -102,8 +102,8 @@ def test_without_image_flags_the_copies_are_translated():
     copies = replicate(system, (1, 2, 2))
     cells = np.array([[0, j, k] for k in range(2) for j in range(2)])
     np.testing.assert_allclose(
-        copies.positions,
-        np.tile(system.positions, (4, 1)) + np.repeat(cells @ MATRIX, 2, axis=0),
+        copies["positions"],
+        np.tile(system["positions"], (4, 1)) + np.repeat(cells @ MATRIX, 2, axis=0),
     )
     assert "image" not in copies.table.columns and copies.topology is None
 
@@ -116,7 +116,7 @@ def test_neighbors_of_a_crystal_do_not_change():
     copies = replicate(system, (3, 1, 2))
 
     def shells(s):
-        r = s.positions[:, None, :] - s.positions[None, :, :]
+        r = s["positions"][:, None, :] - s["positions"][None, :, :]
         f = r @ s.box.inverse
         f -= np.round(f)
         d = np.linalg.norm(f @ s.box.matrix, axis=2)
@@ -130,7 +130,7 @@ def test_neighbors_of_a_crystal_do_not_change():
 def test_single_copies_empty_systems_and_errors():
     system = molecules()
     same = replicate(system, 1)
-    np.testing.assert_allclose(same.positions, system.positions, atol=1e-12)
+    np.testing.assert_allclose(same["positions"], system["positions"], atol=1e-12)
     np.testing.assert_array_equal(
         same.table["image"].to_numpy(), system.table["image"].to_numpy()
     )
@@ -151,21 +151,23 @@ def test_single_copies_empty_systems_and_errors():
 def test_wrap_and_unwrap_keep_the_unwrapped_positions():
     system = unwrap(molecules())
     np.testing.assert_array_equal(system.table["image"].to_numpy(), 0)
-    outside = system.box.to_fractional(system.positions)
+    outside = system.box.to_fractional(system["positions"])
     assert outside.min() < 0 or outside.max() >= 1
     wrapped = wrap(system)
-    fractions = wrapped.box.to_fractional(wrapped.positions)
+    fractions = wrapped.box.to_fractional(wrapped["positions"])
     assert fractions.min() >= 0 and fractions.max() < 1
-    np.testing.assert_allclose(unwrapped(wrapped), system.positions, atol=1e-12)
-    np.testing.assert_allclose(unwrap(wrapped).positions, system.positions, atol=1e-12)
+    np.testing.assert_allclose(unwrapped(wrapped), system["positions"], atol=1e-12)
+    np.testing.assert_allclose(
+        unwrap(wrapped)["positions"], system["positions"], atol=1e-12
+    )
     assert wrapped.topology == system.topology
     # without image flags, and along non-periodic directions
-    bare = mdapy.System(system.positions, mdapy.Box(MATRIX, pbc=(True, False, True)))
+    bare = mdapy.System(system["positions"], mdapy.Box(MATRIX, pbc=(True, False, True)))
     moved = wrap(bare)
     assert "image" not in moved.table.columns
-    fractions = moved.box.to_fractional(moved.positions)
+    fractions = moved.box.to_fractional(moved["positions"])
     np.testing.assert_allclose(
-        fractions[:, 1], bare.box.to_fractional(bare.positions)[:, 1]
+        fractions[:, 1], bare.box.to_fractional(bare["positions"])[:, 1]
     )
     assert fractions[:, [0, 2]].min() >= 0 and fractions[:, [0, 2]].max() < 1
     with pytest.raises(MissingProperty, match="image"):

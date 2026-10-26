@@ -48,7 +48,7 @@ def placed(system, box, seed=3):
         q, _ = np.linalg.qr(np.random.default_rng(seed).normal(size=(3, 3)))
         q[:, 0] *= np.sign(np.linalg.det(q))
         rotated = mdapy.System(
-            system.positions @ q.T + 1.5,
+            system["positions"] @ q.T + 1.5,
             mdapy.Box(system.box.matrix @ q.T, origin=[1.5, 1.5, 1.5]),
             elements=system.table["element"].to_list(),
         )
@@ -177,7 +177,7 @@ def defective(box, seed=1):
     displaced, with 3 vacancies and 5 interstitials."""
     rng = np.random.default_rng(seed)
     reference = crystal("fcc", 3.6, (4, 4, 4), element="Cu")
-    moved = reference.positions + rng.normal(0, 0.2, reference.positions.shape)
+    moved = reference["positions"] + rng.normal(0, 0.2, reference["positions"].shape)
     moved = np.vstack(
         [np.delete(moved, [3, 50, 77], axis=0), rng.random((5, 3)) * 14.4]
     )
@@ -218,7 +218,7 @@ def test_atomic_strain(box, affine):
     deformation = np.eye(3) + np.array(
         [[0.02, 0.03, 0], [0, -0.01, 0.01], [0, 0, 0.01]]
     )
-    moved = reference.positions + rng.normal(0, 0.05, reference.positions.shape)
+    moved = reference["positions"] + rng.normal(0, 0.05, reference["positions"].shape)
     current = mdapy.System(
         moved @ deformation.T,
         mdapy.Box(reference.box.matrix @ deformation.T),
@@ -292,7 +292,7 @@ def test_cluster_geometry(box):
         ours.unwrapped, output.particles["Position"], rtol=0, atol=1e-10
     )
     if box != "cluster":
-        assert np.abs(ours.unwrapped - system.positions).max() > 10  # some were cut
+        assert np.abs(ours.unwrapped - system["positions"]).max() > 10  # some were cut
     table = output.tables["clusters"]
     row = {int(c): r for r, c in enumerate(table["Cluster Identifier"])}
     theirs = np.asarray(output.particles["Cluster"])

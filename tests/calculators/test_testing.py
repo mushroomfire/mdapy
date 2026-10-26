@@ -57,7 +57,7 @@ class Broken(Harmonic):
 
     def compute(self, system, properties=("energy", "forces"), *, neighbors=None):
         result = super().compute(system, properties, neighbors=neighbors)
-        x = system.positions
+        x = system["positions"]
 
         def energy(delta):
             """The energy changed by delta, on the first atom too."""
@@ -140,7 +140,7 @@ def test_an_energy_only_calculator_passes():
 )
 def test_each_check_catches_its_error(error, message):
     test_system = system()
-    calculator = Broken(error, centroid=test_system.positions.mean(axis=0))
+    calculator = Broken(error, centroid=test_system["positions"].mean(axis=0))
     with pytest.raises(AssertionError, match=message):
         check_calculator(calculator, test_system)
 

@@ -15,7 +15,7 @@ def reference(system, cutoff):
     """The parameter by its definition, common neighbors found by atom and
     periodic image in the neighbor lists of both atoms."""
     nl = mdapy.NeighborList.build(system, cutoff)
-    x, h = system.positions, system.box.matrix
+    x, h = system["positions"], system.box.matrix
     pairs = [
         {(int(j), tuple(s)) for j, s in zip(nl.j[a:b], nl.shifts[a:b])}
         for a, b in zip(nl.offsets[:-1], nl.offsets[1:])
@@ -90,7 +90,7 @@ def test_rotation_and_translation_change_nothing():
         ]
     )
     moved = mdapy.System(
-        system.positions @ rotation.T + 1.7,
+        system["positions"] @ rotation.T + 1.7,
         mdapy.Box(system.box.matrix @ rotation.T, origin=system.box.origin + 1.7),
         elements="Cu",
     )

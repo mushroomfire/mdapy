@@ -26,19 +26,24 @@ def copper():
 
 def test_movable_atoms_stay(copper):
     crystal = build_crystal("fcc", A, elements="Cu", repeat=(3, 3, 3))
-    moved = crystal.with_positions(
-        crystal.positions + np.random.default_rng(1).normal(scale=0.05, size=(108, 3))
+    moved = crystal.with_columns(
+        positions=crystal["positions"]
+        + np.random.default_rng(1).normal(scale=0.05, size=(108, 3))
     )
     movable = np.ones((108, 3), bool)
     movable[:10] = False
     movable[10:20, :2] = False
     result = minimize(moved.with_columns(movable=movable), copper, max_force=1e-4)
     assert result.converged
-    np.testing.assert_array_equal(result.system.positions[:10], moved.positions[:10])
     np.testing.assert_array_equal(
-        result.system.positions[10:20, :2], moved.positions[10:20, :2]
+        result.system["positions"][:10], moved["positions"][:10]
     )
-    assert np.abs(result.system.positions[20:] - moved.positions[20:]).max() > 1e-3
+    np.testing.assert_array_equal(
+        result.system["positions"][10:20, :2], moved["positions"][10:20, :2]
+    )
+    assert (
+        np.abs(result.system["positions"][20:] - moved["positions"][20:]).max() > 1e-3
+    )
 
 
 def test_vacancy(copper):

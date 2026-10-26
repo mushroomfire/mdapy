@@ -141,7 +141,7 @@ def reference(system, elements=("Cu", "Ni")):
     rho_s = [spline(t, DR) for t in data["density"]]
     pair_s = [spline(t, DR) for t in data["pair"]]
     species = [elements.index(e) for e in system.table["element"].to_list()]
-    x, box = system.positions, system.box
+    x, box = system["positions"], system.box
     reach = [
         math.ceil(CUTOFF / t) + 1 if p else 0 for t, p in zip(box.thickness, box.pbc)
     ]

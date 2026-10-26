@@ -18,8 +18,8 @@ from mdapy.neighbor import NeighborList
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(30, 30, 30))
 rng = np.random.default_rng(0)
-system = crystal.with_positions(
-    crystal.positions + rng.normal(0.0, 0.1, (len(crystal), 3))
+system = crystal.with_columns(
+    positions=crystal["positions"] + rng.normal(0.0, 0.1, (len(crystal), 3))
 )
 
 
@@ -150,7 +150,7 @@ labelled = system.with_columns(cna)  # the same atoms, one more column
 csp = CentroSymmetryParameter(12).compute(labelled, neighbors=nl)
 nl.fits(labelled)  # True
 
-shifted = system.with_positions(system.positions + [0.1, 0.0, 0.0])
+shifted = system.with_columns(positions=system["positions"] + [0.1, 0.0, 0.0])
 nl.fits(shifted)  # False
 try:
     CommonNeighborAnalysis().compute(shifted, neighbors=nl)

@@ -16,7 +16,9 @@ system = mp.System(
     elements=["Cu", "Cu", "Zr", "Zr"],
 ).with_columns(velocities=rng.standard_normal((4, 3)))
 frames = (
-    system.with_positions(system.positions + 0.1 * k).with_info(timestep=100 * k)
+    system.with_columns(positions=system["positions"] + 0.1 * k).with_info(
+        timestep=100 * k
+    )
     for k in range(3)
 )
 mp.write("run.dump", frames)

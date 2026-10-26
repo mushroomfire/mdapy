@@ -12,7 +12,7 @@ from mdapy.build import build_crystal
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(10, 10, 10))
 rng = np.random.default_rng(0)
-upper = crystal.positions[:, 2] > crystal.box.matrix[2, 2] / 2
+upper = crystal["positions"][:, 2] > crystal.box.matrix[2, 2] / 2
 crystal = crystal.with_columns(
     velocities=rng.normal(0.0, 2.0, (len(crystal), 3)),  # Å/ps
     group=upper.astype(np.int64),  # one grouping method: lower 0, upper 1

@@ -65,8 +65,8 @@ def same_crystal(ours, theirs, tolerance=1e-8):
     kinds = ours.table["element"].to_list()
     others = theirs.table["element"].to_list()
     box = ours.box
-    x = box.to_fractional(ours.positions)
-    y = box.to_fractional(theirs.positions)
+    x = box.to_fractional(ours["positions"])
+    y = box.to_fractional(theirs["positions"])
     target = others[0]
     for k in [k for k, e in enumerate(kinds) if e == target]:
         shift = y[0] - x[k]

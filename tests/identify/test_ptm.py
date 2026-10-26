@@ -36,10 +36,10 @@ def make(kind, a, elements, repeat=(4, 4, 4), jitter=0.0, seed=0):
     system = build_crystal(kind, a, elements=elements, repeat=repeat, **extra)
     if jitter:
         rng = np.random.default_rng(seed)
-        noise = rng.normal(scale=jitter, size=system.positions.shape)
+        noise = rng.normal(scale=jitter, size=system["positions"].shape)
         if kind == "graphene":
             noise[:, 2] = 0.0
-        system = system.with_positions(system.positions + noise)
+        system = system.with_columns(positions=system["positions"] + noise)
     return system
 
 
@@ -91,7 +91,9 @@ def test_a_homogeneous_strain():
     system = make("fcc", 3.6, "Cu", repeat=(3, 3, 3))
     strain = np.array([[1.02, 0.01, 0.0], [0.0, 0.99, 0.015], [0.0, 0.0, 1.01]])
     box = mdapy.Box(system.box.matrix @ strain.T)
-    strained = system.with_box(box).with_positions(system.positions @ strain.T)
+    strained = system.with_box(box).with_columns(
+        positions=system["positions"] @ strain.T
+    )
     result = PolyhedralTemplateMatching(deformation_gradient=True).compute(strained)
     assert result.counts()["fcc"] == len(system)
     scaled = result.deformation_gradient * result.interatomic_distance[:, None, None]
@@ -138,7 +140,7 @@ def test_the_same_after_a_rotation_of_the_system():
     q, _ = np.linalg.qr(np.random.default_rng(3).normal(size=(3, 3)))
     q[:, 0] *= np.sign(np.linalg.det(q))
     turned = mdapy.System(
-        system.positions @ q.T, mdapy.Box(system.box.matrix @ q.T), elements="Fe"
+        system["positions"] @ q.T, mdapy.Box(system.box.matrix @ q.T), elements="Fe"
     )
     first = PolyhedralTemplateMatching(EVERY).compute(system)
     second = PolyhedralTemplateMatching(EVERY).compute(turned)
@@ -175,7 +177,7 @@ def test_chemical_ordering(kind, a, elements, expected):
 def test_l10_ordering():
     """Layers of two elements alternating along z."""
     system = make("fcc", 3.8, "Cu")
-    layer = np.round(system.positions[:, 2] / 1.9).astype(int) % 2
+    layer = np.round(system["positions"][:, 2] / 1.9).astype(int) % 2
     alloy = system.with_columns(element=np.where(layer == 0, "Cu", "Au"))
     result = PolyhedralTemplateMatching(ordering=True).compute(alloy)
     assert (
@@ -277,7 +279,7 @@ def test_columns_errors_and_repr():
         PolyhedralTemplateMatching(rmsd_cutoff=-0.1)
     with pytest.raises(MissingProperty, match="element column"):
         PolyhedralTemplateMatching(ordering=True).compute(
-            mdapy.System(system.positions, system.box)
+            mdapy.System(system["positions"], system.box)
         )
     assert PolyhedralTemplateMatching("bcc").structures == ("bcc",)
     assert repr(PolyhedralTemplateMatching()) == (
@@ -349,7 +351,7 @@ def test_like_ovito(kind, box):
         q, _ = np.linalg.qr(np.random.default_rng(7).normal(size=(3, 3)))
         q[:, 0] *= np.sign(np.linalg.det(q))
         system = mdapy.System(
-            system.positions @ q.T + 1.5,
+            system["positions"] @ q.T + 1.5,
             mdapy.Box(
                 system.box.matrix @ q.T, origin=[1.5, 1.5, 1.5], pbc=system.box.pbc
             ),
@@ -376,8 +378,9 @@ def test_a_polycrystal_like_ovito():
         np.asarray(ovito_ptm(perfect, ("fcc", "hcp", "bcc", "ico"))["Structure Type"]),
     )
     rng = np.random.default_rng(2)
-    grains = perfect.with_positions(
-        perfect.positions + rng.normal(scale=0.01, size=perfect.positions.shape)
+    grains = perfect.with_columns(
+        positions=perfect["positions"]
+        + rng.normal(scale=0.01, size=perfect["positions"].shape)
     )
     ours = same_as_ovito(grains, ("fcc", "hcp", "bcc", "ico"))
     assert ours.counts()["fcc"] > 0.4 * len(grains)

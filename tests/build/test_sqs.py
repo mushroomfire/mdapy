@@ -48,7 +48,7 @@ def test_binary_fcc_is_random_in_three_shells():
     alloy = sqs_alloy(sites, {"Cu": 1, "Ni": 1}, shells=3, steps=50_000, seed=1)
     kinds = alloy.table["element"].to_list()
     assert kinds.count("Cu") == kinds.count("Ni") == 128
-    np.testing.assert_array_equal(alloy.positions, sites.positions)
+    np.testing.assert_array_equal(alloy["positions"], sites["positions"])
     np.testing.assert_allclose(warren_cowley(alloy, 3), 0.0, atol=1e-12)
     random = random_alloy(sites, {"Cu": 1, "Ni": 1}, seed=1)
     assert np.abs(warren_cowley(random, 3)).max() > 0.01

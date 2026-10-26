@@ -29,7 +29,13 @@ species = list(dict.fromkeys(elements))
 counts = [elements.count(e) for e in species]
 result = EAM.zhou(species).compute(system, ("energy", "forces", "virial"))
 steps = [
-    (system.box.matrix, system.positions, result.forces, result.energy, result.virial)
+    (
+        system.box.matrix,
+        system["positions"],
+        result.forces,
+        result.energy,
+        result.virial,
+    )
 ]
 if "FAKE_SILENT" in tags:
     sys.exit(0)

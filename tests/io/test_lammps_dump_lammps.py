@@ -53,7 +53,7 @@ def test_mdapy_reads_lammps_dumps(tmp_path, units):
         lmp.close()
     system = mdapy.read(path)
     table = system.table
-    np.testing.assert_array_equal(system.positions, expected["x"])
+    np.testing.assert_array_equal(system["positions"], expected["x"])
     np.testing.assert_allclose(
         system.box.to_cartesian(
             np.column_stack([table[c] for c in ("xs", "ys", "zs")])
@@ -102,7 +102,7 @@ def test_lammps_reads_mdapy_dumps(tmp_path):
     np.testing.assert_allclose(np.array(boxhi) - boxlo, np.diag(box.matrix), rtol=1e-14)
     np.testing.assert_allclose([xy, xz, yz], [1.5, -0.5, 0.75], rtol=1e-14)
     # LAMMPS wraps atoms into the box; compare in fractional coordinates
-    expected = box.to_fractional(system.positions) % 1.0
+    expected = box.to_fractional(system["positions"]) % 1.0
     found = box.to_fractional(positions) % 1.0
     np.testing.assert_allclose(
         np.minimum(abs(found - expected), 1 - abs(found - expected)), 0, atol=1e-13

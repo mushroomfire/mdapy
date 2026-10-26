@@ -11,8 +11,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   are immutable: `with_*` methods return new systems that share the columns
   they do not change and check only the ones they do; arrays given to a
   system are copied, its table is handed out as a copy, it takes no new
-  attributes, and `copy.deepcopy` returns the system itself. Positions are
-  an (N, 3) array column read without copying. A summary of a few lines
+  attributes, and `copy.deepcopy` returns the system itself. Every column,
+  the positions too, is read by name and changed with `with_columns`; the
+  positions are an (N, 3) array column read without copying,
+  `system["positions"]`. A summary of a few lines
   shows the atoms, the box, the columns, the global information and the
   topology. See [Systems](../getting-started/system.md) and
   [Changing a system](../getting-started/changing.md).

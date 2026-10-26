@@ -83,7 +83,7 @@ def test_rotation_threads_and_columns():
     system = crystal("bcc", 2.87, jitter=0.1, seed=2)
     q, _ = np.linalg.qr(np.random.default_rng(3).normal(size=(3, 3)))
     turned = mdapy.System(
-        system.positions @ q.T, mdapy.Box(system.box.matrix @ q.T), elements="Cu"
+        system["positions"] @ q.T, mdapy.Box(system.box.matrix @ q.T), elements="Cu"
     )
     parameters = SteinhardtParameters((4, 6, 8), num_neighbors=8, average=True)
     result = parameters.compute(system)
@@ -226,7 +226,7 @@ def test_nearest_neighbors_found_as_they_go_give_what_a_list_gives(box):
     system = crystal("fcc", 3.6, (3, 3, 3), jitter=0.15, seed=7)
     if box == "triclinic":
         tilted = system.box.matrix + [[0, 0, 0], [1.3, 0, 0], [0.4, -0.9, 0]]
-        system = mdapy.System(system.positions, mdapy.Box(tilted), elements="Cu")
+        system = mdapy.System(system["positions"], mdapy.Box(tilted), elements="Cu")
     elif box == "cluster":
         system = system.with_box(mdapy.Box(system.box.matrix, pbc=False))
     for k, degrees in [(8, (4, 6)), (12, (2, 3, 4, 5, 6, 7, 8)), (16, (6, 12))]:
@@ -236,6 +236,6 @@ def test_nearest_neighbors_found_as_they_go_give_what_a_list_gives(box):
             parameters.compute(system).q,
             parameters.compute(system, neighbors=nl).q,
         )
-    small = mdapy.System(system.positions[:10], mdapy.Box(20.0, pbc=False))
+    small = mdapy.System(system["positions"][:10], mdapy.Box(20.0, pbc=False))
     with pytest.raises(InvalidParameter, match="has only 10 atoms"):
         SteinhardtParameters((6,), num_neighbors=12).compute(small)

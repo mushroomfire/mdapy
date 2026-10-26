@@ -117,13 +117,14 @@ def test_one_instance_for_the_same_atoms(potentials, monkeypatch):
     system = random_system("triclinic", (True, True, False), seed=3)
     rng = np.random.default_rng(4)
     for _ in range(3):
-        moved = system.with_positions(
-            system.positions + rng.normal(scale=0.05, size=(len(system), 3))
+        moved = system.with_columns(
+            positions=system["positions"]
+            + rng.normal(scale=0.05, size=(len(system), 3))
         )
         agree(calculator.compute(moved, ALL), eam.compute(moved, ALL))
     # far along the non-periodic direction, out of the LAMMPS box, and in
     # another box
-    away = system.with_positions(system.positions + [0.0, 0.0, 30.0])
+    away = system.with_columns(positions=system["positions"] + [0.0, 0.0, 30.0])
     agree(calculator.compute(away, ALL), eam.compute(away, ALL))
     strained = system.with_box(
         mdapy.Box(
@@ -158,7 +159,7 @@ def test_minimization(potentials, monkeypatch):
     a = minimize(system, calculator, max_force=1e-6, max_steps=2000)
     b = minimize(system, eam, max_force=1e-6, max_steps=2000)
     assert a.converged and b.converged and a.steps == b.steps
-    np.testing.assert_allclose(a.system.positions, b.system.positions, atol=1e-8)
+    np.testing.assert_allclose(a.system["positions"], b.system["positions"], atol=1e-8)
     # with the box, in one LAMMPS instance
     calculator.close()
     started = []

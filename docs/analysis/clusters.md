@@ -22,7 +22,9 @@ system = system.with_columns(result)  # the column 'cluster'
 clusters = ClusterAnalysis(cutoff=3.0, unwrap=True, center_of_mass=True, gyration=True)
 result = clusters.compute(system)
 result.center_of_mass, result.radius_of_gyration  # Å, of each cluster
-whole = system.with_positions(result.unwrapped)  # no cluster cut by the boundaries
+whole = system.with_columns(
+    positions=result.unwrapped
+)  # no cluster cut by the boundaries
 ```
 
 ## Parameters

@@ -32,7 +32,7 @@ def reference(system, q_max, bins, names):
     which = np.minimum((length / q_max * bins).astype(int), bins - 1)
     elements = system.table["element"].to_numpy()
     rho = np.stack(
-        [np.exp(1j * system.positions[elements == e] @ q.T).sum(0) for e in names]
+        [np.exp(1j * system["positions"][elements == e] @ q.T).sum(0) for e in names]
     )
     sums = np.zeros((len(names), len(names), bins))
     for a in range(len(names)):
@@ -115,12 +115,13 @@ def test_ideal_gas_threads_and_errors():
     with mdapy.num_threads(3):
         np.testing.assert_array_equal(factor.compute(gas).s, result.s)
     assert (
-        StructureFactor(2.0).compute(mdapy.System(gas.positions, gas.box)).partial == {}
+        StructureFactor(2.0).compute(mdapy.System(gas["positions"], gas.box)).partial
+        == {}
     )
     assert repr(factor) == "StructureFactor(q_max=8.0, bins=40, method='direct')"
     with pytest.raises(InvalidParameter, match="periodic in every direction"):
         factor.compute(
-            mdapy.System(gas.positions, mdapy.Box(30.0, pbc=(True, True, False)))
+            mdapy.System(gas["positions"], mdapy.Box(30.0, pbc=(True, True, False)))
         )
     with pytest.raises(InvalidParameter, match="q_max must be positive"):
         StructureFactor(0.0)
@@ -142,7 +143,7 @@ def test_blocks_of_atoms():
 
     system = crystal("fcc", 3.6, (3, 3, 3), jitter=0.2, seed=5)
     args = (
-        system.positions,
+        system["positions"],
         system.box.matrix,
         np.zeros(len(system), np.int32),
         1,
@@ -159,7 +160,7 @@ def test_blocks_of_atoms():
 def debye_reference(system, q, r_max, names):
     """The Debye transform of g(r) from all pair distances up to r_max,
     found by brute force over the periodic images, with NumPy."""
-    m, x = system.box.matrix, system.positions
+    m, x = system.box.matrix, system["positions"]
     reach = np.ceil(r_max / system.box.thickness).astype(int)
     images = (
         np.array(np.meshgrid(*[np.arange(-r, r + 1) for r in reach], indexing="ij"))

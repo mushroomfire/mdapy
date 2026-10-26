@@ -40,7 +40,7 @@ def _followed(frames: Sequence[System], unwrap: bool) -> np.ndarray:
         if len(frame) != n:
             raise InvalidParameter(f"frame {t} has {len(frame)} atoms, frame 0 has {n}")
         table = frame.table
-        x = frame.positions
+        x = frame["positions"]
         image = table["image"].to_numpy() if "image" in table.columns else None
         if ids is not None and t > 0:
             if "id" not in table.columns:

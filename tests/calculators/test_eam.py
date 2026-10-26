@@ -78,7 +78,7 @@ def test_results_attach_to_systems(potential):
 def test_errors(potential, tmp_path):
     system = alloy(seed=5)
     with pytest.raises(MissingProperty, match="element column"):
-        potential.compute(mdapy.System(system.positions, system.box))
+        potential.compute(mdapy.System(system["positions"], system.box))
     with pytest.raises(InvalidParameter, match=r"no parameters for \['Al'\]"):
         potential.compute(system.with_columns(element=["Al"] * len(system)))
     with pytest.raises(InvalidParameter, match="unknown properties"):

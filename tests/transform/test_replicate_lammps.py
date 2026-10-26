@@ -68,6 +68,6 @@ def test_the_copies_of_lammps(tmp_path, repeat):
         np.testing.assert_array_equal(
             copies.table[name].to_numpy(), expected.table[name].to_numpy(), err_msg=name
         )
-    np.testing.assert_allclose(copies.positions, expected.positions, atol=1e-10)
+    np.testing.assert_allclose(copies["positions"], expected["positions"], atol=1e-10)
     assert bonded_ids(copies) == bonded_ids(expected)
     assert len(copies.topology.angles) == len(expected.topology.angles)

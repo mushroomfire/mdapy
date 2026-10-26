@@ -24,7 +24,9 @@ def test_a_dimer_reaches_its_bond_length():
     )
     result = minimize(dimer, Harmonic(k=2.0, r0=2.5), max_force=1e-8)
     assert result.converged and 0 < result.steps < 1000
-    distance = np.linalg.norm(result.system.positions[1] - result.system.positions[0])
+    distance = np.linalg.norm(
+        result.system["positions"][1] - result.system["positions"][0]
+    )
     assert distance == pytest.approx(2.5, abs=1e-8)
     assert result.energy == pytest.approx(0.0, abs=1e-15)
     assert result.max_force < 1e-8
@@ -36,8 +38,8 @@ def test_a_perturbed_lattice_relaxes_back(potential):
         element=["Cu"] * 32
     )
     rng = np.random.default_rng(2)
-    rattled = perfect.with_positions(
-        perfect.positions + rng.normal(scale=0.05, size=(32, 3))
+    rattled = perfect.with_columns(
+        positions=perfect["positions"] + rng.normal(scale=0.05, size=(32, 3))
     )
     result = minimize(rattled, potential, max_force=1e-6, max_steps=5000)
     assert result.converged
@@ -61,7 +63,9 @@ def test_results_do_not_depend_on_threads(potential):
         with mdapy.num_threads(threads):
             runs.append(minimize(system, potential, max_force=1e-3))
     assert runs[0].steps == runs[1].steps
-    np.testing.assert_array_equal(runs[0].system.positions, runs[1].system.positions)
+    np.testing.assert_array_equal(
+        runs[0].system["positions"], runs[1].system["positions"]
+    )
 
 
 class Searching(EAM):
@@ -90,7 +94,7 @@ def test_one_search_serves_several_steps(potential, monkeypatch):
     )
     assert result.steps == reference.steps > 20
     np.testing.assert_allclose(
-        result.system.positions, reference.system.positions, rtol=0, atol=1e-10
+        result.system["positions"], reference.system["positions"], rtol=0, atol=1e-10
     )
     assert result.energy == pytest.approx(reference.energy, rel=1e-13)
     assert searches < result.steps / 2
@@ -118,12 +122,12 @@ def lammps_fire(system, calculator, steps, dmax=0.1, dt0=0.001):
     atom from min_fire.cpp, for the given number of steps."""
     ftm2v = 1.0 / mdapy.units.AMU_A2_PER_PS2_TO_EV
     mass = mdapy.elements.atomic_masses(system.table["element"].to_physical())
-    x = system.positions.copy()
+    x = system["positions"].copy()
     v = np.zeros_like(x)
     n = len(x)
 
     def forces_at(positions):
-        return calculator.compute(system.with_positions(positions)).forces
+        return calculator.compute(system.with_columns(positions=positions)).forces
 
     f = forces_at(x)
     dt, alpha, last_negative, flagv0 = dt0, 0.25, 0, True
@@ -176,7 +180,7 @@ def test_steps_of_lammps_fire(potential, steps):
     result = minimize(system, potential, max_force=1e-12, max_steps=steps)
     assert result.steps == steps
     expected = lammps_fire(system, potential, steps)
-    np.testing.assert_allclose(result.system.positions, expected, rtol=0, atol=1e-9)
+    np.testing.assert_allclose(result.system["positions"], expected, rtol=0, atol=1e-9)
 
 
 def test_large_steps_are_limited():
@@ -186,17 +190,17 @@ def test_large_steps_are_limited():
     moves = []
 
     def callback(step, current, energy, largest):
-        moves.append(current.positions.copy())
+        moves.append(current["positions"].copy())
 
     calculator = Harmonic(k=20.0, r0=2.5)
     result = minimize(dimer, calculator, max_step=0.01, max_steps=8, callback=callback)
     assert result.steps == 8
-    steps = np.abs(np.diff(np.array([dimer.positions] + moves), axis=0))
+    steps = np.abs(np.diff(np.array([dimer["positions"]] + moves), axis=0))
     assert 0.0 < steps[0].max() <= 0.01  # from rest, at most max_step along an axis
     np.testing.assert_allclose(
         moves[-1], lammps_fire(dimer, calculator, 8, dmax=0.01), rtol=0, atol=1e-12
     )
-    free = minimize(dimer, calculator, max_steps=8).system.positions
+    free = minimize(dimer, calculator, max_steps=8).system["positions"]
     assert np.abs(free - moves[-1]).max() > 0.01  # the limit changed the path
 
 
@@ -211,7 +215,7 @@ def test_masses_set_the_path_not_the_minimum(potential):
     )
     assert light.converged and heavy.converged and light.steps != heavy.steps
     assert light.energy == pytest.approx(heavy.energy, abs=1e-8)
-    bare = mdapy.System(system.positions, system.box)
+    bare = mdapy.System(system["positions"], system.box)
     with pytest.raises(mdapy.errors.MissingProperty, match="mass or an element"):
         minimize(bare, potential)
 
@@ -225,8 +229,8 @@ def test_frames_every_few_steps(potential, tmp_path, every):
     steps = [frame.info["timestep"] for frame in result.frames]
     assert steps == sorted(set(list(range(0, 41, every)) + [40]))
     first, last = result.frames[0], result.frames[-1]
-    np.testing.assert_array_equal(first.positions, system.positions)
-    np.testing.assert_array_equal(last.positions, plain.system.positions)
+    np.testing.assert_array_equal(first["positions"], system["positions"])
+    np.testing.assert_array_equal(last["positions"], plain.system["positions"])
     start = potential.compute(system, ("energy", "virial"))
     assert first.info["energy"] == start.energy
     np.testing.assert_array_equal(first.info["virial"], start.virial)
@@ -243,7 +247,7 @@ def test_frames_every_few_steps(potential, tmp_path, every):
              callback=lambda step, current, energy, largest: seen.update({step: current}))  # fmt: skip
     for frame in result.frames[1:]:
         np.testing.assert_array_equal(
-            frame.positions, seen[frame.info["timestep"]].positions
+            frame["positions"], seen[frame.info["timestep"]]["positions"]
         )
     # written as a trajectory
     mdapy.write(tmp_path / "relax.xyz", result.frames)

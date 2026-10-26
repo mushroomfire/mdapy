@@ -30,7 +30,7 @@ def _nearest(
     box = system.box
     return _run(
         kernel,
-        np.ascontiguousarray(system.positions),
+        np.ascontiguousarray(system["positions"]),
         np.ascontiguousarray(box.matrix),
         np.ascontiguousarray(box.origin),
         np.ascontiguousarray(box.pbc),
@@ -123,7 +123,7 @@ class CommonNeighborAnalysis:
             # the neighbors found on the grid, without a list
             box = system.box
             structure = _native.common_neighbor_analysis_search(
-                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system["positions"]),
                 np.ascontiguousarray(box.matrix),
                 np.ascontiguousarray(box.origin),
                 np.ascontiguousarray(box.pbc),
@@ -467,7 +467,7 @@ class CommonNeighborParameter:
             # the neighbors found on the grid, without a list
             box = system.box
             cnp = _native.common_neighbor_parameter_search(
-                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system["positions"]),
                 np.ascontiguousarray(box.matrix),
                 np.ascontiguousarray(box.origin),
                 np.ascontiguousarray(box.pbc),

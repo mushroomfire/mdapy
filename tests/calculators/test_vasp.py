@@ -29,8 +29,8 @@ def alloy(seed=1):
     cell = build_crystal("fcc", 3.6, elements="Cu", repeat=(2, 2, 2))
     system = random_alloy(cell, {"Cu": 0.5, "Ni": 0.5}, seed=seed)
     rng = np.random.default_rng(seed)
-    return system.with_positions(
-        system.positions + rng.normal(scale=0.08, size=(32, 3))
+    return system.with_columns(
+        positions=system["positions"] + rng.normal(scale=0.08, size=(32, 3))
     )
 
 
@@ -119,9 +119,9 @@ def test_restarts_keep_or_drop_the_wave_functions(tmp_path):
 def test_a_minimization_with_vasp(tmp_path):
     # copper with one atom off its site
     system = build_crystal("fcc", 3.615, elements="Cu", repeat=(2, 2, 2))
-    moved = system.positions.copy()
+    moved = system["positions"].copy()
     moved[0] += [0.15, -0.1, 0.05]
-    system = system.with_positions(moved)
+    system = system.with_columns(positions=moved)
     vasp = VASP(
         potcars=potcars(tmp_path / "pp", "Cu"), command=FAKE, directory=tmp_path
     )
@@ -130,7 +130,7 @@ def test_a_minimization_with_vasp(tmp_path):
     reference = minimize(system, EAM.zhou(["Cu"]), max_force=0.01, max_steps=10)
     assert relaxed.steps == reference.steps == 10
     np.testing.assert_allclose(
-        relaxed.system.positions, reference.system.positions, atol=1e-5
+        relaxed.system["positions"], reference.system["positions"], atol=1e-5
     )
     assert relaxed.energy == pytest.approx(reference.energy, abs=1e-7)
 
@@ -153,7 +153,7 @@ def test_failures(tmp_path):
         VASP(potcars=None, command=FAKE, directory=run).compute(copper)
     with pytest.raises(MissingProperty, match="element column"):
         VASP(potcars=folder, command=FAKE, directory=run).compute(
-            mdapy.System(copper.positions, box=copper.box)
+            mdapy.System(copper["positions"], box=copper.box)
         )
     with pytest.raises(InvalidParameter, match="atomic_energies"):
         VASP(potcars=folder, command=FAKE, directory=run).compute(

@@ -39,7 +39,7 @@ def test_round_trip():
     np.testing.assert_allclose(back.box.matrix, system.box.matrix)
     # pymatgen has no origin: the positions start from the corner of the box
     np.testing.assert_allclose(
-        back.positions, system.positions - system.box.origin, atol=1e-12
+        back["positions"], system["positions"] - system.box.origin, atol=1e-12
     )
     assert back.table["element"].to_list() == system.table["element"].to_list()
     for name in ("velocities", "movable", "charge"):
@@ -67,7 +67,7 @@ def test_pymatgen_writes_what_mdapy_reads(tmp_path):
     Poscar(to_pymatgen(system)).write_file(tmp_path / "POSCAR")
     read = mdapy.read(tmp_path / "POSCAR")
     np.testing.assert_allclose(
-        read.positions, system.positions - system.box.origin, atol=1e-6
+        read["positions"], system["positions"] - system.box.origin, atol=1e-6
     )
     assert read.table["element"].to_list() == system.table["element"].to_list()
     np.testing.assert_array_equal(
@@ -92,7 +92,7 @@ def test_mdapy_writes_what_pymatgen_reads(tmp_path):
     back = from_pymatgen(structure)
     np.testing.assert_allclose(back.box.matrix, system.box.matrix, atol=1e-10)
     np.testing.assert_allclose(
-        back.positions, system.positions - system.box.origin, atol=1e-8
+        back["positions"], system["positions"] - system.box.origin, atol=1e-8
     )
     assert back.table["element"].to_list() == system.table["element"].to_list()
     np.testing.assert_array_equal(
@@ -105,7 +105,7 @@ def test_a_molecule():
     system = from_pymatgen(water)
     assert not system.box.pbc.any()
     assert system.table["element"].to_list() == ["O", "H", "H"]
-    np.testing.assert_allclose(system.positions, water.cart_coords)
+    np.testing.assert_allclose(system["positions"], water.cart_coords)
 
 
 def test_errors():

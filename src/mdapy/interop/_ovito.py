@@ -85,7 +85,7 @@ def _bond_images(system: System, atoms: np.ndarray) -> np.ndarray:
     """The periodic image of the second atom of each bond, as OVITO keeps it:
     the nearest image of the second atom."""
     box = system.box
-    fractional = box.to_fractional(system.positions)
+    fractional = box.to_fractional(system["positions"])
     delta = fractional[atoms[:, 1]] - fractional[atoms[:, 0]]
     return np.where(box.pbc, -np.round(delta), 0.0).astype(np.int32)
 
@@ -117,7 +117,7 @@ def to_ovito(system: System) -> Any:
     cell[:, 3] = box.origin
     data.create_cell(cell, pbc=tuple(bool(p) for p in box.pbc))
     particles = data.create_particles(count=n)
-    particles.create_property("Position", data=system.positions)
+    particles.create_property("Position", data=system["positions"])
     if "type" in table.columns or "element" in table.columns:
         types, named = _atom_types(table, None)
         named = _type_names(table, types) | named

@@ -31,7 +31,9 @@ def through_lammps(tmp_path, system, setup, write_options="", after="", **option
 
 
 def unwrapped_fractions(system):
-    positions = system.positions + system.table["image"].to_numpy() @ system.box.matrix
+    positions = (
+        system["positions"] + system.table["image"].to_numpy() @ system.box.matrix
+    )
     return system.box.to_fractional(positions)
 
 
@@ -81,7 +83,7 @@ def test_full_style(tmp_path, units):
     )
     np.testing.assert_allclose(
         unwrapped_fractions(back),
-        system.box.to_fractional(system.positions),
+        system.box.to_fractional(system["positions"]),
         atol=1e-15,
     )
     assert (
@@ -130,5 +132,5 @@ def test_restricted_triclinic_box_and_charges(tmp_path):
     assert back.table["charge"].to_list() == [1.0, -1.0] * 5
     assert back.table["element"].to_list() == ["Na", "Cl"] * 5
     np.testing.assert_allclose(
-        unwrapped_fractions(back), box.to_fractional(system.positions), atol=1e-15
+        unwrapped_fractions(back), box.to_fractional(system["positions"]), atol=1e-15
     )

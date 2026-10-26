@@ -47,7 +47,7 @@ A condition is one of:
 | a condition written as a Python expression over the columns | `"positions.z > 10 and element == 'Cu'"` |
 | a column and the value it must equal, as a keyword | `element="Ni"`, `type=2` |
 | a polars expression | `pl.col("charge") > 0` |
-| a boolean NumPy array of one value per atom | `system.positions[:, 2] > 10` |
+| a boolean NumPy array of one value per atom | `system["positions"][:, 2] > 10` |
 
 Several conditions must all hold:
 
@@ -136,8 +136,8 @@ A boolean mask computed with NumPy serves when a condition needs more than
 one atom at a time, such as distances to other atoms:
 
 ```python
-center = crystal.positions.mean(axis=0)
-distance = np.linalg.norm(crystal.positions - center, axis=1)
+center = crystal["positions"].mean(axis=0)
+distance = np.linalg.norm(crystal["positions"] - center, axis=1)
 middle = crystal.filter(distance < 5.0)
 ```
 

@@ -100,9 +100,9 @@ def test_errors(potential, copper):
         elastic_constants(copper, NoVirial())
     with pytest.raises(InvalidParameter, match=r"does not compute \['virial'\]"):
         elastic_constants(copper, NoVirial(), relax=False)
-    rattled = copper.with_positions(
-        copper.positions
-        + np.random.default_rng(1).normal(scale=0.1, size=copper.positions.shape)
+    rattled = copper.with_columns(
+        positions=copper["positions"]
+        + np.random.default_rng(1).normal(scale=0.1, size=copper["positions"].shape)
     )
     with pytest.raises(InvalidParameter, match="did not converge in 2 steps"):
         elastic_constants(rattled, potential, max_steps=2)

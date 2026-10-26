@@ -375,7 +375,7 @@ def test_windows_line_endings(tmp_path):
     path.write_bytes(b'1\r\nLattice="2 0 0 0 2 0 0 0 2" energy=1\r\nH 0 0 0.5\r\n')
     system = mdapy.read(path)
     assert system.info == {"energy": 1.0}
-    np.testing.assert_array_equal(system.positions, [[0.0, 0.0, 0.5]])
+    np.testing.assert_array_equal(system["positions"], [[0.0, 0.0, 0.5]])
 
 
 def test_trailing_blank_lines(tmp_path):

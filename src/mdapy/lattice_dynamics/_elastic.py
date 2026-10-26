@@ -75,8 +75,8 @@ def _strained(system: System, strain: np.ndarray) -> System:
     deformation = np.eye(3) + strain
     origin = system.box.origin
     box = Box(system.box.matrix @ deformation.T, origin=origin, pbc=system.box.pbc)
-    return system.with_box(box).with_positions(
-        origin + (system.positions - origin) @ deformation.T
+    return system.with_box(box).with_columns(
+        positions=origin + (system["positions"] - origin) @ deformation.T
     )
 
 

@@ -24,7 +24,7 @@ BOXES = {
 def tree_of(system):
     box = system.box
     return _native.KdTree(
-        np.ascontiguousarray(system.positions),
+        np.ascontiguousarray(system["positions"]),
         np.ascontiguousarray(box.matrix),
         np.ascontiguousarray(box.origin),
         np.ascontiguousarray(box.pbc),
@@ -36,7 +36,7 @@ def brute_points(system, points, k, reach=4):
     atom, then image, with the arithmetic of the compiled code."""
     box = system.box
     h = box.matrix
-    x = system.positions
+    x = system["positions"]
     rows = []
     for q in points:
         # around the image of the box that holds the point
@@ -75,7 +75,7 @@ def test_nearest_atoms_of_points(box_name, pbc):
     assert len(tree) == 30
     # points inside and outside the box, one on an atom, one far away
     points = box.to_cartesian(rng.random((20, 3)) * 3 - 1)
-    points[0] = system.positions[4]
+    points[0] = system["positions"][4]
     points[1] = box.to_cartesian([0.5, 0.5, 40.0])
     for k in (1, 3):
         j, shifts, distances = tree.nearest(points, k)
@@ -88,7 +88,7 @@ def test_nearest_atoms_of_points(box_name, pbc):
         assert as_rows(j, shifts, distances) == brute_points(system, points, k)
     assert tree.nearest(points, 1)[0][0, 0] == 4  # the atom itself, at distance 0
     # the tree is searched again without being built again
-    j, _, _ = tree.nearest(system.positions, 1)
+    j, _, _ = tree.nearest(system["positions"], 1)
     assert (j[:, 0] == np.arange(30)).all()
 
 

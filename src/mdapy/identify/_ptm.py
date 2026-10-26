@@ -234,7 +234,7 @@ class PolyhedralTemplateMatching:
         bits = sum(1 << (self.NAMES.index(name) - 1) for name in self.structures)
         with reading:
             found = _native.polyhedral_template_matching(
-                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system["positions"]),
                 np.ascontiguousarray(system.box.matrix),
                 offsets,
                 j,

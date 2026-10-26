@@ -35,7 +35,9 @@ def rotated(system, seed=0):
         q[:, 0] = -q[:, 0]
     box = mdapy.Box(system.box.matrix @ q.T, origin=[1.0, -2.0, 3.0])
     return mdapy.System(
-        system.positions @ q.T + [1.0, -2.0, 3.0], box, elements=system.table["element"]
+        system["positions"] @ q.T + [1.0, -2.0, 3.0],
+        box,
+        elements=system.table["element"],
     )
 
 
@@ -148,7 +150,7 @@ def test_nearest_neighbors_found_as_they_go_give_what_a_list_gives(kind, a, box)
     system = crystal(kind, a, (3, 3, 3), jitter=0.15, seed=6)
     if box == "triclinic":
         tilted = system.box.matrix + [[0, 0, 0], [1.3, 0, 0], [0.4, -0.9, 0]]
-        system = mdapy.System(system.positions, mdapy.Box(tilted), elements="Cu")
+        system = mdapy.System(system["positions"], mdapy.Box(tilted), elements="Cu")
     elif box == "cluster":
         system = system.with_box(mdapy.Box(system.box.matrix, pbc=False))
     nl = mdapy.NeighborList.build(system, num_neighbors=14)
@@ -163,7 +165,7 @@ def test_nearest_neighbors_found_as_they_go_give_what_a_list_gives(kind, a, box)
         for name, value in vars(found).items():
             if isinstance(value, np.ndarray):
                 np.testing.assert_array_equal(value, vars(listed)[name])
-    small = mdapy.System(system.positions[:10], mdapy.Box(20.0, pbc=False))
+    small = mdapy.System(system["positions"][:10], mdapy.Box(20.0, pbc=False))
     with pytest.raises(InvalidParameter, match="has only 10 atoms"):
         CentroSymmetryParameter(12).compute(small)
     assert AcklandJonesAnalysis().compute(small).counts()["other"] == 10

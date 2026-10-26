@@ -354,7 +354,7 @@ def test_colors():
     )
     np.testing.assert_allclose(atom_colors(system, "#ff0000")[5], [1, 0, 0])
     np.testing.assert_allclose(atom_colors(system, np.ones((32, 3)))[0], [1, 1, 1])
-    bare = mdapy.System(system.positions, system.box)
+    bare = mdapy.System(system["positions"], system.box)
     np.testing.assert_allclose(atom_colors(bare)[0], [1, 1, 1])
 
 
@@ -557,7 +557,7 @@ def test_covalent_bonds_and_radii():
     with pytest.raises(InvalidParameter, match="kind must be"):
         element_radii(["H"], "ionic")
     with pytest.raises(InvalidParameter, match="element column"):
-        covalent_bonds(mdapy.System(molecule.positions))
+        covalent_bonds(mdapy.System(molecule["positions"]))
 
 
 def test_representations():

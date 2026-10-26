@@ -243,32 +243,32 @@ neigh_modify every 1 delay 0 check yes
         key = (n, types.tobytes(), box.pbc.tobytes(), np.linalg.det(box.matrix) < 0)
         if key != self.__key:
             self.close()
-            self._box, self.__source = _enclosing(box, system.positions), box
+            self._box, self.__source = _enclosing(box, system["positions"]), box
             lmp = _lammps(self.cmdargs)
             self.__holder.append(lmp)
             self.__setup(lmp, self._box)
-            x, _ = self.__frame(system.positions)
+            x, _ = self.__frame(system["positions"])
             lmp.create_atoms(
                 n, list(range(1, n + 1)), types.tolist(), x.ravel().tolist()
             )
             self.__key = key
-        elif box != self.__source or not self.__inside(system.positions):
+        elif box != self.__source or not self.__inside(system["positions"]):
             # another box: the atoms leave, the box changes and they come back
             lmp = self.__holder[0]
-            self._box, self.__source = _enclosing(box, system.positions), box
+            self._box, self.__source = _enclosing(box, system["positions"]), box
             lx, ly, lz, xy, xz, yz = self.__shape(self._box)
             lmp.command("delete_atoms group all")
             lmp.command(
                 f"change_box all x final 0 {lx!r} y final 0 {ly!r} z final 0 {lz!r}"
                 f" xy final {xy!r} xz final {xz!r} yz final {yz!r} units box"
             )
-            x, _ = self.__frame(system.positions)
+            x, _ = self.__frame(system["positions"])
             lmp.create_atoms(
                 n, list(range(1, n + 1)), types.tolist(), x.ravel().tolist()
             )
         else:
             lmp = self.__holder[0]
-            x, _ = self.__frame(system.positions)
+            x, _ = self.__frame(system["positions"])
             lmp.scatter_atoms("x", 1, 3, (ctypes.c_double * (3 * n))(*x.ravel()))
         rotation = self._box.to_lammps().rotation
         lmp.command("run 0 post no")

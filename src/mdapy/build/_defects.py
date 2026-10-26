@@ -180,7 +180,7 @@ def add_interstitials(
             np.ascontiguousarray(box.pbc),
         )
         tree = (
-            _search.KdTree(np.ascontiguousarray(system.positions), *frame)
+            _search.KdTree(np.ascontiguousarray(system["positions"]), *frame)
             if len(system)
             else None
         )
@@ -212,7 +212,9 @@ def add_interstitials(
         system = system.with_columns(element=["X"] * len(system))
     # rows like the first atom's, with the new positions, element and ids
     rows = System(table=system.table[[0] * len(added)], box=box)
-    extra = rows.with_positions(added).with_columns(element=[element] * len(added))
+    extra = rows.with_columns(positions=added).with_columns(
+        element=[element] * len(added)
+    )
     if "id" in table.columns:
         first = int(table["id"].max()) + 1
         extra = extra.with_columns(id=np.arange(first, first + len(added)))
@@ -267,19 +269,19 @@ def slip(
     if abs(shift @ normal) > 1e-9 * np.linalg.norm(shift) * np.linalg.norm(normal):
         raise InvalidParameter("displacement must lie in the plane")
     height = 0.5 if height is None else float(height)
-    fractional = box.to_fractional(system.positions)[:, k]
+    fractional = box.to_fractional(system["positions"])[:, k]
     above = (
         fractional - np.floor(fractional) >= height
         if box.pbc[k]
         else fractional >= height
     )
-    positions = system.positions.copy()
+    positions = system["positions"].copy()
     positions[above] += shift
     matrix = box.matrix.copy()
     if box.pbc[k]:
         matrix[k] += shift
     moved = system.with_box(Box(matrix, origin=box.origin, pbc=box.pbc))
-    return moved.with_positions(positions)
+    return moved.with_columns(positions=positions)
 
 
 def add_vacuum(system: System, thickness: float, *, axis: int | str = 2) -> System:
@@ -309,7 +311,7 @@ def add_vacuum(system: System, thickness: float, *, axis: int | str = 2) -> Syst
     matrix = box.matrix.copy()
     matrix[k] = vector * (1 + thickness / np.linalg.norm(vector))
     # every atom with its fractional coordinate along axis in [0, 1)
-    fractional = box.to_fractional(system.positions)
-    positions = system.positions - np.floor(fractional[:, k])[:, None] * vector
+    fractional = box.to_fractional(system["positions"])
+    positions = system["positions"] - np.floor(fractional[:, k])[:, None] * vector
     longer = system.with_box(Box(matrix, origin=box.origin, pbc=box.pbc))
-    return longer.with_positions(positions)
+    return longer.with_columns(positions=positions)

@@ -73,8 +73,8 @@ def crystal(structure: str, a: float, atoms: int, sigma: float, seed: int = 1):
     n = max(1, round((atoms / per_cell) ** (1 / 3)))
     perfect = build_crystal(structure, a, repeat=(n, n, n))
     rng = np.random.default_rng(seed)
-    return perfect.with_positions(
-        perfect.positions + rng.normal(0.0, sigma, (len(perfect), 3))
+    return perfect.with_columns(
+        positions=perfect["positions"] + rng.normal(0.0, sigma, (len(perfect), 3))
     )
 
 
@@ -113,7 +113,7 @@ def deformed(atoms: int) -> dict:
     reference = crystal("fcc", 3.615, atoms, 0.0)
     strain = np.eye(3) + [[0.02, 0.03, 0.0], [0.0, -0.01, 0.01], [0.0, 0.0, 0.01]]
     rng = np.random.default_rng(2)
-    moved = reference.positions + rng.normal(0.0, 0.05, (len(reference), 3))
+    moved = reference["positions"] + rng.normal(0.0, 0.05, (len(reference), 3))
     current = mdapy.System(moved @ strain.T, mdapy.Box(reference.box.matrix @ strain.T))
     return {"system": current, "reference": reference}
 
@@ -141,7 +141,7 @@ def ovito_data(system):
     cell[:, 3] = system.box.origin
     data.create_cell(cell, pbc=tuple(bool(p) for p in system.box.pbc))
     particles = data.create_particles(count=len(system))
-    particles.create_property("Position", data=system.positions)
+    particles.create_property("Position", data=system["positions"])
     return data
 
 

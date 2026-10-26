@@ -24,15 +24,15 @@ def test_vacancies():
     holes = add_vacancies(crystal, 5, seed=1)
     assert len(holes) == len(crystal) - 5
     np.testing.assert_array_equal(
-        holes.positions, add_vacancies(crystal, 5, seed=1).positions
+        holes["positions"], add_vacancies(crystal, 5, seed=1)["positions"]
     )
     kept = np.ones(len(crystal), bool)
     kept[[0, 7]] = False
     np.testing.assert_array_equal(
-        add_vacancies(crystal, atoms=[7, 0]).positions, crystal.positions[kept]
+        add_vacancies(crystal, atoms=[7, 0])["positions"], crystal["positions"][kept]
     )
     np.testing.assert_array_equal(
-        add_vacancies(crystal, atoms=~kept).positions, crystal.positions[kept]
+        add_vacancies(crystal, atoms=~kept)["positions"], crystal["positions"][kept]
     )
     assert len(add_vacancies(crystal, 0)) == len(crystal)
     for arguments, message in [
@@ -53,9 +53,9 @@ def test_substitutions():
     alloy = substitute(crystal, "Ni", 10, seed=2)
     kinds = alloy.table["element"].to_list()
     assert kinds.count("Ni") == 10 and kinds.count("Cu") == len(crystal) - 10
-    np.testing.assert_array_equal(alloy.positions, crystal.positions)
+    np.testing.assert_array_equal(alloy["positions"], crystal["positions"])
     assert substitute(crystal, "Au", atoms=[3]).table["element"][3] == "Au"
-    bare = mdapy.System(crystal.positions, crystal.box)
+    bare = mdapy.System(crystal["positions"], crystal.box)
     assert substitute(bare, "Ag", atoms=[0]).table["element"].to_list()[:2] == [
         "Ag",
         "X",
@@ -71,7 +71,7 @@ def test_interstitials():
     octahedral = [[1.8, 1.8, 1.8]]  # the center of a cubic cell
     one = add_interstitials(crystal, "Cu", positions=octahedral)
     assert len(one) == 109 and one.table["id"][-1] == 109
-    np.testing.assert_array_equal(one.positions[-1], octahedral[0])
+    np.testing.assert_array_equal(one["positions"][-1], octahedral[0])
     nl = mdapy.NeighborList.build(one, 1.85)
     assert nl.counts[-1] == 6  # an octahedron of nearest atoms
     many = add_interstitials(crystal, "H", 20, min_distance=1.0, seed=3)
@@ -79,8 +79,8 @@ def test_interstitials():
     distances = mdapy.NeighborList.build(many, 1.0).distances
     assert len(distances) == 0
     np.testing.assert_array_equal(
-        many.positions,
-        add_interstitials(crystal, "H", 20, min_distance=1.0, seed=3).positions,
+        many["positions"],
+        add_interstitials(crystal, "H", 20, min_distance=1.0, seed=3)["positions"],
     )
     empty = mdapy.System(np.zeros((0, 3)), mdapy.Box(10.0), elements=[])
     assert len(add_interstitials(empty, "Ar", 3, min_distance=2.0, seed=4)) == 3
@@ -137,12 +137,12 @@ def test_stacking_fault(periodic):
 
 def test_vacuum():
     crystal = build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 4))
-    shifted = crystal.with_positions(
-        crystal.positions + [0, 0, -0.5]
+    shifted = crystal.with_columns(
+        positions=crystal["positions"] + [0, 0, -0.5]
     )  # some atoms below 0
     slab = add_vacuum(shifted, 10.0)
     assert slab.box.matrix[2, 2] == pytest.approx(14.4 + 10.0)
-    fractional = slab.box.to_fractional(slab.positions)[:, 2]
+    fractional = slab.box.to_fractional(slab["positions"])[:, 2]
     assert fractional.min() >= 0 and fractional.max() < 14.4 / 24.4
     # the atoms of the two surfaces lose their fcc neighborhood
     counts = CommonNeighborAnalysis().compute(slab).counts()

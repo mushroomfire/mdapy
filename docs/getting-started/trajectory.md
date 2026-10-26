@@ -11,7 +11,7 @@ import mdapy as mp
 rng = np.random.default_rng(0)
 system = mp.System(rng.random((10, 3)) * 5, mp.Box(5.0), elements="Ar")
 frames = (
-    system.with_positions(system.positions + 0.01 * k).with_info(step=k)
+    system.with_columns(positions=system["positions"] + 0.01 * k).with_info(step=k)
     for k in range(100)
 )
 mp.write("run.xyz", frames)

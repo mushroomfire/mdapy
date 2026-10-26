@@ -137,7 +137,7 @@ class SteinhardtParameters:
             box = system.box
             q = _run(
                 _native.steinhardt_nearest,
-                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system["positions"]),
                 np.ascontiguousarray(box.matrix),
                 np.ascontiguousarray(box.origin),
                 np.ascontiguousarray(box.pbc),

@@ -32,7 +32,7 @@ def test_read_outcar(tmp_path):
     for frame, (lattice, positions, forces, energy, virial) in zip(read, steps):
         assert frame.table["element"].to_list() == ["Ag"] * 4  # no Pd: 0 of them
         np.testing.assert_allclose(frame.box.matrix, lattice, atol=1e-8)
-        np.testing.assert_allclose(frame.positions, positions, atol=1e-5)
+        np.testing.assert_allclose(frame["positions"], positions, atol=1e-5)
         np.testing.assert_allclose(frame.table["forces"].to_numpy(), forces, atol=1e-6)
         assert frame.info["energy"] == pytest.approx(energy, abs=1e-8)
         np.testing.assert_allclose(frame.info["virial"], virial, atol=1e-5)
@@ -50,7 +50,7 @@ def test_read_outcar_as_ase(tmp_path):
         ase.read(tmp_path / "OUTCAR", ":", format="vasp-out"),
     ):
         assert ours.table["element"].to_list() == theirs.get_chemical_symbols()
-        np.testing.assert_array_equal(ours.positions, theirs.positions)
+        np.testing.assert_array_equal(ours["positions"], theirs.positions)
         np.testing.assert_array_equal(ours.box.matrix, theirs.cell.array)
         np.testing.assert_array_equal(
             ours.table["forces"].to_numpy(), theirs.get_forces()
@@ -232,19 +232,19 @@ def test_perturb():
         deformation = np.linalg.solve(crystal.box.matrix, copy.box.matrix).T
         np.testing.assert_allclose(deformation, deformation.T, atol=1e-12)
         assert np.abs(deformation - np.eye(3)).max() <= 0.02
-        step = copy.positions - crystal.positions @ deformation.T
+        step = copy["positions"] - crystal["positions"] @ deformation.T
         assert np.sqrt((step**2).sum(axis=1).mean()) == pytest.approx(0.1, rel=0.1)
     const = perturb(crystal, 1, displacement=0.2, strain=0.0, style="const", seed=3)[0]
     np.testing.assert_allclose(
-        np.linalg.norm(const.positions - crystal.positions, axis=1), 0.2
+        np.linalg.norm(const["positions"] - crystal["positions"], axis=1), 0.2
     )
     ball = perturb(crystal, 1, displacement=0.2, strain=0.0, style="uniform", seed=3)[0]
-    lengths = np.linalg.norm(ball.positions - crystal.positions, axis=1)
+    lengths = np.linalg.norm(ball["positions"] - crystal["positions"], axis=1)
     assert lengths.max() <= 0.2 and lengths.mean() == pytest.approx(
         0.15, rel=0.1
     )  # 3/4 of the radius
     again = perturb(crystal, 4, displacement=0.1, strain=0.02, seed=2)
-    np.testing.assert_array_equal(again[3].positions, copies[3].positions)
+    np.testing.assert_array_equal(again[3]["positions"], copies[3]["positions"])
     for arguments, message in [
         ({"count": -1}, "count must be"),
         ({"count": 1, "displacement": -1.0}, "must not be negative"),

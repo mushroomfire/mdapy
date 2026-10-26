@@ -175,7 +175,7 @@ class VoronoiAnalysis:
         try:
             volume, radius, coordination, offsets, j, shifts, areas, edges, shapes = (
                 _native.voronoi(
-                    np.ascontiguousarray(system.positions),
+                    np.ascontiguousarray(system["positions"]),
                     np.ascontiguousarray(box.matrix),
                     np.ascontiguousarray(box.origin),
                     np.ascontiguousarray(box.pbc),

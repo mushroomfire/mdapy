@@ -235,7 +235,9 @@ def render(
         radii = np.broadcast_to(np.asarray(radius, dtype=float), (n,)).copy()
     index = np.flatnonzero(shown)
     scene = Scene()
-    scene.add_spheres(system.positions[index], radii[index], colors[index], ids=index)
+    scene.add_spheres(
+        system["positions"][index], radii[index], colors[index], ids=index
+    )
     if bonds is not None:
         if isinstance(bonds, NeighborList):
             nl = bonds
@@ -253,13 +255,13 @@ def render(
         # each half of a bond in the color of its atom; across the boundary
         # each atom draws its own half only, as the pair comes both ways
         half = both & ((inside & (i < j)) | ~inside)
-        start = system.positions[i[half]]
+        start = system["positions"][i[half]]
         middle = start + 0.5 * nl.vectors[half]
         scene.add_cylinders(
             start, middle, bond_radius, colors[i[half]], ids=np.full(int(half.sum()), n)
         )
         other = both & inside & (i < j)
-        end = system.positions[j[other]]
+        end = system["positions"][j[other]]
         middle = end - 0.5 * nl.vectors[other]
         scene.add_cylinders(
             end, middle, bond_radius, colors[j[other]], ids=np.full(int(other.sum()), n)

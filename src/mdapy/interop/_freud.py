@@ -51,7 +51,7 @@ def to_freud(system: System) -> tuple[Any, np.ndarray]:
     if np.linalg.det(box.matrix) < 0:
         raise InvalidParameter("freud needs a right-handed box")
     converted = freud.box.Box.from_matrix(box.matrix.T)  # vectors as columns
-    fractional = box.to_fractional(system.positions)
+    fractional = box.to_fractional(system["positions"])
     fractional = fractional - np.floor(fractional)
     points = converted.make_absolute(fractional.astype(np.float32))
     return converted, np.asarray(points, dtype=np.float32)

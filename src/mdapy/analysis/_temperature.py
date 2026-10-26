@@ -88,7 +88,7 @@ class AtomicTemperature:
             # the neighbors found on the grid, without a list
             box = system.box
             temperature = _native.atomic_temperature_search(
-                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system["positions"]),
                 np.ascontiguousarray(box.matrix),
                 np.ascontiguousarray(box.origin),
                 np.ascontiguousarray(box.pbc),

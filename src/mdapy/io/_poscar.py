@@ -196,7 +196,7 @@ def _write(file: BinaryIO, systems: Iterable[System], *, direct: bool = True) ->
         )
         box = system.box
         # POSCAR has no box origin: coordinates are relative to it.
-        positions = system.positions[order]
+        positions = system["positions"][order]
         coordinates = box.to_fractional(positions) if direct else positions - box.origin
         comment = system.info.get("comment", "")
         if not isinstance(comment, str) or "\n" in comment:

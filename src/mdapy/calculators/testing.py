@@ -23,7 +23,9 @@ def _replicate(system: System, counts: tuple[int, int, int]) -> System:
             for c in range(counts[2])
         ]
     )
-    positions = (system.positions[None, :, :] + (shifts @ h)[:, None, :]).reshape(-1, 3)
+    positions = (system["positions"][None, :, :] + (shifts @ h)[:, None, :]).reshape(
+        -1, 3
+    )
     box = Box(
         h * np.array(counts)[:, None], origin=system.box.origin, pbc=system.box.pbc
     )
@@ -38,7 +40,7 @@ def _deformed(system: System, gradient: np.ndarray) -> System:
     box = system.box
     return System(
         table=system.table.with_columns(
-            pl.Series("positions", system.positions @ gradient)
+            pl.Series("positions", system["positions"] @ gradient)
         ),
         box=Box(box.matrix @ gradient, origin=box.origin @ gradient, pbc=box.pbc),
         info=dict(system.info),
@@ -152,8 +154,10 @@ def check_calculator(
             for a in range(3):
                 step = np.zeros((n, 3))
                 step[i, a] = displacement
-                plus = energy(system.with_positions(system.positions + step))
-                minus = energy(system.with_positions(system.positions - step))
+                plus = energy(system.with_columns(positions=system["positions"] + step))
+                minus = energy(
+                    system.with_columns(positions=system["positions"] - step)
+                )
                 _close(
                     f"force on atom {i} along {'xyz'[a]} against finite differences",
                     result.forces[i, a],
@@ -180,7 +184,9 @@ def check_calculator(
             atol,
         )
 
-    shifted = system.with_positions(system.positions + rng.normal(size=3) * 3.0)
+    shifted = system.with_columns(
+        positions=system["positions"] + rng.normal(size=3) * 3.0
+    )
     moved = calculator.compute(shifted, implemented)
     _close("energy after a translation", moved.energy, result.energy, 1e-10, 1e-9)
     if result.forces is not None:

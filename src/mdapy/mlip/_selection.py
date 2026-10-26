@@ -236,7 +236,9 @@ def perturb(
                 else np.full(n, displacement)
             )
             step = unit * length[:, None]
-        positions = (system.positions - box.origin) @ deformation.T + box.origin + step
+        positions = (
+            (system["positions"] - box.origin) @ deformation.T + box.origin + step
+        )
         strained = Box(box.matrix @ deformation.T, origin=box.origin, pbc=box.pbc)
-        copies.append(base.with_box(strained).with_positions(positions))
+        copies.append(base.with_box(strained).with_columns(positions=positions))
     return copies

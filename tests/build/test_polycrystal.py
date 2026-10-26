@@ -34,7 +34,7 @@ def test_grains():
     box = mdapy.Box(60.0)
     poly = build_polycrystal(unit(), box, 6, seed=1)
     seeds_again = build_polycrystal(unit(), box, 6, seed=1)
-    np.testing.assert_array_equal(poly.positions, seeds_again.positions)
+    np.testing.assert_array_equal(poly["positions"], seeds_again["positions"])
     grain = poly.table["grain"].to_numpy()
     assert set(grain.tolist()) == set(range(6))
     # no two atoms closer than the minimum distance
@@ -57,7 +57,7 @@ def test_atoms_in_the_cells_of_their_seeds():
         np.array(np.meshgrid(*[[-1, 0, 1]] * 3, indexing="ij")).reshape(3, -1).T * 50.0
     )
     d = np.linalg.norm(
-        poly.positions[:, None, None] - seeds[None, :, None] - images[None, None],
+        poly["positions"][:, None, None] - seeds[None, :, None] - images[None, None],
         axis=3,
     ).min(axis=2)
     np.testing.assert_allclose(d[np.arange(len(poly)), grain], d.min(axis=1), atol=1e-6)
@@ -77,7 +77,7 @@ def test_given_orientations():
     grain = poly.table["grain"].to_numpy()
     for g in range(3):
         # the atom at the seed has its twelve neighbors along the rotated <110>
-        i = np.argmin(np.linalg.norm(poly.positions - seeds[g], axis=1))
+        i = np.argmin(np.linalg.norm(poly["positions"] - seeds[g], axis=1))
         assert grain[i] == g
         bonds = (
             nl.vectors[nl.offsets[i] : nl.offsets[i + 1]] @ rotations[g]

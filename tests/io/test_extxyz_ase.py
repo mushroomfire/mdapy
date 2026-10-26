@@ -50,7 +50,7 @@ def test_mdapy_reads_ase_files(tmp_path):
     atoms = ase_io.read(path, format="extxyz")
     system = mdapy.read(path)
     assert system.table["element"].to_list() == atoms.get_chemical_symbols()
-    np.testing.assert_array_equal(system.positions, atoms.positions)
+    np.testing.assert_array_equal(system["positions"], atoms.positions)
     np.testing.assert_array_equal(system.box.matrix, atoms.cell[:])
     np.testing.assert_array_equal(system.box.pbc, atoms.pbc)
     np.testing.assert_allclose(
@@ -83,7 +83,7 @@ def test_ase_reads_mdapy_files(tmp_path):
     mdapy.write(path, system)
     atoms = ase_io.read(path, format="extxyz")
     assert atoms.get_chemical_symbols() == ["O", "H", "H"]
-    np.testing.assert_array_equal(atoms.positions, system.positions)
+    np.testing.assert_array_equal(atoms.positions, system["positions"])
     np.testing.assert_array_equal(atoms.cell[:], system.box.matrix)
     np.testing.assert_array_equal(atoms.pbc, system.box.pbc)
     assert atoms.get_potential_energy() == -14.2

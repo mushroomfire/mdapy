@@ -23,7 +23,7 @@ print(water)
 #   box:      10 × 10 × 10 Å, orthogonal, periodic x y z
 #   columns:  positions (3), element
 #   info:     energy = -14.2
-water.positions  # (3, 3) NumPy array of the positions, read-only
+water["positions"]  # (3, 3) NumPy array of the positions, read-only
 water.table  # the per-atom table, a polars DataFrame
 ```
 
@@ -105,8 +105,7 @@ water.table["element"].to_physical().to_list()  # [8, 1, 1]
 
 | Name | Meaning |
 |---|---|
-| `system["name"]` | The values of a column, a component or an expression, one per atom, as a read-only NumPy array. |
-| `positions` | (N, 3) positions in Å: a read-only NumPy view of the table, without a copy; the same as `system["positions"]`. |
+| `system["name"]` | The values of a column, a component or an expression, one per atom, as a read-only NumPy array; `system["positions"]` are the (N, 3) positions in Å, without a copy. |
 | `table` | The per-atom table as a polars DataFrame. |
 | `box` | The [`Box`](box.md). |
 | `info` | Global information, a read-only mapping. |
@@ -147,9 +146,11 @@ number. A column or a component is read where it is, without a copy, for
 numbers without missing values; an expression is computed. The arrays are
 read-only, so they cannot change the system.
 
-A system is indexed only by names: atoms are chosen with
-[`filter`, `gather` and `sort`](selecting.md), and a system is not a
-sequence of atoms to loop over.
+Every column is read this way, the positions too: a system has no
+attribute for a column, so that each is read and changed the same way, by
+`system["name"]` and [`with_columns`](changing.md). A system is indexed only
+by names: atoms are chosen with [`filter`, `gather` and `sort`](selecting.md),
+and a system is not a sequence of atoms to loop over.
 
 ### The table
 

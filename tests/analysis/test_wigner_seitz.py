@@ -20,8 +20,9 @@ def perfect(repeat=(4, 4, 4)):
 def test_thermal_motion_is_no_defect():
     reference = perfect()
     rng = np.random.default_rng(0)
-    current = reference.with_positions(
-        reference.positions + rng.normal(scale=0.15, size=(len(reference), 3))
+    current = reference.with_columns(
+        positions=reference["positions"]
+        + rng.normal(scale=0.15, size=(len(reference), 3))
     )
     result = WignerSeitz(reference).compute(current)
     np.testing.assert_array_equal(result.site, np.arange(len(reference)))
@@ -31,15 +32,17 @@ def test_thermal_motion_is_no_defect():
 
 def test_frenkel_pairs_vacancies_and_interstitials():
     reference = perfect()
-    positions = reference.positions.copy()
+    positions = reference["positions"].copy()
     positions[0] = [5.4, 5.4, 5.3]  # near an octahedral site, off its center
-    frenkel = WignerSeitz(reference).compute(reference.with_positions(positions))
+    frenkel = WignerSeitz(reference).compute(
+        reference.with_columns(positions=positions)
+    )
     assert frenkel.vacancy_count == 1 and frenkel.interstitial_count == 1
     np.testing.assert_array_equal(frenkel.vacancies, [0])
     assert frenkel.occupancy[frenkel.interstitials[0]] == 2
     fewer = reference.gather(np.arange(5, len(reference)))  # five vacancies
     added = mdapy.System(
-        np.vstack([reference.positions, [[5.4, 5.4, 5.3], [9.0, 9.0, 8.9]]]),
+        np.vstack([reference["positions"], [[5.4, 5.4, 5.3], [9.0, 9.0, 8.9]]]),
         reference.box,
         elements="Cu",
     )
@@ -59,7 +62,7 @@ def test_affine_mapping_of_a_stretched_box():
     stretch = np.diag([1.1, 1.0, 1.0])
     current = reference.with_box(
         mdapy.Box(reference.box.matrix @ stretch)
-    ).with_positions(reference.positions @ stretch)
+    ).with_columns(positions=reference["positions"] @ stretch)
     assert (
         WignerSeitz(reference).compute(current).vacancy_count > 0
     )  # the far atoms drift
@@ -86,8 +89,8 @@ def test_nearest_sites_by_brute_force():
         @ box.matrix
     )
     d = np.linalg.norm(
-        points.positions[:, None, None]
-        - sites.positions[None, :, None]
+        points["positions"][:, None, None]
+        - sites["positions"][None, :, None]
         - images[None, None],
         axis=3,
     )

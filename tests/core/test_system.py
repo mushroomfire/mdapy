@@ -91,14 +91,14 @@ def test_scalar_elements_and_types_apply_to_all_atoms():
 def test_empty_system():
     s = System(np.empty((0, 3)), box=5.0, elements=[])
     assert len(s) == 0
-    assert s.positions.shape == (0, 3)
+    assert s["positions"].shape == (0, 3)
     assert len(s.gather([])) == 0 and len(s.filter("element == 'H'")) == 0
 
 
 def test_default_box_encloses_the_atoms():
     s = System([[0, 0, 0], [1, 2, 3]])
     assert not s.box.pbc.any()
-    frac = s.box.to_fractional(s.positions)
+    frac = s.box.to_fractional(s["positions"])
     assert np.all((frac > 0) & (frac < 1))
 
 
@@ -163,10 +163,10 @@ def test_invalid_construction(kwargs, message):
 
 def test_positions_are_a_read_only_view():
     s = water_dimer()
-    r = s.positions
+    r = s["positions"]
     assert r.shape == (6, 3) and r.dtype == np.float64
     assert not r.flags.writeable
-    assert np.shares_memory(r, s.positions)  # same buffer each time, no copy
+    assert np.shares_memory(r, s["positions"])  # same buffer each time, no copy
     with pytest.raises(ValueError):
         r[0, 0] = 1.0
 
@@ -176,7 +176,7 @@ def test_table_is_single_chunk_even_from_concatenated_input():
     table = pl.concat(parts, rechunk=False)
     s = System(table=table)
     assert s.table.n_chunks() == 1
-    np.testing.assert_array_equal(s.positions[:, 0], [0, 1, 2])
+    np.testing.assert_array_equal(s["positions"][:, 0], [0, 1, 2])
 
 
 def test_info_is_read_only_and_copied():
@@ -200,12 +200,12 @@ def test_arrays_given_are_copied():
     charges, moved = np.array([1.0, -1.0]), np.ones((2, 3))
     s = System(positions, types=types)
     charged = s.with_columns(charge=charges)
-    shifted = s.with_positions(moved)
+    shifted = s.with_columns(positions=moved)
     for array in (positions, types, charges, moved):
         array[0] = 7
-    assert s.positions[0, 0] == 0.0 and s.table["type"][0] == 1
+    assert s["positions"][0, 0] == 0.0 and s.table["type"][0] == 1
     assert charged.table["charge"][0] == 1.0
-    assert shifted.positions[0, 0] == 1.0
+    assert shifted["positions"][0, 0] == 1.0
 
 
 # --- new systems -----------------------------------------------------------------
@@ -214,7 +214,7 @@ def test_arrays_given_are_copied():
 def test_with_methods_do_not_change_the_original():
     s = water_dimer()
     table, box, info, topology = s.table, s.box, dict(s.info), s.topology
-    s.with_positions(np.ones((6, 3)))
+    s.with_columns(positions=np.ones((6, 3)))
     s.with_columns(charge=0.5)
     s.with_box(Box(20.0), scale_positions=True)
     s.with_info(energy=1.0)
@@ -258,23 +258,30 @@ def test_with_table():
         s.with_table({"positions": []})
 
 
-def test_with_positions():
+def test_new_positions():
     s = water_dimer()
     new = np.arange(18, dtype=float).reshape(6, 3)
-    np.testing.assert_array_equal(s.with_positions(new).positions, new)
-    with pytest.raises(InvalidParameter, match=r"\(6, 3\)"):
-        s.with_positions(np.zeros((5, 3)))
+    np.testing.assert_array_equal(s.with_columns(positions=new)["positions"], new)
+    with pytest.raises(InvalidParameter, match="5 values for 6 atoms"):
+        s.with_columns(positions=np.zeros((5, 3)))
+    for wrong in (np.zeros((6, 2)), np.zeros(6)):
+        with pytest.raises(InvalidParameter, match="must hold 3 values per atom"):
+            s.with_columns(positions=wrong)
+    with pytest.raises(InvalidParameter, match="must hold 3 values per atom"):
+        s.with_columns(velocities=np.zeros((6, 4)))
+    assert not hasattr(s, "positions") and not hasattr(s, "with_positions")
 
 
 def test_with_box_keeps_or_scales_positions():
     s = water_dimer()
     bigger = Box([20.0, 10.0, 10.0])
     kept = s.with_box(bigger)
-    np.testing.assert_array_equal(kept.positions, s.positions)
+    np.testing.assert_array_equal(kept["positions"], s["positions"])
     scaled = s.with_box(bigger, scale_positions=True)
-    np.testing.assert_allclose(scaled.positions[:, 0], 2 * s.positions[:, 0])
+    np.testing.assert_allclose(scaled["positions"][:, 0], 2 * s["positions"][:, 0])
     np.testing.assert_allclose(
-        scaled.box.to_fractional(scaled.positions), s.box.to_fractional(s.positions)
+        scaled.box.to_fractional(scaled["positions"]),
+        s.box.to_fractional(s["positions"]),
     )
     assert s.with_box([[5, 0, 0], [0, 5, 0], [0, 0, 5]]).box == Box(5.0)
 
@@ -305,7 +312,7 @@ def test_values_of_columns_components_and_expressions():
         group=pl.Series([[0, 1]] * 6, dtype=pl.Array(pl.Int64, 2)),
         **{"Shear Strain": np.arange(6.0)},
     )
-    r = s.positions
+    r = s["positions"]
     # columns and components are read where they are, without a copy
     for name, expected in (
         ("positions", r),
@@ -384,14 +391,14 @@ def test_new_systems_check_only_the_columns_that_change(monkeypatch):
     s.sort("type")
     assert checked == [[], [], []]  # rows of a table already checked
     s.with_columns(charge=0.5, forces=np.zeros((6, 3)))
-    s.with_positions(np.ones((6, 3)))
+    s.with_columns(positions=np.ones((6, 3)))
     s.with_columns(pl.col("type") + 1)
     assert checked[3:] == [["charge", "forces"], ["positions"], ["type"]]
     s.with_columns(pl.all())  # cannot tell which: every column
     s.with_table(s.table)
     assert checked[6:] == [None, None]
     with pytest.raises(InvalidParameter, match="finite"):
-        s.with_positions(np.full((6, 3), np.nan))
+        s.with_columns(positions=np.full((6, 3), np.nan))
     with pytest.raises(InvalidParameter, match="at least 1"):
         s.with_columns(type=0)
 
@@ -426,13 +433,13 @@ def test_copies_are_the_same_object():
 def test_new_systems_share_the_columns_they_keep():
     s = water_dimer().with_columns(mass=np.arange(6.0))
     charged = s.with_columns(charge=0.1)
-    moved = s.with_positions(s.positions + 1.0)
-    assert np.shares_memory(charged.positions, s.positions)
-    assert not np.shares_memory(moved.positions, s.positions)
+    moved = s.with_columns(positions=s["positions"] + 1.0)
+    assert np.shares_memory(charged["positions"], s["positions"])
+    assert not np.shares_memory(moved["positions"], s["positions"])
     mass = s.table["mass"].to_numpy()
     assert np.shares_memory(moved.table["mass"].to_numpy(), mass)
-    assert np.shares_memory(s.with_box(Box(30.0)).positions, s.positions)
-    np.testing.assert_array_equal(s.positions, water_dimer().positions)
+    assert np.shares_memory(s.with_box(Box(30.0))["positions"], s["positions"])
+    np.testing.assert_array_equal(s["positions"], water_dimer()["positions"])
 
 
 # --- filter ---------------------------------------------------------------------
@@ -442,7 +449,7 @@ def test_filter_by_mask_keeps_whole_molecules():
     s = water_dimer()
     second = s.filter(np.array([False] * 3 + [True] * 3))
     assert len(second) == 3
-    np.testing.assert_array_equal(second.positions, s.positions[3:])
+    np.testing.assert_array_equal(second["positions"], s["positions"][3:])
     assert second.topology.bonds["atoms"].to_list() == [[0, 1], [0, 2]]
     assert second.topology.angles["atoms"].to_list() == [[1, 0, 2]]
     assert second.info == s.info and second.box == s.box
@@ -470,18 +477,18 @@ def test_filter_by_expressions_conditions_and_keywords():
         kept = s.filter(*ways, element="H") if ways else s.filter()
         if not ways:
             assert kept is not s and len(kept) == 6
-        np.testing.assert_array_equal(kept.positions, s.positions[expected])
+        np.testing.assert_array_equal(kept["positions"], s["positions"][expected])
     right = s.filter("positions.x > 2 and element != 'O'")
-    np.testing.assert_array_equal(right.positions, s.positions[[4, 5]])
+    np.testing.assert_array_equal(right["positions"], s["positions"][[4, 5]])
     near = s.filter("positions.x**2 + positions.y**2 < 1", type=2)
-    np.testing.assert_array_equal(near.positions, s.positions[[1, 2]])
+    np.testing.assert_array_equal(near["positions"], s["positions"][[1, 2]])
     assert len(s.filter("element in ['Cu', 'Ni']")) == 0
 
 
 def test_filter_treats_missing_values_as_false():
     s = water_dimer().with_columns(score=pl.Series([1.0, None, 3.0, None, 5.0, 6.0]))
     np.testing.assert_array_equal(
-        s.filter("score > 2").positions, s.positions[[2, 4, 5]]
+        s.filter("score > 2")["positions"], s["positions"][[2, 4, 5]]
     )
 
 
@@ -514,7 +521,7 @@ def test_gather_reorders_and_a_permutation_round_trips():
     rng = np.random.default_rng(1)
     order = rng.permutation(len(s))
     shuffled = s.gather(order)
-    np.testing.assert_array_equal(shuffled.positions, s.positions[order])
+    np.testing.assert_array_equal(shuffled["positions"], s["positions"][order])
     back = shuffled.gather(np.argsort(order))
     assert back.table.equals(s.table)
     assert back.topology == s.topology
@@ -522,7 +529,7 @@ def test_gather_reorders_and_a_permutation_round_trips():
 
 def test_gather_negative_indices_and_no_topology():
     s = water_dimer()
-    np.testing.assert_array_equal(s.gather([-1]).positions, s.positions[[5]])
+    np.testing.assert_array_equal(s.gather([-1])["positions"], s["positions"][[5]])
     bare = System(np.arange(12, dtype=float).reshape(4, 3), elements="Fe")
     assert bare.gather([2, 0]).topology is None
     assert len(bare.gather([])) == 0
@@ -550,7 +557,7 @@ def test_gather_invalid(atoms, message):
 def test_sort_by_columns_components_and_expressions():
     s = water_dimer().with_columns(id=[6, 5, 4, 3, 2, 1])
     by_id = s.sort("id")
-    np.testing.assert_array_equal(by_id.positions, s.positions[::-1])
+    np.testing.assert_array_equal(by_id["positions"], s["positions"][::-1])
     # the renumbered topology still joins the same atoms
     assert by_id.gather(np.argsort([6, 5, 4, 3, 2, 1])[::-1]).topology is not None
     assert by_id.topology == s.gather([5, 4, 3, 2, 1, 0]).topology
@@ -562,15 +569,15 @@ def test_sort_by_columns_components_and_expressions():
         s.sort("element").table["id"].to_list(), [5, 4, 2, 1, 6, 3]
     )
     np.testing.assert_array_equal(
-        s.sort("positions.x").positions[:, 0], np.sort(s.positions[:, 0])
+        s.sort("positions.x")["positions"][:, 0], np.sort(s["positions"][:, 0])
     )
     np.testing.assert_array_equal(
         s.sort("type", "positions.y", descending=[False, True]).table["id"].to_list(),
         [6, 3, 4, 1, 5, 2],
     )
     np.testing.assert_array_equal(
-        s.sort(pl.col("positions").arr.get(0), descending=True).positions[:, 0],
-        np.sort(s.positions[:, 0])[::-1],
+        s.sort(pl.col("positions").arr.get(0), descending=True)["positions"][:, 0],
+        np.sort(s["positions"][:, 0])[::-1],
     )
 
 

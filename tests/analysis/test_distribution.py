@@ -93,7 +93,7 @@ def test_partial_functions():
 def test_a_supercell_has_the_same_function():
     system = alloy(seed=3)
     a = system.box.matrix[0]
-    positions = np.vstack([system.positions, system.positions + a])
+    positions = np.vstack([system["positions"], system["positions"] + a])
     double = mdapy.System(
         positions,
         mdapy.Box(system.box.matrix * [[2], [1], [1]]),
@@ -118,7 +118,7 @@ def test_rdf_options_and_errors():
     np.testing.assert_array_equal(listed.coordination, searched.coordination)
     for pair in searched.partial:
         np.testing.assert_array_equal(listed.partial[pair], searched.partial[pair])
-    plain = mdapy.System(system.positions, system.box)
+    plain = mdapy.System(system["positions"], system.box)
     assert rdf.compute(plain).partial == {}
     empty = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0), elements=[])
     assert not rdf.compute(empty).g.any() and rdf.compute(empty).partial == {}
@@ -144,7 +144,7 @@ def test_coordination():
         "coordination_Cu",
         "coordination_Ni",
     } <= set(table.columns)
-    plain = mdapy.System(system.positions, system.box)
+    plain = mdapy.System(system["positions"], system.box)
     assert CoordinationNumber(3.0).compute(plain).partial == {}
 
 
@@ -216,7 +216,7 @@ def test_coordination_on_the_grid_and_from_a_list_agree():
             np.testing.assert_array_equal(
                 grid.partial[element], listed.partial[element]
             )
-    plain = mdapy.System(system.positions, system.box)
+    plain = mdapy.System(system["positions"], system.box)
     np.testing.assert_array_equal(
         CoordinationNumber(3.0).compute(plain).coordination,
         CoordinationNumber(3.0)
@@ -244,7 +244,7 @@ def test_coordination_needs_elements_for_pairs():
     system = b2()
     with pytest.raises(MissingProperty, match="element column"):
         CoordinationNumber(cutoffs={("Cu", "Zn"): 2.7}).compute(
-            mdapy.System(system.positions, system.box)
+            mdapy.System(system["positions"], system.box)
         )
 
 

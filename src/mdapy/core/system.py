@@ -72,6 +72,13 @@ def _normalize_table(
             continue
         inner = dtype.inner if isinstance(dtype, pl.Array) else dtype
         source = table.schema[name]
+        if isinstance(dtype, pl.Array) and not (
+            isinstance(source, pl.List)
+            or (isinstance(source, pl.Array) and source.size == dtype.size)
+        ):
+            raise InvalidParameter(
+                f"column {name!r} must hold {dtype.size} values per atom, got {source}"
+            )
         source_inner = (
             source.inner if isinstance(source, (pl.Array, pl.List)) else source
         )
@@ -171,7 +178,8 @@ class System:
 
     A system never changes. Arrays given to it are copied. Methods named
     ``with_*``, :meth:`filter`, :meth:`gather` and :meth:`sort` return a new
-    system; columns that are not changed are shared, not copied.
+    system; columns that are not changed are shared, not copied. The values
+    of each atom are read by name, ``system["positions"]``.
 
     Parameters
     ----------
@@ -322,13 +330,6 @@ class System:
         """Bonds, angles, dihedrals and impropers, or None."""
         return self.__topology
 
-    @property
-    def positions(self) -> np.ndarray:
-        """(N, 3) positions in Å, a read-only view of the table (no copy)."""
-        r = self.__table["positions"].to_numpy(allow_copy=False)
-        r.flags.writeable = False
-        return r
-
     def __len__(self) -> int:
         """Number of atoms."""
         return len(self.__table)
@@ -466,21 +467,6 @@ class System:
             raise InvalidParameter(f"cannot add columns: {exc}") from None
         return self.__derived(table=table, changed=None if None in made else made)
 
-    def with_positions(self, positions: ArrayLike) -> "System":
-        """New system with different positions.
-
-        Parameters
-        ----------
-        positions : array_like
-            (N, 3) positions in Å.
-        """
-        r = np.array(positions, dtype=np.float64)  # a copy of its own
-        if r.shape != (len(self), 3):
-            raise InvalidParameter(
-                f"positions must have shape ({len(self)}, 3), got {r.shape}"
-            )
-        return self.with_columns(positions=pl.Series(r, dtype=VECTOR))
-
     def with_box(self, box: Box | ArrayLike, scale_positions: bool = False) -> "System":
         """New system in a different box.
 
@@ -496,8 +482,8 @@ class System:
         box = self.__checked_box(box)
         system = self.__derived(box=box)
         if scale_positions:
-            frac = self.__box.to_fractional(self.positions)
-            system = system.with_positions(box.to_cartesian(frac))
+            frac = self.__box.to_fractional(self["positions"])
+            system = system.with_columns(positions=box.to_cartesian(frac))
         return system
 
     def with_info(self, **values: Any) -> "System":

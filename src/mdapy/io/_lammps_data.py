@@ -871,7 +871,7 @@ def _plan(system: System, atom_style, units, elements, triclinic) -> dict[str, A
         table["velocities"].to_numpy() if "velocities" in table.columns else None
     )
     image = table["image"].to_numpy() if "image" in table.columns else None
-    vectors = [system.positions] + ([velocities] if velocities is not None else [])
+    vectors = [system["positions"]] + ([velocities] if velocities is not None else [])
     box_lines, vectors, image = _box_lines(system.box, triclinic, vectors, image)
     return {
         "style": style,

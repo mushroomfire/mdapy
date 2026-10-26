@@ -129,10 +129,10 @@ class AtomicStrain:
         box, reference_box = system.box, reference.box
         matrix = reference_box.matrix if self.affine else box.matrix
         arguments = (
-            np.ascontiguousarray(reference.positions),
+            np.ascontiguousarray(reference["positions"]),
             np.ascontiguousarray(reference_box.inverse),
             np.ascontiguousarray(reference_box.origin),
-            np.ascontiguousarray(system.positions),
+            np.ascontiguousarray(system["positions"]),
             np.ascontiguousarray(box.inverse),
             np.ascontiguousarray(box.origin),
             np.ascontiguousarray(box.pbc),

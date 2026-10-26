@@ -97,7 +97,7 @@ def test_volumes_by_sampling():
     rng = np.random.default_rng(3)
     points = system.box.to_cartesian(rng.random((40000, 3)))
     images = np.array(np.meshgrid(*[[-1, 0, 1]] * 3, indexing="ij")).reshape(3, -1).T
-    shifted = system.positions[None, :, :] + (images @ system.box.matrix)[:, None, :]
+    shifted = system["positions"][None, :, :] + (images @ system.box.matrix)[:, None, :]
     shifted = shifted.reshape(-1, 3)
     owner = np.argmin(
         ((points[:, None, :] - shifted[None]) ** 2).sum(-1), axis=1
@@ -113,7 +113,7 @@ def test_invariance_threads_and_columns():
     result = VoronoiAnalysis().compute(system)
     q, _ = np.linalg.qr(np.random.default_rng(5).normal(size=(3, 3)))
     turned = mdapy.System(
-        system.positions @ q.T + 3.0,
+        system["positions"] @ q.T + 3.0,
         mdapy.Box(system.box.matrix @ q.T, origin=system.box.origin @ q.T + 3.0),
         elements="Ar",
     )
@@ -218,7 +218,7 @@ def test_polyhedra(pbc):
     plain = VoronoiAnalysis().compute(system)
     assert plain.polyhedra is None
     np.testing.assert_array_equal(result.volume, plain.volume)
-    x = system.positions
+    x = system["positions"]
     h = system.box.matrix
     images = np.array(np.meshgrid(*[[-1, 0, 1]] * 3, indexing="ij")).reshape(3, -1).T
     images = images[(images[:, ~system.box.pbc] == 0).all(axis=1)]

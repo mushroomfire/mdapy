@@ -113,7 +113,7 @@ def test_errors(tmp_path):
     potential = NEP(write_nep(tmp_path / "nep.txt"))
     system = alloy(seed=5)
     with pytest.raises(MissingProperty, match="NEP needs the element column"):
-        potential.compute(mdapy.System(system.positions, system.box))
+        potential.compute(mdapy.System(system["positions"], system.box))
     with pytest.raises(InvalidParameter, match=r"no parameters for \['Al'\]"):
         potential.descriptors(system.with_columns(element=["Al"] * len(system)))
     with pytest.raises(InvalidParameter, match="below the required"):

@@ -93,7 +93,7 @@ Color the atoms by structure and cut the box in half to see inside:
 ```python
 from mdapy.visualization import render
 
-front = composite.positions[:, 0] < 50.0
+front = composite["positions"][:, 0] < 50.0
 render(composite, "composite.png", atoms=front, color=cna, width=1200, height=900)
 render(composite, "elements.png", atoms=front, width=1200, height=900)
 ```

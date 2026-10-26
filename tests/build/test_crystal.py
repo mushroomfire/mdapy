@@ -17,7 +17,7 @@ def neighbors(system, cutoff):
     than cutoff, nearest first, by brute force over the 27 nearest images
     (the box must be thicker than the cutoff)."""
     shifts = np.array(np.meshgrid(*[[-1, 0, 1]] * 3, indexing="ij")).reshape(3, -1).T
-    x = system.positions
+    x = system["positions"]
     d = x[None, :, None] - x[:, None, None] + (shifts @ system.box.matrix)[None, None]
     r = np.linalg.norm(d, axis=-1).reshape(len(system), -1)
     kinds = np.repeat(np.array(system.table["element"].to_list()), len(shifts))
@@ -45,7 +45,7 @@ def test_cubic_crystals(structure):
         assert len(r) == coordination
         np.testing.assert_allclose(r, nearest * a, rtol=1e-12)
     assert system.table["element"].to_list() == ["Cu"] * len(system)
-    x, y, z = system.positions.T
+    x, y, z = system["positions"].T
     assert (np.lexsort((x, y, z)) == np.arange(len(system))).all()
 
 
@@ -108,7 +108,7 @@ def test_fcc_of_two_elements_in_layers():
     system = build_crystal("fcc", 3.6, elements=("Cu", "Au"), repeat=(2, 2, 2))
     kinds = np.array(system.table["element"].to_list())
     # Cu on the planes z = 0, a, ...; Au on z = a / 2, ...
-    z = system.positions[:, 2] / 1.8
+    z = system["positions"][:, 2] / 1.8
     np.testing.assert_array_equal(kinds == "Cu", np.round(z) % 2 == 0)
 
 

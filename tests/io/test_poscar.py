@@ -50,7 +50,7 @@ def test_read_contcar(tmp_path):
     assert system.box.pbc.all()
     assert system.table["element"].to_list() == ["B", "N"]
     np.testing.assert_allclose(
-        system.positions[1], [0.25, 0.25, 0.25] @ CELL, rtol=1e-15
+        system["positions"][1], [0.25, 0.25, 0.25] @ CELL, rtol=1e-15
     )
     assert system.table["movable"].to_list() == [
         [True, True, False],
@@ -73,17 +73,19 @@ def test_scaling_factors(tmp_path, scale, factors):
     np.testing.assert_allclose(
         direct.box.matrix, np.diag(4.0 * np.array(factors)), rtol=1e-15
     )
-    np.testing.assert_allclose(direct.positions[1], 2.0 * np.array(factors), rtol=1e-15)
+    np.testing.assert_allclose(
+        direct["positions"][1], 2.0 * np.array(factors), rtol=1e-15
+    )
     cartesian = read_text(
         tmp_path, poscar(scale=scale, mode="Cartesian", lines="0 0 0\n1 1 1")
     )
-    np.testing.assert_allclose(cartesian.positions[1], factors, rtol=1e-15)
+    np.testing.assert_allclose(cartesian["positions"][1], factors, rtol=1e-15)
 
 
 @pytest.mark.parametrize("mode", ["Cartesian", "cart", "K", "k"])
 def test_cartesian_modes(tmp_path, mode):
     system = read_text(tmp_path, poscar(mode=mode, lines="0 0 0\n1 2 3"))
-    assert system.positions[1].tolist() == [1.0, 2.0, 3.0]
+    assert system["positions"][1].tolist() == [1.0, 2.0, 3.0]
 
 
 def test_vasp4_files_need_elements(tmp_path):
@@ -153,7 +155,7 @@ def test_coordinate_lines_with_extra_words(tmp_path):
         [True, False, True],
         [False, False, False],
     ]
-    np.testing.assert_array_equal(system.positions[1], [2.0, 2.0, 2.0])
+    np.testing.assert_array_equal(system["positions"][1], [2.0, 2.0, 2.0])
     with pytest.raises(FileFormatError, match="must be T or F"):
         read_text(
             tmp_path,
@@ -235,7 +237,7 @@ def test_write_groups_elements_in_order_of_first_appearance(tmp_path):
         back.box.origin, [0.0, 0.0, 0.0]
     )  # no origin in POSCAR
     np.testing.assert_allclose(
-        back.positions, system.positions[order] - box.origin, atol=1e-14
+        back["positions"], system["positions"][order] - box.origin, atol=1e-14
     )
     assert (
         back.table["movable"].to_list()
@@ -288,7 +290,7 @@ def test_format_detection():
 
 def test_extra_words_without_selective_dynamics(tmp_path):
     system = read_text(tmp_path, poscar(lines="0 0 0 a\n0.5 0.5 0.5 b c"))
-    np.testing.assert_array_equal(system.positions[1], [2.0, 2.0, 2.0])
+    np.testing.assert_array_equal(system["positions"][1], [2.0, 2.0, 2.0])
     assert "movable" not in system.table.columns
 
 

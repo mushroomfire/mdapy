@@ -78,7 +78,7 @@ def test_round_trip():
     system = water(pbc=[True, True, False])
     back = from_ovito(to_ovito(system))
     assert back.box == system.box
-    np.testing.assert_array_equal(back.positions, system.positions)
+    np.testing.assert_array_equal(back["positions"], system["positions"])
     assert back.table["element"].to_list() == system.table["element"].to_list()
     assert back.table["type"].to_list() == [1, 2, 2, 1, 2, 2]  # by first appearance
     others = [c for c in system.table.columns if c not in ("positions", "element")]
@@ -117,7 +117,7 @@ def test_bonds_through_periodic_boundaries_keep_their_length():
     lengths = np.asarray(pipeline.compute().particles.bonds["Length"])
     atoms = system.topology.bonds["atoms"].to_numpy()
     vectors = system.box.minimum_image(
-        system.positions[atoms[:, 1]] - system.positions[atoms[:, 0]]
+        system["positions"][atoms[:, 1]] - system["positions"][atoms[:, 0]]
     )
     np.testing.assert_allclose(lengths, np.linalg.norm(vectors, axis=1), atol=1e-12)
     assert lengths.max() < 1.2  # the molecules cross the faces of the box
@@ -131,7 +131,7 @@ def test_ovito_writes_what_mdapy_reads(tmp_path):
     )
     read = mdapy.read(tmp_path / "water.data")
     assert read.box == system.box
-    np.testing.assert_allclose(read.positions, system.positions, atol=1e-10)
+    np.testing.assert_allclose(read["positions"], system["positions"], atol=1e-10)
     assert read.table["type"].to_list() == [1, 2, 2, 1, 2, 2]
     assert read.table["element"].to_list() == system.table["element"].to_list()
     assert_same_columns(read, system, ["molecule", "id"])
@@ -150,7 +150,7 @@ def test_mdapy_writes_what_ovito_reads(tmp_path):
     mdapy.write(tmp_path / "water.data", system, atom_style="full")
     back = from_ovito(import_file(tmp_path / "water.data", atom_style="full").compute())
     assert back.box == system.box
-    np.testing.assert_allclose(back.positions, system.positions, atol=1e-10)
+    np.testing.assert_allclose(back["positions"], system["positions"], atol=1e-10)
     assert back.table["element"].to_list() == system.table["element"].to_list()
     assert_same_columns(back, system, ["id", "molecule"])
     np.testing.assert_allclose(

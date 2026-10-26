@@ -107,7 +107,7 @@ def test_read_full_style_file(tmp_path):
     assert table["element"].to_list() == ["O", "H", "H", "O", "H", "H"]
     assert table["mass"].to_list() == [15.9994, 1.008, 1.008, 15.9994, 1.008, 1.008]
     assert table["charge"].to_list() == [-0.8476, 0.4238, 0.4238] * 2
-    np.testing.assert_array_equal(system.positions[3], [5.0, 5.0, 5.0])
+    np.testing.assert_array_equal(system["positions"][3], [5.0, 5.0, 5.0])
     assert table["image"].to_list()[4] == [1, 0, -1]
     # real units: Å/fs in the file, Å/ps in mdapy, scaled exactly in decimal
     assert table["velocities"].to_list()[0] == [1.0, 2.0, 3.0]
@@ -742,9 +742,9 @@ def test_left_handed_boxes_swap_b_and_c(tmp_path):
     back = round_trip(tmp_path, system)
     np.testing.assert_array_equal(back.box.matrix, box.matrix[[0, 2, 1]])
     assert back.table["image"].to_list() == [[1, 3, 2]]
-    np.testing.assert_array_equal(back.positions, system.positions)
-    unwrapped = back.positions + back.table["image"].to_numpy() @ back.box.matrix
-    expected = system.positions + system.table["image"].to_numpy() @ box.matrix
+    np.testing.assert_array_equal(back["positions"], system["positions"])
+    unwrapped = back["positions"] + back.table["image"].to_numpy() @ back.box.matrix
+    expected = system["positions"] + system.table["image"].to_numpy() @ box.matrix
     np.testing.assert_array_equal(unwrapped, expected)
 
 
@@ -763,7 +763,7 @@ def test_restricted_option_rotates_vectors(tmp_path, left_handed):
     m = back.box.matrix
     assert m[0, 1] == m[0, 2] == m[1, 2] == 0
     np.testing.assert_allclose(back.box.volume, box.volume, rtol=1e-13)
-    unwrapped = lambda s: s.positions + s.table["image"].to_numpy() @ s.box.matrix  # noqa: E731
+    unwrapped = lambda s: s["positions"] + s.table["image"].to_numpy() @ s.box.matrix  # noqa: E731
     d_back = np.linalg.norm(unwrapped(back)[:, None] - unwrapped(back)[None], axis=-1)
     d_orig = np.linalg.norm(
         unwrapped(system)[:, None] - unwrapped(system)[None], axis=-1

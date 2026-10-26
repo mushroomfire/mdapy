@@ -78,7 +78,7 @@ def test_as_atomsk(tmp_path, kind, line, normal, sign):
     if kind == "edge":
         options.append(0.3)
     theirs = atomsk_apply(tmp_path, cell, *options)
-    np.testing.assert_allclose(ours.positions, theirs.positions, atol=1e-9)
+    np.testing.assert_allclose(ours["positions"], theirs["positions"], atol=1e-9)
 
 
 def test_mixed_is_screw_and_edge():
@@ -92,7 +92,7 @@ def test_mixed_is_screw_and_edge():
     mixed = insert_dislocation(
         cell, [b * np.sqrt(3) / 2, b / 2, 0], line="y", normal="z", center=center
     )
-    np.testing.assert_allclose(mixed.positions, both.positions, atol=1e-12)
+    np.testing.assert_allclose(mixed["positions"], both["positions"], atol=1e-12)
 
 
 def test_screw_displacement():
@@ -101,13 +101,13 @@ def test_screw_displacement():
     b = A_FE * np.sqrt(3) / 2
     center = cell.box.matrix.diagonal() / 2 + [0.11, 0.13, 0.0]
     moved = insert_dislocation(cell, [0, 0, b], center=center)
-    u = moved.positions[:, 2] - cell.positions[:, 2]
-    x = cell.positions - center
+    u = moved["positions"][:, 2] - cell["positions"][:, 2]
+    x = cell["positions"] - center
     np.testing.assert_allclose(
         u, b / (2 * np.pi) * np.arctan2(x[:, 1], x[:, 0]), atol=1e-12
     )
     assert np.ptp(u) == pytest.approx(b, rel=0.05)
-    assert np.abs(moved.positions[:, :2] - cell.positions[:, :2]).max() == 0
+    assert np.abs(moved["positions"][:, :2] - cell["positions"][:, :2]).max() == 0
 
 
 def test_two_crystals():
@@ -122,7 +122,7 @@ def test_two_crystals():
     assert list(system.box.pbc) == [True, True, False]
     # far from the line along z, both crystals are fcc
     structures = CommonNeighborAnalysis().compute(system).structure
-    z = system.positions[:, 2]
+    z = system["positions"][:, 2]
     middle = 4 * length[2]
     far = (np.abs(z - middle) > 4.0) & (z > 3.0) & (z < system.box.matrix[2, 2] - 3.0)
     assert (structures[far] == 1).mean() > 0.95
@@ -146,7 +146,7 @@ def test_two_crystals_relax_into_partials():
     result = minimize(system, EAM.zhou(["Cu"]), max_force=1e-3, max_steps=5000)
     assert result.converged
     structures = CommonNeighborAnalysis().compute(result.system).structure
-    hcp = result.system.positions[structures == 2]
+    hcp = result.system["positions"][structures == 2]
     # two neighboring {111} planes, a/sqrt(3) apart, some nanometers wide
     layers = np.unique(np.round(hcp[:, 2] / (A_CU / np.sqrt(3))))
     assert len(layers) == 2 and np.ptp(layers) == 1
@@ -161,7 +161,7 @@ def test_errors():
         ({"burgers": [0, 0, b]}, "lie in the plane of cut"),
         ({"burgers": [b, 0]}, "three components"),
         ({"poisson": 0.5}, "poisson must be"),
-        ({"center": cell.positions[0]}, "lies on the dislocation line"),
+        ({"center": cell["positions"][0]}, "lies on the dislocation line"),
         ({"line": "w"}, "axis must be"),
     ]:
         options = {"burgers": [b, 0, 0], "line": "y", "normal": "z"} | arguments

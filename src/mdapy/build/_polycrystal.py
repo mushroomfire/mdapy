@@ -169,7 +169,7 @@ def build_polycrystal(
     reach = np.maximum(reach, 0.5 * np.linalg.norm(box.matrix.sum(axis=0)))
     reach += np.linalg.norm(unit.box.matrix.sum(axis=0))
     cell = unit.box.matrix
-    sites = unit.box.to_fractional(unit.positions)
+    sites = unit.box.to_fractional(unit["positions"])
     sites -= np.floor(sites)
     names = (
         unit.table["element"].to_list()
@@ -241,7 +241,7 @@ def twin_lamellae(cell: System, layers: int) -> System:
     if int(layers) < 2:
         raise InvalidParameter(f"layers must be at least 2, not {layers!r}")
     layers = int(layers)
-    fractional = cell.box.to_fractional(cell.positions)
+    fractional = cell.box.to_fractional(cell["positions"])
     fractional -= np.floor(fractional)
     heights = fractional[:, 2] * matrix[2, 2]
     planes = np.unique(np.round(heights, 6))

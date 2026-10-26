@@ -14,7 +14,7 @@ def frames(n=5):
         [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], mdapy.Box(5.0), elements=["Cu", "Zr"]
     )
     return [
-        base.with_info(timestep=k).with_positions(base.positions + 0.1 * k)
+        base.with_info(timestep=k).with_columns(positions=base["positions"] + 0.1 * k)
         for k in range(n)
     ]
 
@@ -39,7 +39,7 @@ def test_length_indexing_and_iteration(path):
         assert trajectory[-1].info["timestep"] == 4
         assert trajectory[-5].info["timestep"] == 0
         assert steps(trajectory) == [0, 1, 2, 3, 4]
-        np.testing.assert_allclose(trajectory[3].positions, frames()[3].positions)
+        np.testing.assert_allclose(trajectory[3]["positions"], frames()[3]["positions"])
         for index in (5, -6):
             with pytest.raises(IndexError, match="out of range"):
                 trajectory[index]

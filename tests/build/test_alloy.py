@@ -18,7 +18,7 @@ def test_exact_counts():
     alloy = random_alloy(sites, {"Fe": 1, "Ni": 1, "Cr": 1}, seed=1)
     # 500 / 3 = 166.67 each: the two first named get the remaining atoms
     assert counts(alloy) == {"Fe": 167, "Ni": 167, "Cr": 166}
-    np.testing.assert_array_equal(alloy.positions, sites.positions)
+    np.testing.assert_array_equal(alloy["positions"], sites["positions"])
     assert counts(random_alloy(sites, {"Cu": 0.25, "Zn": 0.75})) == {
         "Cu": 125,
         "Zn": 375,

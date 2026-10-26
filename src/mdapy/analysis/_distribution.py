@@ -102,7 +102,7 @@ class RadialDistributionFunction:
             # counted during the search, without storing the pairs
             box = system.box
             table = _native.pair_histogram(
-                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system["positions"]),
                 np.ascontiguousarray(box.matrix),
                 np.ascontiguousarray(box.origin),
                 np.ascontiguousarray(box.pbc),
@@ -363,7 +363,7 @@ class StructureFactor:
         q = 0.5 * (edges[1:] + edges[:-1])
         if self.method == "direct":
             sums, vectors = _native.structure_factor(
-                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system["positions"]),
                 np.ascontiguousarray(system.box.matrix),
                 index.astype(np.int32),
                 types,

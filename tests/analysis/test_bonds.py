@@ -124,7 +124,7 @@ def test_clusters_unwrapped_across_the_boundary():
     weighted = everything.compute(heavy)
     np.testing.assert_allclose(weighted.center_of_mass[0], whole.mean(axis=0))
     np.testing.assert_array_equal(weighted.masses, [3.0, 5.0])
-    bare = everything.compute(mdapy.System(system.positions, system.box))
+    bare = everything.compute(mdapy.System(system["positions"], system.box))
     np.testing.assert_array_equal(bare.masses, [3.0, 1.0])
     # each option gives its own results only, the same as all of them
     fields = {
@@ -173,7 +173,7 @@ def test_clusters_across_the_boundary_and_per_pair():
     assert (like.cluster[cu] == 0).all()
     assert ClusterAnalysis(cutoff=2.6).compute(system).sizes.tolist() == [len(system)]
     assert "cutoffs" in repr(ClusterAnalysis(cutoffs={("Cu", "Cu"): 3.0}))
-    plain = mdapy.System(system.positions, system.box)
+    plain = mdapy.System(system["positions"], system.box)
     with pytest.raises(MissingProperty, match="element column"):
         ClusterAnalysis(cutoffs={("Cu", "Cu"): 3.0}).compute(plain)
     with pytest.raises(MissingProperty, match="element column"):
@@ -306,7 +306,7 @@ def test_warren_cowley_of_shells_match_numpy(kind):
         analysis = WarrenCowley(num_neighbors=(12, 6, 24))
     result = analysis.compute(system)
     # brute force: every pair of atoms, its image nearest, in shells
-    positions, box = system.positions, system.box
+    positions, box = system["positions"], system.box
     vectors = positions[None] - positions[:, None]
     fractional = vectors @ box.inverse
     fractional -= np.round(fractional)
@@ -411,7 +411,9 @@ def test_bond_angle_of_water():
     assert result.counts.sum() == 1
     with pytest.raises(InvalidParameter, match="no partial distribution"):
         result.triplet("O", "C", "H")
-    plain = BondAngleDistribution(1.2).compute(mdapy.System(water.positions, water.box))
+    plain = BondAngleDistribution(1.2).compute(
+        mdapy.System(water["positions"], water.box)
+    )
     assert plain.partial == {} and plain.counts.sum() == 1
 
 

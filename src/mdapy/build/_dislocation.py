@@ -66,7 +66,7 @@ def insert_dislocation(
         if center is None
         else np.asarray(center, dtype=float)
     )
-    x = system.positions - point
+    x = system["positions"] - point
     x1, x2 = x[:, a1], x[:, a2]
     if ((x1 == 0) & (x2 == 0)).any():
         raise InvalidParameter("an atom lies on the dislocation line")
@@ -94,7 +94,7 @@ def insert_dislocation(
         end1 -= np.where((end1 > 0) & (end2 * side >= 0), half, 0.0)
         u[:, a1] = end1 - x1
         u[:, a2] = end2 - x2
-    return system.with_positions(system.positions + u)
+    return system.with_columns(positions=system["positions"] + u)
 
 
 def edge_dislocation(cell: System, repeat: tuple[int, int, int]) -> System:
@@ -124,7 +124,7 @@ def edge_dislocation(cell: System, repeat: tuple[int, int, int]) -> System:
     if nx < 1 or ny < 1 or nz < 2:
         raise InvalidParameter("repeat needs nx >= 1, ny >= 1 and nz >= 2")
     length = np.diag(matrix)
-    fractional = cell.box.to_fractional(cell.positions)
+    fractional = cell.box.to_fractional(cell["positions"])
     fractional -= np.floor(fractional)
     names = (
         cell.table["element"].to_list()

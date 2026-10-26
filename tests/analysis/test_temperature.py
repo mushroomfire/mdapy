@@ -86,7 +86,7 @@ def test_columns_isolated_atoms_and_errors():
     assert repr(AtomicTemperature(2.0)) == "AtomicTemperature(cutoff=2.0)"
     with pytest.raises(MissingProperty, match="velocities"):
         AtomicTemperature(3.0).compute(crystal("fcc", 3.6))
-    bare = mdapy.System(system.positions, system.box).with_columns(
+    bare = mdapy.System(system["positions"], system.box).with_columns(
         velocities=system.table["velocities"].to_numpy()
     )
     with pytest.raises(MissingProperty, match="mass or an element"):

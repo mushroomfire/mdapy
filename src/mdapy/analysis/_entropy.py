@@ -106,7 +106,7 @@ class EntropyFingerprint:
             # the neighbors found on the grid, without a list
             box = system.box
             entropy = _native.pair_entropy_search(
-                np.ascontiguousarray(system.positions),
+                np.ascontiguousarray(system["positions"]),
                 np.ascontiguousarray(box.matrix),
                 np.ascontiguousarray(box.origin),
                 np.ascontiguousarray(box.pbc),

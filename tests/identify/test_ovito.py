@@ -47,7 +47,7 @@ def disordered(kind, a, box, jitter, seed):
         q, _ = np.linalg.qr(np.random.default_rng(seed).normal(size=(3, 3)))
         q[:, 0] *= np.sign(np.linalg.det(q))
         return mdapy.System(
-            system.positions @ q.T + 1.5,
+            system["positions"] @ q.T + 1.5,
             mdapy.Box(system.box.matrix @ q.T, origin=[1.5, 1.5, 1.5]),
             elements=system.table["element"].to_list(),
         )

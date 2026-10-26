@@ -486,7 +486,7 @@ def _write(
         box_lines, moved, image = _bounds_lines(
             system.box,
             triclinic,
-            [system.positions, vectors["velocities"], vectors["forces"]],
+            [system["positions"], vectors["velocities"], vectors["forces"]],
             image,
         )
         positions, vectors["velocities"], vectors["forces"] = moved

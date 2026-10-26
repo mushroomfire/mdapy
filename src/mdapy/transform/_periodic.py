@@ -90,7 +90,7 @@ def replicate(system: System, repeat: int | Sequence[int]) -> System:
     rows = np.tile(np.arange(n), copies)
     copy = np.repeat(np.arange(copies), n)
     table = system.table[rows]
-    positions = system.positions[rows] + (cells @ box.matrix)[copy]
+    positions = system["positions"][rows] + (cells @ box.matrix)[copy]
     columns = {}
     if "image" in table.columns:
         image = table["image"].to_numpy().astype(np.int64)
@@ -129,7 +129,7 @@ def wrap(system: System) -> System:
         directions. An ``image`` column is updated so that the unwrapped
         positions do not change.
     """
-    positions, moved = system.box.wrap(system.positions)
+    positions, moved = system.box.wrap(system["positions"])
     columns = {"positions": positions}
     if "image" in system.table.columns:
         image = system.table["image"].to_numpy().astype(np.int64) + moved
@@ -160,6 +160,6 @@ def unwrap(system: System) -> System:
         raise MissingProperty("unwrapping needs the image column")
     image = system.table["image"].to_numpy().astype(np.int64)
     return system.with_columns(
-        positions=system.positions + image @ system.box.matrix,
+        positions=system["positions"] + image @ system.box.matrix,
         image=np.zeros_like(image, dtype=np.int32),
     )

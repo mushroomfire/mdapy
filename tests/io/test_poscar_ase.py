@@ -33,7 +33,7 @@ def test_mdapy_reads_ase_files(tmp_path):
     system = mdapy.read(path)
     assert system.table["element"].to_list() == expected.get_chemical_symbols()
     np.testing.assert_array_equal(system.box.matrix, expected.cell[:])
-    np.testing.assert_allclose(system.positions, expected.positions, atol=1e-14)
+    np.testing.assert_allclose(system["positions"], expected.positions, atol=1e-14)
     movable = system.table["movable"].to_numpy()
     assert movable.tolist() == [[True] * 3, [False] * 3, [True] * 3, [True] * 3]
     # ASE zeroes the velocity of the fixed atom when reading; the file has it
@@ -57,7 +57,7 @@ def test_ase_reads_mdapy_files(tmp_path):
     order = [0, 2, 1, 3]  # grouped by element
     assert atoms.get_chemical_symbols() == ["O", "O", "Ti", "Ti"]
     np.testing.assert_array_equal(atoms.cell[:], box.matrix)
-    np.testing.assert_allclose(atoms.positions, system.positions[order], atol=1e-14)
+    np.testing.assert_allclose(atoms.positions, system["positions"][order], atol=1e-14)
     np.testing.assert_allclose(
         atoms.get_velocities() / (ase.units.Ang / ase.units.fs) * 1000,
         system.table["velocities"].to_numpy()[order],

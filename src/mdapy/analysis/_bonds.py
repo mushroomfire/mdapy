@@ -127,7 +127,7 @@ class _Bonds:
         index = found[1] if found is not None else np.zeros(len(system), dtype=np.int64)
         box = system.box
         return (
-            np.ascontiguousarray(system.positions),
+            np.ascontiguousarray(system["positions"]),
             np.ascontiguousarray(box.matrix),
             np.ascontiguousarray(box.origin),
             np.ascontiguousarray(box.pbc),
@@ -275,7 +275,7 @@ class ClusterAnalysis:
         if not (self.unwrap or self.center_of_mass or self.gyration):
             return ClusterResult(**found)
         n, count = len(system), len(sizes)
-        unwrapped = system.positions + images.reshape(n, 3) @ system.box.matrix
+        unwrapped = system["positions"] + images.reshape(n, 3) @ system.box.matrix
         if self.unwrap:
             found["unwrapped"] = unwrapped
         if not (self.center_of_mass or self.gyration):

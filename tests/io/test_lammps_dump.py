@@ -347,7 +347,9 @@ def test_written_text(tmp_path):
 def test_many_frames_from_a_generator(tmp_path):
     system = rich_system(5)
     frames = (
-        system.with_info(timestep=k).with_positions(system.positions + 0.1 * k)
+        system.with_info(timestep=k).with_columns(
+            positions=system["positions"] + 0.1 * k
+        )
         for k in range(4)
     )
     path = round_trip(tmp_path, frames)
@@ -355,7 +357,9 @@ def test_many_frames_from_a_generator(tmp_path):
     assert text.count("ITEM: UNITS") == 1 and text.count("ITEM: TIMESTEP") == 4
     third = mdapy.read(path, frame=2)
     assert third.info["timestep"] == 2
-    np.testing.assert_allclose(third.positions, system.positions + 0.2, rtol=1e-15)
+    np.testing.assert_allclose(
+        third["positions"], system["positions"] + 0.2, rtol=1e-15
+    )
 
 
 def test_columns_option(tmp_path):
@@ -429,7 +433,7 @@ def test_restricted_option_rotates_vectors(tmp_path, left_handed):
             np.linalg.norm(system.table[name].to_numpy(), axis=1),
             rtol=1e-13,
         )
-    unwrapped = lambda s: s.positions + s.table["image"].to_numpy() @ s.box.matrix  # noqa: E731
+    unwrapped = lambda s: s["positions"] + s.table["image"].to_numpy() @ s.box.matrix  # noqa: E731
     d = lambda p: np.linalg.norm(p[:, None] - p[None], axis=-1)  # noqa: E731
     np.testing.assert_allclose(d(unwrapped(back)), d(unwrapped(system)), atol=1e-12)
 
@@ -477,7 +481,9 @@ def test_restricted_option_for_left_handed_boxes_without_images(tmp_path):
     system = mdapy.System([[1.0, 2.0, 3.0], [0.5, 0.5, 0.5]], box, elements="Cu")
     back = mdapy.read(round_trip(tmp_path, system, triclinic="restricted"))
     np.testing.assert_allclose(back.box.volume, box.volume, rtol=1e-13)
-    distance = np.linalg.norm(back.positions[1] - back.positions[0])
+    distance = np.linalg.norm(back["positions"][1] - back["positions"][0])
     np.testing.assert_allclose(
-        distance, np.linalg.norm(system.positions[1] - system.positions[0]), rtol=1e-13
+        distance,
+        np.linalg.norm(system["positions"][1] - system["positions"][0]),
+        rtol=1e-13,
     )

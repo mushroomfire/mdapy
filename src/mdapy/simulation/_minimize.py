@@ -217,11 +217,11 @@ def minimize(
 
     def place(variables: np.ndarray) -> System:
         if not cell:
-            return system.with_positions(variables)
+            return system.with_columns(positions=variables)
         deformation = variables[n:] / scale
         box = Box(box0.matrix @ deformation.T, origin=origin, pbc=box0.pbc)
-        return system.with_box(box).with_positions(
-            origin + variables[:n] @ deformation.T
+        return system.with_box(box).with_columns(
+            positions=origin + variables[:n] @ deformation.T
         )
 
     cutoff = float(calculator.cutoff)
@@ -254,7 +254,7 @@ def minimize(
             generalized = np.vstack([forces @ deformation, 0.5 * (on_box + on_box.T)])
         return current, result, largest, stress, generalized, deviation
 
-    variables = system.positions.copy()
+    variables = system["positions"].copy()
     if cell:
         variables = np.vstack([variables - origin, scale * np.eye(3)])
     velocities = np.zeros_like(variables)

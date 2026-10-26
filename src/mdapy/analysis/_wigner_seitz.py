@@ -77,7 +77,7 @@ class WignerSeitz:
         self.affine = bool(affine)
         box = reference.box
         self.__tree = _search.KdTree(
-            np.ascontiguousarray(reference.positions),
+            np.ascontiguousarray(reference["positions"]),
             np.ascontiguousarray(box.matrix),
             np.ascontiguousarray(box.origin),
             np.ascontiguousarray(box.pbc),
@@ -102,7 +102,7 @@ class WignerSeitz:
         box = self.reference.box
         if not np.array_equal(system.box.pbc, box.pbc):
             raise InvalidParameter("the system and the reference differ in periodicity")
-        positions = system.positions
+        positions = system["positions"]
         if self.affine:
             positions = box.to_cartesian(system.box.to_fractional(positions))
         nearest, _, _ = self.__tree.nearest(

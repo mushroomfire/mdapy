@@ -21,7 +21,7 @@ def ovito_source(system):
     cell[:, 3] = system.box.origin
     data.create_cell(cell, pbc=tuple(bool(p) for p in system.box.pbc))
     particles = data.create_particles(count=len(system))
-    particles.create_property("Position", data=system.positions)
+    particles.create_property("Position", data=system["positions"])
     if "mass" in system.table.columns:
         particles.create_property("Mass", data=system.table["mass"].to_numpy())
     if "element" in system.table.columns:

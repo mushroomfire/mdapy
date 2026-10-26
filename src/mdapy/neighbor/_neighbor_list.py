@@ -177,7 +177,7 @@ class NeighborList:
             raise InvalidParameter("the face and edge thresholds need voronoi")
         box = system.box
         arrays = (
-            np.ascontiguousarray(system.positions),
+            np.ascontiguousarray(system["positions"]),
             np.ascontiguousarray(box.matrix),
             np.ascontiguousarray(box.origin),
             np.ascontiguousarray(box.pbc),
@@ -226,7 +226,7 @@ class NeighborList:
     ) -> "NeighborList":
         """The atoms across the faces that count of the Voronoi cells."""
         box = system.box
-        positions = np.ascontiguousarray(system.positions)
+        positions = np.ascontiguousarray(system["positions"])
         try:
             *_, offsets, j, shifts, areas, _, _ = _analysis.voronoi(
                 positions,
@@ -271,7 +271,7 @@ class NeighborList:
             return True
         if len(system) != len(own) or system.box != own.box:
             return False
-        mine, theirs = own.positions, system.positions
+        mine, theirs = own["positions"], system["positions"]
         same = mine.ctypes.data == theirs.ctypes.data and mine.strides == theirs.strides
         return same or bool(np.array_equal(mine, theirs))
 
@@ -293,7 +293,7 @@ class NeighborList:
         kept."""
         with self._reading():
             return _native.pair_vectors(
-                np.ascontiguousarray(self.system.positions),
+                np.ascontiguousarray(self.system["positions"]),
                 self.offsets,
                 self.j,
                 self.shifts,
@@ -346,7 +346,7 @@ class NeighborList:
         # the first k pairs of each atom (all when k < 0) in the order of a
         # search of nearest neighbors, and their offsets
         return _native.order_by_distance(
-            np.ascontiguousarray(self.system.positions),
+            np.ascontiguousarray(self.system["positions"]),
             self.offsets,
             self.j,
             self.shifts,
@@ -375,7 +375,7 @@ class NeighborList:
                 self.j, self.shifts, self.distances = arrays
             try:
                 _native.sort_nearest(
-                    np.ascontiguousarray(self.system.positions),
+                    np.ascontiguousarray(self.system["positions"]),
                     self.offsets,
                     self.j,
                     self.shifts,
@@ -417,12 +417,12 @@ class NeighborList:
             or not np.array_equal(system.box.pbc, old.box.pbc)
         ):
             return None
-        step = system.positions - old.positions
+        step = system["positions"] - old["positions"]
         moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
         if not cutoff + 2.0 * moved < self.cutoff:
             return None
         offsets, j, shifts, distances = _native.follow(
-            np.ascontiguousarray(system.positions),
+            np.ascontiguousarray(system["positions"]),
             self.offsets,
             self.j,
             self.shifts,
@@ -516,7 +516,7 @@ def _view(system: System, neighbors: NeighborList) -> tuple:
     the pairs and the number of nearest pairs of each atom that come first,
     in order. Call it holding the list's lock."""
     return (
-        np.ascontiguousarray(system.positions),
+        np.ascontiguousarray(system["positions"]),
         np.ascontiguousarray(system.box.matrix),
         neighbors.offsets,
         neighbors.j,

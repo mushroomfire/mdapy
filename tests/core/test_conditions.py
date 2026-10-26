@@ -41,7 +41,7 @@ def where(mask):
 def test_comparisons_logic_and_arithmetic():
     s = atoms()
     r, v, q = (
-        s.positions,
+        s["positions"],
         s.table["velocities"].to_numpy(),
         s.table["charge"].to_numpy(),
     )
@@ -78,7 +78,7 @@ def test_comparisons_logic_and_arithmetic():
 
 def test_functions():
     s = atoms()
-    r, v = s.positions, s.table["velocities"].to_numpy()
+    r, v = s["positions"], s.table["velocities"].to_numpy()
     cases = {
         "abs(velocities.z) > 1": np.abs(v[:, 2]) > 1,
         "sqrt(positions.x**2 + positions.y**2) < 4": np.hypot(r[:, 0], r[:, 1]) < 4,
@@ -125,7 +125,7 @@ def test_components_by_name_and_index():
         (shear > 0.2) & (table["element"] == "Cu").to_numpy()
     )
     # numbers stay numbers, backticks and dots inside strings stay text
-    assert kept(s, "positions.x > 1.5") == where(s.positions[:, 0] > 1.5)
+    assert kept(s, "positions.x > 1.5") == where(s["positions"][:, 0] > 1.5)
     assert kept(s, "element == '`.1'") == []
 
 

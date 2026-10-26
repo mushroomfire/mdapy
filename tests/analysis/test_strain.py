@@ -15,15 +15,19 @@ F0 = np.array([[1.05, 0.02, 0.0], [0.0, 0.97, 0.01], [0.03, 0.0, 1.02]])
 
 def deformed(system, gradient, wrap=True):
     box = mdapy.Box(system.box.matrix @ gradient.T, pbc=system.box.pbc)
-    moved = system.with_box(box).with_positions(system.positions @ gradient.T)
-    return moved.with_positions(box.wrap(moved.positions)[0]) if wrap else moved
+    moved = system.with_box(box).with_columns(
+        positions=system["positions"] @ gradient.T
+    )
+    return (
+        moved.with_columns(positions=box.wrap(moved["positions"])[0]) if wrap else moved
+    )
 
 
 def reference_strain(reference, current, cutoff):
     """Least squares per atom with NumPy, displacements unwrapped by hand."""
     nl = mdapy.NeighborList.build(reference, cutoff)
-    s0 = reference.box.to_fractional(reference.positions)
-    u = current.box.to_fractional(current.positions) - s0
+    s0 = reference.box.to_fractional(reference["positions"])
+    u = current.box.to_fractional(current["positions"]) - s0
     u -= np.round(u)
     strains, d2 = [], []
     for i in range(len(reference)):
@@ -81,8 +85,8 @@ def test_matches_least_squares():
     reference = crystal("fcc", 3.6, (3, 3, 3), jitter=0.05, seed=3)
     rng = np.random.default_rng(4)
     current = deformed(reference, F0, wrap=False)
-    current = current.with_positions(
-        current.positions + rng.normal(scale=0.1, size=(len(current), 3))
+    current = current.with_columns(
+        positions=current["positions"] + rng.normal(scale=0.1, size=(len(current), 3))
     )
     everything = AtomicStrain(reference, 3.2, strain_tensor=True, d2min=True)
     result = everything.compute(current)
@@ -136,8 +140,8 @@ def test_errors():
 def test_a_given_list_gives_what_a_search_gives(affine):
     rng = np.random.default_rng(4)
     reference = crystal("fcc", 3.6, (4, 4, 4), jitter=0.1, seed=4)
-    current = deformed(reference, F0).with_positions(
-        deformed(reference, F0).positions + rng.normal(0, 0.05, (256, 3))
+    current = deformed(reference, F0).with_columns(
+        positions=deformed(reference, F0)["positions"] + rng.normal(0, 0.05, (256, 3))
     )
     options = {"affine": affine, "strain_tensor": True, "d2min": True}
     searched = AtomicStrain(reference, 3.0, **options).compute(current)

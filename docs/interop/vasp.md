@@ -11,7 +11,7 @@ import mdapy as mp
 from mdapy.build import add_vacuum, build_crystal
 
 slab = add_vacuum(build_crystal("fcc", 3.52, elements="Ni", repeat=(2, 2, 4)), 10.0)
-bottom = slab.positions[:, 2] < 2.0
+bottom = slab["positions"][:, 2] < 2.0
 movable = np.repeat(~bottom[:, None], 3, axis=1)  # the bottom layers fixed
 mp.write("POSCAR", slab.with_columns(movable=movable))  # selective dynamics
 mp.read("POSCAR").table["movable"]  # back as written

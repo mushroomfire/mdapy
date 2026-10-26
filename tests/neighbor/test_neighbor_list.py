@@ -21,7 +21,7 @@ def image_vectors(system, reach):
     (one number per direction), with the arithmetic in the same order as the
     compiled code: (shifts, n, n) squared lengths and the shifts."""
     h = system.box.matrix
-    x = system.positions
+    x = system["positions"]
     shifts = list(itertools.product(*(range(-r, r + 1) for r in reach)))
     r2 = np.empty((len(shifts), len(x), len(x)))
     for a, shift in enumerate(shifts):
@@ -36,7 +36,7 @@ def image_vectors(system, reach):
 def reach_for(system, radius):
     """Images to enumerate so that every pair within radius is among them."""
     box = system.box
-    x = system.positions
+    x = system["positions"]
     fractional = box.to_fractional(x) if len(x) else np.zeros((0, 3))
     spread = np.ptp(fractional, axis=0) if len(x) else np.zeros(3)
     return [
@@ -198,7 +198,7 @@ def test_pairs_are_symmetric_and_grouped():
 def test_vectors_and_distances():
     system = random_system("rotated", seed=5)
     nl = NeighborList.build(system, 4.0)
-    x = system.positions
+    x = system["positions"]
     # computed as the search computes the distances, in compiled code
     np.testing.assert_allclose(
         nl.vectors,
@@ -225,8 +225,8 @@ def test_shifts_up_to_127_boxes():
             NeighborList.build(pair(128.3), **kwargs)
     # wrapped into the box, the same atoms are neighbors without large shifts
     far = pair(128.3)
-    positions, _ = far.box.wrap(far.positions)
-    assert len(NeighborList.build(far.with_positions(positions), 0.45)) == 2
+    positions, _ = far.box.wrap(far["positions"])
+    assert len(NeighborList.build(far.with_columns(positions=positions), 0.45)) == 2
 
 
 # ------------------------------------------------------------ nearest neighbors
@@ -328,8 +328,8 @@ def test_ties_of_a_cutoff_list_as_in_nearest(k):
 def jittered(kind, a, repeat, seed=0):
     system = lattice(kind, a, repeat)
     rng = np.random.default_rng(seed)
-    return system.with_positions(
-        system.positions + rng.normal(0, 0.1, (len(system), 3))
+    return system.with_columns(
+        positions=system["positions"] + rng.normal(0, 0.1, (len(system), 3))
     )
 
 
@@ -365,7 +365,7 @@ def test_analyses_sort_a_shared_list_once():
         found, CommonNeighborAnalysis().compute(system).structure
     )
     assert nl._sorted == 14
-    x, h = system.positions, system.box.matrix
+    x, h = system["positions"], system.box.matrix
     np.testing.assert_allclose(
         nl.vectors, x[nl.j] - x[nl.i] + nl.shifts @ h, atol=1e-12
     )
@@ -479,7 +479,7 @@ def test_same_result_for_any_thread_count(mode):
 def test_translation_and_rotation():
     system = random_system("triclinic", seed=7)
     nl = NeighborList.build(system, 3.5)
-    moved = system.with_positions(system.positions + [10.3, -4.2, 7.7])
+    moved = system.with_columns(positions=system["positions"] + [10.3, -4.2, 7.7])
     assert as_dict(NeighborList.build(moved, 3.5)).keys() == as_dict(nl).keys()
     angle = 0.7
     rotation = np.array(
@@ -491,7 +491,7 @@ def test_translation_and_rotation():
     )
     box = system.box
     rotated = mdapy.System(
-        system.positions @ rotation,
+        system["positions"] @ rotation,
         mdapy.Box(box.matrix @ rotation, origin=box.origin @ rotation),
     )
     a, b = as_dict(nl), as_dict(NeighborList.build(rotated, 3.5))
@@ -558,7 +558,7 @@ def test_follow_moved_atoms_without_a_search(box_name):
     # steps shorter than half the difference of the cutoffs, 0.14 sqrt(3) < 0.25
     for step in (0.0, 0.05, 0.14):
         moved = system.with_columns(
-            positions=system.positions + rng.uniform(-step, step, (len(system), 3))
+            positions=system["positions"] + rng.uniform(-step, step, (len(system), 3))
         )
         followed = wide._follow(moved, 2.5)
         fresh = NeighborList.build(moved, 2.5)
@@ -571,7 +571,7 @@ def test_follow_moved_atoms_without_a_search(box_name):
         )
         assert followed.system is moved and followed.cutoff == 2.5
     # too far, another box, or a list of nearest neighbors
-    far = system.with_columns(positions=system.positions + [0.26, 0.0, 0.0])
+    far = system.with_columns(positions=system["positions"] + [0.26, 0.0, 0.0])
     assert wide._follow(far, 2.5) is None
     assert wide._follow(system.with_box(system.box.matrix * 1.01), 2.5) is None
     assert NeighborList.build(system, num_neighbors=4)._follow(system, 0.1) is None
@@ -783,11 +783,14 @@ def test_given_or_built():
     with pytest.raises(InvalidParameter, match="below the required 4.5"):
         _given_or_built(system, 4.5, wide)
     # the same atoms in the same box serve, whatever the other columns
-    assert _given_or_built(system.with_positions(system.positions), 3.0, wide) is wide
-    moved = system.positions.copy()
+    assert (
+        _given_or_built(system.with_columns(positions=system["positions"]), 3.0, wide)
+        is wide
+    )
+    moved = system["positions"].copy()
     moved[0, 0] += 1e-9
     with pytest.raises(InvalidParameter, match="other positions or another box"):
-        _given_or_built(system.with_positions(moved), 3.0, wide)
+        _given_or_built(system.with_columns(positions=moved), 3.0, wide)
     with pytest.raises(InvalidParameter, match="nearest neighbors"):
         _given_or_built(system, 1.0, NeighborList.build(system, num_neighbors=30))
 
@@ -798,12 +801,14 @@ def test_a_list_fits_systems_with_the_same_atoms():
     assert nl.fits(system)
     # new columns, elements or info: the same positions in the same box
     labeled = system.with_columns(label=np.arange(len(system)))
-    assert labeled.positions.ctypes.data == system.positions.ctypes.data
+    assert labeled["positions"].ctypes.data == system["positions"].ctypes.data
     assert nl.fits(labeled)
-    assert nl.fits(system.with_positions(system.positions.copy()))  # equal values
-    moved = system.positions.copy()
+    assert nl.fits(
+        system.with_columns(positions=system["positions"].copy())
+    )  # equal values
+    moved = system["positions"].copy()
     moved[-1] += [0.0, 1e-12, 0.0]
-    assert not nl.fits(system.with_positions(moved))
+    assert not nl.fits(system.with_columns(positions=moved))
     box = system.box
     assert not nl.fits(
         system.with_box(mdapy.Box(box.matrix * 1.01, origin=box.origin, pbc=box.pbc))

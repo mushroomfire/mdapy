@@ -65,7 +65,7 @@ def to_pymatgen(system: System) -> Any:
     return Structure(
         Lattice(box.matrix, pbc=tuple(bool(p) for p in box.pbc)),
         table["element"].cast(str).to_list(),
-        system.positions - box.origin,
+        system["positions"] - box.origin,
         coords_are_cartesian=True,
         site_properties={k: list(v) for k, v in sites.items()},
         properties=dict(system.info),

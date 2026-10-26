@@ -23,7 +23,7 @@ def test_volumes_and_faces_as_voro(tmp_path, pbc):
     matrix = system.box.matrix * np.where(pbc, 1.0, 1.5)[:, None]
     shift = np.where(pbc, 0.0, 0.25) @ matrix
     system = mdapy.System(
-        system.positions + shift, mdapy.Box(matrix, pbc=pbc), elements="Cu"
+        system["positions"] + shift, mdapy.Box(matrix, pbc=pbc), elements="Cu"
     )
     data = tmp_path / "in.data"
     mdapy.write(data, system)

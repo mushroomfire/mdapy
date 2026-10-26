@@ -16,7 +16,9 @@ from mdapy.identify import PolyhedralTemplateMatching
 # Cu3Au: an fcc lattice ordered in the L1_2 structure, slightly disordered
 alloy = build_crystal("l1_2", 3.75, elements=("Cu", "Au"), repeat=(4, 4, 4))
 rng = np.random.default_rng(1)
-alloy = alloy.with_positions(alloy.positions + rng.normal(scale=0.05, size=(256, 3)))
+alloy = alloy.with_columns(
+    positions=alloy["positions"] + rng.normal(scale=0.05, size=(256, 3))
+)
 
 ptm = PolyhedralTemplateMatching(deformation_gradient=True, ordering=True)
 result = ptm.compute(alloy)

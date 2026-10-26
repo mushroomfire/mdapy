@@ -16,7 +16,7 @@ from mdapy.build import build_crystal
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(10, 10, 10))
 charged = crystal.with_columns(charge=0.0)
-moved = crystal.with_positions(crystal.positions + [0.5, 0.0, 0.0])
+moved = crystal.with_columns(positions=crystal["positions"] + [0.5, 0.0, 0.0])
 strained = crystal.with_box(crystal.box.matrix * 1.01, scale_positions=True)
 labelled = crystal.with_info(energy=-3.54, label="perfect")
 "charge" in crystal.table.columns  # False: crystal is as it was
@@ -26,8 +26,7 @@ labelled = crystal.with_info(energy=-3.54, label="perfect")
 
 | Method | Makes a system with |
 |---|---|
-| `with_columns(*exprs, **named)` | columns added or replaced: polars expressions or Series, NumPy arrays, one value for all atoms, or the results of analyses |
-| `with_positions(positions)` | other positions |
+| `with_columns(*exprs, **named)` | columns added or replaced, the positions too: polars expressions or Series, NumPy arrays, one value for all atoms, or the results of analyses |
 | `with_box(box, scale_positions=False)` | another box; with `scale_positions=True` the atoms keep their fractional coordinates and deform with the box |
 | `with_info(**values)` | global values added or replaced; a value of `None` removes the entry |
 | `with_topology(topology)` | another topology, or none with `None` |
@@ -68,10 +67,10 @@ whose columns are those of the old system, except the ones that change:
   **copied** once, so changing them afterwards does not change the system.
 
 ```python
-np.shares_memory(charged.positions, crystal.positions)  # True: shared
-np.shares_memory(moved.positions, crystal.positions)  # False: new positions
-np.shares_memory(strained.positions, crystal.positions)  # False: scaled positions
-np.shares_memory(labelled.positions, crystal.positions)  # True: only info changed
+np.shares_memory(charged["positions"], crystal["positions"])  # True: shared
+np.shares_memory(moved["positions"], crystal["positions"])  # False: new positions
+np.shares_memory(strained["positions"], crystal["positions"])  # False: scaled positions
+np.shares_memory(labelled["positions"], crystal["positions"])  # True: only info changed
 ```
 
 | Operation | New memory |
@@ -79,9 +78,8 @@ np.shares_memory(labelled.positions, crystal.positions)  # True: only info chang
 | `with_info`, `with_topology`, `with_box` | none |
 | `with_box(box, scale_positions=True)` | the positions |
 | `with_columns(...)` | the columns added or replaced |
-| `with_positions(...)` | the positions |
 | `filter`, `gather`, `sort` | the rows kept, of every column, since they are no longer a block of the old table |
-| `system.table`, `system.positions` | none |
+| `system.table`, `system["positions"]` | none |
 
 So frames made by moving the atoms of one system hold one copy of the
 elements, the types and every other column that does not change, and a copy
@@ -89,8 +87,11 @@ of the positions per frame:
 
 ```python
 rng = np.random.default_rng(0)
-x = crystal.positions
-frames = [crystal.with_positions(x + rng.normal(0.0, 0.05, x.shape)) for _ in range(10)]
+x = crystal["positions"]
+frames = [
+    crystal.with_columns(positions=x + rng.normal(0.0, 0.05, x.shape))
+    for _ in range(10)
+]
 ```
 
 When a new system is made, mdapy checks only the columns that change: a new
@@ -117,21 +118,21 @@ To change values with NumPy, copy the array, change the copy and make a new
 system from it:
 
 ```python
-x = crystal.positions.copy()  # a writable copy
+x = crystal["positions"].copy()  # a writable copy
 x[:, 0] += 0.1
-shifted = crystal.with_positions(x)
+shifted = crystal.with_columns(positions=x)
 ```
 
 ## Why nothing changes a system in place
 
 Every way into a system gives something that cannot change it:
 
-- `positions` is a read-only NumPy view of the table, and cannot be made
-  writable:
+- `system["name"]` gives read-only NumPy arrays; those of columns and
+  components are views of the table, which cannot be made writable:
 
   ```python
   try:
-      crystal.positions[0, 0] = 1.0
+      crystal["positions"][0, 0] = 1.0
   except ValueError as error:
       print(error)  # assignment destination is read-only
   ```

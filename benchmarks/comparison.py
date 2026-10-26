@@ -1,9 +1,11 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
-"""mdapy against OVITO and freud: each case computes the same quantity
-with mdapy and with the programs that have it, on the same system, and a
-program is timed only where it gives the result of mdapy.
+"""mdapy against OVITO, freud, ASE and Atomsk: each case computes the same
+quantity, reads or writes the same file or builds the same structure with
+mdapy and with the programs that have it, and a program is timed only where
+it gives the result of mdapy. The cases come in three groups: analyses,
+files and builders.
 
 Every measurement runs in a fresh process, so that the time and the memory
 of one program do not include another, and a process that grows beyond the
@@ -12,18 +14,22 @@ previous one predicts more memory than the limit.
 
     python benchmarks/comparison.py run                  # every case
     python benchmarks/comparison.py run cna rdf --sizes 4000 32000 --threads 1
+    python benchmarks/comparison.py run --group files
     python benchmarks/comparison.py table results.json   # Markdown
     python benchmarks/comparison.py plot results.json timings.png
 """
 
 import argparse
+import atexit
 import gc
 import json
 import os
 import platform
 import resource
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -33,7 +39,8 @@ import numpy as np
 
 SIZES = (4_000, 32_000, 256_000, 2_048_000)
 WARM_UP = 500  # atoms of the system each process computes once before timing
-PROGRAMS = {"ovito": "OVITO", "freud": "freud"}
+PROGRAMS = {"ovito": "OVITO", "freud": "freud", "ase": "ASE", "atomsk": "Atomsk"}
+GROUPS = ("analyses", "files", "builders")
 
 
 @dataclass(frozen=True)
@@ -59,6 +66,7 @@ class Case:
     inputs: Callable[[int], dict]
     mdapy: Callable[[dict], Callable[[], Any]]
     others: dict[str, Other]
+    group: str = "analyses"
 
 
 # ------------------------------------------------------------ systems
@@ -359,6 +367,408 @@ def _nearest_agree(ours, theirs) -> None:
     close(ours.distances.reshape(-1, 12), distances, 1e-12)
 
 
+# ------------------------------------------------------------ files
+
+_FOLDERS: list[str] = []
+
+
+def _folder() -> str:
+    """A folder of this process for the files of the cases, removed when it
+    ends."""
+    if not _FOLDERS:
+        folder = tempfile.mkdtemp(prefix="mdapy-comparison-")
+        atexit.register(shutil.rmtree, folder, True)
+        _FOLDERS.append(folder)
+    return _FOLDERS[0]
+
+
+# each format: its suffix, the columns written, and the options of OVITO
+# and ASE to read and to write it (None where a program cannot)
+FILES = {
+    "lammps-dump": {
+        "title": "LAMMPS dump",
+        "suffix": ".dump",
+        "columns": ("id", "type", "positions"),
+        "ovito read": {},
+        "ovito write": {
+            "format": "lammps/dump",
+            "columns": [
+                "Particle Identifier",
+                "Particle Type",
+                "Position.X",
+                "Position.Y",
+                "Position.Z",
+            ],
+        },
+        "ase read": {"format": "lammps-dump-text"},
+        "ase write": None,
+    },
+    "lammps-data": {
+        "title": "LAMMPS data file",
+        "suffix": ".data",
+        "columns": ("id", "type", "element", "positions"),
+        "ovito read": {"atom_style": "atomic"},
+        "ovito write": {"format": "lammps/data", "atom_style": "atomic"},
+        "ase read": {"format": "lammps-data", "atom_style": "atomic", "units": "metal"},
+        "ase write": {"format": "lammps-data", "atom_style": "atomic", "masses": True},
+    },
+    "extxyz": {
+        "title": "extended XYZ",
+        "suffix": ".xyz",
+        "columns": ("element", "positions"),
+        "ovito read": {},
+        "ovito write": {
+            "format": "xyz",
+            "columns": ["Particle Type", "Position.X", "Position.Y", "Position.Z"],
+        },
+        "ase read": {"format": "extxyz"},
+        "ase write": {"format": "extxyz"},
+    },
+}
+
+
+def copper_file(fmt: str, write: bool) -> Callable[[int], dict]:
+    """Inputs of a file case: copper with the columns of the format, and the
+    file mdapy writes of it to read, or the name of the file to write."""
+
+    def inputs(atoms: int) -> dict:
+        import mdapy
+
+        spec = FILES[fmt]
+        system = copper(atoms)["system"]
+        n = len(system)
+        system = system.with_columns(id=np.arange(1, n + 1), type=1, element="Cu")
+        system = system.select(*spec["columns"])
+        name = f"{'written' if write else 'copper'}-{n}{spec['suffix']}"
+        path = os.path.join(_folder(), name)
+        if not write:
+            mdapy.write(path, system)
+        return {"system": system, "path": path}
+
+    return inputs
+
+
+def _ovito_collection(system):
+    """The system as an OVITO data collection with identifiers and types."""
+    from ovito.data import ParticleType
+
+    data = ovito_data(system)
+    particles = data.particles_
+    columns = system.table.columns
+    if "id" in columns:
+        particles.create_property("Particle Identifier", data=system["id"])
+    types = system["type"] if "type" in columns else np.ones(len(system), int)
+    kinds = particles.create_property("Particle Type", data=types)
+    kinds.types.append(ParticleType(id=1, name="Cu", mass=63.546))
+    return data
+
+
+def _read(fmt: str) -> tuple[Callable, dict[str, Other]]:
+    """The mdapy side and the other programs of reading a format."""
+    spec = FILES[fmt]
+
+    def mdapy_side(inputs: dict) -> Callable:
+        import mdapy
+
+        return lambda: mdapy.read(inputs["path"])
+
+    def ovito_side(inputs: dict) -> Callable:
+        from ovito.io import import_file
+
+        return lambda: import_file(inputs["path"], **spec["ovito read"]).compute()
+
+    def ovito_agree(ours, data, inputs) -> None:
+        theirs = np.asarray(data.particles.positions)
+        np.testing.assert_allclose(theirs, ours["positions"], rtol=0, atol=1e-12)
+        if "type" in ours.table.columns:
+            equal(np.asarray(data.particles.particle_types), ours["type"])
+
+    def ase_side(inputs: dict) -> Callable:
+        import ase.io
+
+        return lambda: ase.io.read(inputs["path"], **spec["ase read"])
+
+    def ase_agree(ours, atoms, inputs) -> None:
+        np.testing.assert_allclose(
+            atoms.positions, ours["positions"], rtol=0, atol=1e-12
+        )
+        if "element" in ours.table.columns:
+            equal(atoms.get_chemical_symbols(), ours["element"].tolist())
+
+    return mdapy_side, {
+        "ovito": Other(ovito_side, ovito_agree),
+        "ase": Other(ase_side, ase_agree),
+    }
+
+
+def _write(fmt: str) -> tuple[Callable, dict[str, Other]]:
+    """The mdapy side and the other programs of writing a format."""
+    spec = FILES[fmt]
+
+    def mdapy_side(inputs: dict) -> Callable:
+        import mdapy
+
+        def run():
+            mdapy.write(inputs["path"], inputs["system"])
+            return inputs["path"]
+
+        return run
+
+    def written(tolerance: float) -> Callable:
+        """The file a program wrote holds the system, read by mdapy."""
+
+        def agree(ours, theirs, inputs) -> None:
+            import mdapy
+
+            system, back = inputs["system"], mdapy.read(theirs)
+            equal(len(back), len(system))
+            np.testing.assert_allclose(
+                back["positions"], system["positions"], rtol=0, atol=tolerance
+            )
+            for column in ("type", "element"):
+                if column in system.table.columns:
+                    equal(back[column], system[column])
+
+        return agree
+
+    def ovito_side(inputs: dict) -> Callable:
+        from ovito.io import export_file
+
+        data = _ovito_collection(inputs["system"])
+        path = inputs["path"].replace("written-", "ovito-")
+
+        def run():
+            export_file(data, path, precision=17, **spec["ovito write"])
+            return path
+
+        return run
+
+    def ase_side(inputs: dict) -> Callable:
+        import ase.io
+
+        from mdapy.interop import to_ase
+
+        atoms = to_ase(inputs["system"])
+        path = inputs["path"].replace("written-", "ase-")
+
+        def run():
+            ase.io.write(path, atoms, **spec["ase write"])
+            return path
+
+        return run
+
+    others = {"ovito": Other(ovito_side, written(1e-12))}
+    if spec["ase write"] is not None:
+        # ASE writes extended XYZ with 8 decimals
+        others["ase"] = Other(ase_side, written(1e-8 if fmt == "extxyz" else 1e-12))
+    return mdapy_side, others
+
+
+def _file_cases() -> dict[str, Case]:
+    cases = {}
+    for fmt, spec in FILES.items():
+        for write, (mdapy_side, others) in ((False, _read(fmt)), (True, _write(fmt))):
+            verb = "Write" if write else "Read"
+            name = f"{verb.lower()}-{fmt.removeprefix('lammps-')}"
+            cases[name] = Case(
+                f"{verb} a {spec['title']}"
+                if fmt != "extxyz"
+                else f"{verb} {spec['title']}",
+                copper_file(fmt, write),
+                mdapy_side,
+                others,
+                group="files",
+            )
+    return cases
+
+
+# ------------------------------------------------------------ builders
+
+
+def atomsk() -> str | None:
+    """The Atomsk program: ATOMSK, or atomsk on the path."""
+    return shutil.which(os.environ.get("ATOMSK", "atomsk"))
+
+
+def _atomsk(*arguments: str) -> None:
+    program = atomsk()
+    if program is None:
+        raise RuntimeError("Atomsk not found: set ATOMSK or put atomsk on the path")
+    subprocess.run(
+        [program, *arguments, "-ow", "-v", "0"],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _repeat(atoms: int) -> int:
+    return max(1, round((atoms / 4) ** (1 / 3)))
+
+
+def single_crystal(atoms: int) -> dict:
+    """fcc copper of n x n x n cubic cells, and where to write it."""
+    from mdapy.build import build_crystal
+
+    n = _repeat(atoms)
+    system = build_crystal("fcc", 3.615, elements="Cu", repeat=(n, n, n))
+    return {
+        "system": system,
+        "repeat": n,
+        "path": os.path.join(_folder(), f"crystal-{n}"),
+    }
+
+
+# grains of the polycrystal, at random places and orientations
+GRAINS = 20
+
+
+def _rotation(angles) -> np.ndarray:
+    """Atomsk's rotation of angles about x, then y, then z, in degrees."""
+    a, b, c = np.radians(angles)
+    x = np.array([[1, 0, 0], [0, np.cos(a), -np.sin(a)], [0, np.sin(a), np.cos(a)]])
+    y = np.array([[np.cos(b), 0, np.sin(b)], [0, 1, 0], [-np.sin(b), 0, np.cos(b)]])
+    z = np.array([[np.cos(c), -np.sin(c), 0], [np.sin(c), np.cos(c), 0], [0, 0, 1]])
+    return z @ y @ x
+
+
+def polycrystal(atoms: int) -> dict:
+    """A copper polycrystal of GRAINS grains at fixed places and
+    orientations, the parameter file of Atomsk for it, and where to write
+    it."""
+    from mdapy.build import build_crystal
+
+    side = (atoms * 3.615**3 / 4) ** (1 / 3)
+    rng = np.random.default_rng(1)
+    seeds = rng.random((GRAINS, 3)) * side
+    angles = np.round(rng.uniform(-180.0, 180.0, (GRAINS, 3)), 2)
+    folder = _folder()
+    parameters = os.path.join(folder, f"polycrystal-{atoms}.txt")
+    with open(parameters, "w", encoding="utf-8") as f:
+        f.write(f"box {side:.6f} {side:.6f} {side:.6f}\n")
+        for (x, y, z), (a, b, c) in zip(seeds, angles):
+            f.write(f"node {x:.6f} {y:.6f} {z:.6f} {a:.2f} {b:.2f} {c:.2f}\n")
+    unit = build_crystal("fcc", 3.615, elements="Cu")
+    made = {
+        "unit": unit,
+        "box": float(f"{side:.6f}"),
+        "seeds": np.round(seeds, 6),
+        "orientations": np.array([_rotation(g) for g in angles]),
+        "parameters": parameters,
+        "path": os.path.join(folder, f"polycrystal-{atoms}"),
+    }
+    made["system"] = _polycrystal(made)
+    return made
+
+
+def _polycrystal(made: dict):
+    """mdapy's polycrystal of the inputs; atoms are removed only where two
+    are at the same place, as Atomsk removes none."""
+    import mdapy
+    from mdapy.build import build_polycrystal
+
+    return build_polycrystal(
+        made["unit"],
+        mdapy.Box(made["box"]),
+        made["seeds"],
+        orientations=made["orientations"],
+        min_distance=1e-2,
+    )
+
+
+def _build_crystal_mdapy(inputs: dict) -> Callable:
+    import mdapy
+    from mdapy.build import build_crystal
+
+    n, path = inputs["repeat"], inputs["path"] + "-mdapy.data"
+
+    def run():
+        mdapy.write(path, build_crystal("fcc", 3.615, elements="Cu", repeat=(n, n, n)))
+        return path
+
+    return run
+
+
+def _build_crystal_atomsk(inputs: dict) -> Callable:
+    n, path = str(inputs["repeat"]), inputs["path"] + "-atomsk.lmp"
+
+    def run():
+        _atomsk("--create", "fcc", "3.615", "Cu", "-duplicate", n, n, n, path)
+        return path
+
+    return run
+
+
+def _same_sites(ours, theirs, inputs) -> None:
+    """Both files hold the same atoms, in any order, within the 12 decimals
+    of Atomsk."""
+    import mdapy
+
+    mine, other = mdapy.read(ours), mdapy.read(theirs)
+    np.testing.assert_allclose(other.box.matrix, mine.box.matrix, atol=1e-9)
+    equal(len(other), len(mine))
+
+    def ordered(system):
+        r = np.round(system["positions"], 6)
+        return system["positions"][np.lexsort(r.T)]
+
+    np.testing.assert_allclose(ordered(other), ordered(mine), rtol=0, atol=1e-9)
+
+
+def _build_polycrystal_mdapy(inputs: dict) -> Callable:
+    import mdapy
+
+    path = inputs["path"] + "-mdapy.data"
+
+    def run():
+        mdapy.write(path, _polycrystal(inputs))
+        return path
+
+    return run
+
+
+def _build_polycrystal_atomsk(inputs: dict) -> Callable:
+    unit = os.path.join(_folder(), "unit.xsf")
+    _atomsk("--create", "fcc", "3.615", "Cu", unit)
+    path = inputs["path"] + "-atomsk.lmp"
+
+    def run():
+        _atomsk("--polycrystal", unit, inputs["parameters"], path)
+        return path
+
+    return run
+
+
+def _same_polycrystal(ours, theirs, inputs) -> None:
+    """The same box, and as many atoms within 0.5 %: the grains have the
+    same seeds and orientations, but each program places their lattices in
+    its own way."""
+    import mdapy
+
+    mine, other = mdapy.read(ours), mdapy.read(theirs)
+    np.testing.assert_allclose(other.box.matrix, mine.box.matrix, atol=1e-6)
+    assert abs(len(other) - len(mine)) <= 0.005 * len(mine), (len(other), len(mine))
+
+
+def _builder_cases() -> dict[str, Case]:
+    return {
+        "single-crystal": Case(
+            "fcc single crystal, written as a LAMMPS data file",
+            single_crystal,
+            _build_crystal_mdapy,
+            {"atomsk": Other(_build_crystal_atomsk, _same_sites)},
+            group="builders",
+        ),
+        "polycrystal": Case(
+            f"Polycrystal of {GRAINS} grains, written as a LAMMPS data file",
+            polycrystal,
+            _build_polycrystal_mdapy,
+            {"atomsk": Other(_build_polycrystal_atomsk, _same_polycrystal)},
+            group="builders",
+        ),
+    }
+
+
 def _cases() -> dict[str, Case]:
     from mdapy.analysis import (
         AtomicStrain,
@@ -508,7 +918,7 @@ def _cases() -> dict[str, Case]:
         close(ours.shear, particles("Shear Strain")(data))
         close(ours.volumetric, particles("Volumetric Strain")(data))
 
-    return {
+    cases = {
         "neighbors": Case(
             "Neighbor list, 5 Å",
             copper,
@@ -825,6 +1235,7 @@ def _cases() -> dict[str, Case]:
             },
         ),
     }
+    return {**cases, **_file_cases(), **_builder_cases()}
 
 
 # ------------------------------------------------------------ one process
@@ -847,6 +1258,8 @@ def _load(program: str) -> None:
         import freud
 
         freud.parallel.set_num_threads(int(os.environ.get("MDAPY_NUM_THREADS", "0")))
+    elif program == "ase":
+        import ase.io  # noqa: F401
 
 
 def measure(name: str, atoms: int, side: str, repeat: int) -> dict:
@@ -897,7 +1310,10 @@ def spawn(name, atoms, side, repeat, threads, limit, timeout=None) -> dict:
     """measure() in a new process, stopped above limit bytes or after
     timeout seconds."""
     env = dict(
-        os.environ, MDAPY_NUM_THREADS=str(threads), OVITO_THREAD_COUNT=str(threads)
+        os.environ,
+        MDAPY_NUM_THREADS=str(threads),
+        OVITO_THREAD_COUNT=str(threads),
+        OMP_NUM_THREADS=str(threads),  # Atomsk
     )
     command = [sys.executable, __file__, "_measure", name, str(atoms), side]
     command.append(str(repeat))
@@ -925,10 +1341,17 @@ def spawn(name, atoms, side, repeat, threads, limit, timeout=None) -> dict:
 
 def version(program: str) -> str:
     """The version of a program, asked in a process of its own."""
+    if program == "atomsk":
+        found = atomsk()
+        if found is None:
+            return "not installed"
+        out = subprocess.run([found, "--version"], capture_output=True, text=True)
+        return out.stdout.strip().rsplit("Version", 1)[-1].strip() or "?"
     code = {
         "mdapy": "import mdapy; print(mdapy.__version__)",
         "ovito": "import ovito; print(ovito.version_string)",
         "freud": "import freud; print(freud.__version__)",
+        "ase": "import ase; print(ase.__version__)",
     }[program]
     found = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     return found.stdout.strip() or "not installed"
@@ -1180,7 +1603,8 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
     runs = commands.add_parser("run", help="check and time the cases")
-    runs.add_argument("cases", nargs="*", help="default: every case")
+    runs.add_argument("cases", nargs="*", help="default: every case of the groups")
+    runs.add_argument("--group", choices=GROUPS, action="append", help="default: all")
     runs.add_argument("--sizes", type=int, nargs="+", default=SIZES)
     runs.add_argument("--threads", type=int, default=os.cpu_count())
     runs.add_argument("--repeat", type=int, default=3)
@@ -1204,7 +1628,8 @@ def main(argv: list[str] | None = None) -> None:
         result = measure(options.case, options.atoms, options.side, options.repeat)
         print(json.dumps(result))
     elif options.command == "run":
-        names = options.cases or list(_cases())
+        groups = options.group or GROUPS
+        names = options.cases or [n for n, c in _cases().items() if c.group in groups]
         unknown = set(names) - set(_cases())
         if unknown:
             parser.error(f"unknown cases {sorted(unknown)}; known {list(_cases())}")

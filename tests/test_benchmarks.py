@@ -1,9 +1,9 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
-"""The comparison with OVITO and freud in benchmarks/ runs, and every program
-agrees with mdapy on every case of it. Skipped where OVITO or freud is not
-installed."""
+"""The comparison with OVITO, freud, ASE and Atomsk in benchmarks/ runs, and
+every program agrees with mdapy on every case of it. Skipped where OVITO or
+freud is not installed; the cases of ASE and Atomsk where they are not."""
 
 import importlib.util
 import json
@@ -13,6 +13,7 @@ import pytest
 
 pytest.importorskip("ovito")
 pytest.importorskip("freud")
+pytest.importorskip("ase")
 
 PATH = Path(__file__).resolve().parents[1] / "benchmarks" / "comparison.py"
 spec = importlib.util.spec_from_file_location("comparison", PATH)
@@ -24,6 +25,8 @@ SIDES = [(name, p) for name, case in comparison._cases().items() for p in case.o
 
 @pytest.mark.parametrize("name, program", SIDES, ids=[f"{n}-{p}" for n, p in SIDES])
 def test_every_program_agrees(name, program):
+    if program == "atomsk" and comparison.atomsk() is None:
+        pytest.skip("Atomsk is not installed")
     if program == "ovito":
         result = comparison.measure(name, 300, "check-ovito", 1)
     else:
@@ -62,7 +65,7 @@ def test_run_table_and_plot(tmp_path, capsys):
     assert all(len(e["mdapy"]["times"]) == 2 for e in entries)
     assert all(len(e["freud"]["times"]) == 2 for e in entries if e["case"] == "rdf")
     assert entries[0]["threads"] == 2
-    assert set(entries[0]["versions"]) == {"mdapy", "ovito", "freud"}
+    assert set(entries[0]["versions"]) == {"mdapy", "ovito", "freud", "ase", "atomsk"}
     comparison.main(["table", str(results)])
     out = capsys.readouterr().out
     assert "Centro-symmetry parameter" in out and "| freud" in out
@@ -72,6 +75,35 @@ def test_run_table_and_plot(tmp_path, capsys):
     assert "stopped: x" in rows
     comparison.main(["plot", str(results), str(tmp_path / "ratio.png")])
     assert (tmp_path / "ratio.png").stat().st_size > 1000
+
+
+def test_groups_of_cases(tmp_path, capsys, monkeypatch):
+    groups = {case.group for case in comparison._cases().values()}
+    assert groups == set(comparison.GROUPS)
+    ran = []
+    monkeypatch.setattr(comparison, "run", lambda names, *rest: ran.append(names))
+    comparison.main(["run", "--group", "builders"])
+    comparison.main(["run", "--group", "files", "--group", "builders"])
+    assert ran[0] == ["single-crystal", "polycrystal"]
+    assert ran[1][0] == "read-dump" and ran[1][-1] == "polycrystal"
+    monkeypatch.undo()
+    # the times of reading a file, against OVITO and ASE
+    results = tmp_path / "files.json"
+    options = ["--sizes", "300", "--repeat", "1", "--threads", "2"]
+    comparison.main(["run", "read-extxyz", *options, "--output", str(results)])
+    comparison.main(["table", str(results)])
+    out = capsys.readouterr().out
+    assert "| Read extended XYZ |" in out and "| ASE" in out and "| OVITO" in out
+
+
+def test_without_atomsk(monkeypatch):
+    monkeypatch.setenv("ATOMSK", "/nowhere/atomsk")
+    assert (
+        comparison.atomsk() is None and comparison.version("atomsk") == "not installed"
+    )
+    case = comparison._cases()["single-crystal"]
+    with pytest.raises(RuntimeError, match="Atomsk not found"):
+        case.others["atomsk"].prepare(case.inputs(300))()
 
 
 def test_memory_limit_and_failures(tmp_path):

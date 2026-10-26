@@ -179,6 +179,30 @@ def test_oriented_crystals(structure, orientation, lengths):
     shells = neighbors(build_crystal(structure, a, repeat=(3, 3, 3)), 1.5 * a)[0][0]
     for r, _ in neighbors(system, 1.5 * a):
         np.testing.assert_allclose(r, shells, rtol=1e-9)
+    assert by_planes(system)
+
+
+def by_planes(system):
+    """Whether the atoms are ordered by z, then y, then x, with values the
+    same within rounding taken as equal."""
+    x, y, z = np.round(system["positions"], 7).T
+    return (np.lexsort((x, y, z)) == np.arange(len(system))).all()
+
+
+@pytest.mark.parametrize(
+    "structure, orientation",
+    [
+        ("fcc", [(1, 1, -2), (1, -1, 0), (1, 1, 1)]),
+        ("diamond", [(1, 2, 3), (-1, -1, 1), (5, -4, 1)]),
+        ("hcp", [(2, -1, -1, 0), (0, 1, -1, 1), (0, 0, 0, 1)]),
+    ],
+)
+def test_ordered_by_planes(structure, orientation):
+    # atoms of one plane whose z differ by rounding are ordered by y and x
+    system = build_crystal(structure, 3.0, orientation=orientation, repeat=(2, 3, 2))
+    assert by_planes(system)
+    first = system.box.to_fractional(system["positions"][:1])
+    np.testing.assert_allclose(first, 0.0, atol=1e-12)
 
 
 def test_oriented_hexagonal_crystals():
@@ -293,6 +317,7 @@ def test_as_atomsk(tmp_path, structure, a, elements, c, orientation):
         ({"orientation": [(1, 0, 0, 0), (0, 1, 0), (0, 0, 1)]}, "three indices"),
         ({"c": 4.0}, "c is for hexagonal structures only"),
         ({"elements": ("Cu", "Au", "Ag")}, "fcc takes 1 or 2 elements, not 3"),
+        ({"elements": "Cuu"}, "unknown element"),
         ({"structure": "hcp", "c": -1.0}, "c must be positive"),
         ({"structure": "graphene"}, "graphene needs c"),
         (

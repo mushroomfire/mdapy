@@ -77,14 +77,15 @@ class ChemicalSpecies:
     ----------
     radii : {"covalent", "vdw"} or dict, optional
         The radius of each element: the covalent radii (Cordero et al.
-        2008), the van der Waals radii (Alvarez 2013), or radii in Å by
-        element. Default "covalent".
+        2008), as Jmol bonds atoms; the van der Waals radii (Alvarez 2013),
+        as VMD and OVITO bond atoms, two hydrogen atoms never bonded unless
+        cutoffs say so; or radii in Å by element. Default "covalent".
     scale : float, optional
-        Factor on the sum of the radii. Default 1.
+        Factor on the sum of the radii. Default 0.6 with van der Waals
+        radii, 1 otherwise.
     tolerance : float, optional
-        Length added to it, in Å. Default 0.45, so that with covalent radii
-        the bonds are those of Jmol and of mdapy's pictures; with van der
-        Waals radii, a scale of 0.6 and no tolerance give the bonds of VMD.
+        Length added to it, in Å. Default 0.45 with covalent radii, 0
+        otherwise.
     cutoffs : dict, optional
         Bond length in Å for pairs of elements ``(a, b)``, in either order,
         instead of the radii; 0 for pairs never bonded.
@@ -94,8 +95,8 @@ class ChemicalSpecies:
         self,
         radii: str | Mapping[str, float] = "covalent",
         *,
-        scale: float = 1.0,
-        tolerance: float = 0.45,
+        scale: float | None = None,
+        tolerance: float | None = None,
         cutoffs: Mapping[tuple[str, str], float] | None = None,
     ):
         if isinstance(radii, str):
@@ -111,6 +112,10 @@ class ChemicalSpecies:
                 if not value > 0:
                     raise InvalidParameter(f"the radius of {element} must be positive")
         self.radii = radii
+        if scale is None:
+            scale = 0.6 if radii == "vdw" else 1.0
+        if tolerance is None:
+            tolerance = 0.45 if radii == "covalent" else 0.0
         if not scale > 0:
             raise InvalidParameter(f"scale must be positive, not {scale!r}")
         if not tolerance >= 0:
@@ -161,6 +166,8 @@ class ChemicalSpecies:
         for a, b in combinations_with_replacement(kinds, 2):
             if (a, b) in self.cutoffs:
                 lengths[a, b] = self.cutoffs[a, b]
+            elif self.radii == "vdw" and a == b == "H":
+                lengths[a, b] = 0.0
             else:
                 lengths[a, b] = self.scale * (radius[a] + radius[b]) + self.tolerance
         return lengths

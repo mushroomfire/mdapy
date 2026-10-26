@@ -96,8 +96,8 @@ def test_a_gas_of_molecules():
     assert result.molecule.min() == 1 and np.all(np.diff(result.sizes) <= 0)
     assert np.bincount(result.molecule)[1:].tolist() == result.sizes.tolist()
     assert result.columns()["molecule"] is result.molecule
-    # the van der Waals rule of VMD finds the same molecules
-    vdw = ChemicalSpecies("vdw", scale=0.6, tolerance=0).compute(system)
+    # the van der Waals rule of VMD and OVITO finds the same molecules
+    vdw = ChemicalSpecies("vdw").compute(system)
     assert same_partition(vdw.molecule, result.molecule)
 
 
@@ -113,7 +113,9 @@ def test_random_atoms_against_brute_force(seed):
     for species in (
         ChemicalSpecies(),
         ChemicalSpecies("vdw", scale=0.5, tolerance=0.1),
+        ChemicalSpecies("vdw", cutoffs={("H", "H"): 1.0}),
         ChemicalSpecies({"H": 0.4, "C": 0.8, "N": 0.75, "O": 0.7}, tolerance=0.2),
+        ChemicalSpecies("vdw"),
         ChemicalSpecies(cutoffs={("O", "H"): 0.0, ("C", "C"): 2.0}),
     ):
         result = species.compute(system)
@@ -203,6 +205,18 @@ def test_radii():
         ("O", "H"): pytest.approx(0.66 + 0.31 + 0.45),
         ("H", "H"): pytest.approx(2 * 0.31 + 0.45),
     }
+    # van der Waals radii: 0.6 of their sum, two hydrogen atoms never bonded
+    lengths = ChemicalSpecies("vdw").bond_lengths(["O", "H"])
+    assert lengths == {
+        ("O", "O"): pytest.approx(0.6 * 2 * 1.5),
+        ("O", "H"): pytest.approx(0.6 * (1.5 + 1.2)),
+        ("H", "H"): 0.0,
+    }
+    lengths = ChemicalSpecies("vdw", cutoffs={("H", "H"): 0.9}).bond_lengths(["H"])
+    assert lengths == {("H", "H"): 0.9}
+    # radii by element: closer than their sum
+    lengths = ChemicalSpecies({"H": 0.4, "O": 0.7}).bond_lengths(["O", "H"])
+    assert lengths[("O", "H")] == pytest.approx(1.1)
 
 
 def test_invalid_arguments():
@@ -223,5 +237,8 @@ def test_invalid_arguments():
     with pytest.raises(InvalidParameter, match="no radius given for"):
         ChemicalSpecies({"H": 0.3}).compute(system)
     assert repr(ChemicalSpecies({"H": 0.3})) == (
-        "ChemicalSpecies(radii='by element', scale=1.0, tolerance=0.45)"
+        "ChemicalSpecies(radii='by element', scale=1.0, tolerance=0.0)"
+    )
+    assert repr(ChemicalSpecies("vdw")) == (
+        "ChemicalSpecies(radii='vdw', scale=0.6, tolerance=0.0)"
     )

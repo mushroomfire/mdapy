@@ -168,9 +168,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   liquid water; and the [centro-symmetry](../analysis/csp.md) and
   [common neighbor](../analysis/cnp.md) parameters.
 - [`ChemicalSpecies`](../analysis/species.md): molecules and their Hill
-  formulas from covalent or van der Waals radii, radii given by hand or
-  bond lengths per pair of elements, and the number of each along a
-  trajectory; the same molecules as ASE. `mdapy.elements` has the covalent
+  formulas by the bond rule of Jmol (covalent radii, the default) or of VMD
+  and OVITO (van der Waals radii), radii given by hand or bond lengths per
+  pair of elements, and the number of each along a trajectory; the same
+  molecules as ASE and as OVITO. `mdapy.elements` has the covalent
   and van der Waals radii, which pictures now read from it.
 - [`PolyhedralTemplateMatching`](../analysis/ptm.md): the structure,
   orientation, elastic deformation and chemical ordering of each atom, for

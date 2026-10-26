@@ -46,13 +46,17 @@ class PlanarFaultResult(Result):
 
     def areas(self) -> dict[str, float]:
         """Area in Å² of the intrinsic stacking faults, each two layers of
-        atoms, and of the coherent twin boundaries, each one."""
+        atoms, of the coherent twin boundaries, each one, and of the
+        extrinsic stacking faults, each two."""
         d2 = self.interatomic_distance**2
         return {
             "intrinsic stacking fault": float(
                 np.sqrt(3) / 4 * d2[self.fault == 2].sum()
             ),
             "coherent twin boundary": float(np.sqrt(3) / 2 * d2[self.fault == 3].sum()),
+            "extrinsic stacking fault": float(
+                np.sqrt(3) / 4 * d2[self.fault == 5].sum()
+            ),
         }
 
     def columns(self) -> dict[str, np.ndarray]:
@@ -71,6 +75,10 @@ class PlanarFaults:
     rmsd_cutoff : float, optional
         Atoms whose root-mean-square deviation from the best template is
         larger are other; 0 for no cutoff. Default 0.1.
+    extrinsic : bool, optional
+        Also find extrinsic stacking faults, two planes of hcp-like atoms
+        with one plane of fcc atoms between them, which are otherwise two
+        coherent twin boundaries. Default False.
     """
 
     NAMES = (
@@ -79,6 +87,7 @@ class PlanarFaults:
         "intrinsic stacking fault",
         "coherent twin boundary",
         "multilayer stacking fault",
+        "extrinsic stacking fault",
     )
     # the colors of OVITO
     COLORS = (
@@ -87,6 +96,7 @@ class PlanarFaults:
         (0.9, 0.7, 0.2),
         (0.4, 0.4, 1.0),
         (0.0, 1.0, 0.9),
+        (0.7, 0.3, 0.9),
     )
 
     def __init__(
@@ -94,6 +104,7 @@ class PlanarFaults:
         structures: tuple[str, ...] = ("fcc", "hcp", "bcc"),
         *,
         rmsd_cutoff: float = 0.1,
+        extrinsic: bool = False,
     ):
         if isinstance(structures, str):
             structures = (structures,)
@@ -104,6 +115,7 @@ class PlanarFaults:
             self.structures, rmsd_cutoff=rmsd_cutoff, template_neighbors=True
         )
         self.rmsd_cutoff = self.__ptm.rmsd_cutoff
+        self.extrinsic = bool(extrinsic)
 
     def compute(
         self,
@@ -152,6 +164,7 @@ class PlanarFaults:
             fault = _native.planar_faults(
                 np.ascontiguousarray(ptm.structure),
                 np.ascontiguousarray(ptm.neighbors),
+                self.extrinsic,
                 progress,
                 _native_token(cancel),
             )
@@ -162,7 +175,8 @@ class PlanarFaults:
         )
 
     def __repr__(self) -> str:
+        extra = ", extrinsic=True" if self.extrinsic else ""
         return (
             f"PlanarFaults(structures={self.structures!r}, "
-            f"rmsd_cutoff={self.rmsd_cutoff!r})"
+            f"rmsd_cutoff={self.rmsd_cutoff!r}{extra})"
         )

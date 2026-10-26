@@ -78,6 +78,32 @@ def test_faults_of_slips():
     assert lamellae.columns()["planar_fault"] is lamellae.fault
 
 
+def test_extrinsic_stacking_faults():
+    # two Shockley partials on neighboring planes: two planes of hcp atoms
+    # with one of fcc between, two twin boundaries but for the option
+    extrinsic = PlanarFaults(extrinsic=True)
+    result = extrinsic.compute(faulted([12, 13]))
+    assert result.counts()["extrinsic stacking fault"] == 96
+    assert result.counts()["coherent twin boundary"] == 0
+    box = faulted([12, 13]).box.matrix
+    assert result.areas()["extrinsic stacking fault"] == pytest.approx(
+        box[0, 0] * box[1, 1]
+    )
+    # beside an intrinsic fault and a twin of three planes, which stay
+    counts = extrinsic.compute(faulted([4, 5, 12])).counts()
+    assert counts["extrinsic stacking fault"] == 96
+    assert counts["intrinsic stacking fault"] == 96
+    counts = extrinsic.compute(faulted([4, 5, 12, 13, 14])).counts()
+    assert counts["extrinsic stacking fault"] == counts["coherent twin boundary"] == 96
+    for planes in ([12], [12, 14], [12, 13, 14]):
+        system = faulted(planes)
+        np.testing.assert_array_equal(
+            extrinsic.compute(system).fault, PlanarFaults().compute(system).fault
+        )
+    lamellae = extrinsic.compute(CASES["lamellae"]())
+    assert lamellae.counts()["extrinsic stacking fault"] == 0
+
+
 def test_given_template_matching():
     system = faulted([4, 5, 12])
     ptm = PolyhedralTemplateMatching(template_neighbors=True).compute(system)
@@ -107,6 +133,9 @@ def test_invalid_arguments():
     assert repr(PlanarFaults("fcc hcp".split())) == (
         "PlanarFaults(structures=('fcc', 'hcp'), rmsd_cutoff=0.1)"
     )
+    assert repr(PlanarFaults(extrinsic=True)).endswith(
+        "rmsd_cutoff=0.1, extrinsic=True)"
+    )
 
 
 @pytest.mark.parametrize("case", CASES)
@@ -132,8 +161,12 @@ def test_against_ovito(case):
     np.testing.assert_array_equal(ours.fault, data.particles["Planar Fault Type"])
     table = data.tables["planar_faults"]
     np.testing.assert_array_equal(
-        [ours.counts()[name] for name in PlanarFaults.NAMES[1:]], table.y[1:]
+        [ours.counts()[name] for name in PlanarFaults.NAMES[1:5]], table.y[1:]
     )
+    areas = ours.areas()
     np.testing.assert_allclose(
-        list(ours.areas().values()), table["Estimated Area"][2:4], rtol=1e-12
+        [areas["intrinsic stacking fault"], areas["coherent twin boundary"]],
+        table["Estimated Area"][2:4],
+        rtol=1e-12,
     )
+    assert areas["extrinsic stacking fault"] == 0

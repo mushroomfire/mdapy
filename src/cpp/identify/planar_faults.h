@@ -20,6 +20,7 @@ enum PlanarFault : std::int8_t {
     kIntrinsicFault = 2,
     kTwinBoundary = 3,
     kMultilayerFault = 4,
+    kExtrinsicFault = 5,
 };
 
 // The planar fault type of each of n atoms, from their PTM structure types
@@ -30,8 +31,11 @@ enum PlanarFault : std::int8_t {
 // hcp atoms in the order of their indices and changing their types as it
 // goes, as OVITO does, turns twin and other atoms whose basal neighbors are
 // all of one fault into that fault, and the stacking-fault neighbors above
-// and below a multilayer atom into multilayer atoms.
+// and below a multilayer atom into multilayer atoms. With extrinsic, a third
+// pass makes the twin-boundary atoms next to a single plane of fcc atoms
+// between two planes of hcp atoms (an fcc neighbor with at least five hcp
+// and five fcc neighbors) extrinsic-fault atoms.
 void planar_faults(const std::int8_t* structure, const index_t* neighbors, std::int64_t n,
-                   std::int8_t* faults, const Control& control = {});
+                   bool extrinsic, std::int8_t* faults, const Control& control = {});
 
 }  // namespace mdapy::identify

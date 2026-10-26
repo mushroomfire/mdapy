@@ -7,9 +7,21 @@
 | 分支 | 内容 | 状态 |
 |---|---|---|
 | `voronoi-outputs` | Voronoi 的面按需返回（`faces=True`），默认只算体积、配位数、空腔半径 | 已推送（f91b193），Triton 计时中 |
-| `faster-crystal` | `build_crystal` 不再对 200 万原子排序，元素列不经 Python 字符串 | 测试中 |
+| `faster-crystal` | `build_crystal` 不再对 200 万原子排序，元素列不经 Python 字符串 | 已推送（16bb0db），Triton 排队中 |
+| `phonons-draft` | 计划 17.1 的第一步：简谐声子（力常数、色散、DOS、热力学量）、原胞 | 已推送（2209c07） |
 
 ## 进展
+
+### 15:22
+- **Voronoi Triton 结果**（Gold 6248，40 线程，2M 原子）：默认 0.93 s / 130 MB；`faces=True` 1.10 s / 1593 MB（内存少 12 倍）。OVITO 默认 23.0 s，带键 25.1 s；freud 37.6 s。性能页原来的表是另一型号（Gold 6230）测的，所以 analyses 整组正在排队重跑，跑完一起换表。
+- **四个功能的计划**写进了 `design/outline.md` 第 17 节（子代理读了 1.x 的代码做摘要，我抽查过）。要你定的问题都标了“问”，汇总在本报告“要你定的问题”一节。
+- **声子 1a**（`phonons-draft`，基于 v2）：
+  - `phonons(system, calculator, *, supercell=None, displacement=0.01)` → `Phonons`：`frequencies(q)`、`modes(q)`、`band_structure("fcc" 或手给路径)`、`dos(mesh, sigma=None, projected=False)`（线性四面体法或高斯）、`thermal(T, mesh)`（每原子 F、E、S、C_V）。`primitive_cell(system)` 自己找原胞（纯平移 → HNF → LLL），不依赖 spglib/phonopy/seekpath。
+  - 力常数：±h 中心差分；对称化（Φ_ij = Φ_ji^T）和平移不变（声学求和规则）；周期像按最近像等权分配。
+  - 验证：简单立方弹簧解析色散（1e-8 THz）；常规胞 12 支 = 原胞在 q+G 的 3 支（折叠）；EAM 铜长波声速 = √(C11/ρ)、√(C44/ρ)（2e-3）；LAMMPS PHONON 包 `dynamical_matrix` 逐元素一致（1e-9），公度 q 点频率一致（1e-4 THz）；热力学量 S = −∂F/∂T、C = ∂E/∂T、高温极限 3k_B。38 个测试，覆盖率 100%，全套 1951 个测试通过。
+  - CI 的 LAMMPS 没有 PHONON 包，那个对比测试在 CI 上自动跳过。
+
+![fcc Cu（Mishin EAM）的声子色散和态密度，mdapy 计算](images/41_phonons_cu.png)
 
 ### 14:58
 - **Voronoi 按需返回**（`voronoi-outputs`）：
@@ -24,6 +36,17 @@
   - 现在先在一个晶胞里把原子按晶面分组（第三、第二、第一个晶格矢量方向），整体顺序直接由 repeat/tile 生成，不排序；元素用 polars Enum 的 gather。
   - 本地 200 万原子 0.34 s → 0.053 s，坐标与旧版逐位相同（无取向时）。
   - 取向晶体里旧版其实没有严格按 z→y→x 排：同一晶面的 z 有 1e-15 的舍入噪声，lexsort 按噪声排了。新版严格按晶面，再按 y、x。186 个结构/取向/重复组合与旧版比较：原子集合相同（1e-9），48 个取向用例顺序不同（都是这个原因）。
+
+## 要你定的问题
+
+1. 声子测试要不要加 phonopy（BSD-3，pip）做现场对比？CI 的 LAMMPS 要不要加 PHONON 包？
+2. 默认超胞：现在是“厚度 ≥ 2×截断”；EAM 这类多体势的力常数能到 2×截断，要不要默认更大？原胞的约化基（LLL）不唯一，超胞形状可能不对称（铜得到 7×6×6），要不要改成按常规胞取超胞？
+3. 有虚频（< −0.01 THz）时 `dos`/`thermal` 直接报错，可以吗？
+4. QHA 的有限温度弹性常数：准静态和完整 QHA 都做？默认哪个？
+5. LAMMPS MD 接口的名字和位置（`mdapy.simulation.MolecularDynamics`？）。
+6. 平面缺陷第二遍：照 OVITO 串行原地（与 OVITO 逐原子一致，但依赖原子顺序），还是与顺序无关？ESF 要不要作为选项？
+7. 化学产物：默认用共价半径 ×1.2 还是 vdW ×0.6？要不要区分同分异构体？
+8. 石墨烯界面：要不要弯曲片子贴合三叉晶界？
 
 ---
 

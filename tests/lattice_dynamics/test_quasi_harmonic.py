@@ -1,6 +1,8 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
+import dataclasses
+
 import numpy as np
 import pytest
 
@@ -127,3 +129,79 @@ def test_fit_without_a_minimum():
     t = volumes ** (-2 / 3)
     assert _Fit(volumes, t + t**3).minimum() is None  # no real stationary point
     assert _Fit(volumes, -((t - t.mean()) ** 2)).minimum() is None  # a maximum
+
+
+def test_pressures_and_volumes(copper, heating):
+    potential, _, cell = copper
+    # at each volume of the grid the shape relaxes: a hydrostatic stress
+    np.testing.assert_allclose(
+        heating.volumes / heating.volumes[0],
+        np.linspace(0.97, 1.09, 9) / 0.97,
+        rtol=1e-6,
+    )
+    for grid_cell in heating.cells:
+        stress = potential.compute(grid_cell, ("virial",)).stress(grid_cell)
+        np.testing.assert_allclose(stress, stress[0, 0] * np.eye(3), atol=1e-3)
+    # the cells of given pressures are relaxed under them
+    pressures = np.linspace(20.0, -40.0, 6)
+    given = quasi_harmonic(cell, potential, [300.0], pressures=pressures, **OPTIONS)
+    assert len(given.cells) == 6 and np.all(np.diff(given.volumes) > 0)
+    for p, grid_cell in zip(sorted(pressures, reverse=True), given.cells):
+        stress = potential.compute(grid_cell, ("virial",)).stress(grid_cell)
+        np.testing.assert_allclose(stress, -p * np.eye(3), atol=1e-3)
+    with pytest.raises(InvalidParameter, match="not both"):
+        quasi_harmonic(
+            cell,
+            potential,
+            [300.0],
+            pressures=pressures,
+            volumes=[1, 1.01, 1.02, 1.03, 1.04],
+        )
+    with pytest.raises(InvalidParameter, match="five or more numbers"):
+        quasi_harmonic(cell, potential, [300.0], pressures=[0.0, 1.0])
+
+
+def test_the_shape_relaxes_with_the_volume(copper):
+    # hcp: c/a changes with the volume, the stress stays hydrostatic
+    potential, _, _ = copper
+    hcp = minimize(
+        build_crystal("hcp", 2.33, elements="Cu"),
+        potential,
+        cell="full",
+        max_force=1e-10,
+        max_stress=1e-8,
+        max_steps=20000,
+    ).system
+    result = quasi_harmonic(hcp, potential, [100.0], **OPTIONS)
+    ratios = [
+        c.box.matrix[2, 2] / np.linalg.norm(c.box.matrix[0]) for c in result.cells
+    ]
+    assert np.ptp(ratios) > 1e-3
+    for grid_cell in result.cells:
+        stress = potential.compute(grid_cell, ("virial",)).stress(grid_cell)
+        np.testing.assert_allclose(stress, stress[0, 0] * np.eye(3), atol=1e-3)
+
+
+def test_relaxation_that_does_not_converge(copper):
+    potential, conventional, _ = copper
+    shaken = conventional.with_columns(
+        positions=conventional["positions"]
+        + np.random.default_rng(1).normal(scale=0.05, size=(4, 3))
+    )
+    with pytest.raises(InvalidParameter, match="at volume ratio .* did not relax"):
+        quasi_harmonic(shaken, potential, [300.0], max_steps=1, **OPTIONS)
+
+
+def test_a_volume_that_is_not_kept(copper, monkeypatch):
+    from mdapy.lattice_dynamics import _quasi_harmonic as module
+
+    potential, _, cell = copper
+    relax = module._relaxed
+
+    def drifting(*args):  # a relaxation that always ends at another volume
+        result = relax(*args)
+        return dataclasses.replace(result, system=module._scaled(result.system, 1.001))
+
+    monkeypatch.setattr(module, "_relaxed", drifting)
+    with pytest.raises(InvalidParameter, match="did not keep its volume"):
+        quasi_harmonic(cell, potential, [100.0], **OPTIONS)

@@ -3,6 +3,7 @@
 
 """Harmonic phonons from the forces on displaced atoms."""
 
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -16,7 +17,7 @@ from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.elements import atomic_masses
-from mdapy.errors import InvalidParameter
+from mdapy.errors import FileFormatError, InvalidParameter
 
 # the frequency in THz of an eigenvalue of 1 eV/(Å² amu) of a dynamical matrix
 _THZ = 1 / (2 * np.pi * np.sqrt(units.AMU_A2_PER_PS2_TO_EV))
@@ -24,6 +25,8 @@ _THZ = 1 / (2 * np.pi * np.sqrt(units.AMU_A2_PER_PS2_TO_EV))
 _LOWEST = 1e-3
 # frequencies below this in THz are a crystal that is not stable
 _IMAGINARY = -1e-2
+# frequencies closer than this in THz are taken as equal
+_DEGENERATE = 1e-3
 
 
 def _read_only(*arrays: np.ndarray | None) -> None:
@@ -44,8 +47,8 @@ class BandStructure:
     distances : numpy.ndarray
         (P,) distance of each wave vector along the path, in 1/Å.
     frequencies : numpy.ndarray
-        (P, 3n) frequencies in THz, ascending at each wave vector;
-        imaginary ones as negative.
+        (P, 3n) frequencies in THz, ascending at each wave vector, or each
+        column a branch when connected; imaginary ones as negative.
     labels : tuple of (float, str)
         The distance and the label of each special point; two points that
         meet at a break of the path share a label such as "U|K".
@@ -58,6 +61,32 @@ class BandStructure:
 
     def __post_init__(self):
         _read_only(self.q, self.distances, self.frequencies)
+
+    def write(self, path: str | os.PathLike) -> None:
+        """Writes the band structure in the format of phonopy's band.dat:
+        the distances of the ends of the lines in 1/Å without the factor 2π,
+        then each branch, line by line.
+
+        Parameters
+        ----------
+        path : str or path-like
+            The file.
+        """
+        starts = np.flatnonzero(np.diff(self.distances) == 0) + 1
+        lines = np.split(np.arange(len(self.distances)), starts)
+        x = self.distances / (2 * np.pi)
+        ends = [d / (2 * np.pi) for d, _ in self.labels]
+        if len(ends) != len(lines) + 1:
+            ends = [x[lines[0][0]]] + [x[line[-1]] for line in lines]
+        with open(path, "w") as f:
+            f.write("# End points of segments: \n")
+            f.write("#  " + "".join(f" {e:.8f}" for e in ends) + " \n")
+            for branch in self.frequencies.T:
+                for line in lines:
+                    for k in line:
+                        f.write(f"{x[k]:f} {branch[k]:f}\n")
+                    f.write("\n")
+                f.write("\n")
 
 
 @dataclass(frozen=True)
@@ -155,6 +184,56 @@ _PATHS = {
         },
     ),
 }
+
+
+def read_band_structure(path: str | os.PathLike) -> BandStructure:
+    """A band structure from a file in the format of phonopy's band.dat.
+
+    Parameters
+    ----------
+    path : str or path-like
+        The file, such as one phonopy wrote from a calculation with VASP.
+
+    Returns
+    -------
+    BandStructure
+        The distances, in 1/Å with the factor 2π, and the frequencies; the
+        wave vectors are not in the file and are NaN, and the special points
+        at the ends of the lines have no names.
+
+    Raises
+    ------
+    FileFormatError
+        If the file is not in that format.
+    """
+    with open(path) as f:
+        lines = f.read().splitlines()
+    try:
+        ends = np.array(lines[1].lstrip("#").split(), dtype=float)
+        # the branches, each ended by two blank lines
+        branches, rows, blank = [], [], 0
+        for line in lines[2:]:
+            if line.strip():
+                rows.append(line.split())
+                blank = 0
+                continue
+            blank += 1
+            if blank == 2 and rows:
+                branches.append(np.array(rows, dtype=float))
+                rows = []
+        if rows:
+            branches.append(np.array(rows, dtype=float))
+        data = np.stack([b[:, 1] for b in branches], axis=1)
+        distances = branches[0][:, 0]
+    except (IndexError, ValueError):
+        raise FileFormatError("not a band.dat of phonopy", str(path)) from None
+    scale = 2 * np.pi
+    return BandStructure(
+        q=np.full((len(distances), 3), np.nan),
+        distances=distances * scale,
+        frequencies=data,
+        labels=tuple((float(e) * scale, "") for e in ends),
+    )
 
 
 def _masses(system: System) -> np.ndarray:
@@ -314,6 +393,69 @@ def _repeat(value: int | ArrayLike, name: str) -> np.ndarray:
     return counts.astype(int)
 
 
+def _supercell_matrix(value: int | ArrayLike) -> np.ndarray:
+    """(3, 3) integer matrix of a supercell: its vectors are its rows times
+    the vectors of the cell."""
+    array = np.array(value)
+    if array.shape == (3, 3):
+        if not np.issubdtype(array.dtype, np.integer) or not np.linalg.det(array) > 0.5:
+            raise InvalidParameter(
+                "a supercell matrix must hold integers, with a positive determinant"
+            )
+        return array.astype(int)
+    return np.diag(_repeat(value, "supercell"))
+
+
+def _lattice_points(matrix: np.ndarray) -> np.ndarray:
+    """(S, 3) the lattice vectors of the cell, in its units, that reach the S
+    cells of a supercell: zero first, then ordered by the first, the second
+    and the third; for a diagonal matrix, the third varies fastest."""
+    corners = (
+        np.array([[i, j, k] for i in (0, 1) for j in (0, 1) for k in (0, 1)]) @ matrix
+    )
+    axes = [
+        np.arange(lo, hi + 1)
+        for lo, hi in zip(corners.min(axis=0), corners.max(axis=0))
+    ]
+    grid = np.stack(np.meshgrid(*axes, indexing="ij"), -1).reshape(-1, 3)
+    fractional = grid @ np.linalg.inv(matrix)
+    inside = ((fractional > -1e-9) & (fractional < 1 - 1e-9)).all(axis=1)
+    points = grid[inside]
+    # the cell itself first
+    origin = np.flatnonzero((points == 0).all(axis=1))
+    return np.concatenate([points[origin], np.delete(points, origin, axis=0)])
+
+
+def _widths(matrix: np.ndarray) -> np.ndarray:
+    """The distances between opposite faces of a box of these vectors."""
+    areas = np.linalg.norm(np.cross(matrix[[1, 2, 0]], matrix[[2, 0, 1]]), axis=1)
+    return abs(np.linalg.det(matrix)) / areas
+
+
+def _default_supercell(cell: np.ndarray, reach: float) -> np.ndarray:
+    """The supercell nearest a cube that is at least reach thick in every
+    direction: of the supercells round(edge inv(cell)) for edges from reach
+    to twice reach, the fewest cells among those as near a cube, by the
+    thinnest width over the edge of a cube of the same volume, as 0.95 of
+    the nearest."""
+    if (_widths(cell) >= reach - 1e-9).all():
+        return np.eye(3, dtype=int)
+    inverse = np.linalg.inv(cell)
+    found = {}
+    edge = reach
+    while edge < 2 * reach + np.linalg.norm(cell, axis=1).max():
+        matrix = np.round(edge * inverse).astype(int)
+        size = round(np.linalg.det(matrix))
+        if size > 0 and (_widths(matrix @ cell) >= reach - 1e-9).all():
+            box = matrix @ cell
+            cubic = _widths(box).min() / abs(np.linalg.det(box)) ** (1 / 3)
+            found[matrix.tobytes()] = (size, cubic, matrix)
+        edge *= 1.01
+    candidates = list(found.values())
+    best = max(c[1] for c in candidates)
+    return min((c for c in candidates if c[1] >= 0.95 * best), key=lambda c: c[0])[2]
+
+
 def _mesh(mesh: int | ArrayLike) -> np.ndarray:
     """(K, 3) wave vectors of a mesh through Γ, in units of the reciprocal
     lattice vectors, in the order of the indices of the third vector first."""
@@ -372,6 +514,64 @@ def _tetrahedron_dos(corners: np.ndarray, grid: np.ndarray) -> np.ndarray:
     )
 
 
+def _groups(frequencies: np.ndarray, tolerance: float) -> list[np.ndarray]:
+    """The sets of two or more ascending frequencies within tolerance of
+    the next."""
+    apart = np.flatnonzero(np.diff(frequencies) > tolerance) + 1
+    return [g for g in np.split(np.arange(len(frequencies)), apart) if len(g) > 1]
+
+
+def _assigned(overlap: np.ndarray) -> np.ndarray:
+    """The mode of each branch, the largest overlaps first, each mode once."""
+    count = len(overlap)
+    mode = np.full(count, -1)
+    taken = np.zeros(count, dtype=bool)
+    for flat in np.argsort(-overlap, axis=None, kind="stable"):
+        branch, m = divmod(int(flat), count)
+        if mode[branch] < 0 and not taken[m]:
+            mode[branch], taken[m] = m, True
+    return mode
+
+
+def _connected(
+    frequencies: np.ndarray, vectors: np.ndarray, starts: list[int], tolerance: float
+) -> np.ndarray:
+    """Frequencies along a path, each column one branch followed from point
+    to point by the overlap of its polarization vectors; within a set of
+    equal frequencies the vectors mix, so a branch keeps the vector it had
+    before them, and branches that come out of such a set at the start of a
+    section are matched as one."""
+    count, branches = frequencies.shape
+    flat = vectors.reshape(count, branches, -1)
+    out = frequencies.copy()
+    ends = starts[1:] + [count]
+    for start, end in zip(starts, ends):
+        reference = flat[start].copy()
+        loose = _groups(frequencies[start], tolerance)  # branches matched as one
+        for k in range(start + 1, end):
+            overlap = np.abs(reference.conj() @ flat[k].T) ** 2
+            for group in loose:
+                overlap[group] = overlap[group].sum(axis=0)
+            mode = _assigned(overlap)
+            for group in loose:
+                mode[group] = sorted(mode[group], key=lambda m: frequencies[k, m])
+            out[k] = frequencies[k, mode]
+            equal = _groups(frequencies[k], tolerance)
+            mixed = np.zeros(branches, dtype=bool)
+            for group in equal:
+                mixed[np.isin(mode, group)] = True
+            was_loose = np.zeros(branches, dtype=bool)
+            for group in loose:
+                was_loose[group] = True
+            renew = ~mixed | was_loose
+            reference[renew] = flat[k, mode[renew]]
+            loose = [
+                np.flatnonzero(np.isin(mode, group) & was_loose) for group in equal
+            ]
+            loose = [g for g in loose if len(g) > 1]
+    return out
+
+
 class Phonons:
     """Harmonic phonons of a crystal from its force constants.
 
@@ -383,15 +583,15 @@ class Phonons:
     ----------
     cell : System
         The crystal whose vibrations these are.
-    supercell : tuple of int
-        Repeats of the cell along its vectors in which the force constants
-        were found.
+    supercell : numpy.ndarray
+        (3, 3) integer matrix of the supercell in which the force constants
+        were found: its vectors are the rows of the matrix times the vectors
+        of the cell.
     force_constants : numpy.ndarray
         (n, n S, 3, 3) second derivatives of the energy in eV/Å² with
         respect to the positions of each atom of the cell and of each atom
-        of the supercell, which holds the S cells in the order of the
-        repeats along the third vector first and the atoms of each cell in
-        their order.
+        of the supercell, which holds S cells, each with the atoms of the
+        cell in their order, the first cell that of the cell itself.
     """
 
     def __init__(
@@ -402,20 +602,19 @@ class Phonons:
         masses: np.ndarray,
     ):
         self.cell = cell
-        self.supercell = tuple(int(n) for n in supercell)
+        self.supercell = np.array(supercell, dtype=int)
+        self.supercell.flags.writeable = False
         self.force_constants = force_constants
         self.force_constants.flags.writeable = False
         n = len(cell)
         matrix = cell.box.matrix
         positions = cell["positions"]
-        repeats = np.stack(
-            np.meshgrid(*[np.arange(k) for k in supercell], indexing="ij"), -1
-        ).reshape(-1, 3)
+        repeats = _lattice_points(self.supercell)
         atoms = (repeats @ matrix)[:, None, :] + positions[None]  # (S, n, 3)
         atoms = atoms.reshape(-1, 3)
         # each pair at its shortest distances in the supercell, shared
         # equally among the images that are as short
-        lattice = matrix * np.asarray(supercell)[:, None]
+        lattice = self.supercell @ matrix
         shifts = (
             np.stack(np.meshgrid(*[np.arange(-2, 3)] * 3, indexing="ij"), -1).reshape(
                 -1, 3
@@ -448,10 +647,8 @@ class Phonons:
         self.__reciprocal = 2 * np.pi * np.linalg.inv(matrix).T
 
     def __repr__(self) -> str:
-        return (
-            f"Phonons({len(self.cell)} atoms, supercell "
-            f"{' × '.join(map(str, self.supercell))})"
-        )
+        cells = round(np.linalg.det(self.supercell))
+        return f"Phonons({len(self.cell)} atoms, supercell of {cells} cells)"
 
     def __wave_vectors(self, q: ArrayLike) -> tuple[np.ndarray, bool]:
         q = np.asarray(q, dtype=float)
@@ -586,33 +783,82 @@ class Phonons:
             for section in sections
         ]
 
+    def __auto_path(self) -> list[list[tuple[str, np.ndarray]]]:
+        try:
+            import seekpath
+        except ImportError:
+            raise ImportError(
+                'path="auto" needs seekpath: pip install seekpath'
+            ) from None
+        cell = self.cell
+        found = seekpath.get_path(
+            (
+                cell.box.matrix,
+                cell.box.to_fractional(cell["positions"]),
+                (_kinds(cell) + 1).tolist(),
+            )
+        )
+        # its points in its own standard cell, turned back into this one
+        reciprocal = np.array(found["reciprocal_primitive_lattice"])
+        turn = np.array(found["rotation_matrix"])
+        to_cell = cell.box.matrix.T / (2 * np.pi)
+        points = {
+            label: (np.array(q) @ reciprocal) @ turn @ to_cell
+            for label, q in found["point_coords"].items()
+        }
+        sections: list[list[str]] = []
+        for start, end in found["path"]:
+            if sections and sections[-1][-1] == start:
+                sections[-1].append(end)
+            else:
+                sections.append([start, end])
+        name = {"GAMMA": "Γ"}
+        return [
+            [(name.get(label, label), points[label]) for label in section]
+            for section in sections
+        ]
+
     def band_structure(
         self,
         path: str | Sequence[Sequence[tuple[str, ArrayLike]]],
         *,
         points: int = 51,
+        connected: bool = False,
     ) -> BandStructure:
         """Phonon frequencies along a path through the Brillouin zone.
 
         Parameters
         ----------
         path : str or sequence of sequences of (str, array_like)
-            "sc", "fcc", "bcc" or "hexagonal" for the standard path of that
-            lattice, the cell having the axes of its conventional cell along
-            x, y and z, or a along x and c along z; or the sections of a
-            path, each a sequence of labeled wave vectors in units of the
-            reciprocal lattice vectors of the cell, joined by straight lines.
+            "auto" for the standard path of the crystal by its symmetry,
+            from seekpath; "sc", "fcc", "bcc" or "hexagonal" for the standard
+            path of that lattice, the cell having the axes of its
+            conventional cell along x, y and z, or a along x and c along z;
+            or the sections of a path, each a sequence of labeled wave
+            vectors in units of the reciprocal lattice vectors of the cell,
+            joined by straight lines.
         points : int, optional
             Number of wave vectors on each line, its ends included.
             Default 51.
+        connected : bool, optional
+            Follow each branch along the path by its polarization vector, so
+            that branches that cross stay apart; otherwise the frequencies
+            are ascending at each wave vector. Default False.
 
         Returns
         -------
         BandStructure
             The wave vectors, their distances along the path, the
             frequencies and the labels of the special points.
+
+        Raises
+        ------
+        ImportError
+            For path "auto" without seekpath.
         """
-        if isinstance(path, str):
+        if path == "auto":
+            sections = self.__auto_path()
+        elif isinstance(path, str):
             sections = self.__standard_path(path)
         else:
             try:
@@ -631,9 +877,10 @@ class Phonons:
         if int(points) < 2:
             raise InvalidParameter(f"points must be at least 2, not {points!r}")
         t = np.linspace(0, 1, int(points))[:, None]
-        wave_vectors, distances, labels = [], [], []
+        wave_vectors, distances, labels, starts = [], [], [], []
         reached = 0.0
         for section in sections:
+            starts.append(sum(len(w) for w in wave_vectors))
             if labels:
                 labels[-1] = (reached, f"{labels[-1][1]}|{section[0][0]}")
             else:
@@ -646,18 +893,23 @@ class Phonons:
                 reached += length
                 labels.append((reached, label))
         q = np.concatenate(wave_vectors)
+        if connected:
+            frequencies, vectors = self.__solve(q, vectors=True)
+            frequencies = _connected(frequencies, vectors, starts, _DEGENERATE)
+        else:
+            frequencies = self.frequencies(q)
         return BandStructure(
             q=q,
             distances=np.concatenate(distances),
-            frequencies=self.frequencies(q),
+            frequencies=frequencies,
             labels=tuple((float(d), label) for d, label in labels),
         )
 
-    def __on_mesh(self, mesh, vectors: bool):
+    def __on_mesh(self, mesh, vectors: bool, stable: bool):
         q = _mesh(mesh)
         frequencies, modes = self.__solve(q, vectors=vectors)
         lowest = frequencies.min()
-        if lowest < _IMAGINARY:
+        if stable and lowest < _IMAGINARY:
             raise InvalidParameter(
                 f"imaginary frequencies down to {lowest:.3g} THz: the crystal is "
                 f"not stable, or the supercell is too small"
@@ -682,7 +934,8 @@ class Phonons:
             a mesh through Γ. Default 20.
         frequencies : array_like, optional
             The frequencies in THz at which to give the density. Default 501
-            from 0 to a little above the highest.
+            from 0, or a little below the lowest imaginary frequency, to a
+            little above the highest.
         sigma : float, optional
             Width in THz of a Gaussian for each mode; by default the
             tetrahedron method.
@@ -697,15 +950,15 @@ class Phonons:
         Raises
         ------
         InvalidParameter
-            For a mesh or a sigma that is not positive, or imaginary
-            frequencies on the mesh.
+            For a mesh or a sigma that is not positive.
         """
         if sigma is not None and not sigma > 0:
             raise InvalidParameter(f"sigma must be positive, not {sigma!r}")
         counts = _repeat(mesh, "mesh")
-        _, values, modes = self.__on_mesh(counts, vectors=projected)
+        _, values, modes = self.__on_mesh(counts, vectors=projected, stable=False)
         if frequencies is None:
-            grid = np.linspace(0.0, 1.05 * values.max(), 501)
+            low = min(0.0, 1.05 * values.min() if values.min() < _IMAGINARY else 0.0)
+            grid = np.linspace(low, 1.05 * values.max(), 501)
         else:
             grid = np.asarray(frequencies, dtype=float).reshape(-1)
         n = len(self.cell)
@@ -767,7 +1020,7 @@ class Phonons:
         temperatures = np.atleast_1d(np.asarray(temperatures, dtype=float))
         if temperatures.ndim != 1 or not (temperatures >= 0).all():
             raise InvalidParameter("temperatures must not be negative")
-        _, values, _ = self.__on_mesh(mesh, vectors=False)
+        _, values, _ = self.__on_mesh(mesh, vectors=False, stable=True)
         quanta = units.PLANCK * values[values > _LOWEST]  # eV
         count = values.size / (3 * len(self.cell))  # wave vectors per atom
         kt = units.BOLTZMANN * temperatures
@@ -799,25 +1052,23 @@ class Phonons:
         )
 
 
-def _supercell(cell: System, counts: np.ndarray) -> System:
-    repeats = np.stack(
-        np.meshgrid(*[np.arange(k) for k in counts], indexing="ij"), -1
-    ).reshape(-1, 3)
+def _supercell(cell: System, matrix: np.ndarray) -> System:
+    repeats = _lattice_points(matrix)
     positions = (repeats @ cell.box.matrix)[:, None, :] + cell["positions"][None]
     table = pl.concat([cell.table] * len(repeats)).with_columns(
         pl.Series("positions", positions.reshape(-1, 3), dtype=pl.Array(pl.Float64, 3))
     )
-    box = Box(cell.box.matrix * counts[:, None], origin=cell.box.origin)
+    box = Box(matrix @ cell.box.matrix, origin=cell.box.origin)
     return System(table=table, box=box)
 
 
 def _displaced_forces(
-    cell: System, calculator: Calculator, counts: np.ndarray, displacement: float
+    cell: System, calculator: Calculator, matrix: np.ndarray, displacement: float
 ) -> np.ndarray:
     """(n, n S, 3, 3) force constants by central differences of the forces
     on the atoms of the supercell, each atom of the first cell displaced
     along x, y and z by plus and minus displacement."""
-    big = _supercell(cell, counts)
+    big = _supercell(cell, matrix)
     positions = big["positions"]
     n = len(cell)
     constants = np.zeros((n, len(big), 3, 3))
@@ -835,16 +1086,16 @@ def _displaced_forces(
     return constants
 
 
-def _symmetrized(constants: np.ndarray, counts: np.ndarray) -> np.ndarray:
+def _symmetrized(constants: np.ndarray, matrix: np.ndarray) -> np.ndarray:
     """Force constants made symmetric in the two atoms and summing to zero
     over the atoms of the supercell, so that a translation costs nothing."""
     n = constants.shape[0]
-    repeats = np.stack(
-        np.meshgrid(*[np.arange(k) for k in counts], indexing="ij"), -1
-    ).reshape(-1, 3)
+    repeats = _lattice_points(matrix)
     # the pair (b in cell L, a in cell 0) is the pair (a in cell -L, b in cell 0)
-    opposite = (-repeats) % counts
-    index = (opposite[:, 0] * counts[1] + opposite[:, 1]) * counts[2] + opposite[:, 2]
+    fractional = -repeats @ np.linalg.inv(matrix)
+    opposite = np.round((fractional - np.floor(fractional + 1e-9)) @ matrix).astype(int)
+    found = {tuple(r): k for k, r in enumerate(repeats.tolist())}
+    index = np.array([found[tuple(r)] for r in opposite.tolist()])
     j = np.arange(constants.shape[1])
     other = index[j // n][None, :] * n + np.arange(n)[:, None]  # (n, M)
     partner = j % n
@@ -875,9 +1126,11 @@ def phonons(
     calculator : Calculator
         Computes the forces.
     supercell : int or array_like, optional
-        Repeats of the cell along its vectors. Default the fewest that make
-        the supercell at least twice the cutoff of the calculator thick in
-        every direction.
+        Repeats of the cell along its vectors, one or three, or a (3, 3)
+        integer matrix whose rows times the vectors of the cell are the
+        vectors of the supercell. Default the supercell nearest a cube that
+        is at least twice the cutoff of the calculator thick in every
+        direction.
     displacement : float, optional
         Displacement of the atoms in Å. Default 0.01.
 
@@ -891,8 +1144,9 @@ def phonons(
     ------
     InvalidParameter
         If the box is not periodic, there are no atoms, an atom has no
-        mass, the calculator does not compute forces, or the supercell or
-        the displacement is not positive.
+        mass, the calculator does not compute forces, the supercell is not
+        positive integers or a matrix of them with a positive determinant,
+        or the displacement is not positive.
     """
     if not system.box.pbc.all() or len(system) == 0:
         raise InvalidParameter(
@@ -903,14 +1157,9 @@ def phonons(
     if "forces" not in calculator.implemented:
         raise InvalidParameter(f"{type(calculator).__name__} does not compute forces")
     masses = _masses(system)
-    matrix = system.box.matrix
     if supercell is None:
-        areas = np.linalg.norm(np.cross(matrix[[1, 2, 0]], matrix[[2, 0, 1]]), axis=1)
-        widths = system.box.volume / areas
-        counts = np.maximum(np.ceil(2 * calculator.cutoff / widths - 1e-9), 1).astype(
-            int
-        )
+        matrix = _default_supercell(system.box.matrix, 2 * calculator.cutoff)
     else:
-        counts = _repeat(supercell, "supercell")
-    constants = _displaced_forces(system, calculator, counts, displacement)
-    return Phonons(system, counts, _symmetrized(constants, counts), masses)
+        matrix = _supercell_matrix(supercell)
+    constants = _displaced_forces(system, calculator, matrix, displacement)
+    return Phonons(system, matrix, _symmetrized(constants, matrix), masses)

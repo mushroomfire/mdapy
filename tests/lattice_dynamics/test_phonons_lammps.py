@@ -61,7 +61,7 @@ def test_against_lammps(tmp_path):
     ).system
     # an orthogonal box, which LAMMPS takes as it is
     cell = relaxed.with_box(mdapy.Box(np.diag(np.diag(relaxed.box.matrix))))
-    counts = np.array([3, 3, 3])
+    counts = 3 * np.eye(3, dtype=int)
     displacement = 0.01
     reference = lammps_dynamical_matrix(
         tmp_path, _supercell(cell, counts), potential_file, displacement

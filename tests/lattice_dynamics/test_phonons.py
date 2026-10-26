@@ -9,10 +9,17 @@ from mdapy import units
 from mdapy.build import build_crystal, random_alloy
 from mdapy.calculators import EAM
 from mdapy.elements import atomic_masses
-from mdapy.errors import InvalidParameter
-from mdapy.lattice_dynamics import elastic_constants, phonons, primitive_cell
+from mdapy.errors import FileFormatError, InvalidParameter
+from mdapy.lattice_dynamics import (
+    BandStructure,
+    elastic_constants,
+    phonons,
+    primitive_cell,
+    read_band_structure,
+)
 from mdapy.lattice_dynamics._phonons import _displaced_forces, _symmetrized
 from mdapy.simulation import minimize
+from mdapy.transform import replicate
 
 from calculators.eam_files import write_setfl
 from calculators.test_testing import Harmonic
@@ -50,7 +57,7 @@ def test_simple_cubic_springs():
     a, k = 2.5, 1.3
     cell = build_crystal("sc", a, elements="Ar")
     result = phonons(cell, Harmonic(k=k, r0=a), displacement=1e-5)
-    assert result.supercell == (3, 3, 3)
+    np.testing.assert_array_equal(result.supercell, 3 * np.eye(3))
     q = np.random.default_rng(0).random((20, 3)) - 0.5
     mass = atomic_masses(["Ar"])[0]
     expected = np.sort(thz(2 * k / mass * (1 - np.cos(2 * np.pi * q))), axis=1)
@@ -80,7 +87,7 @@ def test_force_constants_are_symmetric_and_translations_cost_nothing():
 
 def test_symmetrizing():
     cell, springs = springs_fcc()
-    counts = np.array([2, 2, 2])
+    counts = 2 * np.eye(3, dtype=int)
     raw = _displaced_forces(cell, springs, counts, 1e-5)
     # force constants that are already symmetric stay as they are
     np.testing.assert_allclose(_symmetrized(raw, counts), raw, atol=1e-8)
@@ -239,6 +246,64 @@ def test_standard_paths(structure, a, lattice, elements):
             result.band_structure(other)
 
 
+def test_connected_branches_cross():
+    # simple cubic springs: three branches polarized along x, y and z, two
+    # of which cross halfway along the first line
+    a, k = 2.5, 1.3
+    cell = build_crystal("sc", a, elements="Ar")
+    result = phonons(cell, Harmonic(k=k, r0=a), supercell=3, displacement=1e-5)
+    path = [[("A", [0.1, 0.4, 0.2]), ("B", [0.4, 0.1, 0.2]), ("C", [0.4, 0.4, 0.4])], [("D", [0, 0, 0]), ("E", [0.5, 0.3, 0.1])]]  # fmt: skip
+    mass = atomic_masses(["Ar"])[0]
+    for connected, close in ((True, True), (False, False)):
+        bands = result.band_structure(path, points=21, connected=connected)
+        q = bands.q
+        branches = thz(2 * k / mass * (1 - np.cos(2 * np.pi * q)))  # (P, 3), x y z
+        first = np.argsort(branches[0])
+        # through the crossing and the point where it is sampled
+        error = np.abs(bands.frequencies[:42] - branches[:42, first]).max()
+        assert (error < 1e-6) == close
+        # the next section starts ascending, from Γ where all three meet
+        np.testing.assert_allclose(bands.frequencies[42], 0, atol=1e-6)
+        np.testing.assert_array_equal(np.argsort(bands.frequencies[43]), np.arange(3))
+
+
+@pytest.mark.parametrize(
+    "structure, a, lattice",
+    [("fcc", 3.6, "fcc"), ("bcc", 3.0, "bcc"), ("hcp", 3.0, "hexagonal")],
+)
+def test_automatic_paths(structure, a, lattice):
+    pytest.importorskip("seekpath")
+    cell = primitive_cell(build_crystal(structure, a, elements="Ar"))
+    springs = Harmonic(k=0.5, r0=2.9)
+    result = phonons(cell, springs, supercell=3)
+    auto = result.band_structure("auto", points=5)
+    named = result.band_structure(lattice, points=5)
+    if lattice == "fcc":  # the same path
+        assert [x for _, x in auto.labels] == [x for _, x in named.labels]
+        np.testing.assert_allclose(auto.frequencies, named.frequencies, atol=1e-9)
+    # every special point is a point of the Brillouin zone of the named path
+    reached = {label: q for label, q in zip(auto.labels, auto.q[::5])}
+    assert auto.labels[0][1] == "Γ" and len(reached) > 3
+    # the same along the path of the crystal turned at random
+    rotation = np.linalg.qr(np.random.default_rng(2).normal(size=(3, 3)))[0]
+    rotation *= np.sign(np.linalg.det(rotation))
+    turned = cell.with_box(mdapy.Box(cell.box.matrix @ rotation.T)).with_columns(
+        positions=cell["positions"] @ rotation.T
+    )
+    again = phonons(turned, springs, supercell=3).band_structure("auto", points=5)
+    np.testing.assert_allclose(again.distances, auto.distances, atol=1e-9)
+    np.testing.assert_allclose(again.frequencies, auto.frequencies, atol=1e-4)
+
+
+def test_automatic_path_needs_seekpath(monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "seekpath", None)
+    cell, springs = springs_fcc()
+    with pytest.raises(ImportError, match="seekpath"):
+        phonons(primitive_cell(cell), springs, supercell=2).band_structure("auto")
+
+
 def test_rotated_cell_has_no_standard_path():
     cell = build_crystal(
         "fcc", 3.6, elements="Ar", orientation=[(1, 1, 0), (-1, 1, 0), (0, 0, 1)]
@@ -281,8 +346,48 @@ def test_default_supercell(copper):
     potential, conventional = copper
     result = phonons(conventional, potential)
     # 2 × 5 Å of cutoff over the 3.3 Å of the cube
-    assert result.supercell == (4, 4, 4)
-    assert repr(result) == "Phonons(4 atoms, supercell 4 × 4 × 4)"
+    np.testing.assert_array_equal(result.supercell, 4 * np.eye(3))
+    assert repr(result) == "Phonons(4 atoms, supercell of 64 cells)"
+    assert not result.supercell.flags.writeable
+    # of the primitive cell, the same cube: 4 × 4 × 4 cubic cells
+    primitive = phonons(primitive_cell(conventional), potential)
+    box = primitive.supercell @ primitive_cell(conventional).box.matrix
+    np.testing.assert_allclose(np.abs(box), 4 * conventional.box.matrix, atol=1e-9)
+    q = np.random.default_rng(3).random((10, 3)) - 0.5
+    to_cube = (
+        np.linalg.inv(primitive_cell(conventional).box.matrix).T
+        @ conventional.box.matrix.T
+    )
+    folded = result.frequencies(q @ to_cube)
+    for ours, theirs in zip(primitive.frequencies(q), folded):
+        assert np.abs(ours[:, None] - theirs[None]).min(axis=1).max() < 1e-6
+
+
+def test_supercell_matrices():
+    # the cubic supercell of the primitive cell of fcc, as a matrix, and the
+    # repeats of the cubic cell: the same force constants, the same modes
+    cell, springs = springs_fcc()
+    primitive = primitive_cell(cell)
+    matrix = np.round(2 * cell.box.matrix @ np.linalg.inv(primitive.box.matrix)).astype(
+        int
+    )
+    by_matrix = phonons(primitive, springs, supercell=matrix)
+    by_repeats = phonons(cell, springs, supercell=2)
+    assert repr(by_matrix) == "Phonons(1 atoms, supercell of 32 cells)"
+    np.testing.assert_allclose(by_matrix.force_constants.sum(axis=1), 0, atol=1e-12)
+    rng = np.random.default_rng(4)
+    for q_cart in rng.random((5, 3)) * 2 * np.pi / 3.6:
+        ours = by_matrix.frequencies(q_cart @ primitive.box.matrix.T / (2 * np.pi))
+        theirs = by_repeats.frequencies(q_cart @ cell.box.matrix.T / (2 * np.pi))
+        assert np.isin(np.round(ours, 6), np.round(theirs, 6)).all()
+    # the cell itself first: the displaced atoms are those of the cell
+    from mdapy.lattice_dynamics._phonons import _lattice_points
+
+    points = _lattice_points(matrix)
+    assert len(points) == 32 and (points[0] == 0).all()
+    # a cell thick enough is its own supercell
+    big = phonons(replicate(cell, (2, 2, 2)), springs)
+    np.testing.assert_array_equal(big.supercell, np.eye(3))
 
 
 def test_masses_from_a_column():
@@ -296,14 +401,20 @@ def test_masses_from_a_column():
     )
 
 
-def test_unstable_crystals_are_refused():
+def test_unstable_crystals():
     # springs under compression: transverse modes are imaginary
     cell = build_crystal("sc", 2.5, elements="Ar")
     result = phonons(cell, Harmonic(k=1.0, r0=3.0), supercell=3)
-    assert result.frequencies([0, 0.25, 0]).min() < 0
-    for call in (lambda: result.dos(4), lambda: result.thermal([300], mesh=4)):
-        with pytest.raises(InvalidParameter, match="imaginary frequencies"):
-            call()
+    lowest = result.frequencies([0, 0.25, 0]).min()
+    assert lowest < 0
+    # the density of states shows them as negative frequencies
+    for sigma in (None, 0.1):
+        dos = result.dos(6, sigma=sigma)
+        assert dos.frequencies[0] < lowest and dos.dos[dos.frequencies < 0].max() > 0
+        assert np.trapezoid(dos.dos, dos.frequencies) == pytest.approx(3, rel=0.05)
+    # the thermal properties have no meaning
+    with pytest.raises(InvalidParameter, match="imaginary frequencies"):
+        result.thermal([300], mesh=4)
 
 
 def test_primitive_cells():
@@ -365,6 +476,11 @@ def test_primitive_cells():
         (lambda c, s: phonons(c, s, displacement=0.0), "displacement must be positive"),
         (lambda c, s: phonons(c, s, supercell=(1, 0, 1)), "supercell must be"),
         (lambda c, s: phonons(c, s, supercell=1.5), "supercell must be"),
+        (
+            lambda c, s: phonons(c, s, supercell=[[1, 0, 0], [0, 1, 0], [0, 0, 0]]),
+            "positive determinant",
+        ),
+        (lambda c, s: phonons(c, s, supercell=np.eye(3) * 1.5), "must hold integers"),
         (lambda c, s: phonons(c.drop("element"), s), "mass"),
         (
             lambda c, s: primitive_cell(c.with_box(mdapy.Box(3.6, pbc=False))),
@@ -399,3 +515,45 @@ def test_calculator_without_forces():
     cell, _ = springs_fcc()
     with pytest.raises(InvalidParameter, match="does not compute forces"):
         phonons(cell, EnergyOnly())
+
+
+def test_band_dat_files(tmp_path):
+    # phonopy's band.dat: the ends of the lines without 2π, then each branch
+    # line by line, a blank line after each line and another after each branch
+    cell, springs = springs_fcc()
+    result = phonons(primitive_cell(cell), springs, supercell=3)
+    bands = result.band_structure("fcc", points=4)
+    path = tmp_path / "band.dat"
+    bands.write(path)
+    text = path.read_text().split("\n")
+    assert text[0] == "# End points of segments: "
+    ends = np.array(text[1].lstrip("#").split(), dtype=float)
+    np.testing.assert_allclose(
+        ends, [d / (2 * np.pi) for d, _ in bands.labels], atol=1e-8
+    )
+    assert (
+        text[2 : 2 + 4] and text[6] == "" and text[7].split()[0] == text[5].split()[0]
+    )
+    assert text.count("") == 3 * (6 + 1) + 1  # a blank line after each line and branch
+    again = read_band_structure(path)
+    np.testing.assert_allclose(again.distances, bands.distances, atol=1e-5)
+    np.testing.assert_allclose(again.frequencies, bands.frequencies, atol=1e-6)
+    assert np.isnan(again.q).all() and [x for _, x in again.labels] == [""] * 7
+    # written again, the same file
+    copy = tmp_path / "copy.dat"
+    again.write(copy)
+    assert copy.read_text() == path.read_text()
+    # labels that are not the ends of the lines: the ends from the distances
+    path_by_hand = [[("A", [0, 0, 0]), ("B", [0.5, 0, 0]), ("C", [0.5, 0.5, 0])]]
+    odd = result.band_structure(path_by_hand, points=3)
+    odd = BandStructure(odd.q, odd.distances, odd.frequencies, odd.labels[:1])
+    odd.write(tmp_path / "odd.dat")
+    assert len(read_band_structure(tmp_path / "odd.dat").labels) == 3
+    # a file without its last blank lines
+    (tmp_path / "short.dat").write_text(path.read_text().rstrip("\n") + "\n")
+    np.testing.assert_array_equal(
+        read_band_structure(tmp_path / "short.dat").frequencies, again.frequencies
+    )
+    (tmp_path / "bad.dat").write_text("# End points\n# a b\n")
+    with pytest.raises(FileFormatError, match="not a band.dat"):
+        read_band_structure(tmp_path / "bad.dat")

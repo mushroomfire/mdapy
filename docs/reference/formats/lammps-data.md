@@ -145,7 +145,7 @@ the positions are unchanged.
 
 ## Topology, labels and coefficients
 
-Bonds, Angles, Dihedrals and Impropers become the [topology](../../getting-started/system.md#topology),
+Bonds, Angles, Dihedrals and Impropers become the [topology](../../getting-started/topology.md),
 with atom IDs turned into rows; type labels of the Bond, Angle, Dihedral and
 Improper Type Labels sections become `type_label` columns of its tables.
 Bond IDs are not kept: written terms are numbered from 1.

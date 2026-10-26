@@ -56,7 +56,7 @@ from mdapy.neighbor import NeighborList
 
 close = NeighborList.build(composite, 0.7 * 3.615 / np.sqrt(2))
 later = np.unique(np.maximum(close.i, close.j))
-composite = composite.select(np.setdiff1d(np.arange(len(composite)), later))
+composite = composite.gather(np.setdiff1d(np.arange(len(composite)), later))
 len(later), len(composite)  # 638 atoms removed, 66 672 left
 ```
 

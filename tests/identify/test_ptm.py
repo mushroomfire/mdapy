@@ -242,7 +242,7 @@ def test_neighbor_lists_threads_and_small_systems():
         )
     # clusters of fewer atoms than the neighbors looked for, and none
     for count in (0, 1, 7, 19):
-        cluster = system.select(np.arange(count))
+        cluster = system.gather(np.arange(count))
         cluster = cluster.with_box(mdapy.Box(cluster.box.matrix, pbc=False))
         assert len(analysis.compute(cluster).structure) == count
 

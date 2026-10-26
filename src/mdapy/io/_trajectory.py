@@ -57,8 +57,8 @@ class Trajectory(Sequence[System]):
 
     def __init__(self, frames: _Frames, options: dict[str, Any], indices: range | None):
         self._frames = frames
-        self._options = options
-        self._indices = indices  # None: every frame of the file
+        self.__options = options
+        self.__indices = indices  # None: every frame of the file
 
     @property
     def path(self) -> str:
@@ -71,8 +71,8 @@ class Trajectory(Sequence[System]):
         return self._frames.format.name
 
     def __len__(self) -> int:
-        if self._indices is not None:
-            return len(self._indices)
+        if self.__indices is not None:
+            return len(self.__indices)
         return self._frames.total()
 
     @overload
@@ -83,14 +83,14 @@ class Trajectory(Sequence[System]):
 
     def __getitem__(self, index):
         if isinstance(index, slice):
-            if self._indices is None:
+            if self.__indices is None:
                 selected = range(self._frames.total())[index]
             else:
-                selected = self._indices[index]
-            return Trajectory(self._frames, self._options, selected)
+                selected = self.__indices[index]
+            return Trajectory(self._frames, self.__options, selected)
         index = operator.index(index)
-        if self._indices is not None:
-            frame = self._indices[index]  # raises IndexError
+        if self.__indices is not None:
+            frame = self.__indices[index]  # raises IndexError
         elif index >= 0:
             if not self._frames.known(index + 1):
                 raise IndexError(f"frame {index} is out of range")
@@ -99,21 +99,21 @@ class Trajectory(Sequence[System]):
             frame = self._frames.total() + index
             if frame < 0:
                 raise IndexError(f"frame {index} is out of range")
-        return self._read(frame)
+        return self.__read(frame)
 
     def __iter__(self) -> Iterator[System]:
-        if self._indices is not None:
-            for frame in self._indices:
-                yield self._read(frame)
+        if self.__indices is not None:
+            for frame in self.__indices:
+                yield self.__read(frame)
             return
         frame = 0
         while self._frames.known(frame + 1):
-            yield self._read(frame)
+            yield self.__read(frame)
             frame += 1
 
-    def _read(self, frame: int) -> System:
+    def __read(self, frame: int) -> System:
         position = self._frames.positions[frame]
-        return self._frames.format.read(self._frames.source, position, **self._options)
+        return self._frames.format.read(self._frames.source, position, **self.__options)
 
     def close(self) -> None:
         """Releases the file, also for the slices of this trajectory."""
@@ -127,8 +127,8 @@ class Trajectory(Sequence[System]):
 
     def __repr__(self) -> str:
         count = (
-            str(len(self._indices))
-            if self._indices is not None
+            str(len(self.__indices))
+            if self.__indices is not None
             else str(len(self._frames.positions))
             + ("" if self._frames._scanner is None else "+")
         )

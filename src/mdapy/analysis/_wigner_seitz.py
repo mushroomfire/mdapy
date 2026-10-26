@@ -76,7 +76,7 @@ class WignerSeitz:
         self.reference = reference
         self.affine = bool(affine)
         box = reference.box
-        self._tree = _search.KdTree(
+        self.__tree = _search.KdTree(
             np.ascontiguousarray(reference.positions),
             np.ascontiguousarray(box.matrix),
             np.ascontiguousarray(box.origin),
@@ -105,7 +105,7 @@ class WignerSeitz:
         positions = system.positions
         if self.affine:
             positions = box.to_cartesian(system.box.to_fractional(positions))
-        nearest, _, _ = self._tree.nearest(
+        nearest, _, _ = self.__tree.nearest(
             np.ascontiguousarray(positions), 1, progress, _native_token(cancel)
         )
         site = nearest[:, 0]

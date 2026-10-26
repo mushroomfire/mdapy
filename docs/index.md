@@ -116,8 +116,12 @@ flowchart TB
     [Installation](getting-started/installation.md) ·
     [Quick tour](getting-started/quick-tour.md)
 
-    [Systems and topology](getting-started/system.md) ·
-    [Simulation box](getting-started/box.md) ·
+    System: [Systems](getting-started/system.md) ·
+    [selecting and ordering atoms](getting-started/selecting.md) ·
+    [changing a system](getting-started/changing.md) ·
+    [topology](getting-started/topology.md) ·
+    [simulation box](getting-started/box.md)
+
     [Reading and writing files](getting-started/io.md) ·
     [Trajectories](getting-started/trajectory.md) ·
     [Neighbor lists](getting-started/neighbor.md) ·
@@ -126,8 +130,7 @@ flowchart TB
     Tutorials: [fcc and bcc grains](getting-started/tutorials/two-phase-polycrystal.md) ·
     [columnar grains](getting-started/tutorials/columnar-polycrystal.md) ·
     [defect energies of copper](getting-started/tutorials/defect-energies.md) ·
-    [sharing neighbor lists](getting-started/tutorials/neighbor-lists.md) ·
-    [what a System copies](getting-started/tutorials/sharing.md)
+    [sharing neighbor lists](getting-started/tutorials/neighbor-lists.md)
 
 -   :material-chart-bell-curve-cumulative:{ .lg .middle } **Analysis**
 

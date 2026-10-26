@@ -207,7 +207,7 @@ def check_calculator(
         )
 
     order = rng.permutation(n)
-    permuted = calculator.compute(system.select(order), implemented)
+    permuted = calculator.compute(system.gather(order), implemented)
     _close("energy after reordering atoms", permuted.energy, result.energy, 1e-10, 1e-9)
     if result.forces is not None:
         _close(

@@ -153,14 +153,14 @@ class VASP(Calculator):
         order = np.argsort([rank[e] for e in elements], kind="stable")
         here = self.directory
         here.mkdir(parents=True, exist_ok=True)
-        write(here / "POSCAR", system.select(order), format="poscar")
-        self._write_incar(here / "INCAR")
+        write(here / "POSCAR", system.gather(order), format="poscar")
+        self.__write_incar(here / "INCAR")
         if self.kpoints is not None:
             mesh = " ".join(str(k) for k in self.kpoints)
             (here / "KPOINTS").write_text(f"mdapy\n0\nGamma\n{mesh}\n0 0 0\n")
         else:
             (here / "KPOINTS").unlink(missing_ok=True)
-        self._write_potcar(here / "POTCAR", species)
+        self.__write_potcar(here / "POTCAR", species)
         if not self.restart:
             for name in ("WAVECAR", "CHGCAR"):
                 (here / name).unlink(missing_ok=True)
@@ -185,13 +185,13 @@ class VASP(Calculator):
             else None,
         )
 
-    def _write_incar(self, path: Path) -> None:
+    def __write_incar(self, path: Path) -> None:
         tags = {**self.incar, **_SINGLE_POINT}
         path.write_text(
             "".join(f"{tag} = {_incar_value(value)}\n" for tag, value in tags.items())
         )
 
-    def _write_potcar(self, path: Path, species: list[str]) -> None:
+    def __write_potcar(self, path: Path, species: list[str]) -> None:
         if self.potcars is None:
             raise InvalidParameter(
                 "no POTCARs: give potcars= or set the environment variable VASP_PP_PATH"

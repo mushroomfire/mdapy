@@ -164,7 +164,7 @@ def test_mdapy_writes_what_ovito_reads(tmp_path):
 
 def test_results_of_an_ovito_pipeline_come_back():
     crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(5, 5, 5))
-    crystal = crystal.select(np.arange(1, len(crystal)))  # a vacancy
+    crystal = crystal.gather(np.arange(1, len(crystal)))  # a vacancy
     pipeline = Pipeline(source=StaticSource(data=to_ovito(crystal)))
     pipeline.modifiers.append(CommonNeighborAnalysisModifier())
     analyzed = from_ovito(pipeline.compute())

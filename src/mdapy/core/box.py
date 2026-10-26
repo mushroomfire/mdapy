@@ -67,7 +67,7 @@ class Box:
         linearly dependent, or if origin or pbc are invalid.
     """
 
-    __slots__ = ("_matrix", "_origin", "_pbc", "_inverse")
+    __slots__ = ("__matrix", "__origin", "__pbc", "__inverse")
 
     def __init__(
         self,
@@ -114,10 +114,25 @@ class Box:
         ):
             raise InvalidParameter(f"pbc must be a bool or 3 bools, got {pbc!r}")
 
-        self._matrix = _read_only(m)
-        self._origin = _read_only(o)
-        self._pbc = _read_only(p.astype(bool))
-        self._inverse = _read_only(np.linalg.inv(m))
+        for name, value in (
+            ("matrix", m),
+            ("origin", o),
+            ("pbc", p.astype(bool)),
+            ("inverse", np.linalg.inv(m)),
+        ):
+            object.__setattr__(self, f"_Box__{name}", _read_only(value))
+
+    def __setattr__(self, name: str, value: object) -> None:
+        raise AttributeError("a Box cannot be changed; make a new one")
+
+    def __delattr__(self, name: str) -> None:
+        raise AttributeError("a Box cannot be changed")
+
+    def __copy__(self) -> "Box":
+        return self
+
+    def __deepcopy__(self, memo: dict) -> "Box":
+        return self
 
     # ------------------------------------------------------------------
     # Construction
@@ -232,32 +247,32 @@ class Box:
     @property
     def matrix(self) -> np.ndarray:
         """(3, 3) lattice vectors in Å, one per row. Read-only."""
-        return self._matrix
+        return self.__matrix
 
     @property
     def origin(self) -> np.ndarray:
         """(3,) corner of the box in Å. Read-only."""
-        return self._origin
+        return self.__origin
 
     @property
     def pbc(self) -> np.ndarray:
         """(3,) bool, periodicity along **a**, **b**, **c**. Read-only."""
-        return self._pbc
+        return self.__pbc
 
     @property
     def inverse(self) -> np.ndarray:
         """(3, 3) inverse of :attr:`matrix`. Read-only."""
-        return self._inverse
+        return self.__inverse
 
     @property
     def volume(self) -> float:
         """Volume in Å³."""
-        return float(abs(np.linalg.det(self._matrix)))
+        return float(abs(np.linalg.det(self.__matrix)))
 
     @property
     def lengths(self) -> np.ndarray:
         """(3,) lengths of **a**, **b**, **c** in Å."""
-        return np.linalg.norm(self._matrix, axis=1)
+        return np.linalg.norm(self.__matrix, axis=1)
 
     @property
     def angles(self) -> np.ndarray:
@@ -266,7 +281,7 @@ class Box:
         alpha is between **b** and **c**, beta between **a** and **c**, and
         gamma between **a** and **b**.
         """
-        a, b, c = self._matrix
+        a, b, c = self.__matrix
         la, lb, lc = self.lengths
 
         def angle(u, v, lu, lv):
@@ -281,12 +296,12 @@ class Box:
         Entry i is the distance between the two faces that are not
         crossed by lattice vector i.
         """
-        return 1.0 / np.linalg.norm(self._inverse, axis=0)
+        return 1.0 / np.linalg.norm(self.__inverse, axis=0)
 
     @property
     def is_orthogonal(self) -> bool:
         """Whether the lattice vectors lie along +x, +y and +z."""
-        m = self._matrix
+        m = self.__matrix
         off = m - np.diag(np.diag(m))
         return bool(
             np.all(np.abs(off) <= _EPS * np.abs(m).max()) and np.all(np.diag(m) > 0)
@@ -310,7 +325,9 @@ class Box:
             (..., 3) coordinates in units of the lattice vectors, relative to
             :attr:`origin`.
         """
-        return (np.asarray(positions, dtype=np.float64) - self._origin) @ self._inverse
+        return (
+            np.asarray(positions, dtype=np.float64) - self.__origin
+        ) @ self.__inverse
 
     def to_cartesian(self, fractional: ArrayLike) -> np.ndarray:
         """Cartesian positions of fractional coordinates.
@@ -325,7 +342,7 @@ class Box:
         numpy.ndarray
             (..., 3) positions in Å.
         """
-        return np.asarray(fractional, dtype=np.float64) @ self._matrix + self._origin
+        return np.asarray(fractional, dtype=np.float64) @ self.__matrix + self.__origin
 
     def wrap(self, positions: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
         """Map positions into the box along periodic directions.
@@ -347,18 +364,18 @@ class Box:
         """
         r = np.asarray(positions, dtype=np.float64).reshape(-1, 3)
         image = np.floor(self.to_fractional(r)).astype(np.int64)
-        image[:, ~self._pbc] = 0
+        image[:, ~self.__pbc] = 0
         # Subtracting whole lattice vectors keeps the input precision (11 - 10
         # is exactly 1), unlike converting back from fractional coordinates.
-        wrapped = r - image @ self._matrix
+        wrapped = r - image @ self.__matrix
         # Rounding can leave a coordinate just outside [0, 1); fix it once.
         frac = self.to_fractional(wrapped)
         shift = np.zeros_like(image)
-        shift[(frac < 0.0) & self._pbc] = -1
-        shift[(frac >= 1.0) & self._pbc] = 1
+        shift[(frac < 0.0) & self.__pbc] = -1
+        shift[(frac >= 1.0) & self.__pbc] = 1
         if shift.any():
             image += shift
-            wrapped = wrapped - shift @ self._matrix
+            wrapped = wrapped - shift @ self.__matrix
         return wrapped, image
 
     def minimum_image(self, vectors: ArrayLike) -> np.ndarray:
@@ -378,17 +395,17 @@ class Box:
             corresponding edge length, as LAMMPS requires.
         """
         d = np.asarray(vectors, dtype=np.float64).reshape(-1, 3)
-        n = np.round(d @ self._inverse)
-        n[:, ~self._pbc] = 0.0
-        base = d - n @ self._matrix
+        n = np.round(d @ self.__inverse)
+        n[:, ~self.__pbc] = 0.0
+        base = d - n @ self.__matrix
         # Rounding is not enough in skewed boxes: also try the neighboring images.
         shifts = [
             s
             for s in itertools.product((-1, 0, 1), repeat=3)
-            if all(si == 0 or p for si, p in zip(s, self._pbc))
+            if all(si == 0 or p for si, p in zip(s, self.__pbc))
         ]
         candidates = (
-            base[:, None, :] + np.array(shifts, dtype=np.float64) @ self._matrix
+            base[:, None, :] + np.array(shifts, dtype=np.float64) @ self.__matrix
         )
         best = np.argmin(np.einsum("nsk,nsk->ns", candidates, candidates), axis=1)
         return candidates[np.arange(len(d)), best]
@@ -411,7 +428,7 @@ class Box:
             Bounds, tilt factors and the rotation to apply to positions and
             other vectors.
         """
-        m = self._matrix
+        m = self.__matrix
         if np.linalg.det(m) < 0:
             m = m[[0, 2, 1]]
         upper = np.array([m[0, 1], m[0, 2], m[1, 2]])
@@ -424,7 +441,7 @@ class Box:
             rotation = q * signs  # flip columns so the diagonal is positive
             lower = (signs[:, None] * r).T
             lower = np.tril(lower)
-        lo = self._origin @ rotation
+        lo = self.__origin @ rotation
         hi = lo + np.diag(lower)
         tilt = np.array([lower[1, 0], lower[2, 0], lower[2, 1]])
         return LammpsBox(lo=lo, hi=hi, tilt=tilt, rotation=rotation)
@@ -437,18 +454,18 @@ class Box:
         if not isinstance(other, Box):
             return NotImplemented
         return (
-            np.array_equal(self._matrix, other._matrix)
-            and np.array_equal(self._origin, other._origin)
-            and np.array_equal(self._pbc, other._pbc)
+            np.array_equal(self.__matrix, other.__matrix)
+            and np.array_equal(self.__origin, other.__origin)
+            and np.array_equal(self.__pbc, other.__pbc)
         )
 
     def __hash__(self) -> int:
         # Adding 0.0 turns -0.0 into 0.0, so equal boxes hash equally.
         return hash(
             (
-                (self._matrix + 0.0).tobytes(),
-                (self._origin + 0.0).tobytes(),
-                self._pbc.tobytes(),
+                (self.__matrix + 0.0).tobytes(),
+                (self.__origin + 0.0).tobytes(),
+                self.__pbc.tobytes(),
             )
         )
 
@@ -463,15 +480,15 @@ class Box:
             Relative and absolute tolerances in Å, as in ``numpy.allclose``.
         """
         return (
-            np.allclose(self._matrix, other._matrix, rtol=rtol, atol=atol)
-            and np.allclose(self._origin, other._origin, rtol=rtol, atol=atol)
-            and np.array_equal(self._pbc, other._pbc)
+            np.allclose(self.__matrix, other.__matrix, rtol=rtol, atol=atol)
+            and np.allclose(self.__origin, other.__origin, rtol=rtol, atol=atol)
+            and np.array_equal(self.__pbc, other.__pbc)
         )
 
     def __repr__(self) -> str:
         rows = ", ".join(
-            np.array2string(r, precision=6, separator=", ") for r in self._matrix
+            np.array2string(r, precision=6, separator=", ") for r in self.__matrix
         )
-        origin = np.array2string(self._origin, precision=6, separator=", ")
-        pbc = ", ".join(str(bool(p)) for p in self._pbc)
+        origin = np.array2string(self.__origin, precision=6, separator=", ")
+        pbc = ", ".join(str(bool(p)) for p in self.__pbc)
         return f"Box(matrix=[{rows}], origin={origin}, pbc=({pbc}))"

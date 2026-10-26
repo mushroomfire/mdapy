@@ -8,12 +8,25 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 
 - `mdapy.System`: one atomic configuration with a polars table of per-atom
   properties, a box, global information and an optional topology. Systems
-  are immutable; `with_*` methods and `select` return new systems that share
-  unchanged columns; arrays given to a system are copied, and its table is
-  handed out as a copy, so nothing changes a system in place. Positions are an (N, 3) array column read without
-  copying. See [Systems and topology](../getting-started/system.md).
+  are immutable: `with_*` methods return new systems that share the columns
+  they do not change and check only the ones they do; arrays given to a
+  system are copied, its table is handed out as a copy, it takes no new
+  attributes, and `copy.deepcopy` returns the system itself. Positions are
+  an (N, 3) array column read without copying. A summary of a few lines
+  shows the atoms, the box, the columns, the global information and the
+  topology. See [Systems](../getting-started/system.md) and
+  [Changing a system](../getting-started/changing.md).
+- `System.filter`, `System.gather` and `System.sort` keep atoms by a
+  condition, take them by index and order them, as polars does with rows.
+  Conditions are Python expressions over the columns, such as
+  `"positions.x**2 + positions.y**2 < 25 and element == 'Cu'"`, with the
+  components of array columns by name or index, comparisons, logic,
+  membership, arithmetic and common functions; keywords, masks and polars
+  expressions work too. See
+  [Selecting and ordering atoms](../getting-started/selecting.md).
 - `mdapy.Topology`: bonds, angles, dihedrals and impropers with types and
-  labels, kept consistent when atoms are selected or reordered.
+  labels, kept consistent when atoms are selected or reordered. See
+  [Topology](../getting-started/topology.md).
 - `mdapy.Box`: immutable simulation box with lattice vectors, origin and
   periodicity; fractional coordinates, wrapping with image flags, exact
   minimum images, and conversion to LAMMPS restricted triclinic form. See

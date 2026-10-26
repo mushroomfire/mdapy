@@ -57,7 +57,7 @@ def test_vacancy(copper):
     )
     assert relaxed_box.energy <= result.energy + 1e-4
     with pytest.raises(InvalidParameter, match="two atoms or more"):
-        vacancy_formation_energy(crystal.select([0]), copper)
+        vacancy_formation_energy(crystal.gather([0]), copper)
     with pytest.raises(InvalidParameter, match="did not converge"):
         vacancy_formation_energy(crystal, copper, max_steps=1)
 

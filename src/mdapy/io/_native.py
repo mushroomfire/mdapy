@@ -246,8 +246,8 @@ class _BufferFile(io.RawIOBase):
     itself has no seekable() before Python 3.13, which zipfile needs.)"""
 
     def __init__(self, buffer):
-        self._buffer = buffer
-        self._position = 0
+        self.__buffer = buffer
+        self.__position = 0
 
     def readable(self) -> bool:
         return True
@@ -256,24 +256,24 @@ class _BufferFile(io.RawIOBase):
         return True
 
     def tell(self) -> int:
-        return self._position
+        return self.__position
 
     def seek(self, offset: int, whence: int = io.SEEK_SET) -> int:
         start = {
             io.SEEK_SET: 0,
-            io.SEEK_CUR: self._position,
-            io.SEEK_END: len(self._buffer),
+            io.SEEK_CUR: self.__position,
+            io.SEEK_END: len(self.__buffer),
         }
         position = start[whence] + offset
         if position < 0:
             raise OSError("negative seek position")  # as for a real file
-        self._position = position
+        self.__position = position
         return position
 
     def readinto(self, target) -> int:
-        data = self._buffer[self._position : self._position + len(target)]
+        data = self.__buffer[self.__position : self.__position + len(target)]
         target[: len(data)] = data
-        self._position += len(data)
+        self.__position += len(data)
         return len(data)
 
 
@@ -283,25 +283,25 @@ class _Archive:
     def __init__(self, source: Source):
         self.name = source.name
         buffer = source.buffer
-        self._buffer = buffer
+        self.__buffer = buffer
         try:
-            self._zip = zipfile.ZipFile(_BufferFile(buffer))
+            self.__zip = zipfile.ZipFile(_BufferFile(buffer))
             self.members = None
         except zipfile.BadZipFile:
             # No central directory: the writer stopped. Read the local headers.
-            self._zip = None
+            self.__zip = None
             self.members = _local_members(buffer)
             if not self.members:
                 raise FileFormatError("not an mdapy file", self.name) from None
 
     def names(self) -> list[str]:
-        return list(self.members) if self._zip is None else self._zip.namelist()
+        return list(self.members) if self.__zip is None else self.__zip.namelist()
 
     def read(self, name: str) -> bytes:
-        if self._zip is not None:
-            return self._zip.read(name)
+        if self.__zip is not None:
+            return self.__zip.read(name)
         start, size = self.members[name]
-        return bytes(self._buffer[start : start + size])
+        return bytes(self.__buffer[start : start + size])
 
 
 def _local_members(buffer) -> dict[str, tuple[int, int]]:

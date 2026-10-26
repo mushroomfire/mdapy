@@ -8,7 +8,7 @@ neighboring molecules.
 ```python
 from mdapy.identify import ChillPlus
 
-oxygen = water.select(water.table["element"] == "O")  # one atom per molecule
+oxygen = water.filter(element="O")  # one atom per molecule
 result = ChillPlus(cutoff=3.5).compute(oxygen)
 result.counts()  # {'other': ..., 'hexagonal_ice': ..., 'cubic_ice': ..., ...}
 ```

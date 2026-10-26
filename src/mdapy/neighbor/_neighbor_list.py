@@ -105,7 +105,7 @@ class NeighborList:
                 array.flags.writeable = False
         # the first _sorted pairs of each atom are its nearest, nearest first
         self._sorted = 0 if num_neighbors is None else num_neighbors
-        self._lock = threading.RLock()
+        self.__lock = threading.RLock()
 
     @classmethod
     def build(
@@ -170,7 +170,7 @@ class NeighborList:
             raise InvalidParameter("give one of cutoff, num_neighbors and voronoi")
         thresholds = (face_threshold, relative_face_threshold, edge_threshold)
         if voronoi:
-            return cls._voronoi(
+            return cls.__voronoi(
                 system, _voronoi_thresholds(*thresholds), progress, cancel
             )
         if any(thresholds):
@@ -217,7 +217,7 @@ class NeighborList:
         return cls(system, reach, offsets, j, shifts, distances, num_neighbors=k)
 
     @classmethod
-    def _voronoi(
+    def __voronoi(
         cls,
         system: System,
         thresholds: tuple[float, float, float],
@@ -342,7 +342,7 @@ class NeighborList:
             return self  # every pair is closer already
         return self._cut(cutoff, np.array([[cutoff]]))
 
-    def _order(self, k: int) -> tuple[np.ndarray, np.ndarray]:
+    def __order(self, k: int) -> tuple[np.ndarray, np.ndarray]:
         # the first k pairs of each atom (all when k < 0) in the order of a
         # search of nearest neighbors, and their offsets
         return _native.order_by_distance(
@@ -357,13 +357,13 @@ class NeighborList:
     def _reading(self) -> threading.RLock:
         """The lock to hold while a kernel reads the pairs: sorting moves
         them, so one kernel at a time uses the list."""
-        return self._lock
+        return self.__lock
 
     def _put_nearest_first(self, k: int) -> None:
         """Puts the k nearest pairs of each atom first, nearest first with
         ties by atom and image, in place: the pairs of each atom keep their
         set and change their order, with their shifts and distances."""
-        with self._lock:
+        with self.__lock:
             if self._sorted >= k:
                 return
             arrays = [self.j, self.shifts, self.distances]
@@ -391,7 +391,7 @@ class NeighborList:
     def _nearest(self, k: int) -> "NeighborList":
         """The k nearest pairs of each atom, nearest first with ties by atom
         and image, or all of an atom with fewer."""
-        order, offsets = self._order(k)
+        order, offsets = self.__order(k)
         return NeighborList(
             self.system,
             self.cutoff,
@@ -440,7 +440,7 @@ class NeighborList:
         NeighborList
             A list with the pairs of each atom nearest first.
         """
-        order, _ = self._order(-1)
+        order, _ = self.__order(-1)
         return NeighborList(
             self.system,
             self.cutoff,

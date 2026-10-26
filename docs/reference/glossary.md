@@ -15,6 +15,8 @@ implemented.
 | `Trajectory` | A sequence of frames, read lazily. |
 | frame | One `System` of a `Trajectory`. |
 | `table` | The per-atom table of a `System`, a polars DataFrame with one row per atom. |
+| condition | A Python expression over the columns of a system that `System.filter` keeps atoms by, such as `"positions.z > 10 and element == 'Cu'"`. See [Selecting and ordering atoms](../getting-started/selecting.md). |
+| component | One value of an array column, written `column.component`: `x`, `y`, `z` for 3 values, `x`, `y`, `z`, `w` for 4, `xx` … `zz` by rows for 9, and the index from 0 for any number, such as `positions.z` or `group.1`. |
 | `info` | Global information of a `System`, such as `energy` or `timestep`. |
 | `NeighborList` | Pairs of atoms within a cutoff, the nearest neighbors of each atom, or the atoms that share a Voronoi face, including periodic images. |
 | pair | One entry of a `NeighborList`: atoms `i` and `j` and the periodic image `shifts` of `j`. |
@@ -105,6 +107,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | crystal directions along the box vectors | `orientation` | `miller1`, `miller2`, `miller3` |
 | number of periods along the box vectors | `repeat` | `nx`, `ny`, `nz` |
 | atoms chosen by index or mask, or a number of them at random | `atoms=`, `count` | `index`, `num` |
+| keep atoms by a condition, take them by index, order them | `System.filter`, `System.gather`, `System.sort` | `select`, `take`, `slice` |
 | Burgers vector (Å), dislocation line and normal of the cut | `burgers`, `line`, `normal` | `b`, `xi`, `n` |
 | shells of neighbors of a lattice | `shells` | `nshell` |
 | shells of neighbors, by distance or by number | `cutoff=(r1, r2, …)`, `num_neighbors=(n1, n2, …)` | `rc_list`, `shell_number` |

@@ -37,7 +37,7 @@ def test_frenkel_pairs_vacancies_and_interstitials():
     assert frenkel.vacancy_count == 1 and frenkel.interstitial_count == 1
     np.testing.assert_array_equal(frenkel.vacancies, [0])
     assert frenkel.occupancy[frenkel.interstitials[0]] == 2
-    fewer = reference.select(np.arange(5, len(reference)))  # five vacancies
+    fewer = reference.gather(np.arange(5, len(reference)))  # five vacancies
     added = mdapy.System(
         np.vstack([reference.positions, [[5.4, 5.4, 5.3], [9.0, 9.0, 8.9]]]),
         reference.box,

@@ -31,7 +31,7 @@ class Morse(Calculator):
         if implemented is not None:
             self.implemented = frozenset(implemented)
 
-    def _pair(self, r):
+    def __pair(self, r):
         e = np.exp(-self.alpha * (r - self.r0))
         ec = np.exp(-self.alpha * (self.cutoff - self.r0))
         energy = self.depth * (e * e - 2 * e) - self.depth * (ec * ec - 2 * ec)
@@ -47,7 +47,7 @@ class Morse(Calculator):
         )
         n = len(system)
         r, v, i = nl.distances, nl.vectors, nl.i
-        energy, slope = self._pair(r)
+        energy, slope = self.__pair(r)
         # each pair appears from both of its atoms
         atomic = 0.5 * np.bincount(i, weights=energy, minlength=n)
         along = (slope / r)[:, None] * v

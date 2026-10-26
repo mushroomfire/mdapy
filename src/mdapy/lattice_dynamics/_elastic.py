@@ -42,7 +42,7 @@ class ElasticResult:
         c, s = self.constants, np.linalg.inv(self.constants)
         voigt = (c[0, 0] + c[1, 1] + c[2, 2] + 2 * (c[0, 1] + c[0, 2] + c[1, 2])) / 9
         reuss = 1 / (s[0, 0] + s[1, 1] + s[2, 2] + 2 * (s[0, 1] + s[0, 2] + s[1, 2]))
-        return float(self._pick(average, voigt, reuss))
+        return float(self.__pick(average, voigt, reuss))
 
     def shear_modulus(self, average: str = "hill") -> float:
         """The shear modulus in GPa: the "voigt", "reuss" or "hill" average."""
@@ -55,10 +55,10 @@ class ElasticResult:
             4 * (s[0, 0] + s[1, 1] + s[2, 2]) - 4 * (s[0, 1] + s[0, 2] + s[1, 2])
             + 3 * (s[3, 3] + s[4, 4] + s[5, 5])
         )  # fmt: skip
-        return float(self._pick(average, voigt, reuss))
+        return float(self.__pick(average, voigt, reuss))
 
     @staticmethod
-    def _pick(average: str, voigt: float, reuss: float) -> float:
+    def __pick(average: str, voigt: float, reuss: float) -> float:
         if average == "voigt":
             return voigt
         if average == "reuss":

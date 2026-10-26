@@ -194,8 +194,8 @@ class CoordinationNumber:
         *,
         cutoffs: Mapping[tuple[str, str], float] | None = None,
     ):
-        self._bonds = _Bonds(cutoff, cutoffs)
-        self.cutoff, self.cutoffs = self._bonds.cutoff, self._bonds.cutoffs
+        self.__bonds = _Bonds(cutoff, cutoffs)
+        self.cutoff, self.cutoffs = self.__bonds.cutoff, self.__bonds.cutoffs
 
     def compute(
         self,
@@ -219,14 +219,14 @@ class CoordinationNumber:
         CoordinationResult
             The counts of each atom.
         """
-        table, found = self._bonds.counts(system, neighbors, progress, cancel)
+        table, found = self.__bonds.counts(system, neighbors, progress, cancel)
         partial = {}
         if found is not None:
             partial = {name: table[:, t].copy() for t, name in enumerate(found[0])}
         return CoordinationResult(table.sum(axis=1), partial)
 
     def __repr__(self) -> str:
-        return f"CoordinationNumber({self._bonds})"
+        return f"CoordinationNumber({self.__bonds})"
 
 
 @dataclass(frozen=True)

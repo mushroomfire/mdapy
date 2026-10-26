@@ -92,7 +92,7 @@ def test_empty_system():
     s = System(np.empty((0, 3)), box=5.0, elements=[])
     assert len(s) == 0
     assert s.positions.shape == (0, 3)
-    assert len(s.select([])) == 0
+    assert len(s.gather([])) == 0 and len(s.filter("element == 'H'")) == 0
 
 
 def test_default_box_encloses_the_atoms():
@@ -219,7 +219,9 @@ def test_with_methods_do_not_change_the_original():
     s.with_box(Box(20.0), scale_positions=True)
     s.with_info(energy=1.0)
     s.with_topology(None)
-    s.select([0, 1, 2])
+    s.filter(element="O")
+    s.gather([0, 1, 2])
+    s.sort("element")
     assert s.table.equals(table) and s.box == box and s.topology == topology
     assert s.info["energy"] == info["energy"]
 
@@ -292,71 +294,303 @@ def test_with_topology():
         s.with_topology(Topology(bonds=[[0, 9]]))
 
 
-# --- selection ------------------------------------------------------------------
+# --- which columns are checked -----------------------------------------------------
 
 
-def test_select_by_mask_keeps_whole_molecules():
+def test_new_systems_check_only_the_columns_that_change(monkeypatch):
+    import mdapy.core.system as module
+
+    checked = []
+    original = module._normalize_table
+
+    def spy(table, columns=None):
+        checked.append(None if columns is None else sorted(columns))
+        return original(table, columns)
+
+    monkeypatch.setattr(module, "_normalize_table", spy)
     s = water_dimer()
-    second = s.select(np.array([False] * 3 + [True] * 3))
+    checked.clear()
+    s.with_box(Box(20.0))
+    s.with_info(energy=1.0)
+    s.with_topology(None)
+    assert checked == []  # the table is the same
+    s.filter(element="O")
+    s.gather([1, 0])
+    s.sort("type")
+    assert checked == [[], [], []]  # rows of a table already checked
+    s.with_columns(charge=0.5, forces=np.zeros((6, 3)))
+    s.with_positions(np.ones((6, 3)))
+    s.with_columns(pl.col("type") + 1)
+    assert checked[3:] == [["charge", "forces"], ["positions"], ["type"]]
+    s.with_columns(pl.all())  # cannot tell which: every column
+    s.with_table(s.table)
+    assert checked[6:] == [None, None]
+    with pytest.raises(InvalidParameter, match="finite"):
+        s.with_positions(np.full((6, 3), np.nan))
+    with pytest.raises(InvalidParameter, match="at least 1"):
+        s.with_columns(type=0)
+
+
+# --- immutability and copies ---------------------------------------------------------
+
+
+def test_nothing_can_be_set_or_deleted():
+    s = water_dimer()
+    for target in (s, s.box, s.topology):
+        with pytest.raises(AttributeError, match="cannot be changed"):
+            target.anything = 1
+        with pytest.raises(AttributeError, match="cannot be changed"):
+            del target.anything
+    with pytest.raises(AttributeError, match="cannot be changed"):
+        s._System__table = s.table.head(1)
+    assert len(s) == 6
+    assert not hasattr(s, "_cache") and not hasattr(s, "_table")
+
+
+def test_copies_are_the_same_object():
+    import copy
+
+    s = water_dimer()
+    for target in (s, s.box, s.topology):
+        assert copy.copy(target) is target
+        assert copy.deepcopy(target) is target
+    pair = copy.deepcopy([s, s])
+    assert pair[0] is s and pair[1] is s
+
+
+def test_new_systems_share_the_columns_they_keep():
+    s = water_dimer().with_columns(mass=np.arange(6.0))
+    charged = s.with_columns(charge=0.1)
+    moved = s.with_positions(s.positions + 1.0)
+    assert np.shares_memory(charged.positions, s.positions)
+    assert not np.shares_memory(moved.positions, s.positions)
+    mass = s.table["mass"].to_numpy()
+    assert np.shares_memory(moved.table["mass"].to_numpy(), mass)
+    assert np.shares_memory(s.with_box(Box(30.0)).positions, s.positions)
+    np.testing.assert_array_equal(s.positions, water_dimer().positions)
+
+
+# --- filter ---------------------------------------------------------------------
+
+
+def test_filter_by_mask_keeps_whole_molecules():
+    s = water_dimer()
+    second = s.filter(np.array([False] * 3 + [True] * 3))
     assert len(second) == 3
     np.testing.assert_array_equal(second.positions, s.positions[3:])
     assert second.topology.bonds["atoms"].to_list() == [[0, 1], [0, 2]]
     assert second.topology.angles["atoms"].to_list() == [[1, 0, 2]]
+    assert second.info == s.info and second.box == s.box
 
 
-def test_select_drops_terms_with_unselected_atoms():
+def test_filter_drops_terms_with_atoms_left_out():
     s = water_dimer()
-    oxygens = s.select(s.table["element"] == "O")
+    oxygens = s.filter(element="O")
     assert len(oxygens) == 2
     assert len(oxygens.topology) == 0
 
 
-def test_select_reorders_and_permutation_round_trip():
+def test_filter_by_expressions_conditions_and_keywords():
+    s = water_dimer().with_columns(charge=[-0.8, 0.4, 0.4] * 2)
+    hydrogens = [1, 2, 4, 5]
+    for ways in (
+        (s.table["element"] == "H",),
+        (pl.col("element") == "H",),
+        ("element == 'H'",),
+        ("charge > 0",),
+        ("charge > 0", pl.col("type") == 2),
+        (),
+    ):
+        expected = hydrogens if ways else list(range(6))
+        kept = s.filter(*ways, element="H") if ways else s.filter()
+        if not ways:
+            assert kept is not s and len(kept) == 6
+        np.testing.assert_array_equal(kept.positions, s.positions[expected])
+    right = s.filter("positions.x > 2 and element != 'O'")
+    np.testing.assert_array_equal(right.positions, s.positions[[4, 5]])
+    near = s.filter("positions.x**2 + positions.y**2 < 1", type=2)
+    np.testing.assert_array_equal(near.positions, s.positions[[1, 2]])
+    assert len(s.filter("element in ['Cu', 'Ni']")) == 0
+
+
+def test_filter_treats_missing_values_as_false():
+    s = water_dimer().with_columns(score=pl.Series([1.0, None, 3.0, None, 5.0, 6.0]))
+    np.testing.assert_array_equal(
+        s.filter("score > 2").positions, s.positions[[2, 4, 5]]
+    )
+
+
+@pytest.mark.parametrize(
+    "conditions, keywords, message",
+    [
+        ((np.array([True, False]),), {}, "6 booleans"),
+        ((np.arange(6),), {}, "6 booleans"),
+        (("charge > 0",), {}, "no column 'charge'"),
+        (("positions > 0",), {}, "3 components"),
+        ((), {"positions": 1.0}, "3 components"),
+        (("positions.q > 0",), {}, "no component 'q'"),
+        ((), {"missing": 1}, "no column 'missing'"),
+        (("type + 1",), {}, "does not give true or false"),
+        ((pl.col("type") * 2,), {}, "does not give true or false"),
+        (("element > 3",), {}, "cannot evaluate"),
+        (("type >",), {}, "cannot read"),
+    ],
+)
+def test_filter_invalid(conditions, keywords, message):
+    with pytest.raises(InvalidParameter, match=message):
+        water_dimer().filter(*conditions, **keywords)
+
+
+# --- gather ---------------------------------------------------------------------
+
+
+def test_gather_reorders_and_a_permutation_round_trips():
     s = water_dimer()
     rng = np.random.default_rng(1)
     order = rng.permutation(len(s))
-    shuffled = s.select(order)
+    shuffled = s.gather(order)
     np.testing.assert_array_equal(shuffled.positions, s.positions[order])
-    back = shuffled.select(np.argsort(order))
+    back = shuffled.gather(np.argsort(order))
     assert back.table.equals(s.table)
     assert back.topology == s.topology
 
 
-def test_select_negative_indices():
+def test_gather_negative_indices_and_no_topology():
     s = water_dimer()
-    np.testing.assert_array_equal(s.select([-1]).positions, s.positions[[5]])
+    np.testing.assert_array_equal(s.gather([-1]).positions, s.positions[[5]])
+    bare = System(np.arange(12, dtype=float).reshape(4, 3), elements="Fe")
+    assert bare.gather([2, 0]).topology is None
+    assert len(bare.gather([])) == 0
 
 
 @pytest.mark.parametrize(
     "atoms, message",
     [
-        (np.array([True, False]), "6 entries"),
         ([0, 6], "out of range"),
         ([-7], "out of range"),
         ([0, 0], "must not repeat"),
-        ([0.5], "boolean mask or integer"),
-        ([[0, 1]], "boolean mask or integer"),
+        ([0.5], "integer indices"),
+        ([[0, 1]], "integer indices"),
+        (np.ones(6, dtype=bool), "filter takes a boolean mask"),
     ],
 )
-def test_select_invalid(atoms, message):
+def test_gather_invalid(atoms, message):
     with pytest.raises(InvalidParameter, match=message):
-        water_dimer().select(atoms)
+        water_dimer().gather(atoms)
 
 
-def test_select_without_topology():
-    s = System(np.arange(12, dtype=float).reshape(4, 3), elements="Fe")
-    assert s.select([2, 0]).topology is None
+# --- sort -----------------------------------------------------------------------
+
+
+def test_sort_by_columns_components_and_expressions():
+    s = water_dimer().with_columns(id=[6, 5, 4, 3, 2, 1])
+    by_id = s.sort("id")
+    np.testing.assert_array_equal(by_id.positions, s.positions[::-1])
+    # the renumbered topology still joins the same atoms
+    assert by_id.gather(np.argsort([6, 5, 4, 3, 2, 1])[::-1]).topology is not None
+    assert by_id.topology == s.gather([5, 4, 3, 2, 1, 0]).topology
+    # elements by atomic number, ties kept in order
+    np.testing.assert_array_equal(
+        s.sort("element").table["element"].to_list(), ["H"] * 4 + ["O"] * 2
+    )
+    np.testing.assert_array_equal(
+        s.sort("element").table["id"].to_list(), [5, 4, 2, 1, 6, 3]
+    )
+    np.testing.assert_array_equal(
+        s.sort("positions.x").positions[:, 0], np.sort(s.positions[:, 0])
+    )
+    np.testing.assert_array_equal(
+        s.sort("type", "positions.y", descending=[False, True]).table["id"].to_list(),
+        [6, 3, 4, 1, 5, 2],
+    )
+    np.testing.assert_array_equal(
+        s.sort(pl.col("positions").arr.get(0), descending=True).positions[:, 0],
+        np.sort(s.positions[:, 0])[::-1],
+    )
+
+
+@pytest.mark.parametrize(
+    "by, message",
+    [
+        ((), "give a column"),
+        (("missing",), "no column 'missing'"),
+        (("positions",), "3 components"),
+        (("positions.q",), "no component 'q'"),
+        ((pl.col("missing"),), "cannot sort"),
+    ],
+)
+def test_sort_invalid(by, message):
+    with pytest.raises(InvalidParameter, match=message):
+        water_dimer().sort(*by)
+
+
+def test_a_neighbor_list_does_not_fit_reordered_atoms():
+    from mdapy.identify import CentroSymmetryParameter
+    from mdapy.neighbor import NeighborList
+
+    s = System(np.random.default_rng(2).random((30, 3)) * 6, Box(6.0))
+    nl = NeighborList.build(s, num_neighbors=4)
+    flipped = s.gather(np.arange(30)[::-1])
+    assert nl.fits(s) and not nl.fits(flipped) and not nl.fits(s.sort("positions.x"))
+    with pytest.raises(InvalidParameter, match="other positions or another box"):
+        CentroSymmetryParameter(4).compute(flipped, neighbors=nl)
+    # attached before reordering, a result follows its atoms
+    csp = CentroSymmetryParameter(4).compute(s, neighbors=nl)
+    moved = s.with_columns(csp).gather(np.arange(30)[::-1])
+    np.testing.assert_array_equal(moved.table["csp"], csp.csp[::-1])
 
 
 # --- display -------------------------------------------------------------------
 
 
 def test_repr():
-    text = repr(water_dimer())
-    assert text.startswith("System(6 atoms; H4 O2; box lengths (10, 10, 10) pbc TTT")
-    assert "Topology(bonds=4, angles=2" in text
-    assert "columns: positions, element, type" in text
-    assert repr(System(np.zeros((0, 3)))).startswith("System(0 atoms; box")
+    assert repr(water_dimer()) == "\n".join(
+        [
+            "System: 6 atoms (H4 O2)",
+            "  box:      10 × 10 × 10 Å, orthogonal, periodic x y z",
+            "  columns:  positions (3), element, type",
+            "  info:     energy = -27.5, virial (3, 3)",
+            "  topology: 4 bonds, 2 angles",
+        ]
+    )
+    water = System(
+        [[0, 0, 0], [0.96, 0, 0], [-0.24, 0.93, 0]],
+        Box(10.0, origin=(-5, -5, -5), pbc=False),
+        elements=["O", "H", "H"],
+        topology=Topology(bonds=[[0, 1]], angles=[[1, 0, 2]]),
+        info={"name": "water", "step": 7, "fixed": True, "tags": [1, 2]},
+    )
+    assert repr(water).splitlines() == [
+        "System: 3 atoms (H2 O)",
+        "  box:      10 × 10 × 10 Å at (-5, -5, -5), orthogonal, not periodic",
+        "  columns:  positions (3), element",
+        "  info:     name = 'water', step = 7, fixed = True, tags (2 values)",
+        "  topology: 1 bond, 1 angle",
+    ]
+    tilted = System(
+        np.zeros((1, 3)),
+        Box([[10, 0, 0], [3, 10, 0], [0, 0, 10]], pbc=(True, True, False)),
+        info={"meta": {"a": 1}, "note": "x" * 30, "nothing": None, "scale": 2.5},
+        topology=Topology(),
+    )
+    assert repr(tilted).splitlines() == [
+        "System: 1 atom",
+        "  box:      a 10, b 10.44, c 10 Å; α 90°, β 90°, γ 73.3°; periodic x y",
+        "  columns:  positions (3)",
+        "  info:     meta (1 entries), note = 'xxxxxxxxxxxxxxxxxxxxx'..., nothing = None,",
+        "            scale = 2.5",
+        "  topology: none",
+    ]
+    wide = System(np.zeros((2, 3))).with_columns(
+        **{f"column_{k}": float(k) for k in range(12)}
+    )
+    lines = repr(wide).splitlines()
+    assert lines[0] == "System: 2 atoms" and all(len(line) <= 88 for line in lines)
+    assert lines[3].startswith("            column_") and "column_11" in lines[-1]
+    assert (
+        repr(System(np.zeros((0, 3)), Box(10.0))).splitlines()[0] == "System: 0 atoms"
+    )
+    assert "info:" not in repr(System(np.zeros((1, 3)), Box(10.0)))
 
 
 @pytest.mark.parametrize(

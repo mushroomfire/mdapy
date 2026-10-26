@@ -149,15 +149,15 @@ class EAM(Calculator):
     """
 
     def __init__(self, path: str | os.PathLike):
-        self._set(_read_setfl(path), os.fspath(path))
+        self.__set(_read_setfl(path), os.fspath(path))
 
-    def _set(self, tables: dict[str, Any], path: str | None, average: bool = False):
+    def __set(self, tables: dict[str, Any], path: str | None, average: bool = False):
         self.path = path
-        self._tables = tables
-        self._average = average
+        self.__tables = tables
+        self.__average = average
         names = tables["elements"]
         self.cutoff = tables["cutoff"]
-        self._potential = _native.make_eam(
+        self.__potential = _native.make_eam(
             tables["embedding"],
             tables["density"],
             tables["pair"],
@@ -165,22 +165,22 @@ class EAM(Calculator):
             tables["dr"],
             tables["cutoff"],
         )
-        self._species = np.full(len(SYMBOLS), -1, dtype=np.int32)
+        self.__species = np.full(len(SYMBOLS), -1, dtype=np.int32)
         if average:
             self.elements = None
             self.masses = tables["masses"][-1:].copy()
-            self._species[:] = len(names) - 1
+            self.__species[:] = len(names) - 1
         else:
             known = [k for k, name in enumerate(names) if name in SYMBOLS]
             self.elements = tuple(names[k] for k in known)
             self.masses = tables["masses"][known]
             for k in reversed(known):  # the first of repeated names
-                self._species[SYMBOLS.index(names[k])] = k
+                self.__species[SYMBOLS.index(names[k])] = k
 
     @classmethod
-    def _built(cls, tables: dict[str, Any], average: bool = False) -> "EAM":
+    def __built(cls, tables: dict[str, Any], average: bool = False) -> "EAM":
         potential = cls.__new__(cls)
-        potential._set(tables, None, average)
+        potential.__set(tables, None, average)
         return potential
 
     @classmethod
@@ -204,7 +204,7 @@ class EAM(Calculator):
         EAM
             The potential, written to a file with :meth:`write`.
         """
-        return cls._built(_zhou.tables(list(elements), nr, nrho))
+        return cls.__built(_zhou.tables(list(elements), nr, nrho))
 
     def average(self, concentrations: Mapping[str, float] | Sequence[float]) -> "EAM":
         """The average-atom potential of an alloy of the elements.
@@ -222,7 +222,7 @@ class EAM(Calculator):
             element. :meth:`write` writes it with the elements of this
             potential and the average atom, named ``A``, last.
         """
-        if self._average:
+        if self.__average:
             raise InvalidParameter("the potential is already an average-atom potential")
         assert self.elements is not None
         if isinstance(concentrations, Mapping):
@@ -244,7 +244,7 @@ class EAM(Calculator):
             raise InvalidParameter(
                 f"concentrations must be non-negative and sum to 1, not {fractions}"
             )
-        t = self._tables
+        t = self.__tables
         names = t["elements"]
         n = len(names)
         weights = np.zeros(n)
@@ -277,7 +277,7 @@ class EAM(Calculator):
         tables["pair"] = np.vstack(
             [t["pair"], mixed, np.einsum("a,ar->r", weights, mixed)]
         )
-        return EAM._built(tables, average=True)
+        return EAM.__built(tables, average=True)
 
     def write(self, path: str | os.PathLike) -> None:
         """Writes the potential as a LAMMPS ``eam/alloy`` (setfl) file.
@@ -287,7 +287,7 @@ class EAM(Calculator):
         path : str or os.PathLike
             The file to write; it reads back to the same tables.
         """
-        t = self._tables
+        t = self.__tables
         names = t["elements"]
         lines = [line.replace("\n", " ") for line in t["comments"]]
         lines.append(f"{len(names)} {' '.join(names)}")
@@ -316,13 +316,13 @@ class EAM(Calculator):
         cancel: Any = None,
     ) -> CalculatorResult:
         self._check_properties(properties)
-        if self._average:
-            species = np.full(len(system), len(self._tables["elements"]) - 1, np.int32)
+        if self.__average:
+            species = np.full(len(system), len(self.__tables["elements"]) - 1, np.int32)
         else:
             if "element" not in system.table.columns:
                 raise MissingProperty("EAM needs the element column")
             numbers = system.table["element"].to_physical().to_numpy()
-            species = self._species[numbers]
+            species = self.__species[numbers]
             if (species < 0).any():
                 missing = sorted({SYMBOLS[z] for z in numbers[species < 0]})
                 raise InvalidParameter(
@@ -331,7 +331,7 @@ class EAM(Calculator):
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_eam(
-                self._potential,
+                self.__potential,
                 species,
                 np.ascontiguousarray(system.positions),
                 np.ascontiguousarray(system.box.matrix),
@@ -351,6 +351,6 @@ class EAM(Calculator):
 
     def __repr__(self) -> str:
         source = f"{self.path!r}, " if self.path is not None else ""
-        if self._average:
+        if self.__average:
             return f"EAM({source}average atom, cutoff={self.cutoff})"
         return f"EAM({source}elements={self.elements}, cutoff={self.cutoff})"

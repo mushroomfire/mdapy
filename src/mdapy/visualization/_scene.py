@@ -290,33 +290,33 @@ class Scene:
     """
 
     def __init__(self) -> None:
-        self._spheres: list[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
-        self._cylinders: list[
+        self.__spheres: list[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
+        self.__cylinders: list[
             tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
         ] = []
-        self._triangles: list[
+        self.__triangles: list[
             tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
         ] = []
-        self._next_id = 0
+        self.__next_id = 0
 
-    def _ids(self, count: int, ids: ArrayLike | None) -> np.ndarray:
+    def __ids(self, count: int, ids: ArrayLike | None) -> np.ndarray:
         if ids is None:
-            ids = np.arange(self._next_id, self._next_id + count)
+            ids = np.arange(self.__next_id, self.__next_id + count)
         ids = np.asarray(ids, dtype=np.int64).reshape(-1)
         if len(ids) != count or (count and ids.min() < 0):
             raise InvalidParameter("ids must be one non-negative integer per primitive")
         if count:
-            self._next_id = max(self._next_id, int(ids.max()) + 1)
+            self.__next_id = max(self.__next_id, int(ids.max()) + 1)
         return ids.astype(np.int32)
 
     @classmethod
-    def _colors(cls, count: int, value: Any) -> np.ndarray:
+    def __colors(cls, count: int, value: Any) -> np.ndarray:
         if isinstance(value, str):
             value = _color(value)
-        return cls._per(count, value, 3, "colors")
+        return cls.__per(count, value, 3, "colors")
 
     @staticmethod
-    def _per(count: int, value: ArrayLike, width: int, name: str) -> np.ndarray:
+    def __per(count: int, value: ArrayLike, width: int, name: str) -> np.ndarray:
         array = np.asarray(value, dtype=float)
         if array.ndim == (0 if width == 1 else 1):
             array = np.broadcast_to(array, (count,) if width == 1 else (count, width))
@@ -352,12 +352,12 @@ class Scene:
         """
         c = np.asarray(centers, dtype=float).reshape(-1, 3)
         n = len(c)
-        self._spheres.append(
+        self.__spheres.append(
             (
                 c,
-                self._per(n, radii, 1, "radii"),
-                self._colors(n, colors),
-                self._ids(n, ids),
+                self.__per(n, radii, 1, "radii"),
+                self.__colors(n, colors),
+                self.__ids(n, ids),
             )
         )
 
@@ -388,12 +388,12 @@ class Scene:
         if a.shape != b.shape:
             raise InvalidParameter("starts and ends must have the same shape")
         m = len(a)
-        self._cylinders.append(
+        self.__cylinders.append(
             (
                 np.hstack([a, b]),
-                self._per(m, radii, 1, "radii"),
-                self._colors(m, colors),
-                self._ids(m, ids),
+                self.__per(m, radii, 1, "radii"),
+                self.__colors(m, colors),
+                self.__ids(m, ids),
             )
         )
 
@@ -420,10 +420,12 @@ class Scene:
         """
         v = np.asarray(vertices, dtype=float).reshape(-1, 9)
         t = len(v)
-        opacity = self._per(t, alpha, 1, "alpha")
+        opacity = self.__per(t, alpha, 1, "alpha")
         if ((opacity < 0) | (opacity > 1)).any():
             raise InvalidParameter("alpha must be from 0 to 1")
-        self._triangles.append((v, self._colors(t, colors), opacity, self._ids(t, ids)))
+        self.__triangles.append(
+            (v, self.__colors(t, colors), opacity, self.__ids(t, ids))
+        )
 
     def add_polygons(
         self,
@@ -458,9 +460,9 @@ class Scene:
         offsets = np.asarray(corner_offsets, dtype=np.int64)
         loops = np.asarray(corners, dtype=np.int64)
         f = len(offsets) - 1
-        colors = self._colors(f, colors)
-        opacity = self._per(f, alpha, 1, "alpha")
-        polygon_ids = self._ids(f, ids)
+        colors = self.__colors(f, colors)
+        opacity = self.__per(f, alpha, 1, "alpha")
+        polygon_ids = self.__ids(f, ids)
         # a fan from the first corner of each polygon
         size = np.diff(offsets)
         if (size < 3).any():
@@ -509,7 +511,7 @@ class Scene:
         start = np.array([corners[a] for a, _ in edges])
         end = np.array([corners[b] for _, b in edges])
         rgb = _color(color)
-        edge_id = self._next_id
+        edge_id = self.__next_id
         self.add_cylinders(start, end, radius, rgb, ids=np.full(12, edge_id))
         self.add_spheres(corners, radius, rgb, ids=np.full(8, edge_id))
 
@@ -523,36 +525,36 @@ class Scene:
 
         f32 = np.float32
         return {
-            "sphere_center": join(self._spheres, 0, (0, 3), f32),
-            "sphere_radius": join(self._spheres, 1, (0,), f32),
+            "sphere_center": join(self.__spheres, 0, (0, 3), f32),
+            "sphere_radius": join(self.__spheres, 1, (0,), f32),
             "sphere_color": np.ascontiguousarray(
-                _linear(join(self._spheres, 2, (0, 3), float)), dtype=f32
+                _linear(join(self.__spheres, 2, (0, 3), float)), dtype=f32
             ),
-            "sphere_id": join(self._spheres, 3, (0,), np.int32),
-            "cylinder_end": join(self._cylinders, 0, (0, 6), f32),
-            "cylinder_radius": join(self._cylinders, 1, (0,), f32),
+            "sphere_id": join(self.__spheres, 3, (0,), np.int32),
+            "cylinder_end": join(self.__cylinders, 0, (0, 6), f32),
+            "cylinder_radius": join(self.__cylinders, 1, (0,), f32),
             "cylinder_color": np.ascontiguousarray(
-                _linear(join(self._cylinders, 2, (0, 3), float)), dtype=f32
+                _linear(join(self.__cylinders, 2, (0, 3), float)), dtype=f32
             ),
-            "cylinder_id": join(self._cylinders, 3, (0,), np.int32),
-            "triangle_vertex": join(self._triangles, 0, (0, 9), f32),
+            "cylinder_id": join(self.__cylinders, 3, (0,), np.int32),
+            "triangle_vertex": join(self.__triangles, 0, (0, 9), f32),
             "triangle_color": np.ascontiguousarray(
-                _linear(join(self._triangles, 1, (0, 3), float)), dtype=f32
+                _linear(join(self.__triangles, 1, (0, 3), float)), dtype=f32
             ),
-            "triangle_alpha": join(self._triangles, 2, (0,), f32),
-            "triangle_id": join(self._triangles, 3, (0,), np.int32),
+            "triangle_alpha": join(self.__triangles, 2, (0,), f32),
+            "triangle_id": join(self.__triangles, 3, (0,), np.int32),
         }
 
-    def _points(self) -> tuple[np.ndarray, np.ndarray]:
+    def __points(self) -> tuple[np.ndarray, np.ndarray]:
         """Points of the scene with the radius around each, for the camera."""
         points, pad = [np.zeros((0, 3))], [np.zeros(0)]
-        for c, r, _, _ in self._spheres:
+        for c, r, _, _ in self.__spheres:
             points.append(c)
             pad.append(r)
-        for ends, r, _, _ in self._cylinders:
+        for ends, r, _, _ in self.__cylinders:
             points += [ends[:, :3], ends[:, 3:]]
             pad += [r, r]
-        for v, _, _, _ in self._triangles:
+        for v, _, _, _ in self.__triangles:
             points.append(v.reshape(-1, 3))
             pad.append(np.zeros(len(v) * 3))
         return np.concatenate(points), np.concatenate(pad)
@@ -664,10 +666,10 @@ class Scene:
         right = np.cross(forward, up_vector)
         right /= np.linalg.norm(right)
         true_up = np.cross(right, forward)
-        points, pad = self._points()
+        points, pad = self.__points()
         radii = (
-            np.concatenate([s[1] for s in self._spheres])
-            if self._spheres
+            np.concatenate([s[1] for s in self.__spheres])
+            if self.__spheres
             else np.ones(1)
         )
         scale = float(np.median(radii)) if len(radii) else 1.0

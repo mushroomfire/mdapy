@@ -39,8 +39,7 @@ def water(seed):
 
 
 def by_id(system):
-    order = np.argsort(system.table["id"].to_numpy())
-    return system.select(order)
+    return system.sort("id")
 
 
 def bonded_ids(system):

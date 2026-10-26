@@ -85,7 +85,7 @@ def test_mdapy_writes_what_pymatgen_reads(tmp_path):
     mdapy.write(tmp_path / "POSCAR", system)
     # a POSCAR holds the atoms of each element together
     elements = system.table["element"].to_list()
-    system = system.select(
+    system = system.gather(
         np.argsort([elements.index(e) for e in elements], kind="stable")
     )
     structure = Structure.from_file(tmp_path / "POSCAR")

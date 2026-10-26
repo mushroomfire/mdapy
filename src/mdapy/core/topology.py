@@ -92,7 +92,7 @@ class Topology:
         with a repeated atom, missing values, or a type below 1.
     """
 
-    __slots__ = tuple(f"_{kind}" for kind in KINDS)
+    __slots__ = ("__tables",)
 
     def __init__(
         self,
@@ -101,34 +101,50 @@ class Topology:
         dihedrals: pl.DataFrame | ArrayLike | None = None,
         impropers: pl.DataFrame | ArrayLike | None = None,
     ) -> None:
-        self._bonds = _normalize("bonds", bonds)
-        self._angles = _normalize("angles", angles)
-        self._dihedrals = _normalize("dihedrals", dihedrals)
-        self._impropers = _normalize("impropers", impropers)
+        given = {
+            "bonds": bonds,
+            "angles": angles,
+            "dihedrals": dihedrals,
+            "impropers": impropers,
+        }
+        tables = {kind: _normalize(kind, terms) for kind, terms in given.items()}
+        object.__setattr__(self, "_Topology__tables", tables)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        raise AttributeError("a Topology cannot be changed; remap makes a new one")
+
+    def __delattr__(self, name: str) -> None:
+        raise AttributeError("a Topology cannot be changed")
+
+    def __copy__(self) -> "Topology":
+        return self
+
+    def __deepcopy__(self, memo: dict) -> "Topology":
+        return self
 
     @property
     def bonds(self) -> pl.DataFrame:
         """Bonds: ``atoms`` holds 2 atom indices."""
-        return self._bonds.clone()
+        return self.__tables["bonds"].clone()
 
     @property
     def angles(self) -> pl.DataFrame:
         """Angles: ``atoms`` holds 3 atom indices, the vertex in the middle."""
-        return self._angles.clone()
+        return self.__tables["angles"].clone()
 
     @property
     def dihedrals(self) -> pl.DataFrame:
         """Dihedrals: ``atoms`` holds 4 atom indices along the chain."""
-        return self._dihedrals.clone()
+        return self.__tables["dihedrals"].clone()
 
     @property
     def impropers(self) -> pl.DataFrame:
         """Impropers: ``atoms`` holds 4 atom indices."""
-        return self._impropers.clone()
+        return self.__tables["impropers"].clone()
 
     def tables(self) -> dict[str, pl.DataFrame]:
         """All four tables, keyed by kind."""
-        return {kind: getattr(self, f"_{kind}").clone() for kind in KINDS}
+        return {kind: table.clone() for kind, table in self.__tables.items()}
 
     def max_atom_index(self) -> int:
         """Largest atom index used by any term, or -1 if there are none."""

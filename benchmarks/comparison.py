@@ -102,7 +102,7 @@ def gas(atoms: int) -> dict:
     close = np.abs(pairs.distances - 2.0) < 1e-4
     kept = np.ones(len(system), dtype=bool)
     kept[pairs.i[close]] = False
-    return {"system": system.select(kept)}
+    return {"system": system.filter(kept)}
 
 
 def deformed(atoms: int) -> dict:
@@ -125,7 +125,7 @@ def damaged(atoms: int) -> dict:
     current = crystal("fcc", 3.615, atoms, 0.2)
     rng = np.random.default_rng(3)
     kept = rng.random(len(current)) > 0.005
-    return {"system": current.select(kept), "reference": reference}
+    return {"system": current.filter(kept), "reference": reference}
 
 
 # ------------------------------------------------------------ OVITO

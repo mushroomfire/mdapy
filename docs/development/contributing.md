@@ -132,4 +132,11 @@ pytest --cov --cov-report=term
 ## Style
 
 - `ruff check .` and `ruff format --check .` pass.
+- Names private to a class start with two underscores, `self.__table`, so
+  that they cannot be reached by accident from outside. Names that other
+  modules of mdapy use, and methods that subclasses override, start with one
+  underscore: they are internal to mdapy, not to the class. Private
+  functions and constants of a module start with one underscore.
+- Immutable objects (`System`, `Box`, `Topology`) refuse new attributes and
+  return themselves from `copy.copy` and `copy.deepcopy`.
 - Commit messages are short English sentences describing the change.

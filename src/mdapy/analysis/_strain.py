@@ -90,7 +90,7 @@ class AtomicStrain:
         self.affine = bool(affine)
         self.strain_tensor = bool(strain_tensor)
         self.d2min = bool(d2min)
-        self._neighbors = (
+        self.__neighbors = (
             None
             if neighbors is None
             else _given_or_built(reference, self.cutoff, neighbors)
@@ -143,7 +143,7 @@ class AtomicStrain:
             progress,
             _native_token(cancel),
         )
-        nl = self._neighbors
+        nl = self.__neighbors
         if nl is None:
             # the neighbors in the reference found as it goes
             shear, volumetric, tensor, d2min = _run(

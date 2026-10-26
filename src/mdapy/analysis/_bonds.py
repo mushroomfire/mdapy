@@ -71,10 +71,10 @@ class _Bonds:
         nl = _given_or_built(system, largest, neighbors)
         if self.cutoffs is None:
             return nl, self.cutoff, None, None, found
-        limits = self._limits(found)
+        limits = self.__limits(found)
         return nl, 0.0, found[1].astype(np.int32), limits, found
 
-    def _limits(self, found: tuple[tuple[str, ...], np.ndarray] | None) -> np.ndarray:
+    def __limits(self, found: tuple[tuple[str, ...], np.ndarray] | None) -> np.ndarray:
         """The bond length of each pair of the elements found, 0 for none."""
         if found is None:
             raise MissingProperty(
@@ -123,7 +123,7 @@ class _Bonds:
             names = found[0] if found is not None else ()
             limits = np.full((max(len(names), 1),) * 2, self.cutoff)
         else:
-            limits = self._limits(found)
+            limits = self.__limits(found)
         index = found[1] if found is not None else np.zeros(len(system), dtype=np.int64)
         box = system.box
         return (
@@ -231,7 +231,7 @@ class ClusterAnalysis:
         center_of_mass: bool = False,
         gyration: bool = False,
     ):
-        self._bonds = _Bonds(cutoff, cutoffs)
+        self.__bonds = _Bonds(cutoff, cutoffs)
         self.unwrap = bool(unwrap)
         self.center_of_mass = bool(center_of_mass)
         self.gyration = bool(gyration)
@@ -261,12 +261,12 @@ class ClusterAnalysis:
         """
         if neighbors is None:
             # bonds found on the grid, without a list
-            *grid, _ = self._bonds._grid(system)
+            *grid, _ = self.__bonds._grid(system)
             cluster, sizes, images, spanning = _native.clusters_search(
                 *grid, progress, _native_token(cancel)
             )
         else:
-            nl, cutoff, type, limits, _ = self._bonds.listed(system, neighbors)
+            nl, cutoff, type, limits, _ = self.__bonds.listed(system, neighbors)
             with nl._reading():
                 cluster, sizes, images, spanning = _native.clusters(
                     *_view(system, nl), cutoff, type, limits
@@ -316,7 +316,7 @@ class ClusterAnalysis:
         return ClusterResult(**found)
 
     def __repr__(self) -> str:
-        return f"ClusterAnalysis({self._bonds})"
+        return f"ClusterAnalysis({self.__bonds})"
 
 
 @dataclass(frozen=True)
@@ -380,7 +380,7 @@ class BondAngleDistribution:
     ):
         if bins < 1:
             raise InvalidParameter(f"bins must be at least 1, not {bins!r}")
-        self._bonds = _Bonds(cutoff, cutoffs)
+        self.__bonds = _Bonds(cutoff, cutoffs)
         self.bins = int(bins)
 
     def compute(
@@ -407,14 +407,14 @@ class BondAngleDistribution:
         """
         if neighbors is None:
             # bonds found on the grid, without a list
-            *grid, found = self._bonds._grid(system)
+            *grid, found = self.__bonds._grid(system)
             counts = _native.bond_angles_search(
                 *grid, self.bins, progress, _native_token(cancel)
             )
             names = found[0] if found is not None else ()
             types = max(len(names), 1)
         else:
-            nl, cutoff, _, limits, found = self._bonds.listed(system, neighbors)
+            nl, cutoff, _, limits, found = self.__bonds.listed(system, neighbors)
             names, index = (
                 found if found is not None else ((), np.zeros(len(system), int))
             )
@@ -448,7 +448,7 @@ class BondAngleDistribution:
         )
 
     def __repr__(self) -> str:
-        return f"BondAngleDistribution({self._bonds}, bins={self.bins})"
+        return f"BondAngleDistribution({self.__bonds}, bins={self.bins})"
 
 
 @dataclass(frozen=True)

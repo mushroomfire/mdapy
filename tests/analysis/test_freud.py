@@ -76,7 +76,7 @@ def test_clusters():
     pairs = NeighborList.build(gas, 2.0 + 1e-4)
     kept = np.ones(len(gas), dtype=bool)
     kept[pairs.i[np.abs(pairs.distances - 2.0) < 1e-4]] = False
-    gas = gas.select(kept)
+    gas = gas.filter(kept)
     ours = ClusterAnalysis(cutoff=2.0).compute(gas)
     theirs = freud.cluster.Cluster().compute(freud_input(gas), neighbors={"r_max": 2.0})
     np.testing.assert_array_equal(

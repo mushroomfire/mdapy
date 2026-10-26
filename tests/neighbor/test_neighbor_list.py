@@ -509,7 +509,7 @@ def test_translation_and_rotation():
 def test_permutation():
     system = random_system("orthogonal", seed=8)
     order = np.random.default_rng(1).permutation(len(system))
-    permuted = system.select(order)
+    permuted = system.gather(order)
     a = as_dict(NeighborList.build(system, 3.0))
     b = {
         (int(order[i]), int(order[j]), shift): d
@@ -814,7 +814,7 @@ def test_a_list_fits_systems_with_the_same_atoms():
     assert not nl.fits(
         system.with_box(mdapy.Box(box.matrix, origin=box.origin, pbc=False))
     )
-    assert not nl.fits(system.select(np.arange(len(system) - 1)))
+    assert not nl.fits(system.gather(np.arange(len(system) - 1)))
     # analyses take the list for the labeled system
     from mdapy.analysis import RadialDistributionFunction
 

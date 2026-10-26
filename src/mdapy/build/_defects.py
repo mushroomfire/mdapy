@@ -73,7 +73,7 @@ def add_vacancies(
     """
     keep = np.ones(len(system), dtype=bool)
     keep[_chosen(system, count, atoms, seed)] = False
-    return system.select(keep)
+    return system.filter(keep)
 
 
 def substitute(

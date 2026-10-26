@@ -66,7 +66,7 @@ def test_other_structures():
 
 def test_a_vacancy_changes_its_twelve_neighbors():
     perfect = crystal("fcc", 3.6, (4, 4, 4))
-    vacancy = perfect.select(np.arange(1, len(perfect)))
+    vacancy = perfect.gather(np.arange(1, len(perfect)))
     assert CommonNeighborAnalysis().compute(vacancy).counts() == {
         "other": 12,
         "fcc": len(vacancy) - 12,

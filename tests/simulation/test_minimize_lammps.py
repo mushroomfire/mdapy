@@ -22,7 +22,7 @@ def test_relaxation_as_lammps(tmp_path):
     constant."""
     potential_file = write_setfl(tmp_path / "CuNi.eam.alloy")
     full = alloy(seed=12, repeat=3, jitter=0.05, a=3.35)
-    system = full.select(np.arange(1, len(full))).with_columns(
+    system = full.gather(np.arange(1, len(full))).with_columns(
         id=np.arange(1, len(full))
     )
     data, out = tmp_path / "in.data", tmp_path / "out.data"

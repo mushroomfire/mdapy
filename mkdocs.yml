@@ -99,9 +99,13 @@ nav:
   - Getting started:
       - Installation: getting-started/installation.md
       - Quick tour: getting-started/quick-tour.md
-      - Basics:
-          - Systems and topology: getting-started/system.md
+      - System:
+          - Systems: getting-started/system.md
+          - Selecting and ordering atoms: getting-started/selecting.md
+          - Changing a system: getting-started/changing.md
+          - Topology: getting-started/topology.md
           - Simulation box: getting-started/box.md
+      - Basics:
           - Reading and writing files: getting-started/io.md
           - Trajectories: getting-started/trajectory.md
           - Neighbor lists: getting-started/neighbor.md
@@ -111,7 +115,6 @@ nav:
           - Columnar grains on a hexagonal pattern: getting-started/tutorials/columnar-polycrystal.md
           - Defect energies of copper: getting-started/tutorials/defect-energies.md
           - Sharing neighbor lists: getting-started/tutorials/neighbor-lists.md
-          - What a System shares and copies: getting-started/tutorials/sharing.md
   - Analysis:
       - Overview: analysis/overview.md
       - Structure identification:

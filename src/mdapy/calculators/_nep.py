@@ -274,7 +274,7 @@ class NEP(Calculator):
         self.path = os.fspath(path)
         self.elements = model["elements"]
         self.cutoff = float(max(model["rc_radial"].max(), model["rc_angular"].max()))
-        self._model = _native.make_nep(
+        self.__model = _native.make_nep(
             [
                 len(self.elements),
                 model["n_radial"],
@@ -312,7 +312,7 @@ class NEP(Calculator):
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_nep(
-                self._model,
+                self.__model,
                 species,
                 np.ascontiguousarray(system.positions),
                 np.ascontiguousarray(system.box.matrix),
@@ -357,7 +357,7 @@ class NEP(Calculator):
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             return _native.nep_descriptors(
-                self._model,
+                self.__model,
                 species,
                 np.ascontiguousarray(system.positions),
                 np.ascontiguousarray(system.box.matrix),

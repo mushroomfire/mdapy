@@ -1,12 +1,15 @@
-# Systems and topology
+# Systems
 
 A `System` is one atomic configuration: a table with one row per atom, a
 [simulation box](box.md), global information such as the energy, and for
-molecules an optional `Topology` of bonds, angles, dihedrals and impropers.
-A system never changes; every operation returns a new one.
+molecules an optional [topology](topology.md) of bonds, angles, dihedrals
+and impropers. Every analysis, builder, reader and calculator of mdapy takes
+and returns systems.
 
 ```python
 import numpy as np
+import polars as pl
+
 import mdapy as mp
 
 water = mp.System(
@@ -14,103 +17,148 @@ water = mp.System(
     box=mp.Box(10.0),
     elements=["O", "H", "H"],
     info={"energy": -14.2},
-    topology=mp.Topology(bonds=[[0, 1], [0, 2]], angles=[[1, 0, 2]]),
 )
-water.table  # polars DataFrame with columns positions, element
-water.positions  # (3, 3) NumPy array, read-only, no copy
-charged = water.with_columns(charge=[-0.8, 0.4, 0.4])
-hydrogens = water.select(water.table["element"] == "H")
+print(water)
+# System: 3 atoms (H2 O)
+#   box:      10 × 10 × 10 Å, orthogonal, periodic x y z
+#   columns:  positions (3), element
+#   info:     energy = -14.2
+water.positions  # (3, 3) NumPy array of the positions, read-only
+water.table  # the per-atom table, a polars DataFrame
 ```
+
+A system never changes. Methods such as `with_columns`, `filter` and `sort`
+return a new system and leave the old one as it is; see
+[Changing a system](changing.md) and
+[Selecting and ordering atoms](selecting.md).
 
 ## Creating a system
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `positions` | (N, 3) array | | Å | Positions. Give either `positions` or `table`. |
-| `box` | `Box` or lattice vectors | non-periodic box around the atoms | Å | Simulation box. |
-| `table` | polars DataFrame | | | Per-atom table with a `positions` column. |
+| `box` | `Box` or lattice vectors | non-periodic box around the atoms | Å | Simulation box; a number or three numbers give an orthogonal periodic box. |
+| `table` | polars DataFrame | | | Per-atom table with a `positions` column of 3 floats per atom. |
 | `elements` | str or N str | | | Chemical symbols; one symbol applies to all atoms. |
 | `types` | int or N int | | | Atom types, from 1; one value applies to all atoms. |
 | `info` | mapping | `{}` | | Global information, for example `energy` (eV), `virial` (eV), `timestep`. |
-| `topology` | `Topology` | `None` | | Bonds, angles, dihedrals, impropers. |
+| `topology` | `Topology` | `None` | | Bonds, angles, dihedrals and impropers, see [Topology](topology.md). |
 
-Standard columns are converted to their types when a system is created (see
-the [Glossary](../reference/glossary.md#per-atom-properties)): `positions`,
-`velocities` and `forces` to arrays of 3 floats, `element` to the element
-type, and integer columns such as `type`, `id` and `image` to integers.
+From positions, as above, or from a table that already holds the columns:
+
+```python
+table = pl.DataFrame(
+    {
+        "positions": pl.Series(
+            [[0.0, 0.0, 0.0], [1.8, 1.8, 0.0]], dtype=pl.Array(pl.Float64, 3)
+        ),
+        "element": ["Cu", "Ni"],
+        "velocities": [[0.1, 0.0, 0.0], [-0.1, 0.0, 0.0]],
+    }
+)
+pair = mp.System(table=table, box=mp.Box(3.6))
+```
+
+Most systems come from files with [`mp.read`](io.md) or from the
+[structure builders](../build/crystals.md), which return them the same way.
+
+The arrays given to a system are copied, so changing them afterwards does
+not change the system. A box that is not given encloses the atoms and is not
+periodic.
+
+## Columns
+
+The table holds one row per atom and any number of columns. Columns with a
+standard name have a fixed type, which they are converted to when a system
+is made:
+
+| Column | Type | Unit | Meaning |
+|---|---|---|---|
+| `positions` | 3 floats | Å | positions, required |
+| `velocities` | 3 floats | Å/ps | velocities |
+| `forces` | 3 floats | eV/Å | forces |
+| `element` | element | | chemical symbol |
+| `type` | int32 | | atom type, from 1 |
+| `id` | int64 | | atom identifier |
+| `molecule` | int64 | | molecule identifier |
+| `mass` | float64 | amu | mass |
+| `charge` | float64 | e | charge |
+| `image` | 3 int32 | | periodic image flags |
+
 Integer columns accept floats only if they are whole numbers, so `1.0` is
-read as type 1 but `1.5` raises an error. Other columns are kept as they are.
-Inconsistent input raises
-[`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter).
+read as type 1 but `1.5` raises an error. Standard columns must not have
+missing values, and positions must be finite. Every other column is kept as
+it is: numbers, booleans, text, and arrays of numbers such as the
+`orientation` of [polyhedral template matching](../analysis/ptm.md). The
+[Glossary](../reference/glossary.md#per-atom-properties) lists the columns
+that mdapy itself writes.
+
+The `element` column holds chemical symbols; underneath they are atomic
+numbers, so elements compare as text and sort by atomic number:
+
+```python
+water.table["element"].to_list()  # ['O', 'H', 'H']
+water.table["element"].to_physical().to_list()  # [8, 1, 1]
+```
 
 ## Reading data
 
 | Name | Meaning |
 |---|---|
-| `table` | Per-atom properties as a polars DataFrame: a copy that shares the columns, so changing it in place, with `insert_column` for example, does not change the system. |
-| `box` | The `Box`. |
-| `info` | Global information, read-only. |
-| `topology` | The `Topology`, or `None`; its tables are copies in the same way. |
 | `positions` | (N, 3) positions in Å: a read-only NumPy view of the table, without a copy. |
-| `len(system)` | Number of atoms. |
+| `table` | The per-atom table as a polars DataFrame. |
+| `box` | The [`Box`](box.md). |
+| `info` | Global information, a read-only mapping. |
+| `topology` | The [`Topology`](topology.md), or `None`. |
+| `len(system)` | The number of atoms. |
 
-Everything else is read from the table with polars, for example
-`system.table["element"]` or `system.table.filter(pl.col("type") == 2)`.
-
-## Changing a system
-
-Each method returns a new system. Columns that are not changed are shared
-between the old and the new system rather than copied. Arrays given to a
-system, by its constructor or by these methods, are copied, so changing
-them afterwards does not change the system.
-
-| Method | Meaning |
-|---|---|
-| `with_columns(*exprs, **named)` | Add or replace columns: polars expressions or Series, NumPy arrays, or one value for all atoms. |
-| `with_table(table)` | Replace the table. It must have the same atoms in the same order, because the topology refers to rows by position. |
-| `with_positions(positions)` | Replace the positions. |
-| `with_box(box, scale_positions=False)` | Replace the box. With `scale_positions=True` the atoms keep their fractional coordinates and deform with the box. |
-| `with_info(**values)` | Add or replace global values; a value of `None` removes the entry. |
-| `with_topology(topology)` | Replace the topology, or remove it with `None`. |
-| `select(atoms)` | Keep some atoms, in the given order: a boolean mask or integer indices. |
+Everything else is read from the table. Columns become NumPy arrays with
+`to_numpy()`, and every polars operation works on the table, for example
+counts and averages by element:
 
 ```python
-moved = water.with_positions(water.positions + [1.0, 0.0, 0.0])
-bigger = water.with_box(mp.Box(20.0), scale_positions=True)
-labelled = water.with_info(energy=None, label="monomer")
-```
+from mdapy.build import build_crystal
 
-## Topology
-
-A `Topology` holds four tables, `bonds`, `angles`, `dihedrals` and
-`impropers`, with 2, 3, 4 and 4 atoms per term. Each table has the columns:
-
-| Column | Type | Meaning |
-|---|---|---|
-| `atoms` | array of k int64 | Atom indices: 0-based rows of the system's table. |
-| `type` | int32 | Type of the term, from 1. |
-| `type_label` | str, optional | Name of the type, for example `"C-H"`. |
-
-Other columns are kept. Atom order follows LAMMPS: the central atom of an
-angle is the second one, dihedral atoms follow the chain, and the meaning of
-the improper order depends on the improper style.
-
-```python
-import polars as pl
-
-t = mp.Topology(
-    bonds=pl.DataFrame(
-        {"atoms": [[0, 1], [0, 2]], "type": [1, 1], "type_label": ["O-H", "O-H"]}
-    ),
-    angles=[[1, 0, 2]],  # an (M, 3) array: all types are 1
+alloy = build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 3))
+alloy = alloy.with_columns(
+    element=np.where(np.arange(len(alloy)) % 4 == 0, "Ni", "Cu"),
+    charge=np.linspace(-1.0, 1.0, len(alloy)),
 )
-t.bonds
+alloy.table["charge"].to_numpy()  # (108,) float64
+alloy.table.group_by("element").agg(pl.len(), pl.col("charge").mean())
+alloy.table["positions"].arr.get(2).max()  # the largest z
 ```
 
-`select` keeps the topology consistent: terms whose atoms are all selected
-are renumbered, and terms that lose an atom are dropped.
+The table is a copy of the system's own: changing it does not change the
+system. To make a changed system, see [Changing a system](changing.md).
 
-```python
-oxygen = water.select([0])
-len(oxygen.topology)  # 0: both bonds and the angle lost a hydrogen
+## Printing a system
+
+`print(system)` gives a summary of a few lines:
+
+```text
+System: 108 atoms (Cu81 Ni27)
+  box:      10.8 × 10.8 × 10.8 Å, orthogonal, periodic x y z
+  columns:  positions (3), element, charge
+  info:     energy = -3.54, timestep = 1000
+  topology: 2 bonds, 1 angle
 ```
+
+- the number of atoms and the elements, the most frequent first;
+- the box: its lengths for an orthogonal box, with its origin when that is
+  not zero, or for a triclinic box the lengths of **a**, **b**, **c** and the
+  angles between them; and its periodic directions;
+- the columns, with the number of components of array columns in
+  parentheses;
+- the global information, if any: numbers and short text with their values,
+  arrays with their shape;
+- the topology, if any: the number of terms of each kind.
+
+## Errors
+
+The constructor raises
+[`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter) for
+inconsistent input: neither or both of `positions` and `table`, positions not
+of shape (N, 3) or not finite, unknown chemical symbols, types below 1,
+missing values in standard columns, values that do not fit the type of a
+standard column, or topology indices beyond the number of atoms.

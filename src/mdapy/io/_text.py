@@ -63,7 +63,7 @@ class TextReader:
         try:
             self.offset = _native.skip_lines(self.buffer, self.offset, n)
         except ValueError as e:
-            raise self._parse_error(e) from None
+            raise self.__parse_error(e) from None
         self.line += n
 
     def table(
@@ -95,7 +95,7 @@ class TextReader:
                 self.buffer, self.offset, rows, list(columns), comment
             )
         except ValueError as e:
-            raise self._parse_error(e) from None
+            raise self.__parse_error(e) from None
         self.line += rows
         return arrays
 
@@ -103,7 +103,7 @@ class TextReader:
         """Error at a line, by default the last line read."""
         return FileFormatError(message, self.name, self.line if line is None else line)
 
-    def _parse_error(self, error: ValueError) -> Exception:
+    def __parse_error(self, error: ValueError) -> Exception:
         if len(error.args) != 2:
             return error
         message, row = error.args

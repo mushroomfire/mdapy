@@ -120,7 +120,7 @@ class _FromASE(Calculator):
             name for name, needed in _GIVES.items() if needed in offered
         )
         # the free energy is the one the forces derive from
-        self._free = "free_energy" in offered
+        self.__free = "free_energy" in offered
 
     def compute(
         self,
@@ -157,7 +157,7 @@ class _FromASE(Calculator):
         values: dict[str, Any] = {}
         if "energy" in wanted:
             values["energy"] = float(
-                atoms.get_potential_energy(force_consistent=self._free)
+                atoms.get_potential_energy(force_consistent=self.__free)
             )
         if "atomic_energies" in wanted:
             values["atomic_energies"] = np.array(

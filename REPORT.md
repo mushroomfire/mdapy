@@ -31,7 +31,7 @@
 - **CrCoNi 有限温度弹性常数**（NEP，你的 108 原子 SQS，超胞 1、网格 4）：完整 QHA 的剪切模量在 300–1000 K 与实验差 ≤ 1 GPa，杨氏模量差 2–4 GPa；准静态高温偏硬。1.x 低温比我们高约 10%：查了 1.x 的 `QHAElastic`，应变后原子不弛豫、各体积只是等比缩放，SQS 里这样偏硬（静态：不弛豫 C11 = 303 GPa，弛豫 288.6 GPa；1.x 0 K 给 298）。我们能量二阶导与应力法在静态晶胞上完全一致（288.6/183.7/143.8）。0 K 的 C11 是 281–283 而不是 288.6，是零点膨胀 0.5% 造成的（体积与 1.x 一致）。
 - **MD 验证**：LAMMPS 的 NEP（KOKKOS）已编进本地 LAMMPS；Triton 上正在编 CUDA 版（V100+A100 双架构、带 Python），编好后在 GPU 上算 300–1000 K 的 MD 弹性常数（6912 原子），加到图 47 里。
 
-![fcc Cu 交叉的支：按大小排序（左）与按本征矢连接（右）](images/45_phonons_connected.png)
+![fcc Cu 的色散：按大小排序（左）；自动路径、按本征矢连接（中，U|K 合并为一个刻度）；态密度（右）](images/45_phonons_connected.png)
 
 ![CrCoNi 的 Cr、Co、Ni 声子色散：mdapy（NEP）与 DFT、实验](images/46_crconi_phonons.png)
 

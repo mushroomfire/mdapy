@@ -1,3 +1,28 @@
+# mdapy 2.0 进展报告（2026-10-27，五件新功能）
+
+你 10-27 凌晨的安排：grain 合并；然后按顺序做五件事，全部做完后你一起审。每件一个分支，串成一条链（后一个基于前一个），审完按顺序合入 v2。
+
+1. q6 固液判别（1.x 有）；
+2. 文档：常用表面和常用滑移路径怎么写；
+3. 构造表面网格（OVITO Construct surface mesh，你选了 alpha-shape），找空洞并能显示表面，通用三角网格类；
+4. 位错建模，学 matscipy 的“核心一套”（matscipy 是 LGPL，只学功能、代码自己写）；
+5. GUI 里建模（本地工作，单独汇报）。
+
+## 进展
+
+### 10-27 00:34
+- **晶粒分割已合入 v2**（91ad980，已推送；合并后全部 2122 个测试、ruff、文档 strict 通过）；远程分支 `grain-segmentation` 已按你的同意删除。
+- **第 1 件完成：q6 固液判别**（分支 `solid-liquid`，53c0e5b，已推送，CI 在跑）。
+  - `SteinhardtParameters(solid=True)`：两个相邻原子的 6 阶 q_lm 归一化后点积大于 0.7 的键算“固体键”，固体键至少 7 个的原子是固体（ten Wolde、Ruiz-Montero、Frenkel 1996 的判据，参数同 1.x）。`solid_degree`、`bond_threshold`、`min_solid_bonds` 可改。结果 `solid_bonds`、`solid`，列 `solid`、`solid_bonds`。
+  - 邻居可以按数目、截断或 Voronoi（可按面积加权），和 q_l 用同一套；用的是不平均的 q_lm（和 freud 一样）。
+  - 验证：和 freud 3.6.1 的 `SolidLiquid` 逐原子一致（12 近邻和截断两种邻居；单精度在阈值 1e-5 以内的键允许不同）；四种邻居都和加法定理的 NumPy 参考完全一致；完美 fcc、bcc、hcp 全部键都是固体键；旋转、线程数不变；TSan、GCC -Werror 通过。
+  - 文档：Steinhardt 页面加了一节和图（下图：上半部分像液体的铜，按固体键数着色，界面在中间）；参考文献加了 ten Wolde 1996、Filion 2010（DOI 用 Crossref 核对过）。
+
+![](images/docs-steinhardt-solid.png)
+
+
+---
+
 # mdapy 2.0 夜间进展报告（2026-10-26 夜 → 27）
 
 本分支只放报告和图，不含代码。今晚的任务（你 19:45 的安排）：

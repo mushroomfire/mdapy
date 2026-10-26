@@ -8,6 +8,34 @@ potential.elements, potential.cutoff
 potential.write("CuNi.eam.alloy")
 ```
 
+The energy per atom of fcc copper and nickel against the lattice parameter,
+from the potential:
+
+```python
+import numpy as np
+
+from mdapy.build import build_crystal
+from mdapy.visualization import plot
+
+lattice = np.linspace(3.2, 4.4, 61)
+with plot.style():
+    fig, ax = plot.figure("single")
+    for element in potential.elements:
+        cells = [build_crystal("fcc", a, elements=element) for a in lattice]
+        energy = [potential.compute(cell, ("energy",)).energy / 4 for cell in cells]
+        ax.plot(lattice, energy, label=element)
+    ax.set_xlabel("Lattice parameter (Å)")
+    ax.set_ylabel("Energy (eV/atom)")
+    ax.legend()
+    plot.save(fig, "images/eam", formats=("png",))
+```
+
+![Binding curves of copper and nickel](images/eam.png)
+
+*The minima are the lattice parameters and cohesive energies of the
+potential, near the measured 3.615 Å and 3.52 Å; the curvature at the
+minimum gives the bulk modulus.*
+
 `EAM(path)` reads an embedded atom method potential in the `eam/alloy`
 (setfl) format of LAMMPS and computes every property.
 

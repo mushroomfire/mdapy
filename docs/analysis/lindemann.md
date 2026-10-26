@@ -25,6 +25,35 @@ result.running  # of the frames up to each one
 system = frames[0].with_columns(result)  # the column 'lindemann'
 ```
 
+The same cluster with atoms that wander away, as in a liquid, against the
+one that vibrates:
+
+```python
+from mdapy.visualization import plot
+
+steps = rng.normal(scale=0.15, size=(50, 30, 3))
+liquid = [
+    mp.System(sites + walk, box, elements="Ar") for walk in np.cumsum(steps, axis=0)
+]
+melted = LindemannIndex().compute(liquid)
+
+with plot.style():
+    fig, ax = plot.figure("single")
+    ax.plot(result.running, label="vibrating about sites")
+    ax.plot(melted.running, label="wandering away")
+    ax.axhline(0.1, color="0.5", linestyle="--")
+    ax.set_xlabel("Frame")
+    ax.set_ylabel("Lindemann index")
+    ax.legend()
+    plot.save(fig, "images/lindemann", formats=("png",))
+```
+
+![Running Lindemann index](images/lindemann.png)
+
+*The running index levels off for atoms that vibrate about their sites and
+keeps rising for atoms that wander away. The dashed line marks 0.1, about
+where the index of a solid stands when it melts.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

@@ -27,7 +27,7 @@
 - **QCP 是什么**（你之前问的）：给定两组对应的点，求让它们重合得最好的旋转（RMSD 最小），即 Horn 的四元数方法。QCP 用牛顿法求 4×4 矩阵的最大特征值，而不做完整对角化。PTM 用它算每个原子相对模板的取向和 RMSD。我们的实现是：牛顿迭代 + 伴随矩阵求特征向量，退化时退回 Jacobi 对角化。
 - 接下来做文档（图文并茂）。另外有一项本地工作的进展单独汇报，不放在 GitHub 上。
 
-### 22:10
+### 21:58
 - **晶粒分割（你说的 OVITO Grain Segmentation）完成，在新分支 `grain-segmentation`**（db464c7，已推送，等你审阅后再合入 v2）。
   - 接口：`mdapy.identify.GrainSegmentation(threshold=None, *, method="graph", min_grain_size=100, stacking_faults=True, adopt_orphans=True)`，`compute(system, ptm=..)` 返回 `GrainResult`：每个原子的 `grain`（从 0 开始，-1 表示不属于任何晶粒，和 OVITO 3.17 一致），以及每个晶粒的大小、结构、平均取向、质心、半径、回转半径、颜色，和合并序列（用来画选阈值的散点图）。
   - 算法完全按 OVITO 的步骤，C++ 自己写（`src/cpp/identify/grains.cpp`）：

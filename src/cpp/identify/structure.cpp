@@ -61,30 +61,41 @@ int lowest(std::uint32_t bits) {
 Signature signature(const std::uint32_t* bonds, int j) {
     const std::uint32_t common = bonds[j];
     // the loops run over the neighbors of a set, a handful at most
-    int total = 0;
+    int total = 0, most = 0;  // twice the bonds, and the most bonds of a neighbor
     for (std::uint32_t rest = common; rest != 0; rest &= rest - 1) {
-        total += count(bonds[lowest(rest)] & common);
+        const int degree = count(bonds[lowest(rest)] & common);
+        total += degree;
+        most = std::max(most, degree);
     }
-    // connected groups of the common neighbors joined by bonds
+    // the bonds in the largest connected group of them
     int chain = 0;
-    std::uint32_t left = common;
-    while (left != 0) {
-        std::uint32_t group = left & (~left + 1u);  // lowest remaining neighbor
-        std::uint32_t frontier = group;
-        while (frontier != 0) {
-            std::uint32_t next = 0;
-            for (std::uint32_t rest = frontier; rest != 0; rest &= rest - 1) {
-                next |= bonds[lowest(rest)] & common;
+    if (total == 0) {
+        // no bonds
+    } else if (most == 1) {
+        chain = 1;  // the bonds share no neighbor
+    } else if (total == 4) {
+        chain = 2;  // two bonds with a neighbor in common
+    } else {
+        // connected groups of the common neighbors joined by bonds
+        std::uint32_t left = common;
+        while (left != 0) {
+            std::uint32_t group = left & (~left + 1u);  // lowest remaining neighbor
+            std::uint32_t frontier = group;
+            while (frontier != 0) {
+                std::uint32_t next = 0;
+                for (std::uint32_t rest = frontier; rest != 0; rest &= rest - 1) {
+                    next |= bonds[lowest(rest)] & common;
+                }
+                frontier = next & ~group;
+                group |= next;
             }
-            frontier = next & ~group;
-            group |= next;
+            int inside = 0;
+            for (std::uint32_t rest = group; rest != 0; rest &= rest - 1) {
+                inside += count(bonds[lowest(rest)] & group);
+            }
+            chain = std::max(chain, inside / 2);
+            left &= ~group;
         }
-        int inside = 0;
-        for (std::uint32_t rest = group; rest != 0; rest &= rest - 1) {
-            inside += count(bonds[lowest(rest)] & group);
-        }
-        chain = std::max(chain, inside / 2);
-        left &= ~group;
     }
     return {count(common), total / 2, chain};
 }
@@ -112,6 +123,10 @@ Structure twelve(const double* v, double cutoff2) {
     bond_masks(v, 12, cutoff2, bonds);
     int n421 = 0, n422 = 0, n555 = 0;
     for (int j = 0; j < 12; ++j) {
+        const int common = count(bonds[j]);
+        if (common != 4 && common != 5) {
+            return kOther;
+        }
         const Signature s = signature(bonds, j);
         if (s.common == 4 && s.bonds == 2 && s.chain == 1) {
             ++n421;
@@ -138,6 +153,10 @@ Structure fourteen(const double* v, double cutoff2) {
     bond_masks(v, 14, cutoff2, bonds);
     int n444 = 0, n666 = 0;
     for (int j = 0; j < 14; ++j) {
+        const int common = count(bonds[j]);
+        if (common != 4 && common != 6) {
+            return kOther;
+        }
         const Signature s = signature(bonds, j);
         if (s.common == 4 && s.bonds == 4 && s.chain == 4) {
             ++n444;

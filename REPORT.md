@@ -10,6 +10,23 @@
 
 ## 进展
 
+### 10-27 01:05
+- solid-liquid 的 CI 已全部通过（run 40413472796）。
+- **第 2 件完成：文档“表面和滑移系”**（分支 `slip-systems`，1714066，已推送，CI 已开始跑）。新页面 Structure builder → Surfaces and slip systems：
+  - fcc/bcc/hcp/金刚石常用表面和滑移系的 `orientation` 表（都是右手系）；
+  - 用 Zhou EAM 算的表面能和广义层错能曲线（图，含 Cu 本征层错 25 mJ/m²）；
+  - 金刚石 shuffle/glide 两种 {111} 面怎么用 `height` 选（LAMMPS SW 势）。
+- **第 3 件进行中：表面网格**（分支 `surface-mesh`，未提交）。已完成：
+  - C++：从 Voronoi 顶点得到 Delaunay 四面体（沿用 DXA 分支的方法，并入现在的 Voronoi 主循环，没改动原来的计算），再做 alpha-shape、区域划分（周期像追踪）和 Taubin 平滑。
+  - `SurfaceMesh(radius=4, smoothing=8, regions=False, surface=False)` 给出网格、面积、固体体积；`regions=True` 给出固体/空区域，`voids` 是四面都被固体包住的空洞；`surface=True` 标记表面原子。
+  - 通用三角网格类 `mdapy.TriangleMesh`（带周期像），`pieces()` 把跨边界的三角形切开、移回盒子里；`render(mesh=...)` 可直接画。
+  - **和 OVITO 3.17 的 Construct surface mesh（alpha-shape）对比**：周期盒、旋转三斜盒、开放盒三种情况，平滑 0 和 8 两种，面积、固体体积、每个空洞的体积和面积、表面原子都一致（1e-9）。
+  - 完美晶格里有等价的四面体剖分（一个正方形可以沿任一对角线分），面积和体积不受影响，但平滑后的形状可能和 OVITO 略有不同（1e-4）；原子有热扰动时完全一致。文档里写明了。
+  - 和 OVITO 的一处不同：周期盒里平板上方的真空层，OVITO 也算作 void；我们标成 `periodic`，不算空洞。
+  - 测试、TSan、GCC -Werror、文档页（下图）都写好了，全量测试正在跑。左：三个空洞，每个一种颜色，跨角的那个被盒子切开、出现在八个角上；中：铜纳米颗粒的表面（未平滑）；右：平滑 8 步后。
+
+![](images/surface-mesh.png)
+
 ### 10-27 00:34
 - **晶粒分割已合入 v2**（91ad980，已推送；合并后全部 2122 个测试、ruff、文档 strict 通过）；远程分支 `grain-segmentation` 已按你的同意删除。
 - **第 1 件完成：q6 固液判别**（分支 `solid-liquid`，53c0e5b，已推送，CI 在跑）。

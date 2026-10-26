@@ -14,8 +14,13 @@
 | `planar-faults-draft` | 17.2：fcc 平面缺陷（基于 PTM），基于 v2 | 已推送（6fff237） |
 | `species-draft` | 17.3：化学产物（分子）识别；半径表移到 `mdapy.elements`，基于 v2 | 已推送（5030139） |
 | `graphene-draft` | 17.4：多晶晶界铺石墨烯，基于 v2 | 已推送（0f6451b） |
+| **`preview-2026-10-26`** | **以上全部合在一起（无冲突），2014 个测试、覆盖率、TSan、GCC、Python 3.11 最低依赖、文档 strict 全过** | 已推送（3cb7344） |
 
 ## 进展
+
+### 16:03
+- 预览分支 `preview-2026-10-26` 合并了今晚全部分支，本地全套检查通过（见上表）。CI 只在 v2 上跑，所以这些分支还没过 CI（Linux/Windows）；合入 v2 后会跑。
+- Analyses 性能页：整组在 Gold 6248 节点重跑完了，但固定截断 CNA（2M：0.173 s 对 OVITO 0.157 s）和原子应变（0.098 对 0.085）比之前 Gold 6230 上的结果（0.104 对 0.228、0.090 对 0.108）差很多，而这几项代码今晚没动过，像是节点差异；已提交同样几项重复两遍的复核任务（在排队），确认后再换页面上的表和结论。Voronoi 两行（默认 / 带面）已有：2M 0.92 s / 1.08 s，OVITO 23.8 s / 25.3 s，freud 38.7 s。
 
 ### 15:59
 - **化学产物**（`species-draft`）：`ChemicalSpecies(radii="covalent", *, scale=1.0, tolerance=0.45, cutoffs=None).compute(system)` → `molecule`（每原子，从 1 编号，按分子大小）、`formulas`（Hill 式：有 C 时 C、H 在前，否则按字母，所以氨是 `H3N`）、`sizes`、`counts()`（polars：formula、count）；`count(frames)` 给轨迹上每帧各产物的数目（宽表）。

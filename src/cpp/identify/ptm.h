@@ -3,8 +3,9 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
-// Polyhedral template matching (Larsen, Schmidt and Schiøtz 2016) with the
-// PTM library of P. M. Larsen as OVITO ships it, in identify/ptm/.
+// Polyhedral template matching (Larsen, Schmidt and Schiøtz 2016), with the
+// conventions of OVITO: its structure and ordering numbers, the order of the
+// template neighbors and the codes of their correspondences.
 
 #pragma once
 
@@ -57,8 +58,7 @@ struct PtmOutput {
 };
 
 // Matches every atom: first orders the neighbors of each atom by the faces
-// of its Voronoi cell, then matches the templates. Throws
-// std::runtime_error if the library fails.
+// of its Voronoi cell, then matches the templates.
 void polyhedral_template_matching(const PtmInput& input, const PtmOutput& output,
                                   const Control& control = {});
 

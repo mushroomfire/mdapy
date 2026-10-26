@@ -3,9 +3,9 @@
 `PolyhedralTemplateMatching` gives each atom the crystal structure of its
 neighborhood, the rotation of that crystal, its elastic deformation and the
 chemical ordering of its elements, by matching the polyhedron of its
-nearest neighbors to the templates of nine structures. It runs the PTM
-library of P. M. Larsen, the version that OVITO 3.17 ships, and gives the
-same results as OVITO, atom by atom.
+nearest neighbors to the templates of nine structures. mdapy implements
+the method of Larsen, Schmidt and Schiøtz itself and gives the same results
+as OVITO 3.17, atom by atom.
 
 ```python
 import numpy as np

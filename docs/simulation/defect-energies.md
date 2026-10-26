@@ -34,6 +34,25 @@ curve = stacking_fault_energy(layers, copper, [a * np.sqrt(6) / 2, 0, 0], points
 curve.energy[4]  # J/m², the intrinsic stacking fault at 1/6 [11-2]
 ```
 
+The curve, with `plot.stacking_fault`:
+
+```python
+from mdapy.visualization import plot
+
+with plot.style():
+    fig, ax = plot.figure("single")
+    plot.stacking_fault(curve, ax=ax)
+    plot.save(fig, "images/stacking-fault-energy", formats=("png",))
+```
+
+![Generalized stacking fault energy of copper](images/stacking-fault-energy.png)
+
+*The energy of copper slipped along [11-2] on (111), over a full lattice
+vector: the unstable stacking fault at the first maximum, the intrinsic
+stacking fault at the local minimum a third of the way along, and at two
+thirds the highest energy, with the atoms of the two halves on top of each
+other.*
+
 ## Parameters
 
 | Function | Parameters |

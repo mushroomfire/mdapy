@@ -32,10 +32,23 @@ pca = principal_components(old, n=2)
 pca.ratio  # fraction of the variance on each component
 with plot.style():
     fig, ax = plot.figure()
-    ax.scatter(*pca.projection.T, s=2, label="train")
-    ax.scatter(*pca.transform(new[chosen]).T, s=2, label="chosen")
+    ax.scatter(*pca.transform(new).T, s=4, color="0.75", label="candidates")
+    ax.scatter(*pca.projection.T, s=4, label="train")
+    ax.scatter(*pca.transform(new[chosen]).T, s=10, label="chosen")
+    ax.set_xlabel("Principal component 1")
+    ax.set_ylabel("Principal component 2")
     ax.legend()
+    plot.save(fig, "images/selection", formats=("png",))
 ```
+
+![Frames chosen by farthest point sampling](images/selection.png)
+
+*Silicon with a NEP model of GPUMD: a training set of slightly perturbed
+diamond crystals (blue) and 200 candidates in four groups, their atoms
+displaced by 0.05 to 0.4 Å (grey, from the top down; the strains of the
+first group spread it sideways). Farthest point sampling takes most of the
+50 from the group displaced most, farthest from the training set and from
+one another, and a few from each of the others.*
 
 ## Parameters
 

@@ -12,8 +12,20 @@
 | `qha-draft` | 17.1 第二步：准简谐近似，基于 phonons-draft | 已推送（0c8ffc8） |
 | `md-draft` | 17.1 第三步：LAMMPS 分子动力学会话 `MolecularDynamics`，基于 qha-draft | 已推送（3949d50） |
 | `planar-faults-draft` | 17.2：fcc 平面缺陷（基于 PTM），基于 v2 | 已推送（6fff237） |
+| `species-draft` | 17.3：化学产物（分子）识别；半径表移到 `mdapy.elements`，基于 v2 | 已推送（5030139） |
+| `graphene-draft` | 17.4：多晶晶界铺石墨烯，基于 v2 | 已推送（0f6451b） |
 
 ## 进展
+
+### 15:59
+- **化学产物**（`species-draft`）：`ChemicalSpecies(radii="covalent", *, scale=1.0, tolerance=0.45, cutoffs=None).compute(system)` → `molecule`（每原子，从 1 编号，按分子大小）、`formulas`（Hill 式：有 C 时 C、H 在前，否则按字母，所以氨是 `H3N`）、`sizes`、`counts()`（polars：formula、count）；`count(frames)` 给轨迹上每帧各产物的数目（宽表）。
+  - 成键：d < scale·(r_i + r_j) + tolerance。默认共价半径 + 0.45 Å（Jmol/OpenBabel 的规则，也和 mdapy 渲染画的键一致）；`radii="vdw", scale=0.6, tolerance=0` 就是 VMD 的规则（1.x 用的 vdW×0.6 也能这样得到）；可以按元素手给半径，或按元素对给键长（0 表示不成键）。
+  - 共价半径（Cordero 2008）和 vdW 半径（Alvarez 2013）从 `visualization` 移到 `mdapy.elements`（`COVALENT_RADII`、`VDW_RADII`、`covalent_radii()`、`vdw_radii()`），渲染改为从这里读。
+  - 验证：与暴力并查集、ASE（natural_cutoffs + 连通分量、Hill 式）现场对比一致。还没做同分异构体区分（问题 7）。
+- **石墨烯晶界**（`graphene-draft`）：`add_graphene(polycrystal, *, layers=1, coverage=1.0, clearance=2.0, bond=1.42, spacing=3.35, seed=None)`。`build_polycrystal` 现在把种子放进 `info["seeds"]`；每个晶界面（两晶粒 Voronoi 胞的公共面，含晶粒与自身周期像的面）只铺一次，石墨烯在面内随机转角、随机平移，按多边形裁剪；多层 AB 堆垛、以面为中心；`coverage` 按面积随机选整面；面与面交界处距离 < 0.85 键长的碳只留先铺的；离碳 < clearance 的金属原子删掉。与 1.x 比：不再每面铺两次再去重、结果与线程无关、支持任意多层和部分覆盖、单/多元素都行。
+  - 单层时约 86% 的碳是 3 配位，交界处有悬键和少数过近的碳——这就是问题 8：要不要做弯曲/连接，或者之后用势函数弛豫。
+
+![铜多晶（6 晶粒，切开一半）铺石墨烯：单层全覆盖、双层全覆盖、单层覆盖一半面积](images/43_graphene_polycrystal.png)
 
 ### 15:45
 - **建模性能页**（`faster-crystal`，d481eda）：Triton 新结果，单晶建模+写文件 2M 原子 1.23 s → 0.29 s，比 Atomsk 快 16–28 倍（原来 4.5–17 倍）；多晶 4.1 s 对 9.6 s。

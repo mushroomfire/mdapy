@@ -27,6 +27,29 @@
 - **QCP 是什么**（你之前问的）：给定两组对应的点，求让它们重合得最好的旋转（RMSD 最小），即 Horn 的四元数方法。QCP 用牛顿法求 4×4 矩阵的最大特征值，而不做完整对角化。PTM 用它算每个原子相对模板的取向和 RMSD。我们的实现是：牛顿迭代 + 伴随矩阵求特征向量，退化时退回 Jacobi 对角化。
 - 接下来做文档（图文并茂）。另外有一项本地工作的进展单独汇报，不放在 GitHub 上。
 
+### 22:10
+- **晶粒分割（你说的 OVITO Grain Segmentation）完成，在新分支 `grain-segmentation`**（db464c7，已推送，等你审阅后再合入 v2）。
+  - 接口：`mdapy.identify.GrainSegmentation(threshold=None, *, method="graph", min_grain_size=100, stacking_faults=True, adopt_orphans=True)`，`compute(system, ptm=..)` 返回 `GrainResult`：每个原子的 `grain`（从 0 开始，-1 表示不属于任何晶粒，和 OVITO 3.17 一致），以及每个晶粒的大小、结构、平均取向、质心、半径、回转半径、颜色，和合并序列（用来画选阈值的散点图）。
+  - 算法完全按 OVITO 的步骤，C++ 自己写（`src/cpp/identify/grains.cpp`）：
+    - 用 PTM 的模板近邻建图；
+    - fcc/hcp 共格界面（层错、孪晶界）的少数相原子按最小取向差逐个转到母相；
+    - 节点对采样层次聚类，按 log 合并距离对 log 合并大小做最小绝对偏差回归，自动选阈值；也可选最小生成树；
+    - 最小晶粒尺寸；孤立原子沿键归到最近的晶粒；
+    - 跨周期边界展开后算质心和半径。
+  - **和 OVITO 3.17 逐原子比对**：fcc 多晶、孪晶多晶、bcc 多晶、金刚石 Si 多晶，每种 5 组选项（默认、不归属孤立原子、不处理层错、手动阈值、最小生成树），晶粒编号、大小、结构、取向（单精度内）全部一致；非周期体系的质心、半径、回转半径到 1e-6。
+  - **一个需要你确认的决定**：OVITO 把 PTM 取向存成 float32。在孪晶界上，有些 hcp 原子到两侧的取向差几乎相等（在 float32 舍入的量级上）。一个原子在这里选了另一侧，会沿孪晶界一路传播，结果有十几个原子不同。所以我在 `compute` 里先把取向舍入到单精度再计算，结果就和 OVITO 完全一致；选择本来是任意的，对精度没有影响。文档的 Definition 一节写明了这一点。不同意的话删掉一行即可。
+  - 有一点和 OVITO 一样：如果晶粒绕周期边界连成环，它的质心没有定义（OVITO 手册也这么说）。所以测试里质心用非周期体系和 OVITO 比；跨边界的展开另用一个放在盒子角上的球形晶粒，和 NumPy 的最小镜像平均比。
+  - 速度：18 万原子约 0.7 s（PTM 另需 0.27 s），和 OVITO 同一量级。
+  - 文档：新页面 Analysis → Structure identification → Grain segmentation，带着色图和合并散点图；参考文献加了 Bonald 2018、Panzarino 2014、Hoffrogge 2017（DOI 都核实过）；API 页顺便补上了漏掉的 PlanarFaults。
+  - 检查全过：2121 个测试（新增 35 个，`_grains.py` 覆盖率 98%）、ruff、mkdocs strict、TSan、GCC -Werror、Python 3.11。
+- **文档配图又加了两页**（d80030e，已在 v2）：选择原子（四种选择）和近邻（一个原子的 12 个最近邻，含跨周期边界的）。
+
+| | |
+|---|---|
+| ![](images/grains.png) | ![](images/grain-merges.png) |
+
+![](images/docs-selecting.png)
+
 ### 21:15
 - **文档配图已合入 v2**（8f69b11，已推送）：28 个页面加了图，共 29 张新图。
   - 建模：晶体（8 种结构）、多晶（按晶粒、孪晶界、柱状晶）、随机合金、SQS、缺陷（空位、层错、表面）、位错（螺位错；刃位错弛豫后分解成两个 Shockley 不全位错）。

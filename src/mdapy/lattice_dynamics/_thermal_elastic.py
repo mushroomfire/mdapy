@@ -15,7 +15,12 @@ from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
-from mdapy.lattice_dynamics._phonons import _default_supercell, _phonons, _read_only
+from mdapy.lattice_dynamics._phonons import (
+    _default_supercell,
+    _phonons,
+    _read_only,
+    _supercell_matrix,
+)
 from mdapy.lattice_dynamics._quasi_harmonic import QuasiHarmonicResult
 from mdapy.simulation._minimize import minimize
 
@@ -207,12 +212,17 @@ def thermal_elastic_constants(
     curvatures = []  # per cell: (6, 6, T) in eV/Å³
     keys = {_key(voigt, strain) for voigt in stencil}
     for cell in cells:
-        rotations = _rotations(cell, symmetry)
         # the strained cells keep the supercell and the periodic images of
         # the cell, so that their free energies change smoothly with strain
         matrix = supercell
         if matrix is None:
             matrix = _default_supercell(cell.box.matrix, 2 * calculator.cutoff)
+        # strains related by the rotations that keep the supercell and the
+        # mesh of the phonons have the same free energy
+        lattices = []
+        if method == "quasi-harmonic":
+            lattices = [_supercell_matrix(matrix), np.diag(np.broadcast_to(mesh, 3))]
+        rotations = _rotations(cell, symmetry, *lattices)
         values = {}
         for voigt in stencil:
             if _key(voigt, strain) in values:

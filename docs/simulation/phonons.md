@@ -51,9 +51,9 @@ with plot.style():
 The calculator computes the forces on the supercell six times for each
 atom of the cell, so the primitive cell is the cheapest: one atom of fcc
 copper takes 6 computations, its cubic cell of four atoms 24. With the
-symmetry of the cell, one atom of each set of equivalent atoms moves, along
-the fewest axes whose images under the operations that keep it in place
-span space, and by $-h$ only where no such operation turns the axis around:
+symmetry of the cell, through the operations that map the supercell onto
+itself, one atom of each set of equivalent atoms moves, along the fewest
+axes whose images under the operations that keep it in place span space, and by $-h$ only where no such operation turns the axis around:
 fcc and bcc take one computation, cubic cell or primitive cell, hcp 2 and
 L1<sub>2</sub> 3; the forces of the other displacements are images of
 these. The force constants are the same to rounding where the operations

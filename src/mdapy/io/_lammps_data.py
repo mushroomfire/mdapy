@@ -661,13 +661,12 @@ def _number(value: float) -> str:
 
 def _per_type(values: np.ndarray, types: np.ndarray, name: str) -> dict[int, Any]:
     """The value of each type, checking that all atoms of a type agree."""
-    result: dict[int, Any] = {}
-    for t in np.unique(types):
-        group = values[types == t]
-        if any(v != group[0] for v in group[1:]):
-            raise InvalidParameter(f"atoms of type {t} have different {name} values")
-        result[int(t)] = group[0].item() if hasattr(group[0], "item") else group[0]
-    return result
+    pairs = pl.DataFrame({"type": types, "value": values}).unique()
+    repeated = pairs.filter(pl.col("type").is_duplicated())
+    if len(repeated):
+        t = repeated["type"].min()
+        raise InvalidParameter(f"atoms of type {t} have different {name} values")
+    return {int(t): value for t, value in pairs.iter_rows()}
 
 
 def _box_lines(
@@ -730,11 +729,12 @@ def _atom_types(
         types = table["type"].to_numpy().astype(np.int64)
         named = {}
         if "element" in table.columns:
-            symbols = table["element"].cast(pl.String).to_numpy()
-            for t in np.unique(types):
-                found = np.unique(symbols[types == t])
-                if len(found) == 1 and found[0] != "X":
-                    named[int(t)] = str(found[0])
+            # the elements of each type, from the pairs that occur
+            pairs = table.select("type", "element").unique()
+            found = pairs.group_by("type").agg(pl.col("element").first(), pl.len())
+            for t, symbol, count in found.iter_rows():
+                if count == 1 and symbol != "X":
+                    named[int(t)] = str(symbol)
         return types, named
     if "element" not in table.columns:
         if elements is not None:
@@ -796,7 +796,7 @@ def _plan(system: System, atom_style, units, elements, triclinic) -> dict[str, A
     n = len(table)
     if "id" in table.columns:
         ids = table["id"].to_numpy().astype(np.int64)
-        if np.any(ids < 1) or len(np.unique(ids)) != n:
+        if np.any(ids < 1) or table["id"].n_unique() != n:
             raise InvalidParameter("atom IDs must be positive and unique")
     else:
         ids = np.arange(1, n + 1, dtype=np.int64)

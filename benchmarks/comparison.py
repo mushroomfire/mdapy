@@ -740,14 +740,37 @@ def _build_polycrystal_atomsk(inputs: dict) -> Callable:
 
 
 def _same_polycrystal(ours, theirs, inputs) -> None:
-    """The same box, and as many atoms within 0.5 %: the grains have the
-    same seeds and orientations, but each program places their lattices in
-    its own way."""
+    """The same box, as many atoms within 0.5 %, and in each grain the same
+    lattice: away from the faces of its cell, the atoms of Atomsk are those
+    of mdapy moved by one vector, since each program places the lattice of
+    a grain in its own way."""
+    from mdapy._core import neighbor as search
+
     import mdapy
 
     mine, other = mdapy.read(ours), mdapy.read(theirs)
     np.testing.assert_allclose(other.box.matrix, mine.box.matrix, atol=1e-6)
     assert abs(len(other) - len(mine)) <= 0.005 * len(mine), (len(other), len(mine))
+    box = mine.box
+    frame = tuple(np.ascontiguousarray(a) for a in (box.matrix, box.origin, box.pbc))
+    theirs_at = np.ascontiguousarray(other["positions"])
+    seeds = search.KdTree(np.ascontiguousarray(inputs["seeds"]), *frame)
+    grain, _, d = seeds.nearest(theirs_at, 2)
+    inside = d[:, 1] - d[:, 0] > 4.0
+    atoms = search.KdTree(np.ascontiguousarray(mine["positions"]), *frame)
+    j, shift, _ = atoms.nearest(theirs_at, 1)
+    # from each atom of Atomsk to the nearest atom of mdapy
+    moved = mine["positions"][j[:, 0]] + shift[:, 0] @ box.matrix - theirs_at
+    checked = 0
+    for g in range(len(inputs["seeds"])):
+        here = moved[(grain[:, 0] == g) & inside]
+        if len(here):  # small grains may have no atom away from their faces
+            spread = np.ptp(here, axis=0).max()
+            assert spread < 1e-6, (
+                f"grain {g}: the atoms move by vectors {spread} Å apart"
+            )
+            checked += 1
+    assert checked > 0, "no grain has atoms away from its faces"
 
 
 def _builder_cases() -> dict[str, Case]:

@@ -160,23 +160,24 @@ def build_polycrystal(
         np.ascontiguousarray(box.pbc),
     )
     tree = _search.KdTree(np.ascontiguousarray(seeds), *frame)
-    # how far a grain may reach: beyond the farthest seed of its neighbors
+    # how far a grain reaches from its seed: to the farthest corner of its
+    # Voronoi cell, and a cell of unit more
     if count > 1:
-        _, _, far = tree.nearest(np.ascontiguousarray(seeds), min(count, 27))
-        reach = far.max(axis=1)
+        from mdapy.analysis import VoronoiAnalysis
+
+        reach = VoronoiAnalysis().compute(System(seeds, box)).radius.copy()
     else:
-        reach = np.full(1, 0.0)
-    reach = np.maximum(reach, 0.5 * np.linalg.norm(box.matrix.sum(axis=0)))
+        reach = np.full(1, 0.5 * np.linalg.norm(box.matrix.sum(axis=0)))
     reach += np.linalg.norm(unit.box.matrix.sum(axis=0))
     cell = unit.box.matrix
     sites = unit.box.to_fractional(unit["positions"])
     sites -= np.floor(sites)
-    names = (
+    names = np.asarray(
         unit.table["element"].to_list()
         if "element" in unit.table.columns
         else ["X"] * len(unit)
     )
-    positions, grain, elements = [], [], []
+    positions, grain, kinds = [], [], []
     for g in range(count):
         # the cells of unit within reach: 1 / |column of inv(cell)| is the
         # spacing of the lattice planes of each vector
@@ -200,7 +201,7 @@ def build_polycrystal(
         inside = own <= closest[:, 0] + 1e-9 * nearest
         positions.append(points[inside])
         grain.append(np.full(int(inside.sum()), g))
-        elements += [names[k % len(names)] for k in np.flatnonzero(inside)]
+        kinds.append(np.flatnonzero(inside) % len(names))  # the site of unit
     wrapped, _ = box.wrap(np.concatenate(positions))
     grain = np.concatenate(grain)
     keep = np.ones(len(wrapped), dtype=bool)
@@ -210,7 +211,7 @@ def build_polycrystal(
         for i, j in zip(first[first < second], second[first < second]):
             if keep[i] and keep[j]:
                 keep[j] = False
-    elements = np.array(elements, dtype=object)[keep].tolist()
+    elements = names[np.concatenate(kinds)[keep]]
     return System(wrapped[keep], box, elements=elements).with_columns(grain=grain[keep])
 
 

@@ -8,15 +8,34 @@
 |---|---|---|
 | `voronoi-outputs` | Voronoi 的面按需返回（`faces=True`），默认只算体积、配位数、空腔半径 | 已推送（f91b193），Triton 计时中 |
 | `faster-crystal` | `build_crystal` 不再对 200 万原子排序，元素列不经 Python 字符串 | 已推送（16bb0db），Triton 排队中 |
-| `phonons-draft` | 计划 17.1 的第一步：简谐声子（力常数、色散、DOS、热力学量）、原胞 | 已推送（2209c07） |
-| `qha-draft` | 17.1 第二步：准简谐近似，基于 phonons-draft | 已推送（0c8ffc8） |
-| `md-draft` | 17.1 第三步：LAMMPS 分子动力学会话 `MolecularDynamics`，基于 qha-draft | 已推送（3949d50） |
-| `planar-faults-draft` | 17.2：fcc 平面缺陷（基于 PTM），基于 v2 | 已推送（6fff237） |
-| `species-draft` | 17.3：化学产物（分子）识别；半径表移到 `mdapy.elements`，基于 v2 | 已推送（5030139） |
-| `graphene-draft` | 17.4：多晶晶界铺石墨烯，基于 v2 | 已推送（0f6451b） |
-| **`preview-2026-10-26`** | **以上全部合在一起（无冲突），2014 个测试、覆盖率、TSan、GCC、Python 3.11 最低依赖、文档 strict 全过** | 已推送（61b2dfa） |
+| `phonons-draft` | 计划 17.1 的第一步：简谐声子（力常数、色散、DOS、热力学量）、原胞、超胞矩阵、自动路径、能带连接、band.dat | 已推送（0b2cd92） |
+| `qha-draft` | 17.1 第二步：准简谐近似（定体积弛豫形状）、有限温度弹性常数，基于 phonons-draft | 已推送（04e7fc1） |
+| `md-draft` | 17.1 第三步：LAMMPS 分子动力学会话 `MolecularDynamics`、MD 弹性常数，基于 qha-draft | 已推送（e1ff9cc） |
+| `planar-faults-draft` | 17.2：fcc 平面缺陷（基于 PTM）、外禀层错，基于 v2 | 已推送（496ac65） |
+| `species-draft` | 17.3：化学产物（分子）识别，Jmol 规则默认、VMD/OVITO 规则选项，基于 v2 | 已推送（1d2ff99） |
+| `graphene-draft` | 17.4：多晶晶界铺石墨烯，基于 v2 | 已推送（897170c） |
+| **`preview-2026-10-26`** | **以上全部合在一起，2054 个测试、覆盖率（每个文件达标）、TSan、GCC、Python 3.11 最低依赖、文档 strict 全过** | 已推送（45c4844） |
 
 ## 进展
+
+### 17:25
+- **超胞**（`phonons-draft` 7f743cf）：`supercell` 可以是整数、三个整数或 3×3 整数矩阵（行 × 晶胞）。默认按“接近立方”取整数矩阵：立方度 ≥ 最好值的 0.95 中取行列式最小的；铜常规胞得到 4×4×4，原胞得到非对角矩阵（与常规胞同形）。修了一个非对角超胞的问题：格点列表原点必须排第一，否则出现 −7 THz 的假虚频。
+- **虚频**：`dos` 照常给出（虚频画成负频率），`thermal` 遇到 < −0.01 THz 报错。
+- **自动路径**：`band_structure("auto")` 用 seekpath（可选依赖，HPKOT 约定）取路径，换算到我们的倒格子；也可按晶格名（"fcc"、"bcc"、"hcp" 等，Setyawan–Curtarolo）或手给。`connected=True` 按本征矢重叠连接能带（简并组保留之前的参考向量），交叉的支不会被按大小排序打断。画图时同一点的断点（如 fcc 的 U|K）合并成一个刻度、线段在这里断开。
+- **band.dat**：`BandStructure.write(path)` 与 phonopy 的 band.dat 同格式（表头段端点、每段 101 行、空行分隔），`read_band_structure(path)` 读回，可以直接读你 VASP+phonopy 的结果。
+- **CrCoNi 声子**（你的 DFT 数据）：Cr（bcc）、Co（hcp）、Ni（fcc）的 NEP 色散与 DFT、实验画在一起（图 46）。与 1.x 的差 0.02–0.04 THz 来自超胞大小（我们默认 5×5×5，1.x 6×6×6；同超胞差 1e-3 THz）。另外发现你 notebook 里 Cr 和 Co 的 DFT 频率被乘了 dis/dis1（应该缩放横坐标）。
+- **QHA 弛豫形状**（`qha-draft` 1ce4766）：每个体积先等比缩放，再在定体积下整体弛豫晶胞（`minimize(cell="full")`，压强取缩放后盒子的压强，反复到体积误差 < 1e-6）；hcp 的 c/a 随体积自然变化（测试里验证了）。也可以给一组压强。
+- **有限温度弹性常数**：`thermal_elastic_constants(qha, calculator, method="quasi-harmonic"|"quasi-static")`，默认完整 QHA（应变后的晶胞也算声子）。73 点差分得 ∂²(E+F_vib)/∂η²，在 V(T) 插值，加 Birch 压强修正，给等温和绝热（C^S = C^T + TVλλᵀ/C_V）两套。
+- **MD 弹性常数**（`md-draft` e1ff9cc）：`md_elastic_constants(system, potential, T)`，与 LAMMPS examples/ELASTIC/T 同法：NPT 得平均盒子，±应变各做 NVT 平均应力，块平均给标准误差。
+- **化学产物**（`species-draft` 1d2ff99）：`ChemicalSpecies("vdw")` 就是 VMD/OVITO 的规则（0.6×vdW 半径，不加容差，H–H 不成键，可用 cutoffs 恢复）；默认仍是 Jmol（共价半径 + 0.45 Å）。与 OVITO 的 Create bonds（VdW 模式）+ 团簇分析逐原子对比一致（周期、旋转、非周期盒子，有无 H–H）。VMD 和 OVITO 各有自己的 vdW 半径表，同样的半径下键相同。
+- **CrCoNi 有限温度弹性常数**（NEP，你的 108 原子 SQS，超胞 1、网格 4）：完整 QHA 的剪切模量在 300–1000 K 与实验差 ≤ 1 GPa，杨氏模量差 2–4 GPa；准静态高温偏硬。1.x 低温比我们高约 10%：查了 1.x 的 `QHAElastic`，应变后原子不弛豫、各体积只是等比缩放，SQS 里这样偏硬（静态：不弛豫 C11 = 303 GPa，弛豫 288.6 GPa；1.x 0 K 给 298）。我们能量二阶导与应力法在静态晶胞上完全一致（288.6/183.7/143.8）。0 K 的 C11 是 281–283 而不是 288.6，是零点膨胀 0.5% 造成的（体积与 1.x 一致）。
+- **MD 验证**：LAMMPS 的 NEP（KOKKOS）已编进本地 LAMMPS；Triton 上正在编 CUDA 版（V100+A100 双架构、带 Python），编好后在 GPU 上算 300–1000 K 的 MD 弹性常数（6912 原子），加到图 47 里。
+
+![fcc Cu 交叉的支：按大小排序（左）与按本征矢连接（右）](images/45_phonons_connected.png)
+
+![CrCoNi 的 Cr、Co、Ni 声子色散：mdapy（NEP）与 DFT、实验](images/46_crconi_phonons.png)
+
+![CrCoNi（NEP）绝热 VRH 模量随温度：mdapy 2 完整 QHA、准静态，1.x，实验与 DFT](images/47_crconi_elastic.png)
 
 ### 16:29（你回来后）
 - **phonopy 对比**（`phonons-draft`，已合并到 qha/md/预览）：与 phonopy 4.8.6 用同一个势的力现场对比，fcc 立方胞、fcc 原胞、L1₂ Cu₃Ni：力常数 1e-4、任意 q 频率 1e-4 THz、色散、热力学量 1e-5、四面体 DOS、投影 DOS 一致。原胞上的差别是 phonopy 用对称性只沿 [110] 位移带来的 O(h²)（h 缩小 5 倍，差别缩小 25 倍）。phonopy 开网格对称性时它自己的四面体 DOS 会变，我们和它不开对称性的结果逐点一致。phonopy 已加进 CI。

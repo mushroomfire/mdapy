@@ -106,7 +106,7 @@
 - 时间主要花在本地工作上，进展单独汇报。
 
 ### 23:37
-- **`grain-segmentation` 分支跑了一遍 CI**（手动触发 Tests 工作流，[运行记录](https://github.com/mushroomfire/mdapy/actions/runs/40402977668)）：之前这个分支只在本机测过，CI 只对 v2/master 的推送自动运行。目前 Linux（Python 3.11、3.14）、macOS、Windows、64 位索引、ThreadSanitizer、覆盖率、ruff 全部通过；AddressSanitizer 还在跑，结果下一条补上。
+- **`grain-segmentation` 分支跑了一遍 CI**（手动触发 Tests 工作流，[运行记录](https://github.com/mushroomfire/mdapy/actions/runs/40402977668)）：之前这个分支只在本机测过，CI 只对 v2/master 的推送自动运行。Linux（Python 3.11、3.14）、macOS、Windows、64 位索引、AddressSanitizer、ThreadSanitizer、覆盖率、ruff **全部通过**（AddressSanitizer 是后来补上的结果）。
 - v2 最新提交（03f2059）的 CI 也已全部通过。
 - 本地工作的进展单独汇报。
 

@@ -1,7 +1,7 @@
 # Graphene on grain boundaries
 
 `mdapy.build.add_graphene(polycrystal, *, layers=1, coverage=1.0,
-clearance=2.0, bond=1.42, spacing=3.35, seed=None)` puts graphene on the
+clearance=3.0, bond=1.42, spacing=3.35, seed=None)` puts graphene on the
 grain boundaries of a polycrystal from
 [`build_polycrystal`](polycrystals.md): one or more layers on each face
 between two grains, or on a fraction of them.
@@ -25,14 +25,16 @@ boundaries.*
 | `polycrystal` | `System` | | | a polycrystal from `build_polycrystal`, with `info["seeds"]` and a `grain` column |
 | `layers` | int | 1 | | the number of graphene layers on each face, AB stacked and centered on it |
 | `coverage` | float | 1 | | the fraction of the area of the boundaries covered, from 0 to 1 |
-| `clearance` | float | 2.0 | Å | atoms of the polycrystal closer than this to a carbon atom are removed |
+| `clearance` | float | 3.0 | Å | atoms of the polycrystal closer than this to a carbon atom are removed, about the distance of graphene from copper |
 | `bond` | float | 1.42 | Å | the carbon–carbon bond of graphene |
 | `spacing` | float | 3.35 | Å | the distance between graphene layers |
 | `seed` | int or `Generator` | | | seed of the faces chosen and of the orientations of the graphene |
 
 Each face between two grains, the face of their Voronoi cells, is covered
 once by a flat piece of graphene, rotated at random about the normal of
-the face, shifted at random within it, and cut to the face. With
+the face, shifted at random within it, and cut to the face; where two
+faces meet, a layer off the middle ends where the planes halfway between
+them cross, so that the layers of the two faces meet there. With
 `coverage` below 1, whole faces are covered in a random order until that
 fraction of the boundary area is. Where faces meet, the carbon atoms of a
 later face closer than 0.85 bond lengths to those of an earlier one are

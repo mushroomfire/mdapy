@@ -27,6 +27,7 @@ classifiers = [
 [project.optional-dependencies]
 plot = ["matplotlib>=3.8"]
 ase = ["ase>=3.22"]
+symmetry = ["spglib>=2.5", "seekpath>=2.1"]
 dev = [
     "pytest>=8",
     "pytest-cov>=5",
@@ -35,6 +36,7 @@ dev = [
     "ruff>=0.6",
     "matplotlib>=3.8",
     "ase>=3.22",
+    "spglib>=2.5",
 ]
 docs = [
     "mkdocs>=1.6,<2",

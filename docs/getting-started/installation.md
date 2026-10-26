@@ -39,6 +39,7 @@ python -c "import mdapy; print(mdapy.index_dtype)"   # int64
 |---|---|---|
 | `plot` | matplotlib | plotting helpers |
 | `ase` | ASE | conversion to and from ASE |
+| `symmetry` | spglib, seekpath | space groups, phonons and elastic constants from fewer computations, automatic band paths |
 | `dev` | pytest, pytest-cov, pytest-xdist, coverage, ruff | running the tests |
 | `docs` | MkDocs Material, mkdocstrings | building this site |
 

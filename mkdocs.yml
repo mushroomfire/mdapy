@@ -125,6 +125,7 @@ nav:
           - CHILL+: analysis/chill-plus.md
           - Centro-symmetry parameter: analysis/csp.md
           - Common neighbor parameter: analysis/cnp.md
+          - Space group: analysis/space-group.md
       - Local order and distributions:
           - Radial distribution function: analysis/rdf.md
           - Coordination number: analysis/coordination.md

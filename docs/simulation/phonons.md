@@ -46,10 +46,21 @@ with plot.style():
 | `calculator` | `Calculator` | | | computes the forces |
 | `supercell` | int, 3 ints or (3, 3) ints | | | repeats of the cell along its vectors, or the integer matrix whose rows times the vectors of the cell are the vectors of the supercell; by default the supercell nearest a cube that is at least twice the cutoff of the calculator thick in every direction |
 | `displacement` | float | 0.01 | Å | the displacement $h$ of the atoms |
+| `symmetry` | bool or None | `None` | | move only the atoms and along the axes that symmetry does not relate to others, with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
 
 The calculator computes the forces on the supercell six times for each
 atom of the cell, so the primitive cell is the cheapest: one atom of fcc
-copper takes 6 computations, its cubic cell of four atoms 24. The default
+copper takes 6 computations, its cubic cell of four atoms 24. With the
+symmetry of the cell, one atom of each set of equivalent atoms moves, along
+the fewest axes whose images under the operations that keep it in place
+span space, and by $-h$ only where no such operation turns the axis around:
+fcc and bcc take one computation, cubic cell or primitive cell, hcp 2 and
+L1<sub>2</sub> 3; the forces of the other displacements are images of
+these. The force constants are the same to rounding where the operations
+turn axes onto axes, as in cubic crystals; where they turn them by 60°, as
+in hcp, they differ by the error of the differences, of the order of
+$h^2$. A crystal without symmetry, such as a special quasirandom
+structure, gains nothing. The default
 supercell is built from the cell whatever its shape: the primitive cell of
 fcc gives a cube of 4 × 4 × 4 cubic cells for a cutoff of 5.5 Å, the same
 supercell as the cubic cell gives. The force constants of a supercell reach
@@ -170,8 +181,9 @@ exist.
 `phonons` raises `InvalidParameter` for a box that is not periodic in every
 direction or has no atoms, an atom with neither element nor mass, a
 calculator that does not compute forces, a supercell that is not positive
-integers or a matrix of integers with a positive determinant, and a
-displacement that is not positive; `primitive_cell` for a box that is not
+integers or a matrix of integers with a positive determinant, a
+displacement that is not positive, and `symmetry=True` without spglib;
+`primitive_cell` for a box that is not
 periodic. `frequencies` and `modes` raise it for wave vectors that are not
 three numbers each; `band_structure` for an unknown lattice, a cell that
 is not that lattice in the standard orientation, a section of fewer than

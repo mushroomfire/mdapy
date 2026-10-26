@@ -57,6 +57,7 @@ default nine volumes it is good to about 1 %.
 | `max_force` | float | 1e-6 | eV/Å | convergence of the relaxation at each volume |
 | `max_stress` | float | 1e-4 | GPa | convergence of the relaxation of the box |
 | `max_steps` | int | 5000 | | largest number of steps of each relaxation |
+| `symmetry` | bool or None | `None` | | use the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md), in the phonons, as in [`phonons`](phonons.md): `True`, `False`, or by default whenever spglib is installed |
 
 ## Results
 

@@ -76,7 +76,10 @@ def test_adiabatic_constants(copper, constants):
     np.testing.assert_array_equal(constants.adiabatic[0], constants.isothermal[0])
     # shears are the same; the bulk modulus grows by C_P / C_V
     np.testing.assert_allclose(
-        constants.adiabatic[:, 3:, 3:], constants.isothermal[:, 3:, 3:], rtol=1e-9
+        constants.adiabatic[:, 3:, 3:],
+        constants.isothermal[:, 3:, 3:],
+        rtol=1e-9,
+        atol=1e-12,
     )
     for k in (1, 2):
         t, v = qha.temperatures[k], qha.volume[k]

@@ -13,6 +13,7 @@ from numpy.typing import ArrayLike
 
 from mdapy import units
 from mdapy._core import neighbor as _search
+from mdapy.analysis._symmetry import _Operations, _symmetry
 from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
@@ -600,7 +601,12 @@ class Phonons:
         supercell: np.ndarray,
         force_constants: np.ndarray,
         masses: np.ndarray,
+        reference: System | None = None,
     ):
+        # reference: the same atoms in the same order, whose geometry picks
+        # the periodic images that the force constants of each pair go to;
+        # strained copies of a crystal take the unstrained one, so that
+        # their frequencies change smoothly with the strain
         self.cell = cell
         self.supercell = np.array(supercell, dtype=int)
         self.supercell.flags.writeable = False
@@ -608,29 +614,30 @@ class Phonons:
         self.force_constants.flags.writeable = False
         n = len(cell)
         matrix = cell.box.matrix
-        positions = cell["positions"]
         repeats = _lattice_points(self.supercell)
-        atoms = (repeats @ matrix)[:, None, :] + positions[None]  # (S, n, 3)
-        atoms = atoms.reshape(-1, 3)
+        grid = np.stack(np.meshgrid(*[np.arange(-2, 3)] * 3, indexing="ij"), -1)
+
+        def images(geometry: System, a: int) -> np.ndarray:
+            """(M, 125, 3) the vectors from atom a to the images of each
+            atom of the supercell."""
+            box, positions = geometry.box.matrix, geometry["positions"]
+            atoms = ((repeats @ box)[:, None, :] + positions[None]).reshape(-1, 3)
+            shifts = grid.reshape(-1, 3) @ (self.supercell @ box)
+            return (atoms - positions[a])[:, None, :] + shifts[None]
+
         # each pair at its shortest distances in the supercell, shared
         # equally among the images that are as short
-        lattice = self.supercell @ matrix
-        shifts = (
-            np.stack(np.meshgrid(*[np.arange(-2, 3)] * 3, indexing="ij"), -1).reshape(
-                -1, 3
-            )
-            @ lattice
-        )
         first, second, vectors, weights = [], [], [], []
         for a in range(n):
-            images = (atoms - positions[a])[:, None, :] + shifts[None]  # (M, 125, 3)
-            lengths = np.linalg.norm(images, axis=2)
+            here = images(cell, a)
+            chosen = here if reference is None else images(reference, a)
+            lengths = np.linalg.norm(chosen, axis=2)
             shortest = lengths.min(axis=1, keepdims=True)
             near = lengths < shortest + 1e-5 * (1.0 + shortest)
             j, s = np.nonzero(near)
             first.append(np.full(len(j), a))
             second.append(j)
-            vectors.append(images[j, s])
+            vectors.append(here[j, s])
             weights.append(1.0 / near.sum(axis=1)[j])
         self.__a = np.concatenate(first)
         self.__j = np.concatenate(second)
@@ -1063,26 +1070,89 @@ def _supercell(cell: System, matrix: np.ndarray) -> System:
 
 
 def _displaced_forces(
-    cell: System, calculator: Calculator, matrix: np.ndarray, displacement: float
+    cell: System,
+    calculator: Calculator,
+    matrix: np.ndarray,
+    displacement: float,
+    operations: _Operations | None = None,
 ) -> np.ndarray:
     """(n, n S, 3, 3) force constants by central differences of the forces
-    on the atoms of the supercell, each atom of the first cell displaced
-    along x, y and z by plus and minus displacement."""
+    on the atoms of the supercell. Without symmetry operations each atom of
+    the first cell moves along x, y and z by plus and minus displacement.
+    With them, one atom of each set of equivalent atoms moves, along the
+    fewest axes whose images under the operations that keep it in place
+    span space, and only by plus displacement where such an operation turns
+    the axis around; the forces of the other moves are images of these."""
     big = _supercell(cell, matrix)
     positions = big["positions"]
-    n = len(cell)
-    constants = np.zeros((n, len(big), 3, 3))
+    n, size = len(cell), len(big)
+    if operations is None:
+        rotations = np.eye(3, dtype=np.int64)[None]
+        cartesian = np.eye(3)[None]
+        atoms = np.arange(n)[None]
+        shifts = np.zeros((1, n, 3), dtype=np.int64)
+    else:
+        rotations, cartesian = operations.rotations, operations.cartesian
+        atoms, shifts = operations.atoms, operations.shifts
+    repeats = _lattice_points(matrix)
+    found = {tuple(r): k for k, r in enumerate(repeats.tolist())}
+    inverse = np.linalg.inv(matrix)
+
+    def image(k: int, a: int) -> np.ndarray:
+        """(n S,) the atom of the supercell that operation k takes each atom
+        to, the image of atom a moved back into the first cell."""
+        lattice = (repeats @ rotations[k].T)[:, None, :] + shifts[k] - shifts[k, a]
+        fractional = lattice.reshape(-1, 3) @ inverse
+        inside = np.round((fractional - np.floor(fractional + 1e-9)) @ matrix)
+        cells = np.array([found[tuple(r)] for r in inside.astype(int).tolist()])
+        return cells * n + np.tile(atoms[k], len(repeats))
+
+    def forces(a: int, alpha: int, sign: float) -> np.ndarray:
+        moved = positions.copy()
+        moved[a, alpha] += sign * displacement
+        return calculator.compute(big.with_columns(positions=moved), ("forces",)).forces
+
+    def rank(vectors: list) -> int:
+        return int(np.linalg.matrix_rank(np.array(vectors), tol=1e-6)) if vectors else 0
+
+    constants = np.zeros((n, size, 3, 3))
+    done = np.zeros(n, dtype=bool)
     for a in range(n):
+        if done[a]:
+            continue
+        site = np.flatnonzero(atoms[:, a] == a)
+        # the axes to move along: each adds directions to the span of the others
+        axes, span = [], []
         for alpha in range(3):
-            forces = []
-            for sign in (1.0, -1.0):
-                moved = positions.copy()
-                moved[a, alpha] += sign * displacement
-                result = calculator.compute(
-                    big.with_columns(positions=moved), ("forces",)
-                )
-                forces.append(result.forces)
-            constants[a, :, alpha, :] = -(forces[0] - forces[1]) / (2 * displacement)
+            images = list(cartesian[site, :, alpha])
+            if rank(span + images) > rank(span):
+                axes.append(alpha)
+                span += images
+        directions, responses = [], []
+        for alpha in axes:
+            plus = forces(a, alpha, 1.0)
+            flip = [k for k in site if cartesian[k, alpha, alpha] < -1 + 1e-6]
+            if flip:
+                minus = np.empty_like(plus)
+                minus[image(flip[0], a)] = plus @ cartesian[flip[0]].T
+            else:
+                minus = forces(a, alpha, -1.0)
+            response = -(plus - minus) / (2 * displacement)  # row alpha of each 3 x 3
+            for k in site:
+                directions.append(cartesian[k, :, alpha])
+                moved = np.empty_like(response)
+                moved[image(k, a)] = response @ cartesian[k].T
+                responses.append(moved)
+        constants[a] = np.einsum(
+            "am,mjb->jab", np.linalg.pinv(np.array(directions)), np.array(responses)
+        )
+        # the atoms equivalent to a: images of its force constants
+        for b in np.unique(atoms[:, a]):
+            if b != a:
+                k = np.flatnonzero(atoms[:, a] == b)[0]
+                rotation = cartesian[k]
+                constants[b, image(k, a)] = rotation @ constants[a] @ rotation.T
+                done[b] = True
     return constants
 
 
@@ -1113,6 +1183,7 @@ def phonons(
     *,
     supercell: int | ArrayLike | None = None,
     displacement: float = 0.01,
+    symmetry: bool | None = None,
 ) -> Phonons:
     """Harmonic phonons of a crystal, from the forces on atoms displaced in
     a supercell.
@@ -1133,6 +1204,10 @@ def phonons(
         direction.
     displacement : float, optional
         Displacement of the atoms in Å. Default 0.01.
+    symmetry : bool, optional
+        Move only the atoms and along the directions that the symmetry of
+        the cell, found by spglib, does not relate to others: True, False,
+        or by default whenever spglib is installed.
 
     Returns
     -------
@@ -1146,8 +1221,22 @@ def phonons(
         If the box is not periodic, there are no atoms, an atom has no
         mass, the calculator does not compute forces, the supercell is not
         positive integers or a matrix of them with a positive determinant,
-        or the displacement is not positive.
+        the displacement is not positive, or symmetry is True without
+        spglib.
     """
+    return _phonons(system, calculator, supercell, displacement, symmetry)
+
+
+def _phonons(
+    system: System,
+    calculator: Calculator,
+    supercell: int | ArrayLike | None,
+    displacement: float,
+    symmetry: bool | None,
+    reference: System | None = None,
+) -> Phonons:
+    """The phonons of :func:`phonons`, the periodic images of the force
+    constants picked by the geometry of reference."""
     if not system.box.pbc.all() or len(system) == 0:
         raise InvalidParameter(
             "phonons need a box periodic in every direction with atoms"
@@ -1161,5 +1250,8 @@ def phonons(
         matrix = _default_supercell(system.box.matrix, 2 * calculator.cutoff)
     else:
         matrix = _supercell_matrix(supercell)
-    constants = _displaced_forces(system, calculator, matrix, displacement)
-    return Phonons(system, matrix, _symmetrized(constants, matrix), masses)
+    operations = _symmetry(system, symmetry)
+    constants = _displaced_forces(system, calculator, matrix, displacement, operations)
+    return Phonons(
+        system, matrix, _symmetrized(constants, matrix), masses, reference=reference
+    )

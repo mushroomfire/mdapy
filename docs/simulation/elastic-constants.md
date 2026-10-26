@@ -28,6 +28,10 @@ result.bulk_modulus(), result.shear_modulus("voigt")
 | `relax` | bool | `True` | | whether the positions relax in each strained box (relaxed-ion constants) or stay put (clamped-ion constants) |
 | `max_force` | float | 1e-4 | eV/Å | convergence of each relaxation, as in `minimize` |
 | `max_steps` | int | 5000 | | largest number of steps of each relaxation |
+| `symmetry` | bool or None | `None` | | take the stress under a strain that an operation makes from another as the image of its stress, with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
+
+A cubic crystal takes 3 strains instead of 12: a stretch both ways and a
+shear.
 
 ## Definition
 

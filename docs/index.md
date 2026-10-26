@@ -231,7 +231,9 @@ flowchart TB
     Timings of mdapy and of other programs, from thousands to millions of
     atoms.
 
-    [mdapy, OVITO and freud](performance/comparison.md)
+    [Analyses: OVITO and freud](performance/comparison.md) ·
+    [reading and writing files: OVITO and ASE](performance/files.md) ·
+    [building structures: Atomsk](performance/builders.md)
 
 -   :material-book-open-variant:{ .lg .middle } **Reference**
 

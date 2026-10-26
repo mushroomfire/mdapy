@@ -1618,7 +1618,7 @@ def plot(entries: list[dict], path: str) -> None:
                 ha="left",
                 va="top",
             )
-        axes[0].legend(frameon=False, loc="lower right")  # the same sizes below
+        axes[0].legend(frameon=False, loc="best")  # the same sizes below
         plots.save(fig, path.rsplit(".", 1)[0], formats=(path.rsplit(".", 1)[1],))
 
 

@@ -181,7 +181,9 @@ nav:
           - VASP: interop/vasp.md
           - GPUMD: interop/gpumd.md
   - Performance:
-      - mdapy, OVITO and freud: performance/comparison.md
+      - Analyses: performance/comparison.md
+      - Reading and writing files: performance/files.md
+      - Building structures: performance/builders.md
   - Reference:
       - File formats:
           - Extended XYZ: reference/formats/extxyz.md

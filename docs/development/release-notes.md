@@ -171,6 +171,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   orientation, elastic deformation and chemical ordering of each atom, for
   nine structures, with the PTM library of P. M. Larsen as OVITO ships it;
   the same as OVITO atom by atom.
+- [`PlanarFaults`](../analysis/planar-faults.md): intrinsic and multilayer
+  stacking faults and coherent twin boundaries of fcc crystals from the
+  hcp-like atoms of polyhedral template matching, and their areas; the same
+  as OVITO's Identify fcc planar faults atom by atom.
 - Distributions and order parameters in `mdapy.analysis`, agreeing with
   OVITO where it has them: the
   [`RadialDistributionFunction`](../analysis/rdf.md) and its partial

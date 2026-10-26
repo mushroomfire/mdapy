@@ -3,6 +3,7 @@
 
 """Identification of the local structure of atoms."""
 
+from mdapy.identify._planar_faults import PlanarFaultResult, PlanarFaults
 from mdapy.identify._ptm import PolyhedralTemplateMatching, PTMResult
 from mdapy.identify._structure import (
     AcklandJonesAnalysis,
@@ -25,6 +26,8 @@ __all__ = [
     "CommonNeighborParameter",
     "CommonNeighborParameterResult",
     "DiamondStructure",
+    "PlanarFaultResult",
+    "PlanarFaults",
     "PolyhedralTemplateMatching",
     "PTMResult",
     "StructureResult",

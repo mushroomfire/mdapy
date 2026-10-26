@@ -1,8 +1,8 @@
 # Quasi-harmonic approximation
 
 `mdapy.lattice_dynamics.quasi_harmonic(system, calculator, temperatures, *,
-volumes=None, pressure=0.0, supercell=None, mesh=20, displacement=0.01,
-max_force=1e-6, max_steps=5000)` gives the thermal expansion, bulk modulus,
+volumes=None, pressures=None, pressure=0.0, supercell=None, mesh=20,
+displacement=0.01, max_force=1e-6, max_stress=1e-4, max_steps=5000)` gives the thermal expansion, bulk modulus,
 heat capacity and Gibbs energy of a crystal at finite temperature from its
 [phonons](phonons.md) at several volumes.
 
@@ -27,12 +27,15 @@ result.bulk_modulus  # GPa
 result.heat_capacity  # C_P, eV/K per atom
 ```
 
-At each volume the box is scaled alike in every direction, the positions
-relax, and the phonons give the free energy of the vibrations. The volumes
-must hold the equilibrium volume at every temperature: the default, from
-0.97 to 1.09 times the volume of `system`, reaches the melting point of
-most metals. A crystal whose shape changes with the volume, such as hcp
-with its c/a, keeps the shape of `system` here.
+At each volume the box keeps its volume while its shape and the positions
+relax, so that a crystal whose shape changes with the volume, such as hcp
+with its c/a, takes its best shape at each; the phonons then give the free
+energy of the vibrations. The volumes must hold the equilibrium volume at
+every temperature: the default, from 0.97 to 1.09 times the volume of
+`system`, reaches the melting point of most metals. Instead of volumes,
+`pressures` relax the box and the positions under each pressure. The cells
+of the grid are kept, for [elastic constants at finite
+temperature](thermal-elastic.md).
 
 The quasi-harmonic approximation leaves out the anharmonic vibrations
 beyond the change of the frequencies with the volume, so it holds well
@@ -46,11 +49,13 @@ default nine volumes it is good to about 1 %.
 | `calculator` | `Calculator` | | | computes energies and forces |
 | `temperatures` | array_like | | K | the temperatures, not negative |
 | `volumes` | array_like | 9 from 0.97 to 1.09 | | the volumes of the phonons, as ratios to the volume of `system`; five or more |
+| `pressures` | array_like | | GPa | instead of volumes, the pressures under which the box and the positions relax; five or more |
 | `pressure` | float | 0 | GPa | the pressure $P$ |
 | `supercell` | int or 3 ints | | | repeats of the cell for the phonons, as in [`phonons`](phonons.md) |
 | `mesh` | int or 3 ints | 20 | | wave vectors along each reciprocal lattice vector for the thermal properties |
 | `displacement` | float | 0.01 | Å | displacement of the atoms for the force constants |
-| `max_force` | float | 1e-6 | eV/Å | convergence of the relaxation of the positions at each volume |
+| `max_force` | float | 1e-6 | eV/Å | convergence of the relaxation at each volume |
+| `max_stress` | float | 1e-4 | GPa | convergence of the relaxation of the box |
 | `max_steps` | int | 5000 | | largest number of steps of each relaxation |
 
 ## Results
@@ -70,13 +75,15 @@ It returns a `QuasiHarmonicResult`, all per atom; arrays are read-only.
 | `volumes` | (V,) array | Å³ | the volumes of the phonons |
 | `energies` | (V,) array | eV | the static energy at each volume |
 | `free_energies` | (V, T) array | eV | the free energy of the vibrations at each volume and temperature |
+| `cells` | tuple of `System` | | the relaxed cell at each volume |
 
 ## Errors
 
 `quasi_harmonic` raises `InvalidParameter` for a negative temperature,
-fewer than five volumes, a relaxation that does not converge within
-`max_steps`, imaginary frequencies at a volume, and an equilibrium volume
-outside the volumes, as well as for the errors of [`phonons`](phonons.md).
+both volumes and pressures, fewer than five of them, a relaxation that does
+not converge within `max_steps`, imaginary frequencies at a volume, and an
+equilibrium volume outside the volumes, as well as for the errors of
+[`phonons`](phonons.md).
 
 ## Definition
 

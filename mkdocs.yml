@@ -168,6 +168,8 @@ nav:
           - Elastic constants: simulation/elastic-constants.md
           - Phonons: simulation/phonons.md
           - Quasi-harmonic approximation: simulation/quasi-harmonic.md
+          - Elastic constants at finite temperature: simulation/thermal-elastic.md
+          - Elastic constants from molecular dynamics: simulation/md-elastic.md
   - MLIP:
       - Training sets from VASP: mlip/vasp.md
       - Choosing frames: mlip/selection.md

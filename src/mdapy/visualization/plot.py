@@ -339,6 +339,75 @@ def stacking_fault(result: Any, *, ax: Any = None) -> Any:
     return ax
 
 
+def band_structure(result: Any, *, ax: Any = None, color: str | None = None) -> Any:
+    """The phonon frequencies of a
+    :class:`mdapy.lattice_dynamics.BandStructure` along its path, with the
+    special points marked and labeled.
+
+    Parameters
+    ----------
+    result : BandStructure
+        The band structure; with ``connected=True`` each branch is one line
+        through its crossings.
+    ax : matplotlib.axes.Axes, optional
+        The axes.
+    color : str, optional
+        One color for every branch; by default each branch its own.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes.
+    """
+    ax = _axes(ax)
+    # a line for each straight piece, so that breaks of the path stay open
+    distances, frequencies = result.distances, result.frequencies
+    breaks = np.flatnonzero(np.diff(distances) == 0) + 1
+    for k, branch in enumerate(frequencies.T):
+        options = {"color": color if color is not None else f"C{k % 10}", "lw": 1.0}
+        for piece_d, piece_f in zip(
+            np.split(distances, breaks), np.split(branch, breaks)
+        ):
+            ax.plot(piece_d, piece_f, **options)
+    for x, _ in result.labels:
+        ax.axvline(x, color="0.75", lw=0.5, zorder=0)
+    ax.axhline(0.0, color="0.75", lw=0.5, zorder=0)
+    ax.set_xticks([x for x, _ in result.labels], [name for _, name in result.labels])
+    ax.set_xlim(distances[0], distances[-1])
+    ax.set_ylabel("frequency (THz)")
+    return ax
+
+
+def phonon_dos(result: Any, *, ax: Any = None, projected: bool = False) -> Any:
+    """The phonon density of states of a
+    :class:`mdapy.lattice_dynamics.PhononDOS`, frequencies upward, to put
+    beside a band structure.
+
+    Parameters
+    ----------
+    result : PhononDOS
+        The density of states.
+    ax : matplotlib.axes.Axes, optional
+        The axes.
+    projected : bool, optional
+        Also the density of each atom of the cell, when computed.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes.
+    """
+    ax = _axes(ax)
+    ax.plot(result.dos, result.frequencies, color="k", lw=1.0, label="total")
+    if projected and result.projected is not None:
+        for k, part in enumerate(result.projected.T):
+            ax.plot(part, result.frequencies, lw=0.8, label=f"atom {k}")
+        ax.legend()
+    ax.set_xlabel("DOS (1/THz)")
+    ax.set_xlim(0, None)
+    return ax
+
+
 def structure_counts(result: Any, *, ax: Any = None) -> Any:
     """The number of atoms of each type of a structure identification, in
     the colors of the types."""

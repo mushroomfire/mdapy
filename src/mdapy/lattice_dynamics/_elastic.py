@@ -30,12 +30,18 @@ class ElasticResult:
     constants : numpy.ndarray
         (6, 6) elastic constants in GPa, in Voigt order xx, yy, zz, yz, xz,
         xy; column k is the stress per unit of strain component k.
+    errors : numpy.ndarray or None
+        (6, 6) standard errors of the constants in GPa, from molecular
+        dynamics; None otherwise.
     """
 
     constants: np.ndarray
+    errors: np.ndarray | None = None
 
     def __post_init__(self):
         self.constants.flags.writeable = False
+        if self.errors is not None:
+            self.errors.flags.writeable = False
 
     def bulk_modulus(self, average: str = "hill") -> float:
         """The bulk modulus in GPa: the "voigt", "reuss" or "hill" average."""

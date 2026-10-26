@@ -153,6 +153,13 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   constants at a temperature from the mean stress of molecular dynamics in
   LAMMPS under small strains, with standard errors from block averages. See
   [Elastic constants from molecular dynamics](../simulation/md-elastic.md).
+- Symmetry with spglib (optional, the extra `symmetry`): `phonons`,
+  `quasi_harmonic`, `elastic_constants` and `thermal_elastic_constants`
+  skip the displacements and strains that the symmetry of the crystal
+  relates to others, by default whenever spglib is installed: one
+  computation of forces instead of 6 for the primitive cell of fcc, 12 of
+  the 73 strains of the elastic constants of a cubic crystal at finite
+  temperature. See [Space group](../analysis/space-group.md).
 - `mdapy.simulation.MolecularDynamics`: molecular dynamics in LAMMPS with
   the interaction of a LAMMPS calculator: random velocities, runs at
   constant energy, temperature or pressure with ramps, the thermodynamic
@@ -180,6 +187,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   diamond; [`ChillPlus`](../analysis/chill-plus.md) for ice, hydrates and
   liquid water; and the [centro-symmetry](../analysis/csp.md) and
   [common neighbor](../analysis/cnp.md) parameters.
+- [`SpaceGroup`](../analysis/space-group.md): the space group of a
+  crystal, its symmetry operations and equivalent atoms, with spglib.
 - [`PolyhedralTemplateMatching`](../analysis/ptm.md): the structure,
   orientation, elastic deformation and chemical ordering of each atom, for
   nine structures, with the PTM library of P. M. Larsen as OVITO ships it;

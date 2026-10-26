@@ -10,11 +10,12 @@ from itertools import combinations
 import numpy as np
 
 from mdapy import units
+from mdapy.analysis._symmetry import _rotations
 from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
-from mdapy.lattice_dynamics._phonons import _read_only, phonons
+from mdapy.lattice_dynamics._phonons import _default_supercell, _phonons, _read_only
 from mdapy.lattice_dynamics._quasi_harmonic import QuasiHarmonicResult
 from mdapy.simulation._minimize import minimize
 
@@ -81,6 +82,11 @@ def _stencil(h: float) -> list[np.ndarray]:
     return points
 
 
+def _key(voigt: np.ndarray, h: float) -> bytes:
+    """The key of a strain of the stencil of step h."""
+    return np.round(voigt / h).astype(int).tobytes()
+
+
 def _hessian(values: dict[bytes, np.ndarray], h: float) -> np.ndarray:
     """(6, 6, ...) second derivatives from the values at the stencil."""
 
@@ -88,7 +94,7 @@ def _hessian(values: dict[bytes, np.ndarray], h: float) -> np.ndarray:
         v = np.zeros(6)
         for k, s in terms:
             v[k] += s * h
-        return values[np.round(v / h).astype(int).tobytes()]
+        return values[_key(v, h)]
 
     zero = at()
     hessian = np.zeros((6, 6) + np.shape(zero))
@@ -133,6 +139,7 @@ def thermal_elastic_constants(
     displacement: float = 0.01,
     max_force: float = 1e-6,
     max_steps: int = 5000,
+    symmetry: bool | None = None,
 ) -> ThermalElasticResult:
     """Isothermal and adiabatic elastic constants of a crystal at the
     temperatures of a quasi-harmonic calculation.
@@ -160,6 +167,11 @@ def thermal_elastic_constants(
         cell in eV/Å. Default 1e-6.
     max_steps : int, optional
         Largest number of steps of each relaxation. Default 5000.
+    symmetry : bool, optional
+        Compute one of each set of strains that the symmetry operations of
+        the cells, found by spglib, make from each other, and use symmetry
+        in the phonons too: True, False, or by default whenever spglib is
+        installed.
 
     Returns
     -------
@@ -170,8 +182,8 @@ def thermal_elastic_constants(
     ------
     InvalidParameter
         For an unknown method, a strain that is not positive, a result
-        without cells, a relaxation that does not converge, or imaginary
-        frequencies in a strained cell.
+        without cells, a relaxation that does not converge, imaginary
+        frequencies in a strained cell, or symmetry True without spglib.
     """
     if method not in _METHODS:
         raise InvalidParameter(f"method must be one of {_METHODS}, not {method!r}")
@@ -193,9 +205,18 @@ def thermal_elastic_constants(
     volumes = qha.volumes[first:last]  # per atom
     stencil = _stencil(strain)
     curvatures = []  # per cell: (6, 6, T) in eV/Å³
+    keys = {_key(voigt, strain) for voigt in stencil}
     for cell in cells:
+        rotations = _rotations(cell, symmetry)
+        # the strained cells keep the supercell and the periodic images of
+        # the cell, so that their free energies change smoothly with strain
+        matrix = supercell
+        if matrix is None:
+            matrix = _default_supercell(cell.box.matrix, 2 * calculator.cutoff)
         values = {}
         for voigt in stencil:
+            if _key(voigt, strain) in values:
+                continue
             relaxed = minimize(
                 _deformed(cell, voigt),
                 calculator,
@@ -208,14 +229,24 @@ def thermal_elastic_constants(
                 )
             free = np.full(len(temperatures), relaxed.energy)
             if method == "quasi-harmonic":
-                vibrations = phonons(
+                vibrations = _phonons(
                     relaxed.system,
                     calculator,
-                    supercell=supercell,
-                    displacement=displacement,
+                    matrix,
+                    displacement,
+                    symmetry,
+                    reference=cell,
                 ).thermal(temperatures, mesh)
                 free = free + n * vibrations.free_energy
-            values[np.round(voigt / strain).astype(int).tobytes()] = free
+            # the strains that a rotation of the crystal makes from this one
+            for rotation in rotations:
+                eta = rotation @ _strain(voigt) @ rotation.T
+                image = np.array([eta[a, b] * (1 if a == b else 2) for a, b in _PAIRS])
+                key = _key(image, strain)
+                if key in keys and np.allclose(
+                    image / strain, np.round(image / strain), atol=1e-6
+                ):
+                    values[key] = free
         curvatures.append(_hessian(values, strain) / cell.box.volume)
     curvatures = np.array(curvatures)  # (V, 6, 6, T)
     degree = min(3, len(volumes) - 1)

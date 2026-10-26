@@ -253,6 +253,12 @@ neighborhood, *Comput. Phys. Commun.* **177**, 518 (2007).
 [doi:10.1016/j.cpc.2007.05.018](https://doi.org/10.1016/j.cpc.2007.05.018)
 { #tsuzuki2007 }
 
+**Togo et al. (2024).** A. Togo, K. Shinohara and I. Tanaka, Spglib: a
+software library for crystal symmetry search, *Sci. Technol. Adv. Mater.:
+Methods* **4**, 2384822 (2024).
+[doi:10.1080/27660400.2024.2384822](https://doi.org/10.1080/27660400.2024.2384822)
+{ #togo2024 }
+
 **Varvenne et al. (2016).** C. Varvenne, A. Luque, W. G. Nöhring and
 W. A. Curtin, Average-atom interatomic potential for random alloys,
 *Phys. Rev. B* **93**, 104201 (2016).

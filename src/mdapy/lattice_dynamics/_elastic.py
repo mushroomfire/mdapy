@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from mdapy.analysis._symmetry import _rotations
 from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
@@ -86,6 +87,23 @@ def _strained(system: System, strain: np.ndarray) -> System:
     )
 
 
+def _image(
+    tensor: np.ndarray,
+    known: list[tuple[np.ndarray, np.ndarray]],
+    rotations: np.ndarray,
+    strain: float,
+) -> np.ndarray | None:
+    """The stress under a strain that a rotation makes from a known one, or
+    None."""
+    for done, stress in known:
+        for rotation in rotations:
+            if np.allclose(
+                rotation @ done @ rotation.T, tensor, rtol=0, atol=1e-9 * strain
+            ):
+                return rotation @ stress @ rotation.T
+    return None
+
+
 def elastic_constants(
     system: System,
     calculator: Calculator,
@@ -94,6 +112,7 @@ def elastic_constants(
     relax: bool = True,
     max_force: float = 1e-4,
     max_steps: int = 5000,
+    symmetry: bool | None = None,
 ) -> ElasticResult:
     """Elastic constants from the stress under small strains.
 
@@ -113,6 +132,10 @@ def elastic_constants(
         Convergence of each relaxation in eV/Å. Default 1e-4.
     max_steps : int, optional
         Largest number of steps of each relaxation. Default 5000.
+    symmetry : bool, optional
+        Take the stress under a strain that a symmetry operation of the
+        crystal, found by spglib, makes from another one as the image of its
+        stress: True, False, or by default whenever spglib is installed.
 
     Returns
     -------
@@ -123,7 +146,8 @@ def elastic_constants(
     ------
     InvalidParameter
         If the box is not periodic, the strain is not positive, the
-        calculator has no virial, or a relaxation does not converge.
+        calculator has no virial, a relaxation does not converge, or
+        symmetry is True without spglib.
     """
     if not system.box.pbc.all():
         raise InvalidParameter(
@@ -136,6 +160,8 @@ def elastic_constants(
         raise InvalidParameter(
             f"{type(calculator).__name__} does not compute {sorted(needed)}"
         )
+    rotations = _rotations(system, symmetry)
+    known: list[tuple[np.ndarray, np.ndarray]] = []  # strains and their stresses
     constants = np.zeros((6, 6))
     for k, (a, b) in enumerate(_PAIRS):
         stresses = []
@@ -145,6 +171,10 @@ def elastic_constants(
                 tensor[a, a] = sign * strain
             else:  # engineering shear strain: half on each off-diagonal entry
                 tensor[a, b] = tensor[b, a] = 0.5 * sign * strain
+            image = _image(tensor, known, rotations, strain)
+            if image is not None:
+                stresses.append(_voigt(image))
+                continue
             strained = _strained(system, tensor)
             if relax:
                 outcome = minimize(
@@ -157,6 +187,7 @@ def elastic_constants(
                 stress = outcome.stress
             else:
                 stress = calculator.compute(strained, ("virial",)).stress(strained)
+            known.append((tensor, stress))
             stresses.append(_voigt(stress))
         constants[:, k] = (stresses[0] - stresses[1]) / (2 * strain)
     return ElasticResult(constants)

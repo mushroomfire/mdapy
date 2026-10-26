@@ -9,8 +9,17 @@
 | `voronoi-outputs` | Voronoi 的面按需返回（`faces=True`），默认只算体积、配位数、空腔半径 | 已推送（f91b193），Triton 计时中 |
 | `faster-crystal` | `build_crystal` 不再对 200 万原子排序，元素列不经 Python 字符串 | 已推送（16bb0db），Triton 排队中 |
 | `phonons-draft` | 计划 17.1 的第一步：简谐声子（力常数、色散、DOS、热力学量）、原胞 | 已推送（2209c07） |
+| `qha-draft` | 17.1 第二步：准简谐近似，基于 phonons-draft | 已推送（0c8ffc8） |
 
 ## 进展
+
+### 15:29
+- **QHA**（`qha-draft`）：`quasi_harmonic(system, calculator, temperatures, *, volumes=None, pressure=0, supercell, mesh, ...)`，每个体积等比缩放并弛豫原子位置、算声子；每个温度用三阶 Birch–Murnaghan（V^(−2/3) 的三次多项式，线性最小二乘，不需要 scipy）拟合 E + F_vib + PV。结果（每原子）：V(T)、G(T,P)、S、B_T、α（由 α B_T = (∂S/∂V)_T 解析得到）、C_P = C_V + T V B α²，以及每个体积的静态能和振动自由能。
+  - 测试（合成 EAM）：S = −dG/dT、α = dlnV/dT、C_P = −T d²G/dT²、dG/dP = V（差分），静态拟合的 B 与 (C11+2C12)/3 差 < 0.5%。
+  - Mishin 铜：9 个体积共 0.35 s。300 K：a = 3.6320 Å（LAMMPS NPT MD 3.6319），线膨胀 1.42e-5 /K（实验 1.65e-5）。900 K、1300 K QHA 比 MD 小 0.004–0.005 Å：这就是 QHA 漏掉的非谐部分，高温和熔点要靠 MD 的自由能（计划 1e）。低温 QHA 比 MD 大，是零点振动（MD 是经典的）。
+  - 注意：体积网格粗时 BM3 拟合的 B 有约 1% 误差（Mishin 势 E(V) 的高阶项），默认体积 0.97–1.09 共 9 个，文档里写明了。hcp 这类形状随体积变化的晶体，目前保持 system 的形状（c/a 不弛豫），**要你定**：要不要改成在一组压强下整体弛豫晶胞（形状自然最优）？
+
+![QHA 与 LAMMPS NPT 分子动力学的铜晶格常数（左），QHA 的线膨胀系数和体模量（右）](images/42_qha_cu.png)
 
 ### 15:22
 - **Voronoi Triton 结果**（Gold 6248，40 线程，2M 原子）：默认 0.93 s / 130 MB；`faces=True` 1.10 s / 1593 MB（内存少 12 倍）。OVITO 默认 23.0 s，带键 25.1 s；freud 37.6 s。性能页原来的表是另一型号（Gold 6230）测的，所以 analyses 整组正在排队重跑，跑完一起换表。

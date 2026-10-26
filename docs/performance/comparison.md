@@ -8,7 +8,7 @@ where it gives the result of mdapy, atom by atom.
 ## Results
 
 A node of the Triton cluster of Aalto University, alone for the run: two
-Intel Xeon Gold 6230 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
+Intel Xeon Gold 6248 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
 mdapy 2.0.0.dev0 built with GCC 12.3, OVITO 3.17.0 and freud 3.6.1 from
 pip, each with 40 threads.
 
@@ -17,24 +17,30 @@ pip, each with 40 threads.
 ### What they show
 
 - **OVITO**: from 256 000 atoms on, mdapy is faster in every analysis they
-  share. It builds neighbor lists 4 to 6 times faster in a quarter of the
-  memory, Voronoi cells 24 times faster, Steinhardt parameters over Voronoi
-  faces 37 to 73 times and cluster analysis 6 times; the other analyses
-  take 1.5 to 3.8 times less time. Atomic strain is the closest: OVITO is
-  faster below some 100 000 atoms (twice at 4 000, 1.1 times at 32 000),
-  mdapy above (1.06 times at 256 000, 1.2 times at 2 million).
-- **freud**: mdapy is faster in every analysis at every size: neighbor
-  lists 9 to 23 times from 32 000 atoms on, in a seventh of the memory; the
-  12 nearest neighbors 4 to 8 times; Voronoi cells 38 times; Steinhardt
-  parameters and the radial distribution function 2.8 to 4.6 times; cluster
-  analysis 2.4 to 3 times.
+  share. It builds neighbor lists 7 times faster in a quarter of the
+  memory, Voronoi cells 23 to 26 times faster, Steinhardt parameters over
+  Voronoi faces 33 to 67 times and cluster analysis 6 times; the other
+  analyses take 1.4 to 3.6 times less time. Atomic strain is the closest:
+  OVITO is faster below some 200 000 atoms (1.7 times at 4 000 and 1.4
+  times at 32 000), mdapy above (1.05 times at 256 000, 1.5 times at 2
+  million).
+- **freud**: from 32 000 atoms on, mdapy is faster in every analysis:
+  neighbor lists 8 to 26 times, in a seventh of the memory; the 12 nearest
+  neighbors 2.8 to 9 times; Voronoi cells 35 to 42 times; Steinhardt
+  parameters and the radial distribution function 3.4 to 4.5 times;
+  cluster analysis 1.8 to 2.8 times.
 - **One neighbor search for several analyses**: the six analyses of copper
-  from one list take 1.21 s at 2 million atoms, against 2.07 s for the six
-  cases timed apart (0.16 s against 0.29 s at 256 000; the radial
+  from one list take 0.81 s at 2 million atoms, against 1.48 s for the six
+  cases timed apart (0.11 s against 0.21 s at 256 000; the radial
   distribution function apart reaches 6 Å instead of 5 Å). OVITO's pipeline
-  of the six takes about the sum of its cases (4.15 s against 4.35 s).
+  of the six takes about the sum of its cases (2.93 s against 3.04 s).
+- **Voronoi faces on demand**: the volumes and coordination of 2 million
+  cells take mdapy 0.92 s and 130 MB; with every face, its neighbor, area
+  and edges, 1.08 s and 1.6 GB.
 - **4 000 atoms** take a few milliseconds; mdapy is faster there in every
-  analysis but atomic strain.
+  analysis but cluster analysis, Wigner–Seitz occupancies and atomic
+  strain against OVITO, and cluster analysis against freud (0.001 s
+  against 0.004 s); the 12 nearest neighbors are on par with freud.
 - **Not run**: Steinhardt parameters over Voronoi faces at 2 million atoms,
   which took OVITO 678 s in an earlier run.
 
@@ -48,113 +54,121 @@ process minus its peak before the timings.
 
 | Case | Atoms | mdapy 2.0.0.dev0 (s) | OVITO 3.17.0 (s) | OVITO / mdapy | mdapy (MB) | OVITO (MB) |
 |---|---:|---:|---:|---:|---:|---:|
-| Neighbor list, 5 Å | 4,000 | 0.004 | 0.016 | 3.96 | 0 | 10 |
-| Neighbor list, 5 Å | 32,000 | 0.009 | 0.042 | 4.70 | 18 | 92 |
-| Neighbor list, 5 Å | 256,000 | 0.038 | 0.216 | 5.70 | 186 | 758 |
-| Neighbor list, 5 Å | 2,048,000 | 0.272 | 1.655 | 6.08 | 1362 | 5324 |
-| 12 nearest neighbors | 4,000 | 0.003 | 0.015 | 5.01 | 0 | 0 |
-| 12 nearest neighbors | 32,000 | 0.007 | 0.019 | 2.80 | 2 | 12 |
-| 12 nearest neighbors | 256,000 | 0.042 | 0.076 | 1.81 | 49 | 100 |
-| 12 nearest neighbors | 2,048,000 | 0.252 | 0.647 | 2.57 | 343 | 751 |
-| Adaptive common neighbor analysis | 4,000 | 0.001 | 0.027 | 20.06 | 0 | 0 |
-| Adaptive common neighbor analysis | 32,000 | 0.007 | 0.033 | 4.98 | 0 | 6 |
-| Adaptive common neighbor analysis | 256,000 | 0.049 | 0.108 | 2.22 | 3 | 45 |
-| Adaptive common neighbor analysis | 2,048,000 | 0.311 | 0.862 | 2.77 | 65 | 118 |
-| Common neighbor analysis, cutoff 3.09 Å | 4,000 | 0.004 | 0.011 | 3.08 | 0 | 0 |
-| Common neighbor analysis, cutoff 3.09 Å | 32,000 | 0.005 | 0.015 | 2.90 | 0 | 6 |
-| Common neighbor analysis, cutoff 3.09 Å | 256,000 | 0.016 | 0.035 | 2.11 | 16 | 28 |
-| Common neighbor analysis, cutoff 3.09 Å | 2,048,000 | 0.104 | 0.228 | 2.19 | 137 | 31 |
-| Ackland–Jones analysis | 4,000 | 0.002 | 0.007 | 3.64 | 0 | 1 |
-| Ackland–Jones analysis | 32,000 | 0.008 | 0.019 | 2.44 | 0 | 8 |
-| Ackland–Jones analysis | 256,000 | 0.057 | 0.100 | 1.77 | 5 | 50 |
-| Ackland–Jones analysis | 2,048,000 | 0.392 | 0.823 | 2.10 | 67 | 119 |
-| Polyhedral template matching | 4,000 | 0.020 | 0.043 | 2.15 | 0 | 1 |
-| Polyhedral template matching | 32,000 | 0.041 | 0.054 | 1.31 | 13 | 10 |
-| Polyhedral template matching | 256,000 | 0.265 | 0.392 | 1.48 | 79 | 33 |
-| Polyhedral template matching | 2,048,000 | 1.991 | 3.153 | 1.58 | 507 | 177 |
-| Centro-symmetry parameter, 12 neighbors | 4,000 | 0.003 | 0.018 | 5.94 | 0 | 0 |
-| Centro-symmetry parameter, 12 neighbors | 32,000 | 0.008 | 0.024 | 2.99 | 0 | 8 |
-| Centro-symmetry parameter, 12 neighbors | 256,000 | 0.047 | 0.089 | 1.90 | 3 | 42 |
-| Centro-symmetry parameter, 12 neighbors | 2,048,000 | 0.303 | 0.707 | 2.33 | 73 | 125 |
-| Diamond structure | 4,096 | 0.003 | 0.005 | 1.55 | 0 | 2 |
-| Diamond structure | 32,768 | 0.008 | 0.014 | 1.92 | 0 | 21 |
-| Diamond structure | 262,144 | 0.038 | 0.099 | 2.59 | 13 | 80 |
-| Diamond structure | 2,000,376 | 0.213 | 0.739 | 3.46 | 100 | 270 |
-| Steinhardt q2–q6, 12 neighbors | 4,000 | 0.003 | 0.024 | 7.81 | 0 | 0 |
-| Steinhardt q2–q6, 12 neighbors | 32,000 | 0.009 | 0.028 | 3.18 | 1 | 10 |
-| Steinhardt q2–q6, 12 neighbors | 256,000 | 0.061 | 0.094 | 1.54 | 15 | 58 |
-| Steinhardt q2–q6, 12 neighbors | 2,048,000 | 0.495 | 0.755 | 1.53 | 70 | 111 |
-| Steinhardt q2–q6, Voronoi faces weighted by area | 4,000 | 0.009 | 0.545 | 62.54 | 2 | 1 |
-| Steinhardt q2–q6, Voronoi faces weighted by area | 32,000 | 0.067 | 2.447 | 36.76 | 50 | 12 |
-| Steinhardt q2–q6, Voronoi faces weighted by area | 256,000 | 0.524 | 38.419 | 73.29 | 433 | 36 |
-| Radial distribution function, 6 Å, 200 bins | 4,000 | 0.005 | 0.009 | 1.89 | 0 | 0 |
-| Radial distribution function, 6 Å, 200 bins | 32,000 | 0.008 | 0.012 | 1.48 | 0 | 4 |
-| Radial distribution function, 6 Å, 200 bins | 256,000 | 0.032 | 0.055 | 1.73 | 23 | 18 |
-| Radial distribution function, 6 Å, 200 bins | 2,048,000 | 0.245 | 0.433 | 1.77 | 73 | 0 |
-| Bond angle distribution, 3 Å, 180 bins | 4,000 | 0.004 | 0.024 | 5.90 | 0 | 2 |
-| Bond angle distribution, 3 Å, 180 bins | 32,000 | 0.008 | 0.032 | 4.04 | 0 | 35 |
-| Bond angle distribution, 3 Å, 180 bins | 256,000 | 0.045 | 0.102 | 2.26 | 18 | 255 |
-| Bond angle distribution, 3 Å, 180 bins | 2,048,000 | 0.324 | 0.768 | 2.37 | 166 | 1352 |
-| Voronoi volumes and coordination | 4,000 | 0.007 | 0.083 | 11.81 | 1 | 0 |
-| Voronoi volumes and coordination | 32,000 | 0.027 | 0.663 | 24.88 | 21 | 2 |
-| Voronoi volumes and coordination | 256,000 | 0.223 | 5.310 | 23.78 | 205 | 8 |
-| Voronoi volumes and coordination | 2,048,000 | 1.754 | 42.578 | 24.28 | 1583 | 21 |
-| Cluster analysis, 2 Å | 3,998 | 0.001 | 0.004 | 3.26 | 0 | 0 |
-| Cluster analysis, 2 Å | 31,966 | 0.005 | 0.030 | 5.73 | 2 | 6 |
-| Cluster analysis, 2 Å | 255,756 | 0.041 | 0.251 | 6.10 | 27 | 28 |
-| Cluster analysis, 2 Å | 2,046,192 | 0.439 | 2.804 | 6.39 | 219 | 0 |
-| Wigner–Seitz occupancies | 3,974 | 0.002 | 0.002 | 1.02 | 0 | 1 |
-| Wigner–Seitz occupancies | 31,811 | 0.004 | 0.008 | 2.15 | 0 | 8 |
-| Wigner–Seitz occupancies | 254,734 | 0.020 | 0.055 | 2.76 | 3 | 36 |
-| Wigner–Seitz occupancies | 2,037,841 | 0.122 | 0.470 | 3.84 | 17 | 148 |
-| Six analyses of copper, one neighbor search | 4,000 | 0.010 | 0.110 | 10.61 | 1 | 7 |
-| Six analyses of copper, one neighbor search | 32,000 | 0.025 | 0.149 | 6.01 | 20 | 84 |
-| Six analyses of copper, one neighbor search | 256,000 | 0.157 | 0.533 | 3.40 | 187 | 462 |
-| Six analyses of copper, one neighbor search | 2,048,000 | 1.210 | 4.152 | 3.43 | 1339 | 1720 |
-| Steinhardt q2–q6 and the RDF, one neighbor search | 4,000 | 0.007 | 0.032 | 4.45 | 1 | 1 |
-| Steinhardt q2–q6 and the RDF, one neighbor search | 32,000 | 0.015 | 0.038 | 2.48 | 20 | 12 |
-| Steinhardt q2–q6 and the RDF, one neighbor search | 256,000 | 0.081 | 0.132 | 1.62 | 174 | 73 |
-| Steinhardt q2–q6 and the RDF, one neighbor search | 2,048,000 | 0.592 | 1.031 | 1.74 | 1340 | 93 |
-| Atomic strain, 3 Å | 4,000 | 0.004 | 0.002 | 0.51 | 0 | 0 |
-| Atomic strain, 3 Å | 32,000 | 0.005 | 0.004 | 0.91 | 1 | 6 |
-| Atomic strain, 3 Å | 256,000 | 0.016 | 0.017 | 1.06 | 46 | 44 |
-| Atomic strain, 3 Å | 2,048,000 | 0.090 | 0.108 | 1.20 | 232 | 269 |
+| Neighbor list, 5 Å | 4,000 | 0.004 | 0.008 | 1.95 | 0 | 10 |
+| Neighbor list, 5 Å | 32,000 | 0.008 | 0.033 | 4.15 | 19 | 129 |
+| Neighbor list, 5 Å | 256,000 | 0.026 | 0.181 | 6.88 | 173 | 722 |
+| Neighbor list, 5 Å | 2,048,000 | 0.190 | 1.346 | 7.10 | 1356 | 5300 |
+| 12 nearest neighbors | 4,000 | 0.002 | 0.008 | 3.56 | 0 | 1 |
+| 12 nearest neighbors | 32,000 | 0.007 | 0.012 | 1.65 | 3 | 12 |
+| 12 nearest neighbors | 256,000 | 0.029 | 0.050 | 1.72 | 49 | 100 |
+| 12 nearest neighbors | 2,048,000 | 0.183 | 0.441 | 2.41 | 343 | 751 |
+| Adaptive common neighbor analysis | 4,000 | 0.002 | 0.015 | 7.75 | 0 | 0 |
+| Adaptive common neighbor analysis | 32,000 | 0.004 | 0.020 | 4.65 | 0 | 8 |
+| Adaptive common neighbor analysis | 256,000 | 0.039 | 0.075 | 1.95 | 3 | 50 |
+| Adaptive common neighbor analysis | 2,048,000 | 0.215 | 0.598 | 2.78 | 66 | 119 |
+| Common neighbor analysis, cutoff 3.09 Å | 4,000 | 0.003 | 0.007 | 2.16 | 0 | 0 |
+| Common neighbor analysis, cutoff 3.09 Å | 32,000 | 0.002 | 0.009 | 6.07 | 0 | 5 |
+| Common neighbor analysis, cutoff 3.09 Å | 256,000 | 0.010 | 0.023 | 2.25 | 16 | 29 |
+| Common neighbor analysis, cutoff 3.09 Å | 2,048,000 | 0.075 | 0.158 | 2.09 | 137 | 31 |
+| Ackland–Jones analysis | 4,000 | 0.002 | 0.004 | 2.15 | 0 | 1 |
+| Ackland–Jones analysis | 32,000 | 0.006 | 0.010 | 1.70 | 0 | 9 |
+| Ackland–Jones analysis | 256,000 | 0.039 | 0.068 | 1.76 | 4 | 50 |
+| Ackland–Jones analysis | 2,048,000 | 0.282 | 0.563 | 2.00 | 65 | 118 |
+| Polyhedral template matching | 4,000 | 0.013 | 0.026 | 1.99 | 0 | 1 |
+| Polyhedral template matching | 32,000 | 0.031 | 0.041 | 1.31 | 13 | 10 |
+| Polyhedral template matching | 256,000 | 0.197 | 0.278 | 1.42 | 80 | 36 |
+| Polyhedral template matching | 2,048,000 | 1.532 | 2.228 | 1.45 | 507 | 177 |
+| Centro-symmetry parameter, 12 neighbors | 4,000 | 0.002 | 0.011 | 6.19 | 0 | 0 |
+| Centro-symmetry parameter, 12 neighbors | 32,000 | 0.005 | 0.015 | 3.24 | 0 | 5 |
+| Centro-symmetry parameter, 12 neighbors | 256,000 | 0.035 | 0.058 | 1.67 | 3 | 42 |
+| Centro-symmetry parameter, 12 neighbors | 2,048,000 | 0.248 | 0.478 | 1.93 | 73 | 124 |
+| Diamond structure | 4,096 | 0.002 | 0.004 | 1.69 | 0 | 2 |
+| Diamond structure | 32,768 | 0.004 | 0.010 | 2.47 | 0 | 21 |
+| Diamond structure | 262,144 | 0.028 | 0.070 | 2.49 | 13 | 80 |
+| Diamond structure | 2,000,376 | 0.157 | 0.517 | 3.30 | 112 | 270 |
+| Steinhardt q2–q6, 12 neighbors | 4,000 | 0.001 | 0.014 | 10.37 | 0 | 0 |
+| Steinhardt q2–q6, 12 neighbors | 32,000 | 0.007 | 0.017 | 2.56 | 0 | 10 |
+| Steinhardt q2–q6, 12 neighbors | 256,000 | 0.044 | 0.063 | 1.42 | 14 | 57 |
+| Steinhardt q2–q6, 12 neighbors | 2,048,000 | 0.366 | 0.513 | 1.40 | 66 | 79 |
+| Steinhardt q2–q6, Voronoi faces weighted by area | 4,000 | 0.009 | 0.296 | 32.61 | 2 | 0 |
+| Steinhardt q2–q6, Voronoi faces weighted by area | 32,000 | 0.043 | 1.401 | 32.87 | 56 | 12 |
+| Steinhardt q2–q6, Voronoi faces weighted by area | 256,000 | 0.335 | 22.583 | 67.32 | 423 | 41 |
+| Radial distribution function, 6 Å, 200 bins | 4,000 | 0.004 | 0.005 | 1.19 | 0 | 0 |
+| Radial distribution function, 6 Å, 200 bins | 32,000 | 0.004 | 0.009 | 2.18 | 0 | 4 |
+| Radial distribution function, 6 Å, 200 bins | 256,000 | 0.022 | 0.038 | 1.76 | 11 | 19 |
+| Radial distribution function, 6 Å, 200 bins | 2,048,000 | 0.169 | 0.295 | 1.75 | 73 | 0 |
+| Bond angle distribution, 3 Å, 180 bins | 4,000 | 0.004 | 0.014 | 3.37 | 0 | 2 |
+| Bond angle distribution, 3 Å, 180 bins | 32,000 | 0.004 | 0.021 | 5.40 | 0 | 37 |
+| Bond angle distribution, 3 Å, 180 bins | 256,000 | 0.031 | 0.078 | 2.53 | 18 | 273 |
+| Bond angle distribution, 3 Å, 180 bins | 2,048,000 | 0.197 | 0.588 | 2.98 | 167 | 1328 |
+| Voronoi volumes and coordination | 4,000 | 0.005 | 0.047 | 9.47 | 0 | 0 |
+| Voronoi volumes and coordination | 32,000 | 0.015 | 0.371 | 23.95 | 0 | 2 |
+| Voronoi volumes and coordination | 256,000 | 0.119 | 2.958 | 24.95 | 29 | 7 |
+| Voronoi volumes and coordination | 2,048,000 | 0.923 | 23.841 | 25.83 | 130 | 22 |
+| Voronoi cells with their faces | 4,000 | 0.003 | 0.050 | 17.11 | 0 | 2 |
+| Voronoi cells with their faces | 32,000 | 0.017 | 0.392 | 22.71 | 26 | 18 |
+| Voronoi cells with their faces | 256,000 | 0.131 | 3.151 | 23.99 | 206 | 145 |
+| Voronoi cells with their faces | 2,048,000 | 1.083 | 25.281 | 23.34 | 1595 | 943 |
+| Cluster analysis, 2 Å | 3,998 | 0.004 | 0.003 | 0.71 | 0 | 0 |
+| Cluster analysis, 2 Å | 31,966 | 0.004 | 0.017 | 4.31 | 1 | 6 |
+| Cluster analysis, 2 Å | 255,756 | 0.028 | 0.163 | 5.85 | 39 | 28 |
+| Cluster analysis, 2 Å | 2,046,192 | 0.341 | 2.066 | 6.06 | 222 | 0 |
+| Wigner–Seitz occupancies | 3,974 | 0.001 | 0.001 | 0.70 | 0 | 1 |
+| Wigner–Seitz occupancies | 31,811 | 0.002 | 0.006 | 2.99 | 0 | 8 |
+| Wigner–Seitz occupancies | 254,734 | 0.017 | 0.036 | 2.16 | 2 | 36 |
+| Wigner–Seitz occupancies | 2,037,841 | 0.096 | 0.316 | 3.31 | 47 | 147 |
+| Six analyses of copper, one neighbor search | 4,000 | 0.009 | 0.064 | 7.52 | 1 | 8 |
+| Six analyses of copper, one neighbor search | 32,000 | 0.017 | 0.095 | 5.49 | 20 | 72 |
+| Six analyses of copper, one neighbor search | 256,000 | 0.109 | 0.370 | 3.41 | 174 | 492 |
+| Six analyses of copper, one neighbor search | 2,048,000 | 0.813 | 2.933 | 3.61 | 1340 | 1697 |
+| Steinhardt q2–q6 and the RDF, one neighbor search | 4,000 | 0.003 | 0.019 | 6.86 | 1 | 1 |
+| Steinhardt q2–q6 and the RDF, one neighbor search | 32,000 | 0.009 | 0.026 | 2.86 | 20 | 12 |
+| Steinhardt q2–q6 and the RDF, one neighbor search | 256,000 | 0.058 | 0.088 | 1.52 | 188 | 85 |
+| Steinhardt q2–q6 and the RDF, one neighbor search | 2,048,000 | 0.420 | 0.720 | 1.71 | 1340 | 134 |
+| Atomic strain, 3 Å | 4,000 | 0.004 | 0.002 | 0.59 | 0 | 0 |
+| Atomic strain, 3 Å | 32,000 | 0.005 | 0.003 | 0.73 | 0 | 6 |
+| Atomic strain, 3 Å | 256,000 | 0.012 | 0.013 | 1.05 | 46 | 45 |
+| Atomic strain, 3 Å | 2,048,000 | 0.063 | 0.095 | 1.52 | 232 | 236 |
 
 #### freud
 
 | Case | Atoms | mdapy 2.0.0.dev0 (s) | freud 3.6.1 (s) | freud / mdapy | mdapy (MB) | freud (MB) |
 |---|---:|---:|---:|---:|---:|---:|
-| Neighbor list, 5 Å | 4,000 | 0.004 | 0.009 | 2.26 | 0 | 24 |
-| Neighbor list, 5 Å | 32,000 | 0.009 | 0.082 | 9.19 | 18 | 197 |
-| Neighbor list, 5 Å | 256,000 | 0.038 | 0.772 | 20.40 | 186 | 1567 |
-| Neighbor list, 5 Å | 2,048,000 | 0.272 | 6.180 | 22.70 | 1362 | 9667 |
-| 12 nearest neighbors | 4,000 | 0.003 | 0.003 | 1.04 | 0 | 2 |
-| 12 nearest neighbors | 32,000 | 0.007 | 0.027 | 3.93 | 2 | 51 |
-| 12 nearest neighbors | 256,000 | 0.042 | 0.247 | 5.86 | 49 | 431 |
-| 12 nearest neighbors | 2,048,000 | 0.252 | 2.125 | 8.45 | 343 | 3268 |
-| Steinhardt q2–q6, 12 neighbors | 4,000 | 0.003 | 0.004 | 1.30 | 0 | 1 |
-| Steinhardt q2–q6, 12 neighbors | 32,000 | 0.009 | 0.031 | 3.52 | 1 | 15 |
-| Steinhardt q2–q6, 12 neighbors | 256,000 | 0.061 | 0.268 | 4.36 | 15 | 123 |
-| Steinhardt q2–q6, 12 neighbors | 2,048,000 | 0.495 | 2.267 | 4.58 | 70 | 908 |
-| Steinhardt q2–q6, Voronoi faces weighted by area | 4,000 | 0.009 | 0.164 | 18.80 | 2 | 7 |
-| Steinhardt q2–q6, Voronoi faces weighted by area | 32,000 | 0.067 | 1.374 | 20.64 | 50 | 61 |
-| Steinhardt q2–q6, Voronoi faces weighted by area | 256,000 | 0.524 | 10.567 | 20.16 | 433 | 461 |
-| Radial distribution function, 6 Å, 200 bins | 4,000 | 0.005 | 0.010 | 2.02 | 0 | 0 |
-| Radial distribution function, 6 Å, 200 bins | 32,000 | 0.008 | 0.022 | 2.79 | 0 | 6 |
-| Radial distribution function, 6 Å, 200 bins | 256,000 | 0.032 | 0.123 | 3.83 | 23 | 56 |
-| Radial distribution function, 6 Å, 200 bins | 2,048,000 | 0.245 | 1.046 | 4.26 | 73 | 239 |
-| Voronoi volumes and coordination | 4,000 | 0.007 | 0.129 | 18.45 | 1 | 7 |
-| Voronoi volumes and coordination | 32,000 | 0.027 | 1.051 | 39.43 | 21 | 60 |
-| Voronoi volumes and coordination | 256,000 | 0.223 | 8.399 | 37.62 | 205 | 461 |
-| Voronoi volumes and coordination | 2,048,000 | 1.754 | 67.523 | 38.51 | 1583 | 3650 |
-| Cluster analysis, 2 Å | 3,998 | 0.001 | 0.001 | 1.14 | 0 | 0 |
-| Cluster analysis, 2 Å | 31,966 | 0.005 | 0.012 | 2.36 | 2 | 0 |
-| Cluster analysis, 2 Å | 255,756 | 0.041 | 0.123 | 2.99 | 27 | 26 |
-| Cluster analysis, 2 Å | 2,046,192 | 0.439 | 1.217 | 2.77 | 219 | 249 |
-| Steinhardt q2–q6 and the RDF, one neighbor search | 4,000 | 0.007 | 0.014 | 1.89 | 1 | 0 |
-| Steinhardt q2–q6 and the RDF, one neighbor search | 32,000 | 0.015 | 0.047 | 3.02 | 20 | 18 |
-| Steinhardt q2–q6 and the RDF, one neighbor search | 256,000 | 0.081 | 0.317 | 3.91 | 174 | 142 |
-| Steinhardt q2–q6 and the RDF, one neighbor search | 2,048,000 | 0.592 | 2.588 | 4.37 | 1340 | 848 |
+| Neighbor list, 5 Å | 4,000 | 0.004 | 0.007 | 1.66 | 0 | 22 |
+| Neighbor list, 5 Å | 32,000 | 0.008 | 0.061 | 7.70 | 19 | 201 |
+| Neighbor list, 5 Å | 256,000 | 0.026 | 0.591 | 22.41 | 173 | 1586 |
+| Neighbor list, 5 Å | 2,048,000 | 0.190 | 4.946 | 26.07 | 1356 | 9668 |
+| 12 nearest neighbors | 4,000 | 0.002 | 0.002 | 0.98 | 0 | 2 |
+| 12 nearest neighbors | 32,000 | 0.007 | 0.020 | 2.78 | 3 | 52 |
+| 12 nearest neighbors | 256,000 | 0.029 | 0.178 | 6.12 | 49 | 433 |
+| 12 nearest neighbors | 2,048,000 | 0.183 | 1.628 | 8.90 | 343 | 3267 |
+| Steinhardt q2–q6, 12 neighbors | 4,000 | 0.001 | 0.004 | 2.68 | 0 | 0 |
+| Steinhardt q2–q6, 12 neighbors | 32,000 | 0.007 | 0.023 | 3.37 | 0 | 16 |
+| Steinhardt q2–q6, 12 neighbors | 256,000 | 0.044 | 0.188 | 4.23 | 14 | 126 |
+| Steinhardt q2–q6, 12 neighbors | 2,048,000 | 0.366 | 1.655 | 4.53 | 66 | 909 |
+| Steinhardt q2–q6, Voronoi faces weighted by area | 4,000 | 0.009 | 0.103 | 11.41 | 2 | 7 |
+| Steinhardt q2–q6, Voronoi faces weighted by area | 32,000 | 0.043 | 0.813 | 19.06 | 56 | 61 |
+| Steinhardt q2–q6, Voronoi faces weighted by area | 256,000 | 0.335 | 6.936 | 20.68 | 423 | 461 |
+| Radial distribution function, 6 Å, 200 bins | 4,000 | 0.004 | 0.008 | 1.90 | 0 | 30 |
+| Radial distribution function, 6 Å, 200 bins | 32,000 | 0.004 | 0.017 | 4.26 | 0 | 35 |
+| Radial distribution function, 6 Å, 200 bins | 256,000 | 0.022 | 0.084 | 3.90 | 11 | 54 |
+| Radial distribution function, 6 Å, 200 bins | 2,048,000 | 0.169 | 0.711 | 4.22 | 73 | 208 |
+| Voronoi volumes and coordination | 4,000 | 0.005 | 0.072 | 14.47 | 0 | 5 |
+| Voronoi volumes and coordination | 32,000 | 0.015 | 0.598 | 38.59 | 0 | 61 |
+| Voronoi volumes and coordination | 256,000 | 0.119 | 4.811 | 40.58 | 29 | 461 |
+| Voronoi volumes and coordination | 2,048,000 | 0.923 | 38.658 | 41.89 | 130 | 3651 |
+| Voronoi cells with their faces | 4,000 | 0.003 | 0.072 | 24.61 | 0 | 7 |
+| Voronoi cells with their faces | 32,000 | 0.017 | 0.598 | 34.64 | 26 | 61 |
+| Voronoi cells with their faces | 256,000 | 0.131 | 4.851 | 36.93 | 206 | 461 |
+| Voronoi cells with their faces | 2,048,000 | 1.083 | 38.538 | 35.58 | 1595 | 3651 |
+| Cluster analysis, 2 Å | 3,998 | 0.004 | 0.001 | 0.25 | 0 | 0 |
+| Cluster analysis, 2 Å | 31,966 | 0.004 | 0.007 | 1.83 | 1 | 0 |
+| Cluster analysis, 2 Å | 255,756 | 0.028 | 0.078 | 2.78 | 39 | 27 |
+| Cluster analysis, 2 Å | 2,046,192 | 0.341 | 0.860 | 2.52 | 222 | 252 |
+| Steinhardt q2–q6 and the RDF, one neighbor search | 4,000 | 0.003 | 0.011 | 4.01 | 1 | 30 |
+| Steinhardt q2–q6 and the RDF, one neighbor search | 32,000 | 0.009 | 0.036 | 4.01 | 20 | 44 |
+| Steinhardt q2–q6 and the RDF, one neighbor search | 256,000 | 0.058 | 0.239 | 4.13 | 188 | 143 |
+| Steinhardt q2–q6 and the RDF, one neighbor search | 2,048,000 | 0.420 | 1.910 | 4.54 | 1340 | 848 |
 
 ## Cases
 
@@ -200,9 +214,10 @@ radial distribution function.
   (1e-8 for Steinhardt parameters weighted by Voronoi faces, whose areas
   come from two tessellations), for neighbor lists the same number of
   neighbors of each atom and the same sum of their distances, and for
-  Voronoi cells the same volumes and numbers of faces, but for faces of no
-  area that one tessellation of millions of atoms finds and the other not
-  (at most one atom in 100 000). freud computes in single precision, which
+  Voronoi cells the same volumes and numbers of faces, and with the faces
+  as many of OVITO's bonds at each atom, but for faces of no area that one
+  tessellation of millions of atoms finds and the other not (at most one
+  atom in 100 000). freud computes in single precision, which
   rounds positions in a box of 600 Å by some 3e-5 Å: values agree within
   1e-4; the numbers of neighbors and the bins of the radial distribution
   function within the pairs closer than 1e-4 Å to a cutoff or the edge of a
@@ -217,6 +232,12 @@ radial distribution function.
 - Each process first computes the case for 500 atoms, so that loading
   libraries and starting threads are not timed, then three times for the
   system; the shortest time counts.
+- The run gave common neighbor analysis with a fixed cutoff and atomic
+  strain at 2 million atoms twice the time mdapy took in every other run,
+  so four cases (these two, cluster analysis and neighbor lists) at 4 000
+  and 2 million atoms were run twice more, for every program, in a second
+  job on the same kind of node; the tables show the last of these runs,
+  which agreed with the one before within 10 %.
 - The time runs from the call to the result, with every neighbor search.
   Making the system and converting it into OVITO's data collection or
   freud's box and points are not timed. OVITO computes a new pipeline each

@@ -4,14 +4,40 @@
 interfaces from liquid water, by the correlation of the bond order of
 neighboring molecules.
 
-<!-- skip-test -->
 ```python
+import numpy as np
+
+from mdapy.build import build_crystal
 from mdapy.identify import ChillPlus
 
-oxygen = water.filter(element="O")  # one atom per molecule
-result = ChillPlus(cutoff=3.5).compute(oxygen)
-result.counts()  # {'other': ..., 'hexagonal_ice': ..., 'cubic_ice': ..., ...}
+# the oxygen atoms of hexagonal ice, one per molecule, the upper half
+# disordered like liquid water
+ice = build_crystal("lonsdaleite", 4.52, c=7.36, elements="O", repeat=(8, 8, 6))
+upper = ice["positions"][:, 2] > 22.0
+shake = np.random.default_rng(0).normal(0, 0.5, (len(ice), 3))
+water = ice.with_columns(positions=ice["positions"] + shake * upper[:, None])
+
+result = ChillPlus(cutoff=3.5).compute(water)
+result.counts()  # {'other': 719, 'hexagonal_ice': 698, ...}
+water = water.with_columns(result)  # the column 'structure'
 ```
+
+For water of more than oxygen, `water.filter(element="O")` keeps one atom per
+molecule. Each molecule in the color of its structure:
+
+```python
+from mdapy.visualization import render
+
+side = [0, -1, 0.15]  # seen from the side, slightly from above
+render(water, "images/chill-plus.png", color=result, view=side, width=800, height=600)
+```
+
+![CHILL+ of ice and disordered water](images/chill-plus.png)
+
+*Hexagonal ice (light blue) under its disordered half (white, other). The
+molecules at the two interfaces, the lower one across the periodic boundary,
+are interfacial ice (purple); a few disordered molecules happen to have the
+bonds of a hydrate (green).*
 
 ## Parameters
 

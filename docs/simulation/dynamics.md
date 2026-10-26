@@ -25,6 +25,33 @@ with MolecularDynamics(crystal, potential, timestep=0.002) as md:
     hot = md.system  # the atoms at the end, with velocities and images
 ```
 
+The thermodynamic state along the two runs:
+
+<!-- skip-test -->
+```python
+from mdapy.visualization import plot
+
+thermo = md.thermo
+a = (thermo["volume"] / 512) ** (1 / 3)  # lattice parameter of the 8 x 8 x 8 cells
+with plot.style():
+    fig, (top, bottom) = plot.figure("single", 100, nrows=2, sharex=True)
+    top.plot(thermo["time"], thermo["temperature"])
+    top.set_ylabel("Temperature (K)")
+    bottom.plot(thermo["time"], a)
+    bottom.set_ylabel("Lattice parameter (Å)")
+    bottom.set_xlabel("Time (ps)")
+    for ax in (top, bottom):
+        ax.axvline(20.0, color="0.5", linestyle="--")  # npt, then nvt
+    plot.save(fig, "images/dynamics", formats=("png",))
+```
+
+![Temperature and lattice parameter in molecular dynamics](images/dynamics.png)
+
+*Copper started at 600 K: half the kinetic energy goes into the potential
+energy at once, and the thermostat holds the rest at 300 K. The barostat
+expands the box from the lattice parameter of 0 K to that of 300 K at zero
+pressure; after the dashed line the box is fixed (nvt).*
+
 LAMMPS runs in metal units, those of mdapy, through its Python module,
 installed as the [LAMMPS documentation](https://docs.lammps.org/Python_install.html)
 describes; `potential` gives the commands of the interaction, the element

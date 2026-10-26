@@ -27,6 +27,33 @@ result.bulk_modulus  # GPa
 result.heat_capacity  # C_P, eV/K per atom
 ```
 
+The lattice parameter of copper, four atoms to its cubic cell, and the
+linear thermal expansion coefficient:
+
+<!-- skip-test -->
+```python
+from mdapy.visualization import plot
+
+t = result.temperatures
+with plot.style():
+    fig, (left, right) = plot.figure("double", ncols=2)
+    left.plot(t, (4 * result.volume) ** (1 / 3))
+    left.set_xlabel("Temperature (K)")
+    left.set_ylabel("Lattice parameter (Å)")
+    right.plot(t, result.thermal_expansion / 3 * 1e6)
+    right.set_xlabel("Temperature (K)")
+    right.set_ylabel(r"Linear thermal expansion ($10^{-6}$/K)")
+    plot.save(fig, "images/quasi-harmonic", formats=("png",))
+```
+
+![Thermal expansion of copper](images/quasi-harmonic.png)
+
+*Copper with the EAM potential of Mishin et al.: at 0 K the zero-point
+vibrations already widen the lattice a little beyond its static 3.615 Å;
+it grows slowly at first, while the vibrations freeze out, then nearly
+linearly. The expansion coefficient rises from 0 and keeps growing slowly
+above the Debye temperature.*
+
 At each volume the box keeps its volume while its shape and the positions
 relax, so that a crystal whose shape changes with the volume, such as hcp
 with its c/a, takes its best shape at each; the phonons then give the free

@@ -18,6 +18,33 @@ inside = wrap(system)  # fractional coordinates in [0, 1), image flags updated
 moved = unwrap(system)  # the second atom at x = -0.1, image flags zero
 ```
 
+The copies are numbered along **a** first. A cell of graphene, two atoms,
+replicated 6 × 4 times, each copy colored by its number:
+
+```python
+import numpy as np
+
+from mdapy.build import build_crystal
+from mdapy.visualization import render
+
+cell = build_crystal("graphene", 2.46, c=10.0, elements="C")
+sheet = replicate(cell, (6, 4, 1))
+copy = np.arange(len(sheet)) // len(cell)  # the copy of each atom
+render(
+    sheet,
+    "images/replicate.png",
+    color=copy,
+    representation="ball_and_stick",
+    view="top",
+)
+```
+
+![Copies of a graphene cell](images/replicate.png)
+
+*Seen from above, copy 0 (dark violet) at the origin, the next copies along
+**a** to its right, the rows of copies along **b** above; the last is
+yellow.*
+
 ## Parameters
 
 | Function | Name | Type | Meaning |

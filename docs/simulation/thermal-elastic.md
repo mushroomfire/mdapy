@@ -24,6 +24,31 @@ result.adiabatic[:, 3, 3]  # C44
 fast = thermal_elastic_constants(qha, potential, method="quasi-static")
 ```
 
+The isothermal constants of copper by both methods:
+
+<!-- skip-test -->
+```python
+from mdapy.visualization import plot
+
+t = qha.temperatures
+with plot.style():
+    fig, ax = plot.figure("single")
+    for name, (i, j) in {"C11": (0, 0), "C12": (0, 1), "C44": (3, 3)}.items():
+        (line,) = ax.plot(t, result.isothermal[:, i, j], label=name)
+        ax.plot(t, fast.isothermal[:, i, j], ":", color=line.get_color())
+    ax.set_xlabel("Temperature (K)")
+    ax.set_ylabel("Isothermal elastic constant (GPa)")
+    ax.legend()
+    plot.save(fig, "images/thermal-elastic", formats=("png",))
+```
+
+![Elastic constants of copper at finite temperature](images/thermal-elastic.png)
+
+*Copper with the EAM potential of Mishin et al., quasi-harmonic (solid) and
+quasi-static (dotted): the crystal softens as it heats. The quasi-static
+constants, which see only the expansion, soften less; at low temperature
+the zero-point vibrations make the quasi-harmonic ones a little stiffer.*
+
 The elastic constants at a temperature are the second derivatives of the
 free energy with respect to strain, at the volume of that temperature.
 They are found in the cells of the quasi-harmonic grid around the volumes

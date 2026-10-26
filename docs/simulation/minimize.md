@@ -79,6 +79,46 @@ result = minimize(system, potential, cell="full", save_every=10)
 mp.write("relaxation.xyz", result.frames)
 ```
 
+A callback follows the minimization step by step. Copper with every atom
+displaced at random by about 0.1 Å, relaxed to forces below 1e-4 eV/Å:
+
+<!-- skip-test -->
+```python
+import numpy as np
+
+from mdapy.build import build_crystal
+from mdapy.visualization import plot
+
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(4, 4, 4))
+shake = np.random.default_rng(0).normal(0, 0.1, (len(crystal), 3))
+shaken = crystal.with_columns(positions=crystal["positions"] + shake)
+
+steps = []  # step, energy and largest force after each step
+
+
+def record(step, system, energy, max_force):
+    steps.append((step, energy, max_force))
+
+
+result = minimize(shaken, potential, max_force=1e-4, callback=record)
+step, energy, force = np.array(steps).T
+
+with plot.style():
+    fig, (top, bottom) = plot.figure("single", 100, nrows=2, sharex=True)
+    top.semilogy(step, energy - result.energy)
+    top.set_ylabel("Energy above the minimum (eV)")
+    bottom.semilogy(step, force)
+    bottom.set_ylabel("Largest force (eV/Å)")
+    bottom.set_xlabel("Step")
+    plot.save(fig, "images/minimize", formats=("png",))
+```
+
+![FIRE minimization of shaken copper](images/minimize.png)
+
+*The energy and the largest force fall by orders of magnitude in 121 steps.
+Each kink is an uphill step: FIRE steps half a step back, stops the atoms
+and starts again with a shorter time step.*
+
 `minimize` raises `InvalidParameter` for a non-positive `max_force`,
 `max_step`, `timestep`, `max_stress` or `save_every`, a negative
 `max_steps`, an unknown `cell`, or a calculator that does not compute

@@ -29,6 +29,40 @@ shells.alpha.shape  # (2, 2, 2): shell, row, column
 same = WarrenCowley(cutoff=(2.7, 3.3)).compute(system)
 ```
 
+The ordered crystal against the same atoms with their elements shuffled,
+over the first four shells of the bcc lattice:
+
+```python
+from mdapy.visualization import plot, render
+
+render(system, "images/warren-cowley-b2.png", radius=0.8, view=[1, 0.5, 0.35])
+
+rng = np.random.default_rng(1)
+shuffled = system.with_columns(element=rng.permutation(system["element"]))
+shells = (8, 6, 12, 24)
+ordered = WarrenCowley(num_neighbors=shells).compute(system)
+random = WarrenCowley(num_neighbors=shells).compute(shuffled)
+
+with plot.style():
+    fig, ax = plot.figure("single")
+    k = np.arange(1, 5)
+    ax.plot(k, ordered["Cu", "Zn"], "o-", label="CsCl order")
+    ax.plot(k, random["Cu", "Zn"], "s-", label="shuffled")
+    ax.axhline(0, color="0.5", linewidth=0.8)
+    ax.set_xticks(k)
+    ax.set_xlabel("Shell")
+    ax.set_ylabel("Warren–Cowley α of Zn around Cu")
+    ax.legend()
+    plot.save(fig, "images/warren-cowley", formats=("png",))
+```
+
+![CsCl-ordered CuZn](images/warren-cowley-b2.png){ width="38%" }
+![Warren–Cowley parameters by shell](images/warren-cowley.png){ width="60%" }
+
+*Left: CuZn in the CsCl order, Cu orange and Zn blue. Right: the order of Zn
+around Cu shell by shell, −1 for a shell of Zn only and 1 for one of Cu
+only; with the elements shuffled it stays near 0.*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

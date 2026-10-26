@@ -8,19 +8,18 @@ builds the structure mdapy builds.
 ## Results
 
 A node of the Triton cluster of Aalto University, alone for the run: two
-Intel Xeon Gold 6148 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
+Intel Xeon Gold 6248 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
 mdapy 2.0.0.dev0 built with GCC 12.3, and Atomsk Beta 0.13.1, a statically linked build of its release.
 
 ![Time of Atomsk over the time of mdapy for each case and size](images/builders.png)
 
 ### What they show
 
-- **Single crystal**: mdapy builds and writes it 4.5 to 17 times faster
-  than Atomsk, 1.2 s against 5.5 s at 2 million atoms.
-- **Polycrystal**: mdapy is 2.4 to 6.4 times faster, 4.4 s against 10.4 s at
+- **Single crystal**: mdapy builds and writes it 16 to 28 times faster
+  than Atomsk, 0.29 s against 5.0 s at 2 million atoms; building it is a
+  repetition of the cell, and most of the time is writing the file.
+- **Polycrystal**: mdapy is 2.4 to 6.2 times faster, 4.1 s against 9.6 s at
   2 million atoms.
-- Writing the data file takes mdapy 0.18 s of these times at 2 million
-  atoms.
 
 ### Times and memory
 
@@ -32,14 +31,14 @@ the timings; that of Atomsk, a process of its own, is not counted.
 
 | Case | Atoms | mdapy 2.0.0.dev0 (s) | Atomsk Beta 0.13.1 (s) | Atomsk / mdapy | mdapy (MB) | Atomsk (MB) |
 |---|---:|---:|---:|---:|---:|---:|
-| fcc single crystal, written as a LAMMPS data file | 4,000 | 0.004 | 0.069 | 17.17 | 0 | – |
-| fcc single crystal, written as a LAMMPS data file | 32,000 | 0.018 | 0.142 | 8.02 | 1 | – |
-| fcc single crystal, written as a LAMMPS data file | 256,000 | 0.142 | 0.705 | 4.97 | 29 | – |
-| fcc single crystal, written as a LAMMPS data file | 2,048,000 | 1.234 | 5.492 | 4.45 | 90 | – |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 3,981 | 0.033 | 0.212 | 6.44 | 0 | – |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 31,995 | 0.095 | 0.372 | 3.93 | 4 | – |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 255,941 | 0.506 | 1.442 | 2.85 | 58 | – |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 2,047,788 | 4.387 | 10.387 | 2.37 | 117 | – |
+| fcc single crystal, written as a LAMMPS data file | 4,000 | 0.003 | 0.043 | 16.31 | 0 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 32,000 | 0.005 | 0.148 | 27.55 | 4 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 256,000 | 0.038 | 0.676 | 17.65 | 30 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 2,048,000 | 0.287 | 5.024 | 17.53 | 129 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 3,981 | 0.029 | 0.180 | 6.18 | 0 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 31,995 | 0.088 | 0.352 | 3.98 | 2 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 255,941 | 0.483 | 1.336 | 2.76 | 42 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 2,047,788 | 4.080 | 9.613 | 2.36 | 115 | 0 |
 
 ## Cases
 

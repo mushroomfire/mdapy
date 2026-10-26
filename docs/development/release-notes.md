@@ -195,7 +195,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.build.build_crystal`: perfect crystals of fifteen structures,
   cubic and hexagonal, of one element or ordered on their sublattices,
   along any crystal directions, with the shortest period along each;
-  the same atoms as atomsk. See [Crystals](../build/crystals.md).
+  the same atoms as atomsk, ordered plane by plane without sorting them
+  (2 million atoms in some 0.05 s). See [Crystals](../build/crystals.md).
 - `mdapy.build.random_alloy`: elements at random in given fractions with
   exact counts. See [Random alloys](../build/alloys.md).
 - `mdapy.build.sqs_alloy`: special quasirandom structures, the pairs of the

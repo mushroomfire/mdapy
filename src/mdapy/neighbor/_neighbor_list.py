@@ -213,7 +213,7 @@ class NeighborList:
         offsets, j, shifts, distances = _run(
             _native.nearest, *arrays, k, progress, _native_token(cancel)
         )
-        reach = float(np.nextafter(distances.max(), np.inf)) if n else 0.0
+        reach = float(np.nextafter(_native.largest(distances), np.inf)) if n else 0.0
         return cls(system, reach, offsets, j, shifts, distances, num_neighbors=k)
 
     @classmethod

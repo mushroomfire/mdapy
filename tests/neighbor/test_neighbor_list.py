@@ -6,6 +6,7 @@ import math
 
 import numpy as np
 import pytest
+from mdapy._core import neighbor as _native
 
 import mdapy
 from mdapy import NeighborList
@@ -821,3 +822,13 @@ def test_a_list_fits_systems_with_the_same_atoms():
     np.testing.assert_array_equal(
         rdf.compute(labeled, neighbors=nl).g, rdf.compute(system).g
     )
+
+
+def test_the_largest_of_many_distances():
+    values = np.random.default_rng(3).random(500_000) * 7.0
+    for count in (0, 1, 1000, len(values)):
+        expected = values[:count].max() if count else 0.0
+        assert _native.largest(values[:count]) == expected
+    # for any number of threads
+    with mdapy.num_threads(3):
+        assert _native.largest(values) == values.max()

@@ -7,6 +7,7 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/optional.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <initializer_list>
 #include <new>
@@ -138,6 +139,19 @@ nb::object pair_vectors(Positions positions, Offsets offsets, Neighbors neighbor
     return to_array(std::move(vectors), {neighbors.shape(0), 3});
 }
 
+// The largest of the values, found in parallel, or 0 for none.
+double largest(Distances values) {
+    const auto n = static_cast<std::int64_t>(values.shape(0));
+    const double* data = values.data();
+    nb::gil_scoped_release release;
+    return parallel_reduce(
+        n, 0, 0.0,
+        [data](std::int64_t begin, std::int64_t end) {
+            return *std::max_element(data + begin, data + end);
+        },
+        [](double a, double b) { return std::max(a, b); });
+}
+
 nb::tuple within(Offsets offsets, Neighbors neighbors, Shifts shifts, Distances distances,
                  std::optional<Types> type, Limits limits, nb::handle progress,
                  const CancelToken* cancel) {
@@ -223,6 +237,7 @@ void bind_neighbor(nb::module_& m) {
     m.def("nearest", &nearest, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("k"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
+    m.def("largest", &largest, nb::arg("values"));
     m.def("pair_vectors", &pair_vectors, nb::arg("positions"), nb::arg("offsets"),
           nb::arg("neighbors"), nb::arg("shifts"), nb::arg("matrix"));
     m.def("follow", &follow, nb::arg("positions"), nb::arg("offsets"), nb::arg("neighbors"),

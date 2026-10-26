@@ -65,6 +65,7 @@ It returns an `ElasticResult`:
 | `constants` | `numpy.ndarray` | (6, 6) elastic constants $C$ in GPa, in Voigt order; read-only |
 | `bulk_modulus(average="hill")` | float | the bulk modulus in GPa: the `"voigt"`, `"reuss"` or `"hill"` average |
 | `shear_modulus(average="hill")` | float | the shear modulus in GPa, with the same averages |
+| `errors` | `numpy.ndarray` or None | (6, 6) standard errors in GPa, from [molecular dynamics](md-elastic.md); None here |
 
 `elastic_constants` raises `InvalidParameter` for a box that is not periodic
 in every direction, a non-positive `strain`, a calculator without the

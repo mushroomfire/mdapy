@@ -149,6 +149,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.lattice_dynamics.thermal_elastic_constants`: isothermal and
   adiabatic elastic constants at finite temperature, quasi-harmonic or
   quasi-static. See [Elastic constants at finite temperature](../simulation/thermal-elastic.md).
+- `mdapy.lattice_dynamics.md_elastic_constants`: isothermal elastic
+  constants at a temperature from the mean stress of molecular dynamics in
+  LAMMPS under small strains, with standard errors from block averages. See
+  [Elastic constants from molecular dynamics](../simulation/md-elastic.md).
 - `mdapy.simulation.MolecularDynamics`: molecular dynamics in LAMMPS with
   the interaction of a LAMMPS calculator: random velocities, runs at
   constant energy, temperature or pressure with ramps, the thermodynamic

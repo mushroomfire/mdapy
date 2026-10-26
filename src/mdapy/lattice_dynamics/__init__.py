@@ -1,10 +1,11 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
-"""Lattice dynamics with a calculator: elastic constants, phonons and the
-quasi-harmonic approximation."""
+"""Lattice dynamics: elastic constants, at rest and at finite temperature,
+phonons and the quasi-harmonic approximation."""
 
 from mdapy.lattice_dynamics._elastic import ElasticResult, elastic_constants
+from mdapy.lattice_dynamics._md_elastic import md_elastic_constants
 from mdapy.lattice_dynamics._phonons import (
     BandStructure,
     PhononDOS,
@@ -29,6 +30,7 @@ __all__ = [
     "ThermalElasticResult",
     "ThermalProperties",
     "elastic_constants",
+    "md_elastic_constants",
     "phonons",
     "primitive_cell",
     "quasi_harmonic",

@@ -62,6 +62,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `image` | Array(i32, 3) | | periodic image flags |
 | `movable` | Array(bool, 3) | | whether the atom may move along x, y, z (VASP selective dynamics) |
 | `structure` | int8 | | structure type from an identification such as `CommonNeighborAnalysis`; the result names the types |
+| `grain` | int64 | | grain of an atom from `GrainSegmentation`, numbered from 0 by decreasing size; -1 for none |
 | `planar_fault` | int8 | | planar fault type of fcc crystals from `PlanarFaults`: non-hcp, other hcp, intrinsic stacking fault, coherent twin boundary, multilayer stacking fault, extrinsic stacking fault |
 | `csp` | f64 | Å² | centro-symmetry parameter |
 | `cnp` | f64 | Å² | common neighbor parameter |

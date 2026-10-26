@@ -18,6 +18,7 @@
 #include "bindings/list_view.h"
 #include "core/index.h"
 #include "core/parallel.h"
+#include "identify/grains.h"
 #include "identify/planar_faults.h"
 #include "identify/ptm.h"
 #include "identify/structure.h"
@@ -336,6 +337,74 @@ nb::object planar_faults(Structures structure, TemplateNeighbors neighbors, bool
     return result;
 }
 
+using Orientations = nb::ndarray<const double, nb::shape<-1, 4>, nb::c_contig, nb::device::cpu>;
+using Indices = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+template <class T>
+nb::object vector_array(const std::vector<T>& values, std::size_t columns = 1) {
+    T* data = nullptr;
+    nb::object result = columns == 1 ? new_array(values.size(), data)
+                                     : new_array({values.size() / columns, columns}, data);
+    std::copy(values.begin(), values.end(), data);
+    return result;
+}
+
+// The grains of a polycrystal from the PTM types and orientations of its
+// atoms and their bonds: the neighbors of each atom in CSR form, in the
+// order of its template, with the length of each bond.
+nb::dict grain_segmentation(Structures structure, Orientations orientation, Offsets offsets,
+                            Indices neighbors, Values lengths, Vectors positions, Box3 matrix,
+                            Origin3 origin, Periodic pbc, std::optional<Values> masses,
+                            bool spanning_tree, bool automatic, double threshold,
+                            std::int64_t min_size, bool interfaces, bool adopt_orphans,
+                            nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(structure.shape(0));
+    if (orientation.shape(0) != structure.shape(0) || positions.shape(0) != structure.shape(0) ||
+        offsets.shape(0) != structure.shape(0) + 1 || (masses && masses->shape(0) != structure.shape(0))) {
+        throw std::invalid_argument("there must be the data of each atom");
+    }
+    if (neighbors.shape(0) != lengths.shape(0) ||
+        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
+        throw std::invalid_argument("the offsets must end at the number of neighbors");
+    }
+    identify::GrainInput input;
+    input.n = n;
+    input.structure = structure.data();
+    input.orientation = orientation.data();
+    input.offsets = offsets.data();
+    input.neighbors = neighbors.data();
+    input.lengths = lengths.data();
+    input.positions = positions.data();
+    input.matrix = matrix.data();
+    input.origin = origin.data();
+    input.pbc = pbc.data();
+    input.masses = masses ? masses->data() : nullptr;
+    identify::GrainOptions options;
+    options.spanning_tree = spanning_tree;
+    options.automatic = automatic;
+    options.threshold = threshold;
+    options.min_size = min_size;
+    options.interfaces = interfaces;
+    options.adopt_orphans = adopt_orphans;
+    identify::GrainOutput output;
+    run_released([&](const Control& control) { identify::grain_segmentation(input, options, output, control); },
+                 progress, cancel);
+    nb::dict result;
+    result["grain"] = vector_array(output.grain);
+    result["size"] = vector_array(output.size);
+    result["structure"] = vector_array(output.structure);
+    result["orientation"] = vector_array(output.orientation, 4);
+    result["center"] = vector_array(output.center, 3);
+    result["radius"] = vector_array(output.radius);
+    result["gyration"] = vector_array(output.gyration);
+    result["merge_distance"] = vector_array(output.merge_distance);
+    result["merge_size"] = vector_array(output.merge_size);
+    result["suggested"] = output.suggested;
+    result["threshold"] = output.threshold;
+    return result;
+}
+
 }  // namespace
 
 void bind_identify(nb::module_& m) {
@@ -381,6 +450,13 @@ void bind_identify(nb::module_& m) {
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("count"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("grain_segmentation", &grain_segmentation, nb::arg("structure"),
+          nb::arg("orientation"), nb::arg("offsets"), nb::arg("neighbors"), nb::arg("lengths"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"),
+          nb::arg("masses").none(), nb::arg("spanning_tree"), nb::arg("automatic"),
+          nb::arg("threshold"), nb::arg("min_size"), nb::arg("interfaces"),
+          nb::arg("adopt_orphans"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("planar_faults", &planar_faults, nb::arg("structure"), nb::arg("neighbors"),
           nb::arg("extrinsic"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);

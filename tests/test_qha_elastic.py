@@ -1,5 +1,5 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
-# This file is from the mdapy project, released under the BSD 3-Clause License.
+# This file is from the mdapy project, released under the GPL-3.0-or-later.
 """
 QHAElastic — temperature-dependent elastic constants on Al fcc with the
 UNEP-v1 NEP potential. Tests both the MD (in-Python calculator) path and

@@ -1,10 +1,10 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
-# This file is from the mdapy project, released under the BSD 3-Clause License.
+# This file is from the mdapy project, released under the GPL-3.0-or-later.
 
 """
 
 This module provides fundamental atomic data used throughout **MDAPY**, including
-chemical symbols, atomic numbers, van der Waals radii, and atomic masses (copy from `ase.data <https://ase-lib.org/ase/data.html>`_).
+chemical symbols, atomic numbers, van der Waals radii, and atomic masses (taken from `ase.data <https://ase-lib.org/ase/data.html>`_ of ASE, licensed under the LGPL 2.1 or later; see THIRD_PARTY_NOTICES).
 All data are stored as immutable NumPy arrays or Python dictionaries for fast lookup
 and consistent use across simulations and analysis.
 

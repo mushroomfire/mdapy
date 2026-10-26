@@ -1,5 +1,5 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
-# This file is from the mdapy project, released under the BSD 3-Clause License.
+# This file is from the mdapy project, released under the GPL-3.0-or-later.
 """Common-neighbor-parameter (CNP) — fixture-driven, no external deps.
 
 OVITO has no exact CNP equivalent, so the fixtures are anchored to the

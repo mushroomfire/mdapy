@@ -1,5 +1,5 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
-# This file is from the mdapy project, released under the BSD 3-Clause License.
+# This file is from the mdapy project, released under the GPL-3.0-or-later.
 """Streaming RDF kernel — exercised on top of the existing AlCrNi fixture and
 several built crystals to validate equivalence with the verlet path and to
 prove that large cutoffs no longer require a verlet list.

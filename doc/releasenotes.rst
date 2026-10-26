@@ -1,6 +1,28 @@
 Release Notes
 ===============
 
+Mdapy 1.0.9 (October 26, 2026)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+📜 License
+-----------
+
+- mdapy is now released under the GNU General Public License, version 3
+  or later. Earlier versions were published as BSD-3-Clause, but they
+  include NEP_CPU, which is licensed under the GPL, so that their compiled
+  distributions were subject to the GPL already. ``LICENSE`` grants the
+  additional permission to combine mdapy with the NVIDIA CUDA Toolkit and
+  OptiX SDK, as the GPU wheels do.
+
+- ``THIRD_PARTY_NOTICES`` lists the code of others that mdapy includes
+  (NEP_CPU, polyhedral template matching, QCP, Voro++, Tachyon, stb and
+  parts of OVITO) with their licenses, and ships in every wheel.
+
+- The headers of NVIDIA OptiX are no longer kept in the repository:
+  ``extern/optix`` is a git submodule of
+  https://github.com/NVIDIA/optix-dev (v7.6.0), left out of the source
+  distribution. Nothing else changes.
+
 Mdapy 1.0.8 (October 21, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

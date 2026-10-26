@@ -1,5 +1,5 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
-# This file is from the mdapy project, released under the BSD 3-Clause License.
+# This file is from the mdapy project, released under the GPL-3.0-or-later.
 
 """
 Add or update the mdapy copyright header in Python and C/C++ source files.
@@ -40,7 +40,7 @@ def _make_header(comment: str) -> str:
         f"{comment} Copyright (c) {START_YEAR}-{END_YEAR},"
         f" Yongchao Wu in Aalto University\n"
         f"{comment} This file is from the mdapy project,"
-        f" released under the BSD 3-Clause License.\n"
+        f" released under the GPL-3.0-or-later.\n"
     )
 
 # Pattern that matches the FIRST copyright line regardless of the end year

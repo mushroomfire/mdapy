@@ -1,5 +1,5 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
-# This file is from the mdapy project, released under the BSD 3-Clause License.
+# This file is from the mdapy project, released under the GPL-3.0-or-later.
 """Bond stiffness vs bond length, modeled after ATAT's *fitsvsl*.
 
 Each chemical bond (i,j) between species (A,B) is treated as a 3D harmonic

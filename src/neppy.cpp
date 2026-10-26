@@ -1,7 +1,7 @@
 // Copyright (c) 2022-2026, Yongchao Wu in Aalto University
-// This file is from the mdapy project, released under the BSD 3-Clause License.
+// This file is from the mdapy project, released under the GPL-3.0-or-later.
 // Copyright (c) 2022-2024, mushroomfire in Beijing Institute of Technology
-// This file is from the mdapy project, released under the BSD 3-Clause License.
+// This file is from the mdapy project, released under the GPL-3.0-or-later.
 
 #include "type.h"
 #include <nep.h>

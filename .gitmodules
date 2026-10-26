@@ -1,0 +1,3 @@
+[submodule "extern/optix"]
+	path = extern/optix
+	url = https://github.com/NVIDIA/optix-dev

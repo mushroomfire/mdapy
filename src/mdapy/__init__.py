@@ -1,5 +1,5 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
-# This file is from the mdapy project, released under the BSD 3-Clause License.
+# This file is from the mdapy project, released under the GPL-3.0-or-later.
 
 # Resolve MDAPY_NUM_THREADS BEFORE importing any submodule that pulls in polars.
 # Polars locks its thread pool at import time and only honours POLARS_MAX_THREADS,
@@ -83,4 +83,4 @@ __all__ = [
     "BondStiffness",
     "unwrap_trajectory",
 ]
-__version__ = "1.0.8"
+__version__ = "1.0.9"

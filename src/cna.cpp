@@ -1,6 +1,6 @@
 // Copyright (c) 2022-2026, Yongchao Wu in Aalto University
-// This file is from the mdapy project, released under the BSD 3-Clause License.
-// Some part codes come from the ovito CNA modifier. see https://gitlab.com/stuko/ovito/-/tree/master/src/ovito/particles/modifier/analysis/cna?ref_type=heads
+// This file is from the mdapy project, released under the GPL-3.0-or-later.
+// Some part codes come from the ovito CNA modifier, used under its MIT license (see THIRD_PARTY_NOTICES). see https://gitlab.com/stuko/ovito/-/tree/master/src/ovito/particles/modifier/analysis/cna?ref_type=heads
 
 #include "box.h"
 #include "type.h"

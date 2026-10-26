@@ -1,5 +1,5 @@
 # Copyright (c) 2022-2026, Yongchao Wu in Aalto University
-# This file is from the mdapy project, released under the BSD 3-Clause License.
+# This file is from the mdapy project, released under the GPL-3.0-or-later.
 """
 MDElastic — finite-T elastic constants on a small CrCoNi SQS using the
 Sheng NiCoCr EAM potential. Test runs are deliberately short for speed —

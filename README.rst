@@ -343,8 +343,12 @@ submit a PR on GitHub.
 License
 -------
 
-BSD 3-Clause — see `LICENSE <https://github.com/mushroomfire/mdapy/blob/master/LICENSE>`_
-for details.
+GNU General Public License, version 3 or later — see
+`LICENSE <https://github.com/mushroomfire/mdapy/blob/master/LICENSE>`_ for details
+and `THIRD_PARTY_NOTICES <https://github.com/mushroomfire/mdapy/blob/master/THIRD_PARTY_NOTICES>`_
+for the code of others that mdapy includes. Versions up to 1.0.8 were
+published as BSD-3-Clause; they include NEP_CPU, licensed under the GPL, so
+that their compiled distributions are subject to the GPL as well.
 
 ----
 

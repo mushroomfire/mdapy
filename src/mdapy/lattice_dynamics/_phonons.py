@@ -13,7 +13,7 @@ from numpy.typing import ArrayLike
 
 from mdapy import units
 from mdapy._core import neighbor as _search
-from mdapy.analysis._symmetry import _Operations, _symmetry
+from mdapy.analysis._symmetry import _keeping, _Operations, _symmetry
 from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
@@ -1093,8 +1093,11 @@ def _displaced_forces(
         atoms = np.arange(n)[None]
         shifts = np.zeros((1, n, 3), dtype=np.int64)
     else:
-        rotations, cartesian = operations.rotations, operations.cartesian
-        atoms, shifts = operations.atoms, operations.shifts
+        # only the operations that map the supercell onto itself relate its
+        # force constants
+        keep = _keeping(operations.rotations, matrix)
+        rotations, cartesian = operations.rotations[keep], operations.cartesian[keep]
+        atoms, shifts = operations.atoms[keep], operations.shifts[keep]
     repeats = _lattice_points(matrix)
     found = {tuple(r): k for k, r in enumerate(repeats.tolist())}
     inverse = np.linalg.inv(matrix)

@@ -90,15 +90,30 @@ def _symmetry(system: System, symmetry: bool | None) -> _Operations | None:
     return _operations(system, _TOLERANCE)
 
 
-def _rotations(system: System, symmetry: bool | None) -> np.ndarray:
-    """(K, 3, 3) the distinct rotations of the symmetry operations of a cell
-    on Cartesian columns, as :func:`_symmetry` finds them; the identity
-    alone without symmetry."""
+def _keeping(rotations: np.ndarray, *matrices: np.ndarray) -> np.ndarray:
+    """(K,) whether each rotation, in the units of the cell, maps onto
+    itself the lattice of each integer matrix, whose rows times the vectors
+    of the cell are its vectors, such as a supercell."""
+    keep = np.ones(len(rotations), dtype=bool)
+    for matrix in matrices:
+        vectors = np.asarray(matrix, dtype=float).T
+        mapped = np.linalg.inv(vectors) @ rotations @ vectors
+        keep &= (np.abs(mapped - np.round(mapped)) < 1e-8).all(axis=(1, 2))
+    return keep
+
+
+def _rotations(
+    system: System, symmetry: bool | None, *matrices: np.ndarray
+) -> np.ndarray:
+    """(K, 3, 3) the distinct rotations on Cartesian columns of the symmetry
+    operations of a cell, as :func:`_symmetry` finds them, that keep the
+    lattices of the matrices; the identity alone without symmetry."""
     operations = _symmetry(system, symmetry)
     if operations is None:
         return np.eye(3)[None]
-    _, first = np.unique(operations.rotations, axis=0, return_index=True)
-    return operations.cartesian[np.sort(first)]
+    keep = np.flatnonzero(_keeping(operations.rotations, *matrices))
+    _, first = np.unique(operations.rotations[keep], axis=0, return_index=True)
+    return operations.cartesian[keep[np.sort(first)]]
 
 
 @dataclass(frozen=True)

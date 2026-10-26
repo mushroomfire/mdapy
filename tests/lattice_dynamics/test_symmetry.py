@@ -183,3 +183,20 @@ def test_thermal_elastic_constants_without_symmetry(potential, hexagonal):
         plain.isothermal, result.isothermal, rtol=1e-4, atol=1e-6
     )
     np.testing.assert_allclose(plain.adiabatic, result.adiabatic, rtol=1e-4, atol=1e-6)
+
+
+def test_only_operations_that_keep_the_supercell(potential, crystals):
+    # the primitive cell of hcp in its reduced basis takes the supercell
+    # nearest a cube, which the six-fold axis does not map onto itself
+    from mdapy.analysis._symmetry import _keeping, _operations
+
+    cell = primitive_cell(crystals["hcp"][0])
+    plain = phonons(cell, potential, symmetry=False)
+    symmetric = phonons(cell, potential, symmetry=True)
+    operations = _operations(cell, 1e-5)
+    kept = _keeping(operations.rotations, symmetric.supercell).sum()
+    assert 1 < kept < len(operations.rotations)
+    q = np.random.default_rng(0).random((20, 3)) - 0.5
+    np.testing.assert_allclose(
+        symmetric.frequencies(q), plain.frequencies(q), rtol=0, atol=1e-6
+    )

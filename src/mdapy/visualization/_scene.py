@@ -17,6 +17,7 @@ from numpy.typing import ArrayLike
 from mdapy._core import visualization as _native
 from mdapy.core.box import Box
 from mdapy.core.threads import _native_token
+from mdapy.elements import COVALENT_RADII, SYMBOLS, VDW_RADII
 from mdapy.errors import InvalidParameter
 from mdapy.visualization._elements import (
     DEFAULT,
@@ -204,10 +205,11 @@ def element_colors(elements: Sequence[str] | pl.Series) -> np.ndarray:
 
 
 _RADII = {
-    "display": (3, 1.0),
-    "covalent": (4, MISSING_COVALENT),
-    "vdw": (5, MISSING_VDW),
+    "display": None,
+    "covalent": (COVALENT_RADII, MISSING_COVALENT),
+    "vdw": (VDW_RADII, MISSING_VDW),
 }
+_NUMBER = {symbol: z for z, symbol in enumerate(SYMBOLS)}
 
 
 def element_radii(
@@ -231,11 +233,17 @@ def element_radii(
     """
     if kind not in _RADII:
         raise InvalidParameter(f"kind must be display, covalent or vdw, not {kind!r}")
-    column, missing = _RADII[kind]
+    if kind == "display":
 
-    def radius(element: str) -> float:
-        value = ELEMENTS.get(element, DEFAULT)[column]
-        return missing if value is None else value
+        def radius(element: str) -> float:
+            return ELEMENTS.get(element, DEFAULT)[3]
+
+    else:
+        table, missing = _RADII[kind]
+
+        def radius(element: str) -> float:
+            value = table[_NUMBER.get(element, 0)]
+            return missing if np.isnan(value) else float(value)
 
     return _per_element(elements, radius).reshape(-1)
 

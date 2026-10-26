@@ -83,7 +83,7 @@ def test_against_phonopy(potential, name):
     n = len(cell)
     ours, theirs = both(cell, potential, counts)
     # the force constants, phonopy's supercell atoms matched to mdapy's
-    big = _supercell(cell, np.array(counts))
+    big = _supercell(cell, np.diag(counts))
     apart = (
         big.box.to_fractional(big["positions"])[:, None]
         - theirs.supercell.scaled_positions

@@ -111,6 +111,12 @@ simulations and its implementation in LAMMPS, *Comput. Mater. Sci.* **175**,
 [doi:10.1088/0370-1298/65/5/307](https://doi.org/10.1088/0370-1298/65/5/307)
 { #hill1952 }
 
+**Hinuma et al. (2017).** Y. Hinuma, G. Pizzi, Y. Kumagai, F. Oba and
+I. Tanaka, Band structure diagram paths based on crystallography,
+*Comput. Mater. Sci.* **128**, 140 (2017).
+[doi:10.1016/j.commatsci.2016.10.015](https://doi.org/10.1016/j.commatsci.2016.10.015)
+{ #hinuma2017 }
+
 **Hirth and Lothe (1982).** J. P. Hirth and J. Lothe, *Theory of
 Dislocations*, 2nd ed. (Wiley, New York, 1982).
 { #hirth1982 }

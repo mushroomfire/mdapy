@@ -134,7 +134,11 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   states by the tetrahedron method or Gaussians, projected on the atoms,
   and the free energy, energy, entropy and heat capacity of the vibrations;
   the same dynamical matrix as LAMMPS. `primitive_cell` finds the smallest
-  cell of a crystal. `units.PLANCK`. See [Phonons](../simulation/phonons.md).
+  cell of a crystal; supercells as integer matrices, by default the one
+  nearest a cube; standard paths of any crystal with seekpath, and
+  branches followed through crossings; imaginary frequencies in the density
+  of states; `plot.band_structure` and `plot.phonon_dos`. `units.PLANCK`.
+  See [Phonons](../simulation/phonons.md).
 - `mdapy.lattice_dynamics.quasi_harmonic`: the quasi-harmonic
   approximation from phonons at several volumes: the equilibrium volume,
   Gibbs energy, entropy, bulk modulus, thermal expansion and heat capacity

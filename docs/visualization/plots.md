@@ -3,7 +3,8 @@
 `mdapy.visualization.plot` sets matplotlib up for the figures of journals
 and plots the results of mdapy: parity plots of energies and forces, radial
 distribution functions, structure factors, bond angles, mean squared
-displacements, stacking fault energies and counts of structures. It needs
+displacements, stacking fault energies, counts of structures, and phonon
+band structures and densities of states. It needs
 matplotlib.
 
 ```python
@@ -45,6 +46,8 @@ with plot.style():
 | `msd(result, *, timestep=1.0, ax=None, fit=None)` | the MSD against time in ps; `fit=(first, last)` fits a line over those lags, its slope over 6 the diffusion coefficient in the legend |
 | `stacking_fault(result, *, ax=None)` | a generalized stacking fault energy in mJ/m² |
 | `structure_counts(result, *, ax=None)` | the atoms of each structure type, in its color |
+| `band_structure(result, *, ax=None, color=None)` | phonon frequencies along a path, the special points marked; a color for each branch, or one for all |
+| `phonon_dos(result, *, ax=None, projected=False)` | a phonon density of states, frequencies upward to stand beside a band structure, and that of each atom of the cell |
 
 Each plot draws on `ax`, by default a new figure, and returns the axes.
 

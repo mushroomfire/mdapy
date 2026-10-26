@@ -419,6 +419,37 @@ std::int64_t default_grain(std::int64_t n) {
     return std::max<std::int64_t>(1, (n + kTargetChunks - 1) / kTargetChunks);
 }
 
+void prefix_sum(std::int64_t* values, std::int64_t count) {
+    constexpr std::int64_t kBlock = std::int64_t{1} << 16;
+    if (count <= 2 * kBlock) {
+        for (std::int64_t i = 1; i < count; ++i) {
+            values[i] += values[i - 1];
+        }
+        return;
+    }
+    // the sums within each block, then the sum before each block added
+    const std::int64_t blocks = (count + kBlock - 1) / kBlock;
+    std::vector<std::int64_t> before(static_cast<std::size_t>(blocks), 0);
+    parallel_for(count, kBlock, [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t i = begin + 1; i < end; ++i) {
+            values[i] += values[i - 1];
+        }
+        before[static_cast<std::size_t>(begin / kBlock)] = values[end - 1];
+    });
+    std::int64_t sum = 0;
+    for (auto& block : before) {
+        const std::int64_t own = block;
+        block = sum;
+        sum += own;
+    }
+    parallel_for(count, kBlock, [&](std::int64_t begin, std::int64_t end) {
+        const std::int64_t add = before[static_cast<std::size_t>(begin / kBlock)];
+        for (std::int64_t i = begin; i < end; ++i) {
+            values[i] += add;
+        }
+    });
+}
+
 void parallel_for(std::int64_t n, std::int64_t grain,
                   const std::function<void(std::int64_t, std::int64_t)>& body,
                   const Control& control) {

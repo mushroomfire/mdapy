@@ -96,6 +96,18 @@ void loops_and_reductions() {
         }
         check(std::memcmp(&sum, &reference, sizeof(sum)) == 0,
               "parallel_reduce gives the same bits for any thread count");
+        for (std::int64_t count : {std::int64_t{0}, std::int64_t{1}, std::int64_t{1000}, n, std::int64_t{300007}}) {
+            std::vector<std::int64_t> sums(static_cast<std::size_t>(count));
+            for (std::int64_t i = 0; i < count; ++i) {
+                sums[i] = i % 7 + 1;
+            }
+            std::vector<std::int64_t> expected = sums;
+            for (std::int64_t i = 1; i < count; ++i) {
+                expected[i] += expected[i - 1];
+            }
+            mdapy::prefix_sum(sums.data(), count);
+            check(sums == expected, "prefix_sum gives the running sums for any thread count");
+        }
     }
 }
 

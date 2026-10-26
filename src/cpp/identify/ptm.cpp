@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "core/buffer.h"
 #include "identify/ptm/ptm_constants.h"
 #include "identify/ptm/ptm_functions.h"
 #include "identify/ptm/ptm_initialize_data.h"
@@ -80,7 +81,7 @@ void polyhedral_template_matching(const PtmInput& in, const PtmOutput& out,
     constexpr std::int64_t kGrain = 512;
     // the neighbors of each atom ordered by the solid angles of the faces of
     // its Voronoi cell
-    std::vector<std::uint64_t> ordering(static_cast<std::size_t>(n), 0);
+    Buffer<std::uint64_t> ordering(static_cast<std::size_t>(n));  // every atom writes its own
     parallel_for(
         n, kGrain,
         [&](std::int64_t begin, std::int64_t end) {

@@ -227,9 +227,7 @@ NeighborPairs build(const double* positions, std::int64_t n, const double* matri
             }
         },
         stage(control, 0, 2));
-    for (std::int64_t i = 0; i < n; ++i) {
-        result.offsets[i + 1] += result.offsets[i];
-    }
+    prefix_sum(result.offsets.data(), n + 1);
     const auto total = static_cast<std::size_t>(result.offsets[n]);
     result.neighbors.resize(total);
     result.shifts.resize(3 * total);
@@ -433,9 +431,7 @@ NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t
             }
         },
         stage(control, 0, 2));
-    for (std::int64_t i = 0; i < n; ++i) {
-        result.offsets[i + 1] += result.offsets[i];
-    }
+    prefix_sum(result.offsets.data(), n + 1);
     const auto total = static_cast<std::size_t>(result.offsets[n]);
     result.neighbors.resize(total);
     result.shifts.resize(3 * total);
@@ -489,9 +485,7 @@ NeighborPairs within(std::int64_t n, const std::int64_t* offsets, const index_t*
             }
         },
         stage(control, 0, 2));
-    for (std::int64_t i = 0; i < n; ++i) {
-        result.offsets[i + 1] += result.offsets[i];
-    }
+    prefix_sum(result.offsets.data(), n + 1);
     const auto total = static_cast<std::size_t>(result.offsets[n]);
     result.neighbors.resize(total);
     result.shifts.resize(3 * total);

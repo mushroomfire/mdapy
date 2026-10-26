@@ -74,6 +74,11 @@ void parallel_for(std::int64_t n, std::int64_t grain,
                   const std::function<void(std::int64_t, std::int64_t)>& body,
                   const Control& control = {});
 
+// Replaces values[0 .. count) by their running sums, values[i] += values[i - 1]
+// from i = 1, in parallel for a long array; the sums are those of the serial
+// loop.
+void prefix_sum(std::int64_t* values, std::int64_t count);
+
 // Maps each chunk to a value with map(begin, end) and folds the chunk values
 // with combine in chunk order, starting from init. The result is the same for
 // any number of threads.

@@ -28,10 +28,15 @@ labelled = crystal.with_info(energy=-3.54, label="perfect")
 |---|---|
 | `with_columns(*exprs, **named)` | columns added or replaced, the positions too: polars expressions or Series, NumPy arrays, one value for all atoms, or the results of analyses |
 | `with_box(box, scale_positions=False)` | another box; with `scale_positions=True` the atoms keep their fractional coordinates and deform with the box |
-| `with_info(**values)` | global values added or replaced; a value of `None` removes the entry |
+| `with_info(values, /, **updates)` | other global information: `values` replaces all of it, `{}` clears it; then `updates` adds or replaces entries, and `None` removes one |
 | `with_topology(topology)` | another topology, or none with `None` |
 | `with_table(table)` | another table of the same atoms in the same order |
+| `select(*columns)`, `drop(*columns)`, `rename(names)` | only some columns, in a given order; without some columns; columns renamed |
 | `filter`, `gather`, `sort` | some of the atoms, or all in another order; see [Selecting and ordering atoms](selecting.md) |
+
+The names and the meaning of `with_columns`, `select`, `drop`, `rename`,
+`filter` and `sort` are those of polars: the first four work on columns,
+the last two on rows, that is atoms.
 
 `with_columns` takes polars expressions too, computed on the table:
 
@@ -55,6 +60,43 @@ order: the topology refers to atoms by their row, so to reorder atoms use
 `sort` or `gather`, which renumber the topology, and to remove some use
 `filter`.
 
+### Columns
+
+`select` keeps the columns given, in that order, and computes those given
+as polars expressions; `drop` removes columns; `rename` gives columns new
+names. The positions are always kept: leaving them out, dropping them or
+renaming them raises an error.
+
+```python
+analysed = with_structure.with_columns(charge=0.0, csp=0.0)
+written = analysed.select("element", "positions", "structure")  # for a file
+lean = analysed.drop("csp", "charge")
+standard = analysed.with_columns(q=0.1).drop("charge").rename({"q": "charge"})
+```
+
+A column renamed to a standard name, such as `charge` or `type`, is checked
+as one: `type` must hold whole numbers from 1.
+
+### Global information
+
+`with_info` adds, replaces or removes entries, or, given a mapping, replaces
+all of them:
+
+```python
+labelled.with_info(energy=-3.60)  # energy replaced, label kept
+labelled.with_info(label=None)  # label removed
+labelled.with_info({})  # nothing left
+labelled.with_info({"source": "relaxed"}, step=10)  # source and step only
+```
+
+`filter`, `gather` and `sort` keep the global information as it is. After
+`filter` some of it may no longer hold, the energy of the whole system for
+example; clear or replace it when it does not:
+
+```python
+upper = labelled.filter("positions.z > 18").with_info({})
+```
+
 ## What is shared and what is copied
 
 The data of a system lives in its columns. A new system is a new table
@@ -75,7 +117,7 @@ np.shares_memory(labelled["positions"], crystal["positions"])  # True: only info
 
 | Operation | New memory |
 |---|---|
-| `with_info`, `with_topology`, `with_box` | none |
+| `with_info`, `with_topology`, `with_box`, `select`, `drop`, `rename` | none, but for columns `select` computes |
 | `with_box(box, scale_positions=True)` | the positions |
 | `with_columns(...)` | the columns added or replaced |
 | `filter`, `gather`, `sort` | the rows kept, of every column, since they are no longer a block of the old table |
@@ -98,6 +140,26 @@ When a new system is made, mdapy checks only the columns that change: a new
 box or new global values cost no work on the table, new positions are
 checked to be finite, and a new `type` column to be at least 1. A new table
 given to `with_table` is checked whole.
+
+## What del does
+
+`del system` removes a name, not data. A column stays in memory as long as
+any system, or any array read from one, uses it, and is freed with the last
+of them. Systems made from another do not depend on it: each holds its own
+references to the columns it shares.
+
+```python
+crystal2 = build_crystal("fcc", 3.615, elements="Cu", repeat=(10, 10, 10))
+charged2 = crystal2.with_columns(charge=0.0)  # shares the positions
+del crystal2
+len(charged2)  # 4000: charged2 is whole, the positions are still in use
+```
+
+The memory of a column is freed when nothing uses it any more: deleting a
+system frees the columns only it had, and none that a system made from it,
+or one it was made from, still shares. A [neighbor list](neighbor.md) keeps
+the system it was built for, and an array from `system["name"]` keeps the
+column it views.
 
 ## Shallow or deep copies
 

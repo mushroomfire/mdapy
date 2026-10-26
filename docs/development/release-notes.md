@@ -16,7 +16,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   positions are an (N, 3) array column read without copying,
   `system["positions"]`. A summary of a few lines
   shows the atoms, the box, the columns, the global information and the
-  topology. See [Systems](../getting-started/system.md) and
+  topology. `select`, `drop` and `rename` choose, remove and rename
+  columns as polars does, and `with_info({})` clears the global
+  information. See [Systems](../getting-started/system.md) and
   [Changing a system](../getting-started/changing.md).
 - `System.filter`, `System.gather` and `System.sort` keep atoms by a
   condition, take them by index and order them, as polars does with rows.

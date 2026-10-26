@@ -294,6 +294,87 @@ def test_with_info_adds_replaces_and_removes():
     assert s.with_info(missing=None).info.keys() == s.info.keys()
 
 
+def test_with_info_replaces_all_with_a_mapping():
+    s = water_dimer()
+    assert dict(s.with_info({}).info) == {}
+    replaced = s.with_info({"label": "dimer", "energy": 1.0}, energy=None, step=3)
+    assert dict(replaced.info) == {"label": "dimer", "step": 3}
+    assert s.with_info().info.keys() == s.info.keys()
+    part = s.filter(element="O").with_info({})
+    assert len(part) == 2 and len(part.info) == 0
+    with pytest.raises(InvalidParameter, match="must be a mapping"):
+        s.with_info([("energy", 1.0)])
+
+
+# --- columns chosen and renamed -------------------------------------------------------
+
+
+def test_select_keeps_columns_in_order():
+    s = water_dimer().with_columns(charge=[-0.8, 0.4, 0.4] * 2, csp=0.0)
+    kept = s.select("element", "positions")
+    assert kept.table.columns == ["element", "positions"]
+    assert np.shares_memory(kept["positions"], s["positions"])
+    assert kept.topology == s.topology and kept.info == s.info and kept.box == s.box
+    computed = s.select(
+        "positions", (pl.col("charge") * 2).alias("double"), pl.col("type")
+    )
+    assert computed.table.columns == ["positions", "double", "type"]
+    np.testing.assert_allclose(computed["double"], [-1.6, 0.8, 0.8] * 2)
+    total = s.select("positions", pl.col("charge").sum().alias("total"))
+    np.testing.assert_allclose(total["total"], np.zeros(6), atol=1e-12)
+    every = s.select(pl.all())
+    assert every.table.equals(s.table)
+
+
+@pytest.mark.parametrize(
+    "columns, message",
+    [
+        (("element",), "select 'positions' too"),
+        (("positions", "missing"), "cannot select columns"),
+        (("positions", pl.col("type").head(2)), "cannot select columns"),
+        (("positions", pl.lit(0.5).alias("type")), "must hold integers"),
+    ],
+)
+def test_select_invalid(columns, message):
+    with pytest.raises(InvalidParameter, match=message):
+        water_dimer().select(*columns)
+
+
+def test_drop_removes_columns():
+    s = water_dimer().with_columns(csp=0.0, structure=1)
+    dropped = s.drop("csp", "structure")
+    assert dropped.table.columns == ["positions", "element", "type"]
+    assert np.shares_memory(dropped["positions"], s["positions"])
+    assert s.drop().table.columns == s.table.columns
+    with pytest.raises(InvalidParameter, match="cannot be dropped"):
+        s.drop("positions")
+    with pytest.raises(InvalidParameter, match="no column 'missing'"):
+        s.drop("csp", "missing")
+
+
+def test_rename_columns_and_check_standard_names():
+    s = water_dimer().with_columns(q=[-0.8, 0.4, 0.4] * 2, kind=[1.0, 2.0, 2.0] * 2)
+    renamed = s.rename({"q": "charge", "type": "species"})
+    assert renamed.table.columns == [
+        "positions",
+        "element",
+        "species",
+        "charge",
+        "kind",
+    ]
+    assert renamed.table.schema["charge"] == pl.Float64
+    assert s.drop("type").rename({"kind": "type"}).table.schema["type"] == pl.Int32
+    assert s.rename({"positions": "positions"}).table.equals(s.table)
+    with pytest.raises(InvalidParameter, match="cannot be renamed"):
+        s.rename({"positions": "r"})
+    with pytest.raises(InvalidParameter, match="no column 'missing'"):
+        s.rename({"missing": "x"})
+    with pytest.raises(InvalidParameter, match="duplicate"):
+        s.rename({"q": "kind"})
+    with pytest.raises(InvalidParameter, match="must hold integers"):
+        s.drop("type").rename({"q": "type"})
+
+
 def test_with_topology():
     s = water_dimer()
     assert s.with_topology(None).topology is None

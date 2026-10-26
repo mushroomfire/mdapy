@@ -486,16 +486,31 @@ class System:
             system = system.with_columns(positions=box.to_cartesian(frac))
         return system
 
-    def with_info(self, **values: Any) -> "System":
-        """New system with updated global information.
+    def with_info(
+        self, values: Mapping[str, Any] | None = None, /, **updates: Any
+    ) -> "System":
+        """New system with other global information.
 
         Parameters
         ----------
-        **values
-            Entries to add or replace. An entry set to None is removed.
+        values : mapping, optional
+            Information that replaces all of this system's; ``{}`` clears it.
+            Without, the information of this system.
+        **updates
+            Entries to add or replace afterwards. An entry set to None is
+            removed.
+
+        Raises
+        ------
+        InvalidParameter
+            If values is not a mapping.
         """
-        info = dict(self.__info)
-        for key, value in values.items():
+        if values is not None and not isinstance(values, Mapping):
+            raise InvalidParameter(
+                f"info must be a mapping such as a dict, got {type(values).__name__}"
+            )
+        info = dict(self.__info if values is None else values)
+        for key, value in updates.items():
             if value is None:
                 info.pop(key, None)
             else:
@@ -505,6 +520,105 @@ class System:
     def with_topology(self, topology: Topology | None) -> "System":
         """New system with a different topology, or none."""
         return self.__derived(topology=self.__checked_topology(topology, len(self)))
+
+    # ------------------------------------------------------------------
+    # Columns chosen and renamed
+    # ------------------------------------------------------------------
+
+    def select(self, *columns: str | pl.Expr) -> "System":
+        """New system with only the given columns, in that order.
+
+        Parameters
+        ----------
+        *columns
+            Column names, or polars expressions that compute columns, as for
+            ``DataFrame.select``; ``positions`` must be among them.
+
+        Returns
+        -------
+        System
+            The same atoms with these columns; the box, the information and
+            the topology are kept.
+
+        Raises
+        ------
+        InvalidParameter
+            For an unknown column, an expression that cannot be computed or
+            does not give one value per atom, or without ``positions``.
+        """
+        try:
+            table = self.__table.select(*columns)
+        except pl.exceptions.PolarsError as exc:
+            raise InvalidParameter(f"cannot select columns: {exc}") from None
+        if "positions" not in table.columns:
+            raise InvalidParameter(
+                "a system needs its positions: select 'positions' too"
+            )
+        if len(table) != len(self):
+            raise InvalidParameter(
+                f"the columns selected have {len(table)} rows for {len(self)} atoms"
+            )
+        # columns given by name are those of this system, already checked
+        made = [_changed(c) for c in columns if not isinstance(c, str)]
+        return self.__derived(table=table, changed=None if None in made else made)
+
+    def drop(self, *columns: str) -> "System":
+        """New system without the given columns.
+
+        Parameters
+        ----------
+        *columns
+            Names of the columns to remove; ``positions`` cannot be.
+
+        Raises
+        ------
+        InvalidParameter
+            For an unknown column, or for ``positions``.
+        """
+        if "positions" in columns:
+            raise InvalidParameter(
+                "a system needs its positions: they cannot be dropped"
+            )
+        missing = [c for c in columns if c not in self.__table.columns]
+        if missing:
+            raise InvalidParameter(
+                f"no column {missing[0]!r}; the columns are "
+                + ", ".join(self.__table.columns)
+            )
+        return self.__derived(table=self.__table.drop(columns))
+
+    def rename(self, names: Mapping[str, str]) -> "System":
+        """New system with columns renamed.
+
+        Parameters
+        ----------
+        names : mapping
+            The new name of each column to rename, such as
+            ``{"c_stress": "stress"}``. A column given a standard name, such
+            as ``charge``, is checked as one.
+
+        Raises
+        ------
+        InvalidParameter
+            For an unknown column, a name taken by another column, or a new
+            name for ``positions``.
+        """
+        names = dict(names)
+        if names.get("positions", "positions") != "positions":
+            raise InvalidParameter(
+                "a system needs its positions: they cannot be renamed"
+            )
+        missing = [c for c in names if c not in self.__table.columns]
+        if missing:
+            raise InvalidParameter(
+                f"no column {missing[0]!r}; the columns are "
+                + ", ".join(self.__table.columns)
+            )
+        try:
+            table = self.__table.rename(names)
+        except pl.exceptions.PolarsError as exc:
+            raise InvalidParameter(f"cannot rename columns: {exc}") from None
+        return self.__derived(table=table, changed=list(names.values()))
 
     # ------------------------------------------------------------------
     # Atoms chosen and ordered

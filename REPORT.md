@@ -10,8 +10,19 @@
 | `faster-crystal` | `build_crystal` 不再对 200 万原子排序，元素列不经 Python 字符串 | 已推送（16bb0db），Triton 排队中 |
 | `phonons-draft` | 计划 17.1 的第一步：简谐声子（力常数、色散、DOS、热力学量）、原胞 | 已推送（2209c07） |
 | `qha-draft` | 17.1 第二步：准简谐近似，基于 phonons-draft | 已推送（0c8ffc8） |
+| `md-draft` | 17.1 第三步：LAMMPS 分子动力学会话 `MolecularDynamics`，基于 qha-draft | 已推送（3949d50） |
+| `planar-faults-draft` | 17.2：fcc 平面缺陷（基于 PTM），基于 v2 | 已推送（6fff237） |
 
 ## 进展
+
+### 15:45
+- **建模性能页**（`faster-crystal`，d481eda）：Triton 新结果，单晶建模+写文件 2M 原子 1.23 s → 0.29 s，比 Atomsk 快 16–28 倍（原来 4.5–17 倍）；多晶 4.1 s 对 9.6 s。
+- **MD 接口**（`md-draft`）：`with MolecularDynamics(system, potential, timestep=0.001) as md:` → `md.velocities(T, seed=)`、`md.run(steps, ensemble="nve"|"nvt"|"npt", temperature=T 或 (T0, T1), pressure=P 或 (P0, P1), barostat="iso"|"aniso"|"tri", thermo=100, frames=None, progress, cancel)`、`md.command("任意 LAMMPS 命令")`、`md.thermo`（polars：step、time、temperature、三种能量、pressure GPa、volume、stress Voigt GPa）、`md.frames`、`md.system`（带速度和 image，盒子转回 system 的朝向）。势函数直接用现有的 `LAMMPS` 计算器对象定义。
+  - 分段 `run N start S stop E pre no post no` 驱动，温度/压强斜坡跨段连续；测试里与同样内容的原生 LAMMPS 输入逐位一致（1e-9 Å）；任意朝向和左手盒子与正常盒子的轨迹只差一个旋转；非周期（团簇）用收缩边界。
+  - 发现：`velocity ... loop geom` 用坐标哈希做种子，1e-15 的舍入就给出完全不同的速度，所以用 `loop all`（按 id）。
+- **平面缺陷**（`planar-faults-draft`）：`PlanarFaults(structures=("fcc","hcp","bcc"), *, rmsd_cutoff=0.1).compute(system, *, ptm=None)` → `fault`（0 非 hcp、1 其他 hcp、2 内禀层错、3 共格孪晶界、4 多层层错，与 OVITO 编号和颜色一致）、`counts()`、`areas()`，列名 `planar_fault`。可以直接传已有的 PTM 结果（需 `template_neighbors=True`），不用像 1.x 那样手传结构类型和 12 近邻。
+  - C++ 内核：第一遍并行；第二遍按 OVITO 的做法串行原地（先按问题 6 的方案 A 做了，与 OVITO 逐原子一致）。
+  - 与 OVITO 3.17 现场逐原子对比 9 种构型全部一致（单层滑移、孪晶、三层、多处、热噪声 0.15/0.18/0.2 Å、孪晶片层、弛豫后的分解刃位错），计数和面积估计也一致；TSan 线程检查加了平面缺陷。
 
 ### 15:29
 - **QHA**（`qha-draft`）：`quasi_harmonic(system, calculator, temperatures, *, volumes=None, pressure=0, supercell, mesh, ...)`，每个体积等比缩放并弛豫原子位置、算声子；每个温度用三阶 Birch–Murnaghan（V^(−2/3) 的三次多项式，线性最小二乘，不需要 scipy）拟合 E + F_vib + PV。结果（每原子）：V(T)、G(T,P)、S、B_T、α（由 α B_T = (∂S/∂V)_T 解析得到）、C_P = C_V + T V B α²，以及每个体积的静态能和振动自由能。

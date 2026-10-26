@@ -373,7 +373,7 @@ def test_supercell_matrices():
     )
     by_matrix = phonons(primitive, springs, supercell=matrix)
     by_repeats = phonons(cell, springs, supercell=2)
-    assert repr(by_matrix) == "Phonons(1 atoms, supercell of 32 cells)"
+    assert repr(by_matrix) == "Phonons(1 atom, supercell of 32 cells)"
     np.testing.assert_allclose(by_matrix.force_constants.sum(axis=1), 0, atol=1e-12)
     rng = np.random.default_rng(4)
     for q_cart in rng.random((5, 3)) * 2 * np.pi / 3.6:

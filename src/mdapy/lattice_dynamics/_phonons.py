@@ -648,7 +648,8 @@ class Phonons:
 
     def __repr__(self) -> str:
         cells = round(np.linalg.det(self.supercell))
-        return f"Phonons({len(self.cell)} atoms, supercell of {cells} cells)"
+        atoms = f"{len(self.cell)} atom" + ("s" if len(self.cell) > 1 else "")
+        return f"Phonons({atoms}, supercell of {cells} cells)"
 
     def __wave_vectors(self, q: ArrayLike) -> tuple[np.ndarray, bool]:
         q = np.asarray(q, dtype=float)

@@ -54,13 +54,15 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `element` | str | | chemical symbol |
 | `type` | int | | LAMMPS atom type, starting at 1 |
 | `id` | int | | atom ID, starting at 1 |
-| `molecule` | int | | molecule ID (LAMMPS molecule-ID) |
+| `molecule` | int | | molecule ID (LAMMPS molecule-ID); from `ChemicalSpecies`, numbered from 1 by decreasing size |
+| formula | str | | chemical formula of a molecule in Hill order, such as `H2O`, `CO2`, `H3N` |
 | `type_label` | str | | name of the atom type, for example a force-field type |
 | `mass` | f64 | amu | mass |
 | `charge` | f64 | e | charge |
 | `image` | Array(i32, 3) | | periodic image flags |
 | `movable` | Array(bool, 3) | | whether the atom may move along x, y, z (VASP selective dynamics) |
 | `structure` | int8 | | structure type from an identification such as `CommonNeighborAnalysis`; the result names the types |
+| `planar_fault` | int8 | | planar fault type of fcc crystals from `PlanarFaults`: non-hcp, other hcp, intrinsic stacking fault, coherent twin boundary, multilayer stacking fault, extrinsic stacking fault |
 | `csp` | f64 | Å² | centro-symmetry parameter |
 | `cnp` | f64 | Å² | common neighbor parameter |
 | `coordination` | int64 | | number of neighbors; `coordination_<element>` counts those of one element |
@@ -87,6 +89,23 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `atomic_virials` | per-atom virials, (N, 3, 3) (eV) |
 | `stress` | stress, (3, 3) (GPa), positive under tension: −`virial` / volume |
 | elastic constants | (6, 6) (GPa) in Voigt order xx, yy, zz, yz, xz, xy |
+| `force_constants` | second derivatives of the energy with respect to the positions of two atoms, (n, nS, 3, 3) (eV/Å²), between the atoms of a cell and of its supercell |
+| frequencies | of vibrations, in THz; imaginary ones as negative numbers |
+| wave vector `q` | in units of the reciprocal lattice vectors of the cell: `(h, k, l)` is h **b**1 + k **b**2 + l **b**3, with **a**i · **b**j = 2π δij |
+| `mesh` | number of wave vectors along each reciprocal lattice vector, of a mesh through Γ |
+| primitive cell | the smallest periodic cell of a crystal, from `primitive_cell` |
+| space group | the operations that map a crystal onto itself, from `SpaceGroup`: `number` (1 to 230), `symbol` (Hermann–Mauguin), `rotations` and `translations` (Cartesian, Å) |
+| `equivalent` | for each atom, the first atom that symmetry makes it equivalent to |
+| `symmetry` | whether phonons and elastic constants use the symmetry of the crystal, found by spglib: `True`, `False`, or `None`, whenever spglib is installed |
+| `gibbs_energy` | Gibbs energy per atom (eV), with the static energy, the free energy of the vibrations and the pressure times the volume |
+| `free_energy` | Helmholtz free energy (eV); of the vibrations in `ThermalProperties`, with the zero-point energy |
+| `thermal_expansion` | volumetric thermal expansion coefficient (1/K) |
+| `bulk_modulus` | isothermal bulk modulus (GPa) |
+| isothermal, adiabatic | elastic constants at constant temperature, and at constant entropy (those of sound waves) |
+| `errors` | standard errors of the means of a molecular dynamics result, from block averages, in its units |
+| `thermo` | the thermodynamic state of a molecular dynamics run, a table of `step`, `time`, `temperature`, `potential_energy`, `kinetic_energy`, `total_energy`, `pressure`, `volume` and `stress` |
+| ensemble | `"nve"`, `"nvt"` or `"npt"` |
+| `heat_capacity` | heat capacity per atom (eV/K): at constant volume of the vibrations, at constant pressure in the quasi-harmonic approximation |
 | descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 
 ## Parameters
@@ -120,6 +139,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | smallest Voronoi face (Å²), fraction of the cell's surface, shortest edge (Å) | `face_threshold`, `relative_face_threshold`, `edge_threshold` | `area_threshold` |
 | neighbors that share a Voronoi face | `voronoi=True` | `use_voronoi` |
 | neighbors weighted by the area of their face | `weighted=True` | `use_weight` |
+| faces of the Voronoi cells | `faces=True` | |
 | shapes of the Voronoi cells | `polyhedra=True` | `cell_info` |
 | follow atoms through the periodic boundaries | `unwrap` (bool) | `wrapped`, `unwrapped` |
 | reference configuration | `reference=` | `ref` |

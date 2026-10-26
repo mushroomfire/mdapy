@@ -86,3 +86,24 @@ def test_results():
     structures = CommonNeighborAnalysis().compute(crystal)
     bars = plot.structure_counts(structures)
     assert len(bars.patches) == len(structures.names)
+
+
+def test_phonons():
+    from mdapy.lattice_dynamics import phonons, primitive_cell
+
+    from calculators.test_testing import Harmonic
+
+    a = 3.6
+    cell = primitive_cell(build_crystal("fcc", a, elements="Ar"))
+    result = phonons(cell, Harmonic(k=0.7, r0=a / np.sqrt(2)), supercell=3)
+    bands = result.band_structure("fcc", points=5)
+    ax = plot.band_structure(bands)
+    # a line for each branch on each of the six straight pieces of the path,
+    # with the marks of the seven points and of zero
+    assert len(ax.lines) == 3 * 6 + 7 + 1
+    assert [t.get_text() for t in ax.get_xticklabels()] == [x for _, x in bands.labels]
+    one = plot.band_structure(bands, color="k")
+    assert all(line.get_color() == "k" for line in one.lines[:6])
+    dos = result.dos(6, sigma=0.2, projected=True)
+    assert len(plot.phonon_dos(dos).lines) == 1
+    assert len(plot.phonon_dos(dos, projected=True).get_legend().get_texts()) == 2

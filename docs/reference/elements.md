@@ -1,9 +1,12 @@
 # Elements
 
-`mdapy.elements` holds the chemical symbols and standard atomic weights used
-everywhere in mdapy. The atomic weights are those of IUPAC
+`mdapy.elements` holds the chemical symbols, standard atomic weights and
+radii used everywhere in mdapy. The atomic weights are those of IUPAC
 ([Meija et al. (2016)](references.md#meija2016)); for an element without stable
-isotopes, the mass of its longest-lived isotope.
+isotopes, the mass of its longest-lived isotope. The covalent radii are
+those of [Cordero et al. (2008)](references.md#cordero2008), with sp³
+carbon and low-spin manganese, iron and cobalt; the van der Waals radii
+those of [Alvarez (2013)](references.md#alvarez2013).
 
 ```python
 from mdapy import elements
@@ -22,6 +25,8 @@ elements.element_from_mass(26.98)  # 'Al'
 | `ELEMENT_DTYPE` | The polars type of the `element` column. |
 | `atomic_numbers(symbols)` | Atomic numbers of chemical symbols. |
 | `atomic_masses(elements)` | Atomic weights of symbols or atomic numbers. |
+| `COVALENT_RADII`, `VDW_RADII` | Covalent and van der Waals radii in Å, indexed by atomic number; NaN where there is none. Read-only. |
+| `covalent_radii(elements)`, `vdw_radii(elements)` | The radii of symbols or atomic numbers; `InvalidParameter` for an element without one. |
 | `element_from_mass(mass, tolerance=0.01, candidates=None)` | The element whose atomic weight matches a mass. |
 
 ## The `element` column

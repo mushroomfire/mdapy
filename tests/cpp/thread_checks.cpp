@@ -34,6 +34,7 @@
 #include "calculators/eam.h"
 #include "calculators/nep.h"
 #include "core/parallel.h"
+#include "identify/planar_faults.h"
 #include "identify/ptm.h"
 #include "identify/structure.h"
 #include "io/text.h"
@@ -959,12 +960,17 @@ void structure_identification() {
         mdapy::analysis::bond_angles(all, n, two_types.data(), 2, 90, angles.data());
         const mdapy::analysis::VoronoiCells voronoi =
             mdapy::analysis::voronoi(positions.data(), n, matrix, origin, pbc, {0.0, 0.01, 0.1},
-                                     true);
+                                     true, true);
         if (threads == kThreads[0]) {
             first_volumes = voronoi.volumes;
             first_areas = voronoi.areas;
             first_vertices = voronoi.vertices;
         }
+        const mdapy::analysis::VoronoiCells bare = mdapy::analysis::voronoi(
+            positions.data(), n, matrix, origin, pbc, {0.0, 0.01, 0.1}, false, false);
+        check(bare.volumes == voronoi.volumes && bare.coordination == voronoi.coordination &&
+                  bare.neighbors.empty() && bare.vertices.empty(),
+              "Voronoi cells without faces have the same volumes and coordination");
         check(voronoi.volumes == first_volumes && voronoi.areas == first_areas &&
                   voronoi.vertices == first_vertices,
               "the Voronoi cells are the same for any thread count");
@@ -1037,6 +1043,41 @@ void polyhedral_template_matching() {
               "polyhedral template matching is the same for any thread count");
         check(std::count(types.begin(), types.end(), mdapy::identify::kPtmFcc) > n / 2,
               "polyhedral template matching finds fcc");
+    }
+    // a slip of a/6 [11-2] above a (111) plane: stacking faults of hcp atoms
+    for (std::int64_t i = 0; i < n; ++i) {
+        double* x = positions.data() + 3 * i;
+        if (x[0] + x[1] + x[2] > 7.5 * a) {
+            x[0] += a / 6;
+            x[1] += a / 6;
+            x[2] -= a / 3;
+        }
+    }
+    const mdapy::neighbor::NeighborPairs slipped =
+        mdapy::neighbor::nearest(positions.data(), n, matrix, origin, pbc, 18);
+    input.offsets = slipped.offsets.data();
+    input.j = slipped.neighbors.data();
+    input.shifts = slipped.shifts.data();
+    input.deformation = false;
+    std::vector<std::int8_t> types(static_cast<std::size_t>(n));
+    std::vector<double> rmsd(static_cast<std::size_t>(n));
+    std::vector<mdapy::index_t> neighbors(16 * static_cast<std::size_t>(n));
+    mdapy::identify::PtmOutput output;
+    output.structure = types.data();
+    output.rmsd = rmsd.data();
+    output.neighbors = neighbors.data();
+    mdapy::identify::polyhedral_template_matching(input, output);
+    check(std::count(types.begin(), types.end(), mdapy::identify::kPtmHcp) > 0,
+          "polyhedral template matching finds hcp atoms of a slip");
+    std::vector<std::int8_t> first_faults;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::vector<std::int8_t> faults(static_cast<std::size_t>(n));
+        mdapy::identify::planar_faults(types.data(), neighbors.data(), n, true, faults.data());
+        if (threads == kThreads[0]) {
+            first_faults = faults;
+        }
+        check(faults == first_faults, "planar faults are the same for any thread count");
     }
 }
 

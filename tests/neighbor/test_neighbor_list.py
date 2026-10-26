@@ -654,7 +654,7 @@ def test_voronoi_neighbors_are_the_faces_of_the_cells(pbc):
     system = random_system("triclinic", pbc=pbc, n=200, seed=16)
     nl = NeighborList.build(system, voronoi=True)
     check_arrays(nl, len(system))
-    cells = VoronoiAnalysis().compute(system)
+    cells = VoronoiAnalysis(faces=True).compute(system)
     atoms = cells.j >= 0  # the walls are left out
     np.testing.assert_array_equal(nl.counts, cells.coordination)
     np.testing.assert_array_equal(nl.j, cells.j[atoms])
@@ -698,7 +698,7 @@ def test_voronoi_neighbors_with_thresholds_and_errors():
         "edge_threshold": 0.3,
     }
     nl = NeighborList.build(system, voronoi=True, **thresholds)
-    cells = VoronoiAnalysis(**thresholds).compute(system)
+    cells = VoronoiAnalysis(faces=True, **thresholds).compute(system)
     np.testing.assert_array_equal(nl.areas, cells.areas[cells.j >= 0])
     assert len(nl) < len(NeighborList.build(system, voronoi=True))
     ordered = nl.sorted()

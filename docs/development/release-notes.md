@@ -127,6 +127,46 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.lattice_dynamics.elastic_constants`: the (6, 6) elastic constants
   from the stress under small strains, with relaxed positions, and Voigt,
   Reuss and Hill moduli. See [Elastic constants](../simulation/elastic-constants.md).
+- `mdapy.lattice_dynamics.phonons`: harmonic phonons from the forces on
+  displaced atoms with any calculator, the force constants made symmetric
+  and free of translations; frequencies and polarization vectors at any
+  wave vector, band structures along standard or given paths, densities of
+  states by the tetrahedron method or Gaussians, projected on the atoms,
+  and the free energy, energy, entropy and heat capacity of the vibrations;
+  the same dynamical matrix as LAMMPS. `primitive_cell` finds the smallest
+  cell of a crystal; supercells as integer matrices, by default the one
+  nearest a cube; standard paths of any crystal with seekpath, and
+  branches followed through crossings; imaginary frequencies in the density
+  of states; band structures written and read as phonopy's band.dat;
+  `plot.band_structure` and `plot.phonon_dos`. `units.PLANCK`.
+  See [Phonons](../simulation/phonons.md).
+- `mdapy.lattice_dynamics.quasi_harmonic`: the quasi-harmonic
+  approximation from phonons at several volumes: the equilibrium volume,
+  Gibbs energy, entropy, bulk modulus, thermal expansion and heat capacity
+  at constant pressure against temperature, at any pressure, the shape of
+  the box relaxed at each volume. See
+  [Quasi-harmonic approximation](../simulation/quasi-harmonic.md).
+- `mdapy.lattice_dynamics.thermal_elastic_constants`: isothermal and
+  adiabatic elastic constants at finite temperature, quasi-harmonic or
+  quasi-static. See [Elastic constants at finite temperature](../simulation/thermal-elastic.md).
+- `mdapy.lattice_dynamics.md_elastic_constants`: isothermal elastic
+  constants at a temperature from the mean stress of molecular dynamics in
+  LAMMPS under small strains, with standard errors from block averages. See
+  [Elastic constants from molecular dynamics](../simulation/md-elastic.md).
+- Symmetry with spglib (optional, the extra `symmetry`): `phonons`,
+  `quasi_harmonic`, `elastic_constants` and `thermal_elastic_constants`
+  skip the displacements and strains that the symmetry of the crystal
+  relates to others, by default whenever spglib is installed: one
+  computation of forces instead of 6 for the primitive cell of fcc, 12 of
+  the 73 strains of the elastic constants of a cubic crystal at finite
+  temperature. See [Space group](../analysis/space-group.md).
+- `mdapy.simulation.MolecularDynamics`: molecular dynamics in LAMMPS with
+  the interaction of a LAMMPS calculator: random velocities, runs at
+  constant energy, temperature or pressure with ramps, the thermodynamic
+  state as a polars table, frames and the final system back in the
+  orientation of the box, any LAMMPS command in between; the same
+  trajectory as the same LAMMPS input. See
+  [Molecular dynamics](../simulation/dynamics.md).
 
 - `mdapy.simulation.vacancy_formation_energy`, `surface_energy` and
   `stacking_fault_energy` (the generalized stacking fault energy, relaxed
@@ -147,10 +187,23 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   diamond; [`ChillPlus`](../analysis/chill-plus.md) for ice, hydrates and
   liquid water; and the [centro-symmetry](../analysis/csp.md) and
   [common neighbor](../analysis/cnp.md) parameters.
+- [`ChemicalSpecies`](../analysis/species.md): molecules and their Hill
+  formulas by the bond rule of Jmol (covalent radii, the default) or of VMD
+  and OVITO (van der Waals radii), radii given by hand or bond lengths per
+  pair of elements, and the number of each along a trajectory; the same
+  molecules as ASE and as OVITO. `mdapy.elements` has the covalent
+  and van der Waals radii, which pictures now read from it.
+- [`SpaceGroup`](../analysis/space-group.md): the space group of a
+  crystal, its symmetry operations and equivalent atoms, with spglib.
 - [`PolyhedralTemplateMatching`](../analysis/ptm.md): the structure,
   orientation, elastic deformation and chemical ordering of each atom, for
   nine structures, with the PTM library of P. M. Larsen as OVITO ships it;
   the same as OVITO atom by atom.
+- [`PlanarFaults`](../analysis/planar-faults.md): intrinsic and multilayer
+  stacking faults and coherent twin boundaries of fcc crystals from the
+  hcp-like atoms of polyhedral template matching, and their areas; the same
+  as OVITO's Identify fcc planar faults atom by atom; optionally extrinsic
+  stacking faults too.
 - Distributions and order parameters in `mdapy.analysis`, agreeing with
   OVITO where it has them: the
   [`RadialDistributionFunction`](../analysis/rdf.md) and its partial
@@ -164,7 +217,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   to degree 20, optionally averaged; the
   [`EntropyFingerprint`](../analysis/entropy.md); and the
   [`VoronoiAnalysis`](../analysis/voronoi.md), computed by mdapy's own code,
-  with the volumes, faces, coordination and Voronoi indices of the cells,
+  with the volumes and coordination of the cells and, when asked for, their
+  faces and Voronoi indices (`faces=True`), which otherwise are not kept,
   the face and edge thresholds of OVITO, boxes that are not periodic, and
   the shapes of the cells as polyhedra; `NeighborList.build(system,
   voronoi=True)` for the atoms that share a face, and Steinhardt parameters
@@ -194,7 +248,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.build.build_crystal`: perfect crystals of fifteen structures,
   cubic and hexagonal, of one element or ordered on their sublattices,
   along any crystal directions, with the shortest period along each;
-  the same atoms as atomsk. See [Crystals](../build/crystals.md).
+  the same atoms as atomsk, ordered plane by plane without sorting them
+  (2 million atoms in some 0.05 s). See [Crystals](../build/crystals.md).
 - `mdapy.build.random_alloy`: elements at random in given fractions with
   exact counts. See [Random alloys](../build/alloys.md).
 - `mdapy.build.sqs_alloy`: special quasirandom structures, the pairs of the
@@ -206,6 +261,12 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   atomsk, and `edge_dislocation` of two crystals. See
   [Point defects](../build/defects.md) and
   [Dislocations](../build/dislocations.md).
+- `mdapy.build.add_graphene`: graphene on the grain boundaries of a
+  polycrystal, one or more AB-stacked layers centered on each face between
+  two grains, each face once, in a random orientation, cut to the face;
+  a fraction of the boundary area covered by whole faces; the atoms of the
+  grains too close to the carbon removed. `build_polycrystal` keeps the
+  seeds in `info["seeds"]`. See [Graphene on grain boundaries](../build/graphene.md).
 - `mdapy.build.build_polycrystal`: Voronoi grains of any periodic unit,
   columnar when the box is thin, and `twin_lamellae` for twinned grains. See
   [Polycrystals](../build/polycrystals.md).
@@ -279,8 +340,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - Worked examples that combine several parts of mdapy: a polycrystal of fcc
   and bcc grains, columnar grains on a hexagonal pattern with chosen
   misorientations, the defect energies of copper with checks of their
-  convergence, when sharing neighbor lists pays, and what a `System` shares
-  and copies. See the Tutorials under Getting started.
+  convergence, when sharing neighbor lists pays, what a `System` shares
+  and copies, and a machine-learned potential for CrCoNi: the phonons of
+  Cr, Co and Ni against DFT and the elastic constants of the alloy from 0 to
+  1000 K against measurements. See the Tutorials under Getting started.
 
 ### Foundations
 

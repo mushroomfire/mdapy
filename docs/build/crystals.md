@@ -77,7 +77,10 @@ to coprime integers.
 Along each direction the box takes the shortest lattice translation that
 maps every atom onto an atom of the same element, for example
 $\tfrac12[110]$ in fcc and $\tfrac12[111]$ in bcc of one element, but
-$[111]$ in CsCl. The atoms are ordered by z, then y, then x.
+$[111]$ in CsCl. The atoms are ordered by z, then y, then x: plane by
+plane, and within a plane row by row, with the atoms of one plane or row
+taken as such even where rounding makes their coordinates differ in the
+last digits.
 
 ## Results
 
@@ -89,9 +92,10 @@ box periodic in every direction.
 `build_crystal` raises `InvalidParameter` for an unknown structure, a
 lattice constant that is not positive, a `c` for a cubic structure or a
 hexagonal structure without one, a number of elements that the structure
-does not take, directions that are not three directions of integers, zero,
-not orthogonal in a cubic or linearly dependent in a hexagonal crystal, or
-with $h + k + i \ne 0$, and a `repeat` that is not three positive integers.
+does not take or an unknown element, directions that are not three
+directions of integers, zero, not orthogonal in a cubic or linearly
+dependent in a hexagonal crystal, or with $h + k + i \ne 0$, and a `repeat`
+that is not three positive integers.
 
 ## See also
 

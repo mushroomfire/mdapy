@@ -135,7 +135,7 @@ def freud_voronoi(system, tmp_path):
 def test_voronoi_cells_and_their_steinhardt_parameters(tmp_path):
     system = copper(seed=4)
     theirs = freud_voronoi(system, tmp_path)
-    ours = VoronoiAnalysis().compute(system)
+    ours = VoronoiAnalysis(faces=True).compute(system)
     np.testing.assert_allclose(ours.volume, theirs["volumes"], rtol=1e-5)
     # every face above 1e-2 Å² of one is a face of the other: below it, faces
     # come and go in single precision

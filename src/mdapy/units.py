@@ -15,9 +15,11 @@ by multiplication.
 __all__ = [
     "ELEMENTARY_CHARGE",
     "BOLTZMANN_SI",
+    "PLANCK_SI",
     "AVOGADRO",
     "ATOMIC_MASS_UNIT_SI",
     "BOLTZMANN",
+    "PLANCK",
     "EV_PER_A3_TO_GPA",
     "GPA_TO_EV_PER_A3",
     "BAR_TO_GPA",
@@ -35,6 +37,8 @@ ELEMENTARY_CHARGE = 1.602176634e-19
 """Elementary charge in C (exact, 2019 SI)."""
 BOLTZMANN_SI = 1.380649e-23
 """Boltzmann constant in J/K (exact, 2019 SI)."""
+PLANCK_SI = 6.62607015e-34
+"""Planck constant in J·s (exact, 2019 SI)."""
 AVOGADRO = 6.02214076e23
 """Avogadro constant in 1/mol (exact, 2019 SI)."""
 ATOMIC_MASS_UNIT_SI = 1.66053906892e-27
@@ -42,6 +46,8 @@ ATOMIC_MASS_UNIT_SI = 1.66053906892e-27
 
 BOLTZMANN = BOLTZMANN_SI / ELEMENTARY_CHARGE
 """Boltzmann constant in eV/K."""
+PLANCK = PLANCK_SI / ELEMENTARY_CHARGE * 1e12
+"""Planck constant in eV·ps: the energy in eV of a quantum of 1 THz."""
 
 EV_PER_A3_TO_GPA = ELEMENTARY_CHARGE * 1e30 / 1e9
 """Stress: eV/Å³ to GPa."""

@@ -28,6 +28,10 @@ result.bulk_modulus(), result.shear_modulus("voigt")
 | `relax` | bool | `True` | | whether the positions relax in each strained box (relaxed-ion constants) or stay put (clamped-ion constants) |
 | `max_force` | float | 1e-4 | eV/Å | convergence of each relaxation, as in `minimize` |
 | `max_steps` | int | 5000 | | largest number of steps of each relaxation |
+| `symmetry` | bool or None | `None` | | take the stress under a strain that an operation makes from another as the image of its stress, with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
+
+A cubic crystal takes 3 strains instead of 12: a stretch both ways and a
+shear.
 
 ## Definition
 
@@ -65,6 +69,7 @@ It returns an `ElasticResult`:
 | `constants` | `numpy.ndarray` | (6, 6) elastic constants $C$ in GPa, in Voigt order; read-only |
 | `bulk_modulus(average="hill")` | float | the bulk modulus in GPa: the `"voigt"`, `"reuss"` or `"hill"` average |
 | `shear_modulus(average="hill")` | float | the shear modulus in GPa, with the same averages |
+| `errors` | `numpy.ndarray` or None | (6, 6) standard errors in GPa, from [molecular dynamics](md-elastic.md); None here |
 
 `elastic_constants` raises `InvalidParameter` for a box that is not periodic
 in every direction, a non-positive `strain`, a calculator without the

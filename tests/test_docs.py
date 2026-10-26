@@ -6,10 +6,13 @@ Code blocks of one page run in order and share variables, in a temporary
 working directory, so examples may write files. A block preceded by the line
 ``<!-- skip-test -->`` is an illustration and is not run. A page with a line
 ``<!-- needs: name -->`` is skipped where the module ``name`` cannot be
-imported.
+imported. The files of a folder next to a page with a line
+``<!-- files: folder -->`` are copied into the working directory first, as
+readers download them.
 """
 
 import re
+import shutil
 from pathlib import Path
 
 import pytest
@@ -20,6 +23,7 @@ BLOCK = re.compile(
 )
 SKIP = "<!-- skip-test -->"
 NEEDS = re.compile(r"<!-- needs: ([\w.]+) -->")
+FILES = re.compile(r"<!-- files: ([\w.-]+) -->")
 
 
 def python_blocks(page: Path) -> list[str]:
@@ -42,6 +46,8 @@ def test_pages_with_examples_are_found():
 def test_examples_run(page, tmp_path, monkeypatch):
     for module in NEEDS.findall(page.read_text(encoding="utf-8")):
         pytest.importorskip(module)
+    for folder in FILES.findall(page.read_text(encoding="utf-8")):
+        shutil.copytree(page.parent / folder, tmp_path, dirs_exist_ok=True)
     monkeypatch.chdir(tmp_path)
     namespace: dict = {}
     for i, code in enumerate(python_blocks(page)):

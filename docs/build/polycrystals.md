@@ -53,8 +53,9 @@ at least 2.
 ## Results
 
 `build_polycrystal` returns the atoms with a `grain` column, numbered as the
-seeds, wrapped into the box. The first atom of `unit` sits on the seed of
-each grain. Grains that meet their own periodic image meet a copy shifted
+seeds, wrapped into the box, and the (G, 3) positions of the seeds in
+`info["seeds"]`, from which [`add_graphene`](graphene.md) finds the grain
+boundaries. The first atom of `unit` sits on the seed of each grain. Grains that meet their own periodic image meet a copy shifted
 by a box vector, generally not a lattice vector of the rotated crystal, so a
 boundary forms there too.
 
@@ -75,5 +76,7 @@ third vector is not along z or first two not in the xy plane, whose atoms
 are not on equally spaced planes, or for fewer than two layers.
 
 ## See also
+
+- [Graphene on grain boundaries](graphene.md).
 
 - atomsk [`--polycrystal`](https://atomsk.univ-lille.fr/doc/en/mode_polycrystal.html).

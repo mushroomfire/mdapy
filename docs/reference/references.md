@@ -41,6 +41,16 @@ P. Gumbsch, Structural relaxation made simple, *Phys. Rev. Lett.* **97**,
 [doi:10.1103/PhysRevLett.97.170201](https://doi.org/10.1103/PhysRevLett.97.170201)
 { #bitzek2006 }
 
+**Blöchl et al. (1994).** P. E. Blöchl, O. Jepsen and O. K. Andersen,
+Improved tetrahedron method for Brillouin-zone integrations, *Phys. Rev. B*
+**49**, 16223 (1994).
+[doi:10.1103/PhysRevB.49.16223](https://doi.org/10.1103/PhysRevB.49.16223)
+{ #blochl1994 }
+
+**Born and Huang (1954).** M. Born and K. Huang, *Dynamical Theory of
+Crystal Lattices* (Oxford University Press, Oxford, 1954).
+{ #born1954 }
+
 **Calandrini et al. (2011).** V. Calandrini, E. Pellegrini, P. Calligari,
 K. Hinsen and G. R. Kneller, nMoldyn - Interfacing spectroscopic
 experiments, molecular dynamics simulations and models for time correlation
@@ -101,6 +111,12 @@ simulations and its implementation in LAMMPS, *Comput. Mater. Sci.* **175**,
 [doi:10.1088/0370-1298/65/5/307](https://doi.org/10.1088/0370-1298/65/5/307)
 { #hill1952 }
 
+**Hinuma et al. (2017).** Y. Hinuma, G. Pizzi, Y. Kumagai, F. Oba and
+I. Tanaka, Band structure diagram paths based on crystallography,
+*Comput. Mater. Sci.* **128**, 140 (2017).
+[doi:10.1016/j.commatsci.2016.10.015](https://doi.org/10.1016/j.commatsci.2016.10.015)
+{ #hinuma2017 }
+
 **Hirth and Lothe (1982).** J. P. Hirth and J. Lothe, *Theory of
 Dislocations*, 2nd ed. (Wiley, New York, 1982).
 { #hirth1982 }
@@ -122,6 +138,13 @@ iterative schemes for ab initio total-energy calculations using a
 plane-wave basis set, *Phys. Rev. B* **54**, 11169 (1996).
 [doi:10.1103/PhysRevB.54.11169](https://doi.org/10.1103/PhysRevB.54.11169)
 { #kresse1996 }
+
+**Laplanche et al. (2018).** G. Laplanche, P. Gadaud, C. Bärsch,
+K. Demtröder, C. Reinhart, J. Schreuer and E. P. George, Elastic moduli and
+thermal expansion coefficients of medium-entropy subsystems of the
+CrMnFeCoNi high-entropy alloy, *J. Alloys Compd.* **746**, 244 (2018).
+[doi:10.1016/j.jallcom.2018.02.251](https://doi.org/10.1016/j.jallcom.2018.02.251)
+{ #laplanche2018 }
 
 **Larsen, Schmidt and Schiøtz (2016).** P. M. Larsen, S. Schmidt and J.
 Schiøtz, Robust structural identification via polyhedral template matching,
@@ -188,6 +211,12 @@ based fingerprint for local crystalline order, *J. Chem. Phys.* **147**,
 [doi:10.1063/1.4998408](https://doi.org/10.1063/1.4998408)
 { #piaggi2017 }
 
+**Setyawan and Curtarolo (2010).** W. Setyawan and S. Curtarolo,
+High-throughput electronic band structure calculations: Challenges and
+tools, *Comput. Mater. Sci.* **49**, 299 (2010).
+[doi:10.1016/j.commatsci.2010.05.010](https://doi.org/10.1016/j.commatsci.2010.05.010)
+{ #setyawan2010 }
+
 **Shimizu et al. (2007).** F. Shimizu, S. Ogata and J. Li, Theory of shear
 banding in metallic glasses and molecular dynamics calculations, *Mater.
 Trans.* **48**, 2923 (2007).
@@ -224,6 +253,12 @@ neighborhood, *Comput. Phys. Commun.* **177**, 518 (2007).
 [doi:10.1016/j.cpc.2007.05.018](https://doi.org/10.1016/j.cpc.2007.05.018)
 { #tsuzuki2007 }
 
+**Togo et al. (2024).** A. Togo, K. Shinohara and I. Tanaka, Spglib: a
+software library for crystal symmetry search, *Sci. Technol. Adv. Mater.:
+Methods* **4**, 2384822 (2024).
+[doi:10.1080/27660400.2024.2384822](https://doi.org/10.1080/27660400.2024.2384822)
+{ #togo2024 }
+
 **Varvenne et al. (2016).** C. Varvenne, A. Luque, W. G. Nöhring and
 W. A. Curtin, Average-atom interatomic potential for random alloys,
 *Phys. Rev. B* **93**, 104201 (2016).
@@ -237,11 +272,21 @@ sur les parallélloèdres primitifs, *J. Reine Angew. Math.* **134**, 198
 [doi:10.1515/crll.1908.134.198](https://doi.org/10.1515/crll.1908.134.198)
 { #voronoi1908 }
 
+**Wallace (1972).** D. C. Wallace, *Thermodynamics of Crystals* (Wiley,
+New York, 1972).
+{ #wallace1972 }
+
 **Wu and Shao (2023).** Y.-C. Wu and J.-L. Shao, mdapy: A flexible and
 efficient analysis software for molecular dynamics simulations, *Comput.
 Phys. Commun.* **290**, 108764 (2023).
 [doi:10.1016/j.cpc.2023.108764](https://doi.org/10.1016/j.cpc.2023.108764)
 { #wu2023 }
+
+**Wu et al. (2026).** Y.-C. Wu, T. Mäkinen, M. Alava and A. Esfandiarpour,
+Machine-learned interatomic potential for large-scale simulations of the
+CrCoNi medium-entropy alloys, *Commun. Mater.* **7**, 245 (2026).
+[doi:10.1038/s43246-026-01245-3](https://doi.org/10.1038/s43246-026-01245-3)
+{ #wu2026 }
 
 **Zhou et al. (2002).** Y. Zhou, M. Karplus, K. D. Ball and R. S. Berry,
 The distance fluctuation criterion for melting: Comparison of square-well
@@ -250,7 +295,7 @@ and Morse potential models for clusters and homopolymers, *J. Chem. Phys.*
 [doi:10.1063/1.1426419](https://doi.org/10.1063/1.1426419)
 { #zhou2002 }
 
-**Zhou et al. (2004). X. W. Zhou, R. A. Johnson and H. N. G. Wadley,
+**Zhou et al. (2004).** X. W. Zhou, R. A. Johnson and H. N. G. Wadley,
 Misfit-energy-increasing dislocations in vapor-deposited CoFe/NiFe
 multilayers, *Phys. Rev. B* **69**, 144113 (2004).
 [doi:10.1103/PhysRevB.69.144113](https://doi.org/10.1103/PhysRevB.69.144113)

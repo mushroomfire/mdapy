@@ -11,6 +11,7 @@ import mdapy
 from mdapy.analysis import (
     AtomicStrain,
     BondAngleDistribution,
+    ChemicalSpecies,
     ClusterAnalysis,
     CoordinationNumber,
     MeanSquaredDisplacement,
@@ -36,7 +37,9 @@ from ovito.modifiers import (  # noqa: E402
     VoronoiAnalysisModifier,
     WignerSeitzAnalysisModifier,
 )
-from ovito.pipeline import ReferenceConfigurationModifier  # noqa: E402
+from ovito.pipeline import Pipeline, ReferenceConfigurationModifier  # noqa: E402
+
+from mdapy.elements import vdw_radii  # noqa: E402
 
 from ovito_reference import ovito_compute, ovito_source  # noqa: E402
 
@@ -170,6 +173,44 @@ def test_cluster_analysis(box):
     for cluster in unique:
         np.testing.assert_array_equal(theirs[ours.cluster == cluster], cluster)
     assert len(unique) < len(ours.sizes)  # a fair test: some sizes repeat
+
+
+@pytest.mark.parametrize("box", ["periodic", "rotated", "cluster"])
+@pytest.mark.parametrize("hydrogen", [False, True])
+def test_chemical_species_by_van_der_waals_radii(box, hydrogen):
+    # a random mixture: molecules of every size, some only joined by two
+    # hydrogen atoms
+    rng = np.random.default_rng(1)
+    elements = rng.choice(["H", "C", "N", "O"], 300).tolist()
+    mixture = mdapy.System(
+        rng.random((300, 3)) * 16, mdapy.Box(16.0), elements=elements
+    )
+    system = placed(mixture, box)
+    cutoffs = {("H", "H"): 0.6 * 2 * 1.2} if hydrogen else None
+    ours = ChemicalSpecies("vdw", cutoffs=cutoffs).compute(system)
+    # OVITO with the same radii
+    source = ovito_source(system)
+    types = source.data.particles_.particle_types_
+    for t in types.types:
+        types.make_mutable(t).vdw_radius = float(vdw_radii([t.name])[0])
+    pipeline = Pipeline(source=source)
+    pipeline.modifiers.append(
+        CreateBondsModifier(
+            mode=CreateBondsModifier.Mode.VdWRadius, prevent_hh_bonds=not hydrogen
+        )
+    )
+    pipeline.modifiers.append(
+        ClusterAnalysisModifier(
+            neighbor_mode=ClusterAnalysisModifier.NeighborMode.Bonding,
+            sort_by_size=True,
+        )
+    )
+    theirs = np.asarray(pipeline.compute().particles["Cluster"])
+    np.testing.assert_array_equal(ours.sizes, np.sort(np.bincount(theirs))[::-1])
+    assert len(set(zip(ours.molecule, theirs))) == len(ours.sizes) > 50
+    # bonds of two hydrogen atoms join some molecules
+    other = ChemicalSpecies("vdw", cutoffs=None if hydrogen else {("H", "H"): 1.44})
+    assert len(other.compute(system).sizes) != len(ours.sizes)
 
 
 def defective(box, seed=1):
@@ -396,7 +437,7 @@ def test_voronoi_cells(system, thresholds):
     particles = ovito_compute(
         system, VoronoiAnalysisModifier(compute_indices=True, **thresholds)
     ).particles
-    result = VoronoiAnalysis(**thresholds).compute(system)
+    result = VoronoiAnalysis(faces=True, **thresholds).compute(system)
     np.testing.assert_allclose(result.volume, particles["Atomic Volume"], atol=1e-12)
     np.testing.assert_allclose(result.radius, particles["Cavity Radius"], atol=1e-12)
     n = len(system)

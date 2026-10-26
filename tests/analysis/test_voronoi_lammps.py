@@ -50,7 +50,7 @@ run 0
         ]
     finally:
         lmp.close()
-    result = VoronoiAnalysis().compute(system)
+    result = VoronoiAnalysis(faces=True).compute(system)
     np.testing.assert_allclose(result.volume, cells[:, 0], rtol=1e-10)
     # LAMMPS counts the walls of the box among the faces; coordination does not
     faces = np.diff(result.offsets)

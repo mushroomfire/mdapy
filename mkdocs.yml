@@ -114,6 +114,7 @@ nav:
           - A polycrystal of fcc and bcc grains: getting-started/tutorials/two-phase-polycrystal.md
           - Columnar grains on a hexagonal pattern: getting-started/tutorials/columnar-polycrystal.md
           - Defect energies of copper: getting-started/tutorials/defect-energies.md
+          - A machine-learned potential for CrCoNi: getting-started/tutorials/crconi.md
           - Sharing neighbor lists: getting-started/tutorials/neighbor-lists.md
   - Analysis:
       - Overview: analysis/overview.md
@@ -121,10 +122,12 @@ nav:
           - Common neighbor analysis: analysis/cna.md
           - Ackland–Jones analysis: analysis/ackland-jones.md
           - Polyhedral template matching: analysis/ptm.md
+          - Planar faults: analysis/planar-faults.md
           - Diamond structure: analysis/diamond.md
           - CHILL+: analysis/chill-plus.md
           - Centro-symmetry parameter: analysis/csp.md
           - Common neighbor parameter: analysis/cnp.md
+          - Space group: analysis/space-group.md
       - Local order and distributions:
           - Radial distribution function: analysis/rdf.md
           - Coordination number: analysis/coordination.md
@@ -136,6 +139,7 @@ nav:
           - Voronoi analysis: analysis/voronoi.md
       - Defects and deformation:
           - Cluster analysis: analysis/clusters.md
+          - Chemical species: analysis/species.md
           - Wigner–Seitz analysis: analysis/wigner-seitz.md
           - Atomic strain: analysis/atomic-strain.md
       - Dynamics:
@@ -149,6 +153,7 @@ nav:
       - Point defects, stacking faults and surfaces: build/defects.md
       - Dislocations: build/dislocations.md
       - Polycrystals and twins: build/polycrystals.md
+      - Graphene on grain boundaries: build/graphene.md
       - Periodic copies and images: build/transform.md
   - Simulation:
       - Calculators:
@@ -159,9 +164,14 @@ nav:
           - VASP: simulation/vasp.md
       - Minimization and dynamics:
           - Energy minimization: simulation/minimize.md
+          - Molecular dynamics: simulation/dynamics.md
           - Defect energies: simulation/defect-energies.md
       - Lattice dynamics:
           - Elastic constants: simulation/elastic-constants.md
+          - Phonons: simulation/phonons.md
+          - Quasi-harmonic approximation: simulation/quasi-harmonic.md
+          - Elastic constants at finite temperature: simulation/thermal-elastic.md
+          - Elastic constants from molecular dynamics: simulation/md-elastic.md
   - MLIP:
       - Training sets from VASP: mlip/vasp.md
       - Choosing frames: mlip/selection.md

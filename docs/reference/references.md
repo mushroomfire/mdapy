@@ -58,6 +58,11 @@ A. Hollocou, Hierarchical graph clustering using node pair sampling,
 Crystal Lattices* (Oxford University Press, Oxford, 1954).
 { #born1954 }
 
+**Bulatov and Cai (2006).** V. Bulatov and W. Cai, *Computer Simulations of
+Dislocations* (Oxford University Press, Oxford, 2006).
+[doi:10.1093/oso/9780198526148.001.0001](https://doi.org/10.1093/oso/9780198526148.001.0001)
+{ #bulatov2006 }
+
 **Calandrini et al. (2011).** V. Calandrini, E. Pellegrini, P. Calligari,
 K. Hinsen and G. R. Kneller, nMoldyn - Interfacing spectroscopic
 experiments, molecular dynamics simulations and models for time correlation
@@ -266,6 +271,11 @@ Ronchetti, Bond-orientational order in liquids and glasses, *Phys. Rev. B*
 **28**, 784 (1983).
 [doi:10.1103/PhysRevB.28.784](https://doi.org/10.1103/PhysRevB.28.784)
 { #steinhardt1983 }
+
+**Stroh (1958).** A. N. Stroh, Dislocations and cracks in anisotropic
+elasticity, *Philos. Mag.* **3**, 625 (1958).
+[doi:10.1080/14786435808565804](https://doi.org/10.1080/14786435808565804)
+{ #stroh1958 }
 
 **Stukowski (2012).** A. Stukowski, Structure identification methods for
 atomistic simulations of crystalline materials, *Modelling Simul. Mater. Sci.

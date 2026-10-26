@@ -3,12 +3,13 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Straight dislocations from isotropic elasticity, and edge dislocations
-of two crystals."""
+"""Straight dislocations from isotropic or anisotropic elasticity, and edge
+dislocations of two crystals."""
 
 import numpy as np
 from numpy.typing import ArrayLike
 
+from mdapy.build._anisotropic import StraightDislocation, rotated, stiffness
 from mdapy.build._defects import _axis
 from mdapy.core.box import Box
 from mdapy.core.system import System
@@ -23,9 +24,11 @@ def insert_dislocation(
     normal: int | str = 1,
     center: ArrayLike | None = None,
     poisson: float = 1 / 3,
+    elastic: ArrayLike | None = None,
+    orientation: ArrayLike | None = None,
 ) -> System:
     """The system with a straight dislocation along a box axis, its atoms
-    displaced as isotropic elasticity predicts.
+    displaced as isotropic or anisotropic elasticity predicts.
 
     Parameters
     ----------
@@ -44,7 +47,15 @@ def insert_dislocation(
         (3,) a point of the dislocation line in Å. Default the center of the
         box.
     poisson : float, optional
-        Poisson's ratio, from -1 to below 0.5. Default 1/3.
+        Poisson's ratio, from -1 to below 0.5, for isotropic elasticity.
+        Default 1/3.
+    elastic : array_like, optional
+        Elastic constants of a cubic crystal for anisotropic elasticity:
+        (C11, C12, C44) or the (6, 6) Voigt matrix, in any unit, in the axes
+        of the cubic cell. Default isotropic elasticity.
+    orientation : array_like, optional
+        The crystal directions along x, y and z, orthogonal, with elastic.
+        Default the axes of the cubic cell.
 
     Returns
     -------
@@ -60,7 +71,7 @@ def insert_dislocation(
         raise InvalidParameter("burgers must have three components")
     if abs(b[a2]) > 1e-12 * max(np.linalg.norm(b), 1.0):
         raise InvalidParameter("burgers must lie in the plane of cut")
-    if not -1 < poisson < 0.5:
+    if elastic is None and not -1 < poisson < 0.5:
         raise InvalidParameter(f"poisson must be from -1 to below 0.5, not {poisson!r}")
     box = system.box
     point = (
@@ -73,6 +84,19 @@ def insert_dislocation(
     if ((x1 == 0) & (x2 == 0)).any():
         raise InvalidParameter("an atom lies on the dislocation line")
     u = np.zeros_like(x)
+    if elastic is not None:
+        # the cut is the half plane x1 < 0 for every part, as atomsk makes a
+        # mixed dislocation with an elastic tensor
+        axes = np.eye(3) if orientation is None else np.asarray(orientation, float)
+        if axes.shape != (3, 3):
+            raise InvalidParameter("orientation must be three directions")
+        axes = axes / np.linalg.norm(axes, axis=1)[:, None]
+        if not np.allclose(axes @ axes.T, np.eye(3), atol=1e-9):
+            raise InvalidParameter("orientation must be orthogonal")
+        frame = axes[[a1, a2, a3]]
+        field = StraightDislocation(rotated(stiffness(elastic), frame))
+        u[:, [a1, a2, a3]] = field(x1, x2, b[[a1, a2, a3]])
+        return system.with_columns(positions=system["positions"] + u)
     # screw part: the cut is the half plane x1 < 0
     u[:, a3] = b[a3] / (2 * np.pi) * np.arctan2(x2, x1)
     if b[a1] != 0:

@@ -155,6 +155,12 @@ import mdapy as mp
 
 ::: mdapy.build.edge_dislocation
 
+::: mdapy.build.Dislocation
+
+::: mdapy.build.dislocation_cylinder
+
+::: mdapy.build.dislocation_quadrupole
+
 ::: mdapy.build.build_polycrystal
 
 ::: mdapy.build.random_rotations

@@ -277,6 +277,15 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   atomsk, and `edge_dislocation` of two crystals. See
   [Point defects](../build/defects.md) and
   [Dislocations](../build/dislocations.md).
+- Dislocations in anisotropic elasticity in `mdapy.build`:
+  `insert_dislocation(..., elastic=)`, the displacements of Stroh, the same
+  as atomsk with an elastic tensor; `dislocation_cylinder`, a cylinder
+  around a dislocation with a fixed outer shell (`movable`), and
+  `dislocation_quadrupole`, a periodic quadrupole in a box tilted by the
+  plastic strain of the dipole; `DISLOCATIONS`, the common dislocations of
+  bcc, fcc and diamond (glide set), or a `Dislocation` of your own; fcc and
+  diamond ones split into Shockley partials around an intrinsic stacking
+  fault. See [Dislocations](../build/dislocations.md).
 - `mdapy.build.add_graphene`: graphene on the grain boundaries of a
   polycrystal, one or more AB-stacked layers centered on each face between
   two grains, each face once, in a random orientation, cut to the face;

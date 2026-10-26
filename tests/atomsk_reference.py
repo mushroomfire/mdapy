@@ -41,10 +41,13 @@ def atomsk_crystal(directory, structure, a, elements, *, c=None, orientation=Non
     return mdapy.read(path)
 
 
-def atomsk_apply(directory, system, *options):
+def atomsk_apply(directory, system, *options, files=None):
     """The system after atomsk applies options to it, both through LAMMPS
-    data files written in directory."""
+    data files written in directory; files, {name: text}, are written there
+    first (atomsk cuts long paths short)."""
     here = pathlib.Path(tempfile.mkdtemp(dir=directory))
+    for name, text in (files or {}).items():
+        (here / name).write_text(text)
     mdapy.write(here / "in.lmp", system)
     command = [ATOMSK, "in.lmp", *map(str, options), "out.lmp", "-v", "0"]
     done = subprocess.run(

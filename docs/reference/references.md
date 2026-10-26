@@ -139,6 +139,13 @@ plane-wave basis set, *Phys. Rev. B* **54**, 11169 (1996).
 [doi:10.1103/PhysRevB.54.11169](https://doi.org/10.1103/PhysRevB.54.11169)
 { #kresse1996 }
 
+**Laplanche et al. (2018).** G. Laplanche, P. Gadaud, C. Bärsch,
+K. Demtröder, C. Reinhart, J. Schreuer and E. P. George, Elastic moduli and
+thermal expansion coefficients of medium-entropy subsystems of the
+CrMnFeCoNi high-entropy alloy, *J. Alloys Compd.* **746**, 244 (2018).
+[doi:10.1016/j.jallcom.2018.02.251](https://doi.org/10.1016/j.jallcom.2018.02.251)
+{ #laplanche2018 }
+
 **Larsen, Schmidt and Schiøtz (2016).** P. M. Larsen, S. Schmidt and J.
 Schiøtz, Robust structural identification via polyhedral template matching,
 *Modelling Simul. Mater. Sci. Eng.* **24**, 055007 (2016).

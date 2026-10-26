@@ -9,6 +9,7 @@ from mdapy import units
 def test_defining_constants_are_exact_si_values():
     assert units.ELEMENTARY_CHARGE == 1.602176634e-19
     assert units.BOLTZMANN_SI == 1.380649e-23
+    assert units.PLANCK_SI == 6.62607015e-34
     assert units.AVOGADRO == 6.02214076e23
 
 
@@ -17,6 +18,8 @@ def test_defining_constants_are_exact_si_values():
     [
         # CODATA 2018/2022: k_B = 8.617333262...e-5 eV/K
         (units.BOLTZMANN, 8.617333262e-5, 1e-9),
+        # h = 4.135667696e-15 eV s
+        (units.PLANCK, 4.135667696e-3, 1e-9),
         # 1 eV/Å^3 = 1.602176634e11 Pa
         (units.EV_PER_A3_TO_GPA, 160.2176634, 1e-14),
         # 1 eV/Å^2 = 16.02176634 J/m^2

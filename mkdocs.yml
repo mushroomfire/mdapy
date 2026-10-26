@@ -159,9 +159,12 @@ nav:
           - VASP: simulation/vasp.md
       - Minimization and dynamics:
           - Energy minimization: simulation/minimize.md
+          - Molecular dynamics: simulation/dynamics.md
           - Defect energies: simulation/defect-energies.md
       - Lattice dynamics:
           - Elastic constants: simulation/elastic-constants.md
+          - Phonons: simulation/phonons.md
+          - Quasi-harmonic approximation: simulation/quasi-harmonic.md
   - MLIP:
       - Training sets from VASP: mlip/vasp.md
       - Choosing frames: mlip/selection.md

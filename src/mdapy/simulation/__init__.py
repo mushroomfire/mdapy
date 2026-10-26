@@ -1,8 +1,8 @@
 # Copyright (c) 2022-2026, Yongchao Wu
 # This file is part of mdapy, released under the BSD 3-Clause License.
 
-"""Simulations with a calculator: energy minimization and the energies of
-defects."""
+"""Simulations: energy minimization and the energies of defects with a
+calculator, and molecular dynamics in LAMMPS."""
 
 from mdapy.simulation._defect_energies import (
     StackingFaultResult,
@@ -12,10 +12,12 @@ from mdapy.simulation._defect_energies import (
     surface_energy,
     vacancy_formation_energy,
 )
+from mdapy.simulation._dynamics import MolecularDynamics
 from mdapy.simulation._minimize import MinimizeResult, minimize
 
 __all__ = [
     "MinimizeResult",
+    "MolecularDynamics",
     "StackingFaultResult",
     "SurfaceResult",
     "VacancyResult",

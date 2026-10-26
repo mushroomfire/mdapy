@@ -41,6 +41,16 @@ P. Gumbsch, Structural relaxation made simple, *Phys. Rev. Lett.* **97**,
 [doi:10.1103/PhysRevLett.97.170201](https://doi.org/10.1103/PhysRevLett.97.170201)
 { #bitzek2006 }
 
+**Blöchl et al. (1994).** P. E. Blöchl, O. Jepsen and O. K. Andersen,
+Improved tetrahedron method for Brillouin-zone integrations, *Phys. Rev. B*
+**49**, 16223 (1994).
+[doi:10.1103/PhysRevB.49.16223](https://doi.org/10.1103/PhysRevB.49.16223)
+{ #blochl1994 }
+
+**Born and Huang (1954).** M. Born and K. Huang, *Dynamical Theory of
+Crystal Lattices* (Oxford University Press, Oxford, 1954).
+{ #born1954 }
+
 **Calandrini et al. (2011).** V. Calandrini, E. Pellegrini, P. Calligari,
 K. Hinsen and G. R. Kneller, nMoldyn - Interfacing spectroscopic
 experiments, molecular dynamics simulations and models for time correlation
@@ -187,6 +197,12 @@ based fingerprint for local crystalline order, *J. Chem. Phys.* **147**,
 114112 (2017).
 [doi:10.1063/1.4998408](https://doi.org/10.1063/1.4998408)
 { #piaggi2017 }
+
+**Setyawan and Curtarolo (2010).** W. Setyawan and S. Curtarolo,
+High-throughput electronic band structure calculations: Challenges and
+tools, *Comput. Mater. Sci.* **49**, 299 (2010).
+[doi:10.1016/j.commatsci.2010.05.010](https://doi.org/10.1016/j.commatsci.2010.05.010)
+{ #setyawan2010 }
 
 **Shimizu et al. (2007).** F. Shimizu, S. Ogata and J. Li, Theory of shear
 banding in metallic glasses and molecular dynamics calculations, *Mater.

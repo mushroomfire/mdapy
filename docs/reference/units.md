@@ -19,6 +19,7 @@ reading, and writers convert back when writing.
 | stress, pressure | GPa |
 | virial | eV |
 | elastic moduli of 2D materials | N/m |
+| frequency of vibrations | THz |
 
 These match LAMMPS `metal` units except stress and pressure, which LAMMPS
 reports in bar. Files from GPUMD, which uses fs and Å/fs, are converted on
@@ -48,5 +49,5 @@ stress_gpa = stress_ev_per_a3 * units.EV_PER_A3_TO_GPA  # 1.602 GPa
 ```
 
 The defining constants are the exact 2019 SI values (elementary charge,
-Boltzmann and Avogadro constants); the atomic mass constant is the CODATA 2022
-value.
+Boltzmann, Planck and Avogadro constants); the atomic mass constant is the
+CODATA 2022 value.

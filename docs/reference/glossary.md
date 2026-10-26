@@ -87,6 +87,18 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `atomic_virials` | per-atom virials, (N, 3, 3) (eV) |
 | `stress` | stress, (3, 3) (GPa), positive under tension: −`virial` / volume |
 | elastic constants | (6, 6) (GPa) in Voigt order xx, yy, zz, yz, xz, xy |
+| `force_constants` | second derivatives of the energy with respect to the positions of two atoms, (n, nS, 3, 3) (eV/Å²), between the atoms of a cell and of its supercell |
+| frequencies | of vibrations, in THz; imaginary ones as negative numbers |
+| wave vector `q` | in units of the reciprocal lattice vectors of the cell: `(h, k, l)` is h **b**1 + k **b**2 + l **b**3, with **a**i · **b**j = 2π δij |
+| `mesh` | number of wave vectors along each reciprocal lattice vector, of a mesh through Γ |
+| primitive cell | the smallest periodic cell of a crystal, from `primitive_cell` |
+| `gibbs_energy` | Gibbs energy per atom (eV), with the static energy, the free energy of the vibrations and the pressure times the volume |
+| `free_energy` | Helmholtz free energy (eV); of the vibrations in `ThermalProperties`, with the zero-point energy |
+| `thermal_expansion` | volumetric thermal expansion coefficient (1/K) |
+| `bulk_modulus` | isothermal bulk modulus (GPa) |
+| `thermo` | the thermodynamic state of a molecular dynamics run, a table of `step`, `time`, `temperature`, `potential_energy`, `kinetic_energy`, `total_energy`, `pressure`, `volume` and `stress` |
+| ensemble | `"nve"`, `"nvt"` or `"npt"` |
+| `heat_capacity` | heat capacity per atom (eV/K): at constant volume of the vibrations, at constant pressure in the quasi-harmonic approximation |
 | descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 
 ## Parameters

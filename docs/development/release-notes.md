@@ -127,6 +127,26 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.lattice_dynamics.elastic_constants`: the (6, 6) elastic constants
   from the stress under small strains, with relaxed positions, and Voigt,
   Reuss and Hill moduli. See [Elastic constants](../simulation/elastic-constants.md).
+- `mdapy.lattice_dynamics.phonons`: harmonic phonons from the forces on
+  displaced atoms with any calculator, the force constants made symmetric
+  and free of translations; frequencies and polarization vectors at any
+  wave vector, band structures along standard or given paths, densities of
+  states by the tetrahedron method or Gaussians, projected on the atoms,
+  and the free energy, energy, entropy and heat capacity of the vibrations;
+  the same dynamical matrix as LAMMPS. `primitive_cell` finds the smallest
+  cell of a crystal. `units.PLANCK`. See [Phonons](../simulation/phonons.md).
+- `mdapy.lattice_dynamics.quasi_harmonic`: the quasi-harmonic
+  approximation from phonons at several volumes: the equilibrium volume,
+  Gibbs energy, entropy, bulk modulus, thermal expansion and heat capacity
+  at constant pressure against temperature, at any pressure. See
+  [Quasi-harmonic approximation](../simulation/quasi-harmonic.md).
+- `mdapy.simulation.MolecularDynamics`: molecular dynamics in LAMMPS with
+  the interaction of a LAMMPS calculator: random velocities, runs at
+  constant energy, temperature or pressure with ramps, the thermodynamic
+  state as a polars table, frames and the final system back in the
+  orientation of the box, any LAMMPS command in between; the same
+  trajectory as the same LAMMPS input. See
+  [Molecular dynamics](../simulation/dynamics.md).
 
 - `mdapy.simulation.vacancy_formation_energy`, `surface_energy` and
   `stacking_fault_energy` (the generalized stacking fault energy, relaxed

@@ -27,6 +27,23 @@
 - **QCP 是什么**（你之前问的）：给定两组对应的点，求让它们重合得最好的旋转（RMSD 最小），即 Horn 的四元数方法。QCP 用牛顿法求 4×4 矩阵的最大特征值，而不做完整对角化。PTM 用它算每个原子相对模板的取向和 RMSD。我们的实现是：牛顿迭代 + 伴随矩阵求特征向量，退化时退回 Jacobi 对角化。
 - 接下来做文档（图文并茂）。另外有一项本地工作的进展单独汇报，不放在 GitHub 上。
 
+### 21:15
+- **文档配图已合入 v2**（8f69b11，已推送）：28 个页面加了图，共 29 张新图。
+  - 建模：晶体（8 种结构）、多晶（按晶粒、孪晶界、柱状晶）、随机合金、SQS、缺陷（空位、层错、表面）、位错（螺位错；刃位错弛豫后分解成两个 Shockley 不全位错）。
+  - 分析：CNA、CSP（分解位错的层错带）、Ackland-Jones、金刚石、团簇、配位数（纳米颗粒的面、棱、角）、Voronoi 胞（菱形十二面体、截角八面体）、Wigner-Seitz（空位和间隙）、原子应变（扭转棒，斜率正好是扭转率的一半）、CNP、熵、平面缺陷（内禀、外禀层错和孪晶）、RDF、键角、结构因子、MSD、Steinhardt q4–q6、分子识别、原子温度（热尖峰）。
+  - 另外还有声子色散加态密度，以及速览页的多晶。
+- **做法**：每张图都由页面上的代码生成，文档测试会运行这些代码（测试的工作目录里多了一个空的 `images/` 文件夹），所以图和代码不会对不上。
+  - 图注里的数都是实测核对过的：例如 CSP 层错约 5.7 Å²、不全位错芯约 1.7 Å²；结构因子的峰在 3.02、3.49、4.94、5.79 Å⁻¹；扭转棒的剪应变斜率是 0.002/Å。
+  - 图片量化到 256 色，29 张一共 2.4 MB（原来是 10 MB）。
+  - 出图脚本放在本地的 `tools/doc_images.py`，不进仓库。
+- 检查：文档测试 69 页全过（Python 3.11 最低依赖下 65 过、4 跳过，跳过的是需要 OVITO 和 pymatgen 的页面）；ruff 和 mkdocs strict 也都通过。
+
+| | |
+|---|---|
+| ![](images/docs-crystals.png) | ![](images/docs-dislocations.png) |
+| ![](images/docs-coordination.png) | ![](images/docs-voronoi.png) |
+| ![](images/docs-planar-faults.png) | ![](images/docs-steinhardt.png) |
+
 ### 21:58
 - **晶粒分割（你说的 OVITO Grain Segmentation）完成，在新分支 `grain-segmentation`**（db464c7，已推送，等你审阅后再合入 v2）。
   - 接口：`mdapy.identify.GrainSegmentation(threshold=None, *, method="graph", min_grain_size=100, stacking_faults=True, adopt_orphans=True)`，`compute(system, ptm=..)` 返回 `GrainResult`：每个原子的 `grain`（从 0 开始，-1 表示不属于任何晶粒，和 OVITO 3.17 一致），以及每个晶粒的大小、结构、平均取向、质心、半径、回转半径、颜色，和合并序列（用来画选阈值的散点图）。
@@ -50,22 +67,23 @@
 
 ![](images/docs-selecting.png)
 
-### 21:15
-- **文档配图已合入 v2**（8f69b11，已推送）：28 个页面加了图，共 29 张新图。
-  - 建模：晶体（8 种结构）、多晶（按晶粒、孪晶界、柱状晶）、随机合金、SQS、缺陷（空位、层错、表面）、位错（螺位错；刃位错弛豫后分解成两个 Shockley 不全位错）。
-  - 分析：CNA、CSP（分解位错的层错带）、Ackland-Jones、金刚石、团簇、配位数（纳米颗粒的面、棱、角）、Voronoi 胞（菱形十二面体、截角八面体）、Wigner-Seitz（空位和间隙）、原子应变（扭转棒，斜率正好是扭转率的一半）、CNP、熵、平面缺陷（内禀、外禀层错和孪晶）、RDF、键角、结构因子、MSD、Steinhardt q4–q6、分子识别、原子温度（热尖峰）。
-  - 另外还有声子色散加态密度，以及速览页的多晶。
-- **做法**：每张图都由页面上的代码生成，文档测试会运行这些代码（测试的工作目录里多了一个空的 `images/` 文件夹），所以图和代码不会对不上。
-  - 图注里的数都是实测核对过的：例如 CSP 层错约 5.7 Å²、不全位错芯约 1.7 Å²；结构因子的峰在 3.02、3.49、4.94、5.79 Å⁻¹；扭转棒的剪应变斜率是 0.002/Å。
-  - 图片量化到 256 色，29 张一共 2.4 MB（原来是 10 MB）。
-  - 出图脚本放在本地的 `tools/doc_images.py`，不进仓库。
-- 检查：文档测试 69 页全过（Python 3.11 最低依赖下 65 过、4 跳过，跳过的是需要 OVITO 和 pymatgen 的页面）；ruff 和 mkdocs strict 也都通过。
+### 22:21
+- **文档又配了 10 张图**（5165e9b，已合入 v2 并推送）：
+  - CHILL+：原来的例子是跳过测试的（需要水的数据），换成了能运行的例子：六方冰的氧原子，上半部分打乱成类似液体；图里冰是浅蓝，无序部分是白色，两个界面（下面那个跨周期边界）是界面冰（紫色）。
+  - Lindemann 指数：同一个团簇，原子在格点附近振动时累积指数趋于平稳，原子游走（类似液体）时一直上升，越过 0.1。
+  - Warren–Cowley：CsCl 有序的 CuZn 和元素打乱后的对比，前四个配位壳层的 α 分别是 −1、1、1、−1 和接近 0。
+  - 复制（replicate）：石墨烯晶胞复制 6×4 份，每份按编号着色，可以看出沿 **a** 的编号变化最快。
+  - 模拟部分：分子动力学（温度和晶格常数随时间，NPT 后切 NVT）、能量最小化（FIRE 的能量和最大力逐步下降，每个拐点是一次上坡后的回退）、EAM（Cu、Ni 的结合能曲线）、准谐近似（晶格常数和线膨胀系数随温度；0 K 时零点振动使晶格常数比静态的 3.615 Å 大一点）、有限温度弹性常数（C11、C12、C44，准谐和准静态两种方法）。
+- 模拟部分的例子需要势函数文件，所以仍然不在测试里运行；它们的图是用 LAMMPS 自带的 `Cu_mishin1.eam.alloy` 跑同一段页面代码生成的，代码和图对得上。
+- 检查：70 个文档页面的测试、ruff、mkdocs strict 都通过。
+- 本地工作另有进展，单独汇报。
 
 | | |
 |---|---|
-| ![](images/docs-crystals.png) | ![](images/docs-dislocations.png) |
-| ![](images/docs-coordination.png) | ![](images/docs-voronoi.png) |
-| ![](images/docs-planar-faults.png) | ![](images/docs-steinhardt.png) |
+| ![](images/docs-chill-plus.png) | ![](images/docs-thermal-elastic.png) |
+| ![](images/docs-warren-cowley-b2.png) | ![](images/docs-warren-cowley.png) |
+
+![](images/docs-minimize.png)
 
 ### MPL-2.0 的限制（给使用者的义务）
 

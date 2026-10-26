@@ -23,6 +23,7 @@ from mdapy import (
 )
 from mdapy.core.box import Box
 from mdapy.core.indices import index_dtype
+from mdapy.core.mesh import TriangleMesh
 from mdapy.core.system import System
 from mdapy.core.threads import (
     CancelToken,
@@ -38,6 +39,7 @@ __all__ = [
     "Box",
     "System",
     "Topology",
+    "TriangleMesh",
     "__version__",
     "analysis",
     "build",

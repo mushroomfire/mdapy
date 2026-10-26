@@ -58,4 +58,27 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
                      const double* origin, const bool* pbc, const VoronoiThresholds& thresholds,
                      bool faces, bool polyhedra, const Control& control = {});
 
+// The vertices of the Voronoi cells of n atoms, each cell its own: the atoms
+// across the three faces of each (-1 for a wall of the box) in increasing
+// order with their periodic images, and its distance from the atom. Vertex
+// k of atom i is number offsets[i] + k, kept in chunks[chunk[i]] from place
+// start[i] + k on. Throws std::runtime_error for a vertex of other than
+// three faces or an image outside int8: the atoms of a perfect lattice need
+// moving at random a little first.
+struct VoronoiVertices {
+    struct Chunk {
+        std::vector<index_t> atoms;       // 3 per vertex
+        std::vector<std::int8_t> shifts;  // 9 per vertex
+        std::vector<double> radii;
+    };
+    std::vector<std::int64_t> offsets;  // (n + 1)
+    std::vector<std::int64_t> chunk;    // (n)
+    std::vector<std::int64_t> start;    // (n)
+    std::vector<Chunk> chunks;
+};
+
+VoronoiVertices voronoi_vertices(const double* positions, std::int64_t n, const double* matrix,
+                                 const double* origin, const bool* pbc,
+                                 const Control& control = {});
+
 }  // namespace mdapy::analysis

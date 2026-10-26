@@ -133,6 +133,12 @@ struct Polygon {
     std::size_t start, count;  // its corners in Shapes::corners
 };
 
+// For each vertex of finished cells, the atoms across its three faces with
+// their periodic images, in order, and its distance from the atom.
+struct Triples : VoronoiVertices::Chunk {
+    bool odd = false;  // a vertex of other than three faces, or an image outside int8
+};
+
 // The shapes of finished cells: their vertices and all their faces.
 struct Shapes {
     std::vector<Vec> points;  // in the frame of the box
@@ -140,14 +146,66 @@ struct Shapes {
     std::vector<std::uint32_t> corners;  // vertex within its cell
 };
 
+// The atoms across the faces of each vertex of a finished cell, into
+// triples.
+void add_triples(const Cell& cell, const Neighbors& neighbors, Triples& triples) {
+    struct Across {
+        index_t j;
+        std::array<std::int32_t, 3> shift;
+    };
+    const std::vector<Vec>& points = cell.points();
+    std::vector<std::array<Across, 3>> across(points.size());
+    std::vector<int> filled(points.size(), 0);
+    for (const Face& face : cell.faces()) {
+        if (!(cell.area(face) > 0.0)) {
+            continue;
+        }
+        Across a{-1, {0, 0, 0}};
+        if (face.id >= 0) {
+            const Candidate& other = neighbors[static_cast<std::size_t>(face.id)];
+            a.j = other.j;
+            a.shift = other.shift;
+        }
+        const std::uint32_t* loop = cell.corners(face);
+        for (std::size_t k = 0; k < face.count; ++k) {
+            int& slot = filled[loop[k]];
+            if (slot < 3) {
+                across[loop[k]][static_cast<std::size_t>(slot)] = a;
+            }
+            ++slot;
+        }
+    }
+    for (std::size_t v = 0; v < points.size(); ++v) {
+        if (filled[v] != 3) {
+            triples.odd = true;
+            continue;
+        }
+        std::sort(across[v].begin(), across[v].end(), [](const Across& a, const Across& b) {
+            return a.j < b.j || (a.j == b.j && a.shift < b.shift);
+        });
+        for (const Across& a : across[v]) {
+            triples.atoms.push_back(a.j);
+            for (int e = 0; e < 3; ++e) {
+                if (a.shift[e] < std::numeric_limits<std::int8_t>::min() ||
+                    a.shift[e] > std::numeric_limits<std::int8_t>::max()) {
+                    triples.odd = true;
+                }
+                triples.shifts.push_back(static_cast<std::int8_t>(a.shift[e]));
+            }
+        }
+        triples.radii.push_back(std::sqrt(dot(points[v], points[v])));
+    }
+}
+
 // The cell of the atom i from its sorted neighbors, all those closer than
 // reach; x is its position from the origin of the box. Returns whether no
-// farther atom can cut the cell; faces get the faces that count, and shapes,
-// unless null, the shape of the cell when it is finished.
+// farther atom can cut the cell; faces get the faces that count, shapes,
+// unless null, the shape of the cell when it is finished, and triples,
+// unless null, the atoms across the faces of its vertices.
 bool build_cell(Cell& cell, const std::vector<Wall>& walls, const Vec& x, const double* positions,
                 std::int64_t i, const double* h, const Neighbors& neighbors, double reach,
                 double eps, const VoronoiThresholds& thresholds, double& volume, double& radius,
-                std::vector<Out>& faces, Shapes* shapes) {
+                std::vector<Out>& faces, Shapes* shapes, Triples* triples) {
     cell.reset(reach);
     for (const Wall& wall : walls) {
         const double s = dot(wall.normal, x);
@@ -206,6 +264,9 @@ bool build_cell(Cell& cell, const std::vector<Wall>& walls, const Vec& x, const 
             }
         }
     }
+    if (triples != nullptr && complete) {
+        add_triples(cell, neighbors, *triples);
+    }
     if (shapes != nullptr) {
         if (complete) {
             for (const Vec& point : cell.points()) {
@@ -234,15 +295,22 @@ bool build_cell(Cell& cell, const std::vector<Wall>& walls, const Vec& x, const 
 struct Collector {
     std::vector<std::vector<Out>> buffers;    // one per chunk of work
     std::vector<Shapes> shapes;               // one per chunk, with polyhedra
+    std::vector<Triples> triples;             // one per chunk, with vertices
     std::vector<std::int64_t> buffer;  // per atom: the chunk of its cell
     std::vector<std::int64_t> start;   // with faces: where its faces are
     std::vector<std::int32_t> count;
     std::vector<std::int64_t> point_start, polygon_start;  // with polyhedra
     std::vector<std::int32_t> point_count, polygon_count;
+    std::vector<std::int64_t> triple_start;  // with vertices
+    std::vector<std::int32_t> triple_count;
 
-    Collector(std::int64_t n, bool faces, bool polyhedra) {
-        if (faces || polyhedra) {
+    Collector(std::int64_t n, bool faces, bool polyhedra, bool vertices = false) {
+        if (faces || polyhedra || vertices) {
             buffer.assign(static_cast<std::size_t>(n), -1);
+        }
+        if (vertices) {
+            triple_start.assign(static_cast<std::size_t>(n), 0);
+            triple_count.assign(static_cast<std::size_t>(n), 0);
         }
         if (faces) {
             start.assign(static_cast<std::size_t>(n), 0);
@@ -298,6 +366,28 @@ struct Collector {
         }
     }
 
+    // The vertices of the cells, numbered in order of the atoms, kept in
+    // their chunks.
+    void assemble_vertices(std::int64_t n, VoronoiVertices& out) {
+        for (const Triples& chunk : triples) {
+            if (chunk.odd) {
+                throw std::runtime_error(
+                    "a vertex of a Voronoi cell is shared by other than three faces");
+            }
+        }
+        out.offsets.assign(static_cast<std::size_t>(n) + 1, 0);
+        for (std::int64_t i = 0; i < n; ++i) {
+            out.offsets[i + 1] = out.offsets[i] + triple_count[i];
+        }
+        out.chunk = buffer;
+        out.start = std::move(triple_start);
+        out.chunks.reserve(triples.size());
+        for (Triples& chunk : triples) {
+            out.chunks.push_back(std::move(static_cast<VoronoiVertices::Chunk&>(chunk)));
+        }
+        triples.clear();
+    }
+
     // The faces kept, in CSR form, copied for the atoms in parallel; and the
     // shapes of the cells, with polyhedra.
     void assemble(std::int64_t n, bool faces, VoronoiCells& cells) const {
@@ -342,20 +432,18 @@ struct Collector {
     }
 };
 
-}  // namespace
-
-VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matrix,
-                     const double* origin, const bool* pbc, const VoronoiThresholds& thresholds,
-                     bool faces, bool polyhedra, const Control& control) {
+// Builds the cell of every atom into cells and the collector, retrying those
+// it cannot close with a larger reach.
+void build_cells(const double* positions, std::int64_t n, const double* matrix,
+                 const double* origin, const bool* pbc, const VoronoiThresholds& thresholds,
+                 bool faces, bool polyhedra, bool vertices, Collector& collector,
+                 VoronoiCells& cells, const Control& control) {
     const std::vector<Wall> walls = make_walls(n, positions, matrix, origin, pbc);
-    VoronoiCells cells;
     cells.volumes.assign(static_cast<std::size_t>(n), 0.0);
     cells.radii.assign(static_cast<std::size_t>(n), 0.0);
     cells.coordination.assign(static_cast<std::size_t>(n), 0);
-    Collector collector(n, faces, polyhedra);
     if (n == 0) {
-        collector.assemble(n, faces, cells);
-        return cells;
+        return;
     }
     const double* h = matrix;
     const double volume = std::fabs(dot({h[0], h[1], h[2]}, cross({h[3], h[4], h[5]}, {h[6], h[7], h[8]})));
@@ -394,6 +482,9 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
         if (polyhedra) {
             collector.shapes.resize(collector.buffers.size());
         }
+        if (vertices) {
+            collector.triples.resize(collector.buffers.size());
+        }
         std::vector<std::uint8_t> open(todo.size(), 0);
         const double eps = 1e-10 * reach;
         if (control.monitor) {
@@ -407,6 +498,7 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
                 const std::size_t id = first_buffer + static_cast<std::size_t>(begin / grain);
                 std::vector<Out>& found = collector.buffers[id];
                 Shapes* shapes = polyhedra ? &collector.shapes[id] : nullptr;
+                Triples* triples = vertices ? &collector.triples[id] : nullptr;
                 Cell cell(eps);
                 Neighbors neighbors;
                 for (std::int64_t t = begin; t < end; ++t) {
@@ -425,9 +517,11 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
                     const std::size_t mark = found.size();
                     const std::size_t points = shapes ? shapes->points.size() : 0;
                     const std::size_t polygons = shapes ? shapes->polygons.size() : 0;
+                    const std::size_t corners = triples ? triples->radii.size() : 0;
                     const Vec x = {xi[0] - origin[0], xi[1] - origin[1], xi[2] - origin[2]};
                     if (build_cell(cell, walls, x, positions, i, h, neighbors, reach, eps,
-                                   thresholds, cells.volumes[i], cells.radii[i], found, shapes)) {
+                                   thresholds, cells.volumes[i], cells.radii[i], found, shapes,
+                                   triples)) {
                         std::int64_t shared = 0;  // the faces with atoms
                         for (std::size_t f = mark; f < found.size(); ++f) {
                             shared += found[f].j >= 0;
@@ -439,8 +533,13 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
                         } else {
                             found.resize(mark);  // only the cell's size and shape
                         }
-                        if (faces || shapes != nullptr) {
+                        if (faces || shapes != nullptr || triples != nullptr) {
                             collector.buffer[i] = static_cast<std::int64_t>(id);
+                        }
+                        if (triples != nullptr) {
+                            collector.triple_start[i] = static_cast<std::int64_t>(corners);
+                            collector.triple_count[i] =
+                                static_cast<std::int32_t>(triples->radii.size() - corners);
                         }
                         if (shapes != nullptr) {
                             collector.point_start[i] = static_cast<std::int64_t>(points);
@@ -470,8 +569,30 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
     if (control.monitor) {
         control.monitor(before, before);
     }
+}
+
+}  // namespace
+
+VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matrix,
+                     const double* origin, const bool* pbc, const VoronoiThresholds& thresholds,
+                     bool faces, bool polyhedra, const Control& control) {
+    VoronoiCells cells;
+    Collector collector(n, faces, polyhedra);
+    build_cells(positions, n, matrix, origin, pbc, thresholds, faces, polyhedra, false,
+                collector, cells, control);
     collector.assemble(n, faces, cells);
     return cells;
+}
+
+VoronoiVertices voronoi_vertices(const double* positions, std::int64_t n, const double* matrix,
+                                 const double* origin, const bool* pbc, const Control& control) {
+    VoronoiCells cells;
+    Collector collector(n, false, false, true);
+    build_cells(positions, n, matrix, origin, pbc, VoronoiThresholds{}, false, false, true,
+                collector, cells, control);
+    VoronoiVertices out;
+    collector.assemble_vertices(n, out);
+    return out;
 }
 
 }  // namespace mdapy::analysis

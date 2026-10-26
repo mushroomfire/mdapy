@@ -148,10 +148,13 @@ def render(
     polyhedra_alpha: float = 0.6,
     polyhedra_color: str = "atom",
     polyhedra_edges: float | None = None,
+    mesh: Any = None,
+    mesh_color: Any = "#8fb0d8",
+    mesh_alpha: float = 1.0,
     **options: Any,
 ) -> np.ndarray:
-    """A picture of a system: its atoms, optionally bonds, the box and
-    Voronoi cells.
+    """A picture of a system: its atoms, optionally bonds, the box,
+    Voronoi cells and a surface.
 
     Parameters
     ----------
@@ -196,6 +199,16 @@ def render(
     polyhedra_edges : float, optional
         Radius in Å of the edges of the cells; 0 draws none. Default a
         twentieth of the median atom radius.
+    mesh : TriangleMesh, optional
+        A surface to draw, such as that of
+        :class:`~mdapy.analysis.SurfaceMesh`. Triangles across a periodic
+        boundary are cut there, the part outside moved in through the
+        opposite face.
+    mesh_color : optional
+        One color for the surface, or (F, 3) colors of its triangles.
+        Default light blue.
+    mesh_alpha : float, optional
+        Opacity of the surface. Default 1.
     **options
         The options of :meth:`Scene.render`, such as width, height, view,
         style, zoom, perspective and background.
@@ -334,4 +347,22 @@ def render(
                     (0.15, 0.15, 0.15),
                     ids=np.full(len(joints), n),
                 )
+    if mesh is not None:
+        corners, triangle = mesh.pieces()
+        rgb = np.asarray(
+            _color(mesh_color) if isinstance(mesh_color, str) else mesh_color,
+            dtype=float,
+        )
+        if rgb.shape == (len(mesh), 3):
+            rgb = rgb[triangle]
+        elif rgb.shape != (3,):
+            raise InvalidParameter(
+                f"mesh_color must be one color or {len(mesh)} colors, "
+                f"not shape {rgb.shape}"
+            )
+        # one id for the whole surface, after those of the atoms and cells
+        surface = n + 1 + (0 if polyhedra is None else len(polyhedra.j))
+        scene.add_triangles(
+            corners, rgb, alpha=mesh_alpha, ids=np.full(len(corners), surface)
+        )
     return scene.render(path, **options)

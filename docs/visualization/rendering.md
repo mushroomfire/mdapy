@@ -50,6 +50,9 @@ polyhedra_color="atom", polyhedra_edges=None, **options)`
 | `polyhedra_alpha` | float | 0.6 | | their opacity |
 | `polyhedra_color` | str | `"atom"` | | faces colored as their atoms, or `"edges"` by their number of edges |
 | `polyhedra_edges` | float | 0.05 × radius | Å | the radius of the edges of the cells, 0 for none |
+| `mesh` | `TriangleMesh` | `None` | | a surface, such as that of a [surface mesh](../analysis/surface-mesh.md); triangles across a periodic boundary are cut there and the part outside moved in through the opposite face |
+| `mesh_color` | color or (F, 3) | light blue | | one color, or one per triangle |
+| `mesh_alpha` | float | 1 | | its opacity |
 
 | Representation | Atoms | Bonds |
 |---|---|---|

@@ -11,7 +11,7 @@ import pytest
 from mdapy._core import visualization as _native
 
 import mdapy
-from mdapy.analysis import VoronoiAnalysis
+from mdapy.analysis import SurfaceMesh, VoronoiAnalysis
 from mdapy.build import build_crystal
 from mdapy.errors import Cancelled, InvalidParameter
 from mdapy.identify import CommonNeighborAnalysis
@@ -452,6 +452,40 @@ def test_bonds_across_the_boundary_stay_in_the_box():
     assert not (covered.any(axis=0) & ~inside).any()
     row = covered[100]
     assert row[:15].any() and row[-15:].any()  # the halves reach both faces
+
+
+def test_a_surface_across_the_boundary_stays_in_the_box():
+    system = build_crystal("fcc", 3.615, elements="Cu", repeat=(6, 6, 6))
+    corner = np.linalg.norm(system.box.minimum_image(system["positions"]), axis=1)
+    holed = system.filter(corner > 5.0)  # a void around a corner of the box
+    surface = SurfaceMesh().compute(holed).mesh
+    hidden = np.zeros(len(holed), dtype=bool)
+    options = dict(view="top", width=120, height=120, background=None, style="preview")
+    drawn = render(holed, atoms=hidden, mesh=surface, **options)
+    boxed = render(holed, atoms=hidden, **options)
+    covered = drawn[..., 3] > 127
+    inside = boxed[..., 3] > 127
+    rows, columns = (
+        np.flatnonzero(inside.any(axis=1)),
+        np.flatnonzero(inside.any(axis=0)),
+    )
+    assert not covered[: rows[0]].any() and not covered[rows[-1] + 1 :].any()
+    assert (
+        not covered[:, : columns[0]].any() and not covered[:, columns[-1] + 1 :].any()
+    )
+    # a quarter of the void in each corner of the picture
+    for r, c in [(rows[0] + 5, columns[0] + 5), (rows[-1] - 5, columns[-1] - 5)]:
+        assert covered[r, c]
+    colors = np.tile([1.0, 0.0, 0.0], (len(surface), 1))
+    red = render(holed, atoms=hidden, mesh=surface, mesh_color=colors, **options)
+    shade = red[covered & ~inside][:, :3].astype(int)  # off the edges of the box
+    assert (shade[:, 0] >= shade[:, 1]).all() and (
+        shade[:, 0] > shade[:, 1]
+    ).mean() > 0.9
+    faint = render(holed, atoms=hidden, mesh=surface, mesh_alpha=0.3, **options)
+    assert not np.array_equal(faint, drawn)
+    with pytest.raises(InvalidParameter, match="mesh_color"):
+        render(holed, mesh=surface, mesh_color=np.zeros((2, 3)))
 
 
 # ------------------------------------------------------------ global illumination

@@ -204,6 +204,13 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   hcp-like atoms of polyhedral template matching, and their areas; the same
   as OVITO's Identify fcc planar faults atom by atom; optionally extrinsic
   stacking faults too.
+- [`GrainSegmentation`](../analysis/grain-segmentation.md): the grains of a
+  polycrystal from the lattice orientations of polyhedral template
+  matching, by node pair sampling with an automatic threshold or along a
+  minimum spanning tree, with stacking faults and twin boundaries joined to
+  the grains around them and orphan atoms adopted; the grain of each atom,
+  and the size, structure, mean orientation, center of mass and radii of
+  each grain, the same as OVITO's Grain segmentation atom by atom.
 - Distributions and order parameters in `mdapy.analysis`, agreeing with
   OVITO where it has them: the
   [`RadialDistributionFunction`](../analysis/rdf.md) and its partial

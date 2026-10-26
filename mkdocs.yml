@@ -123,6 +123,7 @@ nav:
           - Ackland–Jones analysis: analysis/ackland-jones.md
           - Polyhedral template matching: analysis/ptm.md
           - Planar faults: analysis/planar-faults.md
+          - Grain segmentation: analysis/grain-segmentation.md
           - Diamond structure: analysis/diamond.md
           - CHILL+: analysis/chill-plus.md
           - Centro-symmetry parameter: analysis/csp.md

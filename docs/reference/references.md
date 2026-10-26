@@ -47,6 +47,13 @@ Improved tetrahedron method for Brillouin-zone integrations, *Phys. Rev. B*
 [doi:10.1103/PhysRevB.49.16223](https://doi.org/10.1103/PhysRevB.49.16223)
 { #blochl1994 }
 
+**Bonald et al. (2018).** T. Bonald, B. Charpentier, A. Galland and
+A. Hollocou, Hierarchical graph clustering using node pair sampling,
+*MLG 2018, 14th International Workshop on Mining and Learning with Graphs*
+(2018).
+[arXiv:1806.01664](https://arxiv.org/abs/1806.01664)
+{ #bonald2018 }
+
 **Born and Huang (1954).** M. Born and K. Huang, *Dynamical Theory of
 Crystal Lattices* (Oxford University Press, Oxford, 1954).
 { #born1954 }
@@ -120,6 +127,13 @@ I. Tanaka, Band structure diagram paths based on crystallography,
 **Hirth and Lothe (1982).** J. P. Hirth and J. Lothe, *Theory of
 Dislocations*, 2nd ed. (Wiley, New York, 1982).
 { #hirth1982 }
+
+**Hoffrogge and Barrales-Mora (2017).** P. W. Hoffrogge and L. A.
+Barrales-Mora, Grain-resolved kinetics and rotation during grain growth of
+nanocrystalline aluminium by molecular dynamics, *Comput. Mater. Sci.*
+**128**, 207 (2017).
+[doi:10.1016/j.commatsci.2016.11.027](https://doi.org/10.1016/j.commatsci.2016.11.027)
+{ #hoffrogge2017 }
 
 **Honeycutt and Andersen (1987).** J. D. Honeycutt and H. C. Andersen,
 Molecular dynamics study of melting and freezing of small Lennard-Jones
@@ -204,6 +218,12 @@ cascades in elemental semiconductors and fcc metals, *Phys. Rev. B* **57**,
 7556 (1998).
 [doi:10.1103/PhysRevB.57.7556](https://doi.org/10.1103/PhysRevB.57.7556)
 { #nordlund1998 }
+
+**Panzarino and Rupert (2014).** J. F. Panzarino and T. J. Rupert,
+Tracking microstructure of crystalline materials: a post-processing
+algorithm for atomistic simulations, *JOM* **66**, 417 (2014).
+[doi:10.1007/s11837-013-0831-9](https://doi.org/10.1007/s11837-013-0831-9)
+{ #panzarino2014 }
 
 **Piaggi and Parrinello (2017).** P. M. Piaggi and M. Parrinello, Entropy
 based fingerprint for local crystalline order, *J. Chem. Phys.* **147**,

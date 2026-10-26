@@ -47,6 +47,14 @@ import mdapy as mp
 
 ::: mdapy.identify.PTMResult
 
+::: mdapy.identify.PlanarFaults
+
+::: mdapy.identify.PlanarFaultResult
+
+::: mdapy.identify.GrainSegmentation
+
+::: mdapy.identify.GrainResult
+
 ::: mdapy.identify.DiamondStructure
 
 ::: mdapy.identify.ChillPlus

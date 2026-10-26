@@ -190,9 +190,11 @@ void CellGrid::scan(std::int64_t t, Visit&& visit) const {
                 const std::int64_t first = row * last.cells + k;
                 z += run + 1;
                 image[0] = static_cast<std::int32_t>(shift);
-                double base[3];
-                for (int e = 0; e < 3; ++e) {
-                    base[e] = xw[e] - (image[0] * h[e] + image[1] * h[3 + e] + image[2] * h[6 + e]);
+                double base[3] = {xw[0], xw[1], xw[2]};
+                if ((image[0] | image[1] | image[2]) != 0) {
+                    for (int e = 0; e < 3; ++e) {
+                        base[e] -= image[0] * h[e] + image[1] * h[3 + e] + image[2] * h[6 + e];
+                    }
                 }
                 for (std::int64_t s = cell_start_[first]; s < cell_start_[first + run + 1]; ++s) {
                     const Slot& other = slots_[s];

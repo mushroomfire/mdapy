@@ -114,7 +114,7 @@ nav:
           - A polycrystal of fcc and bcc grains: getting-started/tutorials/two-phase-polycrystal.md
           - Columnar grains on a hexagonal pattern: getting-started/tutorials/columnar-polycrystal.md
           - Defect energies of copper: getting-started/tutorials/defect-energies.md
-          - Phonons of Cr, Co and Ni: getting-started/tutorials/crconi-phonons.md
+          - A machine-learned potential for CrCoNi: getting-started/tutorials/crconi.md
           - Sharing neighbor lists: getting-started/tutorials/neighbor-lists.md
   - Analysis:
       - Overview: analysis/overview.md

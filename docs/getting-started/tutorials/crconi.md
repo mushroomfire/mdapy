@@ -239,7 +239,7 @@ of its vibrations, and
 elastic constants there, from the second derivatives of the static energy
 and of the free energy of the vibrations under strain. The structure, 10.6 Å
 across, is taken as its own supercell to keep this affordable; it takes
-about 12 minutes on ten cores.
+about 10 minutes on ten cores.
 
 <!-- skip-test -->
 ```python
@@ -255,7 +255,7 @@ print(
 ```
 
 ```text
-0 K: C11 283.1, C12 181.2, C44 140.0 GPa
+0 K: C11 283.2, C12 181.1, C44 140.1 GPa
 0.52% larger than the static cell
 ```
 
@@ -307,7 +307,13 @@ with plot.style():
 ```
 
 ```text
-OUTPUT
+300 K: E 230.8 (231.2), G 87.7 (88.5) GPa
+600 K: E 209.4 (206.3), G 79.0 (79.2) GPa
+900 K: E 185.0 (180.3), G 69.2 (69.6) GPa
 ```
 
 ![Young's and shear moduli of CrCoNi against temperature: the NEP model in the quasi-harmonic approximation against measurements](images/crconi-moduli.png)
+
+The shear modulus follows the measurements to 1 GPa from 300 to 1000 K;
+Young's modulus departs from them as the temperature rises, by 3 % at
+900 K.

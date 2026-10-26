@@ -341,8 +341,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   and bcc grains, columnar grains on a hexagonal pattern with chosen
   misorientations, the defect energies of copper with checks of their
   convergence, when sharing neighbor lists pays, what a `System` shares
-  and copies, and the phonons of Cr, Co and Ni from the NEP model of
-  CrCoNi alloys against DFT. See the Tutorials under Getting started.
+  and copies, and a machine-learned potential for CrCoNi: the phonons of
+  Cr, Co and Ni against DFT and the elastic constants of the alloy from 0 to
+  1000 K against measurements. See the Tutorials under Getting started.
 
 ### Foundations
 

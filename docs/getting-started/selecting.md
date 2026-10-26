@@ -130,6 +130,22 @@ fast = crystal.with_columns(
 corners = crystal.filter("floor(positions.x / 3.615) % 2 == 0", element="Cu")
 ```
 
+Four of these selections, each in the box of the whole crystal:
+
+```python
+from mdapy.visualization import render, write_png
+
+size = {"width": 400, "height": 400}
+pictures = [render(part, **size) for part in (nickel, core, sphere, slab)]
+write_png("images/selecting.png", np.hstack(pictures))
+```
+
+![Selections](images/selecting.png)
+
+*From the left: the nickel atoms, every fourth atom of the crystal; the
+cylinder `core` of radius 5 Å along z; the `sphere` of radius 6 Å; the
+`slab` between z = 4 and 8 Å.*
+
 ### Masks and polars expressions
 
 A boolean mask computed with NumPy serves when a condition needs more than

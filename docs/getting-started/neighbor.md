@@ -163,3 +163,27 @@ nl.j[pairs], nl.distances[pairs]  # the neighbors of atom 5
 ordered = nl.sorted()
 nearest = ordered.j[ordered.offsets[:-1][nl.counts > 0]]  # each atom's nearest
 ```
+
+The 12 nearest neighbors of atom 5, some of them across the periodic
+boundaries of the tilted box:
+
+```python
+from mdapy.visualization import render
+
+near = twelve.j[twelve.offsets[5] : twelve.offsets[6]]
+colors = np.full((len(system), 3), 0.8)
+colors[near] = [0.95, 0.6, 0.1]  # the neighbors, orange
+colors[5] = [0.85, 0.15, 0.1]  # the atom, red
+radius = np.full(len(system), 0.25)
+radius[near] = 0.55
+radius[5] = 0.8
+render(
+    system, "images/neighbor.png", color=colors, radius=radius, width=800, height=600
+)
+```
+
+![Neighbors of one atom](images/neighbor.png)
+
+*Atom 5 (red) and its 12 nearest neighbors (orange) among the 200 atoms of
+the triclinic box; a neighbor near the opposite face is one of its periodic
+images.*

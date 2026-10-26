@@ -29,12 +29,13 @@ faulted = faulted.with_columns(result)  # planar_fault
 
 ## Parameters
 
-`PlanarFaults(structures=("fcc", "hcp", "bcc"), *, rmsd_cutoff=0.1)`
+`PlanarFaults(structures=("fcc", "hcp", "bcc"), *, rmsd_cutoff=0.1, extrinsic=False)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `structures` | iterable of str | `("fcc", "hcp", "bcc")` | | the structures polyhedral template matching looks for, fcc and hcp among them |
 | `rmsd_cutoff` | float | 0.1 | | atoms that deviate more from their best template are other; 0 for no cutoff |
+| `extrinsic` | bool | `False` | | also find extrinsic stacking faults, which are otherwise two coherent twin boundaries |
 
 `compute(system, *, ptm=None, neighbors=None, progress=None, cancel=None)`
 runs polyhedral template matching, or takes a `PTMResult` of the same
@@ -48,11 +49,11 @@ A `PlanarFaultResult`:
 | Attribute or method | Type | Meaning |
 |---|---|---|
 | `fault` | (N,) int8 | the type of each atom, an index into `names` |
-| `names` | tuple of str | `non-hcp`, `other hcp`, `intrinsic stacking fault`, `coherent twin boundary` and `multilayer stacking fault`, numbered as in OVITO |
+| `names` | tuple of str | `non-hcp`, `other hcp`, `intrinsic stacking fault`, `coherent twin boundary` and `multilayer stacking fault`, numbered as in OVITO, and `extrinsic stacking fault` |
 | `colors` | tuple of RGB | OVITO's colors of the types |
 | `interatomic_distance` | (N,) float64 | the distance in Å between nearest neighbors of the lattice each atom matched |
 | `counts()` | dict | the number of atoms of each type |
-| `areas()` | dict | the area in Å² of the intrinsic stacking faults and of the coherent twin boundaries |
+| `areas()` | dict | the area in Å² of the intrinsic stacking faults, the coherent twin boundaries and the extrinsic stacking faults |
 
 The column is `planar_fault`.
 
@@ -88,13 +89,23 @@ round; the stacking-fault atoms stacked on a multilayer atom become
 multilayer atoms. Atoms at the edges of faults, next to partial
 dislocations, may thus depend on the order of the atoms.
 
+With `extrinsic`, a last pass makes **extrinsic stacking faults** of the
+twin-boundary atoms next to a single plane of fcc atoms between two planes
+of hcp-like atoms: a twin-boundary atom with an fcc neighbor above or
+below that has at least five hcp-like and five fcc neighbors, as an fcc
+atom with six hcp-like neighbors in the planes above and below it and six
+fcc neighbors in its own plane has. An extrinsic stacking fault, a plane
+inserted into the stacking, is such a twin of two planes. This pass reads
+the types the others left and does not depend on the order of the atoms.
+
 The area of an atom in a {111} plane is $\tfrac{\sqrt3}{2}d^2$, with $d$
 the interatomic distance; a stacking fault is two planes of atoms, a twin
-boundary one:
+boundary one, an extrinsic stacking fault two:
 
 $$
 A_\mathrm{ISF} = \frac{\sqrt3}{4}\sum_{i \in \mathrm{ISF}} d_i^2, \qquad
-A_\mathrm{TB} = \frac{\sqrt3}{2}\sum_{i \in \mathrm{TB}} d_i^2 .
+A_\mathrm{TB} = \frac{\sqrt3}{2}\sum_{i \in \mathrm{TB}} d_i^2, \qquad
+A_\mathrm{ESF} = \frac{\sqrt3}{4}\sum_{i \in \mathrm{ESF}} d_i^2 .
 $$
 
 Adjacent faults of different kinds can look alike: a multilayer stacking

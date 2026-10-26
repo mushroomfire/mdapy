@@ -21,7 +21,7 @@ constexpr std::array<int, 6> kOutOfPlane = {2, 3, 4, 9, 10, 11};
 }  // namespace
 
 void planar_faults(const std::int8_t* structure, const index_t* neighbors, std::int64_t n,
-                   std::int8_t* faults, const Control& control) {
+                   bool extrinsic, std::int8_t* faults, const Control& control) {
     std::vector<std::int64_t> hcp;
     for (std::int64_t i = 0; i < n; ++i) {
         faults[i] = kNonHcp;
@@ -96,6 +96,45 @@ void planar_faults(const std::int8_t* structure, const index_t* neighbors, std::
                     faults[b] = kMultilayerFault;
                 }
             }
+        }
+    }
+    if (!extrinsic) {
+        return;
+    }
+    // an fcc atom between two planes of hcp atoms: six fcc neighbors in its
+    // plane and six hcp above and below, allowing one of each to differ
+    const auto sandwiched = [&](std::int64_t b) {
+        int hcp_neighbors = 0, fcc_neighbors = 0;
+        for (int k = 0; k < 12; ++k) {
+            const auto c = static_cast<std::int64_t>(row(b)[k]);
+            hcp_neighbors += structure[c] == kPtmHcp;
+            fcc_neighbors += structure[c] == kPtmFcc;
+        }
+        return hcp_neighbors >= 5 && fcc_neighbors >= 5;
+    };
+    // reads the structure types only: in parallel, in any order
+    std::vector<std::uint8_t> extrinsic_atom(hcp.size(), 0);
+    parallel_for(
+        count, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t h = begin; h < end; ++h) {
+                const std::int64_t a = hcp[static_cast<std::size_t>(h)];
+                if (faults[a] != kTwinBoundary) {
+                    continue;
+                }
+                for (int k : kOutOfPlane) {
+                    const auto b = static_cast<std::int64_t>(row(a)[k]);
+                    if (structure[b] == kPtmFcc && sandwiched(b)) {
+                        extrinsic_atom[static_cast<std::size_t>(h)] = 1;
+                        break;
+                    }
+                }
+            }
+        },
+        control);
+    for (std::size_t h = 0; h < hcp.size(); ++h) {
+        if (extrinsic_atom[h] != 0) {
+            faults[hcp[h]] = kExtrinsicFault;
         }
     }
 }

@@ -179,7 +179,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - [`PlanarFaults`](../analysis/planar-faults.md): intrinsic and multilayer
   stacking faults and coherent twin boundaries of fcc crystals from the
   hcp-like atoms of polyhedral template matching, and their areas; the same
-  as OVITO's Identify fcc planar faults atom by atom.
+  as OVITO's Identify fcc planar faults atom by atom; optionally extrinsic
+  stacking faults too.
 - Distributions and order parameters in `mdapy.analysis`, agreeing with
   OVITO where it has them: the
   [`RadialDistributionFunction`](../analysis/rdf.md) and its partial

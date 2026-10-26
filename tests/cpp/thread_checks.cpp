@@ -1073,7 +1073,7 @@ void polyhedral_template_matching() {
     for (int threads : kThreads) {
         mdapy::set_num_threads(threads);
         std::vector<std::int8_t> faults(static_cast<std::size_t>(n));
-        mdapy::identify::planar_faults(types.data(), neighbors.data(), n, faults.data());
+        mdapy::identify::planar_faults(types.data(), neighbors.data(), n, true, faults.data());
         if (threads == kThreads[0]) {
             first_faults = faults;
         }

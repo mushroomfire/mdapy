@@ -304,20 +304,22 @@ using TemplateNeighbors =
 
 // The planar fault type of each atom from its PTM type and its neighbors in
 // the order of its template.
-nb::object planar_faults(Structures structure, TemplateNeighbors neighbors, nb::handle progress,
-                         const CancelToken* cancel) {
+nb::object planar_faults(Structures structure, TemplateNeighbors neighbors, bool extrinsic,
+                         nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(structure.shape(0));
     if (neighbors.shape(0) != structure.shape(0)) {
         throw std::invalid_argument("there must be the neighbors of each atom");
     }
     for (std::int64_t i = 0; i < n; ++i) {
-        if (structure.data()[i] != identify::kPtmHcp) {
+        const std::int8_t type = structure.data()[i];
+        if (type != identify::kPtmHcp && !(extrinsic && type == identify::kPtmFcc)) {
             continue;
         }
         for (int k = 0; k < 12; ++k) {
             const index_t b = neighbors.data()[16 * i + k];
             if (b < 0 || b >= n) {
-                throw std::invalid_argument("a neighbor of an hcp atom is outside the atoms");
+                throw std::invalid_argument(
+                    "a neighbor of an hcp or fcc atom is outside the atoms");
             }
         }
     }
@@ -325,7 +327,8 @@ nb::object planar_faults(Structures structure, TemplateNeighbors neighbors, nb::
     nb::object result = new_array(static_cast<std::size_t>(n), faults);
     run_released(
         [&](const Control& control) {
-            identify::planar_faults(structure.data(), neighbors.data(), n, faults, control);
+            identify::planar_faults(structure.data(), neighbors.data(), n, extrinsic, faults,
+                                    control);
         },
         progress, cancel);
     return result;
@@ -377,7 +380,8 @@ void bind_identify(nb::module_& m) {
           nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("count"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("planar_faults", &planar_faults, nb::arg("structure"), nb::arg("neighbors"),
-          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+          nb::arg("extrinsic"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("identify_diamond", &identify_diamond,
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), 

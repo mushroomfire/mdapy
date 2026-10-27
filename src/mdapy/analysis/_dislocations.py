@@ -268,6 +268,41 @@ class DislocationAnalysis:
 
     #: Names of the structure types.
     NAMES = ("other", "fcc", "hcp", "bcc", "cubic_diamond", "hexagonal_diamond")
+    #: The color of the lines of each family of Burgers vectors, by crystal.
+    FAMILY_COLORS = {
+        "fcc": {
+            "1/2<110>": (0.2, 0.2, 1.0),
+            "1/6<112>": (0.0, 1.0, 0.0),
+            "1/6<110>": (1.0, 0.0, 1.0),
+            "1/3<100>": (1.0, 1.0, 0.0),
+            "1/3<111>": (0.0, 1.0, 1.0),
+            "other": (0.9, 0.2, 0.2),
+        },
+        "bcc": {
+            "1/2<111>": (0.0, 1.0, 0.0),
+            "<100>": (1.0, 0.3, 0.8),
+            "<110>": (0.2, 0.5, 1.0),
+            "other": (0.9, 0.2, 0.2),
+        },
+        "cubic_diamond": {
+            "1/2<110>": (0.2, 0.2, 1.0),
+            "1/6<112>": (0.0, 1.0, 0.0),
+            "1/6<110>": (1.0, 0.0, 1.0),
+            "1/3<111>": (0.0, 1.0, 1.0),
+            "other": (0.9, 0.2, 0.2),
+        },
+    }
+    FAMILY_COLORS["hcp"] = {
+        "1/3<1-210>": (0.0, 1.0, 0.0),
+        "<0001>": (0.2, 0.2, 1.0),
+        "<1-100>": (1.0, 0.0, 1.0),
+        "1/3<1-100>": (1.0, 0.5, 0.0),
+        "1/3<1-213>": (1.0, 1.0, 0.0),
+        "other": (0.9, 0.2, 0.2),
+    }
+    FAMILY_COLORS["hexagonal_diamond"] = {
+        k: v for k, v in FAMILY_COLORS["hcp"].items() if k != "1/3<1-213>"
+    }
     #: Their default colors.
     COLORS = tuple(
         PolyhedralTemplateMatching.COLORS[PolyhedralTemplateMatching.NAMES.index(name)]

@@ -151,6 +151,8 @@ def render(
     mesh: Any = None,
     mesh_color: Any = "#8fb0d8",
     mesh_alpha: float = 1.0,
+    dislocations: Any = None,
+    dislocation_radius: float = 0.5,
     **options: Any,
 ) -> np.ndarray:
     """A picture of a system: its atoms, optionally bonds, the box,
@@ -209,6 +211,13 @@ def render(
         Default light blue.
     mesh_alpha : float, optional
         Opacity of the surface. Default 1.
+    dislocations : DislocationResult, optional
+        Dislocation lines to draw, such as those of
+        :class:`~mdapy.analysis.DislocationAnalysis`: tubes in the color of
+        the family of their Burgers vector, cut at the periodic boundaries,
+        the parts outside moved in through the opposite faces.
+    dislocation_radius : float, optional
+        Radius of the tubes in Å. Default 0.5.
     **options
         The options of :meth:`Scene.render`, such as width, height, view,
         style, zoom, perspective and background.
@@ -365,4 +374,47 @@ def render(
         scene.add_triangles(
             corners, rgb, alpha=mesh_alpha, ids=np.full(len(corners), surface)
         )
+    if dislocations is not None and dislocations.lines:
+        from mdapy.analysis import DislocationAnalysis
+
+        palette = DislocationAnalysis.FAMILY_COLORS[dislocations.crystal]
+        starts, ends, rgb = [], [], []
+        for line in dislocations.lines:
+            a, b = _inside(line.points, system.box)
+            starts.append(a)
+            ends.append(b)
+            rgb.append(np.tile(palette[line.family], (len(a), 1)))
+        starts, ends, rgb = map(np.concatenate, (starts, ends, rgb))
+        radius = float(dislocation_radius)
+        if not radius > 0:
+            raise InvalidParameter(
+                f"dislocation_radius must be positive, not {dislocation_radius!r}"
+            )
+        ids = np.full(len(starts), n)
+        scene.add_cylinders(starts, ends, radius, rgb, ids=ids)
+        # round joints
+        scene.add_spheres(starts, radius, rgb, ids=ids)
+        scene.add_spheres(ends, radius, rgb, ids=ids)
     return scene.render(path, **options)
+
+
+def _inside(points: np.ndarray, box: Any) -> tuple[np.ndarray, np.ndarray]:
+    """The pieces of a polyline in the box: each segment cut where it
+    crosses a periodic boundary, each piece moved into the box; the starts
+    and ends of the pieces."""
+    starts, ends = [], []
+    for p, q in zip(points[:-1], points[1:]):
+        f, g = (p - box.origin) @ box.inverse, (q - box.origin) @ box.inverse
+        # the fractions of the segment where it crosses a periodic face
+        cuts = [0.0, 1.0]
+        for k in np.flatnonzero(box.pbc):
+            low, high = sorted((f[k], g[k]))
+            for face in range(int(np.floor(low)) + 1, int(np.floor(high)) + 1):
+                cuts.append((face - f[k]) / (g[k] - f[k]))
+        cuts = np.unique(np.clip(cuts, 0.0, 1.0))
+        for s, t in zip(cuts[:-1], cuts[1:]):
+            a, b = f + s * (g - f), f + t * (g - f)
+            image = np.where(box.pbc, np.floor(0.5 * (a + b)), 0.0)
+            starts.append((a - image) @ box.matrix + box.origin)
+            ends.append((b - image) @ box.matrix + box.origin)
+    return np.array(starts).reshape(-1, 3), np.array(ends).reshape(-1, 3)

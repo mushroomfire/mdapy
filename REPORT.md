@@ -17,8 +17,8 @@
 | 1 | `solid-liquid` | 53c0e5b | q6 固液判别（`SteinhardtParameters(solid=True)`），与 freud 逐原子一致 | 通过 |
 | 2 | `slip-systems` | 1714066 | 文档：常用表面和滑移系（取向表、表面能、GSFE、金刚石 shuffle/glide） | 通过 |
 | 3 | `surface-mesh` | cbfa9bd | 表面网格 `SurfaceMesh` + 通用三角网格 `mdapy.TriangleMesh` + `render(mesh=)`，与 OVITO 一致 | 通过 |
-| 4 | `dislocations` | 7e11ca0 | 各向异性位错（与 atomsk 一致）、11 种预定义位错、圆柱和四极子模型 | 在跑 |
-| 6 | `gui-superset` | bd8875d | mdapy 补齐 GUI 有的：`transform.slice`、`SpatialBinning`、`AtomicDisplacement`，都与 OVITO 一致 | 在跑 |
+| 4 | `dislocations` | 7e11ca0 | 各向异性位错（与 atomsk 一致）、11 种预定义位错、圆柱和四极子模型 | 通过 |
+| 6 | `gui-superset` | bd8875d | mdapy 补齐 GUI 有的：`transform.slice`、`SpatialBinning`、`AtomicDisplacement`，都与 OVITO 一致 | 通过 |
 
 第 5 件（GUI 里建模）和 GUI 的表面网格显示是本地工作，单独汇报。
 
@@ -30,12 +30,12 @@
 ## 进展
 
 ### 10-27 02:07
-- **第 4 件完成：位错建模**（分支 `dislocations`，7e11ca0，已推送，CI 在跑）。全量 2222 个测试通过，新文件覆盖率 100%，Python 3.11 也通过。文档页 Dislocations 扩写了：各向异性弹性、预定义位错表、圆柱和四极子、参数、定义（Stroh 公式、不全位错的顺序规则、四极子的割面和盒子倾斜），参考文献加了 Stroh 1958、Bulatov & Cai 2006（Crossref 核对过）。下图：左，铜的刃型位错分解成两个 Shockley 不全位错、弛豫后（只画非 fcc 原子，红色是层错）；中，铁的螺型位错四极子，弛豫后两个位错芯；右，硅的 30° 不全位错，层错（橙色，六方金刚石）伸向 -x。
+- **第 4 件完成：位错建模**（分支 `dislocations`，7e11ca0，已推送，CI 通过）。全量 2222 个测试通过，新文件覆盖率 100%，Python 3.11 也通过。文档页 Dislocations 扩写了：各向异性弹性、预定义位错表、圆柱和四极子、参数、定义（Stroh 公式、不全位错的顺序规则、四极子的割面和盒子倾斜），参考文献加了 Stroh 1958、Bulatov & Cai 2006（Crossref 核对过）。下图：左，铜的刃型位错分解成两个 Shockley 不全位错、弛豫后（只画非 fcc 原子，红色是层错）；中，铁的螺型位错四极子，弛豫后两个位错芯；右，硅的 30° 不全位错，层错（橙色，六方金刚石）伸向 -x。
 
 ![](images/dislocation-models.png)
 
 - **第 5 件完成（本地）：GUI 里建模**，单独汇报。
-- **第 6 件完成：mdapy 是 GUI 的超集**（分支 `gui-superset`，bd8875d，已推送，CI 在跑）。逐个核对了 GUI 的修改器，mdapy 缺三样，补上了，都和 OVITO 现场对比一致：
+- **第 6 件完成：mdapy 是 GUI 的超集**（分支 `gui-superset`，bd8875d，已推送，CI 通过）。逐个核对了 GUI 的修改器，mdapy 缺三样，补上了，都和 OVITO 现场对比一致：
   - `mdapy.transform.slice(system, normal, distance, *, width, invert)`：平面一侧或板内的原子（同 OVITO Slice，4 种组合）；
   - `mdapy.analysis.SpatialBinning(property, bins, *, axes, reduction)`：沿 1–3 个盒矢分箱，均值/和/密度/最小/最大（同 OVITO Spatial binning，1D/2D/3D × 5 种 × 周期/开放，30 组；空箱 OVITO 给 0，我们给 NaN）；
   - `mdapy.analysis.AtomicDisplacement(reference, *, minimum_image, affine)`：按 id 匹配的位移（同 OVITO Displacement vectors，4 种组合）。

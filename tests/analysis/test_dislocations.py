@@ -186,6 +186,18 @@ def test_frank_rule_at_junctions():
     assert {line.family for line in tetrahedron.lines} == {"1/6<112>", "1/6<110>"}
 
 
+def test_the_same_for_any_number_of_threads():
+    """The circuits' choices are fixed: the same lines on every run."""
+    system = crossing_loops()
+    found = []
+    for threads in (1, 4, 1):
+        with mdapy.num_threads(threads):
+            result = DislocationAnalysis("fcc").compute(system)
+        found.append(np.concatenate([line.points.ravel() for line in result.lines]))
+    for points in found[1:]:
+        np.testing.assert_array_equal(points, found[0])
+
+
 def test_the_sense_of_a_loop():
     """A loop with the opposite Burgers vector runs the other way round."""
     a = 3.615

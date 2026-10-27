@@ -264,13 +264,14 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   and the voids among them, the atoms on the surface, and Taubin's
   smoothing; the same areas, volumes and atoms as OVITO. The surface is a
   `mdapy.TriangleMesh`, a mesh of triangles across periodic boundaries.
-- [`DislocationAnalysis`](../analysis/dislocations.md) in `mdapy.analysis`:
-  the dislocation lines of fcc, hcp, bcc, cubic and hexagonal diamond
-  crystals by OVITO's dislocation extraction algorithm, written anew:
-  Burgers vectors in the lattice frame and in space, partials of stacking
-  faults, junctions, loops, the defect mesh around grain boundaries and
-  surfaces; the same structures atom by atom as OVITO, and the same lines
-  and lengths within a per cent on dislocations built from elastic fields.
+- [`DislocationAnalysis`](../analysis/dislocations.md) in `mdapy.analysis`,
+  experimental: the dislocation lines of fcc, hcp, bcc, cubic and
+  hexagonal diamond crystals by OVITO's dislocation extraction algorithm,
+  written anew: Burgers vectors in the lattice frame and in space, partials
+  of stacking faults, junctions, loops, the defect mesh around grain
+  boundaries and surfaces; the same structures atom by atom as OVITO, the
+  same lines and lengths within a per cent on straight dislocations and
+  loops, within several per cent in networks and at grain boundaries.
 
 ### Structure builder
 

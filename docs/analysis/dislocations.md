@@ -7,6 +7,15 @@ dislocations at the edges of stacking faults are found as well. The defects
 that are not dislocations, such as grain boundaries, free surfaces and
 voids, make the defect mesh around them.
 
+!!! warning "Experimental"
+    This is a new implementation of OVITO's method, and still a young one.
+    On straight dislocations, single loops and simple relaxed defects it
+    finds what OVITO finds; where lines meet in networks, in strongly
+    disordered crystal and at grain boundaries, its lines can differ from
+    OVITO's by several per cent (see
+    [how the results compare with OVITO](#how-the-results-compare-with-ovito)).
+    OVITO remains the reference: check results that matter against it.
+
 ```python
 import numpy as np
 
@@ -198,6 +207,47 @@ or not finite; `compute` raises it for a periodic box so short that an atom
 meets its own periodic image or an edge of the mesh spans half of it
 (replicate the system first).
 
+## How the results compare with OVITO
+
+The tests of mdapy compare the analysis with that of OVITO 3.17 on the
+same atoms. It is a separate program, and does not give OVITO's numbers
+everywhere:
+
+| Atoms | Compared with OVITO |
+|---|---|
+| any | the same structure of each atom |
+| straight dislocations of fcc, bcc, hcp and both diamonds, perfect or split into partials | the same lines and Burgers vectors, lengths within 0.5 % |
+| single loops, a loop on a twin boundary, a stacking-fault tetrahedron | the same lines and Burgers vectors, lengths within 3 % |
+| lines that meet: crossing loops, networks | where two lines meet, a short junction line in one and a node of four lines in the other may come out; the same Burgers vectors, total lengths within about 5 % |
+| strongly disordered crystal: large thermal displacements, many vacancies | lines through such regions may end or run otherwise; lengths may differ by up to 20 % |
+| polycrystals | lines and the defect mesh at the grain boundaries may differ by 5 to 10 % |
+
+Where they differ, and why:
+
+- The circuits choose among equal paths, where a search starts, and, by a
+  fixed random sequence, where a circuit is swept from; the choices depend
+  on the order of the atoms and on the inner workings of each program.
+  OVITO's results change too when the atoms come in another order. Those
+  of mdapy are the same on every run and for any number of threads.
+- At a grain boundary an atom outside the crystal takes the cluster of most
+  of the crystal atoms around it; OVITO takes that of the first one its
+  tessellation lists, which another program cannot repeat. The good
+  crystal reaches into the boundaries a little differently.
+- The tessellation of a perfect lattice has equal choices, such as the two
+  diagonals of four atoms on a circle. mdapy settles them by moving the
+  atoms by up to $10^{-4}$ Å, OVITO by its own rule: the triangles of the
+  meshes there can differ, their areas do not.
+- Of the lattice frames the symmetry of the lattice allows, both give a
+  cluster the one closest to the axes of the box. When two are as close,
+  they may take different ones: the lattice Burgers vectors then differ by
+  a rotation of the lattice, the spatial ones do not. The Burgers vector
+  of a line is given in the frame of a cluster its first circuit touches;
+  in a distorted crystal two such clusters are turned slightly apart, and
+  the spatial Burgers vectors can differ by up to 0.1 Å.
+
+OVITO's options to analyze the selected atoms only and to mark the atoms of
+the cores, and its export to CA files, are not here.
+
 ## Definition
 
 The atoms of the crystal are found by common neighbor analysis with
@@ -238,10 +288,7 @@ The sense of a line and its Burgers vector are those of OVITO, which
 [`insert_dislocation`](../build/dislocations.md) and the dislocation
 models of the structure builder follow too: along +z the analysis finds
 the Burgers vector put in. In the convention of Hirth and Lothe (FS/RH) it
-is the opposite. The arbitrary choices of the circuits, among equal paths and where
-they start, depend on the order of the atoms: where two lines meet, a short
-junction line or a node of four lines may come out, in OVITO as here, and
-the lengths agree within a few per cent.
+is the opposite.
 
 !!! quote "Please cite"
     [Stukowski and Albe (2010)](../reference/references.md#stukowski2010)
@@ -250,7 +297,7 @@ the lengths agree within a few per cent.
 ## See also
 
 - OVITO [Dislocation analysis (DXA)](https://docs.ovito.org/reference/pipelines/modifiers/dislocation_analysis.html),
-  the same method.
+  the same method and the reference.
 - [Dislocations](../build/dislocations.md) to build them,
   [common neighbor analysis](cna.md) and [planar faults](planar-faults.md)
   for the atoms of the defects, and the [surface mesh](surface-mesh.md).

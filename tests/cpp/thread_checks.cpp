@@ -693,6 +693,7 @@ void structure_identification() {
     }
     std::vector<double> first_temperature, first_searched, first_searched_temperature;
     std::vector<std::int8_t> first_types, first_water, first_aja;
+    std::vector<std::int32_t> first_solid;
     std::vector<double> first_csp, first_q, first_entropy, first_factor;
     std::vector<double> first_cnp;
     std::vector<double> first_volumes, first_areas, first_vertices;
@@ -788,6 +789,13 @@ void structure_identification() {
                                             found_q.data());
         check(found_q == listed_q,
               "Steinhardt parameters find the nearest neighbors as the list has them");
+        std::vector<std::int32_t> solid(static_cast<std::size_t>(n));
+        mdapy::analysis::solid_bonds(nearest(12), n, nullptr, 6, 0.7, solid.data());
+        if (threads == kThreads[0]) {
+            first_solid = solid;
+        }
+        check(solid == first_solid && solid[0] > 0,
+              "the solid-like bonds are the same for any thread count, some of them found");
         std::vector<std::int8_t> diamond(static_cast<std::size_t>(n));
         mdapy::identify::identify_diamond(nearest(4), n, diamond.data());
         check(diamond == std::vector<std::int8_t>(static_cast<std::size_t>(n), 0),

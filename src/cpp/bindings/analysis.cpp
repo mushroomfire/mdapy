@@ -73,6 +73,28 @@ nb::object steinhardt(lists::Positions positions, lists::Matrix matrix, lists::O
     return result;
 }
 
+// The solid-like bonds of each atom among the pairs steinhardt takes.
+nb::object solid_bonds(lists::Positions positions, lists::Matrix matrix, lists::Offsets offsets,
+                       lists::Neighbors neighbors, lists::Shifts shifts,
+                       lists::Distances distances, std::int64_t sorted, std::int64_t count,
+                       double cutoff, std::optional<Values> weights, int degree, double threshold,
+                       nb::handle progress, const CancelToken* cancel) {
+    const neighbor::ListView list = lists::view(positions, matrix, offsets, neighbors, shifts,
+                                                distances, sorted, count, cutoff);
+    if (weights && weights->shape(0) != neighbors.shape(0)) {
+        throw std::invalid_argument("the weights do not fit the pairs");
+    }
+    const double* weight = weights ? weights->data() : nullptr;
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    std::vector<std::int32_t> bonds(static_cast<std::size_t>(n));
+    run_released(
+        [&](const Control& control) {
+            analysis::solid_bonds(list, n, weight, degree, threshold, bonds.data(), control);
+        },
+        progress, cancel);
+    return as_array(std::move(bonds));
+}
+
 // The bonds are the pairs closer than cutoff, or than the limit of the types
 // of their atoms when limits is given.
 nb::tuple clusters(lists::Positions positions, lists::Matrix matrix, lists::Offsets offsets,
@@ -640,6 +662,11 @@ void bind_analysis(nb::module_& m) {
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("count"),
           nb::arg("cutoff"), nb::arg("weights").none(), nb::arg("degrees"), nb::arg("average"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("solid_bonds", &solid_bonds,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("count"),
+          nb::arg("cutoff"), nb::arg("weights").none(), nb::arg("degree"), nb::arg("threshold"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("clusters", &clusters,
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),

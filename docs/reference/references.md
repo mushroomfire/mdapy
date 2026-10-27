@@ -105,6 +105,13 @@ atomistic simulations, *J. Chem. Phys.* **157**, 114801 (2022).
 [doi:10.1063/5.0106617](https://doi.org/10.1063/5.0106617)
 { #fan2022 }
 
+**Filion et al. (2010).** L. Filion, M. Hermes, R. Ni and M. Dijkstra,
+Crystal nucleation of hard spheres using molecular dynamics, umbrella
+sampling, and forward flux sampling: a comparison of simulation techniques,
+*J. Chem. Phys.* **133**, 244115 (2010).
+[doi:10.1063/1.3506838](https://doi.org/10.1063/1.3506838)
+{ #filion2010 }
+
 **Guénolé et al. (2020).** J. Guénolé, W. G. Nöhring, A. Vaid, F. Houllé,
 Z. Xie, A. Prakash and E. Bitzek, Assessment and optimization of the fast
 inertial relaxation engine (FIRE) for energy minimization in atomistic
@@ -260,6 +267,12 @@ atomistic simulations of crystalline materials, *Modelling Simul. Mater. Sci.
 Eng.* **20**, 045021 (2012).
 [doi:10.1088/0965-0393/20/4/045021](https://doi.org/10.1088/0965-0393/20/4/045021)
 { #stukowski2012 }
+
+**ten Wolde et al. (1996).** P. R. ten Wolde, M. J. Ruiz-Montero and D.
+Frenkel, Numerical calculation of the rate of crystal nucleation in a
+Lennard-Jones system at moderate undercooling, *J. Chem. Phys.* **104**,
+9932 (1996). [doi:10.1063/1.471721](https://doi.org/10.1063/1.471721)
+{ #tenwolde1996 }
 
 **Thompson et al. (2022).** A. P. Thompson et al., LAMMPS - a flexible
 simulation tool for particle-based materials modeling at the atomic, meso,

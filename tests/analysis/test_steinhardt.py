@@ -241,3 +241,142 @@ def test_nearest_neighbors_found_as_they_go_give_what_a_list_gives(box):
     small = mdapy.System(system["positions"][:10], mdapy.Box(20.0, pbc=False))
     with pytest.raises(InvalidParameter, match="has only 10 atoms"):
         SteinhardtParameters((6,), num_neighbors=12).compute(small)
+
+
+def solid_reference(nl, degree, weights, threshold):
+    """Solid-like bonds from the addition theorem: the product of the
+    harmonics of two atoms is the weighted mean of P_l over their bonds, up to
+    a factor that the normalization removes."""
+    u = nl.vectors / nl.distances[:, None]
+    offsets = nl.offsets
+
+    def overlap(a, b):
+        sa, sb = slice(offsets[a], offsets[a + 1]), slice(offsets[b], offsets[b + 1])
+        if sa.start == sa.stop or sb.start == sb.stop:
+            return 0.0
+        p = legendre.legval(u[sa] @ u[sb].T, [0] * degree + [1])
+        return weights[sa] @ p @ weights[sb] / (weights[sa].sum() * weights[sb].sum())
+
+    norms = np.sqrt([overlap(i, i) for i in range(len(nl.counts))])
+    bonds = np.zeros(len(nl.counts), dtype=int)
+    for i in range(len(nl.counts)):
+        for j in nl.j[offsets[i] : offsets[i + 1]]:
+            if norms[i] > 0 and norms[j] > 0:
+                bonds[i] += overlap(i, j) / (norms[i] * norms[j]) > threshold
+    return bonds
+
+
+def half_molten(seed=0):
+    """fcc copper, its upper half disordered like a liquid."""
+    system = crystal("fcc", 3.6, (5, 5, 5), jitter=0.05, seed=seed)
+    rng = np.random.default_rng(seed)
+    upper = system["positions"][:, 2] > 9.0
+    shake = rng.normal(0, 0.6, (len(system), 3)) * upper[:, None]
+    return system.with_columns(positions=system["positions"] + shake), upper
+
+
+@pytest.mark.parametrize(
+    "neighbors",
+    [
+        {"num_neighbors": 12},
+        {"cutoff": 3.1},
+        {"voronoi": True},
+        {"voronoi": True, "weighted": True},
+    ],
+)
+def test_solid_bonds_match_the_addition_theorem(neighbors):
+    system, _ = half_molten()
+    result = SteinhardtParameters(solid=True, **neighbors).compute(system)
+    if neighbors.get("voronoi"):
+        nl = mdapy.NeighborList.build(system, voronoi=True)
+    elif "cutoff" in neighbors:
+        nl = mdapy.NeighborList.build(system, neighbors["cutoff"])
+    else:
+        nl = mdapy.NeighborList.build(system, num_neighbors=12)
+    weights = nl.areas if neighbors.get("weighted") else np.ones(len(nl))
+    np.testing.assert_array_equal(
+        result.solid_bonds, solid_reference(nl, 6, weights, 0.7)
+    )
+    np.testing.assert_array_equal(result.solid, result.solid_bonds >= 7)
+    # the same from a given list
+    again = SteinhardtParameters(solid=True, **neighbors).compute(system, neighbors=nl)
+    np.testing.assert_array_equal(again.solid_bonds, result.solid_bonds)
+
+
+def test_solid_and_liquid_halves():
+    system, upper = half_molten(seed=3)
+    result = SteinhardtParameters(solid=True).compute(system)
+    assert result.solid[~upper].mean() > 0.95
+    assert result.solid[upper].mean() < 0.05
+    assert result.solid_bonds.dtype == np.int32
+    columns = result.columns()
+    assert set(columns) == {"q4", "q6", "solid", "solid_bonds"}
+    np.testing.assert_array_equal(system.with_columns(result)["solid"], result.solid)
+    # other degree, threshold and count of bonds
+    loose = SteinhardtParameters(
+        solid=True, solid_degree=4, bond_threshold=0.5, min_solid_bonds=3
+    ).compute(system)
+    assert loose.solid.sum() >= result.solid.sum()
+    np.testing.assert_array_equal(loose.solid, loose.solid_bonds >= 3)
+
+
+@pytest.mark.parametrize(
+    "kind, a, k", [("fcc", 3.6, 12), ("bcc", 2.87, 8), ("hcp", 3.2, 12)]
+)
+def test_perfect_crystals_are_solid(kind, a, k):
+    system = crystal(kind, a)
+    result = SteinhardtParameters(num_neighbors=k, solid=True).compute(system)
+    np.testing.assert_array_equal(result.solid_bonds, k)
+    assert result.solid.all()
+
+
+def test_solid_bonds_ignore_rotation_and_threads():
+    system, _ = half_molten(seed=5)
+    parameters = SteinhardtParameters(solid=True, average=True)
+    result = parameters.compute(system)
+    rotation = np.linalg.qr(np.random.default_rng(6).normal(size=(3, 3)))[0]
+    turned = mdapy.System(
+        system["positions"] @ rotation.T,
+        mdapy.Box(system.box.matrix @ rotation.T),
+        elements="Cu",
+    )
+    np.testing.assert_array_equal(
+        parameters.compute(turned).solid_bonds, result.solid_bonds
+    )
+    with mdapy.num_threads(1):
+        np.testing.assert_array_equal(
+            parameters.compute(system).solid_bonds, result.solid_bonds
+        )
+    # the bonds are those of the harmonics before averaging
+    plain = SteinhardtParameters(solid=True).compute(system)
+    np.testing.assert_array_equal(plain.solid_bonds, result.solid_bonds)
+    assert repr(parameters) == (
+        "SteinhardtParameters(degrees=(4, 6), num_neighbors=12, average=True, solid=True, "
+        "solid_degree=6, bond_threshold=0.7, min_solid_bonds=7)"
+    )
+
+
+def test_atoms_without_neighbors_have_no_solid_bonds():
+    pair = mdapy.System(
+        [[0.0, 0, 0], [5.0, 0, 0]], mdapy.Box(20.0, pbc=False), elements="Ar"
+    )
+    result = SteinhardtParameters(
+        (6,), cutoff=2.0, solid=True, min_solid_bonds=0
+    ).compute(pair)
+    np.testing.assert_array_equal(result.solid_bonds, 0)
+    assert result.solid.all()  # at least 0 bonds
+
+
+@pytest.mark.parametrize(
+    "options, message",
+    [
+        ({"solid_degree": 21}, "solid_degree must be from 0 to 20"),
+        ({"solid_degree": 6.5}, "solid_degree must be from 0 to 20"),
+        ({"bond_threshold": 1.5}, "bond_threshold must be from -1 to 1"),
+        ({"min_solid_bonds": -1}, "min_solid_bonds must be an integer"),
+        ({"min_solid_bonds": 2.5}, "min_solid_bonds must be an integer"),
+    ],
+)
+def test_invalid_solid_options(options, message):
+    with pytest.raises(InvalidParameter, match=message):
+        SteinhardtParameters(solid=True, **options)

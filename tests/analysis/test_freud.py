@@ -148,3 +148,36 @@ def test_voronoi_cells_and_their_steinhardt_parameters(tmp_path):
     assert np.isin(found[theirs["areas"] > 1e-2], mine).all()
     weighted = SteinhardtParameters((4, 6), voronoi=True, weighted=True).compute(system)
     np.testing.assert_allclose(weighted.q, theirs["q"], atol=1e-5)
+
+
+@pytest.mark.parametrize(
+    "neighbors, query",
+    [
+        ({"num_neighbors": 12}, {"num_neighbors": 12, "exclude_ii": True}),
+        ({"cutoff": 3.1}, {"r_max": 3.1, "exclude_ii": True}),
+    ],
+)
+def test_solid_liquid(neighbors, query):
+    """Solid-like bonds and atoms, from the upper half of a crystal shaken
+    like a liquid; a bond within 1e-5 of the threshold may go either way in
+    single precision."""
+    system = copper(seed=3)
+    rng = np.random.default_rng(4)
+    upper = system["positions"][:, 2] > 3 * 3.615
+    system = system.with_columns(
+        positions=system["positions"]
+        + rng.normal(0, 0.6, (len(system), 3)) * upper[:, None]
+    )
+    ours = SteinhardtParameters(solid=True, **neighbors).compute(system)
+    theirs = freud.order.SolidLiquid(l=6, q_threshold=0.7, solid_threshold=7)
+    theirs.compute(freud_input(system), neighbors=query)
+    close = np.abs(theirs.ql_ij - 0.7) < 1e-5
+    undecided = np.bincount(
+        theirs.nlist.query_point_indices[close], minlength=len(system)
+    )
+    difference = np.abs(ours.solid_bonds - theirs.num_connections)
+    assert (difference <= undecided).all()
+    assert (difference[undecided == 0] == 0).all()
+    sure = undecided == 0
+    np.testing.assert_array_equal(ours.solid[sure], theirs.num_connections[sure] >= 7)
+    assert 0.2 < ours.solid.mean() < 0.8

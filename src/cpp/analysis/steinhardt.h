@@ -31,6 +31,15 @@ void steinhardt(const neighbor::ListView& list, std::int64_t n, const double* we
                 const std::vector<int>& degrees, bool average, double* q,
                 const Control& control = {});
 
+// The number of solid-like bonds of each atom (ten Wolde, Ruiz-Montero and
+// Frenkel): a pair in list is solid-like when the product of the harmonics
+// of degree l of its two atoms, each normalized to length 1, exceeds
+// threshold. The harmonics of an atom are those of its pairs in list, each
+// weighted by weights at its pair, or all alike when weights is null; an
+// atom without pairs has none. bonds: n.
+void solid_bonds(const neighbor::ListView& list, std::int64_t n, const double* weights, int l,
+                 double threshold, std::int32_t* bonds, const Control& control = {});
+
 // steinhardt without averaging, with the k nearest neighbors of every atom
 // found by a k-d tree as it goes, without a list (positions: n x 3; matrix:
 // rows a, b, c; origin: 3; pbc: 3). Throws as a search of the k nearest

@@ -515,6 +515,27 @@ void identify_diamond(const neighbor::ListView& list, std::int64_t n, std::int8_
             }
         },
         control);
+    // the neighbors of diamond atoms, then theirs, in the order of the atoms:
+    // the first atom to reach one decides its type
+    const auto mark = [&](std::int8_t cubic, std::int8_t hexagonal, std::int8_t cubic_mark,
+                          std::int8_t hexagonal_mark) {
+        double unused[4 * 3];
+        index_t neighbors[4];
+        for (std::int64_t i = 0; i < n; ++i) {
+            if (types[i] != cubic && types[i] != hexagonal) {
+                continue;
+            }
+            const std::int64_t m = std::min<std::int64_t>(list.gather(i, unused, 4, neighbors), 4);
+            for (std::int64_t a = 0; a < m; ++a) {
+                std::int8_t& t = types[neighbors[a]];
+                if (t == kNotDiamond) {
+                    t = types[i] == cubic ? cubic_mark : hexagonal_mark;
+                }
+            }
+        }
+    };
+    mark(kCubicDiamond, kHexagonalDiamond, kCubicFirst, kHexagonalFirst);
+    mark(kCubicFirst, kHexagonalFirst, kCubicSecond, kHexagonalSecond);
 }
 
 void chill_plus(const neighbor::ListView& list, std::int64_t n, std::int8_t* types,

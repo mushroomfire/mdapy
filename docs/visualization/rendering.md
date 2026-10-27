@@ -31,7 +31,7 @@ goodsell and glossy above; toon, flat and preview below.*
 `render(system, path=None, *, atoms=None, color=None, colormap="viridis",
 value_range=None, representation="spheres", radius=None, bonds=None,
 bond_radius=None, box=True,
-box_radius=None, polyhedra=None, polyhedra_alpha=0.6,
+box_radius=None, box_color="black", polyhedra=None, polyhedra_alpha=0.6,
 polyhedra_color="atom", polyhedra_edges=None, **options)`
 
 | Name | Type | Default | Unit | Meaning |
@@ -46,6 +46,7 @@ polyhedra_color="atom", polyhedra_edges=None, **options)`
 | `bonds` | float, `NeighborList` or `"covalent"` | of the representation | Å | bonds between atoms closer than a cutoff, the pairs of a list, or covalent bonds |
 | `bond_radius` | float | of the representation | Å | |
 | `box`, `box_radius` | bool, float | `True`, 0.1 × radius | Å | the edges of the box |
+| `box_color` | color | `"black"` | | their color |
 | `polyhedra` | `VoronoiPolyhedra` | `None` | | the [Voronoi cells](../analysis/voronoi.md) of the atoms shown |
 | `polyhedra_alpha` | float | 0.6 | | their opacity |
 | `polyhedra_color` | str | `"atom"` | | faces colored as their atoms, or `"edges"` by their number of edges |

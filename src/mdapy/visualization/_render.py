@@ -144,6 +144,7 @@ def render(
     bond_radius: float | None = None,
     box: bool = True,
     box_radius: float | None = None,
+    box_color: Any = "black",
     polyhedra: Any = None,
     polyhedra_alpha: float = 0.6,
     polyhedra_color: str = "atom",
@@ -195,6 +196,8 @@ def render(
         Draw the edges of the box. Default True.
     box_radius : float, optional
         Radius of the edges in Å. Default a tenth of the median atom radius.
+    box_color : color, optional
+        Color of the edges. Default black.
     polyhedra : VoronoiPolyhedra, optional
         Voronoi cells to draw for the atoms shown.
     polyhedra_alpha : float, optional
@@ -307,7 +310,9 @@ def render(
     if box:
         scale = float(np.median(radii[index])) if len(index) else 1.0
         scene.add_box(
-            system.box, radius=0.1 * scale if box_radius is None else box_radius
+            system.box,
+            radius=0.1 * scale if box_radius is None else box_radius,
+            color=box_color,
         )
     if polyhedra is not None:
         faces = []

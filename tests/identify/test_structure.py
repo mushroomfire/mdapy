@@ -249,7 +249,10 @@ def test_diamond_matches_a_python_reference(kind, a):
     system = crystal(kind, a, (3, 3, 3), jitter=0.22, seed=4)
     result = DiamondStructure().compute(system)
     assert [result.names[t] for t in result.structure] == diamond(system)
-    assert 0 < result.counts()["other"] < len(system)  # a mixture
+    # a mixture: diamond atoms, and others that are their neighbors
+    crystalline = np.isin(result.structure, [1, 4]).sum()
+    assert 0 < crystalline < len(system)
+    assert np.isin(result.structure, [2, 3, 5, 6]).any()
 
 
 @pytest.mark.parametrize(
@@ -258,8 +261,8 @@ def test_diamond_matches_a_python_reference(kind, a):
 )
 def test_diamond_needs_the_bond_back_from_every_neighbor(kind, a, repeat, seed):
     """An atom that is not among the four nearest of one of its neighbors is
-    other, whatever its second neighbors look like; in these systems two such
-    atoms have second neighbors of diamond."""
+    not diamond, whatever its second neighbors look like; in these systems
+    two such atoms have second neighbors of diamond."""
     system = crystal(kind, a, repeat, jitter=0.3, seed=seed)
     nl = mdapy.NeighborList.build(system, num_neighbors=4)
     first = nl.j.reshape(-1, 4)
@@ -268,8 +271,8 @@ def test_diamond_needs_the_bond_back_from_every_neighbor(kind, a, repeat, seed):
     )
     assert one_way.sum() > 10
     result = DiamondStructure().compute(system)
-    assert np.all(result.structure[one_way] == 0)
-    assert result.counts()["other"] < len(system)  # some atoms are diamond
+    assert not np.isin(result.structure[one_way], [1, 4]).any()
+    assert np.isin(result.structure, [1, 4]).any()  # some atoms are diamond
     assert [result.names[t] for t in result.structure] == diamond(system)
 
 

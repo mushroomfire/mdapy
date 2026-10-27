@@ -115,6 +115,44 @@ def gas(atoms: int) -> dict:
     return {"system": system.filter(kept)}
 
 
+def looped(atoms: int) -> dict:
+    """fcc copper with three dislocation loops on crossing {111} planes,
+    each displacing the atoms by b Ω / 4π, Ω the solid angle it subtends,
+    the atoms then displaced at random by 0.05 Å."""
+    system = crystal("fcc", 3.615, atoms, 0.0)
+    side = system.box.matrix[0, 0]
+    positions = system["positions"].copy()
+    loops = [((1, 1, 1), (1, -1, 0)), ((1, 1, -1), (0, 1, 1)), ((-1, 1, 1), (1, 0, 1))]
+    for k, (normal, burgers) in enumerate(loops):
+        normal = np.array(normal, dtype=float) / np.sqrt(3)
+        u = np.cross(normal, [1.0, 0, 0])
+        u /= np.linalg.norm(u)
+        v = np.cross(normal, u)
+        center = side * np.array([0.5, 0.5, 0.5]) + [0.11 * k, 0.07, 0.03]
+        t = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+        corners = center + 0.3 * side * (
+            np.outer(np.cos(t), u) + np.outer(np.sin(t), v)
+        )
+        omega = np.zeros(len(positions))
+        r0 = center - positions
+        n0 = np.linalg.norm(r0, axis=1)
+        for j in range(len(corners)):
+            r1, r2 = corners[j] - positions, corners[j - 1] - positions
+            n1, n2 = np.linalg.norm(r1, axis=1), np.linalg.norm(r2, axis=1)
+            numerator = np.einsum("ij,ij->i", r0, np.cross(r2, r1))
+            denominator = (
+                n0 * n1 * n2
+                + np.einsum("ij,ij->i", r0, r1) * n2
+                + np.einsum("ij,ij->i", r0, r2) * n1
+                + np.einsum("ij,ij->i", r1, r2) * n0
+            )
+            omega += 2 * np.arctan2(numerator, denominator)
+        positions += np.outer(omega / (4 * np.pi), 3.615 / 2 * np.array(burgers))
+    rng = np.random.default_rng(4)
+    positions += rng.normal(0.0, 0.05, positions.shape)
+    return {"system": system.with_columns(positions=positions)}
+
+
 def deformed(atoms: int) -> dict:
     """A perfect fcc reference and the same crystal strained, its atoms
     displaced."""
@@ -799,6 +837,7 @@ def _cases() -> dict[str, Case]:
         AtomicStrain,
         BondAngleDistribution,
         ClusterAnalysis,
+        DislocationAnalysis,
         RadialDistributionFunction,
         SteinhardtParameters,
         VoronoiAnalysis,
@@ -954,6 +993,16 @@ def _cases() -> dict[str, Case]:
     def strain(ours, data):
         close(ours.shear, particles("Shear Strain")(data))
         close(ours.volumetric, particles("Volumetric Strain")(data))
+
+    def dislocations(ours, data):
+        # the same structures; the circuits' choices differ, the lengths
+        # within a few per cent
+        equal(ours.structure, particles("Structure Type")(data))
+        theirs = data.attributes["DislocationAnalysis.total_line_length"]
+        assert abs(ours.total_length - theirs) <= 0.03 * theirs, (
+            ours.total_length,
+            theirs,
+        )
 
     cases = {
         "neighbors": Case(
@@ -1271,6 +1320,16 @@ def _cases() -> dict[str, Case]:
                     steinhardt_rdf,
                 ),
                 "freud": Other(freud_side(_freud_steinhardt_rdf), steinhardt_rdf_freud),
+            },
+        ),
+        "dislocations": Case(
+            "Dislocation analysis",
+            looped,
+            analysis(lambda inputs: DislocationAnalysis("fcc")),
+            {
+                "ovito": ovito(
+                    pipeline(modifier("DislocationAnalysisModifier")), dislocations
+                )
             },
         ),
         "atomic-strain": Case(

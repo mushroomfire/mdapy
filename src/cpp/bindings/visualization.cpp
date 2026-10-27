@@ -68,8 +68,9 @@ nb::object render(Rows<3> sphere_center, Floats sphere_radius, Rows<3> sphere_co
                   Rows<6> cylinder_end, Floats cylinder_radius, Rows<3> cylinder_color,
                   Ids cylinder_id, Rows<9> triangle_vertex, Rows<3> triangle_color,
                   Floats triangle_alpha, Ids triangle_id, Three center, Three forward, Three up,
-                  float half_width, float half_height, bool perspective, int width, int height,
-                  float ambient, float diffuse, float specular, float shininess, Three key, Three fill,
+                  float half_width, float half_height, bool perspective, float aperture,
+                  float focal_distance, int width, int height, float ambient, float diffuse,
+                  float specular, float shininess, Three key, Three fill,
                   float fill_intensity, int ao_samples, float ao_distance, float ao_strength,
                   bool shadows, float shadow_strength, bool flat, int toon_levels,
                   float outline_width, float outline_depth, Three outline_color, float fog,
@@ -86,6 +87,8 @@ nb::object render(Rows<3> sphere_center, Floats sphere_radius, Rows<3> sphere_co
     camera.half_width = half_width;
     camera.half_height = half_height;
     camera.perspective = perspective;
+    camera.aperture = aperture;
+    camera.focal_distance = focal_distance;
     visualization::Style style;
     style.ambient = ambient;
     style.diffuse = diffuse;
@@ -159,7 +162,8 @@ void bind_visualization(nb::module_& m) {
           nb::arg("triangle_vertex"), nb::arg("triangle_color"), nb::arg("triangle_alpha"),
           nb::arg("triangle_id"), nb::arg("center"), nb::arg("forward"), nb::arg("up"),
           nb::arg("half_width"), nb::arg("half_height"), nb::arg("perspective"),
-          nb::arg("width"), nb::arg("height"), nb::arg("ambient"), nb::arg("diffuse"),
+          nb::arg("aperture"), nb::arg("focal_distance"), nb::arg("width"),
+          nb::arg("height"), nb::arg("ambient"), nb::arg("diffuse"),
           nb::arg("specular"), nb::arg("shininess"), nb::arg("key"), nb::arg("fill"),
           nb::arg("fill_intensity"), nb::arg("ao_samples"), nb::arg("ao_distance"),
           nb::arg("ao_strength"), nb::arg("shadows"), nb::arg("shadow_strength"),

@@ -366,7 +366,8 @@ def _raw_camera():
     f = np.float32
     return dict(
         center=np.zeros(3, f), forward=np.array([0, 0, -1], f), up=np.array([0, 1, 0], f),
-        half_width=1.0, half_height=1.0, perspective=False, ambient=0.3, diffuse=0.7,
+        half_width=1.0, half_height=1.0, perspective=False, aperture=0.0, focal_distance=1.0,
+        ambient=0.3, diffuse=0.7,
         specular=0.2, shininess=30.0, key=np.ones(3, f), fill=np.ones(3, f), fill_intensity=0.2,
         ao_samples=0, ao_distance=1.0, ao_strength=0.5, shadows=False, shadow_strength=0.5,
         flat=False, toon_levels=0, outline_width=0.0, outline_depth=0.1,
@@ -684,6 +685,94 @@ def test_soft_shadows():
     assert shadow[0.0] > 20 and shadow[0.4] == 0
 
 
+def test_soft_shadows_in_direct_light():
+    # the ball subtends 0.067 rad: a light 0.1 rad wide leaves no full shadow,
+    # only a wider half shadow
+    key = np.array([-0.45, 0.6, 0.66]) / np.linalg.norm([-0.45, 0.6, 0.66])
+    scene = floor_and_ball("green", 15 * key)
+    deep, half = {}, {}
+    for size in (0.0, 0.1):
+        rgb = scene.render(
+            width=120, height=120, view="top", light_size=size, samples=16
+        )[..., :3].astype(float)
+        floor = rgb[..., 0] > rgb[..., 1] - 5
+        red = rgb[..., 0][floor]
+        lit = np.median(red)
+        deep[size] = (red < lit - 10).sum()
+        half[size] = ((red < lit - 3) & (red >= lit - 10)).sum()
+    assert deep[0.0] > 20 and deep[0.1] < 5
+    assert half[0.1] > 2 * half[0.0]
+
+
+def test_samples_in_every_style():
+    # rays anywhere in the subpixels cover a disk closer to its area
+    picture = {
+        samples: one_sphere(
+            style="flat",
+            outline_width=0.0,
+            background=None,
+            zoom=0.5,
+            supersample=1,
+            samples=samples,
+        )
+        for samples in (1, 16)
+    }
+    radius_pixels = 200 / (2 * 2.0 * 1.04)
+    area = picture[16][..., 3].astype(float).sum() / 255
+    assert area == pytest.approx(np.pi * radius_pixels**2, rel=0.005)
+    assert not np.array_equal(picture[1], picture[16])
+
+
+def test_depth_of_field():
+    # a sphere at the focus and one 20 Å behind it, seen from the front
+    scene = Scene()
+    scene.add_spheres([[-2.5, 0, 0], [2.5, 20, 0]], 1.0, (0.8, 0.3, 0.2))
+    options = {
+        "width": 160,
+        "height": 160,
+        "view": "front",
+        "perspective": True,
+        "focus": [0, 0, 0],
+        "span": 12,
+        "background": None,
+        "style": "flat",
+        "outline_width": 0.0,
+        "samples": 16,
+    }
+
+    def blurred_edges(image):
+        # pixels partly covered, about the near and the far sphere
+        alpha = image[..., 3].astype(int)
+        soft = (alpha > 12) & (alpha < 243)
+        return soft[:, :80].sum(), soft[:, 80:].sum()
+
+    near, far = blurred_edges(scene.render(**options))
+    # sharp at the focus by default: the far sphere blurs
+    near_dof, far_dof = blurred_edges(scene.render(aperture=0.4, **options))
+    assert near_dof <= 1.1 * near and far_dof > 3 * far
+    # sharp at the far sphere: the near one blurs
+    distance = 6 / np.tan(np.radians(15))  # from the camera to the focus
+    near_dof, far_dof = blurred_edges(
+        scene.render(aperture=0.4, focal_distance=distance + 20, **options)
+    )
+    assert near_dof > 3 * near and far_dof <= 1.1 * far
+    np.testing.assert_array_equal(
+        scene.render(aperture=0.0, focal_distance=5.0, **options),
+        scene.render(**options),
+    )
+    with mdapy.num_threads(3):
+        again = scene.render(aperture=0.4, **options)
+    np.testing.assert_array_equal(again, scene.render(aperture=0.4, **options))
+    for settings, message in [
+        ({"aperture": -1.0}, "aperture must be"),
+        ({"aperture": float("nan")}, "aperture must be"),
+        ({"focal_distance": 0.0}, "focal_distance must be"),
+        ({"aperture": 0.4, "perspective": False}, "needs a perspective camera"),
+    ]:
+        with pytest.raises(InvalidParameter, match=message):
+            scene.render(**(options | settings))
+
+
 def test_light_reflected_in_color():
     scene = floor_and_ball("red", [0.0, 0, 1.0], size=4.0)
     options = {"width": 120, "height": 120, "view": "iso"}
@@ -780,6 +869,8 @@ needs_gpu = pytest.mark.skipif(not gpu_available(), reason="no GPU")
         {"style": "toon", "perspective": True, "fog": 0.5},
         {"style": "photo", "samples": 4},
         {"style": "glossy", "background": None},
+        {"style": "studio", "light_size": 0.2, "samples": 4},
+        {"style": "studio", "perspective": True, "aperture": 0.5, "samples": 4},
     ],
 )
 def test_the_gpu_draws_what_the_processor_draws(options):

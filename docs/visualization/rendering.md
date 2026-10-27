@@ -94,6 +94,8 @@ The `options` are those of `Scene.render`:
 | `zoom` | float | 1 | magnification of the scene framed to fill the picture |
 | `focus` | (3,) | middle of the scene | the point in Å at the middle of the picture |
 | `span` | float | the scene framed | the length in Å the picture shows from bottom to top at the focus, in place of the framing and `zoom`: with `focus`, the region a viewport shows |
+| `aperture` | float | 0 | the radius in Å of the lens of a perspective camera: 0 for a picture sharp everywhere, more for [depth of field](#depth-of-field-and-soft-shadows) |
+| `focal_distance` | float | to the focus | the distance in Å from the camera along the view to the plane that stays sharp |
 | `style` | str | `"studio"` | one of the styles below |
 | `background` | color or `None` | `"white"` | `None` for transparent |
 | `device` | str | `"cpu"` | `"cpu"`, `"gpu"`, or `"auto"` for the GPU when there is one; see below |
@@ -115,10 +117,48 @@ right, up and toward the viewer), `fill_intensity`, `ao_samples`,
 `ao_distance` (Å, default 3 times the median radius), `ao_strength`,
 `shadows`, `shadow_strength`, `flat`, `toon_levels`, `outline_width`
 (pixels), `outline_depth` (Å), `outline_color`, `fog`, `supersample`
-(rays per pixel along each axis), and for global illumination `bounces`
-(0 for none), `samples` (paths per ray of `supersample`) and `light_size`
-(the angular radius of the key light in radians, 0 for a point).
+(rays per pixel along each axis), `samples` (rays per subpixel, the first
+through its middle and the others anywhere in it: more for smoother soft
+shadows, depth of field and global illumination), `light_size` (the
+angular radius of the key light in radians, 0 for a point, wider for softer
+shadows) and, for global illumination, `bounces` (0 for none).
 `style_settings(style)` gives every setting of a style as a dictionary.
+
+## Depth of field and soft shadows
+
+```python
+import numpy as np
+
+from mdapy.visualization import write_png
+
+camera = {"perspective": True, "fov": 40, "focus": [45, 15, 45], "span": 70}
+sharp = render(grains, color=structures, width=480, height=360, **camera)
+blurred = render(
+    grains,
+    color=structures,
+    width=480,
+    height=360,
+    **camera,
+    aperture=3.0,
+    light_size=0.15,
+    supersample=1,
+    samples=32,
+)
+write_png("images/depth_of_field.png", np.hstack([sharp, blurred]))
+```
+
+![Depth of field](images/depth_of_field.png)
+
+*The polycrystal through a pinhole, left, and through a lens 3 Å wide that
+keeps the front left around the focus sharp, lit by a key light 0.15 rad
+wide, right.*
+
+A perspective camera with an `aperture` sees through a lens of that radius:
+the plane `focal_distance` from the camera, through the focus unless given,
+stays sharp, and things blur the more the farther they are from it. A key
+light `light_size` radians wide casts soft shadows in every style. Both are
+sampled by the rays of each pixel and look grainy with few of them: raise
+`samples` for smoother pictures, at a cost in time that grows with it.
 
 ## On the GPU
 
@@ -193,19 +233,23 @@ the same for any number of threads.
 ## Errors
 
 They raise `InvalidParameter` for an unknown style, view, colormap, color
-or option, a size that is not positive, arrays of the wrong shape, an
+or option, a size that is not positive, a negative aperture or one with an
+orthographic camera, a focal distance that is not positive, arrays of the wrong shape, an
 opacity out of [0, 1], a polygon of fewer than three corners, a negative
 id or an invalid mask of atoms; `Cancelled` when cancelled.
 
 ## Definition
 
-Every pixel traces `supersample`² rays from an orthographic or perspective
-camera into a bounding volume hierarchy of the primitives. At the nearest
+Every pixel traces `supersample`² × `samples` rays from an orthographic or
+perspective camera into a bounding volume hierarchy of the primitives;
+through a lens, each ray starts at a random point of it and passes through
+the point where the ray from its middle meets the sharp plane. At the nearest
 hit, the color of the primitive, in linear RGB, is lit by an ambient term
 weighted by ambient occlusion, the fraction of `ao_samples` rays in a
 cosine-weighted hemisphere that leave without hitting anything closer than
 `ao_distance`, and by the diffuse and Blinn–Phong specular light of the key
-light, darkened by its shadow, and of the fill light. See-through triangles
+light, darkened by its shadow toward a random point of the light, and of
+the fill light. See-through triangles
 add their color and let the ray go on. An outline is drawn on the pixels
 next to a different primitive that lies at least `outline_depth` closer, or
 next to the background. The rays of a pixel are averaged, over the

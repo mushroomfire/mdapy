@@ -117,6 +117,14 @@ import mdapy as mp
 
 ::: mdapy.analysis.WignerSeitzResult
 
+::: mdapy.analysis.AtomicDisplacement
+
+::: mdapy.analysis.AtomicDisplacementResult
+
+::: mdapy.analysis.SpatialBinning
+
+::: mdapy.analysis.SpatialBinningResult
+
 ::: mdapy.analysis.AtomicStrain
 
 ::: mdapy.analysis.StrainResult
@@ -172,6 +180,8 @@ import mdapy as mp
 ::: mdapy.transform.wrap
 
 ::: mdapy.transform.unwrap
+
+::: mdapy.transform.slice
 
 ## MLIP
 

@@ -5,6 +5,7 @@
 
 """Analyses of the properties of systems."""
 
+from mdapy.analysis._binning import REDUCTIONS, SpatialBinning, SpatialBinningResult
 from mdapy.analysis._bonds import (
     BondAngleDistribution,
     BondAngleResult,
@@ -13,6 +14,7 @@ from mdapy.analysis._bonds import (
     WarrenCowley,
     WarrenCowleyResult,
 )
+from mdapy.analysis._displacement import AtomicDisplacement, AtomicDisplacementResult
 from mdapy.analysis._distribution import (
     CoordinationNumber,
     CoordinationResult,
@@ -42,6 +44,11 @@ from mdapy.analysis._voronoi import (
 from mdapy.analysis._wigner_seitz import WignerSeitz, WignerSeitzResult
 
 __all__ = [
+    "REDUCTIONS",
+    "AtomicDisplacement",
+    "AtomicDisplacementResult",
+    "SpatialBinning",
+    "SpatialBinningResult",
     "DisplacementResult",
     "LindemannIndex",
     "LindemannResult",

@@ -138,11 +138,13 @@ nav:
           - Steinhardt parameters: analysis/steinhardt.md
           - Entropy fingerprint: analysis/entropy.md
           - Voronoi analysis: analysis/voronoi.md
+          - Spatial binning: analysis/spatial-binning.md
       - Defects and deformation:
           - Cluster analysis: analysis/clusters.md
           - Surface mesh: analysis/surface-mesh.md
           - Chemical species: analysis/species.md
           - Wigner–Seitz analysis: analysis/wigner-seitz.md
+          - Atomic displacement: analysis/displacement.md
           - Atomic strain: analysis/atomic-strain.md
       - Dynamics:
           - Mean squared displacement: analysis/msd.md
@@ -158,6 +160,7 @@ nav:
       - Polycrystals and twins: build/polycrystals.md
       - Graphene on grain boundaries: build/graphene.md
       - Periodic copies and images: build/transform.md
+      - Slices: build/slice.md
   - Simulation:
       - Calculators:
           - The calculator interface: simulation/calculators.md

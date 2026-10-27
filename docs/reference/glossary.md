@@ -76,6 +76,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint; `entropy_average` when averaged over neighbors |
 | `temperature` | f64 | K | temperature of an atom and its neighbors |
 | `lindemann` | f64 | | Lindemann index of an atom over a trajectory |
+| `displacement`, `displacement_magnitude` | Array(f64, 3), f64 | Å, Å | displacement of an atom from a reference, and its length (`AtomicDisplacement`) |
 | `site`, `occupancy` | `index_dtype`, int64 | | the nearest reference site of an atom, and the number of atoms on it |
 | `rmsd`, `interatomic_distance` | f64 | , Å | deviation from the best template of polyhedral template matching, and the distance between nearest neighbors of its lattice |
 | `orientation` | Array(f64, 4) | | rotation of the local lattice from its standard orientation, a quaternion (x, y, z, w) |
@@ -148,6 +149,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | neighbors weighted by the area of their face | `weighted=True` | `use_weight` |
 | faces of the Voronoi cells | `faces=True` | |
 | shapes of the Voronoi cells | `polyhedra=True` | `cell_info` |
+| reduction over the atoms of a bin | `reduction` (`mean`, `sum`, `density`, `min`, `max`) | `operation` |
+| keep the other atoms, the slab about a plane (Å) | `invert`, `width` | `reverse`, `slab_width` |
+| nearest periodic image of a displacement | `minimum_image=True` | `minimum_image_convention` |
 | radius of the probe sphere of a surface mesh (Å), smoothing steps | `radius`, `smoothing` | `probe_radius`, `smoothing_level` |
 | regions of solid and empty space, voids among them | `regions=True` | `identify_regions` |
 | atoms on the surface | `surface=True` | `select_surface_particles` |

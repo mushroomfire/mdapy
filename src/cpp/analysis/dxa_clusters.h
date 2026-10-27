@@ -27,8 +27,9 @@ namespace mdapy::analysis::dxa {
 // diamond, with the same nearest neighbors), in the order of the
 // template; for each neighbor, two other neighbors of the central atom that
 // are its neighbors too, the three vectors from it not in a plane; the
-// rotations that take the neighbors of the first template onto themselves,
-// and the index of the product of each two of them.
+// rotations of the lattice, which take the neighbors of the first template
+// onto those of an atom of the same or another site, and the index of the
+// product of each two of them.
 struct Lattice {
     int structure = 0;  // PTM type
     int neighbors = 0;

@@ -54,35 +54,47 @@ Lattice make_lattice(int type) {
     }
     const auto& t = lattice.templates[0];
     const int n = lattice.neighbors;
-    // the rotations: those that take two neighbors not in a line onto two
-    // others at the same lengths and angle, and all onto the neighbors
-    const int a = 0;
-    int b = 1;
-    while (std::abs(std::abs(dot(t[a], t[b])) -
-                    std::sqrt(dot(t[a], t[a]) * dot(t[b], t[b]))) < kTolerance) {
-        ++b;
+    // the rotations of the lattice: those that take the neighbors that are
+    // translations of the lattice, whose opposites are neighbors too, onto
+    // themselves; for hcp and diamond they take the neighbors of an atom
+    // onto those of an atom of another site
+    auto in = [&](const std::vector<Vec>& set, const Vec& v) {
+        return std::any_of(set.begin(), set.end(), [&](const Vec& w) { return close(v, w); });
+    };
+    std::vector<Vec> translations;
+    for (int k = 0; k < n; ++k) {
+        if (in({t.begin(), t.begin() + n}, Vec{-t[k][0], -t[k][1], -t[k][2]})) {
+            translations.push_back(t[k]);
+        }
     }
-    const Mat from = *inverse(columns(t[a], t[b], cross(t[a], t[b])));
+    const Vec& ta = translations[0];
+    std::size_t second = 1;
+    while (std::abs(std::abs(dot(ta, translations[second])) -
+                    std::sqrt(dot(ta, ta) * dot(translations[second], translations[second]))) <
+           kTolerance) {
+        ++second;
+    }
+    const Vec& tb = translations[second];
+    const Mat from = *inverse(columns(ta, tb, cross(ta, tb)));
     lattice.group.push_back(kIdentity);
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            if (i == j || std::abs(dot(t[i], t[i]) - dot(t[a], t[a])) > kTolerance ||
-                std::abs(dot(t[j], t[j]) - dot(t[b], t[b])) > kTolerance ||
-                std::abs(dot(t[i], t[j]) - dot(t[a], t[b])) > kTolerance) {
+    for (const Vec& ti : translations) {
+        for (const Vec& tj : translations) {
+            if (std::abs(dot(ti, ti) - dot(ta, ta)) > kTolerance ||
+                std::abs(dot(tj, tj) - dot(tb, tb)) > kTolerance ||
+                std::abs(dot(ti, tj) - dot(ta, tb)) > kTolerance) {
                 continue;
             }
-            const Mat r = multiply(columns(t[i], t[j], cross(t[i], t[j])), from);
+            const Mat r = multiply(columns(ti, tj, cross(ti, tj)), from);
             if (determinant(r) < 0) {
                 continue;
             }
             bool onto = true;
-            for (int k = 0; k < n && onto; ++k) {
-                const Vec turned = turn(r, t[k]);
-                onto = std::any_of(t.begin(), t.begin() + n,
-                                   [&](const Vec& v) { return close(v, turned); });
+            for (std::size_t k = 0; k < translations.size() && onto; ++k) {
+                onto = in(translations, turn(r, translations[k]));
             }
-            if (onto && std::none_of(lattice.group.begin(), lattice.group.end(),
-                                     [&](const Mat& g) { return close(g, r); })) {
+            if (onto &&
+                std::none_of(lattice.group.begin(), lattice.group.end(),
+                             [&](const Mat& g) { return close(g, r); })) {
                 lattice.group.push_back(r);
             }
         }

@@ -123,6 +123,22 @@ def _freeze(value: Any) -> Any:
     return value
 
 
+def _thaw(value: Any) -> Any:
+    """An info value as plain Python again: read-only mappings as dicts."""
+    if isinstance(value, Mapping):
+        return {k: _thaw(v) for k, v in value.items()}
+    if isinstance(value, tuple):
+        return tuple(_thaw(v) for v in value)
+    return value
+
+
+def _unpickle(
+    table: pl.DataFrame, box: Box, info: dict, topology: Topology | None
+) -> "System":
+    """A system from the parts pickle stores."""
+    return System(table=table, box=box, info=info, topology=topology)
+
+
 def _set(system: "System", **values: Any) -> None:
     """Sets the private attributes of a system being made."""
     for name, value in values.items():
@@ -305,6 +321,13 @@ class System:
 
     def __deepcopy__(self, memo: dict) -> "System":
         return self
+
+    def __reduce__(self) -> tuple:
+        # pickled as its parts, which the constructor checks again
+        return (
+            _unpickle,
+            (self.__table, self.__box, _thaw(self.__info), self.__topology),
+        )
 
     # ------------------------------------------------------------------
     # Data

@@ -118,6 +118,11 @@ def _rotations(
     return operations.cartesian[keep[np.sort(first)]]
 
 
+# spglib searches the translations of a cell pair by pair: minutes for
+# 100,000 atoms, where a unit cell takes milliseconds
+_MAX_ATOMS = 2000
+
+
 @dataclass(frozen=True)
 class SpaceGroupResult(Result):
     """The space group of a crystal.
@@ -168,8 +173,9 @@ class SpaceGroup:
         Parameters
         ----------
         system : System
-            The cell of the crystal, periodic in every direction; atoms of
-            different elements, or else of different types, are different.
+            The cell of the crystal, periodic in every direction, of at most
+            2000 atoms; atoms of different elements, or else of different
+            types, are different.
 
         Returns
         -------
@@ -179,12 +185,17 @@ class SpaceGroup:
         Raises
         ------
         InvalidParameter
-            If the box is not periodic, there are no atoms, or spglib is
-            not installed.
+            If the box is not periodic, there are no atoms or more than
+            2000, or spglib is not installed.
         """
         if not system.box.pbc.all() or len(system) == 0:
             raise InvalidParameter(
                 "the space group needs a box periodic in every direction with atoms"
+            )
+        if len(system) > _MAX_ATOMS:
+            raise InvalidParameter(
+                f"the space group is for cells of up to {_MAX_ATOMS} atoms, not "
+                f"{len(system)}: give a unit cell of the crystal"
             )
         dataset = _dataset(system, self.tolerance)
         lattice = system.box.matrix.T

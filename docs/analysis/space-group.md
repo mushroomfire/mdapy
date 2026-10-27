@@ -29,7 +29,9 @@ spglib is an optional dependency: `pip install spglib`, or the extra
 |---|---|---|---|---|
 | `tolerance` | float | 1e-5 | Å | atoms closer than it count as images of each other |
 
-`compute(system)` takes the cell of a crystal, periodic in every direction.
+`compute(system)` takes the cell of a crystal, periodic in every direction,
+of at most 2000 atoms: spglib searches its translations pair by pair, which
+takes minutes for 100,000 atoms where a unit cell takes milliseconds.
 Atoms of different elements are different; without an `element` column,
 atoms of different types; without either, all atoms are alike. Relaxed
 crystals keep their symmetry to well below the default tolerance; a
@@ -56,7 +58,7 @@ times the 48 of its primitive cell.
 
 The constructor raises `InvalidParameter` for a tolerance that is not
 positive; `compute` raises it for a box that is not periodic, a system
-without atoms, and without spglib.
+without atoms or of more than 2000, and without spglib.
 
 ## Definition
 

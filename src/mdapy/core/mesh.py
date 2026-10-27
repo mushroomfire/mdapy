@@ -93,6 +93,13 @@ class TriangleMesh:
     def __deepcopy__(self, memo: dict) -> "TriangleMesh":
         return self
 
+    def __reduce__(self) -> tuple:
+        # pickled as the arguments that make it again
+        return (
+            TriangleMesh,
+            (self.__vertices, self.__faces, self.__shifts, self.__box),
+        )
+
     @property
     def vertices(self) -> np.ndarray:
         """(V, 3) positions of the vertices in Å."""

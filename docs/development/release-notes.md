@@ -11,7 +11,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   are immutable: `with_*` methods return new systems that share the columns
   they do not change and check only the ones they do; arrays given to a
   system are copied, its table is handed out as a copy, it takes no new
-  attributes, and `copy.deepcopy` returns the system itself. Every column,
+  attributes, and `copy.deepcopy` returns the system itself; systems, boxes,
+  topologies and triangle meshes pickle, for other processes. Every column,
   the positions too, is read by name and changed with `with_columns`; the
   positions are an (N, 3) array column read without copying,
   `system["positions"]`. A summary of a few lines
@@ -194,7 +195,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   molecules as ASE and as OVITO. `mdapy.elements` has the covalent
   and van der Waals radii, which pictures now read from it.
 - [`SpaceGroup`](../analysis/space-group.md): the space group of a
-  crystal, its symmetry operations and equivalent atoms, with spglib.
+  crystal, its symmetry operations and equivalent atoms, with spglib, for
+  cells of up to 2000 atoms.
 - [`PolyhedralTemplateMatching`](../analysis/ptm.md): the structure,
   orientation, elastic deformation and chemical ordering of each atom, for
   nine structures, implemented by mdapy itself; the same as OVITO atom by

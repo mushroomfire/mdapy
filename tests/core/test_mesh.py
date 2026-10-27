@@ -4,6 +4,7 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 import copy
+import pickle
 
 import numpy as np
 import pytest
@@ -113,6 +114,11 @@ def test_immutable():
     assert repr(mesh) == "TriangleMesh(4 vertices, 4 triangles)"
     periodic = TriangleMesh(CORNERS, FACES, np.zeros((4, 3, 3)), Box(9.0))
     assert repr(periodic) == "TriangleMesh(4 vertices, 4 triangles, periodic)"
+    again = pickle.loads(pickle.dumps(periodic))
+    np.testing.assert_array_equal(again.vertices, periodic.vertices)
+    np.testing.assert_array_equal(again.faces, periodic.faces)
+    np.testing.assert_array_equal(again.shifts, periodic.shifts)
+    assert again.box == periodic.box and not again.faces.flags.writeable
 
 
 @pytest.mark.parametrize(

@@ -113,6 +113,14 @@ import mdapy as mp
 
 ::: mdapy.analysis.SurfaceRegions
 
+::: mdapy.analysis.DislocationAnalysis
+
+::: mdapy.analysis.DislocationResult
+
+::: mdapy.analysis.DislocationLine
+
+::: mdapy.analysis.CrystalClusters
+
 ::: mdapy.analysis.WignerSeitz
 
 ::: mdapy.analysis.WignerSeitzResult

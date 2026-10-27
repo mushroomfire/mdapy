@@ -223,6 +223,11 @@ class DislocationResult(Result):
         """Total length of the lines in Å."""
         return float(sum(line.length for line in self.lines))
 
+    def counts(self) -> dict[str, int]:
+        """Number of atoms of each structure, by name."""
+        found = np.bincount(self.structure, minlength=len(self.names))
+        return {name: int(c) for name, c in zip(self.names, found)}
+
     def lengths(self) -> dict[str, float]:
         """Total length in Å of the lines of each family of Burgers vectors
         of the crystal, "other" last."""

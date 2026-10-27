@@ -208,6 +208,27 @@ def test_the_sense_of_a_loop():
     np.testing.assert_allclose(np.abs(found[0]), np.abs(b), atol=0.01)
 
 
+def test_the_sign_of_the_burgers_vector():
+    """As OVITO's: along the same line, the opposite of the Burgers vector
+    insert_dislocation puts in, by the convention of Hirth and Lothe."""
+    b = 3.615 / np.sqrt(2)
+    for orientation, burgers in [
+        ([(1, 1, -2), (1, 1, 1), (1, -1, 0)], [0, 0, b]),  # screw
+        ([(1, 1, -2), (1, 1, 1), (1, -1, 0)], [0, 0, -b]),
+        ([(1, -1, 0), (1, 1, 1), (-1, -1, 2)], [b, 0, 0]),  # edge
+    ]:
+        cell = build_crystal(
+            "fcc", 3.615, elements="Cu", orientation=orientation, repeat=(8, 5, 4)
+        )
+        cell = cell.with_box(mdapy.Box(cell.box.matrix, pbc=(False, False, True)))
+        center = cell.box.matrix.diagonal() / 2 + [0.3, 0.2, 0]
+        system = insert_dislocation(cell, burgers, center=center)
+        result = DislocationAnalysis("fcc", perfect_only=True).compute(system)
+        (line,) = result.lines
+        assert line.points[-1, 2] > line.points[0, 2]  # along +z
+        np.testing.assert_allclose(line.spatial_burgers, -np.array(burgers), atol=0.02)
+
+
 def test_invariance():
     """Moving all atoms, through the periodic boundaries, moves the lines;
     other orders of the atoms and turns of the box give lines as long, of

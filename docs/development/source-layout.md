@@ -46,6 +46,7 @@
 | `src/mdapy/analysis/_strain.py` | `AtomicStrain`. |
 | `src/mdapy/analysis/_wigner_seitz.py` | `WignerSeitz`. |
 | `src/mdapy/analysis/_dynamics.py` | `MeanSquaredDisplacement`, `LindemannIndex`. |
+| `src/mdapy/analysis/_dislocations.py` | `DislocationAnalysis`, its results and the families of Burgers vectors. |
 | `src/mdapy/build/_crystal.py` | `build_crystal` and its table of structures. |
 | `src/mdapy/build/_alloy.py` | `random_alloy`. |
 | `src/mdapy/mlip/_vasp.py` | `read_outcar`, `outcar_to_xyz`. |
@@ -79,6 +80,14 @@
 | `src/cpp/analysis/strain.h`, `strain.cpp` | Atomic strain from neighbor vectors. |
 | `src/cpp/analysis/geometry.h`, `geometry.cpp` | Clusters of bonded atoms, bond angles and the pair entropy. |
 | `src/cpp/analysis/voronoi.h`, `voronoi.cpp` | Voronoi cells, cut plane by plane. |
+| `src/cpp/analysis/dislocations.h`, `dislocations.cpp` | The dislocation analysis from the atoms to the lines and the defect mesh. |
+| `src/cpp/analysis/dxa_structure.h`, `dxa_structure.cpp` | Its crystal atoms by common neighbor analysis, their neighbors in the order of their lattice. |
+| `src/cpp/analysis/dxa_clusters.h`, `dxa_clusters.cpp` | The lattices, crystal clusters, the transitions between them and grains. |
+| `src/cpp/analysis/dxa_mapping.h`, `dxa_mapping.cpp` | Ideal vectors of the edges of the tessellation and the good tetrahedra. |
+| `src/cpp/analysis/dxa_mesh.h`, `dxa_mesh.cpp` | The interface mesh between the good tetrahedra and the rest. |
+| `src/cpp/analysis/dxa_tracer.h`, `dxa_tracer.cpp` | Burgers circuits, the lines and junctions they find, their smoothing. |
+| `src/cpp/analysis/dxa_math.h` | Small vectors and matrices of the dislocation analysis. |
+| `src/cpp/identify/cna.h` | Signatures of common neighbor analysis, shared by the structure analyses. |
 | `src/cpp/io/powers_of_five.h` | Generated table used by the number parser. |
 | `src/cpp/bindings/module.cpp` | The extension module `mdapy._core` and its submodules. |
 | `src/cpp/bindings/control.h` | `run_released`: runs a kernel without the GIL, with progress and cancellation. |
@@ -91,6 +100,7 @@
 | `src/cpp/bindings/testing.cpp` | Kernels used only by the test suite. |
 | `tests/` | Test suite; mirrors the package layout. |
 | `tests/lattices.py` | Perfect crystals and clusters shared by the tests. |
+| `tests/dislocation_models.py` | Dislocation loops from the solid angle they subtend, for the tests of the dislocation analysis. |
 | `tests/cpp/thread_checks.cpp` | Checks of the thread pool and the parallel kernels, run under ThreadSanitizer. |
 | `docs/` | This documentation. |
 | `benchmarks/comparison.py` | Timings of mdapy against OVITO and freud; see [mdapy, OVITO and freud](../performance/comparison.md). |

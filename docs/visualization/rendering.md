@@ -53,6 +53,8 @@ polyhedra_color="atom", polyhedra_edges=None, **options)`
 | `mesh` | `TriangleMesh` | `None` | | a surface, such as that of a [surface mesh](../analysis/surface-mesh.md); triangles across a periodic boundary are cut there and the part outside moved in through the opposite face |
 | `mesh_color` | color or (F, 3) | light blue | | one color, or one per triangle |
 | `mesh_alpha` | float | 1 | | its opacity |
+| `dislocations` | `DislocationResult` | `None` | | dislocation lines, such as those of the [dislocation analysis](../analysis/dislocations.md): tubes in the colors of the families of their Burgers vectors, cut at the periodic faces of the box |
+| `dislocation_radius` | float | 0.5 | Å | the radius of the tubes |
 
 | Representation | Atoms | Bonds |
 |---|---|---|

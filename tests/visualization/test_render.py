@@ -261,6 +261,58 @@ def test_views_and_perspective():
     assert near > 1.2 * far > 0
 
 
+def test_focus_and_span_frame_a_given_region():
+    """A span of four radii shows a sphere at the focus half as tall as the
+    picture, also in perspective; a focus one radius off moves it a quarter
+    of the picture the other way."""
+    scene = Scene()
+    scene.add_spheres([[1.0, 2.0, 3.0]], 1.0, (1.0, 0.5, 0.0))
+    options = dict(
+        width=200,
+        height=200,
+        view="top",
+        background=None,
+        style="flat",
+        outline_width=0.0,
+    )
+    image = scene.render(focus=(1.0, 2.0, 3.0), span=4.0, **options)
+    shown = image[..., 3] > 127
+    assert shown.sum() == pytest.approx(np.pi * 50**2, rel=0.03)
+    y, x = np.nonzero(shown)
+    assert abs(x.mean() - 99.5) < 1 and abs(y.mean() - 99.5) < 1
+    moved = scene.render(focus=(2.0, 2.0, 3.0), span=4.0, **options)
+    y, x = np.nonzero(moved[..., 3] > 127)
+    assert abs(x.mean() - 49.5) < 1.5 and abs(y.mean() - 99.5) < 1
+    seen = scene.render(focus=(1.0, 2.0, 3.0), span=4.0, perspective=True, **options)
+    assert (seen[..., 3] > 127).sum() == pytest.approx(np.pi * 50**2, rel=0.08)
+    with pytest.raises(InvalidParameter, match="span must be positive"):
+        scene.render(span=0.0, **options)
+    with pytest.raises(InvalidParameter, match="focus must be a point"):
+        scene.render(focus=(1.0, 2.0), **options)
+
+
+def test_style_settings():
+    from mdapy.visualization import STYLES, style_settings
+
+    goodsell = style_settings("goodsell")
+    assert goodsell["flat"] is True and goodsell["outline_width"] == 1.2
+    assert goodsell["supersample"] == 2 and goodsell["ao_distance"] is None
+    assert all(set(style_settings(name)) == set(goodsell) for name in STYLES)
+    # a copy: changing it changes no style
+    goodsell["flat"] = False
+    assert style_settings("goodsell")["flat"] is True
+    # the settings render the same picture as the style
+    scene = Scene()
+    scene.add_spheres([[0.0, 0, 0]], 1.0, (0.2, 0.6, 0.9))
+    options = dict(width=40, height=40, view="top")
+    np.testing.assert_array_equal(
+        scene.render(style="preview", **options),
+        scene.render(**style_settings("preview"), **options),
+    )
+    with pytest.raises(InvalidParameter, match="style must be one of"):
+        style_settings("pastel")
+
+
 def test_png_round_trip(tmp_path):
     image = one_sphere(style="studio")
     write_png(tmp_path / "a.png", image)

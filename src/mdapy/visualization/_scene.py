@@ -250,6 +250,31 @@ def element_radii(
     return _per_element(elements, radius).reshape(-1)
 
 
+def style_settings(style: str = "studio") -> dict[str, Any]:
+    """Every setting of a style: the options of :meth:`Scene.render` it
+    changes, and the defaults of the others.
+
+    Parameters
+    ----------
+    style : str, optional
+        One of ``STYLES``. Default studio.
+
+    Returns
+    -------
+    dict
+        Each setting by name; ``ao_distance`` and ``outline_depth`` are
+        None, which a picture takes from the radii of its atoms.
+
+    Raises
+    ------
+    InvalidParameter
+        For an unknown style.
+    """
+    if style not in STYLES:
+        raise InvalidParameter(f"style must be one of {tuple(STYLES)}, not {style!r}")
+    return dict(_DEFAULTS) | STYLES[style]
+
+
 def gpu_available() -> bool:
     """Whether pictures can be traced on a GPU: with Metal on macOS.
 
@@ -580,6 +605,8 @@ class Scene:
         perspective: bool = False,
         fov: float = 30.0,
         zoom: float = 1.0,
+        focus: ArrayLike | None = None,
+        span: float | None = None,
         style: str = "studio",
         background: Any = "white",
         device: str = "cpu",
@@ -608,6 +635,13 @@ class Scene:
             Default 30.
         zoom : float, optional
             Magnification of the framed scene. Default 1.
+        focus : array_like, optional
+            (3,) the point in Å at the middle of the picture. Default the
+            middle of the scene.
+        span : float, optional
+            The length in Å the picture shows from its bottom to its top at
+            the focus, in place of the framing and zoom. Default the scene
+            framed.
         style : str, optional
             One of ``STYLES``. Default studio.
         background : color or None, optional
@@ -640,6 +674,12 @@ class Scene:
             raise InvalidParameter(f"unknown options {sorted(unknown)}")
         if width < 1 or height < 1:
             raise InvalidParameter("width and height must be positive")
+        if focus is not None:
+            focus = np.asarray(focus, dtype=float)
+            if focus.shape != (3,) or not np.isfinite(focus).all():
+                raise InvalidParameter("focus must be a point of three numbers")
+        if span is not None and not (np.isfinite(span) and span > 0):
+            raise InvalidParameter(f"span must be positive, not {span!r}")
         if device not in ("cpu", "gpu", "auto"):
             raise InvalidParameter(f"device must be cpu, gpu or auto, not {device!r}")
         gpu = device == "gpu" or (device == "auto" and gpu_available())
@@ -698,7 +738,14 @@ class Scene:
         half_w, half_h = 0.5 * (hi[0] - lo[0]), 0.5 * (hi[1] - lo[1])
         half_h = max(half_h, half_w / aspect, 1e-6) * 1.04 / zoom
         center = middle[0] * right + middle[1] * true_up + middle[2] * forward
-        if perspective:
+        if focus is not None:
+            center = focus
+        if perspective and span is not None:
+            # the eye as far from the focus as shows the span there
+            tangent = np.tan(np.radians(fov) / 2)
+            camera_at = center - forward * (0.5 * span / tangent)
+            half = (tangent, tangent * aspect)
+        elif perspective:
             tangent = np.tan(np.radians(fov) / 2)
             radius = (
                 float(np.sqrt(((points - center) ** 2).sum(axis=1).max()))
@@ -709,6 +756,8 @@ class Scene:
             camera_at = center - forward * distance
             half = (tangent / zoom, tangent * aspect / zoom)
         else:
+            if span is not None:
+                half_h = 0.5 * span
             camera_at = center
             half = (half_h, half_h * aspect)
         if background is None:

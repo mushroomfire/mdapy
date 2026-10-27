@@ -34,7 +34,7 @@ struct Node {
 
 struct Params {
     float center[3], forward[3], right[3], up[3];
-    float half_width, half_height;
+    float half_width, half_height, aperture, focal_distance;
     float start, nearest, farthest, epsilon;
     float key[3], fill[3], key_tangent[3], key_bitangent[3];
     float ambient, diffuse, specular, shininess, fill_intensity;
@@ -333,6 +333,17 @@ float3 cosine(float3 n, thread Random& random) {
     return tangent * (r * cos(phi)) + bitangent * (r * sin(phi)) + n * sqrt(max(0.0f, 1.0f - u));
 }
 
+float3 toward_light(constant Params& P, thread Random& random) {
+    const float3 key = vec3(P.key);
+    if (P.light_size <= 0) {
+        return key;
+    }
+    const float z = 1.0f - next(random) * (1.0f - P.cone);
+    const float phi = 6.2831853f * next(random);
+    const float r = sqrt(max(0.0f, 1.0f - z * z));
+    return vec3(P.key_tangent) * (r * cos(phi)) + vec3(P.key_bitangent) * (r * sin(phi)) + key * z;
+}
+
 float3 shade(thread const World& w, constant Params& P, Hit hit, thread const Ray& ray, thread Random& random) {
     const float3 point = ray.origin + ray.direction * hit.t;
     const float3 n = normal_at(w, hit.ref, point, ray.direction);
@@ -358,8 +369,11 @@ float3 shade(thread const World& w, constant Params& P, Hit hit, thread const Ra
     const float3 key = vec3(P.key), fill = vec3(P.fill);
     const float lit = max(0.0f, dot(n, key));
     float shadow = 1.0f;
-    if (P.shadows && lit > 0 && occluded(w, make_ray(lifted, key), 0.0f, INFINITY)) {
-        shadow = 1.0f - P.shadow_strength;
+    if (P.shadows && lit > 0) {
+        const float3 l = toward_light(P, random);
+        if (dot(n, l) <= 0 || occluded(w, make_ray(lifted, l), 0.0f, INFINITY)) {
+            shadow = 1.0f - P.shadow_strength;
+        }
     }
     float diffuse = lit * shadow + P.fill_intensity * max(0.0f, dot(n, fill));
     if (P.toon_levels > 0) {
@@ -376,17 +390,6 @@ float3 shade(thread const World& w, constant Params& P, Hit hit, thread const Ra
     }
     const float light = P.ambient * ao + P.diffuse * diffuse * (0.5f + 0.5f * ao);
     return base * light + float3(shine, shine, shine);
-}
-
-float3 toward_light(constant Params& P, thread Random& random) {
-    const float3 key = vec3(P.key);
-    if (P.light_size <= 0) {
-        return key;
-    }
-    const float z = 1.0f - next(random) * (1.0f - P.cone);
-    const float phi = 6.2831853f * next(random);
-    const float r = sqrt(max(0.0f, 1.0f - z * z));
-    return vec3(P.key_tangent) * (r * cos(phi)) + vec3(P.key_bitangent) * (r * sin(phi)) + key * z;
 }
 
 float3 path(thread const World& w, constant Params& P, Hit first, Ray primary, thread Random& random) {
@@ -482,7 +485,15 @@ kernel void trace_subpixels(device const float* sphere_center [[buffer(0)]],
         const float py = 1.0f - (2.0f * (float(y) + jy) / float(P.height));
         Ray ray;
         if (P.perspective) {
-            ray = make_ray(center, unit(forward + right * (px * P.half_width) + up * (py * P.half_height)));
+            const float3 d = unit(forward + right * (px * P.half_width) + up * (py * P.half_height));
+            ray = make_ray(center, d);
+            if (P.aperture > 0) {
+                const float3 sharp = center + d * (P.focal_distance / dot(d, forward));
+                const float u = next(random), phi = 6.2831853f * next(random);
+                const float r = P.aperture * sqrt(u);
+                const float3 from = center + right * (r * cos(phi)) + up * (r * sin(phi));
+                ray = make_ray(from, unit(sharp - from));
+            }
         } else {
             ray = make_ray(center + right * (px * P.half_width) + up * (py * P.half_height) + forward * P.start, forward);
         }

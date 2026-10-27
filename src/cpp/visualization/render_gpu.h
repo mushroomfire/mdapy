@@ -20,7 +20,7 @@ namespace mdapy::visualization::gpu {
 // numbers; the shader declares the same layout.
 struct Params {
     float center[3], forward[3], right[3], up[3];
-    float half_width, half_height;
+    float half_width, half_height, aperture, focal_distance;
     float start, nearest, farthest, epsilon;
     float key[3], fill[3], key_tangent[3], key_bitangent[3];
     float ambient, diffuse, specular, shininess, fill_intensity;

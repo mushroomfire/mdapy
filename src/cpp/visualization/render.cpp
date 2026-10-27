@@ -619,6 +619,21 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
     std::vector<std::int64_t> ids(pixels, -1);
     const float epsilon = 1e-4f * std::max(1.0f, farthest - nearest);
 
+    // a direction toward the disk of the key light, uniform in its cone
+    const V key_helper = std::fabs(key[0]) < 0.9f ? V{1, 0, 0} : V{0, 1, 0};
+    const V key_tangent = unit(cross(key, key_helper));
+    const V key_bitangent = cross(key, key_tangent);
+    const float cone = std::cos(std::clamp(style.light_size, 0.0f, 1.5f));
+    const auto toward_light = [&](Random& random) -> V {
+        if (style.light_size <= 0) {
+            return key;
+        }
+        const float z = 1.0f - random.next() * (1.0f - cone);
+        const float phi = 6.2831853f * random.next();
+        const float r = std::sqrt(std::max(0.0f, 1.0f - z * z));
+        return key_tangent * (r * std::cos(phi)) + key_bitangent * (r * std::sin(phi)) + key * z;
+    };
+
     const auto shade = [&](const Hit& hit, const Ray& ray, Random& random) -> V {
         const V point = ray.origin + ray.direction * hit.t;
         const V n = bvh.normal(hit.ref, point, ray.direction);
@@ -646,8 +661,12 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         }
         float lit = std::max(0.0f, dot(n, key));
         float shadow = 1.0f;
-        if (style.shadows && lit > 0 && bvh.occluded(make_ray(lifted, key), 0.0f, kInfinity)) {
-            shadow = 1.0f - style.shadow_strength;
+        if (style.shadows && lit > 0) {
+            // toward a point of the light: soft shadows from a wide one
+            const V l = toward_light(random);
+            if (dot(n, l) <= 0 || bvh.occluded(make_ray(lifted, l), 0.0f, kInfinity)) {
+                shadow = 1.0f - style.shadow_strength;
+            }
         }
         float diffuse = lit * shadow + style.fill_intensity * std::max(0.0f, dot(n, fill));
         if (style.toon_levels > 0) {
@@ -676,20 +695,6 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         const float r = std::sqrt(u);
         return tangent * (r * std::cos(phi)) + bitangent * (r * std::sin(phi)) +
                n * std::sqrt(std::max(0.0f, 1.0f - u));
-    };
-    // a direction toward the disk of the key light, uniform in its cone
-    const V key_helper = std::fabs(key[0]) < 0.9f ? V{1, 0, 0} : V{0, 1, 0};
-    const V key_tangent = unit(cross(key, key_helper));
-    const V key_bitangent = cross(key, key_tangent);
-    const float cone = std::cos(std::clamp(style.light_size, 0.0f, 1.5f));
-    const auto toward_light = [&](Random& random) -> V {
-        if (style.light_size <= 0) {
-            return key;
-        }
-        const float z = 1.0f - random.next() * (1.0f - cone);
-        const float phi = 6.2831853f * random.next();
-        const float r = std::sqrt(std::max(0.0f, 1.0f - z * z));
-        return key_tangent * (r * std::cos(phi)) + key_bitangent * (r * std::sin(phi)) + key * z;
     };
     // the light reaching the camera from a hit along one path: at each
     // surface, the key light it sees, then a diffuse bounce that either
@@ -731,7 +736,8 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         return radiance;
     };
     const bool global = style.bounces > 0;
-    const int samples = global ? style.samples : 1;
+    const int samples = style.samples;
+    const bool lens = camera.perspective && camera.aperture > 0;
 
     const std::int64_t grain = std::max<std::int64_t>(1, 64 / s);
     if (style.gpu) {
@@ -742,6 +748,8 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         copy3(params.up, up);
         params.half_width = camera.half_width;
         params.half_height = camera.half_height;
+        params.aperture = lens ? camera.aperture : 0.0f;
+        params.focal_distance = camera.focal_distance;
         params.start = start;
         params.nearest = nearest;
         params.farthest = farthest;
@@ -804,8 +812,18 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
                         const float py = 1.0f - (2.0f * (static_cast<float>(y) + jy) / static_cast<float>(sh));
                         Ray ray;
                         if (camera.perspective) {
-                            ray = make_ray(center, unit(forward + right * (px * camera.half_width) +
-                                                        up * (py * camera.half_height)));
+                            const V d = unit(forward + right * (px * camera.half_width) +
+                                             up * (py * camera.half_height));
+                            ray = make_ray(center, d);
+                            if (lens) {
+                                // from a point of the lens to where the ray
+                                // through its middle meets the sharp plane
+                                const V sharp = center + d * (camera.focal_distance / dot(d, forward));
+                                const float u = random.next(), phi = 6.2831853f * random.next();
+                                const float r = camera.aperture * std::sqrt(u);
+                                const V from = center + right * (r * std::cos(phi)) + up * (r * std::sin(phi));
+                                ray = make_ray(from, unit(sharp - from));
+                            }
                         } else {
                             ray = make_ray(center + right * (px * camera.half_width) +
                                                up * (py * camera.half_height) + forward * start,

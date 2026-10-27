@@ -37,6 +37,8 @@ implemented.
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
 | covalent bond | A pair of atoms closer than the sum of their covalent radii and 0.45 Å, as pictures draw them. |
 | global illumination | Light that reaches a surface after bouncing off others, as the photo style of pictures traces it. |
+| depth of field | In a picture through a lens, the range of depths that looks sharp around the plane in focus; nearer and farther things blur. |
+| soft shadow | A shadow cast by a light of some size: dark where all of the light is hidden, fading where part of it is. |
 | ionic step | One configuration of a VASP relaxation or molecular dynamics, with its energy, forces and virial; one frame of `read_outcar`. |
 | training set | Frames with reference energies, forces and virials, usually from DFT, in extended XYZ, to fit a machine-learned potential. |
 | structure descriptor | The mean of the descriptors of the atoms of a frame, one point per frame. |

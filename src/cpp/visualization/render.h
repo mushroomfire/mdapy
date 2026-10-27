@@ -37,10 +37,13 @@ struct Scene {
 // An orthographic camera looks along forward at a window of half_width by
 // half_height around center; a perspective camera stands at center and
 // half_width and half_height are the tangents of half its angles of view.
+// A perspective camera with an aperture > 0 sees through a lens of that
+// radius, sharp at focal_distance along forward only (depth of field).
 struct Camera {
     std::array<float, 3> center{}, forward{0, 0, -1}, up{0, 1, 0};
     float half_width = 1, half_height = 1;
     bool perspective = false;
+    float aperture = 0, focal_distance = 1;
 };
 
 struct Style {
@@ -67,11 +70,13 @@ struct Style {
     // global illumination: with bounces > 0, the light of each sample is
     // traced along a path that bounces diffusely off up to bounces more
     // primitives, lit by a sky of brightness ambient and by the key light of
-    // brightness diffuse, a disk light_size wide (radians) for soft shadows;
-    // samples paths per subpixel. The fill light, the occlusion, flat and
+    // brightness diffuse. The fill light, the occlusion, flat and
     // toon_levels are not used then.
     int bounces = 0;
+    // rays per subpixel, the first through its middle, the others anywhere
+    // in it, for smooth soft shadows, depth of field and global illumination
     int samples = 1;
+    // the angular radius of the key light (radians): a disk for soft shadows
     float light_size = 0.0f;
     std::array<float, 4> background{1, 1, 1, 1};
     int supersample = 2;  // samples per pixel along each axis

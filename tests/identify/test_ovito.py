@@ -120,10 +120,9 @@ def test_diamond_structure(kind, a, box):
     theirs = np.asarray(
         ovito_particles(system, IdentifyDiamondModifier())["Structure Type"]
     )
-    # OVITO also marks the first and second neighbors of diamond atoms, which
-    # are other here
-    as_ours = np.array([0, 1, 0, 0, 2, 0, 0])[theirs]
-    check_types(DiamondStructure().compute(system).structure, as_ours)
+    check_types(DiamondStructure().compute(system).structure, theirs)
+    # some atoms are first or second neighbors of diamond ones
+    assert np.isin(theirs, [2, 3, 5, 6]).any()
 
 
 @pytest.mark.parametrize(

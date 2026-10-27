@@ -222,12 +222,29 @@ class AcklandJonesAnalysis:
 
 class DiamondStructure:
     """Cubic and hexagonal diamond structures, from the arrangement of the
-    second neighbors of each atom."""
+    second neighbors of each atom, and the first and second neighbors of
+    diamond atoms."""
 
     #: Names of the structure types.
-    NAMES = ("other", "cubic_diamond", "hexagonal_diamond")
-    #: Their default colors.
-    COLORS = ((0.95, 0.95, 0.95), (0.075, 0.24, 0.94), (1.0, 0.6, 0.2))
+    NAMES = (
+        "other",
+        "cubic_diamond",
+        "cubic_diamond_first_neighbor",
+        "cubic_diamond_second_neighbor",
+        "hexagonal_diamond",
+        "hexagonal_diamond_first_neighbor",
+        "hexagonal_diamond_second_neighbor",
+    )
+    #: Their default colors, those of OVITO.
+    COLORS = (
+        (0.95, 0.95, 0.95),
+        (19 / 255, 160 / 255, 254 / 255),
+        (0 / 255, 254 / 255, 245 / 255),
+        (126 / 255, 254 / 255, 181 / 255),
+        (254 / 255, 137 / 255, 0 / 255),
+        (254 / 255, 220 / 255, 0 / 255),
+        (204 / 255, 229 / 255, 81 / 255),
+    )
 
     def compute(
         self,
@@ -249,7 +266,11 @@ class DiamondStructure:
         Returns
         -------
         StructureResult
-            Types ``other``, ``cubic_diamond`` and ``hexagonal_diamond``.
+            Types ``other``, ``cubic_diamond``,
+            ``cubic_diamond_first_neighbor``,
+            ``cubic_diamond_second_neighbor``, ``hexagonal_diamond``,
+            ``hexagonal_diamond_first_neighbor`` and
+            ``hexagonal_diamond_second_neighbor``.
 
         Raises
         ------

@@ -341,7 +341,7 @@ def test_dissociated_cylinder(name):
     if spec.structure == "fcc":
         fault = np.asarray(CommonNeighborAnalysis().compute(system).structure) == 2
     else:
-        fault = np.asarray(DiamondStructure().compute(system).structure) == 2
+        fault = np.asarray(DiamondStructure().compute(system).structure) == 4
     # in the two layers on the glide plane between the partials
     assert fault.sum() >= 4
     assert np.abs(x[fault]).max() < width / 2 + 1.5 and np.abs(y[fault]).max() < 3.5

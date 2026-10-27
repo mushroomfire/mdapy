@@ -77,13 +77,26 @@ void ackland_jones_nearest(const double* positions, std::int64_t n, const double
                            const double* origin, const bool* pbc, int k, std::int8_t* types,
                            const Control& control = {});
 
-// Diamond structures: 0 other, 1 cubic, 2 hexagonal.
-enum Diamond : std::int8_t { kNotDiamond = 0, kCubicDiamond = 1, kHexagonalDiamond = 2 };
+// Diamond structures, as OVITO numbers them: other, cubic diamond and its
+// first and second neighbors, hexagonal diamond and its first and second
+// neighbors.
+enum Diamond : std::int8_t {
+    kNotDiamond = 0,
+    kCubicDiamond = 1,
+    kCubicFirst = 2,
+    kCubicSecond = 3,
+    kHexagonalDiamond = 4,
+    kHexagonalFirst = 5,
+    kHexagonalSecond = 6
+};
 
 // Cubic or hexagonal diamond for each of n atoms from its four nearest
 // neighbors, the first four pairs of each atom in list, nearest first: the
 // twelve second neighbors, reached through the first ones, must form fcc
-// (cubic) or hcp (hexagonal) under adaptive common neighbor analysis.
+// (cubic) or hcp (hexagonal) under adaptive common neighbor analysis. Then,
+// atom by atom in order, the other atoms among the four nearest of a
+// diamond atom become its first neighbors, and the other atoms among the
+// four nearest of a first neighbor its second neighbors.
 void identify_diamond(const neighbor::ListView& list, std::int64_t n, std::int8_t* types,
                       const Control& control = {});
 

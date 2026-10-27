@@ -96,7 +96,9 @@ def centro_symmetry(system, k):
 
 def diamond(system):
     """Diamond type of each atom: the CNA of its twelve second neighbors,
-    when it is among the four nearest of each of its neighbors."""
+    when it is among the four nearest of each of its neighbors; then, atom by
+    atom, the other atoms among the four nearest of a diamond atom are its
+    first neighbors, and those of a first neighbor its second neighbors."""
     nl = mdapy.NeighborList.build(system, num_neighbors=4)
     v = nl.vectors.reshape(len(system), 4, 3)
     j = nl.j.reshape(len(system), 4)
@@ -118,6 +120,17 @@ def diamond(system):
         names.append(
             {"fcc": "cubic_diamond", "hcp": "hexagonal_diamond"}.get(name, "other")
         )
+    for kind, mark in (
+        ("diamond", "first_neighbor"),
+        ("first_neighbor", "second_neighbor"),
+    ):
+        for i in range(len(system)):
+            if not names[i].endswith(kind):
+                continue
+            crystal = names[i].split("_diamond")[0] + "_diamond"
+            for a in j[i]:
+                if names[a] == "other":
+                    names[a] = f"{crystal}_{mark}"
     return names
 
 

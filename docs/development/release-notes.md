@@ -185,7 +185,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   cutoff, and [`AcklandJonesAnalysis`](../analysis/ackland-jones.md), agreeing
   atom by atom with LAMMPS, for fcc, hcp, bcc and icosahedral atoms;
   [`DiamondStructure`](../analysis/diamond.md) for cubic and hexagonal
-  diamond; [`ChillPlus`](../analysis/chill-plus.md) for ice, hydrates and
+  diamond and their first and second neighbors, as OVITO;
+  [`ChillPlus`](../analysis/chill-plus.md) for ice, hydrates and
   liquid water; and the [centro-symmetry](../analysis/csp.md) and
   [common neighbor](../analysis/cnp.md) parameters.
 - [`ChemicalSpecies`](../analysis/species.md): molecules and their Hill

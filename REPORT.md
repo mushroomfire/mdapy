@@ -8,7 +8,43 @@
 4. 位错建模，学 matscipy 的“核心一套”（matscipy 是 LGPL，只学功能、代码自己写）；
 5. GUI 里建模（本地工作，单独汇报）。
 
+## 早上先看这里（10-27 02:07）
+
+五件事加你追加的第 6 件都做完了，等你审。分支串成一条链，按顺序审、按顺序合入 v2：
+
+| 顺序 | 分支 | 提交 | 内容 | CI |
+|---|---|---|---|---|
+| 1 | `solid-liquid` | 53c0e5b | q6 固液判别（`SteinhardtParameters(solid=True)`），与 freud 逐原子一致 | 通过 |
+| 2 | `slip-systems` | 1714066 | 文档：常用表面和滑移系（取向表、表面能、GSFE、金刚石 shuffle/glide） | 通过 |
+| 3 | `surface-mesh` | cbfa9bd | 表面网格 `SurfaceMesh` + 通用三角网格 `mdapy.TriangleMesh` + `render(mesh=)`，与 OVITO 一致 | 通过 |
+| 4 | `dislocations` | 7e11ca0 | 各向异性位错（与 atomsk 一致）、11 种预定义位错、圆柱和四极子模型 | 在跑 |
+| 6 | `gui-superset` | bd8875d | mdapy 补齐 GUI 有的：`transform.slice`、`SpatialBinning`、`AtomicDisplacement`，都与 OVITO 一致 | 在跑 |
+
+第 5 件（GUI 里建模）和 GUI 的表面网格显示是本地工作，单独汇报。
+
+**需要你拍板的：**
+1. **DXA（第 7 件）**：ovito.org 上的 DXA tool 1.3.6（2014）**不是开源**：可以免费使用源码，但不许再分发。我还没下载、没读。是只读论文，还是也读这份代码（只学原理、不抄）？
+2. **四极子里的刃型位错**：真正的四极子排列（x、y 各错开半个盒子）里，割面要跨过滑移面，刃型分量必须拿掉一片原子（数目和理论体积一致）。另一种做法是两个位错放在同一滑移面上，不用拿原子，但刃型位错弛豫时会滑过去湮灭（试过）。现在用前者，你看是否同意。
+3. **atomsk 的各向异性位错**：只有位错线沿 z、割面法向沿 y 时和我们逐原子一致；其他轴向 atomsk 用了另一套符号。我们的结果在整体旋转下自洽，各向同性时也和 atomsk 一致，所以按我们的约定，文档里写明了。
+
 ## 进展
+
+### 10-27 02:07
+- **第 4 件完成：位错建模**（分支 `dislocations`，7e11ca0，已推送，CI 在跑）。全量 2222 个测试通过，新文件覆盖率 100%，Python 3.11 也通过。文档页 Dislocations 扩写了：各向异性弹性、预定义位错表、圆柱和四极子、参数、定义（Stroh 公式、不全位错的顺序规则、四极子的割面和盒子倾斜），参考文献加了 Stroh 1958、Bulatov & Cai 2006（Crossref 核对过）。下图：左，铜的刃型位错分解成两个 Shockley 不全位错、弛豫后（只画非 fcc 原子，红色是层错）；中，铁的螺型位错四极子，弛豫后两个位错芯；右，硅的 30° 不全位错，层错（橙色，六方金刚石）伸向 -x。
+
+![](images/dislocation-models.png)
+
+- **第 5 件完成（本地）：GUI 里建模**，单独汇报。
+- **第 6 件完成：mdapy 是 GUI 的超集**（分支 `gui-superset`，bd8875d，已推送，CI 在跑）。逐个核对了 GUI 的修改器，mdapy 缺三样，补上了，都和 OVITO 现场对比一致：
+  - `mdapy.transform.slice(system, normal, distance, *, width, invert)`：平面一侧或板内的原子（同 OVITO Slice，4 种组合）；
+  - `mdapy.analysis.SpatialBinning(property, bins, *, axes, reduction)`：沿 1–3 个盒矢分箱，均值/和/密度/最小/最大（同 OVITO Spatial binning，1D/2D/3D × 5 种 × 周期/开放，30 组；空箱 OVITO 给 0，我们给 NaN）；
+  - `mdapy.analysis.AtomicDisplacement(reference, *, minimum_image, affine)`：按 id 匹配的位移（同 OVITO Displacement vectors，4 种组合）。
+  - 测试的 `ovito_source` 现在把 id 传给 OVITO（原来没传；原有 OVITO 测试全过）。其余 GUI 功能 mdapy 本来就有（结构识别、着色 → `render`、选择 → `System.filter`、表达式 → `system[...]`、建模 → `mdapy.build`）；直方图、散点图、时间序列用 NumPy/matplotlib 一两行就行，没另设函数。
+  - 全量 2311 个测试通过，新文件覆盖率 100%。文档三页，各有图（下：分箱的固相比例剖面和二维图；多晶的切片）。
+
+![](images/spatial-binning.png)
+
+![](images/slice.png)
 
 ### 10-27 01:41
 - **你的两条新安排已记下**（design/outline.md 第 18 节）：6. mdapy 本体要是 GUI 的超集，GUI 有而 mdapy 没有的（Slice、Spatial binning 等）补成公开函数，排在 GUI 建模之后；7. DXA 有空再做、放最后，可参考公开的 DXA 2014 老代码理解原理，先看许可证，只学原理。

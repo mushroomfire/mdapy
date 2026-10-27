@@ -11,8 +11,8 @@ import pytest
 from mdapy._core import visualization as _native
 
 import mdapy
-from mdapy.analysis import SurfaceMesh, VoronoiAnalysis
-from mdapy.build import build_crystal
+from mdapy.analysis import DislocationAnalysis, SurfaceMesh, VoronoiAnalysis
+from mdapy.build import build_crystal, dislocation_quadrupole
 from mdapy.errors import Cancelled, InvalidParameter
 from mdapy.identify import CommonNeighborAnalysis
 from mdapy.visualization import (
@@ -486,6 +486,90 @@ def test_a_surface_across_the_boundary_stays_in_the_box():
     assert not np.array_equal(faint, drawn)
     with pytest.raises(InvalidParameter, match="mesh_color"):
         render(holed, mesh=surface, mesh_color=np.zeros((2, 3)))
+
+
+def test_dislocation_lines_stay_in_the_box():
+    """Lines through the periodic box are cut at its faces, the pieces
+    moved in; tubes in the color of their family."""
+    from mdapy.visualization._render import _inside
+
+    box = mdapy.Box(10.0)
+    starts, ends = _inside(np.array([[8.0, 5, 5], [13.0, 5, 5], [13.0, 7, 5]]), box)
+    assert ((starts >= 0) & (starts <= 10) & (ends >= 0) & (ends <= 10)).all()
+    lengths = np.linalg.norm(ends - starts, axis=1)
+    assert lengths.sum() == pytest.approx(7.0) and len(lengths) == 3
+    system = dislocation_quadrupole(
+        "bcc screw", 2.865, (243.3, 145.0, 116.1), (6, 10, 5), elements="Fe"
+    )
+    result = DislocationAnalysis("bcc").compute(system)
+    hidden = np.zeros(len(system), dtype=bool)
+    options = dict(
+        view="front", width=160, height=160, background=None, style="preview"
+    )
+    drawn = render(system, atoms=hidden, dislocations=result, **options)
+    boxed = render(system, atoms=hidden, **options)
+    covered = drawn[..., 3] > 127
+    inside = boxed[..., 3] > 127
+    rows = np.flatnonzero(inside.any(axis=1))
+    assert not covered[: rows[0]].any() and not covered[rows[-1] + 1 :].any()
+    green = drawn[covered & ~inside][:, :3].astype(int)  # 1/2<111>, off the box edges
+    assert len(green) and (green[:, 1] > green[:, 0] + 50).mean() > 0.9
+    thin = render(
+        system, atoms=hidden, dislocations=result, dislocation_radius=0.2, **options
+    )
+    assert (thin[..., 3] > 127).sum() < covered.sum()
+    with pytest.raises(InvalidParameter, match="dislocation_radius"):
+        render(system, dislocations=result, dislocation_radius=0)
+
+
+def test_burgers_vector_arrows():
+    """An arrow from the middle of each line along its Burgers vector, in
+    one color or in that of the line."""
+    system = dislocation_quadrupole(
+        "fcc edge", 3.615, (168.4, 121.4, 75.4), (14, 8, 3), elements="Cu"
+    )
+    result = DislocationAnalysis("fcc").compute(system)
+    hidden = np.zeros(len(system), dtype=bool)
+    # along the lines: the edge Burgers vectors stick out across them; the
+    # box keeps the framing
+    options = dict(view="top", width=160, height=160, background=None, style="preview")
+    lines = render(system, atoms=hidden, dislocations=result, **options)
+    arrows = render(
+        system,
+        atoms=hidden,
+        dislocations=result,
+        burgers_vectors=True,
+        burgers_color=(1.0, 0.0, 0.0),
+        **options,
+    )
+    added = (arrows[..., 3] > 127) & ~(lines[..., 3] > 127)
+    assert added.sum() > 20
+    red = arrows[added][:, :3].astype(int)
+    red = red[red.max(axis=1) > 100]  # lit, not the outlines
+    assert len(red) > 20 and (red[:, 0] > red[:, 1] + 50).mean() > 0.9
+    family = render(
+        system,
+        atoms=hidden,
+        dislocations=result,
+        burgers_vectors=True,
+        burgers_color="family",
+        burgers_scale=5.0,
+        burgers_radius=0.5,
+        **options,
+    )
+    wider = (family[..., 3] > 127) & ~(lines[..., 3] > 127)
+    assert wider.sum() > added.sum()
+    blue = family[wider][:, :3].astype(int)  # 1/2<110>
+    blue = blue[blue.max(axis=1) > 100]
+    assert len(blue) > 20 and (blue[:, 2] > blue[:, 0] + 50).mean() > 0.9
+    for name, value in [
+        ("burgers_scale", 0),
+        ("burgers_radius", -1),
+        ("burgers_color", "plaid"),
+        ("burgers_color", (1, 0)),
+    ]:
+        with pytest.raises(InvalidParameter, match=name):
+            render(system, dislocations=result, burgers_vectors=True, **{name: value})
 
 
 # ------------------------------------------------------------ global illumination

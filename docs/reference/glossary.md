@@ -41,6 +41,13 @@ implemented.
 | training set | Frames with reference energies, forces and virials, usually from DFT, in extended XYZ, to fit a machine-learned potential. |
 | structure descriptor | The mean of the descriptors of the atoms of a frame, one point per frame. |
 | farthest point sampling | Choosing points one by one, each the farthest from those chosen before. |
+| crystal cluster | Neighboring atoms of one structure whose neighbors map onto each other by rotations of the lattice: one region with one lattice frame, as the dislocation analysis joins them. |
+| ideal vector | The vector between two atoms in the perfect, unstrained crystal, in the lattice frame of a crystal cluster. |
+| good tetrahedron | A tetrahedron of the Delaunay tessellation whose six edges have ideal vectors that add up to zero around each face: crystal there maps onto the perfect lattice. |
+| interface mesh | The triangles between the good tetrahedra and the rest, on which Burgers circuits run. |
+| Burgers circuit | A closed path along the edges of the interface mesh; the sum of the ideal vectors of its edges is the Burgers vector of the dislocations it encloses. |
+| defect mesh | The surface around the defects that are not dislocations: the interface mesh without the triangles the lines took, closed over their free ends. |
+| family of Burgers vectors | The Burgers vectors of one kind, the same in any order and sign of their components, such as `1/2<110>` or `1/6<112>`. |
 
 ## Per-atom properties
 
@@ -72,6 +79,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `solid`, `solid_bonds` | bool, int32 | | whether an atom is solid-like, and its number of solid-like bonds (Steinhardt `solid=True`) |
 | `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
 | `surface` | bool | | whether an atom lies on the surface of the solid (`SurfaceMesh`, `surface=True`) |
+| `crystal_cluster` | int | | crystal cluster of an atom in the dislocation analysis, −1 for none (`DislocationAnalysis`) |
 | `voronoi_volume`, `voronoi_coordination`, `cavity_radius` | f64, int64, f64 | Å³, , Å | volume and number of faces shared with atoms of the Voronoi cell, and the distance to its farthest vertex |
 | `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint; `entropy_average` when averaged over neighbors |
 | `temperature` | f64 | K | temperature of an atom and its neighbors |
@@ -155,6 +163,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | radius of the probe sphere of a surface mesh (Å), smoothing steps | `radius`, `smoothing` | `probe_radius`, `smoothing_level` |
 | regions of solid and empty space, voids among them | `regions=True` | `identify_regions` |
 | atoms on the surface | `surface=True` | `select_surface_particles` |
+| crystal of a dislocation analysis, longest Burgers circuit, edges more to follow a line, perfect dislocations only | `crystal`, `circuit_length`, `stretch`, `perfect_only` | `input_crystal_structure`, `trial_circuit_length`, `circuit_stretchability`, `only_perfect_dislocations` |
+| sparseness of the points of dislocation lines, smoothing steps of the lines and of the defect mesh | `point_separation`, `smoothing`, `mesh_smoothing` | `line_point_separation`, `line_smoothing_level`, `defect_mesh_smoothing_level` |
+| also the interface mesh of a dislocation analysis | `interface_mesh=True` | `output_interface_mesh` |
 | follow atoms through the periodic boundaries | `unwrap` (bool) | `wrapped`, `unwrapped` |
 | reference configuration | `reference=` | `ref` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |

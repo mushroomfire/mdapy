@@ -60,7 +60,9 @@ ORDER = {"x": (1, 2), "y": (2, 0), "z": (0, 1)}
     ],
 )
 def test_as_atomsk(tmp_path, kind, line, normal, sign):
-    """The same displacements as atomsk -dislocation, to rounding."""
+    """The same displacements as atomsk -dislocation of the opposite
+    Burgers vector, to rounding: atomsk follows Hirth and Lothe, mdapy the
+    dislocation analysis, as OVITO."""
     if kind == "screw":
         cell, b = bcc_screw_cell(), A_FE * np.sqrt(3) / 2
     elif line == "y":
@@ -76,7 +78,7 @@ def test_as_atomsk(tmp_path, kind, line, normal, sign):
         cell, burgers, line=line, normal=normal, center=center, poisson=0.3
     )
     p1, p2 = (center[k] for k in ORDER[line])
-    options = ["-disloc", p1, p2, kind, line, normal, sign * b]
+    options = ["-disloc", p1, p2, kind, line, normal, -sign * b]
     if kind == "edge":
         options.append(0.3)
     theirs = atomsk_apply(tmp_path, cell, *options)
@@ -98,7 +100,8 @@ def test_mixed_is_screw_and_edge():
 
 
 def test_screw_displacement():
-    """Around the line the screw displacement grows by b once."""
+    """Counterclockwise around the line the screw displacement drops by b
+    once: Hirth and Lothe's field of -b."""
     cell = bcc_screw_cell()
     b = A_FE * np.sqrt(3) / 2
     center = cell.box.matrix.diagonal() / 2 + [0.11, 0.13, 0.0]
@@ -106,7 +109,7 @@ def test_screw_displacement():
     u = moved["positions"][:, 2] - cell["positions"][:, 2]
     x = cell["positions"] - center
     np.testing.assert_allclose(
-        u, b / (2 * np.pi) * np.arctan2(x[:, 1], x[:, 0]), atol=1e-12
+        u, -b / (2 * np.pi) * np.arctan2(x[:, 1], x[:, 0]), atol=1e-12
     )
     assert np.ptp(u) == pytest.approx(b, rel=0.05)
     assert np.abs(moved["positions"][:, :2] - cell["positions"][:, :2]).max() == 0

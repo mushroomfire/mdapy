@@ -277,6 +277,19 @@ elasticity, *Philos. Mag.* **3**, 625 (1958).
 [doi:10.1080/14786435808565804](https://doi.org/10.1080/14786435808565804)
 { #stroh1958 }
 
+**Stukowski and Albe (2010).** A. Stukowski and K. Albe, Extracting
+dislocations and non-dislocation crystal defects from atomistic simulation
+data, *Modelling Simul. Mater. Sci. Eng.* **18**, 085001 (2010).
+[doi:10.1088/0965-0393/18/8/085001](https://doi.org/10.1088/0965-0393/18/8/085001)
+{ #stukowski2010 }
+
+**Stukowski, Bulatov and Arsenlis (2012).** A. Stukowski, V. V. Bulatov
+and A. Arsenlis, Automated identification and indexing of dislocations in
+crystal interfaces, *Modelling Simul. Mater. Sci. Eng.* **20**, 085007
+(2012).
+[doi:10.1088/0965-0393/20/8/085007](https://doi.org/10.1088/0965-0393/20/8/085007)
+{ #stukowski2012dxa }
+
 **Stukowski (2012).** A. Stukowski, Structure identification methods for
 atomistic simulations of crystalline materials, *Modelling Simul. Mater. Sci.
 Eng.* **20**, 045021 (2012).

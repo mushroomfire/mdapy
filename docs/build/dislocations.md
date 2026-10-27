@@ -24,8 +24,8 @@ iron = build_crystal(
 center = iron.box.matrix.diagonal() / 2 + [0.1, 0.1, 0.0]
 screw = insert_dislocation(iron, [0, 0, 2.87 * np.sqrt(3) / 2], line="z", center=center)
 
-# an edge dislocation in copper: x along b = 1/2 [1-10], y along the line,
-# z normal to the (111) glide plane
+# an edge dislocation in copper: x along [1-10], y along the line, z normal
+# to the (111) glide plane; its Burgers vector along +y is 1/2 [-110]
 cell = build_crystal(
     "fcc", 3.615, elements="Cu", orientation=[(1, -1, 0), (1, 1, -2), (1, 1, 1)]
 )
@@ -127,21 +127,22 @@ glide set of {111} planes, its intrinsic stacking fault in hexagonal
 diamond (orange).*
 
 `DISLOCATIONS` holds these dislocations, each with x in its glide plane, y
-normal to it and z along its line:
+normal to it and z along its line, and the Burgers vector the
+[dislocation analysis](../analysis/dislocations.md) finds along +z:
 
 | Name | Burgers vector | x | y | z (line) | Partials |
 |---|---|---|---|---|---|
-| `"bcc screw"` | 1/2[111] | [11-2] | [-110] | [111] | |
-| `"bcc edge"` | 1/2[111] | [111] | [-110] | [-1-12] | |
-| `"bcc mixed"` | 1/2[111], 70.5° | [-1-1-2] | [-110] | [11-1] | |
-| `"bcc <100> edge"` | [100] | [100] | [010] | [001] | |
-| `"bcc <100>{110} edge"` | [100] | [100] | [011] | [0-11] | |
-| `"fcc screw"` | 1/2[1-10] | [11-2] | [111] | [1-10] | 1/6[2-1-1] + 1/6[1-21] |
-| `"fcc edge"` | 1/2[1-10] | [1-10] | [111] | [-1-12] | 1/6[2-1-1] + 1/6[1-21] |
-| `"diamond screw"` | 1/2[1-10] | [11-2] | [111] | [1-10] | two 30° partials |
-| `"diamond 60"` | 1/2[10-1] | [11-2] | [111] | [1-10] | 1/6[2-1-1] (30°) + 1/6[11-2] (90°) |
-| `"diamond 30 partial"` | 1/6[1-21] | [11-2] | [111] | [1-10] | |
-| `"diamond 90 partial"` | 1/6[11-2] | [11-2] | [111] | [1-10] | |
+| `"bcc screw"` | 1/2[-1-1-1] | [11-2] | [-110] | [111] | |
+| `"bcc edge"` | 1/2[-1-1-1] | [111] | [-110] | [-1-12] | |
+| `"bcc mixed"` | 1/2[-1-1-1], 70.5° | [-1-1-2] | [-110] | [11-1] | |
+| `"bcc <100> edge"` | [-100] | [100] | [010] | [001] | |
+| `"bcc <100>{110} edge"` | [-100] | [100] | [011] | [0-11] | |
+| `"fcc screw"` | 1/2[-110] | [11-2] | [111] | [1-10] | 1/6[-211] + 1/6[-12-1] |
+| `"fcc edge"` | 1/2[-110] | [1-10] | [111] | [-1-12] | 1/6[-211] + 1/6[-12-1] |
+| `"diamond screw"` | 1/2[-110] | [11-2] | [111] | [1-10] | two 30° partials |
+| `"diamond 60"` | 1/2[-101] | [11-2] | [111] | [1-10] | 1/6[-211] (30°) + 1/6[-1-12] (90°) |
+| `"diamond 30 partial"` | 1/6[-12-1] | [11-2] | [111] | [1-10] | |
+| `"diamond 90 partial"` | 1/6[-1-12] | [11-2] | [111] | [1-10] | |
 
 The dislocations of diamond lie on the glide set, between the planes of a
 pair; the bcc screw dislocation in its easy core. A `Dislocation(structure,
@@ -157,7 +158,7 @@ the way to the plane above.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `burgers` | (3,) float | | Å | the Burgers vector, in the plane of cut: its part along `line` is screw, the rest edge |
+| `burgers` | (3,) float | | Å | the Burgers vector the dislocation analysis finds along +`line`, in the plane of cut: its part along `line` is screw, the rest edge |
 | `line` | int or str | `"z"` | | the Cartesian axis along the dislocation line |
 | `normal` | int or str | `"y"` | | the Cartesian axis normal to the plane of cut, other than `line` |
 | `center` | (3,) float | center of the box | Å | a point of the line |
@@ -230,22 +231,26 @@ Shockley partials.
 
 ## Definition
 
-With $x_1$ along the edge part $b_e$ of the Burgers vector, $x_2$ along
-`normal` and $x_3$ along `line`, measured from `center`, the screw part
-$b_s$ displaces the atoms along the line and the edge part across it, as in
-isotropic elasticity:
+The Burgers vector $\mathbf b$ of a dislocation along +`line` is the one
+the [dislocation analysis](../analysis/dislocations.md) finds, as OVITO's:
+the opposite of that of Hirth and Lothe (FS/RH), whose displacements are
+those of $-\mathbf b$ here. With $x_1$ along the edge part $b_e$ of the
+Burgers vector, $x_2$ along `normal` and $x_3$ along `line`, measured from
+`center`, the screw part $b_s$ displaces the atoms along the line and the
+edge part across it, as in isotropic elasticity:
 
 $$
-u_3 = \frac{b_s}{2\pi} \operatorname{atan2}(x_2, x_1),
+u_3 = -\frac{b_s}{2\pi} \operatorname{atan2}(x_2, x_1),
 $$
 
 $$
-u_1 = \frac{b_e}{2\pi}\left[\arctan\frac{x_2}{x_1} + \frac{x_1 x_2}{2(1-\nu)(x_1^2 + x_2^2)}\right],
+u_1 = -\frac{b_e}{2\pi}\left[\arctan\frac{x_2}{x_1} + \frac{x_1 x_2}{2(1-\nu)(x_1^2 + x_2^2)}\right],
 \qquad
-u_2 = -\frac{b_e}{2\pi}\left[\frac{1-2\nu}{4(1-\nu)} \ln(x_1^2 + x_2^2) + \frac{x_1^2 - x_2^2}{4(1-\nu)(x_1^2+x_2^2)}\right],
+u_2 = \frac{b_e}{2\pi}\left[\frac{1-2\nu}{4(1-\nu)} \ln(x_1^2 + x_2^2) + \frac{x_1^2 - x_2^2}{4(1-\nu)(x_1^2+x_2^2)}\right],
 $$
 
-with $\nu$ Poisson's ratio. The cut of the screw part is the half plane
+with $\nu$ Poisson's ratio: counterclockwise around the line, the atoms
+along a circuit add up to $\mathbf b$ in the perfect crystal. The cut of the screw part is the half plane
 $x_1 < 0$; that of the edge part the half plane $x_1 > 0$, where the atoms
 below the plane first move by $|b_e|/2$ along $x_1$ and those above it move
 back by $|b_e|/2$ after the displacement, as atomsk does with `-dislocation
@@ -256,7 +261,7 @@ axes $x_1$, $x_2$, $x_3$ of the dislocation, the displacements are those of
 Stroh,
 
 $$
-\mathbf u = \frac{1}{\pi} \operatorname{Im} \sum_{\alpha=1}^{3}
+\mathbf u = -\frac{1}{\pi} \operatorname{Im} \sum_{\alpha=1}^{3}
 \mathbf a_\alpha \ln(x_1 + p_\alpha x_2)\, \mathbf l_\alpha \cdot \mathbf b ,
 $$
 
@@ -266,8 +271,9 @@ $R_{ik} = C_{i1k2}$, $T_{ik} = C_{i2k2}$, and $(\mathbf a_\alpha,
 \mathbf l_\alpha)$ the eigenvectors of the sextic problem scaled to
 $2\, \mathbf a_\alpha \cdot \mathbf l_\alpha = 1$. The cut is the half
 plane $x_1 < 0$ for every part; crossing it from below to above, the
-displacement grows by $\mathbf b$. With the line along z and the cut
-normal to y, these are the displacements of atomsk with an elastic tensor.
+displacement drops by $\mathbf b$. With the line along z and the cut
+normal to y, these are the displacements of atomsk with an elastic tensor
+for $-\mathbf b$.
 When the roots come closer than $10^{-4}$, the crystal is isotropic about
 the line as far as it matters, and the isotropic displacements above take
 their place, with Poisson's ratio of the Voigt average.
@@ -275,7 +281,7 @@ their place, with Poisson's ratio of the Voigt average.
 In the models a dislocation splits into Shockley partials $\mathbf b =
 \mathbf b_1 + \mathbf b_2$ on its {111} glide plane, $\mathbf b_2$ on
 the +x side; their cuts make the crystal above the plane between them move
-by $\mathbf b_2$, which must be an intrinsic stacking fault: the
+by $-\mathbf b_2$, which must be an intrinsic stacking fault: the
 projection on the plane of a nearest neighbor above it. Each line sits
 between two planes of atoms and between rows of atoms along x, the
 displacements taken at the positions of the perfect crystal.
@@ -296,9 +302,9 @@ $$
 \,(\hat{\mathbf z} \times \mathbf d_s) \cdot \mathbf c_k ,
 $$
 
-with $\mathbf d_s$ each piece of the cut and $\mathbf b_s$ the Burgers
-vector of the lines before it: the plastic strain of the dipole, which
-leaves no mean stress in the crystal.
+with $\mathbf d_s$ each piece of the cut and $\mathbf b_s$ minus the
+Burgers vector of the lines before it: the plastic strain of the dipole,
+which leaves no mean stress in the crystal.
 
 !!! quote "Please cite"
     [Hirth and Lothe (1982)](../reference/references.md#hirth1982); with
@@ -310,7 +316,7 @@ leaves no mean stress in the crystal.
 - atomsk [`-dislocation`](https://atomsk.univ-lille.fr/doc/en/option_disloc.html),
   whose isotropic screw and edge dislocations, and dislocations with an
   elastic tensor along z cut normal to y, `insert_dislocation` gives to
-  rounding.
+  rounding for the opposite Burgers vector: atomsk follows Hirth and Lothe.
 - [matscipy](https://github.com/libAtoms/matscipy), whose dislocation module
   builds the same models.
 - [Surfaces and slip systems](slip-systems.md) for the slip systems of

@@ -142,6 +142,7 @@ nav:
       - Defects and deformation:
           - Cluster analysis: analysis/clusters.md
           - Surface mesh: analysis/surface-mesh.md
+          - Dislocation analysis: analysis/dislocations.md
           - Chemical species: analysis/species.md
           - Wigner–Seitz analysis: analysis/wigner-seitz.md
           - Atomic displacement: analysis/displacement.md

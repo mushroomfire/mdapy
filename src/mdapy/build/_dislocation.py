@@ -73,6 +73,9 @@ def insert_dislocation(
         raise InvalidParameter("burgers must lie in the plane of cut")
     if elastic is None and not -1 < poisson < 0.5:
         raise InvalidParameter(f"poisson must be from -1 to below 0.5, not {poisson!r}")
+    # the Burgers vector the dislocation analysis finds along +line, that of
+    # OVITO, is the opposite of Hirth and Lothe's, whose fields follow
+    b = -b
     box = system.box
     point = (
         box.origin + 0.5 * box.matrix.sum(axis=0)

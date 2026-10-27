@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "analysis/distribution.h"
+#include "analysis/dislocations.h"
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
 #include "analysis/strain.h"
@@ -1057,6 +1058,58 @@ void surface_mesh() {
     }
 }
 
+// The dislocation analysis of the crystal around a void: structures,
+// clusters, the elastic mapping, the meshes and the circuits.
+void dislocations() {
+    // fcc of 6 x 6 x 6 cubic cells, displaced at random, without the atoms
+    // within 5 A of the center
+    const double a = 3.6;
+    std::vector<double> positions;
+    std::mt19937 rng(13);
+    std::normal_distribution<double> noise(0.0, 0.03);
+    const double basis[4][3] = {{0, 0, 0}, {0.5, 0.5, 0}, {0.5, 0, 0.5}, {0, 0.5, 0.5}};
+    for (int x = 0; x < 6; ++x) {
+        for (int y = 0; y < 6; ++y) {
+            for (int z = 0; z < 6; ++z) {
+                for (const auto& b : basis) {
+                    const double p[3] = {a * (x + b[0]), a * (y + b[1]), a * (z + b[2])};
+                    const double d[3] = {p[0] - 3 * a, p[1] - 3 * a, p[2] - 3 * a};
+                    if (d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < 25.0) {
+                        continue;
+                    }
+                    for (const double c : p) {
+                        positions.push_back(c + noise(rng));
+                    }
+                }
+            }
+        }
+    }
+    const auto n = static_cast<std::int64_t>(positions.size() / 3);
+    const double matrix[9] = {6 * a, 0, 0, 0, 6 * a, 0, 0, 0, 6 * a};
+    const double inverse[9] = {1 / (6 * a), 0, 0, 0, 1 / (6 * a), 0, 0, 0, 1 / (6 * a)};
+    const double origin[3] = {0, 0, 0};
+    const bool pbc[3] = {true, true, true};
+    mdapy::analysis::DislocationOptions options;
+    options.crystal = mdapy::identify::kPtmFcc;
+    std::vector<std::int8_t> first_structure;
+    std::vector<double> first_vertices;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        const mdapy::analysis::Dislocations found = mdapy::analysis::dislocation_analysis(
+            positions.data(), positions.data(), n, matrix, inverse, origin, pbc, options);
+        if (threads == kThreads[0]) {
+            first_structure = found.structures.structure;
+            first_vertices = found.defects.vertices;
+        }
+        check(found.structures.structure == first_structure &&
+                  found.defects.vertices == first_vertices,
+              "the dislocation analysis is the same for any thread count");
+        check(found.network.segments.empty() && !found.defects.faces.empty() &&
+                  found.clusters.size.size() == 1,
+              "a void in a crystal is a defect without dislocations");
+    }
+}
+
 // Polyhedral template matching: data built once from the templates, shared
 // by the threads.
 void polyhedral_template_matching() {
@@ -1249,6 +1302,7 @@ int main() {
     structure_identification();
     polyhedral_template_matching();
     surface_mesh();
+    dislocations();
     calculators();
     trajectories();
     pictures();

@@ -316,8 +316,11 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   topology of each copy and molecules kept whole through the image flags;
   `wrap` and `unwrap` move atoms into the box or to their unwrapped
   positions. See [Periodic copies and images](../build/transform.md).
-- `mdapy.transform.slice`: the atoms on one side of a plane or in a slab
-  about it, as the Slice of OVITO. See [Slices](../build/slice.md).
+- `mdapy.transform.slice`: the atoms on one side of any plane or in a slab
+  about it, as the Slice of OVITO: a normal in Cartesian coordinates or as
+  Miller indices of the box, at a distance or through a point, acting on
+  all atoms or some; `slice_mask` the same as a mask. See
+  [Slices](../build/slice.md).
 
 ### MLIP
 

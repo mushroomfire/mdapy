@@ -39,6 +39,7 @@ from ovito.modifiers import (  # noqa: E402
     ConstructSurfaceModifier,
     CoordinationAnalysisModifier,
     CreateBondsModifier,
+    ExpressionSelectionModifier,
     SliceModifier,
     SpatialBinningModifier,
     SteinhardtParametersModifier,
@@ -571,19 +572,59 @@ def tilted(n=300, seed=8, pbc=True):
 
 @pytest.mark.parametrize("width", [0.0, 3.0])
 @pytest.mark.parametrize("invert", [False, True])
-def test_slice(width, invert):
+@pytest.mark.parametrize(
+    "normal, distance, miller",
+    [((1.0, 2.0, 0.5), 6.0, False), ((1, -2, 1), 0.3, True), ((2, 1, 0), -0.4, True)],
+)
+def test_slice(width, invert, normal, distance, miller):
     system = tilted()
-    normal, distance = (1.0, 2.0, 0.5), 6.0
-    ours = transform.slice(system, normal, distance, width=width, invert=invert)
+    ours = transform.slice(
+        system, normal, distance, width=width, invert=invert, miller=miller
+    )
     theirs = ovito_compute(
         system,
         SliceModifier(
-            normal=normal, distance=distance, slab_width=width, inverse=invert
+            normal=normal,
+            distance=distance,
+            slab_width=width,
+            inverse=invert,
+            miller=miller,
         ),
     ).particles
     np.testing.assert_array_equal(
         np.sort(ours["id"]), np.sort(theirs["Particle Identifier"])
     )
+
+
+@pytest.mark.parametrize("invert", [False, True])
+def test_slice_of_selected_atoms_and_the_mask(invert):
+    """OVITO's only_selected is atoms=, and its select mode the atoms
+    slice_mask leaves out."""
+    system = tilted()
+    chosen = system["id"] % 3 == 0
+    ours = transform.slice(
+        system, (1, 2, 0.5), 6.0, width=2.0, atoms=chosen, invert=invert
+    )
+    theirs = ovito_compute(
+        system,
+        ExpressionSelectionModifier(expression="fmod(ParticleIdentifier,3)==0"),
+        SliceModifier(
+            normal=(1, 2, 0.5),
+            distance=6.0,
+            slab_width=2.0,
+            only_selected=True,
+            inverse=invert,
+        ),
+    ).particles
+    np.testing.assert_array_equal(
+        np.sort(ours["id"]), np.sort(theirs["Particle Identifier"])
+    )
+    kept = transform.slice_mask(system, (1, 2, 0.5), 6.0, invert=invert)
+    selected = ovito_compute(
+        system,
+        SliceModifier(normal=(1, 2, 0.5), distance=6.0, inverse=invert, select=True),
+    ).particles["Selection"]
+    np.testing.assert_array_equal(~kept, np.asarray(selected).astype(bool))
 
 
 @pytest.mark.parametrize("pbc", [True, (True, True, False)])

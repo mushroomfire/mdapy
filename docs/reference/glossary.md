@@ -159,6 +159,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | shapes of the Voronoi cells | `polyhedra=True` | `cell_info` |
 | reduction over the atoms of a bin | `reduction` (`mean`, `sum`, `density`, `min`, `max`) | `operation` |
 | keep the other atoms, the slab about a plane (Å) | `invert`, `width` | `reverse`, `slab_width` |
+| a plane by Miller indices in the vectors of the box, or through a point | `miller=True`, `through` | `miller_indices`, `center` |
 | nearest periodic image of a displacement | `minimum_image=True` | `minimum_image_convention` |
 | radius of the probe sphere of a surface mesh (Å), smoothing steps | `radius`, `smoothing` | `probe_radius`, `smoothing_level` |
 | regions of solid and empty space, voids among them | `regions=True` | `identify_regions` |

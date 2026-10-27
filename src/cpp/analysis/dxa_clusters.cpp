@@ -1,0 +1,467 @@
+// Copyright (c) 2022-2026, Yongchao Wu
+// This Source Code Form is subject to the terms of the Mozilla Public License,
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can
+// obtain one at https://mozilla.org/MPL/2.0/.
+
+#include "analysis/dxa_clusters.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <deque>
+#include <map>
+#include <optional>
+#include <utility>
+
+#include "identify/ptm.h"
+#include "identify/ptm_data.h"
+
+namespace mdapy::analysis::dxa {
+namespace {
+
+// matrices made of ideal vectors agree to this much when they are the same
+constexpr double kTolerance = 1e-3;
+
+Vec turn(const Mat& m, const Vec& v) {
+    return {m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2],
+            m[6] * v[0] + m[7] * v[1] + m[8] * v[2]};
+}
+
+Mat multiply(const Mat& a, const Mat& b) {
+    Mat c{};
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            for (int k = 0; k < 3; ++k) {
+                c[3 * i + j] += a[3 * i + k] * b[3 * k + j];
+            }
+        }
+    }
+    return c;
+}
+
+Mat transpose(const Mat& m) { return {m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]}; }
+
+double determinant(const Mat& m) {
+    return m[0] * (m[4] * m[8] - m[5] * m[7]) - m[1] * (m[3] * m[8] - m[5] * m[6]) +
+           m[2] * (m[3] * m[7] - m[4] * m[6]);
+}
+
+std::optional<Mat> inverse(const Mat& m) {
+    const double d = determinant(m);
+    if (std::abs(d) < 1e-12) {
+        return std::nullopt;
+    }
+    return Mat{(m[4] * m[8] - m[5] * m[7]) / d, (m[2] * m[7] - m[1] * m[8]) / d,
+               (m[1] * m[5] - m[2] * m[4]) / d, (m[5] * m[6] - m[3] * m[8]) / d,
+               (m[0] * m[8] - m[2] * m[6]) / d, (m[2] * m[3] - m[0] * m[5]) / d,
+               (m[3] * m[7] - m[4] * m[6]) / d, (m[1] * m[6] - m[0] * m[7]) / d,
+               (m[0] * m[4] - m[1] * m[3]) / d};
+}
+
+// the matrix with these columns
+Mat columns(const Vec& a, const Vec& b, const Vec& c) {
+    return {a[0], b[0], c[0], a[1], b[1], c[1], a[2], b[2], c[2]};
+}
+
+bool close(const Mat& a, const Mat& b) {
+    for (int k = 0; k < 9; ++k) {
+        if (std::abs(a[k] - b[k]) > kTolerance) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool close(const Vec& a, const Vec& b) {
+    return std::abs(a[0] - b[0]) < kTolerance && std::abs(a[1] - b[1]) < kTolerance &&
+           std::abs(a[2] - b[2]) < kTolerance;
+}
+
+Vec minus(const Vec& a, const Vec& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
+
+Vec cross(const Vec& a, const Vec& b) {
+    return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+}
+
+double dot(const Vec& a, const Vec& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+
+const Mat kIdentity = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+
+Lattice make_lattice(int type) {
+    namespace ptm = identify::ptm;
+    const ptm::Reference& ref = ptm::reference(type);
+    Lattice lattice;
+    lattice.structure = type;
+    lattice.neighbors = ref.neighbors;
+    // the length of the first neighbor in units of the cubic lattice
+    // constant; hcp as fcc and hexagonal as cubic diamond, so that the
+    // frames of their stackings turn into each other
+    double first = 0.0;
+    bool cubic = true;
+    switch (type) {
+        case ptm::kFcc: first = std::sqrt(0.5); break;
+        case ptm::kBcc: first = std::sqrt(3.0) / 2; break;
+        case ptm::kCubicDiamond: first = std::sqrt(3.0) / 4; break;
+        case ptm::kHcp: first = std::sqrt(0.5); cubic = false; break;
+        default: first = std::sqrt(3.0) / 4; cubic = false; break;  // hexagonal diamond
+    }
+    const double scale = first / std::sqrt(dot({ref.templates[0][1][0], ref.templates[0][1][1],
+                                                ref.templates[0][1][2]},
+                                               {ref.templates[0][1][0], ref.templates[0][1][1],
+                                                ref.templates[0][1][2]}));
+    for (const auto& points : ref.templates) {
+        std::array<Vec, 16> vectors{};
+        for (int k = 0; k < ref.neighbors; ++k) {
+            for (int e = 0; e < 3; ++e) {
+                const double v = points[static_cast<std::size_t>(k + 1)][e] * scale;
+                vectors[static_cast<std::size_t>(k)][e] = cubic ? std::round(4 * v) / 4 : v;
+            }
+        }
+        lattice.templates.push_back(vectors);
+    }
+    const auto& t = lattice.templates[0];
+    const int n = lattice.neighbors;
+    // the rotations: those that take two neighbors not in a line onto two
+    // others at the same lengths and angle, and all onto the neighbors
+    const int a = 0;
+    int b = 1;
+    while (std::abs(std::abs(dot(t[a], t[b])) -
+                    std::sqrt(dot(t[a], t[a]) * dot(t[b], t[b]))) < kTolerance) {
+        ++b;
+    }
+    const Mat from = *inverse(columns(t[a], t[b], cross(t[a], t[b])));
+    lattice.group.push_back(kIdentity);
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            if (i == j || std::abs(dot(t[i], t[i]) - dot(t[a], t[a])) > kTolerance ||
+                std::abs(dot(t[j], t[j]) - dot(t[b], t[b])) > kTolerance ||
+                std::abs(dot(t[i], t[j]) - dot(t[a], t[b])) > kTolerance) {
+                continue;
+            }
+            const Mat r = multiply(columns(t[i], t[j], cross(t[i], t[j])), from);
+            if (determinant(r) < 0) {
+                continue;
+            }
+            bool onto = true;
+            for (int k = 0; k < n && onto; ++k) {
+                const Vec turned = turn(r, t[k]);
+                onto = std::any_of(t.begin(), t.begin() + n,
+                                   [&](const Vec& v) { return close(v, turned); });
+            }
+            if (onto && std::none_of(lattice.group.begin(), lattice.group.end(),
+                                     [&](const Mat& g) { return close(g, r); })) {
+                lattice.group.push_back(r);
+            }
+        }
+    }
+    // the common neighbors: the vectors between them are neighbor vectors
+    // of some template
+    auto neighbor_vector = [&](const Vec& v) {
+        for (const auto& points : lattice.templates) {
+            for (int k = 0; k < n; ++k) {
+                if (close(points[static_cast<std::size_t>(k)], v)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+    for (int k = 0; k < n; ++k) {
+        double best = 0.0;
+        for (int j1 = 0; j1 < n; ++j1) {
+            const Vec d1 = minus(t[j1], t[k]);
+            if (j1 == k || !neighbor_vector(d1)) {
+                continue;
+            }
+            for (int j2 = j1 + 1; j2 < n; ++j2) {
+                const Vec d2 = minus(t[j2], t[k]);
+                if (j2 == k || !neighbor_vector(d2)) {
+                    continue;
+                }
+                const Vec back = {-t[k][0], -t[k][1], -t[k][2]};
+                const double volume = std::abs(dot(back, cross(d1, d2)));
+                if (volume > best + kTolerance) {
+                    best = volume;
+                    lattice.common[static_cast<std::size_t>(k)] = {j1, j2};
+                }
+            }
+        }
+    }
+    return lattice;
+}
+
+// Union find over the clusters, with the matrix from the frame of each into
+// that of its parent.
+class Grains {
+public:
+    explicit Grains(std::size_t count) : parent_(count), relation_(count, kIdentity) {
+        for (std::size_t c = 0; c < count; ++c) {
+            parent_[c] = static_cast<std::int64_t>(c);
+        }
+    }
+
+    // the root and the matrix from the frame of c into its frame
+    std::pair<std::int64_t, Mat> find(std::int64_t c) {
+        const auto at = static_cast<std::size_t>(c);
+        if (parent_[at] == c) {
+            return {c, kIdentity};
+        }
+        const auto [root, up] = find(parent_[at]);
+        relation_[at] = multiply(up, relation_[at]);
+        parent_[at] = root;
+        return {root, relation_[at]};
+    }
+
+    // joins c1 and c2, m taking the frame of c1 into that of c2
+    void join(std::int64_t c1, std::int64_t c2, const Mat& m) {
+        const auto [r1, m1] = find(c1);
+        const auto [r2, m2] = find(c2);
+        if (r1 == r2) {
+            return;
+        }
+        parent_[static_cast<std::size_t>(r1)] = r2;
+        relation_[static_cast<std::size_t>(r1)] = multiply(m2, multiply(m, transpose(m1)));
+    }
+
+private:
+    std::vector<std::int64_t> parent_;
+    std::vector<Mat> relation_;
+};
+
+}  // namespace
+
+const Lattice* lattice(int structure) {
+    namespace ptm = identify::ptm;
+    static const std::array<Lattice, 5> lattices = {
+        make_lattice(ptm::kFcc), make_lattice(ptm::kHcp), make_lattice(ptm::kBcc),
+        make_lattice(ptm::kCubicDiamond), make_lattice(ptm::kHexagonalDiamond)};
+    for (const Lattice& l : lattices) {
+        if (l.structure == structure) {
+            return &l;
+        }
+    }
+    return nullptr;
+}
+
+Clusters build_clusters(const ClusterInput& in, const Control& control) {
+    const std::int64_t n = in.n;
+    Clusters out;
+    out.cluster.assign(static_cast<std::size_t>(n), -1);
+    out.rotation.assign(static_cast<std::size_t>(n), 0);
+    auto lattice_of = [&](std::int64_t i) { return lattice(in.structure[i]); };
+    auto neighbor = [&](std::int64_t i, int k) -> std::int64_t { return in.neighbors[16 * i + k]; };
+    auto place = [&](std::int64_t i, std::int64_t j) {
+        const Lattice* l = lattice_of(i);
+        for (int k = 0; k < l->neighbors; ++k) {
+            if (neighbor(i, k) == j) {
+                return k;
+            }
+        }
+        return -1;
+    };
+    // the ideal vector to neighbor k of atom i in the frame of its cluster
+    auto ideal = [&](std::int64_t i, int k) {
+        const Lattice* l = lattice_of(i);
+        return turn(l->group[static_cast<std::size_t>(out.rotation[static_cast<std::size_t>(i)])],
+                     l->templates[static_cast<std::size_t>(in.templates[i])]
+                                 [static_cast<std::size_t>(k)]);
+    };
+    // the matrix that takes the template of neighbor k of atom a into the
+    // frame of a's cluster, from the vectors from it to a and to two
+    // neighbors both share
+    auto relate = [&](std::int64_t a, int k) -> std::optional<Mat> {
+        const Lattice* la = lattice_of(a);
+        const std::int64_t b = neighbor(a, k);
+        const Lattice* lb = lattice_of(b);
+        const int k1 = la->common[static_cast<std::size_t>(k)][0];
+        const int k2 = la->common[static_cast<std::size_t>(k)][1];
+        const std::int64_t c1 = neighbor(a, k1), c2 = neighbor(a, k2);
+        if (lb == nullptr || c1 < 0 || c2 < 0) {
+            return std::nullopt;
+        }
+        const int j0 = place(b, a), j1 = place(b, c1), j2 = place(b, c2);
+        if (j0 < 0 || j1 < 0 || j2 < 0) {
+            return std::nullopt;
+        }
+        const Vec ab = ideal(a, k);
+        const Mat u = columns({-ab[0], -ab[1], -ab[2]}, minus(ideal(a, k1), ab),
+                              minus(ideal(a, k2), ab));
+        const auto& tb = lb->templates[static_cast<std::size_t>(in.templates[b])];
+        const auto w = inverse(columns(tb[static_cast<std::size_t>(j0)],
+                                       tb[static_cast<std::size_t>(j1)],
+                                       tb[static_cast<std::size_t>(j2)]));
+        if (!w) {
+            return std::nullopt;
+        }
+        return multiply(u, *w);
+    };
+    // the clusters, by flood fill
+    for (std::int64_t seed = 0; seed < n; ++seed) {
+        if (out.cluster[static_cast<std::size_t>(seed)] >= 0 || lattice_of(seed) == nullptr) {
+            continue;
+        }
+        const auto c = static_cast<std::int64_t>(out.structure.size());
+        out.structure.push_back(in.structure[seed]);
+        out.size.push_back(1);
+        out.cluster[static_cast<std::size_t>(seed)] = c;
+        std::deque<std::int64_t> todo = {seed};
+        while (!todo.empty()) {
+            const std::int64_t a = todo.front();
+            todo.pop_front();
+            const Lattice* la = lattice_of(a);
+            for (int k = 0; k < la->neighbors; ++k) {
+                const std::int64_t b = neighbor(a, k);
+                if (b < 0 || out.cluster[static_cast<std::size_t>(b)] >= 0 ||
+                    in.structure[b] != in.structure[a]) {
+                    continue;
+                }
+                const auto r = relate(a, k);
+                if (!r) {
+                    continue;
+                }
+                const auto& group = la->group;
+                for (std::size_t g = 0; g < group.size(); ++g) {
+                    if (close(*r, group[g])) {
+                        out.cluster[static_cast<std::size_t>(b)] = c;
+                        out.rotation[static_cast<std::size_t>(b)] = static_cast<std::int16_t>(g);
+                        ++out.size[static_cast<std::size_t>(c)];
+                        todo.push_back(b);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    const auto count = out.structure.size();
+    // the orientations by least squares over the bonds, and the transitions
+    std::vector<std::array<double, 18>> sums(count, std::array<double, 18>{});
+    std::map<std::pair<std::int64_t, std::int64_t>, std::size_t> found;
+    for (std::int64_t a = 0; a < n; ++a) {
+        const std::int64_t c1 = out.cluster[static_cast<std::size_t>(a)];
+        if (c1 < 0) {
+            continue;
+        }
+        const Lattice* la = lattice_of(a);
+        for (int k = 0; k < la->neighbors; ++k) {
+            const std::int64_t b = neighbor(a, k);
+            if (b < 0) {
+                continue;
+            }
+            const Vec v = ideal(a, k);
+            Vec d = minus({in.positions[3 * b], in.positions[3 * b + 1], in.positions[3 * b + 2]},
+                          {in.positions[3 * a], in.positions[3 * a + 1], in.positions[3 * a + 2]});
+            Vec f = turn(transpose(Mat{in.inverse[0], in.inverse[1], in.inverse[2], in.inverse[3],
+                                        in.inverse[4], in.inverse[5], in.inverse[6], in.inverse[7],
+                                        in.inverse[8]}),
+                          d);
+            for (int e = 0; e < 3; ++e) {
+                if (in.pbc[e]) {
+                    f[static_cast<std::size_t>(e)] -= std::round(f[static_cast<std::size_t>(e)]);
+                }
+            }
+            d = turn(transpose(Mat{in.matrix[0], in.matrix[1], in.matrix[2], in.matrix[3],
+                                    in.matrix[4], in.matrix[5], in.matrix[6], in.matrix[7],
+                                    in.matrix[8]}),
+                      f);
+            auto& s = sums[static_cast<std::size_t>(c1)];
+            for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                    s[static_cast<std::size_t>(3 * i + j)] += v[i] * v[j];
+                    s[static_cast<std::size_t>(9 + 3 * i + j)] += d[i] * v[j];
+                }
+            }
+            const std::int64_t c2 = out.cluster[static_cast<std::size_t>(b)];
+            if (c2 < 0 || c2 == c1) {
+                continue;
+            }
+            const auto key = std::minmax(c1, c2);
+            const auto known = found.find(key);
+            if (known != found.end()) {
+                ++out.transitions[known->second].area;
+                continue;
+            }
+            const auto r = relate(a, k);
+            if (!r) {
+                continue;
+            }
+            // from the frame of c2 into that of c1, then the other way round
+            const Lattice* lb = lattice_of(b);
+            const Mat to_c1 = multiply(
+                *r, transpose(lb->group[static_cast<std::size_t>(
+                        out.rotation[static_cast<std::size_t>(b)])]));
+            if (!close(multiply(to_c1, transpose(to_c1)), kIdentity)) {
+                continue;
+            }
+            found[key] = out.transitions.size();
+            out.transitions.push_back({c1, c2, transpose(to_c1), 1});
+        }
+    }
+    out.orientation.resize(9 * count);
+    for (std::size_t c = 0; c < count; ++c) {
+        Mat v, w;
+        std::copy(sums[c].begin(), sums[c].begin() + 9, v.begin());
+        std::copy(sums[c].begin() + 9, sums[c].end(), w.begin());
+        const auto vi = inverse(v);
+        const Mat o = vi ? multiply(w, *vi) : Mat{};
+        std::copy(o.begin(), o.end(), out.orientation.begin() + static_cast<std::ptrdiff_t>(9 * c));
+    }
+    // the grains: the clusters of the crystal on the sides of a defect
+    // cluster in the same frame but for a rotation of the lattice are one
+    const Lattice* crystal = lattice(in.crystal);
+    Grains grains(count);
+    std::vector<std::vector<std::pair<std::int64_t, Mat>>> around(count);  // defect -> crystal
+    std::vector<std::int64_t> best(count, -1), best_area(count, 0);
+    std::vector<Mat> best_matrix(count, kIdentity);
+    for (const Transition& t : out.transitions) {
+        for (const auto& [defect, other, m] :
+             {std::tuple{t.from, t.to, t.matrix}, std::tuple{t.to, t.from, transpose(t.matrix)}}) {
+            if (out.structure[static_cast<std::size_t>(defect)] == in.crystal ||
+                out.structure[static_cast<std::size_t>(other)] != in.crystal) {
+                continue;
+            }
+            around[static_cast<std::size_t>(defect)].push_back({other, m});
+            if (t.area > best_area[static_cast<std::size_t>(defect)]) {
+                best_area[static_cast<std::size_t>(defect)] = t.area;
+                best[static_cast<std::size_t>(defect)] = other;
+                best_matrix[static_cast<std::size_t>(defect)] = m;
+            }
+        }
+    }
+    for (std::size_t d = 0; d < count && crystal != nullptr; ++d) {
+        const auto& sides = around[d];
+        for (std::size_t i = 0; i < sides.size(); ++i) {
+            for (std::size_t j = i + 1; j < sides.size(); ++j) {
+                if (sides[i].first == sides[j].first) {
+                    continue;
+                }
+                // from the frame of the first crystal cluster into the second
+                const Mat m = multiply(sides[j].second, transpose(sides[i].second));
+                for (const Mat& g : crystal->group) {
+                    if (close(m, g)) {
+                        grains.join(sides[i].first, sides[j].first, g);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    out.grain.resize(count);
+    out.to_grain.resize(9 * count);
+    for (std::size_t c = 0; c < count; ++c) {
+        std::int64_t root;
+        Mat m;
+        if (best[c] >= 0) {
+            const auto [r, up] = grains.find(best[c]);
+            root = r;
+            m = multiply(up, best_matrix[c]);
+        } else {
+            std::tie(root, m) = grains.find(static_cast<std::int64_t>(c));
+        }
+        out.grain[c] = root;
+        std::copy(m.begin(), m.end(), out.to_grain.begin() + static_cast<std::ptrdiff_t>(9 * c));
+    }
+    (void)control;
+    return out;
+}
+
+}  // namespace mdapy::analysis::dxa

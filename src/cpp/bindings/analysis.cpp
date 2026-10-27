@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "analysis/distribution.h"
+#include "analysis/dxa_clusters.h"
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
 #include "analysis/strain.h"
@@ -275,6 +276,53 @@ nb::tuple surface_mesh(Positions3 positions, Positions3 jittered, Matrix3 matrix
     return nb::make_tuple(as_array(std::move(mesh.atoms)), as_array(std::move(mesh.vertices)),
                           as_array(std::move(mesh.faces)), as_array(std::move(mesh.shifts)),
                           solid_volume, table);
+}
+
+using Neighbors16 = nb::ndarray<const index_t, nb::shape<-1, 16>, nb::c_contig, nb::device::cpu>;
+using Bytes = nb::ndarray<const std::int8_t, nb::shape<-1>, nb::c_contig, nb::device::cpu>;
+
+nb::tuple dxa_clusters(Bytes structure, Bytes templates, Neighbors16 neighbors, Positions3 positions,
+                       Matrix3 matrix, Matrix3 inverse, Periodic pbc, int crystal) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (static_cast<std::int64_t>(structure.shape(0)) != n ||
+        static_cast<std::int64_t>(templates.shape(0)) != n ||
+        static_cast<std::int64_t>(neighbors.shape(0)) != n) {
+        throw std::invalid_argument("the arrays must have one row per atom");
+    }
+    for (std::int64_t i = 0; i < 16 * n; ++i) {
+        if (neighbors.data()[i] >= n) {
+            throw std::invalid_argument("a neighbor outside the atoms");
+        }
+    }
+    analysis::dxa::ClusterInput input;
+    input.n = n;
+    input.structure = structure.data();
+    input.templates = templates.data();
+    input.neighbors = neighbors.data();
+    input.positions = positions.data();
+    input.matrix = matrix.data();
+    input.inverse = inverse.data();
+    input.pbc = pbc.data();
+    input.crystal = crystal;
+    analysis::dxa::Clusters out;
+    {
+        nb::gil_scoped_release release;
+        out = analysis::dxa::build_clusters(input);
+    }
+    std::vector<std::int64_t> ends;
+    std::vector<double> matrices;
+    std::vector<std::int64_t> areas;
+    for (const auto& t : out.transitions) {
+        ends.push_back(t.from);
+        ends.push_back(t.to);
+        matrices.insert(matrices.end(), t.matrix.begin(), t.matrix.end());
+        areas.push_back(t.area);
+    }
+    return nb::make_tuple(as_array(std::move(out.cluster)), as_array(std::move(out.rotation)),
+                          as_array(std::move(out.structure)), as_array(std::move(out.size)),
+                          as_array(std::move(out.orientation)), as_array(std::move(out.grain)),
+                          as_array(std::move(out.to_grain)), as_array(std::move(ends)),
+                          as_array(std::move(matrices)), as_array(std::move(areas)));
 }
 
 nb::object steinhardt_nearest(Positions3 positions, Matrix3 matrix, Origin3 origin,
@@ -717,6 +765,9 @@ void bind_analysis(nb::module_& m) {
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("cutoff"),
           nb::arg("type").none() = nb::none(), nb::arg("limits").none() = nb::none());
+    m.def("dxa_clusters", &dxa_clusters, nb::arg("structure"), nb::arg("templates"),
+          nb::arg("neighbors"), nb::arg("positions"), nb::arg("matrix"), nb::arg("inverse"),
+          nb::arg("pbc"), nb::arg("crystal"));
     m.def("surface_mesh", &surface_mesh, nb::arg("positions"), nb::arg("jittered"),
           nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"), nb::arg("radius"),
           nb::arg("smoothing"), nb::arg("regions"), nb::arg("progress") = nb::none(),

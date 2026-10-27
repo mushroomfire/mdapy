@@ -49,11 +49,11 @@ _CUBIC_FAMILIES = {
 # those of the hexagonal lattices: the Miller-Bravais components in the
 # basal plane in any order and sign, and the one along c
 _HEXAGONAL_FAMILIES = {
-    "1/3<1-210>": ((1 / 3, 1 / 3, 2 / 3), 0),
+    "1/3<11-20>": ((1 / 3, 1 / 3, 2 / 3), 0),
     "<0001>": ((0, 0, 0), 1),
     "<1-100>": ((0, 1, 1), 0),
     "1/3<1-100>": ((0, 1 / 3, 1 / 3), 0),
-    "1/3<1-213>": ((1 / 3, 1 / 3, 2 / 3), 1),
+    "1/3<11-23>": ((1 / 3, 1 / 3, 2 / 3), 1),
 }
 
 # the lattice parameters of the hexagonal frames, c along z and a1 along x,
@@ -77,7 +77,7 @@ def _family(burgers: np.ndarray, crystal: str) -> str:
     w = burgers[2] / _C
     basal = np.sort(np.abs([(2 * u - v) / 3, (2 * v - u) / 3, -(u + v) / 3]))
     for name, (components, along) in _HEXAGONAL_FAMILIES.items():
-        if crystal == "hexagonal_diamond" and name == "1/3<1-213>":
+        if crystal == "hexagonal_diamond" and name == "1/3<11-23>":
             continue
         if np.allclose(basal, components, atol=1e-3) and np.isclose(
             abs(w), along, atol=1e-3
@@ -93,7 +93,7 @@ def _families(crystal: str) -> tuple[str, ...]:
     names = [
         name
         for name in _HEXAGONAL_FAMILIES
-        if not (crystal == "hexagonal_diamond" and name == "1/3<1-213>")
+        if not (crystal == "hexagonal_diamond" and name == "1/3<11-23>")
     ]
     return (*names, "other")
 
@@ -293,15 +293,15 @@ class DislocationAnalysis:
         },
     }
     FAMILY_COLORS["hcp"] = {
-        "1/3<1-210>": (0.0, 1.0, 0.0),
+        "1/3<11-20>": (0.0, 1.0, 0.0),
         "<0001>": (0.2, 0.2, 1.0),
         "<1-100>": (1.0, 0.0, 1.0),
         "1/3<1-100>": (1.0, 0.5, 0.0),
-        "1/3<1-213>": (1.0, 1.0, 0.0),
+        "1/3<11-23>": (1.0, 1.0, 0.0),
         "other": (0.9, 0.2, 0.2),
     }
     FAMILY_COLORS["hexagonal_diamond"] = {
-        k: v for k, v in FAMILY_COLORS["hcp"].items() if k != "1/3<1-213>"
+        k: v for k, v in FAMILY_COLORS["hcp"].items() if k != "1/3<11-23>"
     }
     #: Their default colors.
     COLORS = tuple(
@@ -399,7 +399,7 @@ class DislocationAnalysis:
                 progress,
                 _native_token(cancel),
             )
-        except ValueError as error:
+        except (ValueError, RuntimeError) as error:  # periodic images too close
             raise InvalidParameter(
                 f"{error}: replicate the system along its short periodic directions"
             ) from None

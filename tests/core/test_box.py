@@ -4,6 +4,7 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 import itertools
+import pickle
 
 import numpy as np
 import pytest
@@ -291,3 +292,15 @@ def test_wrap_and_minimum_image_keep_input_precision(rng):
     np.testing.assert_array_equal(
         b.minimum_image([[9.0, -7.0, 13.0]]), [[-1.0, 1.0, 1.0]]
     )
+
+
+def test_boxes_pickle():
+    b = Box(
+        [[3.0, 0, 0], [1.0, 4.0, 0], [0.5, 0.2, 5.0]],
+        (1.0, 2.0, 3.0),
+        (True, False, True),
+    )
+    again = pickle.loads(pickle.dumps(b))
+    assert again == b and again is not b
+    np.testing.assert_array_equal(again.inverse, b.inverse)
+    assert not again.matrix.flags.writeable

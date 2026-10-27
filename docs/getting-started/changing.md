@@ -185,6 +185,32 @@ x[:, 0] += 0.1
 shifted = crystal.with_columns(positions=x)
 ```
 
+## Other processes
+
+Systems, boxes, topologies and triangle meshes pickle, so they go to other
+processes, such as the workers of a `ProcessPoolExecutor`, and come back as
+unchangeable as they left:
+
+```python
+from concurrent.futures import ProcessPoolExecutor
+
+import mdapy
+from mdapy.identify import CommonNeighborAnalysis
+
+
+def fcc_atoms(system):
+    return int((CommonNeighborAnalysis().compute(system).structure == 1).sum())
+
+
+if __name__ == "__main__":
+    frames = list(mdapy.read_trajectory("melt.dump"))
+    with ProcessPoolExecutor() as pool:
+        print(list(pool.map(fcc_atoms, frames)))
+```
+
+Pickle is no file format, though: a pickle of one version of mdapy may not
+load in another. Save systems with [mdapy.write](io.md).
+
 ## Why nothing changes a system in place
 
 Every way into a system gives something that cannot change it:

@@ -513,6 +513,31 @@ def test_copies_are_the_same_object():
     assert pair[0] is s and pair[1] is s
 
 
+def test_systems_pickle_for_other_processes():
+    import pickle
+    from concurrent.futures import ProcessPoolExecutor
+    from multiprocessing import get_context
+
+    s = water_dimer().with_info(
+        source={"code": "x", "steps": [1, 2]}, weights=np.arange(3.0)
+    )
+    s = s.with_box(Box(s.box.matrix, (1.0, 2.0, 3.0), (True, False, True)))
+    t = pickle.loads(pickle.dumps(s))
+    assert t is not s and t.table.equals(s.table)
+    assert t.box == s.box and t.topology == s.topology
+    assert t.info["source"]["steps"] == (1, 2)
+    np.testing.assert_array_equal(t.info["weights"], np.arange(3.0))
+    # still as immutable as the original
+    with pytest.raises(TypeError):
+        t.info["source"]["code"] = "y"
+    with pytest.raises(ValueError):
+        t.info["weights"][0] = 1.0
+    with pytest.raises(AttributeError, match="cannot be changed"):
+        t.anything = 1
+    with ProcessPoolExecutor(1, mp_context=get_context("spawn")) as pool:
+        assert list(pool.map(len, [s, s])) == [6, 6]
+
+
 def test_new_systems_share_the_columns_they_keep():
     s = water_dimer().with_columns(mass=np.arange(6.0))
     charged = s.with_columns(charge=0.1)

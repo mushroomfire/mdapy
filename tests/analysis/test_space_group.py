@@ -102,6 +102,11 @@ def test_errors(monkeypatch):
         SpaceGroup(tolerance=0)
     with pytest.raises(InvalidParameter, match="periodic"):
         SpaceGroup().compute(cell.with_box(mdapy.Box(3.6, pbc=False)))
+    large = build_crystal("fcc", 3.6, elements="Cu", repeat=(8, 8, 8))
+    with pytest.raises(InvalidParameter, match="up to 2000 atoms, not 2048"):
+        SpaceGroup().compute(large)
+    below = build_crystal("fcc", 3.6, elements="Cu", repeat=(7, 7, 7))  # 1372 atoms
+    assert SpaceGroup().compute(below).symbol == "Fm-3m"
     monkeypatch.setitem(sys.modules, "spglib", None)
     with pytest.raises(InvalidParameter, match="pip install spglib"):
         SpaceGroup().compute(cell)

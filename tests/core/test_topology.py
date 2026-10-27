@@ -3,6 +3,8 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
+import pickle
+
 import numpy as np
 import polars as pl
 import pytest
@@ -133,3 +135,12 @@ def test_the_tables_cannot_be_changed_in_place():
     single = Topology(bonds=indices)
     indices[0, 0] = 5
     assert single.bonds["atoms"].to_list() == [[0, 1]]
+
+
+def test_topologies_pickle():
+    t = Topology(
+        bonds=[[0, 1], [1, 2]], angles=pl.DataFrame({"atoms": [[0, 1, 2]], "type": [2]})
+    )
+    again = pickle.loads(pickle.dumps(t))
+    assert again == t and again is not t
+    assert again.angles["type"].to_list() == [2]

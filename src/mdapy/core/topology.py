@@ -124,6 +124,11 @@ class Topology:
     def __deepcopy__(self, memo: dict) -> "Topology":
         return self
 
+    def __reduce__(self) -> tuple:
+        # pickled as the arguments that make it again
+        t = self.__tables
+        return (Topology, (t["bonds"], t["angles"], t["dihedrals"], t["impropers"]))
+
     @property
     def bonds(self) -> pl.DataFrame:
         """Bonds: ``atoms`` holds 2 atom indices."""

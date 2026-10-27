@@ -136,6 +136,10 @@ class Box:
     def __deepcopy__(self, memo: dict) -> "Box":
         return self
 
+    def __reduce__(self) -> tuple:
+        # pickled as the arguments that make it again
+        return (Box, (self.__matrix, self.__origin, self.__pbc))
+
     # ------------------------------------------------------------------
     # Construction
     # ------------------------------------------------------------------

@@ -98,3 +98,9 @@ count and atoms (or positions), a count out of range, repeated or invalid
 indices, a mask of the wrong length, no place for an interstitial after
 `attempts` tries, a displacement out of the plane, an unknown axis, or a
 negative thickness or distance.
+
+## See also
+
+- [Surfaces and slip systems](slip-systems.md): the orientations of the
+  common surfaces and slip systems, their energies and the shuffle and
+  glide planes of diamond.

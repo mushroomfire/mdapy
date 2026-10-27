@@ -357,6 +357,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   most analyses show what their example makes or finds, drawn by mdapy's
   renderer or plotted with `mdapy.visualization.plot`, from code on the
   page that the documentation tests run.
+- [Surfaces and slip systems](../build/slip-systems.md): the orientations of
+  the common surfaces and slip systems of fcc, bcc, hcp and diamond, how to
+  build their slabs and faults, their surface energies and generalized
+  stacking fault energies, and the shuffle and glide planes of silicon.
 
 ### Foundations
 

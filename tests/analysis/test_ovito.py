@@ -10,7 +10,9 @@ import numpy as np
 import pytest
 
 import mdapy
+from mdapy import transform
 from mdapy.analysis import (
+    AtomicDisplacement,
     AtomicStrain,
     BondAngleDistribution,
     ChemicalSpecies,
@@ -18,6 +20,7 @@ from mdapy.analysis import (
     CoordinationNumber,
     MeanSquaredDisplacement,
     RadialDistributionFunction,
+    SpatialBinning,
     SteinhardtParameters,
     SurfaceMesh,
     VoronoiAnalysis,
@@ -36,6 +39,8 @@ from ovito.modifiers import (  # noqa: E402
     ConstructSurfaceModifier,
     CoordinationAnalysisModifier,
     CreateBondsModifier,
+    SliceModifier,
+    SpatialBinningModifier,
     SteinhardtParametersModifier,
     UnwrapTrajectoriesModifier,
     VoronoiAnalysisModifier,
@@ -551,3 +556,94 @@ def test_surface_mesh(box, smoothing):
             np.sort(np.asarray(regions[name])[voids]),
             rtol=1e-7,  # sums of thousands of tetrahedra in another order
         )
+
+
+def tilted(n=300, seed=8, pbc=True):
+    """Atoms at random in a triclinic box, some outside it, with ids."""
+    rng = np.random.default_rng(seed)
+    box = mdapy.Box(
+        [[10.0, 0, 0], [2.0, 9.0, 0], [1.0, 1.0, 8.0]], origin=[1, 2, 3], pbc=pbc
+    )
+    positions = box.to_cartesian(rng.uniform(-0.2, 1.2, (n, 3)))
+    system = mdapy.System(positions, box, elements="Cu")
+    return system.with_columns(id=np.arange(1, n + 1), charge=rng.normal(size=n))
+
+
+@pytest.mark.parametrize("width", [0.0, 3.0])
+@pytest.mark.parametrize("invert", [False, True])
+def test_slice(width, invert):
+    system = tilted()
+    normal, distance = (1.0, 2.0, 0.5), 6.0
+    ours = transform.slice(system, normal, distance, width=width, invert=invert)
+    theirs = ovito_compute(
+        system,
+        SliceModifier(
+            normal=normal, distance=distance, slab_width=width, inverse=invert
+        ),
+    ).particles
+    np.testing.assert_array_equal(
+        np.sort(ours["id"]), np.sort(theirs["Particle Identifier"])
+    )
+
+
+@pytest.mark.parametrize("pbc", [True, (True, True, False)])
+@pytest.mark.parametrize("reduction", ["mean", "sum", "density", "min", "max"])
+@pytest.mark.parametrize(
+    "direction, axes, bins",
+    [("Z", (2,), (6,)), ("XY", (0, 1), (3, 4)), ("XYZ", (0, 1, 2), (2, 3, 2))],
+)
+def test_spatial_binning(pbc, reduction, direction, axes, bins):
+    system = tilted(pbc=pbc)
+    operation = {
+        "mean": "Mean",
+        "sum": "Sum",
+        "density": "SumVol",
+        "min": "Min",
+        "max": "Max",
+    }
+    modifier = SpatialBinningModifier(
+        property="Position.X",
+        direction=getattr(SpatialBinningModifier.Direction, direction),
+        bin_count=bins if len(bins) > 1 else bins[0],
+        reduction_operation=getattr(
+            SpatialBinningModifier.Operation, operation[reduction]
+        ),
+    )
+    output = ovito_compute(system, modifier)
+    if len(axes) == 1:
+        theirs = np.asarray(output.tables["binning"].y[...])
+    else:
+        grid = output.grids["binning"]
+        # the first axis fastest
+        theirs = np.asarray(grid["Position.X"]).reshape(bins[::-1]).T
+    ours = SpatialBinning("positions.x", bins, axes=axes, reduction=reduction).compute(
+        system
+    )
+    filled = ours.counts > 0  # OVITO gives 0 for an empty bin
+    np.testing.assert_allclose(ours.values[filled], theirs[filled], rtol=1e-12)
+    if reduction in ("sum", "density"):
+        np.testing.assert_allclose(ours.values[~filled], theirs[~filled])
+
+
+@pytest.mark.parametrize("minimum_image", [True, False])
+@pytest.mark.parametrize("affine", [False, True])
+def test_atomic_displacement(minimum_image, affine):
+    reference = tilted(100)
+    rng = np.random.default_rng(9)
+    strain = np.eye(3) + [[0.03, 0.02, 0], [0, -0.01, 0.01], [0, 0, 0.02]]
+    box = mdapy.Box(reference.box.matrix @ strain, origin=reference.box.origin)
+    positions = box.to_cartesian(reference.box.to_fractional(reference["positions"]))
+    current = mdapy.System(positions + rng.normal(0, 0.8, (100, 3)), box, elements="Cu")
+    current = current.with_columns(id=reference["id"]).gather(rng.permutation(100))
+    modifier = CalculateDisplacementsModifier(
+        minimum_image_convention=minimum_image, affine_mapping=mapping(affine)
+    )
+    modifier.reference = ovito_source(reference)
+    theirs = ovito_compute(current, modifier).particles
+    ours = AtomicDisplacement(
+        reference, minimum_image=minimum_image, affine=affine
+    ).compute(current)
+    np.testing.assert_allclose(ours.displacement, theirs["Displacement"], atol=1e-12)
+    np.testing.assert_allclose(
+        ours.magnitude, theirs["Displacement Magnitude"], atol=1e-12
+    )

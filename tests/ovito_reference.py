@@ -16,7 +16,7 @@ from mdapy.elements import SYMBOLS
 def ovito_source(system):
     """The system as the source of an OVITO pipeline; with an element column,
     the elements are the particle types, numbered from 1 by atomic number,
-    and a mass column becomes the masses."""
+    a mass column becomes the masses and an id column the identifiers."""
     data = DataCollection()
     cell = np.zeros((3, 4))
     cell[:, :3] = system.box.matrix.T  # OVITO keeps the cell vectors as columns
@@ -26,6 +26,10 @@ def ovito_source(system):
     particles.create_property("Position", data=system["positions"])
     if "mass" in system.table.columns:
         particles.create_property("Mass", data=system.table["mass"].to_numpy())
+    if "id" in system.table.columns:
+        particles.create_property(
+            "Particle Identifier", data=system.table["id"].to_numpy()
+        )
     if "element" in system.table.columns:
         elements = system.table["element"].to_list()
         names = sorted(set(elements), key=SYMBOLS.index)

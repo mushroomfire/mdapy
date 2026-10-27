@@ -245,6 +245,12 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms
   and whether they span the box, and on request their unwrapped positions,
   centers of mass and gyration tensors;
+  [`AtomicDisplacement`](../analysis/displacement.md), the displacement
+  of each atom from a reference matched by id, with the minimum image and
+  the affine mapping of OVITO's displacement vectors;
+  [`SpatialBinning`](../analysis/spatial-binning.md), a property in bins
+  along one to three box vectors, its mean, sum, density, minimum or
+  maximum, the values of OVITO's spatial binning;
   [`WignerSeitz`](../analysis/wigner-seitz.md) for vacancies and
   interstitials, the sites of the reference kept in a k-d tree for every
   configuration; and [`AtomicStrain`](../analysis/atomic-strain.md), the
@@ -300,6 +306,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   topology of each copy and molecules kept whole through the image flags;
   `wrap` and `unwrap` move atoms into the box or to their unwrapped
   positions. See [Periodic copies and images](../build/transform.md).
+- `mdapy.transform.slice`: the atoms on one side of a plane or in a slab
+  about it, as the Slice of OVITO. See [Slices](../build/slice.md).
 
 ### MLIP
 

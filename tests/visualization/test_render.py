@@ -916,3 +916,24 @@ def test_devices(monkeypatch):
     np.testing.assert_array_equal(
         scene.render(width=8, height=8, device="auto"), scene.render(width=8, height=8)
     )
+
+
+def test_the_color_of_the_box():
+    system = mdapy.System(np.zeros((1, 3)), mdapy.Box(10.0), elements="Cu")
+    options = {
+        "atoms": np.zeros(1, dtype=bool),
+        "style": "flat",
+        "outline_width": 0.0,
+        "width": 120,
+        "height": 120,
+        "box_radius": 0.3,
+    }
+    # the middle of the lines, where little green is left of the white
+    rgb = render(system, box_color="red", **options)[..., :3].astype(int)
+    lines = rgb[..., 1] < 120
+    assert lines.sum() > 100 and (rgb[lines, 0] > 200).all()
+    black = render(system, **options)[..., :3].astype(int)
+    lines = black[..., 1] < 120
+    assert lines.sum() > 100 and (black[lines, 0] < 120).all()
+    with pytest.raises(InvalidParameter, match="color"):
+        render(system, box_color="plaid", **options)

@@ -175,44 +175,6 @@ Lattice make_lattice(int type) {
     return lattice;
 }
 
-// Union find over the clusters, with the matrix from the frame of each into
-// that of its parent.
-class Grains {
-public:
-    explicit Grains(std::size_t count) : parent_(count), relation_(count, kIdentity) {
-        for (std::size_t c = 0; c < count; ++c) {
-            parent_[c] = static_cast<std::int64_t>(c);
-        }
-    }
-
-    // the root and the matrix from the frame of c into its frame
-    std::pair<std::int64_t, Mat> find(std::int64_t c) {
-        const auto at = static_cast<std::size_t>(c);
-        if (parent_[at] == c) {
-            return {c, kIdentity};
-        }
-        const auto [root, up] = find(parent_[at]);
-        relation_[at] = multiply(up, relation_[at]);
-        parent_[at] = root;
-        return {root, relation_[at]};
-    }
-
-    // joins c1 and c2, m taking the frame of c1 into that of c2
-    void join(std::int64_t c1, std::int64_t c2, const Mat& m) {
-        const auto [r1, m1] = find(c1);
-        const auto [r2, m2] = find(c2);
-        if (r1 == r2) {
-            return;
-        }
-        parent_[static_cast<std::size_t>(r1)] = r2;
-        relation_[static_cast<std::size_t>(r1)] = multiply(m2, multiply(m, transpose(m1)));
-    }
-
-private:
-    std::vector<std::int64_t> parent_;
-    std::vector<Mat> relation_;
-};
-
 }  // namespace
 
 const Lattice* lattice(int structure) {
@@ -434,60 +396,6 @@ Clusters build_clusters(const ClusterInput& in, const Control& control) {
     };
     for (Transition& t : out.transitions) {
         t.matrix = multiply(frame(t.to), multiply(t.matrix, transpose(frame(t.from))));
-    }
-    // the grains: the clusters of the crystal on the sides of a defect
-    // cluster in the same frame but for a rotation of the lattice are one
-    Grains grains(count);
-    std::vector<std::vector<std::pair<std::int64_t, Mat>>> around(count);  // defect -> crystal
-    std::vector<std::int64_t> best(count, -1), best_area(count, 0);
-    std::vector<Mat> best_matrix(count, kIdentity);
-    for (const Transition& t : out.transitions) {
-        for (const auto& [defect, other, m] :
-             {std::tuple{t.from, t.to, t.matrix}, std::tuple{t.to, t.from, transpose(t.matrix)}}) {
-            if (out.structure[static_cast<std::size_t>(defect)] == in.crystal ||
-                out.structure[static_cast<std::size_t>(other)] != in.crystal) {
-                continue;
-            }
-            around[static_cast<std::size_t>(defect)].push_back({other, m});
-            if (t.area > best_area[static_cast<std::size_t>(defect)]) {
-                best_area[static_cast<std::size_t>(defect)] = t.area;
-                best[static_cast<std::size_t>(defect)] = other;
-                best_matrix[static_cast<std::size_t>(defect)] = m;
-            }
-        }
-    }
-    for (std::size_t d = 0; d < count && crystal != nullptr; ++d) {
-        const auto& sides = around[d];
-        for (std::size_t i = 0; i < sides.size(); ++i) {
-            for (std::size_t j = i + 1; j < sides.size(); ++j) {
-                if (sides[i].first == sides[j].first) {
-                    continue;
-                }
-                // from the frame of the first crystal cluster into the second
-                const Mat m = multiply(sides[j].second, transpose(sides[i].second));
-                for (const Mat& g : crystal->group) {
-                    if (close(m, g)) {
-                        grains.join(sides[i].first, sides[j].first, g);
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    out.grain.resize(count);
-    out.to_grain.resize(9 * count);
-    for (std::size_t c = 0; c < count; ++c) {
-        std::int64_t root;
-        Mat m;
-        if (best[c] >= 0) {
-            const auto [r, up] = grains.find(best[c]);
-            root = r;
-            m = multiply(up, best_matrix[c]);
-        } else {
-            std::tie(root, m) = grains.find(static_cast<std::int64_t>(c));
-        }
-        out.grain[c] = root;
-        std::copy(m.begin(), m.end(), out.to_grain.begin() + static_cast<std::ptrdiff_t>(9 * c));
     }
     (void)control;
     return out;

@@ -3,11 +3,9 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
-// The crystal clusters of the dislocation analysis: the atoms polyhedral
-// template matching finds in a structure, joined into clusters of one
-// lattice frame each, the transitions between the frames of clusters that
-// touch, and the grains the clusters on the two sides of a stacking fault
-// or another defect of the crystal make together.
+// The crystal clusters of the dislocation analysis: the atoms of a
+// structure joined into clusters of one lattice frame each, and the
+// transitions between the frames of clusters that touch.
 
 #pragma once
 
@@ -53,7 +51,7 @@ struct ClusterInput {
     const double* matrix = nullptr;     // rows a, b, c
     const double* inverse = nullptr;
     const bool* pbc = nullptr;
-    int crystal = 0;  // the PTM type of the crystal, whose defects join its grains
+    int crystal = 0;  // the PTM type of the crystal, whose clusters turn to the box
 };
 
 // A transition between the frames of two clusters that touch: the matrix
@@ -67,18 +65,15 @@ struct Transition {
 
 // The clusters: of each atom, its cluster (-1 for none) and the element of
 // the group of its lattice that turns its template into the frame of the
-// cluster; of each cluster, its structure, size, orientation (the matrix
-// that takes its lattice vectors to vectors in Å, by least squares), its
-// grain (a cluster of the crystal) and the matrix from its frame into that
-// of the grain; the transitions, each pair once.
+// cluster; of each cluster, its structure, size and orientation (the matrix
+// that takes its lattice vectors to vectors in Å, by least squares); the
+// transitions, each pair once.
 struct Clusters {
     std::vector<std::int64_t> cluster;
     std::vector<std::int16_t> rotation;
     std::vector<std::int8_t> structure;
     std::vector<std::int64_t> size;
     std::vector<double> orientation;  // 9 each
-    std::vector<std::int64_t> grain;
-    std::vector<double> to_grain;  // 9 each
     std::vector<Transition> transitions;
 };
 

@@ -92,6 +92,8 @@ The `options` are those of `Scene.render`:
 | `up` | (3,) | of the view | the direction up in the picture |
 | `perspective`, `fov` | bool, float | `False`, 30 | a perspective camera and its vertical angle in degrees |
 | `zoom` | float | 1 | magnification of the scene framed to fill the picture |
+| `focus` | (3,) | middle of the scene | the point in Å at the middle of the picture |
+| `span` | float | the scene framed | the length in Å the picture shows from bottom to top at the focus, in place of the framing and `zoom`: with `focus`, the region a viewport shows |
 | `style` | str | `"studio"` | one of the styles below |
 | `background` | color or `None` | `"white"` | `None` for transparent |
 | `device` | str | `"cpu"` | `"cpu"`, `"gpu"`, or `"auto"` for the GPU when there is one; see below |
@@ -116,6 +118,7 @@ right, up and toward the viewer), `fill_intensity`, `ao_samples`,
 (rays per pixel along each axis), and for global illumination `bounces`
 (0 for none), `samples` (paths per ray of `supersample`) and `light_size`
 (the angular radius of the key light in radians, 0 for a point).
+`style_settings(style)` gives every setting of a style as a dictionary.
 
 ## On the GPU
 

@@ -219,6 +219,8 @@ import mdapy as mp
 
 ::: mdapy.visualization.colormap
 
+::: mdapy.visualization.style_settings
+
 ::: mdapy.visualization.write_png
 
 ::: mdapy.visualization.plot

@@ -347,8 +347,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   vectors, cut at the periodic faces of the box;
   molecules as balls and sticks, licorice or space filling, with covalent
   bonds found from the elements; a `Scene` of spheres, cylinders and
-  polygons; a million atoms in under two seconds on the processor, or in a
-  third of a second on the GPU with Metal on macOS.
+  polygons; the scene framed, or a given focus and span; a million atoms
+  in under two seconds on the processor, or in a third of a second on the
+  GPU with Metal on macOS.
   See [Rendering](../visualization/rendering.md).
 - `mdapy.visualization.plot`: matplotlib set up for journals (widths of
   columns, Nature's artwork guide, Okabe–Ito colors, panel labels, saving

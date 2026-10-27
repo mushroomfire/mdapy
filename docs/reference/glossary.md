@@ -134,6 +134,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | keep atoms by a condition, take them by index, order them | `System.filter`, `System.gather`, `System.sort` | `take`, `slice` |
 | keep some columns, remove some, rename them | `System.select`, `System.drop`, `System.rename` | `keep`, `remove` |
 | Burgers vector (Å), dislocation line and normal of the cut | `burgers`, `line`, `normal` | `b`, `xi`, `n` |
+| elastic constants of a cubic crystal, (C11, C12, C44) or (6, 6) | `elastic` | `C11`, `C12`, `C44` |
+| distance between the Shockley partials of a dislocation (Å) | `dissociation` | `partial_distance` |
+| thickness of the fixed outer shell of a dislocation cylinder (Å) | `fixed` | `fix_width` |
 | shells of neighbors of a lattice | `shells` | `nshell` |
 | shells of neighbors, by distance or by number | `cutoff=(r1, r2, …)`, `num_neighbors=(n1, n2, …)` | `rc_list`, `shell_number` |
 | seeds of grains, or their number | `grains` | `seed_number`, `seed_position` |

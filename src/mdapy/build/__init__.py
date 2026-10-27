@@ -15,11 +15,19 @@ from mdapy.build._defects import (
     substitute,
 )
 from mdapy.build._dislocation import edge_dislocation, insert_dislocation
+from mdapy.build._dislocation_models import (
+    DISLOCATIONS,
+    Dislocation,
+    dislocation_cylinder,
+    dislocation_quadrupole,
+)
 from mdapy.build._graphene import add_graphene
 from mdapy.build._polycrystal import build_polycrystal, random_rotations, twin_lamellae
 from mdapy.build._sqs import sqs_alloy
 
 __all__ = [
+    "DISLOCATIONS",
+    "Dislocation",
     "STRUCTURES",
     "add_graphene",
     "add_interstitials",
@@ -27,6 +35,8 @@ __all__ = [
     "add_vacuum",
     "build_crystal",
     "build_polycrystal",
+    "dislocation_cylinder",
+    "dislocation_quadrupole",
     "edge_dislocation",
     "insert_dislocation",
     "random_alloy",

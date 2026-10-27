@@ -87,6 +87,18 @@ Lattice make_lattice(int type) {
             }
         }
     }
+    const std::size_t order = lattice.group.size();
+    lattice.product.assign(order, std::vector<std::int16_t>(order, 0));
+    for (std::size_t g1 = 0; g1 < order; ++g1) {
+        for (std::size_t g2 = 0; g2 < order; ++g2) {
+            const Mat m = multiply(lattice.group[g1], lattice.group[g2]);
+            for (std::size_t g = 0; g < order; ++g) {
+                if (close(m, lattice.group[g])) {
+                    lattice.product[g1][g2] = static_cast<std::int16_t>(g);
+                }
+            }
+        }
+    }
     // the common neighbors: the vectors between them are neighbor vectors
     // of some template
     auto neighbor_vector = [&](const Vec& v) {
@@ -338,9 +350,54 @@ Clusters build_clusters(const ClusterInput& in, const Control& control) {
         const Mat o = vi ? multiply(w, *vi) : Mat{};
         std::copy(o.begin(), o.end(), out.orientation.begin() + static_cast<std::ptrdiff_t>(9 * c));
     }
+    // the frame of each cluster of the crystal turned by the rotation of
+    // the lattice that brings its orientation closest to the axes of the
+    // box, so that lattice vectors read as usual in a crystal along them
+    const Lattice* crystal = lattice(in.crystal);
+    std::vector<std::int16_t> turned(count, 0);
+    for (std::size_t c = 0; c < count && crystal != nullptr; ++c) {
+        if (out.structure[c] != in.crystal) {
+            continue;
+        }
+        Mat o;
+        std::copy(out.orientation.begin() + static_cast<std::ptrdiff_t>(9 * c),
+                  out.orientation.begin() + static_cast<std::ptrdiff_t>(9 * c + 9), o.begin());
+        const double scale = std::cbrt(std::abs(determinant(o)));
+        if (scale == 0.0) {
+            continue;
+        }
+        double smallest = 0.0;
+        for (std::size_t g = 0; g < crystal->group.size(); ++g) {
+            const Mat m = multiply(o, transpose(crystal->group[g]));
+            double deviation = 0.0;
+            for (std::size_t e = 0; e < 9; ++e) {
+                deviation += std::abs(m[e] / scale - kIdentity[e]);
+            }
+            if (g == 0 || deviation < smallest - kTolerance) {
+                smallest = deviation;
+                turned[c] = static_cast<std::int16_t>(g);
+            }
+        }
+        const Mat m = multiply(o, transpose(crystal->group[static_cast<std::size_t>(turned[c])]));
+        std::copy(m.begin(), m.end(), out.orientation.begin() + static_cast<std::ptrdiff_t>(9 * c));
+    }
+    for (std::int64_t a = 0; a < n; ++a) {
+        const std::int64_t c = out.cluster[static_cast<std::size_t>(a)];
+        if (c >= 0 && turned[static_cast<std::size_t>(c)] != 0) {
+            auto& r = out.rotation[static_cast<std::size_t>(a)];
+            r = crystal->product[static_cast<std::size_t>(turned[static_cast<std::size_t>(c)])]
+                                [static_cast<std::size_t>(r)];
+        }
+    }
+    auto frame = [&](std::int64_t c) {
+        const std::int16_t g = turned[static_cast<std::size_t>(c)];
+        return g == 0 ? kIdentity : crystal->group[static_cast<std::size_t>(g)];
+    };
+    for (Transition& t : out.transitions) {
+        t.matrix = multiply(frame(t.to), multiply(t.matrix, transpose(frame(t.from))));
+    }
     // the grains: the clusters of the crystal on the sides of a defect
     // cluster in the same frame but for a rotation of the lattice are one
-    const Lattice* crystal = lattice(in.crystal);
     Grains grains(count);
     std::vector<std::vector<std::pair<std::int64_t, Mat>>> around(count);  // defect -> crystal
     std::vector<std::int64_t> best(count, -1), best_area(count, 0);

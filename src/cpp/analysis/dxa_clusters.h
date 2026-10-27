@@ -26,14 +26,16 @@ namespace mdapy::analysis::dxa {
 // lattice constant (hcp that of fcc, hexagonal diamond that of cubic
 // diamond, with the same nearest neighbors), in the order of the
 // template; for each neighbor, two other neighbors of the central atom that
-// are its neighbors too, the three vectors from it not in a plane; and the
-// rotations that take the neighbors of the first template onto themselves.
+// are its neighbors too, the three vectors from it not in a plane; the
+// rotations that take the neighbors of the first template onto themselves,
+// and the index of the product of each two of them.
 struct Lattice {
     int structure = 0;  // PTM type
     int neighbors = 0;
     std::vector<std::array<Vec, 16>> templates;
     std::array<std::array<int, 2>, 16> common{};
     std::vector<Mat> group;
+    std::vector<std::vector<std::int16_t>> product;  // group[product[a][b]] = group[a] group[b]
 };
 
 // The lattice of a PTM type, or nullptr for one the analysis does not know:

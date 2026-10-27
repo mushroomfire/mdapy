@@ -77,6 +77,11 @@ Mapping::Mapping(const ClusterInput& atoms, const Clusters& clusters,
         reverse_atoms_[at] = a;
         reverse_places_[at] = static_cast<std::int8_t>(k);
     });
+    const auto clusters_count = static_cast<std::int64_t>(clusters.structure.size());
+    for (const Transition& t : clusters.transitions) {
+        direct_.emplace(t.from * clusters_count + t.to, t.matrix);
+        direct_.emplace(t.to * clusters_count + t.from, transpose(t.matrix));
+    }
     (void)control;
 }
 
@@ -84,13 +89,9 @@ std::optional<Mat> Mapping::transition(std::int64_t c1, std::int64_t c2) const {
     if (c1 == c2) {
         return kIdentity;
     }
-    for (const Transition& t : clusters_.transitions) {
-        if (t.from == c1 && t.to == c2) {
-            return t.matrix;
-        }
-        if (t.from == c2 && t.to == c1) {
-            return transpose(t.matrix);
-        }
+    const auto count = static_cast<std::int64_t>(clusters_.structure.size());
+    if (const auto found = direct_.find(c1 * count + c2); found != direct_.end()) {
+        return found->second;
     }
     if (clusters_.grain[static_cast<std::size_t>(c1)] ==
         clusters_.grain[static_cast<std::size_t>(c2)]) {

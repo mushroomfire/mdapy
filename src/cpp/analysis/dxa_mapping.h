@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 #include "analysis/dxa_clusters.h"
@@ -56,6 +57,8 @@ private:
     std::vector<std::int64_t> reverse_offsets_;
     std::vector<std::int64_t> reverse_atoms_;
     std::vector<std::int8_t> reverse_places_;
+    // the transitions both ways, by c1 * clusters + c2
+    std::unordered_map<std::int64_t, Mat> direct_;
 };
 
 }  // namespace mdapy::analysis::dxa

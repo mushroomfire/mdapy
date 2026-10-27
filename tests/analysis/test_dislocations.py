@@ -321,6 +321,9 @@ def test_results():
         sum(line.length for line in result.lines)
     )
     assert result.names[3] == "bcc" and len(result.colors) == len(result.names)
+    assert result.counts() == {
+        name: int((result.structure == k).sum()) for k, name in enumerate(result.names)
+    }
     assert "crystal_cluster" in system.with_columns(result).table.columns
     assert result.interface_mesh is None and result.interface_atoms is None
     with pytest.raises(ValueError):

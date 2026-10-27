@@ -73,6 +73,8 @@ pictures = [
         color=colors[result.structure],
         radius=0.8,
         dislocations=result,
+        burgers_vectors=True,
+        burgers_scale=5,
         width=500,
         height=500,
     ),
@@ -91,9 +93,9 @@ write_png("images/dislocations.png", np.hstack(pictures))
 
 ![Partial dislocations and a stacking-fault tetrahedron](images/dislocations.png)
 
-*Left: the four Shockley partials (green), and between each pair the two
-layers of hcp atoms (red) of its stacking fault, one across the periodic
-boundary. Right: the stacking-fault tetrahedron of the relaxed Frank loop,
+*Left: the four Shockley partials (green) with their Burgers vectors (gray
+arrows), and between each pair the two layers of hcp atoms (red) of its
+stacking fault, one across the periodic boundary. Right: the stacking-fault tetrahedron of the relaxed Frank loop,
 Shockley partials (green) and stair-rods (magenta) along its edges, with
 the hcp atoms of its faces and the other atoms of its corners (white).*
 
@@ -182,8 +184,10 @@ lattice Burgers vectors of a crystal along the box read as usual.
 
 `render(system, dislocations=result)` draws the lines as tubes in the
 colors of their families, cut at the periodic boundaries; their colors are
-`DislocationAnalysis.FAMILY_COLORS[crystal]`. `mesh=result.defect_mesh`
-draws the defect mesh.
+`DislocationAnalysis.FAMILY_COLORS[crystal]`. With `burgers_vectors=True`
+an arrow from the middle of each line shows its Burgers vector in space,
+`burgers_scale` times as long. `mesh=result.defect_mesh` draws the defect
+mesh.
 
 ## Errors
 

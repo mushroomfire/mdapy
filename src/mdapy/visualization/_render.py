@@ -153,6 +153,10 @@ def render(
     mesh_alpha: float = 1.0,
     dislocations: Any = None,
     dislocation_radius: float = 0.5,
+    burgers_vectors: bool = False,
+    burgers_scale: float = 3.0,
+    burgers_radius: float = 0.3,
+    burgers_color: Any = (0.7, 0.7, 0.7),
     **options: Any,
 ) -> np.ndarray:
     """A picture of a system: its atoms, optionally bonds, the box,
@@ -218,6 +222,16 @@ def render(
         the parts outside moved in through the opposite faces.
     dislocation_radius : float, optional
         Radius of the tubes in Å. Default 0.5.
+    burgers_vectors : bool, optional
+        Also draw the Burgers vector of each line: an arrow from the middle
+        of the line along the vector in space. Default False.
+    burgers_scale : float, optional
+        Length of the arrows in units of the Burgers vectors. Default 3.
+    burgers_radius : float, optional
+        Radius of the shafts of the arrows in Å. Default 0.3.
+    burgers_color : optional
+        One color for the arrows, or "family" for the color of each line.
+        Default light gray.
     **options
         The options of :meth:`Scene.render`, such as width, height, view,
         style, zoom, perspective and background.
@@ -395,7 +409,76 @@ def render(
         # round joints
         scene.add_spheres(starts, radius, rgb, ids=ids)
         scene.add_spheres(ends, radius, rgb, ids=ids)
+        if burgers_vectors:
+            _burgers_arrows(
+                scene,
+                dislocations,
+                system.box,
+                palette,
+                float(burgers_scale),
+                float(burgers_radius),
+                burgers_color,
+                n,
+            )
     return scene.render(path, **options)
+
+
+def _burgers_arrows(scene, dislocations, box, palette, scale, radius, color, id_):
+    """An arrow of the Burgers vector of each line, from its middle, in the
+    box; the shaft a cylinder with a round end, the head a cone of
+    triangles."""
+    if not (np.isfinite(scale) and scale > 0):
+        raise InvalidParameter(f"burgers_scale must be positive, not {scale!r}")
+    if not (np.isfinite(radius) and radius > 0):
+        raise InvalidParameter(f"burgers_radius must be positive, not {radius!r}")
+    if isinstance(color, str) and color == "family":
+        rgb = np.array([palette[line.family] for line in dislocations.lines])
+    else:
+        try:
+            one = _color(color)
+        except InvalidParameter:
+            raise InvalidParameter(
+                f"burgers_color must be one color or family, not {color!r}"
+            ) from None
+        rgb = np.tile(one, (len(dislocations.lines), 1))
+    tails, vectors = [], []
+    for line in dislocations.lines:
+        # the middle of the line by its length
+        steps = np.linalg.norm(np.diff(line.points, axis=0), axis=1)
+        along = np.concatenate([[0.0], np.cumsum(steps)])
+        k = min(
+            int(np.searchsorted(along, along[-1] / 2, side="right")) - 1, len(steps) - 1
+        )
+        t = 0.0 if steps[k] == 0 else (along[-1] / 2 - along[k]) / steps[k]
+        middle = line.points[k] + t * (line.points[k + 1] - line.points[k])
+        fraction = (middle - box.origin) @ box.inverse
+        tails.append(middle - np.where(box.pbc, np.floor(fraction), 0.0) @ box.matrix)
+        vectors.append(scale * line.spatial_burgers)
+    tails, vectors = np.array(tails), np.array(vectors)
+    lengths = np.linalg.norm(vectors, axis=1)
+    unit = vectors / lengths[:, None]
+    head = np.minimum(3.0 * radius, 0.5 * lengths)  # length of the head
+    bases = tails + unit * (lengths - head)[:, None]
+    ids = np.full(len(tails), id_)
+    scene.add_cylinders(tails, bases, radius, rgb, ids=ids)
+    scene.add_spheres(tails, radius, rgb, ids=ids)
+    # the cones: their sides and their bases, a fan of triangles each
+    sides = 24
+    angles = 2 * np.pi * np.arange(sides + 1) / sides
+    triangles, colors = [], []
+    for base, u, tip, c in zip(bases, unit, tails + vectors, rgb):
+        p = np.cross(u, [1.0, 0, 0] if abs(u[0]) < 0.9 else [0, 1.0, 0])
+        p /= np.linalg.norm(p)
+        q = np.cross(u, p)
+        ring = base + 2.5 * radius * (
+            np.outer(np.cos(angles), p) + np.outer(np.sin(angles), q)
+        )
+        for a, b in zip(ring[:-1], ring[1:]):
+            triangles += [(a, b, tip), (base, b, a)]
+        colors.append(np.tile(c, (2 * sides, 1)))
+    scene.add_triangles(
+        np.array(triangles), np.concatenate(colors), ids=np.full(len(triangles), id_)
+    )
 
 
 def _inside(points: np.ndarray, box: Any) -> tuple[np.ndarray, np.ndarray]:

@@ -337,8 +337,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   ambient occlusion, shadows and outlines in six styles, and a seventh,
   photo, that traces light bouncing between the atoms; colored by element,
   structure, values or by hand, with bonds, the box, Voronoi cells,
-  surface meshes and dislocation lines, cut at the periodic faces of the
-  box;
+  surface meshes and dislocation lines with arrows of their Burgers
+  vectors, cut at the periodic faces of the box;
   molecules as balls and sticks, licorice or space filling, with covalent
   bonds found from the elements; a `Scene` of spheres, cylinders and
   polygons; a million atoms in under two seconds on the processor, or in a

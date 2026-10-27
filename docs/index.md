@@ -142,9 +142,12 @@ flowchart TB
     Structure identification: [common neighbor analysis](analysis/cna.md) ·
     [Ackland–Jones](analysis/ackland-jones.md) ·
     [polyhedral template matching](analysis/ptm.md) ·
+    [planar faults](analysis/planar-faults.md) ·
+    [grain segmentation](analysis/grain-segmentation.md) ·
     [diamond](analysis/diamond.md) · [CHILL+](analysis/chill-plus.md) ·
     [centro-symmetry](analysis/csp.md) ·
-    [common neighbor parameter](analysis/cnp.md)
+    [common neighbor parameter](analysis/cnp.md) ·
+    [space group](analysis/space-group.md)
 
     Local order and distributions: [radial distribution](analysis/rdf.md) ·
     [coordination](analysis/coordination.md) ·
@@ -153,10 +156,15 @@ flowchart TB
     [Warren–Cowley](analysis/warren-cowley.md) ·
     [Steinhardt](analysis/steinhardt.md) ·
     [entropy fingerprint](analysis/entropy.md) ·
-    [Voronoi](analysis/voronoi.md)
+    [Voronoi](analysis/voronoi.md) ·
+    [spatial binning](analysis/spatial-binning.md)
 
     Defects and deformation: [clusters](analysis/clusters.md) ·
+    [surface mesh](analysis/surface-mesh.md) ·
+    [dislocations](analysis/dislocations.md) (experimental) ·
+    [chemical species](analysis/species.md) ·
     [Wigner–Seitz](analysis/wigner-seitz.md) ·
+    [atomic displacement](analysis/displacement.md) ·
     [atomic strain](analysis/atomic-strain.md)
 
     Dynamics: [mean squared displacement](analysis/msd.md) ·
@@ -172,9 +180,12 @@ flowchart TB
 
     [Crystals](build/crystals.md) · [random alloys](build/alloys.md) ·
     [SQS](build/sqs.md) · [point defects and faults](build/defects.md) ·
+    [surfaces and slip systems](build/slip-systems.md) ·
     [dislocations](build/dislocations.md) ·
     [polycrystals](build/polycrystals.md) ·
-    [periodic copies and images](build/transform.md)
+    [graphene on grain boundaries](build/graphene.md) ·
+    [periodic copies and images](build/transform.md) ·
+    [slices](build/slice.md)
 
 -   :mdapy-simulation:{ .lg .middle } **Simulation**
 
@@ -187,9 +198,14 @@ flowchart TB
     [LAMMPS](simulation/lammps.md) · [VASP](simulation/vasp.md)
 
     Minimization and dynamics: [energy minimization](simulation/minimize.md) ·
+    [molecular dynamics](simulation/dynamics.md) ·
     [defect energies](simulation/defect-energies.md)
 
-    Lattice dynamics: [elastic constants](simulation/elastic-constants.md)
+    Lattice dynamics: [elastic constants](simulation/elastic-constants.md) ·
+    [phonons](simulation/phonons.md) ·
+    [quasi-harmonic approximation](simulation/quasi-harmonic.md) ·
+    [elastic constants at finite temperature](simulation/thermal-elastic.md) ·
+    [from molecular dynamics](simulation/md-elastic.md)
 
 -   :material-sine-wave:{ .lg .middle } **MLIP**
 

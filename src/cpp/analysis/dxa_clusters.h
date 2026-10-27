@@ -15,13 +15,11 @@
 #include <cstdint>
 #include <vector>
 
+#include "analysis/dxa_math.h"
 #include "core/index.h"
 #include "core/parallel.h"
 
 namespace mdapy::analysis::dxa {
-
-using Vec = std::array<double, 3>;
-using Mat = std::array<double, 9>;  // row-major
 
 // A lattice the analysis works in: the ideal vector to each neighbor of
 // each template of polyhedral template matching, in units of the cubic

@@ -19,6 +19,8 @@
 
 #include "analysis/distribution.h"
 #include "analysis/dxa_clusters.h"
+#include "analysis/dxa_mapping.h"
+#include "analysis/tessellation.h"
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
 #include "analysis/strain.h"
@@ -323,6 +325,42 @@ nb::tuple dxa_clusters(Bytes structure, Bytes templates, Neighbors16 neighbors, 
                           as_array(std::move(out.orientation)), as_array(std::move(out.grain)),
                           as_array(std::move(out.to_grain)), as_array(std::move(ends)),
                           as_array(std::move(matrices)), as_array(std::move(areas)));
+}
+
+nb::tuple dxa_good(Bytes structure, Bytes templates, Neighbors16 neighbors, Positions3 positions,
+                   Positions3 jittered, Matrix3 matrix, Matrix3 inverse, Origin3 origin, Periodic pbc,
+                   int crystal) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    analysis::dxa::ClusterInput input;
+    input.n = n;
+    input.structure = structure.data();
+    input.templates = templates.data();
+    input.neighbors = neighbors.data();
+    input.positions = positions.data();
+    input.matrix = matrix.data();
+    input.inverse = inverse.data();
+    input.pbc = pbc.data();
+    input.crystal = crystal;
+    std::vector<std::uint8_t> good;
+    std::vector<std::int64_t> atoms, vertex;
+    {
+        nb::gil_scoped_release release;
+        const analysis::dxa::Clusters clusters = analysis::dxa::build_clusters(input);
+        const analysis::Tetrahedra tetrahedra = analysis::delaunay(analysis::voronoi_vertices(
+            jittered.data(), n, matrix.data(), origin.data(), pbc.data()));
+        const analysis::dxa::Mapping mapping(input, clusters, tetrahedra);
+        const auto count = static_cast<std::int64_t>(tetrahedra.radii.size());
+        good.resize(static_cast<std::size_t>(count));
+        parallel_for(count, 0, [&](std::int64_t begin, std::int64_t end) {
+            for (std::int64_t t = begin; t < end; ++t) {
+                good[static_cast<std::size_t>(t)] = mapping.good(t) ? 1 : 0;
+            }
+        });
+        atoms = tetrahedra.atoms;
+        vertex = mapping.vertex_cluster();
+    }
+    return nb::make_tuple(as_array(std::move(good)), as_array(std::move(atoms)),
+                          as_array(std::move(vertex)));
 }
 
 nb::object steinhardt_nearest(Positions3 positions, Matrix3 matrix, Origin3 origin,
@@ -765,6 +803,9 @@ void bind_analysis(nb::module_& m) {
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("cutoff"),
           nb::arg("type").none() = nb::none(), nb::arg("limits").none() = nb::none());
+    m.def("dxa_good", &dxa_good, nb::arg("structure"), nb::arg("templates"), nb::arg("neighbors"),
+          nb::arg("positions"), nb::arg("jittered"), nb::arg("matrix"), nb::arg("inverse"),
+          nb::arg("origin"), nb::arg("pbc"), nb::arg("crystal"));
     m.def("dxa_clusters", &dxa_clusters, nb::arg("structure"), nb::arg("templates"),
           nb::arg("neighbors"), nb::arg("positions"), nb::arg("matrix"), nb::arg("inverse"),
           nb::arg("pbc"), nb::arg("crystal"));

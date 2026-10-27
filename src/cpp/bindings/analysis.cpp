@@ -282,7 +282,8 @@ nb::tuple surface_mesh(Positions3 positions, Positions3 jittered, Matrix3 matrix
 nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix3 matrix,
                                Matrix3 inverse, Origin3 origin, Periodic pbc, int crystal,
                                bool defects, int max_circuit, int stretch, double separation,
-                               int smoothing, nb::handle progress, const CancelToken* cancel) {
+                               int smoothing, int mesh_smoothing, bool interface,
+                               nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
     if (static_cast<std::int64_t>(jittered.shape(0)) != n) {
         throw std::invalid_argument("positions and jittered must have the same atoms");
@@ -294,6 +295,8 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
     options.stretch = stretch;
     options.separation = separation;
     options.smoothing = smoothing;
+    options.mesh_smoothing = mesh_smoothing;
+    options.interface = interface;
     analysis::Dislocations found;
     run_released(
         [&](const Control& control) {
@@ -318,7 +321,12 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
         as_array(std::move(found.clusters.structure)), as_array(std::move(found.clusters.size)),
         as_array(std::move(found.clusters.orientation)), as_array(std::move(points)),
         as_array(std::move(offsets)), as_array(std::move(burgers)), as_array(std::move(cluster)),
-        as_array(std::move(ends)), as_array(std::move(closed)), found.network.junctions);
+        as_array(std::move(ends)), as_array(std::move(closed)), found.network.junctions,
+        as_array(std::move(found.defects.atoms)), as_array(std::move(found.defects.vertices)),
+        as_array(std::move(found.defects.faces)), as_array(std::move(found.defects.shifts)),
+        as_array(std::move(found.interface.atoms)), as_array(std::move(found.interface.vertices)),
+        as_array(std::move(found.interface.faces)),
+        as_array(std::move(found.interface.shifts)));
 }
 
 nb::object steinhardt_nearest(Positions3 positions, Matrix3 matrix, Origin3 origin,
@@ -765,7 +773,8 @@ void bind_analysis(nb::module_& m) {
           nb::arg("jittered"), nb::arg("matrix"), nb::arg("inverse"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("crystal"), nb::arg("defects"), nb::arg("max_circuit"),
           nb::arg("stretch"), nb::arg("separation"), nb::arg("smoothing"),
-          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+          nb::arg("mesh_smoothing"), nb::arg("interface"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("surface_mesh", &surface_mesh, nb::arg("positions"), nb::arg("jittered"),
           nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"), nb::arg("radius"),
           nb::arg("smoothing"), nb::arg("regions"), nb::arg("progress") = nb::none(),

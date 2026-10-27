@@ -22,8 +22,8 @@
 namespace mdapy::analysis::dxa {
 
 // The ideal vectors between atoms. Every atom gets a cluster, its own or,
-// for one in none, that of a neighbor through the edges of the tetrahedra;
-// an ideal vector is given in the frame of the cluster of its first atom.
+// for one in none, that of the crystal atoms around it; an ideal vector is
+// given in the frame of the cluster of its first atom.
 class Mapping {
 public:
     Mapping(const ClusterInput& atoms, const Clusters& clusters, const Tetrahedra& tetrahedra,

@@ -15,6 +15,7 @@
 #include "analysis/dxa_clusters.h"
 #include "analysis/dxa_structure.h"
 #include "analysis/dxa_tracer.h"
+#include "analysis/surface_mesh.h"
 #include "core/parallel.h"
 
 namespace mdapy::analysis {
@@ -26,12 +27,22 @@ struct DislocationOptions {
     int stretch = 9;          // the edges more a circuit may grow along a line
     double separation = 2.5;  // of the points of the lines, 0 to keep them all
     int smoothing = 1;        // steps of smoothing of the lines
+    int mesh_smoothing = 8;   // steps of smoothing of the defect mesh
+    bool interface = false;   // also the interface mesh
 };
 
+// The structures and clusters of the atoms, the dislocation lines, the
+// mesh around the defects that are not dislocations and, when asked for,
+// the interface mesh between the good crystal and the rest: of each, the
+// atom at each vertex (-1 at the end of a line), the positions of the
+// vertices, the vertices of each triangle and the periodic image of each
+// corner.
 struct Dislocations {
     dxa::Structures structures;
     dxa::Clusters clusters;
     dxa::Network network;
+    SurfaceMesh defects;
+    SurfaceMesh interface;
 };
 
 // The dislocations of n atoms at positions (n x 3) whose tessellation comes

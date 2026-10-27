@@ -33,9 +33,21 @@ struct Segment {
     bool closed = false;
 };
 
+// A cap on the circuit at a free end of a line: its end and the edges of
+// the circuit.
+struct Cap {
+    Vec apex{};
+    std::vector<std::int64_t> edges;
+};
+
+// The lines, the number of junctions, and the mesh around the defects that
+// are not dislocations: the triangles of the interface mesh no circuit took
+// for good, and the caps.
 struct Network {
     std::vector<Segment> segments;
     std::int64_t junctions = 0;
+    std::vector<std::int64_t> faces;
+    std::vector<Cap> caps;
 };
 
 // The lines of the mesh: circuits of at most max_circuit edges find them,

@@ -17,6 +17,97 @@
 #include "analysis/voronoi.h"
 
 namespace mdapy::analysis {
+namespace {
+
+// The mesh of the triangles faces of the interface mesh and of caps, the
+// corners of each triangle images of its vertices, the vertices those it
+// uses.
+SurfaceMesh triangles(const dxa::InterfaceMesh& mesh, const std::vector<std::int64_t>& faces,
+                      const std::vector<dxa::Cap>& caps, const double* matrix,
+                      const double* inverse, const double* origin, const bool* pbc) {
+    SurfaceMesh out;
+    std::vector<std::int64_t> index(static_cast<std::size_t>(mesh.vertices()), -1);
+    auto vertex = [&](std::int64_t v) {
+        auto& at = index[static_cast<std::size_t>(v)];
+        if (at < 0) {
+            at = static_cast<std::int64_t>(out.atoms.size());
+            out.atoms.push_back(mesh.atoms[static_cast<std::size_t>(v)]);
+            const double* p = mesh.positions.data() + 3 * v;
+            out.vertices.insert(out.vertices.end(), p, p + 3);
+        }
+        return at;
+    };
+    // the periodic image of a vertex at the corner at point
+    auto corner = [&](std::int64_t v, const dxa::Vec& point) {
+        out.faces.push_back(v);
+        for (int k = 0; k < 3; ++k) {
+            double f = 0.0;
+            for (int d = 0; d < 3; ++d) {
+                f += (point[static_cast<std::size_t>(d)] -
+                      out.vertices[static_cast<std::size_t>(3 * v + d)]) *
+                     inverse[3 * d + k];
+            }
+            out.shifts.push_back(static_cast<std::int8_t>(pbc[k] ? std::lround(f) : 0));
+        }
+    };
+    auto at = [&](std::int64_t v) {
+        const double* p = mesh.positions.data() + 3 * v;
+        return dxa::Vec{p[0], p[1], p[2]};
+    };
+    auto physical = [&](std::int64_t e) {
+        const double* p = mesh.physical.data() + 3 * e;
+        return dxa::Vec{p[0], p[1], p[2]};
+    };
+    for (const std::int64_t f : faces) {
+        dxa::Vec point = at(mesh.start[static_cast<std::size_t>(3 * f)]);
+        for (std::int64_t e = 3 * f; e < 3 * f + 3; ++e) {
+            corner(vertex(mesh.start[static_cast<std::size_t>(e)]), point);
+            point = dxa::add(point, physical(e));
+        }
+    }
+    for (const dxa::Cap& cap : caps) {
+        // the end of the line in the box
+        dxa::Vec apex = cap.apex;
+        for (int k = 0; k < 3; ++k) {
+            if (!pbc[k]) {
+                continue;
+            }
+            double f = 0.0;
+            for (int d = 0; d < 3; ++d) {
+                f += (apex[static_cast<std::size_t>(d)] - origin[d]) * inverse[3 * d + k];
+            }
+            for (int d = 0; d < 3; ++d) {
+                apex[static_cast<std::size_t>(d)] -= std::floor(f) * matrix[3 * k + d];
+            }
+        }
+        const auto tip = static_cast<std::int64_t>(out.atoms.size());
+        out.atoms.push_back(-1);
+        out.vertices.insert(out.vertices.end(), apex.begin(), apex.end());
+        for (const std::int64_t e : cap.edges) {
+            const dxa::Vec from = at(mesh.end(e));
+            corner(vertex(mesh.end(e)), from);
+            corner(vertex(mesh.start[static_cast<std::size_t>(e)]), dxa::minus(from, physical(e)));
+            // the image of the end nearest the edge
+            dxa::Vec near = dxa::minus(cap.apex, from);
+            for (int k = 0; k < 3; ++k) {
+                if (!pbc[k]) {
+                    continue;
+                }
+                double f = 0.0;
+                for (int d = 0; d < 3; ++d) {
+                    f += near[static_cast<std::size_t>(d)] * inverse[3 * d + k];
+                }
+                for (int d = 0; d < 3; ++d) {
+                    near[static_cast<std::size_t>(d)] -= std::round(f) * matrix[3 * k + d];
+                }
+            }
+            corner(tip, dxa::add(from, near));
+        }
+    }
+    return out;
+}
+
+}  // namespace
 
 Dislocations dislocation_analysis(const double* positions, const double* jittered, std::int64_t n,
                                   const double* matrix, const double* inverse,
@@ -97,6 +188,16 @@ Dislocations dislocation_analysis(const double* positions, const double* jittere
     out.network = dxa::trace_dislocations(mesh, input, out.clusters, options.max_circuit,
                                           options.stretch, stage(control, 4, kStages));
     dxa::smooth_lines(out.network, options.separation, options.smoothing);
+    out.defects =
+        triangles(mesh, out.network.faces, out.network.caps, matrix, inverse, origin, pbc);
+    smooth_mesh(out.defects, matrix, options.mesh_smoothing);
+    if (options.interface) {
+        std::vector<std::int64_t> all(static_cast<std::size_t>(mesh.faces()));
+        for (std::int64_t f = 0; f < mesh.faces(); ++f) {
+            all[static_cast<std::size_t>(f)] = f;
+        }
+        out.interface = triangles(mesh, all, {}, matrix, inverse, origin, pbc);
+    }
     return out;
 }
 

@@ -27,26 +27,6 @@ Mapping::Mapping(const ClusterInput& atoms, const Clusters& clusters,
     : atoms_(atoms), clusters_(clusters), tetrahedra_(tetrahedra), vertex_cluster_(clusters.cluster) {
     const std::int64_t n = atoms.n;
     const auto count = static_cast<std::int64_t>(tetrahedra.radii.size());
-    // the atoms outside the clusters take the cluster of a neighbor along
-    // the edges of the tetrahedra, as long as one is found
-    for (bool changed = true; changed;) {
-        changed = false;
-        for (std::int64_t t = 0; t < count; ++t) {
-            for (const auto& edge : kEdges) {
-                const std::int64_t a = tetrahedra.atoms[static_cast<std::size_t>(4 * t + edge[0])];
-                const std::int64_t b = tetrahedra.atoms[static_cast<std::size_t>(4 * t + edge[1])];
-                std::int64_t& ca = vertex_cluster_[static_cast<std::size_t>(a)];
-                std::int64_t& cb = vertex_cluster_[static_cast<std::size_t>(b)];
-                if (ca < 0 && cb >= 0) {
-                    ca = cb;
-                    changed = true;
-                } else if (cb < 0 && ca >= 0) {
-                    cb = ca;
-                    changed = true;
-                }
-            }
-        }
-    }
     // the crystal atoms each atom outside the clusters is a neighbor of
     reverse_offsets_.assign(static_cast<std::size_t>(n) + 1, 0);
     auto each_reverse = [&](auto&& visit) {
@@ -78,6 +58,77 @@ Mapping::Mapping(const ClusterInput& atoms, const Clusters& clusters,
         reverse_atoms_[at] = a;
         reverse_places_[at] = static_cast<std::int8_t>(k);
     });
+    // the atoms outside the clusters: each takes the cluster most of the
+    // crystal atoms that count it among their neighbors are in, the first of
+    // a tie; then, round by round, those still without one the cluster most
+    // of their neighbors along the edges of the tetrahedra that have one
+    // are in
+    auto most = [](std::vector<std::int64_t>& found) {
+        std::sort(found.begin(), found.end());
+        std::int64_t best = -1, best_count = 0;
+        for (std::size_t i = 0; i < found.size();) {
+            std::size_t j = i;
+            while (j < found.size() && found[j] == found[i]) {
+                ++j;
+            }
+            if (static_cast<std::int64_t>(j - i) > best_count) {
+                best_count = static_cast<std::int64_t>(j - i);
+                best = found[i];
+            }
+            i = j;
+        }
+        return best;
+    };
+    std::vector<std::int64_t> found;
+    for (std::int64_t b = 0; b < n; ++b) {
+        found.clear();
+        for (std::int64_t r = reverse_offsets_[static_cast<std::size_t>(b)];
+             r < reverse_offsets_[static_cast<std::size_t>(b) + 1]; ++r) {
+            found.push_back(clusters.cluster[static_cast<std::size_t>(
+                reverse_atoms_[static_cast<std::size_t>(r)])]);
+        }
+        if (!found.empty()) {
+            vertex_cluster_[static_cast<std::size_t>(b)] = most(found);
+        }
+    }
+    std::vector<std::vector<std::int64_t>> around(static_cast<std::size_t>(n));
+    for (std::int64_t t = 0; t < count; ++t) {
+        for (const auto& edge : kEdges) {
+            const std::int64_t a = tetrahedra.atoms[static_cast<std::size_t>(4 * t + edge[0])];
+            const std::int64_t b = tetrahedra.atoms[static_cast<std::size_t>(4 * t + edge[1])];
+            if (vertex_cluster_[static_cast<std::size_t>(a)] < 0) {
+                around[static_cast<std::size_t>(a)].push_back(b);
+            }
+            if (vertex_cluster_[static_cast<std::size_t>(b)] < 0) {
+                around[static_cast<std::size_t>(b)].push_back(a);
+            }
+        }
+    }
+    for (auto& atoms_around : around) {
+        std::sort(atoms_around.begin(), atoms_around.end());
+        atoms_around.erase(std::unique(atoms_around.begin(), atoms_around.end()),
+                           atoms_around.end());
+    }
+    for (bool changed = true; changed;) {
+        changed = false;
+        std::vector<std::int64_t> next = vertex_cluster_;
+        for (std::int64_t a = 0; a < n; ++a) {
+            if (vertex_cluster_[static_cast<std::size_t>(a)] >= 0) {
+                continue;
+            }
+            found.clear();
+            for (const std::int64_t b : around[static_cast<std::size_t>(a)]) {
+                if (vertex_cluster_[static_cast<std::size_t>(b)] >= 0) {
+                    found.push_back(vertex_cluster_[static_cast<std::size_t>(b)]);
+                }
+            }
+            if (!found.empty()) {
+                next[static_cast<std::size_t>(a)] = most(found);
+                changed = true;
+            }
+        }
+        vertex_cluster_ = std::move(next);
+    }
     const auto clusters_count = static_cast<std::int64_t>(clusters.structure.size());
     touching_.resize(clusters.structure.size());
     for (const Transition& t : clusters.transitions) {

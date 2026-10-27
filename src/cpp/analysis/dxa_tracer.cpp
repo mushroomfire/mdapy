@@ -40,6 +40,7 @@ public:
           edge_circuit_(mesh.start.size(), -1),
           next_(mesh.start.size(), -1),
           face_circuit_(static_cast<std::size_t>(mesh.faces()), -1),
+          face_primary_(static_cast<std::size_t>(mesh.faces()), 0),
           visit_(static_cast<std::size_t>(mesh.vertices()), -1) {}
 
     void run(const Control& control);
@@ -52,6 +53,7 @@ private:
         std::int64_t node = -1;
         std::int64_t preliminary = 0;  // points of the line not kept unless it goes on
         bool stored = false;
+        std::vector<std::int64_t> cap;  // its edges when stored
         bool blocked = false;
         bool dangling = true;
     };
@@ -112,7 +114,7 @@ private:
     std::int64_t edge_at(std::int64_t circuit, std::int64_t index) const;
 
     std::int64_t allocate();
-    void primary(int length);
+    void find_primary(int length);
     bool create(std::int64_t edge, int length);
     bool intersects(std::int64_t circuit);
     void crossing(std::int64_t a1, std::int64_t a2, std::int64_t b1, std::int64_t b2,
@@ -122,10 +124,17 @@ private:
                      int length);
     void advance(std::int64_t node, int length, bool primary);
     bool remove_two(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2);
-    bool remove_three(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2);
-    bool remove_one(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2);
-    bool sweep_two(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2);
-    bool insert_one(std::int64_t& e0, std::int64_t& e1);
+    bool remove_three(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2, bool primary);
+    bool remove_one(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2, bool primary);
+    bool sweep_two(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2, bool primary);
+    bool insert_one(std::int64_t& e0, std::int64_t& e1, bool primary);
+    // takes triangle f for circuit, for good when primary
+    void take(std::int64_t f, std::int64_t circuit, bool primary) {
+        face_circuit_[static_cast<std::size_t>(f)] = circuit;
+        if (primary) {
+            face_primary_[static_cast<std::size_t>(f)] = 1;
+        }
+    }
     void append(std::int64_t node);
     void join(int length);
     void secondary(std::int64_t first_edge, std::int64_t outer, int length);
@@ -139,6 +148,7 @@ private:
     const ClusterInput& atoms_;
     int max_, extended_;
     std::vector<std::int64_t> edge_circuit_, next_, face_circuit_;
+    std::vector<std::uint8_t> face_primary_;  // taken by a circuit for good
     std::vector<Circuit> circuits_;
     std::int64_t unused_ = -1;
     std::vector<Node> nodes_;
@@ -213,7 +223,7 @@ void Tracer::run(const Control& control) {
             advance(dangling_[i], length, length <= max_);
         }
         if (length <= max_ && length % 2 == 1) {
-            primary(length);
+            find_primary(length);
         }
         join(length);
         if (length >= max_) {
@@ -222,6 +232,13 @@ void Tracer::run(const Control& control) {
                     nodes_[static_cast<std::size_t>(node)].circuit)];
                 if (!c.stored) {
                     c.stored = true;
+                    for (std::int64_t e = c.first;;) {
+                        c.cap.push_back(e);
+                        e = next_[static_cast<std::size_t>(e)];
+                        if (e == c.first) {
+                            break;
+                        }
+                    }
                     c.preliminary = 0;
                 }
             }
@@ -235,7 +252,7 @@ void Tracer::run(const Control& control) {
 // From each vertex a breadth first search over the free edges, at most half
 // the circuit deep, until two paths meet whose ideal vectors differ: the
 // circuit of the two encloses a dislocation.
-void Tracer::primary(int length) {
+void Tracer::find_primary(int length) {
     const int depth = (length - 1) / 2;
     for (std::int64_t v = 0; v < mesh_.vertices(); ++v) {
         search_.clear();
@@ -428,8 +445,8 @@ std::int64_t Tracer::reverse(std::int64_t forward_circuit) {
         if (InterfaceMesh::face(o1) != InterfaceMesh::face(o2)) {
             const std::int64_t inner1 = opposite(InterfaceMesh::prev(o1));
             const std::int64_t inner2 = opposite(InterfaceMesh::next(o2));
-            face_circuit(o1) = c;
-            face_circuit(o2) = c;
+            take(InterfaceMesh::face(o1), c, true);
+            take(InterfaceMesh::face(o2), c, true);
             circuit_of(inner1) = c;
             circuit_of(inner2) = c;
             next(inner2) = inner1;
@@ -486,15 +503,14 @@ void Tracer::create_line(const Vec& burgers, std::int64_t cluster,
 // length edges long or stuck.
 void Tracer::advance(std::int64_t node, int length, bool primary) {
     const std::int64_t c = nodes_[static_cast<std::size_t>(node)].circuit;
-    (void)primary;
     for (;;) {
         std::int64_t count = circuits_[static_cast<std::size_t>(c)].count;
         std::int64_t first = edge_at(c, static_cast<std::int64_t>(random_() % static_cast<std::uint64_t>(count)));
         std::int64_t e0 = first, e1 = next(e0), e2 = next(e1);
         std::int64_t counter = 0;
         do {
-            if (remove_two(e0, e1, e2) || remove_three(e0, e1, e2) || remove_one(e0, e1, e2) ||
-                sweep_two(e0, e1, e2)) {
+            if (remove_two(e0, e1, e2) || remove_three(e0, e1, e2, primary) ||
+                remove_one(e0, e1, e2, primary) || sweep_two(e0, e1, e2, primary)) {
                 append(node);
                 counter = -1;
             }
@@ -512,7 +528,7 @@ void Tracer::advance(std::int64_t node, int length, bool primary) {
         e1 = next(first);
         bool extended = false;
         do {
-            if (insert_one(e0, e1)) {
+            if (insert_one(e0, e1, primary)) {
                 extended = true;
                 append(node);
                 break;
@@ -548,7 +564,7 @@ bool Tracer::remove_two(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2) {
 }
 
 // Three edges around a free triangle.
-bool Tracer::remove_three(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2) {
+bool Tracer::remove_three(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2, bool primary) {
     const std::int64_t f = InterfaceMesh::face(e1);
     if (InterfaceMesh::face(e2) != f || face_circuit(e1) >= 0) {
         return false;
@@ -571,12 +587,12 @@ bool Tracer::remove_three(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2) 
     c.count -= 3;
     e1 = next(e3);
     e2 = next(e1);
-    face_circuit_[static_cast<std::size_t>(f)] = id;
+    take(f, id, primary);
     return true;
 }
 
 // Two edges of a free triangle replaced by its third.
-bool Tracer::remove_one(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2) {
+bool Tracer::remove_one(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2, bool primary) {
     const std::int64_t f = InterfaceMesh::face(e1);
     if (InterfaceMesh::face(e2) != f || face_circuit(e1) >= 0 || InterfaceMesh::face(e0) == f) {
         return false;
@@ -602,13 +618,13 @@ bool Tracer::remove_one(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2) {
     e1 = shortcut;
     e2 = next(shortcut);
     circuit_of(shortcut) = id;
-    face_circuit_[static_cast<std::size_t>(f)] = id;
+    take(f, id, primary);
     return true;
 }
 
 // Two edges on two free triangles that share an edge replaced by the two
 // edges beyond them.
-bool Tracer::sweep_two(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2) {
+bool Tracer::sweep_two(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2, bool primary) {
     if (face_circuit(e1) >= 0 || face_circuit(e2) >= 0) {
         return false;
     }
@@ -637,8 +653,8 @@ bool Tracer::sweep_two(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2) {
     }
     circuit_of(outer1) = id;
     circuit_of(outer2) = id;
-    face_circuit(e1) = id;
-    face_circuit(e2) = id;
+    take(InterfaceMesh::face(e1), id, primary);
+    take(InterfaceMesh::face(e2), id, primary);
     e0 = outer1;
     e1 = outer2;
     e2 = next(e1);
@@ -646,7 +662,7 @@ bool Tracer::sweep_two(std::int64_t& e0, std::int64_t& e1, std::int64_t& e2) {
 }
 
 // An edge across a free triangle replaced by the two others.
-bool Tracer::insert_one(std::int64_t& e0, std::int64_t& e1) {
+bool Tracer::insert_one(std::int64_t& e0, std::int64_t& e1, bool primary) {
     if (face_circuit(e1) >= 0) {
         return false;
     }
@@ -668,7 +684,7 @@ bool Tracer::insert_one(std::int64_t& e0, std::int64_t& e1) {
     circuit_of(first) = id;
     circuit_of(second) = id;
     ++c.count;
-    face_circuit(e1) = id;
+    take(InterfaceMesh::face(e1), id, primary);
     return true;
 }
 
@@ -1005,6 +1021,20 @@ Network Tracer::finish(const Clusters& clusters, int crystal) {
         }
     }
     Network network;
+    // the mesh of the other defects: the triangles no circuit took for good,
+    // and a cap on the circuit at each free end
+    for (std::int64_t f = 0; f < mesh_.faces(); ++f) {
+        const std::int64_t c = face_circuit_[static_cast<std::size_t>(f)];
+        if (c < 0 || (!face_primary_[static_cast<std::size_t>(f)] &&
+                      circuits_[static_cast<std::size_t>(c)].dangling)) {
+            network.faces.push_back(f);
+        }
+    }
+    for (const std::int64_t node : dangling_) {
+        network.caps.push_back(
+            {position(node),
+             circuits_[static_cast<std::size_t>(nodes_[static_cast<std::size_t>(node)].circuit)].cap});
+    }
     std::vector<std::int64_t> junction(nodes_.size(), -1);
     for (const Line& line : lines_) {
         if (!line.alive) {

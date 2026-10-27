@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 
 from mdapy._core import analysis as _native
+from mdapy.core.mesh import TriangleMesh
 from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
@@ -189,6 +190,19 @@ class DislocationResult(Result):
         (N,) int64 crystal cluster of each atom, -1 for none.
     clusters : CrystalClusters
         The crystal clusters.
+    defect_mesh : TriangleMesh
+        The surface around the defects that are not dislocations, such as
+        grain boundaries, free surfaces and voids, closed at the free ends
+        of the lines, its normals pointing out of the crystal.
+    defect_atoms : numpy.ndarray
+        (V,) int64 the atom at each vertex of the defect mesh, -1 at the
+        end of a line.
+    interface_mesh : TriangleMesh or None
+        The mesh between the tetrahedra of the good crystal and the rest,
+        its normals pointing into the good crystal, when asked for.
+    interface_atoms : numpy.ndarray or None
+        (V,) int64 the atom at each vertex of the interface mesh, when asked
+        for.
     """
 
     crystal: str
@@ -199,6 +213,10 @@ class DislocationResult(Result):
     colors: tuple[tuple[float, float, float], ...]
     crystal_cluster: np.ndarray
     clusters: CrystalClusters
+    defect_mesh: TriangleMesh
+    defect_atoms: np.ndarray
+    interface_mesh: TriangleMesh | None = None
+    interface_atoms: np.ndarray | None = None
 
     @property
     def total_length(self) -> float:
@@ -241,6 +259,11 @@ class DislocationAnalysis:
         keeps them all. Default 2.5.
     smoothing : int, optional
         Number of smoothing steps of the lines. Default 1.
+    mesh_smoothing : int, optional
+        Number of smoothing steps of the defect mesh. Default 8.
+    interface_mesh : bool, optional
+        Also give the interface mesh, between the tetrahedra of the good
+        crystal and the rest, on which the circuits run. Default False.
     """
 
     #: Names of the structure types.
@@ -260,6 +283,8 @@ class DislocationAnalysis:
         perfect_only: bool = False,
         point_separation: float = 2.5,
         smoothing: int = 1,
+        mesh_smoothing: int = 8,
+        interface_mesh: bool = False,
     ):
         if crystal not in _CRYSTALS:
             raise InvalidParameter(
@@ -269,6 +294,7 @@ class DislocationAnalysis:
             ("circuit_length", circuit_length, 3),
             ("stretch", stretch, 0),
             ("smoothing", smoothing, 0),
+            ("mesh_smoothing", mesh_smoothing, 0),
         ]:
             if isinstance(value, bool) or int(value) != value or value < low:
                 raise InvalidParameter(
@@ -285,6 +311,8 @@ class DislocationAnalysis:
         self.perfect_only = bool(perfect_only)
         self.point_separation = point_separation
         self.smoothing = int(smoothing)
+        self.mesh_smoothing = int(mesh_smoothing)
+        self.interface_mesh = bool(interface_mesh)
 
     def compute(
         self, system: System, *, progress: Any = None, cancel: Any = None
@@ -331,6 +359,8 @@ class DislocationAnalysis:
                 self.stretch,
                 self.point_separation,
                 self.smoothing,
+                self.mesh_smoothing,
+                self.interface_mesh,
                 progress,
                 _native_token(cancel),
             )
@@ -351,6 +381,14 @@ class DislocationAnalysis:
             ends,
             closed,
             count,
+            mesh_atoms,
+            mesh_vertices,
+            mesh_faces,
+            mesh_shifts,
+            interface_atoms,
+            interface_vertices,
+            interface_faces,
+            interface_shifts,
         ) = found
         # the PTM types as indices into NAMES
         index = np.zeros(8, dtype=np.int8)
@@ -399,11 +437,29 @@ class DislocationAnalysis:
             clusters=CrystalClusters(
                 structure=index[cluster_structure], size=size, orientation=orientation
             ),
+            defect_mesh=TriangleMesh(
+                mesh_vertices.reshape(-1, 3),
+                mesh_faces.reshape(-1, 3),
+                mesh_shifts.reshape(-1, 3, 3),
+                box,
+            ),
+            defect_atoms=mesh_atoms,
+            interface_mesh=None
+            if not self.interface_mesh
+            else TriangleMesh(
+                interface_vertices.reshape(-1, 3),
+                interface_faces.reshape(-1, 3),
+                interface_shifts.reshape(-1, 3, 3),
+                box,
+            ),
+            interface_atoms=interface_atoms if self.interface_mesh else None,
         )
 
     def __repr__(self) -> str:
         return (
             f"DislocationAnalysis({self.crystal!r}, circuit_length={self.circuit_length!r}, "
             f"stretch={self.stretch!r}, perfect_only={self.perfect_only!r}, "
-            f"point_separation={self.point_separation!r}, smoothing={self.smoothing!r})"
+            f"point_separation={self.point_separation!r}, smoothing={self.smoothing!r}, "
+            f"mesh_smoothing={self.mesh_smoothing!r}, "
+            f"interface_mesh={self.interface_mesh!r})"
         )

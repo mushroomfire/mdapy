@@ -386,6 +386,7 @@ nb::tuple dxa_lines(Positions3 positions, Positions3 jittered, Matrix3 matrix, M
     analysis::dxa::Network network;
     analysis::dxa::Structures structures;
     std::int64_t bad = 0, faces = 0;
+    std::vector<std::int64_t> triangles;
     {
         nb::gil_scoped_release release;
         structures = analysis::dxa::find_structures(positions.data(), n, matrix.data(),
@@ -417,6 +418,9 @@ nb::tuple dxa_lines(Positions3 positions, Positions3 jittered, Matrix3 matrix, M
         const analysis::dxa::InterfaceMesh mesh = analysis::dxa::interface_mesh(
             input, mapping, tetrahedra, good, jittered.data(), 5 * cutoff);
         faces = mesh.faces();
+        for (const std::int64_t v : mesh.start) {
+            triangles.push_back(mesh.atoms[static_cast<std::size_t>(v)]);
+        }
         network = analysis::dxa::trace_dislocations(mesh, input, clusters, max_circuit, stretch);
         analysis::dxa::smooth_lines(network, separation, smoothing);
     }
@@ -440,7 +444,7 @@ nb::tuple dxa_lines(Positions3 positions, Positions3 jittered, Matrix3 matrix, M
                           as_array(std::move(clusters.cluster)),
                           as_array(std::move(clusters.structure)),
                           as_array(std::move(clusters.orientation)), bad, faces,
-                          as_array(std::move(structures.structure)));
+                          as_array(std::move(structures.structure)), as_array(std::move(triangles)));
 }
 
 nb::object steinhardt_nearest(Positions3 positions, Matrix3 matrix, Origin3 origin,

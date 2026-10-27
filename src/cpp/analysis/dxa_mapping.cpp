@@ -5,6 +5,7 @@
 
 #include "analysis/dxa_mapping.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <unordered_map>
 #include <utility>
@@ -78,9 +79,12 @@ Mapping::Mapping(const ClusterInput& atoms, const Clusters& clusters,
         reverse_places_[at] = static_cast<std::int8_t>(k);
     });
     const auto clusters_count = static_cast<std::int64_t>(clusters.structure.size());
+    touching_.resize(clusters.structure.size());
     for (const Transition& t : clusters.transitions) {
         direct_.emplace(t.from * clusters_count + t.to, t.matrix);
         direct_.emplace(t.to * clusters_count + t.from, transpose(t.matrix));
+        touching_[static_cast<std::size_t>(t.from)].push_back(t.to);
+        touching_[static_cast<std::size_t>(t.to)].push_back(t.from);
     }
     (void)control;
 }
@@ -93,14 +97,13 @@ std::optional<Mat> Mapping::transition(std::int64_t c1, std::int64_t c2) const {
     if (const auto found = direct_.find(c1 * count + c2); found != direct_.end()) {
         return found->second;
     }
-    if (clusters_.grain[static_cast<std::size_t>(c1)] ==
-        clusters_.grain[static_cast<std::size_t>(c2)]) {
-        Mat g1, g2;
-        std::copy(clusters_.to_grain.begin() + 9 * c1, clusters_.to_grain.begin() + 9 * c1 + 9,
-                  g1.begin());
-        std::copy(clusters_.to_grain.begin() + 9 * c2, clusters_.to_grain.begin() + 9 * c2 + 9,
-                  g2.begin());
-        return multiply(transpose(g2), g1);
+    // through the first cluster that touches both, from the one first made
+    const std::int64_t a = std::min(c1, c2), b = std::max(c1, c2);
+    for (const std::int64_t k : touching_[static_cast<std::size_t>(a)]) {
+        if (const auto found = direct_.find(k * count + b); found != direct_.end()) {
+            const Mat m = multiply(found->second, direct_.at(a * count + k));
+            return c1 == a ? m : transpose(m);
+        }
     }
     return std::nullopt;
 }

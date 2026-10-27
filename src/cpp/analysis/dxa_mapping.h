@@ -33,7 +33,8 @@ public:
     const std::vector<std::int64_t>& vertex_cluster() const { return vertex_cluster_; }
 
     // the matrix that takes vectors of the frame of cluster c1 into that of
-    // c2: the same cluster, a transition, or through their grain
+    // c2: the same cluster, a transition between them, or two through a
+    // cluster both touch
     std::optional<Mat> transition(std::int64_t c1, std::int64_t c2) const;
 
     // the ideal vector from atom i to atom j, in the frame of the cluster of
@@ -57,8 +58,10 @@ private:
     std::vector<std::int64_t> reverse_offsets_;
     std::vector<std::int64_t> reverse_atoms_;
     std::vector<std::int8_t> reverse_places_;
-    // the transitions both ways, by c1 * clusters + c2
+    // the transitions both ways, by c1 * clusters + c2, and the clusters
+    // each touches, in the order the transitions were found
     std::unordered_map<std::int64_t, Mat> direct_;
+    std::vector<std::vector<std::int64_t>> touching_;
 };
 
 }  // namespace mdapy::analysis::dxa

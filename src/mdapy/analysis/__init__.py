@@ -14,6 +14,12 @@ from mdapy.analysis._bonds import (
     WarrenCowley,
     WarrenCowleyResult,
 )
+from mdapy.analysis._dislocations import (
+    CrystalClusters,
+    DislocationAnalysis,
+    DislocationLine,
+    DislocationResult,
+)
 from mdapy.analysis._displacement import AtomicDisplacement, AtomicDisplacementResult
 from mdapy.analysis._distribution import (
     CoordinationNumber,
@@ -60,6 +66,10 @@ __all__ = [
     "ChemicalSpecies",
     "ClusterAnalysis",
     "ClusterResult",
+    "CrystalClusters",
+    "DislocationAnalysis",
+    "DislocationLine",
+    "DislocationResult",
     "CoordinationNumber",
     "CoordinationResult",
     "EntropyFingerprint",

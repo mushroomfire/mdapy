@@ -21,19 +21,18 @@
 
 namespace mdapy::analysis::dxa {
 
-// A lattice the analysis works in: the ideal vector to each neighbor of
-// each template of polyhedral template matching, in units of the cubic
-// lattice constant (hcp that of fcc, hexagonal diamond that of cubic
-// diamond, with the same nearest neighbors), in the order of the
-// template; for each neighbor, two other neighbors of the central atom that
-// are its neighbors too, the three vectors from it not in a plane; the
-// rotations of the lattice, which take the neighbors of the first template
-// onto those of an atom of the same or another site, and the index of the
-// product of each two of them.
+// A lattice the analysis works in: the ideal vector to each neighbor in the
+// first template of polyhedral template matching, in its order, in units of
+// the cubic lattice constant (hcp that of fcc, hexagonal diamond that of
+// cubic diamond, with the same nearest neighbors); for each neighbor, two
+// other neighbors of the central atom that are its neighbors too, the three
+// vectors from it not in a plane; the rotations of the lattice, which take
+// the neighbors onto those of an atom of the same or another site, and the
+// index of the product of each two of them.
 struct Lattice {
     int structure = 0;  // PTM type
     int neighbors = 0;
-    std::vector<std::array<Vec, 16>> templates;
+    std::array<Vec, 16> vectors{};
     std::array<std::array<int, 2>, 16> common{};
     std::vector<Mat> group;
     std::vector<std::vector<std::int16_t>> product;  // group[product[a][b]] = group[a] group[b]
@@ -43,13 +42,12 @@ struct Lattice {
 // fcc, hcp, bcc, cubic and hexagonal diamond.
 const Lattice* lattice(int structure);
 
-// The atoms: the PTM type and template of each, and their neighbors in the
-// order of the template (16 each, -1 after the last); positions and the
+// The atoms: the PTM type of each, and their neighbors in the order of the
+// vectors of its lattice (16 each, -1 after the last); positions and the
 // box, for the orientations of the clusters.
 struct ClusterInput {
     std::int64_t n = 0;
     const std::int8_t* structure = nullptr;
-    const std::int8_t* templates = nullptr;
     const index_t* neighbors = nullptr;
     const double* positions = nullptr;  // n x 3
     const double* matrix = nullptr;     // rows a, b, c

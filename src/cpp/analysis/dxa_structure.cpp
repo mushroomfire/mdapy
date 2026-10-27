@@ -53,7 +53,7 @@ Pattern make_pattern(int type) {
     Pattern p;
     p.structure = type;
     p.neighbors = l->neighbors;
-    p.vectors = l->templates[0];
+    p.vectors = l->vectors;
     const int m = p.neighbors;
     auto length = [&](const Vec& v) { return std::sqrt(dot(v, v)); };
     auto at = [&](int a) { return p.vectors[static_cast<std::size_t>(a)]; };
@@ -269,7 +269,9 @@ Structures find_structures(const double* positions, std::int64_t n, const double
     Structures out;
     out.structure.assign(static_cast<std::size_t>(n), 0);
     out.neighbors.assign(static_cast<std::size_t>(16 * n), -1);
-    if (n == 0) {
+    // too few atoms for the neighbors of one
+    const int needed = diamond(crystal) ? 4 : crystal == identify::kPtmBcc ? 15 : 13;
+    if (n == 0 || (!pbc[0] && !pbc[1] && !pbc[2] && n <= needed)) {
         return out;
     }
     const neighbor::KdTree tree(positions, n, matrix, origin, pbc);

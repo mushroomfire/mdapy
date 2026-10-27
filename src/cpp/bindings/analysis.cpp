@@ -17,12 +17,8 @@
 #include <utility>
 #include <vector>
 
+#include "analysis/dislocations.h"
 #include "analysis/distribution.h"
-#include "analysis/dxa_clusters.h"
-#include "analysis/dxa_mapping.h"
-#include "analysis/dxa_mesh.h"
-#include "analysis/dxa_structure.h"
-#include "analysis/dxa_tracer.h"
 #include "analysis/tessellation.h"
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
@@ -283,168 +279,46 @@ nb::tuple surface_mesh(Positions3 positions, Positions3 jittered, Matrix3 matrix
                           solid_volume, table);
 }
 
-using Neighbors16 = nb::ndarray<const index_t, nb::shape<-1, 16>, nb::c_contig, nb::device::cpu>;
-using Bytes = nb::ndarray<const std::int8_t, nb::shape<-1>, nb::c_contig, nb::device::cpu>;
-
-nb::tuple dxa_clusters(Bytes structure, Bytes templates, Neighbors16 neighbors, Positions3 positions,
-                       Matrix3 matrix, Matrix3 inverse, Periodic pbc, int crystal) {
+nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix3 matrix,
+                               Matrix3 inverse, Origin3 origin, Periodic pbc, int crystal,
+                               bool defects, int max_circuit, int stretch, double separation,
+                               int smoothing, nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
-    if (static_cast<std::int64_t>(structure.shape(0)) != n ||
-        static_cast<std::int64_t>(templates.shape(0)) != n ||
-        static_cast<std::int64_t>(neighbors.shape(0)) != n) {
-        throw std::invalid_argument("the arrays must have one row per atom");
+    if (static_cast<std::int64_t>(jittered.shape(0)) != n) {
+        throw std::invalid_argument("positions and jittered must have the same atoms");
     }
-    for (std::int64_t i = 0; i < 16 * n; ++i) {
-        if (neighbors.data()[i] >= n) {
-            throw std::invalid_argument("a neighbor outside the atoms");
-        }
-    }
-    analysis::dxa::ClusterInput input;
-    input.n = n;
-    input.structure = structure.data();
-    input.templates = templates.data();
-    input.neighbors = neighbors.data();
-    input.positions = positions.data();
-    input.matrix = matrix.data();
-    input.inverse = inverse.data();
-    input.pbc = pbc.data();
-    input.crystal = crystal;
-    analysis::dxa::Clusters out;
-    {
-        nb::gil_scoped_release release;
-        out = analysis::dxa::build_clusters(input);
-    }
-    std::vector<std::int64_t> ends;
-    std::vector<double> matrices;
-    std::vector<std::int64_t> areas;
-    for (const auto& t : out.transitions) {
-        ends.push_back(t.from);
-        ends.push_back(t.to);
-        matrices.insert(matrices.end(), t.matrix.begin(), t.matrix.end());
-        areas.push_back(t.area);
-    }
-    return nb::make_tuple(as_array(std::move(out.cluster)), as_array(std::move(out.rotation)),
-                          as_array(std::move(out.structure)), as_array(std::move(out.size)),
-                          as_array(std::move(out.orientation)), as_array(std::move(out.grain)),
-                          as_array(std::move(out.to_grain)), as_array(std::move(ends)),
-                          as_array(std::move(matrices)), as_array(std::move(areas)));
-}
-
-nb::tuple dxa_good(Bytes structure, Bytes templates, Neighbors16 neighbors, Positions3 positions,
-                   Positions3 jittered, Matrix3 matrix, Matrix3 inverse, Origin3 origin, Periodic pbc,
-                   int crystal) {
-    const auto n = static_cast<std::int64_t>(positions.shape(0));
-    analysis::dxa::ClusterInput input;
-    input.n = n;
-    input.structure = structure.data();
-    input.templates = templates.data();
-    input.neighbors = neighbors.data();
-    input.positions = positions.data();
-    input.matrix = matrix.data();
-    input.inverse = inverse.data();
-    input.pbc = pbc.data();
-    input.crystal = crystal;
-    std::vector<std::uint8_t> good;
-    std::vector<std::int64_t> atoms, vertex;
-    {
-        nb::gil_scoped_release release;
-        const analysis::dxa::Clusters clusters = analysis::dxa::build_clusters(input);
-        const analysis::Tetrahedra tetrahedra = analysis::delaunay(analysis::voronoi_vertices(
-            jittered.data(), n, matrix.data(), origin.data(), pbc.data()));
-        const analysis::dxa::Mapping mapping(input, clusters, tetrahedra);
-        const auto count = static_cast<std::int64_t>(tetrahedra.radii.size());
-        good.resize(static_cast<std::size_t>(count));
-        parallel_for(count, 0, [&](std::int64_t begin, std::int64_t end) {
-            for (std::int64_t t = begin; t < end; ++t) {
-                good[static_cast<std::size_t>(t)] = mapping.good(t) ? 1 : 0;
-            }
-        });
-        atoms = tetrahedra.atoms;
-        vertex = mapping.vertex_cluster();
-    }
-    return nb::make_tuple(as_array(std::move(good)), as_array(std::move(atoms)),
-                          as_array(std::move(vertex)));
-}
-
-nb::tuple dxa_structures(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic pbc,
-                         int crystal, bool defects) {
-    const auto n = static_cast<std::int64_t>(positions.shape(0));
-    analysis::dxa::Structures out;
-    {
-        nb::gil_scoped_release release;
-        out = analysis::dxa::find_structures(positions.data(), n, matrix.data(), origin.data(),
-                                             pbc.data(), crystal, defects);
-    }
-    return nb::make_tuple(as_array(std::move(out.structure)), as_array(std::move(out.neighbors)));
-}
-
-nb::tuple dxa_lines(Positions3 positions, Positions3 jittered, Matrix3 matrix, Matrix3 inverse,
-                    Origin3 origin, Periodic pbc, int crystal, bool defects, int max_circuit,
-                    int stretch, double separation, int smoothing) {
-    const auto n = static_cast<std::int64_t>(positions.shape(0));
-    analysis::dxa::Clusters clusters;
-    analysis::dxa::Network network;
-    analysis::dxa::Structures structures;
-    std::int64_t bad = 0, faces = 0;
-    std::vector<std::int64_t> triangles;
-    {
-        nb::gil_scoped_release release;
-        structures = analysis::dxa::find_structures(positions.data(), n, matrix.data(),
-                                                    origin.data(), pbc.data(), crystal, defects);
-        const std::vector<std::int8_t> templates(static_cast<std::size_t>(n), 0);
-        analysis::dxa::ClusterInput input;
-        input.n = n;
-        input.structure = structures.structure.data();
-        input.templates = templates.data();
-        input.neighbors = structures.neighbors.data();
-        input.positions = positions.data();
-        input.matrix = matrix.data();
-        input.inverse = inverse.data();
-        input.pbc = pbc.data();
-        input.crystal = crystal;
-        clusters = analysis::dxa::build_clusters(input);
-        const analysis::Tetrahedra tetrahedra = analysis::delaunay(analysis::voronoi_vertices(
-            jittered.data(), n, matrix.data(), origin.data(), pbc.data()));
-        const analysis::dxa::Mapping mapping(input, clusters, tetrahedra);
-        const auto count = static_cast<std::int64_t>(tetrahedra.radii.size());
-        std::vector<std::uint8_t> good(static_cast<std::size_t>(count));
-        parallel_for(count, 0, [&](std::int64_t begin, std::int64_t end) {
-            for (std::int64_t t = begin; t < end; ++t) {
-                good[static_cast<std::size_t>(t)] = mapping.good(t) ? 1 : 0;
-            }
-        });
-        bad = count - std::count(good.begin(), good.end(), std::uint8_t{1});
-        const double cutoff = analysis::dxa::neighbor_cutoff(input);
-        const analysis::dxa::InterfaceMesh mesh = analysis::dxa::interface_mesh(
-            input, mapping, tetrahedra, good, jittered.data(), 5 * cutoff);
-        faces = mesh.faces();
-        for (const std::int64_t v : mesh.start) {
-            triangles.push_back(mesh.atoms[static_cast<std::size_t>(v)]);
-        }
-        network = analysis::dxa::trace_dislocations(mesh, input, clusters, max_circuit, stretch);
-        analysis::dxa::smooth_lines(network, separation, smoothing);
-    }
+    analysis::DislocationOptions options;
+    options.crystal = crystal;
+    options.defects = defects;
+    options.max_circuit = max_circuit;
+    options.stretch = stretch;
+    options.separation = separation;
+    options.smoothing = smoothing;
+    analysis::Dislocations found;
+    run_released(
+        [&](const Control& control) {
+            found = analysis::dislocation_analysis(positions.data(), jittered.data(), n,
+                                                   matrix.data(), inverse.data(), origin.data(),
+                                                   pbc.data(), options, control);
+        },
+        progress, cancel);
     std::vector<double> points, burgers;
     std::vector<std::int64_t> offsets = {0}, cluster, ends;
-    std::vector<std::int32_t> cores;
     std::vector<std::uint8_t> closed;
-    for (const auto& s : network.segments) {
+    for (const auto& s : found.network.segments) {
         points.insert(points.end(), s.points.begin(), s.points.end());
-        cores.insert(cores.end(), s.cores.begin(), s.cores.end());
-        offsets.push_back(static_cast<std::int64_t>(cores.size()));
+        offsets.push_back(static_cast<std::int64_t>(points.size() / 3));
         burgers.insert(burgers.end(), s.burgers.begin(), s.burgers.end());
         cluster.push_back(s.cluster);
         ends.insert(ends.end(), s.junctions.begin(), s.junctions.end());
         closed.push_back(s.closed ? 1 : 0);
     }
-    return nb::make_tuple(as_array(std::move(points)), as_array(std::move(offsets)),
-                          as_array(std::move(cores)), as_array(std::move(burgers)),
-                          as_array(std::move(cluster)), as_array(std::move(ends)),
-                          as_array(std::move(closed)), network.junctions,
-                          as_array(std::move(clusters.cluster)),
-                          as_array(std::move(clusters.structure)),
-                          as_array(std::move(clusters.orientation)), bad, faces,
-                          as_array(std::move(structures.structure)), as_array(std::move(triangles)));
+    return nb::make_tuple(
+        as_array(std::move(found.structures.structure)), as_array(std::move(found.clusters.cluster)),
+        as_array(std::move(found.clusters.structure)), as_array(std::move(found.clusters.size)),
+        as_array(std::move(found.clusters.orientation)), as_array(std::move(points)),
+        as_array(std::move(offsets)), as_array(std::move(burgers)), as_array(std::move(cluster)),
+        as_array(std::move(ends)), as_array(std::move(closed)), found.network.junctions);
 }
 
 nb::object steinhardt_nearest(Positions3 positions, Matrix3 matrix, Origin3 origin,
@@ -887,18 +761,11 @@ void bind_analysis(nb::module_& m) {
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("cutoff"),
           nb::arg("type").none() = nb::none(), nb::arg("limits").none() = nb::none());
-    m.def("dxa_structures", &dxa_structures, nb::arg("positions"), nb::arg("matrix"),
-          nb::arg("origin"), nb::arg("pbc"), nb::arg("crystal"), nb::arg("defects"));
-    m.def("dxa_lines", &dxa_lines, nb::arg("positions"), nb::arg("jittered"), nb::arg("matrix"),
-          nb::arg("inverse"), nb::arg("origin"), nb::arg("pbc"), nb::arg("crystal"),
-          nb::arg("defects"), nb::arg("max_circuit"), nb::arg("stretch"), nb::arg("separation"),
-          nb::arg("smoothing"));
-    m.def("dxa_good", &dxa_good, nb::arg("structure"), nb::arg("templates"), nb::arg("neighbors"),
-          nb::arg("positions"), nb::arg("jittered"), nb::arg("matrix"), nb::arg("inverse"),
-          nb::arg("origin"), nb::arg("pbc"), nb::arg("crystal"));
-    m.def("dxa_clusters", &dxa_clusters, nb::arg("structure"), nb::arg("templates"),
-          nb::arg("neighbors"), nb::arg("positions"), nb::arg("matrix"), nb::arg("inverse"),
-          nb::arg("pbc"), nb::arg("crystal"));
+    m.def("dislocation_analysis", &dislocation_analysis, nb::arg("positions"),
+          nb::arg("jittered"), nb::arg("matrix"), nb::arg("inverse"), nb::arg("origin"),
+          nb::arg("pbc"), nb::arg("crystal"), nb::arg("defects"), nb::arg("max_circuit"),
+          nb::arg("stretch"), nb::arg("separation"), nb::arg("smoothing"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("surface_mesh", &surface_mesh, nb::arg("positions"), nb::arg("jittered"),
           nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"), nb::arg("radius"),
           nb::arg("smoothing"), nb::arg("regions"), nb::arg("progress") = nb::none(),

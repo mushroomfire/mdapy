@@ -22,10 +22,6 @@ constexpr int kFan = 4096;
 // lengths of vectors between atoms that count as zero (Å)
 constexpr double kAtomTolerance = 1e-4;
 
-Vec add(const Vec& a, const Vec& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
-
-Vec scaled(const Vec& a, double s) { return {a[0] * s, a[1] * s, a[2] * s}; }
-
 bool zero(const Vec& v, double tolerance) {
     return std::abs(v[0]) <= tolerance && std::abs(v[1]) <= tolerance &&
            std::abs(v[2]) <= tolerance;

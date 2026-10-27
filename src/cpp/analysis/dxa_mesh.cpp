@@ -90,9 +90,6 @@ double neighbor_cutoff(const ClusterInput& atoms) {
 InterfaceMesh interface_mesh(const ClusterInput& atoms, const Mapping& mapping,
                              const Tetrahedra& tetrahedra, const std::vector<std::uint8_t>& good,
                              const double* jittered, double alpha, const Control& control) {
-    if (tetrahedra.repeated) {
-        throw std::runtime_error("the box is too thin: an atom meets its own periodic image");
-    }
     const auto count = static_cast<std::int64_t>(tetrahedra.radii.size());
     std::vector<std::uint8_t> inside(static_cast<std::size_t>(count));
     for (std::int64_t t = 0; t < count; ++t) {
@@ -160,7 +157,7 @@ InterfaceMesh interface_mesh(const ClusterInput& atoms, const Mapping& mapping,
                 f_k += d[static_cast<std::size_t>(j)] * atoms.inverse[3 * j + k];
             }
             if (std::abs(f_k) >= 0.5) {
-                throw std::runtime_error("the box is too thin for the dislocation analysis");
+                throw std::invalid_argument("an edge of the mesh spans half the box");
             }
         }
     }

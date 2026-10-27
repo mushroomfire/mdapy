@@ -115,7 +115,7 @@ namespace {
 Vec neighbor_vector(const ClusterInput& atoms, const Clusters& clusters, std::int64_t a, int k) {
     const Lattice* l = lattice(atoms.structure[a]);
     return turn(l->group[static_cast<std::size_t>(clusters.rotation[static_cast<std::size_t>(a)])],
-                l->templates[static_cast<std::size_t>(atoms.templates[a])][static_cast<std::size_t>(k)]);
+                l->vectors[static_cast<std::size_t>(k)]);
 }
 
 int place(const ClusterInput& atoms, std::int64_t a, std::int64_t b) {

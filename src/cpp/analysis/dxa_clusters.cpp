@@ -42,17 +42,14 @@ Lattice make_lattice(int type) {
                                                 ref.templates[0][1][2]},
                                                {ref.templates[0][1][0], ref.templates[0][1][1],
                                                 ref.templates[0][1][2]}));
-    for (const auto& points : ref.templates) {
-        std::array<Vec, 16> vectors{};
-        for (int k = 0; k < ref.neighbors; ++k) {
-            for (int e = 0; e < 3; ++e) {
-                const double v = points[static_cast<std::size_t>(k + 1)][e] * scale;
-                vectors[static_cast<std::size_t>(k)][e] = cubic ? std::round(4 * v) / 4 : v;
-            }
+    for (int k = 0; k < ref.neighbors; ++k) {
+        for (int e = 0; e < 3; ++e) {
+            const double v = ref.templates[0][static_cast<std::size_t>(k + 1)][e] * scale;
+            lattice.vectors[static_cast<std::size_t>(k)][static_cast<std::size_t>(e)] =
+                cubic ? std::round(4 * v) / 4 : v;
         }
-        lattice.templates.push_back(vectors);
     }
-    const auto& t = lattice.templates[0];
+    auto& t = lattice.vectors;
     const int n = lattice.neighbors;
     // the rotations of the lattice: those that take the neighbors that are
     // translations of the lattice, whose opposites are neighbors too, onto
@@ -62,10 +59,46 @@ Lattice make_lattice(int type) {
         return std::any_of(set.begin(), set.end(), [&](const Vec& w) { return close(v, w); });
     };
     std::vector<Vec> translations;
-    for (int k = 0; k < n; ++k) {
-        if (in({t.begin(), t.begin() + n}, Vec{-t[k][0], -t[k][1], -t[k][2]})) {
-            translations.push_back(t[k]);
+    auto find_translations = [&] {
+        translations.clear();
+        for (int k = 0; k < n; ++k) {
+            if (in({t.begin(), t.begin() + n}, Vec{-t[k][0], -t[k][1], -t[k][2]})) {
+                translations.push_back(t[k]);
+            }
         }
+    };
+    find_translations();
+    if (!cubic) {
+        // the hexagonal lattices turned to c along z and a neighbor in the
+        // basal plane along x, a neighbor below the plane at x = 0 toward
+        // -y, and the neighbor along the c axis, of hexagonal diamond, up
+        Vec normal = cross(translations[0], translations[1]);
+        normal = scaled(normal, 1.0 / std::sqrt(dot(normal, normal)));
+        bool turned = false;
+        for (std::size_t k = 0; k < translations.size() && !turned; ++k) {
+            for (const double sign : {1.0, -1.0}) {
+                const Vec x = scaled(translations[k], 1.0 / std::sqrt(dot(translations[k], translations[k])));
+                const Vec z = scaled(normal, sign);
+                const Vec y = cross(z, x);
+                std::array<Vec, 16> moved{};
+                bool below = false, upright = true;
+                for (int j = 0; j < n; ++j) {
+                    const Vec& v = t[static_cast<std::size_t>(j)];
+                    const Vec w = {dot(x, v), dot(y, v), dot(z, v)};
+                    moved[static_cast<std::size_t>(j)] = w;
+                    below = below || (w[2] < -kTolerance && std::abs(w[0]) < kTolerance &&
+                                      w[1] < -kTolerance);
+                    upright = upright && !(std::abs(w[0]) < kTolerance &&
+                                           std::abs(w[1]) < kTolerance && w[2] < 0);
+                }
+                if (below && upright) {
+                    t = moved;
+                    turned = true;
+                    break;
+                }
+            }
+        }
+        find_translations();
     }
     const Vec& ta = translations[0];
     std::size_t second = 1;
@@ -112,16 +145,11 @@ Lattice make_lattice(int type) {
         }
     }
     // the common neighbors: the vectors between them are neighbor vectors
-    // of some template
+    // of an atom of some site
     auto neighbor_vector = [&](const Vec& v) {
-        for (const auto& points : lattice.templates) {
-            for (int k = 0; k < n; ++k) {
-                if (close(points[static_cast<std::size_t>(k)], v)) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return std::any_of(lattice.group.begin(), lattice.group.end(), [&](const Mat& g) {
+            return in({t.begin(), t.begin() + n}, turn(transpose(g), v));
+        });
     };
     for (int k = 0; k < n; ++k) {
         double best = 0.0;
@@ -220,8 +248,7 @@ Clusters build_clusters(const ClusterInput& in, const Control& control) {
     auto ideal = [&](std::int64_t i, int k) {
         const Lattice* l = lattice_of(i);
         return turn(l->group[static_cast<std::size_t>(out.rotation[static_cast<std::size_t>(i)])],
-                     l->templates[static_cast<std::size_t>(in.templates[i])]
-                                 [static_cast<std::size_t>(k)]);
+                    l->vectors[static_cast<std::size_t>(k)]);
     };
     // the matrix that takes the template of neighbor k of atom a into the
     // frame of a's cluster, from the vectors from it to a and to two
@@ -243,7 +270,7 @@ Clusters build_clusters(const ClusterInput& in, const Control& control) {
         const Vec ab = ideal(a, k);
         const Mat u = columns({-ab[0], -ab[1], -ab[2]}, minus(ideal(a, k1), ab),
                               minus(ideal(a, k2), ab));
-        const auto& tb = lb->templates[static_cast<std::size_t>(in.templates[b])];
+        const auto& tb = lb->vectors;
         const auto w = inverse(columns(tb[static_cast<std::size_t>(j0)],
                                        tb[static_cast<std::size_t>(j1)],
                                        tb[static_cast<std::size_t>(j2)]));

@@ -21,6 +21,7 @@
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
 #include "analysis/strain.h"
+#include "analysis/surface_mesh.h"
 #include "analysis/voronoi.h"
 #include "bindings/control.h"
 #include "bindings/list_view.h"
@@ -230,6 +231,50 @@ nb::tuple voronoi(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic
     }
     return nb::make_tuple(as_array(std::move(cells.volumes)), as_array(std::move(cells.radii)),
                           as_array(std::move(cells.coordination)), found, shapes);
+}
+
+nb::tuple surface_mesh(Positions3 positions, Positions3 jittered, Matrix3 matrix,
+                       Origin3 origin, Periodic pbc, double radius, int smoothing, bool regions,
+                       nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (static_cast<std::int64_t>(jittered.shape(0)) != n) {
+        throw std::invalid_argument("positions and jittered must have the same atoms");
+    }
+    analysis::SurfaceMesh mesh;
+    analysis::Regions found;
+    double solid_volume = 0.0;
+    run_released(
+        [&](const Control& control) {
+            const analysis::Tetrahedra tetrahedra = analysis::delaunay(
+                analysis::voronoi_vertices(jittered.data(), n, matrix.data(), origin.data(),
+                                           pbc.data(), stage(control, 0, 4)),
+                stage(control, 1, 4));
+            if (tetrahedra.repeated) {
+                throw std::invalid_argument(
+                    "an atom meets its own periodic image: replicate the system along its "
+                    "short periodic directions");
+            }
+            mesh = analysis::alpha_shape(tetrahedra, n, positions.data(), jittered.data(),
+                                         matrix.data(), radius, stage(control, 2, 4));
+            for (std::size_t t = 0; t < mesh.solid.size(); ++t) {
+                solid_volume += mesh.solid[t] != 0 ? mesh.volumes[t] : 0.0;
+            }
+            if (regions) {
+                found = analysis::surface_regions(tetrahedra, mesh);
+            }
+            analysis::smooth_mesh(mesh, matrix.data(), smoothing, stage(control, 3, 4));
+        },
+        progress, cancel);
+    nb::object table = nb::none();
+    if (regions) {
+        table = nb::make_tuple(as_array(std::move(found.faces)), as_array(std::move(found.solid)),
+                               as_array(std::move(found.exterior)),
+                               as_array(std::move(found.periodic)),
+                               as_array(std::move(found.volumes)));
+    }
+    return nb::make_tuple(as_array(std::move(mesh.atoms)), as_array(std::move(mesh.vertices)),
+                          as_array(std::move(mesh.faces)), as_array(std::move(mesh.shifts)),
+                          solid_volume, table);
 }
 
 nb::object steinhardt_nearest(Positions3 positions, Matrix3 matrix, Origin3 origin,
@@ -672,6 +717,10 @@ void bind_analysis(nb::module_& m) {
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("distances"), nb::arg("sorted"), nb::arg("cutoff"),
           nb::arg("type").none() = nb::none(), nb::arg("limits").none() = nb::none());
+    m.def("surface_mesh", &surface_mesh, nb::arg("positions"), nb::arg("jittered"),
+          nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"), nb::arg("radius"),
+          nb::arg("smoothing"), nb::arg("regions"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     m.def("voronoi", &voronoi, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("face_threshold"), nb::arg("relative_face_threshold"),
           nb::arg("edge_threshold"), nb::arg("faces"), nb::arg("polyhedra"),

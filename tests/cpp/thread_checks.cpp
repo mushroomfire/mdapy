@@ -32,6 +32,8 @@
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
 #include "analysis/strain.h"
+#include "analysis/surface_mesh.h"
+#include "analysis/tessellation.h"
 #include "analysis/voronoi.h"
 #include "calculators/eam.h"
 #include "calculators/nep.h"
@@ -997,6 +999,64 @@ void structure_identification() {
     }
 }
 
+// The surface mesh of a void: Voronoi vertices, Delaunay tetrahedra, the
+// alpha shape, its regions and smoothing.
+void surface_mesh() {
+    // fcc of 6 x 6 x 6 cubic cells, displaced at random, without the atoms
+    // within 5 A of the center
+    const double a = 3.6;
+    std::vector<double> positions;
+    std::mt19937 rng(12);
+    std::normal_distribution<double> noise(0.0, 0.05);
+    const double basis[4][3] = {{0, 0, 0}, {0.5, 0.5, 0}, {0.5, 0, 0.5}, {0, 0.5, 0.5}};
+    for (int x = 0; x < 6; ++x) {
+        for (int y = 0; y < 6; ++y) {
+            for (int z = 0; z < 6; ++z) {
+                for (const auto& b : basis) {
+                    const double p[3] = {a * (x + b[0]), a * (y + b[1]), a * (z + b[2])};
+                    const double d[3] = {p[0] - 3 * a, p[1] - 3 * a, p[2] - 3 * a};
+                    if (d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < 25.0) {
+                        continue;
+                    }
+                    for (const double c : p) {
+                        positions.push_back(c + noise(rng));
+                    }
+                }
+            }
+        }
+    }
+    const auto n = static_cast<std::int64_t>(positions.size() / 3);
+    const double matrix[9] = {6 * a, 0, 0, 0, 6 * a, 0, 0, 0, 6 * a};
+    const double origin[3] = {0, 0, 0};
+    const bool pbc[3] = {true, true, true};
+    std::vector<double> first_vertices;
+    std::vector<std::int64_t> first_faces, first_region;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        const mdapy::analysis::Tetrahedra tetrahedra = mdapy::analysis::delaunay(
+            mdapy::analysis::voronoi_vertices(positions.data(), n, matrix, origin, pbc));
+        mdapy::analysis::SurfaceMesh mesh = mdapy::analysis::alpha_shape(
+            tetrahedra, n, positions.data(), positions.data(), matrix, 4.0);
+        const mdapy::analysis::Regions regions = mdapy::analysis::surface_regions(tetrahedra, mesh);
+        mdapy::analysis::smooth_mesh(mesh, matrix, 8);
+        if (threads == kThreads[0]) {
+            first_vertices = mesh.vertices;
+            first_faces = mesh.faces;
+            first_region = regions.region;
+        }
+        check(mesh.vertices == first_vertices && mesh.faces == first_faces &&
+                  regions.region == first_region,
+              "the surface mesh is the same for any thread count");
+        double total = 0.0;
+        for (const double v : regions.volumes) {
+            total += v;
+        }
+        check(!tetrahedra.repeated && regions.volumes.size() == 2 && !mesh.faces.empty() &&
+                  std::abs(total - 216 * a * a * a) < 1e-6,
+              "the void and the solid around it fill the box");
+    }
+}
+
 // Polyhedral template matching: data built once from the templates, shared
 // by the threads.
 void polyhedral_template_matching() {
@@ -1188,6 +1248,7 @@ int main() {
     neighbor_search();
     structure_identification();
     polyhedral_template_matching();
+    surface_mesh();
     calculators();
     trajectories();
     pictures();

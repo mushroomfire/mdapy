@@ -83,6 +83,11 @@ metals, *Phys. Rev. B* **29**, 6443 (1984).
 [doi:10.1103/PhysRevB.29.6443](https://doi.org/10.1103/PhysRevB.29.6443)
 { #daw1984 }
 
+**Edelsbrunner and Mücke (1994).** H. Edelsbrunner and E. P. Mücke,
+Three-dimensional alpha shapes, *ACM Trans. Graph.* **13**, 43 (1994).
+[doi:10.1145/174462.156635](https://doi.org/10.1145/174462.156635)
+{ #edelsbrunner1994 }
+
 **Faber and Ziman (1965).** T. E. Faber and J. M. Ziman, A theory of the
 electrical properties of liquid metals, *Phil. Mag.* **11**, 153 (1965).
 [doi:10.1080/14786436508211931](https://doi.org/10.1080/14786436508211931)
@@ -267,6 +272,16 @@ atomistic simulations of crystalline materials, *Modelling Simul. Mater. Sci.
 Eng.* **20**, 045021 (2012).
 [doi:10.1088/0965-0393/20/4/045021](https://doi.org/10.1088/0965-0393/20/4/045021)
 { #stukowski2012 }
+
+**Stukowski (2014).** A. Stukowski, Computational analysis methods in
+atomistic modeling of crystals, *JOM* **66**, 399 (2014).
+[doi:10.1007/s11837-013-0827-5](https://doi.org/10.1007/s11837-013-0827-5)
+{ #stukowski2014 }
+
+**Taubin (1995).** G. Taubin, A signal processing approach to fair surface
+design, in *Proceedings of SIGGRAPH 95* (ACM, New York, 1995), p. 351.
+[doi:10.1145/218380.218473](https://doi.org/10.1145/218380.218473)
+{ #taubin1995 }
 
 **ten Wolde et al. (1996).** P. R. ten Wolde, M. J. Ruiz-Montero and D.
 Frenkel, Numerical calculation of the rate of crystal nucleation in a

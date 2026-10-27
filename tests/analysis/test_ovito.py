@@ -19,6 +19,7 @@ from mdapy.analysis import (
     MeanSquaredDisplacement,
     RadialDistributionFunction,
     SteinhardtParameters,
+    SurfaceMesh,
     VoronoiAnalysis,
     WignerSeitz,
 )
@@ -32,6 +33,7 @@ from ovito.modifiers import (  # noqa: E402
     BondAngleDistributionModifier,
     CalculateDisplacementsModifier,
     ClusterAnalysisModifier,
+    ConstructSurfaceModifier,
     CoordinationAnalysisModifier,
     CreateBondsModifier,
     SteinhardtParametersModifier,
@@ -494,3 +496,58 @@ def test_voronoi_neighbors_as_bonds(system, thresholds):
     pairs = [bond(i, j, shift) for i, j, shift in zip(nl.i, nl.j, nl.shifts)]
     assert set(pairs) == expected
     assert len(pairs) == 2 * len(expected)  # each bond from both of its atoms
+
+
+def with_voids(box, seed=6):
+    """fcc copper, moved at random, with two voids, one across a corner of
+    the box."""
+    system = crystal("fcc", 3.615, (9, 9, 9), jitter=0.05, seed=seed)
+    keep = np.ones(len(system), dtype=bool)
+    for center, radius in [((0.0, 0.0, 0.0), 6.0), ((0.5, 0.55, 0.5), 7.0)]:
+        d = system.box.minimum_image(
+            system["positions"] - np.array(center) @ system.box.matrix
+        )
+        keep &= np.linalg.norm(d, axis=1) > radius
+    return placed(system.filter(keep), box)
+
+
+@pytest.mark.parametrize("box", ["periodic", "rotated", "cluster"])
+@pytest.mark.parametrize("smoothing", [0, 8])
+def test_surface_mesh(box, smoothing):
+    system = with_voids(box)
+    ours = SurfaceMesh(smoothing=smoothing, regions=True, surface=True).compute(system)
+    output = ovito_compute(
+        system,
+        ConstructSurfaceModifier(
+            method=ConstructSurfaceModifier.Method.AlphaShape,
+            radius=4.0,
+            smoothing_level=smoothing,
+            identify_regions=True,
+            select_surface_particles=True,
+        ),
+    )
+    attributes = output.attributes
+    assert ours.area == pytest.approx(
+        attributes["ConstructSurfaceMesh.surface_area"], rel=1e-9
+    )
+    assert ours.solid_volume == pytest.approx(
+        attributes["ConstructSurfaceMesh.filled_volume"], rel=1e-9
+    )
+    np.testing.assert_array_equal(ours.surface, output.particles["Selection"] != 0)
+    # the voids: the empty regions OVITO does not call exterior
+    regions = output.surfaces["surface"].regions
+    voids = (np.asarray(regions["Filled"]) == 0) & (
+        np.asarray(regions["Exterior"]) == 0
+    )
+    assert attributes["ConstructSurfaceMesh.void_region_count"] == len(
+        ours.regions.voids
+    )
+    for name, ours_values in [
+        ("Volume", ours.regions.volume),
+        ("Surface Area", ours.regions.area),
+    ]:
+        np.testing.assert_allclose(
+            np.sort(ours_values[ours.regions.voids]),
+            np.sort(np.asarray(regions[name])[voids]),
+            rtol=1e-7,  # sums of thousands of tetrahedra in another order
+        )

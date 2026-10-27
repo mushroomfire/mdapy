@@ -251,6 +251,13 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   von Mises and volumetric strains against a reference, and on request the
   Green–Lagrange strain tensor and $D^2_\text{min}$. As in OVITO, the
   results that cost more are computed only when asked for.
+- [`SurfaceMesh`](../analysis/surface-mesh.md) in `mdapy.analysis`: the
+  surface of the solid of atoms by the alpha-shape method of OVITO's
+  Construct surface mesh, from a Delaunay tessellation of mdapy's own, with
+  its area, the volume of the solid, the regions of solid and empty space
+  and the voids among them, the atoms on the surface, and Taubin's
+  smoothing; the same areas, volumes and atoms as OVITO. The surface is a
+  `mdapy.TriangleMesh`, a mesh of triangles across periodic boundaries.
 
 ### Structure builder
 
@@ -303,7 +310,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.visualization.render`: pictures of systems by ray tracing, with
   ambient occlusion, shadows and outlines in six styles, and a seventh,
   photo, that traces light bouncing between the atoms; colored by element,
-  structure, values or by hand, with bonds, the box and Voronoi cells;
+  structure, values or by hand, with bonds, the box, Voronoi cells and
+  surface meshes, cut at the periodic faces of the box;
   molecules as balls and sticks, licorice or space filling, with covalent
   bonds found from the elements; a `Scene` of spheres, cylinders and
   polygons; a million atoms in under two seconds on the processor, or in a

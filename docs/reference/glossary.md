@@ -23,6 +23,7 @@ implemented.
 | pair | One entry of a `NeighborList`: atoms `i` and `j` and the periodic image `shifts` of `j`. |
 | `shifts` | Periodic image of the second atom of a pair, (3,) int8: the pair vector is `x[j] - x[i] + shifts @ box.matrix`. |
 | `index_dtype` | Integer type of atom indices in results such as `NeighborList.j`: int32, or int64 in a build with 64-bit indices. |
+| `TriangleMesh` | A mesh of triangles, which may cross the periodic boundaries of a box: `vertices`, `faces` and the periodic image `shifts` of each corner. |
 | `Topology` | Bonds, angles, dihedrals and impropers of a system; each a table with `atoms` (0-based row indices), `type` and optional `type_label`. |
 | format | Name of a file format, passed as `format=`, such as `extxyz`. See [Reading and writing files](../getting-started/io.md). |
 | `Calculator` | Interface that computes energy, forces and virial for a `System`. |
@@ -70,6 +71,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `q4`, `q6`, … | f64 | | Steinhardt order parameters; `q4_average`, … when averaged over neighbors |
 | `solid`, `solid_bonds` | bool, int32 | | whether an atom is solid-like, and its number of solid-like bonds (Steinhardt `solid=True`) |
 | `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
+| `surface` | bool | | whether an atom lies on the surface of the solid (`SurfaceMesh`, `surface=True`) |
 | `voronoi_volume`, `voronoi_coordination`, `cavity_radius` | f64, int64, f64 | Å³, , Å | volume and number of faces shared with atoms of the Voronoi cell, and the distance to its farthest vertex |
 | `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint; `entropy_average` when averaged over neighbors |
 | `temperature` | f64 | K | temperature of an atom and its neighbors |
@@ -143,6 +145,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | neighbors weighted by the area of their face | `weighted=True` | `use_weight` |
 | faces of the Voronoi cells | `faces=True` | |
 | shapes of the Voronoi cells | `polyhedra=True` | `cell_info` |
+| radius of the probe sphere of a surface mesh (Å), smoothing steps | `radius`, `smoothing` | `probe_radius`, `smoothing_level` |
+| regions of solid and empty space, voids among them | `regions=True` | `identify_regions` |
+| atoms on the surface | `surface=True` | `select_surface_particles` |
 | follow atoms through the periodic boundaries | `unwrap` (bool) | `wrapped`, `unwrapped` |
 | reference configuration | `reference=` | `ref` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |

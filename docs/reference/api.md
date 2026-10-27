@@ -29,6 +29,8 @@ import mdapy as mp
 
 ::: mdapy.Box
 
+::: mdapy.TriangleMesh
+
 ::: mdapy.core.box.LammpsBox
 
 ::: mdapy.NeighborList
@@ -104,6 +106,12 @@ import mdapy as mp
 ::: mdapy.analysis.ClusterAnalysis
 
 ::: mdapy.analysis.ClusterResult
+
+::: mdapy.analysis.SurfaceMesh
+
+::: mdapy.analysis.SurfaceMeshResult
+
+::: mdapy.analysis.SurfaceRegions
 
 ::: mdapy.analysis.WignerSeitz
 

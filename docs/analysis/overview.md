@@ -94,5 +94,5 @@ the system lacks a column the analysis needs; and
 |---|---|
 | Structure identification | [`CommonNeighborAnalysis`](cna.md) · [`AcklandJonesAnalysis`](ackland-jones.md) · [`PolyhedralTemplateMatching`](ptm.md) · [`PlanarFaults`](planar-faults.md) · [`GrainSegmentation`](grain-segmentation.md) · [`DiamondStructure`](diamond.md) · [`ChillPlus`](chill-plus.md) · [`CentroSymmetryParameter`](csp.md) · [`CommonNeighborParameter`](cnp.md) |
 | Local order and distributions | [`RadialDistributionFunction`](rdf.md) · [`CoordinationNumber`](coordination.md) · [`StructureFactor`](structure-factor.md) · [`BondAngleDistribution`](bond-angles.md) · [`WarrenCowley`](warren-cowley.md) · [`SteinhardtParameters`](steinhardt.md) · [`EntropyFingerprint`](entropy.md) · [`VoronoiAnalysis`](voronoi.md) |
-| Defects and deformation | [`ClusterAnalysis`](clusters.md) · [`WignerSeitz`](wigner-seitz.md) · [`AtomicStrain`](atomic-strain.md) |
+| Defects and deformation | [`ClusterAnalysis`](clusters.md) · [`SurfaceMesh`](surface-mesh.md) · [`WignerSeitz`](wigner-seitz.md) · [`AtomicStrain`](atomic-strain.md) |
 | Dynamics | [`MeanSquaredDisplacement`](msd.md) · [`LindemannIndex`](lindemann.md) · [`AtomicTemperature`](temperature.md) |

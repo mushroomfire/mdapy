@@ -2,7 +2,9 @@
 
 `mdapy.transform.slice` keeps the atoms on one side of a plane, or those in a
 slab about it, as the Slice modifier of OVITO: a cut through a polycrystal,
-half of a cylinder, a thin layer to draw.
+half of a cylinder, a thin layer to draw. The plane is any: its normal is
+any vector, or Miller indices in the vectors of the box. `slice_mask` gives
+the same choice as a mask, without a new system.
 
 ```python
 from mdapy.build import build_crystal, build_polycrystal
@@ -13,6 +15,25 @@ lower = slice(crystal, "z", 18.0)  # the atoms with z ≤ 18 Å
 upper = slice(crystal, "z", 18.0, invert=True)  # the others
 # a slab 6 Å thick normal to [111], through the middle of the box
 slab = slice(crystal, (1, 1, 1), 31.3, width=6.0)
+# the same plane through a point instead of at a distance from the origin
+middle = crystal.box.origin + crystal.box.matrix.sum(axis=0) / 2
+same = slice(crystal, (1, 1, 1), through=middle, width=6.0)
+# or by its Miller indices in the vectors of the box, 1.5 interplanar
+# spacings of the box from its origin: the middle again
+also = slice(crystal, (1, 1, 1), 1.5, width=6.0, miller=True)
+len(slab), len(same), len(also)  # 886 atoms each
+```
+
+A mask instead of a new system, to count, draw or combine, and a plane
+that acts on some atoms only:
+
+```python
+from mdapy.transform import slice_mask
+
+kept = slice_mask(crystal, "z", 18.0)  # (N,) bool: the atoms slice keeps
+int(kept.sum())  # 2000; ~kept are those OVITO's select mode selects
+copper = crystal["element"] == "Cu"
+lower_copper = slice(crystal, "z", 18.0, atoms=copper)  # the others all stay
 ```
 
 A slab through a polycrystal, its atoms colored by their structure:
@@ -41,28 +62,66 @@ slab alone, its two faces would not be fcc.*
 
 ## Parameters
 
-`slice(system, normal, distance=0.0, *, width=0.0, invert=False)`
+`slice(system, normal, distance=0.0, *, width=0.0, invert=False, miller=False, through=None, atoms=None)`,
+and `slice_mask` with the same arguments
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `normal` | (3,) float or str | | | the normal of the plane in Cartesian coordinates, of any length, or an axis `"x"`, `"y"`, `"z"` |
-| `distance` | float | 0 | Å | the plane holds the points $\mathbf x$ with $\hat{\mathbf n} \cdot \mathbf x$ = `distance` |
+| `normal` | (3,) float or str | | | the normal of the plane in Cartesian coordinates, of any length, or an axis `"x"`, `"y"`, `"z"`; with `miller`, the Miller indices $hkl$ of the plane in the vectors of the box, not necessarily whole |
+| `distance` | float | 0 | Å, or $d_{hkl}$ | the plane holds the points $\mathbf x$ with $\hat{\mathbf n} \cdot \mathbf x$ = `distance`; with `miller`, it lies `distance` interplanar spacings $d_{hkl}$ of the box from the origin of the box |
 | `width` | float | 0 | Å | keep the atoms closer to the plane than `width / 2` instead; 0 keeps those on the side the normal points away from |
 | `invert` | bool | `False` | | keep the other atoms |
+| `miller` | bool | `False` | | `normal` holds Miller indices |
+| `through` | (3,) float | `None` | Å | a point the plane passes through, instead of `distance` |
+| `atoms` | mask or indices | all | | the atoms the plane acts on; the others are kept |
+
+The Miller indices refer to the vectors of the box, as in OVITO: they are
+those of the crystal only when the box is made of whole cells of it along
+their axes, and the spacing $d_{hkl}$ is then that of the box, not of the
+crystal. The atoms are taken where they are, inside the box or not; their
+periodic images do not count.
 
 ## Results
 
-A new system of the atoms kept, in their order, with all their columns, in
-the same box.
+`slice` returns a new system of the atoms kept, in their order, with all
+their columns, in the same box; `slice_mask` the (N,) bool mask of those
+atoms, which `system.filter(mask)` turns into the same system. The atoms
+outside the mask are those OVITO's Slice selects in its select mode.
 
 ## Errors
 
-`slice` raises `InvalidParameter` for a normal that is zero, not of three
-numbers or an unknown axis, and a negative width.
+`slice` and `slice_mask` raise `InvalidParameter` for a normal that is
+zero, not of three numbers or an unknown axis, Miller indices given as an
+axis, a negative width, a point not of three numbers, both a distance and a
+point, and atoms that are not a mask or indices of the system.
+
+## Definition
+
+An atom at $\mathbf x$ lies at the signed distance
+
+$$
+s = \hat{\mathbf n} \cdot \mathbf x - d
+$$
+
+from the plane, $\hat{\mathbf n}$ the unit normal and $d$ the distance;
+with Miller indices $hkl$ in the box of origin $\mathbf o$ and fractional
+coordinates $\mathbf f$, $\mathbf g = h\,\mathbf a^* + k\,\mathbf b^* +
+l\,\mathbf c^*$ of the reciprocal vectors of the box,
+
+$$
+s = (\mathbf g \cdot (\mathbf x - \mathbf o) - d)\, d_{hkl}
+= (hkl \cdot \mathbf f - d)\, d_{hkl},
+\qquad d_{hkl} = 1 / |\mathbf g| ;
+$$
+
+through a point $\mathbf p$, $s = \hat{\mathbf n} \cdot (\mathbf x -
+\mathbf p)$, or $\mathbf g \cdot (\mathbf x - \mathbf p)\, d_{hkl}$. The
+atoms with $s \le 0$ are kept, or with $|s| \le w/2$ for a width $w > 0$.
 
 ## See also
 
 - OVITO [Slice](https://docs.ovito.org/reference/pipelines/modifiers/slice.html),
-  whose atoms `slice` keeps.
+  whose atoms `slice` keeps, also with Miller indices, with its select mode
+  (`slice_mask`) and on the selected atoms only (`atoms`).
 - [Selecting atoms](../getting-started/selecting.md) with conditions such as
   `"positions.z < 18"`.

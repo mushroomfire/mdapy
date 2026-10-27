@@ -8,7 +8,7 @@ import pytest
 
 import mdapy
 from mdapy.errors import InvalidParameter
-from mdapy.transform import slice
+from mdapy.transform import slice, slice_mask
 
 
 def scattered(n=300, seed=0):
@@ -41,6 +41,67 @@ def test_slab():
     np.testing.assert_array_equal(
         slice(system, "x")["id"], np.flatnonzero(system["positions"][:, 0] <= 0)
     )
+
+
+def test_miller_indices():
+    """The plane hkl . f = distance in fractional coordinates f of the box,
+    its points distance d_hkl from the origin of the box."""
+    system = scattered()
+    box = system.box
+    f = (system["positions"] - box.origin) @ box.inverse
+    hkl = np.array([1, -2, 1])
+    d = 1 / np.linalg.norm(box.inverse @ hkl)
+    side = (f @ hkl - 0.3) * d
+    np.testing.assert_array_equal(
+        slice(system, hkl, 0.3, miller=True)["id"], np.flatnonzero(side <= 0)
+    )
+    slab = slice(system, hkl, 0.3, width=2.0, miller=True)
+    np.testing.assert_array_equal(slab["id"], np.flatnonzero(np.abs(side) <= 1.0))
+    # (002) of the box: planes of constant c, half a period apart
+    np.testing.assert_array_equal(
+        slice_mask(system, (0, 0, 2), 1.0, miller=True), f[:, 2] <= 0.5
+    )
+
+
+def test_a_plane_through_a_point_and_some_atoms():
+    system = scattered()
+    center = system.box.origin + system.box.matrix.sum(axis=0) / 2
+    normal = np.array([1.0, 2.0, 0.5])
+    np.testing.assert_array_equal(
+        slice_mask(system, normal, through=center),
+        slice_mask(system, normal, center @ normal / np.linalg.norm(normal)),
+    )
+    np.testing.assert_array_equal(
+        slice_mask(system, (1, 1, 1), through=center, miller=True),
+        slice_mask(system, (1, 1, 1), 1.5, miller=True),
+    )
+    # the plane acts on the atoms given, the others stay
+    chosen = np.arange(0, len(system), 2)
+    mask = np.zeros(len(system), dtype=bool)
+    mask[chosen] = True
+    kept = slice_mask(system, "z", 3.0, atoms=chosen)
+    np.testing.assert_array_equal(kept, slice_mask(system, "z", 3.0, atoms=mask))
+    np.testing.assert_array_equal(kept, ~mask | (system["positions"][:, 2] <= 3.0))
+    np.testing.assert_array_equal(
+        slice(system, "z", 3.0, atoms=mask)["id"], np.flatnonzero(kept)
+    )
+    assert slice_mask(system, "z", 3.0, atoms=[]).all()
+
+
+@pytest.mark.parametrize(
+    "options, message",
+    [
+        ({"normal": "z", "miller": True}, "Miller"),
+        ({"normal": "z", "distance": 1.0, "through": (0, 0, 0)}, "not both"),
+        ({"normal": "z", "through": (0, 0)}, "point"),
+        ({"normal": "z", "atoms": np.ones(3, dtype=bool)}, "entries"),
+        ({"normal": "z", "atoms": [0, 1000]}, "indices"),
+        ({"normal": "z", "atoms": [0.5]}, "indices"),
+    ],
+)
+def test_more_errors(options, message):
+    with pytest.raises(InvalidParameter, match=message):
+        slice_mask(scattered(10), **options)
 
 
 @pytest.mark.parametrize(

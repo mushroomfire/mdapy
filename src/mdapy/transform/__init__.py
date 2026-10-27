@@ -7,6 +7,6 @@
 slices."""
 
 from mdapy.transform._periodic import replicate, unwrap, wrap
-from mdapy.transform._slice import slice
+from mdapy.transform._slice import slice, slice_mask
 
-__all__ = ["replicate", "slice", "unwrap", "wrap"]
+__all__ = ["replicate", "slice", "slice_mask", "unwrap", "wrap"]

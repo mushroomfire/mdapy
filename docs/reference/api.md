@@ -191,6 +191,8 @@ import mdapy as mp
 
 ::: mdapy.transform.slice
 
+::: mdapy.transform.slice_mask
+
 ## MLIP
 
 ::: mdapy.mlip.read_outcar

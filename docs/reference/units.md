@@ -34,6 +34,10 @@ reading and writing.
 - **Virial** is \(W = -V\sigma\), in eV, positive under compression (the GPUMD
   convention).
 - **Voigt order** of symmetric tensors is xx, yy, zz, yz, xz, xy.
+- **Burgers vectors** are those of OVITO's dislocation analysis: along the
+  sense of the line, the sum of the steps of a counterclockwise circuit
+  around it in the perfect crystal, the opposite of Hirth and Lothe's
+  (FS/RH). The structure builder puts dislocations in by the same.
 
 ## Conversion factors
 

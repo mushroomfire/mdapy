@@ -230,11 +230,11 @@ defect mesh. Burgers vectors are then given in the frame of a cluster of
 the crystal, each line runs along the axis it runs along most, and the
 lines are coarsened and smoothed.
 
-The sense of a line and its Burgers vector are those of OVITO, opposite to
-the convention of Hirth and Lothe (FS/RH) by which
-[`insert_dislocation`](../build/dislocations.md) puts dislocations in:
-along the same line, the analysis finds the opposite of the Burgers vector
-put in. The arbitrary choices of the circuits, among equal paths and where
+The sense of a line and its Burgers vector are those of OVITO, which
+[`insert_dislocation`](../build/dislocations.md) and the dislocation
+models of the structure builder follow too: along +z the analysis finds
+the Burgers vector put in. In the convention of Hirth and Lothe (FS/RH) it
+is the opposite. The arbitrary choices of the circuits, among equal paths and where
 they start, depend on the order of the atoms: where two lines meet, a short
 junction line or a node of four lines may come out, in OVITO as here, and
 the lengths agree within a few per cent.

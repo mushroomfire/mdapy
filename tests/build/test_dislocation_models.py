@@ -57,9 +57,10 @@ def perfect(system, structure):
     ],
 )
 def test_anisotropic_as_atomsk(tmp_path, material, line, normal, burgers):
-    """The displacements of atomsk with an elastic tensor, to rounding, for
-    the line along z and the normal along y (for other axes atomsk takes
-    other signs; test_any_line_axis and test_isotropic_limit cover them)."""
+    """The displacements of atomsk with an elastic tensor and the opposite
+    Burgers vector (atomsk follows Hirth and Lothe), to rounding, for the
+    line along z and the normal along y (for other axes atomsk takes other
+    signs; test_any_line_axis and test_isotropic_limit cover them)."""
     a, elastic, element = material
     orientation = [(1, 1, -2), (-1, 1, 0), (1, 1, 1)]
     cell = build_crystal(
@@ -85,7 +86,7 @@ def test_anisotropic_as_atomsk(tmp_path, material, line, normal, burgers):
     a3, a2 = "xyz".index(line), "xyz".index(normal)
     a1 = 3 - a2 - a3
     p1, p2 = center[(a3 + 1) % 3], center[(a3 + 2) % 3]
-    b = np.asarray(burgers)
+    b = -np.asarray(burgers)
     options = ["-prop", "ctensor.txt", "-disloc", p1, p2, "mixed", line, normal]
     theirs = atomsk_apply(
         tmp_path, cell, *options, b[a1], b[a2], b[a3], files={"ctensor.txt": tensor}
@@ -243,7 +244,8 @@ def test_invalid_elastic_constants():
 
 def circuit(system, center, radius, structure, a):
     """The sum of the ideal crystal vectors of the steps of a loop of atoms
-    around center, counterclockwise: minus the Burgers vector inside."""
+    around center, counterclockwise: the Burgers vector inside, as the
+    dislocation analysis finds it along +z."""
     xy = system["positions"][:, :2] - center
     r = np.linalg.norm(xy, axis=1)
     loop = np.flatnonzero(np.abs(r - radius) < 1.5)
@@ -307,7 +309,7 @@ def test_cylinder(name):
     axes = np.array(spec.orientation, dtype=float)
     rotation = axes / np.linalg.norm(axes, axis=1)[:, None]
     np.testing.assert_allclose(
-        -closure(steps, ideal, rotation) / a, spec.burgers, atol=1e-9
+        closure(steps, ideal, rotation) / a, spec.burgers, atol=1e-9
     )
 
 
@@ -347,7 +349,7 @@ def test_dissociated_cylinder(name):
     axes = np.array(spec.orientation, dtype=float)
     rotation = axes / np.linalg.norm(axes, axis=1)[:, None]
     np.testing.assert_allclose(
-        -closure(steps, ideal, rotation) / a, spec.burgers, atol=1e-9
+        closure(steps, ideal, rotation) / a, spec.burgers, atol=1e-9
     )
 
 

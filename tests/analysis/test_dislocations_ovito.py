@@ -98,7 +98,10 @@ def compare(system, crystal, rel, lines=True):
                 )
                 for line in theirs
             ],
-            atol=0.01,
+            # the frame of the Burgers vector of a line is that of a cluster
+            # its first circuit touches, which the circuits' choices pick,
+            # and clusters of a distorted crystal are turned a little apart
+            atol=0.1,
         )
         assert sorted((line.loop, line.infinite) for line in ours.lines) == sorted(
             (line.is_loop, line.is_infinite_line) for line in theirs

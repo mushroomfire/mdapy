@@ -209,8 +209,8 @@ def test_the_sense_of_a_loop():
 
 
 def test_the_sign_of_the_burgers_vector():
-    """As OVITO's: along the same line, the opposite of the Burgers vector
-    insert_dislocation puts in, by the convention of Hirth and Lothe."""
+    """As OVITO's, the Burgers vector insert_dislocation puts in, along
+    +z."""
     b = 3.615 / np.sqrt(2)
     for orientation, burgers in [
         ([(1, 1, -2), (1, 1, 1), (1, -1, 0)], [0, 0, b]),  # screw
@@ -226,7 +226,7 @@ def test_the_sign_of_the_burgers_vector():
         result = DislocationAnalysis("fcc", perfect_only=True).compute(system)
         (line,) = result.lines
         assert line.points[-1, 2] > line.points[0, 2]  # along +z
-        np.testing.assert_allclose(line.spatial_burgers, -np.array(burgers), atol=0.02)
+        np.testing.assert_allclose(line.spatial_burgers, burgers, atol=0.02)
 
 
 def test_invariance():

@@ -22,6 +22,11 @@ from mdapy.errors import InvalidParameter
 # periodic images of the dipole summed along each box vector, both ways
 _IMAGES = 10
 
+# The fields are those of Hirth and Lothe, whose Burgers vector of a
+# dislocation along +z is the opposite of the one the dislocation analysis,
+# as OVITO's, finds.
+_HIRTH_LOTHE = -1
+
 
 @dataclass(frozen=True)
 class Dislocation:
@@ -38,7 +43,8 @@ class Dislocation:
         line.
     burgers : tuple of float
         The Burgers vector in the axes of the cubic cell, in units of the
-        lattice constant, in the glide plane.
+        lattice constant, in the glide plane: the one the dislocation
+        analysis, as OVITO's, finds along +z.
     partial : bool
         A single Shockley partial, which bounds a stacking fault on its -x
         side. Default False.
@@ -82,32 +88,32 @@ def _dislocations() -> dict[str, Dislocation]:
         "bcc screw": Dislocation(
             "bcc",
             ((1, 1, -2), bcc_plane, (1, 1, 1)),
-            (0.5, 0.5, 0.5),
+            (-0.5, -0.5, -0.5),
             core=(0.5, 1 / 3),
         ),
         "bcc edge": Dislocation(
-            "bcc", ((1, 1, 1), bcc_plane, (-1, -1, 2)), (0.5, 0.5, 0.5)
+            "bcc", ((1, 1, 1), bcc_plane, (-1, -1, 2)), (-0.5, -0.5, -0.5)
         ),
         "bcc mixed": Dislocation(
-            "bcc", ((-1, -1, -2), bcc_plane, (1, 1, -1)), (0.5, 0.5, 0.5)
+            "bcc", ((-1, -1, -2), bcc_plane, (1, 1, -1)), (-0.5, -0.5, -0.5)
         ),
         "bcc <100> edge": Dislocation(
-            "bcc", ((1, 0, 0), (0, 1, 0), (0, 0, 1)), (1.0, 0.0, 0.0)
+            "bcc", ((1, 0, 0), (0, 1, 0), (0, 0, 1)), (-1.0, 0.0, 0.0)
         ),
         "bcc <100>{110} edge": Dislocation(
-            "bcc", ((1, 0, 0), (0, 1, 1), (0, -1, 1)), (1.0, 0.0, 0.0)
+            "bcc", ((1, 0, 0), (0, 1, 1), (0, -1, 1)), (-1.0, 0.0, 0.0)
         ),
-        "fcc screw": Dislocation("fcc", fcc_screw, (0.5, -0.5, 0.0)),
+        "fcc screw": Dislocation("fcc", fcc_screw, (-0.5, 0.5, 0.0)),
         "fcc edge": Dislocation(
-            "fcc", ((1, -1, 0), (1, 1, 1), (-1, -1, 2)), (0.5, -0.5, 0.0)
+            "fcc", ((1, -1, 0), (1, 1, 1), (-1, -1, 2)), (-0.5, 0.5, 0.0)
         ),
-        "diamond screw": Dislocation("diamond", fcc_screw, (0.5, -0.5, 0.0)),
-        "diamond 60": Dislocation("diamond", fcc_screw, (0.5, 0.0, -0.5)),
+        "diamond screw": Dislocation("diamond", fcc_screw, (-0.5, 0.5, 0.0)),
+        "diamond 60": Dislocation("diamond", fcc_screw, (-0.5, 0.0, 0.5)),
         "diamond 30 partial": Dislocation(
-            "diamond", fcc_screw, (1 / 6, -1 / 3, 1 / 6), partial=True
+            "diamond", fcc_screw, (-1 / 6, 1 / 3, -1 / 6), partial=True
         ),
         "diamond 90 partial": Dislocation(
-            "diamond", fcc_screw, (1 / 6, 1 / 6, -1 / 3), partial=True
+            "diamond", fcc_screw, (-1 / 6, -1 / 6, 1 / 3), partial=True
         ),
     }
 
@@ -143,9 +149,10 @@ def _fault_vectors(structure: str, normal: np.ndarray) -> np.ndarray:
 
 
 def _partials(spec: Dislocation, sign: int) -> list[np.ndarray]:
-    """The Burgers vectors, in units of a and the cubic axes, of the
-    Shockley partials of sign times the dislocation, from -x to +x."""
-    b = sign * np.asarray(spec.burgers, dtype=float)
+    """The Burgers vectors of Hirth and Lothe, in units of a and the cubic
+    axes, of the Shockley partials of sign times the dislocation, from -x
+    to +x."""
+    b = _HIRTH_LOTHE * sign * np.asarray(spec.burgers, dtype=float)
     normal = np.asarray(spec.orientation[1], dtype=float)
     faults = _fault_vectors(spec.structure, normal)
     size = np.linalg.norm(faults[0])
@@ -212,13 +219,15 @@ class _Setup:
 
     def lines(self, sign: int, at: np.ndarray, rows: int) -> list:
         """The lines of sign times the dislocation from the site at: (x, y,
-        Burgers vector in Å in the frame), from -x to +x."""
+        Burgers vector of Hirth and Lothe in Å in the frame), from -x to
+        +x."""
+        own = _HIRTH_LOTHE * sign * np.asarray(self.spec.burgers, dtype=float)
         if self.spec.partial:
-            vectors = [sign * np.asarray(self.spec.burgers, dtype=float)]
+            vectors = [own]
         elif rows > 0:
             vectors = _partials(self.spec, sign)
         else:
-            vectors = [sign * np.asarray(self.spec.burgers, dtype=float)]
+            vectors = [own]
         return [
             (at + [k * rows * self.spacing, 0.0], self.a * self.frame @ v)
             for k, v in enumerate(vectors)
@@ -400,7 +409,9 @@ def dislocation_quadrupole(
     cell = setup.size[:2]
     c1 = np.array([crystal.box.matrix[0, 0], 0.0])
     c2 = np.array([0.0, crystal.box.matrix[1, 1]])
-    burgers = setup.a * setup.frame @ np.asarray(spec.burgers, dtype=float)
+    burgers = (
+        _HIRTH_LOTHE * setup.a * setup.frame @ np.asarray(spec.burgers, dtype=float)
+    )
     # the opposite dislocation half a box away along x, and along y the
     # way that makes the climb of the cut take atoms away, not add them
     half = (counts[:2] // 2) * cell * [1, -1 if burgers[0] > 0 else 1]

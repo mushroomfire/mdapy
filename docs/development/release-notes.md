@@ -298,7 +298,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   plastic strain of the dipole; `DISLOCATIONS`, the common dislocations of
   bcc, fcc and diamond (glide set), or a `Dislocation` of your own; fcc and
   diamond ones split into Shockley partials around an intrinsic stacking
-  fault. See [Dislocations](../build/dislocations.md).
+  fault. Burgers vectors as the dislocation analysis and OVITO find them,
+  the opposite of Hirth and Lothe's (and atomsk's). See
+  [Dislocations](../build/dislocations.md).
 - `mdapy.build.add_graphene`: graphene on the grain boundaries of a
   polycrystal, one or more AB-stacked layers centered on each face between
   two grains, each face once, in a random orientation, cut to the face;

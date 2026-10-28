@@ -89,6 +89,10 @@ import mdapy as mp
 
 ::: mdapy.analysis.BondAngleResult
 
+::: mdapy.analysis.RingStatistics
+
+::: mdapy.analysis.RingResult
+
 ::: mdapy.analysis.WarrenCowley
 
 ::: mdapy.analysis.WarrenCowleyResult

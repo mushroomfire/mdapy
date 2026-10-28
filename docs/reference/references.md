@@ -122,6 +122,11 @@ sampling, and forward flux sampling: a comparison of simulation techniques,
 [doi:10.1063/1.3506838](https://doi.org/10.1063/1.3506838)
 { #filion2010 }
 
+**Franzblau (1991).** D. S. Franzblau, Computation of ring statistics for
+network models of solids, *Phys. Rev. B* **44**, 4925 (1991).
+[doi:10.1103/PhysRevB.44.4925](https://doi.org/10.1103/PhysRevB.44.4925)
+{ #franzblau1991 }
+
 **Guénolé et al. (2020).** J. Guénolé, W. G. Nöhring, A. Vaid, F. Houllé,
 Z. Xie, A. Prakash and E. Bitzek, Assessment and optimization of the fast
 inertial relaxation engine (FIRE) for energy minimization in atomistic

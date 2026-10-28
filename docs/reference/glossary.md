@@ -58,6 +58,7 @@ implemented.
 | farthest point sampling | Choosing points one by one, each the farthest from those chosen before. |
 | crystal cluster | Neighboring atoms of one structure whose neighbors map onto each other by rotations of the lattice: one region with one lattice frame, as the dislocation analysis joins them. |
 | ideal vector | The vector between two atoms in the perfect, unstrained crystal, in the lattice frame of a crystal cluster. |
+| elastic strain | The strain of the lattice about an atom of a crystal against the ideal crystal of given lattice constants, from the deformation gradient that maps the ideal vectors onto its neighbors; it leaves out the slip of dislocations. |
 | good tetrahedron | A tetrahedron of the Delaunay tessellation whose six edges have ideal vectors that add up to zero around each face: crystal there maps onto the perfect lattice. |
 | interface mesh | The triangles between the good tetrahedra and the rest, on which Burgers circuits run. |
 | Burgers circuit | A closed path along the edges of the interface mesh; the sum of the ideal vectors of its edges is the Burgers vector of the dislocations it encloses. |
@@ -108,6 +109,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `deformation_gradient` | Array(f64, 9) | | elastic deformation gradient of the local lattice, by rows |
 | `ordering` | int8 | | chemical ordering of the local lattice from polyhedral template matching |
 | `shear_strain`, `volumetric_strain`, `d2min` | f64 | , , Å² | von Mises and volumetric atomic strain against a reference, and the non-affine squared displacement |
+| `elastic_strain`, `elastic_volumetric_strain` | f64, (3, 3) and scalar | | elastic strain of an atom of a crystal against the ideal crystal, in the spatial frame, and a third of its trace |
 
 ## Energies and virials
 

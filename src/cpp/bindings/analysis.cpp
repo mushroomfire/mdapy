@@ -19,6 +19,7 @@
 
 #include "analysis/dislocations.h"
 #include "analysis/distribution.h"
+#include "analysis/elastic_strain.h"
 #include "analysis/tessellation.h"
 #include "analysis/geometry.h"
 #include "analysis/steinhardt.h"
@@ -327,6 +328,24 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
         as_array(std::move(found.interface.atoms)), as_array(std::move(found.interface.vertices)),
         as_array(std::move(found.interface.faces)),
         as_array(std::move(found.interface.shifts)));
+}
+
+nb::tuple elastic_strain(Positions3 positions, Matrix3 matrix, Matrix3 inverse, Origin3 origin,
+                         Periodic pbc, int crystal, double a, double axial, nb::handle progress,
+                         const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    analysis::ElasticStrainOptions options;
+    options.crystal = crystal;
+    options.a = a;
+    options.axial = axial;
+    analysis::ElasticStrain found;
+    run_released(
+        [&](const Control& control) {
+            found = analysis::elastic_strain(positions.data(), n, matrix.data(), inverse.data(),
+                                             origin.data(), pbc.data(), options, control);
+        },
+        progress, cancel);
+    return nb::make_tuple(as_array(std::move(found.structure)), as_array(std::move(found.strain)));
 }
 
 nb::object steinhardt_nearest(Positions3 positions, Matrix3 matrix, Origin3 origin,
@@ -775,6 +794,9 @@ void bind_analysis(nb::module_& m) {
           nb::arg("stretch"), nb::arg("separation"), nb::arg("smoothing"),
           nb::arg("mesh_smoothing"), nb::arg("interface"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
+    m.def("elastic_strain", &elastic_strain, nb::arg("positions"), nb::arg("matrix"),
+          nb::arg("inverse"), nb::arg("origin"), nb::arg("pbc"), nb::arg("crystal"), nb::arg("a"),
+          nb::arg("axial"), nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("surface_mesh", &surface_mesh, nb::arg("positions"), nb::arg("jittered"),
           nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"), nb::arg("radius"),
           nb::arg("smoothing"), nb::arg("regions"), nb::arg("progress") = nb::none(),

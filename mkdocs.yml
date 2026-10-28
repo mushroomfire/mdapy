@@ -148,6 +148,7 @@ nav:
           - Wigner–Seitz analysis: analysis/wigner-seitz.md
           - Atomic displacement: analysis/displacement.md
           - Atomic strain: analysis/atomic-strain.md
+          - Elastic strain: analysis/elastic-strain.md
       - Dynamics:
           - Mean squared displacement: analysis/msd.md
           - Lindemann index: analysis/lindemann.md

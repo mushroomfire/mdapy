@@ -253,8 +253,11 @@ def test_invariance():
     shift = np.array([7.3, -4.1, 2.2])
     moved = analysis.compute(system.with_columns(positions=system["positions"] + shift))
     assert moved.total_length == pytest.approx(base.total_length, rel=0.02)
-    assert sorted(tuple(line.burgers) for line in moved.lines) == pytest.approx(
-        sorted(tuple(line.burgers) for line in base.lines)
+    np.testing.assert_allclose(
+        sorted(tuple(line.burgers) for line in moved.lines),
+        sorted(tuple(line.burgers) for line in base.lines),
+        rtol=1e-6,
+        atol=1e-12,
     )
     order = np.random.default_rng(3).permutation(len(system))
     shuffled = analysis.compute(system.gather(order))

@@ -278,3 +278,17 @@ def test_trajectory_lines():
         trajectory_lines(frames, np.ones(3, dtype=bool))
     with pytest.raises(InvalidParameter, match="no frames"):
         trajectory_lines([])
+
+
+def test_msd_of_atoms_in_blocks(monkeypatch):
+    """Some atoms at a time give what all at once do."""
+    from mdapy.analysis import _dynamics
+
+    _, frames = walk(frames=30, atoms=50, seed=8)
+    whole = [MeanSquaredDisplacement(window=w).compute(frames) for w in (True, False)]
+    monkeypatch.setattr(_dynamics, "_BLOCK", 7 * 30)  # 7 atoms at a time
+    for w, expected in zip((True, False), whole):
+        got = MeanSquaredDisplacement(window=w).compute(iter(frames))
+        np.testing.assert_allclose(
+            got.components, expected.components, rtol=1e-12, atol=1e-12
+        )

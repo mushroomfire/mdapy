@@ -206,7 +206,8 @@ def _msd_mdapy(inputs: dict) -> Callable:
     from mdapy.analysis import MeanSquaredDisplacement
 
     def run():
-        frames = list(mdapy.read_trajectory(inputs["path"]))
+        # the frames read one at a time, as OVITO's pipeline does
+        frames = mdapy.read_trajectory(inputs["path"])
         return MeanSquaredDisplacement(unwrap=False).compute(frames)
 
     return run

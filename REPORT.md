@@ -49,11 +49,11 @@
 
   ![铜析出物的等值面和体素](images/isosurface-0015.png)
 
-- **第 4 项找环做完了**（分支 `rings`，全量测试在跑，过了就合并）：`mdapy.analysis.RingStatistics(max_size=8, *, min_size=3, cutoff=None, cutoffs=None)`，规则是 Franzblau 的最短路径环（环上任意两原子沿键网络的最短距离等于沿环的距离）；周期像在搜索里区分，所以小盒子里也不会把绕盒子一圈的路径当成环；键来自截断、元素对截断或 topology。和 networkx 穷举所有回路再筛选的结果逐个一致（无序团簇，3–9 元环）；金刚石每个原子 12 个六元环、石墨烯 3 个，2×2×2 到 4×4×4 的周期盒都一样；平移、复制 8 倍计数乘 8；线程数无关。简并情形的规则写进文档：立方体给 6 个四元环和 4 个绕体对角线的六元环，θ 图三个 6 元环都给（OVITO 只给一部分）。`polygons()` 把环画成多边形；文档例子是石墨烯的 Stone–Wales 缺陷（2 个五元环、2 个七元环），参考文献加了 Franzblau 1991。图形界面加了 “Ring statistics” 步骤（按大小着色的多边形、直方图、表格）。
+- **第 4 项找环做完并合入 v2**（全量 2580 过，已推送）：`mdapy.analysis.RingStatistics(max_size=8, *, min_size=3, cutoff=None, cutoffs=None)`，规则是 Franzblau 的最短路径环（环上任意两原子沿键网络的最短距离等于沿环的距离）；周期像在搜索里区分，所以小盒子里也不会把绕盒子一圈的路径当成环；键来自截断、元素对截断或 topology。和 networkx 穷举所有回路再筛选的结果逐个一致（无序团簇，3–9 元环）；金刚石每个原子 12 个六元环、石墨烯 3 个，2×2×2 到 4×4×4 的周期盒都一样；平移、复制 8 倍计数乘 8；线程数无关。简并情形的规则写进文档：立方体给 6 个四元环和 4 个绕体对角线的六元环，θ 图三个 6 元环都给（OVITO 只给一部分）。`polygons()` 把环画成多边形；文档例子是石墨烯的 Stone–Wales 缺陷（2 个五元环、2 个七元环），参考文献加了 Franzblau 1991。图形界面加了 “Ring statistics” 步骤（按大小着色的多边形、直方图、表格）。
 
   ![Stone–Wales 缺陷的环](images/rings-0015.png)
 
-- OVITO 缺的 6 项至此全部做完。
+- OVITO 缺的 6 项至此全部做完并合入 v2。Python 3.11 + 最低版本 NumPy 2.3.1 / polars 2.0.0 全量也过（2047 过，120 个因没装 OVITO 等跳过）。
 
 ### 10-28 23:50
 - **第 3 项空间关联函数做完了**（分支 `correlation`，从 `elastic-strain` 往下长，已推送）：`mdapy.analysis.SpatialCorrelation(first, second=None, *, grid_spacing=3.0, window=True, direct=False, cutoff=5.0, bins=50)`，照 OVITO 公开源码的步骤自己写（最近格点分配、非周期方向 Hann 窗、FFT、倒空间和实空间径向平均、近程直接求和）。和 OVITO 现场对比（周期三斜盒、一个方向非周期开/关窗、全非周期）：五张表（实空间 C(r) 和 g(r)、倒空间 C(q)、近邻 C(r) 和 g(r)）和五个矩全部一致到 1e-9 以内（实测 1e-15）。OVITO 图里的三种归一化（除 RDF、除协方差、差值关联）文档里各给一行 NumPy。文档页 analysis/spatial-correlation.md，图形界面加了 “Spatial correlation function” 步骤（实空间/倒空间/近邻三种图）。全量测试 2558 过。

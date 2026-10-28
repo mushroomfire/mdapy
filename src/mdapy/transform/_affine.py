@@ -12,6 +12,7 @@ import numpy as np
 import polars as pl
 from numpy.typing import ArrayLike
 
+from mdapy.core._atoms import _mask
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
@@ -28,7 +29,7 @@ def affine(
     *,
     box: bool = True,
     vectors: Sequence[str] = VECTORS,
-    selection: ArrayLike | None = None,
+    atoms: ArrayLike | None = None,
 ) -> System:
     """The system with its atoms, and its box, mapped by an affine
     transformation.
@@ -49,9 +50,9 @@ def affine(
         The columns of vectors, of three components, that turn with M
         without the translation, where the system has them. Default
         ``velocities``, ``forces`` and ``displacement``.
-    selection : array_like of bool, optional
-        (N,) the atoms that move, with their vectors; the others stay as
-        they are. Default all of them.
+    atoms : array_like, optional
+        A boolean mask or indices of the atoms that move, with their
+        vectors; the others stay as they are. Default all of them.
 
     Returns
     -------
@@ -63,9 +64,9 @@ def affine(
     ------
     InvalidParameter
         If the matrix is not (3, 3) of finite numbers, or singular while the
-        box transforms; if the translation is not 3 finite numbers; if the
-        selection is not one bool per atom; or if a column of ``vectors``
-        does not hold three numbers per atom.
+        box transforms; if the translation is not 3 finite numbers; if
+        atoms is not a mask or indices of the system; or if a column of
+        ``vectors`` does not hold three numbers per atom.
     """
     m = np.asarray(matrix, dtype=float)
     if m.shape != (3, 3) or not np.all(np.isfinite(m)):
@@ -78,14 +79,7 @@ def affine(
     if box and abs(np.linalg.det(m)) < 1e-12:
         raise InvalidParameter("a singular matrix would flatten the box")
     n = len(system)
-    if selection is None:
-        moved = np.ones(n, dtype=bool)
-    else:
-        moved = np.asarray(selection)
-        if moved.shape != (n,) or moved.dtype != bool:
-            raise InvalidParameter(
-                f"selection must be {n} bools, one per atom, not {selection!r}"
-            )
+    moved = np.ones(n, dtype=bool) if atoms is None else _mask(atoms, n)
     columns = {}
     positions = np.array(system["positions"], dtype=float)
     positions[moved] = positions[moved] @ m.T + t

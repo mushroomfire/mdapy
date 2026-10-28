@@ -47,9 +47,7 @@ def test_as_ovito(crystal, only_selected):
     from ovito_reference import ovito_source
 
     selection = np.arange(len(crystal)) % 3 == 0
-    ours = affine(
-        crystal, MATRIX, SHIFT, selection=selection if only_selected else None
-    )
+    ours = affine(crystal, MATRIX, SHIFT, atoms=selection if only_selected else None)
     source = ovito_source(crystal)
     particles = source.data.particles_
     for column, name in (
@@ -137,8 +135,8 @@ def test_atoms_alone(crystal):
         ({"matrix": [[np.nan] * 3] * 3}, "matrix must be"),
         ({"matrix": np.diag([1.0, 1.0, 0.0])}, "singular"),
         ({"translation": (1, 2)}, "translation must be"),
-        ({"selection": [True]}, "selection must be"),
-        ({"selection": np.zeros(108, dtype=int)}, "selection must be"),
+        ({"atoms": [True]}, "a mask of atoms must have"),
+        ({"atoms": [108]}, "atoms must be a mask or indices"),
         ({"vectors": ("element",)}, "not a vector"),
     ],
 )

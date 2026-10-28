@@ -21,7 +21,7 @@ turn = [
 ]
 turned = affine(crystal, turn, translation=(10.0, 0.0, 0.0))  # about z, then moved
 top = crystal["positions"][:, 2] > 10
-moved = affine(crystal, np.eye(3), (0.0, 0.0, 3.0), box=False, selection=top)
+moved = affine(crystal, np.eye(3), (0.0, 0.0, 3.0), box=False, atoms=top)
 ```
 
 The crystal, sheared and turned:
@@ -43,7 +43,7 @@ write_png("images/affine.png", np.hstack(pictures))
 
 ## Parameters
 
-`affine(system, matrix, translation=(0, 0, 0), *, box=True, vectors=("velocities", "forces", "displacement"), selection=None)`
+`affine(system, matrix, translation=(0, 0, 0), *, box=True, vectors=("velocities", "forces", "displacement"), atoms=None)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
@@ -52,7 +52,7 @@ write_png("images/affine.png", np.hstack(pictures))
 | `translation` | (3,) | zero | Å | the translation $\mathbf t$ |
 | `box` | bool | `True` | | whether the box transforms too |
 | `vectors` | sequence of str | `velocities`, `forces`, `displacement` | | the columns of vectors that turn with $M$, where the system has them |
-| `selection` | (N,) bool | all atoms | | the atoms that move, with their vectors |
+| `atoms` | (N,) bool or indices | all atoms | | the atoms that move, with their vectors |
 
 ## Results
 
@@ -63,8 +63,8 @@ A new `System`:
 - each vector $\mathbf v$ of the columns in `vectors` becomes $M\mathbf v$,
   without the translation;
 - with `box`, the lattice vectors become $M\mathbf a$, $M\mathbf b$ and
-  $M\mathbf c$ and the origin $M\mathbf o + \mathbf t$, whatever the
-  selection, so the fractional coordinates of the atoms that move stay the
+  $M\mathbf c$ and the origin $M\mathbf o + \mathbf t$, whichever atoms
+  move, so the fractional coordinates of the atoms that move stay the
   same and their image flags still count the same lattice vectors;
 - the other columns, the topology and `info` are kept.
 
@@ -76,8 +76,8 @@ fractional coordinates, is `system.with_box(box, scale_positions=True)`.
 `affine` raises
 [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter) for
 a matrix that is not (3, 3) of finite numbers, a singular matrix while the
-box transforms, a translation that is not three finite numbers, a selection
-that is not one bool per atom, and a column of `vectors` that does not hold
+box transforms, a translation that is not three finite numbers, atoms that
+are not a mask or indices of the system, and a column of `vectors` that does not hold
 three numbers per atom.
 
 ## See also

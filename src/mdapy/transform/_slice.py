@@ -8,6 +8,7 @@
 import numpy as np
 from numpy.typing import ArrayLike
 
+from mdapy.core._atoms import _mask
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
 
@@ -97,23 +98,7 @@ def slice_mask(
         side = positions @ g - float(distance)
     keep = (np.abs(side) <= width / 2 if width > 0 else side <= 0) != bool(invert)
     if atoms is not None:
-        acting = np.asarray(atoms)
-        if acting.dtype == bool:
-            if acting.shape != (len(system),):
-                raise InvalidParameter(
-                    f"a mask of atoms must have {len(system)} entries"
-                )
-        else:
-            index = acting.reshape(-1)
-            if index.size and (
-                index.dtype.kind not in "iu"
-                or index.min() < 0
-                or index.max() >= len(system)
-            ):
-                raise InvalidParameter("atoms must be a mask or indices of the system")
-            acting = np.zeros(len(system), dtype=bool)
-            acting[index.astype(np.int64)] = True
-        keep |= ~acting
+        keep |= ~_mask(atoms, len(system))
     return keep
 
 

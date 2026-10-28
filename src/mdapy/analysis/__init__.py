@@ -39,6 +39,10 @@ from mdapy.analysis._dynamics import (
     trajectory_lines,
 )
 from mdapy.analysis._entropy import EntropyFingerprint, EntropyResult
+from mdapy.analysis._polyhedra import (
+    CoordinationPolyhedra,
+    CoordinationPolyhedraResult,
+)
 from mdapy.analysis._species import ChemicalSpecies, SpeciesResult
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
 from mdapy.analysis._strain import AtomicStrain, StrainResult
@@ -77,6 +81,8 @@ __all__ = [
     "DislocationLine",
     "DislocationResult",
     "CoordinationNumber",
+    "CoordinationPolyhedra",
+    "CoordinationPolyhedraResult",
     "CoordinationResult",
     "EntropyFingerprint",
     "EntropyResult",

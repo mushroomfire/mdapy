@@ -227,7 +227,8 @@ flowchart TB
 
     Images of systems, colored by any property, and plots of results.
 
-    [Rendering](visualization/rendering.md) · [plots](visualization/plots.md)
+    [Rendering](visualization/rendering.md) ·
+    [coordination polyhedra](visualization/polyhedra.md) · [plots](visualization/plots.md)
 
 -   :material-puzzle-outline:{ .lg .middle } **Interoperability**
 

@@ -375,7 +375,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   vectors, cut at the periodic faces of the box;
   arrows of any vector of the atoms, such as displacements or forces,
   as OVITO's vector display draws them; polylines such as the paths of
-  atoms;
+  atoms; [coordination polyhedra](../visualization/polyhedra.md), the convex
+  hulls of the neighbors of atoms with their volumes, as OVITO builds them;
   molecules as balls and sticks, licorice or space filling, with covalent
   bonds found from the elements; a `Scene` of spheres, cylinders and
   polygons; the scene framed, or a given focus and span; depth of field

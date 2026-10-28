@@ -3,33 +3,64 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Trajectories: the frames of a file, read when they are used."""
+"""Trajectories: the frames of files, read when they are used."""
 
+import glob
 import operator
 import os
+import re
 import weakref
 from collections.abc import Iterator, Sequence
 from typing import Any, overload
 
+import numpy as np
+
+from mdapy.core.box import Box
 from mdapy.core.system import System
+from mdapy.errors import InvalidParameter
 from mdapy.io._files import Source
 from mdapy.io._registry import Format, FramePosition, _format
 
 
-class _Frames:
-    """Frame positions of an open file, found as far as needed."""
+def _close_all(sources: dict) -> None:
+    for source in sources.values():
+        source.close()
+    sources.clear()
 
-    def __init__(self, source: Source, found: Format):
-        self.source = source
+
+class _Frames:
+    """Frame positions of files, found as far as needed: the file of each
+    frame and its position there. At most two files are open at a time,
+    that being scanned and that last read."""
+
+    def __init__(self, name: str, paths: list[str], found: Format):
+        self.name = name
+        self.paths = paths
         self.format = found
-        # The file is released when no trajectory uses it any more.
-        self.close = weakref.finalize(self, source.close)
-        self.positions: list[FramePosition] = []
-        if found.scan is None:
-            self.positions.append((0, 0))
-            self._scanner: Iterator[FramePosition] | None = None
-        else:
-            self._scanner = found.scan(source)
+        self.__open: dict[int, Source] = {}
+        self.__scanning = 0
+        # The files are released when no trajectory uses them any more.
+        self.close = weakref.finalize(self, _close_all, self.__open)
+        self.source(0)  # a file that cannot be opened fails at once
+        self.positions: list[tuple[int, FramePosition]] = []
+        self._scanner: Iterator[tuple[int, FramePosition]] | None = self.__scan()
+
+    def source(self, file: int) -> Source:
+        """The open file of this index, opened if need be."""
+        if file not in self.__open:
+            self.__open[file] = Source(self.paths[file])
+        for other in [k for k in self.__open if k not in (file, self.__scanning)]:
+            self.__open.pop(other).close()
+        return self.__open[file]
+
+    def __scan(self) -> Iterator[tuple[int, FramePosition]]:
+        for file in range(len(self.paths)):
+            self.__scanning = file
+            if self.format.scan is None:
+                yield file, (0, 0)
+            else:
+                for position in self.format.scan(self.source(file)):
+                    yield file, position
 
     def known(self, count: int) -> bool:
         """Whether at least count frames exist; scans as far as needed."""
@@ -57,15 +88,22 @@ class Trajectory(Sequence[System]):
     manager, or no trajectory of the file is used any more.
     """
 
-    def __init__(self, frames: _Frames, options: dict[str, Any], indices: range | None):
+    def __init__(
+        self,
+        frames: _Frames,
+        options: dict[str, Any],
+        indices: range | None,
+        topology: System | None = None,
+    ):
         self._frames = frames
         self.__options = options
-        self.__indices = indices  # None: every frame of the file
+        self.__indices = indices  # None: every frame of the files
+        self.__topology = topology
 
     @property
     def path(self) -> str:
-        """Name of the file."""
-        return self._frames.source.name
+        """Name of the file, or the pattern or first file of several."""
+        return self._frames.name
 
     @property
     def format(self) -> str:
@@ -89,7 +127,7 @@ class Trajectory(Sequence[System]):
                 selected = range(self._frames.total())[index]
             else:
                 selected = self.__indices[index]
-            return Trajectory(self._frames, self.__options, selected)
+            return Trajectory(self._frames, self.__options, selected, self.__topology)
         index = operator.index(index)
         if self.__indices is not None:
             frame = self.__indices[index]  # raises IndexError
@@ -114,11 +152,15 @@ class Trajectory(Sequence[System]):
             frame += 1
 
     def __read(self, frame: int) -> System:
-        position = self._frames.positions[frame]
-        return self._frames.format.read(self._frames.source, position, **self.__options)
+        file, position = self._frames.positions[frame]
+        source = self._frames.source(file)
+        system = self._frames.format.read(source, position, **self.__options)
+        if self.__topology is not None:
+            system = _with_topology(system, self.__topology, source.name)
+        return system
 
     def close(self) -> None:
-        """Releases the file, also for the slices of this trajectory."""
+        """Releases the files, also for the slices of this trajectory."""
         self._frames.close()
 
     def __enter__(self) -> "Trajectory":
@@ -137,18 +179,102 @@ class Trajectory(Sequence[System]):
         return f"Trajectory({self.path!r}, format={self.format!r}, frames={count})"
 
 
+def _natural(name: str) -> list:
+    """Sorts names by the numbers in them: dump.2 before dump.10."""
+    return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", name)]
+
+
+def _paths(path: Any) -> tuple[str, list[str]]:
+    """The name and the files of a file, a pattern or a list of files."""
+    if isinstance(path, (str, os.PathLike)):
+        name = os.fspath(path)
+        if "*" not in name:
+            return name, [name]
+        files = sorted(glob.glob(name), key=_natural)
+        if not files:
+            raise FileNotFoundError(f"no file matches {name}")
+        return name, files
+    files = [os.fspath(p) for p in path]
+    if not files:
+        raise InvalidParameter("give at least one file")
+    return files[0], files
+
+
+def _with_topology(frame: System, topology: System, name: str) -> System:
+    """The frame in the order of the atoms of the topology, with their
+    topology and the columns the frame lacks; atoms missing from the frame
+    are left out, their topology terms with them."""
+    n, has = len(topology), "id" in topology.table.columns
+    if has and "id" in frame.table.columns:
+        known, ids = np.asarray(topology["id"]), np.asarray(frame["id"])
+        if len(np.unique(known)) != n:
+            raise InvalidParameter("the atoms of the topology repeat ids")
+        if len(np.unique(ids)) != len(ids):
+            raise InvalidParameter(f"the atoms of a frame of {name} repeat ids")
+        order = np.argsort(ids, kind="stable")
+        at = np.minimum(np.searchsorted(ids[order], known), len(ids) - 1)
+        found = ids[order][at] == known if len(ids) else np.zeros(n, dtype=bool)
+        if found.sum() < len(ids):
+            extra = np.setdiff1d(ids, known)
+            raise InvalidParameter(
+                f"a frame of {name} has {len(extra)} atoms not in the topology, "
+                f"such as id {extra[0]}"
+            )
+        rows, kept = order[at[found]], np.flatnonzero(found)
+    elif len(frame) != n:
+        raise InvalidParameter(
+            f"a frame of {name} has {len(frame)} atoms and the topology {n}: "
+            "without ids they must be the same"
+        )
+    elif "id" in frame.table.columns:
+        raise InvalidParameter(
+            "the atoms of the frames have ids and those of the topology not"
+        )
+    elif has and not np.array_equal(np.asarray(topology["id"]), np.arange(1, n + 1)):
+        raise InvalidParameter(
+            f"the frames of {name} have no ids, and those of the topology are "
+            "not 1 to N in order"
+        )
+    else:
+        rows = kept = np.arange(n)
+    system = topology if len(kept) == n else topology.gather(kept)
+    columns = frame.table[rows].drop("id", strict=False)
+    if "image" in system.table.columns and "image" not in columns.columns:
+        system = system.drop("image")  # the flags of the topology are stale
+    box = Box(frame.box.matrix, frame.box.origin, topology.box.pbc)
+    return (
+        system.with_columns(*columns.get_columns())
+        .with_box(box)
+        .with_info({**topology.info, **frame.info})
+    )
+
+
 def read_trajectory(
-    path: str | os.PathLike, format: str | None = None, **options
+    path: str | os.PathLike | Sequence[str | os.PathLike],
+    format: str | None = None,
+    *,
+    topology: System | None = None,
+    **options,
 ) -> Trajectory:
-    """Opens the frames of a file without reading them.
+    """Opens the frames of files without reading them.
 
     Parameters
     ----------
-    path : str or os.PathLike
-        The file.
+    path : str, os.PathLike or sequence of them
+        The file; a pattern with ``*``, such as ``"dump.*.lammpstrj"``,
+        for the files it matches in the order of the numbers in their
+        names; or files in order. The frames of each file follow those of
+        the file before.
     format : str, optional
-        Format name; by default it is found from the file name with
-        :func:`detect_format`.
+        Format name; by default it is found from the name of the first file
+        with :func:`detect_format`.
+    topology : System, optional
+        A system, such as one read from a LAMMPS data file, whose atoms the
+        frames move: each frame gets its atoms, matched by id, in their
+        order, with their topology and the columns the frame lacks, such as
+        charges, molecules and masses; the box of the frame with the
+        periodicity of the system. Atoms missing from a frame are left out
+        with their bonds, angles and so on.
     **options
         Options of the format, used for every frame.
 
@@ -162,6 +288,13 @@ def read_trajectory(
     ------
     UnsupportedFormat
         If the format is unknown or cannot be read.
+    FileNotFoundError
+        If no file matches a pattern.
+    InvalidParameter
+        For an empty list of files; on reading a frame with a topology, if
+        it has atoms not in the topology, if ids repeat, or if without ids
+        the numbers of atoms differ.
     """
-    found = _format(path, format, "read")
-    return Trajectory(_Frames(Source(path), found), options, None)
+    name, paths = _paths(path)
+    found = _format(paths[0], format, "read")
+    return Trajectory(_Frames(name, paths, found), options, None, topology)

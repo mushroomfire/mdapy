@@ -34,7 +34,7 @@
 | `2ac7391` | `read_trajectory`：多文件（`dump.*.lammpstrj` 模式或列表）、`topology=` 让 dump 帧带上 data 文件的键、电荷、分子号（OVITO 的 Load trajectory） |
 | `06f48b3` | 读取 CIF（按对称操作展开）和 PDB（原子名、残基、MODEL 多帧、CONECT 键） |
 | `3ef6e94` | `analysis.TimeAverage`：任意列、盒子或函数结果的时间平均（OVITO 的 Time averaging） |
-| `fb40c6c` 之前 | `analysis.trajectory_lines` + `render(lines=...)`：轨迹线 |
+| `f9e7bde` | `analysis.trajectory_lines` + `render(lines=...)`：轨迹线 |
 | `fb40c6c` | `analysis.CoordinationPolyhedra`：配位多面体（凸包）和体积 |
 | `83736f7` | VASP OUTCAR 改为只读文件格式，取代 `mlip.read_outcar` / `outcar_to_xyz` |
 

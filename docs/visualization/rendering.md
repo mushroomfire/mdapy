@@ -1,7 +1,8 @@
 # Rendering
 
 `mdapy.visualization.render` draws a system by ray tracing: atoms as
-spheres, optionally bonds, the box and Voronoi cells, with ambient
+spheres, optionally bonds, the box, Voronoi cells, surfaces, dislocations and
+arrows of vectors, with ambient
 occlusion, shadows and outlines, in four styles. A `Scene` takes any
 spheres, cylinders and polygons for pictures made by hand.
 
@@ -44,7 +45,12 @@ fast, matte, shiny and flat.*
 value_range=None, representation="spheres", radius=None, bonds=None,
 bond_radius=None, box=True,
 box_radius=None, box_color="black", polyhedra=None, polyhedra_alpha=0.6,
-polyhedra_color="atom", polyhedra_edges=None, **options)`
+polyhedra_color="atom", polyhedra_edges=None, mesh=None, mesh_color="#8fb0d8",
+mesh_alpha=1.0, dislocations=None, dislocation_radius=0.5,
+burgers_vectors=False, burgers_scale=3.0, burgers_radius=0.3,
+burgers_color=(0.7, 0.7, 0.7), vectors=None, vector_scale=1.0,
+vector_radius=0.5, vector_color=(1.0, 1.0, 0.0), vector_alignment="base",
+**options)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
@@ -72,6 +78,11 @@ polyhedra_color="atom", polyhedra_edges=None, **options)`
 | `burgers_scale` | float | 3 | | the length of the arrows in Burgers vectors |
 | `burgers_radius` | float | 0.3 | Å | the radius of their shafts |
 | `burgers_color` | color or `"family"` | light gray | | one color for the arrows, or the color of each line |
+| `vectors` | str or (N, 3) | `None` | | an arrow for each atom shown: a column of three components, such as `displacement`, `velocities` or `forces`, or vectors; [below](#vectors) |
+| `vector_scale` | float | 1 | | the length of the arrows in units of the vectors; negative reverses them |
+| `vector_radius` | float | 0.5 | Å | the radius of their shafts |
+| `vector_color` | color or `"atom"` | yellow | | one color for the arrows, or the color of each atom |
+| `vector_alignment` | str | `"base"` | | the point of the arrow at its atom: `base`, `center` or `head` |
 
 | Representation | Atoms | Bonds |
 |---|---|---|
@@ -224,6 +235,53 @@ write_png("images/molecules.png", np.hstack(list(drawn.values())))
 
 *Benzene in the representations ball_and_stick, licorice and
 space_filling, in the shiny style.*
+
+## Vectors
+
+An arrow along a vector of each atom, such as its displacement, velocity or
+force: here the displacements of an edge dislocation put into copper.
+
+```python
+import numpy as np
+
+from mdapy.build import build_crystal, insert_dislocation
+
+# x along [1-10], y normal to the (111) glide plane, z along the line
+crystal = build_crystal(
+    "fcc",
+    3.615,
+    elements="Cu",
+    orientation=[(1, -1, 0), (1, 1, 1), (-1, -1, 2)],
+    repeat=(24, 6, 1),
+)
+center = crystal.box.matrix.diagonal() / 2 + [0.1, 0.1, 0.0]
+edge = insert_dislocation(crystal, [3.615 / np.sqrt(2), 0, 0], line="z", center=center)
+edge = edge.with_columns(displacement=edge["positions"] - crystal["positions"])
+render(
+    edge,
+    "images/vectors.png",
+    radius=0.5,
+    vectors="displacement",
+    vector_scale=2.5,
+    vector_radius=0.12,
+    vector_color=(0.85, 0.25, 0.2),
+    view="top",
+    width=800,
+    height=440,
+)
+```
+
+![Displacements around an edge dislocation](images/vectors.png)
+
+*The displacements of the atoms around an edge dislocation, 2.5 times
+their length, seen along the line: the planes above the glide plane open
+around the extra half plane and close below it.*
+
+The arrows are those of OVITO's vector display with normal shading: a shaft
+of `vector_radius`, which is OVITO's arrow width, and a head 2.5 times as
+wide and 4.5 times as long as that radius; an arrow shorter than its head is
+a cone only, narrowed in proportion. OVITO draws flat arrows facing the
+viewer by default. Zero vectors and atoms not shown get no arrow.
 
 ## Scenes
 

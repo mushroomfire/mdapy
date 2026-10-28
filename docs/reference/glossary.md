@@ -32,6 +32,7 @@ implemented.
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |
 | unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries, or, along a trajectory, so that atoms move continuously through them; with an `image` column, the positions plus the image flags times the lattice vectors. |
+| affine transformation | A map of positions x to M x + t, with a (3, 3) matrix M and a translation t: a rotation, shear, scaling or move, or a mix of them; vectors such as velocities turn with M alone. |
 | copy | One of the systems `replicate` places side by side; copy (i, j, l) of (n<sub>a</sub>, n<sub>b</sub>, n<sub>c</sub>) is number i + n<sub>a</sub>(j + n<sub>b</sub> l). |
 | lag | The number of frames between two frames of a trajectory. |
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |

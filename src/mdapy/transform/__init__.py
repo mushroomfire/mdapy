@@ -3,10 +3,11 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Transformations that give a new system: periodic copies and images, and
-slices."""
+"""Transformations that give a new system: periodic copies and images,
+slices, and affine transformations."""
 
+from mdapy.transform._affine import affine
 from mdapy.transform._periodic import replicate, unwrap, wrap
 from mdapy.transform._slice import slice, slice_mask
 
-__all__ = ["replicate", "slice", "slice_mask", "unwrap", "wrap"]
+__all__ = ["affine", "replicate", "slice", "slice_mask", "unwrap", "wrap"]

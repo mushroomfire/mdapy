@@ -161,6 +161,7 @@ nav:
       - Polycrystals and twins: build/polycrystals.md
       - Graphene on grain boundaries: build/graphene.md
       - Periodic copies and images: build/transform.md
+      - Affine transformation: build/affine.md
       - Slices: build/slice.md
   - Simulation:
       - Calculators:

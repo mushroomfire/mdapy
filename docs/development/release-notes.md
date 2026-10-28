@@ -326,6 +326,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   Miller indices of the box, at a distance or through a point, acting on
   all atoms or some; `slice_mask` the same as a mask. See
   [Slices](../build/slice.md).
+- `mdapy.transform.affine`: moves, rotates, shears or scales the atoms, their
+  velocities, forces and displacements, and the box, all atoms or a
+  selection, as OVITO's affine transformation modifier. See
+  [Affine transformation](../build/affine.md).
 
 ### MLIP
 

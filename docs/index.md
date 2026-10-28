@@ -185,7 +185,8 @@ flowchart TB
     [polycrystals](build/polycrystals.md) ·
     [graphene on grain boundaries](build/graphene.md) ·
     [periodic copies and images](build/transform.md) ·
-    [slices](build/slice.md)
+    [slices](build/slice.md) ·
+    [affine transformation](build/affine.md)
 
 -   :mdapy-simulation:{ .lg .middle } **Simulation**
 

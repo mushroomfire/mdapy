@@ -38,6 +38,7 @@ implemented.
 | lag | The number of frames between two frames of a trajectory. |
 | time average | The mean of a quantity over the frames of a trajectory, of each atom for a column of the atoms. |
 | trajectory line | The path of an atom over the frames of a trajectory, followed through the periodic boundaries. |
+| combined system | The atoms of two systems in one, in the box of the first, as `combine` makes it; OVITO calls it combining datasets. |
 | drift | The motion of the center of mass of all the atoms, or of some, over a trajectory; `remove_drift` moves each frame to keep the center of mass where it is in a reference frame. |
 | file pattern | A file name with `*`, standing for the files it matches, in the order of the numbers in their names, such as `dump.*.lammpstrj`. |
 | topology of a trajectory | A system, usually read from a LAMMPS data file, whose bonds, charges, molecules and other columns the frames of a trajectory take, their atoms matched by id. |

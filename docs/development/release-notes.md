@@ -355,6 +355,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   velocities, forces and displacements, and the box, all atoms or a
   selection, as OVITO's affine transformation modifier. See
   [Affine transformation](../build/affine.md).
+- `mdapy.transform.combine`: the atoms of a second system added to a
+  first, in its box, as OVITO's combine datasets: the columns of either,
+  ids numbered on, molecules and topology terms offset. See
+  [Combining systems](../build/combine.md).
 
 ### MLIP
 

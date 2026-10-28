@@ -191,6 +191,8 @@ import mdapy as mp
 
 ::: mdapy.transform.remove_drift
 
+::: mdapy.transform.combine
+
 ::: mdapy.transform.slice
 
 ::: mdapy.transform.slice_mask

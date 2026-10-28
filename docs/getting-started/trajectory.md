@@ -99,7 +99,9 @@ water = mp.System(
         bonds=[[3 * k, 3 * k + i] for k in range(4) for i in (1, 2)],
         angles=[[3 * k + 1, 3 * k, 3 * k + 2] for k in range(4)],
     ),
-).with_columns(charge=[-0.8476, 0.4238, 0.4238] * 4, molecule=np.repeat([1, 2, 3, 4], 3))
+).with_columns(
+    charge=[-0.8476, 0.4238, 0.4238] * 4, molecule=np.repeat([1, 2, 3, 4], 3)
+)
 mp.write("water.data", water, atom_style="full")
 data = mp.read("water.data")  # ids 1 to 12
 

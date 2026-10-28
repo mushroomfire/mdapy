@@ -86,6 +86,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   slabs as fast as in crystals. A list serves every system with the same
   positions in the same box (`fits`), so it outlives `with_columns`.
   See [Neighbor lists](../getting-started/neighbor.md).
+- `mdapy.neighbor.expand_selection`: a selection grown by the atoms within a
+  cutoff, the nearest neighbors or the bonded atoms of the selected ones,
+  step by step, as OVITO's expand selection. See
+  [Expanding a selection](../getting-started/expand-selection.md).
 - Analyses given a list read it where it is, without a copy: those of the
   k nearest neighbors put the k nearest pairs of each atom first in the
   list itself, once, in parallel; those within a cutoff read the pairs

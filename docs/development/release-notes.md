@@ -389,6 +389,15 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   plane. See [Choosing frames](../mlip/selection.md).
 - `mdapy.mlip.perturb`: copies of a structure with atoms displaced and the
   box strained at random. See [Perturbed structures](../mlip/perturbation.md).
+- `mdapy.mlip.predict` and `read_gpumd`: errors of any model against the
+  labels of a training set, frame by frame, or read from the outputs of
+  NEP training in GPUMD. See [Errors of a model](../mlip/errors.md).
+- `mdapy.mlip.committee` and `novelty`: the spread of the predictions of
+  several models and the distance from a training set in the space of
+  descriptors, to find frames worth labeling. See
+  [Uncertainty and novelty](../mlip/uncertainty.md).
+- `mdapy.mlip.check_frames`: atoms too close, net forces and missing
+  labels in a training set. See [Checking frames](../mlip/checks.md).
 
 ### Visualization
 

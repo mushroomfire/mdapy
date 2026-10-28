@@ -8,10 +8,10 @@ Code blocks of one page run in order and share variables, in a temporary
 working directory, so examples may write files. A block preceded by the line
 ``<!-- skip-test -->`` is an illustration and is not run. A page with a line
 ``<!-- needs: name -->`` is skipped where the module ``name`` cannot be
-imported. The files of a folder next to a page with a line
-``<!-- files: folder -->`` are copied into the working directory first, as
-readers download them. The working directory has an empty folder ``images``,
-where examples save the pictures shown on their page.
+imported. The files of a folder, given relative to the page by a line
+``<!-- files: folder -->``, are copied into the working directory first,
+as readers download them. The working directory has an empty folder
+``images``, where examples save the pictures shown on their page.
 """
 
 import re
@@ -27,7 +27,7 @@ BLOCK = re.compile(
 )
 SKIP = "<!-- skip-test -->"
 NEEDS = re.compile(r"<!-- needs: ([\w.]+) -->")
-FILES = re.compile(r"<!-- files: ([\w.-]+) -->")
+FILES = re.compile(r"<!-- files: ([\w./-]+) -->")
 
 
 def python_blocks(page: Path) -> list[str]:

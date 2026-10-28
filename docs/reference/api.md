@@ -225,6 +225,20 @@ import mdapy as mp
 
 ::: mdapy.mlip.perturb
 
+::: mdapy.mlip.predict
+
+::: mdapy.mlip.read_gpumd
+
+::: mdapy.mlip.Predictions
+
+::: mdapy.mlip.committee
+
+::: mdapy.mlip.CommitteeResult
+
+::: mdapy.mlip.novelty
+
+::: mdapy.mlip.check_frames
+
 ## Visualization
 
 ::: mdapy.visualization.render

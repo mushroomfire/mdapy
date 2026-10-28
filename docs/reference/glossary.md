@@ -60,6 +60,12 @@ implemented.
 | SOAP | The smooth overlap of atomic positions: the power spectrum of the Gaussian density of the neighbors of an atom, a descriptor of its neighborhood that does not change when it is turned, moved or reordered. |
 | structure descriptor | The mean of the descriptors of the atoms of a frame, one point per frame. |
 | farthest point sampling | Choosing points one by one, each the farthest from those chosen before. |
+| label | A reference energy, force or virial of a frame, usually from DFT, that a model is trained to predict. |
+| parity plot | The predictions of a model against the labels, one point each; on the diagonal where they agree. |
+| committee | Several models of one system, such as models trained with other seeds; the spread of their predictions marks where they were not trained enough. |
+| model deviation | The largest over the atoms of a frame of the spread of the forces of a committee, as DP-GEN chooses frames by it. |
+| novelty | The distance of a frame from the nearest frame of a training set in the space of descriptors. |
+| net force | The sum of the forces on all atoms of a frame: zero for a crystal or a cluster in vacuum. |
 | crystal cluster | Neighboring atoms of one structure whose neighbors map onto each other by rotations of the lattice: one region with one lattice frame, as the dislocation analysis joins them. |
 | ideal vector | The vector between two atoms in the perfect, unstrained crystal, in the lattice frame of a crystal cluster. |
 | spatial correlation function | The mean of one property of the atoms at a place times another at a distance r from it, ⟨P₁(0) P₂(r)⟩; of two properties equal to 1, the radial distribution function. |

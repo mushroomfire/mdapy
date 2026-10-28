@@ -193,6 +193,9 @@ nav:
       - Training sets from VASP: mlip/vasp.md
       - SOAP descriptors: mlip/soap.md
       - Choosing frames: mlip/selection.md
+      - Errors of a model: mlip/errors.md
+      - Uncertainty and novelty: mlip/uncertainty.md
+      - Checking frames: mlip/checks.md
       - Perturbed structures: mlip/perturbation.md
   - Visualization:
       - Rendering: visualization/rendering.md

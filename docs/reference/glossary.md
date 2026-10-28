@@ -37,6 +37,7 @@ implemented.
 | copy | One of the systems `replicate` places side by side; copy (i, j, l) of (n<sub>a</sub>, n<sub>b</sub>, n<sub>c</sub>) is number i + n<sub>a</sub>(j + n<sub>b</sub> l). |
 | lag | The number of frames between two frames of a trajectory. |
 | time average | The mean of a quantity over the frames of a trajectory, of each atom for a column of the atoms. |
+| trajectory line | The path of an atom over the frames of a trajectory, followed through the periodic boundaries. |
 | file pattern | A file name with `*`, standing for the files it matches, in the order of the numbers in their names, such as `dump.*.lammpstrj`. |
 | topology of a trajectory | A system, usually read from a LAMMPS data file, whose bonds, charges, molecules and other columns the frames of a trajectory take, their atoms matched by id. |
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
@@ -181,6 +182,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | sparseness of the points of dislocation lines, smoothing steps of the lines and of the defect mesh | `point_separation`, `smoothing`, `mesh_smoothing` | `line_point_separation`, `line_smoothing_level`, `defect_mesh_smoothing_level` |
 | also the interface mesh of a dislocation analysis | `interface_mesh=True` | `output_interface_mesh` |
 | arrows of vectors: the vectors, their scale, the radius of the shafts, color, point at the atom | `vectors`, `vector_scale`, `vector_radius`, `vector_color`, `vector_alignment` | `scaling`, `width`, `arrow_width`, `reverse` |
+| polylines in pictures: the points, radius, color, cut at the periodic faces | `lines`, `line_radius`, `line_color`, `wrap_lines` | `width`, `wrapped_lines` |
 | follow atoms through the periodic boundaries | `unwrap` (bool) | `wrapped`, `unwrapped` |
 | reference configuration | `reference=` | `ref` |
 | system whose atoms the frames of a trajectory move | `topology=` | `topology_file`, `data` |

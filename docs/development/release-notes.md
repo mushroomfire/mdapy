@@ -261,7 +261,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [`TimeAverage`](../analysis/time-average.md): the mean of a column of
   the atoms, of the box or of anything computed from a frame over a
   trajectory, the atoms matched by id and their positions unwrapped, as
-  OVITO's time averaging.
+  OVITO's time averaging. [`trajectory_lines`](../analysis/trajectory-lines.md):
+  the paths of the atoms, unwrapped by their image flags or the nearest
+  image, drawn by `render(lines=...)`.
 - Defects and deformation in `mdapy.analysis`, agreeing with OVITO:
   [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms
   and whether they span the box, and on request their unwrapped positions,
@@ -372,7 +374,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   surface meshes and dislocation lines with arrows of their Burgers
   vectors, cut at the periodic faces of the box;
   arrows of any vector of the atoms, such as displacements or forces,
-  as OVITO's vector display draws them;
+  as OVITO's vector display draws them; polylines such as the paths of
+  atoms;
   molecules as balls and sticks, licorice or space filling, with covalent
   bonds found from the elements; a `Scene` of spheres, cylinders and
   polygons; the scene framed, or a given focus and span; depth of field

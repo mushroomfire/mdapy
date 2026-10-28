@@ -83,6 +83,8 @@ def written(tmp_path_factory):
 NAMES = ["rock salt", "rutile", "quartz", "corundum", "baddeleyite", "triclinic"]
 
 
+# newer pymatgen tells when it rounds coordinates near special positions
+@pytest.mark.filterwarnings("ignore:Issues encountered while parsing CIF:UserWarning")
 @pytest.mark.parametrize("name", NAMES)
 def test_as_pymatgen_ase_and_ovito(written, name):
     from pymatgen.io.cif import CifParser

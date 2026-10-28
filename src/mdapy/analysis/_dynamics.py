@@ -19,7 +19,6 @@ from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 
-
 #: Values of the positions over the frames transformed together by the
 #: mean squared displacement, some atoms at a time.
 _BLOCK = 1 << 20

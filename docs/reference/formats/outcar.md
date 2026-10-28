@@ -29,6 +29,11 @@ last.info["converged"]  # whether the electronic loop reached EDIFF
 | `free  energy   TOTEN` | `info["energy"]` (eV), the free energy, of which the forces are the slope |
 | `aborting loop because EDIFF is reached` in the step | `info["converged"]` |
 
+Every ionic step is read, whether its electronic loop converged or not,
+so that a single point that did not converge still gives its atoms;
+`info["converged"]` tells which steps reached EDIFF, and a training set
+keeps those (see [Training sets from VASP](../../mlip/vasp.md)).
+
 A step ends at its line `FREE ENERGIE OF THE ION-ELECTRON SYSTEM`; the
 lines of the machine-learned force field of VASP 6, which start with `ML`,
 are not steps. A step cut short at the end of the file is left out.

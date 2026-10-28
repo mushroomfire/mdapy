@@ -20,6 +20,11 @@ from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 
 
+#: Values of the positions over the frames transformed together by the
+#: mean squared displacement, some atoms at a time.
+_BLOCK = 1 << 20
+
+
 def _follow(
     frames: Iterable[System], unwrap: bool, column: str = "positions"
 ) -> Iterator[np.ndarray]:
@@ -138,13 +143,18 @@ class MeanSquaredDisplacement:
         DisplacementResult
             The mean squared displacement for each lag.
         """
-        r = _followed(frames, self.unwrap)  # (T, N, 3)
-        if r.shape[1] == 0:
+        steps = list(_follow(frames, self.unwrap))  # (N, 3) in each frame
+        count, n = len(steps), len(steps[0])
+        if n == 0:
             raise InvalidParameter("the frames have no atoms")
-        count = len(r)
-        if not self.window:
-            parts = ((r - r[0]) ** 2).mean(axis=1)
-        else:
+        # some atoms at a time, so that the Fourier transforms stay small
+        block = max(1, _BLOCK // count)
+        parts = np.zeros((count, 3))
+        for first in range(0, n, block):
+            r = np.stack([x[first : first + block] for x in steps])  # (T, b, 3)
+            if not self.window:
+                parts += ((r - r[0]) ** 2).sum(axis=1)
+                continue
             # MSD(m) = S1(m) - 2 S2(m) per atom and direction, with S2 the
             # autocorrelation of the positions from their Fourier transform
             size = 2 * count
@@ -158,7 +168,8 @@ class MeanSquaredDisplacement:
                 if m > 0:
                     total = total - square[m - 1] - square[count - m]
                 s1[m] = total / (count - m)
-            parts = (s1 - 2.0 * s2).mean(axis=1)
+            parts += (s1 - 2.0 * s2).sum(axis=1)
+        parts /= n
         return DisplacementResult(
             lag=np.arange(count), msd=parts.sum(axis=1), components=parts
         )

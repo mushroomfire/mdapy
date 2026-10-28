@@ -23,6 +23,7 @@
 #include "analysis/tessellation.h"
 #include "analysis/geometry.h"
 #include "analysis/isosurface.h"
+#include "analysis/rings.h"
 #include "analysis/steinhardt.h"
 #include "analysis/strain.h"
 #include "analysis/surface_mesh.h"
@@ -329,6 +330,28 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
         as_array(std::move(found.interface.atoms)), as_array(std::move(found.interface.vertices)),
         as_array(std::move(found.interface.faces)),
         as_array(std::move(found.interface.shifts)));
+}
+
+nb::tuple find_rings(Offsets offsets, Offsets other,
+                     nb::ndarray<const std::int32_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu> shifts,
+                     int min_size, int max_size, nb::handle progress, const CancelToken* cancel) {
+    analysis::RingBonds bonds;
+    bonds.n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    if (bonds.n < 0 || static_cast<std::size_t>(offsets.data()[bonds.n]) != other.shape(0) ||
+        other.shape(0) != shifts.shape(0)) {
+        throw std::invalid_argument("offsets, other and shifts do not match");
+    }
+    bonds.offsets = offsets.data();
+    bonds.other = other.data();
+    bonds.shifts = shifts.data();
+    analysis::Rings found;
+    run_released(
+        [&](const Control& control) {
+            found = analysis::find_rings(bonds, min_size, max_size, control);
+        },
+        progress, cancel);
+    return nb::make_tuple(as_array(std::move(found.atoms)), as_array(std::move(found.shifts)),
+                          as_array(std::move(found.starts)));
 }
 
 nb::tuple isosurface(nb::ndarray<const double, nb::ndim<3>, nb::c_contig, nb::device::cpu> values,
@@ -808,6 +831,9 @@ void bind_analysis(nb::module_& m) {
           nb::arg("pbc"), nb::arg("crystal"), nb::arg("defects"), nb::arg("max_circuit"),
           nb::arg("stretch"), nb::arg("separation"), nb::arg("smoothing"),
           nb::arg("mesh_smoothing"), nb::arg("interface"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("find_rings", &find_rings, nb::arg("offsets"), nb::arg("other"), nb::arg("shifts"),
+          nb::arg("min_size"), nb::arg("max_size"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     m.def("isosurface", &isosurface, nb::arg("values"), nb::arg("pbc"), nb::arg("level"),
           nb::arg("left_handed"));

@@ -136,6 +136,7 @@ nav:
           - Structure factor: analysis/structure-factor.md
           - Spatial correlation function: analysis/spatial-correlation.md
           - Bond angle distribution: analysis/bond-angles.md
+          - Ring statistics: analysis/rings.md
           - Warren–Cowley parameters: analysis/warren-cowley.md
           - Steinhardt parameters: analysis/steinhardt.md
           - Entropy fingerprint: analysis/entropy.md

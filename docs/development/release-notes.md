@@ -242,7 +242,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   function of two properties of the atoms, by fast Fourier transforms on a
   grid and by a direct sum over neighbors, the same as OVITO's spatial
   correlation function; the [`BondAngleDistribution`](../analysis/bond-angles.md) for
-  each triplet of elements; [`WarrenCowley`](../analysis/warren-cowley.md)
+  each triplet of elements; [`RingStatistics`](../analysis/rings.md), the
+  shortest-path rings of a network of bonds up to 36 atoms, without the
+  paths around the periodic box, drawn as polygons;
+  [`WarrenCowley`](../analysis/warren-cowley.md)
   short-range order, over shells of neighbors by distance or by number; [`SteinhardtParameters`](../analysis/steinhardt.md) up
   to degree 20, optionally averaged, and with `solid=True` the solid-like
   bonds and atoms of ten Wolde, Ruiz-Montero and Frenkel, as freud's

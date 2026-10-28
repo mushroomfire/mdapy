@@ -43,6 +43,7 @@ implemented.
 | file pattern | A file name with `*`, standing for the files it matches, in the order of the numbers in their names, such as `dump.*.lammpstrj`. |
 | topology of a trajectory | A system, usually read from a LAMMPS data file, whose bonds, charges, molecules and other columns the frames of a trajectory take, their atoms matched by id. |
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
+| ring | A closed path of bonds through distinct atoms; a shortest-path ring has no two atoms closer through the network than along it. |
 | covalent bond | A pair of atoms closer than the sum of their covalent radii and 0.45 Å, as pictures draw them. |
 | isosurface | The surface where a field over the box, such as a binned property of the atoms, equals a level; it bounds the regions where the field is above it. |
 | voxel | A cell of a grid that divides the box along its vectors, with the value of a field. |

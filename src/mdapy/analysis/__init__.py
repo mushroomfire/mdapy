@@ -46,6 +46,7 @@ from mdapy.analysis._polyhedra import (
     CoordinationPolyhedra,
     CoordinationPolyhedraResult,
 )
+from mdapy.analysis._rings import RingResult, RingStatistics
 from mdapy.analysis._species import ChemicalSpecies, SpeciesResult
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
 from mdapy.analysis._strain import AtomicStrain, StrainResult
@@ -113,6 +114,8 @@ __all__ = [
     "WarrenCowley",
     "WarrenCowleyResult",
     "SpeciesResult",
+    "RingStatistics",
+    "RingResult",
     "WignerSeitz",
     "WignerSeitzResult",
 ]

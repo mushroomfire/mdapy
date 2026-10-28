@@ -58,6 +58,7 @@
 | `src/mdapy/mlip/_selection.py` | descriptors of frames, farthest point sampling, principal components, `perturb`. |
 | `src/mdapy/visualization/_scene.py`, `_render.py`, `_elements.py` | `Scene`, `render`, styles, colors. |
 | `src/mdapy/visualization/_voxels.py` | `voxel_faces`, the cells of a grid on the faces of the box. |
+| `src/mdapy/analysis/_rings.py`, `src/cpp/analysis/rings.cpp` | `RingStatistics`, shortest-path rings of bonds. |
 | `src/mdapy/analysis/_isosurface.py`, `src/cpp/analysis/isosurface.cpp` | `isosurface`, by marching tetrahedra. |
 | `src/cpp/visualization/render.h`, `render.cpp` | the ray tracer: bounding volume hierarchy, shading, outlines. |
 | `src/cpp/visualization/render_gpu.h`, `render_metal.mm` | the rays of pictures on the GPU: Metal on macOS, its shader compiled when first used. |

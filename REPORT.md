@@ -10,16 +10,17 @@
 
 ## 早上先看这里
 
-**需要你决定的几件事（10-29 00:15 更新）：**
+**需要你看的（10-29 01:30 更新）：**
 
-1. **线程数要不要按工作量限制**（Triton 数据见 10-28 23:25）：40 线程跨两个 CPU 插槽，4 000 原子的小体系比 20 线程慢 2–5 倍；3.2 万原子时 CNA、RDF、团簇用满 40 线程最快。
-2. **合并体系里分子号 0**：OVITO 连 0 也加偏移，mdapy 让 0 保持 0（同 `replicate`），文档写明了。可以吗？
-3. **明天**：接上办公室的 Linux 工作站，开始 Linux 版图形界面。
+1. **issue #13 已解决**：mdapy 1.x 的 Wigner–Seitz 仿射映射没考虑盒子原点，修好后发布了 1.0.10（master 和 tag v1.0.10，PyPI 上 25 个包），已在 issue 里回复。2.0 本来就和 OVITO 一致，加了回归测试。
+2. **MLIP 第 1–3 步已合入 v2**：SOAP（和 DScribe 一致）、模型误差、委员会不确定度和新颖度、训练集检查，见下面 01:30。第 4 步（数据集视图）先给你看草图再做。
+3. **线程下限**：你同意按体系大小少开线程，代码在分支 `thread-limit`（已推送，未合并）；Triton 上两组扫描作业（csl、skl 节点，下限 1–2048）还在排队，出结果后定默认值再合并。
+4. **明天**：接上办公室的 Linux 工作站（本地工作，单独说）。
 
-已经定了的（10-28 23:00 和 10-29 00:00 你说的）：今晚测试好的直接合并；找环和等值面按我们自己的规则做，不对照 OVITO；OVITO 缺的功能只做 1–6；弹性应变只有和 OVITO 一致才做；合并体系照 OVITO；MLIP 进图形界面以后再说；OUTCAR 全部读出、标明是否收敛。明天教你把办公室的 Linux 工作站接上，用来开发 Linux 版图形界面。
+已经定了的（10-28 23:00 到 10-29 00:40 你说的）：今晚测试好的直接合并；找环和等值面按我们自己的规则做，不对照 OVITO；OVITO 缺的功能只做 1–6；弹性应变只有和 OVITO 一致才做；合并体系照 OVITO；OUTCAR 全部读出、标明是否收敛；线程按体系大小限制；合并体系时分子号 0 保持 0；MLIP 按 SOAP → 不限模型 → 不确定度 → 数据集视图的顺序做。
 
 - 今天已合入 v2 的：弹性常数对称性提速（15 s → 0.03 s）、`transform.affine`、`neighbor.expand_selection`、OVITO 3.17.1 作参考。
-- 已合并的远程分支 dislocations、gui-superset、slip-systems、solid-liquid、surface-mesh 已删除；保留 master、night-report、mdapy_old。
+- 已合并的远程分支 dislocations、slip-systems、solid-liquid、surface-mesh 等 已删除；保留 master、night-report、mdapy_old。
 
 ## 今晚合入 v2 的提交
 
@@ -40,36 +41,56 @@
 | `83736f7` | VASP OUTCAR 改为只读文件格式，取代 `mlip.read_outcar` / `outcar_to_xyz` |
 | `8560f15` | MSD 按原子分块做 FFT（省内存）；性能页换成 OVITO 3.17.1 的结果，加了 DXA 和 MSD |
 | `0ba442b` | `Box` 的行列式改用三重积，避开 macOS Accelerate 偶发的伪浮点警告 |
+| `7236083` | 2.0 的 Wigner–Seitz 在盒子绕中心长大 20% 时和 OVITO 一致（issue #13 的回归测试） |
+| `1d4c28c` | `mlip.SOAP`：SOAP 描述符，和 DScribe 2.1.2 逐值一致 |
+| `4d340df` | `mlip.predict`、`read_gpumd`、`committee`、`novelty`、`check_frames` |
 
 ## 进展
 
+### 10-29 01:30
+- **issue #13（1.x 的 Wigner–Seitz）**：用户的盒子随时间平移又变形，1.x 的仿射映射直接用 x·B⁻¹B₀，没扣盒子原点，空位/间隙数算多了。改成 (x − o)·B⁻¹B₀ + o₀，加了测试，发布 1.0.10（只改这一处），PyPI 已能装到，issue 里简单回复了原因和版本。2.0 本来就对，加了一个和 OVITO 比的测试（盒子绕中心长大 20%）。
+- **MLIP 第 1 步 SOAP 已合入 v2**：`mdapy.mlip.SOAP(species, r_cut=5.0, n_max=8, l_max=6, sigma=0.5, *, crossover=True)`，C++ 内核，GTO 径向基和 DScribe 的约定一样（含中心原子、Löwdin 正交化、同样的输出顺序）。和 DScribe 2.1.2 逐值对比：周期/非周期、多元素、crossover 开关、三斜盒都一致到 1e-10；旋转、平移、换序不变；线程数无关。CI 装 dscribe 2.1.2。文档页 mlip/soap.md，参考文献加了 Bartók 2013、Himanen 2020。
+
+  ![SOAP 区分不同结构](images/soap-0130.png)
+
+- **MLIP 第 2–3 步已合入 v2**（全量 2604 过，覆盖率 99.67%，每个文件 ≥ 95%）：都不限模型，任何 mdapy 计算器（NEP、EAM、`from_ase_calculator` 包的 ASE 计算器）都能用。
+  - `predict(frames, calculator)`：和训练集的能量、力、维里标签比，`rmse()`、每帧误差表 `table()`、误差最大的帧 `worst(n)`；`read_gpumd(folder)` 直接读 GPUMD 训练 NEP 输出的 energy/force/virial_train.out，不用重算。
+  - `committee(frames, models)`：几个模型预测的分歧，每帧最大的原子力分歧就是 DP-GEN 的 model deviation；`novelty(points, reference)`：描述符空间里离训练集最近的距离。
+  - `check_frames(frames)`：训练前查原子太近（按共价半径和的比例）、合力不为零（没收敛的计算）、缺标签，返回 polars 表。
+  - 三页文档都带图，例子用 CrCoNi 的 SQS 抖动后的帧、EAM 当“DFT 标签”、NEP 当模型。下图：形变更大的帧离训练集远，两个模型分歧也大；有空位的帧离得很远，两个模型却一致——两种指标各自能抓到另一种漏掉的帧。
+
+  ![新颖度和委员会分歧](images/uncertainty-0130.png)
+
+  ![训练集检查：重叠原子和净力](images/checks-0130.png)
+
+- 我自己检查时发现这份报告前面几段提到了本地的另一部分工作，不该写在公开分支上，已删掉（只删了那几句，mdapy 的内容没动）。
+
 ### 10-29 00:15
 - **今晚的四个功能已合入 v2**（质心修正、合并体系、弹性应变、空间关联函数）：合并后全量 2558 过、文档严格构建通过，已推送，分支已删。
-- **第 2 项等值面和体素显示做完并合入 v2**（规则我定的，写进文档）：`mdapy.analysis.isosurface(values, box, level)` 用 marching tetrahedra——每个格子沿主对角线切成 6 个四面体，没有 marching cubes 的歧义情形，网格连续无缝；周期方向跨边界接起来，非周期方向停在最外层格心；法向从高值指向低值。`mdapy.visualization.voxel_faces(values, box)` 把盒子六个外表面按格子切块、按格子的值着色（OVITO 体素显示的样子）。测试用解析解：球面（盒中心和跨角落的周期情形）半径误差 < 0.02 Å、面积差 < 1%、法向朝外、每条边恰好两个三角形；平面精确；左手盒法向仍正确。图形界面加了 “Create isosurface” 步骤（性质、格子数、统计方式、等值、表面颜色、体素色标）。全量 2567 过。
+- **第 2 项等值面和体素显示做完并合入 v2**（规则我定的，写进文档）：`mdapy.analysis.isosurface(values, box, level)` 用 marching tetrahedra——每个格子沿主对角线切成 6 个四面体，没有 marching cubes 的歧义情形，网格连续无缝；周期方向跨边界接起来，非周期方向停在最外层格心；法向从高值指向低值。`mdapy.visualization.voxel_faces(values, box)` 把盒子六个外表面按格子切块、按格子的值着色（OVITO 体素显示的样子）。测试用解析解：球面（盒中心和跨角落的周期情形）半径误差 < 0.02 Å、面积差 < 1%、法向朝外、每条边恰好两个三角形；平面精确；左手盒法向仍正确。全量 2567 过。
 
   ![铜析出物的等值面和体素](images/isosurface-0015.png)
 
-- **第 4 项找环做完并合入 v2**（全量 2580 过，已推送）：`mdapy.analysis.RingStatistics(max_size=8, *, min_size=3, cutoff=None, cutoffs=None)`，规则是 Franzblau 的最短路径环（环上任意两原子沿键网络的最短距离等于沿环的距离）；周期像在搜索里区分，所以小盒子里也不会把绕盒子一圈的路径当成环；键来自截断、元素对截断或 topology。和 networkx 穷举所有回路再筛选的结果逐个一致（无序团簇，3–9 元环）；金刚石每个原子 12 个六元环、石墨烯 3 个，2×2×2 到 4×4×4 的周期盒都一样；平移、复制 8 倍计数乘 8；线程数无关。简并情形的规则写进文档：立方体给 6 个四元环和 4 个绕体对角线的六元环，θ 图三个 6 元环都给（OVITO 只给一部分）。`polygons()` 把环画成多边形；文档例子是石墨烯的 Stone–Wales 缺陷（2 个五元环、2 个七元环），参考文献加了 Franzblau 1991。图形界面加了 “Ring statistics” 步骤（按大小着色的多边形、直方图、表格）。
+- **第 4 项找环做完并合入 v2**（全量 2580 过，已推送）：`mdapy.analysis.RingStatistics(max_size=8, *, min_size=3, cutoff=None, cutoffs=None)`，规则是 Franzblau 的最短路径环（环上任意两原子沿键网络的最短距离等于沿环的距离）；周期像在搜索里区分，所以小盒子里也不会把绕盒子一圈的路径当成环；键来自截断、元素对截断或 topology。和 networkx 穷举所有回路再筛选的结果逐个一致（无序团簇，3–9 元环）；金刚石每个原子 12 个六元环、石墨烯 3 个，2×2×2 到 4×4×4 的周期盒都一样；平移、复制 8 倍计数乘 8；线程数无关。简并情形的规则写进文档：立方体给 6 个四元环和 4 个绕体对角线的六元环，θ 图三个 6 元环都给（OVITO 只给一部分）。`polygons()` 把环画成多边形；文档例子是石墨烯的 Stone–Wales 缺陷（2 个五元环、2 个七元环），参考文献加了 Franzblau 1991。
 
   ![Stone–Wales 缺陷的环](images/rings-0015.png)
 
 - OVITO 缺的 6 项至此全部做完并合入 v2。Python 3.11 + 最低版本 NumPy 2.3.1 / polars 2.0.0 全量也过（2047 过，120 个因没装 OVITO 等跳过）。
 
 ### 10-28 23:50
-- **第 3 项空间关联函数做完了**（分支 `correlation`，从 `elastic-strain` 往下长，已推送）：`mdapy.analysis.SpatialCorrelation(first, second=None, *, grid_spacing=3.0, window=True, direct=False, cutoff=5.0, bins=50)`，照 OVITO 公开源码的步骤自己写（最近格点分配、非周期方向 Hann 窗、FFT、倒空间和实空间径向平均、近程直接求和）。和 OVITO 现场对比（周期三斜盒、一个方向非周期开/关窗、全非周期）：五张表（实空间 C(r) 和 g(r)、倒空间 C(q)、近邻 C(r) 和 g(r)）和五个矩全部一致到 1e-9 以内（实测 1e-15）。OVITO 图里的三种归一化（除 RDF、除协方差、差值关联）文档里各给一行 NumPy。文档页 analysis/spatial-correlation.md，图形界面加了 “Spatial correlation function” 步骤（实空间/倒空间/近邻三种图）。全量测试 2558 过。
+- **第 3 项空间关联函数做完了**（分支 `correlation`，从 `elastic-strain` 往下长，已推送）：`mdapy.analysis.SpatialCorrelation(first, second=None, *, grid_spacing=3.0, window=True, direct=False, cutoff=5.0, bins=50)`，照 OVITO 公开源码的步骤自己写（最近格点分配、非周期方向 Hann 窗、FFT、倒空间和实空间径向平均、近程直接求和）。和 OVITO 现场对比（周期三斜盒、一个方向非周期开/关窗、全非周期）：五张表（实空间 C(r) 和 g(r)、倒空间 C(q)、近邻 C(r) 和 g(r)）和五个矩全部一致到 1e-9 以内（实测 1e-15）。OVITO 图里的三种归一化（除 RDF、除协方差、差值关联）文档里各给一行 NumPy。文档页 analysis/spatial-correlation.md。全量测试 2558 过。
 
   ![镍中铜析出物的成分关联](images/spatial-correlation-2350.png)
 
 - **第 4 项找环先停下来等你定**（上面第 4 条）。实测过程：立方体团簇 OVITO 只给 6 个四元环（不算 6 元“腰带”）；θ(2,3,3) 给两个 5 元环、排除有捷径的 6 元环，符合它手册的定义；θ(3,3,3) 三个对称 6 元环只给两个，是它内部搜索顺序的取舍；石墨烯、金刚石的 6 元环数目都对，小盒子里的大环全部绕周期边界。
 - **第 2 项等值面也先停下来等你定**（上面第 5 条）。
-- 本地图形界面：合并数据集、弹性应变、空间关联函数三个步骤都接好了，内核测试 217 过。
 
 ### 10-28 23:35
-- **第 5 项合并数据集做完了**（分支 `combine`，从 `drift` 往下长，已推送）：`mdapy.transform.combine(system, other)`，规则逐条在 OVITO 3.17.1 上实测过再照做——盒子和 info 用 system 的（去掉 energy、virial）；列取并集，缺的填 0（元素填 X，文本填空串，布尔填 False）；system 有 id 时，并进来的原子从最大 id+1 依次编号（OVITO 就是这样，不看它们自己的 id）；system 没 id 时它的原子 id 为 0、对方保留自己的；分子号加上 system 的最大分子号；键、角等拓扑项顺移。和 OVITO 的 CombineDatasetsModifier 现场对比（两个 LAMMPS data 文件）：位置、id、分子号、电荷、速度、元素、键、角全部一致。**唯一不同：分子号 0**（见上面“需要你决定”第 3 条）。文档页 build/combine.md，图形界面加了 “Combine datasets” 步骤（选文件；多帧文件取同号帧，不够取最后一帧）。
+- **第 5 项合并数据集做完了**（分支 `combine`，从 `drift` 往下长，已推送）：`mdapy.transform.combine(system, other)`，规则逐条在 OVITO 3.17.1 上实测过再照做——盒子和 info 用 system 的（去掉 energy、virial）；列取并集，缺的填 0（元素填 X，文本填空串，布尔填 False）；system 有 id 时，并进来的原子从最大 id+1 依次编号（OVITO 就是这样，不看它们自己的 id）；system 没 id 时它的原子 id 为 0、对方保留自己的；分子号加上 system 的最大分子号；键、角等拓扑项顺移。和 OVITO 的 CombineDatasetsModifier 现场对比（两个 LAMMPS data 文件）：位置、id、分子号、电荷、速度、元素、键、角全部一致。**唯一不同：分子号 0**（见上面“需要你决定”第 3 条）。文档页 build/combine.md。
 
   ![金团簇并到铜板上方](images/combine-2334.png)
 
-- **第 1 项弹性应变做完了**（分支 `elastic-strain`，从 `combine` 往下长）：`mdapy.analysis.ElasticStrain(crystal, a, c=None)`，C++ 内核复用 DXA 的结构识别和近邻排序，最小二乘求 F，给空间坐标系的应变张量和体应变。和 OVITO 现场对比 20 种体系（7 个位错四极子含扩展位错、3 个位错环、交叉位错环、hcp 和六方金刚石的螺/刃位错、5 种晶体在变形三斜盒里加噪声、hcp c/a 1.58 和 1.86）：结构类型全同，立方晶系差 ≤ 1e-12，六方晶系 ≤ 2e-7（OVITO 单精度）。另有解析解测试（均匀变形、改晶格常数）、旋转/平移/换序不变、线程数无关。太薄的盒子（原子在近邻里碰到自己的周期像）会报错：实测 bcc 螺位错沿线只有一个周期时 OVITO 也报错，两个周期时 OVITO 不报错但体应变算到 −0.27（三个周期时只有 ±0.003），mdapy 两种都报错、让人先复制体系。文档页 analysis/elastic-strain.md，参考文献加了 Stukowski & Arsenlis 2012；图形界面加了 “Elastic strain” 步骤。
+- **第 1 项弹性应变做完了**（分支 `elastic-strain`，从 `combine` 往下长）：`mdapy.analysis.ElasticStrain(crystal, a, c=None)`，C++ 内核复用 DXA 的结构识别和近邻排序，最小二乘求 F，给空间坐标系的应变张量和体应变。和 OVITO 现场对比 20 种体系（7 个位错四极子含扩展位错、3 个位错环、交叉位错环、hcp 和六方金刚石的螺/刃位错、5 种晶体在变形三斜盒里加噪声、hcp c/a 1.58 和 1.86）：结构类型全同，立方晶系差 ≤ 1e-12，六方晶系 ≤ 2e-7（OVITO 单精度）。另有解析解测试（均匀变形、改晶格常数）、旋转/平移/换序不变、线程数无关。太薄的盒子（原子在近邻里碰到自己的周期像）会报错：实测 bcc 螺位错沿线只有一个周期时 OVITO 也报错，两个周期时 OVITO 不报错但体应变算到 −0.27（三个周期时只有 ±0.003），mdapy 两种都报错、让人先复制体系。文档页 analysis/elastic-strain.md，参考文献加了 Stukowski & Arsenlis 2012。
 
   ![两条扩展刃位错周围的体弹性应变](images/elastic-strain-2334.png)
 
@@ -78,7 +99,7 @@
 
 ### 10-28 23:25
 - **弹性应变查清楚了，能和 OVITO 一致**：写了原型，和 OVITO 3.17.1 的 ElasticStrainModifier 逐原子比——fcc/bcc/金刚石的位错四极子（含扩展位错）、位错环、均匀应变加噪声、各种取向、三斜旋转盒子，hcp（c/a 1.58–1.86）和六方金刚石的基面位错：结构类型全同，空间坐标系的应变张量和体应变差 ≤ 2e-15。唯一的小差别：OVITO 把跨层错合并的晶团之间的变换矩阵存成单精度（源码里 `Matrix3F`），这些原子上它有 ~6e-8 的舍入误差。材料坐标系的 Green 应变和形变梯度（OVITO 默认也不输出）取决于晶团选哪个对称等价坐标系，六方晶系和 OVITO 差一个晶格旋转，按你的原则不做。只用到 DXA 的“结构识别 + 近邻排序”（已与 OVITO 逐原子一致），所以作为正式功能，不标实验性。
-- **第 6 项质心修正做完了**（分支 `drift`）：`mdapy.transform.remove_drift(frames, reference=0, *, atoms=None, unwrap=True)`，返回按需读取的帧序列（像 `Trajectory` 一样能索引、切片、迭代），`shifts` 是每帧的平移量。和 OVITO 的 CenterOfMassCorrectionModifier 现场对比（直接比，以及 OVITO 先展开轨迹再比）一致到 1e-9；单元测试覆盖 100%；文档页 analysis/drift.md 带图；图形界面加了 “Center of mass correction” 步骤（参考帧、只用选中原子、展开）。
+- **第 6 项质心修正做完了**（分支 `drift`）：`mdapy.transform.remove_drift(frames, reference=0, *, atoms=None, unwrap=True)`，返回按需读取的帧序列（像 `Trajectory` 一样能索引、切片、迭代），`shifts` 是每帧的平移量。和 OVITO 的 CenterOfMassCorrectionModifier 现场对比（直接比，以及 OVITO 先展开轨迹再比）一致到 1e-9；单元测试覆盖 100%；文档页 analysis/drift.md 带图。
 
   ![漂移前后的原子路径](images/drift-2310.png)
 
@@ -128,13 +149,6 @@
 - **小**（可以直接做）：Freeze property（某帧的属性跟着原子走）、Center of mass correction（扣质心漂移）、Hide selected（只隐藏不删）、Find/Select overlapping particles、Color by type（按任意类型属性着色，如分子号）、Remove property、Reduce property（属性汇总成全局量）、Edit simulation cell（改盒子和周期性）、Bond length distribution。
 - **中**：Smooth / Interpolate trajectory（时间窗平滑、插帧）、Combine datasets（并入另一个文件的原子）、Difference between frames、Text labels（原子上的文字）、Spatial correlation function、Find rings（环统计）、Bond order。
 - **大**（需要你决定）：Elastic strain（基于 PTM/CNA 取向的晶格弹性应变）、Create isosurface 加体素网格显示（3D 分箱后的等值面）、VoroTop、Bader 电荷积分（要 CHGCAR）、蛋白质 Cartoon、Cycles/VisRTX/ANARI 渲染器（我们已有自己的光线追踪）。
-
-### 第 5 步方案（MLIP 工具进图形界面，待讨论）
-mdapy.mlip 现有：NEP 描述符、最远点采样、主成分、扰动结构。图形界面的想法：
-1. “选帧”对话框：选 NEP 势文件，对当前轨迹（可再加已有训练集）算描述符，最远点采样选 N 帧，Tables 里画主成分散点（训练集/候选/选中三种颜色），导出 extxyz。
-2. “扰动”建模步骤：对当前结构做 N 次随机位移加应变，导出为训练候选。
-3. OUTCAR 已能直接打开，导出 extxyz 已有。
-要你定：做成对话框还是修改器；描述符需要用户给 NEP 势文件。
 
 ### 10-28 20:25
 - **CIF / PDB 读取**（已合入 v2，只读）：

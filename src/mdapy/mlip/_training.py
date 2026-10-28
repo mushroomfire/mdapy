@@ -214,18 +214,22 @@ def _atom_counts(path: Path) -> np.ndarray:
     return np.array(counts, dtype=np.int64)
 
 
-def read_gpumd(folder: str | Path, kind: str = "train") -> Predictions:
-    """The predictions of a NEP model of GPUMD against its training or test
-    set, from the files it writes: energy, force and virial.
+def read_gpumd(
+    folder: str | Path, kind: str = "train", *, xyz: str | Path | None = None
+) -> Predictions:
+    """The predictions of a NEP model against its training or test set,
+    from the files GPUMD or torchnep write: energy, force and virial.
 
     Parameters
     ----------
     folder : str or Path
         The folder of ``energy_train.out``, ``force_train.out`` and
-        ``virial_train.out`` (or ``_test``), and of ``train.xyz`` (or
-        ``test.xyz``), whose frames give the number of atoms of each.
+        ``virial_train.out`` (or ``_test``).
     kind : str, optional
         ``"train"`` or ``"test"``. Default train.
+    xyz : str or Path, optional
+        The extended XYZ file of the frames, whose frames give the number of
+        atoms of each. Default ``train.xyz`` (or ``test.xyz``) in the folder.
 
     Returns
     -------
@@ -240,7 +244,8 @@ def read_gpumd(folder: str | Path, kind: str = "train") -> Predictions:
         energy = np.loadtxt(folder / f"energy_{kind}.out", ndmin=2)
         forces = np.loadtxt(folder / f"force_{kind}.out", ndmin=2)
         written = np.loadtxt(folder / f"virial_{kind}.out", ndmin=2)
-        atoms = _atom_counts(folder / f"{kind}.xyz")
+        xyz = Path(xyz) if xyz is not None else folder / f"{kind}.xyz"
+        atoms = _atom_counts(xyz)
     except (OSError, ValueError, StopIteration) as error:
         raise InvalidParameter(
             f"cannot read the {kind} output of GPUMD: {error}"
@@ -248,7 +253,7 @@ def read_gpumd(folder: str | Path, kind: str = "train") -> Predictions:
     if energy.shape[1] != 2 or forces.shape[1] != 6 or written.shape[1] != 12:
         raise InvalidParameter("the GPUMD files do not have 2, 6 and 12 columns")
     if not len(written) == len(energy) == len(atoms) or atoms.sum() != len(forces):
-        raise InvalidParameter(f"the GPUMD files do not hold the frames of {kind}.xyz")
+        raise InvalidParameter(f"the GPUMD files do not hold the frames of {xyz.name}")
     virial = np.full((len(energy), 2, 3, 3), np.nan)
     for k, (i, j) in enumerate(_GPUMD_VIRIAL):
         for side, column in ((1, k), (0, 6 + k)):

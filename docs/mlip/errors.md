@@ -7,8 +7,8 @@ that err most, to look at first. Any mdapy calculator is a model, as a
 [NEP](../simulation/nep.md) or an [EAM](../simulation/eam.md), and so is
 any ASE calculator through
 [`from_ase_calculator`](../interop/ase-calculators.md). `read_gpumd` reads
-the same from the files GPUMD writes when it trains a NEP model, without
-computing anything.
+the same from the files GPUMD writes when it trains a NEP model, and
+torchnep when it trains or predicts, without computing anything.
 
 <!-- files: ../getting-started/tutorials/crconi -->
 ```python
@@ -67,7 +67,7 @@ the two potentials part further from the crystal; `worst` picks the
 frames at the right end.*
 
 The files of a NEP model of GPUMD trained on `train.xyz`, in the folder it
-ran in:
+ran in, or of the predictions of torchnep, whose frames may lie elsewhere:
 
 <!-- skip-test -->
 ```python
@@ -76,6 +76,9 @@ from mdapy.mlip import read_gpumd
 result = read_gpumd("nep_folder")  # energy_train.out, force_train.out, ...
 result.rmse()
 test = read_gpumd("nep_folder", "test")  # with test.xyz
+
+# torchnep: predict_dataset("nep.txt", "data/all.xyz", "predicted")
+other = read_gpumd("predicted", xyz="data/all.xyz")
 ```
 
 ## Parameters
@@ -83,7 +86,7 @@ test = read_gpumd("nep_folder", "test")  # with test.xyz
 | Function | Parameters |
 |---|---|
 | `predict(frames, calculator)` | the frames, their labels the info `energy` and `virial` (eV) and the column `forces` (eV/Å) as extended XYZ training sets hold them; and the model |
-| `read_gpumd(folder, kind="train")` | the folder where GPUMD trained a NEP model, with `energy_train.out`, `force_train.out`, `virial_train.out` and `train.xyz` for its number of atoms in each frame; `kind="test"` for those of the test set |
+| `read_gpumd(folder, kind="train", *, xyz=None)` | the folder of `energy_train.out`, `force_train.out` and `virial_train.out`, as GPUMD writes them when it trains a NEP model and torchnep when it trains or predicts; `kind="test"` for those of the test set; and the extended XYZ file of the frames, for their numbers of atoms, by default `train.xyz` (or `test.xyz`) in the folder |
 | `Predictions.worst(count, by="force_rmse")` | how many frames, and the column of `table()` to rank them by: `energy_error` (by its size), `force_rmse`, `force_max_error` or `virial_rmse` |
 
 ## Results
@@ -113,7 +116,7 @@ energy errors are what compare them.
 `predict` raises `InvalidParameter` for no frames, and what the model
 raises for frames it cannot compute; `read_gpumd` raises it for files it
 cannot read, files of other numbers of columns, and files that do not hold
-the frames of `train.xyz`; `worst` raises it for another column.
+the frames of the XYZ file; `worst` raises it for another column.
 
 ## See also
 

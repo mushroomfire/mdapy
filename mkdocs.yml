@@ -189,6 +189,7 @@ nav:
       - Perturbed structures: mlip/perturbation.md
   - Visualization:
       - Rendering: visualization/rendering.md
+      - Coordination polyhedra: visualization/polyhedra.md
       - Plots: visualization/plots.md
   - Interoperability:
       - Python packages:

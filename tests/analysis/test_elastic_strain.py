@@ -162,6 +162,11 @@ def test_progress_cancel_and_errors():
         ElasticStrain("fcc", 3.615, 5.0)
     with pytest.raises(InvalidParameter, match="c must be positive"):
         ElasticStrain("hcp", 3.2, 0)
-    thin = dislocation_quadrupole("bcc screw", 2.865, FE, (6, 10, 1), elements="Fe")
-    with pytest.raises(InvalidParameter, match="own periodic image"):
-        ElasticStrain("bcc", 2.865).compute(thin)
+    # one period along the lines, or two, whose neighbors along them are
+    # one atom through two images
+    for periods in (1, 2):
+        thin = dislocation_quadrupole(
+            "bcc screw", 2.865, FE, (6, 10, periods), elements="Fe"
+        )
+        with pytest.raises(InvalidParameter, match="own periodic image"):
+            ElasticStrain("bcc", 2.865).compute(thin)

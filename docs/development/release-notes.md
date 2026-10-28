@@ -283,7 +283,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   the affine mapping of OVITO's displacement vectors;
   [`SpatialBinning`](../analysis/spatial-binning.md), a property in bins
   along one to three box vectors, its mean, sum, density, minimum or
-  maximum, the values of OVITO's spatial binning;
+  maximum, the values of OVITO's spatial binning; the
+  [`isosurface`](../analysis/isosurface.md) of a grid of such values, by
+  marching tetrahedra, across the periodic boundaries, and its cells as
+  colors on the faces of the box by `mdapy.visualization.voxel_faces`;
   [`WignerSeitz`](../analysis/wigner-seitz.md) for vacancies and
   interstitials, the sites of the reference kept in a k-d tree for every
   configuration; and [`AtomicStrain`](../analysis/atomic-strain.md), the

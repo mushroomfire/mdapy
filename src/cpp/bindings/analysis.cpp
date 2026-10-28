@@ -22,6 +22,7 @@
 #include "analysis/elastic_strain.h"
 #include "analysis/tessellation.h"
 #include "analysis/geometry.h"
+#include "analysis/isosurface.h"
 #include "analysis/steinhardt.h"
 #include "analysis/strain.h"
 #include "analysis/surface_mesh.h"
@@ -328,6 +329,20 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
         as_array(std::move(found.interface.atoms)), as_array(std::move(found.interface.vertices)),
         as_array(std::move(found.interface.faces)),
         as_array(std::move(found.interface.shifts)));
+}
+
+nb::tuple isosurface(nb::ndarray<const double, nb::ndim<3>, nb::c_contig, nb::device::cpu> values,
+                     Periodic pbc, double level, bool left_handed) {
+    const std::array<std::int64_t, 3> n = {static_cast<std::int64_t>(values.shape(0)),
+                                           static_cast<std::int64_t>(values.shape(1)),
+                                           static_cast<std::int64_t>(values.shape(2))};
+    analysis::Isosurface found;
+    {
+        nb::gil_scoped_release release;
+        found = analysis::isosurface(values.data(), n, pbc.data(), level, left_handed);
+    }
+    return nb::make_tuple(as_array(std::move(found.vertices)), as_array(std::move(found.faces)),
+                          as_array(std::move(found.shifts)));
 }
 
 nb::tuple elastic_strain(Positions3 positions, Matrix3 matrix, Matrix3 inverse, Origin3 origin,
@@ -794,6 +809,8 @@ void bind_analysis(nb::module_& m) {
           nb::arg("stretch"), nb::arg("separation"), nb::arg("smoothing"),
           nb::arg("mesh_smoothing"), nb::arg("interface"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
+    m.def("isosurface", &isosurface, nb::arg("values"), nb::arg("pbc"), nb::arg("level"),
+          nb::arg("left_handed"));
     m.def("elastic_strain", &elastic_strain, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("inverse"), nb::arg("origin"), nb::arg("pbc"), nb::arg("crystal"), nb::arg("a"),
           nb::arg("axial"), nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);

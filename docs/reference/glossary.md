@@ -44,6 +44,8 @@ implemented.
 | topology of a trajectory | A system, usually read from a LAMMPS data file, whose bonds, charges, molecules and other columns the frames of a trajectory take, their atoms matched by id. |
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
 | covalent bond | A pair of atoms closer than the sum of their covalent radii and 0.45 Å, as pictures draw them. |
+| isosurface | The surface where a field over the box, such as a binned property of the atoms, equals a level; it bounds the regions where the field is above it. |
+| voxel | A cell of a grid that divides the box along its vectors, with the value of a field. |
 | coordination polyhedron | The convex hull of the neighbors of an atom, such as the octahedron of oxygen about the titanium of a perovskite. |
 | vector arrow | An arrow drawn from an atom along a vector of it, such as its displacement, velocity or force: a shaft and a head 2.5 times as wide and 4.5 times as long as the radius of the shaft. |
 | global illumination | Light that reaches a surface after bouncing off others, as the shiny style of pictures traces it. |

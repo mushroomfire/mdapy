@@ -137,6 +137,8 @@ import mdapy as mp
 
 ::: mdapy.analysis.SpatialBinningResult
 
+::: mdapy.analysis.isosurface
+
 ::: mdapy.analysis.AtomicStrain
 
 ::: mdapy.analysis.StrainResult
@@ -224,6 +226,8 @@ import mdapy as mp
 ::: mdapy.visualization.Scene
 
 ::: mdapy.visualization.atom_colors
+
+::: mdapy.visualization.voxel_faces
 
 ::: mdapy.visualization.colormap
 

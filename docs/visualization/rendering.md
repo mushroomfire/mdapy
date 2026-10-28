@@ -17,7 +17,7 @@ structures = CommonNeighborAnalysis().compute(grains)
 
 image = render(grains, color=structures, width=800, height=600)  # (600, 800, 4)
 boundaries = render(
-    grains, atoms=structures.structure != 1, color=structures, style="toon"
+    grains, atoms=structures.structure != 1, color=structures, style="flat"
 )
 ```
 
@@ -36,7 +36,7 @@ write_png("images/styles.png", np.hstack(pictures))
 ![The styles](images/styles.png)
 
 *The four styles on a polycrystal colored by common neighbor analysis:
-fast, matte, shiny and toon.*
+fast, matte, shiny and flat.*
 
 ## Parameters
 
@@ -119,7 +119,7 @@ The `options` are those of `Scene.render`:
 | `fast` | quick, as the viewports of OVITO: an ambient part, a light from the viewer and a broad highlight from the upper left, neither occlusion nor shadows |
 | `matte` | matte spheres, as the pictures of the Tachyon renderer of OVITO: a bright sky darkened by ambient occlusion, a weak light from the viewer with sharp shadows |
 | `shiny` | shiny spheres with a metallic sheen, after the pictures of the OSPRay renderer of OVITO: light from a sky and a wide key light that bounces once between the atoms, soft shadows and small highlights; about three times slower than `matte` |
-| `toon` | cel shading in three levels, outlined; for small systems |
+| `flat` | plain colors, every atom outlined, as ASE draws atoms; for small systems |
 
 Any setting of a style can be changed by name: `ambient`, `diffuse`,
 `specular`, `shininess`, `metalness` (from 0 to 1: metals reflect less

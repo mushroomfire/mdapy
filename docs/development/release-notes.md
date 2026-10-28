@@ -344,7 +344,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   ambient occlusion, shadows and outlines in four styles: fast, lit as the
   viewports of OVITO; matte, as the Tachyon renderer of OVITO (the
   default); shiny, a metallic sheen after its OSPRay renderer, with light
-  bouncing between the atoms; toon, outlined; colored by element,
+  bouncing between the atoms; flat, plain colors outlined as ASE draws
+  atoms; colored by element,
   structure, values or by hand, with bonds, the box, Voronoi cells,
   surface meshes and dislocation lines with arrows of their Burgers
   vectors, cut at the periodic faces of the box;

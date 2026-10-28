@@ -93,18 +93,28 @@ class WignerSeitzAnalysis:
         """
         data = current.data
         if self.affine:
+            # positions relative to the origin of the current box, mapped by
+            # the box matrices, then placed from the origin of the reference
+            # box, which matters when the box moves, as at constant pressure
             map_matrix = np.linalg.solve(current.box.box, self.ref.box.box)
-            # pos @ map_matrix
+            shift = current.box.origin
+            target = self.ref.box.origin
+            x = pl.col("x") - shift[0]
+            y = pl.col("y") - shift[1]
+            z = pl.col("z") - shift[2]
             data = data.select(
-                x=pl.col("x") * map_matrix[0, 0]
-                + pl.col("y") * map_matrix[1, 0]
-                + pl.col("z") * map_matrix[2, 0],
-                y=pl.col("x") * map_matrix[0, 1]
-                + pl.col("y") * map_matrix[1, 1]
-                + pl.col("z") * map_matrix[2, 1],
-                z=pl.col("x") * map_matrix[0, 2]
-                + pl.col("y") * map_matrix[1, 2]
-                + pl.col("z") * map_matrix[2, 2],
+                x=x * map_matrix[0, 0]
+                + y * map_matrix[1, 0]
+                + z * map_matrix[2, 0]
+                + target[0],
+                y=x * map_matrix[0, 1]
+                + y * map_matrix[1, 1]
+                + z * map_matrix[2, 1]
+                + target[1],
+                z=x * map_matrix[0, 2]
+                + y * map_matrix[1, 2]
+                + z * map_matrix[2, 2]
+                + target[2],
             )
         indice = np.zeros(current.N, np.int32)
         self._tree.query_nearest_batch(

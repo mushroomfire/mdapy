@@ -4,7 +4,7 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """Polyhedral template matching: analytic structures, distances, strains,
-orientations and orderings, and OVITO 3.17.0 atom by atom."""
+orientations and orderings, and OVITO 3.17.1 atom by atom."""
 
 import numpy as np
 import pytest

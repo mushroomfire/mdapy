@@ -3,7 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Pictures against the renderers of OVITO 3.17.0 with the same camera: the
+"""Pictures against the renderers of OVITO 3.17.1 with the same camera: the
 fast style against its OpenGL renderer, the matte style against its Tachyon
 renderer. Skipped where OVITO is not installed."""
 

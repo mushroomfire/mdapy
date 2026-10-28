@@ -167,6 +167,7 @@ nav:
       - Periodic copies and images: build/transform.md
       - Affine transformation: build/affine.md
       - Slices: build/slice.md
+      - Combining systems: build/combine.md
   - Simulation:
       - Calculators:
           - The calculator interface: simulation/calculators.md

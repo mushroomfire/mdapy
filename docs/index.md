@@ -259,9 +259,11 @@ flowchart TB
 
     File formats, units, the glossary, the papers and the Python API.
 
+    [CIF](reference/formats/cif.md) ·
     [Extended XYZ](reference/formats/extxyz.md) ·
     [LAMMPS data](reference/formats/lammps-data.md) ·
     [LAMMPS dump](reference/formats/lammps-dump.md) ·
+    [PDB](reference/formats/pdb.md) ·
     [VASP POSCAR](reference/formats/poscar.md) ·
     [mdapy files](reference/formats/mdapy.md)
 

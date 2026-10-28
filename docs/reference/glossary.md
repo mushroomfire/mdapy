@@ -78,6 +78,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `mass` | f64 | amu | mass |
 | `charge` | f64 | e | charge |
 | `image` | Array(i32, 3) | | periodic image flags |
+| `atom_name` | str | | name of the atom in its residue, as in PDB files, such as `CA` |
+| `residue`, `residue_number` | str, int64 | | name and number of the residue of an atom, as in PDB files |
 | `movable` | Array(bool, 3) | | whether the atom may move along x, y, z (VASP selective dynamics) |
 | `structure` | int8 | | structure type from an identification such as `CommonNeighborAnalysis`; the result names the types |
 | `grain` | int64 | | grain of an atom from `GrainSegmentation`, numbered from 0 by decreasing size; -1 for none |

@@ -99,7 +99,7 @@ def test_detect_format_from_patterns(single_frame_format):
 
 @pytest.mark.parametrize("name", ["a.unknown", "noextension", ".gz", "a.gz"])
 def test_detect_format_unknown(name):
-    with pytest.raises(UnsupportedFormat, match="pass format=, one of extxyz"):
+    with pytest.raises(UnsupportedFormat, match="pass format=, one of cif, extxyz"):
         mdapy.detect_format(name)
 
 

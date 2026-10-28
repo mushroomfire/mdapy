@@ -205,9 +205,11 @@ nav:
       - Building structures: performance/builders.md
   - Reference:
       - File formats:
+          - CIF: reference/formats/cif.md
           - Extended XYZ: reference/formats/extxyz.md
           - LAMMPS data: reference/formats/lammps-data.md
           - LAMMPS dump: reference/formats/lammps-dump.md
+          - PDB: reference/formats/pdb.md
           - VASP POSCAR: reference/formats/poscar.md
           - mdapy files: reference/formats/mdapy.md
       - Units and conventions: reference/units.md

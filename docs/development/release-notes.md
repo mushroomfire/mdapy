@@ -76,6 +76,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   topology read from a data file, matched by id, with its bonds, charges
   and molecules, as OVITO's load trajectory. See
   [Trajectories](../getting-started/trajectory.md).
+- Reading CIF files, crystals expanded by their symmetry operations as
+  pymatgen, ASE and OVITO read them, and PDB files, with atom names,
+  residues, models as frames and the bonds of `CONECT`. See
+  [CIF](../reference/formats/cif.md) and [PDB](../reference/formats/pdb.md).
 
 ### Neighbor search
 

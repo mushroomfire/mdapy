@@ -47,6 +47,7 @@
 | `src/mdapy/analysis/_entropy.py` | `EntropyFingerprint`. |
 | `src/mdapy/analysis/_temperature.py` | `AtomicTemperature`. |
 | `src/mdapy/analysis/_strain.py` | `AtomicStrain`. |
+| `src/mdapy/analysis/_elastic_strain.py` | `ElasticStrain`. |
 | `src/mdapy/analysis/_wigner_seitz.py` | `WignerSeitz`. |
 | `src/mdapy/analysis/_dynamics.py` | `MeanSquaredDisplacement`, `LindemannIndex`, `TimeAverage`, `trajectory_lines`. |
 | `src/mdapy/analysis/_polyhedra.py` | `CoordinationPolyhedra`. |
@@ -83,6 +84,7 @@
 | `src/cpp/analysis/steinhardt.h`, `steinhardt.cpp` | Real spherical harmonics and Steinhardt order parameters. |
 | `src/cpp/analysis/distribution.h`, `distribution.cpp` | Histograms of pair distances counted during the neighbor search, and the structure factor. |
 | `src/cpp/analysis/strain.h`, `strain.cpp` | Atomic strain from neighbor vectors. |
+| `src/cpp/analysis/elastic_strain.h`, `elastic_strain.cpp` | Elastic strain from the neighbors of the structure identification of the dislocation analysis. |
 | `src/cpp/analysis/geometry.h`, `geometry.cpp` | Clusters of bonded atoms, bond angles and the pair entropy. |
 | `src/cpp/analysis/voronoi.h`, `voronoi.cpp` | Voronoi cells, cut plane by plane. |
 | `src/cpp/analysis/dislocations.h`, `dislocations.cpp` | The dislocation analysis from the atoms to the lines and the defect mesh. |

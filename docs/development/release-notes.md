@@ -287,6 +287,11 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   von Mises and volumetric strains against a reference, and on request the
   Green–Lagrange strain tensor and $D^2_\text{min}$. As in OVITO, the
   results that cost more are computed only when asked for.
+- [`ElasticStrain`](../analysis/elastic-strain.md) in `mdapy.analysis`: the
+  elastic strain of each atom of an fcc, hcp, bcc or diamond crystal
+  against the ideal crystal of given lattice constants, in the spatial
+  frame, with the structures of the dislocation analysis; the same as
+  OVITO's elastic strain calculation atom by atom.
 - [`SurfaceMesh`](../analysis/surface-mesh.md) in `mdapy.analysis`: the
   surface of the solid of atoms by the alpha-shape method of OVITO's
   Construct surface mesh, from a Delaunay tessellation of mdapy's own, with

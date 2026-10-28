@@ -283,6 +283,12 @@ data, *Modelling Simul. Mater. Sci. Eng.* **18**, 085001 (2010).
 [doi:10.1088/0965-0393/18/8/085001](https://doi.org/10.1088/0965-0393/18/8/085001)
 { #stukowski2010 }
 
+**Stukowski and Arsenlis (2012).** A. Stukowski and A. Arsenlis, On the
+elastic–plastic decomposition of crystal deformation at the atomic scale,
+*Modelling Simul. Mater. Sci. Eng.* **20**, 035012 (2012).
+[doi:10.1088/0965-0393/20/3/035012](https://doi.org/10.1088/0965-0393/20/3/035012)
+{ #stukowski2012elastic }
+
 **Stukowski, Bulatov and Arsenlis (2012).** A. Stukowski, V. V. Bulatov
 and A. Arsenlis, Automated identification and indexing of dislocations in
 crystal interfaces, *Modelling Simul. Mater. Sci. Eng.* **20**, 085007

@@ -137,6 +137,10 @@ import mdapy as mp
 
 ::: mdapy.analysis.StrainResult
 
+::: mdapy.analysis.ElasticStrain
+
+::: mdapy.analysis.ElasticStrainResult
+
 ::: mdapy.analysis.MeanSquaredDisplacement
 
 ::: mdapy.analysis.DisplacementResult

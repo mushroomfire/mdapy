@@ -38,6 +38,7 @@ from mdapy.analysis._dynamics import (
     TimeAverageResult,
     trajectory_lines,
 )
+from mdapy.analysis._elastic_strain import ElasticStrain, ElasticStrainResult
 from mdapy.analysis._entropy import EntropyFingerprint, EntropyResult
 from mdapy.analysis._polyhedra import (
     CoordinationPolyhedra,
@@ -80,6 +81,8 @@ __all__ = [
     "DislocationAnalysis",
     "DislocationLine",
     "DislocationResult",
+    "ElasticStrain",
+    "ElasticStrainResult",
     "CoordinationNumber",
     "CoordinationPolyhedra",
     "CoordinationPolyhedraResult",

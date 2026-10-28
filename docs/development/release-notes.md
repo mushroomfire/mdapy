@@ -160,7 +160,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   relates to others, by default whenever spglib is installed: one
   computation of forces instead of 6 for the primitive cell of fcc, 12 of
   the 73 strains of the elastic constants of a cubic crystal at finite
-  temperature. See [Space group](../analysis/space-group.md).
+  temperature. The elastic constants take the rotations alone, in
+  milliseconds also for cells of hundreds of atoms. See
+  [Space group](../analysis/space-group.md).
 - `mdapy.simulation.MolecularDynamics`: molecular dynamics in LAMMPS with
   the interaction of a LAMMPS calculator: random velocities, runs at
   constant energy, temperature or pressure with ramps, the thermodynamic

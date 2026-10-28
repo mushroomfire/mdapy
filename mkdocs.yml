@@ -134,6 +134,7 @@ nav:
           - Radial distribution function: analysis/rdf.md
           - Coordination number: analysis/coordination.md
           - Structure factor: analysis/structure-factor.md
+          - Spatial correlation function: analysis/spatial-correlation.md
           - Bond angle distribution: analysis/bond-angles.md
           - Warren–Cowley parameters: analysis/warren-cowley.md
           - Steinhardt parameters: analysis/steinhardt.md

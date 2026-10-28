@@ -14,6 +14,7 @@ from mdapy.analysis._bonds import (
     WarrenCowley,
     WarrenCowleyResult,
 )
+from mdapy.analysis._correlation import SpatialCorrelation, SpatialCorrelationResult
 from mdapy.analysis._dislocations import (
     CrystalClusters,
     DislocationAnalysis,
@@ -63,6 +64,8 @@ __all__ = [
     "AtomicDisplacementResult",
     "SpatialBinning",
     "SpatialBinningResult",
+    "SpatialCorrelation",
+    "SpatialCorrelationResult",
     "DisplacementResult",
     "LindemannIndex",
     "LindemannResult",

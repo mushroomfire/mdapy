@@ -58,6 +58,7 @@ implemented.
 | farthest point sampling | Choosing points one by one, each the farthest from those chosen before. |
 | crystal cluster | Neighboring atoms of one structure whose neighbors map onto each other by rotations of the lattice: one region with one lattice frame, as the dislocation analysis joins them. |
 | ideal vector | The vector between two atoms in the perfect, unstrained crystal, in the lattice frame of a crystal cluster. |
+| spatial correlation function | The mean of one property of the atoms at a place times another at a distance r from it, ⟨P₁(0) P₂(r)⟩; of two properties equal to 1, the radial distribution function. |
 | elastic strain | The strain of the lattice about an atom of a crystal against the ideal crystal of given lattice constants, from the deformation gradient that maps the ideal vectors onto its neighbors; it leaves out the slip of dislocations. |
 | good tetrahedron | A tetrahedron of the Delaunay tessellation whose six edges have ideal vectors that add up to zero around each face: crystal there maps onto the perfect lattice. |
 | interface mesh | The triangles between the good tetrahedra and the rest, on which Burgers circuits run. |

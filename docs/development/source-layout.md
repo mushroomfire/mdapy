@@ -42,6 +42,7 @@
 | `src/mdapy/identify/_structure.py` | `CommonNeighborAnalysis`, `CentroSymmetryParameter`. |
 | `src/mdapy/identify/_ptm.py` | `PolyhedralTemplateMatching`. |
 | `src/mdapy/analysis/_distribution.py` | `RadialDistributionFunction`, `CoordinationNumber`, `StructureFactor`. |
+| `src/mdapy/analysis/_correlation.py` | `SpatialCorrelation`, by fast Fourier transforms on a grid. |
 | `src/mdapy/analysis/_steinhardt.py` | `SteinhardtParameters`. |
 | `src/mdapy/analysis/_voronoi.py` | `VoronoiAnalysis`. |
 | `src/mdapy/analysis/_entropy.py` | `EntropyFingerprint`. |

@@ -38,7 +38,7 @@ pip, each with 40 threads.
   cells take mdapy 0.95 s and 195 MB; with every face, its neighbor, area
   and edges, 1.12 s and 1.7 GB.
 - **A trajectory**: the mean squared displacement of 20 frames read from a
-  dump, most of the time spent reading, takes 1.2 to 1.4 times less time
+  dump, most of the time spent reading, takes about 1.4 times less time
   than with OVITO from 32 000 atoms on.
 - **4 000 atoms** take a few milliseconds; mdapy is faster there in every
   analysis but cluster analysis, Wigner–Seitz occupancies, atomic strain
@@ -121,10 +121,10 @@ process minus its peak before the timings.
 | Wigner–Seitz occupancies | 31,811 | 0.003 | 0.006 | 2.03 | 1 | 8 |
 | Wigner–Seitz occupancies | 254,734 | 0.021 | 0.036 | 1.72 | 16 | 44 |
 | Wigner–Seitz occupancies | 2,037,841 | 0.094 | 0.318 | 3.40 | 131 | 244 |
-| Mean squared displacement, 20 frames read from a dump | 4,000 | 0.056 | 0.047 | 0.85 | 18 | 10 |
-| Mean squared displacement, 20 frames read from a dump | 32,000 | 0.184 | 0.263 | 1.43 | 145 | 52 |
-| Mean squared displacement, 20 frames read from a dump | 256,000 | 1.333 | 1.876 | 1.41 | 1172 | 357 |
-| Mean squared displacement, 20 frames read from a dump | 2,048,000 | 12.116 | 14.974 | 1.24 | 9513 | 957 |
+| Mean squared displacement, 20 frames read from a dump | 4,000 | 0.053 | 0.047 | 0.87 | 22 | 11 |
+| Mean squared displacement, 20 frames read from a dump | 32,000 | 0.186 | 0.255 | 1.38 | 179 | 52 |
+| Mean squared displacement, 20 frames read from a dump | 256,000 | 1.314 | 1.876 | 1.43 | 585 | 330 |
+| Mean squared displacement, 20 frames read from a dump | 2,048,000 | 10.616 | 14.676 | 1.38 | 2404 | 813 |
 | Six analyses of copper, one neighbor search | 4,000 | 0.008 | 0.066 | 7.80 | 1 | 7 |
 | Six analyses of copper, one neighbor search | 32,000 | 0.017 | 0.095 | 5.59 | 21 | 87 |
 | Six analyses of copper, one neighbor search | 256,000 | 0.107 | 0.375 | 3.51 | 197 | 493 |

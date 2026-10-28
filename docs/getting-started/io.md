@@ -65,9 +65,11 @@ incomplete file is removed.
 
 | Name | Extensions | Read | Write | Frames | Page |
 |---|---|---|---|---|---|
+| `cif` | `.cif` | yes | no | several | [CIF](../reference/formats/cif.md) |
 | `extxyz` | `.xyz`, `.extxyz` | yes | yes | several | [Extended XYZ](../reference/formats/extxyz.md) |
 | `lammps-data` | `.data`, `.lmp`, names `data.*` | yes | yes | one | [LAMMPS data](../reference/formats/lammps-data.md) |
 | `lammps-dump` | `.dump`, `.lammpstrj`, names `dump.*` | yes | yes | several | [LAMMPS dump](../reference/formats/lammps-dump.md) |
+| `pdb` | `.pdb`, `.ent` | yes | no | several | [PDB](../reference/formats/pdb.md) |
 | `poscar` | `.vasp`, `.poscar`, names `POSCAR*`, `CONTCAR*` | yes | yes | one | [VASP POSCAR](../reference/formats/poscar.md) |
 | `mdapy` | `.mdapy` | yes | yes | several | [mdapy files](../reference/formats/mdapy.md) |
 

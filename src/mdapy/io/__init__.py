@@ -11,10 +11,12 @@ on.
 
 # Importing the format modules registers the formats.
 from mdapy.io import (  # noqa: F401
+    _cif,
     _extxyz,
     _lammps_data,
     _lammps_dump,
     _native,
+    _pdb,
     _poscar,
 )
 from mdapy.io._registry import detect_format, formats, read, write

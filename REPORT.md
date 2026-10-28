@@ -38,8 +38,15 @@
 | `fb40c6c` | `analysis.CoordinationPolyhedra`：配位多面体（凸包）和体积 |
 | `83736f7` | VASP OUTCAR 改为只读文件格式，取代 `mlip.read_outcar` / `outcar_to_xyz` |
 | `8560f15` | MSD 按原子分块做 FFT（省内存）；性能页换成 OVITO 3.17.1 的结果，加了 DXA 和 MSD |
+| `0ba442b` | `Box` 的行列式改用三重积，避开 macOS Accelerate 偶发的伪浮点警告 |
 
 ## 进展
+
+### 10-28 21:00
+- **Python 3.11 + 最低版本 NumPy 2.3.1 / polars 2.0.0** 全量测试通过（1991 个，113 个因缺 OVITO 等跳过），今晚的新代码在最低依赖上也能用。
+- **偶发失败的原因找到了**：`np.linalg.det` 走 macOS Accelerate 的 LAPACK，偶尔对有限的 3×3 矩阵报 “invalid value”（CI 里也有 macOS）。`Box` 里的行列式改成三重积 a·(b×c)，不经 LAPACK；全量 2495 通过，已合入 v2。
+- **原子应变小体系为什么比 OVITO 慢**（outline 里你 10-23 说过全部合并后研究）：本机 4 线程时 4 000 原子只要 0.37 ms，Triton 40 线程却要 3 ms（OVITO 1 ms）——时间几乎全花在唤醒 40 个线程上（4 000 原子分成 500 块，全部线程都被叫醒，还跨两个 NUMA 节点）。考虑按工作量少开线程（结果按块计算，和线程数无关，不影响确定性），但先要数据：已在 Triton 提交 1/4/10/20/40 线程的对比作业（原子应变、团簇、Wigner–Seitz、CNA、RDF，4 000 和 3.2 万原子），排队中。有数据后再和你讨论要不要改。
+- Triton 上 MSD 重跑也还在等节点。
 
 ### 10-28 20:50
 - **性能页已换成 OVITO 3.17.1 的结果**（已合入 v2）：分析和文件读写两页的表、图、结论全部更新；新加了位错分析（DXA，mdapy 快 3.9–4.9 倍）和 MSD 两项。只有 MSD 那四行还是改内存之前的数，Triton 上重跑 MSD 的作业还在等节点，跑完我直接换（只改文档）。

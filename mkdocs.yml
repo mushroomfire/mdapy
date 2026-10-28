@@ -153,6 +153,7 @@ nav:
           - Lindemann index: analysis/lindemann.md
           - Time averages: analysis/time-average.md
           - Trajectory lines: analysis/trajectory-lines.md
+          - Center-of-mass drift: analysis/drift.md
           - Atomic temperature: analysis/temperature.md
   - Structure builder:
       - Crystals: build/crystals.md

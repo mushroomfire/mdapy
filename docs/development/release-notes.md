@@ -267,6 +267,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   OVITO's time averaging. [`trajectory_lines`](../analysis/trajectory-lines.md):
   the paths of the atoms, unwrapped by their image flags or the nearest
   image, drawn by `render(lines=...)`.
+  [`mdapy.transform.remove_drift`](../analysis/drift.md): the frames of a
+  trajectory moved to keep the center of mass of all the atoms or of some
+  where it is in a reference frame, read when they are used, as OVITO's
+  center of mass correction.
 - Defects and deformation in `mdapy.analysis`, agreeing with OVITO:
   [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms
   and whether they span the box, and on request their unwrapped positions,

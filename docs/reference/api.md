@@ -189,6 +189,8 @@ import mdapy as mp
 
 ::: mdapy.transform.unwrap
 
+::: mdapy.transform.remove_drift
+
 ::: mdapy.transform.slice
 
 ::: mdapy.transform.slice_mask

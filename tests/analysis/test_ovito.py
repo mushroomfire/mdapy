@@ -37,6 +37,7 @@ from ovito.modifiers import (  # noqa: E402
     AtomicStrainModifier,
     BondAngleDistributionModifier,
     CalculateDisplacementsModifier,
+    CenterOfMassCorrectionModifier,
     ClusterAnalysisModifier,
     ConstructSurfaceModifier,
     CoordinationAnalysisModifier,
@@ -514,6 +515,36 @@ def test_trajectory_lines(tmp_path, every):
     true = walk.transpose(1, 0, 2)[np.asarray(frames[0]["id"]) - 1]
     ours = trajectory_lines(frames)
     np.testing.assert_allclose(ours - ours[:, :1], true - true[:, :1], atol=1e-9)
+
+
+@pytest.mark.parametrize("unwrap", [True, False])
+def test_remove_drift(tmp_path, unwrap):
+    """OVITO's center of mass correction to frame 3, weighted by a mass
+    column: of the positions as they are, or after OVITO unwraps the walk,
+    when mdapy moves the wrapped positions by the same translations."""
+    from mdapy.transform import remove_drift
+
+    walked, _ = random_walk(tmp_path / "walk.dump", 2.0, True)
+    masses = np.linspace(1.0, 4.0, 40)
+    frames = [f.with_columns(mass=masses[np.asarray(f["id"]) - 1]) for f in walked]
+    mdapy.write(tmp_path / "heavy.dump", frames)
+    pipeline = import_file(str(tmp_path / "heavy.dump"), sort_particles=True)
+    if unwrap:
+        pipeline.modifiers.append(UnwrapTrajectoriesModifier())
+    before = [np.asarray(pipeline.compute(t).particles.positions) for t in range(12)]
+    pipeline.modifiers.append(CenterOfMassCorrectionModifier(reference_frame=3))
+    for t, (frame, after) in enumerate(
+        zip(frames, remove_drift(frames, 3, unwrap=unwrap))
+    ):
+        order = np.argsort(frame["id"])
+        theirs = np.asarray(pipeline.compute(t).particles.positions)
+        np.testing.assert_allclose(
+            (after["positions"] - frame["positions"])[order],
+            theirs - before[t],
+            rtol=0,
+            atol=1e-9,
+        )
+    assert not np.allclose(theirs, before[-1])  # the walk drifted
 
 
 def scattered(pbc, seed=0):

@@ -19,6 +19,12 @@ __all__ = ["Box", "LammpsBox"]
 _EPS = 1e-12
 
 
+def _det(m: np.ndarray) -> float:
+    """The determinant of a (3, 3) matrix, by the triple product; LAPACK's
+    can raise a spurious floating-point warning on some machines."""
+    return float(m[0] @ np.cross(m[1], m[2]))
+
+
 def _read_only(a: np.ndarray) -> np.ndarray:
     a.flags.writeable = False
     return a
@@ -93,7 +99,7 @@ class Box:
         if not np.all(np.isfinite(m)):
             raise InvalidParameter("box matrix must be finite")
         scale = np.prod(np.linalg.norm(m, axis=1))
-        det = np.linalg.det(m)
+        det = _det(m)
         if scale == 0.0 or abs(det) <= _EPS * scale:
             raise InvalidParameter("box lattice vectors are linearly dependent")
 
@@ -273,7 +279,7 @@ class Box:
     @property
     def volume(self) -> float:
         """Volume in Å³."""
-        return float(abs(np.linalg.det(self.__matrix)))
+        return abs(_det(self.__matrix))
 
     @property
     def lengths(self) -> np.ndarray:
@@ -435,7 +441,7 @@ class Box:
             other vectors.
         """
         m = self.__matrix
-        if np.linalg.det(m) < 0:
+        if _det(m) < 0:
             m = m[[0, 2, 1]]
         upper = np.array([m[0, 1], m[0, 2], m[1, 2]])
         if np.all(np.abs(upper) <= _EPS * np.abs(m).max()) and np.all(np.diag(m) > 0):

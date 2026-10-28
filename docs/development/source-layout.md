@@ -62,6 +62,7 @@
 | `src/mdapy/build/_dislocation.py` | `insert_dislocation`, `edge_dislocation`. |
 | `src/mdapy/build/_polycrystal.py` | `build_polycrystal`, `twin_lamellae`. |
 | `src/mdapy/transform/_periodic.py` | `replicate`, `wrap`, `unwrap`. |
+| `src/mdapy/transform/_drift.py` | `remove_drift`, the frames of a trajectory moved by the drift of their center of mass. |
 | `src/mdapy/analysis/_bonds.py` | `ClusterAnalysis`, `BondAngleDistribution`, `WarrenCowley`, and bonds by cutoff per pair of elements. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |

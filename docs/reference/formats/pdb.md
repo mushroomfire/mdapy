@@ -66,11 +66,8 @@ of 1 Å, as some programs write for molecules, the box encloses the atoms
 and is not periodic. Other records, and the alternate locations, chains,
 occupancies and temperature factors of atoms, are left out.
 
-## Comparison
-
-The atoms, names, residues and cells are those ASE reads, and the bonds
-those of OVITO but for the bonds OVITO adds between atoms close enough,
-which [`covalent_bonds`](../../visualization/rendering.md#molecules) gives.
+The bonds are those of `CONECT` only; OVITO also bonds atoms close enough,
+as [`covalent_bonds`](../../visualization/rendering.md#molecules) does.
 
 ## Errors
 

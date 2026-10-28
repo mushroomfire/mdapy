@@ -151,6 +151,7 @@ nav:
       - Dynamics:
           - Mean squared displacement: analysis/msd.md
           - Lindemann index: analysis/lindemann.md
+          - Time averages: analysis/time-average.md
           - Atomic temperature: analysis/temperature.md
   - Structure builder:
       - Crystals: build/crystals.md

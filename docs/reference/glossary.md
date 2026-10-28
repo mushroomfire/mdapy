@@ -36,6 +36,7 @@ implemented.
 | selection | Some atoms of a system, given as a boolean mask of one value per atom or as their indices. |
 | copy | One of the systems `replicate` places side by side; copy (i, j, l) of (n<sub>a</sub>, n<sub>b</sub>, n<sub>c</sub>) is number i + n<sub>a</sub>(j + n<sub>b</sub> l). |
 | lag | The number of frames between two frames of a trajectory. |
+| time average | The mean of a quantity over the frames of a trajectory, of each atom for a column of the atoms. |
 | file pattern | A file name with `*`, standing for the files it matches, in the order of the numbers in their names, such as `dump.*.lammpstrj`. |
 | topology of a trajectory | A system, usually read from a LAMMPS data file, whose bonds, charges, molecules and other columns the frames of a trajectory take, their atoms matched by id. |
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |

@@ -34,6 +34,8 @@ from mdapy.analysis._dynamics import (
     LindemannIndex,
     LindemannResult,
     MeanSquaredDisplacement,
+    TimeAverage,
+    TimeAverageResult,
 )
 from mdapy.analysis._entropy import EntropyFingerprint, EntropyResult
 from mdapy.analysis._species import ChemicalSpecies, SpeciesResult
@@ -59,6 +61,8 @@ __all__ = [
     "LindemannIndex",
     "LindemannResult",
     "MeanSquaredDisplacement",
+    "TimeAverage",
+    "TimeAverageResult",
     "AtomicStrain",
     "AtomicTemperature",
     "BondAngleDistribution",

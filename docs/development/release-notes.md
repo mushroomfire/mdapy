@@ -258,6 +258,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   the nearest image, unless the positions are already unwrapped. The
   [`AtomicTemperature`](../analysis/temperature.md) of each atom and its
   neighbors, relative to their center of mass.
+  [`TimeAverage`](../analysis/time-average.md): the mean of a column of
+  the atoms, of the box or of anything computed from a frame over a
+  trajectory, the atoms matched by id and their positions unwrapped, as
+  OVITO's time averaging.
 - Defects and deformation in `mdapy.analysis`, agreeing with OVITO:
   [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms
   and whether they span the box, and on request their unwrapped positions,

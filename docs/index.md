@@ -170,6 +170,7 @@ flowchart TB
 
     Dynamics: [mean squared displacement](analysis/msd.md) ·
     [Lindemann index](analysis/lindemann.md) ·
+    [Time averages](analysis/time-average.md) ·
     [atomic temperature](analysis/temperature.md)
 
 -   :material-cube-outline:{ .lg .middle } **Structure builder**

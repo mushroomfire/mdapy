@@ -71,7 +71,11 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [mdapy files](../reference/formats/mdapy.md).
 - `mdapy.read_trajectory` opens the frames of any file lazily: frames are
   found and read when used, slices share the open file, and iteration starts
-  at once. See [Trajectories](../getting-started/trajectory.md).
+  at once; also the frames of several files, given as a pattern such as
+  `dump.*.lammpstrj` or a list, and frames that move the atoms of a
+  topology read from a data file, matched by id, with its bonds, charges
+  and molecules, as OVITO's load trajectory. See
+  [Trajectories](../getting-started/trajectory.md).
 
 ### Neighbor search
 

@@ -79,17 +79,21 @@ def _operations(system: System, tolerance: float) -> _Operations:
 _TOLERANCE = 1e-5
 
 
+def _wanted(symmetry: bool | None) -> bool:
+    """Whether to use symmetry: when asked for (True), or by default (None)
+    when spglib is installed."""
+    if symmetry is not None:
+        return bool(symmetry)
+    try:
+        import spglib  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 def _symmetry(system: System, symmetry: bool | None) -> _Operations | None:
-    """The symmetry operations of a cell when asked for (True), by default
-    (None) when spglib is installed, or None."""
-    if symmetry is False:
-        return None
-    if symmetry is None:
-        try:
-            import spglib  # noqa: F401
-        except ImportError:
-            return None
-    return _operations(system, _TOLERANCE)
+    """The symmetry operations of a cell when :func:`_wanted`, or None."""
+    return _operations(system, _TOLERANCE) if _wanted(symmetry) else None
 
 
 def _keeping(rotations: np.ndarray, *matrices: np.ndarray) -> np.ndarray:
@@ -108,14 +112,17 @@ def _rotations(
     system: System, symmetry: bool | None, *matrices: np.ndarray
 ) -> np.ndarray:
     """(K, 3, 3) the distinct rotations on Cartesian columns of the symmetry
-    operations of a cell, as :func:`_symmetry` finds them, that keep the
-    lattices of the matrices; the identity alone without symmetry."""
-    operations = _symmetry(system, symmetry)
-    if operations is None:
+    operations of a cell, when :func:`_wanted`, that keep the lattices of the
+    matrices; the identity alone without symmetry. The rotations alone, from
+    the dataset: mapping the atoms, as :func:`_operations` does, would take
+    seconds for a cell of a few hundred atoms with its many translations."""
+    if not _wanted(symmetry):
         return np.eye(3)[None]
-    keep = np.flatnonzero(_keeping(operations.rotations, *matrices))
-    _, first = np.unique(operations.rotations[keep], axis=0, return_index=True)
-    return operations.cartesian[keep[np.sort(first)]]
+    rotations = np.asarray(_dataset(system, _TOLERANCE).rotations, dtype=np.int64)
+    keep = np.flatnonzero(_keeping(rotations, *matrices))
+    _, first = np.unique(rotations[keep], axis=0, return_index=True)
+    lattice = system.box.matrix.T  # vectors as columns
+    return (lattice @ rotations @ np.linalg.inv(lattice))[keep[np.sort(first)]]
 
 
 # spglib searches the translations of a cell pair by pair: minutes for

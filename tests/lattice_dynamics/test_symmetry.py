@@ -143,6 +143,16 @@ def test_elastic_constants_from_fewer_strains(potential, crystals):
         rtol=0,
         atol=1e-6,
     )
+    # a cell of 4 x 4 x 4 cubic cells: 3072 operations, the same 48 rotations
+    large = mdapy.transform.replicate(cell, (4, 4, 4))
+    counting.calls = 0
+    np.testing.assert_allclose(
+        elastic_constants(large, counting, relax=False, symmetry=True).constants,
+        plain.constants,
+        rtol=0,
+        atol=1e-6,
+    )
+    assert counting.calls == 3
 
 
 @pytest.fixture(scope="module")

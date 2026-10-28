@@ -50,6 +50,7 @@ mesh_alpha=1.0, dislocations=None, dislocation_radius=0.5,
 burgers_vectors=False, burgers_scale=3.0, burgers_radius=0.3,
 burgers_color=(0.7, 0.7, 0.7), vectors=None, vector_scale=1.0,
 vector_radius=0.5, vector_color=(1.0, 1.0, 0.0), vector_alignment="base",
+lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False,
 **options)`
 
 | Name | Type | Default | Unit | Meaning |
@@ -83,6 +84,9 @@ vector_radius=0.5, vector_color=(1.0, 1.0, 0.0), vector_alignment="base",
 | `vector_radius` | float | 0.5 | Å | the radius of their shafts |
 | `vector_color` | color or `"atom"` | yellow | | one color for the arrows, or the color of each atom |
 | `vector_alignment` | str | `"base"` | | the point of the arrow at its atom: `base`, `center` or `head` |
+| `lines` | (M, T, 3) or list of (T, 3) | `None` | Å | polylines, such as the paths of [`trajectory_lines`](../analysis/trajectory-lines.md) |
+| `line_radius`, `line_color` | float, color | 0.1, gray | Å | their radius and color |
+| `wrap_lines` | bool | `False` | | cut the lines at the periodic faces of the box and move the parts outside in through the opposite faces |
 
 | Representation | Atoms | Bonds |
 |---|---|---|

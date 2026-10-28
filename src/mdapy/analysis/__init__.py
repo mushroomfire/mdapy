@@ -36,6 +36,7 @@ from mdapy.analysis._dynamics import (
     MeanSquaredDisplacement,
     TimeAverage,
     TimeAverageResult,
+    trajectory_lines,
 )
 from mdapy.analysis._entropy import EntropyFingerprint, EntropyResult
 from mdapy.analysis._species import ChemicalSpecies, SpeciesResult
@@ -63,6 +64,7 @@ __all__ = [
     "MeanSquaredDisplacement",
     "TimeAverage",
     "TimeAverageResult",
+    "trajectory_lines",
     "AtomicStrain",
     "AtomicTemperature",
     "BondAngleDistribution",

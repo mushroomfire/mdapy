@@ -737,6 +737,42 @@ def test_vector_arrows():
             render(moved, **{"vectors": vectors, name: value})
 
 
+def test_lines():
+    """Polylines as tubes; cut at the periodic faces and moved in with
+    wrap_lines, so that nothing leaves the box."""
+    box = mdapy.Box(10.0)
+    system = mdapy.System([[5.0, 5, 5]], box, elements="Ar")
+    path = np.array([[[2.0, 5, 5], [6.0, 5, 6], [13.0, 5, 6], [16.0, 7, 6]]])
+    hidden = np.zeros(1, dtype=bool)
+    # the same camera for all: the box in the middle, room on either side
+    options = dict(
+        view="front",
+        focus=[5.0, 5, 5],
+        span=24.0,
+        width=160,
+        height=160,
+        background=None,
+        style="fast",
+    )
+    bare = render(system, atoms=hidden, **options)
+    out = render(system, atoms=hidden, lines=path, line_color="red", **options)
+    inside = render(system, atoms=hidden, lines=path, wrap_lines=True, **options)
+    framed = np.flatnonzero((bare[..., 3] > 127).any(axis=0))  # the box
+    for picture, leaves in ((out, True), (inside, False)):
+        covered = (picture[..., 3] > 127) & ~(bare[..., 3] > 127)
+        assert covered.sum() > 50
+        beyond = covered[:, framed[-1] + 1 :].any() or covered[:, : framed[0]].any()
+        assert beyond == leaves
+    red = out[(out[..., 3] > 127) & ~(bare[..., 3] > 127)][:, :3].astype(int)
+    red = red[red.max(axis=1) > 100]
+    assert (red[:, 0] > red[:, 1] + 50).mean() > 0.9
+    thin = render(system, atoms=hidden, lines=path, line_radius=0.05, **options)
+    assert (thin[..., 3] > 127).sum() < (out[..., 3] > 127).sum()
+    for name, value in [("line_radius", 0), ("line_color", "plaid")]:
+        with pytest.raises(InvalidParameter, match=name):
+            render(system, lines=path, **{name: value})
+
+
 # ------------------------------------------------------------ global illumination
 
 

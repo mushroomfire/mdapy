@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 
 from mdapy._core import analysis as _native
+from mdapy.core._atoms import _mask
 from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
@@ -233,6 +234,40 @@ class LindemannIndex:
 
     def __repr__(self) -> str:
         return f"LindemannIndex(unwrap={self.unwrap})"
+
+
+def trajectory_lines(
+    frames: Iterable[System], atoms: Any = None, *, unwrap: bool = True
+) -> np.ndarray:
+    """The paths of atoms over the frames of a trajectory, as OVITO's
+    generate trajectory lines.
+
+    Parameters
+    ----------
+    frames : iterable of System
+        The same atoms in every frame: matched by the ``id`` column where
+        the first frame has one, else in the same order.
+    atoms : array_like, optional
+        A boolean mask or indices of the atoms of the first frame whose
+        paths are wanted. Default all.
+    unwrap : bool, optional
+        Follow the atoms through the periodic boundaries (True, default), or
+        take the positions as they are.
+
+    Returns
+    -------
+    numpy.ndarray
+        (M, T, 3) the positions of each atom in each frame, the atoms in the
+        order of the first frame.
+    """
+    chosen = None
+    paths = []
+    for positions in _follow(frames, unwrap):
+        if chosen is None:
+            n = len(positions)
+            chosen = np.arange(n) if atoms is None else np.flatnonzero(_mask(atoms, n))
+        paths.append(positions[chosen])
+    return np.ascontiguousarray(np.stack(paths, axis=1))
 
 
 @dataclass(frozen=True)

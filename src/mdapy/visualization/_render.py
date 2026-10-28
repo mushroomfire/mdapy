@@ -163,6 +163,10 @@ def render(
     vector_radius: float = 0.5,
     vector_color: Any = (1.0, 1.0, 0.0),
     vector_alignment: str = "base",
+    lines: Any = None,
+    line_radius: float = 0.1,
+    line_color: Any = (0.6, 0.6, 0.6),
+    wrap_lines: bool = False,
     **options: Any,
 ) -> np.ndarray:
     """A picture of a system: its atoms, optionally bonds, the box,
@@ -254,6 +258,18 @@ def render(
     vector_alignment : {"base", "center", "head"}, optional
         The point of the arrow at its atom: its tail, its middle or its
         tip. Default base.
+    lines : array_like or sequence of array_like, optional
+        Polylines to draw, such as the paths of
+        :func:`~mdapy.analysis.trajectory_lines`: (M, T, 3) points, or
+        (T, 3) points of each line.
+    line_radius : float, optional
+        Radius of the lines in Å. Default 0.1.
+    line_color : optional
+        One color for the lines. Default gray.
+    wrap_lines : bool, optional
+        Cut the lines at the periodic faces of the box and move the parts
+        outside in through the opposite faces (True), or draw them as they
+        are (False, default).
     **options
         The options of :meth:`Scene.render`, such as width, height, view,
         style, zoom, perspective and background.
@@ -444,6 +460,8 @@ def render(
                 burgers_color,
                 n,
             )
+    if lines is not None:
+        _lines(scene, lines, system.box, line_radius, line_color, wrap_lines, n)
     if vectors is not None:
         _vector_arrows(
             scene,
@@ -508,6 +526,34 @@ def _vector_arrows(
     widths = 2.5 * radius * np.minimum(lengths / head, 1.0)
     cones, owner = _cones(bases, tails + v, widths, 16)
     scene.add_triangles(cones, rgb[atoms[owner]], ids=atoms[owner])
+
+
+def _lines(scene, lines, box, radius, color, wrap, id_):
+    """Tubes along polylines with round joints, cut at the periodic faces
+    with wrap."""
+    radius = float(radius)
+    if not (np.isfinite(radius) and radius > 0):
+        raise InvalidParameter(f"line_radius must be positive, not {radius!r}")
+    try:
+        rgb = _color(color)
+    except InvalidParameter:
+        raise InvalidParameter(f"line_color must be one color, not {color!r}") from None
+    starts, ends, joints = [], [], []
+    for points in lines:
+        points = np.asarray(points, dtype=float).reshape(-1, 3)
+        if wrap:
+            a, b = _inside(points, box)
+            joints.append(box.wrap(points[1:-1])[0] if len(points) > 2 else points[:0])
+        else:
+            a, b = points[:-1], points[1:]
+            joints.append(points[1:-1])
+        starts.append(a)
+        ends.append(b)
+    if not starts:
+        return
+    starts, ends, joints = map(np.concatenate, (starts, ends, joints))
+    scene.add_cylinders(starts, ends, radius, rgb, ids=np.full(len(starts), id_))
+    scene.add_spheres(joints, radius, rgb, ids=np.full(len(joints), id_))
 
 
 def _ring(centers, axes, radii, sides):

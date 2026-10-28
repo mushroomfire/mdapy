@@ -7,7 +7,12 @@ import numpy as np
 import pytest
 
 import mdapy
-from mdapy.analysis import LindemannIndex, MeanSquaredDisplacement, TimeAverage
+from mdapy.analysis import (
+    LindemannIndex,
+    MeanSquaredDisplacement,
+    TimeAverage,
+    trajectory_lines,
+)
 from mdapy.errors import InvalidParameter
 
 BOX = mdapy.Box([[10.0, 0, 0], [2.0, 9.0, 0], [-1.0, 1.0, 11.0]])
@@ -243,3 +248,33 @@ def test_time_average_of_the_box_and_of_functions():
         TimeAverage("element").compute(frames)
     with pytest.raises(InvalidParameter, match="column name, box or a function"):
         TimeAverage(3)
+
+
+def test_trajectory_lines():
+    """The unwrapped path of each atom, the atoms of the first frame in its
+    order, all or some."""
+    rng = np.random.default_rng(6)
+    start, velocity = rng.random((10, 3)) * 8, rng.normal(scale=2.0, size=(10, 3))
+    true = np.array([start + velocity * t for t in range(7)])
+    ids = rng.permutation(np.arange(1, 11))
+    frames = []
+    for x in true:
+        frame = mdapy.System(BOX.wrap(x)[0], BOX, elements="Ar").with_columns(id=ids)
+        frames.append(
+            frame.with_table(frame.table[rng.permutation(10)]) if frames else frame
+        )
+    lines = trajectory_lines(frames)
+    assert lines.shape == (10, 7, 3)
+    expected = (
+        BOX.wrap(start)[0][:, None] + velocity[:, None] * np.arange(7)[None, :, None]
+    )
+    np.testing.assert_allclose(lines, expected, atol=1e-10)
+    np.testing.assert_allclose(trajectory_lines(frames, [3, 1]), lines[[1, 3]])
+    mask = np.arange(10) % 2 == 0
+    np.testing.assert_allclose(trajectory_lines(iter(frames), mask), lines[mask])
+    wrapped = trajectory_lines(frames, unwrap=False)
+    np.testing.assert_allclose(wrapped[:, 0], frames[0]["positions"])
+    with pytest.raises(InvalidParameter, match="mask of atoms must have 10"):
+        trajectory_lines(frames, np.ones(3, dtype=bool))
+    with pytest.raises(InvalidParameter, match="no frames"):
+        trajectory_lines([])

@@ -43,6 +43,7 @@ from ovito.modifiers import (  # noqa: E402
     CreateBondsModifier,
     DiffusionModifier,
     ExpressionSelectionModifier,
+    GenerateTrajectoryLinesModifier,
     SliceModifier,
     SpatialBinningModifier,
     SteinhardtParametersModifier,
@@ -485,6 +486,34 @@ def test_time_average(tmp_path, step, flags):
     np.testing.assert_allclose(rdf.value, np.asarray(table.y), rtol=1e-10, atol=1e-12)
     timestep = TimeAverage(lambda frame: frame.info["timestep"]).compute(frames)
     assert timestep.value == data.attributes["Timestep (Average)"] == 5.5
+
+
+@pytest.mark.parametrize("every", [1, 2])
+def test_trajectory_lines(tmp_path, every):
+    """OVITO's lines of the paths of the atoms, every frame or every other
+    one. OVITO follows the atoms by the nearest image only, without the
+    image flags; mdapy uses the flags, which give the true path of atoms
+    that jump far."""
+    from mdapy.analysis import trajectory_lines
+
+    frames, _ = random_walk(tmp_path / "walk.dump", 0.4, False)
+    pipeline = import_file(str(tmp_path / "walk.dump"), sort_particles=True)
+    pipeline.modifiers.append(
+        GenerateTrajectoryLinesModifier(only_selected=False, sampling_frequency=every)
+    )
+    lines = next(o for o in pipeline.compute(0).objects if type(o).__name__ == "Lines")
+    sections = np.asarray(lines["Section"])
+    points = np.asarray(lines["Position"])
+    ours = trajectory_lines(frames[::every])
+    ids = np.asarray(frames[0]["id"])
+    order = np.argsort(ids)  # a section of OVITO for each id
+    theirs = np.stack([points[sections == i] for i in ids[order]])
+    np.testing.assert_allclose(ours[order], theirs, rtol=0, atol=1e-9)
+    # long jumps, followed by the image flags
+    frames, walk = random_walk(tmp_path / "far.dump", 4.0, True)
+    true = walk.transpose(1, 0, 2)[np.asarray(frames[0]["id"]) - 1]
+    ours = trajectory_lines(frames)
+    np.testing.assert_allclose(ours - ours[:, :1], true - true[:, :1], atol=1e-9)
 
 
 def scattered(pbc, seed=0):

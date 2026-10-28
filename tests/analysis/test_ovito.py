@@ -22,6 +22,7 @@ from mdapy.analysis import (
     RadialDistributionFunction,
     SpatialBinning,
     SteinhardtParameters,
+    StructureFactor,
     SurfaceMesh,
     VoronoiAnalysis,
     WignerSeitz,
@@ -39,10 +40,12 @@ from ovito.modifiers import (  # noqa: E402
     ConstructSurfaceModifier,
     CoordinationAnalysisModifier,
     CreateBondsModifier,
+    DiffusionModifier,
     ExpressionSelectionModifier,
     SliceModifier,
     SpatialBinningModifier,
     SteinhardtParametersModifier,
+    StructureFactorModifier,
     UnwrapTrajectoriesModifier,
     VoronoiAnalysisModifier,
     WignerSeitzAnalysisModifier,
@@ -367,14 +370,11 @@ def test_cluster_geometry(box):
     )
 
 
-@pytest.mark.parametrize("step, flags", [(4.0, True), (0.4, False)])
-def test_displacement_from_the_first_frame(tmp_path, step, flags):
-    """A random walk written as a dump, the atoms of each frame in another
-    order: OVITO matches them by their ids, unwraps them by the image flags,
-    or without them by following the jumps through the boundaries, and
-    measures the displacements from frame 0."""
+def random_walk(path, step, flags, seed=7):
+    """A random walk of 40 atoms in 12 frames written as a dump, wrapped
+    into a triclinic box, the atoms of each frame in another order."""
     box = mdapy.Box([[12.0, 0, 0], [2.0, 11.0, 0], [-1.0, 1.5, 13.0]])
-    rng = np.random.default_rng(7)
+    rng = np.random.default_rng(seed)
     start = box.to_cartesian(rng.random((40, 3)))
     walk = start + np.cumsum(rng.normal(scale=step, size=(12, 40, 3)), axis=0)
     frames = []
@@ -388,7 +388,18 @@ def test_displacement_from_the_first_frame(tmp_path, step, flags):
         # each frame in another order of the atoms, matched by their ids
         frame = frame.with_table(frame.table[rng.permutation(40)])
         frames.append(frame.with_info(timestep=t))
-    mdapy.write(tmp_path / "walk.dump", frames)
+    mdapy.write(path, frames)
+    return frames, walk
+
+
+@pytest.mark.parametrize("step, flags", [(4.0, True), (0.4, False)])
+def test_displacement_from_the_first_frame(tmp_path, step, flags):
+    """A random walk written as a dump, the atoms of each frame in another
+    order: OVITO matches them by their ids, unwraps them by the image flags,
+    or without them by following the jumps through the boundaries, and
+    measures the displacements from frame 0."""
+    frames, walk = random_walk(tmp_path / "walk.dump", step, flags)
+    box = frames[0].box
     pipeline = import_file(str(tmp_path / "walk.dump"))
     pipeline.modifiers.append(UnwrapTrajectoriesModifier())
     pipeline.modifiers.append(
@@ -403,6 +414,38 @@ def test_displacement_from_the_first_frame(tmp_path, step, flags):
     result = MeanSquaredDisplacement(window=False).compute(frames)
     np.testing.assert_allclose(result.components, expected, rtol=1e-12, atol=1e-12)
     assert box.wrap(walk[-1])[1].any()  # atoms crossed the boundaries
+
+
+@pytest.mark.parametrize("window", [True, False])
+@pytest.mark.parametrize("step, flags", [(4.0, True), (0.4, False)])
+def test_mean_squared_displacement(tmp_path, window, step, flags):
+    """The MSD of OVITO's diffusion modifier, from every time origin or from
+    frame 0, along each axis and in total, after OVITO unwraps the
+    trajectory by the image flags or by following the jumps."""
+    frames, _ = random_walk(tmp_path / "walk.dump", step, flags)
+    pipeline = import_file(str(tmp_path / "walk.dump"))
+    pipeline.modifiers.append(UnwrapTrajectoriesModifier())
+    origins = DiffusionModifier.ReferenceMode
+    pipeline.modifiers.append(
+        DiffusionModifier(
+            time_source=DiffusionModifier.TimeSource.AnimationFrames,
+            reference_mode=origins.MultipleOrigins if window else origins.FixedOrigin,
+            partition_by_direction=True,
+        )
+    )
+    table = pipeline.compute(len(frames) - 1).tables["msd"]
+    names = list(table.y.component_names)
+    values = np.asarray(table.y)
+    lags = np.asarray(table.x).astype(int)
+    ours = MeanSquaredDisplacement(window=window).compute(frames)
+    np.testing.assert_array_equal(lags, ours.lag[1:])
+    np.testing.assert_allclose(
+        ours.msd[1:], values[:, names.index("Total")], rtol=1e-10, atol=1e-12
+    )
+    for k, axis in enumerate(("XX", "YY", "ZZ")):
+        np.testing.assert_allclose(
+            ours.components[1:, k], values[:, names.index(axis)], rtol=1e-10, atol=1e-12
+        )
 
 
 def scattered(pbc, seed=0):
@@ -688,3 +731,92 @@ def test_atomic_displacement(minimum_image, affine):
     np.testing.assert_allclose(
         ours.magnitude, theirs["Displacement Magnitude"], atol=1e-12
     )
+
+
+def ovito_structure_factor(system, mode, q_max, bins):
+    xy = np.asarray(
+        ovito_compute(
+            system, StructureFactorModifier(k_max=int(q_max), k_bins=bins, mode=mode)
+        )
+        .tables["structure-factor"]
+        .xy()
+    )
+    return xy[:, 0], xy[:, 1]
+
+
+def test_structure_factor_octant_of_ovito():
+    """OVITO's direct method averages over the wave vectors of one octant,
+    h, k, l >= 0, which weights a family of equivalent vectors by how many
+    of them have zero components; mdapy over all of them. Each is NumPy's
+    average over its set."""
+    rng = np.random.default_rng(2)
+    box = mdapy.Box(14.0)
+    system = mdapy.System(box.to_cartesian(rng.random((300, 3))), box, elements="Cu")
+    q, expected = ovito_structure_factor(
+        system, StructureFactorModifier.Mode.Direct, 6.0, 60
+    )
+    m = int(6.0 * 14.0 / (2 * np.pi)) + 1
+    hkl = np.array(
+        [
+            (h, k, l)
+            for h in range(-m, m + 1)
+            for k in range(-m, m + 1)
+            for l in range(-m, m + 1)  # noqa: E741
+            if (h, k, l) != (0, 0, 0)
+        ]
+    )
+    vectors = 2 * np.pi * hkl / 14.0
+    length = np.linalg.norm(vectors, axis=1)
+    keep = length <= 6.0
+    hkl, vectors, length = hkl[keep], vectors[keep], length[keep]
+    f = np.exp(1j * system["positions"] @ vectors.T).sum(axis=0) / np.sqrt(len(system))
+    each = (f.conj() * f).real
+    binned = np.minimum((length / 0.1).astype(int), 59)
+
+    def mean(mask):
+        return np.array(
+            [
+                each[mask & (binned == b)].mean()
+                if (mask & (binned == b)).any()
+                else np.nan
+                for b in range(60)
+            ]
+        )
+
+    octant = mean((hkl >= 0).all(axis=1))
+    found = np.isfinite(octant)
+    np.testing.assert_allclose(expected[found], octant[found], rtol=1e-10, atol=1e-12)
+    ours = StructureFactor(6.0, 60).compute(system)
+    everything = mean(np.ones(len(hkl), dtype=bool))
+    np.testing.assert_allclose(ours.s[found], everything[found], rtol=1e-10, atol=1e-12)
+    assert np.abs(octant[found] - everything[found]).max() > 0.1  # not the same
+
+
+@pytest.mark.parametrize("lengths", [14.0, (14.0, 13.0, 15.0)])
+def test_structure_factor_debye(lengths):
+    """OVITO's Debye method transforms g(r) itself, 1 plus the transform of
+    the uniform density over mdapy's, which transforms g(r) - 1; both with
+    the window sinc(2 r / L) up to half the longest cell vector L."""
+    rng = np.random.default_rng(2)
+    box = mdapy.Box(lengths)
+    system = mdapy.System(box.to_cartesian(rng.random((300, 3))), box, elements="Cu")
+    q, expected = ovito_structure_factor(
+        system, StructureFactorModifier.Mode.Debye, 6.0, 60
+    )
+    ours = StructureFactor(6.0, 60, method="debye").compute(system)
+    r_max = 0.5 * np.linalg.norm(box.matrix, axis=1).max()
+    edges = np.linspace(0.0, r_max, int(np.ceil(r_max / 0.01)) + 1)
+    r, dr = (edges[1:] + edges[:-1]) / 2, edges[1] - edges[0]
+    density = len(system) / box.volume
+    uniform = (
+        4
+        * np.pi
+        * density
+        * dr
+        * np.sin(np.outer(q, r))
+        * r
+        * np.sinc(r / r_max)
+        / q[:, None]
+    ).sum(axis=1)
+    # the rest: OVITO's own bins of g(r)
+    np.testing.assert_allclose(ours.s + uniform, expected, rtol=0, atol=2e-3)

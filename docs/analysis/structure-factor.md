@@ -124,6 +124,13 @@ $$
 
 with the fractions $x_a = N_a / N$; these are the conventions of OVITO.
 
+OVITO's structure factor modifier (3.17) differs in two ways. Its direct
+method averages over the wave vectors with $h, k, l \ge 0$ only, which
+weights a family of equivalent vectors by how many of them have zero
+components; mdapy averages over all of them. Its Debye method transforms
+$g(r)$ rather than $g(r) - 1$, which adds the transform of the uniform
+density, large at small $q$.
+
 ## See also
 
 - OVITO [Structure factor](https://docs.ovito.org/reference/pipelines/modifiers/structure_factor.html).

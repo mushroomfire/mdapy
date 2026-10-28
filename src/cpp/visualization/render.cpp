@@ -595,6 +595,8 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
     const V center = camera.center;
     // lights in the world, from their directions in the frame of the camera
     const V key = unit(right * style.key[0] + up * style.key[1] - forward * style.key[2]);
+    const V highlight =
+        unit(right * style.highlight[0] + up * style.highlight[1] - forward * style.highlight[2]);
     const V fill = unit(right * style.fill[0] + up * style.fill[1] - forward * style.fill[2]);
     // the depth range of the scene along the view, for the fog and the origin
     // of orthographic rays
@@ -634,6 +636,22 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         return key_tangent * (r * std::cos(phi)) + key_bitangent * (r * std::sin(phi)) + key * z;
     };
 
+    // metals: less of the color reflected diffusely, the rest in the color of
+    // the highlights
+    const float body = 1.0f - 0.6f * std::clamp(style.metalness, 0.0f, 1.0f);
+    const auto tint = [&](const V& base) {
+        const float m = std::clamp(style.metalness, 0.0f, 1.0f);
+        return V{1.0f - m, 1.0f - m, 1.0f - m} + base * m;
+    };
+    // a highlight: the light from toward mirrored about n, seen along ray
+    const auto phong = [&](const V& n, const V& toward, const V& ray) {
+        if (dot(n, toward) <= 0) {
+            return 0.0f;
+        }
+        const V mirrored = n * (2.0f * dot(n, toward)) - toward;
+        return style.specular * std::pow(std::max(0.0f, -dot(mirrored, ray)), style.shininess);
+    };
+
     const auto shade = [&](const Hit& hit, const Ray& ray, Random& random) -> V {
         const V point = ray.origin + ray.direction * hit.t;
         const V n = bvh.normal(hit.ref, point, ray.direction);
@@ -641,13 +659,17 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         const V lifted = point + n * epsilon;
         float ao = 1.0f;
         if (style.ao_samples > 0 && style.ao_strength > 0) {
-            // cosine-weighted directions about the normal
+            // cosine-weighted directions about the normal, one in each ring
+            // of equal weight, their turns a golden angle apart, the whole
+            // set turned at random: less noise than independent directions
             const V helper = std::fabs(n[0]) < 0.9f ? V{1, 0, 0} : V{0, 1, 0};
             const V tangent = unit(cross(n, helper));
             const V bitangent = cross(n, tangent);
+            const float turn = random.next();
             int blocked = 0;
             for (int k = 0; k < style.ao_samples; ++k) {
-                const float u = random.next(), phi = 6.2831853f * random.next();
+                const float u = (static_cast<float>(k) + random.next()) / static_cast<float>(style.ao_samples);
+                const float phi = 6.2831853f * (turn + 0.618034f * static_cast<float>(k));
                 const float r = std::sqrt(u);
                 const V d = tangent * (r * std::cos(phi)) + bitangent * (r * std::sin(phi)) +
                             n * std::sqrt(std::max(0.0f, 1.0f - u));
@@ -673,33 +695,36 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
             const auto levels = static_cast<float>(style.toon_levels);
             diffuse = std::min(1.0f, std::floor(diffuse * levels + 0.5f) / levels);
         }
-        const V halfway = unit(key - ray.direction);
         float shine = 0;
-        if (style.specular > 0 && lit > 0) {
-            shine = style.specular * std::pow(std::max(0.0f, dot(n, halfway)), style.shininess) *
-                    shadow;
+        if (style.specular > 0) {
+            shine = phong(n, highlight, ray.direction) * shadow;
             if (style.toon_levels > 0) {
                 shine = shine > 0.5f * style.specular ? style.specular : 0.0f;
             }
         }
-        const float light = style.ambient * ao + style.diffuse * diffuse * (0.5f + 0.5f * ao);
-        return base * light + V{shine, shine, shine};
+        const float light = style.base_light + style.ambient * ao + style.diffuse * diffuse * (0.5f + 0.5f * ao);
+        return base * (body * light) + tint(base) * shine;
     };
 
-    // directions about a normal, cosine-weighted
-    const auto cosine = [](V n, Random& random) -> V {
+    // directions about a normal, cosine-weighted; with count > 0, in the
+    // k-th of count rings of equal weight, turned by a golden angle each
+    const auto cosine = [](V n, Random& random, int k, int count, float turn) -> V {
         const V helper = std::fabs(n[0]) < 0.9f ? V{1, 0, 0} : V{0, 1, 0};
         const V tangent = unit(cross(n, helper));
         const V bitangent = cross(n, tangent);
-        const float u = random.next(), phi = 6.2831853f * random.next();
+        const float u = count > 0 ? (static_cast<float>(k) + random.next()) / static_cast<float>(count)
+                                  : random.next();
+        const float phi =
+            6.2831853f * (count > 0 ? turn + 0.618034f * static_cast<float>(k) : random.next());
         const float r = std::sqrt(u);
         return tangent * (r * std::cos(phi)) + bitangent * (r * std::sin(phi)) +
                n * std::sqrt(std::max(0.0f, 1.0f - u));
     };
     // the light reaching the camera from a hit along one path: at each
     // surface, the key light it sees, then a diffuse bounce that either
-    // escapes to the sky or reaches the next surface
-    const auto path = [&](const Hit& first, const Ray& primary, Random& random) -> V {
+    // escapes to the sky or reaches the next surface; the first bounces of
+    // the samples of a subpixel spread over strata
+    const auto path = [&](const Hit& first, const Ray& primary, Random& random, int sample, float turn) -> V {
         V radiance{0, 0, 0}, weight{1, 1, 1};
         Hit hit = first;
         Ray ray = primary;
@@ -707,19 +732,18 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
             const V point = ray.origin + ray.direction * hit.t;
             const V n = bvh.normal(hit.ref, point, ray.direction);
             const V lifted = point + n * epsilon;
-            const V reflected = weight * bvh.color(hit.ref);
+            const V color = bvh.color(hit.ref);
+            const V reflected = weight * color * body;
             const V l = toward_light(random);
             const float lit = dot(n, l);
             if (lit > 0 && !bvh.occluded(make_ray(lifted, l), 0.0f, kInfinity)) {
                 radiance = radiance + reflected * (style.diffuse * lit);
                 if (bounce == 0 && style.specular > 0) {
-                    const float shine =
-                        style.specular *
-                        std::pow(std::max(0.0f, dot(n, unit(l - ray.direction))), style.shininess);
-                    radiance = radiance + V{shine, shine, shine};
+                    radiance = radiance + tint(color) * phong(n, highlight, ray.direction);
                 }
             }
-            const Ray next_ray = make_ray(lifted, cosine(n, random));
+            const Ray next_ray =
+                make_ray(lifted, cosine(n, random, sample, bounce == 0 ? style.samples : 0, turn));
             Hit next;
             bvh.closest(next_ray, 0.0f, next);
             if (next.t == kInfinity) {
@@ -755,6 +779,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         params.farthest = farthest;
         params.epsilon = epsilon;
         copy3(params.key, key);
+        copy3(params.highlight, highlight);
         copy3(params.fill, fill);
         copy3(params.key_tangent, key_tangent);
         copy3(params.key_bitangent, key_bitangent);
@@ -762,7 +787,9 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         params.diffuse = style.diffuse;
         params.specular = style.specular;
         params.shininess = style.shininess;
+        params.metalness = style.metalness;
         params.fill_intensity = style.fill_intensity;
+        params.base_light = style.base_light;
         params.ao_distance = style.ao_distance;
         params.ao_strength = style.ao_strength;
         params.shadow_strength = style.shadow_strength;
@@ -800,6 +827,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
                                           static_cast<std::size_t>(x);
                     const std::uint32_t seed =
                         mix(static_cast<std::uint32_t>(x), static_cast<std::uint32_t>(y));
+                    const float turn = static_cast<float>(mix(seed, 0x51ED27U) >> 8) * (1.0f / 16777216.0f);
                     V color{0, 0, 0};
                     float coverage = 0.0f;
                     for (int sample = 0; sample < samples; ++sample) {
@@ -840,7 +868,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
                                 depth[p] = hit.t + (camera.perspective ? 0.0f : start);
                                 ids[p] = bvh.id(hit.ref);
                             }
-                            V c = global ? path(hit, ray, random) : shade(hit, ray, random);
+                            V c = global ? path(hit, ray, random, sample, turn) : shade(hit, ray, random);
                             if (style.fog > 0 && farthest > nearest) {
                                 const float f = style.fog * std::clamp((hit.t + start - nearest) / (farthest - nearest), 0.0f, 1.0f);
                                 c = c * (1.0f - f) + background * f;
@@ -934,8 +962,8 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
                 // premultiplied color over the premultiplied background
                 const float value = sum[c] * weight + (1.0f - coverage) * style.background[3] * background[c];
                 const float straight = alpha > 0 ? value / alpha : 0.0f;
-                image[o + static_cast<std::size_t>(c)] =
-                    static_cast<std::uint8_t>(std::lround(255.0f * to_srgb(straight)));
+                const float encoded = style.srgb ? std::clamp(straight, 0.0f, 1.0f) : to_srgb(straight);
+                image[o + static_cast<std::size_t>(c)] = static_cast<std::uint8_t>(std::lround(255.0f * encoded));
             }
             image[o + 3] = static_cast<std::uint8_t>(std::lround(255.0f * std::clamp(alpha, 0.0f, 1.0f)));
         }

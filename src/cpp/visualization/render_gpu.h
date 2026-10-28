@@ -22,8 +22,8 @@ struct Params {
     float center[3], forward[3], right[3], up[3];
     float half_width, half_height, aperture, focal_distance;
     float start, nearest, farthest, epsilon;
-    float key[3], fill[3], key_tangent[3], key_bitangent[3];
-    float ambient, diffuse, specular, shininess, fill_intensity;
+    float key[3], highlight[3], fill[3], key_tangent[3], key_bitangent[3];
+    float ambient, diffuse, specular, shininess, metalness, fill_intensity, base_light;
     float ao_distance, ao_strength, shadow_strength, fog, light_size, cone;
     float background[3];
     std::int32_t perspective, ao_samples, shadows, flat, toon_levels, bounces, samples;

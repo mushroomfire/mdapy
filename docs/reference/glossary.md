@@ -36,7 +36,10 @@ implemented.
 | lag | The number of frames between two frames of a trajectory. |
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
 | covalent bond | A pair of atoms closer than the sum of their covalent radii and 0.45 Å, as pictures draw them. |
-| global illumination | Light that reaches a surface after bouncing off others, as the photo style of pictures traces it. |
+| global illumination | Light that reaches a surface after bouncing off others, as the shiny style of pictures traces it. |
+| style of a picture | Its lights, shadows, occlusion and outlines together: fast (as the viewports of OVITO), matte (as its Tachyon renderer), shiny (after its OSPRay renderer) or toon. |
+| highlight | The light of a lamp mirrored by a surface toward the viewer: a bright spot on a sphere. |
+| metalness | From 0 to 1, how much a surface behaves as a metal: it reflects less light diffusely and its highlights take its color. |
 | depth of field | In a picture through a lens, the range of depths that looks sharp around the plane in focus; nearer and farther things blur. |
 | soft shadow | A shadow cast by a light of some size: dark where all of the light is hidden, fading where part of it is. |
 | ionic step | One configuration of a VASP relaxation or molecular dynamics, with its energy, forces and virial; one frame of `read_outcar`. |
@@ -185,6 +188,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | how atoms and bonds are drawn in a picture | `representation` (`"spheres"`, `"ball_and_stick"`, `"space_filling"`, `"licorice"`) | `model`, `drawing_method` |
 | radii of the elements | `radius="display"`, `"covalent"`, `"vdw"` | `radii_type` |
 | bounces of light in a picture | `bounces`, `samples` | `depth`, `spp` |
+| direction of the highlights, metals, light everywhere, lighting the colors as given | `highlight`, `metalness`, `base_light`, `srgb` | `spec_dir`, `metallic`, `emission`, `gamma` |
 | where the rays of a picture are traced | `device` (`"cpu"`, `"gpu"`, `"auto"`) | `backend`, `use_gpu` |
 | whether the positions relax | `relax` (bool) | `relax_atoms`, `minimize` |
 | INCAR tags, mesh of k-points, folder of POTCARs and the POTCAR of each element | `incar`, `kpoints`, `potcars`, `setups` | `params`, `kpts`, `pp_path`, `potcar_map` |

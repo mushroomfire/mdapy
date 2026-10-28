@@ -159,6 +159,10 @@ def test_trace_matches_brute_force():
 # ------------------------------------------------------------ pictures
 
 
+# plain colors in linear light, without lights or occlusion
+FLAT = {"style": "toon", "flat": True}
+
+
 def one_sphere(color=(0.2, 0.6, 0.9), **options):
     scene = Scene()
     scene.add_spheres([[0.0, 0, 0]], 1.0, color)
@@ -166,7 +170,7 @@ def one_sphere(color=(0.2, 0.6, 0.9), **options):
 
 
 def test_silhouette_and_flat_color():
-    image = one_sphere(style="flat", outline_width=0.0, background=None, zoom=0.5)
+    image = one_sphere(**FLAT, outline_width=0.0, background=None, zoom=0.5)
     # framed with 4 % to spare and zoomed out twice: the sphere spans a
     # quarter of the picture's width
     covered = (image[..., 3] > 127).sum()
@@ -188,9 +192,7 @@ def srgb_to_linear(c):
 def test_front_sphere_hides_the_back_one():
     scene = Scene()
     scene.add_spheres([[0.0, 0, 0], [0.0, 0, -3]], 1.0, [[1.0, 0, 0], [0, 0, 1.0]])
-    image = scene.render(
-        width=100, height=100, view="top", style="flat", outline_width=0
-    )
+    image = scene.render(width=100, height=100, view="top", **FLAT, outline_width=0)
     red, green, blue = image[50, 50, :3]
     assert red > 200 and blue < 50 and green < 50
 
@@ -201,17 +203,15 @@ def test_transparent_triangles():
     scene.add_triangles(
         [[[-5, -5, 2.0], [5, -5, 2], [0, 5, 2]]], (1.0, 0, 0), alpha=0.5
     )
-    image = scene.render(
-        width=100, height=100, view="top", style="flat", outline_width=0
-    )
+    image = scene.render(width=100, height=100, view="top", **FLAT, outline_width=0)
     r, g, b = image[50, 50, :3].astype(float) / 255
     expected = srgb(0.5 * srgb_to_linear([1, 0, 0]) + 0.5 * srgb_to_linear([0, 0, 1]))
     np.testing.assert_allclose([r, g, b], expected, atol=0.01)
 
 
 def test_outlines():
-    plain = one_sphere(style="flat", outline_width=0.0)
-    lined = one_sphere(style="flat", outline_width=3.0)
+    plain = one_sphere(**FLAT, outline_width=0.0)
+    lined = one_sphere(**FLAT, outline_width=3.0)
     dark = lined[..., :3].sum(axis=2) < 60
     assert dark.sum() > 0 and (plain[..., :3].sum(axis=2) < 60).sum() == 0
     # the line circles the sphere, just outside its silhouette
@@ -222,15 +222,78 @@ def test_outlines():
 
 
 def test_lighting_shading_and_threads():
-    image = one_sphere(style="studio")
+    image = one_sphere(style="matte")
     lit = image[..., :3].astype(float).sum(axis=2)
     # the key light comes from the upper left
     assert lit[60, 60] > lit[140, 140]
     with mdapy.num_threads(3):
-        again = one_sphere(style="studio")
+        again = one_sphere(style="matte")
     np.testing.assert_array_equal(image, again)
     for style in STYLES:
         assert one_sphere(style=style).shape == (200, 200, 4)
+
+
+def sphere_pixel(normal):
+    """The pixel of one_sphere, seen from the top, where the surface has the
+    normal: the sphere is 2 / 1.04 of the picture wide."""
+    radius = 100 / 1.04
+    return int(round(100 - normal[1] * radius - 0.5)), int(
+        round(100 + normal[0] * radius - 0.5)
+    )
+
+
+def test_fast_lights_as_the_viewports_of_ovito():
+    # in sRGB: 0.4 ambient, 0.6 from the viewer, a highlight of 0.25 with the
+    # exponent 6 from the upper left and a little behind
+    color = np.array([0.2, 0.6, 0.9])
+    image = one_sphere(color, style="fast").astype(float) / 255
+    viewer = np.array([0.0, 0, 1])
+    light = np.array([-1.8, 1.5, -0.2]) / np.linalg.norm([-1.8, 1.5, -0.2])
+    peak = (light + viewer) / np.linalg.norm(light + viewer)  # mirrors it to the viewer
+    side = np.array([0.6, -0.3, 0.0])
+    side[2] = np.sqrt(1 - side @ side)
+    for normal, highlight in ((viewer, 0.0), (peak, 0.25), (side, 0.0)):
+        expected = np.minimum(color * (0.4 + 0.6 * normal[2]) + highlight, 1)
+        np.testing.assert_allclose(image[sphere_pixel(normal)][:3], expected, atol=0.02)
+
+
+def brightest(image):
+    """The row and column of the brightest pixel of the sphere."""
+    light = image[..., :3].astype(int).sum(axis=2) * (image[..., 3] == 255)
+    return np.unravel_index(light.argmax(), light.shape)
+
+
+def test_highlights_and_metals():
+    options = {"style": "fast", "background": None}
+    row, column = brightest(one_sphere((0.5, 0.5, 0.5), **options))
+    assert row < 100 and column < 100  # from the upper left
+    moved = one_sphere((0.5, 0.5, 0.5), highlight=(1.8, -1.5, 0.2), **options)
+    row, column = brightest(moved)
+    assert row > 100 and column > 100
+    # a metal: 40 % of the diffuse light, highlights in its own color
+    color = np.array([0.9, 0.5, 0.1])
+    metal = one_sphere(color, style="fast", metalness=1.0).astype(float) / 255
+    light = np.array([-1.8, 1.5, -0.2]) / np.linalg.norm([-1.8, 1.5, -0.2])
+    peak = (light + np.array([0, 0, 1])) / np.linalg.norm(light + np.array([0, 0, 1]))
+    np.testing.assert_allclose(metal[100, 100, :3], 0.4 * color, atol=0.02)
+    np.testing.assert_allclose(
+        metal[sphere_pixel(peak)][:3],
+        0.4 * color * (0.4 + 0.6 * peak[2]) + 0.25 * color,
+        atol=0.02,
+    )
+
+
+def test_base_light_and_srgb():
+    color = np.array([0.2, 0.3, 0.4])
+    options = {"style": "fast", "specular": 0.0, "ambient": 0.2, "diffuse": 0.3}
+    # in sRGB, the lights scale the color as given
+    lit = one_sphere(color, base_light=0.5, **options).astype(float) / 255
+    np.testing.assert_allclose(lit[100, 100, :3], color * 1.0, atol=0.01)
+    # in linear light, they scale its linear value
+    linear = one_sphere(color, srgb=False, **options).astype(float) / 255
+    np.testing.assert_allclose(
+        linear[100, 100, :3], srgb(0.5 * srgb_to_linear(color)), atol=0.01
+    )
 
 
 def test_views_and_perspective():
@@ -238,13 +301,13 @@ def test_views_and_perspective():
     scene.add_spheres([[1.0, 2, 3]], 0.5, (1.0, 0.5, 0))
     for view in list(VIEWS) + [(1.0, 2.0, -0.5)]:
         image = scene.render(
-            width=120, height=80, view=view, background=None, style="preview"
+            width=120, height=80, view=view, background=None, style="fast"
         )
         y, x = np.nonzero(image[..., 3] > 127)
         assert abs(x.mean() - 59.5) < 1.5 and abs(y.mean() - 39.5) < 1.5
     # along the axis up: another up is taken
     assert scene.render(
-        width=40, height=40, view=(0, 0, -1), up=(0, 0, 1), style="preview"
+        width=40, height=40, view=(0, 0, -1), up=(0, 0, 1), style="fast"
     ).shape == (40, 40, 4)
     two = Scene()
     two.add_spheres([[-3.0, 0, 0], [3.0, 0, -12]], 1.0, (0.5, 0.5, 0.5), ids=[0, 1])
@@ -254,7 +317,7 @@ def test_views_and_perspective():
         view="top",
         perspective=True,
         background=None,
-        style="preview",
+        style="fast",
     )
     near = (image[:, :100, 3] > 127).sum()
     far = (image[:, 100:, 3] > 127).sum()
@@ -272,7 +335,7 @@ def test_focus_and_span_frame_a_given_region():
         height=200,
         view="top",
         background=None,
-        style="flat",
+        **FLAT,
         outline_width=0.0,
     )
     image = scene.render(focus=(1.0, 2.0, 3.0), span=4.0, **options)
@@ -294,27 +357,30 @@ def test_focus_and_span_frame_a_given_region():
 def test_style_settings():
     from mdapy.visualization import STYLES, style_settings
 
-    goodsell = style_settings("goodsell")
-    assert goodsell["flat"] is True and goodsell["outline_width"] == 1.2
-    assert goodsell["supersample"] == 2 and goodsell["ao_distance"] is None
-    assert all(set(style_settings(name)) == set(goodsell) for name in STYLES)
+    assert list(STYLES) == ["fast", "matte", "shiny", "toon"]
+    toon = style_settings("toon")
+    assert toon["toon_levels"] == 3 and toon["outline_width"] == 1.2
+    assert toon["supersample"] == 2 and toon["ao_distance"] is None
+    assert toon["highlight"] is None and toon["metalness"] == 0.0
+    assert style_settings() == style_settings("matte")
+    assert all(set(style_settings(name)) == set(toon) for name in STYLES)
     # a copy: changing it changes no style
-    goodsell["flat"] = False
-    assert style_settings("goodsell")["flat"] is True
+    toon["toon_levels"] = 5
+    assert style_settings("toon")["toon_levels"] == 3
     # the settings render the same picture as the style
     scene = Scene()
     scene.add_spheres([[0.0, 0, 0]], 1.0, (0.2, 0.6, 0.9))
     options = dict(width=40, height=40, view="top")
     np.testing.assert_array_equal(
-        scene.render(style="preview", **options),
-        scene.render(**style_settings("preview"), **options),
+        scene.render(style="fast", **options),
+        scene.render(**style_settings("fast"), **options),
     )
     with pytest.raises(InvalidParameter, match="style must be one of"):
         style_settings("pastel")
 
 
 def test_png_round_trip(tmp_path):
-    image = one_sphere(style="studio")
+    image = one_sphere(style="matte")
     write_png(tmp_path / "a.png", image)
     np.testing.assert_array_equal(read_png(tmp_path / "a.png"), image)
     scene = Scene()
@@ -368,7 +434,8 @@ def _raw_camera():
         center=np.zeros(3, f), forward=np.array([0, 0, -1], f), up=np.array([0, 1, 0], f),
         half_width=1.0, half_height=1.0, perspective=False, aperture=0.0, focal_distance=1.0,
         ambient=0.3, diffuse=0.7,
-        specular=0.2, shininess=30.0, key=np.ones(3, f), fill=np.ones(3, f), fill_intensity=0.2,
+        specular=0.2, shininess=30.0, metalness=0.0, key=np.ones(3, f), highlight=np.ones(3, f),
+        fill=np.ones(3, f), fill_intensity=0.2,
         ao_samples=0, ao_distance=1.0, ao_strength=0.5, shadows=False, shadow_strength=0.5,
         flat=False, toon_levels=0, outline_width=0.0, outline_depth=0.1,
         outline_color=np.zeros(3, f), fog=0.0, background=np.ones(4, f), supersample=1,
@@ -415,7 +482,7 @@ def test_colors():
 
 def test_render_systems(tmp_path):
     system = build_crystal("bcc", 2.87, elements="Fe", repeat=(3, 3, 3))
-    image = render(system, tmp_path / "fe.png", width=160, height=120, style="preview")
+    image = render(system, tmp_path / "fe.png", width=160, height=120, style="fast")
     assert image.shape == (120, 160, 4) and (tmp_path / "fe.png").exists()
     half = np.arange(len(system)) < len(system) // 2
     shown = render(
@@ -423,7 +490,7 @@ def test_render_systems(tmp_path):
         atoms=half,
         width=160,
         height=120,
-        style="preview",
+        style="fast",
         box=False,
         background=None,
     )
@@ -432,20 +499,18 @@ def test_render_systems(tmp_path):
         atoms=np.flatnonzero(half),
         width=160,
         height=120,
-        style="preview",
+        style="fast",
         box=False,
         background=None,
     )
     np.testing.assert_array_equal(shown, some)
     with pytest.raises(InvalidParameter, match="mask of atoms"):
         render(system, atoms=np.ones(3, bool))
-    bonded = render(
-        system, bonds=2.6, radius=0.4, width=160, height=120, style="preview"
-    )
+    bonded = render(system, bonds=2.6, radius=0.4, width=160, height=120, style="fast")
     nl = mdapy.NeighborList.build(system, 2.6)
     np.testing.assert_array_equal(
         bonded,
-        render(system, bonds=nl, radius=0.4, width=160, height=120, style="preview"),
+        render(system, bonds=nl, radius=0.4, width=160, height=120, style="fast"),
     )
     cells = VoronoiAnalysis(polyhedra=True).compute(system).polyhedra
     drawn = render(
@@ -454,7 +519,7 @@ def test_render_systems(tmp_path):
         polyhedra=cells,
         width=160,
         height=120,
-        style="preview",
+        style="fast",
         box=False,
     )
     assert drawn.shape == (120, 160, 4)
@@ -464,7 +529,7 @@ def test_render_systems(tmp_path):
         polyhedra=cells,
         polyhedra_color="edges",
         polyhedra_edges=0.0,
-        style="preview",
+        style="fast",
         width=60,
         height=60,
     )
@@ -495,10 +560,10 @@ def test_bonds_across_the_boundary_stay_in_the_box():
         radius=0.3,
         bond_radius=0.1,
         box=True,
-        style="preview",
+        style="fast",
         **scene_options,
     )
-    boxed = render(chain, radius=0.3, box=True, style="preview", **scene_options)
+    boxed = render(chain, radius=0.3, box=True, style="fast", **scene_options)
     # the same framing: the bonds add nothing outside the box
     covered = bonded[..., 3] > 127
     inside = (boxed[..., 3] > 127).any(axis=0)
@@ -513,7 +578,7 @@ def test_a_surface_across_the_boundary_stays_in_the_box():
     holed = system.filter(corner > 5.0)  # a void around a corner of the box
     surface = SurfaceMesh().compute(holed).mesh
     hidden = np.zeros(len(holed), dtype=bool)
-    options = dict(view="top", width=120, height=120, background=None, style="preview")
+    options = dict(view="top", width=120, height=120, background=None, style="fast")
     drawn = render(holed, atoms=hidden, mesh=surface, **options)
     boxed = render(holed, atoms=hidden, **options)
     covered = drawn[..., 3] > 127
@@ -556,9 +621,7 @@ def test_dislocation_lines_stay_in_the_box():
     )
     result = DislocationAnalysis("bcc").compute(system)
     hidden = np.zeros(len(system), dtype=bool)
-    options = dict(
-        view="front", width=160, height=160, background=None, style="preview"
-    )
+    options = dict(view="front", width=160, height=160, background=None, style="fast")
     drawn = render(system, atoms=hidden, dislocations=result, **options)
     boxed = render(system, atoms=hidden, **options)
     covered = drawn[..., 3] > 127
@@ -585,7 +648,7 @@ def test_burgers_vector_arrows():
     hidden = np.zeros(len(system), dtype=bool)
     # along the lines: the edge Burgers vectors stick out across them; the
     # box keeps the framing
-    options = dict(view="top", width=160, height=160, background=None, style="preview")
+    options = dict(view="top", width=160, height=160, background=None, style="fast")
     lines = render(system, atoms=hidden, dislocations=result, **options)
     arrows = render(
         system,
@@ -631,26 +694,33 @@ def test_burgers_vector_arrows():
 def test_a_lone_sphere_lit_by_the_sky_and_the_key_light():
     # every bounce off a lone sphere leaves for the sky: no noise at all
     color = np.array([0.2, 0.6, 0.9])
-    settings = {"ambient": 0.45, "diffuse": 0.8, "specular": 0.2, "shininess": 60.0}
+    settings = {
+        "ambient": 0.45,
+        "diffuse": 0.8,
+        "specular": 0.2,
+        "shininess": 6.0,
+        "metalness": 0.0,
+        "key": (-0.45, 0.6, 0.66),
+    }
     image = one_sphere(
-        color, style="photo", light_size=0.0, supersample=1, samples=4, **settings
+        color, style="shiny", light_size=0.0, supersample=1, samples=4, **settings
     )
     key = np.array([-0.45, 0.6, 0.66]) / np.linalg.norm([-0.45, 0.6, 0.66])
     normal = np.array([0.0, 0, 1])  # at the middle, toward the camera
-    halfway = (key + normal) / np.linalg.norm(key + normal)
+    mirrored = 2 * (normal @ key) * normal - key  # the key light, reflected
     light = (
         srgb_to_linear(color)
         * (settings["ambient"] + settings["diffuse"] * key @ normal)
-        + settings["specular"] * (normal @ halfway) ** settings["shininess"]
+        + settings["specular"] * (mirrored @ normal) ** settings["shininess"]
     )
     np.testing.assert_allclose(
         image[100, 100, :3], np.round(255 * srgb(np.minimum(light, 1))), atol=2
     )
     with mdapy.num_threads(3):
-        again = one_sphere(color, style="photo", samples=4)
-    np.testing.assert_array_equal(again, one_sphere(color, style="photo", samples=4))
+        again = one_sphere(color, style="shiny", samples=4)
+    np.testing.assert_array_equal(again, one_sphere(color, style="shiny", samples=4))
     with pytest.raises(InvalidParameter, match="samples must be"):
-        one_sphere(style="photo", samples=0)
+        one_sphere(style="shiny", samples=0)
     with pytest.raises(InvalidParameter, match="bounces must be"):
         one_sphere(bounces=-1)
 
@@ -673,7 +743,8 @@ def test_soft_shadows():
             width=120,
             height=120,
             view="top",
-            style="photo",
+            style="shiny",
+            key=(-0.45, 0.6, 0.66),
             light_size=size,
             samples=16,
         )
@@ -693,7 +764,12 @@ def test_soft_shadows_in_direct_light():
     deep, half = {}, {}
     for size in (0.0, 0.1):
         rgb = scene.render(
-            width=120, height=120, view="top", light_size=size, samples=16
+            width=120,
+            height=120,
+            view="top",
+            key=(-0.45, 0.6, 0.66),
+            light_size=size,
+            samples=16,
         )[..., :3].astype(float)
         floor = rgb[..., 0] > rgb[..., 1] - 5
         red = rgb[..., 0][floor]
@@ -708,7 +784,7 @@ def test_samples_in_every_style():
     # rays anywhere in the subpixels cover a disk closer to its area
     picture = {
         samples: one_sphere(
-            style="flat",
+            **FLAT,
             outline_width=0.0,
             background=None,
             zoom=0.5,
@@ -735,7 +811,7 @@ def test_depth_of_field():
         "focus": [0, 0, 0],
         "span": 12,
         "background": None,
-        "style": "flat",
+        **FLAT,
         "outline_width": 0.0,
         "samples": 16,
     }
@@ -776,19 +852,19 @@ def test_depth_of_field():
 def test_light_reflected_in_color():
     scene = floor_and_ball("red", [0.0, 0, 1.0], size=4.0)
     options = {"width": 120, "height": 120, "view": "iso"}
-    flat = scene.render(style="flat", outline_width=0, **options)[..., :3].astype(int)
+    flat = scene.render(**FLAT, outline_width=0, **options)[..., :3].astype(int)
     ball = flat[..., 0] > flat[..., 1] + 50
     near = np.zeros_like(ball)  # the ball and the pixels next to it
     for dy in range(-2, 3):
         for dx in range(-2, 3):
             near |= np.roll(np.roll(ball, dy, axis=0), dx, axis=1)
     floor = ~near & (flat[..., 1] > 30)
-    for style, tinted in (("studio", False), ("photo", True)):
+    for style, tinted in (("matte", False), ("shiny", True)):
         rgb = scene.render(style=style, **options)[..., :3].astype(int)
         red = (rgb[..., 0] - rgb[..., 1])[floor]
         # light off the red ball turns the floor next to it red
         share = (red >= 3).mean()
-        assert (share > 0.01) == tinted and (share > 0) == tinted, (style, share)
+        assert (share > 0.002) == tinted and (share > 0) == tinted, (style, share)
         assert (red >= 0).all()
 
 
@@ -828,7 +904,7 @@ def test_representations():
         "height": 120,
         "view": "top",
         "box": False,
-        "style": "flat",
+        **FLAT,
     }
     pictures = {
         r: render(molecule, representation=r, **options) for r in REPRESENTATIONS
@@ -864,13 +940,13 @@ needs_gpu = pytest.mark.skipif(not gpu_available(), reason="no GPU")
 @pytest.mark.parametrize(
     "options",
     [
-        {"style": "studio"},
-        {"style": "goodsell"},
+        {"style": "matte"},
+        {"style": "fast", "background": None},
         {"style": "toon", "perspective": True, "fog": 0.5},
-        {"style": "photo", "samples": 4},
-        {"style": "glossy", "background": None},
-        {"style": "studio", "light_size": 0.2, "samples": 4},
-        {"style": "studio", "perspective": True, "aperture": 0.5, "samples": 4},
+        {"style": "shiny", "samples": 4},
+        {"style": "shiny", "samples": 4, "metalness": 1.0, "highlight": (1, -1, 1)},
+        {"style": "matte", "light_size": 0.2, "samples": 4},
+        {"style": "matte", "perspective": True, "aperture": 0.5, "samples": 4},
     ],
 )
 def test_the_gpu_draws_what_the_processor_draws(options):
@@ -922,7 +998,7 @@ def test_the_color_of_the_box():
     system = mdapy.System(np.zeros((1, 3)), mdapy.Box(10.0), elements="Cu")
     options = {
         "atoms": np.zeros(1, dtype=bool),
-        "style": "flat",
+        **FLAT,
         "outline_width": 0.0,
         "width": 120,
         "height": 120,

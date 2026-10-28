@@ -36,8 +36,8 @@ struct Params {
     float center[3], forward[3], right[3], up[3];
     float half_width, half_height, aperture, focal_distance;
     float start, nearest, farthest, epsilon;
-    float key[3], fill[3], key_tangent[3], key_bitangent[3];
-    float ambient, diffuse, specular, shininess, fill_intensity;
+    float key[3], highlight[3], fill[3], key_tangent[3], key_bitangent[3];
+    float ambient, diffuse, specular, shininess, metalness, fill_intensity, base_light;
     float ao_distance, ao_strength, shadow_strength, fog, light_size, cone;
     float background[3];
     int perspective, ao_samples, shadows, flat, toon_levels, bounces, samples;
@@ -324,11 +324,14 @@ uint mix_seed(uint a, uint b) {
     return h;
 }
 
-float3 cosine(float3 n, thread Random& random) {
+// with count > 0, in the k-th of count rings of equal weight, turned by a
+// golden angle each
+float3 cosine(float3 n, thread Random& random, int k, int count, float turn) {
     const float3 helper = fabs(n[0]) < 0.9f ? float3(1, 0, 0) : float3(0, 1, 0);
     const float3 tangent = unit(cross(n, helper));
     const float3 bitangent = cross(n, tangent);
-    const float u = next(random), phi = 6.2831853f * next(random);
+    const float u = count > 0 ? (float(k) + next(random)) / float(count) : next(random);
+    const float phi = 6.2831853f * (count > 0 ? turn + 0.618034f * float(k) : next(random));
     const float r = sqrt(u);
     return tangent * (r * cos(phi)) + bitangent * (r * sin(phi)) + n * sqrt(max(0.0f, 1.0f - u));
 }
@@ -344,6 +347,24 @@ float3 toward_light(constant Params& P, thread Random& random) {
     return vec3(P.key_tangent) * (r * cos(phi)) + vec3(P.key_bitangent) * (r * sin(phi)) + key * z;
 }
 
+// metals: less of the color reflected diffusely, the rest in the color of
+// the highlights
+float body(constant Params& P) { return 1.0f - 0.6f * clamp(P.metalness, 0.0f, 1.0f); }
+
+float3 tint(constant Params& P, float3 base) {
+    const float m = clamp(P.metalness, 0.0f, 1.0f);
+    return float3(1.0f - m) + base * m;
+}
+
+// a highlight: the light from toward mirrored about n, seen along ray
+float phong(constant Params& P, float3 n, float3 toward, float3 ray) {
+    if (dot(n, toward) <= 0) {
+        return 0.0f;
+    }
+    const float3 mirrored = n * (2.0f * dot(n, toward)) - toward;
+    return P.specular * pow(max(0.0f, -dot(mirrored, ray)), P.shininess);
+}
+
 float3 shade(thread const World& w, constant Params& P, Hit hit, thread const Ray& ray, thread Random& random) {
     const float3 point = ray.origin + ray.direction * hit.t;
     const float3 n = normal_at(w, hit.ref, point, ray.direction);
@@ -354,9 +375,11 @@ float3 shade(thread const World& w, constant Params& P, Hit hit, thread const Ra
         const float3 helper = fabs(n[0]) < 0.9f ? float3(1, 0, 0) : float3(0, 1, 0);
         const float3 tangent = unit(cross(n, helper));
         const float3 bitangent = cross(n, tangent);
+        const float turn = next(random);
         int blocked = 0;
         for (int k = 0; k < P.ao_samples; ++k) {
-            const float u = next(random), phi = 6.2831853f * next(random);
+            const float u = (float(k) + next(random)) / float(P.ao_samples);
+            const float phi = 6.2831853f * (turn + 0.618034f * float(k));
             const float r = sqrt(u);
             const float3 d = tangent * (r * cos(phi)) + bitangent * (r * sin(phi)) + n * sqrt(max(0.0f, 1.0f - u));
             blocked += occluded(w, make_ray(lifted, d), 0.0f, P.ao_distance) ? 1 : 0;
@@ -380,19 +403,19 @@ float3 shade(thread const World& w, constant Params& P, Hit hit, thread const Ra
         const float levels = float(P.toon_levels);
         diffuse = min(1.0f, floor(diffuse * levels + 0.5f) / levels);
     }
-    const float3 halfway = unit(key - ray.direction);
     float shine = 0;
-    if (P.specular > 0 && lit > 0) {
-        shine = P.specular * pow(max(0.0f, dot(n, halfway)), P.shininess) * shadow;
+    if (P.specular > 0) {
+        shine = phong(P, n, vec3(P.highlight), ray.direction) * shadow;
         if (P.toon_levels > 0) {
             shine = shine > 0.5f * P.specular ? P.specular : 0.0f;
         }
     }
-    const float light = P.ambient * ao + P.diffuse * diffuse * (0.5f + 0.5f * ao);
-    return base * light + float3(shine, shine, shine);
+    const float light = P.base_light + P.ambient * ao + P.diffuse * diffuse * (0.5f + 0.5f * ao);
+    return base * (body(P) * light) + tint(P, base) * shine;
 }
 
-float3 path(thread const World& w, constant Params& P, Hit first, Ray primary, thread Random& random) {
+float3 path(thread const World& w, constant Params& P, Hit first, Ray primary, thread Random& random, int sample,
+            float turn) {
     float3 radiance = float3(0, 0, 0), weight = float3(1, 1, 1);
     Hit hit = first;
     Ray ray = primary;
@@ -400,17 +423,17 @@ float3 path(thread const World& w, constant Params& P, Hit first, Ray primary, t
         const float3 point = ray.origin + ray.direction * hit.t;
         const float3 n = normal_at(w, hit.ref, point, ray.direction);
         const float3 lifted = point + n * P.epsilon;
-        const float3 reflected = weight * color_of(w, hit.ref);
+        const float3 color = color_of(w, hit.ref);
+        const float3 reflected = weight * color * body(P);
         const float3 l = toward_light(P, random);
         const float lit = dot(n, l);
         if (lit > 0 && !occluded(w, make_ray(lifted, l), 0.0f, INFINITY)) {
             radiance = radiance + reflected * (P.diffuse * lit);
             if (bounce == 0 && P.specular > 0) {
-                const float shine = P.specular * pow(max(0.0f, dot(n, unit(l - ray.direction))), P.shininess);
-                radiance = radiance + float3(shine, shine, shine);
+                radiance = radiance + tint(P, color) * phong(P, n, vec3(P.highlight), ray.direction);
             }
         }
-        const Ray next_ray = make_ray(lifted, cosine(n, random));
+        const Ray next_ray = make_ray(lifted, cosine(n, random, sample, bounce == 0 ? P.samples : 0, turn));
         Hit following;
         following.t = INFINITY;
         following.ref = 0;
@@ -471,6 +494,7 @@ kernel void trace_subpixels(device const float* sphere_center [[buffer(0)]],
     w.count = P.refs;
     const uint p = y * uint(P.width) + x;
     const uint seed = mix_seed(x, y);
+    const float turn = float(mix_seed(seed, 0x51ED27u) >> 8) * (1.0f / 16777216.0f);
     const float3 center = vec3(P.center), forward = vec3(P.forward), right = vec3(P.right), up = vec3(P.up);
     const float3 background = vec3(P.background);
     float3 color = float3(0, 0, 0);
@@ -510,7 +534,7 @@ kernel void trace_subpixels(device const float* sphere_center [[buffer(0)]],
                 first_depth = hit.t + (P.perspective ? 0.0f : P.start);
                 first_id = id_of(w, hit.ref);
             }
-            float3 c = P.bounces > 0 ? path(w, P, hit, ray, random) : shade(w, P, hit, ray, random);
+            float3 c = P.bounces > 0 ? path(w, P, hit, ray, random, sample, turn) : shade(w, P, hit, ray, random);
             if (P.fog > 0 && P.farthest > P.nearest) {
                 const float f = P.fog * clamp((hit.t + P.start - P.nearest) / (P.farthest - P.nearest), 0.0f, 1.0f);
                 c = c * (1.0f - f) + background * f;

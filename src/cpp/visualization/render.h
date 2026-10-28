@@ -49,9 +49,15 @@ struct Camera {
 struct Style {
     // lights: an ambient term, a key light and a fill light, their
     // directions toward the lights in the frame of the camera (right, up,
-    // back toward the viewer)
+    // back toward the viewer); the highlights mirror the light from the
+    // direction highlight (Phong)
     float ambient = 0.35f, diffuse = 0.75f, specular = 0.25f, shininess = 40.0f;
-    std::array<float, 3> key{-0.45f, 0.6f, 0.66f}, fill{0.6f, -0.2f, 0.77f};
+    // metals reflect less light diffusely and color their highlights, from 0
+    // to 1, as the rasterizer of OVITO approximates them
+    float metalness = 0.0f;
+    // light every surface gets whatever hides it, as the ambient of Tachyon
+    float base_light = 0.0f;
+    std::array<float, 3> key{-0.45f, 0.6f, 0.66f}, highlight{-0.45f, 0.6f, 0.66f}, fill{0.6f, -0.2f, 0.77f};
     float fill_intensity = 0.25f;
     // ambient occlusion: rays per sample, how far they look, how dark
     int ao_samples = 8;
@@ -79,6 +85,9 @@ struct Style {
     // the angular radius of the key light (radians): a disk for soft shadows
     float light_size = 0.0f;
     std::array<float, 4> background{1, 1, 1, 1};
+    // the colors given in sRGB and lit there, without conversion to linear
+    // light and back, as OVITO's renderers do: stronger contrast
+    bool srgb = false;
     int supersample = 2;  // samples per pixel along each axis
     bool gpu = false;     // trace the rays on a GPU (see gpu_available)
 };

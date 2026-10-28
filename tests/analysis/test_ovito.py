@@ -268,6 +268,29 @@ def test_wigner_seitz(box, affine):
     )
 
 
+@pytest.mark.parametrize("affine", [False, True])
+def test_wigner_seitz_in_a_box_that_grew(affine):
+    """The box grown by 20 % about its center, as in a run at constant
+    pressure, so that its origin moves too: with the affine mapping the
+    defects of the reference, without it many more, as OVITO finds them."""
+    reference, current = defective("periodic")
+    box = current.box
+    center = box.origin + box.matrix.sum(axis=0) / 2
+    grown = current.with_box(
+        mdapy.Box(1.2 * box.matrix, origin=center - 1.2 * (center - box.origin))
+    ).with_columns(positions=center + 1.2 * (current["positions"] - center))
+    ours = WignerSeitz(reference, affine=affine).compute(grown)
+    modifier = WignerSeitzAnalysisModifier(affine_mapping=mapping(affine))
+    modifier.reference = ovito_source(reference)
+    output = ovito_compute(grown, modifier)
+    np.testing.assert_array_equal(ours.occupancy, output.particles["Occupancy"])
+    assert ours.vacancy_count == output.attributes["WignerSeitz.vacancy_count"]
+    if affine:
+        assert ours.vacancy_count == 3
+    else:
+        assert ours.vacancy_count > 20
+
+
 @pytest.mark.parametrize("box", ["periodic", "rotated", "cluster"])
 @pytest.mark.parametrize("affine", [False, True])
 def test_atomic_strain(box, affine):

@@ -37,8 +37,17 @@
 | `f9e7bde` | `analysis.trajectory_lines` + `render(lines=...)`：轨迹线 |
 | `fb40c6c` | `analysis.CoordinationPolyhedra`：配位多面体（凸包）和体积 |
 | `83736f7` | VASP OUTCAR 改为只读文件格式，取代 `mlip.read_outcar` / `outcar_to_xyz` |
+| `8560f15` | MSD 按原子分块做 FFT（省内存）；性能页换成 OVITO 3.17.1 的结果，加了 DXA 和 MSD |
 
 ## 进展
+
+### 10-28 21:15
+- **性能页已换成 OVITO 3.17.1 的结果**（已合入 v2）：分析和文件读写两页的表、图、结论全部更新；新加了位错分析（DXA，mdapy 快 3.9–4.9 倍）和 MSD 两项。只有 MSD 那四行还是改内存之前的数，Triton 上重跑 MSD 的作业还在等节点，跑完我直接换（只改文档）。
+
+  ![对 OVITO 3.17.1 和 freud 的速度比](images/comparison-ovito-3.17.1.png)
+
+- 文件读写（OVITO 3.17.1）：从 3.2 万原子起读三种格式快 2.7–5.3 倍，写快 3.9–10.4 倍；对 ASE 读快 3.8–53 倍、写快 5.4–58 倍。
+- 正在用 Python 3.11 + 最低版本 NumPy 2.3.1 / polars 2.0.0 跑一遍全量测试，检查今晚新代码。
 
 ### 10-28 21:00
 - **第 4 步全部完成**（mdapy 本体部分都已合入 v2，每项都和 OVITO 3.17.1 现场对比、有文档页和图）：任意矢量箭头、Load trajectory、CIF/PDB、时间平均、轨迹线、配位多面体；另外 OUTCAR 改成了文件格式。

@@ -41,7 +41,7 @@ together, so distances and angles do not change.
 the box centered on the origin, and the periodicity of the freud box.
 
 !!! warning "freud and OVITO in one process"
-    With freud 3.6.1 and OVITO 3.17.0 in one process, the Voronoi
+    With freud 3.6.1 and OVITO 3.17.1 in one process, the Voronoi
     tessellation of whichever was imported second crashes the process; both
     use the Voronoi library voro++. Run them in separate processes, or
     import the one whose Voronoi tessellation you need first.

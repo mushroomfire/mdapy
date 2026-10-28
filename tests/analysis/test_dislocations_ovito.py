@@ -3,7 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""The dislocation analysis against that of OVITO 3.17.0, on dislocations
+"""The dislocation analysis against that of OVITO 3.17.1, on dislocations
 built from elastic fields or relaxed to one state. Skipped where OVITO is
 not installed."""
 

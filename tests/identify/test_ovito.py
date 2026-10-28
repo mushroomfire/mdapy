@@ -3,7 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Structure identification against OVITO 3.17.0, atom by atom, for every
+"""Structure identification against OVITO 3.17.1, atom by atom, for every
 method OVITO has. Skipped where OVITO is not installed."""
 
 import numpy as np

@@ -24,6 +24,7 @@
 #include "analysis/geometry.h"
 #include "analysis/isosurface.h"
 #include "analysis/rings.h"
+#include "analysis/soap.h"
 #include "analysis/steinhardt.h"
 #include "analysis/strain.h"
 #include "analysis/surface_mesh.h"
@@ -330,6 +331,38 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
         as_array(std::move(found.interface.atoms)), as_array(std::move(found.interface.vertices)),
         as_array(std::move(found.interface.faces)),
         as_array(std::move(found.interface.shifts)));
+}
+
+nb::object soap(Types species, int species_count, Vectors positions, Matrix3 matrix,
+                Offsets offsets, Neighbors neighbors, Shifts3 shifts, int n_max, int l_max,
+                double eta, Values alphas, Values betas, bool crossover, nb::handle progress,
+                const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (static_cast<std::int64_t>(species.shape(0)) != n ||
+        static_cast<std::int64_t>(offsets.shape(0)) != n + 1 ||
+        neighbors.shape(0) != shifts.shape(0)) {
+        throw std::invalid_argument("species, positions and neighbors do not match");
+    }
+    analysis::SoapBasis basis;
+    basis.n_max = n_max;
+    basis.l_max = l_max;
+    basis.eta = eta;
+    basis.alphas.assign(alphas.data(), alphas.data() + alphas.shape(0));
+    basis.betas.assign(betas.data(), betas.data() + betas.shape(0));
+    basis.crossover = crossover;
+    const std::int64_t dimension = analysis::soap_dimension(basis, species_count);
+    std::vector<double> found;
+    run_released(
+        [&](const Control& control) {
+            found = analysis::soap(basis, species_count, species.data(), n, positions.data(),
+                                   matrix.data(), offsets.data(), neighbors.data(),
+                                   shifts.data(), control);
+        },
+        progress, cancel);
+    auto* values = new std::vector<double>(std::move(found));
+    nb::capsule owner(values, [](void* v) noexcept { delete static_cast<std::vector<double>*>(v); });
+    const std::size_t shape[2] = {static_cast<std::size_t>(n), static_cast<std::size_t>(dimension)};
+    return nb::ndarray<nb::numpy, double>(values->data(), 2, shape, owner).cast();
 }
 
 nb::tuple find_rings(Offsets offsets, Offsets other,
@@ -831,6 +864,11 @@ void bind_analysis(nb::module_& m) {
           nb::arg("pbc"), nb::arg("crystal"), nb::arg("defects"), nb::arg("max_circuit"),
           nb::arg("stretch"), nb::arg("separation"), nb::arg("smoothing"),
           nb::arg("mesh_smoothing"), nb::arg("interface"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("soap", &soap, nb::arg("species"), nb::arg("species_count"), nb::arg("positions"),
+          nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"),
+          nb::arg("n_max"), nb::arg("l_max"), nb::arg("eta"), nb::arg("alphas"), nb::arg("betas"),
+          nb::arg("crossover"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     m.def("find_rings", &find_rings, nb::arg("offsets"), nb::arg("other"), nb::arg("shifts"),
           nb::arg("min_size"), nb::arg("max_size"), nb::arg("progress") = nb::none(),

@@ -3,8 +3,8 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Machine-learned potentials: descriptors, the choice of frames and
-perturbed structures."""
+"""Machine-learned potentials: descriptors such as SOAP, the choice of
+frames and perturbed structures."""
 
 from mdapy.mlip._selection import (
     PrincipalComponents,
@@ -13,8 +13,10 @@ from mdapy.mlip._selection import (
     principal_components,
     structure_descriptors,
 )
+from mdapy.mlip._soap import SOAP
 
 __all__ = [
+    "SOAP",
     "PrincipalComponents",
     "farthest_point_sampling",
     "perturb",

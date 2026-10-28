@@ -55,6 +55,7 @@
 | `src/mdapy/analysis/_dislocations.py` | `DislocationAnalysis`, its results and the families of Burgers vectors. |
 | `src/mdapy/build/_crystal.py` | `build_crystal` and its table of structures. |
 | `src/mdapy/build/_alloy.py` | `random_alloy`. |
+| `src/mdapy/mlip/_soap.py`, `src/cpp/analysis/soap.cpp` | `SOAP`, the power spectrum in Gaussian radial functions. |
 | `src/mdapy/mlip/_selection.py` | descriptors of frames, farthest point sampling, principal components, `perturb`. |
 | `src/mdapy/visualization/_scene.py`, `_render.py`, `_elements.py` | `Scene`, `render`, styles, colors. |
 | `src/mdapy/visualization/_voxels.py` | `voxel_faces`, the cells of a grid on the faces of the box. |

@@ -35,6 +35,11 @@ territories, *Dalton Trans.* **42**, 8617 (2013).
 [doi:10.1039/C3DT50599E](https://doi.org/10.1039/C3DT50599E)
 { #alvarez2013 }
 
+**Bartók, Kondor and Csányi (2013).** A. P. Bartók, R. Kondor and G. Csányi,
+On representing chemical environments, *Phys. Rev. B* **87**, 184115 (2013).
+[doi:10.1103/PhysRevB.87.184115](https://doi.org/10.1103/PhysRevB.87.184115)
+{ #bartok2013 }
+
 **Bitzek et al. (2006).** E. Bitzek, P. Koskinen, F. Gähler, M. Moseler and
 P. Gumbsch, Structural relaxation made simple, *Phys. Rev. Lett.* **97**,
 170201 (2006).
@@ -139,6 +144,13 @@ simulations and its implementation in LAMMPS, *Comput. Mater. Sci.* **175**,
 *Proc. Phys. Soc. A* **65**, 349 (1952).
 [doi:10.1088/0370-1298/65/5/307](https://doi.org/10.1088/0370-1298/65/5/307)
 { #hill1952 }
+
+**Himanen et al. (2020).** L. Himanen, M. O. J. Jäger, E. V. Morooka,
+F. Federici Canova, Y. S. Ranawat, D. Z. Gao, P. Rinke and A. S. Foster,
+DScribe: Library of descriptors for machine learning in materials science,
+*Comput. Phys. Commun.* **247**, 106949 (2020).
+[doi:10.1016/j.cpc.2019.106949](https://doi.org/10.1016/j.cpc.2019.106949)
+{ #himanen2020 }
 
 **Hinuma et al. (2017).** Y. Hinuma, G. Pizzi, Y. Kumagai, F. Oba and
 I. Tanaka, Band structure diagram paths based on crystallography,

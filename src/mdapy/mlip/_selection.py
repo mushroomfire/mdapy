@@ -161,9 +161,9 @@ def structure_descriptors(frames: Sequence[System], calculator: Any) -> np.ndarr
     ----------
     frames : sequence of System
         The frames.
-    calculator : NEP
-        A calculator with ``descriptors(system)``, such as
-        :class:`mdapy.calculators.NEP`.
+    calculator : SOAP, NEP or any object with descriptors(system)
+        What gives the (N, D) descriptors of the atoms of a frame, such as
+        :class:`mdapy.mlip.SOAP` or :class:`mdapy.calculators.NEP`.
 
     Returns
     -------

@@ -379,6 +379,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - Training sets from VASP: the ionic steps of OUTCAR files, read as
   trajectories with energies, forces, virials and convergence, written to
   extended XYZ. See [Training sets from VASP](../mlip/vasp.md).
+- `mdapy.mlip.SOAP`: the smooth overlap of atomic positions of each atom,
+  the same values as DScribe's SOAP with Gaussian radial functions, in
+  C++, for any structures whatever made them. See
+  [SOAP descriptors](../mlip/soap.md).
 - `mdapy.mlip.structure_descriptors`, `farthest_point_sampling` and
   `principal_components`: frames chosen far from a training set and from
   each other in the space of NEP descriptors, and their projection on a

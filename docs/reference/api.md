@@ -213,6 +213,8 @@ import mdapy as mp
 
 ## MLIP
 
+::: mdapy.mlip.SOAP
+
 ::: mdapy.mlip.structure_descriptors
 
 ::: mdapy.mlip.farthest_point_sampling

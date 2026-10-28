@@ -1,10 +1,11 @@
 # Choosing frames
 
 A training set grows best with frames unlike those it has.
-`structure_descriptors` gives each frame the mean of the NEP descriptors of
-its atoms, `farthest_point_sampling` chooses the frames that cover the space
-of descriptors, and `principal_components` projects them onto a plane to
-look at.
+`structure_descriptors` gives each frame the mean of the descriptors of its
+atoms, of a NEP model or [SOAP](soap.md) of any structures,
+`farthest_point_sampling` chooses the frames that cover the space of
+descriptors, and `principal_components` projects them onto a plane to look
+at.
 
 <!-- skip-test -->
 ```python
@@ -54,7 +55,7 @@ one another, and a few from each of the others.*
 
 | Function | Parameters |
 |---|---|
-| `structure_descriptors(frames, calculator)` | the frames, and a calculator with `descriptors(system)` such as [NEP](../simulation/nep.md) |
+| `structure_descriptors(frames, calculator)` | the frames, and anything with `descriptors(system)`, such as [NEP](../simulation/nep.md) or [SOAP](soap.md) |
 | `farthest_point_sampling(points, count, *, start=0, selected=None)` | (M, D) candidates, the number chosen, the first one chosen (`None`: the farthest from `selected`), and (K, D) points chosen before |
 | `principal_components(points, n=2)` | (M, D) points, two or more, and the number of components kept, at most D |
 

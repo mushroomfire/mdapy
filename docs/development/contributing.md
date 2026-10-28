@@ -25,7 +25,7 @@ The site has one tab per kind of content, each a directory of `docs/`:
 | Analysis | `analysis/` | analyses of structures and trajectories, in sections: structure identification; local order and distributions; defects and deformation; dynamics |
 | Structure builder | `build/` | building structures (crystals, polycrystals, defects, alloys, packed molecules) and transforming them |
 | Simulation | `simulation/` | calculators; minimization and dynamics (molecular dynamics through other programs); lattice dynamics (elastic constants, force constants, phonons) |
-| MLIP | `mlip/` | training data for machine-learned potentials: descriptors and their principal components, selection of frames, training sets from first-principles calculations |
+| MLIP | `mlip/` | training data for machine-learned potentials: descriptors and their principal components, selection of frames, errors and uncertainty of models, checks of frames, training sets from first-principles calculations |
 | Visualization | `visualization/` | rendering images of systems; plot templates for results |
 | Interoperability | `interop/` | conversions to and from other Python packages, and how files and calculators connect mdapy with simulation programs |
 | Performance | `performance/` | timings of mdapy and of other programs |

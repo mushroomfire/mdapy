@@ -57,6 +57,7 @@
 | `src/mdapy/build/_alloy.py` | `random_alloy`. |
 | `src/mdapy/mlip/_soap.py`, `src/cpp/analysis/soap.cpp` | `SOAP`, the power spectrum in Gaussian radial functions. |
 | `src/mdapy/mlip/_selection.py` | descriptors of frames, farthest point sampling, principal components, `perturb`. |
+| `src/mdapy/mlip/_training.py` | errors of a model against labels and from GPUMD, committee spread, novelty, checks of frames. |
 | `src/mdapy/visualization/_scene.py`, `_render.py`, `_elements.py` | `Scene`, `render`, styles, colors. |
 | `src/mdapy/visualization/_voxels.py` | `voxel_faces`, the cells of a grid on the faces of the box. |
 | `src/mdapy/analysis/_rings.py`, `src/cpp/analysis/rings.cpp` | `RingStatistics`, shortest-path rings of bonds. |

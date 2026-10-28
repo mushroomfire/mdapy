@@ -267,6 +267,7 @@ flowchart TB
     [LAMMPS data](reference/formats/lammps-data.md) ·
     [LAMMPS dump](reference/formats/lammps-dump.md) ·
     [PDB](reference/formats/pdb.md) ·
+    [VASP OUTCAR](reference/formats/outcar.md) ·
     [VASP POSCAR](reference/formats/poscar.md) ·
     [mdapy files](reference/formats/mdapy.md)
 

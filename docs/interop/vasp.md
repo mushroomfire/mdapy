@@ -1,7 +1,7 @@
 # VASP
 
-mdapy writes the POSCAR of a calculation, reads its CONTCAR and OUTCAR, runs
-VASP as a calculator and turns its results into training sets of
+mdapy writes the POSCAR of a calculation and reads its CONTCAR and OUTCAR,
+runs VASP as a calculator and turns its results into training sets of
 machine-learned potentials.
 
 ```python
@@ -21,10 +21,8 @@ After the run:
 
 <!-- skip-test -->
 ```python
-from mdapy.mlip import read_outcar
-
 relaxed = mp.read("CONTCAR")
-steps = read_outcar("OUTCAR")  # every ionic step, with energies, forces, virials
+steps = mp.read_trajectory("OUTCAR")  # every ionic step, with energies, forces, virials
 ```
 
 ## What goes between them
@@ -32,7 +30,7 @@ steps = read_outcar("OUTCAR")  # every ionic step, with energies, forces, virial
 | VASP | mdapy | Page |
 |---|---|---|
 | POSCAR, CONTCAR: selective dynamics, velocities | `mdapy.read`, `mdapy.write`; the columns `movable` and `velocities` | [VASP POSCAR](../reference/formats/poscar.md) |
-| OUTCAR: ionic steps, free energies TOTEN, forces, virials | `read_outcar`, `outcar_to_xyz` | [Training sets from VASP](../mlip/vasp.md) |
+| OUTCAR: ionic steps, free energies TOTEN, forces, virials, convergence | `mdapy.read`, `mdapy.read_trajectory` | [VASP OUTCAR](../reference/formats/outcar.md), [Training sets from VASP](../mlip/vasp.md) |
 | single points run by a command, as in a job script | the calculator `VASP` | [VASP calculator](../simulation/vasp.md) |
 
 ## See also

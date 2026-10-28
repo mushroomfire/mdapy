@@ -19,8 +19,11 @@
 | `src/mdapy/io/_lammps_data.py` | The LAMMPS data format. |
 | `src/mdapy/io/_lammps_dump.py` | The LAMMPS dump format. |
 | `src/mdapy/io/_poscar.py` | The VASP POSCAR format. |
+| `src/mdapy/io/_outcar.py` | The VASP OUTCAR format, read only. |
+| `src/mdapy/io/_cif.py` | The CIF format, read only: crystals expanded by their symmetry operations. |
+| `src/mdapy/io/_pdb.py` | The PDB format, read only. |
 | `src/mdapy/io/_native.py` | The mdapy file format. |
-| `src/mdapy/io/_trajectory.py` | `Trajectory` and `read_trajectory`. |
+| `src/mdapy/io/_trajectory.py` | `Trajectory` and `read_trajectory`: frames of several files, frames on a topology. |
 | `src/mdapy/interop/_ase.py` | `to_ase` and `from_ase`. |
 | `src/mdapy/interop/_ase_calculator.py` | `to_ase_calculator`, `from_ase_calculator`. |
 | `src/mdapy/interop/_ovito.py` | `to_ovito`, `from_ovito`. |
@@ -45,11 +48,11 @@
 | `src/mdapy/analysis/_temperature.py` | `AtomicTemperature`. |
 | `src/mdapy/analysis/_strain.py` | `AtomicStrain`. |
 | `src/mdapy/analysis/_wigner_seitz.py` | `WignerSeitz`. |
-| `src/mdapy/analysis/_dynamics.py` | `MeanSquaredDisplacement`, `LindemannIndex`. |
+| `src/mdapy/analysis/_dynamics.py` | `MeanSquaredDisplacement`, `LindemannIndex`, `TimeAverage`, `trajectory_lines`. |
+| `src/mdapy/analysis/_polyhedra.py` | `CoordinationPolyhedra`. |
 | `src/mdapy/analysis/_dislocations.py` | `DislocationAnalysis`, its results and the families of Burgers vectors. |
 | `src/mdapy/build/_crystal.py` | `build_crystal` and its table of structures. |
 | `src/mdapy/build/_alloy.py` | `random_alloy`. |
-| `src/mdapy/mlip/_vasp.py` | `read_outcar`, `outcar_to_xyz`. |
 | `src/mdapy/mlip/_selection.py` | descriptors of frames, farthest point sampling, principal components, `perturb`. |
 | `src/mdapy/visualization/_scene.py`, `_render.py`, `_elements.py` | `Scene`, `render`, styles, colors. |
 | `src/cpp/visualization/render.h`, `render.cpp` | the ray tracer: bounding volume hierarchy, shading, outlines. |

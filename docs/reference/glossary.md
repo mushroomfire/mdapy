@@ -50,7 +50,7 @@ implemented.
 | metalness | From 0 to 1, how much a surface behaves as a metal: it reflects less light diffusely and its highlights take its color. |
 | depth of field | In a picture through a lens, the range of depths that looks sharp around the plane in focus; nearer and farther things blur. |
 | soft shadow | A shadow cast by a light of some size: dark where all of the light is hidden, fading where part of it is. |
-| ionic step | One configuration of a VASP relaxation or molecular dynamics, with its energy, forces and virial; one frame of `read_outcar`. |
+| ionic step | One configuration of a VASP relaxation or molecular dynamics, with its energy, forces and virial; one frame of an OUTCAR file. |
 | training set | Frames with reference energies, forces and virials, usually from DFT, in extended XYZ, to fit a machine-learned potential. |
 | structure descriptor | The mean of the descriptors of the atoms of a frame, one point per frame. |
 | farthest point sampling | Choosing points one by one, each the farthest from those chosen before. |

@@ -13,10 +13,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from outcar_files import outcar_text  # noqa: E402
+
 import mdapy  # noqa: E402
 from mdapy.calculators import EAM  # noqa: E402
-
-from mlip.outcar_files import outcar_text  # noqa: E402
 
 tags = {}
 for line in Path("INCAR").read_text().splitlines():

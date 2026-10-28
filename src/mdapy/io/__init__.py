@@ -16,6 +16,7 @@ from mdapy.io import (  # noqa: F401
     _lammps_data,
     _lammps_dump,
     _native,
+    _outcar,
     _pdb,
     _poscar,
 )

@@ -83,4 +83,4 @@ __all__ = [
     "BondStiffness",
     "unwrap_trajectory",
 ]
-__version__ = "1.0.9"
+__version__ = "1.0.10"

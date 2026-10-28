@@ -1,6 +1,18 @@
 Release Notes
 ===============
 
+Mdapy 1.0.10 (October 29, 2026)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+🐞 Bug Fixes
+-------------
+
+- :class:`mdapy.WignerSeitzAnalysis` with ``affine=True`` now maps the
+  current positions into the reference box relative to the origins of
+  both boxes, as OVITO does. Before, a box whose origin moved between the
+  reference and the current frame, as in a run at constant pressure, gave
+  thousands of spurious vacancies and interstitials (issue #13).
+
 Mdapy 1.0.9 (October 26, 2026)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

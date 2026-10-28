@@ -102,6 +102,7 @@ nav:
       - System:
           - Systems: getting-started/system.md
           - Selecting and ordering atoms: getting-started/selecting.md
+          - Expanding a selection: getting-started/expand-selection.md
           - Changing a system: getting-started/changing.md
           - Topology: getting-started/topology.md
           - Simulation box: getting-started/box.md

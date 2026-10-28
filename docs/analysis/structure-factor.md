@@ -124,12 +124,62 @@ $$
 
 with the fractions $x_a = N_a / N$; these are the conventions of OVITO.
 
-OVITO's structure factor modifier (3.17) differs in two ways. Its direct
-method averages over the wave vectors with $h, k, l \ge 0$ only, which
-weights a family of equivalent vectors by how many of them have zero
-components; mdapy averages over all of them. Its Debye method transforms
-$g(r)$ rather than $g(r) - 1$, which adds the transform of the uniform
-density, large at small $q$.
+## Why the results differ from OVITO
+
+mdapy follows the definitions above. OVITO's structure factor modifier
+(3.17.1) makes two other choices, so that its curves differ from those of
+mdapy although the sums are the same: computed with OVITO's choices, mdapy
+gives OVITO's numbers.
+
+- **Direct method**: OVITO averages over the wave vectors with
+  $h, k, l \ge 0$ only, an eighth of them. As $\mathbf q$ and
+  $-\mathbf q$ give the same value, this leaves out the vectors of mixed
+  signs, such as $(1, -1, 0)$. In a cubic crystal these are equivalent to
+  vectors kept, but a family of equivalent vectors then counts by how many
+  of its members have zero components; in a crystal of lower symmetry, a
+  strained or textured one, or a small disordered system, they carry other
+  values that OVITO's average misses. mdapy averages over every wave vector,
+  one of each pair $\pm\mathbf q$.
+- **Debye method**: OVITO transforms $g(r)$ rather than $g(r) - 1$. The
+  difference,
+  $\frac{4\pi\rho}{q} \int_0^{r_\text{max}} r \sin(qr)\, w(r)\, \mathrm dr$,
+  is the transform of a uniform density inside $r_\text{max}$: it holds
+  nothing of the structure, grows without bound as $q \to 0$ and decays
+  with ripples at large $q$. mdapy leaves it out, so that $S(q)$ tends to 1
+  at large $q$ and stays finite at small $q$.
+
+The alloy above with both integrands:
+
+```python
+r_max = 7.2
+r = (np.arange(720) + 0.5) * 0.01  # the bins of the radial distribution function
+window = np.sinc(r / r_max)  # sin(πr/r_max) / (πr/r_max)
+density = len(system) / system.box.volume
+uniform = (
+    4
+    * np.pi
+    * density
+    / debye.q
+    * (r * np.sin(np.outer(debye.q, r)) * window).sum(axis=1)
+    * 0.01
+)
+
+with plot.style():
+    fig, ax = plot.figure("single")
+    ax.plot(debye.q, debye.s + uniform, label="with g(r), as OVITO")
+    ax.plot(debye.q, debye.s, label="with g(r) − 1, mdapy")
+    ax.set_xlabel("q (1/Å)")
+    ax.set_ylabel("S(q)")
+    ax.set_ylim(-2, 8)
+    ax.legend()
+    plot.save(fig, "images/structure-factor-ovito", formats=("png",))
+```
+
+![Debye structure factors with g(r) and with g(r) − 1](images/structure-factor-ovito.png)
+
+*The Debye structure factor of the alloy from $g(r)$, as OVITO computes
+it, and from $g(r) - 1$: the transform of the uniform density that sets
+them apart dominates below 2 Å⁻¹; above, the two nearly agree.*
 
 ## See also
 

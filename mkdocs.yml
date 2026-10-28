@@ -191,6 +191,7 @@ nav:
           - Elastic constants from molecular dynamics: simulation/md-elastic.md
   - MLIP:
       - Training sets from VASP: mlip/vasp.md
+      - SOAP descriptors: mlip/soap.md
       - Choosing frames: mlip/selection.md
       - Perturbed structures: mlip/perturbation.md
   - Visualization:

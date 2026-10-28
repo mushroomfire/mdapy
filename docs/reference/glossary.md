@@ -57,6 +57,7 @@ implemented.
 | soft shadow | A shadow cast by a light of some size: dark where all of the light is hidden, fading where part of it is. |
 | ionic step | One configuration of a VASP relaxation or molecular dynamics, with its energy, forces and virial; one frame of an OUTCAR file. |
 | training set | Frames with reference energies, forces and virials, usually from DFT, in extended XYZ, to fit a machine-learned potential. |
+| SOAP | The smooth overlap of atomic positions: the power spectrum of the Gaussian density of the neighbors of an atom, a descriptor of its neighborhood that does not change when it is turned, moved or reordered. |
 | structure descriptor | The mean of the descriptors of the atoms of a frame, one point per frame. |
 | farthest point sampling | Choosing points one by one, each the farthest from those chosen before. |
 | crystal cluster | Neighboring atoms of one structure whose neighbors map onto each other by rotations of the lattice: one region with one lattice frame, as the dislocation analysis joins them. |

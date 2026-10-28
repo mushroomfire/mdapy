@@ -108,6 +108,8 @@ jobs:
       - run: pip install freud-analysis==3.6.1 pymatgen-core
       # phonopy for the comparisons of phonons, seekpath for their paths
       - run: pip install phonopy==4.8.6 seekpath==2.2.2
+      # DScribe for the comparisons of SOAP, at its reference version
+      - run: pip install dscribe==2.1.2
       # atomsk for the comparisons of the structure builder, at its reference
       # version, built once; it needs the Fortran and LAPACK libraries to run
       - run: sudo apt-get update -q && sudo apt-get install -y -q gfortran liblapack-dev

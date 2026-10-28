@@ -238,7 +238,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   cutoffs per pair of elements; the
   [`StructureFactor`](../analysis/structure-factor.md), exact over the wave
   vectors of the box or by the Debye method, with Faber–Ziman partial
-  factors; the [`BondAngleDistribution`](../analysis/bond-angles.md) for
+  factors; the [`SpatialCorrelation`](../analysis/spatial-correlation.md)
+  function of two properties of the atoms, by fast Fourier transforms on a
+  grid and by a direct sum over neighbors, the same as OVITO's spatial
+  correlation function; the [`BondAngleDistribution`](../analysis/bond-angles.md) for
   each triplet of elements; [`WarrenCowley`](../analysis/warren-cowley.md)
   short-range order, over shells of neighbors by distance or by number; [`SteinhardtParameters`](../analysis/steinhardt.md) up
   to degree 20, optionally averaged, and with `solid=True` the solid-like

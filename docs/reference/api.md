@@ -81,6 +81,10 @@ import mdapy as mp
 
 ::: mdapy.analysis.StructureFactorResult
 
+::: mdapy.analysis.SpatialCorrelation
+
+::: mdapy.analysis.SpatialCorrelationResult
+
 ::: mdapy.analysis.BondAngleDistribution
 
 ::: mdapy.analysis.BondAngleResult

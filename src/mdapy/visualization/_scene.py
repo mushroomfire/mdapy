@@ -30,24 +30,52 @@ from mdapy.visualization._elements import (
 
 #: The looks of a picture: lights, shadows, ambient occlusion and outlines.
 STYLES: dict[str, dict[str, Any]] = {
-    # soft studio light with ambient occlusion and shadows
-    "studio": {},
-    # flat colors darkened by ambient occlusion, with outlines, after the
-    # pictures of D. Goodsell
-    "goodsell": {
-        "flat": True,
-        "ao_strength": 0.6,
-        "ao_samples": 12,
+    # quick, as the viewports of OVITO: lit in sRGB by an ambient part, a
+    # light from the viewer and a broad highlight from the upper left, with
+    # neither occlusion nor shadows
+    "fast": {
+        "srgb": True,
+        "ambient": 0.4,
+        "diffuse": 0.6,
+        "key": (0.0, 0.0, 1.0),
+        "highlight": (-1.8, 1.5, -0.2),
+        "specular": 0.25,
+        "shininess": 6.0,
+        "fill_intensity": 0.0,
+        "ao_samples": 0,
         "shadows": False,
-        "outline_width": 1.2,
     },
-    # glossy spheres
-    "glossy": {
-        "ambient": 0.2,
-        "diffuse": 0.8,
+    # matte spheres, after the pictures of the Tachyon ray tracer as OVITO
+    # sets it up: lit in sRGB by a bright sky that ambient occlusion darkens,
+    # a weak light from the viewer with sharp shadows and a little light
+    # everywhere
+    "matte": {
+        "srgb": True,
+        "base_light": 0.3,
+        "ambient": 0.64,
+        "ao_strength": 1.0,
+        "ao_samples": 12,
+        "ao_distance": float("inf"),
+        "diffuse": 0.144,
+        "key": (-0.2, 0.2, 1.0),
+        "shadow_strength": 1.0,
+        "fill_intensity": 0.0,
+        "specular": 0.0,
+        "samples": 3,
+    },
+    # shiny spheres with a metallic sheen, after the pictures of OSPRay in
+    # OVITO: light from a sky and a wide key light that bounces once between
+    # the atoms, soft shadows and small bright highlights
+    "shiny": {
+        "bounces": 1,
+        "samples": 32,
+        "light_size": 0.087,
+        "ambient": 0.7,
+        "diffuse": 0.5,
+        "key": (-0.5, 0.5, 1.0),
         "specular": 0.7,
-        "shininess": 90.0,
-        "shadow_strength": 0.6,
+        "shininess": 40.0,
+        "metalness": 0.4,
     },
     # cel shading with outlines
     "toon": {
@@ -57,27 +85,6 @@ STYLES: dict[str, dict[str, Any]] = {
         "outline_width": 1.2,
         "specular": 0.35,
     },
-    # flat colors with an outline around every atom
-    "flat": {
-        "flat": True,
-        "ao_samples": 0,
-        "shadows": False,
-        "outline_width": 1.0,
-        "outline_depth": 0.0,
-    },
-    # quick: no occlusion, no shadows, one sample per pixel
-    "preview": {"ao_samples": 0, "shadows": False, "supersample": 1},
-    # light traced along paths that bounce between the atoms, from a bright
-    # sky and a wide key light: soft shadows and light reflected in color
-    "photo": {
-        "bounces": 2,
-        "samples": 16,
-        "light_size": 0.2,
-        "ambient": 0.45,
-        "diffuse": 0.8,
-        "specular": 0.2,
-        "shininess": 60.0,
-    },
 }
 
 _DEFAULTS = {
@@ -85,7 +92,9 @@ _DEFAULTS = {
     "diffuse": 0.75,
     "specular": 0.25,
     "shininess": 40.0,
+    "metalness": 0.0,
     "key": (-0.45, 0.6, 0.66),
+    "highlight": None,  # the direction of the key light
     "fill": (0.6, -0.2, 0.77),
     "fill_intensity": 0.25,
     "ao_samples": 8,
@@ -103,6 +112,8 @@ _DEFAULTS = {
     "bounces": 0,
     "samples": 1,
     "light_size": 0.0,
+    "base_light": 0.0,
+    "srgb": False,
 }
 
 #: Directions of view: (forward, up).
@@ -250,20 +261,21 @@ def element_radii(
     return _per_element(elements, radius).reshape(-1)
 
 
-def style_settings(style: str = "studio") -> dict[str, Any]:
+def style_settings(style: str = "matte") -> dict[str, Any]:
     """Every setting of a style: the options of :meth:`Scene.render` it
     changes, and the defaults of the others.
 
     Parameters
     ----------
     style : str, optional
-        One of ``STYLES``. Default studio.
+        One of ``STYLES``. Default matte.
 
     Returns
     -------
     dict
         Each setting by name; ``ao_distance`` and ``outline_depth`` are
-        None, which a picture takes from the radii of its atoms.
+        None, which a picture takes from the radii of its atoms, and
+        ``highlight`` None, the direction of the key light.
 
     Raises
     ------
@@ -550,7 +562,7 @@ class Scene:
         self.add_cylinders(start, end, radius, rgb, ids=np.full(12, edge_id))
         self.add_spheres(corners, radius, rgb, ids=np.full(8, edge_id))
 
-    def _arrays(self) -> dict[str, np.ndarray]:
+    def _arrays(self, linear: bool = True) -> dict[str, np.ndarray]:
         def join(parts: list, k: int, shape: tuple[int, ...], dtype: Any) -> np.ndarray:
             if not parts:
                 return np.zeros(shape, dtype=dtype)
@@ -559,22 +571,27 @@ class Scene:
             )
 
         f32 = np.float32
+
+        # colors in linear light, or as given in sRGB
+        def to(c: np.ndarray) -> np.ndarray:
+            return _linear(c) if linear else np.clip(c, 0.0, 1.0)
+
         return {
             "sphere_center": join(self.__spheres, 0, (0, 3), f32),
             "sphere_radius": join(self.__spheres, 1, (0,), f32),
             "sphere_color": np.ascontiguousarray(
-                _linear(join(self.__spheres, 2, (0, 3), float)), dtype=f32
+                to(join(self.__spheres, 2, (0, 3), float)), dtype=f32
             ),
             "sphere_id": join(self.__spheres, 3, (0,), np.int32),
             "cylinder_end": join(self.__cylinders, 0, (0, 6), f32),
             "cylinder_radius": join(self.__cylinders, 1, (0,), f32),
             "cylinder_color": np.ascontiguousarray(
-                _linear(join(self.__cylinders, 2, (0, 3), float)), dtype=f32
+                to(join(self.__cylinders, 2, (0, 3), float)), dtype=f32
             ),
             "cylinder_id": join(self.__cylinders, 3, (0,), np.int32),
             "triangle_vertex": join(self.__triangles, 0, (0, 9), f32),
             "triangle_color": np.ascontiguousarray(
-                _linear(join(self.__triangles, 1, (0, 3), float)), dtype=f32
+                to(join(self.__triangles, 1, (0, 3), float)), dtype=f32
             ),
             "triangle_alpha": join(self.__triangles, 2, (0,), f32),
             "triangle_id": join(self.__triangles, 3, (0,), np.int32),
@@ -609,7 +626,7 @@ class Scene:
         span: float | None = None,
         aperture: float = 0.0,
         focal_distance: float | None = None,
-        style: str = "studio",
+        style: str = "matte",
         background: Any = "white",
         device: str = "cpu",
         progress: Any = None,
@@ -651,7 +668,7 @@ class Scene:
             Distance in Å from the camera along the view to the plane that
             stays sharp. Default that of the focus.
         style : str, optional
-            One of ``STYLES``. Default studio.
+            One of ``STYLES``. Default matte.
         background : color or None, optional
             The background, or None for transparent. Default white.
         device : {"cpu", "gpu", "auto"}, optional
@@ -663,7 +680,8 @@ class Scene:
             Progress reports and cancellation.
         **options
             Settings of the style to change: ambient, diffuse, specular,
-            shininess, key, fill, fill_intensity, ao_samples, ao_distance,
+            shininess, metalness, key, highlight, fill, fill_intensity,
+            base_light, srgb, ao_samples, ao_distance,
             ao_strength, shadows, shadow_strength, flat, toon_levels,
             outline_width, outline_depth, outline_color, fog, supersample,
             samples, bounces, light_size.
@@ -780,13 +798,16 @@ class Scene:
             half = (half_h, half_h * aspect)
         if focal_distance is None:
             focal_distance = max(float((center - camera_at) @ forward), 1e-6)
+        srgb = bool(settings["srgb"])
         if background is None:
             back = np.array([1.0, 1.0, 1.0, 0.0])
         else:
-            back = np.append(_linear(_color(background)), 1.0)
+            back = np.append(
+                _color(background) if srgb else _linear(_color(background)), 1.0
+            )
         f32 = np.float32
         image = _native.render(
-            **self._arrays(),
+            **self._arrays(linear=not srgb),
             center=camera_at.astype(f32),
             forward=forward.astype(f32),
             up=true_up.astype(f32),
@@ -801,7 +822,14 @@ class Scene:
             diffuse=float(settings["diffuse"]),
             specular=float(settings["specular"]),
             shininess=float(settings["shininess"]),
+            metalness=float(settings["metalness"]),
             key=np.asarray(settings["key"], dtype=f32),
+            highlight=np.asarray(
+                settings["key"]
+                if settings["highlight"] is None
+                else settings["highlight"],
+                dtype=f32,
+            ),
             fill=np.asarray(settings["fill"], dtype=f32),
             fill_intensity=float(settings["fill_intensity"]),
             ao_samples=int(settings["ao_samples"]),
@@ -813,13 +841,19 @@ class Scene:
             toon_levels=int(settings["toon_levels"]),
             outline_width=float(settings["outline_width"]),
             outline_depth=float(settings["outline_depth"]),
-            outline_color=_linear(_color(settings["outline_color"])).astype(f32),
+            outline_color=(
+                _color(settings["outline_color"])
+                if srgb
+                else _linear(_color(settings["outline_color"]))
+            ).astype(f32),
             fog=float(settings["fog"]),
             background=back.astype(f32),
             supersample=int(settings["supersample"]),
             bounces=int(settings["bounces"]),
             samples=int(settings["samples"]),
             light_size=float(settings["light_size"]),
+            base_light=float(settings["base_light"]),
+            srgb=srgb,
             gpu=gpu,
             progress=progress,
             cancel=_native_token(cancel),

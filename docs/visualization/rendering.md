@@ -2,7 +2,7 @@
 
 `mdapy.visualization.render` draws a system by ray tracing: atoms as
 spheres, optionally bonds, the box and Voronoi cells, with ambient
-occlusion, shadows and outlines, in a few styles. A `Scene` takes any
+occlusion, shadows and outlines, in four styles. A `Scene` takes any
 spheres, cylinders and polygons for pictures made by hand.
 
 ```python
@@ -17,14 +17,26 @@ structures = CommonNeighborAnalysis().compute(grains)
 
 image = render(grains, color=structures, width=800, height=600)  # (600, 800, 4)
 boundaries = render(
-    grains, atoms=structures.structure != 1, color=structures, style="goodsell"
+    grains, atoms=structures.structure != 1, color=structures, style="toon"
 )
+```
+
+```python
+import numpy as np
+
+from mdapy.visualization import STYLES, write_png
+
+pictures = [
+    render(grains, color=structures, style=style, width=400, height=300, device="auto")
+    for style in STYLES
+]
+write_png("images/styles.png", np.hstack(pictures))
 ```
 
 ![The styles](images/styles.png)
 
-*The styles on a polycrystal colored by common neighbor analysis: studio,
-goodsell and glossy above; toon, flat and preview below.*
+*The four styles on a polycrystal colored by common neighbor analysis:
+fast, matte, shiny and toon.*
 
 ## Parameters
 
@@ -97,24 +109,26 @@ The `options` are those of `Scene.render`:
 | `span` | float | the scene framed | the length in Å the picture shows from bottom to top at the focus, in place of the framing and `zoom`: with `focus`, the region a viewport shows |
 | `aperture` | float | 0 | the radius in Å of the lens of a perspective camera: 0 for a picture sharp everywhere, more for [depth of field](#depth-of-field-and-soft-shadows) |
 | `focal_distance` | float | to the focus | the distance in Å from the camera along the view to the plane that stays sharp |
-| `style` | str | `"studio"` | one of the styles below |
+| `style` | str | `"matte"` | one of the styles below |
 | `background` | color or `None` | `"white"` | `None` for transparent |
 | `device` | str | `"cpu"` | `"cpu"`, `"gpu"`, or `"auto"` for the GPU when there is one; see below |
 | `progress`, `cancel` | | `None` | as in [Parallelism](../getting-started/parallelism.md#progress-and-cancellation) |
 
 | Style | Look |
 |---|---|
-| `studio` | soft key and fill lights, ambient occlusion and shadows |
-| `goodsell` | flat colors darkened by ambient occlusion, outlined, after D. Goodsell |
-| `glossy` | shiny spheres with strong highlights |
-| `toon` | cel shading in three levels, outlined |
-| `flat` | flat colors, every atom outlined |
-| `preview` | quick: no occlusion, no shadows, one ray per pixel |
-| `photo` | global illumination: light that bounces between the atoms from a bright sky and a wide key light, with soft shadows; about ten times slower than `studio` |
+| `fast` | quick, as the viewports of OVITO: an ambient part, a light from the viewer and a broad highlight from the upper left, neither occlusion nor shadows |
+| `matte` | matte spheres, as the pictures of the Tachyon renderer of OVITO: a bright sky darkened by ambient occlusion, a weak light from the viewer with sharp shadows |
+| `shiny` | shiny spheres with a metallic sheen, after the pictures of the OSPRay renderer of OVITO: light from a sky and a wide key light that bounces once between the atoms, soft shadows and small highlights; about three times slower than `matte` |
+| `toon` | cel shading in three levels, outlined; for small systems |
 
 Any setting of a style can be changed by name: `ambient`, `diffuse`,
-`specular`, `shininess`, `key` and `fill` (directions of the lights,
-right, up and toward the viewer), `fill_intensity`, `ao_samples`,
+`specular`, `shininess`, `metalness` (from 0 to 1: metals reflect less
+light diffusely and color their highlights), `key`, `highlight` and `fill`
+(directions toward the key light, the light of the highlights, by default
+the key light, and the fill light: right, up and toward the viewer),
+`fill_intensity`, `base_light` (light every surface gets, whatever hides
+it), `srgb` (light the colors as given in sRGB, as the renderers of OVITO
+do, in place of linear light: stronger contrast), `ao_samples`,
 `ao_distance` (Å, default 3 times the median radius), `ao_strength`,
 `shadows`, `shadow_strength`, `flat`, `toon_levels`, `outline_width`
 (pixels), `outline_depth` (Å), `outline_color`, `fog`, `supersample`
@@ -166,9 +180,9 @@ sampled by the rays of each pixel and look grainy with few of them: raise
 With `device="gpu"` the rays are traced on the GPU, with Metal on macOS;
 `gpu_available()` tells whether there is one. The picture is the same as on
 the processor, with the same random samples in the same precision, up to
-rounding at a few edges. A million atoms take 0.34 s for 1920 × 1080 in the
-studio style against 1.4 s on the processor, and 1.2 s for 3840 × 2160
-against 4.1 s; the photo style gains as much (Apple M5).
+rounding at a few edges. A million atoms take 1.0 s for 1920 × 1080 in the
+matte style against 4.2 s on the processor, and 3.1 s against 11.6 s in the
+shiny style (Apple M5).
 
 ```python
 from mdapy.visualization import gpu_available
@@ -190,14 +204,26 @@ ring = np.stack([np.cos(angles), np.sin(angles), np.zeros(6)], axis=1)
 benzene = mp.System(
     np.vstack([1.39 * ring, 2.48 * ring]), elements=["C"] * 6 + ["H"] * 6
 )
-sticks = render(benzene, representation="ball_and_stick", box=False, view="iso")
-spheres = render(benzene, representation="space_filling", box=False, view="iso")
+drawn = {
+    representation: render(
+        benzene,
+        representation=representation,
+        box=False,
+        view=(0.3, 0.6, -1.0),
+        style="shiny",
+        width=400,
+        height=300,
+        device="auto",
+    )
+    for representation in ("ball_and_stick", "licorice", "space_filling")
+}
+write_png("images/molecules.png", np.hstack(list(drawn.values())))
 ```
 
 ![Molecules](images/molecules.png)
 
-*Benzene, ethanol and C60 in the representations ball_and_stick, licorice
-and space_filling.*
+*Benzene in the representations ball_and_stick, licorice and
+space_filling, in the shiny style.*
 
 ## Scenes
 
@@ -210,7 +236,7 @@ scene = Scene()
 scene.add_spheres([[0, 0, 0], [2.5, 0, 0]], 1.0, [[0.8, 0.5, 0.2], [0.2, 0.5, 0.8]])
 scene.add_cylinders([[0, 0, 0]], [[2.5, 0, 0]], 0.3, (0.5, 0.5, 0.5))
 scene.add_triangles([[[-2, -2, -1.5], [4, -2, -1.5], [1, 3, -1.5]]], "gray", alpha=0.5)
-picture = scene.render(width=400, height=300, style="glossy", view="front")
+picture = scene.render(width=400, height=300, style="shiny", view="front")
 ```
 
 | Method | Adds |
@@ -245,12 +271,16 @@ Every pixel traces `supersample`² × `samples` rays from an orthographic or
 perspective camera into a bounding volume hierarchy of the primitives;
 through a lens, each ray starts at a random point of it and passes through
 the point where the ray from its middle meets the sharp plane. At the nearest
-hit, the color of the primitive, in linear RGB, is lit by an ambient term
-weighted by ambient occlusion, the fraction of `ao_samples` rays in a
-cosine-weighted hemisphere that leave without hitting anything closer than
-`ao_distance`, and by the diffuse and Blinn–Phong specular light of the key
-light, darkened by its shadow toward a random point of the light, and of
-the fill light. See-through triangles
+hit, the color of the primitive, in linear RGB (or as given with `srgb`),
+is lit by `base_light`, by an ambient term weighted by ambient occlusion,
+the fraction of `ao_samples` rays that leave without hitting anything
+closer than `ao_distance` (cosine-weighted about the normal, one in each of
+`ao_samples` rings of equal weight, their turns a golden angle apart), by
+the diffuse light of the key light, darkened by its shadow toward a random
+point of the light, and of the fill light, and by a Phong highlight, the
+light from `highlight` mirrored about the normal toward the viewer. A metal
+reflects 1 − 0.6 `metalness` of the diffuse light and colors its
+highlights, as the rasterizer of OVITO approximates metals. See-through triangles
 add their color and let the ray go on. An outline is drawn on the pixels
 next to a different primitive that lies at least `outline_depth` closer, or
 next to the background. The rays of a pixel are averaged, over the
@@ -260,7 +290,8 @@ With `bounces` above 0, each ray instead follows `samples` paths, the first
 through the center of its part of the pixel and the others anywhere in it.
 At each surface a path adds the light of the key light, sampled over a disk
 `light_size` wide and blocked by anything in the way, then turns into a
-cosine-weighted direction about the normal: if it leaves the scene it adds
+cosine-weighted direction about the normal (the first turns of the paths
+of a subpixel spread over rings of equal weight): if it leaves the scene it adds
 the sky, of brightness `ambient`, otherwise it goes on to the next surface,
 its light now colored by the surfaces it met, for at most `bounces` more
 surfaces. Shadows soften and corners darken without ambient occlusion, and

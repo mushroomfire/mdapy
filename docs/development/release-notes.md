@@ -341,17 +341,20 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 ### Visualization
 
 - `mdapy.visualization.render`: pictures of systems by ray tracing, with
-  ambient occlusion, shadows and outlines in six styles, and a seventh,
-  photo, that traces light bouncing between the atoms; colored by element,
+  ambient occlusion, shadows and outlines in four styles: fast, lit as the
+  viewports of OVITO; matte, as the Tachyon renderer of OVITO (the
+  default); shiny, a metallic sheen after its OSPRay renderer, with light
+  bouncing between the atoms; toon, outlined; colored by element,
   structure, values or by hand, with bonds, the box, Voronoi cells,
   surface meshes and dislocation lines with arrows of their Burgers
   vectors, cut at the periodic faces of the box;
   molecules as balls and sticks, licorice or space filling, with covalent
   bonds found from the elements; a `Scene` of spheres, cylinders and
   polygons; the scene framed, or a given focus and span; depth of field
-  and soft shadows; every setting of a style can be changed; a million atoms
-  in under two seconds on the processor, or in a third of a second on the
-  GPU with Metal on macOS.
+  and soft shadows; every setting of a style can be changed, including the
+  direction of the highlights, metals and lighting in sRGB; a million atoms
+  in 4 s on the processor in the matte style, or in 1 s on the GPU with
+  Metal on macOS.
   See [Rendering](../visualization/rendering.md).
 - `mdapy.visualization.plot`: matplotlib set up for journals (widths of
   columns, Nature's artwork guide, Okabe–Ito colors, panel labels, saving

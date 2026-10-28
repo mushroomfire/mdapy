@@ -96,7 +96,7 @@ render(
     "images/quick-tour.png",
     atoms=grains["positions"][:, 0] < 30,  # the half at x < 30 Å
     color=structures,
-    style="goodsell",
+    style="toon",
     width=900,
     height=600,
 )
@@ -105,7 +105,7 @@ render(
 ![A polycrystal cut in half](images/quick-tour.png)
 
 *Six grains of copper cut in half: fcc atoms green, grain boundaries white,
-in the goodsell style.*
+in the toon style.*
 
 See [Building structures](../build/polycrystals.md), [Common neighbor
 analysis](../analysis/cna.md) and [Rendering](../visualization/rendering.md).

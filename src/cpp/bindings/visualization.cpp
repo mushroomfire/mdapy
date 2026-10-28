@@ -70,12 +70,12 @@ nb::object render(Rows<3> sphere_center, Floats sphere_radius, Rows<3> sphere_co
                   Floats triangle_alpha, Ids triangle_id, Three center, Three forward, Three up,
                   float half_width, float half_height, bool perspective, float aperture,
                   float focal_distance, int width, int height, float ambient, float diffuse,
-                  float specular, float shininess, Three key, Three fill,
+                  float specular, float shininess, float metalness, Three key, Three highlight, Three fill,
                   float fill_intensity, int ao_samples, float ao_distance, float ao_strength,
                   bool shadows, float shadow_strength, bool flat, int toon_levels,
                   float outline_width, float outline_depth, Three outline_color, float fog,
                   Four background, int supersample, int bounces, int samples, float light_size,
-                  bool gpu, nb::handle progress, const CancelToken* cancel) {
+                  float base_light, bool srgb, bool gpu, nb::handle progress, const CancelToken* cancel) {
     const visualization::Scene scene =
         make_scene(sphere_center, sphere_radius, sphere_color, sphere_id, cylinder_end,
                    cylinder_radius, cylinder_color, cylinder_id, triangle_vertex, triangle_color,
@@ -94,7 +94,9 @@ nb::object render(Rows<3> sphere_center, Floats sphere_radius, Rows<3> sphere_co
     style.diffuse = diffuse;
     style.specular = specular;
     style.shininess = shininess;
+    style.metalness = metalness;
     style.key = three(key);
+    style.highlight = three(highlight);
     style.fill = three(fill);
     style.fill_intensity = fill_intensity;
     style.ao_samples = ao_samples;
@@ -114,6 +116,8 @@ nb::object render(Rows<3> sphere_center, Floats sphere_radius, Rows<3> sphere_co
     style.bounces = bounces;
     style.samples = samples;
     style.light_size = light_size;
+    style.base_light = base_light;
+    style.srgb = srgb;
     style.gpu = gpu;
     auto* image = new std::vector<std::uint8_t>();
     nb::capsule owner(image, [](void* p) noexcept { delete static_cast<std::vector<std::uint8_t>*>(p); });
@@ -164,13 +168,15 @@ void bind_visualization(nb::module_& m) {
           nb::arg("half_width"), nb::arg("half_height"), nb::arg("perspective"),
           nb::arg("aperture"), nb::arg("focal_distance"), nb::arg("width"),
           nb::arg("height"), nb::arg("ambient"), nb::arg("diffuse"),
-          nb::arg("specular"), nb::arg("shininess"), nb::arg("key"), nb::arg("fill"),
+          nb::arg("specular"), nb::arg("shininess"), nb::arg("metalness"), nb::arg("key"),
+          nb::arg("highlight"), nb::arg("fill"),
           nb::arg("fill_intensity"), nb::arg("ao_samples"), nb::arg("ao_distance"),
           nb::arg("ao_strength"), nb::arg("shadows"), nb::arg("shadow_strength"),
           nb::arg("flat"), nb::arg("toon_levels"), nb::arg("outline_width"),
           nb::arg("outline_depth"), nb::arg("outline_color"), nb::arg("fog"),
           nb::arg("background"), nb::arg("supersample"), nb::arg("bounces") = 0,
-          nb::arg("samples") = 1, nb::arg("light_size") = 0.0f, nb::arg("gpu") = false,
+          nb::arg("samples") = 1, nb::arg("light_size") = 0.0f, nb::arg("base_light") = 0.0f,
+          nb::arg("srgb") = false, nb::arg("gpu") = false,
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("gpu_available", &visualization::gpu_available,
           "Whether pictures can be traced on a GPU.");

@@ -42,7 +42,10 @@ options = dict(view="iso", width=500, height=500)
 write_png(
     "images/time-average.png",
     np.hstack(
-        [render(frames[0], color=one, **options), render(averaged, color=mean, **options)]
+        [
+            render(frames[0], color=one, **options),
+            render(averaged, color=mean, **options),
+        ]
     ),
 )
 ```

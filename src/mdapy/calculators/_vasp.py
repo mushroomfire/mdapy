@@ -142,8 +142,7 @@ class VASP(Calculator):
         CalculationFailed
             If VASP stops with an error or leaves no converged result.
         """
-        from mdapy.io import write
-        from mdapy.mlip import read_outcar
+        from mdapy.io import read_trajectory, write
 
         self._check_properties(properties)
         if "element" not in system.table.columns:
@@ -171,7 +170,11 @@ class VASP(Calculator):
         run = subprocess.run(
             self.command, shell=True, cwd=here, capture_output=True, text=True
         )
-        frames = read_outcar(here / "OUTCAR") if (here / "OUTCAR").exists() else []
+        frames = []
+        if (here / "OUTCAR").exists():
+            # the steps whose electronic loop converged
+            with read_trajectory(here / "OUTCAR", format="outcar") as steps:
+                frames = [f for f in steps if f.info["converged"]]
         if run.returncode != 0 or not frames:
             told = (run.stdout + run.stderr).strip().splitlines()[-20:]
             reason = f"exit status {run.returncode}" if run.returncode else "no result"

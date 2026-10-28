@@ -78,8 +78,11 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [Trajectories](../getting-started/trajectory.md).
 - Reading CIF files, crystals expanded by their symmetry operations as
   pymatgen, ASE and OVITO read them, and PDB files, with atom names,
-  residues, models as frames and the bonds of `CONECT`. See
-  [CIF](../reference/formats/cif.md) and [PDB](../reference/formats/pdb.md).
+  residues, models as frames and the bonds of `CONECT`; VASP OUTCAR
+  files, one frame per ionic step with the forces, the free energy TOTEN,
+  the virial and whether the step converged, as ASE reads them. See
+  [CIF](../reference/formats/cif.md), [PDB](../reference/formats/pdb.md) and
+  [VASP OUTCAR](../reference/formats/outcar.md).
 
 ### Neighbor search
 
@@ -351,10 +354,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 
 ### MLIP
 
-- `mdapy.mlip.read_outcar` and `outcar_to_xyz`: the ionic steps of VASP
-  single points, relaxations and molecular dynamics, with energies, forces
-  and virials, to extended XYZ training sets, without unconverged steps or
-  frames of huge forces. See [Training sets from VASP](../mlip/vasp.md).
+- Training sets from VASP: the ionic steps of OUTCAR files, read as
+  trajectories with energies, forces, virials and convergence, written to
+  extended XYZ. See [Training sets from VASP](../mlip/vasp.md).
 - `mdapy.mlip.structure_descriptors`, `farthest_point_sampling` and
   `principal_components`: frames chosen far from a training set and from
   each other in the space of NEP descriptors, and their projection on a

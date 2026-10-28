@@ -195,10 +195,6 @@ import mdapy as mp
 
 ## MLIP
 
-::: mdapy.mlip.read_outcar
-
-::: mdapy.mlip.outcar_to_xyz
-
 ::: mdapy.mlip.structure_descriptors
 
 ::: mdapy.mlip.farthest_point_sampling

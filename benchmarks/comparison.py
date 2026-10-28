@@ -176,6 +176,62 @@ def damaged(atoms: int) -> dict:
     return {"system": current.filter(kept), "reference": reference}
 
 
+# frames of the random walk of the mean squared displacement
+WALK_FRAMES = 20
+
+
+def walk(atoms: int) -> dict:
+    """Copper whose atoms walk at random over WALK_FRAMES frames, written as
+    a dump with their ids and unwrapped positions; the first frame as the
+    system, whose atoms count."""
+    import mdapy
+
+    start = crystal("fcc", 3.615, atoms, 0.0)
+    rng = np.random.default_rng(5)
+    positions = np.array(start["positions"])
+    ids = np.arange(1, len(start) + 1)
+    frames = []
+    for t in range(WALK_FRAMES):
+        frame = start.with_columns(positions=positions.copy(), id=ids)
+        frames.append(frame.with_info(timestep=t))
+        positions += rng.normal(0.0, 0.1, positions.shape)
+    path = os.path.join(_folder(), f"walk-{len(start)}.dump")
+    mdapy.write(path, frames)
+    return {"path": path, "system": start}
+
+
+def _msd_mdapy(inputs: dict) -> Callable:
+    """The file read and the MSD from every time origin, as OVITO does."""
+    import mdapy
+    from mdapy.analysis import MeanSquaredDisplacement
+
+    def run():
+        frames = list(mdapy.read_trajectory(inputs["path"]))
+        return MeanSquaredDisplacement(unwrap=False).compute(frames)
+
+    return run
+
+
+def _msd_ovito(inputs: dict) -> Callable:
+    """A pipeline of its own each time, which reads the file: OVITO keeps
+    the result of a pipeline."""
+    from ovito.io import import_file
+    from ovito.modifiers import DiffusionModifier
+
+    def run():
+        found = import_file(inputs["path"])
+        found.modifiers.append(
+            DiffusionModifier(time_source=DiffusionModifier.TimeSource.AnimationFrames)
+        )
+        return found.compute(found.num_frames - 1)
+
+    return run
+
+
+def _msd_agree(ours, data) -> None:
+    close(ours.msd[1:], np.asarray(data.tables["msd"].y)[:, 0])
+
+
 # ------------------------------------------------------------ OVITO
 
 
@@ -1240,6 +1296,12 @@ def _cases() -> dict[str, Case]:
                     pipeline(modifier("WignerSeitzAnalysisModifier")), wigner_seitz
                 )
             },
+        ),
+        "msd": Case(
+            f"Mean squared displacement, {WALK_FRAMES} frames read from a dump",
+            walk,
+            _msd_mdapy,
+            {"ovito": ovito(_msd_ovito, _msd_agree)},
         ),
         "metal": Case(
             "Six analyses of copper, one neighbor search",

@@ -8,7 +8,14 @@
 
 本地工作单独汇报。
 
-## 早上先看这里（10-28 19:20）
+## 早上先看这里
+
+**需要你决定的几件事（10-28 21:00 更新）：**
+
+1. **OUTCAR 未收敛的离子步**：10-23 的记录是“扫描时跳过未收敛步、`unconverged=True` 保留”，10-28 改成文件格式后我实现成“全部读出，每帧带 `info["converged"]`，训练集例子里自己过滤”（文件格式没法按选项在扫描时跳帧）。要不要改回默认跳过？
+2. **第 5 步 MLIP 工具进图形界面**的具体做法还没讨论（见下面“第 5 步方案”），我没有动手。
+3. **OVITO 有、我们还没有的大功能**（见下面清单），哪些要做？
+
 
 - 今天已合入 v2 的：弹性常数对称性提速（15 s → 0.03 s）、`transform.affine`、`neighbor.expand_selection`、OVITO 3.17.1 作参考。
 - 已合并的远程分支 dislocations、gui-superset、slip-systems、solid-liquid、surface-mesh 已删除；保留 master、night-report、mdapy_old。
@@ -27,8 +34,33 @@
 | `2ac7391` | `read_trajectory`：多文件（`dump.*.lammpstrj` 模式或列表）、`topology=` 让 dump 帧带上 data 文件的键、电荷、分子号（OVITO 的 Load trajectory） |
 | `06f48b3` | 读取 CIF（按对称操作展开）和 PDB（原子名、残基、MODEL 多帧、CONECT 键） |
 | `3ef6e94` | `analysis.TimeAverage`：任意列、盒子或函数结果的时间平均（OVITO 的 Time averaging） |
+| `fb40c6c` 之前 | `analysis.trajectory_lines` + `render(lines=...)`：轨迹线 |
+| `fb40c6c` | `analysis.CoordinationPolyhedra`：配位多面体（凸包）和体积 |
+| `83736f7` | VASP OUTCAR 改为只读文件格式，取代 `mlip.read_outcar` / `outcar_to_xyz` |
 
 ## 进展
+
+### 10-28 21:00
+- **第 4 步全部完成**（mdapy 本体部分都已合入 v2，每项都和 OVITO 3.17.1 现场对比、有文档页和图）：任意矢量箭头、Load trajectory、CIF/PDB、时间平均、轨迹线、配位多面体；另外 OUTCAR 改成了文件格式。
+- **配位多面体**：`CoordinationPolyhedra(cutoff | num_neighbors | bonds=True).compute(system, atoms)`，给出三角网格（`render(mesh=...)` 直接画）、每个三角形属于哪个多面体、各多面体体积。凸包自己写（邻居点很少，枚举三点平面，共面的点合成一个多边形再扇形三角化）。和 OVITO 的 CoordinationPolyhedraModifier 逐个三角形对比一致；立方八面体、立方体、菱形十二面体、八面体的体积和解析值一致到 1e-10。
+
+  ![SrTiO3 的 TiO6 八面体](images/polyhedra.png)
+
+- **OUTCAR 格式**：`mdapy.read_trajectory("OUTCAR")`，每个离子步一帧：`forces` 列、`info["energy"]`（TOTEN）、`info["virial"]`（FORCE on cell 的 Total 行）、`info["converged"]`；VASP 粘在一起的数字（`-10293.69148-10013.02274`）能分开；VASP 6 机器学习力场的 “ML FREE ENERGIE …” 行不算离子步。和 ASE 读同一文件对比一致；本地另用 4 个真实 OUTCAR（MD、弛豫、单点、BEC，来自 GPUMD 的工具目录，没有放进仓库）核对过，元素、坐标、力、晶胞、能量与 ASE 完全一致。`mlip.read_outcar`/`outcar_to_xyz` 删掉，MLIP 的 VASP 页改成用 io 读写的几行代码，VASP 计算器也改走这个格式。
+- **Triton 上 OVITO 3.17.1 的速度重测已完成**（分析全组 4 000–200 万原子含 DXA 和 MSD、文件读写全组）。结论和之前基本一致：25.6 万原子以上所有分析都比 OVITO 快，邻居表 6.4–7.6 倍、Voronoi 22–25 倍、DXA 4.6–4.9 倍。
+- **发现 MSD 内存问题**：200 万原子 20 帧时 mdapy 用了 9.5 GB（OVITO 1 GB）。原因是基准把 20 帧 System 都放进列表、FFT 一次处理所有原子。已改：基准直接传轨迹（逐帧读）、MSD 的 FFT 按原子分块；本地 25.6 万原子从 1172 MB 降到 645 MB（余下主要是 mmap 读文件的页）。分支 msd-memory，Triton 上只重跑 MSD 的作业在排队，跑完一起更新性能页。
+
+### OVITO 3.17.1 有、我们还没有的（按工作量）
+- **小**（可以直接做）：Freeze property（某帧的属性跟着原子走）、Center of mass correction（扣质心漂移）、Hide selected（只隐藏不删）、Find/Select overlapping particles、Color by type（按任意类型属性着色，如分子号）、Remove property、Reduce property（属性汇总成全局量）、Edit simulation cell（改盒子和周期性）、Bond length distribution。
+- **中**：Smooth / Interpolate trajectory（时间窗平滑、插帧）、Combine datasets（并入另一个文件的原子）、Difference between frames、Text labels（原子上的文字）、Spatial correlation function、Find rings（环统计）、Bond order。
+- **大**（需要你决定）：Elastic strain（基于 PTM/CNA 取向的晶格弹性应变）、Create isosurface 加体素网格显示（3D 分箱后的等值面）、VoroTop、Bader 电荷积分（要 CHGCAR）、蛋白质 Cartoon、Cycles/VisRTX/ANARI 渲染器（我们已有自己的光线追踪）。
+
+### 第 5 步方案（MLIP 工具进图形界面，待讨论）
+mdapy.mlip 现有：NEP 描述符、最远点采样、主成分、扰动结构。图形界面的想法：
+1. “选帧”对话框：选 NEP 势文件，对当前轨迹（可再加已有训练集）算描述符，最远点采样选 N 帧，Tables 里画主成分散点（训练集/候选/选中三种颜色），导出 extxyz。
+2. “扰动”建模步骤：对当前结构做 N 次随机位移加应变，导出为训练候选。
+3. OUTCAR 已能直接打开，导出 extxyz 已有。
+要你定：做成对话框还是修改器；描述符需要用户给 NEP 势文件。
 
 ### 10-28 20:25
 - **CIF / PDB 读取**（已合入 v2，只读）：

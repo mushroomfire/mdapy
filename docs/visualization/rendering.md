@@ -310,7 +310,9 @@ picture = scene.render(width=400, height=300, style="shiny", view="front")
 | `add_box(box, *, radius=0.15, color="black")` | the twelve edges of a box |
 
 Outlines separate primitives of different `ids`. `write_png(path, image)`
-writes a picture; `colormap(values, name, value_range)`,
+writes a picture; `voxel_faces(values, box)` gives the cells of a grid over
+the box as triangles on its faces, for `mesh` (see
+[Isosurfaces and voxels](../analysis/isosurface.md)); `colormap(values, name, value_range)`,
 `element_colors(elements)` and `element_radii(elements, kind="display")` give the colors
 and radii used by `render`.
 

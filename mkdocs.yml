@@ -141,6 +141,7 @@ nav:
           - Entropy fingerprint: analysis/entropy.md
           - Voronoi analysis: analysis/voronoi.md
           - Spatial binning: analysis/spatial-binning.md
+          - Isosurfaces and voxels: analysis/isosurface.md
       - Defects and deformation:
           - Cluster analysis: analysis/clusters.md
           - Surface mesh: analysis/surface-mesh.md

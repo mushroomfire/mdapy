@@ -22,6 +22,7 @@ from mdapy.visualization._scene import (
     style_settings,
     write_png,
 )
+from mdapy.visualization._voxels import voxel_faces
 
 __all__ = [
     "REPRESENTATIONS",
@@ -36,5 +37,6 @@ __all__ = [
     "gpu_available",
     "render",
     "style_settings",
+    "voxel_faces",
     "write_png",
 ]

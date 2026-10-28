@@ -41,6 +41,7 @@ from mdapy.analysis._dynamics import (
 )
 from mdapy.analysis._elastic_strain import ElasticStrain, ElasticStrainResult
 from mdapy.analysis._entropy import EntropyFingerprint, EntropyResult
+from mdapy.analysis._isosurface import isosurface
 from mdapy.analysis._polyhedra import (
     CoordinationPolyhedra,
     CoordinationPolyhedraResult,
@@ -66,6 +67,7 @@ __all__ = [
     "SpatialBinningResult",
     "SpatialCorrelation",
     "SpatialCorrelationResult",
+    "isosurface",
     "DisplacementResult",
     "LindemannIndex",
     "LindemannResult",

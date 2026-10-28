@@ -159,10 +159,6 @@ def test_trace_matches_brute_force():
 # ------------------------------------------------------------ pictures
 
 
-# plain colors in linear light, without lights or occlusion
-FLAT = {"style": "toon", "flat": True}
-
-
 def one_sphere(color=(0.2, 0.6, 0.9), **options):
     scene = Scene()
     scene.add_spheres([[0.0, 0, 0]], 1.0, color)
@@ -170,7 +166,7 @@ def one_sphere(color=(0.2, 0.6, 0.9), **options):
 
 
 def test_silhouette_and_flat_color():
-    image = one_sphere(**FLAT, outline_width=0.0, background=None, zoom=0.5)
+    image = one_sphere(style="flat", outline_width=0.0, background=None, zoom=0.5)
     # framed with 4 % to spare and zoomed out twice: the sphere spans a
     # quarter of the picture's width
     covered = (image[..., 3] > 127).sum()
@@ -192,7 +188,9 @@ def srgb_to_linear(c):
 def test_front_sphere_hides_the_back_one():
     scene = Scene()
     scene.add_spheres([[0.0, 0, 0], [0.0, 0, -3]], 1.0, [[1.0, 0, 0], [0, 0, 1.0]])
-    image = scene.render(width=100, height=100, view="top", **FLAT, outline_width=0)
+    image = scene.render(
+        width=100, height=100, view="top", style="flat", outline_width=0
+    )
     red, green, blue = image[50, 50, :3]
     assert red > 200 and blue < 50 and green < 50
 
@@ -203,15 +201,17 @@ def test_transparent_triangles():
     scene.add_triangles(
         [[[-5, -5, 2.0], [5, -5, 2], [0, 5, 2]]], (1.0, 0, 0), alpha=0.5
     )
-    image = scene.render(width=100, height=100, view="top", **FLAT, outline_width=0)
+    image = scene.render(
+        width=100, height=100, view="top", style="flat", outline_width=0
+    )
     r, g, b = image[50, 50, :3].astype(float) / 255
     expected = srgb(0.5 * srgb_to_linear([1, 0, 0]) + 0.5 * srgb_to_linear([0, 0, 1]))
     np.testing.assert_allclose([r, g, b], expected, atol=0.01)
 
 
 def test_outlines():
-    plain = one_sphere(**FLAT, outline_width=0.0)
-    lined = one_sphere(**FLAT, outline_width=3.0)
+    plain = one_sphere(style="flat", outline_width=0.0)
+    lined = one_sphere(style="flat", outline_width=3.0)
     dark = lined[..., :3].sum(axis=2) < 60
     assert dark.sum() > 0 and (plain[..., :3].sum(axis=2) < 60).sum() == 0
     # the line circles the sphere, just outside its silhouette
@@ -335,7 +335,7 @@ def test_focus_and_span_frame_a_given_region():
         height=200,
         view="top",
         background=None,
-        **FLAT,
+        style="flat",
         outline_width=0.0,
     )
     image = scene.render(focus=(1.0, 2.0, 3.0), span=4.0, **options)
@@ -357,16 +357,16 @@ def test_focus_and_span_frame_a_given_region():
 def test_style_settings():
     from mdapy.visualization import STYLES, style_settings
 
-    assert list(STYLES) == ["fast", "matte", "shiny", "toon"]
-    toon = style_settings("toon")
-    assert toon["toon_levels"] == 3 and toon["outline_width"] == 1.2
-    assert toon["supersample"] == 2 and toon["ao_distance"] is None
-    assert toon["highlight"] is None and toon["metalness"] == 0.0
+    assert list(STYLES) == ["fast", "matte", "shiny", "flat"]
+    flat = style_settings("flat")
+    assert flat["flat"] is True and flat["outline_width"] == 1.0
+    assert flat["supersample"] == 2 and flat["ao_distance"] is None
+    assert flat["highlight"] is None and flat["metalness"] == 0.0
     assert style_settings() == style_settings("matte")
-    assert all(set(style_settings(name)) == set(toon) for name in STYLES)
+    assert all(set(style_settings(name)) == set(flat) for name in STYLES)
     # a copy: changing it changes no style
-    toon["toon_levels"] = 5
-    assert style_settings("toon")["toon_levels"] == 3
+    flat["flat"] = False
+    assert style_settings("flat")["flat"] is True
     # the settings render the same picture as the style
     scene = Scene()
     scene.add_spheres([[0.0, 0, 0]], 1.0, (0.2, 0.6, 0.9))
@@ -784,7 +784,7 @@ def test_samples_in_every_style():
     # rays anywhere in the subpixels cover a disk closer to its area
     picture = {
         samples: one_sphere(
-            **FLAT,
+            style="flat",
             outline_width=0.0,
             background=None,
             zoom=0.5,
@@ -811,7 +811,7 @@ def test_depth_of_field():
         "focus": [0, 0, 0],
         "span": 12,
         "background": None,
-        **FLAT,
+        "style": "flat",
         "outline_width": 0.0,
         "samples": 16,
     }
@@ -852,7 +852,7 @@ def test_depth_of_field():
 def test_light_reflected_in_color():
     scene = floor_and_ball("red", [0.0, 0, 1.0], size=4.0)
     options = {"width": 120, "height": 120, "view": "iso"}
-    flat = scene.render(**FLAT, outline_width=0, **options)[..., :3].astype(int)
+    flat = scene.render(style="flat", outline_width=0, **options)[..., :3].astype(int)
     ball = flat[..., 0] > flat[..., 1] + 50
     near = np.zeros_like(ball)  # the ball and the pixels next to it
     for dy in range(-2, 3):
@@ -904,7 +904,7 @@ def test_representations():
         "height": 120,
         "view": "top",
         "box": False,
-        **FLAT,
+        "style": "flat",
     }
     pictures = {
         r: render(molecule, representation=r, **options) for r in REPRESENTATIONS
@@ -942,7 +942,8 @@ needs_gpu = pytest.mark.skipif(not gpu_available(), reason="no GPU")
     [
         {"style": "matte"},
         {"style": "fast", "background": None},
-        {"style": "toon", "perspective": True, "fog": 0.5},
+        {"style": "flat", "perspective": True, "fog": 0.5},
+        {"style": "matte", "toon_levels": 3, "outline_width": 1.2, "ao_samples": 0},
         {"style": "shiny", "samples": 4},
         {"style": "shiny", "samples": 4, "metalness": 1.0, "highlight": (1, -1, 1)},
         {"style": "matte", "light_size": 0.2, "samples": 4},
@@ -998,7 +999,7 @@ def test_the_color_of_the_box():
     system = mdapy.System(np.zeros((1, 3)), mdapy.Box(10.0), elements="Cu")
     options = {
         "atoms": np.zeros(1, dtype=bool),
-        **FLAT,
+        "style": "flat",
         "outline_width": 0.0,
         "width": 120,
         "height": 120,

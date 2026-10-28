@@ -37,7 +37,7 @@ implemented.
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
 | covalent bond | A pair of atoms closer than the sum of their covalent radii and 0.45 Å, as pictures draw them. |
 | global illumination | Light that reaches a surface after bouncing off others, as the shiny style of pictures traces it. |
-| style of a picture | Its lights, shadows, occlusion and outlines together: fast (as the viewports of OVITO), matte (as its Tachyon renderer), shiny (after its OSPRay renderer) or toon. |
+| style of a picture | Its lights, shadows, occlusion and outlines together: fast (as the viewports of OVITO), matte (as its Tachyon renderer), shiny (after its OSPRay renderer) or flat (outlined, as ASE draws atoms). |
 | highlight | The light of a lamp mirrored by a surface toward the viewer: a bright spot on a sphere. |
 | metalness | From 0 to 1, how much a surface behaves as a metal: it reflects less light diffusely and its highlights take its color. |
 | depth of field | In a picture through a lens, the range of depths that looks sharp around the plane in focus; nearer and farther things blur. |

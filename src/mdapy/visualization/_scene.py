@@ -77,13 +77,13 @@ STYLES: dict[str, dict[str, Any]] = {
         "shininess": 40.0,
         "metalness": 0.4,
     },
-    # cel shading with outlines
-    "toon": {
-        "toon_levels": 3,
+    # plain colors with every atom outlined, as ASE draws atoms
+    "flat": {
+        "flat": True,
         "ao_samples": 0,
         "shadows": False,
-        "outline_width": 1.2,
-        "specular": 0.35,
+        "outline_width": 1.0,
+        "outline_depth": 0.0,
     },
 }
 

@@ -8,10 +8,12 @@ import pytest
 
 import mdapy
 from mdapy.build import build_crystal
-from mdapy.calculators import EAM
+from mdapy.calculators import EAM, NEP
 from mdapy.calculators._base import Calculator, CalculatorResult
 from mdapy.errors import InvalidParameter
 from mdapy.mlip import check_frames, committee, novelty, predict, read_gpumd
+
+from calculators.nep_files import write_nep
 
 
 class Scaled(Calculator):
@@ -153,6 +155,34 @@ def test_gpumd_outputs(frames, tmp_path):
         read_gpumd(tmp_path, "test")
     with pytest.raises(InvalidParameter, match="train or test"):
         read_gpumd(tmp_path, "valid")
+
+
+def test_torchnep_outputs(frames, tmp_path):
+    """The predictions torchnep writes for frames elsewhere, one without an
+    energy and one without a virial: those of the same NEP model in mdapy,
+    to the ten digits of the files."""
+    pytest.importorskip("torchnep")
+    from torchnep.predict import predict_dataset
+
+    labeled = list(frames)
+    labeled[2] = labeled[2].with_info(virial=None)
+    labeled[4] = labeled[4].with_info(energy=None)
+    xyz = tmp_path / "data" / "all.xyz"
+    xyz.parent.mkdir()
+    mdapy.write(xyz, labeled)
+    nep = write_nep(tmp_path / "nep.txt", ("Cu",))
+    out = tmp_path / "predicted"
+    predict_dataset(
+        str(nep), str(xyz), str(out), dtype="float64", device="cpu", verbose=False
+    )
+    read = read_gpumd(out, xyz=xyz)
+    expected = predict(labeled, NEP(nep))
+    np.testing.assert_array_equal(read.atoms, expected.atoms)
+    for name in ("energy", "forces", "virial"):
+        np.testing.assert_allclose(
+            getattr(read, name), getattr(expected, name), rtol=1e-8, atol=1e-8
+        )
+    assert np.isnan(read.energy[4, 0]) and np.isnan(read.virial[2, 0]).all()
 
 
 def test_committee(frames):

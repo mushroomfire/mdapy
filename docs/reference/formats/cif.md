@@ -77,12 +77,6 @@ or `"`, or span lines between lines starting with `;`; `#` starts a
 comment. Other items are read and left out. Occupancies are not kept:
 sites partly occupied by different atoms give atoms on top of each other.
 
-## Comparison
-
-The atoms and cells of crystals of six lattice systems, written by pymatgen
-with their symmetry, are those that pymatgen, ASE and OVITO read from the
-same files; the cells and positions are those of ASE, in the same order.
-
 ## Errors
 
 [`FileFormatError`](../api.md#mdapy.errors.FileFormatError) at the line of

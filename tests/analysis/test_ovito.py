@@ -24,6 +24,7 @@ from mdapy.analysis import (
     SteinhardtParameters,
     StructureFactor,
     SurfaceMesh,
+    TimeAverage,
     VoronoiAnalysis,
     WignerSeitz,
 )
@@ -46,6 +47,7 @@ from ovito.modifiers import (  # noqa: E402
     SpatialBinningModifier,
     SteinhardtParametersModifier,
     StructureFactorModifier,
+    TimeAveragingModifier,
     UnwrapTrajectoriesModifier,
     VoronoiAnalysisModifier,
     WignerSeitzAnalysisModifier,
@@ -446,6 +448,43 @@ def test_mean_squared_displacement(tmp_path, window, step, flags):
         np.testing.assert_allclose(
             ours.components[1:, k], values[:, names.index(axis)], rtol=1e-10, atol=1e-12
         )
+
+
+@pytest.mark.parametrize("step, flags", [(4.0, True), (0.4, False)])
+def test_time_average(tmp_path, step, flags):
+    """OVITO's time averages of the unwrapped positions, matched by id, of
+    the radial distribution function and of the timestep."""
+    frames, walk = random_walk(tmp_path / "walk.dump", step, flags)
+    pipeline = import_file(str(tmp_path / "walk.dump"), sort_particles=True)
+    pipeline.modifiers.append(UnwrapTrajectoriesModifier())
+    pipeline.modifiers.append(
+        CoordinationAnalysisModifier(cutoff=5.0, number_of_bins=50)
+    )
+    pipeline.modifiers.append(
+        TimeAveragingModifier(
+            operate_on=[
+                "property:particles/Position",
+                "table:coordination-rdf",
+                "attribute:Timestep",
+            ]
+        )
+    )
+    data = pipeline.compute(0)
+    positions = TimeAverage("positions").compute(frames)
+    first = np.asarray(frames[0]["id"])
+    np.testing.assert_allclose(
+        positions.value[np.argsort(first)],
+        np.asarray(data.particles["Position Average"]),
+        rtol=0,
+        atol=1e-9,
+    )
+    rdf = TimeAverage(
+        lambda frame: RadialDistributionFunction(5.0, bins=50).compute(frame).g
+    ).compute(frames)
+    table = data.tables["coordination-rdf[average]"]
+    np.testing.assert_allclose(rdf.value, np.asarray(table.y), rtol=1e-10, atol=1e-12)
+    timestep = TimeAverage(lambda frame: frame.info["timestep"]).compute(frames)
+    assert timestep.value == data.attributes["Timestep (Average)"] == 5.5
 
 
 def scattered(pbc, seed=0):

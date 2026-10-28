@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 import mdapy
-from mdapy.analysis import LindemannIndex, MeanSquaredDisplacement
+from mdapy.analysis import LindemannIndex, MeanSquaredDisplacement, TimeAverage
 from mdapy.errors import InvalidParameter
 
 BOX = mdapy.Box([[10.0, 0, 0], [2.0, 9.0, 0], [-1.0, 1.0, 11.0]])
@@ -185,3 +185,61 @@ def test_errors():
         MeanSquaredDisplacement().compute([numbered, two.with_columns(id=[1, 3])])
     with pytest.raises(InvalidParameter, match="repeated ids"):
         MeanSquaredDisplacement().compute([two.with_columns(id=[4, 4])])
+
+
+def test_time_average_of_moving_atoms():
+    """Atoms moving at constant velocity through the periodic boundaries
+    average to their positions at the middle time; atoms matched by id."""
+    rng = np.random.default_rng(5)
+    start, velocity = rng.random((15, 3)) * 8, rng.normal(scale=1.5, size=(15, 3))
+    ids = rng.permutation(np.arange(1, 16))
+    true = np.array([start + velocity * t for t in range(9)])
+    frames = []
+    for x in true:
+        frame = mdapy.System(BOX.wrap(x)[0], BOX, elements="Ar").with_columns(
+            id=ids, charge=np.linalg.norm(x, axis=1)
+        )
+        order = rng.permutation(15)
+        frames.append(frame.with_table(frame.table[order]) if frames else frame)
+    result = TimeAverage("positions").compute(frames)
+    # followed from where the first frame has them, in the box
+    np.testing.assert_allclose(
+        result.value, BOX.wrap(start)[0] + 4 * velocity, atol=1e-10
+    )
+    assert result.frames == 9 and result.name == "positions"
+    # as they are: the mean of the wrapped positions of each atom
+    wrapped = TimeAverage("positions", unwrap=False).compute(frames).value
+    np.testing.assert_allclose(
+        wrapped,
+        BOX.wrap(true.reshape(-1, 3))[0].reshape(true.shape).mean(0),
+        atol=1e-10,
+    )
+    charge = TimeAverage("charge").compute(frames)
+    np.testing.assert_allclose(charge.value, np.linalg.norm(true, axis=2).mean(0))
+    added = frames[0].with_columns(charge)
+    np.testing.assert_allclose(added["charge_average"], charge.value)
+    assert repr(TimeAverage("csp")) == "TimeAverage('csp', unwrap=True)"
+
+
+def test_time_average_of_the_box_and_of_functions():
+    frames = [
+        mdapy.System([[1.0, 1, 1], [2.0, 2, 2]], mdapy.Box(10.0 + t), elements="Ar")
+        for t in range(4)
+    ]
+    box = TimeAverage("box").compute(frames)
+    np.testing.assert_allclose(box.value, 11.5 * np.eye(3))
+    assert box.name is None and box.columns() == {}
+    volume = TimeAverage(lambda f: np.linalg.det(f.box.matrix)).compute(frames)
+    assert volume.value == pytest.approx(np.mean([(10.0 + t) ** 3 for t in range(4)]))
+    sides = TimeAverage(lambda f: np.diag(f.box.matrix)).compute(iter(frames))
+    np.testing.assert_allclose(sides.value, [11.5] * 3)
+    with pytest.raises(InvalidParameter, match="frame 1 gives shape"):
+        TimeAverage(lambda f: np.zeros(int(f.box.matrix[0, 0]))).compute(frames)
+    with pytest.raises(InvalidParameter, match="no frames"):
+        TimeAverage("box").compute([])
+    with pytest.raises(InvalidParameter, match="no frames"):
+        TimeAverage("positions").compute([])
+    with pytest.raises(InvalidParameter, match="element is not numbers"):
+        TimeAverage("element").compute(frames)
+    with pytest.raises(InvalidParameter, match="column name, box or a function"):
+        TimeAverage(3)

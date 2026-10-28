@@ -3,9 +3,10 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Analyses of trajectories: mean squared displacement and Lindemann index."""
+"""Analyses of trajectories: mean squared displacement, Lindemann index
+and time averages."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,31 +19,33 @@ from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
 
 
-def _followed(frames: Sequence[System], unwrap: bool) -> np.ndarray:
-    """(T, N, 3) positions of the frames, the atoms in the order of the first
-    frame, matched by their ids where it has an id column. With unwrap, each
-    atom is followed from frame to frame by its image flags where both frames
-    have an image column, else by the periodic image nearest to its previous
-    position."""
-    count = len(frames)
-    if count == 0:
-        raise InvalidParameter("there are no frames")
-    first = frames[0]
-    n = len(first)
-    ids = first.table["id"].to_numpy() if "id" in first.table.columns else None
-    if ids is not None:
-        first_order = np.argsort(ids, kind="stable")
-        sorted_ids = ids[first_order]
-        if (sorted_ids[1:] == sorted_ids[:-1]).any():
-            raise InvalidParameter("frame 0 has repeated ids")
-    positions = np.empty((count, n, 3))
-    previous = before = None
-    for t in range(count):
-        frame = frames[t]
+def _follow(
+    frames: Iterable[System], unwrap: bool, column: str = "positions"
+) -> Iterator[np.ndarray]:
+    """The values of a column in each frame, the atoms in the order of the
+    first frame, matched by their ids where it has an id column. With
+    unwrap, positions follow each atom from frame to frame by its image
+    flags where both frames have an image column, else by the periodic image
+    nearest to its previous position."""
+    unwrap = unwrap and column == "positions"
+    n = ids = None
+    last = previous = before = None
+    for t, frame in enumerate(frames):
+        table = frame.table
+        if t == 0:
+            n = len(frame)
+            if "id" in table.columns:
+                ids = table["id"].to_numpy()
+                first_order = np.argsort(ids, kind="stable")
+                sorted_ids = ids[first_order]
+                if (sorted_ids[1:] == sorted_ids[:-1]).any():
+                    raise InvalidParameter("frame 0 has repeated ids")
         if len(frame) != n:
             raise InvalidParameter(f"frame {t} has {len(frame)} atoms, frame 0 has {n}")
-        table = frame.table
-        x = frame["positions"]
+        try:
+            x = np.asarray(frame[column], dtype=np.float64)
+        except (TypeError, ValueError):
+            raise InvalidParameter(f"{column} is not numbers") from None
         image = table["image"].to_numpy() if "image" in table.columns else None
         if ids is not None and t > 0:
             if "id" not in table.columns:
@@ -57,22 +60,29 @@ def _followed(frames: Sequence[System], unwrap: bool) -> np.ndarray:
             x = x[match]
             image = None if image is None else image[match]
         if not unwrap:
-            positions[t] = x
+            yield x
             continue
         now = None if image is None else x + image @ frame.box.matrix
         if t == 0:
-            positions[0] = x if now is None else now
+            last = x if now is None else now
         elif now is not None and before is not None:
-            positions[t] = positions[t - 1] + (now - before)
+            last = last + (now - before)
         else:
             # the step in the fractional coordinates of this frame, by the
             # nearest image
             step = frame.box.to_fractional(x) - frame.box.to_fractional(previous)
             periodic = frame.box.pbc
             step[:, periodic] -= np.round(step[:, periodic])
-            positions[t] = positions[t - 1] + step @ frame.box.matrix
+            last = last + step @ frame.box.matrix
         previous, before = x, now
-    return positions
+        yield last
+    if n is None:
+        raise InvalidParameter("there are no frames")
+
+
+def _followed(frames: Iterable[System], unwrap: bool) -> np.ndarray:
+    """(T, N, 3) positions of the frames, as _follow gives them."""
+    return np.stack(list(_follow(frames, unwrap)))
 
 
 @dataclass(frozen=True)
@@ -223,3 +233,95 @@ class LindemannIndex:
 
     def __repr__(self) -> str:
         return f"LindemannIndex(unwrap={self.unwrap})"
+
+
+@dataclass(frozen=True)
+class TimeAverageResult(Result):
+    """Time average of a quantity.
+
+    Attributes
+    ----------
+    value : numpy.ndarray
+        The mean over the frames: of each atom in the order of the first
+        frame for a column, (3, 3) for the box, of the shape the function
+        gives otherwise.
+    frames : int
+        The number of frames.
+    name : str or None
+        The column averaged; None for the box or a function.
+    """
+
+    value: np.ndarray
+    frames: int
+    name: str | None = None
+
+    def columns(self) -> dict[str, np.ndarray]:
+        return {} if self.name is None else {f"{self.name}_average": self.value}
+
+
+class TimeAverage:
+    """The mean of a quantity over the frames of a trajectory, as OVITO's
+    time averaging modifier.
+
+    Parameters
+    ----------
+    quantity : str or callable
+        A column of numbers of the atoms, such as ``"positions"`` or
+        ``"csp"``; ``"box"`` for the lattice vectors; or a function of a frame
+        that gives a number, or an array of the same shape in every frame,
+        such as the g(r) of a radial distribution function.
+    unwrap : bool, optional
+        For positions: follow the atoms through the periodic boundaries
+        (True, default), or average the positions as they are.
+    """
+
+    def __init__(self, quantity: str | Callable[[System], Any], *, unwrap: bool = True):
+        if not (isinstance(quantity, str) or callable(quantity)):
+            raise InvalidParameter(
+                f"quantity must be a column name, box or a function, not {quantity!r}"
+            )
+        self.quantity = quantity
+        self.unwrap = bool(unwrap)
+
+    def compute(self, frames: Iterable[System]) -> TimeAverageResult:
+        """The mean over frames, such as a Trajectory or a slice of one.
+
+        Parameters
+        ----------
+        frames : iterable of System
+            For a column, the same atoms in every frame: matched by the
+            ``id`` column where the first frame has one, else in the same
+            order. With ``unwrap`` and without an ``image`` column, atoms
+            must move less than half the box between frames.
+
+        Returns
+        -------
+        TimeAverageResult
+            The mean and the number of frames.
+        """
+        quantity = self.quantity
+        if quantity == "box":
+            values = (frame.box.matrix for frame in frames)
+        elif isinstance(quantity, str):
+            values = _follow(frames, self.unwrap, quantity)
+        else:
+            values = (quantity(frame) for frame in frames)
+        total, count = None, 0
+        for value in values:
+            value = np.asarray(value, dtype=np.float64)
+            if total is None:
+                total = value.copy()
+            elif value.shape != total.shape:
+                raise InvalidParameter(
+                    f"frame {count} gives shape {value.shape}, frame 0 {total.shape}"
+                )
+            else:
+                total += value
+            count += 1
+        if total is None:
+            raise InvalidParameter("there are no frames")
+        name = quantity if isinstance(quantity, str) and quantity != "box" else None
+        return TimeAverageResult(value=total / count, frames=count, name=name)
+
+    def __repr__(self) -> str:
+        return f"TimeAverage({self.quantity!r}, unwrap={self.unwrap})"

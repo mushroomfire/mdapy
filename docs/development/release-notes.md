@@ -359,6 +359,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   structure, values or by hand, with bonds, the box, Voronoi cells,
   surface meshes and dislocation lines with arrows of their Burgers
   vectors, cut at the periodic faces of the box;
+  arrows of any vector of the atoms, such as displacements or forces,
+  as OVITO's vector display draws them;
   molecules as balls and sticks, licorice or space filling, with covalent
   bonds found from the elements; a `Scene` of spheres, cylinders and
   polygons; the scene framed, or a given focus and span; depth of field

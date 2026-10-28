@@ -158,6 +158,11 @@ def render(
     burgers_scale: float = 3.0,
     burgers_radius: float = 0.3,
     burgers_color: Any = (0.7, 0.7, 0.7),
+    vectors: Any = None,
+    vector_scale: float = 1.0,
+    vector_radius: float = 0.5,
+    vector_color: Any = (1.0, 1.0, 0.0),
+    vector_alignment: str = "base",
     **options: Any,
 ) -> np.ndarray:
     """A picture of a system: its atoms, optionally bonds, the box,
@@ -235,6 +240,20 @@ def render(
     burgers_color : optional
         One color for the arrows, or "family" for the color of each line.
         Default light gray.
+    vectors : str or array_like, optional
+        A column of three components, such as displacement, velocities or
+        forces, or (N, 3) vectors: an arrow for each atom shown.
+    vector_scale : float, optional
+        Length of the arrows in units of the vectors; negative reverses
+        them. Default 1.
+    vector_radius : float, optional
+        Radius of the shafts of the arrows in Å. Default 0.5.
+    vector_color : optional
+        One color for the arrows, or "atom" for the color of each atom.
+        Default yellow.
+    vector_alignment : {"base", "center", "head"}, optional
+        The point of the arrow at its atom: its tail, its middle or its
+        tip. Default base.
     **options
         The options of :meth:`Scene.render`, such as width, height, view,
         style, zoom, perspective and background.
@@ -425,7 +444,108 @@ def render(
                 burgers_color,
                 n,
             )
+    if vectors is not None:
+        _vector_arrows(
+            scene,
+            system,
+            index,
+            colors,
+            vectors,
+            float(vector_scale),
+            float(vector_radius),
+            vector_color,
+            vector_alignment,
+        )
     return scene.render(path, **options)
+
+
+def _vector_arrows(
+    scene, system, index, colors, vectors, scale, radius, color, alignment
+):
+    """An arrow along the vector of each atom shown, as OVITO's vector
+    display draws them: a shaft with a flat tail, a head 2.5 times as wide
+    and 4.5 times as long as the radius of the shaft; an arrow shorter than
+    its head only a cone, narrowed in proportion."""
+    n = len(system)
+    values = system[vectors] if isinstance(vectors, str) else vectors
+    values = np.asarray(values, dtype=float)
+    if values.shape != (n, 3):
+        raise InvalidParameter(
+            f"vectors must be a column of three components or ({n}, 3), "
+            f"not shape {values.shape}"
+        )
+    if not (np.isfinite(scale) and scale != 0):
+        raise InvalidParameter(f"vector_scale must be finite and not 0, not {scale!r}")
+    if not (np.isfinite(radius) and radius > 0):
+        raise InvalidParameter(f"vector_radius must be positive, not {radius!r}")
+    shifts = {"base": 0.0, "center": -0.5, "head": -1.0}
+    if alignment not in shifts:
+        raise InvalidParameter(
+            f"vector_alignment must be one of {tuple(shifts)}, not {alignment!r}"
+        )
+    if isinstance(color, str) and color == "atom":
+        rgb = colors
+    else:
+        try:
+            rgb = np.tile(_color(color), (n, 1))
+        except InvalidParameter:
+            raise InvalidParameter(
+                f"vector_color must be one color or atom, not {color!r}"
+            ) from None
+    v = scale * np.nan_to_num(values[index])
+    lengths = np.linalg.norm(v, axis=1)
+    keep = lengths > 0
+    atoms, v, lengths = index[keep], v[keep], lengths[keep]
+    tails = system["positions"][atoms] + shifts[alignment] * v
+    unit = v / lengths[:, None]
+    head = 4.5 * radius
+    long = lengths > head
+    bases = tails + unit * np.maximum(lengths - head, 0.0)[:, None]
+    shafts = atoms[long]
+    scene.add_cylinders(tails[long], bases[long], radius, rgb[shafts], ids=shafts)
+    disks, owner = _disks(tails[long], unit[long], np.full(len(shafts), radius), 16)
+    scene.add_triangles(disks, rgb[shafts[owner]], ids=shafts[owner])
+    widths = 2.5 * radius * np.minimum(lengths / head, 1.0)
+    cones, owner = _cones(bases, tails + v, widths, 16)
+    scene.add_triangles(cones, rgb[atoms[owner]], ids=atoms[owner])
+
+
+def _ring(centers, axes, radii, sides):
+    """(M, sides + 1, 3) points around each center, in the plane normal to
+    its unit axis, the last the first again."""
+    other = np.where(
+        (np.abs(axes[:, 0]) < 0.9)[:, None], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]
+    )
+    p = np.cross(axes, other)
+    p /= np.linalg.norm(p, axis=1)[:, None]
+    q = np.cross(axes, p)
+    angles = 2 * np.pi * np.arange(sides + 1) / sides
+    return centers[:, None] + radii[:, None, None] * (
+        np.cos(angles)[None, :, None] * p[:, None]
+        + np.sin(angles)[None, :, None] * q[:, None]
+    )
+
+
+def _disks(centers, axes, radii, sides):
+    """The triangles of disks normal to their unit axes, and the disk of
+    each triangle."""
+    ring = _ring(centers, axes, radii, sides)
+    center = np.broadcast_to(centers[:, None], ring[:, 1:].shape)
+    triangles = np.stack([center, ring[:, :-1], ring[:, 1:]], axis=2)
+    return triangles.reshape(-1, 3, 3), np.repeat(np.arange(len(centers)), sides)
+
+
+def _cones(bases, tips, radii, sides):
+    """The triangles of cones from their bases to their tips, sides and
+    base disks, and the cone of each triangle."""
+    axes = tips - bases
+    axes /= np.linalg.norm(axes, axis=1)[:, None]
+    ring = _ring(bases, axes, radii, sides)
+    tip = np.broadcast_to(tips[:, None], ring[:, 1:].shape)
+    mantle = np.stack([ring[:, :-1], ring[:, 1:], tip], axis=2)
+    disks, _ = _disks(bases, axes, radii, sides)
+    triangles = np.concatenate([mantle, disks.reshape(len(bases), sides, 3, 3)], axis=1)
+    return triangles.reshape(-1, 3, 3), np.repeat(np.arange(len(bases)), 2 * sides)
 
 
 def _burgers_arrows(scene, dislocations, box, palette, scale, radius, color, id_):
@@ -467,23 +587,8 @@ def _burgers_arrows(scene, dislocations, box, palette, scale, radius, color, id_
     ids = np.full(len(tails), id_)
     scene.add_cylinders(tails, bases, radius, rgb, ids=ids)
     scene.add_spheres(tails, radius, rgb, ids=ids)
-    # the cones: their sides and their bases, a fan of triangles each
-    sides = 24
-    angles = 2 * np.pi * np.arange(sides + 1) / sides
-    triangles, colors = [], []
-    for base, u, tip, c in zip(bases, unit, tails + vectors, rgb):
-        p = np.cross(u, [1.0, 0, 0] if abs(u[0]) < 0.9 else [0, 1.0, 0])
-        p /= np.linalg.norm(p)
-        q = np.cross(u, p)
-        ring = base + 2.5 * radius * (
-            np.outer(np.cos(angles), p) + np.outer(np.sin(angles), q)
-        )
-        for a, b in zip(ring[:-1], ring[1:]):
-            triangles += [(a, b, tip), (base, b, a)]
-        colors.append(np.tile(c, (2 * sides, 1)))
-    scene.add_triangles(
-        np.array(triangles), np.concatenate(colors), ids=np.full(len(triangles), id_)
-    )
+    cones, owner = _cones(bases, tails + vectors, np.full(len(tails), 2.5 * radius), 24)
+    scene.add_triangles(cones, rgb[owner], ids=np.full(len(cones), id_))
 
 
 def _inside(points: np.ndarray, box: Any) -> tuple[np.ndarray, np.ndarray]:

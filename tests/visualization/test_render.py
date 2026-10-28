@@ -688,6 +688,55 @@ def test_burgers_vector_arrows():
             render(system, dislocations=result, burgers_vectors=True, **{name: value})
 
 
+def test_vector_arrows():
+    """An arrow for each atom shown with a vector, from a column or an
+    array; none for a zero vector; in one color or that of each atom."""
+    system = build_crystal("fcc", 3.615, elements="Cu", repeat=(2, 2, 2))
+    vectors = np.zeros((len(system), 3))
+    vectors[:4] = [0.0, 0.0, 6.0]
+    moved = system.with_columns(displacement=vectors)
+    hidden = np.zeros(len(system), dtype=bool)
+    options = dict(view="front", width=120, height=120, background=None, style="fast")
+    bare = render(moved, atoms=hidden, **options)
+    column = render(moved, atoms=hidden, vectors="displacement", **options)
+    np.testing.assert_array_equal(column, bare)  # no atom shown, no arrow
+    shown = np.arange(len(system)) < 8
+    bare = render(moved, atoms=shown, radius=0.3, **options)
+    column = render(moved, atoms=shown, radius=0.3, vectors="displacement", **options)
+    array = render(moved, atoms=shown, radius=0.3, vectors=vectors, **options)
+    np.testing.assert_array_equal(column, array)
+    added = (column[..., 3] > 127) & ~(bare[..., 3] > 127)
+    yellow = column[added][:, :3].astype(int)
+    yellow = yellow[yellow.max(axis=1) > 100]
+    assert len(yellow) > 20 and (yellow[:, 2] < yellow[:, 0] - 50).mean() > 0.9
+    tinted = render(
+        moved,
+        atoms=shown,
+        radius=0.3,
+        color=(0.0, 0.0, 1.0),
+        vectors=vectors,
+        vector_color="atom",
+        **options,
+    )
+    blue = tinted[added][:, :3].astype(int)
+    blue = blue[blue.max(axis=1) > 100]
+    assert len(blue) > 20 and (blue[:, 2] > blue[:, 0] + 50).mean() > 0.9
+    # reversed, the arrows point down from the same atoms
+    down = render(
+        moved, atoms=shown, radius=0.3, vectors=vectors, vector_scale=-1, **options
+    )
+    assert not np.array_equal(down, column)
+    for name, value in [
+        ("vectors", np.zeros((3, 3))),
+        ("vector_scale", 0),
+        ("vector_radius", 0),
+        ("vector_alignment", "tail"),
+        ("vector_color", "plaid"),
+    ]:
+        with pytest.raises(InvalidParameter, match=name):
+            render(moved, **{"vectors": vectors, name: value})
+
+
 # ------------------------------------------------------------ global illumination
 
 

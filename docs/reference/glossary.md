@@ -38,6 +38,7 @@ implemented.
 | lag | The number of frames between two frames of a trajectory. |
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
 | covalent bond | A pair of atoms closer than the sum of their covalent radii and 0.45 Å, as pictures draw them. |
+| vector arrow | An arrow drawn from an atom along a vector of it, such as its displacement, velocity or force: a shaft and a head 2.5 times as wide and 4.5 times as long as the radius of the shaft. |
 | global illumination | Light that reaches a surface after bouncing off others, as the shiny style of pictures traces it. |
 | style of a picture | Its lights, shadows, occlusion and outlines together: fast (as the viewports of OVITO), matte (as its Tachyon renderer), shiny (after its OSPRay renderer) or flat (outlined, as ASE draws atoms). |
 | highlight | The light of a lamp mirrored by a surface toward the viewer: a bright spot on a sphere. |
@@ -174,6 +175,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | crystal of a dislocation analysis, longest Burgers circuit, edges more to follow a line, perfect dislocations only | `crystal`, `circuit_length`, `stretch`, `perfect_only` | `input_crystal_structure`, `trial_circuit_length`, `circuit_stretchability`, `only_perfect_dislocations` |
 | sparseness of the points of dislocation lines, smoothing steps of the lines and of the defect mesh | `point_separation`, `smoothing`, `mesh_smoothing` | `line_point_separation`, `line_smoothing_level`, `defect_mesh_smoothing_level` |
 | also the interface mesh of a dislocation analysis | `interface_mesh=True` | `output_interface_mesh` |
+| arrows of vectors: the vectors, their scale, the radius of the shafts, color, point at the atom | `vectors`, `vector_scale`, `vector_radius`, `vector_color`, `vector_alignment` | `scaling`, `width`, `arrow_width`, `reverse` |
 | follow atoms through the periodic boundaries | `unwrap` (bool) | `wrapped`, `unwrapped` |
 | reference configuration | `reference=` | `ref` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |

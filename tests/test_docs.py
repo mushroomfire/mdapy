@@ -16,6 +16,7 @@ where examples save the pictures shown on their page.
 
 import re
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -54,8 +55,15 @@ def test_examples_run(page, tmp_path, monkeypatch):
     (tmp_path / "images").mkdir(exist_ok=True)
     monkeypatch.chdir(tmp_path)
     namespace: dict = {}
-    for i, code in enumerate(python_blocks(page)):
-        try:
-            exec(compile(code, f"{page.name}[block {i}]", "exec"), namespace)
-        except Exception as exc:  # pragma: no cover - only reached on failure
-            pytest.fail(f"{page.relative_to(DOCS)} block {i} failed: {exc!r}\n{code}")
+    try:
+        for i, code in enumerate(python_blocks(page)):
+            try:
+                exec(compile(code, f"{page.name}[block {i}]", "exec"), namespace)
+            except Exception as exc:  # pragma: no cover - only reached on failure
+                pytest.fail(
+                    f"{page.relative_to(DOCS)} block {i} failed: {exc!r}\n{code}"
+                )
+    finally:
+        # the figures a page leaves open, which matplotlib warns about
+        if "matplotlib.pyplot" in sys.modules:
+            sys.modules["matplotlib.pyplot"].close("all")

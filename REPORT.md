@@ -42,7 +42,7 @@
 
 ![平滑轨迹](images/smooth-trajectory-1029.png)
 
-![乙醇的键长分布](images/bond-lengths-1029.png)
+![SiGe 的键长分布：总的和每对元素](images/bond-lengths-1029.png)
 
 ---
 

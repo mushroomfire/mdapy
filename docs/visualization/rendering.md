@@ -196,14 +196,17 @@ With `device="gpu"` the rays are traced on the GPU: with Metal on macOS, and
 with Vulkan on Linux, whose loader and driver come with the graphics
 drivers of NVIDIA, AMD and Intel (a build from source needs Vulkan's
 headers, see [Installation](../getting-started/installation.md#pictures-on-the-gpu)).
-`gpu_available()` tells whether there is a GPU. The picture is the same as on
-the processor, with the same random samples in the same precision, up to
+`gpu_available()` tells whether there is a GPU. On Linux, a GPU with ray
+tracing units (NVIDIA RTX, AMD Radeon RX 6000 and later, Intel Arc) finds
+the atoms a ray meets with them; the environment variable
+`MDAPY_GPU_RAY_TRACING=0` turns them off. The picture is the same as on the
+processor, with the same random samples in the same precision, up to
 rounding at a few edges. For a million atoms at 1920 × 1080:
 
-| Style | Apple M5 GPU | its processor | NVIDIA RTX A2000 | Intel Core i5-12600K |
-|---|---|---|---|---|
-| matte | 1.1 s | 4.6 s | 1.5 s | 4.9 s |
-| shiny | 2.9 s | 13.4 s | 3.4 s | 14.0 s |
+| Style | Apple M5 GPU | its processor | NVIDIA RTX A2000 | without its ray tracing units | Intel Core i5-12600K |
+|---|---|---|---|---|---|
+| matte | 1.1 s | 4.6 s | 0.7 s | 1.5 s | 4.9 s |
+| shiny | 2.9 s | 13.4 s | 1.4 s | 3.4 s | 14.0 s |
 
 ```python
 from mdapy.visualization import gpu_available

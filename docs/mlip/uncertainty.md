@@ -71,7 +71,7 @@ from it.
 | Function | Parameters |
 |---|---|
 | `committee(frames, calculators)` | the frames, and two or more models, any mdapy calculators |
-| `novelty(points, reference=None)` | (M, D) points, such as the descriptors of frames, and (K, D) points to measure from, such as those of a training set; without them, each point is measured from the other points, and repeated frames are those at nearly zero |
+| `novelty(points, reference=None)` | (M, D) points, such as the descriptors of frames, and (K, D) points to measure from, such as those of a training set; without them, each point is measured from the other points, and repeated frames are those at zero; computed on `get_num_threads()` threads |
 
 ## Results
 

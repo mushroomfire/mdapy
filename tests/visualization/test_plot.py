@@ -62,6 +62,36 @@ def test_parity():
         plot.parity([1.0], [1.0, 2.0])
 
 
+def test_scatter():
+    """A point for each atom with finite values, at most max_points of them,
+    the same each time."""
+    crystal = build_crystal("fcc", 3.6, elements="Cu", repeat=(4, 4, 4))
+    value = np.arange(len(crystal), dtype=float)
+    value[3] = np.nan
+    system = crystal.with_columns(value=value)
+    ax = plot.scatter(system, "positions.z", "value * 2")
+    points = ax.collections[0].get_offsets()
+    keep = np.arange(len(system)) != 3
+    np.testing.assert_allclose(points[:, 0], system["positions.z"][keep])
+    np.testing.assert_allclose(points[:, 1], 2 * value[keep])
+    assert (ax.get_xlabel(), ax.get_ylabel()) == ("positions.z", "value * 2")
+    few = plot.scatter(system, "positions.x", "value", max_points=10, color="k")
+    drawn = few.collections[0].get_offsets()
+    assert len(drawn) == 10 and np.isfinite(drawn).all()
+    np.testing.assert_array_equal(
+        plot.scatter(system, "positions.x", "value", max_points=10)
+        .collections[0]
+        .get_offsets(),
+        drawn,
+    )
+    some = plot.scatter(system, "positions.x", "value", atoms=value < 5)
+    np.testing.assert_allclose(some.collections[0].get_offsets()[:, 1], [0, 1, 2, 4])
+    with pytest.raises(InvalidParameter, match="positive"):
+        plot.scatter(system, "positions.x", "value", max_points=0)
+    with pytest.raises(InvalidParameter, match="one component"):
+        plot.scatter(system, "positions", "value")
+
+
 def test_results():
     crystal = random_alloy(
         build_crystal("fcc", 3.6, repeat=(4, 4, 4)), {"Cu": 1, "Ni": 1}, seed=1

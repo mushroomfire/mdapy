@@ -246,6 +246,61 @@ def parity(
     return ax
 
 
+def scatter(
+    system: Any,
+    x: str,
+    y: str,
+    *,
+    ax: Any = None,
+    atoms: ArrayLike | None = None,
+    max_points: int = 20000,
+    color: str | None = None,
+) -> Any:
+    """Two columns of the atoms against each other, a point for each atom.
+
+    Parameters
+    ----------
+    system : System
+        The atoms.
+    x, y : str
+        A column of numbers, a component such as ``"positions.z"`` or an
+        expression, as ``system[x]`` takes it; the labels of the axes.
+    ax : matplotlib.axes.Axes, optional
+        The axes; by default a new figure.
+    atoms : array_like, optional
+        A boolean mask or indices of the atoms drawn. Default all of them.
+    max_points : int, optional
+        At most this many atoms drawn, picked at random with a fixed seed
+        from those with finite values. Default 20000.
+    color : str, optional
+        Color of the points.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes.
+    """
+    from mdapy.core._atoms import _mask
+
+    if max_points < 1:
+        raise InvalidParameter(f"max_points must be positive, not {max_points}")
+    xs = np.asarray(system[x], dtype=float)
+    ys = np.asarray(system[y], dtype=float)
+    if xs.ndim != 1 or ys.ndim != 1:
+        raise InvalidParameter("x and y must be columns of one component")
+    keep = np.isfinite(xs) & np.isfinite(ys)
+    if atoms is not None:
+        keep &= _mask(atoms, len(system))
+    rows = np.flatnonzero(keep)
+    if len(rows) > max_points:
+        rows = np.sort(np.random.default_rng(0).choice(rows, max_points, replace=False))
+    ax = _axes(ax)
+    ax.scatter(xs[rows], ys[rows], s=3, alpha=0.6, lw=0, color=color, rasterized=True)
+    ax.set_xlabel(x)
+    ax.set_ylabel(y)
+    return ax
+
+
 def rdf(result: Any, *, ax: Any = None, partial: bool = False) -> Any:
     """The radial distribution function, and optionally its partial
     functions, of a :class:`mdapy.analysis.RadialDistributionResult`."""

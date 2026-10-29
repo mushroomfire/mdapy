@@ -301,7 +301,9 @@ class TimeAverageResult(Result):
     name: str | None = None
 
     def columns(self) -> dict[str, np.ndarray]:
-        return {} if self.name is None else {f"{self.name}_average": self.value}
+        if self.name is None:
+            return {}
+        return {f"{self.name.replace('.', '_')}_average": self.value}
 
 
 class TimeAverage:

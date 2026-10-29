@@ -69,6 +69,22 @@ def test_smoothing_through_the_boundaries():
     assert [x_of_first(f) for f in smoothed[-2:]] == [x_of_first(smoothed[6]), 0.0]
 
 
+def test_smoothing_reads_each_frame_once_this_one_last():
+    read = []
+
+    def noted(k):
+        read.append(k)
+        return frames[k]
+
+    frames = moving()
+    smoothed = transform.smooth_trajectory(mdapy.io.Mapped(range(10), noted), 5)
+    smoothed[0]
+    assert read == [1, 2, 0]
+    read.clear()
+    smoothed[5]
+    assert read == [3, 4, 6, 7, 5]
+
+
 def test_smoothing_errors():
     with pytest.raises(InvalidParameter, match="window"):
         transform.smooth_trajectory(moving(), 0)

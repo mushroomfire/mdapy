@@ -8,7 +8,7 @@ import pytest
 
 import mdapy
 from mdapy.analysis import AtomicStrain
-from mdapy.errors import InvalidParameter
+from mdapy.errors import InvalidParameter, MissingProperty
 
 from lattices import crystal
 
@@ -133,9 +133,32 @@ def test_errors():
     with pytest.raises(InvalidParameter, match="periodicity"):
         strain.compute(reference.with_box(mdapy.Box(reference.box.matrix, pbc=False)))
     numbered = reference.with_columns(id=np.arange(1, 33))
-    shuffled = numbered.with_columns(id=np.arange(32, 0, -1))
-    with pytest.raises(InvalidParameter, match="not in the order of the reference"):
-        AtomicStrain(numbered, 3.0).compute(shuffled)
+    with pytest.raises(MissingProperty, match="atom 33"):
+        AtomicStrain(numbered, 3.0).compute(numbered.with_columns(id=np.arange(9, 41)))
+    with pytest.raises(InvalidParameter, match="system has repeated"):
+        AtomicStrain(numbered, 3.0).compute(numbered.with_columns(id=np.full(32, 3)))
+    with pytest.raises(InvalidParameter, match="reference has repeated"):
+        AtomicStrain(numbered.with_columns(id=np.full(32, 3)), 3.0).compute(numbered)
+
+
+def test_atoms_matched_by_id():
+    """The atoms of the current configuration in another order give the
+    strain of each atom as in the order of the reference."""
+    rng = np.random.default_rng(6)
+    reference = crystal("fcc", 3.6, (3, 3, 3), jitter=0.1, seed=6)
+    reference = reference.with_columns(id=np.arange(1, len(reference) + 1))
+    current = deformed(reference, F0).with_columns(
+        positions=deformed(reference, F0)["positions"]
+        + rng.normal(0, 0.05, (len(reference), 3))
+    )
+    strain = AtomicStrain(reference, 3.0, strain_tensor=True, d2min=True)
+    ordered = strain.compute(current)
+    order = rng.permutation(len(current))
+    shuffled = strain.compute(current.gather(order))
+    for name in ("shear", "volumetric", "strain_tensor", "d2min"):
+        np.testing.assert_allclose(
+            getattr(shuffled, name), getattr(ordered, name)[order], rtol=1e-12
+        )
 
 
 @pytest.mark.parametrize("affine", [False, True])

@@ -225,6 +225,13 @@ def test_time_average_of_moving_atoms():
     np.testing.assert_allclose(charge.value, np.linalg.norm(true, axis=2).mean(0))
     added = frames[0].with_columns(charge)
     np.testing.assert_allclose(added["charge_average"], charge.value)
+    # a component as it is, as positions are without unwrap
+    height = TimeAverage("positions.z").compute(frames)
+    np.testing.assert_allclose(
+        frames[0].with_columns(height)["positions_z_average"],
+        wrapped[:, 2],
+        atol=1e-10,
+    )
     assert repr(TimeAverage("csp")) == "TimeAverage('csp', unwrap=True)"
 
 

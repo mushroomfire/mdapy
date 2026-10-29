@@ -81,7 +81,7 @@ A `TimeAverageResult`:
 |---|---|---|
 | `value` | float64 | the mean: of each atom in the order of the first frame for a column, (3, 3) for the box, of the shape of the function otherwise |
 | `frames` | int | the number of frames |
-| `name` | str or `None` | the column; `system.with_columns(result)` adds `name_average` |
+| `name` | str or `None` | the column; `system.with_columns(result)` adds `name_average`, a component such as `positions.z` written `positions_z_average` |
 
 ## Errors
 

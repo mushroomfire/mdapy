@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 
 from mdapy._core import analysis as _native
+from mdapy.core._atoms import _matching
 from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
@@ -57,8 +58,9 @@ class AtomicStrain:
     Parameters
     ----------
     reference : System
-        The reference configuration, with the same atoms in the same order as
-        the systems to compare.
+        The reference configuration, with the same atoms as the systems to
+        compare: matched by the ``id`` column where both have one, else in
+        the same order.
     cutoff : float
         Neighbors in the reference closer than cutoff, in Å, define the
         neighbor vectors.
@@ -106,8 +108,8 @@ class AtomicStrain:
         Parameters
         ----------
         system : System
-            The current configuration: the atoms of the reference, in the
-            same order, each moved by less than half the box.
+            The current configuration: the atoms of the reference, each moved
+            by less than half the box.
 
         Returns
         -------
@@ -121,20 +123,29 @@ class AtomicStrain:
             )
         if not np.array_equal(system.box.pbc, reference.box.pbc):
             raise InvalidParameter("the system and the reference differ in periodicity")
-        if "id" in system.table.columns and "id" in reference.table.columns:
-            if not np.array_equal(
+        current = np.asarray(system["positions"])
+        back = None
+        if (
+            "id" in system.table.columns
+            and "id" in reference.table.columns
+            and not np.array_equal(
                 system.table["id"].to_numpy(), reference.table["id"].to_numpy()
-            ):
-                raise InvalidParameter(
-                    "the atoms are not in the order of the reference"
-                )
+            )
+        ):
+            # the current positions in the order of the reference, and back
+            back = _matching(reference, system)
+            if (np.bincount(back, minlength=len(back)) != 1).any():
+                raise InvalidParameter("the system has repeated ids")
+            order = np.empty_like(back)
+            order[back] = np.arange(len(back))
+            current = current[order]
         box, reference_box = system.box, reference.box
         matrix = reference_box.matrix if self.affine else box.matrix
         arguments = (
             np.ascontiguousarray(reference["positions"]),
             np.ascontiguousarray(reference_box.inverse),
             np.ascontiguousarray(reference_box.origin),
-            np.ascontiguousarray(system["positions"]),
+            np.ascontiguousarray(current),
             np.ascontiguousarray(box.inverse),
             np.ascontiguousarray(box.origin),
             np.ascontiguousarray(box.pbc),
@@ -161,6 +172,10 @@ class AtomicStrain:
                     self.cutoff,
                     *arguments,
                 )
+        if back is not None:
+            shear, volumetric = shear[back], volumetric[back]
+            tensor = None if tensor is None else tensor[back]
+            d2min = None if d2min is None else d2min[back]
         return StrainResult(
             shear=shear, volumetric=volumetric, strain_tensor=tensor, d2min=d2min
         )

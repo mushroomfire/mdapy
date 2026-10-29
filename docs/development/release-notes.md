@@ -314,7 +314,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [`WignerSeitz`](../analysis/wigner-seitz.md) for vacancies and
   interstitials, the sites of the reference kept in a k-d tree for every
   configuration; and [`AtomicStrain`](../analysis/atomic-strain.md), the
-  von Mises and volumetric strains against a reference, and on request the
+  von Mises and volumetric strains against a reference, its atoms matched
+  by id, and on request the
   Green–Lagrange strain tensor and $D^2_\text{min}$. As in OVITO, the
   results that cost more are computed only when asked for.
 - [`ElasticStrain`](../analysis/elastic-strain.md) in `mdapy.analysis`: the

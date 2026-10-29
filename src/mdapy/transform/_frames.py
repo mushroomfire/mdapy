@@ -84,7 +84,11 @@ class _Smoothed(Sequence[System]):
             min(max(k + offset, 0), count - 1)
             for offset in range(-before, self.__window // 2 + 1)
         ]
-        window = [self.__frames[i] for i in chosen]
+        # each frame read once, this one last, so that what reading a frame
+        # does on the side is that of this frame when it is done
+        read = {i: self.__frames[i] for i in sorted(set(chosen) - {k})}
+        read[k] = self.__frames[k]
+        window = [read[i] for i in chosen]
         followed = list(_follow(window, True))
         current = window[before]
         # the mean placed about the atoms where they are in this frame

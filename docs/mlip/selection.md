@@ -51,6 +51,11 @@ first group spread it sideways). Farthest point sampling takes most of the
 50 from the group displaced most, farthest from the training set and from
 one another, and a few from each of the others.*
 
+The descriptors of a NEP model and SOAP are computed for many frames at a
+time, a frame on each of the threads of
+[`set_num_threads`](../getting-started/parallelism.md), each as it would be
+alone; those of other models frame by frame.
+
 ## Parameters
 
 | Function | Parameters |

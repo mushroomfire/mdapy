@@ -92,7 +92,11 @@ did not converge, or of another frame.
 ## Errors
 
 `check_frames` raises `InvalidParameter` for a `close` that is not
-positive and for frames without an `element` column.
+positive, and `MissingProperty` for frames without an `element` column.
+
+The closest pairs of many frames are found at a time, a frame on each of
+the threads of [`set_num_threads`](../getting-started/parallelism.md), the
+same whatever the threads.
 
 ## See also
 

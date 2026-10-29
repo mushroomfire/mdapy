@@ -12,12 +12,13 @@ from typing import Any
 import numpy as np
 
 from mdapy._core import analysis as _native
+from mdapy.core._frames import Frames
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built
+from mdapy.neighbor._neighbor_list import _given_or_built, _run
 
 # the value the Gaussians of the radial functions and of the density
 # decay to at their ends, as in DScribe
@@ -202,6 +203,35 @@ class SOAP:
                 progress,
                 _native_token(cancel),
             )
+
+    def _frame_descriptors(self, frames: Frames) -> np.ndarray:
+        """The mean power spectrum of each of many frames (frames,
+        dimension), each as descriptors finds it alone, a frame on a
+        thread."""
+        if frames.numbers is None:
+            raise MissingProperty("SOAP needs the element column")
+        lookup = np.full(len(SYMBOLS), -1, dtype=np.int32)
+        for k, name in enumerate(self.species):
+            lookup[SYMBOLS.index(name)] = k
+        species = lookup[frames.numbers]
+        if (species < 0).any():
+            missing = sorted({SYMBOLS[z] for z in frames.numbers[species < 0]})
+            raise InvalidParameter(
+                f"element {missing[0]} is not among the species {self.species}"
+            )
+        return _run(
+            _native.soap_frames,
+            species,
+            len(self.species),
+            *frames.arrays(),
+            self.cutoff,
+            self.n_max,
+            self.l_max,
+            1.0 / (2.0 * self.sigma**2),
+            np.ascontiguousarray(self.__alphas.ravel()),
+            np.ascontiguousarray(self.__betas.ravel()),
+            self.crossover,
+        )
 
     def __repr__(self) -> str:
         return (

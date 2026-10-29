@@ -5,7 +5,11 @@
 
 #include "analysis/soap.h"
 
+#include <algorithm>
 #include <cmath>
+#include <vector>
+
+#include "neighbor/frames.h"
 
 namespace mdapy::analysis {
 
@@ -175,6 +179,51 @@ std::vector<double> soap(const SoapBasis& basis, int species_count, const std::i
         },
         control);
     return out;
+}
+
+std::vector<double> soap_frames(const SoapBasis& basis, int species_count, const std::int32_t* species,
+                                const neighbor::Frames& frames, double cutoff,
+                                const Control& control) {
+    const auto dim = static_cast<std::size_t>(soap_dimension(basis, species_count));
+    std::vector<double> found(dim * static_cast<std::size_t>(frames.count), 0.0);
+    neighbor::for_each_frame(
+        frames,
+        [&](std::int64_t k) {
+            const std::int64_t n = frames.atoms(k), s = frames.starts[k];
+            double* mean = found.data() + dim * static_cast<std::size_t>(k);
+            if (n == 0) {
+                std::fill(mean, mean + dim, std::nan(""));
+                return;
+            }
+            // the pairs closer than the cutoff, as the descriptors of one system keep them
+            const neighbor::NeighborPairs pairs = frames.pairs(k, cutoff);
+            std::vector<std::int64_t> offsets(static_cast<std::size_t>(n) + 1, 0);
+            std::vector<index_t> others;
+            std::vector<std::int8_t> shifts;
+            for (std::int64_t i = 0; i < n; ++i) {
+                for (std::int64_t p = pairs.offsets[i]; p < pairs.offsets[i + 1]; ++p) {
+                    if (!(pairs.distances[p] < cutoff)) {
+                        continue;
+                    }
+                    others.push_back(pairs.neighbors[p]);
+                    shifts.insert(shifts.end(), &pairs.shifts[3 * p], &pairs.shifts[3 * p] + 3);
+                }
+                offsets[static_cast<std::size_t>(i) + 1] = static_cast<std::int64_t>(others.size());
+            }
+            const std::vector<double> each =
+                soap(basis, species_count, species + s, n, frames.positions + 3 * s, frames.matrices + 9 * k,
+                     offsets.data(), others.data(), shifts.data());
+            for (std::size_t i = 0; i < static_cast<std::size_t>(n); ++i) {
+                for (std::size_t c = 0; c < dim; ++c) {
+                    mean[c] += each[dim * i + c];
+                }
+            }
+            for (std::size_t c = 0; c < dim; ++c) {
+                mean[c] /= static_cast<double>(n);
+            }
+        },
+        control);
+    return found;
 }
 
 }  // namespace mdapy::analysis

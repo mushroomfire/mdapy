@@ -14,8 +14,10 @@
 #include <vector>
 
 #include "bindings/control.h"
+#include "bindings/frames.h"
 #include "calculators/eam.h"
 #include "calculators/nep.h"
+#include "neighbor/frames.h"
 #include "core/index.h"
 #include "core/parallel.h"
 
@@ -208,6 +210,49 @@ nb::object nep_descriptors(const calculators::NepModel& model, Species species,
     return d;
 }
 
+// Many frames, each as compute_nep finds it alone: with forces, the energies
+// (n), forces (n x 3) and the virial of each frame (frames x 3 x 3); without,
+// the mean descriptors of each frame (frames x dim).
+nb::object nep_frames(const calculators::NepModel& model, Species species, frames::Starts starts,
+                      frames::Positions positions, frames::Matrices matrices, frames::Origins origins,
+                      frames::Flags pbc, double cutoff, bool forces, nb::handle progress,
+                      const CancelToken* cancel) {
+    const neighbor::Frames all = frames::of(starts, positions, matrices, origins, pbc);
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (static_cast<std::int64_t>(species.shape(0)) != n) {
+        throw std::invalid_argument("species must have one value per atom");
+    }
+    for (std::int64_t i = 0; i < n; ++i) {
+        if (species.data()[i] < 0 || species.data()[i] >= model.types) {
+            throw std::invalid_argument("a species index is outside the potential");
+        }
+    }
+    const auto atoms = static_cast<std::size_t>(n), count = static_cast<std::size_t>(all.count);
+    if (forces) {
+        double *e, *f, *w;
+        const std::size_t shape1[1] = {atoms}, shape2[2] = {atoms, 3}, shape3[3] = {count, 3, 3};
+        nb::object energies = new_array(1, shape1, e);
+        nb::object force = new_array(2, shape2, f);
+        nb::object virials = new_array(3, shape3, w);
+        run_released(
+            [&](const Control& control) {
+                calculators::compute_nep_frames(model, all, species.data(), cutoff, e, f, w, nullptr, control);
+            },
+            progress, cancel);
+        return nb::make_tuple(energies, force, virials);
+    }
+    double* q;
+    const std::size_t shape[2] = {count, static_cast<std::size_t>(model.dim)};
+    nb::object descriptors = new_array(2, shape, q);
+    run_released(
+        [&](const Control& control) {
+            calculators::compute_nep_frames(model, all, species.data(), cutoff, nullptr, nullptr, nullptr, q,
+                                            control);
+        },
+        progress, cancel);
+    return descriptors;
+}
+
 }  // namespace
 
 void bind_calculators(nb::module_& m) {
@@ -234,6 +279,10 @@ void bind_calculators(nb::module_& m) {
     m.def("compute_nep", &compute_nep, nb::arg("model"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("nep_frames", &nep_frames, nb::arg("model"), nb::arg("species"), nb::arg("starts"),
+          nb::arg("positions"), nb::arg("matrices"), nb::arg("origins"), nb::arg("pbc"),
+          nb::arg("cutoff"), nb::arg("forces"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
 }
 

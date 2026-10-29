@@ -81,6 +81,10 @@ test = read_gpumd("nep_folder", "test")  # with test.xyz
 other = read_gpumd("predicted", xyz="data/all.xyz")
 ```
 
+A NEP model computes many frames at a time, a frame on each of the threads
+of [`set_num_threads`](../getting-started/parallelism.md), each as it would
+be alone, in `predict` and `committee`; other models frame by frame.
+
 ## Parameters
 
 | Function | Parameters |

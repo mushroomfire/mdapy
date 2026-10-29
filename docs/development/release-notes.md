@@ -398,6 +398,12 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [Uncertainty and novelty](../mlip/uncertainty.md).
 - `mdapy.mlip.check_frames`: atoms too close, net forces and missing
   labels in a training set. See [Checking frames](../mlip/checks.md).
+- Training sets of many small frames: `predict`, `committee` and
+  `structure_descriptors` compute NEP models and SOAP, and `check_frames`
+  the closest pairs, many frames at a time in C++, a frame on a thread,
+  each as it would be alone: for the 105,464 frames of UNEP16 on an Apple
+  M5, the NEP descriptors in 15 s rather than 26 s, its predictions in 24 s
+  rather than 35 s, and the checks in 2 s rather than 8 s.
 
 ### Visualization
 

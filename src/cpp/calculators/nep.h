@@ -15,6 +15,10 @@
 #include "core/index.h"
 #include "core/parallel.h"
 
+namespace mdapy::neighbor {
+struct Frames;
+}
+
 namespace mdapy::calculators {
 
 struct NepModel {
@@ -61,5 +65,16 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                  const index_t* neighbors, const std::int8_t* shifts, double* energies,
                  double* forces, double* virials, double* descriptors,
                  const Control& control = {});
+
+// Each of many frames as compute_nep finds it alone, with the neighbors
+// within cutoff, a frame on a thread (species: n atoms in all). With forces,
+// the energies (n) and forces (n x 3) of the atoms, and the virial of each
+// frame (frames x 9), the sum of those of its atoms in their order; without,
+// the mean descriptors of each frame (frames x dim), NaN for a frame without
+// atoms.
+void compute_nep_frames(const NepModel& model, const neighbor::Frames& frames,
+                        const std::int32_t* species, double cutoff, double* energies,
+                        double* forces, double* virials, double* descriptors,
+                        const Control& control = {});
 
 }  // namespace mdapy::calculators

@@ -25,11 +25,13 @@
 #include "analysis/isosurface.h"
 #include "analysis/rings.h"
 #include "analysis/soap.h"
+#include "neighbor/frames.h"
 #include "analysis/steinhardt.h"
 #include "analysis/strain.h"
 #include "analysis/surface_mesh.h"
 #include "analysis/voronoi.h"
 #include "bindings/control.h"
+#include "bindings/frames.h"
 #include "bindings/list_view.h"
 #include "core/buffer.h"
 #include "core/parallel.h"
@@ -362,6 +364,35 @@ nb::object soap(Types species, int species_count, Vectors positions, Matrix3 mat
     auto* values = new std::vector<double>(std::move(found));
     nb::capsule owner(values, [](void* v) noexcept { delete static_cast<std::vector<double>*>(v); });
     const std::size_t shape[2] = {static_cast<std::size_t>(n), static_cast<std::size_t>(dimension)};
+    return nb::ndarray<nb::numpy, double>(values->data(), 2, shape, owner).cast();
+}
+
+// The mean power spectrum of each of many frames.
+nb::object soap_frames(Types species, int species_count, frames::Starts starts, frames::Positions positions,
+                       frames::Matrices matrices, frames::Origins origins, frames::Flags pbc, double cutoff,
+                       int n_max, int l_max, double eta, Values alphas, Values betas, bool crossover,
+                       nb::handle progress, const CancelToken* cancel) {
+    const neighbor::Frames all = frames::of(starts, positions, matrices, origins, pbc);
+    if (species.shape(0) != positions.shape(0)) {
+        throw std::invalid_argument("species must have one value per atom");
+    }
+    analysis::SoapBasis basis;
+    basis.n_max = n_max;
+    basis.l_max = l_max;
+    basis.eta = eta;
+    basis.alphas.assign(alphas.data(), alphas.data() + alphas.shape(0));
+    basis.betas.assign(betas.data(), betas.data() + betas.shape(0));
+    basis.crossover = crossover;
+    const std::int64_t dimension = analysis::soap_dimension(basis, species_count);
+    std::vector<double> found;
+    run_released(
+        [&](const Control& control) {
+            found = analysis::soap_frames(basis, species_count, species.data(), all, cutoff, control);
+        },
+        progress, cancel);
+    auto* values = new std::vector<double>(std::move(found));
+    nb::capsule owner(values, [](void* v) noexcept { delete static_cast<std::vector<double>*>(v); });
+    const std::size_t shape[2] = {static_cast<std::size_t>(all.count), static_cast<std::size_t>(dimension)};
     return nb::ndarray<nb::numpy, double>(values->data(), 2, shape, owner).cast();
 }
 
@@ -870,6 +901,11 @@ void bind_analysis(nb::module_& m) {
           nb::arg("n_max"), nb::arg("l_max"), nb::arg("eta"), nb::arg("alphas"), nb::arg("betas"),
           nb::arg("crossover"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
+    m.def("soap_frames", &soap_frames, nb::arg("species"), nb::arg("species_count"),
+          nb::arg("starts"), nb::arg("positions"), nb::arg("matrices"), nb::arg("origins"),
+          nb::arg("pbc"), nb::arg("cutoff"), nb::arg("n_max"), nb::arg("l_max"), nb::arg("eta"),
+          nb::arg("alphas"), nb::arg("betas"), nb::arg("crossover"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("find_rings", &find_rings, nb::arg("offsets"), nb::arg("other"), nb::arg("shifts"),
           nb::arg("min_size"), nb::arg("max_size"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);

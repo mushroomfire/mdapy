@@ -16,6 +16,10 @@
 #include "core/index.h"
 #include "core/parallel.h"
 
+namespace mdapy::neighbor {
+struct Frames;
+}
+
 namespace mdapy::analysis {
 
 // The expansion: n_max radial functions and degrees up to l_max; the width
@@ -44,5 +48,12 @@ std::vector<double> soap(const SoapBasis& basis, int species_count, const std::i
                          std::int64_t n, const double* positions, const double* matrix,
                          const std::int64_t* offsets, const index_t* others,
                          const std::int8_t* shifts, const Control& control = {});
+
+// The mean power spectrum of each of many frames (frames x soap_dimension),
+// each as soap finds it alone with the neighbors closer than cutoff, a frame
+// on a thread (species: n atoms in all); NaN for a frame without atoms.
+std::vector<double> soap_frames(const SoapBasis& basis, int species_count, const std::int32_t* species,
+                                const neighbor::Frames& frames, double cutoff,
+                                const Control& control = {});
 
 }  // namespace mdapy::analysis

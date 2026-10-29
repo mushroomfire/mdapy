@@ -6,6 +6,7 @@
 """The simulation box."""
 
 import itertools
+import math
 from typing import NamedTuple
 
 import numpy as np
@@ -96,10 +97,20 @@ class Box:
                 f"box matrix must be a number, 3 lengths or a (3, 3) array, "
                 f"got shape {m.shape}"
             )
-        if not np.all(np.isfinite(m)):
+        # in Python floats: numpy is slow for nine numbers
+        a0, a1, a2, b0, b1, b2, c0, c1, c2 = m.ravel().tolist()
+        if not all(map(math.isfinite, (a0, a1, a2, b0, b1, b2, c0, c1, c2))):
             raise InvalidParameter("box matrix must be finite")
-        scale = np.prod(np.linalg.norm(m, axis=1))
-        det = _det(m)
+        scale = (
+            math.sqrt(a0 * a0 + a1 * a1 + a2 * a2)
+            * math.sqrt(b0 * b0 + b1 * b1 + b2 * b2)
+            * math.sqrt(c0 * c0 + c1 * c1 + c2 * c2)
+        )
+        det = (
+            a0 * (b1 * c2 - b2 * c1)
+            + a1 * (b2 * c0 - b0 * c2)
+            + a2 * (b0 * c1 - b1 * c0)
+        )
         if scale == 0.0 or abs(det) <= _EPS * scale:
             raise InvalidParameter("box lattice vectors are linearly dependent")
 

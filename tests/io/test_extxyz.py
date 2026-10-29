@@ -18,7 +18,7 @@ from mdapy.errors import (
     MissingProperty,
     UnsupportedFormat,
 )
-from mdapy.io._extxyz import _split_items, _value
+from mdapy.io._extxyz import _split_items, _split_slowly, _value
 
 ASE_TIME_IN_PS = (
     1e-10 * math.sqrt(units.ATOMIC_MASS_UNIT_SI / units.ELEMENTARY_CHARGE) * 1e12
@@ -308,6 +308,47 @@ def test_gpumd_dump_file(tmp_path):
 )
 def test_split_items(line, pairs):
     assert _split_items(line) == pairs
+
+
+def test_split_items_at_once_as_character_by_character():
+    """Lines of the common form split at once, the others character by
+    character: the same items, or the same error, for lines of random
+    pieces."""
+    pieces = [
+        "a",
+        "Lattice",
+        "k_1",
+        "=",
+        " ",
+        "  ",
+        "\t",
+        '"1 2"',
+        "'x y'",
+        "{1 2}",
+        "[3 4]",
+        "1.5",
+        "-2e-3",
+        "T",
+        "\\",
+        '"',
+        "x=y",
+        "b=",
+        '"my key"',
+        '""',
+        "=1",
+    ]
+    rng = np.random.default_rng(5)
+    for _ in range(20000):
+        line = "".join(rng.choice(pieces, rng.integers(0, 10)))
+        try:
+            want = _split_slowly(line)
+        except ValueError as error:
+            want = str(error)
+        try:
+            got = _split_items(line)
+        except ValueError as error:
+            got = str(error)
+        assert got == want, line
 
 
 def test_split_items_rejects_a_missing_key():

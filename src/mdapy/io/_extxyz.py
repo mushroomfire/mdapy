@@ -5,6 +5,7 @@
 
 """Extended XYZ files, with the conventions of ASE and GPUMD."""
 
+import functools
 import json
 import math
 import re
@@ -91,12 +92,39 @@ _BAD_PROPERTY_CHARS = frozenset("\"'{}[]=\\:")
 # ------------------------------------------------------------------ reading
 
 
+# An item of a comment line in its common form: a key, and a plain value or
+# one quoted with "", '', {} or [] whole, without backslashes; "key=" with no
+# value takes the next word as ASE does, so it is not common.
+_ITEM = re.compile(
+    r"""([^\s="'{}\[\]\\]+)"""
+    r"""(?:=("[^"\\]*"|'[^'\\]*'|\{[^}\\]*\}|\[[^\]\\]*\]|[^\s="'{}\[\]\\]+))?"""
+    r"""(?=\s|\Z)"""
+)
+
+
 def _split_items(line: str) -> list[tuple[str, str | None]]:
     """Splits a comment line into (key, value) pairs, as ASE does.
 
     Values may be quoted with "", '', {} or []; a backslash escapes the next
     character. A key without a value gets None.
     """
+    # the common form at once; a line with anything else, character by character
+    pairs, end = [], 0
+    for match in _ITEM.finditer(line):
+        if not line[end : match.start()].isspace() and match.start() > end:
+            return _split_slowly(line)
+        key, value = match.groups()
+        if value and value[0] in _DELIMITERS:
+            value = value[1:-1]
+        pairs.append((key, value))
+        end = match.end()
+    if line[end:] and not line[end:].isspace():
+        return _split_slowly(line)
+    return pairs
+
+
+def _split_slowly(line: str) -> list[tuple[str, str | None]]:
+    """_split_items, character by character."""
     items = []
     item: list[list[str] | None] = [None]  # parts separated by '='
     closing = None
@@ -251,14 +279,21 @@ def _atom_count(reader: TextReader, text: str) -> int:
 def _elements(
     reader: TextReader, codes: np.ndarray, categories: list[str], first_line: int
 ) -> pl.Series:
-    symbols = [c.capitalize() for c in categories]
+    symbols = tuple(c.capitalize() for c in categories)
     for code, symbol in enumerate(symbols):
         if symbol not in _SYMBOLS:
             row = int(np.flatnonzero(codes == code)[0])
             raise reader.error(
                 f"unknown element {categories[code]!r}", first_line + row
             )
-    return strings(codes, symbols, "element", ELEMENT_DTYPE)
+    return _element_values(symbols).gather(codes)
+
+
+@functools.lru_cache(maxsize=256)
+def _element_values(symbols: tuple[str, ...]) -> pl.Series:
+    """The element column of the symbols, to gather the atoms' from: the
+    same few in every frame of a file."""
+    return strings(np.arange(len(symbols)), list(symbols), "element", ELEMENT_DTYPE)
 
 
 def _column(
@@ -278,9 +313,7 @@ def _column(
             raise reader.error(
                 f"unknown atomic number {values[bad[0]]}", first_line + int(bad[0])
             )
-        return strings(
-            values.astype(np.uint32), list(SYMBOLS), "element", ELEMENT_DTYPE
-        )
+        return _element_values(SYMBOLS).gather(values.astype(np.uint32))
     if ptype == "S":
         codes, categories = values
         series = strings(codes.ravel(), categories, target)

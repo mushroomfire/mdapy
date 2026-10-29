@@ -10,6 +10,7 @@
 #import <Metal/Metal.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <mutex>
 #include <stdexcept>
@@ -648,20 +649,23 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
         if (out_rgba == nil || out_depth == nil || out_ids == nil) {
             throw std::runtime_error("no GPU memory for the picture");
         }
-        // rows in tiles of some million paths, short enough for the GPU, with
+        // rows in tiles: first of some million paths, then twice as many rows
+        // after a tile shorter than 0.1 s and half as many after one longer
+        // than 0.4 s, so the GPU is busy yet each dispatch short, with
         // cancellation and progress between them
         const std::size_t paths = width * static_cast<std::size_t>(std::max(1, params.samples)) *
                                   static_cast<std::size_t>(1 + params.bounces);
-        const std::size_t rows = std::max<std::size_t>(1, (std::size_t{1} << 21) / std::max<std::size_t>(paths, 1));
+        std::size_t rows = std::min(height, std::max<std::size_t>(1, (std::size_t{1} << 21) / paths));
         const NSUInteger group_width = std::min<NSUInteger>(d.pipeline.threadExecutionWidth, width);
         const NSUInteger group_height = std::max<NSUInteger>(1, std::min<NSUInteger>(
             d.pipeline.maxTotalThreadsPerThreadgroup / group_width, 4));
-        for (std::size_t row = 0; row < height; row += rows) {
+        for (std::size_t row = 0; row < height;) {
             if (control.cancel != nullptr && control.cancel->cancelled()) {
                 throw Cancelled();
             }
             const std::size_t count = std::min(rows, height - row);
             const auto first = static_cast<std::uint32_t>(row);
+            const auto started = std::chrono::steady_clock::now();
             id<MTLCommandBuffer> commands = [d.queue commandBuffer];
             id<MTLComputeCommandEncoder> encoder = [commands computeCommandEncoder];
             [encoder setComputePipelineState:d.pipeline];
@@ -682,9 +686,17 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
                 throw std::runtime_error(std::string("the GPU failed: ") +
                                          commands.error.localizedDescription.UTF8String);
             }
-            if (control.monitor && !control.monitor(static_cast<std::int64_t>(row + count),
-                                                    static_cast<std::int64_t>(height))) {
+            const double seconds =
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+            row += count;
+            if (control.monitor &&
+                !control.monitor(static_cast<std::int64_t>(row), static_cast<std::int64_t>(height))) {
                 throw Cancelled();
+            }
+            if (seconds < 0.1) {
+                rows = std::min(height, 2 * rows);
+            } else if (seconds > 0.4) {
+                rows = std::max<std::size_t>(1, rows / 2);
             }
         }
         std::memcpy(rgba, out_rgba.contents, 4 * subpixels * f);

@@ -1,0 +1,510 @@
+// Copyright (c) 2022-2026, Yongchao Wu
+// This Source Code Form is subject to the terms of the Mozilla Public License,
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can
+// obtain one at https://mozilla.org/MPL/2.0/.
+//
+// The rays of a picture traced with Vulkan: the shader of render_metal.mm in
+// GLSL, line by line, in the same single precision, with the same random
+// numbers. mdapy holds its SPIR-V, render_vulkan.spv; after a change compile
+// it again with glslc of shaderc 2026.4 (a test compares the two):
+//
+//     glslc --target-env=vulkan1.0 -O -Werror render_vulkan.comp -o render_vulkan.spv
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+struct Params {
+    float center[3], forward[3], right[3], up[3];
+    float half_width, half_height, aperture, focal_distance;
+    float start, nearest, farthest, epsilon;
+    float key[3], highlight[3], fill[3], key_tangent[3], key_bitangent[3];
+    float ambient, diffuse, specular, shininess, metalness, fill_intensity, base_light;
+    float ao_distance, ao_strength, shadow_strength, fog, light_size, cone;
+    float background[3];
+    int perspective, ao_samples, shadows, flat_shading, toon_levels, bounces, samples;
+    int width, height;
+    uint refs;
+};
+
+// where each array of the scene starts in words
+struct Arrays {
+    uint sphere_center, sphere_radius, sphere_color, sphere_id;
+    uint cylinder_end, cylinder_radius, cylinder_color, cylinder_id;
+    uint triangle_vertex, triangle_color, triangle_alpha, triangle_id;
+    uint refs;
+};
+
+// the scene; the references of the leaves are kind << 30 | index
+layout(std430, binding = 0) readonly restrict buffer Scene {
+    Params P;
+    uint words[];
+};
+
+// the subpixels of the rows first_row to first_row + rows
+layout(std430, binding = 1) writeonly restrict buffer Colors { vec4 rgba[]; };
+layout(std430, binding = 2) writeonly restrict buffer Depths { float depth[]; };
+layout(std430, binding = 3) writeonly restrict buffer Ids { ivec2 ids[]; };
+// the nodes of the hierarchy, two quads each: (lo, first) and (hi, count)
+layout(std430, binding = 4) readonly restrict buffer Nodes { uvec4 nodes[]; };
+layout(push_constant) uniform Tile {
+    Arrays A;
+    uint first_row;
+    uint rows;
+};
+
+const uint kKindShift = 30u;
+const uint kIndexMask = (1u << 30) - 1u;
+const uint kSphere = 0u;
+const uint kCylinder = 1u;
+const uint kTriangle = 2u;
+const float kInfinity = uintBitsToFloat(0x7F800000u);
+
+struct Ray {
+    vec3 origin, direction, inverse;
+};
+
+struct Hit {
+    float t;
+    uint ref;
+};
+
+float load(uint i) { return uintBitsToFloat(words[i]); }
+vec3 load3(uint i) { return vec3(load(i), load(i + 1u), load(i + 2u)); }
+vec3 vec(float p[3]) { return vec3(p[0], p[1], p[2]); }
+
+vec3 unit(vec3 a) {
+    const float len = sqrt(dot(a, a));
+    return len > 0.0 ? a * (1.0 / len) : a;
+}
+
+Ray make_ray(vec3 origin, vec3 direction) {
+    Ray ray;
+    ray.origin = origin;
+    ray.direction = direction;
+    for (int e = 0; e < 3; ++e) {
+        const float negative = (floatBitsToUint(direction[e]) & 0x80000000u) != 0u ? -1e-20 : 1e-20;
+        const float d = abs(direction[e]) < 1e-20 ? negative : direction[e];
+        ray.inverse[e] = 1.0 / d;
+    }
+    return ray;
+}
+
+float intersect(uint ref, Ray ray, float t_min, float t_max) {
+    const uint i = ref & kIndexMask;
+    const uint kind = ref >> kKindShift;
+    if (kind == kSphere) {
+        const vec3 oc = ray.origin - load3(A.sphere_center + 3u * i);
+        const float r = load(A.sphere_radius + i);
+        const float b = dot(oc, ray.direction);
+        const float c = dot(oc, oc) - r * r;
+        const float disc = b * b - c;
+        if (disc < 0.0) {
+            return kInfinity;
+        }
+        const float s = sqrt(disc);
+        float t = -b - s;
+        if (t <= t_min) {
+            t = -b + s;
+        }
+        return t > t_min && t < t_max ? t : kInfinity;
+    }
+    if (kind == kCylinder) {
+        const vec3 p0 = load3(A.cylinder_end + 6u * i);
+        const vec3 axis = load3(A.cylinder_end + 6u * i + 3u) - p0;
+        const float len = sqrt(dot(axis, axis));
+        if (len == 0.0) {
+            return kInfinity;
+        }
+        const vec3 a = axis * (1.0 / len);
+        const vec3 oc = ray.origin - p0;
+        const vec3 d = ray.direction - a * dot(ray.direction, a);
+        const vec3 o = oc - a * dot(oc, a);
+        const float r = load(A.cylinder_radius + i);
+        const float qa = dot(d, d);
+        if (qa < 1e-12) {
+            return kInfinity;
+        }
+        const float qb = dot(d, o);
+        const float qc = dot(o, o) - r * r;
+        const float disc = qb * qb - qa * qc;
+        if (disc < 0.0) {
+            return kInfinity;
+        }
+        const float s = sqrt(disc);
+        const float roots[2] = float[2]((-qb - s) / qa, (-qb + s) / qa);
+        for (int k = 0; k < 2; ++k) {
+            const float t = roots[k];
+            if (t > t_min && t < t_max) {
+                const float along = dot(oc + ray.direction * t, a);
+                if (along >= 0.0 && along <= len) {
+                    return t;
+                }
+            }
+        }
+        return kInfinity;
+    }
+    const uint v = A.triangle_vertex + 9u * i;
+    const vec3 v0 = load3(v), e1 = load3(v + 3u) - v0, e2 = load3(v + 6u) - v0;
+    const vec3 p = cross(ray.direction, e2);
+    const float det = dot(e1, p);
+    if (abs(det) < 1e-20) {
+        return kInfinity;
+    }
+    const float inv = 1.0 / det;
+    const vec3 s = ray.origin - v0;
+    const float u = dot(s, p) * inv;
+    if (u < 0.0 || u > 1.0) {
+        return kInfinity;
+    }
+    const vec3 q = cross(s, e1);
+    const float wv = dot(ray.direction, q) * inv;
+    if (wv < 0.0 || u + wv > 1.0) {
+        return kInfinity;
+    }
+    const float t = dot(e2, q) * inv;
+    return t > t_min && t < t_max ? t : kInfinity;
+}
+
+uint first_of(uint node) { return nodes[2u * node].w; }
+uint count_of(uint node) { return nodes[2u * node + 1u].w; }
+
+float enter(uint node, Ray ray, float t_min, float t_max) {
+    const vec3 lo = uintBitsToFloat(nodes[2u * node].xyz), hi = uintBitsToFloat(nodes[2u * node + 1u].xyz);
+    float t_in = t_min, t_out = t_max;
+    for (int e = 0; e < 3; ++e) {
+        float t0 = (lo[e] - ray.origin[e]) * ray.inverse[e];
+        float t1 = (hi[e] - ray.origin[e]) * ray.inverse[e];
+        if (t0 > t1) {
+            const float swap = t0;
+            t0 = t1;
+            t1 = swap;
+        }
+        t_in = t0 > t_in ? t0 : t_in;
+        t_out = t1 < t_out ? t1 : t_out;
+    }
+    return t_in <= t_out ? t_in : kInfinity;
+}
+
+void closest(Ray ray, float t_min, inout Hit hit) {
+    if (P.refs == 0u) {
+        return;
+    }
+    uint stack[96];
+    int top = 0;
+    stack[top++] = 0u;
+    while (top > 0) {
+        const uint node = stack[--top];
+        const uint first = first_of(node), count = count_of(node);
+        if (count > 0u) {
+            for (uint k = first; k < first + count; ++k) {
+                const uint ref = words[A.refs + k];
+                const float t = intersect(ref, ray, t_min, hit.t);
+                if (t < hit.t) {
+                    hit.t = t;
+                    hit.ref = ref;
+                }
+            }
+            continue;
+        }
+        const float near_left = enter(first, ray, t_min, hit.t);
+        const float near_right = enter(first + 1u, ray, t_min, hit.t);
+        if (near_left <= near_right) {
+            if (near_right < kInfinity) {
+                stack[top++] = first + 1u;
+            }
+            if (near_left < kInfinity) {
+                stack[top++] = first;
+            }
+        } else {
+            if (near_left < kInfinity) {
+                stack[top++] = first;
+            }
+            if (near_right < kInfinity) {
+                stack[top++] = first + 1u;
+            }
+        }
+    }
+}
+
+bool occluded(Ray ray, float t_min, float t_max) {
+    if (P.refs == 0u) {
+        return false;
+    }
+    uint stack[96];
+    int top = 0;
+    stack[top++] = 0u;
+    while (top > 0) {
+        const uint node = stack[--top];
+        if (enter(node, ray, t_min, t_max) == kInfinity) {
+            continue;
+        }
+        const uint first = first_of(node), count = count_of(node);
+        if (count > 0u) {
+            for (uint k = first; k < first + count; ++k) {
+                const uint ref = words[A.refs + k];
+                if ((ref >> kKindShift) == kTriangle && load(A.triangle_alpha + (ref & kIndexMask)) < 1.0) {
+                    continue;
+                }
+                if (intersect(ref, ray, t_min, t_max) < t_max) {
+                    return true;
+                }
+            }
+            continue;
+        }
+        stack[top++] = first;
+        stack[top++] = first + 1u;
+    }
+    return false;
+}
+
+vec3 normal_at(uint ref, vec3 point, vec3 direction) {
+    const uint i = ref & kIndexMask;
+    const uint kind = ref >> kKindShift;
+    vec3 n;
+    if (kind == kSphere) {
+        n = unit(point - load3(A.sphere_center + 3u * i));
+    } else if (kind == kCylinder) {
+        const vec3 p0 = load3(A.cylinder_end + 6u * i);
+        const vec3 a = unit(load3(A.cylinder_end + 6u * i + 3u) - p0);
+        const vec3 rel = point - p0;
+        n = unit(rel - a * dot(rel, a));
+    } else {
+        const uint v = A.triangle_vertex + 9u * i;
+        n = unit(cross(load3(v + 3u) - load3(v), load3(v + 6u) - load3(v)));
+    }
+    return dot(n, direction) > 0.0 ? n * -1.0 : n;
+}
+
+vec3 color_of(uint ref) {
+    const uint i = ref & kIndexMask;
+    const uint kind = ref >> kKindShift;
+    if (kind == kSphere) {
+        return load3(A.sphere_color + 3u * i);
+    }
+    if (kind == kCylinder) {
+        return load3(A.cylinder_color + 3u * i);
+    }
+    return load3(A.triangle_color + 3u * i);
+}
+
+float alpha_of(uint ref) {
+    return (ref >> kKindShift) == kTriangle ? load(A.triangle_alpha + (ref & kIndexMask)) : 1.0;
+}
+
+ivec2 id_of(uint ref) {
+    const uint i = ref & kIndexMask;
+    const uint kind = ref >> kKindShift;
+    const uint at = kind == kSphere ? A.sphere_id : kind == kCylinder ? A.cylinder_id : A.triangle_id;
+    return ivec2(int(kind), int(words[at + i]));
+}
+
+uint random_from(uint seed) { return seed * 747796405u + 2891336453u; }
+
+float next(inout uint state) {
+    state = state * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    word = (word >> 22u) ^ word;
+    return float(word >> 8) * (1.0 / 16777216.0);
+}
+
+uint mix_seed(uint a, uint b) {
+    uint h = a * 0x9E3779B1u ^ (b + 0x7F4A7C15u + (a << 6) + (a >> 2));
+    h ^= h >> 16;
+    h *= 0x85EBCA6Bu;
+    h ^= h >> 13;
+    return h;
+}
+
+// with count > 0, in the k-th of count rings of equal weight, turned by a
+// golden angle each
+vec3 cosine(vec3 n, inout uint random, int k, int count, float turn) {
+    const vec3 helper = abs(n[0]) < 0.9 ? vec3(1, 0, 0) : vec3(0, 1, 0);
+    const vec3 tangent = unit(cross(n, helper));
+    const vec3 bitangent = cross(n, tangent);
+    const float u = count > 0 ? (float(k) + next(random)) / float(count) : next(random);
+    const float phi = 6.2831853 * (count > 0 ? turn + 0.618034 * float(k) : next(random));
+    const float r = sqrt(u);
+    return tangent * (r * cos(phi)) + bitangent * (r * sin(phi)) + n * sqrt(max(0.0, 1.0 - u));
+}
+
+vec3 toward_light(inout uint random) {
+    const vec3 key = vec(P.key);
+    if (P.light_size <= 0.0) {
+        return key;
+    }
+    const float z = 1.0 - next(random) * (1.0 - P.cone);
+    const float phi = 6.2831853 * next(random);
+    const float r = sqrt(max(0.0, 1.0 - z * z));
+    return vec(P.key_tangent) * (r * cos(phi)) + vec(P.key_bitangent) * (r * sin(phi)) + key * z;
+}
+
+// metals: less of the color reflected diffusely, the rest in the color of
+// the highlights
+float body() { return 1.0 - 0.6 * clamp(P.metalness, 0.0, 1.0); }
+
+vec3 tint(vec3 base) {
+    const float m = clamp(P.metalness, 0.0, 1.0);
+    return vec3(1.0 - m) + base * m;
+}
+
+// a highlight: the light from toward mirrored about n, seen along ray
+float phong(vec3 n, vec3 toward, vec3 ray) {
+    if (dot(n, toward) <= 0.0) {
+        return 0.0;
+    }
+    const vec3 mirrored = n * (2.0 * dot(n, toward)) - toward;
+    return P.specular * pow(max(0.0, -dot(mirrored, ray)), P.shininess);
+}
+
+vec3 shade(Hit hit, Ray ray, inout uint random) {
+    const vec3 point = ray.origin + ray.direction * hit.t;
+    const vec3 n = normal_at(hit.ref, point, ray.direction);
+    const vec3 base = color_of(hit.ref);
+    const vec3 lifted = point + n * P.epsilon;
+    float ao = 1.0;
+    if (P.ao_samples > 0 && P.ao_strength > 0.0) {
+        const vec3 helper = abs(n[0]) < 0.9 ? vec3(1, 0, 0) : vec3(0, 1, 0);
+        const vec3 tangent = unit(cross(n, helper));
+        const vec3 bitangent = cross(n, tangent);
+        const float turn = next(random);
+        int blocked = 0;
+        for (int k = 0; k < P.ao_samples; ++k) {
+            const float u = (float(k) + next(random)) / float(P.ao_samples);
+            const float phi = 6.2831853 * (turn + 0.618034 * float(k));
+            const float r = sqrt(u);
+            const vec3 d = tangent * (r * cos(phi)) + bitangent * (r * sin(phi)) + n * sqrt(max(0.0, 1.0 - u));
+            blocked += occluded(make_ray(lifted, d), 0.0, P.ao_distance) ? 1 : 0;
+        }
+        ao = 1.0 - P.ao_strength * float(blocked) / float(P.ao_samples);
+    }
+    if (P.flat_shading != 0) {
+        return base * ao;
+    }
+    const vec3 key = vec(P.key), fill = vec(P.fill);
+    const float lit = max(0.0, dot(n, key));
+    float shadow = 1.0;
+    if (P.shadows != 0 && lit > 0.0) {
+        const vec3 l = toward_light(random);
+        if (dot(n, l) <= 0.0 || occluded(make_ray(lifted, l), 0.0, kInfinity)) {
+            shadow = 1.0 - P.shadow_strength;
+        }
+    }
+    float diffuse = lit * shadow + P.fill_intensity * max(0.0, dot(n, fill));
+    if (P.toon_levels > 0) {
+        const float levels = float(P.toon_levels);
+        diffuse = min(1.0, floor(diffuse * levels + 0.5) / levels);
+    }
+    float shine = 0.0;
+    if (P.specular > 0.0) {
+        shine = phong(n, vec(P.highlight), ray.direction) * shadow;
+        if (P.toon_levels > 0) {
+            shine = shine > 0.5 * P.specular ? P.specular : 0.0;
+        }
+    }
+    const float light = P.base_light + P.ambient * ao + P.diffuse * diffuse * (0.5 + 0.5 * ao);
+    return base * (body() * light) + tint(base) * shine;
+}
+
+vec3 path(Hit first, Ray primary, inout uint random, int sample_index, float turn) {
+    vec3 radiance = vec3(0, 0, 0), weight = vec3(1, 1, 1);
+    Hit hit = first;
+    Ray ray = primary;
+    for (int bounce = 0;; ++bounce) {
+        const vec3 point = ray.origin + ray.direction * hit.t;
+        const vec3 n = normal_at(hit.ref, point, ray.direction);
+        const vec3 lifted = point + n * P.epsilon;
+        const vec3 color = color_of(hit.ref);
+        const vec3 reflected = weight * color * body();
+        const vec3 l = toward_light(random);
+        const float lit = dot(n, l);
+        if (lit > 0.0 && !occluded(make_ray(lifted, l), 0.0, kInfinity)) {
+            radiance = radiance + reflected * (P.diffuse * lit);
+            if (bounce == 0 && P.specular > 0.0) {
+                radiance = radiance + tint(color) * phong(n, vec(P.highlight), ray.direction);
+            }
+        }
+        const Ray next_ray = make_ray(lifted, cosine(n, random, sample_index, bounce == 0 ? P.samples : 0, turn));
+        Hit following;
+        following.t = kInfinity;
+        following.ref = 0u;
+        closest(next_ray, 0.0, following);
+        if (following.t == kInfinity) {
+            radiance = radiance + reflected * P.ambient;
+            break;
+        }
+        if (bounce == P.bounces) {
+            break;
+        }
+        weight = reflected;
+        hit = following;
+        ray = next_ray;
+    }
+    return radiance;
+}
+
+void main() {
+    const uint x = gl_GlobalInvocationID.x, row = gl_GlobalInvocationID.y;
+    if (x >= uint(P.width) || row >= rows) {
+        return;
+    }
+    const uint y = first_row + row;
+    const uint seed = mix_seed(x, y);
+    const float turn = float(mix_seed(seed, 0x51ED27u) >> 8) * (1.0 / 16777216.0);
+    const vec3 center = vec(P.center), forward = vec(P.forward), right = vec(P.right), up = vec(P.up);
+    const vec3 background = vec(P.background);
+    vec3 color = vec3(0, 0, 0);
+    float coverage = 0.0;
+    float first_depth = kInfinity;
+    ivec2 first_id = ivec2(-1, 0);
+    for (int sample_index = 0; sample_index < P.samples; ++sample_index) {
+        uint random = random_from(sample_index == 0 ? seed : mix_seed(seed, uint(sample_index)));
+        const float jx = sample_index == 0 ? 0.5 : next(random);
+        const float jy = sample_index == 0 ? 0.5 : next(random);
+        const float px = (2.0 * (float(x) + jx) / float(P.width)) - 1.0;
+        const float py = 1.0 - (2.0 * (float(y) + jy) / float(P.height));
+        Ray ray;
+        if (P.perspective != 0) {
+            const vec3 d = unit(forward + right * (px * P.half_width) + up * (py * P.half_height));
+            ray = make_ray(center, d);
+            if (P.aperture > 0.0) {
+                const vec3 sharp = center + d * (P.focal_distance / dot(d, forward));
+                const float u = next(random), phi = 6.2831853 * next(random);
+                const float r = P.aperture * sqrt(u);
+                const vec3 from = center + right * (r * cos(phi)) + up * (r * sin(phi));
+                ray = make_ray(from, unit(sharp - from));
+            }
+        } else {
+            ray = make_ray(center + right * (px * P.half_width) + up * (py * P.half_height) + forward * P.start, forward);
+        }
+        float remaining = 1.0, t_min = 0.0;
+        for (int layer = 0; layer < 8 && remaining > 1e-3; ++layer) {
+            Hit hit;
+            hit.t = kInfinity;
+            hit.ref = 0u;
+            closest(ray, t_min, hit);
+            if (hit.t == kInfinity) {
+                break;
+            }
+            if (sample_index == 0 && layer == 0) {
+                first_depth = hit.t + (P.perspective != 0 ? 0.0 : P.start);
+                first_id = id_of(hit.ref);
+            }
+            vec3 c = P.bounces > 0 ? path(hit, ray, random, sample_index, turn) : shade(hit, ray, random);
+            if (P.fog > 0.0 && P.farthest > P.nearest) {
+                const float f = P.fog * clamp((hit.t + P.start - P.nearest) / (P.farthest - P.nearest), 0.0, 1.0);
+                c = c * (1.0 - f) + background * f;
+            }
+            const float a = alpha_of(hit.ref);
+            color = color + c * (remaining * a);
+            remaining *= 1.0 - a;
+            t_min = hit.t + P.epsilon;
+        }
+        coverage += 1.0 - remaining;
+    }
+    color = color * (1.0 / float(P.samples));
+    coverage /= float(P.samples);
+    const uint p = row * uint(P.width) + x;
+    rgba[p] = vec4(color, coverage);
+    depth[p] = first_depth;
+    ids[p] = first_id;
+}

@@ -40,6 +40,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
+      # the headers of Vulkan, for the pictures on the GPU (no GPU here)
+      - name: Vulkan headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q libvulkan-dev
       - name: Install
         shell: bash
         run: pip install ".[dev]" -Ccmake.define.MDAPY_WERROR=${{ matrix.werror }}

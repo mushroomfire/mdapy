@@ -3,8 +3,13 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
+import re
+import shutil
 import struct
+import subprocess
+import sys
 import zlib
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -1066,6 +1071,28 @@ def test_the_gpu_can_stop_and_report():
 
     with pytest.raises(RuntimeError, match="enough"):
         scene.render(width=64, height=64, device="gpu", progress=stop)
+
+
+SHADER = Path(__file__).parents[2] / "src/cpp/visualization/render_vulkan.comp"
+
+
+def test_the_vulkan_shader_is_compiled_from_its_source(tmp_path):
+    """render_vulkan.spv is what the command written in render_vulkan.comp
+    makes, with the glslc named there."""
+    text = SHADER.read_text()
+    version = re.search(r"glslc of shaderc ([\d.]+)", text).group(1)
+    command = re.search(r"^//\s+(glslc .*)$", text, re.M).group(1).split()
+    beside_python = str(Path(sys.executable).parent)
+    glslc = shutil.which("glslc") or shutil.which("glslc", path=beside_python)
+    if glslc is None:
+        pytest.skip("no glslc")
+    found = subprocess.run([glslc, "--version"], capture_output=True, text=True).stdout
+    if f"shaderc v{version} " not in found:
+        pytest.skip(f"glslc is not of shaderc {version}")
+    compiled = tmp_path / "render_vulkan.spv"
+    names = {"render_vulkan.comp": str(SHADER), "render_vulkan.spv": str(compiled)}
+    subprocess.run([glslc] + [names.get(a, a) for a in command[1:]], check=True)
+    assert compiled.read_bytes() == SHADER.with_suffix(".spv").read_bytes()
 
 
 def test_devices(monkeypatch):

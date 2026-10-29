@@ -31,6 +31,8 @@ jobs:
           CIBW_ARCHS_LINUX: x86_64
           CIBW_ARCHS_MACOS: arm64
           CIBW_ARCHS_WINDOWS: AMD64
+          # the headers of Vulkan, for the pictures on the GPU on Linux
+          CIBW_BEFORE_ALL_LINUX: dnf install -y vulkan-headers
           MACOSX_DEPLOYMENT_TARGET: "14.0"
           # Run the full test suite against every built wheel.
           CIBW_TEST_REQUIRES: pytest

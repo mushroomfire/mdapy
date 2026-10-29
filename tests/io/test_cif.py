@@ -113,7 +113,11 @@ def test_as_pymatgen_ase_and_ovito(written, name):
     assert atoms(ours["element"], ours["positions"], ours.box.matrix) == atoms(
         theirs.get_chemical_symbols(), theirs.positions, theirs.cell.array
     )
-    np.testing.assert_allclose(ours["positions"], theirs.positions, atol=1e-8)
+    # the same atoms in the same order, up to a periodic image: an atom on a
+    # face of the cell lands on either side as the last bit of a rounding
+    # falls, which differs between processors
+    shift = (ours["positions"] - theirs.positions) @ np.linalg.inv(ours.box.matrix)
+    np.testing.assert_allclose(shift, np.round(shift), atol=1e-8)
 
     pytest.importorskip("ovito")
     from ovito.io import import_file

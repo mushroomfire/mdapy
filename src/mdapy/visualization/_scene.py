@@ -8,7 +8,7 @@ ray tracing."""
 
 import struct
 import zlib
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from os import PathLike
 from typing import Any
 
@@ -21,6 +21,7 @@ from mdapy.core.box import Box
 from mdapy.core.threads import _native_token
 from mdapy.elements import COVALENT_RADII, SYMBOLS, VDW_RADII
 from mdapy.errors import InvalidParameter
+from mdapy.visualization._colormap_tables import MAGMA, VIRIDIS
 from mdapy.visualization._elements import (
     DEFAULT,
     ELEMENTS,
@@ -127,18 +128,104 @@ VIEWS: dict[str, tuple[tuple[float, float, float], tuple[float, float, float]]] 
     "iso": ((-1, -1, -1), (0, 0, 1)),
 }
 
-# Colormaps, sRGB from 0 to 1 at equal steps.
-_COLORMAPS = {
-    "viridis": ["#440154", "#482878", "#3e4a89", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6dcd59", "#b4de2c", "#fde725"],
-    "plasma": ["#0d0887", "#46039f", "#7201a8", "#9c179e", "#bd3786", "#d8576b", "#ed7953", "#fb9f3a", "#fdca26", "#f0f921"],
-    "coolwarm": ["#3b4cc0", "#6688ee", "#88bbff", "#b8d0f9", "#dddddd", "#f5c4ad", "#f49a7b", "#de604d", "#b40426"],
-    "jet": ["#00007f", "#0000ff", "#007fff", "#00ffff", "#7fff7f", "#ffff00", "#ff7f00", "#ff0000", "#7f0000"],
-    "gray": ["#000000", "#ffffff"],
-}  # fmt: skip
-
 
 def _hex(code: str) -> tuple[float, float, float]:
     return tuple(int(code[k : k + 2], 16) / 255 for k in (1, 3, 5))  # type: ignore[return-value]
+
+
+def _clip(t: np.ndarray) -> np.ndarray:
+    return np.clip(t, 0.0, 1.0)
+
+
+def _rainbow(t: np.ndarray) -> np.ndarray:
+    """The hue from 0.7 (blue) down to 0 (red) at full saturation and value."""
+    h = (1.0 - t) * 0.7 * 6.0
+    k = np.minimum(np.floor(h).astype(np.int64), 5)
+    f = h - k
+    one, zero = np.ones_like(t), np.zeros_like(t)
+    rows = [
+        (one, f, zero),
+        (1 - f, one, zero),
+        (zero, one, f),
+        (zero, 1 - f, one),
+        (f, zero, one),
+        (one, zero, 1 - f),
+    ]
+    return np.stack([np.choose(k, [row[c] for row in rows]) for c in range(3)], axis=1)
+
+
+def _table(colors: Sequence[Sequence[float]]) -> Callable[[np.ndarray], np.ndarray]:
+    """Colors linear between the neighbors of a table spread from 0 to 1."""
+    table = np.asarray(colors, dtype=float)
+
+    def color(t: np.ndarray) -> np.ndarray:
+        x = np.linspace(0.0, 1.0, len(table))
+        return np.stack([np.interp(t, x, table[:, c]) for c in range(3)], axis=1)
+
+    return color
+
+
+# Colormaps of values from 0 to 1 to sRGB: those of OVITO's color coding as
+# it computes them, the tables of viridis and magma linear between their 256
+# colors; plasma and coolwarm from colors at equal steps.
+_COLORMAPS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
+    "rainbow": _rainbow,
+    "viridis": _table(VIRIDIS),
+    "magma": _table(MAGMA),
+    "jet": lambda t: np.stack(
+        [
+            _clip(1.5 - np.abs(4 * t - 3)),
+            _clip(1.5 - np.abs(4 * t - 2)),
+            _clip(1.5 - np.abs(4 * t - 1)),
+        ],
+        axis=1,
+    ),
+    "hot": lambda t: np.stack(
+        [_clip(t / 0.375), _clip((t - 0.375) / 0.375), _clip((t - 0.75) / 0.25)], axis=1
+    ),
+    "blue_white_red": lambda t: np.where(
+        (t < 0.5)[:, None],
+        np.stack([2 * t, 2 * t, np.ones_like(t)], axis=1),
+        np.stack([np.ones_like(t), 2 * (1 - t), 2 * (1 - t)], axis=1),
+    ),
+    "gray": lambda t: np.stack([t, t, t], axis=1),
+    "plasma": _table(
+        [
+            _hex(c)
+            for c in [
+                "#0d0887",
+                "#46039f",
+                "#7201a8",
+                "#9c179e",
+                "#bd3786",
+                "#d8576b",
+                "#ed7953",
+                "#fb9f3a",
+                "#fdca26",
+                "#f0f921",
+            ]
+        ]
+    ),  # fmt: skip
+    "coolwarm": _table(
+        [
+            _hex(c)
+            for c in [
+                "#3b4cc0",
+                "#6688ee",
+                "#88bbff",
+                "#b8d0f9",
+                "#dddddd",
+                "#f5c4ad",
+                "#f49a7b",
+                "#de604d",
+                "#b40426",
+            ]
+        ]
+    ),  # fmt: skip
+}
+
+#: The names of the colormaps of :func:`colormap`.
+COLORMAPS = tuple(_COLORMAPS)
 
 
 def colormap(
@@ -151,10 +238,13 @@ def colormap(
     values : array_like
         (N,) the values.
     name : str, optional
-        One of viridis, plasma, coolwarm, jet and gray. Default viridis.
+        One of ``COLORMAPS``: rainbow, viridis, magma, jet, hot,
+        blue_white_red and gray, as OVITO's color coding computes them, and
+        plasma and coolwarm. Default viridis.
     value_range : sequence of float, optional
         (low, high) values of the two ends; by default the smallest and the
-        largest finite value.
+        largest finite value. Values beyond take the color of their end,
+        NaN that of the low end.
 
     Returns
     -------
@@ -162,9 +252,7 @@ def colormap(
         (N, 3) sRGB colors from 0 to 1.
     """
     if name not in _COLORMAPS:
-        raise InvalidParameter(
-            f"colormap must be one of {tuple(_COLORMAPS)}, not {name!r}"
-        )
+        raise InvalidParameter(f"colormap must be one of {COLORMAPS}, not {name!r}")
     v = np.asarray(values, dtype=float).reshape(-1)
     if value_range is None:
         finite = v[np.isfinite(v)]
@@ -173,9 +261,7 @@ def colormap(
         low, high = (float(x) for x in value_range)
     span = high - low if high > low else 1.0
     t = np.clip(np.nan_to_num((v - low) / span), 0.0, 1.0)
-    table = np.array([_hex(c) for c in _COLORMAPS[name]])
-    x = np.linspace(0, 1, len(table))
-    return np.stack([np.interp(t, x, table[:, c]) for c in range(3)], axis=1)
+    return _COLORMAPS[name](t)
 
 
 def _linear(srgb: np.ndarray) -> np.ndarray:

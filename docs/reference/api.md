@@ -275,6 +275,14 @@ import mdapy as mp
 
 ::: mdapy.visualization.atom_colors
 
+::: mdapy.visualization.atom_radii
+
+::: mdapy.visualization.color_coding
+
+::: mdapy.visualization.color_by_type
+
+::: mdapy.visualization.assign_color
+
 ::: mdapy.visualization.voxel_faces
 
 ::: mdapy.visualization.colormap

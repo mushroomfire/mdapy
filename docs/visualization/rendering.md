@@ -57,12 +57,12 @@ lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False,
 |---|---|---|---|---|
 | `path` | str or path | `None` | | a PNG file to write |
 | `atoms` | mask or indices | all | | the atoms shown |
-| `color` | | elements | | the colors of the atoms, below |
-| `colormap` | str | `"viridis"` | | `viridis`, `plasma`, `coolwarm`, `jet` or `gray`, for values |
+| `color` | | the `color` column, else elements | | the colors of the atoms, below |
+| `colormap` | str | `"viridis"` | | one of `COLORMAPS`, for values: [below](#colormaps) |
 | `value_range` | (low, high) | finite range | | the values at the ends of the colormap |
 | `representation` | str | `"spheres"` | | how atoms and bonds are drawn, below; it sets the defaults of `radius`, `bonds` and `bond_radius` |
-| `radius` | float, (N,) or str | of the representation | Å | the radius of the atoms, or those of the elements: `"display"`, `"covalent"` or `"vdw"` |
-| `bonds` | float, `NeighborList` or `"covalent"` | of the representation | Å | bonds between atoms closer than a cutoff, the pairs of a list, or covalent bonds |
+| `radius` | float, (N,) or str | the `radius` column, else of the representation | Å | the radius of the atoms, or those of the elements: `"display"`, `"covalent"` or `"vdw"` |
+| `bonds` | float, `NeighborList`, `"covalent"` or `"topology"` | of the representation | Å | bonds between atoms closer than a cutoff, the pairs of a list, covalent bonds, or the bonds of the topology of the system, such as those of a data file or of [`create_bonds`](../build/bonds.md) |
 | `bond_radius` | float | of the representation | Å | |
 | `box`, `box_radius` | bool, float | `True`, 0.1 × radius | Å | the edges of the box |
 | `box_color` | color | `"black"` | | their color |
@@ -95,7 +95,9 @@ lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False,
 | `space_filling` | van der Waals radii | none |
 | `licorice` | as wide as the bonds | covalent, radius 0.2 Å |
 
-`color` is one of: `None` for the colors of the elements; a single color,
+`color` is one of: `None` for the `color` column of the system, which
+[`color_coding`, `color_by_type` and `assign_color`](colors.md) set, or
+without one the colors of the elements; a single color,
 `"#rrggbb"`, a name such as `"red"` or three numbers from 0 to 1; (N, 3)
 colors; a column name or (N,) values, through the colormap; or a structure
 result such as that of [`CommonNeighborAnalysis`](../analysis/cna.md), in
@@ -110,6 +112,14 @@ covalent radii and 0.45 Å, as in Jmol.
 Bonds are drawn as two halves in the colors of their atoms; a bond to a
 periodic image is drawn as the half next to each atom only, so nothing
 leaves the box.
+
+### Colormaps
+
+`colormap(values, name="viridis", value_range=None)` gives the (N, 3)
+colors of values; `COLORMAPS` holds the names. rainbow (OVITO's default),
+viridis, magma, jet, hot, blue_white_red and gray are computed as OVITO's
+color coding computes them, viridis and magma from their tables of 256
+colors; plasma and coolwarm are mdapy's own.
 
 The `options` are those of `Scene.render`:
 

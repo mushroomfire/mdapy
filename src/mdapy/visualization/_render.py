@@ -5,6 +5,7 @@
 
 """A picture of a system in one call."""
 
+from collections.abc import Mapping
 from os import PathLike
 from typing import Any
 
@@ -12,6 +13,7 @@ import numpy as np
 import polars as pl
 from numpy.typing import ArrayLike
 
+from mdapy.core._atoms import _mask
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
@@ -41,12 +43,20 @@ _ORDER_COLORS = np.array(
 )
 
 
+def _element_names(system: System) -> np.ndarray:
+    n = len(system)
+    if "element" not in system.table.columns:
+        return np.full(n, "X")
+    return np.asarray(system.table["element"].cast(pl.String).to_numpy()).astype(str)
+
+
 def atom_colors(
     system: System,
     color: Any = None,
     *,
     colormap_name: str = "viridis",
     value_range: Any = None,
+    elements: Mapping[str, Any] | None = None,
 ) -> np.ndarray:
     """(N, 3) sRGB colors of the atoms of a system.
 
@@ -55,13 +65,17 @@ def atom_colors(
     system : System
         The atoms.
     color : optional
-        None for the colors of the elements; one color for all; (N, 3)
-        colors; a column name or (N,) values through the colormap; or a
-        structure result, with ``structure`` and ``colors``.
+        None for the ``color`` column of the system where it has one, else
+        the colors of the elements; one color for all; (N, 3) colors; a
+        column name or (N,) values through the colormap; or a structure
+        result, with ``structure`` and ``colors``.
     colormap_name : str, optional
         The colormap of values. Default viridis.
     value_range : sequence of float, optional
         The values at the two ends of the colormap.
+    elements : mapping, optional
+        Colors of elements, such as ``{"Cu": "#d4875a"}``, in place of
+        their own, for the colors of the elements.
 
     Returns
     -------
@@ -70,10 +84,13 @@ def atom_colors(
     """
     n = len(system)
     if color is None:
-        names = (
-            system.table["element"] if "element" in system.table.columns else ["X"] * n
-        )
-        return element_colors(names)
+        if "color" in system.table.columns:
+            return np.asarray(system["color"], dtype=float).reshape(n, 3).copy()
+        names = _element_names(system)
+        colors = element_colors(names)
+        for symbol, chosen in (elements or {}).items():
+            colors[names == symbol] = _color(chosen)
+        return colors
     if hasattr(color, "structure") and hasattr(color, "colors"):
         palette = np.asarray(color.colors, dtype=float)
         return palette[np.asarray(color.structure, dtype=np.int64)]
@@ -85,6 +102,177 @@ def atom_colors(
     if array is not None and array.shape == (n,) and n != 3:
         return colormap(array, colormap_name, value_range)
     return np.broadcast_to(_color(color), (n, 3)).copy()
+
+
+def atom_radii(
+    system: System,
+    radius: str = "display",
+    *,
+    elements: Mapping[str, float] | None = None,
+    scale: float = 1.0,
+) -> np.ndarray:
+    """(N,) radii of the atoms of a system in Å.
+
+    Parameters
+    ----------
+    system : System
+        The atoms.
+    radius : str, optional
+        The radii of the elements: "display", "covalent" or "vdw". Default
+        display.
+    elements : mapping, optional
+        Radii of elements in Å, such as ``{"C": 0.6}``, in place of their
+        own.
+    scale : float, optional
+        A factor of every radius. Default 1.
+
+    Returns
+    -------
+    numpy.ndarray
+        (N,) the ``radius`` column of the system where it has one, else the
+        radii of the elements, times the scale.
+    """
+    if "radius" in system.table.columns:
+        return np.asarray(system["radius"], dtype=float) * float(scale)
+    names = _element_names(system)
+    radii = np.asarray(element_radii(names, radius), dtype=float)
+    for symbol, chosen in (elements or {}).items():
+        radii[names == symbol] = float(chosen)
+    return radii * float(scale)
+
+
+#: Distinct colors for labels, such as the values of a column colored by
+#: type or the clusters of an analysis, taken in turn.
+LABEL_COLORS = np.array(
+    [
+        (0.97, 0.51, 0.47),
+        (0.40, 0.76, 0.65),
+        (0.55, 0.63, 0.80),
+        (0.91, 0.54, 0.76),
+        (0.65, 0.85, 0.33),
+        (1.00, 0.85, 0.18),
+        (0.90, 0.77, 0.58),
+        (0.45, 0.62, 0.94),
+        (0.99, 0.55, 0.38),
+        (0.70, 0.70, 0.70),
+        (0.30, 0.69, 0.29),
+        (0.60, 0.31, 0.64),
+    ]
+)
+LABEL_COLORS.flags.writeable = False
+
+
+def _with_colors(system: System, colors: np.ndarray, atoms: ArrayLike | None) -> System:
+    """The system with its color column, the atoms not given in the colors
+    they had."""
+    if atoms is not None:
+        chosen = _mask(atoms, len(system))
+        colors = np.where(chosen[:, None], colors, atom_colors(system))
+    return system.with_columns(color=np.asarray(colors, dtype=float))
+
+
+def color_by_type(
+    system: System, column: str, *, atoms: ArrayLike | None = None
+) -> System:
+    """The atoms colored by the value of a column, as OVITO's color by type:
+    one of ``LABEL_COLORS`` for each value, in increasing order.
+
+    Parameters
+    ----------
+    system : System
+        The atoms.
+    column : str
+        A column of values of one component, such as ``"element"``,
+        ``"type"`` or ``"cluster"``, or an expression over the columns.
+    atoms : array_like, optional
+        A boolean mask or indices of the atoms to color; the others keep
+        their colors. All by default.
+
+    Returns
+    -------
+    System
+        The system with the colors in its ``color`` column.
+    """
+    values = np.asarray(system[column])
+    if values.ndim != 1:
+        raise InvalidParameter(f"{column} has components: give one of them")
+    _, kind = np.unique(values, return_inverse=True)
+    return _with_colors(
+        system, LABEL_COLORS[kind.reshape(-1) % len(LABEL_COLORS)], atoms
+    )
+
+
+def color_coding(
+    system: System,
+    column: str,
+    colormap: str = "rainbow",
+    value_range: Any = None,
+    *,
+    atoms: ArrayLike | None = None,
+) -> System:
+    """The atoms colored by the values of a column through a colormap, as
+    OVITO's color coding.
+
+    Parameters
+    ----------
+    system : System
+        The atoms.
+    column : str
+        A column of numbers, a component such as ``"velocities.z"`` or an
+        expression over the columns.
+    colormap : str, optional
+        One of ``COLORMAPS``. Default rainbow, as OVITO's.
+    value_range : sequence of float, optional
+        (low, high) values of the two ends; by default the smallest and the
+        largest finite value of the atoms colored.
+    atoms : array_like, optional
+        A boolean mask or indices of the atoms to color; the others keep
+        their colors. All by default.
+
+    Returns
+    -------
+    System
+        The system with the colors in its ``color`` column.
+    """
+    from mdapy.visualization._scene import colormap as through
+
+    try:
+        values = np.asarray(system[column], dtype=float)
+    except (TypeError, ValueError):
+        raise InvalidParameter(f"{column} is not numbers") from None
+    if values.ndim != 1:
+        raise InvalidParameter(f"{column} has components: give one of them")
+    if value_range is None and atoms is not None:
+        chosen = values[_mask(atoms, len(system))]
+        finite = chosen[np.isfinite(chosen)]
+        if len(finite):
+            value_range = (float(finite.min()), float(finite.max()))
+    return _with_colors(system, through(values, colormap, value_range), atoms)
+
+
+def assign_color(
+    system: System, color: Any, *, atoms: ArrayLike | None = None
+) -> System:
+    """The atoms in one color, as OVITO's assign color.
+
+    Parameters
+    ----------
+    system : System
+        The atoms.
+    color : str or sequence of float
+        A color: three numbers from 0 to 1, a code ``"#rrggbb"`` or a name
+        such as ``"red"``.
+    atoms : array_like, optional
+        A boolean mask or indices of the atoms to color; the others keep
+        their colors. All by default.
+
+    Returns
+    -------
+    System
+        The system with the colors in its ``color`` column.
+    """
+    colors = np.broadcast_to(_color(color), (len(system), 3))
+    return _with_colors(system, colors, atoms)
 
 
 #: The ways atoms and bonds are drawn: the radius of the atoms, the bonds
@@ -193,7 +381,8 @@ def render(
         radius, bonds and bond_radius. Default spheres.
     radius : float, array_like or str, optional
         Radius of the atoms in Å, one or (N,) each, or the radii of the
-        elements: "display", "covalent" or "vdw". Default that of the
+        elements: "display", "covalent" or "vdw". Default the ``radius``
+        column of the system where it has one, else that of the
         representation.
     bonds : float, NeighborList, "covalent" or "topology", optional
         Bonds between the atoms closer than this cutoff in Å, the pairs of a
@@ -301,6 +490,8 @@ def render(
     bond_radius = default_bond_radius if bond_radius is None else float(bond_radius)
     if bonds is None:
         bonds = default_bonds
+    if radius is None and "radius" in system.table.columns:
+        radius = np.asarray(system["radius"], dtype=float)
     if radius is None:
         radius = bond_radius if default_radius is None else default_radius
     colors = atom_colors(system, color, colormap_name=colormap, value_range=value_range)

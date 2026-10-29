@@ -208,6 +208,7 @@ nav:
       - Perturbed structures: mlip/perturbation.md
   - Visualization:
       - Rendering: visualization/rendering.md
+      - Coloring atoms: visualization/colors.md
       - Coordination polyhedra: visualization/polyhedra.md
       - Plots: visualization/plots.md
   - Interoperability:

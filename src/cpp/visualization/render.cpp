@@ -571,6 +571,7 @@ void copy3(float* to, const V& from) {
 #if !defined(MDAPY_METAL) && !defined(MDAPY_VULKAN)
 namespace gpu {
 bool available() { return false; }
+std::string device() { return {}; }
 void trace(const Geometry&, const Params&, float*, float*, std::int64_t*, const Control&) {
     throw std::runtime_error("no GPU: this build of mdapy has none");
 }
@@ -578,6 +579,8 @@ void trace(const Geometry&, const Params&, float*, float*, std::int64_t*, const 
 #endif
 
 bool gpu_available() { return gpu::available(); }
+
+std::string gpu_device() { return gpu::device(); }
 
 std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const Style& style,
                                  int width, int height, const Control& control) {

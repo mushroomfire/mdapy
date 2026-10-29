@@ -3,6 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
+import os
 import re
 import shutil
 import struct
@@ -1073,15 +1074,72 @@ def test_the_gpu_can_stop_and_report():
         scene.render(width=64, height=64, device="gpu", progress=stop)
 
 
+@needs_gpu
+def test_the_gpu_draws_scenes_of_one_kind():
+    """Spheres alone, and triangles alone: the other kinds are empty."""
+    rng = np.random.default_rng(1)
+    spheres = Scene()
+    spheres.add_spheres(rng.random((40, 3)) * 10, 0.6, (1, 0, 0))
+    triangles = Scene()
+    corner = rng.random((15, 3)) * 10
+    triangles.add_triangles(corner[:, None, :] + rng.normal(size=(15, 3, 3)), (0, 0, 1))
+    for scene in (spheres, triangles):
+        cpu = scene.render(width=64, height=48).astype(int)
+        gpu = scene.render(width=64, height=48, device="gpu").astype(int)
+        assert (np.abs(cpu - gpu).max(axis=2) > 2).mean() < 0.01
+
+
+@needs_gpu
+def test_the_gpu_device():
+    """The GPU named with its interface; with ray queries on a GPU that has
+    ray tracing units, unless MDAPY_GPU_RAY_TRACING=0."""
+    name = _native.gpu_device()
+    if sys.platform == "darwin":
+        assert name.endswith(" (Metal)")
+    else:
+        assert name.endswith((" (Vulkan)", " (Vulkan, ray queries)"))
+        if os.environ.get("MDAPY_GPU_RAY_TRACING") == "0":
+            assert "ray queries" not in name
+
+
+@needs_gpu
+def test_the_gpu_without_its_ray_tracing_units():
+    """With MDAPY_GPU_RAY_TRACING=0 the GPU traces through the hierarchy of
+    the shader, as GPUs without ray tracing units do: the same pictures."""
+    if "ray queries" not in _native.gpu_device():
+        pytest.skip("no ray tracing units")
+    tests = [
+        f"{__file__}::{name}"
+        for name in (
+            "test_the_gpu_draws_what_the_processor_draws",
+            "test_the_gpu_draws_scenes_of_one_kind",
+            "test_the_gpu_device",
+        )
+    ]
+    done = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *tests],
+        env=dict(os.environ, MDAPY_GPU_RAY_TRACING="0"),
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0, done.stdout
+
+
+def test_no_gpu_has_no_name():
+    if not gpu_available():
+        assert _native.gpu_device() == ""
+
+
 SHADER = Path(__file__).parents[2] / "src/cpp/visualization/render_vulkan.comp"
 
 
-def test_the_vulkan_shader_is_compiled_from_its_source(tmp_path):
-    """render_vulkan.spv is what the command written in render_vulkan.comp
-    makes, with the glslc named there."""
+def test_the_vulkan_shaders_are_compiled_from_their_source(tmp_path):
+    """render_vulkan.spv and render_vulkan_rt.spv are what the commands written
+    in render_vulkan.comp make, with the glslc named there."""
     text = SHADER.read_text()
     version = re.search(r"glslc of shaderc ([\d.]+)", text).group(1)
-    command = re.search(r"^//\s+(glslc .*)$", text, re.M).group(1).split()
+    commands = [line.split() for line in re.findall(r"^//\s+(glslc .*)$", text, re.M)]
+    assert len(commands) == 2
     beside_python = str(Path(sys.executable).parent)
     glslc = shutil.which("glslc") or shutil.which("glslc", path=beside_python)
     if glslc is None:
@@ -1089,10 +1147,12 @@ def test_the_vulkan_shader_is_compiled_from_its_source(tmp_path):
     found = subprocess.run([glslc, "--version"], capture_output=True, text=True).stdout
     if f"shaderc v{version} " not in found:
         pytest.skip(f"glslc is not of shaderc {version}")
-    compiled = tmp_path / "render_vulkan.spv"
-    names = {"render_vulkan.comp": str(SHADER), "render_vulkan.spv": str(compiled)}
-    subprocess.run([glslc] + [names.get(a, a) for a in command[1:]], check=True)
-    assert compiled.read_bytes() == SHADER.with_suffix(".spv").read_bytes()
+    for command in commands:
+        output = command[-1]
+        compiled = tmp_path / output
+        names = {"render_vulkan.comp": str(SHADER), output: str(compiled)}
+        subprocess.run([glslc] + [names.get(a, a) for a in command[1:]], check=True)
+        assert compiled.read_bytes() == (SHADER.parent / output).read_bytes(), output
 
 
 def test_devices(monkeypatch):

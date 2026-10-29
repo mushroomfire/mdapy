@@ -222,8 +222,16 @@ def test_novelty():
     alone = novelty(repeated)
     distances = np.linalg.norm(repeated[:, None] - repeated[None], axis=2)
     np.fill_diagonal(distances, np.inf)
-    np.testing.assert_allclose(alone, distances.min(axis=1), atol=1e-7)
-    assert alone[3] == alone[-1] == pytest.approx(0, abs=1e-7)
+    np.testing.assert_allclose(alone, distances.min(axis=1), rtol=1e-12)
+    assert alone[3] == alone[-1] == 0  # the same point, exactly
+    # blocks of rows, several of them, on threads: the same distances
+    many = rng.normal(size=(3000, 4))
+    exact = np.linalg.norm(many[:, None] - many[None], axis=2)
+    np.fill_diagonal(exact, np.inf)
+    with mdapy.num_threads(1):
+        one = novelty(many)
+    np.testing.assert_array_equal(novelty(many), one)
+    np.testing.assert_allclose(one, exact.min(axis=1), rtol=1e-12)
     for bad in [
         (points[0], None),
         (points, reference[:, :3]),

@@ -8,6 +8,7 @@ against the labels of the frames, the spread of a committee of models,
 how far frames lie from others, and frames that look wrong."""
 
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ import polars as pl
 
 from mdapy.core.result import Result
 from mdapy.core.system import System
+from mdapy.core.threads import get_num_threads
 from mdapy.elements import covalent_radii
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
@@ -344,7 +346,7 @@ def novelty(points: Any, reference: Any = None) -> np.ndarray:
         (M, D) the points.
     reference : array_like, optional
         (K, D) the points to measure from. Default the other points of
-        ``points``, whose nearly zero distances find repeated frames.
+        ``points``, whose zero distances find repeated frames.
 
     Returns
     -------
@@ -360,13 +362,23 @@ def novelty(points: Any, reference: Any = None) -> np.ndarray:
         raise InvalidParameter("there are no other points to measure from")
     norms = (y**2).sum(axis=1)
     found = np.empty(len(x))
-    block = max(1, (1 << 24) // max(len(y), 1))
-    for start in range(0, len(x), block):
+    block = max(1, (1 << 22) // max(len(y), 1))
+
+    def nearest(start: int) -> None:
+        # the nearest by |y|^2 - 2 x.y, then its distance exactly
         part = x[start : start + block]
-        squared = (part**2).sum(axis=1)[:, None] - 2 * part @ y.T + norms[None, :]
+        rows = np.arange(len(part))
+        squared = part @ y.T
+        squared *= -2.0
+        squared += norms
         if alone:
-            squared[np.arange(len(part)), np.arange(start, start + len(part))] = np.inf
-        found[start : start + len(part)] = np.sqrt(np.maximum(squared.min(axis=1), 0.0))
+            squared[rows, start + rows] = np.inf
+        found[start : start + len(part)] = np.linalg.norm(
+            part - y[squared.argmin(axis=1)], axis=1
+        )
+
+    with ThreadPoolExecutor(get_num_threads()) as pool:
+        list(pool.map(nearest, range(0, len(x), block)))
     return found
 
 

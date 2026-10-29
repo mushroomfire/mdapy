@@ -214,7 +214,11 @@ def test_band_structures():
         / (2 * np.pi)
     )
     by_hand = result.band_structure([[("Γ", [0, 0, 0]), ("X", x)]], points=11)
-    np.testing.assert_allclose(by_hand.frequencies, bands.frequencies[:11], atol=1e-12)
+    # the zero modes at Γ are square roots of rounding, equal only to that
+    np.testing.assert_allclose(by_hand.frequencies[0], bands.frequencies[0], atol=1e-6)
+    np.testing.assert_allclose(
+        by_hand.frequencies[1:], bands.frequencies[1:11], atol=1e-12
+    )
     # the conventional cell along the same path has the folded modes too
     folded = phonons(cell, springs, supercell=2).band_structure("fcc", points=11)
     assert folded.frequencies.shape == (66, 12)

@@ -1,4 +1,52 @@
-# mdapy 2.0 夜间进展报告（2026-10-28 夜 → 29）
+# mdapy 2.0 夜间进展报告（2026-10-29 夜 → 30）
+
+你下班前说的：每个功能在 mdapy 本体里都要有对应的函数（再简单也要有），导出的脚本只调用 mdapy；全部测试好以后直接合进 v2，明天再看细节。本地工作在私有进度页单独汇报。
+
+## 早上先看这里
+
+1. **合入 v2 的是分支 `gui-parity`**（7 个提交，见下表）。全部测试通过后合并，合并后删掉分支。
+2. **`find_overlapping` 保留哪个原子：和 OVITO 不能逐原子一致**。OVITO 文档写的是“每组随机留一个”，实测确实不固定：两对重叠的原子，一对选了后一个，另一对选了前一个；链状 A–B–C（A–B、B–C 重叠，A–C 不重叠）只选 C，删掉后 A–B 仍然重叠。mdapy 的规则是**每对选编号大的那个**：删掉后不再有过近的原子对，一组互相重叠的原子留编号最小的一个。所以和 OVITO 只比 `keep_one=False`（逐原子相同）和 `keep_one=True` 时每组选中的个数（相同）。文档里写明了。
+3. **`AtomicStrain` 改成按 id 对应参考帧的原子**（OVITO 也是这样）：原来原子顺序不同就报错，现在任意顺序都行，结果按当前帧的原子顺序给出。
+4. **`TimeAverage` 对分量求平均时，列名里的点换成下划线**：`positions.z` 的平均是 `positions_z_average`，和 `freeze`、`FrameDifference` 的命名一致（原来是 `positions.z_average`，这样的列名在表达式里读不出来）。
+
+## 合入 v2 的提交
+
+| 提交 | 内容 |
+|---|---|
+| `95ae9db` | 统计：`analysis.reduce`（10 种归约，NaN 不参与）、`Histogram`、`BondLengthDistribution`（总的和每对元素）、`TimeSeries`、`FrameDifference`；`transform.freeze`、`smooth_trajectory`、`create_bonds`；`System.where`（条件 → 布尔掩码）；`render(bonds="topology")`。都和 OVITO 3.17.1 实时对比 |
+| `82fd589e` | 着色：`color_coding`、`color_by_type`、`assign_color`，7 种色图（rainbow、viridis、magma、jet、hot、blue_white_red、gray）和 OVITO 逐值一致到 1e-6；`atom_colors(elements=...)`、`atom_radii(elements=..., scale=...)`；`render` 默认用 `radius` 列 |
+| `e212cfc` | `Trajectory.map(function)`：帧经过一个函数，用到时才算，可以接着 `map`；时间平均、时间序列、去漂移、平滑都直接收它 |
+| `20fb3a2` | `neighbor.find_overlapping`：距离过近的原子（OVITO 的 Find overlapping particles，规则见上） |
+| `b4254859` | `plot.scatter`：两列（分量、表达式）互相作图，有限值、最多 2 万个点（固定种子抽样）；Plots 页补了两张图 |
+| `090c10c` | `AtomicStrain` 按 id 对应；时间平均分量列名；`smooth_trajectory` 窗口里每帧只读一次、当前帧最后读 |
+
+每个新功能都有自己的文档页（例子、参数、结果、出错）、配图、术语表和发布说明。
+
+## 进展
+
+### 10-29 22:00
+- **测试**：全量 2710 项通过（Python 3.13），覆盖率 99.68%，每个文件都 ≥ 95%；最低依赖环境（Python 3.11、NumPy 2.3.1、polars 2.0.0）2141 项通过；文档严格构建通过；ruff 通过。分支的 CI（Linux、macOS、Windows）已触发，过了就合并。
+- **`find_overlapping`**：晶体里嵌一个转了 25° 的晶粒，晶粒边上离晶体原子不到 2 Å 的原子（红色），删掉后不再有过近的原子对：
+
+![转了 25° 的晶粒嵌在铜晶体里，过近的原子标红](images/overlapping-1029.png)
+
+- **`plot.scatter`**：热振动的铜纳米颗粒，每个原子的近邻数对它到中心的距离：
+
+![纳米颗粒原子的配位数对距离](images/scatter-1029.png)
+
+- **之前提交里的图**：着色（按高度、按元素、指定颜色）、直方图、平滑轨迹、键长分布：
+
+![按高度、按元素着色，一层原子指定颜色](images/colors-1029.png)
+
+![直方图](images/histogram-1029.png)
+
+![平滑轨迹](images/smooth-trajectory-1029.png)
+
+![乙醇的键长分布](images/bond-lengths-1029.png)
+
+---
+
+# 之前：2026-10-28 夜 → 29
 
 你下班前的安排里和 mdapy 本体有关的部分：
 

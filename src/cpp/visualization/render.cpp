@@ -568,7 +568,7 @@ void copy3(float* to, const V& from) {
 
 }  // namespace
 
-#ifndef MDAPY_METAL
+#if !defined(MDAPY_METAL) && !defined(MDAPY_VULKAN)
 namespace gpu {
 bool available() { return false; }
 void trace(const Geometry&, const Params&, float*, float*, std::int64_t*, const Control&) {

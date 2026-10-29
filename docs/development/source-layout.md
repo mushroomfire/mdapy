@@ -65,6 +65,7 @@
 | `src/mdapy/analysis/_isosurface.py`, `src/cpp/analysis/isosurface.cpp` | `isosurface`, by marching tetrahedra. |
 | `src/cpp/visualization/render.h`, `render.cpp` | the ray tracer: bounding volume hierarchy, shading, outlines. |
 | `src/cpp/visualization/render_gpu.h`, `render_metal.mm` | the rays of pictures on the GPU: Metal on macOS, its shader compiled when first used. |
+| `src/cpp/visualization/render_vulkan.cpp`, `render_vulkan.comp`, `render_vulkan.spv` | the same with Vulkan on Linux: the loader opened when first used; the shader held as SPIR-V, compiled from `render_vulkan.comp` by the command written there (a test checks that the two agree). |
 | `src/mdapy/build/_sqs.py`, `src/cpp/build/sqs.cpp` | `sqs_alloy` and its annealing. |
 | `src/mdapy/build/_defects.py` | point defects, `slip`, `add_vacuum`. |
 | `src/mdapy/build/_dislocation.py` | `insert_dislocation`, `edge_dislocation`. |

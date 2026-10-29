@@ -17,6 +17,16 @@ Building needs a C++17 compiler and CMake 3.18 or newer; `pip` installs the
 remaining build tools (scikit-build-core and nanobind) automatically. No
 OpenMP library is needed.
 
+## Pictures on the GPU
+
+[Pictures](../visualization/rendering.md#on-the-gpu) are traced on the GPU
+with Metal on macOS, in every build, and with Vulkan on Linux when the build
+finds Vulkan's headers: install them before mdapy, as `libvulkan-dev` on
+Debian and Ubuntu or `vulkan-headers` on Fedora and RHEL. mdapy opens the
+Vulkan loader, `libvulkan.so.1`, only for a picture on the GPU; the loader
+and the driver come with the graphics drivers. Without the headers, or
+without a GPU, pictures are traced on the processor.
+
 ## 64-bit atom indices
 
 Atom indices in results such as neighbor lists are 32-bit integers, enough

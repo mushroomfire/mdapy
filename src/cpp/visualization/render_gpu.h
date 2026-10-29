@@ -3,9 +3,9 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
-// The rays of a picture traced on a GPU, with Metal on macOS: the same
-// samples as on the processor, in single precision as there, so pictures
-// differ only by rounding.
+// The rays of a picture traced on a GPU, with Metal on macOS and Vulkan on
+// Linux: the same samples as on the processor, in single precision as there,
+// so pictures differ only by rounding.
 
 #pragma once
 

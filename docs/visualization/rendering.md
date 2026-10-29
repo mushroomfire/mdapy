@@ -192,12 +192,18 @@ sampled by the rays of each pixel and look grainy with few of them: raise
 
 ## On the GPU
 
-With `device="gpu"` the rays are traced on the GPU, with Metal on macOS;
-`gpu_available()` tells whether there is one. The picture is the same as on
+With `device="gpu"` the rays are traced on the GPU: with Metal on macOS, and
+with Vulkan on Linux, whose loader and driver come with the graphics
+drivers of NVIDIA, AMD and Intel (a build from source needs Vulkan's
+headers, see [Installation](../getting-started/installation.md#pictures-on-the-gpu)).
+`gpu_available()` tells whether there is a GPU. The picture is the same as on
 the processor, with the same random samples in the same precision, up to
-rounding at a few edges. A million atoms take 1.0 s for 1920 × 1080 in the
-matte style against 4.2 s on the processor, and 3.1 s against 11.6 s in the
-shiny style (Apple M5).
+rounding at a few edges. For a million atoms at 1920 × 1080:
+
+| Style | Apple M5 GPU | its processor | NVIDIA RTX A2000 | Intel Core i5-12600K |
+|---|---|---|---|---|
+| matte | 1.1 s | 4.6 s | 1.5 s | 4.9 s |
+| shiny | 2.9 s | 13.4 s | 3.4 s | 14.0 s |
 
 ```python
 from mdapy.visualization import gpu_available

@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(MDAPY_WERROR "Treat compiler warnings as errors" OFF)
 option(MDAPY_INDEX64 "64-bit atom indices, for more than 2^31 - 1 atoms" OFF)
 option(MDAPY_METAL "Pictures traced on the GPU with Metal (macOS only)" ON)
+option(MDAPY_VULKAN "Pictures traced on the GPU with Vulkan (Linux only)" ON)
 set(MDAPY_SANITIZE "" CACHE STRING
   "Sanitizer build: 'address' (AddressSanitizer + UndefinedBehaviorSanitizer) or 'thread' (ThreadSanitizer)")
 
@@ -46,6 +47,27 @@ if(APPLE AND MDAPY_METAL)
     PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
   target_compile_definitions(_core PRIVATE MDAPY_METAL)
   target_link_libraries(_core PRIVATE "-framework Metal" "-framework Foundation")
+endif()
+# On Linux with Vulkan, whose loader is opened when first used, so the build
+# needs its headers only and mdapy runs without it. The shader is the SPIR-V
+# of render_vulkan.comp, held in the sources: the build needs no compiler.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND MDAPY_VULKAN)
+  find_path(MDAPY_VULKAN_INCLUDE_DIR vulkan/vulkan_core.h)
+  if(MDAPY_VULKAN_INCLUDE_DIR)
+    set(spirv "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/visualization/render_vulkan.spv")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${spirv}")
+    file(READ "${spirv}" spirv_bytes HEX)
+    string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," spirv_bytes "${spirv_bytes}")
+    file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/visualization/render_vulkan_spirv.h"
+      CONTENT "// render_vulkan.spv, written by CMake\n#pragma once\nconst unsigned char kSpirv[] = {${spirv_bytes}};\n"
+      @ONLY)
+    target_include_directories(_core PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    target_include_directories(_core SYSTEM PRIVATE "${MDAPY_VULKAN_INCLUDE_DIR}")
+    target_compile_definitions(_core PRIVATE MDAPY_VULKAN)
+    target_link_libraries(_core PRIVATE ${CMAKE_DL_LIBS})
+  else()
+    message(STATUS "No Vulkan headers: pictures are traced on the processor only")
+  endif()
 endif()
 
 if(MSVC)

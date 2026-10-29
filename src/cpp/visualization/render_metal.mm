@@ -577,10 +577,14 @@ Device& shared() {
                 return;
             }
             MTLCompileOptions* options = [MTLCompileOptions new];
-            // the shader compares with infinity: no fast math
+            // the shader compares with infinity: no fast math; mathMode
+            // needs the SDK of macOS 15 to build, and macOS 15 to run
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 150000
             if (@available(macOS 15.0, *)) {
                 options.mathMode = MTLMathModeSafe;
-            } else {
+            } else
+#endif
+            {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
                 options.fastMathEnabled = NO;

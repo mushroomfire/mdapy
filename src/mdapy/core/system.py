@@ -66,14 +66,15 @@ def _normalize_table(
             "from separate columns with pl.concat_arr('x', 'y', 'z')"
         )
     checked = _STANDARD_COLUMNS if columns is None else set(columns)
+    schema = table.schema  # made anew at each access
     casts = []
     for name, dtype in _STANDARD_COLUMNS.items():
-        if name not in checked or name not in table.columns:
+        if name not in checked or name not in schema:
             continue
-        if table.schema[name] == dtype:
+        if schema[name] == dtype:
             continue
         inner = dtype.inner if isinstance(dtype, pl.Array) else dtype
-        source = table.schema[name]
+        source = schema[name]
         if isinstance(dtype, pl.Array) and not (
             isinstance(source, pl.List)
             or (isinstance(source, pl.Array) and source.size == dtype.size)
@@ -97,8 +98,9 @@ def _normalize_table(
             table = table.with_columns(casts)
         except pl.exceptions.PolarsError as exc:
             raise InvalidParameter(f"invalid standard column: {exc}") from None
+    present = set(table.columns)
     for name in _STANDARD_COLUMNS:
-        if name in checked and name in table.columns and table[name].null_count():
+        if name in checked and name in present and table[name].null_count():
             raise InvalidParameter(f"column {name!r} has missing values")
     if len(table):
         if "positions" in checked:

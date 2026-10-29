@@ -462,6 +462,11 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   OVITO and freud, on the same systems, where each program gives the
   result of mdapy, each program in a process of its own with limits of
   memory and time. See [mdapy, OVITO and freud](../performance/comparison.md).
+- Extended XYZ files of many small frames read faster: the comment line is
+  split at once in its common form, the element column comes from the
+  categories kept for the file, and the box and the columns are checked
+  with less work. The 105,464 frames of UNEP16 read in 15 s rather than
+  19 s on an Apple M5; small frames about 40 % faster.
 
 ### Tutorials
 

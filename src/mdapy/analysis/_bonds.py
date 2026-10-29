@@ -454,6 +454,125 @@ class BondAngleDistribution:
 
 
 @dataclass(frozen=True)
+class BondLengthResult(Result):
+    """The distribution of the lengths of the bonds of a topology.
+
+    Attributes
+    ----------
+    length : numpy.ndarray
+        (bins,) centers of the bins in Å.
+    edges : numpy.ndarray
+        (bins + 1,) edges of the bins in Å.
+    counts : numpy.ndarray
+        (bins,) int64 number of bonds in each bin.
+    density : numpy.ndarray
+        (bins,) the counts normalized to unit area, per Å.
+    lengths : numpy.ndarray
+        (bonds,) the length of each bond, in the order of the topology.
+    partial : dict
+        (bins,) int64 counts of the bonds between each pair of elements
+        ``(a, b)``, ``a`` not after ``b`` by atomic number; empty without an
+        element column.
+    """
+
+    length: np.ndarray
+    edges: np.ndarray
+    counts: np.ndarray
+    density: np.ndarray
+    lengths: np.ndarray
+    partial: dict[tuple[str, str], np.ndarray]
+
+    def pair(self, a: str, b: str) -> np.ndarray:
+        """The counts of the bonds a-b, a and b in either order."""
+        if (a, b) in self.partial:
+            return self.partial[a, b]
+        if (b, a) in self.partial:
+            return self.partial[b, a]
+        raise InvalidParameter(f"no partial distribution for {(a, b)}")
+
+
+class BondLengthDistribution:
+    """The distribution of the lengths of the bonds of a topology, in total
+    and for each pair of elements, as OVITO's bond length distribution.
+
+    Parameters
+    ----------
+    bins : int, optional
+        Number of bins. Default 100.
+    cutoff : float, optional
+        The upper end of the bins in Å; longer bonds are not counted. By
+        default the longest bond.
+    """
+
+    def __init__(self, bins: int = 100, cutoff: float | None = None):
+        if bins < 1:
+            raise InvalidParameter(f"bins must be at least 1, not {bins!r}")
+        if cutoff is not None and not cutoff > 0:
+            raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
+        self.bins = int(bins)
+        self.cutoff = None if cutoff is None else float(cutoff)
+
+    def compute(self, system: System) -> BondLengthResult:
+        """The distribution of a system.
+
+        Parameters
+        ----------
+        system : System
+            The atoms with bonds in their topology, such as those of a LAMMPS
+            data file or of ``covalent_bonds``; each bond is measured to the
+            nearest periodic image of its second atom.
+
+        Returns
+        -------
+        BondLengthResult
+            The counts of the lengths, from 0 to the cutoff.
+        """
+        topology = system.topology
+        if topology is None or not len(topology.bonds):
+            raise MissingProperty(
+                "the bond length distribution needs bonds in the topology"
+            )
+        pairs = np.asarray(topology.bonds["atoms"].to_list(), dtype=np.int64)
+        positions = system["positions"]
+        lengths = np.linalg.norm(
+            system.box.minimum_image(positions[pairs[:, 1]] - positions[pairs[:, 0]]),
+            axis=1,
+        )
+        cutoff = self.cutoff if self.cutoff is not None else float(lengths.max())
+        if not cutoff > 0:
+            cutoff = 1.0
+        edges = np.linspace(0.0, cutoff, self.bins + 1)
+        counts, _ = np.histogram(lengths, bins=edges)
+        partial = {}
+        found = _elements(system)
+        if found is not None:
+            names, index = found
+            first, second = index[pairs[:, 0]], index[pairs[:, 1]]
+            low, high = np.minimum(first, second), np.maximum(first, second)
+            for a in range(len(names)):
+                for b in range(a, len(names)):
+                    chosen = (low == a) & (high == b)
+                    partial[names[a], names[b]] = np.histogram(
+                        lengths[chosen], bins=edges
+                    )[0].astype(np.int64)
+        total = counts.sum()
+        density = (
+            counts / (total * (edges[1] - edges[0])) if total else np.zeros(self.bins)
+        )
+        return BondLengthResult(
+            length=0.5 * (edges[1:] + edges[:-1]),
+            edges=edges,
+            counts=counts.astype(np.int64),
+            density=density,
+            lengths=lengths,
+            partial=partial,
+        )
+
+    def __repr__(self) -> str:
+        return f"BondLengthDistribution(bins={self.bins}, cutoff={self.cutoff})"
+
+
+@dataclass(frozen=True)
 class WarrenCowleyResult(Result):
     """Warren-Cowley short-range order parameters.
 

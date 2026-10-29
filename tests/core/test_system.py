@@ -593,6 +593,28 @@ def test_filter_by_expressions_conditions_and_keywords():
     assert len(s.filter("element in ['Cu', 'Ni']")) == 0
 
 
+def test_where_gives_the_mask_filter_keeps():
+    """The atoms of the conditions as a mask, the same that filter keeps."""
+    s = water_dimer().with_columns(charge=[-0.8, 0.4, 0.4] * 2)
+    for ways, equal in (
+        (("element == 'H'",), {}),
+        (("charge > 0", pl.col("type") == 2), {}),
+        ((np.array([True, False] * 3),), {"element": "O"}),
+        (("positions.x > 2 and element != 'O'",), {}),
+        ((), {}),
+    ):
+        mask = s.where(*ways, **equal)
+        assert mask.dtype == bool and mask.shape == (6,)
+        np.testing.assert_array_equal(
+            s["positions"][mask], s.filter(*ways, **equal)["positions"]
+        )
+    assert s.where().all()
+    with pytest.raises(InvalidParameter, match="true or false"):
+        s.where("charge * 2")
+    with pytest.raises(InvalidParameter, match="booleans"):
+        s.where(np.ones(5, dtype=bool))
+
+
 def test_filter_treats_missing_values_as_false():
     s = water_dimer().with_columns(score=pl.Series([1.0, None, 3.0, None, 5.0, 6.0]))
     np.testing.assert_array_equal(

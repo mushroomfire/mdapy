@@ -19,6 +19,8 @@ import mdapy as mp
 
 ::: mdapy.Trajectory
 
+::: mdapy.io.Mapped
+
 ::: mdapy.formats
 
 ::: mdapy.detect_format
@@ -34,6 +36,10 @@ import mdapy as mp
 ::: mdapy.core.box.LammpsBox
 
 ::: mdapy.NeighborList
+
+::: mdapy.neighbor.expand_selection
+
+::: mdapy.neighbor.find_overlapping
 
 ## Analyses
 
@@ -88,6 +94,16 @@ import mdapy as mp
 ::: mdapy.analysis.BondAngleDistribution
 
 ::: mdapy.analysis.BondAngleResult
+
+::: mdapy.analysis.BondLengthDistribution
+
+::: mdapy.analysis.BondLengthResult
+
+::: mdapy.analysis.Histogram
+
+::: mdapy.analysis.HistogramResult
+
+::: mdapy.analysis.reduce
 
 ::: mdapy.analysis.RingStatistics
 
@@ -159,6 +175,18 @@ import mdapy as mp
 
 ::: mdapy.analysis.LindemannResult
 
+::: mdapy.analysis.TimeAverage
+
+::: mdapy.analysis.TimeAverageResult
+
+::: mdapy.analysis.TimeSeries
+
+::: mdapy.analysis.TimeSeriesResult
+
+::: mdapy.analysis.FrameDifference
+
+::: mdapy.analysis.FrameDifferenceResult
+
 ::: mdapy.analysis.AtomicTemperature
 
 ::: mdapy.analysis.TemperatureResult
@@ -205,6 +233,12 @@ import mdapy as mp
 
 ::: mdapy.transform.remove_drift
 
+::: mdapy.transform.freeze
+
+::: mdapy.transform.smooth_trajectory
+
+::: mdapy.transform.create_bonds
+
 ::: mdapy.transform.combine
 
 ::: mdapy.transform.slice
@@ -246,6 +280,14 @@ import mdapy as mp
 ::: mdapy.visualization.Scene
 
 ::: mdapy.visualization.atom_colors
+
+::: mdapy.visualization.atom_radii
+
+::: mdapy.visualization.color_coding
+
+::: mdapy.visualization.color_by_type
+
+::: mdapy.visualization.assign_color
 
 ::: mdapy.visualization.voxel_faces
 

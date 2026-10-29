@@ -6,12 +6,18 @@
 """Visualization: pictures of atoms by ray tracing."""
 
 from mdapy.visualization._render import (
+    LABEL_COLORS,
     REPRESENTATIONS,
+    assign_color,
     atom_colors,
+    atom_radii,
+    color_by_type,
+    color_coding,
     covalent_bonds,
     render,
 )
 from mdapy.visualization._scene import (
+    COLORMAPS,
     STYLES,
     VIEWS,
     Scene,
@@ -25,7 +31,13 @@ from mdapy.visualization._scene import (
 from mdapy.visualization._voxels import voxel_faces
 
 __all__ = [
+    "COLORMAPS",
+    "LABEL_COLORS",
     "REPRESENTATIONS",
+    "assign_color",
+    "atom_radii",
+    "color_by_type",
+    "color_coding",
     "covalent_bonds",
     "STYLES",
     "VIEWS",

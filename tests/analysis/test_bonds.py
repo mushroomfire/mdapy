@@ -7,7 +7,12 @@ import numpy as np
 import pytest
 
 import mdapy
-from mdapy.analysis import BondAngleDistribution, ClusterAnalysis, WarrenCowley
+from mdapy.analysis import (
+    BondAngleDistribution,
+    BondLengthDistribution,
+    ClusterAnalysis,
+    WarrenCowley,
+)
 from mdapy.errors import InvalidParameter, MissingProperty
 
 from lattices import crystal
@@ -434,3 +439,61 @@ def test_bond_angle_of_water():
 def test_invalid_options(make, message):
     with pytest.raises(InvalidParameter, match=message):
         make()
+
+
+# ------------------------------------------------------- bond lengths
+
+
+def bonded_system():
+    """Atoms of two elements in a periodic box, with bonds across the
+    boundaries."""
+    rng = np.random.default_rng(5)
+    positions = rng.random((30, 3)) * 8
+    elements = ["Cu"] * 20 + ["O"] * 10
+    pairs = rng.choice(30, size=(40, 2))
+    pairs = pairs[pairs[:, 0] != pairs[:, 1]]
+    system = mdapy.System(positions, mdapy.Box(8.0), elements=elements)
+    return system.with_topology(mdapy.Topology(bonds=pairs)), pairs
+
+
+def test_bond_lengths_by_hand():
+    """The length of each bond to the nearest image, counted in bins from
+    0 to the longest; and for each pair of elements."""
+    system, pairs = bonded_system()
+    step = system["positions"][pairs[:, 1]] - system["positions"][pairs[:, 0]]
+    step -= 8.0 * np.round(step / 8.0)
+    lengths = np.linalg.norm(step, axis=1)
+    result = BondLengthDistribution(bins=7).compute(system)
+    np.testing.assert_allclose(result.lengths, lengths, rtol=1e-14)
+    edges = np.linspace(0, lengths.max(), 8)
+    np.testing.assert_array_equal(result.counts, np.histogram(lengths, edges)[0])
+    np.testing.assert_allclose(result.edges, edges)
+    np.testing.assert_allclose(result.density.sum() * edges[1], 1.0)
+    elements = np.asarray(system["element"])[pairs]
+    for a, b in [("O", "Cu"), ("O", "O"), ("Cu", "Cu")]:
+        chosen = (elements[:, 0] == a) & (elements[:, 1] == b) | (
+            (elements[:, 0] == b) & (elements[:, 1] == a)
+        )
+        np.testing.assert_array_equal(
+            result.pair(a, b), np.histogram(lengths[chosen], edges)[0]
+        )
+    assert set(result.partial) == {("O", "O"), ("O", "Cu"), ("Cu", "Cu")}
+    with pytest.raises(InvalidParameter, match="no partial"):
+        result.pair("Cu", "Ni")
+    # a cutoff leaves the longer bonds out
+    short = BondLengthDistribution(bins=4, cutoff=2.0).compute(system)
+    assert short.counts.sum() == (lengths <= 2.0).sum()
+    assert "cutoff=2.0" in repr(BondLengthDistribution(4, 2.0))
+
+
+def test_bond_lengths_errors():
+    system, _ = bonded_system()
+    with pytest.raises(MissingProperty, match="bonds"):
+        BondLengthDistribution().compute(system.with_topology(None))
+    with pytest.raises(InvalidParameter, match="bins"):
+        BondLengthDistribution(bins=0)
+    with pytest.raises(InvalidParameter, match="cutoff"):
+        BondLengthDistribution(cutoff=0)
+    # without elements, no partial distributions
+    plain = system.drop("element")
+    assert BondLengthDistribution().compute(plain).partial == {}

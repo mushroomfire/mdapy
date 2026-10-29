@@ -27,7 +27,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   `"positions.x**2 + positions.y**2 < 25 and element == 'Cu'"`, with the
   components of array columns by name or index, comparisons, logic,
   membership, arithmetic and common functions; keywords, masks and polars
-  expressions work too. `system["positions.z"]` gives the values of a
+  expressions work too. `System.where` gives the atoms of the same
+  conditions as a boolean mask. `system["positions.z"]` gives the values of a
   column, a component or such an expression as a read-only NumPy array,
   without a copy for columns and components. See
   [Selecting and ordering atoms](../getting-started/selecting.md).
@@ -74,8 +75,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   at once; also the frames of several files, given as a pattern such as
   `dump.*.lammpstrj` or a list, and frames that move the atoms of a
   topology read from a data file, matched by id, with its bonds, charges
-  and molecules, as OVITO's load trajectory. See
-  [Trajectories](../getting-started/trajectory.md).
+  and molecules, as OVITO's load trajectory; `Trajectory.map` gives the
+  frames through a function, each computed when it is used, for the
+  analyses of trajectories. See [Trajectories](../getting-started/trajectory.md).
 - Reading CIF files, crystals expanded by their symmetry operations as
   pymatgen, ASE and OVITO read them, and PDB files, with atom names,
   residues, models as frames and the bonds of `CONECT`; VASP OUTCAR
@@ -101,6 +103,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   cutoff, the nearest neighbors or the bonded atoms of the selected ones,
   step by step, as OVITO's expand selection. See
   [Expanding a selection](../getting-started/expand-selection.md).
+- `mdapy.neighbor.find_overlapping`: the atoms closer than a distance to
+  another, the later atom of each such pair so that deleting them leaves
+  none that close, or all of them, as OVITO's find overlapping particles.
+  See [Overlapping atoms](../getting-started/overlapping.md).
 - Analyses given a list read it where it is, without a copy: those of the
   k nearest neighbors put the k nearest pairs of each atom first in the
   list itself, once, in parallel; those within a cutoff read the pairs
@@ -242,7 +248,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   function of two properties of the atoms, by fast Fourier transforms on a
   grid and by a direct sum over neighbors, the same as OVITO's spatial
   correlation function; the [`BondAngleDistribution`](../analysis/bond-angles.md) for
-  each triplet of elements; [`RingStatistics`](../analysis/rings.md), the
+  each triplet of elements; the [`BondLengthDistribution`](../analysis/bond-lengths.md)
+  of the bonds of a topology, in total and for each pair of elements; [`RingStatistics`](../analysis/rings.md), the
   shortest-path rings of a network of bonds up to 36 atoms, without the
   paths around the periodic box, drawn as polygons;
   [`WarrenCowley`](../analysis/warren-cowley.md)
@@ -276,7 +283,21 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [`mdapy.transform.remove_drift`](../analysis/drift.md): the frames of a
   trajectory moved to keep the center of mass of all the atoms or of some
   where it is in a reference frame, read when they are used, as OVITO's
-  center of mass correction.
+  center of mass correction. [`TimeSeries`](../analysis/time-series.md): a
+  column reduced to one number, or anything computed, in every frame, as
+  OVITO's time series; [`FrameDifference`](../analysis/frame-difference.md),
+  the change of a column of each atom from a reference frame;
+  [`mdapy.transform.freeze`](../analysis/freeze.md), the values of a column
+  in a reference frame given to the atoms of another; and
+  [`mdapy.transform.smooth_trajectory`](../analysis/smooth-trajectory.md),
+  the positions and other real numbers averaged over a window of frames;
+  each as OVITO's modifier of the same name, the atoms matched by id.
+- Statistics of a column in `mdapy.analysis`, agreeing with OVITO:
+  [`Histogram`](../analysis/histogram.md), the counts of the values of a
+  column, a component or an expression in bins, of all atoms or of a mask;
+  [`reduce`](../analysis/reduce.md), one number from them: mean, sum,
+  extremes, median, variance, standard deviation, the count of those not
+  zero, or the atom of the lowest or highest, NaN values left out.
 - Defects and deformation in `mdapy.analysis`, agreeing with OVITO:
   [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms
   and whether they span the box, and on request their unwrapped positions,
@@ -293,7 +314,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [`WignerSeitz`](../analysis/wigner-seitz.md) for vacancies and
   interstitials, the sites of the reference kept in a k-d tree for every
   configuration; and [`AtomicStrain`](../analysis/atomic-strain.md), the
-  von Mises and volumetric strains against a reference, and on request the
+  von Mises and volumetric strains against a reference, its atoms matched
+  by id, and on request the
   Green–Lagrange strain tensor and $D^2_\text{min}$. As in OVITO, the
   results that cost more are computed only when asked for.
 - [`ElasticStrain`](../analysis/elastic-strain.md) in `mdapy.analysis`: the
@@ -373,6 +395,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   first, in its box, as OVITO's combine datasets: the columns of either,
   ids numbered on, molecules and topology terms offset. See
   [Combining systems](../build/combine.md).
+- `mdapy.transform.create_bonds`: bonds in the topology between the atoms
+  closer than a cutoff, or covalent bonds, as OVITO's create bonds; drawn by
+  `render(bonds="topology")`. See [Creating bonds](../build/bonds.md).
 
 ### MLIP
 
@@ -431,11 +456,19 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   the GPU, with Metal on macOS or Vulkan on Linux, which use the ray tracing
   units of the GPU where it has them.
   See [Rendering](../visualization/rendering.md).
+- Colors of atoms in `mdapy.visualization`: `color_coding`, `color_by_type`
+  and `assign_color` color all atoms or a mask and keep the colors in the
+  `color` column, which `render` draws by default, as OVITO's modifiers of
+  these names; `atom_colors` and `atom_radii` with colors and radii of
+  elements chosen and a scale; colormaps rainbow, viridis, magma, jet, hot,
+  blue_white_red and gray computed as OVITO computes them, besides plasma
+  and coolwarm. See [Coloring atoms](../visualization/colors.md).
 - `mdapy.visualization.plot`: matplotlib set up for journals (widths of
   columns, Nature's artwork guide, Okabe–Ito colors, panel labels, saving
   as PDF, SVG and PNG) and plots of results: parity, g(r), S(q), bond
   angles, MSD with the diffusion coefficient, stacking fault energies,
-  counts of structures. See [Plots](../visualization/plots.md).
+  counts of structures, and two columns of the atoms against each other
+  (`scatter`). See [Plots](../visualization/plots.md).
 
 ### Interoperability
 

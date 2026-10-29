@@ -10,7 +10,8 @@ them in another order:
 | `sort(*by, descending=False)` | every atom | by the values of columns |
 
 The names and their meaning are those of polars: `filter` keeps rows by a
-condition, `gather` takes rows by index, `sort` orders them.
+condition, `gather` takes rows by index, `sort` orders them. `where` gives
+the atoms of the conditions of `filter` as a [mask](#masks).
 
 ```python
 import numpy as np
@@ -163,6 +164,23 @@ components of a vector with `arr.get`:
 ```python
 upper = crystal.filter(pl.col("positions").arr.get(2) > 10)
 ```
+
+## Masks
+
+`where` takes the same conditions as `filter` and gives the atoms that meet
+them as a boolean mask, without making a new system. A mask is how analyses,
+`render` and `reduce` take some of the atoms (their `atoms` argument), and
+masks combine with `&`, `|` and `~`:
+
+```python
+nickel_mask = crystal.where(element="Ni")  # (N,) bool
+upper_mask = crystal.where("positions.z > 10")
+both = nickel_mask & upper_mask
+others = ~both
+assert (crystal.filter(both)["positions"] == crystal["positions"][both]).all()
+```
+
+`where()` without conditions is true for every atom.
 
 ## gather
 

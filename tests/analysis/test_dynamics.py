@@ -8,9 +8,11 @@ import pytest
 
 import mdapy
 from mdapy.analysis import (
+    FrameDifference,
     LindemannIndex,
     MeanSquaredDisplacement,
     TimeAverage,
+    TimeSeries,
     trajectory_lines,
 )
 from mdapy.errors import InvalidParameter
@@ -223,6 +225,13 @@ def test_time_average_of_moving_atoms():
     np.testing.assert_allclose(charge.value, np.linalg.norm(true, axis=2).mean(0))
     added = frames[0].with_columns(charge)
     np.testing.assert_allclose(added["charge_average"], charge.value)
+    # a component as it is, as positions are without unwrap
+    height = TimeAverage("positions.z").compute(frames)
+    np.testing.assert_allclose(
+        frames[0].with_columns(height)["positions_z_average"],
+        wrapped[:, 2],
+        atol=1e-10,
+    )
     assert repr(TimeAverage("csp")) == "TimeAverage('csp', unwrap=True)"
 
 
@@ -292,3 +301,92 @@ def test_msd_of_atoms_in_blocks(monkeypatch):
         np.testing.assert_allclose(
             got.components, expected.components, rtol=1e-12, atol=1e-12
         )
+
+
+# -------------------------------------------------- time series, differences
+
+
+def shuffled_frames(count=6, seed=4):
+    """Frames of 12 atoms with ids, a value growing by one each frame and a
+    vector column, each frame in another order; timesteps every 100."""
+    rng = np.random.default_rng(seed)
+    base = rng.random((12, 3)) * 10
+    frames = []
+    for t in range(count):
+        frame = mdapy.System(base, mdapy.Box(10.0), elements="Cu").with_columns(
+            id=np.arange(1, 13),
+            value=np.arange(12.0) + t,
+            force=np.full((12, 3), float(t)),
+        )
+        frames.append(
+            frame.with_table(frame.table[rng.permutation(12)]).with_info(
+                timestep=100 * t
+            )
+        )
+    return frames
+
+
+def test_time_series_of_a_column_and_of_a_function():
+    frames = shuffled_frames()
+    series = TimeSeries("value", "max").compute(frames)
+    np.testing.assert_array_equal(series.frame, np.arange(6))
+    np.testing.assert_array_equal(series.values, 11.0 + np.arange(6))
+    np.testing.assert_array_equal(series.timestep, 100 * np.arange(6))
+    assert series.name == "value"
+    vectors = TimeSeries("force", "sum").compute(frames[:3])
+    np.testing.assert_array_equal(
+        vectors.values, 12.0 * np.repeat(np.arange(3), 3).reshape(3, 3)
+    )
+    counted = TimeSeries(lambda frame: len(frame)).compute(
+        f.with_info({}) for f in frames
+    )
+    assert counted.timestep is None and counted.name is None
+    assert counted.values.tolist() == [12.0] * 6
+    assert "TimeSeries('value', 'max')" == repr(TimeSeries("value", "max"))
+
+
+def test_time_series_errors():
+    frames = shuffled_frames()
+    with pytest.raises(InvalidParameter, match="no frames"):
+        TimeSeries("value").compute([])
+    with pytest.raises(InvalidParameter, match="shape"):
+        TimeSeries(
+            lambda frame: np.zeros(len(frame) - frame.info["timestep"] // 100)
+        ).compute(frames)
+    with pytest.raises(InvalidParameter, match="operation"):
+        TimeSeries("value", "mode")
+    with pytest.raises(InvalidParameter, match="quantity"):
+        TimeSeries(3)
+
+
+def test_difference_between_frames():
+    frames = shuffled_frames()
+    change = FrameDifference("value").compute(frames[4], frames[1])
+    np.testing.assert_array_equal(change.difference, np.full(12, 3.0))
+    added = frames[4].with_columns(change)
+    np.testing.assert_array_equal(added["value_change"], np.full(12, 3.0))
+    component = FrameDifference("force.z").compute(frames[2], frames[0])
+    assert list(frames[2].with_columns(component).table.columns)[-1] == "force_z_change"
+    # without ids the atoms of the same order
+    plain = [f.drop("id") for f in frames]
+    np.testing.assert_array_equal(
+        FrameDifference("value").compute(plain[1], plain[0]).difference,
+        np.asarray(plain[1]["value"]) - np.asarray(plain[0]["value"]),
+    )
+    assert repr(FrameDifference("value")) == "FrameDifference('value')"
+
+
+def test_difference_errors():
+    frames = shuffled_frames()
+    with pytest.raises(InvalidParameter, match="name"):
+        FrameDifference(3)
+    with pytest.raises(InvalidParameter, match="not numbers"):
+        FrameDifference("element").compute(frames[1], frames[0])
+    fewer = frames[0].filter(np.arange(12) < 6)
+    with pytest.raises(mdapy.errors.MissingProperty, match="not in the reference"):
+        FrameDifference("value").compute(frames[1], fewer)
+    with pytest.raises(InvalidParameter, match="cannot be matched"):
+        FrameDifference("value").compute(frames[1].drop("id"), fewer.drop("id"))
+    twice = frames[0].with_columns(id=np.ones(12, dtype=np.int64))
+    with pytest.raises(InvalidParameter, match="repeated ids"):
+        FrameDifference("value").compute(frames[1], twice)

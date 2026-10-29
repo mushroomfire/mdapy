@@ -456,9 +456,10 @@ def test_colors():
         element_colors(["Cu", "Qq"]), [[200 / 255, 128 / 255, 51 / 255], [1, 1, 1]]
     )
     np.testing.assert_allclose(element_radii(["Cu", "Fe", "Qq"]), [1.28, 1.26, 1.0])
+    # the ends of the table of viridis
     ramp = colormap([0.0, 0.5, 1.0])
-    np.testing.assert_allclose(ramp[0], [0x44 / 255, 0x01 / 255, 0x54 / 255])
-    np.testing.assert_allclose(ramp[-1], [0xFD / 255, 0xE7 / 255, 0x25 / 255])
+    np.testing.assert_allclose(ramp[0], [0.267004, 0.004874, 0.329415])
+    np.testing.assert_allclose(ramp[-1], [0.993248, 0.906157, 0.143936])
     np.testing.assert_allclose(
         colormap([5.0, -1.0], "gray", (0, 1)), [[1, 1, 1], [0, 0, 0]]
     )
@@ -466,7 +467,7 @@ def test_colors():
         colormap([np.nan, np.nan], "gray"), [[0, 0, 0], [0, 0, 0]]
     )
     with pytest.raises(InvalidParameter, match="colormap must be"):
-        colormap([1.0], "rainbow")
+        colormap([1.0], "sunset")
     system = build_crystal("fcc", 3.6, elements="Cu", repeat=(2, 2, 2)).with_columns(
         value=np.arange(32.0)
     )
@@ -1020,6 +1021,23 @@ def test_representations():
         render(molecule, representation="cartoon")
     with pytest.raises(InvalidParameter, match="bonds must be"):
         render(molecule, bonds="hydrogen")
+
+
+def test_bonds_of_the_topology():
+    """The bonds of the topology drawn as the same bonds found by a cutoff,
+    across the boundaries too."""
+    from mdapy import transform
+    from mdapy.build import build_crystal
+
+    silicon = build_crystal("diamond", 5.431, elements="Si", repeat=(2, 2, 2))
+    bonded = transform.create_bonds(silicon, 2.6)
+    options = dict(radius=0.5, bond_radius=0.2, width=120, height=120, view="iso")
+    np.testing.assert_array_equal(
+        render(bonded, bonds="topology", **options),
+        render(silicon, bonds=2.6, **options),
+    )
+    with pytest.raises(mdapy.errors.MissingProperty, match="topology"):
+        render(silicon, bonds="topology", **options)
 
 
 # ------------------------------------------------------------ on the GPU

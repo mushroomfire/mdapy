@@ -34,9 +34,17 @@ implemented.
 | unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries, or, along a trajectory, so that atoms move continuously through them; with an `image` column, the positions plus the image flags times the lattice vectors. |
 | affine transformation | A map of positions x to M x + t, with a (3, 3) matrix M and a translation t: a rotation, shear, scaling or move, or a mix of them; vectors such as velocities turn with M alone. |
 | selection | Some atoms of a system, given as a boolean mask of one value per atom or as their indices. |
+| mask | (N,) bool, true for the atoms of a selection; `System.where` gives the mask of conditions, and analyses take one as `atoms`. |
+| overlapping atoms | Atoms closer than a distance to another, such as the copies of an atom or the atoms where structures put together clash; `find_overlapping` selects them. |
 | copy | One of the systems `replicate` places side by side; copy (i, j, l) of (n<sub>a</sub>, n<sub>b</sub>, n<sub>c</sub>) is number i + n<sub>a</sub>(j + n<sub>b</sub> l). |
 | lag | The number of frames between two frames of a trajectory. |
 | time average | The mean of a quantity over the frames of a trajectory, of each atom for a column of the atoms. |
+| time series | A quantity in each frame of a trajectory, such as a column reduced to one number. |
+| reduction | One number from the values of a column of the atoms, such as their mean or sum; `reduce` and its `OPERATIONS`. |
+| histogram | The counts of the values of a column in bins of equal width. |
+| frame difference | The change of a column of each atom from a reference frame, the atoms matched by id; the column `<name>_change`. |
+| frozen value | The value a column has in a reference frame, given to the atoms of another by `freeze`; the column `<name>_frozen`. |
+| smoothed trajectory | The frames of a trajectory with their positions and other real numbers averaged over a window of frames about each. |
 | trajectory line | The path of an atom over the frames of a trajectory, followed through the periodic boundaries. |
 | combined system | The atoms of two systems in one, in the box of the first, as `combine` makes it; OVITO calls it combining datasets. |
 | drift | The motion of the center of mass of all the atoms, or of some, over a trajectory; `remove_drift` moves each frame to keep the center of mass where it is in a reference frame. |
@@ -45,10 +53,14 @@ implemented.
 | spanning cluster | A cluster that joins a periodic image of itself through its bonds, so that it has no unbroken position. |
 | ring | A closed path of bonds through distinct atoms; a shortest-path ring has no two atoms closer through the network than along it. |
 | covalent bond | A pair of atoms closer than the sum of their covalent radii and 0.45 Å, as pictures draw them. |
+| bond length distribution | The counts of the lengths of the bonds of a topology, each measured to the nearest periodic image, in total and for each pair of elements. |
 | isosurface | The surface where a field over the box, such as a binned property of the atoms, equals a level; it bounds the regions where the field is above it. |
 | voxel | A cell of a grid that divides the box along its vectors, with the value of a field. |
 | coordination polyhedron | The convex hull of the neighbors of an atom, such as the octahedron of oxygen about the titanium of a perovskite. |
 | vector arrow | An arrow drawn from an atom along a vector of it, such as its displacement, velocity or force: a shaft and a head 2.5 times as wide and 4.5 times as long as the radius of the shaft. |
+| color column | The `color` column of a system, (N, 3) sRGB from 0 to 1, that `color_coding`, `color_by_type` and `assign_color` set and `render` draws by default; a `radius` column likewise sets the radii. |
+| colormap | A map of values from 0 to 1 to colors, one of `COLORMAPS`: rainbow, viridis, magma, jet, hot, blue_white_red and gray as OVITO computes them, plasma and coolwarm. |
+| label colors | `LABEL_COLORS`, twelve distinct colors given in turn to the values of a column colored by type or to clusters. |
 | global illumination | Light that reaches a surface after bouncing off others, as the shiny style of pictures traces it. |
 | style of a picture | Its lights, shadows, occlusion and outlines together: fast (as the viewports of OVITO), matte (as its Tachyon renderer), shiny (after its OSPRay renderer) or flat (outlined, as ASE draws atoms). |
 | highlight | The light of a lamp mirrored by a surface toward the viewer: a bright spot on a sphere. |

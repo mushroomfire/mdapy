@@ -9,6 +9,8 @@ from mdapy.analysis._binning import REDUCTIONS, SpatialBinning, SpatialBinningRe
 from mdapy.analysis._bonds import (
     BondAngleDistribution,
     BondAngleResult,
+    BondLengthDistribution,
+    BondLengthResult,
     ClusterAnalysis,
     ClusterResult,
     WarrenCowley,
@@ -32,11 +34,15 @@ from mdapy.analysis._distribution import (
 )
 from mdapy.analysis._dynamics import (
     DisplacementResult,
+    FrameDifference,
+    FrameDifferenceResult,
     LindemannIndex,
     LindemannResult,
     MeanSquaredDisplacement,
     TimeAverage,
     TimeAverageResult,
+    TimeSeries,
+    TimeSeriesResult,
     trajectory_lines,
 )
 from mdapy.analysis._elastic_strain import ElasticStrain, ElasticStrainResult
@@ -48,6 +54,7 @@ from mdapy.analysis._polyhedra import (
 )
 from mdapy.analysis._rings import RingResult, RingStatistics
 from mdapy.analysis._species import ChemicalSpecies, SpeciesResult
+from mdapy.analysis._statistics import OPERATIONS, Histogram, HistogramResult, reduce
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
 from mdapy.analysis._strain import AtomicStrain, StrainResult
 from mdapy.analysis._surface_mesh import SurfaceMesh, SurfaceMeshResult, SurfaceRegions
@@ -61,6 +68,7 @@ from mdapy.analysis._voronoi import (
 from mdapy.analysis._wigner_seitz import WignerSeitz, WignerSeitzResult
 
 __all__ = [
+    "OPERATIONS",
     "REDUCTIONS",
     "AtomicDisplacement",
     "AtomicDisplacementResult",
@@ -70,16 +78,25 @@ __all__ = [
     "SpatialCorrelationResult",
     "isosurface",
     "DisplacementResult",
+    "FrameDifference",
+    "FrameDifferenceResult",
+    "Histogram",
+    "HistogramResult",
+    "reduce",
     "LindemannIndex",
     "LindemannResult",
     "MeanSquaredDisplacement",
     "TimeAverage",
     "TimeAverageResult",
+    "TimeSeries",
+    "TimeSeriesResult",
     "trajectory_lines",
     "AtomicStrain",
     "AtomicTemperature",
     "BondAngleDistribution",
     "BondAngleResult",
+    "BondLengthDistribution",
+    "BondLengthResult",
     "ChemicalSpecies",
     "ClusterAnalysis",
     "ClusterResult",

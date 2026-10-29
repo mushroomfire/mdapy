@@ -72,7 +72,7 @@ axis (dark) to about 0.03 at the surface (yellow), half the twist of
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `reference` | `System` | | | the reference configuration, with the same atoms in the same order as the systems to compare |
+| `reference` | `System` | | | the reference configuration, with the same atoms as the systems to compare: matched by the `id` column where both have one, else in the same order |
 | `cutoff` | float | | Å | the neighbors closer than it in the reference define the neighbor vectors |
 | `affine` | bool | `False` | | measure the current vectors in the reference box, which removes the homogeneous deformation of the box |
 | `strain_tensor` | bool | `False` | | also give the strain tensor of each atom |
@@ -80,8 +80,8 @@ axis (dark) to about 0.03 at the surface (yellow), half the twist of
 | `neighbors` | `NeighborList` | `None` | | neighbors of the reference within at least `cutoff`, used for every configuration; without, `compute` finds them as it goes each time |
 
 `compute(system, *, progress=None, cancel=None)` takes the current
-configuration: the atoms of the reference in the same order, each moved by
-less than half the box. Positions may be wrapped back into the box.
+configuration: the atoms of the reference, each moved by less than half
+the box. Positions may be wrapped back into the box.
 
 ## Results
 
@@ -98,8 +98,9 @@ A `StrainResult`:
 
 The constructor raises `InvalidParameter` for a cutoff that is not positive;
 `compute` raises it for a system with another number of atoms or other
-periodic directions than the reference, or, when both have an `id` column,
-atoms in another order.
+periodic directions than the reference, or repeated ids;
+[`MissingProperty`](../reference/api.md#mdapy.errors.MissingProperty) for an
+atom whose id the reference does not have.
 
 ## Definition
 

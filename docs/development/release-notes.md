@@ -427,9 +427,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   polygons; the scene framed, or a given focus and span; depth of field
   and soft shadows; every setting of a style can be changed, including the
   direction of the highlights, metals and lighting in sRGB; a million atoms
-  in under 5 s on the processor in the matte style, or in about 1 s on the
-  GPU, with Metal on macOS or Vulkan on Linux, where the ray tracing units
-  of the GPU are used when it has them.
+  in under 5 s on the processor in the matte style, or in under a second on
+  the GPU, with Metal on macOS or Vulkan on Linux, which use the ray tracing
+  units of the GPU where it has them.
   See [Rendering](../visualization/rendering.md).
 - `mdapy.visualization.plot`: matplotlib set up for journals (widths of
   columns, Nature's artwork guide, Okabe–Ito colors, panel labels, saving

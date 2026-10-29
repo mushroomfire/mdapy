@@ -4,7 +4,12 @@
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
 // The rays of a picture traced with Metal: the shader follows render.cpp line
-// by line, in the same single precision, with the same random numbers.
+// by line, in the same single precision, with the same random numbers. On the
+// GPUs of M3 and later, compiled with RAY_QUERY, the ray tracing units trace
+// the rays of occlusion and shadows through their own hierarchy of the
+// bounding boxes of the primitives, which an intersection function
+// intersects as the shader does; nearest hits keep the shader's hierarchy,
+// faster there on these GPUs.
 
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
@@ -25,6 +30,9 @@ namespace {
 const char* const kShader = R"METAL(
 #include <metal_stdlib>
 using namespace metal;
+#ifdef RAY_QUERY
+#include <metal_raytracing>
+#endif
 
 struct Node {
     float lo[3];
@@ -68,6 +76,13 @@ struct World {
     device const Node* nodes;
     device const uint* refs;
     uint count;
+#ifdef RAY_QUERY
+    // the boxes of the spheres, cylinders and triangles in turn, and the
+    // function that intersects their primitives
+    raytracing::primitive_acceleration_structure boxes;
+    raytracing::intersection_function_table<> functions;
+    uint spheres, cylinders;
+#endif
 };
 
 struct Ray {
@@ -229,6 +244,67 @@ void closest(thread const World& w, thread const Ray& ray, float t_min, thread H
     }
 }
 
+#ifdef RAY_QUERY
+// a candidate as a reference: the spheres, cylinders and triangles in turn
+uint candidate(thread const World& w, uint primitive) {
+    if (primitive < w.spheres) {
+        return (kSphere << kKindShift) | primitive;
+    }
+    primitive -= w.spheres;
+    if (primitive < w.cylinders) {
+        return (kCylinder << kKindShift) | primitive;
+    }
+    return (kTriangle << kKindShift) | (primitive - w.cylinders);
+}
+
+// The exact intersection of the primitive in a box, for the shadows the
+// ray tracing units trace: transparent triangles cast none.
+struct BoxHit {
+    bool accept [[accept_intersection]];
+    float distance [[distance]];
+};
+
+[[intersection(bounding_box)]]
+BoxHit primitive_hit(float3 origin [[origin]], float3 direction [[direction]], float min_distance [[min_distance]],
+                     float max_distance [[max_distance]], uint primitive [[primitive_id]],
+                     device const float* sphere_center [[buffer(0)]], device const float* sphere_radius [[buffer(1)]],
+                     device const float* cylinder_end [[buffer(4)]], device const float* cylinder_radius [[buffer(5)]],
+                     device const float* triangle_vertex [[buffer(8)]], device const float* triangle_alpha [[buffer(10)]],
+                     constant uint2& kinds [[buffer(20)]]) {
+    World w;
+    w.sphere_center = sphere_center;
+    w.sphere_radius = sphere_radius;
+    w.cylinder_end = cylinder_end;
+    w.cylinder_radius = cylinder_radius;
+    w.triangle_vertex = triangle_vertex;
+    w.triangle_alpha = triangle_alpha;
+    w.spheres = kinds.x;
+    w.cylinders = kinds.y;
+    const uint ref = candidate(w, primitive);
+    BoxHit hit;
+    hit.accept = false;
+    hit.distance = max_distance;
+    if ((ref >> kKindShift) == kTriangle && triangle_alpha[ref & kIndexMask] < 1.0f) {
+        return hit;
+    }
+    const float t = intersect(w, ref, make_ray(origin, direction), min_distance, max_distance);
+    hit.accept = t < max_distance;
+    hit.distance = t;
+    return hit;
+}
+
+bool occluded(thread const World& w, thread const Ray& ray, float t_min, float t_max) {
+    if (w.count == 0) {
+        return false;
+    }
+    raytracing::intersector<> units;
+    units.assume_geometry_type(raytracing::geometry_type::bounding_box);
+    units.accept_any_intersection(true);
+    const raytracing::intersection_result<> found =
+        units.intersect(raytracing::ray(ray.origin, ray.direction, t_min, t_max), w.boxes, w.functions);
+    return found.type != raytracing::intersection_type::none;
+}
+#else
 bool occluded(thread const World& w, thread const Ray& ray, float t_min, float t_max) {
     if (w.count == 0) {
         return false;
@@ -258,6 +334,7 @@ bool occluded(thread const World& w, thread const Ray& ray, float t_min, float t
     }
     return false;
 }
+#endif
 
 float3 normal_at(thread const World& w, uint ref, float3 point, float3 direction) {
     const uint i = ref & kIndexMask;
@@ -472,6 +549,11 @@ kernel void trace_subpixels(device const float* sphere_center [[buffer(0)]],
                             device float* depth [[buffer(16)]],
                             device int2* ids [[buffer(17)]],
                             constant uint& first_row [[buffer(18)]],
+#ifdef RAY_QUERY
+                            raytracing::primitive_acceleration_structure boxes [[buffer(19)]],
+                            constant uint2& kinds [[buffer(20)]],
+                            raytracing::intersection_function_table<> functions [[buffer(21)]],
+#endif
                             uint2 gid [[thread_position_in_grid]]) {
     const uint x = gid.x, y = gid.y + first_row;
     if (x >= uint(P.width) || y >= uint(P.height)) {
@@ -493,6 +575,12 @@ kernel void trace_subpixels(device const float* sphere_center [[buffer(0)]],
     w.nodes = nodes;
     w.refs = refs;
     w.count = P.refs;
+#ifdef RAY_QUERY
+    w.boxes = boxes;
+    w.functions = functions;
+    w.spheres = kinds.x;
+    w.cylinders = kinds.y;
+#endif
     const uint p = y * uint(P.width) + x;
     const uint seed = mix_seed(x, y);
     const float turn = float(mix_seed(seed, 0x51ED27u) >> 8) * (1.0f / 16777216.0f);
@@ -558,12 +646,15 @@ kernel void trace_subpixels(device const float* sphere_center [[buffer(0)]],
 }
 )METAL";
 
-// The device, its queue and the compiled shader, made once.
+// The device, its queue and the compiled shaders, made once: with the
+// shader's own hierarchy, and with the ray tracing units where there are.
 struct Device {
     id<MTLDevice> device = nil;
     id<MTLCommandQueue> queue = nil;
     id<MTLComputePipelineState> pipeline = nil;
-    std::string error;
+    id<MTLComputePipelineState> queried = nil;
+    id<MTLFunction> hit = nil;  // the intersection function of the boxes
+    std::string error, queried_error;
 };
 
 Device& shared() {
@@ -608,9 +699,69 @@ Device& shared() {
                 return;
             }
             d.queue = [d.device newCommandQueue];
+            // the ray tracing units of the GPUs of M3 and later
+            if (ray_tracing_allowed() && d.device.supportsRaytracing &&
+                [d.device supportsFamily:MTLGPUFamilyApple9]) {
+                MTLCompileOptions* traced = [options copy];
+                traced.preprocessorMacros = @{@"RAY_QUERY" : @1};
+                id<MTLLibrary> queried = [d.device newLibraryWithSource:@(kShader)
+                                                                options:traced
+                                                                  error:&error];
+                if (queried != nil) {
+                    d.hit = [queried newFunctionWithName:@"primitive_hit"];
+                    MTLLinkedFunctions* linked = [MTLLinkedFunctions linkedFunctions];
+                    linked.functions = @[ d.hit ];
+                    MTLComputePipelineDescriptor* described = [MTLComputePipelineDescriptor new];
+                    described.computeFunction = [queried newFunctionWithName:@"trace_subpixels"];
+                    described.linkedFunctions = linked;
+                    d.queried = [d.device newComputePipelineStateWithDescriptor:described
+                                                                        options:MTLPipelineOptionNone
+                                                                     reflection:nil
+                                                                          error:&error];
+                }
+                if (d.queried == nil) {
+                    d.queried_error = error.localizedDescription.UTF8String;
+                }
+            }
         }
     });
     return d;
+}
+
+// The hierarchy of the ray tracing units over the boxes of the primitives,
+// spheres, cylinders and triangles in turn, as one geometry.
+id<MTLAccelerationStructure> build_boxes(Device& d, const Geometry& g) {
+    const std::size_t count = g.spheres + g.cylinders + g.triangles;
+    id<MTLBuffer> boxes = [d.device newBufferWithLength:sizeof(MTLAxisAlignedBoundingBox) * count
+                                                options:MTLResourceStorageModeShared];
+    if (boxes == nil) {
+        throw std::runtime_error("no GPU memory for the picture");
+    }
+    write_boxes(g, static_cast<float*>(boxes.contents));
+    MTLAccelerationStructureBoundingBoxGeometryDescriptor* geometry =
+        [MTLAccelerationStructureBoundingBoxGeometryDescriptor descriptor];
+    geometry.boundingBoxBuffer = boxes;
+    geometry.boundingBoxCount = count;
+    geometry.boundingBoxStride = sizeof(MTLAxisAlignedBoundingBox);
+    MTLPrimitiveAccelerationStructureDescriptor* descriptor = [MTLPrimitiveAccelerationStructureDescriptor descriptor];
+    descriptor.geometryDescriptors = @[ geometry ];
+    const MTLAccelerationStructureSizes sizes = [d.device accelerationStructureSizesWithDescriptor:descriptor];
+    id<MTLAccelerationStructure> structure = [d.device newAccelerationStructureWithSize:sizes.accelerationStructureSize];
+    id<MTLBuffer> scratch = [d.device newBufferWithLength:std::max<NSUInteger>(sizes.buildScratchBufferSize, 1)
+                                                  options:MTLResourceStorageModePrivate];
+    if (structure == nil || scratch == nil) {
+        throw std::runtime_error("no GPU memory for the picture");
+    }
+    id<MTLCommandBuffer> commands = [d.queue commandBuffer];
+    id<MTLAccelerationStructureCommandEncoder> encoder = [commands accelerationStructureCommandEncoder];
+    [encoder buildAccelerationStructure:structure descriptor:descriptor scratchBuffer:scratch scratchBufferOffset:0];
+    [encoder endEncoding];
+    [commands commit];
+    [commands waitUntilCompleted];
+    if (commands.error != nil) {
+        throw std::runtime_error(std::string("the GPU failed: ") + commands.error.localizedDescription.UTF8String);
+    }
+    return structure;
 }
 
 }  // namespace
@@ -619,7 +770,14 @@ bool available() { return shared().device != nil; }
 
 std::string device() {
     Device& d = shared();
-    return d.device != nil ? std::string(d.device.name.UTF8String) + " (Metal)" : std::string();
+    if (d.device == nil) {
+        return {};
+    }
+    const std::string name = d.device.name.UTF8String;
+    if (d.queried != nil) {
+        return name + " (Metal, ray tracing)";
+    }
+    return d.queried_error.empty() ? name + " (Metal)" : name + " (Metal; ray tracing failed: " + d.queried_error + ")";
 }
 
 void trace(const Geometry& g, const Params& params, float* rgba, float* depth, std::int64_t* ids,
@@ -658,6 +816,24 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
         if (out_rgba == nil || out_depth == nil || out_ids == nil) {
             throw std::runtime_error("no GPU memory for the picture");
         }
+        // the ray tracing units where there are any and something to hit
+        const bool queries = d.queried != nil && params.refs > 0;
+        id<MTLComputePipelineState> pipeline = queries ? d.queried : d.pipeline;
+        id<MTLAccelerationStructure> boxes = queries ? build_boxes(d, g) : nil;
+        const std::uint32_t kinds[2] = {static_cast<std::uint32_t>(g.spheres), static_cast<std::uint32_t>(g.cylinders)};
+        id<MTLBuffer> kinds_buffer = buffer(kinds, sizeof(kinds));
+        id<MTLIntersectionFunctionTable> functions = nil;
+        if (queries) {
+            MTLIntersectionFunctionTableDescriptor* described =
+                [MTLIntersectionFunctionTableDescriptor intersectionFunctionTableDescriptor];
+            described.functionCount = 1;
+            functions = [d.queried newIntersectionFunctionTableWithDescriptor:described];
+            [functions setFunction:[d.queried functionHandleWithFunction:d.hit] atIndex:0];
+            for (NSUInteger k = 0; k < 12; ++k) {
+                [functions setBuffer:inputs[k] offset:0 atIndex:k];
+            }
+            [functions setBuffer:kinds_buffer offset:0 atIndex:20];
+        }
         // rows in tiles: first of some million paths, then twice as many rows
         // after a tile shorter than 0.1 s and half as many after one longer
         // than 0.4 s, so the GPU is busy yet each dispatch short, with
@@ -665,9 +841,9 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
         const std::size_t paths = width * static_cast<std::size_t>(std::max(1, params.samples)) *
                                   static_cast<std::size_t>(1 + params.bounces);
         std::size_t rows = std::min(height, std::max<std::size_t>(1, (std::size_t{1} << 21) / paths));
-        const NSUInteger group_width = std::min<NSUInteger>(d.pipeline.threadExecutionWidth, width);
+        const NSUInteger group_width = std::min<NSUInteger>(pipeline.threadExecutionWidth, width);
         const NSUInteger group_height = std::max<NSUInteger>(1, std::min<NSUInteger>(
-            d.pipeline.maxTotalThreadsPerThreadgroup / group_width, 4));
+            pipeline.maxTotalThreadsPerThreadgroup / group_width, 4));
         for (std::size_t row = 0; row < height;) {
             if (control.cancel != nullptr && control.cancel->cancelled()) {
                 throw Cancelled();
@@ -677,7 +853,7 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
             const auto started = std::chrono::steady_clock::now();
             id<MTLCommandBuffer> commands = [d.queue commandBuffer];
             id<MTLComputeCommandEncoder> encoder = [commands computeCommandEncoder];
-            [encoder setComputePipelineState:d.pipeline];
+            [encoder setComputePipelineState:pipeline];
             for (NSUInteger k = 0; k < inputs.count; ++k) {
                 [encoder setBuffer:inputs[k] offset:0 atIndex:k];
             }
@@ -686,6 +862,11 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
             [encoder setBuffer:out_depth offset:0 atIndex:16];
             [encoder setBuffer:out_ids offset:0 atIndex:17];
             [encoder setBytes:&first length:sizeof(first) atIndex:18];
+            if (queries) {
+                [encoder setAccelerationStructure:boxes atBufferIndex:19];
+                [encoder setBuffer:kinds_buffer offset:0 atIndex:20];
+                [encoder setIntersectionFunctionTable:functions atBufferIndex:21];
+            }
             [encoder dispatchThreads:MTLSizeMake(width, count, 1)
                 threadsPerThreadgroup:MTLSizeMake(group_width, group_height, 1)];
             [encoder endEncoding];

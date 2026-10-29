@@ -58,6 +58,16 @@ struct Geometry {
 // Whether a GPU can trace pictures.
 bool available();
 
+// Whether the ray tracing units of a GPU may be used: unless the
+// environment variable MDAPY_GPU_RAY_TRACING is 0.
+bool ray_tracing_allowed();
+
+// The bounding boxes of the primitives, spheres, cylinders and triangles
+// in turn: six numbers each (lowest, highest), a little wider than the
+// primitive, so that the tests of boxes of the ray tracing units of a GPU
+// miss nothing the shader would hit.
+void write_boxes(const Geometry& geometry, float* boxes);
+
 // The GPU that traces pictures and how, or empty when there is none.
 std::string device();
 

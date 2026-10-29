@@ -165,7 +165,9 @@ jobs:
           export LD_PRELOAD="$(gcc -print-file-name=libasan.so):$(gcc -print-file-name=libubsan.so)"
           export ASAN_OPTIONS=detect_leaks=0:abort_on_error=1
           export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
-          pytest -q
+          # the workers of pytest-xdist inherit the preloaded sanitizers; the
+          # slowest tests listed, as the sanitizers slow them most
+          pytest -q -n auto --durations=15
 
   # ThreadSanitizer checks the thread pool and the parallel kernels with a
   # C++ program: under a preloaded TSan, importing polars crashes on Linux,

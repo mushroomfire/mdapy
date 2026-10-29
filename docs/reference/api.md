@@ -19,6 +19,8 @@ import mdapy as mp
 
 ::: mdapy.Trajectory
 
+::: mdapy.io.Mapped
+
 ::: mdapy.formats
 
 ::: mdapy.detect_format

@@ -10,7 +10,7 @@ import operator
 import os
 import re
 import weakref
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from typing import Any, overload
 
 import numpy as np
@@ -76,6 +76,41 @@ class _Frames:
         while self.known(len(self.positions) + 1):
             pass
         return len(self.positions)
+
+
+class Mapped(Sequence[System]):
+    """Frames through a function, each computed when it is used, as
+    :meth:`Trajectory.map` gives them."""
+
+    def __init__(self, frames: Sequence[System], function: Callable[[System], System]):
+        self.__frames = frames
+        self.__function = function
+
+    def __len__(self) -> int:
+        return len(self.__frames)
+
+    @overload
+    def __getitem__(self, index: int) -> System: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> "Mapped": ...
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return Mapped(self.__frames[index], self.__function)
+        return self.__function(self.__frames[index])
+
+    def __iter__(self) -> Iterator[System]:
+        for frame in self.__frames:
+            yield self.__function(frame)
+
+    def map(self, function: Callable[[System], System]) -> "Mapped":
+        """These frames through one more function, as :meth:`Trajectory.map`."""
+        first = self.__function
+        return Mapped(self.__frames, lambda frame: function(first(frame)))
+
+    def __repr__(self) -> str:
+        return f"Mapped({self.__frames!r}, {getattr(self.__function, '__name__', self.__function)!r})"
 
 
 class Trajectory(Sequence[System]):
@@ -158,6 +193,27 @@ class Trajectory(Sequence[System]):
         if self.__topology is not None:
             system = _with_topology(system, self.__topology, source.name)
         return system
+
+    def map(self, function: Callable[[System], System]) -> Mapped:
+        """The frames through a function, each computed when it is used.
+
+        Parameters
+        ----------
+        function : callable
+            A function of a frame that gives a system, such as a pipeline of
+            analyses that adds their columns.
+
+        Returns
+        -------
+        Mapped
+            A sequence of the frames through the function, with ``len``,
+            indexing, slices (themselves mapped) and iteration, which reads
+            the frames one after the other; ``map`` adds another function.
+            Analyses of trajectories and :func:`mdapy.transform.remove_drift`
+            or :func:`mdapy.transform.smooth_trajectory` take it as they take
+            the trajectory.
+        """
+        return Mapped(self, function)
 
     def close(self) -> None:
         """Releases the files, also for the slices of this trajectory."""

@@ -327,3 +327,37 @@ def test_frames_that_do_not_fit_the_topology(moved, tmp_path):
         mdapy.read_trajectory(tmp_path / "plain.xyz", topology=renumbered)[0]
     with pytest.raises(InvalidParameter, match="those of the topology not"):
         mdapy.read_trajectory(pattern, topology=topology.drop("id"))[0]
+
+
+def test_frames_through_a_function(tmp_path):
+    """map: each frame through the function when it is used, as indices,
+    slices, iteration and the analyses of trajectories take it."""
+    mdapy.write(tmp_path / "t.dump", frames(6))
+    trajectory = mdapy.read_trajectory(tmp_path / "t.dump")
+    calls = []
+
+    def shifted(frame):
+        calls.append(frame.info["timestep"])
+        return frame.with_columns(positions=frame["positions"] + 1.0)
+
+    mapped = trajectory.map(shifted)
+    assert len(mapped) == 6 and calls == []
+    np.testing.assert_allclose(mapped[2]["positions"], trajectory[2]["positions"] + 1)
+    np.testing.assert_allclose(mapped[-1]["positions"], trajectory[5]["positions"] + 1)
+    assert [f.info["timestep"] for f in mapped[1::2]] == [1, 3, 5]
+    assert isinstance(mapped[1::2], mdapy.io.Mapped)
+    calls.clear()
+    assert len(list(mapped)) == 6 and calls == [0, 1, 2, 3, 4, 5]
+    twice = mapped.map(shifted)
+    np.testing.assert_allclose(twice[0]["positions"], trajectory[0]["positions"] + 2)
+    mean = mdapy.analysis.TimeAverage("positions", unwrap=False).compute(mapped)
+    np.testing.assert_allclose(
+        mean.value,
+        mdapy.analysis.TimeAverage("positions", unwrap=False).compute(trajectory).value
+        + 1,
+    )
+    assert len(mdapy.transform.smooth_trajectory(mapped, 3)) == 6
+    assert len(mdapy.transform.remove_drift(mapped)) == 6
+    assert "shifted" in repr(mapped)
+    with pytest.raises(IndexError):
+        mapped[6]

@@ -75,8 +75,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   at once; also the frames of several files, given as a pattern such as
   `dump.*.lammpstrj` or a list, and frames that move the atoms of a
   topology read from a data file, matched by id, with its bonds, charges
-  and molecules, as OVITO's load trajectory. See
-  [Trajectories](../getting-started/trajectory.md).
+  and molecules, as OVITO's load trajectory; `Trajectory.map` gives the
+  frames through a function, each computed when it is used, for the
+  analyses of trajectories. See [Trajectories](../getting-started/trajectory.md).
 - Reading CIF files, crystals expanded by their symmetry operations as
   pymatgen, ASE and OVITO read them, and PDB files, with atom names,
   residues, models as frames and the bonds of `CONECT`; VASP OUTCAR

@@ -40,6 +40,7 @@ the frames [move](#a-topology-for-the-frames). It returns a `Trajectory`:
 | `len(trajectory)` | the number of frames |
 | `trajectory.path`, `trajectory.format` | the file, or the pattern or first file of several, and the format |
 | `trajectory.close()`, `with ...` | releases the files |
+| `trajectory.map(function)` | the frames through a function, [below](#frames-through-a-function) |
 
 Any format works; a format that holds one frame gives a trajectory of one
 frame. A trajectory is an iterable of systems, so `mdapy.write` writes it, or
@@ -60,6 +61,34 @@ If the file ends in the middle of a frame, the frames before it are read
 normally and the incomplete frame raises
 [`FileFormatError`](../reference/api.md#mdapy.errors.FileFormatError) when it
 is reached.
+
+## Frames through a function
+
+`trajectory.map(function)` gives the frames through a function of a frame,
+such as a pipeline of analyses that adds their columns, each computed when it
+is used. It is a sequence as the trajectory is: indices, slices (mapped as
+well), `len` and iteration, which reads the frames one after the other; its
+`map` adds another function. The analyses of trajectories, such as
+[`TimeAverage`](../analysis/time-average.md) or
+[`TimeSeries`](../analysis/time-series.md), and
+[`remove_drift`](../analysis/drift.md) or
+[`smooth_trajectory`](../analysis/smooth-trajectory.md) take it as they take
+the trajectory.
+
+```python
+from mdapy.analysis import TimeSeries
+
+
+def with_height(frame):
+    """The frame with the height of each atom above the middle of the box."""
+    return frame.with_columns(height=frame["positions.z"] - 2.5)
+
+
+with mp.read_trajectory("run.xyz") as trajectory:
+    analyzed = trajectory.map(with_height)
+    mean = TimeSeries("height", "mean").compute(analyzed)  # one value a frame
+    last = analyzed[-1]  # the last frame, with its height when it is read
+```
 
 ## Several files
 

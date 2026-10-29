@@ -7,6 +7,7 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/string.h>
 
 #include <cstdint>
 #include <stdexcept>
@@ -180,6 +181,8 @@ void bind_visualization(nb::module_& m) {
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("gpu_available", &visualization::gpu_available,
           "Whether pictures can be traced on a GPU.");
+    m.def("gpu_device", &visualization::gpu_device,
+          "The GPU that traces pictures and how, or empty when there is none.");
     m.def("trace", &trace, nb::arg("sphere_center"), nb::arg("sphere_radius"),
           nb::arg("sphere_color"), nb::arg("sphere_id"), nb::arg("cylinder_end"),
           nb::arg("cylinder_radius"), nb::arg("cylinder_color"), nb::arg("cylinder_id"),

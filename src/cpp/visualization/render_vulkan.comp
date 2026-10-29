@@ -5,11 +5,18 @@
 //
 // The rays of a picture traced with Vulkan: the shader of render_metal.mm in
 // GLSL, line by line, in the same single precision, with the same random
-// numbers. mdapy holds its SPIR-V, render_vulkan.spv; after a change compile
-// it again with glslc of shaderc 2026.4 (a test compares the two):
+// numbers. With RAY_QUERY, the ray tracing units of the GPU find the
+// candidates in their own hierarchy of the bounding boxes of the primitives,
+// and the shader intersects them as without. mdapy holds the SPIR-V of both;
+// after a change compile them again with glslc of shaderc 2026.4 (a test
+// compares):
 //
 //     glslc --target-env=vulkan1.0 -O -Werror render_vulkan.comp -o render_vulkan.spv
-#version 450
+//     glslc --target-env=vulkan1.2 -O -Werror -DRAY_QUERY render_vulkan.comp -o render_vulkan_rt.spv
+#version 460
+#ifdef RAY_QUERY
+#extension GL_EXT_ray_query : require
+#endif
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
@@ -46,6 +53,10 @@ layout(std430, binding = 2) writeonly restrict buffer Depths { float depth[]; };
 layout(std430, binding = 3) writeonly restrict buffer Ids { ivec2 ids[]; };
 // the nodes of the hierarchy, two quads each: (lo, first) and (hi, count)
 layout(std430, binding = 4) readonly restrict buffer Nodes { uvec4 nodes[]; };
+#ifdef RAY_QUERY
+// the bounding boxes of the primitives, those of kind k in geometry k
+layout(binding = 5) uniform accelerationStructureEXT boxes;
+#endif
 layout(push_constant) uniform Tile {
     Arrays A;
     uint first_row;
@@ -58,6 +69,7 @@ const uint kSphere = 0u;
 const uint kCylinder = 1u;
 const uint kTriangle = 2u;
 const float kInfinity = uintBitsToFloat(0x7F800000u);
+const float kLargest = uintBitsToFloat(0x7F7FFFFFu);
 
 struct Ray {
     vec3 origin, direction, inverse;
@@ -165,6 +177,50 @@ float intersect(uint ref, Ray ray, float t_min, float t_max) {
     return t > t_min && t < t_max ? t : kInfinity;
 }
 
+#ifdef RAY_QUERY
+// a candidate of a ray query as a reference: its kind is its geometry
+uint candidate(rayQueryEXT query) {
+    return (uint(rayQueryGetIntersectionGeometryIndexEXT(query, false)) << kKindShift) |
+           uint(rayQueryGetIntersectionPrimitiveIndexEXT(query, false));
+}
+
+void closest(Ray ray, float t_min, inout Hit hit) {
+    if (P.refs == 0u) {
+        return;
+    }
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, boxes, gl_RayFlagsNoneEXT, 0xFF, ray.origin, t_min, ray.direction,
+                          min(hit.t, kLargest));
+    while (rayQueryProceedEXT(query)) {
+        const uint ref = candidate(query);
+        const float t = intersect(ref, ray, t_min, hit.t);
+        if (t < hit.t) {
+            hit.t = t;
+            hit.ref = ref;
+            rayQueryGenerateIntersectionEXT(query, t);
+        }
+    }
+}
+
+bool occluded(Ray ray, float t_min, float t_max) {
+    if (P.refs == 0u) {
+        return false;
+    }
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, boxes, gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, ray.origin, t_min,
+                          ray.direction, min(t_max, kLargest));
+    while (rayQueryProceedEXT(query)) {
+        const uint ref = candidate(query);
+        if ((ref >> kKindShift) == kTriangle && load(A.triangle_alpha + (ref & kIndexMask)) < 1.0) {
+            continue;
+        }
+        if (intersect(ref, ray, t_min, t_max) < t_max) {
+            return true;
+        }
+    }
+    return false;
+}
+#else
 uint first_of(uint node) { return nodes[2u * node].w; }
 uint count_of(uint node) { return nodes[2u * node + 1u].w; }
 
@@ -256,6 +312,8 @@ bool occluded(Ray ray, float t_min, float t_max) {
     }
     return false;
 }
+
+#endif
 
 vec3 normal_at(uint ref, vec3 point, vec3 direction) {
     const uint i = ref & kIndexMask;

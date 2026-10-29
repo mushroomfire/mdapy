@@ -11,6 +11,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "core/parallel.h"
@@ -92,8 +93,11 @@ struct Style {
     bool gpu = false;     // trace the rays on a GPU (see gpu_available)
 };
 
-// Whether pictures can be traced on a GPU: Metal on macOS.
+// Whether pictures can be traced on a GPU: Metal on macOS, Vulkan on Linux.
 bool gpu_available();
+
+// The GPU that traces pictures and how, or empty when there is none.
+std::string gpu_device();
 
 // An image of width by height pixels, RGBA in 8 bits, sRGB, rows from the top.
 std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const Style& style,

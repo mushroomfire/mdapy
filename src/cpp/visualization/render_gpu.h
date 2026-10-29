@@ -11,6 +11,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include "core/parallel.h"
 
@@ -56,6 +57,9 @@ struct Geometry {
 
 // Whether a GPU can trace pictures.
 bool available();
+
+// The GPU that traces pictures and how, or empty when there is none.
+std::string device();
 
 // The subpixels of a picture, width x height of params: premultiplied RGBA
 // (4 each), the depth and the id of the first hit (-1 for none), as the

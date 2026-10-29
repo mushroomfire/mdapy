@@ -617,6 +617,11 @@ Device& shared() {
 
 bool available() { return shared().device != nil; }
 
+std::string device() {
+    Device& d = shared();
+    return d.device != nil ? std::string(d.device.name.UTF8String) + " (Metal)" : std::string();
+}
+
 void trace(const Geometry& g, const Params& params, float* rgba, float* depth, std::int64_t* ids,
            const Control& control) {
     Device& d = shared();

@@ -195,6 +195,17 @@ std::pair<std::size_t, int> harmonics_of(const std::vector<int>& degrees) {
     return {width, lmax};
 }
 
+// Room per thread for the bonds of one atom, kept between atoms; declared
+// here, as a thread_local inside the lambda that uses it crashes MSVC.
+struct NearestRoom {
+    std::vector<double> vectors, y, sum;
+};
+
+NearestRoom& nearest_room() {
+    thread_local NearestRoom room;
+    return room;
+}
+
 }  // namespace
 
 void steinhardt_nearest(const double* positions, std::int64_t n, const double* matrix,
@@ -210,8 +221,10 @@ void steinhardt_nearest(const double* positions, std::int64_t n, const double* m
     tree.for_each_nearest(
         k,
         [&](std::int64_t i, const neighbor::Neighbor* found) {
-            // room per thread, kept between atoms
-            thread_local std::vector<double> vectors, y, sum;
+            NearestRoom& room = nearest_room();
+            std::vector<double>& vectors = room.vectors;
+            std::vector<double>& y = room.y;
+            std::vector<double>& sum = room.sum;
             vectors.resize(3 * static_cast<std::size_t>(k));
             y.resize(width);
             sum.resize(width);

@@ -1022,6 +1022,23 @@ def test_representations():
         render(molecule, bonds="hydrogen")
 
 
+def test_bonds_of_the_topology():
+    """The bonds of the topology drawn as the same bonds found by a cutoff,
+    across the boundaries too."""
+    from mdapy import transform
+    from mdapy.build import build_crystal
+
+    silicon = build_crystal("diamond", 5.431, elements="Si", repeat=(2, 2, 2))
+    bonded = transform.create_bonds(silicon, 2.6)
+    options = dict(radius=0.5, bond_radius=0.2, width=120, height=120, view="iso")
+    np.testing.assert_array_equal(
+        render(bonded, bonds="topology", **options),
+        render(silicon, bonds=2.6, **options),
+    )
+    with pytest.raises(mdapy.errors.MissingProperty, match="topology"):
+        render(silicon, bonds="topology", **options)
+
+
 # ------------------------------------------------------------ on the GPU
 
 needs_gpu = pytest.mark.skipif(not gpu_available(), reason="no GPU")

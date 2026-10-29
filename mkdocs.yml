@@ -136,6 +136,7 @@ nav:
           - Structure factor: analysis/structure-factor.md
           - Spatial correlation function: analysis/spatial-correlation.md
           - Bond angle distribution: analysis/bond-angles.md
+          - Bond length distribution: analysis/bond-lengths.md
           - Ring statistics: analysis/rings.md
           - Warren–Cowley parameters: analysis/warren-cowley.md
           - Steinhardt parameters: analysis/steinhardt.md
@@ -143,6 +144,9 @@ nav:
           - Voronoi analysis: analysis/voronoi.md
           - Spatial binning: analysis/spatial-binning.md
           - Isosurfaces and voxels: analysis/isosurface.md
+      - Statistics:
+          - Histograms: analysis/histogram.md
+          - Reductions: analysis/reduce.md
       - Defects and deformation:
           - Cluster analysis: analysis/clusters.md
           - Surface mesh: analysis/surface-mesh.md
@@ -156,6 +160,10 @@ nav:
           - Mean squared displacement: analysis/msd.md
           - Lindemann index: analysis/lindemann.md
           - Time averages: analysis/time-average.md
+          - Time series: analysis/time-series.md
+          - Difference between frames: analysis/frame-difference.md
+          - Frozen values: analysis/freeze.md
+          - Smoothed trajectories: analysis/smooth-trajectory.md
           - Trajectory lines: analysis/trajectory-lines.md
           - Center-of-mass drift: analysis/drift.md
           - Atomic temperature: analysis/temperature.md
@@ -172,6 +180,7 @@ nav:
       - Affine transformation: build/affine.md
       - Slices: build/slice.md
       - Combining systems: build/combine.md
+      - Creating bonds: build/bonds.md
   - Simulation:
       - Calculators:
           - The calculator interface: simulation/calculators.md

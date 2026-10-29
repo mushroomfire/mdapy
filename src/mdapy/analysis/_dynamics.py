@@ -370,3 +370,176 @@ class TimeAverage:
 
     def __repr__(self) -> str:
         return f"TimeAverage({self.quantity!r}, unwrap={self.unwrap})"
+
+
+@dataclass(frozen=True)
+class TimeSeriesResult(Result):
+    """A quantity in each frame.
+
+    Attributes
+    ----------
+    frame : numpy.ndarray
+        (F,) int64 the place of each frame among those given, from 0.
+    values : numpy.ndarray
+        (F,) the quantity in each frame; (F, k) for one of k components or
+        values.
+    timestep : numpy.ndarray or None
+        (F,) int64 the timestep of each frame, where every frame has one in
+        its information.
+    name : str or None
+        The column; None for a function.
+    """
+
+    frame: np.ndarray
+    values: np.ndarray
+    timestep: np.ndarray | None
+    name: str | None = None
+
+
+class TimeSeries:
+    """A quantity in every frame of a trajectory, as OVITO's time series
+    modifier: a column reduced to one number per frame, or any function of
+    a frame.
+
+    Parameters
+    ----------
+    quantity : str or callable
+        A column of numbers, a component such as ``"positions.z"`` or an
+        expression over the columns, reduced by ``operation`` in each frame;
+        or a function of a frame that gives a number, or an array of the
+        same shape in every frame.
+    operation : str, optional
+        For a column, one of ``OPERATIONS`` of :func:`reduce`. Default mean.
+    """
+
+    def __init__(
+        self, quantity: str | Callable[[System], Any], operation: str = "mean"
+    ):
+        from mdapy.analysis._statistics import OPERATIONS
+
+        if not (isinstance(quantity, str) or callable(quantity)):
+            raise InvalidParameter(
+                f"quantity must be a column name or a function, not {quantity!r}"
+            )
+        if operation not in OPERATIONS:
+            raise InvalidParameter(
+                f"operation must be one of {OPERATIONS}, not {operation!r}"
+            )
+        self.quantity = quantity
+        self.operation = operation
+
+    def compute(self, frames: Iterable[System]) -> TimeSeriesResult:
+        """The quantity in each frame, such as of a Trajectory or a slice of
+        one.
+
+        Parameters
+        ----------
+        frames : iterable of System
+            The frames, in order.
+
+        Returns
+        -------
+        TimeSeriesResult
+            The values and the timesteps.
+        """
+        from mdapy.analysis._statistics import reduce
+
+        values, steps = [], []
+        for frame in frames:
+            if isinstance(self.quantity, str):
+                value = reduce(frame, self.quantity, self.operation)
+            else:
+                value = self.quantity(frame)
+            value = np.asarray(value, dtype=np.float64)
+            if values and value.shape != values[0].shape:
+                raise InvalidParameter(
+                    f"frame {len(values)} gives shape {value.shape}, frame 0 "
+                    f"{values[0].shape}"
+                )
+            values.append(value)
+            steps.append(frame.info.get("timestep"))
+        if not values:
+            raise InvalidParameter("there are no frames")
+        timestep = (
+            None
+            if any(step is None for step in steps)
+            else np.asarray(steps, dtype=np.int64)
+        )
+        return TimeSeriesResult(
+            frame=np.arange(len(values), dtype=np.int64),
+            values=np.stack(values),
+            timestep=timestep,
+            name=self.quantity if isinstance(self.quantity, str) else None,
+        )
+
+    def __repr__(self) -> str:
+        return f"TimeSeries({self.quantity!r}, {self.operation!r})"
+
+
+@dataclass(frozen=True)
+class FrameDifferenceResult(Result):
+    """A column minus its values in a reference frame.
+
+    Attributes
+    ----------
+    difference : numpy.ndarray
+        (N,) or (N, k) the change of each atom of the system; added by
+        ``System.with_columns`` as the column, its dots as underscores,
+        followed by ``_change``.
+    name : str
+        The column.
+    """
+
+    difference: np.ndarray
+    name: str
+
+    def columns(self) -> dict[str, np.ndarray]:
+        return {f"{self.name.replace('.', '_')}_change": self.difference}
+
+
+class FrameDifference:
+    """The change of a column of each atom from a reference frame, as
+    OVITO's difference between frames.
+
+    Parameters
+    ----------
+    column : str
+        A column of numbers, a component such as ``"pe.1"`` or an expression
+        over the columns. Positions change through the periodic boundaries
+        as given: use :class:`AtomicDisplacement` for displacements.
+    """
+
+    def __init__(self, column: str):
+        if not isinstance(column, str):
+            raise InvalidParameter(f"column must be a name, not {column!r}")
+        self.column = column
+
+    def compute(self, system: System, reference: System) -> FrameDifferenceResult:
+        """The change from the reference.
+
+        Parameters
+        ----------
+        system : System
+            The frame.
+        reference : System
+            The reference frame, such as the first of the trajectory: its
+            atoms matched by the ``id`` column where both have one, else in
+            the same order.
+
+        Returns
+        -------
+        FrameDifferenceResult
+            The values of the system minus those of the reference.
+        """
+        from mdapy.core._atoms import _matching
+
+        match = _matching(reference, system)
+        try:
+            now = np.asarray(system[self.column], dtype=np.float64)
+            then = np.asarray(reference[self.column], dtype=np.float64)
+        except (TypeError, ValueError):
+            raise InvalidParameter(f"{self.column} is not numbers") from None
+        return FrameDifferenceResult(difference=now - then[match], name=self.column)
+
+    def __repr__(self) -> str:
+        return f"FrameDifference({self.column!r})"

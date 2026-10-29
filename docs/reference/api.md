@@ -89,6 +89,16 @@ import mdapy as mp
 
 ::: mdapy.analysis.BondAngleResult
 
+::: mdapy.analysis.BondLengthDistribution
+
+::: mdapy.analysis.BondLengthResult
+
+::: mdapy.analysis.Histogram
+
+::: mdapy.analysis.HistogramResult
+
+::: mdapy.analysis.reduce
+
 ::: mdapy.analysis.RingStatistics
 
 ::: mdapy.analysis.RingResult
@@ -159,6 +169,18 @@ import mdapy as mp
 
 ::: mdapy.analysis.LindemannResult
 
+::: mdapy.analysis.TimeAverage
+
+::: mdapy.analysis.TimeAverageResult
+
+::: mdapy.analysis.TimeSeries
+
+::: mdapy.analysis.TimeSeriesResult
+
+::: mdapy.analysis.FrameDifference
+
+::: mdapy.analysis.FrameDifferenceResult
+
 ::: mdapy.analysis.AtomicTemperature
 
 ::: mdapy.analysis.TemperatureResult
@@ -204,6 +226,12 @@ import mdapy as mp
 ::: mdapy.transform.unwrap
 
 ::: mdapy.transform.remove_drift
+
+::: mdapy.transform.freeze
+
+::: mdapy.transform.smooth_trajectory
+
+::: mdapy.transform.create_bonds
 
 ::: mdapy.transform.combine
 

@@ -13,7 +13,7 @@ import polars as pl
 from numpy.typing import ArrayLike
 
 from mdapy.core.system import System
-from mdapy.errors import InvalidParameter
+from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
 from mdapy.visualization._scene import (
     Scene,
@@ -195,9 +195,11 @@ def render(
         Radius of the atoms in Å, one or (N,) each, or the radii of the
         elements: "display", "covalent" or "vdw". Default that of the
         representation.
-    bonds : float, NeighborList or "covalent", optional
+    bonds : float, NeighborList, "covalent" or "topology", optional
         Bonds between the atoms closer than this cutoff in Å, the pairs of a
-        neighbor list, or covalent bonds (see :func:`covalent_bonds`).
+        neighbor list, covalent bonds (see :func:`covalent_bonds`), or the
+        bonds of the topology of the system, such as those of a LAMMPS data
+        file or of :func:`mdapy.transform.create_bonds`.
         Default that of the representation.
     bond_radius : float, optional
         Radius of the bonds in Å. Default that of the representation.
@@ -314,13 +316,36 @@ def render(
     scene.add_spheres(
         system["positions"][index], radii[index], colors[index], ids=index
     )
-    if bonds is not None:
+    if isinstance(bonds, str) and bonds == "topology":
+        # the bonds of the topology, each to the nearest image of its second
+        # atom, each half from its own atom in its color
+        topology = system.topology
+        if topology is None or not len(topology.bonds):
+            raise MissingProperty("bonds='topology' needs bonds in the topology")
+        bonded = np.asarray(topology.bonds["atoms"].to_list(), dtype=np.int64)
+        bonded = bonded[shown[bonded[:, 0]] & shown[bonded[:, 1]]]
+        first, second = bonded[:, 0], bonded[:, 1]
+        at = system["positions"]
+        step = system.box.minimum_image(at[second] - at[first])
+        bond_ids = np.full(len(bonded), n)
+        scene.add_cylinders(
+            at[first], at[first] + 0.5 * step, bond_radius, colors[first], ids=bond_ids
+        )
+        scene.add_cylinders(
+            at[second],
+            at[second] - 0.5 * step,
+            bond_radius,
+            colors[second],
+            ids=bond_ids,
+        )
+    elif bonds is not None:
         if isinstance(bonds, NeighborList):
             nl = bonds
         elif isinstance(bonds, str):
             if bonds != "covalent":
                 raise InvalidParameter(
-                    f"bonds must be a cutoff, a NeighborList or covalent, not {bonds!r}"
+                    "bonds must be a cutoff, a NeighborList, covalent or topology, "
+                    f"not {bonds!r}"
                 )
             nl = covalent_bonds(system)
         else:

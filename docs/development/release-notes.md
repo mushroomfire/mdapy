@@ -27,7 +27,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   `"positions.x**2 + positions.y**2 < 25 and element == 'Cu'"`, with the
   components of array columns by name or index, comparisons, logic,
   membership, arithmetic and common functions; keywords, masks and polars
-  expressions work too. `system["positions.z"]` gives the values of a
+  expressions work too. `System.where` gives the atoms of the same
+  conditions as a boolean mask. `system["positions.z"]` gives the values of a
   column, a component or such an expression as a read-only NumPy array,
   without a copy for columns and components. See
   [Selecting and ordering atoms](../getting-started/selecting.md).
@@ -242,7 +243,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   function of two properties of the atoms, by fast Fourier transforms on a
   grid and by a direct sum over neighbors, the same as OVITO's spatial
   correlation function; the [`BondAngleDistribution`](../analysis/bond-angles.md) for
-  each triplet of elements; [`RingStatistics`](../analysis/rings.md), the
+  each triplet of elements; the [`BondLengthDistribution`](../analysis/bond-lengths.md)
+  of the bonds of a topology, in total and for each pair of elements; [`RingStatistics`](../analysis/rings.md), the
   shortest-path rings of a network of bonds up to 36 atoms, without the
   paths around the periodic box, drawn as polygons;
   [`WarrenCowley`](../analysis/warren-cowley.md)
@@ -276,7 +278,21 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   [`mdapy.transform.remove_drift`](../analysis/drift.md): the frames of a
   trajectory moved to keep the center of mass of all the atoms or of some
   where it is in a reference frame, read when they are used, as OVITO's
-  center of mass correction.
+  center of mass correction. [`TimeSeries`](../analysis/time-series.md): a
+  column reduced to one number, or anything computed, in every frame, as
+  OVITO's time series; [`FrameDifference`](../analysis/frame-difference.md),
+  the change of a column of each atom from a reference frame;
+  [`mdapy.transform.freeze`](../analysis/freeze.md), the values of a column
+  in a reference frame given to the atoms of another; and
+  [`mdapy.transform.smooth_trajectory`](../analysis/smooth-trajectory.md),
+  the positions and other real numbers averaged over a window of frames;
+  each as OVITO's modifier of the same name, the atoms matched by id.
+- Statistics of a column in `mdapy.analysis`, agreeing with OVITO:
+  [`Histogram`](../analysis/histogram.md), the counts of the values of a
+  column, a component or an expression in bins, of all atoms or of a mask;
+  [`reduce`](../analysis/reduce.md), one number from them: mean, sum,
+  extremes, median, variance, standard deviation, the count of those not
+  zero, or the atom of the lowest or highest, NaN values left out.
 - Defects and deformation in `mdapy.analysis`, agreeing with OVITO:
   [`ClusterAnalysis`](../analysis/clusters.md) for clusters of bonded atoms
   and whether they span the box, and on request their unwrapped positions,
@@ -373,6 +389,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   first, in its box, as OVITO's combine datasets: the columns of either,
   ids numbered on, molecules and topology terms offset. See
   [Combining systems](../build/combine.md).
+- `mdapy.transform.create_bonds`: bonds in the topology between the atoms
+  closer than a cutoff, or covalent bonds, as OVITO's create bonds; drawn by
+  `render(bonds="topology")`. See [Creating bonds](../build/bonds.md).
 
 ### MLIP
 

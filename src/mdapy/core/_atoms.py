@@ -27,3 +27,33 @@ def _mask(atoms: ArrayLike, n: int) -> np.ndarray:
     mask = np.zeros(n, dtype=bool)
     mask[index.astype(np.int64)] = True
     return mask
+
+
+def _matching(reference, system) -> np.ndarray:
+    """(N,) the index in reference of each atom of system: by the id column
+    where both have one, else the same order, which needs as many atoms."""
+    from mdapy.errors import MissingProperty
+
+    if "id" in system.table.columns and "id" in reference.table.columns:
+        theirs = reference.table["id"].to_numpy()
+        order = np.argsort(theirs, kind="stable")
+        sorted_ids = theirs[order]
+        if (sorted_ids[1:] == sorted_ids[:-1]).any():
+            raise InvalidParameter("the reference has repeated ids")
+        mine = system.table["id"].to_numpy()
+        place = np.searchsorted(sorted_ids, mine)
+        place[place == len(sorted_ids)] = 0
+        missing = (
+            sorted_ids[place] != mine if len(sorted_ids) else np.ones(len(mine), bool)
+        )
+        if missing.any():
+            raise MissingProperty(
+                f"atom {mine[np.flatnonzero(missing)[0]]} is not in the reference"
+            )
+        return order[place]
+    if len(reference) != len(system):
+        raise InvalidParameter(
+            f"the reference has {len(reference)} atoms and the system {len(system)}; "
+            "without ids the atoms cannot be matched"
+        )
+    return np.arange(len(system))

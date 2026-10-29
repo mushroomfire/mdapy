@@ -651,8 +651,8 @@ class System:
     # Atoms chosen and ordered
     # ------------------------------------------------------------------
 
-    def filter(self, *conditions: Any, **equal: Any) -> "System":
-        """New system with the atoms that meet every condition, in their order.
+    def where(self, *conditions: Any, **equal: Any) -> np.ndarray:
+        """The atoms that meet every condition, as a mask.
 
         Parameters
         ----------
@@ -666,9 +666,9 @@ class System:
 
         Returns
         -------
-        System
-            The atoms kept. Topology terms whose atoms are all kept are kept
-            and renumbered; the others are dropped.
+        numpy.ndarray
+            (N,) bool, true for the atoms that meet every condition; every
+            atom without conditions.
 
         Raises
         ------
@@ -710,7 +710,34 @@ class System:
                     f"{text!r} does not give true or false for each atom"
                 )
             keep &= found.fill_null(False).to_numpy()
-        return self.__rows(np.flatnonzero(keep))
+        return keep
+
+    def filter(self, *conditions: Any, **equal: Any) -> "System":
+        """New system with the atoms that meet every condition, in their order.
+
+        Parameters
+        ----------
+        *conditions
+            Each a boolean mask of length N, a polars expression, or a
+            condition written as a Python expression over the columns, such
+            as ``"positions.x > 5 and element == 'Cu'"``, as described in
+            Selecting and ordering atoms in the documentation.
+        **equal
+            Columns and the value each must equal, such as ``element="Cu"``.
+
+        Returns
+        -------
+        System
+            The atoms kept. Topology terms whose atoms are all kept are kept
+            and renumbered; the others are dropped.
+
+        Raises
+        ------
+        InvalidParameter
+            For a mask of the wrong length, an unknown column or component, a
+            condition that cannot be read or does not give true or false.
+        """
+        return self.__rows(np.flatnonzero(self.where(*conditions, **equal)))
 
     def gather(self, atoms: ArrayLike) -> "System":
         """New system with the atoms of the given indices, in that order.

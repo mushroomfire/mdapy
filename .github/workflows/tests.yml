@@ -166,8 +166,10 @@ jobs:
           export ASAN_OPTIONS=detect_leaks=0:abort_on_error=1
           export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
           # the workers of pytest-xdist inherit the preloaded sanitizers; the
-          # slowest tests listed, as the sanitizers slow them most
-          pytest -q -n auto --durations=15
+          # examples of the documentation, the same code at larger sizes that
+          # the other jobs run, are left out (under the sanitizers their
+          # pictures alone took 50 minutes)
+          pytest -q -n auto --durations=15 --ignore=tests/test_docs.py
 
   # ThreadSanitizer checks the thread pool and the parallel kernels with a
   # C++ program: under a preloaded TSan, importing polars crashes on Linux,

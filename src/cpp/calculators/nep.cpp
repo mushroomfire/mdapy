@@ -11,6 +11,7 @@
 #include <stdexcept>
 
 #include "neighbor/frame.h"
+#include "neighbor/frames.h"
 
 namespace mdapy::calculators {
 namespace {
@@ -583,6 +584,47 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                     for (int k = 0; k < 9; ++k) {
                         virials[9 * i + k] = w[k];
                     }
+                }
+            }
+        },
+        control);
+}
+
+void compute_nep_frames(const NepModel& model, const neighbor::Frames& frames,
+                        const std::int32_t* species, double cutoff, double* energies,
+                        double* forces, double* virials, double* descriptors,
+                        const Control& control) {
+    const auto dim = static_cast<std::size_t>(model.dim);
+    neighbor::for_each_frame(
+        frames,
+        [&](std::int64_t k) {
+            const std::int64_t n = frames.atoms(k), s = frames.starts[k];
+            const auto atoms = static_cast<std::size_t>(n);
+            double* sum = forces != nullptr ? virials + 9 * k : descriptors + dim * static_cast<std::size_t>(k);
+            const std::size_t width = forces != nullptr ? 9 : dim;
+            std::fill(sum, sum + width, 0.0);
+            if (n == 0) {
+                if (forces == nullptr) {
+                    std::fill(sum, sum + width, std::nan(""));
+                }
+                return;
+            }
+            const neighbor::NeighborPairs pairs = frames.pairs(k, cutoff);
+            std::vector<double> each(width * atoms);
+            compute_nep(model, n, species + s, frames.positions + 3 * s, frames.matrices + 9 * k,
+                        pairs.offsets.data(), pairs.neighbors.data(), pairs.shifts.data(),
+                        forces != nullptr ? energies + s : nullptr,
+                        forces != nullptr ? forces + 3 * s : nullptr,
+                        forces != nullptr ? each.data() : nullptr,
+                        forces != nullptr ? nullptr : each.data());
+            for (std::size_t i = 0; i < atoms; ++i) {
+                for (std::size_t c = 0; c < width; ++c) {
+                    sum[c] += each[width * i + c];
+                }
+            }
+            if (forces == nullptr) {
+                for (std::size_t c = 0; c < width; ++c) {
+                    sum[c] /= static_cast<double>(n);
                 }
             }
         },

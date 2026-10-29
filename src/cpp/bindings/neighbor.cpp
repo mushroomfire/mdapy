@@ -19,10 +19,12 @@
 #include <vector>
 
 #include "bindings/control.h"
+#include "bindings/frames.h"
 #include "core/buffer.h"
 #include "core/index.h"
 #include "core/parallel.h"
 #include "neighbor/cell_list.h"
+#include "neighbor/frames.h"
 #include "neighbor/kd_tree.h"
 
 namespace mdapy::bindings {
@@ -77,6 +79,23 @@ nb::tuple build(Positions positions, Matrix matrix, Vector3 origin, Flags pbc, d
         },
         progress, cancel);
     return to_arrays(std::move(pairs));
+}
+
+// For each of many frames, the closest pair over the sum of their radii,
+// where below close, else infinity.
+nb::object closest_pairs(frames::Starts starts, frames::Positions positions, frames::Matrices matrices,
+                         frames::Origins origins, frames::Flags pbc, Distances radii, double close,
+                         nb::handle progress, const CancelToken* cancel) {
+    const neighbor::Frames all = frames::of(starts, positions, matrices, origins, pbc);
+    if (radii.shape(0) != positions.shape(0)) {
+        throw std::invalid_argument("radii must have one value per atom");
+    }
+    std::vector<double> found;
+    run_released(
+        [&](const Control& control) { found = neighbor::closest_pairs(all, radii.data(), close, control); },
+        progress, cancel);
+    const std::size_t count = found.size();
+    return to_array(std::move(found), {count});
 }
 
 nb::tuple nearest(Positions positions, Matrix matrix, Vector3 origin, Flags pbc, int k,
@@ -236,6 +255,9 @@ void bind_neighbor(nb::module_& m) {
     m.def("build", &build, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
+    m.def("closest_pairs", &closest_pairs, nb::arg("starts"), nb::arg("positions"),
+          nb::arg("matrices"), nb::arg("origins"), nb::arg("pbc"), nb::arg("radii"),
+          nb::arg("close"), nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("nearest", &nearest, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("k"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);

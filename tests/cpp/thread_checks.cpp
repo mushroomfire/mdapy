@@ -44,6 +44,7 @@
 #include "identify/structure.h"
 #include "io/text.h"
 #include "neighbor/cell_list.h"
+#include "neighbor/frames.h"
 #include "neighbor/kd_tree.h"
 #include "neighbor/list_view.h"
 #include "visualization/render.h"
@@ -523,6 +524,8 @@ Pairs alloy_pairs(double cutoff) {
     return p;
 }
 
+void many_frames(const mdapy::calculators::NepModel& nep);
+
 void calculators() {
     // EAM with smooth analytic tables
     const double cutoff = 4.5;
@@ -626,6 +629,75 @@ void calculators() {
                          : "NEP gives the same results for any thread count");
         }
     }
+    many_frames(nep);
+}
+
+// Many small frames, a frame on a thread: the same for any thread count, and
+// each frame as it is alone.
+void many_frames(const mdapy::calculators::NepModel& nep) {
+    std::mt19937_64 random(11);
+    std::uniform_real_distribution<double> uniform(0.0, 1.0);
+    std::vector<std::int64_t> starts = {0};
+    std::vector<double> positions, matrices, origins, radii;
+    std::vector<std::int32_t> species;
+    std::vector<char> flags;  // pbc as bytes: std::vector<bool> has no data()
+    for (int k = 0; k < 60; ++k) {
+        const int n = k % 7 == 0 ? 1 : 5 + k % 30;
+        const double side = 4.0 + 0.1 * k;
+        const double matrix[9] = {side, 0.0, 0.0, 0.3, side, 0.0, 0.0, 0.2, side};
+        for (int i = 0; i < n; ++i) {
+            const double f[3] = {uniform(random), uniform(random), uniform(random)};
+            for (int e = 0; e < 3; ++e) {
+                positions.push_back(f[0] * matrix[e] + f[1] * matrix[3 + e] + f[2] * matrix[6 + e]);
+            }
+            species.push_back(i % 2);
+            radii.push_back(1.2 + 0.1 * (i % 3));
+        }
+        starts.push_back(starts.back() + n);
+        matrices.insert(matrices.end(), matrix, matrix + 9);
+        origins.insert(origins.end(), {0.0, 0.0, 0.0});
+        flags.insert(flags.end(), {1, 1, static_cast<char>(k % 2)});
+    }
+    mdapy::neighbor::Frames frames;
+    frames.count = 60;
+    frames.starts = starts.data();
+    frames.positions = positions.data();
+    frames.matrices = matrices.data();
+    frames.origins = origins.data();
+    frames.pbc = reinterpret_cast<const bool*>(flags.data());
+    const std::size_t n = species.size(), dim = static_cast<std::size_t>(nep.dim);
+    std::vector<double> first[5];
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::vector<double> found[5] = {std::vector<double>(n), std::vector<double>(3 * n),
+                                        std::vector<double>(9 * 60), std::vector<double>(dim * 60),
+                                        mdapy::neighbor::closest_pairs(frames, radii.data(), 0.8)};
+        mdapy::calculators::compute_nep_frames(nep, frames, species.data(), 4.5, found[0].data(),
+                                               found[1].data(), found[2].data(), nullptr);
+        mdapy::calculators::compute_nep_frames(nep, frames, species.data(), 4.5, nullptr, nullptr,
+                                               nullptr, found[3].data());
+        if (threads == kThreads[0]) {
+            for (int c = 0; c < 5; ++c) {
+                first[c] = found[c];
+            }
+        }
+        bool same = true;
+        for (int c = 0; c < 5; ++c) {
+            same = same && std::memcmp(found[c].data(), first[c].data(), found[c].size() * sizeof(double)) == 0;
+        }
+        check(same, "many frames give the same results for any thread count");
+    }
+    // a frame alone
+    const std::int64_t k = 9, s = starts[k], count = starts[k + 1] - starts[k];
+    const mdapy::neighbor::NeighborPairs pairs = frames.pairs(k, 4.5);
+    std::vector<double> e(count), f(3 * count), w(9 * count);
+    mdapy::calculators::compute_nep(nep, count, species.data() + s, positions.data() + 3 * s,
+                                    matrices.data() + 9 * k, pairs.offsets.data(),
+                                    pairs.neighbors.data(), pairs.shifts.data(), e.data(), f.data(),
+                                    w.data(), nullptr);
+    check(std::memcmp(e.data(), first[0].data() + s, e.size() * sizeof(double)) == 0 &&
+              std::memcmp(f.data(), first[1].data() + 3 * s, f.size() * sizeof(double)) == 0,
+          "a frame of many is computed as it is alone");
 }
 
 void structure_identification() {

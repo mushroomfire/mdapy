@@ -9,6 +9,7 @@
 | `src/mdapy/core/system.py` | `System`, one atomic configuration. |
 | `src/mdapy/core/topology.py` | `Topology`: bonds, angles, dihedrals, impropers. |
 | `src/mdapy/core/box.py` | `Box`, the simulation box. |
+| `src/mdapy/core/_frames.py` | many systems one after another as the arrays of the kernels that compute them a frame on a thread. |
 | `src/mdapy/core/threads.py` | Number of threads, `CancelToken`. |
 | `src/mdapy/core/indices.py` | `index_dtype`, the type of atom indices in results. |
 | `src/mdapy/core/result.py` | `Result`, the base class of the results of analyses. |
@@ -79,6 +80,7 @@
 | `src/cpp/io/text.h`, `text.cpp` | Parsing and formatting of text tables, in parallel over lines; numbers are correctly rounded and independent of the locale. |
 | `src/cpp/neighbor/frame.h` | The box as the neighbor searches see it, and the vector of a pair. |
 | `src/cpp/neighbor/cell_list.h`, `cell_list.cpp` | The search within a cutoff, with cells. |
+| `src/cpp/neighbor/frames.h`, `frames.cpp` | Many small frames, a frame on a thread; their closest pairs. |
 | `src/cpp/neighbor/kd_tree.h`, `kd_tree.cpp` | The search of nearest neighbors, with a k-d tree. |
 | `src/cpp/calculators/eam.h`, `eam.cpp` | The embedded atom method. |
 | `src/cpp/calculators/nep.h`, `nep.cpp` | Neuroevolution potentials. |

@@ -17,12 +17,13 @@ from mdapy.calculators._base import (
     CalculatorResult,
     _element_indices,
 )
+from mdapy.core._frames import Frames
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
 from mdapy.errors import FileFormatError
 from mdapy.neighbor import NeighborList
-from mdapy.neighbor._neighbor_list import _given_or_built
+from mdapy.neighbor._neighbor_list import _given_or_built, _run
 
 #: e^2 / (4 pi epsilon_0) in eV Å, as GPUMD has it.
 _COULOMB = 14.399645
@@ -369,6 +370,31 @@ class NEP(Calculator):
                 progress,
                 _native_token(cancel),
             )
+
+    def _frame_results(self, frames: Frames) -> tuple[np.ndarray, ...]:
+        """Many frames, each as compute finds it alone, a frame on a thread:
+        the energies (n) and forces (n, 3) of the atoms, and the virial of
+        each frame (frames, 3, 3)."""
+        return _run(
+            _native.nep_frames,
+            self.__model,
+            frames.species(self.elements, "NEP"),
+            *frames.arrays(),
+            self.cutoff,
+            True,
+        )
+
+    def _frame_descriptors(self, frames: Frames) -> np.ndarray:
+        """The mean descriptors of each of many frames (frames, dim), each
+        as descriptors finds them alone, a frame on a thread."""
+        return _run(
+            _native.nep_frames,
+            self.__model,
+            frames.species(self.elements, "NEP"),
+            *frames.arrays(),
+            self.cutoff,
+            False,
+        )
 
     def __repr__(self) -> str:
         return f"NEP({self.path!r}, elements={self.elements}, cutoff={self.cutoff})"

@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
+from mdapy.core._frames import Frames, batches
 from mdapy.core.box import Box
 from mdapy.core.result import Result
 from mdapy.core.system import System
@@ -170,6 +171,11 @@ def structure_descriptors(frames: Sequence[System], calculator: Any) -> np.ndarr
     numpy.ndarray
         (F, D) one descriptor per frame.
     """
+    batch = getattr(calculator, "_frame_descriptors", None)
+    if batch is not None:
+        # a model of mdapy: many frames at a time, a frame on a thread
+        found = [batch(Frames(part)) for part in batches(frames)]
+        return np.concatenate(found) if found else np.array([])
     return np.array(
         [np.asarray(calculator.descriptors(frame)).mean(axis=0) for frame in frames]
     )

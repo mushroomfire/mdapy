@@ -16,12 +16,14 @@ from typing import Any
 import numpy as np
 import polars as pl
 
+from mdapy._core import neighbor as _neighbors
+from mdapy.core._frames import Frames, batches
 from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.core.threads import get_num_threads
-from mdapy.elements import covalent_radii
-from mdapy.errors import InvalidParameter
-from mdapy.neighbor import NeighborList
+from mdapy.elements import COVALENT_RADII
+from mdapy.errors import InvalidParameter, MissingProperty
+from mdapy.neighbor._neighbor_list import _run
 
 # GPUMD's components of a virial, and its mark of a missing reference
 _GPUMD_VIRIAL = ((0, 0), (1, 1), (2, 2), (0, 1), (1, 2), (2, 0))
@@ -156,6 +158,40 @@ def _labels(frame: System) -> tuple[float, np.ndarray, np.ndarray]:
     return energy, forces, virial
 
 
+def _results(
+    frames: list[System], calculator: Any, wanted: Sequence[str]
+) -> list[tuple[float, np.ndarray, np.ndarray | None]]:
+    """The energy, forces and virial (None where not computed) of each frame:
+    of a model of mdapy many frames at a time, a frame on a thread; of any
+    other, frame by frame."""
+    batch = getattr(calculator, "_frame_results", None)
+    if batch is None:
+        found = []
+        for frame in frames:
+            r = calculator.compute(frame, wanted)
+            found.append(
+                (
+                    float(r.energy),
+                    np.asarray(r.forces),
+                    None if r.virial is None else np.asarray(r.virial),
+                )
+            )
+        return found
+    packed = Frames(frames)
+    energies, forces, virials = batch(packed)
+    sizes = np.diff(packed.starts)
+    totals = np.bincount(
+        np.repeat(np.arange(len(frames)), sizes),
+        weights=energies,
+        minlength=len(frames),
+    )
+    starts = packed.starts
+    return [
+        (float(totals[k]), forces[starts[k] : starts[k + 1]], virials[k])
+        for k in range(len(frames))
+    ]
+
+
 def predict(frames: Sequence[System], calculator: Any) -> Predictions:
     """The predictions of a model against the labels of frames, such as
     those of a training set.
@@ -179,19 +215,19 @@ def predict(frames: Sequence[System], calculator: Any) -> Predictions:
     if "virial" in calculator.implemented:
         wanted.append("virial")
     atoms, energy, forces, virial = [], [], [], []
-    for frame in frames:
-        n = len(frame)
-        label_energy, label_forces, label_virial = _labels(frame)
-        result = calculator.compute(frame, wanted)
-        predicted_virial = (
-            np.asarray(result.virial) / n
-            if result.virial is not None and n
-            else np.full((3, 3), np.nan)
-        )
-        atoms.append(n)
-        energy.append([label_energy, result.energy / n if n else np.nan])
-        forces.append(np.stack([label_forces, np.asarray(result.forces)], axis=1))
-        virial.append([label_virial, predicted_virial])
+    for part in batches(frames):
+        for frame, (e, f, w) in zip(part, _results(part, calculator, wanted)):
+            n = len(frame)
+            label_energy, label_forces, label_virial = _labels(frame)
+            atoms.append(n)
+            energy.append([label_energy, e / n if n else np.nan])
+            forces.append(np.stack([label_forces, f], axis=1))
+            virial.append(
+                [
+                    label_virial,
+                    w / n if w is not None and n else np.full((3, 3), np.nan),
+                ]
+            )
     if not atoms:
         raise InvalidParameter("there are no frames")
     return Predictions(
@@ -316,16 +352,17 @@ def committee(frames: Sequence[System], calculators: Sequence[Any]) -> Committee
     if len(calculators) < 2:
         raise InvalidParameter("a committee needs two or more models")
     atoms, energy, forces, largest = [], [], [], []
-    for frame in frames:
-        n = len(frame)
-        results = [c.compute(frame, ("energy", "forces")) for c in calculators]
-        e = np.array([r.energy for r in results]) / max(n, 1)
-        f = np.stack([np.asarray(r.forces) for r in results])
-        spread = np.sqrt(((f - f.mean(axis=0)) ** 2).sum(axis=2).mean(axis=0))
-        atoms.append(n)
-        energy.append(e.std())
-        forces.append(spread)
-        largest.append(spread.max() if n else 0.0)
+    for part in batches(frames):
+        each = [_results(part, c, ("energy", "forces")) for c in calculators]
+        for k, frame in enumerate(part):
+            n = len(frame)
+            e = np.array([found[k][0] for found in each]) / max(n, 1)
+            f = np.stack([found[k][1] for found in each])
+            spread = np.sqrt(((f - f.mean(axis=0)) ** 2).sum(axis=2).mean(axis=0))
+            atoms.append(n)
+            energy.append(e.std())
+            forces.append(spread)
+            largest.append(spread.max() if n else 0.0)
     if not atoms:
         raise InvalidParameter("there are no frames")
     return CommitteeResult(
@@ -406,30 +443,33 @@ def check_frames(frames: Sequence[System], *, close: float = 0.5) -> pl.DataFram
     if not close > 0:
         raise InvalidParameter(f"close must be positive, not {close!r}")
     rows = []
-    for k, frame in enumerate(frames):
-        radii = covalent_radii(frame["element"]) if len(frame) else np.zeros(0)
-        closest = np.inf
-        if len(frame) > 1:
-            pairs = NeighborList.build(frame, close * 2 * float(radii.max()))
-            i = np.repeat(np.arange(len(frame)), np.diff(pairs.offsets))
-            ratio = pairs.distances / (radii[i] + radii[pairs.j])
-            if len(ratio) and ratio.min() < close:
-                closest = float(ratio.min())
-        has_forces = "forces" in frame.table.columns
-        rows.append(
-            {
-                "frame": k,
-                "atoms": len(frame),
-                "closest": closest,
-                "too_close": closest < close,
-                "net_force": float(
-                    np.linalg.norm(np.asarray(frame["forces"]).sum(axis=0))
-                )
-                if has_forces
-                else float("nan"),
-                "has_energy": frame.info.get("energy") is not None,
-                "has_forces": has_forces,
-                "has_virial": frame.info.get("virial") is not None,
-            }
+    for part in batches(frames):
+        # the closest pairs of many frames at a time, a frame on a thread
+        packed = Frames(part)
+        if packed.numbers is None:
+            raise MissingProperty("check_frames needs the element column")
+        closest = _run(
+            _neighbors.closest_pairs,
+            *packed.arrays(),
+            COVALENT_RADII[packed.numbers],
+            float(close),
         )
+        for frame, near in zip(part, closest):
+            has_forces = "forces" in frame.table.columns
+            rows.append(
+                {
+                    "frame": len(rows),
+                    "atoms": len(frame),
+                    "closest": float(near),
+                    "too_close": bool(near < close),
+                    "net_force": float(
+                        np.linalg.norm(frame.table["forces"].to_numpy().sum(axis=0))
+                    )
+                    if has_forces
+                    else float("nan"),
+                    "has_energy": frame.info.get("energy") is not None,
+                    "has_forces": has_forces,
+                    "has_virial": frame.info.get("virial") is not None,
+                }
+            )
     return pl.DataFrame(rows)

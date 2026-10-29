@@ -403,7 +403,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   the closest pairs, many frames at a time in C++, a frame on a thread,
   each as it would be alone: for the 105,464 frames of UNEP16 on an Apple
   M5, the NEP descriptors in 15 s rather than 26 s, its predictions in 24 s
-  rather than 35 s, and the checks in 2 s rather than 8 s.
+  rather than 35 s, and the checks in 2 s rather than 8 s. `novelty`
+  screens the pairs in float32 on threads and computes the distances of
+  the candidates exactly: their novelty in 5 s rather than 30 s.
 
 ### Visualization
 

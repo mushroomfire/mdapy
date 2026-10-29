@@ -397,22 +397,42 @@ def novelty(points: Any, reference: Any = None) -> np.ndarray:
         raise InvalidParameter("points and reference must be (M, D) and (K, D)")
     if len(y) < (2 if alone else 1):
         raise InvalidParameter("there are no other points to measure from")
+    # |y|^2 - 2 x.y in float32 for each pair; every point within its
+    # rounding of the smallest is a candidate, whose distance is then
+    # computed exactly: the nearest is always among them
     norms = (y**2).sum(axis=1)
+    x32, y32, norms32 = (
+        x.astype(np.float32),
+        y.astype(np.float32),
+        norms.astype(np.float32),
+    )
+    epsilon = float(np.finfo(np.float32).eps)
+    slack = (
+        4.0 * (x.shape[1] + 2) * epsilon * ((x**2).sum(axis=1) + norms.max())
+    ).astype(np.float32)
     found = np.empty(len(x))
     block = max(1, (1 << 22) // max(len(y), 1))
 
     def nearest(start: int) -> None:
-        # the nearest by |y|^2 - 2 x.y, then its distance exactly
         part = x[start : start + block]
         rows = np.arange(len(part))
-        squared = part @ y.T
+        squared = x32[start : start + block] @ y32.T
         squared *= -2.0
-        squared += norms
+        squared += norms32
         if alone:
             squared[rows, start + rows] = np.inf
-        found[start : start + len(part)] = np.linalg.norm(
-            part - y[squared.argmin(axis=1)], axis=1
-        )
+        limit = squared.min(axis=1) + slack[start : start + len(part)]
+        i, j = np.nonzero(squared <= limit[:, None])
+        best = np.full(len(part), np.inf)
+        for k in range(0, len(i), 1 << 16):  # bounded memory when many tie
+            np.minimum.at(
+                best,
+                i[k : k + (1 << 16)],
+                np.linalg.norm(
+                    part[i[k : k + (1 << 16)]] - y[j[k : k + (1 << 16)]], axis=1
+                ),
+            )
+        found[start : start + len(part)] = best
 
     with ThreadPoolExecutor(get_num_threads()) as pool:
         list(pool.map(nearest, range(0, len(x), block)))

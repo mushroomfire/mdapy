@@ -242,6 +242,24 @@ def test_novelty():
             novelty(*bad)
 
 
+def test_novelty_of_ties_and_far_points():
+    """Thousands of repeated points, each at zero, though the candidates of
+    a block are too many to take at once; and points far from the origin,
+    where float32 rounds |y|^2 - 2 x.y coarsely: the nearest exactly."""
+    rng = np.random.default_rng(2)
+    repeated = np.vstack([np.ones((3000, 4)), rng.normal(size=(20, 4))])
+    found = novelty(repeated)
+    np.testing.assert_array_equal(found[:3000], 0)
+    assert (found[3000:] > 0).all()
+    np.testing.assert_array_equal(
+        novelty(rng.normal(size=(5, 4)), repeated[:3000]) > 0, True
+    )
+    far = 1000.0 + rng.normal(scale=1e-3, size=(400, 7))
+    exact = np.linalg.norm(far[:, None] - far[None], axis=2)
+    np.fill_diagonal(exact, np.inf)
+    np.testing.assert_allclose(novelty(far), exact.min(axis=1), rtol=1e-9)
+
+
 def test_check_frames(frames):
     """Atoms too close, a net force and missing labels, frame by frame."""
     x = frames[0]["positions"].copy()

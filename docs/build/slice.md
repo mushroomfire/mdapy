@@ -75,11 +75,61 @@ and `slice_mask` with the same arguments
 | `through` | (3,) float | `None` | Å | a point the plane passes through, instead of `distance` |
 | `atoms` | mask or indices | all | | the atoms the plane acts on; the others are kept |
 
-The Miller indices refer to the vectors of the box, as in OVITO: they are
-those of the crystal only when the box is made of whole cells of it along
-their axes, and the spacing $d_{hkl}$ is then that of the box, not of the
-crystal. The atoms are taken where they are, inside the box or not; their
-periodic images do not count.
+The atoms are taken where they are, inside the box or not; their periodic
+images do not count.
+
+### Miller indices
+
+With `miller=True` the three numbers are the Miller indices $(hkl)$ of a
+plane in the vectors $\mathbf a$, $\mathbf b$, $\mathbf c$ of the box, and
+`distance` picks one of the parallel planes: the plane holds the points
+whose fractional coordinates $\mathbf f$ in the box satisfy
+
+$$
+h f_1 + k f_2 + l f_3 = \text{distance} .
+$$
+
+`(0, 0, 1)` at 0.5 cuts the box halfway along $\mathbf c$, and `(1, 1, 1)`
+at 1.5 passes through its middle, whatever the shape of the box: the
+distance counts interplanar spacings $d_{hkl}$ of the box from its origin,
+and $(h + k + l) / 2$ is the middle.
+
+In a box of orthogonal vectors of equal length the plane $(hkl)$ is normal
+to the Cartesian vector $(h, k, l)$, and both ways give the same plane. In
+any other box they do not: in the hexagonal box of an hcp crystal,
+$\mathbf b$ at 120° to $\mathbf a$, the plane $(100)$ of the box, a
+prismatic plane of the crystal, runs along $\mathbf b$, while the Cartesian
+normal $(1, 0, 0)$ cuts across it:
+
+```python
+import numpy as np
+from mdapy.visualization import render, write_png
+
+mg = build_crystal("hcp", 3.21, elements="Mg", repeat=(10, 10, 4))
+# the plane (1 0 0) of the box, halfway along a: f1 = 0.5
+prism = slice(mg, (1, 0, 0), 0.5, miller=True)
+# the Cartesian normal (1, 0, 0) through the middle of the box: x = 8.0 Å
+middle = mg.box.origin + mg.box.matrix.sum(axis=0) / 2
+across = slice(mg, (1, 0, 0), through=middle)
+len(prism), len(across)  # 440 and 436 atoms
+pictures = [render(s, view="top", width=500, height=500) for s in (prism, across)]
+write_png("images/slice_miller.png", np.hstack(pictures))
+```
+
+![The plane (100) of a hexagonal box and the plane normal to x](images/slice_miller.png)
+
+*Magnesium in its hexagonal box, seen from above. Left: the plane $(100)$
+of the box halfway along $\mathbf a$ keeps half of the box, cut along
+$\mathbf b$. Right: the Cartesian normal $(1, 0, 0)$ through the middle
+cuts across $\mathbf b$.*
+
+The indices and the spacing are those of the box, as in OVITO, not those
+of the crystal. They point along the crystal's directions when the box is
+whole unit cells along its vectors, as `build_crystal` makes it, but
+$d_{hkl}$ is then $n$ times the crystal's for $n$ cells: in the copper box
+of the first example, $d_{111}$ = 20.9 Å, ten times the 2.09 Å between its
+(111) layers of atoms. A crystal turned by `orientation` has other box
+vectors: cut it by a Cartesian normal.
 
 ## Results
 

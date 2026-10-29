@@ -37,6 +37,10 @@ import mdapy as mp
 
 ::: mdapy.NeighborList
 
+::: mdapy.neighbor.expand_selection
+
+::: mdapy.neighbor.find_overlapping
+
 ## Analyses
 
 ::: mdapy.core.Result

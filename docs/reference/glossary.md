@@ -35,6 +35,7 @@ implemented.
 | affine transformation | A map of positions x to M x + t, with a (3, 3) matrix M and a translation t: a rotation, shear, scaling or move, or a mix of them; vectors such as velocities turn with M alone. |
 | selection | Some atoms of a system, given as a boolean mask of one value per atom or as their indices. |
 | mask | (N,) bool, true for the atoms of a selection; `System.where` gives the mask of conditions, and analyses take one as `atoms`. |
+| overlapping atoms | Atoms closer than a distance to another, such as the copies of an atom or the atoms where structures put together clash; `find_overlapping` selects them. |
 | copy | One of the systems `replicate` places side by side; copy (i, j, l) of (n<sub>a</sub>, n<sub>b</sub>, n<sub>c</sub>) is number i + n<sub>a</sub>(j + n<sub>b</sub> l). |
 | lag | The number of frames between two frames of a trajectory. |
 | time average | The mean of a quantity over the frames of a trajectory, of each atom for a column of the atoms. |

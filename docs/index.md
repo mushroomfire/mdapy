@@ -118,6 +118,7 @@ flowchart TB
     System: [Systems](getting-started/system.md) ·
     [selecting and ordering atoms](getting-started/selecting.md) ·
     [expanding a selection](getting-started/expand-selection.md) ·
+    [overlapping atoms](getting-started/overlapping.md) ·
     [changing a system](getting-started/changing.md) ·
     [topology](getting-started/topology.md) ·
     [simulation box](getting-started/box.md)

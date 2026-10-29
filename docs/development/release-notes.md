@@ -103,6 +103,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   cutoff, the nearest neighbors or the bonded atoms of the selected ones,
   step by step, as OVITO's expand selection. See
   [Expanding a selection](../getting-started/expand-selection.md).
+- `mdapy.neighbor.find_overlapping`: the atoms closer than a distance to
+  another, the later atom of each such pair so that deleting them leaves
+  none that close, or all of them, as OVITO's find overlapping particles.
+  See [Overlapping atoms](../getting-started/overlapping.md).
 - Analyses given a list read it where it is, without a copy: those of the
   k nearest neighbors put the k nearest pairs of each atom first in the
   list itself, once, in parallel; those within a cutoff read the pairs
@@ -462,7 +466,8 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   columns, Nature's artwork guide, Okabe–Ito colors, panel labels, saving
   as PDF, SVG and PNG) and plots of results: parity, g(r), S(q), bond
   angles, MSD with the diffusion coefficient, stacking fault energies,
-  counts of structures. See [Plots](../visualization/plots.md).
+  counts of structures, and two columns of the atoms against each other
+  (`scatter`). See [Plots](../visualization/plots.md).
 
 ### Interoperability
 

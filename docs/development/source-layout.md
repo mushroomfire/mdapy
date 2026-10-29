@@ -64,7 +64,7 @@
 | `src/mdapy/analysis/_rings.py`, `src/cpp/analysis/rings.cpp` | `RingStatistics`, shortest-path rings of bonds. |
 | `src/mdapy/analysis/_isosurface.py`, `src/cpp/analysis/isosurface.cpp` | `isosurface`, by marching tetrahedra. |
 | `src/cpp/visualization/render.h`, `render.cpp` | the ray tracer: bounding volume hierarchy, shading, outlines. |
-| `src/cpp/visualization/render_gpu.h`, `render_metal.mm` | the rays of pictures on the GPU: Metal on macOS, its shader compiled when first used. |
+| `src/cpp/visualization/render_gpu.h`, `render_metal.mm` | the rays of pictures on the GPU: Metal on macOS, its shader compiled when first used, a second time for the ray tracing units of M3 and later. |
 | `src/cpp/visualization/render_vulkan.cpp`, `render_vulkan.comp`, `render_vulkan.spv`, `render_vulkan_rt.spv` | the same with Vulkan on Linux: the loader opened when first used; the shader held as SPIR-V, compiled from `render_vulkan.comp` by the commands written there, once with its own hierarchy and once with the ray queries of GPUs with ray tracing units (a test checks that they agree). |
 | `src/mdapy/build/_sqs.py`, `src/cpp/build/sqs.cpp` | `sqs_alloy` and its annealing. |
 | `src/mdapy/build/_defects.py` | point defects, `slip`, `add_vacuum`. |

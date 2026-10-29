@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <utility>
@@ -567,6 +569,55 @@ void copy3(float* to, const V& from) {
 }
 
 }  // namespace
+
+namespace gpu {
+
+bool ray_tracing_allowed() {
+    const char* setting = std::getenv("MDAPY_GPU_RAY_TRACING");
+    return setting == nullptr || std::strcmp(setting, "0") != 0;
+}
+
+void write_boxes(const Geometry& g, float* boxes) {
+    const auto pad = [](float* box) {
+        float largest = 0;
+        for (int e = 0; e < 6; ++e) {
+            largest = std::max(largest, std::fabs(box[e]));
+        }
+        const float margin = 1e-6f * (1.0f + largest);
+        for (int e = 0; e < 3; ++e) {
+            box[e] -= margin;
+            box[e + 3] += margin;
+        }
+    };
+    for (std::size_t i = 0; i < g.spheres; ++i, boxes += 6) {
+        const float r = g.sphere_radius[i];
+        for (int e = 0; e < 3; ++e) {
+            boxes[e] = g.sphere_center[3 * i + e] - r;
+            boxes[e + 3] = g.sphere_center[3 * i + e] + r;
+        }
+        pad(boxes);
+    }
+    for (std::size_t i = 0; i < g.cylinders; ++i, boxes += 6) {
+        const float r = g.cylinder_radius[i];
+        const float* ends = g.cylinder_end + 6 * i;
+        for (int e = 0; e < 3; ++e) {
+            boxes[e] = std::min(ends[e], ends[3 + e]) - r;
+            boxes[e + 3] = std::max(ends[e], ends[3 + e]) + r;
+        }
+        pad(boxes);
+    }
+    for (std::size_t i = 0; i < g.triangles; ++i, boxes += 6) {
+        const float* v = g.triangle_vertex + 9 * i;
+        for (int e = 0; e < 3; ++e) {
+            boxes[e] = std::min({v[e], v[3 + e], v[6 + e]});
+            boxes[e + 3] = std::max({v[e], v[3 + e], v[6 + e]});
+        }
+        pad(boxes);
+    }
+}
+
+
+}  // namespace gpu
 
 #if !defined(MDAPY_METAL) && !defined(MDAPY_VULKAN)
 namespace gpu {

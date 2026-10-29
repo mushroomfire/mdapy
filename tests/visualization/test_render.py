@@ -1091,22 +1091,20 @@ def test_the_gpu_draws_scenes_of_one_kind():
 
 @needs_gpu
 def test_the_gpu_device():
-    """The GPU named with its interface; with ray queries on a GPU that has
-    ray tracing units, unless MDAPY_GPU_RAY_TRACING=0."""
+    """The GPU named with its interface; with its ray tracing units where it
+    has them, unless MDAPY_GPU_RAY_TRACING=0."""
     name = _native.gpu_device()
-    if sys.platform == "darwin":
-        assert name.endswith(" (Metal)")
-    else:
-        assert name.endswith((" (Vulkan)", " (Vulkan, ray queries)"))
-        if os.environ.get("MDAPY_GPU_RAY_TRACING") == "0":
-            assert "ray queries" not in name
+    interface = "Metal" if sys.platform == "darwin" else "Vulkan"
+    assert name.endswith((f" ({interface})", f" ({interface}, ray tracing)"))
+    if os.environ.get("MDAPY_GPU_RAY_TRACING") == "0":
+        assert "ray tracing" not in name
 
 
 @needs_gpu
 def test_the_gpu_without_its_ray_tracing_units():
     """With MDAPY_GPU_RAY_TRACING=0 the GPU traces through the hierarchy of
     the shader, as GPUs without ray tracing units do: the same pictures."""
-    if "ray queries" not in _native.gpu_device():
+    if "ray tracing" not in _native.gpu_device():
         pytest.skip("no ray tracing units")
     tests = [
         f"{__file__}::{name}"

@@ -2,7 +2,8 @@
 
 This page builds a small copper crystal, writes and reads it, finds its
 neighbors, computes its energy with a potential, relaxes it and writes the
-result. Every block runs as shown, in order.
+result. Every block runs as shown, in order. To learn step by step instead,
+start with [the lessons](learn/table.md).
 
 ## A system
 
@@ -13,11 +14,10 @@ import numpy as np
 
 import mdapy as mp
 
+from mdapy.build import build_crystal
+
 a = 3.615  # Å
-cells = np.stack(np.meshgrid(*[np.arange(3)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
-basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-positions = ((cells + basis) * a).reshape(-1, 3)
-system = mp.System(positions, mp.Box(3 * a), elements="Cu")
+system = build_crystal("fcc", a, elements="Cu", repeat=(3, 3, 3))
 len(system), system.box.volume  # 108 atoms, Å^3
 ```
 
@@ -82,7 +82,7 @@ A polycrystal, its grain boundaries found by common neighbor analysis and
 drawn by the ray tracer:
 
 ```python
-from mdapy.build import build_crystal, build_polycrystal
+from mdapy.build import build_polycrystal
 from mdapy.identify import CommonNeighborAnalysis
 from mdapy.visualization import render
 

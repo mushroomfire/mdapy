@@ -99,6 +99,14 @@ nav:
   - Getting started:
       - Installation: getting-started/installation.md
       - Quick tour: getting-started/quick-tour.md
+      - Learn MDAPY:
+          - 1. A crystal is a table: getting-started/learn/table.md
+          - 2. Asking the atoms questions: getting-started/learn/analyses.md
+          - 3. From numbers to figures: getting-started/learn/figures.md
+          - 4. Energies and relaxation: getting-started/learn/energy.md
+          - 5. A nanoparticle melts: getting-started/learn/trajectories.md
+          - 6. Your own files: getting-started/learn/your-files.md
+          - Cheat sheet: getting-started/learn/cheat-sheet.md
       - System:
           - Systems: getting-started/system.md
           - Selecting and ordering atoms: getting-started/selecting.md

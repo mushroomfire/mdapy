@@ -141,6 +141,14 @@ flowchart TB
     [Installation](getting-started/installation.md) ·
     [Quick tour](getting-started/quick-tour.md)
 
+    Learn MDAPY in six short lessons: [a crystal is a table](getting-started/learn/table.md) ·
+    [asking the atoms questions](getting-started/learn/analyses.md) ·
+    [from numbers to figures](getting-started/learn/figures.md) ·
+    [energies and relaxation](getting-started/learn/energy.md) ·
+    [a nanoparticle melts](getting-started/learn/trajectories.md) ·
+    [your own files](getting-started/learn/your-files.md) ·
+    [cheat sheet](getting-started/learn/cheat-sheet.md)
+
     System: [Systems](getting-started/system.md) ·
     [selecting and ordering atoms](getting-started/selecting.md) ·
     [expanding a selection](getting-started/expand-selection.md) ·

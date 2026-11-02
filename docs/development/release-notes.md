@@ -516,6 +516,9 @@ and it has a new logo.
 
 ### Tutorials
 
+- Learn MDAPY: six short lessons that run on their own, from a crystal as a
+  table to a nanoparticle that melts and your own LAMMPS dumps, and a cheat
+  sheet. See [A crystal is a table](../getting-started/learn/table.md).
 - Worked examples that combine several parts of MDAPY: a polycrystal of fcc
   and bcc grains, columnar grains on a hexagonal pattern with chosen
   misorientations, the defect energies of copper with checks of their

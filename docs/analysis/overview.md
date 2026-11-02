@@ -5,17 +5,12 @@ computes takes the parameters, and its `compute` method takes a system and
 returns a result.
 
 ```python
-import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import RadialDistributionFunction
+from mdapy.build import build_crystal
 from mdapy.identify import CommonNeighborAnalysis
 
-# an fcc crystal of 4 x 4 x 4 cubic cells
-a = 3.6
-cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
-basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-system = mp.System(((cells + basis) * a).reshape(-1, 3), mp.Box(4 * a), elements="Cu")
+system = build_crystal("fcc", 3.6, elements="Cu", repeat=(4, 4, 4))
 
 result = CommonNeighborAnalysis().compute(system)
 result.counts()  # {'other': 0, 'fcc': 256, ...}

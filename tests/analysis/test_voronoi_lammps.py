@@ -31,6 +31,8 @@ def test_volumes_and_faces_as_voro(tmp_path, pbc):
     mdapy.write(data, system)
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
+        if "VORONOI" not in lmp.installed_packages:
+            pytest.skip("LAMMPS without the VORONOI package")
         boundary = " ".join("p" if p else "f" for p in system.box.pbc)
         lmp.commands_string(
             f"""

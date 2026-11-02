@@ -202,14 +202,15 @@ sampled by the rays of each pixel and look grainy with few of them: raise
 
 ## On the GPU
 
-With `device="gpu"` the rays are traced on the GPU: with Metal on macOS, and
-with Vulkan on Linux, whose loader and driver come with the graphics
-drivers of NVIDIA, AMD and Intel (a build from source needs Vulkan's
-headers, see [Installation](../getting-started/installation.md#pictures-on-the-gpu)).
+With `device="gpu"` the rays are traced on the GPU: with Metal on macOS, with
+Direct3D 12 on Windows, which comes with the system, and with Vulkan on Linux,
+whose loader and driver come with the graphics drivers of NVIDIA, AMD and Intel
+(a build from source needs Vulkan's headers, see
+[Installation](../getting-started/installation.md#pictures-on-the-gpu)).
 `gpu_available()` tells whether there is a GPU. A GPU with ray tracing
-units uses them: on Linux those of NVIDIA RTX, AMD Radeon RX 6000 and later
-and Intel Arc, for every ray; on macOS those of M3 and later, for the rays
-of occlusion and shadows. The environment variable
+units uses them: on Linux and Windows those of NVIDIA RTX, AMD Radeon RX 6000
+and later and Intel Arc, for every ray; on macOS those of M3 and later, for the
+rays of occlusion and shadows. The environment variable
 `MDAPY_GPU_RAY_TRACING=0` turns them off. The picture is the same as on the
 processor, with the same random samples in the same precision, up to
 rounding at a few edges. For a million atoms at 1920 × 1080:
@@ -222,6 +223,9 @@ rounding at a few edges. For a million atoms at 1920 × 1080:
 | NVIDIA RTX A2000 | 0.7 s | 1.4 s |
 | the same without its ray tracing units | 1.5 s | 3.4 s |
 | Intel Core i5-12600K, processor | 4.9 s | 14.0 s |
+| NVIDIA RTX 4060 Laptop | 0.7 s | 1.3 s |
+| the same without its ray tracing units | 1.0 s | 1.8 s |
+| AMD Ryzen 9 7945HX, processor | 2.6 s | 7.7 s |
 
 ```python
 from mdapy.visualization import gpu_available

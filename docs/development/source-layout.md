@@ -66,6 +66,7 @@
 | `src/cpp/visualization/render.h`, `render.cpp` | the ray tracer: bounding volume hierarchy, shading, outlines. |
 | `src/cpp/visualization/render_gpu.h`, `render_metal.mm` | the rays of pictures on the GPU: Metal on macOS, its shader compiled when first used, a second time for the ray tracing units of M3 and later. |
 | `src/cpp/visualization/render_vulkan.cpp`, `render_vulkan.comp`, `render_vulkan.spv`, `render_vulkan_rt.spv` | the same with Vulkan on Linux: the loader opened when first used; the shader held as SPIR-V, compiled from `render_vulkan.comp` by the commands written there, once with its own hierarchy and once with the ray queries of GPUs with ray tracing units (a test checks that they agree). |
+| `src/cpp/visualization/render_d3d12.cpp`, `render_d3d12.hlsl`, `render_d3d12.dxil`, `render_d3d12_rt.dxil` | the same with Direct3D 12 on Windows: the libraries of the system opened when first used; the shader held as DXIL, compiled again by hand after a change (the commands are at its top), a second time for ray queries. |
 | `src/mdapy/build/_sqs.py`, `src/cpp/build/sqs.cpp` | `sqs_alloy` and its annealing. |
 | `src/mdapy/build/_defects.py` | point defects, `slip`, `add_vacuum`. |
 | `src/mdapy/build/_dislocation.py` | `insert_dislocation`, `edge_dislocation`. |

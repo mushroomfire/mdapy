@@ -22,8 +22,8 @@ the machine.
 
 From 2.0 on, MDAPY also comes as a native desktop application: much of what
 these pages describe, with the atoms in front of you. It draws on the graphics
-card directly, with Metal on macOS and Vulkan on Linux, and needs no Python
-installed.
+card directly, with Metal on macOS, Vulkan on Linux and Direct3D 12 on Windows,
+and needs no Python installed.
 
 - **Scene.** Open a structure or trajectory, or build one, and turn the view
   as you please. Stack modifiers into a pipeline, 80 of them from structure

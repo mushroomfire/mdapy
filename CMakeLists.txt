@@ -9,6 +9,7 @@ option(MDAPY_WERROR "Treat compiler warnings as errors" OFF)
 option(MDAPY_INDEX64 "64-bit atom indices, for more than 2^31 - 1 atoms" OFF)
 option(MDAPY_METAL "Pictures traced on the GPU with Metal (macOS only)" ON)
 option(MDAPY_VULKAN "Pictures traced on the GPU with Vulkan (Linux only)" ON)
+option(MDAPY_D3D12 "Pictures traced on the GPU with Direct3D 12 (Windows only)" ON)
 set(MDAPY_SANITIZE "" CACHE STRING
   "Sanitizer build: 'address' (AddressSanitizer + UndefinedBehaviorSanitizer) or 'thread' (ThreadSanitizer)")
 
@@ -76,6 +77,29 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND MDAPY_VULKAN)
   else()
     message(STATUS "No Vulkan headers: pictures are traced on the processor only")
   endif()
+endif()
+# On Windows with Direct3D 12, whose libraries are opened when first used, so the
+# build needs the headers of the Windows SDK only and mdapy runs without them. The
+# shader is the DXIL of render_d3d12.hlsl, held in the sources: the build needs
+# no compiler.
+if(WIN32 AND MDAPY_D3D12)
+  # kDxil, and kDxilRayQuery for the ray tracing units
+  set(dxil_arrays "")
+  foreach(pair "render_d3d12:kDxil" "render_d3d12_rt:kDxilRayQuery")
+    string(REPLACE ":" ";" pair "${pair}")
+    list(GET pair 0 dxil_name)
+    list(GET pair 1 dxil_array)
+    set(dxil "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/visualization/${dxil_name}.dxil")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${dxil}")
+    file(READ "${dxil}" dxil_bytes HEX)
+    string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," dxil_bytes "${dxil_bytes}")
+    string(APPEND dxil_arrays "const unsigned char ${dxil_array}[] = {${dxil_bytes}};\n")
+  endforeach()
+  file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/visualization/render_d3d12_dxil.h"
+    CONTENT "// render_d3d12.dxil and render_d3d12_rt.dxil, written by CMake\n#pragma once\n${dxil_arrays}"
+    @ONLY)
+  target_include_directories(_core PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+  target_compile_definitions(_core PRIVATE MDAPY_D3D12)
 endif()
 
 if(MSVC)

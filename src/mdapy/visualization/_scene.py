@@ -401,7 +401,7 @@ def style_settings(style: str = "matte") -> dict[str, Any]:
 
 def gpu_available() -> bool:
     """Whether pictures can be traced on a GPU: with Metal on macOS, with
-    Vulkan on Linux.
+    Vulkan on Linux, with Direct3D 12 on Windows.
 
     Returns
     -------

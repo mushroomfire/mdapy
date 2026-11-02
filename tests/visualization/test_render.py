@@ -1164,7 +1164,7 @@ def test_the_gpu_device():
     """The GPU named with its interface; with its ray tracing units where it
     has them, unless MDAPY_GPU_RAY_TRACING=0."""
     name = _native.gpu_device()
-    interface = "Metal" if sys.platform == "darwin" else "Vulkan"
+    interface = {"darwin": "Metal", "win32": "Direct3D 12"}.get(sys.platform, "Vulkan")
     assert name.endswith((f" ({interface})", f" ({interface}, ray tracing)"))
     if os.environ.get("MDAPY_GPU_RAY_TRACING") == "0":
         assert "ray tracing" not in name
@@ -1221,6 +1221,25 @@ def test_the_vulkan_shaders_are_compiled_from_their_source(tmp_path):
         names = {"render_vulkan.comp": str(SHADER), output: str(compiled)}
         subprocess.run([glslc] + [names.get(a, a) for a in command[1:]], check=True)
         assert compiled.read_bytes() == (SHADER.parent / output).read_bytes(), output
+
+
+def test_the_direct3d_shaders_are_compiled_from_their_source(tmp_path):
+    """render_d3d12.dxil and render_d3d12_rt.dxil are what the commands written
+    in render_d3d12.hlsl make, with the dxc of the Windows SDK named there."""
+    source = SHADER.with_name("render_d3d12.hlsl")
+    text = source.read_text()
+    version = re.search(r"dxc of the Windows SDK ([\d.]+)", text).group(1)
+    commands = [line.split() for line in re.findall(r"^//\s+(dxc .*)$", text, re.M)]
+    assert len(commands) == 2
+    dxc = Path(f"C:/Program Files (x86)/Windows Kits/10/bin/{version}/x64/dxc.exe")
+    if not dxc.exists():
+        pytest.skip("no dxc")
+    for command in commands:
+        output = command[command.index("-Fo") + 1]
+        compiled = tmp_path / output
+        arguments = [str(compiled) if a == output else a for a in command[1:]]
+        subprocess.run([str(dxc), *arguments], check=True, cwd=source.parent)
+        assert compiled.read_bytes() == (source.parent / output).read_bytes(), output
 
 
 def test_devices(monkeypatch):

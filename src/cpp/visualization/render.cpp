@@ -644,7 +644,7 @@ void write_boxes(const Geometry& g, float* boxes) {
 
 }  // namespace gpu
 
-#if !defined(MDAPY_METAL) && !defined(MDAPY_VULKAN)
+#if !defined(MDAPY_METAL) && !defined(MDAPY_VULKAN) && !defined(MDAPY_D3D12)
 namespace gpu {
 bool available() { return false; }
 std::string device() { return {}; }

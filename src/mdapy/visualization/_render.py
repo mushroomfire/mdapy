@@ -298,11 +298,11 @@ def assign_color(
 #: drawn and the radius of the bonds, each unless given.
 REPRESENTATIONS: dict[str, tuple[Any, Any, float]] = {
     # atoms as spheres of their display radius
-    "spheres": ("display", None, 0.25),
+    "spheres": ("display", None, 0.15),
     # small balls, a quarter of the van der Waals radius, and covalent bonds
     "ball_and_stick": (("vdw", 0.25), "covalent", 0.15),
     # atoms as spheres of their van der Waals radius
-    "space_filling": ("vdw", None, 0.25),
+    "space_filling": ("vdw", None, 0.15),
     # covalent bonds as sticks with round ends
     "licorice": (None, "covalent", 0.2),
 }

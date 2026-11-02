@@ -90,7 +90,7 @@ lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False,
 
 | Representation | Atoms | Bonds |
 |---|---|---|
-| `spheres` | display radii | none, radius 0.25 Å when given |
+| `spheres` | display radii | none, radius 0.15 Å when given |
 | `ball_and_stick` | a quarter of the van der Waals radii | covalent, radius 0.15 Å |
 | `space_filling` | van der Waals radii | none |
 | `licorice` | as wide as the bonds | covalent, radius 0.2 Å |

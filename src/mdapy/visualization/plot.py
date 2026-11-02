@@ -91,8 +91,17 @@ def style() -> Iterator[None]:
     from cycler import cycler
 
     settings = dict(STYLE) | {"axes.prop_cycle": cycler(color=list(COLORS))}
-    with plt.rc_context(settings):
-        yield
+    try:
+        with plt.rc_context(settings):
+            try:
+                yield
+            finally:
+                # a notebook loads its backend at the first figure, which turns
+                # interactive mode on: leaving the context must not turn it off,
+                # or later figures of the notebook do not show by themselves
+                interactive = plt.isinteractive()
+    finally:
+        plt.ion() if interactive else plt.ioff()
 
 
 def figure(

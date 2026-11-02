@@ -142,3 +142,28 @@ def test_phonons():
     dos = result.dos(6, sigma=0.2, projected=True)
     assert len(plot.phonon_dos(dos).lines) == 1
     assert len(plot.phonon_dos(dos, projected=True).get_legend().get_texts()) == 2
+
+
+@pytest.mark.parametrize("mode", [True, False])
+def test_style_keeps_interactive_mode(mode):
+    """A notebook turns interactive mode on when its first figure loads the
+    backend; if that was inside the style, later figures must still show."""
+    import matplotlib.pyplot as plt
+
+    before = plt.isinteractive()
+    try:
+        plt.ioff()
+        with plot.style():
+            plt.ion() if mode else plt.ioff()
+            assert plt.rcParams["font.size"] == plot.STYLE["font.size"]
+        assert plt.isinteractive() is mode
+        assert (
+            plt.rcParams["font.size"] != plot.STYLE["font.size"]
+        )  # the rest goes back
+        plt.ioff()
+        with pytest.raises(ZeroDivisionError), plot.style():
+            plt.ion() if mode else plt.ioff()
+            1 / 0
+        assert plt.isinteractive() is mode
+    finally:
+        plt.ion() if before else plt.ioff()

@@ -87,6 +87,12 @@ the (N,) radii in Å: the `radius` column, or without one those of the
 elements (`"display"`, `"covalent"` or `"vdw"`), those given in `elements`
 in place of their own; each times `scale`.
 
+A system with a `type` column and no `element` column, as a LAMMPS dump of
+`id type x y z`, has its atom types in place of the elements, named `Type 1`,
+`Type 2` and so on: each in a color of its own, as OVITO's, type k taking
+`TYPE_COLORS[(k - 1) % 9]`, and all of one radius, as types say nothing of
+their sizes. `elements` takes those names, such as `{"Type 2": "#222222"}`.
+
 ```python
 colors = atom_colors(alloy, elements={"Al": "#9ecae1"})
 radii = atom_radii(alloy, elements={"Al": 1.0}, scale=0.8)

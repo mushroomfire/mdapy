@@ -297,10 +297,35 @@ def _per_element(elements: Sequence[str] | pl.Series, values: Any) -> np.ndarray
     return table[index.to_numpy()]
 
 
+#: The colors of atom types without elements, as OVITO's: type k takes
+#: ``TYPE_COLORS[(k - 1) % 9]``.
+TYPE_COLORS = np.array(
+    [
+        (1.0, 0.4, 0.4),
+        (0.4, 0.4, 1.0),
+        (1.0, 1.0, 0.0),
+        (1.0, 0.4, 1.0),
+        (0.4, 1.0, 0.2),
+        (0.8, 1.0, 0.7),
+        (0.7, 0.0, 1.0),
+        (0.2, 1.0, 1.0),
+        (0.97, 0.97, 0.97),
+    ]
+)
+TYPE_COLORS.flags.writeable = False
+
+
+def _element_color(element: str) -> np.ndarray:
+    """The color of an element, or of an atom type named ``Type k``."""
+    if element.startswith("Type ") and element[5:].isdigit():
+        return TYPE_COLORS[(int(element[5:]) - 1) % len(TYPE_COLORS)]
+    return np.asarray(ELEMENTS.get(element, DEFAULT)[:3]) / 255
+
+
 def element_colors(elements: Sequence[str] | pl.Series) -> np.ndarray:
-    """(N, 3) default sRGB colors of elements, from 0 to 1."""
-    colors = _per_element(elements, lambda e: ELEMENTS.get(e, DEFAULT)[:3]) / 255
-    return colors.reshape(-1, 3)
+    """(N, 3) default sRGB colors of elements, or of atom types named
+    ``Type k``, from 0 to 1."""
+    return _per_element(elements, _element_color).reshape(-1, 3)
 
 
 _RADII = {

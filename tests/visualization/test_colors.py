@@ -12,6 +12,7 @@ from mdapy.errors import InvalidParameter
 from mdapy.visualization import (
     COLORMAPS,
     LABEL_COLORS,
+    TYPE_COLORS,
     assign_color,
     atom_colors,
     atom_radii,
@@ -119,6 +120,30 @@ def test_assign_color_and_the_color_column():
         render(blue, width=40, height=40),
         render(system, color=blue["color"], width=40, height=40),
     )
+
+
+def test_atom_types_without_elements():
+    """Each type in a color of its own, the tenth as the first, all of one
+    radius; chosen by their names; elements come first."""
+    system = mdapy.System(np.zeros((11, 3)), mdapy.Box(5.0)).with_columns(
+        type=np.arange(1, 12)
+    )
+    colors = atom_colors(system)
+    np.testing.assert_allclose(colors[:9], TYPE_COLORS)
+    np.testing.assert_allclose(colors[9:], TYPE_COLORS[:2])
+    np.testing.assert_allclose(atom_radii(system), element_radii(["X"])[0])
+    chosen = atom_colors(system, elements={"Type 2": "#000000"})
+    np.testing.assert_allclose(chosen[1], [0, 0, 0])
+    np.testing.assert_allclose(chosen[0], TYPE_COLORS[0])
+    sizes = atom_radii(system, elements={"Type 3": 2.0}, scale=0.5)
+    assert sizes[2] == 1.0 and sizes[0] == 0.5 * element_radii(["X"])[0]
+    np.testing.assert_allclose(
+        element_colors(["Type 1", "Type 10", "Type x"]),
+        [TYPE_COLORS[0], TYPE_COLORS[0], element_colors(["X"])[0]],
+    )
+    named = system.with_columns(element=["Cu"] * 11)
+    np.testing.assert_allclose(atom_colors(named), element_colors(["Cu"] * 11))
+    assert len(np.unique(render(system, width=40, height=40), axis=0)) > 1
 
 
 def test_colors_and_radii_of_elements_given():

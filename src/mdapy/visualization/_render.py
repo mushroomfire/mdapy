@@ -44,10 +44,15 @@ _ORDER_COLORS = np.array(
 
 
 def _element_names(system: System) -> np.ndarray:
-    n = len(system)
-    if "element" not in system.table.columns:
-        return np.full(n, "X")
-    return np.asarray(system.table["element"].cast(pl.String).to_numpy()).astype(str)
+    """The element of each atom; atom types without elements as ``Type k``."""
+    table = system.table
+    if "element" in table.columns:
+        return np.asarray(table["element"].cast(pl.String).to_numpy()).astype(str)
+    if "type" in table.columns:
+        return np.asarray(("Type " + table["type"].cast(pl.String)).to_numpy()).astype(
+            str
+        )
+    return np.full(len(system), "X")
 
 
 def atom_colors(

@@ -19,6 +19,7 @@ from mdapy.visualization._render import (
 from mdapy.visualization._scene import (
     COLORMAPS,
     STYLES,
+    TYPE_COLORS,
     VIEWS,
     Scene,
     colormap,
@@ -34,6 +35,7 @@ __all__ = [
     "COLORMAPS",
     "LABEL_COLORS",
     "REPRESENTATIONS",
+    "TYPE_COLORS",
     "assign_color",
     "atom_radii",
     "color_by_type",

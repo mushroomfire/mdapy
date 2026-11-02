@@ -8,8 +8,9 @@
 import numpy as np
 import pytest
 
+import mdapy
 from mdapy.build import build_crystal
-from mdapy.visualization import assign_color, color_by_type, color_coding
+from mdapy.visualization import assign_color, atom_colors, color_by_type, color_coding
 
 ovito = pytest.importorskip("ovito")
 from ovito.modifiers import (  # noqa: E402
@@ -123,6 +124,30 @@ def test_color_by_type_groups_the_atoms_as_ovito():
     # one color for each element in both, the same atoms in each
     pairs = set(zip(ours.ravel().tolist(), theirs.ravel().tolist()))
     assert len(pairs) == len(set(ours.ravel())) == len(set(theirs.ravel())) == 3
+
+
+def test_colors_of_atom_types(tmp_path):
+    """A dump of types without elements: the colors OVITO gives the types."""
+    from ovito.io import import_file
+
+    path = tmp_path / "types.dump"
+    count = 20
+    lines = [
+        "ITEM: TIMESTEP",
+        "0",
+        "ITEM: NUMBER OF ATOMS",
+        str(count),
+        "ITEM: BOX BOUNDS pp pp pp",
+        *["0 30"] * 3,
+        "ITEM: ATOMS id type x y z",
+        *[f"{k} {k} {k} 1 1" for k in range(1, count + 1)],
+    ]
+    path.write_text("\n".join(lines) + "\n")
+    types = import_file(path).compute().particles.particle_types
+    theirs = [types.type_by_id(k).color for k in range(1, count + 1)]
+    system = mdapy.read(path)
+    assert "element" not in system.table.columns
+    np.testing.assert_allclose(atom_colors(system), theirs, atol=1e-6)
 
 
 def test_selections():

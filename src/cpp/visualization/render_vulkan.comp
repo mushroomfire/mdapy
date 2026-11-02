@@ -133,19 +133,34 @@ float intersect(uint ref, Ray ray, float t_min, float t_max) {
         const vec3 o = oc - a * dot(oc, a);
         const float r = load(A.cylinder_radius + i);
         const float qa = dot(d, d);
-        if (qa < 1e-12) {
-            return kInfinity;
-        }
         const float qb = dot(d, o);
         const float qc = dot(o, o) - r * r;
         const float disc = qb * qb - qa * qc;
-        if (disc < 0.0) {
+        const bool across = qa >= 1e-12;
+        if (across ? disc < 0.0 : qc > 0.0) {
             return kInfinity;
         }
-        const float s = sqrt(disc);
-        const float roots[2] = float[2]((-qb - s) / qa, (-qb + s) / qa);
-        for (int k = 0; k < 2; ++k) {
-            const float t = roots[k];
+        const float s = across ? sqrt(disc) : 0.0;
+        if (across) {
+            const float t = (-qb - s) / qa;
+            if (t > t_min && t < t_max) {
+                const float along = dot(oc + ray.direction * t, a);
+                if (along >= 0.0 && along <= len) {
+                    return t;
+                }
+            }
+        }
+        // in through the disk of an end
+        const float da = dot(ray.direction, a);
+        if (da != 0.0) {
+            const float t = ((da > 0.0 ? 0.0 : len) - dot(oc, a)) / da;
+            const vec3 q = o + d * t;
+            if (t > t_min && t < t_max && dot(q, q) <= r * r) {
+                return t;
+            }
+        }
+        if (across) {
+            const float t = (-qb + s) / qa;
             if (t > t_min && t < t_max) {
                 const float along = dot(oc + ray.direction * t, a);
                 if (along >= 0.0 && along <= len) {
@@ -323,9 +338,16 @@ vec3 normal_at(uint ref, vec3 point, vec3 direction) {
         n = unit(point - load3(A.sphere_center + 3u * i));
     } else if (kind == kCylinder) {
         const vec3 p0 = load3(A.cylinder_end + 6u * i);
-        const vec3 a = unit(load3(A.cylinder_end + 6u * i + 3u) - p0);
+        const vec3 axis = load3(A.cylinder_end + 6u * i + 3u) - p0;
+        const float len = sqrt(dot(axis, axis));
+        const vec3 a = axis * (1.0 / len);
         const vec3 rel = point - p0;
-        n = unit(rel - a * dot(rel, a));
+        const float along = dot(rel, a);
+        const vec3 radial = rel - a * along;
+        const float r = load(A.cylinder_radius + i);
+        // on the disk of an end, or on the side
+        const bool disk = (along < 0.01 * r || along > len - 0.01 * r) && dot(radial, radial) < 0.98 * r * r;
+        n = disk ? a : unit(radial);
     } else {
         const uint v = A.triangle_vertex + 9u * i;
         n = unit(cross(load3(v + 3u) - load3(v), load3(v + 6u) - load3(v)));

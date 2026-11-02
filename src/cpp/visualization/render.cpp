@@ -226,17 +226,34 @@ public:
                 const V o = oc - a * dot(oc, a);
                 const float r = scene_.cylinder_radius[i];
                 const float qa = dot(d, d);
-                if (qa < 1e-12f) {
-                    return kInfinity;
-                }
                 const float qb = dot(d, o);
                 const float qc = dot(o, o) - r * r;
                 const float disc = qb * qb - qa * qc;
-                if (disc < 0) {
+                const bool across = qa >= 1e-12f;
+                if (across ? disc < 0 : qc > 0) {
                     return kInfinity;
                 }
-                const float s = std::sqrt(disc);
-                for (const float t : {(-qb - s) / qa, (-qb + s) / qa}) {
+                const float s = across ? std::sqrt(disc) : 0;
+                if (across) {
+                    const float t = (-qb - s) / qa;
+                    if (t > t_min && t < t_max) {
+                        const float along = dot(oc + ray.direction * t, a);
+                        if (along >= 0 && along <= length) {
+                            return t;
+                        }
+                    }
+                }
+                // in through the disk of an end
+                const float da = dot(ray.direction, a);
+                if (da != 0) {
+                    const float t = ((da > 0 ? 0.0f : length) - dot(oc, a)) / da;
+                    const V q = o + d * t;
+                    if (t > t_min && t < t_max && dot(q, q) <= r * r) {
+                        return t;
+                    }
+                }
+                if (across) {
+                    const float t = (-qb + s) / qa;
                     if (t > t_min && t < t_max) {
                         const float along = dot(oc + ray.direction * t, a);
                         if (along >= 0 && along <= length) {
@@ -281,9 +298,17 @@ public:
                 break;
             case kCylinder: {
                 const V p0 = load(&scene_.cylinder_end[6 * i]);
-                const V a = unit(load(&scene_.cylinder_end[6 * i + 3]) - p0);
+                const V axis = load(&scene_.cylinder_end[6 * i + 3]) - p0;
+                const float length = std::sqrt(dot(axis, axis));
+                const V a = axis * (1.0f / length);
                 const V rel = point - p0;
-                n = unit(rel - a * dot(rel, a));
+                const float along = dot(rel, a);
+                const V radial = rel - a * along;
+                const float r = scene_.cylinder_radius[i];
+                // on the disk of an end, or on the side
+                const bool disk = (along < 0.01f * r || along > length - 0.01f * r) &&
+                                  dot(radial, radial) < 0.98f * r * r;
+                n = disk ? a : unit(radial);
                 break;
             }
             default: {

@@ -118,6 +118,13 @@ def brute_force(scene, origins, directions):
                     if t > 0 and 0 <= along <= length:
                         best = min(best, (t, 1, k))
                         break
+            # the disks of the ends
+            if d @ u != 0:
+                for end in (0, length):
+                    t = (end - (o - p0) @ u) / (d @ u)
+                    across = o + t * d - p0 - end * u
+                    if t > 0 and across @ across <= r * r:
+                        best = min(best, (t, 1, k))
         for k, v in enumerate(arrays["triangle_vertex"].reshape(-1, 3, 3)):
             e1, e2 = v[1] - v[0], v[2] - v[0]
             matrix = np.array([-d, e1, e2]).T
@@ -1038,6 +1045,49 @@ def test_bonds_of_the_topology():
     )
     with pytest.raises(mdapy.errors.MissingProperty, match="topology"):
         render(silicon, bonds="topology", **options)
+
+
+def closed_bond_pictures(device):
+    """A thick bond between two small atoms seen along its axis, and leaning
+    towards the eye by 45 degrees: its end, 8 pixels to the Å."""
+    box = mdapy.Box(20.0, pbc=False)
+    options = dict(
+        bonds=4.0,
+        bond_radius=1.0,
+        radius=0.05,
+        box=False,
+        view="top",
+        focus=(10, 10, 10),
+        span=8.0,
+        width=64,
+        height=64,
+        background=None,
+        style="fast",
+        device=device,
+    )
+    along = mdapy.System([[10.0, 10, 8], [10.0, 10, 11]], box, elements="Cu")
+    leaning = mdapy.System([[8.0, 10, 8], [10.0, 10, 10]], box, elements="Cu")
+    return render(along, **options), render(leaning, **options)
+
+
+@pytest.mark.parametrize("device", ["cpu", "gpu"])
+def test_bonds_are_closed_at_their_ends(device):
+    """Seen along the axis the end is a disk of the radius; leaning, it is
+    one flat color about the end of the axis, not the inside of a tube."""
+    if device == "gpu" and not gpu_available():
+        pytest.skip("no GPU")
+    along, leaning = closed_bond_pictures(device)
+    disk = (along[..., 3] > 127).sum()
+    assert abs(disk - np.pi * 8**2) < 0.05 * np.pi * 8**2
+    # the end of the axis at the middle of the picture, the disk about it an
+    # ellipse 8 pixels across and 5.7 along the x axis; the atom hides its
+    # center
+    rows, columns = np.mgrid[29:35, 29:35]
+    ring = (rows - 31.5) ** 2 + (columns - 31.5) ** 2 > 2**2
+    ring &= (rows - 31.5) ** 2 + (columns - 31.5) ** 2 < 4**2
+    seen = leaning[rows[ring], columns[ring], :3].astype(int)
+    assert (leaning[rows[ring], columns[ring], 3] > 250).all()
+    assert (seen.max(axis=0) - seen.min(axis=0)).max() <= 2
 
 
 # ------------------------------------------------------------ on the GPU

@@ -279,6 +279,8 @@ import mdapy as mp
 
 ::: mdapy.visualization.Scene
 
+::: mdapy.visualization.atom_names
+
 ::: mdapy.visualization.atom_colors
 
 ::: mdapy.visualization.atom_radii

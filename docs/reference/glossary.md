@@ -61,7 +61,7 @@ implemented.
 | color column | The `color` column of a system, (N, 3) sRGB from 0 to 1, that `color_coding`, `color_by_type` and `assign_color` set and `render` draws by default; a `radius` column likewise sets the radii. |
 | colormap | A map of values from 0 to 1 to colors, one of `COLORMAPS`: rainbow, viridis, magma, jet, hot, blue_white_red and gray as OVITO computes them, plasma and coolwarm. |
 | label colors | `LABEL_COLORS`, twelve distinct colors given in turn to the values of a column colored by type or to clusters. |
-| type colors | `TYPE_COLORS`, the nine colors of OVITO in turn for atom types without elements, named `Type 1`, `Type 2` and so on when drawn. |
+| type colors | `TYPE_COLORS`, the nine colors of OVITO in turn for atom types without elements, named `Type 1`, `Type 2` and so on by `atom_names` when drawn. |
 | global illumination | Light that reaches a surface after bouncing off others, as the shiny style of pictures traces it. |
 | style of a picture | Its lights, shadows, occlusion and outlines together: fast (as the viewports of OVITO), matte (as its Tachyon renderer), shiny (after its OSPRay renderer) or flat (outlined, as ASE draws atoms). |
 | highlight | The light of a lamp mirrored by a surface toward the viewer: a bright spot on a sphere. |

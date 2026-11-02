@@ -464,7 +464,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   blue_white_red and gray computed as OVITO computes them, besides plasma
   and coolwarm. Atom types without elements, as in a LAMMPS dump of types
   only, are drawn each in a color of its own, those of OVITO (`TYPE_COLORS`),
-  and all of one radius. See [Coloring atoms](../visualization/colors.md).
+  and all of one radius; `atom_names` gives the names these colors go by,
+  and `read_trajectory(path, elements=[...])` names the types, so that files
+  written afterwards hold the elements.
+  See [Coloring atoms](../visualization/colors.md).
 - `mdapy.visualization.plot`: matplotlib set up for journals (widths of
   columns, Nature's artwork guide, Okabe–Ito colors, panel labels, saving
   as PDF, SVG and PNG) and plots of results: parity, g(r), S(q), bond

@@ -15,6 +15,7 @@ from mdapy.visualization import (
     TYPE_COLORS,
     assign_color,
     atom_colors,
+    atom_names,
     atom_radii,
     color_by_type,
     color_coding,
@@ -143,6 +144,21 @@ def test_atom_types_without_elements():
     )
     named = system.with_columns(element=["Cu"] * 11)
     np.testing.assert_allclose(atom_colors(named), element_colors(["Cu"] * 11))
+    assert atom_names(named).tolist() == ["Cu"] * 11
+    assert atom_names(system).tolist()[:2] == ["Type 1", "Type 2"]
+    # some types named: the others keep their colors and radii
+    some = system.with_columns(element=["Cu"] + ["X"] * 10)
+    assert atom_names(some).tolist()[:3] == ["Cu", "Type 2", "Type 3"]
+    np.testing.assert_allclose(atom_colors(some)[1], TYPE_COLORS[1])
+    np.testing.assert_allclose(atom_colors(some)[0], element_colors(["Cu"])[0])
+    np.testing.assert_allclose(atom_radii(some)[0], element_radii(["Cu"])[0])
+    # no types: the element X
+    plain = mdapy.System(np.zeros((2, 3)), mdapy.Box(5.0), elements="X")
+    assert atom_names(plain).tolist() == ["X", "X"]
+    assert atom_names(mdapy.System(np.zeros((2, 3)), mdapy.Box(5.0))).tolist() == [
+        "X",
+        "X",
+    ]
     assert len(np.unique(render(system, width=40, height=40), axis=0)) > 1
 
 

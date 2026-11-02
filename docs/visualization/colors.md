@@ -91,7 +91,22 @@ A system with a `type` column and no `element` column, as a LAMMPS dump of
 `id type x y z`, has its atom types in place of the elements, named `Type 1`,
 `Type 2` and so on: each in a color of its own, as OVITO's, type k taking
 `TYPE_COLORS[(k - 1) % 9]`, and all of one radius, as types say nothing of
-their sizes. `elements` takes those names, such as `{"Type 2": "#222222"}`.
+their sizes. `elements` takes those names, such as `{"Type 2": "#222222"}`;
+`atom_names(system)` gives the name of each atom, atoms of the element X
+named after their type too.
+
+To give the types their elements, read the file with
+[`elements=`](../reference/formats/lammps-dump.md): the colors and radii are
+then those of the elements, and files written from it hold them.
+
+```python
+from mdapy.visualization import atom_names
+
+typed = alloy.with_columns(type=np.arange(len(alloy)) % 2 + 1).drop("element")
+mp.write("types.dump", typed)
+frames = mp.read_trajectory("types.dump", elements=["Cu", "X"])
+print(sorted(set(atom_names(frames[0]))))  # ['Cu', 'Type 2']
+```
 
 ```python
 colors = atom_colors(alloy, elements={"Al": "#9ecae1"})

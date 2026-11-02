@@ -43,16 +43,30 @@ _ORDER_COLORS = np.array(
 )
 
 
-def _element_names(system: System) -> np.ndarray:
-    """The element of each atom; atom types without elements as ``Type k``."""
+def atom_names(system: System) -> np.ndarray:
+    """The names the colors and radii of the atoms go by.
+
+    Parameters
+    ----------
+    system : System
+        The atoms.
+
+    Returns
+    -------
+    numpy.ndarray
+        (N,) their elements; atoms of a type without an element, or of the
+        element X, named after their type: ``Type 1``, ``Type 2`` and so on.
+    """
     table = system.table
-    if "element" in table.columns:
-        return np.asarray(table["element"].cast(pl.String).to_numpy()).astype(str)
-    if "type" in table.columns:
-        return np.asarray(("Type " + table["type"].cast(pl.String)).to_numpy()).astype(
+    typed = "type" in table.columns
+    if typed:
+        types = np.asarray(("Type " + table["type"].cast(pl.String)).to_numpy()).astype(
             str
         )
-    return np.full(len(system), "X")
+    if "element" not in table.columns:
+        return types if typed else np.full(len(system), "X")
+    names = np.asarray(table["element"].cast(pl.String).to_numpy()).astype(str)
+    return np.where(names == "X", types, names) if typed else names
 
 
 def atom_colors(
@@ -91,7 +105,7 @@ def atom_colors(
     if color is None:
         if "color" in system.table.columns:
             return np.asarray(system["color"], dtype=float).reshape(n, 3).copy()
-        names = _element_names(system)
+        names = atom_names(system)
         colors = element_colors(names)
         for symbol, chosen in (elements or {}).items():
             colors[names == symbol] = _color(chosen)
@@ -139,7 +153,7 @@ def atom_radii(
     """
     if "radius" in system.table.columns:
         return np.asarray(system["radius"], dtype=float) * float(scale)
-    names = _element_names(system)
+    names = atom_names(system)
     radii = np.asarray(element_radii(names, radius), dtype=float)
     for symbol, chosen in (elements or {}).items():
         radii[names == symbol] = float(chosen)

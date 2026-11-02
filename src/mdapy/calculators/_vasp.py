@@ -158,7 +158,7 @@ class VASP(Calculator):
         self.__write_incar(here / "INCAR")
         if self.kpoints is not None:
             mesh = " ".join(str(k) for k in self.kpoints)
-            (here / "KPOINTS").write_text(f"mdapy\n0\nGamma\n{mesh}\n0 0 0\n")
+            (here / "KPOINTS").write_text(f"MDAPY\n0\nGamma\n{mesh}\n0 0 0\n")
         else:
             (here / "KPOINTS").unlink(missing_ok=True)
         self.__write_potcar(here / "POTCAR", species)

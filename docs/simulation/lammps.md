@@ -19,7 +19,7 @@ module, installed as the
 describes.
 
 !!! warning "Metal units only"
-    LAMMPS runs in metal units, those of mdapy: Å, eV, ps and amu. The
+    LAMMPS runs in metal units, those of MDAPY: Å, eV, ps and amu. The
     commands in `pair` must define the interaction for metal units;
     potentials written for other units, such as real or si, give wrong
     results.

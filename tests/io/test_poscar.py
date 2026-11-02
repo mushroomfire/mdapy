@@ -229,7 +229,7 @@ def test_write_groups_elements_in_order_of_first_appearance(tmp_path):
     path = tmp_path / "POSCAR"
     mdapy.write(path, system)
     text = path.read_text().splitlines()
-    assert text[0] == "written by mdapy"
+    assert text[0] == "written by MDAPY"
     assert text[5:9] == ["Zr Cu Al", "2 2 1", "Selective dynamics", "Direct"]
     back = mdapy.read(path)
     order = [0, 2, 1, 4, 3]

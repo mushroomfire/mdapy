@@ -19,7 +19,7 @@ same = mp.read("POSCAR")
 writes
 
 ```text
-written by mdapy
+written by MDAPY
 1.0
 0.0 2.715 2.715
 2.715 0.0 2.715
@@ -41,7 +41,7 @@ Direct
 
 ## Reading
 
-| Line | Meaning | In mdapy |
+| Line | Meaning | In MDAPY |
 |---|---|---|
 | 1 | comment | `info["comment"]` |
 | 2 | scaling factor: one number, a negative number giving the cell volume in Å<sup>3</sup>, or three numbers scaling x, y and z | applied to the box and Cartesian coordinates |
@@ -72,7 +72,7 @@ box origin: coordinates are written relative to the origin of the box, and
 the box read back has its origin at zero. Fractional coordinates are
 computed from the Cartesian positions, so they can differ from round numbers
 in the last digit, as in the example above. The comment line is
-`info["comment"]` or "written by mdapy". The scaling factor is 1. With a
+`info["comment"]` or "written by MDAPY". The scaling factor is 1. With a
 `movable` column (three booleans per atom) the file has selective dynamics,
 and with `velocities` a velocity block in Å/fs after a blank line, as VASP
 writes it.

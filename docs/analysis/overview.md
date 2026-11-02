@@ -1,6 +1,6 @@
 # Analysis
 
-Every analysis in mdapy is used the same way: a class named after what it
+Every analysis in MDAPY is used the same way: a class named after what it
 computes takes the parameters, and its `compute` method takes a system and
 returns a result.
 

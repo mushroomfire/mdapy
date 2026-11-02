@@ -1,8 +1,8 @@
 # Parallelism
 
-mdapy runs its compiled kernels on a thread pool of its own. This page shows
+MDAPY runs its compiled kernels on a thread pool of its own. This page shows
 how to choose the number of threads, how to follow and stop long
-computations, and how mdapy behaves next to PyTorch and LAMMPS.
+computations, and how MDAPY behaves next to PyTorch and LAMMPS.
 
 ```python
 import mdapy as mp
@@ -21,7 +21,7 @@ with mp.num_threads(2):  # only inside this block
 | `set_num_threads(n)` | function | | Use `n` threads from now on. |
 | `num_threads(n)` | context manager | | Use `n` threads inside a `with` block, then restore the previous value. |
 | `get_num_threads()` | function | | The current number of threads. |
-| `MDAPY_NUM_THREADS` | environment variable | number of logical CPUs | Initial number of threads, read once when mdapy is imported. |
+| `MDAPY_NUM_THREADS` | environment variable | number of logical CPUs | Initial number of threads, read once when MDAPY is imported. |
 
 `n` must be a positive integer; anything else raises
 [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter). An
@@ -71,10 +71,10 @@ or 64 threads gives bit-for-bit identical numbers.
 
 ## Working with PyTorch and LAMMPS
 
-mdapy does not use OpenMP and loads no OpenMP runtime. Two copies of an
+MDAPY does not use OpenMP and loads no OpenMP runtime. Two copies of an
 OpenMP runtime in one process (for example mdapy's and PyTorch's) is a common
 cause of crashes such as `OMP: Error #15` on macOS; this cannot happen with
-mdapy, so no workaround such as `KMP_DUPLICATE_LIB_OK` is needed.
+MDAPY, so no workaround such as `KMP_DUPLICATE_LIB_OK` is needed.
 
 Other libraries keep their own thread settings:
 
@@ -89,10 +89,10 @@ threads close to the number of CPU cores. After each piece of parallel work,
 mdapy's idle threads keep checking for more for 0.2 ms before they sleep, so
 that the steps of one computation follow each other without waking them.
 
-## Calling mdapy from several threads
+## Calling MDAPY from several threads
 
 Compiled kernels release the Python global interpreter lock (GIL), so other
-Python threads, for example a GUI event loop, keep running while mdapy
+Python threads, for example a GUI event loop, keep running while MDAPY
 computes.
 
 The pool serves one computation at a time. If a second Python thread starts a

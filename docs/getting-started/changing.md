@@ -136,7 +136,7 @@ frames = [
 ]
 ```
 
-When a new system is made, mdapy checks only the columns that change: a new
+When a new system is made, MDAPY checks only the columns that change: a new
 box or new global values cost no work on the table, new positions are
 checked to be finite, and a new `type` column to be at least 1. A new table
 given to `with_table` is checked whole.
@@ -208,7 +208,7 @@ if __name__ == "__main__":
         print(list(pool.map(fcc_atoms, frames)))
 ```
 
-Pickle is no file format, though: a pickle of one version of mdapy may not
+Pickle is no file format, though: a pickle of one version of MDAPY may not
 load in another. Save systems with [mdapy.write](io.md).
 
 ## Why nothing changes a system in place
@@ -248,9 +248,9 @@ Every way into a system gives something that cannot change it:
 
 The internals of a system have names that start with two underscores and are
 not part of its interface: code that reaches them on purpose knows what it
-does, and nothing in mdapy relies on it.
+does, and nothing in MDAPY relies on it.
 
-This is what lets mdapy share without copying. A [neighbor list](neighbor.md)
+This is what lets MDAPY share without copying. A [neighbor list](neighbor.md)
 built for a system serves every system with the same positions and box, such
 as one that only has more columns; an analysis given a reference
 configuration, such as [atomic strain](../analysis/atomic-strain.md), keeps

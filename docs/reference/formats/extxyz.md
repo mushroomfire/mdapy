@@ -2,7 +2,7 @@
 
 The format `extxyz` (extensions `.xyz` and `.extxyz`) stores one or more
 frames, each with per-atom columns, a lattice and global values such as the
-energy. mdapy reads and writes the conventions of ASE
+energy. MDAPY reads and writes the conventions of ASE
 ([Larsen et al. (2017)](../references.md#larsen2017)) and GPUMD
 ([Fan et al. (2022)](../references.md#fan2022)).
 
@@ -48,9 +48,9 @@ Reading has no options. Writing has one:
 
 `Properties` lists each column as `name:type:width`, with type `R` (real),
 `I` (integer), `L` (logical, `T` or `F`) or `S` (string). Some names become
-mdapy columns:
+MDAPY columns:
 
-| Property | mdapy column | Conversion |
+| Property | MDAPY column | Conversion |
 |---|---|---|
 | `species:S:1` | `element` | Symbols are capitalized, so `CU` becomes `Cu`. |
 | `Z:I:1` | `element` | Atomic numbers; used when there is no `species`. |
@@ -77,7 +77,7 @@ contain blanks cannot be written.
 
 ## The comment line
 
-| Key | Meaning | In mdapy |
+| Key | Meaning | In MDAPY |
 |---|---|---|
 | `Lattice` | 9 numbers: the lattice vectors **a**, **b**, **c**, one after the other | `box.matrix` |
 | `pbc` | `T` or `F` for each direction; with a `Lattice`, the default is `T T T` | `box.pbc` |
@@ -107,13 +107,13 @@ unchanged. `info` cannot use the keys `Lattice`, `pbc`, `Origin` and
 
 ## Other programs
 
-- **ASE** stores momenta rather than velocities; mdapy reads them and writes
+- **ASE** stores momenta rather than velocities; MDAPY reads them and writes
   `vel`, which ASE keeps as an array named `vel`. ASE reads a `charge`
   property as charges computed by a calculator.
 - **GPUMD** training files (`train.xyz`) give `energy`, `virial` in eV or
   `stress` in eV/Å<sup>3</sup> with the sign above, and `force` per atom.
   GPUMD's `dump_exyz` writes its pressure tensor under the key `stress`; it is
-  positive under compression, the opposite sign. mdapy reads the value as
+  positive under compression, the opposite sign. MDAPY reads the value as
   written, so check the sign of `stress` from such files.
 
 ## See also

@@ -23,7 +23,7 @@
 | `src/mdapy/io/_outcar.py` | The VASP OUTCAR format, read only. |
 | `src/mdapy/io/_cif.py` | The CIF format, read only: crystals expanded by their symmetry operations. |
 | `src/mdapy/io/_pdb.py` | The PDB format, read only. |
-| `src/mdapy/io/_native.py` | The mdapy file format. |
+| `src/mdapy/io/_native.py` | The MDAPY file format. |
 | `src/mdapy/io/_trajectory.py` | `Trajectory` and `read_trajectory`: frames of several files, frames on a topology. |
 | `src/mdapy/interop/_ase.py` | `to_ase` and `from_ase`. |
 | `src/mdapy/interop/_ase_calculator.py` | `to_ase_calculator`, `from_ase_calculator`. |
@@ -119,7 +119,7 @@
 | `tests/dislocation_models.py` | Dislocation loops from the solid angle they subtend, for the tests of the dislocation analysis. |
 | `tests/cpp/thread_checks.cpp` | Checks of the thread pool and the parallel kernels, run under ThreadSanitizer. |
 | `docs/` | This documentation. |
-| `benchmarks/comparison.py` | Timings of mdapy against OVITO and freud; see [mdapy, OVITO and freud](../performance/comparison.md). |
+| `benchmarks/comparison.py` | Timings of MDAPY against OVITO and freud; see [MDAPY, OVITO and freud](../performance/comparison.md). |
 
 All compiled code is one extension module, `mdapy._core`. Each functional
 area adds a submodule, for example `mdapy._core.core`. Compiled kernels never

@@ -198,7 +198,7 @@ def from_ovito(data: Any) -> System:
         enclosing the particles when there is none); particle types become
         the ``type`` column, with ``element`` where their names are chemical
         symbols and ``type_label`` where they have other names; standard
-        properties with a column of mdapy, such as ``Velocity``,
+        properties with a column of MDAPY, such as ``Velocity``,
         ``Particle Identifier`` or ``Structure Type``, become that column,
         and other properties columns of their names in lowercase with
         underscores; bonds, angles, dihedrals and impropers become the

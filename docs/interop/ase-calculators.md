@@ -1,9 +1,9 @@
 # ASE calculators
 
-`mdapy.interop.to_ase_calculator` makes any mdapy calculator, such as `EAM`
+`mdapy.interop.to_ase_calculator` makes any MDAPY calculator, such as `EAM`
 or `NEP`, an ASE calculator, for the optimizers, filters and molecular
 dynamics of ASE; `from_ase_calculator` makes any ASE calculator, such as the
-calculator of a machine-learned potential, an mdapy calculator, for
+calculator of a machine-learned potential, an MDAPY calculator, for
 [`minimize`](../simulation/minimize.md),
 [defect energies](../simulation/defect-energies.md) and
 [elastic constants](../simulation/elastic-constants.md).
@@ -47,14 +47,14 @@ Both need ASE (`pip install mdapy[ase]`).
 
 | Function | Argument | Returns |
 |---|---|---|
-| `to_ase_calculator(calculator)` | any mdapy `Calculator` | an ASE calculator |
-| `from_ase_calculator(calculator)` | any ASE calculator | an mdapy `Calculator` |
+| `to_ase_calculator(calculator)` | any MDAPY `Calculator` | an ASE calculator |
+| `from_ase_calculator(calculator)` | any ASE calculator | an MDAPY `Calculator` |
 
 ## Results
 
 The properties of each side and those of the other they come from:
 
-| ASE property | Unit | mdapy property | Unit |
+| ASE property | Unit | MDAPY property | Unit |
 |---|---|---|---|
 | `energy`, `free_energy` | eV | `energy` | eV |
 | `energies` | eV | `atomic_energies` | eV |
@@ -63,19 +63,19 @@ The properties of each side and those of the other they come from:
 | `stresses` | eV/Å³ | `atomic_virials`, $-\sigma_i V$ | eV |
 
 ASE gives stresses in the order xx, yy, zz, yz, xz, xy, positive under
-tension. Each side offers the properties that the other computes. An mdapy
+tension. Each side offers the properties that the other computes. An MDAPY
 calculator in ASE gives its energy as both `energy` and `free_energy`; an
-ASE calculator in mdapy gives `free_energy` as the energy where it computes
+ASE calculator in MDAPY gives `free_energy` as the energy where it computes
 one, since the forces derive from it.
 
 Each calculation converts the atoms with [`from_ase`](ase.md) or
-[`to_ase`](ase.md). An ASE calculator in mdapy has a `cutoff` of 0: it
+[`to_ase`](ase.md). An ASE calculator in MDAPY has a `cutoff` of 0: it
 searches its own neighbors and takes no neighbor list of mdapy.
 
 ## Errors
 
-ASE raises its `PropertyNotImplementedError` for a property that the mdapy
-calculator does not compute; an ASE calculator in mdapy raises
+ASE raises its `PropertyNotImplementedError` for a property that the MDAPY
+calculator does not compute; an ASE calculator in MDAPY raises
 [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter) for
 one that the ASE calculator does not compute.
 

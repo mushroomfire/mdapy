@@ -70,13 +70,13 @@ expression, so it is as fast as polars, and nothing in it is run as Python
 code.
 
 Text is needed because a condition such as `positions.z > 10` cannot be
-written directly in Python: Python would compute `"z" > 10` before mdapy
+written directly in Python: Python would compute `"z" > 10` before MDAPY
 sees it.
 
 **Columns** are written by their names, `charge`, `type`, `element`.
 A name that is not a Python name, such as one with a space, a bracket or a
 leading digit, goes in backticks (the key left of 1), as in pandas:
-`` `Shear Strain` > 0.1 ``. This is rarely needed: the columns of mdapy are
+`` `Shear Strain` > 0.1 ``. This is rarely needed: the columns of MDAPY are
 Python names, columns from OVITO become names in lowercase with
 underscores, and LAMMPS columns such as `c_stress[1]` … `c_stress[6]` become
 one array column `c_stress`. Outside an expression no backticks are needed:
@@ -94,7 +94,7 @@ by index from 0:
 
 Columns of 6 components have no names, only indices: their order depends on
 where they come from (LAMMPS writes per-atom stresses as xx, yy, zz, xy, xz,
-yz; the Voigt order is xx, yy, zz, yz, xz, xy). mdapy itself keeps
+yz; the Voigt order is xx, yy, zz, yz, xz, xy). MDAPY itself keeps
 per-atom tensors as 9 components.
 
 **Values**: numbers, `True` and `False`, and text in quotes, `'Cu'` or

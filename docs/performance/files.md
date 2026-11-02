@@ -1,29 +1,29 @@
 # Reading and writing files
 
-mdapy, [OVITO](https://www.ovito.org) and [ASE](https://wiki.fysik.dtu.dk/ase/)
+MDAPY, [OVITO](https://www.ovito.org) and [ASE](https://wiki.fysik.dtu.dk/ase/)
 read and write LAMMPS dumps, LAMMPS data files and extended XYZ of the same
 systems, from 4 000 to 2 million atoms. A program is timed only where it
-reads the positions that mdapy wrote, or writes a file that mdapy reads back
+reads the positions that MDAPY wrote, or writes a file that MDAPY reads back
 as the system.
 
 ## Results
 
 A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6248 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
-mdapy 2.0.0.dev0 built with GCC 12.3, OVITO 3.17.1 and ASE 3.29.0 from pip.
+MDAPY 2.0.0.dev0 built with GCC 12.3, OVITO 3.17.1 and ASE 3.29.0 from pip.
 
-![Time of OVITO and of ASE over the time of mdapy for each case and size](images/files.png)
+![Time of OVITO and of ASE over the time of MDAPY for each case and size](images/files.png)
 
 ### What they show
 
-- **OVITO**: from 32 000 atoms on, mdapy reads the three formats 2.7 to
+- **OVITO**: from 32 000 atoms on, MDAPY reads the three formats 2.7 to
   5.3 times faster and writes them 3.9 to 10.4 times faster. At 4 000 atoms
-  OVITO reads faster, in 1.0 to 1.4 ms against 1.3 to 2.2 ms, and mdapy
+  OVITO reads faster, in 1.0 to 1.4 ms against 1.3 to 2.2 ms, and MDAPY
   still writes 1.0 to 2.9 times faster.
-- **ASE**: mdapy reads 3.8 to 53 times faster and writes 5.4 to 58 times
+- **ASE**: MDAPY reads 3.8 to 53 times faster and writes 5.4 to 58 times
   faster. ASE reads a data file of 2 million atoms in 7.7 s and 3.8 GB of
   memory.
-- **2 million atoms** take mdapy 0.08 to 0.17 s to read in each format, and
+- **2 million atoms** take MDAPY 0.08 to 0.17 s to read in each format, and
   0.11 to 0.16 s to write with every digit.
 
 ### Times and memory
@@ -34,7 +34,7 @@ its peak before the timings.
 
 #### OVITO
 
-| Case | Atoms | mdapy 2.0.0.dev0 (s) | OVITO 3.17.1 (s) | OVITO / mdapy | mdapy (MB) | OVITO (MB) |
+| Case | Atoms | MDAPY 2.0.0.dev0 (s) | OVITO 3.17.1 (s) | OVITO / MDAPY | MDAPY (MB) | OVITO (MB) |
 |---|---:|---:|---:|---:|---:|---:|
 | Read a LAMMPS dump | 4,000 | 0.001 | 0.001 | 0.80 | 0 | 1 |
 | Read a LAMMPS dump | 32,000 | 0.002 | 0.007 | 2.96 | 2 | 5 |
@@ -63,7 +63,7 @@ its peak before the timings.
 
 #### ASE
 
-| Case | Atoms | mdapy 2.0.0.dev0 (s) | ASE 3.29.0 (s) | ASE / mdapy | mdapy (MB) | ASE (MB) |
+| Case | Atoms | MDAPY 2.0.0.dev0 (s) | ASE 3.29.0 (s) | ASE / MDAPY | MDAPY (MB) | ASE (MB) |
 |---|---:|---:|---:|---:|---:|---:|
 | Read a LAMMPS dump | 4,000 | 0.001 | 0.005 | 3.81 | 0 | 0 |
 | Read a LAMMPS dump | 32,000 | 0.002 | 0.039 | 16.16 | 2 | 4 |
@@ -88,7 +88,7 @@ its peak before the timings.
 
 ## Cases
 
-| Case | mdapy | OVITO | ASE |
+| Case | MDAPY | OVITO | ASE |
 |---|---|---|---|
 | Read a LAMMPS dump | `mp.read(path)` | `import_file(path).compute()` | `ase.io.read(path, format="lammps-dump-text")` |
 | Write a LAMMPS dump | `mp.write(path, system)` | `export_file(data, path, "lammps/dump", columns=[...], precision=17)` | ASE writes no dumps |
@@ -102,23 +102,23 @@ each axis. The dump holds the columns `id type x y z`; the data file the
 atom style atomic, with the mass of copper; extended XYZ the species and the
 positions.
 
-mdapy writes every number with as many digits as it takes to read it back
+MDAPY writes every number with as many digits as it takes to read it back
 exactly, at most 17. OVITO is asked for 17 significant digits. ASE writes
 the positions of a data file in full and those of extended XYZ with 8
 decimals, so its extended XYZ is about a third smaller.
 
 ## How it is measured
 
-- Each program runs in a process of its own. mdapy and OVITO have 40
+- Each program runs in a process of its own. MDAPY and OVITO have 40
   threads (`MDAPY_NUM_THREADS`, `OVITO_THREAD_COUNT`); ASE reads and writes
   in Python on one.
 - Before the timings, a separate process checks each program. Reading: the
-  positions it reads are those mdapy reads within 1e-12 Å, and the types and
-  elements are the same. Writing: mdapy reads back the file the program
+  positions it reads are those MDAPY reads within 1e-12 Å, and the types and
+  elements are the same. Writing: MDAPY reads back the file the program
   wrote, and finds the positions within 1e-12 Å (1e-8 Å for the extended
   XYZ of ASE) and the same types and elements. A program that differs is
   not timed.
-- The file to read is written by mdapy before the timings, so it is in the
+- The file to read is written by MDAPY before the timings, so it is in the
   file cache of the operating system: the times are those of reading and
   parsing, not of the disk. Writing goes to the local disk of the node as
   the operating system takes it.

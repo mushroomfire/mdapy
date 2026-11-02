@@ -1,10 +1,10 @@
 ---
-title: mdapy
+title: MDAPY
 ---
 
-# ![mdapy](assets/mdapy-logo.svg#only-light){ width="420" } ![mdapy](assets/mdapy-logo-dark.svg#only-dark){ width="420" } { .logo }
+# ![MDAPY](assets/mdapy-logo.png#only-light){ width="420" } ![MDAPY](assets/mdapy-logo-dark.png#only-dark){ width="420" } { .logo }
 
-**mdapy**, short for *Molecular Dynamics Analysis in Python*, analyses and
+**MDAPY**, short for *Molecular Dynamics Analysis in Python*, analyses and
 builds atomistic systems. It reads and writes structures and trajectories in
 the common formats, finds neighbors, identifies crystal structures and
 defects and measures their properties, builds crystals and polycrystals, and
@@ -12,20 +12,20 @@ computes energies, forces, relaxed structures and elastic constants with
 interatomic potentials. The heavy work runs in compiled C++ on all cores of
 the machine.
 
-!!! warning "mdapy 2.0 is under development"
-    This site documents mdapy 2.0, a complete rewrite on the `v2` branch that is
-    not compatible with mdapy 1.x. Features are added one at a time, each with
+!!! warning "MDAPY 2.0 is under development"
+    This site documents MDAPY 2.0, a complete rewrite on the `v2` branch that is
+    not compatible with MDAPY 1.x. Features are added one at a time, each with
     its own tests and documentation page. For the stable release use
-    [mdapy 1.0.8](https://pypi.org/project/mdapy/1.0.8/).
+    [MDAPY 1.0.8](https://pypi.org/project/mdapy/1.0.8/).
 
-## What mdapy does
+## What MDAPY does
 
 Structures come from files or are built, live in a `System`, and its
 neighbors feed the analyses and the calculators. Dashed parts are planned.
 
 ```mermaid
 flowchart TB
-    files[("<b>Files</b><br/>extended XYZ · LAMMPS · POSCAR · mdapy")]
+    files[("<b>Files</b><br/>extended XYZ · LAMMPS · POSCAR · MDAPY")]
     build["<b>Structure builder</b><br/>crystals · alloys · defects<br/>polycrystals · packing"]
     system(["<b>System</b><br/>box · topology · trajectory"])
     neighbors(["<b>Neighbor lists</b>"])
@@ -75,7 +75,7 @@ flowchart TB
 - **High performance.** The heavy work runs in compiled C++ on every core.
   Analyses of the nearest neighbors find them as they go, without a list of
   pairs, and one list of pairs serves every analysis it is given. On 40
-  cores, from 256 000 to 2 million atoms, mdapy is faster than
+  cores, from 256 000 to 2 million atoms, MDAPY is faster than
   [OVITO](https://www.ovito.org) in every analysis they share, and below
   that in all but atomic strain; it is faster than
   [freud](https://freud.readthedocs.io) in every one at every size; see
@@ -85,7 +85,7 @@ flowchart TB
   concept in every module ([Glossary](reference/glossary.md)). A `System`
   never changes in place, every analysis takes the same arguments, and the
   results are the same for any number of threads.
-- **Easy to integrate.** mdapy runs its own thread pool instead of OpenMP,
+- **Easy to integrate.** MDAPY runs its own thread pool instead of OpenMP,
   so it shares a process with [PyTorch](https://pytorch.org) and
   [LAMMPS](https://www.lammps.org)
   ([Parallelism](getting-started/parallelism.md)). It converts systems to
@@ -109,7 +109,7 @@ flowchart TB
 
     ---
 
-    Install mdapy, take the quick tour, learn the basics and work through
+    Install MDAPY, take the quick tour, learn the basics and work through
     the tutorials.
 
     [Installation](getting-started/installation.md) ·
@@ -250,7 +250,7 @@ flowchart TB
 
     ---
 
-    Timings of mdapy and of other programs, from thousands to millions of
+    Timings of MDAPY and of other programs, from thousands to millions of
     atoms.
 
     [Analyses: OVITO and freud](performance/comparison.md) ·
@@ -270,7 +270,7 @@ flowchart TB
     [PDB](reference/formats/pdb.md) ·
     [VASP OUTCAR](reference/formats/outcar.md) ·
     [VASP POSCAR](reference/formats/poscar.md) ·
-    [mdapy files](reference/formats/mdapy.md)
+    [MDAPY files](reference/formats/mdapy.md)
 
     [Units and conventions](reference/units.md) ·
     [Elements](reference/elements.md) · [Glossary](reference/glossary.md) ·
@@ -281,8 +281,8 @@ flowchart TB
 See the [release notes](development/release-notes.md) for what each
 development version contains.
 
-## Citing mdapy
+## Citing MDAPY
 
-If mdapy contributes to a publication, please cite
+If MDAPY contributes to a publication, please cite
 [Wu and Shao (2023)](reference/references.md#wu2023), and the papers that
 the pages of the features you use ask to cite.

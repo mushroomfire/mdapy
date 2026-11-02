@@ -2,7 +2,9 @@
 
 ## 2.0.0 (in development)
 
-mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
+MDAPY 2.0 is a complete rewrite and is not compatible with MDAPY 1.x. The name
+is written MDAPY, with `mdapy` for the package, the imports and the commands,
+and it has a new logo.
 
 ### Structures
 
@@ -65,11 +67,11 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - VASP POSCAR and CONTCAR: scaling factors, POTCAR labels, selective
   dynamics as the `movable` column, Direct and Cartesian coordinates, and the
   velocity block of a CONTCAR. See [VASP POSCAR](../reference/formats/poscar.md).
-- The mdapy file format `.mdapy`: a ZIP archive of Parquet tables that keeps
+- The MDAPY file format `.mdapy`: a ZIP archive of Parquet tables that keeps
   every column with its type, the box, the information and the topology of
   each frame, a table of frames with typed columns of the information, and
   recovery of files whose writing stopped early. See
-  [mdapy files](../reference/formats/mdapy.md).
+  [MDAPY files](../reference/formats/mdapy.md).
 - `mdapy.read_trajectory` opens the frames of any file lazily: frames are
   found and read when used, slices share the open file, and iteration starts
   at once; also the frames of several files, given as a pattern such as
@@ -223,7 +225,7 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   cells of up to 2000 atoms.
 - [`PolyhedralTemplateMatching`](../analysis/ptm.md): the structure,
   orientation, elastic deformation and chemical ordering of each atom, for
-  nine structures, implemented by mdapy itself; the same as OVITO atom by
+  nine structures, implemented by MDAPY itself; the same as OVITO atom by
   atom.
 - [`PlanarFaults`](../analysis/planar-faults.md): intrinsic and multilayer
   stacking faults and coherent twin boundaries of fcc crystals from the
@@ -256,7 +258,7 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
   short-range order, over shells of neighbors by distance or by number; [`SteinhardtParameters`](../analysis/steinhardt.md) up
   to degree 20, optionally averaged, and with `solid=True` the solid-like
   bonds and atoms of ten Wolde, Ruiz-Montero and Frenkel, as freud's
-  `SolidLiquid` (mdapy 1.x `identify_liquid`); the
+  `SolidLiquid` (MDAPY 1.x `identify_liquid`); the
   [`EntropyFingerprint`](../analysis/entropy.md); and the
   [`VoronoiAnalysis`](../analysis/voronoi.md), computed by mdapy's own code,
   with the volumes and coordination of the cells and, when asked for, their
@@ -480,9 +482,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - `mdapy.interop.to_ase` and `from_ase` convert to and from `ase.Atoms`,
   with velocities, charges, constraints, other numeric columns and the
   results of a calculation. See [ASE](../interop/ase.md).
-- `mdapy.interop.to_ase_calculator` makes any mdapy calculator an ASE
+- `mdapy.interop.to_ase_calculator` makes any MDAPY calculator an ASE
   calculator, and `from_ase_calculator` any ASE calculator, such as that
-  of torchnep, an mdapy calculator. See
+  of torchnep, an MDAPY calculator. See
   [ASE calculators](../interop/ase-calculators.md).
 - `mdapy.interop.to_ovito` and `from_ovito` convert to and from OVITO data
   collections, with types, standard properties, the topology and the
@@ -499,10 +501,10 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 
 ### Performance
 
-- `benchmarks/comparison.py` times the analyses that mdapy shares with
+- `benchmarks/comparison.py` times the analyses that MDAPY shares with
   OVITO and freud, on the same systems, where each program gives the
-  result of mdapy, each program in a process of its own with limits of
-  memory and time. See [mdapy, OVITO and freud](../performance/comparison.md).
+  result of MDAPY, each program in a process of its own with limits of
+  memory and time. See [MDAPY, OVITO and freud](../performance/comparison.md).
 - Extended XYZ files of many small frames read faster: the comment line is
   split at once in its common form, the element column comes from the
   categories kept for the file, and the box and the columns are checked
@@ -511,7 +513,7 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 
 ### Tutorials
 
-- Worked examples that combine several parts of mdapy: a polycrystal of fcc
+- Worked examples that combine several parts of MDAPY: a polycrystal of fcc
   and bcc grains, columnar grains on a hexagonal pattern with chosen
   misorientations, the defect energies of copper with checks of their
   convergence, when sharing neighbor lists pays, what a `System` shares
@@ -529,9 +531,9 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 
 ### Foundations
 
-- Released under the Mozilla Public License 2.0: mdapy may be used in any
+- Released under the Mozilla Public License 2.0: MDAPY may be used in any
   software, open or closed, and changes to its own files are shared under
-  the same license. mdapy 1.x is under the GPL 3.0 or later.
+  the same license. MDAPY 1.x is under the GPL 3.0 or later.
 - Python 3.11 or newer; NumPy 2.3.1 or newer and polars 2 are the only
   required dependencies.
 - All compiled code is one extension module, built as a single abi3 wheel per
@@ -539,7 +541,7 @@ mdapy 2.0 is a complete rewrite and is not compatible with mdapy 1.x.
 - Atom indices in results are 32-bit, `mdapy.index_dtype`; a build with
   `-Ccmake.define.MDAPY_INDEX64=ON` uses 64-bit indices for more than
   2,147,483,647 atoms. See [Installation](../getting-started/installation.md#64-bit-atom-indices).
-- A thread pool of mdapy's own replaces OpenMP, so mdapy can run in the same
+- A thread pool of mdapy's own replaces OpenMP, so MDAPY can run in the same
   process as PyTorch and LAMMPS. Results are identical for any number of
   threads. The calling thread works too, idle threads wait for the next
   step briefly before they sleep, and a step of a few pieces wakes only as

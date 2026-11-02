@@ -131,9 +131,9 @@ def test_unknown_or_unsupported_formats(tmp_path, monkeypatch):
         FORMATS, "readonly", Format("readonly", "", read=lambda s, p: 1)
     )
     monkeypatch.setitem(FORMATS, "writeonly", Format("writeonly", "", write=print))
-    with pytest.raises(UnsupportedFormat, match="mdapy cannot write readonly files"):
+    with pytest.raises(UnsupportedFormat, match="MDAPY cannot write readonly files"):
         mdapy.write(path, water(), format="readonly")
-    with pytest.raises(UnsupportedFormat, match="mdapy cannot read writeonly files"):
+    with pytest.raises(UnsupportedFormat, match="MDAPY cannot read writeonly files"):
         mdapy.read(path, format="writeonly")
 
 

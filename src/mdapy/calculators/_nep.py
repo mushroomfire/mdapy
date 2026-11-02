@@ -97,7 +97,7 @@ def _read_nep(path: str | os.PathLike) -> dict[str, Any]:
     header.line += 1
     if words[0] not in ("nep4", "nep4_zbl"):
         raise header.error(
-            f"unsupported model {words[0]!r}: mdapy reads nep4 and nep4_zbl"
+            f"unsupported model {words[0]!r}: MDAPY reads nep4 and nep4_zbl"
         )
     zbl = words[0] == "nep4_zbl"
     try:

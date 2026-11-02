@@ -1,7 +1,7 @@
 # Plots
 
 `mdapy.visualization.plot` sets matplotlib up for the figures of journals
-and plots the results of mdapy: parity plots of energies and forces, radial
+and plots the results of MDAPY: parity plots of energies and forces, radial
 distribution functions, structure factors, bond angles, mean squared
 displacements, stacking fault energies, counts of structures, phonon
 band structures and densities of states, and two columns of the atoms

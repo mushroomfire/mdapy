@@ -39,7 +39,7 @@ last.info["timestep"]  # 200
 
 Each frame has these items, as LAMMPS writes them:
 
-| Item | Meaning | In mdapy |
+| Item | Meaning | In MDAPY |
 |---|---|---|
 | `ITEM: UNITS` | unit system; LAMMPS writes it only in the first frame, and it applies to all | |
 | `ITEM: TIME` | elapsed time, in ps (metal) or fs (real) | `info["time"]`, ps |
@@ -59,7 +59,7 @@ xyz dumps can be read as [extended XYZ](extxyz.md).
 
 ## Columns
 
-| Dump columns | mdapy column | Conversion |
+| Dump columns | MDAPY column | Conversion |
 |---|---|---|
 | `id` | `id` | |
 | `type` | `type` | |

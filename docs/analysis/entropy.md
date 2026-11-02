@@ -95,7 +95,7 @@ integrand is $r^2$. With `average_cutoff`, $s_i$ is averaged with the values
 of the neighbors closer than it.
 
 LAMMPS `compute entropy/atom` spreads each neighbor over seven points only;
-mdapy uses the whole Gaussian, so that equivalent atoms get equal values.
+MDAPY uses the whole Gaussian, so that equivalent atoms get equal values.
 The two agree to about 0.5 %.
 
 ## See also

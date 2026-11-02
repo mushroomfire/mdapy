@@ -151,7 +151,7 @@ def from_ase(atoms: Any) -> System:
                 movable[constraint.index] &= ~np.asarray(constraint.mask, dtype=bool)
             else:
                 raise InvalidParameter(
-                    f"the constraint {type(constraint).__name__} has no equivalent in mdapy"
+                    f"the constraint {type(constraint).__name__} has no equivalent in MDAPY"
                 )
         columns["movable"] = movable
     for name, values in atoms.arrays.items():

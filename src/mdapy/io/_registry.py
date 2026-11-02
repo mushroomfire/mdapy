@@ -3,7 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""The file formats mdapy knows, and reading and writing by format."""
+"""The file formats MDAPY knows, and reading and writing by format."""
 
 import fnmatch
 import operator
@@ -68,7 +68,7 @@ def register(format: Format) -> Format:
 
 
 def formats() -> pl.DataFrame:
-    """The file formats mdapy can read or write.
+    """The file formats MDAPY can read or write.
 
     Returns
     -------
@@ -152,7 +152,7 @@ def _format(path: str | os.PathLike, format: str | None, action: str) -> Format:
         )
     found = FORMATS[name]
     if getattr(found, action) is None:
-        raise UnsupportedFormat(f"mdapy cannot {action} {name} files")
+        raise UnsupportedFormat(f"MDAPY cannot {action} {name} files")
     return found
 
 

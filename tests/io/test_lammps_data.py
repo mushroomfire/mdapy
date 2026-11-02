@@ -537,7 +537,7 @@ def test_written_text(tmp_path):
     mdapy.write(path, read_text(tmp_path, WATER), units="real")
     text = path.read_text()
     assert text.startswith(
-        "LAMMPS data file via mdapy "
+        "LAMMPS data file via MDAPY "
         + mdapy.__version__
         + ", timestep = 500, units = real\n"
     )

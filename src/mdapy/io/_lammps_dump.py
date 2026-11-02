@@ -88,7 +88,7 @@ def _check_text(source: Source) -> None:
     head = bytes(source.buffer[:256])
     if b"\0" in head:
         raise UnsupportedFormat(
-            f"{source.name} is a binary dump; mdapy reads text dumps (convert it with "
+            f"{source.name} is a binary dump; MDAPY reads text dumps (convert it with "
             "the binary2txt tool of LAMMPS)"
         )
 
@@ -175,7 +175,7 @@ def _header(reader: TextReader) -> _Frame:
             return frame
         elif item == ["NUMBER", "OF", "ENTRIES"]:
             raise UnsupportedFormat(
-                "dump local files are not supported; mdapy reads dumps of the atom "
+                "dump local files are not supported; MDAPY reads dumps of the atom "
                 "and custom styles"
             )
         else:
@@ -220,7 +220,7 @@ def _first_units(source: Source) -> str | None:
 
 
 def _plan_columns(columns: list[str]) -> dict[str, Any]:
-    """Which dump columns make which mdapy columns."""
+    """Which dump columns make which MDAPY columns."""
     present = set(columns)
     vectors: dict[str, tuple[str, ...]] = {}
     for names in _POSITIONS:
@@ -263,7 +263,7 @@ def _read(
     file_units = units or frame.units or _first_units(source) or "metal"
     if file_units not in _UNITS:
         raise UnsupportedFormat(
-            f"the dump is in {file_units} units; mdapy reads metal and real units "
+            f"the dump is in {file_units} units; MDAPY reads metal and real units "
             "(pass units='metal' to read the numbers unchanged)"
         )
     real = file_units == "real"

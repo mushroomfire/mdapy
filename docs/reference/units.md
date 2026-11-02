@@ -1,7 +1,7 @@
 # Units and conventions
 
-mdapy uses one unit system everywhere: in inputs, outputs, files written by
-mdapy, and stored properties. Readers convert from a file's own units when
+MDAPY uses one unit system everywhere: in inputs, outputs, files written by
+MDAPY, and stored properties. Readers convert from a file's own units when
 reading, and writers convert back when writing.
 
 ## Units
@@ -41,7 +41,7 @@ reading and writing.
 
 ## Conversion factors
 
-All conversions in mdapy use the constants in
+All conversions in MDAPY use the constants in
 [`mdapy.units`](api.md#mdapy.units). A factor named `A_TO_B` converts a value
 in unit A to unit B by multiplication:
 

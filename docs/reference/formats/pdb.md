@@ -2,7 +2,7 @@
 
 The format `pdb` reads the files of the Protein Data Bank: the atoms of each
 model, their names and residues, the cell and the bonds of the `CONECT`
-records. Files with extension `.pdb` or `.ent` are recognized. mdapy reads
+records. Files with extension `.pdb` or `.ent` are recognized. MDAPY reads
 PDB files but does not write them.
 
 ```python
@@ -48,7 +48,7 @@ hydrogen (white).*
 
 ## Reading
 
-| Record | Columns | In mdapy |
+| Record | Columns | In MDAPY |
 |---|---|---|
 | `CRYST1` | a, b, c in 7–33, α, β, γ in 34–54 | `box.matrix`: a along x, b in the xy plane; periodic in all directions |
 | `ATOM`, `HETATM` | serial 7–11 | `id`; the number of the atom where the serial is not a number |

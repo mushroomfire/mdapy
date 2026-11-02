@@ -1,9 +1,9 @@
 # Calculators
 
-A calculator computes the energy, forces and virial of a system. mdapy
+A calculator computes the energy, forces and virial of a system. MDAPY
 defines one interface, `mdapy.calculators.Calculator`, which its own
 potentials implement and which other packages can implement to work with
-everything in mdapy that needs energies and forces.
+everything in MDAPY that needs energies and forces.
 
 <!-- skip-test -->
 ```python

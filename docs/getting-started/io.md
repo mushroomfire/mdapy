@@ -72,7 +72,7 @@ incomplete file is removed.
 | `outcar` | `.outcar`, names `OUTCAR*` | yes | no | several | [VASP OUTCAR](../reference/formats/outcar.md) |
 | `pdb` | `.pdb`, `.ent` | yes | no | several | [PDB](../reference/formats/pdb.md) |
 | `poscar` | `.vasp`, `.poscar`, names `POSCAR*`, `CONTCAR*` | yes | yes | one | [VASP POSCAR](../reference/formats/poscar.md) |
-| `mdapy` | `.mdapy` | yes | yes | several | [mdapy files](../reference/formats/mdapy.md) |
+| `mdapy` | `.mdapy` | yes | yes | several | [MDAPY files](../reference/formats/mdapy.md) |
 
 `mdapy.detect_format(path)` returns the format of a file name. It ignores a
 compression suffix and compares the extension without regard to case; name
@@ -87,9 +87,9 @@ when no format, or more than one, fits the name; pass `format=` in that case.
   exactly as Python's `float()` does. A decimal point is always `.`, even if
   the program has set a locale that uses a comma, as GUI toolkits do.
 - **Writing** uses the shortest text that reads back to the same double, so
-  a file written by mdapy reads back to exactly the same numbers.
+  a file written by MDAPY reads back to exactly the same numbers.
 - **Unit conversions by a power of ten**, such as velocities in Å/fs in a
-  file and Å/ps in mdapy, add no rounding and also round-trip exactly.
+  file and Å/ps in MDAPY, add no rounding and also round-trip exactly.
 
 ## Errors
 

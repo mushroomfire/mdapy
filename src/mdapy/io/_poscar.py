@@ -203,7 +203,7 @@ def _write(file: BinaryIO, systems: Iterable[System], *, direct: bool = True) ->
         comment = system.info.get("comment", "")
         if not isinstance(comment, str) or "\n" in comment:
             raise InvalidParameter("info['comment'] must be one line of text")
-        lines = [comment or "written by mdapy", "1.0"]
+        lines = [comment or "written by MDAPY", "1.0"]
         lines += [" ".join(repr(float(x)) for x in row) for row in box.matrix]
         lines += [" ".join(species), " ".join(str(int(c)) for c in counts)]
         columns: list[tuple] = [("f", coordinates)]

@@ -83,7 +83,7 @@ tolerance, or than the cutoff of their pair of elements. Two rules come
 ready:
 
 - `"covalent"`, the default: the covalent radii plus 0.45 Å, the rule of
-  Jmol and OpenBabel, and of the bonds mdapy draws in
+  Jmol and OpenBabel, and of the bonds MDAPY draws in
   [pictures](../visualization/rendering.md);
 - `"vdw"`: 0.6 of the van der Waals radii, without tolerance, and two
   hydrogen atoms never bonded, the rule of VMD and of OVITO's *Create

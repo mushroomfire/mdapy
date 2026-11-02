@@ -19,7 +19,7 @@ back.constraints  # [FixAtoms(indices=[0, 1])]
 ```
 
 Both need ASE (`pip install mdapy[ase]`). Calculators go between ASE and
-mdapy too; see [ASE calculators](ase-calculators.md).
+MDAPY too; see [ASE calculators](ase-calculators.md).
 
 ## Parameters
 
@@ -47,7 +47,7 @@ The result shares no memory with its source.
 | `info["energy"]`, `forces`, `info["stress"]` (GPa) or `info["virial"]` (eV) | a single-point calculator with the energy, forces and stress (eV/Å³) |
 
 Columns of strings, such as `type_label`, are not converted. ASE gives the
-stress in eV/Å³ in the order xx, yy, zz, yz, xz, xy; mdapy keeps it as a
+stress in eV/Å³ in the order xx, yy, zz, yz, xz, xy; MDAPY keeps it as a
 (3, 3) array in GPa. Both are positive under tension.
 
 ## Errors

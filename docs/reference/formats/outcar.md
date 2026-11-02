@@ -3,7 +3,7 @@
 The format `outcar` reads the OUTCAR files of VASP, one frame per ionic
 step of a single point, a relaxation or molecular dynamics, with the
 forces, the energy and the virial of each. Files named `OUTCAR*`, or with
-extension `.outcar`, are recognized. mdapy reads OUTCAR files but does not
+extension `.outcar`, are recognized. MDAPY reads OUTCAR files but does not
 write them.
 
 <!-- skip-test -->
@@ -20,7 +20,7 @@ last.info["converged"]  # whether the electronic loop reached EDIFF
 
 ## Reading
 
-| In the OUTCAR | In mdapy |
+| In the OUTCAR | In MDAPY |
 |---|---|
 | `POTCAR:` lines, each written twice, and `ions per type` | `element`; a type of no ions is allowed |
 | `direct lattice vectors`, the last before the positions of a step | `box.matrix`; periodic in all directions |
@@ -44,7 +44,7 @@ The stress in GPa is `-virial / volume` (see
 [Units and conventions](../units.md)), the same as that of ASE, which takes
 it from the line in kB. ASE's `get_potential_energy()` gives the energy
 extrapolated to zero smearing, and `get_potential_energy(force_consistent=True)`
-the free energy TOTEN that mdapy reads.
+the free energy TOTEN that MDAPY reads.
 
 ## Errors
 

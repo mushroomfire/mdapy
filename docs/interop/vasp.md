@@ -1,6 +1,6 @@
 # VASP
 
-mdapy writes the POSCAR of a calculation and reads its CONTCAR and OUTCAR,
+MDAPY writes the POSCAR of a calculation and reads its CONTCAR and OUTCAR,
 runs VASP as a calculator and turns its results into training sets of
 machine-learned potentials.
 
@@ -27,7 +27,7 @@ steps = mp.read_trajectory("OUTCAR")  # every ionic step, with energies, forces,
 
 ## What goes between them
 
-| VASP | mdapy | Page |
+| VASP | MDAPY | Page |
 |---|---|---|
 | POSCAR, CONTCAR: selective dynamics, velocities | `mdapy.read`, `mdapy.write`; the columns `movable` and `velocities` | [VASP POSCAR](../reference/formats/poscar.md) |
 | OUTCAR: ionic steps, free energies TOTEN, forces, virials, convergence | `mdapy.read`, `mdapy.read_trajectory` | [VASP OUTCAR](../reference/formats/outcar.md), [Training sets from VASP](../mlip/vasp.md) |

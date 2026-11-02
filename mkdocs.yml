@@ -1,4 +1,4 @@
-site_name: mdapy
+site_name: MDAPY
 site_description: Molecular Dynamics Analysis in Python
 repo_url: https://github.com/mushroomfire/mdapy
 repo_name: mushroomfire/mdapy
@@ -7,8 +7,8 @@ copyright: Copyright &copy; 2022–2026 Yongchao Wu · MPL-2.0
 
 theme:
   name: material
-  logo: assets/mdapy-icon.svg
-  favicon: assets/mdapy-icon.svg
+  logo: assets/mdapy-mark.png
+  favicon: assets/favicon.png
   features:
     - navigation.tabs
     - navigation.sections
@@ -21,15 +21,15 @@ theme:
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
@@ -236,7 +236,7 @@ nav:
           - PDB: reference/formats/pdb.md
           - VASP OUTCAR: reference/formats/outcar.md
           - VASP POSCAR: reference/formats/poscar.md
-          - mdapy files: reference/formats/mdapy.md
+          - MDAPY files: reference/formats/mdapy.md
       - Units and conventions: reference/units.md
       - Elements: reference/elements.md
       - Glossary: reference/glossary.md

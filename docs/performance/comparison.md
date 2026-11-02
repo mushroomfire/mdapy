@@ -1,30 +1,30 @@
-# mdapy, OVITO and freud
+# MDAPY, OVITO and freud
 
-The analyses that mdapy shares with [OVITO](https://www.ovito.org) and
+The analyses that MDAPY shares with [OVITO](https://www.ovito.org) and
 [freud](https://freud.readthedocs.io), computed on the same systems with
 the same parameters, from 4 000 to 2 million atoms. A program is timed only
-where it gives the result of mdapy, atom by atom.
+where it gives the result of MDAPY, atom by atom.
 
 ## Results
 
 A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6248 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
-mdapy 2.0.0.dev0 built with GCC 12.3, OVITO 3.17.1 and freud 3.6.1 from
+MDAPY 2.0.0.dev0 built with GCC 12.3, OVITO 3.17.1 and freud 3.6.1 from
 pip, each with 40 threads.
 
-![Time of OVITO and of freud over the time of mdapy for each case and size](images/comparison.png)
+![Time of OVITO and of freud over the time of MDAPY for each case and size](images/comparison.png)
 
 ### What they show
 
-- **OVITO**: from 256 000 atoms on, mdapy is faster in every analysis they
+- **OVITO**: from 256 000 atoms on, MDAPY is faster in every analysis they
   share. It builds neighbor lists 6.4 to 7.6 times faster in a quarter of
   the memory, Voronoi cells 22 to 25 times faster, Steinhardt parameters
   over Voronoi faces 65 times, finds dislocations 4.6 to 4.9 times and
   clusters 6 times faster; the other analyses take 1.2 to 3.8 times less
   time. Atomic strain is the closest: OVITO is faster below some 250 000
   atoms (3 times at 4 000 and 1.3 times at 32 000), the two are on par at
-  256 000, and mdapy is 1.16 times faster at 2 million.
-- **freud**: from 32 000 atoms on, mdapy is faster in every analysis:
+  256 000, and MDAPY is 1.16 times faster at 2 million.
+- **freud**: from 32 000 atoms on, MDAPY is faster in every analysis:
   neighbor lists 9 to 27 times, in a seventh of the memory; the 12 nearest
   neighbors 4 to 9 times; Voronoi cells 29 to 41 times; Steinhardt
   parameters and the radial distribution function 3.4 to 4.9 times;
@@ -35,12 +35,12 @@ pip, each with 40 threads.
   distribution function apart reaches 6 Å instead of 5 Å). OVITO's pipeline
   of the six takes about the sum of its cases (2.98 s against 3.11 s).
 - **Voronoi faces on demand**: the volumes and coordination of 2 million
-  cells take mdapy 0.95 s and 195 MB; with every face, its neighbor, area
+  cells take MDAPY 0.95 s and 195 MB; with every face, its neighbor, area
   and edges, 1.12 s and 1.7 GB.
 - **A trajectory**: the mean squared displacement of 20 frames read from a
   dump, most of the time spent reading, takes about 1.4 times less time
   than with OVITO from 32 000 atoms on.
-- **4 000 atoms** take a few milliseconds; mdapy is faster there in every
+- **4 000 atoms** take a few milliseconds; MDAPY is faster there in every
   analysis but cluster analysis, Wigner–Seitz occupancies, atomic strain
   and the mean squared displacement against OVITO, and cluster analysis
   against freud (0.004 s against 0.001 s); the 12 nearest neighbors are on
@@ -56,7 +56,7 @@ process minus its peak before the timings.
 
 #### OVITO
 
-| Case | Atoms | mdapy 2.0.0.dev0 (s) | OVITO 3.17.1 (s) | OVITO / mdapy | mdapy (MB) | OVITO (MB) |
+| Case | Atoms | MDAPY 2.0.0.dev0 (s) | OVITO 3.17.1 (s) | OVITO / MDAPY | MDAPY (MB) | OVITO (MB) |
 |---|---:|---:|---:|---:|---:|---:|
 | Neighbor list, 5 Å | 4,000 | 0.004 | 0.009 | 2.68 | 0 | 9 |
 | Neighbor list, 5 Å | 32,000 | 0.007 | 0.036 | 5.04 | 18 | 131 |
@@ -144,7 +144,7 @@ process minus its peak before the timings.
 
 #### freud
 
-| Case | Atoms | mdapy 2.0.0.dev0 (s) | freud 3.6.1 (s) | freud / mdapy | mdapy (MB) | freud (MB) |
+| Case | Atoms | MDAPY 2.0.0.dev0 (s) | freud 3.6.1 (s) | freud / MDAPY | MDAPY (MB) | freud (MB) |
 |---|---:|---:|---:|---:|---:|---:|
 | Neighbor list, 5 Å | 4,000 | 0.004 | 0.008 | 2.27 | 0 | 23 |
 | Neighbor list, 5 Å | 32,000 | 0.007 | 0.062 | 8.83 | 18 | 201 |
@@ -184,7 +184,7 @@ process minus its peak before the timings.
 
 ## Cases
 
-| Case | System | mdapy | OVITO | freud |
+| Case | System | MDAPY | OVITO | freud |
 |---|---|---|---|---|
 | Neighbor list, 5 Å | fcc Cu | `NeighborList.build(system, 5.0)` | `CutoffNeighborFinder(5.0, data).find_all()` | `AABBQuery(box, points).query(points, {"r_max": 5.0, "exclude_ii": True}).toNeighborList()` |
 | 12 nearest neighbors | fcc Cu | `NeighborList.build(system, num_neighbors=12)` | `NearestNeighborFinder(12, data).find_all()` | the same query with `{"num_neighbors": 12, "exclude_ii": True}` |
@@ -221,9 +221,9 @@ radial distribution function.
 - Each program runs in a process of its own, with the same number of
   threads (`MDAPY_NUM_THREADS`, `OVITO_THREAD_COUNT` and
   `freud.parallel.set_num_threads`).
-- Before the timings, a separate process computes the case with mdapy and
+- Before the timings, a separate process computes the case with MDAPY and
   with the other program and compares the results. With OVITO, which
-  computes in double precision as mdapy does: the same structure types,
+  computes in double precision as MDAPY does: the same structure types,
   cluster sizes, occupancies and bins, floating-point values within 1e-10
   (1e-8 for Steinhardt parameters weighted by Voronoi faces, whose areas
   come from two tessellations), for neighbor lists the same number of
@@ -235,12 +235,12 @@ radial distribution function.
   rounds positions in a box of 600 Å by some 3e-5 Å: values agree within
   1e-4; the numbers of neighbors and the bins of the radial distribution
   function within the pairs closer than 1e-4 Å to a cutoff or the edge of a
-  bin; Steinhardt parameters of the 12 nearest agree with those mdapy
+  bin; Steinhardt parameters of the 12 nearest agree with those MDAPY
   computes from the positions freud has, within 3e-4, for the atoms whose
   12th and 13th neighbors are farther apart than 1e-4 Å, nearly all (freud's
   harmonics in single precision differ by 2e-5 for all but a few atoms in a
   million, by up to 2e-4 for those); every Voronoi face of freud above
-  0.01 Å² is one of mdapy, and the faces freud leaves out, of distant
+  0.01 Å² is one of MDAPY, and the faces freud leaves out, of distant
   neighbors, are all below 0.02 Å², so its Steinhardt parameters over Voronoi faces agree within 1e-3.
   Dislocation analysis gives the same structures and a total length of
   the lines within 3 % (the circuits of the two programs choose
@@ -275,5 +275,5 @@ python benchmarks/comparison.py plot results.json ratio.png
 `run` appends one line of JSON per case and size to `results.json` (the
 option `--output`): the machine, the versions, the agreement of each
 program, and the times and peak memory of each. A new case is a `Case` in
-`_cases()`: how to make its system, the mdapy call, and for each other
+`_cases()`: how to make its system, the MDAPY call, and for each other
 program its call and how to compare its result with that of mdapy.

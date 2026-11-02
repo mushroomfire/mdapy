@@ -126,9 +126,9 @@ with the fractions $x_a = N_a / N$; these are the conventions of OVITO.
 
 ## Why the results differ from OVITO
 
-mdapy follows the definitions above. OVITO's structure factor modifier
+MDAPY follows the definitions above. OVITO's structure factor modifier
 (3.17.1) makes two other choices, so that its curves differ from those of
-mdapy although the sums are the same: computed with OVITO's choices, mdapy
+MDAPY although the sums are the same: computed with OVITO's choices, MDAPY
 gives OVITO's numbers.
 
 - **Direct method**: OVITO averages over the wave vectors with
@@ -138,14 +138,14 @@ gives OVITO's numbers.
   vectors kept, but a family of equivalent vectors then counts by how many
   of its members have zero components; in a crystal of lower symmetry, a
   strained or textured one, or a small disordered system, they carry other
-  values that OVITO's average misses. mdapy averages over every wave vector,
+  values that OVITO's average misses. MDAPY averages over every wave vector,
   one of each pair $\pm\mathbf q$.
 - **Debye method**: OVITO transforms $g(r)$ rather than $g(r) - 1$. The
   difference,
   $\frac{4\pi\rho}{q} \int_0^{r_\text{max}} r \sin(qr)\, w(r)\, \mathrm dr$,
   is the transform of a uniform density inside $r_\text{max}$: it holds
   nothing of the structure, grows without bound as $q \to 0$ and decays
-  with ripples at large $q$. mdapy leaves it out, so that $S(q)$ tends to 1
+  with ripples at large $q$. MDAPY leaves it out, so that $S(q)$ tends to 1
   at large $q$ and stays finite at small $q$.
 
 The alloy above with both integrands:

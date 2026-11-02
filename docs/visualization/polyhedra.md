@@ -57,7 +57,7 @@ of each, `colors[octahedra.atoms[octahedra.owners]]`.*
 Give exactly one of them. `compute(system, atoms=None)` builds the
 polyhedra about the atoms of a boolean mask or of indices, all by default.
 Neighbors are found through the periodic boundaries with the
-[neighbor lists](../getting-started/neighbor.md) of mdapy; each polyhedron
+[neighbor lists](../getting-started/neighbor.md) of MDAPY; each polyhedron
 is built about its atom, whole, even where it reaches out of the box.
 Neighbors in one plane make one face, cut into triangles.
 

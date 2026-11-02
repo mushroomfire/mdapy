@@ -209,7 +209,7 @@ meets its own periodic image or an edge of the mesh spans half of it
 
 ## How the results compare with OVITO
 
-The tests of mdapy compare the analysis with that of OVITO 3.17 on the
+The tests of MDAPY compare the analysis with that of OVITO 3.17 on the
 same atoms. It is a separate program, and does not give OVITO's numbers
 everywhere:
 
@@ -228,13 +228,13 @@ Where they differ, and why:
   fixed random sequence, where a circuit is swept from; the choices depend
   on the order of the atoms and on the inner workings of each program.
   OVITO's results change too when the atoms come in another order. Those
-  of mdapy are the same on every run and for any number of threads.
+  of MDAPY are the same on every run and for any number of threads.
 - At a grain boundary an atom outside the crystal takes the cluster of most
   of the crystal atoms around it; OVITO takes that of the first one its
   tessellation lists, which another program cannot repeat. The good
   crystal reaches into the boundaries a little differently.
 - The tessellation of a perfect lattice has equal choices, such as the two
-  diagonals of four atoms on a circle. mdapy settles them by moving the
+  diagonals of four atoms on a circle. MDAPY settles them by moving the
   atoms by up to $10^{-4}$ Å, OVITO by its own rule: the triangles of the
   meshes there can differ, their areas do not.
 - Of the lattice frames the symmetry of the lattice allows, both give a

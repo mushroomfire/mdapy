@@ -1,4 +1,4 @@
-# mdapy files
+# MDAPY files
 
 The format `mdapy` (extension `.mdapy`) stores one or more systems exactly as
 they are in memory: every column with its type, the box, the information and
@@ -26,7 +26,7 @@ assert last.table.equals(frames[-1].table)
 
 | Member | Content |
 |---|---|
-| `manifest.json` | `format` (`"mdapy"`), `version` (1), the mdapy version that wrote it, the time, the number of frames and the units. |
+| `manifest.json` | `format` (`"mdapy"`), `version` (1), the MDAPY version that wrote it, the time, the number of frames and the units. |
 | `frames.parquet` | One row per frame: `frame`, `atoms` (number of atoms), `member` (its table of atoms), `topology` (its topology, or null), `box_matrix`, `box_origin`, `box_pbc`, `info` (all information, as JSON), and typed columns `info.<key>`. |
 | `atoms/00000000.parquet`, ... | The table of each frame. Its Parquet metadata also holds the box, the information and the topology of the frame. |
 | `topology/00000000/bonds.parquet`, ... | The bonds, angles, dihedrals and impropers of a topology, written once for consecutive frames that share it. |
@@ -67,10 +67,10 @@ gives the same members.
 
 The archive is completed when writing ends. If the writing program stops
 earlier, for example when a simulation is killed, the archive has no
-directory, `frames.parquet` or manifest. mdapy then reads the complete
+directory, `frames.parquet` or manifest. MDAPY then reads the complete
 members of atoms in order and takes each frame's box, information and
 topology from their metadata, so every frame written completely is read.
 This works for uncompressed files.
 
-A file written by a newer mdapy with a higher `version` raises
+A file written by a newer MDAPY with a higher `version` raises
 [`UnsupportedFormat`](../api.md#mdapy.errors.UnsupportedFormat).

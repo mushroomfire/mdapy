@@ -3,7 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""The mdapy file format: a ZIP container of Parquet tables."""
+"""The MDAPY file format: a ZIP container of Parquet tables."""
 
 import datetime
 import io
@@ -54,7 +54,7 @@ def _encode(value: Any, key: str) -> Any:
     if isinstance(value, np.ndarray):
         if value.dtype.kind not in "biufU":
             raise InvalidParameter(
-                f"info[{key!r}] is an array of {value.dtype}, which mdapy files cannot hold"
+                f"info[{key!r}] is an array of {value.dtype}, which MDAPY files cannot hold"
             )
         return {
             "__ndarray__": {
@@ -70,7 +70,7 @@ def _encode(value: Any, key: str) -> Any:
     if isinstance(value, (list, tuple)):
         return [_encode(v, key) for v in value]
     raise InvalidParameter(
-        f"info[{key!r}] of type {type(value).__name__} cannot be written to an mdapy file"
+        f"info[{key!r}] of type {type(value).__name__} cannot be written to an MDAPY file"
     )
 
 
@@ -280,7 +280,7 @@ class _BufferFile(io.RawIOBase):
 
 
 class _Archive:
-    """The members of an mdapy file, also when it was not closed properly."""
+    """The members of an MDAPY file, also when it was not closed properly."""
 
     def __init__(self, source: Source):
         self.name = source.name
@@ -294,7 +294,7 @@ class _Archive:
             self.__zip = None
             self.members = _local_members(buffer)
             if not self.members:
-                raise FileFormatError("not an mdapy file", self.name) from None
+                raise FileFormatError("not an MDAPY file", self.name) from None
 
     def names(self) -> list[str]:
         return list(self.members) if self.__zip is None else self.__zip.namelist()
@@ -347,12 +347,12 @@ def _check_manifest(archive: _Archive) -> None:
         raise FileFormatError("the manifest is not JSON", archive.name) from None
     if manifest.get("format") != "mdapy":
         raise FileFormatError(
-            "the manifest does not describe an mdapy file", archive.name
+            "the manifest does not describe an MDAPY file", archive.name
         )
     if not isinstance(manifest.get("version"), int) or manifest["version"] > VERSION:
         raise UnsupportedFormat(
-            f"{archive.name} has version {manifest.get('version')} of the mdapy "
-            f"format; this mdapy reads versions up to {VERSION}"
+            f"{archive.name} has version {manifest.get('version')} of the MDAPY "
+            f"format; this MDAPY reads versions up to {VERSION}"
         )
 
 
@@ -378,7 +378,7 @@ def _headers(archive: _Archive) -> list[dict[str, Any]]:
     for name in sorted(n for n in archive.names() if n.startswith("atoms/")):
         metadata = pl.read_parquet_metadata(io.BytesIO(archive.read(name)))
         if _METADATA_KEY not in metadata:
-            raise FileFormatError(f"{name} has no mdapy metadata", archive.name)
+            raise FileFormatError(f"{name} has no MDAPY metadata", archive.name)
         header = json.loads(metadata[_METADATA_KEY])
         header["member"] = name
         headers.append(header)
@@ -428,7 +428,7 @@ def _read(source: Source, position: FramePosition) -> System:
 register(
     Format(
         name="mdapy",
-        description="mdapy file: Parquet tables in a ZIP container",
+        description="MDAPY file: Parquet tables in a ZIP container",
         extensions=(".mdapy",),
         read=_read,
         scan=_scan,

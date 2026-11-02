@@ -3,7 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""mdapy calculators as ASE calculators, and ASE calculators as mdapy
+"""MDAPY calculators as ASE calculators, and ASE calculators as MDAPY
 calculators."""
 
 from collections.abc import Iterable
@@ -42,19 +42,19 @@ def _voigt(tensors: np.ndarray) -> np.ndarray:
 
 
 def to_ase_calculator(calculator: Calculator) -> Any:
-    """An mdapy calculator as an ASE calculator.
+    """An MDAPY calculator as an ASE calculator.
 
     Parameters
     ----------
     calculator : Calculator
-        Any mdapy calculator, such as ``EAM`` or ``NEP``.
+        Any MDAPY calculator, such as ``EAM`` or ``NEP``.
 
     Returns
     -------
     ase.calculators.calculator.Calculator
         A calculator for ``ase.Atoms`` with the properties ``energy``,
         ``free_energy``, ``energies``, ``forces``, ``stress`` and
-        ``stresses`` that the mdapy calculator can compute; stresses in
+        ``stresses`` that the MDAPY calculator can compute; stresses in
         eV/Å³ in ASE's order xx, yy, zz, yz, xz, xy, positive under tension.
     """
     try:
@@ -111,7 +111,7 @@ _GIVES = {
 
 
 class _FromASE(Calculator):
-    """An ASE calculator as an mdapy calculator."""
+    """An ASE calculator as an MDAPY calculator."""
 
     cutoff = 0.0
 
@@ -179,7 +179,7 @@ class _FromASE(Calculator):
 
 
 def from_ase_calculator(calculator: Any) -> Calculator:
-    """An ASE calculator as an mdapy calculator.
+    """An ASE calculator as an MDAPY calculator.
 
     Parameters
     ----------
@@ -190,7 +190,7 @@ def from_ase_calculator(calculator: Any) -> Calculator:
     Returns
     -------
     Calculator
-        An mdapy calculator with the properties that the ASE calculator
+        An MDAPY calculator with the properties that the ASE calculator
         computes: ``energy`` (the free energy where the ASE calculator gives
         one), ``atomic_energies``, ``forces``, ``virial`` from the stress and
         ``atomic_virials`` from the atomic stresses. Its ``cutoff`` is 0: it

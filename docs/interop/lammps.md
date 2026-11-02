@@ -1,6 +1,6 @@
 # LAMMPS
 
-mdapy reads and writes the data and dump files of LAMMPS, and computes
+MDAPY reads and writes the data and dump files of LAMMPS, and computes
 energies and forces with any interaction of LAMMPS through its Python
 module.
 
@@ -32,7 +32,7 @@ with mp.read_trajectory("dump.lammpstrj", elements=["Cu"]) as frames:
 
 ## What goes between them
 
-| LAMMPS | mdapy | Page |
+| LAMMPS | MDAPY | Page |
 |---|---|---|
 | data files (`read_data`, `write_data`) | `mdapy.read`, `mdapy.write`: atom styles, velocities, topology, type labels, coefficients | [LAMMPS data](../reference/formats/lammps-data.md) |
 | text dumps (`dump atom`, `dump custom`) | `mdapy.read_trajectory`, `mdapy.write` | [LAMMPS dump](../reference/formats/lammps-dump.md) |
@@ -41,7 +41,7 @@ with mp.read_trajectory("dump.lammpstrj", elements=["Cu"]) as frames:
 | potentials in the eam/alloy format | `EAM` reads and writes them | [EAM](../simulation/eam.md) |
 | `replicate` | `mdapy.transform.replicate` | [Periodic copies and images](../build/transform.md) |
 
-mdapy works in LAMMPS metal units; the data and dump files of real units are
+MDAPY works in LAMMPS metal units; the data and dump files of real units are
 converted when read and written.
 
 ## See also

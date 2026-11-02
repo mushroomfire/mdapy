@@ -6,7 +6,7 @@
 """Default looks of the elements: the sRGB color (0 to 255) and the display
 radius in Å.
 
-The colors and display radii are those OVITO shows, as mdapy 1.x did, and
+The colors and display radii are those OVITO shows, as MDAPY 1.x did, and
 for the elements it leaves out the colors of Jmol and the covalent radius.
 The covalent and van der Waals radii are in :mod:`mdapy.elements`.
 """

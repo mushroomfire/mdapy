@@ -1,11 +1,11 @@
 # Installation
 
-mdapy needs Python 3.11 or newer, and on macOS, macOS 14 or newer. Its only
+MDAPY needs Python 3.11 or newer, and on macOS, macOS 14 or newer. Its only
 required dependencies are NumPy 2.3.1 or newer and polars 2.
 
 ## From source
 
-mdapy 2.0 is not on PyPI yet. Build it from the `v2` branch:
+MDAPY 2.0 is not on PyPI yet. Build it from the `v2` branch:
 
 ```bash
 git clone -b v2 https://github.com/mushroomfire/mdapy.git
@@ -21,8 +21,8 @@ OpenMP library is needed.
 
 [Pictures](../visualization/rendering.md#on-the-gpu) are traced on the GPU
 with Metal on macOS, in every build, and with Vulkan on Linux when the build
-finds Vulkan's headers: install them before mdapy, as `libvulkan-dev` on
-Debian and Ubuntu or `vulkan-headers` on Fedora and RHEL. mdapy opens the
+finds Vulkan's headers: install them before MDAPY, as `libvulkan-dev` on
+Debian and Ubuntu or `vulkan-headers` on Fedora and RHEL. MDAPY opens the
 Vulkan loader, `libvulkan.so.1`, only for a picture on the GPU; the loader
 and the driver come with the graphics drivers. Without the headers, or
 without a GPU, pictures are traced on the processor.
@@ -31,7 +31,7 @@ without a GPU, pictures are traced on the processor.
 
 Atom indices in results such as neighbor lists are 32-bit integers, enough
 for 2,147,483,647 atoms and half the memory of 64-bit ones. For larger
-systems, build mdapy with 64-bit indices:
+systems, build MDAPY with 64-bit indices:
 
 ```bash
 pip install . -Ccmake.define.MDAPY_INDEX64=ON
@@ -54,8 +54,8 @@ python -c "import polars; print(polars.get_index_type())"   # UInt64
 
 ## Optional dependencies
 
-mdapy needs only NumPy and polars. Other packages, when installed, switch on
-the parts of mdapy that use them; without them the rest works, and these
+MDAPY needs only NumPy and polars. Other packages, when installed, switch on
+the parts of MDAPY that use them; without them the rest works, and these
 parts raise an error that names the package to install.
 
 | Package | Install | For |
@@ -80,7 +80,7 @@ of LAMMPS with the packages of styles each user needs.
 | `dev` | pytest, pytest-cov, pytest-xdist, coverage, ruff, matplotlib, ASE, spglib | running the tests and the linter |
 | `docs` | MkDocs Material, mkdocstrings | building this site |
 
-The tests that compare mdapy with other programs run where these are
+The tests that compare MDAPY with other programs run where these are
 installed and are skipped otherwise; continuous integration installs them
 all:
 

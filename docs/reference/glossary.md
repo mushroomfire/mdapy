@@ -1,6 +1,6 @@
 # Glossary
 
-These are the names mdapy uses. Every module follows them, so a concept has
+These are the names MDAPY uses. Every module follows them, so a concept has
 one name everywhere. Some entries describe components that are still being
 implemented.
 

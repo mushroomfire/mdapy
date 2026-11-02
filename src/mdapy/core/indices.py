@@ -13,4 +13,4 @@ __all__ = ["index_dtype"]
 
 index_dtype: np.dtype = np.dtype(f"int{_core.index_bits}")
 """numpy.dtype of atom indices in results such as neighbor lists: int32, or
-int64 when mdapy was built with ``-Ccmake.define.MDAPY_INDEX64=ON``."""
+int64 when MDAPY was built with ``-Ccmake.define.MDAPY_INDEX64=ON``."""

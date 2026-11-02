@@ -162,7 +162,7 @@ def _results(
     frames: list[System], calculator: Any, wanted: Sequence[str]
 ) -> list[tuple[float, np.ndarray, np.ndarray | None]]:
     """The energy, forces and virial (None where not computed) of each frame:
-    of a model of mdapy many frames at a time, a frame on a thread; of any
+    of a model of MDAPY many frames at a time, a frame on a thread; of any
     other, frame by frame."""
     batch = getattr(calculator, "_frame_results", None)
     if batch is None:
@@ -203,7 +203,7 @@ def predict(frames: Sequence[System], calculator: Any) -> Predictions:
         (eV) and the column ``forces`` (eV/Å), as extended XYZ files of
         training sets hold them.
     calculator : Calculator
-        The model: any mdapy calculator, such as NEP, or an ASE calculator
+        The model: any MDAPY calculator, such as NEP, or an ASE calculator
         through :func:`mdapy.interop.from_ase_calculator`.
 
     Returns

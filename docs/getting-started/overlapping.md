@@ -56,7 +56,7 @@ crystal (red).*
 | `atoms` | (N,) bool or indices | all | | the atoms considered; the others neither overlap nor are selected |
 
 Distances are measured through the periodic boundaries, with the
-[neighbor lists](neighbor.md) of mdapy; atoms on top of each other overlap.
+[neighbor lists](neighbor.md) of MDAPY; atoms on top of each other overlap.
 
 ## Results
 

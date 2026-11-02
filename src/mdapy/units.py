@@ -5,7 +5,7 @@
 
 """Physical constants and unit conversion factors.
 
-mdapy works in one unit system: length in Å, energy in eV, time in ps,
+MDAPY works in one unit system: length in Å, energy in eV, time in ps,
 mass in amu, temperature in K, charge in e, force in eV/Å, stress and
 pressure in GPa. Every conversion in the package uses the factors defined
 here.

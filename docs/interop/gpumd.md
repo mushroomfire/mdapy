@@ -1,6 +1,6 @@
 # GPUMD
 
-mdapy writes the `model.xyz` that GPUMD starts from, reads the extended XYZ
+MDAPY writes the `model.xyz` that GPUMD starts from, reads the extended XYZ
 files GPUMD writes, computes with the NEP potentials GPUMD trains, and builds
 their training sets.
 
@@ -35,17 +35,17 @@ potential.compute(last, ("energy", "forces", "virial"))
 
 ## What goes between them
 
-| GPUMD | mdapy | Page |
+| GPUMD | MDAPY | Page |
 |---|---|---|
 | `model.xyz`: `species`, `pos`, `mass`, `charge`, `vel` (Å/fs), `group` | `mdapy.write` of extended XYZ: `element`, `positions`, `mass`, `charge`, `velocities` (Å/ps), `group` | [Extended XYZ](../reference/formats/extxyz.md) |
 | `dump_exyz`, `train.xyz`, `test.xyz` | `mdapy.read_trajectory` | [Extended XYZ](../reference/formats/extxyz.md) |
 | NEP potentials, `nep.txt` | the calculator `NEP` | [NEP](../simulation/nep.md) |
 | training sets | OUTCARs to extended XYZ, choosing frames, perturbed structures | [Training sets from VASP](../mlip/vasp.md) |
 
-GPUMD needs at least two atoms and a `Lattice`, which mdapy always writes.
+GPUMD needs at least two atoms and a `Lattice`, which MDAPY always writes.
 A `group` column of integers, or of k integers per atom for k grouping
 methods, is written as `group:I:k`. GPUMD has no origin of the box and
-ignores the `Origin` that mdapy writes for a box with one.
+ignores the `Origin` that MDAPY writes for a box with one.
 
 ## See also
 

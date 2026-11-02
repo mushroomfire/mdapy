@@ -52,7 +52,7 @@ energy at once, and the thermostat holds the rest at 300 K. The barostat
 expands the box from the lattice parameter of 0 K to that of 300 K at zero
 pressure; after the dashed line the box is fixed (nvt).*
 
-LAMMPS runs in metal units, those of mdapy, through its Python module,
+LAMMPS runs in metal units, those of MDAPY, through its Python module,
 installed as the [LAMMPS documentation](https://docs.lammps.org/Python_install.html)
 describes; `potential` gives the commands of the interaction, the element
 of each atom type and the command-line arguments of LAMMPS, such as those

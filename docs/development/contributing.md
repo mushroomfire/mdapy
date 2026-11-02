@@ -1,6 +1,6 @@
 # Contributing
 
-mdapy 2.0 grows one feature at a time. This page lists the rules every
+MDAPY 2.0 grows one feature at a time. This page lists the rules every
 change follows.
 
 ## When a feature is done
@@ -27,8 +27,8 @@ The site has one tab per kind of content, each a directory of `docs/`:
 | Simulation | `simulation/` | calculators; minimization and dynamics (molecular dynamics through other programs); lattice dynamics (elastic constants, force constants, phonons) |
 | MLIP | `mlip/` | training data for machine-learned potentials: descriptors and their principal components, selection of frames, errors and uncertainty of models, checks of frames, training sets from first-principles calculations |
 | Visualization | `visualization/` | rendering images of systems; plot templates for results |
-| Interoperability | `interop/` | conversions to and from other Python packages, and how files and calculators connect mdapy with simulation programs |
-| Performance | `performance/` | timings of mdapy and of other programs |
+| Interoperability | `interop/` | conversions to and from other Python packages, and how files and calculators connect MDAPY with simulation programs |
+| Performance | `performance/` | timings of MDAPY and of other programs |
 | Reference | `reference/` | file formats, units and conventions, elements, the glossary, the references and the Python API |
 | Development | `development/` | contributing, the source layout and the release notes |
 
@@ -139,8 +139,8 @@ pytest --cov --cov-report=term
 - `ruff check .` and `ruff format --check .` pass.
 - Names private to a class start with two underscores, `self.__table`, so
   that they cannot be reached by accident from outside. Names that other
-  modules of mdapy use, and methods that subclasses override, start with one
-  underscore: they are internal to mdapy, not to the class. Private
+  modules of MDAPY use, and methods that subclasses override, start with one
+  underscore: they are internal to MDAPY, not to the class. Private
   functions and constants of a module start with one underscore.
 - Immutable objects (`System`, `Box`, `Topology`) refuse new attributes and
   return themselves from `copy.copy` and `copy.deepcopy`.

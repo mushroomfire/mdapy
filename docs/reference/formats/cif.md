@@ -3,7 +3,7 @@
 The format `cif` reads Crystallographic Information Files, the crystal of
 each data block: the atom sites of the asymmetric unit expanded by the
 symmetry operations into the whole cell. Files with extension `.cif` are
-recognized. mdapy reads CIF files but does not write them.
+recognized. MDAPY reads CIF files but does not write them.
 
 ```python
 import mdapy as mp
@@ -56,7 +56,7 @@ render(
 
 ## Reading
 
-| Item | In mdapy |
+| Item | In MDAPY |
 |---|---|
 | `data_name` | one frame per data block; `info["name"]` |
 | `_cell_length_a`, `_b`, `_c`, `_cell_angle_alpha`, `_beta`, `_gamma` | `box.matrix`: a along x, b in the xy plane; periodic in all directions; angles 90° if absent |

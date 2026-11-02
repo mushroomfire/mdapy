@@ -127,7 +127,7 @@ def tables(elements: Sequence[str], nr: int, nrho: int) -> dict:
         "cutoff": cutoff,
         "comments": (
             "Zhou, Johnson and Wadley, Phys. Rev. B 69, 144113 (2004)",
-            "tabulated by mdapy as LAMMPS tools/eam_database does",
+            "tabulated by MDAPY as LAMMPS tools/eam_database does",
             "",
         ),
     }

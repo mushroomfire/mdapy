@@ -64,7 +64,7 @@ def test_a_single_point_as_vasp_would_give_it(tmp_path):
         "IBRION = -1",
         "ISIF = 2",
     ]
-    assert (run / "KPOINTS").read_text() == "mdapy\n0\nGamma\n3 3 3\n0 0 0\n"
+    assert (run / "KPOINTS").read_text() == "MDAPY\n0\nGamma\n3 3 3\n0 0 0\n"
     # POTCARs in the order of the POSCAR, which holds each element together
     written = mdapy.read(run / "POSCAR", format="poscar")
     first = written.table["element"].cast(str).to_list()[0]

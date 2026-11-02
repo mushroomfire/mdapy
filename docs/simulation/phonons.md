@@ -134,13 +134,13 @@ the same frequency are told apart by their order at the next wave vector.
 
 `BandStructure.write` writes the format of phonopy's `band.dat`: the
 distances of the ends of the lines, then each branch line by line, the
-distances without the factor 2π as phonopy has them; files of mdapy and of
+distances without the factor 2π as phonopy has them; files of MDAPY and of
 phonopy, from a calculation with VASP for example, plot the same way.
 `read_band_structure(path)` reads such a file into a `BandStructure`, its
 distances with the factor 2π, without the wave vectors, which the file
 does not hold. To draw a band structure of another calculation on one of
 mdapy's along the same path, its distances can be moved line by line onto
-those of mdapy, which differ as the lattice constants do:
+those of MDAPY, which differ as the lattice constants do:
 
 <!-- skip-test -->
 ```python

@@ -233,7 +233,7 @@ def test_recovery_of_zip64_members(tmp_path):
 @pytest.mark.parametrize(
     "content, error, message",
     [
-        (b"not a zip file", FileFormatError, "not an mdapy file"),
+        (b"not a zip file", FileFormatError, "not an MDAPY file"),
         ({"manifest.json": b"{"}, FileFormatError, "not JSON"),
         (
             {"manifest.json": b'{"format": "other"}'},
@@ -245,7 +245,7 @@ def test_recovery_of_zip64_members(tmp_path):
             UnsupportedFormat,
             "version 2",
         ),
-        ({"atoms/00000000.parquet": None}, FileFormatError, "has no mdapy metadata"),
+        ({"atoms/00000000.parquet": None}, FileFormatError, "has no MDAPY metadata"),
     ],
 )
 def test_invalid_files(tmp_path, content, error, message):

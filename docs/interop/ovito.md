@@ -66,5 +66,5 @@ left out. Values keep mdapy's units both ways; OVITO itself assumes none.
 ## See also
 
 - [OVITO's Python module](https://docs.ovito.org/python/).
-- [mdapy, OVITO and freud](../performance/comparison.md): timings of the
+- [MDAPY, OVITO and freud](../performance/comparison.md): timings of the
   analyses they share.

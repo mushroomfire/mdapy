@@ -21,7 +21,7 @@ class MdapyError(Exception):
 
 
 class InvalidParameter(MdapyError, ValueError):
-    """A parameter has a value that mdapy cannot accept.
+    """A parameter has a value that MDAPY cannot accept.
 
     The message names the parameter and the accepted values.
     """

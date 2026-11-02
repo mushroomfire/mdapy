@@ -84,7 +84,7 @@ _SYMBOL_SET = frozenset(SYMBOLS)
 
 def _unsupported_style(style: str) -> UnsupportedFormat:
     return UnsupportedFormat(
-        f"atom style {style!r} is not supported; mdapy reads and writes the atom "
+        f"atom style {style!r} is not supported; MDAPY reads and writes the atom "
         f"styles {', '.join(_STYLES)}"
     )
 
@@ -117,7 +117,7 @@ class _Header:
         elif n == 2 and words[1] in _PARTICLE_COUNTS:
             raise UnsupportedFormat(
                 f"data files with {words[1]} need atom styles of finite-size "
-                f"particles; mdapy reads the atom styles {', '.join(_STYLES)}"
+                f"particles; MDAPY reads the atom styles {', '.join(_STYLES)}"
             )
         elif n == 3 and words[1] in self.types and words[2] == "types":
             self.types[words[1]] = _count(reader, words[0])
@@ -394,7 +394,7 @@ def _read_section(
     elif keyword in _PARTICLE_SECTIONS:
         raise UnsupportedFormat(
             f"the {keyword} section needs an atom style of finite-size particles; "
-            f"mdapy reads the atom styles {', '.join(_STYLES)}"
+            f"MDAPY reads the atom styles {', '.join(_STYLES)}"
         )
     else:
         raise reader.error(f"unknown section {keyword!r}", line)
@@ -468,7 +468,7 @@ def _read(
     units = units or header.units or "metal"
     if units not in _UNITS:
         raise UnsupportedFormat(
-            f"the file is in {units} units; mdapy reads metal and real units "
+            f"the file is in {units} units; MDAPY reads metal and real units "
             "(pass units='metal' to read the numbers unchanged)"
         )
     box = header.box(reader)
@@ -899,7 +899,7 @@ def _header_text(system: System, plan: dict[str, Any], units: str) -> str:
 
     counts = plan["counts"]
     lines = [
-        f"LAMMPS data file via mdapy {__version__}, "
+        f"LAMMPS data file via MDAPY {__version__}, "
         f"timestep = {int(system.info.get('timestep', 0))}, units = {units}",
         "",
         f"{len(system)} atoms",

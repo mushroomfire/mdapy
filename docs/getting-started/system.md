@@ -3,7 +3,7 @@
 A `System` is one atomic configuration: a table with one row per atom, a
 [simulation box](box.md), global information such as the energy, and for
 molecules an optional [topology](topology.md) of bonds, angles, dihedrals
-and impropers. Every analysis, builder, reader and calculator of mdapy takes
+and impropers. Every analysis, builder, reader and calculator of MDAPY takes
 and returns systems.
 
 ```python
@@ -91,7 +91,7 @@ missing values, and positions must be finite. Every other column is kept as
 it is: numbers, booleans, text, and arrays of numbers such as the
 `orientation` of [polyhedral template matching](../analysis/ptm.md). The
 [Glossary](../reference/glossary.md#per-atom-properties) lists the columns
-that mdapy itself writes.
+that MDAPY itself writes.
 
 The `element` column holds chemical symbols; underneath they are atomic
 numbers, so elements compare as text and sort by atomic number:

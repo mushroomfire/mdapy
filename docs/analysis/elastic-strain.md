@@ -78,7 +78,7 @@ regions across a stacking fault of a hexagonal crystal, it keeps their
 relation in single precision, and its strains of those atoms differ by
 up to 1e-7. OVITO can also give the strain in the frame of the lattice and
 the deformation gradient, which depend on which of the equivalent frames
-of the lattice it takes for a crystal region; mdapy gives the strain in the
+of the lattice it takes for a crystal region; MDAPY gives the strain in the
 spatial frame only, OVITO's default.
 
 ## Errors

@@ -1,24 +1,24 @@
 # Building structures
 
-mdapy and [Atomsk](https://atomsk.univ-lille.fr) build fcc copper as a
+MDAPY and [Atomsk](https://atomsk.univ-lille.fr) build fcc copper as a
 single crystal and as a polycrystal of 20 grains, and write it as a LAMMPS
 data file, from 4 000 to 2 million atoms. A program is timed only where it
-builds the structure mdapy builds.
+builds the structure MDAPY builds.
 
 ## Results
 
 A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6248 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
-mdapy 2.0.0.dev0 built with GCC 12.3, and Atomsk Beta 0.13.1, a statically linked build of its release.
+MDAPY 2.0.0.dev0 built with GCC 12.3, and Atomsk Beta 0.13.1, a statically linked build of its release.
 
-![Time of Atomsk over the time of mdapy for each case and size](images/builders.png)
+![Time of Atomsk over the time of MDAPY for each case and size](images/builders.png)
 
 ### What they show
 
-- **Single crystal**: mdapy builds and writes it 16 to 28 times faster
+- **Single crystal**: MDAPY builds and writes it 16 to 28 times faster
   than Atomsk, 0.29 s against 5.0 s at 2 million atoms; building it is a
   repetition of the cell, and most of the time is writing the file.
-- **Polycrystal**: mdapy is 2.4 to 6.2 times faster, 4.1 s against 9.6 s at
+- **Polycrystal**: MDAPY is 2.4 to 6.2 times faster, 4.1 s against 9.6 s at
   2 million atoms.
 
 ### Times and memory
@@ -29,7 +29,7 @@ the timings; that of Atomsk, a process of its own, is not counted.
 
 #### Atomsk
 
-| Case | Atoms | mdapy 2.0.0.dev0 (s) | Atomsk Beta 0.13.1 (s) | Atomsk / mdapy | mdapy (MB) | Atomsk (MB) |
+| Case | Atoms | MDAPY 2.0.0.dev0 (s) | Atomsk Beta 0.13.1 (s) | Atomsk / MDAPY | MDAPY (MB) | Atomsk (MB) |
 |---|---:|---:|---:|---:|---:|---:|
 | fcc single crystal, written as a LAMMPS data file | 4,000 | 0.003 | 0.043 | 16.31 | 0 | 0 |
 | fcc single crystal, written as a LAMMPS data file | 32,000 | 0.005 | 0.148 | 27.55 | 4 | 0 |
@@ -42,7 +42,7 @@ the timings; that of Atomsk, a process of its own, is not counted.
 
 ## Cases
 
-| Case | mdapy | Atomsk |
+| Case | MDAPY | Atomsk |
 |---|---|---|
 | Single crystal | `mp.write(path, build_crystal("fcc", 3.615, elements="Cu", repeat=(n, n, n)))` | `atomsk --create fcc 3.615 Cu -duplicate n n n path.lmp` |
 | Polycrystal | `mp.write(path, build_polycrystal(unit, box, seeds, orientations=rotations, min_distance=0.01))` | `atomsk --polycrystal unit.xsf parameters.txt path.lmp` |
@@ -53,15 +53,15 @@ timed building the structure and writing it as a LAMMPS data file.
 The polycrystal fills a cubic periodic box with 20 grains, the Voronoi cells
 of 20 seeds at random places, each of fcc copper in a random orientation.
 Both programs have the same seeds and orientations: Atomsk as a node line
-with three angles of rotation, about x, then y, then z, and mdapy as the
+with three angles of rotation, about x, then y, then z, and MDAPY as the
 rotation matrices of those angles. Atomsk removes no atom where grains meet,
-so mdapy is asked to remove only atoms at the same place (`min_distance`
+so MDAPY is asked to remove only atoms at the same place (`min_distance`
 0.01 Å) rather than those closer than 0.7 times the nearest distance, as it
 does by default.
 
 ## How it is measured
 
-- mdapy runs in a process of its own with 40 threads. Atomsk runs as a
+- MDAPY runs in a process of its own with 40 threads. Atomsk runs as a
   command from that process, with `OMP_NUM_THREADS` 40; the time of a build
   by Atomsk includes starting the program.
 - Before the timings, a separate process builds the structure with both
@@ -69,9 +69,9 @@ does by default.
   the same atoms, in any order, within 1e-9 Å (Atomsk writes 12 decimals).
   Polycrystal: the same box, as many atoms within 0.5 %, and in each grain
   the same lattice. The atoms differ: each program places the lattice of a
-  grain in its own way, mdapy with a lattice site at the seed, Atomsk with
+  grain in its own way, MDAPY with a lattice site at the seed, Atomsk with
   the center of a block of lattice at a center of the cell, so that in a
-  grain the atoms of Atomsk are those of mdapy moved by one vector, a
+  grain the atoms of Atomsk are those of MDAPY moved by one vector, a
   different one for each grain. The check finds that vector the same for
   every atom of a grain away from its faces, within 1e-6 Å.
 - Each process first builds a structure of 500 atoms, then three times the

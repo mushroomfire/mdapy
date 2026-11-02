@@ -3,7 +3,7 @@
 `predict` compares the energies, forces and virials a model predicts with
 the labels of frames, such as those of a training set from DFT: the root
 mean square errors, a table of the errors of each frame and the frames
-that err most, to look at first. Any mdapy calculator is a model, as a
+that err most, to look at first. Any MDAPY calculator is a model, as a
 [NEP](../simulation/nep.md) or an [EAM](../simulation/eam.md), and so is
 any ASE calculator through
 [`from_ase_calculator`](../interop/ase-calculators.md). `read_gpumd` reads

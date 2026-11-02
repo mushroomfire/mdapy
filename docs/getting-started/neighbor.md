@@ -77,7 +77,7 @@ each as its own pair; a single atom in a small periodic cell has a full list.
 | `num_neighbors` | int or `None` | pairs per atom in a list of nearest neighbors, `None` otherwise |
 | `voronoi` | bool | whether the list holds Voronoi neighbors |
 
-The arrays are read-only. `mdapy.index_dtype` is int32, or int64 in mdapy
+The arrays are read-only. `mdapy.index_dtype` is int32, or int64 in MDAPY
 built with [64-bit atom indices](installation.md#64-bit-atom-indices). A list
 keeps these arrays only, 15 bytes per pair with int32 indices; `i` and
 `vectors` (below) are computed when asked for and not kept.

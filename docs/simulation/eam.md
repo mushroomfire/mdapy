@@ -128,7 +128,7 @@ $$
 
 `concentrations` is a mapping from element to fraction, or the fractions in
 the order of `elements`; elements left out have none, and the fractions sum
-to 1. In mdapy every atom of a system is the average atom, whatever its
+to 1. In MDAPY every atom of a system is the average atom, whatever its
 element. The written file holds the elements of the potential and the
 average atom, named `A`, last, so that LAMMPS can mix them, for example
 with `pair_coeff * * CuNiAl.average.eam.alloy A Cu` for a Cu solute in the

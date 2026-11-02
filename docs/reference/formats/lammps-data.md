@@ -170,8 +170,8 @@ written with coefficients in the other.
 
 | `units` | Velocities in the file | Everything else |
 |---|---|---|
-| `metal` | Å/ps | as in mdapy |
-| `real` | Å/fs, converted to and from Å/ps | as in mdapy (g/mol equals amu; coefficients are not converted) |
+| `metal` | Å/ps | as in MDAPY |
+| `real` | Å/fs, converted to and from Å/ps | as in MDAPY (g/mol equals amu; coefficients are not converted) |
 
 The conversion moves the decimal point, so it adds no rounding. Other unit
 systems raise `UnsupportedFormat`; `units="metal"` reads such a file with

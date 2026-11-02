@@ -833,11 +833,13 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
         const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
         const std::size_t first = row * width, traced = count * width;
         std::memcpy(rgba + 4 * first, buffers[1].mapped, 16 * traced);
-        std::memcpy(depth + first, buffers[2].mapped, 4 * traced);
-        const auto* pairs = static_cast<const std::int32_t*>(buffers[3].mapped);
-        for (std::size_t p = 0; p < traced; ++p) {
-            const std::int32_t kind = pairs[2 * p];
-            ids[first + p] = kind < 0 ? -1 : (static_cast<std::int64_t>(kind) << 32) + pairs[2 * p + 1];
+        if (depth != nullptr) {
+            std::memcpy(depth + first, buffers[2].mapped, 4 * traced);
+            const auto* pairs = static_cast<const std::int32_t*>(buffers[3].mapped);
+            for (std::size_t p = 0; p < traced; ++p) {
+                const std::int32_t kind = pairs[2 * p];
+                ids[first + p] = kind < 0 ? -1 : (static_cast<std::int64_t>(kind) << 32) + pairs[2 * p + 1];
+            }
         }
         row += count;
         if (control.monitor &&

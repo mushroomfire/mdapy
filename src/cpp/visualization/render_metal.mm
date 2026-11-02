@@ -914,11 +914,13 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
             }
         }
         std::memcpy(rgba, out_rgba.contents, 4 * subpixels * f);
-        std::memcpy(depth, out_depth.contents, subpixels * f);
-        const auto* pairs = static_cast<const std::int32_t*>(out_ids.contents);
-        for (std::size_t p = 0; p < subpixels; ++p) {
-            const std::int32_t kind = pairs[2 * p];
-            ids[p] = kind < 0 ? -1 : (static_cast<std::int64_t>(kind) << 32) + pairs[2 * p + 1];
+        if (depth != nullptr) {
+            std::memcpy(depth, out_depth.contents, subpixels * f);
+            const auto* pairs = static_cast<const std::int32_t*>(out_ids.contents);
+            for (std::size_t p = 0; p < subpixels; ++p) {
+                const std::int32_t kind = pairs[2 * p];
+                ids[p] = kind < 0 ? -1 : (static_cast<std::int64_t>(kind) << 32) + pairs[2 * p + 1];
+            }
         }
     }
 }

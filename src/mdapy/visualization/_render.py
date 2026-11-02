@@ -533,17 +533,22 @@ def render(
     if radius is None:
         radius = bond_radius if default_radius is None else default_radius
     colors = atom_colors(system, color, colormap_name=colormap, value_range=value_range)
-    names = system.table["element"] if "element" in system.table.columns else ["X"] * n
     if isinstance(radius, tuple) and len(radius) == 2 and isinstance(radius[0], str):
-        radii = element_radii(names, radius[0]) * radius[1]  # a fraction of them
+        kinds, kind_of = _kinds(system)
+        radii = element_radii(kinds, radius[0])[kind_of] * radius[1]  # a fraction
     elif isinstance(radius, str):
-        radii = element_radii(names, radius)
+        kinds, kind_of = _kinds(system)
+        radii = element_radii(kinds, radius)[kind_of]
     else:
         radii = np.broadcast_to(np.asarray(radius, dtype=float), (n,)).copy()
     index = np.flatnonzero(shown)
+    every = len(index) == n
     scene = Scene()
     scene.add_spheres(
-        system["positions"][index], radii[index], colors[index], ids=index
+        system["positions"] if every else system["positions"][index],
+        radii if every else radii[index],
+        colors if every else colors[index],
+        ids=index,
     )
     if isinstance(bonds, str) and bonds == "topology":
         # the bonds of the topology, each to the nearest image of its second

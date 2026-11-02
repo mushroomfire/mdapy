@@ -418,10 +418,13 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
     const std::size_t sizes[3] = {16 * subpixels, 4 * subpixels, 8 * subpixels};
     ComPtr<ID3D12Resource> outputs[3], read_back[3];
     void* results[3] = {nullptr, nullptr, nullptr};
+    const int wanted = depth != nullptr ? 3 : 1;  // the depths and the ids are for outlines
     for (int k = 0; k < 3; ++k) {
         outputs[k] = make_buffer(d, sizes[k], D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COMMON, true);
-        read_back[k] = make_buffer(d, sizes[k], D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST, false,
-                                   &results[k]);
+        if (k < wanted) {
+            read_back[k] = make_buffer(d, sizes[k], D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST, false,
+                                       &results[k]);
+        }
     }
 
     record(d);
@@ -459,7 +462,7 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
         d.commands->Dispatch(static_cast<UINT>((width + 7) / 8), static_cast<UINT>((count + 7) / 8), 1);
         const std::size_t first = row * width, traced = count * width;
         const std::size_t each[3] = {16, 4, 8};
-        for (int k = 0; k < 3; ++k) {
+        for (int k = 0; k < wanted; ++k) {
             transition(d.commands.Get(), outputs[k].Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
                        D3D12_RESOURCE_STATE_COPY_SOURCE);
             d.commands->CopyBufferRegion(read_back[k].Get(), 0, outputs[k].Get(), 0, each[k] * traced);
@@ -467,11 +470,13 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
         submit(d);
         const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
         std::memcpy(rgba + 4 * first, results[0], 16 * traced);
-        std::memcpy(depth + first, results[1], 4 * traced);
-        const auto* pairs = static_cast<const std::int32_t*>(results[2]);
-        for (std::size_t p = 0; p < traced; ++p) {
-            const std::int32_t kind = pairs[2 * p];
-            ids[first + p] = kind < 0 ? -1 : (static_cast<std::int64_t>(kind) << 32) + pairs[2 * p + 1];
+        if (depth != nullptr) {
+            std::memcpy(depth + first, results[1], 4 * traced);
+            const auto* pairs = static_cast<const std::int32_t*>(results[2]);
+            for (std::size_t p = 0; p < traced; ++p) {
+                const std::int32_t kind = pairs[2 * p];
+                ids[first + p] = kind < 0 ? -1 : (static_cast<std::int64_t>(kind) << 32) + pairs[2 * p + 1];
+            }
         }
         row += count;
         if (control.monitor &&

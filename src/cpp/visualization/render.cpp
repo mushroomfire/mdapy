@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <stdexcept>
 #include <utility>
 
@@ -102,15 +103,29 @@ public:
         }
         size_ = n;
         if (!with_tree) {
-            for (std::size_t i = 0; i < spheres; ++i) {
-                all_.grow(bounds_of((kSphere << kKindShift) | static_cast<std::uint32_t>(i)));
-            }
-            for (std::size_t i = 0; i < cylinders; ++i) {
-                all_.grow(bounds_of((kCylinder << kKindShift) | static_cast<std::uint32_t>(i)));
-            }
-            for (std::size_t i = 0; i < triangles; ++i) {
-                all_.grow(bounds_of((kTriangle << kKindShift) | static_cast<std::uint32_t>(i)));
-            }
+            const auto grow_by = [this](std::uint32_t kind, std::size_t count) {
+                if (count > 0) {
+                    all_.grow(parallel_reduce(
+                        static_cast<std::int64_t>(count), 0, Bounds{},
+                        [&](std::int64_t begin, std::int64_t end) {
+                            Bounds b;
+                            for (std::int64_t i = begin; i < end; ++i) {
+                                b.grow(bounds_of((kind << kKindShift) | static_cast<std::uint32_t>(i)));
+                            }
+                            return b;
+                        },
+                        [](Bounds a, const Bounds& b) {
+                            for (int e = 0; e < 3; ++e) {
+                                a.lo[e] = std::min(a.lo[e], b.lo[e]);
+                                a.hi[e] = std::max(a.hi[e], b.hi[e]);
+                            }
+                            return a;
+                        }));
+                }
+            };
+            grow_by(kSphere, spheres);
+            grow_by(kCylinder, cylinders);
+            grow_by(kTriangle, triangles);
             return;
         }
         refs_.reserve(n);
@@ -712,9 +727,13 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
     const float start = camera.perspective ? 0.0f : nearest - 1.0f;
     const V background{style.background[0], style.background[1], style.background[2]};
     const std::size_t pixels = static_cast<std::size_t>(sw) * static_cast<std::size_t>(sh);
-    std::vector<float> rgba(4 * pixels);
-    std::vector<float> depth(pixels, kInfinity);
-    std::vector<std::int64_t> ids(pixels, -1);
+    // every subpixel is written, so no need to clear them; the depths and the
+    // ids serve only outlines
+    const int reach = static_cast<int>(std::lround(style.outline_width * static_cast<float>(s)));
+    const bool outlined = reach > 0;
+    const std::unique_ptr<float[]> rgba(new float[4 * pixels]);
+    std::vector<float> depth(outlined ? pixels : 0, kInfinity);
+    std::vector<std::int64_t> ids(outlined ? pixels : 0, -1);
     const float epsilon = 1e-4f * std::max(1.0f, farthest - nearest);
 
     // a direction toward the disk of the key light, uniform in its cone
@@ -912,7 +931,8 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
                                      scene.triangle_alpha.data(),  scene.triangle_id.data(),
                                      scene.triangle_alpha.size(),  bvh.nodes().data(),
                                      bvh.nodes().size(),           bvh.refs().data()};
-        gpu::trace(geometry, params, rgba.data(), depth.data(), ids.data(), control);
+        gpu::trace(geometry, params, rgba.get(), outlined ? depth.data() : nullptr,
+                   outlined ? ids.data() : nullptr, control);
     } else {
     parallel_for(
         sh, grain,
@@ -960,7 +980,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
                             if (hit.t == kInfinity) {
                                 break;
                             }
-                            if (sample == 0 && layer == 0) {
+                            if (outlined && sample == 0 && layer == 0) {
                                 depth[p] = hit.t + (camera.perspective ? 0.0f : start);
                                 ids[p] = bvh.id(hit.ref);
                             }
@@ -991,8 +1011,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
 
     // outlines: a subpixel behind a different primitive nearest it, or the
     // background next to a primitive, takes the color of the line
-    const int reach = static_cast<int>(std::lround(style.outline_width * static_cast<float>(s)));
-    if (reach > 0) {
+    if (outlined) {
         std::vector<float> line(pixels, 0.0f);
         parallel_for(
             sh, grain,

@@ -77,7 +77,8 @@ std::string device();
 
 // The subpixels of a picture, width x height of params: premultiplied RGBA
 // (4 each), the depth and the id of the first hit (-1 for none), as the
-// processor computes them. Throws std::runtime_error when no GPU can.
+// processor computes them; depth and ids may be null, when not needed. Throws
+// std::runtime_error when no GPU can.
 void trace(const Geometry& geometry, const Params& params, float* rgba, float* depth,
            std::int64_t* ids, const Control& control);
 

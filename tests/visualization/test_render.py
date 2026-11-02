@@ -1228,7 +1228,7 @@ def test_the_direct3d_shaders_are_compiled_from_their_source(tmp_path):
     in render_d3d12.hlsl make, with the dxc of the Windows SDK named there."""
     source = SHADER.with_name("render_d3d12.hlsl")
     text = source.read_text()
-    version = re.search(r"dxc of the Windows SDK ([\d.]+)", text).group(1)
+    version = re.search(r"the Windows SDK ([\d.]+)", text).group(1)
     commands = [line.split() for line in re.findall(r"^//\s+(dxc .*)$", text, re.M)]
     assert len(commands) == 2
     dxc = Path(f"C:/Program Files (x86)/Windows Kits/10/bin/{version}/x64/dxc.exe")

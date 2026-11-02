@@ -8,8 +8,8 @@
 // numbers. With RAY_QUERY, the ray tracing units of the GPU find the candidates
 // in their own hierarchy of the bounding boxes of the primitives, and the
 // shader intersects them as without. mdapy holds the DXIL of both; after a change
-// compile them again with dxc of the Windows SDK 10.0.26100.0, dxcompiler
-// 1.7.2308.16 (a test compares):
+// compile them again with the dxc of the Windows SDK 10.0.26100.0,
+// of dxcompiler 1.7.2308.16 (a test compares):
 //
 //     dxc -nologo -T cs_6_2 -E main -HV 2021 -Gis -O3 -WX -Fo render_d3d12.dxil render_d3d12.hlsl
 //     dxc -nologo -T cs_6_5 -E main -HV 2021 -Gis -O3 -WX -DRAY_QUERY -Fo render_d3d12_rt.dxil render_d3d12.hlsl

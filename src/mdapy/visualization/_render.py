@@ -57,21 +57,31 @@ def atom_names(system: System) -> np.ndarray:
         (N,) their elements; atoms of a type without an element, or of the
         element X, named after their type: ``Type 1``, ``Type 2`` and so on.
     """
-    return np.asarray(_names(system).to_numpy()).astype(str)
+    kinds, index = _kinds(system)
+    return np.array(kinds, dtype=str)[index]
 
 
-def _names(system: System) -> pl.Series:
-    """atom_names as a series, whose few kinds are found faster than in an array."""
+def _kinds(system: System) -> tuple[list[str], np.ndarray]:
+    """The different atom_names and which of them each atom has, from the
+    numbers in the columns: millions of strings take long."""
     table = system.table
     typed = "type" in table.columns
-    if typed:
-        types = "Type " + table["type"].cast(pl.String)
     if "element" not in table.columns:
-        return types if typed else pl.repeat("X", len(system), eager=True)
-    names = table["element"].cast(pl.String)
-    if not typed:
-        return names
-    return pl.select(pl.when(names == "X").then(types).otherwise(names)).to_series()
+        if not typed:
+            return ["X"], np.zeros(len(system), dtype=np.int64)
+        types = table["type"].unique().sort().to_numpy()
+        return [f"Type {t}" for t in types], np.searchsorted(
+            types, table["type"].to_numpy()
+        )
+    kinds = table["element"].dtype.categories.to_list()
+    index = table["element"].to_physical().to_numpy().astype(np.int64)
+    unnamed = index == kinds.index("X")
+    if not typed or not unnamed.any():
+        return kinds, index
+    values = table["type"].to_numpy()[unnamed]
+    types = np.unique(values)
+    index[unnamed] = len(kinds) + np.searchsorted(types, values)
+    return kinds + [f"Type {t}" for t in types], index
 
 
 def atom_colors(
@@ -110,10 +120,12 @@ def atom_colors(
     if color is None:
         if "color" in system.table.columns:
             return np.asarray(system["color"], dtype=float).reshape(n, 3).copy()
-        names = _names(system)
-        colors = element_colors(names)
+        kinds, index = _kinds(system)
+        colors = element_colors(kinds)[index]
         for symbol, chosen in (elements or {}).items():
-            colors[(names == symbol).to_numpy()] = _color(chosen)
+            value = _color(chosen)
+            if symbol in kinds:
+                colors[index == kinds.index(symbol)] = value
         return colors
     if hasattr(color, "structure") and hasattr(color, "colors"):
         palette = np.asarray(color.colors, dtype=float)
@@ -158,10 +170,12 @@ def atom_radii(
     """
     if "radius" in system.table.columns:
         return np.asarray(system["radius"], dtype=float) * float(scale)
-    names = _names(system)
-    radii = np.asarray(element_radii(names, radius), dtype=float)
+    kinds, index = _kinds(system)
+    radii = np.asarray(element_radii(kinds, radius), dtype=float)[index]
     for symbol, chosen in (elements or {}).items():
-        radii[(names == symbol).to_numpy()] = float(chosen)
+        value = float(chosen)
+        if symbol in kinds:
+            radii[index == kinds.index(symbol)] = value
     return radii * float(scale)
 
 

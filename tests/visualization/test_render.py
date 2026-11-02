@@ -1234,6 +1234,10 @@ def test_the_direct3d_shaders_are_compiled_from_their_source(tmp_path):
     dxc = Path(f"C:/Program Files (x86)/Windows Kits/10/bin/{version}/x64/dxc.exe")
     if not dxc.exists():
         pytest.skip("no dxc")
+    found = subprocess.run([str(dxc), "--version"], capture_output=True, text=True).stdout
+    wanted = re.search(r"dxcompiler ([\d.]+)", text).group(1)
+    if wanted not in found:
+        pytest.skip(f"dxc is not of dxcompiler {wanted}")
     for command in commands:
         output = command[command.index("-Fo") + 1]
         compiled = tmp_path / output

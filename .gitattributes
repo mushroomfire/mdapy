@@ -1,0 +1,5 @@
+# the bytes of the compiled shaders depend on those of their source
+*.hlsl text eol=lf
+*.comp text eol=lf
+*.dxil binary
+*.spv binary

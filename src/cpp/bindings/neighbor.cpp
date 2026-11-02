@@ -160,6 +160,19 @@ nb::object pair_vectors(Positions positions, Offsets offsets, Neighbors neighbor
     return to_array(std::move(vectors), {neighbors.shape(0), 3});
 }
 
+nb::object pair_distances(Positions positions, Offsets offsets, Neighbors neighbors, Shifts shifts,
+                          Matrix matrix) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    check_pairs(n, offsets, neighbors, shifts);
+    Buffer<double> distances(neighbors.shape(0));
+    {
+        nb::gil_scoped_release release;
+        neighbor::pair_distances(positions.data(), n, offsets.data(), neighbors.data(),
+                                 shifts.data(), matrix.data(), distances.data());
+    }
+    return to_array(std::move(distances), {neighbors.shape(0)});
+}
+
 // The largest of the values, found in parallel, or 0 for none.
 double largest(Distances values) {
     const auto n = static_cast<std::int64_t>(values.shape(0));
@@ -263,6 +276,8 @@ void bind_neighbor(nb::module_& m) {
           nb::arg("cancel").none() = nullptr);
     m.def("largest", &largest, nb::arg("values"));
     m.def("pair_vectors", &pair_vectors, nb::arg("positions"), nb::arg("offsets"),
+          nb::arg("neighbors"), nb::arg("shifts"), nb::arg("matrix"));
+    m.def("pair_distances", &pair_distances, nb::arg("positions"), nb::arg("offsets"),
           nb::arg("neighbors"), nb::arg("shifts"), nb::arg("matrix"));
     m.def("follow", &follow, nb::arg("positions"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("matrix"), nb::arg("cutoff"),

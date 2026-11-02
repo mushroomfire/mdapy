@@ -243,16 +243,19 @@ class NeighborList:
             )
         except (ValueError, OverflowError) as error:
             raise InvalidParameter(str(error)) from None
-        atoms = j >= 0  # not a wall
-        kept = np.concatenate([[0], np.cumsum(atoms)])
-        offsets = kept[offsets].astype(np.int64)
-        j, shifts = j[atoms], shifts.reshape(-1, 3)[atoms]
-        vectors = _native.pair_vectors(
+        shifts = shifts.reshape(-1, 3)
+        if not box.pbc.all():  # only then a face can be a wall
+            atoms = j >= 0
+            kept = np.concatenate([[0], np.cumsum(atoms)])
+            offsets = kept[offsets].astype(np.int64)
+            j, shifts, areas = j[atoms], shifts[atoms], areas[atoms]
+        distances = _native.pair_distances(
             positions, offsets, j, shifts, np.ascontiguousarray(box.matrix)
         )
-        distances = np.sqrt((vectors * vectors).sum(axis=1))
-        reach = float(np.nextafter(distances.max(), np.inf)) if len(j) else 0.0
-        return cls(system, reach, offsets, j, shifts, distances, areas=areas[atoms])
+        reach = (
+            float(np.nextafter(_native.largest(distances), np.inf)) if len(j) else 0.0
+        )
+        return cls(system, reach, offsets, j, shifts, distances, areas=areas)
 
     def fits(self, system: System) -> bool:
         """Whether the list holds the pairs of a system: the one it was built

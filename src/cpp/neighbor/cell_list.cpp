@@ -408,6 +408,24 @@ void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* o
         control);
 }
 
+void pair_distances(const double* positions, std::int64_t n, const std::int64_t* offsets,
+                    const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
+                    double* distances, const Control& control) {
+    parallel_for(
+        n, 0,
+        [&](std::int64_t begin, std::int64_t end) {
+            double r[3];
+            for (std::int64_t i = begin; i < end; ++i) {
+                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+                    distances[p] = std::sqrt(
+                        pair_vector(positions + 3 * i, positions + 3 * static_cast<std::int64_t>(neighbors[p]),
+                                    shifts + 3 * p, matrix, r));
+                }
+            }
+        },
+        control);
+}
+
 NeighborPairs follow(const double* positions, std::int64_t n, const std::int64_t* offsets,
                      const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
                      double cutoff, const Control& control) {

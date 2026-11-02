@@ -117,6 +117,9 @@ and it has a new logo.
   a list. A list keeps 15 bytes per pair: `i` and `vectors` are computed
   when asked for. See
   [Sharing neighbor lists](../getting-started/tutorials/neighbor-lists.md).
+- A list of Voronoi neighbors finds its distances in parallel and, in a
+  periodic box, keeps the arrays of the cells without a copy: Steinhardt
+  parameters over Voronoi faces take a quarter less time and 40 % less memory.
 
 ### Calculators
 

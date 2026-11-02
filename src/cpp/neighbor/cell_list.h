@@ -261,6 +261,11 @@ void pair_vectors(const double* positions, std::int64_t n, const std::int64_t* o
                   const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
                   double* vectors, const Control& control = {});
 
+// The distance of each pair of a list, the lengths of pair_vectors.
+void pair_distances(const double* positions, std::int64_t n, const std::int64_t* offsets,
+                    const index_t* neighbors, const std::int8_t* shifts, const double* matrix,
+                    double* distances, const Control& control = {});
+
 // The pairs of a list closer than their limit, in the order of the list:
 // pair (i, j) is kept when its distance is below limits[type[i] * types +
 // type[j]] (limits: types x types), or below limits[0] when type is null.

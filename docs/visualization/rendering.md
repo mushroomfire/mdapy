@@ -340,6 +340,20 @@ the box as triangles on its faces, for `mesh` (see
 `element_colors(elements)` and `element_radii(elements, kind="display")` give the colors
 and radii used by `render`.
 
+## In a notebook
+
+`render` returns the picture, and `show_image` shows it in a notebook such as
+Jupyter, without saving a file. It also takes a PNG or JPEG file, and `width`
+sets the width on the page in pixels. It needs IPython.
+
+<!-- skip-test -->
+```python
+from mdapy.visualization import render, show_image
+
+show_image(render(system))
+show_image("picture.png", width=400)
+```
+
 ## Results
 
 An (height, width, 4) uint8 array of RGBA pixels in sRGB, rows from the top,

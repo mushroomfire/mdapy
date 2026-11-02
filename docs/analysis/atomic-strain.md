@@ -10,18 +10,15 @@ import numpy as np
 
 import mdapy as mp
 from mdapy.analysis import AtomicStrain
+from mdapy.build import build_crystal
 
-# fcc copper of 4 x 4 x 4 cubic cells as the reference
 a = 3.615
-basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
-positions = ((cells + basis) * a).reshape(-1, 3)
-reference = mp.System(positions, mp.Box(4 * a), elements="Cu")
+reference = build_crystal("fcc", a, elements="Cu", repeat=(4, 4, 4))
 
 # the crystal sheared by 2 % with its box
 shear = np.array([[1, 0.02, 0], [0, 1, 0], [0, 0, 1]])
-current = mp.System(
-    positions @ shear.T, mp.Box(reference.box.matrix @ shear.T), elements="Cu"
+current = reference.with_box(
+    mp.Box(reference.box.matrix @ shear.T), scale_positions=True
 )
 
 strain = AtomicStrain(reference, cutoff=3.0)

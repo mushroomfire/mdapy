@@ -84,7 +84,7 @@ from its center.*
 | `structure_factor(result, *, ax=None)` | S(q) |
 | `bond_angles(result, *, ax=None)` | the density of bond angles |
 | `msd(result, *, timestep=1.0, ax=None, fit=None)` | the MSD against time in ps; `fit=(first, last)` fits a line over those lags, its slope over 6 the diffusion coefficient in the legend |
-| `stacking_fault(result, *, ax=None)` | a generalized stacking fault energy in mJ/m² |
+| `stacking_fault(result, *, ax=None, **options)` | a generalized stacking fault energy in mJ/m², a point for each slip joined by a line; `options` go to `ax.plot`, such as `label` |
 | `structure_counts(result, *, ax=None)` | the atoms of each structure type, in its color |
 | `band_structure(result, *, ax=None, color=None)` | phonon frequencies along a path, the special points marked; a color for each branch, or one for all |
 | `phonon_dos(result, *, ax=None, projected=False)` | a phonon density of states, frequencies upward to stand beside a band structure, and that of each atom of the cell |

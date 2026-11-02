@@ -7,7 +7,9 @@
 
 
 MDAPY, short for Molecular Dynamics Analysis in Python, analyses and builds
-atomistic systems.
+atomistic systems. From 2.0 on it also comes as a native desktop application
+for macOS and Linux, built on this library; the source code of the application
+is not public.
 
 > **MDAPY 2.0 is under development** on the `v2` branch. It is a complete
 > rewrite and is not compatible with MDAPY 1.x. For the stable release, see

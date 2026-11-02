@@ -31,11 +31,10 @@ cells = {
 frames, names = [], []
 for name, cell in cells.items():
     for _ in range(20):
-        strain = np.eye(3) + rng.normal(0, 0.01, (3, 3))
-        box = mp.Box(cell.box.matrix @ strain)
-        shaken = cell.with_box(box, scale_positions=True)
+        box = mp.Box(cell.box.matrix @ (np.eye(3) + rng.normal(0, 0.01, (3, 3))))
+        strained = cell.with_box(box, scale_positions=True)
         noise = rng.normal(0, rng.uniform(0.05, 0.1), (len(cell), 3))
-        frames.append(shaken.with_columns(positions=shaken["positions"] + noise))
+        frames.append(strained.with_columns(positions=strained["positions"] + noise))
         names.append(name)
 
 points = structure_descriptors(frames, soap)  # the mean of the atoms of each frame

@@ -241,6 +241,8 @@ def parity(
         ax.plot([low - pad, high + pad], [low - pad, high + pad], "k--", lw=0.6)
         ax.set_xlim(low - pad, high + pad)
         ax.set_ylim(low - pad, high + pad)
+    ax.set_xlabel("reference")
+    ax.set_ylabel("predicted")
     ax.set_aspect("equal", adjustable="box")
     ax.legend(loc="upper left", handlelength=0.8)
     return ax
@@ -385,11 +387,13 @@ def msd(
     return ax
 
 
-def stacking_fault(result: Any, *, ax: Any = None) -> Any:
+def stacking_fault(result: Any, *, ax: Any = None, **options: Any) -> Any:
     """The generalized stacking fault energy of a
-    :class:`mdapy.simulation.StackingFaultResult`, in mJ/m²."""
+    :class:`mdapy.simulation.StackingFaultResult`, in mJ/m²: a point for each
+    slip computed, joined by a line. ``options`` go to ``ax.plot``, such as
+    ``label``."""
     ax = _axes(ax)
-    ax.plot(result.fraction, 1000 * result.energy, marker="o")
+    ax.plot(result.fraction, 1000 * result.energy, **({"marker": "o"} | options))
     ax.set_xlabel("slip / slip vector")
     ax.set_ylabel(r"$\gamma$ (mJ/m$^2$)")
     ax.set_xlim(0, 1)

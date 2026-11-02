@@ -18,6 +18,32 @@ the machine.
     its own tests and documentation page. For the stable release use
     [MDAPY 1.0.8](https://pypi.org/project/mdapy/1.0.8/).
 
+## Desktop application
+
+From 2.0 on, MDAPY also comes as a native desktop application: much of what
+these pages describe, with the atoms in front of you. It draws on the graphics
+card directly, with Metal on macOS and Vulkan on Linux, and needs no Python
+installed.
+
+- **Scene.** Open a structure or trajectory, or build one, and turn the view
+  as you please. Stack modifiers into a pipeline, 80 of them from structure
+  identification to phonons, and see the result on the atoms and in plots as
+  you change a parameter.
+- **MLIP.** Check a training set against a machine-learned potential: parity
+  plots, a map of the descriptors, the frames that err most, forces as arrows,
+  and a cleaned set written to a new file.
+- **Pictures and movies.** Render what you see with shadows, ambient occlusion
+  and depth of field, on the processor or the graphics card.
+- **Scripts.** Export a pipeline as a Python script of MDAPY calls, which gives
+  the same results without the application, for batches of files or a cluster.
+
+The application is built on the open library these pages document, and its
+results are the library's. Its own source code is not public.
+
+![The Scene workspace: a copper polycrystal colored by common neighbor analysis, with its pipeline of modifiers](assets/app-scene.jpg)
+
+![The MLIP workspace: parity plots of energies, forces and virials, a map of the descriptors, the frames in a table and the forces of one frame as arrows](assets/app-mlip.jpg)
+
 ## What MDAPY does
 
 Structures come from files or are built, live in a `System`, and its

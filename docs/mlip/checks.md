@@ -44,7 +44,7 @@ mp.write("clean.xyz", [f for k, f in enumerate(frames) if k not in bad["frame"]]
 
 with plot.style():
     fig, (left, right) = plot.figure("double", ncols=2)
-    near = table["closest"].to_numpy()
+    near = table["closest"].to_numpy()  # infinite when no pair is close
     left.bar(table["frame"], np.where(np.isfinite(near), near, 0))
     left.axhline(0.5, color="0.5", ls="--", lw=0.8)
     left.set_ylim(0, 0.6)

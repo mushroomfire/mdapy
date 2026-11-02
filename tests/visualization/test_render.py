@@ -9,6 +9,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import types
 import zlib
 from pathlib import Path
 
@@ -33,6 +34,7 @@ from mdapy.visualization import (
     element_radii,
     gpu_available,
     render,
+    show_image,
     write_png,
 )
 
@@ -1252,3 +1254,47 @@ def test_the_color_of_the_box():
     assert lines.sum() > 100 and (black[lines, 0] < 120).all()
     with pytest.raises(InvalidParameter, match="color"):
         render(system, box_color="plaid", **options)
+
+
+def _fake_ipython(monkeypatch):
+    """A stand-in for IPython.display, which keeps what it is asked to show."""
+    shown = []
+
+    class Image:
+        def __init__(self, data, width=None):
+            self.data, self.width = data, width
+
+    module = types.ModuleType("IPython.display")
+    module.Image = Image
+    module.display = shown.append
+    monkeypatch.setitem(sys.modules, "IPython", types.ModuleType("IPython"))
+    monkeypatch.setitem(sys.modules, "IPython.display", module)
+    return shown
+
+
+def test_show_image_of_a_picture_and_of_a_file(monkeypatch, tmp_path):
+    shown = _fake_ipython(monkeypatch)
+    picture = np.zeros((3, 2, 4), dtype=np.uint8)
+    picture[..., 0] = 200
+    picture[..., 3] = 255
+    show_image(picture, width=40)
+    assert shown[0].width == 40
+    assert shown[0].data.startswith(b"\x89PNG\r\n\x1a\n")
+    path = tmp_path / "picture.png"
+    write_png(path, picture)
+    assert path.read_bytes() == shown[0].data  # the same file as write_png
+    show_image(path)
+    show_image(str(path))
+    assert shown[1].data == shown[2].data == shown[0].data
+    assert shown[1].width is None
+
+
+def test_show_image_errors(monkeypatch, tmp_path):
+    _fake_ipython(monkeypatch)
+    with pytest.raises(InvalidParameter, match="RGBA"):
+        show_image(np.zeros((3, 2)))
+    with pytest.raises(FileNotFoundError):
+        show_image(tmp_path / "missing.png")
+    monkeypatch.setitem(sys.modules, "IPython.display", None)
+    with pytest.raises(ImportError, match="ipython"):
+        show_image(np.zeros((3, 2, 4), dtype=np.uint8))

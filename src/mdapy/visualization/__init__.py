@@ -27,6 +27,7 @@ from mdapy.visualization._scene import (
     element_colors,
     element_radii,
     gpu_available,
+    show_image,
     style_settings,
     write_png,
 )
@@ -54,5 +55,6 @@ __all__ = [
     "render",
     "style_settings",
     "voxel_faces",
+    "show_image",
     "write_png",
 ]

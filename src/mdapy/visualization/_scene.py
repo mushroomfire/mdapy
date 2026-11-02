@@ -10,6 +10,7 @@ import struct
 import zlib
 from collections.abc import Callable, Sequence
 from os import PathLike
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -420,6 +421,11 @@ def write_png(path: str | PathLike, image: np.ndarray) -> None:
     image : numpy.ndarray
         (H, W, 4) uint8 image, rows from the top.
     """
+    Path(path).write_bytes(_png(image))
+
+
+def _png(image: np.ndarray) -> bytes:
+    """The bytes of a PNG file of an RGBA image."""
     image = np.ascontiguousarray(image, dtype=np.uint8)
     if image.ndim != 3 or image.shape[2] != 4:
         raise InvalidParameter("the image must be (height, width, 4) RGBA")
@@ -435,11 +441,34 @@ def write_png(path: str | PathLike, image: np.ndarray) -> None:
             + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
         )
 
-    with open(path, "wb") as f:
-        f.write(b"\x89PNG\r\n\x1a\n")
-        f.write(chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)))
-        f.write(chunk(b"IDAT", zlib.compress(raw.tobytes(), 6)))
-        f.write(chunk(b"IEND", b""))
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(raw.tobytes(), 6))
+        + chunk(b"IEND", b"")
+    )
+
+
+def show_image(image: str | PathLike | np.ndarray, *, width: int | None = None) -> None:
+    """Shows a picture in a notebook, such as Jupyter.
+
+    Parameters
+    ----------
+    image : numpy.ndarray, str or path-like
+        A picture as :func:`mdapy.visualization.render` returns it, (H, W, 4)
+        uint8 with rows from the top, or a PNG or JPEG file.
+    width : int, optional
+        Its width on the page in pixels. Default the width of the picture.
+    """
+    try:
+        from IPython.display import Image, display
+    except ImportError:
+        raise ImportError("show_image needs IPython: pip install ipython") from None
+    if isinstance(image, str | PathLike):
+        data = Path(image).read_bytes()
+    else:
+        data = _png(image)
+    display(Image(data=data, width=width))
 
 
 class Scene:

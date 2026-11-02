@@ -144,6 +144,8 @@ those of MDAPY, which differ as the lattice constants do:
 
 <!-- skip-test -->
 ```python
+import numpy as np
+
 from mdapy.lattice_dynamics import read_band_structure
 
 dft = read_band_structure("band.dat")  # from phonopy

@@ -46,12 +46,13 @@ mp.write("worst.xyz", [frames[k] for k in worst])
 
 with plot.style():
     fig, (left, right) = plot.figure("double", ncols=2)
-    label, model = result.forces[:, 0].ravel(), result.forces[:, 1].ravel()
-    left.scatter(label, model, s=2)
-    low, high = result.forces.min(), result.forces.max()
-    left.plot([low, high], [low, high], color="0.5", lw=0.8)
-    left.set_xlabel("force of the label (eV/Å)")
-    left.set_ylabel("force of the model (eV/Å)")
+    plot.parity(
+        result.forces[:, 0].ravel(),
+        result.forces[:, 1].ravel(),
+        ax=left,
+        label="forces",
+        unit="eV/Å",
+    )
     right.plot(shaking, table["force_rmse"], "o")
     right.set_xlabel("shaking (Å)")
     right.set_ylabel("force error of the frame (eV/Å)")

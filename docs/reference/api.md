@@ -277,6 +277,8 @@ import mdapy as mp
 
 ::: mdapy.visualization.render
 
+::: mdapy.visualization.show_image
+
 ::: mdapy.visualization.Scene
 
 ::: mdapy.visualization.atom_names

@@ -14,12 +14,10 @@ from mdapy.build import build_crystal
 # copper whose upper half is disordered like a liquid
 rng = np.random.default_rng(0)
 melt = build_crystal("fcc", 3.615, elements="Cu", repeat=(8, 8, 12))
-upper = melt["positions"][:, 2] > 22.0
-shake = (
-    rng.normal(0, 0.1, (len(melt), 3))
-    + rng.normal(0, 0.6, (len(melt), 3)) * upper[:, None]
+shaking = np.where(melt["positions.z"] > 22.0, 0.6, 0.1)[:, None]
+melt = melt.with_columns(
+    positions=melt["positions"] + rng.normal(0, shaking, (len(melt), 3))
 )
-melt = melt.with_columns(positions=melt["positions"] + shake)
 melt = melt.with_columns(SteinhardtParameters(solid=True).compute(melt))
 
 # the fraction of solid-like atoms in 24 slabs along z

@@ -456,8 +456,8 @@ and it has a new logo.
   direction of the highlights, metals and lighting in sRGB; a million atoms
   in under 5 s on the processor in the matte style, or in under a second on
   the GPU, with Metal on macOS or Vulkan on Linux, which use the ray tracing
-  units of the GPU where it has them.
-  See [Rendering](../visualization/rendering.md).
+  units of the GPU where it has them; `show_image` shows a picture in a
+  notebook. See [Rendering](../visualization/rendering.md).
 - Colors of atoms in `mdapy.visualization`: `color_coding`, `color_by_type`
   and `assign_color` color all atoms or a mask and keep the colors in the
   `color` column, which `render` draws by default, as OVITO's modifiers of

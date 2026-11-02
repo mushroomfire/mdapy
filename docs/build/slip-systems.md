@@ -112,49 +112,37 @@ energy):
 from mdapy.visualization import plot
 
 magnesium = EAM.zhou(["Mg"])
+# the crystal, its potential, and the x, y and z of each slip system
 systems = {
-    "fcc Cu": {
+    "fcc Cu": ("fcc", 3.615, {"elements": "Cu"}, copper, {
         "{111}<112>": [(1, 1, -2), (-1, 1, 0), (1, 1, 1)],
         "{111}<110>": [(1, -1, 0), (1, 1, -2), (1, 1, 1)],
-    },
-    "bcc Fe": {
+    }),
+    "bcc Fe": ("bcc", 2.865, {"elements": "Fe"}, iron, {
         "{110}<111>": [(1, 1, 1), (1, 1, -2), (-1, 1, 0)],
         "{112}<111>": [(1, 1, 1), (1, -1, 0), (1, 1, -2)],
-    },
-    "hcp Mg": {
+    }),
+    "hcp Mg": ("hcp", 3.20, {"elements": "Mg", "c": 5.20}, magnesium, {
         "basal <10-10>": [(1, 0, -1, 0), (-1, 2, -1, 0), (0, 0, 0, 1)],
         "prismatic <a>": [(-1, 2, -1, 0), (0, 0, 0, 1), (1, 0, -1, 0)],
-    },
-}
-crystals = {
-    "fcc Cu": ("fcc", 3.615, {}, "Cu", copper),
-    "bcc Fe": ("bcc", 2.865, {}, "Fe", iron),
-    "hcp Mg": ("hcp", 3.20, {"c": 5.20}, "Mg", magnesium),
-}
+    }),
+}  # fmt: skip
 with plot.style():
     fig, axes = plot.figure("double", 55, ncols=3, sharey=True)
-    for ax, (name, paths) in zip(axes, systems.items()):
-        kind, a, extra, element, potential = crystals[name]
+    for ax, (name, (kind, a, options, potential, paths)) in zip(axes, systems.items()):
         for label, orientation in paths.items():
-            cell = build_crystal(
-                kind, a, elements=element, orientation=orientation, **extra
-            )
-            period = cell.box.matrix[0, 0]
-            layers = int(np.ceil(30 / cell.box.matrix[2, 2]))
+            cell = build_crystal(kind, a, orientation=orientation, **options).box.matrix
+            repeat = (1, 4, int(np.ceil(30 / cell[2, 2])))
             crystal = build_crystal(
-                kind,
-                a,
-                elements=element,
-                orientation=orientation,
-                repeat=(1, 4, layers),
-                **extra,
+                kind, a, orientation=orientation, repeat=repeat, **options
             )
-            curve = stacking_fault_energy(crystal, potential, [period, 0, 0], points=25)
-            ax.plot(curve.fraction, 1000 * curve.energy, label=label)
+            curve = stacking_fault_energy(
+                crystal, potential, [cell[0, 0], 0, 0], points=25
+            )
+            plot.stacking_fault(curve, ax=ax, label=label)
         ax.set_title(name)
-        ax.set_xlabel("Slip / whole slip vector")
-        ax.legend(frameon=False)
-    axes[0].set_ylabel("Energy (mJ/m²)")
+        ax.legend()
+        ax.label_outer()
     plot.save(fig, "images/slip-systems", formats=("png",))
 ```
 
@@ -192,28 +180,23 @@ side = crystal.box.matrix[2, 2]
 planes = np.unique(np.round(crystal["positions.z"] % side, 4))
 gaps = np.diff(np.append(planes, planes[0] + side))
 middles = (planes + gaps / 2) / side
-shuffle = middles[gaps > gaps.mean()][
-    np.argmin(np.abs(middles[gaps > gaps.mean()] - 0.5))
-]
-glide = middles[gaps < gaps.mean()][
-    np.argmin(np.abs(middles[gaps < gaps.mean()] - 0.5))
-]
+wide = gaps > gaps.mean()
+heights = {
+    "shuffle": min(middles[wide], key=lambda h: abs(h - 0.5)),
+    "glide": min(middles[~wide], key=lambda h: abs(h - 0.5)),
+}
+vectors = {"<110>": [0, a / np.sqrt(2), 0], "<112>": [a * np.sqrt(6) / 2, 0, 0]}
 
 with plot.style():
     fig, ax = plot.figure("single")
-    for name, height in [("shuffle", shuffle), ("glide", glide)]:
-        for path, vector in [
-            ("<110>", [0, a / np.sqrt(2), 0]),
-            ("<112>", [a * np.sqrt(6) / 2, 0, 0]),
-        ]:
+    for name, height in heights.items():
+        for path, vector in vectors.items():
             curve = stacking_fault_energy(
                 crystal, silicon, vector, points=25, height=height
             )
-            ax.plot(curve.fraction, 1000 * curve.energy, label=f"{name} {path}")
+            plot.stacking_fault(curve, ax=ax, label=f"{name} {path}")
     ax.set_yscale("symlog", linthresh=100)
-    ax.set_xlabel("Slip / whole slip vector")
-    ax.set_ylabel("Energy (mJ/m²)")
-    ax.legend(frameon=False)
+    ax.legend()
     plot.save(fig, "images/shuffle-glide", formats=("png",))
 ```
 

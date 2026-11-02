@@ -53,6 +53,7 @@ def test_parity():
     reference = rng.normal(size=200)
     predicted = reference + 0.01
     ax = plot.parity(reference, predicted, label="test", unit="meV", scale=1000)
+    assert (ax.get_xlabel(), ax.get_ylabel()) == ("reference", "predicted")
     assert ax.get_legend().get_texts()[0].get_text() == "test: RMSE 10 meV"
     dense = plot.parity(reference, predicted, density=True)
     assert dense.get_legend().get_texts()[0].get_text().startswith("RMSE 0.01")
@@ -115,6 +116,8 @@ def test_results():
         np.linspace(0, 1, 5), np.zeros((5, 3)), np.array([0, 0.1, 0.03, 0.1, 0.0]), 10.0
     )
     assert plot.stacking_fault(curve).lines[0].get_ydata()[1] == pytest.approx(100.0)
+    line = plot.stacking_fault(curve, label="fcc").lines[0]
+    assert line.get_label() == "fcc" and line.get_marker() == "o"
     structures = CommonNeighborAnalysis().compute(crystal)
     bars = plot.structure_counts(structures)
     assert len(bars.patches) == len(structures.names)

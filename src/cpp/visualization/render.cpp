@@ -88,16 +88,30 @@ struct Node {
 };
 
 // A bounding volume hierarchy of the primitives of a scene, built with the
-// surface area heuristic over binned centroids.
+// surface area heuristic over binned centroids; without its tree, for the GPUs
+// that keep their own, only the bounds of the scene.
 class Bvh {
 public:
-    explicit Bvh(const Scene& scene) : scene_(scene) {
+    explicit Bvh(const Scene& scene, bool with_tree = true) : scene_(scene) {
         const std::size_t spheres = scene.sphere_radius.size();
         const std::size_t cylinders = scene.cylinder_radius.size();
         const std::size_t triangles = scene.triangle_alpha.size();
         const std::size_t n = spheres + cylinders + triangles;
         if (n > kIndexMask) {
             throw std::invalid_argument("too many primitives for a picture");
+        }
+        size_ = n;
+        if (!with_tree) {
+            for (std::size_t i = 0; i < spheres; ++i) {
+                all_.grow(bounds_of((kSphere << kKindShift) | static_cast<std::uint32_t>(i)));
+            }
+            for (std::size_t i = 0; i < cylinders; ++i) {
+                all_.grow(bounds_of((kCylinder << kKindShift) | static_cast<std::uint32_t>(i)));
+            }
+            for (std::size_t i = 0; i < triangles; ++i) {
+                all_.grow(bounds_of((kTriangle << kKindShift) | static_cast<std::uint32_t>(i)));
+            }
+            return;
         }
         refs_.reserve(n);
         bounds_.reserve(n);
@@ -116,7 +130,8 @@ public:
         build();
     }
 
-    bool empty() const { return refs_.empty(); }
+    bool empty() const { return size_ == 0; }
+    std::size_t size() const { return size_; }  // of the primitives
     const Bounds& scene_bounds() const { return all_; }
     const std::vector<Node>& nodes() const { return nodes_; }
     const std::vector<std::uint32_t>& refs() const { return refs_; }
@@ -555,6 +570,7 @@ private:
     std::vector<Bounds> bounds_;
     std::vector<Node> nodes_;
     Bounds all_;
+    std::size_t size_ = 0;
 };
 
 // A small fast random number generator, seeded per sample so that the
@@ -647,6 +663,7 @@ void write_boxes(const Geometry& g, float* boxes) {
 #if !defined(MDAPY_METAL) && !defined(MDAPY_VULKAN) && !defined(MDAPY_D3D12)
 namespace gpu {
 bool available() { return false; }
+bool uses_hierarchy() { return true; }
 std::string device() { return {}; }
 void trace(const Geometry&, const Params&, float*, float*, std::int64_t*, const Control&) {
     throw std::runtime_error("no GPU: this build of mdapy has none");
@@ -665,7 +682,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         throw std::invalid_argument(
             "the picture needs a positive size, supersampling and samples, and bounces of 0 or more");
     }
-    const Bvh bvh(scene);
+    const Bvh bvh(scene, !style.gpu || gpu::uses_hierarchy());
     const int s = style.supersample;
     const int sw = width * s, sh = height * s;
     const V forward = unit(camera.forward);
@@ -885,7 +902,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         params.samples = samples;
         params.width = sw;
         params.height = sh;
-        params.refs = static_cast<std::uint32_t>(bvh.refs().size());
+        params.refs = static_cast<std::uint32_t>(bvh.size());
         const gpu::Geometry geometry{scene.sphere_center.data(),   scene.sphere_radius.data(),
                                      scene.sphere_color.data(),    scene.sphere_id.data(),
                                      scene.sphere_radius.size(),   scene.cylinder_end.data(),
@@ -1021,8 +1038,9 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
     // average the subpixels, over the background, into sRGB
     std::vector<std::uint8_t> image(4 * static_cast<std::size_t>(width) * static_cast<std::size_t>(height));
     const float weight = 1.0f / static_cast<float>(s * s);
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
+    parallel_for(height, 16, [&](std::int64_t row_begin, std::int64_t row_end) {
+    for (std::int64_t y = row_begin; y < row_end; ++y) {
+        for (std::int64_t x = 0; x < width; ++x) {
             float sum[4] = {0, 0, 0, 0};
             for (int j = 0; j < s; ++j) {
                 for (int i = 0; i < s; ++i) {
@@ -1047,6 +1065,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
             image[o + 3] = static_cast<std::uint8_t>(std::lround(255.0f * std::clamp(alpha, 0.0f, 1.0f)));
         }
     }
+    });
     return image;
 }
 

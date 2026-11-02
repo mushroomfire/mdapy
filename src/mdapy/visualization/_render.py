@@ -57,16 +57,21 @@ def atom_names(system: System) -> np.ndarray:
         (N,) their elements; atoms of a type without an element, or of the
         element X, named after their type: ``Type 1``, ``Type 2`` and so on.
     """
+    return np.asarray(_names(system).to_numpy()).astype(str)
+
+
+def _names(system: System) -> pl.Series:
+    """atom_names as a series, whose few kinds are found faster than in an array."""
     table = system.table
     typed = "type" in table.columns
     if typed:
-        types = np.asarray(("Type " + table["type"].cast(pl.String)).to_numpy()).astype(
-            str
-        )
+        types = "Type " + table["type"].cast(pl.String)
     if "element" not in table.columns:
-        return types if typed else np.full(len(system), "X")
-    names = np.asarray(table["element"].cast(pl.String).to_numpy()).astype(str)
-    return np.where(names == "X", types, names) if typed else names
+        return types if typed else pl.repeat("X", len(system), eager=True)
+    names = table["element"].cast(pl.String)
+    if not typed:
+        return names
+    return pl.select(pl.when(names == "X").then(types).otherwise(names)).to_series()
 
 
 def atom_colors(
@@ -105,10 +110,10 @@ def atom_colors(
     if color is None:
         if "color" in system.table.columns:
             return np.asarray(system["color"], dtype=float).reshape(n, 3).copy()
-        names = atom_names(system)
+        names = _names(system)
         colors = element_colors(names)
         for symbol, chosen in (elements or {}).items():
-            colors[names == symbol] = _color(chosen)
+            colors[(names == symbol).to_numpy()] = _color(chosen)
         return colors
     if hasattr(color, "structure") and hasattr(color, "colors"):
         palette = np.asarray(color.colors, dtype=float)
@@ -153,10 +158,10 @@ def atom_radii(
     """
     if "radius" in system.table.columns:
         return np.asarray(system["radius"], dtype=float) * float(scale)
-    names = atom_names(system)
+    names = _names(system)
     radii = np.asarray(element_radii(names, radius), dtype=float)
     for symbol, chosen in (elements or {}).items():
-        radii[names == symbol] = float(chosen)
+        radii[(names == symbol).to_numpy()] = float(chosen)
     return radii * float(scale)
 
 

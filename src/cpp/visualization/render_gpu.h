@@ -32,8 +32,8 @@ struct Params {
     std::uint32_t refs;          // references in the hierarchy
 };
 
-// The scene and its bounding volume hierarchy: nodes of 8 words (lo,
-// first, hi, count) and the references of the leaves, kind << 30 | index.
+// The scene and its bounding volume hierarchy, when it is used: nodes of 8
+// words (lo, first, hi, count) and the references of the leaves, kind << 30 | index.
 struct Geometry {
     const float* sphere_center;
     const float* sphere_radius;
@@ -57,6 +57,10 @@ struct Geometry {
 
 // Whether a GPU can trace pictures.
 bool available();
+
+// Whether the shader walks the hierarchy of Geometry: not on a GPU whose ray
+// tracing units keep their own and trace every ray.
+bool uses_hierarchy();
 
 // Whether the ray tracing units of a GPU may be used: unless the
 // environment variable MDAPY_GPU_RAY_TRACING is 0.

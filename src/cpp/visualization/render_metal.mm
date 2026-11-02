@@ -790,6 +790,8 @@ id<MTLAccelerationStructure> build_boxes(Device& d, const Geometry& g) {
 
 bool available() { return shared().device != nil; }
 
+bool uses_hierarchy() { return true; }
+
 std::string device() {
     Device& d = shared();
     if (d.device == nil) {

@@ -223,9 +223,9 @@ rounding at a few edges. For a million atoms at 1920 × 1080:
 | NVIDIA RTX A2000 | 0.7 s | 1.4 s |
 | the same without its ray tracing units | 1.5 s | 3.4 s |
 | Intel Core i5-12600K, processor | 4.9 s | 14.0 s |
-| NVIDIA RTX 4060 Laptop | 0.7 s | 1.3 s |
-| the same without its ray tracing units | 1.0 s | 1.8 s |
-| AMD Ryzen 9 7945HX, processor | 2.6 s | 7.7 s |
+| NVIDIA RTX 4060 Laptop | 0.3 s | 0.7 s |
+| the same without its ray tracing units | 0.8 s | 1.5 s |
+| AMD Ryzen 9 7945HX, processor | 2.3 s | 7.4 s |
 
 ```python
 from mdapy.visualization import gpu_available

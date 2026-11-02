@@ -694,6 +694,8 @@ VkAccelerationStructureKHR build_hierarchy(Device& d, Picture& picture, VkComman
 
 bool available() { return shared().own.pipeline != VK_NULL_HANDLE; }
 
+bool uses_hierarchy() { return shared().queried.pipeline == VK_NULL_HANDLE; }
+
 std::string device() { return available() ? shared().name : std::string(); }
 
 void trace(const Geometry& g, const Params& params, float* rgba, float* depth, std::int64_t* ids,
@@ -724,7 +726,7 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
         {g.cylinder_color, 3 * g.cylinders},  {g.cylinder_id, g.cylinders},
         {g.triangle_vertex, 9 * g.triangles}, {g.triangle_color, 3 * g.triangles},
         {g.triangle_alpha, g.triangles},      {g.triangle_id, g.triangles},
-        {g.refs, params.refs},
+        {g.refs, queries ? 0 : params.refs},
     };
     Tile tile{};
     static_assert(sizeof(tile.arrays) == sizeof(parts) / sizeof(Part) * 4, "an offset for each array");

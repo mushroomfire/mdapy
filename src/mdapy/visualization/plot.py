@@ -95,6 +95,10 @@ def style() -> Iterator[None]:
         with plt.rc_context(settings):
             try:
                 yield
+                # a notebook draws its figures after the cell, when the style
+                # no longer holds: they are shown here, in the style
+                if "inline" in plt.get_backend():
+                    plt.show()
             finally:
                 # a notebook loads its backend at the first figure, which turns
                 # interactive mode on: leaving the context must not turn it off,

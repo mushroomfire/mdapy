@@ -167,3 +167,23 @@ def test_style_keeps_interactive_mode(mode):
         assert plt.isinteractive() is mode
     finally:
         plt.ion() if before else plt.ioff()
+
+
+def test_style_shows_the_figures_of_a_notebook_in_the_style(monkeypatch):
+    """A notebook draws after the cell: its figures show while the style holds."""
+    import matplotlib.pyplot as plt
+
+    sizes = []
+    monkeypatch.setattr(plt, "show", lambda: sizes.append(plt.rcParams["font.size"]))
+    with plot.style():
+        pass
+    assert sizes == []  # another backend: nothing shows by itself
+    monkeypatch.setattr(
+        plt, "get_backend", lambda: "module://matplotlib_inline.backend_inline"
+    )
+    with plot.style():
+        pass
+    assert sizes == [plot.STYLE["font.size"]]
+    with pytest.raises(ZeroDivisionError), plot.style():
+        1 / 0
+    assert len(sizes) == 1  # not after an error

@@ -37,6 +37,9 @@ with plot.style():
 *a: the partial radial distribution functions of a random CuNi alloy. b: a
 parity plot with its error in the legend.*
 
+In a notebook the figures of a `with plot.style():` show when it ends, as the
+style holds only inside it. Add to a figure, and save it, inside the `with`.
+
 ## Columns of the atoms
 
 `scatter` draws two columns of the atoms, components or expressions against

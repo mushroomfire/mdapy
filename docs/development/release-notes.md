@@ -470,8 +470,8 @@ and it has a new logo.
   and `read_trajectory(path, elements=[...])` names the types, so that files
   written afterwards hold the elements.
   See [Coloring atoms](../visualization/colors.md).
-- `mdapy.visualization.plot`: matplotlib set up for journals (widths of
-  columns, Nature's artwork guide, Okabe–Ito colors, panel labels, saving
+- `mdapy.visualization.plot`: matplotlib set up for journals, in notebooks too
+  (widths of columns, Nature's artwork guide, Okabe–Ito colors, panel labels, saving
   as PDF, SVG and PNG) and plots of results: parity, g(r), S(q), bond
   angles, MSD with the diffusion coefficient, stacking fault energies,
   counts of structures, and two columns of the atoms against each other

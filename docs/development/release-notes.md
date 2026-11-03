@@ -567,6 +567,9 @@ and it has a new logo.
   step briefly before they sleep, and a step of a few pieces wakes only as
   many threads, so small systems are not slowed down by many cores. See
   [Parallelism](../getting-started/parallelism.md).
+- `mdapy.show_versions` prints the versions of MDAPY, Python and the packages
+  around it, and the processor, memory and GPU of the machine, to paste into an
+  issue.
 - `mdapy.set_num_threads`, `mdapy.get_num_threads`, `mdapy.num_threads` and
   the `MDAPY_NUM_THREADS` environment variable control the number of threads.
   The default is the logical CPUs the process may use, so that a job of a

@@ -12,6 +12,7 @@
 | `src/mdapy/core/_frames.py` | many systems one after another as the arrays of the kernels that compute them a frame on a thread. |
 | `src/mdapy/core/threads.py` | Number of threads, `CancelToken`. |
 | `src/mdapy/core/indices.py` | `index_dtype`, the type of atom indices in results. |
+| `src/mdapy/core/versions.py` | `show_versions`, the report for an issue. |
 | `src/mdapy/core/result.py` | `Result`, the base class of the results of analyses. |
 | `src/mdapy/io/__init__.py` | `read`, `write`, `formats`, `detect_format`; imports each format module. |
 | `src/mdapy/io/_registry.py` | The format registry, format detection, `read` and `write`. |
@@ -77,6 +78,7 @@
 | `src/mdapy/analysis/_bonds.py` | `ClusterAnalysis`, `BondAngleDistribution`, `WarrenCowley`, and bonds by cutoff per pair of elements. |
 | `src/mdapy/io/_text.py` | Line and table reading and writing shared by the text formats. |
 | `src/cpp/core/parallel.h`, `parallel.cpp` | The thread pool: `parallel_for`, `parallel_reduce`, cancellation and progress. |
+| `src/cpp/core/hardware.h`, `hardware.cpp` | The name of the processor and the memory of the machine. |
 | `src/cpp/core/index.h` | `index_t`, the type of atom indices, 32 or 64 bits (`MDAPY_INDEX64`). |
 | `src/cpp/core/buffer.h` | Vectors left uninitialized, for large results written by threads. |
 | `src/cpp/io/text.h`, `text.cpp` | Parsing and formatting of text tables, in parallel over lines; numbers are correctly rounded and independent of the locale. |

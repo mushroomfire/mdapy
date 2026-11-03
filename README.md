@@ -16,7 +16,8 @@ is not public.
 > [MDAPY 1.0.8](https://pypi.org/project/mdapy/1.0.8/) and the `master` branch.
 
 - Documentation: sources in [`docs/`](docs/); preview with `mkdocs serve`
-- Issues: https://github.com/mushroomfire/mdapy/issues
+- Issues: https://github.com/mushroomfire/mdapy/issues; please paste the output
+  of `mdapy.show_versions()`
 
 ## Install from source
 

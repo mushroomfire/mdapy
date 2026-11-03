@@ -379,6 +379,10 @@ import mdapy as mp
 
 ::: mdapy.core.indices.index_dtype
 
+## Versions
+
+::: mdapy.show_versions
+
 ## Errors
 
 ::: mdapy.errors

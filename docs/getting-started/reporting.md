@@ -1,0 +1,82 @@
+# Reporting a problem
+
+Problems and questions go to the
+[issue tracker](https://github.com/mushroomfire/mdapy/issues). `show_versions`
+prints what a report needs to say about the installation and the machine: paste
+its output into the issue.
+
+```python
+import mdapy as mp
+
+mp.show_versions()
+```
+
+```text
+MDAPY          2.0.0
+Atom indices   32 bits
+Python         3.13.16 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:19:24) [Clang 20.1.8 ]
+Platform       macOS-27.0.1-arm64-arm-64bit-Mach-O
+
+CPU            Apple M5
+Logical CPUs   10, 10 usable
+MDAPY threads  10
+Memory         24.0 GB
+GPU            Apple M5 (Metal, ray tracing)
+FFmpeg         not found
+
+numpy          2.5.4 (accelerate)
+polars         2.0.0
+ase            3.29.0
+freud-analysis 3.6.1
+lammps         2026.9.30
+matplotlib     3.11.2
+ovito          3.17.1
+phonopy        4.8.6
+pymatgen-core  2026.10.16
+seekpath       2.2.2
+spglib         2.8.0
+torch          not installed
+torchnep       not installed
+```
+
+## Parameters
+
+| Name | Type | Default | Meaning |
+|---|---|---|---|
+| `file` | text stream | the standard output | Where to print the report. |
+
+```python
+import mdapy as mp
+
+with open("report.txt", "w") as report:
+    mp.show_versions(file=report)
+```
+
+## What it tells
+
+| Line | Meaning |
+|---|---|
+| Atom indices | 32 bits, or 64 in a build for more atoms ([64-bit atom indices](installation.md#64-bit-atom-indices)). |
+| Logical CPUs | Those of the machine, and how many of them this process may use: fewer in a job of a cluster or under `taskset`. |
+| MDAPY threads | How many threads MDAPY is using now ([Parallelism](parallelism.md)). |
+| GPU | The one that traces pictures and how, or `none found` ([Pictures on the GPU](installation.md#pictures-on-the-gpu)). |
+| FFmpeg | Whether [movies](../visualization/movies.md) can be written. |
+| numpy | Its version and, in brackets, the linear algebra library it was built with. |
+
+The versions of the packages are read from their installed files, so nothing is
+imported, and the report takes less than a second.
+
+## In the application
+
+**Help → System Information** shows the same report with the renderer of the
+viewports above it, and **Copy** puts it on the clipboard. On Linux and Windows
+it is in the menu at the top left of the window.
+
+## What else to write
+
+A report that can be acted on says what was expected and what happened instead,
+and holds:
+
+- the full message of the error. In the application a click on an error copies
+  it, and the Log tab has its own Copy button;
+- the shortest script that shows the problem, with a small file if it needs one.

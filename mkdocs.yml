@@ -120,6 +120,7 @@ nav:
           - Trajectories: getting-started/trajectory.md
           - Neighbor lists: getting-started/neighbor.md
           - Parallelism: getting-started/parallelism.md
+          - Reporting a problem: getting-started/reporting.md
       - Tutorials:
           - A polycrystal of fcc and bcc grains: getting-started/tutorials/two-phase-polycrystal.md
           - Columnar grains on a hexagonal pattern: getting-started/tutorials/columnar-polycrystal.md

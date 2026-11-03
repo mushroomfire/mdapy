@@ -32,6 +32,7 @@ from mdapy.core.threads import (
     set_num_threads,
 )
 from mdapy.core.topology import Topology
+from mdapy.core.versions import show_versions
 from mdapy.io import Trajectory, detect_format, formats, read, read_trajectory, write
 from mdapy.neighbor import NeighborList
 
@@ -56,6 +57,7 @@ __all__ = [
     "CancelToken",
     "get_num_threads",
     "set_num_threads",
+    "show_versions",
     "num_threads",
     "index_dtype",
     "read",

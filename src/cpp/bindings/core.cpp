@@ -4,8 +4,10 @@
 // obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 
 #include "bindings/control.h"
+#include "core/hardware.h"
 #include "core/parallel.h"
 
 namespace mdapy::bindings {
@@ -14,6 +16,8 @@ void bind_core(nb::module_& m) {
     m.def("get_num_threads", &get_num_threads);
     m.def("set_num_threads", &set_num_threads, nb::arg("n"));
     m.def("hardware_threads", &hardware_threads);
+    m.def("cpu_name", &cpu_name);
+    m.def("memory_bytes", &memory_bytes);
     m.def("default_grain", &default_grain, nb::arg("n"));
 
     nb::class_<CancelToken>(m, "CancelToken")

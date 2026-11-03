@@ -56,6 +56,16 @@ class FaultFreeEnergyResult(Result):
     dissipation: np.ndarray
 
 
+def _between_layers(crystal: System, k: int) -> float:
+    """The fractional height along box vector k in the widest gap between atoms
+    nearest the middle: a plane through a layer would divide it by rounding."""
+    heights = np.sort(crystal.box.to_fractional(crystal["positions"])[:, k] % 1.0)
+    middles = 0.5 * (heights[1:] + heights[:-1])
+    gaps = np.diff(heights)
+    wide = gaps > 0.5 * gaps.max()
+    return float(middles[wide][np.abs(middles[wide] - 0.5).argmin()])
+
+
 def _free_energies(
     crystal: System,
     potential: LAMMPS,
@@ -129,7 +139,7 @@ def stacking_fault_free_energy(
         Temperatures in K, positive.
     height : float, optional
         The fault, at this fractional coordinate along the box vector of axis.
-        Default 0.5.
+        Default between the two layers of atoms nearest the middle of the box.
     axis : int or str, optional
         The Cartesian axis normal to the fault. Default z.
     pressure : float, optional
@@ -220,7 +230,8 @@ def stacking_fault_free_energy(
             start,
             counter,
         )
-        faulted = slip(perfect, vector, height=height, axis=k)
+        plane = _between_layers(perfect, k) if height is None else height
+        faulted = slip(perfect, vector, height=plane, axis=k)
         _, relaxed = _relaxed(faulted.with_columns(movable=movable), potential, options)
         relaxed = relaxed.drop("movable")
         plain, wasted = _free_energies(

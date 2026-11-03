@@ -18,6 +18,7 @@ from mdapy.core.threads import CancelToken
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 from mdapy.lattice_dynamics import phonons
 from mdapy.simulation import minimize, stacking_fault_energy, stacking_fault_free_energy
+from mdapy.simulation._fault_free_energy import _between_layers
 
 pytest.importorskip("lammps")
 
@@ -47,6 +48,13 @@ def partial(system):
     return np.array([system.box.matrix[0, 0] / 6, 0, 0])
 
 
+def test_the_plane_lies_between_layers(layers):
+    plane = _between_layers(layers, 2)
+    heights = layers.box.to_fractional(layers["positions"])[:, 2] % 1.0
+    assert 0.4 < plane < 0.6
+    assert np.abs(heights - plane).min() > 0.01
+
+
 def test_a_whole_lattice_vector_makes_no_fault(potential, layers):
     # half of the box along x, which holds two periods of 1/2 [11-2]
     whole = [layers.box.matrix[0, 0] / 2, 0, 0]
@@ -56,7 +64,10 @@ def test_a_whole_lattice_vector_makes_no_fault(potential, layers):
 
 def test_cold_as_at_rest(potential, layers):
     direction = partial(layers)
-    rest = stacking_fault_energy(layers, potential, direction, points=2).energy[1]
+    plane = _between_layers(layers, 2)
+    rest = stacking_fault_energy(
+        layers, potential, direction, points=2, height=plane
+    ).energy[1]
     result = stacking_fault_free_energy(
         layers, potential, direction, 5.0, pressure=0.0, **FAST
     )
@@ -88,7 +99,7 @@ def test_warm_as_its_harmonic_vibrations(potential, layers):
     from mdapy.build._defects import slip
     from mdapy.simulation._defect_energies import _options, _relaxed
 
-    moved = slip(grown, direction)
+    moved = slip(grown, direction, height=_between_layers(grown, 2))
     movable = np.zeros((len(grown), 3), dtype=bool)
     movable[:, 2] = True
     energy, fault = _relaxed(

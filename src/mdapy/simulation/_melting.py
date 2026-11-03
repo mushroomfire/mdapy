@@ -34,7 +34,7 @@ _STEP = 0.15
 # how much hotter than the temperature the liquid half is melted
 _HOT = 2.0
 # times the melting of the liquid half is tried, each this much hotter
-_MELT_TRIES = 5
+_MELT_TRIES = 6
 _HOTTER = 1.5
 # the first shell of a crystal ends where the next distance is this much larger
 _SHELL_GAP = 1.2

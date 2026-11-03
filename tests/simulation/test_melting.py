@@ -182,7 +182,8 @@ def test_the_run_of_two_phases_at_a_melting_temperature(potential, argon):
     """One run started at about the melting point of the model keeps both
     phases, and the fractions of solid atoms are those of two phases."""
     expected = 0.62 * EPSILON / BOLTZMANN  # T* of the truncated and shifted model
-    run = run_at(potential, argon, expected)
+    # a run ends a little colder than it starts, as the crystal takes up heat
+    run = run_at(potential, argon, 1.05 * expected)
     last = run.attempts[-1]
     assert last.outcome == "coexisting"
     assert 0.1 < last.fraction < 0.9

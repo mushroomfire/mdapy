@@ -66,12 +66,6 @@ with open("report.txt", "w") as report:
 The versions of the packages are read from their installed files, so nothing is
 imported, and the report takes less than a second.
 
-## In the application
-
-**Help → System Information** shows the same report with the renderer of the
-viewports above it, and **Copy** puts it on the clipboard. On Linux and Windows
-it is in the menu at the top left of the window.
-
 ## What to write
 
 The [bug report form](https://github.com/mushroomfire/mdapy/issues/new/choose) of the
@@ -81,6 +75,5 @@ issue tracker asks for what lets a problem be reproduced:
 - the shortest script that shows the problem and runs as it is, with a structure
   from [`build_crystal`](../reference/api.md#mdapy.build.build_crystal) if the problem
   allows it, or else the smallest file that shows it;
-- the full message of the error, all of the traceback. In the application a click
-  on an error copies it, and the Log tab has its own Copy button;
+- the full message of the error, all of the traceback;
 - the output of `show_versions`.

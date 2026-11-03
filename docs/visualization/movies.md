@@ -48,14 +48,3 @@ a picture of odd size padded to even sizes for players. Draw the pictures with a
 
 The tutorial [A movie that flies through a crystal](../getting-started/tutorials/movie.md)
 makes a movie from one system.
-
-## In the application
-
-The Render tab of the MDAPY application writes the frames of a trajectory as a movie,
-with the view as you set it. On macOS and Windows it encodes with the system, with
-nothing to install; on Linux it needs FFmpeg as above. A camera that moves, or colors
-that change on the way, are the work of a script like the one in the tutorial.
-
-Pictures are at most 8192 pixels on a side, as with
-[`render`](rendering.md#errors), and movies at most 8192 × 4320 pixels. Above that, the
-application tells so before it draws anything.

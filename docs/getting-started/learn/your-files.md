@@ -132,13 +132,6 @@ Three things help with millions of atoms:
 - `render(..., device="gpu")` draws on the graphics card, usually ten times
   faster: [Rendering](../../visualization/rendering.md).
 
-## From the desktop application
-
-The desktop application exports a pipeline of modifiers as a Python script of
-MDAPY calls, which gives the same results. It is a good way to find the right
-functions and parameters by trying them on the atoms in front of you, and then
-to run them on a cluster with what this page showed.
-
 ## Where next
 
 You have now seen the whole shape of MDAPY. The [cheat sheet](cheat-sheet.md)

@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <b>Fast analysis, building and simulation of atomistic systems, in Python.</b>
+  <b>Fast building, analysis, simulation and visualization of atomistic systems, in Python.</b>
 </p>
 
 <p align="center">
@@ -21,106 +21,158 @@
   <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/index.md">Documentation</a> ·
   <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/quick-tour.md">Quick tour</a> ·
   <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/learn/table.md">Lessons</a> ·
-  <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/performance/comparison.md">Performance</a> ·
+  <a href="#examples">Examples</a> ·
   <a href="#install">Install</a> ·
   <a href="#citing-mdapy">Cite</a>
 </p>
-
-<a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/movie.md"><img alt="Four frames of a movie of a copper polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/getting-started/tutorials/images/movie_frames.png" width="100%"></a>
-
-<p align="center"><sub>Frames of <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/images/movie.mp4">a movie</a> made with a Python script: a copper polycrystal, its grains, a slice, the flight between two twin planes, and the defects alone. <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/movie.md">See how</a>.</sub></p>
 
 > **MDAPY 2.0 is a complete rewrite and is not compatible with MDAPY 1.x.** It is
 > under development, and a first preview, 2.0.0a1, comes next. The stable release
 > is `pip install mdapy==1.0.10`, with its
 > [documentation](https://mdapy.readthedocs.io).
 
-## A polycrystal, its structures and a picture, in five lines
-
-```python
-import mdapy as mp
-from mdapy.build import build_crystal, build_polycrystal
-from mdapy.identify import CommonNeighborAnalysis
-from mdapy.visualization import render
-
-copper = build_crystal("fcc", 3.615, elements="Cu")
-grains = build_polycrystal(copper, mp.Box(60.0), 6, seed=1)
-structures = CommonNeighborAnalysis().compute(grains)
-structures.counts()  # {'other': 6529, 'fcc': 10796, 'hcp': 8, 'bcc': 0, 'ico': 0}
-render(grains, "grains.png", color=structures, style="matte")
-```
-
-<img alt="The polycrystal in the four styles of render" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/visualization/images/styles.png" width="100%">
-
-<p align="center"><sub>The same picture in the four <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/visualization/rendering.md">styles</a> of <code>render</code>: fast, matte, shiny and flat. No window and no display are needed.</sub></p>
-
 ## Why MDAPY
 
-**It is fast.** The heavy work runs in compiled C++ on every core. From 256,000 atoms
-on, MDAPY is faster than OVITO in every analysis they share, and from 32,000 atoms on
-faster than freud in every one. Its neighbor lists also take a quarter of the memory
-of OVITO's and a seventh of freud's.
-
-| 2,048,000 atoms, 40 threads | MDAPY | OVITO 3.17 | freud 3.6 |
-|---|---:|---:|---:|
-| Neighbor list, 5 Å | **0.18 s** | 1.39 s | 4.98 s |
-| Voronoi volumes and coordination | **0.95 s** | 23.0 s | 38.8 s |
-| Common neighbor analysis | **0.067 s** | 0.155 s | |
-| Dislocation analysis | **5.8 s** | 28.6 s | |
-
-<sub>Two Intel Xeon Gold 6248, 40 cores. A program is timed only where it gives the result of MDAPY, atom by atom. Below those sizes the others win a few cases, such as atomic strain in OVITO under some 250,000 atoms. <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/performance/comparison.md">Every case at every size, with memory.</a></sub>
-
-Files of 2 million atoms are [read in 0.08 to 0.17 s](https://github.com/mushroomfire/mdapy/blob/v2/docs/performance/files.md),
-3.8 to 5.3 times faster than OVITO and 25 to 53 times faster than ASE.
-
-**It is light.** NumPy and polars are the only requirements. Ray-traced pictures
-need nothing more: on the processor anywhere, and on the graphics card with Metal,
-Vulkan or Direct3D 12.
-
-**It covers the whole job.** Read or build a structure, analyze it, compute energies
-and forces, relax it, run dynamics, get elastic constants and phonons, check a
-training set for a machine-learned potential, and make the figures and the movie:
-one package and one `System`, so the steps connect without conversions.
-
-**It is checked.** More than 2,800 tests compare each feature with analytic results,
-independent implementations and live runs of LAMMPS, OVITO, freud and phonopy, at
-99% coverage. Results are the same for any number of threads.
-
-**It is predictable.** A `System` never changes in place. Every analysis has the same
-form, `compute(system)`, and returns plain NumPy arrays. One unit system, Å, eV and ps,
-runs through everything.
-
-**It works with what you already use.** MDAPY runs its own thread pool instead of
-OpenMP, so it shares a process with PyTorch and LAMMPS. It converts systems to and
-from ASE, OVITO, pymatgen and freud, and takes any ASE calculator or LAMMPS
-interaction as a calculator. It also works as one step of a large screening: see
-[high-throughput calculations](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/high-throughput.md).
+- **Light.** No third-party code inside: every kernel is MDAPY's own C++. NumPy and
+  polars are all it needs, and everything else, such as matplotlib, ASE or LAMMPS, is
+  optional.
+- **Flexible.** Results are plain NumPy arrays and atoms are rows of a polars table, so
+  each step mixes with your own code: your own columns and masks of atoms, your own
+  [calculator](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md),
+  your own spheres, cylinders and polygons in a picture.
+- **Robust.** More than 2,800 tests compare each feature with analytic results,
+  independent implementations and live runs of LAMMPS, OVITO, freud and phonopy.
+  Results are the same for any number of threads, and damaged files or impossible
+  inputs give a clear error, not a crash.
+- **Fast.** The heavy work runs in compiled C++ on every core. From 256,000 atoms on it
+  is faster than OVITO in every analysis they share, and from 32,000 atoms on faster
+  than freud in every one:
+  [every case at every size](https://github.com/mushroomfire/mdapy/blob/v2/docs/performance/comparison.md).
+- **Predictable.** A `System` never changes in place, every analysis has the same form,
+  `compute(system)`, each concept has one name, and one unit system, Å, eV and ps, runs
+  through everything.
+- **Integrated.** One package and one `System`, from the first structure to the last
+  picture. It converts systems to and from ASE, OVITO, pymatgen and freud, takes any ASE
+  calculator or LAMMPS interaction, shares a process with PyTorch, and works as one step
+  of a [large screening](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/high-throughput.md).
 
 ## What it does
 
 | Area | What is in it |
 |---|---|
-| [**Analysis**](https://github.com/mushroomfire/mdapy/blob/v2/docs/analysis/overview.md) | More than 40 analyses: common neighbor analysis, polyhedral template matching, dislocations, grain segmentation, surface mesh, Voronoi, Steinhardt, radial distribution, structure factor, Wigner–Seitz, atomic strain, mean squared displacement |
-| [**Structure builder**](https://github.com/mushroomfire/mdapy/blob/v2/docs/build/crystals.md) | 15 crystal structures, polycrystals, twins, random and special quasirandom alloys, point defects, surfaces, dislocations, graphene on grain boundaries |
-| [**Simulation**](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md) | EAM and NEP potentials, LAMMPS and ASE calculators, minimization, molecular dynamics, elastic constants, phonons, the quasi-harmonic approximation |
-| [**MLIP**](https://github.com/mushroomfire/mdapy/blob/v2/docs/mlip/checks.md) | Training sets from VASP, SOAP descriptors, checking frames, errors of a model, novelty and committee uncertainty, choosing frames, perturbed structures |
-| [**Visualization**](https://github.com/mushroomfire/mdapy/blob/v2/docs/visualization/rendering.md) | Ray-traced pictures with shadows, ambient occlusion and depth of field, movies, coordination polyhedra, plots ready for a paper |
-| [**Files**](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/io.md) | Extended XYZ, LAMMPS data and dump, POSCAR, OUTCAR, CIF, PDB and a fast binary format of its own |
+| [**Build**](https://github.com/mushroomfire/mdapy/blob/v2/docs/build/crystals.md) | Crystals, polycrystals, alloys, defects and dislocations |
+| [**Analyze**](https://github.com/mushroomfire/mdapy/blob/v2/docs/analysis/overview.md) | More than 40 analyses of structure, local order, defects and dynamics |
+| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md) | EAM, NEP, LAMMPS and ASE calculators; relaxation, dynamics, elastic constants and phonons |
+| [**MLIP**](https://github.com/mushroomfire/mdapy/blob/v2/docs/mlip/checks.md) | Training sets from VASP, descriptors, errors of a model, the frames worth computing |
+| [**Visualize**](https://github.com/mushroomfire/mdapy/blob/v2/docs/visualization/rendering.md) | Ray-traced pictures on the processor or the graphics card, movies and plots |
+| [**Exchange**](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/io.md) | Eight file formats, and systems shared with ASE, OVITO, pymatgen and freud |
+
+## Examples
+
+One copper polycrystal, from nothing to a movie.
 
 <table>
-  <tr>
-    <td width="50%"><a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/analysis/ptm.md"><img alt="Polyhedral template matching on a polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/analysis/images/ptm.png" width="100%"></a><br><sub>Polyhedral template matching</sub></td>
-    <td width="50%"><a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/build/polycrystals.md"><img alt="Polycrystals and twins" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/build/images/polycrystals.png" width="100%"></a><br><sub>Polycrystals and twins</sub></td>
-  </tr>
-  <tr>
-    <td><a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/analysis/voronoi.md"><img alt="Voronoi cells of fcc and bcc crystals" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/analysis/images/voronoi.png" width="100%"></a><br><sub>Voronoi cells</sub></td>
-    <td><a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/build/dislocations.md"><img alt="Dislocation models" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/build/images/dislocation-models.png" width="100%"></a><br><sub>Dislocation models</sub></td>
-  </tr>
-  <tr>
-    <td><a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/analysis/surface-mesh.md"><img alt="Surface mesh" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/analysis/images/surface-mesh.png" width="100%"></a><br><sub>Surface mesh</sub></td>
-    <td><a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/crconi.md"><img alt="Phonon dispersions of Cr, Co and Ni" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/getting-started/tutorials/images/crconi-phonons.png" width="100%"></a><br><sub>Phonons, against DFT</sub></td>
-  </tr>
+<tr><th width="58%">Build</th><th>Grains, 81,734 atoms</th></tr>
+<tr><td>
+
+```python
+import mdapy as mp
+from mdapy.build import build_crystal, build_polycrystal
+from mdapy.visualization import render
+
+copper = build_crystal("fcc", 3.615, elements="Cu")
+grains = build_polycrystal(copper, mp.Box(100.0), 8, seed=1)
+render(grains, "grains.png", color="grain")
+```
+
+</td><td><img alt="A polycrystal colored by grain" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/assets/readme/grains.png" width="100%"></td></tr>
+<tr><th>Analyze</th><th>The atoms that are not fcc</th></tr>
+<tr><td>
+
+```python
+from mdapy.identify import CommonNeighborAnalysis
+
+structures = CommonNeighborAnalysis().compute(grains)
+structures.counts()  # {'other': 21043, 'fcc': 60682, ...}
+boundaries = structures.structure != 1  # not fcc
+render(
+    grains, "boundaries.png", atoms=boundaries, color=structures
+)
+```
+
+</td><td><img alt="The grain boundaries of the polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/assets/readme/boundaries.png" width="100%"></td></tr>
+<tr><th>Simulate</th><th>Phonons of copper</th></tr>
+<tr><td>
+
+```python
+from mdapy.calculators import EAM
+from mdapy.lattice_dynamics import phonons, primitive_cell
+from mdapy.simulation import minimize
+from mdapy.visualization import plot
+
+eam = EAM.zhou(["Cu"])
+relaxed = minimize(copper, eam, cell="full", max_stress=1e-4)
+cell = primitive_cell(relaxed.system)
+bands = phonons(cell, eam).band_structure("fcc")
+with plot.style():
+    fig, ax = plot.figure()
+    plot.band_structure(bands, ax=ax)
+    plot.save(fig, "phonons", formats=("png",))
+```
+
+</td><td><img alt="The phonon dispersion of copper" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/assets/readme/phonons.png" width="100%"></td></tr>
+<tr><th>MLIP</th><th>The 20 frames most worth a DFT calculation</th></tr>
+<tr><td>
+
+```python
+from mdapy import mlip
+
+crystal = build_crystal(
+    "fcc", 3.615, elements="Cu", repeat=(3, 3, 3)
+)
+frames = mlip.perturb(crystal, 200, displacement=0.1, seed=1)
+points = mlip.structure_descriptors(frames, mlip.SOAP(["Cu"]))
+chosen = mlip.farthest_point_sampling(points, 20)
+
+xy = mlip.principal_components(points).transform(points)
+with plot.style():
+    fig, ax = plot.figure()
+    ax.scatter(*xy.T, s=4, color="0.7", label="all frames")
+    ax.scatter(*xy[chosen].T, s=12, label="chosen")
+    ax.set_xlabel("principal component 1")
+    ax.set_ylabel("principal component 2")
+    ax.legend()
+    plot.save(fig, "frames", formats=("png",))
+```
+
+</td><td><img alt="Frames on the map of their descriptors, with those chosen" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/assets/readme/frames.png" width="100%"></td></tr>
 </table>
+
+### Make a movie
+
+<p align="center">
+  <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/movie.md"><img alt="A movie that flies through a copper polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/getting-started/tutorials/images/movie.webp" width="480"></a>
+</p>
+
+Give `render` a camera for each frame, and hand the pictures to `write_movie` one at a
+time. This turns around the polycrystal:
+
+```python
+import numpy as np
+
+from mdapy.visualization import write_movie
+
+look = dict(style="matte", focus=(50.0, 50.0, 50.0), span=170.0, width=1080, height=1080)
+pictures = (
+    render(grains, color=structures, view=[np.cos(t), np.sin(t), -0.5], **look)
+    for t in np.linspace(0, 2 * np.pi, 300)
+)
+write_movie("turn.mp4", pictures, fps=30)  # with FFmpeg on the PATH
+```
+
+The movie above uses the same pieces, with a camera that flies between two twin planes:
+[A movie that flies through a crystal](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/movie.md)
+gives the whole script.
 
 ## Install
 
@@ -157,10 +209,28 @@ shared under the same license.
 
 ## Code history
 
-MDAPY has been written three times, each time to go faster and to do more.
+MDAPY has been written three times.
 
 | Series | Years | How it was built | Code |
 |---|---|---|---|
-| 0.x | 2022–2025 | Python with [Taichi](https://github.com/taichi-dev/taichi) for the kernels | Branch [`mdapy_old`](https://github.com/mushroomfire/mdapy/tree/mdapy_old), last release 0.11.5 |
-| 1.x | 2025–2026 | Rewritten with every kernel in C++ | Tag [`v1.0.10`](https://github.com/mushroomfire/mdapy/tree/v1.0.10), [documentation](https://mdapy.readthedocs.io) |
-| 2.x | 2026– | Rewritten again from scratch: C++ kernels on a thread pool of their own instead of OpenMP, immutable systems on polars tables, and each feature checked against other programs | This branch |
+| 0.x | 2022–2025 | Python, with [Taichi](https://github.com/taichi-dev/taichi) for the kernels | Branch [`mdapy_old`](https://github.com/mushroomfire/mdapy/tree/mdapy_old), last release 0.11.5 |
+| 1.x | 2025–2026 | Rewritten with every kernel in C++, for speed | Tag [`v1.0.10`](https://github.com/mushroomfire/mdapy/tree/v1.0.10), [documentation](https://mdapy.readthedocs.io) |
+| 2.x | 2026– | Rewritten again from scratch, for the reasons below | This branch |
+
+1.x was fast, but other programs found it hard to live with. 2.x was rewritten to solve that:
+
+- **OpenMP.** The OpenMP runtime of 1.x could clash with those of other packages: on
+  macOS its wheel crashed next to the one in a conda environment. 2.x runs a thread pool
+  of its own and needs no OpenMP, so it shares a process with PyTorch and LAMMPS.
+- **Third-party code.** 1.x carried ten third-party codes, from Voro++ and polyhedral
+  template matching to Tachyon and OptiX, each to build and keep working. 2.x carries
+  none, and its license allows use in any software.
+- **The API.** In 1.x an analysis was a method that changed the system,
+  `system.cal_centro_symmetry_parameter(N=12)`. In 2.x a `System` never changes, every
+  analysis is a class with one form, and the names come from one glossary.
+- **Many small calculations.** The threads follow the CPUs a process may use and can be
+  limited for each process, so thousands of small calculations side by side do not
+  fight for cores.
+- **Programs built on it.** Long computations report their progress, can be cancelled
+  and leave Python running, so a graphical program stays responsive while it calls
+  MDAPY.

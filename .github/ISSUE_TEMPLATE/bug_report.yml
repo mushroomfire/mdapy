@@ -7,15 +7,6 @@ body:
       value: >
         Thanks for reporting. The shortest code that shows the problem and the
         output of `mdapy.show_versions()` are what let us reproduce it.
-  - type: dropdown
-    id: where
-    attributes:
-      label: Where does it happen?
-      options:
-        - Python package
-        - MDAPY application
-    validations:
-      required: true
   - type: textarea
     id: what
     attributes:
@@ -29,9 +20,7 @@ body:
       description: >
         The shortest script that shows the problem and runs as it is: leave out
         everything else, and build the structure with `build_crystal` if the
-        problem allows it. Otherwise attach the smallest file that shows it. In
-        the application, write the steps, and add its Python script (⌘P or
-        Ctrl+P) if the problem is in a calculation.
+        problem allows it. Otherwise attach the smallest file that shows it.
       render: python
     validations:
       required: true
@@ -39,9 +28,7 @@ body:
     id: error
     attributes:
       label: Full error message
-      description: >
-        The whole traceback, not only its last line. In the application, a click
-        on an error copies it.
+      description: The whole traceback, not only its last line.
       render: text
   - type: textarea
     id: versions
@@ -49,9 +36,8 @@ body:
       label: Output of mdapy.show_versions()
       description: >
         Run `python -c "import mdapy; mdapy.show_versions()"` and paste what it
-        prints. In the application: Help → System Information → Copy. MDAPY 1.x
-        has no such function: give `mdapy.__version__`, the Python version and
-        the operating system.
+        prints. MDAPY 1.x has no such function: give `mdapy.__version__`, the
+        Python version and the operating system.
       render: text
     validations:
       required: true

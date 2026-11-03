@@ -102,7 +102,37 @@ def test_environment_variable_sets_initial_value(value, expected):
 def test_unset_or_empty_environment_variable_uses_all_cpus(value):
     result = _import_in_subprocess(value)
     assert result.returncode == 0, result.stderr
-    assert int(result.stdout) == (os.cpu_count() or 1)
+    if hasattr(os, "sched_getaffinity"):
+        assert int(result.stdout) == len(os.sched_getaffinity(0))
+    else:
+        assert int(result.stdout) == (os.cpu_count() or 1)
+
+
+LIMIT_TO_ONE_CPU = {
+    "linux": "import os; os.sched_setaffinity(0, {min(os.sched_getaffinity(0))})",
+    "win32": (
+        "import ctypes\n"
+        "kernel = ctypes.WinDLL('kernel32')\n"
+        "kernel.GetCurrentProcess.restype = ctypes.c_void_p\n"
+        "kernel.SetProcessAffinityMask.argtypes = [ctypes.c_void_p, ctypes.c_size_t]\n"
+        "assert kernel.SetProcessAffinityMask(kernel.GetCurrentProcess(), 1)"
+    ),
+}
+
+
+@pytest.mark.skipif(
+    sys.platform not in LIMIT_TO_ONE_CPU, reason="a process cannot be limited to CPUs"
+)
+def test_the_default_follows_the_cpus_the_process_may_use():
+    # a job of a cluster on a few CPUs of a large node, with threads for the node
+    env = {k: v for k, v in os.environ.items() if k != "MDAPY_NUM_THREADS"}
+    code = LIMIT_TO_ONE_CPU[sys.platform] + "\n"
+    code += "import mdapy; print(mdapy.get_num_threads())"
+    result = subprocess.run(
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert int(result.stdout) == 1
 
 
 @pytest.mark.parametrize("value", ["abc", "0", "-2", "1.5"])

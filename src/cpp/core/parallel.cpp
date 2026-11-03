@@ -15,9 +15,19 @@
 #include <thread>
 
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #include <process.h>
 #define MDAPY_GETPID _getpid
 #else
+#ifdef __linux__
+#include <sched.h>
+#endif
 #include <unistd.h>
 #define MDAPY_GETPID getpid
 #endif
@@ -408,6 +418,26 @@ void run_inline(Job& job, MonitorClock& clock) {
 }  // namespace
 
 int hardware_threads() {
+    // the processors this process may use, fewer than the machine's in a job of
+    // a cluster or under taskset
+#if defined(__linux__)
+    cpu_set_t allowed;
+    if (sched_getaffinity(0, sizeof(allowed), &allowed) == 0 && CPU_COUNT(&allowed) > 0) {
+        return CPU_COUNT(&allowed);
+    }
+#elif defined(_WIN32)
+    // the two are equal unless limited, also when above 64 processors the
+    // masks tell only a part of them
+    DWORD_PTR allowed = 0, all = 0;
+    if (GetProcessAffinityMask(GetCurrentProcess(), &allowed, &all) != 0 && allowed != 0 &&
+        allowed != all) {
+        int count = 0;
+        for (; allowed != 0; allowed &= allowed - 1) {
+            ++count;
+        }
+        return count;
+    }
+#endif
     const unsigned int n = std::thread::hardware_concurrency();
     return n == 0 ? 1 : static_cast<int>(n);
 }

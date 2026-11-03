@@ -42,9 +42,9 @@ def get_num_threads() -> int:
     Returns
     -------
     int
-        The current setting. Defaults to the number of logical CPUs, or to
-        the ``MDAPY_NUM_THREADS`` environment variable if it was set when
-        MDAPY was imported.
+        The current setting. Defaults to the number of logical CPUs this
+        process may use, or to the ``MDAPY_NUM_THREADS`` environment variable
+        if it was set when MDAPY was imported.
     """
     return _core.core.get_num_threads()
 

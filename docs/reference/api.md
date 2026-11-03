@@ -351,6 +351,12 @@ import mdapy as mp
 
 ::: mdapy.simulation.MeltingAttempt
 
+::: mdapy.simulation.binary_phase_diagram
+
+::: mdapy.simulation.BinaryPhaseDiagram
+
+::: mdapy.simulation.TieLine
+
 ## Lattice dynamics
 
 ::: mdapy.lattice_dynamics.elastic_constants

@@ -207,6 +207,7 @@ nav:
       - Thermodynamics:
           - Free energy: simulation/free-energy.md
           - Melting point: simulation/melting-point.md
+          - Phase diagrams: simulation/phase-diagram.md
       - Lattice dynamics:
           - Elastic constants: simulation/elastic-constants.md
           - Phonons: simulation/phonons.md

@@ -210,7 +210,8 @@ flowchart TB
     [defect energies](simulation/defect-energies.md)
 
     Thermodynamics: [free energy](simulation/free-energy.md) ·
-    [melting point](simulation/melting-point.md)
+    [melting point](simulation/melting-point.md) ·
+    [phase diagrams](simulation/phase-diagram.md)
 
     Lattice dynamics: [elastic constants](simulation/elastic-constants.md) ·
     [phonons](simulation/phonons.md) ·

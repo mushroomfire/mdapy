@@ -38,7 +38,7 @@ the frames [move](#a-topology-for-the-frames). It returns a `Trajectory`:
 | `trajectory[a:b:c]` | a `Trajectory` of the selected frames, sharing the open file |
 | `for frame in trajectory` | the frames in order, one at a time |
 | `len(trajectory)` | the number of frames |
-| `trajectory.path`, `trajectory.format` | the file, or the pattern or first file of several, and the format |
+| `trajectory.path`, `trajectory.format` | the file, or the pattern or first file of several, and the format of the first file |
 | `trajectory.close()`, `with ...` | releases the files |
 | `trajectory.map(function)` | the frames through a function, [below](#frames-through-a-function) |
 
@@ -106,8 +106,9 @@ parts = mp.read_trajectory("part.*.xyz")  # part.0, part.50, part.100: 6 frames
 chosen = mp.read_trajectory(["part.100.xyz", "part.0.xyz"])  # 4 frames
 ```
 
-The format is that of the first file. At most two files are open at a
-time, so a pattern may match thousands of files.
+Each file has the format of its name, so formats mix, or that of the first
+file when a name tells nothing; `format=` gives one format to all. At most two
+files are open at a time, so a pattern may match thousands of files.
 
 ## A topology for the frames
 

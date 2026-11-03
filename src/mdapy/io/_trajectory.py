@@ -17,7 +17,7 @@ import numpy as np
 
 from mdapy.core.box import Box
 from mdapy.core.system import System
-from mdapy.errors import InvalidParameter
+from mdapy.errors import InvalidParameter, UnsupportedFormat
 from mdapy.io._files import Source
 from mdapy.io._registry import Format, FramePosition, _format
 
@@ -33,10 +33,10 @@ class _Frames:
     frame and its position there. At most two files are open at a time,
     that being scanned and that last read."""
 
-    def __init__(self, name: str, paths: list[str], found: Format):
+    def __init__(self, name: str, paths: list[str], found: list[Format]):
         self.name = name
         self.paths = paths
-        self.format = found
+        self.formats = found  # of each file
         self.__open: dict[int, Source] = {}
         self.__scanning = 0
         # The files are released when no trajectory uses them any more.
@@ -56,10 +56,11 @@ class _Frames:
     def __scan(self) -> Iterator[tuple[int, FramePosition]]:
         for file in range(len(self.paths)):
             self.__scanning = file
-            if self.format.scan is None:
+            scan = self.formats[file].scan
+            if scan is None:
                 yield file, (0, 0)
             else:
-                for position in self.format.scan(self.source(file)):
+                for position in scan(self.source(file)):
                     yield file, position
 
     def known(self, count: int) -> bool:
@@ -142,8 +143,8 @@ class Trajectory(Sequence[System]):
 
     @property
     def format(self) -> str:
-        """Format of the file."""
-        return self._frames.format.name
+        """Format of the file, or of the first of several."""
+        return self._frames.formats[0].name
 
     def __len__(self) -> int:
         if self.__indices is not None:
@@ -189,7 +190,7 @@ class Trajectory(Sequence[System]):
     def __read(self, frame: int) -> System:
         file, position = self._frames.positions[frame]
         source = self._frames.source(file)
-        system = self._frames.format.read(source, position, **self.__options)
+        system = self._frames.formats[file].read(source, position, **self.__options)
         if self.__topology is not None:
             system = _with_topology(system, self.__topology, source.name)
         return system
@@ -254,6 +255,19 @@ def _paths(path: Any) -> tuple[str, list[str]]:
     if not files:
         raise InvalidParameter("give at least one file")
     return files[0], files
+
+
+def _formats(paths: list[str], format: str | None) -> list[Format]:
+    """The format of each file: the one given or that of its name, or the first
+    file's when a name tells nothing."""
+    first = _format(paths[0], format, "read")
+    found = [first]
+    for path in paths[1:]:
+        try:
+            found.append(first if format is not None else _format(path, None, "read"))
+        except UnsupportedFormat:
+            found.append(first)
+    return found
 
 
 def _with_topology(frame: System, topology: System, name: str) -> System:
@@ -322,8 +336,9 @@ def read_trajectory(
         names; or files in order. The frames of each file follow those of
         the file before.
     format : str, optional
-        Format name; by default it is found from the name of the first file
-        with :func:`detect_format`.
+        Format name for every file; by default that of the name of each file,
+        with :func:`detect_format`, or of the first file when a name tells
+        nothing.
     topology : System, optional
         A system, such as one read from a LAMMPS data file, whose atoms the
         frames move: each frame gets its atoms, matched by id, in their
@@ -352,5 +367,6 @@ def read_trajectory(
         the numbers of atoms differ.
     """
     name, paths = _paths(path)
-    found = _format(paths[0], format, "read")
-    return Trajectory(_Frames(name, paths, found), options, None, topology)
+    return Trajectory(
+        _Frames(name, paths, _formats(paths, format)), options, None, topology
+    )

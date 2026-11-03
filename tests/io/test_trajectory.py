@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 import mdapy
+from mdapy.build import build_crystal
 from mdapy.errors import FileFormatError, InvalidParameter, UnsupportedFormat
 from mdapy.io import _native
 
@@ -361,3 +362,33 @@ def test_frames_through_a_function(tmp_path):
     assert "shifted" in repr(mapped)
     with pytest.raises(IndexError):
         mapped[6]
+
+
+def test_files_of_several_formats(tmp_path):
+    copper = build_crystal("fcc", 3.6, elements="Cu", repeat=(2, 2, 2))
+    iron = build_crystal("bcc", 2.9, elements="Fe", repeat=(3, 3, 3))
+    mdapy.write(tmp_path / "a.xyz", [copper, copper])
+    mdapy.write(tmp_path / "b.data", iron)
+    mdapy.write(tmp_path / "c.xyz", copper)
+    names = [tmp_path / name for name in ("a.xyz", "b.data", "c.xyz")]
+    frames = mdapy.read_trajectory(names)
+    assert frames.format == "extxyz"
+    assert [len(frame) for frame in frames] == [32, 32, 54, 32]
+    # backwards and in slices too, each from the format of its file
+    assert [len(frames[k]) for k in (3, 2, 1, 0)] == [32, 54, 32, 32]
+    assert [len(frame) for frame in frames[1:3]] == [32, 54]
+
+
+def test_a_format_given_or_a_name_of_no_format(tmp_path):
+    copper = build_crystal("fcc", 3.6, elements="Cu", repeat=(2, 2, 2))
+    mdapy.write(tmp_path / "a.xyz", copper)
+    mdapy.write(tmp_path / "b.data", copper)
+    mdapy.write(tmp_path / "c.xyz", copper)
+    (tmp_path / "c.xyz").rename(tmp_path / "copy_of_c")
+    # a name that tells nothing is read as the first file
+    frames = mdapy.read_trajectory([tmp_path / "a.xyz", tmp_path / "copy_of_c"])
+    assert [len(frame) for frame in frames] == [32, 32]
+    # a format given is for every file, as it says
+    frames = mdapy.read_trajectory([tmp_path / "a.xyz", tmp_path / "b.data"], "extxyz")
+    with pytest.raises(FileFormatError, match="b.data"):
+        list(frames)

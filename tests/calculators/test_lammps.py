@@ -252,5 +252,7 @@ def test_kokkos_shuts_down_at_exit(tmp_path):
     done = subprocess.run(
         [sys.executable, "-c", script], capture_output=True, text=True
     )
+    if "GPU-enabled backend" in done.stderr + done.stdout:
+        pytest.skip("LAMMPS with Kokkos for GPUs; the test runs it on threads")
     assert done.returncode == 0, done.stderr
     assert float(done.stdout) < 0

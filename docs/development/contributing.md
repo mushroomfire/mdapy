@@ -118,6 +118,69 @@ Coverage thresholds:
 pytest --cov --cov-report=term
 ```
 
+### What a complete run needs
+
+`pip install -e ".[dev]"` gives everything a plain `pytest` needs: the test
+tools, [matplotlib](https://matplotlib.org), [ASE](https://ase-lib.org) and
+[spglib](https://spglib.readthedocs.io). A test that needs more is skipped
+where it is missing, so a plain run passes on any machine; `pytest -rs` lists
+the skipped tests and why. A complete run needs the following.
+
+```bash
+pip install -e ".[dev]"
+pip install ovito==3.17.1 freud-analysis==3.6.1 phonopy==4.8.6 seekpath==2.2.2 \
+    dscribe==2.1.2 pymatgen-core networkx torch torchnep
+```
+
+| Package | Tested with it |
+|---|---|
+| [OVITO](https://www.ovito.org) | structure analyses, colors and pictures, against OVITO |
+| [freud](https://freud.readthedocs.io) | analyses and conversions, against freud |
+| [phonopy](https://phonopy.github.io/phonopy) | phonons, against phonopy |
+| [seekpath](https://seekpath.readthedocs.io) | band paths from the symmetry |
+| [DScribe](https://singroup.github.io/dscribe) | SOAP descriptors, against DScribe |
+| [pymatgen](https://pymatgen.org) | conversions to and from it |
+| [NetworkX](https://networkx.org) | rings, against a brute-force search |
+| [torchnep](https://github.com/mushroomfire/torchnep), with [PyTorch](https://pytorch.org) | the files of training and of predictions |
+
+[LAMMPS](https://www.lammps.org) stable_30Sep2026 is built from source, with
+its Python module installed from the wheel that the build leaves:
+
+```bash
+git clone --depth 1 --branch stable_30Sep2026 https://github.com/lammps/lammps.git
+cmake -S lammps/cmake -B lammps-build -D CMAKE_BUILD_TYPE=Release \
+    -D BUILD_SHARED_LIBS=on -D BUILD_MPI=no -D BUILD_OMP=no \
+    -D PKG_MANYBODY=on -D PKG_MOLECULE=on -D PKG_EXTRA-COMPUTE=on \
+    -D PKG_VORONOI=on -D DOWNLOAD_VORO=on -D PKG_PHONON=on \
+    -D PKG_KOKKOS=on -D Kokkos_ENABLE_SERIAL=on -D Kokkos_ENABLE_THREADS=on \
+    -D Python_EXECUTABLE="$(which python)"
+cmake --build lammps-build -j 4
+cmake --build lammps-build --target install-python
+pip install lammps-build/lammps-*.whl
+```
+
+| LAMMPS package | Tested with it |
+|---|---|
+| `MANYBODY` | the EAM potentials of the tests |
+| `MOLECULE` | molecular files |
+| `EXTRA-COMPUTE` | bond angles, the entropy fingerprint and Ackland-Jones |
+| `VORONOI` | the Voronoi analysis |
+| `PHONON` | dynamical matrices |
+| `KOKKOS` on the CPU | the shutdown of Kokkos at exit; a build of it for GPUs skips this test |
+
+The rest are programs and conditions of the machine:
+
+| Needs | Tested with it |
+|---|---|
+| [Atomsk](https://atomsk.univ-lille.fr) Beta 0.13.1 on the `PATH` | the structure builder, against Atomsk |
+| [FFmpeg](https://ffmpeg.org) on the `PATH` | movies |
+| a GPU | pictures on the GPU; ray tracing needs a GPU with ray tracing units |
+| `glslc` of the shaderc version named in `render_vulkan.comp` | the compiled shader of Linux |
+| `dxc` of the Windows SDK named in `render_d3d12.hlsl` | the compiled shader of Windows |
+| the test data of [torchnep](https://github.com/mushroomfire/torchnep), beside this repository or at `MDAPY_TORCHNEP_DATA` | NEP against its reference values |
+| Python 3.14 | files compressed with zstd |
+| a German or French locale | numbers under a locale with a decimal comma |
+
 ## Compiled code
 
 - C++17. All compiled code goes into the single extension module

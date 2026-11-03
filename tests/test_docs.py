@@ -22,6 +22,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import conftest
 import pytest
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
@@ -51,6 +52,29 @@ IN_REPOSITORY = re.compile(
     r"https://(?:raw\.githubusercontent\.com/mushroomfire/mdapy"
     r"|github\.com/mushroomfire/mdapy/blob)/(?:v2|master)/([\w./-]+)"
 )
+
+
+def test_the_page_for_contributors_names_what_the_tests_need():
+    page = (DOCS / "development" / "contributing.md").read_text(encoding="utf-8")
+    needed = set()
+    for test in (DOCS.parent / "tests").rglob("*.py"):
+        needed |= set(
+            re.findall(r'importorskip\(\s*"(\w+)', test.read_text(encoding="utf-8"))
+        )
+    assert not {name for name in needed if name not in page.lower()}
+    workflow = (DOCS.parent / ".github" / "workflows" / "tests.yml").read_text()
+    packages = re.search(r"missing = \{(.*?)\}", workflow)[1]
+    for package in re.findall(r"'([\w-]+)'", packages):
+        assert f"`{package}`" in page and f"PKG_{package}=on" in page
+
+
+def test_a_lammps_without_a_package_is_recognized():
+    error = Exception(
+        "Unrecognized compute style 'adf' is part of the EXTRA-COMPUTE package "
+        "which is not enabled in this LAMMPS binary."
+    )
+    assert conftest.lammps_package_missing(error) == "EXTRA-COMPUTE"
+    assert conftest.lammps_package_missing(Exception("an atom is lost")) is None
 
 
 def test_pages_with_examples_are_found():

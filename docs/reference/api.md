@@ -345,6 +345,10 @@ import mdapy as mp
 
 ::: mdapy.lattice_dynamics.ElasticResult
 
+::: mdapy.lattice_dynamics.thermal_phonons
+
+::: mdapy.lattice_dynamics.phonons_from_frames
+
 ## Interoperability
 
 ::: mdapy.interop.to_ase

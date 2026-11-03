@@ -207,6 +207,7 @@ nav:
       - Lattice dynamics:
           - Elastic constants: simulation/elastic-constants.md
           - Phonons: simulation/phonons.md
+          - Phonons at finite temperature: simulation/thermal-phonons.md
           - Quasi-harmonic approximation: simulation/quasi-harmonic.md
           - Elastic constants at finite temperature: simulation/thermal-elastic.md
           - Elastic constants from molecular dynamics: simulation/md-elastic.md

@@ -273,16 +273,17 @@ def slip(
         raise InvalidParameter("displacement must lie in the plane")
     height = 0.5 if height is None else float(height)
     fractional = box.to_fractional(system["positions"])[:, k]
-    above = (
-        fractional - np.floor(fractional) >= height
-        if box.pbc[k]
-        else fractional >= height
-    )
     positions = system["positions"].copy()
-    positions[above] += shift
     matrix = box.matrix.copy()
     if box.pbc[k]:
+        # above the plane in the box, once for each box between an atom and its
+        # image there: an atom a rounding error below the bottom of the box stays
+        # where it is, with the image above the plane at the top
+        boxes = np.floor(fractional)
+        positions += ((fractional - boxes >= height) + boxes)[:, None] * shift
         matrix[k] += shift
+    else:
+        positions[fractional >= height] += shift
     moved = system.with_box(Box(matrix, origin=box.origin, pbc=box.pbc))
     return moved.with_columns(positions=positions)
 

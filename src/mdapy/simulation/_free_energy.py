@@ -8,6 +8,7 @@ integration in LAMMPS."""
 
 import math
 import tempfile
+import warnings
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,6 +38,10 @@ _MODEL_SWITCHING = 4
 _EVERY = 10
 # damping time of the Langevin thermostat, in ps
 _DAMPING = 0.1
+# the enthalpy there and back differ by this part of kT when a phase has changed
+_HYSTERESIS = 0.5
+# times a scan is run again, short of where the phase changed
+_RESCANS = 3
 # below this mean square displacement in Å², over the time of the equilibration,
 # the atoms of a liquid have not moved from their neighbors
 _DIFFUSED = 1.0
@@ -692,6 +697,30 @@ def _scan(
     return grid, enthalpy(there), enthalpy(back)[::-1], volume
 
 
+def _windowed(values: np.ndarray, width: int) -> np.ndarray:
+    """values averaged over a window, shorter at the ends."""
+    kernel = np.ones(width) / width
+    weights = np.convolve(np.ones_like(values), kernel, mode="same")
+    return np.convolve(values, kernel, mode="same") / weights
+
+
+def _phase_change(grid, there, back) -> float | None:
+    """The temperature at which a phase changed on the way there, or None. It
+    did if the enthalpy there and back differ by a good part of kT at some
+    temperature; where, the enthalpy there leaves the line it started on."""
+    width = max(len(grid) // 20, 1)
+    limit = _HYSTERESIS * units.BOLTZMANN * grid
+    if (np.abs(_windowed(there - back, width)) < limit).all():
+        return None
+    smooth = _windowed(there, width)
+    part = max(len(grid) // 4, 2)
+    scaled = (grid - grid[0]) / (grid[-1] - grid[0])
+    line = np.polynomial.polynomial.polyfit(scaled[:part], smooth[:part], 1)
+    gap = np.abs(smooth - np.polynomial.polynomial.polyval(scaled, line))
+    away = np.flatnonzero(gap[part:] > limit[part:])
+    return float(grid[part + away[0]]) if len(away) else float(grid[-1])
+
+
 def _smooth(x: np.ndarray, y: np.ndarray, degree: int = 5) -> np.ndarray:
     """y through a polynomial of x, for the noise of the instant values."""
     scale = (x - x.mean()) / max(np.ptp(x), 1e-12)
@@ -771,14 +800,16 @@ def free_energy(
     -------
     FreeEnergyResult
         The free energy, enthalpy, entropy and volume per atom at each
-        temperature.
+        temperature. A phase that changes on the way, as a crystal melts when
+        it is too hot, leaves out the temperatures from there on, with a
+        warning.
 
     Raises
     ------
     InvalidParameter
         For invalid options, a box not periodic in every direction, a hybrid
-        pair style for a liquid, a liquid that does not move as one, or if
-        LAMMPS fails.
+        pair style for a liquid, a liquid that does not move as one, a phase
+        that changes in every scan, or if LAMMPS fails.
     MissingProperty
         If the system has no ``element`` column.
     Cancelled
@@ -828,7 +859,7 @@ def free_energy(
             4 * equilibrium + (2 + 2 * _MODEL_SWITCHING) * switch
         )
     if moved:
-        total += 2 * (equilibrium + scanning)
+        total += 2 * (equilibrium + scanning)  # more if the phase changes on the way
     counter = _Progress(total, progress, cancel)
 
     if phase == "solid":
@@ -914,20 +945,40 @@ def free_energy(
         )
 
     last = float(wanted[-1])
-    grid, there, back, volumes = _scan(
-        crystal,
-        potential,
-        first,
-        last,
-        pressure,
-        barostat,
-        2 * first if phase == "solid" else first,
-        timestep,
-        equilibrium,
-        scanning,
-        seed + 2 * repeats + 3,
-        counter,
-    )
+    for attempt in range(_RESCANS + 1):
+        grid, there, back, volumes = _scan(
+            crystal,
+            potential,
+            first,
+            last,
+            pressure,
+            barostat,
+            2 * first if phase == "solid" else first,
+            timestep,
+            equilibrium,
+            scanning,
+            seed + 2 * repeats + 3 + attempt,
+            counter,
+        )
+        changed = _phase_change(grid, there, back)
+        if changed is None:
+            break
+        if attempt == _RESCANS:
+            raise InvalidParameter(
+                f"the {phase} changes phase near {changed:.0f} K in every scan from "
+                f"{first:g} K: choose other temperatures"
+            )
+        # short of it by a tenth of the way
+        last = changed - 0.1 * (changed - first)
+    inside = (wanted - first) * (last - first) >= 0
+    inside &= np.abs(wanted - first) <= abs(last - first)
+    if not inside.all():
+        warnings.warn(
+            f"the {phase} changes phase beyond {last:.0f} K in a scan of {scan:g} ps: "
+            f"the temperatures beyond are left out",
+            stacklevel=2,
+        )
+        wanted = wanted[inside]
     # the free energy over the temperature changes by the integral of the
     # enthalpy over the temperature squared
     mean = 0.5 * (there + back)

@@ -126,6 +126,34 @@ def test_following_the_temperature_agrees_with_starting_there(argon):
     assert scan.temperatures.tolist() == [20.0, 40.0, 60.0]
 
 
+def test_where_a_scan_changes_phase():
+    grid = np.linspace(1000.0, 2000.0, 2001)
+    kt = units.BOLTZMANN * 1000.0
+    there = 1e-4 * grid  # nearly level: only the step leaves the line
+    # nothing happens, whatever the noise
+    rng = np.random.default_rng(1)
+    noisy = there + rng.normal(0, 0.05 * kt, len(grid))
+    assert module._phase_change(grid, noisy, there) is None
+    # it melts at 1500 K, and stays melted on the way back
+    melting = there + np.where(grid > 1500, 0.2, 0.0)
+    assert module._phase_change(grid, melting, there + 0.2) == pytest.approx(
+        1500, abs=25
+    )
+    # a difference of the two ways, but no step on the way there
+    assert module._phase_change(grid, there, there + 0.2) == grid[-1]
+
+
+def test_a_scan_past_melting_leaves_the_rest_out(argon):
+    """A crystal heated far above its melting point, in the scan."""
+    potential = lennard_jones()
+    with pytest.warns(UserWarning, match="left out"):
+        result = free_energy(
+            argon, potential, [40.0, 60.0, 400.0], **dict(FAST, scan=20.0)
+        )
+    assert result.temperatures.tolist() == [40.0, 60.0]
+    assert len(result.free_energy) == 2 and (result.dissipation < 0.01).all()
+
+
 def test_mixing_adds_the_ideal_entropy(argon):
     kinds = np.array(["Ar", "Kr"])[np.arange(len(argon)) % 2]
     alloy = argon.with_columns(element=kinds)

@@ -252,6 +252,12 @@ analysis of disordered particulate matter, *J. Chem. Phys.* **138**, 044501
 [doi:10.1063/1.4774084](https://doi.org/10.1063/1.4774084)
 { #mickel2013 }
 
+**Morris et al. (1994).** J. R. Morris, C. Z. Wang, K. M. Ho and C. T. Chan, Melting
+line of aluminum from simulations of coexisting phases, *Phys. Rev. B* **49**, 3109
+(1994).
+[doi:10.1103/PhysRevB.49.3109](https://doi.org/10.1103/PhysRevB.49.3109)
+{ #morris1994 }
+
 **Nguyen and Molinero (2015).** A. H. Nguyen and V. Molinero,
 Identification of clathrate hydrates, hexagonal ice, cubic ice, and liquid
 water in simulations: the CHILL+ algorithm, *J. Phys. Chem. B* **119**, 9369

@@ -345,6 +345,12 @@ import mdapy as mp
 
 ::: mdapy.simulation.PhaseCoexistence
 
+::: mdapy.simulation.melting_point
+
+::: mdapy.simulation.MeltingPointResult
+
+::: mdapy.simulation.MeltingAttempt
+
 ## Lattice dynamics
 
 ::: mdapy.lattice_dynamics.elastic_constants

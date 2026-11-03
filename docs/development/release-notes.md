@@ -167,6 +167,9 @@ and it has a new logo.
   molecular dynamics in LAMMPS, by switching to springs or to the Uhlenbeck-Ford model
   and following the enthalpy to other temperatures; `crossing` gives where two phases
   meet. See [Free energy](../simulation/free-energy.md).
+- `mdapy.simulation.melting_point`: the melting point from a first guess, by the
+  two-phase method. `MolecularDynamics.run` takes the ensemble `"nph"`. See
+  [Melting point](../simulation/melting-point.md).
 - `mdapy.lattice_dynamics.elastic_constants`: the (6, 6) elastic constants
   from the stress under small strains, with relaxed positions, and Voigt,
   Reuss and Hill moduli. See [Elastic constants](../simulation/elastic-constants.md).

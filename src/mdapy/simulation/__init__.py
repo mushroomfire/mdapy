@@ -20,10 +20,17 @@ from mdapy.simulation._free_energy import (
     PhaseCoexistence,
     free_energy,
 )
+from mdapy.simulation._melting import (
+    MeltingAttempt,
+    MeltingPointResult,
+    melting_point,
+)
 from mdapy.simulation._minimize import MinimizeResult, minimize
 
 __all__ = [
     "FreeEnergyResult",
+    "MeltingAttempt",
+    "MeltingPointResult",
     "MinimizeResult",
     "MolecularDynamics",
     "PhaseCoexistence",
@@ -31,6 +38,7 @@ __all__ = [
     "SurfaceResult",
     "VacancyResult",
     "free_energy",
+    "melting_point",
     "minimize",
     "stacking_fault_energy",
     "surface_energy",

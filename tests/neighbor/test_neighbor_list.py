@@ -894,6 +894,26 @@ def test_one_atom_that_flew_off_does_not_slow_the_search():
     assert nl.counts[0] == 0
 
 
+def test_atoms_in_a_tiny_part_of_their_space_are_refused():
+    # a few cells hold them all: minutes for a million atoms, hours beyond
+    n = 1_000_000
+    side = (n / 0.085) ** (1 / 3)
+    group = np.random.default_rng(4).random((n, 3)) * side
+    half = group[: n // 2] * 0.8
+    message = "tiny part of the space"
+    for far in (1e4, 1e6):
+        apart = np.vstack([half, half + far])
+        with pytest.raises(InvalidParameter, match=message):
+            NeighborList.build(mdapy.System(apart, elements="Cu"), 5.0)
+        huge_box = mdapy.System(group + far / 2, mdapy.Box(far), elements="Cu")
+        with pytest.raises(InvalidParameter, match=message):
+            NeighborList.build(huge_box, 5.0)
+    # the same atoms together, without or with periods, are no trouble
+    assert len(NeighborList.build(mdapy.System(group, elements="Cu"), 3.0)) > 0
+    box = mdapy.Box(side)
+    assert len(NeighborList.build(mdapy.System(group, box, elements="Cu"), 3.0)) > 0
+
+
 def test_positions_out_of_reach_are_an_invalid_parameter():
     rng = np.random.default_rng(1)
     system = mdapy.System(rng.random((20, 3)) * 1e15, mdapy.Box(20.0), elements="Cu")

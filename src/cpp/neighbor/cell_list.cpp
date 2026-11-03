@@ -27,6 +27,12 @@ constexpr double kCellsPerCutoff = 2.0;
 constexpr std::int64_t kMostCells = std::int64_t{1} << 30;
 constexpr std::int64_t kBodySample = 4096;  // atoms that give the body of a system
 
+// Most distances to compare, and most for each atom, in cells wider than the
+// search needs: the first is about a minute on sixteen cores, and it grows as
+// the square of the atoms; below the second, atoms are just many.
+constexpr double kMostCompared = 1e11;
+constexpr double kMostComparedByAtom = 1e3;
+
 struct Extent {
     double low[3];
     double high[3];
@@ -138,6 +144,7 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
                    static_cast<double>(axes_[2].cells) >
                static_cast<double>(8 * n + 64);
     };
+    const bool coarsened = too_many();
     while (too_many()) {
         Axis& widest = *std::max_element(std::begin(axes_), std::end(axes_),
                                          [](const Axis& u, const Axis& v) { return u.cells < v.cells; });
@@ -239,6 +246,44 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
             }
         }
     });
+
+    // Atoms in a tiny part of the space they span share a few wide cells, and
+    // nearly all the distances compared there are beyond the cutoff. Some atoms
+    // tell how many: as the search does, each reads the cells within reach.
+    if (coarsened) {
+        const std::int64_t count = std::min<std::int64_t>(n, kBodySample);
+        double read = 0.0;
+        for (std::int64_t k = 0; k < count; ++k) {
+            const std::int64_t t = k * n / count;
+            for (std::int64_t dz = -axes_[2].reach; dz <= axes_[2].reach; ++dz) {
+                for (std::int64_t dy = -axes_[1].reach; dy <= axes_[1].reach; ++dy) {
+                    for (std::int64_t dx = -axes_[0].reach; dx <= axes_[0].reach; ++dx) {
+                        const std::int64_t step[3] = {dx, dy, dz};
+                        std::int64_t c = 0;
+                        bool inside = true;
+                        for (int d = 2; d >= 0 && inside; --d) {
+                            const Axis& axis = axes_[d];
+                            std::int64_t cell = slot_cells_[3 * t + d] + step[d];
+                            if (axis.periodic) {
+                                cell -= wrap_shift(cell, axis.cells) * axis.cells;
+                            }
+                            inside = cell >= 0 && cell < axis.cells;
+                            c = c * axis.cells + cell;
+                        }
+                        if (inside) {
+                            read += static_cast<double>(cell_start_[c + 1] - cell_start_[c]);
+                        }
+                    }
+                }
+            }
+        }
+        const double by_atom = read / static_cast<double>(std::max<std::int64_t>(count, 1));
+        if (by_atom > kMostComparedByAtom && by_atom * static_cast<double>(n) > kMostCompared) {
+            throw InvalidInput(
+                "the atoms fill a tiny part of the space they span, and the neighbor search would "
+                "take too long: analyze each group of atoms on its own, or use a smaller box");
+        }
+    }
 
     // Every term of a distance stays below this size, the images searched
     // being at most a few box lengths away.

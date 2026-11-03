@@ -102,7 +102,9 @@ and it has a new logo.
   ordered exactly with ties by atom and image, and results are the same for
   any number of threads. A k-d tree finds nearest neighbors in clusters and
   slabs as fast as in crystals. A list serves every system with the same
-  positions in the same box (`fits`), so it outlives `with_columns`.
+  positions in the same box (`fits`), so it outlives `with_columns`. A system
+  whose atoms fill a tiny part of the space they span, which would take hours,
+  is refused with an error.
   See [Neighbor lists](../getting-started/neighbor.md).
 - `mdapy.neighbor.expand_selection`: a selection grown by the atoms within a
   cutoff, the nearest neighbors or the bonded atoms of the selected ones,

@@ -61,7 +61,11 @@ each as its own pair; a single atom in a small periodic cell has a full list.
 - a system without periodic directions has `num_neighbors` atoms or fewer;
 - a pair is more than 127 boxes away, which comes from positions far outside
   the box, such as unwrapped coordinates after a long diffusion; wrap them
-  into the box first with [`Box.wrap`](box.md).
+  into the box first with [`Box.wrap`](box.md);
+- the atoms fill a tiny part of the space they span, so that the search would
+  take too long, such as a million atoms in groups more than a micrometer
+  apart along every direction, or in one group in a periodic box wider than a
+  micrometer. Analyze each group on its own, or use a smaller box.
 
 ## Contents
 

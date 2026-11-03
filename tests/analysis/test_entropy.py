@@ -108,3 +108,9 @@ def test_invalid_options(arguments, message):
         EntropyFingerprint(*arguments)
     with pytest.raises(InvalidParameter, match="average_cutoff must be positive"):
         EntropyFingerprint(5.0, average_cutoff=-1.0)
+
+
+@pytest.mark.parametrize("sigma", [1e-9, 1e-300])
+def test_a_sigma_too_small_for_the_cutoff(sigma):
+    with pytest.raises(InvalidParameter, match="too small"):
+        EntropyFingerprint(3.0, sigma=sigma)

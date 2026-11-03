@@ -134,3 +134,13 @@ def test_perturb():
     ]:
         with pytest.raises(InvalidParameter, match=message):
             perturb(crystal, **arguments)
+
+
+@pytest.mark.parametrize(
+    "select", [principal_components, lambda p: farthest_point_sampling(p, 2)]
+)
+def test_points_that_are_not_finite(select):
+    points = np.ones((5, 3))
+    points[2, 1] = np.nan
+    with pytest.raises(InvalidParameter, match="finite"):
+        select(points)

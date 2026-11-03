@@ -89,6 +89,30 @@ STYLES: dict[str, dict[str, Any]] = {
     },
 }
 
+_MOST_PIXELS = 1 << 20  # along each side of a picture
+_FINITE_SETTINGS = (
+    "ambient",
+    "diffuse",
+    "specular",
+    "shininess",
+    "metalness",
+    "fill_intensity",
+    "ao_strength",
+    "shadow_strength",
+    "outline_width",
+    "outline_depth",
+    "fog",
+    "light_size",
+    "base_light",
+)
+
+
+def _direction(value: ArrayLike) -> bool:
+    """Whether three numbers give a direction: finite, and not all zero."""
+    vector = np.asarray(value, dtype=float)
+    return vector.shape == (3,) and np.isfinite(vector).all() and vector.any()
+
+
 _DEFAULTS = {
     "ambient": 0.35,
     "diffuse": 0.75,
@@ -515,6 +539,10 @@ class Scene:
             raise InvalidParameter(
                 f"{name} must have shape {expected}, not {array.shape}"
             )
+        if not np.isfinite(array).all():
+            raise InvalidParameter(f"{name} must be finite")
+        if name == "radii" and (array < 0).any():
+            raise InvalidParameter("radii must not be negative")
         return np.array(array, dtype=float)
 
     def add_spheres(
@@ -542,6 +570,8 @@ class Scene:
         """
         c = np.asarray(centers, dtype=float).reshape(-1, 3)
         n = len(c)
+        if not np.isfinite(c).all():
+            raise InvalidParameter("the centers of spheres must be finite")
         self.__spheres.append(
             (
                 c,
@@ -843,6 +873,12 @@ class Scene:
             raise InvalidParameter(f"unknown options {sorted(unknown)}")
         if width < 1 or height < 1:
             raise InvalidParameter("width and height must be positive")
+        if width > _MOST_PIXELS or height > _MOST_PIXELS:
+            raise InvalidParameter(f"width and height must be at most {_MOST_PIXELS}")
+        if not (np.isfinite(zoom) and zoom > 0):
+            raise InvalidParameter(f"zoom must be positive, not {zoom!r}")
+        if perspective and not 0 < fov < 180:
+            raise InvalidParameter(f"fov must be between 0 and 180, not {fov!r}")
         if focus is not None:
             focus = np.asarray(focus, dtype=float)
             if focus.shape != (3,) or not np.isfinite(focus).all():
@@ -865,14 +901,25 @@ class Scene:
         if gpu and not gpu_available():
             raise InvalidParameter("there is no GPU to trace pictures on")
         settings = dict(_DEFAULTS) | STYLES[style] | options
-        if int(settings["samples"]) < 1:
-            raise InvalidParameter(
-                f"samples must be at least 1, not {settings['samples']!r}"
-            )
-        if int(settings["bounces"]) < 0:
-            raise InvalidParameter(
-                f"bounces must be at least 0, not {settings['bounces']!r}"
-            )
+        for name, least in (
+            ("samples", 1),
+            ("supersample", 1),
+            ("bounces", 0),
+            ("ao_samples", 0),
+            ("toon_levels", 0),
+        ):
+            if int(settings[name]) < least:
+                raise InvalidParameter(
+                    f"{name} must be at least {least}, not {settings[name]!r}"
+                )
+        for name in _FINITE_SETTINGS:
+            if settings[name] is not None and not np.isfinite(settings[name]):
+                raise InvalidParameter(f"{name} must be finite, not {settings[name]!r}")
+        for name in ("key", "fill", "highlight"):
+            if settings[name] is not None and not _direction(settings[name]):
+                raise InvalidParameter(
+                    f"{name} must be a direction, not {settings[name]!r}"
+                )
         if isinstance(view, str):
             if view not in VIEWS:
                 raise InvalidParameter(
@@ -884,6 +931,10 @@ class Scene:
                 np.asarray(view, dtype=float),
                 np.array([0.0, 0.0, 1.0]),
             )
+            if not _direction(forward):
+                raise InvalidParameter(f"view must be a direction, not {view!r}")
+        if up is not None and not _direction(up):
+            raise InvalidParameter(f"up must be a direction, not {up!r}")
         forward = forward / np.linalg.norm(forward)
         up_vector = default_up if up is None else np.asarray(up, dtype=float)
         if np.linalg.norm(np.cross(forward, up_vector)) < 1e-9:
@@ -942,6 +993,8 @@ class Scene:
         if focal_distance is None:
             focal_distance = max(float((center - camera_at) @ forward), 1e-6)
         srgb = bool(settings["srgb"])
+        if background is not None and not np.isfinite(_color(background)).all():
+            raise InvalidParameter(f"background must be finite, not {background!r}")
         if background is None:
             back = np.array([1.0, 1.0, 1.0, 0.0])
         else:

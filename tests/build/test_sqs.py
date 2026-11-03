@@ -125,3 +125,9 @@ def test_progress_cancel_and_errors():
         _native.sqs_objective(nl.offsets, nl.j, shell, 1, types + 2, 1, np.ones(1))
     with pytest.raises(ValueError, match="shells must be"):
         _native.sqs_objective(nl.offsets, nl.j, shell + 1, 1, types, 1, np.ones(1))
+
+
+def test_no_atoms():
+    system = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0), elements=[])
+    with pytest.raises(InvalidParameter, match="needs atoms"):
+        sqs_alloy(system, {"Cu": 1, "Ni": 1})

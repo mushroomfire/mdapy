@@ -820,3 +820,8 @@ def test_the_table_cannot_be_changed_in_place(change):
     made = System(table=table)
     table.insert_column(0, pl.Series("z", np.zeros(6)))
     assert "z" not in made.table.columns
+
+
+def test_positions_that_are_not_numbers():
+    with pytest.raises(InvalidParameter, match="positions must be numbers"):
+        System("nonsense")

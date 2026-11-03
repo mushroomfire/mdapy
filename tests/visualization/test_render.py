@@ -1323,3 +1323,49 @@ def test_show_image_errors(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "IPython.display", None)
     with pytest.raises(ImportError, match="ipython"):
         show_image(np.zeros((3, 2, 4), dtype=np.uint8))
+
+
+@pytest.mark.parametrize(
+    "options, message",
+    [
+        ({"radius": np.where(np.arange(4) % 2, 1.0, np.nan)}, "radii must be finite"),
+        ({"radius": np.nan}, "radii must be finite"),
+        ({"radius": np.inf}, "radii must be finite"),
+        ({"radius": -1.0}, "radii must not be negative"),
+        ({"radius": np.ones(3)}, "radius must be one number"),
+        ({"box_radius": np.nan}, "radii must be finite"),
+        ({"bond_radius": np.nan, "bonds": 5.0}, "radii must be finite"),
+        ({"zoom": 0}, "zoom"),
+        ({"zoom": np.nan}, "zoom"),
+        ({"zoom": np.inf}, "zoom"),
+        ({"view": (0, 0, 0)}, "view"),
+        ({"view": (np.nan, 0, 0)}, "view"),
+        ({"up": (0, 0, 0)}, "up"),
+        ({"perspective": True, "fov": 0}, "fov"),
+        ({"perspective": True, "fov": 180}, "fov"),
+        ({"width": 2**31}, "at most"),
+        ({"supersample": 0}, "supersample"),
+        ({"ao_samples": -1}, "ao_samples"),
+        ({"toon_levels": -1}, "toon_levels"),
+        ({"fog": np.nan}, "fog"),
+        ({"key": (0, 0, 0)}, "key"),
+        ({"background": (np.nan, 0, 0)}, "background"),
+        ({"atoms": [0.5]}, "mask or indices"),
+        ({"atoms": [9]}, "below 4"),
+        ({"color": np.array(["a"] * 4)}, "must hold numbers"),
+    ],
+)
+def test_parameters_that_make_no_picture(options, message):
+    # a radius of NaN crashed the building of the hierarchy
+    system = mdapy.System(
+        [[1.0, 1, 1], [2, 1, 1], [1, 2, 1], [2, 2, 2]], mdapy.Box(5.0), elements="Cu"
+    )
+    with pytest.raises(InvalidParameter, match=message):
+        render(system, **{"width": 16, "height": 16, **options})
+
+
+def test_a_value_of_nan_still_colors_an_atom():
+    # what a column holds for atoms without a value is no mistake
+    system = mdapy.System([[1.0, 1, 1], [2, 1, 1]], mdapy.Box(5.0), elements="Cu")
+    picture = render(system, color=np.array([np.nan, 1.0]), width=16, height=16)
+    assert np.isfinite(picture).all()

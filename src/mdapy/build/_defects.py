@@ -13,6 +13,7 @@ from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.elements import SYMBOLS
 from mdapy.errors import InvalidParameter
+from mdapy.neighbor._neighbor_list import _run
 
 _AXES = {"x": 0, "y": 1, "z": 2}
 
@@ -191,7 +192,7 @@ def add_interstitials(
             for _ in range(attempts):
                 candidate = box.to_cartesian(rng.random((1, 3)))
                 if tree is not None:
-                    _, _, d = tree.nearest(np.ascontiguousarray(candidate), 1)
+                    _, _, d = _run(tree.nearest, np.ascontiguousarray(candidate), 1)
                     if d[0, 0] < min_distance:
                         continue
                 if found:

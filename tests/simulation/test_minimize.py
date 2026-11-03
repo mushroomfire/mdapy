@@ -8,7 +8,7 @@ import pytest
 
 import mdapy
 from mdapy.calculators import EAM
-from mdapy.errors import InvalidParameter
+from mdapy.errors import CalculationFailed, InvalidParameter
 from mdapy.simulation import minimize
 
 from calculators.eam_files import alloy, write_setfl
@@ -413,3 +413,10 @@ def test_cell_options(potential):
     plain = minimize(copper(3.3), NoVirial(), max_steps=2, save_every=1)
     assert plain.stress is None
     assert all("stress" not in frame.info for frame in plain.frames)
+
+
+def test_atoms_that_overlap_are_named_as_the_cause():
+    positions = [[1.0, 1, 1], [1.0, 1, 1], [3.0, 1, 1]]
+    system = mdapy.System(positions, mdapy.Box(10.0), elements="Cu")
+    with pytest.raises(CalculationFailed, match="atoms may overlap"):
+        minimize(system, EAM.zhou(["Cu"]))

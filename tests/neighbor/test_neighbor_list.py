@@ -899,3 +899,16 @@ def test_positions_out_of_reach_are_an_invalid_parameter():
     system = mdapy.System(rng.random((20, 3)) * 1e15, mdapy.Box(20.0), elements="Cu")
     with pytest.raises(InvalidParameter, match="within 1e9 box lengths"):
         NeighborList.build(system, 3.0)
+
+
+@pytest.mark.parametrize("cutoff", [1e8, 1e19, 1e30, 1e300])
+def test_a_cutoff_that_reaches_too_many_images(cutoff):
+    # far beyond an integer it gave a list of a few pairs, without a word
+    system = mdapy.System([[0.0, 0, 0], [1, 1, 1]], mdapy.Box(5.0), elements="Cu")
+    with pytest.raises(InvalidParameter, match="too many periodic images"):
+        NeighborList.build(system, cutoff)
+
+
+def test_a_huge_cutoff_without_periods_is_every_pair():
+    system = mdapy.System([[0.0, 0, 0], [1, 1, 1], [3, 0, 0]], elements="Cu")
+    np.testing.assert_array_equal(NeighborList.build(system, 1e30).counts, [2, 2, 2])

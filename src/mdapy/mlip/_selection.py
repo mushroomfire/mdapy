@@ -68,6 +68,8 @@ def principal_components(points: ArrayLike, n: int = 2) -> PrincipalComponents:
     x = np.asarray(points, dtype=float)
     if x.ndim != 2 or len(x) < 2:
         raise InvalidParameter("points must be (M, D) with two points or more")
+    if not np.isfinite(x).all():
+        raise InvalidParameter("points must be finite")
     if not 1 <= n <= x.shape[1]:
         raise InvalidParameter(f"n must be from 1 to {x.shape[1]}, not {n!r}")
     mean = x.mean(axis=0)
@@ -122,6 +124,8 @@ def farthest_point_sampling(
     x = np.asarray(points, dtype=float)
     if x.ndim != 2:
         raise InvalidParameter("points must be (M, D)")
+    if not np.isfinite(x).all():
+        raise InvalidParameter("points must be finite")
     m = len(x)
     if (
         isinstance(count, bool)

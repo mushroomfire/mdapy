@@ -103,8 +103,15 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
     // directions narrower boxes are covered by searching more cells.
     const double search = cutoff * kMargin;
     const auto reach = [&](const Axis& axis, int d) {
-        auto k = static_cast<std::int64_t>(std::ceil(search / (axis.width * frame_.thickness[d])));
-        return axis.periodic ? k : std::min(k, axis.cells - 1);
+        const double k = std::ceil(search / (axis.width * frame_.thickness[d]));
+        if (!axis.periodic) {
+            return static_cast<std::int64_t>(std::min(k, static_cast<double>(axis.cells - 1)));
+        }
+        // beyond this no search ends, and the number need not fit an integer
+        if (!(k < 1e6)) {
+            throw InvalidInput("the cutoff reaches too many periodic images of the box");
+        }
+        return static_cast<std::int64_t>(k);
     };
     for (int d = 0; d < 3; ++d) {
         Axis& axis = axes_[d];

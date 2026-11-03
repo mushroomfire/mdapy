@@ -153,3 +153,10 @@ def test_vacuum():
     assert side.box.matrix[0, 0] == pytest.approx(10.8 + 5.0)
     with pytest.raises(InvalidParameter, match="must not be negative"):
         add_vacuum(crystal, -1.0)
+
+
+def test_interstitials_among_atoms_far_outside_the_box():
+    rng = np.random.default_rng(1)
+    system = mdapy.System(rng.random((20, 3)) * 1e6, mdapy.Box(20.0), elements="Cu")
+    with pytest.raises(InvalidParameter, match="int8 range"):
+        add_interstitials(system, "Cu", 1, seed=1)

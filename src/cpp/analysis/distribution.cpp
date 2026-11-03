@@ -9,6 +9,7 @@
 #include <cmath>
 #include <utility>
 
+#include "core/parallel.h"
 #include "neighbor/cell_list.h"
 
 namespace mdapy::analysis {
@@ -144,11 +145,22 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
         b[i][1] = kTwoPi * (u[2] * w[0] - u[0] * w[2]) / det;
         b[i][2] = kTwoPi * (u[0] * w[1] - u[1] * w[0]) / det;
     }
+    // the vectors of a half sphere, some words each, and the indices that reach them
+    constexpr double kMostVectors = 1e9;
+    const char* const too_many =
+        "q_max gives too many wave vectors in this box: use a smaller q_max or the method debye";
+    if (q_max * q_max * q_max * std::fabs(det) / (3.0 * kTwoPi * kTwoPi) > kMostVectors) {
+        throw InvalidInput(too_many);
+    }
     int reach[3];
     for (int i = 0; i < 3; ++i) {
         const double length = std::sqrt(m[3 * i] * m[3 * i] + m[3 * i + 1] * m[3 * i + 1] +
                                         m[3 * i + 2] * m[3 * i + 2]);
-        reach[i] = static_cast<int>(std::ceil(q_max * length / kTwoPi));
+        const double indices = std::ceil(q_max * length / kTwoPi);
+        if (indices > kMostVectors) {
+            throw InvalidInput(too_many);
+        }
+        reach[i] = static_cast<int>(indices);
     }
     // the vectors of the half space: h > 0, or h = 0 and k > 0, or h = k = 0, l > 0
     struct Vector {

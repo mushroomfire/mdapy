@@ -126,6 +126,7 @@ nav:
           - Defect energies of copper: getting-started/tutorials/defect-energies.md
           - A machine-learned potential for CrCoNi: getting-started/tutorials/crconi.md
           - Screening alloys in many processes: getting-started/tutorials/high-throughput.md
+          - A movie that flies through a crystal: getting-started/tutorials/movie.md
           - Sharing neighbor lists: getting-started/tutorials/neighbor-lists.md
   - Analysis:
       - Overview: analysis/overview.md
@@ -218,6 +219,7 @@ nav:
       - Perturbed structures: mlip/perturbation.md
   - Visualization:
       - Rendering: visualization/rendering.md
+      - Movies: visualization/movies.md
       - Coloring atoms: visualization/colors.md
       - Coordination polyhedra: visualization/polyhedra.md
       - Plots: visualization/plots.md

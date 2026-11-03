@@ -537,9 +537,9 @@ and it has a new logo.
   convergence, when sharing neighbor lists pays, what a `System` shares
   and copies, a machine-learned potential for CrCoNi: the phonons of
   Cr, Co and Ni against DFT and the elastic constants of the alloy from 0 to
-  1000 K against measurements, and a high-throughput screen of alloys in many
-  processes with the thread settings it needs. See the Tutorials under Getting
-  started.
+  1000 K against measurements, a high-throughput screen of alloys in many
+  processes with the thread settings it needs, and a movie that flies through a crystal.
+  See the Tutorials under Getting started.
 - Pictures with the examples: the pages of the structure builders and of
   most analyses show what their example makes or finds, drawn by mdapy's
   renderer or plotted with `mdapy.visualization.plot`, from code on the
@@ -576,6 +576,9 @@ and it has a new logo.
   processes with `spawn`. See [Parallelism](../getting-started/parallelism.md#many-processes).
 - `mdapy.CancelToken`, `progress` callbacks and Ctrl-C stop or follow long
   computations.
+- `mdapy.visualization.write_movie` writes pictures as a movie with the FFmpeg of
+  the user, taking them one by one from a generator. See
+  [Movies](../visualization/movies.md).
 - `mdapy.units` defines every physical constant and conversion factor. See
   [Units and conventions](../reference/units.md).
 - `mdapy.errors` defines the exception types. `FileFormatError` reports a

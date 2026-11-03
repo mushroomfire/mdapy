@@ -166,6 +166,7 @@ flowchart TB
     [columnar grains](getting-started/tutorials/columnar-polycrystal.md) ·
     [defect energies of copper](getting-started/tutorials/defect-energies.md) ·
     [screening alloys in many processes](getting-started/tutorials/high-throughput.md) ·
+    [a movie that flies through a crystal](getting-started/tutorials/movie.md) ·
     [sharing neighbor lists](getting-started/tutorials/neighbor-lists.md)
 
 -   :material-chart-bell-curve-cumulative:{ .lg .middle } **Analysis**

@@ -89,7 +89,10 @@ STYLES: dict[str, dict[str, Any]] = {
     },
 }
 
-_MOST_PIXELS = 1 << 20  # along each side of a picture
+# along each side of a picture, and of the subpixels traced for it: 16384 on
+# each side takes about 5 GB, and four times as much at twice the size
+_MOST_PIXELS = 8192
+_MOST_SUBPIXELS = 16384
 _FINITE_SETTINGS = (
     "ambient",
     "diffuse",
@@ -874,7 +877,10 @@ class Scene:
         if width < 1 or height < 1:
             raise InvalidParameter("width and height must be positive")
         if width > _MOST_PIXELS or height > _MOST_PIXELS:
-            raise InvalidParameter(f"width and height must be at most {_MOST_PIXELS}")
+            raise InvalidParameter(
+                f"width and height must be at most {_MOST_PIXELS}, not "
+                f"{width} and {height}: a larger picture can use up the memory"
+            )
         if not (np.isfinite(zoom) and zoom > 0):
             raise InvalidParameter(f"zoom must be positive, not {zoom!r}")
         if perspective and not 0 < fov < 180:
@@ -912,6 +918,13 @@ class Scene:
                 raise InvalidParameter(
                     f"{name} must be at least {least}, not {settings[name]!r}"
                 )
+        subpixels = max(width, height) * int(settings["supersample"])
+        if subpixels > _MOST_SUBPIXELS:
+            raise InvalidParameter(
+                f"a side of {max(width, height)} pixels with supersample "
+                f"{settings['supersample']} traces {subpixels} subpixels, more than "
+                f"{_MOST_SUBPIXELS}: they can use up the memory"
+            )
         for name in _FINITE_SETTINGS:
             if settings[name] is not None and not np.isfinite(settings[name]):
                 raise InvalidParameter(f"{name} must be finite, not {settings[name]!r}")

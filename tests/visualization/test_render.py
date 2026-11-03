@@ -180,6 +180,27 @@ def one_sphere(color=(0.2, 0.6, 0.9), **options):
     return scene.render(width=200, height=200, view="top", **options)
 
 
+@pytest.mark.parametrize(
+    "size, options",
+    [
+        ({"width": 8193, "height": 1}, {}),
+        ({"width": 1, "height": 8193}, {}),
+        ({"width": 8192, "height": 1}, {"supersample": 3}),
+        ({"width": 5000, "height": 6000}, {"supersample": 3}),
+    ],
+)
+def test_a_picture_that_could_use_up_the_memory_is_refused(size, options):
+    with pytest.raises(InvalidParameter, match="at most 8192|more than 16384"):
+        Scene().render(**size, style="flat", **options)
+
+
+def test_the_largest_picture_is_drawn():
+    scene = Scene()
+    scene.add_spheres([[0.0, 0, 0]], 1.0, (0.2, 0.6, 0.9))
+    image = scene.render(width=8192, height=2, style="flat", supersample=2)
+    assert image.shape == (2, 8192, 4)
+
+
 def test_silhouette_and_flat_color():
     image = one_sphere(style="flat", outline_width=0.0, background=None, zoom=0.5)
     # framed with 4 % to spare and zoomed out twice: the sphere spans a

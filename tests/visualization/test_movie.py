@@ -132,3 +132,12 @@ def test_a_real_movie_of_odd_size(tmp_path):
         fps=5,
     )
     assert out.read_bytes()[4:8] == b"ftyp"
+
+
+def test_a_movie_too_large_for_h264_is_refused_before_ffmpeg(stand_in, tmp_path):
+    out = tmp_path / "large.mp4"
+    with pytest.raises(InvalidParameter, match="at most 8192 x 4320"):
+        write_movie(out, [picture(3, 4322, 8192)])
+    assert not out.exists()
+    write_movie(out, [picture(3, 4320, 8192)])
+    assert json.loads(out.read_text())["bytes"] == 4320 * 8192 * 3

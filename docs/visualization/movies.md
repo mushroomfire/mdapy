@@ -41,8 +41,8 @@ a picture of odd size padded to even sizes for players. Draw the pictures with a
 
 - `FileNotFoundError` when FFmpeg is not on the `PATH`;
 - [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter) when `fps` is
-  not positive, there are no pictures, or a picture is not an image of the size of
-  the first;
+  not positive, there are no pictures, a picture is not an image of the size of the
+  first, or they hold more than 8192 × 4320 pixels, the largest size of H.264;
 - [`CalculationFailed`](../reference/api.md#mdapy.errors.CalculationFailed) when FFmpeg
   fails, with what it says.
 
@@ -56,6 +56,6 @@ with the view as you set it. On macOS and Windows it encodes with the system, wi
 nothing to install; on Linux it needs FFmpeg as above. A camera that moves, or colors
 that change on the way, are the work of a script like the one in the tutorial.
 
-Pictures in the application are at most 8192 pixels on a side, where a square one takes
-about 7 GB of memory, and movies at most 8192 × 4320 pixels, the largest size of H.264.
-`render` and `write_movie` have no such limit in a script.
+Pictures are at most 8192 pixels on a side, as with
+[`render`](rendering.md#errors), and movies at most 8192 × 4320 pixels. Above that, the
+application tells so before it draws anything.

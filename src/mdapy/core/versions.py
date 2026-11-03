@@ -17,24 +17,22 @@ import numpy as np
 from mdapy import __version__, _core
 from mdapy.core.threads import get_num_threads
 
-# what MDAPY works with when installed, by the names pip knows them under
+# what the code of MDAPY uses when installed, by the names pip knows them under;
+# numpy and polars are required
 _OPTIONAL = (
     "ase",
     "freud-analysis",
     "lammps",
     "matplotlib",
     "ovito",
-    "phonopy",
     "pymatgen-core",
     "seekpath",
     "spglib",
-    "torch",
-    "torchnep",
 )
 
 
 def _installed(package: str) -> str:
-    # read from the files of the package, as importing torch alone takes seconds
+    # read from the files of the package, as importing one can take seconds
     try:
         return importlib.metadata.version(package)
     except importlib.metadata.PackageNotFoundError:
@@ -42,8 +40,8 @@ def _installed(package: str) -> str:
 
 
 def show_versions(file: TextIO | None = None) -> None:
-    """Print the versions of MDAPY, Python and the packages around them, and
-    the processor, memory and GPU of this machine, to paste into an issue.
+    """Print the versions of MDAPY, Python and the packages MDAPY depends on,
+    and the processor, memory and GPU of this machine, to paste into an issue.
 
     Parameters
     ----------
@@ -73,8 +71,8 @@ def show_versions(file: TextIO | None = None) -> None:
         (
             ("numpy", f"{np.__version__} ({blas})"),
             ("polars", _installed("polars")),
-            *((package, _installed(package)) for package in _OPTIONAL),
         ),
+        tuple((package, _installed(package)) for package in _OPTIONAL),
     )
     text = "\n\n".join(
         "\n".join(f"{name:<15}{value}" for name, value in block) for block in blocks

@@ -17,6 +17,8 @@ import numpy as np
 
 from mdapy.errors import CalculationFailed, InvalidParameter
 
+_MOST_PIXELS = 8192 * 4320
+
 
 def _picture(picture: np.ndarray) -> np.ndarray:
     image = np.ascontiguousarray(picture)
@@ -75,8 +77,8 @@ def write_movie(
     FileNotFoundError
         If FFmpeg is not on the PATH.
     InvalidParameter
-        If ``fps`` is not positive, there are no pictures, or a picture is not
-        an image of the size of the first.
+        If ``fps`` is not positive, there are no pictures, a picture is not an
+        image of the size of the first, or they hold more than 8192 x 4320 pixels.
     CalculationFailed
         If FFmpeg fails, with what it says.
     """
@@ -94,6 +96,11 @@ def write_movie(
             for picture in pictures:
                 image = _picture(picture)
                 if process is None:
+                    if image.shape[0] * image.shape[1] > _MOST_PIXELS:
+                        raise InvalidParameter(
+                            "a movie holds at most 8192 x 4320 pixels, the largest "
+                            f"size of H.264, not {image.shape[1]} x {image.shape[0]}"
+                        )
                     shape = image.shape
                     process = subprocess.Popen(
                         _command(ffmpeg, fspath(path), shape, fps),

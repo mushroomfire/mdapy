@@ -366,10 +366,14 @@ the same for any number of threads.
 ## Errors
 
 They raise `InvalidParameter` for an unknown style, view, colormap, color
-or option, a size that is not positive, a negative aperture or one with an
+or option, a size that is not positive or is above the limits below, a negative aperture or one with an
 orthographic camera, a focal distance that is not positive, arrays of the wrong shape, an
 opacity out of [0, 1], a polygon of fewer than three corners, a negative
 id or an invalid mask of atoms; `Cancelled` when cancelled.
+
+A picture has at most 8192 pixels on a side, and `supersample` times that side
+is at most 16384, as larger pictures can use up the memory: 8192 × 8192 pixels
+with `supersample=2` take about 5 GB, and each doubling of the side four times as much.
 
 ## Definition
 

@@ -567,9 +567,10 @@ and it has a new logo.
   step briefly before they sleep, and a step of a few pieces wakes only as
   many threads, so small systems are not slowed down by many cores. See
   [Parallelism](../getting-started/parallelism.md).
-- `mdapy.show_versions` prints the versions of MDAPY, Python and the packages
-  around it, and the processor, memory and GPU of the machine, to paste into an
-  issue.
+- `mdapy.show_versions` prints the versions of MDAPY, Python and the packages it
+  depends on, and the processor, memory and GPU of the machine, to paste into an
+  issue. The bug report form of the issue tracker asks for it and for the shortest
+  code that shows the problem.
 - `mdapy.set_num_threads`, `mdapy.get_num_threads`, `mdapy.num_threads` and
   the `MDAPY_NUM_THREADS` environment variable control the number of threads.
   The default is the logical CPUs the process may use, so that a job of a
@@ -582,6 +583,9 @@ and it has a new logo.
 - `mdapy.visualization.write_movie` writes pictures as a movie with the FFmpeg of
   the user, taking them one by one from a generator. See
   [Movies](../visualization/movies.md).
+- `render` refuses pictures above 8192 pixels on a side or 16384 subpixels, and
+  `write_movie` movies above 8192 × 4320 pixels, as larger ones can use up the memory
+  or play nowhere.
 - `mdapy.units` defines every physical constant and conversion factor. See
   [Units and conventions](../reference/units.md).
 - `mdapy.errors` defines the exception types. `FileFormatError` reports a

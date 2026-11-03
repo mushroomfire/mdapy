@@ -39,6 +39,13 @@ def test_the_report_tells_the_versions():
     assert rows["Atom indices"] == f"{np.iinfo(mp.index_dtype).bits} bits"
 
 
+def test_the_report_names_every_dependency_of_the_package():
+    rows = report()
+    for requirement in importlib.metadata.requires("mdapy"):
+        if not re.search(r"extra\s*==\s*['\"](dev|docs)['\"]", requirement):
+            assert re.match(r"[\w.-]+", requirement).group() in rows
+
+
 def test_the_report_tells_the_machine():
     rows = report()
     assert rows["Logical CPUs"] == (
@@ -77,18 +84,18 @@ def test_it_prints_to_the_standard_output(capsys):
 def test_it_tells_what_is_missing(monkeypatch):
     real = importlib.metadata.version
 
-    def without_torch(package):
-        if package == "torch":
+    def without_ase(package):
+        if package == "ase":
             raise importlib.metadata.PackageNotFoundError(package)
         return real(package) if package == "polars" else "1.2.3"
 
-    monkeypatch.setattr(importlib.metadata, "version", without_torch)
+    monkeypatch.setattr(importlib.metadata, "version", without_ase)
     monkeypatch.setattr(shutil, "which", lambda name: None)
     monkeypatch.setattr(_core.core, "cpu_name", lambda: "")
     monkeypatch.setattr(_core.core, "memory_bytes", lambda: 0)
     monkeypatch.setattr(_core.visualization, "gpu_device", lambda: "")
     rows = report()
-    assert rows["torch"] == "not installed"
+    assert rows["ase"] == "not installed"
     assert rows["spglib"] == "1.2.3"
     assert rows["FFmpeg"] == "not found"
     assert rows["CPU"] == platform.machine()
@@ -102,10 +109,10 @@ def test_ffmpeg_on_the_path_is_found(monkeypatch):
 
 
 def test_it_imports_nothing_heavy():
-    # the versions come from the files of the packages: importing torch alone
-    # would take seconds, and in a process of a screening fills it with threads
+    # the versions come from the files of the packages: importing them would
+    # take seconds
     code = (
         "import sys; import mdapy; mdapy.show_versions();"
-        "assert not {'torch', 'ovito', 'lammps', 'freud'} & set(sys.modules)"
+        "assert not {'ovito', 'lammps', 'freud', 'matplotlib'} & set(sys.modules)"
     )
     subprocess.run([sys.executable, "-c", code], check=True, capture_output=True)

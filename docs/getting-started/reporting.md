@@ -26,17 +26,15 @@ FFmpeg         not found
 
 numpy          2.5.4 (accelerate)
 polars         2.0.0
+
 ase            3.29.0
 freud-analysis 3.6.1
 lammps         2026.9.30
 matplotlib     3.11.2
 ovito          3.17.1
-phonopy        4.8.6
 pymatgen-core  2026.10.16
 seekpath       2.2.2
-spglib         2.8.0
-torch          not installed
-torchnep       not installed
+spglib         not installed
 ```
 
 ## Parameters
@@ -61,7 +59,9 @@ with open("report.txt", "w") as report:
 | MDAPY threads | How many threads MDAPY is using now ([Parallelism](parallelism.md)). |
 | GPU | The one that traces pictures and how, or `none found` ([Pictures on the GPU](installation.md#pictures-on-the-gpu)). |
 | FFmpeg | Whether [movies](../visualization/movies.md) can be written. |
-| numpy | Its version and, in brackets, the linear algebra library it was built with. |
+| numpy | Its version and, in brackets, the linear algebra library as numpy names it. On conda-forge that is only `blas`, whichever library conda installed. |
+| numpy, polars | What MDAPY requires. |
+| The packages below them | What the code of MDAPY uses when they are installed, each for a feature of its own. |
 
 The versions of the packages are read from their installed files, so nothing is
 imported, and the report takes less than a second.
@@ -72,11 +72,15 @@ imported, and the report takes less than a second.
 viewports above it, and **Copy** puts it on the clipboard. On Linux and Windows
 it is in the menu at the top left of the window.
 
-## What else to write
+## What to write
 
-A report that can be acted on says what was expected and what happened instead,
-and holds:
+The [bug report form](https://github.com/mushroomfire/mdapy/issues/new/choose) of the
+issue tracker asks for what lets a problem be reproduced:
 
-- the full message of the error. In the application a click on an error copies
-  it, and the Log tab has its own Copy button;
-- the shortest script that shows the problem, with a small file if it needs one.
+- what happened, and what you expected;
+- the shortest script that shows the problem and runs as it is, with a structure
+  from [`build_crystal`](../reference/api.md#mdapy.build.build_crystal) if the problem
+  allows it, or else the smallest file that shows it;
+- the full message of the error, all of the traceback. In the application a click
+  on an error copies it, and the Log tab has its own Copy button;
+- the output of `show_versions`.

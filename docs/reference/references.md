@@ -382,6 +382,12 @@ CrCoNi medium-entropy alloys, *Commun. Mater.* **7**, 245 (2026).
 [doi:10.1038/s43246-026-01245-3](https://doi.org/10.1038/s43246-026-01245-3)
 { #wu2026 }
 
+**Wu et al. (2026), TorchNEP.** Y.-C. Wu, X. Chang, T. Mäkinen, A.
+Esfandiarpour, J.-L. Shao, T. Ala-Nissila, Z. Fan and M. Alava, TorchNEP:
+ultra-efficient and accurate training of neuroevolution potentials (2026).
+[arXiv:2606.19557](https://arxiv.org/abs/2606.19557)
+{ #wu2026torchnep }
+
 **Zhou et al. (2002).** Y. Zhou, M. Karplus, K. D. Ball and R. S. Berry,
 The distance fluctuation criterion for melting: Comparison of square-well
 and Morse potential models for clusters and homopolymers, *J. Chem. Phys.*

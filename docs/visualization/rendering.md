@@ -220,9 +220,9 @@ rounding at a few edges. For a million atoms at 1920 × 1080:
 | Apple M5, GPU | 0.3 s | 1.6 s |
 | the same without its ray tracing units | 0.9 s | 2.2 s |
 | Apple M5, processor | 3.9 s | 11.2 s |
-| NVIDIA RTX A2000 | 0.7 s | 1.4 s |
-| the same without its ray tracing units | 1.5 s | 3.4 s |
-| Intel Core i5-12600K, processor | 4.9 s | 14.0 s |
+| NVIDIA RTX A2000 | 0.4 s | 1.0 s |
+| the same without its ray tracing units | 1.2 s | 2.8 s |
+| Intel Core i5-12600K, processor | 4.2 s | 11.8 s |
 | NVIDIA RTX 4060 Laptop | 0.2 s | 0.5 s |
 | the same without its ray tracing units | 0.7 s | 1.5 s |
 | AMD Ryzen 9 7945HX, processor | 2.3 s | 7.4 s |

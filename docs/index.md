@@ -165,6 +165,7 @@ flowchart TB
     Tutorials: [fcc and bcc grains](getting-started/tutorials/two-phase-polycrystal.md) ·
     [columnar grains](getting-started/tutorials/columnar-polycrystal.md) ·
     [defect energies of copper](getting-started/tutorials/defect-energies.md) ·
+    [screening alloys in many processes](getting-started/tutorials/high-throughput.md) ·
     [sharing neighbor lists](getting-started/tutorials/neighbor-lists.md)
 
 -   :material-chart-bell-curve-cumulative:{ .lg .middle } **Analysis**

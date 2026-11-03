@@ -6,7 +6,9 @@
 
 Code blocks of one page run in order and share variables, in a temporary
 working directory, so examples may write files. A block preceded by the line
-``<!-- skip-test -->`` is an illustration and is not run. A page with a line
+``<!-- skip-test -->`` is an illustration and is not run. A block preceded by
+``<!-- script: name.py -->`` is saved under that name and run by itself, as a
+reader runs a script that starts processes. A page with a line
 ``<!-- needs: name -->`` is skipped where the module ``name`` cannot be
 imported. The files of a folder, given relative to the page by a line
 ``<!-- files: folder -->``, are copied into the working directory first,
@@ -16,6 +18,7 @@ as readers download them. The working directory has an empty folder
 
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -26,15 +29,18 @@ BLOCK = re.compile(
     r"(?P<before>[^\n]*)\n```python[^\n]*\n(?P<code>.*?)\n```", re.DOTALL
 )
 SKIP = "<!-- skip-test -->"
+SCRIPT = re.compile(r"<!-- script: ([\w.]+) -->")
 NEEDS = re.compile(r"<!-- needs: ([\w.]+) -->")
 FILES = re.compile(r"<!-- files: ([\w./-]+) -->")
 
 
-def python_blocks(page: Path) -> list[str]:
+def python_blocks(page: Path) -> list[tuple[str, str | None]]:
+    """The code to run of each block, and the name of the file if it is a script."""
     blocks = []
     for match in BLOCK.finditer(page.read_text(encoding="utf-8")):
         if match["before"].strip() != SKIP:
-            blocks.append(match["code"])
+            script = SCRIPT.fullmatch(match["before"].strip())
+            blocks.append((match["code"], script[1] if script else None))
     return blocks
 
 
@@ -56,7 +62,14 @@ def test_examples_run(page, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     namespace: dict = {}
     try:
-        for i, code in enumerate(python_blocks(page)):
+        for i, (code, script) in enumerate(python_blocks(page)):
+            if script is not None:
+                Path(script).write_text(code, encoding="utf-8")
+                done = subprocess.run(
+                    [sys.executable, script], capture_output=True, text=True
+                )
+                assert done.returncode == 0, f"{script} failed:\n{done.stderr}"
+                continue
             try:
                 exec(compile(code, f"{page.name}[block {i}]", "exec"), namespace)
             except Exception as exc:  # pragma: no cover - only reached on failure

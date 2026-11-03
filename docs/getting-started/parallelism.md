@@ -7,7 +7,7 @@ computations, and how MDAPY behaves next to PyTorch and LAMMPS.
 ```python
 import mdapy as mp
 
-mp.get_num_threads()  # default: number of logical CPUs
+mp.get_num_threads()  # default: the logical CPUs this process may use
 mp.set_num_threads(8)  # for the rest of the process
 
 with mp.num_threads(2):  # only inside this block
@@ -21,7 +21,7 @@ with mp.num_threads(2):  # only inside this block
 | `set_num_threads(n)` | function | | Use `n` threads from now on. |
 | `num_threads(n)` | context manager | | Use `n` threads inside a `with` block, then restore the previous value. |
 | `get_num_threads()` | function | | The current number of threads. |
-| `MDAPY_NUM_THREADS` | environment variable | number of logical CPUs | Initial number of threads, read once when MDAPY is imported. |
+| `MDAPY_NUM_THREADS` | environment variable | logical CPUs this process may use | Initial number of threads, read once when MDAPY is imported. |
 
 `n` must be a positive integer; anything else raises
 [`InvalidParameter`](../reference/api.md#mdapy.errors.InvalidParameter). An
@@ -99,5 +99,15 @@ The pool serves one computation at a time. If a second Python thread starts a
 computation while the pool is busy, that computation runs on its own thread
 instead of waiting. It gives the same result, only without parallel speed-up.
 
-Processes started with `multiprocessing` work with both the `fork` and
-`spawn` start methods; a forked child creates its own pool on first use.
+## Many processes
+
+Every process starts as many threads as there are CPUs, so when many processes
+compute at once, give each of them one thread: ten processes without a limit were
+six to seven times slower than ten with one thread each. See
+[Screening alloys in many processes](tutorials/high-throughput.md).
+
+Start processes with `spawn`, as `multiprocessing.get_context("spawn")` gives it.
+MDAPY's own pool also works with `fork`, a forked child creating its own on first
+use, but polars does not: once a parent has used its threads, as the functions of
+MDAPY do, a forked child that needs them hangs without a message. Linux uses
+`fork` by default before Python 3.14.

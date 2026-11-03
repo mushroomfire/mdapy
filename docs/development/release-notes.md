@@ -158,7 +158,9 @@ and it has a new logo.
   for step as LAMMPS `min_style fire`, and optionally of the box
   (`cell="isotropic"`, `"axes"` or `"full"`, at a `pressure`) to the minimum
   of LAMMPS `fix box/relax`; keeps a frame every `save_every` steps when
-  asked, with the virial and the stress of each. See
+  asked, with the virial and the stress of each. Its steps use no BLAS, whose
+  threads took the cores from the kernels under OpenBLAS (0.5 s against 3.5 s
+  for 4000 atoms on 16 threads). See
   [Energy minimization](../simulation/minimize.md).
 - `mdapy.lattice_dynamics.elastic_constants`: the (6, 6) elastic constants
   from the stress under small strains, with relaxed positions, and Voigt,
@@ -532,9 +534,11 @@ and it has a new logo.
   and bcc grains, columnar grains on a hexagonal pattern with chosen
   misorientations, the defect energies of copper with checks of their
   convergence, when sharing neighbor lists pays, what a `System` shares
-  and copies, and a machine-learned potential for CrCoNi: the phonons of
+  and copies, a machine-learned potential for CrCoNi: the phonons of
   Cr, Co and Ni against DFT and the elastic constants of the alloy from 0 to
-  1000 K against measurements. See the Tutorials under Getting started.
+  1000 K against measurements, and a high-throughput screen of alloys in many
+  processes with the thread settings it needs. See the Tutorials under Getting
+  started.
 - Pictures with the examples: the pages of the structure builders and of
   most analyses show what their example makes or finds, drawn by mdapy's
   renderer or plotted with `mdapy.visualization.plot`, from code on the
@@ -564,6 +568,9 @@ and it has a new logo.
   [Parallelism](../getting-started/parallelism.md).
 - `mdapy.set_num_threads`, `mdapy.get_num_threads`, `mdapy.num_threads` and
   the `MDAPY_NUM_THREADS` environment variable control the number of threads.
+  The default is the logical CPUs the process may use, so that a job of a
+  cluster on part of a node starts no thread for the rest of it (108 s against
+  6 s for the same relaxations on 2 of 16 CPUs).
 - `mdapy.CancelToken`, `progress` callbacks and Ctrl-C stop or follow long
   computations.
 - `mdapy.units` defines every physical constant and conversion factor. See

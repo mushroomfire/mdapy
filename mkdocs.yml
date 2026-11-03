@@ -125,6 +125,7 @@ nav:
           - Columnar grains on a hexagonal pattern: getting-started/tutorials/columnar-polycrystal.md
           - Defect energies of copper: getting-started/tutorials/defect-energies.md
           - A machine-learned potential for CrCoNi: getting-started/tutorials/crconi.md
+          - Screening alloys in many processes: getting-started/tutorials/high-throughput.md
           - Sharing neighbor lists: getting-started/tutorials/neighbor-lists.md
   - Analysis:
       - Overview: analysis/overview.md

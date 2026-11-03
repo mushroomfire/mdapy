@@ -28,7 +28,7 @@ layers = minimize(
         repeat=(2, 4, 4),
     ),
     potential,
-    cell="full",
+    cell="axes",  # keeps the plane normal to z, whatever the rounding of a potential
     max_stress=1e-3,
 ).system
 

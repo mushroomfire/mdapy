@@ -10,7 +10,9 @@ import io
 import json
 import struct
 import zipfile
+import zlib
 from collections.abc import Iterable, Iterator, Mapping
+from contextlib import contextmanager
 from typing import Any, BinaryIO
 
 import numpy as np
@@ -19,7 +21,12 @@ import polars as pl
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.core.topology import KINDS, Topology
-from mdapy.errors import FileFormatError, InvalidParameter, UnsupportedFormat
+from mdapy.errors import (
+    FileFormatError,
+    InvalidParameter,
+    MdapyError,
+    UnsupportedFormat,
+)
 from mdapy.io._files import Source
 from mdapy.io._registry import Format, FramePosition, register
 
@@ -243,6 +250,34 @@ def _write(file: BinaryIO, systems: Iterable[System]) -> None:
 # ---------------------------------------------------------------- reading
 
 
+# What the containers, the tables and the JSON of a damaged file raise; the
+# bytes are in memory, so an OSError is about them too, not about the disk.
+_DAMAGE = (
+    zipfile.BadZipFile,
+    zlib.error,
+    OSError,
+    EOFError,
+    LookupError,
+    NotImplementedError,
+    struct.error,
+    TypeError,
+    ValueError,
+    pl.exceptions.PolarsError,
+    pl.exceptions.PanicException,
+)
+
+
+@contextmanager
+def _damaged(name: str) -> Iterator[None]:
+    """Turns what a damaged file raises into the error of a file."""
+    try:
+        yield
+    except MdapyError:
+        raise
+    except _DAMAGE as error:
+        raise FileFormatError(f"the file is damaged: {error}", name) from None
+
+
 class _BufferFile(io.RawIOBase):
     """A read-only file over bytes or an mmap, without copying them. (An mmap
     itself has no seekable() before Python 3.13, which zipfile needs.)"""
@@ -289,10 +324,11 @@ class _Archive:
         try:
             self.__zip = zipfile.ZipFile(_BufferFile(buffer))
             self.members = None
-        except zipfile.BadZipFile:
+        except _DAMAGE:
             # No central directory: the writer stopped. Read the local headers.
             self.__zip = None
-            self.members = _local_members(buffer)
+            with _damaged(self.name):
+                self.members = _local_members(buffer)
             if not self.members:
                 raise FileFormatError("not an MDAPY file", self.name) from None
 
@@ -389,8 +425,9 @@ def _open(source: Source) -> tuple[_Archive, list[dict[str, Any]]]:
     """The archive and the frame headers of a file, read once per file."""
     if "mdapy" not in source.cache:
         archive = _Archive(source)
-        _check_manifest(archive)
-        source.cache["mdapy"] = (archive, _headers(archive))
+        with _damaged(source.name):
+            _check_manifest(archive)
+            source.cache["mdapy"] = (archive, _headers(archive))
     return source.cache["mdapy"]
 
 
@@ -401,28 +438,29 @@ def _scan(source: Source) -> Iterator[FramePosition]:
 
 def _read(source: Source, position: FramePosition) -> System:
     archive, headers = _open(source)
-    header = headers[position[0]]
-    table = pl.read_parquet(io.BytesIO(archive.read(header["member"])))
-    box = header["box"]
-    topology = None
-    if header.get("topology"):
-        folder = header["topology"]
-        topology = Topology(
-            **{
-                kind: pl.read_parquet(
-                    io.BytesIO(archive.read(f"{folder}/{kind}.parquet"))
-                )
-                for kind in KINDS
-            }
+    with _damaged(source.name):
+        header = headers[position[0]]
+        table = pl.read_parquet(io.BytesIO(archive.read(header["member"])))
+        box = header["box"]
+        topology = None
+        if header.get("topology"):
+            folder = header["topology"]
+            topology = Topology(
+                **{
+                    kind: pl.read_parquet(
+                        io.BytesIO(archive.read(f"{folder}/{kind}.parquet"))
+                    )
+                    for kind in KINDS
+                }
+            )
+        return System(
+            table=table,
+            box=Box(
+                np.reshape(box["matrix"], (3, 3)), origin=box["origin"], pbc=box["pbc"]
+            ),
+            info={k: _decode(v) for k, v in header["info"].items()},
+            topology=topology,
         )
-    return System(
-        table=table,
-        box=Box(
-            np.reshape(box["matrix"], (3, 3)), origin=box["origin"], pbc=box["pbc"]
-        ),
-        info={k: _decode(v) for k, v in header["info"].items()},
-        topology=topology,
-    )
 
 
 register(

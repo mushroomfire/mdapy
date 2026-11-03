@@ -205,6 +205,11 @@ class ChemicalSpecies:
         """
         if "element" not in system.table.columns:
             raise MissingProperty("chemical species need the element column")
+        if len(system) == 0:
+            none = np.zeros(0, dtype=np.int64)
+            return SpeciesResult(
+                molecule=none, formulas=np.zeros(0, dtype=object), sizes=none
+            )
         names = system.table["element"].cast(pl.String)
         kinds = _hill(names.unique().to_list())
         lengths = {

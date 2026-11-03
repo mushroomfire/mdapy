@@ -16,7 +16,7 @@ from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.elements import atomic_masses
-from mdapy.errors import InvalidParameter, MissingProperty
+from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
 
 # Neighbors are searched this much farther than the cutoff of the calculator,
@@ -241,6 +241,10 @@ def minimize(
                 wide = NeighborList.build(current, cutoff + _SKIN)
                 neighbors = wide._follow(current, cutoff)
         result = calculator.compute(current, properties, neighbors=neighbors)
+        if not (np.isfinite(result.energy) and np.isfinite(result.forces).all()):
+            raise CalculationFailed(
+                "the energy or the forces are not finite: atoms may overlap"
+            )
         forces = result.forces if movable is None else result.forces * movable
         largest = float(np.sqrt((forces * forces).sum(axis=1)).max(initial=0.0))
         stress = result.stress(current) if "virial" in properties else None

@@ -23,11 +23,16 @@ ENV_NUM_THREADS = "MDAPY_NUM_THREADS"
 """Environment variable read at import to set the initial number of threads."""
 
 
+_MOST_THREADS = 1 << 16
+
+
 def _validate(n: object, name: str) -> int:
     if isinstance(n, bool) or not isinstance(n, int):
         raise InvalidParameter(f"{name} must be a positive integer, got {n!r}")
     if n < 1:
         raise InvalidParameter(f"{name} must be a positive integer, got {n}")
+    if n > _MOST_THREADS:
+        raise InvalidParameter(f"{name} must be at most {_MOST_THREADS}, got {n}")
     return n
 
 

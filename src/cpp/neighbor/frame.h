@@ -13,6 +13,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "core/parallel.h"
+
 namespace mdapy::neighbor {
 
 // The vector r = x_j - x_i + shift . H of a pair, H with the lattice vectors
@@ -88,7 +90,7 @@ struct Frame {
         for (int d = 0; d < 3; ++d) {
             f[d] = r[0] * inverse[3 * d] + r[1] * inverse[3 * d + 1] + r[2] * inverse[3 * d + 2];
             if (!(std::abs(f[d]) < 1e9)) {
-                throw std::invalid_argument(
+                throw InvalidInput(
                     "positions must be finite and within 1e9 box lengths of the box");
             }
             w[d] = 0;

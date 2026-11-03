@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <stdexcept>
+#include <system_error>
 #include <thread>
 
 #ifdef _WIN32
@@ -231,8 +232,13 @@ public:
         : sleepers_(new Sleeper[static_cast<std::size_t>(nworkers)]),
           shares_(new Share[static_cast<std::size_t>(nworkers) + 1]) {
         threads_.reserve(static_cast<std::size_t>(nworkers));
-        for (int i = 0; i < nworkers; ++i) {
-            threads_.emplace_back([this, i] { worker_loop(i); });
+        try {
+            for (int i = 0; i < nworkers; ++i) {
+                threads_.emplace_back([this, i] { worker_loop(i); });
+            }
+        } catch (const std::system_error&) {
+            // the system gives no more threads (a limit of a cluster, say):
+            // the work goes to those that started and the calling thread
         }
     }
 
@@ -368,6 +374,7 @@ std::mutex g_pool_mutex;
 // (for example under the Windows loader lock), and the OS reclaims them anyway.
 ThreadPool* g_pool = nullptr;
 long g_pool_pid = 0;
+int g_pool_wanted = 0;  // its workers may be fewer, when the system gives no more
 
 // Returns a pool with nworkers threads besides the calling one. Must be
 // called with g_pool_mutex held.
@@ -378,13 +385,14 @@ ThreadPool* pool_with(int nworkers) {
         // the stale pool without touching its threads.
         g_pool = nullptr;
     }
-    if (g_pool != nullptr && g_pool->size() != nworkers) {
+    if (g_pool != nullptr && g_pool_wanted != nworkers) {
         delete g_pool;
         g_pool = nullptr;
     }
     if (g_pool == nullptr) {
         g_pool = new ThreadPool(nworkers);
         g_pool_pid = pid;
+        g_pool_wanted = nworkers;
     }
     return g_pool;
 }

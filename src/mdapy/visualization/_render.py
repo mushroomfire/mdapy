@@ -133,6 +133,8 @@ def atom_colors(
     if isinstance(color, str) and color in system.table.columns:
         return colormap(system.table[color].to_numpy(), colormap_name, value_range)
     array = np.asarray(color) if not isinstance(color, str) else None
+    if array is not None and array.dtype.kind not in "fiub":
+        raise InvalidParameter(f"color must hold numbers, not {array.dtype}")
     if array is not None and array.shape == (n, 3):
         return np.asarray(array, dtype=float)
     if array is not None and array.shape == (n,) and n != 3:
@@ -517,6 +519,10 @@ def render(
                 raise InvalidParameter(f"a mask of atoms must have {n} entries")
             shown = mask.copy()
         else:
+            if mask.size and not np.issubdtype(mask.dtype, np.integer):
+                raise InvalidParameter("atoms must be a mask or indices of atoms")
+            if mask.size and not -n <= mask.min() <= mask.max() < n:
+                raise InvalidParameter(f"the indices of atoms must be below {n}")
             shown = np.zeros(n, dtype=bool)
             shown[mask.astype(np.int64)] = True
     if representation not in REPRESENTATIONS:
@@ -540,7 +546,12 @@ def render(
         kinds, kind_of = _kinds(system)
         radii = element_radii(kinds, radius)[kind_of]
     else:
-        radii = np.broadcast_to(np.asarray(radius, dtype=float), (n,)).copy()
+        radii = np.asarray(radius, dtype=float)
+        if radii.ndim > 0 and radii.shape != (n,):
+            raise InvalidParameter(
+                f"radius must be one number or {n}, not {radii.shape}"
+            )
+        radii = np.broadcast_to(radii, (n,)).copy()
     index = np.flatnonzero(shown)
     every = len(index) == n
     scene = Scene()

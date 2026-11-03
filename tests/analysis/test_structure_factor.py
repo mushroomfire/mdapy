@@ -232,3 +232,14 @@ def test_debye_of_an_ideal_gas():
     gas = mdapy.System(rng.random((3000, 3)) * 30, mdapy.Box(30.0), elements="Ar")
     result = StructureFactor(8.0, bins=40, method="debye", r_max=10.0).compute(gas)
     assert np.abs(result.s[10:] - 1.0).max() < 0.05
+
+
+@pytest.mark.parametrize("length", [1e5, 1e12, 1e18])
+def test_too_many_wave_vectors(length):
+    # the indices did not fit an integer, which crashed
+    rng = np.random.default_rng(1)
+    system = mdapy.System(
+        rng.random((20, 3)) * length, mdapy.Box(length), elements="Cu"
+    )
+    with pytest.raises(InvalidParameter, match="too many wave vectors"):
+        StructureFactor(5.0).compute(system)

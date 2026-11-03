@@ -187,6 +187,8 @@ def _write(file: BinaryIO, systems: Iterable[System], *, direct: bool = True) ->
             raise MissingProperty(
                 "POSCAR needs element symbols, but the system has no element column"
             )
+        if len(system) == 0:
+            raise InvalidParameter("POSCAR needs at least one atom")
         symbols = table["element"].cast(pl.String)
         species = symbols.unique(maintain_order=True).to_list()
         # VASP needs the atoms of each element together: group them in the

@@ -39,6 +39,9 @@ class EntropyResult(Result):
         return {"entropy_average" if self.average else "entropy": self.entropy}
 
 
+_MOST_BINS = 1 << 24  # of the integral over the distance from an atom
+
+
 class EntropyFingerprint:
     """The pair entropy fingerprint of Piaggi and Parrinello.
 
@@ -70,6 +73,10 @@ class EntropyFingerprint:
         if not 0 < sigma < cutoff:
             raise InvalidParameter(
                 f"sigma must be positive and below cutoff, not {sigma!r}"
+            )
+        if cutoff / sigma > _MOST_BINS:
+            raise InvalidParameter(
+                f"sigma {sigma!r} is too small for a cutoff of {cutoff!r} Å"
             )
         if average_cutoff is not None and not average_cutoff > 0:
             raise InvalidParameter(

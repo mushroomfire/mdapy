@@ -248,7 +248,12 @@ class System:
         if (positions is None) == (table is None):
             raise InvalidParameter("give either positions or table")
         if table is None:
-            r = np.array(positions, dtype=np.float64)  # a copy of its own
+            try:
+                r = np.array(positions, dtype=np.float64)  # a copy of its own
+            except (TypeError, ValueError):
+                raise InvalidParameter(
+                    f"positions must be numbers of shape (N, 3), not {positions!r}"
+                ) from None
             if r.size == 0:
                 r = r.reshape(0, 3)
             if r.ndim != 2 or r.shape[1] != 3:

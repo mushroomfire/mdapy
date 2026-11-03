@@ -184,6 +184,11 @@ class SpatialCorrelation:
         matrix = box.matrix
         lengths = np.linalg.norm(matrix, axis=1)
         n = np.maximum(1, (lengths / self.grid_spacing).astype(np.int64))
+        if np.prod(n.astype(float)) > 1e12:
+            raise InvalidParameter(
+                f"a grid_spacing of {self.grid_spacing} Å makes too many points of "
+                f"the grid in this box: {n[0]} × {n[1]} × {n[2]}"
+            )
         # the distances between opposite faces of the box
         faces = 1.0 / np.linalg.norm(box.inverse, axis=0)
         shortest = faces.min()

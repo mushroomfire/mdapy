@@ -173,3 +173,10 @@ def test_errors():
     ]:
         with pytest.raises(InvalidParameter, match=name):
             SpatialCorrelation("a", **{name: value})
+
+
+def test_a_grid_too_large_for_the_box():
+    rng = np.random.default_rng(0)
+    system = mdapy.System(rng.random((20, 3)) * 1e12, mdapy.Box(1e12), elements="Cu")
+    with pytest.raises(InvalidParameter, match="too many points"):
+        SpatialCorrelation("positions.x").compute(system)

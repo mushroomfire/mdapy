@@ -252,3 +252,9 @@ def test_invalid_arguments():
     assert repr(ChemicalSpecies("vdw")) == (
         "ChemicalSpecies(radii='vdw', scale=0.6, tolerance=0.0)"
     )
+
+
+def test_no_atoms():
+    system = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0), elements=[])
+    result = ChemicalSpecies().compute(system)
+    assert len(result.molecule) == len(result.formulas) == len(result.sizes) == 0

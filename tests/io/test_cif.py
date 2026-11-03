@@ -270,3 +270,14 @@ def test_no_data_block(tmp_path):
         "_atom_site_fract_x 0.25\n_atom_site_fract_y 0\n_atom_site_fract_z 0\n"
     )
     np.testing.assert_allclose(mdapy.read(path)["positions"], [[0.5, 0, 0]])
+
+
+def test_a_missing_coordinate(tmp_path):
+    path = tmp_path / "t.cif"
+    path.write_text(
+        "data_a\n_cell_length_a 3\n_cell_length_b 3\n_cell_length_c 3\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 90\n"
+        "loop_\n_atom_site_type_symbol\n_atom_site_fract_x\nCu 0\n"
+    )
+    with pytest.raises(FileFormatError, match="_atom_site_fract_y is missing"):
+        mdapy.read(path)

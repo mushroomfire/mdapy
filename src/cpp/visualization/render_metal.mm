@@ -818,7 +818,7 @@ void trace(const Geometry& g, const Params& params, float* rgba, float* depth, s
         const auto buffer = [&](const void* data, std::size_t bytes) {
             static const std::uint64_t zero[2] = {0, 0};
             return [d.device newBufferWithBytes:(bytes > 0 ? data : zero)
-                                         length:std::max<std::size_t>(bytes, sizeof(zero))
+                                         length:(bytes > 0 ? bytes : sizeof(zero))
                                         options:MTLResourceStorageModeShared];
         };
         const std::size_t f = sizeof(float), i = sizeof(std::int32_t);

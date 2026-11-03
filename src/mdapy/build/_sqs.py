@@ -84,6 +84,8 @@ def sqs_alloy(
     System
         The system with a new ``element`` column.
     """
+    if len(system) == 0:
+        raise InvalidParameter("a special quasirandom structure needs atoms")
     if not 1 <= shells <= 10:
         raise InvalidParameter(f"shells must be from 1 to 10, not {shells!r}")
     w = np.ones(shells) if weights is None else np.asarray(weights, dtype=float)

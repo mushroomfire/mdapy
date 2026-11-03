@@ -108,12 +108,14 @@ class _Header:
         self.tilt = [0.0, 0.0, 0.0]
         self.general: dict[str, list[float]] = {}
         self.restricted = False
+        self.has_atoms = False
 
     def parse(self, reader: TextReader, words: list[str]) -> bool:
         """Takes one header line; False if it is not a header line."""
         n = len(words)
         if n == 2 and words[1] in self.counts:
             self.counts[words[1]] = _count(reader, words[0])
+            self.has_atoms = self.has_atoms or words[1] == "atoms"
         elif n == 2 and words[1] in _PARTICLE_COUNTS:
             raise UnsupportedFormat(
                 f"data files with {words[1]} need atom styles of finite-size "
@@ -484,6 +486,8 @@ def _read(
             reader.readline()  # LAMMPS skips the line after a keyword
         _read_section(reader, name, hint, header, contents, atom_style, units, line)
         keyword = _next_keyword(reader)
+    if not header.has_atoms and contents.atoms is None:
+        raise reader.error("no line of atoms and no Atoms section: not a data file", 1)
     return _combine(reader, header, contents, box, units, elements)
 
 

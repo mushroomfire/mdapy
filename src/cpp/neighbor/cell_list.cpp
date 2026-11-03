@@ -25,6 +25,7 @@ constexpr double kCellsPerCutoff = 2.0;
 
 // Most cells along one direction, so that cell indices stay far from overflow.
 constexpr std::int64_t kMostCells = std::int64_t{1} << 30;
+constexpr std::int64_t kBodySample = 4096;  // atoms that give the body of a system
 
 struct Extent {
     double low[3];
@@ -75,20 +76,54 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
             return p;
         });
 
+    // Along a direction without periods the cells cover the body of the atoms:
+    // a few that flew far off would stretch them over empty space and leave all
+    // the others in one cell. Those beyond go into the cells at the ends, which
+    // loses no pair, as atoms closer than the cutoff stay in neighboring cells.
+    const auto body = [&](int d, double& low, double& high) {
+        const std::int64_t count = std::min<std::int64_t>(n, kBodySample);
+        std::vector<double> sample(static_cast<std::size_t>(count));
+        for (std::int64_t k = 0; k < count; ++k) {
+            double f[3];
+            std::int32_t w[3];
+            frame_.wrap(positions + 3 * (k * n / count), f, w);
+            sample[static_cast<std::size_t>(k)] = f[d];
+        }
+        std::sort(sample.begin(), sample.end());
+        const double first = sample[static_cast<std::size_t>(count / 20)];
+        const double last = sample[static_cast<std::size_t>(count - 1 - count / 20)];
+        const double width = last - first;
+        if (high - low > 8.0 * width) {
+            low = first - width;
+            high = last + width;
+        }
+    };
+
     // Cells at least as wide as the cutoff where possible; along periodic
     // directions narrower boxes are covered by searching more cells.
     const double search = cutoff * kMargin;
     const auto reach = [&](const Axis& axis, int d) {
-        auto k = static_cast<std::int64_t>(std::ceil(search / (axis.width * frame_.thickness[d])));
-        return axis.periodic ? k : std::min(k, axis.cells - 1);
+        const double k = std::ceil(search / (axis.width * frame_.thickness[d]));
+        if (!axis.periodic) {
+            return static_cast<std::int64_t>(std::min(k, static_cast<double>(axis.cells - 1)));
+        }
+        // beyond this no search ends, and the number need not fit an integer
+        if (!(k < 1e6)) {
+            throw InvalidInput("the cutoff reaches too many periodic images of the box");
+        }
+        return static_cast<std::int64_t>(k);
     };
     for (int d = 0; d < 3; ++d) {
         Axis& axis = axes_[d];
         axis.periodic = pbc[d];
         double span = 1.0;
         if (!axis.periodic) {
-            axis.low = n > 0 ? extent.low[d] : 0.0;
-            span = n > 0 ? std::max(extent.high[d] - extent.low[d], 1e-12) : 1e-12;
+            double low = extent.low[d], high = extent.high[d];
+            if (n > 0) {
+                body(d, low, high);
+            }
+            axis.low = n > 0 ? low : 0.0;
+            span = n > 0 ? std::max(high - low, 1e-12) : 1e-12;
         }
         const double cells = std::floor(span * frame_.thickness[d] * kCellsPerCutoff / search);
         axis.cells = std::clamp<std::int64_t>(static_cast<std::int64_t>(std::min(cells, 1e18)), 1,
@@ -96,8 +131,14 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
         axis.width = span / static_cast<double>(axis.cells);
         axis.reach = reach(axis, d);
     }
-    // Keep the number of cells proportional to the number of atoms.
-    while (axes_[0].cells * axes_[1].cells * axes_[2].cells > 8 * n + 64) {
+    // Keep the number of cells proportional to the number of atoms; their
+    // product, for atoms far apart, does not fit an integer.
+    const auto too_many = [&]() {
+        return static_cast<double>(axes_[0].cells) * static_cast<double>(axes_[1].cells) *
+                   static_cast<double>(axes_[2].cells) >
+               static_cast<double>(8 * n + 64);
+    };
+    while (too_many()) {
         Axis& widest = *std::max_element(std::begin(axes_), std::end(axes_),
                                          [](const Axis& u, const Axis& v) { return u.cells < v.cells; });
         const double span = widest.width * static_cast<double>(widest.cells);

@@ -158,3 +158,10 @@ def test_errors(tmp_path, text, message):
     (tmp_path / "bad.pdb").write_text(text)
     with pytest.raises(FileFormatError, match=message):
         mdapy.read(tmp_path / "bad.pdb")
+
+
+def test_a_file_without_atoms(tmp_path):
+    path = tmp_path / "t.pdb"
+    path.write_text("REMARK nothing here\nEND\n")
+    with pytest.raises(FileFormatError, match="no ATOM or HETATM"):
+        mdapy.read(path)

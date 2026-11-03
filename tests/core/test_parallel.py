@@ -274,3 +274,34 @@ def test_pool_works_in_forked_child(tmp_path):
     )
     assert done.returncode == 0, done.stderr
     assert float(done.stdout) == float(sum(range(10_000)))
+
+
+def test_too_many_threads_are_refused():
+    with pytest.raises(mdapy.errors.InvalidParameter, match="at most"):
+        mdapy.set_num_threads(10**7)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="limits of POSIX")
+def test_the_system_gives_fewer_threads_than_asked():
+    # a limit on a cluster: the work goes to the threads that started
+    code = """
+import os, resource
+import numpy as np
+import mdapy
+from mdapy.neighbor import NeighborList
+system = mdapy.System(np.random.default_rng(0).random((300, 3)) * 8, mdapy.Box(8.0), elements="Cu")
+mdapy.set_num_threads(1)
+serial = len(NeighborList.build(system, 3.0))
+try:
+    tasks = len(os.listdir("/proc/self/task"))
+except OSError:
+    tasks = 16
+resource.setrlimit(resource.RLIMIT_NPROC, (tasks + 3, resource.getrlimit(resource.RLIMIT_NPROC)[1]))
+mdapy.set_num_threads(32)
+assert len(NeighborList.build(system, 3.0)) == serial
+assert len(NeighborList.build(system, 3.0)) == serial
+"""
+    done = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=120
+    )
+    assert done.returncode == 0, done.stderr[-500:]

@@ -149,6 +149,8 @@ def _read(source: Source, position: FramePosition) -> System:
             pl.Series("residue_number", numbers, dtype=pl.Int64),
         ]
     )
+    if not ids:
+        raise FileFormatError("no ATOM or HETATM records", name)
     row = {serial: k for k, serial in enumerate(ids)}
     pairs = []
     for a, b, line in _bonds(source):

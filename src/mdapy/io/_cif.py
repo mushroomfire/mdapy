@@ -148,6 +148,8 @@ def _parse(source: Source, position: FramePosition):
 
 
 def _numbers(values, lines, tag: str, name: str) -> np.ndarray:
+    if tag not in values:
+        raise FileFormatError(f"{tag} is missing", name)
     out = []
     for word in values[tag]:
         match = _NUMBER.fullmatch(word)

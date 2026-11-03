@@ -5,6 +5,7 @@
 
 """Visualization: pictures of atoms by ray tracing."""
 
+from mdapy.visualization._movie import write_movie
 from mdapy.visualization._render import (
     LABEL_COLORS,
     REPRESENTATIONS,
@@ -56,5 +57,6 @@ __all__ = [
     "style_settings",
     "voxel_faces",
     "show_image",
+    "write_movie",
     "write_png",
 ]

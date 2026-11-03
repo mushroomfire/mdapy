@@ -301,6 +301,8 @@ import mdapy as mp
 
 ::: mdapy.visualization.write_png
 
+::: mdapy.visualization.write_movie
+
 ::: mdapy.visualization.plot
 
 ## Calculators

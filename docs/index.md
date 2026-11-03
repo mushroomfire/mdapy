@@ -209,7 +209,8 @@ flowchart TB
     [molecular dynamics](simulation/dynamics.md) ·
     [defect energies](simulation/defect-energies.md)
 
-    Thermodynamics: [free energy](simulation/free-energy.md)
+    Thermodynamics: [free energy](simulation/free-energy.md) ·
+    [stacking faults at finite temperature](simulation/stacking-fault-temperature.md)
 
     Lattice dynamics: [elastic constants](simulation/elastic-constants.md) ·
     [phonons](simulation/phonons.md) ·

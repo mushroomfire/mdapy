@@ -167,6 +167,12 @@ and it has a new logo.
   molecular dynamics in LAMMPS, by switching to springs or to the Uhlenbeck-Ford model
   and following the enthalpy to other temperatures; `crossing` gives where two phases
   meet. See [Free energy](../simulation/free-energy.md).
+- `mdapy.simulation.stacking_fault_free_energy`: the free energy of a stacking fault at
+  each temperature, from two crystals in one box. See
+  [Stacking faults at finite temperature](../simulation/stacking-fault-temperature.md).
+- `slip`: an atom outside the box moves as its image in the box does; a layer of a
+  relaxed crystal at the bottom of the box was split by rounding, and gave a stacking
+  fault energy far too large.
 - `mdapy.lattice_dynamics.elastic_constants`: the (6, 6) elastic constants
   from the stress under small strains, with relaxed positions, and Voigt,
   Reuss and Hill moduli. See [Elastic constants](../simulation/elastic-constants.md).

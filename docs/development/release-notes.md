@@ -163,6 +163,10 @@ and it has a new logo.
   threads took the cores from the kernels under OpenBLAS (0.5 s against 3.5 s
   for 4000 atoms on 16 threads). See
   [Energy minimization](../simulation/minimize.md).
+- `mdapy.simulation.free_energy`: the free energy of solids and liquids per atom from
+  molecular dynamics in LAMMPS, by switching to springs or to the Uhlenbeck-Ford model
+  and following the enthalpy to other temperatures; `crossing` gives where two phases
+  meet. See [Free energy](../simulation/free-energy.md).
 - `mdapy.lattice_dynamics.elastic_constants`: the (6, 6) elastic constants
   from the stress under small strains, with relaxed positions, and Voigt,
   Reuss and Hill moduli. See [Elastic constants](../simulation/elastic-constants.md).

@@ -92,6 +92,9 @@ class TextReader:
             (rows, width), a (codes, categories) pair for strings, and None
             for ignored columns.
         """
+        # a line takes a byte: no table of a count in a damaged header is allocated
+        if rows > len(self.buffer) - self.offset + 1:
+            raise self.error("unexpected end of file", self.line + 1)
         try:
             arrays, self.offset = _native.parse_table(
                 self.buffer, self.offset, rows, list(columns), comment

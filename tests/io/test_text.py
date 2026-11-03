@@ -621,3 +621,8 @@ def test_a_last_line_without_a_line_ending_and_lines_to_skip():
 def test_bytes_that_are_not_text_in_a_table(text, columns):
     with pytest.raises(FileFormatError, match="a.txt"):
         TextReader(text, "a.txt").table(1, columns)
+
+
+def test_more_rows_than_the_file_can_hold_are_not_allocated():
+    with pytest.raises(FileFormatError, match="unexpected end of file"):
+        TextReader(b"1 2\n", "a.txt").table(4_294_967_296, [("f", 2)])

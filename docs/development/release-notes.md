@@ -75,7 +75,8 @@ and it has a new logo.
 - `mdapy.read_trajectory` opens the frames of any file lazily: frames are
   found and read when used, slices share the open file, and iteration starts
   at once; also the frames of several files, given as a pattern such as
-  `dump.*.lammpstrj` or a list, and frames that move the atoms of a
+  `dump.*.lammpstrj` or a list, each in the format of its name, and frames that
+  move the atoms of a
   topology read from a data file, matched by id, with its bonds, charges
   and molecules, as OVITO's load trajectory; `Trajectory.map` gives the
   frames through a function, each computed when it is used, for the
@@ -570,7 +571,9 @@ and it has a new logo.
   the `MDAPY_NUM_THREADS` environment variable control the number of threads.
   The default is the logical CPUs the process may use, so that a job of a
   cluster on part of a node starts no thread for the rest of it (108 s against
-  6 s for the same relaxations on 2 of 16 CPUs).
+  6 s for the same relaxations on 2 of 16 CPUs). A forked process gets a
+  warning: polars hangs in it once its parent has used its threads, so start
+  processes with `spawn`. See [Parallelism](../getting-started/parallelism.md#many-processes).
 - `mdapy.CancelToken`, `progress` callbacks and Ctrl-C stop or follow long
   computations.
 - `mdapy.units` defines every physical constant and conversion factor. See

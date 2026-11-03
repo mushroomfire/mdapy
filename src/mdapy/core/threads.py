@@ -6,6 +6,7 @@
 """Control of the threads used by mdapy's compiled kernels."""
 
 import os
+import warnings
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 
@@ -150,4 +151,16 @@ def _init_from_environment(environ: Mapping[str, str] = os.environ) -> None:
     set_num_threads(n)
 
 
+def _warn_of_fork() -> None:
+    warnings.warn(
+        "this process was forked: once a parent has used the threads of polars, "
+        "polars hangs in the child without a message. Start processes with spawn: "
+        'multiprocessing.get_context("spawn")',
+        RuntimeWarning,
+        stacklevel=2,
+    )
+
+
 _init_from_environment()
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_warn_of_fork)

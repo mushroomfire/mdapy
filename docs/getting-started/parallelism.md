@@ -106,8 +106,9 @@ compute at once, give each of them one thread: ten processes without a limit wer
 six to seven times slower than ten with one thread each. See
 [Screening alloys in many processes](tutorials/high-throughput.md).
 
-Start processes with `spawn`, as `multiprocessing.get_context("spawn")` gives it.
-MDAPY's own pool also works with `fork`, a forked child creating its own on first
-use, but polars does not: once a parent has used its threads, as the functions of
-MDAPY do, a forked child that needs them hangs without a message. Linux uses
-`fork` by default before Python 3.14.
+Start processes with `spawn`, as `multiprocessing.get_context("spawn")` gives it,
+never with `fork`. MDAPY's own pool works with `fork`, a forked child creating
+its own on first use, but this is a limit of polars: once a parent has used its
+threads, as the functions of MDAPY do, a forked child that needs them hangs without
+a message. Linux uses `fork` by default before Python 3.14, so ask for `spawn`
+there. MDAPY gives a `RuntimeWarning` in every process that was forked.

@@ -161,3 +161,36 @@ def test_native_token_conversion():
     assert _native_token(token) is token._native
     with pytest.raises(InvalidParameter, match="CancelToken"):
         _native_token(object())
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="the system has no fork")
+def test_a_forked_process_is_warned_of_polars():
+    code = (
+        "import os, mdapy\n"
+        "pid = os.fork()\n"
+        "os._exit(0) if pid == 0 else os.waitpid(pid, 0)\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert "RuntimeWarning: this process was forked" in result.stderr
+    assert 'get_context("spawn")' in result.stderr
+
+
+def test_a_process_started_by_spawn_is_not_warned(tmp_path):
+    script = tmp_path / "spawned.py"
+    script.write_text(
+        "import multiprocessing\n"
+        "import mdapy\n"
+        "def threads(_):\n"
+        "    return mdapy.get_num_threads()\n"
+        "if __name__ == '__main__':\n"
+        "    with multiprocessing.get_context('spawn').Pool(1) as pool:\n"
+        "        print(pool.map(threads, [0]))\n"
+    )
+    result = subprocess.run(
+        [sys.executable, str(script)], capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert "forked" not in result.stderr

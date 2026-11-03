@@ -165,9 +165,10 @@ one, and 10 times faster in 16. A process holds about 100 MB here.
 ## Start the processes with spawn
 
 On Linux before Python 3.14, a `ProcessPoolExecutor` starts its processes with
-fork unless told otherwise. A forked process inherits the state of the threads of
-polars, but not the threads: once the parent has used them, as `build_crystal`
-does, a worker that needs them waits forever, without a message. `spawn` starts
+fork unless told otherwise. This is a limit of polars: a forked process inherits
+the state of its threads, but not the threads, so once the parent has used them, as
+`build_crystal` does, a worker that needs them waits forever, without a message.
+MDAPY warns in every forked process. `spawn` starts
 each process afresh, on every system, and costs an import of a fraction of a
 second. Each process then imports the script itself, so everything that runs the
 jobs goes under `if __name__ == "__main__":`, and what every process needs, like

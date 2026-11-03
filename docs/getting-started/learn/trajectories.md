@@ -28,7 +28,9 @@ particle = mp.System(
 )
 
 EAM.zhou(["Cu"]).write("Cu.eam.alloy")
-potential = LAMMPS("pair_style eam/alloy\npair_coeff * * Cu.eam.alloy Cu", elements=["Cu"])
+potential = LAMMPS(
+    "pair_style eam/alloy\npair_coeff * * Cu.eam.alloy Cu", elements=["Cu"]
+)
 print(len(particle))
 ```
 

@@ -104,7 +104,9 @@ atoms with small x cuts the crystal open:
 ```python
 from mdapy.visualization import render
 
-render(alloy, "images/alloy.png", atoms=alloy["positions.x"] < 15, width=900, height=600)
+render(
+    alloy, "images/alloy.png", atoms=alloy["positions.x"] < 15, width=900, height=600
+)
 ```
 
 ![A random copper-nickel alloy, cut open](images/alloy.png)

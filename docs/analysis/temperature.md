@@ -8,19 +8,16 @@ or a moving crack.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy import units
 from mdapy.analysis import AtomicTemperature
+from mdapy.build import build_crystal
 
 # an fcc Cu crystal of 6 x 6 x 6 cubic cells with velocities at 300 K
 a = 3.615
-cells = np.stack(np.meshgrid(*[np.arange(6)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
-basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-positions = ((cells + basis) * a).reshape(-1, 3)
+system = build_crystal("fcc", a, elements="Cu", repeat=(6, 6, 6))
 mass = 63.546  # amu
 spread = np.sqrt(units.BOLTZMANN * 300 / (mass * units.AMU_A2_PER_PS2_TO_EV))
-velocities = np.random.default_rng(0).normal(scale=spread, size=positions.shape)
-system = mp.System(positions, mp.Box(6 * a), elements="Cu")
+velocities = np.random.default_rng(0).normal(scale=spread, size=(len(system), 3))
 system = system.with_columns(velocities=velocities)  # Å/ps
 
 result = AtomicTemperature(cutoff=3.0).compute(system)

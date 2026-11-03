@@ -45,11 +45,32 @@ def python_blocks(page: Path) -> list[tuple[str, str | None]]:
 
 
 PAGES = sorted(p for p in DOCS.rglob("*.md") if python_blocks(p))
+README = DOCS.parent / "README.md"
+# the README is also the page of the package on PyPI, where only full URLs work
+IN_REPOSITORY = re.compile(
+    r"https://(?:raw\.githubusercontent\.com/mushroomfire/mdapy"
+    r"|github\.com/mushroomfire/mdapy/blob)/(?:v2|master)/([\w./-]+)"
+)
 
 
 def test_pages_with_examples_are_found():
     assert DOCS.is_dir()
     assert any(p.name == "box.md" for p in PAGES)
+
+
+def test_the_example_of_the_readme_runs(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    namespace: dict = {}
+    for code, _ in python_blocks(README):
+        exec(compile(code, "README.md", "exec"), namespace)
+    assert namespace["structures"].counts()["fcc"] == 10796
+    assert Path("grains.png").stat().st_size > 0
+
+
+def test_the_files_the_readme_points_to_exist():
+    paths = IN_REPOSITORY.findall(README.read_text(encoding="utf-8"))
+    assert paths
+    assert not [path for path in paths if not (README.parent / path).exists()]
 
 
 @pytest.mark.parametrize("page", PAGES, ids=lambda p: str(p.relative_to(DOCS)))

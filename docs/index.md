@@ -16,7 +16,7 @@ the machine.
     This site documents MDAPY 2.0, a complete rewrite on the `v2` branch that is
     not compatible with MDAPY 1.x. Features are added one at a time, each with
     its own tests and documentation page. For the stable release use
-    [MDAPY 1.0.8](https://pypi.org/project/mdapy/1.0.8/).
+    [MDAPY 1.0.10](https://pypi.org/project/mdapy/1.0.10/).
 
 ## Desktop application
 

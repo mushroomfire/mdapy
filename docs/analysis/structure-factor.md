@@ -8,18 +8,14 @@ function.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.analysis import StructureFactor
+from mdapy.build import build_crystal, random_alloy
 
 # a random Cu-Ni alloy on a disordered fcc lattice of 4 x 4 x 4 cubic cells
-a = 3.6
-basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
-rng = np.random.default_rng(0)
-positions = ((cells + basis) * a).reshape(-1, 3) + rng.normal(0, 0.1, (256, 3))
-system = mp.System(
-    positions, mp.Box(4 * a), elements=list(rng.choice(["Cu", "Ni"], 256))
-)
+crystal = build_crystal("fcc", 3.6, elements="Cu", repeat=(4, 4, 4))
+shake = np.random.default_rng(0).normal(0, 0.1, (len(crystal), 3))
+disordered = crystal.with_columns(positions=crystal["positions"] + shake)
+system = random_alloy(disordered, {"Cu": 0.5, "Ni": 0.5}, seed=0)
 
 direct = StructureFactor(q_max=6.0, bins=60).compute(system)
 direct.q, direct.s  # bin centers in 1/Å and S(q)

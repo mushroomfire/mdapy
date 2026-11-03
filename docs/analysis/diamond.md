@@ -5,20 +5,12 @@ in silicon, germanium, carbon and other tetrahedrally bonded crystals, where
 common neighbor analysis of the four nearest neighbors says nothing.
 
 ```python
-import numpy as np
-
 import mdapy as mp
+from mdapy.build import build_crystal
 from mdapy.identify import DiamondStructure
 
 # cubic diamond silicon of 3 x 3 x 3 cells
-a = 5.431
-basis = np.array([
-    [0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5],
-    [0.25, 0.25, 0.25], [0.75, 0.75, 0.25], [0.75, 0.25, 0.75], [0.25, 0.75, 0.75],
-])  # fmt: skip
-cells = np.stack(np.meshgrid(*[np.arange(3)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
-positions = ((cells + basis) * a).reshape(-1, 3)
-system = mp.System(positions, mp.Box(3 * a), elements="Si")
+system = build_crystal("diamond", 5.431, elements="Si", repeat=(3, 3, 3))
 
 result = DiamondStructure().compute(system)
 result.counts()["cubic_diamond"]  # 216

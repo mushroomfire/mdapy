@@ -8,16 +8,13 @@ and its shape as a polyhedron.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.analysis import VoronoiAnalysis
+from mdapy.build import build_crystal
 
 # an fcc crystal of 5 x 5 x 5 cubic cells, atoms displaced by about 0.05 Å
-a = 3.6
-cells = np.stack(np.meshgrid(*[np.arange(5)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
-basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-positions = ((cells + basis) * a).reshape(-1, 3)
-positions += np.random.default_rng(0).normal(scale=0.05, size=positions.shape)
-system = mp.System(positions, mp.Box(5 * a), elements="Cu")
+crystal = build_crystal("fcc", 3.6, elements="Cu", repeat=(5, 5, 5))
+shake = np.random.default_rng(0).normal(scale=0.05, size=(len(crystal), 3))
+system = crystal.with_columns(positions=crystal["positions"] + shake)
 
 voronoi = VoronoiAnalysis(relative_face_threshold=0.01, edge_threshold=0.5)
 result = voronoi.compute(system)

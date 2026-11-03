@@ -7,14 +7,12 @@ neighborhood: fcc, hcp, bcc, icosahedral or other.
 import numpy as np
 
 import mdapy as mp
+from mdapy.build import build_crystal
 from mdapy.identify import CommonNeighborAnalysis
 
 # fcc copper of 4 x 4 x 4 cubic cells
 a = 3.615
-basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
-positions = ((cells + basis) * a).reshape(-1, 3)
-system = mp.System(positions, mp.Box(4 * a), elements="Cu")
+system = build_crystal("fcc", a, elements="Cu", repeat=(4, 4, 4))
 
 result = CommonNeighborAnalysis().compute(system)  # adaptive
 result.counts()  # {'other': 0, 'fcc': 256, 'hcp': 0, 'bcc': 0, 'ico': 0}

@@ -8,14 +8,12 @@ diamond, large at defects and surfaces, defined for any structure.
 import numpy as np
 
 import mdapy as mp
+from mdapy.build import build_crystal
 from mdapy.identify import CommonNeighborParameter
 
 # fcc copper of 4 x 4 x 4 cubic cells, with one atom missing
-a = 3.615
-basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
-positions = ((cells + basis) * a).reshape(-1, 3)[1:]
-system = mp.System(positions, mp.Box(4 * a), elements="Cu")
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(4, 4, 4))
+system = crystal.filter(np.arange(len(crystal)) > 0)
 
 result = CommonNeighborParameter(cutoff=3.0).compute(system)
 result.cnp.max()  # Å^2, at the neighbors of the vacancy

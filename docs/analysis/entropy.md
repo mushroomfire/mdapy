@@ -9,14 +9,12 @@ import numpy as np
 
 import mdapy as mp
 from mdapy.analysis import EntropyFingerprint
+from mdapy.build import build_crystal
 
 # fcc copper of 4 x 4 x 4 cubic cells, slightly disordered
-a = 3.615
-basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
-rng = np.random.default_rng(0)
-positions = ((cells + basis) * a).reshape(-1, 3) + rng.normal(0, 0.05, (256, 3))
-system = mp.System(positions, mp.Box(4 * a), elements="Cu")
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(4, 4, 4))
+shake = np.random.default_rng(0).normal(0, 0.05, (len(crystal), 3))
+system = crystal.with_columns(positions=crystal["positions"] + shake)
 
 result = EntropyFingerprint(cutoff=5.0, sigma=0.2, average_cutoff=3.0).compute(system)
 result.entropy  # in units of the Boltzmann constant

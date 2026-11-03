@@ -9,18 +9,16 @@ import numpy as np
 
 import mdapy as mp
 from mdapy.analysis import WignerSeitz
+from mdapy.build import build_crystal
 
 # perfect fcc copper of 4 x 4 x 4 cubic cells as the reference
 a = 3.615
-basis = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-cells = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 1, 3)
-sites = ((cells + basis) * a).reshape(-1, 3)
-reference = mp.System(sites, mp.Box(4 * a), elements="Cu")
+reference = build_crystal("fcc", a, elements="Cu", repeat=(4, 4, 4))
 
 # the crystal after a Frenkel pair: atom 0 moved to an octahedral site
-moved = sites.copy()
+moved = reference["positions"].copy()
 moved[0] = [0.5 * a, 0.5 * a, 0.5 * a]
-current = mp.System(moved, mp.Box(4 * a), elements="Cu")
+current = reference.with_columns(positions=moved)
 
 analysis = WignerSeitz(reference)  # the reference sites are prepared once
 result = analysis.compute(current)

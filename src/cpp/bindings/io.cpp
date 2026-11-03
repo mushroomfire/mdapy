@@ -55,7 +55,11 @@ private:
 };
 
 [[noreturn]] void raise_parse_error(const io::ParseError& error) {
-    PyErr_SetObject(PyExc_ValueError, nb::make_tuple(error.what(), error.row).ptr());
+    // the message may quote the bytes of a damaged file
+    const std::string message = error.what();
+    const nb::object text = nb::steal(
+        PyUnicode_DecodeUTF8(message.data(), static_cast<Py_ssize_t>(message.size()), "replace"));
+    PyErr_SetObject(PyExc_ValueError, nb::make_tuple(text, error.row).ptr());
     throw nb::python_error();
 }
 
@@ -163,7 +167,12 @@ nb::tuple parse_table(nb::handle text, std::int64_t offset, std::int64_t rows,
         if (columns[i].kind == io::Kind::String) {
             nb::list categories;
             for (const std::string& value : columns[i].categories) {
-                categories.append(nb::str(value.data(), value.size()));
+                PyObject* decoded = PyUnicode_DecodeUTF8(value.data(), static_cast<Py_ssize_t>(value.size()), nullptr);
+                if (decoded == nullptr) {
+                    PyErr_Clear();
+                    raise_parse_error(io::ParseError(0, "a value is not UTF-8 text"));
+                }
+                categories.append(nb::steal(decoded));
             }
             arrays[i] = nb::make_tuple(arrays[i], categories);
         }

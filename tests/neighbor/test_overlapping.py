@@ -138,3 +138,10 @@ def test_as_ovito(with_copies):
     )
     np.testing.assert_array_equal(lower, np.asarray(data.particles.selection) != 0)
     assert 0 < lower.sum() < every.sum()
+
+
+def test_atoms_far_apart():
+    # crashed: the number of cells did not fit an integer
+    positions = np.array([[0.0, 0, 0], [1e9, 1e9, 1e9], [0.5, 0, 0]])
+    selected = find_overlapping(mdapy.System(positions, elements="Cu"), 1.0)
+    np.testing.assert_array_equal(selected, [False, False, True])

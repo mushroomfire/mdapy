@@ -25,6 +25,9 @@ NB_MODULE(_core, m) {
         } catch (const mdapy::Cancelled& e) {
             nb::object cls = nb::module_::import_("mdapy.errors").attr("Cancelled");
             PyErr_SetString(cls.ptr(), e.what());
+        } catch (const mdapy::InvalidInput& e) {
+            nb::object cls = nb::module_::import_("mdapy.errors").attr("InvalidParameter");
+            PyErr_SetString(cls.ptr(), e.what());
         }
     });
 

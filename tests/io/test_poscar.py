@@ -299,3 +299,9 @@ def test_extra_words_without_selective_dynamics(tmp_path):
 def test_no_atoms(tmp_path):
     system = read_text(tmp_path, poscar(counts="0", lines="", tail="\n"))
     assert len(system) == 0
+
+
+def test_no_atoms_to_write(tmp_path):
+    system = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0), elements=[])
+    with pytest.raises(InvalidParameter, match="at least one atom"):
+        mdapy.write(tmp_path / "POSCAR", system, format="poscar")

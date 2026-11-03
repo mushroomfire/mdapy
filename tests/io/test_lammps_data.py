@@ -880,3 +880,13 @@ def test_write_one_frame_only(tmp_path):
     system = mdapy.System(np.zeros((1, 3)), 5.0)
     with pytest.raises(InvalidParameter, match="hold one frame"):
         mdapy.write(tmp_path / "two.data", [system, system])
+
+
+@pytest.mark.parametrize(
+    "data", [b"x", b"\n", b"\0" * 100, b"a title\n\n1 atom types\n"]
+)
+def test_a_file_without_atoms_is_no_data_file(tmp_path, data):
+    path = tmp_path / "t.data"
+    path.write_bytes(data)
+    with pytest.raises(FileFormatError, match="not a data file"):
+        mdapy.read(path)

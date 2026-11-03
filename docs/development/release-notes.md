@@ -87,6 +87,9 @@ and it has a new logo.
   the virial and whether the step converged, as ASE reads them. See
   [CIF](../reference/formats/cif.md), [PDB](../reference/formats/pdb.md) and
   [VASP OUTCAR](../reference/formats/outcar.md).
+- Damaged files give a `FileFormatError` in every format: bytes that are not
+  text, a `.mdapy` file cut or changed anywhere, a file without atoms that read
+  as an empty system before.
 
 ### Neighbor search
 
@@ -117,6 +120,10 @@ and it has a new logo.
   a list. A list keeps 15 bytes per pair: `i` and `vectors` are computed
   when asked for. See
   [Sharing neighbor lists](../getting-started/tutorials/neighbor-lists.md).
+- Atoms far apart, up to 1e9 box lengths: a search along a direction without
+  periods puts its cells over the body of the atoms, so that an atom that flew
+  off leaves the others as fast as before (0.03 s, not 12 s, for 200 000 atoms),
+  and the number of cells no longer overflows, which could crash the process.
 - A list of Voronoi neighbors finds its distances in parallel and, in a
   periodic box, keeps the arrays of the cells without a copy: Steinhardt
   parameters over Voronoi faces take a quarter less time and 40 % less memory.

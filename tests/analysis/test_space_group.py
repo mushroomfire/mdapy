@@ -111,3 +111,10 @@ def test_errors(monkeypatch):
     with pytest.raises(InvalidParameter, match="pip install spglib"):
         SpaceGroup().compute(cell)
     assert repr(SpaceGroup()) == "SpaceGroup(tolerance=1e-05)"
+
+
+def test_atoms_that_overlap():
+    positions = [[1.0, 1, 1], [1.0, 1, 1]]
+    system = mdapy.System(positions, mdapy.Box(10.0), elements="Cu")
+    with pytest.raises(InvalidParameter, match="no symmetry"):
+        SpaceGroup().compute(system)

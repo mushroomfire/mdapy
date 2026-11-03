@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <exception>
 #include <functional>
+#include <stdexcept>
 #include <vector>
 
 namespace mdapy {
@@ -21,6 +22,12 @@ namespace mdapy {
 class Cancelled : public std::exception {
 public:
     const char* what() const noexcept override { return "operation cancelled"; }
+};
+
+// Thrown for input a kernel cannot take; InvalidParameter in Python.
+class InvalidInput : public std::invalid_argument {
+public:
+    using std::invalid_argument::invalid_argument;
 };
 
 // Flag that any thread can set to stop a running parallel region.

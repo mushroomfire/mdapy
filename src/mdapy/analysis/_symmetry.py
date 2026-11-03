@@ -51,7 +51,13 @@ def _dataset(system: System, tolerance: float):
     """The symmetry dataset of spglib for a periodic crystal."""
     box = system.box
     cell = (box.matrix, box.to_fractional(system["positions"]), _kinds(system))
-    return _spglib().get_symmetry_dataset(cell, symprec=tolerance)
+    dataset = _spglib().get_symmetry_dataset(cell, symprec=tolerance)
+    if dataset is None:
+        raise InvalidParameter(
+            f"spglib finds no symmetry of these atoms at a tolerance of {tolerance} Å: "
+            "atoms may overlap"
+        )
+    return dataset
 
 
 def _operations(system: System, tolerance: float) -> _Operations:

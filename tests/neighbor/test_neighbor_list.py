@@ -5,6 +5,7 @@
 
 import itertools
 import math
+import time
 
 import numpy as np
 import pytest
@@ -839,3 +840,62 @@ def test_the_largest_of_many_distances():
     # for any number of threads
     with mdapy.num_threads(3):
         assert _native.largest(values) == values.max()
+
+
+@pytest.mark.parametrize("far", [1e3, 1e6, 1e8, 1e12, 1e15])
+def test_atoms_far_apart_in_a_box_without_periods(far):
+    # the cells along each direction, multiplied, do not fit an integer
+    rng = np.random.default_rng(1)
+    positions = rng.random((60, 3)) * 8.0
+    positions[0] = far
+    positions[1] = far + 1.0
+    nl = NeighborList.build(mdapy.System(positions, elements="Cu"), 3.0)
+    distances = np.linalg.norm(positions[:, None] - positions[None], axis=2)
+    np.fill_diagonal(distances, np.inf)
+    np.testing.assert_array_equal(nl.counts, (distances < 3.0).sum(axis=1))
+
+
+def test_a_huge_periodic_box():
+    rng = np.random.default_rng(1)
+    system = mdapy.System(rng.random((50, 3)) * 1e12, mdapy.Box(1e12), elements="Cu")
+    assert len(NeighborList.build(system, 3.0)) == 0
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_atoms_that_flew_off_as_brute_force(seed):
+    # whatever flew off, alone or together, in one direction or several
+    rng = np.random.default_rng(seed)
+    n = int(rng.integers(2, 500))
+    positions = rng.random((n, 3)) * rng.choice([3.0, 20.0, 60.0])
+    flown = rng.choice(n, min(int(rng.choice([1, 2, 5, n // 3 + 1])), n), replace=False)
+    far = rng.choice([1e2, 1e4, 1e6, 1e8])
+    for axis in rng.choice(3, size=int(rng.integers(1, 4)), replace=False):
+        spread = rng.choice([2.0, far / 10])
+        positions[flown, axis] = (
+            far * rng.choice([1, -1]) + rng.random(len(flown)) * spread
+        )
+    cutoff = float(rng.choice([1.0, 3.0, 6.0]))
+    nl = NeighborList.build(mdapy.System(positions, elements="Cu"), cutoff)
+    distances = np.linalg.norm(positions[:, None] - positions[None], axis=2)
+    np.fill_diagonal(distances, np.inf)
+    np.testing.assert_array_equal(nl.counts, (distances < cutoff).sum(axis=1))
+
+
+def test_one_atom_that_flew_off_does_not_slow_the_search():
+    # it took 12 s for these atoms, all the others in one cell, against 0.03 s
+    n = 200_000
+    side = (n / 0.085) ** (1 / 3)
+    positions = np.random.default_rng(3).random((n, 3)) * side
+    positions[0] = 1e5
+    system = mdapy.System(positions, elements="Cu")
+    started = time.perf_counter()
+    nl = NeighborList.build(system, 3.0)
+    assert time.perf_counter() - started < 5.0
+    assert nl.counts[0] == 0
+
+
+def test_positions_out_of_reach_are_an_invalid_parameter():
+    rng = np.random.default_rng(1)
+    system = mdapy.System(rng.random((20, 3)) * 1e15, mdapy.Box(20.0), elements="Cu")
+    with pytest.raises(InvalidParameter, match="within 1e9 box lengths"):
+        NeighborList.build(system, 3.0)

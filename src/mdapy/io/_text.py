@@ -53,7 +53,7 @@ class TextReader:
         end = self.buffer.find(b"\n", self.offset)
         stop = len(self.buffer) if end < 0 else end
         raw = self.buffer[self.offset : stop]
-        self.offset = stop + 1
+        self.offset = min(stop + 1, len(self.buffer))
         self.line += 1
         try:
             return raw.decode("utf-8").rstrip("\r")

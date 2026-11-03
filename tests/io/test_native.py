@@ -292,3 +292,38 @@ def test_buffer_file():
     assert file.seek(1, 1) == 6 and file.read(10) == b"6789"
     with pytest.raises(OSError, match="negative"):
         file.seek(-11, 2)
+
+
+def damaged_files(data, seed=0):
+    rng = np.random.default_rng(seed)
+    n = len(data)
+    for at in rng.integers(0, n, 12):
+        yield data[:at]
+    for _ in range(40):
+        damaged = bytearray(data)
+        for at in rng.integers(0, n, int(rng.choice([1, 16]))):
+            damaged[at] = int(rng.integers(256))
+        yield bytes(damaged)
+    # a header or a directory that points elsewhere
+    lines = data.split(b"\n")
+    for at in rng.integers(0, len(lines), 8):
+        yield b"\n".join(lines[:at] + lines[at + 1 :])
+        yield b"\n".join(lines[: at + 1] + lines[at:])
+    yield data.replace(b"\n", b"\r\n")
+
+
+def test_a_damaged_file_gives_an_error_of_a_file(tmp_path):
+    good = tmp_path / "good.mdapy"
+    system = mdapy.System([[0.0, 0, 0], [1, 1, 1]], mdapy.Box(5.0), elements="Cu")
+    mdapy.write(good, [system.with_info(timestep=k) for k in range(3)])
+    path = tmp_path / "damaged.mdapy"
+    errors = 0
+    for data in damaged_files(good.read_bytes()):
+        path.write_bytes(data)
+        try:
+            with mdapy.read_trajectory(path) as trajectory:
+                for frame in trajectory:
+                    assert frame["positions"].shape[1] == 3
+        except (FileFormatError, InvalidParameter, UnsupportedFormat):
+            errors += 1
+    assert errors > 20

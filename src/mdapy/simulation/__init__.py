@@ -21,15 +21,23 @@ from mdapy.simulation._free_energy import (
     free_energy,
 )
 from mdapy.simulation._minimize import MinimizeResult, minimize
+from mdapy.simulation._phase_diagram import (
+    BinaryPhaseDiagram,
+    TieLine,
+    binary_phase_diagram,
+)
 
 __all__ = [
+    "BinaryPhaseDiagram",
     "FreeEnergyResult",
     "MinimizeResult",
     "MolecularDynamics",
     "PhaseCoexistence",
     "StackingFaultResult",
     "SurfaceResult",
+    "TieLine",
     "VacancyResult",
+    "binary_phase_diagram",
     "free_energy",
     "minimize",
     "stacking_fault_energy",

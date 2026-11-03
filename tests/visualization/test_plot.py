@@ -187,3 +187,32 @@ def test_style_shows_the_figures_of_a_notebook_in_the_style(monkeypatch):
     with pytest.raises(ZeroDivisionError), plot.style():
         1 / 0
     assert len(sizes) == 1  # not after an error
+
+
+def test_phase_diagram():
+    from mdapy.simulation import binary_phase_diagram
+
+    t = np.linspace(1000.0, 1700.0, 15)
+    k = 8.617e-5
+    fractions = np.linspace(0, 1, 5)
+
+    def mixing(x):
+        return k * t * (x * np.log(max(x, 1e-12)) + (1 - x) * np.log(max(1 - x, 1e-12)))
+
+    solid = {float(x): (t, mixing(x)) for x in fractions}
+    liquid = {
+        float(x): (
+            t,
+            mixing(x) + (1 - x) * 0.13 * (1 - t / 1300) + x * 0.17 * (1 - t / 1600),
+        )
+        for x in fractions
+    }
+    diagram = binary_phase_diagram(
+        {"solid": solid, "liquid": liquid}, t, elements=("Cu", "Ni")
+    )
+    ax = plot.phase_diagram(diagram)
+    assert ax.get_xlabel() == "fraction of Ni" and ax.get_ylabel() == "temperature (K)"
+    assert len(ax.lines) >= 2
+    assert {text.get_text() for text in ax.texts} == {"solid", "liquid"}
+    bare = plot.phase_diagram(diagram, labels=False)
+    assert not bare.texts

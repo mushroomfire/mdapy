@@ -51,7 +51,12 @@ def _dataset(system: System, tolerance: float):
     """The symmetry dataset of spglib for a periodic crystal."""
     box = system.box
     cell = (box.matrix, box.to_fractional(system["positions"]), _kinds(system))
-    dataset = _spglib().get_symmetry_dataset(cell, symprec=tolerance)
+    spglib = _spglib()
+    # it gives None or raises, as a setting of its own says, which phonopy changes
+    try:
+        dataset = spglib.get_symmetry_dataset(cell, symprec=tolerance)
+    except spglib.SpglibError:
+        dataset = None
     if dataset is None:
         raise InvalidParameter(
             f"spglib finds no symmetry of these atoms at a tolerance of {tolerance} Å: "

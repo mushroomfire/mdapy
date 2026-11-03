@@ -13,7 +13,7 @@ from mdapy.analysis import SpaceGroup
 from mdapy.build import build_crystal
 from mdapy.errors import InvalidParameter
 
-pytest.importorskip("spglib")
+spglib = pytest.importorskip("spglib")
 
 CRYSTALS = {
     "fcc": ("fcc", 3.6, "Cu", 225, "Fm-3m"),
@@ -113,7 +113,10 @@ def test_errors(monkeypatch):
     assert repr(SpaceGroup()) == "SpaceGroup(tolerance=1e-05)"
 
 
-def test_atoms_that_overlap():
+@pytest.mark.parametrize("old_handling", [True, False])
+def test_atoms_that_overlap(monkeypatch, old_handling):
+    # spglib gives None or raises, as this setting says
+    monkeypatch.setattr(spglib, "OLD_ERROR_HANDLING", old_handling)
     positions = [[1.0, 1, 1], [1.0, 1, 1]]
     system = mdapy.System(positions, mdapy.Box(10.0), elements="Cu")
     with pytest.raises(InvalidParameter, match="no symmetry"):

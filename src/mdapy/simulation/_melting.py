@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import ArrayLike
 
+from mdapy import units
 from mdapy.analysis._steinhardt import SteinhardtParameters
 from mdapy.calculators._lammps import LAMMPS
 from mdapy.core.box import Box
@@ -18,6 +19,7 @@ from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.core.threads import CancelToken
 from mdapy.errors import InvalidParameter, MissingProperty
+from mdapy.neighbor import NeighborList
 from mdapy.simulation._dynamics import MolecularDynamics
 from mdapy.simulation._free_energy import _Progress, _mean_box, _run
 from mdapy.transform import replicate
@@ -32,6 +34,16 @@ _ENOUGH = 0.2
 _STEP = 0.15
 # how much hotter than the temperature the liquid half is melted
 _HOT = 2.0
+# times the melting of the liquid half is tried, each this much hotter
+_MELT_TRIES = 4
+_HOTTER = 1.25
+# the first shell of a crystal ends where the next distance is this much larger
+_SHELL_GAP = 1.2
+_MOST_NEIGHBORS = 20
+# an atom is solid-like with this share of its neighbors in solid-like bonds
+_SOLID_BONDS = 0.6
+# stretches of coexistence.time in one box, while the temperature still drifts
+_SEGMENTS = 5
 # parts of a run, after each of which one phase having taken over ends it
 _PIECES = 10
 # blocks for the standard error of the mean temperature
@@ -40,7 +52,7 @@ _BLOCKS = 5
 
 @dataclass(frozen=True)
 class MeltingAttempt:
-    """One run of a solid and a liquid in one box.
+    """One stretch of a solid and a liquid in one box.
 
     Attributes
     ----------
@@ -52,12 +64,16 @@ class MeltingAttempt:
         The mean temperature in K over its second half.
     fraction : float
         The fraction of solid atoms at its end.
+    drift : float
+        How much in K the mean temperature changed from the third quarter of
+        the run to the last.
     """
 
     start: float
     outcome: str
     temperature: float
     fraction: float
+    drift: float
 
 
 @dataclass(frozen=True)
@@ -68,21 +84,21 @@ class MeltingPointResult(Result):
     ----------
     temperature : float
         The melting point in K: the temperature at which the two phases
-        coexist, averaged over the second half of the last run.
+        coexist, averaged over the second half of the last stretch.
     error : float
         The standard error of that mean in K, from blocks of the run.
     pressure : float
         The pressure in GPa.
     attempts : tuple of MeltingAttempt
-        The runs, in order.
+        Each stretch of each run, in order.
     time : numpy.ndarray
-        (S,) the time in ps along the last run.
+        (S,) the time in ps along the last stretch.
     temperatures : numpy.ndarray
-        (S,) the temperature in K along the last run.
+        (S,) the temperature in K along the last stretch.
     pressures : numpy.ndarray
-        (S,) the pressure in GPa along the last run.
+        (S,) the pressure in GPa along the last stretch.
     fractions : numpy.ndarray
-        (F,) the fraction of solid atoms along the last run.
+        (F,) the fraction of solid atoms along the last stretch.
     fraction_time : numpy.ndarray
         (F,) the time in ps of the fractions.
     system : System
@@ -103,9 +119,10 @@ class MeltingPointResult(Result):
 
 @dataclass(frozen=True)
 class _Run:
-    """What one run gives, with the attempt it counts as."""
+    """What one run gives, with an attempt for each of its segments; its last
+    segment for the rest."""
 
-    attempt: MeltingAttempt
+    attempts: tuple[MeltingAttempt, ...]
     error: float
     time: np.ndarray
     temperatures: np.ndarray
@@ -115,10 +132,39 @@ class _Run:
     system: System
 
 
-def _order(system: System) -> np.ndarray:
-    """(N,) the averaged q6 of each atom, high in a crystal and low in a liquid."""
-    calculator = SteinhardtParameters(degrees=(6,), num_neighbors=12, average=True)
-    return calculator.compute(system)[6]
+def _shell(crystal: System) -> int:
+    """How many neighbors of the first atoms of a perfect crystal are in the
+    shell that the next distance leaves far behind: 12 in fcc and hcp, 14 in
+    bcc, 4 in diamond."""
+    distances = NeighborList.build(
+        crystal, num_neighbors=_MOST_NEIGHBORS
+    ).distances.reshape(len(crystal), _MOST_NEIGHBORS)
+    distances = np.sort(distances, axis=1).max(axis=0)
+    jumps = np.flatnonzero(distances[1:] / distances[:-1] > _SHELL_GAP)
+    return int(jumps[0]) + 1 if len(jumps) else _MOST_NEIGHBORS
+
+
+def _solid_like(system: System, neighbors: int) -> np.ndarray:
+    """(N,) whether each atom shares the order of its neighbors, as in a crystal."""
+    calculator = SteinhardtParameters(
+        degrees=(6,),
+        num_neighbors=neighbors,
+        solid=True,
+        min_solid_bonds=round(_SOLID_BONDS * neighbors),
+    )
+    return calculator.compute(system).solid
+
+
+def _travel(start: System, end: System, first: int) -> float:
+    """The mean square distance in Å² the atoms from this index on have gone,
+    in a box that stayed the same."""
+    shifts = (
+        end["positions"]
+        - start["positions"]
+        + (end["image"] - start["image"]) @ start.box.matrix
+    )[first:]
+    shifts = shifts - shifts.mean(axis=0)
+    return float((shifts**2).sum(axis=1).mean())
 
 
 def _block_error(values: np.ndarray) -> float:
@@ -149,6 +195,8 @@ def _one_run(
     timestep: float,
     equilibrium: int,
     coexistence: int,
+    neighbors: int,
+    tolerance: float,
     seed: int,
     counter: _Progress,
 ) -> _Run:
@@ -177,6 +225,18 @@ def _one_run(
     crystal = crystal.gather(np.argsort(third, kind="stable"))
     half = len(crystal) // 2
     hot = _HOT * temperature
+    # the box grows along the interface's normal as the half melts: held at the
+    # density of the crystal it would need a far higher temperature to melt
+    normal = "y" if np.linalg.det(crystal.box.matrix) < 0 else "z"
+    bar = pressure * units.GPA_TO_BAR
+    damping = 1000 * timestep if barostat_damping is None else barostat_damping
+
+    def heating(first: float, last: float) -> str:
+        return (
+            "fix mdapy_heat mdapy_liquid npt temp "
+            f"{first!r} {last!r} {100 * timestep!r} "
+            f"{normal} {bar!r} {bar!r} {float(damping)!r} dilate mdapy_liquid"
+        )
 
     with MolecularDynamics(crystal, potential, timestep=timestep) as md:
         md.command(
@@ -187,28 +247,36 @@ def _one_run(
                     "velocity mdapy_solid set 0 0 0",
                     f"velocity mdapy_liquid create {hot!r} {seed + 1} mom yes rot no",
                     "fix mdapy_hold mdapy_solid setforce 0 0 0",
-                    "fix mdapy_heat mdapy_liquid nvt temp "
-                    f"{hot!r} {hot!r} {100 * timestep!r}",
+                    heating(hot, hot),
                 ]
             )
         )
-        _run(md, equilibrium, counter)
-        md.command(
-            "\n".join(
-                [
-                    "unfix mdapy_heat",
-                    "fix mdapy_heat mdapy_liquid nvt temp "
-                    f"{hot!r} {temperature!r} {100 * timestep!r}",
-                ]
+        # hot until the atoms have left their places, by about the distance
+        # between them, hotter and longer as long as they have not
+        before = md.system
+        distance = (crystal.box.volume / len(crystal)) ** (2 / 3)
+        for _ in range(_MELT_TRIES):
+            _run(md, equilibrium, counter)
+            if _travel(before, md.system, half) > distance:
+                break
+            hot *= _HOTTER
+            md.command(f"unfix mdapy_heat\n{heating(hot, hot)}")
+        else:
+            raise InvalidParameter(
+                f"one half of the crystal does not melt, even at {hot:g} K"
             )
-        )
+        md.command(f"unfix mdapy_heat\n{heating(hot, temperature)}")
         _run(md, equilibrium, counter)
+        # the liquid settles at the temperature: cooled fast, it holds extra energy
+        md.command(f"unfix mdapy_heat\n{heating(temperature, temperature)}")
+        _run(md, equilibrium, counter)
+        # the crystal starts at rest in its places: half of this goes into them
         md.command(
             "\n".join(
                 [
                     "unfix mdapy_heat",
                     "unfix mdapy_hold",
-                    f"velocity mdapy_solid create {temperature!r} {seed + 2} "
+                    f"velocity mdapy_solid create {2 * temperature!r} {seed + 2} "
                     "mom yes rot no",
                 ]
             )
@@ -226,52 +294,73 @@ def _one_run(
             cancel=counter.cancel,
         )
         counter.add(md.step - done)
-        order = _order(md.system)
-        solid, liquid = order[:half].mean(), order[half:].mean()
-        if not solid > liquid:
-            raise InvalidParameter(
-                f"the two halves are alike at {temperature:g} K: the order of the "
-                f"atoms is {solid:.3f} and {liquid:.3f}"
+        solid_like = _solid_like(md.system, neighbors)
+        ordered = float(solid_like[:half].mean())
+        if ordered < _ENOUGH:  # the crystal melted by itself: far too hot
+            return _Run(
+                attempts=(
+                    MeltingAttempt(temperature, _MELTED, temperature, ordered / 2, 0.0),
+                ),
+                error=0.0,
+                time=np.zeros(0),
+                temperatures=np.zeros(0),
+                pressures=np.zeros(0),
+                fractions=np.zeros(0),
+                fraction_time=np.zeros(0),
+                system=md.system,
             )
-        threshold = 0.5 * (solid + liquid)
-        begin, begin_step = len(md.thermo), md.step
-        times, fractions, outcome = [], [], _COEXISTING
-        piece = max(coexistence // _PIECES, 1)
-        for _ in range(_PIECES):
-            counter.check()
-            done = md.step
-            md.run(
-                piece,
-                ensemble="nph",
-                pressure=pressure,
-                barostat="aniso",
-                barostat_damping=barostat_damping,
-                thermo=max(piece // 50, 1),
-                cancel=counter.cancel,
+        begin_step = md.step
+        attempts = []
+        for segment in range(_SEGMENTS):
+            begin = len(md.thermo)
+            times, fractions, outcome = [], [], _COEXISTING
+            piece = max(coexistence // _PIECES, 1)
+            for _ in range(_PIECES):
+                counter.check()
+                done = md.step
+                md.run(
+                    piece,
+                    ensemble="nph",
+                    pressure=pressure,
+                    barostat="aniso",
+                    barostat_damping=barostat_damping,
+                    thermo=max(piece // 50, 1),
+                    cancel=counter.cancel,
+                )
+                counter.add(md.step - done)
+                solid_like = _solid_like(md.system, neighbors)
+                fractions.append(float(solid_like.mean()))
+                times.append((md.step - begin_step) * timestep)
+                if fractions[-1] < _ONE_PHASE:
+                    outcome = _MELTED
+                    break
+                if fractions[-1] > 1 - _ONE_PHASE:
+                    outcome = _FROZEN
+                    break
+            rows = md.thermo[begin:]
+            temperatures = rows["temperature"].to_numpy()
+            second = temperatures[len(temperatures) // 2 :]
+            third, fourth = np.array_split(second, 2)
+            error = _block_error(second)
+            drift = float(fourth.mean() - third.mean())
+            attempts.append(
+                MeltingAttempt(
+                    start=temperature,
+                    outcome=outcome,
+                    temperature=float(second.mean()),
+                    fraction=fractions[-1],
+                    drift=drift,
+                )
             )
-            counter.add(md.step - done)
-            now = md.system
-            order = _order(now)
-            fractions.append(float((order > threshold).mean()))
-            times.append((md.step - begin_step) * timestep)
-            if fractions[-1] < _ONE_PHASE:
-                outcome = _MELTED
+            enough = _ENOUGH <= fractions[-1] <= 1 - _ENOUGH
+            if outcome != _COEXISTING or not enough:
                 break
-            if fractions[-1] > 1 - _ONE_PHASE:
-                outcome = _FROZEN
+            if abs(drift) <= max(tolerance, 2 * error):
                 break
-        rows = md.thermo[begin:]
-        final = md.system.with_columns(solid=order > threshold)
-    temperatures = rows["temperature"].to_numpy()
-    second = temperatures[len(temperatures) // 2 :]
+        final = md.system.with_columns(solid=solid_like)
     return _Run(
-        attempt=MeltingAttempt(
-            start=temperature,
-            outcome=outcome,
-            temperature=float(second.mean()),
-            fraction=fractions[-1],
-        ),
-        error=_block_error(second),
+        attempts=tuple(attempts),
+        error=error,
         time=(rows["step"].to_numpy() - begin_step) * timestep,
         temperatures=temperatures,
         pressures=rows["pressure"].to_numpy(),
@@ -281,19 +370,23 @@ def _one_run(
     )
 
 
-def _next_temperature(
-    attempts: list[MeltingAttempt], tolerance: float
-) -> float | None:
-    """The temperature to try next, or None when the last run is the answer: it
-    kept enough of both phases and stayed near where it started. A run that
+def _is_answer(last: MeltingAttempt, error: float, tolerance: float) -> bool:
+    """Whether a run ended with enough of both phases and a steady temperature."""
+    return (
+        last.outcome == _COEXISTING
+        and _ENOUGH <= last.fraction <= 1 - _ENOUGH
+        and abs(last.drift) <= max(tolerance, 2 * error)
+    )
+
+
+def _next_temperature(attempts: list[MeltingAttempt]) -> float:
+    """The temperature to try next after a run that gave no answer. A run that
     melted is too hot and one that froze too cold, whatever its temperature
-    became; between such bounds the next try is halfway."""
+    became; between such bounds the next try is halfway. A run with both phases
+    goes on from where its temperature was going."""
     last = attempts[-1]
     if last.outcome == _COEXISTING:
-        enough = _ENOUGH <= last.fraction <= 1 - _ENOUGH
-        if enough and abs(last.temperature - last.start) <= tolerance:
-            return None
-        return last.temperature
+        return last.temperature + last.drift
     hot = [a.start for a in attempts if a.outcome == _MELTED]
     cold = [a.start for a in attempts if a.outcome == _FROZEN]
     if hot and cold:
@@ -314,7 +407,7 @@ def melting_point(
     timestep: float = 0.001,
     equilibration: float = 10.0,
     coexistence: float = 100.0,
-    tolerance: float = 10.0,
+    tolerance: float = 3.0,
     max_runs: int = 8,
     barostat_damping: float | None = None,
     seed: int = 1,
@@ -349,10 +442,12 @@ def melting_point(
     equilibration : float, optional
         Time in ps of each stage before the two phases meet. Default 10.
     coexistence : float, optional
-        Time in ps of each run of the two phases. Default 100.
+        Time in ps of each stretch of the two phases, of which a run has up to
+        five while the temperature drifts. Default 100.
     tolerance : float, optional
-        How far in K the mean temperature of a run may be from its start, for
-        that run to be the answer. Default 10.
+        How much in K the temperature may still drift, from the third quarter
+        of a stretch of coexistence to the last, for it to be the answer; twice
+        its statistical error, if that is larger. Default 3.
     max_runs : int, optional
         Largest number of runs. Default 8.
     barostat_damping : float, optional
@@ -375,9 +470,9 @@ def melting_point(
     Raises
     ------
     InvalidParameter
-        For invalid options, a box not periodic in every direction, if the
-        melted half stays as ordered as the crystal, if no run ends with two
-        phases within ``max_runs``, or if LAMMPS fails.
+        For invalid options, a box not periodic in every direction, if half of
+        the crystal does not melt, if no run ends with two phases within
+        ``max_runs``, or if LAMMPS fails.
     MissingProperty
         If the system has no ``element`` column.
     Cancelled
@@ -408,12 +503,15 @@ def melting_point(
             or not np.issubdtype(counts.dtype, np.integer)
             or (counts < 1).any()
         ):
-            raise InvalidParameter(f"repeat must be 3 positive integers, not {repeat!r}")
+            raise InvalidParameter(
+                f"repeat must be 3 positive integers, not {repeat!r}"
+            )
         counts[2] += counts[2] % 2
         start = replicate(crystal, counts)
+    neighbors = _shell(start)
     equilibrium = max(int(round(equilibration / timestep)), 2)
     together = max(int(round(coexistence / timestep)), _PIECES)
-    per_run = 3 * equilibrium + equilibrium // 2 + together
+    per_run = 4 * equilibrium + equilibrium // 2 + _SEGMENTS * together
     counter = _Progress(per_run * int(max_runs), progress, cancel)
     attempts: list[MeltingAttempt] = []
     guess = float(temperature)
@@ -428,14 +526,15 @@ def melting_point(
             timestep,
             equilibrium,
             together,
+            neighbors,
+            float(tolerance),
             int(seed) + 10 * k,
             counter,
         )
-        attempts.append(run.attempt)
-        following = _next_temperature(attempts, float(tolerance))
-        if following is None:
+        attempts.extend(run.attempts)
+        if _is_answer(attempts[-1], run.error, float(tolerance)):
             return MeltingPointResult(
-                temperature=run.attempt.temperature,
+                temperature=attempts[-1].temperature,
                 error=run.error,
                 pressure=float(pressure),
                 attempts=tuple(attempts),
@@ -446,6 +545,6 @@ def melting_point(
                 fraction_time=run.fraction_time,
                 system=run.system,
             )
-        guess = following
+        guess = _next_temperature(attempts)
     outcomes = ", ".join(f"{a.start:.0f} K {a.outcome}" for a in attempts)
     raise InvalidParameter(f"no melting point in {int(max_runs)} runs: {outcomes}")

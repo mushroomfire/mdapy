@@ -209,6 +209,8 @@ flowchart TB
     [molecular dynamics](simulation/dynamics.md) ·
     [defect energies](simulation/defect-energies.md)
 
+    Thermodynamics: [free energy](simulation/free-energy.md)
+
     Lattice dynamics: [elastic constants](simulation/elastic-constants.md) ·
     [phonons](simulation/phonons.md) ·
     [quasi-harmonic approximation](simulation/quasi-harmonic.md) ·

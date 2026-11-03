@@ -339,6 +339,12 @@ import mdapy as mp
 
 ::: mdapy.simulation.StackingFaultResult
 
+::: mdapy.simulation.free_energy
+
+::: mdapy.simulation.FreeEnergyResult
+
+::: mdapy.simulation.PhaseCoexistence
+
 ## Lattice dynamics
 
 ::: mdapy.lattice_dynamics.elastic_constants

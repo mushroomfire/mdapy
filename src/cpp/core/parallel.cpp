@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <stdexcept>
+#include <system_error>
 #include <thread>
 
 #ifdef _WIN32

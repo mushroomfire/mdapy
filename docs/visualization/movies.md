@@ -57,5 +57,5 @@ nothing to install; on Linux it needs FFmpeg as above. A camera that moves, or c
 that change on the way, are the work of a script like the one in the tutorial.
 
 Pictures in the application are at most 8192 pixels on a side, where a square one takes
-about 5 GB of memory, and movies at most 8192 × 4320 pixels, the largest size of H.264.
+about 7 GB of memory, and movies at most 8192 × 4320 pixels, the largest size of H.264.
 `render` and `write_movie` have no such limit in a script.

@@ -88,6 +88,19 @@ def _masses(system: System) -> np.ndarray:
     raise MissingProperty("minimize needs the masses: a mass or an element column")
 
 
+# Not with BLAS: after a product of large arrays the threads of OpenBLAS spin for
+# milliseconds, and between the steps they take the cores from the kernels (seven
+# times slower for 4000 atoms on 16 threads).
+def _dot(a: np.ndarray, b: np.ndarray) -> float:
+    """The sum of the products of the elements of two arrays of rows."""
+    return float(np.einsum("ij,ij->", a, b))
+
+
+def _rows_times(rows: np.ndarray, matrix: np.ndarray) -> np.ndarray:
+    """``rows @ matrix``, for rows of positions and a (3, 3) matrix."""
+    return np.einsum("ij,kj->ik", rows, matrix)
+
+
 def _projector(cell: str | None, pbc: np.ndarray):
     """The projection of a (3, 3) tensor onto the strains the mode allows."""
     periodic = np.outer(pbc, pbc)
@@ -223,7 +236,7 @@ def minimize(
         deformation = variables[n:] / scale
         box = Box(box0.matrix @ deformation.T, origin=origin, pbc=box0.pbc)
         return system.with_box(box).with_columns(
-            positions=origin + variables[:n] @ deformation.T
+            positions=origin + _rows_times(variables[:n], deformation.T)
         )
 
     cutoff = float(calculator.cutoff)
@@ -257,7 +270,9 @@ def minimize(
                 result.virial - pressure * units.GPA_TO_EV_PER_A3 * volume * np.eye(3)
             )
             on_box = project(target) @ np.linalg.inv(deformation).T / scale
-            generalized = np.vstack([forces @ deformation, 0.5 * (on_box + on_box.T)])
+            generalized = np.vstack(
+                [_rows_times(forces, deformation), 0.5 * (on_box + on_box.T)]
+            )
         return current, result, largest, stress, generalized, deviation
 
     variables = system["positions"].copy()
@@ -284,12 +299,12 @@ def minimize(
         save()
     while not done() and step < max_steps:
         step += 1
-        power = float(np.vdot(velocities, forces))
+        power = _dot(velocities, forces)
         if power > 0.0:
             # mix the velocities toward the forces
             keep = 1.0 - alpha
-            ff = float(np.vdot(forces, forces))
-            vv = float(np.vdot(velocities, velocities))
+            ff = _dot(forces, forces)
+            vv = _dot(velocities, velocities)
             turn = alpha * np.sqrt(vv / ff) if ff > 1e-20 else 0.0
             if step - last_negative > _DELAY:
                 dt = min(dt * _GROW, dt_max)

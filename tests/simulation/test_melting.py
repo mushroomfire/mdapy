@@ -214,11 +214,11 @@ def test_from_guesses_on_both_sides(potential, argon):
     of a small box and short runs."""
     found = [
         melting_point(
-            argon, potential, guess, repeat=(5, 5, 10), tolerance=2.0, **FAST
+            argon, potential, guess, repeat=(4, 4, 8), tolerance=0.7, **FAST
         ).temperature
-        for guess in (60.0, 110.0)
+        for guess in (60.0, 100.0)
     ]
-    assert found[0] == pytest.approx(found[1], rel=0.12)
+    assert found[0] == pytest.approx(found[1], rel=0.1)
     expected = 0.62 * EPSILON / BOLTZMANN
     assert np.mean(found) == pytest.approx(expected, rel=0.15)
 

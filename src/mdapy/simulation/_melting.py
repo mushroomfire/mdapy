@@ -11,7 +11,6 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import ArrayLike
 
-from mdapy import units
 from mdapy.analysis._steinhardt import SteinhardtParameters
 from mdapy.calculators._lammps import LAMMPS
 from mdapy.core.box import Box
@@ -225,17 +224,13 @@ def _one_run(
     crystal = crystal.gather(np.argsort(third, kind="stable"))
     half = len(crystal) // 2
     hot = _HOT * temperature
-    # the box grows along the interface's normal as the half melts: held at the
-    # density of the crystal it would need a far higher temperature to melt
-    normal = "y" if np.linalg.det(crystal.box.matrix) < 0 else "z"
-    bar = pressure * units.GPA_TO_BAR
-    damping = 1000 * timestep if barostat_damping is None else barostat_damping
 
     def heating(first: float, last: float) -> str:
+        # at the density of the crystal, so that the half cannot fly apart; the
+        # barostat of the run that follows lets it expand
         return (
-            "fix mdapy_heat mdapy_liquid npt temp "
-            f"{first!r} {last!r} {100 * timestep!r} "
-            f"{normal} {bar!r} {bar!r} {float(damping)!r} dilate mdapy_liquid"
+            f"fix mdapy_heat mdapy_liquid nvt temp {first!r} {last!r} "
+            f"{100 * timestep!r}"
         )
 
     with MolecularDynamics(crystal, potential, timestep=timestep) as md:

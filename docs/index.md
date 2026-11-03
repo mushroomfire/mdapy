@@ -68,38 +68,31 @@ flowchart TB
 
 ## Design
 
-- **Easy to use.** A structure is one `System`, built, read from the files
-  of common programs or converted from another package. Every analysis is a
-  class whose `compute(system)` returns plain NumPy arrays, ready to attach
-  to the system as columns. **NumPy and polars are the only requirements.**
-- **High performance.** The heavy work runs in compiled C++ on every core.
-  Analyses of the nearest neighbors find them as they go, without a list of
-  pairs, and one list of pairs serves every analysis it is given. On 40
-  cores, from 256 000 to 2 million atoms, MDAPY is faster than
-  [OVITO](https://www.ovito.org) in every analysis they share, and below
-  that in all but atomic strain; it is faster than
-  [freud](https://freud.readthedocs.io) in every one at every size; see
-  [Performance](performance/comparison.md).
-- **Predictable API.** One unit system: Å, eV, ps, amu, K, and GPa for
-  stress ([Units and conventions](reference/units.md)). One name for each
-  concept in every module ([Glossary](reference/glossary.md)). A `System`
-  never changes in place, every analysis takes the same arguments, and the
-  results are the same for any number of threads.
-- **Easy to integrate.** MDAPY runs its own thread pool instead of OpenMP,
-  so it shares a process with [PyTorch](https://pytorch.org) and
-  [LAMMPS](https://www.lammps.org)
-  ([Parallelism](getting-started/parallelism.md)). It converts systems to
-  and from [ASE](https://wiki.fysik.dtu.dk/ase/),
+- **Light.** [NumPy](https://numpy.org) and [polars](https://pola.rs) are its only
+  requirements. Packages such as [matplotlib](https://matplotlib.org) or
+  [ASE](https://wiki.fysik.dtu.dk/ase/) are optional, and it carries no other
+  third-party code.
+- **Robust.** Each feature is tested against analytic results and mature software, and
+  has its own page on how to use it and, for analyses, what it computes and which papers
+  it follows. Results are the same for any number of threads, and damaged files or
+  impossible inputs give a clear error, not a crash.
+- **Fast.** The heavy parts run in C++, on a parallel engine of MDAPY's own. See the
+  [benchmarks](performance/comparison.md).
+- **Predictable.** The code reads the same everywhere: a `System` never changes in place,
+  every analysis has the form `compute(system)` and returns NumPy arrays, each concept
+  has one name ([Glossary](reference/glossary.md)), and one unit system, Å, eV, ps, amu,
+  K, and GPa for stress, runs through everything
+  ([Units and conventions](reference/units.md)).
+- **Integrated.** One package and one `System`, from the first structure to the last
+  picture. It converts systems to and from [ASE](https://wiki.fysik.dtu.dk/ase/),
   [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and
   [freud](https://freud.readthedocs.io), reads and writes the files of
   [LAMMPS](https://www.lammps.org), [VASP](https://www.vasp.at) and
-  [GPUMD](https://gpumd.org), and takes any ASE calculator or LAMMPS
-  interaction as a calculator ([Interoperability](interop/ase.md)).
-- **Verified.** Each feature is tested against analytic results,
-  independent implementations and, where they compute the same, live runs
-  of [LAMMPS](https://www.lammps.org), [OVITO](https://www.ovito.org) and
-  [freud](https://freud.readthedocs.io), and has its own page on how to use
-  it and, for analyses, what it computes and which papers it follows.
+  [GPUMD](https://gpumd.org), takes any ASE calculator or LAMMPS interaction as a
+  calculator ([Interoperability](interop/ase.md)), shares a process with
+  [PyTorch](https://pytorch.org) ([Parallelism](getting-started/parallelism.md)), and
+  works as one step of
+  [high-throughput calculations](getting-started/tutorials/high-throughput.md).
 
 ## Features
 

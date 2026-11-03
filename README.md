@@ -33,28 +33,25 @@
 
 ## Why MDAPY
 
-- **Light.** No third-party code inside: every kernel is MDAPY's own C++. NumPy and
-  polars are all it needs, and everything else, such as matplotlib, ASE or LAMMPS, is
-  optional.
-- **Flexible.** Results are plain NumPy arrays and atoms are rows of a polars table, so
-  each step mixes with your own code: your own columns and masks of atoms, your own
-  [calculator](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md),
-  your own spheres, cylinders and polygons in a picture.
-- **Robust.** More than 2,800 tests compare each feature with analytic results,
-  independent implementations and live runs of LAMMPS, OVITO, freud and phonopy.
-  Results are the same for any number of threads, and damaged files or impossible
-  inputs give a clear error, not a crash.
-- **Fast.** The heavy work runs in compiled C++ on every core. From 256,000 atoms on it
-  is faster than OVITO in every analysis they share, and from 32,000 atoms on faster
-  than freud in every one:
-  [every case at every size](https://github.com/mushroomfire/mdapy/blob/v2/docs/performance/comparison.md).
-- **Predictable.** A `System` never changes in place, every analysis has the same form,
-  `compute(system)`, each concept has one name, and one unit system, Å, eV and ps, runs
-  through everything.
+- **Light.** [NumPy](https://numpy.org) and [polars](https://pola.rs) are its only
+  requirements. Packages such as [matplotlib](https://matplotlib.org) or
+  [ASE](https://wiki.fysik.dtu.dk/ase/) are optional, and it carries no other
+  third-party code.
+- **Robust.** More than 2,800 tests compare each feature with analytic results and with
+  mature software. Results are the same for any number of threads, and damaged files or
+  impossible inputs give a clear error, not a crash.
+- **Fast.** The heavy parts run in C++, on a parallel engine of MDAPY's own. See the
+  [benchmarks](https://github.com/mushroomfire/mdapy/blob/v2/docs/performance/comparison.md).
+- **Predictable.** The code reads the same everywhere: a `System` never changes in place,
+  every analysis has the form `compute(system)` and returns NumPy arrays, each concept
+  has one name, and one unit system, Å, eV and ps, runs through everything.
 - **Integrated.** One package and one `System`, from the first structure to the last
-  picture. It converts systems to and from ASE, OVITO, pymatgen and freud, takes any ASE
-  calculator or LAMMPS interaction, shares a process with PyTorch, and works as one step
-  of a [large screening](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/high-throughput.md).
+  picture. It converts systems to and from [ASE](https://wiki.fysik.dtu.dk/ase/),
+  [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and
+  [freud](https://freud.readthedocs.io), takes any ASE calculator or
+  [LAMMPS](https://www.lammps.org) interaction, shares a process with
+  [PyTorch](https://pytorch.org), and works as one step of
+  [high-throughput calculations](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/high-throughput.md).
 
 ## What it does
 
@@ -62,10 +59,10 @@
 |---|---|
 | [**Build**](https://github.com/mushroomfire/mdapy/blob/v2/docs/build/crystals.md) | Crystals, polycrystals, alloys, defects and dislocations |
 | [**Analyze**](https://github.com/mushroomfire/mdapy/blob/v2/docs/analysis/overview.md) | More than 40 analyses of structure, local order, defects and dynamics |
-| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md) | EAM, NEP, LAMMPS and ASE calculators; relaxation, dynamics, elastic constants and phonons |
-| [**MLIP**](https://github.com/mushroomfire/mdapy/blob/v2/docs/mlip/checks.md) | Training sets from VASP, descriptors, errors of a model, the frames worth computing |
+| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md) | EAM, NEP, [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/) calculators; relaxation, dynamics, elastic constants and phonons |
+| [**MLIP**](https://github.com/mushroomfire/mdapy/blob/v2/docs/mlip/checks.md) | Training sets from [VASP](https://www.vasp.at), descriptors, errors of a model, the frames worth computing |
 | [**Visualize**](https://github.com/mushroomfire/mdapy/blob/v2/docs/visualization/rendering.md) | Ray-traced pictures on the processor or the graphics card, movies and plots |
-| [**Exchange**](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/io.md) | Eight file formats, and systems shared with ASE, OVITO, pymatgen and freud |
+| [**Exchange**](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/io.md) | Eight file formats, and systems shared with [ASE](https://wiki.fysik.dtu.dk/ase/), [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and [freud](https://freud.readthedocs.io) |
 
 ## Examples
 
@@ -95,9 +92,7 @@ from mdapy.identify import CommonNeighborAnalysis
 structures = CommonNeighborAnalysis().compute(grains)
 structures.counts()  # {'other': 21043, 'fcc': 60682, ...}
 boundaries = structures.structure != 1  # not fcc
-render(
-    grains, "boundaries.png", atoms=boundaries, color=structures
-)
+render(grains, "boundaries.png", atoms=boundaries, color=structures)
 ```
 
 </td><td><img alt="The grain boundaries of the polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/assets/readme/boundaries.png" width="100%"></td></tr>
@@ -127,9 +122,7 @@ with plot.style():
 ```python
 from mdapy import mlip
 
-crystal = build_crystal(
-    "fcc", 3.615, elements="Cu", repeat=(3, 3, 3)
-)
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 3))
 frames = mlip.perturb(crystal, 200, displacement=0.1, seed=1)
 points = mlip.structure_descriptors(frames, mlip.SOAP(["Cu"]))
 chosen = mlip.farthest_point_sampling(points, 20)
@@ -155,19 +148,19 @@ with plot.style():
 </p>
 
 Give `render` a camera for each frame, and hand the pictures to `write_movie` one at a
-time. This turns around the polycrystal:
+time, which needs [FFmpeg](https://ffmpeg.org). This turns around the polycrystal:
 
 ```python
 import numpy as np
 
 from mdapy.visualization import write_movie
 
-look = dict(style="matte", focus=(50.0, 50.0, 50.0), span=170.0, width=1080, height=1080)
+look = dict(style="matte", focus=(50, 50, 50), span=170, width=1080, height=1080)
 pictures = (
     render(grains, color=structures, view=[np.cos(t), np.sin(t), -0.5], **look)
     for t in np.linspace(0, 2 * np.pi, 300)
 )
-write_movie("turn.mp4", pictures, fps=30)  # with FFmpeg on the PATH
+write_movie("turn.mp4", pictures, fps=30)
 ```
 
 The movie above uses the same pieces, with a camera that flies between two twin planes:
@@ -219,12 +212,15 @@ MDAPY has been written three times.
 
 1.x was fast, but other programs found it hard to live with. 2.x was rewritten to solve that:
 
-- **OpenMP.** The OpenMP runtime of 1.x could clash with those of other packages: on
-  macOS its wheel crashed next to the one in a conda environment. 2.x runs a thread pool
-  of its own and needs no OpenMP, so it shares a process with PyTorch and LAMMPS.
-- **Third-party code.** 1.x carried ten third-party codes, from Voro++ and polyhedral
-  template matching to Tachyon and OptiX, each to build and keep working. 2.x carries
-  none, and its license allows use in any software.
+- **OpenMP.** The [OpenMP](https://www.openmp.org) runtime of 1.x could clash with those
+  of other packages: on macOS its wheel crashed next to the one in a
+  [conda](https://docs.conda.io) environment. 2.x runs a thread pool of its own and needs
+  no OpenMP, so it shares a process with [PyTorch](https://pytorch.org) and
+  [LAMMPS](https://www.lammps.org).
+- **Third-party code.** 1.x carried ten third-party codes, from
+  [Voro++](https://math.lbl.gov/voro++/) to
+  [OptiX](https://developer.nvidia.com/rtx/ray-tracing/optix), each to build and keep
+  working. 2.x carries none, and its license allows use in any software.
 - **The API.** In 1.x an analysis was a method that changed the system,
   `system.cal_centro_symmetry_parameter(N=12)`. In 2.x a `System` never changes, every
   analysis is a class with one form, and the names come from one glossary.

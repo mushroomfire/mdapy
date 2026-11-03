@@ -21,7 +21,7 @@ from mdapy.core.threads import CancelToken
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
 from mdapy.simulation._dynamics import MolecularDynamics
-from mdapy.simulation._free_energy import _Progress, _mean_box, _run
+from mdapy.simulation._free_energy import _mean_box, _Progress, _run
 from mdapy.transform import replicate
 
 # outcomes of a run
@@ -35,8 +35,8 @@ _STEP = 0.15
 # how much hotter than the temperature the liquid half is melted
 _HOT = 2.0
 # times the melting of the liquid half is tried, each this much hotter
-_MELT_TRIES = 4
-_HOTTER = 1.25
+_MELT_TRIES = 5
+_HOTTER = 1.5
 # the first shell of a crystal ends where the next distance is this much larger
 _SHELL_GAP = 1.2
 _MOST_NEIGHBORS = 20

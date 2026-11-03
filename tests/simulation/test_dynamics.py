@@ -244,9 +244,10 @@ def test_commands_and_the_instance(potential):
     "options, message",
     [
         ({"steps": -1}, "steps must not be negative"),
-        ({"ensemble": "nph"}, "ensemble must be one of"),
+        ({"ensemble": "brownian"}, "ensemble must be one of"),
         ({"ensemble": "nvt"}, "nvt needs a temperature"),
         ({"ensemble": "npt", "temperature": 300}, "npt needs a pressure"),
+        ({"ensemble": "nph"}, "nph needs a pressure"),
         ({"barostat": "z"}, "barostat must be one of"),
         ({"thermo": 0}, "thermo and frames must be positive"),
         ({"frames": 0}, "thermo and frames must be positive"),
@@ -294,3 +295,17 @@ def test_pressure_units(potential):
         late = md.thermo.filter(md.thermo["step"] > 1500)
     assert late["pressure"].mean() == pytest.approx(2.0, abs=0.3)
     assert units.BAR_TO_GPA == 1e-4
+
+
+def test_nph_keeps_the_pressure_and_the_enthalpy(potential):
+    with MolecularDynamics(crystal(), potential, timestep=0.001) as md:
+        md.velocities(300, seed=4)
+        md.run(2000, ensemble="nph", pressure=1.0, thermo=20)
+        thermo = md.thermo
+    half = thermo[len(thermo) // 2 :]
+    assert half["pressure"].mean() == pytest.approx(1.0, abs=1.0)
+    enthalpy = (
+        half["total_energy"].to_numpy()
+        + units.GPA_TO_EV_PER_A3 * half["volume"].to_numpy()
+    )
+    assert np.ptp(enthalpy) / len(crystal()) < 5e-3

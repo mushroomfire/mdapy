@@ -43,14 +43,14 @@ def layers(potential):
 
 
 def partial(system):
-    """1/6 [11-2], in a box that holds two periods of [11-2] along x."""
-    return np.array([system.box.matrix[0, 0] / 12, 0, 0])
+    """1/6 [11-2], in a box that holds two periods of 1/2 [11-2] along x."""
+    return np.array([system.box.matrix[0, 0] / 6, 0, 0])
 
 
 def test_a_whole_lattice_vector_makes_no_fault(potential, layers):
-    # half of the box along x, which holds two periods of [11-2]
+    # half of the box along x, which holds two periods of 1/2 [11-2]
     whole = [layers.box.matrix[0, 0] / 2, 0, 0]
-    result = stacking_fault_free_energy(layers, potential, whole, 100.0, **FAST)
+    result = stacking_fault_free_energy(layers, potential, whole, 30.0, **FAST)
     assert abs(result.energy[0]) < 3 * result.error[0] + 2e-3
 
 

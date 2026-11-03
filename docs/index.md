@@ -213,7 +213,8 @@ flowchart TB
     [phonons](simulation/phonons.md) ·
     [quasi-harmonic approximation](simulation/quasi-harmonic.md) ·
     [elastic constants at finite temperature](simulation/thermal-elastic.md) ·
-    [from molecular dynamics](simulation/md-elastic.md)
+    [from molecular dynamics](simulation/md-elastic.md) ·
+    [sheets](simulation/sheets.md)
 
 -   :material-sine-wave:{ .lg .middle } **MLIP**
 

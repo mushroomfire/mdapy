@@ -87,7 +87,7 @@ def test_relaxation_softens_an_alloy(potential):
 def test_errors(potential, copper):
     with pytest.raises(InvalidParameter, match="periodic in every direction"):
         elastic_constants(
-            copper.with_box(mdapy.Box(copper.box.matrix, pbc=(True, True, False))),
+            copper.with_box(mdapy.Box(copper.box.matrix, pbc=(True, False, True))),
             potential,
         )
     with pytest.raises(InvalidParameter, match="strain must be positive"):

@@ -210,6 +210,7 @@ nav:
           - Quasi-harmonic approximation: simulation/quasi-harmonic.md
           - Elastic constants at finite temperature: simulation/thermal-elastic.md
           - Elastic constants from molecular dynamics: simulation/md-elastic.md
+          - Sheets: simulation/sheets.md
   - MLIP:
       - Training sets from VASP: mlip/vasp.md
       - SOAP descriptors: mlip/soap.md

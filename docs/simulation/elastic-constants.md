@@ -22,7 +22,7 @@ result.bulk_modulus(), result.shear_modulus("voigt")
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `system` | `System` | | | the crystal, periodic in every direction, with a `mass` or an `element` column when its positions relax |
+| `system` | `System` | | | the crystal, periodic in every direction, or a [sheet](sheets.md), with a `mass` or an `element` column when its positions relax |
 | `calculator` | `Calculator` | | | computes the virial, and energies and forces when the positions relax |
 | `strain` | float | 1e-3 | | the magnitude $\delta$ of the strains |
 | `relax` | bool | `True` | | whether the positions relax in each strained box (relaxed-ion constants) or stay put (clamped-ion constants) |
@@ -32,6 +32,9 @@ result.bulk_modulus(), result.shear_modulus("voigt")
 
 A cubic crystal takes 3 strains instead of 12: a stretch both ways and a
 shear.
+
+A box periodic along two vectors in the x-y plane only makes the system a
+[sheet](sheets.md), whose constants are in N/m.
 
 ## Definition
 
@@ -72,7 +75,7 @@ It returns an `ElasticResult`:
 | `errors` | `numpy.ndarray` or None | (6, 6) standard errors in GPa, from [molecular dynamics](md-elastic.md); None here |
 
 `elastic_constants` raises `InvalidParameter` for a box that is not periodic
-in every direction, a non-positive `strain`, a calculator without the
+in every direction and is not that of a [sheet](sheets.md), a non-positive `strain`, a calculator without the
 properties it needs, or a relaxation that does not converge within
 `max_steps`; `bulk_modulus` and `shear_modulus` raise it for an unknown
 `average`.

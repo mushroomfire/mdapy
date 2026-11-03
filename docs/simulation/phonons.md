@@ -48,7 +48,7 @@ and the density of states beside it.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `system` | `System` | | | the cell of the crystal, periodic in every direction, with an `element` or a `mass` column; best its primitive cell |
+| `system` | `System` | | | the cell of the crystal, periodic in every direction, or of a [sheet](sheets.md), with an `element` or a `mass` column; best its primitive cell |
 | `calculator` | `Calculator` | | | computes the forces |
 | `supercell` | int, 3 ints or (3, 3) ints | | | repeats of the cell along its vectors, or the integer matrix whose rows times the vectors of the cell are the vectors of the supercell; by default the supercell nearest a cube that is at least twice the cutoff of the calculator thick in every direction |
 | `displacement` | float | 0.01 | Å | the displacement $h$ of the atoms |

@@ -6,7 +6,11 @@
 """Lattice dynamics: elastic constants, at rest and at finite temperature,
 phonons and the quasi-harmonic approximation."""
 
-from mdapy.lattice_dynamics._elastic import ElasticResult, elastic_constants
+from mdapy.lattice_dynamics._elastic import (
+    ElasticResult,
+    SheetElasticResult,
+    elastic_constants,
+)
 from mdapy.lattice_dynamics._md_elastic import md_elastic_constants
 from mdapy.lattice_dynamics._phonons import (
     BandStructure,
@@ -29,6 +33,7 @@ __all__ = [
     "PhononDOS",
     "Phonons",
     "QuasiHarmonicResult",
+    "SheetElasticResult",
     "ThermalElasticResult",
     "ThermalProperties",
     "elastic_constants",

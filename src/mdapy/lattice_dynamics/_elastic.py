@@ -14,14 +14,23 @@ from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
+from mdapy.lattice_dynamics._sheets import _in_periodic_box, _is_sheet
 from mdapy.simulation._minimize import minimize
 
 # Voigt order xx, yy, zz, yz, xz, xy
 _PAIRS = ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))
+# the same order in the plane of a sheet
+_SHEET_PAIRS = ((0, 0), (1, 1), (0, 1))
+# N/m per GPa Å
+_N_PER_M = 0.1
+
+
+def _components(tensor: np.ndarray, pairs: tuple) -> np.ndarray:
+    return np.array([tensor[a, b] for a, b in pairs])
 
 
 def _voigt(tensor: np.ndarray) -> np.ndarray:
-    return np.array([tensor[a, b] for a, b in _PAIRS])
+    return _components(tensor, _PAIRS)
 
 
 @dataclass(frozen=True)
@@ -46,16 +55,24 @@ class ElasticResult:
         if self.errors is not None:
             self.errors.flags.writeable = False
 
+    def __compliance(self) -> np.ndarray:
+        if np.linalg.cond(self.constants) > 1e12:
+            raise InvalidParameter(
+                "the elastic constants cannot be inverted: for a sheet, make its "
+                "box not periodic along z and read its moduli in N/m"
+            )
+        return np.linalg.inv(self.constants)
+
     def bulk_modulus(self, average: str = "hill") -> float:
         """The bulk modulus in GPa: the "voigt", "reuss" or "hill" average."""
-        c, s = self.constants, np.linalg.inv(self.constants)
+        c, s = self.constants, self.__compliance()
         voigt = (c[0, 0] + c[1, 1] + c[2, 2] + 2 * (c[0, 1] + c[0, 2] + c[1, 2])) / 9
         reuss = 1 / (s[0, 0] + s[1, 1] + s[2, 2] + 2 * (s[0, 1] + s[0, 2] + s[1, 2]))
         return float(self.__pick(average, voigt, reuss))
 
     def shear_modulus(self, average: str = "hill") -> float:
         """The shear modulus in GPa: the "voigt", "reuss" or "hill" average."""
-        c, s = self.constants, np.linalg.inv(self.constants)
+        c, s = self.constants, self.__compliance()
         voigt = (
             c[0, 0] + c[1, 1] + c[2, 2] - (c[0, 1] + c[0, 2] + c[1, 2])
             + 3 * (c[3, 3] + c[4, 4] + c[5, 5])
@@ -77,6 +94,58 @@ class ElasticResult:
         raise InvalidParameter(
             f'average must be "voigt", "reuss" or "hill", not {average!r}'
         )
+
+
+@dataclass(frozen=True)
+class SheetElasticResult:
+    """Elastic constants of a sheet, per unit of its area.
+
+    Attributes
+    ----------
+    constants : numpy.ndarray
+        (3, 3) elastic constants in N/m, in the order xx, yy, xy; column k
+        is the tension per unit of strain component k.
+    """
+
+    constants: np.ndarray
+
+    def __post_init__(self):
+        self.constants.flags.writeable = False
+
+    def __compliance(self) -> np.ndarray:
+        if np.linalg.cond(self.constants) > 1e12:
+            raise InvalidParameter(
+                "the elastic constants cannot be inverted: the sheet has no "
+                "stiffness in some direction"
+            )
+        return np.linalg.inv(self.constants)
+
+    @staticmethod
+    def __index(axis: str) -> int:
+        if axis not in ("x", "y"):
+            raise InvalidParameter(f'axis must be "x" or "y", not {axis!r}')
+        return "xy".index(axis)
+
+    def young_modulus(self, axis: str = "x") -> float:
+        """The Young's modulus in N/m along "x" or "y"."""
+        k = self.__index(axis)
+        return float(1 / self.__compliance()[k, k])
+
+    def poisson_ratio(self, axis: str = "x") -> float:
+        """The contraction across a stretch along "x" or "y", over the stretch."""
+        k = self.__index(axis)
+        s = self.__compliance()
+        return float(-s[0, 1] / s[k, k])
+
+    def shear_modulus(self) -> float:
+        """The shear modulus in N/m."""
+        return float(1 / self.__compliance()[2, 2])
+
+    def area_modulus(self) -> float:
+        """The area modulus in N/m: the tension per unit of relative change
+        of the area."""
+        s = self.__compliance()
+        return float(1 / (s[0, 0] + s[1, 1] + 2 * s[0, 1]))
 
 
 def _strained(system: System, strain: np.ndarray) -> System:
@@ -115,14 +184,15 @@ def elastic_constants(
     max_force: float = 1e-4,
     max_steps: int = 5000,
     symmetry: bool | None = None,
-) -> ElasticResult:
+) -> ElasticResult | SheetElasticResult:
     """Elastic constants from the stress under small strains.
 
     Parameters
     ----------
     system : System
-        The crystal, periodic in every direction, best at zero stress (relax
-        its box first with ``minimize(..., cell="full")``).
+        The crystal, periodic in every direction, or a sheet: periodic along
+        two vectors in the x-y plane and not along a third along z. Best at
+        zero stress (relax its box first with ``minimize(..., cell="full")``).
     calculator : Calculator
         Computes the virial, and energies and forces to relax the positions.
     strain : float, optional
@@ -141,20 +211,18 @@ def elastic_constants(
 
     Returns
     -------
-    ElasticResult
-        The (6, 6) elastic constants in GPa.
+    ElasticResult or SheetElasticResult
+        The (6, 6) elastic constants in GPa; of a sheet, the (3, 3) elastic
+        constants in N/m.
 
     Raises
     ------
     InvalidParameter
-        If the box is not periodic, the strain is not positive, the
-        calculator has no virial, a relaxation does not converge, or
-        symmetry is True without spglib.
+        If the box is neither periodic nor that of a sheet, the strain is not
+        positive, the calculator has no virial, a relaxation does not
+        converge, or symmetry is True without spglib.
     """
-    if not system.box.pbc.all():
-        raise InvalidParameter(
-            "elastic constants need a box periodic in every direction"
-        )
+    sheet = _is_sheet(system.box, "elastic constants")
     if not strain > 0:
         raise InvalidParameter(f"strain must be positive, not {strain!r}")
     needed = {"virial"} | ({"energy", "forces"} if relax else set())
@@ -162,10 +230,11 @@ def elastic_constants(
         raise InvalidParameter(
             f"{type(calculator).__name__} does not compute {sorted(needed)}"
         )
-    rotations = _rotations(system, symmetry)
+    rotations = _rotations(_in_periodic_box(system) if sheet else system, symmetry)
     known: list[tuple[np.ndarray, np.ndarray]] = []  # strains and their stresses
-    constants = np.zeros((6, 6))
-    for k, (a, b) in enumerate(_PAIRS):
+    pairs = _SHEET_PAIRS if sheet else _PAIRS
+    constants = np.zeros((len(pairs), len(pairs)))
+    for k, (a, b) in enumerate(pairs):
         stresses = []
         for sign in (1.0, -1.0):
             tensor = np.zeros((3, 3))
@@ -175,7 +244,7 @@ def elastic_constants(
                 tensor[a, b] = tensor[b, a] = 0.5 * sign * strain
             image = _image(tensor, known, rotations, strain)
             if image is not None:
-                stresses.append(_voigt(image))
+                stresses.append(_components(image, pairs))
                 continue
             strained = _strained(system, tensor)
             if relax:
@@ -190,6 +259,8 @@ def elastic_constants(
             else:
                 stress = calculator.compute(strained, ("virial",)).stress(strained)
             known.append((tensor, stress))
-            stresses.append(_voigt(stress))
+            stresses.append(_components(stress, pairs))
         constants[:, k] = (stresses[0] - stresses[1]) / (2 * strain)
+    if sheet:
+        return SheetElasticResult(constants * system.box.matrix[2, 2] * _N_PER_M)
     return ElasticResult(constants)

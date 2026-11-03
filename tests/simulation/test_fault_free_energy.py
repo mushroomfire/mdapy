@@ -19,25 +19,25 @@ from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 from mdapy.lattice_dynamics import phonons
 from mdapy.simulation import minimize, stacking_fault_energy, stacking_fault_free_energy
 
-from calculators.eam_files import write_setfl
-
 pytest.importorskip("lammps")
 
-A = 3.29  # about the lattice constant of copper of the synthetic potential
+A = 5.26  # about the lattice constant of the model of argon
 ORIENTATION = [(1, 1, -2), (-1, 1, 0), (1, 1, 1)]
-FAST = dict(timestep=0.002, equilibration=2.0, switching=6.0, repeats=3, seed=2)
+FAST = dict(timestep=0.004, equilibration=2.0, switching=8.0, repeats=3, seed=2)
 
 
 @pytest.fixture(scope="module")
-def potential(tmp_path_factory):
-    path = write_setfl(tmp_path_factory.mktemp("eam") / "CuNi.eam.alloy")
-    return LAMMPS(f"pair_style eam/alloy\npair_coeff * * {path} Cu Ni", ["Cu", "Ni"])
+def potential():
+    return LAMMPS(
+        "pair_style lj/cut 8.5\npair_coeff * * 0.0104 3.4\npair_modify shift yes",
+        ["Ar"],
+    )
 
 
 @pytest.fixture(scope="module")
 def layers(potential):
     start = build_crystal(
-        "fcc", A, elements="Cu", orientation=ORIENTATION, repeat=(2, 3, 3)
+        "fcc", A, elements="Ar", orientation=ORIENTATION, repeat=(2, 3, 3)
     )
     return minimize(start, potential, cell="full", max_stress=1e-3).system
 
@@ -51,7 +51,7 @@ def test_a_whole_lattice_vector_makes_no_fault(potential, layers):
     # half of the box along x, which holds two periods of [11-2]
     whole = [layers.box.matrix[0, 0] / 2, 0, 0]
     result = stacking_fault_free_energy(layers, potential, whole, 100.0, **FAST)
-    assert abs(result.energy[0]) < 3 * result.error[0] + 0.01
+    assert abs(result.energy[0]) < 3 * result.error[0] + 2e-3
 
 
 def test_cold_as_at_rest(potential, layers):
@@ -60,7 +60,7 @@ def test_cold_as_at_rest(potential, layers):
     result = stacking_fault_free_energy(
         layers, potential, direction, 5.0, pressure=0.0, **FAST
     )
-    assert result.energy[0] == pytest.approx(rest, abs=0.02)
+    assert result.energy[0] == pytest.approx(rest, abs=2 * result.error[0] + 1e-3)
     assert result.temperatures.tolist() == [5.0]
     assert result.area == pytest.approx(
         np.linalg.norm(np.cross(layers.box.matrix[0], layers.box.matrix[1])), rel=0.01
@@ -72,7 +72,7 @@ def test_cold_as_at_rest(potential, layers):
 def test_warm_as_its_harmonic_vibrations(potential, layers):
     """At a moderate temperature in a fixed size: the classical vibrations of the
     two cells, by the phonons of each."""
-    temperature = 150.0
+    temperature = 25.0
     direction = partial(layers)
     result = stacking_fault_free_energy(
         layers,
@@ -116,7 +116,7 @@ def test_warm_as_its_harmonic_vibrations(potential, layers):
         / area
         * units.EV_PER_A2_TO_J_PER_M2
     )
-    assert result.energy[0] == pytest.approx(expected, abs=4 * result.error[0] + 0.01)
+    assert result.energy[0] == pytest.approx(expected, abs=4 * result.error[0] + 2e-3)
 
 
 def test_one_repeat_has_no_error_and_several_temperatures(potential, layers):

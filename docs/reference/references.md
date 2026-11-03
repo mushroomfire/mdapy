@@ -140,6 +140,18 @@ simulations and its implementation in LAMMPS, *Comput. Mater. Sci.* **175**,
 [doi:10.1016/j.commatsci.2020.109584](https://doi.org/10.1016/j.commatsci.2020.109584)
 { #guenole2020 }
 
+**Freitas et al. (2016).** R. Freitas, M. Asta and M. de Koning, Nonequilibrium
+free-energy calculation of solids using LAMMPS, *Comput. Mater. Sci.* **112**, 333
+(2016).
+[doi:10.1016/j.commatsci.2015.10.050](https://doi.org/10.1016/j.commatsci.2015.10.050)
+{ #freitas2016 }
+
+**Frenkel and Ladd (1984).** D. Frenkel and A. J. C. Ladd, New Monte Carlo method to
+calculate the free energy of arbitrary solids. Application to the fcc and hcp phases
+of hard spheres, *J. Chem. Phys.* **81**, 3188 (1984).
+[doi:10.1063/1.448024](https://doi.org/10.1063/1.448024)
+{ #frenkel1984 }
+
 **Hill (1952).** R. Hill, The elastic behaviour of a crystalline aggregate,
 *Proc. Phys. Soc. A* **65**, 349 (1952).
 [doi:10.1088/0370-1298/65/5/307](https://doi.org/10.1088/0370-1298/65/5/307)
@@ -240,6 +252,12 @@ analysis of disordered particulate matter, *J. Chem. Phys.* **138**, 044501
 [doi:10.1063/1.4774084](https://doi.org/10.1063/1.4774084)
 { #mickel2013 }
 
+**Morris et al. (1994).** J. R. Morris, C. Z. Wang, K. M. Ho and C. T. Chan, Melting
+line of aluminum from simulations of coexisting phases, *Phys. Rev. B* **49**, 3109
+(1994).
+[doi:10.1103/PhysRevB.49.3109](https://doi.org/10.1103/PhysRevB.49.3109)
+{ #morris1994 }
+
 **Nguyen and Molinero (2015).** A. H. Nguyen and V. Molinero,
 Identification of clathrate hydrates, hexagonal ice, cubic ice, and liquid
 water in simulations: the CHILL+ algorithm, *J. Phys. Chem. B* **119**, 9369
@@ -258,6 +276,13 @@ Tracking microstructure of crystalline materials: a post-processing
 algorithm for atomistic simulations, *JOM* **66**, 417 (2014).
 [doi:10.1007/s11837-013-0831-9](https://doi.org/10.1007/s11837-013-0831-9)
 { #panzarino2014 }
+
+**Paula Leite et al. (2016).** R. Paula Leite, R. Freitas, R. Azevedo and M. de
+Koning, The Uhlenbeck-Ford model: exact virial coefficients and application as a
+reference system in fluid-phase free-energy calculations, *J. Chem. Phys.* **145**,
+194101 (2016).
+[doi:10.1063/1.4967775](https://doi.org/10.1063/1.4967775)
+{ #paulaleite2016 }
 
 **Piaggi and Parrinello (2017).** P. M. Piaggi and M. Parrinello, Entropy
 based fingerprint for local crystalline order, *J. Chem. Phys.* **147**,

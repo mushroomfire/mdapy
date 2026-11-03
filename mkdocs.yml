@@ -204,6 +204,9 @@ nav:
           - Energy minimization: simulation/minimize.md
           - Molecular dynamics: simulation/dynamics.md
           - Defect energies: simulation/defect-energies.md
+      - Thermodynamics:
+          - Free energy: simulation/free-energy.md
+          - Melting point: simulation/melting-point.md
       - Lattice dynamics:
           - Elastic constants: simulation/elastic-constants.md
           - Phonons: simulation/phonons.md

@@ -81,7 +81,7 @@ jobs:
         id: lammps
         with:
           path: lammps-wheel
-          key: lammps-stable_30Sep2026-manybody-molecule-extra-compute-voronoi-${{ runner.os }}-py3.13
+          key: lammps-stable_30Sep2026-manybody-molecule-extra-compute-extra-fix-extra-pair-voronoi-${{ runner.os }}-py3.13
       - name: Build LAMMPS
         if: steps.lammps.outputs.cache-hit != 'true'
         run: |
@@ -89,6 +89,7 @@ jobs:
           cmake -S lammps/cmake -B lammps-build -D CMAKE_BUILD_TYPE=Release \
             -D BUILD_SHARED_LIBS=on -D BUILD_MPI=no -D BUILD_OMP=no \
             -D PKG_MANYBODY=on -D PKG_MOLECULE=on -D PKG_EXTRA-COMPUTE=on \
+            -D PKG_EXTRA-FIX=on -D PKG_EXTRA-PAIR=on \
             -D PKG_VORONOI=on -D DOWNLOAD_VORO=on -D Python_EXECUTABLE="$(which python)"
           cmake --build lammps-build -j 4
           cmake --build lammps-build --target install-python
@@ -102,7 +103,7 @@ jobs:
           import lammps
           lmp = lammps.lammps(cmdargs=['-screen', 'none', '-log', 'none'])
           assert lmp.version() == 20260930, lmp.version()
-          missing = {'EXTRA-COMPUTE', 'MANYBODY', 'MOLECULE', 'VORONOI'} - set(lmp.installed_packages)
+          missing = {'EXTRA-COMPUTE', 'EXTRA-FIX', 'EXTRA-PAIR', 'MANYBODY', 'MOLECULE', 'VORONOI'} - set(lmp.installed_packages)
           assert not missing, missing
           "
       # OVITO for the comparisons with OVITO, at its reference version

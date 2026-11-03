@@ -31,6 +31,8 @@ _PHASES = ("solid", "liquid")
 _UF_STRENGTH = 50.0
 _UF_LENGTH = 1.5
 _UF_CUTOFF = 6.0
+# how many times longer than the others the switching of the model alone is
+_MODEL_SWITCHING = 4
 # steps between the samples of the energies along a switching
 _EVERY = 10
 # damping time of the Langevin thermostat, in ps
@@ -256,9 +258,7 @@ def _einstein(
     einstein = 3 * kt * np.log(hbar * omega / kt).mean()
     weights = masses / masses.sum()
     variance = (weights**2 * kt / springs).sum()  # of the center of mass
-    fixed = (
-        kt / n * np.log(n / system.box.volume * (2 * np.pi * variance) ** 1.5)
-    )
+    fixed = kt / n * np.log(n / system.box.volume * (2 * np.pi * variance) ** 1.5)
     return float(einstein), float(fixed)
 
 
@@ -422,7 +422,9 @@ def _scaled_pair(potential: LAMMPS, cutoff: float, epsilon: float) -> tuple[str,
                 f"v_mdapy_b ufm {cutoff}"
             )
         elif words and words[0] == "pair_coeff":
-            lines.append(f"pair_coeff {words[1]} {words[2]} {style} {' '.join(words[3:])}")
+            lines.append(
+                f"pair_coeff {words[1]} {words[2]} {style} {' '.join(words[3:])}"
+            )
         else:
             lines.append(line)
     lines.append(f"pair_coeff * * ufm {epsilon!r} {_UF_LENGTH}")
@@ -498,8 +500,16 @@ def _liquid_reference(
         # the interaction minus the model, dλ from 0 to 1 and from 1 to 0
         there = _integral(Path(paths["to_model"])) / n
         back = _integral(Path(paths["from_model"])) / n
+    # the model alone is cheap, and its dissipation the larger: four times as long
     model, spread = _model_excess(
-        liquid, potential, temperature, timestep, equilibration, switching, seed, counter
+        liquid,
+        potential,
+        temperature,
+        timestep,
+        equilibration,
+        _MODEL_SWITCHING * switching,
+        seed,
+        counter,
     )
     return (
         _ideal_gas(liquid, temperature) + model + 0.5 * (there - back),
@@ -643,23 +653,37 @@ def _scan(
     def enthalpy(rows) -> np.ndarray:
         energy = rows["total_energy"].to_numpy()
         if pressure is not None:
-            energy = energy + pressure * units.GPA_TO_EV_PER_A3 * rows[
-                "volume"
-            ].to_numpy()
+            energy = (
+                energy + pressure * units.GPA_TO_EV_PER_A3 * rows["volume"].to_numpy()
+            )
         return energy / n
 
-    options = dict(ensemble="nvt") if pressure is None else dict(
-        ensemble="npt", pressure=pressure, barostat=barostat
+    options = (
+        dict(ensemble="nvt")
+        if pressure is None
+        else dict(ensemble="npt", pressure=pressure, barostat=barostat)
     )
     with MolecularDynamics(start, potential, timestep=timestep) as md:
         md.velocities(start_temperature, seed=seed)
         before = md.step
         md.run(equilibration, temperature=first, thermo=equilibration, **options)
-        md.run(steps, temperature=(first, last), thermo=every, cancel=counter.cancel, **options)
+        md.run(
+            steps,
+            temperature=(first, last),
+            thermo=every,
+            cancel=counter.cancel,
+            **options,
+        )
         rows = md.thermo
         there = rows[-(steps // every + 1) :]
         md.run(equilibration, temperature=last, thermo=equilibration, **options)
-        md.run(steps, temperature=(last, first), thermo=every, cancel=counter.cancel, **options)
+        md.run(
+            steps,
+            temperature=(last, first),
+            thermo=every,
+            cancel=counter.cancel,
+            **options,
+        )
         rows = md.thermo
         back = rows[-(steps // every + 1) :]
         counter.add(md.step - before)
@@ -767,7 +791,9 @@ def free_energy(
     if "element" not in system.table.columns:
         raise MissingProperty("the free energy needs the element column")
     if not system.box.pbc.all():
-        raise InvalidParameter("the free energy needs a box periodic in every direction")
+        raise InvalidParameter(
+            "the free energy needs a box periodic in every direction"
+        )
     wanted = np.atleast_1d(np.asarray(temperatures, dtype=float))
     if wanted.ndim != 1 or not (wanted > 0).all():
         raise InvalidParameter("temperatures must be positive")
@@ -798,14 +824,24 @@ def free_energy(
         total = (pressure is not None) * equilibrium + equilibrium
         total += repeats * 2 * (equilibrium + switch)
     else:
-        total = 3 * equilibrium + repeats * 4 * (equilibrium + switch)
+        total = 3 * equilibrium + repeats * (
+            4 * equilibrium + (2 + 2 * _MODEL_SWITCHING) * switch
+        )
     if moved:
         total += 2 * (equilibrium + scanning)
     counter = _Progress(total, progress, cancel)
 
     if phase == "solid":
         crystal, enthalpy, volume = _solid_state(
-            system, potential, first, pressure, barostat, timestep, equilibrium, seed, counter
+            system,
+            potential,
+            first,
+            pressure,
+            barostat,
+            timestep,
+            equilibrium,
+            seed,
+            counter,
         )
         springs = _spring_constants(
             crystal, potential, first, timestep, equilibrium, seed, counter

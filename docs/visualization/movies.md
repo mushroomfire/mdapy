@@ -51,7 +51,7 @@ makes a movie from one system.
 
 ## In the application
 
-The Render tab of the MDAPY application writes movies too: of the frames of a
-trajectory, of the camera going around with **Turn the camera**, or both. On macOS and
-Windows it encodes them with the system, with nothing to install; on Linux it needs
-FFmpeg as above.
+The Render tab of the MDAPY application writes the frames of a trajectory as a movie,
+with the view as you set it. On macOS and Windows it encodes with the system, with
+nothing to install; on Linux it needs FFmpeg as above. A camera that moves, or colors
+that change on the way, are the work of a script like the one in the tutorial.

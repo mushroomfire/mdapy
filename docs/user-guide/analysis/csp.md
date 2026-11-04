@@ -54,7 +54,7 @@ atoms with a parameter above 0.5 Å²: the stacking fault (yellow, about
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `num_neighbors` | int | 12 | | number $N$ of nearest neighbors, even: 12 for fcc, 8 for bcc |
+| `num_neighbors` | int32 | 12 | | number $N$ of nearest neighbors, even: 12 for fcc, 8 for bcc |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list

@@ -21,10 +21,10 @@ class AtomicDisplacementResult(Result):
     Attributes
     ----------
     displacement : numpy.ndarray
-        (N, 3) the displacement of each atom from its reference position in
+        (N, 3) float64, the displacement of each atom from its reference position in
         Å; its column ``displacement``.
     magnitude : numpy.ndarray
-        (N,) its length in Å; its column ``displacement_magnitude``.
+        (N,) float64, its length in Å; its column ``displacement_magnitude``.
     """
 
     displacement: np.ndarray

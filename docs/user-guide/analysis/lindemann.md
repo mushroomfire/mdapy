@@ -72,7 +72,7 @@ A `LindemannResult`:
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `index` | float | the index $\delta$ over every pair of atoms and every frame |
+| `index` | float64 | the index $\delta$ over every pair of atoms and every frame |
 | `atomic` | (N,) float64 | the index $\delta_i$ of each atom, averaged over its pairs, the atoms in the order of the first frame; its column `lindemann` |
 | `running` | (T,) float64 | $\delta$ over the frames from the first to each one; 0 for the first |
 

@@ -240,6 +240,13 @@ target irradiated by short laser pulses, *Phys. Rev. B* **77**, 214108
 Eigenfrequenzen, *Phys. Z.* **11**, 609 (1910).
 { #lindemann1910 }
 
+**Lindsay and Broido (2010).** L. Lindsay and D. A. Broido, Optimized Tersoff
+and Brenner empirical potential parameters for lattice dynamics and phonon
+thermal transport in carbon nanotubes and graphene, *Phys. Rev. B* **81**, 205441
+(2010).
+[doi:10.1103/PhysRevB.81.205441](https://doi.org/10.1103/PhysRevB.81.205441)
+{ #lindsay2010 }
+
 **Maras et al. (2016). E. Maras, O. Trushin, A. Stukowski, T. Ala-Nissila
 and H. Jónsson, Global transition path search for dislocation formation in Ge
 on Si(001), *Comput. Phys. Commun.* **205**, 13 (2016).

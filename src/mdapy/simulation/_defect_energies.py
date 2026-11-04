@@ -26,11 +26,11 @@ class VacancyResult(Result):
 
     Attributes
     ----------
-    energy : float
+    energy : float64
         The formation energy in eV.
-    perfect : float
+    perfect : float64
         The energy of the perfect crystal in eV.
-    defect : float
+    defect : float64
         The energy of the crystal with the vacancy in eV.
     system : System
         The crystal with the vacancy, relaxed.
@@ -48,13 +48,13 @@ class SurfaceResult(Result):
 
     Attributes
     ----------
-    energy : float
+    energy : float64
         The surface energy in J/m².
-    bulk : float
+    bulk : float64
         The energy of the periodic crystal in eV.
-    slab : float
+    slab : float64
         The energy of the slab in eV.
-    area : float
+    area : float64
         The area of one surface in Å².
     system : System
         The slab, relaxed.
@@ -74,12 +74,12 @@ class StackingFaultResult(Result):
     Attributes
     ----------
     fraction : numpy.ndarray
-        (P,) fraction of the slip vector of each point.
+        (P,) float64 fraction of the slip vector of each point.
     displacement : numpy.ndarray
-        (P, 3) displacement in Å of the upper half of each point.
+        (P, 3) float64 displacement in Å of the upper half of each point.
     energy : numpy.ndarray
-        (P,) energy per area of the fault in J/m², 0 for no slip.
-    area : float
+        (P,) float64 energy per area of the fault in J/m², 0 for no slip.
+    area : float64
         The area of the fault in Å².
     """
 
@@ -128,14 +128,14 @@ def vacancy_formation_energy(
         meet its images.
     calculator : Calculator
         The potential.
-    atom : int, optional
+    atom : int32, optional
         The atom removed. Default 0.
     cell : {None, "isotropic", "axes", "full"}, optional
         How the box relaxes, for both crystals, as in
-        :func:`mdapy.simulation.minimize`. Default None, a fixed box.
-    max_force : float, optional
+        ``mdapy.simulation.minimize``. Default None, a fixed box.
+    max_force : float64, optional
         Convergence of the minimizations in eV/Å. Default 1e-4.
-    max_steps : int, optional
+    max_steps : int32, optional
         Largest number of steps of each minimization. Default 10000.
 
     Returns
@@ -176,14 +176,14 @@ def surface_energy(
         other.
     calculator : Calculator
         The potential.
-    axis : int or str, optional
+    axis : int32 or str, optional
         The box vector across the slab, 0, 1, 2 or x, y, z. Default z.
-    vacuum : float, optional
+    vacuum : float64, optional
         Thickness in Å of the vacuum between the slab and its image, beyond
         the cutoff of the potential. Default 15.
-    max_force : float, optional
+    max_force : float64, optional
         Convergence of the minimizations in eV/Å. Default 1e-4.
-    max_steps : int, optional
+    max_steps : int32, optional
         Largest number of steps of each minimization. Default 10000.
 
     Returns
@@ -232,21 +232,21 @@ def stacking_fault_energy(
     calculator : Calculator
         The potential.
     direction : array_like
-        (3,) the slip vector in Å, in the plane, such as a/2 [1-10].
-    points : int, optional
+        (3,) float64, the slip vector in Å, in the plane, such as a/2 [1-10].
+    points : int32, optional
         Number of displacements from 0 to the whole slip vector, at least 2.
         Default 21.
-    height : float, optional
+    height : float64, optional
         The fault, at this fractional coordinate along the box vector of axis.
         Default 0.5.
-    axis : int or str, optional
+    axis : int32 or str, optional
         The Cartesian axis normal to the fault. Default z.
     relax : bool, optional
         Relax the atoms along the normal only, as is usual, or not at all.
         Default True.
-    max_force : float, optional
+    max_force : float64, optional
         Convergence of the minimizations in eV/Å. Default 1e-4.
-    max_steps : int, optional
+    max_steps : int32, optional
         Largest number of steps of each minimization. Default 10000.
 
     Returns

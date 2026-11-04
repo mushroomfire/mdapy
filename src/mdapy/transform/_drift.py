@@ -67,7 +67,7 @@ def remove_drift(
         ``id`` column where the first frame has one, else in the same order.
         The masses are the ``mass`` column of the first frame, else those of
         its elements, else all equal.
-    reference : int, optional
+    reference : int32, optional
         The frame whose center of mass is kept. Default 0.
     atoms : array_like, optional
         A boolean mask or indices of the atoms of the first frame whose

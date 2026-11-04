@@ -124,7 +124,7 @@ def smooth_trajectory(frames: Sequence[System], window: int) -> Sequence[System]
         ``id`` column where the frames have one, else in the same order.
         Without an ``image`` column, atoms must move less than half the box
         between frames.
-    window : int
+    window : int32
         The number of frames averaged: the frame, (window - 1) // 2 frames
         before it and window // 2 after it, the first and last frames
         repeated beyond the ends; 1 leaves the positions as they are.

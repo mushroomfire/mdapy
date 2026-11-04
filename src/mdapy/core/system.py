@@ -36,6 +36,7 @@ _STANDARD_COLUMNS = {
     "mass": pl.Float64,
     "charge": pl.Float64,
     "image": pl.Array(pl.Int32, 3),
+    "movable": pl.Array(pl.Boolean, 3),
 }
 
 
@@ -62,7 +63,7 @@ def _normalize_table(
     to be right."""
     if "positions" not in table.columns:
         raise InvalidParameter(
-            "the table needs a 'positions' column of 3 floats per atom; build it "
+            "the table needs a 'positions' column of 3 numbers per atom; build it "
             "from separate columns with pl.concat_arr('x', 'y', 'z')"
         )
     checked = _STANDARD_COLUMNS if columns is None else set(columns)
@@ -92,6 +93,10 @@ def _normalize_table(
             values = flat.to_numpy()
             if not np.array_equal(values, np.round(values)):
                 raise InvalidParameter(f"column {name!r} must hold integers")
+        if inner == pl.Boolean and source_inner.is_numeric():
+            flat = table.select(pl.col(name).explode())[name].drop_nulls()
+            if not np.isin(flat.to_numpy(), (0, 1)).all():
+                raise InvalidParameter(f"column {name!r} must hold 0 and 1")
         casts.append(pl.col(name).cast(dtype, strict=True))
     if casts:
         try:
@@ -103,10 +108,12 @@ def _normalize_table(
         if name in checked and name in present and table[name].null_count():
             raise InvalidParameter(f"column {name!r} has missing values")
     if len(table):
-        if "positions" in checked:
-            positions = table["positions"].to_numpy()
-            if not np.all(np.isfinite(positions)):
-                raise InvalidParameter("positions must be finite")
+        for name in ("positions", "velocities", "forces", "mass", "charge"):
+            if name in checked and name in present:
+                if not np.all(np.isfinite(table[name].to_numpy())):
+                    raise InvalidParameter(f"{name} must be finite")
+        if "mass" in checked and "mass" in present and table["mass"].min() <= 0:
+            raise InvalidParameter("masses must be positive")
         if "type" in checked and "type" in table.columns and table["type"].min() < 1:
             raise InvalidParameter("atom types must be at least 1")
     return table.rechunk()
@@ -197,24 +204,24 @@ class System:
     """One atomic configuration: a table of per-atom properties in a box.
 
     A system never changes. Arrays given to it are copied. Methods named
-    ``with_*``, :meth:`filter`, :meth:`gather` and :meth:`sort` return a new
+    ``with_*``, ``filter``, ``gather`` and ``sort`` return a new
     system; columns that are not changed are shared, not copied. The values
     of each atom are read by name, ``system["positions"]``.
 
     Parameters
     ----------
     positions : array_like, optional
-        (N, 3) positions in Å. Give either this or ``table``.
+        (N, 3) float64 positions in Å. Give either this or ``table``.
     box : Box or array_like, optional
-        Simulation box, or anything :class:`Box` accepts as lattice vectors.
-        Default: a non-periodic box around the atoms (:meth:`Box.enclosing`).
+        Simulation box, or anything ``Box`` accepts as lattice vectors.
+        Default: a non-periodic box around the atoms (``Box.enclosing``).
     table : polars.DataFrame, optional
-        Per-atom table with a ``positions`` column of 3 floats per atom. Give
+        Per-atom table with a ``positions`` column of 3 numbers per atom. Give
         either this or ``positions``.
     elements : str or sequence of str, optional
         Chemical symbol of every atom, or one symbol for all atoms. Stored in
         the ``element`` column.
-    types : int or sequence of int, optional
+    types : int32 or sequence of int32, optional
         Atom types (from 1) of every atom, or one type for all atoms. Stored
         in the ``type`` column.
     info : mapping, optional
@@ -449,8 +456,8 @@ class System:
         ----------
         table : polars.DataFrame
             New table with the same number of atoms in the same order, since
-            the topology refers to rows by position. Use :meth:`sort` or
-            :meth:`gather` to reorder atoms and :meth:`filter` to remove them.
+            the topology refers to rows by position. Use ``sort`` or
+            ``gather`` to reorder atoms and ``filter`` to remove them.
 
         Raises
         ------
@@ -523,7 +530,7 @@ class System:
         Parameters
         ----------
         box : Box or array_like
-            The new box, or lattice vectors for :class:`Box`.
+            The new box, or lattice vectors for ``Box``.
         scale_positions : bool, optional
             If True, keep the fractional coordinates of the atoms, so that
             they deform with the box. If False (default), keep the Cartesian

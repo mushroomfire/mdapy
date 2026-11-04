@@ -161,20 +161,20 @@ class ClusterResult(Result):
         itself, spanning the box; its unwrapped positions, center of mass and
         gyration then depend on the order of the bonds.
     unwrapped : numpy.ndarray or None
-        (N, 3) positions in Å with each cluster unbroken by the periodic
+        (N, 3) float64 positions in Å with each cluster unbroken by the periodic
         boundaries, the first atom of each cluster at its own position, when
         computed.
     masses : numpy.ndarray or None
-        (clusters,) total mass of each cluster in amu, or its number of atoms
+        (clusters,) float64 total mass of each cluster in amu, or its number of atoms
         when the system has neither masses nor elements, with the center of
         mass.
     center_of_mass : numpy.ndarray or None
-        (clusters, 3) center of mass of each cluster in Å, from the unwrapped
+        (clusters, 3) float64 center of mass of each cluster in Å, from the unwrapped
         positions, when computed.
     radius_of_gyration : numpy.ndarray or None
-        (clusters,) radius of gyration of each cluster in Å, when computed.
+        (clusters,) float64 radius of gyration of each cluster in Å, when computed.
     gyration_tensor : numpy.ndarray or None
-        (clusters, 3, 3) gyration tensor of each cluster in Å², with the
+        (clusters, 3, 3) float64 gyration tensor of each cluster in Å², with the
         radius of gyration.
     """
 
@@ -207,7 +207,7 @@ class ClusterAnalysis:
 
     Parameters
     ----------
-    cutoff : float, optional
+    cutoff : float64, optional
         Bond length in Å for every pair.
     cutoffs : dict, optional
         Bond length in Å for each pair of elements ``(a, b)``, in either
@@ -328,13 +328,13 @@ class BondAngleResult(Result):
     Attributes
     ----------
     angle : numpy.ndarray
-        (bins,) centers of the bins in degrees.
+        (bins,) float64 centers of the bins in degrees.
     edges : numpy.ndarray
-        (bins + 1,) edges of the bins in degrees.
+        (bins + 1,) float64 edges of the bins in degrees.
     counts : numpy.ndarray
         (bins,) int64 number of angles in each bin.
     density : numpy.ndarray
-        (bins,) the counts normalized to unit area, per degree.
+        (bins,) float64, the counts normalized to unit area, per degree.
     partial : dict
         (bins,) int64 counts of the angles b-a-c for each triplet of elements
         ``(a, b, c)``: the atom ``a`` at the vertex, its neighbors ``b`` and
@@ -363,9 +363,9 @@ class BondAngleDistribution:
 
     Parameters
     ----------
-    cutoff : float, optional
+    cutoff : float64, optional
         Bond length in Å for every pair.
-    bins : int, optional
+    bins : int32, optional
         Number of bins from 0 to 180 degrees. Default 180.
     cutoffs : dict, optional
         Bond length in Å for each pair of elements ``(a, b)``, in either
@@ -460,15 +460,15 @@ class BondLengthResult(Result):
     Attributes
     ----------
     length : numpy.ndarray
-        (bins,) centers of the bins in Å.
+        (bins,) float64 centers of the bins in Å.
     edges : numpy.ndarray
-        (bins + 1,) edges of the bins in Å.
+        (bins + 1,) float64 edges of the bins in Å.
     counts : numpy.ndarray
         (bins,) int64 number of bonds in each bin.
     density : numpy.ndarray
-        (bins,) the counts normalized to unit area, per Å.
+        (bins,) float64, the counts normalized to unit area, per Å.
     lengths : numpy.ndarray
-        (bonds,) the length of each bond, in the order of the topology.
+        (bonds,) float64, the length of each bond, in the order of the topology.
     partial : dict
         (bins,) int64 counts of the bonds between each pair of elements
         ``(a, b)``, ``a`` not after ``b`` by atomic number; empty without an
@@ -497,9 +497,9 @@ class BondLengthDistribution:
 
     Parameters
     ----------
-    bins : int, optional
+    bins : int32, optional
         Number of bins. Default 100.
-    cutoff : float, optional
+    cutoff : float64, optional
         The upper end of the bins in Å; longer bonds are not counted. By
         default the longest bond.
     """
@@ -581,7 +581,7 @@ class WarrenCowleyResult(Result):
     elements : tuple of str
         The elements, by atomic number.
     alpha : numpy.ndarray
-        (elements, elements) parameter of each pair: row a, column b is
+        (elements, elements) float64 parameter of each pair: row a, column b is
         1 - p(b | a) / c_b; (shells, elements, elements) for shells of
         neighbors.
     """
@@ -610,10 +610,10 @@ class WarrenCowley:
 
     Parameters
     ----------
-    cutoff : float or sequence of float, optional
+    cutoff : float64 or sequence of float64, optional
         Neighbors closer than cutoff, in Å; increasing cutoffs make shells
         of neighbors, each from the cutoff before it to its own.
-    num_neighbors : int or sequence of int, optional
+    num_neighbors : int32 or sequence of int32, optional
         The num_neighbors nearest neighbors; a sequence makes shells of the
         nearest neighbors, the first so many nearest, then the next so many.
         Give ``cutoff`` or ``num_neighbors``.

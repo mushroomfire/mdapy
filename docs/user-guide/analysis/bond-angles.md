@@ -56,9 +56,9 @@ the O–H bonds and `triplet("O", "H", "H")` gives the H–O–H angles.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `cutoff` | float | `None` | Å | bonds are shorter than it |
-| `bins` | int | 180 | | number of bins of equal width from 0 to 180 degrees |
-| `cutoffs` | dict | `None` | Å | instead of `cutoff`, a bond length for each pair of elements `(a, b)`, in either order; pairs not given are never bonded |
+| `cutoff` | float64 | `None` | Å | bonds are shorter than it |
+| `bins` | int32 | 180 | | number of bins of equal width from 0 to 180 degrees |
+| `cutoffs` | dict of (str, str) to float64 | `None` | Å | instead of `cutoff`, a bond length for each pair of elements `(a, b)`, in either order; pairs not given are never bonded |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list
@@ -75,7 +75,7 @@ A `BondAngleResult`:
 | `edges` | (bins + 1,) float64 | bin edges in degrees |
 | `counts` | (bins,) int64 | number of angles in each bin |
 | `density` | (bins,) float64 | the counts normalized so that their integral over degrees is 1 |
-| `partial` | dict | counts for each triplet `(a, b, c)`: an atom of element `a` at the vertex and neighbors of elements `b` and `c`, `b` not after `c` by atomic number; they add up to `counts` |
+| `partial` | dict of (str, str, str) to (B,) int64 | counts for each triplet `(a, b, c)`: an atom of element `a` at the vertex and neighbors of elements `b` and `c`, `b` not after `c` by atomic number; they add up to `counts` |
 | `triplet(a, b, c)` | (bins,) int64 | the counts of the triplet, with `b` and `c` in either order |
 
 ## Errors

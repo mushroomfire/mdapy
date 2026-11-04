@@ -34,17 +34,17 @@ class FaultFreeEnergyResult(Result):
     Attributes
     ----------
     temperatures : numpy.ndarray
-        (T,) the temperatures in K.
+        (T,) float64, the temperatures in K.
     energy : numpy.ndarray
-        (T,) the free energy per area in J/m².
+        (T,) float64, the free energy per area in J/m².
     error : numpy.ndarray
-        (T,) its standard error in J/m², from the repeats; zero for one repeat.
-    area : float
+        (T,) float64, its standard error in J/m², from the repeats; zero for one repeat.
+    area : float64
         The area of the fault at the first temperature in Å².
     volume : numpy.ndarray
-        (T,) the volume per atom of the crystal in Å³.
+        (T,) float64, the volume per atom of the crystal in Å³.
     dissipation : numpy.ndarray
-        (T,) half the difference in eV per atom of the work there and back, the
+        (T,) float64 half the difference in eV per atom of the work there and back, the
         largest over the runs: near zero when the switching is slow enough.
     """
 
@@ -134,36 +134,36 @@ def stacking_fault_free_energy(
     potential : LAMMPS
         The interaction.
     direction : array_like
-        (3,) the slip vector in Å, in the plane, such as a/6 [11-2].
-    temperatures : float or array_like
+        (3,) float64, the slip vector in Å, in the plane, such as a/6 [11-2].
+    temperatures : float64 or array_like
         Temperatures in K, positive.
-    height : float, optional
+    height : float64, optional
         The fault, at this fractional coordinate along the box vector of axis.
         Default between the two layers of atoms nearest the middle of the box.
-    axis : int or str, optional
+    axis : int32 or str, optional
         The Cartesian axis normal to the fault. Default z.
-    pressure : float, optional
+    pressure : float64, optional
         Pressure in GPa. Default 0.
-    timestep : float, optional
+    timestep : float64, optional
         Time step in ps. Default 0.001.
-    equilibration : float, optional
+    equilibration : float64, optional
         Time in ps of each equilibration. Default 10.
-    switching : float, optional
+    switching : float64, optional
         Time in ps of each switching between the crystal and the springs.
         Default 50.
-    repeats : int, optional
+    repeats : int32, optional
         Independent free energies of each crystal at each temperature. Default 4.
-    max_force : float, optional
+    max_force : float64, optional
         Convergence in eV/Å of the relaxation of the fault at each size of the box.
         Default 1e-4.
-    max_steps : int, optional
+    max_steps : int32, optional
         Largest number of steps of each relaxation. Default 10000.
-    seed : int, optional
+    seed : int32, optional
         Seed of the random numbers, positive. Default 1.
     progress : callable, optional
         Called as ``progress(done, total)`` with the steps run.
     cancel : CancelToken, optional
-        Stops the calculation, which raises :class:`mdapy.errors.Cancelled`.
+        Stops the calculation, which raises ``mdapy.errors.Cancelled``.
 
     Returns
     -------

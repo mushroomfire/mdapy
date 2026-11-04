@@ -26,12 +26,12 @@ class TriangleMesh:
     Parameters
     ----------
     vertices : array_like
-        (V, 3) positions of the vertices in Å.
+        (V, 3) float64 positions of the vertices in Å.
     faces : array_like
-        (F, 3) vertices of each triangle, counterclockwise seen from the side
+        (F, 3) int64 vertices of each triangle, counterclockwise seen from the side
         its normal points to.
     shifts : array_like, optional
-        (F, 3, 3) periodic image of each corner: corner k of triangle f is at
+        (F, 3, 3) int32 periodic image of each corner: corner k of triangle f is at
         ``vertices[faces[f, k]] + shifts[f, k] @ box.matrix``. Default all in
         the box.
     box : Box, optional
@@ -129,7 +129,7 @@ class TriangleMesh:
         Returns
         -------
         numpy.ndarray
-            (F, 3, 3) positions in Å.
+            (F, 3, 3) float64 positions in Å.
         """
         corners = self.__vertices[self.__faces]
         if self.__shifts is not None:
@@ -167,7 +167,7 @@ class TriangleMesh:
         Returns
         -------
         corners : numpy.ndarray
-            (T, 3, 3) the corners of each piece in Å, counterclockwise as
+            (T, 3, 3) float64, the corners of each piece in Å, counterclockwise as
             its triangle.
         triangle : numpy.ndarray
             (T,) int64 the triangle of each piece.

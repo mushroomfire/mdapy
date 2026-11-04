@@ -556,7 +556,7 @@ def atomic_numbers(symbols: Iterable[str]) -> np.ndarray:
     Returns
     -------
     numpy.ndarray
-        Integer array of atomic numbers, one per symbol.
+        (N,) int64, the atomic numbers, one per symbol.
 
     Raises
     ------
@@ -574,13 +574,13 @@ def atomic_masses(elements: Iterable[str] | Iterable[int]) -> np.ndarray:
 
     Parameters
     ----------
-    elements : iterable of str or int
+    elements : iterable of str or int32
         Chemical symbols or atomic numbers (1-118).
 
     Returns
     -------
     numpy.ndarray
-        Atomic weights in amu, one per element.
+        (N,) float64, atomic weights in amu, one per element.
 
     Raises
     ------
@@ -620,13 +620,13 @@ def covalent_radii(elements: Iterable[str] | Iterable[int]) -> np.ndarray:
 
     Parameters
     ----------
-    elements : iterable of str or int
+    elements : iterable of str or int32
         Chemical symbols or atomic numbers.
 
     Returns
     -------
     numpy.ndarray
-        Radii in Å, one per element.
+        (N,) float64, radii in Å, one per element.
 
     Raises
     ------
@@ -641,13 +641,13 @@ def vdw_radii(elements: Iterable[str] | Iterable[int]) -> np.ndarray:
 
     Parameters
     ----------
-    elements : iterable of str or int
+    elements : iterable of str or int32
         Chemical symbols or atomic numbers.
 
     Returns
     -------
     numpy.ndarray
-        Radii in Å, one per element.
+        (N,) float64, radii in Å, one per element.
 
     Raises
     ------
@@ -670,9 +670,9 @@ def element_from_mass(
 
     Parameters
     ----------
-    mass : float
+    mass : float64
         Mass in amu.
-    tolerance : float, optional
+    tolerance : float64, optional
         Largest accepted difference in amu between ``mass`` and the atomic
         weight. Default 0.01.
     candidates : iterable of str, optional

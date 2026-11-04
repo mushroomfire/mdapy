@@ -47,8 +47,8 @@ write_png("images/affine.png", np.hstack(pictures))
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the system to transform |
-| `matrix` | (3, 3) | | | the linear part $M$, acting on Cartesian column vectors |
-| `translation` | (3,) | zero | Å | the translation $\mathbf t$ |
+| `matrix` | (3, 3) float64 | | | the linear part $M$, acting on Cartesian column vectors |
+| `translation` | (3,) float64 | zero | Å | the translation $\mathbf t$ |
 | `box` | bool | `True` | | whether the box transforms too |
 | `vectors` | sequence of str | `velocities`, `forces`, `displacement` | | the columns of vectors that turn with $M$, where the system has them |
 | `atoms` | (N,) bool or indices | all atoms | | the atoms that move, with their vectors |

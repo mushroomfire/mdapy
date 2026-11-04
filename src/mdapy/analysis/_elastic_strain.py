@@ -31,13 +31,13 @@ class ElasticStrainResult(Result):
     names : tuple of str
         Names of the structures: other, fcc, hcp, bcc, cubic_diamond,
         hexagonal_diamond.
-    colors : tuple of tuple of float
+    colors : tuple of tuple of float64
         RGB color of each structure.
     strain_tensor : numpy.ndarray
-        (N, 3, 3) elastic strain of each atom of the crystal in the spatial
+        (N, 3, 3) float64 elastic strain of each atom of the crystal in the spatial
         frame; zero for the other atoms.
     volumetric : numpy.ndarray
-        (N,) a third of the trace of the strain; zero for the atoms not of
+        (N,) float64, a third of the trace of the strain; zero for the atoms not of
         the crystal.
     """
 
@@ -67,10 +67,10 @@ class ElasticStrain:
         ``"hexagonal_diamond"``. Its atoms are found as by the dislocation
         analysis, with the stacking faults of fcc and hcp, and of the
         diamonds, in the other structure.
-    a : float
+    a : float64
         Lattice constant of the unstrained crystal in Å: of the cubic cell,
         or a of the hexagonal cell.
-    c : float, optional
+    c : float64, optional
         Lattice constant c of the unstrained hexagonal cell in Å; default
         that of the ideal ratio, a √(8/3). Only for hcp and hexagonal
         diamond.

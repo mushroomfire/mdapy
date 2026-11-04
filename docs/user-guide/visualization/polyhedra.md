@@ -50,8 +50,8 @@ of each, `colors[octahedra.atoms[octahedra.owners]]`.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `cutoff` | float | | Å | the neighbors closer than this |
-| `num_neighbors` | int | | | the nearest neighbors, this many |
+| `cutoff` | float64 | | Å | the neighbors closer than this |
+| `num_neighbors` | int32 | | | the nearest neighbors, this many |
 | `bonds` | bool | `False` | | the atoms bonded to each, by the bonds of the [topology](../../basics/topology.md), as OVITO does |
 
 Give exactly one of them. `compute(system, atoms=None)` builds the

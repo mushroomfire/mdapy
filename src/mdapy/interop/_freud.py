@@ -67,7 +67,7 @@ def from_freud(box: Any, points: Any) -> System:
     box : freud.box.Box
         A three-dimensional box; its periodicity becomes that of the system.
     points : array_like
-        (N, 3) positions in the box.
+        (N, 3) float64 positions in the box.
 
     Returns
     -------

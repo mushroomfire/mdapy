@@ -88,6 +88,7 @@ render(
     "images/coordination.png",
     atoms=particle["positions.x"] < center[0],
     color="coordination",
+    colormap="labels",
     box=False,
     width=800,
     height=600,

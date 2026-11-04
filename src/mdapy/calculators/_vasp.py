@@ -40,7 +40,7 @@ class VASP(Calculator):
         INCAR tags, such as ``{"ENCUT": 520, "EDIFF": 1e-6, "ISMEAR": 1,
         "SIGMA": 0.1}``. NSW, IBRION and ISIF are set for a single point
         with the stress and may not be given.
-    kpoints : sequence of int, optional
+    kpoints : sequence of int32, optional
         A Gamma-centered mesh of k-points, three numbers. Default none: VASP
         then takes KSPACING from the INCAR.
     potcars : str or path-like, optional
@@ -64,7 +64,7 @@ class VASP(Calculator):
 
     Attributes
     ----------
-    cutoff : float
+    cutoff : float64
         0: VASP needs no neighbor list.
     """
 

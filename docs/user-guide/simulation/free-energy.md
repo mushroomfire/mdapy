@@ -76,18 +76,18 @@ packages `EXTRA-FIX`, for solids, and `EXTRA-PAIR`, for liquids.
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms, with an `element` column, in a box periodic in every direction: for a solid at their places in the crystal (relax them first), for a liquid anywhere, as it is melted first |
 | `potential` | `LAMMPS` | | | the interaction; a liquid needs one pair style, not a hybrid |
-| `temperatures` | float or array_like | | K | the free energy is calculated at the first and followed from there to the others, which lie on one side of it, in order |
+| `temperatures` | float64 or (T,) float64 | | K | the free energy is calculated at the first and followed from there to the others, which lie on one side of it, in order |
 | `phase` | str | `"solid"` | | `"solid"` or `"liquid"` |
-| `pressure` | float or None | 0 | GPa | the pressure, for the Gibbs energy; `None` for the Helmholtz energy in the box of `system` |
-| `timestep` | float | 0.001 | ps | the time step |
-| `equilibration` | float | 10 | ps | the time of each equilibration |
-| `switching` | float | 50 | ps | the time of each switching between two interactions |
-| `scan` | float | 100 | ps | the time of each run between the first and the last temperature |
-| `repeats` | int | 1 | | independent calculations at the first temperature, for `error` |
+| `pressure` | float64 or `None` | 0 | GPa | the pressure, for the Gibbs energy; `None` for the Helmholtz energy in the box of `system` |
+| `timestep` | float64 | 0.001 | ps | the time step |
+| `equilibration` | float64 | 10 | ps | the time of each equilibration |
+| `switching` | float64 | 50 | ps | the time of each switching between two interactions |
+| `scan` | float64 | 100 | ps | the time of each run between the first and the last temperature |
+| `repeats` | int32 | 1 | | independent calculations at the first temperature, for `error` |
 | `mixing` | bool | `False` | | add the ideal entropy of mixing of a random solid solution, whose atoms do not exchange places in the dynamics; a liquid has it by itself |
-| `melt_temperature` | float | twice the first temperature | K | the temperature at which a liquid is melted |
+| `melt_temperature` | float64 | twice the first temperature | K | the temperature at which a liquid is melted |
 | `barostat` | str | `"aniso"`, `"iso"` for a liquid | | how the box changes, as in [`run`](dynamics.md#running) |
-| `seed` | int | 1 | | the seed of the random numbers |
+| `seed` | int32 | 1 | | the seed of the random numbers |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the calculation, which raises `Cancelled` |
 
@@ -104,15 +104,15 @@ point, for copper, aluminum and nickel.
 
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
-| `temperatures` | (T,) array | K | the temperatures |
-| `pressure` | float or None | GPa | the pressure |
-| `free_energy` | (T,) array | eV | the Gibbs energy, or the Helmholtz energy at constant volume |
-| `enthalpy` | (T,) array | eV | the enthalpy, or the energy at constant volume, smoothed |
-| `entropy` | (T,) array | eV/K | the entropy, $(H - G)/T$; classical, so negative at low temperatures |
-| `volume` | (T,) array | Å³ | the volume |
+| `temperatures` | (T,) float64 | K | the temperatures |
+| `pressure` | float64 or `None` | GPa | the pressure |
+| `free_energy` | (T,) float64 | eV | the Gibbs energy, or the Helmholtz energy at constant volume |
+| `enthalpy` | (T,) float64 | eV | the enthalpy, or the energy at constant volume, smoothed |
+| `entropy` | (T,) float64 | eV/K | the entropy, $(H - G)/T$; classical, so negative at low temperatures |
+| `volume` | (T,) float64 | Å³ | the volume |
 | `phase` | str | | `"solid"` or `"liquid"` |
-| `error` | float or None | eV | the standard error at the first temperature from the `repeats`; `None` for one |
-| `dissipation` | (T,) array | eV | half the difference of the work there and back: near zero when the switching and the scan are slow enough and the phase stays as it is |
+| `error` | float64 or `None` | eV | the standard error at the first temperature from the `repeats`; `None` for one |
+| `dissipation` | (T,) float64 | eV | half the difference of the work there and back: near zero when the switching and the scan are slow enough and the phase stays as it is |
 | `system` | `System` | | the atoms in the box of the first temperature |
 
 `crossing(other)` gives where this phase and another at the same pressure have the
@@ -120,10 +120,10 @@ same free energy, as a `PhaseCoexistence`:
 
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
-| `temperature` | float | K | the temperature |
-| `latent_heat` | float | eV | the change of enthalpy to the other phase |
-| `entropy` | float | eV/K | the change of entropy |
-| `volume` | float | Å³ | the change of volume |
+| `temperature` | float64 | K | the temperature |
+| `latent_heat` | float64 | eV | the change of enthalpy to the other phase |
+| `entropy` | float64 | eV/K | the change of entropy |
+| `volume` | float64 | Å³ | the change of volume |
 
 ## Definition
 

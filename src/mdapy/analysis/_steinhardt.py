@@ -32,10 +32,10 @@ class SteinhardtResult(Result):
 
     Attributes
     ----------
-    degrees : tuple of int
+    degrees : tuple of int32
         The degrees l.
     q : numpy.ndarray
-        (N, len(degrees)) the parameter q_l of each atom and degree.
+        (N, len(degrees)) float64, the parameter q_l of each atom and degree.
     average : bool
         Whether the parameters are averaged over the neighbors.
     solid_bonds : numpy.ndarray or None
@@ -80,12 +80,12 @@ class SteinhardtParameters:
 
     Parameters
     ----------
-    degrees : sequence of int, optional
+    degrees : sequence of int32, optional
         The degrees l, from 0 to 20. Default (4, 6).
-    num_neighbors : int, optional
+    num_neighbors : int32, optional
         The neighbors of an atom are its num_neighbors nearest; default 12
         unless ``cutoff`` or ``voronoi`` is given.
-    cutoff : float, optional
+    cutoff : float64, optional
         The neighbors of an atom are those closer than cutoff, in Å.
     voronoi : bool, optional
         The neighbors of an atom are those that share a face of its Voronoi
@@ -99,12 +99,12 @@ class SteinhardtParameters:
     solid : bool, optional
         Also tell solid-like atoms from liquid-like ones by their bonds (ten
         Wolde, Ruiz-Montero and Frenkel). Default False.
-    solid_degree : int, optional
+    solid_degree : int32, optional
         With solid, the degree l of the harmonics of the bonds. Default 6.
-    bond_threshold : float, optional
+    bond_threshold : float64, optional
         With solid, a bond is solid-like when the normalized product of the
         harmonics of its two atoms exceeds it. Default 0.7.
-    min_solid_bonds : int, optional
+    min_solid_bonds : int32, optional
         With solid, an atom is solid-like with at least so many solid-like
         bonds. Default 7.
     """

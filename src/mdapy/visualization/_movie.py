@@ -69,7 +69,7 @@ def write_movie(
         (H, W, 3) or (H, W, 4) uint8 images of one size, rows from the top.
         They are taken one at a time, so a generator of pictures writes a long
         movie without holding them in memory.
-    fps : float, optional
+    fps : float64, optional
         Pictures per second. Default 30.
 
     Raises

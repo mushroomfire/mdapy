@@ -81,10 +81,10 @@ A `WignerSeitzResult`:
 |---|---|---|
 | `site` | (N,) `index_dtype` | the reference site of each atom; its column `site` |
 | `occupancy` | (sites,) int64 | the number of atoms on each reference site; the column `occupancy` holds that of each atom's site |
-| `vacancies` | int64 array | the sites without atoms |
-| `interstitials` | int64 array | the sites with more than one atom |
-| `vacancy_count` | int | the number of sites without atoms |
-| `interstitial_count` | int | the number of atoms beyond one on each site |
+| `vacancies` | (V,) int64 | the sites without atoms |
+| `interstitials` | (I,) int64 | the sites with more than one atom |
+| `vacancy_count` | int64 | the number of sites without atoms |
+| `interstitial_count` | int64 | the number of atoms beyond one on each site |
 
 The number of atoms less the number of sites is `interstitial_count` less
 `vacancy_count`.

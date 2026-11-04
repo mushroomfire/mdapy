@@ -17,7 +17,7 @@ descriptors = potential.descriptors(system)  # (N, dim)
 |---|---|---|
 | `path` | str | the potential file |
 | `elements` | tuple of str | the elements of the potential, in the order of the file |
-| `cutoff` | float | the largest radial or angular cutoff in Å |
+| `cutoff` | float64 | the largest radial or angular cutoff in Å |
 
 | Method | Returns |
 |---|---|

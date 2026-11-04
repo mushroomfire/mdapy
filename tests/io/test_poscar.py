@@ -269,7 +269,6 @@ def test_write_cartesian_and_comments(tmp_path):
         (mdapy.System([[0.0, 0, 0]], 5.0), MissingProperty, "needs element symbols"),
         (mdapy.System([[0.0, 0, 0]], 5.0, elements="H", info={"comment": "a\nb"}), InvalidParameter, "one line"),
         (mdapy.System([[0.0, 0, 0]], 5.0, elements="H", info={"comment": 3}), InvalidParameter, "one line"),
-        (mdapy.System([[0.0, 0, 0]], 5.0, elements="H").with_columns(movable=[1]), InvalidParameter, "3 booleans"),
     ],
 )  # fmt: skip
 def test_write_errors(tmp_path, system, error, message):

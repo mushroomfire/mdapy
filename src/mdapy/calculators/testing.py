@@ -97,14 +97,14 @@ def check_calculator(
         The calculator.
     system : System
         A small system, a few dozen atoms, that the calculator handles.
-    displacement : float, optional
+    displacement : float64, optional
         Step in Å (and strain step) of the finite differences.
-    rtol, atol : float, optional
+    rtol, atol : float64, optional
         Relative and absolute tolerances of the comparisons, in the units of
         each quantity.
-    atoms : int, optional
+    atoms : int32, optional
         Number of atoms whose forces are checked by finite differences.
-    seed : int, optional
+    seed : int32, optional
         Seed of the random rotation, translation and atom choice.
 
     Raises

@@ -22,14 +22,14 @@ result = minimize(system, potential, cell="isotropic", pressure=10.0)
 |---|---|---|---|---|
 | `system` | `System` | | | the starting configuration, with a `mass` or an `element` column; a `movable` column, (N, 3) bool as VASP's selective dynamics, keeps each atom still where it is False |
 | `calculator` | `Calculator` | | | computes energies and forces, and the virial when the box relaxes |
-| `max_force` | float | 1e-3 | eV/Å | converged when every force is below it |
-| `max_steps` | int | 1000 | | largest number of steps |
-| `max_step` | float | 0.1 | Å | an atom moving at its current velocity goes at most this far along x, y or z in one step (LAMMPS `dmax`) |
-| `timestep` | float | 0.001 | ps | first time step of the dynamics (the LAMMPS `timestep` in metal units) |
+| `max_force` | float64 | 1e-3 | eV/Å | converged when every force is below it |
+| `max_steps` | int32 | 1000 | | largest number of steps |
+| `max_step` | float64 | 0.1 | Å | an atom moving at its current velocity goes at most this far along x, y or z in one step (LAMMPS `dmax`) |
+| `timestep` | float64 | 0.001 | ps | first time step of the dynamics (the LAMMPS `timestep` in metal units) |
 | `cell` | str | `None` | | how the box may change, in the table below |
-| `pressure` | float | 0.0 | GPa | external hydrostatic pressure when the box relaxes |
-| `max_stress` | float | 1e-2 | GPa | when the box relaxes, converged when every relaxed component of the stress is this close to $-p$ (−`pressure` on the diagonal, 0 off it) |
-| `save_every` | int | `None` | | keeps the configuration every this many steps, with the first and the last, in `frames` |
+| `pressure` | float64 | 0.0 | GPa | external hydrostatic pressure when the box relaxes |
+| `max_stress` | float64 | 1e-2 | GPa | when the box relaxes, converged when every relaxed component of the stress is this close to $-p$ (−`pressure` on the diagonal, 0 off it) |
+| `save_every` | int32 | `None` | | keeps the configuration every this many steps, with the first and the last, in `frames` |
 | `callback` | callable | `None` | | called after each step as `callback(step, system, energy, max_force)`; returning True stops the minimization |
 
 `cell` chooses how the box changes along its periodic directions; the atoms
@@ -50,10 +50,10 @@ It returns a `MinimizeResult`:
 |---|---|---|
 | `system` | `System` | the last configuration, with `forces` and `atomic_energies` columns and `energy`, `virial` (eV) and `stress` (GPa) in `info` |
 | `converged` | bool | whether every force fell below `max_force` and, when the box relaxes, every relaxed stress component came within `max_stress` of $-p$ |
-| `steps` | int | number of steps taken |
-| `energy` | float | energy of the last configuration in eV |
-| `max_force` | float | largest force of the last configuration in eV/Å |
-| `stress` | `numpy.ndarray` or `None` | (3, 3) stress of the last configuration in GPa, positive under tension; `None` when the calculator does not compute the virial |
+| `steps` | int32 | number of steps taken |
+| `energy` | float64 | energy of the last configuration in eV |
+| `max_force` | float64 | largest force of the last configuration in eV/Å |
+| `stress` | (3, 3) float64 or `None` | stress of the last configuration in GPa, positive under tension; `None` when the calculator does not compute the virial |
 | `frames` | tuple of `System` or `None` | with `save_every`, the kept configurations, with the columns and `info` of `system` and the step as `timestep` in `info`; `None` otherwise |
 
 `virial` and `stress` are in `info`, and `stress` is set, whenever the

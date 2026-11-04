@@ -36,7 +36,7 @@ def alloy():
     )
 
 
-@pytest.mark.parametrize("name", COLORMAPS)
+@pytest.mark.parametrize("name", [name for name in COLORMAPS if name != "labels"])
 def test_colormaps_end_to_end(name):
     """Values beyond the range take the colors of its ends; colors stay in
     0 to 1."""
@@ -44,6 +44,21 @@ def test_colormaps_end_to_end(name):
     np.testing.assert_allclose(colors[0], colors[1])
     np.testing.assert_allclose(colors[4], colors[3])
     assert colors.shape == (5, 3) and colors.min() >= 0 and colors.max() <= 1
+
+
+def test_labels_give_each_value_one_color():
+    colors = colormap([7, 3, 7, 12, 3], "labels")
+    np.testing.assert_array_equal(colors, LABEL_COLORS[[1, 0, 1, 2, 0]])
+    # thirteen values: the colors start again
+    np.testing.assert_array_equal(
+        colormap(np.arange(13.0), "labels")[12], LABEL_COLORS[0]
+    )
+    # text too
+    np.testing.assert_array_equal(
+        colormap(["Ni", "Cu"], "labels"), LABEL_COLORS[[1, 0]]
+    )
+    with pytest.raises(InvalidParameter, match="takes no value_range"):
+        colormap([1, 2], "labels", (0, 1))
 
 
 def test_known_colors_of_the_maps():

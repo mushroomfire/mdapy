@@ -52,7 +52,7 @@ class StructureResult(Result):
         (N,) int8 type of each atom, an index into ``names``.
     names : tuple of str
         Name of each type.
-    colors : tuple of tuple of float
+    colors : tuple of tuple of float64
         Default RGB color of each type, from 0 to 1.
     method : str
         The method, which names the column, as ``cna_structure``.
@@ -77,7 +77,7 @@ class CommonNeighborAnalysis:
 
     Parameters
     ----------
-    cutoff : float, optional
+    cutoff : float64, optional
         Cutoff of the neighbors and of the bonds between them, in Å. Without
         it, each atom has its own cutoff from its nearest neighbors
         (adaptive common neighbor analysis).
@@ -309,7 +309,7 @@ class ChillPlus:
 
     Parameters
     ----------
-    cutoff : float, optional
+    cutoff : float64, optional
         Neighbors are the molecules closer than cutoff, in Å. Default 3.5,
         for the oxygen atoms of water.
     """
@@ -395,7 +395,7 @@ class CentroSymmetryParameter:
 
     Parameters
     ----------
-    num_neighbors : int, optional
+    num_neighbors : int32, optional
         Number of nearest neighbors, even: 12 for fcc, 8 for bcc. Default 12.
     """
 
@@ -471,7 +471,7 @@ class CommonNeighborParameter:
 
     Parameters
     ----------
-    cutoff : float
+    cutoff : float64
         Neighbors and common neighbors are closer than cutoff, in Å.
     """
 

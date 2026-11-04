@@ -432,8 +432,11 @@ error.
   grains too close to the carbon removed. `build_polycrystal` keeps the
   seeds in `info["seeds"]`. See [Graphene on grain boundaries](../user-guide/build/graphene.md).
 - `mdapy.build.build_polycrystal`: Voronoi grains of any periodic unit,
-  columnar when the box is thin, and `twin_lamellae` for twinned grains. See
-  [Polycrystals](../user-guide/build/polycrystals.md).
+  columnar when the box is thin, `twin_lamellae` for twinned grains,
+  `rotations_about` for the turns of columns, and `gradient_seeds` for grains
+  whose size changes along one direction, from one side or both. See
+  [Polycrystals](../user-guide/build/polycrystals.md), which also builds grains
+  of graphene, and [Gamma surfaces](../examples/gamma-surface.md).
 - `mdapy.transform.replicate` copies a system along its periodic
   directions as LAMMPS `replicate` does, with the ids, molecules and
   topology of each copy and molecules kept whole through the image flags;
@@ -520,7 +523,7 @@ error.
   these names; `atom_colors` and `atom_radii` with colors and radii of
   elements chosen and a scale; colormaps rainbow, viridis, magma, jet, hot,
   blue_white_red and gray computed as OVITO computes them, besides plasma
-  and coolwarm. Atom types without elements, as in a LAMMPS dump of types
+  and coolwarm, and labels for discrete values. Atom types without elements, as in a LAMMPS dump of types
   only, are drawn each in a color of its own, those of OVITO (`TYPE_COLORS`),
   and all of one radius; `atom_names` gives the names these colors go by,
   and `read_trajectory(path, elements=[...])` names the types, so that files

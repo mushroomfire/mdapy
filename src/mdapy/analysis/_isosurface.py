@@ -34,12 +34,12 @@ def isosurface(values: Any, box: Box, level: float) -> TriangleMesh:
     Parameters
     ----------
     values : array_like
-        (na, nb, nc) the field at the centers of the cells of a grid that
+        (na, nb, nc) float64, the field at the centers of the cells of a grid that
         divides the box into na, nb and nc cells along its vectors a, b and
         c, such as the values of a SpatialBinning along all three.
     box : Box
         The box the grid divides.
-    level : float
+    level : float64
         The value of the field on the surface.
 
     Returns

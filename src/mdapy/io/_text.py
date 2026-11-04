@@ -29,9 +29,9 @@ class TextReader:
         The text.
     name : str
         File name used in error messages.
-    offset : int, optional
+    offset : int32, optional
         Byte offset to start reading at.
-    line : int, optional
+    line : int32, optional
         Number of lines before offset.
     """
 
@@ -75,7 +75,7 @@ class TextReader:
 
         Parameters
         ----------
-        rows : int
+        rows : int32
             Number of lines.
         columns : sequence of tuple
             ``(kind, width)`` or ``(kind, width, shift)`` of each column.

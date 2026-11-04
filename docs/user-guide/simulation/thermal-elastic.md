@@ -68,11 +68,11 @@ a cubic polynomial through those cells.
 | `qha` | `QuasiHarmonicResult` | | | the quasi-harmonic calculation, with its cells |
 | `calculator` | `Calculator` | | | computes energies and forces, as for the quasi-harmonic calculation |
 | `method` | str | `"quasi-harmonic"` | | `"quasi-harmonic"` or `"quasi-static"` |
-| `strain` | float | 5e-3 | | the magnitude $h$ of the Lagrangian strains of the finite differences |
+| `strain` | float64 | 5e-3 | | the magnitude $h$ of the Lagrangian strains of the finite differences |
 | `supercell`, `mesh`, `displacement` | | | | of the phonons of the strained cells, as in [`phonons`](phonons.md) |
-| `max_force` | float | 1e-6 | eV/Å | convergence of the relaxation of the positions in each strained cell |
-| `max_steps` | int | 5000 | | largest number of steps of each relaxation |
-| `symmetry` | bool or None | `None` | | compute one of each set of strains that the operations make from each other, and use symmetry in the phonons; with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
+| `max_force` | float64 | 1e-6 | eV/Å | convergence of the relaxation of the positions in each strained cell |
+| `max_steps` | int32 | 5000 | | largest number of steps of each relaxation |
+| `symmetry` | bool or `None` | `None` | | compute one of each set of strains that the operations make from each other, and use symmetry in the phonons; with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
 
 A cubic crystal takes 12 of the 73 strains of the differences, hcp 36.
 The strained cells keep the supercell of their cell and the periodic images
@@ -86,9 +86,9 @@ A `ThermalElasticResult`; arrays are read-only.
 
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
-| `temperatures` | (T,) array | K | the temperatures |
-| `isothermal` | (T, 6, 6) array | GPa | the isothermal elastic constants $C^T$, in Voigt order xx, yy, zz, yz, xz, xy |
-| `adiabatic` | (T, 6, 6) array | GPa | the adiabatic elastic constants $C^S$, those of sound waves |
+| `temperatures` | (T,) float64 | K | the temperatures |
+| `isothermal` | (T, 6, 6) float64 | GPa | the isothermal elastic constants $C^T$, in Voigt order xx, yy, zz, yz, xz, xy |
+| `adiabatic` | (T, 6, 6) float64 | GPa | the adiabatic elastic constants $C^S$, those of sound waves |
 | `method` | str | | the method |
 
 Under a pressure, the constants are the stress–strain coefficients, which

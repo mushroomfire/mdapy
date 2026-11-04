@@ -35,16 +35,16 @@ class PTMResult(StructureResult):
         (N,) int8 type of each atom, an index into ``names``.
     names : tuple of str
         Name of each type.
-    colors : tuple of tuple of float
+    colors : tuple of tuple of float64
         Default RGB color of each type, from 0 to 1.
     rmsd : numpy.ndarray
-        (N,) root-mean-square deviation from the best template, 0 for an atom
+        (N,) float64 root-mean-square deviation from the best template, 0 for an atom
         that matches none.
     interatomic_distance : numpy.ndarray
-        (N,) distance in Å between nearest neighbors of the matched lattice,
+        (N,) float64 distance in Å between nearest neighbors of the matched lattice,
         0 for none.
     orientation : numpy.ndarray
-        (N, 4) the rotation of the matched lattice from its standard
+        (N, 4) float64, the rotation of the matched lattice from its standard
         orientation as a quaternion (x, y, z, w), zeros for none.
     correspondences : numpy.ndarray
         (N,) uint64 the order of the neighbors matching the template, as
@@ -52,7 +52,7 @@ class PTMResult(StructureResult):
     template_index : numpy.ndarray
         (N,) int8 which of the equivalent templates of a structure matched.
     deformation_gradient : numpy.ndarray or None
-        (N, 3, 3) the elastic deformation gradient from the template to the
+        (N, 3, 3) float64, the elastic deformation gradient from the template to the
         neighbors, when computed.
     ordering : numpy.ndarray or None
         (N,) int8 chemical ordering, an index into ``ordering_names``, when
@@ -60,7 +60,7 @@ class PTMResult(StructureResult):
     ordering_names : tuple of str
         Name of each ordering type.
     neighbors : numpy.ndarray or None
-        (N, 16) the neighbors of each atom in the order of the points of its
+        (N, 16) int32, the neighbors of each atom in the order of the points of its
         template, -1 after its count, when asked for.
     """
 
@@ -97,7 +97,7 @@ class PolyhedralTemplateMatching:
     structures : iterable of str, optional
         The structures to look for, of ``NAMES`` but other. Default fcc, hcp
         and bcc.
-    rmsd_cutoff : float, optional
+    rmsd_cutoff : float64, optional
         Atoms whose root-mean-square deviation from the best template is
         larger are other; 0 for no cutoff. Default 0.1.
     deformation_gradient : bool, optional

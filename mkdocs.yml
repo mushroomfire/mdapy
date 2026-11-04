@@ -80,7 +80,7 @@ plugins:
             show_root_full_path: false
             heading_level: 3
             separate_signature: true
-            show_signature_annotations: true
+            show_signature_annotations: false
             merge_init_into_class: true
             members_order: source
             filters: ["!^_"]
@@ -126,6 +126,7 @@ nav:
           - Columnar grains on a hexagonal pattern: examples/columnar-polycrystal.md
       - Simulation:
           - Defect energies of copper: examples/defect-energies.md
+          - Gamma surfaces of copper and tungsten: examples/gamma-surface.md
           - A machine-learned potential for CrCoNi: examples/crconi.md
       - Many calculations:
           - Screening alloys in many processes: examples/high-throughput.md

@@ -76,18 +76,18 @@ gives something lower than the energy at rest.
 |---|---|---|---|---|
 | `crystal` | `System` | | | the crystal, relaxed, with an `element` column, periodic in every direction, with the plane of the fault normal to the Cartesian axis of `axis`, such as fcc with z along [111] |
 | `potential` | `LAMMPS` | | | the interaction |
-| `direction` | array_like | | Å | (3,) the slip vector in the plane, such as a/6 [11-2] |
-| `temperatures` | float or array_like | | K | the temperatures |
-| `height` | float | between the two layers nearest the middle | | the fault, as a fractional coordinate along the box vector of `axis` |
-| `axis` | int or str | `z` | | the Cartesian axis normal to the fault |
-| `pressure` | float | 0 | GPa | the pressure |
-| `timestep` | float | 0.001 | ps | the time step |
-| `equilibration` | float | 10 | ps | the time of each equilibration |
-| `switching` | float | 50 | ps | the time of each switching between the crystal and the springs |
-| `repeats` | int | 4 | | independent free energies of each crystal at each temperature |
-| `max_force` | float | 1e-4 | eV/Å | convergence of the relaxation of the fault at each size of the box |
-| `max_steps` | int | 10000 | | the largest number of steps of each relaxation |
-| `seed` | int | 1 | | the seed of the random numbers |
+| `direction` | (3,) float64 | | Å | (3,) the slip vector in the plane, such as a/6 [11-2] |
+| `temperatures` | float64 or (T,) float64 | | K | the temperatures |
+| `height` | float64 | between the two layers nearest the middle | | the fault, as a fractional coordinate along the box vector of `axis` |
+| `axis` | int32 or str | `z` | | the Cartesian axis normal to the fault |
+| `pressure` | float64 | 0 | GPa | the pressure |
+| `timestep` | float64 | 0.001 | ps | the time step |
+| `equilibration` | float64 | 10 | ps | the time of each equilibration |
+| `switching` | float64 | 50 | ps | the time of each switching between the crystal and the springs |
+| `repeats` | int32 | 4 | | independent free energies of each crystal at each temperature |
+| `max_force` | float64 | 1e-4 | eV/Å | convergence of the relaxation of the fault at each size of the box |
+| `max_steps` | int32 | 10000 | | the largest number of steps of each relaxation |
+| `seed` | int32 | 1 | | the seed of the random numbers |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the calculation, which raises `Cancelled` |
 
@@ -97,12 +97,12 @@ It returns a `FaultFreeEnergyResult`; arrays are read-only.
 
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
-| `temperatures` | (T,) array | K | the temperatures |
-| `energy` | (T,) array | J/m² | the free energy of the fault per area |
-| `error` | (T,) array | J/m² | its standard error from the repeats; zero for one repeat |
-| `area` | float | Å² | the area of the fault at the first temperature |
-| `volume` | (T,) array | Å³ | the volume per atom of the crystal |
-| `dissipation` | (T,) array | eV | half the difference of the work there and back per atom, the largest over the runs |
+| `temperatures` | (T,) float64 | K | the temperatures |
+| `energy` | (T,) float64 | J/m² | the free energy of the fault per area |
+| `error` | (T,) float64 | J/m² | its standard error from the repeats; zero for one repeat |
+| `area` | float64 | Å² | the area of the fault at the first temperature |
+| `volume` | (T,) float64 | Å³ | the volume per atom of the crystal |
+| `dissipation` | (T,) float64 | eV | half the difference of the work there and back per atom, the largest over the runs |
 
 ## Definition
 

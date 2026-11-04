@@ -67,8 +67,8 @@ solid-like bonds over x and z.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `property` | str | | | a column, a component such as `positions.z`, or an expression over the columns, as `system[...]` takes |
-| `bins` | int or sequence of int | | | the number of bins along each axis, or one number for all |
-| `axes` | int, str or sequence | `"z"` | | the box vectors binned along, one to three of 0, 1, 2 or x, y, z |
+| `bins` | int32 or sequence of int32 | | | the number of bins along each axis, or one number for all |
+| `axes` | int32, str or a sequence of them | `"z"` | | the box vectors binned along, one to three of 0, 1, 2 or x, y, z |
 | `reduction` | str | `"mean"` | | one of `REDUCTIONS`: `"mean"`, `"sum"`, `"density"` (the sum per Å³), `"min"`, `"max"` |
 
 `compute(system)` takes the system. Along periodic vectors the atoms are

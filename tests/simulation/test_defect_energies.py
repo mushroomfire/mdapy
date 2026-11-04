@@ -118,3 +118,42 @@ def test_stacking_faults(copper):
     hexagonal = build_crystal("hcp", 2.5, elements="Cu", repeat=(3, 3, 3))
     with pytest.raises(InvalidParameter, match="normal to the Cartesian axis"):
         stacking_fault_energy(hexagonal, copper, [0, 0, 1.0], axis="x")
+
+
+def _slab(structure, a, element, orientation):
+    crystal = build_crystal(
+        structure, a, elements=element, orientation=orientation, repeat=(1, 1, 4)
+    )
+    return crystal.with_box(mdapy.Box(crystal.box.matrix, pbc=(True, True, False)))
+
+
+def test_the_gamma_surface_has_the_symmetry_of_its_plane():
+    def energy(crystal, potential, x, y):
+        lx, ly = crystal.box.lengths[:2]
+        slipped = stacking_fault_energy(
+            crystal, potential, [x * lx, y * ly, 0.0], points=2
+        )
+        return slipped.energy[1]
+
+    copper = _slab("fcc", 3.615, "Cu", [(1, 1, -2), (-1, 1, 0), (1, 1, 1)])
+    potential = EAM.zhou(["Cu"])
+    # lattice vectors of {111} bring the crystal back onto itself
+    for x, y in ((1.0, 0.0), (0.0, 1.0), (0.5, 0.5)):
+        assert energy(copper, potential, x, y) == pytest.approx(0.0, abs=1e-9)
+    # the two sites of the intrinsic fault, and a mirror across the slip direction
+    fault = energy(copper, potential, 1 / 3, 0.0)
+    assert fault > 0.0
+    assert energy(copper, potential, 5 / 6, 0.5) == pytest.approx(fault, abs=1e-9)
+    assert energy(copper, potential, 0.2, 0.3) == pytest.approx(
+        energy(copper, potential, 0.2, 0.7), abs=1e-9
+    )
+    # the fault is a minimum among its neighbors along the direction of the partial
+    assert energy(copper, potential, 1 / 6, 0.0) > fault
+    assert energy(copper, potential, 1 / 2, 0.0) > fault
+
+    tungsten = _slab("bcc", 3.165, "W", [(1, -1, 0), (0, 0, 1), (1, 1, 0)])
+    potential = EAM.zhou(["W"])
+    assert energy(tungsten, potential, 0.5, 0.5) == pytest.approx(0.0, abs=1e-9)
+    # no stable fault along a/2 <111> of bcc: the energy rises up to its middle
+    along = [energy(tungsten, potential, f / 2, f / 2) for f in np.linspace(0, 0.5, 7)]
+    assert (np.diff(along) > 0).all()

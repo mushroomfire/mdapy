@@ -44,7 +44,7 @@ class FileFormatError(MdapyError, ValueError):
     ----------
     path : str or None
         Name of the file.
-    line : int or None
+    line : int32 or None
         Line number, counting from 1.
     """
 
@@ -56,7 +56,7 @@ class FileFormatError(MdapyError, ValueError):
 
 
 class Cancelled(MdapyError):
-    """A computation was stopped through a :class:`mdapy.CancelToken`."""
+    """A computation was stopped through a ``mdapy.CancelToken``."""
 
 
 class CalculationFailed(MdapyError, RuntimeError):

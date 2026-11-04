@@ -71,17 +71,17 @@ crystal has: 12 in fcc and hcp, 14 in bcc, 4 in diamond.
 |---|---|---|---|---|
 | `crystal` | `System` | | | the crystal, relaxed, with an `element` column, periodic in every direction; the interface is across its third vector |
 | `potential` | `LAMMPS` | | | the interaction |
-| `temperature` | float | | K | the first guess |
-| `pressure` | float | 0 | GPa | the pressure |
-| `atoms` | int | 16000 | | about how many atoms the box holds; fewer for a slow potential |
-| `repeat` | 3 ints | | | repeats of `crystal` along its vectors, instead of `atoms`; the third is made even |
-| `timestep` | float | 0.001 | ps | the time step |
-| `equilibration` | float | 10 | ps | the time of each stage before the phases meet |
-| `coexistence` | float | 500 | ps | the time of each stretch of the two phases; a larger box needs longer |
-| `tolerance` | float | 3 | K | how much the temperature may still drift, from the third quarter of a stretch to the last, for it to be the answer; twice its statistical error, if that is larger |
-| `max_runs` | int | 8 | | the largest number of runs |
-| `barostat_damping` | float | 1000 time steps | ps | the damping time of the barostat |
-| `seed` | int | 1 | | the seed of the random numbers |
+| `temperature` | float64 | | K | the first guess |
+| `pressure` | float64 | 0 | GPa | the pressure |
+| `atoms` | int32 | 16000 | | about how many atoms the box holds; fewer for a slow potential |
+| `repeat` | (3,) int32 | | | repeats of `crystal` along its vectors, instead of `atoms`; the third is made even |
+| `timestep` | float64 | 0.001 | ps | the time step |
+| `equilibration` | float64 | 10 | ps | the time of each stage before the phases meet |
+| `coexistence` | float64 | 500 | ps | the time of each stretch of the two phases; a larger box needs longer |
+| `tolerance` | float64 | 3 | K | how much the temperature may still drift, from the third quarter of a stretch to the last, for it to be the answer; twice its statistical error, if that is larger |
+| `max_runs` | int32 | 8 | | the largest number of runs |
+| `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
+| `seed` | int32 | 1 | | the seed of the random numbers |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run, of a total that takes every run to be the last |
 | `cancel` | `CancelToken` | `None` | | stops the calculation, which raises `Cancelled` |
 
@@ -107,15 +107,15 @@ It returns a `MeltingPointResult`; arrays are read-only.
 
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
-| `temperature` | float | K | the melting point: the mean temperature over the second half of the last stretch |
-| `error` | float | K | the standard error of that mean, from blocks of the stretch |
-| `pressure` | float | GPa | the pressure |
+| `temperature` | float64 | K | the melting point: the mean temperature over the second half of the last stretch |
+| `error` | float64 | K | the standard error of that mean, from blocks of the stretch |
+| `pressure` | float64 | GPa | the pressure |
 | `attempts` | tuple of `MeltingAttempt` | | each stretch of each run, in order |
-| `time` | (S,) array | ps | the time along the last stretch |
-| `temperatures` | (S,) array | K | the temperature along the last stretch |
-| `pressures` | (S,) array | GPa | the pressure along the last stretch |
-| `fractions` | (F,) array | | the fraction of solid atoms along the last stretch |
-| `fraction_time` | (F,) array | ps | the time of the fractions |
+| `time` | (S,) float64 | ps | the time along the last stretch |
+| `temperatures` | (S,) float64 | K | the temperature along the last stretch |
+| `pressures` | (S,) float64 | GPa | the pressure along the last stretch |
+| `fractions` | (F,) float64 | | the fraction of solid atoms along the last stretch |
+| `fraction_time` | (F,) float64 | ps | the time of the fractions |
 | `system` | `System` | | the atoms at the end, with a boolean column `solid` |
 
 A `MeltingAttempt` has `start`, the temperature in K at which its run started;

@@ -49,8 +49,8 @@ atoms of the faults and the cores, which are not fcc, have none (white).*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `crystal` | str | | | `"fcc"`, `"hcp"`, `"bcc"`, `"cubic_diamond"` or `"hexagonal_diamond"` |
-| `a` | float | | Å | the lattice constant of the unstrained crystal: of the cubic cell, or a of the hexagonal cell |
-| `c` | float | a √(8/3) | Å | the lattice constant c of the unstrained hexagonal cell; only for hcp and hexagonal diamond |
+| `a` | float64 | | Å | the lattice constant of the unstrained crystal: of the cubic cell, or a of the hexagonal cell |
+| `c` | float64 | a √(8/3) | Å | the lattice constant c of the unstrained hexagonal cell; only for hcp and hexagonal diamond |
 
 `compute(system, *, progress=None, cancel=None)` finds the atoms of the
 crystal as the [dislocation analysis](dislocations.md) does, with the
@@ -66,7 +66,7 @@ An `ElasticStrainResult`:
 | Attribute | Type | Meaning |
 |---|---|---|
 | `structure` | (N,) int8 | the structure of each atom, an index into `names`; its column `elastic_strain_structure` |
-| `names`, `colors` | tuples | other, fcc, hcp, bcc, cubic_diamond, hexagonal_diamond, and their colors, those of [PTM](ptm.md) |
+| `names`, `colors` | tuple of str, tuple of (3,) float64 | other, fcc, hcp, bcc, cubic_diamond, hexagonal_diamond, and their colors, those of [PTM](ptm.md) |
 | `strain_tensor` | (N, 3, 3) float64 | the elastic strain $\varepsilon$ of each atom of the crystal in the spatial frame, zero for the other atoms; its column `elastic_strain` |
 | `volumetric` | (N,) float64 | $\operatorname{tr}\varepsilon / 3$, zero for the atoms not of the crystal; its column `elastic_volumetric_strain` |
 

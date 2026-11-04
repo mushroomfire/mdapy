@@ -62,11 +62,11 @@ def add_vacancies(
     ----------
     system : System
         The atoms.
-    count : int, optional
+    count : int32, optional
         Number of atoms removed at random.
     atoms : array_like, optional
         Instead of count, the indices of the atoms removed, or a boolean mask.
-    seed : int or numpy.random.Generator, optional
+    seed : int64 or numpy.random.Generator, optional
         Seed of the random choice.
 
     Returns
@@ -95,11 +95,11 @@ def substitute(
         The atoms.
     element : str
         The new element.
-    count : int, optional
+    count : int32, optional
         Number of atoms changed at random.
     atoms : array_like, optional
         Instead of count, the indices of the atoms changed, or a boolean mask.
-    seed : int or numpy.random.Generator, optional
+    seed : int64 or numpy.random.Generator, optional
         Seed of the random choice.
 
     Returns
@@ -136,16 +136,16 @@ def add_interstitials(
         The atoms.
     element : str
         The element of the added atoms.
-    count : int, optional
+    count : int32, optional
         Number of atoms added at random positions in the box, each at least
         min_distance from every other atom.
     positions : array_like, optional
         Instead of count, the (M, 3) positions of the added atoms in Å.
-    min_distance : float, optional
+    min_distance : float64, optional
         With count, the smallest distance in Å to the other atoms. Default 1.
-    seed : int or numpy.random.Generator, optional
+    seed : int64 or numpy.random.Generator, optional
         Seed of the random positions.
-    attempts : int, optional
+    attempts : int32, optional
         With count, the number of random positions tried for each atom
         before giving up. Default 1000.
 
@@ -249,11 +249,11 @@ def slip(
     system : System
         The atoms.
     displacement : array_like
-        (3,) displacement in Å of the atoms above the plane, along it.
-    height : float, optional
+        (3,) float64 displacement in Å of the atoms above the plane, along it.
+    height : float64, optional
         The plane, at this fractional coordinate along the box vector of
         axis. Default 0.5, the middle of the box.
-    axis : int or str, optional
+    axis : int32 or str, optional
         The box vector normal to the plane, 0, 1, 2 or x, y, z. Default z.
 
     Returns
@@ -296,9 +296,9 @@ def add_vacuum(system: System, thickness: float, *, axis: int | str = 2) -> Syst
     ----------
     system : System
         The atoms.
-    thickness : float
+    thickness : float64
         Length in Å added to the box along the vector of axis.
-    axis : int or str, optional
+    axis : int32 or str, optional
         The box vector made longer, 0, 1, 2 or x, y, z. Default z.
 
     Returns

@@ -55,15 +55,15 @@ class MeltingAttempt:
 
     Attributes
     ----------
-    start : float
+    start : float64
         The temperature in K at which the run started.
     outcome : str
         "melted", "frozen" or "coexisting".
-    temperature : float
+    temperature : float64
         The mean temperature in K over its second half.
-    fraction : float
+    fraction : float64
         The fraction of solid atoms at its end.
-    drift : float
+    drift : float64
         How much in K the mean temperature changed from the third quarter of
         the run to the last.
     """
@@ -81,25 +81,25 @@ class MeltingPointResult(Result):
 
     Attributes
     ----------
-    temperature : float
+    temperature : float64
         The melting point in K: the temperature at which the two phases
         coexist, averaged over the second half of the last stretch.
-    error : float
+    error : float64
         The standard error of that mean in K, from blocks of the run.
-    pressure : float
+    pressure : float64
         The pressure in GPa.
     attempts : tuple of MeltingAttempt
         Each stretch of each run, in order.
     time : numpy.ndarray
-        (S,) the time in ps along the last stretch.
+        (S,) float64, the time in ps along the last stretch.
     temperatures : numpy.ndarray
-        (S,) the temperature in K along the last stretch.
+        (S,) float64, the temperature in K along the last stretch.
     pressures : numpy.ndarray
-        (S,) the pressure in GPa along the last stretch.
+        (S,) float64, the pressure in GPa along the last stretch.
     fractions : numpy.ndarray
-        (F,) the fraction of solid atoms along the last stretch.
+        (F,) float64, the fraction of solid atoms along the last stretch.
     fraction_time : numpy.ndarray
-        (F,) the time in ps of the fractions.
+        (F,) float64, the time in ps of the fractions.
     system : System
         The atoms at the end of the last run, with a boolean column ``solid``.
     """
@@ -422,41 +422,41 @@ def melting_point(
         vector.
     potential : LAMMPS
         The interaction.
-    temperature : float
+    temperature : float64
         The first guess in K, positive.
-    pressure : float, optional
+    pressure : float64, optional
         Pressure in GPa. Default 0.
-    atoms : int, optional
+    atoms : int32, optional
         About how many atoms the box holds, three times as long along its
         third vector as along the others. Default 16000; fewer for a slow
         potential, at the price of a larger spread between runs.
     repeat : array_like, optional
-        (3,) repeats of crystal along its vectors, instead of ``atoms``; the
+        (3,) int32 repeats of crystal along its vectors, instead of ``atoms``; the
         third is made even.
-    timestep : float, optional
+    timestep : float64, optional
         Time step in ps. Default 0.001.
-    equilibration : float, optional
+    equilibration : float64, optional
         Time in ps of each stage before the two phases meet. Default 10.
-    coexistence : float, optional
+    coexistence : float64, optional
         Time in ps of each stretch of the two phases, of which a run has up to
         five while the temperature drifts. Default 500; a larger box needs
         longer, as heat takes longer to cross it.
-    tolerance : float, optional
+    tolerance : float64, optional
         How much in K the temperature may still drift, from the third quarter
         of a stretch of coexistence to the last, for it to be the answer; twice
         its statistical error, if that is larger. Default 3.
-    max_runs : int, optional
+    max_runs : int32, optional
         Largest number of runs. Default 8.
-    barostat_damping : float, optional
+    barostat_damping : float64, optional
         Damping time of the barostat in ps, as in
-        :meth:`MolecularDynamics.run`. Default 1000 time steps.
-    seed : int, optional
+        ``MolecularDynamics.run``. Default 1000 time steps.
+    seed : int32, optional
         Seed of the random numbers, positive. Default 1.
     progress : callable, optional
         Called as ``progress(done, total)`` with the steps run, of a total
         that takes every run to be the last.
     cancel : CancelToken, optional
-        Stops the calculation, which raises :class:`mdapy.errors.Cancelled`.
+        Stops the calculation, which raises ``mdapy.errors.Cancelled``.
 
     Returns
     -------

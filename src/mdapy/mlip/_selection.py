@@ -27,15 +27,15 @@ class PrincipalComponents(Result):
     Attributes
     ----------
     projection : numpy.ndarray
-        (M, n) coordinates of the points along the components.
+        (M, n) float64 coordinates of the points along the components.
     components : numpy.ndarray
-        (n, D) the components, unit vectors, by decreasing variance.
+        (n, D) float64, the components, unit vectors, by decreasing variance.
     variance : numpy.ndarray
-        (n,) the variance along each component.
+        (n,) float64, the variance along each component.
     ratio : numpy.ndarray
-        (n,) the fraction of the total variance of each component.
+        (n,) float64, the fraction of the total variance of each component.
     mean : numpy.ndarray
-        (D,) the mean of the points.
+        (D,) float64, the mean of the points.
     """
 
     projection: np.ndarray
@@ -55,8 +55,8 @@ def principal_components(points: ArrayLike, n: int = 2) -> PrincipalComponents:
     Parameters
     ----------
     points : array_like
-        (M, D) points.
-    n : int, optional
+        (M, D) float64 points.
+    n : int32, optional
         Number of components kept, at most D. Default 2.
 
     Returns
@@ -106,14 +106,14 @@ def farthest_point_sampling(
     Parameters
     ----------
     points : array_like
-        (M, D) the candidates.
-    count : int
+        (M, D) float64, the candidates.
+    count : int32
         Number of points chosen.
-    start : int or None, optional
+    start : int32 or None, optional
         The first point chosen; None to start from the farthest from
         ``selected``. Default 0.
     selected : array_like, optional
-        (K, D) points already chosen, such as the training set so far; the
+        (K, D) float64 points already chosen, such as the training set so far; the
         candidates are chosen far from them as well.
 
     Returns
@@ -168,12 +168,12 @@ def structure_descriptors(frames: Sequence[System], calculator: Any) -> np.ndarr
         The frames.
     calculator : SOAP, NEP or any object with descriptors(system)
         What gives the (N, D) descriptors of the atoms of a frame, such as
-        :class:`mdapy.mlip.SOAP` or :class:`mdapy.calculators.NEP`.
+        ``mdapy.mlip.SOAP`` or ``mdapy.calculators.NEP``.
 
     Returns
     -------
     numpy.ndarray
-        (F, D) one descriptor per frame.
+        (F, D) float64, one descriptor per frame.
     """
     batch = getattr(calculator, "_frame_descriptors", None)
     if batch is not None:
@@ -201,18 +201,18 @@ def perturb(
     ----------
     system : System
         The system.
-    count : int
+    count : int32
         Number of copies.
-    displacement : float, optional
+    displacement : float64, optional
         Size of the displacement of each atom in Å. Default 0.05.
-    strain : float, optional
+    strain : float64, optional
         Largest component of the symmetric strain of the box, applied with
         the atoms. Default 0.03.
     style : {"normal", "uniform", "const"}, optional
         Displacements with a root mean square of displacement; uniform in a
         ball of radius displacement; or exactly displacement long. Default
         normal.
-    seed : int or numpy.random.Generator, optional
+    seed : int64 or numpy.random.Generator, optional
         Seed of the random numbers.
 
     Returns

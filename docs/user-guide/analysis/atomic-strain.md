@@ -69,7 +69,7 @@ axis (dark) to about 0.03 at the surface (yellow), half the twist of
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `reference` | `System` | | | the reference configuration, with the same atoms as the systems to compare: matched by the `id` column where both have one, else in the same order |
-| `cutoff` | float | | Å | the neighbors closer than it in the reference define the neighbor vectors |
+| `cutoff` | float64 | | Å | the neighbors closer than it in the reference define the neighbor vectors |
 | `affine` | bool | `False` | | measure the current vectors in the reference box, which removes the homogeneous deformation of the box |
 | `strain_tensor` | bool | `False` | | also give the strain tensor of each atom |
 | `d2min` | bool | `False` | | also compute the non-affine squared displacement of each atom |

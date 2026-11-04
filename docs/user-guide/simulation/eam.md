@@ -43,7 +43,7 @@ minimum gives the bulk modulus.*
 | `path` | str or `None` | the potential file, `None` for a built potential |
 | `elements` | tuple of str or `None` | the elements of the potential, in the order of the file; `None` for an average-atom potential |
 | `masses` | (n,) float64 | their masses in amu; the mass of the average atom for an average-atom potential |
-| `cutoff` | float | cutoff radius in Å |
+| `cutoff` | float64 | cutoff radius in Å |
 
 | Method | Returns |
 |---|---|
@@ -96,8 +96,8 @@ $$
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `elements` | sequence of str | | | the elements, in the order of the file |
-| `nr` | int | 2000 | | points of the tables in distance, up to the cutoff $\sqrt{10}/2$ times the largest fcc lattice constant $\sqrt 2\, r_e$ |
-| `nrho` | int | 2000 | | points of the embedding tables in density |
+| `nr` | int32 | 2000 | | points of the tables in distance, up to the cutoff $\sqrt{10}/2$ times the largest fcc lattice constant $\sqrt 2\, r_e$ |
+| `nrho` | int32 | 2000 | | points of the embedding tables in density |
 
 The parameters are fitted to the pure metals; the pair potentials between
 elements come from the rule above, not from a fit to alloys. An unknown or

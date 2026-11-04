@@ -74,9 +74,9 @@ rmsd_cutoff=0.1)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `threshold` | float | `None` | | `"graph"`: the largest log merge distance of the merges kept, by default chosen from the merges; `"spanning_tree"`: the largest misorientation, needed |
+| `threshold` | float64 | `None` | | `"graph"`: the largest log merge distance of the merges kept, by default chosen from the merges; `"spanning_tree"`: the largest misorientation, needed |
 | `method` | str | `"graph"` | | `"graph"`: node pair sampling of the graph of bonds; `"spanning_tree"`: merges along the bonds of least misorientation |
-| `min_grain_size` | int | 100 | atoms | smaller clusters are no grains |
+| `min_grain_size` | int64 | 100 | atoms | smaller clusters are no grains |
 | `stacking_faults` | bool | `True` | | the atoms of stacking faults and twin boundaries (hcp in fcc, hexagonal in cubic diamond, or the other way round) join the grains around them |
 | `adopt_orphans` | bool | `True` | | atoms in no grain join the grain nearest along their bonds |
 | `structures`, `rmsd_cutoff` | | | | those of [polyhedral template matching](ptm.md), done when no result of it is given |
@@ -95,21 +95,21 @@ must be at least twice as wide as the bonds along its periodic directions.
 
 A `GrainResult`:
 
-| Attribute | Shape | Unit | Meaning |
+| Attribute | Type | Unit | Meaning |
 |---|---|---|---|
 | `grain` | (N,) int64 | | the grain of each atom, an index into the arrays below; -1 for none |
-| `size` | (G,) | atoms | of each grain, largest first |
+| `size` | (G,) int64 | atoms | of each grain, largest first |
 | `structure` | (G,) int8 | | structure of each grain, an index into `names` |
-| `names` | | | the structures of [polyhedral template matching](ptm.md) |
-| `orientation` | (G, 4) | | mean lattice orientation, a quaternion (x, y, z, w) as those of the atoms |
-| `center` | (G, 3) | Å | center of mass, inside the box |
-| `radius` | (G,) | Å | of the smallest sphere about the center that holds the grain |
-| `radius_of_gyration` | (G,) | Å | |
-| `colors` | (G, 3) | | a distinct color for each grain, RGB from 0 to 1 |
-| `atom_colors(none=(0.8, 0.8, 0.8))` | (N, 3) | | the color of the grain of each atom, `none` for atoms in no grain |
-| `threshold` | float | | the threshold applied: log merge distance, or degrees for the spanning tree |
-| `merge_distance`, `merge_size` | (M,) | , atoms | the merges of two clusters of at least 20 atoms, in order: merge distance (degrees for the spanning tree) and the atoms of the smaller cluster |
-| `count` | int | | the number of grains |
+| `names` | tuple of str | | the structures of [polyhedral template matching](ptm.md) |
+| `orientation` | (G, 4) float64 | | mean lattice orientation, a quaternion (x, y, z, w) as those of the atoms |
+| `center` | (G, 3) float64 | Å | center of mass, inside the box |
+| `radius` | (G,) float64 | Å | of the smallest sphere about the center that holds the grain |
+| `radius_of_gyration` | (G,) float64 | Å | |
+| `colors` | (G, 3) float64 | | a distinct color for each grain, RGB from 0 to 1 |
+| `atom_colors(none=(0.8, 0.8, 0.8))` | (N, 3) float64 | | the color of the grain of each atom, `none` for atoms in no grain |
+| `threshold` | float64 | | the threshold applied: log merge distance, or degrees for the spanning tree |
+| `merge_distance`, `merge_size` | (M,) float64 | , atoms | the merges of two clusters of at least 20 atoms, in order: merge distance (degrees for the spanning tree) and the atoms of the smaller cluster |
+| `count` | int32 | | the number of grains |
 
 `with_columns(result)` adds the column `grain`. The centers of mass weigh
 the atoms by the column `mass` when there is one. A grain that reconnects

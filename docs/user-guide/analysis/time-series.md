@@ -72,7 +72,7 @@ A `TimeSeriesResult`:
 | `frame` | (F,) int64 | the place of each frame among those given, from 0 |
 | `values` | (F,) or (F, k) float64 | the quantity in each frame; one column per component or value |
 | `timestep` | (F,) int64 or None | the timestep of each frame, where every frame has one in its information |
-| `name` | str or None | the column; None for a function |
+| `name` | str or `None` | the column; None for a function |
 
 ## Errors
 

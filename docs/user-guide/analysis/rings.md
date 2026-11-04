@@ -47,10 +47,10 @@ hexagons.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `max_size` | int | 8 | | the largest ring, at most 36 |
-| `min_size` | int | 3 | | the smallest ring, at least 3 |
-| `cutoff` | float | `None` | Å | atoms closer than it are bonded |
-| `cutoffs` | dict | `None` | Å | the bond length of each pair of elements `(a, b)`, in either order; pairs not given are never bonded, as for [clusters](clusters.md) |
+| `max_size` | int32 | 8 | | the largest ring, at most 36 |
+| `min_size` | int32 | 3 | | the smallest ring, at least 3 |
+| `cutoff` | float64 | `None` | Å | atoms closer than it are bonded |
+| `cutoffs` | dict of (str, str) to float64 | `None` | Å | the bond length of each pair of elements `(a, b)`, in either order; pairs not given are never bonded, as for [clusters](clusters.md) |
 
 Without `cutoff` or `cutoffs`, the bonds are those of the
 [topology](../../basics/topology.md) of the system, such as those of

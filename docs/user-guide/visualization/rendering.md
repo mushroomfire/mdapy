@@ -58,33 +58,33 @@ lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False, legen
 | `atoms` | mask or indices | all | | the atoms shown |
 | `color` | | the `color` column, else elements | | the colors of the atoms, below |
 | `colormap` | str | `"viridis"` | | one of `COLORMAPS`, for values: [below](#colormaps) |
-| `value_range` | (low, high) | finite range | | the values at the ends of the colormap |
+| `value_range` | (float64, float64) | finite range | | the values at the ends of the colormap |
 | `representation` | str | `"spheres"` | | how atoms and bonds are drawn, below; it sets the defaults of `radius`, `bonds` and `bond_radius` |
-| `radius` | float, (N,) or str | the `radius` column, else of the representation | Å | the radius of the atoms, or those of the elements: `"display"`, `"covalent"` or `"vdw"` |
-| `bonds` | float, `NeighborList`, `"covalent"` or `"topology"` | of the representation | Å | bonds between atoms closer than a cutoff, the pairs of a list, covalent bonds, or the bonds of the topology of the system, such as those of a data file or of [`create_bonds`](../build/bonds.md) |
-| `bond_radius` | float | of the representation | Å | |
-| `box`, `box_radius` | bool, float | `True`, 0.1 × radius | Å | the edges of the box |
+| `radius` | float32, (N,) float32 or str | the `radius` column, else of the representation | Å | the radius of the atoms, or those of the elements: `"display"`, `"covalent"` or `"vdw"` |
+| `bonds` | float64, `NeighborList`, `"covalent"` or `"topology"` | of the representation | Å | bonds between atoms closer than a cutoff, the pairs of a list, covalent bonds, or the bonds of the topology of the system, such as those of a data file or of [`create_bonds`](../build/bonds.md) |
+| `bond_radius` | float32 | of the representation | Å | |
+| `box`, `box_radius` | bool, float32 | `True`, 0.1 × radius | Å | the edges of the box |
 | `box_color` | color | `"black"` | | their color |
 | `polyhedra` | `VoronoiPolyhedra` | `None` | | the [Voronoi cells](../analysis/voronoi.md) of the atoms shown |
-| `polyhedra_alpha` | float | 0.6 | | their opacity |
+| `polyhedra_alpha` | float32 | 0.6 | | their opacity |
 | `polyhedra_color` | str | `"atom"` | | faces colored as their atoms, or `"edges"` by their number of edges |
-| `polyhedra_edges` | float | 0.05 × radius | Å | the radius of the edges of the cells, 0 for none |
+| `polyhedra_edges` | float32 | 0.05 × radius | Å | the radius of the edges of the cells, 0 for none |
 | `mesh` | `TriangleMesh` | `None` | | a surface, such as that of a [surface mesh](../analysis/surface-mesh.md); triangles across a periodic boundary are cut there and the part outside moved in through the opposite face |
-| `mesh_color` | color or (F, 3) | light blue | | one color, or one per triangle |
-| `mesh_alpha` | float | 1 | | its opacity |
+| `mesh_color` | color or (F, 3) float32 | light blue | | one color, or one per triangle |
+| `mesh_alpha` | float32 | 1 | | its opacity |
 | `dislocations` | `DislocationResult` | `None` | | dislocation lines, such as those of the [dislocation analysis](../analysis/dislocations.md): tubes in the colors of the families of their Burgers vectors, cut at the periodic faces of the box |
-| `dislocation_radius` | float | 0.5 | Å | the radius of the tubes |
+| `dislocation_radius` | float32 | 0.5 | Å | the radius of the tubes |
 | `burgers_vectors` | bool | `False` | | also an arrow from the middle of each line along its Burgers vector in space |
-| `burgers_scale` | float | 3 | | the length of the arrows in Burgers vectors |
-| `burgers_radius` | float | 0.3 | Å | the radius of their shafts |
+| `burgers_scale` | float32 | 3 | | the length of the arrows in Burgers vectors |
+| `burgers_radius` | float32 | 0.3 | Å | the radius of their shafts |
 | `burgers_color` | color or `"family"` | light gray | | one color for the arrows, or the color of each line |
-| `vectors` | str or (N, 3) | `None` | | an arrow for each atom shown: a column of three components, such as `displacement`, `velocities` or `forces`, or vectors; [below](#vectors) |
-| `vector_scale` | float | 1 | | the length of the arrows in units of the vectors; negative reverses them |
-| `vector_radius` | float | 0.5 | Å | the radius of their shafts |
+| `vectors` | str or (N, 3) float32 | `None` | | an arrow for each atom shown: a column of three components, such as `displacement`, `velocities` or `forces`, or vectors; [below](#vectors) |
+| `vector_scale` | float32 | 1 | | the length of the arrows in units of the vectors; negative reverses them |
+| `vector_radius` | float32 | 0.5 | Å | the radius of their shafts |
 | `vector_color` | color or `"atom"` | yellow | | one color for the arrows, or the color of each atom |
 | `vector_alignment` | str | `"base"` | | the point of the arrow at its atom: `base`, `center` or `head` |
-| `lines` | (M, T, 3) or list of (T, 3) | `None` | Å | polylines, such as the paths of [`trajectory_lines`](../analysis/trajectory-lines.md) |
-| `line_radius`, `line_color` | float, color | 0.1, gray | Å | their radius and color |
+| `lines` | (M, T, 3) float32 or list of (T, 3) float32 | `None` | Å | polylines, such as the paths of [`trajectory_lines`](../analysis/trajectory-lines.md) |
+| `line_radius`, `line_color` | float32, color | 0.1, gray | Å | their radius and color |
 | `wrap_lines` | bool | `False` | | cut the lines at the periodic faces of the box and move the parts outside in through the opposite faces |
 | `legend` | bool, str or mapping | `False` | | a legend at the top left, which needs matplotlib: `True` gives the names of the structures or elements of the atoms shown with their colors, or a bar with the values and the colormap of a column or of (N,) values; a string does the same with this title; a mapping gives its own names and colors |
 
@@ -119,21 +119,27 @@ leaves the box.
 colors of values; `COLORMAPS` holds the names. rainbow (OVITO's default),
 viridis, magma, jet, hot, blue_white_red and gray are computed as OVITO's
 color coding computes them, viridis and magma from their tables of 256
-colors; plasma and coolwarm are mdapy's own.
+colors; plasma and coolwarm are MDAPY's own.
+
+`labels` is for discrete values such as clusters, layers or grains:
+`render(system, color="grain", colormap="labels", legend=True)`. Each value takes
+one of `LABEL_COLORS`, in increasing order, and the colors start again after the
+twelfth. It takes no `value_range`, and the legend lists the values with their
+colors, up to twelve of them.
 
 The `options` are those of `Scene.render`:
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|
-| `width`, `height` | int | 1200, 900 | size in pixels |
-| `view` | str or (3,) | `"iso"` | `top`, `bottom`, `front`, `back`, `left`, `right`, `iso`, or a direction of view |
-| `up` | (3,) | of the view | the direction up in the picture |
-| `perspective`, `fov` | bool, float | `False`, 30 | a perspective camera and its vertical angle in degrees |
-| `zoom` | float | 1 | magnification of the scene framed to fill the picture |
-| `focus` | (3,) | middle of the scene | the point in Å at the middle of the picture |
-| `span` | float | the scene framed | the length in Å the picture shows from bottom to top at the focus, in place of the framing and `zoom`: with `focus`, the region a viewport shows |
-| `aperture` | float | 0 | the radius in Å of the lens of a perspective camera: 0 for a picture sharp everywhere, more for [depth of field](#depth-of-field-and-soft-shadows) |
-| `focal_distance` | float | to the focus | the distance in Å from the camera along the view to the plane that stays sharp |
+| `width`, `height` | int32 | 1200, 900 | size in pixels |
+| `view` | str or (3,) float32 | `"iso"` | `top`, `bottom`, `front`, `back`, `left`, `right`, `iso`, or a direction of view |
+| `up` | (3,) float32 | of the view | the direction up in the picture |
+| `perspective`, `fov` | bool, float32 | `False`, 30 | a perspective camera and its vertical angle in degrees |
+| `zoom` | float32 | 1 | magnification of the scene framed to fill the picture |
+| `focus` | (3,) float32 | middle of the scene | the point in Å at the middle of the picture |
+| `span` | float32 | the scene framed | the length in Å the picture shows from bottom to top at the focus, in place of the framing and `zoom`: with `focus`, the region a viewport shows |
+| `aperture` | float32 | 0 | the radius in Å of the lens of a perspective camera: 0 for a picture sharp everywhere, more for [depth of field](#depth-of-field-and-soft-shadows) |
+| `focal_distance` | float32 | to the focus | the distance in Å from the camera along the view to the plane that stays sharp |
 | `style` | str | `"matte"` | one of the styles below |
 | `background` | color or `None` | `"white"` | `None` for transparent |
 | `device` | str | `"cpu"` | `"cpu"`, `"gpu"`, or `"auto"` for the GPU when there is one; see below |

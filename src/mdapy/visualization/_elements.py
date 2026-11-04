@@ -8,7 +8,7 @@ radius in Å.
 
 The colors and display radii are those OVITO shows, as MDAPY 1.x did, and
 for the elements it leaves out the colors of Jmol and the covalent radius.
-The covalent and van der Waals radii are in :mod:`mdapy.elements`.
+The covalent and van der Waals radii are in ``mdapy.elements``.
 """
 
 #: Element: (red, green, blue, display radius).

@@ -45,10 +45,10 @@ the boundaries and their junctions (green and yellow).*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `cutoff` | float | | Å | neighbors are closer than it |
-| `sigma` | float | 0.2 | Å | width of the Gaussian of each neighbor, below `cutoff` |
+| `cutoff` | float64 | | Å | neighbors are closer than it |
+| `sigma` | float64 | 0.2 | Å | width of the Gaussian of each neighbor, below `cutoff` |
 | `local_density` | bool | `False` | | use the density of each atom's neighbors instead of that of the system |
-| `average_cutoff` | float | `None` | Å | average each value with those of the neighbors closer than it |
+| `average_cutoff` | float64 | `None` | Å | average each value with those of the neighbors closer than it |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list

@@ -4,9 +4,8 @@ A columnar polycrystal has grains that all span one axis of the box, so
 its boundaries are planes parallel to that axis: a quasi two-dimensional
 polycrystal, thin and quick to simulate. With the seeds on a triangular
 lattice, the grains are regular hexagons. This page builds such a
-polycrystal of copper with its columns along [111], chooses the
-misorientations of the grains, relaxes it, and finds which boundaries are
-of low angle.
+polycrystal of copper with its columns along [111], turns the grains so
+that every boundary is of high angle, and relaxes it.
 
 ## The unit along the columns
 
@@ -47,16 +46,21 @@ len(seeds)  # 12
 
 ## Turns about the column axis
 
-Each grain turns about z by its own angle. Here the angles are chosen by
-hand, so that neighboring grains differ by 5° to 30°:
+Each grain turns about z by its own angle. About [111], fcc looks the same after 60°, so
+two grains differ by at most 30°, and below about 15° their boundary is a row of separate
+dislocations, which a relaxation can all but remove. Points of a triangular lattice can
+take three families so that neighbors never share one: with families 20° apart, and a
+little of its own for each grain, every boundary is of high angle.
 
 ```python
-angles = np.radians([0, 20, 40, 10, 30, 50, 5, 25, 45, 15, 35, 55])
-c, s = np.cos(angles), np.sin(angles)
-rotations = np.zeros((len(seeds), 3, 3))
-rotations[:, 0, 0], rotations[:, 0, 1] = c, -s
-rotations[:, 1, 0], rotations[:, 1, 1] = s, c
-rotations[:, 2, 2] = 1.0
+from mdapy.build import rotations_about
+
+family = [
+    (i - k) % 3 for i in range(cells[0]) for j in range(cells[1]) for k in range(2)
+]
+rng = np.random.default_rng(3)
+angles = 20.0 * np.array(family) + rng.uniform(-2.0, 2.0, len(seeds))
+rotations = rotations_about("z", angles)
 ```
 
 The box is no longer than the unit along z, so the polycrystal is
@@ -66,7 +70,7 @@ it.
 ```python
 box = mp.Box([cells[0] * d, cells[1] * d * np.sqrt(3), 1.0])
 columns = build_polycrystal(unit, box, seeds, orientations=rotations)
-len(columns), columns.box.matrix[2, 2]  # 8536 atoms, 6.26 Å
+len(columns), columns.box.matrix[2, 2]  # 8524 atoms, 6.26 Å
 ```
 
 ## Relax
@@ -82,7 +86,7 @@ relaxed = result.system
 result.converged  # True
 ```
 
-## Which boundaries are of low angle
+## Every boundary is of high angle
 
 Two grains meet where an atom of one has a neighbor in the other. Their
 misorientation is the difference of their angles, modulo the 60° of the
@@ -96,17 +100,11 @@ nl = NeighborList.build(relaxed, 3.0)
 across = grain[nl.i] < grain[nl.j]
 pairs = np.stack([grain[nl.i][across], grain[nl.j][across]], axis=1)
 pairs = np.unique(pairs, axis=0)  # each pair of grains that meet, once
-turn = np.degrees(np.abs(angles[pairs[:, 0]] - angles[pairs[:, 1]])) % 60.0
+turn = np.abs(angles[pairs[:, 0]] - angles[pairs[:, 1]]) % 60.0
 misorientation = np.minimum(turn, 60.0 - turn)
 len(pairs)  # 36: each grain meets six others
-values, counts = np.unique(np.round(misorientation), return_counts=True)
-dict(zip(values.tolist(), counts.tolist()))
-# {5.0: 6, 10.0: 4, 15.0: 9, 20.0: 8, 25.0: 3, 30.0: 6}
+misorientation.min(), misorientation.max()  # 17.2 and 22.6 degrees
 ```
-
-Boundaries below about 15° are of low angle: the two grains are joined by
-a row of dislocations, separate cores of atoms that are not fcc, rather than
-a continuous boundary.
 
 ## A picture
 
@@ -131,6 +129,7 @@ render(
     relaxed,
     "images/grains.png",
     color="grain",
+    colormap="labels",
     view="top",
     width=1200,
     height=900,
@@ -142,5 +141,4 @@ render(
 |---|---|
 | ![Columnar grains colored by structure](images/columns.png) | ![Columnar grains colored by grain](images/grains.png) |
 
-The low-angle boundaries show as rows of separate white cores, the others
-as continuous lines.
+Every boundary stays after the relaxation, as a continuous line of white atoms.

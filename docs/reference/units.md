@@ -25,6 +25,22 @@ These match LAMMPS `metal` units except stress and pressure, which LAMMPS
 reports in bar. Files from GPUMD, which uses fs and Å/fs, are converted on
 reading and writing.
 
+## Types
+
+The tables and the Python API give exact types, the same on every page:
+
+| Written | Means |
+|---|---|
+| `float64`, `float32` | a real number of 64 or 32 bits |
+| `int8`, `int32`, `int64`, `uint8`, `uint64` | an integer of that many bits |
+| `(N, 3) float64` | an array of that shape and type |
+| `mdapy.index_dtype` | atom indices: `int32`, or `int64` in MDAPY built with [64-bit atom indices](../getting-started/installation.md#64-bit-atom-indices) |
+| indices | an array of atom indices, of any integer type |
+
+As an argument, a Python `float` is a `float64`, a Python `int` stands for an `int32` or
+`int64` that holds it, and lists and arrays of other numeric types are converted. Pictures
+are computed in `float32`, so their options are given as `float32`.
+
 ## Sign conventions
 
 - **Stress** is positive under tension:

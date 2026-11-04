@@ -136,7 +136,7 @@ Four of these selections, each in the box of the whole crystal:
 from mdapy.visualization import render, write_png
 
 size = {"width": 400, "height": 400}
-pictures = [render(part, **size) for part in (nickel, core, sphere, slab)]
+pictures = [render(part, legend=True, **size) for part in (nickel, core, sphere, slab)]
 write_png("images/selecting.png", np.hstack(pictures))
 ```
 

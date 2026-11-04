@@ -39,10 +39,10 @@ def affine(
     system : System
         The system to transform.
     matrix : array_like
-        (3, 3) linear part M of the transformation, acting on Cartesian
+        (3, 3) float64 linear part M of the transformation, acting on Cartesian
         column vectors: a position x goes to M x + t.
     translation : array_like, optional
-        (3,) translation t in Å. Default none.
+        (3,) float64 translation t in Å. Default none.
     box : bool, optional
         Whether the box transforms too: its vectors by M, its origin by M
         and t. Default True.

@@ -30,7 +30,7 @@ Every calculator has these members:
 
 | Name | Type | Meaning |
 |---|---|---|
-| `cutoff` | float | interaction cutoff in Å |
+| `cutoff` | float64 | interaction cutoff in Å |
 | `elements` | tuple of str or `None` | the elements the calculator handles, `None` for any |
 | `implemented` | frozenset of str | the properties `compute` can return |
 | `compute(system, properties=("energy", "forces"), *, neighbors=None)` | `CalculatorResult` | at least the requested properties |
@@ -54,15 +54,15 @@ the system lacks a column the calculator needs.
 
 A `CalculatorResult` holds:
 
-| Attribute | Shape | Unit | Meaning |
+| Attribute | Type | Unit | Meaning |
 |---|---|---|---|
-| `energy` | float | eV | total energy |
-| `atomic_energies` | (N,) | eV | they sum to `energy` |
-| `forces` | (N, 3) | eV/Å | |
-| `virial` | (3, 3) | eV | positive under compression |
-| `atomic_virials` | (N, 3, 3) | eV | they sum to `virial` |
-| `volume` | float | Å³ | of the box |
-| `stress` | (3, 3) | GPa | $\sigma = -W/V$, positive under tension; `InvalidParameter` without a virial or a volume |
+| `energy` | float64 | eV | total energy |
+| `atomic_energies` | (N,) float64 | eV | they sum to `energy` |
+| `forces` | (N, 3) float64 | eV/Å | |
+| `virial` | (3, 3) float64 | eV | positive under compression |
+| `atomic_virials` | (N, 3, 3) float64 | eV | they sum to `virial` |
+| `volume` | float64 | Å³ | of the box |
+| `stress` | (3, 3) float64 | GPa | $\sigma = -W/V$, positive under tension; `InvalidParameter` without a virial or a volume |
 
 Values that were not computed are `None`; the arrays are read-only.
 
@@ -97,7 +97,7 @@ neighbor list given with a larger cutoff changes nothing.
 |---|---|---|---|---|
 | `calculator` | `Calculator` | | | the calculator to check |
 | `system` | `System` | | | a few dozen atoms the calculator handles |
-| `displacement` | float | 1e-4 | Å | step of the finite differences, also used as strain |
-| `rtol`, `atol` | float | 1e-6 | | relative and absolute tolerances of the comparisons |
-| `atoms` | int | 3 | | atoms whose forces are checked by finite differences |
-| `seed` | int | 0 | | seed of the random rotation, translation and choice of atoms |
+| `displacement` | float64 | 1e-4 | Å | step of the finite differences, also used as strain |
+| `rtol`, `atol` | float64 | 1e-6 | | relative and absolute tolerances of the comparisons |
+| `atoms` | int32 | 3 | | atoms whose forces are checked by finite differences |
+| `seed` | int32 | 0 | | seed of the random rotation, translation and choice of atoms |

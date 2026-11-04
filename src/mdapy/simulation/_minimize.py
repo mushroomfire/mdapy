@@ -43,7 +43,7 @@ CELL_MODES = (None, "isotropic", "axes", "full")
 
 @dataclass(frozen=True)
 class MinimizeResult(Result):
-    """The outcome of :func:`minimize`.
+    """The outcome of ``minimize``.
 
     Attributes
     ----------
@@ -55,14 +55,14 @@ class MinimizeResult(Result):
         Whether every force fell below ``max_force`` and, when the box
         relaxed, every relaxed stress component came within ``max_stress``
         of the target.
-    steps : int
+    steps : int32
         Number of steps taken.
-    energy : float
+    energy : float64
         Energy of the last configuration in eV.
-    max_force : float
+    max_force : float64
         Largest force of the last configuration in eV/Å.
     stress : numpy.ndarray or None
-        (3, 3) stress of the last configuration in GPa, positive under
+        (3, 3) float64 stress of the last configuration in GPa, positive under
         tension; None when the calculator computes no virial.
     frames : tuple of System or None
         With ``save_every``, the configurations at step 0, every
@@ -142,26 +142,26 @@ def minimize(
         directions where it is False.
     calculator : Calculator
         Computes energies and forces, and the virial when the box relaxes.
-    max_force : float, optional
+    max_force : float64, optional
         Convergence: the largest force on any atom, in eV/Å. Default 1e-3.
-    max_steps : int, optional
+    max_steps : int32, optional
         Largest number of steps. Default 1000.
-    max_step : float, optional
+    max_step : float64, optional
         Largest displacement of an atom along x, y or z in one step, in Å.
         Default 0.1.
-    timestep : float, optional
+    timestep : float64, optional
         First time step of the dynamics, in ps. Default 0.001.
     cell : {None, "isotropic", "axes", "full"}, optional
         How the box may change along its periodic directions: not at all
         (default), by one scale factor, by a scale factor along each
         Cartesian axis, or by any strain without rotation.
-    pressure : float, optional
+    pressure : float64, optional
         External hydrostatic pressure in GPa when the box relaxes; the
         enthalpy is minimized. Default 0.
-    max_stress : float, optional
+    max_stress : float64, optional
         Convergence when the box relaxes: the largest deviation of a relaxed
         stress component from the target, in GPa. Default 0.01.
-    save_every : int, optional
+    save_every : int32, optional
         Keeps the configuration every this many steps, with the first and
         the last, in ``frames`` of the result. Default None, keeping none.
     callback : callable, optional

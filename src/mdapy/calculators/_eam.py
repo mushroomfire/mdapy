@@ -144,9 +144,9 @@ class EAM(Calculator):
         The elements of the potential, in the order of the file; None for an
         average-atom potential, which handles atoms of any element.
     masses : numpy.ndarray
-        Their masses in amu; the mass of the average atom for an
+        (E,) float64, their masses in amu; the mass of the average atom for an
         average-atom potential.
-    cutoff : float
+    cutoff : float64
         Cutoff radius in Å.
     """
 
@@ -197,14 +197,14 @@ class EAM(Calculator):
         elements : sequence of str
             Any of Cu, Ag, Au, Ni, Pd, Pt, Al, Pb, Fe, Mo, Ta, W, Mg, Co, Ti,
             Zr and Cr.
-        nr, nrho : int, optional
+        nr, nrho : int32, optional
             Number of points of the tables in distance and in density.
             Default 2000.
 
         Returns
         -------
         EAM
-            The potential, written to a file with :meth:`write`.
+            The potential, written to a file with ``write``.
         """
         return cls.__built(_zhou.tables(list(elements), nr, nrho))
 
@@ -213,7 +213,7 @@ class EAM(Calculator):
 
         Parameters
         ----------
-        concentrations : mapping or sequence of float
+        concentrations : mapping or sequence of float64
             The fraction of each element, by element or in the order of
             ``elements``; elements not given have none. They sum to 1.
 
@@ -221,7 +221,7 @@ class EAM(Calculator):
         -------
         EAM
             A potential in which every atom is the average atom, whatever its
-            element. :meth:`write` writes it with the elements of this
+            element. ``write`` writes it with the elements of this
             potential and the average atom, named ``A``, last.
         """
         if self.__average:

@@ -54,25 +54,25 @@ class FreeEnergyResult(Result):
     Attributes
     ----------
     temperatures : numpy.ndarray
-        (T,) the temperatures in K.
-    pressure : float or None
+        (T,) float64, the temperatures in K.
+    pressure : float64 or None
         The pressure in GPa, None at constant volume.
     free_energy : numpy.ndarray
-        (T,) the Gibbs energy in eV, or at constant volume the Helmholtz
+        (T,) float64, the Gibbs energy in eV, or at constant volume the Helmholtz
         energy.
     enthalpy : numpy.ndarray
-        (T,) the enthalpy in eV, or at constant volume the energy.
+        (T,) float64, the enthalpy in eV, or at constant volume the energy.
     entropy : numpy.ndarray
-        (T,) the entropy in eV/K.
+        (T,) float64, the entropy in eV/K.
     volume : numpy.ndarray
-        (T,) the volume in Å³.
+        (T,) float64, the volume in Å³.
     phase : str
         "solid" or "liquid".
-    error : float or None
+    error : float64 or None
         The standard error in eV of the free energy at the first temperature,
         from the repeats; None for one repeat.
     dissipation : numpy.ndarray
-        (T,) half the difference in eV of the work there and back: near zero
+        (T,) float64 half the difference in eV of the work there and back: near zero
         when the switching and the scan are slow enough and the phase stays
         as it is.
     system : System
@@ -153,13 +153,13 @@ class PhaseCoexistence(Result):
 
     Attributes
     ----------
-    temperature : float
+    temperature : float64
         The temperature in K.
-    latent_heat : float
+    latent_heat : float64
         The change of enthalpy in eV.
-    entropy : float
+    entropy : float64
         The change of entropy in eV/K.
-    volume : float
+    volume : float64
         The change of volume in Å³.
     """
 
@@ -759,42 +759,42 @@ def free_energy(
         first), for a liquid anywhere, as it is melted first.
     potential : LAMMPS
         The interaction. A liquid needs one pair style, not a hybrid.
-    temperatures : float or array_like
+    temperatures : float64 or array_like
         Temperatures in K, positive. The free energy is calculated at the
         first, and followed from there to the others, which must lie on one
         side of it, in order.
     phase : {"solid", "liquid"}, optional
         The phase. Default "solid".
-    pressure : float or None, optional
+    pressure : float64 or None, optional
         Pressure in GPa for the Gibbs energy; None for the Helmholtz energy
         in the box of system. Default 0.
-    timestep : float, optional
+    timestep : float64, optional
         Time step in ps. Default 0.001.
-    equilibration : float, optional
+    equilibration : float64, optional
         Time in ps of each equilibration. Default 10.
-    switching : float, optional
+    switching : float64, optional
         Time in ps of each switching between two interactions. Default 50.
-    scan : float, optional
+    scan : float64, optional
         Time in ps of each run between the first and the last temperature.
         Default 100.
-    repeats : int, optional
+    repeats : int32, optional
         Independent calculations at the first temperature. Default 1.
     mixing : bool, optional
         Add the ideal entropy of mixing of a random solid solution, whose
         atoms do not exchange places in the dynamics. A liquid has it by
         itself. Default False.
-    melt_temperature : float, optional
+    melt_temperature : float64, optional
         Temperature in K at which a liquid is melted. Default twice the first
         temperature.
     barostat : {"iso", "aniso", "tri"}, optional
         How the box of a solid changes, as in
-        :meth:`MolecularDynamics.run`. Default "aniso", and "iso" for a liquid.
-    seed : int, optional
+        ``MolecularDynamics.run``. Default "aniso", and "iso" for a liquid.
+    seed : int32, optional
         Seed of the random numbers, positive. Default 1.
     progress : callable, optional
         Called as ``progress(done, total)`` with the steps run.
     cancel : CancelToken, optional
-        Stops the calculation, which raises :class:`mdapy.errors.Cancelled`.
+        Stops the calculation, which raises ``mdapy.errors.Cancelled``.
 
     Returns
     -------

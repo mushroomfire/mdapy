@@ -103,7 +103,7 @@ def _wanted(symmetry: bool | None) -> bool:
 
 
 def _symmetry(system: System, symmetry: bool | None) -> _Operations | None:
-    """The symmetry operations of a cell when :func:`_wanted`, or None."""
+    """The symmetry operations of a cell when ``_wanted``, or None."""
     return _operations(system, _TOLERANCE) if _wanted(symmetry) else None
 
 
@@ -123,9 +123,9 @@ def _rotations(
     system: System, symmetry: bool | None, *matrices: np.ndarray
 ) -> np.ndarray:
     """(K, 3, 3) the distinct rotations on Cartesian columns of the symmetry
-    operations of a cell, when :func:`_wanted`, that keep the lattices of the
+    operations of a cell, when ``_wanted``, that keep the lattices of the
     matrices; the identity alone without symmetry. The rotations alone, from
-    the dataset: mapping the atoms, as :func:`_operations` does, would take
+    the dataset: mapping the atoms, as ``_operations`` does, would take
     seconds for a cell of a few hundred atoms with its many translations."""
     if not _wanted(symmetry):
         return np.eye(3)[None]
@@ -147,15 +147,15 @@ class SpaceGroupResult(Result):
 
     Attributes
     ----------
-    number : int
+    number : int32
         The number of the space group in the International Tables, 1 to 230.
     symbol : str
         Its Hermann–Mauguin symbol, such as "Fm-3m".
     rotations : numpy.ndarray
-        (K, 3, 3) the rotations of the K symmetry operations, acting on
+        (K, 3, 3) float64, the rotations of the K symmetry operations, acting on
         Cartesian column vectors.
     translations : numpy.ndarray
-        (K, 3) their translations in Å: operation k moves the point r to
+        (K, 3) float64, their translations in Å: operation k moves the point r to
         ``rotations[k] @ r + translations[k]``.
     equivalent : numpy.ndarray
         (N,) int64 the first atom that symmetry makes each atom equivalent
@@ -175,7 +175,7 @@ class SpaceGroup:
 
     Parameters
     ----------
-    tolerance : float, optional
+    tolerance : float64, optional
         Distance in Å within which atoms count as images of each other.
         Default 1e-5.
     """

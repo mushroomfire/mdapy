@@ -9,10 +9,15 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from mdapy._core import neighbor as _search
+from mdapy.build._defects import _axis
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
+
+# points along the box vector of a gradient, and random places tried for each seed
+_GRID = 4097
+_CANDIDATES = 16
 
 
 def random_rotations(
@@ -22,15 +27,15 @@ def random_rotations(
 
     Parameters
     ----------
-    count : int
+    count : int32
         Number of rotations.
-    seed : int or numpy.random.Generator, optional
+    seed : int64 or numpy.random.Generator, optional
         Seed of the random rotations.
 
     Returns
     -------
     numpy.ndarray
-        (count, 3, 3) rotation matrices.
+        (count, 3, 3) float64 rotation matrices.
     """
     q = np.random.default_rng(seed).normal(size=(count, 4))
     q /= np.linalg.norm(q, axis=1, keepdims=True)
@@ -44,11 +49,30 @@ def random_rotations(
     ).transpose(2, 0, 1)
 
 
-def _rotations_about(axis: int, angles: np.ndarray) -> np.ndarray:
-    c, s = np.cos(angles), np.sin(angles)
-    i, j = [k for k in range(3) if k != axis]
-    r = np.zeros((len(angles), 3, 3))
-    r[:, axis, axis] = 1
+def rotations_about(axis: int | str, angles: ArrayLike) -> np.ndarray:
+    """Rotation matrices about one Cartesian axis, as the turns of the grains of a
+    columnar polycrystal.
+
+    Parameters
+    ----------
+    axis : int32 or str
+        The axis: x, y, z or 0, 1, 2.
+    angles : array_like of float64
+        The angles in degrees, counterclockwise seen from the end of the axis.
+
+    Returns
+    -------
+    numpy.ndarray
+        (G, 3, 3) float64 rotation matrices.
+    """
+    k = _axis(axis)
+    turn = np.radians(np.atleast_1d(np.asarray(angles, dtype=float)))
+    if turn.ndim != 1:
+        raise InvalidParameter("angles must be one number or a list of them")
+    c, s = np.cos(turn), np.sin(turn)
+    i, j = (k + 1) % 3, (k + 2) % 3
+    r = np.zeros((len(turn), 3, 3))
+    r[:, k, k] = 1
     r[:, i, i], r[:, i, j], r[:, j, i], r[:, j, j] = c, -s, s, c
     return r
 
@@ -75,18 +99,18 @@ def build_polycrystal(
         its lattice vectors. Along an axis no longer than the box of unit,
         the polycrystal is columnar: every grain spans that axis, its box
         takes the length of the unit there, and the grains turn about it.
-    grains : int or array_like
+    grains : int32 or array_like
         Number of grains, with seeds at random positions, or the (G, 3)
         positions of the seeds in Å.
     orientations : array_like, optional
-        (G, 3, 3) rotation of each grain, taking the axes of unit to those
+        (G, 3, 3) float64 rotation of each grain, taking the axes of unit to those
         of the box; in a columnar polycrystal rotations about its axis.
         Uniformly random by default.
-    min_distance : float, optional
+    min_distance : float64, optional
         Of two atoms closer than this, in Å, the later is removed: atoms of
         neighboring grains that come too close, and the copies of atoms on
         the faces of a cell. Default 0.7 times the nearest distance in unit.
-    seed : int or numpy.random.Generator, optional
+    seed : int64 or numpy.random.Generator, optional
         Seed of the random seeds and orientations.
 
     Returns
@@ -132,7 +156,7 @@ def build_polycrystal(
         if axis is None:
             rotations = random_rotations(count, rng)
         else:
-            rotations = _rotations_about(axis, rng.uniform(0, 2 * np.pi, count))
+            rotations = rotations_about(axis, rng.uniform(0, 360, count))
     else:
         rotations = np.asarray(orientations, dtype=float)
         if rotations.shape != (count, 3, 3):
@@ -221,6 +245,91 @@ def build_polycrystal(
     return crystal.with_info(seeds=seeds)
 
 
+def gradient_seeds(
+    box: Box | ArrayLike,
+    sizes: ArrayLike,
+    *,
+    axis: int | str = 2,
+    columns: int | str | None = None,
+    seed: int | np.random.Generator | None = None,
+) -> np.ndarray:
+    """The seeds of a polycrystal whose grain size changes along one box vector.
+
+    Parameters
+    ----------
+    box : Box or array_like
+        The box of the polycrystal: a Box or its lattice vectors.
+    sizes : array_like
+        (K, 2) float64, the positions along the box vector, as fractions from 0 to
+        1, and the grain size in Å there, linear between them; the first at 0 and
+        the last at 1, in increasing order.
+    axis : int32 or str, optional
+        The box vector along which the size changes. Default z.
+    columns : int32 or str, optional
+        The box vector of the columns of a columnar polycrystal: the seeds lie in
+        one plane, and a grain size is the diameter of the circle of the same area.
+        By default the seeds fill the box, and a grain size is the diameter of the
+        sphere of the same volume.
+    seed : int64 or numpy.random.Generator, optional
+        Seed of the random seeds.
+
+    Returns
+    -------
+    numpy.ndarray
+        (G, 3) float64 positions of the seeds in Å, for ``build_polycrystal``.
+    """
+    if not isinstance(box, Box):
+        box = Box(box)
+    k = _axis(axis)
+    thin = None if columns is None else _axis(columns)
+    if thin == k:
+        raise InvalidParameter("the size cannot change along the columns")
+    table = np.asarray(sizes, dtype=float)
+    if table.ndim != 2 or table.shape[1] != 2 or len(table) < 2:
+        raise InvalidParameter("sizes must be pairs of a position and a grain size")
+    where, size = table.T
+    if where[0] != 0 or where[-1] != 1 or (np.diff(where) <= 0).any():
+        raise InvalidParameter("the positions of sizes must increase from 0 to 1")
+    if not (size > 0).all():
+        raise InvalidParameter("the grain sizes must be positive")
+    # the grains per fraction of the box vector, and their running total
+    fractions = np.linspace(0.0, 1.0, _GRID)
+    diameters = np.interp(fractions, where, size)
+    if thin is None:
+        density = 6.0 * box.volume / (np.pi * diameters**3)
+    else:
+        i, j = [m for m in range(3) if m != thin]
+        area = np.linalg.norm(np.cross(box.matrix[i], box.matrix[j]))
+        density = 4.0 * area / (np.pi * diameters**2)
+    total = np.concatenate(
+        [[0.0], np.cumsum(0.5 * (density[1:] + density[:-1]) * np.diff(fractions))]
+    )
+    count = max(int(round(total[-1])), 1)
+    rng = np.random.default_rng(seed)
+    # each grain in its own equal share of the total along the vector, in random
+    # order; across it, the best of some random places, far from the grains so far
+    along = np.interp(
+        (rng.permutation(count) + rng.random(count)) / count,
+        total / total[-1],
+        fractions,
+    )
+    diameter = np.interp(along, where, size)
+    free = [m for m in range(3) if m not in (k, thin)]
+    placed = np.zeros((count, 3))
+    placed[:, k] = along
+    for g in range(count):
+        tries = np.tile(placed[g], (_CANDIDATES, 1))
+        tries[:, free] = rng.random((_CANDIDATES, len(free)))
+        if g:
+            apart = tries[:, None, :] - placed[:g]
+            apart -= np.rint(apart)
+            distance = np.linalg.norm(apart @ box.matrix, axis=2)
+            room = (distance / (diameter[g] + diameter[:g])).min(axis=1)
+            tries = tries[[int(room.argmax())]]
+        placed[g] = tries[0]
+    return box.to_cartesian(placed)
+
+
 def twin_lamellae(cell: System, layers: int) -> System:
     """A crystal of twin lamellae: lamellae of layers atomic planes normal to
     z, each the mirror image of the next across the plane between them.
@@ -231,7 +340,7 @@ def twin_lamellae(cell: System, layers: int) -> System:
         A periodic crystal whose third box vector is along z and whose atoms
         lie on equally spaced planes normal to z, such as fcc with z along
         [111].
-    layers : int
+    layers : int32
         Number of atomic planes in each lamella, at least 2.
 
     Returns

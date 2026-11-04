@@ -47,27 +47,27 @@ def md_elastic_constants(
         column.
     potential : LAMMPS
         The interaction, as a LAMMPS calculator.
-    temperature : float
+    temperature : float64
         Temperature in K, positive.
-    pressure : float, optional
+    pressure : float64, optional
         Pressure in GPa. Default 0.
-    strain : float, optional
+    strain : float64, optional
         Magnitude of the strains, positive and negative; shears are
         engineering strains. Default 0.01.
-    timestep : float, optional
+    timestep : float64, optional
         Time step in ps. Default 0.001.
-    equilibration : int, optional
+    equilibration : int32, optional
         Steps before each average. Default 10000.
-    production : int, optional
+    production : int32, optional
         Steps of each average. Default 20000.
-    every : int, optional
+    every : int32, optional
         Steps between the stresses and boxes averaged. Default 10.
-    blocks : int, optional
+    blocks : int32, optional
         Number of blocks of each average for its standard error. Default 5.
     barostat : {"iso", "aniso", "tri"}, optional
         How the box changes while it finds its mean shape under pressure.
         Default "tri".
-    seed : int, optional
+    seed : int32, optional
         Seed of the starting velocities. Default 1.
 
     Returns
@@ -80,7 +80,7 @@ def md_elastic_constants(
     InvalidParameter
         For a box that is not periodic, a temperature, strain or numbers of
         steps that are not positive, fewer than two blocks, or the errors of
-        :class:`MolecularDynamics`.
+        ``MolecularDynamics``.
     """
     if not system.box.pbc.all():
         raise InvalidParameter(

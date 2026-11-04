@@ -19,6 +19,7 @@ from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
 from mdapy.visualization._legend import _with_legend
 from mdapy.visualization._scene import (
+    LABEL_COLORS,
     Scene,
     _color,
     _hex,
@@ -56,7 +57,7 @@ def atom_names(system: System) -> np.ndarray:
     Returns
     -------
     numpy.ndarray
-        (N,) their elements; atoms of a type without an element, or of the
+        (N,) str, their elements; atoms of a type without an element, or of the
         element X, named after their type: ``Type 1``, ``Type 2`` and so on.
     """
     kinds, index = _kinds(system)
@@ -107,7 +108,7 @@ def atom_colors(
         result, with ``structure`` and ``colors``.
     colormap_name : str, optional
         The colormap of values. Default viridis.
-    value_range : sequence of float, optional
+    value_range : sequence of float64, optional
         The values at the two ends of the colormap.
     elements : mapping, optional
         Colors of elements, such as ``{"Cu": "#d4875a"}``, in place of
@@ -116,7 +117,7 @@ def atom_colors(
     Returns
     -------
     numpy.ndarray
-        (N, 3) colors from 0 to 1.
+        (N, 3) float64 colors from 0 to 1.
     """
     n = len(system)
     if color is None:
@@ -184,6 +185,19 @@ def _legend_items(
             "a legend needs structures, elements or values to explain; for colors "
             "of your own, give it a mapping of names to colors"
         )
+    if colormap_name == "labels":
+        present = np.unique(values[shown])
+        if len(present) > len(LABEL_COLORS):
+            raise InvalidParameter(
+                f"a legend of labels explains at most {len(LABEL_COLORS)} values, "
+                f"not {len(present)}"
+            )
+        rank = np.searchsorted(np.unique(values), present)
+        return {
+            "names": [str(value.item()) for value in present],
+            "colors": LABEL_COLORS[rank % len(LABEL_COLORS)],
+            "title": title,
+        }
     if value_range is None:
         finite = values[np.isfinite(values)]
         low, high = (finite.min(), finite.max()) if len(finite) else (0.0, 1.0)
@@ -211,13 +225,13 @@ def atom_radii(
     elements : mapping, optional
         Radii of elements in Å, such as ``{"C": 0.6}``, in place of their
         own.
-    scale : float, optional
+    scale : float64, optional
         A factor of every radius. Default 1.
 
     Returns
     -------
     numpy.ndarray
-        (N,) the ``radius`` column of the system where it has one, else the
+        (N,) float64, the ``radius`` column of the system where it has one, else the
         radii of the elements, times the scale.
     """
     if "radius" in system.table.columns:
@@ -229,27 +243,6 @@ def atom_radii(
         if symbol in kinds:
             radii[index == kinds.index(symbol)] = value
     return radii * float(scale)
-
-
-#: Distinct colors for labels, such as the values of a column colored by
-#: type or the clusters of an analysis, taken in turn.
-LABEL_COLORS = np.array(
-    [
-        (0.97, 0.51, 0.47),
-        (0.40, 0.76, 0.65),
-        (0.55, 0.63, 0.80),
-        (0.91, 0.54, 0.76),
-        (0.65, 0.85, 0.33),
-        (1.00, 0.85, 0.18),
-        (0.90, 0.77, 0.58),
-        (0.45, 0.62, 0.94),
-        (0.99, 0.55, 0.38),
-        (0.70, 0.70, 0.70),
-        (0.30, 0.69, 0.29),
-        (0.60, 0.31, 0.64),
-    ]
-)
-LABEL_COLORS.flags.writeable = False
 
 
 def _with_colors(system: System, colors: np.ndarray, atoms: ArrayLike | None) -> System:
@@ -312,7 +305,7 @@ def color_coding(
         expression over the columns.
     colormap : str, optional
         One of ``COLORMAPS``. Default rainbow, as OVITO's.
-    value_range : sequence of float, optional
+    value_range : sequence of float64, optional
         (low, high) values of the two ends; by default the smallest and the
         largest finite value of the atoms colored.
     atoms : array_like, optional
@@ -349,7 +342,7 @@ def assign_color(
     ----------
     system : System
         The atoms.
-    color : str or sequence of float
+    color : str or sequence of float64
         A color: three numbers from 0 to 1, a code ``"#rrggbb"`` or a name
         such as ``"red"``.
     atoms : array_like, optional
@@ -460,68 +453,68 @@ def render(
     atoms : array_like, optional
         A boolean mask or indices of the atoms shown. Default all.
     color : optional
-        The colors of the atoms, see :func:`atom_colors`. Default those of
+        The colors of the atoms, see ``atom_colors``. Default those of
         the elements.
     colormap : str, optional
         The colormap of values. Default viridis.
-    value_range : sequence of float, optional
+    value_range : sequence of float64, optional
         The values at the two ends of the colormap.
     representation : str, optional
         How atoms and bonds are drawn, one of ``REPRESENTATIONS``: spheres,
         ball_and_stick, space_filling or licorice. It sets the defaults of
         radius, bonds and bond_radius. Default spheres.
-    radius : float, array_like or str, optional
+    radius : float32, array_like or str, optional
         Radius of the atoms in Å, one or (N,) each, or the radii of the
         elements: "display", "covalent" or "vdw". Default the ``radius``
         column of the system where it has one, else that of the
         representation.
-    bonds : float, NeighborList, "covalent" or "topology", optional
+    bonds : float64, NeighborList, "covalent" or "topology", optional
         Bonds between the atoms closer than this cutoff in Å, the pairs of a
-        neighbor list, covalent bonds (see :func:`covalent_bonds`), or the
+        neighbor list, covalent bonds (see ``covalent_bonds``), or the
         bonds of the topology of the system, such as those of a LAMMPS data
-        file or of :func:`mdapy.transform.create_bonds`.
+        file or of ``mdapy.transform.create_bonds``.
         Default that of the representation.
-    bond_radius : float, optional
+    bond_radius : float32, optional
         Radius of the bonds in Å. Default that of the representation.
     box : bool, optional
         Draw the edges of the box. Default True.
-    box_radius : float, optional
+    box_radius : float32, optional
         Radius of the edges in Å. Default a tenth of the median atom radius.
     box_color : color, optional
         Color of the edges. Default black.
     polyhedra : VoronoiPolyhedra, optional
         Voronoi cells to draw for the atoms shown.
-    polyhedra_alpha : float, optional
+    polyhedra_alpha : float32, optional
         Opacity of the cells. Default 0.6.
     polyhedra_color : {"atom", "edges"}, optional
         Color the faces as their atoms, or by their number of edges.
         Default atom.
-    polyhedra_edges : float, optional
+    polyhedra_edges : float32, optional
         Radius in Å of the edges of the cells; 0 draws none. Default a
         twentieth of the median atom radius.
     mesh : TriangleMesh, optional
         A surface to draw, such as that of
-        :class:`~mdapy.analysis.SurfaceMesh`. Triangles across a periodic
+        ``mdapy.analysis.SurfaceMesh``. Triangles across a periodic
         boundary are cut there, the part outside moved in through the
         opposite face.
     mesh_color : optional
         One color for the surface, or (F, 3) colors of its triangles.
         Default light blue.
-    mesh_alpha : float, optional
+    mesh_alpha : float32, optional
         Opacity of the surface. Default 1.
     dislocations : DislocationResult, optional
         Dislocation lines to draw, such as those of
-        :class:`~mdapy.analysis.DislocationAnalysis`: tubes in the color of
+        ``mdapy.analysis.DislocationAnalysis``: tubes in the color of
         the family of their Burgers vector, cut at the periodic boundaries,
         the parts outside moved in through the opposite faces.
-    dislocation_radius : float, optional
+    dislocation_radius : float32, optional
         Radius of the tubes in Å. Default 0.5.
     burgers_vectors : bool, optional
         Also draw the Burgers vector of each line: an arrow from the middle
         of the line along the vector in space. Default False.
-    burgers_scale : float, optional
+    burgers_scale : float32, optional
         Length of the arrows in units of the Burgers vectors. Default 3.
-    burgers_radius : float, optional
+    burgers_radius : float32, optional
         Radius of the shafts of the arrows in Å. Default 0.3.
     burgers_color : optional
         One color for the arrows, or "family" for the color of each line.
@@ -529,10 +522,10 @@ def render(
     vectors : str or array_like, optional
         A column of three components, such as displacement, velocities or
         forces, or (N, 3) vectors: an arrow for each atom shown.
-    vector_scale : float, optional
+    vector_scale : float32, optional
         Length of the arrows in units of the vectors; negative reverses
         them. Default 1.
-    vector_radius : float, optional
+    vector_radius : float32, optional
         Radius of the shafts of the arrows in Å. Default 0.5.
     vector_color : optional
         One color for the arrows, or "atom" for the color of each atom.
@@ -542,9 +535,9 @@ def render(
         tip. Default base.
     lines : array_like or sequence of array_like, optional
         Polylines to draw, such as the paths of
-        :func:`~mdapy.analysis.trajectory_lines`: (M, T, 3) points, or
+        ``mdapy.analysis.trajectory_lines``: (M, T, 3) points, or
         (T, 3) points of each line.
-    line_radius : float, optional
+    line_radius : float32, optional
         Radius of the lines in Å. Default 0.1.
     line_color : optional
         One color for the lines. Default gray.
@@ -559,7 +552,7 @@ def render(
         A string does the same with this title, as for values that have no
         name. A mapping gives its own names and colors. Default none.
     **options
-        The options of :meth:`Scene.render`, such as width, height, view,
+        The options of ``Scene.render``, such as width, height, view,
         style, zoom, perspective and background.
 
     Returns

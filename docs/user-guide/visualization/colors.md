@@ -60,7 +60,7 @@ of Al, Cu and Ni. Right: a layer in dark gray over the colors by element.*
 |---|---|---|---|
 | `column` | str | | for `color_coding`, a column of numbers, a component such as `"velocities.z"` or an expression; for `color_by_type`, a column of one component, such as `"element"`, `"type"` or `"cluster"`, or an expression |
 | `colormap` | str | `"rainbow"` | one of [`COLORMAPS`](rendering.md#colormaps) |
-| `value_range` | (low, high) | finite range | the values at the ends of the colormap; by default the lowest and highest finite value of the atoms colored; values beyond take the color of their end |
+| `value_range` | (float64, float64) | finite range | the values at the ends of the colormap; by default the lowest and highest finite value of the atoms colored; values beyond take the color of their end |
 | `color` | color | | `"#rrggbb"`, a name such as `"red"`, or three numbers from 0 to 1 |
 | `atoms` | mask or indices | all | the atoms colored |
 

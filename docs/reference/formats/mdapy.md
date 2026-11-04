@@ -54,7 +54,8 @@ gives the same members.
 ## What is kept
 
 - **Columns:** every column with its type, including the element type,
-  arrays of any shape, small integer and float types, and text.
+  arrays of any shape, every width of integers and reals such as `int8` and
+  `float32`, and text.
 - **Information:** numbers, booleans, text, `None`, NumPy arrays with their
   type and shape (including 0-dimensional and empty arrays), nested
   mappings and sequences, and NaN and infinities. NumPy scalars become

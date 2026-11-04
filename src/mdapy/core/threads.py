@@ -42,7 +42,7 @@ def get_num_threads() -> int:
 
     Returns
     -------
-    int
+    int64
         The current setting. Defaults to the number of logical CPUs this
         process may use, or to the ``MDAPY_NUM_THREADS`` environment variable
         if it was set when MDAPY was imported.
@@ -58,7 +58,7 @@ def set_num_threads(n: int) -> None:
 
     Parameters
     ----------
-    n : int
+    n : int32
         Number of threads, at least 1.
 
     Raises
@@ -74,11 +74,11 @@ def num_threads(n: int) -> Iterator[None]:
     """Use ``n`` threads inside a ``with`` block.
 
     The previous setting is restored when the block exits, also on error.
-    Like :func:`set_num_threads`, the setting is global to the process.
+    Like ``set_num_threads``, the setting is global to the process.
 
     Parameters
     ----------
-    n : int
+    n : int32
         Number of threads, at least 1.
 
     Raises
@@ -99,8 +99,8 @@ class CancelToken:
     """Flag for stopping a running computation from another thread.
 
     Pass the token to a computation that accepts ``cancel=``. Calling
-    :meth:`cancel` from any thread makes that computation stop at the next
-    chunk of work and raise :class:`mdapy.errors.Cancelled`.
+    ``cancel`` from any thread makes that computation stop at the next
+    chunk of work and raise ``mdapy.errors.Cancelled``.
     """
 
     def __init__(self) -> None:

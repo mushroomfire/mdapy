@@ -61,13 +61,13 @@ class SOAP:
         The elements, each a part of the descriptor; every atom must be one
         of them, so that systems of other compositions share the same
         layout.
-    r_cut : float, optional
+    r_cut : float64, optional
         The cutoff of the radial functions in Å, above 1. Default 5.
-    n_max : int, optional
+    n_max : int32, optional
         The number of radial functions. Default 8.
-    l_max : int, optional
+    l_max : int32, optional
         The highest degree of the spherical harmonics, at most 20. Default 6.
-    sigma : float, optional
+    sigma : float64, optional
         The width in Å of the Gaussian on each neighbor. Default 0.5.
     crossover : bool, optional
         Keep the products of the densities of two different elements.
@@ -157,7 +157,7 @@ class SOAP:
         Returns
         -------
         numpy.ndarray
-            (N, dimension) the power spectrum of each atom: for each pair of
+            (N, dimension) float64, the power spectrum of each atom: for each pair of
             species in the order of their atomic numbers, for each degree,
             for each pair of radial functions, the second from the first on
             within one species.

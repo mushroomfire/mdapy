@@ -26,7 +26,7 @@ indices, all of type 1, or as a polars DataFrame with the columns:
 
 | Column | Type | Meaning |
 |---|---|---|
-| `atoms` | array of k int64 | Atom indices: rows of the system's table, from 0. |
+| `atoms` | (k,) int64 | Atom indices: rows of the system's table, from 0. |
 | `type` | int32 | Type of the term, from 1; 1 when not given. |
 | `type_label` | str, optional | Name of the type, for example `"O-H"`. |
 

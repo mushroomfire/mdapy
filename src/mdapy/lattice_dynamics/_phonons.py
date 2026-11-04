@@ -46,14 +46,14 @@ class BandStructure:
     Attributes
     ----------
     q : numpy.ndarray
-        (P, 3) wave vectors in units of the reciprocal lattice vectors of
+        (P, 3) float64 wave vectors in units of the reciprocal lattice vectors of
         the cell.
     distances : numpy.ndarray
-        (P,) distance of each wave vector along the path, in 1/Å.
+        (P,) float64 distance of each wave vector along the path, in 1/Å.
     frequencies : numpy.ndarray
-        (P, 3n) frequencies in THz, ascending at each wave vector, or each
+        (P, 3n) float64 frequencies in THz, ascending at each wave vector, or each
         column a branch when connected; imaginary ones as negative.
-    labels : tuple of (float, str)
+    labels : tuple of (float64, str)
         The distance and the label of each special point; two points that
         meet at a break of the path share a label such as "U|K".
     """
@@ -100,11 +100,11 @@ class PhononDOS:
     Attributes
     ----------
     frequencies : numpy.ndarray
-        (F,) frequencies in THz.
+        (F,) float64 frequencies in THz.
     dos : numpy.ndarray
-        (F,) states per THz per atom; it integrates to 3.
+        (F,) float64 states per THz per atom; it integrates to 3.
     projected : numpy.ndarray or None
-        (F, n) the density of states of each atom of the cell, each
+        (F, n) float64, the density of states of each atom of the cell, each
         integrating to 3, whose mean is ``dos``; when asked for.
     """
 
@@ -123,16 +123,16 @@ class ThermalProperties:
     Attributes
     ----------
     temperatures : numpy.ndarray
-        (T,) temperatures in K.
+        (T,) float64 temperatures in K.
     free_energy : numpy.ndarray
-        (T,) Helmholtz free energy of the vibrations in eV, with the zero
+        (T,) float64 Helmholtz free energy of the vibrations in eV, with the zero
         point energy.
     energy : numpy.ndarray
-        (T,) energy of the vibrations in eV, with the zero point energy.
+        (T,) float64 energy of the vibrations in eV, with the zero point energy.
     entropy : numpy.ndarray
-        (T,) entropy in eV/K.
+        (T,) float64 entropy in eV/K.
     heat_capacity : numpy.ndarray
-        (T,) heat capacity at constant volume in eV/K.
+        (T,) float64 heat capacity at constant volume in eV/K.
     """
 
     temperatures: np.ndarray
@@ -347,7 +347,7 @@ def primitive_cell(system: System, *, tolerance: float = 1e-4) -> System:
         along two vectors in the x-y plane and not along a third along z.
         Atoms are alike when they have the same element, type and mass, where
         the system has these columns.
-    tolerance : float, optional
+    tolerance : float64, optional
         How far, in Å, an atom may be from the image of another under a
         translation of the crystal. Default 1e-4.
 
@@ -475,7 +475,7 @@ def _default_supercell(cell: np.ndarray, reach: float) -> np.ndarray:
 
 def _default_sheet_supercell(cell: np.ndarray, reach: float) -> np.ndarray:
     """The supercell of a sheet nearest a square that is at least reach wide
-    across the plane: as :func:`_default_supercell`, in two dimensions."""
+    across the plane: as ``_default_supercell``, in two dimensions."""
 
     def widths(vectors: np.ndarray) -> np.ndarray:
         return abs(np.linalg.det(vectors)) / np.linalg.norm(vectors[[1, 0]], axis=1)
@@ -631,7 +631,7 @@ def _connected(
 class Phonons:
     """Harmonic phonons of a crystal from its force constants.
 
-    Made by :func:`phonons`. Wave vectors are in units of the reciprocal
+    Made by ``phonons``. Wave vectors are in units of the reciprocal
     lattice vectors of the cell: q = (h, k, l) is h b1 + k b2 + l b3 with
     a_i · b_j = 2π δ_ij.
 
@@ -640,11 +640,11 @@ class Phonons:
     cell : System
         The crystal whose vibrations these are.
     supercell : numpy.ndarray
-        (3, 3) integer matrix of the supercell in which the force constants
+        (3, 3) int64 matrix of the supercell in which the force constants
         were found: its vectors are the rows of the matrix times the vectors
         of the cell.
     force_constants : numpy.ndarray
-        (n, n S, 3, 3) second derivatives of the energy in eV/Å² with
+        (n, n S, 3, 3) float64 second derivatives of the energy in eV/Å² with
         respect to the positions of each atom of the cell and of each atom
         of the supercell, which holds S cells, each with the atoms of the
         cell in their order, the first cell that of the cell itself.
@@ -774,14 +774,14 @@ class Phonons:
 
         Parameters
         ----------
-        q : array_like
+        q : array_like of float64
             A wave vector or (K, 3) wave vectors, in units of the reciprocal
             lattice vectors of the cell.
 
         Returns
         -------
         numpy.ndarray
-            (3n,) or (K, 3n) frequencies in THz, ascending; imaginary ones
+            (3n,) or (K, 3n) float64 frequencies in THz, ascending; imaginary ones
             as negative.
         """
         q, single = self.__wave_vectors(q)
@@ -793,16 +793,16 @@ class Phonons:
 
         Parameters
         ----------
-        q : array_like
+        q : array_like of float64
             A wave vector or (K, 3) wave vectors, in units of the reciprocal
             lattice vectors of the cell.
 
         Returns
         -------
         frequencies : numpy.ndarray
-            (3n,) or (K, 3n) frequencies in THz, ascending.
+            (3n,) or (K, 3n) float64 frequencies in THz, ascending.
         vectors : numpy.ndarray
-            (3n, n, 3) or (K, 3n, n, 3) complex polarization vector of each
+            (3n, n, 3) or (K, 3n, n, 3) complex128 polarization vector of each
             mode, normalized over the atoms of the cell; atom b of the cell
             in the cell at R moves along its vector divided by the square
             root of its mass, times exp(i q · (R + r_b)).
@@ -942,7 +942,7 @@ class Phonons:
             or the sections of a path, each a sequence of labeled wave
             vectors in units of the reciprocal lattice vectors of the cell,
             joined by straight lines.
-        points : int, optional
+        points : int32, optional
             Number of wave vectors on each line, its ends included.
             Default 51.
         connected : bool, optional
@@ -1034,14 +1034,14 @@ class Phonons:
 
         Parameters
         ----------
-        mesh : int or array_like, optional
+        mesh : int32 or array_like, optional
             Number of wave vectors along each reciprocal lattice vector, of
             a mesh through Γ. Default 20.
-        frequencies : array_like, optional
+        frequencies : array_like of float64, optional
             The frequencies in THz at which to give the density. Default 501
             from 0, or a little below the lowest imaginary frequency, to a
             little above the highest.
-        sigma : float, optional
+        sigma : float64, optional
             Width in THz of a Gaussian for each mode; by default the
             tetrahedron method.
         projected : bool, optional
@@ -1104,9 +1104,9 @@ class Phonons:
 
         Parameters
         ----------
-        temperatures : array_like
+        temperatures : array_like of float64
             Temperatures in K, not negative.
-        mesh : int or array_like, optional
+        mesh : int32 or array_like, optional
             Number of wave vectors along each reciprocal lattice vector, of
             a mesh through Γ. Default 20.
 
@@ -1300,14 +1300,14 @@ def phonons(
         cell. Each atom needs an element or a mass.
     calculator : Calculator
         Computes the forces.
-    supercell : int or array_like, optional
+    supercell : int32 or array_like, optional
         Repeats of the cell along its vectors, one or three, or a (3, 3)
         integer matrix whose rows times the vectors of the cell are the
         vectors of the supercell; a sheet repeats along its plane only, and
         one integer means both of its vectors. Default the supercell nearest
         a cube that is at least twice the cutoff of the calculator thick in
         every direction, nearest a square across the plane for a sheet.
-    displacement : float, optional
+    displacement : float64, optional
         Displacement of the atoms in Å. Default 0.01.
     symmetry : bool, optional
         Move only the atoms and along the directions that the symmetry of
@@ -1341,7 +1341,7 @@ def _phonons(
     symmetry: bool | None,
     reference: System | None = None,
 ) -> Phonons:
-    """The phonons of :func:`phonons`, the periodic images of the force
+    """The phonons of ``phonons``, the periodic images of the force
     constants picked by the geometry of reference."""
     if len(system) == 0:
         raise InvalidParameter(

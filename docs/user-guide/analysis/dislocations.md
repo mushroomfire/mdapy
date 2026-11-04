@@ -113,12 +113,12 @@ the hcp atoms of its faces and the other atoms of its corners (white).*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `crystal` | str | | | the crystal: `fcc`, `hcp`, `bcc`, `cubic_diamond` or `hexagonal_diamond` |
-| `circuit_length` | int | 14 | | the number of edges of the longest Burgers circuit that finds a line; at least 3 |
-| `stretch` | int | 9 | | the number of edges more a circuit may grow to follow a line |
+| `circuit_length` | int32 | 14 | | the number of edges of the longest Burgers circuit that finds a line; at least 3 |
+| `stretch` | int32 | 9 | | the number of edges more a circuit may grow to follow a line |
 | `perfect_only` | bool | `False` | | find perfect dislocations only: the atoms of stacking faults are other, and partials make one line |
-| `point_separation` | float | 2.5 | | how sparse the points along the lines are: each is the mean of a run of the points found, longer where the line is wider; 0 keeps them all |
-| `smoothing` | int | 1 | | the number of smoothing steps of the lines |
-| `mesh_smoothing` | int | 8 | | the number of smoothing steps of the defect mesh |
+| `point_separation` | float64 | 2.5 | | how sparse the points along the lines are: each is the mean of a run of the points found, longer where the line is wider; 0 keeps them all |
+| `smoothing` | int32 | 1 | | the number of smoothing steps of the lines |
+| `mesh_smoothing` | int32 | 8 | | the number of smoothing steps of the defect mesh |
 | `interface_mesh` | bool | `False` | | also give the interface mesh, on which the circuits run |
 
 `compute(system, *, progress=None, cancel=None)` takes the `progress` and
@@ -141,16 +141,16 @@ A `DislocationResult`:
 | `junctions` | (J, 3) float64 | the points in Å where three or more lines meet, in the box |
 | `structure` | (N,) int8 | the structure of each atom, an index into `names`; its column `dxa_structure` |
 | `names` | tuple of str | `other`, `fcc`, `hcp`, `bcc`, `cubic_diamond`, `hexagonal_diamond` |
-| `colors` | tuple of (r, g, b) | the default color of each structure |
+| `colors` | tuple of (3,) float64 | the default color of each structure |
 | `crystal_cluster` | (N,) int64 | the crystal cluster of each atom, −1 for none; its column `dxa_crystal_cluster` |
 | `clusters` | `CrystalClusters` | the crystal clusters |
 | `defect_mesh` | `TriangleMesh` | the surface around the defects that are not dislocations, closed over the free ends of the lines, its normals pointing into the crystal |
 | `defect_atoms` | (V,) int64 | the atom at each vertex of the defect mesh, −1 at the end of a line |
 | `interface_mesh` | `TriangleMesh` or `None` | the mesh between the good crystal and the rest, with `interface_mesh=True` |
 | `interface_atoms` | (V,) int64 or `None` | the atom at each of its vertices |
-| `lengths()` | dict | the total length of the lines of each family of the crystal in Å, `other` last |
-| `total_length` | float | the total length of the lines in Å |
-| `counts()` | dict | the number of atoms of each structure, by name |
+| `lengths()` | dict of str to float64 | the total length of the lines of each family of the crystal in Å, `other` last |
+| `total_length` | float64 | the total length of the lines in Å |
+| `counts()` | dict of str to int64 | the number of atoms of each structure, by name |
 
 A `DislocationLine`:
 
@@ -159,12 +159,12 @@ A `DislocationLine`:
 | `points` | (P, 3) float64 | the points along the line in Å, unwrapped: consecutive points are close also across a periodic boundary |
 | `burgers` | (3,) float64 | the Burgers vector in the lattice frame of its crystal cluster, in units of the lattice constant |
 | `spatial_burgers` | (3,) float64 | the Burgers vector in Å along the axes of the box, as the crystal cluster is turned and stretched |
-| `cluster` | int | the crystal cluster of the lattice frame |
+| `cluster` | int32 | the crystal cluster of the lattice frame |
 | `family` | str | the family of the Burgers vector, or `other` |
-| `length` | float | the length in Å |
+| `length` | float64 | the length in Å |
 | `loop` | bool | whether the line closes on itself: a loop, or a line through periodic boundaries |
 | `infinite` | bool | whether it closes through periodic boundaries |
-| `junctions` | (int, int) | the junctions at its first and last point, −1 for a free end and for the ends of a closed line |
+| `junctions` | (int32, int32) | the junctions at its first and last point, −1 for a free end and for the ends of a closed line |
 
 The families of Burgers vectors, by crystal:
 

@@ -58,12 +58,12 @@ class MolecularDynamics:
     potential : LAMMPS
         The interaction: its commands, the element of each atom type and
         the command-line arguments of LAMMPS.
-    timestep : float, optional
+    timestep : float64, optional
         Time step in ps. Default 0.001.
 
     Attributes
     ----------
-    timestep : float
+    timestep : float64
         Time step in ps.
 
     Raises
@@ -286,9 +286,9 @@ create_box {len(potential.elements)} box
 
         Parameters
         ----------
-        temperature : float
+        temperature : float64
             Temperature in K, not negative.
-        seed : int
+        seed : int32
             Seed of the random velocities, positive.
 
         Raises
@@ -326,35 +326,35 @@ create_box {len(potential.elements)} box
 
         Parameters
         ----------
-        steps : int
+        steps : int32
             Number of steps.
         ensemble : {"nve", "nvt", "npt", "nph"}, optional
             Constant energy, or a Nosé-Hoover thermostat, and barostat, or a
             barostat alone. Default "nve".
-        temperature : float or (float, float), optional
+        temperature : float64 or (float64, float64), optional
             Temperature in K of the thermostat, or its values at the start
             and the end of the run; needed for "nvt" and "npt".
-        pressure : float or (float, float), optional
+        pressure : float64 or (float64, float64), optional
             Pressure in GPa of the barostat, or its values at the start and
             the end; needed for "npt" and "nph".
         barostat : {"iso", "aniso", "tri", "xy"}, optional
             The box changes alike in every direction, along each axis, in
             any way, or alike along its first two vectors with the third
             kept. Default "iso".
-        thermostat_damping : float, optional
+        thermostat_damping : float64, optional
             Damping time of the thermostat in ps. Default 100 time steps.
-        barostat_damping : float, optional
+        barostat_damping : float64, optional
             Damping time of the barostat in ps. Default 1000 time steps.
-        thermo : int, optional
+        thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
-        frames : int, optional
+        frames : int32, optional
             Keeps the atoms every this many steps. Default None, keeping
             none.
         progress : callable, optional
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
-            Stops the run, which raises :class:`mdapy.errors.Cancelled`.
+            Stops the run, which raises ``mdapy.errors.Cancelled``.
 
         Raises
         ------

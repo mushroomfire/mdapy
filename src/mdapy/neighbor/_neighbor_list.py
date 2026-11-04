@@ -53,7 +53,7 @@ class NeighborList:
     """Pairs of atoms within a cutoff, the nearest neighbors of each atom, or
     the atoms that share a Voronoi face, including periodic images.
 
-    Build one with :meth:`build`. Pairs are grouped by the first atom: the
+    Build one with ``build``. Pairs are grouped by the first atom: the
     pairs of atom ``i`` are ``offsets[i]:offsets[i + 1]``. The vector from
     atom ``i`` to the image of atom ``j`` is
     ``x[j] - x[i] + shifts @ box.matrix``.
@@ -62,9 +62,9 @@ class NeighborList:
     ----------
     system : System
         The system the list was built for.
-    cutoff : float
+    cutoff : float64
         Every pair is closer than it, in Å.
-    num_neighbors : int or None
+    num_neighbors : int32 or None
         The number of pairs of each atom in a list of nearest neighbors,
         None otherwise.
     voronoi : bool
@@ -72,7 +72,7 @@ class NeighborList:
     offsets : numpy.ndarray
         (N + 1,) int64.
     j : numpy.ndarray
-        (P,) :data:`mdapy.index_dtype`, the second atom of each pair.
+        (P,) ``mdapy.index_dtype``, the second atom of each pair.
     shifts : numpy.ndarray
         (P, 3) int8 periodic image of the second atom.
     distances : numpy.ndarray
@@ -132,17 +132,17 @@ class NeighborList:
             The atoms and the box. Any box works; a box thinner than the
             cutoff gives several images of the same neighbor, and images of
             the atom itself.
-        cutoff : float, optional
+        cutoff : float64, optional
             Cutoff radius in Å, positive.
-        num_neighbors : int, optional
+        num_neighbors : int32, optional
             Number of nearest neighbors of each atom, positive.
         voronoi : bool, optional
             The neighbors of an atom are the atoms across the faces of its
             Voronoi cell that count. Give one of cutoff, num_neighbors and
             voronoi.
-        face_threshold, relative_face_threshold, edge_threshold : float, optional
+        face_threshold, relative_face_threshold, edge_threshold : float64, optional
             With voronoi, the faces that count, as in
-            :class:`mdapy.analysis.VoronoiAnalysis`. Default 0.
+            ``mdapy.analysis.VoronoiAnalysis``. Default 0.
         progress : callable, optional
             Called as ``progress(done, total)`` while the list is built.
         cancel : CancelToken, optional
@@ -288,7 +288,7 @@ class NeighborList:
 
     @property
     def i(self) -> np.ndarray:
-        """(P,) :data:`mdapy.index_dtype` first atom of each pair, made from
+        """(P,) ``mdapy.index_dtype`` first atom of each pair, made from
         the offsets on each access, not kept."""
         return np.repeat(np.arange(len(self.counts), dtype=index_dtype), self.counts)
 
@@ -329,7 +329,7 @@ class NeighborList:
 
         Parameters
         ----------
-        cutoff : float
+        cutoff : float64
             Cutoff radius in Å, positive and at most the cutoff of this list.
 
         Returns

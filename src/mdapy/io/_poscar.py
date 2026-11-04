@@ -211,10 +211,6 @@ def _write(file: BinaryIO, systems: Iterable[System], *, direct: bool = True) ->
         columns: list[tuple] = [("f", coordinates)]
         if "movable" in table.columns:
             movable = table["movable"].to_numpy()
-            if movable.dtype != np.bool_ or movable.shape != (len(table), 3):
-                raise InvalidParameter(
-                    "the movable column must hold 3 booleans per atom"
-                )
             lines.append("Selective dynamics")
             columns.append(("b", movable[order]))
         lines.append("Direct" if direct else "Cartesian")

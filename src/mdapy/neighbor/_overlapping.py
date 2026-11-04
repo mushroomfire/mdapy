@@ -26,7 +26,7 @@ def find_overlapping(
     ----------
     system : System
         The atoms and the box.
-    distance : float
+    distance : float64
         Two atoms closer than this in Å overlap.
     keep_one : bool, optional
         Whether to select only the atom of the higher index of each pair
@@ -46,7 +46,7 @@ def find_overlapping(
     ------
     InvalidParameter
         If atoms is not a mask or indices of the system, and as
-        :meth:`NeighborList.build` for the distance.
+        ``NeighborList.build`` for the distance.
     """
     considered = (
         np.ones(len(system), dtype=bool) if atoms is None else _mask(atoms, len(system))

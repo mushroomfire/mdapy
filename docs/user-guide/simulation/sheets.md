@@ -62,11 +62,11 @@ has to be chosen. The parameters are those of
 
 | Attribute or method | Type | Meaning |
 |---|---|---|
-| `constants` | `numpy.ndarray` | (3, 3) elastic constants $C$ in N/m, in the order xx, yy, xy; read-only |
-| `young_modulus(axis="x")` | float | the Young's modulus in N/m along `"x"` or `"y"` |
-| `poisson_ratio(axis="x")` | float | the contraction across a stretch along `"x"` or `"y"`, over the stretch |
-| `shear_modulus()` | float | the shear modulus in N/m |
-| `area_modulus()` | float | the area modulus in N/m: the tension per unit of relative change of the area |
+| `constants` | (3, 3) float64 | elastic constants $C$ in N/m, in the order xx, yy, xy; read-only |
+| `young_modulus(axis="x")` | float64 | the Young's modulus in N/m along `"x"` or `"y"` |
+| `poisson_ratio(axis="x")` | float64 | the contraction across a stretch along `"x"` or `"y"`, over the stretch |
+| `shear_modulus()` | float64 | the shear modulus in N/m |
+| `area_modulus()` | float64 | the area modulus in N/m: the tension per unit of relative change of the area |
 
 With $S = C^{-1}$ these are
 

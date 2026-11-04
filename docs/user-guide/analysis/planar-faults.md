@@ -67,7 +67,7 @@ rows of atoms turn the other way.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `structures` | iterable of str | `("fcc", "hcp", "bcc")` | | the structures polyhedral template matching looks for, fcc and hcp among them |
-| `rmsd_cutoff` | float | 0.1 | | atoms that deviate more from their best template are other; 0 for no cutoff |
+| `rmsd_cutoff` | float64 | 0.1 | | atoms that deviate more from their best template are other; 0 for no cutoff |
 | `extrinsic` | bool | `False` | | also find extrinsic stacking faults, which are otherwise two coherent twin boundaries |
 
 `compute(system, *, ptm=None, neighbors=None, progress=None, cancel=None)`
@@ -83,10 +83,10 @@ A `PlanarFaultResult`:
 |---|---|---|
 | `fault` | (N,) int8 | the type of each atom, an index into `names` |
 | `names` | tuple of str | `non-hcp`, `other hcp`, `intrinsic stacking fault`, `coherent twin boundary` and `multilayer stacking fault`, numbered as in OVITO, and `extrinsic stacking fault` |
-| `colors` | tuple of RGB | OVITO's colors of the types |
+| `colors` | tuple of (3,) float64 | OVITO's colors of the types |
 | `interatomic_distance` | (N,) float64 | the distance in Å between nearest neighbors of the lattice each atom matched |
-| `counts()` | dict | the number of atoms of each type |
-| `areas()` | dict | the area in Å² of the intrinsic stacking faults, the coherent twin boundaries and the extrinsic stacking faults |
+| `counts()` | dict of str to int64 | the number of atoms of each type |
+| `areas()` | dict of str to float64 | the area in Å² of the intrinsic stacking faults, the coherent twin boundaries and the extrinsic stacking faults |
 
 The column is `planar_fault`.
 

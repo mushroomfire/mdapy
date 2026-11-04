@@ -97,11 +97,11 @@ class DisplacementResult(Result):
     Attributes
     ----------
     lag : numpy.ndarray
-        (T,) lag in frames.
+        (T,) int64 lag in frames.
     msd : numpy.ndarray
-        (T,) mean squared displacement in Å², averaged over the atoms.
+        (T,) float64 mean squared displacement in Å², averaged over the atoms.
     components : numpy.ndarray
-        (T, 3) its x, y and z parts.
+        (T, 3) float64, its x, y and z parts.
     """
 
     lag: np.ndarray
@@ -183,13 +183,13 @@ class LindemannResult(Result):
 
     Attributes
     ----------
-    index : float
+    index : float64
         The index averaged over every pair of atoms.
     atomic : numpy.ndarray
-        (N,) the index of each atom, averaged over its pairs, the atoms in
+        (N,) float64, the index of each atom, averaged over its pairs, the atoms in
         the order of the first frame.
     running : numpy.ndarray
-        (T,) the index of the frames up to each one.
+        (T,) float64, the index of the frames up to each one.
     """
 
     index: float
@@ -267,7 +267,7 @@ def trajectory_lines(
     Returns
     -------
     numpy.ndarray
-        (M, T, 3) the positions of each atom in each frame, the atoms in the
+        (M, T, 3) float64, the positions of each atom in each frame, the atoms in the
         order of the first frame.
     """
     chosen = None
@@ -287,10 +287,10 @@ class TimeAverageResult(Result):
     Attributes
     ----------
     value : numpy.ndarray
-        The mean over the frames: of each atom in the order of the first
+        The float64 mean over the frames: of each atom in the order of the first
         frame for a column, (3, 3) for the box, of the shape the function
         gives otherwise.
-    frames : int
+    frames : int32
         The number of frames.
     name : str or None
         The column averaged; None for the box or a function.
@@ -383,7 +383,7 @@ class TimeSeriesResult(Result):
     frame : numpy.ndarray
         (F,) int64 the place of each frame among those given, from 0.
     values : numpy.ndarray
-        (F,) the quantity in each frame; (F, k) for one of k components or
+        (F,) float64, the quantity in each frame; (F, k) for one of k components or
         values.
     timestep : numpy.ndarray or None
         (F,) int64 the timestep of each frame, where every frame has one in
@@ -411,7 +411,7 @@ class TimeSeries:
         or a function of a frame that gives a number, or an array of the
         same shape in every frame.
     operation : str, optional
-        For a column, one of ``OPERATIONS`` of :func:`reduce`. Default mean.
+        For a column, one of ``OPERATIONS`` of ``reduce``. Default mean.
     """
 
     def __init__(
@@ -485,7 +485,7 @@ class FrameDifferenceResult(Result):
     Attributes
     ----------
     difference : numpy.ndarray
-        (N,) or (N, k) the change of each atom of the system; added by
+        (N,) or (N, k) float64, the change of each atom of the system; added by
         ``System.with_columns`` as the column, its dots as underscores,
         followed by ``_change``.
     name : str
@@ -508,7 +508,7 @@ class FrameDifference:
     column : str
         A column of numbers, a component such as ``"pe.1"`` or an expression
         over the columns. Positions change through the periodic boundaries
-        as given: use :class:`AtomicDisplacement` for displacements.
+        as given: use ``AtomicDisplacement`` for displacements.
     """
 
     def __init__(self, column: str):

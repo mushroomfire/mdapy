@@ -38,6 +38,10 @@
 
 ::: mdapy.build.random_rotations
 
+::: mdapy.build.rotations_about
+
+::: mdapy.build.gradient_seeds
+
 ::: mdapy.build.twin_lamellae
 
 ::: mdapy.build.add_graphene

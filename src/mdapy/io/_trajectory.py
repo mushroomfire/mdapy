@@ -81,7 +81,7 @@ class _Frames:
 
 class Mapped(Sequence[System]):
     """Frames through a function, each computed when it is used, as
-    :meth:`Trajectory.map` gives them."""
+    ``Trajectory.map`` gives them."""
 
     def __init__(self, frames: Sequence[System], function: Callable[[System], System]):
         self.__frames = frames
@@ -106,7 +106,7 @@ class Mapped(Sequence[System]):
             yield self.__function(frame)
 
     def map(self, function: Callable[[System], System]) -> "Mapped":
-        """These frames through one more function, as :meth:`Trajectory.map`."""
+        """These frames through one more function, as ``Trajectory.map``."""
         first = self.__function
         return Mapped(self.__frames, lambda frame: function(first(frame)))
 
@@ -117,10 +117,10 @@ class Mapped(Sequence[System]):
 class Trajectory(Sequence[System]):
     """The frames of a file, read when they are used.
 
-    Create it with :func:`mdapy.io.read_trajectory`. Indexing with an integer
+    Create it with ``mdapy.io.read_trajectory``. Indexing with an integer
     reads one frame; indexing with a slice gives a trajectory of the selected
     frames; iterating reads the frames one after the other. The file stays
-    open until :meth:`close` is called, the trajectory is used as a context
+    open until ``close`` is called, the trajectory is used as a context
     manager, or no trajectory of the file is used any more.
     """
 
@@ -210,8 +210,8 @@ class Trajectory(Sequence[System]):
             A sequence of the frames through the function, with ``len``,
             indexing, slices (themselves mapped) and iteration, which reads
             the frames one after the other; ``map`` adds another function.
-            Analyses of trajectories and :func:`mdapy.transform.remove_drift`
-            or :func:`mdapy.transform.smooth_trajectory` take it as they take
+            Analyses of trajectories and ``mdapy.transform.remove_drift``
+            or ``mdapy.transform.smooth_trajectory`` take it as they take
             the trajectory.
         """
         return Mapped(self, function)
@@ -337,7 +337,7 @@ def read_trajectory(
         the file before.
     format : str, optional
         Format name for every file; by default that of the name of each file,
-        with :func:`detect_format`, or of the first file when a name tells
+        with ``detect_format``, or of the first file when a name tells
         nothing.
     topology : System, optional
         A system, such as one read from a LAMMPS data file, whose atoms the

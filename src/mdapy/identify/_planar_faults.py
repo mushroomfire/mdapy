@@ -29,10 +29,10 @@ class PlanarFaultResult(Result):
         (N,) int8 type of each atom, an index into ``names``.
     names : tuple of str
         Name of each type.
-    colors : tuple of tuple of float
+    colors : tuple of tuple of float64
         Default RGB color of each type, from 0 to 1.
     interatomic_distance : numpy.ndarray
-        (N,) distance in Å between nearest neighbors of the lattice each
+        (N,) float64 distance in Å between nearest neighbors of the lattice each
         atom matched, from polyhedral template matching.
     """
 
@@ -74,7 +74,7 @@ class PlanarFaults:
     structures : iterable of str, optional
         The structures polyhedral template matching looks for; fcc and hcp
         among them. Default fcc, hcp and bcc.
-    rmsd_cutoff : float, optional
+    rmsd_cutoff : float64, optional
         Atoms whose root-mean-square deviation from the best template is
         larger are other; 0 for no cutoff. Default 0.1.
     extrinsic : bool, optional

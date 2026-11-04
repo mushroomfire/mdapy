@@ -35,20 +35,20 @@ class Dislocation:
     Attributes
     ----------
     structure : str
-        A cubic structure of :func:`build_crystal`, such as "bcc", "fcc" or
+        A cubic structure of ``build_crystal``, such as "bcc", "fcc" or
         "diamond".
     orientation : tuple of three directions
         The crystal directions along x, y and z, orthogonal and
         right-handed: x in the glide plane, y normal to it, z along the
         line.
-    burgers : tuple of float
+    burgers : tuple of float64
         The Burgers vector in the axes of the cubic cell, in units of the
         lattice constant, in the glide plane: the one the dislocation
         analysis, as OVITO's, finds along +z.
     partial : bool
         A single Shockley partial, which bounds a stacking fault on its -x
         side. Default False.
-    core : tuple of float
+    core : tuple of float64
         Where the line lies: (s, t), s rows of atoms along x from a row of
         the plane of atoms below it and t of the way to the plane above.
         Default (0.5, 0.5).
@@ -264,20 +264,20 @@ def dislocation_cylinder(
     dislocation : str or Dislocation
         The dislocation: a name of ``mdapy.build.DISLOCATIONS`` or one of
         your own.
-    a : float
+    a : float64
         Lattice constant in Å.
-    elastic : array_like
+    elastic : array_like of float64
         The elastic constants in the axes of the cubic cell: (C11, C12, C44)
         or the (6, 6) Voigt matrix, in any unit.
-    radius : float
+    radius : float64
         Radius of the cylinder in Å.
     elements : str or sequence of str, optional
-        As for :func:`build_crystal`. Default "X".
-    length : int, optional
+        As for ``build_crystal``. Default "X".
+    length : int32, optional
         Number of periods of the crystal along the line. Default 1.
-    fixed : float, optional
+    fixed : float64, optional
         Thickness in Å of the outer shell whose atoms are fixed. Default 6.
-    dissociation : float, optional
+    dissociation : float64, optional
         Distance in Å between the two Shockley partials of an fcc or diamond
         dislocation, rounded to whole rows of atoms; 0 for a perfect one.
         Default 0.
@@ -367,17 +367,17 @@ def dislocation_quadrupole(
     dislocation : str or Dislocation
         The dislocation: a name of ``mdapy.build.DISLOCATIONS`` or one of
         your own, not a partial.
-    a : float
+    a : float64
         Lattice constant in Å.
-    elastic : array_like
+    elastic : array_like of float64
         The elastic constants in the axes of the cubic cell: (C11, C12, C44)
         or the (6, 6) Voigt matrix, in any unit.
-    repeat : tuple of int
+    repeat : tuple of int32
         Periods of the oriented crystal along x, y and z, at least 2 along x
         and y.
     elements : str or sequence of str, optional
-        As for :func:`build_crystal`. Default "X".
-    dissociation : float, optional
+        As for ``build_crystal``. Default "X".
+    dissociation : float64, optional
         Distance in Å between the two Shockley partials of each fcc or
         diamond dislocation, rounded to whole rows of atoms; 0 for perfect
         ones. Default 0.

@@ -30,17 +30,17 @@ class CalculatorResult(Result):
 
     Attributes
     ----------
-    energy : float or None
+    energy : float64 or None
         Total energy in eV.
     atomic_energies : numpy.ndarray or None
-        (N,) energies in eV; they sum to ``energy``.
+        (N,) float64 energies in eV; they sum to ``energy``.
     forces : numpy.ndarray or None
-        (N, 3) forces in eV/Å.
+        (N, 3) float64 forces in eV/Å.
     virial : numpy.ndarray or None
-        (3, 3) virial in eV, positive under compression.
+        (3, 3) float64 virial in eV, positive under compression.
     atomic_virials : numpy.ndarray or None
-        (N, 3, 3) virials in eV; they sum to ``virial``.
-    volume : float or None
+        (N, 3, 3) float64 virials in eV; they sum to ``virial``.
+    volume : float64 or None
         Volume of the box in Å³, which gives ``stress``.
     """
 
@@ -83,18 +83,18 @@ class Calculator(ABC):
     """Computes energies, forces and virials of systems.
 
     Implementations set ``cutoff``, ``elements`` and ``implemented`` and
-    define :meth:`compute`. :func:`mdapy.calculators.testing.check_calculator`
+    define ``compute``. ``mdapy.calculators.testing.check_calculator``
     tests any implementation.
 
     Attributes
     ----------
-    cutoff : float
-        Interaction cutoff in Å; a neighbor list for :meth:`compute` must have
+    cutoff : float64
+        Interaction cutoff in Å; a neighbor list for ``compute`` must have
         at least this cutoff.
     elements : tuple of str or None
         Elements the calculator handles, or None for any.
     implemented : frozenset of str
-        The properties :meth:`compute` can return, a subset of
+        The properties ``compute`` can return, a subset of
         ``energy``, ``atomic_energies``, ``forces``, ``virial`` and
         ``atomic_virials``.
     """

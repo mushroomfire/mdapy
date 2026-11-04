@@ -27,14 +27,14 @@ class StrainResult(Result):
     Attributes
     ----------
     shear : numpy.ndarray
-        (N,) von Mises shear strain; NaN where the reference neighbors do not
+        (N,) float64 von Mises shear strain; NaN where the reference neighbors do not
         span three dimensions.
     volumetric : numpy.ndarray
-        (N,) volumetric strain, a third of the trace of the strain tensor.
+        (N,) float64 volumetric strain, a third of the trace of the strain tensor.
     strain_tensor : numpy.ndarray or None
-        (N, 3, 3) Green-Lagrange strain, when computed.
+        (N, 3, 3) float64 Green-Lagrange strain, when computed.
     d2min : numpy.ndarray or None
-        (N,) non-affine squared displacement in Å², the part of the neighbor
+        (N,) float64 non-affine squared displacement in Å², the part of the neighbor
         vectors that the deformation gradient does not explain, when
         computed.
     """
@@ -61,7 +61,7 @@ class AtomicStrain:
         The reference configuration, with the same atoms as the systems to
         compare: matched by the ``id`` column where both have one, else in
         the same order.
-    cutoff : float
+    cutoff : float64
         Neighbors in the reference closer than cutoff, in Å, define the
         neighbor vectors.
     affine : bool, optional

@@ -33,14 +33,14 @@ def expand_selection(
         The atoms and the box.
     atoms : array_like
         A boolean mask or indices of the atoms selected.
-    cutoff : float, optional
+    cutoff : float64, optional
         Add the atoms closer than this in Å to a selected atom.
-    num_neighbors : int, optional
+    num_neighbors : int32, optional
         Add the num_neighbors nearest neighbors of each selected atom.
     bonds : bool, optional
         Add the atoms bonded to a selected atom, by the bonds of the
         topology.
-    iterations : int, optional
+    iterations : int32, optional
         How many times the selection grows, each time by the neighbors of
         all the atoms selected so far. Default 1.
 
@@ -54,7 +54,7 @@ def expand_selection(
     InvalidParameter
         If not exactly one of cutoff, num_neighbors and bonds is given, if
         iterations is negative or not an integer, if atoms is not a mask or
-        indices of the system, and as :meth:`NeighborList.build`.
+        indices of the system, and as ``NeighborList.build``.
     MissingProperty
         With bonds, if the system has no bonds.
     """

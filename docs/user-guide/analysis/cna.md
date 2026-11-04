@@ -47,7 +47,7 @@ of grain boundaries.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `cutoff` | float | `None` | Å | cutoff of the neighbors and of the bonds between them; without it, each atom has its own cutoff (adaptive analysis) |
+| `cutoff` | float64 | `None` | Å | cutoff of the neighbors and of the bonds between them; without it, each atom has its own cutoff (adaptive analysis) |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list

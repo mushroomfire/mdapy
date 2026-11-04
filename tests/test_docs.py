@@ -100,6 +100,41 @@ def test_the_python_api_lists_every_public_name():
     assert not missing
 
 
+def test_docstrings_have_no_roles_of_sphinx():
+    # the API pages are Markdown: :meth:`sort` would show as it is written
+    role = re.compile(r":(?:meth|func|class|data|attr|mod|exc|obj|ref):`")
+    for path in sorted((DOCS.parent / "src" / "mdapy").rglob("*.py")):
+        assert not role.search(path.read_text()), path
+
+
+def test_tables_and_docstrings_give_exact_types():
+    bare = re.compile(r"\b(ints?|floats?|f64|numpy\.ndarray)\b|\) array\b")
+    found = []
+    for path in sorted(DOCS.rglob("*.md")):
+        if path.name == "ackland-jones.md":  # its column Type is the structure found
+            continue
+        column = None
+        for line in path.read_text().splitlines():
+            if not line.startswith("|"):
+                column = None
+                continue
+            cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", line.strip("| "))]
+            if "Type" in cells:
+                column = cells.index("Type")
+            elif (
+                column is not None
+                and len(cells) > column
+                and bare.search(cells[column])
+            ):
+                found.append(f"{path.name}: {line[:70]}")
+    parameter = re.compile(r"^\s+[\w*]+(?:, [\w*]+)* : .*\b(?:ints?|floats?)\b")
+    for path in sorted((DOCS.parent / "src" / "mdapy").rglob("*.py")):
+        for line in path.read_text().splitlines():
+            if parameter.match(line):
+                found.append(f"{path.name}: {line.strip()[:70]}")
+    assert not found, "\n".join(found)
+
+
 def test_a_lammps_without_a_package_is_recognized():
     error = Exception(
         "Unrecognized compute style 'adf' is part of the EXTRA-COMPUTE package "

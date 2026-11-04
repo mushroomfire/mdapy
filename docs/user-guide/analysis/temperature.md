@@ -52,7 +52,7 @@ neighbors within 5 Å, from 300 K (blue) to about 2000 K in the core (red).*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `cutoff` | float | | Å | the neighbors closer than it form the group of an atom |
+| `cutoff` | float64 | | Å | the neighbors closer than it form the group of an atom |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list

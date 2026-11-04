@@ -68,7 +68,7 @@ def reduce(
 
     Returns
     -------
-    float, int or numpy.ndarray
+    float64, int64 or numpy.ndarray
         The number; for an array column, (k,) one per component. NaN values
         are left out; the mean of no values is NaN, their sum 0. argmin and
         argmax index the atoms of the system.
@@ -131,16 +131,16 @@ class HistogramResult(Result):
     Attributes
     ----------
     center : numpy.ndarray
-        (bins,) centers of the bins.
+        (bins,) float64 centers of the bins.
     edges : numpy.ndarray
-        (bins + 1,) edges of the bins.
+        (bins + 1,) float64 edges of the bins.
     counts : numpy.ndarray
         (bins,) int64 number of values in each bin.
     frequency : numpy.ndarray
-        (bins,) the counts divided by the number of values counted.
+        (bins,) float64, the counts divided by the number of values counted.
     density : numpy.ndarray
-        (bins,) the frequency divided by the width of a bin.
-    nonfinite : int
+        (bins,) float64, the frequency divided by the width of a bin.
+    nonfinite : int64
         The number of values left out as NaN or infinite.
     name : str
         The column.
@@ -164,9 +164,9 @@ class Histogram:
     column : str
         A column of numbers, a component such as ``"positions.z"`` or an
         expression over the columns.
-    bins : int, optional
+    bins : int32, optional
         Number of bins. Default 50.
-    range : tuple of float, optional
+    range : tuple of float64, optional
         Lowest and highest value of the bins; values outside are not
         counted. By default from the lowest to the highest finite value.
     """

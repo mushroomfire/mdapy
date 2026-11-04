@@ -24,13 +24,13 @@ class SpatialBinningResult(Result):
     Attributes
     ----------
     values : numpy.ndarray
-        The property reduced over the atoms of each bin: (n1[, n2[, n3]])
+        The float64 property reduced over the atoms of each bin: (n1[, n2[, n3]])
         for one value per atom, with a last axis for its components; NaN
         for the mean, minimum and maximum of an empty bin.
     counts : numpy.ndarray
         (n1[, n2[, n3]]) int64 the number of atoms in each bin.
     centers : tuple of numpy.ndarray
-        For each axis, the centers of its bins in Å along its box vector,
+        For each axis, (n,) float64 centers of its bins in Å along its box vector,
         from the origin of the box.
     """
 
@@ -48,9 +48,9 @@ class SpatialBinning:
     property : str
         A column, a component such as "positions.z", or an expression over
         the columns.
-    bins : int or sequence of int
+    bins : int32 or sequence of int32
         The number of bins along each axis, or one number for all.
-    axes : int, str or sequence of them, optional
+    axes : int32, str or sequence of them, optional
         The box vectors binned along: 0, 1, 2 or x, y, z. Default z.
     reduction : str, optional
         One of ``REDUCTIONS``: "mean", "sum", "density" (the sum per Å³ of

@@ -63,20 +63,20 @@ def sqs_alloy(
     Parameters
     ----------
     system : System
-        The sites, a perfect lattice such as from :func:`build_crystal`.
-    fractions : mapping of str to float
+        The sites, a perfect lattice such as from ``build_crystal``.
+    fractions : mapping of str to float64
         Fraction of each element, positive; normalized to sum to 1, with the
-        counts of :func:`random_alloy`.
-    shells : int, optional
+        counts of ``random_alloy``.
+    shells : int32, optional
         The number of shells of neighbors made random, 1 to 10. Default 3.
-    weights : sequence of float, optional
+    weights : sequence of float64, optional
         The weight of each shell in the deviation minimized. Default all 1.
-    steps : int, optional
+    steps : int64, optional
         Number of swaps of two atoms tried. Default 100000.
-    temperature : float, optional
+    temperature : float64, optional
         The starting temperature of the annealing, in units of the typical
         change of a swap; 0 accepts only improvements. Default 1.
-    seed : int or numpy.random.Generator, optional
+    seed : int64 or numpy.random.Generator, optional
         Seed of the starting alloy and of the swaps.
 
     Returns

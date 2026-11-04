@@ -25,7 +25,7 @@ class VoronoiPolyhedra(Result):
     Attributes
     ----------
     vertices : numpy.ndarray
-        (V, 3) positions of the vertices in Å, each cell with its own.
+        (V, 3) float64 positions of the vertices in Å, each cell with its own.
     vertex_offsets : numpy.ndarray
         (N + 1,) int64: the vertices of the cell of atom ``i`` are
         ``vertex_offsets[i]:vertex_offsets[i + 1]``.
@@ -39,10 +39,10 @@ class VoronoiPolyhedra(Result):
         (C,) int64 vertex of each corner, counterclockwise seen from outside
         the cell.
     j : numpy.ndarray
-        (F,) the atom across each face, or -1 for a wall of the box, of
+        (F,) int32, the atom across each face, or -1 for a wall of the box, of
         ``mdapy.index_dtype``.
     areas : numpy.ndarray
-        (F,) area of each face in Å².
+        (F,) float64 area of each face in Å².
     """
 
     vertices: np.ndarray
@@ -61,21 +61,21 @@ class VoronoiResult(Result):
     Attributes
     ----------
     volume : numpy.ndarray
-        (N,) volume of each cell in Å³.
+        (N,) float64 volume of each cell in Å³.
     coordination : numpy.ndarray
         (N,) int64 number of faces that count shared with other atoms.
     radius : numpy.ndarray
-        (N,) distance from each atom to the farthest vertex of its cell, in Å.
+        (N,) float64 distance from each atom to the farthest vertex of its cell, in Å.
     offsets : numpy.ndarray or None
         (N + 1,) int64: the faces that count of atom ``i`` are
         ``offsets[i]:offsets[i + 1]``; with the faces.
     j : numpy.ndarray or None
-        (F,) the atom across each face, or -1 for a wall of the box, of
+        (F,) int32, the atom across each face, or -1 for a wall of the box, of
         ``mdapy.index_dtype``; with the faces.
     shifts : numpy.ndarray or None
         (F, 3) int8 periodic image of that atom; with the faces.
     areas : numpy.ndarray or None
-        (F,) area of each face in Å²; with the faces.
+        (F,) float64 area of each face in Å²; with the faces.
     edges : numpy.ndarray or None
         (F,) int32 number of edges of each face that count; with the faces.
     polyhedra : VoronoiPolyhedra or None
@@ -97,7 +97,7 @@ class VoronoiResult(Result):
 
         Parameters
         ----------
-        largest : int, optional
+        largest : int32, optional
             The largest number of edges counted. Default 8.
 
         Returns
@@ -140,12 +140,12 @@ class VoronoiAnalysis:
 
     Parameters
     ----------
-    face_threshold : float, optional
+    face_threshold : float64, optional
         Faces of this area or less, in Å², do not count. Default 0.
-    relative_face_threshold : float, optional
+    relative_face_threshold : float64, optional
         Faces of this fraction of the surface of their cell or less do not
         count, from 0 to below 1. Default 0.
-    edge_threshold : float, optional
+    edge_threshold : float64, optional
         Edges shorter than this, in Å, do not count; faces with fewer than
         three edges that count do not count. Default 0.
     faces : bool, optional

@@ -77,7 +77,7 @@ xyz dumps can be read as [extended XYZ](extxyz.md).
 
 Vectors need all three components. Other columns, including the coordinate
 sets not used for the positions, keep their names and values; they are read
-as integers when their name starts with `i_` and as floats otherwise. Rows
+as `int64` when their name starts with `i_` and as `float64` otherwise. Rows
 keep the order of the file.
 
 When writing, `id` (or 1 to N), `type` (from the `type` column, or from the

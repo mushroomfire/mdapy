@@ -223,9 +223,9 @@ def build_crystal(
         One of ``mdapy.build.STRUCTURES``: "sc", "bcc", "fcc", "diamond",
         "cscl", "rocksalt", "zincblende", "fluorite", "l1_2", "perovskite",
         "hcp", "wurtzite", "lonsdaleite", "graphite" or "graphene".
-    a : float
+    a : float64
         Lattice constant in Å.
-    c : float, optional
+    c : float64, optional
         Lattice constant c of a hexagonal structure in Å; by default the
         ideal sqrt(8/3) a, and needed for graphite and graphene.
     elements : str or sequence of str, optional
@@ -235,7 +235,7 @@ def build_crystal(
         The crystal directions along the three box vectors: [hkl] in the
         cubic cell, orthogonal; or [uvw] or [hkil] in the hexagonal cell,
         linearly independent. Default the cell itself.
-    repeat : sequence of int, optional
+    repeat : sequence of int32, optional
         Number of periods along each box vector. Default (1, 1, 1).
 
     Returns

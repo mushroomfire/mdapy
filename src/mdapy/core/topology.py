@@ -167,7 +167,7 @@ class Topology:
         Parameters
         ----------
         mapping : numpy.ndarray
-            For each old atom index, its new index, or -1 if the atom is
+            (N,) int64, for each old atom index, its new index, or -1 if the atom is
             removed. Terms that contain a removed atom are dropped.
 
         Returns

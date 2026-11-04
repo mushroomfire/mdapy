@@ -32,9 +32,9 @@ class SurfaceRegions(Result):
     solid : numpy.ndarray
         (R,) bool whether each region is solid.
     volume : numpy.ndarray
-        (R,) volume of each region in Å³; infinite for the exterior one.
+        (R,) float64 volume of each region in Å³; infinite for the exterior one.
     area : numpy.ndarray
-        (R,) area of the surface around each region in Å².
+        (R,) float64 area of the surface around each region in Å².
     exterior : numpy.ndarray
         (R,) bool whether the region is the empty space around the atoms,
         out of a box that is not periodic.
@@ -69,9 +69,9 @@ class SurfaceMeshResult(Result):
         The surface, its normals pointing out of the solid.
     atoms : numpy.ndarray
         (V,) int64 the atom at each vertex of the mesh.
-    area : float
+    area : float64
         Area of the surface in Å².
-    solid_volume : float
+    solid_volume : float64
         Volume of the solid in Å³.
     regions : SurfaceRegions or None
         The solid and empty regions, when asked for.
@@ -96,12 +96,12 @@ class SurfaceMesh:
 
     Parameters
     ----------
-    radius : float, optional
+    radius : float64, optional
         Radius of the probe sphere in Å: the tetrahedra of the Delaunay
         tessellation of the atoms whose circumscribed sphere is smaller are
         solid. Larger than the distance between neighbors, and smaller than
         the voids looked for. Default 4.
-    smoothing : int, optional
+    smoothing : int32, optional
         Number of smoothing steps of the mesh, which round its shape and
         keep the volumes. Default 8.
     regions : bool, optional

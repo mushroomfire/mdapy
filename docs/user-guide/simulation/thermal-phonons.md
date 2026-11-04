@@ -66,15 +66,15 @@ neighbors further from where they rest.*
 |---|---|---|---|---|
 | `cell` | `System` | | | the cell of the crystal, relaxed, periodic in every direction, with an `element` column; best its primitive cell |
 | `potential` | `LAMMPS` | | | the interaction |
-| `temperature` | float | | K | the temperature |
-| `supercell` | int, 3 ints or (3, 3) ints | | | as in [`phonons`](phonons.md); by default the supercell nearest a cube that is at least twice the cutoff of the potential thick in every direction |
-| `pressure` | float or None | 0 | GPa | the pressure at which the box takes its mean size first, with the symmetry of the crystal; `None` to keep the box of `cell` |
-| `timestep` | float | 0.001 | ps | the time step |
-| `equilibration` | float | 10 | ps | the time of each equilibration |
-| `production` | float | 100 | ps | the time over which the frames are taken |
-| `frames` | int | 200 | | the number of frames |
-| `symmetry` | bool or None | `None` | | average the force constants over the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
-| `seed` | int | 1 | | the seed of the random numbers |
+| `temperature` | float64 | | K | the temperature |
+| `supercell` | int32, (3,) int32 or (3, 3) int32 | | | as in [`phonons`](phonons.md); by default the supercell nearest a cube that is at least twice the cutoff of the potential thick in every direction |
+| `pressure` | float64 or `None` | 0 | GPa | the pressure at which the box takes its mean size first, with the symmetry of the crystal; `None` to keep the box of `cell` |
+| `timestep` | float64 | 0.001 | ps | the time step |
+| `equilibration` | float64 | 10 | ps | the time of each equilibration |
+| `production` | float64 | 100 | ps | the time over which the frames are taken |
+| `frames` | int32 | 200 | | the number of frames |
+| `symmetry` | bool or `None` | `None` | | average the force constants over the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
+| `seed` | int32 | 1 | | the seed of the random numbers |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the calculation, which raises `Cancelled` |
 
@@ -101,8 +101,8 @@ result = phonons_from_frames(cell, frames, supercell=4)
 |---|---|---|---|
 | `cell` | `System` | | the cell of the crystal with the atoms at their places at the volume of the frames, periodic in every direction, with an `element` or a `mass` column |
 | `frames` | iterable of `System` | | the atoms of the supercell, with `forces` |
-| `supercell` | int, 3 ints or (3, 3) ints | | repeats of the cell |
-| `symmetry` | bool or None | `None` | as above |
+| `supercell` | int32, (3,) int32 or (3, 3) int32 | | repeats of the cell |
+| `symmetry` | bool or `None` | `None` | as above |
 
 ## Definition
 

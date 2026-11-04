@@ -40,8 +40,9 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   [ASE](https://wiki.fysik.dtu.dk/ase/) are optional, and it carries no other
   third-party code.
 - **Robust.** Tests cover more than 99 % of the code and compare each feature with analytic
-  results and with mature software. Results are the same for any number of threads, and damaged files or
-  impossible inputs give a clear error, not a crash.
+  results and with mature software. All of them run automatically on Linux, macOS and
+  Windows. Results are the same for any number of threads, and damaged files or impossible
+  inputs give a clear error, not a crash.
 - **Fast.** The heavy parts run in C++, on a parallel engine of MDAPY's own. See the
   [benchmarks](https://mushroomfire.github.io/mdapy/performance/comparison/).
 - **Predictable.** Names say what the code does: `minimize`, `elastic_constants`,

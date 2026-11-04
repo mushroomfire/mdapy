@@ -39,7 +39,10 @@ def test_without_lammps(monkeypatch):
 def test_kokkos_is_shut_down_once_at_exit(monkeypatch):
     class Fake:
         def __init__(self, cmdargs):
-            self.cmdargs, self.finalized = cmdargs, False
+            self.cmdargs, self.finalized, self.lmp = cmdargs, False, object()
+
+        def close(self):
+            self.lmp = None
 
         def finalize(self):
             self.finalized = True
@@ -50,11 +53,15 @@ def test_kokkos_is_shut_down_once_at_exit(monkeypatch):
     monkeypatch.setattr(module.atexit, "register", registered.append)
     monkeypatch.setattr(module, "_kokkos", [])
     plain = module._lammps([])
+    closed = module._lammps(["-k", "on", "t", "2", "-sf", "kk"])
+    closed.close()
     first = module._lammps(["-k", "on", "t", "2", "-sf", "kk"])
     second = module._lammps(["-kokkos", "on"])
     assert "-nocite" in plain.cmdargs and registered == [module._finalize_kokkos]
-    module._finalize_kokkos()  # at exit, by the last instance with Kokkos
+    assert closed not in module._kokkos  # forgotten when the next one starts
+    module._finalize_kokkos()  # at exit: the others close, the last finalizes
     assert second.finalized and not first.finalized and not plain.finalized
+    assert first.lmp is None and plain.lmp is not None
 
 
 lammps = pytest.importorskip("lammps")
@@ -240,13 +247,19 @@ def test_kokkos_shuts_down_at_exit(tmp_path):
         f"""
         import mdapy
         from mdapy.calculators import LAMMPS
+        from mdapy.simulation import MolecularDynamics
         from tests.calculators.eam_files import alloy
         calculator = LAMMPS(
             "pair_style eam/alloy/kk\\npair_coeff * * {path} Cu Ni",
             ["Cu", "Ni"],
             cmdargs=["-k", "on", "t", "1", "-sf", "kk"],
         )
-        print(calculator.compute(alloy(seed=1)).energy)
+        system = alloy(seed=1)
+        print(calculator.compute(system).energy)
+        other = LAMMPS(calculator.pair, ["Cu", "Ni"], cmdargs=calculator.cmdargs)
+        other.compute(system)  # left open at exit, with the memory of Kokkos
+        with MolecularDynamics(system, calculator) as md:  # closed before exit
+            md.run(1)
         """
     )
     done = subprocess.run(
@@ -255,4 +268,5 @@ def test_kokkos_shuts_down_at_exit(tmp_path):
     if "GPU-enabled backend" in done.stderr + done.stdout:
         pytest.skip("LAMMPS with Kokkos for GPUs; the test runs it on threads")
     assert done.returncode == 0, done.stderr
+    assert "after Kokkos::finalize" not in done.stdout + done.stderr
     assert float(done.stdout) < 0

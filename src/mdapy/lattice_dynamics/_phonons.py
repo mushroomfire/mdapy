@@ -677,20 +677,31 @@ class Phonons:
             np.meshgrid(np.arange(-2, 3), np.arange(-2, 3), third, indexing="ij"), -1
         )
 
-        def images(geometry: System, a: int) -> np.ndarray:
-            """(M, I, 3) the vectors from atom a to the I images of each atom
-            of the supercell."""
+        def to_atoms(geometry: System, a: int) -> np.ndarray:
+            """(M, 3) the vectors from atom a to each atom of the supercell."""
             box, positions = geometry.box.matrix, geometry["positions"]
             atoms = ((repeats @ box)[:, None, :] + positions[None]).reshape(-1, 3)
-            shifts = grid.reshape(-1, 3) @ (self.supercell @ box)
-            return (atoms - positions[a])[:, None, :] + shifts[None]
+            return atoms - positions[a]
+
+        def images(geometry: System, a: int, nearest: np.ndarray) -> np.ndarray:
+            """(M, I, 3) the vectors from atom a to the I images of each atom
+            of the supercell, around the image given by nearest."""
+            big = self.supercell @ geometry.box.matrix
+            shifts = grid.reshape(-1, 3) @ big
+            return (to_atoms(geometry, a) + nearest @ big)[:, None, :] + shifts[None]
 
         # each pair at its shortest distances in the supercell, shared
         # equally among the images that are as short
         first, second, vectors, weights = [], [], [], []
         for a in range(n):
-            here = images(cell, a)
-            chosen = here if reference is None else images(reference, a)
+            # atoms may be any number of periods away from each other
+            nearest = -np.round(
+                to_atoms(cell, a) @ np.linalg.inv(self.supercell @ matrix)
+            )
+            if self.__sheet:
+                nearest[:, 2] = 0.0  # no images along the height of a sheet
+            here = images(cell, a, nearest)
+            chosen = here if reference is None else images(reference, a, nearest)
             lengths = np.linalg.norm(chosen, axis=2)
             shortest = lengths.min(axis=1, keepdims=True)
             near = lengths < shortest + 1e-5 * (1.0 + shortest)

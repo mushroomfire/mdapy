@@ -17,6 +17,7 @@ from mdapy import units
 from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS
 from mdapy.core.threads import CancelToken
+from mdapy.elements import atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 from mdapy.lattice_dynamics import phonons, primitive_cell
 from mdapy.simulation import FreeEnergyResult, free_energy, minimize
@@ -58,6 +59,63 @@ def classical_harmonic(cell, potential, temperature):
     kt = units.BOLTZMANN * temperature
     vibrations = 3 * kt * np.log(units.PLANCK * frequencies / kt).mean()
     return potential.compute(cell).energy / n, vibrations
+
+
+def test_two_atoms_against_the_integral_over_their_positions():
+    """Two atoms need no assumption about a crystal: their partition function is an
+    integral over their separation, with every term of finite size in it. The center
+    of mass with 1/V instead of N/V would be off by kT/N ln N, here 1.2 meV."""
+    epsilon, sigma, cut, temperature = 0.0104, 3.4, 8.5, 40.0
+    potential = LAMMPS(
+        f"pair_style lj/smooth/linear {cut}\npair_coeff * * {epsilon} {sigma}",
+        ["Ar"],
+        cutoff=cut,
+    )
+    cell = minimize(
+        build_crystal("bcc", 4.2, elements="Ar"),
+        potential,
+        cell="full",
+        max_stress=1e-6,
+        max_force=1e-8,
+        max_steps=3000,
+    ).system
+    a = cell.box.matrix[0, 0]
+
+    def pair(r):
+        def lj(x):
+            return 4 * epsilon * ((sigma / x) ** 12 - (sigma / x) ** 6)
+
+        slope = 4 * epsilon * (-12 * sigma**12 / cut**13 + 6 * sigma**6 / cut**7)
+        return np.where(r < cut, lj(r) - lj(cut) - (r - cut) * slope, 0.0)
+
+    reach = np.arange(-3, 4)
+    images = np.stack(np.meshgrid(reach, reach, reach), -1).reshape(-1, 3) * a
+    own = pair(np.linalg.norm(images[np.abs(images).sum(axis=1) > 0], axis=1)).sum()
+    rest = potential.compute(cell).energy
+    kt = units.BOLTZMANN * temperature
+    grid = (np.arange(96) + 0.5) / 96 * a
+    y, z = np.meshgrid(grid, grid, indexing="ij")
+    total = 0.0
+    for x in grid:
+        separation = np.stack([np.full_like(y, x), y, z], -1)[:, :, None] + images
+        energy = pair(np.linalg.norm(separation, axis=-1)).sum(axis=-1) + own
+        total += np.exp(-(energy - rest) / kt).sum()
+    integral = total * (a / 96) ** 3
+    squared = units.PLANCK**2 / (
+        2 * np.pi * atomic_masses(["Ar"])[0] * units.AMU_A2_PER_PS2_TO_EV * kt
+    )
+    expected = rest / 2 - kt / 2 * np.log(a**3 * integral / (2 * squared**3))
+    counter = module._Progress(10**12, None, None)
+    springs = module._spring_constants(
+        cell, potential, temperature, 0.002, 5000, 3, counter
+    )
+    values = [
+        module._frenkel_ladd(
+            cell, potential, temperature, springs, 0.002, 2000, 15000, 11 + k, counter
+        )[0]
+        for k in range(6)
+    ]
+    assert np.mean(values) == pytest.approx(expected, abs=1.5e-4)
 
 
 def test_a_cold_crystal_is_harmonic(argon):

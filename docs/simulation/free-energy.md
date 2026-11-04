@@ -54,9 +54,11 @@ with plot.style():
 ![Free energy of solid and liquid copper](images/free-energy.png)
 
 *Copper with the EAM potential of Mishin et al., 5324 atoms: the liquid has the lower
-free energy above 1328 K, with 1331 K for 2048 atoms. The
-[two-phase method](melting-point.md) gives 1320 to 1333 K for this potential. A
-millielectronvolt per atom is 11 K here.*
+free energy above 1328 K. A millielectronvolt per atom is 11 K here.*
+
+These are the free energies of exactly these atoms in their periodic box, so they depend
+a little on the number of atoms, and so does where the phases meet: 2048 atoms of the same
+copper give 1331 K.
 
 !!! warning "A smooth potential"
     The potential must be continuous at its cutoff, as those fitted for metals

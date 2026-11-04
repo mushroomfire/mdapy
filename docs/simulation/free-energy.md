@@ -17,23 +17,24 @@ potential = LAMMPS(
     "pair_style eam/alloy\npair_coeff * * Cu_mishin1.eam.alloy Cu", elements=["Cu"]
 )
 crystal = minimize(
-    build_crystal("fcc", 3.615, elements="Cu", repeat=(8, 8, 8)),
+    build_crystal("fcc", 3.615, elements="Cu", repeat=(11, 11, 11)),
     potential,
     cell="full",
     max_stress=1e-4,
 ).system
 
 temperatures = np.arange(1000.0, 1601.0, 25.0)
-solid = free_energy(crystal, potential, temperatures, switching=100, scan=300)
+options = dict(switching=100, scan=300, repeats=2)
+solid = free_energy(crystal, potential, temperatures, **options)
 liquid = free_energy(
-    crystal, potential, temperatures[::-1], phase="liquid", switching=100, scan=300
+    crystal, potential, temperatures[::-1], phase="liquid", equilibration=15, **options
 )
 solid.free_energy  # eV per atom at each temperature
 melting = solid.crossing(liquid)
-melting.temperature, melting.latent_heat  # K, eV per atom
+melting.temperature, melting.latent_heat  # 1328 K, 0.124 eV per atom
 ```
 
-The two phases of copper cross at its melting point:
+The two phases of copper meet at its melting point:
 
 <!-- skip-test -->
 ```python
@@ -41,18 +42,20 @@ from mdapy.visualization import plot
 
 with plot.style():
     fig, ax = plot.figure("single")
-    ax.plot(solid.temperatures, solid.free_energy, label="solid")
-    ax.plot(liquid.temperatures, liquid.free_energy, label="liquid")
+    difference = liquid.free_energy[::-1] - solid.free_energy
+    ax.plot(solid.temperatures, 1e3 * difference)
+    ax.axhline(0.0, color="0.75", lw=0.5, zorder=0)
     ax.axvline(melting.temperature, color="0.6", lw=0.8)
     ax.set_xlabel("Temperature (K)")
-    ax.set_ylabel("Gibbs energy (eV/atom)")
-    ax.legend(frameon=False)
+    ax.set_ylabel(r"$G_\mathrm{liquid} - G_\mathrm{solid}$ (meV/atom)")
     plot.save(fig, "images/free-energy", formats=("png",))
 ```
 
 ![Free energy of solid and liquid copper](images/free-energy.png)
 
-*CAPTION_FREE_ENERGY*
+*Copper with the EAM potential of Mishin et al., 5324 atoms: the liquid has the lower
+free energy above 1328 K, the melting point its authors found being 1327 K. A
+millielectronvolt per atom is 11 K here.*
 
 !!! warning "A smooth potential"
     The potential must be continuous at its cutoff, as those fitted for metals
@@ -89,8 +92,8 @@ Solids start from the first temperature low, near where the crystal is stable, a
 go up; liquids start high and come down. A crystal heated too far melts, and a
 liquid cooled too far freezes: when the enthalpy of a scan shows this, the scan is
 run again short of there, and the temperatures beyond are left out with a warning.
-Near the melting point a crystal in a scan of 100 ps keeps its structure up to about
-1.2 times its melting point.
+In a scan of 200 ps a crystal kept its structure up to about 1.2 times its melting
+point, for copper, aluminum and nickel.
 
 ## Results
 

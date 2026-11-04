@@ -15,6 +15,7 @@ from mdapy import units
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM, LAMMPS
 from mdapy.core.threads import CancelToken
+from mdapy.elements import atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 from mdapy.lattice_dynamics import (
     phonons,
@@ -130,6 +131,47 @@ def test_invalid_frames(potential):
     open_box = cell.with_box(mdapy.Box(cell.box.matrix, pbc=(True, True, False)))
     with pytest.raises(InvalidParameter, match="periodic"):
         phonons_from_frames(open_box, frames, supercell=3)
+
+
+def test_against_symfc(potential):
+    """The same frames in phonopy, whose fit with symfc is a mature version of this."""
+    phonopy = pytest.importorskip("phonopy")
+    pytest.importorskip("symfc")
+    from phonopy.structure.atoms import PhonopyAtoms
+
+    cell = relaxed(potential, "fcc")
+    counts = (3, 3, 3)
+    frames = shaken(cell, potential, counts, 0.15, 240)
+    ours = phonons_from_frames(cell, frames, supercell=np.diag(counts))
+    names = cell.table["element"].cast(str).to_list()
+    unit = PhonopyAtoms(
+        symbols=names,
+        cell=cell.box.matrix,
+        scaled_positions=cell.box.to_fractional(cell["positions"]),
+        masses=atomic_masses(names),
+    )
+    theirs = phonopy.Phonopy(
+        unit, supercell_matrix=np.diag(counts), primitive_matrix="P"
+    )
+    big = _supercell(cell, np.diag(counts))
+    apart = (
+        big.box.to_fractional(big["positions"])[:, None]
+        - theirs.supercell.scaled_positions
+    )
+    apart -= np.round(apart)
+    order = np.argmin(np.abs(apart).sum(axis=2), axis=0)
+    theirs.dataset = {
+        "displacements": np.array(
+            [(f["positions"] - big["positions"])[order] for f in frames]
+        ),
+        "forces": np.array([f["forces"][order] for f in frames]),
+    }
+    theirs.produce_force_constants(fc_calculator="symfc")
+    q = np.random.default_rng(0).random((20, 3)) - 0.5
+    theirs.run_qpoints(q)
+    np.testing.assert_allclose(
+        ours.frequencies(q), theirs.qpoints.frequencies, atol=0.05
+    )
 
 
 lammps = pytest.importorskip("lammps")

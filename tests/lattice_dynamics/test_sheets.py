@@ -205,6 +205,22 @@ def test_a_small_box_along_z_makes_no_images(springs):
     np.testing.assert_allclose(low.frequencies(q), high.frequencies(q), atol=1e-9)
 
 
+def test_atoms_far_apart_in_a_sheet(springs):
+    positions = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 2.6]])
+    q = [[0.1, 0.2, 0.0], [0.5, 0.0, 0.0], [1 / 3, 1 / 3, 0.0]]
+    tall = mdapy.System(positions, mdapy.Box(PLANE, pbc=SHEET), elements=["C", "C"])
+    expected = phonons(tall, springs, supercell=(5, 5, 1), symmetry=False)
+    low = PLANE.copy()
+    low[2, 2] = 1.0  # the two atoms are several box heights apart
+    moved = mdapy.System(
+        positions + np.array([[7, -5, 0], [-4, 11, 0]]) @ PLANE,
+        mdapy.Box(low, pbc=SHEET),
+        elements=["C", "C"],
+    )
+    found = phonons(moved, springs, supercell=(5, 5, 1), symmetry=False)
+    np.testing.assert_allclose(found.frequencies(q), expected.frequencies(q), atol=1e-9)
+
+
 def test_the_symmetry_of_a_sheet_gives_the_same_phonons(springs):
     pytest.importorskip("spglib")
     system = carbon(triangular())

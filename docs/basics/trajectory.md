@@ -37,6 +37,7 @@ the frames [move](#a-topology-for-the-frames). It returns a `Trajectory`:
 |---|---|
 | `trajectory[i]` | the frame `i`, read from the file; negative indices count from the end |
 | `trajectory[a:b:c]` | a `Trajectory` of the selected frames, sharing the open file |
+| `trajectory.file_of(i)` | the path of the file that holds frame `i`, without reading the frame |
 | `for frame in trajectory` | the frames in order, one at a time |
 | `len(trajectory)` | the number of frames |
 | `trajectory.path`, `trajectory.format` | the file, or the pattern or first file of several, and the format of the first file |

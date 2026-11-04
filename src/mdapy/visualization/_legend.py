@@ -16,7 +16,6 @@ from mdapy.visualization._scene import _color, colormap
 _FONT = 0.03
 _SMALLEST_FONT = 10.0
 _BAR_LENGTH = 7.0
-_PANEL_ALPHA = 0.75
 
 
 def _drawn(figure_size: tuple[int, int], draw: Any) -> np.ndarray:
@@ -38,31 +37,11 @@ def _drawn(figure_size: tuple[int, int], draw: Any) -> np.ndarray:
         figure.patch.set_alpha(0.0)
         axes = figure.add_axes((0.0, 0.0, 1.0, 1.0))
         axes.set_axis_off()
-        draw(axes, canvas.get_renderer())
+        draw(axes)
         axes.set_xlim(0, width)
         axes.set_ylim(height, 0)
         canvas.draw()
         return np.asarray(canvas.buffer_rgba(), dtype=float) / 255.0
-
-
-def _panel(axes: Any, renderer: Any, parts: list, margin: float, ink: Any) -> None:
-    """A panel in the color of the background behind what is drawn."""
-    from matplotlib.patches import Rectangle
-
-    boxes = [part.get_window_extent(renderer) for part in parts]
-    right = max(box.x1 for box in boxes) + 0.5 * margin
-    bottom = max(axes.figure.bbox.height - box.y0 for box in boxes) + 0.5 * margin
-    axes.add_patch(
-        Rectangle(
-            (0.5 * margin, 0.5 * margin),
-            right - 0.5 * margin,
-            bottom - 0.5 * margin,
-            facecolor=1.0 - ink,
-            alpha=_PANEL_ALPHA,
-            edgecolor="none",
-            zorder=0,
-        )
-    )
 
 
 def _with_legend(
@@ -83,17 +62,20 @@ def _with_legend(
     ink = np.zeros(3) if behind.mean() > 0.5 else np.ones(3)
     x, y = font, font
 
-    def draw(axes: Any, renderer: Any) -> None:
+    def draw(axes: Any) -> None:
         from matplotlib.patches import Circle
+        from matplotlib.patheffects import withStroke
 
-        # the same scale before anything is measured
-        axes.set_xlim(0, width)
-        axes.set_ylim(height, 0)
-        parts, top = [], y
+        # a thin edge in the color of the background keeps text over atoms legible
+        words = dict(
+            fontsize=points,
+            color=ink,
+            zorder=2,
+            path_effects=[withStroke(linewidth=0.15 * font, foreground=1.0 - ink)],
+        )
+        top = y
         if title:
-            parts.append(
-                axes.text(x, top, title, fontsize=points, color=ink, va="top", zorder=2)
-            )
+            axes.text(x, top, title, va="top", **words)
             top += 1.4 * font
         for k, name in enumerate(names):
             middle = top + (k + 0.5) * 1.3 * font
@@ -107,17 +89,7 @@ def _with_legend(
                     zorder=2,
                 )
             )
-            parts.append(
-                axes.text(
-                    x + 1.1 * font,
-                    middle,
-                    name,
-                    fontsize=points,
-                    color=ink,
-                    va="center",
-                    zorder=2,
-                )
-            )
+            axes.text(x + 1.1 * font, middle, name, va="center", **words)
         if bar is not None:
             low, high, name = bar
             length = _BAR_LENGTH * font
@@ -133,21 +105,7 @@ def _with_legend(
                 (high, top, "top"),
                 (low, top + length, "bottom"),
             ):
-                parts.append(
-                    axes.text(
-                        x + 1.3 * font,
-                        where,
-                        f"{value:.3g}",
-                        fontsize=points,
-                        color=ink,
-                        va=align,
-                        zorder=2,
-                    )
-                )
-            # the text of the bar is not lower than the bar, and imshow set limits
-            axes.set_xlim(0, width)
-            axes.set_ylim(height, 0)
-        _panel(axes, renderer, parts, font, ink)
+                axes.text(x + 1.3 * font, where, f"{value:.3g}", va=align, **words)
 
     overlay = _drawn((height, width), draw)
     alpha = overlay[:, :, 3:]

@@ -21,17 +21,19 @@
   <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/index.md">Documentation</a> ·
   <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/quick-tour.md">Quick tour</a> ·
   <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/learn/table.md">Lessons</a> ·
-  <a href="#examples">Examples</a> ·
-  <a href="#install">Install</a> ·
-  <a href="#tests">Tests</a> ·
-  <a href="#citing-mdapy">Cite</a>
+  <a href="#-examples">Examples</a> ·
+  <a href="#-install">Install</a> ·
+  <a href="#-tests">Tests</a> ·
+  <a href="#-citing-mdapy">Cite</a>
 </p>
 
 > **MDAPY 2.0 is a complete rewrite and is not compatible with MDAPY 1.x.** It brings many
 > more features, and we recommend upgrading. The code of 1.x stays on the branch
 > [`1.x`](https://github.com/mushroomfire/mdapy/tree/1.x).
 
-## Why MDAPY
+If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/mdapy).
+
+## 💡 Why MDAPY
 
 - **Light.** [NumPy](https://numpy.org) and [polars](https://pola.rs) are its only
   requirements. Packages such as [matplotlib](https://matplotlib.org) or
@@ -57,7 +59,7 @@
   results and its references, and [lessons](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/learn/table.md) lead
   from the first structure on.
 
-## What it does
+## 🧰 What it does
 
 | Area | What is in it |
 |---|---|
@@ -68,7 +70,7 @@
 | [**Visualize**](https://github.com/mushroomfire/mdapy/blob/v2/docs/visualization/rendering.md) | Ray-traced pictures on the processor or the graphics card, movies and plots |
 | [**Exchange**](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/io.md) | Eight file formats, and systems shared with [ASE](https://wiki.fysik.dtu.dk/ase/), [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and [freud](https://freud.readthedocs.io) |
 
-## Examples
+## 🎨 Examples
 
 One copper polycrystal, from nothing to a movie.
 
@@ -154,7 +156,7 @@ with plot.style():
 See [A movie that flies through a crystal](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/movie.md)
 for the whole script.
 
-## Install
+## 📦 Install
 
 ```bash
 pip install mdapy
@@ -164,7 +166,7 @@ MDAPY needs Python 3.11 or newer. [Installation](https://github.com/mushroomfire
 describes the other ways to install it, from a source archive or from git, what those need,
 and the optional packages.
 
-## Tests
+## 🧪 Tests
 
 ```bash
 git clone https://github.com/mushroomfire/mdapy.git
@@ -177,7 +179,7 @@ Tests that need another program are skipped where it is missing.
 [Contributing](https://github.com/mushroomfire/mdapy/blob/v2/docs/development/contributing.md#what-a-complete-run-needs) lists what a
 complete run needs.
 
-## Citing MDAPY
+## 📖 Citing MDAPY
 
 If MDAPY contributes to a publication, please cite:
 
@@ -185,13 +187,13 @@ If MDAPY contributes to a publication, please cite:
 > for molecular dynamics simulations*, Computer Physics Communications **290**, 108764
 > (2023). [doi:10.1016/j.cpc.2023.108764](https://doi.org/10.1016/j.cpc.2023.108764)
 
-## License
+## 📄 License
 
 Mozilla Public License 2.0, see [LICENSE](https://github.com/mushroomfire/mdapy/blob/v2/LICENSE):
 MDAPY may be used in any software, open or closed, and changes to its own files are
 shared under the same license.
 
-## Code history
+## 📜 Code history
 
 MDAPY has been written three times.
 

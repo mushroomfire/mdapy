@@ -164,18 +164,43 @@ class Trajectory(Sequence[System]):
             else:
                 selected = self.__indices[index]
             return Trajectory(self._frames, self.__options, selected, self.__topology)
+        return self.__read(self.__frame(index))
+
+    def __frame(self, index: int) -> int:
+        """The frame of the files at this index of the trajectory."""
         index = operator.index(index)
         if self.__indices is not None:
-            frame = self.__indices[index]  # raises IndexError
-        elif index >= 0:
+            return self.__indices[index]  # raises IndexError
+        if index >= 0:
             if not self._frames.known(index + 1):
                 raise IndexError(f"frame {index} is out of range")
-            frame = index
-        else:
-            frame = self._frames.total() + index
-            if frame < 0:
-                raise IndexError(f"frame {index} is out of range")
-        return self.__read(frame)
+            return index
+        frame = self._frames.total() + index
+        if frame < 0:
+            raise IndexError(f"frame {index} is out of range")
+        return frame
+
+    def file_of(self, index: int) -> str:
+        """The file that holds a frame, without reading the frame.
+
+        Parameters
+        ----------
+        index : int32
+            The index of the frame; negative ones count from the end.
+
+        Returns
+        -------
+        str
+            The path of the file.
+
+        Raises
+        ------
+        IndexError
+            If there is no such frame.
+        """
+        frame = self.__frame(index)
+        self._frames.known(frame + 1)
+        return self._frames.paths[self._frames.positions[frame][0]]
 
     def __iter__(self) -> Iterator[System]:
         if self.__indices is not None:

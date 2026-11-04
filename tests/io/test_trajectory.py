@@ -394,3 +394,34 @@ def test_a_format_given_or_a_name_of_no_format(tmp_path):
     )
     with pytest.raises(FileFormatError, match="b.data"):
         list(frames)
+
+
+def test_the_file_of_each_frame(tmp_path):
+    first, second = tmp_path / "a.xyz", tmp_path / "b.xyz"
+    mdapy.io.write(first, frames(2))
+    mdapy.io.write(second, frames(3))
+    trajectory = mdapy.io.read_trajectory([first, second])
+    # the frames are found as far as needed, in any order
+    assert trajectory.file_of(3) == str(second)
+    assert trajectory.file_of(0) == str(first)
+    assert [trajectory.file_of(k) for k in range(5)] == [str(first)] * 2 + [
+        str(second)
+    ] * 3
+    assert trajectory.file_of(-1) == str(second)
+    assert trajectory.file_of(-4) == str(first)
+    # of the selected frames
+    chosen = trajectory[1:4]
+    assert [chosen.file_of(k) for k in range(3)] == [
+        str(first),
+        str(second),
+        str(second),
+    ]
+    assert chosen.file_of(-1) == str(second)
+    # one file
+    one = mdapy.io.read_trajectory(first)
+    assert one.file_of(1) == str(first)
+    for wrong, bad in ((trajectory, 5), (trajectory, -6), (chosen, 3), (one, 2)):
+        with pytest.raises(IndexError):
+            wrong.file_of(bad)
+    with pytest.raises(TypeError):
+        trajectory.file_of(1.5)

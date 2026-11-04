@@ -103,7 +103,7 @@ def _wanted(symmetry: bool | None) -> bool:
 
 
 def _symmetry(system: System, symmetry: bool | None) -> _Operations | None:
-    """The symmetry operations of a cell when :func:`_wanted`, or None."""
+    """The symmetry operations of a cell when ``_wanted``, or None."""
     return _operations(system, _TOLERANCE) if _wanted(symmetry) else None
 
 
@@ -123,9 +123,9 @@ def _rotations(
     system: System, symmetry: bool | None, *matrices: np.ndarray
 ) -> np.ndarray:
     """(K, 3, 3) the distinct rotations on Cartesian columns of the symmetry
-    operations of a cell, when :func:`_wanted`, that keep the lattices of the
+    operations of a cell, when ``_wanted``, that keep the lattices of the
     matrices; the identity alone without symmetry. The rotations alone, from
-    the dataset: mapping the atoms, as :func:`_operations` does, would take
+    the dataset: mapping the atoms, as ``_operations`` does, would take
     seconds for a cell of a few hundred atoms with its many translations."""
     if not _wanted(symmetry):
         return np.eye(3)[None]

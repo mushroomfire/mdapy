@@ -15,7 +15,7 @@ class Result:
     """Results of an analysis: immutable, with read-only arrays.
 
     ``System.with_columns(result)`` adds the per-atom values of
-    :meth:`columns` to a system.
+    ``columns`` to a system.
     """
 
     def __post_init__(self):

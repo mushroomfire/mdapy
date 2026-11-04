@@ -43,7 +43,7 @@ CELL_MODES = (None, "isotropic", "axes", "full")
 
 @dataclass(frozen=True)
 class MinimizeResult(Result):
-    """The outcome of :func:`minimize`.
+    """The outcome of ``minimize``.
 
     Attributes
     ----------

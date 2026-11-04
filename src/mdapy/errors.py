@@ -56,7 +56,7 @@ class FileFormatError(MdapyError, ValueError):
 
 
 class Cancelled(MdapyError):
-    """A computation was stopped through a :class:`mdapy.CancelToken`."""
+    """A computation was stopped through a ``mdapy.CancelToken``."""
 
 
 class CalculationFailed(MdapyError, RuntimeError):

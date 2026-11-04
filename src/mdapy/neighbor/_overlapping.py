@@ -46,7 +46,7 @@ def find_overlapping(
     ------
     InvalidParameter
         If atoms is not a mask or indices of the system, and as
-        :meth:`NeighborList.build` for the distance.
+        ``NeighborList.build`` for the distance.
     """
     considered = (
         np.ones(len(system), dtype=bool) if atoms is None else _mask(atoms, len(system))

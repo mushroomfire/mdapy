@@ -204,7 +204,7 @@ class EAM(Calculator):
         Returns
         -------
         EAM
-            The potential, written to a file with :meth:`write`.
+            The potential, written to a file with ``write``.
         """
         return cls.__built(_zhou.tables(list(elements), nr, nrho))
 
@@ -221,7 +221,7 @@ class EAM(Calculator):
         -------
         EAM
             A potential in which every atom is the average atom, whatever its
-            element. :meth:`write` writes it with the elements of this
+            element. ``write`` writes it with the elements of this
             potential and the average atom, named ``A``, last.
         """
         if self.__average:

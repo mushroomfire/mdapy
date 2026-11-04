@@ -132,7 +132,7 @@ def vacancy_formation_energy(
         The atom removed. Default 0.
     cell : {None, "isotropic", "axes", "full"}, optional
         How the box relaxes, for both crystals, as in
-        :func:`mdapy.simulation.minimize`. Default None, a fixed box.
+        ``mdapy.simulation.minimize``. Default None, a fixed box.
     max_force : float64, optional
         Convergence of the minimizations in eV/Å. Default 1e-4.
     max_steps : int32, optional

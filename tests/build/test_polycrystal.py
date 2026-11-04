@@ -10,11 +10,14 @@ import mdapy
 from mdapy.build import (
     build_crystal,
     build_polycrystal,
+    gradient_seeds,
     random_rotations,
+    rotations_about,
     twin_lamellae,
 )
 from mdapy.errors import InvalidParameter
 from mdapy.identify import CommonNeighborAnalysis
+from mdapy.neighbor import NeighborList
 
 A = 3.615
 FCC111 = [(1, 1, -2), (-1, 1, 0), (1, 1, 1)]
@@ -184,3 +187,125 @@ def test_errors():
         build_polycrystal(unit(), mdapy.Box(30.0, pbc=(True, True, False)), 2)
     with pytest.raises(InvalidParameter, match="unit must be a periodic box"):
         build_polycrystal(unit().with_box(mdapy.Box(A, pbc=False)), box, 2)
+
+
+def test_rotations_about_each_axis():
+    quarter = rotations_about("z", [90.0, 0.0])
+    assert quarter.shape == (2, 3, 3)
+    np.testing.assert_allclose(quarter[0] @ [1.0, 0.0, 0.0], [0, 1, 0], atol=1e-14)
+    np.testing.assert_allclose(quarter[1], np.eye(3))
+    # counterclockwise seen from the end of each axis: x to y, y to z, z to x
+    for axis, name, start, end in ((2, "z", 0, 1), (0, "x", 1, 2), (1, "y", 2, 0)):
+        r = rotations_about(name, 90.0)
+        np.testing.assert_allclose(r, rotations_about(axis, [90.0]))
+        np.testing.assert_allclose(r[0] @ np.eye(3)[start], np.eye(3)[end], atol=1e-14)
+    angles = np.array([12.0, 77.0, 200.0])
+    for r in rotations_about("y", angles):
+        np.testing.assert_allclose(r @ r.T, np.eye(3), atol=1e-14)
+        assert np.linalg.det(r) == pytest.approx(1.0)
+    with pytest.raises(InvalidParameter, match="one number or a list"):
+        rotations_about("z", np.zeros((2, 2)))
+    with pytest.raises(InvalidParameter, match="axis must be"):
+        rotations_about("w", 10.0)
+
+
+def _expected_seeds(sizes, volume, edges, power, factor):
+    """Grains of the sizes between edges of fractions: the integral of the density."""
+    sizes = np.asarray(sizes, dtype=float)
+    fractions = np.linspace(0.0, 1.0, 20001)
+    density = factor * volume / np.interp(fractions, *sizes.T) ** power
+    total = np.concatenate(
+        [[0.0], np.cumsum(0.5 * (density[1:] + density[:-1]) * np.diff(fractions))]
+    )
+    return np.diff(np.interp(edges, fractions, total))
+
+
+@pytest.mark.parametrize(
+    "sizes",
+    [
+        [(0, 20), (1, 20)],
+        [(0, 15), (1, 60)],
+        [(0, 60), (1, 15)],
+        [(0, 15), (0.5, 60), (1, 15)],
+        [(0, 15), (0.25, 60), (1, 25)],
+    ],
+    ids=["even", "one side", "reversed", "both sides", "uneven"],
+)
+def test_gradient_seeds_follow_the_density_of_the_sizes(sizes):
+    box = mdapy.Box([100.0, 100.0, 600.0], origin=[5.0, -3.0, 2.0])
+    seeds = gradient_seeds(box, sizes, seed=1)
+    fractions = box.to_fractional(seeds)
+    assert (fractions >= 0).all() and (fractions <= 1).all()
+    edges = np.linspace(0.0, 1.0, 7)
+    expected = _expected_seeds(sizes, box.volume, edges, 3, 6.0 / np.pi)
+    assert len(seeds) == round(expected.sum())
+    # each seed has its own equal share of the total, so no slab is off by more than one
+    found, _ = np.histogram(fractions[:, 2], bins=edges)
+    assert np.abs(found - expected).max() <= 1.5
+
+
+def test_gradient_seeds_along_another_axis_in_columns():
+    box = mdapy.Box([400.0, 7.0, 200.0])
+    sizes = [(0, 20), (1, 50)]
+    seeds = gradient_seeds(box, sizes, axis="x", columns=1, seed=2)
+    assert np.all(seeds[:, 1] == box.origin[1])
+    edges = np.linspace(0.0, 1.0, 5)
+    expected = _expected_seeds(sizes, 400.0 * 200.0, edges, 2, 4.0 / np.pi)
+    assert len(seeds) == round(expected.sum())
+    found, _ = np.histogram(seeds[:, 0] / 400.0, bins=edges)
+    assert np.abs(found - expected).max() <= 1.5
+    # thickness does not count
+    thick = mdapy.Box([400.0, 70.0, 200.0])
+    assert len(gradient_seeds(thick, sizes, axis=0, columns="y", seed=2)) == len(seeds)
+
+
+def test_gradient_seeds_keep_apart_and_repeat():
+    box = mdapy.Box([120.0, 120.0, 240.0])
+    sizes = [(0, 30), (1, 30)]
+    seeds = gradient_seeds(box, sizes, seed=3)
+    np.testing.assert_array_equal(seeds, gradient_seeds(box.matrix, sizes, seed=3))
+    generator = np.random.default_rng(3)
+    np.testing.assert_array_equal(seeds, gradient_seeds(box, sizes, seed=generator))
+    assert not np.array_equal(seeds, gradient_seeds(box, sizes, seed=4))
+    # closer to even than seeds at random, whose nearest may be arbitrarily close
+    nearest = NeighborList.build(mdapy.System(seeds, box), num_neighbors=1).distances
+    assert nearest.min() > 0.4 * 30.0
+    # one grain when the box holds less
+    assert len(gradient_seeds(mdapy.Box(10.0), [(0, 100), (1, 100)], seed=1)) == 1
+
+
+def test_a_gradient_polycrystal_has_the_grain_sizes_asked():
+    a = 3.615
+    unit = build_crystal("fcc", a, elements="Cu")
+    box = mdapy.Box([100.0, 100.0, 400.0])
+    sizes = [(0, 25), (1, 65)]
+    seeds = gradient_seeds(box, sizes, seed=2)
+    grains = build_polycrystal(unit, box, seeds, seed=2)
+    atoms = np.bincount(grains.table["grain"].to_numpy(), minlength=len(seeds))
+    diameter = (6.0 * atoms * a**3 / 4.0 / np.pi) ** (1.0 / 3.0)
+    where = seeds[:, 2] / 400.0
+    for low, high in ((0.0, 0.25), (0.25, 0.5), (0.5, 0.75)):
+        chosen = (where >= low) & (where < high)
+        target = 25.0 + 40.0 * 0.5 * (low + high)
+        assert diameter[chosen].mean() == pytest.approx(target, rel=0.1)
+
+
+@pytest.mark.parametrize(
+    "sizes, message",
+    [
+        ([20.0, 30.0], "pairs of a position"),
+        ([(0, 20)], "pairs of a position"),
+        ([(0.1, 20), (1, 30)], "increase from 0 to 1"),
+        ([(0, 20), (0.9, 30)], "increase from 0 to 1"),
+        ([(0, 20), (0.5, 30), (0.5, 20), (1, 30)], "increase from 0 to 1"),
+        ([(0, 20), (1, 0)], "must be positive"),
+    ],
+)
+def test_gradient_seeds_errors(sizes, message):
+    with pytest.raises(InvalidParameter, match=message):
+        gradient_seeds(mdapy.Box(100.0), sizes)
+
+
+def test_gradient_seeds_not_along_the_columns():
+    with pytest.raises(InvalidParameter, match="along the columns"):
+        gradient_seeds(mdapy.Box(100.0), [(0, 20), (1, 30)], axis="z", columns=2)

@@ -185,7 +185,7 @@ class Box:
             Angles in degrees between **b** and **c**, **a** and **c**, and
             **a** and **b**. Default 90.
         origin, pbc
-            As for :class:`Box`.
+            As for ``Box``.
 
         Raises
         ------
@@ -255,7 +255,7 @@ class Box:
         tilt : array_like of float64, optional
             Tilt factors (xy, xz, yz) in Å. Default zero.
         pbc
-            As for :class:`Box`.
+            As for ``Box``.
         """
         lo = np.asarray(lo, dtype=np.float64)
         length = np.asarray(hi, dtype=np.float64) - lo
@@ -284,7 +284,7 @@ class Box:
 
     @property
     def inverse(self) -> np.ndarray:
-        """(3, 3) inverse of :attr:`matrix`. Read-only."""
+        """(3, 3) inverse of ``matrix``. Read-only."""
         return self.__inverse
 
     @property
@@ -346,7 +346,7 @@ class Box:
         -------
         numpy.ndarray
             (..., 3) float64 coordinates in units of the lattice vectors, relative to
-            :attr:`origin`.
+            ``origin``.
         """
         return (
             np.asarray(positions, dtype=np.float64) - self.__origin

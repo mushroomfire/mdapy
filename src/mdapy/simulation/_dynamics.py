@@ -354,7 +354,7 @@ create_box {len(potential.elements)} box
         progress : callable, optional
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
-            Stops the run, which raises :class:`mdapy.errors.Cancelled`.
+            Stops the run, which raises ``mdapy.errors.Cancelled``.
 
         Raises
         ------

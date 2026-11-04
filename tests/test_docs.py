@@ -100,6 +100,13 @@ def test_the_python_api_lists_every_public_name():
     assert not missing
 
 
+def test_docstrings_have_no_roles_of_sphinx():
+    # the API pages are Markdown: :meth:`sort` would show as it is written
+    role = re.compile(r":(?:meth|func|class|data|attr|mod|exc|obj|ref):`")
+    for path in sorted((DOCS.parent / "src" / "mdapy").rglob("*.py")):
+        assert not role.search(path.read_text()), path
+
+
 def test_tables_and_docstrings_give_exact_types():
     bare = re.compile(r"\b(ints?|floats?|f64|numpy\.ndarray)\b|\) array\b")
     found = []

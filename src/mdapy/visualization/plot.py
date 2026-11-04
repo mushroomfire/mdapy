@@ -87,7 +87,7 @@ def _pyplot() -> Any:
 
 @contextmanager
 def style() -> Iterator[None]:
-    """A context in which matplotlib uses :data:`STYLE` and :data:`COLORS`."""
+    """A context in which matplotlib uses ``STYLE`` and ``COLORS``."""
     plt = _pyplot()
     from cycler import cycler
 
@@ -319,7 +319,7 @@ def scatter(
 
 def rdf(result: Any, *, ax: Any = None, partial: bool = False) -> Any:
     """The radial distribution function, and optionally its partial
-    functions, of a :class:`mdapy.analysis.RadialDistributionResult`."""
+    functions, of a ``mdapy.analysis.RadialDistributionResult``."""
     ax = _axes(ax)
     if partial:
         for (a, b), g in result.partial.items():
@@ -335,7 +335,7 @@ def rdf(result: Any, *, ax: Any = None, partial: bool = False) -> Any:
 
 
 def structure_factor(result: Any, *, ax: Any = None) -> Any:
-    """The structure factor of a :class:`mdapy.analysis.StructureFactorResult`."""
+    """The structure factor of a ``mdapy.analysis.StructureFactorResult``."""
     ax = _axes(ax)
     ax.plot(result.q, result.s)
     ax.set_xlabel("q (1/Å)")
@@ -345,7 +345,7 @@ def structure_factor(result: Any, *, ax: Any = None) -> Any:
 
 def bond_angles(result: Any, *, ax: Any = None) -> Any:
     """The bond angle distribution of a
-    :class:`mdapy.analysis.BondAngleResult`."""
+    ``mdapy.analysis.BondAngleResult``."""
     ax = _axes(ax)
     ax.plot(result.angle, result.density)
     ax.set_xlabel("bond angle (°)")
@@ -362,7 +362,7 @@ def msd(
     fit: tuple[int, int] | None = None,
 ) -> Any:
     """The mean squared displacement of a
-    :class:`mdapy.analysis.DisplacementResult` against time, with a fit of
+    ``mdapy.analysis.DisplacementResult`` against time, with a fit of
     the diffusion coefficient.
 
     Parameters
@@ -403,7 +403,7 @@ def msd(
 
 def stacking_fault(result: Any, *, ax: Any = None, **options: Any) -> Any:
     """The generalized stacking fault energy of a
-    :class:`mdapy.simulation.StackingFaultResult`, in mJ/m²: a point for each
+    ``mdapy.simulation.StackingFaultResult``, in mJ/m²: a point for each
     slip computed, joined by a line. ``options`` go to ``ax.plot``, such as
     ``label``."""
     ax = _axes(ax)
@@ -416,7 +416,7 @@ def stacking_fault(result: Any, *, ax: Any = None, **options: Any) -> Any:
 
 def band_structure(result: Any, *, ax: Any = None, color: str | None = None) -> Any:
     """The phonon frequencies of a
-    :class:`mdapy.lattice_dynamics.BandStructure` along its path, with the
+    ``mdapy.lattice_dynamics.BandStructure`` along its path, with the
     special points marked and labeled.
 
     Parameters
@@ -455,7 +455,7 @@ def band_structure(result: Any, *, ax: Any = None, color: str | None = None) -> 
 
 def phonon_dos(result: Any, *, ax: Any = None, projected: bool = False) -> Any:
     """The phonon density of states of a
-    :class:`mdapy.lattice_dynamics.PhononDOS`, frequencies upward, to put
+    ``mdapy.lattice_dynamics.PhononDOS``, frequencies upward, to put
     beside a band structure.
 
     Parameters

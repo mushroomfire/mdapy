@@ -80,7 +80,7 @@ def md_elastic_constants(
     InvalidParameter
         For a box that is not periodic, a temperature, strain or numbers of
         steps that are not positive, fewer than two blocks, or the errors of
-        :class:`MolecularDynamics`.
+        ``MolecularDynamics``.
     """
     if not system.box.pbc.all():
         raise InvalidParameter(

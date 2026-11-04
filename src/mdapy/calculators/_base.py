@@ -83,18 +83,18 @@ class Calculator(ABC):
     """Computes energies, forces and virials of systems.
 
     Implementations set ``cutoff``, ``elements`` and ``implemented`` and
-    define :meth:`compute`. :func:`mdapy.calculators.testing.check_calculator`
+    define ``compute``. ``mdapy.calculators.testing.check_calculator``
     tests any implementation.
 
     Attributes
     ----------
     cutoff : float64
-        Interaction cutoff in Å; a neighbor list for :meth:`compute` must have
+        Interaction cutoff in Å; a neighbor list for ``compute`` must have
         at least this cutoff.
     elements : tuple of str or None
         Elements the calculator handles, or None for any.
     implemented : frozenset of str
-        The properties :meth:`compute` can return, a subset of
+        The properties ``compute`` can return, a subset of
         ``energy``, ``atomic_energies``, ``forces``, ``virial`` and
         ``atomic_virials``.
     """

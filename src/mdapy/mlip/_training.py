@@ -121,7 +121,7 @@ class Predictions(Result):
         count : int32
             How many.
         by : str, optional
-            A column of :meth:`table`: energy_error (by its size),
+            A column of ``table``: energy_error (by its size),
             force_rmse, force_max_error or virial_rmse. Default force_rmse.
 
         Returns
@@ -204,7 +204,7 @@ def predict(frames: Sequence[System], calculator: Any) -> Predictions:
         training sets hold them.
     calculator : Calculator
         The model: any MDAPY calculator, such as NEP, or an ASE calculator
-        through :func:`mdapy.interop.from_ase_calculator`.
+        through ``mdapy.interop.from_ase_calculator``.
 
     Returns
     -------

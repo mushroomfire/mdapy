@@ -26,7 +26,7 @@ def slice_mask(
     through: ArrayLike | None = None,
     atoms: ArrayLike | None = None,
 ) -> np.ndarray:
-    """Which atoms :func:`slice` keeps.
+    """Which atoms ``slice`` keeps.
 
     Parameters
     ----------
@@ -149,7 +149,7 @@ def slice(
     Raises
     ------
     InvalidParameter
-        As :func:`slice_mask`.
+        As ``slice_mask``.
     """
     keep = slice_mask(
         system,

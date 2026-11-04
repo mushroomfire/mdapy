@@ -475,7 +475,7 @@ def _default_supercell(cell: np.ndarray, reach: float) -> np.ndarray:
 
 def _default_sheet_supercell(cell: np.ndarray, reach: float) -> np.ndarray:
     """The supercell of a sheet nearest a square that is at least reach wide
-    across the plane: as :func:`_default_supercell`, in two dimensions."""
+    across the plane: as ``_default_supercell``, in two dimensions."""
 
     def widths(vectors: np.ndarray) -> np.ndarray:
         return abs(np.linalg.det(vectors)) / np.linalg.norm(vectors[[1, 0]], axis=1)
@@ -631,7 +631,7 @@ def _connected(
 class Phonons:
     """Harmonic phonons of a crystal from its force constants.
 
-    Made by :func:`phonons`. Wave vectors are in units of the reciprocal
+    Made by ``phonons``. Wave vectors are in units of the reciprocal
     lattice vectors of the cell: q = (h, k, l) is h b1 + k b2 + l b3 with
     a_i · b_j = 2π δ_ij.
 
@@ -1341,7 +1341,7 @@ def _phonons(
     symmetry: bool | None,
     reference: System | None = None,
 ) -> Phonons:
-    """The phonons of :func:`phonons`, the periodic images of the force
+    """The phonons of ``phonons``, the periodic images of the force
     constants picked by the geometry of reference."""
     if len(system) == 0:
         raise InvalidParameter(

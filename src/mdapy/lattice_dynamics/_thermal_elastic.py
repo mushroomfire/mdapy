@@ -164,8 +164,8 @@ def thermal_elastic_constants(
         Magnitude of the Lagrangian strains of the finite differences.
         Default 5e-3.
     supercell, mesh, displacement : optional
-        Of the phonons of the strained cells, as in :func:`phonons` and
-        :meth:`Phonons.thermal`.
+        Of the phonons of the strained cells, as in ``phonons`` and
+        ``Phonons.thermal``.
     max_force : float64, optional
         Convergence of the relaxation of the positions in each strained
         cell in eV/Å. Default 1e-6.

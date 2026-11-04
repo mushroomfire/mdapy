@@ -137,7 +137,7 @@ def phonons_from_frames(
         mass; best its primitive cell.
     frames : iterable of System
         The atoms of the supercell, in its order, with a ``forces`` column:
-        cells in the order of :attr:`Phonons.force_constants`, as
+        cells in the order of ``Phonons.force_constants``, as
         ``phonons`` makes them; far enough apart in time to differ.
     supercell : int32 or array_like
         Repeats of the cell along its vectors, one or three, or a (3, 3)
@@ -248,7 +248,7 @@ def thermal_phonons(
     progress : callable, optional
         Called as ``progress(done, total)`` with the steps run.
     cancel : CancelToken, optional
-        Stops the calculation, which raises :class:`mdapy.errors.Cancelled`.
+        Stops the calculation, which raises ``mdapy.errors.Cancelled``.
 
     Returns
     -------

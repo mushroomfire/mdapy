@@ -425,7 +425,9 @@ error.
   grains too close to the carbon removed. `build_polycrystal` keeps the
   seeds in `info["seeds"]`. See [Graphene on grain boundaries](../user-guide/build/graphene.md).
 - `mdapy.build.build_polycrystal`: Voronoi grains of any periodic unit,
-  columnar when the box is thin, and `twin_lamellae` for twinned grains. See
+  columnar when the box is thin, `twin_lamellae` for twinned grains,
+  `rotations_about` for the turns of columns, and `gradient_seeds` for grains
+  whose size changes along one direction, from one side or both. See
   [Polycrystals](../user-guide/build/polycrystals.md).
 - `mdapy.transform.replicate` copies a system along its periodic
   directions as LAMMPS `replicate` does, with the ids, molecules and

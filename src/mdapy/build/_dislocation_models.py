@@ -35,7 +35,7 @@ class Dislocation:
     Attributes
     ----------
     structure : str
-        A cubic structure of :func:`build_crystal`, such as "bcc", "fcc" or
+        A cubic structure of ``build_crystal``, such as "bcc", "fcc" or
         "diamond".
     orientation : tuple of three directions
         The crystal directions along x, y and z, orthogonal and
@@ -272,7 +272,7 @@ def dislocation_cylinder(
     radius : float64
         Radius of the cylinder in Å.
     elements : str or sequence of str, optional
-        As for :func:`build_crystal`. Default "X".
+        As for ``build_crystal``. Default "X".
     length : int32, optional
         Number of periods of the crystal along the line. Default 1.
     fixed : float64, optional
@@ -376,7 +376,7 @@ def dislocation_quadrupole(
         Periods of the oriented crystal along x, y and z, at least 2 along x
         and y.
     elements : str or sequence of str, optional
-        As for :func:`build_crystal`. Default "X".
+        As for ``build_crystal``. Default "X".
     dissociation : float64, optional
         Distance in Å between the two Shockley partials of each fcc or
         diamond dislocation, rounded to whole rows of atoms; 0 for perfect

@@ -453,7 +453,7 @@ def render(
     atoms : array_like, optional
         A boolean mask or indices of the atoms shown. Default all.
     color : optional
-        The colors of the atoms, see :func:`atom_colors`. Default those of
+        The colors of the atoms, see ``atom_colors``. Default those of
         the elements.
     colormap : str, optional
         The colormap of values. Default viridis.
@@ -470,9 +470,9 @@ def render(
         representation.
     bonds : float64, NeighborList, "covalent" or "topology", optional
         Bonds between the atoms closer than this cutoff in Å, the pairs of a
-        neighbor list, covalent bonds (see :func:`covalent_bonds`), or the
+        neighbor list, covalent bonds (see ``covalent_bonds``), or the
         bonds of the topology of the system, such as those of a LAMMPS data
-        file or of :func:`mdapy.transform.create_bonds`.
+        file or of ``mdapy.transform.create_bonds``.
         Default that of the representation.
     bond_radius : float32, optional
         Radius of the bonds in Å. Default that of the representation.
@@ -494,7 +494,7 @@ def render(
         twentieth of the median atom radius.
     mesh : TriangleMesh, optional
         A surface to draw, such as that of
-        :class:`~mdapy.analysis.SurfaceMesh`. Triangles across a periodic
+        ``mdapy.analysis.SurfaceMesh``. Triangles across a periodic
         boundary are cut there, the part outside moved in through the
         opposite face.
     mesh_color : optional
@@ -504,7 +504,7 @@ def render(
         Opacity of the surface. Default 1.
     dislocations : DislocationResult, optional
         Dislocation lines to draw, such as those of
-        :class:`~mdapy.analysis.DislocationAnalysis`: tubes in the color of
+        ``mdapy.analysis.DislocationAnalysis``: tubes in the color of
         the family of their Burgers vector, cut at the periodic boundaries,
         the parts outside moved in through the opposite faces.
     dislocation_radius : float32, optional
@@ -535,7 +535,7 @@ def render(
         tip. Default base.
     lines : array_like or sequence of array_like, optional
         Polylines to draw, such as the paths of
-        :func:`~mdapy.analysis.trajectory_lines`: (M, T, 3) points, or
+        ``mdapy.analysis.trajectory_lines``: (M, T, 3) points, or
         (T, 3) points of each line.
     line_radius : float32, optional
         Radius of the lines in Å. Default 0.1.
@@ -552,7 +552,7 @@ def render(
         A string does the same with this title, as for values that have no
         name. A mapping gives its own names and colors. Default none.
     **options
-        The options of :meth:`Scene.render`, such as width, height, view,
+        The options of ``Scene.render``, such as width, height, view,
         style, zoom, perspective and background.
 
     Returns

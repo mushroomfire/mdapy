@@ -411,7 +411,7 @@ class TimeSeries:
         or a function of a frame that gives a number, or an array of the
         same shape in every frame.
     operation : str, optional
-        For a column, one of ``OPERATIONS`` of :func:`reduce`. Default mean.
+        For a column, one of ``OPERATIONS`` of ``reduce``. Default mean.
     """
 
     def __init__(
@@ -508,7 +508,7 @@ class FrameDifference:
     column : str
         A column of numbers, a component such as ``"pe.1"`` or an expression
         over the columns. Positions change through the periodic boundaries
-        as given: use :class:`AtomicDisplacement` for displacements.
+        as given: use ``AtomicDisplacement`` for displacements.
     """
 
     def __init__(self, column: str):

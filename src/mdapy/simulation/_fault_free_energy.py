@@ -163,7 +163,7 @@ def stacking_fault_free_energy(
     progress : callable, optional
         Called as ``progress(done, total)`` with the steps run.
     cancel : CancelToken, optional
-        Stops the calculation, which raises :class:`mdapy.errors.Cancelled`.
+        Stops the calculation, which raises ``mdapy.errors.Cancelled``.
 
     Returns
     -------

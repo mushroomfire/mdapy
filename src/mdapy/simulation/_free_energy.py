@@ -788,13 +788,13 @@ def free_energy(
         temperature.
     barostat : {"iso", "aniso", "tri"}, optional
         How the box of a solid changes, as in
-        :meth:`MolecularDynamics.run`. Default "aniso", and "iso" for a liquid.
+        ``MolecularDynamics.run``. Default "aniso", and "iso" for a liquid.
     seed : int32, optional
         Seed of the random numbers, positive. Default 1.
     progress : callable, optional
         Called as ``progress(done, total)`` with the steps run.
     cancel : CancelToken, optional
-        Stops the calculation, which raises :class:`mdapy.errors.Cancelled`.
+        Stops the calculation, which raises ``mdapy.errors.Cancelled``.
 
     Returns
     -------

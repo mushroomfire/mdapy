@@ -231,7 +231,7 @@ def quasi_harmonic(
     pressure : float64, optional
         Pressure in GPa. Default 0.
     supercell : int32 or array_like, optional
-        Repeats of the cell for the phonons, as in :func:`phonons`.
+        Repeats of the cell for the phonons, as in ``phonons``.
     mesh : int32 or array_like, optional
         Mesh of wave vectors for the thermal properties. Default 20.
     displacement : float64, optional
@@ -245,7 +245,7 @@ def quasi_harmonic(
         Largest number of steps of each relaxation. Default 5000.
     symmetry : bool, optional
         Use the symmetry of the cells in the phonons, as in
-        :func:`phonons`. Default whenever spglib is installed.
+        ``phonons``. Default whenever spglib is installed.
 
     Returns
     -------

@@ -449,14 +449,14 @@ def melting_point(
         Largest number of runs. Default 8.
     barostat_damping : float64, optional
         Damping time of the barostat in ps, as in
-        :meth:`MolecularDynamics.run`. Default 1000 time steps.
+        ``MolecularDynamics.run``. Default 1000 time steps.
     seed : int32, optional
         Seed of the random numbers, positive. Default 1.
     progress : callable, optional
         Called as ``progress(done, total)`` with the steps run, of a total
         that takes every run to be the last.
     cancel : CancelToken, optional
-        Stops the calculation, which raises :class:`mdapy.errors.Cancelled`.
+        Stops the calculation, which raises ``mdapy.errors.Cancelled``.
 
     Returns
     -------

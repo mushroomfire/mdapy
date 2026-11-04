@@ -31,7 +31,7 @@ class Format:
     name : str
         Name passed as ``format=``.
     description : str
-        One line shown by :func:`formats`.
+        One line shown by ``formats``.
     extensions : tuple of str
         Lowercase file name extensions, such as ``".xyz"``.
     patterns : tuple of str
@@ -168,7 +168,7 @@ def read(
         from their content.
     format : str, optional
         Format name; by default it is found from the file name with
-        :func:`detect_format`.
+        ``detect_format``.
     frame : int32, optional
         Index of the frame to read, for files that hold several frames.
         Negative values count from the end. Default 0, the first frame.
@@ -232,7 +232,7 @@ def write(
         iterator, such as a generator, is written one system at a time.
     format : str, optional
         Format name; by default it is found from the file name with
-        :func:`detect_format`.
+        ``detect_format``.
     **options
         Options of the format; see the page of each format.
 

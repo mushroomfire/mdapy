@@ -272,7 +272,7 @@ LABEL_COLORS = np.array(
 )
 LABEL_COLORS.flags.writeable = False
 
-#: The names of the colormaps of :func:`colormap`.
+#: The names of the colormaps of ``colormap``.
 COLORMAPS = (*_COLORMAPS, "labels")
 
 
@@ -427,7 +427,7 @@ def element_radii(
 
 
 def style_settings(style: str = "matte") -> dict[str, Any]:
-    """Every setting of a style: the options of :meth:`Scene.render` it
+    """Every setting of a style: the options of ``Scene.render`` it
     changes, and the defaults of the others.
 
     Parameters
@@ -510,7 +510,7 @@ def show_image(image: str | PathLike | np.ndarray, *, width: int | None = None) 
     Parameters
     ----------
     image : numpy.ndarray, str or path-like
-        A picture as :func:`mdapy.visualization.render` returns it, (H, W, 4) uint8
+        A picture as ``mdapy.visualization.render`` returns it, (H, W, 4) uint8
         uint8 with rows from the top, or a PNG or JPEG file.
     width : int32, optional
         Its width on the page in pixels. Default the width of the picture.
@@ -875,7 +875,7 @@ class Scene:
             The background, or None for transparent. Default white.
         device : {"cpu", "gpu", "auto"}, optional
             Trace the rays on the processor, on the GPU (see
-            :func:`gpu_available`), or on the GPU when there is one.
+            ``gpu_available``), or on the GPU when there is one.
             Pictures on the GPU differ from those on the processor by
             rounding only. Default cpu.
         progress, cancel : optional

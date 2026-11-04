@@ -54,7 +54,7 @@ def expand_selection(
     InvalidParameter
         If not exactly one of cutoff, num_neighbors and bonds is given, if
         iterations is negative or not an integer, if atoms is not a mask or
-        indices of the system, and as :meth:`NeighborList.build`.
+        indices of the system, and as ``NeighborList.build``.
     MissingProperty
         With bonds, if the system has no bonds.
     """

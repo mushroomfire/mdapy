@@ -17,7 +17,7 @@ rng = np.random.default_rng(4)
 hot = copper.with_columns(
     positions=copper["positions"] + rng.normal(0, 0.4, (len(copper), 3))
 )
-hot = hot.with_table(hot.table[rng.permutation(len(hot))])
+hot = hot.gather(rng.permutation(len(hot)))
 
 coordination = CoordinationNumber(3.0)
 before = copper.with_columns(coordination.compute(copper))

@@ -148,7 +148,7 @@ def add_graphene(
     Parameters
     ----------
     polycrystal : System
-        A polycrystal from :func:`build_polycrystal`, with the seeds of its
+        A polycrystal from ``build_polycrystal``, with the seeds of its
         grains in ``info["seeds"]`` and a ``grain`` column.
     layers : int32, optional
         Number of graphene layers on each boundary, AB stacked and centered

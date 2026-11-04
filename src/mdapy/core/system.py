@@ -204,7 +204,7 @@ class System:
     """One atomic configuration: a table of per-atom properties in a box.
 
     A system never changes. Arrays given to it are copied. Methods named
-    ``with_*``, :meth:`filter`, :meth:`gather` and :meth:`sort` return a new
+    ``with_*``, ``filter``, ``gather`` and ``sort`` return a new
     system; columns that are not changed are shared, not copied. The values
     of each atom are read by name, ``system["positions"]``.
 
@@ -213,8 +213,8 @@ class System:
     positions : array_like, optional
         (N, 3) float64 positions in Å. Give either this or ``table``.
     box : Box or array_like, optional
-        Simulation box, or anything :class:`Box` accepts as lattice vectors.
-        Default: a non-periodic box around the atoms (:meth:`Box.enclosing`).
+        Simulation box, or anything ``Box`` accepts as lattice vectors.
+        Default: a non-periodic box around the atoms (``Box.enclosing``).
     table : polars.DataFrame, optional
         Per-atom table with a ``positions`` column of 3 numbers per atom. Give
         either this or ``positions``.
@@ -456,8 +456,8 @@ class System:
         ----------
         table : polars.DataFrame
             New table with the same number of atoms in the same order, since
-            the topology refers to rows by position. Use :meth:`sort` or
-            :meth:`gather` to reorder atoms and :meth:`filter` to remove them.
+            the topology refers to rows by position. Use ``sort`` or
+            ``gather`` to reorder atoms and ``filter`` to remove them.
 
         Raises
         ------
@@ -530,7 +530,7 @@ class System:
         Parameters
         ----------
         box : Box or array_like
-            The new box, or lattice vectors for :class:`Box`.
+            The new box, or lattice vectors for ``Box``.
         scale_positions : bool, optional
             If True, keep the fractional coordinates of the atoms, so that
             they deform with the box. If False (default), keep the Cartesian

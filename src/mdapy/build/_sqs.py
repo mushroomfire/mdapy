@@ -63,10 +63,10 @@ def sqs_alloy(
     Parameters
     ----------
     system : System
-        The sites, a perfect lattice such as from :func:`build_crystal`.
+        The sites, a perfect lattice such as from ``build_crystal``.
     fractions : mapping of str to float64
         Fraction of each element, positive; normalized to sum to 1, with the
-        counts of :func:`random_alloy`.
+        counts of ``random_alloy``.
     shells : int32, optional
         The number of shells of neighbors made random, 1 to 10. Default 3.
     weights : sequence of float64, optional

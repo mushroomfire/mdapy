@@ -22,7 +22,13 @@ from mdapy.build._dislocation_models import (
     dislocation_quadrupole,
 )
 from mdapy.build._graphene import add_graphene
-from mdapy.build._polycrystal import build_polycrystal, random_rotations, twin_lamellae
+from mdapy.build._polycrystal import (
+    build_polycrystal,
+    gradient_seeds,
+    random_rotations,
+    rotations_about,
+    twin_lamellae,
+)
 from mdapy.build._sqs import sqs_alloy
 
 __all__ = [
@@ -40,7 +46,9 @@ __all__ = [
     "edge_dislocation",
     "insert_dislocation",
     "random_alloy",
+    "gradient_seeds",
     "random_rotations",
+    "rotations_about",
     "slip",
     "sqs_alloy",
     "substitute",

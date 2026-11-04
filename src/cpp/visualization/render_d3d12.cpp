@@ -122,14 +122,17 @@ void open(Device& d) {
     // Basic Render Driver without the flag of software: the adapters of Microsoft
     // itself all run on the processor.
     constexpr UINT kMicrosoft = 0x1414;
+    // a driver on the processor only for tests on machines without a GPU
+    const bool software = GetEnvironmentVariableA("MDAPY_SOFTWARE_GPU", nullptr, 0) > 0;
     ComPtr<IDXGIAdapter1> adapter;
     DXGI_ADAPTER_DESC1 description{};
     for (UINT k = 0; factory->EnumAdapterByGpuPreference(k, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,
                                                          IID_PPV_ARGS(&adapter)) != DXGI_ERROR_NOT_FOUND;
          ++k) {
         adapter->GetDesc1(&description);
-        if ((description.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0 &&
-            description.VendorId != kMicrosoft &&
+        const bool on_the_processor = (description.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0 ||
+                                      description.VendorId == kMicrosoft;
+        if ((software || !on_the_processor) &&
             SUCCEEDED(create_device(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&d.device)))) {
             D3D12_FEATURE_DATA_SHADER_MODEL model{D3D_SHADER_MODEL_6_2};
             if (SUCCEEDED(d.device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &model, sizeof(model))) &&

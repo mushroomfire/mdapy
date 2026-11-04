@@ -66,6 +66,19 @@ jobs:
       - name: Test
         shell: bash
         run: pytest -q -n auto
+      # Only the runner of macOS has a GPU: here the code and the shaders of Direct3D 12
+      # and of Vulkan run on drivers on the processor, which pictures never use otherwise.
+      - name: A Vulkan driver on the processor
+        if: runner.os == 'Linux' && matrix.python == '3.14'
+        run: sudo apt-get install -y -q libvulkan1 mesa-vulkan-drivers
+      - name: Pictures on a driver on the processor
+        if: runner.os == 'Windows' || (runner.os == 'Linux' && matrix.python == '3.14')
+        shell: bash
+        env:
+          MDAPY_SOFTWARE_GPU: "1"
+        run: |
+          python -c "from mdapy.visualization import gpu_available; assert gpu_available()"
+          pytest -q tests/visualization/test_render.py
 
   # 64-bit atom indices, the build for more than 2^31 - 1 atoms.
   index64:

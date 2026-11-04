@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <initializer_list>
 #include <mutex>
@@ -290,8 +291,10 @@ void open(Device& d) {
     std::stable_sort(physicals.begin(), physicals.end(),
                      [&](VkPhysicalDevice a, VkPhysicalDevice b) { return rank(a) < rank(b); });
     VkPhysicalDevice physical = VK_NULL_HANDLE;
+    // a driver on the processor only for tests on machines without a GPU
+    const bool software = std::getenv("MDAPY_SOFTWARE_GPU") != nullptr;
     for (VkPhysicalDevice p : physicals) {
-        if (rank(p) == 4) {
+        if (rank(p) == 4 && !software) {
             break;
         }
         std::uint32_t families = 0;

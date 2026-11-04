@@ -1221,6 +1221,7 @@ def test_no_gpu_has_no_name():
         assert _native.gpu_device() == ""
 
 
+@pytest.mark.skipif("MDAPY_SOFTWARE_GPU" in os.environ, reason="asked for one")
 def test_a_driver_on_the_processor_is_no_gpu():
     # what Windows offers in a virtual machine without a GPU, 12 to 30 times slower
     # than the threads of mdapy

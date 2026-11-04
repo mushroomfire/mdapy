@@ -115,6 +115,11 @@ Coverage thresholds:
 pytest --cov --cov-report=term
 ```
 
+The environment variable `MDAPY_SOFTWARE_GPU` lets pictures on the GPU use a driver that runs
+on the processor, which they never do otherwise. CI has no GPU on Linux and Windows, so it
+runs the tests of pictures once more this way there, for the code and the shaders of Vulkan
+and Direct3D 12. A real GPU remains the only check of its drivers and ray tracing units.
+
 ### What a complete run needs
 
 `pip install -e ".[dev]"` gives everything a plain `pytest` needs: the test

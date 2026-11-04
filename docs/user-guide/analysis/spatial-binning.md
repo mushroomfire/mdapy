@@ -7,7 +7,6 @@ surfaces, and maps over a plane, are made this way.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import SpatialBinning, SteinhardtParameters
 from mdapy.build import build_crystal
 

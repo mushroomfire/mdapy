@@ -5,7 +5,6 @@ neighborhood: fcc, hcp, bcc, icosahedral or other.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.build import build_crystal
 from mdapy.identify import CommonNeighborAnalysis

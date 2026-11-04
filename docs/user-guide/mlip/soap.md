@@ -10,7 +10,6 @@ DScribe's SOAP with its default Gaussian radial functions.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.build import build_crystal
 from mdapy.mlip import SOAP, principal_components, structure_descriptors

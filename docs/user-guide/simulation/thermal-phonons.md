@@ -11,7 +11,6 @@ such as *ab initio* molecular dynamics.
 <!-- skip-test -->
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS
 from mdapy.lattice_dynamics import phonons, primitive_cell, thermal_phonons

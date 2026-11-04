@@ -21,7 +21,6 @@ of each atom:
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.build import build_crystal, build_polycrystal, twin_lamellae
 from mdapy.identify import CommonNeighborAnalysis

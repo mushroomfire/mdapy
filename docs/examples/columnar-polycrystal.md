@@ -15,7 +15,6 @@ looks the same after a turn of 60°.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.build import build_crystal, build_polycrystal
 

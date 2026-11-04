@@ -7,7 +7,6 @@ formula along a trajectory, as the products of reactions form.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import ChemicalSpecies
 

@@ -8,7 +8,6 @@ OVITO pipeline and their results come back as columns.
 ```python
 from ovito.modifiers import CommonNeighborAnalysisModifier
 from ovito.pipeline import Pipeline, StaticSource
-
 from mdapy.build import build_crystal
 from mdapy.interop import from_ovito, to_ovito
 

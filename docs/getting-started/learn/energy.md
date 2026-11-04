@@ -11,7 +11,6 @@ the embedded atom potential of Zhou et al., with no file to download:
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
 

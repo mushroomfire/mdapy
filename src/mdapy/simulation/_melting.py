@@ -401,7 +401,7 @@ def melting_point(
     repeat: ArrayLike | None = None,
     timestep: float = 0.001,
     equilibration: float = 10.0,
-    coexistence: float = 100.0,
+    coexistence: float = 500.0,
     tolerance: float = 3.0,
     max_runs: int = 8,
     barostat_damping: float | None = None,
@@ -439,7 +439,8 @@ def melting_point(
         Time in ps of each stage before the two phases meet. Default 10.
     coexistence : float, optional
         Time in ps of each stretch of the two phases, of which a run has up to
-        five while the temperature drifts. Default 100.
+        five while the temperature drifts. Default 500; a larger box needs
+        longer, as heat takes longer to cross it.
     tolerance : float, optional
         How much in K the temperature may still drift, from the third quarter
         of a stretch of coexistence to the last, for it to be the answer; twice

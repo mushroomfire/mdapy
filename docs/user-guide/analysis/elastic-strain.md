@@ -9,7 +9,6 @@ atoms without straining the lattice.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import ElasticStrain
 from mdapy.build import build_crystal, dislocation_quadrupole

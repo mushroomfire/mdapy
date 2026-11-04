@@ -11,7 +11,6 @@ and `filter` keeps the atoms within 18 Å:
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(12, 12, 12))

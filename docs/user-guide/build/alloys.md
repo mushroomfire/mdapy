@@ -16,7 +16,6 @@ steel = random_alloy(
 
 ```python
 import numpy as np
-
 from mdapy.visualization import render, write_png
 
 left = render(cantor, width=600, height=600)

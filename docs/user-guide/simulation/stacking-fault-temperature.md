@@ -10,7 +10,6 @@ energy at rest is the business of
 <!-- skip-test -->
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS
 from mdapy.simulation import minimize, stacking_fault_free_energy

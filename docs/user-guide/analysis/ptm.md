@@ -9,7 +9,6 @@ as OVITO 3.17, atom by atom.
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.identify import PolyhedralTemplateMatching
 

@@ -7,7 +7,6 @@ function.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import StructureFactor
 from mdapy.build import build_crystal, random_alloy
 

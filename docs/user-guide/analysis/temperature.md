@@ -7,7 +7,6 @@ or a moving crack.
 
 ```python
 import numpy as np
-
 from mdapy import units
 from mdapy.analysis import AtomicTemperature
 from mdapy.build import build_crystal

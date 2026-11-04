@@ -52,7 +52,6 @@ each surface seen from above:
 
 ```python
 import numpy as np
-
 from mdapy.visualization import render, write_png
 
 iron = EAM.zhou(["Fe"])

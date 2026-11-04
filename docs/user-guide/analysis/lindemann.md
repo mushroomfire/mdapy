@@ -6,7 +6,6 @@ which makes it a criterion of melting for clusters and nanoparticles.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import LindemannIndex
 

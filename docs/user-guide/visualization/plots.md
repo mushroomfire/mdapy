@@ -9,7 +9,6 @@ against each other. It needs matplotlib.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import RadialDistributionFunction
 from mdapy.build import build_crystal, random_alloy
 from mdapy.visualization import plot

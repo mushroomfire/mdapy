@@ -7,7 +7,6 @@ as asked, as OVITO's expand selection modifier does.
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.neighbor import expand_selection
 

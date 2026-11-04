@@ -8,7 +8,6 @@ radii.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.build import build_crystal, build_polycrystal
 from mdapy.identify import GrainSegmentation

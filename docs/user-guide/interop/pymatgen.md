@@ -7,7 +7,6 @@ matching and materials databases of pymatgen.
 
 ```python
 from pymatgen.core import Lattice, Structure
-
 from mdapy.interop import from_pymatgen, to_pymatgen
 
 nacl = Structure.from_spacegroup(

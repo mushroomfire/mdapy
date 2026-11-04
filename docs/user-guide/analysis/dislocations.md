@@ -18,7 +18,6 @@ voids, make the defect mesh around them.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import DislocationAnalysis
 from mdapy.build import dislocation_quadrupole
 

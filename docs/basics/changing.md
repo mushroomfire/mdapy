@@ -7,10 +7,8 @@ nothing can change a system in place.
 
 ```python
 import copy
-
 import numpy as np
 import polars as pl
-
 from mdapy.build import build_crystal
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(10, 10, 10))
@@ -192,7 +190,6 @@ unchangeable as they left:
 
 ```python
 from concurrent.futures import ProcessPoolExecutor
-
 from mdapy.identify import CommonNeighborAnalysis
 from mdapy.io import read_trajectory
 

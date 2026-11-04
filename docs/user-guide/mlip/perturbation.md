@@ -21,7 +21,6 @@ The lengths of the displacements of the three styles, without strain:
 
 ```python
 import numpy as np
-
 from mdapy.visualization import plot
 
 with plot.style():

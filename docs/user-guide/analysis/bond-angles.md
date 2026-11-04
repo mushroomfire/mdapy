@@ -5,7 +5,6 @@ total and for each triplet of elements.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import BondAngleDistribution
 from mdapy.build import build_crystal
 

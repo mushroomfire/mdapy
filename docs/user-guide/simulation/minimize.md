@@ -85,7 +85,6 @@ displaced at random by about 0.1 Å, relaxed to forces below 1e-4 eV/Å:
 <!-- skip-test -->
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.visualization import plot
 

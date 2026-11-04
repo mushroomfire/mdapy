@@ -5,7 +5,6 @@ a system and its partial functions for each pair of elements.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import RadialDistributionFunction
 from mdapy.build import build_crystal, random_alloy
 

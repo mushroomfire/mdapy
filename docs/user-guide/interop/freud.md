@@ -6,7 +6,6 @@ freud take, and `from_freud` makes a `System` of them.
 
 ```python
 import freud
-
 from mdapy.build import build_crystal
 from mdapy.interop import from_freud, to_freud
 

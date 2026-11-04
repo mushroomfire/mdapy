@@ -7,7 +7,6 @@ and its shape as a polyhedron.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import VoronoiAnalysis
 from mdapy.build import build_crystal
 

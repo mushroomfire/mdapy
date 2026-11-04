@@ -6,7 +6,6 @@ formats that store bonds, or is given when a system is made.
 
 ```python
 import polars as pl
-
 import mdapy as mp
 
 water = mp.System(

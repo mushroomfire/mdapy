@@ -8,7 +8,6 @@ out of a crystal, so that its structure shows clearly.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import RadialDistributionFunction, TimeAverage
 from mdapy.build import build_crystal
 from mdapy.identify import CommonNeighborAnalysis

@@ -8,7 +8,6 @@ energy. MDAPY reads and writes the conventions of ASE
 
 ```python
 from pathlib import Path
-
 import numpy as np
 import mdapy as mp
 from mdapy.io import write

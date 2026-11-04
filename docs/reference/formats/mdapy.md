@@ -40,7 +40,6 @@ atoms:
 ```python
 import io
 import zipfile
-
 import polars as pl
 
 with zipfile.ZipFile("run.mdapy") as archive:

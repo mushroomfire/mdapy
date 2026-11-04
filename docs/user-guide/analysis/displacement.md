@@ -6,7 +6,6 @@ periodic boundaries by the nearest image.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import AtomicDisplacement
 from mdapy.build import build_crystal
 

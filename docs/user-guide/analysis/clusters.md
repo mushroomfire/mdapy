@@ -6,7 +6,6 @@ group unbroken by the boundaries and the centers of mass and gyration.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import ClusterAnalysis
 

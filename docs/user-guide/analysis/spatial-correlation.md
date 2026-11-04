@@ -8,7 +8,6 @@ neighbors at short range, as OVITO's spatial correlation function does.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import SpatialCorrelation
 from mdapy.build import build_crystal
 from mdapy.visualization import plot

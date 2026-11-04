@@ -23,7 +23,6 @@ replicated 6 × 4 times, each copy colored by its number:
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.visualization import render
 

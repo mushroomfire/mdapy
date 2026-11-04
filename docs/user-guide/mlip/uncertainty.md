@@ -11,7 +11,6 @@ kind of model.
 <!-- files: ../../examples/crconi -->
 ```python
 import numpy as np
-
 from mdapy.calculators import EAM, NEP
 from mdapy.io import read
 from mdapy.mlip import SOAP, committee, novelty, structure_descriptors

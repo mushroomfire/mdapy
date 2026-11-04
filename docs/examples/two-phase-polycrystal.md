@@ -13,7 +13,6 @@ analysis.
 ```python
 import numpy as np
 import polars as pl
-
 import mdapy as mp
 from mdapy.build import build_crystal, build_polycrystal, random_rotations
 

@@ -13,7 +13,6 @@ the measured one: relax the cubic cell of fcc copper at zero pressure.
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
 from mdapy.simulation import minimize

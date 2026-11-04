@@ -8,7 +8,6 @@ is known, and from there to other temperatures by the enthalpy along a run.
 <!-- skip-test -->
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS
 from mdapy.simulation import free_energy, minimize

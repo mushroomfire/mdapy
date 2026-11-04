@@ -11,9 +11,7 @@ A `System` holds the atoms, as a table of columns, and the simulation box.
 
 ```python
 import numpy as np
-
 import mdapy as mp
-
 from mdapy.build import build_crystal
 
 a = 3.615  # Å
@@ -98,7 +96,7 @@ render(
     "images/quick-tour.png",
     atoms=grains["positions"][:, 0] < 30,  # the half at x < 30 Å
     color=structures,
-    style="flat",
+    style="matte",
     width=900,
     height=600,
 )
@@ -107,7 +105,7 @@ render(
 ![A polycrystal cut in half](images/quick-tour.png)
 
 *Six grains of copper cut in half: fcc atoms green, grain boundaries white,
-in the flat style.*
+in the matte style.*
 
 See [Building structures](../user-guide/build/polycrystals.md), [Common neighbor
 analysis](../user-guide/analysis/cna.md) and [Rendering](../user-guide/visualization/rendering.md).

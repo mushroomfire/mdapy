@@ -10,7 +10,6 @@ training, frame by frame.
 ```python
 import numpy as np
 import polars as pl
-
 from mdapy.calculators import EAM
 from mdapy.io import read, write
 from mdapy.mlip import check_frames

@@ -6,7 +6,6 @@ their training sets.
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.io import write
 

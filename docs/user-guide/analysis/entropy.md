@@ -6,7 +6,6 @@ negative) in crystals, high in liquids and gases.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import EntropyFingerprint
 from mdapy.build import build_crystal

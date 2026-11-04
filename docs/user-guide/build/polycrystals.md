@@ -6,7 +6,6 @@ makes a crystal of twin lamellae, which as the unit gives twinned grains.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.build import build_crystal, build_polycrystal, twin_lamellae
 

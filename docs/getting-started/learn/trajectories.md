@@ -15,7 +15,6 @@ potential file, so there is nothing to download:
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM, LAMMPS

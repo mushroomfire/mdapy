@@ -6,7 +6,6 @@ trajectory lines does; `render(lines=...)` draws the paths.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import trajectory_lines
 from mdapy.visualization import render

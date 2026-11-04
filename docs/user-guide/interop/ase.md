@@ -7,7 +7,6 @@ calculation.
 ```python
 from ase.build import bulk
 from ase.constraints import FixAtoms
-
 from mdapy.interop import from_ase, to_ase
 
 atoms = bulk("Cu", "fcc", a=3.615, cubic=True).repeat(2)

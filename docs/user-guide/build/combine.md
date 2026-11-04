@@ -6,7 +6,6 @@ a projectile above a target.
 
 ```python
 import numpy as np
-
 from mdapy.build import add_vacuum, build_crystal
 from mdapy.transform import combine
 from mdapy.visualization import render

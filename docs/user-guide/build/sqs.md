@@ -14,7 +14,6 @@ cantor = sqs_alloy(sites, {"Co": 1, "Cr": 1, "Fe": 1, "Mn": 1, "Ni": 1}, seed=1)
 
 ```python
 import numpy as np
-
 from mdapy.visualization import render, write_png
 
 left = render(cuni, width=600, height=600)

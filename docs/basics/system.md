@@ -9,7 +9,6 @@ and returns systems.
 ```python
 import numpy as np
 import polars as pl
-
 import mdapy as mp
 
 water = mp.System(

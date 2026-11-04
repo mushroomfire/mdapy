@@ -6,7 +6,6 @@ occupancy of the sites shows the defects.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import WignerSeitz
 from mdapy.build import build_crystal

@@ -6,7 +6,6 @@ neighboring molecules.
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.identify import ChillPlus
 

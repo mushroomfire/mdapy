@@ -9,7 +9,6 @@ adiabatic elastic constants of a crystal at the temperatures of a
 <!-- skip-test -->
 ```python
 import numpy as np
-
 from mdapy.lattice_dynamics import (
     primitive_cell,
     quasi_harmonic,

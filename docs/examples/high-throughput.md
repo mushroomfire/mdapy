@@ -45,7 +45,6 @@ import itertools
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-
 from mdapy.build import build_crystal, random_alloy
 from mdapy.calculators import NEP
 from mdapy.errors import MdapyError

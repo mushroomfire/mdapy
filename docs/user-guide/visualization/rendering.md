@@ -24,7 +24,6 @@ boundaries = render(
 
 ```python
 import numpy as np
-
 from mdapy.visualization import STYLES, write_png
 
 pictures = [
@@ -168,7 +167,6 @@ shadows) and, for global illumination, `bounces` (0 for none).
 
 ```python
 import numpy as np
-
 from mdapy.visualization import write_png
 
 camera = {"perspective": True, "fov": 40, "focus": [45, 15, 45], "span": 70}
@@ -275,7 +273,6 @@ force: here the displacements of an edge dislocation put into copper.
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal, insert_dislocation
 
 # x along [1-10], y normal to the (111) glide plane, z along the line
@@ -319,7 +316,6 @@ viewer by default. Zero vectors and atoms not shown get no arrow.
 
 ```python
 import numpy as np
-
 from mdapy.visualization import Scene
 
 scene = Scene()

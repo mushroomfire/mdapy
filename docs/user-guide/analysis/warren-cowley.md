@@ -6,7 +6,6 @@ the alloy as a whole, among the nearest neighbors or shell by shell.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import WarrenCowley
 from mdapy.build import build_crystal
 

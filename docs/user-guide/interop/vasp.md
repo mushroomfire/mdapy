@@ -6,7 +6,6 @@ machine-learned potentials.
 
 ```python
 import numpy as np
-
 from mdapy.build import add_vacuum, build_crystal
 from mdapy.io import read, write
 

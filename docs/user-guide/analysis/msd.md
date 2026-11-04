@@ -6,7 +6,6 @@ coefficient follows.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import MeanSquaredDisplacement
 

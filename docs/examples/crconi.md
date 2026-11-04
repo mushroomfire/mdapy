@@ -37,7 +37,6 @@ and reduce it to its primitive cell:
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.calculators import NEP
 from mdapy.lattice_dynamics import phonons, primitive_cell

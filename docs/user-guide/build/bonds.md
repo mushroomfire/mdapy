@@ -9,7 +9,6 @@ bonds="topology")` draws.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy import transform
 from mdapy.build import build_crystal

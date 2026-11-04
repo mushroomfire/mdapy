@@ -7,7 +7,6 @@ stacking fault and surface energies.
 
 ```python
 import numpy as np
-
 from mdapy.build import (
     add_interstitials,
     add_vacancies,

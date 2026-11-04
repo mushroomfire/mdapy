@@ -8,7 +8,6 @@ each.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import CoordinationPolyhedra
 from mdapy.build import build_crystal
 from mdapy.visualization import render

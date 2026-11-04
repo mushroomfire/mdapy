@@ -8,7 +8,6 @@ averaged too.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.transform import smooth_trajectory
 

@@ -10,9 +10,7 @@ room temperature:
 
 ```python
 import time
-
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.neighbor import NeighborList
 

@@ -8,7 +8,6 @@ there are of each size and how many rings each atom is in.
 
 ```python
 import numpy as np
-
 from mdapy.analysis import RingStatistics
 from mdapy.build import build_crystal
 from mdapy.visualization import colormap, render

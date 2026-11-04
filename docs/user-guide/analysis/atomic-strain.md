@@ -7,7 +7,6 @@ non-affine displacement $D^2_\text{min}$.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import AtomicStrain
 from mdapy.build import build_crystal

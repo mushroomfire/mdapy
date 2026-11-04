@@ -30,7 +30,6 @@ Eight of the structures, drawn with the [renderer](../visualization/rendering.md
 
 ```python
 import numpy as np
-
 from mdapy.visualization import element_radii, render, write_png
 
 crystals = [

@@ -16,7 +16,6 @@ the others keep the colors they had.
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.visualization import (
     assign_color,

@@ -8,7 +8,6 @@ planar faults, atom by atom.
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal, slip
 from mdapy.identify import PlanarFaults
 from mdapy.transform import replicate

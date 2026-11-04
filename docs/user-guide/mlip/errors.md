@@ -13,7 +13,6 @@ torchnep when it trains or predicts, without computing anything.
 <!-- files: ../../examples/crconi -->
 ```python
 import numpy as np
-
 from mdapy.calculators import EAM, NEP
 from mdapy.io import read, write
 from mdapy.mlip import predict

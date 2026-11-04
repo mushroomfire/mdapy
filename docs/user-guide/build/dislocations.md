@@ -10,7 +10,6 @@ a fixed outer shell, and a periodic quadrupole.
 
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal, edge_dislocation, insert_dislocation
 
 # a screw dislocation along [111] in iron

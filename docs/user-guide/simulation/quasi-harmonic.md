@@ -9,7 +9,6 @@ heat capacity and Gibbs energy of a crystal at finite temperature from its
 <!-- skip-test -->
 ```python
 import numpy as np
-
 from mdapy.build import build_crystal
 from mdapy.lattice_dynamics import primitive_cell, quasi_harmonic
 from mdapy.simulation import minimize

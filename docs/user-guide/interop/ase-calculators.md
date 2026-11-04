@@ -13,7 +13,6 @@ from ase.build import bulk
 from ase.calculators.emt import EMT
 from ase.filters import FrechetCellFilter
 from ase.optimize import BFGS
-
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
 from mdapy.interop import from_ase_calculator, to_ase_calculator

@@ -5,7 +5,6 @@ element, within one cutoff or a cutoff for each pair of elements.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import CoordinationNumber
 from mdapy.build import build_crystal

@@ -7,9 +7,7 @@ NEP, GPUMD and other machine-learned potentials in a few lines:
 <!-- skip-test -->
 ```python
 from pathlib import Path
-
 import numpy as np
-
 from mdapy.io import read_trajectory, write
 
 frames = [

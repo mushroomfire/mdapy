@@ -20,7 +20,7 @@ crystal = minimize(
 ).system
 
 result = melting_point(crystal, potential, 1000.0)
-result.temperature, result.error  # 1333 K, 1 K
+result.temperature, result.error  # 1326 K, 1 K
 result.attempts  # how the search went
 ```
 
@@ -43,9 +43,9 @@ with plot.style():
 
 ![The two phases reaching their common temperature](images/melting-point.png)
 
-*Copper with the EAM potential of Mishin et al., 4312 atoms, from a guess of 1000 K.
-The runs from 1000, 1150 and 1322 K froze, the one from 1521 K melted, and the one from
-1422 K kept both phases and gave 1333 K. Here is its last stretch.*
+*Copper with the EAM potential of Mishin et al., 16456 atoms, from a guess of 1000 K. The
+runs from 1000 and 1150 K froze, and the one from 1322 K kept both phases and gave 1326 K.
+Here is its last stretch.*
 
 The crystal is repeated to about `atoms` atoms in a box three times as long along its
 third vector as along the others; the interface lies across that vector. Each run:
@@ -77,7 +77,7 @@ crystal has: 12 in fcc and hcp, 14 in bcc, 4 in diamond.
 | `repeat` | 3 ints | | | repeats of `crystal` along its vectors, instead of `atoms`; the third is made even |
 | `timestep` | float | 0.001 | ps | the time step |
 | `equilibration` | float | 10 | ps | the time of each stage before the phases meet |
-| `coexistence` | float | 100 | ps | the time of each stretch of the two phases |
+| `coexistence` | float | 500 | ps | the time of each stretch of the two phases; a larger box needs longer |
 | `tolerance` | float | 3 | K | how much the temperature may still drift, from the third quarter of a stretch to the last, for it to be the answer; twice its statistical error, if that is larger |
 | `max_runs` | int | 8 | | the largest number of runs |
 | `barostat_damping` | float | 1000 time steps | ps | the damping time of the barostat |
@@ -85,15 +85,17 @@ crystal has: 12 in fcc and hcp, 14 in bcc, 4 in diamond.
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run, of a total that takes every run to be the last |
 | `cancel` | `CancelToken` | `None` | | stops the calculation, which raises `Cancelled` |
 
-The size matters. Too small a box has temperatures and interfaces that fluctuate too much,
-so that runs end at different temperatures. A slow potential may need fewer atoms than the
-default, through `atoms` or `repeat`, at that price. For the copper above, from guesses of
-1000, 1327 and 1700 K:
+The size and the time matter. In a small box the temperature and the interface fluctuate
+too much, and in a large one heat needs longer to cross it. A slow potential may need less
+than the default, through `atoms`, `repeat` and `coexistence`, at the price of a larger
+spread. For the copper above, from guesses of 1000, 1327 and 1700 K:
 
-| Atoms | Melting point (K) |
-|---|---|
-| 4000 | 1326, 1318, 1328 |
-| 16000 | 1327, 1328, 1324 |
+| Atoms | `coexistence` (ps) | Melting point (K) |
+|---|---|---|
+| 4000 | 100 | 1316, 1325, 1326 |
+| 4000 | 500 | 1326, 1318, 1328 |
+| 16000 | 100 | 1322, 1319, 1336 |
+| 16000 | 500 | 1327, 1328, 1324 |
 
 where [the free energies](free-energy.md) of 16384 atoms cross at 1326 K. `error` is the
 statistical error of one run and smaller than this spread, so repeating a run with another

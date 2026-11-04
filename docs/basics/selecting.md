@@ -16,7 +16,6 @@ the atoms of the conditions of `filter` as a [mask](#masks).
 ```python
 import numpy as np
 import polars as pl
-
 import mdapy as mp
 from mdapy.build import build_crystal
 

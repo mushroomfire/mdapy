@@ -6,7 +6,6 @@ time series: a column of the atoms reduced to one number in each frame, as
 
 ```python
 import numpy as np
-
 from mdapy.analysis import TimeSeries
 from mdapy.build import build_crystal
 

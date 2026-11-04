@@ -8,7 +8,6 @@ before positions are averaged or paths drawn.
 
 ```python
 import numpy as np
-
 import mdapy as mp
 from mdapy.analysis import trajectory_lines
 from mdapy.transform import remove_drift

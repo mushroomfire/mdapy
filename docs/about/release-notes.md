@@ -171,6 +171,9 @@ module, as `mdapy.io.read` or `from mdapy.build import build_crystal`.
   molecular dynamics in LAMMPS, by switching to springs or to the Uhlenbeck-Ford model
   and following the enthalpy to other temperatures; `crossing` gives where two phases
   meet. See [Free energy](../user-guide/simulation/free-energy.md).
+- `mdapy.simulation.melting_point`: the melting point from a first guess, by the
+  two-phase method. `MolecularDynamics.run` takes the ensemble `"nph"`. See
+  [Melting point](../user-guide/simulation/melting-point.md).
 - `mdapy.simulation.stacking_fault_free_energy`: the free energy of a stacking fault at
   each temperature, from two crystals in one box. See
   [Stacking faults at finite temperature](../user-guide/simulation/stacking-fault-temperature.md).

@@ -60,8 +60,8 @@ flowchart TB
     calculators["<b>Calculators</b><br/>native EAM · NEP<br/>interfaces to LAMMPS · ASE · VASP"]
     minimization["<b>Relaxation and dynamics</b><br/>minimization · molecular dynamics<br/>defect energies"]
     lattice["<b>Lattice dynamics</b><br/>elastic constants · phonons<br/>sheets · finite temperature"]
-    thermodynamics["<b>Thermodynamics</b><br/>free energy<br/>stacking faults with temperature"]
-    planned["melting points<br/>phase diagrams"]
+    thermodynamics["<b>Thermodynamics</b><br/>free energy · melting points<br/>stacking faults with temperature"]
+    planned["phase diagrams"]
     packages["<b>Interoperability</b><br/>ASE · OVITO · pymatgen · freud<br/>LAMMPS · VASP · GPUMD"]
 
     files <--> system
@@ -222,6 +222,7 @@ flowchart TB
     [defect energies](user-guide/simulation/defect-energies.md)
 
     Thermodynamics: [free energy](user-guide/simulation/free-energy.md) ·
+    [melting point](user-guide/simulation/melting-point.md) ·
     [stacking faults at finite temperature](user-guide/simulation/stacking-fault-temperature.md)
 
     Lattice dynamics: [elastic constants](user-guide/simulation/elastic-constants.md) ·

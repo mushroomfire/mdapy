@@ -57,8 +57,9 @@ with plot.style():
 free energy above 1328 K. A millielectronvolt per atom is 11 K here.*
 
 These are the free energies of exactly these atoms in their periodic box, so they depend
-a little on the number of atoms, and so does where the phases meet: 2048 atoms of the same
-copper give 1331 K.
+a little on the number of atoms, and so does where the phases meet: the same copper gives
+1331 K with 2048 atoms and 1326 K with 16384, as does the
+[two-phase method](melting-point.md) with 16000.
 
 !!! warning "A smooth potential"
     The potential must be continuous at its cutoff, as those fitted for metals

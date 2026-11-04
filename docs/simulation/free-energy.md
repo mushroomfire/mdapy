@@ -54,7 +54,8 @@ with plot.style():
 ![Free energy of solid and liquid copper](images/free-energy.png)
 
 *Copper with the EAM potential of Mishin et al., 5324 atoms: the liquid has the lower
-free energy above 1328 K, the melting point its authors found being 1327 K. A
+free energy above 1328 K, with 1331 K for 2048 atoms. The
+[two-phase method](melting-point.md) gives 1320 to 1333 K for this potential. A
 millielectronvolt per atom is 11 K here.*
 
 !!! warning "A smooth potential"

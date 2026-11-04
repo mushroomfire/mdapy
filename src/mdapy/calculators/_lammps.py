@@ -21,12 +21,15 @@ from mdapy.errors import InvalidParameter, MissingProperty
 
 _ARGS = ["-screen", "none", "-log", "none", "-nocite"]
 
-# Instances running Kokkos, of which one must shut Kokkos down at exit.
+# Instances running Kokkos: at exit the open ones close, as they hold memory of
+# Kokkos, and the last shuts Kokkos down.
 _kokkos: list[Any] = []
 
 
 def _finalize_kokkos() -> None:
     if _kokkos:
+        for instance in _kokkos[:-1]:
+            instance.close()
         _kokkos[-1].finalize()
 
 
@@ -43,7 +46,7 @@ def _lammps(cmdargs: Sequence[str]) -> Any:
     if any(a in ("-k", "-kokkos") for a in args) and not _kokkos:
         atexit.register(_finalize_kokkos)
     if any(a in ("-k", "-kokkos") for a in args):
-        _kokkos[:] = [instance]
+        _kokkos[:] = [i for i in _kokkos if i.lmp is not None] + [instance]
     return instance
 
 

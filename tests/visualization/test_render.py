@@ -1439,7 +1439,7 @@ def test_a_legend_names_what_is_shown(monkeypatch):
     assert drawn["title"] == "height" and name == "viridis"
     assert low == pytest.approx(system["height"].min())
     assert high == pytest.approx(system["height"].max())
-    values = system["height"].to_numpy() * 2
+    values = system["height"] * 2
     render(
         system,
         color=values,

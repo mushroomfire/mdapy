@@ -1,7 +1,7 @@
 .. raw:: html
 
    <div align="center">
-     <img src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/doc/_static/mdapy-logo.svg" alt="mdapy logo" width="760">
+     <img src="https://raw.githubusercontent.com/mushroomfire/mdapy/1.x/doc/_static/mdapy-logo.svg" alt="mdapy logo" width="760">
    </div>
 
 |
@@ -19,7 +19,7 @@
    :alt: PyPI downloads
 
 .. image:: https://img.shields.io/github/license/mushroomfire/mdapy.svg
-   :target: https://github.com/mushroomfire/mdapy/blob/master/LICENSE
+   :target: https://github.com/mushroomfire/mdapy/blob/1.x/LICENSE
    :alt: License
 
 .. image:: https://readthedocs.org/projects/mdapy/badge/?version=latest
@@ -35,6 +35,13 @@
    :alt: GitHub stars
 
 |
+
+.. note::
+
+   **This branch holds MDAPY 1.x.** MDAPY 2.0 is a complete rewrite, not compatible with
+   1.x. It brings many more features, and we recommend updating to it: see its
+   `code <https://github.com/mushroomfire/mdapy>`_ and
+   `documentation <https://mushroomfire.github.io/mdapy/>`_.
 
 **mdapy** (Molecular Dynamics Analysis in Python) is a fast, full-featured
 Python library for analyzing Molecular Dynamics (MD) simulation data — from
@@ -344,8 +351,8 @@ License
 -------
 
 GNU General Public License, version 3 or later — see
-`LICENSE <https://github.com/mushroomfire/mdapy/blob/master/LICENSE>`_ for details
-and `THIRD_PARTY_NOTICES <https://github.com/mushroomfire/mdapy/blob/master/THIRD_PARTY_NOTICES>`_
+`LICENSE <https://github.com/mushroomfire/mdapy/blob/1.x/LICENSE>`_ for details
+and `THIRD_PARTY_NOTICES <https://github.com/mushroomfire/mdapy/blob/1.x/THIRD_PARTY_NOTICES>`_
 for the code of others that mdapy includes. Versions up to 1.0.8 were
 published as BSD-3-Clause; they include NEP_CPU, licensed under the GPL, so
 that their compiled distributions are subject to the GPL as well.

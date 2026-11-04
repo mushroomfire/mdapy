@@ -2,6 +2,13 @@
 🚀 mdapy - Molecular Dynamics Analysis with Python
 ===================================================
 
+.. note::
+
+   **This branch holds MDAPY 1.x.** MDAPY 2.0 is a complete rewrite, not compatible with
+   1.x. It brings many more features, and we recommend updating to it: see its
+   `code <https://github.com/mushroomfire/mdapy>`_ and
+   `documentation <https://mushroomfire.github.io/mdapy/>`_.
+
 Overview
 --------
 

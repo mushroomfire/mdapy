@@ -6,11 +6,11 @@ name: Tests
 # run the suite.
 
 on:
-  # Trigger on direct pushes to master (the maintainer's normal workflow)
+  # Trigger on direct pushes to 1.x (the maintainer's normal workflow)
   # and on incoming pull requests from contributors. Doc-only changes
   # don't need to fire CI — `paths-ignore` keeps them off the runners.
   push:
-    branches: [master]
+    branches: [1.x]
     paths-ignore:
       - 'doc/**'
       - 'README.rst'

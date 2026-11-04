@@ -20,12 +20,11 @@ crystal = minimize(
 ).system
 
 result = melting_point(crystal, potential, 1000.0)
-result.temperature, result.error  # K
+result.temperature, result.error  # 1333 K, 1 K
 result.attempts  # how the search went
 ```
 
-The last run: the temperature rises to its plateau while the fraction of solid atoms
-stops changing.
+The last run, whose temperature and fraction of solid atoms no longer drift:
 
 <!-- skip-test -->
 ```python
@@ -44,7 +43,9 @@ with plot.style():
 
 ![The two phases reaching their common temperature](images/melting-point.png)
 
-*CAPTION_MELTING*
+*Copper with the EAM potential of Mishin et al., 4312 atoms, from a guess of 1000 K.
+The runs from 1000, 1150 and 1322 K froze, the one from 1521 K melted, and the one from
+1422 K kept both phases and gave 1333 K. Here is its last stretch.*
 
 The crystal is repeated to about `atoms` atoms in a box three times as long along its
 third vector as along the others; the interface lies across that vector. Each run:

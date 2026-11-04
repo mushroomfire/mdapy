@@ -139,7 +139,7 @@ def phonons_from_frames(
         The atoms of the supercell, in its order, with a ``forces`` column:
         cells in the order of :attr:`Phonons.force_constants`, as
         ``phonons`` makes them; far enough apart in time to differ.
-    supercell : int or array_like
+    supercell : int32 or array_like
         Repeats of the cell along its vectors, one or three, or a (3, 3)
         integer matrix whose rows times the vectors of the cell are the
         vectors of the supercell.
@@ -222,28 +222,28 @@ def thermal_phonons(
         in every direction; best its primitive cell.
     potential : LAMMPS
         The interaction.
-    temperature : float
+    temperature : float64
         Temperature in K, positive.
-    supercell : int or array_like, optional
+    supercell : int32 or array_like, optional
         Repeats of the cell along its vectors, one or three, or a (3, 3)
         integer matrix. Default the supercell nearest a cube that is at least
         twice the cutoff of the potential thick in every direction.
-    pressure : float or None, optional
+    pressure : float64 or None, optional
         Pressure in GPa at which the box takes its mean size first; None to
         keep the box of cell. Default 0.
-    timestep : float, optional
+    timestep : float64, optional
         Time step in ps. Default 0.001.
-    equilibration : float, optional
+    equilibration : float64, optional
         Time in ps of each equilibration. Default 10.
-    production : float, optional
+    production : float64, optional
         Time in ps over which the frames are taken. Default 100.
-    frames : int, optional
+    frames : int32, optional
         Number of frames. Default 200.
     symmetry : bool, optional
         Average the force constants over the symmetry operations of the cell,
         found by spglib: True, False, or by default whenever spglib is
         installed.
-    seed : int, optional
+    seed : int32, optional
         Seed of the random numbers, positive. Default 1.
     progress : callable, optional
         Called as ``progress(done, total)`` with the steps run.

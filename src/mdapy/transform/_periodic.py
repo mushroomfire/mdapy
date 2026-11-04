@@ -60,7 +60,7 @@ def replicate(system: System, repeat: int | Sequence[int]) -> System:
     ----------
     system : System
         The system to copy.
-    repeat : int or sequence of 3 int
+    repeat : int32 or sequence of 3 int32
         Number of copies along a, b and c, at least 1; more than 1 only along
         periodic directions.
 

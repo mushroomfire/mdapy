@@ -51,7 +51,7 @@ first frame (right).*
 | Name | Type | Default | Meaning |
 |---|---|---|---|
 | `frames` | sequence of `System` | | the frames, such as a [`Trajectory`](../../basics/trajectory.md), a slice of one or a list |
-| `reference` | int | `0` | the frame whose center of mass is kept; negative counts from the end |
+| `reference` | int32 | `0` | the frame whose center of mass is kept; negative counts from the end |
 | `atoms` | mask or indices | all | the atoms of the first frame whose center of mass is kept, as OVITO's only selected |
 | `unwrap` | bool | `True` | follow the atoms through the periodic boundaries to find the center of mass, or take the positions as they are |
 

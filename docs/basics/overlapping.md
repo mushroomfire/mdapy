@@ -50,7 +50,7 @@ crystal (red).*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms and the box |
-| `distance` | float | | Å | two atoms closer than this overlap |
+| `distance` | float64 | | Å | two atoms closer than this overlap |
 | `keep_one` | bool | `True` | | select only the atom of the higher index of each pair that overlaps; `False` selects both |
 | `atoms` | (N,) bool or indices | all | | the atoms considered; the others neither overlap nor are selected |
 

@@ -26,7 +26,7 @@ class EntropyResult(Result):
     Attributes
     ----------
     entropy : numpy.ndarray
-        (N,) entropy in units of the Boltzmann constant; more negative is
+        (N,) float64 entropy in units of the Boltzmann constant; more negative is
         more ordered.
     average : bool
         Whether it is averaged over neighbors.
@@ -51,15 +51,15 @@ class EntropyFingerprint:
 
     Parameters
     ----------
-    cutoff : float
+    cutoff : float64
         Largest distance of the local radial distribution, in Å.
-    sigma : float, optional
+    sigma : float64, optional
         Width of the Gaussian that smears each neighbor, in Å, and of the
         bins. Default 0.2.
     local_density : bool, optional
         Use the density of the neighbors within cutoff of each atom instead
         of that of the system. Default False.
-    average_cutoff : float, optional
+    average_cutoff : float64, optional
         Average each atom's value with those of its neighbors closer than
         this, in Å.
     """

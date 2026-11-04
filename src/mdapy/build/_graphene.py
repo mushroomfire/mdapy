@@ -150,22 +150,22 @@ def add_graphene(
     polycrystal : System
         A polycrystal from :func:`build_polycrystal`, with the seeds of its
         grains in ``info["seeds"]`` and a ``grain`` column.
-    layers : int, optional
+    layers : int32, optional
         Number of graphene layers on each boundary, AB stacked and centered
         on it; where two faces meet, each layer ends where the planes
         halfway between the faces cross. Default 1.
-    coverage : float, optional
+    coverage : float64, optional
         Fraction of the area of the boundaries covered, from 0 to 1: whole
         faces between two grains are covered, in random order, until the
         fraction is reached. Default 1, every face.
-    clearance : float, optional
+    clearance : float64, optional
         Atoms of the polycrystal closer than this to a carbon atom, in Å,
         are removed. Default 3, about the distance of graphene from copper.
-    bond : float, optional
+    bond : float64, optional
         Carbon-carbon bond length of graphene in Å. Default 1.42.
-    spacing : float, optional
+    spacing : float64, optional
         Distance between graphene layers in Å. Default 3.35.
-    seed : int or numpy.random.Generator, optional
+    seed : int64 or numpy.random.Generator, optional
         Seed of the random faces and orientations of the graphene.
 
     Returns

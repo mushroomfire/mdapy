@@ -50,9 +50,9 @@ the copper fraction of the cells at the faces of the box, from none
 
 | Name | Type | Unit | Meaning |
 |---|---|---|---|
-| `values` | (na, nb, nc) array | | the field at the centers of the cells of a grid that divides the box into na, nb and nc cells along a, b and c, such as `SpatialBinning(..., axes=(0, 1, 2)).compute(system).values` |
+| `values` | (na, nb, nc) float64 | | the field at the centers of the cells of a grid that divides the box into na, nb and nc cells along a, b and c, such as `SpatialBinning(..., axes=(0, 1, 2)).compute(system).values` |
 | `box` | `Box` | | the box the grid divides |
-| `level` | float | as the field | the value on the surface |
+| `level` | float64 | as the field | the value on the surface |
 
 The values must be finite: the mean of a property in a bin without atoms
 is NaN, and `np.nan_to_num` or a sum or density instead of the mean

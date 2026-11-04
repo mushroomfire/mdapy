@@ -54,8 +54,8 @@ random alloy has twice as many Si–Ge bonds as Si–Si or Ge–Ge bonds.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `bins` | int | 100 | | number of bins of equal width from 0 to the cutoff |
-| `cutoff` | float | `None` | Å | the upper end of the bins; longer bonds are not counted. By default the longest bond |
+| `bins` | int32 | 100 | | number of bins of equal width from 0 to the cutoff |
+| `cutoff` | float64 | `None` | Å | the upper end of the bins; longer bonds are not counted. By default the longest bond |
 
 `compute(system)` takes a system with bonds in its topology. Each bond is
 measured to the nearest periodic image of its second atom. Partial counts
@@ -72,7 +72,7 @@ A `BondLengthResult`:
 | `counts` | (bins,) int64 | number of bonds in each bin |
 | `density` | (bins,) float64 | the counts normalized so that their integral over Å is 1 |
 | `lengths` | (bonds,) float64 | the length of each bond, in the order of the topology |
-| `partial` | dict | counts for each pair of elements `(a, b)`, `a` not after `b` by atomic number; they add up to `counts` |
+| `partial` | dict of (str, str) to (B,) int64 | counts for each pair of elements `(a, b)`, `a` not after `b` by atomic number; they add up to `counts` |
 | `pair(a, b)` | (bins,) int64 | the counts of the pair, `a` and `b` in either order |
 
 ## Errors

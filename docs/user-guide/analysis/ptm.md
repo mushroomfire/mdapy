@@ -41,7 +41,7 @@ rotation of each atom.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `structures` | iterable of str | `("fcc", "hcp", "bcc")` | | the structures to look for: `fcc`, `hcp`, `bcc`, `ico`, `sc`, `cubic_diamond`, `hexagonal_diamond` and `graphene` |
-| `rmsd_cutoff` | float | 0.1 | | atoms that deviate more from their best template are `other`; 0 for no cutoff |
+| `rmsd_cutoff` | float64 | 0.1 | | atoms that deviate more from their best template are `other`; 0 for no cutoff |
 | `deformation_gradient` | bool | `False` | | compute the elastic deformation gradient of each atom |
 | `ordering` | bool | `False` | | identify the chemical ordering from the `element` column |
 | `template_neighbors` | bool | `False` | | give the neighbors of each atom in the order of its template |

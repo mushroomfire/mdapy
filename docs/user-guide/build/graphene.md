@@ -23,12 +23,12 @@ boundaries.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `polycrystal` | `System` | | | a polycrystal from `build_polycrystal`, with `info["seeds"]` and a `grain` column |
-| `layers` | int | 1 | | the number of graphene layers on each face, AB stacked and centered on it |
-| `coverage` | float | 1 | | the fraction of the area of the boundaries covered, from 0 to 1 |
-| `clearance` | float | 3.0 | Å | atoms of the polycrystal closer than this to a carbon atom are removed, about the distance of graphene from copper |
-| `bond` | float | 1.42 | Å | the carbon–carbon bond of graphene |
-| `spacing` | float | 3.35 | Å | the distance between graphene layers |
-| `seed` | int or `Generator` | | | seed of the faces chosen and of the orientations of the graphene |
+| `layers` | int32 | 1 | | the number of graphene layers on each face, AB stacked and centered on it |
+| `coverage` | float64 | 1 | | the fraction of the area of the boundaries covered, from 0 to 1 |
+| `clearance` | float64 | 3.0 | Å | atoms of the polycrystal closer than this to a carbon atom are removed, about the distance of graphene from copper |
+| `bond` | float64 | 1.42 | Å | the carbon–carbon bond of graphene |
+| `spacing` | float64 | 3.35 | Å | the distance between graphene layers |
+| `seed` | int64 or `numpy.random.Generator` | | | seed of the faces chosen and of the orientations of the graphene |
 
 Each face between two grains, the face of their Voronoi cells, is covered
 once by a flat piece of graphene, rotated at random about the normal of

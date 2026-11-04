@@ -284,13 +284,13 @@ def colormap(
     Parameters
     ----------
     values : array_like
-        (N,) the values.
+        (N,) float32, the values.
     name : str, optional
         One of ``COLORMAPS``: rainbow, viridis, magma, jet, hot,
         blue_white_red and gray, as OVITO's color coding computes them, and
         plasma and coolwarm; labels, for discrete values, gives each value one of
         ``LABEL_COLORS``, in increasing order. Default viridis.
-    value_range : sequence of float, optional
+    value_range : sequence of float64, optional
         (low, high) values of the two ends; by default the smallest and the
         largest finite value. Values beyond take the color of their end,
         NaN that of the low end. Not for labels.
@@ -298,7 +298,7 @@ def colormap(
     Returns
     -------
     numpy.ndarray
-        (N, 3) sRGB colors from 0 to 1.
+        (N, 3) float64 sRGB colors from 0 to 1.
     """
     if name not in COLORMAPS:
         raise InvalidParameter(f"colormap must be one of {COLORMAPS}, not {name!r}")
@@ -406,7 +406,7 @@ def element_radii(
     Returns
     -------
     numpy.ndarray
-        (N,) radii; elements without a value take 1.5 Å as covalent radius
+        (N,) float64 radii; elements without a value take 1.5 Å as covalent radius
         and 2 Å as van der Waals radius.
     """
     if kind not in _RADII:
@@ -510,9 +510,9 @@ def show_image(image: str | PathLike | np.ndarray, *, width: int | None = None) 
     Parameters
     ----------
     image : numpy.ndarray, str or path-like
-        A picture as :func:`mdapy.visualization.render` returns it, (H, W, 4)
+        A picture as :func:`mdapy.visualization.render` returns it, (H, W, 4) uint8
         uint8 with rows from the top, or a PNG or JPEG file.
-    width : int, optional
+    width : int32, optional
         Its width on the page in pixels. Default the width of the picture.
     """
     try:
@@ -587,14 +587,14 @@ class Scene:
         Parameters
         ----------
         centers : array_like
-            (N, 3) centers.
-        radii : float or array_like
+            (N, 3) float32 centers.
+        radii : float32 or array_like
             Radius of every sphere, or (N,) each.
         colors : array_like
             One color, as three numbers from 0 to 1 or a name such as
             "#rrggbb", or (N, 3) each.
         ids : array_like, optional
-            (N,) non-negative ids; outlines separate different ids. Default
+            (N,) int64 non-negative ids; outlines separate different ids. Default
             new ids, one per sphere.
         """
         c = np.asarray(centers, dtype=float).reshape(-1, 3)
@@ -624,13 +624,13 @@ class Scene:
         Parameters
         ----------
         starts, ends : array_like
-            (M, 3) the two ends of each cylinder.
-        radii : float or array_like
+            (M, 3) float32, the two ends of each cylinder.
+        radii : float32 or array_like
             Radius of every cylinder, or (M,) each.
         colors : array_like
             One color, or (M, 3) each.
         ids : array_like, optional
-            (M,) non-negative ids. Default new ids.
+            (M,) int64 non-negative ids. Default new ids.
         """
         a = np.asarray(starts, dtype=float).reshape(-1, 3)
         b = np.asarray(ends, dtype=float).reshape(-1, 3)
@@ -659,13 +659,13 @@ class Scene:
         Parameters
         ----------
         vertices : array_like
-            (T, 3, 3) the corners of each triangle.
+            (T, 3, 3) float32, the corners of each triangle.
         colors : array_like
             One color, or (T, 3) each.
-        alpha : float or array_like, optional
+        alpha : float32 or array_like, optional
             Opacity from 0 to 1 of every triangle, or (T,) each. Default 1.
         ids : array_like, optional
-            (T,) non-negative ids. Default new ids.
+            (T,) int64 non-negative ids. Default new ids.
         """
         v = np.asarray(vertices, dtype=float).reshape(-1, 9)
         t = len(v)
@@ -691,18 +691,18 @@ class Scene:
         Parameters
         ----------
         vertices : array_like
-            (V, 3) points.
+            (V, 3) float32 points.
         corner_offsets : array_like
-            (F + 1,) the corners of polygon f are
+            (F + 1,) int64, the corners of polygon f are
             ``corners[corner_offsets[f]:corner_offsets[f + 1]]``.
         corners : array_like
-            (C,) the vertex of each corner, in order around its polygon.
+            (C,) int64, the vertex of each corner, in order around its polygon.
         colors : array_like
             One color, or (F, 3) each.
-        alpha : float or array_like, optional
+        alpha : float32 or array_like, optional
             Opacity of every polygon, or (F,) each. Default 1.
         ids : array_like, optional
-            (F,) ids, the same for the triangles of a polygon. Default new
+            (F,) int64 ids, the same for the triangles of a polygon. Default new
             ids.
         """
         points = np.asarray(vertices, dtype=float).reshape(-1, 3)
@@ -737,7 +737,7 @@ class Scene:
         ----------
         box : Box
             The box.
-        radius : float, optional
+        radius : float32, optional
             Radius of the edges in Å. Default 0.15.
         color : color, optional
             Default black.
@@ -841,32 +841,32 @@ class Scene:
         ----------
         path : str or path-like, optional
             A PNG file to write the picture to.
-        width, height : int, optional
+        width, height : int32, optional
             Size of the picture in pixels. Default 1200 by 900.
         view : str or array_like, optional
             One of top, bottom, front, back, left, right and iso, or the
             (3,) direction of view. Default iso.
         up : array_like, optional
-            (3,) the direction up in the picture. Default that of the view,
+            (3,) float32, the direction up in the picture. Default that of the view,
             or z.
         perspective : bool, optional
             A perspective camera, or orthographic. Default False.
-        fov : float, optional
+        fov : float32, optional
             Vertical angle of view of a perspective camera in degrees.
             Default 30.
-        zoom : float, optional
+        zoom : float32, optional
             Magnification of the framed scene. Default 1.
         focus : array_like, optional
-            (3,) the point in Å at the middle of the picture. Default the
+            (3,) float32, the point in Å at the middle of the picture. Default the
             middle of the scene.
-        span : float, optional
+        span : float32, optional
             The length in Å the picture shows from its bottom to its top at
             the focus, in place of the framing and zoom. Default the scene
             framed.
-        aperture : float, optional
+        aperture : float32, optional
             Radius in Å of the lens of a perspective camera: 0 for a picture
             sharp everywhere, more for depth of field. Default 0.
-        focal_distance : float, optional
+        focal_distance : float32, optional
             Distance in Å from the camera along the view to the plane that
             stays sharp. Default that of the focus.
         style : str, optional

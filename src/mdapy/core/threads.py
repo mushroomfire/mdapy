@@ -42,7 +42,7 @@ def get_num_threads() -> int:
 
     Returns
     -------
-    int
+    int64
         The current setting. Defaults to the number of logical CPUs this
         process may use, or to the ``MDAPY_NUM_THREADS`` environment variable
         if it was set when MDAPY was imported.
@@ -58,7 +58,7 @@ def set_num_threads(n: int) -> None:
 
     Parameters
     ----------
-    n : int
+    n : int32
         Number of threads, at least 1.
 
     Raises
@@ -78,7 +78,7 @@ def num_threads(n: int) -> Iterator[None]:
 
     Parameters
     ----------
-    n : int
+    n : int32
         Number of threads, at least 1.
 
     Raises

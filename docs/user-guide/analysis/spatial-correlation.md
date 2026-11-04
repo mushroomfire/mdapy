@@ -63,11 +63,11 @@ neighbors of the direct sum resolve.*
 |---|---|---|---|---|
 | `first` | str | | | a column of one value per atom, a component such as `"velocities.x"`, or an expression over the columns |
 | `second` | str | `first` | | the other property; by default the autocorrelation of the first |
-| `grid_spacing` | float | 3.0 | Å | the approximate size of the cells of the grid: each box vector is cut into as many cells of at least this length as fit |
+| `grid_spacing` | float64 | 3.0 | Å | the approximate size of the cells of the grid: each box vector is cut into as many cells of at least this length as fit |
 | `window` | bool | `True` | | weight the atoms by a Hann window along the box vectors that are not periodic, which takes away the ringing of the edges of the box |
 | `direct` | bool | `False` | | also sum the correlation over the pairs of neighbors closer than `cutoff` |
-| `cutoff` | float | 5.0 | Å | the reach of the direct sum |
-| `bins` | int | 50 | | the number of bins of the direct sum |
+| `cutoff` | float64 | 5.0 | Å | the reach of the direct sum |
+| `bins` | int32 | 50 | | the number of bins of the direct sum |
 
 `compute(system)` takes the atoms in their box; along the periodic box
 vectors atoms outside the box count in the cells they fold back into,
@@ -86,7 +86,7 @@ A `SpatialCorrelationResult`:
 | `reciprocal` | (wavevectors,) float64 | | the correlation function in reciprocal space; of two properties equal to 1, the structure factor |
 | `means` | (2,) float64 | | the mean of each property over the atoms |
 | `mean_squares` | (2,) float64 | | the mean of the square of each property |
-| `mean_product` | float | | the mean over the atoms of the product of the two properties |
+| `mean_product` | float64 | | the mean over the atoms of the product of the two properties |
 | `neighbor_r` | (bins,) float64 or `None` | Å | the centers of the bins of the direct sum, with `direct` |
 | `neighbor_correlation` | (bins,) float64 or `None` | | the correlation function summed over the pairs of neighbors, with `direct` |
 | `neighbor_rdf` | (bins,) float64 or `None` | | the radial distribution function of the pairs of neighbors, with `direct` |

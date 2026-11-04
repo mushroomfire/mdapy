@@ -73,17 +73,17 @@ default nine volumes it is good to about 1 %.
 |---|---|---|---|---|
 | `system` | `System` | | | the cell of the crystal, periodic in every direction, with an `element` or a `mass` column; best relaxed and primitive |
 | `calculator` | `Calculator` | | | computes energies and forces |
-| `temperatures` | array_like | | K | the temperatures, not negative |
-| `volumes` | array_like | 9 from 0.97 to 1.09 | | the volumes of the phonons, as ratios to the volume of `system`; five or more |
-| `pressures` | array_like | | GPa | instead of volumes, the pressures under which the box and the positions relax; five or more |
-| `pressure` | float | 0 | GPa | the pressure $P$ |
-| `supercell` | int or 3 ints | | | repeats of the cell for the phonons, as in [`phonons`](phonons.md) |
-| `mesh` | int or 3 ints | 20 | | wave vectors along each reciprocal lattice vector for the thermal properties |
-| `displacement` | float | 0.01 | Å | displacement of the atoms for the force constants |
-| `max_force` | float | 1e-6 | eV/Å | convergence of the relaxation at each volume |
-| `max_stress` | float | 1e-4 | GPa | convergence of the relaxation of the box |
-| `max_steps` | int | 5000 | | largest number of steps of each relaxation |
-| `symmetry` | bool or None | `None` | | use the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md), in the phonons, as in [`phonons`](phonons.md): `True`, `False`, or by default whenever spglib is installed |
+| `temperatures` | (T,) float64 | | K | the temperatures, not negative |
+| `volumes` | (V,) float64 | 9 from 0.97 to 1.09 | | the volumes of the phonons, as ratios to the volume of `system`; five or more |
+| `pressures` | (V,) float64 | | GPa | instead of volumes, the pressures under which the box and the positions relax; five or more |
+| `pressure` | float64 | 0 | GPa | the pressure $P$ |
+| `supercell` | int32 or (3,) int32 | | | repeats of the cell for the phonons, as in [`phonons`](phonons.md) |
+| `mesh` | int32 or (3,) int32 | 20 | | wave vectors along each reciprocal lattice vector for the thermal properties |
+| `displacement` | float64 | 0.01 | Å | displacement of the atoms for the force constants |
+| `max_force` | float64 | 1e-6 | eV/Å | convergence of the relaxation at each volume |
+| `max_stress` | float64 | 1e-4 | GPa | convergence of the relaxation of the box |
+| `max_steps` | int32 | 5000 | | largest number of steps of each relaxation |
+| `symmetry` | bool or `None` | `None` | | use the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md), in the phonons, as in [`phonons`](phonons.md): `True`, `False`, or by default whenever spglib is installed |
 
 ## Results
 
@@ -91,17 +91,17 @@ It returns a `QuasiHarmonicResult`, all per atom; arrays are read-only.
 
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
-| `temperatures` | (T,) array | K | the temperatures |
-| `pressure` | float | GPa | the pressure |
-| `volume` | (T,) array | Å³ | the equilibrium volume $V(T)$ |
-| `gibbs_energy` | (T,) array | eV | the Gibbs energy $G(T, P)$ |
-| `entropy` | (T,) array | eV/K | the entropy $S$ |
-| `bulk_modulus` | (T,) array | GPa | the isothermal bulk modulus $B_T$ |
-| `thermal_expansion` | (T,) array | 1/K | the volumetric thermal expansion coefficient $\alpha$; a third of it is the linear one of a cubic crystal |
-| `heat_capacity` | (T,) array | eV/K | the heat capacity at constant pressure $C_P$ |
-| `volumes` | (V,) array | Å³ | the volumes of the phonons |
-| `energies` | (V,) array | eV | the static energy at each volume |
-| `free_energies` | (V, T) array | eV | the free energy of the vibrations at each volume and temperature |
+| `temperatures` | (T,) float64 | K | the temperatures |
+| `pressure` | float64 | GPa | the pressure |
+| `volume` | (T,) float64 | Å³ | the equilibrium volume $V(T)$ |
+| `gibbs_energy` | (T,) float64 | eV | the Gibbs energy $G(T, P)$ |
+| `entropy` | (T,) float64 | eV/K | the entropy $S$ |
+| `bulk_modulus` | (T,) float64 | GPa | the isothermal bulk modulus $B_T$ |
+| `thermal_expansion` | (T,) float64 | 1/K | the volumetric thermal expansion coefficient $\alpha$; a third of it is the linear one of a cubic crystal |
+| `heat_capacity` | (T,) float64 | eV/K | the heat capacity at constant pressure $C_P$ |
+| `volumes` | (V,) float64 | Å³ | the volumes of the phonons |
+| `energies` | (V,) float64 | eV | the static energy at each volume |
+| `free_energies` | (V, T) float64 | eV | the free energy of the vibrations at each volume and temperature |
 | `cells` | tuple of `System` | | the relaxed cell at each volume |
 
 ## Errors

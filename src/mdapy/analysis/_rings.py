@@ -67,7 +67,7 @@ class RingResult(Result):
             A fan of triangles about the center of each ring, across the
             periodic boundaries of the box.
         ring : numpy.ndarray
-            (F,) the ring of each triangle, for colors such as by its size.
+            (F,) int64, the ring of each triangle, for colors such as by its size.
         """
         box = system.box
         positions = system["positions"]
@@ -110,11 +110,11 @@ class RingStatistics:
 
     Parameters
     ----------
-    max_size : int, optional
+    max_size : int32, optional
         The largest ring, at most 36. Default 8.
-    min_size : int, optional
+    min_size : int32, optional
         The smallest ring, at least 3. Default 3.
-    cutoff : float, optional
+    cutoff : float64, optional
         Atoms closer than it, in Å, are bonded.
     cutoffs : dict, optional
         The bond length in Å of each pair of elements ``(a, b)``, in either

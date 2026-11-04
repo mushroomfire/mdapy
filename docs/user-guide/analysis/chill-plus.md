@@ -50,7 +50,7 @@ bonds of a hydrate (green).*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `cutoff` | float | 3.5 | Å | neighbors are the molecules closer than it; 3.5 Å for the oxygen atoms of water |
+| `cutoff` | float64 | 3.5 | Å | neighbors are the molecules closer than it; 3.5 Å for the oxygen atoms of water |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters); the system holds one

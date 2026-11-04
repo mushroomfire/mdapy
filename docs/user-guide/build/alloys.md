@@ -35,8 +35,8 @@ Right: Fe-10Cr on bcc sites, chromium in grey-blue.*
 | Name | Type | Default | Meaning |
 |---|---|---|---|
 | `system` | `System` | | the sites, such as a crystal from [`build_crystal`](crystals.md) |
-| `fractions` | dict of str to float | | the fraction of each element, positive; they are normalized to sum to 1 |
-| `seed` | int or `numpy.random.Generator` | `None` | the random order; the same seed gives the same alloy |
+| `fractions` | dict of str to float64 | | the fraction of each element, positive; they are normalized to sum to 1 |
+| `seed` | int64 or `numpy.random.Generator` | `None` | the random order; the same seed gives the same alloy |
 
 ## Results
 

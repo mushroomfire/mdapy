@@ -268,7 +268,7 @@ class NEP(Calculator):
     ----------
     elements : tuple of str
         The elements of the potential, in the order of the file.
-    cutoff : float
+    cutoff : float64
         The largest cutoff radius in Å.
     """
 
@@ -354,7 +354,7 @@ class NEP(Calculator):
         Returns
         -------
         numpy.ndarray
-            (N, dim) descriptors: the radial ones, then the angular ones by
+            (N, dim) float64 descriptors: the radial ones, then the angular ones by
             l and n, then the four-body and five-body ones by n.
         """
         species = _element_indices(system, self.elements, "NEP")

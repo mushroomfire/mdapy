@@ -106,29 +106,29 @@ class DislocationLine:
     Attributes
     ----------
     points : numpy.ndarray
-        (P, 3) points along the line in Å, unwrapped: consecutive points
+        (P, 3) float64 points along the line in Å, unwrapped: consecutive points
         are close also across a periodic boundary.
     burgers : numpy.ndarray
-        (3,) the Burgers vector in the lattice frame of its crystal cluster,
+        (3,) float64, the Burgers vector in the lattice frame of its crystal cluster,
         in units of the lattice constant, such as (0.5, 0.5, 0) for
         a/2[110]: the hexagonal lattices with c along z and a1 along x, in
         units of the cubic lattice constant with the same nearest
         neighbors.
     spatial_burgers : numpy.ndarray
-        (3,) the Burgers vector in Å along the axes of the box, as the
+        (3,) float64, the Burgers vector in Å along the axes of the box, as the
         crystal cluster is turned and stretched.
-    cluster : int
+    cluster : int32
         The crystal cluster of the frame of the Burgers vector.
     family : str
         The family of the Burgers vector, such as "1/2<110>", or "other".
-    length : float
+    length : float64
         Length in Å.
     loop : bool
         Whether the line closes on itself: a loop, or a line through
         periodic boundaries.
     infinite : bool
         Whether the line closes through periodic boundaries.
-    junctions : tuple of int
+    junctions : tuple of int32
         The junctions at the first and the last point, -1 for a free end
         and for the ends of a closed line.
     """
@@ -157,7 +157,7 @@ class CrystalClusters(Result):
     size : numpy.ndarray
         (C,) int64 number of atoms of each.
     orientation : numpy.ndarray
-        (C, 3, 3) the matrix that takes vectors of the lattice frame of
+        (C, 3, 3) float64, the matrix that takes vectors of the lattice frame of
         each, in units of the lattice constant, to vectors in Å along the
         axes of the box, from the neighbors of its atoms.
     """
@@ -178,13 +178,13 @@ class DislocationResult(Result):
     lines : tuple of DislocationLine
         The dislocation lines.
     junctions : numpy.ndarray
-        (J, 3) the points in Å where three or more lines meet, in the box.
+        (J, 3) float64, the points in Å where three or more lines meet, in the box.
     structure : numpy.ndarray
         (N,) int8 structure of each atom, an index into ``names``.
     names : tuple of str
         The structures: other, fcc, hcp, bcc, cubic_diamond and
         hexagonal_diamond.
-    colors : tuple of tuple of float
+    colors : tuple of tuple of float64
         Default RGB color of each structure, from 0 to 1.
     crystal_cluster : numpy.ndarray
         (N,) int64 crystal cluster of each atom, -1 for none.
@@ -252,22 +252,22 @@ class DislocationAnalysis:
     ----------
     crystal : str
         The crystal: fcc, hcp, bcc, cubic_diamond or hexagonal_diamond.
-    circuit_length : int, optional
+    circuit_length : int32, optional
         Number of edges of the longest Burgers circuit that finds a line;
         at least 3. Default 14.
-    stretch : int, optional
+    stretch : int32, optional
         Number of edges more a circuit may grow to follow a line. Default 9.
     perfect_only : bool, optional
         Find perfect dislocations only: the stacking faults of fcc and hcp,
         or of the diamonds, count as defects, without partial dislocations
         at their edges. Default False.
-    point_separation : float, optional
+    point_separation : float64, optional
         Sparseness of the points along the lines: each point is the mean of
         a run of the points found, longer where the lines are wider; 0
         keeps them all. Default 2.5.
-    smoothing : int, optional
+    smoothing : int32, optional
         Number of smoothing steps of the lines. Default 1.
-    mesh_smoothing : int, optional
+    mesh_smoothing : int32, optional
         Number of smoothing steps of the defect mesh. Default 8.
     interface_mesh : bool, optional
         Also give the interface mesh, between the tetrahedra of the good

@@ -24,7 +24,7 @@ class WignerSeitzResult(Result):
     Attributes
     ----------
     site : numpy.ndarray
-        (N,) reference site of each atom, the nearest one (the first of
+        (N,) int32 reference site of each atom, the nearest one (the first of
         equally near sites), as ``mdapy.index_dtype``.
     occupancy : numpy.ndarray
         (M,) int64 number of atoms on each reference site.

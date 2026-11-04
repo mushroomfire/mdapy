@@ -21,7 +21,7 @@ def voxel_faces(values: Any, box: Box) -> tuple[TriangleMesh, np.ndarray]:
     Parameters
     ----------
     values : array_like
-        (na, nb, nc) the values of the cells of a grid that divides the box
+        (na, nb, nc) float64, the values of the cells of a grid that divides the box
         into na, nb and nc cells along its vectors a, b and c, such as the
         values of a SpatialBinning along all three.
     box : Box
@@ -33,7 +33,7 @@ def voxel_faces(values: Any, box: Box) -> tuple[TriangleMesh, np.ndarray]:
         Two triangles for each cell at each of the six faces of the box,
         their normals pointing out of a right-handed box.
     face_values : numpy.ndarray
-        (F,) the value of the cell of each triangle, for colors such as
+        (F,) float64, the value of the cell of each triangle, for colors such as
         those of ``colormap``.
 
     Raises

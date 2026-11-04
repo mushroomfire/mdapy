@@ -22,9 +22,9 @@ box.minimum_image([[9.0, 0.0, 0.0]])  # [[-1, 0, 0]]
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `matrix` | float, 3 floats or (3, 3) array | | Å | A number gives a cube; three numbers an orthogonal box; a (3, 3) array a general box whose **rows** are the lattice vectors **a**, **b**, **c**. |
-| `origin` | 3 floats | (0, 0, 0) | Å | Position of the corner from which the lattice vectors start. |
-| `pbc` | bool or 3 bools | `True` | | Periodicity along **a**, **b** and **c**. |
+| `matrix` | float64, (3,) float64 or (3, 3) float64 | | Å | A number gives a cube; three numbers an orthogonal box; a (3, 3) array a general box whose **rows** are the lattice vectors **a**, **b**, **c**. |
+| `origin` | (3,) float64 | (0, 0, 0) | Å | Position of the corner from which the lattice vectors start. |
+| `pbc` | bool or (3,) bool | `True` | | Periodicity along **a**, **b** and **c**. |
 
 Other constructors:
 
@@ -39,17 +39,17 @@ Lattice vectors that are not finite or are linearly dependent raise
 
 ## Properties
 
-| Name | Shape | Unit | Meaning |
+| Name | Type | Unit | Meaning |
 |---|---|---|---|
-| `matrix` | (3, 3) | Å | Lattice vectors, one per row. |
-| `origin` | (3,) | Å | Corner of the box. |
+| `matrix` | (3, 3) float64 | Å | Lattice vectors, one per row. |
+| `origin` | (3,) float64 | Å | Corner of the box. |
 | `pbc` | (3,) bool | | Periodicity. |
-| `inverse` | (3, 3) | 1/Å | Inverse of `matrix`. |
-| `volume` | | Å³ | Volume. |
-| `lengths` | (3,) | Å | Lengths of **a**, **b**, **c**. |
-| `angles` | (3,) | degree | alpha, beta, gamma. |
-| `thickness` | (3,) | Å | Distance between each pair of opposite faces. |
-| `is_orthogonal` | | | Whether the lattice vectors lie along +x, +y, +z. |
+| `inverse` | (3, 3) float64 | 1/Å | Inverse of `matrix`. |
+| `volume` | float64 | Å³ | Volume. |
+| `lengths` | (3,) float64 | Å | Lengths of **a**, **b**, **c**. |
+| `angles` | (3,) float64 | degree | alpha, beta, gamma. |
+| `thickness` | (3,) float64 | Å | Distance between each pair of opposite faces. |
+| `is_orthogonal` | bool | | Whether the lattice vectors lie along +x, +y, +z. |
 
 The arrays are read-only. Boxes compare equal with `==` when all values are
 identical, and `box.allclose(other)` compares them within a tolerance.

@@ -26,7 +26,7 @@ def find_overlapping(
     ----------
     system : System
         The atoms and the box.
-    distance : float
+    distance : float64
         Two atoms closer than this in Å overlap.
     keep_one : bool, optional
         Whether to select only the atom of the higher index of each pair

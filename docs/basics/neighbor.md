@@ -35,10 +35,10 @@ faces.areas  # Å², the face that each pair shares
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms and the box |
-| `cutoff` | float | | Å | build every pair closer than this, positive |
-| `num_neighbors` | int | | | build the `num_neighbors` nearest neighbors of each atom, positive |
+| `cutoff` | float64 | | Å | build every pair closer than this, positive |
+| `num_neighbors` | int32 | | | build the `num_neighbors` nearest neighbors of each atom, positive |
 | `voronoi` | bool | `False` | | build the [Voronoi neighbors](#voronoi-neighbors) of each atom |
-| `face_threshold`, `relative_face_threshold`, `edge_threshold` | float | 0 | Å², , Å | with `voronoi`, the faces that count, as in the [Voronoi analysis](../user-guide/analysis/voronoi.md#parameters) |
+| `face_threshold`, `relative_face_threshold`, `edge_threshold` | float64 | 0 | Å², , Å | with `voronoi`, the faces that count, as in the [Voronoi analysis](../user-guide/analysis/voronoi.md#parameters) |
 | `progress` | callable | `None` | | called as `progress(done, total)`, see [Parallelism](parallelism.md#progress-and-cancellation) |
 | `cancel` | `CancelToken` | `None` | | stops the search |
 
@@ -69,7 +69,7 @@ each as its own pair; a single atom in a small periodic cell has a full list.
 
 ## Contents
 
-| Attribute | Shape and type | Meaning |
+| Attribute | Type | Meaning |
 |---|---|---|
 | `system` | `System` | the system the list was built for |
 | `offsets` | (N + 1,) int64 | the pairs of atom `i` are `offsets[i]:offsets[i + 1]` |
@@ -77,8 +77,8 @@ each as its own pair; a single atom in a small periodic cell has a full list.
 | `shifts` | (P, 3) int8 | the periodic image of `j`: zero along non-periodic directions |
 | `distances` | (P,) float64 | distance in Å |
 | `areas` | (P,) float64 or `None` | in a list of Voronoi neighbors, the area in Å² of the face of each pair; `None` otherwise |
-| `cutoff` | float | every pair is closer than it, in Å; for nearest and Voronoi neighbors, the largest distance, slightly enlarged |
-| `num_neighbors` | int or `None` | pairs per atom in a list of nearest neighbors, `None` otherwise |
+| `cutoff` | float64 | every pair is closer than it, in Å; for nearest and Voronoi neighbors, the largest distance, slightly enlarged |
+| `num_neighbors` | int32 or `None` | pairs per atom in a list of nearest neighbors, `None` otherwise |
 | `voronoi` | bool | whether the list holds Voronoi neighbors |
 
 The arrays are read-only. `mdapy.index_dtype` is int32, or int64 in MDAPY

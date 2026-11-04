@@ -40,13 +40,13 @@ class Predictions(Result):
     atoms : numpy.ndarray
         (F,) int64 the number of atoms of each frame.
     energy : numpy.ndarray
-        (F, 2) the label and the prediction of each frame, in eV per atom;
+        (F, 2) float64, the label and the prediction of each frame, in eV per atom;
         NaN for a frame without a label.
     forces : numpy.ndarray
-        (A, 2, 3) the label and the prediction of the force on each atom of
+        (A, 2, 3) float64, the label and the prediction of the force on each atom of
         all frames one after the other, in eV/Å; NaN without labels.
     virial : numpy.ndarray
-        (F, 2, 3, 3) the label and the prediction of the virial of each
+        (F, 2, 3, 3) float64, the label and the prediction of the virial of each
         frame, in eV per atom; NaN where either is missing.
     """
 
@@ -118,7 +118,7 @@ class Predictions(Result):
 
         Parameters
         ----------
-        count : int
+        count : int32
             How many.
         by : str, optional
             A column of :meth:`table`: energy_error (by its size),
@@ -316,14 +316,14 @@ class CommitteeResult(Result):
     atoms : numpy.ndarray
         (F,) int64 the number of atoms of each frame.
     energy : numpy.ndarray
-        (F,) the standard deviation of the energy per atom of each frame in
+        (F,) float64, the standard deviation of the energy per atom of each frame in
         eV.
     forces : numpy.ndarray
-        (A,) of each atom of all frames one after the other, the root mean
+        (A,) float64 of each atom of all frames one after the other, the root mean
         square over the models of the distance of its force from their mean
         force, in eV/Å.
     max_force : numpy.ndarray
-        (F,) the largest of ``forces`` in each frame.
+        (F,) float64, the largest of ``forces`` in each frame.
     """
 
     atoms: np.ndarray
@@ -380,15 +380,15 @@ def novelty(points: Any, reference: Any = None) -> np.ndarray:
     Parameters
     ----------
     points : array_like
-        (M, D) the points.
+        (M, D) float64, the points.
     reference : array_like, optional
-        (K, D) the points to measure from. Default the other points of
+        (K, D) float64, the points to measure from. Default the other points of
         ``points``, whose zero distances find repeated frames.
 
     Returns
     -------
     numpy.ndarray
-        (M,) the distance of each point from the nearest reference point.
+        (M,) float64, the distance of each point from the nearest reference point.
     """
     x = np.asarray(points, dtype=np.float64)
     alone = reference is None
@@ -447,7 +447,7 @@ def check_frames(frames: Sequence[System], *, close: float = 0.5) -> pl.DataFram
     ----------
     frames : sequence of System
         The frames, with an ``element`` column.
-    close : float, optional
+    close : float64, optional
         Two atoms closer than this fraction of the sum of their covalent
         radii are too close. Default 0.5.
 

@@ -35,11 +35,11 @@ return a new system and leave the old one as it is; see
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `positions` | (N, 3) array | | Å | Positions. Give either `positions` or `table`. |
+| `positions` | (N, 3) float64 | | Å | Positions. Give either `positions` or `table`. |
 | `box` | `Box` or lattice vectors | non-periodic box around the atoms | Å | Simulation box; a number or three numbers give an orthogonal periodic box. |
 | `table` | polars DataFrame | | | Per-atom table with a `positions` column of 3 numbers per atom. |
 | `elements` | str or N str | | | Chemical symbols; one symbol applies to all atoms. |
-| `types` | int or N int | | | Atom types, from 1; one value applies to all atoms. |
+| `types` | int32 or (N,) int32 | | | Atom types, from 1; one value applies to all atoms. |
 | `info` | mapping | `{}` | | Global information, for example `energy` (eV), `virial` (eV), `timestep`. |
 | `topology` | `Topology` | `None` | | Bonds, angles, dihedrals and impropers, see [Topology](topology.md). |
 
@@ -83,7 +83,7 @@ system is made and by `with_columns` and `with_table`, so the rest of MDAPY can 
 | `mass` | float64 | amu | mass |
 | `charge` | float64 | e | charge |
 | `image` | 3 int32 | | periodic image flags |
-| `movable` | 3 bool | | whether the atom may move along x, y and z |
+| `movable` | (3,) bool | | whether the atom may move along x, y and z |
 
 A conversion that would change a value raises an error. Small `int64` image flags become
 `int32`, and `1.0` becomes type 1, but `1.5` as a type, `2**40` as an image flag, or `2` in

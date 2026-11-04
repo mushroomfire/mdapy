@@ -28,8 +28,8 @@ picture frames its own atoms and the movie jumps.
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `path` | str or path-like | | | the file; its suffix, such as `.mp4`, tells FFmpeg the format |
-| `pictures` | iterable of arrays | | | (H, W, 3) or (H, W, 4) uint8 images of one size, as [`render`](rendering.md) gives them |
-| `fps` | float | 30 | 1/s | pictures per second |
+| `pictures` | iterable of (H, W, 3) or (H, W, 4) uint8 | | | (H, W, 3) or (H, W, 4) uint8 images of one size, as [`render`](rendering.md) gives them |
+| `fps` | float64 | 30 | 1/s | pictures per second |
 
 The movie is H.264 where FFmpeg offers it, the usual choice for `.mp4`, with
 a picture of odd size padded to even sizes for players. Draw the pictures with a

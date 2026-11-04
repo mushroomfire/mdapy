@@ -47,11 +47,11 @@ near its surface; and all exactly 0.1 Å long.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the structure perturbed |
-| `count` | int | | | number of copies |
-| `displacement` | float | 0.05 | Å | size of the displacement of each atom |
-| `strain` | float | 0.03 | | largest component of the strain of the box |
+| `count` | int32 | | | number of copies |
+| `displacement` | float64 | 0.05 | Å | size of the displacement of each atom |
+| `strain` | float64 | 0.03 | | largest component of the strain of the box |
 | `style` | str | `"normal"` | | `"normal"`: Gaussian, `displacement` the root mean square length; `"uniform"`: uniform in a ball of radius `displacement`; `"const"`: exactly `displacement` long, in a random direction |
-| `seed` | int or `numpy.random.Generator` | `None` | | seed of the random numbers |
+| `seed` | int64 or `numpy.random.Generator` | `None` | | seed of the random numbers |
 
 ## Results
 

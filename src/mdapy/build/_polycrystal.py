@@ -22,15 +22,15 @@ def random_rotations(
 
     Parameters
     ----------
-    count : int
+    count : int32
         Number of rotations.
-    seed : int or numpy.random.Generator, optional
+    seed : int64 or numpy.random.Generator, optional
         Seed of the random rotations.
 
     Returns
     -------
     numpy.ndarray
-        (count, 3, 3) rotation matrices.
+        (count, 3, 3) float64 rotation matrices.
     """
     q = np.random.default_rng(seed).normal(size=(count, 4))
     q /= np.linalg.norm(q, axis=1, keepdims=True)
@@ -75,18 +75,18 @@ def build_polycrystal(
         its lattice vectors. Along an axis no longer than the box of unit,
         the polycrystal is columnar: every grain spans that axis, its box
         takes the length of the unit there, and the grains turn about it.
-    grains : int or array_like
+    grains : int32 or array_like
         Number of grains, with seeds at random positions, or the (G, 3)
         positions of the seeds in Å.
     orientations : array_like, optional
-        (G, 3, 3) rotation of each grain, taking the axes of unit to those
+        (G, 3, 3) float64 rotation of each grain, taking the axes of unit to those
         of the box; in a columnar polycrystal rotations about its axis.
         Uniformly random by default.
-    min_distance : float, optional
+    min_distance : float64, optional
         Of two atoms closer than this, in Å, the later is removed: atoms of
         neighboring grains that come too close, and the copies of atoms on
         the faces of a cell. Default 0.7 times the nearest distance in unit.
-    seed : int or numpy.random.Generator, optional
+    seed : int64 or numpy.random.Generator, optional
         Seed of the random seeds and orientations.
 
     Returns
@@ -231,7 +231,7 @@ def twin_lamellae(cell: System, layers: int) -> System:
         A periodic crystal whose third box vector is along z and whose atoms
         lie on equally spaced planes normal to z, such as fcc with z along
         [111].
-    layers : int
+    layers : int32
         Number of atomic planes in each lamella, at least 2.
 
     Returns

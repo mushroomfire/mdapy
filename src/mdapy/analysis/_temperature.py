@@ -28,7 +28,7 @@ class TemperatureResult(Result):
     Attributes
     ----------
     temperature : numpy.ndarray
-        (N,) temperature in K; NaN for atoms without neighbors.
+        (N,) float64 temperature in K; NaN for atoms without neighbors.
     """
 
     temperature: np.ndarray
@@ -43,7 +43,7 @@ class AtomicTemperature:
 
     Parameters
     ----------
-    cutoff : float
+    cutoff : float64
         The neighbors closer than cutoff, in Å, form the group of an atom.
     """
 

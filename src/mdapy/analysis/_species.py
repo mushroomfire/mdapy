@@ -45,7 +45,7 @@ class SpeciesResult(Result):
         (N,) int64 molecule of each atom, numbered from 1 by decreasing size,
         ties by their first atom.
     formulas : numpy.ndarray
-        (M,) chemical formula of each molecule, in Hill order.
+        (M,) str, chemical formula of each molecule, in Hill order.
     sizes : numpy.ndarray
         (M,) int64 number of atoms of each molecule.
     """
@@ -82,10 +82,10 @@ class ChemicalSpecies:
         2008), as Jmol bonds atoms; the van der Waals radii (Alvarez 2013),
         as VMD and OVITO bond atoms, two hydrogen atoms never bonded unless
         cutoffs say so; or radii in Å by element. Default "covalent".
-    scale : float, optional
+    scale : float64, optional
         Factor on the sum of the radii. Default 0.6 with van der Waals
         radii, 1 otherwise.
-    tolerance : float, optional
+    tolerance : float64, optional
         Length added to it, in Å. Default 0.45 with covalent radii, 0
         otherwise.
     cutoffs : dict, optional

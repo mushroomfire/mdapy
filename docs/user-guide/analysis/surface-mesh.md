@@ -91,8 +91,8 @@ same surface after 8 smoothing steps.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `radius` | float | 4 | Å | radius of the probe sphere; larger than the distance between neighbors and smaller than the voids looked for |
-| `smoothing` | int | 8 | | the number of smoothing steps of the mesh, which round its shape and leave the volumes as they are |
+| `radius` | float64 | 4 | Å | radius of the probe sphere; larger than the distance between neighbors and smaller than the voids looked for |
+| `smoothing` | int32 | 8 | | the number of smoothing steps of the mesh, which round its shape and leave the volumes as they are |
 | `regions` | bool | `False` | | also split the solid and the empty space into regions, and find the voids |
 | `surface` | bool | `False` | | also mark the atoms on the surface |
 
@@ -114,8 +114,8 @@ A `SurfaceMeshResult`:
 |---|---|---|
 | `mesh` | `TriangleMesh` | the surface, its normals pointing out of the solid |
 | `atoms` | (V,) int64 | the atom at each vertex of the mesh |
-| `area` | float | the area of the surface in Å² |
-| `solid_volume` | float | the volume of the solid in Å³ |
+| `area` | float64 | the area of the surface in Å² |
+| `solid_volume` | float64 | the volume of the solid in Å³ |
 | `regions` | `SurfaceRegions` or `None` | the regions, with `regions=True` |
 | `surface` | (N,) bool or `None` | whether each atom lies on the surface, with `surface=True`; its column `surface` |
 
@@ -148,7 +148,7 @@ across periodic boundaries too:
 | `box` | `Box` or `None` | the box of the periodic images |
 | `corners()` | (F, 3, 3) float64 | the corners of each triangle in Å, each triangle whole |
 | `areas` | (F,) float64 | the area of each triangle in Å² |
-| `area` | float | their sum |
+| `area` | float64 | their sum |
 | `normals` | (F, 3) float64 | the unit normal of each triangle, zero for one without area |
 | `pieces()` | (T, 3, 3) float64, (T,) int64 | the triangles cut at the periodic faces of the box and moved into it, and the triangle of each piece |
 

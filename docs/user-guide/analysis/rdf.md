@@ -47,8 +47,8 @@ a/√2, a, a√(3/2), a√2 and beyond.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `r_max` | float | | Å | largest distance; it may exceed half the box, periodic images count |
-| `bins` | int | 200 | | number of bins of equal width from 0 to `r_max` |
+| `r_max` | float64 | | Å | largest distance; it may exceed half the box, periodic images count |
+| `bins` | int32 | 200 | | number of bins of equal width from 0 to `r_max` |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list
@@ -65,7 +65,7 @@ A `RadialDistributionResult`:
 | `edges` | (bins + 1,) float64 | bin edges in Å |
 | `g` | (bins,) float64 | g(r) |
 | `coordination` | (bins,) float64 | mean number of neighbors closer than the upper edge of each bin |
-| `partial` | dict | g_ab(r) of each pair of elements `(a, b)`, `a` not after `b` by atomic number |
+| `partial` | dict of (str, str) to (B,) float64 | g_ab(r) of each pair of elements `(a, b)`, `a` not after `b` by atomic number |
 | `pair(a, b)` | (bins,) float64 | g_ab(r), with `a` and `b` in either order |
 
 ## Errors

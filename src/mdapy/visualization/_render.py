@@ -57,7 +57,7 @@ def atom_names(system: System) -> np.ndarray:
     Returns
     -------
     numpy.ndarray
-        (N,) their elements; atoms of a type without an element, or of the
+        (N,) str, their elements; atoms of a type without an element, or of the
         element X, named after their type: ``Type 1``, ``Type 2`` and so on.
     """
     kinds, index = _kinds(system)
@@ -108,7 +108,7 @@ def atom_colors(
         result, with ``structure`` and ``colors``.
     colormap_name : str, optional
         The colormap of values. Default viridis.
-    value_range : sequence of float, optional
+    value_range : sequence of float64, optional
         The values at the two ends of the colormap.
     elements : mapping, optional
         Colors of elements, such as ``{"Cu": "#d4875a"}``, in place of
@@ -117,7 +117,7 @@ def atom_colors(
     Returns
     -------
     numpy.ndarray
-        (N, 3) colors from 0 to 1.
+        (N, 3) float64 colors from 0 to 1.
     """
     n = len(system)
     if color is None:
@@ -225,13 +225,13 @@ def atom_radii(
     elements : mapping, optional
         Radii of elements in Å, such as ``{"C": 0.6}``, in place of their
         own.
-    scale : float, optional
+    scale : float64, optional
         A factor of every radius. Default 1.
 
     Returns
     -------
     numpy.ndarray
-        (N,) the ``radius`` column of the system where it has one, else the
+        (N,) float64, the ``radius`` column of the system where it has one, else the
         radii of the elements, times the scale.
     """
     if "radius" in system.table.columns:
@@ -305,7 +305,7 @@ def color_coding(
         expression over the columns.
     colormap : str, optional
         One of ``COLORMAPS``. Default rainbow, as OVITO's.
-    value_range : sequence of float, optional
+    value_range : sequence of float64, optional
         (low, high) values of the two ends; by default the smallest and the
         largest finite value of the atoms colored.
     atoms : array_like, optional
@@ -342,7 +342,7 @@ def assign_color(
     ----------
     system : System
         The atoms.
-    color : str or sequence of float
+    color : str or sequence of float64
         A color: three numbers from 0 to 1, a code ``"#rrggbb"`` or a name
         such as ``"red"``.
     atoms : array_like, optional
@@ -457,39 +457,39 @@ def render(
         the elements.
     colormap : str, optional
         The colormap of values. Default viridis.
-    value_range : sequence of float, optional
+    value_range : sequence of float64, optional
         The values at the two ends of the colormap.
     representation : str, optional
         How atoms and bonds are drawn, one of ``REPRESENTATIONS``: spheres,
         ball_and_stick, space_filling or licorice. It sets the defaults of
         radius, bonds and bond_radius. Default spheres.
-    radius : float, array_like or str, optional
+    radius : float32, array_like or str, optional
         Radius of the atoms in Å, one or (N,) each, or the radii of the
         elements: "display", "covalent" or "vdw". Default the ``radius``
         column of the system where it has one, else that of the
         representation.
-    bonds : float, NeighborList, "covalent" or "topology", optional
+    bonds : float64, NeighborList, "covalent" or "topology", optional
         Bonds between the atoms closer than this cutoff in Å, the pairs of a
         neighbor list, covalent bonds (see :func:`covalent_bonds`), or the
         bonds of the topology of the system, such as those of a LAMMPS data
         file or of :func:`mdapy.transform.create_bonds`.
         Default that of the representation.
-    bond_radius : float, optional
+    bond_radius : float32, optional
         Radius of the bonds in Å. Default that of the representation.
     box : bool, optional
         Draw the edges of the box. Default True.
-    box_radius : float, optional
+    box_radius : float32, optional
         Radius of the edges in Å. Default a tenth of the median atom radius.
     box_color : color, optional
         Color of the edges. Default black.
     polyhedra : VoronoiPolyhedra, optional
         Voronoi cells to draw for the atoms shown.
-    polyhedra_alpha : float, optional
+    polyhedra_alpha : float32, optional
         Opacity of the cells. Default 0.6.
     polyhedra_color : {"atom", "edges"}, optional
         Color the faces as their atoms, or by their number of edges.
         Default atom.
-    polyhedra_edges : float, optional
+    polyhedra_edges : float32, optional
         Radius in Å of the edges of the cells; 0 draws none. Default a
         twentieth of the median atom radius.
     mesh : TriangleMesh, optional
@@ -500,21 +500,21 @@ def render(
     mesh_color : optional
         One color for the surface, or (F, 3) colors of its triangles.
         Default light blue.
-    mesh_alpha : float, optional
+    mesh_alpha : float32, optional
         Opacity of the surface. Default 1.
     dislocations : DislocationResult, optional
         Dislocation lines to draw, such as those of
         :class:`~mdapy.analysis.DislocationAnalysis`: tubes in the color of
         the family of their Burgers vector, cut at the periodic boundaries,
         the parts outside moved in through the opposite faces.
-    dislocation_radius : float, optional
+    dislocation_radius : float32, optional
         Radius of the tubes in Å. Default 0.5.
     burgers_vectors : bool, optional
         Also draw the Burgers vector of each line: an arrow from the middle
         of the line along the vector in space. Default False.
-    burgers_scale : float, optional
+    burgers_scale : float32, optional
         Length of the arrows in units of the Burgers vectors. Default 3.
-    burgers_radius : float, optional
+    burgers_radius : float32, optional
         Radius of the shafts of the arrows in Å. Default 0.3.
     burgers_color : optional
         One color for the arrows, or "family" for the color of each line.
@@ -522,10 +522,10 @@ def render(
     vectors : str or array_like, optional
         A column of three components, such as displacement, velocities or
         forces, or (N, 3) vectors: an arrow for each atom shown.
-    vector_scale : float, optional
+    vector_scale : float32, optional
         Length of the arrows in units of the vectors; negative reverses
         them. Default 1.
-    vector_radius : float, optional
+    vector_radius : float32, optional
         Radius of the shafts of the arrows in Å. Default 0.5.
     vector_color : optional
         One color for the arrows, or "atom" for the color of each atom.
@@ -537,7 +537,7 @@ def render(
         Polylines to draw, such as the paths of
         :func:`~mdapy.analysis.trajectory_lines`: (M, T, 3) points, or
         (T, 3) points of each line.
-    line_radius : float, optional
+    line_radius : float32, optional
         Radius of the lines in Å. Default 0.1.
     line_color : optional
         One color for the lines. Default gray.

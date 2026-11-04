@@ -54,7 +54,7 @@ bottom, growing with the height and the distance from the axis.*
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|
-| `reference` | System | | the reference configuration |
+| `reference` | `System` | | the reference configuration |
 | `minimum_image` | bool | `True` | along each periodic direction, the periodic image of the reference position nearest the atom |
 | `affine` | bool | `False` | measure in the reference box: the current positions mapped into it first, which removes the homogeneous deformation of the box |
 

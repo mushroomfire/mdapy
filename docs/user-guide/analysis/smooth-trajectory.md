@@ -55,8 +55,8 @@ follows the drift through the boundary without the jumps.*
 
 | Name | Type | Meaning |
 |---|---|---|
-| `frames` | sequence of System | the same atoms in every frame, such as a [`Trajectory`](../../basics/trajectory.md), matched by the `id` column where the frames have one, else in the same order; without an `image` column, atoms must move less than half the box between frames |
-| `window` | int | the number of frames averaged: the frame, `(window - 1) // 2` frames before it and `window // 2` after it, the first and last frames repeated beyond the ends; 1 leaves the positions as they are |
+| `frames` | sequence of `System` | the same atoms in every frame, such as a [`Trajectory`](../../basics/trajectory.md), matched by the `id` column where the frames have one, else in the same order; without an `image` column, atoms must move less than half the box between frames |
+| `window` | int32 | the number of frames averaged: the frame, `(window - 1) // 2` frames before it and `window // 2` after it, the first and last frames repeated beyond the ends; 1 leaves the positions as they are |
 
 ## Results
 

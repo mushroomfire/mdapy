@@ -21,7 +21,7 @@ def create_bonds(system: System, cutoff: float | str) -> System:
     ----------
     system : System
         The atoms.
-    cutoff : float or "covalent"
+    cutoff : float64 or "covalent"
         Bonds between atoms closer than this in Å, also across periodic
         boundaries; or "covalent", between atoms closer than 1.2 times the
         sum of their covalent radii, as :func:`mdapy.visualization.covalent_bonds`

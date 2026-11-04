@@ -62,9 +62,9 @@ class NeighborList:
     ----------
     system : System
         The system the list was built for.
-    cutoff : float
+    cutoff : float64
         Every pair is closer than it, in Å.
-    num_neighbors : int or None
+    num_neighbors : int32 or None
         The number of pairs of each atom in a list of nearest neighbors,
         None otherwise.
     voronoi : bool
@@ -132,15 +132,15 @@ class NeighborList:
             The atoms and the box. Any box works; a box thinner than the
             cutoff gives several images of the same neighbor, and images of
             the atom itself.
-        cutoff : float, optional
+        cutoff : float64, optional
             Cutoff radius in Å, positive.
-        num_neighbors : int, optional
+        num_neighbors : int32, optional
             Number of nearest neighbors of each atom, positive.
         voronoi : bool, optional
             The neighbors of an atom are the atoms across the faces of its
             Voronoi cell that count. Give one of cutoff, num_neighbors and
             voronoi.
-        face_threshold, relative_face_threshold, edge_threshold : float, optional
+        face_threshold, relative_face_threshold, edge_threshold : float64, optional
             With voronoi, the faces that count, as in
             :class:`mdapy.analysis.VoronoiAnalysis`. Default 0.
         progress : callable, optional
@@ -329,7 +329,7 @@ class NeighborList:
 
         Parameters
         ----------
-        cutoff : float
+        cutoff : float64
             Cutoff radius in Å, positive and at most the cutoff of this list.
 
         Returns

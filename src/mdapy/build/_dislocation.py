@@ -35,21 +35,21 @@ def insert_dislocation(
     system : System
         The atoms.
     burgers : array_like
-        (3,) Burgers vector in Å, in the plane of cut: its part along line is
+        (3,) float64 Burgers vector in Å, in the plane of cut: its part along line is
         the screw part, the rest the edge part.
-    line : int or str, optional
+    line : int32 or str, optional
         The Cartesian axis along the dislocation line, 0, 1, 2 or x, y, z.
         Default z.
-    normal : int or str, optional
+    normal : int32 or str, optional
         The Cartesian axis normal to the plane of cut, other than line.
         Default y.
     center : array_like, optional
-        (3,) a point of the dislocation line in Å. Default the center of the
+        (3,) float64, a point of the dislocation line in Å. Default the center of the
         box.
-    poisson : float, optional
+    poisson : float64, optional
         Poisson's ratio, from -1 to below 0.5, for isotropic elasticity.
         Default 1/3.
-    elastic : array_like, optional
+    elastic : array_like of float64, optional
         Elastic constants of a cubic crystal for anisotropic elasticity:
         (C11, C12, C44) or the (6, 6) Voigt matrix, in any unit, in the axes
         of the cubic cell. Default isotropic elasticity.
@@ -135,7 +135,7 @@ def edge_dislocation(cell: System, repeat: tuple[int, int, int]) -> System:
     cell : System
         An orthogonal periodic cell whose period along x is the Burgers
         vector, such as fcc along [1-10], [11-2], [111].
-    repeat : tuple of int
+    repeat : tuple of int32
         (nx, ny, nz): above the line nx periods along x, below it nx + 1;
         ny along y, the line; nz along z in all, at least 2.
 

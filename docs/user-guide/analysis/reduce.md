@@ -36,10 +36,10 @@ reduce(copper, "charge", "std", atoms=copper.where("positions.z > 10"))
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|
-| `system` | System | | the atoms |
+| `system` | `System` | | the atoms |
 | `column` | str | | a column of numbers, a component such as `"positions.z"` or an expression over the columns |
 | `operation` | str | `"mean"` | one of `OPERATIONS`, below |
-| `atoms` | array_like | `None` | a boolean mask or indices of the atoms to take, such as those of [`System.where`](../../basics/selecting.md#masks); all by default |
+| `atoms` | (N,) bool or indices | `None` | a boolean mask or indices of the atoms to take, such as those of [`System.where`](../../basics/selecting.md#masks); all by default |
 
 | Operation | Gives |
 |---|---|
@@ -57,7 +57,7 @@ than two.
 
 ## Results
 
-A float, or an int for `"nonzero"`, `"argmin"` and `"argmax"`; for a column
+A `float64`, or an `int64` for `"nonzero"`, `"argmin"` and `"argmax"`; for a column
 of several components, such as `"velocities"`, an array of one per
 component.
 

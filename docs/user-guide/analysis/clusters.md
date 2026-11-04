@@ -53,8 +53,8 @@ overlap or touch within the cutoff of 3 Å join into one.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `cutoff` | float | `None` | Å | atoms closer than it are bonded |
-| `cutoffs` | dict | `None` | Å | instead of `cutoff`, a bond length for each pair of elements `(a, b)`, in either order; pairs not given are never bonded |
+| `cutoff` | float64 | `None` | Å | atoms closer than it are bonded |
+| `cutoffs` | dict of (str, str) to float64 | `None` | Å | instead of `cutoff`, a bond length for each pair of elements `(a, b)`, in either order; pairs not given are never bonded |
 | `unwrap` | bool | `False` | | also give the positions with no cluster cut by the periodic boundaries |
 | `center_of_mass` | bool | `False` | | also compute the mass and the center of mass of each cluster |
 | `gyration` | bool | `False` | | also compute the gyration tensor and the radius of gyration of each cluster |

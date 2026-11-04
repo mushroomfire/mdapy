@@ -86,7 +86,7 @@ class LAMMPS(Calculator):
     cmdargs : sequence of str, optional
         Command-line arguments of LAMMPS, such as ``["-k", "on", "t", "4",
         "-sf", "kk"]`` for Kokkos with four threads.
-    cutoff : float, optional
+    cutoff : float64, optional
         The largest cutoff of the interaction in Å; asked from LAMMPS when
         not given, which LAMMPS older than 30 Sep 2026 cannot tell.
 
@@ -94,7 +94,7 @@ class LAMMPS(Calculator):
     ----------
     elements : tuple of str
         The element of each atom type.
-    cutoff : float
+    cutoff : float64
         The largest cutoff of the interaction in Å.
 
     Raises

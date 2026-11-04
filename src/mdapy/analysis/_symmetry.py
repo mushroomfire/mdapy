@@ -147,15 +147,15 @@ class SpaceGroupResult(Result):
 
     Attributes
     ----------
-    number : int
+    number : int32
         The number of the space group in the International Tables, 1 to 230.
     symbol : str
         Its Hermann–Mauguin symbol, such as "Fm-3m".
     rotations : numpy.ndarray
-        (K, 3, 3) the rotations of the K symmetry operations, acting on
+        (K, 3, 3) float64, the rotations of the K symmetry operations, acting on
         Cartesian column vectors.
     translations : numpy.ndarray
-        (K, 3) their translations in Å: operation k moves the point r to
+        (K, 3) float64, their translations in Å: operation k moves the point r to
         ``rotations[k] @ r + translations[k]``.
     equivalent : numpy.ndarray
         (N,) int64 the first atom that symmetry makes each atom equivalent
@@ -175,7 +175,7 @@ class SpaceGroup:
 
     Parameters
     ----------
-    tolerance : float, optional
+    tolerance : float64, optional
         Distance in Å within which atoms count as images of each other.
         Default 1e-5.
     """

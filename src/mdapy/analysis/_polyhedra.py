@@ -69,11 +69,11 @@ class CoordinationPolyhedraResult(Result):
         The faces of every polyhedron, its vertices at the neighbors next to
         the atom, whole, even where they stick out of the box.
     atoms : numpy.ndarray
-        (M,) the atom at the middle of each polyhedron.
+        (M,) int64, the atom at the middle of each polyhedron.
     owners : numpy.ndarray
-        (F,) the polyhedron of each triangle of the mesh, an index of atoms.
+        (F,) int64, the polyhedron of each triangle of the mesh, an index of atoms.
     volumes : numpy.ndarray
-        (M,) the volume of each polyhedron in Å³; 0 for fewer than four
+        (M,) float64, the volume of each polyhedron in Å³; 0 for fewer than four
         neighbors or neighbors in a plane.
     """
 
@@ -89,9 +89,9 @@ class CoordinationPolyhedra:
 
     Parameters
     ----------
-    cutoff : float, optional
+    cutoff : float64, optional
         The neighbors closer than this, in Å.
-    num_neighbors : int, optional
+    num_neighbors : int32, optional
         The nearest neighbors, this many.
     bonds : bool, optional
         The atoms bonded to each, by the bonds of the topology.

@@ -121,11 +121,11 @@ def figure(
 
     Parameters
     ----------
-    width : {"single", "double"} or float, optional
+    width : {"single", "double"} or float64, optional
         One column (88 mm), two (180 mm), or a width in mm. Default single.
-    height : float, optional
+    height : float64, optional
         Height in mm. Default 3/4 of the width of one panel times the rows.
-    nrows, ncols : int, optional
+    nrows, ncols : int32, optional
         Rows and columns of panels. Default 1.
     **options
         Passed to ``matplotlib.pyplot.subplots``.
@@ -215,7 +215,7 @@ def parity(
 
     Parameters
     ----------
-    reference, predicted : array_like
+    reference, predicted : array_like of float64
         The values, of the same size.
     ax : matplotlib.axes.Axes, optional
         The axes; by default a new figure.
@@ -223,7 +223,7 @@ def parity(
         Name of the set in the legend.
     unit : str, optional
         Unit of the error in the legend.
-    scale : float, optional
+    scale : float64, optional
         Factor of the error in the legend, such as 1000 for meV from eV.
     density : bool, optional
         A hexagonal density map instead of points, for many values.
@@ -285,7 +285,7 @@ def scatter(
         The axes; by default a new figure.
     atoms : array_like, optional
         A boolean mask or indices of the atoms drawn. Default all of them.
-    max_points : int, optional
+    max_points : int32, optional
         At most this many atoms drawn, picked at random with a fixed seed
         from those with finite values. Default 20000.
     color : str, optional
@@ -369,11 +369,11 @@ def msd(
     ----------
     result : DisplacementResult
         The mean squared displacement.
-    timestep : float, optional
+    timestep : float64, optional
         Time between frames in ps. Default 1.
     ax : matplotlib.axes.Axes, optional
         The axes.
-    fit : tuple of int, optional
+    fit : tuple of int32, optional
         (first, last) lags of a straight line fitted to the MSD, whose slope
         over 6 is the diffusion coefficient, shown in the legend.
 

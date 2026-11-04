@@ -111,7 +111,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `image` | 3 int32 | | periodic image flags |
 | `atom_name` | str | | name of the atom in its residue, as in PDB files, such as `CA` |
 | `residue`, `residue_number` | str, int64 | | name and number of the residue of an atom, as in PDB files |
-| `movable` | 3 bool | | whether the atom may move along x, y, z (VASP selective dynamics) |
+| `movable` | (3,) bool | | whether the atom may move along x, y, z (VASP selective dynamics) |
 | `cna_structure`, `ptm_structure`, `ackland_jones_structure`, `diamond_structure`, `chill_plus_structure` | int8 | | structure type from an identification, named after the method; the result names the types |
 | `grain` | int64 | | grain of an atom from `GrainSegmentation`, numbered from 0 by decreasing size; -1 for none |
 | `planar_fault` | int8 | | planar fault type of fcc crystals from `PlanarFaults`: non-hcp, other hcp, intrinsic stacking fault, coherent twin boundary, multilayer stacking fault, extrinsic stacking fault |
@@ -170,13 +170,13 @@ column of fixed-size arrays of length 3 and use the plural name.
 | Concept | Name | Not used |
 |---|---|---|
 | cutoff radius (Å) | `cutoff` | `rc`, `r_cut` |
-| cutoff per pair of elements | `cutoffs: dict[tuple[str, str], float]` | `rc_dict` |
+| cutoff per pair of elements | `cutoffs`, dict of (str, str) to float64 | `rc_dict` |
 | number of nearest neighbors | `num_neighbors` | `k`, `N`, `nnn` |
 | number of histogram bins | `bins` | `nbin`, `nbins` |
 | upper limit of a distribution | `r_max`, `q_max` | `rc`, `k_max` |
 | way of computing a quantity | `method` | `mode` |
 | result for each pair or triplet of elements, ordered by atomic number | `partial[a, b]` with `pair(a, b)`; `partial[a, b, c]` (vertex `a`) with `triplet(a, b, c)` | `rdf_partial`, `adf` |
-| random seed | `seed` (int or `numpy.random.Generator`) | `random_seed` |
+| random seed | `seed` (int64 or `numpy.random.Generator`) | `random_seed` |
 | list of elements | `elements` | `element_list` |
 | fractions of elements | `fractions` | `element_ratio` |
 | crystal structure | `structure` | `lattice_type` |

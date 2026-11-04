@@ -165,12 +165,12 @@ the way to the plane above.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `burgers` | (3,) float | | Å | the Burgers vector the dislocation analysis finds along +`line`, in the plane of cut: its part along `line` is screw, the rest edge |
-| `line` | int or str | `"z"` | | the Cartesian axis along the dislocation line |
-| `normal` | int or str | `"y"` | | the Cartesian axis normal to the plane of cut, other than `line` |
-| `center` | (3,) float | center of the box | Å | a point of the line |
-| `poisson` | float | 1/3 | | Poisson's ratio, for the edge part, in isotropic elasticity |
-| `elastic` | (3,) or (6, 6) float | `None` | any | (C11, C12, C44) or the Voigt matrix of the elastic constants, in the axes of the cubic cell: anisotropic elasticity |
+| `burgers` | (3,) float64 | | Å | the Burgers vector the dislocation analysis finds along +`line`, in the plane of cut: its part along `line` is screw, the rest edge |
+| `line` | int32 or str | `"z"` | | the Cartesian axis along the dislocation line |
+| `normal` | int32 or str | `"y"` | | the Cartesian axis normal to the plane of cut, other than `line` |
+| `center` | (3,) float64 | center of the box | Å | a point of the line |
+| `poisson` | float64 | 1/3 | | Poisson's ratio, for the edge part, in isotropic elasticity |
+| `elastic` | (3,) or (6, 6) float64 | `None` | any | (C11, C12, C44) or the Voigt matrix of the elastic constants, in the axes of the cubic cell: anisotropic elasticity |
 | `orientation` | three directions | the cubic axes | | the crystal directions along x, y and z, with `elastic` |
 
 `dislocation_cylinder(dislocation, a, elastic, radius, *, elements="X", length=1, fixed=6.0, dissociation=0.0)`
@@ -178,13 +178,13 @@ the way to the plane above.
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `dislocation` | str or `Dislocation` | | | a name of `DISLOCATIONS` or a dislocation of your own |
-| `a` | float | | Å | the lattice constant |
-| `elastic` | (3,) or (6, 6) float | | any | (C11, C12, C44) or the Voigt matrix, in the axes of the cubic cell |
-| `radius` | float | | Å | the radius of the cylinder |
+| `a` | float64 | | Å | the lattice constant |
+| `elastic` | (3,) or (6, 6) float64 | | any | (C11, C12, C44) or the Voigt matrix, in the axes of the cubic cell |
+| `radius` | float64 | | Å | the radius of the cylinder |
 | `elements` | str or sequence | `"X"` | | as for `build_crystal` |
-| `length` | int | 1 | | periods of the crystal along the line |
-| `fixed` | float | 6 | Å | the thickness of the outer shell kept still, best at least the cutoff of the potential |
-| `dissociation` | float | 0 | Å | the distance between the Shockley partials of an fcc or diamond dislocation, rounded to whole rows of atoms; 0 for a perfect one |
+| `length` | int32 | 1 | | periods of the crystal along the line |
+| `fixed` | float64 | 6 | Å | the thickness of the outer shell kept still, best at least the cutoff of the potential |
+| `dissociation` | float64 | 0 | Å | the distance between the Shockley partials of an fcc or diamond dislocation, rounded to whole rows of atoms; 0 for a perfect one |
 
 `dislocation_quadrupole(dislocation, a, elastic, repeat, *, elements="X", dissociation=0.0)`
 takes the same `dislocation`, `a`, `elastic`, `elements` and

@@ -37,13 +37,13 @@ class LammpsBox(NamedTuple):
     Attributes
     ----------
     lo : numpy.ndarray
-        (xlo, ylo, zlo) in Å.
+        (3,) float64, (xlo, ylo, zlo) in Å.
     hi : numpy.ndarray
-        (xhi, yhi, zhi) in Å.
+        (3,) float64, (xhi, yhi, zhi) in Å.
     tilt : numpy.ndarray
-        Tilt factors (xy, xz, yz) in Å.
+        (3,) float64, tilt factors (xy, xz, yz) in Å.
     rotation : numpy.ndarray
-        (3, 3) rotation matrix. A position or other vector ``v`` (row
+        (3, 3) float64 rotation matrix. A position or other vector ``v`` (row
         vector) of the original box becomes ``v @ rotation`` in the LAMMPS
         box. It is exactly the identity when the box already has this form.
     """
@@ -59,11 +59,11 @@ class Box:
 
     Parameters
     ----------
-    matrix : float or array_like
+    matrix : float64 or array_like
         Lattice vectors in Å. A number gives a cube, three numbers an
         orthogonal box with these edge lengths, and a (3, 3) array a general
         box whose rows are the lattice vectors **a**, **b**, **c**.
-    origin : array_like, optional
+    origin : array_like of float64, optional
         Position of the corner of the box in Å. Default (0, 0, 0).
     pbc : bool or sequence of 3 bool, optional
         Whether the box is periodic along **a**, **b** and **c**. Default
@@ -179,9 +179,9 @@ class Box:
 
         Parameters
         ----------
-        a, b, c : float
+        a, b, c : float64
             Edge lengths in Å.
-        alpha, beta, gamma : float, optional
+        alpha, beta, gamma : float64, optional
             Angles in degrees between **b** and **c**, **a** and **c**, and
             **a** and **b**. Default 90.
         origin, pbc
@@ -218,8 +218,8 @@ class Box:
         Parameters
         ----------
         positions : array_like
-            (N, 3) positions in Å. N may be 0.
-        padding : float, optional
+            (N, 3) float64 positions in Å. N may be 0.
+        padding : float64, optional
             Distance in Å between the outermost atoms and the box faces.
             Default 1.0; must be positive.
 
@@ -251,8 +251,8 @@ class Box:
         Parameters
         ----------
         lo, hi : array_like
-            (xlo, ylo, zlo) and (xhi, yhi, zhi) in Å.
-        tilt : array_like, optional
+            (xlo, ylo, zlo) float64 and (xhi, yhi, zhi) in Å.
+        tilt : array_like of float64, optional
             Tilt factors (xy, xz, yz) in Å. Default zero.
         pbc
             As for :class:`Box`.
@@ -340,12 +340,12 @@ class Box:
         Parameters
         ----------
         positions : array_like
-            (..., 3) positions in Å.
+            (..., 3) float64 positions in Å.
 
         Returns
         -------
         numpy.ndarray
-            (..., 3) coordinates in units of the lattice vectors, relative to
+            (..., 3) float64 coordinates in units of the lattice vectors, relative to
             :attr:`origin`.
         """
         return (
@@ -358,12 +358,12 @@ class Box:
         Parameters
         ----------
         fractional : array_like
-            (..., 3) coordinates in units of the lattice vectors.
+            (..., 3) float64 coordinates in units of the lattice vectors.
 
         Returns
         -------
         numpy.ndarray
-            (..., 3) positions in Å.
+            (..., 3) float64 positions in Å.
         """
         return np.asarray(fractional, dtype=np.float64) @ self.__matrix + self.__origin
 
@@ -373,12 +373,12 @@ class Box:
         Parameters
         ----------
         positions : array_like
-            (N, 3) positions in Å.
+            (N, 3) float64 positions in Å.
 
         Returns
         -------
         wrapped : numpy.ndarray
-            (N, 3) positions in Å. Their fractional coordinates lie in
+            (N, 3) float64 positions in Å. Their fractional coordinates lie in
             [0, 1) along periodic directions; other directions are unchanged.
         image : numpy.ndarray
             (N, 3) int64 image flags, so that
@@ -407,12 +407,12 @@ class Box:
         Parameters
         ----------
         vectors : array_like
-            (N, 3) displacement vectors in Å.
+            (N, 3) float64 displacement vectors in Å.
 
         Returns
         -------
         numpy.ndarray
-            (N, 3) vectors, each the shortest among all vectors that differ
+            (N, 3) float64 vectors, each the shortest among all vectors that differ
             from the input by a lattice vector along periodic directions.
             Exact for boxes whose tilt factors stay within half the
             corresponding edge length, as LAMMPS requires.
@@ -499,7 +499,7 @@ class Box:
         ----------
         other : Box
             The box to compare with.
-        rtol, atol : float, optional
+        rtol, atol : float64, optional
             Relative and absolute tolerances in Å, as in ``numpy.allclose``.
         """
         return (

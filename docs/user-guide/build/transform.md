@@ -49,7 +49,7 @@ twelve colors start again after the twelfth copy.*
 
 | Function | Name | Type | Meaning |
 |---|---|---|---|
-| `replicate(system, repeat)` | `repeat` | int or three int | copies along **a**, **b** and **c**, at least 1; above 1 only along periodic directions |
+| `replicate(system, repeat)` | `repeat` | int32 or (3,) int32 | copies along **a**, **b** and **c**, at least 1; above 1 only along periodic directions |
 | `wrap(system)` | | | |
 | `unwrap(system)` | | | needs an `image` column |
 

@@ -71,10 +71,10 @@ takes the color of the formula of its molecule.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `radii` | str or dict | `"covalent"` | Å | the radius of each element: `"covalent"`, the covalent radii, `"vdw"`, the van der Waals radii, or radii by element such as `{"H": 0.4, "O": 0.7}` |
-| `scale` | float | 0.6 with `"vdw"`, else 1 | | factor on the sum of the radii of two atoms |
-| `tolerance` | float | 0.45 with `"covalent"`, else 0 | Å | length added to it |
-| `cutoffs` | dict | `None` | Å | bond lengths for pairs of elements `(a, b)`, in either order, instead of the radii; 0 for pairs never bonded |
+| `radii` | str or dict of str to float64 | `"covalent"` | Å | the radius of each element: `"covalent"`, the covalent radii, `"vdw"`, the van der Waals radii, or radii by element such as `{"H": 0.4, "O": 0.7}` |
+| `scale` | float64 | 0.6 with `"vdw"`, else 1 | | factor on the sum of the radii of two atoms |
+| `tolerance` | float64 | 0.45 with `"covalent"`, else 0 | Å | length added to it |
+| `cutoffs` | dict of (str, str) to float64 | `None` | Å | bond lengths for pairs of elements `(a, b)`, in either order, instead of the radii; 0 for pairs never bonded |
 
 Two atoms are bonded when they are closer than
 $s(r_i + r_j) + t$, with $r$ their radii, $s$ the scale and $t$ the

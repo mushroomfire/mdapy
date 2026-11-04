@@ -47,16 +47,16 @@ under a pressure, the stress–strain coefficients.
 |---|---|---|---|---|
 | `system` | `System` | | | the crystal, periodic in every direction, with an `element` column |
 | `potential` | `LAMMPS` | | | the interaction, as a [LAMMPS calculator](lammps.md) |
-| `temperature` | float | | K | the temperature, positive |
-| `pressure` | float | 0 | GPa | the pressure |
-| `strain` | float | 0.01 | | the magnitude $\delta$ of the strains |
-| `timestep` | float | 0.001 | ps | the time step |
-| `equilibration` | int | 10000 | | steps before each average |
-| `production` | int | 20000 | | steps of each average |
-| `every` | int | 10 | | steps between the values averaged |
-| `blocks` | int | 5 | | blocks of each average for its standard error |
+| `temperature` | float64 | | K | the temperature, positive |
+| `pressure` | float64 | 0 | GPa | the pressure |
+| `strain` | float64 | 0.01 | | the magnitude $\delta$ of the strains |
+| `timestep` | float64 | 0.001 | ps | the time step |
+| `equilibration` | int32 | 10000 | | steps before each average |
+| `production` | int32 | 20000 | | steps of each average |
+| `every` | int32 | 10 | | steps between the values averaged |
+| `blocks` | int32 | 5 | | blocks of each average for its standard error |
 | `barostat` | str | `"tri"` | | how the box finds its mean shape: `"iso"`, `"aniso"` or `"tri"` |
-| `seed` | int | 1 | | seed of the starting velocities |
+| `seed` | int32 | 1 | | seed of the starting velocities |
 
 ## Results
 

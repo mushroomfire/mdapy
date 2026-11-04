@@ -80,7 +80,7 @@ plugins:
             show_root_full_path: false
             heading_level: 3
             separate_signature: true
-            show_signature_annotations: true
+            show_signature_annotations: false
             merge_init_into_class: true
             members_order: source
             filters: ["!^_"]

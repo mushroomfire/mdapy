@@ -27,7 +27,7 @@ script on a cluster, in the job script, so drives VASP through
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `incar` | mapping | `None` | | INCAR tags; NSW, IBRION and ISIF are set for a single point with the stress and may not be given |
-| `kpoints` | three int | `None` | | a Gamma-centered mesh of k-points; without it VASP takes `KSPACING` from the INCAR |
+| `kpoints` | (3,) int32 | `None` | | a Gamma-centered mesh of k-points; without it VASP takes `KSPACING` from the INCAR |
 | `potcars` | path | `$VASP_PP_PATH` or its `potpaw_PBE` | | the folder of the POTCARs, one folder per element or setup |
 | `setups` | mapping | `None` | | the POTCAR of an element when not its symbol, such as `{"Ti": "Ti_sv"}` |
 | `command` | str | `$MDAPY_VASP_COMMAND`, `$ASE_VASP_COMMAND` or `"vasp_std"` | | the command that runs VASP in the directory, such as `"mpirun -np 128 vasp_std"` |

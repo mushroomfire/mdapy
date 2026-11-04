@@ -50,9 +50,9 @@ and the density of states beside it.*
 |---|---|---|---|---|
 | `system` | `System` | | | the cell of the crystal, periodic in every direction, or of a [sheet](sheets.md), with an `element` or a `mass` column; best its primitive cell |
 | `calculator` | `Calculator` | | | computes the forces |
-| `supercell` | int, 3 ints or (3, 3) ints | | | repeats of the cell along its vectors, or the integer matrix whose rows times the vectors of the cell are the vectors of the supercell; by default the supercell nearest a cube that is at least twice the cutoff of the calculator thick in every direction |
-| `displacement` | float | 0.01 | Å | the displacement $h$ of the atoms |
-| `symmetry` | bool or None | `None` | | move only the atoms and along the axes that symmetry does not relate to others, with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
+| `supercell` | int32, (3,) int32 or (3, 3) int32 | | | repeats of the cell along its vectors, or the integer matrix whose rows times the vectors of the cell are the vectors of the supercell; by default the supercell nearest a cube that is at least twice the cutoff of the calculator thick in every direction |
+| `displacement` | float64 | 0.01 | Å | the displacement $h$ of the atoms |
+| `symmetry` | bool or `None` | `None` | | move only the atoms and along the axes that symmetry does not relate to others, with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
 
 The calculator computes the forces on the supercell six times for each
 atom of the cell, so the primitive cell is the cheapest: one atom of fcc
@@ -91,10 +91,10 @@ $\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}$.
 | Attribute or method | Type | Meaning |
 |---|---|---|
 | `cell` | `System` | the crystal whose vibrations these are |
-| `supercell` | `numpy.ndarray` | (3, 3) integer matrix of the supercell; read-only |
-| `force_constants` | `numpy.ndarray` | (n, nS, 3, 3) force constants $\Phi$ in eV/Å² between each atom of the cell and each atom of the supercell (S cells, the cell itself first); read-only |
-| `frequencies(q)` | `numpy.ndarray` | (3n,) or (K, 3n) frequencies in THz at one or K wave vectors, ascending; imaginary ones negative |
-| `modes(q)` | tuple | the frequencies, and the (3n, n, 3) or (K, 3n, n, 3) complex polarization vector of each mode |
+| `supercell` | (3, 3) int64 | matrix of the supercell; read-only |
+| `force_constants` | (n, nS, 3, 3) float64 | force constants $\Phi$ in eV/Å² between each atom of the cell and each atom of the supercell (S cells, the cell itself first); read-only |
+| `frequencies(q)` | (3n,) or (K, 3n) float64 | frequencies in THz at one or K wave vectors, ascending; imaginary ones negative |
+| `modes(q)` | tuple of float64 and complex128 arrays | the frequencies, and the (3n, n, 3) or (K, 3n, n, 3) complex polarization vector of each mode |
 | `band_structure(path, *, points=51, connected=False)` | `BandStructure` | the frequencies along a path |
 | `dos(mesh=20, *, frequencies=None, sigma=None, projected=False)` | `PhononDOS` | the density of states |
 | `thermal(temperatures, mesh=20)` | `ThermalProperties` | the thermodynamic properties of the vibrations |
@@ -126,10 +126,10 @@ the same frequency are told apart by their order at the next wave vector.
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `q` | `numpy.ndarray` | (P, 3) the wave vectors |
-| `distances` | `numpy.ndarray` | (P,) their distance along the path in 1/Å |
-| `frequencies` | `numpy.ndarray` | (P, 3n) frequencies in THz, ascending, or a branch in each column when connected |
-| `labels` | tuple of (float, str) | the distance and label of each special point; where the path breaks, the two labels join, as in `"U\|K"` |
+| `q` | (P, 3) float64 | the wave vectors |
+| `distances` | (P,) float64 | their distance along the path in 1/Å |
+| `frequencies` | (P, 3n) float64 | frequencies in THz, ascending, or a branch in each column when connected |
+| `labels` | tuple of (float64, str) | the distance and label of each special point; where the path breaks, the two labels join, as in `"U\|K"` |
 | `write(path)` | | writes the band structure as phonopy writes `band.dat` |
 
 `BandStructure.write` writes the format of phonopy's `band.dat`: the
@@ -165,9 +165,9 @@ own part.
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `frequencies` | `numpy.ndarray` | (F,) frequencies in THz |
-| `dos` | `numpy.ndarray` | (F,) states per THz per atom, integrating to 3 |
-| `projected` | `numpy.ndarray` or None | (F, n) the density of each atom of the cell, each integrating to 3, whose mean is `dos` |
+| `frequencies` | (F,) float64 | frequencies in THz |
+| `dos` | (F,) float64 | states per THz per atom, integrating to 3 |
+| `projected` | (F, n) float64 or `None` | the density of each atom of the cell, each integrating to 3, whose mean is `dos` |
 
 **Thermodynamic properties.** Sums over the modes on the mesh, per atom;
 modes below 1e-3 THz, the translations of the crystal, are left out. A mode
@@ -177,11 +177,11 @@ exist.
 
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
-| `temperatures` | `numpy.ndarray` | K | the temperatures |
-| `free_energy` | `numpy.ndarray` | eV | the Helmholtz free energy $F$ of the vibrations, with the zero-point energy |
-| `energy` | `numpy.ndarray` | eV | their energy $E$, with the zero-point energy |
-| `entropy` | `numpy.ndarray` | eV/K | their entropy $S$ |
-| `heat_capacity` | `numpy.ndarray` | eV/K | their heat capacity at constant volume $C_V$ |
+| `temperatures` | (T,) float64 | K | the temperatures |
+| `free_energy` | (T,) float64 | eV | the Helmholtz free energy $F$ of the vibrations, with the zero-point energy |
+| `energy` | (T,) float64 | eV | their energy $E$, with the zero-point energy |
+| `entropy` | (T,) float64 | eV/K | their entropy $S$ |
+| `heat_capacity` | (T,) float64 | eV/K | their heat capacity at constant volume $C_V$ |
 
 ## Errors
 

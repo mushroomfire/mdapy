@@ -24,11 +24,11 @@ result.bulk_modulus(), result.shear_modulus("voigt")
 |---|---|---|---|---|
 | `system` | `System` | | | the crystal, periodic in every direction, or a [sheet](sheets.md), with a `mass` or an `element` column when its positions relax |
 | `calculator` | `Calculator` | | | computes the virial, and energies and forces when the positions relax |
-| `strain` | float | 1e-3 | | the magnitude $\delta$ of the strains |
+| `strain` | float64 | 1e-3 | | the magnitude $\delta$ of the strains |
 | `relax` | bool | `True` | | whether the positions relax in each strained box (relaxed-ion constants) or stay put (clamped-ion constants) |
-| `max_force` | float | 1e-4 | eV/Å | convergence of each relaxation, as in `minimize` |
-| `max_steps` | int | 5000 | | largest number of steps of each relaxation |
-| `symmetry` | bool or None | `None` | | take the stress under a strain that an operation makes from another as the image of its stress, with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
+| `max_force` | float64 | 1e-4 | eV/Å | convergence of each relaxation, as in `minimize` |
+| `max_steps` | int32 | 5000 | | largest number of steps of each relaxation |
+| `symmetry` | bool or `None` | `None` | | take the stress under a strain that an operation makes from another as the image of its stress, with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
 
 A cubic crystal takes 3 strains instead of 12: a stretch both ways and a
 shear.
@@ -69,10 +69,10 @@ It returns an `ElasticResult`:
 
 | Attribute or method | Type | Meaning |
 |---|---|---|
-| `constants` | `numpy.ndarray` | (6, 6) elastic constants $C$ in GPa, in Voigt order; read-only |
-| `bulk_modulus(average="hill")` | float | the bulk modulus in GPa: the `"voigt"`, `"reuss"` or `"hill"` average |
-| `shear_modulus(average="hill")` | float | the shear modulus in GPa, with the same averages |
-| `errors` | `numpy.ndarray` or None | (6, 6) standard errors in GPa, from [molecular dynamics](md-elastic.md); None here |
+| `constants` | (6, 6) float64 | elastic constants $C$ in GPa, in Voigt order; read-only |
+| `bulk_modulus(average="hill")` | float64 | the bulk modulus in GPa: the `"voigt"`, `"reuss"` or `"hill"` average |
+| `shear_modulus(average="hill")` | float64 | the shear modulus in GPa, with the same averages |
+| `errors` | (6, 6) float64 or `None` | standard errors in GPa, from [molecular dynamics](md-elastic.md); None here |
 
 `elastic_constants` raises `InvalidParameter` for a box that is not periodic
 in every direction and is not that of a [sheet](sheets.md), a non-positive `strain`, a calculator without the

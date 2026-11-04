@@ -36,11 +36,11 @@ def slice_mask(
         (3,) the normal of the plane in Cartesian coordinates, of any
         length, or an axis "x", "y" or "z"; with miller, the Miller indices
         hkl of the plane in the vectors of the box.
-    distance : float, optional
+    distance : float64, optional
         The plane holds the points x with n . x = distance in Å, n the unit
         normal; with miller, it lies distance interplanar spacings d_hkl from
         the origin of the box. Default 0.
-    width : float, optional
+    width : float64, optional
         Keep the atoms closer to the plane than width / 2 in Å instead.
         Default 0: keep those on the side the normal points away from.
     invert : bool, optional
@@ -48,7 +48,7 @@ def slice_mask(
     miller : bool, optional
         The normal holds Miller indices. Default False.
     through : array_like, optional
-        (3,) a point in Å the plane passes through, instead of distance.
+        (3,) float64, a point in Å the plane passes through, instead of distance.
     atoms : array_like, optional
         A boolean mask or indices of the atoms the plane acts on; the others
         are kept. Default all.
@@ -124,11 +124,11 @@ def slice(
         (3,) the normal of the plane in Cartesian coordinates, of any
         length, or an axis "x", "y" or "z"; with miller, the Miller indices
         hkl of the plane in the vectors of the box.
-    distance : float, optional
+    distance : float64, optional
         The plane holds the points x with n . x = distance in Å, n the unit
         normal; with miller, it lies distance interplanar spacings d_hkl from
         the origin of the box. Default 0.
-    width : float, optional
+    width : float64, optional
         Keep the atoms closer to the plane than width / 2 in Å instead.
         Default 0: keep those on the side the normal points away from.
     invert : bool, optional
@@ -136,7 +136,7 @@ def slice(
     miller : bool, optional
         The normal holds Miller indices. Default False.
     through : array_like, optional
-        (3,) a point in Å the plane passes through, instead of distance.
+        (3,) float64, a point in Å the plane passes through, instead of distance.
     atoms : array_like, optional
         A boolean mask or indices of the atoms the plane acts on; the others
         are kept. Default all.

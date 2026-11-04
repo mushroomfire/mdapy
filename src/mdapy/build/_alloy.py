@@ -26,9 +26,9 @@ def random_alloy(
     ----------
     system : System
         The sites, for example a crystal from :func:`build_crystal`.
-    fractions : mapping of str to float
+    fractions : mapping of str to float64
         Fraction of each element, positive; they are normalized to sum to 1.
-    seed : int or numpy.random.Generator, optional
+    seed : int64 or numpy.random.Generator, optional
         Seed of the random order; the same seed gives the same alloy.
 
     Returns

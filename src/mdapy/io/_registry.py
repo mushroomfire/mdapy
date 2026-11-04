@@ -169,7 +169,7 @@ def read(
     format : str, optional
         Format name; by default it is found from the file name with
         :func:`detect_format`.
-    frame : int, optional
+    frame : int32, optional
         Index of the frame to read, for files that hold several frames.
         Negative values count from the end. Default 0, the first frame.
     **options

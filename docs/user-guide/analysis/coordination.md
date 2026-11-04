@@ -45,8 +45,8 @@ at edges and corners fewer.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `cutoff` | float | `None` | Å | neighbors are closer than it |
-| `cutoffs` | dict | `None` | Å | instead of `cutoff`, a cutoff for each pair of elements `(a, b)`, in either order; pairs not given are never neighbors |
+| `cutoff` | float64 | `None` | Å | neighbors are closer than it |
+| `cutoffs` | dict of (str, str) to float64 | `None` | Å | instead of `cutoff`, a cutoff for each pair of elements `(a, b)`, in either order; pairs not given are never neighbors |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list
@@ -61,7 +61,7 @@ A `CoordinationResult`:
 | Attribute | Type | Meaning |
 |---|---|---|
 | `coordination` | (N,) int64 | the number of neighbors of each atom; its column `coordination` |
-| `partial` | dict | the number of neighbors of each element, by element; columns `coordination_<element>` |
+| `partial` | dict of str to (N,) int64 | the number of neighbors of each element, by element; columns `coordination_<element>` |
 
 ## Errors
 

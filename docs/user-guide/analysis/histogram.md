@@ -52,8 +52,8 @@ Gaussian of variance $k_BT/m$.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `column` | str | | | a column of numbers, a component such as `"positions.z"` or an expression over the columns |
-| `bins` | int | 50 | | number of bins of equal width |
-| `range` | (float, float) | `None` | that of the column | lowest and highest value of the bins; values outside are not counted. By default from the lowest to the highest finite value, or one unit above a single value |
+| `bins` | int32 | 50 | | number of bins of equal width |
+| `range` | (float64, float64) | `None` | that of the column | lowest and highest value of the bins; values outside are not counted. By default from the lowest to the highest finite value, or one unit above a single value |
 
 `compute(system, *, atoms=None)` counts the atoms given as a boolean mask or
 indices, such as those of [`System.where`](../../basics/selecting.md#masks),
@@ -70,7 +70,7 @@ A `HistogramResult`:
 | `counts` | (bins,) int64 | number of values in each bin |
 | `frequency` | (bins,) float64 | the counts divided by the number of values counted |
 | `density` | (bins,) float64 | the frequency divided by the width of a bin |
-| `nonfinite` | int | the number of values left out as NaN or infinite |
+| `nonfinite` | int64 | the number of values left out as NaN or infinite |
 | `name` | str | the column |
 
 ## Errors

@@ -38,32 +38,32 @@ class GrainResult(Result):
         (N,) int64 grain of each atom, an index into the arrays of the
         grains, -1 for none.
     size : numpy.ndarray
-        (G,) number of atoms of each grain, largest first.
+        (G,) int64 number of atoms of each grain, largest first.
     structure : numpy.ndarray
         (G,) int8 structure of each grain, an index into ``names``.
     names : tuple of str
         Names of the structures, those of polyhedral template matching.
     orientation : numpy.ndarray
-        (G, 4) mean lattice orientation of each grain as a quaternion
+        (G, 4) float64 mean lattice orientation of each grain as a quaternion
         (x, y, z, w).
     center : numpy.ndarray
-        (G, 3) center of mass of each grain in Å, inside the box.
+        (G, 3) float64 center of mass of each grain in Å, inside the box.
     radius : numpy.ndarray
-        (G,) radius in Å of the smallest sphere about the center that holds
+        (G,) float64 radius in Å of the smallest sphere about the center that holds
         the grain.
     radius_of_gyration : numpy.ndarray
-        (G,) radius of gyration in Å.
+        (G,) float64 radius of gyration in Å.
     colors : numpy.ndarray
-        (G, 3) a color for each grain, RGB from 0 to 1.
-    threshold : float
+        (G, 3) float64, a color for each grain, RGB from 0 to 1.
+    threshold : float64
         The threshold applied: the log merge distance of graph clustering,
         or the misorientation in degrees of the spanning tree.
     merge_distance : numpy.ndarray
-        (M,) merge distance (graph clustering) or misorientation in degrees
+        (M,) float64 merge distance (graph clustering) or misorientation in degrees
         (spanning tree) of each merge of two clusters of at least 20 atoms,
         in the order of the merges.
     merge_size : numpy.ndarray
-        (M,) number of atoms of the smaller cluster of each of these merges.
+        (M,) float64 number of atoms of the smaller cluster of each of these merges.
     """
 
     grain: np.ndarray
@@ -117,7 +117,7 @@ class GrainSegmentation:
 
     Parameters
     ----------
-    threshold : float, optional
+    threshold : float64, optional
         With ``method="graph"``, the largest log merge distance of the merges
         kept; by default chosen from the merges. With
         ``method="spanning_tree"``, the largest misorientation in degrees,
@@ -126,7 +126,7 @@ class GrainSegmentation:
         ``"graph"``: clusters merged by node pair sampling of the graph of
         bonds weighted by their misorientation; ``"spanning_tree"``: merged
         along the bonds of least misorientation. Default ``"graph"``.
-    min_grain_size : int, optional
+    min_grain_size : int64, optional
         Clusters of fewer atoms are no grains. Default 100.
     stacking_faults : bool, optional
         The atoms of stacking faults and twin boundaries, hcp in fcc and
@@ -138,7 +138,7 @@ class GrainSegmentation:
     structures : iterable of str, optional
         The structures polyhedral template matching looks for. Default fcc,
         hcp and bcc.
-    rmsd_cutoff : float, optional
+    rmsd_cutoff : float64, optional
         Atoms whose root-mean-square deviation from the best template is
         larger are of no structure; 0 for no cutoff. Default 0.1.
     """

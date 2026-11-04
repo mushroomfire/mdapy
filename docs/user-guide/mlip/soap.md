@@ -65,10 +65,10 @@ side by side, each spread by its strains and shaking.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `species` | sequence of str | | | the elements; every atom must be one of them, so that systems of other compositions share one layout |
-| `r_cut` | float | 5.0 | Å | the cutoff of the radial functions, above 1 Å |
-| `n_max` | int | 8 | | the number of radial functions |
-| `l_max` | int | 6 | | the highest degree of the spherical harmonics, at most 20 |
-| `sigma` | float | 0.5 | Å | the width of the Gaussian on each neighbor |
+| `r_cut` | float64 | 5.0 | Å | the cutoff of the radial functions, above 1 Å |
+| `n_max` | int32 | 8 | | the number of radial functions |
+| `l_max` | int32 | 6 | | the highest degree of the spherical harmonics, at most 20 |
+| `sigma` | float64 | 0.5 | Å | the width of the Gaussian on each neighbor |
 | `crossover` | bool | `True` | | keep the products of the densities of two different elements; without them the descriptor grows with the number of elements, not its square |
 
 `descriptors(system, *, neighbors=None, progress=None, cancel=None)` takes

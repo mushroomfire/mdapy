@@ -64,11 +64,11 @@ three quarters of the display radii, so that the inner atoms show.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `structure` | str | | | one of the structures below |
-| `a` | float | | Å | the lattice constant |
-| `c` | float | `None` | Å | the lattice constant $c$ of a hexagonal structure; by default the ideal $\sqrt{8/3}\,a$, and needed for graphite and graphene |
+| `a` | float64 | | Å | the lattice constant |
+| `c` | float64 | `None` | Å | the lattice constant $c$ of a hexagonal structure; by default the ideal $\sqrt{8/3}\,a$, and needed for graphite and graphene |
 | `elements` | str or sequence of str | `"X"` | | the element of every atom, or one element for each sublattice, in the order of the table |
 | `orientation` | three directions | `None` | | the crystal directions along the three box vectors; by default the cell of the table |
-| `repeat` | three int | (1, 1, 1) | | the number of periods along each box vector |
+| `repeat` | (3,) int32 | (1, 1, 1) | | the number of periods along each box vector |
 
 | Structure | Cell | Atoms | Sublattices |
 |---|---|---|---|

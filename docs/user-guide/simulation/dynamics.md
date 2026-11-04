@@ -66,7 +66,7 @@ The velocities of `system`, if it has them, are where the dynamics starts.
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms, with an `element` column, and `velocities` in Å/ps when it has them |
 | `potential` | `LAMMPS` | | | the interaction, as a LAMMPS calculator |
-| `timestep` | float | 0.001 | ps | the time step |
+| `timestep` | float64 | 0.001 | ps | the time step |
 
 ## Running
 
@@ -81,13 +81,13 @@ The velocities of `system`, if it has them, are where the dynamics starts.
 | Parameter of `run` | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `ensemble` | str | `"nve"` | | `"nve"`, or `"nvt"` with a Nosé–Hoover thermostat, or `"npt"` with a thermostat and a barostat, or `"nph"` with a barostat alone (LAMMPS `fix nve`, `nvt`, `npt`, `nph`) |
-| `temperature` | float or (float, float) | | K | the temperature of the thermostat, or its values at the start and end of the run; for `"nvt"` and `"npt"` |
-| `pressure` | float or (float, float) | | GPa | the pressure of the barostat, or its values at the start and end; for `"npt"` and `"nph"` |
+| `temperature` | float64 or (float64, float64) | | K | the temperature of the thermostat, or its values at the start and end of the run; for `"nvt"` and `"npt"` |
+| `pressure` | float64 or (float64, float64) | | GPa | the pressure of the barostat, or its values at the start and end; for `"npt"` and `"nph"` |
 | `barostat` | str | `"iso"` | | the box changes alike in every direction (`"iso"`), along each axis (`"aniso"`), in any way (`"tri"`), or alike along its first two vectors with the third kept (`"xy"`, as for [a sheet](sheets.md#molecular-dynamics)) |
-| `thermostat_damping` | float | 100 time steps | ps | the damping time of the thermostat |
-| `barostat_damping` | float | 1000 time steps | ps | the damping time of the barostat |
-| `thermo` | int | 100 | | records the thermodynamic state every this many steps, and at the start and the end |
-| `frames` | int | `None` | | keeps the atoms every this many steps |
+| `thermostat_damping` | float64 | 100 time steps | ps | the damping time of the thermostat |
+| `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
+| `thermo` | int32 | 100 | | records the thermodynamic state every this many steps, and at the start and the end |
+| `frames` | int32 | `None` | | keeps the atoms every this many steps |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the run, which raises `Cancelled` |
 
@@ -102,17 +102,17 @@ changing from its start to its end value across all of them.
 | `system` | `System` | the atoms now, with `velocities` and `image` columns, the box, and `timestep` and `time` in `info`; the other columns of `system`, but forces and energies, which are out of date |
 | `thermo` | polars `DataFrame` | the thermodynamic state of all the runs so far, one row per record |
 | `frames` | tuple of `System` | the atoms kept in all the runs so far, as `system` gives them |
-| `step` | int | the time step number of LAMMPS |
+| `step` | int64 | the time step number of LAMMPS |
 
 | Column of `thermo` | Type | Unit | Meaning |
 |---|---|---|---|
 | `step` | int64 | | time step number |
-| `time` | f64 | ps | time |
-| `temperature` | f64 | K | temperature |
-| `potential_energy`, `kinetic_energy`, `total_energy` | f64 | eV | energies of all the atoms |
-| `pressure` | f64 | GPa | pressure |
-| `volume` | f64 | Å³ | volume of the box |
-| `stress` | 6 × f64 | GPa | stress in Voigt order xx, yy, zz, yz, xz, xy, positive under tension, in the axes of `system` |
+| `time` | float64 | ps | time |
+| `temperature` | float64 | K | temperature |
+| `potential_energy`, `kinetic_energy`, `total_energy` | float64 | eV | energies of all the atoms |
+| `pressure` | float64 | GPa | pressure |
+| `volume` | float64 | Å³ | volume of the box |
+| `stress` | (6,) float64 | GPa | stress in Voigt order xx, yy, zz, yz, xz, xy, positive under tension, in the axes of `system` |
 
 ## Errors
 

@@ -25,30 +25,30 @@ class SpatialCorrelationResult(Result):
     Attributes
     ----------
     r : numpy.ndarray
-        (bins,) centers of the distance bins in Å, up to half the shortest
+        (bins,) float64 centers of the distance bins in Å, up to half the shortest
         distance between opposite faces of the box.
     correlation : numpy.ndarray
-        (bins,) the correlation function in each bin, from the grid.
+        (bins,) float64, the correlation function in each bin, from the grid.
     rdf : numpy.ndarray
-        (bins,) the radial distribution function of the same grid.
+        (bins,) float64, the radial distribution function of the same grid.
     q : numpy.ndarray
-        (wavevectors,) centers of the wavevector bins in 1/Å.
+        (wavevectors,) float64 centers of the wavevector bins in 1/Å.
     reciprocal : numpy.ndarray
-        (wavevectors,) the correlation function in reciprocal space.
+        (wavevectors,) float64, the correlation function in reciprocal space.
     means : numpy.ndarray
-        (2,) the mean of each property over the atoms.
+        (2,) float64, the mean of each property over the atoms.
     mean_squares : numpy.ndarray
-        (2,) the mean of the square of each property.
-    mean_product : float
+        (2,) float64, the mean of the square of each property.
+    mean_product : float64
         The mean over the atoms of the product of the two properties.
     neighbor_r : numpy.ndarray or None
-        (neighbor bins,) centers of the bins of the direct summation in Å,
+        (neighbor bins,) float64 centers of the bins of the direct summation in Å,
         when computed.
     neighbor_correlation : numpy.ndarray or None
-        (neighbor bins,) the correlation function summed over the pairs of
+        (neighbor bins,) float64, the correlation function summed over the pairs of
         neighbors, when computed.
     neighbor_rdf : numpy.ndarray or None
-        (neighbor bins,) the radial distribution function of the pairs of
+        (neighbor bins,) float64, the radial distribution function of the pairs of
         neighbors, when computed.
     """
 
@@ -106,7 +106,7 @@ class SpatialCorrelation:
         "velocities.x", or an expression over the columns.
     second : str, optional
         The other property; default the first, its autocorrelation.
-    grid_spacing : float, optional
+    grid_spacing : float64, optional
         The approximate size in Å of the cells of the grid. Default 3.
     window : bool, optional
         Weight the atoms by a Hann window along the directions of the box
@@ -114,9 +114,9 @@ class SpatialCorrelation:
     direct : bool, optional
         Also sum the correlation over the pairs of neighbors closer than
         cutoff. Default False.
-    cutoff : float, optional
+    cutoff : float64, optional
         The distance in Å of the direct summation. Default 5.
-    bins : int, optional
+    bins : int32, optional
         The number of bins of the direct summation. Default 50.
     """
 

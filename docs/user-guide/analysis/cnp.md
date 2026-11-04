@@ -41,7 +41,7 @@ render(grains, "images/cnp.png", atoms=grains["positions"][:, 0] < 25, color=cnp
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `cutoff` | float | | Å | neighbors and common neighbors are closer than it |
+| `cutoff` | float64 | | Å | neighbors and common neighbors are closer than it |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list

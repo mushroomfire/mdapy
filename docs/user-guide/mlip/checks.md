@@ -67,7 +67,7 @@ were shifted by 0.05 eV/Å along x, 5.4 eV/Å over its 108 atoms.*
 | Name | Type | Default | Meaning |
 |---|---|---|---|
 | `frames` | sequence of `System` | | the frames, with an `element` column; their labels the info `energy` and `virial` and the column `forces`, as extended XYZ training sets hold them |
-| `close` | float | 0.5 | two atoms closer than this fraction of the sum of their covalent radii are too close |
+| `close` | float64 | 0.5 | two atoms closer than this fraction of the sum of their covalent radii are too close |
 
 ## Results
 
@@ -75,11 +75,11 @@ A [polars](https://pola.rs) DataFrame of one row per frame:
 
 | Column | Type | Unit | Meaning |
 |---|---|---|---|
-| `frame` | int | | the index of the frame |
-| `atoms` | int | | its number of atoms |
-| `closest` | float | | the smallest distance of two atoms over the sum of their covalent radii, where it is below `close`; inf otherwise |
+| `frame` | int64 | | the index of the frame |
+| `atoms` | int64 | | its number of atoms |
+| `closest` | float64 | | the smallest distance of two atoms over the sum of their covalent radii, where it is below `close`; inf otherwise |
 | `too_close` | bool | | whether `closest` is below `close` |
-| `net_force` | float | eV/Å | the length of the sum of the forces; NaN without forces |
+| `net_force` | float64 | eV/Å | the length of the sum of the forces; NaN without forces |
 | `has_energy`, `has_forces`, `has_virial` | bool | | whether the frame has these labels |
 
 The covalent radii are those of

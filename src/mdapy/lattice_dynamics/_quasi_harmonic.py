@@ -28,28 +28,28 @@ class QuasiHarmonicResult(Result):
     Attributes
     ----------
     temperatures : numpy.ndarray
-        (T,) temperatures in K.
-    pressure : float
+        (T,) float64 temperatures in K.
+    pressure : float64
         Pressure in GPa.
     volume : numpy.ndarray
-        (T,) equilibrium volume in Å³.
+        (T,) float64 equilibrium volume in Å³.
     gibbs_energy : numpy.ndarray
-        (T,) Gibbs energy in eV: the static energy, the free energy of the
+        (T,) float64 Gibbs energy in eV: the static energy, the free energy of the
         vibrations and the pressure times the volume.
     entropy : numpy.ndarray
-        (T,) entropy in eV/K.
+        (T,) float64 entropy in eV/K.
     bulk_modulus : numpy.ndarray
-        (T,) isothermal bulk modulus in GPa.
+        (T,) float64 isothermal bulk modulus in GPa.
     thermal_expansion : numpy.ndarray
-        (T,) volumetric thermal expansion coefficient in 1/K.
+        (T,) float64 volumetric thermal expansion coefficient in 1/K.
     heat_capacity : numpy.ndarray
-        (T,) heat capacity at constant pressure in eV/K.
+        (T,) float64 heat capacity at constant pressure in eV/K.
     volumes : numpy.ndarray
-        (V,) the volumes in Å³ at which the phonons were computed.
+        (V,) float64, the volumes in Å³ at which the phonons were computed.
     energies : numpy.ndarray
-        (V,) static energy at each volume in eV.
+        (V,) float64 static energy at each volume in eV.
     free_energies : numpy.ndarray
-        (V, T) free energy of the vibrations at each volume and temperature
+        (V, T) float64 free energy of the vibrations at each volume and temperature
         in eV.
     cells : tuple of System
         The relaxed cell at each volume.
@@ -219,29 +219,29 @@ def quasi_harmonic(
         and primitive. Each atom needs an element or a mass.
     calculator : Calculator
         Computes energies and forces.
-    temperatures : array_like
+    temperatures : array_like of float64
         Temperatures in K, not negative.
-    volumes : array_like, optional
+    volumes : array_like of float64, optional
         The volumes at which to compute the phonons, five or more, as ratios
         to the volume of system; at each the box keeps its volume while its
         shape and the positions relax. Default 9 from 0.97 to 1.09.
-    pressures : array_like, optional
+    pressures : array_like of float64, optional
         Instead of volumes, the pressures in GPa under which the box and the
         positions relax, five or more.
-    pressure : float, optional
+    pressure : float64, optional
         Pressure in GPa. Default 0.
-    supercell : int or array_like, optional
+    supercell : int32 or array_like, optional
         Repeats of the cell for the phonons, as in :func:`phonons`.
-    mesh : int or array_like, optional
+    mesh : int32 or array_like, optional
         Mesh of wave vectors for the thermal properties. Default 20.
-    displacement : float, optional
+    displacement : float64, optional
         Displacement of the atoms for the force constants in Å. Default 0.01.
-    max_force : float, optional
+    max_force : float64, optional
         Convergence of the relaxation at each volume in eV/Å. Default 1e-6.
-    max_stress : float, optional
+    max_stress : float64, optional
         Convergence of the relaxation of the box under each pressure in
         GPa. Default 1e-4.
-    max_steps : int, optional
+    max_steps : int32, optional
         Largest number of steps of each relaxation. Default 5000.
     symmetry : bool, optional
         Use the symmetry of the cells in the phonons, as in

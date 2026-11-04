@@ -34,12 +34,12 @@ the Cantor alloy on the same sites.*
 | Name | Type | Default | Meaning |
 |---|---|---|---|
 | `system` | `System` | | the sites, a perfect lattice such as from [`build_crystal`](crystals.md) |
-| `fractions` | dict of str to float | | the fraction of each element; the counts are those of [`random_alloy`](alloys.md) |
-| `shells` | int | 3 | the number of shells of neighbors made random, 1 to 10 |
-| `weights` | sequence of float | all 1 | the weight of each shell in the deviation |
-| `steps` | int | 100000 | the number of swaps tried |
-| `temperature` | float | 1 | the starting temperature of the annealing, in units of the typical change of a swap; 0 keeps only improvements |
-| `seed` | int or `numpy.random.Generator` | `None` | the starting alloy and the swaps |
+| `fractions` | dict of str to float64 | | the fraction of each element; the counts are those of [`random_alloy`](alloys.md) |
+| `shells` | int32 | 3 | the number of shells of neighbors made random, 1 to 10 |
+| `weights` | sequence of float64 | all 1 | the weight of each shell in the deviation |
+| `steps` | int64 | 100000 | the number of swaps tried |
+| `temperature` | float64 | 1 | the starting temperature of the annealing, in units of the typical change of a swap; 0 keeps only improvements |
+| `seed` | int64 or `numpy.random.Generator` | `None` | the starting alloy and the swaps |
 | `progress`, `cancel` | | `None` | as for [every analysis](../analysis/overview.md#parameters) |
 
 The shells are the distinct distances between sites, nearest first, so the

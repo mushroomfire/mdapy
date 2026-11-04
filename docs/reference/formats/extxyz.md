@@ -65,7 +65,7 @@ MDAPY columns:
 
 When several properties give the same column, such as `vel` and `momenta`,
 the first one gives it and the others keep their own names. Any other
-property becomes a column of the same name: a float, integer, boolean or
+property becomes a column of the same name: a `float64`, `int64`, boolean or
 string column, or for a width above 1 an array column. Without `Properties`,
 a frame has `species:S:1:pos:R:3`, as plain XYZ files do.
 
@@ -93,7 +93,7 @@ case. A frame without `Lattice` gets a non-periodic box around its atoms
 an `Origin`. A `Lattice` of zeros with `pbc` false counts as no `Lattice`.
 
 Every other key becomes an entry of `info`, keeping its case. Its value is
-read as an integer, a float, a boolean (`T`, `F`, `True`, `False`, `true`,
+read as an `int64`, a `float64`, a boolean (`T`, `F`, `True`, `False`, `true`,
 `false`, `TRUE`, `FALSE`), an array of one of these (separated by blanks or
 commas), JSON after the prefix `_JSON `, or else text. A key without a value
 is `True`. Values with blanks are quoted with `""`, `''`, `{}` or `[]`, and a

@@ -32,7 +32,7 @@ formats()  # the formats mdapy can read and write
 |---|---|---|---|
 | `path` | str or path | | The file. |
 | `format` | str | from the name | Format name; see [Formats](#formats). |
-| `frame` | int | `0` | Frame to read from a file that holds several; negative values count from the end. |
+| `frame` | int32 | `0` | Frame to read from a file that holds several; negative values count from the end. |
 | `**options` | | | Options of the format, listed on its page. |
 
 It returns a `System`. Compressed files are recognized from their first

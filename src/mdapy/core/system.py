@@ -211,7 +211,7 @@ class System:
     Parameters
     ----------
     positions : array_like, optional
-        (N, 3) positions in Å. Give either this or ``table``.
+        (N, 3) float64 positions in Å. Give either this or ``table``.
     box : Box or array_like, optional
         Simulation box, or anything :class:`Box` accepts as lattice vectors.
         Default: a non-periodic box around the atoms (:meth:`Box.enclosing`).
@@ -221,7 +221,7 @@ class System:
     elements : str or sequence of str, optional
         Chemical symbol of every atom, or one symbol for all atoms. Stored in
         the ``element`` column.
-    types : int or sequence of int, optional
+    types : int32 or sequence of int32, optional
         Atom types (from 1) of every atom, or one type for all atoms. Stored
         in the ``type`` column.
     info : mapping, optional

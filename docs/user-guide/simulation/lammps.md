@@ -30,7 +30,7 @@ describes.
 | `elements` | sequence of str | | | the element of each LAMMPS atom type, from type 1 |
 | `commands` | str | `""` | | LAMMPS commands run before `pair`, such as `newton on` |
 | `cmdargs` | sequence of str | `()` | | command-line arguments of LAMMPS, such as `["-k", "on", "t", "4", "-sf", "kk"]` for Kokkos with four threads |
-| `cutoff` | float | `None` | Å | the largest cutoff of the interaction; asked from LAMMPS when not given, which LAMMPS older than 30 Sep 2026 cannot tell |
+| `cutoff` | float64 | `None` | Å | the largest cutoff of the interaction; asked from LAMMPS when not given, which LAMMPS older than 30 Sep 2026 cannot tell |
 
 | Attribute or method | Meaning |
 |---|---|

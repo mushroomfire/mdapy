@@ -44,7 +44,7 @@ class FileFormatError(MdapyError, ValueError):
     ----------
     path : str or None
         Name of the file.
-    line : int or None
+    line : int32 or None
         Line number, counting from 1.
     """
 

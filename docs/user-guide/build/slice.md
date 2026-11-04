@@ -67,12 +67,12 @@ and `slice_mask` with the same arguments
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `normal` | (3,) float or str | | | the normal of the plane in Cartesian coordinates, of any length, or an axis `"x"`, `"y"`, `"z"`; with `miller`, the Miller indices $hkl$ of the plane in the vectors of the box, not necessarily whole |
-| `distance` | float | 0 | Å, or $d_{hkl}$ | the plane holds the points $\mathbf x$ with $\hat{\mathbf n} \cdot \mathbf x$ = `distance`; with `miller`, it lies `distance` interplanar spacings $d_{hkl}$ of the box from the origin of the box |
-| `width` | float | 0 | Å | keep the atoms closer to the plane than `width / 2` instead; 0 keeps those on the side the normal points away from |
+| `normal` | (3,) float64 or str | | | the normal of the plane in Cartesian coordinates, of any length, or an axis `"x"`, `"y"`, `"z"`; with `miller`, the Miller indices $hkl$ of the plane in the vectors of the box, not necessarily whole |
+| `distance` | float64 | 0 | Å, or $d_{hkl}$ | the plane holds the points $\mathbf x$ with $\hat{\mathbf n} \cdot \mathbf x$ = `distance`; with `miller`, it lies `distance` interplanar spacings $d_{hkl}$ of the box from the origin of the box |
+| `width` | float64 | 0 | Å | keep the atoms closer to the plane than `width / 2` instead; 0 keeps those on the side the normal points away from |
 | `invert` | bool | `False` | | keep the other atoms |
 | `miller` | bool | `False` | | `normal` holds Miller indices |
-| `through` | (3,) float | `None` | Å | a point the plane passes through, instead of `distance` |
+| `through` | (3,) float64 | `None` | Å | a point the plane passes through, instead of `distance` |
 | `atoms` | mask or indices | all | | the atoms the plane acts on; the others are kept |
 
 The atoms are taken where they are, inside the box or not; their periodic

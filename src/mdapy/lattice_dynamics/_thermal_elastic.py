@@ -38,12 +38,12 @@ class ThermalElasticResult(Result):
     Attributes
     ----------
     temperatures : numpy.ndarray
-        (T,) temperatures in K.
+        (T,) float64 temperatures in K.
     isothermal : numpy.ndarray
-        (T, 6, 6) isothermal elastic constants in GPa, in Voigt order xx,
+        (T, 6, 6) float64 isothermal elastic constants in GPa, in Voigt order xx,
         yy, zz, yz, xz, xy.
     adiabatic : numpy.ndarray
-        (T, 6, 6) adiabatic elastic constants in GPa.
+        (T, 6, 6) float64 adiabatic elastic constants in GPa.
     method : str
         "quasi-harmonic" or "quasi-static".
     """
@@ -160,16 +160,16 @@ def thermal_elastic_constants(
         the free energy of the vibrations, from phonons of strained cells,
         or of the static energy alone, at the volume of each temperature.
         Default "quasi-harmonic".
-    strain : float, optional
+    strain : float64, optional
         Magnitude of the Lagrangian strains of the finite differences.
         Default 5e-3.
     supercell, mesh, displacement : optional
         Of the phonons of the strained cells, as in :func:`phonons` and
         :meth:`Phonons.thermal`.
-    max_force : float, optional
+    max_force : float64, optional
         Convergence of the relaxation of the positions in each strained
         cell in eV/Å. Default 1e-6.
-    max_steps : int, optional
+    max_steps : int32, optional
         Largest number of steps of each relaxation. Default 5000.
     symmetry : bool, optional
         Compute one of each set of strains that the symmetry operations of

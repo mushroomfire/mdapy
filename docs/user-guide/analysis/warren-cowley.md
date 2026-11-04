@@ -64,8 +64,8 @@ only; with the elements shuffled it stays near 0.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `cutoff` | float or sequence | `None` | Å | neighbors are closer than it; increasing cutoffs make shells, each from the cutoff before it to its own |
-| `num_neighbors` | int or sequence | `None` | | instead of `cutoff`, the number of nearest neighbors; a sequence makes shells of so many nearest neighbors one after the other, such as (12, 6, 24) in fcc |
+| `cutoff` | float64 or sequence of float64 | `None` | Å | neighbors are closer than it; increasing cutoffs make shells, each from the cutoff before it to its own |
+| `num_neighbors` | int32 or sequence of int32 | `None` | | instead of `cutoff`, the number of nearest neighbors; a sequence makes shells of so many nearest neighbors one after the other, such as (12, 6, 24) in fcc |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters); the system needs an
@@ -80,8 +80,8 @@ A `WarrenCowleyResult`:
 |---|---|---|
 | `elements` | tuple of str | the elements, by atomic number |
 | `alpha` | (n, n) float64 | $\alpha_{ab}$, row $a$ and column $b$; NaN for an element whose atoms have no neighbors; (shells, n, n) for shells |
-| `result[a, b]` | float | one parameter; an array over the shells for shells |
-| `result[a, b, shell]` | float | the parameter of one shell |
+| `result[a, b]` | float64 | one parameter; an array over the shells for shells |
+| `result[a, b, shell]` | float64 | the parameter of one shell |
 
 ## Errors
 

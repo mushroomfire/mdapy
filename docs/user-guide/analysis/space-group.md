@@ -27,7 +27,7 @@ spglib is an optional dependency: `pip install spglib`, or the extra
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `tolerance` | float | 1e-5 | Å | atoms closer than it count as images of each other |
+| `tolerance` | float64 | 1e-5 | Å | atoms closer than it count as images of each other |
 
 `compute(system)` takes the cell of a crystal, periodic in every direction,
 of at most 2000 atoms: spglib searches its translations pair by pair, which
@@ -44,7 +44,7 @@ A `SpaceGroupResult`:
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `number` | int | the number of the space group in the International Tables, 1 to 230 |
+| `number` | int32 | the number of the space group in the International Tables, 1 to 230 |
 | `symbol` | str | its Hermann–Mauguin symbol, such as `"Fm-3m"` |
 | `rotations` | (K, 3, 3) float64 | the rotations of the K symmetry operations, on Cartesian column vectors |
 | `translations` | (K, 3) float64 | their translations in Å: operation k moves the point **r** to `rotations[k] @ r + translations[k]` |

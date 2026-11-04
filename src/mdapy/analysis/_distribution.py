@@ -28,13 +28,13 @@ class RadialDistributionResult(Result):
     Attributes
     ----------
     r : numpy.ndarray
-        (bins,) centers of the bins in Å.
+        (bins,) float64 centers of the bins in Å.
     edges : numpy.ndarray
-        (bins + 1,) edges of the bins in Å.
+        (bins + 1,) float64 edges of the bins in Å.
     g : numpy.ndarray
-        (bins,) the radial distribution function.
+        (bins,) float64, the radial distribution function.
     coordination : numpy.ndarray
-        (bins,) mean number of neighbors closer than the upper edge of each bin.
+        (bins,) float64 mean number of neighbors closer than the upper edge of each bin.
     partial : dict
         (bins,) partial function of each pair of elements ``(a, b)``, ``a``
         not after ``b`` by atomic number; empty without an element column.
@@ -60,9 +60,9 @@ class RadialDistributionFunction:
 
     Parameters
     ----------
-    r_max : float
+    r_max : float64
         Largest distance in Å.
-    bins : int, optional
+    bins : int32, optional
         Number of bins of equal width. Default 200.
     """
 
@@ -183,7 +183,7 @@ class CoordinationNumber:
 
     Parameters
     ----------
-    cutoff : float, optional
+    cutoff : float64, optional
         Cutoff in Å for every pair.
     cutoffs : dict, optional
         Cutoff in Å for each pair of elements ``(a, b)``, in either order;
@@ -238,11 +238,11 @@ class StructureFactorResult(Result):
     Attributes
     ----------
     q : numpy.ndarray
-        (bins,) centers of the bins of |q| in 1/Å.
+        (bins,) float64 centers of the bins of |q| in 1/Å.
     edges : numpy.ndarray
-        (bins + 1,) edges of the bins in 1/Å.
+        (bins + 1,) float64 edges of the bins in 1/Å.
     s : numpy.ndarray
-        (bins,) the structure factor; with the direct method, averaged over
+        (bins,) float64, the structure factor; with the direct method, averaged over
         the vectors of each bin and NaN in bins without vectors.
     vectors : numpy.ndarray or None
         (bins,) int64 number of vectors in each bin, one of each pair q, -q,
@@ -290,14 +290,14 @@ class StructureFactor:
 
     Parameters
     ----------
-    q_max : float
+    q_max : float64
         Largest |q| in 1/Å.
-    bins : int, optional
+    bins : int32, optional
         Number of bins of |q| of equal width. Default 200.
     method : {"direct", "debye"}, optional
         Sum over the wave vectors that fit the box (default), or transform
         of the radial distribution function up to ``r_max``.
-    r_max : float, optional
+    r_max : float64, optional
         Largest distance of the Debye method in Å; default half the length
         of the longest lattice vector.
     """

@@ -61,9 +61,9 @@ squares, toward the second neighbors.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `face_threshold` | float | 0 | Å² | faces of this area or less do not count |
-| `relative_face_threshold` | float | 0 | | faces of this fraction of the surface of their cell or less do not count; from 0 to below 1 |
-| `edge_threshold` | float | 0 | Å | edges shorter than this do not count, and faces with fewer than three edges that count do not count |
+| `face_threshold` | float64 | 0 | Å² | faces of this area or less do not count |
+| `relative_face_threshold` | float64 | 0 | | faces of this fraction of the surface of their cell or less do not count; from 0 to below 1 |
+| `edge_threshold` | float64 | 0 | Å | edges shorter than this do not count, and faces with fewer than three edges that count do not count |
 | `faces` | bool | `False` | | also give the faces of each cell that count, with the atom across each, its area and its edges |
 | `polyhedra` | bool | `False` | | also give the shape of each cell |
 

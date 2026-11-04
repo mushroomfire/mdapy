@@ -59,10 +59,10 @@ render(
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms and the box |
 | `atoms` | (N,) bool or indices | | | the atoms selected |
-| `cutoff` | float | | Å | add the atoms closer than this to a selected atom |
-| `num_neighbors` | int | | | add the `num_neighbors` nearest neighbors of each selected atom |
+| `cutoff` | float64 | | Å | add the atoms closer than this to a selected atom |
+| `num_neighbors` | int32 | | | add the `num_neighbors` nearest neighbors of each selected atom |
 | `bonds` | bool | `False` | | add the atoms bonded to a selected atom, by the bonds of the [topology](topology.md) |
-| `iterations` | int | 1 | | how many times the selection grows, each time by the neighbors of every atom selected so far; 0 leaves it as it is |
+| `iterations` | int32 | 1 | | how many times the selection grows, each time by the neighbors of every atom selected so far; 0 leaves it as it is |
 
 Give exactly one of `cutoff`, `num_neighbors` and `bonds`. Neighbors are
 found through the periodic boundaries, with the

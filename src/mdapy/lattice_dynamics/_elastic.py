@@ -41,10 +41,10 @@ class ElasticResult(Result):
     Attributes
     ----------
     constants : numpy.ndarray
-        (6, 6) elastic constants in GPa, in Voigt order xx, yy, zz, yz, xz,
+        (6, 6) float64 elastic constants in GPa, in Voigt order xx, yy, zz, yz, xz,
         xy; column k is the stress per unit of strain component k.
     errors : numpy.ndarray or None
-        (6, 6) standard errors of the constants in GPa, from molecular
+        (6, 6) float64 standard errors of the constants in GPa, from molecular
         dynamics; None otherwise.
     """
 
@@ -99,7 +99,7 @@ class SheetElasticResult(Result):
     Attributes
     ----------
     constants : numpy.ndarray
-        (3, 3) elastic constants in N/m, in the order xx, yy, xy; column k
+        (3, 3) float64 elastic constants in N/m, in the order xx, yy, xy; column k
         is the tension per unit of strain component k.
     """
 
@@ -188,14 +188,14 @@ def elastic_constants(
         zero stress (relax its box first with ``minimize(..., cell="full")``).
     calculator : Calculator
         Computes the virial, and energies and forces to relax the positions.
-    strain : float, optional
+    strain : float64, optional
         Magnitude of the strains applied in each direction, positive and
         negative; shear strains are engineering strains. Default 1e-3.
     relax : bool, optional
         Relax the positions under each strain. Default True.
-    max_force : float, optional
+    max_force : float64, optional
         Convergence of each relaxation in eV/Å. Default 1e-4.
-    max_steps : int, optional
+    max_steps : int32, optional
         Largest number of steps of each relaxation. Default 5000.
     symmetry : bool, optional
         Take the stress under a strain that a symmetry operation of the

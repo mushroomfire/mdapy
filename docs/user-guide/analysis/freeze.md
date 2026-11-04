@@ -50,8 +50,8 @@ the rest of the crystal, barely shaken, is unchanged.*
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|
-| `system` | System | | the frame that takes the values |
-| `reference` | System | | the frame of the values, its atoms matched by the `id` column where both have one, else in the same order |
+| `system` | `System` | | the frame that takes the values |
+| `reference` | `System` | | the frame of the values, its atoms matched by the `id` column where both have one, else in the same order |
 | `column` | str | | a column, a component such as `"positions.z"` or an expression over the columns |
 | `name` | str | `None` | the new column; by default the column, its dots as underscores, followed by `_frozen` |
 

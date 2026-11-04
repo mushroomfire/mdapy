@@ -99,16 +99,16 @@ interfaces, the lower one across the periodic boundary.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `degrees` | sequence of int | (4, 6) | | the degrees $l$, from 0 to 20 |
-| `num_neighbors` | int | `None` | | the number of nearest neighbors; 12 when neither it, `cutoff` nor `voronoi` is given |
-| `cutoff` | float | `None` | Å | instead, the neighbors are closer than it |
+| `degrees` | sequence of int32 | (4, 6) | | the degrees $l$, from 0 to 20 |
+| `num_neighbors` | int32 | `None` | | the number of nearest neighbors; 12 when neither it, `cutoff` nor `voronoi` is given |
+| `cutoff` | float64 | `None` | Å | instead, the neighbors are closer than it |
 | `voronoi` | bool | `False` | | instead, the neighbors share a face of the [Voronoi cell](voronoi.md) |
 | `weighted` | bool | `False` | | with `voronoi`, weight each neighbor by the area of its face |
 | `average` | bool | `False` | | average the $q_{lm}$ over the atom and its neighbors |
 | `solid` | bool | `False` | | also count the solid-like bonds of each atom and tell the solid-like atoms |
-| `solid_degree` | int | 6 | | with `solid`, the degree $l$ of the harmonics of the bonds |
-| `bond_threshold` | float | 0.7 | | with `solid`, a bond is solid-like when the normalized product of the harmonics of its atoms exceeds it |
-| `min_solid_bonds` | int | 7 | | with `solid`, an atom is solid-like with at least so many solid-like bonds |
+| `solid_degree` | int32 | 6 | | with `solid`, the degree $l$ of the harmonics of the bonds |
+| `bond_threshold` | float64 | 0.7 | | with `solid`, a bond is solid-like when the normalized product of the harmonics of its atoms exceeds it |
+| `min_solid_bonds` | int32 | 7 | | with `solid`, an atom is solid-like with at least so many solid-like bonds |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list
@@ -124,7 +124,7 @@ A `SteinhardtResult`:
 
 | Attribute or method | Type | Meaning |
 |---|---|---|
-| `degrees` | tuple of int | the degrees |
+| `degrees` | tuple of int32 | the degrees |
 | `q` | (N, degrees) float64 | $q_l$ of each atom, one column per degree; 0 for an atom without neighbors |
 | `average` | bool | whether the parameters are averaged |
 | `result[l]` | (N,) float64 | the parameter of degree $l$ |

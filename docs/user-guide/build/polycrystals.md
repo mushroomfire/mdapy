@@ -66,11 +66,11 @@ the hexagonal pattern.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `unit` | `System` | | | the crystal of every grain in a periodic box: a unit cell or any periodic arrangement |
-| `box` | `Box` or (3, 3) | | Å | the box of the polycrystal, periodic in every direction |
-| `grains` | int or (G, 3) | | Å | the number of grains with seeds at random, or the positions of the seeds |
-| `orientations` | (G, 3, 3) | random | | the rotation of each grain, from the axes of `unit` to those of the box |
-| `min_distance` | float | 0.7 × nearest distance of `unit` | Å | of two atoms closer than this, the later is removed |
-| `seed` | int or `numpy.random.Generator` | `None` | | the random seeds and orientations |
+| `box` | `Box` or (3, 3) float64 | | Å | the box of the polycrystal, periodic in every direction |
+| `grains` | int32 or (G, 3) float64 | | Å | the number of grains with seeds at random, or the positions of the seeds |
+| `orientations` | (G, 3, 3) float64 | random | | the rotation of each grain, from the axes of `unit` to those of the box |
+| `min_distance` | float64 | 0.7 × nearest distance of `unit` | Å | of two atoms closer than this, the later is removed |
+| `seed` | int64 or `numpy.random.Generator` | `None` | | the random seeds and orientations |
 
 Along an axis where the box is no longer than the box of `unit`, the
 polycrystal is columnar: the seeds lie in one plane, every grain spans the

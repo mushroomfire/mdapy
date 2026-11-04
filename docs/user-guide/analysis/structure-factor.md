@@ -41,10 +41,10 @@ reflections of fcc, $q = 2\pi\sqrt{h^2+k^2+l^2}/a$ = 3.02, 3.49, 4.94 and
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `q_max` | float | | 1/Å | largest $\lvert \mathbf q \rvert$ |
-| `bins` | int | 200 | | number of bins of equal width from 0 to `q_max` |
+| `q_max` | float64 | | 1/Å | largest $\lvert \mathbf q \rvert$ |
+| `bins` | int32 | 200 | | number of bins of equal width from 0 to `q_max` |
 | `method` | str | `"direct"` | | `"direct"`, the sum over the wave vectors that fit the box, or `"debye"`, the transform of the radial distribution function |
-| `r_max` | float | `None` | Å | with the Debye method, the largest distance of the radial distribution function; default half the length of the longest lattice vector |
+| `r_max` | float64 | `None` | Å | with the Debye method, the largest distance of the radial distribution function; default half the length of the longest lattice vector |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters); the box must be
@@ -66,8 +66,8 @@ A `StructureFactorResult`:
 | `edges` | (bins + 1,) float64 | bin edges in 1/Å |
 | `s` | (bins,) float64 | S(q); with the direct method NaN in bins without wave vectors |
 | `vectors` | (bins,) int64 or `None` | with the direct method, the number of wave vectors in each bin, one of each pair $\pm\mathbf q$ |
-| `partial` | dict | $S_{ab}(q)$ of each pair of elements `(a, b)`, `a` not after `b` by atomic number |
-| `faber_ziman` | dict | $A_{ab}(q)$, keyed as `partial` |
+| `partial` | dict of (str, str) to (B,) float64 | $S_{ab}(q)$ of each pair of elements `(a, b)`, `a` not after `b` by atomic number |
+| `faber_ziman` | dict of (str, str) to (B,) float64 | $A_{ab}(q)$, keyed as `partial` |
 | `method` | str | `"direct"` or `"debye"` |
 | `pair(a, b)` | (bins,) float64 | $S_{ab}(q)$, with `a` and `b` in either order |
 

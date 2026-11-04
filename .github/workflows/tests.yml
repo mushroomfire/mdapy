@@ -1,9 +1,25 @@
 name: tests
 
+# Everything, when code changes. A change of the documentation alone runs
+# doc-examples.yml instead, and does not cancel a run of this one.
 on:
   push:
     branches: [master, v2]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "mkdocs.yml"
+      - ".github/workflows/doc-examples.yml"
+      - ".github/workflows/docs.yml"
+      - ".github/ISSUE_TEMPLATE/**"
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "mkdocs.yml"
+      - ".github/workflows/doc-examples.yml"
+      - ".github/workflows/docs.yml"
+      - ".github/ISSUE_TEMPLATE/**"
   workflow_dispatch:
 
 concurrency:

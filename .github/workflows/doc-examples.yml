@@ -1,0 +1,51 @@
+name: doc-examples
+
+# A change of the documentation alone runs what depends on it: ruff, which also
+# formats the code of the pages, and tests/test_docs.py, with the examples of the
+# pages and of the README. When code changes, tests.yml runs all of this too.
+on:
+  push:
+    branches: [master, v2]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "mkdocs.yml"
+      - ".github/workflows/doc-examples.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "mkdocs.yml"
+      - ".github/workflows/doc-examples.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: doc-examples-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  examples:
+    name: examples of the documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: pip install ruff
+      - run: ruff check .
+      - run: ruff format --check .
+      # LAMMPS when the coverage job of tests.yml has kept it; else the pages that
+      # need it are skipped here
+      - uses: actions/cache/restore@v4
+        id: lammps
+        with:
+          path: lammps-wheel
+          key: lammps-stable_30Sep2026-manybody-molecule-extra-compute-extra-fix-extra-pair-voronoi-${{ runner.os }}-py3.13
+      - if: steps.lammps.outputs.cache-hit == 'true'
+        run: pip install lammps-wheel/lammps-*.whl
+      - run: pip install ".[dev]"
+      - run: pytest -q -n auto tests/test_docs.py

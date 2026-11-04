@@ -32,9 +32,9 @@ _STANDARD = {
     "csp": "Centrosymmetry",
     "coordination": "Coordination",
     "cluster": "Cluster",
-    "orientation": "Orientation",
-    "rmsd": "RMSD",
-    "interatomic_distance": "Interatomic Distance",
+    "ptm_orientation": "Orientation",
+    "ptm_rmsd": "RMSD",
+    "ptm_interatomic_distance": "Interatomic Distance",
     "shear_strain": "Shear Strain",
     "volumetric_strain": "Volumetric Strain",
     "d2min": "Nonaffine Squared Displacement",
@@ -101,8 +101,10 @@ def to_ovito(system: System) -> Any:
         The atoms. The box becomes the simulation cell; elements, or the
         ``type`` column with the elements or type labels as names, become
         the particle types; columns with a standard property of OVITO, such
-        as ``velocities``, ``id`` or ``structure``, become that property and
-        other numeric columns user properties of the same name; the
+        as ``velocities`` or ``id``, become that property, the one column of
+        structure types, such as ``cna_structure``, becomes ``Structure Type``
+        and several keep their names, and other numeric columns become user
+        properties of the same name; the
         topology becomes bonds, angles, dihedrals and impropers; ``info``
         becomes the global attributes.
 
@@ -129,6 +131,7 @@ def to_ovito(system: System) -> Any:
             if int(t) in named:
                 particle_type.load_defaults()
             prop.types.append(particle_type)
+    structures = [name for name in table.columns if name.endswith("structure")]
     for name in table.columns:
         if name in ("positions", "element", "type", "type_label"):
             continue
@@ -136,7 +139,10 @@ def to_ovito(system: System) -> Any:
         if values.dtype == bool:
             values = values.astype(np.int8)
         if values.dtype.kind in "iuf":
-            particles.create_property(_STANDARD.get(name, name), data=values.copy())
+            standard = _STANDARD.get(name, name)
+            if structures == [name]:
+                standard = _STANDARD["structure"]
+            particles.create_property(standard, data=values.copy())
     if system.topology is not None:
         for kind, df in system.topology.tables().items():
             if not len(df):

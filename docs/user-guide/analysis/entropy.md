@@ -61,7 +61,7 @@ An `EntropyResult`:
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `entropy` | (N,) float64 | the fingerprint of each atom, in units of the Boltzmann constant; its column `entropy`, or `entropy_average` when averaged |
+| `entropy` | (N,) float64 | the fingerprint of each atom, in units of the Boltzmann constant; its column `entropy`, with the options in the name: `entropy_average`, `entropy_local_density`, `entropy_average_local_density` |
 | `average` | bool | whether the values are averaged |
 
 ## Errors

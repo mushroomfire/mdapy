@@ -9,6 +9,7 @@ from numpy.polynomial import legendre
 
 import mdapy
 from mdapy.analysis import SteinhardtParameters
+from mdapy.build import build_crystal
 from mdapy.errors import InvalidParameter
 
 from lattices import crystal, icosahedron
@@ -380,3 +381,19 @@ def test_atoms_without_neighbors_have_no_solid_bonds():
 def test_invalid_solid_options(options, message):
     with pytest.raises(InvalidParameter, match=message):
         SteinhardtParameters(solid=True, **options)
+
+
+def test_the_options_are_in_the_names_of_the_columns():
+    system = build_crystal("fcc", 3.6, elements="Cu", repeat=(4, 4, 4))
+    given = dict(degrees=(6,))
+    names = [
+        (dict(num_neighbors=12), "q6"),
+        (dict(num_neighbors=12, average=True), "q6_average"),
+        (dict(voronoi=True), "q6_voronoi"),
+        (dict(voronoi=True, average=True), "q6_average_voronoi"),
+        (dict(voronoi=True, weighted=True), "q6_voronoi_weighted"),
+    ]
+    results = [SteinhardtParameters(**given, **o).compute(system) for o, _ in names]
+    together = system.with_columns(*results)
+    for _, name in names:
+        assert name in together.table.columns

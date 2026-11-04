@@ -473,7 +473,9 @@ class System:
             or results of analyses, whose per-atom values are added.
         **named
             Columns by name: polars expressions or Series, NumPy arrays of
-            shape (N,) or (N, ...), or single values for all atoms.
+            shape (N,) or (N, ...), or single values for all atoms. A result
+            of an analysis gets the name as a prefix of its columns, which
+            keeps those of two runs with different parameters.
 
         Returns
         -------
@@ -481,13 +483,29 @@ class System:
             New system; other columns are shared with this one.
         """
         exprs = []
-        named = dict(named)
+        given: dict[str, Any] = {}
+
+        def add(name: str, value: Any) -> None:
+            if name in given:
+                raise InvalidParameter(
+                    f"two values for the column {name!r}: give the results names, "
+                    "as with_columns(first=..., second=...)"
+                )
+            given[name] = value
+
         for column in columns:
             if isinstance(column, Result):
-                named.update(column.columns())
+                for name, value in column.columns().items():
+                    add(name, value)
             else:
                 exprs.append(column)
-        for name, value in named.items():
+        for prefix, value in named.items():
+            if isinstance(value, Result):
+                for name, item in value.columns().items():
+                    add(f"{prefix}_{name}", item)
+            else:
+                add(prefix, value)
+        for name, value in given.items():
             if isinstance(value, pl.Expr):
                 exprs.append(value.alias(name))
             else:

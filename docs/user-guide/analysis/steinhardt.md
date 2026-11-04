@@ -130,8 +130,9 @@ A `SteinhardtResult`:
 | `solid_bonds` | (N,) int32 | with `solid`, the number of solid-like bonds of each atom; else `None` |
 | `solid` | (N,) bool | with `solid`, whether each atom is solid-like; else `None` |
 
-Its columns are `q4`, `q6`, …, or `q4_average`, … when averaged, and with
-`solid` also `solid` and `solid_bonds`.
+Its columns are `q4`, `q6`, …, with the options in their names, in this order:
+`q6_average`, `q6_voronoi`, `q6_average_voronoi`, `q6_voronoi_weighted`, and with `solid`
+also `solid` and `solid_bonds`.
 
 ## Errors
 

@@ -67,9 +67,9 @@ A `PTMResult`, a [`StructureResult`](overview.md#results) with the types
 | `template_index` | (N,) int8 | | which of the equivalent templates of the structure matched |
 | `neighbors` | (N, 16) `index_dtype` or `None` | | the neighbors of each atom in the order of the points of its template, -1 beyond its count |
 
-The columns are `structure`, `rmsd`, `interatomic_distance`, `orientation`,
-and when computed `deformation_gradient` (9 values per atom, by rows) and
-`ordering`. As in OVITO, an atom above the RMSD cutoff is `other` but keeps
+The columns are `ptm_structure`, `ptm_rmsd`, `ptm_interatomic_distance`,
+`ptm_orientation`, and when computed `ptm_deformation_gradient` (9 values per atom, by
+rows) and `ptm_ordering`. As in OVITO, an atom above the RMSD cutoff is `other` but keeps
 the other results of its best template; an atom that matches no template
 gets zeros.
 

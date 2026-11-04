@@ -8,6 +8,8 @@ import polars as pl
 import pytest
 
 from mdapy import Box, System, Topology
+from mdapy.analysis import CoordinationNumber
+from mdapy.build import build_crystal
 from mdapy.elements import ELEMENT_DTYPE
 from mdapy.errors import InvalidParameter
 
@@ -825,3 +827,20 @@ def test_the_table_cannot_be_changed_in_place(change):
 def test_positions_that_are_not_numbers():
     with pytest.raises(InvalidParameter, match="positions must be numbers"):
         System("nonsense")
+
+
+def test_results_with_names_and_collisions():
+    system = build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 3))
+    near = CoordinationNumber(cutoff=3.0).compute(system)
+    far = CoordinationNumber(cutoff=4.0).compute(system)
+    named = system.with_columns(near=near, far=far)
+    assert (named["near_coordination"] == 12).all()
+    assert (named["far_coordination"] == 18).all()
+    assert "coordination" not in named.table.columns
+    with pytest.raises(InvalidParameter, match="two values for the column"):
+        system.with_columns(near, far)
+    with pytest.raises(InvalidParameter, match="two values for the column"):
+        system.with_columns(near, coordination=1)
+    # one after the other, the second replaces the first, as for a new frame
+    again = system.with_columns(near).with_columns(far)
+    assert (again["coordination"] == 18).all()

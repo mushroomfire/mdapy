@@ -76,15 +76,15 @@ class PTMResult(StructureResult):
 
     def columns(self) -> dict[str, np.ndarray]:
         found = {
-            "structure": self.structure,
-            "rmsd": self.rmsd,
-            "interatomic_distance": self.interatomic_distance,
-            "orientation": self.orientation,
+            "ptm_structure": self.structure,
+            "ptm_rmsd": self.rmsd,
+            "ptm_interatomic_distance": self.interatomic_distance,
+            "ptm_orientation": self.orientation,
         }
         if self.deformation_gradient is not None:
-            found["deformation_gradient"] = self.deformation_gradient.reshape(-1, 9)
+            found["ptm_deformation_gradient"] = self.deformation_gradient.reshape(-1, 9)
         if self.ordering is not None:
-            found["ordering"] = self.ordering
+            found["ptm_ordering"] = self.ordering
         return found
 
 
@@ -265,6 +265,7 @@ class PolyhedralTemplateMatching:
             found.get("ordering"),
             self.ORDERING_NAMES if self.ordering else (),
             found.get("neighbors"),
+            method="ptm",
         )
 
     def __repr__(self) -> str:

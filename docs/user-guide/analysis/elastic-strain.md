@@ -21,7 +21,7 @@ result = ElasticStrain("fcc", 3.615).compute(squeezed)
 result.strain_tensor[0]  # (3, 3), -0.0102 along x
 squeezed = squeezed.with_columns(
     result
-)  # structure, elastic_strain, elastic_volumetric_strain
+)  # elastic_strain_structure, elastic_strain, elastic_volumetric_strain
 
 # hcp magnesium of other constants than the ideal ratio
 ElasticStrain("hcp", 3.21, c=5.21)
@@ -65,7 +65,7 @@ An `ElasticStrainResult`:
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `structure` | (N,) int8 | the structure of each atom, an index into `names`; its column `structure` |
+| `structure` | (N,) int8 | the structure of each atom, an index into `names`; its column `elastic_strain_structure` |
 | `names`, `colors` | tuples | other, fcc, hcp, bcc, cubic_diamond, hexagonal_diamond, and their colors, those of [PTM](ptm.md) |
 | `strain_tensor` | (N, 3, 3) float64 | the elastic strain $\varepsilon$ of each atom of the crystal in the spatial frame, zero for the other atoms; its column `elastic_strain` |
 | `volumetric` | (N,) float64 | $\operatorname{tr}\varepsilon / 3$, zero for the atoms not of the crystal; its column `elastic_volumetric_strain` |

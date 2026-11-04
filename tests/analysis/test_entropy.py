@@ -8,6 +8,7 @@ import pytest
 
 import mdapy
 from mdapy.analysis import EntropyFingerprint
+from mdapy.build import build_crystal
 from mdapy.errors import InvalidParameter
 
 from lattices import crystal
@@ -114,3 +115,16 @@ def test_invalid_options(arguments, message):
 def test_a_sigma_too_small_for_the_cutoff(sigma):
     with pytest.raises(InvalidParameter, match="too small"):
         EntropyFingerprint(3.0, sigma=sigma)
+
+
+def test_the_options_are_in_the_names_of_the_columns():
+    system = build_crystal("fcc", 3.6, elements="Cu", repeat=(4, 4, 4))
+    names = [
+        (dict(), "entropy"),
+        (dict(average_cutoff=3.0), "entropy_average"),
+        (dict(local_density=True), "entropy_local_density"),
+        (dict(average_cutoff=3.0, local_density=True), "entropy_average_local_density"),
+    ]
+    for options, name in names:
+        result = EntropyFingerprint(cutoff=5.0, **options).compute(system)
+        assert list(result.columns()) == [name]

@@ -123,7 +123,7 @@ def test_other_atoms_and_results():
         result.volumetric[other] == 0
     ).all()
     assert set(result.columns()) == {
-        "structure",
+        "elastic_strain_structure",
         "elastic_strain",
         "elastic_volumetric_strain",
     }

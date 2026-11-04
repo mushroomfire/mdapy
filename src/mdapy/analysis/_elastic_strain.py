@@ -49,7 +49,7 @@ class ElasticStrainResult(Result):
 
     def columns(self) -> dict[str, np.ndarray]:
         return {
-            "structure": self.structure,
+            "elastic_strain_structure": self.structure,
             "elastic_strain": self.strain_tensor,
             "elastic_volumetric_strain": self.volumetric,
         }

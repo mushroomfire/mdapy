@@ -10,6 +10,11 @@ The top level of `mdapy` holds the foundations: `System`, `Box`, `Topology`,
 `NeighborList`, the threads, the versions and the modules. Everything else comes from its
 module, as `mdapy.io.read` or `from mdapy.build import build_crystal`.
 
+Columns of results are named by their method and options, as `cna_structure`, `ptm_rmsd`
+or `q6_average_voronoi`, so that several analyses stay side by side;
+`with_columns(near=result)` gives a prefix, and two values for a column in one call are an
+error.
+
 ### Structures
 
 - `mdapy.System`: one atomic configuration with a polars table of per-atom

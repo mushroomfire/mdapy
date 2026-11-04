@@ -49,8 +49,29 @@ and the result of an analysis, whose per-atom values it adds as columns:
 from mdapy.identify import CommonNeighborAnalysis
 
 with_structure = crystal.with_columns(CommonNeighborAnalysis().compute(crystal))
-with_structure.table["structure"].dtype  # Int8
+with_structure.table["cna_structure"].dtype  # Int8
 ```
+
+The columns of a result are named by its method and options, such as `cna_structure`,
+`ptm_rmsd` or `q6_average_voronoi`, so that several analyses stay side by side. Runs of one
+analysis with different numbers, such as two cutoffs, take names of yours, which become
+prefixes:
+
+```python
+from mdapy.analysis import CoordinationNumber
+from mdapy.identify import PolyhedralTemplateMatching
+
+several = crystal.with_columns(
+    CommonNeighborAnalysis().compute(crystal),
+    PolyhedralTemplateMatching().compute(crystal),
+    near=CoordinationNumber(cutoff=3.0).compute(crystal),
+    far=CoordinationNumber(cutoff=4.0).compute(crystal),
+)
+several.table.columns  # ..., cna_structure, ptm_structure, near_coordination, far_coordination
+```
+
+Two values for one column in one call are an error. A later call replaces the column, as
+when the same analysis runs again on a new frame.
 
 `with_table` cannot tell whether the atoms of the new table are in the same
 order: the topology refers to atoms by their row, so to reorder atoms use
@@ -66,7 +87,7 @@ renaming them raises an error.
 
 ```python
 analysed = with_structure.with_columns(charge=0.0, csp=0.0)
-written = analysed.select("element", "positions", "structure")  # for a file
+written = analysed.select("element", "positions", "cna_structure")  # for a file
 lean = analysed.drop("csp", "charge")
 standard = analysed.with_columns(q=0.1).drop("charge").rename({"q": "charge"})
 ```

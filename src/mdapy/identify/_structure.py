@@ -5,7 +5,7 @@
 
 """Common neighbor analysis and the centro-symmetry parameter."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -54,11 +54,14 @@ class StructureResult(Result):
         Name of each type.
     colors : tuple of tuple of float
         Default RGB color of each type, from 0 to 1.
+    method : str
+        The method, which names the column, as ``cna_structure``.
     """
 
     structure: np.ndarray
     names: tuple[str, ...]
     colors: tuple[tuple[float, float, float], ...]
+    method: str = field(kw_only=True)
 
     def counts(self) -> dict[str, int]:
         """Number of atoms of each type, by name."""
@@ -66,7 +69,7 @@ class StructureResult(Result):
         return {name: int(c) for name, c in zip(self.names, found)}
 
     def columns(self) -> dict[str, np.ndarray]:
-        return {"structure": self.structure}
+        return {f"{self.method}_structure": self.structure}
 
 
 class CommonNeighborAnalysis:
@@ -81,6 +84,7 @@ class CommonNeighborAnalysis:
     """
 
     #: Names of the structure types.
+    __METHOD = "cna"
     NAMES = ("other", "fcc", "hcp", "bcc", "ico")
     #: Their default colors.
     COLORS = (
@@ -133,13 +137,17 @@ class CommonNeighborAnalysis:
                 progress,
                 _native_token(cancel),
             )
-            return StructureResult(structure, self.NAMES, self.COLORS)
+            return StructureResult(
+                structure, self.NAMES, self.COLORS, method=self.__METHOD
+            )
         if self.cutoff is None and neighbors is None and k > 0:
             # the nearest neighbors found as it goes, without a list
             structure = _nearest(
                 _native.common_neighbor_analysis_nearest, system, k, progress, cancel
             )
-            return StructureResult(structure, self.NAMES, self.COLORS)
+            return StructureResult(
+                structure, self.NAMES, self.COLORS, method=self.__METHOD
+            )
         if self.cutoff is not None:
             nl = _given_or_built(system, self.cutoff, neighbors)
             count, cutoff = 0, self.cutoff
@@ -155,7 +163,7 @@ class CommonNeighborAnalysis:
                 structure = _native.common_neighbor_analysis(
                     *_view(system, nl), count, cutoff, progress, _native_token(cancel)
                 )
-        return StructureResult(structure, self.NAMES, self.COLORS)
+        return StructureResult(structure, self.NAMES, self.COLORS, method=self.__METHOD)
 
     def __repr__(self) -> str:
         return f"CommonNeighborAnalysis(cutoff={self.cutoff!r})"
@@ -165,6 +173,7 @@ class AcklandJonesAnalysis:
     """Ackland-Jones bond-angle analysis: fcc, hcp, bcc and icosahedral atoms."""
 
     #: Names of the structure types.
+    __METHOD = "ackland_jones"
     NAMES = CommonNeighborAnalysis.NAMES
     #: Their default colors.
     COLORS = CommonNeighborAnalysis.COLORS
@@ -201,20 +210,25 @@ class AcklandJonesAnalysis:
         k = 14 if system.box.pbc.any() else min(14, len(system) - 1)
         if k < 6:
             return StructureResult(
-                np.zeros(len(system), dtype=np.int8), self.NAMES, self.COLORS
+                np.zeros(len(system), dtype=np.int8),
+                self.NAMES,
+                self.COLORS,
+                method=self.__METHOD,
             )
         if neighbors is None:
             # the nearest neighbors found as it goes, without a list
             structure = _nearest(
                 _native.ackland_jones_nearest, system, k, progress, cancel
             )
-            return StructureResult(structure, self.NAMES, self.COLORS)
+            return StructureResult(
+                structure, self.NAMES, self.COLORS, method=self.__METHOD
+            )
         nl = _nearest_given_or_built(system, k, neighbors)
         with nl._reading():
             structure = _native.ackland_jones(
                 *_view(system, nl), k, progress, _native_token(cancel)
             )
-        return StructureResult(structure, self.NAMES, self.COLORS)
+        return StructureResult(structure, self.NAMES, self.COLORS, method=self.__METHOD)
 
     def __repr__(self) -> str:
         return "AcklandJonesAnalysis()"
@@ -226,6 +240,7 @@ class DiamondStructure:
     diamond atoms."""
 
     #: Names of the structure types.
+    __METHOD = "diamond"
     NAMES = (
         "other",
         "cubic_diamond",
@@ -282,7 +297,7 @@ class DiamondStructure:
             structure = _native.identify_diamond(
                 *_view(system, nl), progress, _native_token(cancel)
             )
-        return StructureResult(structure, self.NAMES, self.COLORS)
+        return StructureResult(structure, self.NAMES, self.COLORS, method=self.__METHOD)
 
     def __repr__(self) -> str:
         return "DiamondStructure()"
@@ -300,6 +315,7 @@ class ChillPlus:
     """
 
     #: Names of the structure types.
+    __METHOD = "chill_plus"
     NAMES = (
         "other",
         "hexagonal_ice",
@@ -351,7 +367,7 @@ class ChillPlus:
             structure = _native.chill_plus(
                 *_view(system, nl), self.cutoff, progress, _native_token(cancel)
             )
-        return StructureResult(structure, self.NAMES, self.COLORS)
+        return StructureResult(structure, self.NAMES, self.COLORS, method=self.__METHOD)
 
     def __repr__(self) -> str:
         return f"ChillPlus(cutoff={self.cutoff!r})"

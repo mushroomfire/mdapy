@@ -62,7 +62,7 @@ def analyzed(frame):
 with read_trajectory("dump.*.lammpstrj") as trajectory:
     print(len(trajectory))
     for frame in trajectory.map(analyzed):
-        print(frame.info["timestep"], (frame["structure"] == 1).mean())
+        print(frame.info["timestep"], (frame["cna_structure"] == 1).mean())
 ```
 
 ```text
@@ -73,13 +73,13 @@ with read_trajectory("dump.*.lammpstrj") as trajectory:
 10000 0.0
 ```
 
-The column `structure` holds an index into the names of the analysis, and 1 is
+The column `cna_structure` holds an index into the names of the analysis, and 1 is
 fcc. Only one frame is in memory at a time, however long the trajectory.
 
 ## Write the result
 
 The same function, with `mdapy.io.write`. OVITO opens the file with the column
-`structure` in it:
+`cna_structure` in it:
 
 ```python
 with read_trajectory("dump.*.lammpstrj") as trajectory:
@@ -100,7 +100,7 @@ with read_trajectory("dump.*.lammpstrj") as trajectory:
         rows.append(
             {
                 "timestep": frame.info["timestep"],
-                "fcc": int((frame["structure"] == 1).sum()),
+                "fcc": int((frame["cna_structure"] == 1).sum()),
                 "z_max": frame["positions.z"].max(),
             }
         )

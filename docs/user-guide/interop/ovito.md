@@ -48,8 +48,9 @@ Both need OVITO (`pip install ovito`).
 | `velocities`, `forces`, `mass`, `charge` | `Velocity`, `Force`, `Mass`, `Charge` |
 | `id`, `molecule`, `image` | `Particle Identifier`, `Molecule Identifier`, `Periodic Image` |
 | `atomic_energies` | `Potential Energy` |
-| `structure`, `csp`, `coordination`, `cluster` | `Structure Type`, `Centrosymmetry`, `Coordination`, `Cluster` |
-| `rmsd`, `interatomic_distance`, `orientation` | `RMSD`, `Interatomic Distance`, `Orientation` |
+| the one column of structure types, such as `cna_structure`; several keep their names | `Structure Type` |
+| `csp`, `coordination`, `cluster` | `Centrosymmetry`, `Coordination`, `Cluster` |
+| `ptm_rmsd`, `ptm_interatomic_distance`, `ptm_orientation` | `RMSD`, `Interatomic Distance`, `Orientation` |
 | `shear_strain`, `volumetric_strain`, `d2min` | `Shear Strain`, `Volumetric Strain`, `Nonaffine Squared Displacement` |
 | `voronoi_volume` | `Atomic Volume` |
 | other numeric columns | properties of the same name; `movable` as 0 and 1 |

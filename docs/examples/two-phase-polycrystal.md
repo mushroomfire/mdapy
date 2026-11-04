@@ -73,8 +73,8 @@ counts = (
     labelled.table.group_by("grain", "element")
     .agg(
         atoms=pl.len(),
-        fcc=(pl.col("structure") == 1).mean(),
-        bcc=(pl.col("structure") == 3).mean(),
+        fcc=(pl.col("cna_structure") == 1).mean(),
+        bcc=(pl.col("cna_structure") == 3).mean(),
     )
     .sort("grain")
 )

@@ -330,7 +330,7 @@ def test_options():
 def test_results():
     system = dislocation_quadrupole("bcc screw", 2.865, FE, (6, 10, 5), elements="Fe")
     result = DislocationAnalysis("bcc").compute(system)
-    assert set(result.columns()) == {"structure", "crystal_cluster"}
+    assert set(result.columns()) == {"dxa_structure", "dxa_crystal_cluster"}
     assert list(result.lengths()) == ["1/2<111>", "<100>", "<110>", "other"]
     assert result.total_length == pytest.approx(
         sum(line.length for line in result.lines)
@@ -339,7 +339,7 @@ def test_results():
     assert result.counts() == {
         name: int((result.structure == k).sum()) for k, name in enumerate(result.names)
     }
-    assert "crystal_cluster" in system.with_columns(result).table.columns
+    assert "dxa_crystal_cluster" in system.with_columns(result).table.columns
     assert result.interface_mesh is None and result.interface_atoms is None
     with pytest.raises(ValueError):
         result.structure[0] = 0

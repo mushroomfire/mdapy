@@ -228,7 +228,7 @@ from mdapy.identify import CommonNeighborAnalysis
 
 structure = CommonNeighborAnalysis().compute(crystal)
 labelled = crystal.with_columns(structure).sort("id")
-labelled.table["structure"]  # in the new order
+labelled.table["cna_structure"]  # in the new order
 ```
 
 A neighbor list fits only the atoms it was built for. After `filter`,

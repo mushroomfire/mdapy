@@ -43,6 +43,10 @@ class SteinhardtResult(Result):
         ``solid``; else None.
     solid : numpy.ndarray or None
         (N,) bool whether each atom is solid-like, with ``solid``; else None.
+    voronoi : bool
+        Whether the neighbors are those of the Voronoi tessellation.
+    weighted : bool
+        Whether they are weighted by the areas of the faces.
     """
 
     degrees: tuple[int, ...]
@@ -50,6 +54,8 @@ class SteinhardtResult(Result):
     average: bool
     solid_bonds: np.ndarray | None = None
     solid: np.ndarray | None = None
+    voronoi: bool = False
+    weighted: bool = False
 
     def __getitem__(self, degree: int) -> np.ndarray:
         """(N,) the parameter of one degree."""
@@ -59,7 +65,9 @@ class SteinhardtResult(Result):
             raise InvalidParameter(f"degree {degree} was not computed") from None
 
     def columns(self) -> dict[str, np.ndarray]:
-        suffix = "_average" if self.average else ""
+        options = (self.average, self.voronoi, self.weighted)
+        words = ("_average", "_voronoi", "_weighted")
+        suffix = "".join(w for w, on in zip(words, options) if on)
         columns = {f"q{d}{suffix}": self[d] for d in self.degrees}
         if self.solid is not None:
             columns["solid"] = self.solid
@@ -196,7 +204,13 @@ class SteinhardtParameters:
                 progress,
                 _native_token(cancel),
             )
-            return SteinhardtResult(self.degrees, q, self.average)
+            return SteinhardtResult(
+                self.degrees,
+                q,
+                self.average,
+                voronoi=self.voronoi,
+                weighted=self.weighted,
+            )
         if self.voronoi:
             nl = _voronoi_given_or_built(system, neighbors)
             count, cutoff = 0, 0.0
@@ -219,7 +233,13 @@ class SteinhardtParameters:
                 _native_token(cancel),
             )
             if not self.solid:
-                return SteinhardtResult(self.degrees, q, self.average)
+                return SteinhardtResult(
+                    self.degrees,
+                    q,
+                    self.average,
+                    voronoi=self.voronoi,
+                    weighted=self.weighted,
+                )
             bonds = _native.solid_bonds(
                 *_view(system, nl),
                 count,
@@ -231,7 +251,13 @@ class SteinhardtParameters:
                 _native_token(cancel),
             )
         return SteinhardtResult(
-            self.degrees, q, self.average, bonds, bonds >= self.min_solid_bonds
+            self.degrees,
+            q,
+            self.average,
+            bonds,
+            bonds >= self.min_solid_bonds,
+            self.voronoi,
+            self.weighted,
         )
 
     def __repr__(self) -> str:

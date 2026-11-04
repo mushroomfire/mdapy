@@ -24,8 +24,8 @@ later = copper.with_columns(
 cna = CommonNeighborAnalysis()
 start = copper.with_columns(cna.compute(copper))
 later = later.with_columns(cna.compute(later))
-later = freeze(later, start, "structure")  # the column structure_frozen
-changed = later.where("structure != structure_frozen")
+later = freeze(later, start, "cna_structure")  # the column cna_structure_frozen
+changed = later.where("cna_structure != cna_structure_frozen")
 ```
 
 The atoms that are no longer what they were:

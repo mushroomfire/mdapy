@@ -258,20 +258,20 @@ def test_columns_errors_and_repr():
     ).compute(system)
     labeled = system.with_columns(result)
     for name in (
-        "structure",
-        "rmsd",
-        "interatomic_distance",
-        "orientation",
-        "deformation_gradient",
-        "ordering",
+        "ptm_structure",
+        "ptm_rmsd",
+        "ptm_interatomic_distance",
+        "ptm_orientation",
+        "ptm_deformation_gradient",
+        "ptm_ordering",
     ):
         assert name in labeled.table.columns
-    assert labeled.table["orientation"].dtype.shape == (4,)
+    assert labeled.table["ptm_orientation"].dtype.shape == (4,)
     assert set(PolyhedralTemplateMatching().compute(system).columns()) == {
-        "structure",
-        "rmsd",
-        "interatomic_distance",
-        "orientation",
+        "ptm_structure",
+        "ptm_rmsd",
+        "ptm_interatomic_distance",
+        "ptm_orientation",
     }
     with pytest.raises(InvalidParameter, match="unknown structure"):
         PolyhedralTemplateMatching(("fcc", "other"))

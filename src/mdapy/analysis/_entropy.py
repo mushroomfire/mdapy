@@ -30,13 +30,17 @@ class EntropyResult(Result):
         more ordered.
     average : bool
         Whether it is averaged over neighbors.
+    local_density : bool
+        Whether it uses the density around each atom.
     """
 
     entropy: np.ndarray
     average: bool
+    local_density: bool = False
 
     def columns(self) -> dict[str, np.ndarray]:
-        return {"entropy_average" if self.average else "entropy": self.entropy}
+        name = "entropy" + "_average" * self.average
+        return {name + "_local_density" * self.local_density: self.entropy}
 
 
 _MOST_BINS = 1 << 24  # of the integral over the distance from an atom
@@ -144,7 +148,9 @@ class EntropyFingerprint:
                 i, j = near.i[kept], near.j[kept]
             total = entropy + np.bincount(i, weights=entropy[j], minlength=n)
             entropy = total / (1 + np.bincount(i, minlength=n))
-        return EntropyResult(entropy, self.average_cutoff is not None)
+        return EntropyResult(
+            entropy, self.average_cutoff is not None, self.local_density
+        )
 
     def __repr__(self) -> str:
         return (

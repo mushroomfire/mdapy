@@ -112,19 +112,19 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `atom_name` | str | | name of the atom in its residue, as in PDB files, such as `CA` |
 | `residue`, `residue_number` | str, int64 | | name and number of the residue of an atom, as in PDB files |
 | `movable` | Array(bool, 3) | | whether the atom may move along x, y, z (VASP selective dynamics) |
-| `structure` | int8 | | structure type from an identification such as `CommonNeighborAnalysis`; the result names the types |
+| `cna_structure`, `ptm_structure`, `ackland_jones_structure`, `diamond_structure`, `chill_plus_structure` | int8 | | structure type from an identification, named after the method; the result names the types |
 | `grain` | int64 | | grain of an atom from `GrainSegmentation`, numbered from 0 by decreasing size; -1 for none |
 | `planar_fault` | int8 | | planar fault type of fcc crystals from `PlanarFaults`: non-hcp, other hcp, intrinsic stacking fault, coherent twin boundary, multilayer stacking fault, extrinsic stacking fault |
 | `csp` | f64 | Å² | centro-symmetry parameter |
 | `cnp` | f64 | Å² | common neighbor parameter |
 | `coordination` | int64 | | number of neighbors; `coordination_<element>` counts those of one element |
-| `q4`, `q6`, … | f64 | | Steinhardt order parameters; `q4_average`, … when averaged over neighbors |
+| `q4`, `q6`, … | f64 | | Steinhardt order parameters, with the options in the name: `q4_average`, `q4_voronoi`, `q4_average_voronoi`, `q4_voronoi_weighted` |
 | `solid`, `solid_bonds` | bool, int32 | | whether an atom is solid-like, and its number of solid-like bonds (Steinhardt `solid=True`) |
 | `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
 | `surface` | bool | | whether an atom lies on the surface of the solid (`SurfaceMesh`, `surface=True`) |
-| `crystal_cluster` | int | | crystal cluster of an atom in the dislocation analysis, −1 for none (`DislocationAnalysis`) |
+| `dxa_structure`, `dxa_crystal_cluster` | int8, int | | structure of an atom and its crystal cluster, −1 for none, in the dislocation analysis (`DislocationAnalysis`) |
 | `voronoi_volume`, `voronoi_coordination`, `cavity_radius` | f64, int64, f64 | Å³, , Å | volume and number of faces shared with atoms of the Voronoi cell, and the distance to its farthest vertex |
-| `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint; `entropy_average` when averaged over neighbors |
+| `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint, with the options in the name: `entropy_average`, `entropy_local_density`, `entropy_average_local_density` |
 | `temperature` | f64 | K | temperature of an atom and its neighbors |
 | `lindemann` | f64 | | Lindemann index of an atom over a trajectory |
 | `displacement`, `displacement_magnitude` | Array(f64, 3), f64 | Å, Å | displacement of an atom from a reference, and its length (`AtomicDisplacement`) |

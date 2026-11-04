@@ -36,7 +36,7 @@ line.loop, line.infinite  # True, True: straight through the periodic box
 line.length  # Å, 26.6
 result.lengths()  # Å, {"1/2<110>": 0, "1/6<112>": 106.3, ..., "other": 0}
 result.counts()  # atoms, {"other": 120, "fcc": 3630, "hcp": 138, ...}
-system = system.with_columns(result)  # structure, crystal_cluster
+system = system.with_columns(result)  # dxa_structure, dxa_crystal_cluster
 ```
 
 A disc of vacancies in a (111) plane collapses into a Frank loop, which in
@@ -138,10 +138,10 @@ A `DislocationResult`:
 | `crystal` | str | the crystal analyzed |
 | `lines` | tuple of `DislocationLine` | the dislocation lines |
 | `junctions` | (J, 3) float64 | the points in Å where three or more lines meet, in the box |
-| `structure` | (N,) int8 | the structure of each atom, an index into `names`; its column `structure` |
+| `structure` | (N,) int8 | the structure of each atom, an index into `names`; its column `dxa_structure` |
 | `names` | tuple of str | `other`, `fcc`, `hcp`, `bcc`, `cubic_diamond`, `hexagonal_diamond` |
 | `colors` | tuple of (r, g, b) | the default color of each structure |
-| `crystal_cluster` | (N,) int64 | the crystal cluster of each atom, −1 for none; its column `crystal_cluster` |
+| `crystal_cluster` | (N,) int64 | the crystal cluster of each atom, −1 for none; its column `dxa_crystal_cluster` |
 | `clusters` | `CrystalClusters` | the crystal clusters |
 | `defect_mesh` | `TriangleMesh` | the surface around the defects that are not dislocations, closed over the free ends of the lines, its normals pointing into the crystal |
 | `defect_atoms` | (V,) int64 | the atom at each vertex of the defect mesh, −1 at the end of a line |

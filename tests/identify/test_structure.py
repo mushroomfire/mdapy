@@ -14,6 +14,7 @@ from mdapy.identify import (
     ChillPlus,
     CommonNeighborAnalysis,
     DiamondStructure,
+    PolyhedralTemplateMatching,
 )
 
 from .references import (
@@ -177,7 +178,7 @@ def test_results_become_columns():
     system = crystal("bcc", 2.87, (2, 2, 2))
     result = CommonNeighborAnalysis().compute(system)
     table = system.with_columns(result).table
-    np.testing.assert_array_equal(table["structure"].to_numpy(), result.structure)
+    np.testing.assert_array_equal(table["cna_structure"].to_numpy(), result.structure)
     assert len(result.colors) == len(result.names) == 5
     assert not result.structure.flags.writeable
     assert (
@@ -379,3 +380,16 @@ def test_ackland_jones_small_systems_and_short_lists():
     system = crystal("fcc", 3.6, (3, 3, 3))
     with pytest.raises(InvalidParameter, match="fewer than 14"):
         analysis.compute(system, neighbors=mdapy.NeighborList.build(system, 3.0))
+
+
+def test_the_methods_keep_their_own_columns():
+    system = crystal("fcc", 3.6, (4, 4, 4))
+    together = system.with_columns(
+        CommonNeighborAnalysis().compute(system),
+        AcklandJonesAnalysis().compute(system),
+        DiamondStructure().compute(system),
+        ChillPlus().compute(system),
+        PolyhedralTemplateMatching().compute(system),
+    )
+    for name in ("cna", "ackland_jones", "diamond", "chill_plus", "ptm"):
+        assert f"{name}_structure" in together.table.columns

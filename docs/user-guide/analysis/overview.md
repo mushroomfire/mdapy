@@ -68,7 +68,7 @@ Structure identification returns a `StructureResult`:
 
 | Attribute or method | Type | Meaning |
 |---|---|---|
-| `structure` | (N,) int8 | the type of each atom, an index into `names`; its column is `structure` |
+| `structure` | (N,) int8 | the type of each atom, an index into `names`; its column is named after the method, as `cna_structure` |
 | `names` | tuple of str | the name of each type, in lower case, such as `"fcc"`; type 0 is always `"other"` |
 | `colors` | tuple of (r, g, b) | the default color of each type, from 0 to 1 |
 | `counts()` | dict of str to int | the number of atoms of each type, by name |

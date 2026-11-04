@@ -215,3 +215,14 @@ def test_data_without_a_cell():
     assert not system.box.pbc.any()
     assert system.table.columns == ["positions", "selection"]
     assert system.topology is None
+
+
+def test_the_one_column_of_structures_becomes_the_property_of_ovito():
+    crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 3))
+    cna = CommonNeighborAnalysis().compute(crystal)
+    one = to_ovito(crystal.with_columns(cna))
+    np.testing.assert_array_equal(one.particles["Structure Type"], cna.structure)
+    assert "cna_structure" not in one.particles
+    two = to_ovito(crystal.with_columns(cna, ptm=cna))
+    assert "Structure Type" not in two.particles
+    assert "cna_structure" in two.particles and "ptm_cna_structure" in two.particles

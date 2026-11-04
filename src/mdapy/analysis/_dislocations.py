@@ -237,7 +237,10 @@ class DislocationResult(Result):
         return found
 
     def columns(self) -> dict[str, np.ndarray]:
-        return {"structure": self.structure, "crystal_cluster": self.crystal_cluster}
+        return {
+            "dxa_structure": self.structure,
+            "dxa_crystal_cluster": self.crystal_cluster,
+        }
 
 
 class DislocationAnalysis:

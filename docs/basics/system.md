@@ -88,7 +88,7 @@ Integer columns accept floats only if they are whole numbers, so `1.0` is
 read as type 1 but `1.5` raises an error. Standard columns must not have
 missing values, and positions must be finite. Every other column is kept as
 it is: numbers, booleans, text, and arrays of numbers such as the
-`orientation` of [polyhedral template matching](../user-guide/analysis/ptm.md). The
+`ptm_orientation` of [polyhedral template matching](../user-guide/analysis/ptm.md). The
 [Glossary](../reference/glossary.md#per-atom-properties) lists the columns
 that MDAPY itself writes.
 

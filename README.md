@@ -218,6 +218,8 @@ external code, with many more features and a clearer organization. In particular
   carries none.
 - **The API.** In 1.x an analysis was a method that changed the system. In 2.x a `System`
   never changes and every analysis is a class with one form.
+- **Tests.** Tests cover more than 99 % of the code and compare each feature with analytic
+  results and with mature software, which makes 2.x more stable.
 - **Many small calculations.** The threads can be limited for each process, so thousands of
   small calculations side by side do not fight for cores.
 - **Graphical interfaces.** Long computations report their progress, can be cancelled and

@@ -211,6 +211,7 @@ flowchart TB
 
     Lattice dynamics: [elastic constants](simulation/elastic-constants.md) ·
     [phonons](simulation/phonons.md) ·
+    [at finite temperature](simulation/thermal-phonons.md) ·
     [quasi-harmonic approximation](simulation/quasi-harmonic.md) ·
     [elastic constants at finite temperature](simulation/thermal-elastic.md) ·
     [from molecular dynamics](simulation/md-elastic.md) ·

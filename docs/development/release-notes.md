@@ -195,6 +195,10 @@ and it has a new logo.
   through it; `primitive_cell` takes it too; `MolecularDynamics.run` controls the
   pressure in the plane with `barostat="xy"`, and runs a flat sheet, which LAMMPS
   refused when its height shrank to nothing. See [Sheets](../simulation/sheets.md).
+- `mdapy.lattice_dynamics.thermal_phonons` and `phonons_from_frames`: phonons at a
+  temperature, from the forces on atoms in molecular dynamics, by the force
+  constants that best give them. See
+  [Phonons at finite temperature](../simulation/thermal-phonons.md).
 - `mdapy.lattice_dynamics.md_elastic_constants`: isothermal elastic
   constants at a temperature from the mean stress of molecular dynamics in
   LAMMPS under small strains, with standard errors from block averages. See

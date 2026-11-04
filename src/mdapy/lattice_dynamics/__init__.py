@@ -26,6 +26,10 @@ from mdapy.lattice_dynamics._thermal_elastic import (
     ThermalElasticResult,
     thermal_elastic_constants,
 )
+from mdapy.lattice_dynamics._thermal_phonons import (
+    phonons_from_frames,
+    thermal_phonons,
+)
 
 __all__ = [
     "BandStructure",
@@ -39,8 +43,10 @@ __all__ = [
     "elastic_constants",
     "md_elastic_constants",
     "phonons",
+    "phonons_from_frames",
     "primitive_cell",
     "quasi_harmonic",
     "read_band_structure",
     "thermal_elastic_constants",
+    "thermal_phonons",
 ]

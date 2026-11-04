@@ -59,7 +59,7 @@
 |---|---|
 | [**Build**](https://github.com/mushroomfire/mdapy/blob/v2/docs/build/crystals.md) | Crystals, polycrystals, alloys, defects and dislocations |
 | [**Analyze**](https://github.com/mushroomfire/mdapy/blob/v2/docs/analysis/overview.md) | More than 40 analyses of structure, local order, defects and dynamics |
-| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md) | EAM, NEP, [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/) calculators; relaxation, dynamics, elastic constants and phonons, also of sheets such as graphene |
+| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md) | EAM, NEP, [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/) calculators; relaxation, dynamics, elastic constants and phonons, also of sheets such as graphene and at finite temperature |
 | [**MLIP**](https://github.com/mushroomfire/mdapy/blob/v2/docs/mlip/checks.md) | Training sets from [VASP](https://www.vasp.at), descriptors, errors of a model, the frames worth computing |
 | [**Visualize**](https://github.com/mushroomfire/mdapy/blob/v2/docs/visualization/rendering.md) | Ray-traced pictures on the processor or the graphics card, movies and plots |
 | [**Exchange**](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/io.md) | Eight file formats, and systems shared with [ASE](https://wiki.fysik.dtu.dk/ase/), [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and [freud](https://freud.readthedocs.io) |

@@ -428,7 +428,8 @@ error.
   columnar when the box is thin, `twin_lamellae` for twinned grains,
   `rotations_about` for the turns of columns, and `gradient_seeds` for grains
   whose size changes along one direction, from one side or both. See
-  [Polycrystals](../user-guide/build/polycrystals.md).
+  [Polycrystals](../user-guide/build/polycrystals.md), which also builds grains
+  of graphene, and [Gamma surfaces](../examples/gamma-surface.md).
 - `mdapy.transform.replicate` copies a system along its periodic
   directions as LAMMPS `replicate` does, with the ids, molecules and
   topology of each copy and molecules kept whole through the image flags;

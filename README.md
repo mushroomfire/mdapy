@@ -151,25 +151,8 @@ with plot.style():
   <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/movie.md"><img alt="A movie that flies through a copper polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/getting-started/tutorials/images/movie.webp" width="480"></a>
 </p>
 
-Give `render` a camera for each frame, and hand the pictures to `write_movie` one at a
-time. This turns around the polycrystal:
-
-```python
-import numpy as np
-
-from mdapy.visualization import write_movie
-
-look = dict(style="matte", focus=(50, 50, 50), span=170, width=1080, height=1080)
-pictures = (
-    render(grains, color=structures, view=[np.cos(t), np.sin(t), -0.5], **look)
-    for t in np.linspace(0, 2 * np.pi, 300)
-)
-write_movie("turn.mp4", pictures, fps=30)
-```
-
-The movie above uses the same pieces, with a camera that flies between two twin planes:
-[A movie that flies through a crystal](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/movie.md)
-gives the whole script.
+See [A movie that flies through a crystal](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/movie.md)
+for the whole script.
 
 ## Install
 

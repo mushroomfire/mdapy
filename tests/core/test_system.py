@@ -844,3 +844,60 @@ def test_results_with_names_and_collisions():
     # one after the other, the second replaces the first, as for a new frame
     again = system.with_columns(near).with_columns(far)
     assert (again["coordination"] == 18).all()
+
+
+STANDARD = [
+    ("image", lambda n: np.zeros((n, 3), dtype=np.int64), pl.Array(pl.Int32, 3)),
+    ("image", lambda n: np.ones((n, 3)), pl.Array(pl.Int32, 3)),
+    ("positions", lambda n: np.arange(3.0 * n).reshape(n, 3).astype(np.float32), None),
+    (
+        "velocities",
+        lambda n: np.zeros((n, 3), dtype=np.float32),
+        pl.Array(pl.Float64, 3),
+    ),
+    ("forces", lambda n: np.zeros((n, 3), dtype=np.int64), pl.Array(pl.Float64, 3)),
+    ("type", lambda n: np.ones(n, dtype=np.int64), pl.Int32),
+    ("id", lambda n: np.arange(1.0, n + 1.0), pl.Int64),
+    ("molecule", lambda n: np.ones(n, dtype=np.int32), pl.Int64),
+    ("mass", lambda n: np.ones(n, dtype=np.int64), pl.Float64),
+    ("charge", lambda n: np.zeros(n, dtype=np.float32), pl.Float64),
+    ("movable", lambda n: np.ones((n, 3), dtype=np.int64), pl.Array(pl.Boolean, 3)),
+]
+
+
+@pytest.mark.parametrize("name, values, dtype", STANDARD)
+def test_standard_columns_are_converted_however_they_are_set(name, values, dtype):
+    system = water_dimer()
+    n = len(system)
+    dtype = dtype or pl.Array(pl.Float64, 3)
+    array = values(n)
+    series = pl.Series(name, array)
+    made = [
+        system.with_columns(**{name: array}),
+        system.with_columns(series),
+        system.with_columns(pl.lit(series).alias(name)),
+        system.with_table(system.table.with_columns(series)),
+    ]
+    for got in made:
+        assert got.table.schema[name] == dtype
+
+
+@pytest.mark.parametrize(
+    "name, values, message",
+    [
+        ("image", lambda n: np.full((n, 3), 2**40), "invalid standard column"),
+        ("image", lambda n: np.full((n, 3), 1.5), "must hold integers"),
+        ("image", lambda n: np.zeros((n, 2), dtype=np.int32), "3 values per atom"),
+        ("type", lambda n: np.full(n, 2**40), "invalid standard column"),
+        ("type", lambda n: np.full(n, 1.5), "must hold integers"),
+        ("id", lambda n: np.full(n, 2**63 + 5, dtype=np.uint64), "invalid standard"),
+        ("forces", lambda n: np.zeros(n), "3 values per atom"),
+        ("movable", lambda n: np.full((n, 3), 2), "must hold 0 and 1"),
+        ("movable", lambda n: np.ones(n), "3 values per atom"),
+        ("movable", lambda n: np.full((n, 3), 0.5), "must hold 0 and 1"),
+    ],
+)
+def test_a_conversion_that_changes_a_value_is_an_error(name, values, message):
+    system = water_dimer()
+    with pytest.raises(InvalidParameter, match=message):
+        system.with_columns(**{name: values(len(system))})

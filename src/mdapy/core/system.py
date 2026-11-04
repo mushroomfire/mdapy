@@ -36,6 +36,7 @@ _STANDARD_COLUMNS = {
     "mass": pl.Float64,
     "charge": pl.Float64,
     "image": pl.Array(pl.Int32, 3),
+    "movable": pl.Array(pl.Boolean, 3),
 }
 
 
@@ -62,7 +63,7 @@ def _normalize_table(
     to be right."""
     if "positions" not in table.columns:
         raise InvalidParameter(
-            "the table needs a 'positions' column of 3 floats per atom; build it "
+            "the table needs a 'positions' column of 3 numbers per atom; build it "
             "from separate columns with pl.concat_arr('x', 'y', 'z')"
         )
     checked = _STANDARD_COLUMNS if columns is None else set(columns)
@@ -92,6 +93,10 @@ def _normalize_table(
             values = flat.to_numpy()
             if not np.array_equal(values, np.round(values)):
                 raise InvalidParameter(f"column {name!r} must hold integers")
+        if inner == pl.Boolean and source_inner.is_numeric():
+            flat = table.select(pl.col(name).explode())[name].drop_nulls()
+            if not np.isin(flat.to_numpy(), (0, 1)).all():
+                raise InvalidParameter(f"column {name!r} must hold 0 and 1")
         casts.append(pl.col(name).cast(dtype, strict=True))
     if casts:
         try:
@@ -209,7 +214,7 @@ class System:
         Simulation box, or anything :class:`Box` accepts as lattice vectors.
         Default: a non-periodic box around the atoms (:meth:`Box.enclosing`).
     table : polars.DataFrame, optional
-        Per-atom table with a ``positions`` column of 3 floats per atom. Give
+        Per-atom table with a ``positions`` column of 3 numbers per atom. Give
         either this or ``positions``.
     elements : str or sequence of str, optional
         Chemical symbol of every atom, or one symbol for all atoms. Stored in

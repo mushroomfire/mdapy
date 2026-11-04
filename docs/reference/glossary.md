@@ -97,44 +97,44 @@ column of fixed-size arrays of length 3 and use the plural name.
 
 | Column | Type | Unit | Meaning |
 |---|---|---|---|
-| `positions` | Array(f64, 3) | Å | positions |
-| `velocities` | Array(f64, 3) | Å/ps | velocities |
-| `forces` | Array(f64, 3) | eV/Å | forces |
-| `element` | str | | chemical symbol |
-| `type` | int | | LAMMPS atom type, starting at 1 |
-| `id` | int | | atom ID, starting at 1 |
-| `molecule` | int | | molecule ID (LAMMPS molecule-ID); from `ChemicalSpecies`, numbered from 1 by decreasing size |
+| `positions` | 3 float64 | Å | positions |
+| `velocities` | 3 float64 | Å/ps | velocities |
+| `forces` | 3 float64 | eV/Å | forces |
+| `element` | element | | chemical symbol |
+| `type` | int32 | | LAMMPS atom type, starting at 1 |
+| `id` | int64 | | atom ID, starting at 1 |
+| `molecule` | int64 | | molecule ID (LAMMPS molecule-ID); from `ChemicalSpecies`, numbered from 1 by decreasing size |
 | formula | str | | chemical formula of a molecule in Hill order, such as `H2O`, `CO2`, `H3N` |
 | `type_label` | str | | name of the atom type, for example a force-field type |
-| `mass` | f64 | amu | mass |
-| `charge` | f64 | e | charge |
-| `image` | Array(i32, 3) | | periodic image flags |
+| `mass` | float64 | amu | mass |
+| `charge` | float64 | e | charge |
+| `image` | 3 int32 | | periodic image flags |
 | `atom_name` | str | | name of the atom in its residue, as in PDB files, such as `CA` |
 | `residue`, `residue_number` | str, int64 | | name and number of the residue of an atom, as in PDB files |
-| `movable` | Array(bool, 3) | | whether the atom may move along x, y, z (VASP selective dynamics) |
+| `movable` | 3 bool | | whether the atom may move along x, y, z (VASP selective dynamics) |
 | `cna_structure`, `ptm_structure`, `ackland_jones_structure`, `diamond_structure`, `chill_plus_structure` | int8 | | structure type from an identification, named after the method; the result names the types |
 | `grain` | int64 | | grain of an atom from `GrainSegmentation`, numbered from 0 by decreasing size; -1 for none |
 | `planar_fault` | int8 | | planar fault type of fcc crystals from `PlanarFaults`: non-hcp, other hcp, intrinsic stacking fault, coherent twin boundary, multilayer stacking fault, extrinsic stacking fault |
-| `csp` | f64 | Å² | centro-symmetry parameter |
-| `cnp` | f64 | Å² | common neighbor parameter |
+| `csp` | float64 | Å² | centro-symmetry parameter |
+| `cnp` | float64 | Å² | common neighbor parameter |
 | `coordination` | int64 | | number of neighbors; `coordination_<element>` counts those of one element |
-| `q4`, `q6`, … | f64 | | Steinhardt order parameters, with the options in the name: `q4_average`, `q4_voronoi`, `q4_average_voronoi`, `q4_voronoi_weighted` |
+| `q4`, `q6`, … | float64 | | Steinhardt order parameters, with the options in the name: `q4_average`, `q4_voronoi`, `q4_average_voronoi`, `q4_voronoi_weighted` |
 | `solid`, `solid_bonds` | bool, int32 | | whether an atom is solid-like, and its number of solid-like bonds (Steinhardt `solid=True`) |
 | `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
 | `surface` | bool | | whether an atom lies on the surface of the solid (`SurfaceMesh`, `surface=True`) |
-| `dxa_structure`, `dxa_crystal_cluster` | int8, int | | structure of an atom and its crystal cluster, −1 for none, in the dislocation analysis (`DislocationAnalysis`) |
-| `voronoi_volume`, `voronoi_coordination`, `cavity_radius` | f64, int64, f64 | Å³, , Å | volume and number of faces shared with atoms of the Voronoi cell, and the distance to its farthest vertex |
-| `entropy` | f64 | k<sub>B</sub> | pair entropy fingerprint, with the options in the name: `entropy_average`, `entropy_local_density`, `entropy_average_local_density` |
-| `temperature` | f64 | K | temperature of an atom and its neighbors |
-| `lindemann` | f64 | | Lindemann index of an atom over a trajectory |
-| `displacement`, `displacement_magnitude` | Array(f64, 3), f64 | Å, Å | displacement of an atom from a reference, and its length (`AtomicDisplacement`) |
+| `dxa_structure`, `dxa_crystal_cluster` | int8, int64 | | structure of an atom and its crystal cluster, −1 for none, in the dislocation analysis (`DislocationAnalysis`) |
+| `voronoi_volume`, `voronoi_coordination`, `cavity_radius` | float64, int64, float64 | Å³, , Å | volume and number of faces shared with atoms of the Voronoi cell, and the distance to its farthest vertex |
+| `entropy` | float64 | k<sub>B</sub> | pair entropy fingerprint, with the options in the name: `entropy_average`, `entropy_local_density`, `entropy_average_local_density` |
+| `temperature` | float64 | K | temperature of an atom and its neighbors |
+| `lindemann` | float64 | | Lindemann index of an atom over a trajectory |
+| `displacement`, `displacement_magnitude` | 3 float64, float64 | Å, Å | displacement of an atom from a reference, and its length (`AtomicDisplacement`) |
 | `site`, `occupancy` | `index_dtype`, int64 | | the nearest reference site of an atom, and the number of atoms on it |
-| `rmsd`, `interatomic_distance` | f64 | , Å | deviation from the best template of polyhedral template matching, and the distance between nearest neighbors of its lattice |
-| `orientation` | Array(f64, 4) | | rotation of the local lattice from its standard orientation, a quaternion (x, y, z, w) |
-| `deformation_gradient` | Array(f64, 9) | | elastic deformation gradient of the local lattice, by rows |
-| `ordering` | int8 | | chemical ordering of the local lattice from polyhedral template matching |
-| `shear_strain`, `volumetric_strain`, `d2min` | f64 | , , Å² | von Mises and volumetric atomic strain against a reference, and the non-affine squared displacement |
-| `elastic_strain`, `elastic_volumetric_strain` | f64, (3, 3) and scalar | | elastic strain of an atom of a crystal against the ideal crystal, in the spatial frame, and a third of its trace |
+| `ptm_rmsd`, `ptm_interatomic_distance` | float64 | , Å | deviation from the best template of polyhedral template matching, and the distance between nearest neighbors of its lattice |
+| `ptm_orientation` | 4 float64 | | rotation of the local lattice from its standard orientation, a quaternion (x, y, z, w) |
+| `ptm_deformation_gradient` | 9 float64 | | elastic deformation gradient of the local lattice, by rows |
+| `ptm_ordering` | int8 | | chemical ordering of the local lattice from polyhedral template matching |
+| `shear_strain`, `volumetric_strain`, `d2min` | float64 | , , Å² | von Mises and volumetric atomic strain against a reference, and the non-affine squared displacement |
+| `elastic_strain`, `elastic_volumetric_strain` | float64, (3, 3) and scalar | | elastic strain of an atom of a crystal against the ideal crystal, in the spatial frame, and a third of its trace |
 
 ## Energies and virials
 

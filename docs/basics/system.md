@@ -37,7 +37,7 @@ return a new system and leave the old one as it is; see
 |---|---|---|---|---|
 | `positions` | (N, 3) array | | Å | Positions. Give either `positions` or `table`. |
 | `box` | `Box` or lattice vectors | non-periodic box around the atoms | Å | Simulation box; a number or three numbers give an orthogonal periodic box. |
-| `table` | polars DataFrame | | | Per-atom table with a `positions` column of 3 floats per atom. |
+| `table` | polars DataFrame | | | Per-atom table with a `positions` column of 3 numbers per atom. |
 | `elements` | str or N str | | | Chemical symbols; one symbol applies to all atoms. |
 | `types` | int or N int | | | Atom types, from 1; one value applies to all atoms. |
 | `info` | mapping | `{}` | | Global information, for example `energy` (eV), `virial` (eV), `timestep`. |
@@ -68,14 +68,14 @@ periodic.
 ## Columns
 
 The table holds one row per atom and any number of columns. Columns with a
-standard name have a fixed type, which they are converted to when a system
-is made:
+standard name have a fixed type. They are converted to it whenever they are set, when a
+system is made and by `with_columns` and `with_table`, so the rest of MDAPY can rely on it:
 
 | Column | Type | Unit | Meaning |
 |---|---|---|---|
-| `positions` | 3 floats | Å | positions, required |
-| `velocities` | 3 floats | Å/ps | velocities |
-| `forces` | 3 floats | eV/Å | forces |
+| `positions` | 3 float64 | Å | positions, required |
+| `velocities` | 3 float64 | Å/ps | velocities |
+| `forces` | 3 float64 | eV/Å | forces |
 | `element` | element | | chemical symbol |
 | `type` | int32 | | atom type, from 1 |
 | `id` | int64 | | atom identifier |
@@ -83,10 +83,13 @@ is made:
 | `mass` | float64 | amu | mass |
 | `charge` | float64 | e | charge |
 | `image` | 3 int32 | | periodic image flags |
+| `movable` | 3 bool | | whether the atom may move along x, y and z |
 
-Integer columns accept floats only if they are whole numbers, so `1.0` is
-read as type 1 but `1.5` raises an error. Standard columns must not have
-missing values, and positions must be finite. Every other column is kept as
+A conversion that would change a value raises an error. Small `int64` image flags become
+`int32`, and `1.0` becomes type 1, but `1.5` as a type, `2**40` as an image flag, or `2` in
+`movable` do not fit, and neither does the wrong number of values per atom. Standard
+columns must not have missing values, and positions must be finite. Every other column is
+kept as
 it is: numbers, booleans, text, and arrays of numbers such as the
 `ptm_orientation` of [polyhedral template matching](../user-guide/analysis/ptm.md). The
 [Glossary](../reference/glossary.md#per-atom-properties) lists the columns

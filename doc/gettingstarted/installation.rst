@@ -6,7 +6,7 @@ Method 1 — pip install (recommended)
 
 .. code-block:: bash
 
-   pip install mdapy
+   pip install "mdapy<2"
 
 
 .. note::
@@ -45,9 +45,9 @@ Method 2 — install with optional extras
 
 .. code-block:: bash
 
-   pip install mdapy[plot]      # + matplotlib
-   pip install mdapy[k3d]       # + k3d 3-D widget
-   pip install mdapy[all]       # + matplotlib, k3d, pyfftw, phonopy
+   pip install "mdapy[plot]<2"      # + matplotlib
+   pip install "mdapy[k3d]<2"       # + k3d 3-D widget
+   pip install "mdapy[all]<2"       # + matplotlib, k3d, pyfftw, phonopy
 
 LAMMPS is not an extra — install it via your preferred channel
 (conda-forge, system package manager, or build from source).
@@ -64,7 +64,7 @@ downloads it automatically:
 
 .. code-block:: bash
 
-   pip install --no-binary mdapy mdapy
+   pip install --no-binary mdapy "mdapy<2"
 
 The ``--no-binary mdapy`` flag skips the wheel for ``mdapy`` only —
 ``numpy`` and ``polars`` still install as wheels.
@@ -75,7 +75,7 @@ Method 4 — install from a git clone (for development)
 
 .. code-block:: bash
 
-   git clone https://github.com/mushroomfire/mdapy.git
+   git clone -b 1.x https://github.com/mushroomfire/mdapy.git
    cd mdapy
    pip install .          # regular install
    # or:
@@ -90,7 +90,7 @@ Method 5 — install directly from GitHub
 
 .. code-block:: bash
 
-   pip install https://github.com/mushroomfire/mdapy/archive/master.zip
+   pip install https://github.com/mushroomfire/mdapy/archive/1.x.zip
 
 
 System requirements for Methods 3 – 5
@@ -124,7 +124,7 @@ runtime, which LLVM libomp detects and aborts with::
 
 mdapy handles this in two ways depending on how it was installed:
 
-**From a PyPI wheel** (``pip install mdapy``) the wheel bundles its own
+**From a PyPI wheel** (``pip install "mdapy<2"``) the wheel bundles its own
 OpenMP runtime so it works in a fresh environment. If you then import
 it alongside another package that bundles its own copy (commonly
 PyTorch) and hit the error above, set the flag yourself before

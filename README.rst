@@ -50,7 +50,7 @@ ray-tracing visualization, all in a clean Pythonic API.
 
 .. code-block:: bash
 
-   pip install mdapy
+   pip install "mdapy<2"
 
 |
 
@@ -176,7 +176,7 @@ Installation
 
 .. code-block:: bash
 
-   pip install mdapy
+   pip install "mdapy<2"
 
 Pre-built wheels cover Windows / Linux / macOS (Apple Silicon included).
 For optional extras, source builds, GPU-renderer details, and
@@ -289,8 +289,8 @@ Dependencies
 
 **Optional:**
 
-- ``matplotlib`` — plotting (``pip install mdapy[plot]``)
-- ``k3d`` — interactive 3-D notebook viewer (``pip install mdapy[k3d]``)
+- ``matplotlib`` — plotting (``pip install "mdapy[plot]<2"``)
+- ``k3d`` — interactive 3-D notebook viewer (``pip install "mdapy[k3d]<2"``)
 - ``pyfftw`` — faster FFT for MSD calculations
 - ``phonopy`` — phonon dispersion
 - ``lammps`` — LAMMPS-based potential calculations

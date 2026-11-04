@@ -19,7 +19,7 @@ machine-learning potential workflows in one package.
 
 .. code-block:: bash
 
-   pip install mdapy
+   pip install "mdapy<2"
 
 Why mdapy?
 ----------

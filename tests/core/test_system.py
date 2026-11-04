@@ -541,7 +541,7 @@ def test_systems_pickle_for_other_processes():
 
 
 def test_new_systems_share_the_columns_they_keep():
-    s = water_dimer().with_columns(mass=np.arange(6.0))
+    s = water_dimer().with_columns(mass=np.arange(1.0, 7.0))
     charged = s.with_columns(charge=0.1)
     moved = s.with_columns(positions=s["positions"] + 1.0)
     assert np.shares_memory(charged["positions"], s["positions"])
@@ -811,7 +811,7 @@ def test_repr():
     ],
 )
 def test_the_table_cannot_be_changed_in_place(change):
-    s = water_dimer().with_columns(mass=np.arange(6.0))
+    s = water_dimer().with_columns(mass=np.arange(1.0, 7.0))
     before = s.table
     change(s.table)
     assert s.table.equals(before) and len(s) == 6
@@ -901,3 +901,30 @@ def test_a_conversion_that_changes_a_value_is_an_error(name, values, message):
     system = water_dimer()
     with pytest.raises(InvalidParameter, match=message):
         system.with_columns(**{name: values(len(system))})
+
+
+@pytest.mark.parametrize(
+    "name, make, message",
+    [
+        ("positions", lambda n: np.full((n, 3), np.inf), "positions must be finite"),
+        ("velocities", lambda n: np.full((n, 3), np.nan), "velocities must be finite"),
+        ("forces", lambda n: np.full((n, 3), np.inf), "forces must be finite"),
+        ("charge", lambda n: np.full(n, np.nan), "charge must be finite"),
+        ("mass", lambda n: np.full(n, np.nan), "mass must be finite"),
+        ("mass", lambda n: np.full(n, np.inf), "mass must be finite"),
+        ("mass", lambda n: np.zeros(n), "masses must be positive"),
+        ("mass", lambda n: np.full(n, -1.0), "masses must be positive"),
+    ],
+)
+def test_impossible_values_are_refused_wherever_they_are_set(name, make, message):
+    system = water_dimer()
+    values = make(len(system))
+    with pytest.raises(InvalidParameter, match=message):
+        system.with_columns(**{name: values})
+    with pytest.raises(InvalidParameter, match=message):
+        system.with_table(system.table.with_columns(pl.Series(name, values)))
+    if name != "positions":
+        with pytest.raises(InvalidParameter, match=message):
+            System(
+                table=system.table.with_columns(pl.Series(name, values)), box=system.box
+            )

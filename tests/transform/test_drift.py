@@ -137,9 +137,6 @@ def test_errors():
         remove_drift(frames, 8)
     with pytest.raises(InvalidParameter, match="no mass"):
         remove_drift(frames, atoms=[])
-    massless = [frame.with_columns(mass=np.zeros(30)) for frame in frames]
-    with pytest.raises(InvalidParameter, match="no mass"):
-        remove_drift(massless)
     with pytest.raises(InvalidParameter, match="frame 1 has 29 atoms"):
         remove_drift([frames[0], mdapy.System(frames[1]["positions"][:29], BOX)])
     with pytest.raises(InvalidParameter, match="indices"):

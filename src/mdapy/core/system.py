@@ -108,10 +108,12 @@ def _normalize_table(
         if name in checked and name in present and table[name].null_count():
             raise InvalidParameter(f"column {name!r} has missing values")
     if len(table):
-        if "positions" in checked:
-            positions = table["positions"].to_numpy()
-            if not np.all(np.isfinite(positions)):
-                raise InvalidParameter("positions must be finite")
+        for name in ("positions", "velocities", "forces", "mass", "charge"):
+            if name in checked and name in present:
+                if not np.all(np.isfinite(table[name].to_numpy())):
+                    raise InvalidParameter(f"{name} must be finite")
+        if "mass" in checked and "mass" in present and table["mass"].min() <= 0:
+            raise InvalidParameter("masses must be positive")
         if "type" in checked and "type" in table.columns and table["type"].min() < 1:
             raise InvalidParameter("atom types must be at least 1")
     return table.rechunk()

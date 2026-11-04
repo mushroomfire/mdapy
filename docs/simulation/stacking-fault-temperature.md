@@ -25,7 +25,7 @@ layers = minimize(
         a,
         elements="Cu",
         orientation=[(1, 1, -2), (-1, 1, 0), (1, 1, 1)],
-        repeat=(2, 4, 4),
+        repeat=(6, 10, 4),
     ),
     potential,
     cell="axes",  # keeps the plane normal to z, whatever the rounding of a potential
@@ -33,20 +33,43 @@ layers = minimize(
 ).system
 
 result = stacking_fault_free_energy(
-    layers, potential, [a * np.sqrt(6) / 6, 0, 0], [300, 600, 900, 1200]
+    layers,
+    potential,
+    [a * np.sqrt(6) / 6, 0, 0],  # 1/6 [11-2]
+    [230, 460, 690, 920, 1150],
+    repeats=8,
 )
 result.energy, result.error  # J/m²
 ```
 
-CAPTION_FAULT
+The fault gets cheaper with the temperature:
+
+<!-- skip-test -->
+```python
+from mdapy.visualization import plot
+
+with plot.style():
+    fig, ax = plot.figure("single")
+    ax.errorbar(
+        result.temperatures, 1e3 * result.energy, 1e3 * result.error, fmt="o", capsize=2
+    )
+    ax.set_xlabel("Temperature (K)")
+    ax.set_ylabel(r"Stacking fault energy (mJ/m$^2$)")
+    plot.save(fig, "images/stacking-fault-temperature", formats=("png",))
+```
 
 ![The stacking fault energy of copper with temperature](images/stacking-fault-temperature.png)
 
-*CAPTION_FAULT_IMAGE*
+*Copper with the EAM potential of Mishin et al., 1440 atoms and a plane of 684 Å²,
+44 mJ/m² at rest. Up to about 500 K the free energy follows the harmonic part, drawn
+from the phonons of the two cells at the same volumes; above that it falls more
+slowly: 23 mJ/m² against -5 mJ/m² at 1150 K.*
 
 The wider the plane the smaller the error: the error of the free energy of all atoms
-grows with their square root, the free energy of the fault with the area. The crystal
-must keep its fault during the runs: a slip vector that leads to no minimum of the
+grows with their square root, the free energy of the fault with the area. The error
+also grows towards the melting point, where 192 atoms of this copper gave ±33 mJ/m² at
+1250 K against ±7 mJ/m² at 1040 K: look at `error` and `dissipation`. The crystal must
+keep its fault during the runs: a slip vector that leads to no minimum of the
 energy, as a partial in a potential with no stable stacking fault, slides back, and
 gives something lower than the energy at rest.
 

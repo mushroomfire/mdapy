@@ -55,6 +55,10 @@ html_favicon = "_static/mdapy-icon.svg"
 html_theme_options = {
     "light_logo": "mdapy-logo.svg",
     "dark_logo": "mdapy-logo.svg",
+    "announcement": (
+        "This is MDAPY 1.x. We recommend upgrading to MDAPY 2.x: "
+        '<a href="https://mushroomfire.github.io/mdapy/">its documentation</a>.'
+    ),
 }
 
 # Suppress ambiguous cross-reference warnings for short attribute names (e.g. "N")

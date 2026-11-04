@@ -497,3 +497,94 @@ def structure_counts(result: Any, *, ax: Any = None) -> Any:
     )
     ax.set_ylabel("atoms")
     return ax
+
+
+def phase_diagram(result: Any, *, ax: Any = None, labels: bool = True) -> Any:
+    """The boundaries of the phases of a
+    :class:`mdapy.simulation.BinaryPhaseDiagram`: where each tie line ends, against
+    the temperature, with the name of each phase in the middle of where it is the
+    only one.
+
+    Parameters
+    ----------
+    result : BinaryPhaseDiagram
+        The phase diagram.
+    ax : matplotlib.axes.Axes, optional
+        The axes.
+    labels : bool, optional
+        Write the names of the phases. Default True.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes.
+    """
+    ax = _axes(ax)
+    ends: dict[tuple[str, str, int], list[tuple[float, float]]] = {}
+    for line in result.tie_lines:
+        pair = (line.first, line.second)
+        ends.setdefault((*pair, 0), []).append((line.first_fraction, line.temperature))
+        ends.setdefault((*pair, 1), []).append((line.second_fraction, line.temperature))
+    for points in ends.values():
+        x, t = np.array(points).T
+        # a new line where the boundary jumps: a gap that closed and opened
+        for piece_x, piece_t in zip(
+            np.split(x, np.flatnonzero(np.abs(np.diff(x)) > 0.1) + 1),
+            np.split(t, np.flatnonzero(np.abs(np.diff(x)) > 0.1) + 1),
+        ):
+            ax.plot(piece_x, piece_t, color="black", lw=1.0)
+    if labels:
+        for k, name in enumerate(result.phases):
+            rows, columns = np.nonzero(result.stable == k)
+            if len(rows):
+                ax.text(
+                    result.fractions[columns].mean(),
+                    result.temperatures[rows].mean(),
+                    name,
+                    ha="center",
+                    va="center",
+                )
+    ax.set_xlim(0, 1)
+    ax.set_ylim(result.temperatures.min(), result.temperatures.max())
+    ax.set_xlabel(f"fraction of {result.elements[1]}")
+    ax.set_ylabel("temperature (K)")
+    return ax
+
+
+def pressure_temperature(result: Any, *, ax: Any = None, labels: bool = True) -> Any:
+    """The boundaries of the phases of a
+    :class:`mdapy.simulation.PressureTemperatureDiagram`: the temperature of each
+    against the pressure, with the name of each phase in the middle of where it
+    is stable.
+
+    Parameters
+    ----------
+    result : PressureTemperatureDiagram
+        The phase diagram.
+    ax : matplotlib.axes.Axes, optional
+        The axes.
+    labels : bool, optional
+        Write the names of the phases. Default True.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes.
+    """
+    ax = _axes(ax)
+    for boundary in result.boundaries:
+        ax.plot(boundary.pressures, boundary.temperatures, color="black", marker="o")
+    if labels:
+        for k, name in enumerate(result.phases):
+            rows, columns = np.nonzero(result.stable == k)
+            if len(rows):
+                ax.text(
+                    result.pressures[rows].mean(),
+                    result.temperatures[columns].mean(),
+                    name,
+                    ha="center",
+                    va="center",
+                )
+    ax.set_xlabel("Pressure (GPa)")
+    ax.set_ylabel("Temperature (K)")
+    return ax

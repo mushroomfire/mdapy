@@ -179,6 +179,13 @@ error.
 - `mdapy.simulation.melting_point`: the melting point from a first guess, by the
   two-phase method. `MolecularDynamics.run` takes the ensemble `"nph"`. See
   [Melting point](../user-guide/simulation/melting-point.md).
+- `mdapy.simulation.binary_phase_diagram` and `plot.phase_diagram`: the phase diagram
+  of two elements from the free energies of their phases. See
+  [Phase diagrams](../user-guide/simulation/phase-diagram.md).
+- `mdapy.simulation.pressure_temperature_diagram` and `plot.pressure_temperature`: the
+  phase diagram of one element against pressure and temperature, from the free energies of
+  its phases at each pressure. See
+  [Pressure-temperature diagrams](../user-guide/simulation/pressure-temperature.md).
 - `mdapy.simulation.stacking_fault_free_energy`: the free energy of a stacking fault at
   each temperature, from two crystals in one box. See
   [Stacking faults at finite temperature](../user-guide/simulation/stacking-fault-temperature.md).

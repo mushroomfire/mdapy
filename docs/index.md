@@ -46,7 +46,7 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
 ## 🧰 What it does
 
 Structures come from files or are built, live in a `System`, and its neighbors feed the
-analyses and the calculators. Dashed parts are planned.
+analyses and the calculators.
 
 ```mermaid
 flowchart TB
@@ -60,8 +60,7 @@ flowchart TB
     calculators["<b>Calculators</b><br/>native EAM · NEP<br/>interfaces to LAMMPS · ASE · VASP"]
     minimization["<b>Relaxation and dynamics</b><br/>minimization · molecular dynamics<br/>defect energies"]
     lattice["<b>Lattice dynamics</b><br/>elastic constants · phonons<br/>sheets · finite temperature"]
-    thermodynamics["<b>Thermodynamics</b><br/>free energy · melting points<br/>stacking faults with temperature"]
-    planned["phase diagrams"]
+    thermodynamics["<b>Thermodynamics</b><br/>free energy · melting points · phase diagrams<br/>stacking faults with temperature"]
     packages["<b>Interoperability</b><br/>ASE · OVITO · pymatgen · freud<br/>LAMMPS · VASP · GPUMD"]
 
     files <--> system
@@ -77,13 +76,11 @@ flowchart TB
     calculators --> minimization
     minimization --> lattice
     minimization --> thermodynamics
-    thermodynamics -.-> planned
 
     classDef core fill:#2563eb40,stroke:#2563eb,stroke-width:4px
     classDef data fill:#3b82f61f,stroke:#3b82f6,stroke-width:2px
     classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px
     classDef simulation fill:#9333ea26,stroke:#9333ea,stroke-width:2px
-    classDef planned fill:none,stroke:#9333ea,stroke-width:2px,stroke-dasharray:5 5
     classDef build fill:#16a34a26,stroke:#16a34a,stroke-width:2px
     classDef visual fill:#db277726,stroke:#db2777,stroke-width:2px
     classDef mlip fill:#0d948826,stroke:#0d9488,stroke-width:2px
@@ -91,7 +88,6 @@ flowchart TB
     class files,packages data
     class analysis analysis
     class calculators,minimization,lattice,thermodynamics simulation
-    class planned planned
     class build build
     class visual visual
     class mlip mlip

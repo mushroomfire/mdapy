@@ -3,6 +3,8 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -16,7 +18,7 @@ from mdapy.analysis import (
 from mdapy.build import build_crystal, random_alloy
 from mdapy.errors import InvalidParameter
 from mdapy.identify import CommonNeighborAnalysis
-from mdapy.simulation import StackingFaultResult
+from mdapy.simulation import StackingFaultResult, pressure_temperature_diagram
 
 matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg")
@@ -198,3 +200,61 @@ def test_labels_are_upright():
         labels = ax.get_xlabel() + ax.get_ylabel()
         plt.close(fig)
     assert "$" not in labels
+
+
+def test_phase_diagram():
+    from mdapy.simulation import binary_phase_diagram
+
+    t = np.linspace(1000.0, 1700.0, 15)
+    k = 8.617e-5
+    fractions = np.linspace(0, 1, 5)
+
+    def mixing(x):
+        return k * t * (x * np.log(max(x, 1e-12)) + (1 - x) * np.log(max(1 - x, 1e-12)))
+
+    solid = {float(x): (t, mixing(x)) for x in fractions}
+    liquid = {
+        float(x): (
+            t,
+            mixing(x) + (1 - x) * 0.13 * (1 - t / 1300) + x * 0.17 * (1 - t / 1600),
+        )
+        for x in fractions
+    }
+    diagram = binary_phase_diagram(
+        {"solid": solid, "liquid": liquid}, t, elements=("Cu", "Ni")
+    )
+    ax = plot.phase_diagram(diagram)
+    assert ax.get_xlabel() == "fraction of Ni" and ax.get_ylabel() == "temperature (K)"
+    assert len(ax.lines) >= 2
+    assert {text.get_text() for text in ax.texts} == {"solid", "liquid"}
+    bare = plot.phase_diagram(diagram, labels=False)
+    assert not bare.texts
+
+
+def test_pressure_temperature():
+    ranges = np.arange(800.0, 2001.0, 50.0)
+
+    def phase(energy, entropy, volume, pressure):
+        work = volume * pressure * 0.00624
+        return SimpleNamespace(
+            pressure=pressure,
+            temperatures=ranges,
+            free_energy=energy + work - entropy * ranges,
+            enthalpy=np.full_like(ranges, energy + work),
+            volume=np.full_like(ranges, volume),
+        )
+
+    diagram = pressure_temperature_diagram(
+        {
+            "solid": [phase(-3.5, 1e-3, 12.0, p) for p in (0.0, 5.0)],
+            "liquid": [phase(-3.35, 1.1e-3, 12.6, p) for p in (0.0, 5.0)],
+        }
+    )
+    with plot.style():
+        fig, ax = plot.figure("single")
+        plot.pressure_temperature(diagram, ax=ax)
+        names = {text.get_text() for text in ax.texts}
+        assert names == {"solid", "liquid"} and len(ax.lines) == 1
+        assert "$" not in ax.get_xlabel() + ax.get_ylabel()
+        plot.pressure_temperature(diagram, ax=ax, labels=False)
+        plt.close(fig)

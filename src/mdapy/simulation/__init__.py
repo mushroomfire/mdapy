@@ -30,21 +30,35 @@ from mdapy.simulation._melting import (
     melting_point,
 )
 from mdapy.simulation._minimize import MinimizeResult, minimize
+from mdapy.simulation._phase_diagram import (
+    BinaryPhaseDiagram,
+    PhaseBoundary,
+    PressureTemperatureDiagram,
+    TieLine,
+    binary_phase_diagram,
+    pressure_temperature_diagram,
+)
 
 __all__ = [
+    "BinaryPhaseDiagram",
     "FaultFreeEnergyResult",
     "FreeEnergyResult",
     "MeltingAttempt",
     "MeltingPointResult",
     "MinimizeResult",
     "MolecularDynamics",
+    "PhaseBoundary",
     "PhaseCoexistence",
+    "PressureTemperatureDiagram",
     "StackingFaultResult",
     "SurfaceResult",
+    "TieLine",
     "VacancyResult",
+    "binary_phase_diagram",
     "free_energy",
     "melting_point",
     "minimize",
+    "pressure_temperature_diagram",
     "stacking_fault_energy",
     "stacking_fault_free_energy",
     "surface_energy",

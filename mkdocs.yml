@@ -224,6 +224,8 @@ nav:
           - Thermodynamics:
               - Free energy: user-guide/simulation/free-energy.md
               - Melting point: user-guide/simulation/melting-point.md
+              - Phase diagrams of two elements: user-guide/simulation/phase-diagram.md
+              - Pressure-temperature diagrams: user-guide/simulation/pressure-temperature.md
               - Stacking faults at finite temperature: user-guide/simulation/stacking-fault-temperature.md
       - MLIP:
           - Training sets from VASP: user-guide/mlip/vasp.md

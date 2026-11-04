@@ -137,6 +137,18 @@ def test_conventional_and_primitive_cells_vibrate_alike():
     )
 
 
+def test_atoms_far_outside_the_box(copper):
+    potential, cell = copper
+    q = [[0.1, 0.2, 0.3], [0.5, 0.0, 0.25], [0.5, 0.5, 0.5]]
+    expected = phonons(cell, potential, supercell=2, symmetry=False).frequencies(q)
+    moved = cell.with_columns(
+        positions=cell["positions"]
+        + np.array([[0, 0, 0], [7, -5, 0], [0, 11, -9], [-13, 0, 6]]) @ cell.box.matrix
+    )
+    found = phonons(moved, potential, supercell=2, symmetry=False).frequencies(q)
+    np.testing.assert_allclose(found, expected, atol=1e-9)
+
+
 def test_density_of_states():
     cell, springs = springs_fcc()
     result = phonons(primitive_cell(cell), springs)

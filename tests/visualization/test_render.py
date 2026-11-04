@@ -1221,6 +1221,12 @@ def test_no_gpu_has_no_name():
         assert _native.gpu_device() == ""
 
 
+def test_a_driver_on_the_processor_is_no_gpu():
+    # what Windows offers in a virtual machine without a GPU, 12 to 30 times slower
+    # than the threads of mdapy
+    assert "Basic Render" not in _native.gpu_device()
+
+
 SHADER = Path(__file__).parents[2] / "src/cpp/visualization/render_vulkan.comp"
 
 

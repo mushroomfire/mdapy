@@ -212,7 +212,9 @@ Direct3D 12 on Windows, which comes with the system, and with Vulkan on Linux,
 whose loader and driver come with the graphics drivers of NVIDIA, AMD and Intel
 (a build from source needs Vulkan's headers, see
 [Installation](../../getting-started/installation.md#pictures-on-the-gpu)).
-`gpu_available()` tells whether there is a GPU. A GPU with ray tracing
+`gpu_available()` tells whether there is a GPU. A driver that runs on the processor, as in a
+virtual machine without a GPU, does not count: MDAPY's own threads trace faster there, so
+`device="auto"` uses them. A GPU with ray tracing
 units uses them: on Linux and Windows those of NVIDIA RTX, AMD Radeon RX 6000
 and later and Intel Arc, for every ray; on macOS those of M3 and later, for the
 rays of occlusion and shadows. The environment variable

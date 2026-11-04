@@ -118,7 +118,10 @@ void open(Device& d) {
     ComPtr<IDXGIFactory6> factory;
     check(create_factory(0, IID_PPV_ARGS(&factory)), "CreateDXGIFactory2");
     // the GPU of the highest performance that can; never the processor, where
-    // mdapy's own threads trace faster
+    // mdapy's own threads trace faster. A virtual machine without a GPU offers the
+    // Basic Render Driver without the flag of software: the adapters of Microsoft
+    // itself all run on the processor.
+    constexpr UINT kMicrosoft = 0x1414;
     ComPtr<IDXGIAdapter1> adapter;
     DXGI_ADAPTER_DESC1 description{};
     for (UINT k = 0; factory->EnumAdapterByGpuPreference(k, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,
@@ -126,6 +129,7 @@ void open(Device& d) {
          ++k) {
         adapter->GetDesc1(&description);
         if ((description.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0 &&
+            description.VendorId != kMicrosoft &&
             SUCCEEDED(create_device(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&d.device)))) {
             D3D12_FEATURE_DATA_SHADER_MODEL model{D3D_SHADER_MODEL_6_2};
             if (SUCCEEDED(d.device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &model, sizeof(model))) &&

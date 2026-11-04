@@ -516,7 +516,7 @@ error.
   the GPU, with Metal on macOS, Vulkan on Linux or Direct3D 12 on Windows, which
   use the ray tracing units of the GPU where it has them; `show_image` shows a picture in a
   notebook; `legend=True` says what the colors mean. See
-  [Rendering](../user-guide/visualization/rendering.md).
+  [Rendering](../user-guide/visualization/rendering.md). A driver that runs on the processor does not count as a GPU.
 - Colors of atoms in `mdapy.visualization`: `color_coding`, `color_by_type`
   and `assign_color` color all atoms or a mask and keep the colors in the
   `color` column, which `render` draws by default, as OVITO's modifiers of

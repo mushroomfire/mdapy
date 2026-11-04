@@ -137,14 +137,14 @@ print(len(back))
 
 1. Build bcc tantalum with a lattice constant of 3.303 Å.
 2. Add a column `layer` with the integer part of z divided by 3.303, and color
-   the picture by it with `color="layer"`.
+   the picture by it with `color="layer"` and the discrete `colormap="labels"`.
 
 ??? note "An answer"
 
     ```python
     tantalum = build_crystal("bcc", 3.303, elements="Ta", repeat=(10, 10, 10))
     layered = tantalum.with_columns(layer=(tantalum["positions.z"] // 3.303).astype(int))
-    render(layered, "images/layers.png", color="layer")
+    render(layered, "images/layers.png", color="layer", colormap="labels")
     ```
 
 Next: [asking the atoms questions](analyses.md). The reference pages for this

@@ -23,25 +23,33 @@ The two shells about an atom in the middle, cut open:
 ```python
 from mdapy.visualization import render
 
-shell = np.where(second, np.where(first, 1.0, 0.5), 0.0)
-shell[center] = 2.0
+shell = np.zeros(len(crystal), dtype=np.int32)  # 0: the other atoms
+shell[second] = 1
+shell[first] = 2
+shell[center] = 3
+colors = np.array(
+    [
+        [0.86, 0.86, 0.86],  # others
+        [0.55, 0.63, 0.80],  # second shell
+        [0.40, 0.76, 0.65],  # first shell
+        [0.84, 0.15, 0.16],  # the atom
+    ]
+)
+lower = crystal["positions"][:, 2] < 10.9
 render(
-    crystal.filter(crystal["positions"][:, 2] < 10.9),
+    crystal.filter(lower),
     "images/expand-selection.png",
-    color=shell[crystal["positions"][:, 2] < 10.9],
-    colormap="viridis",
+    color=colors[shell[lower]],
     view="top",
-    width=600,
+    width=900,
     height=600,
-    legend="shell",
+    legend=dict(zip(["others", "second shell", "first shell", "the atom"], colors)),
 )
 ```
 
 ![Two shells about an atom](images/expand-selection.png)
 
-*The lower half of the crystal seen from above: the atom in the middle
-(yellow), its 12 nearest neighbors, the atoms the second step adds, and the
-rest (dark violet).*
+*The lower half of the crystal seen from above, cut through the atom in the middle.*
 
 ## Parameters
 

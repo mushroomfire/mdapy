@@ -23,6 +23,7 @@ from mdapy.build import build_crystal, dislocation_quadrupole
 from mdapy.errors import Cancelled, InvalidParameter
 from mdapy.identify import CommonNeighborAnalysis
 from mdapy.visualization import (
+    LABEL_COLORS,
     REPRESENTATIONS,
     STYLES,
     VIEWS,
@@ -1451,6 +1452,26 @@ def test_a_legend_names_what_is_shown(monkeypatch):
     assert drawn["bar"] == (0.0, 9.0, "plasma") and drawn["title"] == "z"
     render(system, color="red", legend={"mine": "red", "yours": (0, 0, 1)}, **LEGEND)
     assert drawn["names"] == ["mine", "yours"]
+    # discrete values: the values shown, in the colors they have among all of them
+    kinds = np.arange(len(system)) % 3 + 5
+    render(system, color=kinds, colormap="labels", legend="kind", **LEGEND)
+    assert drawn["names"] == ["5", "6", "7"] and drawn["title"] == "kind"
+    np.testing.assert_array_equal(drawn["colors"], LABEL_COLORS[:3])
+    render(
+        system, atoms=kinds > 5, color=kinds, colormap="labels", legend=True, **LEGEND
+    )
+    assert drawn["names"] == ["6", "7"]
+    np.testing.assert_array_equal(drawn["colors"], LABEL_COLORS[1:3])
+    render(
+        system.with_columns(half=(kinds > 5) * 0.5),
+        color="half",
+        colormap="labels",
+        legend=True,
+        **LEGEND,
+    )
+    assert drawn["names"] == ["0.0", "0.5"] and drawn["title"] == "half"
+    with pytest.raises(InvalidParameter, match="at most 12 values, not 108"):
+        render(system, color=np.arange(108), colormap="labels", legend=True, **LEGEND)
 
 
 @pytest.mark.parametrize(

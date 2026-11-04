@@ -33,17 +33,17 @@ render(
     sheet,
     "images/replicate.png",
     color=copy,
+    colormap="labels",
     representation="ball_and_stick",
     view="top",
-    legend="copy",
 )
 ```
 
 ![Copies of a graphene cell](images/replicate.png)
 
-*Seen from above, copy 0 (dark violet) at the origin, the next copies along
-**a** to its right, the rows of copies along **b** above; the last is
-yellow.*
+*Seen from above, with one color for each copy: copy 0 at the origin, the next
+copies along **a** to its right, the rows of copies along **b** above. The
+twelve colors start again after the twelfth copy.*
 
 ## Parameters
 

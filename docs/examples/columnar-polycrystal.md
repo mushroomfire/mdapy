@@ -131,6 +131,7 @@ render(
     relaxed,
     "images/grains.png",
     color="grain",
+    colormap="labels",
     view="top",
     width=1200,
     height=900,

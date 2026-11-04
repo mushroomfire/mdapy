@@ -31,15 +31,15 @@ inside = np.linalg.norm(crystal["positions"] - center, axis=1) < 18.0
 particle = crystal.filter(inside).with_box(mp.Box(12 * 3.615, pbc=False))
 
 coordination = CoordinationNumber(cutoff=3.0).compute(particle).coordination
-render(particle, "images/coordination.png", color=coordination.astype(float),
-       value_range=(6, 12), box=False, width=800, height=700, legend="coordination")  # fmt: skip
+render(particle, "images/coordination.png", color=coordination, colormap="labels",
+       box=False, width=800, height=700, legend="coordination")  # fmt: skip
 ```
 
 ![Coordination of a copper particle](images/coordination.png)
 
-*A sphere of 18 Å radius cut from copper, colored from 6 neighbors or fewer
-(dark purple) to 12 (yellow, the inside). The (111) facets have 9 neighbors, the
-(100) facets 8 and the atoms at edges and corners fewer.*
+*A sphere of 18 Å radius cut from copper, with one color for each number of
+neighbors. The inside has 12, the (111) facets 9, the (100) facets 8 and the atoms
+at edges and corners fewer.*
 
 ## Parameters
 

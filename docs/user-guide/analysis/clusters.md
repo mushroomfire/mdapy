@@ -40,7 +40,7 @@ particles = crystal.filter((distance < radii).any(axis=1))
 
 found = ClusterAnalysis(cutoff=3.0).compute(particles)
 found.sizes  # [396, 364, 322, 220, 79, 60, 48]: nine spheres, seven clusters
-render(particles, "images/clusters.png", color=found.cluster.astype(float), colormap="jet",
+render(particles, "images/clusters.png", color=found.cluster, colormap="labels",
        box=False, width=800, height=600, legend="cluster")  # fmt: skip
 ```
 

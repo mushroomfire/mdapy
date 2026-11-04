@@ -119,7 +119,13 @@ leaves the box.
 colors of values; `COLORMAPS` holds the names. rainbow (OVITO's default),
 viridis, magma, jet, hot, blue_white_red and gray are computed as OVITO's
 color coding computes them, viridis and magma from their tables of 256
-colors; plasma and coolwarm are mdapy's own.
+colors; plasma and coolwarm are MDAPY's own.
+
+`labels` is for discrete values such as clusters, layers or grains:
+`render(system, color="grain", colormap="labels", legend=True)`. Each value takes
+one of `LABEL_COLORS`, in increasing order, and the colors start again after the
+twelfth. It takes no `value_range`, and the legend lists the values with their
+colors, up to twelve of them.
 
 The `options` are those of `Scene.render`:
 

@@ -252,8 +252,28 @@ _COLORMAPS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
     ),  # fmt: skip
 }
 
+#: Distinct colors for labels, such as the values of a column colored by
+#: type or the clusters of an analysis, taken in turn.
+LABEL_COLORS = np.array(
+    [
+        (0.97, 0.51, 0.47),
+        (0.40, 0.76, 0.65),
+        (0.55, 0.63, 0.80),
+        (0.91, 0.54, 0.76),
+        (0.65, 0.85, 0.33),
+        (1.00, 0.85, 0.18),
+        (0.90, 0.77, 0.58),
+        (0.45, 0.62, 0.94),
+        (0.99, 0.55, 0.38),
+        (0.70, 0.70, 0.70),
+        (0.30, 0.69, 0.29),
+        (0.60, 0.31, 0.64),
+    ]
+)
+LABEL_COLORS.flags.writeable = False
+
 #: The names of the colormaps of :func:`colormap`.
-COLORMAPS = tuple(_COLORMAPS)
+COLORMAPS = (*_COLORMAPS, "labels")
 
 
 def colormap(
@@ -268,19 +288,25 @@ def colormap(
     name : str, optional
         One of ``COLORMAPS``: rainbow, viridis, magma, jet, hot,
         blue_white_red and gray, as OVITO's color coding computes them, and
-        plasma and coolwarm. Default viridis.
+        plasma and coolwarm; labels, for discrete values, gives each value one of
+        ``LABEL_COLORS``, in increasing order. Default viridis.
     value_range : sequence of float, optional
         (low, high) values of the two ends; by default the smallest and the
         largest finite value. Values beyond take the color of their end,
-        NaN that of the low end.
+        NaN that of the low end. Not for labels.
 
     Returns
     -------
     numpy.ndarray
         (N, 3) sRGB colors from 0 to 1.
     """
-    if name not in _COLORMAPS:
+    if name not in COLORMAPS:
         raise InvalidParameter(f"colormap must be one of {COLORMAPS}, not {name!r}")
+    if name == "labels":
+        if value_range is not None:
+            raise InvalidParameter("the colormap labels takes no value_range")
+        _, rank = np.unique(np.asarray(values).reshape(-1), return_inverse=True)
+        return LABEL_COLORS[rank.reshape(-1) % len(LABEL_COLORS)]
     v = np.asarray(values, dtype=float).reshape(-1)
     if value_range is None:
         finite = v[np.isfinite(v)]

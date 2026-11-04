@@ -513,7 +513,7 @@ error.
   these names; `atom_colors` and `atom_radii` with colors and radii of
   elements chosen and a scale; colormaps rainbow, viridis, magma, jet, hot,
   blue_white_red and gray computed as OVITO computes them, besides plasma
-  and coolwarm. Atom types without elements, as in a LAMMPS dump of types
+  and coolwarm, and labels for discrete values. Atom types without elements, as in a LAMMPS dump of types
   only, are drawn each in a color of its own, those of OVITO (`TYPE_COLORS`),
   and all of one radius; `atom_names` gives the names these colors go by,
   and `read_trajectory(path, elements=[...])` names the types, so that files

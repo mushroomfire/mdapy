@@ -19,6 +19,7 @@ from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
 from mdapy.visualization._legend import _with_legend
 from mdapy.visualization._scene import (
+    LABEL_COLORS,
     Scene,
     _color,
     _hex,
@@ -184,6 +185,19 @@ def _legend_items(
             "a legend needs structures, elements or values to explain; for colors "
             "of your own, give it a mapping of names to colors"
         )
+    if colormap_name == "labels":
+        present = np.unique(values[shown])
+        if len(present) > len(LABEL_COLORS):
+            raise InvalidParameter(
+                f"a legend of labels explains at most {len(LABEL_COLORS)} values, "
+                f"not {len(present)}"
+            )
+        rank = np.searchsorted(np.unique(values), present)
+        return {
+            "names": [str(value.item()) for value in present],
+            "colors": LABEL_COLORS[rank % len(LABEL_COLORS)],
+            "title": title,
+        }
     if value_range is None:
         finite = values[np.isfinite(values)]
         low, high = (finite.min(), finite.max()) if len(finite) else (0.0, 1.0)
@@ -229,27 +243,6 @@ def atom_radii(
         if symbol in kinds:
             radii[index == kinds.index(symbol)] = value
     return radii * float(scale)
-
-
-#: Distinct colors for labels, such as the values of a column colored by
-#: type or the clusters of an analysis, taken in turn.
-LABEL_COLORS = np.array(
-    [
-        (0.97, 0.51, 0.47),
-        (0.40, 0.76, 0.65),
-        (0.55, 0.63, 0.80),
-        (0.91, 0.54, 0.76),
-        (0.65, 0.85, 0.33),
-        (1.00, 0.85, 0.18),
-        (0.90, 0.77, 0.58),
-        (0.45, 0.62, 0.94),
-        (0.99, 0.55, 0.38),
-        (0.70, 0.70, 0.70),
-        (0.30, 0.69, 0.29),
-        (0.60, 0.31, 0.64),
-    ]
-)
-LABEL_COLORS.flags.writeable = False
 
 
 def _with_colors(system: System, colors: np.ndarray, atoms: ArrayLike | None) -> System:

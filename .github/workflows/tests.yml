@@ -149,7 +149,14 @@ jobs:
       - run: atomsk --version | grep -q "Beta 0.13.1"
       - run: python -c "import ovito; assert ovito.version_string == '3.17.1'"
       - name: Test with coverage (total >= 90 %)
-        run: pytest -q --cov --cov-report=term --cov-report=json
+        run: pytest -q --cov --cov-report=term --cov-report=json --cov-report=xml
+      - name: Report the coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          disable_search: true
+          fail_ci_if_error: false
       - name: Per-file coverage (each file >= 95 %)
         shell: python
         run: |

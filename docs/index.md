@@ -35,7 +35,7 @@ flowchart TB
     calculators["<b>Calculators</b><br/>EAM · NEP · LAMMPS"]
     minimization["<b>Minimization</b><br/>and dynamics"]
     lattice["<b>Lattice dynamics</b><br/>elastic constants<br/>phonons"]
-    thermodynamics["<b>Thermodynamics</b><br/>free energy"]
+    thermodynamics["<b>Thermodynamics</b><br/>free energy · melting point"]
     packages["<b>Interoperability</b><br/>ASE · OVITO · pymatgen · freud<br/>LAMMPS · VASP · GPUMD"]
 
     files <--> system

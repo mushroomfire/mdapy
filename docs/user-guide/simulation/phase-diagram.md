@@ -71,8 +71,8 @@ than the experiments do: copper at 1220 K against 1358 K, nickel at 1590 K again
 | `phases` | mapping | | | for each phase, its free energies by the fraction of the second element: each a [`FreeEnergyResult`](free-energy.md#results), or a pair of (T,) temperatures in K and (T,) free energies in eV per atom |
 | `temperatures` | array_like | | K | the temperatures of the diagram |
 | `elements` | 2 str | `("A", "B")` | | the elements, for the labels |
-| `points` | int | 1001 | | the number of fractions from 0 to 1 |
-| `degree` | int | 4 | | the largest degree of the polynomials |
+| `points` | int32 | 1001 |  | the number of fractions from 0 to 1 |
+| `degree` | int32 | 4 |  | the largest degree of the polynomials |
 
 A phase of one fraction is a compound of that composition. A phase of more is a
 solution between its lowest and its highest fractions: at each temperature the free
@@ -98,9 +98,9 @@ one temperature can be given as the energy of an entry.
 |---|---|---|
 | `elements` | tuple of str | the two elements; the fraction is that of the second |
 | `phases` | tuple of str | the names of the phases |
-| `temperatures` | (T,) array | the temperatures in K |
-| `fractions` | (X,) array | the fractions of the second element |
-| `stable` | (T, X) int array | the index in `phases` of the one stable phase, or -1 where two coexist |
+| `temperatures` | (T,) float64 | the temperatures in K |
+| `fractions` | (X,) float64 | the fractions of the second element |
+| `stable` | (T, X) int64 | the index in `phases` of the one stable phase, or -1 where two coexist |
 | `tie_lines` | tuple of `TieLine` | each pair of phases in equilibrium |
 | `phases_at(temperature, fraction)` | tuple of str | the one or two stable phases at the nearest temperature of the diagram |
 

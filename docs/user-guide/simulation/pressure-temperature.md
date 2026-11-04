@@ -47,7 +47,7 @@ for pressure, (low, high) in windows.items():
 diagram = pressure_temperature_diagram({"fcc": solid, "liquid": liquid})
 melting = diagram.boundaries[0]
 melting.temperatures, melting.slope  # K, K/GPa
-diagram.phase_at(10.0, 1500.0)  # "fcc"
+diagram.phase_at(10.0, 1650.0), diagram.phase_at(10.0, 1800.0)  # "fcc", "liquid"
 
 with plot.style():
     fig, ax = plot.figure("single")
@@ -55,12 +55,17 @@ with plot.style():
     plot.save(fig, "images/pressure-temperature", formats=("png",))
 ```
 
-<!-- CAPTION_PT -->
+![The melting line of copper](images/pressure-temperature.png)
+
+*The melting line of copper with the EAM potential of Mishin et al., 16384 atoms: 1326 K at
+0 GPa, 1526 K at 5 GPa, 1709 K at 10 GPa and 2040 K at 20 GPa, with slopes of 43, 38, 35 and
+31 K/GPa. The [two-phase method](melting-point.md) gives 1326, 1525, 1708 and 2035 K at
+these pressures, with 16456 atoms.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `phases` | mapping | | | for each name of a phase, its free energies, one per pressure, each a `FreeEnergyResult` of a run at that pressure |
-| `points` | int | 1001 | | the temperatures of the diagram, from the lowest of the free energies to the highest |
+| `points` | int32 | 1001 |  | the temperatures of the diagram, from the lowest of the free energies to the highest |
 
 Choose the temperatures of each pressure around its boundary. A crystal heated far above
 its melting point melts during the scan, and [`free_energy`](free-energy.md) leaves those
@@ -76,9 +81,9 @@ It returns a `PressureTemperatureDiagram`; arrays are read-only.
 | Attribute or method | Type | Unit | Meaning |
 |---|---|---|---|
 | `phases` | tuple of str | | the names of the phases |
-| `pressures` | (P,) array | GPa | the pressures |
-| `temperatures` | (T,) array | K | the temperatures |
-| `stable` | (P, T) array | | the index in `phases` of the phase with the lowest free energy of those known there, or -1 where none is |
+| `pressures` | (P,) float64 | GPa | the pressures |
+| `temperatures` | (T,) float64 | K | the temperatures |
+| `stable` | (P, T) int64 |  | the index in `phases` of the phase with the lowest free energy of those known there, or -1 where none is |
 | `boundaries` | tuple of `PhaseBoundary` | | each pair of phases in equilibrium |
 | `phase_at(pressure, temperature)` | str or `None` | | the stable phase at the nearest pressure and temperature of the diagram |
 
@@ -87,11 +92,11 @@ A `PhaseBoundary`:
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
 | `first`, `second` | str | | the phases, the first stable below the temperature of the boundary and the second above it |
-| `pressures` | (B,) array | GPa | the pressures |
-| `temperatures` | (B,) array | K | the temperature of the boundary at each pressure |
-| `latent_heat` | (B,) array | eV per atom | the change of enthalpy from the first to the second |
-| `volume` | (B,) array | Å³ per atom | the change of volume from the first to the second |
-| `slope` | (B,) array | K/GPa | $\mathrm{d}T/\mathrm{d}P$ by the Clausius-Clapeyron relation |
+| `pressures` | (B,) float64 | GPa | the pressures |
+| `temperatures` | (B,) float64 | K | the temperature of the boundary at each pressure |
+| `latent_heat` | (B,) float64 | eV per atom | the change of enthalpy from the first to the second |
+| `volume` | (B,) float64 | Å³ per atom | the change of volume from the first to the second |
+| `slope` | (B,) float64 | K/GPa | $\mathrm{d}T/\mathrm{d}P$ by the Clausius-Clapeyron relation |
 
 ## Definition
 

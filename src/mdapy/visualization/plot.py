@@ -501,7 +501,7 @@ def structure_counts(result: Any, *, ax: Any = None) -> Any:
 
 def phase_diagram(result: Any, *, ax: Any = None, labels: bool = True) -> Any:
     """The boundaries of the phases of a
-    :class:`mdapy.simulation.BinaryPhaseDiagram`: where each tie line ends, against
+    ``mdapy.simulation.BinaryPhaseDiagram``: where each tie line ends, against
     the temperature, with the name of each phase in the middle of where it is the
     only one.
 
@@ -553,7 +553,7 @@ def phase_diagram(result: Any, *, ax: Any = None, labels: bool = True) -> Any:
 
 def pressure_temperature(result: Any, *, ax: Any = None, labels: bool = True) -> Any:
     """The boundaries of the phases of a
-    :class:`mdapy.simulation.PressureTemperatureDiagram`: the temperature of each
+    ``mdapy.simulation.PressureTemperatureDiagram``: the temperature of each
     against the pressure, with the name of each phase in the middle of where it
     is stable.
 

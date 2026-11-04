@@ -27,11 +27,11 @@ class TieLine:
 
     Attributes
     ----------
-    temperature : float
+    temperature : float64
         The temperature in K.
     first, second : str
         The phases, the first at the lower fraction.
-    first_fraction, second_fraction : float
+    first_fraction, second_fraction : float64
         The fractions of the second element in each.
     """
 
@@ -53,11 +53,11 @@ class BinaryPhaseDiagram(Result):
     phases : tuple of str
         The names of the phases.
     temperatures : numpy.ndarray
-        (T,) the temperatures in K.
+        (T,) float64, the temperatures in K.
     fractions : numpy.ndarray
-        (X,) the fractions of the second element.
+        (X,) float64, the fractions of the second element.
     stable : numpy.ndarray
-        (T, X) the index in ``phases`` of the one stable phase, or -1 where two
+        (T, X) int64, the index in ``phases`` of the one stable phase, or -1 where two
         phases coexist.
     tie_lines : tuple of TieLine
         Each pair of phases in equilibrium, by temperature and fraction.
@@ -75,9 +75,9 @@ class BinaryPhaseDiagram(Result):
 
         Parameters
         ----------
-        temperature : float
+        temperature : float64
             The temperature in K.
-        fraction : float
+        fraction : float64
             The fraction of the second element, from 0 to 1.
 
         Returns
@@ -171,9 +171,9 @@ def binary_phase_diagram(
 
     Parameters
     ----------
-    phases : mapping of str to mapping of float
+    phases : mapping of str to mapping of float64
         For each phase, its free energies by the fraction of the second element:
-        each a :class:`FreeEnergyResult`, or a pair of (T,) temperatures in K and
+        each a ``FreeEnergyResult``, or a pair of (T,) temperatures in K and
         (T,) free energies in eV per atom. A phase of one fraction is a compound
         of that composition. A phase of more is a solution between its lowest
         and its highest fractions: the free energy minus that of ideal mixing,
@@ -183,9 +183,9 @@ def binary_phase_diagram(
         free energy, it goes on along a straight line.
     elements : sequence of 2 str, optional
         The elements, for the labels. Default ("A", "B").
-    points : int, optional
+    points : int32, optional
         Number of fractions from 0 to 1. Default 1001.
-    degree : int, optional
+    degree : int32, optional
         Largest degree of the polynomials. Default 4.
 
     Returns
@@ -299,15 +299,15 @@ class PhaseBoundary(Result):
         The phases, the first stable below the temperature of the boundary and
         the second above it.
     pressures : numpy.ndarray
-        (B,) the pressures in GPa.
+        (B,) float64, the pressures in GPa.
     temperatures : numpy.ndarray
-        (B,) the temperature of the boundary at each pressure in K.
+        (B,) float64, the temperature of the boundary at each pressure in K.
     latent_heat : numpy.ndarray
-        (B,) the change of enthalpy from the first to the second in eV per atom.
+        (B,) float64, the change of enthalpy from the first to the second in eV per atom.
     volume : numpy.ndarray
-        (B,) the change of volume from the first to the second in Å³ per atom.
+        (B,) float64, the change of volume from the first to the second in Å³ per atom.
     slope : numpy.ndarray
-        (B,) dT/dP of the boundary in K/GPa by the Clausius-Clapeyron relation,
+        (B,) float64 dT/dP of the boundary in K/GPa by the Clausius-Clapeyron relation,
         T times the change of volume over the latent heat.
     """
 
@@ -329,11 +329,11 @@ class PressureTemperatureDiagram(Result):
     phases : tuple of str
         The names of the phases.
     pressures : numpy.ndarray
-        (P,) the pressures in GPa.
+        (P,) float64, the pressures in GPa.
     temperatures : numpy.ndarray
-        (T,) the temperatures in K.
+        (T,) float64, the temperatures in K.
     stable : numpy.ndarray
-        (P, T) the index in ``phases`` of the phase with the lowest free energy
+        (P, T) int64, the index in ``phases`` of the phase with the lowest free energy
         of those known there, or -1 where none is.
     boundaries : tuple of PhaseBoundary
         Each pair of phases in equilibrium.
@@ -350,9 +350,9 @@ class PressureTemperatureDiagram(Result):
 
         Parameters
         ----------
-        pressure : float
+        pressure : float64
             The pressure in GPa.
-        temperature : float
+        temperature : float64
             The temperature in K.
 
         Returns
@@ -386,8 +386,8 @@ def pressure_temperature_diagram(
     ----------
     phases : mapping
         For each name of a phase, its free energies, one per pressure, each a
-        :class:`mdapy.simulation.FreeEnergyResult` of a run at that pressure.
-    points : int, optional
+        ``mdapy.simulation.FreeEnergyResult`` of a run at that pressure.
+    points : int32, optional
         The temperatures of the diagram, from the lowest of the free energies to
         the highest. Default 1001.
 
@@ -426,7 +426,7 @@ def pressure_temperature_diagram(
     grid = np.linspace(
         min(np.min(t) for t in every), max(np.max(t) for t in every), int(points)
     )
-    stable = np.full((len(pressures), len(grid)), -1, dtype=np.int8)
+    stable = np.full((len(pressures), len(grid)), -1, dtype=np.int64)
     found: dict[tuple[int, int], list[tuple[float, float, float, float]]] = {}
     for i, pressure in enumerate(pressures):
         here = known[float(pressure)]

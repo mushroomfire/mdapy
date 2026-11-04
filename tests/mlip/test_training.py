@@ -31,6 +31,7 @@ class Scaled(Calculator):
         return CalculatorResult(
             energy=self.factor * r.energy,
             forces=self.factor * r.forces,
+            volume=r.volume,
             virial=self.factor * r.virial if "virial" in properties else None,
         )
 

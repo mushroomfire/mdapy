@@ -188,6 +188,7 @@ class VASP(Calculator):
             virial=np.asarray(frame.info.get("virial"), dtype=float)
             if "virial" in frame.info
             else None,
+            volume=system.box.volume,
         )
 
     def __write_incar(self, path: Path) -> None:

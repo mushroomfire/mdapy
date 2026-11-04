@@ -68,13 +68,15 @@ def test_results_attach_to_systems(potential):
     np.testing.assert_array_equal(attached.table["forces"].to_numpy(), result.forces)
     assert attached.info["energy"] == result.energy
     np.testing.assert_array_equal(attached.info["virial"], result.virial)
-    stress = result.stress(system)
+    stress = result.stress
     np.testing.assert_allclose(
         stress, -result.virial / system.box.volume * mdapy.units.EV_PER_A3_TO_GPA
     )
     assert not result.forces.flags.writeable
     with pytest.raises(InvalidParameter, match="virial was not computed"):
-        CalculatorResult(energy=1.0).stress(system)
+        CalculatorResult(energy=1.0).stress
+    with pytest.raises(InvalidParameter, match="volume"):
+        CalculatorResult(virial=np.zeros((3, 3))).stress
 
 
 def test_errors(potential, tmp_path):

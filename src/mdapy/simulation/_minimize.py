@@ -14,6 +14,7 @@ import numpy as np
 from mdapy import units
 from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
+from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.elements import atomic_masses
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
@@ -41,7 +42,7 @@ CELL_MODES = (None, "isotropic", "axes", "full")
 
 
 @dataclass(frozen=True)
-class MinimizeResult:
+class MinimizeResult(Result):
     """The outcome of :func:`minimize`.
 
     Attributes
@@ -260,7 +261,7 @@ def minimize(
             )
         forces = result.forces if movable is None else result.forces * movable
         largest = float(np.sqrt((forces * forces).sum(axis=1)).max(initial=0.0))
-        stress = result.stress(current) if "virial" in properties else None
+        stress = result.stress if "virial" in properties else None
         generalized, deviation = forces, 0.0
         if cell:
             deformation = variables[n:] / scale

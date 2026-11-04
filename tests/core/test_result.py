@@ -3,6 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
+import importlib
 from dataclasses import dataclass
 
 import numpy as np
@@ -40,3 +41,18 @@ def test_results_become_columns():
     assert added.table["weight"].to_list() == [1.5] * 3
     assert added.table["charge"].to_list() == [0.5] * 3
     assert Result().columns() == {}
+
+
+def test_every_result_is_a_result():
+    for name in (
+        "mdapy.analysis",
+        "mdapy.calculators",
+        "mdapy.identify",
+        "mdapy.lattice_dynamics",
+        "mdapy.mlip",
+        "mdapy.simulation",
+    ):
+        module = importlib.import_module(name)
+        for item in module.__all__:
+            if item.endswith("Result"):
+                assert issubclass(getattr(module, item), Result), item

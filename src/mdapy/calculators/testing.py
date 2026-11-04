@@ -206,6 +206,14 @@ def check_calculator(
             1e-8,
         )
     if result.virial is not None:
+        volume = float("nan") if result.volume is None else result.volume
+        _close(
+            "volume of the box",
+            np.array(volume),
+            np.array(system.box.volume),
+            1e-12,
+            1e-12,
+        )
         _close(
             "virial after a rotation",
             rotated.virial,

@@ -45,6 +45,7 @@ class Harmonic(Calculator):
             forces=forces,
             virial=virials.sum(axis=0),
             atomic_virials=virials,
+            volume=system.box.volume,
         )
 
 

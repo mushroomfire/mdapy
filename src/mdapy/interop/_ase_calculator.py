@@ -172,7 +172,7 @@ class _FromASE(Calculator):
             values["virial"] = -atoms.get_stress(voigt=False) * volume
         if "atomic_virials" in wanted:
             values["atomic_virials"] = -atoms.get_stresses(voigt=False) * volume
-        return CalculatorResult(**values)
+        return CalculatorResult(**values, volume=volume)
 
     def __repr__(self) -> str:
         return f"from_ase_calculator({self.calculator!r})"

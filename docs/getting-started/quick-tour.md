@@ -52,7 +52,7 @@ from mdapy.calculators import EAM
 potential = EAM.zhou(["Cu"])
 result = potential.compute(system, ("energy", "forces", "virial"))
 result.energy / len(system)  # eV per atom
-result.stress(system)  # (3, 3) GPa
+result.stress  # (3, 3) GPa
 ```
 
 See [Calculators](../user-guide/simulation/calculators.md) and [EAM](../user-guide/simulation/eam.md).

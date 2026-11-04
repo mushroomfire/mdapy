@@ -243,6 +243,7 @@ neigh_modify every 1 delay 0 check yes
                 forces=np.zeros((0, 3)),
                 virial=np.zeros((3, 3)),
                 atomic_virials=np.zeros((0, 3, 3)),
+                volume=system.box.volume,
             )
         box = system.box
         key = (n, types.tobytes(), box.pbc.tobytes(), np.linalg.det(box.matrix) < 0)
@@ -292,6 +293,7 @@ neigh_modify every 1 delay 0 check yes
             forces=forces,
             virial=rotation @ virial @ rotation.T,
             atomic_virials=rotation @ atomic @ rotation.T,
+            volume=system.box.volume,
         )
 
     def __repr__(self) -> str:

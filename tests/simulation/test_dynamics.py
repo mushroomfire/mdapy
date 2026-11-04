@@ -138,7 +138,7 @@ def test_the_pressure_of_the_potential(potential):
     # at rest, the stress of LAMMPS is the virial of mdapy's EAM
     system = crystal()
     eam = EAM(potential.pair.split()[-3])
-    expected = eam.compute(system, ("virial",)).stress(system)
+    expected = eam.compute(system, ("virial",)).stress
     with MolecularDynamics(system, potential) as md:
         md.run(0)
         stress = np.array(md.thermo["stress"][0])

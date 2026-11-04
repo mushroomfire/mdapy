@@ -236,7 +236,7 @@ def test_frames_every_few_steps(potential, tmp_path, every):
     start = potential.compute(system, ("energy", "virial"))
     assert first.info["energy"] == start.energy
     np.testing.assert_array_equal(first.info["virial"], start.virial)
-    np.testing.assert_array_equal(first.info["stress"], start.stress(system))
+    np.testing.assert_array_equal(first.info["stress"], start.stress)
     assert last.info["energy"] == plain.energy
     np.testing.assert_array_equal(last.info["stress"], plain.stress)
     np.testing.assert_array_equal(plain.system.info["stress"], plain.stress)
@@ -377,9 +377,7 @@ def test_frames_of_a_relaxing_box(potential):
     for frame in result.frames:
         values = potential.compute(frame, ("energy", "virial"))
         assert frame.info["energy"] == pytest.approx(values.energy, abs=1e-12)
-        np.testing.assert_allclose(
-            frame.info["stress"], values.stress(frame), atol=1e-10
-        )
+        np.testing.assert_allclose(frame.info["stress"], values.stress, atol=1e-10)
     assert result.frames[0].info["stress"][0, 0] > 1.0  # stretched: tension
     np.testing.assert_array_equal(result.frames[-1].info["stress"], result.stress)
 

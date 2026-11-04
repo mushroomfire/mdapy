@@ -142,14 +142,14 @@ def test_pressures_and_volumes(copper, heating):
         rtol=1e-6,
     )
     for grid_cell in heating.cells:
-        stress = potential.compute(grid_cell, ("virial",)).stress(grid_cell)
+        stress = potential.compute(grid_cell, ("virial",)).stress
         np.testing.assert_allclose(stress, stress[0, 0] * np.eye(3), atol=1e-3)
     # the cells of given pressures are relaxed under them
     pressures = np.linspace(20.0, -40.0, 6)
     given = quasi_harmonic(cell, potential, [300.0], pressures=pressures, **OPTIONS)
     assert len(given.cells) == 6 and np.all(np.diff(given.volumes) > 0)
     for p, grid_cell in zip(sorted(pressures, reverse=True), given.cells):
-        stress = potential.compute(grid_cell, ("virial",)).stress(grid_cell)
+        stress = potential.compute(grid_cell, ("virial",)).stress
         np.testing.assert_allclose(stress, -p * np.eye(3), atol=1e-3)
     with pytest.raises(InvalidParameter, match="not both"):
         quasi_harmonic(
@@ -180,7 +180,7 @@ def test_the_shape_relaxes_with_the_volume(copper):
     ]
     assert np.ptp(ratios) > 1e-3
     for grid_cell in result.cells:
-        stress = potential.compute(grid_cell, ("virial",)).stress(grid_cell)
+        stress = potential.compute(grid_cell, ("virial",)).stress
         np.testing.assert_allclose(stress, stress[0, 0] * np.eye(3), atol=1e-3)
 
 

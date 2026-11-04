@@ -12,6 +12,7 @@ import numpy as np
 from mdapy.analysis._symmetry import _rotations
 from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
+from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics._sheets import _in_periodic_box, _is_sheet
@@ -34,7 +35,7 @@ def _voigt(tensor: np.ndarray) -> np.ndarray:
 
 
 @dataclass(frozen=True)
-class ElasticResult:
+class ElasticResult(Result):
     """Elastic constants of a crystal.
 
     Attributes
@@ -49,11 +50,6 @@ class ElasticResult:
 
     constants: np.ndarray
     errors: np.ndarray | None = None
-
-    def __post_init__(self):
-        self.constants.flags.writeable = False
-        if self.errors is not None:
-            self.errors.flags.writeable = False
 
     def __compliance(self) -> np.ndarray:
         if np.linalg.cond(self.constants) > 1e12:
@@ -97,7 +93,7 @@ class ElasticResult:
 
 
 @dataclass(frozen=True)
-class SheetElasticResult:
+class SheetElasticResult(Result):
     """Elastic constants of a sheet, per unit of its area.
 
     Attributes
@@ -108,9 +104,6 @@ class SheetElasticResult:
     """
 
     constants: np.ndarray
-
-    def __post_init__(self):
-        self.constants.flags.writeable = False
 
     def __compliance(self) -> np.ndarray:
         if np.linalg.cond(self.constants) > 1e12:
@@ -257,7 +250,7 @@ def elastic_constants(
                     )
                 stress = outcome.stress
             else:
-                stress = calculator.compute(strained, ("virial",)).stress(strained)
+                stress = calculator.compute(strained, ("virial",)).stress
             known.append((tensor, stress))
             stresses.append(_components(stress, pairs))
         constants[:, k] = (stresses[0] - stresses[1]) / (2 * strain)

@@ -13,14 +13,15 @@ from numpy.typing import ArrayLike
 from mdapy import units
 from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
+from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
-from mdapy.lattice_dynamics._phonons import _default_supercell, _read_only, phonons
+from mdapy.lattice_dynamics._phonons import _default_supercell, phonons
 from mdapy.simulation._minimize import minimize
 
 
 @dataclass(frozen=True)
-class QuasiHarmonicResult:
+class QuasiHarmonicResult(Result):
     """Thermodynamic properties of a crystal in the quasi-harmonic
     approximation, per atom.
 
@@ -67,20 +68,6 @@ class QuasiHarmonicResult:
     free_energies: np.ndarray
     cells: tuple[System, ...] = ()
 
-    def __post_init__(self):
-        _read_only(
-            self.temperatures,
-            self.volume,
-            self.gibbs_energy,
-            self.entropy,
-            self.bulk_modulus,
-            self.thermal_expansion,
-            self.heat_capacity,
-            self.volumes,
-            self.energies,
-            self.free_energies,
-        )
-
 
 class _Fit:
     """A least-squares cubic polynomial in V^(-2/3), the third-order
@@ -120,7 +107,7 @@ class _Fit:
 
 def _pressure(system: System, calculator: Calculator) -> float:
     """The pressure of a system in GPa."""
-    return float(-np.trace(calculator.compute(system, ("virial",)).stress(system)) / 3)
+    return float(-np.trace(calculator.compute(system, ("virial",)).stress) / 3)
 
 
 def _scaled(system: System, ratio: float) -> System:

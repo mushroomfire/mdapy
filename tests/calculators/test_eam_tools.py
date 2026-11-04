@@ -161,7 +161,7 @@ def test_zhou_crystals_at_equilibrium(element):
     system = crystal(element, lattice, a)
     result = EAM.zhou([element]).compute(system, ("energy", "forces", "virial"))
     assert result.energy / len(system) == pytest.approx(-energy, abs=2e-4)
-    assert np.abs(result.stress(system)).max() < 0.005  # GPa
+    assert np.abs(result.stress).max() < 0.005  # GPa
     assert np.abs(result.forces).max() < 1e-10
 
 

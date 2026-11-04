@@ -66,7 +66,8 @@ class Morse(Calculator):
             "virial": virials.sum(axis=0),
             "atomic_virials": virials,
         }
-        return CalculatorResult(**{name: values[name] for name in properties})
+        wanted = {name: values[name] for name in properties}
+        return CalculatorResult(**wanted, volume=system.box.volume)
 
 
 def crystal(repeat=3, a=3.7, jitter=0.0, seed=0):
@@ -97,7 +98,7 @@ def test_results_are_those_of_the_mdapy_calculator():
         atoms.get_potential_energies(), direct.atomic_energies, atol=1e-13
     )
     # ASE's stress is -virial / volume in eV/Å³, in the order xx yy zz yz xz xy
-    stress = direct.stress(system) * units.GPA_TO_EV_PER_A3
+    stress = direct.stress * units.GPA_TO_EV_PER_A3
     expected = [
         stress[0, 0],
         stress[1, 1],
@@ -139,7 +140,7 @@ def test_ase_relaxes_the_cell_by_the_stress():
     assert np.abs(atoms.get_stress()).max() < 1e-6
     relaxed = from_ase(atoms)
     result = Morse().compute(relaxed, ("energy", "virial"))
-    assert np.abs(result.stress(relaxed)).max() < 1e-3  # GPa
+    assert np.abs(result.stress).max() < 1e-3  # GPa
 
 
 def test_properties_follow_the_mdapy_calculator():

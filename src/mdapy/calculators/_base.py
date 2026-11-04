@@ -7,12 +7,13 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 
 from mdapy import units
+from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.elements import SYMBOLS
 from mdapy.errors import InvalidParameter, MissingProperty
@@ -24,7 +25,7 @@ PROPERTIES = frozenset(
 
 
 @dataclass(frozen=True)
-class CalculatorResult:
+class CalculatorResult(Result):
     """What a calculator computed for a system; unrequested values are None.
 
     Attributes
@@ -39,6 +40,8 @@ class CalculatorResult:
         (3, 3) virial in eV, positive under compression.
     atomic_virials : numpy.ndarray or None
         (N, 3, 3) virials in eV; they sum to ``virial``.
+    volume : float or None
+        Volume of the box in Å³, which gives ``stress``.
     """
 
     energy: float | None = None
@@ -46,18 +49,21 @@ class CalculatorResult:
     forces: np.ndarray | None = None
     virial: np.ndarray | None = None
     atomic_virials: np.ndarray | None = None
+    volume: float | None = None
 
-    def __post_init__(self):
-        for field in fields(self):
-            value = getattr(self, field.name)
-            if isinstance(value, np.ndarray):
-                value.flags.writeable = False
-
-    def stress(self, system: System) -> np.ndarray:
+    @property
+    def stress(self) -> np.ndarray:
         """(3, 3) stress in GPa, positive under tension: -virial / volume."""
         if self.virial is None:
             raise InvalidParameter("the virial was not computed")
-        return -self.virial / system.box.volume * units.EV_PER_A3_TO_GPA
+        if self.volume is None:
+            raise InvalidParameter("the calculator did not give the volume of the box")
+        return -self.virial / self.volume * units.EV_PER_A3_TO_GPA
+
+    def columns(self) -> dict[str, np.ndarray]:
+        """``forces``, ``atomic_energies`` and ``atomic_virials``, where computed."""
+        names = ("forces", "atomic_energies", "atomic_virials")
+        return {n: getattr(self, n) for n in names if getattr(self, n) is not None}
 
     def attach(self, system: System) -> System:
         """The system with these values as columns and information.
@@ -65,17 +71,12 @@ class CalculatorResult:
         ``forces``, ``atomic_energies`` and ``atomic_virials`` become
         columns; ``energy`` and ``virial`` become entries of ``info``.
         """
-        columns = {
-            name: getattr(self, name)
-            for name in ("forces", "atomic_energies", "atomic_virials")
-            if getattr(self, name) is not None
-        }
         info = {
             name: getattr(self, name)
             for name in ("energy", "virial")
             if getattr(self, name) is not None
         }
-        return system.with_columns(**columns).with_info(**info)
+        return system.with_columns(self).with_info(**info)
 
 
 class Calculator(ABC):

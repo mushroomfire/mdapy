@@ -15,12 +15,12 @@ from mdapy import units
 from mdapy.analysis._symmetry import _rotations
 from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
+from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics._phonons import (
     _default_supercell,
     _phonons,
-    _read_only,
     _supercell_matrix,
 )
 from mdapy.lattice_dynamics._quasi_harmonic import QuasiHarmonicResult
@@ -32,7 +32,7 @@ _METHODS = ("quasi-harmonic", "quasi-static")
 
 
 @dataclass(frozen=True)
-class ThermalElasticResult:
+class ThermalElasticResult(Result):
     """Elastic constants of a crystal against temperature.
 
     Attributes
@@ -52,9 +52,6 @@ class ThermalElasticResult:
     isothermal: np.ndarray
     adiabatic: np.ndarray
     method: str
-
-    def __post_init__(self):
-        _read_only(self.temperatures, self.isothermal, self.adiabatic)
 
 
 def _strain(voigt: np.ndarray) -> np.ndarray:

@@ -15,7 +15,7 @@ system = read("alloy.xyz")
 result = potential.compute(system, ("energy", "forces", "virial"))
 result.energy  # eV
 result.forces  # (N, 3) eV/Å
-result.stress(system)  # (3, 3) GPa
+result.stress  # (3, 3) GPa
 system = result.attach(system)  # forces as a column, energy and virial in info
 ```
 
@@ -61,12 +61,13 @@ A `CalculatorResult` holds:
 | `forces` | (N, 3) | eV/Å | |
 | `virial` | (3, 3) | eV | positive under compression |
 | `atomic_virials` | (N, 3, 3) | eV | they sum to `virial` |
+| `volume` | float | Å³ | of the box |
+| `stress` | (3, 3) | GPa | $\sigma = -W/V$, positive under tension; `InvalidParameter` without a virial or a volume |
 
 Values that were not computed are `None`; the arrays are read-only.
 
 | Method | Returns |
 |---|---|
-| `stress(system)` | (3, 3) stress $\sigma = -W/V$ in GPa, positive under tension; `InvalidParameter` without a virial |
 | `attach(system)` | the system with `forces`, `atomic_energies` and `atomic_virials` as columns and `energy` and `virial` in `info` |
 
 The virial is the response of the energy to a homogeneous strain

@@ -3,9 +3,42 @@
 MDAPY needs Python 3.11 or newer, and on macOS, macOS 14 or newer. Its only
 required dependencies are NumPy 2.3.1 or newer and polars 2.
 
-## From source
+## From PyPI
 
-MDAPY 2.0 is not on PyPI yet. Build it from the `v2` branch:
+```bash
+pip install mdapy
+```
+
+This is the usual way. PyPI holds built packages for Linux on x86-64, macOS on
+Apple silicon and Windows on x86-64, so nothing has to be compiled. Elsewhere, `pip`
+builds MDAPY from its source archive, which needs [the tools below](#what-a-build-needs).
+
+!!! note "Until the first release of 2.0"
+    `pip install mdapy` still gives MDAPY 1.x. Install 2.0 [from git](#from-git).
+
+## From a source archive
+
+Build the source archive on PyPI, instead of taking a built package:
+
+```bash
+pip install --no-binary mdapy mdapy
+```
+
+or a source archive you have downloaded:
+
+```bash
+pip install mdapy-*.tar.gz
+```
+
+## From git
+
+For the newest code, directly:
+
+```bash
+pip install "git+https://github.com/mushroomfire/mdapy.git@v2"
+```
+
+or from a clone, which also has the tests and the documentation:
 
 ```bash
 git clone -b v2 https://github.com/mushroomfire/mdapy.git
@@ -13,9 +46,18 @@ cd mdapy
 pip install .
 ```
 
-Building needs a C++17 compiler and CMake 3.18 or newer; `pip` installs the
-remaining build tools (scikit-build-core and nanobind) automatically. No
-OpenMP library is needed.
+## What a build needs
+
+Installing from a source archive or from git compiles MDAPY, which needs:
+
+| Needed | Version | How to get it |
+|---|---|---|
+| A C++ compiler | C++17: GCC, Clang or MSVC | Debian, Ubuntu: `sudo apt install g++`; Fedora, RHEL: `sudo dnf install gcc-c++`; macOS: `xcode-select --install`; Windows: Visual Studio with "Desktop development with C++" |
+| CMake | 3.18 or newer | `pip install cmake`, or the package of your system |
+| scikit-build-core, nanobind | 0.10 or newer, 2.4 or newer | `pip` fetches them for the build |
+| NumPy, polars | 2.3.1 or newer, 2 or newer | `pip` installs them with MDAPY |
+
+No OpenMP library and no other third-party code is needed.
 
 ## Pictures on the GPU
 

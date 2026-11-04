@@ -23,6 +23,7 @@
   <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/learn/table.md">Lessons</a> ·
   <a href="#examples">Examples</a> ·
   <a href="#install">Install</a> ·
+  <a href="#tests">Tests</a> ·
   <a href="#citing-mdapy">Cite</a>
 </p>
 
@@ -59,7 +60,7 @@
 |---|---|
 | [**Build**](https://github.com/mushroomfire/mdapy/blob/v2/docs/build/crystals.md) | Crystals, polycrystals, alloys, defects and dislocations |
 | [**Analyze**](https://github.com/mushroomfire/mdapy/blob/v2/docs/analysis/overview.md) | More than 40 analyses of structure, local order, defects and dynamics |
-| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md) | EAM, NEP, [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/) calculators; relaxation, dynamics, elastic constants and phonons, also of sheets such as graphene and at finite temperature |
+| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md) | EAM, NEP, [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/) calculators; relaxation and dynamics; elastic constants and phonons, also of sheets such as graphene and at finite temperature; free energies of solids and liquids, melting points by the two-phase method, binary and pressure-temperature phase diagrams, and stacking faults at finite temperature |
 | [**MLIP**](https://github.com/mushroomfire/mdapy/blob/v2/docs/mlip/checks.md) | Training sets from [VASP](https://www.vasp.at), descriptors, errors of a model, the frames worth computing |
 | [**Visualize**](https://github.com/mushroomfire/mdapy/blob/v2/docs/visualization/rendering.md) | Ray-traced pictures on the processor or the graphics card, movies and plots |
 | [**Exchange**](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/io.md) | Eight file formats, and systems shared with [ASE](https://wiki.fysik.dtu.dk/ase/), [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and [freud](https://freud.readthedocs.io) |
@@ -170,15 +171,32 @@ gives the whole script.
 ## Install
 
 ```bash
-git clone -b v2 https://github.com/mushroomfire/mdapy.git
-cd mdapy
-pip install .
+pip install mdapy
 ```
 
-MDAPY needs Python 3.11 or newer and, to build, a C++17 compiler and CMake 3.18 or
-newer. It will be on PyPI from the first preview on. See
-[Installation](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/installation.md)
-for the optional packages.
+MDAPY needs Python 3.11 or newer. [Installation](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/installation.md)
+describes the other ways to install it, from a source archive or from git, what those need,
+and the optional packages.
+
+## Documentation
+
+[The documentation](https://github.com/mushroomfire/mdapy/blob/v2/docs/index.md) has a [quick tour](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/quick-tour.md),
+[lessons](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/learn/table.md), a page for each feature with its parameters,
+results and references, and the [API](https://github.com/mushroomfire/mdapy/blob/v2/docs/reference/api.md). To build it yourself, see
+[Installation](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/installation.md#tests-and-documentation).
+
+## Tests
+
+```bash
+git clone -b v2 https://github.com/mushroomfire/mdapy.git
+cd mdapy
+pip install -e ".[dev]"
+pytest
+```
+
+Tests that need another program are skipped where it is missing.
+[Contributing](https://github.com/mushroomfire/mdapy/blob/v2/docs/development/contributing.md#what-a-complete-run-needs) lists what a
+complete run needs.
 
 ## Reporting a problem
 

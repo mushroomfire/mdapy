@@ -13,7 +13,7 @@ from mdapy.build import build_crystal, random_alloy
 from mdapy.calculators import LAMMPS
 from mdapy.simulation import binary_phase_diagram, free_energy, minimize
 
-potential = LAMMPS("pair_style nep/kk\npair_coeff * * nep.txt Cu Ni", ["Cu", "Ni"])
+potential = LAMMPS("pair_style nep\npair_coeff * * nep.txt Cu Ni", ["Cu", "Ni"])
 temperatures = np.arange(900.0, 2101.0, 25.0)
 solid, liquid = {}, {}
 for x in (0.0, 0.25, 0.5, 0.75, 1.0):
@@ -22,11 +22,23 @@ for x in (0.0, 0.25, 0.5, 0.75, 1.0):
         build_crystal("fcc", a, repeat=(8, 8, 8)), {"Cu": 1 - x, "Ni": x}, seed=7
     )
     atoms = minimize(atoms, potential, cell="full", max_stress=1e-2).system
-    solid[x] = free_energy(atoms, potential, temperatures, mixing=0 < x < 1)
-    liquid[x] = free_energy(atoms, potential, temperatures[::-1], phase="liquid")
+    options = dict(switching=50, scan=200, repeats=2)
+    solid[x] = free_energy(atoms, potential, temperatures, mixing=0 < x < 1, **options)
+    liquid[x] = free_energy(
+        atoms,
+        potential,
+        temperatures[::-1],
+        phase="liquid",
+        equilibration=15,
+        melt_temperature=2800,
+        **options,
+    )
 
 diagram = binary_phase_diagram(
-    {"fcc": solid, "liquid": liquid}, temperatures, elements=("Cu", "Ni")
+    {"fcc": solid, "liquid": liquid},
+    np.arange(1100.0, 1701.0, 5.0),
+    elements=("Cu", "Ni"),
+    degree=3,
 )
 diagram.phases_at(1400.0, 0.5)  # the stable phases, one or two
 diagram.tie_lines[0]  # which two phases, at which fractions
@@ -46,7 +58,13 @@ with plot.style():
 
 ![The Cu-Ni phase diagram](images/phase-diagram.png)
 
-*CAPTION_DIAGRAM*
+*Copper and nickel with the UNEP16 model
+([Song et al. (2024)](../reference/references.md#song2024);
+[Wu et al. (2026)](../reference/references.md#wu2026torchnep)) through the LAMMPS
+interface of NEP, 2048 atoms at five compositions: a solid solution at all
+compositions below a lens, as in the experiments. The model melts its elements lower
+than the experiments do: copper at 1220 K against 1358 K, nickel at 1590 K against
+1728 K.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|

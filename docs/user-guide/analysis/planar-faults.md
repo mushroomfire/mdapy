@@ -43,7 +43,13 @@ for plane in range(6):  # a twin six planes thick: six planes in a row
 found = PlanarFaults(extrinsic=True).compute(faults)
 colors = np.asarray(found.colors)[found.fault]
 render(
-    faults, "images/planar-faults.png", color=colors, view="left", width=600, height=900
+    faults,
+    "images/planar-faults.png",
+    color=colors,
+    view="left",
+    width=600,
+    height=900,
+    legend=dict(zip(found.names, found.colors)),
 )
 ```
 

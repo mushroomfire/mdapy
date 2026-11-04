@@ -123,6 +123,7 @@ for name, frame in (("start", frames[0]), ("middle", frames[35]), ("end", frames
         box=False,
         width=500,
         height=500,
+        legend=True,
     )
 ```
 

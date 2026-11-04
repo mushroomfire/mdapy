@@ -57,7 +57,7 @@ found.counts()  # CH4 28, CO2 19, H2O 17
 kind = np.asarray(found.formulas)[found.molecule - 1]
 palette = {"H2O": [0.2, 0.5, 0.9], "CO2": [0.9, 0.4, 0.2], "CH4": [0.3, 0.75, 0.4]}
 render(gas, "images/species.png", color=np.array([palette[k] for k in kind]),
-       representation="ball_and_stick", width=800, height=700)  # fmt: skip
+       representation="ball_and_stick", width=800, height=700, legend=palette)  # fmt: skip
 ```
 
 ![Molecules found in a gas](images/species.png)

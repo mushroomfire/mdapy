@@ -206,6 +206,7 @@ nav:
           - Defect energies: simulation/defect-energies.md
       - Thermodynamics:
           - Free energy: simulation/free-energy.md
+          - Stacking faults at finite temperature: simulation/stacking-fault-temperature.md
       - Lattice dynamics:
           - Elastic constants: simulation/elastic-constants.md
           - Phonons: simulation/phonons.md

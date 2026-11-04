@@ -15,6 +15,10 @@ from mdapy.simulation._defect_energies import (
     vacancy_formation_energy,
 )
 from mdapy.simulation._dynamics import MolecularDynamics
+from mdapy.simulation._fault_free_energy import (
+    FaultFreeEnergyResult,
+    stacking_fault_free_energy,
+)
 from mdapy.simulation._free_energy import (
     FreeEnergyResult,
     PhaseCoexistence,
@@ -23,6 +27,7 @@ from mdapy.simulation._free_energy import (
 from mdapy.simulation._minimize import MinimizeResult, minimize
 
 __all__ = [
+    "FaultFreeEnergyResult",
     "FreeEnergyResult",
     "MinimizeResult",
     "MolecularDynamics",
@@ -33,6 +38,7 @@ __all__ = [
     "free_energy",
     "minimize",
     "stacking_fault_energy",
+    "stacking_fault_free_energy",
     "surface_energy",
     "vacancy_formation_energy",
 ]

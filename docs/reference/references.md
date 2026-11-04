@@ -413,6 +413,12 @@ ultra-efficient and accurate training of neuroevolution potentials (2026).
 [arXiv:2606.19557](https://arxiv.org/abs/2606.19557)
 { #wu2026torchnep }
 
+**Zhang et al. (2018).** X. Zhang, B. Grabowski, F. Körmann, A. V. Ruban, Y. Gong, R. C.
+Reed, T. Hickel and J. Neugebauer, Temperature dependence of the stacking-fault Gibbs
+energy for Al, Cu, and Ni, *Phys. Rev. B* **98**, 224106 (2018).
+[doi:10.1103/PhysRevB.98.224106](https://doi.org/10.1103/PhysRevB.98.224106)
+{ #zhang2018 }
+
 **Zhou et al. (2002).** Y. Zhou, M. Karplus, K. D. Ball and R. S. Berry,
 The distance fluctuation criterion for melting: Comparison of square-well
 and Morse potential models for clusters and homopolymers, *J. Chem. Phys.*

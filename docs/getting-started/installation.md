@@ -6,10 +6,11 @@ required dependencies are NumPy 2.3.1 or newer and polars 2.
 ## From PyPI
 
 ```bash
-pip install mdapy
+pip install --pre mdapy
 ```
 
-This is the usual way. PyPI holds built packages for Linux on x86-64, macOS on
+This is the usual way. The first release of 2.0 is a preview, and `--pre` asks `pip` for it:
+without it, `pip` installs 1.x. PyPI holds built packages for Linux on x86-64, macOS on
 Apple silicon and Windows on x86-64, so nothing has to be compiled. Elsewhere, `pip`
 builds MDAPY from its source archive, which needs [the tools below](#what-a-build-needs).
 
@@ -18,7 +19,7 @@ builds MDAPY from its source archive, which needs [the tools below](#what-a-buil
 Build the source archive on PyPI, instead of taking a built package:
 
 ```bash
-pip install --no-binary mdapy mdapy
+pip install --pre --no-binary mdapy mdapy
 ```
 
 or a source archive you have downloaded:

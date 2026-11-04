@@ -52,8 +52,9 @@ README = DOCS.parent / "README.md"
 # the README is also the page of the package on PyPI, where only full URLs work
 IN_REPOSITORY = re.compile(
     r"https://(?:raw\.githubusercontent\.com/mushroomfire/mdapy"
-    r"|github\.com/mushroomfire/mdapy/blob)/(?:v2|master)/([\w./-]+)"
+    r"|github\.com/mushroomfire/mdapy/blob)/master/([\w./-]+)"
 )
+ON_THE_SITE = re.compile(r"https://mushroomfire\.github\.io/mdapy/([\w./-]*)")
 
 
 def test_the_page_for_contributors_names_what_the_tests_need():
@@ -169,6 +170,13 @@ def test_the_files_the_readme_points_to_exist():
     paths = IN_REPOSITORY.findall(README.read_text(encoding="utf-8"))
     assert paths
     assert not [path for path in paths if not (README.parent / path).exists()]
+    pages = ON_THE_SITE.findall(README.read_text(encoding="utf-8"))
+    assert pages
+    assert not [
+        page
+        for page in pages
+        if not (DOCS / f"{page.rstrip('/') or 'index'}.md").exists()
+    ]
 
 
 @pytest.mark.parametrize("page", PAGES, ids=lambda p: str(p.relative_to(DOCS)))

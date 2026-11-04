@@ -1,8 +1,9 @@
 site_name: MDAPY
 site_description: Molecular Dynamics Analysis in Python
+site_url: https://mushroomfire.github.io/mdapy/
 repo_url: https://github.com/mushroomfire/mdapy
 repo_name: mushroomfire/mdapy
-edit_uri: edit/v2/docs/
+edit_uri: edit/master/docs/
 copyright: Copyright &copy; 2022–2026 Yongchao Wu · MPL-2.0
 
 theme:

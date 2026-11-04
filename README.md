@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/assets/mdapy-logo-dark.png">
-    <img alt="MDAPY" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/assets/mdapy-logo.png" width="420">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/mdapy-logo-dark.png">
+    <img alt="MDAPY" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/mdapy-logo.png" width="420">
   </picture>
 </p>
 
@@ -10,17 +10,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mushroomfire/mdapy/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/mushroomfire/mdapy/actions/workflows/tests.yml/badge.svg?branch=v2"></a>
+  <a href="https://github.com/mushroomfire/mdapy/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/mushroomfire/mdapy/actions/workflows/tests.yml/badge.svg?branch=master"></a>
   <img alt="Python 3.11 or newer" src="https://img.shields.io/badge/python-3.11%2B-3776AB">
   <img alt="Linux, macOS, Windows" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-555555">
-  <a href="https://github.com/mushroomfire/mdapy/blob/v2/LICENSE"><img alt="License: MPL-2.0" src="https://img.shields.io/badge/license-MPL--2.0-555555"></a>
+  <a href="https://github.com/mushroomfire/mdapy/blob/master/LICENSE"><img alt="License: MPL-2.0" src="https://img.shields.io/badge/license-MPL--2.0-555555"></a>
   <a href="https://doi.org/10.1016/j.cpc.2023.108764"><img alt="Paper: Comput. Phys. Commun. 290, 108764" src="https://img.shields.io/badge/paper-CPC%202023-555555"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/index.md">Documentation</a> ·
-  <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/quick-tour.md">Quick tour</a> ·
-  <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/learn/table.md">Lessons</a> ·
+  <a href="https://mushroomfire.github.io/mdapy/">Documentation</a> ·
+  <a href="https://mushroomfire.github.io/mdapy/getting-started/quick-tour/">Quick tour</a> ·
+  <a href="https://mushroomfire.github.io/mdapy/getting-started/learn/table/">Lessons</a> ·
   <a href="#-examples">Examples</a> ·
   <a href="#-install">Install</a> ·
   <a href="#-tests">Tests</a> ·
@@ -43,7 +43,7 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   results and with mature software. Results are the same for any number of threads, and damaged files or
   impossible inputs give a clear error, not a crash.
 - **Fast.** The heavy parts run in C++, on a parallel engine of MDAPY's own. See the
-  [benchmarks](https://github.com/mushroomfire/mdapy/blob/v2/docs/performance/comparison.md).
+  [benchmarks](https://mushroomfire.github.io/mdapy/performance/comparison/).
 - **Predictable.** Names say what the code does: `minimize`, `elastic_constants`,
   `CommonNeighborAnalysis`. A `System` never changes in place, every analysis has the form
   `compute(system)` and returns NumPy arrays, and one unit system, Å, eV and ps, runs
@@ -54,21 +54,21 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   [freud](https://freud.readthedocs.io), takes any ASE calculator or
   [LAMMPS](https://www.lammps.org) interaction, shares a process with
   [PyTorch](https://pytorch.org), and works as one step of
-  [high-throughput calculations](https://github.com/mushroomfire/mdapy/blob/v2/docs/examples/high-throughput.md).
+  [high-throughput calculations](https://mushroomfire.github.io/mdapy/examples/high-throughput/).
 - **Documented.** Every feature has its own page, with an example, its parameters, its
-  results and its references, and [lessons](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/learn/table.md) lead
+  results and its references, and [lessons](https://mushroomfire.github.io/mdapy/getting-started/learn/table/) lead
   from the first structure on.
 
 ## 🧰 What it does
 
 | Area | What is in it |
 |---|---|
-| [**Build**](https://github.com/mushroomfire/mdapy/blob/v2/docs/user-guide/build/crystals.md) | Crystals, polycrystals, alloys, defects and dislocations |
-| [**Analyze**](https://github.com/mushroomfire/mdapy/blob/v2/docs/user-guide/analysis/overview.md) | More than 40 analyses of structure, local order, defects and dynamics |
-| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/user-guide/simulation/calculators.md) | Native EAM and NEP, interfaces to [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/); relaxation and dynamics; elastic constants, phonons, free energies, melting points and phase diagrams |
-| [**MLIP**](https://github.com/mushroomfire/mdapy/blob/v2/docs/user-guide/mlip/checks.md) | Training sets from [VASP](https://www.vasp.at), descriptors, errors of a model, the frames worth computing |
-| [**Visualize**](https://github.com/mushroomfire/mdapy/blob/v2/docs/user-guide/visualization/rendering.md) | Ray-traced pictures on the processor or the graphics card, movies and plots |
-| [**Exchange**](https://github.com/mushroomfire/mdapy/blob/v2/docs/basics/io.md) | Eight file formats, and systems shared with [ASE](https://wiki.fysik.dtu.dk/ase/), [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and [freud](https://freud.readthedocs.io) |
+| [**Build**](https://mushroomfire.github.io/mdapy/user-guide/build/crystals/) | Crystals, polycrystals, alloys, defects and dislocations |
+| [**Analyze**](https://mushroomfire.github.io/mdapy/user-guide/analysis/overview/) | More than 40 analyses of structure, local order, defects and dynamics |
+| [**Simulate**](https://mushroomfire.github.io/mdapy/user-guide/simulation/calculators/) | Native EAM and NEP, interfaces to [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/); relaxation and dynamics; elastic constants, phonons, free energies, melting points and phase diagrams |
+| [**MLIP**](https://mushroomfire.github.io/mdapy/user-guide/mlip/checks/) | Training sets from [VASP](https://www.vasp.at), descriptors, errors of a model, the frames worth computing |
+| [**Visualize**](https://mushroomfire.github.io/mdapy/user-guide/visualization/rendering/) | Ray-traced pictures on the processor or the graphics card, movies and plots |
+| [**Exchange**](https://mushroomfire.github.io/mdapy/basics/io/) | Eight file formats, and systems shared with [ASE](https://wiki.fysik.dtu.dk/ase/), [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and [freud](https://freud.readthedocs.io) |
 
 ## 🎨 Examples
 
@@ -88,7 +88,7 @@ grains = build_polycrystal(copper, mp.Box(100.0), 8, seed=1)
 render(grains, "grains.png", color="grain")
 ```
 
-</td><td><img alt="A polycrystal colored by grain" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/assets/readme/grains.png" width="100%"></td></tr>
+</td><td><img alt="A polycrystal colored by grain" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/grains.png" width="100%"></td></tr>
 <tr><th>Analyze</th><th>The atoms that are not fcc</th></tr>
 <tr><td>
 
@@ -101,7 +101,7 @@ boundaries = structures.structure != 1  # not fcc
 render(grains, "boundaries.png", atoms=boundaries, color=structures)
 ```
 
-</td><td><img alt="The grain boundaries of the polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/assets/readme/boundaries.png" width="100%"></td></tr>
+</td><td><img alt="The grain boundaries of the polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/boundaries.png" width="100%"></td></tr>
 <tr><th>Simulate</th><th>Phonons of copper</th></tr>
 <tr><td>
 
@@ -121,7 +121,7 @@ with plot.style():
     plot.save(fig, "phonons", formats=("png",))
 ```
 
-</td><td><img alt="The phonon dispersion of copper" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/assets/readme/phonons.png" width="100%"></td></tr>
+</td><td><img alt="The phonon dispersion of copper" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/phonons.png" width="100%"></td></tr>
 <tr><th>MLIP</th><th>The 20 frames most worth a DFT calculation</th></tr>
 <tr><td>
 
@@ -144,25 +144,26 @@ with plot.style():
     plot.save(fig, "frames", formats=("png",))
 ```
 
-</td><td><img alt="Frames on the map of their descriptors, with those chosen" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/assets/readme/frames.png" width="100%"></td></tr>
+</td><td><img alt="Frames on the map of their descriptors, with those chosen" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/frames.png" width="100%"></td></tr>
 </table>
 
 ### Make a movie
 
 <p align="center">
-  <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/examples/movie.md"><img alt="A movie that flies through a copper polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/examples/images/movie.webp" width="480"></a>
+  <a href="https://mushroomfire.github.io/mdapy/examples/movie/"><img alt="A movie that flies through a copper polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/examples/images/movie.webp" width="480"></a>
 </p>
 
-See [A movie that flies through a crystal](https://github.com/mushroomfire/mdapy/blob/v2/docs/examples/movie.md)
+See [A movie that flies through a crystal](https://mushroomfire.github.io/mdapy/examples/movie/)
 for the whole script.
 
 ## 📦 Install
 
 ```bash
-pip install mdapy
+pip install --pre mdapy
 ```
 
-MDAPY needs Python 3.11 or newer. [Installation](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/installation.md)
+The first release of 2.0 is a preview, and `--pre` asks `pip` for it: without it, `pip`
+installs 1.x. MDAPY needs Python 3.11 or newer. [Installation](https://mushroomfire.github.io/mdapy/getting-started/installation/)
 describes the other ways to install it, from a source archive or from git, what those need,
 and the optional packages.
 
@@ -176,7 +177,7 @@ pytest
 ```
 
 Tests that need another program are skipped where it is missing.
-[Contributing](https://github.com/mushroomfire/mdapy/blob/v2/docs/about/contributing.md#what-a-complete-run-needs) lists what a
+[Contributing](https://mushroomfire.github.io/mdapy/about/contributing/#what-a-complete-run-needs) lists what a
 complete run needs.
 
 ## 📖 Citing MDAPY
@@ -189,7 +190,7 @@ If MDAPY contributes to a publication, please cite:
 
 ## 📄 License
 
-Mozilla Public License 2.0, see [LICENSE](https://github.com/mushroomfire/mdapy/blob/v2/LICENSE):
+Mozilla Public License 2.0, see [LICENSE](https://github.com/mushroomfire/mdapy/blob/master/LICENSE):
 MDAPY may be used in any software, open or closed, and changes to its own files are
 shared under the same license.
 

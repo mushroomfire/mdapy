@@ -48,6 +48,7 @@ docs = [
 
 [project.urls]
 Homepage = "https://github.com/mushroomfire/mdapy"
+Documentation = "https://mushroomfire.github.io/mdapy/"
 Issues = "https://github.com/mushroomfire/mdapy/issues"
 
 [tool.scikit-build]

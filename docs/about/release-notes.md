@@ -1,6 +1,6 @@
 # Release notes
 
-## 2.0.0 (in development)
+## 2.0.0a1
 
 MDAPY 2.0 is a complete rewrite and is not compatible with MDAPY 1.x. The name
 is written MDAPY, with `mdapy` for the package, the imports and the commands,

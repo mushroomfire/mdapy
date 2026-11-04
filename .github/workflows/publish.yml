@@ -26,7 +26,7 @@ jobs:
       - uses: pypa/cibuildwheel@v4.3
         env:
           # cp312 produces one abi3 wheel that covers Python >= 3.12.
-          CIBW_BUILD: "cp310-* cp311-* cp312-*"
+          CIBW_BUILD: "cp311-* cp312-*"
           CIBW_SKIP: "*-musllinux_*"
           CIBW_ARCHS_LINUX: x86_64
           CIBW_ARCHS_MACOS: arm64
@@ -34,9 +34,10 @@ jobs:
           # the headers of Vulkan, for the pictures on the GPU on Linux
           CIBW_BEFORE_ALL_LINUX: dnf install -y vulkan-headers
           MACOSX_DEPLOYMENT_TARGET: "14.0"
-          # Run the full test suite against every built wheel.
-          CIBW_TEST_REQUIRES: pytest
-          CIBW_TEST_COMMAND: pytest {project}/tests -q -p no:cacheprovider
+          # The tests against every built wheel, with what they need; the examples of
+          # the documentation run the same code, and run in tests.yml.
+          CIBW_TEST_EXTRAS: dev
+          CIBW_TEST_COMMAND: pytest {project}/tests -q -n auto -p no:cacheprovider --ignore={project}/tests/test_docs.py
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}

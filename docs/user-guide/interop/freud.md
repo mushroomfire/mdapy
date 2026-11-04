@@ -56,5 +56,5 @@ two-dimensional box.
 ## See also
 
 - freud [boxes](https://freud.readthedocs.io/en/latest/modules/box.html).
-- [MDAPY, OVITO and freud](../../about/performance/comparison.md): timings of the
+- [MDAPY, OVITO and freud](../../performance/comparison.md): timings of the
   analyses they share.

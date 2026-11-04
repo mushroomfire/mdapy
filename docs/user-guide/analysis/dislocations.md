@@ -73,12 +73,12 @@ their families:
 ```python
 from mdapy.visualization import render, write_png
 
-colors = np.array(result.colors)
 pictures = [
     render(
         system,
         atoms=result.structure == result.names.index("hcp"),
-        color=colors[result.structure],
+        color=result,
+        legend=True,
         radius=0.8,
         dislocations=result,
         burgers_vectors=True,
@@ -89,7 +89,8 @@ pictures = [
     render(
         relaxed,
         atoms=tetrahedron.structure != tetrahedron.names.index("fcc"),
-        color=colors[tetrahedron.structure],
+        color=tetrahedron,
+        legend=True,
         radius=0.6,
         dislocations=tetrahedron,
         width=500,

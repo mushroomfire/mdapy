@@ -17,6 +17,7 @@ from mdapy.core._atoms import _mask
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
+from mdapy.visualization._legend import _with_legend
 from mdapy.visualization._scene import (
     Scene,
     _color,
@@ -24,6 +25,7 @@ from mdapy.visualization._scene import (
     colormap,
     element_colors,
     element_radii,
+    write_png,
 )
 
 # colors of the faces of Voronoi cells by their number of edges, 3 to 9
@@ -140,6 +142,54 @@ def atom_colors(
     if array is not None and array.shape == (n,) and n != 3:
         return colormap(array, colormap_name, value_range)
     return np.broadcast_to(_color(color), (n, 3)).copy()
+
+
+def _legend_items(
+    system: System,
+    color: Any,
+    shown: np.ndarray,
+    legend: Any,
+    colormap_name: str,
+    value_range: Any,
+) -> dict[str, Any]:
+    """What the colors of the atoms shown mean, as arguments of the legend."""
+    title = legend if isinstance(legend, str) else ""
+    if isinstance(legend, Mapping):
+        return {"names": list(legend), "colors": list(legend.values())}
+    if color is None and "color" not in system.table.columns:
+        kinds, index = _kinds(system)
+        present = np.unique(index[shown])
+        palette = element_colors(kinds)
+        return {
+            "names": [kinds[k] for k in present],
+            "colors": palette[present],
+            "title": title,
+        }
+    if hasattr(color, "structure") and hasattr(color, "colors"):
+        present = np.unique(np.asarray(color.structure)[shown])
+        return {
+            "names": [color.names[k] for k in present],
+            "colors": np.asarray(color.colors, dtype=float)[present],
+            "title": title,
+        }
+    values = None
+    if isinstance(color, str) and color in system.table.columns:
+        values, title = system.table[color].to_numpy(), title or color
+    elif color is not None and not isinstance(color, str):
+        array = np.asarray(color)
+        if array.shape == (len(system),) and len(system) != 3:
+            values = array
+    if values is None:
+        raise InvalidParameter(
+            "a legend needs structures, elements or values to explain; for colors "
+            "of your own, give it a mapping of names to colors"
+        )
+    if value_range is None:
+        finite = values[np.isfinite(values)]
+        low, high = (finite.min(), finite.max()) if len(finite) else (0.0, 1.0)
+    else:
+        low, high = value_range
+    return {"title": title, "bar": (float(low), float(high), colormap_name)}
 
 
 def atom_radii(
@@ -395,6 +445,7 @@ def render(
     line_radius: float = 0.1,
     line_color: Any = (0.6, 0.6, 0.6),
     wrap_lines: bool = False,
+    legend: Any = False,
     **options: Any,
 ) -> np.ndarray:
     """A picture of a system: its atoms, optionally bonds, the box,
@@ -501,6 +552,12 @@ def render(
         Cut the lines at the periodic faces of the box and move the parts
         outside in through the opposite faces (True), or draw them as they
         are (False, default).
+    legend : bool, str or mapping, optional
+        A legend at the top left, which needs matplotlib. True gives the names
+        of the structures or elements of the atoms shown with their colors, or
+        a bar with the values and the colormap of a column or of (N,) values.
+        A string does the same with this title, as for values that have no
+        name. A mapping gives its own names and colors. Default none.
     **options
         The options of :meth:`Scene.render`, such as width, height, view,
         style, zoom, perspective and background.
@@ -744,7 +801,16 @@ def render(
             vector_color,
             vector_alignment,
         )
-    return scene.render(path, **options)
+    if legend is False or legend is None:
+        return scene.render(path, **options)
+    image = _with_legend(
+        scene.render(**options),
+        options.get("background", "white"),
+        **_legend_items(system, color, shown, legend, colormap, value_range),
+    )
+    if path is not None:
+        write_png(path, image)
+    return image
 
 
 def _vector_arrows(

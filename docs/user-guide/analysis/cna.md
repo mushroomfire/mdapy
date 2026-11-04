@@ -29,9 +29,11 @@ from mdapy.visualization import render, write_png
 copper = build_crystal("fcc", 3.615, elements="Cu")
 grains = build_polycrystal(copper, mp.Box(60.0), 6, seed=4)
 structures = CommonNeighborAnalysis().compute(grains)
-whole = render(grains, color=structures, width=600, height=600)
+whole = render(grains, color=structures, width=600, height=600, legend=True)
 fcc = structures.structure == 1
-boundaries = render(grains, atoms=~fcc, color=structures, width=600, height=600)
+boundaries = render(
+    grains, atoms=~fcc, color=structures, width=600, height=600, legend=True
+)
 write_png("images/cna.png", np.hstack([whole, boundaries]))
 ```
 

@@ -99,6 +99,7 @@ render(
     style="matte",
     width=900,
     height=600,
+    legend=True,
 )
 ```
 

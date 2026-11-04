@@ -33,7 +33,7 @@ fingerprint = EntropyFingerprint(cutoff=5.0, sigma=0.2, average_cutoff=3.0).comp
     grains
 )
 render(grains, "images/entropy.png", atoms=grains["positions"][:, 0] < 25,
-       color=fingerprint.entropy, width=800, height=600)  # fmt: skip
+       color=fingerprint.entropy, width=800, height=600, legend="entropy")  # fmt: skip
 ```
 
 ![Entropy fingerprint of a polycrystal](images/entropy.png)

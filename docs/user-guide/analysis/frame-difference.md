@@ -41,6 +41,7 @@ write_png(
         view="iso",
         width=500,
         height=500,
+        legend=True,
     ),
 )
 ```

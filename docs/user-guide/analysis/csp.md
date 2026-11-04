@@ -39,7 +39,7 @@ shown = (csp > 0.5) & (np.abs(z - z.mean()) < 15)  # not the free surfaces
 write_png(
     "images/csp.png",
     render(relaxed, atoms=shown, color=csp, colormap="plasma", value_range=(0, 6),
-           view="top", width=1000, height=500),
+           view="top", width=1000, height=500, legend="CSP (Å²)"),
 )  # fmt: skip
 ```
 

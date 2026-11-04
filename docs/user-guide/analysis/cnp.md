@@ -30,7 +30,7 @@ grains = build_polycrystal(
 )
 cnp = CommonNeighborParameter(cutoff=3.08).compute(grains).cnp
 render(grains, "images/cnp.png", atoms=grains["positions"][:, 0] < 25, color=cnp,
-       colormap="plasma", value_range=(0, 20), width=800, height=600)  # fmt: skip
+       colormap="plasma", value_range=(0, 20), width=800, height=600, legend="CNP (Å²)")  # fmt: skip
 ```
 
 ![Common neighbor parameter of a polycrystal](images/cnp.png)

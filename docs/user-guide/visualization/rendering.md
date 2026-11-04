@@ -49,7 +49,7 @@ mesh_alpha=1.0, dislocations=None, dislocation_radius=0.5,
 burgers_vectors=False, burgers_scale=3.0, burgers_radius=0.3,
 burgers_color=(0.7, 0.7, 0.7), vectors=None, vector_scale=1.0,
 vector_radius=0.5, vector_color=(1.0, 1.0, 0.0), vector_alignment="base",
-lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False,
+lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False, legend=False,
 **options)`
 
 | Name | Type | Default | Unit | Meaning |
@@ -86,6 +86,7 @@ lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False,
 | `lines` | (M, T, 3) or list of (T, 3) | `None` | Å | polylines, such as the paths of [`trajectory_lines`](../analysis/trajectory-lines.md) |
 | `line_radius`, `line_color` | float, color | 0.1, gray | Å | their radius and color |
 | `wrap_lines` | bool | `False` | | cut the lines at the periodic faces of the box and move the parts outside in through the opposite faces |
+| `legend` | bool, str or mapping | `False` | | a legend at the top left, which needs matplotlib: `True` gives the names of the structures or elements of the atoms shown with their colors, or a bar with the values and the colormap of a column or of (N,) values; a string does the same with this title; a mapping gives its own names and colors |
 
 | Representation | Atoms | Bonds |
 |---|---|---|
@@ -255,6 +256,7 @@ drawn = {
         width=400,
         height=300,
         device="auto",
+        legend=True,
     )
     for representation in ("ball_and_stick", "licorice", "space_filling")
 }

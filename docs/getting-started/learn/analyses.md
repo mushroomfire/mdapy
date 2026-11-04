@@ -91,6 +91,7 @@ render(
     box=False,
     width=800,
     height=600,
+    legend=True,
 )
 ```
 
@@ -128,6 +129,7 @@ render(
     box=False,
     width=800,
     height=600,
+    legend=True,
 )
 ```
 

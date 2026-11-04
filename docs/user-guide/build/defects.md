@@ -47,9 +47,25 @@ vacancies = add_vacancies(
 )
 around = cna.compute(vacancies)
 pictures = [
-    render(vacancies, atoms=around.structure != 1, color=around, width=500, height=500),
-    render(fault, color=cna.compute(fault), view="front", width=500, height=500),
-    render(slab, color=cna.compute(slab), view="front", width=500, height=500),
+    render(
+        vacancies,
+        atoms=around.structure != 1,
+        color=around,
+        width=500,
+        height=500,
+        legend=True,
+    ),
+    render(
+        fault,
+        color=cna.compute(fault),
+        view="front",
+        width=500,
+        height=500,
+        legend=True,
+    ),
+    render(
+        slab, color=cna.compute(slab), view="front", width=500, height=500, legend=True
+    ),
 ]
 write_png("images/defects.png", np.hstack(pictures))
 ```

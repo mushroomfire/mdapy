@@ -43,7 +43,7 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   results and with mature software. Results are the same for any number of threads, and damaged files or
   impossible inputs give a clear error, not a crash.
 - **Fast.** The heavy parts run in C++, on a parallel engine of MDAPY's own. See the
-  [benchmarks](https://github.com/mushroomfire/mdapy/blob/v2/docs/about/performance/comparison.md).
+  [benchmarks](https://github.com/mushroomfire/mdapy/blob/v2/docs/performance/comparison.md).
 - **Predictable.** Names say what the code does: `minimize`, `elastic_constants`,
   `CommonNeighborAnalysis`. A `System` never changes in place, every analysis has the form
   `compute(system)` and returns NumPy arrays, and one unit system, Å, eV and ps, runs

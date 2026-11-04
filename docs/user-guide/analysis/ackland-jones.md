@@ -33,7 +33,14 @@ grains = build_polycrystal(
 )
 grains = minimize(grains, EAM.zhou(["Fe"]), max_force=0.05, max_steps=300).system
 structures = AcklandJonesAnalysis().compute(grains)
-render(grains, "images/ackland-jones.png", color=structures, width=800, height=600)
+render(
+    grains,
+    "images/ackland-jones.png",
+    color=structures,
+    width=800,
+    height=600,
+    legend=True,
+)
 ```
 
 ![Ackland-Jones analysis of an iron polycrystal](images/ackland-jones.png)

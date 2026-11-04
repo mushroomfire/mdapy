@@ -505,7 +505,8 @@ error.
   in under 5 s on the processor in the matte style, or in under a second on
   the GPU, with Metal on macOS, Vulkan on Linux or Direct3D 12 on Windows, which
   use the ray tracing units of the GPU where it has them; `show_image` shows a picture in a
-  notebook. See [Rendering](../user-guide/visualization/rendering.md).
+  notebook; `legend=True` says what the colors mean. See
+  [Rendering](../user-guide/visualization/rendering.md).
 - Colors of atoms in `mdapy.visualization`: `color_coding`, `color_by_type`
   and `assign_color` color all atoms or a mask and keep the colors in the
   `color` column, which `render` draws by default, as OVITO's modifiers of
@@ -552,7 +553,7 @@ error.
 - `benchmarks/comparison.py` times the analyses that MDAPY shares with
   OVITO and freud, on the same systems, where each program gives the
   result of MDAPY, each program in a process of its own with limits of
-  memory and time. See [MDAPY, OVITO and freud](performance/comparison.md).
+  memory and time. See [MDAPY, OVITO and freud](../performance/comparison.md).
 - Extended XYZ files of many small frames read faster: the comment line is
   split at once in its common form, the element column comes from the
   categories kept for the file, and the box and the columns are checked

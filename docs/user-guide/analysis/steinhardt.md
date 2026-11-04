@@ -85,6 +85,7 @@ render(
     color=phases.solid_bonds,
     value_range=(0, 12),
     view=side,
+    legend="solid bonds",
 )
 ```
 

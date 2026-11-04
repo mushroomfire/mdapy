@@ -105,7 +105,12 @@ atoms with small x cuts the crystal open:
 from mdapy.visualization import render
 
 render(
-    alloy, "images/alloy.png", atoms=alloy["positions.x"] < 15, width=900, height=600
+    alloy,
+    "images/alloy.png",
+    atoms=alloy["positions.x"] < 15,
+    width=900,
+    height=600,
+    legend=True,
 )
 ```
 

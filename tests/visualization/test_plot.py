@@ -187,3 +187,14 @@ def test_style_shows_the_figures_of_a_notebook_in_the_style(monkeypatch):
     with pytest.raises(ZeroDivisionError), plot.style():
         1 / 0
     assert len(sizes) == 1  # not after an error
+
+
+def test_labels_are_upright():
+    assert plot.STYLE["mathtext.default"] == "regular"
+    system = build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 3))
+    with plot.style():
+        fig, ax = plot.figure("single")
+        plot.rdf(RadialDistributionFunction(r_max=4.0).compute(system), ax=ax)
+        labels = ax.get_xlabel() + ax.get_ylabel()
+        plt.close(fig)
+    assert "$" not in labels

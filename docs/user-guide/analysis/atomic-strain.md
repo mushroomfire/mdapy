@@ -55,7 +55,7 @@ twisted = rod.with_columns(positions=center + np.column_stack([
 ]))  # fmt: skip
 shear = AtomicStrain(rod, cutoff=3.0).compute(twisted).shear
 render(twisted, "images/atomic-strain.png", atoms=p[:, 1] < 0, color=shear, colormap="plasma",
-       box=False, view=(0.5, -1, -0.3), width=900, height=600)  # fmt: skip
+       box=False, view=(0.5, -1, -0.3), width=900, height=600, legend="shear strain")  # fmt: skip
 ```
 
 ![Shear strain in a twisted rod](images/atomic-strain.png)

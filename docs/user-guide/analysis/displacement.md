@@ -39,6 +39,7 @@ render(
     view=[1, -1, 0.6],
     width=500,
     height=600,
+    legend="displacement (Å)",
 )
 ```
 

@@ -34,10 +34,14 @@ from mdapy.visualization import render, write_png
 
 size = {"width": 600, "height": 600}
 boundaries = CommonNeighborAnalysis().compute(twinned)
-by_grain = render(grains, color="grain", colormap="jet", **size)
-twins = render(twinned, atoms=boundaries.structure != 1, color=boundaries, **size)
+by_grain = render(grains, color="grain", colormap="jet", **size, legend=True)
+twins = render(
+    twinned, atoms=boundaries.structure != 1, color=boundaries, **size, legend=True
+)
 tiled = replicate(columns, (2, 3, 1))
-from_above = render(tiled, color="grain", colormap="jet", view="top", **size)
+from_above = render(
+    tiled, color="grain", colormap="jet", view="top", **size, legend=True
+)
 write_png("images/polycrystals.png", np.hstack([by_grain, twins, from_above]))
 ```
 

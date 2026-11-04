@@ -40,7 +40,7 @@ spike = crystal.with_columns(velocities=rng.normal(size=x.shape) * spread[:, Non
 
 local = AtomicTemperature(cutoff=5.0).compute(spike).temperature
 render(spike, "images/temperature.png", atoms=x[:, 1] < 0, color=local, colormap="coolwarm",
-       value_range=(0, 2400), width=800, height=700)  # fmt: skip
+       value_range=(0, 2400), width=800, height=700, legend="temperature (K)")  # fmt: skip
 ```
 
 ![Atomic temperature of a thermal spike](images/temperature.png)

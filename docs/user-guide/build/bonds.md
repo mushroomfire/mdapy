@@ -41,7 +41,7 @@ write_png(
                    view="iso", width=400, height=400),
             render(ethanol, bonds="topology", representation="ball_and_stick",
                    box=False, view=(0.35, 0.5, -1.0), style="shiny", samples=8,
-                   width=400, height=400),
+                   width=400, height=400, legend=True),
         ]
     ),
 )  # fmt: skip

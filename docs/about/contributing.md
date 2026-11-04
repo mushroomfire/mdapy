@@ -25,14 +25,15 @@ The tabs follow what the reader is doing, and the directories of `docs/` follow 
 | Basics | `basics/` | what every user needs: systems, the box, selecting atoms, files, trajectories, neighbor lists, parallelism |
 | Examples | `examples/` | whole calculations from start to end, each a page of its own |
 | User guide | `user-guide/` | one directory per area, each page one feature: `build/`, `analysis/`, `simulation/`, `mlip/`, `visualization/`, `interop/` |
+| Performance | `performance/` | timings of MDAPY and of other programs |
 | Reference | `reference/` | the Python API in `reference/api/`, units and conventions, elements, the glossary, the references, file formats |
-| About | `about/` | timings in `about/performance/`, the release notes, reporting a problem, this page |
+| About | `about/` | the release notes, reporting a problem, this page |
 
 Each feature has its own page, named after it (`eam.md`, `minimize.md`), in
 the section of its tab that fits it; closely tied classes, such as an
 analysis and its result, share the page. A feature that fits no section goes
 to a section **Misc** of its tab until a section for it exists. A new page is
-added to the navigation in `mkdocs.yml` and to the map on the home page.
+added to the navigation in `mkdocs.yml`.
 
 ## Feature pages
 

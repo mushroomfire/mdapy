@@ -118,8 +118,24 @@ from mdapy.visualization import render
 
 cna = CommonNeighborAnalysis().compute(relaxed)
 cna.counts()  # mostly fcc; boundaries "other"
-render(relaxed, "columns.png", color=cna, view="top", width=1200, height=900)
-render(relaxed, "grains.png", color="grain", view="top", width=1200, height=900)
+render(
+    relaxed,
+    "images/columns.png",
+    color=cna,
+    view="top",
+    width=1200,
+    height=900,
+    legend=True,
+)
+render(
+    relaxed,
+    "images/grains.png",
+    color="grain",
+    view="top",
+    width=1200,
+    height=900,
+    legend=True,
+)
 ```
 
 | By structure: fcc green, others white | By grain |

@@ -59,9 +59,6 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
-      options:
-        custom_icons:
-          - docs/.icons
 
 extra_css:
   - stylesheets/extra.css
@@ -97,8 +94,9 @@ validation:
 nav:
   - Home: index.md
   - Getting started:
-      - Installation: getting-started/installation.md
-      - Quick tour: getting-started/quick-tour.md
+      - First steps:
+          - Installation: getting-started/installation.md
+          - Quick tour: getting-started/quick-tour.md
       - Learn MDAPY:
           - 1. A crystal is a table: getting-started/learn/table.md
           - 2. Asking the atoms questions: getting-started/learn/analyses.md
@@ -106,7 +104,7 @@ nav:
           - 4. Energies and relaxation: getting-started/learn/energy.md
           - 5. A nanoparticle melts: getting-started/learn/trajectories.md
           - 6. Your own files: getting-started/learn/your-files.md
-      - Cheat sheet: getting-started/learn/cheat-sheet.md
+          - Cheat sheet: getting-started/learn/cheat-sheet.md
   - Basics:
       - The system:
           - Systems: basics/system.md
@@ -250,6 +248,10 @@ nav:
           - LAMMPS: user-guide/interop/lammps.md
           - VASP: user-guide/interop/vasp.md
           - GPUMD: user-guide/interop/gpumd.md
+  - Performance:
+      - Analyses: performance/comparison.md
+      - Reading and writing files: performance/files.md
+      - Building structures: performance/builders.md
   - Reference:
       - Python API:
           - Overview: reference/api/index.md
@@ -270,10 +272,11 @@ nav:
           - Visualization: reference/api/visualization.md
           - Interoperability: reference/api/interop.md
           - Threads, errors, elements and units: reference/api/utilities.md
-      - Units and conventions: reference/units.md
-      - Elements: reference/elements.md
-      - Glossary: reference/glossary.md
-      - References: reference/references.md
+      - Conventions:
+          - Units and conventions: reference/units.md
+          - Elements: reference/elements.md
+          - Glossary: reference/glossary.md
+          - References: reference/references.md
       - File formats:
           - CIF: reference/formats/cif.md
           - Extended XYZ: reference/formats/extxyz.md
@@ -284,10 +287,6 @@ nav:
           - VASP POSCAR: reference/formats/poscar.md
           - MDAPY files: reference/formats/mdapy.md
   - About:
-      - Performance:
-          - Analyses: about/performance/comparison.md
-          - Reading and writing files: about/performance/files.md
-          - Building structures: about/performance/builders.md
       - Release notes: about/release-notes.md
       - Reporting a problem: about/reporting.md
       - Contributing: about/contributing.md

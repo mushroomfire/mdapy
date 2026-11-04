@@ -53,6 +53,7 @@ render(
     radius=1.2,
     width=800,
     height=600,
+    legend={"vacancy": (0.23, 0.44, 0.85), "interstitial": (0.88, 0.29, 0.2)},
 )
 ```
 

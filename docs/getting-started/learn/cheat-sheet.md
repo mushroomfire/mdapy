@@ -5,13 +5,16 @@ The lessons on one page. Everything here assumes:
 <!-- skip-test -->
 ```python
 import numpy as np
+import mdapy as mp
 ```
+
+and the imports in [the table at the end](#where-each-thing-is-imported-from).
 
 ## Get a system
 
 | I want | Write |
 |---|---|
-| a file | `system = mdapy.io.read("file.data")` |
+| a file | `system = read("file.data")` |
 | a crystal | `build_crystal("fcc", 3.615, elements="Cu", repeat=(8, 8, 8))` |
 | a polycrystal | `build_polycrystal(crystal, mp.Box(100.0), 8, seed=1)` |
 | atoms of my own | `mp.System(positions, mp.Box(20.0), elements="Cu")` |
@@ -36,7 +39,8 @@ A system never changes: each of these returns a new one.
 | I want | Write |
 |---|---|
 | a new or changed column | `system.with_columns(charge=values)` |
-| the column of an analysis | `system.with_columns(result)` |
+| the columns of an analysis | `system.with_columns(result)`, named after it, as `cna_structure` |
+| the columns of two runs of one analysis | `system.with_columns(near=first, far=second)` |
 | to move atoms | `system.with_columns(positions=new_positions)` |
 | another box | `system.with_box(matrix, scale_positions=True)` |
 | global values | `system.with_info(energy=-3.54)` |
@@ -76,20 +80,21 @@ system = system.with_columns(result)  # per-atom values, as columns
 
 | I want | Write |
 |---|---|
-| to open a file | `with mdapy.io.read_trajectory("dump.*.lammpstrj") as trajectory:` |
+| to open a file | `with read_trajectory("dump.*.lammpstrj") as trajectory:` |
 | a frame, or some frames | `trajectory[0]`, `trajectory[::10]` |
 | the frames through a function | `trajectory.map(function)` |
 | one number per frame | `TimeSeries(function).compute(trajectory)` |
-| to write them | `mdapy.io.write("out.xyz", trajectory.map(function))` |
+| to write them | `write("out.xyz", trajectory.map(function))` |
 
 ## Show and save it
 
 | I want | Write |
 |---|---|
-| a file | `mdapy.io.write("out.xyz", system)` |
+| a file | `write("out.xyz", system)` |
 | a picture | `render(system, "picture.png")` |
 | colors by a column | `render(system, "picture.png", color="coordination")` |
 | colors by structure | `render(system, "picture.png", color=result)` |
+| what the colors mean | `render(system, "picture.png", color=result, legend=True)` |
 | some atoms only | `render(system, "picture.png", atoms=system["positions.x"] < 20)` |
 | on the graphics card | `render(system, "picture.png", device="gpu")` |
 | a figure | `with plot.style(): fig, ax = plot.figure("single")` |
@@ -99,10 +104,15 @@ system = system.with_columns(result)  # per-atom values, as columns
 
 | Module | Holds |
 |---|---|
-| `mdapy` | `System`, `Box`, `read`, `write`, `read_trajectory`, `NeighborList`, `set_num_threads` |
+| `mdapy` | `System`, `Box`, `Topology`, `NeighborList`, `set_num_threads` |
+| `mdapy.io` | `read`, `write`, `read_trajectory` |
 | `mdapy.build` | `build_crystal`, `build_polycrystal`, `random_alloy` and others |
+| `mdapy.transform` | `replicate`, `wrap`, `combine`, `slice` and others |
 | `mdapy.identify` | the structure analyses |
 | `mdapy.analysis` | every other analysis |
 | `mdapy.calculators` | `EAM`, `NEP`, `LAMMPS`, `VASP` |
-| `mdapy.simulation` | `minimize`, `MolecularDynamics`, elastic constants, phonons, defect energies |
-| `mdapy.visualization` | `render`, `plot` |
+| `mdapy.simulation` | `minimize`, `MolecularDynamics`, defect energies, free energies, melting points |
+| `mdapy.lattice_dynamics` | `elastic_constants`, `phonons`, `quasi_harmonic` and others |
+| `mdapy.mlip` | descriptors, choosing frames, errors of a model |
+| `mdapy.visualization` | `render`, `plot`, `write_movie` |
+| `mdapy.interop` | `to_ase`, `from_ase`, `to_ovito`, `from_ovito` and others |

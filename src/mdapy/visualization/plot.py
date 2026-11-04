@@ -73,6 +73,7 @@ STYLE: dict[str, Any] = {
     "pdf.fonttype": 42,
     "ps.fonttype": 42,
     "mathtext.fontset": "stixsans",
+    "mathtext.default": "regular",
 }
 
 
@@ -327,8 +328,8 @@ def rdf(result: Any, *, ax: Any = None, partial: bool = False) -> Any:
     else:
         ax.plot(result.r, result.g)
     ax.axhline(1.0, color="0.6", lw=0.5, zorder=0)
-    ax.set_xlabel(r"$r$ (Å)")
-    ax.set_ylabel(r"$g(r)$")
+    ax.set_xlabel("r (Å)")
+    ax.set_ylabel("g(r)")
     ax.set_xlim(0, result.edges[-1])
     return ax
 
@@ -337,8 +338,8 @@ def structure_factor(result: Any, *, ax: Any = None) -> Any:
     """The structure factor of a :class:`mdapy.analysis.StructureFactorResult`."""
     ax = _axes(ax)
     ax.plot(result.q, result.s)
-    ax.set_xlabel(r"$q$ (Å$^{-1}$)")
-    ax.set_ylabel(r"$S(q)$")
+    ax.set_xlabel("q (1/Å)")
+    ax.set_ylabel("S(q)")
     return ax
 
 
@@ -408,7 +409,7 @@ def stacking_fault(result: Any, *, ax: Any = None, **options: Any) -> Any:
     ax = _axes(ax)
     ax.plot(result.fraction, 1000 * result.energy, **({"marker": "o"} | options))
     ax.set_xlabel("slip / slip vector")
-    ax.set_ylabel(r"$\gamma$ (mJ/m$^2$)")
+    ax.set_ylabel("γ (mJ/m²)")
     ax.set_xlim(0, 1)
     return ax
 

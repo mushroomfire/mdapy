@@ -18,7 +18,14 @@ above = gold.with_columns(
     positions=gold["positions"] - gold["positions"].mean(axis=0) + center + [0, 0, 10]
 )
 both = combine(slab, above)  # the box of the slab, the gold atoms after the copper
-render(both, "images/combine.png", view=(0.3, -1.0, 0.25), width=600, height=500)
+render(
+    both,
+    "images/combine.png",
+    view=(0.3, -1.0, 0.25),
+    width=600,
+    height=500,
+    legend=True,
+)
 ```
 
 ![A gold cluster above a copper slab](images/combine.png)

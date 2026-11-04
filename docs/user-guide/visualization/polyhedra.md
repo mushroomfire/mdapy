@@ -32,6 +32,7 @@ render(
     view=(-1.0, -0.6, -0.45),
     width=600,
     height=600,
+    legend=True,
 )
 ```
 

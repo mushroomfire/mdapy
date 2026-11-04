@@ -182,7 +182,17 @@ radius = np.full(len(system), 0.25)
 radius[near] = 0.55
 radius[5] = 0.8
 render(
-    system, "images/neighbor.png", color=colors, radius=radius, width=800, height=600
+    system,
+    "images/neighbor.png",
+    color=colors,
+    radius=radius,
+    width=800,
+    height=600,
+    legend={
+        "the atom": (0.85, 0.15, 0.1),
+        "its neighbors": (0.95, 0.6, 0.1),
+        "others": (0.8, 0.8, 0.8),
+    },
 )
 ```
 

@@ -127,7 +127,7 @@ shape: (4, 3)
 
 Three things help with millions of atoms:
 
-- `mp.set_num_threads(8)` chooses the number of threads. MDAPY uses all of them
+- `mdapy.set_num_threads(8)` chooses the number of threads. MDAPY uses all of them
   by default, which is rarely what you want on a shared machine.
 - Analyses that need the same neighbors can share one list, which saves most of
   the search: [Sharing neighbor lists](../../examples/neighbor-lists.md).

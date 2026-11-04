@@ -26,7 +26,9 @@ grains = build_polycrystal(
     build_crystal("diamond", 5.431, elements="Si"), mp.Box(60.0), 6, seed=4
 )
 structures = DiamondStructure().compute(grains)
-render(grains, "images/diamond.png", color=structures, width=800, height=600)
+render(
+    grains, "images/diamond.png", color=structures, width=800, height=600, legend=True
+)
 ```
 
 ![Diamond structure analysis of a silicon polycrystal](images/diamond.png)

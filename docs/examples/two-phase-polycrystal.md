@@ -93,8 +93,23 @@ Color the atoms by structure and cut the box in half to see inside:
 from mdapy.visualization import render
 
 front = composite["positions"][:, 0] < 50.0
-render(composite, "composite.png", atoms=front, color=cna, width=1200, height=900)
-render(composite, "elements.png", atoms=front, width=1200, height=900)
+render(
+    composite,
+    "images/composite.png",
+    atoms=front,
+    color=cna,
+    width=1200,
+    height=900,
+    legend=True,
+)
+render(
+    composite,
+    "images/composite-elements.png",
+    atoms=front,
+    width=1200,
+    height=900,
+    legend=True,
+)
 ```
 
 | By structure: fcc green, bcc blue, others white | By element |

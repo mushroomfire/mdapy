@@ -35,6 +35,7 @@ render(
     color=copy,
     representation="ball_and_stick",
     view="top",
+    legend="copy",
 )
 ```
 

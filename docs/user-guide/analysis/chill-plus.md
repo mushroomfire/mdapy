@@ -28,7 +28,15 @@ molecule. Each molecule in the color of its structure:
 from mdapy.visualization import render
 
 side = [0, -1, 0.15]  # seen from the side, slightly from above
-render(water, "images/chill-plus.png", color=result, view=side, width=800, height=600)
+render(
+    water,
+    "images/chill-plus.png",
+    color=result,
+    view=side,
+    width=800,
+    height=600,
+    legend=True,
+)
 ```
 
 ![CHILL+ of ice and disordered water](images/chill-plus.png)

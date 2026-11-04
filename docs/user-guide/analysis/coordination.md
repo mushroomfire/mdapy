@@ -32,7 +32,7 @@ particle = crystal.filter(inside).with_box(mp.Box(12 * 3.615, pbc=False))
 
 coordination = CoordinationNumber(cutoff=3.0).compute(particle).coordination
 render(particle, "images/coordination.png", color=coordination.astype(float),
-       value_range=(6, 12), box=False, width=800, height=700)  # fmt: skip
+       value_range=(6, 12), box=False, width=800, height=700, legend="coordination")  # fmt: skip
 ```
 
 ![Coordination of a copper particle](images/coordination.png)

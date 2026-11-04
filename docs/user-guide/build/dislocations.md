@@ -44,8 +44,10 @@ relaxed = minimize(edge, EAM.zhou(["Cu"]), max_force=1e-3, max_steps=3000).syste
 cna = CommonNeighborAnalysis()
 core = cna.compute(relaxed)
 size = {"width": 600, "height": 500}
-along_screw = render(screw, color=cna.compute(screw), view="top", **size)
-along_edge = render(relaxed, atoms=core.structure != 1, color=core, view="back", **size)
+along_screw = render(screw, color=cna.compute(screw), view="top", **size, legend=True)
+along_edge = render(
+    relaxed, atoms=core.structure != 1, color=core, view="back", **size, legend=True
+)
 write_png("images/dislocations.png", np.hstack([along_screw, along_edge]))
 ```
 
@@ -108,9 +110,15 @@ partial = dislocation_cylinder(
 size = {"width": 500, "height": 500, "view": "top"}
 fcc = cna.compute(edge)
 pictures = [
-    render(edge, atoms=fcc.structure != 1, color=fcc, box=False, **size),
-    render(quadrupole, color=cna.compute(quadrupole), **size),
-    render(partial, color=DiamondStructure().compute(partial), box=False, **size),
+    render(edge, atoms=fcc.structure != 1, color=fcc, box=False, **size, legend=True),
+    render(quadrupole, color=cna.compute(quadrupole), **size, legend=True),
+    render(
+        partial,
+        color=DiamondStructure().compute(partial),
+        box=False,
+        **size,
+        legend=True,
+    ),
 ]
 write_png("images/dislocation-models.png", np.hstack(pictures))
 ```

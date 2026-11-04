@@ -37,6 +37,7 @@ from mdapy.visualization import (
     show_image,
     write_png,
 )
+from mdapy.visualization import _render as render_module
 
 
 def read_png(path):
@@ -1390,3 +1391,92 @@ def test_a_value_of_nan_still_colors_an_atom():
     system = mdapy.System([[1.0, 1, 1], [2, 1, 1]], mdapy.Box(5.0), elements="Cu")
     picture = render(system, color=np.array([np.nan, 1.0]), width=16, height=16)
     assert np.isfinite(picture).all()
+
+
+def _legend_system():
+    system = build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 3))
+    return system.with_columns(height=system["positions"][:, 2])
+
+
+LEGEND = dict(width=240, height=180)
+
+
+def test_a_legend_changes_only_its_corner(tmp_path):
+    pytest.importorskip("matplotlib")
+    system = _legend_system()
+    cna = CommonNeighborAnalysis().compute(system)
+    plain = render(system, color=cna, **LEGEND)
+    path = tmp_path / "legend.png"
+    marked = render(system, path, color=cna, legend=True, **LEGEND)
+    assert path.stat().st_size > 0
+    differs = (plain != marked).any(axis=2)
+    assert differs[:60, :60].any() and not differs[:, 120:].any()
+    assert marked.shape == plain.shape and marked.dtype == plain.dtype
+
+
+def test_a_legend_names_what_is_shown(monkeypatch):
+    pytest.importorskip("matplotlib")
+    system = _legend_system()
+    mixed = system.with_columns(element=(["Cu", "Ni"] * len(system))[: len(system)])
+    cna = CommonNeighborAnalysis().compute(system)
+    # of the atoms shown: no atoms of one kind, no name of it
+    drawn = {}
+    original = render_module._with_legend
+
+    def spy(image, background, **items):
+        drawn.update(items)
+        return original(image, background, **items)
+
+    monkeypatch.setattr(render_module, "_with_legend", spy)
+    render(mixed, legend=True, **LEGEND)
+    assert sorted(drawn["names"]) == ["Cu", "Ni"]
+    render(mixed, atoms=mixed["element"] == "Ni", legend=True, **LEGEND)
+    assert list(drawn["names"]) == ["Ni"]
+    render(system, color=cna, legend="Structure", **LEGEND)
+    assert list(drawn["names"]) == ["fcc"] and drawn["title"] == "Structure"
+    render(system, color="height", legend=True, **LEGEND)
+    low, high, name = drawn["bar"]
+    assert drawn["title"] == "height" and name == "viridis"
+    assert low == pytest.approx(system["height"].min())
+    assert high == pytest.approx(system["height"].max())
+    values = system["height"].to_numpy() * 2
+    render(
+        system,
+        color=values,
+        value_range=(0, 9),
+        colormap="plasma",
+        legend="z",
+        **LEGEND,
+    )
+    assert drawn["bar"] == (0.0, 9.0, "plasma") and drawn["title"] == "z"
+    render(system, color="red", legend={"mine": "red", "yours": (0, 0, 1)}, **LEGEND)
+    assert drawn["names"] == ["mine", "yours"]
+
+
+@pytest.mark.parametrize(
+    "color",
+    ["red", (1.0, 0.0, 0.0), np.zeros((108, 3))],
+    ids=["a name", "one color", "colors of the atoms"],
+)
+def test_a_legend_of_colors_it_cannot_explain(color):
+    with pytest.raises(InvalidParameter, match="mapping of names to colors"):
+        render(_legend_system(), color=color, legend=True, **LEGEND)
+
+
+def test_a_legend_on_a_dark_background():
+    pytest.importorskip("matplotlib")
+    system = _legend_system()
+    light = render(system, legend="Cu", **LEGEND)
+    dark = render(system, legend="Cu", background="black", **LEGEND)
+    # its text in the color that shows: bright pixels in the dark corner
+    assert dark[:12, :60, :3].max() > 200 and light[:12, :60, :3].min() < 100
+
+
+def test_no_legend_is_the_default_and_needs_no_matplotlib(monkeypatch):
+    system = _legend_system()
+    monkeypatch.setitem(sys.modules, "matplotlib", None)
+    monkeypatch.setitem(sys.modules, "matplotlib.figure", None)
+    monkeypatch.setitem(sys.modules, "matplotlib.backends.backend_agg", None)
+    assert render(system, **LEGEND).shape == (180, 240, 4)
+    with pytest.raises(ImportError, match="a legend needs matplotlib"):
+        render(system, legend=True, **LEGEND)

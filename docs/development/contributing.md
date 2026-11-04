@@ -136,7 +136,7 @@ pip install ovito==3.17.1 freud-analysis==3.6.1 phonopy==4.8.6 seekpath==2.2.2 \
 |---|---|
 | [OVITO](https://www.ovito.org) | structure analyses, colors and pictures, against OVITO |
 | [freud](https://freud.readthedocs.io) | analyses and conversions, against freud |
-| [phonopy](https://phonopy.github.io/phonopy) | phonons, against phonopy |
+| [phonopy](https://phonopy.github.io/phonopy) | phonons, against phonopy; its dependency symfc for phonons at finite temperature |
 | [seekpath](https://seekpath.readthedocs.io) | band paths from the symmetry |
 | [DScribe](https://singroup.github.io/dscribe) | SOAP descriptors, against DScribe |
 | [pymatgen](https://pymatgen.org) | conversions to and from it |

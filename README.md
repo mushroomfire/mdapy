@@ -23,13 +23,13 @@
   <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/learn/table.md">Lessons</a> ·
   <a href="#examples">Examples</a> ·
   <a href="#install">Install</a> ·
+  <a href="#tests">Tests</a> ·
   <a href="#citing-mdapy">Cite</a>
 </p>
 
-> **MDAPY 2.0 is a complete rewrite and is not compatible with MDAPY 1.x.** It is
-> under development, and a first preview, 2.0.0a1, comes next. The stable release
-> is `pip install mdapy==1.0.10`, with its
-> [documentation](https://mdapy.readthedocs.io).
+> **MDAPY 2.0 is a complete rewrite and is not compatible with MDAPY 1.x.** It brings many
+> more features, and we recommend upgrading. The code of 1.x stays on the branch
+> [`1.x`](https://github.com/mushroomfire/mdapy/tree/1.x).
 
 ## Why MDAPY
 
@@ -37,14 +37,15 @@
   requirements. Packages such as [matplotlib](https://matplotlib.org) or
   [ASE](https://wiki.fysik.dtu.dk/ase/) are optional, and it carries no other
   third-party code.
-- **Robust.** More than 2,800 tests compare each feature with analytic results and with
-  mature software. Results are the same for any number of threads, and damaged files or
+- **Robust.** Tests cover more than 99 % of the code and compare each feature with analytic
+  results and with mature software. Results are the same for any number of threads, and damaged files or
   impossible inputs give a clear error, not a crash.
 - **Fast.** The heavy parts run in C++, on a parallel engine of MDAPY's own. See the
   [benchmarks](https://github.com/mushroomfire/mdapy/blob/v2/docs/performance/comparison.md).
-- **Predictable.** The code reads the same everywhere: a `System` never changes in place,
-  every analysis has the form `compute(system)` and returns NumPy arrays, each concept
-  has one name, and one unit system, Å, eV and ps, runs through everything.
+- **Predictable.** Names say what the code does: `minimize`, `elastic_constants`,
+  `CommonNeighborAnalysis`. A `System` never changes in place, every analysis has the form
+  `compute(system)` and returns NumPy arrays, and one unit system, Å, eV and ps, runs
+  through everything.
 - **Integrated.** One package and one `System`, from the first structure to the last
   picture. It converts systems to and from [ASE](https://wiki.fysik.dtu.dk/ase/),
   [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and
@@ -52,6 +53,9 @@
   [LAMMPS](https://www.lammps.org) interaction, shares a process with
   [PyTorch](https://pytorch.org), and works as one step of
   [high-throughput calculations](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/high-throughput.md).
+- **Documented.** Every feature has its own page, with an example, its parameters, its
+  results and its references, and [lessons](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/learn/table.md) lead
+  from the first structure on.
 
 ## What it does
 
@@ -59,7 +63,7 @@
 |---|---|
 | [**Build**](https://github.com/mushroomfire/mdapy/blob/v2/docs/build/crystals.md) | Crystals, polycrystals, alloys, defects and dislocations |
 | [**Analyze**](https://github.com/mushroomfire/mdapy/blob/v2/docs/analysis/overview.md) | More than 40 analyses of structure, local order, defects and dynamics |
-| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md) | EAM, NEP, [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/) calculators; relaxation, dynamics, elastic constants and phonons |
+| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md) | EAM, NEP, [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/) calculators; relaxation and dynamics; elastic constants, phonons, free energies, melting points and phase diagrams |
 | [**MLIP**](https://github.com/mushroomfire/mdapy/blob/v2/docs/mlip/checks.md) | Training sets from [VASP](https://www.vasp.at), descriptors, errors of a model, the frames worth computing |
 | [**Visualize**](https://github.com/mushroomfire/mdapy/blob/v2/docs/visualization/rendering.md) | Ray-traced pictures on the processor or the graphics card, movies and plots |
 | [**Exchange**](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/io.md) | Eight file formats, and systems shared with [ASE](https://wiki.fysik.dtu.dk/ase/), [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and [freud](https://freud.readthedocs.io) |
@@ -148,7 +152,7 @@ with plot.style():
 </p>
 
 Give `render` a camera for each frame, and hand the pictures to `write_movie` one at a
-time, which needs [FFmpeg](https://ffmpeg.org). This turns around the polycrystal:
+time. This turns around the polycrystal:
 
 ```python
 import numpy as np
@@ -170,21 +174,25 @@ gives the whole script.
 ## Install
 
 ```bash
-git clone -b v2 https://github.com/mushroomfire/mdapy.git
-cd mdapy
-pip install .
+pip install mdapy
 ```
 
-MDAPY needs Python 3.11 or newer and, to build, a C++17 compiler and CMake 3.18 or
-newer. It will be on PyPI from the first preview on. See
-[Installation](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/installation.md)
-for the optional packages.
+MDAPY needs Python 3.11 or newer. [Installation](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/installation.md)
+describes the other ways to install it, from a source archive or from git, what those need,
+and the optional packages.
 
-## Reporting a problem
+## Tests
 
-Please [open an issue](https://github.com/mushroomfire/mdapy/issues) with the shortest
-code that shows the problem and the output of `mdapy.show_versions()`. See
-[Reporting a problem](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/reporting.md).
+```bash
+git clone https://github.com/mushroomfire/mdapy.git
+cd mdapy
+pip install -e ".[dev]"
+pytest
+```
+
+Tests that need another program are skipped where it is missing.
+[Contributing](https://github.com/mushroomfire/mdapy/blob/v2/docs/development/contributing.md#what-a-complete-run-needs) lists what a
+complete run needs.
 
 ## Citing MDAPY
 
@@ -207,26 +215,19 @@ MDAPY has been written three times.
 | Series | Years | How it was built | Code |
 |---|---|---|---|
 | 0.x | 2022–2025 | Python, with [Taichi](https://github.com/taichi-dev/taichi) for the kernels | Branch [`mdapy_old`](https://github.com/mushroomfire/mdapy/tree/mdapy_old), last release 0.11.5 |
-| 1.x | 2025–2026 | Rewritten with every kernel in C++, for speed | Tag [`v1.0.10`](https://github.com/mushroomfire/mdapy/tree/v1.0.10), [documentation](https://mdapy.readthedocs.io) |
+| 1.x | 2025–2026 | Rewritten with every kernel in C++, for speed | Branch [`1.x`](https://github.com/mushroomfire/mdapy/tree/1.x), last release 1.0.10, [documentation](https://mdapy.readthedocs.io) |
 | 2.x | 2026– | Rewritten again from scratch, for the reasons below | This branch |
 
 1.x was fast, but other programs found it hard to live with. 2.x was rewritten to solve that:
 
-- **OpenMP.** The [OpenMP](https://www.openmp.org) runtime of 1.x could clash with those
-  of other packages: on macOS its wheel crashed next to the one in a
-  [conda](https://docs.conda.io) environment. 2.x runs a thread pool of its own and needs
-  no OpenMP, so it shares a process with [PyTorch](https://pytorch.org) and
-  [LAMMPS](https://www.lammps.org).
-- **Third-party code.** 1.x carried ten third-party codes, from
-  [Voro++](https://math.lbl.gov/voro++/) to
-  [OptiX](https://developer.nvidia.com/rtx/ray-tracing/optix), each to build and keep
-  working. 2.x carries none, and its license allows use in any software.
-- **The API.** In 1.x an analysis was a method that changed the system,
-  `system.cal_centro_symmetry_parameter(N=12)`. In 2.x a `System` never changes, every
-  analysis is a class with one form, and the names come from one glossary.
-- **Many small calculations.** The threads follow the CPUs a process may use and can be
-  limited for each process, so thousands of small calculations side by side do not
-  fight for cores.
-- **Programs built on it.** Long computations report their progress, can be cancelled
-  and leave Python running, so a graphical program stays responsive while it calls
-  MDAPY.
+- **OpenMP.** The [OpenMP](https://www.openmp.org) runtime of 1.x could clash with those of
+  other packages. 2.x runs a thread pool of its own, so it shares a process with
+  [PyTorch](https://pytorch.org) and [LAMMPS](https://www.lammps.org).
+- **Third-party code.** 1.x carried ten third-party codes to build and keep working. 2.x
+  carries none.
+- **The API.** In 1.x an analysis was a method that changed the system. In 2.x a `System`
+  never changes and every analysis is a class with one form.
+- **Many small calculations.** The threads can be limited for each process, so thousands of
+  small calculations side by side do not fight for cores.
+- **Graphical interfaces.** Long computations report their progress, can be cancelled and
+  leave Python running, so a graphical interface is easy to build on 2.x.

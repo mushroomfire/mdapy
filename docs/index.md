@@ -12,11 +12,9 @@ computes energies, forces, relaxed structures and elastic constants with
 interatomic potentials. The heavy work runs in compiled C++ on all cores of
 the machine.
 
-!!! warning "MDAPY 2.0 is under development"
-    This site documents MDAPY 2.0, a complete rewrite on the `v2` branch that is
-    not compatible with MDAPY 1.x. Features are added one at a time, each with
-    its own tests and documentation page. For the stable release use
-    [MDAPY 1.0.10](https://pypi.org/project/mdapy/1.0.10/).
+!!! note "MDAPY 2.0 is a complete rewrite"
+    It is not compatible with MDAPY 1.x. It brings many more features, and we recommend
+    upgrading. The code of 1.x stays on the branch [`1.x`](https://github.com/mushroomfire/mdapy/tree/1.x).
 
 ## What MDAPY does
 
@@ -74,17 +72,16 @@ flowchart TB
   requirements. Packages such as [matplotlib](https://matplotlib.org) or
   [ASE](https://wiki.fysik.dtu.dk/ase/) are optional, and it carries no other
   third-party code.
-- **Robust.** Each feature is tested against analytic results and mature software, and
-  has its own page on how to use it and, for analyses, what it computes and which papers
-  it follows. Results are the same for any number of threads, and damaged files or
+- **Robust.** Tests cover more than 99 % of the code and compare each feature with analytic
+  results and with mature software. Results are the same for any number of threads, and damaged files or
   impossible inputs give a clear error, not a crash.
 - **Fast.** The heavy parts run in C++, on a parallel engine of MDAPY's own. See the
   [benchmarks](performance/comparison.md).
-- **Predictable.** The code reads the same everywhere: a `System` never changes in place,
-  every analysis has the form `compute(system)` and returns NumPy arrays, each concept
-  has one name ([Glossary](reference/glossary.md)), and one unit system, Å, eV, ps, amu,
-  K, and GPa for stress, runs through everything
-  ([Units and conventions](reference/units.md)).
+- **Predictable.** Names say what the code does: `minimize`, `elastic_constants`,
+  `CommonNeighborAnalysis`. A `System` never changes in place, every analysis has the form
+  `compute(system)` and returns NumPy arrays, each concept has one name
+  ([Glossary](reference/glossary.md)), and one unit system, Å, eV, ps, amu, K, and GPa for
+  stress, runs through everything ([Units and conventions](reference/units.md)).
 - **Integrated.** One package and one `System`, from the first structure to the last
   picture. It converts systems to and from [ASE](https://wiki.fysik.dtu.dk/ase/),
   [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and
@@ -95,6 +92,9 @@ flowchart TB
   [PyTorch](https://pytorch.org) ([Parallelism](getting-started/parallelism.md)), and
   works as one step of
   [high-throughput calculations](getting-started/tutorials/high-throughput.md).
+- **Documented.** Every feature has its own page on how to use it and, for analyses, what
+  it computes and which papers it follows, and
+  [lessons](getting-started/learn/table.md) lead from the first structure on.
 
 ## Features
 
@@ -216,9 +216,11 @@ flowchart TB
 
     Lattice dynamics: [elastic constants](simulation/elastic-constants.md) ·
     [phonons](simulation/phonons.md) ·
+    [at finite temperature](simulation/thermal-phonons.md) ·
     [quasi-harmonic approximation](simulation/quasi-harmonic.md) ·
     [elastic constants at finite temperature](simulation/thermal-elastic.md) ·
-    [from molecular dynamics](simulation/md-elastic.md)
+    [from molecular dynamics](simulation/md-elastic.md) ·
+    [sheets](simulation/sheets.md)
 
 -   :material-sine-wave:{ .lg .middle } **MLIP**
 

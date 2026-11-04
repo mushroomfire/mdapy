@@ -157,6 +157,12 @@ of hard spheres, *J. Chem. Phys.* **81**, 3188 (1984).
 [doi:10.1088/0370-1298/65/5/307](https://doi.org/10.1088/0370-1298/65/5/307)
 { #hill1952 }
 
+**Hellman et al. (2011).** O. Hellman, I. A. Abrikosov and S. I. Simak, Lattice
+dynamics of anharmonic solids from first principles, *Phys. Rev. B* **84**, 180301
+(2011).
+[doi:10.1103/PhysRevB.84.180301](https://doi.org/10.1103/PhysRevB.84.180301)
+{ #hellman2011 }
+
 **Himanen et al. (2020).** L. Himanen, M. O. J. Jäger, E. V. Morooka,
 F. Federici Canova, Y. S. Ranawat, D. Z. Gao, P. Rinke and A. S. Foster,
 DScribe: Library of descriptors for machine learning in materials science,

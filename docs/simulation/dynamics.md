@@ -58,7 +58,8 @@ describes; `potential` gives the commands of the interaction, the element
 of each atom type and the command-line arguments of LAMMPS, such as those
 of Kokkos. The box may have any orientation and need not be periodic:
 LAMMPS gets it rotated into its own form, its non-periodic directions
-shrink-wrapped, and everything comes back in the orientation of `system`.
+shrink-wrapped but never smaller than the box of `system`, and everything comes
+back in the orientation of `system`.
 The velocities of `system`, if it has them, are where the dynamics starts.
 
 | Name | Type | Default | Unit | Meaning |
@@ -82,7 +83,7 @@ The velocities of `system`, if it has them, are where the dynamics starts.
 | `ensemble` | str | `"nve"` | | `"nve"`, or `"nvt"` with a Nosé–Hoover thermostat, or `"npt"` with a thermostat and a barostat (LAMMPS `fix nve`, `nvt`, `npt`) |
 | `temperature` | float or (float, float) | | K | the temperature of the thermostat, or its values at the start and end of the run; for `"nvt"` and `"npt"` |
 | `pressure` | float or (float, float) | | GPa | the pressure of the barostat, or its values at the start and end; for `"npt"` |
-| `barostat` | str | `"iso"` | | the box changes alike in every direction (`"iso"`), along each axis (`"aniso"`) or in any way (`"tri"`) |
+| `barostat` | str | `"iso"` | | the box changes alike in every direction (`"iso"`), along each axis (`"aniso"`), in any way (`"tri"`), or alike along its first two vectors with the third kept (`"xy"`, as for [a sheet](sheets.md#molecular-dynamics)) |
 | `thermostat_damping` | float | 100 time steps | ps | the damping time of the thermostat |
 | `barostat_damping` | float | 1000 time steps | ps | the damping time of the barostat |
 | `thermo` | int | 100 | | records the thermodynamic state every this many steps, and at the start and the end |
@@ -122,6 +123,6 @@ without elements; `ImportError` without the LAMMPS Python module.
 `velocities` raises `InvalidParameter` for a negative temperature or a seed
 that is not positive; `run` for a negative number of steps, an unknown
 ensemble or barostat, a thermostat without a temperature, a barostat
-without a pressure, a barostat other than `"iso"` in a box that is not
-periodic, and `thermo` or `frames` that are not positive; `command` for
+without a pressure, `"aniso"` or `"tri"` in a box that is not periodic,
+`"xy"` in a box not periodic along its first two vectors, and `thermo` or `frames` that are not positive; `command` for
 commands LAMMPS rejects; and `lammps` after `close`.

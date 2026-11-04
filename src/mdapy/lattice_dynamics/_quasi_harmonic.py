@@ -270,11 +270,15 @@ def quasi_harmonic(
     Raises
     ------
     InvalidParameter
-        For a negative temperature, both volumes and pressures, fewer than
-        five of them, a relaxation that does not converge, imaginary
-        frequencies at a volume, or an equilibrium volume outside the
-        volumes.
+        For a box not periodic in every direction, a negative temperature,
+        both volumes and pressures, fewer than five of them, a relaxation
+        that does not converge, imaginary frequencies at a volume, or an
+        equilibrium volume outside the volumes.
     """
+    if not system.box.pbc.all():
+        raise InvalidParameter(
+            "the quasi-harmonic approximation needs a box periodic in every direction"
+        )
     temperatures = np.atleast_1d(np.asarray(temperatures, dtype=float))
     if temperatures.ndim != 1 or not (temperatures >= 0).all():
         raise InvalidParameter("temperatures must not be negative")

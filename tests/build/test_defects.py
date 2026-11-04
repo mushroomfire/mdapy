@@ -160,3 +160,25 @@ def test_interstitials_among_atoms_far_outside_the_box():
     system = mdapy.System(rng.random((20, 3)) * 1e6, mdapy.Box(20.0), elements="Cu")
     with pytest.raises(InvalidParameter, match="int8 range"):
         add_interstitials(system, "Cu", 1, seed=1)
+
+
+def test_a_slip_keeps_atoms_outside_the_box_with_their_images():
+    """Atoms a box length away, or a rounding error below the box, end up where
+    their images in the box do, up to the new box vector."""
+    crystal = build_crystal(
+        "fcc", 3.6, orientation=[(1, 1, -2), (-1, 1, 0), (1, 1, 1)], repeat=(2, 3, 4)
+    )
+    shift = np.array([1.47, 0.0, 0.0])
+    plain = slip(crystal, shift, height=0.46)
+    # some atoms are moved a whole box up or down, or just below the bottom
+    moved = crystal["positions"].copy()
+    moved[::5] += crystal.box.matrix[2]
+    moved[1::5] -= crystal.box.matrix[2]
+    bottom = np.flatnonzero(moved[:, 2] == 0.0)
+    moved[bottom] -= [0, 0, 1e-14]
+    outside = slip(crystal.with_columns(positions=moved), shift, height=0.46)
+    assert (outside.box.matrix == plain.box.matrix).all()
+    apart = outside.box.to_fractional(outside["positions"]) - plain.box.to_fractional(
+        plain["positions"]
+    )
+    np.testing.assert_allclose(apart - np.round(apart), 0.0, atol=1e-9)

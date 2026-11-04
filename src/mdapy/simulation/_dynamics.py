@@ -20,7 +20,7 @@ from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 
 _ENSEMBLES = ("nve", "nvt", "npt")
-_BAROSTATS = ("iso", "aniso", "tri")
+_BAROSTATS = ("iso", "aniso", "tri", "xy")
 # thermo keywords of LAMMPS and the columns they become
 _THERMO = (
     ("temp", "temperature"),
@@ -136,7 +136,7 @@ class MolecularDynamics:
                 f"""units metal
 atom_style atomic
 atom_modify map array
-boundary {" ".join("p" if p else "s" for p in pbc)}
+boundary {" ".join("p" if p else "m" for p in pbc)}
 region box prism 0 {lx!r} 0 {ly!r} 0 {lz!r} {xy!r} {xz!r} {yz!r}
 create_box {len(potential.elements)} box
 """
@@ -337,9 +337,10 @@ create_box {len(potential.elements)} box
         pressure : float or (float, float), optional
             Pressure in GPa of the barostat, or its values at the start and
             the end; needed for "npt".
-        barostat : {"iso", "aniso", "tri"}, optional
-            The box changes alike in every direction, along each axis, or
-            in any way. Default "iso".
+        barostat : {"iso", "aniso", "tri", "xy"}, optional
+            The box changes alike in every direction, along each axis, in
+            any way, or alike along its first two vectors with the third
+            kept. Default "iso".
         thermostat_damping : float, optional
             Damping time of the thermostat in ps. Default 100 time steps.
         barostat_damping : float, optional
@@ -381,8 +382,15 @@ create_box {len(potential.elements)} box
             raise InvalidParameter(f"{ensemble} needs a temperature")
         if ensemble == "npt" and pressures is None:
             raise InvalidParameter("npt needs a pressure")
-        if barostat != "iso" and ensemble == "npt" and not self.__pbc.all():
-            raise InvalidParameter("a barostat needs a box periodic in every direction")
+        if ensemble == "npt":
+            if barostat == "xy" and not self.__pbc[:2].all():
+                raise InvalidParameter(
+                    "this barostat needs a box periodic along its first two vectors"
+                )
+            if barostat in ("aniso", "tri") and not self.__pbc.all():
+                raise InvalidParameter(
+                    "a barostat needs a box periodic in every direction"
+                )
         tdamp = (
             100 * self.timestep if thermostat_damping is None else thermostat_damping
         )
@@ -394,7 +402,12 @@ create_box {len(potential.elements)} box
             fix = f"{ensemble} temp {t0!r} {t1!r} {float(tdamp)!r}"
             if ensemble == "npt":
                 p0, p1 = (p * units.GPA_TO_BAR for p in pressures)
-                fix += f" {barostat} {p0!r} {p1!r} {float(pdamp)!r}"
+                span = f"{p0!r} {p1!r} {float(pdamp)!r}"
+                if barostat == "xy":
+                    other = "z" if self.__swapped else "y"
+                    fix += f" x {span} {other} {span} couple x{other}"
+                else:
+                    fix += f" {barostat} {span}"
         self.command(f"fix mdapy_integrate all {fix}")
         thermo, start, done = int(thermo), self.step, 0
         try:

@@ -21,6 +21,7 @@ from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.elements import atomic_masses
 from mdapy.errors import FileFormatError, InvalidParameter
+from mdapy.lattice_dynamics._sheets import _in_periodic_box, _is_sheet
 
 # the frequency in THz of an eigenvalue of 1 eV/(Å² amu) of a dynamical matrix
 _THZ = 1 / (2 * np.pi * np.sqrt(units.AMU_A2_PER_PS2_TO_EV))
@@ -342,9 +343,10 @@ def primitive_cell(system: System, *, tolerance: float = 1e-4) -> System:
     Parameters
     ----------
     system : System
-        A crystal in a box periodic in every direction. Atoms are alike when
-        they have the same element, type and mass, where the system has
-        these columns.
+        A crystal in a box periodic in every direction, or a sheet, periodic
+        along two vectors in the x-y plane and not along a third along z.
+        Atoms are alike when they have the same element, type and mass, where
+        the system has these columns.
     tolerance : float, optional
         How far, in Å, an atom may be from the image of another under a
         translation of the crystal. Default 1e-4.
@@ -359,10 +361,22 @@ def primitive_cell(system: System, *, tolerance: float = 1e-4) -> System:
     Raises
     ------
     InvalidParameter
-        If the box is not periodic in every direction or has no atoms.
+        If the box is neither periodic nor that of a sheet, or has no atoms.
     """
-    if not system.box.pbc.all() or len(system) == 0:
+    if len(system) == 0:
         raise InvalidParameter("a primitive cell needs a periodic box with atoms")
+    if _is_sheet(system.box, "primitive cells"):
+        cell = primitive_cell(_in_periodic_box(system), tolerance=tolerance)
+        if len(cell) == len(system):
+            return system
+        matrix = np.zeros((3, 3))
+        matrix[:2] = cell.box.matrix[np.abs(cell.box.matrix[:, 2]) < 1e-9][:2]
+        matrix[2, 2] = system.box.matrix[2, 2]
+        if np.linalg.det(matrix) < 0:
+            matrix[[0, 1]] = matrix[[1, 0]]
+        box = Box(matrix, origin=system.box.origin, pbc=system.box.pbc)
+        wrapped, _ = box.wrap(cell["positions"])
+        return cell.with_box(box).with_columns(positions=wrapped)
     found, maps = _translations(system, tolerance)
     count = len(found)
     if count == 1:
@@ -457,6 +471,45 @@ def _default_supercell(cell: np.ndarray, reach: float) -> np.ndarray:
     candidates = list(found.values())
     best = max(c[1] for c in candidates)
     return min((c for c in candidates if c[1] >= 0.95 * best), key=lambda c: c[0])[2]
+
+
+def _default_sheet_supercell(cell: np.ndarray, reach: float) -> np.ndarray:
+    """The supercell of a sheet nearest a square that is at least reach wide
+    across the plane: as :func:`_default_supercell`, in two dimensions."""
+
+    def widths(vectors: np.ndarray) -> np.ndarray:
+        return abs(np.linalg.det(vectors)) / np.linalg.norm(vectors[[1, 0]], axis=1)
+
+    plane = cell[:2, :2]
+    inverse = np.linalg.inv(plane)
+    found = {}
+    edge = reach
+    while edge < 2 * reach + np.linalg.norm(plane, axis=1).max():
+        matrix = np.round(edge * inverse).astype(int)
+        size = round(np.linalg.det(matrix))
+        if size > 0 and (widths(matrix @ plane) >= reach - 1e-9).all():
+            box = matrix @ plane
+            square = widths(box).min() / abs(np.linalg.det(box)) ** 0.5
+            found[matrix.tobytes()] = (size, square, matrix)
+        edge *= 1.01
+    candidates = list(found.values())
+    best = max(c[1] for c in candidates)
+    chosen = min((c for c in candidates if c[1] >= 0.95 * best), key=lambda c: c[0])[2]
+    matrix = np.eye(3, dtype=int)
+    matrix[:2, :2] = chosen
+    return matrix
+
+
+def _sheet_supercell(value: int | ArrayLike) -> np.ndarray:
+    """(3, 3) integer matrix of a supercell of a sheet, repeated in its plane
+    only: one integer repeats along both vectors of the plane."""
+    array = np.array(value)
+    if array.ndim == 0:
+        array = np.array([array, array, 1])
+    matrix = _supercell_matrix(array)
+    if (matrix[2] != (0, 0, 1)).any() or (matrix[:2, 2] != 0).any():
+        raise InvalidParameter("a supercell of a sheet repeats along its plane only")
+    return matrix
 
 
 def _mesh(mesh: int | ArrayLike) -> np.ndarray:
@@ -617,22 +670,38 @@ class Phonons:
         n = len(cell)
         matrix = cell.box.matrix
         repeats = _lattice_points(self.supercell)
-        grid = np.stack(np.meshgrid(*[np.arange(-2, 3)] * 3, indexing="ij"), -1)
+        self.__sheet = _is_sheet(cell.box, "phonons")
+        # a sheet has no images along its third vector
+        third = np.arange(1) if self.__sheet else np.arange(-2, 3)
+        grid = np.stack(
+            np.meshgrid(np.arange(-2, 3), np.arange(-2, 3), third, indexing="ij"), -1
+        )
 
-        def images(geometry: System, a: int) -> np.ndarray:
-            """(M, 125, 3) the vectors from atom a to the images of each
-            atom of the supercell."""
+        def to_atoms(geometry: System, a: int) -> np.ndarray:
+            """(M, 3) the vectors from atom a to each atom of the supercell."""
             box, positions = geometry.box.matrix, geometry["positions"]
             atoms = ((repeats @ box)[:, None, :] + positions[None]).reshape(-1, 3)
-            shifts = grid.reshape(-1, 3) @ (self.supercell @ box)
-            return (atoms - positions[a])[:, None, :] + shifts[None]
+            return atoms - positions[a]
+
+        def images(geometry: System, a: int, nearest: np.ndarray) -> np.ndarray:
+            """(M, I, 3) the vectors from atom a to the I images of each atom
+            of the supercell, around the image given by nearest."""
+            big = self.supercell @ geometry.box.matrix
+            shifts = grid.reshape(-1, 3) @ big
+            return (to_atoms(geometry, a) + nearest @ big)[:, None, :] + shifts[None]
 
         # each pair at its shortest distances in the supercell, shared
         # equally among the images that are as short
         first, second, vectors, weights = [], [], [], []
         for a in range(n):
-            here = images(cell, a)
-            chosen = here if reference is None else images(reference, a)
+            # atoms may be any number of periods away from each other
+            nearest = -np.round(
+                to_atoms(cell, a) @ np.linalg.inv(self.supercell @ matrix)
+            )
+            if self.__sheet:
+                nearest[:, 2] = 0.0  # no images along the height of a sheet
+            here = images(cell, a, nearest)
+            chosen = here if reference is None else images(reference, a, nearest)
             lengths = np.linalg.norm(chosen, axis=2)
             shortest = lengths.min(axis=1, keepdims=True)
             near = lengths < shortest + 1e-5 * (1.0 + shortest)
@@ -744,6 +813,32 @@ class Phonons:
             return frequencies[0], vectors[0]
         return frequencies, vectors
 
+    def __in_plane(self, sections: list) -> list:
+        """The sections of a path that lie in the plane of a sheet, cut where
+        they leave it."""
+        if not self.__sheet:
+            return sections
+        kept = []
+        for section in sections:
+            piece = []
+            for point in [*section, None]:
+                if point is not None and abs(point[1][2]) < 1e-9:
+                    piece.append(point)
+                    continue
+                if len(piece) > 1:
+                    kept.append(piece)
+                piece = []
+        return kept
+
+    def __mesh_counts(self, mesh: int | ArrayLike) -> np.ndarray:
+        """The mesh, one integer meaning the plane of a sheet."""
+        if self.__sheet and np.ndim(mesh) == 0:
+            return _repeat((mesh, mesh, 1), "mesh")
+        counts = _repeat(mesh, "mesh")
+        if self.__sheet and counts[2] != 1:
+            raise InvalidParameter("the mesh of a sheet has one wave vector along z")
+        return counts
+
     def __standard_path(self, lattice: str) -> list[list[tuple[str, np.ndarray]]]:
         if lattice not in _PATHS:
             raise InvalidParameter(
@@ -800,7 +895,7 @@ class Phonons:
             raise ImportError(
                 'path="auto" needs seekpath: pip install seekpath'
             ) from None
-        cell = self.cell
+        cell = _in_periodic_box(self.cell) if self.__sheet else self.cell
         found = seekpath.get_path(
             (
                 cell.box.matrix,
@@ -867,9 +962,9 @@ class Phonons:
             For path "auto" without seekpath.
         """
         if path == "auto":
-            sections = self.__auto_path()
+            sections = self.__in_plane(self.__auto_path())
         elif isinstance(path, str):
-            sections = self.__standard_path(path)
+            sections = self.__in_plane(self.__standard_path(path))
         else:
             try:
                 sections = [
@@ -964,7 +1059,7 @@ class Phonons:
         """
         if sigma is not None and not sigma > 0:
             raise InvalidParameter(f"sigma must be positive, not {sigma!r}")
-        counts = _repeat(mesh, "mesh")
+        counts = self.__mesh_counts(mesh)
         _, values, modes = self.__on_mesh(counts, vectors=projected, stable=False)
         if frequencies is None:
             low = min(0.0, 1.05 * values.min() if values.min() < _IMAGINARY else 0.0)
@@ -1030,7 +1125,9 @@ class Phonons:
         temperatures = np.atleast_1d(np.asarray(temperatures, dtype=float))
         if temperatures.ndim != 1 or not (temperatures >= 0).all():
             raise InvalidParameter("temperatures must not be negative")
-        _, values, _ = self.__on_mesh(mesh, vectors=False, stable=True)
+        _, values, _ = self.__on_mesh(
+            self.__mesh_counts(mesh), vectors=False, stable=True
+        )
         quanta = units.PLANCK * values[values > _LOWEST]  # eV
         count = values.size / (3 * len(self.cell))  # wave vectors per atom
         kt = units.BOLTZMANN * temperatures
@@ -1068,7 +1165,7 @@ def _supercell(cell: System, matrix: np.ndarray) -> System:
     table = pl.concat([cell.table] * len(repeats)).with_columns(
         pl.Series("positions", positions.reshape(-1, 3), dtype=pl.Array(pl.Float64, 3))
     )
-    box = Box(matrix @ cell.box.matrix, origin=cell.box.origin)
+    box = Box(matrix @ cell.box.matrix, origin=cell.box.origin, pbc=cell.box.pbc)
     return System(table=table, box=box)
 
 
@@ -1197,17 +1294,19 @@ def phonons(
     Parameters
     ----------
     system : System
-        The cell of the crystal, periodic in every direction, with atoms at
-        rest (relax it first); best its primitive cell. Each atom needs an
-        element or a mass.
+        The cell of the crystal, periodic in every direction, or of a sheet,
+        periodic along two vectors in the x-y plane and not along a third
+        along z, with atoms at rest (relax it first); best its primitive
+        cell. Each atom needs an element or a mass.
     calculator : Calculator
         Computes the forces.
     supercell : int or array_like, optional
         Repeats of the cell along its vectors, one or three, or a (3, 3)
         integer matrix whose rows times the vectors of the cell are the
-        vectors of the supercell. Default the supercell nearest a cube that
-        is at least twice the cutoff of the calculator thick in every
-        direction.
+        vectors of the supercell; a sheet repeats along its plane only, and
+        one integer means both of its vectors. Default the supercell nearest
+        a cube that is at least twice the cutoff of the calculator thick in
+        every direction, nearest a square across the plane for a sheet.
     displacement : float, optional
         Displacement of the atoms in Å. Default 0.01.
     symmetry : bool, optional
@@ -1224,8 +1323,9 @@ def phonons(
     Raises
     ------
     InvalidParameter
-        If the box is not periodic, there are no atoms, an atom has no
-        mass, the calculator does not compute forces, the supercell is not
+        If the box is neither periodic nor that of a sheet, there are no
+        atoms, an atom has no mass, the calculator does not compute forces,
+        the supercell is not
         positive integers or a matrix of them with a positive determinant,
         the displacement is not positive, or symmetry is True without
         spglib.
@@ -1243,20 +1343,22 @@ def _phonons(
 ) -> Phonons:
     """The phonons of :func:`phonons`, the periodic images of the force
     constants picked by the geometry of reference."""
-    if not system.box.pbc.all() or len(system) == 0:
+    if len(system) == 0:
         raise InvalidParameter(
             "phonons need a box periodic in every direction with atoms"
         )
+    sheet = _is_sheet(system.box, "phonons")
     if not displacement > 0:
         raise InvalidParameter(f"displacement must be positive, not {displacement!r}")
     if "forces" not in calculator.implemented:
         raise InvalidParameter(f"{type(calculator).__name__} does not compute forces")
     masses = _masses(system)
     if supercell is None:
-        matrix = _default_supercell(system.box.matrix, 2 * calculator.cutoff)
+        choose = _default_sheet_supercell if sheet else _default_supercell
+        matrix = choose(system.box.matrix, 2 * calculator.cutoff)
     else:
-        matrix = _supercell_matrix(supercell)
-    operations = _symmetry(system, symmetry)
+        matrix = _sheet_supercell(supercell) if sheet else _supercell_matrix(supercell)
+    operations = _symmetry(_in_periodic_box(system) if sheet else system, symmetry)
     constants = _displaced_forces(system, calculator, matrix, displacement, operations)
     return Phonons(
         system, matrix, _symmetrized(constants, matrix), masses, reference=reference

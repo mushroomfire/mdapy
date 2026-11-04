@@ -65,7 +65,9 @@ def test_the_page_for_contributors_names_what_the_tests_need():
             re.findall(r'importorskip\(\s*"(\w+)', test.read_text(encoding="utf-8"))
         )
     assert not {name for name in needed if name not in page.lower()}
-    workflow = (DOCS.parent / ".github" / "workflows" / "tests.yml").read_text()
+    workflow = (DOCS.parent / ".github" / "workflows" / "tests.yml").read_text(
+        encoding="utf-8"
+    )
     packages = re.search(r"missing = \{(.*?)\}", workflow)[1]
     for package in re.findall(r"'([\w-]+)'", packages):
         assert f"`{package}`" in page and f"PKG_{package}=on" in page
@@ -105,7 +107,7 @@ def test_docstrings_have_no_roles_of_sphinx():
     # the API pages are Markdown: :meth:`sort` would show as it is written
     role = re.compile(r":(?:meth|func|class|data|attr|mod|exc|obj|ref):`")
     for path in sorted((DOCS.parent / "src" / "mdapy").rglob("*.py")):
-        assert not role.search(path.read_text()), path
+        assert not role.search(path.read_text(encoding="utf-8")), path
 
 
 def test_tables_and_docstrings_give_exact_types():
@@ -115,7 +117,7 @@ def test_tables_and_docstrings_give_exact_types():
         if path.name == "ackland-jones.md":  # its column Type is the structure found
             continue
         column = None
-        for line in path.read_text().splitlines():
+        for line in path.read_text(encoding="utf-8").splitlines():
             if not line.startswith("|"):
                 column = None
                 continue
@@ -130,7 +132,7 @@ def test_tables_and_docstrings_give_exact_types():
                 found.append(f"{path.name}: {line[:70]}")
     parameter = re.compile(r"^\s+[\w*]+(?:, [\w*]+)* : .*\b(?:ints?|floats?)\b")
     for path in sorted((DOCS.parent / "src" / "mdapy").rglob("*.py")):
-        for line in path.read_text().splitlines():
+        for line in path.read_text(encoding="utf-8").splitlines():
             if parameter.match(line):
                 found.append(f"{path.name}: {line.strip()[:70]}")
     assert not found, "\n".join(found)

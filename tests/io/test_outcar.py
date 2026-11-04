@@ -20,10 +20,10 @@ def test_steps_as_frames(tmp_path):
     steps = frames()
     path = tmp_path / "OUTCAR"
     path.write_text(outcar_text(steps))
-    assert mdapy.detect_format(path) == "outcar"
-    assert mdapy.detect_format(tmp_path / "OUTCAR.relax") == "outcar"
-    assert mdapy.detect_format(tmp_path / "relax.outcar") == "outcar"
-    trajectory = mdapy.read_trajectory(path)
+    assert mdapy.io.detect_format(path) == "outcar"
+    assert mdapy.io.detect_format(tmp_path / "OUTCAR.relax") == "outcar"
+    assert mdapy.io.detect_format(tmp_path / "relax.outcar") == "outcar"
+    trajectory = mdapy.io.read_trajectory(path)
     assert len(trajectory) == 3
     for frame, (lattice, positions, forces, energy, virial) in zip(trajectory, steps):
         assert frame["element"].tolist() == ["Ag"] * 4  # no Pd: 0 of them
@@ -35,7 +35,7 @@ def test_steps_as_frames(tmp_path):
         assert frame.info["converged"] is True
         assert frame.box.pbc.all()
     # one step alone, from the end
-    assert mdapy.read(path, frame=-1).info["energy"] == pytest.approx(steps[-1][3])
+    assert mdapy.io.read(path, frame=-1).info["energy"] == pytest.approx(steps[-1][3])
 
 
 @pytest.mark.filterwarnings("ignore:Setting the shape:DeprecationWarning")
@@ -44,7 +44,7 @@ def test_as_ase(tmp_path):
     path = tmp_path / "OUTCAR"
     path.write_text(outcar_text(frames(seed=1), symbols=("Cu", "Ni"), counts=(2, 2)))
     for ours, theirs in zip(
-        mdapy.read_trajectory(path), ase_io.read(path, ":", format="vasp-out")
+        mdapy.io.read_trajectory(path), ase_io.read(path, ":", format="vasp-out")
     ):
         assert ours["element"].tolist() == theirs.get_chemical_symbols()
         np.testing.assert_array_equal(ours["positions"], theirs.positions)
@@ -71,7 +71,7 @@ def test_unconverged_steps_no_stress_and_learned_steps(tmp_path):
     )
     path = tmp_path / "OUTCAR"
     path.write_text(text)
-    every = list(mdapy.read_trajectory(path))
+    every = list(mdapy.io.read_trajectory(path))
     assert [f.info["converged"] for f in every] == [True, False, True]
     assert all("virial" not in f.info for f in every)
     assert [f.info["energy"] for f in every] == pytest.approx([s[3] for s in steps])
@@ -89,11 +89,11 @@ def test_training_set(tmp_path):
     kept = [
         frame.with_info(converged=None)
         for path in sorted(tmp_path.glob("*/OUTCAR"))
-        for frame in mdapy.read_trajectory(path)
+        for frame in mdapy.io.read_trajectory(path)
         if frame.info["converged"] and np.abs(frame["forces"]).max() <= 30.0
     ]
-    mdapy.write(tmp_path / "train.xyz", kept)
-    back = list(mdapy.read_trajectory(tmp_path / "train.xyz"))
+    mdapy.io.write(tmp_path / "train.xyz", kept)
+    back = list(mdapy.io.read_trajectory(tmp_path / "train.xyz"))
     assert len(back) == 2
     np.testing.assert_allclose(back[1].info["virial"], second[0][4], atol=1e-5)
     np.testing.assert_allclose(back[0]["forces"], first[0][2], atol=1e-6)
@@ -106,7 +106,7 @@ def test_numbers_without_spaces(tmp_path):
     lines[k] = "   1.00000-2.50000   3.00000  -0.123456-10.500000   7.000000"
     path = tmp_path / "OUTCAR"
     path.write_text("\n".join(lines) + "\n")
-    frame = mdapy.read(path)
+    frame = mdapy.io.read(path)
     np.testing.assert_array_equal(frame["positions"][0], [1.0, -2.5, 3.0])
     np.testing.assert_array_equal(frame["forces"][0], [-0.123456, -10.5, 7.0])
 
@@ -153,7 +153,7 @@ def test_errors(tmp_path, change, message):
     path = tmp_path / "OUTCAR"
     path.write_text(change(outcar_text(frames(count=1))))
     with pytest.raises(FileFormatError, match=message):
-        mdapy.read(path)
+        mdapy.io.read(path)
 
 
 def test_a_file_without_steps(tmp_path):
@@ -161,4 +161,4 @@ def test_a_file_without_steps(tmp_path):
     text = outcar_text(frames(count=1))
     path = tmp_path / "OUTCAR"
     path.write_text(text[: text.index(" POSITION")])
-    assert len(mdapy.read_trajectory(path)) == 0
+    assert len(mdapy.io.read_trajectory(path)) == 0

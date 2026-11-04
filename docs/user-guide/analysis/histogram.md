@@ -8,7 +8,6 @@ chosen.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.analysis import Histogram
 from mdapy.build import build_crystal
 

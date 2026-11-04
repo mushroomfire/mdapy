@@ -204,10 +204,10 @@ under each. The cell is cubic on average; average the constants over the
 three equivalent directions:
 
 ```python
-import mdapy
+from mdapy.io import read
 from mdapy.lattice_dynamics import ElasticResult, elastic_constants
 
-start = mdapy.read("SQS.xyz")
+start = read("SQS.xyz")
 sqs = minimize(
     start, nep, cell="full", max_force=1e-6, max_stress=1e-5, max_steps=20000
 ).system

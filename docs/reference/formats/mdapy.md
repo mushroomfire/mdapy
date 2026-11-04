@@ -9,6 +9,7 @@ mdapy.
 ```python
 import numpy as np
 import mdapy as mp
+from mdapy.io import read, write
 
 rng = np.random.default_rng(0)
 system = mp.System(
@@ -17,8 +18,8 @@ system = mp.System(
     elements=["Cu", "Cu", "Zr", "Zr"],
 )
 frames = [system.with_info(energy=-3.5 - 0.1 * k, step=k) for k in range(3)]
-mp.write("run.mdapy", frames)
-last = mp.read("run.mdapy", frame=-1)
+write("run.mdapy", frames)
+last = read("run.mdapy", frame=-1)
 assert last.table.equals(frames[-1].table)
 ```
 

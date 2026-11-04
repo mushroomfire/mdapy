@@ -77,7 +77,7 @@ def test_constants_as_lammps(tmp_path):
     # constants of an alloy change with the orientation: strain both in that
     # frame
     general, data = tmp_path / "general.data", tmp_path / "in.data"
-    mdapy.write(general, relaxed, elements=["Cu", "Ni"])
+    mdapy.io.write(general, relaxed, elements=["Cu", "Ni"])
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(
@@ -85,8 +85,8 @@ def test_constants_as_lammps(tmp_path):
         )
     finally:
         lmp.close()
-    rotated = mdapy.read(data).with_columns(
-        element=np.where(mdapy.read(data).table["type"].to_numpy() == 1, "Cu", "Ni")
+    rotated = mdapy.io.read(data).with_columns(
+        element=np.where(mdapy.io.read(data).table["type"].to_numpy() == 1, "Cu", "Ni")
     )
     strain = 1e-3
     lengths = np.diag(rotated.box.matrix)

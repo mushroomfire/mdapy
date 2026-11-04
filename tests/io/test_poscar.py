@@ -32,7 +32,7 @@ CELL = 3.57 * np.array([[0.0, 0.5, 0.5], [0.5, 0.0, 0.5], [0.5, 0.5, 0.0]])
 def read_text(tmp_path, text, name="POSCAR", **options):
     path = tmp_path / name
     path.write_text(text)
-    return mdapy.read(path, **options)
+    return mdapy.io.read(path, **options)
 
 
 def poscar(
@@ -227,11 +227,11 @@ def test_write_groups_elements_in_order_of_first_appearance(tmp_path):
         movable=rng.random((5, 3)) < 0.5, velocities=rng.standard_normal((5, 3))
     )
     path = tmp_path / "POSCAR"
-    mdapy.write(path, system)
+    mdapy.io.write(path, system)
     text = path.read_text().splitlines()
     assert text[0] == "written by MDAPY"
     assert text[5:9] == ["Zr Cu Al", "2 2 1", "Selective dynamics", "Direct"]
-    back = mdapy.read(path)
+    back = mdapy.io.read(path)
     order = [0, 2, 1, 4, 3]
     assert back.table["element"].to_list() == [elements[i] for i in order]
     np.testing.assert_array_equal(back.box.matrix, box.matrix)
@@ -257,10 +257,10 @@ def test_write_cartesian_and_comments(tmp_path):
         [[1.5, 2.0, 2.5]], box, elements="Si", info={"comment": "silicon"}
     )
     path = tmp_path / "x.vasp"
-    mdapy.write(path, system, direct=False)
+    mdapy.io.write(path, system, direct=False)
     lines = path.read_text().splitlines()
     assert lines[0] == "silicon" and lines[7] == "Cartesian" and lines[8] == "0.5 1 1.5"
-    assert mdapy.read(path).info == {"comment": "silicon"}
+    assert mdapy.io.read(path).info == {"comment": "silicon"}
 
 
 @pytest.mark.parametrize(
@@ -274,7 +274,7 @@ def test_write_cartesian_and_comments(tmp_path):
 )  # fmt: skip
 def test_write_errors(tmp_path, system, error, message):
     with pytest.raises(error, match=message):
-        mdapy.write(tmp_path / "POSCAR", system)
+        mdapy.io.write(tmp_path / "POSCAR", system)
     assert not (tmp_path / "POSCAR").exists()
 
 
@@ -287,7 +287,7 @@ def test_format_detection():
         "si.vasp",
         "a.poscar",
     ):
-        assert mdapy.detect_format(name) == "poscar"
+        assert mdapy.io.detect_format(name) == "poscar"
 
 
 def test_extra_words_without_selective_dynamics(tmp_path):
@@ -304,4 +304,4 @@ def test_no_atoms(tmp_path):
 def test_no_atoms_to_write(tmp_path):
     system = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0), elements=[])
     with pytest.raises(InvalidParameter, match="at least one atom"):
-        mdapy.write(tmp_path / "POSCAR", system, format="poscar")
+        mdapy.io.write(tmp_path / "POSCAR", system, format="poscar")

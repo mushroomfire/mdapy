@@ -30,7 +30,7 @@ FROM_ACKLAND = np.array([0, 3, 1, 2, 4])
 def per_atom(tmp_path, system, commands, names):
     """Per-atom values of LAMMPS computes, by atom ID."""
     data = tmp_path / "in.data"
-    mdapy.write(data, system)
+    mdapy.io.write(data, system)
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(

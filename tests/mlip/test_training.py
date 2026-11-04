@@ -96,9 +96,9 @@ def test_predict_against_the_labels(frames, tmp_path):
     with pytest.raises(InvalidParameter, match="by must be"):
         other.worst(1, by="energy")
     np.testing.assert_array_equal(other.frame_of_atom[: len(frames[0])], 0)
-    mdapy.write(tmp_path / "train.xyz", frames)
+    mdapy.io.write(tmp_path / "train.xyz", frames)
     read = predict(
-        list(mdapy.read_trajectory(tmp_path / "train.xyz")), Scaled(model, 1.1)
+        list(mdapy.io.read_trajectory(tmp_path / "train.xyz")), Scaled(model, 1.1)
     )
     np.testing.assert_allclose(read.forces, other.forces, rtol=1e-6, atol=1e-8)
     no_virial = predict(frames, Scaled(model, 1.1, virial=False))
@@ -122,7 +122,7 @@ def test_gpumd_outputs(frames, tmp_path):
     prediction first, a missing reference virial marked."""
     model = EAM.zhou(["Cu"])
     expected = predict(frames, Scaled(model, 1.1))
-    mdapy.write(tmp_path / "train.xyz", frames)
+    mdapy.io.write(tmp_path / "train.xyz", frames)
     with open(tmp_path / "train.xyz", "a") as file:  # blank lines at the end
         file.write("\n\n")
     energy = np.column_stack([expected.energy[:, 1], expected.energy[:, 0]])
@@ -147,7 +147,7 @@ def test_gpumd_outputs(frames, tmp_path):
         read_gpumd(tmp_path, "test")
     np.savetxt(tmp_path / "force_test.out", forces[:5])
     np.savetxt(tmp_path / "virial_test.out", virial[:2])
-    mdapy.write(tmp_path / "test.xyz", frames[:2])
+    mdapy.io.write(tmp_path / "test.xyz", frames[:2])
     with pytest.raises(InvalidParameter, match="do not hold the frames"):
         read_gpumd(tmp_path, "test")
     np.savetxt(tmp_path / "virial_test.out", virial[:2, :6])
@@ -169,7 +169,7 @@ def test_torchnep_outputs(frames, tmp_path):
     labeled[4] = labeled[4].with_info(energy=None)
     xyz = tmp_path / "data" / "all.xyz"
     xyz.parent.mkdir()
-    mdapy.write(xyz, labeled)
+    mdapy.io.write(xyz, labeled)
     nep = write_nep(tmp_path / "nep.txt", ("Cu",))
     out = tmp_path / "predicted"
     predict_dataset(

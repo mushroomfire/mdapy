@@ -5,14 +5,13 @@ The lessons on one page. Everything here assumes:
 <!-- skip-test -->
 ```python
 import numpy as np
-import mdapy as mp
 ```
 
 ## Get a system
 
 | I want | Write |
 |---|---|
-| a file | `system = mp.read("file.data")` |
+| a file | `system = mdapy.io.read("file.data")` |
 | a crystal | `build_crystal("fcc", 3.615, elements="Cu", repeat=(8, 8, 8))` |
 | a polycrystal | `build_polycrystal(crystal, mp.Box(100.0), 8, seed=1)` |
 | atoms of my own | `mp.System(positions, mp.Box(20.0), elements="Cu")` |
@@ -77,17 +76,17 @@ system = system.with_columns(result)  # per-atom values, as columns
 
 | I want | Write |
 |---|---|
-| to open a file | `with mp.read_trajectory("dump.*.lammpstrj") as trajectory:` |
+| to open a file | `with mdapy.io.read_trajectory("dump.*.lammpstrj") as trajectory:` |
 | a frame, or some frames | `trajectory[0]`, `trajectory[::10]` |
 | the frames through a function | `trajectory.map(function)` |
 | one number per frame | `TimeSeries(function).compute(trajectory)` |
-| to write them | `mp.write("out.xyz", trajectory.map(function))` |
+| to write them | `mdapy.io.write("out.xyz", trajectory.map(function))` |
 
 ## Show and save it
 
 | I want | Write |
 |---|---|
-| a file | `mp.write("out.xyz", system)` |
+| a file | `mdapy.io.write("out.xyz", system)` |
 | a picture | `render(system, "picture.png")` |
 | colors by a column | `render(system, "picture.png", color="coordination")` |
 | colors by structure | `render(system, "picture.png", color=result)` |

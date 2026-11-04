@@ -67,7 +67,7 @@ def test_velocities_in_the_units_of_pymatgen():
 def test_pymatgen_writes_what_mdapy_reads(tmp_path):
     system = alloy(seed=1)
     Poscar(to_pymatgen(system)).write_file(tmp_path / "POSCAR")
-    read = mdapy.read(tmp_path / "POSCAR")
+    read = mdapy.io.read(tmp_path / "POSCAR")
     np.testing.assert_allclose(
         read["positions"], system["positions"] - system.box.origin, atol=1e-6
     )
@@ -84,7 +84,7 @@ def test_pymatgen_writes_what_mdapy_reads(tmp_path):
 
 def test_mdapy_writes_what_pymatgen_reads(tmp_path):
     system = alloy(seed=2)
-    mdapy.write(tmp_path / "POSCAR", system)
+    mdapy.io.write(tmp_path / "POSCAR", system)
     # a POSCAR holds the atoms of each element together
     elements = system.table["element"].to_list()
     system = system.gather(

@@ -26,8 +26,10 @@ See [Systems and topology](../basics/system.md) and [Simulation box](../basics/b
 ## Files
 
 ```python
-mp.write("copper.xyz", system)
-back = mp.read("copper.xyz")
+from mdapy.io import read, write
+
+write("copper.xyz", system)
+back = read("copper.xyz")
 np.abs(back["positions"] - system["positions"]).max()  # 0.0
 ```
 
@@ -71,7 +73,7 @@ rattled = system.with_columns(
 )
 relaxed = minimize(rattled, potential, cell="full")
 relaxed.converged, relaxed.energy, relaxed.stress
-mp.write("relaxed.xyz", relaxed.system)  # with forces, energy and stress
+write("relaxed.xyz", relaxed.system)  # with forces, energy and stress
 ```
 
 See [Energy minimization](../user-guide/simulation/minimize.md).

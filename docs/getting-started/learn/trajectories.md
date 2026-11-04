@@ -135,14 +135,16 @@ for name, frame in (("start", frames[0]), ("middle", frames[35]), ("end", frames
 
 ## Keep it in a file, and read it back
 
-`mp.write` takes the whole sequence, and `read_trajectory` opens it without
+`mdapy.io.write` takes the whole sequence, and `read_trajectory` opens it without
 reading the frames. A frame is read when you use it, so a trajectory of many
 gigabytes opens at once:
 
 ```python
-mp.write("melt.xyz", frames)
+from mdapy.io import read_trajectory, write
 
-with mp.read_trajectory("melt.xyz") as trajectory:
+write("melt.xyz", frames)
+
+with read_trajectory("melt.xyz") as trajectory:
     print(len(trajectory))
     every_tenth = trajectory[::10]  # nothing is read yet
     again = TimeSeries(fcc_fraction).compute(every_tenth)

@@ -38,7 +38,7 @@ def atomsk_crystal(directory, structure, a, elements, *, c=None, orientation=Non
     )
     if not path.exists():
         raise RuntimeError(f"atomsk failed: {' '.join(command)}\n{done.stdout}")
-    return mdapy.read(path)
+    return mdapy.io.read(path)
 
 
 def atomsk_apply(directory, system, *options, files=None):
@@ -48,11 +48,11 @@ def atomsk_apply(directory, system, *options, files=None):
     here = pathlib.Path(tempfile.mkdtemp(dir=directory))
     for name, text in (files or {}).items():
         (here / name).write_text(text)
-    mdapy.write(here / "in.lmp", system)
+    mdapy.io.write(here / "in.lmp", system)
     command = [ATOMSK, "in.lmp", *map(str, options), "out.lmp", "-v", "0"]
     done = subprocess.run(
         command, cwd=here, capture_output=True, text=True, check=False
     )
     if not (here / "out.lmp").exists():
         raise RuntimeError(f"atomsk failed: {' '.join(command)}\n{done.stdout}")
-    return mdapy.read(here / "out.lmp")
+    return mdapy.io.read(here / "out.lmp")

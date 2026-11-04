@@ -90,8 +90,8 @@ def test_as_pymatgen_ase_and_ovito(written, name):
     from pymatgen.io.cif import CifParser
 
     path, structure = written[name]
-    ours = mdapy.read(path)
-    assert mdapy.detect_format(path) == "cif"
+    ours = mdapy.io.read(path)
+    assert mdapy.io.detect_format(path) == "cif"
     assert len(ours) == len(structure)
     # pymatgen reads the file in its own orientation: compare the lengths
     # and angles of the cell, and the fractional coordinates
@@ -141,7 +141,7 @@ def test_a_file_written_by_ase(tmp_path):
     crystal = ase_build.bulk("Cu", "fcc", a=3.615, cubic=True) * (2, 1, 1)
     crystal.rattle(0.05, seed=1)
     ase.io.write(tmp_path / "cu.cif", crystal)
-    ours = mdapy.read(tmp_path / "cu.cif")
+    ours = mdapy.io.read(tmp_path / "cu.cif")
     crystal.wrap()  # as every reader of CIF files
     np.testing.assert_allclose(ours["positions"], crystal.positions, atol=1e-6)
     np.testing.assert_allclose(ours.box.matrix, crystal.cell.array, atol=1e-10)
@@ -188,7 +188,7 @@ FE 1.5 1.5 1.5
 def test_syntax_and_several_blocks(tmp_path):
     path = tmp_path / "two.cif"
     path.write_text(SYNTAX)
-    first, second = mdapy.read_trajectory(path)
+    first, second = mdapy.io.read_trajectory(path)
     assert first.info["name"] == "first" and len(first) == 4
     assert atoms(first["element"], first["positions"], first.box.matrix) == [
         ("Al", 0.0, 0.0, 0.0),
@@ -255,21 +255,21 @@ def test_errors(tmp_path, text, message):
     path = tmp_path / "bad.cif"
     path.write_text("data_bad\n" + cell + text)
     with pytest.raises(FileFormatError, match=message):
-        mdapy.read(path)
+        mdapy.io.read(path)
 
 
 def test_no_data_block(tmp_path):
     path = tmp_path / "none.cif"
     path.write_text("# nothing\n")
     with pytest.raises(FileFormatError, match="no data block"):
-        mdapy.read(path)
+        mdapy.io.read(path)
     # P1 named but without operations: the sites as they are
     path.write_text(
         "data_p1\n_cell_length_a 2\n_cell_length_b 2\n_cell_length_c 2\n"
         "_symmetry_space_group_name_H-M 'P 1'\n_atom_site_type_symbol O\n"
         "_atom_site_fract_x 0.25\n_atom_site_fract_y 0\n_atom_site_fract_z 0\n"
     )
-    np.testing.assert_allclose(mdapy.read(path)["positions"], [[0.5, 0, 0]])
+    np.testing.assert_allclose(mdapy.io.read(path)["positions"], [[0.5, 0, 0]])
 
 
 def test_a_missing_coordinate(tmp_path):
@@ -280,4 +280,4 @@ def test_a_missing_coordinate(tmp_path):
         "loop_\n_atom_site_type_symbol\n_atom_site_fract_x\nCu 0\n"
     )
     with pytest.raises(FileFormatError, match="_atom_site_fract_y is missing"):
-        mdapy.read(path)
+        mdapy.io.read(path)

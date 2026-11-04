@@ -35,7 +35,7 @@ NEP_CPU = sorted(p.name.split(".")[0] for p in (DATA / "zbl").glob("*.nepcpu.npz
 
 
 def frames(path):
-    return list(mdapy.read_trajectory(path))
+    return list(mdapy.io.read_trajectory(path))
 
 
 @pytest.mark.parametrize("name", GPUMD)

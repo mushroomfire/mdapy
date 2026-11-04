@@ -64,7 +64,7 @@ def write_text(tmp_path, text, name="t.dump"):
 
 
 def read_text(tmp_path, text, name="t.dump", **options):
-    return mdapy.read(write_text(tmp_path, text, name), **options)
+    return mdapy.io.read(write_text(tmp_path, text, name), **options)
 
 
 def orthogonal(columns, atoms):
@@ -73,7 +73,7 @@ def orthogonal(columns, atoms):
 
 def round_trip(tmp_path, systems, **options):
     path = tmp_path / "rt.dump"
-    mdapy.write(path, systems, **options)
+    mdapy.io.write(path, systems, **options)
     return path
 
 
@@ -82,7 +82,7 @@ def round_trip(tmp_path, systems, **options):
 
 def test_read_lammps_frames(tmp_path):
     path = write_text(tmp_path, TWO_FRAMES)
-    first = mdapy.read(path)
+    first = mdapy.io.read(path)
     table = first.table
     assert table.columns == [
         "id", "type", "element", "positions", "velocities", "forces", "c_s", "i_flag",
@@ -102,11 +102,11 @@ def test_read_lammps_frames(tmp_path):
     )
     np.testing.assert_array_equal(first.box.origin, [0.0, 0.0, 0.0])
     assert first.box.pbc.tolist() == [True, True, False]
-    second = mdapy.read(path, frame=1)
+    second = mdapy.io.read(path, frame=1)
     assert second.info == {"timestep": 1500, "time": 0.0015}  # fs to ps
     # the units of the first frame apply to every frame
     assert second.table["velocities"].to_list() == [[4.0, 0.0, 0.0]]
-    assert mdapy.read(path, frame=-1).info["timestep"] == 1500
+    assert mdapy.io.read(path, frame=-1).info["timestep"] == 1500
 
 
 def test_coordinates_in_order_of_preference(tmp_path):
@@ -177,7 +177,7 @@ def test_box_forms(tmp_path):
 def test_triclinic_bounding_boxes(tmp_path, tilt):
     box = mdapy.Box.from_lammps([0.5, -1, 2], [8.5, 7, 10], tilt)
     path = round_trip(tmp_path, mdapy.System([[1.0, 1.0, 3.0]], box, elements="Cu"))
-    back = mdapy.read(path)
+    back = mdapy.io.read(path)
     np.testing.assert_allclose(back.box.matrix, box.matrix, rtol=1e-15, atol=1e-14)
     np.testing.assert_allclose(back.box.origin, box.origin, rtol=1e-15, atol=1e-15)
 
@@ -218,9 +218,9 @@ def test_units(tmp_path):
 def test_blank_lines_between_and_after_frames(tmp_path):
     frame = orthogonal("id type x y z", "1 1 0 0 0\n2 1 1 1 1")
     path = write_text(tmp_path, "\n" + frame + "\n\n" + frame + "\n  \n")
-    assert len(mdapy.read(path, frame=1)) == 2
+    assert len(mdapy.io.read(path, frame=1)) == 2
     with pytest.raises(InvalidParameter, match="the file has 2 frames"):
-        mdapy.read(path, frame=2)
+        mdapy.io.read(path, frame=2)
 
 
 # ----------------------------------------------------------------- errors
@@ -266,7 +266,7 @@ def test_unsupported_dumps(tmp_path):
     path = tmp_path / "b.dump"
     path.write_bytes(b"\x05\x00\x00\x00\x00\x00\x00\x00DUMPCUSTOM")
     with pytest.raises(UnsupportedFormat, match="binary dump"):
-        mdapy.read(path)
+        mdapy.io.read(path)
     local = "ITEM: TIMESTEP\n0\nITEM: NUMBER OF ENTRIES\n3\n"
     with pytest.raises(UnsupportedFormat, match="dump local"):
         read_text(tmp_path, local)
@@ -304,7 +304,7 @@ def rich_system(n=20, seed=0, box=None):
 
 def test_round_trip(tmp_path):
     system = rich_system()
-    back = mdapy.read(round_trip(tmp_path, system))
+    back = mdapy.io.read(round_trip(tmp_path, system))
     expected = system.table.select(
         "id", "type", "element", "type_label", "positions", "molecule", "charge",
         "mass", "image", "velocities", "forces", "c_pe", "c_stress", "counts",
@@ -317,7 +317,7 @@ def test_round_trip(tmp_path):
 
 def test_round_trip_in_real_units(tmp_path):
     system = rich_system()
-    back = mdapy.read(round_trip(tmp_path, system, units="real"))
+    back = mdapy.io.read(round_trip(tmp_path, system, units="real"))
     # velocities are scaled in decimal and come back exactly
     np.testing.assert_array_equal(
         back.table["velocities"].to_numpy(), system.table["velocities"].to_numpy()
@@ -357,7 +357,7 @@ def test_many_frames_from_a_generator(tmp_path):
     path = round_trip(tmp_path, frames)
     text = path.read_text()
     assert text.count("ITEM: UNITS") == 1 and text.count("ITEM: TIMESTEP") == 4
-    third = mdapy.read(path, frame=2)
+    third = mdapy.io.read(path, frame=2)
     assert third.info["timestep"] == 2
     np.testing.assert_allclose(
         third["positions"], system["positions"] + 0.2, rtol=1e-15
@@ -366,7 +366,7 @@ def test_many_frames_from_a_generator(tmp_path):
 
 def test_columns_option(tmp_path):
     system = rich_system(3)
-    back = mdapy.read(round_trip(tmp_path, system, columns=["velocities", "c_pe"]))
+    back = mdapy.io.read(round_trip(tmp_path, system, columns=["velocities", "c_pe"]))
     assert back.table.columns == [
         "id",
         "type",
@@ -382,9 +382,9 @@ def test_columns_option(tmp_path):
 
 def test_types_from_elements(tmp_path):
     system = mdapy.System(np.zeros((3, 3)), 5.0, elements=["Zr", "Cu", "Zr"])
-    back = mdapy.read(round_trip(tmp_path, system))
+    back = mdapy.io.read(round_trip(tmp_path, system))
     assert back.table["type"].to_list() == [1, 2, 1]
-    back = mdapy.read(round_trip(tmp_path, system, elements=["Cu", "Zr"]))
+    back = mdapy.io.read(round_trip(tmp_path, system, elements=["Cu", "Zr"]))
     assert back.table["type"].to_list() == [2, 1, 2]
 
 
@@ -395,14 +395,14 @@ def test_general_boxes(tmp_path, triclinic):
     system = mdapy.System([[1.0, 2.0, 3.0]], box, elements="Cu")
     path = round_trip(tmp_path, system, triclinic=triclinic)
     assert "ITEM: BOX BOUNDS abc origin pp ff pp\n4.0 0.3 0.2 1.0\n" in path.read_text()
-    assert mdapy.read(path).box == box
+    assert mdapy.io.read(path).box == box
     orthogonal_box = mdapy.Box(5.0)
     path = round_trip(
         tmp_path,
         mdapy.System([[1.0, 2.0, 3.0]], orthogonal_box, elements="Cu"),
         triclinic=triclinic,
     )
-    assert mdapy.read(path).box == orthogonal_box
+    assert mdapy.io.read(path).box == orthogonal_box
 
 
 def test_left_handed_boxes(tmp_path):
@@ -410,12 +410,12 @@ def test_left_handed_boxes(tmp_path):
     system = mdapy.System([[1.0, 2.0, 3.0]], box, elements="Cu").with_columns(
         image=[[1, 2, 3]]
     )
-    back = mdapy.read(round_trip(tmp_path, system))
+    back = mdapy.io.read(round_trip(tmp_path, system))
     np.testing.assert_array_equal(back.box.matrix, box.matrix[[0, 2, 1]])
     assert back.box.pbc.tolist() == [True, False, True]
     assert back.table["image"].to_list() == [[1, 3, 2]]
     without_images = mdapy.System([[1.0, 2.0, 3.0]], box, elements="Cu")
-    back = mdapy.read(round_trip(tmp_path, without_images))
+    back = mdapy.io.read(round_trip(tmp_path, without_images))
     np.testing.assert_array_equal(back.box.matrix, box.matrix[[0, 2, 1]])
 
 
@@ -426,7 +426,7 @@ def test_restricted_option_rotates_vectors(tmp_path, left_handed):
         matrix = matrix[[0, 2, 1]]
     box = mdapy.Box(matrix, origin=[1.0, -2.0, 0.5])
     system = rich_system(10, box=box)
-    back = mdapy.read(round_trip(tmp_path, system, triclinic="restricted"))
+    back = mdapy.io.read(round_trip(tmp_path, system, triclinic="restricted"))
     m = back.box.matrix
     assert m[0, 1] == m[0, 2] == m[1, 2] == 0
     for name in ("velocities", "forces"):
@@ -460,13 +460,13 @@ def test_restricted_option_rotates_vectors(tmp_path, left_handed):
 )  # fmt: skip
 def test_write_errors(tmp_path, system, options, error, message):
     with pytest.raises(error, match=message):
-        mdapy.write(tmp_path / "e.dump", system, **options)
+        mdapy.io.write(tmp_path / "e.dump", system, **options)
     assert not (tmp_path / "e.dump").exists()
 
 
 def test_format_detection():
     for name in ("dump.lammpstrj", "run.dump", "dump.100", "dump.atom.gz"):
-        assert mdapy.detect_format(name) == "lammps-dump"
+        assert mdapy.io.detect_format(name) == "lammps-dump"
 
 
 def test_frames_without_coordinates_or_timestep(tmp_path):
@@ -481,7 +481,7 @@ def test_frames_without_coordinates_or_timestep(tmp_path):
 def test_restricted_option_for_left_handed_boxes_without_images(tmp_path):
     box = mdapy.Box([[4.0, 0, 0], [0, 0.5, 5.0], [0.3, 6.0, 0]])
     system = mdapy.System([[1.0, 2.0, 3.0], [0.5, 0.5, 0.5]], box, elements="Cu")
-    back = mdapy.read(round_trip(tmp_path, system, triclinic="restricted"))
+    back = mdapy.io.read(round_trip(tmp_path, system, triclinic="restricted"))
     np.testing.assert_allclose(back.box.volume, box.volume, rtol=1e-13)
     distance = np.linalg.norm(back["positions"][1] - back["positions"][0])
     np.testing.assert_allclose(

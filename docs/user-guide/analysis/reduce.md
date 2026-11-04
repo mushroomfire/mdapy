@@ -9,7 +9,6 @@ each frame.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.analysis import reduce
 from mdapy.build import build_crystal
 

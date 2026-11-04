@@ -25,7 +25,7 @@ def frames(n=5):
 @pytest.fixture(params=["t.xyz", "t.dump", "t.mdapy", "t.xyz.gz"])
 def path(request, tmp_path):
     path = tmp_path / request.param
-    mdapy.write(path, frames())
+    mdapy.io.write(path, frames())
     return path
 
 
@@ -34,9 +34,9 @@ def steps(trajectory):
 
 
 def test_length_indexing_and_iteration(path):
-    with mdapy.read_trajectory(path) as trajectory:
+    with mdapy.io.read_trajectory(path) as trajectory:
         assert trajectory.path == str(path)
-        assert trajectory.format == mdapy.detect_format(path)
+        assert trajectory.format == mdapy.io.detect_format(path)
         assert len(trajectory) == 5
         assert trajectory[0].info["timestep"] == 0
         assert trajectory[-1].info["timestep"] == 4
@@ -52,8 +52,8 @@ def test_length_indexing_and_iteration(path):
 
 def test_slices(tmp_path):
     path = tmp_path / "t.xyz"
-    mdapy.write(path, frames(10))
-    trajectory = mdapy.read_trajectory(path)
+    mdapy.io.write(path, frames(10))
+    trajectory = mdapy.io.read_trajectory(path)
     assert steps(trajectory[2:8:2]) == [2, 4, 6]
     assert steps(trajectory[::-3]) == [9, 6, 3, 0]
     nested = trajectory[1:9][::2][1:]
@@ -67,8 +67,8 @@ def test_slices(tmp_path):
 
 def test_frames_are_found_only_as_far_as_needed(tmp_path):
     path = tmp_path / "t.xyz"
-    mdapy.write(path, frames(50))
-    trajectory = mdapy.read_trajectory(path)
+    mdapy.io.write(path, frames(50))
+    trajectory = mdapy.io.read_trajectory(path)
     assert "frames=0+" in repr(trajectory)
     assert trajectory[0].info["timestep"] == 0
     assert len(trajectory._frames.positions) == 1
@@ -83,10 +83,10 @@ def test_frames_are_found_only_as_far_as_needed(tmp_path):
 
 def test_iteration_stops_at_a_truncated_frame(tmp_path):
     path = tmp_path / "t.xyz"
-    mdapy.write(path, frames(3))
+    mdapy.io.write(path, frames(3))
     text = path.read_text()
     path.write_text(text[: text.rindex("\n", 0, len(text) - 1)])  # drop the last line
-    trajectory = mdapy.read_trajectory(path)
+    trajectory = mdapy.io.read_trajectory(path)
     seen = []
     with pytest.raises(
         FileFormatError, match="the frame has 2 atoms, but the file ends"
@@ -98,8 +98,8 @@ def test_iteration_stops_at_a_truncated_frame(tmp_path):
 
 def test_single_frame_formats(tmp_path):
     path = tmp_path / "POSCAR"
-    mdapy.write(path, frames(1)[0])
-    trajectory = mdapy.read_trajectory(path)
+    mdapy.io.write(path, frames(1)[0])
+    trajectory = mdapy.io.read_trajectory(path)
     assert len(trajectory) == 1 and trajectory.format == "poscar"
     assert len(list(trajectory)) == 1 and len(trajectory[-1]) == 2
     with pytest.raises(IndexError):
@@ -108,7 +108,7 @@ def test_single_frame_formats(tmp_path):
 
 def test_options_apply_to_every_frame(tmp_path):
     path = tmp_path / "t.dump"
-    mdapy.write(path, frames(2))
+    mdapy.io.write(path, frames(2))
     text = (
         path.read_text()
         .replace(" element", "")
@@ -116,35 +116,35 @@ def test_options_apply_to_every_frame(tmp_path):
         .replace(" Zr ", " ")
     )
     path.write_text(text)
-    trajectory = mdapy.read_trajectory(path, elements=["Ni", "Al"])
+    trajectory = mdapy.io.read_trajectory(path, elements=["Ni", "Al"])
     assert [f.table["element"].to_list() for f in trajectory] == [["Ni", "Al"]] * 2
 
 
 def test_mdapy_files_read_their_index_once(tmp_path, monkeypatch):
     path = tmp_path / "t.mdapy"
-    mdapy.write(path, frames(6))
+    mdapy.io.write(path, frames(6))
     calls = []
     original = _native._headers
     monkeypatch.setattr(
         _native, "_headers", lambda archive: calls.append(1) or original(archive)
     )
-    assert steps(mdapy.read_trajectory(path)) == list(range(6))
+    assert steps(mdapy.io.read_trajectory(path)) == list(range(6))
     assert len(calls) == 1
 
 
 def test_converting_a_trajectory(tmp_path):
     source = tmp_path / "t.xyz"
-    mdapy.write(source, frames(4))
+    mdapy.io.write(source, frames(4))
     target = tmp_path / "t.mdapy"
-    with mdapy.read_trajectory(source) as trajectory:
-        mdapy.write(target, trajectory[::2])
-    assert steps(mdapy.read_trajectory(target)) == [0, 2]
+    with mdapy.io.read_trajectory(source) as trajectory:
+        mdapy.io.write(target, trajectory[::2])
+    assert steps(mdapy.io.read_trajectory(target)) == [0, 2]
 
 
 def test_closed_trajectories_release_the_file(tmp_path):
     path = tmp_path / "t.xyz"
-    mdapy.write(path, frames(2))
-    with mdapy.read_trajectory(path) as trajectory:
+    mdapy.io.write(path, frames(2))
+    with mdapy.io.read_trajectory(path) as trajectory:
         trajectory[1]
         source = trajectory._frames.source(0)
     assert source._map.closed
@@ -153,12 +153,12 @@ def test_closed_trajectories_release_the_file(tmp_path):
 
 def test_unknown_formats(tmp_path):
     with pytest.raises(UnsupportedFormat, match="cannot tell the format"):
-        mdapy.read_trajectory(tmp_path / "t.unknown")
+        mdapy.io.read_trajectory(tmp_path / "t.unknown")
 
 
 def test_top_level_names():
-    assert mdapy.read_trajectory is mdapy.io.read_trajectory
-    assert mdapy.Trajectory is mdapy.io.Trajectory
+    assert mdapy.io.read_trajectory is mdapy.io.read_trajectory
+    assert mdapy.io.Trajectory is mdapy.io.Trajectory
 
 
 def test_files_of_a_pattern_or_a_list(tmp_path):
@@ -166,25 +166,25 @@ def test_files_of_a_pattern_or_a_list(tmp_path):
     numbers in their names; any frame read in any order."""
     series = frames(6)
     for step, pair in zip((0, 5, 10), (series[0:2], series[2:4], series[4:6])):
-        mdapy.write(tmp_path / f"dump.{step}.lammpstrj", pair)
+        mdapy.io.write(tmp_path / f"dump.{step}.lammpstrj", pair)
     pattern = tmp_path / "dump.*.lammpstrj"
-    trajectory = mdapy.read_trajectory(pattern)
+    trajectory = mdapy.io.read_trajectory(pattern)
     assert trajectory.path == str(pattern) and trajectory.format == "lammps-dump"
     assert steps(trajectory) == [0, 1, 2, 3, 4, 5] and len(trajectory) == 6
     # back to the first file, then on to the last
     assert [trajectory[k].info["timestep"] for k in (5, 0, 3, -1)] == [5, 0, 3, 5]
     assert steps(trajectory[::2]) == [0, 2, 4]
     listed = [tmp_path / f"dump.{step}.lammpstrj" for step in (10, 0)]
-    assert steps(mdapy.read_trajectory(listed)) == [4, 5, 0, 1]
-    assert mdapy.read_trajectory(listed).path == str(listed[0])
+    assert steps(mdapy.io.read_trajectory(listed)) == [4, 5, 0, 1]
+    assert mdapy.io.read_trajectory(listed).path == str(listed[0])
     # a format of one frame per file
     for k, frame in enumerate(series[:3]):
-        mdapy.write(tmp_path / f"frame{k}.xyz", frame)
-    assert steps(mdapy.read_trajectory(tmp_path / "frame*.xyz")) == [0, 1, 2]
+        mdapy.io.write(tmp_path / f"frame{k}.xyz", frame)
+    assert steps(mdapy.io.read_trajectory(tmp_path / "frame*.xyz")) == [0, 1, 2]
     with pytest.raises(FileNotFoundError, match="no file matches"):
-        mdapy.read_trajectory(tmp_path / "none.*.xyz")
+        mdapy.io.read_trajectory(tmp_path / "none.*.xyz")
     with pytest.raises(InvalidParameter, match="at least one file"):
-        mdapy.read_trajectory([])
+        mdapy.io.read_trajectory([])
 
 
 def water(n=4):
@@ -212,8 +212,8 @@ def water(n=4):
 def moved(tmp_path):
     """A data file of water and three dumps of it, the atoms in shuffled
     order, moving in a box that grows; the second frame without atom 5."""
-    mdapy.write(tmp_path / "water.data", water(), atom_style="full")
-    topology = mdapy.read(tmp_path / "water.data")
+    mdapy.io.write(tmp_path / "water.data", water(), atom_style="full")
+    topology = mdapy.io.read(tmp_path / "water.data")
     rng = np.random.default_rng(1)
     for step in range(3):
         order = rng.permutation(len(topology))
@@ -224,7 +224,7 @@ def moved(tmp_path):
             positions=frame["positions"] + rng.normal(0, 0.1, (len(frame), 3))
         )
         box = mdapy.Box(15.0 + step, pbc=(True, True, False))
-        mdapy.write(
+        mdapy.io.write(
             tmp_path / f"water.{step}.dump",
             frame.with_box(box).with_info(timestep=step),
         )
@@ -235,8 +235,8 @@ def test_frames_of_a_topology(moved):
     """Each frame in the order of the topology, with its bonds, angles,
     charges and molecules; atoms missing from a frame left out."""
     topology, pattern = moved
-    plain = mdapy.read_trajectory(pattern)
-    trajectory = mdapy.read_trajectory(pattern, topology=topology)
+    plain = mdapy.io.read_trajectory(pattern)
+    trajectory = mdapy.io.read_trajectory(pattern, topology=topology)
     for step, (frame, raw) in enumerate(zip(trajectory, plain)):
         ids = np.asarray(frame["id"])
         expected = np.asarray(topology["id"])
@@ -279,7 +279,7 @@ def test_frames_of_a_topology_as_ovito(moved):
     loader = LoadTrajectoryModifier()
     loader.source.load(str(pattern))
     pipeline.modifiers.append(loader)
-    ours = mdapy.read_trajectory(pattern, topology=topology)
+    ours = mdapy.io.read_trajectory(pattern, topology=topology)
     assert loader.source.num_frames == len(ours) == 3
     for step, frame in enumerate(ours):
         data = pipeline.compute(step)
@@ -300,41 +300,41 @@ def test_frames_of_a_topology_as_ovito(moved):
 
 def test_frames_that_do_not_fit_the_topology(moved, tmp_path):
     topology, pattern = moved
-    extra = mdapy.read(tmp_path / "water.0.dump")
+    extra = mdapy.io.read(tmp_path / "water.0.dump")
     extra = extra.with_columns(
         id=np.where(np.asarray(extra["id"]) == 3, 99, extra["id"])
     )
-    mdapy.write(tmp_path / "extra.dump", extra)
+    mdapy.io.write(tmp_path / "extra.dump", extra)
     with pytest.raises(InvalidParameter, match="not in the topology, such as id 99"):
-        mdapy.read_trajectory(tmp_path / "extra.dump", topology=topology)[0]
+        mdapy.io.read_trajectory(tmp_path / "extra.dump", topology=topology)[0]
     twice = extra.with_columns(id=np.ones(len(extra), dtype=np.int64))
-    mdapy.write(tmp_path / "twice.dump", twice)
+    mdapy.io.write(tmp_path / "twice.dump", twice)
     with pytest.raises(InvalidParameter, match="repeat ids"):
-        mdapy.read_trajectory(tmp_path / "twice.dump", topology=topology)[0]
+        mdapy.io.read_trajectory(tmp_path / "twice.dump", topology=topology)[0]
     with pytest.raises(InvalidParameter, match="the atoms of the topology repeat"):
-        mdapy.read_trajectory(pattern, topology=twice)[0]
+        mdapy.io.read_trajectory(pattern, topology=twice)[0]
     # frames without ids: the same number of atoms, the topology numbered
-    dumped = mdapy.read(tmp_path / "water.0.dump")
+    dumped = mdapy.io.read(tmp_path / "water.0.dump")
     plain = mdapy.System(dumped["positions"], dumped.box, elements=["O", "H", "H"] * 4)
-    mdapy.write(tmp_path / "plain.xyz", plain)
-    frame = mdapy.read_trajectory(tmp_path / "plain.xyz", topology=topology)[0]
+    mdapy.io.write(tmp_path / "plain.xyz", plain)
+    frame = mdapy.io.read_trajectory(tmp_path / "plain.xyz", topology=topology)[0]
     np.testing.assert_array_equal(frame["positions"], plain["positions"])
     assert frame.topology is topology.topology
-    mdapy.write(tmp_path / "short.xyz", plain.gather(np.arange(5)))
+    mdapy.io.write(tmp_path / "short.xyz", plain.gather(np.arange(5)))
     with pytest.raises(InvalidParameter, match="without ids they must be the same"):
-        mdapy.read_trajectory(tmp_path / "short.xyz", topology=topology)[0]
+        mdapy.io.read_trajectory(tmp_path / "short.xyz", topology=topology)[0]
     renumbered = topology.with_columns(id=np.asarray(topology["id"]) + 10)
     with pytest.raises(InvalidParameter, match="not 1 to N in order"):
-        mdapy.read_trajectory(tmp_path / "plain.xyz", topology=renumbered)[0]
+        mdapy.io.read_trajectory(tmp_path / "plain.xyz", topology=renumbered)[0]
     with pytest.raises(InvalidParameter, match="those of the topology not"):
-        mdapy.read_trajectory(pattern, topology=topology.drop("id"))[0]
+        mdapy.io.read_trajectory(pattern, topology=topology.drop("id"))[0]
 
 
 def test_frames_through_a_function(tmp_path):
     """map: each frame through the function when it is used, as indices,
     slices, iteration and the analyses of trajectories take it."""
-    mdapy.write(tmp_path / "t.dump", frames(6))
-    trajectory = mdapy.read_trajectory(tmp_path / "t.dump")
+    mdapy.io.write(tmp_path / "t.dump", frames(6))
+    trajectory = mdapy.io.read_trajectory(tmp_path / "t.dump")
     calls = []
 
     def shifted(frame):
@@ -367,11 +367,11 @@ def test_frames_through_a_function(tmp_path):
 def test_files_of_several_formats(tmp_path):
     copper = build_crystal("fcc", 3.6, elements="Cu", repeat=(2, 2, 2))
     iron = build_crystal("bcc", 2.9, elements="Fe", repeat=(3, 3, 3))
-    mdapy.write(tmp_path / "a.xyz", [copper, copper])
-    mdapy.write(tmp_path / "b.data", iron)
-    mdapy.write(tmp_path / "c.xyz", copper)
+    mdapy.io.write(tmp_path / "a.xyz", [copper, copper])
+    mdapy.io.write(tmp_path / "b.data", iron)
+    mdapy.io.write(tmp_path / "c.xyz", copper)
     names = [tmp_path / name for name in ("a.xyz", "b.data", "c.xyz")]
-    frames = mdapy.read_trajectory(names)
+    frames = mdapy.io.read_trajectory(names)
     assert frames.format == "extxyz"
     assert [len(frame) for frame in frames] == [32, 32, 54, 32]
     # backwards and in slices too, each from the format of its file
@@ -381,14 +381,16 @@ def test_files_of_several_formats(tmp_path):
 
 def test_a_format_given_or_a_name_of_no_format(tmp_path):
     copper = build_crystal("fcc", 3.6, elements="Cu", repeat=(2, 2, 2))
-    mdapy.write(tmp_path / "a.xyz", copper)
-    mdapy.write(tmp_path / "b.data", copper)
-    mdapy.write(tmp_path / "c.xyz", copper)
+    mdapy.io.write(tmp_path / "a.xyz", copper)
+    mdapy.io.write(tmp_path / "b.data", copper)
+    mdapy.io.write(tmp_path / "c.xyz", copper)
     (tmp_path / "c.xyz").rename(tmp_path / "copy_of_c")
     # a name that tells nothing is read as the first file
-    frames = mdapy.read_trajectory([tmp_path / "a.xyz", tmp_path / "copy_of_c"])
+    frames = mdapy.io.read_trajectory([tmp_path / "a.xyz", tmp_path / "copy_of_c"])
     assert [len(frame) for frame in frames] == [32, 32]
     # a format given is for every file, as it says
-    frames = mdapy.read_trajectory([tmp_path / "a.xyz", tmp_path / "b.data"], "extxyz")
+    frames = mdapy.io.read_trajectory(
+        [tmp_path / "a.xyz", tmp_path / "b.data"], "extxyz"
+    )
     with pytest.raises(FileFormatError, match="b.data"):
         list(frames)

@@ -50,7 +50,7 @@ def test_mdapy_reads_ase_files(tmp_path):
     ase_io.write(path, ase_atoms(), format="extxyz")
     # ASE writes 8 decimals; compare with what ASE reads from the same file.
     atoms = ase_io.read(path, format="extxyz")
-    system = mdapy.read(path)
+    system = mdapy.io.read(path)
     assert system.table["element"].to_list() == atoms.get_chemical_symbols()
     np.testing.assert_array_equal(system["positions"], atoms.positions)
     np.testing.assert_array_equal(system.box.matrix, atoms.cell[:])
@@ -82,7 +82,7 @@ def test_ase_reads_mdapy_files(tmp_path):
         },
     ).with_columns(forces=rng.standard_normal((3, 3)), charge=[-0.8, 0.4, 0.4])
     path = tmp_path / "mdapy.xyz"
-    mdapy.write(path, system)
+    mdapy.io.write(path, system)
     atoms = ase_io.read(path, format="extxyz")
     assert atoms.get_chemical_symbols() == ["O", "H", "H"]
     np.testing.assert_array_equal(atoms.positions, system["positions"])

@@ -44,8 +44,8 @@ the timings; that of Atomsk, a process of its own, is not counted.
 
 | Case | MDAPY | Atomsk |
 |---|---|---|
-| Single crystal | `mp.write(path, build_crystal("fcc", 3.615, elements="Cu", repeat=(n, n, n)))` | `atomsk --create fcc 3.615 Cu -duplicate n n n path.lmp` |
-| Polycrystal | `mp.write(path, build_polycrystal(unit, box, seeds, orientations=rotations, min_distance=0.01))` | `atomsk --polycrystal unit.xsf parameters.txt path.lmp` |
+| Single crystal | `mdapy.io.write(path, build_crystal("fcc", 3.615, elements="Cu", repeat=(n, n, n)))` | `atomsk --create fcc 3.615 Cu -duplicate n n n path.lmp` |
+| Polycrystal | `mdapy.io.write(path, build_polycrystal(unit, box, seeds, orientations=rotations, min_distance=0.01))` | `atomsk --polycrystal unit.xsf parameters.txt path.lmp` |
 
 Atomsk writes every structure it builds to a file, so both programs are
 timed building the structure and writing it as a LAMMPS data file.

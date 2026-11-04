@@ -44,7 +44,7 @@ def crystal(seed=0):
 def plain_lammps(tmp_path, system, setfl, commands):
     """Final positions and velocities (by id) of a run written as LAMMPS input."""
     data = tmp_path / "start.data"
-    mdapy.write(data, system, atom_style="atomic", elements=["Cu", "Ni"])
+    mdapy.io.write(data, system, atom_style="atomic", elements=["Cu", "Ni"])
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(

@@ -111,8 +111,8 @@ def test_a_trajectory_and_slices(tmp_path):
     """A trajectory read lazily gives the same frames as a list; slices are
     the corrected frames they select."""
     frames, _ = drifting()
-    mdapy.write(tmp_path / "walk.dump", frames)
-    with mdapy.read_trajectory(tmp_path / "walk.dump") as trajectory:
+    mdapy.io.write(tmp_path / "walk.dump", frames)
+    with mdapy.io.read_trajectory(tmp_path / "walk.dump") as trajectory:
         lazy = remove_drift(trajectory, 2)
         eager = remove_drift(frames, 2)
         for a, b in zip(lazy, eager):

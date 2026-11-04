@@ -196,7 +196,7 @@ def walk(atoms: int) -> dict:
         frames.append(frame.with_info(timestep=t))
         positions += rng.normal(0.0, 0.1, positions.shape)
     path = os.path.join(_folder(), f"walk-{len(start)}.dump")
-    mdapy.write(path, frames)
+    mdapy.io.write(path, frames)
     return {"path": path, "system": start}
 
 
@@ -207,7 +207,7 @@ def _msd_mdapy(inputs: dict) -> Callable:
 
     def run():
         # the frames read one at a time, as OVITO's pipeline does
-        frames = mdapy.read_trajectory(inputs["path"])
+        frames = mdapy.io.read_trajectory(inputs["path"])
         return MeanSquaredDisplacement(unwrap=False).compute(frames)
 
     return run
@@ -539,7 +539,7 @@ def copper_file(fmt: str, write: bool) -> Callable[[int], dict]:
         name = f"{'written' if write else 'copper'}-{n}{spec['suffix']}"
         path = os.path.join(_folder(), name)
         if not write:
-            mdapy.write(path, system)
+            mdapy.io.write(path, system)
         return {"system": system, "path": path}
 
     return inputs
@@ -567,7 +567,7 @@ def _read(fmt: str) -> tuple[Callable, dict[str, Other]]:
     def mdapy_side(inputs: dict) -> Callable:
         import mdapy
 
-        return lambda: mdapy.read(inputs["path"])
+        return lambda: mdapy.io.read(inputs["path"])
 
     def ovito_side(inputs: dict) -> Callable:
         from ovito.io import import_file
@@ -606,7 +606,7 @@ def _write(fmt: str) -> tuple[Callable, dict[str, Other]]:
         import mdapy
 
         def run():
-            mdapy.write(inputs["path"], inputs["system"])
+            mdapy.io.write(inputs["path"], inputs["system"])
             return inputs["path"]
 
         return run
@@ -617,7 +617,7 @@ def _write(fmt: str) -> tuple[Callable, dict[str, Other]]:
         def agree(ours, theirs, inputs) -> None:
             import mdapy
 
-            system, back = inputs["system"], mdapy.read(theirs)
+            system, back = inputs["system"], mdapy.io.read(theirs)
             equal(len(back), len(system))
             np.testing.assert_allclose(
                 back["positions"], system["positions"], rtol=0, atol=tolerance
@@ -780,7 +780,9 @@ def _build_crystal_mdapy(inputs: dict) -> Callable:
     n, path = inputs["repeat"], inputs["path"] + "-mdapy.data"
 
     def run():
-        mdapy.write(path, build_crystal("fcc", 3.615, elements="Cu", repeat=(n, n, n)))
+        mdapy.io.write(
+            path, build_crystal("fcc", 3.615, elements="Cu", repeat=(n, n, n))
+        )
         return path
 
     return run
@@ -801,7 +803,7 @@ def _same_sites(ours, theirs, inputs) -> None:
     of Atomsk."""
     import mdapy
 
-    mine, other = mdapy.read(ours), mdapy.read(theirs)
+    mine, other = mdapy.io.read(ours), mdapy.io.read(theirs)
     np.testing.assert_allclose(other.box.matrix, mine.box.matrix, atol=1e-9)
     equal(len(other), len(mine))
 
@@ -818,7 +820,7 @@ def _build_polycrystal_mdapy(inputs: dict) -> Callable:
     path = inputs["path"] + "-mdapy.data"
 
     def run():
-        mdapy.write(path, _polycrystal(inputs))
+        mdapy.io.write(path, _polycrystal(inputs))
         return path
 
     return run
@@ -845,7 +847,7 @@ def _same_polycrystal(ours, theirs, inputs) -> None:
 
     import mdapy
 
-    mine, other = mdapy.read(ours), mdapy.read(theirs)
+    mine, other = mdapy.io.read(ours), mdapy.io.read(theirs)
     np.testing.assert_allclose(other.box.matrix, mine.box.matrix, atol=1e-6)
     assert abs(len(other) - len(mine)) <= 0.005 * len(mine), (len(other), len(mine))
     box = mine.box

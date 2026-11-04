@@ -32,7 +32,7 @@ def test_mdapy_reads_ase_files(tmp_path):
     path = tmp_path / "POSCAR"
     ase_io.write(path, atoms, format="vasp", direct=True)
     expected = ase_io.read(path, format="vasp")  # what the file holds
-    system = mdapy.read(path)
+    system = mdapy.io.read(path)
     assert system.table["element"].to_list() == expected.get_chemical_symbols()
     np.testing.assert_array_equal(system.box.matrix, expected.cell[:])
     np.testing.assert_allclose(system["positions"], expected.positions, atol=1e-14)
@@ -54,7 +54,7 @@ def test_ase_reads_mdapy_files(tmp_path):
         box.to_cartesian(rng.random((4, 3))), box, elements=["O", "Ti", "O", "Ti"]
     ).with_columns(velocities=rng.standard_normal((4, 3)))
     path = tmp_path / "POSCAR"
-    mdapy.write(path, system)
+    mdapy.io.write(path, system)
     atoms = ase_io.read(path, format="vasp")
     order = [0, 2, 1, 3]  # grouped by element
     assert atoms.get_chemical_symbols() == ["O", "O", "Ti", "Ti"]
@@ -67,6 +67,6 @@ def test_ase_reads_mdapy_files(tmp_path):
     )
     # ASE turns atoms whose three flags are F into FixAtoms
     fixed = system.with_columns(movable=[[True] * 3, [False] * 3] * 2)
-    mdapy.write(path, fixed)
+    mdapy.io.write(path, fixed)
     constraints = ase_io.read(path, format="vasp").constraints
     assert [c.get_indices().tolist() for c in constraints] == [[2, 3]]

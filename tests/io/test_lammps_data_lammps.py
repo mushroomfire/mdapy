@@ -21,7 +21,7 @@ def through_lammps(tmp_path, system, setup, write_options="", after="", **option
     """setup runs before read_data, after between read_data and write_data."""
     path = tmp_path / "in.data"
     out = tmp_path / "out.data"
-    mdapy.write(path, system, **options)
+    mdapy.io.write(path, system, **options)
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(
@@ -29,7 +29,7 @@ def through_lammps(tmp_path, system, setup, write_options="", after="", **option
         )
     finally:
         lmp.close()
-    return mdapy.read(out)
+    return mdapy.io.read(out)
 
 
 def unwrapped_fractions(system):
@@ -74,7 +74,7 @@ def test_full_style(tmp_path, units):
     for name in ("id", "molecule", "type", "charge", "type_label", "element", "mass"):
         assert (
             back.table[name].to_list()
-            == mdapy.read(tmp_path / "in.data").table[name].to_list()
+            == mdapy.io.read(tmp_path / "in.data").table[name].to_list()
         ), name
     # Exact in metal units. In real units LAMMPS stores Å/fs as a double, which
     # rounds once: at most 1 unit in the last place.

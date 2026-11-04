@@ -12,12 +12,12 @@ kind of model.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.calculators import EAM, NEP
+from mdapy.io import read
 from mdapy.mlip import SOAP, committee, novelty, structure_descriptors
 from mdapy.visualization import plot
 
-sqs = mp.read("SQS.xyz")  # 108 atoms of CrCoNi
+sqs = read("SQS.xyz")  # 108 atoms of CrCoNi
 rng = np.random.default_rng(1)
 
 

@@ -6,10 +6,10 @@
 
 <!-- skip-test -->
 ```python
-import mdapy as mp
+from mdapy.io import read_trajectory
 from mdapy.visualization import render, write_movie
 
-frames = mp.read_trajectory("run.dump")
+frames = read_trajectory("run.dump")
 camera = dict(view="iso", focus=(50.0, 50.0, 50.0), span=150.0)
 pictures = (
     render(frame, width=1280, height=720, device="auto", **camera) for frame in frames

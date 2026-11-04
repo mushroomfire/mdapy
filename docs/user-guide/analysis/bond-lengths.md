@@ -8,7 +8,6 @@ The bonds come from a file, such as a LAMMPS data file, or from
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy import transform
 from mdapy.analysis import BondLengthDistribution
 from mdapy.build import build_crystal

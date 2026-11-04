@@ -88,8 +88,8 @@ def assert_same_info(a, b):
 def test_round_trip_is_exact(tmp_path):
     system = rich_system()
     path = tmp_path / "a.mdapy"
-    mdapy.write(path, system)
-    back = mdapy.read(path)
+    mdapy.io.write(path, system)
+    back = mdapy.io.read(path)
     assert back.table.equals(system.table)
     assert back.table.schema == system.table.schema  # Enum, Float32, UInt8, Array kept
     assert back.box == system.box
@@ -111,7 +111,7 @@ def test_frames_share_topologies_and_have_typed_columns(tmp_path):
         base.with_info(energy=-5.0, step=4),
     ]
     path = tmp_path / "t.mdapy"
-    mdapy.write(path, frames)
+    mdapy.io.write(path, frames)
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         table = pl.read_parquet(io.BytesIO(archive.read("frames.parquet")))
@@ -133,7 +133,7 @@ def test_frames_share_topologies_and_have_typed_columns(tmp_path):
     assert manifest["format"] == "mdapy" and manifest["version"] == 1
     assert manifest["frames"] == 5 and manifest["units"]["stress"] == "GPa"
     for k, frame in enumerate(frames):
-        back = mdapy.read(path, frame=k)
+        back = mdapy.io.read(path, frame=k)
         assert back.table.equals(frame.table)
         assert back.topology == frame.topology
         assert back.info["energy"] == frame.info["energy"]
@@ -148,7 +148,7 @@ def test_mixed_and_irregular_info_values_have_no_typed_columns(tmp_path):
         ),
     ]
     path = tmp_path / "m.mdapy"
-    mdapy.write(path, frames)
+    mdapy.io.write(path, frames)
     with zipfile.ZipFile(path) as archive:
         table = pl.read_parquet(io.BytesIO(archive.read("frames.parquet")))
     assert [c for c in table.columns if c.startswith("info.")] == ["info.text"]
@@ -157,8 +157,8 @@ def test_mixed_and_irregular_info_values_have_no_typed_columns(tmp_path):
 def test_members_are_stored_and_reproducible(tmp_path):
     system = rich_system()
     first, second = tmp_path / "1.mdapy", tmp_path / "2.mdapy"
-    mdapy.write(first, [system, system])
-    mdapy.write(second, [system, system])
+    mdapy.io.write(first, [system, system])
+    mdapy.io.write(second, [system, system])
     with zipfile.ZipFile(first) as a, zipfile.ZipFile(second) as b:
         assert all(i.compress_type == zipfile.ZIP_STORED for i in a.infolist())
         for name in a.namelist():
@@ -169,9 +169,9 @@ def test_members_are_stored_and_reproducible(tmp_path):
 def test_compressed_files(tmp_path):
     path = tmp_path / "c.mdapy.gz"
     system = rich_system()
-    mdapy.write(path, system)
+    mdapy.io.write(path, system)
     assert gzip.decompress(path.read_bytes())[:4] == b"PK\x03\x04"
-    assert mdapy.read(path).table.equals(system.table)
+    assert mdapy.io.read(path).table.equals(system.table)
 
 
 def truncated(path, before):
@@ -184,22 +184,22 @@ def truncated(path, before):
 def test_recovery_of_files_that_were_not_closed(tmp_path):
     frames = [rich_system().with_info(step=k) for k in range(3)]
     path = tmp_path / "t.mdapy"
-    mdapy.write(path, frames)
+    mdapy.io.write(path, frames)
     cut = truncated(path, "frames.parquet")  # the writer stopped before closing
     with pytest.raises(zipfile.BadZipFile):
         zipfile.ZipFile(cut)
     for k in range(3):
-        back = mdapy.read(cut, frame=k)
+        back = mdapy.io.read(cut, frame=k)
         assert back.table.equals(frames[k].table) and back.info["step"] == k
         assert back.topology == frames[k].topology
     cut = truncated(path, "atoms/00000002.parquet")  # before the third frame
     with pytest.raises(InvalidParameter, match="the file has 2 frames"):
-        mdapy.read(cut, frame=2)
+        mdapy.io.read(cut, frame=2)
     data = path.read_bytes()
     middle = data.index(b"atoms/00000002.parquet") + 1000
     cut.write_bytes(data[:middle])  # in the middle of the third frame
     with pytest.raises(InvalidParameter, match="the file has 2 frames"):
-        mdapy.read(cut, frame=2)
+        mdapy.io.read(cut, frame=2)
 
 
 def test_recovery_of_zip64_members(tmp_path):
@@ -227,7 +227,7 @@ def test_recovery_of_zip64_members(tmp_path):
             f.write(member.getvalue())
     data = path.read_bytes()
     path.write_bytes(data[: data.rindex(b"PK\x01\x02")])  # drop the central directory
-    assert mdapy.read(path).table.equals(system.table)
+    assert mdapy.io.read(path).table.equals(system.table)
 
 
 @pytest.mark.parametrize(
@@ -261,7 +261,7 @@ def test_invalid_files(tmp_path, content, error, message):
                     data = buffer.getvalue()
                 archive.writestr(name, data)
     with pytest.raises(error, match=message):
-        mdapy.read(path)
+        mdapy.io.read(path)
 
 
 @pytest.mark.parametrize(
@@ -275,13 +275,13 @@ def test_invalid_files(tmp_path, content, error, message):
 def test_info_that_cannot_be_written(tmp_path, info, message):
     system = mdapy.System([[0.0, 0, 0]], 5.0, elements="H", info=info)
     with pytest.raises(InvalidParameter, match=message):
-        mdapy.write(tmp_path / "i.mdapy", system)
+        mdapy.io.write(tmp_path / "i.mdapy", system)
     assert not (tmp_path / "i.mdapy").exists()
 
 
 def test_format_detection():
-    assert mdapy.detect_format("run.mdapy") == "mdapy"
-    assert mdapy.detect_format("run.mdapy.zst") == "mdapy"
+    assert mdapy.io.detect_format("run.mdapy") == "mdapy"
+    assert mdapy.io.detect_format("run.mdapy.zst") == "mdapy"
 
 
 def test_buffer_file():
@@ -315,13 +315,13 @@ def damaged_files(data, seed=0):
 def test_a_damaged_file_gives_an_error_of_a_file(tmp_path):
     good = tmp_path / "good.mdapy"
     system = mdapy.System([[0.0, 0, 0], [1, 1, 1]], mdapy.Box(5.0), elements="Cu")
-    mdapy.write(good, [system.with_info(timestep=k) for k in range(3)])
+    mdapy.io.write(good, [system.with_info(timestep=k) for k in range(3)])
     path = tmp_path / "damaged.mdapy"
     errors = 0
     for data in damaged_files(good.read_bytes()):
         path.write_bytes(data)
         try:
-            with mdapy.read_trajectory(path) as trajectory:
+            with mdapy.io.read_trajectory(path) as trajectory:
                 for frame in trajectory:
                     assert frame["positions"].shape[1] == 3
         except (FileFormatError, InvalidParameter, UnsupportedFormat):

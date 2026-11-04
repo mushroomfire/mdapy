@@ -34,8 +34,8 @@ def test_msd_from_the_first_frame_as_lammps(tmp_path, scale):
         frame = frame.with_table(frame.table[rng.permutation(60)])
         frames.append(frame.with_info(timestep=t))
     data, dump, out = tmp_path / "in.data", tmp_path / "md.dump", tmp_path / "msd.txt"
-    mdapy.write(data, frames[0])
-    mdapy.write(dump, frames)
+    mdapy.io.write(data, frames[0])
+    mdapy.io.write(dump, frames)
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(

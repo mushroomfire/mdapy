@@ -28,7 +28,7 @@ def test_relaxation_as_lammps(tmp_path):
         id=np.arange(1, len(full))
     )
     data, out = tmp_path / "in.data", tmp_path / "out.data"
-    mdapy.write(data, system, elements=["Cu", "Ni"])
+    mdapy.io.write(data, system, elements=["Cu", "Ni"])
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(
@@ -51,7 +51,7 @@ write_data {out}
     relaxed = minimize(system, EAM(potential_file), max_force=1e-8, max_steps=100000)
     assert relaxed.converged
     assert relaxed.energy == pytest.approx(energy, abs=1e-8)
-    back = mdapy.read(out)
+    back = mdapy.io.read(out)
     order = np.argsort(back.table["id"].to_numpy())
     step = system.box.minimum_image(
         relaxed.system["positions"] - back["positions"][order]
@@ -72,7 +72,7 @@ def test_steps_as_lammps(tmp_path, steps):
     start = alloy(seed=13, repeat=2, jitter=0.25)
     system = start.with_columns(id=np.arange(1, len(start) + 1))
     data, out = tmp_path / "in.data", tmp_path / "out.data"
-    mdapy.write(data, system, elements=["Cu", "Ni"])
+    mdapy.io.write(data, system, elements=["Cu", "Ni"])
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(
@@ -96,7 +96,7 @@ write_data {out}
     )
     result = minimize(weighted, potential, max_force=1e-12, max_steps=steps)
     assert result.steps == steps
-    back = mdapy.read(out)
+    back = mdapy.io.read(out)
     order = np.argsort(back.table["id"].to_numpy())
     step = system.box.minimum_image(
         result.system["positions"] - back["positions"][order]
@@ -112,7 +112,7 @@ def test_cell_relaxation_as_lammps(tmp_path):
     potential_file = write_setfl(tmp_path / "CuNi.eam.alloy")
     system = alloy(seed=16, repeat=3, jitter=0.03, a=3.45)
     data = tmp_path / "in.data"
-    mdapy.write(data, system, elements=["Cu", "Ni"])
+    mdapy.io.write(data, system, elements=["Cu", "Ni"])
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(

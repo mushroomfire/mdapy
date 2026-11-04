@@ -8,7 +8,6 @@ atom, at hand in every later frame, to compare with what the atom is now.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.build import build_crystal
 from mdapy.identify import CommonNeighborAnalysis
 from mdapy.transform import freeze

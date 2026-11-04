@@ -25,7 +25,7 @@ lammps = pytest.importorskip("lammps")
 def computed(tmp_path, system, commands, per_atom=(), arrays=()):
     """Per-atom vectors (by atom ID) and global arrays of LAMMPS computes."""
     data = tmp_path / "in.data"
-    mdapy.write(data, system)
+    mdapy.io.write(data, system)
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(

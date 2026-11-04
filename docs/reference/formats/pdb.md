@@ -6,7 +6,7 @@ records. Files with extension `.pdb` or `.ent` are recognized. MDAPY reads
 PDB files but does not write them.
 
 ```python
-import mdapy as mp
+from mdapy.io import read
 from mdapy.visualization import render
 
 text = """\
@@ -27,7 +27,7 @@ END
 with open("ethanol.pdb", "w") as f:
     f.write(text)
 
-ethanol = mp.read("ethanol.pdb")
+ethanol = read("ethanol.pdb")
 ethanol["atom_name"]  # C1, C2, O1, H1, ...
 ethanol.topology.bonds  # the eight bonds of CONECT
 render(

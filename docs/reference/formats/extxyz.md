@@ -11,6 +11,7 @@ from pathlib import Path
 
 import numpy as np
 import mdapy as mp
+from mdapy.io import write
 
 system = mp.System(
     positions=[[0.0, 0.0, 0.0], [1.8, 1.8, 0.0]],
@@ -18,7 +19,7 @@ system = mp.System(
     elements=["Cu", "Cu"],
     info={"energy": -7.0, "config_type": "fcc"},
 ).with_columns(forces=np.zeros((2, 3)))
-mp.write("cu.xyz", system)
+write("cu.xyz", system)
 print(Path("cu.xyz").read_text())
 ```
 

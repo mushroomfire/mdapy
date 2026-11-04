@@ -138,7 +138,7 @@ not among the `voids`.
 
 ### Triangle meshes
 
-A `TriangleMesh`, also `mdapy.TriangleMesh`, holds any mesh of triangles,
+A `TriangleMesh`, also `mdapy.analysis.TriangleMesh`, holds any mesh of triangles,
 across periodic boundaries too:
 
 | Attribute or method | Type | Meaning |

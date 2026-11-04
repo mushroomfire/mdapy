@@ -4,6 +4,7 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 import importlib.metadata
+import inspect
 import io
 import os
 import platform
@@ -106,6 +107,63 @@ def test_it_tells_what_is_missing(monkeypatch):
 def test_ffmpeg_on_the_path_is_found(monkeypatch):
     monkeypatch.setattr(shutil, "which", lambda name: "/bin/" + name)
     assert report()["FFmpeg"] == "found"
+
+
+def test_mdapy_needs_nothing_optional_until_it_is_used():
+    """All subpackages load with every optional package blocked, and a plot says
+    what it needs only when it is called."""
+    code = """
+import sys
+BLOCKED = {
+    "ase", "dscribe", "freud", "lammps", "matplotlib", "networkx", "ovito",
+    "phonopy", "pymatgen", "scipy", "seekpath", "spglib", "symfc", "torch",
+}
+for name in BLOCKED:
+    sys.modules[name] = None
+import mdapy
+from mdapy.visualization import plot
+loaded = {name for name, module in sys.modules.items() if module is not None}
+assert not BLOCKED & {name.split(".")[0] for name in loaded}
+try:
+    plot.figure("single")
+except ImportError as error:
+    assert "matplotlib" in str(error)
+else:
+    raise SystemExit("a plot did not ask for matplotlib")
+"""
+    subprocess.run([sys.executable, "-c", code], check=True, capture_output=True)
+
+
+def test_the_top_level_holds_the_foundations():
+    objects = {"Box", "CancelToken", "NeighborList", "System", "Topology"}
+    functions = {
+        "get_num_threads",
+        "index_dtype",
+        "num_threads",
+        "set_num_threads",
+        "show_versions",
+    }
+    modules = {
+        "analysis",
+        "build",
+        "calculators",
+        "elements",
+        "errors",
+        "identify",
+        "interop",
+        "io",
+        "lattice_dynamics",
+        "mlip",
+        "neighbor",
+        "simulation",
+        "transform",
+        "units",
+        "visualization",
+    }
+    assert set(mp.__all__) == objects | functions | modules | {"__version__"}
+    assert all(hasattr(mp, name) for name in mp.__all__)
+    for module in modules:
+        assert inspect.ismodule(getattr(mp, module))
 
 
 def test_it_imports_nothing_heavy():

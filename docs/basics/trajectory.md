@@ -1,12 +1,13 @@
 # Trajectories
 
-`mdapy.read_trajectory` opens the frames of a file without reading them. A
+`mdapy.io.read_trajectory` opens the frames of a file without reading them. A
 frame is read when it is used, so a long trajectory never has to fit in
 memory, and iterating over it starts at once.
 
 ```python
 import numpy as np
 import mdapy as mp
+from mdapy.io import read_trajectory, write
 
 rng = np.random.default_rng(0)
 system = mp.System(rng.random((10, 3)) * 5, mp.Box(5.0), elements="Ar")
@@ -14,20 +15,20 @@ frames = (
     system.with_columns(positions=system["positions"] + 0.01 * k).with_info(step=k)
     for k in range(100)
 )
-mp.write("run.xyz", frames)
+write("run.xyz", frames)
 
-with mp.read_trajectory("run.xyz") as trajectory:
+with read_trajectory("run.xyz") as trajectory:
     first = trajectory[0]  # reads one frame
     every_tenth = trajectory[::10]  # a trajectory of 10 frames, nothing read
     steps = [frame.info["step"] for frame in every_tenth]
     count = len(trajectory)  # 100
-    mp.write("every_tenth.mdapy", every_tenth)  # writes the selected frames
+    write("every_tenth.mdapy", every_tenth)  # writes the selected frames
 ```
 
 ## Use
 
-`mdapy.read_trajectory(path, format=None, *, topology=None, **options)`
-takes the same arguments as [`mdapy.read`](io.md#reading), without
+`mdapy.io.read_trajectory(path, format=None, *, topology=None, **options)`
+takes the same arguments as [`mdapy.io.read`](io.md#reading), without
 `frame`; the options of the format apply to every frame. `path` may also
 name [several files](#several-files), and `topology` a system whose atoms
 the frames [move](#a-topology-for-the-frames). It returns a `Trajectory`:
@@ -43,7 +44,7 @@ the frames [move](#a-topology-for-the-frames). It returns a `Trajectory`:
 | `trajectory.map(function)` | the frames through a function, [below](#frames-through-a-function) |
 
 Any format works; a format that holds one frame gives a trajectory of one
-frame. A trajectory is an iterable of systems, so `mdapy.write` writes it, or
+frame. A trajectory is an iterable of systems, so `mdapy.io.write` writes it, or
 a slice of it, to any format that holds several frames.
 
 ## Reading frames
@@ -84,7 +85,7 @@ def with_height(frame):
     return frame.with_columns(height=frame["positions.z"] - 2.5)
 
 
-with mp.read_trajectory("run.xyz") as trajectory:
+with read_trajectory("run.xyz") as trajectory:
     analyzed = trajectory.map(with_height)
     mean = TimeSeries("height", "mean").compute(analyzed)  # one value a frame
     last = analyzed[-1]  # the last frame, with its height when it is read
@@ -100,10 +101,10 @@ mix:
 
 ```python
 for k in range(3):
-    mp.write(f"part.{k * 50}.xyz", [system.with_info(step=k)] * 2)
+    write(f"part.{k * 50}.xyz", [system.with_info(step=k)] * 2)
 
-parts = mp.read_trajectory("part.*.xyz")  # part.0, part.50, part.100: 6 frames
-chosen = mp.read_trajectory(["part.100.xyz", "part.0.xyz"])  # 4 frames
+parts = read_trajectory("part.*.xyz")  # part.0, part.50, part.100: 6 frames
+chosen = read_trajectory(["part.100.xyz", "part.0.xyz"])  # 4 frames
 ```
 
 Each file has the format of its name, so formats mix, or that of the first
@@ -117,6 +118,8 @@ molecules. With `topology`, each frame takes the atoms of a system, such as
 one read from a data file, with all of these:
 
 ```python
+from mdapy.io import read
+
 oxygens = rng.random((4, 3)) * 12 + 1
 positions = np.stack(
     [oxygens, oxygens + [0.96, 0, 0], oxygens + [-0.24, 0.93, 0]], axis=1
@@ -132,15 +135,15 @@ water = mp.System(
 ).with_columns(
     charge=[-0.8476, 0.4238, 0.4238] * 4, molecule=np.repeat([1, 2, 3, 4], 3)
 )
-mp.write("water.data", water, atom_style="full")
-data = mp.read("water.data")  # ids 1 to 12
+write("water.data", water, atom_style="full")
+data = read("water.data")  # ids 1 to 12
 
 # dumps of the positions only, the atoms in any order
 for step in range(3):
     shuffled = data.gather(rng.permutation(12)).select("id", "type", "positions")
-    mp.write(f"water.{step}.dump", shuffled.with_info(timestep=step))
+    write(f"water.{step}.dump", shuffled.with_info(timestep=step))
 
-for frame in mp.read_trajectory("water.*.dump", topology=data):
+for frame in read_trajectory("water.*.dump", topology=data):
     frame.topology.bonds  # the eight bonds of the data file
     frame["charge"]  # its charges, in its order
 ```

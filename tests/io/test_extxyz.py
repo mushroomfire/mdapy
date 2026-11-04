@@ -28,13 +28,13 @@ ASE_TIME_IN_PS = (
 def read_text(tmp_path, text, name="t.xyz", **kwargs):
     path = tmp_path / name
     path.write_text(text)
-    return mdapy.read(path, **kwargs)
+    return mdapy.io.read(path, **kwargs)
 
 
 def round_trip(tmp_path, system, **options):
     path = tmp_path / "rt.xyz"
-    mdapy.write(path, system, **options)
-    return mdapy.read(path)
+    mdapy.io.write(path, system, **options)
+    return mdapy.io.read(path)
 
 
 def assert_tables_identical(a, b):
@@ -140,11 +140,11 @@ def test_multiple_frames_may_differ(tmp_path):
     path = tmp_path / "frames.xyz"
     first = rich_system(5, seed=1)
     second = mdapy.System([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], 4.0, elements=["H", "H"])
-    mdapy.write(path, [first, second, first])
+    mdapy.io.write(path, [first, second, first])
     assert_tables_identical(
-        mdapy.read(path, frame=0).table, mdapy.read(path, frame=2).table
+        mdapy.io.read(path, frame=0).table, mdapy.io.read(path, frame=2).table
     )
-    back = mdapy.read(path, frame=1)
+    back = mdapy.io.read(path, frame=1)
     assert back.table.columns == ["element", "positions"] and len(back) == 2
 
 
@@ -170,7 +170,7 @@ def test_written_text(tmp_path):
         info={"energy": -7.5},
     ).with_columns(velocities=[[1000.0, 0.0, -2.0], [0.0, 0.0, 0.0]])
     path = tmp_path / "w.xyz"
-    mdapy.write(path, system)
+    mdapy.io.write(path, system)
     assert path.read_text() == (
         "2\n"
         'Lattice="4.0 0.0 0.0 0.0 4.0 0.0 0.0 0.0 4.0" '
@@ -416,7 +416,7 @@ def test_zero_lattice_means_no_box(tmp_path):
 def test_windows_line_endings(tmp_path):
     path = tmp_path / "crlf.xyz"
     path.write_bytes(b'1\r\nLattice="2 0 0 0 2 0 0 0 2" energy=1\r\nH 0 0 0.5\r\n')
-    system = mdapy.read(path)
+    system = mdapy.io.read(path)
     assert system.info == {"energy": 1.0}
     np.testing.assert_array_equal(system["positions"], [[0.0, 0.0, 0.5]])
 
@@ -552,13 +552,13 @@ def h_atom(**info):
 )
 def test_write_errors(tmp_path, system, error, message):
     with pytest.raises(error, match=message):
-        mdapy.write(tmp_path / "e.xyz", system)
+        mdapy.io.write(tmp_path / "e.xyz", system)
     assert not (tmp_path / "e.xyz").exists()
 
 
 def test_write_rejects_unknown_columns(tmp_path):
     with pytest.raises(InvalidParameter, match="no column named 'nope'"):
-        mdapy.write(tmp_path / "e.xyz", h_atom(), columns=["nope"])
+        mdapy.io.write(tmp_path / "e.xyz", h_atom(), columns=["nope"])
 
 
 def test_numbers_in_info_are_written_exactly(tmp_path):

@@ -8,10 +8,10 @@ write them.
 
 <!-- skip-test -->
 ```python
-import mdapy as mp
+from mdapy.io import read, read_trajectory
 
-steps = mp.read_trajectory("OUTCAR")  # one frame per ionic step
-last = mp.read("OUTCAR", frame=-1)
+steps = read_trajectory("OUTCAR")  # one frame per ionic step
+last = read("OUTCAR", frame=-1)
 last["forces"]  # (N, 3) eV/Å
 last.info["energy"]  # eV, the free energy TOTEN
 last.info["virial"]  # (3, 3) eV

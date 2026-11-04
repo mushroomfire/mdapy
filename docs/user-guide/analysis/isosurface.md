@@ -9,7 +9,6 @@ on the faces of the box.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.analysis import SpatialBinning, isosurface
 from mdapy.build import build_crystal
 from mdapy.visualization import colormap, render, voxel_faces

@@ -3,11 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Reading and writing files.
-
-The functions are also available at the top level, as ``mdapy.read`` and so
-on.
-"""
+"""Reading and writing files."""
 
 # Importing the format modules registers the formats.
 from mdapy.io import (  # noqa: F401

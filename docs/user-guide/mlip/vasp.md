@@ -10,16 +10,16 @@ from pathlib import Path
 
 import numpy as np
 
-import mdapy as mp
+from mdapy.io import read_trajectory, write
 
 frames = [
     frame.with_info(converged=None)
     for outcar in sorted(Path("calculations").glob("*/OUTCAR"))
-    for frame in mp.read_trajectory(outcar)
+    for frame in read_trajectory(outcar)
     # the converged steps, without those of huge forces
     if frame.info["converged"] and np.abs(frame["forces"]).max() <= 30.0
 ]
-mp.write("train.xyz", frames)  # energy, virial and forces of each frame
+write("train.xyz", frames)  # energy, virial and forces of each frame
 ```
 
 ## Reading

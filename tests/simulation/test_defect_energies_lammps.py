@@ -31,7 +31,7 @@ def lammps_energy(
     algorithm of mdapy, to a tight tolerance (the conjugate gradient may
     reach another minimum of a slab)."""
     data = tmp_path / name
-    mdapy.write(data, system)
+    mdapy.io.write(data, system)
     boundary = " ".join("p" if p else "f" for p in system.box.pbc)
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:

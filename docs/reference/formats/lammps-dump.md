@@ -8,6 +8,7 @@ names starting with `dump.`, are recognized.
 ```python
 import numpy as np
 import mdapy as mp
+from mdapy.io import read, write
 
 rng = np.random.default_rng(0)
 system = mp.System(
@@ -21,8 +22,8 @@ frames = (
     )
     for k in range(3)
 )
-mp.write("run.dump", frames)
-last = mp.read("run.dump", frame=-1)
+write("run.dump", frames)
+last = read("run.dump", frame=-1)
 last.info["timestep"]  # 200
 ```
 

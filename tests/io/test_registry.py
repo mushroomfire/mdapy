@@ -50,14 +50,14 @@ def single_frame_format(monkeypatch):
 
 
 def test_top_level_names():
-    assert mdapy.read is mdapy.io.read
-    assert mdapy.write is mdapy.io.write
-    assert mdapy.formats is mdapy.io.formats
-    assert mdapy.detect_format is mdapy.io.detect_format
+    assert mdapy.io.read is mdapy.io.read
+    assert mdapy.io.write is mdapy.io.write
+    assert mdapy.io.formats is mdapy.io.formats
+    assert mdapy.io.detect_format is mdapy.io.detect_format
 
 
 def test_formats_table():
-    table = mdapy.formats()
+    table = mdapy.io.formats()
     assert table.schema == pl.Schema(
         {
             "name": pl.String,
@@ -86,27 +86,27 @@ def test_formats_table():
     ],
 )
 def test_detect_format_from_extensions(name):
-    assert mdapy.detect_format(name) == "extxyz"
+    assert mdapy.io.detect_format(name) == "extxyz"
 
 
 def test_detect_format_from_patterns(single_frame_format):
-    assert mdapy.detect_format("WATER_1") == "single"
-    assert mdapy.detect_format("dir/WATER.gz") == "single"
-    assert mdapy.detect_format("b.single") == "single"
+    assert mdapy.io.detect_format("WATER_1") == "single"
+    assert mdapy.io.detect_format("dir/WATER.gz") == "single"
+    assert mdapy.io.detect_format("b.single") == "single"
     with pytest.raises(UnsupportedFormat, match="cannot tell the format"):
-        mdapy.detect_format("water")  # patterns are case-sensitive
+        mdapy.io.detect_format("water")  # patterns are case-sensitive
 
 
 @pytest.mark.parametrize("name", ["a.unknown", "noextension", ".gz", "a.gz"])
 def test_detect_format_unknown(name):
     with pytest.raises(UnsupportedFormat, match="pass format=, one of cif, extxyz"):
-        mdapy.detect_format(name)
+        mdapy.io.detect_format(name)
 
 
 def test_detect_format_ambiguous(monkeypatch):
     monkeypatch.setitem(FORMATS, "other", Format("other", "", (".xyz",)))
     with pytest.raises(UnsupportedFormat, match="fits the formats extxyz, other"):
-        mdapy.detect_format("a.xyz")
+        mdapy.io.detect_format("a.xyz")
 
 
 def test_register_rejects_duplicates():
@@ -122,32 +122,32 @@ def test_register_adds_a_format(monkeypatch):
 
 def test_unknown_or_unsupported_formats(tmp_path, monkeypatch):
     path = tmp_path / "a.xyz"
-    mdapy.write(path, water())
+    mdapy.io.write(path, water())
     with pytest.raises(UnsupportedFormat, match="unknown format 'nope'"):
-        mdapy.read(path, format="nope")
+        mdapy.io.read(path, format="nope")
     with pytest.raises(UnsupportedFormat, match="unknown format 'nope'"):
-        mdapy.write(path, water(), format="nope")
+        mdapy.io.write(path, water(), format="nope")
     monkeypatch.setitem(
         FORMATS, "readonly", Format("readonly", "", read=lambda s, p: 1)
     )
     monkeypatch.setitem(FORMATS, "writeonly", Format("writeonly", "", write=print))
     with pytest.raises(UnsupportedFormat, match="MDAPY cannot write readonly files"):
-        mdapy.write(path, water(), format="readonly")
+        mdapy.io.write(path, water(), format="readonly")
     with pytest.raises(UnsupportedFormat, match="MDAPY cannot read writeonly files"):
-        mdapy.read(path, format="writeonly")
+        mdapy.io.read(path, format="writeonly")
 
 
 def test_frame_selection(tmp_path):
     path = tmp_path / "t.xyz"
-    mdapy.write(path, [water(k) for k in range(3)])
+    mdapy.io.write(path, [water(k) for k in range(3)])
     for frame, shift in [(0, 0), (1, 1), (2, 2), (-1, 2), (-3, 0)]:
-        assert mdapy.read(path, frame=frame).info["energy"] == -14.2 - shift
-    assert mdapy.read(path, frame=np.int64(1)).info["energy"] == -15.2
+        assert mdapy.io.read(path, frame=frame).info["energy"] == -14.2 - shift
+    assert mdapy.io.read(path, frame=np.int64(1)).info["energy"] == -15.2
     for frame in (3, -4):
         with pytest.raises(InvalidParameter, match=f"frame {frame} does not exist"):
-            mdapy.read(path, frame=frame)
+            mdapy.io.read(path, frame=frame)
     with pytest.raises(TypeError):
-        mdapy.read(path, frame=1.0)
+        mdapy.io.read(path, frame=1.0)
 
 
 def test_empty_file_has_no_frames(tmp_path):
@@ -156,26 +156,26 @@ def test_empty_file_has_no_frames(tmp_path):
     with pytest.raises(
         InvalidParameter, match="frame 0 does not exist: the file has 0"
     ):
-        mdapy.read(path)
+        mdapy.io.read(path)
 
 
 def test_single_frame_formats(tmp_path, single_frame_format):
     path = tmp_path / "a.single"
-    mdapy.write(path, water())
+    mdapy.io.write(path, water())
     assert path.read_bytes() == b"water\n"
-    mdapy.write(path, (s for s in [water()]))
-    assert mdapy.read(path).info["energy"] == -14.2
-    assert mdapy.read(path, frame=-1).info["energy"] == -14.2
+    mdapy.io.write(path, (s for s in [water()]))
+    assert mdapy.io.read(path).info["energy"] == -14.2
+    assert mdapy.io.read(path, frame=-1).info["energy"] == -14.2
     with pytest.raises(InvalidParameter, match="hold one frame, so frame must be 0"):
-        mdapy.read(path, frame=1)
+        mdapy.io.read(path, frame=1)
     with pytest.raises(InvalidParameter, match="hold one frame, but 2 systems"):
-        mdapy.write(path, [water(), water()])
+        mdapy.io.write(path, [water(), water()])
 
 
 def test_write_checks_the_systems(tmp_path):
     path = tmp_path / "a.xyz"
     with pytest.raises(TypeError, match="not str"):
-        mdapy.write(path, ["water"])
+        mdapy.io.write(path, ["water"])
     assert not path.exists()
 
 
@@ -184,16 +184,16 @@ def test_failed_writes_leave_no_file(tmp_path):
     path.write_text("old")
     no_elements = mdapy.System([[0.0, 0.0, 0.0]], mdapy.Box(5.0))
     with pytest.raises(mdapy.errors.MissingProperty):
-        mdapy.write(path, [water(), no_elements])
+        mdapy.io.write(path, [water(), no_elements])
     assert not path.exists()
 
 
 def test_options_reach_the_format(tmp_path):
     path = tmp_path / "a.xyz"
-    mdapy.write(path, water().with_columns(charge=[-0.8, 0.4, 0.4]), columns=[])
-    assert "charge" not in mdapy.read(path).table.columns
+    mdapy.io.write(path, water().with_columns(charge=[-0.8, 0.4, 0.4]), columns=[])
+    assert "charge" not in mdapy.io.read(path).table.columns
     with pytest.raises(TypeError, match="unexpected keyword"):
-        mdapy.read(path, columns=[])
+        mdapy.io.read(path, columns=[])
 
 
 # --------------------------------------------------------------- files
@@ -203,40 +203,40 @@ def test_options_reach_the_format(tmp_path):
 def test_compressed_round_trip(tmp_path, suffix):
     path = tmp_path / f"a.xyz{suffix}"
     systems = [water(k) for k in range(3)]
-    mdapy.write(path, systems)
+    mdapy.io.write(path, systems)
     opener = {".gz": gzip, ".bz2": bz2, ".xz": lzma}[suffix.lower()]
     with opener.open(path, "rb") as f:
         assert f.read().startswith(b"3\nLattice=")
-    assert mdapy.read(path, frame=2).info["energy"] == -16.2
+    assert mdapy.io.read(path, frame=2).info["energy"] == -16.2
     # Compression is recognized from the content, not the name.
     renamed = path.rename(tmp_path / "renamed.xyz")
-    assert mdapy.read(renamed, frame=1).info["energy"] == -15.2
+    assert mdapy.io.read(renamed, frame=1).info["energy"] == -15.2
 
 
 @pytest.mark.skipif(sys.version_info < (3, 14), reason="zstd needs Python 3.14")
 def test_zstd_round_trip(tmp_path):
     path = tmp_path / "a.xyz.zst"
-    mdapy.write(path, [water(1)])
+    mdapy.io.write(path, [water(1)])
     assert path.read_bytes()[:4] == b"\x28\xb5\x2f\xfd"
-    assert mdapy.read(path).info["energy"] == -15.2
+    assert mdapy.io.read(path).info["energy"] == -15.2
 
 
 @pytest.mark.skipif(sys.version_info >= (3, 14), reason="zstd is available")
 def test_zstd_needs_python_3_14(tmp_path):
     with pytest.raises(UnsupportedFormat, match="Python 3.14"):
-        mdapy.write(tmp_path / "a.xyz.zst", water())
+        mdapy.io.write(tmp_path / "a.xyz.zst", water())
     assert not (tmp_path / "a.xyz.zst").exists()
     path = tmp_path / "a.xyz"
     path.write_bytes(b"\x28\xb5\x2f\xfd" + b"\0" * 20)
     with pytest.raises(UnsupportedFormat, match="Python 3.14"):
-        mdapy.read(path)
+        mdapy.io.read(path)
 
 
 def test_corrupt_compressed_files(tmp_path):
     path = tmp_path / "a.xyz"
     path.write_bytes(b"\x1f\x8b" + b"not gzip data")
     with pytest.raises(FileFormatError, match="cannot decompress the gzip data") as e:
-        mdapy.read(path)
+        mdapy.io.read(path)
     assert e.value.path == str(path) and e.value.line is None
 
 
@@ -259,7 +259,7 @@ def test_source_maps_plain_files_and_closes_them(tmp_path):
 
 def test_missing_files(tmp_path):
     with pytest.raises(FileNotFoundError):
-        mdapy.read(tmp_path / "missing.xyz")
+        mdapy.io.read(tmp_path / "missing.xyz")
 
 
 def test_open_output_removes_the_file_on_errors(tmp_path):

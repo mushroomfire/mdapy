@@ -32,7 +32,7 @@ def test_against_lammps(tmp_path, seed, repeat):
     potential_file = write_setfl(tmp_path / "CuNi.eam.alloy")
     system = alloy(seed=seed, repeat=repeat, jitter=0.2)
     data = tmp_path / "in.data"
-    mdapy.write(data, system, elements=["Cu", "Ni"])
+    mdapy.io.write(data, system, elements=["Cu", "Ni"])
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(

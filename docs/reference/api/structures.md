@@ -8,27 +8,25 @@
 
 ::: mdapy.Topology
 
-::: mdapy.TriangleMesh
-
 ::: mdapy.core.box.LammpsBox
 
 ## Files
 
-::: mdapy.read
+::: mdapy.io.read
 
-::: mdapy.write
+::: mdapy.io.write
 
-::: mdapy.formats
+::: mdapy.io.formats
 
-::: mdapy.detect_format
+::: mdapy.io.detect_format
 
 ::: mdapy.io.Mapped
 
 ## Trajectories
 
-::: mdapy.read_trajectory
+::: mdapy.io.read_trajectory
 
-::: mdapy.Trajectory
+::: mdapy.io.Trajectory
 
 ## Neighbors
 

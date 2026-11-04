@@ -14,15 +14,15 @@ torchnep when it trains or predicts, without computing anything.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.calculators import EAM, NEP
+from mdapy.io import read, write
 from mdapy.mlip import predict
 from mdapy.visualization import plot
 
 # thirty frames of the CrCoNi alloy, shaken more and more, labeled by the
 # EAM of Zhou as a training set would be by DFT
 eam = EAM.zhou(["Cr", "Co", "Ni"])
-sqs = mp.read("SQS.xyz")  # 108 atoms
+sqs = read("SQS.xyz")  # 108 atoms
 rng = np.random.default_rng(0)
 shaking = np.linspace(0.02, 0.2, 30)
 frames = []
@@ -42,7 +42,7 @@ result = predict(frames, NEP("nep.txt"))
 result.rmse()  # {"energy": eV/atom, "forces": eV/Å, "virial": eV/atom}
 table = result.table()  # the errors of each frame
 worst = result.worst(5)  # the five frames of the largest force errors
-mp.write("worst.xyz", [frames[k] for k in worst])
+write("worst.xyz", [frames[k] for k in worst])
 
 with plot.style():
     fig, (left, right) = plot.figure("double", ncols=2)

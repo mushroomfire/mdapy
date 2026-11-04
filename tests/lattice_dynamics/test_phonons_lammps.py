@@ -25,7 +25,7 @@ lammps = pytest.importorskip("lammps")
 def lammps_dynamical_matrix(tmp_path, system, potential_file, displacement):
     """The (3N, 3N) dynamical matrix of the system by LAMMPS, in eV/(Å² amu)."""
     data = tmp_path / "supercell.data"
-    mdapy.write(data, system, atom_style="atomic")
+    mdapy.io.write(data, system, atom_style="atomic")
     output = tmp_path / "dynmat.dat"
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:

@@ -11,14 +11,14 @@ training, frame by frame.
 import numpy as np
 import polars as pl
 
-import mdapy as mp
 from mdapy.calculators import EAM
+from mdapy.io import read, write
 from mdapy.mlip import check_frames
 from mdapy.visualization import plot
 
 # forty frames of the CrCoNi alloy, shaken and labeled by an EAM
 eam = EAM.zhou(["Cr", "Co", "Ni"])
-sqs = mp.read("SQS.xyz")  # 108 atoms
+sqs = read("SQS.xyz")  # 108 atoms
 rng = np.random.default_rng(2)
 frames = []
 for k in range(40):
@@ -40,7 +40,7 @@ bad = table.filter(
     | ~(pl.col("has_energy") & pl.col("has_forces") & pl.col("has_virial"))
 )
 bad["frame"].to_list()  # [12, 27, 33]
-mp.write("clean.xyz", [f for k, f in enumerate(frames) if k not in bad["frame"]])
+write("clean.xyz", [f for k, f in enumerate(frames) if k not in bad["frame"]])
 
 with plot.style():
     fig, (left, right) = plot.figure("double", ncols=2)

@@ -66,8 +66,10 @@ from mdapy.analysis._voronoi import (
     VoronoiResult,
 )
 from mdapy.analysis._wigner_seitz import WignerSeitz, WignerSeitzResult
+from mdapy.core.mesh import TriangleMesh
 
 __all__ = [
+    "TriangleMesh",
     "OPERATIONS",
     "REDUCTIONS",
     "AtomicDisplacement",

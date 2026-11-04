@@ -9,8 +9,8 @@ at.
 
 <!-- skip-test -->
 ```python
-import mdapy as mp
 from mdapy.calculators import NEP
+from mdapy.io import read_trajectory, write
 from mdapy.mlip import (
     farthest_point_sampling,
     principal_components,
@@ -19,15 +19,15 @@ from mdapy.mlip import (
 from mdapy.visualization import plot
 
 potential = NEP("nep.txt")
-train = mp.read_trajectory("train.xyz")
-candidates = mp.read_trajectory("md.xyz")
+train = read_trajectory("train.xyz")
+candidates = read_trajectory("md.xyz")
 
 old = structure_descriptors(train, potential)  # (F, D)
 new = structure_descriptors(candidates, potential)
 
 # 50 candidates far from the training set and from each other
 chosen = farthest_point_sampling(new, 50, start=None, selected=old)
-mp.write("add.xyz", [candidates[i] for i in chosen])
+write("add.xyz", [candidates[i] for i in chosen])
 
 pca = principal_components(old, n=2)
 pca.ratio  # fraction of the variance on each component

@@ -131,7 +131,7 @@ def test_ovito_writes_what_mdapy_reads(tmp_path):
     export_file(
         to_ovito(system), tmp_path / "water.data", "lammps/data", atom_style="full"
     )
-    read = mdapy.read(tmp_path / "water.data")
+    read = mdapy.io.read(tmp_path / "water.data")
     assert read.box == system.box
     np.testing.assert_allclose(read["positions"], system["positions"], atol=1e-10)
     assert read.table["type"].to_list() == [1, 2, 2, 1, 2, 2]
@@ -149,7 +149,7 @@ def test_ovito_writes_what_mdapy_reads(tmp_path):
 def test_mdapy_writes_what_ovito_reads(tmp_path):
     lammps_box = mdapy.Box([[6.0, 0, 0], [1.0, 6.0, 0], [0.5, 0.3, 7.0]], [1, 2, 3])
     system = water(box=lammps_box)
-    mdapy.write(tmp_path / "water.data", system, atom_style="full")
+    mdapy.io.write(tmp_path / "water.data", system, atom_style="full")
     back = from_ovito(import_file(tmp_path / "water.data", atom_style="full").compute())
     assert back.box == system.box
     np.testing.assert_allclose(back["positions"], system["positions"], atol=1e-10)

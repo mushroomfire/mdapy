@@ -53,7 +53,7 @@ def test_mdapy_reads_lammps_dumps(tmp_path, units):
         expected = {name: atoms(lmp, name) for name in ("x", "v", "f", "q")}
     finally:
         lmp.close()
-    system = mdapy.read(path)
+    system = mdapy.io.read(path)
     table = system.table
     np.testing.assert_array_equal(system["positions"], expected["x"])
     np.testing.assert_allclose(
@@ -87,7 +87,7 @@ def test_lammps_reads_mdapy_dumps(tmp_path):
         box.to_cartesian(rng.random((30, 3))), box, elements=["Cu", "Zr"] * 15
     ).with_columns(velocities=rng.standard_normal((30, 3)))
     path = tmp_path / "in.dump"
-    mdapy.write(path, system)
+    mdapy.io.write(path, system)
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(

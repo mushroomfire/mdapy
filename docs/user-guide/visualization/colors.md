@@ -17,7 +17,6 @@ the others keep the colors they had.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.build import build_crystal
 from mdapy.visualization import (
     assign_color,
@@ -100,11 +99,12 @@ To give the types their elements, read the file with
 then those of the elements, and files written from it hold them.
 
 ```python
+from mdapy.io import read_trajectory, write
 from mdapy.visualization import atom_names
 
 typed = alloy.with_columns(type=np.arange(len(alloy)) % 2 + 1).drop("element")
-mp.write("types.dump", typed)
-frames = mp.read_trajectory("types.dump", elements=["Cu", "X"])
+write("types.dump", typed)
+frames = read_trajectory("types.dump", elements=["Cu", "X"])
 print(sorted(set(atom_names(frames[0]))))  # ['Cu', 'Type 2']
 ```
 

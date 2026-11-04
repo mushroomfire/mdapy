@@ -7,7 +7,6 @@ a projectile above a target.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.build import add_vacuum, build_crystal
 from mdapy.transform import combine
 from mdapy.visualization import render
@@ -42,11 +41,11 @@ as OVITO does with a trajectory as its second source:
 
 <!-- skip-test -->
 ```python
+from mdapy.io import read_trajectory
+
 frames = [
     combine(a, b)
-    for a, b in zip(
-        mp.read_trajectory("solute.dump"), mp.read_trajectory("solvent.dump")
-    )
+    for a, b in zip(read_trajectory("solute.dump"), read_trajectory("solvent.dump"))
 ]
 ```
 

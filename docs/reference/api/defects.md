@@ -30,6 +30,8 @@
 
 ::: mdapy.analysis.SurfaceRegions
 
+::: mdapy.analysis.TriangleMesh
+
 ## Chemical species
 
 ::: mdapy.analysis.ChemicalSpecies

@@ -15,15 +15,17 @@ from mdapy import (
     errors,
     identify,
     interop,
+    io,
     lattice_dynamics,
     mlip,
+    neighbor,
     simulation,
     transform,
     units,
+    visualization,
 )
 from mdapy.core.box import Box
 from mdapy.core.indices import index_dtype
-from mdapy.core.mesh import TriangleMesh
 from mdapy.core.system import System
 from mdapy.core.threads import (
     CancelToken,
@@ -33,38 +35,33 @@ from mdapy.core.threads import (
 )
 from mdapy.core.topology import Topology
 from mdapy.core.versions import show_versions
-from mdapy.io import Trajectory, detect_format, formats, read, read_trajectory, write
 from mdapy.neighbor import NeighborList
 
 __all__ = [
     "Box",
     "System",
     "Topology",
-    "TriangleMesh",
     "__version__",
     "analysis",
     "build",
     "calculators",
     "identify",
     "interop",
+    "io",
     "elements",
     "errors",
     "lattice_dynamics",
     "mlip",
+    "neighbor",
     "simulation",
     "transform",
     "units",
+    "visualization",
     "CancelToken",
     "get_num_threads",
     "set_num_threads",
     "show_versions",
     "num_threads",
     "index_dtype",
-    "read",
-    "write",
-    "read_trajectory",
-    "Trajectory",
     "NeighborList",
-    "formats",
-    "detect_format",
 ]

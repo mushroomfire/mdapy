@@ -39,8 +39,8 @@ LABELED = PEPTIDE.replace(
 def test_atoms_names_residues_and_bonds(tmp_path):
     path = tmp_path / "peptide.pdb"
     path.write_text(PEPTIDE)
-    assert mdapy.detect_format(path) == "pdb"
-    system = mdapy.read(path)
+    assert mdapy.io.detect_format(path) == "pdb"
+    system = mdapy.io.read(path)
     assert system["id"].tolist() == [1, 2, 3, 4, 5, 6, 7]
     # elements from columns 77-78, or else from the atom name
     assert system["element"].tolist() == ["N", "C", "C", "O", "H", "Ca", "Cl"]
@@ -56,7 +56,7 @@ def test_atoms_names_residues_and_bonds(tmp_path):
 def test_as_ovito_and_ase(tmp_path):
     path = tmp_path / "peptide.pdb"
     path.write_text(LABELED)
-    ours = mdapy.read(path)
+    ours = mdapy.io.read(path)
     ase_io = pytest.importorskip("ase.io")
     theirs = ase_io.read(path)
     np.testing.assert_allclose(ours["positions"], theirs.positions)
@@ -104,7 +104,7 @@ def test_models_as_frames(tmp_path):
         moved.positions += 0.1 * k
         frames.append(moved)
     ase.io.write(tmp_path / "models.pdb", frames)
-    trajectory = mdapy.read_trajectory(tmp_path / "models.pdb")
+    trajectory = mdapy.io.read_trajectory(tmp_path / "models.pdb")
     assert len(trajectory) == 3
     for ours, theirs in zip(trajectory, ase.io.read(tmp_path / "models.pdb", ":")):
         np.testing.assert_allclose(ours["positions"], theirs.positions, atol=1e-3)
@@ -119,7 +119,7 @@ def test_models_as_frames(tmp_path):
         "ATOM      1  O   HOH     1       2.000   1.000   1.000\n"
     )
     (tmp_path / "two.pdb").write_text(text)
-    first, second = mdapy.read_trajectory(tmp_path / "two.pdb")
+    first, second = mdapy.io.read_trajectory(tmp_path / "two.pdb")
     np.testing.assert_allclose(first.box.matrix, 10 * np.eye(3))
     np.testing.assert_allclose(np.linalg.norm(second.box.matrix, axis=1), 11.0)
     np.testing.assert_allclose(second["positions"], [[2.0, 1.0, 1.0]])
@@ -132,7 +132,7 @@ def test_molecules_without_a_cell(tmp_path):
             header + "HETATM    1  C   MOL     1       1.000   2.000   3.000\n"
             "HETATM    2  O   MOL     1       2.200   2.000   3.000\nEND\n"
         )
-        system = mdapy.read(tmp_path / "free.pdb")
+        system = mdapy.io.read(tmp_path / "free.pdb")
         assert not system.box.pbc.any() and system.topology is None
         assert system["element"].tolist() == ["C", "O"]
 
@@ -157,11 +157,11 @@ def test_molecules_without_a_cell(tmp_path):
 def test_errors(tmp_path, text, message):
     (tmp_path / "bad.pdb").write_text(text)
     with pytest.raises(FileFormatError, match=message):
-        mdapy.read(tmp_path / "bad.pdb")
+        mdapy.io.read(tmp_path / "bad.pdb")
 
 
 def test_a_file_without_atoms(tmp_path):
     path = tmp_path / "t.pdb"
     path.write_text("REMARK nothing here\nEND\n")
     with pytest.raises(FileFormatError, match="no ATOM or HETATM"):
-        mdapy.read(path)
+        mdapy.io.read(path)

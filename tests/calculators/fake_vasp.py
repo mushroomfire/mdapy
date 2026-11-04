@@ -25,7 +25,7 @@ for line in Path("INCAR").read_text().splitlines():
 if "FAKE_FAIL" in tags:
     print("VERY BAD NEWS! internal error in subroutine fake")
     sys.exit(3)
-system = mdapy.read("POSCAR", format="poscar")
+system = mdapy.io.read("POSCAR", format="poscar")
 elements = system.table["element"].cast(str).to_list()
 species = list(dict.fromkeys(elements))
 counts = [elements.count(e) for e in species]

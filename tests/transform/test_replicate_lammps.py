@@ -52,8 +52,8 @@ def bonded_ids(system):
 @pytest.mark.parametrize("repeat", [(2, 3, 1), (1, 2, 2)])
 def test_the_copies_of_lammps(tmp_path, repeat):
     path, out = tmp_path / "in.data", tmp_path / "out.data"
-    mdapy.write(path, water(seed=sum(repeat)))
-    system = mdapy.read(path)
+    mdapy.io.write(path, water(seed=sum(repeat)))
+    system = mdapy.io.read(path)
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         lmp.commands_string(
@@ -63,7 +63,7 @@ def test_the_copies_of_lammps(tmp_path, repeat):
         )
     finally:
         lmp.close()
-    expected = by_id(mdapy.read(out))
+    expected = by_id(mdapy.io.read(out))
     copies = by_id(replicate(system, repeat))
     np.testing.assert_allclose(copies.box.matrix, expected.box.matrix, atol=1e-12)
     for name in ("id", "molecule", "image"):

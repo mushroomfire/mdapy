@@ -295,7 +295,7 @@ the shading: the whole movie then takes about a minute.
 
 The same loop makes other movies with a line or two:
 
-- a trajectory: read `frames = mp.read_trajectory("run.dump")` and draw `frames[k]`
+- a trajectory: read `frames = mdapy.io.read_trajectory("run.dump")` and draw `frames[k]`
   in each picture, so that the camera moves while the atoms do;
 - another look: a [style or its settings](../user-guide/visualization/rendering.md), such as
   `aperture` for a depth of field;

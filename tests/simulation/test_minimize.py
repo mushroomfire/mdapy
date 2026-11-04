@@ -252,8 +252,8 @@ def test_frames_every_few_steps(potential, tmp_path, every):
             frame["positions"], seen[frame.info["timestep"]]["positions"]
         )
     # written as a trajectory
-    mdapy.write(tmp_path / "relax.xyz", result.frames)
-    back = mdapy.read_trajectory(tmp_path / "relax.xyz")
+    mdapy.io.write(tmp_path / "relax.xyz", result.frames)
+    back = mdapy.io.read_trajectory(tmp_path / "relax.xyz")
     assert len(back) == len(result.frames)
     np.testing.assert_allclose(back[-1].info["stress"], plain.stress, atol=1e-12)
 

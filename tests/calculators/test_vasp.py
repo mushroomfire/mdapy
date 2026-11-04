@@ -66,7 +66,7 @@ def test_a_single_point_as_vasp_would_give_it(tmp_path):
     ]
     assert (run / "KPOINTS").read_text() == "MDAPY\n0\nGamma\n3 3 3\n0 0 0\n"
     # POTCARs in the order of the POSCAR, which holds each element together
-    written = mdapy.read(run / "POSCAR", format="poscar")
+    written = mdapy.io.read(run / "POSCAR", format="poscar")
     first = written.table["element"].cast(str).to_list()[0]
     order = ["Cu", "Ni_pv"] if first == "Cu" else ["Ni_pv", "Cu"]
     assert (run / "POTCAR").read_text() == "".join(

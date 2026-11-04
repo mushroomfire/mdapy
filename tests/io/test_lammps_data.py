@@ -83,13 +83,13 @@ Angles
 def read_text(tmp_path, text, name="t.data", **options):
     path = tmp_path / name
     path.write_text(text)
-    return mdapy.read(path, **options)
+    return mdapy.io.read(path, **options)
 
 
 def round_trip(tmp_path, system, **options):
     path = tmp_path / "rt.data"
-    mdapy.write(path, system, **options)
-    return mdapy.read(path)
+    mdapy.io.write(path, system, **options)
+    return mdapy.io.read(path)
 
 
 def atoms_file(header, atoms, hint=" # atomic", sections=""):
@@ -534,7 +534,7 @@ def test_round_trip_of_a_full_file(tmp_path):
 
 def test_written_text(tmp_path):
     path = tmp_path / "w.data"
-    mdapy.write(path, read_text(tmp_path, WATER), units="real")
+    mdapy.io.write(path, read_text(tmp_path, WATER), units="real")
     text = path.read_text()
     assert text.startswith(
         "LAMMPS data file via MDAPY "
@@ -551,7 +551,7 @@ def test_written_text(tmp_path):
 def test_coefficients_keep_their_units(tmp_path):
     system = read_text(tmp_path, WATER)
     with pytest.raises(InvalidParameter, match="in real units and cannot be written"):
-        mdapy.write(tmp_path / "m.data", system)
+        mdapy.io.write(tmp_path / "m.data", system)
     lammps = dict(system.info["lammps"])
     del lammps["coeffs"]
     back = round_trip(tmp_path, system.with_info(lammps=lammps))  # metal units
@@ -576,10 +576,10 @@ def test_types_from_elements(tmp_path):
     assert back.info["lammps"]["atom_types"] == 4  # Ni has no atoms
     assert back.info["lammps"]["masses"][3] == 58.6934
     with pytest.raises(InvalidParameter, match="lacks the elements"):
-        mdapy.write(tmp_path / "e.data", system, elements=["Cu", "Zr"])
+        mdapy.io.write(tmp_path / "e.data", system, elements=["Cu", "Zr"])
     typed = system.with_columns(type=[1, 1, 1, 2])
     with pytest.raises(InvalidParameter, match="has a type column"):
-        mdapy.write(tmp_path / "e.data", typed, elements=["Cu", "Zr"])
+        mdapy.io.write(tmp_path / "e.data", typed, elements=["Cu", "Zr"])
 
 
 def test_masses_comments_only_for_types_of_one_element(tmp_path):
@@ -590,8 +590,8 @@ def test_masses_comments_only_for_types_of_one_element(tmp_path):
     with pytest.raises(
         InvalidParameter, match=r"no mass is known for atom types \[1\]"
     ):
-        mdapy.write(path, system)
-    mdapy.write(path, system.with_columns(mass=[60.0, 60.0, 58.6934]))
+        mdapy.io.write(path, system)
+    mdapy.io.write(path, system.with_columns(mass=[60.0, 60.0, 58.6934]))
     text = path.read_text()
     assert "\n1 60.0\n2 58.6934 # Ni\n" in text
 
@@ -602,7 +602,7 @@ def test_info_masses_fill_types_without_atoms(tmp_path):
     with pytest.raises(
         InvalidParameter, match=r"no mass is known for atom types \[2\]"
     ):
-        mdapy.write(tmp_path / "m.data", system)
+        mdapy.io.write(tmp_path / "m.data", system)
     back = round_trip(tmp_path, system.with_columns(mass=[2.0]))
     assert back.info["lammps"]["masses"] == (1.0, 2.0, 3.0)
 
@@ -625,7 +625,7 @@ def test_unsupported_style_in_info(tmp_path):
         np.zeros((1, 3)), 5.0, info={"lammps": {"atom_style": "sphere"}}
     )
     with pytest.raises(UnsupportedFormat, match="'sphere' is not supported"):
-        mdapy.write(tmp_path / "s.data", system)
+        mdapy.io.write(tmp_path / "s.data", system)
 
 
 def test_systems_without_types_or_elements(tmp_path):
@@ -634,7 +634,7 @@ def test_systems_without_types_or_elements(tmp_path):
     assert back.table["type"].to_list() == [1, 1]
     assert "Masses" not in (tmp_path / "rt.data").read_text()
     with pytest.raises(InvalidParameter, match="needs an element column"):
-        mdapy.write(tmp_path / "e.data", system, elements=["Cu"])
+        mdapy.io.write(tmp_path / "e.data", system, elements=["Cu"])
 
 
 def test_default_atom_styles(tmp_path):
@@ -864,22 +864,22 @@ def test_restricted_option_rotates_vectors(tmp_path, left_handed):
 )  # fmt: skip
 def test_write_errors(tmp_path, system, options, error, message):
     with pytest.raises(error, match=message):
-        mdapy.write(tmp_path / "e.data", system, **options)
+        mdapy.io.write(tmp_path / "e.data", system, **options)
     assert not (tmp_path / "e.data").exists()
 
 
 def test_format_detection():
-    assert mdapy.detect_format("water.data") == "lammps-data"
-    assert mdapy.detect_format("model.lmp") == "lammps-data"
-    assert mdapy.detect_format("data.CuZr") == "lammps-data"
-    assert mdapy.detect_format("data.xyz") == "extxyz"  # the extension wins
-    assert mdapy.detect_format("data.lmp.gz") == "lammps-data"
+    assert mdapy.io.detect_format("water.data") == "lammps-data"
+    assert mdapy.io.detect_format("model.lmp") == "lammps-data"
+    assert mdapy.io.detect_format("data.CuZr") == "lammps-data"
+    assert mdapy.io.detect_format("data.xyz") == "extxyz"  # the extension wins
+    assert mdapy.io.detect_format("data.lmp.gz") == "lammps-data"
 
 
 def test_write_one_frame_only(tmp_path):
     system = mdapy.System(np.zeros((1, 3)), 5.0)
     with pytest.raises(InvalidParameter, match="hold one frame"):
-        mdapy.write(tmp_path / "two.data", [system, system])
+        mdapy.io.write(tmp_path / "two.data", [system, system])
 
 
 @pytest.mark.parametrize(
@@ -889,4 +889,4 @@ def test_a_file_without_atoms_is_no_data_file(tmp_path, data):
     path = tmp_path / "t.data"
     path.write_bytes(data)
     with pytest.raises(FileFormatError, match="not a data file"):
-        mdapy.read(path)
+        mdapy.io.read(path)

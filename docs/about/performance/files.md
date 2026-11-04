@@ -90,12 +90,12 @@ its peak before the timings.
 
 | Case | MDAPY | OVITO | ASE |
 |---|---|---|---|
-| Read a LAMMPS dump | `mp.read(path)` | `import_file(path).compute()` | `ase.io.read(path, format="lammps-dump-text")` |
-| Write a LAMMPS dump | `mp.write(path, system)` | `export_file(data, path, "lammps/dump", columns=[...], precision=17)` | ASE writes no dumps |
-| Read a LAMMPS data file | `mp.read(path)` | `import_file(path, atom_style="atomic").compute()` | `ase.io.read(path, format="lammps-data", atom_style="atomic", units="metal")` |
-| Write a LAMMPS data file | `mp.write(path, system)` | `export_file(data, path, "lammps/data", atom_style="atomic", precision=17)` | `ase.io.write(path, atoms, format="lammps-data", atom_style="atomic", masses=True)` |
-| Read extended XYZ | `mp.read(path)` | `import_file(path).compute()` | `ase.io.read(path, format="extxyz")` |
-| Write extended XYZ | `mp.write(path, system)` | `export_file(data, path, "xyz", columns=[...], precision=17)` | `ase.io.write(path, atoms, format="extxyz")` |
+| Read a LAMMPS dump | `mdapy.io.read(path)` | `import_file(path).compute()` | `ase.io.read(path, format="lammps-dump-text")` |
+| Write a LAMMPS dump | `mdapy.io.write(path, system)` | `export_file(data, path, "lammps/dump", columns=[...], precision=17)` | ASE writes no dumps |
+| Read a LAMMPS data file | `mdapy.io.read(path)` | `import_file(path, atom_style="atomic").compute()` | `ase.io.read(path, format="lammps-data", atom_style="atomic", units="metal")` |
+| Write a LAMMPS data file | `mdapy.io.write(path, system)` | `export_file(data, path, "lammps/data", atom_style="atomic", precision=17)` | `ase.io.write(path, atoms, format="lammps-data", atom_style="atomic", masses=True)` |
+| Read extended XYZ | `mdapy.io.read(path)` | `import_file(path).compute()` | `ase.io.read(path, format="extxyz")` |
+| Write extended XYZ | `mdapy.io.write(path, system)` | `export_file(data, path, "xyz", columns=[...], precision=17)` | `ase.io.write(path, atoms, format="extxyz")` |
 
 The system is fcc copper with its atoms displaced at random by 0.1 Å along
 each axis. The dump holds the columns `id type x y z`; the data file the

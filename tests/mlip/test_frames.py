@@ -126,8 +126,8 @@ def test_predict_committee_descriptors(frames, nep, tmp_path):
             structure_descriptors(labeled, Alone(model)),
             rtol=1e-12,
         )
-    mdapy.write(tmp_path / "frames.xyz", labeled)
-    read = mdapy.read_trajectory(tmp_path / "frames.xyz")
+    mdapy.io.write(tmp_path / "frames.xyz", labeled)
+    read = mdapy.io.read_trajectory(tmp_path / "frames.xyz")
     np.testing.assert_allclose(
         structure_descriptors(read, nep),
         structure_descriptors(labeled, nep),

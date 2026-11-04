@@ -6,7 +6,7 @@ symmetry operations into the whole cell. Files with extension `.cif` are
 recognized. MDAPY reads CIF files but does not write them.
 
 ```python
-import mdapy as mp
+from mdapy.io import read
 from mdapy.transform import replicate
 from mdapy.visualization import render
 
@@ -37,7 +37,7 @@ O1 O2- 0.30478 0.30478 0
 with open("rutile.cif", "w") as f:
     f.write(text)
 
-rutile = mp.read("rutile.cif")  # 2 Ti and 4 O
+rutile = read("rutile.cif")  # 2 Ti and 4 O
 render(
     replicate(rutile, (3, 3, 4)),
     "images/rutile.png",

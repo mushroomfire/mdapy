@@ -59,7 +59,7 @@ table = pl.DataFrame(
 pair = mp.System(table=table, box=mp.Box(3.6))
 ```
 
-Most systems come from files with [`mp.read`](io.md) or from the
+Most systems come from files with [`mdapy.io.read`](io.md) or from the
 [structure builders](../user-guide/build/crystals.md), which return them the same way.
 
 The arrays given to a system are copied, so changing them afterwards does

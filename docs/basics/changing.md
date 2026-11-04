@@ -11,7 +11,6 @@ import copy
 import numpy as np
 import polars as pl
 
-import mdapy as mp
 from mdapy.build import build_crystal
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(10, 10, 10))
@@ -194,8 +193,8 @@ unchangeable as they left:
 ```python
 from concurrent.futures import ProcessPoolExecutor
 
-import mdapy
 from mdapy.identify import CommonNeighborAnalysis
+from mdapy.io import read_trajectory
 
 
 def fcc_atoms(system):
@@ -203,13 +202,13 @@ def fcc_atoms(system):
 
 
 if __name__ == "__main__":
-    frames = list(mdapy.read_trajectory("melt.dump"))
+    frames = list(read_trajectory("melt.dump"))
     with ProcessPoolExecutor() as pool:
         print(list(pool.map(fcc_atoms, frames)))
 ```
 
 Pickle is no file format, though: a pickle of one version of MDAPY may not
-load in another. Save systems with [mdapy.write](io.md).
+load in another. Save systems with [mdapy.io.write](io.md).
 
 ## Why nothing changes a system in place
 

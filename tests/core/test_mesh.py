@@ -9,7 +9,8 @@ import pickle
 import numpy as np
 import pytest
 
-from mdapy import Box, TriangleMesh
+from mdapy import Box
+from mdapy.analysis import TriangleMesh
 from mdapy.errors import InvalidParameter
 
 # a tetrahedron, its faces counterclockwise seen from outside

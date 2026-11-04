@@ -1,12 +1,13 @@
 # Reading and writing files
 
-`mdapy.read` reads one frame of a file into a [`System`](system.md), and
-`mdapy.write` writes one or more systems to a file. To go through the frames
+`mdapy.io.read` reads one frame of a file into a [`System`](system.md), and
+`mdapy.io.write` writes one or more systems to a file. To go through the frames
 of a file one at a time, see [Trajectories](trajectory.md). The format is found from
 the file name, and compressed files are handled transparently.
 
 ```python
 import mdapy as mp
+from mdapy.io import formats, read, write
 
 water = mp.System(
     positions=[[0.0, 0.0, 0.0], [0.96, 0.0, 0.0], [-0.24, 0.93, 0.0]],
@@ -14,20 +15,18 @@ water = mp.System(
     elements=["O", "H", "H"],
     info={"energy": -14.2},
 )
-mp.write("water.xyz", water)
-same = mp.read("water.xyz")
+write("water.xyz", water)
+same = read("water.xyz")
 assert same.table.equals(water.table.select(same.table.columns))
 
-mp.write(
-    "frames.xyz.gz", [water, water.with_columns(positions=water["positions"] + 1.0)]
-)
-last = mp.read("frames.xyz.gz", frame=-1)
-mp.formats()  # the formats mdapy can read and write
+write("frames.xyz.gz", [water, water.with_columns(positions=water["positions"] + 1.0)])
+last = read("frames.xyz.gz", frame=-1)
+formats()  # the formats mdapy can read and write
 ```
 
 ## Reading
 
-`mdapy.read(path, format=None, *, frame=0, **options)`
+`mdapy.io.read(path, format=None, *, frame=0, **options)`
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|
@@ -47,7 +46,7 @@ memory first.
 
 ## Writing
 
-`mdapy.write(path, systems, format=None, **options)`
+`mdapy.io.write(path, systems, format=None, **options)`
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|
@@ -74,12 +73,12 @@ incomplete file is removed.
 | `poscar` | `.vasp`, `.poscar`, names `POSCAR*`, `CONTCAR*` | yes | yes | one | [VASP POSCAR](../reference/formats/poscar.md) |
 | `mdapy` | `.mdapy` | yes | yes | several | [MDAPY files](../reference/formats/mdapy.md) |
 
-`mdapy.detect_format(path)` returns the format of a file name. It ignores a
+`mdapy.io.detect_format(path)` returns the format of a file name. It ignores a
 compression suffix and compares the extension without regard to case; name
 patterns such as `data.*` count only when no extension matches. It
 raises [`UnsupportedFormat`](../reference/api/utilities.md#mdapy.errors.UnsupportedFormat)
 when no format, or more than one, fits the name; pass `format=` in that case.
-`mdapy.formats()` returns this table as a polars DataFrame.
+`mdapy.io.formats()` returns this table as a polars DataFrame.
 
 ## Numbers in text files
 

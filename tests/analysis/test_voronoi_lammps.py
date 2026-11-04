@@ -28,7 +28,7 @@ def test_volumes_and_faces_as_voro(tmp_path, pbc):
         system["positions"] + shift, mdapy.Box(matrix, pbc=pbc), elements="Cu"
     )
     data = tmp_path / "in.data"
-    mdapy.write(data, system)
+    mdapy.io.write(data, system)
     lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
     try:
         if "VORONOI" not in lmp.installed_packages:

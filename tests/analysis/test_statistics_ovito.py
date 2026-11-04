@@ -159,7 +159,7 @@ def walk(path, count=9, seed=2):
         )
         frame = frame.with_table(frame.table[rng.permutation(30)])
         frames.append(frame.with_info(timestep=10 * t))
-    mdapy.write(path, frames)
+    mdapy.io.write(path, frames)
     return frames
 
 

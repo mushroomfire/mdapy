@@ -117,7 +117,7 @@ class Mapped(Sequence[System]):
 class Trajectory(Sequence[System]):
     """The frames of a file, read when they are used.
 
-    Create it with :func:`mdapy.read_trajectory`. Indexing with an integer
+    Create it with :func:`mdapy.io.read_trajectory`. Indexing with an integer
     reads one frame; indexing with a slice gives a trajectory of the selected
     frames; iterating reads the frames one after the other. The file stays
     open until :meth:`close` is called, the trajectory is used as a context

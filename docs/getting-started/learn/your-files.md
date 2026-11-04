@@ -8,8 +8,8 @@ them with yours.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.build import build_crystal
+from mdapy.io import write
 
 rng = np.random.default_rng(0)
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(10, 10, 10))
@@ -19,16 +19,18 @@ for step in (0, 1000, 2000, 10000):
         positions=crystal["positions"]
         + rng.normal(0, 0.1 + step / 25000, (len(crystal), 3))
     )
-    mp.write(f"dump.{step}.lammpstrj", shaken.with_info(timestep=step))
+    write(f"dump.{step}.lammpstrj", shaken.with_info(timestep=step))
 ```
 
 ## One frame
 
-`mp.read` finds the format from the name of the file. Print what you got, and
+`mdapy.io.read` finds the format from the name of the file. Print what you got, and
 you know the columns you have:
 
 ```python
-frame = mp.read("dump.1000.lammpstrj")
+from mdapy.io import read
+
+frame = read("dump.1000.lammpstrj")
 print(frame)
 ```
 
@@ -50,6 +52,7 @@ function, and `map` runs it on each frame when that frame is used:
 
 ```python
 from mdapy.identify import CommonNeighborAnalysis
+from mdapy.io import read_trajectory
 
 
 def analyzed(frame):
@@ -57,7 +60,7 @@ def analyzed(frame):
     return frame.with_columns(CommonNeighborAnalysis().compute(frame))
 
 
-with mp.read_trajectory("dump.*.lammpstrj") as trajectory:
+with read_trajectory("dump.*.lammpstrj") as trajectory:
     print(len(trajectory))
     for frame in trajectory.map(analyzed):
         print(frame.info["timestep"], (frame["structure"] == 1).mean())
@@ -76,12 +79,12 @@ fcc. Only one frame is in memory at a time, however long the trajectory.
 
 ## Write the result
 
-The same function, with `mp.write`. OVITO opens the file with the column
+The same function, with `mdapy.io.write`. OVITO opens the file with the column
 `structure` in it:
 
 ```python
-with mp.read_trajectory("dump.*.lammpstrj") as trajectory:
-    mp.write("analyzed.xyz", trajectory.map(analyzed))
+with read_trajectory("dump.*.lammpstrj") as trajectory:
+    write("analyzed.xyz", trajectory.map(analyzed))
 ```
 
 ## A table of the results
@@ -93,7 +96,7 @@ writes CSV or anything else:
 import polars as pl
 
 rows = []
-with mp.read_trajectory("dump.*.lammpstrj") as trajectory:
+with read_trajectory("dump.*.lammpstrj") as trajectory:
     for frame in trajectory.map(analyzed):
         rows.append(
             {

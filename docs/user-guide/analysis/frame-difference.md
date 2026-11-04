@@ -8,7 +8,6 @@ their ids, as OVITO's difference between frames. It adds the column
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.analysis import CoordinationNumber, FrameDifference
 from mdapy.build import build_crystal
 

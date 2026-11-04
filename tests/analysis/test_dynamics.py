@@ -131,8 +131,8 @@ def test_atoms_matched_by_id():
 
 def test_trajectory_files(tmp_path):
     true, frames = walk(frames=20, atoms=10, seed=2)
-    mdapy.write(tmp_path / "walk.xyz", frames)
-    trajectory = mdapy.read_trajectory(tmp_path / "walk.xyz")
+    mdapy.io.write(tmp_path / "walk.xyz", frames)
+    trajectory = mdapy.io.read_trajectory(tmp_path / "walk.xyz")
     np.testing.assert_allclose(
         MeanSquaredDisplacement().compute(trajectory).msd,
         MeanSquaredDisplacement().compute(frames).msd,

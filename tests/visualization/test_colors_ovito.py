@@ -145,7 +145,7 @@ def test_colors_of_atom_types(tmp_path):
     path.write_text("\n".join(lines) + "\n")
     types = import_file(path).compute().particles.particle_types
     theirs = [types.type_by_id(k).color for k in range(1, count + 1)]
-    system = mdapy.read(path)
+    system = mdapy.io.read(path)
     assert "element" not in system.table.columns
     np.testing.assert_allclose(atom_colors(system), theirs, atol=1e-6)
 

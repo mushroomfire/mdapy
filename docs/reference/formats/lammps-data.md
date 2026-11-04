@@ -9,6 +9,7 @@ starting with `data.`, are recognized.
 ```python
 import numpy as np
 import mdapy as mp
+from mdapy.io import read, write
 
 water = mp.System(
     positions=[[1.0, 1.0, 1.0], [1.96, 1.0, 1.0], [0.76, 1.93, 1.0]],
@@ -16,8 +17,8 @@ water = mp.System(
     elements=["O", "H", "H"],
     topology=mp.Topology(bonds=[[0, 1], [0, 2]], angles=[[1, 0, 2]]),
 ).with_columns(charge=[-0.8476, 0.4238, 0.4238], molecule=[1, 1, 1])
-mp.write("water.data", water)
-same = mp.read("water.data")
+write("water.data", water)
+same = read("water.data")
 same.table["element"].to_list()  # ['O', 'H', 'H'], from the Masses comments
 ```
 

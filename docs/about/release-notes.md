@@ -6,6 +6,10 @@ MDAPY 2.0 is a complete rewrite and is not compatible with MDAPY 1.x. The name
 is written MDAPY, with `mdapy` for the package, the imports and the commands,
 and it has a new logo.
 
+The top level of `mdapy` holds the foundations: `System`, `Box`, `Topology`,
+`NeighborList`, the threads, the versions and the modules. Everything else comes from its
+module, as `mdapy.io.read` or `from mdapy.build import build_crystal`.
+
 ### Structures
 
 - `mdapy.System`: one atomic configuration with a polars table of per-atom
@@ -44,10 +48,10 @@ and it has a new logo.
 
 ### Reading and writing
 
-- `mdapy.read` and `mdapy.write` read one frame and write one or more
+- `mdapy.io.read` and `mdapy.io.write` read one frame and write one or more
   frames, finding the format from the file name. Files compressed with gzip,
   bzip2, xz or zstd (Python 3.14) are read and written transparently.
-  `mdapy.formats` and `mdapy.detect_format` list and identify formats. See
+  `mdapy.io.formats` and `mdapy.io.detect_format` list and identify formats. See
   [Reading and writing files](../basics/io.md).
 - Extended XYZ with the conventions of ASE and GPUMD: velocities from `vel`
   (Å/fs) or ASE `momenta`, stress in GPa, any per-atom column and any global
@@ -72,7 +76,7 @@ and it has a new logo.
   each frame, a table of frames with typed columns of the information, and
   recovery of files whose writing stopped early. See
   [MDAPY files](../reference/formats/mdapy.md).
-- `mdapy.read_trajectory` opens the frames of any file lazily: frames are
+- `mdapy.io.read_trajectory` opens the frames of any file lazily: frames are
   found and read when used, slices share the open file, and iteration starts
   at once; also the frames of several files, given as a pattern such as
   `dump.*.lammpstrj` or a list, each in the format of its name, and frames that
@@ -367,7 +371,7 @@ and it has a new logo.
   its area, the volume of the solid, the regions of solid and empty space
   and the voids among them, the atoms on the surface, and Taubin's
   smoothing; the same areas, volumes and atoms as OVITO. The surface is a
-  `mdapy.TriangleMesh`, a mesh of triangles across periodic boundaries.
+  `mdapy.analysis.TriangleMesh`, a mesh of triangles across periodic boundaries.
 - [`DislocationAnalysis`](../user-guide/analysis/dislocations.md) in `mdapy.analysis`,
   experimental: the dislocation lines of fcc, hcp, bcc, cubic and
   hexagonal diamond crystals by OVITO's dislocation extraction algorithm,

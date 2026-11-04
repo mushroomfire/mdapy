@@ -113,14 +113,14 @@ render(
 
 *Copper and nickel at random on an fcc lattice, the half with x below 15 Å.*
 
-`mp.write` and `mp.read` take any common format, chosen by the name of the
+`mdapy.io.write` and `mdapy.io.read` take any common format, chosen by the name of the
 file:
 
 ```python
-import mdapy as mp
+from mdapy.io import read, write
 
-mp.write("alloy.xyz", alloy)
-back = mp.read("alloy.xyz")
+write("alloy.xyz", alloy)
+back = read("alloy.xyz")
 print(len(back))
 ```
 

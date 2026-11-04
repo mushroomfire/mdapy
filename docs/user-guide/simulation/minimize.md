@@ -73,10 +73,10 @@ of each step, and can be written as a trajectory:
 
 <!-- skip-test -->
 ```python
-import mdapy as mp
+from mdapy.io import write
 
 result = minimize(system, potential, cell="full", save_every=10)
-mp.write("relaxation.xyz", result.frames)
+write("relaxation.xyz", result.frames)
 ```
 
 A callback follows the minimization step by step. Copper with every atom

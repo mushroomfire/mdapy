@@ -147,10 +147,10 @@ def test_as_ovito(tmp_path):
     second = water(2, 1, seed=1).with_columns(
         molecule=[2, 2, 2, 0, 0, 0], velocities=np.arange(18.0).reshape(6, 3)
     )
-    mdapy.write(tmp_path / "first.data", first, atom_style="full")
-    mdapy.write(tmp_path / "second.data", second, atom_style="full")
+    mdapy.io.write(tmp_path / "first.data", first, atom_style="full")
+    mdapy.io.write(tmp_path / "second.data", second, atom_style="full")
     ours = combine(
-        mdapy.read(tmp_path / "first.data"), mdapy.read(tmp_path / "second.data")
+        mdapy.io.read(tmp_path / "first.data"), mdapy.io.read(tmp_path / "second.data")
     )
     pipeline = import_file(str(tmp_path / "first.data"), atom_style="full")
     modifier = CombineDatasetsModifier()

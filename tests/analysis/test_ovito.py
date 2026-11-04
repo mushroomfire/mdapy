@@ -415,7 +415,7 @@ def random_walk(path, step, flags, seed=7):
         # each frame in another order of the atoms, matched by their ids
         frame = frame.with_table(frame.table[rng.permutation(40)])
         frames.append(frame.with_info(timestep=t))
-    mdapy.write(path, frames)
+    mdapy.io.write(path, frames)
     return frames, walk
 
 
@@ -550,7 +550,7 @@ def test_remove_drift(tmp_path, unwrap):
     walked, _ = random_walk(tmp_path / "walk.dump", 2.0, True)
     masses = np.linspace(1.0, 4.0, 40)
     frames = [f.with_columns(mass=masses[np.asarray(f["id"]) - 1]) for f in walked]
-    mdapy.write(tmp_path / "heavy.dump", frames)
+    mdapy.io.write(tmp_path / "heavy.dump", frames)
     pipeline = import_file(str(tmp_path / "heavy.dump"), sort_particles=True)
     if unwrap:
         pipeline.modifiers.append(UnwrapTrajectoriesModifier())

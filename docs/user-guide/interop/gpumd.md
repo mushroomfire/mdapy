@@ -7,8 +7,8 @@ their training sets.
 ```python
 import numpy as np
 
-import mdapy as mp
 from mdapy.build import build_crystal
+from mdapy.io import write
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(10, 10, 10))
 rng = np.random.default_rng(0)
@@ -17,7 +17,7 @@ crystal = crystal.with_columns(
     velocities=rng.normal(0.0, 2.0, (len(crystal), 3)),  # Å/ps
     group=upper.astype(np.int64),  # one grouping method: lower 0, upper 1
 )
-mp.write("model.xyz", crystal)
+write("model.xyz", crystal)
 # Properties=species:S:1:pos:R:3:vel:R:3:group:I:1, velocities in Å/fs
 ```
 
@@ -26,8 +26,9 @@ Then, after the run:
 <!-- skip-test -->
 ```python
 from mdapy.calculators import NEP
+from mdapy.io import read_trajectory
 
-with mp.read_trajectory("dump.xyz") as frames:  # from dump_exyz
+with read_trajectory("dump.xyz") as frames:  # from dump_exyz
     last = frames[-1]
 potential = NEP("nep.txt")
 potential.compute(last, ("energy", "forces", "virial"))
@@ -37,8 +38,8 @@ potential.compute(last, ("energy", "forces", "virial"))
 
 | GPUMD | MDAPY | Page |
 |---|---|---|
-| `model.xyz`: `species`, `pos`, `mass`, `charge`, `vel` (Å/fs), `group` | `mdapy.write` of extended XYZ: `element`, `positions`, `mass`, `charge`, `velocities` (Å/ps), `group` | [Extended XYZ](../../reference/formats/extxyz.md) |
-| `dump_exyz`, `train.xyz`, `test.xyz` | `mdapy.read_trajectory` | [Extended XYZ](../../reference/formats/extxyz.md) |
+| `model.xyz`: `species`, `pos`, `mass`, `charge`, `vel` (Å/fs), `group` | `mdapy.io.write` of extended XYZ: `element`, `positions`, `mass`, `charge`, `velocities` (Å/ps), `group` | [Extended XYZ](../../reference/formats/extxyz.md) |
+| `dump_exyz`, `train.xyz`, `test.xyz` | `mdapy.io.read_trajectory` | [Extended XYZ](../../reference/formats/extxyz.md) |
 | NEP potentials, `nep.txt` | the calculator `NEP` | [NEP](../simulation/nep.md) |
 | training sets | OUTCARs to extended XYZ, choosing frames, perturbed structures | [Training sets from VASP](../mlip/vasp.md) |
 

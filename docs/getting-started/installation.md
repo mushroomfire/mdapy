@@ -13,9 +13,6 @@ This is the usual way. PyPI holds built packages for Linux on x86-64, macOS on
 Apple silicon and Windows on x86-64, so nothing has to be compiled. Elsewhere, `pip`
 builds MDAPY from its source archive, which needs [the tools below](#what-a-build-needs).
 
-!!! note "Until the first release of 2.0"
-    `pip install mdapy` still gives MDAPY 1.x. Install 2.0 [from git](#from-git).
-
 ## From a source archive
 
 Build the source archive on PyPI, instead of taking a built package:
@@ -35,13 +32,13 @@ pip install mdapy-*.tar.gz
 For the newest code, directly:
 
 ```bash
-pip install "git+https://github.com/mushroomfire/mdapy.git@v2"
+pip install "git+https://github.com/mushroomfire/mdapy.git"
 ```
 
 or from a clone, which also has the tests and the documentation:
 
 ```bash
-git clone -b v2 https://github.com/mushroomfire/mdapy.git
+git clone https://github.com/mushroomfire/mdapy.git
 cd mdapy
 pip install .
 ```

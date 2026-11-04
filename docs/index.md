@@ -35,6 +35,7 @@ flowchart TB
     calculators["<b>Calculators</b><br/>EAM · NEP · LAMMPS"]
     minimization["<b>Minimization</b><br/>and dynamics"]
     lattice["<b>Lattice dynamics</b><br/>elastic constants<br/>phonons"]
+    thermodynamics["<b>Thermodynamics</b><br/>free energy · melting point"]
     packages["<b>Interoperability</b><br/>ASE · OVITO · pymatgen · freud<br/>LAMMPS · VASP · GPUMD"]
 
     files <--> system
@@ -49,6 +50,7 @@ flowchart TB
     neighbors --> calculators
     calculators --> minimization
     calculators --> lattice
+    minimization --> thermodynamics
 
     classDef core fill:#2563eb40,stroke:#2563eb,stroke-width:4px
     classDef data fill:#3b82f61f,stroke:#3b82f6,stroke-width:2px
@@ -60,7 +62,7 @@ flowchart TB
     class system,neighbors core
     class files,packages data
     class analysis analysis
-    class calculators,minimization,lattice simulation
+    class calculators,minimization,lattice,thermodynamics simulation
     class build build
     class visual visual
     class mlip mlip
@@ -199,7 +201,8 @@ flowchart TB
 
     ---
 
-    Energies and forces from potentials, minimization and lattice dynamics.
+    Energies and forces from potentials, minimization, lattice dynamics and free
+    energies.
 
     Calculators: [the interface](simulation/calculators.md) ·
     [EAM](simulation/eam.md) · [NEP](simulation/nep.md) ·

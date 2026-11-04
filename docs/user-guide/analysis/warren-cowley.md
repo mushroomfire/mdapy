@@ -30,7 +30,9 @@ over the first four shells of the bcc lattice:
 ```python
 from mdapy.visualization import plot, render
 
-render(system, "images/warren-cowley-b2.png", radius=0.8, view=[1, 0.5, 0.35])
+render(
+    system, "images/warren-cowley-b2.png", radius=0.8, view=[1, 0.5, 0.35], legend=True
+)
 
 rng = np.random.default_rng(1)
 shuffled = system.with_columns(element=rng.permutation(system["element"]))

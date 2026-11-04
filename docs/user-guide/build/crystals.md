@@ -43,7 +43,9 @@ crystals = [
     build_crystal("graphite", 2.46, c=6.7, elements="C", repeat=(6, 6, 2)),
 ]
 pictures = [
-    render(c, radius=0.75 * element_radii(c["element"]), width=400, height=400)
+    render(
+        c, radius=0.75 * element_radii(c["element"]), width=400, height=400, legend=True
+    )
     for c in crystals
 ]
 write_png(

@@ -38,6 +38,7 @@ render(
     view=(0.3, 0.5, -1.0),
     width=500,
     height=400,
+    legend=True,
 )
 ```
 

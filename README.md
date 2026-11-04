@@ -201,10 +201,15 @@ MDAPY has been written three times.
 | Series | Years | How it was built | Code |
 |---|---|---|---|
 | 0.x | 2022–2025 | Python, with [Taichi](https://github.com/taichi-dev/taichi) for the kernels | Branch [`mdapy_old`](https://github.com/mushroomfire/mdapy/tree/mdapy_old), last release 0.11.5 |
-| 1.x | 2025–2026 | Rewritten with every kernel in C++, for speed | Branch [`1.x`](https://github.com/mushroomfire/mdapy/tree/1.x), last release 1.0.10, [documentation](https://mdapy.readthedocs.io) |
+| 1.x | 2025–2026 | Rewritten with every kernel in C++, and with NumPy and polars as its only requirements | Branch [`1.x`](https://github.com/mushroomfire/mdapy/tree/1.x), last release 1.0.10, [documentation](https://mdapy.readthedocs.io) |
 | 2.x | 2026– | Rewritten again from scratch, for the reasons below | This branch |
 
-1.x was fast, but other programs found it hard to live with. 2.x was rewritten to solve that:
+Taichi was no longer updated, which also limited the versions of Python that 0.x could run
+on. 1.x was rewritten to be easy to update and maintain, and it needs only NumPy and polars,
+no longer SciPy and Taichi.
+
+2.x goes further: it is easier to maintain, more stable and more consistent, lighter without
+external code, with many more features and a clearer organization. In particular:
 
 - **OpenMP.** The [OpenMP](https://www.openmp.org) runtime of 1.x could clash with those of
   other packages. 2.x runs a thread pool of its own, so it shares a process with

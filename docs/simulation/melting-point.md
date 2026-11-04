@@ -84,8 +84,11 @@ crystal has: 12 in fcc and hcp, 14 in bcc, 4 in diamond.
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run, of a total that takes every run to be the last |
 | `cancel` | `CancelToken` | `None` | | stops the calculation, which raises `Cancelled` |
 
-Larger boxes give a smaller error. Too small a box has temperatures and interfaces
-that fluctuate too much to keep two phases; a few thousand atoms are a good start.
+Too small a box has temperatures and interfaces that fluctuate too much to keep two
+phases; a few thousand atoms are a good start. `error` is the statistical error of one
+run: independent runs of 6000 atoms of copper, from guesses of 1000, 1327 and 1700 K,
+gave 1320, 1322 and 1333 K, so that repeating a run with another `seed` says more
+about the error than `error` does.
 
 ## Results
 

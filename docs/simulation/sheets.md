@@ -93,6 +93,31 @@ these differences:
 `primitive_cell` takes a sheet and gives the primitive cell of its plane, in a
 box of the same height.
 
+## In gigapascals
+
+A sheet has no thickness of its own, so its constants are in N/m. With a thickness
+$h$ chosen by convention, such as the 3.35 Å between the layers of graphite, the
+constants of a material of that thickness are $C[\mathrm{GPa}] = 10\, C[\mathrm{N/m}]
+/ h[\text{Å}]$: 356 N/m is 1063 GPa.
+
+## Molecular dynamics
+
+[`MolecularDynamics`](dynamics.md) runs a sheet as it is. `barostat="xy"` controls the
+pressure in the plane and keeps the height of the box:
+
+<!-- skip-test -->
+```python
+from mdapy.simulation import MolecularDynamics
+
+with MolecularDynamics(sheet, potential) as md:
+    md.velocities(600.0, seed=1)
+    md.run(20000, ensemble="npt", temperature=300.0, pressure=0.0, barostat="xy")
+```
+
+LAMMPS divides the forces by the volume of the box, with its vacuum. A tension of
+$\sigma$ in N/m is therefore the pressure $-10\, \sigma / h$ GPa, with the height of the
+box $h$ in Å; at zero pressure the height does not matter.
+
 ## Errors
 
 `elastic_constants`, `phonons` and `primitive_cell` raise `InvalidParameter`

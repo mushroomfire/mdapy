@@ -214,6 +214,44 @@ def test_a_cluster(potential):
         assert md.thermo["total_energy"].len() == 2
 
 
+@pytest.mark.parametrize(
+    "matrix",
+    [
+        [[7.2, 0, 0], [0, 7.2, 0], [0, 0, 7.2]],
+        [[7.2, 0, 0], [0, 0, 7.2], [0, 7.2, 0]],  # left-handed
+    ],
+)
+def test_the_barostat_in_the_plane(potential, matrix):
+    """The first two vectors stretch alike towards the pressure, the third stays."""
+    system = build_crystal("fcc", 3.6, elements="Cu", repeat=(2, 2, 2))
+    system = system.with_box(mdapy.Box(matrix), scale_positions=True)
+    with MolecularDynamics(system, potential) as md:
+        md.velocities(100, seed=3)
+        md.run(
+            300,
+            ensemble="npt",
+            temperature=50,
+            pressure=2.0,
+            barostat="xy",
+            barostat_damping=0.1,
+        )
+        box = md.system.box.matrix
+    start = np.array(matrix)
+    assert np.linalg.norm(box[2]) == pytest.approx(7.2, rel=1e-9)
+    first, second = np.linalg.norm(box[0]) / 7.2, np.linalg.norm(box[1]) / 7.2
+    assert first == pytest.approx(second, rel=1e-9) and first != pytest.approx(1.0)
+    np.testing.assert_allclose(box / [[first], [second], [1.0]], start, atol=1e-6)
+
+
+def test_the_barostat_in_the_plane_needs_it_periodic(potential):
+    system = crystal().with_box(
+        mdapy.Box(crystal().box.matrix, pbc=(True, False, True))
+    )
+    with MolecularDynamics(system, potential) as md:
+        with pytest.raises(InvalidParameter, match="first two vectors"):
+            md.run(1, ensemble="npt", temperature=1, pressure=0.0, barostat="xy")
+
+
 def test_cancel(potential):
     token = mdapy.CancelToken()
     with MolecularDynamics(crystal(), potential) as md:

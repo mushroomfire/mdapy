@@ -298,9 +298,37 @@ shape: (5, 5)
 └─────┴─────┴──────┴───────┴───────┘
 ```
 
-The moduli are in GPa. A real screen goes on like this, step by step: each
-one costs more than the last and looks at fewer candidates, and the last of them
-may be a first-principles calculation.
+The moduli are in GPa, and side by side they separate the candidates:
+
+```python
+moduli = pl.DataFrame(rows)
+names = [
+    f"{a}$_{{{x:g}}}${b}$_{{{1 - x:g}}}$"
+    for a, b, x in moduli.select("a", "b", "x").iter_rows()
+]
+with plot.style():
+    fig, axes = plot.figure("double", 60.0, ncols=2, sharey=True)
+    for ax, column, label in zip(
+        axes, ("bulk", "shear"), ("Bulk modulus (GPa)", "Shear modulus (GPa)")
+    ):
+        bars = ax.barh(names, moduli[column], color="#55534e", height=0.62)
+        ax.bar_label(bars, fmt="%.0f", padding=3)
+        ax.set_xlabel(label)
+        ax.margins(x=0.12)
+        ax.tick_params(axis="y", length=0)
+        ax.grid(axis="x", color="#deddd9", linewidth=0.6)
+        ax.set_axisbelow(True)
+    axes[0].invert_yaxis()
+    plot.save(fig, "images/high_throughput_elastic", formats=("png",))
+```
+
+![The moduli of the five candidates](images/high_throughput_elastic.png)
+
+*The bulk and shear moduli of the five alloys with the lowest energy of mixing, in the order
+of the table: each a random arrangement of 108 atoms, relaxed.*
+
+A real screen goes on like this, step by step: each one costs more than the last and looks
+at fewer candidates, and the last of them may be a first-principles calculation.
 
 ## On a cluster
 

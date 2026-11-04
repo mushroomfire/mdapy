@@ -27,7 +27,7 @@ labelled = crystal.with_info(energy=-3.54, label="perfect")
 | `with_box(box, scale_positions=False)` | another box; with `scale_positions=True` the atoms keep their fractional coordinates and deform with the box |
 | `with_info(values, /, **updates)` | other global information: `values` replaces all of it, `{}` clears it; then `updates` adds or replaces entries, and `None` removes one |
 | `with_topology(topology)` | another topology, or none with `None` |
-| `with_table(table)` | another table of the same atoms in the same order |
+| `with_table(table)` | another table of the same atoms in the same order, for operations of polars on the whole table |
 | `select(*columns)`, `drop(*columns)`, `rename(names)` | only some columns, in a given order; without some columns; columns renamed |
 | `filter`, `gather`, `sort` | some of the atoms, or all in another order; see [Selecting and ordering atoms](selecting.md) |
 
@@ -73,10 +73,21 @@ several.table.columns  # ..., cna_structure, ptm_structure, near_coordination, f
 Two values for one column in one call are an error. A later call replaces the column, as
 when the same analysis runs again on a new frame.
 
-`with_table` cannot tell whether the atoms of the new table are in the same
-order: the topology refers to atoms by their row, so to reorder atoms use
-`sort` or `gather`, which renumber the topology, and to remove some use
-`filter`.
+`with_table` is for operations of polars on the whole table that have no method of their
+own, such as a join with values kept elsewhere:
+
+```python
+numbered = crystal.with_columns(id=np.arange(1, len(crystal) + 1))
+measured = pl.DataFrame({"id": [2, 1], "stress": [1.5, 0.5]})
+joined = numbered.with_table(
+    numbered.table.join(measured, on="id", how="left", maintain_order="left")
+)
+joined["stress"][:3]  # 0.5, 1.5 and NaN for the atoms not measured
+```
+
+It cannot tell whether the atoms of the new table are in the same order: the topology refers
+to atoms by their row, so to reorder atoms use `sort` or `gather`, which renumber the
+topology, and to remove some use `filter`.
 
 ### Columns
 

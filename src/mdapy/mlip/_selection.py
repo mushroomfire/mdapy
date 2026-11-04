@@ -230,9 +230,7 @@ def perturb(
     n = len(system)
     box = system.box
     keep = [c for c in system.table.columns if c not in ("forces", "velocities")]
-    base = system.with_table(system.table.select(keep)).with_info(
-        energy=None, virial=None, stress=None
-    )
+    base = system.select(*keep).with_info(energy=None, virial=None, stress=None)
     copies = []
     for _ in range(int(count)):
         e = rng.uniform(-strain, strain, size=(3, 3))

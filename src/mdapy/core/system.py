@@ -450,7 +450,8 @@ class System:
         return system
 
     def with_table(self, table: pl.DataFrame) -> "System":
-        """New system with a different per-atom table.
+        """New system with a different per-atom table, for operations of polars on
+        the whole table that have no method of their own, such as a join.
 
         Parameters
         ----------

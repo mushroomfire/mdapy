@@ -85,7 +85,7 @@ class CoordinationPolyhedraResult(Result):
 
 class CoordinationPolyhedra:
     """The convex hull of the neighbors of atoms, as OVITO's coordination
-    polyhedra.
+    polyhedra. Give exactly one of cutoff, num_neighbors and bonds.
 
     Parameters
     ----------
@@ -95,8 +95,6 @@ class CoordinationPolyhedra:
         The nearest neighbors, this many.
     bonds : bool, optional
         The atoms bonded to each, by the bonds of the topology.
-
-    Give exactly one of cutoff, num_neighbors and bonds.
     """
 
     def __init__(

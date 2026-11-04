@@ -32,7 +32,7 @@ last.info["converged"]  # whether the electronic loop reached EDIFF
 Every ionic step is read, whether its electronic loop converged or not,
 so that a single point that did not converge still gives its atoms;
 `info["converged"]` tells which steps reached EDIFF, and a training set
-keeps those (see [Training sets from VASP](../../mlip/vasp.md)).
+keeps those (see [Training sets from VASP](../../user-guide/mlip/vasp.md)).
 
 A step ends at its line `FREE ENERGIE OF THE ION-ELECTRON SYSTEM`; the
 lines of the machine-learned force field of VASP 6, which start with `ML`,
@@ -48,7 +48,7 @@ the free energy TOTEN that MDAPY reads.
 
 ## Errors
 
-[`FileFormatError`](../api.md#mdapy.errors.FileFormatError) at the line of
+[`FileFormatError`](../api/utilities.md#mdapy.errors.FileFormatError) at the line of
 the fault for: no line of ions per type before the first step, one that
 cannot be read, POTCAR lines that do not match the ions per type, an
 unknown element, a step without lattice vectors, positions and forces or
@@ -56,5 +56,5 @@ free energy, and a line with fewer numbers than it should have.
 
 ## See also
 
-- [Training sets from VASP](../../mlip/vasp.md)
-- [VASP](../../interop/vasp.md) and the [VASP calculator](../../simulation/vasp.md)
+- [Training sets from VASP](../../user-guide/mlip/vasp.md)
+- [VASP](../../user-guide/interop/vasp.md) and the [VASP calculator](../../user-guide/simulation/vasp.md)

@@ -155,4 +155,4 @@ analysis needs a full shell of neighbors.*
     ```
 
 Next: [from numbers to figures](figures.md). All the analyses are listed in the
-[overview of analyses](../../analysis/overview.md).
+[overview of analyses](../../user-guide/analysis/overview.md).

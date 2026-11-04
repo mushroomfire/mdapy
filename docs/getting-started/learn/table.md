@@ -143,6 +143,6 @@ print(len(back))
     ```
 
 Next: [asking the atoms questions](analyses.md). The reference pages for this
-lesson are [Systems](../system.md), [Changing a system](../changing.md),
-[Selecting and ordering atoms](../selecting.md) and
-[Rendering](../../visualization/rendering.md).
+lesson are [Systems](../../basics/system.md), [Changing a system](../../basics/changing.md),
+[Selecting and ordering atoms](../../basics/selecting.md) and
+[Rendering](../../user-guide/visualization/rendering.md).

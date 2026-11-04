@@ -16,7 +16,7 @@ implemented.
 | frame | One `System` of a `Trajectory`. |
 | `table` | The per-atom table of a `System`, a polars DataFrame with one row per atom. |
 | `system["name"]` | The values of a column, a component or an expression over the columns, one per atom, as a read-only NumPy array. |
-| condition | A Python expression over the columns of a system that `System.filter` keeps atoms by, such as `"positions.z > 10 and element == 'Cu'"`. See [Selecting and ordering atoms](../getting-started/selecting.md). |
+| condition | A Python expression over the columns of a system that `System.filter` keeps atoms by, such as `"positions.z > 10 and element == 'Cu'"`. See [Selecting and ordering atoms](../basics/selecting.md). |
 | component | One value of an array column, written `column.component`: `x`, `y`, `z` for 3 values, `x`, `y`, `z`, `w` for 4, `xx` … `zz` by rows for 9, and the index from 0 for any number, such as `positions.z` or `group.1`. |
 | `info` | Global information of a `System`, such as `energy` or `timestep`. |
 | `NeighborList` | Pairs of atoms within a cutoff, the nearest neighbors of each atom, or the atoms that share a Voronoi face, including periodic images. |
@@ -25,7 +25,7 @@ implemented.
 | `index_dtype` | Integer type of atom indices in results such as `NeighborList.j`: int32, or int64 in a build with 64-bit indices. |
 | `TriangleMesh` | A mesh of triangles, which may cross the periodic boundaries of a box: `vertices`, `faces` and the periodic image `shifts` of each corner. |
 | `Topology` | Bonds, angles, dihedrals and impropers of a system; each a table with `atoms` (0-based row indices), `type` and optional `type_label`. |
-| format | Name of a file format, passed as `format=`, such as `extxyz`. See [Reading and writing files](../getting-started/io.md). |
+| format | Name of a file format, passed as `format=`, such as `extxyz`. See [Reading and writing files](../basics/io.md). |
 | `Calculator` | Interface that computes energy, forces and virial for a `System`. |
 | `interop` | The module that converts to and from the objects of other packages: `to_ase`, `from_ase`, `to_ase_calculator`, `from_ase_calculator`, `to_ovito`, `from_ovito`, `to_pymatgen`, `from_pymatgen`, `to_freud`, `from_freud`. |
 | average atom | The single species of an average-atom potential, standing for a random alloy; `A` in potential files. |

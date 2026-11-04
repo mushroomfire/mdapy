@@ -1,0 +1,103 @@
+# Ackland–Jones analysis
+
+`AcklandJonesAnalysis` gives each atom the crystal structure of its
+neighborhood, fcc, hcp, bcc, icosahedral or other, from the distribution of
+the angles between the bonds to its neighbors.
+
+```python
+import mdapy as mp
+from mdapy.build import build_crystal
+from mdapy.identify import AcklandJonesAnalysis
+
+# bcc iron of 5 x 5 x 5 cubic cells
+system = build_crystal("bcc", 2.866, elements="Fe", repeat=(5, 5, 5))
+
+result = AcklandJonesAnalysis().compute(system)
+result.counts()  # {'other': 0, 'fcc': 0, 'hcp': 0, 'bcc': 250, 'ico': 0}
+```
+
+In a relaxed polycrystal of iron:
+
+```python
+from mdapy.build import build_crystal, build_polycrystal
+from mdapy.calculators import EAM
+from mdapy.simulation import minimize
+from mdapy.visualization import render
+
+grains = build_polycrystal(
+    build_crystal("bcc", 2.866, elements="Fe"),
+    mp.Box(50.0),
+    5,
+    seed=4,
+    min_distance=1.6,
+)
+grains = minimize(grains, EAM.zhou(["Fe"]), max_force=0.05, max_steps=300).system
+structures = AcklandJonesAnalysis().compute(grains)
+render(grains, "images/ackland-jones.png", color=structures, width=800, height=600)
+```
+
+![Ackland-Jones analysis of an iron polycrystal](images/ackland-jones.png)
+
+*Five grains of bcc iron (blue) after a short relaxation. The atoms of the
+boundaries take any type, mostly other (white) but also fcc (green), hcp
+(red) and ico (yellow): the analysis looks at the angles between bonds and
+knows nothing of grains.*
+
+## Parameters
+
+`AcklandJonesAnalysis()` has no parameters.
+`compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
+arguments of [every analysis](overview.md#parameters). A given neighbor list
+must hold the 14 nearest neighbors of every atom.
+
+## Results
+
+A [`StructureResult`](overview.md#results) with the types of
+[common neighbor analysis](cna.md#results): `other`, `fcc`, `hcp`, `bcc` and
+`ico`.
+
+## Errors
+
+`compute` raises `InvalidParameter` for a neighbor list that does not hold
+the 14 nearest neighbors.
+
+## Definition
+
+The analysis takes the 14 nearest neighbors of an atom. With $r_0^2$ the
+mean squared distance of the 6 nearest, $n_0$ and $n_1$ count the neighbors
+closer than $\sqrt{1.45}\, r_0$ and $\sqrt{1.55}\, r_0$. The cosines of the
+angles between every two of the $n_0$ bonds fall into eight bins with the
+bounds −1, −0.945, −0.915, −0.755, −0.195, 0.195, 0.245, 0.795 and 1, which
+count $\chi_0, \dots, \chi_7$. The deviations from the ideal structures are
+
+$$
+\begin{aligned}
+\delta_\mathrm{bcc} &= \frac{0.35\, \chi_4}{\chi_5 + \chi_6 - \chi_4}, \\
+\delta_\mathrm{cp} &= \Big|1 - \frac{\chi_6}{24}\Big|, \\
+\delta_\mathrm{fcc} &= \frac{0.61}{6} \big(|\chi_0 + \chi_1 - 6| + \chi_2\big), \\
+\delta_\mathrm{hcp} &= \frac{1}{12} \big(|\chi_0 - 3| + |\chi_0 + \chi_1 + \chi_2 + \chi_3 - 9|\big),
+\end{aligned}
+$$
+
+with $\delta_\mathrm{bcc} = 0$ when $\chi_0 = 7$, $\delta_\mathrm{fcc} = 0$
+when $\chi_0 = 6$, $\delta_\mathrm{hcp} = 0$ when $\chi_0 \le 3$, and no bcc
+when $\chi_5 + \chi_6 = \chi_4$. The atom is then, checked from the top down:
+
+| Condition | Type |
+|---|---|
+| $\chi_7 > 0$ | `other` |
+| $\chi_4 < 3$ | `ico` when $11 \le n_1 \le 13$, else `other` |
+| $\delta_\mathrm{bcc} \le \delta_\mathrm{cp}$ | `bcc` when $n_1 \ge 11$, else `other` |
+| $11 \le n_1 \le 12$ | `fcc` when $\delta_\mathrm{fcc} < \delta_\mathrm{hcp}$, else `hcp` |
+| otherwise | `other` |
+
+These are the rules of the original implementation, which LAMMPS runs with
+`legacy yes`. An atom with fewer than 6 neighbors, as in a system without
+periodic directions of fewer than 7 atoms, is `other`.
+
+## See also
+
+- LAMMPS [`compute ackland/atom`](https://docs.lammps.org/compute_ackland_atom.html).
+
+!!! quote "Please cite"
+    [Ackland and Jones (2006)](../../reference/references.md#ackland2006).

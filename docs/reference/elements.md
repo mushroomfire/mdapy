@@ -48,7 +48,7 @@ s.to_physical()  # [29, 28]
 Some files, such as LAMMPS data files, give masses but no chemical symbols.
 `element_from_mass` returns the element whose atomic weight lies within
 `tolerance` (0.01 amu by default) of the mass, and raises
-[`InvalidParameter`](api.md#mdapy.errors.InvalidParameter) when no element or
+[`InvalidParameter`](api/utilities.md#mdapy.errors.InvalidParameter) when no element or
 more than one element matches.
 
 By default only elements with at least one stable isotope are considered:

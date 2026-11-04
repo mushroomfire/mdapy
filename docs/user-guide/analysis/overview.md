@@ -1,0 +1,94 @@
+# Analysis
+
+Every analysis in MDAPY is used the same way: a class named after what it
+computes takes the parameters, and its `compute` method takes a system and
+returns a result.
+
+```python
+import mdapy as mp
+from mdapy.analysis import RadialDistributionFunction
+from mdapy.build import build_crystal
+from mdapy.identify import CommonNeighborAnalysis
+
+system = build_crystal("fcc", 3.6, elements="Cu", repeat=(4, 4, 4))
+
+result = CommonNeighborAnalysis().compute(system)
+result.counts()  # {'other': 0, 'fcc': 256, ...}
+system = system.with_columns(result)  # adds the column 'structure'
+
+nl = mp.NeighborList.build(system, 6.0)  # one search for several analyses
+rdf = RadialDistributionFunction(r_max=6.0).compute(system, neighbors=nl)
+```
+
+Structure identification is in `mdapy.identify`; every other analysis is in
+`mdapy.analysis`.
+
+## Parameters
+
+The constructor of an analysis takes its parameters and checks them, so a
+wrong value fails before any computation. `compute` takes:
+
+| Name | Type | Default | Meaning |
+|---|---|---|---|
+| `system` | `System` | | the atoms, with the columns the analysis needs, such as `element` or `velocities` |
+| `neighbors` | `NeighborList` | `None` | a neighbor list of this system to use instead of a new search, for analyses that take one |
+| `progress`, `cancel` | | `None` | progress reports and cancellation, as described in [Parallelism](../../basics/parallelism.md#progress-and-cancellation) |
+
+Analyses of a trajectory, the mean squared displacement and the Lindemann
+index, take a sequence of systems, `frames`, instead of `system`. The
+Voronoi analysis takes no neighbor list: it searches as far as each cell
+needs.
+
+A neighbor list passed as `neighbors` must belong to the same `System`
+object. An analysis of the neighbors within a cutoff needs a list with at
+least that cutoff. An analysis of the k nearest neighbors of each atom takes
+either a list of nearest neighbors or a list within a cutoff, with at least
+k neighbors for every atom. The results are those of the analysis's own
+search: for nearest neighbors exactly, for a cutoff up to the order in which
+values are summed.
+
+Without `neighbors`, most analyses within a cutoff count each atom's
+neighbors as the search finds them, without storing the pairs, which keeps
+the memory small for large systems. Pass a list when several analyses need
+the same neighbors.
+
+## Results
+
+A result is an immutable object whose arrays are read-only; all derive from
+`mdapy.core.Result`.
+
+| Method | Returns |
+|---|---|
+| `columns()` | the per-atom values by column name; empty for results of a whole system, such as a radial distribution function |
+
+`system.with_columns(result)` adds these columns to a system, for example
+to write them to a file.
+
+Structure identification returns a `StructureResult`:
+
+| Attribute or method | Type | Meaning |
+|---|---|---|
+| `structure` | (N,) int8 | the type of each atom, an index into `names`; its column is `structure` |
+| `names` | tuple of str | the name of each type, in lower case, such as `"fcc"`; type 0 is always `"other"` |
+| `colors` | tuple of (r, g, b) | the default color of each type, from 0 to 1 |
+| `counts()` | dict of str to int | the number of atoms of each type, by name |
+
+## Errors
+
+The constructors raise
+[`InvalidParameter`](../../reference/api/utilities.md#mdapy.errors.InvalidParameter) for
+invalid parameters. `compute` raises `InvalidParameter` for a neighbor list
+that does not fit, as above;
+[`MissingProperty`](../../reference/api/utilities.md#mdapy.errors.MissingProperty) when
+the system lacks a column the analysis needs; and
+[`Cancelled`](../../reference/api/utilities.md#mdapy.errors.Cancelled) when cancelled.
+
+## Analyses
+
+| Section | Classes |
+|---|---|
+| Structure identification | [`CommonNeighborAnalysis`](cna.md) · [`AcklandJonesAnalysis`](ackland-jones.md) · [`PolyhedralTemplateMatching`](ptm.md) · [`PlanarFaults`](planar-faults.md) · [`GrainSegmentation`](grain-segmentation.md) · [`DiamondStructure`](diamond.md) · [`ChillPlus`](chill-plus.md) · [`CentroSymmetryParameter`](csp.md) · [`CommonNeighborParameter`](cnp.md) |
+| Local order and distributions | [`RadialDistributionFunction`](rdf.md) · [`CoordinationNumber`](coordination.md) · [`StructureFactor`](structure-factor.md) · [`SpatialCorrelation`](spatial-correlation.md) · [`BondAngleDistribution`](bond-angles.md) · [`BondLengthDistribution`](bond-lengths.md) · [`RingStatistics`](rings.md) · [`WarrenCowley`](warren-cowley.md) · [`SteinhardtParameters`](steinhardt.md) · [`EntropyFingerprint`](entropy.md) · [`VoronoiAnalysis`](voronoi.md) · [`SpatialBinning`](spatial-binning.md) · [`isosurface`](isosurface.md) |
+| Statistics | [`Histogram`](histogram.md) · [`reduce`](reduce.md) |
+| Defects and deformation | [`ClusterAnalysis`](clusters.md) · [`SurfaceMesh`](surface-mesh.md) · [`DislocationAnalysis`](dislocations.md) · [`WignerSeitz`](wigner-seitz.md) · [`AtomicDisplacement`](displacement.md) · [`AtomicStrain`](atomic-strain.md) · [`ElasticStrain`](elastic-strain.md) |
+| Dynamics | [`MeanSquaredDisplacement`](msd.md) · [`LindemannIndex`](lindemann.md) · [`TimeAverage`](time-average.md) · [`TimeSeries`](time-series.md) · [`FrameDifference`](frame-difference.md) · [`freeze`](freeze.md) · [`smooth_trajectory`](smooth-trajectory.md) · [`trajectory_lines`](trajectory-lines.md) · [`remove_drift`](drift.md) · [`AtomicTemperature`](temperature.md) |

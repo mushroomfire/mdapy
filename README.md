@@ -43,7 +43,7 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   results and with mature software. Results are the same for any number of threads, and damaged files or
   impossible inputs give a clear error, not a crash.
 - **Fast.** The heavy parts run in C++, on a parallel engine of MDAPY's own. See the
-  [benchmarks](https://github.com/mushroomfire/mdapy/blob/v2/docs/performance/comparison.md).
+  [benchmarks](https://github.com/mushroomfire/mdapy/blob/v2/docs/about/performance/comparison.md).
 - **Predictable.** Names say what the code does: `minimize`, `elastic_constants`,
   `CommonNeighborAnalysis`. A `System` never changes in place, every analysis has the form
   `compute(system)` and returns NumPy arrays, and one unit system, Å, eV and ps, runs
@@ -54,7 +54,7 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   [freud](https://freud.readthedocs.io), takes any ASE calculator or
   [LAMMPS](https://www.lammps.org) interaction, shares a process with
   [PyTorch](https://pytorch.org), and works as one step of
-  [high-throughput calculations](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/high-throughput.md).
+  [high-throughput calculations](https://github.com/mushroomfire/mdapy/blob/v2/docs/examples/high-throughput.md).
 - **Documented.** Every feature has its own page, with an example, its parameters, its
   results and its references, and [lessons](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/learn/table.md) lead
   from the first structure on.
@@ -63,12 +63,12 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
 
 | Area | What is in it |
 |---|---|
-| [**Build**](https://github.com/mushroomfire/mdapy/blob/v2/docs/build/crystals.md) | Crystals, polycrystals, alloys, defects and dislocations |
-| [**Analyze**](https://github.com/mushroomfire/mdapy/blob/v2/docs/analysis/overview.md) | More than 40 analyses of structure, local order, defects and dynamics |
-| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/simulation/calculators.md) | Native EAM and NEP, interfaces to [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/); relaxation and dynamics; elastic constants, phonons, free energies, melting points and phase diagrams |
-| [**MLIP**](https://github.com/mushroomfire/mdapy/blob/v2/docs/mlip/checks.md) | Training sets from [VASP](https://www.vasp.at), descriptors, errors of a model, the frames worth computing |
-| [**Visualize**](https://github.com/mushroomfire/mdapy/blob/v2/docs/visualization/rendering.md) | Ray-traced pictures on the processor or the graphics card, movies and plots |
-| [**Exchange**](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/io.md) | Eight file formats, and systems shared with [ASE](https://wiki.fysik.dtu.dk/ase/), [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and [freud](https://freud.readthedocs.io) |
+| [**Build**](https://github.com/mushroomfire/mdapy/blob/v2/docs/user-guide/build/crystals.md) | Crystals, polycrystals, alloys, defects and dislocations |
+| [**Analyze**](https://github.com/mushroomfire/mdapy/blob/v2/docs/user-guide/analysis/overview.md) | More than 40 analyses of structure, local order, defects and dynamics |
+| [**Simulate**](https://github.com/mushroomfire/mdapy/blob/v2/docs/user-guide/simulation/calculators.md) | Native EAM and NEP, interfaces to [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/); relaxation and dynamics; elastic constants, phonons, free energies, melting points and phase diagrams |
+| [**MLIP**](https://github.com/mushroomfire/mdapy/blob/v2/docs/user-guide/mlip/checks.md) | Training sets from [VASP](https://www.vasp.at), descriptors, errors of a model, the frames worth computing |
+| [**Visualize**](https://github.com/mushroomfire/mdapy/blob/v2/docs/user-guide/visualization/rendering.md) | Ray-traced pictures on the processor or the graphics card, movies and plots |
+| [**Exchange**](https://github.com/mushroomfire/mdapy/blob/v2/docs/basics/io.md) | Eight file formats, and systems shared with [ASE](https://wiki.fysik.dtu.dk/ase/), [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and [freud](https://freud.readthedocs.io) |
 
 ## 🎨 Examples
 
@@ -150,10 +150,10 @@ with plot.style():
 ### Make a movie
 
 <p align="center">
-  <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/movie.md"><img alt="A movie that flies through a copper polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/getting-started/tutorials/images/movie.webp" width="480"></a>
+  <a href="https://github.com/mushroomfire/mdapy/blob/v2/docs/examples/movie.md"><img alt="A movie that flies through a copper polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/v2/docs/examples/images/movie.webp" width="480"></a>
 </p>
 
-See [A movie that flies through a crystal](https://github.com/mushroomfire/mdapy/blob/v2/docs/getting-started/tutorials/movie.md)
+See [A movie that flies through a crystal](https://github.com/mushroomfire/mdapy/blob/v2/docs/examples/movie.md)
 for the whole script.
 
 ## 📦 Install
@@ -176,7 +176,7 @@ pytest
 ```
 
 Tests that need another program are skipped where it is missing.
-[Contributing](https://github.com/mushroomfire/mdapy/blob/v2/docs/development/contributing.md#what-a-complete-run-needs) lists what a
+[Contributing](https://github.com/mushroomfire/mdapy/blob/v2/docs/about/contributing.md#what-a-complete-run-needs) lists what a
 complete run needs.
 
 ## 📖 Citing MDAPY

@@ -79,7 +79,7 @@ sites partly occupied by different atoms give atoms on top of each other.
 
 ## Errors
 
-[`FileFormatError`](../api.md#mdapy.errors.FileFormatError) at the line of
+[`FileFormatError`](../api/utilities.md#mdapy.errors.FileFormatError) at the line of
 the fault for: a quote or text field not closed, a loop whose values do not
 fill its rows, a tag without a value, a word out of place, a file without a
 data block, a block without cell lengths, a cell without volume, a number
@@ -89,5 +89,5 @@ expressions in x, y and z.
 
 ## See also
 
-- [Reading and writing files](../../getting-started/io.md)
+- [Reading and writing files](../../basics/io.md)
 - The [CIF dictionaries](https://www.iucr.org/resources/cif) of the IUCr.

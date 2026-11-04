@@ -21,7 +21,7 @@ system = build_crystal("fcc", a, elements="Cu", repeat=(3, 3, 3))
 len(system), system.box.volume  # 108 atoms, Å^3
 ```
 
-See [Systems and topology](system.md) and [Simulation box](box.md).
+See [Systems and topology](../basics/system.md) and [Simulation box](../basics/box.md).
 
 ## Files
 
@@ -31,8 +31,8 @@ back = mp.read("copper.xyz")
 np.abs(back["positions"] - system["positions"]).max()  # 0.0
 ```
 
-See [Reading and writing files](io.md) and, for a whole trajectory,
-[Trajectories](trajectory.md).
+See [Reading and writing files](../basics/io.md) and, for a whole trajectory,
+[Trajectories](../basics/trajectory.md).
 
 ## Neighbors
 
@@ -42,7 +42,7 @@ nl.counts  # 12 neighbors for every atom of fcc
 nl.distances.min()  # a / sqrt(2)
 ```
 
-See [Neighbor lists](neighbor.md).
+See [Neighbor lists](../basics/neighbor.md).
 
 ## Energy and forces
 
@@ -55,7 +55,7 @@ result.energy / len(system)  # eV per atom
 result.stress(system)  # (3, 3) GPa
 ```
 
-See [Calculators](../simulation/calculators.md) and [EAM](../simulation/eam.md).
+See [Calculators](../user-guide/simulation/calculators.md) and [EAM](../user-guide/simulation/eam.md).
 
 ## Relaxation
 
@@ -74,7 +74,7 @@ relaxed.converged, relaxed.energy, relaxed.stress
 mp.write("relaxed.xyz", relaxed.system)  # with forces, energy and stress
 ```
 
-See [Energy minimization](../simulation/minimize.md).
+See [Energy minimization](../user-guide/simulation/minimize.md).
 
 ## Analysis and pictures
 
@@ -107,5 +107,5 @@ render(
 *Six grains of copper cut in half: fcc atoms green, grain boundaries white,
 in the flat style.*
 
-See [Building structures](../build/polycrystals.md), [Common neighbor
-analysis](../analysis/cna.md) and [Rendering](../visualization/rendering.md).
+See [Building structures](../user-guide/build/polycrystals.md), [Common neighbor
+analysis](../user-guide/analysis/cna.md) and [Rendering](../user-guide/visualization/rendering.md).

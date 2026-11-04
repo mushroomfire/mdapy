@@ -40,7 +40,7 @@ System: 4000 atoms (Cu4000)
 ```
 
 If a dump names no elements, its atoms have types. Name them with
-`with_columns`, or read a [data file for the topology](../trajectory.md#a-topology-for-the-frames).
+`with_columns`, or read a [data file for the topology](../../basics/trajectory.md#a-topology-for-the-frames).
 
 ## All the frames
 
@@ -128,13 +128,13 @@ Three things help with millions of atoms:
 - `mp.set_num_threads(8)` chooses the number of threads. MDAPY uses all of them
   by default, which is rarely what you want on a shared machine.
 - Analyses that need the same neighbors can share one list, which saves most of
-  the search: [Sharing neighbor lists](../tutorials/neighbor-lists.md).
+  the search: [Sharing neighbor lists](../../examples/neighbor-lists.md).
 - `render(..., device="gpu")` draws on the graphics card, usually ten times
-  faster: [Rendering](../../visualization/rendering.md).
+  faster: [Rendering](../../user-guide/visualization/rendering.md).
 
 ## Where next
 
 You have now seen the whole shape of MDAPY. The [cheat sheet](cheat-sheet.md)
 sums it up, and the rest of this site is reference: pick the tab of what you
-need, and the [tutorials](../tutorials/defect-energies.md) work through real
+need, and the [tutorials](../../examples/defect-energies.md) work through real
 studies.

@@ -42,7 +42,7 @@ reading and writing.
 ## Conversion factors
 
 All conversions in MDAPY use the constants in
-[`mdapy.units`](api.md#mdapy.units). A factor named `A_TO_B` converts a value
+[`mdapy.units`](api/utilities.md#mdapy.units). A factor named `A_TO_B` converts a value
 in unit A to unit B by multiplication:
 
 ```python

@@ -16,6 +16,8 @@ as readers download them. The working directory has an empty folder
 ``images``, where examples save the pictures shown on their page.
 """
 
+import importlib
+import inspect
 import re
 import shutil
 import subprocess
@@ -55,7 +57,7 @@ IN_REPOSITORY = re.compile(
 
 
 def test_the_page_for_contributors_names_what_the_tests_need():
-    page = (DOCS / "development" / "contributing.md").read_text(encoding="utf-8")
+    page = (DOCS / "about" / "contributing.md").read_text(encoding="utf-8")
     needed = set()
     for test in (DOCS.parent / "tests").rglob("*.py"):
         needed |= set(
@@ -66,6 +68,36 @@ def test_the_page_for_contributors_names_what_the_tests_need():
     packages = re.search(r"missing = \{(.*?)\}", workflow)[1]
     for package in re.findall(r"'([\w-]+)'", packages):
         assert f"`{package}`" in page and f"PKG_{package}=on" in page
+
+
+def test_the_python_api_lists_every_public_name():
+    pages = (DOCS / "reference" / "api").glob("*.md")
+    listed = set()
+    for page in pages:
+        listed |= set(re.findall(r"^::: (\S+)", page.read_text("utf-8"), re.M))
+    missing = []
+    for name in (
+        "mdapy",
+        "mdapy.io",
+        "mdapy.neighbor",
+        "mdapy.identify",
+        "mdapy.analysis",
+        "mdapy.build",
+        "mdapy.transform",
+        "mdapy.calculators",
+        "mdapy.simulation",
+        "mdapy.lattice_dynamics",
+        "mdapy.mlip",
+        "mdapy.visualization",
+        "mdapy.interop",
+    ):
+        module = importlib.import_module(name)
+        for item in module.__all__:
+            skipped = item.isupper() or item.startswith("_")
+            skipped = skipped or inspect.ismodule(getattr(module, item))
+            if not skipped and not any(n.endswith(f".{item}") for n in listed):
+                missing.append(f"{name}.{item}")
+    assert not missing
 
 
 def test_a_lammps_without_a_package_is_recognized():

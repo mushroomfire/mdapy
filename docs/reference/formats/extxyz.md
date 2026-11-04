@@ -89,7 +89,7 @@ contain blanks cannot be written.
 
 These keys are recognized in any letter case, as GPUMD writes them in lower
 case. A frame without `Lattice` gets a non-periodic box around its atoms
-(see [Simulation box](../../getting-started/box.md)), and may then not have `pbc` true or
+(see [Simulation box](../../basics/box.md)), and may then not have `pbc` true or
 an `Origin`. A `Lattice` of zeros with `pbc` false counts as no `Lattice`.
 
 Every other key becomes an entry of `info`, keeping its case. Its value is

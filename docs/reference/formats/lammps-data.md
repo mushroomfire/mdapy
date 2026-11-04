@@ -92,7 +92,7 @@ angles, dihedrals or impropers, and otherwise need `atom_style=`.
 
 Other atom styles, such as `sphere` or `ellipsoid`, and the sections of
 finite-size particles (Ellipsoids, Lines, Triangles, Bodies) raise
-[`UnsupportedFormat`](../api.md#mdapy.errors.UnsupportedFormat).
+[`UnsupportedFormat`](../api/utilities.md#mdapy.errors.UnsupportedFormat).
 
 When writing, the style is `atom_style=`, otherwise the style the file was
 read with (`info["lammps"]["atom_style"]`), otherwise the simplest style that
@@ -137,7 +137,7 @@ When writing, `triclinic` selects the form:
 |---|---|
 | `"auto"` | Bounds and tilt factors when **a** lies along x and **b** in the xy plane; otherwise the general form. Positions are never rotated. |
 | `"general"` | Always the general form, `avec bvec cvec abc origin`. |
-| `"restricted"` | Always bounds and tilt factors; the box, positions and velocities are rotated as by [`Box.to_lammps`](../../getting-started/box.md). |
+| `"restricted"` | Always bounds and tilt factors; the box, positions and velocities are rotated as by [`Box.to_lammps`](../../basics/box.md). |
 
 LAMMPS needs right-handed edge vectors, so for a left-handed box **b** and
 **c**, and the second and third image flags, are swapped; the lattice and
@@ -145,7 +145,7 @@ the positions are unchanged.
 
 ## Topology, labels and coefficients
 
-Bonds, Angles, Dihedrals and Impropers become the [topology](../../getting-started/topology.md),
+Bonds, Angles, Dihedrals and Impropers become the [topology](../../basics/topology.md),
 with atom IDs turned into rows; type labels of the Bond, Angle, Dihedral and
 Improper Type Labels sections become `type_label` columns of its tables.
 Bond IDs are not kept: written terms are numbered from 1.

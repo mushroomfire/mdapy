@@ -58,7 +58,7 @@ No OpenMP library and no other third-party code is needed.
 
 ## Pictures on the GPU
 
-[Pictures](../visualization/rendering.md#on-the-gpu) are traced on the GPU
+[Pictures](../user-guide/visualization/rendering.md#on-the-gpu) are traced on the GPU
 with Metal on macOS and Direct3D 12 on Windows, in every build, and with Vulkan
 on Linux when the build finds Vulkan's headers: install them before MDAPY, as
 `libvulkan-dev` on Debian and Ubuntu or `vulkan-headers` on Fedora and RHEL. MDAPY opens the
@@ -99,13 +99,13 @@ parts raise an error that names the package to install.
 
 | Package | Install | For |
 |---|---|---|
-| matplotlib | `pip install "mdapy[plot]"` | the plots of [`mdapy.visualization.plot`](../visualization/plots.md) |
-| spglib, seekpath | `pip install "mdapy[symmetry]"` | the [space group](../analysis/space-group.md); phonons and elastic constants from fewer computations; `band_structure("auto")` |
-| ASE | `pip install "mdapy[ase]"` | [`to_ase`, `from_ase`](../interop/ase.md), and [calculators](../interop/ase-calculators.md) between ASE and mdapy |
-| freud | `pip install "mdapy[freud]"` | [`to_freud`, `from_freud`](../interop/freud.md) |
-| pymatgen | `pip install "mdapy[pymatgen]"` | [`to_pymatgen`, `from_pymatgen`](../interop/pymatgen.md) |
-| OVITO | `pip install ovito` | [`to_ovito`, `from_ovito`](../interop/ovito.md) |
-| LAMMPS | its Python module, built with LAMMPS | the [LAMMPS calculator](../simulation/lammps.md), [molecular dynamics](../simulation/dynamics.md) and [elastic constants from molecular dynamics](../simulation/md-elastic.md) |
+| matplotlib | `pip install "mdapy[plot]"` | the plots of [`mdapy.visualization.plot`](../user-guide/visualization/plots.md) |
+| spglib, seekpath | `pip install "mdapy[symmetry]"` | the [space group](../user-guide/analysis/space-group.md); phonons and elastic constants from fewer computations; `band_structure("auto")` |
+| ASE | `pip install "mdapy[ase]"` | [`to_ase`, `from_ase`](../user-guide/interop/ase.md), and [calculators](../user-guide/interop/ase-calculators.md) between ASE and mdapy |
+| freud | `pip install "mdapy[freud]"` | [`to_freud`, `from_freud`](../user-guide/interop/freud.md) |
+| pymatgen | `pip install "mdapy[pymatgen]"` | [`to_pymatgen`, `from_pymatgen`](../user-guide/interop/pymatgen.md) |
+| OVITO | `pip install ovito` | [`to_ovito`, `from_ovito`](../user-guide/interop/ovito.md) |
+| LAMMPS | its Python module, built with LAMMPS | the [LAMMPS calculator](../user-guide/simulation/lammps.md), [molecular dynamics](../user-guide/simulation/dynamics.md) and [elastic constants from molecular dynamics](../user-guide/simulation/md-elastic.md) |
 
 Extras combine: `pip install "mdapy[plot,symmetry,ase]"`. OVITO's package
 from PyPI warns in a conda environment, where conda's own is preferred, so
@@ -146,4 +146,4 @@ mkdocs serve                # preview the documentation
 ```
 
 The test suite and the coverage rules are described in
-[Contributing](../development/contributing.md).
+[Contributing](../about/contributing.md).

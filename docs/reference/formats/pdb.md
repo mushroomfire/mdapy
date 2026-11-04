@@ -67,11 +67,11 @@ and is not periodic. Other records, and the alternate locations, chains,
 occupancies and temperature factors of atoms, are left out.
 
 The bonds are those of `CONECT` only; OVITO also bonds atoms close enough,
-as [`covalent_bonds`](../../visualization/rendering.md#molecules) does.
+as [`covalent_bonds`](../../user-guide/visualization/rendering.md#molecules) does.
 
 ## Errors
 
-[`FileFormatError`](../api.md#mdapy.errors.FileFormatError) at the line of
+[`FileFormatError`](../api/utilities.md#mdapy.errors.FileFormatError) at the line of
 the fault for: a cell parameter or coordinate that is not a number, an atom
 record that ends before its coordinates, an atom whose element cannot be
 told, a `CONECT` record with a word that is not a serial, and a bond to an
@@ -79,6 +79,6 @@ atom the model lacks.
 
 ## See also
 
-- [Reading and writing files](../../getting-started/io.md)
+- [Reading and writing files](../../basics/io.md)
 - The [PDB format](https://www.wwpdb.org/documentation/file-format) of the
   wwPDB.

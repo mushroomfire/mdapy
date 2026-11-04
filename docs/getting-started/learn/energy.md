@@ -80,7 +80,7 @@ print(f"{formation:.3f} eV")
 ```
 
 Experiments give about 1.28 eV. A system this size has converged, as the
-[tutorial on defect energies](../tutorials/defect-energies.md) shows.
+[tutorial on defect energies](../../examples/defect-energies.md) shows.
 
 ## Energy per atom
 
@@ -140,6 +140,6 @@ This is why a small particle melts below the bulk, as the next lesson shows.*
     ```
 
 Next: [a nanoparticle melts](trajectories.md). See also
-[Calculators](../../simulation/calculators.md),
-[Energy minimization](../../simulation/minimize.md) and
-[Defect energies](../../simulation/defect-energies.md).
+[Calculators](../../user-guide/simulation/calculators.md),
+[Energy minimization](../../user-guide/simulation/minimize.md) and
+[Defect energies](../../user-guide/simulation/defect-energies.md).

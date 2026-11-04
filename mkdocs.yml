@@ -106,145 +106,173 @@ nav:
           - 4. Energies and relaxation: getting-started/learn/energy.md
           - 5. A nanoparticle melts: getting-started/learn/trajectories.md
           - 6. Your own files: getting-started/learn/your-files.md
-          - Cheat sheet: getting-started/learn/cheat-sheet.md
-      - System:
-          - Systems: getting-started/system.md
-          - Selecting and ordering atoms: getting-started/selecting.md
-          - Expanding a selection: getting-started/expand-selection.md
-          - Overlapping atoms: getting-started/overlapping.md
-          - Changing a system: getting-started/changing.md
-          - Topology: getting-started/topology.md
-          - Simulation box: getting-started/box.md
-      - Basics:
-          - Reading and writing files: getting-started/io.md
-          - Trajectories: getting-started/trajectory.md
-          - Neighbor lists: getting-started/neighbor.md
-          - Parallelism: getting-started/parallelism.md
-          - Reporting a problem: getting-started/reporting.md
-      - Tutorials:
-          - A polycrystal of fcc and bcc grains: getting-started/tutorials/two-phase-polycrystal.md
-          - Columnar grains on a hexagonal pattern: getting-started/tutorials/columnar-polycrystal.md
-          - Defect energies of copper: getting-started/tutorials/defect-energies.md
-          - A machine-learned potential for CrCoNi: getting-started/tutorials/crconi.md
-          - Screening alloys in many processes: getting-started/tutorials/high-throughput.md
-          - A movie that flies through a crystal: getting-started/tutorials/movie.md
-          - Sharing neighbor lists: getting-started/tutorials/neighbor-lists.md
-  - Analysis:
-      - Overview: analysis/overview.md
-      - Structure identification:
-          - Common neighbor analysis: analysis/cna.md
-          - Ackland–Jones analysis: analysis/ackland-jones.md
-          - Polyhedral template matching: analysis/ptm.md
-          - Planar faults: analysis/planar-faults.md
-          - Grain segmentation: analysis/grain-segmentation.md
-          - Diamond structure: analysis/diamond.md
-          - CHILL+: analysis/chill-plus.md
-          - Centro-symmetry parameter: analysis/csp.md
-          - Common neighbor parameter: analysis/cnp.md
-          - Space group: analysis/space-group.md
-      - Local order and distributions:
-          - Radial distribution function: analysis/rdf.md
-          - Coordination number: analysis/coordination.md
-          - Structure factor: analysis/structure-factor.md
-          - Spatial correlation function: analysis/spatial-correlation.md
-          - Bond angle distribution: analysis/bond-angles.md
-          - Bond length distribution: analysis/bond-lengths.md
-          - Ring statistics: analysis/rings.md
-          - Warren–Cowley parameters: analysis/warren-cowley.md
-          - Steinhardt parameters: analysis/steinhardt.md
-          - Entropy fingerprint: analysis/entropy.md
-          - Voronoi analysis: analysis/voronoi.md
-          - Spatial binning: analysis/spatial-binning.md
-          - Isosurfaces and voxels: analysis/isosurface.md
-      - Statistics:
-          - Histograms: analysis/histogram.md
-          - Reductions: analysis/reduce.md
-      - Defects and deformation:
-          - Cluster analysis: analysis/clusters.md
-          - Surface mesh: analysis/surface-mesh.md
-          - Dislocation analysis: analysis/dislocations.md
-          - Chemical species: analysis/species.md
-          - Wigner–Seitz analysis: analysis/wigner-seitz.md
-          - Atomic displacement: analysis/displacement.md
-          - Atomic strain: analysis/atomic-strain.md
-          - Elastic strain: analysis/elastic-strain.md
-      - Dynamics:
-          - Mean squared displacement: analysis/msd.md
-          - Lindemann index: analysis/lindemann.md
-          - Time averages: analysis/time-average.md
-          - Time series: analysis/time-series.md
-          - Difference between frames: analysis/frame-difference.md
-          - Frozen values: analysis/freeze.md
-          - Smoothed trajectories: analysis/smooth-trajectory.md
-          - Trajectory lines: analysis/trajectory-lines.md
-          - Center-of-mass drift: analysis/drift.md
-          - Atomic temperature: analysis/temperature.md
-  - Structure builder:
-      - Crystals: build/crystals.md
-      - Random alloys: build/alloys.md
-      - Special quasirandom structures: build/sqs.md
-      - Point defects, stacking faults and surfaces: build/defects.md
-      - Surfaces and slip systems: build/slip-systems.md
-      - Dislocations: build/dislocations.md
-      - Polycrystals and twins: build/polycrystals.md
-      - Graphene on grain boundaries: build/graphene.md
-      - Periodic copies and images: build/transform.md
-      - Affine transformation: build/affine.md
-      - Slices: build/slice.md
-      - Combining systems: build/combine.md
-      - Creating bonds: build/bonds.md
-  - Simulation:
-      - Calculators:
-          - The calculator interface: simulation/calculators.md
-          - EAM: simulation/eam.md
-          - NEP: simulation/nep.md
-          - LAMMPS: simulation/lammps.md
-          - VASP: simulation/vasp.md
-      - Minimization and dynamics:
-          - Energy minimization: simulation/minimize.md
-          - Molecular dynamics: simulation/dynamics.md
-          - Defect energies: simulation/defect-energies.md
-      - Thermodynamics:
-          - Free energy: simulation/free-energy.md
-          - Stacking faults at finite temperature: simulation/stacking-fault-temperature.md
-      - Lattice dynamics:
-          - Elastic constants: simulation/elastic-constants.md
-          - Phonons: simulation/phonons.md
-          - Phonons at finite temperature: simulation/thermal-phonons.md
-          - Quasi-harmonic approximation: simulation/quasi-harmonic.md
-          - Elastic constants at finite temperature: simulation/thermal-elastic.md
-          - Elastic constants from molecular dynamics: simulation/md-elastic.md
-          - Sheets: simulation/sheets.md
-  - MLIP:
-      - Training sets from VASP: mlip/vasp.md
-      - SOAP descriptors: mlip/soap.md
-      - Choosing frames: mlip/selection.md
-      - Errors of a model: mlip/errors.md
-      - Uncertainty and novelty: mlip/uncertainty.md
-      - Checking frames: mlip/checks.md
-      - Perturbed structures: mlip/perturbation.md
-  - Visualization:
-      - Rendering: visualization/rendering.md
-      - Movies: visualization/movies.md
-      - Coloring atoms: visualization/colors.md
-      - Coordination polyhedra: visualization/polyhedra.md
-      - Plots: visualization/plots.md
-  - Interoperability:
-      - Python packages:
-          - ASE: interop/ase.md
-          - ASE calculators: interop/ase-calculators.md
-          - OVITO: interop/ovito.md
-          - pymatgen: interop/pymatgen.md
-          - freud: interop/freud.md
-      - Simulation programs:
-          - LAMMPS: interop/lammps.md
-          - VASP: interop/vasp.md
-          - GPUMD: interop/gpumd.md
-  - Performance:
-      - Analyses: performance/comparison.md
-      - Reading and writing files: performance/files.md
-      - Building structures: performance/builders.md
+      - Cheat sheet: getting-started/learn/cheat-sheet.md
+  - Basics:
+      - The system:
+          - Systems: basics/system.md
+          - Simulation box: basics/box.md
+          - Selecting and ordering atoms: basics/selecting.md
+          - Expanding a selection: basics/expand-selection.md
+          - Overlapping atoms: basics/overlapping.md
+          - Changing a system: basics/changing.md
+          - Topology: basics/topology.md
+      - Files and frames:
+          - Reading and writing files: basics/io.md
+          - Trajectories: basics/trajectory.md
+      - Computing:
+          - Neighbor lists: basics/neighbor.md
+          - Parallelism: basics/parallelism.md
+  - Examples:
+      - Building structures:
+          - A polycrystal of fcc and bcc grains: examples/two-phase-polycrystal.md
+          - Columnar grains on a hexagonal pattern: examples/columnar-polycrystal.md
+      - Simulation:
+          - Defect energies of copper: examples/defect-energies.md
+          - A machine-learned potential for CrCoNi: examples/crconi.md
+      - Many calculations:
+          - Screening alloys in many processes: examples/high-throughput.md
+          - Sharing neighbor lists: examples/neighbor-lists.md
+      - Pictures:
+          - A movie that flies through a crystal: examples/movie.md
+  - User guide:
+      - Structure builder:
+          - Crystals and alloys:
+              - Crystals: user-guide/build/crystals.md
+              - Random alloys: user-guide/build/alloys.md
+              - Special quasirandom structures: user-guide/build/sqs.md
+          - Defects:
+              - Point defects, stacking faults and surfaces: user-guide/build/defects.md
+              - Surfaces and slip systems: user-guide/build/slip-systems.md
+              - Dislocations: user-guide/build/dislocations.md
+          - Polycrystals:
+              - Polycrystals and twins: user-guide/build/polycrystals.md
+              - Graphene on grain boundaries: user-guide/build/graphene.md
+          - Transforming:
+              - Periodic copies and images: user-guide/build/transform.md
+              - Affine transformation: user-guide/build/affine.md
+              - Slices: user-guide/build/slice.md
+              - Combining systems: user-guide/build/combine.md
+              - Creating bonds: user-guide/build/bonds.md
+      - Analysis:
+          - Overview: user-guide/analysis/overview.md
+          - Structure identification:
+              - Common neighbor analysis: user-guide/analysis/cna.md
+              - Polyhedral template matching: user-guide/analysis/ptm.md
+              - Ackland–Jones analysis: user-guide/analysis/ackland-jones.md
+              - Centro-symmetry parameter: user-guide/analysis/csp.md
+              - Common neighbor parameter: user-guide/analysis/cnp.md
+              - Diamond structure: user-guide/analysis/diamond.md
+              - CHILL+: user-guide/analysis/chill-plus.md
+              - Planar faults: user-guide/analysis/planar-faults.md
+              - Grain segmentation: user-guide/analysis/grain-segmentation.md
+              - Space group: user-guide/analysis/space-group.md
+          - Local order:
+              - Radial distribution function: user-guide/analysis/rdf.md
+              - Coordination number: user-guide/analysis/coordination.md
+              - Bond angle distribution: user-guide/analysis/bond-angles.md
+              - Bond length distribution: user-guide/analysis/bond-lengths.md
+              - Structure factor: user-guide/analysis/structure-factor.md
+              - Spatial correlation function: user-guide/analysis/spatial-correlation.md
+              - Steinhardt parameters: user-guide/analysis/steinhardt.md
+              - Warren–Cowley parameters: user-guide/analysis/warren-cowley.md
+              - Voronoi analysis: user-guide/analysis/voronoi.md
+              - Ring statistics: user-guide/analysis/rings.md
+              - Entropy fingerprint: user-guide/analysis/entropy.md
+          - Defects and deformation:
+              - Dislocation analysis: user-guide/analysis/dislocations.md
+              - Wigner–Seitz analysis: user-guide/analysis/wigner-seitz.md
+              - Cluster analysis: user-guide/analysis/clusters.md
+              - Surface mesh: user-guide/analysis/surface-mesh.md
+              - Chemical species: user-guide/analysis/species.md
+              - Atomic displacement: user-guide/analysis/displacement.md
+              - Atomic strain: user-guide/analysis/atomic-strain.md
+              - Elastic strain: user-guide/analysis/elastic-strain.md
+          - Dynamics:
+              - Mean squared displacement: user-guide/analysis/msd.md
+              - Lindemann index: user-guide/analysis/lindemann.md
+              - Atomic temperature: user-guide/analysis/temperature.md
+              - Center-of-mass drift: user-guide/analysis/drift.md
+          - Along a trajectory:
+              - Time averages: user-guide/analysis/time-average.md
+              - Time series: user-guide/analysis/time-series.md
+              - Difference between frames: user-guide/analysis/frame-difference.md
+              - Frozen values: user-guide/analysis/freeze.md
+              - Smoothed trajectories: user-guide/analysis/smooth-trajectory.md
+              - Trajectory lines: user-guide/analysis/trajectory-lines.md
+          - Binning and statistics:
+              - Spatial binning: user-guide/analysis/spatial-binning.md
+              - Isosurfaces and voxels: user-guide/analysis/isosurface.md
+              - Histograms: user-guide/analysis/histogram.md
+              - Reductions: user-guide/analysis/reduce.md
+      - Simulation:
+          - Calculators:
+              - The calculator interface: user-guide/simulation/calculators.md
+              - EAM: user-guide/simulation/eam.md
+              - NEP: user-guide/simulation/nep.md
+              - LAMMPS: user-guide/simulation/lammps.md
+              - VASP: user-guide/simulation/vasp.md
+          - Relaxation and dynamics:
+              - Energy minimization: user-guide/simulation/minimize.md
+              - Molecular dynamics: user-guide/simulation/dynamics.md
+              - Defect energies: user-guide/simulation/defect-energies.md
+          - Lattice dynamics:
+              - Elastic constants: user-guide/simulation/elastic-constants.md
+              - Elastic constants at finite temperature: user-guide/simulation/thermal-elastic.md
+              - Elastic constants from molecular dynamics: user-guide/simulation/md-elastic.md
+              - Phonons: user-guide/simulation/phonons.md
+              - Phonons at finite temperature: user-guide/simulation/thermal-phonons.md
+              - Quasi-harmonic approximation: user-guide/simulation/quasi-harmonic.md
+              - Sheets: user-guide/simulation/sheets.md
+          - Thermodynamics:
+              - Free energy: user-guide/simulation/free-energy.md
+              - Stacking faults at finite temperature: user-guide/simulation/stacking-fault-temperature.md
+      - MLIP:
+          - Training sets from VASP: user-guide/mlip/vasp.md
+          - SOAP descriptors: user-guide/mlip/soap.md
+          - Choosing frames: user-guide/mlip/selection.md
+          - Errors of a model: user-guide/mlip/errors.md
+          - Uncertainty and novelty: user-guide/mlip/uncertainty.md
+          - Checking frames: user-guide/mlip/checks.md
+          - Perturbed structures: user-guide/mlip/perturbation.md
+      - Visualization:
+          - Rendering: user-guide/visualization/rendering.md
+          - Movies: user-guide/visualization/movies.md
+          - Coloring atoms: user-guide/visualization/colors.md
+          - Coordination polyhedra: user-guide/visualization/polyhedra.md
+          - Plots: user-guide/visualization/plots.md
+      - Interoperability:
+          - ASE: user-guide/interop/ase.md
+          - ASE calculators: user-guide/interop/ase-calculators.md
+          - OVITO: user-guide/interop/ovito.md
+          - pymatgen: user-guide/interop/pymatgen.md
+          - freud: user-guide/interop/freud.md
+          - LAMMPS: user-guide/interop/lammps.md
+          - VASP: user-guide/interop/vasp.md
+          - GPUMD: user-guide/interop/gpumd.md
   - Reference:
+      - Python API:
+          - Overview: reference/api/index.md
+          - Structures and files: reference/api/structures.md
+          - Structure builder: reference/api/build.md
+          - Analysis:
+              - Structure identification: reference/api/identification.md
+              - Local order: reference/api/local-order.md
+              - Defects and deformation: reference/api/defects.md
+              - Dynamics and trajectories: reference/api/dynamics.md
+              - Binning and statistics: reference/api/statistics.md
+          - Simulation:
+              - Calculators: reference/api/calculators.md
+              - Relaxation and dynamics: reference/api/relaxation.md
+              - Lattice dynamics: reference/api/lattice-dynamics.md
+              - Thermodynamics: reference/api/thermodynamics.md
+          - MLIP: reference/api/mlip.md
+          - Visualization: reference/api/visualization.md
+          - Interoperability: reference/api/interop.md
+          - Threads, errors, elements and units: reference/api/utilities.md
+      - Units and conventions: reference/units.md
+      - Elements: reference/elements.md
+      - Glossary: reference/glossary.md
+      - References: reference/references.md
       - File formats:
           - CIF: reference/formats/cif.md
           - Extended XYZ: reference/formats/extxyz.md
@@ -254,12 +282,11 @@ nav:
           - VASP OUTCAR: reference/formats/outcar.md
           - VASP POSCAR: reference/formats/poscar.md
           - MDAPY files: reference/formats/mdapy.md
-      - Units and conventions: reference/units.md
-      - Elements: reference/elements.md
-      - Glossary: reference/glossary.md
-      - References: reference/references.md
-      - Python API: reference/api.md
-  - Development:
-      - Contributing: development/contributing.md
-      - Source layout: development/source-layout.md
-      - Release notes: development/release-notes.md
+  - About:
+      - Performance:
+          - Analyses: about/performance/comparison.md
+          - Reading and writing files: about/performance/files.md
+          - Building structures: about/performance/builders.md
+      - Release notes: about/release-notes.md
+      - Reporting a problem: about/reporting.md
+      - Contributing: about/contributing.md

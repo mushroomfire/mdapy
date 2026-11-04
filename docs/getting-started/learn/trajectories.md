@@ -156,7 +156,7 @@ with mp.read_trajectory("melt.xyz") as trajectory:
 
 ## Try it
 
-1. Compute the [Lindemann index](../../analysis/lindemann.md) over the last 20
+1. Compute the [Lindemann index](../../user-guide/analysis/lindemann.md) over the last 20
    frames and over the first 20: `LindemannIndex().compute(frames[-20:])`.
 2. Make the particle larger, with a radius of 25 Å. Does it melt later?
 
@@ -170,6 +170,6 @@ with mp.read_trajectory("melt.xyz") as trajectory:
     ```
 
 Next: [your own files](your-files.md). See also
-[Molecular dynamics](../../simulation/dynamics.md),
-[Trajectories](../trajectory.md) and
-[Time series](../../analysis/time-series.md).
+[Molecular dynamics](../../user-guide/simulation/dynamics.md),
+[Trajectories](../../basics/trajectory.md) and
+[Time series](../../user-guide/analysis/time-series.md).

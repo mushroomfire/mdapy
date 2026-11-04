@@ -138,6 +138,6 @@ with plot.style():
     The peak drops to about half and widens by about twice: its area, the
     number of neighbors, stays.
 
-Next: [energies and relaxation](energy.md). See also [Plots](../../visualization/plots.md),
-[Radial distribution function](../../analysis/rdf.md) and
-[Histograms](../../analysis/histogram.md).
+Next: [energies and relaxation](energy.md). See also [Plots](../../user-guide/visualization/plots.md),
+[Radial distribution function](../../user-guide/analysis/rdf.md) and
+[Histograms](../../user-guide/analysis/histogram.md).

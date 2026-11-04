@@ -1,7 +1,3 @@
----
-title: MDAPY
----
-
 # ![MDAPY](assets/mdapy-logo.png#only-light){ width="420" } ![MDAPY](assets/mdapy-logo-dark.png#only-dark){ width="420" } { .logo }
 
 **MDAPY**, short for *Molecular Dynamics Analysis in Python*, builds, analyzes,

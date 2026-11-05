@@ -9,11 +9,11 @@ import numpy as np
 import polars as pl
 from numpy.typing import ArrayLike
 
-from mdapy._core import neighbor as _search
+from mdapy._core import build as _native
 from mdapy.build._defects import _axis
 from mdapy.core.box import Box
-from mdapy.core.system import System
-from mdapy.core.topology import KINDS, Topology
+from mdapy.core.system import VECTOR, System
+from mdapy.core.topology import Topology
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList, find_overlapping
 from mdapy.neighbor._overlapping import _molecules_of
@@ -256,92 +256,89 @@ def build_polycrystal(
             f"min_distance must not be negative, not {min_distance!r}"
         )
 
-    frame = (
-        np.ascontiguousarray(box.matrix),
-        np.ascontiguousarray(box.origin),
-        np.ascontiguousarray(box.pbc),
-    )
-    tree = _search.KdTree(np.ascontiguousarray(seeds), *frame)
-    # how far a grain reaches from its seed: to the farthest corner of its
-    # Voronoi cell, and a cell of unit more
-    if count > 1:
-        from mdapy.analysis import VoronoiAnalysis
+    from mdapy.analysis import VoronoiAnalysis
 
-        reach = VoronoiAnalysis().compute(System(seeds, box)).radius.copy()
-    else:
-        reach = np.full(1, 0.5 * np.linalg.norm(box.matrix.sum(axis=0)))
-    reach += np.linalg.norm(unit.box.matrix.sum(axis=0))
-    names = np.asarray(
-        unit.table["element"].to_list()
+    # the cell of each grain: the seeds across its faces, and how far it reaches from
+    # its seed, to the farthest corner, and a cell of unit more
+    placed = box.wrap(seeds)[0]
+    voronoi = VoronoiAnalysis(faces=True).compute(System(placed, box))
+    owner = np.repeat(np.arange(count), np.diff(voronoi.offsets))
+    faces = placed[voronoi.j] - placed[owner] + voronoi.shifts @ box.matrix
+    reach = voronoi.radius + np.linalg.norm(cell.sum(axis=0))
+    # the copies of unit within reach: 1 / |column of inv(cell)| is the spacing of the
+    # lattice planes of each vector
+    spans = np.ceil(reach[:, None] * np.linalg.norm(np.linalg.inv(cell), axis=0))
+    spans = spans.astype(np.int64)
+    if axis is not None:
+        spans[:, axis] = 0
+    # atoms of different grains too close are both this near a face, and atoms of one
+    # grain are too close only below the nearest distance; molecules and the columns of
+    # a columnar polycrystal reach out of their cells, and all their atoms are searched
+    search_edges = 0.0 < min_distance < nearest and not molecular and axis is None
+    # a grain takes the atoms, or the molecules, closer to its seed than to others; in
+    # a columnar polycrystal, the distances across the axis only. The first atom of
+    # unit is at the seed.
+    points, grain, site, copy, edge = _native.fill_grains(
+        np.ascontiguousarray(seeds),
+        np.ascontiguousarray(rotations),
+        reach,
+        spans,
+        voronoi.offsets,
+        faces,
+        cell,
+        sites[0] @ cell,
+        sites,
+        np.arange(len(sites)) if molecule is None else molecule,
+        sites if centers is None else centers,
+        -1 if axis is None else axis,
+        1e-9 * nearest,
+        molecular,
+        1.000001 * min_distance if search_edges else -1.0,
+    )
+    wrapped, image = box.wrap(points)
+    names = (
+        unit.table["element"]
         if "element" in unit.table.columns
-        else ["X"] * len(unit)
+        else pl.Series(["X"] * len(unit))
     )
-    positions, grain, kinds, copies = [], [], [], []
-    terms: dict[str, list[pl.DataFrame]] = {kind: [] for kind in KINDS}
-    atoms_so_far = copies_so_far = 0
-    # the first atom of unit at the seed
-    origin = sites[0] @ cell
-    for g in range(count):
-        # the cells of unit within reach: 1 / |column of inv(cell)| is the
-        # spacing of the lattice planes of each vector
-        span = np.ceil(reach[g] * np.linalg.norm(np.linalg.inv(cell), axis=0)).astype(
-            int
+    columns = {
+        "positions": pl.Series(wrapped, dtype=VECTOR),
+        "element": names.gather(site),
+        "grain": grain,
+    }
+    for name in unit.table.columns:
+        if name not in _NOT_CARRIED:
+            columns[name] = unit.table[name].gather(site)
+    crystal = System(table=pl.DataFrame(columns), box=box)
+    if molecular:
+        crystal = crystal.with_columns(
+            molecule=copy * len(centers) + molecule[site], image=image
         )
-        if axis is not None:
-            span[axis] = 0
-        cells = np.stack(
-            np.meshgrid(*[np.arange(-s, s + 1) for s in span], indexing="ij"), -1
-        ).reshape(-1, 1, 3)
-
-        def placed(fractions: np.ndarray) -> np.ndarray:
-            local = ((cells + fractions) @ cell).reshape(-1, 3) - origin
-            return seeds[g] + local @ rotations[g].T
-
-        points = placed(sites)
-        # a grain takes the atoms, or the molecules, closer to its seed than to others;
-        # in a columnar polycrystal, the distances across the axis only
-        query = points.copy() if centers is None else placed(centers)
-        if axis is not None:
-            query[:, axis] = seeds[g, axis]
-        _, _, closest = tree.nearest(np.ascontiguousarray(query), 1)
-        own = np.linalg.norm(query - seeds[g], axis=1)
-        inside = own <= closest[:, 0] + 1e-9 * nearest
-        if molecule is not None:
-            whole = inside.reshape(len(cells), -1)
-            inside = whole[:, molecule].ravel()
-            copy = np.arange(whole.size).reshape(whole.shape)[:, molecule].ravel()
-            copies.append(copies_so_far + copy[inside])
-            copies_so_far += whole.size
-            number = np.full(len(points), -1)
-            number[inside] = atoms_so_far + np.arange(int(inside.sum()))
-            for kind, table in topology.tables().items():
-                if len(table):
-                    terms[kind].append(_copied(table, number.reshape(len(cells), -1)))
-        positions.append(points[inside])
-        grain.append(np.full(int(inside.sum()), g))
-        kinds.append(np.flatnonzero(inside) % len(names))  # the site of unit
-        atoms_so_far += int(inside.sum())
-    wrapped, image = box.wrap(np.concatenate(positions))
-    site = np.concatenate(kinds)
-    crystal = System(wrapped, box, elements=names[site]).with_columns(
-        grain=np.concatenate(grain),
-        **{
-            name: unit.table[name][site]
-            for name in unit.table.columns
-            if name not in _NOT_CARRIED
-        },
-    )
-    if molecule is not None:
-        crystal = crystal.with_columns(molecule=np.concatenate(copies), image=image)
         if len(topology):
+            # the new number of each atom of each copy, -1 for those left out
+            number = np.full((int(copy.max(initial=-1)) + 1, len(sites)), -1)
+            number[copy, site] = np.arange(len(site))
             crystal = crystal.with_topology(
-                Topology(**{k: pl.concat(t) for k, t in terms.items() if t})
+                Topology(
+                    **{
+                        kind: _copied(table, number)
+                        for kind, table in topology.tables().items()
+                        if len(table)
+                    }
+                )
             )
-    if min_distance > 0:
+    if search_edges:
+        close = np.flatnonzero(edge)
+        close = close[find_overlapping(System(wrapped[close], box), min_distance)]
+        if len(close):
+            selected = np.zeros(len(crystal), dtype=bool)
+            selected[close] = True
+            crystal = crystal.filter(~selected)
+    elif min_distance > 0:
         crystal = crystal.filter(
             ~find_overlapping(crystal, min_distance, molecules=molecular)
         )
-    if molecule is not None:
+    if molecular:
         numbers = np.unique(crystal["molecule"], return_inverse=True)[1]
         crystal = crystal.with_columns(molecule=numbers + 1)
     return crystal.with_info(seeds=seeds)

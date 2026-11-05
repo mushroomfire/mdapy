@@ -170,6 +170,32 @@ def test_wrap(rng, pbc):
     assert image.dtype == np.int64
 
 
+def test_wrap_of_many_atoms_is_that_of_the_formula(rng):
+    b = Box(
+        random_lammps_like_box(rng), origin=[2.0, -3.0, 5.0], pbc=[True, False, True]
+    )
+    r = rng.uniform(-50.0, 50.0, (200_000, 3))
+    wrapped, image = b.wrap(r)
+    flags = np.floor(b.to_fractional(r)).astype(np.int64)
+    flags[:, ~b.pbc] = 0
+    np.testing.assert_array_equal(image, flags)
+    np.testing.assert_allclose(wrapped, r - flags @ b.matrix, rtol=0, atol=1e-10)
+
+
+def test_wrap_leaves_atoms_that_are_not_finite():
+    given = np.array([[np.nan, 12.0, 3.0], [np.inf, -np.inf, 25.0], [12.0, -3.0, 25.0]])
+    wrapped, image = Box(10.0).wrap(given)
+    np.testing.assert_array_equal(image, [[0, 0, 0], [0, 0, 0], [1, -1, 2]])
+    np.testing.assert_array_equal(wrapped[:2], given[:2])
+    np.testing.assert_array_equal(wrapped[2], [2.0, 7.0, 5.0])
+
+
+def test_wrap_of_nothing():
+    wrapped, image = Box(10.0).wrap(np.zeros((0, 3)))
+    assert wrapped.shape == (0, 3) and image.shape == (0, 3)
+    assert image.dtype == np.int64
+
+
 def test_wrap_never_returns_the_upper_face():
     b = Box(1.0)
     wrapped, image = b.wrap([[-1e-17, 0.5, 1.0], [0.0, 0.0, 0.0]])

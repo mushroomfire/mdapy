@@ -3,8 +3,11 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
+import itertools
+
 import numpy as np
 import pytest
+from mdapy._core import build as _native
 
 import mdapy
 from mdapy.build import (
@@ -15,10 +18,12 @@ from mdapy.build import (
     rotations_about,
     twin_lamellae,
 )
+from mdapy.build._polycrystal import _whole_molecules
+from mdapy.core.threads import get_num_threads, set_num_threads
 from mdapy.core.topology import Topology
 from mdapy.errors import InvalidParameter
 from mdapy.identify import CommonNeighborAnalysis
-from mdapy.neighbor import NeighborList
+from mdapy.neighbor import NeighborList, find_overlapping
 from mdapy.transform import unwrap
 
 A = 3.615
@@ -449,3 +454,193 @@ def test_errors_of_molecules():
     across = water.with_topology(Topology(bonds=[[0, 3]]))
     with pytest.raises(InvalidParameter, match="bonds must lie within one molecule"):
         build_polycrystal(across, mdapy.Box(30.0), 2, seed=1)
+
+
+def _by_brute_force(unit, box, seeds, rotations, axis=None):
+    """The atoms of the grains without the compiled code: whole blocks of copies of the
+    unit, each center compared with every seed nearby, in the order the grains, the
+    copies and the sites come. A unit with molecules goes by their centers."""
+    cell = unit.box.matrix
+    sites = unit.box.to_fractional(unit["positions"])
+    if "molecule" in unit.table.columns:
+        topology = unit.topology if unit.topology is not None else Topology()
+        molecule, sites, centers, nearest = _whole_molecules(unit, sites, topology)
+    else:
+        sites = sites - np.floor(sites)
+        nearest = NeighborList.build(unit, num_neighbors=1).distances.min()
+        molecule, centers = np.arange(len(sites)), sites
+    origin = sites[0] @ cell
+    wrapped = box.wrap(seeds)[0]
+    around = np.array(list(itertools.product([-1, 0, 1], repeat=3))) @ box.matrix
+    others = (wrapped[None] + around[:, None]).reshape(-1, 3)
+    diagonal = np.linalg.norm(np.abs(box.matrix).sum(axis=0))
+    span = np.ceil(diagonal * np.linalg.norm(np.linalg.inv(cell), axis=0)).astype(int)
+    if axis is not None:
+        span[axis] = 0
+    copies = np.stack(
+        np.meshgrid(*[np.arange(-s, s + 1) for s in span], indexing="ij"), -1
+    ).reshape(-1, 1, 3)
+    positions, grains, kinds = [], [], []
+    for g, rotation in enumerate(rotations):
+        points = ((copies + sites) @ cell - origin) @ rotation.T + seeds[g]
+        query = (((copies + centers) @ cell - origin) @ rotation.T + seeds[g]).reshape(
+            -1, 3
+        )
+        if axis is not None:
+            query[:, axis] = seeds[g, axis]
+        own = np.linalg.norm(query - seeds[g], axis=1)
+        query = box.wrap(query)[0]
+        closest = np.full(len(query), np.inf)
+        for start in range(0, len(others), 64):
+            apart = query[:, None] - others[start : start + 64][None]
+            closest = np.minimum(closest, np.linalg.norm(apart, axis=2).min(axis=1))
+        inside = own <= closest + 1e-9 * nearest
+        taken = inside.reshape(len(copies), -1)[:, molecule]
+        positions.append(points[taken])
+        grains.append(np.full(int(taken.sum()), g))
+        kinds.append(np.flatnonzero(taken.ravel()) % len(sites))
+    return (
+        box.wrap(np.concatenate(positions))[0],
+        np.concatenate(grains),
+        np.concatenate(kinds),
+    )
+
+
+def _lattice_of_seeds():
+    return np.array([[0.0, 0, 0], [5 * A, 0, 0], [0, 5 * A, 0], [5 * A, 5 * A, 0]])
+
+
+@pytest.mark.parametrize(
+    ("make_unit", "box", "seeds", "rotations", "axis"),
+    [
+        (unit, mdapy.Box(22.0), [[3.0, 4, 5], [15, 2, 9], [8, 17, 13]], None, None),
+        (
+            unit,
+            mdapy.Box([[24, 0, 0], [7, 23, 0], [-4, 5, 25]]),
+            [[3.0, 4, 5], [15, 2, 9], [8, 17, 13]],
+            None,
+            None,
+        ),
+        # atoms exactly on the faces of the cells, kept by both grains
+        (unit, mdapy.Box(10 * A), _lattice_of_seeds(), np.eye(3)[None], None),
+        (unit, mdapy.Box(6 * A), [[0.0, 0, 0]], np.eye(3)[None], None),
+        (unit, mdapy.Box(21.0, origin=[3.0, -2, 7]), [[1.0, 2, 3]], None, None),
+        # seeds outside the box
+        (unit, mdapy.Box(21.0), [[-5.0, 3, 50], [60, 20, -3]], None, None),
+        (
+            lambda: build_crystal("hcp", 3.2, elements="Mg"),
+            mdapy.Box(21.0),
+            [[3.0, 4, 5], [15, 2, 9]],
+            None,
+            None,
+        ),
+        (
+            lambda: mdapy.System(
+                np.zeros((1, 3)),
+                mdapy.Box([[0, A / 2, A / 2], [A / 2, 0, A / 2], [A / 2, A / 2, 0]]),
+                elements="Cu",
+            ),
+            mdapy.Box(18.0),
+            [[3.0, 4, 5], [15, 2, 9]],
+            None,
+            None,
+        ),
+        (unit, mdapy.Box([A, 30.0, 30.0]), [[0.0, 3, 5], [0, 20, 11]], None, 0),
+        (unit, mdapy.Box([30.0, A, 30.0]), [[3.0, 0, 5], [20, 0, 11]], None, 1),
+        (unit, mdapy.Box([30.0, 30.0, A]), [[3.0, 5, 0], [20, 11, 0]], None, 2),
+        # seeds not in one plane: each column is a slice of a cell of its own
+        (unit, mdapy.Box([30.0, 30.0, A]), [[3.0, 5, 1], [20, 11, 3]], None, 2),
+        (_water, mdapy.Box(24.0), [[3.0, 4, 5], [15, 2, 9]], None, None),
+        (_water, mdapy.Box([24.0, 24.0, 6.35]), [[3.0, 4, 0], [15, 12, 0]], None, 2),
+    ],
+)
+def test_the_atoms_of_each_grain_are_those_of_a_search_by_hand(
+    make_unit, box, seeds, rotations, axis
+):
+    seeds = np.array(seeds)
+    if rotations is None:
+        if axis is None:
+            rotations = random_rotations(len(seeds), seed=3)
+        else:
+            rotations = rotations_about(axis, 20.0 + 35.0 * np.arange(len(seeds)))
+    else:
+        rotations = np.tile(rotations, (len(seeds), 1, 1))
+    cell = make_unit()
+    positions, grain, site = _by_brute_force(cell, box, seeds, rotations, axis)
+    poly = build_polycrystal(cell, box, seeds, orientations=rotations, min_distance=0.0)
+    np.testing.assert_array_equal(poly["grain"], grain)
+    np.testing.assert_allclose(poly["positions"], positions, rtol=0, atol=1e-9)
+    assert poly["element"].tolist() == cell["element"][site].tolist()
+
+
+@pytest.mark.parametrize(
+    ("box", "seeds", "rotations"),
+    [
+        (mdapy.Box(40.0), 7, None),
+        (mdapy.Box([[42, 0, 0], [9, 40, 0], [-5, 7, 44]]), 7, None),
+        (mdapy.Box(10 * A), _lattice_of_seeds(), np.tile(np.eye(3), (4, 1, 1))),
+        (mdapy.Box(6 * A), np.zeros((1, 3)), np.eye(3)[None]),
+    ],
+)
+@pytest.mark.parametrize("share", [0.004, 0.3, 0.7, 0.99, 1.2])
+def test_the_atoms_removed_are_those_of_a_search_of_all(box, seeds, rotations, share):
+    # the atoms too close are searched among those near a face below the nearest
+    # distance, among all from it on
+    nearest = A / np.sqrt(2)
+    options = dict(orientations=rotations, seed=5)
+    every = build_polycrystal(unit(), box, seeds, min_distance=0.0, **options)
+    expected = every.filter(~find_overlapping(every, share * nearest))
+    poly = build_polycrystal(
+        unit(), box, seeds, min_distance=share * nearest, **options
+    )
+    np.testing.assert_array_equal(poly["positions"], expected["positions"])
+    np.testing.assert_array_equal(poly["grain"], expected["grain"])
+
+
+def test_a_polycrystal_is_the_same_for_any_number_of_threads():
+    box = mdapy.Box(50.0)
+    water_box = mdapy.Box(30.0)
+    threads = get_num_threads()
+    try:
+        set_num_threads(1)
+        one = build_polycrystal(unit(), box, 6, seed=2)
+        one_water = build_polycrystal(_water(), water_box, 3, seed=2)
+        set_num_threads(4)
+        many = build_polycrystal(unit(), box, 6, seed=2)
+        many_water = build_polycrystal(_water(), water_box, 3, seed=2)
+    finally:
+        set_num_threads(threads)
+    assert one.table.equals(many.table)
+    assert one_water.table.equals(many_water.table)
+    for kind, table in one_water.topology.tables().items():
+        assert table.equals(many_water.topology.tables()[kind])
+
+
+def test_fill_grains_checks_what_fits():
+    eye = np.eye(3)
+    good = dict(
+        seeds=np.zeros((1, 3)),
+        rotations=eye[None],
+        radii=np.ones(1),
+        spans=np.ones((1, 3), dtype=np.int64),
+        offsets=np.array([0, 1], dtype=np.int64),
+        faces=eye[:1],
+        cell=eye,
+        origin=np.zeros(3),
+        sites=np.zeros((1, 3)),
+        centers_of=np.zeros(1, dtype=np.int64),
+        centers=np.zeros((1, 3)),
+        axis=-1,
+        tolerance=1e-9,
+        copies=False,
+        margin=-1.0,
+    )
+    assert _native.fill_grains(**good)[3:] == (None, None)
+    for wrong in (
+        dict(offsets=np.array([0, 2], dtype=np.int64)),
+        dict(radii=np.ones(2)),
+        dict(axis=3),
+        dict(centers_of=np.array([1], dtype=np.int64)),
+    ):
+        with pytest.raises(ValueError):
+            _native.fill_grains(**{**good, **wrong})

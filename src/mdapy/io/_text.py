@@ -5,6 +5,7 @@
 
 """Line and table reading and writing shared by the text formats."""
 
+import io
 from collections.abc import Iterator, Sequence
 from typing import BinaryIO
 
@@ -141,6 +142,20 @@ def categorize(values: pl.Series) -> tuple[np.ndarray, list[str]]:
     return codes, categories
 
 
+def _prepared(columns: Sequence[tuple[str, object]]) -> list[tuple]:
+    """The columns as the kernels take them; see format_rows."""
+    prepared = []
+    for kind, values, *shift in columns:
+        if kind == "s":
+            codes, categories = values
+            array = np.ascontiguousarray(codes, dtype=np.uint32)
+        else:
+            array = np.ascontiguousarray(values, dtype=_DTYPES[kind])
+            categories = []
+        prepared.append((kind, array, categories, *shift))
+    return prepared
+
+
 def format_rows(columns: Sequence[tuple[str, object]]) -> Iterator[bytes]:
     """Formats rows of values, in blocks of at most WRITE_BLOCK_ROWS lines.
 
@@ -152,15 +167,7 @@ def format_rows(columns: Sequence[tuple[str, object]]) -> Iterator[bytes]:
         "s" with a (codes, categories) pair. A float column with a shift is
         written times 10**shift, applied exactly in decimal.
     """
-    prepared = []
-    for kind, values, *shift in columns:
-        if kind == "s":
-            codes, categories = values
-            array = np.ascontiguousarray(codes, dtype=np.uint32)
-        else:
-            array = np.ascontiguousarray(values, dtype=_DTYPES[kind])
-            categories = []
-        prepared.append((kind, array, categories, *shift))
+    prepared = _prepared(columns)
     rows = len(prepared[0][1]) if prepared else 0
     for start in range(0, rows, WRITE_BLOCK_ROWS):
         stop = start + WRITE_BLOCK_ROWS
@@ -170,6 +177,12 @@ def format_rows(columns: Sequence[tuple[str, object]]) -> Iterator[bytes]:
 
 
 def write_rows(file: BinaryIO, columns: Sequence[tuple[str, object]]) -> None:
-    """Writes rows of values to a binary file; see format_rows."""
+    """Writes rows of values to a binary file; see format_rows. A file on disk
+    takes them straight from the threads that format them."""
+    # compressed files have a descriptor too, that of the compressed bytes
+    if type(file) is io.BufferedWriter:
+        file.flush()
+        _native.write_table(file.fileno(), _prepared(columns))
+        return
     for block in format_rows(columns):
         file.write(block)

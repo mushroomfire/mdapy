@@ -9,7 +9,9 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -78,11 +80,24 @@ std::int64_t parse_table(const char* text, std::int64_t size, std::int64_t offse
                          std::int64_t rows, std::vector<Column>& columns, char comment,
                          const Control& control = {});
 
+// Receives the text of a table piece by piece and in order, from one thread at
+// a time, not always the calling one.
+using Sink = std::function<void(const char* data, std::size_t size)>;
+
 // Writes rows lines: the values of the columns in order separated by one
 // space, each line ending with a newline. Floats use the shortest text that
 // reads back to the same value; with a shift, the same digits with the
 // decimal exponent moved. Throws std::invalid_argument for a string code
 // without a category.
+void write_table(std::int64_t rows, const std::vector<Column>& columns, const Sink& sink,
+                 const Control& control = {});
+
+// The same to a file descriptor open for writing in binary. Throws
+// std::system_error if the file cannot take the text.
+void write_table(int descriptor, std::int64_t rows, const std::vector<Column>& columns,
+                 const Control& control = {});
+
+// The same as one string.
 std::string format_table(std::int64_t rows, const std::vector<Column>& columns,
                          const Control& control = {});
 

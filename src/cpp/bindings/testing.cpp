@@ -9,6 +9,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 
+#include <charconv>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -153,6 +154,18 @@ std::int64_t count_threads(std::int64_t n, double seconds_per_item) {
     return static_cast<std::int64_t>(ids.size());
 }
 
+// What std::to_chars writes for each value, a line each: what the text of a
+// table has to be.
+nb::bytes to_chars_text(ConstVector values) {
+    std::string text;
+    char buffer[64];
+    for (std::size_t i = 0; i < values.shape(0); ++i) {
+        text.append(buffer, std::to_chars(buffer, buffer + sizeof(buffer), values.data()[i]).ptr);
+        text.push_back('\n');
+    }
+    return nb::bytes(text.data(), text.size());
+}
+
 // The table used by the float parser, as (high, low) pairs.
 nb::list powers_of_five() {
     nb::list table;
@@ -166,6 +179,7 @@ nb::list powers_of_five() {
 
 void bind_testing(nb::module_& m) {
     m.def("powers_of_five", &powers_of_five);
+    m.def("to_chars_text", &to_chars_text, nb::arg("values"));
     m.def("parallel_sum", &parallel_sum, nb::arg("values"), nb::arg("grain") = 0,
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("parallel_square", &parallel_square, nb::arg("values"), nb::arg("grain") = 0);

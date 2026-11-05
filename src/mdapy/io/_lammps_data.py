@@ -724,39 +724,41 @@ def _default_style(table: pl.DataFrame, topology: Topology | None) -> str:
 
 
 def _atom_types(
-    table: pl.DataFrame, elements: Sequence[str] | None
+    table: pl.DataFrame, elements: Sequence[str] | None, *, named: bool = True
 ) -> tuple[np.ndarray, dict[int, str]]:
-    """Type of each atom and the element of each type that has one."""
+    """Type of each atom and, if named, the element of each type that has one."""
     if "type" in table.columns:
         if elements is not None:
             raise InvalidParameter(
                 "elements= assigns types from elements, but the system has a type column"
             )
         types = table["type"].to_numpy().astype(np.int64)
-        named = {}
-        if "element" in table.columns:
+        symbols = {}
+        if named and "element" in table.columns:
             # the elements of each type, from the pairs that occur
             pairs = table.select("type", "element").unique()
             found = pairs.group_by("type").agg(pl.col("element").first(), pl.len())
             for t, symbol, count in found.iter_rows():
                 if count == 1 and symbol != "X":
-                    named[int(t)] = str(symbol)
-        return types, named
+                    symbols[int(t)] = str(symbol)
+        return types, symbols
     if "element" not in table.columns:
         if elements is not None:
             raise InvalidParameter("elements= needs an element column")
         return np.ones(len(table), dtype=np.int64), {}
-    symbols = table["element"].cast(pl.String)
-    order = (
-        list(elements) if elements is not None else symbols.unique(maintain_order=True)
-    )
-    order = [str(s) for s in order]
-    missing = set(symbols.unique().to_list()) - set(order)
+    codes = table["element"].to_physical()
+    categories = table["element"].dtype.categories.to_list()
+    present = [categories[code] for code in codes.unique(maintain_order=True)]
+    order = [str(s) for s in (present if elements is None else elements)]
+    missing = set(present) - set(order)
     if missing:
         raise InvalidParameter(f"elements= lacks the elements {sorted(missing)}")
-    lookup = {symbol: i + 1 for i, symbol in enumerate(order)}
-    types = symbols.replace_strict(lookup, return_dtype=pl.Int64).to_numpy()
-    return types, {i + 1: s for i, s in enumerate(order) if s != "X"}
+    code_of = {symbol: code for code, symbol in enumerate(categories)}
+    lookup = np.zeros(len(categories), dtype=np.int64)
+    for i, symbol in enumerate(order):
+        if symbol in code_of:
+            lookup[code_of[symbol]] = i + 1
+    return lookup[codes.to_numpy()], {i + 1: s for i, s in enumerate(order) if s != "X"}
 
 
 def _lammps_info(system: System) -> Mapping[str, Any]:

@@ -269,12 +269,25 @@ def _read(
     real = file_units == "real"
     plan = _plan_columns(frame.columns)
     velocity_names = set(plan["vectors"].get("velocities", ()))
-    spec = [
-        (_kind(name), 1, 3 if real and name in velocity_names else 0)
-        for name in frame.columns
-    ]
     after_header = (reader.offset, reader.line)
-    arrays = dict(zip(frame.columns, reader.table(frame.count, spec)))
+    keys, spec = [], []
+    together = {names[0]: names for names in plan["vectors"].values()}
+    together.update({names[0]: names for names in plan["arrays"].values()})
+    at = 0
+    while at < len(frame.columns):
+        name = frame.columns[at]
+        shift = 3 if real and name in velocity_names else 0
+        names = together.get(name, ())
+        # the columns of a vector next to each other come as one array
+        if len(names) > 1 and tuple(frame.columns[at : at + len(names)]) == names:
+            keys.append(names)
+            spec.append((_kind(name), len(names), shift))
+            at += len(names)
+        else:
+            keys.append(name)
+            spec.append((_kind(name), 1, shift))
+            at += 1
+    arrays = dict(zip(keys, reader.table(frame.count, spec)))
 
     info: dict[str, Any] = {}
     if frame.timestep is not None:
@@ -308,7 +321,11 @@ def _table(
         if name in first_of:
             target = first_of[name]
             names = vectors.get(target) or groups[target]
-            values = np.column_stack([arrays[n] for n in names])
+            values = (
+                arrays[names]
+                if names in arrays
+                else np.column_stack([arrays[n] for n in names])
+            )
             if target == "positions" and names in _SCALED:
                 values = frame.box.to_cartesian(values)
             elif target == "forces" and real:
@@ -479,7 +496,7 @@ def _write(
             if "id" in table.columns
             else np.arange(1, n + 1, dtype=np.int64)
         )
-        types, _ = _atom_types(table, elements)
+        types, _ = _atom_types(table, elements, named=False)
         vectors = {
             name: table[name].to_numpy() if name in table.columns else None
             for name in ("velocities", "forces")

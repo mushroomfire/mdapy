@@ -84,9 +84,9 @@ lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False, legen
 | `vector_color` | color or `"atom"` | yellow | | one color for the arrows, or the color of each atom |
 | `vector_alignment` | str | `"base"` | | the point of the arrow at its atom: `base`, `center` or `head` |
 | `lines` | (M, T, 3) float32 or list of (T, 3) float32 | `None` | Å | polylines, such as the paths of [`trajectory_lines`](../analysis/trajectory-lines.md) |
-| `line_radius`, `line_color` | float32, color | 0.1, gray | Å | their radius and color |
+| `line_radius`, `line_color` | float32, color or a color for each line | 0.1, gray | Å | their radius and color |
 | `wrap_lines` | bool | `False` | | cut the lines at the periodic faces of the box and move the parts outside in through the opposite faces |
-| `legend` | bool, str or mapping | `False` | | a legend at the top left, which needs matplotlib: `True` gives the names of the structures or elements of the atoms shown with their colors, or a bar with the values and the colormap of a column or of (N,) values; a string does the same with this title; a mapping gives its own names and colors |
+| `legend` | bool, str or mapping | `False` | | a legend in a column of its own at the left, the scene framed beside it, which needs matplotlib: `True` gives the names of the structures or elements of the atoms shown with their colors, or a bar with the values and the colormap of a column or of (N,) values; a string does the same with this title; a mapping gives its own names and colors |
 
 | Representation | Atoms | Bonds |
 |---|---|---|

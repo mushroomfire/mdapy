@@ -810,6 +810,28 @@ def test_lines():
     for name, value in [("line_radius", 0), ("line_color", "plaid")]:
         with pytest.raises(InvalidParameter, match=name):
             render(system, lines=path, **{name: value})
+    # no lines, nothing drawn
+    np.testing.assert_array_equal(
+        render(system, atoms=hidden, lines=[], **options), bare
+    )
+    # a color for each line
+    two = [path[0], path[0][:2] + [0.0, 0.0, 3.0]]
+    both = render(
+        system, atoms=hidden, lines=two, line_color=["red", (0, 0, 1)], **options
+    )
+    drawn = both[(both[..., 3] > 127) & ~(bare[..., 3] > 127)][:, :3].astype(int)
+    drawn = drawn[drawn.max(axis=1) > 100]
+    assert (drawn[:, 0] > drawn[:, 2] + 50).any() and (
+        drawn[:, 2] > drawn[:, 0] + 50
+    ).any()
+    same = render(system, atoms=hidden, lines=path, line_color=[(1.0, 0, 0)], **options)
+    np.testing.assert_array_equal(
+        same,
+        render(system, atoms=hidden, lines=path, line_color=(1.0, 0, 0), **options),
+    )
+    for wrong in (["red"], ["red", "blue", "red"], [["red"], "plaid"]):
+        with pytest.raises(InvalidParameter, match="one color or 2, one for each line"):
+            render(system, lines=two, line_color=wrong)
 
 
 # ------------------------------------------------------------ global illumination
@@ -1410,17 +1432,51 @@ def _legend_system():
 LEGEND = dict(width=240, height=180)
 
 
-def test_a_legend_changes_only_its_corner(tmp_path):
+def test_a_legend_has_a_column_of_its_own(tmp_path):
+    """The legend never covers the atoms: the scene is framed beside it,
+    in the width the column leaves."""
     pytest.importorskip("matplotlib")
+    from mdapy.visualization._legend import _legend_width
+
     system = _legend_system()
     cna = CommonNeighborAnalysis().compute(system)
-    plain = render(system, color=cna, **LEGEND)
     path = tmp_path / "legend.png"
     marked = render(system, path, color=cna, legend=True, **LEGEND)
     assert path.stat().st_size > 0
-    differs = (plain != marked).any(axis=2)
-    assert differs[:60, :60].any() and not differs[:, 120:].any()
-    assert marked.shape == plain.shape and marked.dtype == plain.dtype
+    assert marked.shape == (180, 240, 4) and marked.dtype == np.uint8
+    column = _legend_width(180, names=["fcc"])
+    assert 30 < column < 120
+    beside = render(system, color=cna, width=240 - column, height=180)
+    np.testing.assert_array_equal(marked[:, column:], beside)
+    # the column: the text at its top, the background below
+    assert (marked[:30, :column, :3] < 128).any()
+    assert (marked[60:, :column] == 255).all()
+    # a longer name, a wider column
+    longer = _legend_width(180, names=["fcc", "hexagonal_diamond_first_neighbor"])
+    assert longer > column + 100
+    titled = _legend_width(180, title="a long title of the values", bar=(0, 1, "jet"))
+    assert titled > _legend_width(180, bar=(0, 1, "jet"))
+
+
+def test_a_legend_wider_than_the_picture():
+    pytest.importorskip("matplotlib")
+    system = _legend_system()
+    picture = render(system, legend={"a long name " * 4: "red"}, width=60, height=60)
+    assert picture.shape == (60, 60, 4)
+    with pytest.raises(InvalidParameter, match="width and height must be positive"):
+        render(system, legend=True, width=0, height=60)
+
+
+def test_a_legend_on_a_transparent_background():
+    pytest.importorskip("matplotlib")
+    from mdapy.visualization._legend import _legend_width
+
+    system = _legend_system()
+    picture = render(system, legend="Cu", background=None, **LEGEND)
+    column = _legend_width(180, names=["Cu"], title="Cu")
+    # dark text over nothing; the rest of the column stays transparent
+    assert (picture[:30, :column, 3] > 200).any()
+    assert (picture[80:, :column, 3] == 0).all()
 
 
 def test_a_legend_names_what_is_shown(monkeypatch):

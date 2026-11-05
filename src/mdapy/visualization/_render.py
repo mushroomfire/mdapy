@@ -5,6 +5,7 @@
 
 """A picture of a system in one call."""
 
+import inspect
 from collections.abc import Mapping
 from os import PathLike
 from typing import Any
@@ -17,7 +18,7 @@ from mdapy.core._atoms import _mask
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
-from mdapy.visualization._legend import _with_legend
+from mdapy.visualization._legend import _legend_width, _with_legend
 from mdapy.visualization._scene import (
     LABEL_COLORS,
     Scene,
@@ -540,13 +541,14 @@ def render(
     line_radius : float32, optional
         Radius of the lines in Å. Default 0.1.
     line_color : optional
-        One color for the lines. Default gray.
+        One color for the lines, or a color for each line. Default gray.
     wrap_lines : bool, optional
         Cut the lines at the periodic faces of the box and move the parts
         outside in through the opposite faces (True), or draw them as they
         are (False, default).
     legend : bool, str or mapping, optional
-        A legend at the top left, which needs matplotlib. True gives the names
+        A legend in a column of its own at the left of the picture, the scene
+        framed in the rest, which needs matplotlib. True gives the names
         of the structures or elements of the atoms shown with their colors, or
         a bar with the values and the colormap of a column or of (N,) values.
         A string does the same with this title, as for values that have no
@@ -796,10 +798,18 @@ def render(
         )
     if legend is False or legend is None:
         return scene.render(path, **options)
+    # the legend takes a column of its own at the left, the scene the rest
+    items = _legend_items(system, color, shown, legend, colormap, value_range)
+    defaults = inspect.signature(Scene.render).parameters
+    width = int(options.get("width", defaults["width"].default))
+    height = int(options.get("height", defaults["height"].default))
+    # a picture too narrow for a column is left to the checks of the scene
+    column = min(_legend_width(height, **items), width - 1) if width > 1 else 0
     image = _with_legend(
-        scene.render(**options),
-        options.get("background", "white"),
-        **_legend_items(system, color, shown, legend, colormap, value_range),
+        scene.render(**(options | {"width": width - column})),
+        options.get("background", defaults["background"].default),
+        column=column,
+        **items,
     )
     if path is not None:
         write_png(path, image)
@@ -863,26 +873,42 @@ def _lines(scene, lines, box, radius, color, wrap, id_):
     radius = float(radius)
     if not (np.isfinite(radius) and radius > 0):
         raise InvalidParameter(f"line_radius must be positive, not {radius!r}")
+    lines = [np.asarray(points, dtype=float).reshape(-1, 3) for points in lines]
     try:
-        rgb = _color(color)
-    except InvalidParameter:
-        raise InvalidParameter(f"line_color must be one color, not {color!r}") from None
-    starts, ends, joints = [], [], []
-    for points in lines:
-        points = np.asarray(points, dtype=float).reshape(-1, 3)
+        rgb = np.tile(_color(color), (len(lines), 1))
+    except (InvalidParameter, ValueError, TypeError):
+        # a color for each line
+        try:
+            rgb = np.array([_color(c) for c in color]).reshape(-1, 3)
+        except (InvalidParameter, ValueError, TypeError):
+            rgb = None
+        if rgb is None or len(rgb) != len(lines):
+            raise InvalidParameter(
+                f"line_color must be one color or {len(lines)}, one for each "
+                f"line, not {color!r}"
+            ) from None
+    starts, ends, joints, segment_rgb, joint_rgb = [], [], [], [], []
+    for points, own in zip(lines, rgb):
         if wrap:
             a, b = _inside(points, box)
-            joints.append(box.wrap(points[1:-1])[0] if len(points) > 2 else points[:0])
+            joint = box.wrap(points[1:-1])[0] if len(points) > 2 else points[:0]
         else:
             a, b = points[:-1], points[1:]
-            joints.append(points[1:-1])
+            joint = points[1:-1]
         starts.append(a)
         ends.append(b)
+        joints.append(joint)
+        segment_rgb.append(np.tile(own, (len(a), 1)))
+        joint_rgb.append(np.tile(own, (len(joint), 1)))
     if not starts:
         return
-    starts, ends, joints = map(np.concatenate, (starts, ends, joints))
-    scene.add_cylinders(starts, ends, radius, rgb, ids=np.full(len(starts), id_))
-    scene.add_spheres(joints, radius, rgb, ids=np.full(len(joints), id_))
+    starts, ends, joints, segment_rgb, joint_rgb = map(
+        np.concatenate, (starts, ends, joints, segment_rgb, joint_rgb)
+    )
+    scene.add_cylinders(
+        starts, ends, radius, segment_rgb, ids=np.full(len(starts), id_)
+    )
+    scene.add_spheres(joints, radius, joint_rgb, ids=np.full(len(joints), id_))
 
 
 def _ring(centers, axes, radii, sides):

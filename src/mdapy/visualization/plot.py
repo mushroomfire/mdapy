@@ -334,6 +334,78 @@ def rdf(result: Any, *, ax: Any = None, partial: bool = False) -> Any:
     return ax
 
 
+def warren_cowley(
+    result: Any,
+    *,
+    ax: Any = None,
+    shell: int | None = None,
+    vmin: float = -2.0,
+    vmax: float = 1.0,
+    cmap: str = "GnBu",
+) -> Any:
+    """The Warren-Cowley parameters as a matrix of colors with their values
+    written in, the central element along x and its neighbor along y.
+
+    Parameters
+    ----------
+    result : mdapy.analysis.WarrenCowleyResult
+        The parameters.
+    ax : matplotlib.axes.Axes, optional
+        The axes; by default a new figure.
+    shell : int32, optional
+        The shell to draw, from 0, of parameters of several shells.
+    vmin, vmax : float64, optional
+        The values at the two ends of the colors. Default -2 and 1.
+    cmap : str, optional
+        The name of a colormap of matplotlib. Default "GnBu".
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes.
+
+    Raises
+    ------
+    InvalidParameter
+        Without a shell that exists for parameters of several shells, or with
+        one for parameters of one shell.
+    """
+    alpha = result.alpha
+    if alpha.ndim == 2:
+        if shell is not None:
+            raise InvalidParameter("the parameters are of one shell")
+    elif shell is None:
+        raise InvalidParameter(
+            f"the parameters are of {len(alpha)} shells: choose one with shell"
+        )
+    elif not 0 <= shell < len(alpha):
+        raise InvalidParameter(f"shell {shell} is not among {len(alpha)} shells")
+    else:
+        alpha = alpha[shell]
+    ax = _axes(ax)
+    image = ax.imshow(alpha.T, vmin=vmin, vmax=vmax, cmap=cmap, origin="lower")
+    positions = np.arange(len(result.elements))
+    ax.set_xticks(positions, result.elements)
+    ax.set_yticks(positions, result.elements)
+    for a, b in np.ndindex(alpha.shape):
+        value = alpha[a, b]
+        dark = value > vmin + 0.75 * (vmax - vmin)
+        ax.text(
+            a,
+            b,
+            # no atoms to tell, and no -0.00
+            "–" if np.isnan(value) else f"{round(value, 2) + 0.0:.2f}",
+            ha="center",
+            va="center",
+            color="w" if dark else "k",
+        )
+    ax.set_xlabel("Central element")
+    ax.set_ylabel("Neighboring element")
+    bar = ax.figure.colorbar(image, ax=ax, ticks=[vmin, 0.0, vmax])
+    bar.set_label("Warren–Cowley α")
+    return ax
+
+
 def structure_factor(result: Any, *, ax: Any = None) -> Any:
     """The structure factor of a ``mdapy.analysis.StructureFactorResult``."""
     ax = _axes(ax)

@@ -10,6 +10,8 @@
   belongs to the grain of its center, those too close go whole, and the topology is kept. It
   also keeps the other columns of the unit, such as charges. `find_overlapping` has an option
   `molecules`. See [A molecular polycrystal](../examples/molecular-polycrystal.md).
+- `plot.warren_cowley` draws the Warren–Cowley parameters as a matrix with its values written
+  in, as MDAPY 1.x did. See [Warren–Cowley parameters](../user-guide/analysis/warren-cowley.md).
 - `build_polycrystal` places only the atoms of each grain, on all threads, and gives the same
   atoms in the same order as before: 2 million atoms of copper in 20 grains, with `min_distance`
   0.01 Å, take 0.017 s instead of 1.9 s on 10 threads, and the process peaks at 182 MB instead

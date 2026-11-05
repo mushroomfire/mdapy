@@ -84,6 +84,7 @@ from its center.*
 | `scatter(system, x, y, *, ax=None, atoms=None, max_points=20000, color=None)` | two columns, components or expressions of the atoms (or of those of the mask or indices `atoms`) against each other, as `system[x]` takes them, the atoms with finite values; at most `max_points` of them, picked at random with a fixed seed |
 | `rdf(result, *, ax=None, partial=False)` | g(r), or the partial functions |
 | `structure_factor(result, *, ax=None)` | S(q) |
+| `warren_cowley(result, *, ax=None, shell=None, vmin=-2.0, vmax=1.0, cmap="GnBu")` | the [Warren–Cowley parameters](../analysis/warren-cowley.md) as a matrix of colors with their values written in, the central element along x and its neighbor along y; `shell` chooses one of several shells, and a value that cannot be told shows as – |
 | `bond_angles(result, *, ax=None)` | the density of bond angles |
 | `msd(result, *, timestep=1.0, ax=None, fit=None)` | the MSD against time in ps; `fit=(first, last)` fits a line over those lags, its slope over 6 the diffusion coefficient in the legend |
 | `stacking_fault(result, *, ax=None, **options)` | a generalized stacking fault energy in mJ/m², a point for each slip joined by a line; `options` go to `ax.plot`, such as `label` |
@@ -104,6 +105,8 @@ in inches.
 ## Errors
 
 `figure` raises `InvalidParameter` for a width that is neither single,
-double nor a positive number, `parity` for values of different sizes, and
-`scatter` for a column of several components or `max_points` below 1.
+double nor a positive number, `parity` for values of different sizes,
+`scatter` for a column of several components or `max_points` below 1, and
+`warren_cowley` without a `shell` that exists for parameters of several shells,
+or with one for parameters of one shell.
 Without matplotlib the plots raise `ImportError`.

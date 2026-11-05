@@ -2,24 +2,24 @@
 
 MDAPY and [Atomsk](https://atomsk.univ-lille.fr) build fcc copper as a
 single crystal and as a polycrystal of 20 grains, and write it as a LAMMPS
-data file, from 4 000 to 2 million atoms. A program is timed only where it
+data file, from 4 000 to nearly 10 million atoms. A program is timed only where it
 builds the structure MDAPY builds.
 
 ## Results
 
-A node of the Triton cluster of Aalto University, alone for the run: two
-Intel Xeon Gold 6248 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
-MDAPY 2.0.0.dev0 built with GCC 12.3, and Atomsk Beta 0.13.1, a statically linked build of its release.
+An Apple M5 (10 cores: 4 performance, 6 efficiency), 24 GB, macOS 27, with an
+editor and a browser open. Python 3.13, MDAPY 2.0.0a2 in development built with
+Apple clang 21, and Atomsk Beta 0.13.1 built with GFortran and OpenMP.
 
 ![Time of Atomsk over the time of MDAPY for each case and size](images/builders.png)
 
 ### What they show
 
-- **Single crystal**: MDAPY builds and writes it 16 to 28 times faster
-  than Atomsk, 0.29 s against 5.0 s at 2 million atoms; building it is a
-  repetition of the cell, and most of the time is writing the file.
-- **Polycrystal**: MDAPY is 2.4 to 6.2 times faster, 4.1 s against 9.6 s at
-  2 million atoms.
+- **Single crystal**: MDAPY builds and writes it 10 to 25 times faster
+  than Atomsk, 0.67 s against 7.5 s at nearly 10 million atoms; building it is
+  a repetition of the cell, and most of the time is writing the file.
+- **Polycrystal**: MDAPY is 28 to 39 times faster, 0.50 s against 19.0 s at
+  nearly 10 million atoms; most of the time is writing the file here too.
 
 ### Times and memory
 
@@ -29,16 +29,18 @@ the timings; that of Atomsk, a process of its own, is not counted.
 
 #### Atomsk
 
-| Case | Atoms | MDAPY 2.0.0.dev0 (s) | Atomsk Beta 0.13.1 (s) | Atomsk / MDAPY | MDAPY (MB) | Atomsk (MB) |
+| Case | Atoms | MDAPY 2.0.0a2 (s) | Atomsk Beta 0.13.1 (s) | Atomsk / MDAPY | MDAPY (MB) | Atomsk (MB) |
 |---|---:|---:|---:|---:|---:|---:|
-| fcc single crystal, written as a LAMMPS data file | 4,000 | 0.003 | 0.043 | 16.31 | 0 | 0 |
-| fcc single crystal, written as a LAMMPS data file | 32,000 | 0.005 | 0.148 | 27.55 | 4 | 0 |
-| fcc single crystal, written as a LAMMPS data file | 256,000 | 0.038 | 0.676 | 17.65 | 30 | 0 |
-| fcc single crystal, written as a LAMMPS data file | 2,048,000 | 0.287 | 5.024 | 17.53 | 129 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 3,981 | 0.029 | 0.180 | 6.18 | 0 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 31,995 | 0.088 | 0.352 | 3.98 | 2 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 255,941 | 0.483 | 1.336 | 2.76 | 42 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 2,047,788 | 4.080 | 9.613 | 2.36 | 115 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 4,000 | 0.001 | 0.015 | 24.54 | 0 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 32,000 | 0.002 | 0.041 | 19.13 | 7 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 256,000 | 0.016 | 0.194 | 12.51 | 88 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 2,048,000 | 0.146 | 1.518 | 10.36 | 208 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 9,841,500 | 0.674 | 7.458 | 11.07 | 571 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 3,981 | 0.001 | 0.032 | 27.52 | 0 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 31,995 | 0.003 | 0.102 | 32.20 | 20 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 255,941 | 0.016 | 0.550 | 34.38 | 124 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 2,047,788 | 0.104 | 4.031 | 38.88 | 237 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 9,841,309 | 0.501 | 18.988 | 37.93 | 471 | 0 |
 
 ## Cases
 
@@ -61,8 +63,8 @@ does by default.
 
 ## How it is measured
 
-- MDAPY runs in a process of its own with 40 threads. Atomsk runs as a
-  command from that process, with `OMP_NUM_THREADS` 40; the time of a build
+- MDAPY runs in a process of its own with 10 threads. Atomsk runs as a
+  command from that process, with `OMP_NUM_THREADS` 10; the time of a build
   by Atomsk includes starting the program.
 - Before the timings, a separate process builds the structure with both
   programs and reads both files with mdapy. Single crystal: the same box and
@@ -85,7 +87,7 @@ the environment variable `ATOMSK` names.
 
 ```bash
 ATOMSK=/path/to/atomsk python benchmarks/comparison.py run --group builders \
-    --sizes 4000 32000 256000 2048000 --threads 40 --memory 170 --timeout 900 \
+    --sizes 4000 32000 256000 2048000 9841500 --threads 10 --memory 8 --timeout 1800 \
     --output builders.json   # as above
 python benchmarks/comparison.py table builders.json
 python benchmarks/comparison.py plot builders.json builders.png

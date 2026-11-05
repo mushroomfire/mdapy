@@ -1647,7 +1647,7 @@ def label(entries: list[dict], program: str) -> str:
     found = {
         e["versions"][program] for e in entries if program in e.get("versions", {})
     }
-    return " ".join([PROGRAMS.get(program, program), *sorted(found)])
+    return " ".join([{"mdapy": "MDAPY", **PROGRAMS}[program], *sorted(found)])
 
 
 def outcome(side: dict | None) -> str:
@@ -1674,7 +1674,7 @@ def table(entries: list[dict]) -> str:
         name, other = label(entries, program), PROGRAMS[program]
         rows = [
             f"| Case | Atoms | {label(entries, 'mdapy')} (s) | {name} (s) "
-            f"| {other} / mdapy | mdapy (MB) | {other} (MB) |",
+            f"| {other} / MDAPY | MDAPY (MB) | {other} (MB) |",
             "|---|---:|---:|---:|---:|---:|---:|",
         ]
         for case in titles:
@@ -1749,10 +1749,10 @@ def plot(entries: list[dict], path: str) -> None:
             ax.invert_yaxis()
             name = PROGRAMS[program]
             ax.set_title(f"{label(entries, 'mdapy')} against {label(entries, program)}")
-            ax.set_xlabel(f"time of {name} / time of mdapy")
+            ax.set_xlabel(f"time of {name} / time of MDAPY")
             # where mdapy is better, and worse, under the axis
             ax.annotate(
-                "mdapy better →",
+                "MDAPY better →",
                 (1.0, 0.0),
                 xycoords="axes fraction",
                 xytext=(0, -26),
@@ -1761,7 +1761,7 @@ def plot(entries: list[dict], path: str) -> None:
                 va="top",
             )
             ax.annotate(
-                "← mdapy worse",
+                "← MDAPY worse",
                 (0.0, 0.0),
                 xycoords="axes fraction",
                 xytext=(0, -26),
@@ -1769,7 +1769,8 @@ def plot(entries: list[dict], path: str) -> None:
                 ha="left",
                 va="top",
             )
-        axes[0].legend(frameon=False, loc="best")  # the same sizes below
+        # beside the bars, which may reach any place; the same sizes below
+        axes[0].legend(frameon=False, loc="upper left", bbox_to_anchor=(1.0, 1.0))
         plots.save(fig, path.rsplit(".", 1)[0], formats=(path.rsplit(".", 1)[1],))
 
 

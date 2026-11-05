@@ -2,6 +2,11 @@
 
 ## 2.0.0a2 (in development)
 
+- `find_overlapping` and `build_polycrystal` delete as few atoms as they can: the atoms that
+  overlap the fewest are kept first. `find_overlapping` used to delete the later atom of every
+  pair, also when the earlier one was deleted too. See
+  [Overlapping atoms](../basics/overlapping.md).
+
 Documentation:
 
 - Examples of [a gradient polycrystal](../examples/gradient-polycrystals.md) and of

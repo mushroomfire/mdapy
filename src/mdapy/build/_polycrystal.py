@@ -13,7 +13,7 @@ from mdapy.build._defects import _axis
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
-from mdapy.neighbor import NeighborList
+from mdapy.neighbor import NeighborList, find_overlapping
 
 # points along the box vector of a gradient, and random places tried for each seed
 _GRID = 4097
@@ -107,9 +107,10 @@ def build_polycrystal(
         of the box; in a columnar polycrystal rotations about its axis.
         Uniformly random by default.
     min_distance : float64, optional
-        Of two atoms closer than this, in Å, the later is removed: atoms of
-        neighboring grains that come too close, and the copies of atoms on
-        the faces of a cell. Default 0.7 times the nearest distance in unit.
+        No two atoms stay closer than this, in Å, with as few removed as possible, as
+        ``mdapy.neighbor.find_overlapping`` does: atoms of neighboring grains that come
+        too close, and the copies of atoms on the faces of a cell. Default 0.7 times
+        the nearest distance in unit.
     seed : int64 or numpy.random.Generator, optional
         Seed of the random seeds and orientations.
 
@@ -233,11 +234,7 @@ def build_polycrystal(
     grain = np.concatenate(grain)
     keep = np.ones(len(wrapped), dtype=bool)
     if min_distance > 0:
-        nl = NeighborList.build(System(wrapped, box), min_distance)
-        first, second = nl.i, nl.j
-        for i, j in zip(first[first < second], second[first < second]):
-            if keep[i] and keep[j]:
-                keep[j] = False
+        keep = ~find_overlapping(System(wrapped, box), min_distance)
     elements = names[np.concatenate(kinds)[keep]]
     crystal = System(wrapped[keep], box, elements=elements).with_columns(
         grain=grain[keep]

@@ -70,7 +70,7 @@ it.
 ```python
 box = mp.Box([cells[0] * d, cells[1] * d * np.sqrt(3), 1.0])
 columns = build_polycrystal(unit, box, seeds, orientations=rotations)
-len(columns), columns.box.matrix[2, 2]  # 8524 atoms, 6.26 Å
+len(columns), columns.box.matrix[2, 2]  # 8531 atoms, 6.26 Å
 ```
 
 ## Relax

@@ -3,7 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Atoms too close to another: as OVITO's find overlapping particles."""
+"""Atoms too close to another, and as few of them to delete as possible."""
 
 import numpy as np
 import pytest
@@ -19,17 +19,22 @@ def along_x(*x):
 
 
 def test_pairs_chains_and_groups():
-    """The atom of the higher index of each pair; both without keep_one."""
+    """Deleting the selection leaves no pair that close; both without keep_one."""
     np.testing.assert_array_equal(
         find_overlapping(along_x(0, 0.5, 5), 1.0), [False, True, False]
     )
-    # a chain: deleting the two later atoms leaves no pair closer than 1
+    # a chain: deleting the middle atom is enough
     chain = along_x(0, 0.8, 1.6, 5)
     np.testing.assert_array_equal(
-        find_overlapping(chain, 1.0), [False, True, True, False]
+        find_overlapping(chain, 1.0), [False, True, False, False]
     )
     np.testing.assert_array_equal(
         find_overlapping(chain, 1.0, keep_one=False), [True, True, True, False]
+    )
+    # a longer one, every other atom
+    np.testing.assert_array_equal(
+        find_overlapping(along_x(0, 0.8, 1.6, 2.4, 3.2), 1.0),
+        [False, True, False, True, False],
     )
     # atoms on top of each other overlap; a pair exactly the distance apart
     # does not
@@ -100,44 +105,59 @@ def with_copies():
     return mdapy.System(positions[order], crystal.box), group[order]
 
 
-def test_as_ovito(with_copies):
-    """Without keep_one the same atoms; with it, all but one of each group
-    of copies, OVITO picking the one it keeps at random."""
-    pytest.importorskip("ovito")
-    from ovito.modifiers import (
-        ExpressionSelectionModifier,
-        FindOverlappingParticlesModifier,
-    )
-
-    from ovito_reference import ovito_compute
-
+def test_copies_leave_one_of_each_group(with_copies):
     system, group = with_copies
-    data = ovito_compute(
-        system, FindOverlappingParticlesModifier(overlap_distance=0.5, keep_one=False)
-    )
     every = find_overlapping(system, 0.5, keep_one=False)
-    np.testing.assert_array_equal(every, np.asarray(data.particles.selection) != 0)
     np.testing.assert_array_equal(every, group >= 0)
-    data = ovito_compute(system, FindOverlappingParticlesModifier(overlap_distance=0.5))
-    theirs = np.asarray(data.particles.selection) != 0
-    ours = find_overlapping(system, 0.5)
-    np.testing.assert_array_equal(
-        np.bincount(group[ours], minlength=len(group)),
-        np.bincount(group[theirs], minlength=len(group)),
+    selected = find_overlapping(system, 0.5)
+    assert selected.sum() == 20 + 2 * 10
+    left = np.bincount(group[(group >= 0) & ~selected])
+    assert set(left[left > 0]) == {1}
+
+
+def test_the_atom_in_the_most_pairs_goes_first():
+    """Whatever the order of the atoms: of a star, its center alone."""
+    star = np.array([[10.0, 10, 10]]) + [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 1, 0]]
+    for center in range(4):
+        order = np.roll(np.arange(4), center)
+        system = mdapy.System(star[order], mdapy.Box(30.0))
+        expected = order == 0
+        np.testing.assert_array_equal(find_overlapping(system, 1.2), expected)
+
+
+def test_as_few_as_the_exact_answer_nearly():
+    """Against all subsets of a few atoms: nothing close is left, nothing is deleted
+    without need, and the number deleted is near the very fewest."""
+    ours = fewest = 0
+    for seed in range(60):
+        rng = np.random.default_rng(seed)
+        system = mdapy.System(rng.uniform(0, 5, (12, 3)), mdapy.Box(5.0))
+        neighbors = NeighborList.build(system, 1.6)
+        first = np.repeat(np.arange(12), np.diff(neighbors.offsets))
+        pairs = np.c_[first, neighbors.j]
+        selected = find_overlapping(system, 1.6)
+        assert not (selected[pairs[:, 0]] == selected[pairs[:, 1]])[
+            ~selected[pairs[:, 0]]
+        ].any()
+        for k in np.flatnonzero(selected):
+            # deleted because of an atom kept
+            assert (~selected)[pairs[pairs[:, 0] == k, 1]].any()
+        ours += selected.sum()
+        fewest += min(
+            bin(m).count("1")
+            for m in range(1 << 12)
+            if all((m >> i & 1) or (m >> j & 1) for i, j in pairs)
+        )
+    assert fewest <= ours <= 1.1 * fewest
+
+
+def test_too_close_to_its_own_image():
+    # nothing else can part them
+    system = mdapy.System(
+        np.array([[1.0, 1, 1], [1.0, 1, 3]]), mdapy.Box([2.0, 20, 20])
     )
-    assert ours.sum() == 20 + 2 * 10
-    data = ovito_compute(
-        system,
-        ExpressionSelectionModifier(expression="Position.Z < 9"),
-        FindOverlappingParticlesModifier(
-            overlap_distance=0.5, keep_one=False, only_selected=True
-        ),
-    )
-    lower = find_overlapping(
-        system, 0.5, keep_one=False, atoms=system.where("positions.z < 9")
-    )
-    np.testing.assert_array_equal(lower, np.asarray(data.particles.selection) != 0)
-    assert 0 < lower.sum() < every.sum()
+    np.testing.assert_array_equal(find_overlapping(system, 2.5), [True, True])
+    assert len(system.filter(~find_overlapping(system, 2.5))) == 0
 
 
 def test_atoms_far_apart():

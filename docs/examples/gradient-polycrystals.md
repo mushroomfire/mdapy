@@ -61,7 +61,7 @@ copper = build_crystal("fcc", 3.615, elements="Cu")
 box = mp.Box([80.0, 80.0, 240.0])
 seeds = gradient_seeds(box, [(0, 20), (0.5, 50), (1, 20)], seed=1)
 graded = build_polycrystal(copper, box, seeds, seed=1)
-len(seeds), len(graded)  # 103 grains, 121823 atoms
+len(seeds), len(graded)  # 103 grains, 122207 atoms
 cna = CommonNeighborAnalysis().compute(graded)
 render(
     graded,

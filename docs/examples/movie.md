@@ -34,7 +34,7 @@ print(len(grains))
 ```
 
 ```text
-82001
+82140
 ```
 
 Keep the system small for the size of the movie, so that each atom covers many

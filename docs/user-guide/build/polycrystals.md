@@ -97,7 +97,7 @@ from mdapy.build import gradient_seeds
 box = mp.Box([80.0, 80.0, 240.0])
 seeds = gradient_seeds(box, [(0, 20), (0.5, 50), (1, 20)], seed=1)
 graded = build_polycrystal(copper, box, seeds, seed=1)
-len(seeds), len(graded)  # 103 grains, 121823 atoms
+len(seeds), len(graded)  # 103 grains, 122207 atoms
 ```
 
 [A gradient polycrystal](../../examples/gradient-polycrystals.md) builds gradients from one
@@ -131,7 +131,7 @@ the columns.
 | `box` | `Box` or (3, 3) float64 | | Å | the box of the polycrystal, periodic in every direction |
 | `grains` | int32 or (G, 3) float64 | | Å | the number of grains with seeds at random, or the positions of the seeds |
 | `orientations` | (G, 3, 3) float64 | random | | the rotation of each grain, from the axes of `unit` to those of the box |
-| `min_distance` | float64 | 0.7 × nearest distance of `unit` | Å | of two atoms closer than this, the later is removed |
+| `min_distance` | float64 | 0.7 × nearest distance of `unit` | Å | no two atoms stay closer than this, with as few removed as possible, as in [`find_overlapping`](../../basics/overlapping.md) |
 | `seed` | int64 or `numpy.random.Generator` | `None` | | the random seeds and orientations |
 
 Along an axis where the box is no longer than the box of `unit`, the

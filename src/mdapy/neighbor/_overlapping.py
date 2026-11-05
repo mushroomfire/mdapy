@@ -13,6 +13,20 @@ from mdapy.core.system import System
 from mdapy.neighbor._neighbor_list import NeighborList
 
 
+def _fewest_to_delete(count: int, first: np.ndarray, second: np.ndarray) -> np.ndarray:
+    """(count,) bool, what to delete so that no pair has both of its ends left, keeping
+    first those in the fewest pairs: the fewest a simple rule can delete, as the very
+    fewest is too hard to find. Each pair is listed both ways, sorted by first."""
+    pairs = np.bincount(first, minlength=count)
+    offsets = np.concatenate([[0], np.cumsum(pairs)])
+    paired = np.flatnonzero(pairs)
+    deleted = np.zeros(count, dtype=bool)
+    for k in paired[np.argsort(pairs[paired], kind="stable")].tolist():
+        if not deleted[k]:
+            deleted[second[offsets[k] : offsets[k + 1]]] = True
+    return deleted
+
+
 def find_overlapping(
     system: System,
     distance: float,
@@ -20,7 +34,7 @@ def find_overlapping(
     keep_one: bool = True,
     atoms: ArrayLike | None = None,
 ) -> np.ndarray:
-    """Atoms closer than a distance to another atom.
+    """Atoms closer than a distance to another atom, to delete as few as possible.
 
     Parameters
     ----------
@@ -29,10 +43,10 @@ def find_overlapping(
     distance : float64
         Two atoms closer than this in Å overlap.
     keep_one : bool, optional
-        Whether to select only the atom of the higher index of each pair
-        that overlaps, so that deleting the selection leaves no pair that
-        close and keeps one atom of each group of atoms that all overlap,
-        or both. Default True.
+        Whether to select only what to delete: as few atoms as a simple rule can,
+        those that overlap the fewest being kept first, the lower index before the
+        higher, so that no pair that close is left. Otherwise every atom that
+        overlaps another. Default True.
     atoms : array_like, optional
         A boolean mask or indices of the atoms considered; the others
         neither overlap nor are selected. Default all of them.
@@ -55,8 +69,12 @@ def find_overlapping(
     first = np.repeat(np.arange(len(system)), np.diff(neighbors.offsets))
     second = np.asarray(neighbors.j, dtype=np.int64)
     close = considered[first] & considered[second]
-    if keep_one:
-        close &= second > first
+    first, second = first[close], second[close]
     selected = np.zeros(len(system), dtype=bool)
-    selected[second[close]] = True
-    return selected
+    if not keep_one:
+        selected[second] = True
+        return selected
+    # too close to its own image, whatever else is deleted
+    selected[first[first == second]] = True
+    others = ~(selected[first] | selected[second])
+    return selected | _fewest_to_delete(len(system), first[others], second[others])

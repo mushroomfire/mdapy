@@ -1014,3 +1014,31 @@ def test_writing_finds_the_element_and_mass_of_each_type(tmp_path):
     wrong = system.with_columns(mass=np.array([1.0, 2.0, 3.0, 2.0]))
     with pytest.raises(InvalidParameter, match="different mass values"):
         round_trip(tmp_path, wrong)
+
+
+def test_many_atoms_find_the_mass_of_each_type(tmp_path):
+    # more atoms than a table of type and mass is read at once for
+    count = 1 << 18
+    types = np.arange(count) % 2 + 1
+    positions = np.zeros((count, 3))
+    positions[:, 0] = np.arange(count) * 1e-3
+    system = mdapy.System(positions, 500.0).with_columns(
+        type=types, mass=np.where(types == 1, 10.0, 20.0)
+    )
+    back = round_trip(tmp_path, system)
+    np.testing.assert_array_equal(back["mass"], system["mass"])
+    wrong = system["mass"].copy()
+    wrong[count - 1] = 30.0
+    with pytest.raises(InvalidParameter, match="different mass values"):
+        round_trip(tmp_path, system.with_columns(mass=wrong))
+
+
+def test_writing_few_atoms_of_several_types_names_their_elements(tmp_path):
+    # few atoms: the pairs of type and element are too far apart to count
+    system = mdapy.System(np.zeros((2, 3)), 5.0, elements=["Cu", "Ni"]).with_columns(
+        type=np.array([1, 2])
+    )
+    path = tmp_path / "few.data"
+    mdapy.io.write(path, system)
+    written = path.read_text()
+    assert "1 63.546 # Cu" in written and "2 58.6934 # Ni" in written

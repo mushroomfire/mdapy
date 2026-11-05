@@ -229,6 +229,15 @@ def _rows_of(index: tuple[Any, np.ndarray], query: np.ndarray) -> np.ndarray:
     return np.where(found, order[clipped], -1)
 
 
+def _distinct(values: np.ndarray) -> np.ndarray:
+    """The different values in increasing order; counted rather than sorted when
+    they are close together, which takes no thread at all for few atoms."""
+    if _close_together(values):
+        low = int(values.min())
+        return np.flatnonzero(np.bincount(values - low)) + low
+    return np.unique(values)
+
+
 def _all_different(values: np.ndarray) -> bool:
     """Whether no value appears twice; without sorting them when they are in
     order or close together, as atom IDs nearly always are."""
@@ -726,7 +735,12 @@ def _number(value: float) -> str:
 def _per_type(values: np.ndarray, types: np.ndarray, name: str) -> dict[int, Any]:
     """The value of each type, checking that all atoms of a type agree."""
     pairs = pl.DataFrame({"type": types, "value": values})
-    pairs = pairs.group_by("type", "value").len().select("type", "value")
+    # grouping is the faster for many atoms, but wakes every thread for few
+    pairs = (
+        pairs.unique()
+        if len(pairs) < 1 << 18
+        else pairs.group_by("type", "value").len().select("type", "value")
+    )
     repeated = pairs.filter(pl.col("type").is_duplicated())
     if len(repeated):
         t = repeated["type"].min()
@@ -795,11 +809,16 @@ def _atom_types(
         symbols = {}
         if named and "element" in table.columns:
             # the elements of each type, from the pairs that occur
-            pairs = table.group_by("type", "element").len().select("type", "element")
-            found = pairs.group_by("type").agg(pl.col("element").first(), pl.len())
-            for t, symbol, count in found.iter_rows():
+            categories = table["element"].dtype.categories.to_list()
+            codes = table["element"].to_physical().to_numpy().astype(np.int64)
+            found, code = np.divmod(
+                _distinct(types * len(categories) + codes), len(categories)
+            )
+            numbers, counts = np.unique(found, return_counts=True)
+            for t, count in zip(numbers.tolist(), counts.tolist()):
+                symbol = categories[code[found == t][0]]
                 if count == 1 and symbol != "X":
-                    symbols[int(t)] = str(symbol)
+                    symbols[t] = symbol
         return types, symbols
     if "element" not in table.columns:
         if elements is not None:

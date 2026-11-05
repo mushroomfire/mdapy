@@ -16,7 +16,7 @@ See [Contributing](https://mushroomfire.github.io/mdapy/about/contributing/) for
 - [ ] `pytest` passes, and CI passes on Linux, macOS and Windows
 - [ ] `ruff check .` and `ruff format --check .` pass
 - [ ] Coverage is at least 95 % for each file changed
-- [ ] A new feature has its own documentation page, its entries in the glossary and a line in the release notes
+- [ ] A new feature has its own documentation page and its entries in the glossary
 - [ ] `mkdocs build --strict` passes
 
 ## License

@@ -27,8 +27,9 @@ A feature is merged only when it has all of the following:
    thresholds;
 3. its own page, placed by the documentation layout and following the page
    template below;
-4. entries in the [Glossary](../reference/glossary.md) for any new names;
-5. a line in the [release notes](release-notes.md).
+4. entries in the [Glossary](../reference/glossary.md) for any new names.
+
+The maintainers write the [release notes](release-notes.md) when they merge it.
 
 ## Documentation layout
 

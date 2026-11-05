@@ -57,6 +57,23 @@ Installing from a source archive or from git compiles MDAPY, which needs:
 
 No OpenMP library and no other third-party code is needed.
 
+## An old Linux
+
+The built packages on PyPI need glibc 2.27 or newer, about as those of NumPy do: Ubuntu 18.04,
+RHEL 8 or newer. `mdapy.show_versions()` or `ldd --version` tells which glibc a machine has.
+
+On an older system `pip` finds no built package that fits, and builds MDAPY and NumPy from their
+source archives, which takes [the tools above](#what-a-build-needs). A message such as
+`GLIBC_2.27 not found` means a package built for a newer system. On a cluster, a newer compiler
+usually comes from a module, such as `module load gcc`. In a [conda](https://conda-forge.org)
+environment, get a compiler and NumPy that run on the old system first, and `pip` then builds
+MDAPY alone:
+
+```bash
+conda install -c conda-forge compilers numpy polars
+pip install --pre mdapy
+```
+
 ## Pictures on the GPU
 
 [Pictures](../user-guide/visualization/rendering.md#on-the-gpu) are traced on the GPU

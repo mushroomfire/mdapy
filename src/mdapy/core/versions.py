@@ -39,6 +39,19 @@ def _installed(package: str) -> str:
         return "not installed"
 
 
+def _glibc() -> tuple[tuple[str, str], ...]:
+    """The row of the C library of Linux, of the version in use; none elsewhere."""
+    try:
+        found = os.confstr("CS_GNU_LIBC_VERSION")
+    except (
+        AttributeError,
+        ValueError,
+        OSError,
+    ):  # Windows has no confstr, macOS no name
+        return ()
+    return (("glibc", found.split()[-1]),) if found else ()
+
+
 def show_versions(file: TextIO | None = None) -> None:
     """Print the versions of MDAPY, Python and the packages MDAPY depends on,
     and the processor, memory and GPU of this machine, to paste into an issue.
@@ -56,6 +69,7 @@ def show_versions(file: TextIO | None = None) -> None:
             ("Atom indices", f"{_core.index_bits} bits"),
             ("Python", sys.version.replace("\n", " ")),
             ("Platform", platform.platform()),
+            *_glibc(),
         ),
         (
             ("CPU", _core.core.cpu_name() or platform.machine()),

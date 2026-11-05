@@ -4,12 +4,16 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 import decimal
+import errno
+import gzip
 import io
 import locale
 import math
 import mmap
+import os
 import random
 import re
+import sys
 
 import numpy as np
 import polars as pl
@@ -17,6 +21,7 @@ import pytest
 from mdapy._core import io as native
 
 import mdapy
+from mdapy.core.threads import get_num_threads, set_num_threads
 from mdapy.elements import ELEMENT_DTYPE
 from mdapy.errors import FileFormatError
 from mdapy.io import _text
@@ -456,6 +461,219 @@ def test_non_buffer_text_is_rejected():
         native.parse_table("1 2", 0, 1, [("i", 2)])
 
 
+# ---------------------------------------------------------- tables of many lines
+
+
+def many_lines(rows=120000, seed=5):
+    """A table larger than the blocks it is read in, and its columns."""
+    rng = np.random.default_rng(seed)
+    columns = [
+        ("i", np.arange(rows)),
+        ("s", (rng.integers(0, 3, rows).astype(np.uint32), ["Cu", "Zr", "Al"])),
+        ("f", rng.normal(0.0, 100.0, (rows, 3))),
+    ]
+    return b"".join(format_rows(columns)), columns
+
+
+SPEC = [("i", 1), ("s", 1), ("f", 3)]
+
+
+def assert_table_read(arrays, columns):
+    np.testing.assert_array_equal(arrays[0], columns[0][1])
+    codes, categories = arrays[1]
+    expected, names = columns[1][1]
+    assert [categories[c] for c in codes[:50]] == [names[c] for c in expected[:50]]
+    assert_same_bits(arrays[2], columns[2][1])
+
+
+@pytest.mark.parametrize("threads", [1, 4])
+def test_a_table_larger_than_a_block_stops_at_its_end(threads):
+    text, columns = many_lines()
+    before = get_num_threads()
+    try:
+        set_num_threads(threads)
+        # what follows the table, as the next frame of a trajectory, stays unread
+        arrays, end = native.parse_table(text + b"ITEM: TIMESTEP\n0\n", 0, 120000, SPEC)
+        assert end == len(text)
+        assert_table_read(arrays, columns)
+        assert native.skip_lines(text + b"more\n", 0, 120000) == len(text)
+        offset = text.index(b"\n") + 1
+        assert native.skip_lines(text, offset, 119999) == len(text)
+        assert native.skip_lines(text, 0, -1) == 0
+    finally:
+        set_num_threads(before)
+
+
+def test_a_large_table_without_a_last_newline():
+    text, columns = many_lines()
+    arrays, end = native.parse_table(text[:-1], 0, 120000, SPEC)
+    assert end == len(text) - 1
+    assert_table_read(arrays, columns)
+    assert native.skip_lines(text[:-1], 0, 120000) == len(text) - 1
+
+
+def test_a_large_table_that_ends_too_early():
+    text, _ = many_lines()
+    for missing, cut in ((5, text), (6, text[:-1] + b" ")):
+        rows = 120000 + missing
+        with pytest.raises(ValueError) as info:
+            native.parse_table(cut, 0, rows, SPEC)
+        assert info.value.args == (
+            f"expected {rows} lines, but the text ends after 120000",
+            120000,
+        )
+    with pytest.raises(ValueError, match="the text ends after 120000"):
+        native.skip_lines(text, 0, 120001)
+    with pytest.raises(ValueError, match="the text ends after 1200"):
+        native.skip_lines(text[: text.index(b"1200 ")], 0, 120000)
+
+
+def test_lines_longer_than_a_block():
+    long = b"7 Cu 1.5" + b" " * 2**19 + b"2.5 3.5\n"
+    text, _ = many_lines(rows=2000)
+    lines = text.splitlines(keepends=True)
+    # at the start, among the rows, and at the end
+    table = long + b"".join(lines[:1000]) + long * 3 + b"".join(lines[1000:]) + long
+    arrays, end = native.parse_table(table, 0, 2005, SPEC)
+    assert end == len(table)
+    np.testing.assert_array_equal(arrays[0][:2], [7, 0])
+    np.testing.assert_array_equal(arrays[0][1001:1005], [7, 7, 7, 1000])
+    np.testing.assert_array_equal(arrays[2][0], [1.5, 2.5, 3.5])
+    assert native.skip_lines(table, 0, 2005) == len(table)
+    with pytest.raises(ValueError, match="the text ends after 2005"):
+        native.skip_lines(table, 0, 2006)
+
+
+def test_a_table_with_longer_lines_than_its_first_ones():
+    # the first lines tell how far to look, here far too short a way
+    first = b"".join(b"%d 1\n" % i for i in range(80000))
+    last = b"".join(b"%d 1 %s\n" % (i, b" " * 90) for i in range(80000, 90000))
+    text = first + last + b"rest\n"
+    (ids, ones), end = native.parse_table(text, 0, 90000, [("i", 1), ("i", 1)])
+    assert end == len(first + last)
+    np.testing.assert_array_equal(ids, np.arange(90000))
+    assert (ones == 1).all()
+
+
+@pytest.mark.parametrize("threads", [1, 4])
+def test_comments_and_line_endings_in_a_large_table(threads):
+    rows = 60000
+    lines = [
+        b"%d 1.5 %s# %d %s"
+        % (i, b" " if i % 2 else b"", i, b"\r\n" if i % 3 else b"\n")
+        for i in range(rows)
+    ]
+    text = b"".join(lines) + b"more\n"
+    before = get_num_threads()
+    try:
+        set_num_threads(threads)
+        (ids, values), end = native.parse_table(
+            text, 0, rows, [("i", 1), ("f", 1)], "#"
+        )
+    finally:
+        set_num_threads(before)
+    assert end == len(text) - 5
+    np.testing.assert_array_equal(ids, np.arange(rows))
+    assert (values == 1.5).all()
+
+
+@pytest.mark.parametrize(
+    "line, message",
+    [
+        (b"5 Cu 1.0 2.0", "expected 5 values, found 4"),
+        (b"5 Cu 1.0 2.0 3.0 4.0", "expected 5 values, found 6"),
+        (
+            b"x Cu 1.0 2.0 3.0 4.0",
+            "expected 5 values, found 6",
+        ),  # the count comes first
+        (b"5 Cu 1.0 x 3.0", "cannot read 'x' as a number"),
+        (b"5.5 Cu 1.0 2.0 3.0", "cannot read '5.5' as an integer"),
+        (b"", "expected 5 values, found 0"),
+    ],
+)
+def test_a_bad_line_far_into_a_large_table(line, message):
+    text, _ = many_lines()
+    lines = text.splitlines(keepends=True)
+    lines[90000] = line + b"\n"
+    lines[100000] = b"bad\n"
+    with pytest.raises(ValueError) as info:
+        native.parse_table(b"".join(lines), 0, 120000, SPEC)
+    assert info.value.args == (message, 90000)
+
+
+def test_many_distinct_strings():
+    rows = 3000
+    names = [f"name{i % 500}" for i in range(rows)]
+    text = "".join(f"{n}\n" for n in names).encode()
+    ((codes, categories),), _ = native.parse_table(text, 0, rows, [("s", 1)])
+    assert categories == [f"name{i}" for i in range(500)]
+    assert [categories[c] for c in codes] == names
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        # around each eight digits read at once, with and without a whole part
+        *[f"0.{'1234567890' * 3}"[: 2 + n] for n in range(1, 30)],
+        *[f"7.{'9' * n}" for n in range(1, 30)],
+        *[f"-{'3' * n}.5" for n in range(1, 25)],
+        *[f"{'9' * n}" for n in range(1, 25)],
+        # leading zeros do not count among the digits a mantissa holds
+        "0.000000000000000000000012345",
+        "00000000000000000000000012345.5",
+        "0.00000000000000000000000000",
+        "-0.00000000000000000000000000",
+        ".5",
+        "5.",
+        "1234567.e3",
+        "12345678.12345678e-7",
+        "12345678.123456789012e+12",
+        # exponents, the longest refused by the short way
+        "1e5",
+        "1E5",
+        "1e+5",
+        "1e-5",
+        "1e000005",
+        "1e999999",
+        "1e-999999",
+        "1e9999999",
+        "1e-9999999",
+        "0e9999999",
+        "1.5e308",
+        "1.5e309",
+        "4.9e-324",
+        "2e-324",
+        "9007199254740992",
+        "9007199254740993",
+        "0.1",
+        "-0.1",
+    ],
+)
+def test_floats_as_programs_write_them(token):
+    expected = float(token)
+    # with a newline, without one at the end of the text, and before more text
+    for text in (token + "\n", token, f"{token} 1\n", f"1 {token}\n"):
+        words = text.split()
+        spec = [("f", len(words))]
+        (values,), _ = native.parse_table(text.encode(), 0, 1, spec)
+        assert_same_bits(
+            values[0, words.index(token)] if len(words) > 1 else values[0], expected
+        )
+
+
+@pytest.mark.parametrize(
+    "token",
+    ["0", "-0", "7", "-7", "9" * 18, "-" + "9" * 18, "9" * 19, "-" + "9" * 18 + "0"],
+)
+def test_integers_as_programs_write_them(token):
+    if abs(int(token)) >= 2**63:
+        with pytest.raises(ValueError, match="as an integer"):
+            native.parse_table(token.encode(), 0, 1, [("i", 1)])
+        return
+    (values,), _ = native.parse_table(token.encode(), 0, 1, [("i", 1)])
+    assert values[0] == int(token)
+
+
 def test_skip_lines():
     text = b"a\nb\r\nc"
     assert native.skip_lines(text, 0, 0) == 0
@@ -469,6 +687,207 @@ def test_skip_lines():
 
 
 # ------------------------------------------------------------- formatting
+
+
+def near_powers(powers, rng, n):
+    """Doubles a few steps from powers."""
+    bits = np.asarray(powers, dtype=np.float64).view(np.int64)
+    return (bits + rng.integers(-3, 4, n)).view(np.float64)
+
+
+def float_cases(rng, n):
+    bits = rng.integers(0, 2**64, size=n, dtype=np.uint64).view(np.float64)
+    tens = 10.0 ** rng.integers(-300, 300, n)
+    exponents = rng.integers(0, 2047, n).astype(np.int64)
+    fractions = rng.choice([0, 1, 2, 2**52 - 1, 2**52 - 2], n)
+    twos = ((exponents << 52) | fractions).view(np.float64)
+    digits = rng.integers(0, 10**15, n).astype(np.float64)
+    return {
+        "all bits": bits[np.isfinite(bits)],
+        "positions": rng.uniform(-1000.0, 1000.0, n),
+        "velocities": rng.normal(0.0, 1e-3, n),
+        "crystals": rng.integers(0, 100000, n) * 3.615 / rng.integers(1, 9, n),
+        "whole numbers": rng.integers(-(10**16), 10**16, n).astype(np.float64),
+        "round numbers": rng.integers(1, 100, n) * 10.0 ** rng.integers(-8, 18, n),
+        "short decimals": digits * 10.0 ** rng.integers(-30, 10, n),
+        "near powers of ten": near_powers(tens, rng, n),
+        "near powers of two": twos,
+        "at the small end": rng.uniform(1.0, 10.0, n)
+        * 10.0 ** rng.integers(-323, -280, n),
+        "at the large end": rng.uniform(1.0, 10.0, n) * 10.0 ** rng.integers(14, 17, n),
+    }
+
+
+@pytest.mark.parametrize("case", list(float_cases(np.random.default_rng(0), 1)))
+def test_floats_are_written_as_std_to_chars_writes_them(case):
+    from mdapy._core import testing
+
+    values = float_cases(np.random.default_rng(1), 200000)[case]
+    values = values[np.isfinite(values)]
+    text = native.format_table([("f", values, [])])
+    assert text == testing.to_chars_text(values)
+    # the signs of the same numbers, and they read back
+    assert native.format_table([("f", -values, [])]) == testing.to_chars_text(-values)
+    (back,), _ = native.parse_table(text, 0, len(values), [("f", 1)])
+    assert_same_bits(back, values)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        0.0,
+        -0.0,
+        float("inf"),
+        -float("inf"),
+        1.0,
+        -1.5,
+        100000.0,
+        10000.0,
+        0.001,
+        0.0001,
+        0.00012,
+        1.2e7,
+        123456.0,
+        1234567.0,
+        999999999999999.9,
+        1e15,
+        1e16,
+        5e-324,
+        2.2250738585072014e-308,
+        1.7976931348623157e308,
+        -1.7976931348623157e308,
+        2.0**53,
+        2.0**53 + 2,
+        1.2345678901234567e17,
+    ],
+)
+def test_floats_of_every_notation(value):
+    from mdapy._core import testing
+
+    values = np.array([value])
+    text = native.format_table([("f", values, [])])
+    assert text == testing.to_chars_text(values)
+    if not math.isinf(value):
+        assert float(text) == value
+
+
+def test_nan_is_written_as_nan():
+    assert b"nan" in native.format_table([("f", np.array([float("nan")]), [])])
+
+
+def longest_rows(rows):
+    """Every value as long as it can be, in columns that fill any place they get."""
+    return [
+        ("f", np.full((rows, 3), -1.7976931348623157e308)),
+        ("f", np.full(rows, -1.2345678901234567e-300), 100),
+        ("f", np.full(rows, -1.2345678901234567e-300), -100),
+        ("i", np.full(rows, -(2**63), dtype=np.int64)),
+        ("b", np.ones((rows, 2), dtype=bool)),
+        ("s", (np.ones(rows, dtype=np.uint32), ["a", "b" * 300])),
+    ]
+
+
+SMALL = repr(1.2345678901234567e-300).split("e")[0]
+LONGEST_ROW = (
+    b"-1.7976931348623157e+308 -1.7976931348623157e+308 -1.7976931348623157e+308 "
+    + f"-{SMALL}e-200 -{SMALL}e-400 ".encode()
+    + b"-9223372036854775808 T T "
+    + b"b" * 300
+    + b"\n"
+)
+
+
+@pytest.mark.parametrize("threads", [1, 4])
+@pytest.mark.parametrize("rows", [1, 100, 5000])
+def test_the_longest_values_fit(threads, rows):
+    before = get_num_threads()
+    try:
+        set_num_threads(threads)
+        assert b"".join(format_rows(longest_rows(rows))) == LONGEST_ROW * rows
+    finally:
+        set_num_threads(before)
+
+
+def table_in_many_batches(rows=500000):
+    rng = np.random.default_rng(6)
+    return [
+        ("i", np.arange(rows)),
+        ("s", (rng.integers(0, 2, rows).astype(np.uint32), ["Cu", "Zr"])),
+        ("f", rng.normal(0.0, 100.0, (rows, 3))),
+        ("f", rng.normal(0.0, 1.0, rows), -3),
+    ]
+
+
+@pytest.mark.parametrize("threads", [1, 4])
+def test_a_file_takes_rows_straight_and_in_order(tmp_path, threads):
+    columns = table_in_many_batches()
+    path = tmp_path / "table.txt"
+    before = get_num_threads()
+    try:
+        set_num_threads(threads)
+        expected = b"".join(format_rows(columns))
+        with open(path, "wb") as file:
+            file.write(b"header\n")
+            write_rows(file, columns)
+            assert file.tell() == len(b"header\n") + len(expected)
+            file.write(b"middle\n")
+            write_rows(file, [("i", np.arange(2))])
+            write_rows(file, [])
+            file.write(b"footer\n")
+    finally:
+        set_num_threads(before)
+    assert path.read_bytes() == b"header\n" + expected + b"middle\n0\n1\nfooter\n"
+
+
+def test_a_table_is_the_same_for_any_number_of_threads():
+    columns = table_in_many_batches()
+    before = get_num_threads()
+    try:
+        set_num_threads(1)
+        one = b"".join(format_rows(columns))
+        set_num_threads(4)
+        four = b"".join(format_rows(columns))
+    finally:
+        set_num_threads(before)
+    assert one == four
+
+
+def test_a_compressed_file_gets_compressed_text(tmp_path):
+    # such a file has a descriptor too, of the bytes it compresses
+    columns = table_in_many_batches(1000)
+    path = tmp_path / "table.txt.gz"
+    with gzip.open(path, "wb") as file:
+        file.write(b"header\n")
+        write_rows(file, columns)
+    with gzip.open(path, "rb") as file:
+        assert file.read() == b"header\n" + b"".join(format_rows(columns))
+
+
+@pytest.mark.parametrize("rows", [3, 500000])
+def test_a_file_that_cannot_be_written_raises(tmp_path, rows):
+    path = tmp_path / "table.txt"
+    path.write_bytes(b"")
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        with pytest.raises(OSError) as info:
+            native.write_table(descriptor, [("i", np.arange(rows), [])])
+        assert info.value.errno == errno.EBADF
+    finally:
+        os.close(descriptor)
+    assert path.read_bytes() == b""
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="no /dev/full")
+def test_a_full_disk_raises():
+    with open("/dev/full", "wb") as file:
+        with pytest.raises(OSError) as info:
+            write_rows(file, [("i", np.arange(3))])
+    assert info.value.errno == errno.ENOSPC
+
+
+def test_a_table_of_rows_without_values():
+    assert native.format_table([("f", np.empty((3, 0)), [])]) == b"\n\n\n"
+    assert native.format_table([("s", np.empty(0, dtype=np.uint32), [])]) == b""
 
 
 def test_formatted_floats_read_back_exactly():

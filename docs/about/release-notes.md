@@ -18,6 +18,11 @@
   million atoms of copper take 0.017 s instead of 0.25 s on 10 threads, and the build takes
   300 MB instead of 750 MB.
 - `Box.wrap` runs on all threads.
+- Text files are written and read faster, with less memory and the same text and values: on
+  10 threads, a LAMMPS dump of 10 million atoms and 5 columns takes 0.11 s instead of 0.30 s to
+  write and 0.12 s instead of 0.37 s to read. A file on disk takes the text straight from the
+  threads that format it, while they format the next part, and the lines of a file are found on
+  all threads.
 
 Documentation:
 

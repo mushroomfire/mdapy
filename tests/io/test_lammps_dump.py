@@ -71,6 +71,50 @@ def orthogonal(columns, atoms):
     return ORTHOGONAL.format(columns=columns, atoms=atoms)
 
 
+@pytest.mark.parametrize(
+    "columns, atoms",
+    [
+        ("id type x y z vx vy vz c_a[1] c_a[2]", "1 1 1 2 3 4 5 6 7 8"),
+        (
+            "x id y type z vx q vy mass vz c_a[1] mol c_a[2]",
+            "1 1 2 1 3 4 0 5 1 6 7 1 8",
+        ),
+        ("id x y z type vy vx vz c_a[1] c_a[2]", "1 1 2 3 1 5 4 6 7 8"),
+    ],
+)
+def test_vectors_whether_or_not_their_columns_are_side_by_side(
+    tmp_path, columns, atoms
+):
+    # the template has two atoms
+    table = read_text(tmp_path, orthogonal(columns, f"{atoms}\n{atoms}")).table
+    assert table["positions"].to_list() == [[1.0, 2.0, 3.0]] * 2
+    assert table["velocities"].to_list() == [[4.0, 5.0, 6.0]] * 2
+    assert table["c_a"].to_list() == [[7.0, 8.0]] * 2
+
+
+def test_vectors_side_by_side_in_real_units(tmp_path):
+    atoms = "1 1 2 3 0.004 0.005 0.006\n2 1 2 3 0.004 0.005 0.006"
+    text = orthogonal("id x y z vx vy vz", atoms).replace(
+        "ITEM: TIMESTEP", "ITEM: UNITS\nreal\nITEM: TIMESTEP", 1
+    )
+    table = read_text(tmp_path, text).table
+    assert table["velocities"].to_list() == [[4.0, 5.0, 6.0]] * 2
+
+
+def test_image_flags_side_by_side(tmp_path):
+    atoms = "1 1 2 3 -1 0 2\n2 1 2 3 -1 0 2"
+    table = read_text(tmp_path, orthogonal("id x y z ix iy iz", atoms)).table
+    assert table["image"].to_list() == [[-1, 0, 2]] * 2
+
+
+def test_elements_may_name_more_than_the_system_holds(tmp_path):
+    system = mdapy.System(np.zeros((2, 3)), 5.0, elements=["Zr", "Cu"])
+    path = round_trip(tmp_path, system, elements=["Cu", "Word", "Zr"])
+    assert mdapy.io.read(path, elements=["Cu", "Word", "Zr"]).table[
+        "type"
+    ].to_list() == [3, 1]
+
+
 def round_trip(tmp_path, systems, **options):
     path = tmp_path / "rt.dump"
     mdapy.io.write(path, systems, **options)

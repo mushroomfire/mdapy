@@ -1365,6 +1365,56 @@ void pictures() {
     }
 }
 
+// A table of several batches goes out while the threads format the next one, and
+// comes back cut at lines far from where it was cut going out.
+void large_text_tables() {
+    using mdapy::io::Column;
+    using mdapy::io::Kind;
+    const std::int64_t rows = 400000;
+    std::vector<double> floats(static_cast<std::size_t>(rows) * 2);
+    std::vector<std::int64_t> ints(static_cast<std::size_t>(rows));
+    std::mt19937_64 random(3);
+    std::uniform_real_distribution<double> uniform(-1e3, 1e3);
+    for (double& value : floats) {
+        value = uniform(random);
+    }
+    for (std::int64_t i = 0; i < rows; ++i) {
+        ints[static_cast<std::size_t>(i)] = i;
+    }
+    std::vector<Column> out(2);
+    out[0].kind = Kind::Int;
+    out[0].data = ints.data();
+    out[1].kind = Kind::Float;
+    out[1].width = 2;
+    out[1].data = floats.data();
+    std::string first;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::string text;
+        mdapy::io::write_table(
+            rows, out, [&text](const char* data, std::size_t size) { text.append(data, size); });
+        if (first.empty()) {
+            first = text;
+        }
+        check(text == first, "a large table is the same for any thread count");
+        std::vector<std::int64_t> n(static_cast<std::size_t>(rows));
+        std::vector<double> f(static_cast<std::size_t>(rows) * 2);
+        std::vector<Column> in(2);
+        in[0].kind = Kind::Int;
+        in[0].data = n.data();
+        in[1].kind = Kind::Float;
+        in[1].width = 2;
+        in[1].data = f.data();
+        const std::int64_t end = mdapy::io::parse_table(
+            text.data(), static_cast<std::int64_t>(text.size()), 0, rows, in, '\0');
+        check(end == static_cast<std::int64_t>(text.size()), "a large table is read to its end");
+        check(n == ints && f == floats, "a large table reads back exactly");
+        check(mdapy::io::skip_lines(text.data(), static_cast<std::int64_t>(text.size()), 0, rows) ==
+                  end,
+              "skipping a large table ends where reading it does");
+    }
+}
+
 // Two grains of fcc in a box of 30 Å, the planes between them at 7.5 and 22.5 Å,
 // and the positions mapped back into the box.
 void polycrystals() {
@@ -1479,6 +1529,7 @@ int main() {
     progress_cancellation_and_errors();
     nested_and_concurrent_regions();
     text_tables();
+    large_text_tables();
     neighbor_search();
     structure_identification();
     polyhedral_template_matching();

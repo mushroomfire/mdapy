@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -180,11 +181,11 @@ nb::tuple parse_table(nb::handle text, std::int64_t offset, std::int64_t rows,
     return nb::make_tuple(arrays, end);
 }
 
-// spec: (kind, values, categories) or (kind, values, categories, shift) for
-// each column.
-nb::bytes format_table(const std::vector<nb::tuple>& spec) {
-    std::vector<io::Column> columns;
-    std::vector<AnyArray> arrays;  // keeps the converted arrays alive
+// The columns of a table to write, and their rows; arrays keeps the converted
+// arrays alive. spec: (kind, values, categories) or (kind, values, categories,
+// shift) for each column.
+std::int64_t columns_to_write(const std::vector<nb::tuple>& spec, std::vector<io::Column>& columns,
+                              std::vector<AnyArray>& arrays) {
     std::int64_t rows = -1;
     for (const nb::tuple& item : spec) {
         if (item.size() != 3 && item.size() != 4) {
@@ -218,11 +219,33 @@ nb::bytes format_table(const std::vector<nb::tuple>& spec) {
         column.categories = nb::cast<std::vector<std::string>>(item[2]);
         columns.push_back(std::move(column));
     }
+    return rows < 0 ? 0 : rows;
+}
+
+nb::bytes format_table(const std::vector<nb::tuple>& spec) {
+    std::vector<io::Column> columns;
+    std::vector<AnyArray> arrays;
+    const std::int64_t rows = columns_to_write(spec, columns, arrays);
     std::string text;
     run_released(
-        [&](const Control& control) { text = io::format_table(rows < 0 ? 0 : rows, columns, control); },
+        [&](const Control& control) { text = io::format_table(rows, columns, control); },
         nb::none(), nullptr);
     return nb::bytes(text.data(), text.size());
+}
+
+// Writes straight to the file of a descriptor, which is left where the text ends.
+void write_table(int descriptor, const std::vector<nb::tuple>& spec) {
+    std::vector<io::Column> columns;
+    std::vector<AnyArray> arrays;
+    const std::int64_t rows = columns_to_write(spec, columns, arrays);
+    try {
+        run_released(
+            [&](const Control& control) { io::write_table(descriptor, rows, columns, control); },
+            nb::none(), nullptr);
+    } catch (const std::system_error& error) {
+        PyErr_SetObject(PyExc_OSError, nb::make_tuple(error.code().value(), error.code().message()).ptr());
+        throw nb::python_error();
+    }
 }
 
 }  // namespace
@@ -232,6 +255,7 @@ void bind_io(nb::module_& m) {
     m.def("parse_table", &parse_table, nb::arg("text"), nb::arg("offset"), nb::arg("rows"),
           nb::arg("columns"), nb::arg("comment") = "");
     m.def("format_table", &format_table, nb::arg("columns"));
+    m.def("write_table", &write_table, nb::arg("descriptor"), nb::arg("columns"));
 }
 
 }  // namespace mdapy::bindings

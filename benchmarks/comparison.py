@@ -524,7 +524,7 @@ FILES = {
 }
 
 
-def copper_file(fmt: str, write: bool) -> Callable[[int], dict]:
+def copper_file(fmt: str, write: bool, compression: str) -> Callable[[int], dict]:
     """Inputs of a file case: copper with the columns of the format, and the
     file mdapy writes of it to read, or the name of the file to write."""
 
@@ -536,7 +536,7 @@ def copper_file(fmt: str, write: bool) -> Callable[[int], dict]:
         n = len(system)
         system = system.with_columns(id=np.arange(1, n + 1), type=1, element="Cu")
         system = system.select(*spec["columns"])
-        name = f"{'written' if write else 'copper'}-{n}{spec['suffix']}"
+        name = f"{'written' if write else 'copper'}-{n}{spec['suffix']}{compression}"
         path = os.path.join(_folder(), name)
         if not write:
             mdapy.io.write(path, system)
@@ -663,19 +663,21 @@ def _write(fmt: str) -> tuple[Callable, dict[str, Other]]:
 
 def _file_cases() -> dict[str, Case]:
     cases = {}
-    for fmt, spec in FILES.items():
-        for write, (mdapy_side, others) in ((False, _read(fmt)), (True, _write(fmt))):
-            verb = "Write" if write else "Read"
-            name = f"{verb.lower()}-{fmt.removeprefix('lammps-')}"
-            cases[name] = Case(
-                f"{verb} a {spec['title']}"
-                if fmt != "extxyz"
-                else f"{verb} {spec['title']}",
-                copper_file(fmt, write),
-                mdapy_side,
-                others,
-                group="files",
-            )
+    for compression, word, end in (("", "", ""), (".gz", "gzipped ", "-gz")):
+        for fmt, spec in FILES.items():
+            for write, (mdapy_side, others) in (
+                (False, _read(fmt)),
+                (True, _write(fmt)),
+            ):
+                verb = "Write" if write else "Read"
+                article = "" if fmt == "extxyz" else "a "
+                cases[f"{verb.lower()}-{fmt.removeprefix('lammps-')}{end}"] = Case(
+                    f"{verb} {article}{word}{spec['title']}",
+                    copper_file(fmt, write, compression),
+                    mdapy_side,
+                    others,
+                    group="files",
+                )
     return cases
 
 

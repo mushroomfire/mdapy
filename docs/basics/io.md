@@ -56,9 +56,18 @@ memory first.
 | `**options` | | | Options of the format, listed on its page. |
 
 An iterator of systems, such as a generator, is written one system at a
-time, so a long trajectory need not fit in memory. A name ending in `.gz`,
-`.bz2`, `.xz` or `.zst` compresses the file. If writing fails, the
+time, so a long trajectory need not fit in memory. If writing fails, the
 incomplete file is removed.
+
+## Compressed files
+
+A name ending in `.gz`, `.bz2`, `.xz` or `.zst` compresses the file, and
+reading needs nothing more.
+
+Use `.gz`. MDAPY compresses it on all threads, and other programs that read
+compressed files read it. The others compress on one thread, so they take
+much longer, for a file not much smaller. See
+[Reading and writing files](../performance/files.md) for the times of gzip.
 
 ## Formats
 

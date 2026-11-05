@@ -4,17 +4,24 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 import bz2
+import errno
 import gzip
+import io
 import lzma
+import shutil
+import struct
+import subprocess
 import sys
+import zlib
 
 import numpy as np
 import polars as pl
 import pytest
 
 import mdapy
+from mdapy.core.threads import get_num_threads, set_num_threads
 from mdapy.errors import FileFormatError, InvalidParameter, UnsupportedFormat
-from mdapy.io import _registry
+from mdapy.io import _files, _registry
 from mdapy.io._files import Source, open_output
 from mdapy.io._registry import FORMATS, Format, register
 
@@ -260,6 +267,150 @@ def test_source_maps_plain_files_and_closes_them(tmp_path):
 def test_missing_files(tmp_path):
     with pytest.raises(FileNotFoundError):
         mdapy.io.read(tmp_path / "missing.xyz")
+
+
+def one_stream(data):
+    """The text of a gzip file that holds exactly one stream."""
+    stream = zlib.decompressobj(31)
+    text = stream.decompress(data)
+    assert stream.eof and stream.unused_data == b""
+    return text
+
+
+def many_blocks(blocks=12):
+    rng = np.random.default_rng(3)
+    numbers = rng.normal(0.0, 100.0, int(blocks * _files._GZIP_BLOCK / 20))
+    return "\n".join(map(repr, numbers.tolist())).encode()
+
+
+@pytest.mark.parametrize("threads", [1, 4])
+def test_gzip_is_one_stream_of_many_blocks(tmp_path, threads):
+    # some programs stop at the end of the first stream of a file
+    text = many_blocks()
+    assert len(text) > 8 * _files._GZIP_BLOCK
+    path = tmp_path / "a.txt.gz"
+    before = get_num_threads()
+    try:
+        set_num_threads(threads)
+        with open_output(path) as file:
+            file.write(text[:100])  # a header, as the formats write one
+            for at in range(100, len(text), 700000):
+                assert file.write(text[at : at + 700000]) == len(text[at : at + 700000])
+    finally:
+        set_num_threads(before)
+    data = path.read_bytes()
+    assert one_stream(data) == text
+    assert gzip.decompress(data) == text
+    assert data[:4] == b"\x1f\x8b\x08\x00"
+    crc, size = struct.unpack("<II", data[-8:])
+    assert crc == zlib.crc32(text) and size == len(text)
+
+
+def test_gzip_has_the_same_bytes_for_any_number_of_threads(tmp_path):
+    text = many_blocks()
+    written = []
+    before = get_num_threads()
+    try:
+        for threads in (1, 2, 4):
+            set_num_threads(threads)
+            path = tmp_path / f"{threads}.gz"
+            with open_output(path) as file:
+                file.write(text)
+            written.append(path.read_bytes())
+    finally:
+        set_num_threads(before)
+    assert written[0] == written[1] == written[2]
+
+
+def test_gzip_is_as_small_as_with_one_thread(tmp_path):
+    # each block looks back into the one before it
+    path = tmp_path / "a.gz"
+    text = (b"1 1 0.5 0.25 3.615\n" * 200000)[: 3 * _files._GZIP_BLOCK + 5]
+    with open_output(path) as file:
+        file.write(text)
+    assert path.stat().st_size < 1.01 * len(gzip.compress(text, 6))
+
+
+@pytest.mark.parametrize("size", [0, 1, 5, 2**15, 2**20 - 1, 2**20, 2**20 + 1, 2**21])
+def test_gzip_of_any_size(tmp_path, size):
+    text = many_blocks(3)[:size]
+    path = tmp_path / "a.gz"
+    with open_output(path) as file:
+        file.write(text)
+    assert one_stream(path.read_bytes()) == text
+
+
+def test_gzip_is_read_by_the_gzip_program(tmp_path):
+    program = shutil.which("gzip")
+    if program is None:
+        pytest.skip("no gzip program")
+    text = many_blocks(3)
+    path = tmp_path / "a.gz"
+    with open_output(path) as file:
+        file.write(text)
+    result = subprocess.run(
+        [program, "-dc", str(path)], capture_output=True, check=True
+    )
+    assert result.stdout == text
+
+
+class _FailingFile(io.BytesIO):
+    """A file that takes a few writes, as a disk that fills up."""
+
+    def __init__(self, writes):
+        super().__init__()
+        self.writes = writes
+
+    def write(self, data):
+        self.writes -= 1
+        if self.writes < 0:
+            raise OSError(errno.ENOSPC, "No space left on device")
+        return super().write(data)
+
+
+@pytest.mark.parametrize("threads", [1, 4])
+def test_gzip_that_cannot_be_written_raises(threads):
+    text = many_blocks(40)
+    before = get_num_threads()
+    try:
+        set_num_threads(threads)
+        target = _FailingFile(3)
+        writer = _files._GzipWriter(target)
+        with pytest.raises(OSError, match="No space left"):
+            writer.write(text)
+        with pytest.raises(OSError, match="No space left"):
+            writer.close()
+        assert writer.closed and target.closed
+        writer.close()  # closing twice does nothing
+    finally:
+        set_num_threads(before)
+
+
+def test_open_output_removes_a_file_that_cannot_be_finished(tmp_path, monkeypatch):
+    path = tmp_path / "a.gz"
+
+    close = _files._GzipWriter.close
+
+    def fail(self):
+        close(self)
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    monkeypatch.setattr(_files._GzipWriter, "close", fail)
+    with pytest.raises(OSError, match="No space left"):
+        with open_output(path) as file:
+            file.write(b"text")
+    assert not path.exists()
+
+
+def test_formats_are_written_through_gzip(tmp_path):
+    system = water(1)
+    for name in ("a.xyz.gz", "a.dump.gz", "a.data.gz", "a.mdapy.gz"):
+        path = tmp_path / name
+        mdapy.io.write(path, [system, system] if "data" not in name else system)
+        assert one_stream(path.read_bytes())
+        np.testing.assert_allclose(
+            mdapy.io.read(path)["positions"], system["positions"]
+        )
 
 
 def test_open_output_removes_the_file_on_errors(tmp_path):

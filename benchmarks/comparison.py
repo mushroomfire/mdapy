@@ -1660,6 +1660,11 @@ def outcome(side: dict | None) -> str:
     return "differs" if side.get("agree") is False else "?"
 
 
+def seconds(value: float) -> str:
+    """A time as a cell of a table, with four decimals when it is small."""
+    return f"{value:.4f}" if value < 0.01 else f"{value:.3f}"
+
+
 def table(entries: list[dict]) -> str:
     """The results as Markdown tables, one per program, every case at every
     size: the time of each program, how many times faster mdapy is, and the
@@ -1682,7 +1687,7 @@ def table(entries: list[dict]) -> str:
                 ours = best(entry.get("mdapy", {}))
                 theirs = best(entry.get(program, {}))
                 cells = [titles[case], f"{entry['atoms']:,d}"]
-                cells.append(f"{ours:.3f}" if ours is not None else "")
+                cells.append(seconds(ours) if ours is not None else "")
                 if theirs is None:
                     check = entry["check"][program]
                     why = outcome(
@@ -1696,7 +1701,7 @@ def table(entries: list[dict]) -> str:
                     ]
                 else:
                     cells += [
-                        f"{theirs:.3f}",
+                        seconds(theirs),
                         f"{theirs / ours:.2f}",
                         f"{extra(entry['mdapy']):.0f}",
                         f"{extra(entry[program]):.0f}",

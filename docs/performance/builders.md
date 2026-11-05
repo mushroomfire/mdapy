@@ -9,7 +9,9 @@ builds the structure MDAPY builds.
 
 An Apple M5 (10 cores: 4 performance, 6 efficiency), 24 GB, macOS 27, with an
 editor and a browser open. Python 3.13, MDAPY 2.0.0a2 in development built with
-Apple clang 21, and Atomsk Beta 0.13.1 built with GFortran and OpenMP.
+Apple clang 21, and Atomsk Beta 0.13.1 built with GFortran and OpenMP. The
+[analyses](comparison.md) run on another machine, so their times do not compare
+with these.
 
 ![Time of Atomsk over the time of MDAPY for each case and size](images/builders.png)
 
@@ -31,14 +33,14 @@ the timings; that of Atomsk, a process of its own, is not counted.
 
 | Case | Atoms | MDAPY 2.0.0a2 (s) | Atomsk Beta 0.13.1 (s) | Atomsk / MDAPY | MDAPY (MB) | Atomsk (MB) |
 |---|---:|---:|---:|---:|---:|---:|
-| fcc single crystal, written as a LAMMPS data file | 4,000 | 0.001 | 0.016 | 31.96 | 0 | 0 |
-| fcc single crystal, written as a LAMMPS data file | 32,000 | 0.001 | 0.045 | 35.74 | 5 | 0 |
-| fcc single crystal, written as a LAMMPS data file | 256,000 | 0.006 | 0.209 | 33.67 | 45 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 4,000 | 0.0005 | 0.016 | 31.96 | 0 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 32,000 | 0.0013 | 0.045 | 35.74 | 5 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 256,000 | 0.0062 | 0.209 | 33.67 | 45 | 0 |
 | fcc single crystal, written as a LAMMPS data file | 2,048,000 | 0.032 | 1.540 | 47.72 | 135 | 0 |
 | fcc single crystal, written as a LAMMPS data file | 9,841,500 | 0.139 | 7.519 | 54.13 | 443 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 3,981 | 0.001 | 0.032 | 23.89 | 0 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 31,995 | 0.002 | 0.100 | 50.67 | 9 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 255,941 | 0.009 | 0.555 | 63.27 | 78 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 3,981 | 0.0013 | 0.032 | 23.89 | 0 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 31,995 | 0.0020 | 0.100 | 50.67 | 9 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 255,941 | 0.0088 | 0.555 | 63.27 | 78 | 0 |
 | Polycrystal of 20 grains, written as a LAMMPS data file | 2,047,788 | 0.042 | 3.998 | 94.16 | 104 | 0 |
 | Polycrystal of 20 grains, written as a LAMMPS data file | 9,841,309 | 0.222 | 19.148 | 86.42 | 455 | 0 |
 

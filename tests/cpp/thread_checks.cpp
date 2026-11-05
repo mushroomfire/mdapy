@@ -36,9 +36,11 @@
 #include "analysis/surface_mesh.h"
 #include "analysis/tessellation.h"
 #include "analysis/voronoi.h"
+#include "build/polycrystal.h"
 #include "calculators/eam.h"
 #include "calculators/nep.h"
 #include "core/parallel.h"
+#include "core/wrap.h"
 #include "identify/planar_faults.h"
 #include "identify/ptm.h"
 #include "identify/structure.h"
@@ -1362,6 +1364,67 @@ void pictures() {
     }
 }
 
+// Two grains of fcc in a box of 30 Å, the planes between them at 7.5 and 22.5 Å,
+// and the positions mapped back into the box.
+void polycrystals() {
+    const double seeds[6] = {0, 0, 0, 15, 0, 0};
+    const double rotations[18] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1};
+    const double radii[2] = {30, 30};
+    const std::int64_t spans[6] = {9, 9, 9, 9, 9, 9};
+    const std::int64_t offsets[3] = {0, 6, 12};
+    const double faces[36] = {15,  0,   0, -15, 0, 0, 0, 30, 0, 0, -30, 0, 0, 0, 30, 0, 0, -30,
+                              -15, 0,   0, 15,  0, 0, 0, 30, 0, 0, -30, 0, 0, 0, 30, 0, 0, -30};
+    const double a = 3.6;
+    const double cell[9] = {a, 0, 0, 0, a, 0, 0, 0, a};
+    const double origin[3] = {0, 0, 0};
+    const double sites[12] = {0, 0, 0, 0.5, 0.5, 0, 0.5, 0, 0.5, 0, 0.5, 0.5};
+    const std::int64_t centers_of[4] = {0, 1, 2, 3};
+    mdapy::build::GrainFill fill;
+    fill.grains = 2;
+    fill.seeds = seeds;
+    fill.rotations = rotations;
+    fill.radii = radii;
+    fill.spans = spans;
+    fill.offsets = offsets;
+    fill.faces = faces;
+    fill.cell = cell;
+    fill.origin = origin;
+    fill.sites = 4;
+    fill.site_positions = sites;
+    fill.centers_of = centers_of;
+    fill.centers = 4;
+    fill.center_positions = sites;
+    fill.tolerance = 1e-9;
+    fill.copies = true;
+    fill.margin = 1.0;
+    const double matrix[9] = {30, 0, 0, 0, 30, 0, 0, 0, 30};
+    const double inverse[9] = {1.0 / 30, 0, 0, 0, 1.0 / 30, 0, 0, 0, 1.0 / 30};
+    const bool pbc[3] = {true, true, true};
+    mdapy::build::GrainAtoms first;
+    std::vector<double> first_wrapped;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        mdapy::build::GrainAtoms atoms = mdapy::build::fill_grains(fill);
+        const auto n = static_cast<std::int64_t>(atoms.grain.size());
+        std::vector<double> wrapped(atoms.positions.size());
+        std::vector<std::int64_t> image(atoms.positions.size());
+        mdapy::wrap(atoms.positions.data(), n, matrix, inverse, origin, pbc, wrapped.data(),
+                    image.data());
+        if (threads == kThreads[0]) {
+            first = std::move(atoms);
+            first_wrapped = std::move(wrapped);
+            check(n > 0, "the grains hold atoms");
+            continue;
+        }
+        check(atoms.positions == first.positions, "the atoms are the same for any thread count");
+        check(atoms.grain == first.grain, "the grains are the same for any thread count");
+        check(atoms.site == first.site, "the sites are the same for any thread count");
+        check(atoms.copy == first.copy, "the copies are the same for any thread count");
+        check(atoms.edge == first.edge, "the edges are the same for any thread count");
+        check(wrapped == first_wrapped, "wrapping is the same for any thread count");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -1378,6 +1441,7 @@ int main() {
     calculators();
     trajectories();
     pictures();
+    polycrystals();
     if (failures == 0) {
         std::printf("all checks passed\n");
     }

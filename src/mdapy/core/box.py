@@ -12,6 +12,7 @@ from typing import NamedTuple
 import numpy as np
 from numpy.typing import ArrayLike
 
+from mdapy import _core
 from mdapy.errors import InvalidParameter
 
 __all__ = ["Box", "LammpsBox"]
@@ -386,20 +387,13 @@ class Box:
             non-periodic directions.
         """
         r = np.asarray(positions, dtype=np.float64).reshape(-1, 3)
-        image = np.floor(self.to_fractional(r)).astype(np.int64)
-        image[:, ~self.__pbc] = 0
-        # Subtracting whole lattice vectors keeps the input precision (11 - 10
-        # is exactly 1), unlike converting back from fractional coordinates.
-        wrapped = r - image @ self.__matrix
-        # Rounding can leave a coordinate just outside [0, 1); fix it once.
-        frac = self.to_fractional(wrapped)
-        shift = np.zeros_like(image)
-        shift[(frac < 0.0) & self.__pbc] = -1
-        shift[(frac >= 1.0) & self.__pbc] = 1
-        if shift.any():
-            image += shift
-            wrapped = wrapped - shift @ self.__matrix
-        return wrapped, image
+        return _core.core.wrap(
+            np.ascontiguousarray(r),
+            np.ascontiguousarray(self.__matrix),
+            np.ascontiguousarray(self.__inverse),
+            np.ascontiguousarray(self.__origin),
+            np.ascontiguousarray(self.__pbc),
+        )
 
     def minimum_image(self, vectors: ArrayLike) -> np.ndarray:
         """Shortest periodic images of displacement vectors.

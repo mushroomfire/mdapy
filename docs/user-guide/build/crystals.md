@@ -44,7 +44,12 @@ crystals = [
 ]
 pictures = [
     render(
-        c, radius=0.75 * element_radii(c["element"]), width=400, height=400, legend=True
+        c,
+        radius=0.75 * element_radii(c["element"]),
+        view=(1, 0.45, 0.25),  # along the body diagonal, atoms hide those behind them
+        width=400,
+        height=400,
+        legend=True,
     )
     for c in crystals
 ]

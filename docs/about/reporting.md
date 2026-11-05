@@ -67,11 +67,26 @@ with open("report.txt", "w") as report:
 The versions of the packages are read from their installed files, so nothing is
 imported, and the report takes less than a second.
 
+## Which form
+
+A [new issue](https://github.com/mushroomfire/mdapy/issues/new/choose) starts from one of
+five forms; each puts its label on the issue. Choose by what you have:
+
+| Form | Label | When | For example |
+|---|---|---|---|
+| Bug report | `bug` | MDAPY gives a wrong result, raises an error it should not, or crashes | a structure type that differs from OVITO's; a file that reads with other programs but not with `mdapy.io.read`; a segmentation fault |
+| Feature request | `feature request` | something MDAPY does not do yet, or an option of something it does | an analysis of OVITO that MDAPY lacks; a file format; a column more in a result |
+| Performance | `performance` | it works, but takes too long or too much memory | an analysis that takes minutes for a million atoms; a run out of memory |
+| Documentation | `documentation` | a page is wrong, missing or unclear, or an example does not run | a parameter with no explanation; a picture whose code is not on its page |
+| Question | `question` | how to do something, or anything you are not sure where to put | how to compute a property per grain; which analysis suits a liquid |
+
+When unsure between a bug and a question, ask a question: a question that turns out to be a
+bug is moved. Search the [issues](https://github.com/mushroomfire/mdapy/issues?q=is%3Aissue)
+first, closed ones too: the answer may be there. One problem per issue.
+
 ## What to write
 
-The [issue tracker](https://github.com/mushroomfire/mdapy/issues/new/choose) has a form for a
-bug, a feature request, a report on performance, one on the documentation and a question. The
-form for a bug asks for what lets a problem be reproduced:
+The form for a bug asks for what lets a problem be reproduced:
 
 - what happened, and what you expected;
 - the shortest script that shows the problem and runs as it is, with a structure
@@ -79,3 +94,8 @@ form for a bug asks for what lets a problem be reproduced:
   allows it, or else the smallest file that shows it;
 - the full message of the error, all of the traceback;
 - the output of `show_versions`.
+
+A feature request asks what it is for, how you would call it, and how its results can be
+checked: MDAPY takes a feature when an analytic result, mature software or the paper
+that defines the method confirms it. A report on performance asks for the time or memory
+measured, for how many atoms and threads, and a script that measures it.

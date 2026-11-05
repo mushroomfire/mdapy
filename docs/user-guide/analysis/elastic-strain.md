@@ -31,7 +31,7 @@ dipole = dislocation_quadrupole("fcc edge", 3.615, (168.4, 121.4, 75.4), (14, 8,
                                 elements="Cu", dissociation=10)  # fmt: skip
 strain = ElasticStrain("fcc", 3.615).compute(dipole)
 render(dipole, "images/elastic-strain.png", color=strain.volumetric, colormap="coolwarm",
-       value_range=(-0.02, 0.02), view="top", box=False, width=560, height=740, legend="volumetric strain")  # fmt: skip
+       value_range=(-0.02, 0.02), view="top", box=False, width=780, height=740, legend="volumetric strain")  # fmt: skip
 ```
 
 ![Volumetric elastic strain about two edge dislocations](images/elastic-strain.png)

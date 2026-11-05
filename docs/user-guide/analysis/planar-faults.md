@@ -47,7 +47,7 @@ render(
     "images/planar-faults.png",
     color=colors,
     view="left",
-    width=600,
+    width=760,
     height=900,
     legend=dict(zip(found.names, found.colors)),
 )

@@ -39,7 +39,7 @@ write_png(
         colormap="coolwarm",
         value_range=(-6, 6),
         view="iso",
-        width=500,
+        width=680,
         height=500,
         legend=True,
     ),

@@ -157,7 +157,7 @@ with plot.style():
     ax.set_xlabel("slip / period")
     ax.set_ylabel("energy (mJ/m²)")
     ax.legend(frameon=False)
-    plot.save(fig, "gsfe", formats=("png",))
+    plot.save(fig, "images/gsfe", formats=("png",))
 ```
 
 ![Generalized stacking fault energy of copper on (111)](images/gsfe.png)

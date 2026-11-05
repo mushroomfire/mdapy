@@ -27,7 +27,7 @@ grains = build_polycrystal(
 )
 structures = DiamondStructure().compute(grains)
 render(
-    grains, "images/diamond.png", color=structures, width=800, height=600, legend=True
+    grains, "images/diamond.png", color=structures, width=1100, height=640, legend=True
 )
 ```
 

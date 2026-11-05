@@ -6,6 +6,10 @@
   overlap the fewest are kept first. `find_overlapping` used to delete the later atom of every
   pair, also when the earlier one was deleted too. See
   [Overlapping atoms](../basics/overlapping.md).
+- `build_polycrystal` keeps molecules whole when the unit has a `molecule` column: a molecule
+  belongs to the grain of its center, those too close go whole, and the topology is kept. It
+  also keeps the other columns of the unit, such as charges. `find_overlapping` has an option
+  `molecules`. See [A molecular polycrystal](../examples/molecular-polycrystal.md).
 
 Documentation:
 

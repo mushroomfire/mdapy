@@ -84,6 +84,13 @@ flakes.box.lengths  # 120, 120 and 10 Å
 [A polycrystal of graphene](../../examples/graphene-polycrystal.md) settles the boundaries
 with a potential and shows their rings.
 
+## Molecules
+
+With a `molecule` column in the unit, the molecules stay whole: a molecule belongs to the grain
+that holds its center, the atoms too close are removed by whole molecules, and the bonds and
+angles of the topology are kept. [A molecular polycrystal](../../examples/molecular-polycrystal.md)
+builds a polycrystal of ice this way.
+
 ## Gradient polycrystals
 
 In a gradient polycrystal the grain size changes along one direction, as in a metal
@@ -127,7 +134,7 @@ the columns.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `unit` | `System` | | | the crystal of every grain in a periodic box: a unit cell or any periodic arrangement |
+| `unit` | `System` | | | the crystal of every grain in a periodic box: a unit cell or any periodic arrangement; its other columns, such as charges, are kept |
 | `box` | `Box` or (3, 3) float64 | | Å | the box of the polycrystal, periodic in every direction |
 | `grains` | int32 or (G, 3) float64 | | Å | the number of grains with seeds at random, or the positions of the seeds |
 | `orientations` | (G, 3, 3) float64 | random | | the rotation of each grain, from the axes of `unit` to those of the box |
@@ -168,15 +175,17 @@ box repeats them along z.
 periodic, a number of grains below one, seeds not of shape (G, 3),
 orientations of another shape or not rotations, rotations of a columnar
 polycrystal not about its axis, a box no longer than the unit along two
-axes, a box that is not orthogonal when columnar, or a negative minimum
-distance. `twin_lamellae` raises it for a cell that is not periodic, whose
+axes, a box that is not orthogonal when columnar, a negative minimum
+distance, a unit with a topology and no `molecule` column, or terms of a topology across
+molecules. `twin_lamellae` raises it for a cell that is not periodic, whose
 third vector is not along z or first two not in the xy plane, whose atoms
 are not on equally spaced planes, or for fewer than two layers.
 
 ## See also
 
 - [Graphene on grain boundaries](graphene.md).
-- [A gradient polycrystal](../../examples/gradient-polycrystals.md) and
-  [a polycrystal of graphene](../../examples/graphene-polycrystal.md).
+- [A gradient polycrystal](../../examples/gradient-polycrystals.md),
+  [a polycrystal of graphene](../../examples/graphene-polycrystal.md) and
+  [a molecular polycrystal](../../examples/molecular-polycrystal.md).
 
 - atomsk [`--polycrystal`](https://atomsk.univ-lille.fr/doc/en/mode_polycrystal.html).

@@ -44,13 +44,14 @@ crystal (red).*
 
 ## Parameters
 
-`find_overlapping(system, distance, *, keep_one=True, atoms=None)`
+`find_overlapping(system, distance, *, keep_one=True, molecules=False, atoms=None)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms and the box |
 | `distance` | float64 | | Å | two atoms closer than this overlap |
 | `keep_one` | bool | `True` | | select only what to delete, as below; `False` selects every atom that overlaps another |
+| `molecules` | bool | `False` | | treat the molecules of the `molecule` column as wholes: atoms of one molecule do not overlap each other, and those of a molecule are selected together; an atom of molecule 0 counts alone |
 | `atoms` | (N,) bool or indices | all | | the atoms considered; the others neither overlap nor are selected |
 
 Distances are measured through the periodic boundaries, with the

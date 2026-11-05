@@ -10,7 +10,7 @@ import pytest
 
 import mdapy
 from mdapy.build import build_crystal
-from mdapy.errors import InvalidParameter
+from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList, find_overlapping
 
 
@@ -165,3 +165,55 @@ def test_atoms_far_apart():
     positions = np.array([[0.0, 0, 0], [1e9, 1e9, 1e9], [0.5, 0, 0]])
     selected = find_overlapping(mdapy.System(positions, elements="Cu"), 1.0)
     np.testing.assert_array_equal(selected, [False, False, True])
+
+
+def water(*centers):
+    """Water molecules along x, with their molecule column."""
+    atoms = np.vstack([[[c, 5, 5], [c + 0.6, 5, 5], [c - 0.6, 5, 5]] for c in centers])
+    numbers = np.repeat(np.arange(1, len(centers) + 1), 3)
+    system = mdapy.System(
+        atoms, mdapy.Box(40.0), elements=["O", "H", "H"] * len(centers)
+    )
+    return system.with_columns(molecule=numbers)
+
+
+def test_molecules_go_whole():
+    # the atoms of one molecule do not overlap each other
+    assert not find_overlapping(water(5), 1.0, molecules=True).any()
+    assert find_overlapping(water(5), 1.0).any()
+    # far apart, none; close, the later whole
+    assert not find_overlapping(water(5, 20), 1.0, molecules=True).any()
+    np.testing.assert_array_equal(
+        find_overlapping(water(5, 6.5), 1.0, molecules=True), [False] * 3 + [True] * 3
+    )
+    # a chain of molecules: the middle one is enough
+    chain = find_overlapping(water(5, 6.5, 8), 1.0, molecules=True)
+    np.testing.assert_array_equal(chain, [False] * 3 + [True] * 3 + [False] * 3)
+    left = water(5, 6.5, 8).filter(~chain)
+    close = NeighborList.build(left, 1.0)
+    assert (left["molecule"][close.i] == left["molecule"][close.j]).all()
+    # without keep_one, all that overlap another molecule
+    np.testing.assert_array_equal(
+        find_overlapping(water(5, 6.5, 20), 1.0, molecules=True, keep_one=False),
+        [True] * 6 + [False] * 3,
+    )
+    # only the atoms considered count
+    considered = np.zeros(9, dtype=bool)
+    considered[:3] = True
+    assert not find_overlapping(
+        water(5, 6.5, 8), 1.0, molecules=True, atoms=considered
+    ).any()
+
+
+def test_atoms_of_no_molecule_count_alone():
+    system = along_x(0, 0.5, 1.0, 5).with_columns(molecule=[0, 0, 1, 1])
+    # the two of molecule 0 overlap, and the second overlaps molecule 1
+    selected = find_overlapping(system, 0.7, molecules=True)
+    assert selected.tolist() == [False, True, False, False]
+
+
+def test_molecules_need_their_column():
+    with pytest.raises(MissingProperty, match="molecule column"):
+        find_overlapping(along_x(0, 0.5), 1.0, molecules=True)
+    empty = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0)).with_columns(molecule=[])
+    assert len(find_overlapping(empty, 1.0, molecules=True)) == 0

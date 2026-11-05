@@ -6,18 +6,32 @@
 """Polycrystals of Voronoi grains, and crystals of twin lamellae."""
 
 import numpy as np
+import polars as pl
 from numpy.typing import ArrayLike
 
 from mdapy._core import neighbor as _search
 from mdapy.build._defects import _axis
 from mdapy.core.box import Box
 from mdapy.core.system import System
+from mdapy.core.topology import KINDS, Topology
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList, find_overlapping
+from mdapy.neighbor._overlapping import _molecules_of
 
 # points along the box vector of a gradient, and random places tried for each seed
 _GRID = 4097
 _CANDIDATES = 16
+# what does not follow the atoms of the unit into the grains, or is made anew
+_NOT_CARRIED = {
+    "positions",
+    "element",
+    "velocities",
+    "forces",
+    "id",
+    "image",
+    "molecule",
+    "grain",
+}
 
 
 def random_rotations(
@@ -77,6 +91,50 @@ def rotations_about(axis: int | str, angles: ArrayLike) -> np.ndarray:
     return r
 
 
+def _whole_molecules(
+    unit: System, sites: np.ndarray, topology: Topology
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    """The molecule of each site numbered from 0, the fractional coordinates with each
+    molecule in one piece and its center in the box, the centers of the molecules, and
+    the nearest distance between atoms of different molecules."""
+    molecule = _molecules_of(unit)
+    sizes = np.bincount(molecule)
+    leaders = np.unique(molecule, return_index=True)[1]
+    pieces = np.rint(sites[leaders][molecule] - sites)
+    whole = sites + pieces
+    centers = np.zeros((len(sizes), 3))
+    np.add.at(centers, molecule, whole)
+    centers /= sizes[:, None]
+    moved = np.floor(centers)
+    for kind, table in topology.tables().items():
+        if len(table):
+            atoms = table["atoms"].to_numpy()
+            if (molecule[atoms] != molecule[atoms[:, :1]]).any():
+                raise InvalidParameter(f"{kind} must lie within one molecule")
+    # the nearest of more neighbors than a molecule has atoms is of another molecule
+    neighbors = NeighborList.build(unit, num_neighbors=int(sizes.max()))
+    i, j = neighbors.i, neighbors.j
+    same = molecule[i] == molecule[j]
+    same &= (np.asarray(neighbors.shifts) == pieces[j] - pieces[i]).all(axis=1)
+    return (
+        molecule,
+        whole - moved[molecule],
+        centers - moved,
+        float(neighbors.distances[~same].min()),
+    )
+
+
+def _copied(table: pl.DataFrame, number: np.ndarray) -> pl.DataFrame:
+    """The terms of a topology in the copies of the unit, from the (C, A) new number of
+    each atom of each copy, -1 for those left out: molecules are in or out whole."""
+    atoms = number[:, table["atoms"].to_numpy()]
+    found = (atoms >= 0).all(axis=2)
+    width = atoms.shape[2]
+    return table[np.nonzero(found)[1]].with_columns(
+        pl.Series("atoms", atoms[found], dtype=pl.Array(pl.Int64, width))
+    )
+
+
 def build_polycrystal(
     unit: System,
     box: Box | ArrayLike,
@@ -87,13 +145,17 @@ def build_polycrystal(
     seed: int | np.random.Generator | None = None,
 ) -> System:
     """A polycrystal: each grain the crystal of a unit cell, rotated, filling
-    the Voronoi cell of its seed in a periodic box.
+    the Voronoi cell of its seed in a periodic box. With a ``molecule`` column in the
+    unit, the molecules stay whole.
 
     Parameters
     ----------
     unit : System
         The crystal of every grain, in a periodic box: a unit cell or any
-        periodic arrangement, such as twin lamellae.
+        periodic arrangement, such as twin lamellae. Its other columns, such as
+        charges, are kept. With a ``molecule`` column, a molecule belongs to the grain
+        that holds its center, the atoms too close are removed by whole molecules, and
+        the topology is kept; a molecule must be shorter than half the box of the unit.
     box : Box or array_like
         The box of the polycrystal, periodic in every direction: a Box or
         its lattice vectors. Along an axis no longer than the box of unit,
@@ -110,7 +172,7 @@ def build_polycrystal(
         No two atoms stay closer than this, in Å, with as few removed as possible, as
         ``mdapy.neighbor.find_overlapping`` does: atoms of neighboring grains that come
         too close, and the copies of atoms on the faces of a cell. Default 0.7 times
-        the nearest distance in unit.
+        the nearest distance in unit, between different molecules if there are any.
     seed : int64 or numpy.random.Generator, optional
         Seed of the random seeds and orientations.
 
@@ -119,10 +181,15 @@ def build_polycrystal(
     System
         The atoms with a ``grain`` column, numbered as the seeds; each seed
         is a site of the unit in its grain. ``info["seeds"]`` holds the
-        (G, 3) positions of the seeds.
+        (G, 3) positions of the seeds. With molecules, ``molecule`` numbers them from
+        1, and ``image`` tells how to put together those the box wraps.
     """
     if not unit.box.pbc.all() or len(unit) == 0:
         raise InvalidParameter("unit must be a periodic box with atoms")
+    molecular = "molecule" in unit.table.columns
+    topology = unit.topology if unit.topology is not None else Topology()
+    if len(topology) and not molecular:
+        raise InvalidParameter("a unit with a topology needs the molecule column")
     if not isinstance(box, Box):
         box = Box(box)
     if not box.pbc.all():
@@ -174,7 +241,14 @@ def build_polycrystal(
             raise InvalidParameter(
                 "the grains of a columnar polycrystal turn about its axis"
             )
-    nearest = NeighborList.build(unit, num_neighbors=1).distances.min()
+    cell = unit.box.matrix
+    sites = unit.box.to_fractional(unit["positions"])
+    molecule = centers = None
+    if molecular:
+        molecule, sites, centers, nearest = _whole_molecules(unit, sites, topology)
+    else:
+        nearest = NeighborList.build(unit, num_neighbors=1).distances.min()
+        sites = sites - np.floor(sites)
     if min_distance is None:
         min_distance = 0.7 * nearest
     elif not min_distance >= 0:
@@ -197,15 +271,16 @@ def build_polycrystal(
     else:
         reach = np.full(1, 0.5 * np.linalg.norm(box.matrix.sum(axis=0)))
     reach += np.linalg.norm(unit.box.matrix.sum(axis=0))
-    cell = unit.box.matrix
-    sites = unit.box.to_fractional(unit["positions"])
-    sites -= np.floor(sites)
     names = np.asarray(
         unit.table["element"].to_list()
         if "element" in unit.table.columns
         else ["X"] * len(unit)
     )
-    positions, grain, kinds = [], [], []
+    positions, grain, kinds, copies = [], [], [], []
+    terms: dict[str, list[pl.DataFrame]] = {kind: [] for kind in KINDS}
+    atoms_so_far = copies_so_far = 0
+    # the first atom of unit at the seed
+    origin = sites[0] @ cell
     for g in range(count):
         # the cells of unit within reach: 1 / |column of inv(cell)| is the
         # spacing of the lattice planes of each vector
@@ -217,28 +292,58 @@ def build_polycrystal(
         cells = np.stack(
             np.meshgrid(*[np.arange(-s, s + 1) for s in span], indexing="ij"), -1
         ).reshape(-1, 1, 3)
-        local = ((cells + sites) @ cell).reshape(-1, 3)
-        local -= sites[0] @ cell  # the first atom of unit at the seed
-        points = seeds[g] + local @ rotations[g].T
+
+        def placed(fractions: np.ndarray) -> np.ndarray:
+            local = ((cells + fractions) @ cell).reshape(-1, 3) - origin
+            return seeds[g] + local @ rotations[g].T
+
+        points = placed(sites)
+        # a grain takes the atoms, or the molecules, closer to its seed than to others;
         # in a columnar polycrystal, the distances across the axis only
-        query = points.copy()
+        query = points.copy() if centers is None else placed(centers)
         if axis is not None:
             query[:, axis] = seeds[g, axis]
         _, _, closest = tree.nearest(np.ascontiguousarray(query), 1)
         own = np.linalg.norm(query - seeds[g], axis=1)
         inside = own <= closest[:, 0] + 1e-9 * nearest
+        if molecule is not None:
+            whole = inside.reshape(len(cells), -1)
+            inside = whole[:, molecule].ravel()
+            copy = np.arange(whole.size).reshape(whole.shape)[:, molecule].ravel()
+            copies.append(copies_so_far + copy[inside])
+            copies_so_far += whole.size
+            number = np.full(len(points), -1)
+            number[inside] = atoms_so_far + np.arange(int(inside.sum()))
+            for kind, table in topology.tables().items():
+                if len(table):
+                    terms[kind].append(_copied(table, number.reshape(len(cells), -1)))
         positions.append(points[inside])
         grain.append(np.full(int(inside.sum()), g))
         kinds.append(np.flatnonzero(inside) % len(names))  # the site of unit
-    wrapped, _ = box.wrap(np.concatenate(positions))
-    grain = np.concatenate(grain)
-    keep = np.ones(len(wrapped), dtype=bool)
-    if min_distance > 0:
-        keep = ~find_overlapping(System(wrapped, box), min_distance)
-    elements = names[np.concatenate(kinds)[keep]]
-    crystal = System(wrapped[keep], box, elements=elements).with_columns(
-        grain=grain[keep]
+        atoms_so_far += int(inside.sum())
+    wrapped, image = box.wrap(np.concatenate(positions))
+    site = np.concatenate(kinds)
+    crystal = System(wrapped, box, elements=names[site]).with_columns(
+        grain=np.concatenate(grain),
+        **{
+            name: unit.table[name][site]
+            for name in unit.table.columns
+            if name not in _NOT_CARRIED
+        },
     )
+    if molecule is not None:
+        crystal = crystal.with_columns(molecule=np.concatenate(copies), image=image)
+        if len(topology):
+            crystal = crystal.with_topology(
+                Topology(**{k: pl.concat(t) for k, t in terms.items() if t})
+            )
+    if min_distance > 0:
+        crystal = crystal.filter(
+            ~find_overlapping(crystal, min_distance, molecules=molecular)
+        )
+    if molecule is not None:
+        numbers = np.unique(crystal["molecule"], return_inverse=True)[1]
+        crystal = crystal.with_columns(molecule=numbers + 1)
     return crystal.with_info(seeds=seeds)
 
 

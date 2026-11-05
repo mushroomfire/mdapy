@@ -125,6 +125,8 @@ nav:
       - Building structures:
           - A polycrystal of fcc and bcc grains: examples/two-phase-polycrystal.md
           - Columnar grains on a hexagonal pattern: examples/columnar-polycrystal.md
+          - A gradient polycrystal: examples/gradient-polycrystals.md
+          - A polycrystal of graphene: examples/graphene-polycrystal.md
       - Simulation:
           - Defect energies of copper: examples/defect-energies.md
           - Gamma surfaces of copper and tungsten: examples/gamma-surface.md

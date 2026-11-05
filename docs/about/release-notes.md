@@ -1,6 +1,6 @@
 # Release notes
 
-## 2.0.0a2 (in development)
+## 2.0.0a2
 
 - `find_overlapping` and `build_polycrystal` delete as few atoms as they can: the atoms that
   overlap the fewest are kept first. `find_overlapping` used to delete the later atom of every

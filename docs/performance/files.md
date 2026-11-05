@@ -10,7 +10,7 @@ as the system.
 
 A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6148 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
-MDAPY 2.0.0a2 in development built with GCC 12.3, OVITO 3.17.1 and ASE 3.29.0
+MDAPY 2.0.0a2 built with GCC 12.3, OVITO 3.17.1 and ASE 3.29.0
 from pip. The [analyses](comparison.md) ran on another node, with Intel Xeon Gold
 6248, so their times do not compare with these.
 

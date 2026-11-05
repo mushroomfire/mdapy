@@ -14,6 +14,9 @@
   atoms in the same order as before: 2 million atoms of copper in 20 grains, with `min_distance`
   0.01 Å, take 0.017 s instead of 1.9 s on 10 threads, and the process peaks at 182 MB instead
   of 1043 MB. See [Building structures](../performance/builders.md).
+- `build_crystal` runs on all threads and gives the same atoms in the same order: nearly 10
+  million atoms of copper take 0.017 s instead of 0.25 s on 10 threads, and the build takes
+  300 MB instead of 750 MB.
 - `Box.wrap` runs on all threads.
 
 Documentation:

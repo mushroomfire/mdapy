@@ -127,6 +127,7 @@ nav:
           - Columnar grains on a hexagonal pattern: examples/columnar-polycrystal.md
           - A gradient polycrystal: examples/gradient-polycrystals.md
           - A polycrystal of graphene: examples/graphene-polycrystal.md
+          - A molecular polycrystal: examples/molecular-polycrystal.md
       - Simulation:
           - Defect energies of copper: examples/defect-energies.md
           - Gamma surfaces of copper and tungsten: examples/gamma-surface.md

@@ -15,9 +15,11 @@ from mdapy.build import (
     rotations_about,
     twin_lamellae,
 )
+from mdapy.core.topology import Topology
 from mdapy.errors import InvalidParameter
 from mdapy.identify import CommonNeighborAnalysis
 from mdapy.neighbor import NeighborList
+from mdapy.transform import unwrap
 
 A = 3.615
 FCC111 = [(1, 1, -2), (-1, 1, 0), (1, 1, 1)]
@@ -309,3 +311,141 @@ def test_gradient_seeds_errors(sizes, message):
 def test_gradient_seeds_not_along_the_columns():
     with pytest.raises(InvalidParameter, match="along the columns"):
         gradient_seeds(mdapy.Box(100.0), [(0, 20), (1, 30)], axis="z", columns=2)
+
+
+def _water(a=6.35):
+    """Ordered cubic ice, 8 molecules of O-H 0.96 Å with their bonds and angles: the
+    oxygen on a diamond lattice, each giving hydrogens along two of its four bonds."""
+    oxygen = build_crystal("diamond", a, elements="O")
+    positions = oxygen["positions"]
+    fractions = oxygen.box.to_fractional(positions)
+    odd = np.rint(4 * fractions).astype(int)[:, 0] % 2 == 1
+    bonds = np.array([[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]]) / np.sqrt(3)
+    given = np.where(odd[:, None, None], -bonds[[2, 3]], bonds[[0, 1]])
+    atoms = np.stack(
+        [positions, positions + 0.96 * given[:, 0], positions + 0.96 * given[:, 1]],
+        axis=1,
+    ).reshape(-1, 3)
+    first = 3 * np.arange(len(positions))[:, None]
+    return (
+        mdapy.System(atoms, oxygen.box, elements=["O", "H", "H"] * len(positions))
+        .with_columns(
+            molecule=np.repeat(np.arange(1, len(positions) + 1), 3),
+            charge=[-0.8, 0.4, 0.4] * len(positions),
+        )
+        .with_topology(
+            Topology(
+                bonds=np.vstack([first + [0, 1], first + [0, 2]]),
+                angles=first + [1, 0, 2],
+            )
+        )
+    )
+
+
+def _molecules(system):
+    """(M, 3, 3) the positions of the whole molecules of water, oxygen first."""
+    order = np.argsort(system["molecule"], kind="stable")
+    return unwrap(system)["positions"][order].reshape(-1, 3, 3)
+
+
+def test_molecules_stay_whole():
+    ice = build_polycrystal(_water(), mdapy.Box(30.0), 3, seed=2)
+    numbers = np.bincount(ice["molecule"])[1:]
+    assert (numbers == 3).all() and len(numbers) * 3 == len(ice)
+    elements = np.asarray(ice["element"])[np.argsort(ice["molecule"], kind="stable")]
+    assert (elements.reshape(-1, 3) == ["O", "H", "H"]).all()
+    # the shape of each molecule, whatever its grain and across the box
+    atoms = _molecules(ice)
+    one, two = atoms[:, 1] - atoms[:, 0], atoms[:, 2] - atoms[:, 0]
+    np.testing.assert_allclose(np.linalg.norm(one, axis=1), 0.96, atol=1e-9)
+    np.testing.assert_allclose(np.linalg.norm(two, axis=1), 0.96, atol=1e-9)
+    np.testing.assert_allclose((one * two).sum(axis=1), -(0.96**2) / 3, atol=1e-9)
+    # a molecule is in one grain, and in the grain of its center
+    grain = np.asarray(ice["grain"])[np.argsort(ice["molecule"], kind="stable")]
+    assert (grain.reshape(-1, 3) == grain.reshape(-1, 3)[:, :1]).all()
+    assert set(np.unique(ice["grain"])) == {0, 1, 2}
+    # other columns follow the atoms
+    np.testing.assert_array_equal(
+        np.asarray(ice["charge"])[np.asarray(ice["element"]) == "O"], -0.8
+    )
+
+
+def test_molecules_too_close_go_whole():
+    unit = _water()
+    # H...O at 1.79 Å in the crystal, the nearest between molecules
+    between = 6.35 * np.sqrt(3) / 4 - 0.96
+    for distance in (None, 1.5):
+        ice = build_polycrystal(unit, mdapy.Box(30.0), 3, seed=2, min_distance=distance)
+        close = NeighborList.build(ice, 0.7 * between if distance is None else distance)
+        molecule = np.asarray(ice["molecule"])
+        assert (molecule[close.i] == molecule[close.j]).all()
+    # with no removal, more molecules, and all of them still whole
+    every = build_polycrystal(unit, mdapy.Box(30.0), 3, seed=2, min_distance=0.0)
+    assert every["molecule"].max() > ice["molecule"].max()
+    assert (np.bincount(every["molecule"])[1:] == 3).all()
+
+
+def test_the_topology_follows_the_molecules():
+    ice = build_polycrystal(_water(), mdapy.Box(30.0), 3, seed=2)
+    molecules = int(ice["molecule"].max())
+    bonds = ice.topology.bonds["atoms"].to_numpy()
+    angles = ice.topology.angles["atoms"].to_numpy()
+    assert len(bonds) == 2 * molecules and len(angles) == molecules
+    molecule = np.asarray(ice["molecule"])
+    assert (molecule[bonds[:, 0]] == molecule[bonds[:, 1]]).all()
+    assert (np.asarray(ice["element"])[bonds[:, 0]] == "O").all()
+    assert (np.asarray(ice["element"])[bonds[:, 1]] == "H").all()
+    assert (np.asarray(ice["element"])[angles[:, 1]] == "O").all()
+    lengths = ice.box.minimum_image(
+        ice["positions"][bonds[:, 1]] - ice["positions"][bonds[:, 0]]
+    )
+    np.testing.assert_allclose(np.linalg.norm(lengths, axis=1), 0.96, atol=1e-9)
+
+
+def test_a_molecule_across_the_box_of_the_unit():
+    """Moved across the faces of its box, the unit makes the same molecules."""
+    unit = _water()
+    shifted = unit.with_columns(positions=unit["positions"] + [0.5, 0.2, 0.1])
+    wrapped = shifted.with_columns(positions=shifted.box.wrap(shifted["positions"])[0])
+    assert np.any(wrapped["positions"] != shifted["positions"])
+    ice = build_polycrystal(wrapped, mdapy.Box(30.0), 3, seed=2)
+    atoms = _molecules(ice)
+    np.testing.assert_allclose(
+        np.linalg.norm(atoms[:, 1] - atoms[:, 0], axis=1), 0.96, atol=1e-9
+    )
+    assert len(np.unique(ice["molecule"])) * 3 == len(ice)
+
+
+def test_one_grain_of_molecules_is_the_crystal():
+    unit = _water()
+    box = mdapy.Box(5 * 6.35)
+    one = build_polycrystal(unit, box, [[0.0, 0.0, 0.0]], orientations=np.eye(3)[None])
+    assert len(one) == 3 * 8 * 125
+
+
+def test_columns_of_molecules():
+    ice = _water()
+    columns = build_polycrystal(ice, mdapy.Box([30.0, 30.0, 1.0]), 3, seed=1)
+    assert columns.box.lengths[2] == pytest.approx(6.35)
+    assert (np.bincount(columns["molecule"])[1:] == 3).all()
+
+
+def test_atoms_keep_their_columns_without_molecules():
+    crystal = unit().with_columns(
+        charge=[0.5, -0.5, 0.5, -0.5], velocities=np.ones((4, 3))
+    )
+    grains = build_polycrystal(crystal, mdapy.Box(20.0), 2, seed=1)
+    assert "charge" in grains.table.columns and "velocities" not in grains.table.columns
+    assert (
+        "molecule" not in grains.table.columns and "image" not in grains.table.columns
+    )
+    assert set(np.unique(grains["charge"])) == {-0.5, 0.5}
+
+
+def test_errors_of_molecules():
+    water = _water()
+    with pytest.raises(InvalidParameter, match="needs the molecule column"):
+        build_polycrystal(water.drop("molecule"), mdapy.Box(30.0), 2, seed=1)
+    across = water.with_topology(Topology(bonds=[[0, 3]]))
+    with pytest.raises(InvalidParameter, match="bonds must lie within one molecule"):
+        build_polycrystal(across, mdapy.Box(30.0), 2, seed=1)

@@ -46,12 +46,12 @@ A file without molecules gets them from [`ChemicalSpecies`](../user-guide/analys
 
 The call is the same as for atoms. No two atoms of different molecules stay closer than
 `min_distance`. Its default is 0.7 times the nearest distance between molecules in the unit,
-here 1.25 Å. At 1.75 Å, just under the 1.79 Å of a hydrogen bond in the crystal, no two
+here 1.25 Å. At 1.78 Å, just under the 1.79 Å of a hydrogen bond in the crystal, no two
 molecules are left within the reach of a chemical bond:
 
 ```python
-ice = build_polycrystal(unit, mp.Box(60.0), 4, min_distance=1.75, seed=3)
-ice["molecule"].max(), len(ice)  # 6353 molecules, 19059 atoms
+ice = build_polycrystal(unit, mp.Box(100.0), 8, min_distance=1.78, seed=3)
+ice["molecule"].max(), len(ice)  # 29805 molecules, 89415 atoms
 ```
 
 ## Are the molecules whole?
@@ -62,7 +62,7 @@ alone, without the `molecule` column:
 ```python
 from mdapy.analysis import ChemicalSpecies
 
-ChemicalSpecies().compute(ice).counts()  # H2O 6353, and nothing else
+ChemicalSpecies().compute(ice).counts()  # H2O 29805, and nothing else
 ```
 
 The bonds and the angles follow the molecules, and the `image` column tells how to put together
@@ -79,11 +79,11 @@ from mdapy.visualization import render, write_png
 
 water = ice.filter(element="O")
 chill = ChillPlus(cutoff=3.5).compute(water)
-chill.counts()  # {'other': 1632, 'cubic_ice': 3982, 'interfacial_ice': 603, ...}
+chill.counts()  # {'other': 6196, 'cubic_ice': 20883, 'interfacial_ice': 2291, ...}
 ```
 
 ```python
-half = water["positions.z"] < 30.0
+half = water["positions.z"] < 50.0
 structures = render(
     water,
     atoms=half,
@@ -94,7 +94,7 @@ structures = render(
     legend=True,
 )
 # a slab of whole molecules, chosen by their oxygen atoms
-middle = (water["positions.z"] > 28.0) & (water["positions.z"] < 34.0)
+middle = (water["positions.z"] > 48.0) & (water["positions.z"] < 54.0)
 slab = np.isin(ice["molecule"], water["molecule"][middle])
 molecules = render(
     ice,

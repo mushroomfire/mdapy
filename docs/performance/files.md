@@ -18,19 +18,19 @@ from pip. The [analyses](comparison.md) ran on another node, with Intel Xeon Gol
 
 ### What they show
 
-- **OVITO**: from 32 000 atoms on, MDAPY reads the three formats 3.9 to
-  19 times faster and writes them 4.3 to 24 times faster. At 4 000 atoms
-  MDAPY reads 1.0 to 1.1 times faster and writes 1.0 to 3.6 times faster.
-- **ASE**: from 32 000 atoms on, MDAPY reads 27 to 161 times faster and writes
-  23 to 130 times faster; at 4 000 atoms, 4.9 to 10 and 5.0 to 9.4 times. ASE
+- **OVITO**: from 32 000 atoms on, MDAPY reads the three formats 4.7 to
+  24 times faster and writes them 8.2 to 24 times faster. At 4 000 atoms
+  MDAPY reads 1.0 to 1.3 times faster and writes 2.0 to 3.6 times faster.
+- **ASE**: from 32 000 atoms on, MDAPY reads 27 to 308 times faster and writes
+  43 to 130 times faster; at 4 000 atoms, 4.9 to 12 and 9.4 to 13 times. ASE
   reads a data file of nearly 10 million atoms in 45 s and 18 GB of memory.
 - **Gzip**: MDAPY compresses on all threads. From 256 000 atoms on it writes
-  gzipped files 13 to 35 times faster than OVITO and 48 to 165 times faster
-  than ASE. It reads them 1.1 to 1.8 times faster than OVITO and 3.8 to 13 times
+  gzipped files 14 to 35 times faster than OVITO and 48 to 185 times faster
+  than ASE. It reads them 1.1 to 2.0 times faster than OVITO and 3.8 to 14 times
   faster than ASE: most of that time is decompressing.
-- **Nearly 10 million atoms** take MDAPY 0.12 to 0.62 s to read in each format,
-  and 0.26 to 0.52 s to write with every digit; gzipped, 3.2 to 4.1 s to read and
-  1.8 to 2.3 s to write.
+- **Nearly 10 million atoms** take MDAPY 0.12 to 0.15 s to read in each format,
+  and 0.26 to 0.35 s to write with every digit; gzipped, 3.2 to 3.7 s to read and
+  1.8 to 2.0 s to write.
 
 ### Times and memory
 
@@ -52,16 +52,16 @@ its peak before the timings.
 | Write a LAMMPS dump | 256,000 | 0.010 | 0.151 | 15.09 | 30 | 0 |
 | Write a LAMMPS dump | 2,048,000 | 0.073 | 1.195 | 16.27 | 54 | 0 |
 | Write a LAMMPS dump | 9,841,500 | 0.334 | 5.772 | 17.30 | 39 | 0 |
-| Read a LAMMPS data file | 4,000 | 0.0014 | 0.0015 | 1.09 | 0 | 0 |
-| Read a LAMMPS data file | 32,000 | 0.0028 | 0.011 | 3.91 | 1 | 5 |
-| Read a LAMMPS data file | 256,000 | 0.015 | 0.083 | 5.59 | 0 | 0 |
-| Read a LAMMPS data file | 2,048,000 | 0.131 | 0.687 | 5.24 | 230 | 47 |
-| Read a LAMMPS data file | 9,841,500 | 0.623 | 3.459 | 5.55 | 1196 | 125 |
-| Write a LAMMPS data file | 4,000 | 0.0027 | 0.0027 | 1.01 | 0 | 0 |
-| Write a LAMMPS data file | 32,000 | 0.0046 | 0.020 | 4.25 | 0 | 0 |
-| Write a LAMMPS data file | 256,000 | 0.017 | 0.154 | 9.19 | 33 | 0 |
-| Write a LAMMPS data file | 2,048,000 | 0.121 | 1.254 | 10.39 | 155 | 0 |
-| Write a LAMMPS data file | 9,841,500 | 0.519 | 5.907 | 11.37 | 395 | 0 |
+| Read a LAMMPS data file | 4,000 | 0.0012 | 0.0015 | 1.27 | 0 | 0 |
+| Read a LAMMPS data file | 32,000 | 0.0018 | 0.011 | 5.82 | 1 | 5 |
+| Read a LAMMPS data file | 256,000 | 0.0047 | 0.083 | 17.85 | 0 | 0 |
+| Read a LAMMPS data file | 2,048,000 | 0.036 | 0.687 | 18.83 | 146 | 47 |
+| Read a LAMMPS data file | 9,841,500 | 0.145 | 3.459 | 23.85 | 921 | 125 |
+| Write a LAMMPS data file | 4,000 | 0.0011 | 0.0027 | 2.59 | 0 | 0 |
+| Write a LAMMPS data file | 32,000 | 0.0022 | 0.020 | 8.89 | 2 | 0 |
+| Write a LAMMPS data file | 256,000 | 0.013 | 0.154 | 12.19 | 34 | 0 |
+| Write a LAMMPS data file | 2,048,000 | 0.087 | 1.254 | 14.40 | 204 | 0 |
+| Write a LAMMPS data file | 9,841,500 | 0.347 | 5.907 | 17.02 | 131 | 0 |
 | Read extended XYZ | 4,000 | 0.0010 | 0.0011 | 1.02 | 0 | 0 |
 | Read extended XYZ | 32,000 | 0.0016 | 0.0074 | 4.65 | 1 | 3 |
 | Read extended XYZ | 256,000 | 0.0056 | 0.059 | 10.46 | 0 | 0 |
@@ -82,16 +82,16 @@ its peak before the timings.
 | Write a gzipped LAMMPS dump | 256,000 | 0.131 | 1.794 | 13.70 | 62 | 0 |
 | Write a gzipped LAMMPS dump | 2,048,000 | 0.508 | 14.797 | 29.11 | 106 | 0 |
 | Write a gzipped LAMMPS dump | 9,841,500 | 2.008 | 69.989 | 34.86 | 85 | 0 |
-| Read a gzipped LAMMPS data file | 4,000 | 0.0025 | 0.0033 | 1.35 | 0 | 1 |
-| Read a gzipped LAMMPS data file | 32,000 | 0.012 | 0.022 | 1.78 | 0 | 3 |
-| Read a gzipped LAMMPS data file | 256,000 | 0.092 | 0.168 | 1.82 | 0 | 0 |
-| Read a gzipped LAMMPS data file | 2,048,000 | 0.809 | 1.380 | 1.70 | 140 | 13 |
-| Read a gzipped LAMMPS data file | 9,841,500 | 4.127 | 6.684 | 1.62 | 752 | 48 |
-| Write a gzipped LAMMPS data file | 4,000 | 0.021 | 0.026 | 1.27 | 0 | 0 |
-| Write a gzipped LAMMPS data file | 32,000 | 0.086 | 0.216 | 2.50 | 8 | 0 |
-| Write a gzipped LAMMPS data file | 256,000 | 0.138 | 1.787 | 12.95 | 68 | 0 |
-| Write a gzipped LAMMPS data file | 2,048,000 | 0.542 | 14.858 | 27.39 | 204 | 0 |
-| Write a gzipped LAMMPS data file | 9,841,500 | 2.259 | 69.931 | 30.96 | 426 | 0 |
+| Read a gzipped LAMMPS data file | 4,000 | 0.0023 | 0.0033 | 1.43 | 0 | 1 |
+| Read a gzipped LAMMPS data file | 32,000 | 0.011 | 0.022 | 1.91 | 0 | 3 |
+| Read a gzipped LAMMPS data file | 256,000 | 0.082 | 0.168 | 2.05 | 0 | 0 |
+| Read a gzipped LAMMPS data file | 2,048,000 | 0.707 | 1.380 | 1.95 | 141 | 13 |
+| Read a gzipped LAMMPS data file | 9,841,500 | 3.525 | 6.684 | 1.90 | 914 | 48 |
+| Write a gzipped LAMMPS data file | 4,000 | 0.019 | 0.026 | 1.39 | 0 | 0 |
+| Write a gzipped LAMMPS data file | 32,000 | 0.080 | 0.216 | 2.69 | 8 | 0 |
+| Write a gzipped LAMMPS data file | 256,000 | 0.129 | 1.787 | 13.90 | 60 | 0 |
+| Write a gzipped LAMMPS data file | 2,048,000 | 0.497 | 14.858 | 29.87 | 267 | 0 |
+| Write a gzipped LAMMPS data file | 9,841,500 | 2.023 | 69.931 | 34.57 | 175 | 0 |
 | Read gzipped extended XYZ | 4,000 | 0.0021 | 0.0024 | 1.13 | 0 | 0 |
 | Read gzipped extended XYZ | 32,000 | 0.011 | 0.017 | 1.57 | 0 | 1 |
 | Read gzipped extended XYZ | 256,000 | 0.077 | 0.134 | 1.75 | 0 | 0 |
@@ -112,16 +112,16 @@ its peak before the timings.
 | Read a LAMMPS dump | 256,000 | 0.0049 | 0.345 | 70.69 | 0 | 34 |
 | Read a LAMMPS dump | 2,048,000 | 0.028 | 2.863 | 101.18 | 122 | 412 |
 | Read a LAMMPS dump | 9,841,500 | 0.122 | 14.035 | 114.81 | 770 | 2208 |
-| Read a LAMMPS data file | 4,000 | 0.0014 | 0.014 | 10.07 | 0 | 7 |
-| Read a LAMMPS data file | 32,000 | 0.0028 | 0.124 | 44.82 | 1 | 59 |
-| Read a LAMMPS data file | 256,000 | 0.015 | 1.012 | 67.98 | 0 | 510 |
-| Read a LAMMPS data file | 2,048,000 | 0.131 | 8.181 | 62.35 | 230 | 4009 |
-| Read a LAMMPS data file | 9,841,500 | 0.623 | 44.730 | 71.82 | 1196 | 18392 |
-| Write a LAMMPS data file | 4,000 | 0.0027 | 0.014 | 5.00 | 0 | 0 |
-| Write a LAMMPS data file | 32,000 | 0.0046 | 0.104 | 22.58 | 0 | 2 |
-| Write a LAMMPS data file | 256,000 | 0.017 | 0.861 | 51.25 | 33 | 32 |
-| Write a LAMMPS data file | 2,048,000 | 0.121 | 7.123 | 59.02 | 155 | 234 |
-| Write a LAMMPS data file | 9,841,500 | 0.519 | 34.116 | 65.69 | 395 | 120 |
+| Read a LAMMPS data file | 4,000 | 0.0012 | 0.014 | 11.72 | 0 | 7 |
+| Read a LAMMPS data file | 32,000 | 0.0018 | 0.124 | 66.80 | 1 | 59 |
+| Read a LAMMPS data file | 256,000 | 0.0047 | 1.012 | 217.00 | 0 | 510 |
+| Read a LAMMPS data file | 2,048,000 | 0.036 | 8.181 | 224.25 | 146 | 4009 |
+| Read a LAMMPS data file | 9,841,500 | 0.145 | 44.730 | 308.31 | 921 | 18392 |
+| Write a LAMMPS data file | 4,000 | 0.0011 | 0.014 | 12.80 | 0 | 0 |
+| Write a LAMMPS data file | 32,000 | 0.0022 | 0.104 | 47.24 | 2 | 2 |
+| Write a LAMMPS data file | 256,000 | 0.013 | 0.861 | 68.04 | 34 | 32 |
+| Write a LAMMPS data file | 2,048,000 | 0.087 | 7.123 | 81.76 | 204 | 234 |
+| Write a LAMMPS data file | 9,841,500 | 0.347 | 34.116 | 98.28 | 131 | 120 |
 | Read extended XYZ | 4,000 | 0.0010 | 0.0089 | 8.60 | 0 | 1 |
 | Read extended XYZ | 32,000 | 0.0016 | 0.070 | 43.88 | 1 | 8 |
 | Read extended XYZ | 256,000 | 0.0056 | 0.602 | 106.70 | 0 | 52 |
@@ -137,16 +137,16 @@ its peak before the timings.
 | Read a gzipped LAMMPS dump | 256,000 | 0.086 | 0.562 | 6.52 | 0 | 28 |
 | Read a gzipped LAMMPS dump | 2,048,000 | 0.718 | 4.653 | 6.48 | 142 | 411 |
 | Read a gzipped LAMMPS dump | 9,841,500 | 3.663 | 22.356 | 6.10 | 830 | 2259 |
-| Read a gzipped LAMMPS data file | 4,000 | 0.0025 | 0.016 | 6.57 | 0 | 7 |
-| Read a gzipped LAMMPS data file | 32,000 | 0.012 | 0.139 | 11.49 | 0 | 58 |
-| Read a gzipped LAMMPS data file | 256,000 | 0.092 | 1.176 | 12.77 | 0 | 465 |
-| Read a gzipped LAMMPS data file | 2,048,000 | 0.809 | 10.221 | 12.63 | 140 | 4006 |
-| Read a gzipped LAMMPS data file | 9,841,500 | 4.127 | 48.558 | 11.77 | 752 | 18460 |
-| Write a gzipped LAMMPS data file | 4,000 | 0.021 | 0.140 | 6.77 | 0 | 0 |
-| Write a gzipped LAMMPS data file | 32,000 | 0.086 | 1.057 | 12.27 | 8 | 2 |
-| Write a gzipped LAMMPS data file | 256,000 | 0.138 | 9.782 | 70.90 | 68 | 33 |
-| Write a gzipped LAMMPS data file | 2,048,000 | 0.542 | 78.245 | 144.26 | 204 | 242 |
-| Write a gzipped LAMMPS data file | 9,841,500 | 2.259 | 373.525 | 165.39 | 426 | 120 |
+| Read a gzipped LAMMPS data file | 4,000 | 0.0023 | 0.016 | 6.98 | 0 | 7 |
+| Read a gzipped LAMMPS data file | 32,000 | 0.011 | 0.139 | 12.30 | 0 | 58 |
+| Read a gzipped LAMMPS data file | 256,000 | 0.082 | 1.176 | 14.35 | 0 | 465 |
+| Read a gzipped LAMMPS data file | 2,048,000 | 0.707 | 10.221 | 14.46 | 141 | 4006 |
+| Read a gzipped LAMMPS data file | 9,841,500 | 3.525 | 48.558 | 13.78 | 914 | 18460 |
+| Write a gzipped LAMMPS data file | 4,000 | 0.019 | 0.140 | 7.38 | 0 | 0 |
+| Write a gzipped LAMMPS data file | 32,000 | 0.080 | 1.057 | 13.19 | 8 | 2 |
+| Write a gzipped LAMMPS data file | 256,000 | 0.129 | 9.782 | 76.10 | 60 | 33 |
+| Write a gzipped LAMMPS data file | 2,048,000 | 0.497 | 78.245 | 157.31 | 267 | 242 |
+| Write a gzipped LAMMPS data file | 9,841,500 | 2.023 | 373.525 | 184.63 | 175 | 120 |
 | Read gzipped extended XYZ | 4,000 | 0.0021 | 0.012 | 5.67 | 0 | 1 |
 | Read gzipped extended XYZ | 32,000 | 0.011 | 0.101 | 9.51 | 0 | 7 |
 | Read gzipped extended XYZ | 256,000 | 0.077 | 0.791 | 10.32 | 0 | 38 |
@@ -196,6 +196,8 @@ decimals, so its extended XYZ is about a third smaller.
   file cache of the operating system: the times are those of reading and
   parsing, not of the disk. Writing goes to the local disk of the node as
   the operating system takes it.
+- The times of MDAPY for LAMMPS data files were measured last, on another
+  node of the same kind.
 - Each process first reads or writes a system of 500 atoms, so that loading
   libraries and starting threads are not timed, then three times the
   system; the shortest time counts.

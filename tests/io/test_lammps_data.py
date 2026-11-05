@@ -890,3 +890,174 @@ def test_a_file_without_atoms_is_no_data_file(tmp_path, data):
     path.write_bytes(data)
     with pytest.raises(FileFormatError, match="not a data file"):
         mdapy.io.read(path)
+
+
+def atoms_text(rows, velocities="", bonds=""):
+    """A data file of the atoms given as (id, type, x), Cu of type 1 and Ni of 2."""
+    head = (
+        f"t\n\n{len(rows)} atoms\n2 atom types\n"
+        + ("1 bonds\n1 bond types\n" if bonds else "")
+        + "0 100 xlo xhi\n0 100 ylo yhi\n0 100 zlo zhi\n\nMasses\n\n1 63.546\n2 58.693\n\n"
+    )
+    atoms = "".join(f"{i} {t} {x} 0 0\n" for i, t, x in rows)
+    body = "Atoms # atomic\n\n" + atoms
+    if velocities:
+        body += "\nVelocities\n\n" + velocities
+    if bonds:
+        body = body.replace("# atomic", "# bond")
+        body = body.replace(
+            "Atoms # bond\n\n" + atoms,
+            "Atoms # bond\n\n" + "".join(f"{i} 1 {t} {x} 0 0\n" for i, t, x in rows),
+        )
+        body += "\nBonds\n\n" + bonds
+    return head + body
+
+
+@pytest.mark.parametrize(
+    "ids",
+    [
+        [1, 2, 3, 4],  # in order
+        [3, 1, 4, 2],  # out of order, close together
+        [7, 1000000000, 5, 2000000000],  # far apart
+        [-3, 0, 2, -1],
+    ],
+    ids=["in order", "close", "far apart", "not positive"],
+)
+def test_atoms_are_found_by_their_ids(tmp_path, ids):
+    rows = [(i, 1 + k % 2, float(k)) for k, i in enumerate(ids)]
+    velocities = "".join(f"{i} {10.0 * i} 0 0\n" for i in reversed(ids))
+    bond = f"1 1 {ids[2]} {ids[0]}\n"
+    system = read_text(tmp_path, atoms_text(rows, velocities, bond))
+    assert system["id"].tolist() == ids
+    assert system["type"].tolist() == [1, 2, 1, 2]
+    assert system["element"].tolist() == ["Cu", "Ni", "Cu", "Ni"]
+    np.testing.assert_allclose(system["mass"], [63.546, 58.693, 63.546, 58.693])
+    # each velocity goes to its atom, whatever the order of the section
+    np.testing.assert_allclose(system["velocities"][:, 0], 10.0 * np.array(ids))
+    # the rows of the atoms of the bond, not their IDs
+    assert system.topology.bonds["atoms"].to_list() == [[2, 0]]
+
+
+@pytest.mark.parametrize(
+    "ids, line",
+    [
+        ([1, 2, 2, 4], 3),
+        ([4, 1, 4, 2], 3),
+        ([7, 1000000000, 7, 2000000000], 3),
+    ],
+    ids=["in order", "close", "far apart"],
+)
+def test_repeated_ids_name_the_line(tmp_path, ids, line):
+    rows = [(i, 1, float(k)) for k, i in enumerate(ids)]
+    text = atoms_text(rows)
+    with pytest.raises(FileFormatError, match="atom IDs are repeated") as info:
+        read_text(tmp_path, text)
+    assert text.splitlines()[info.value.line - 1].startswith(f"{ids[line - 1]} 1 ")
+
+
+@pytest.mark.parametrize(
+    "ids, velocity, bond",
+    [
+        ([1, 2], "3 0 0 0\n2 0 0 0\n", ""),  # beyond the table
+        ([5, 6], "1 0 0 0\n6 0 0 0\n", ""),  # before it
+        ([1, 2000000000], "7 0 0 0\n2000000000 0 0 0\n", ""),  # far apart
+        ([1, 2], "", "1 1 1 9\n"),
+    ],
+)
+def test_ids_that_no_atom_has(tmp_path, ids, velocity, bond):
+    rows = [(i, 1, float(k)) for k, i in enumerate(ids)]
+    with pytest.raises(FileFormatError, match="no atom has ID"):
+        read_text(tmp_path, atoms_text(rows, velocity, bond))
+
+
+def test_one_kind_of_atom_gets_constant_columns(tmp_path):
+    rows = [(i, 2, float(i)) for i in range(1, 6)]
+    system = read_text(tmp_path, atoms_text(rows))
+    assert system["type"].tolist() == [2] * 5
+    assert system.table["type"].dtype == pl.Int32
+    assert system["element"].tolist() == ["Ni"] * 5
+    np.testing.assert_allclose(system["mass"], 58.693)
+
+
+def test_labels_of_many_atoms_are_those_of_their_types(tmp_path):
+    text = (
+        "t\n\n4 atoms\n2 atom types\n0 9 xlo xhi\n0 9 ylo yhi\n0 9 zlo zhi\n\n"
+        "Atom Type Labels\n\n1 A\n2 B\n\nAtoms # atomic\n\n"
+        "1 B 0 0 0\n2 A 1 0 0\n3 B 2 0 0\n4 1 3 0 0\n"
+    )
+    system = read_text(tmp_path, text)
+    assert system["type"].tolist() == [2, 1, 2, 1]
+    assert system["type_label"].tolist() == ["B", "A", "B", "A"]
+
+
+@pytest.mark.parametrize("ids", [[1, 2, 2], [0, 1, 2], [2, 2, 1], [5, 10**9, 5]])
+def test_writing_refuses_ids_that_are_not_positive_and_unique(tmp_path, ids):
+    system = mdapy.System(np.zeros((3, 3)), 5.0, elements="Cu").with_columns(
+        id=np.array(ids)
+    )
+    with pytest.raises(InvalidParameter, match="positive and unique"):
+        mdapy.io.write(tmp_path / "t.data", system)
+
+
+def test_writing_finds_the_element_and_mass_of_each_type(tmp_path):
+    system = mdapy.System(
+        np.zeros((4, 3)), 5.0, elements=["Cu", "Ni", "Cu", "Ni"]
+    ).with_columns(type=np.array([1, 2, 1, 2]))
+    back = round_trip(tmp_path, system)
+    assert back["element"].tolist() == ["Cu", "Ni", "Cu", "Ni"]
+    # a type of two elements names none of them, and has no mass to give
+    mixed = system.with_columns(type=np.array([1, 1, 1, 2]))
+    with pytest.raises(InvalidParameter, match="no mass is known"):
+        round_trip(tmp_path, mixed)
+    with_masses = system.with_columns(mass=np.array([1.0, 2.0, 1.0, 2.0]))
+    assert round_trip(tmp_path, with_masses)["mass"].tolist() == [1.0, 2.0, 1.0, 2.0]
+    wrong = system.with_columns(mass=np.array([1.0, 2.0, 3.0, 2.0]))
+    with pytest.raises(InvalidParameter, match="different mass values"):
+        round_trip(tmp_path, wrong)
+
+
+def test_many_atoms_find_the_mass_of_each_type(tmp_path):
+    # more atoms than a table of type and mass is read at once for
+    count = 1 << 18
+    types = np.arange(count) % 2 + 1
+    positions = np.zeros((count, 3))
+    positions[:, 0] = np.arange(count) * 1e-3
+    system = mdapy.System(positions, 500.0).with_columns(
+        type=types, mass=np.where(types == 1, 10.0, 20.0)
+    )
+    back = round_trip(tmp_path, system)
+    np.testing.assert_array_equal(back["mass"], system["mass"])
+    wrong = system["mass"].copy()
+    wrong[count - 1] = 30.0
+    with pytest.raises(InvalidParameter, match="different mass values"):
+        round_trip(tmp_path, system.with_columns(mass=wrong))
+
+
+def test_writing_many_atoms_of_several_types_names_their_elements(tmp_path):
+    count = 1 << 18
+    positions = np.zeros((count, 3))
+    positions[:, 0] = np.arange(count) * 1e-3
+    elements = np.array(["Cu", "Ni"])[np.arange(count) % 2]
+    system = mdapy.System(positions, 500.0, elements=elements).with_columns(
+        type=np.arange(count) % 2 + 1
+    )
+    path = tmp_path / "many.data"
+    mdapy.io.write(path, system)
+    written = path.read_text()
+    assert "1 63.546 # Cu" in written and "2 58.6934 # Ni" in written
+    # a type of two elements names none of them
+    mixed = np.arange(count) % 2 + 1
+    mixed[1] = 1
+    with pytest.raises(InvalidParameter, match="no mass is known"):
+        mdapy.io.write(path, system.with_columns(type=mixed))
+
+
+def test_writing_few_atoms_of_several_types_names_their_elements(tmp_path):
+    # few atoms: the pairs of type and element are too far apart to count
+    system = mdapy.System(np.zeros((2, 3)), 5.0, elements=["Cu", "Ni"]).with_columns(
+        type=np.array([1, 2])
+    )
+    path = tmp_path / "few.data"
+    mdapy.io.write(path, system)
+    written = path.read_text()
+    assert "1 63.546 # Cu" in written and "2 58.6934 # Ni" in written

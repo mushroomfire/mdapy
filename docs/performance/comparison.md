@@ -11,8 +11,8 @@ A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6248 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
 MDAPY 2.0.0.dev0 built with GCC 12.3, OVITO 3.17.1 and freud 3.6.1 from
 pip, each with 40 threads. [Reading and writing files](files.md) and
-[building structures](builders.md) run on another machine, so their times do
-not compare with these.
+[building structures](builders.md) ran on another node, with Intel Xeon Gold
+6148, so their times do not compare with these.
 
 ![Time of OVITO and of freud over the time of MDAPY for each case and size](images/comparison.png)
 

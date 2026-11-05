@@ -1,0 +1,32 @@
+name: Feature request
+description: A new feature or an improvement of one
+labels: [feature request]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like to do?
+      description: What you want to compute or build, and what it is for.
+    validations:
+      required: true
+  - type: textarea
+    id: call
+    attributes:
+      label: How would you call it?
+      description: A few lines of the code you would like to write.
+      render: python
+  - type: textarea
+    id: check
+    attributes:
+      label: How can its results be checked?
+      description: >
+        MDAPY takes a feature when its results are confirmed: an analytic result,
+        or mature software to compare with, or a paper that defines the method.
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I would like to write it myself, in a pull request.

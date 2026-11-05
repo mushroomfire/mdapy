@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation of MDAPY 2.x
+    url: https://mushroomfire.github.io/mdapy/
+    about: Lessons, examples and the page of every feature.

@@ -1,0 +1,29 @@
+name: Performance
+description: Something takes too long or needs too much memory
+labels: [performance]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What is slow, and what did you expect?
+      description: The time or the memory you measured, for how many atoms and threads.
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Minimal code to measure it
+      description: >
+        The shortest script that shows it and runs as it is, with a structure from
+        `build_crystal` if the problem allows it.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Output of mdapy.show_versions()
+      description: Run `python -c "import mdapy; mdapy.show_versions()"` and paste what it prints.
+      render: text
+    validations:
+      required: true

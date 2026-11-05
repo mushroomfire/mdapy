@@ -4,7 +4,7 @@ name: tests
 # doc-examples.yml instead, and does not cancel a run of this one.
 on:
   push:
-    branches: [master, v2]
+    branches: [master]
     paths-ignore:
       - "docs/**"
       - "README.md"
@@ -12,6 +12,7 @@ on:
       - ".github/workflows/doc-examples.yml"
       - ".github/workflows/docs.yml"
       - ".github/ISSUE_TEMPLATE/**"
+      - ".github/pull_request_template.md"
   pull_request:
     paths-ignore:
       - "docs/**"
@@ -20,6 +21,7 @@ on:
       - ".github/workflows/doc-examples.yml"
       - ".github/workflows/docs.yml"
       - ".github/ISSUE_TEMPLATE/**"
+      - ".github/pull_request_template.md"
   workflow_dispatch:
 
 concurrency:

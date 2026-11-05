@@ -5,7 +5,7 @@ name: doc-examples
 # pages and of the README. When code changes, tests.yml runs all of this too.
 on:
   push:
-    branches: [master, v2]
+    branches: [master]
     paths:
       - "docs/**"
       - "README.md"

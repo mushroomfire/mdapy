@@ -1,0 +1,11 @@
+name: Question
+description: How to use MDAPY, or anything you are not sure where to put
+labels: [question]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: What would you like to know?
+      description: What you are trying to do, and what you have tried, with the code if there is any.
+    validations:
+      required: true

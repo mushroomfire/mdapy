@@ -68,8 +68,9 @@ imported, and the report takes less than a second.
 
 ## What to write
 
-The [bug report form](https://github.com/mushroomfire/mdapy/issues/new/choose) of the
-issue tracker asks for what lets a problem be reproduced:
+The [issue tracker](https://github.com/mushroomfire/mdapy/issues/new/choose) has a form for a
+bug, a feature request, a report on performance, one on the documentation and a question. The
+form for a bug asks for what lets a problem be reproduced:
 
 - what happened, and what you expected;
 - the shortest script that shows the problem and runs as it is, with a structure

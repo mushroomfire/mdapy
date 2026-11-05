@@ -3,6 +3,21 @@
 MDAPY 2.0 grows one feature at a time. This page lists the rules every
 change follows.
 
+## Issues and pull requests
+
+1. Open an [issue](https://github.com/mushroomfire/mdapy/issues/new/choose) first and agree
+   on the change there. A small fix, such as a typo, needs none. An issue is a bug report, a
+   feature request, a report on performance or on the documentation, or a question, and each
+   has its label: `bug`, `feature request`, `performance`, `documentation` or `question`.
+2. Open a pull request against `master` and fill in its template: the issue it closes, how
+   the results were checked and the checklist.
+3. A pull request is merged when CI passes on Linux, macOS and Windows and it meets the rules
+   of this page.
+
+By submitting a pull request you agree that your contribution is licensed under the
+[Mozilla Public License 2.0](https://github.com/mushroomfire/mdapy/blob/master/LICENSE), the
+license of MDAPY, and you confirm that you have the right to contribute it.
+
 ## When a feature is done
 
 A feature is merged only when it has all of the following:

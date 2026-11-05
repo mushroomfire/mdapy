@@ -99,9 +99,21 @@ triangular lattice. The closest packed (111) surface has the lowest energy.*
 | bcc | {110}<111> | [111] | [11-2] | [-110] | $a\sqrt3/2$ |
 | bcc | {112}<111> | [111] | [1-10] | [11-2] | $a\sqrt3/2$; the two senses differ, one is the twinning sense |
 | hcp | basal (0001)<10-10>, partials | [10-10] | [-12-10] | [0001] | $\sqrt3 a$, the partial at a third |
-| hcp | prismatic {10-10}<11-20> | [-12-10] | [0001] | [10-10] | $a$ |
+| hcp | basal (0001)<11-20>, $\langle a\rangle$ | [2-1-10] | [01-10] | [0001] | $a$ |
+| hcp | prismatic {10-10}<11-20>, $\langle a\rangle$ | [-12-10] | [0001] | [10-10] | $a$ |
+| hcp | pyramidal I {10-11}<11-20>, $\langle a\rangle$ | [-12-10] | [-1012] | [0001] | $a$ |
+| hcp | pyramidal I {10-11}<11-23>, $\langle c+a\rangle$ | [-1-123] | [-12-10] | [0001] | $\sqrt{a^2 + c^2}$ |
+| hcp | pyramidal II {11-22}<11-23>, $\langle c+a\rangle$ | [-1-123] | [1-100] | [0001] | $\sqrt{a^2 + c^2}$ |
 | diamond | {111}<110>, shuffle or glide set | [1-10] | [11-2] | [111] | $a/\sqrt2$ |
 | diamond | {111}<112>, glide set | [11-2] | [-110] | [111] | $a\sqrt6/2$ |
+
+The pyramidal planes are not normal to a short lattice vector: their
+third direction, [0001], leans out of the plane, and the box is not
+orthogonal, as a hexagonal crystal allows (see [Crystals](crystals.md#parameters)).
+The fault is still normal to z, as `stacking_fault_energy` needs. The
+prismatic and pyramidal I planes come in pairs, close together and far apart, as in
+diamond below; at the middle of the boxes here the fault falls between two
+planes far apart, where slip is easiest.
 
 The generalized stacking fault energy of each, with the EAM potentials of
 Zhou et al. (magnesium: $a$ = 3.20 Å, $c$ = 5.20 Å, the minimum of its
@@ -111,6 +123,7 @@ energy):
 from mdapy.visualization import plot
 
 magnesium = EAM.zhou(["Mg"])
+mg = ("hcp", 3.20, {"elements": "Mg", "c": 5.20}, magnesium)
 # the crystal, its potential, and the x, y and z of each slip system
 systems = {
     "fcc Cu": ("fcc", 3.615, {"elements": "Cu"}, copper, {
@@ -121,17 +134,27 @@ systems = {
         "{110}<111>": [(1, 1, 1), (1, 1, -2), (-1, 1, 0)],
         "{112}<111>": [(1, 1, 1), (1, -1, 0), (1, 1, -2)],
     }),
-    "hcp Mg": ("hcp", 3.20, {"elements": "Mg", "c": 5.20}, magnesium, {
+    "hcp Mg, basal and prismatic": (*mg, {
         "basal <10-10>": [(1, 0, -1, 0), (-1, 2, -1, 0), (0, 0, 0, 1)],
+        "basal <a>": [(2, -1, -1, 0), (0, 1, -1, 0), (0, 0, 0, 1)],
         "prismatic <a>": [(-1, 2, -1, 0), (0, 0, 0, 1), (1, 0, -1, 0)],
+    }),
+    "hcp Mg, pyramidal": (*mg, {
+        "pyramidal I <a>": [(-1, 2, -1, 0), (-1, 0, 1, 2), (0, 0, 0, 1)],
+        "pyramidal I <c+a>": [(-1, -1, 2, 3), (-1, 2, -1, 0), (0, 0, 0, 1)],
+        "pyramidal II <c+a>": [(-1, -1, 2, 3), (1, -1, 0, 0), (0, 0, 0, 1)],
     }),
 }  # fmt: skip
 with plot.style():
-    fig, axes = plot.figure("double", 55, ncols=3, sharey=True)
-    for ax, (name, (kind, a, options, potential, paths)) in zip(axes, systems.items()):
+    fig, axes = plot.figure("double", 110, nrows=2, ncols=2, sharex=True, sharey=True)
+    for ax, (name, (kind, a, options, potential, paths)) in zip(
+        axes.flat, systems.items()
+    ):
         for label, orientation in paths.items():
             cell = build_crystal(kind, a, orientation=orientation, **options).box.matrix
-            repeat = (1, 4, int(np.ceil(30 / cell[2, 2])))
+            # about 8 Å across the plane and 30 Å along its normal
+            across = max(1, int(np.ceil(8 / np.linalg.norm(cell[1]))))
+            repeat = (1, across, int(np.ceil(30 / cell[2, 2])))
             crystal = build_crystal(
                 kind, a, orientation=orientation, repeat=repeat, **options
             )
@@ -147,12 +170,18 @@ with plot.style():
 
 ![Generalized stacking fault energies](images/slip-systems.png)
 
-*Left: in copper the partial path has the intrinsic stacking fault, a local
+*Top left: in copper the partial path has the intrinsic stacking fault, a local
 minimum at a third, and a lower barrier than the whole <110> vector, which
-is why the dislocations of fcc metals split. Middle: in iron the {112}
+is why the dislocations of fcc metals split. Top right: in iron the {112}
 curve is not symmetric about one half: slipping one way, the twinning
-sense, costs less than the other. Right: in magnesium the basal plane has its fault
-at a third; the prismatic plane slips over a single barrier.*
+sense, costs less than the other. Bottom left: in magnesium the basal plane
+has its fault at a third of <10-10>, the way of the partials, behind a
+barrier of 60 mJ/m², a third of that of the straight way along
+$\langle a\rangle$; the prismatic plane slips over a single barrier.
+Bottom right: the pyramidal planes, of which only $\langle c+a\rangle$
+strains the crystal along c: $\langle a\rangle$ on pyramidal I over a
+single barrier of 230 mJ/m², $\langle c+a\rangle$ on pyramidal I and II
+over a plateau at about 200 mJ/m² and then higher barriers.*
 
 ## Shuffle and glide planes of diamond
 
@@ -195,7 +224,8 @@ with plot.style():
             )
             plot.stacking_fault(curve, ax=ax, label=f"{name} {path}")
     ax.set_yscale("symlog", linthresh=100)
-    ax.legend()
+    ax.set_ylim(0, None)
+    ax.legend(loc="lower left", bbox_to_anchor=(0.4, 0.02))
     plot.save(fig, "images/shuffle-glide", formats=("png",))
 ```
 

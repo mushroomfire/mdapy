@@ -1033,6 +1033,25 @@ def test_many_atoms_find_the_mass_of_each_type(tmp_path):
         round_trip(tmp_path, system.with_columns(mass=wrong))
 
 
+def test_writing_many_atoms_of_several_types_names_their_elements(tmp_path):
+    count = 1 << 18
+    positions = np.zeros((count, 3))
+    positions[:, 0] = np.arange(count) * 1e-3
+    elements = np.array(["Cu", "Ni"])[np.arange(count) % 2]
+    system = mdapy.System(positions, 500.0, elements=elements).with_columns(
+        type=np.arange(count) % 2 + 1
+    )
+    path = tmp_path / "many.data"
+    mdapy.io.write(path, system)
+    written = path.read_text()
+    assert "1 63.546 # Cu" in written and "2 58.6934 # Ni" in written
+    # a type of two elements names none of them
+    mixed = np.arange(count) % 2 + 1
+    mixed[1] = 1
+    with pytest.raises(InvalidParameter, match="no mass is known"):
+        mdapy.io.write(path, system.with_columns(type=mixed))
+
+
 def test_writing_few_atoms_of_several_types_names_their_elements(tmp_path):
     # few atoms: the pairs of type and element are too far apart to count
     system = mdapy.System(np.zeros((2, 3)), 5.0, elements=["Cu", "Ni"]).with_columns(

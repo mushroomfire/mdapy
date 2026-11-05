@@ -193,6 +193,11 @@ def _next_keyword(reader: TextReader) -> tuple[str, str, int] | None:
     return None
 
 
+# From here on polars groups faster than anything else; below, grouping takes
+# longer than the rows are worth, as it wakes every thread.
+_MANY_ROWS = 1 << 18
+
+
 def _close_together(values: np.ndarray) -> bool:
     """Whether a table with a place for each number from the smallest to the
     largest of these values is about as long as they are, as for atom IDs in
@@ -231,7 +236,7 @@ def _rows_of(index: tuple[Any, np.ndarray], query: np.ndarray) -> np.ndarray:
 
 def _distinct(values: np.ndarray) -> np.ndarray:
     """The different values in increasing order; counted rather than sorted when
-    they are close together, which takes no thread at all for few atoms."""
+    they are close together."""
     if _close_together(values):
         low = int(values.min())
         return np.flatnonzero(np.bincount(values - low)) + low
@@ -735,10 +740,9 @@ def _number(value: float) -> str:
 def _per_type(values: np.ndarray, types: np.ndarray, name: str) -> dict[int, Any]:
     """The value of each type, checking that all atoms of a type agree."""
     pairs = pl.DataFrame({"type": types, "value": values})
-    # grouping is the faster for many atoms, but wakes every thread for few
     pairs = (
         pairs.unique()
-        if len(pairs) < 1 << 18
+        if len(pairs) < _MANY_ROWS
         else pairs.group_by("type", "value").len().select("type", "value")
     )
     repeated = pairs.filter(pl.col("type").is_duplicated())
@@ -810,10 +814,15 @@ def _atom_types(
         if named and "element" in table.columns:
             # the elements of each type, from the pairs that occur
             categories = table["element"].dtype.categories.to_list()
-            codes = table["element"].to_physical().to_numpy().astype(np.int64)
-            found, code = np.divmod(
-                _distinct(types * len(categories) + codes), len(categories)
-            )
+            if len(table) < _MANY_ROWS:
+                codes = table["element"].to_physical().to_numpy().astype(np.int64)
+                found, code = np.divmod(
+                    _distinct(types * len(categories) + codes), len(categories)
+                )
+            else:
+                pairs = table.group_by("type", "element").len()
+                found = pairs["type"].to_numpy()
+                code = pairs["element"].to_physical().to_numpy()
             numbers, counts = np.unique(found, return_counts=True)
             for t, count in zip(numbers.tolist(), counts.tolist()):
                 symbol = categories[code[found == t][0]]

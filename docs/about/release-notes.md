@@ -7,6 +7,7 @@
   [Rendering](../user-guide/visualization/rendering.md).
 - `render(line_color=...)` takes a color for each line, such as one for each atom whose
   path `trajectory_lines` gives.
+- The ninth of `LABEL_COLORS` is brown: it was the orange of the first.
 
 ## 2.0.0a2
 

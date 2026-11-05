@@ -81,7 +81,7 @@ five forms; each puts its label on the issue. Choose by what you have:
 | Question | `question` | how to do something, or anything you are not sure where to put | how to compute a property per grain; which analysis suits a liquid |
 
 When unsure between a bug and a question, ask a question: a question that turns out to be a
-bug is moved. Search the [issues](https://github.com/mushroomfire/mdapy/issues?q=is%3Aissue)
+bug gets the label of one. Search the [issues](https://github.com/mushroomfire/mdapy/issues?q=is%3Aissue)
 first, closed ones too: the answer may be there. One problem per issue.
 
 ## What to write

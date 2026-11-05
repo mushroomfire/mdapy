@@ -44,7 +44,8 @@ diagram.phases_at(1400.0, 0.5)  # the stable phases, one or two
 diagram.tie_lines[0]  # which two phases, at which fractions
 ```
 
-The diagram, with `plot.phase_diagram`:
+The diagram, with `plot.phase_diagram`, the region where two phases coexist shaded
+from its tie lines, and its widest tie line:
 
 <!-- skip-test -->
 ```python
@@ -53,6 +54,23 @@ from mdapy.visualization import plot
 with plot.style():
     fig, ax = plot.figure("single")
     plot.phase_diagram(diagram, ax=ax)
+    ties = diagram.tie_lines
+    ax.fill_betweenx(
+        [t.temperature for t in ties],
+        [t.first_fraction for t in ties],
+        [t.second_fraction for t in ties],
+        color="0.88",
+        lw=0,
+    )
+    widest = max(ties, key=lambda t: t.second_fraction - t.first_fraction)
+    ax.plot([widest.first_fraction, widest.second_fraction], [widest.temperature] * 2,
+            color="0.4", lw=0.8)  # fmt: skip
+    ax.annotate(
+        "liquid + fcc",
+        (widest.second_fraction, widest.temperature),
+        (0.62, 1380),
+        arrowprops=dict(arrowstyle="->", lw=0.6),
+    )
     plot.save(fig, "images/phase-diagram", formats=("png",))
 ```
 
@@ -65,6 +83,18 @@ interface of NEP, 2048 atoms at five compositions: a solid solution at all
 compositions below a lens, as in the experiments. The model melts its elements lower
 than the experiments do: copper at 1220 K against 1358 K, nickel at 1590 K against
 1728 K.*
+
+The two lines are the liquidus, above which the alloy is all liquid, and the solidus,
+below which it is all crystal. Between them, inside the lens, the liquid and the
+crystal coexist: the free energy of the alloy is lowest as a mixture of a liquid of
+the fraction on the liquidus and crystals of the fraction on the solidus, the two ends
+of the tie line at that temperature, in amounts given by the lever rule. On the widest
+tie line, at 1435 K, an alloy of 40 % Ni is a liquid of 35.5 % Ni and crystals of
+44.8 % Ni, half of each. This region has no counterpart in the phase diagram of one element against
+pressure and temperature, where two phases coexist only on a line: with two elements at
+one pressure the fraction is one more variable, and two phases coexist over a range of
+fractions at each temperature. Only a pure element melts at one temperature, where the
+lines meet.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|

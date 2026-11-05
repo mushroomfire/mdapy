@@ -1,5 +1,26 @@
 # Release notes
 
+## 2.0.0a2 (in development)
+
+Documentation:
+
+- Examples of [a gradient polycrystal](../examples/gradient-polycrystals.md) and of
+  [a polycrystal of graphene](../examples/graphene-polycrystal.md).
+- Issue forms for a bug, a feature request, performance, the documentation and a question, a
+  template for pull requests, and the rules for them in
+  [Contributing](contributing.md): an issue first, and a contribution is licensed under the
+  Mozilla Public License 2.0.
+
+Continuous integration:
+
+- A change of the documentation alone runs only ruff and the examples of the documentation,
+  and does not stop a run of the tests of the code. A new workflow builds the documentation
+  and publishes it to GitHub Pages.
+- The coverage runs in parallel, and its report goes to Codecov.
+- Direct3D 12 and Vulkan run their tests of pictures on drivers on the processor, asked for
+  with `MDAPY_SOFTWARE_GPU`, as the runners of Windows and Linux have no GPU.
+- The benchmarks predict at least the memory of the positions for more atoms.
+
 ## 2.0.0a1
 
 MDAPY 2.0 is a complete rewrite and is not compatible with MDAPY 1.x. The name

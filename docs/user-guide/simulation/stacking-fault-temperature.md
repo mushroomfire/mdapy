@@ -41,6 +41,45 @@ result = stacking_fault_free_energy(
 result.energy, result.error  # J/m²
 ```
 
+The harmonic part of the same difference, for comparison: classical atoms in the
+[phonons](phonons.md) of a perfect and a faulted cell of 24 (111) layers, each at the
+volume per atom of the crystal at that temperature. The free energy of the vibrations
+of classical atoms is $k_BT\sum\ln(h\nu/k_BT)$ over the modes, so the difference of
+two cells of as many atoms is $k_BT$ times the difference of their sums of $\ln\nu$,
+here averaged over a mesh of wave vectors that misses Γ. At 0 K only the static part is
+left, the fault at rest:
+
+<!-- skip-test -->
+```python
+from mdapy import units
+from mdapy.build import slip
+from mdapy.lattice_dynamics import phonons
+
+grid = (np.arange(10) + 0.5) / 10
+mesh = [[x, y, z] for x in grid for y in grid for z in (0.25, 0.75)]
+harmonic = []
+for temperature, volume in zip([0, *result.temperatures], [a**3 / 4, *result.volume]):
+    side = (4 * volume) ** (1 / 3)  # the lattice constant at this temperature
+    perfect = build_crystal(
+        "fcc",
+        side,
+        elements="Cu",
+        orientation=[(1, 1, -2), (-1, 1, 0), (1, 1, 1)],
+        repeat=(1, 1, 8),
+    )
+    faulted = slip(perfect, [side * np.sqrt(6) / 6, 0, 0])  # the box tilts with it
+    energy, logs = [], []
+    for cell in (perfect, faulted):
+        cell = minimize(cell, potential, max_force=1e-5).system
+        frequencies = phonons(cell, potential, supercell=(4, 7, 1)).frequencies(mesh)
+        energy.append(potential.compute(cell).energy)
+        logs.append(np.log(frequencies).sum(axis=1).mean())
+    kt = units.BOLTZMANN * temperature
+    area = perfect.box.matrix[0, 0] * perfect.box.matrix[1, 1]
+    difference = energy[1] - energy[0] + kt * (logs[1] - logs[0])
+    harmonic.append(difference / area * units.EV_PER_A2_TO_J_PER_M2)
+```
+
 The fault gets cheaper with the temperature:
 
 <!-- skip-test -->
@@ -49,20 +88,30 @@ from mdapy.visualization import plot
 
 with plot.style():
     fig, ax = plot.figure("single")
+    every = [0, *result.temperatures]
+    ax.plot(every, 1e3 * np.array(harmonic), "--", color="0.6", label="harmonic")
+    ax.plot(0, 1e3 * harmonic[0], "s", color="0.25", label="at rest")
     ax.errorbar(
-        result.temperatures, 1e3 * result.energy, 1e3 * result.error, fmt="o", capsize=2
+        result.temperatures,
+        1e3 * result.energy,
+        1e3 * result.error,
+        fmt="o",
+        capsize=2,
+        label="free energy",
     )
+    ax.axhline(0.0, color="0.75", lw=0.5, zorder=0)
     ax.set_xlabel("Temperature (K)")
     ax.set_ylabel(r"Stacking fault energy (mJ/m$^2$)")
+    ax.legend()
     plot.save(fig, "images/stacking-fault-temperature", formats=("png",))
 ```
 
 ![The stacking fault energy of copper with temperature](images/stacking-fault-temperature.png)
 
 *Copper with the EAM potential of Mishin et al., 1440 atoms and a plane of 684 Å²,
-44 mJ/m² at rest. Up to about 500 K the free energy follows the harmonic part, drawn
-from the phonons of the two cells at the same volumes; above that it falls more
-slowly: 23 mJ/m² against -5 mJ/m² at 1150 K.*
+44 mJ/m² at rest. Up to about 500 K the free energy follows the harmonic part; above
+that it falls more slowly: 23 mJ/m² against -5 mJ/m² at 1150 K. The harmonic part
+leaves out the anharmonic vibrations, which the switching of the free energy takes in.*
 
 The wider the plane the smaller the error: the error of the free energy of all atoms
 grows with their square root, the free energy of the fault with the area. The error

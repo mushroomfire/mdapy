@@ -30,32 +30,84 @@ shapes = VoronoiAnalysis(polyhedra=True).compute(system).polyhedra
 shapes.vertices  # Å, the corners of every cell
 ```
 
-The cells of the atoms near the middle of an fcc and a bcc crystal, drawn by
-the [renderer](../visualization/rendering.md):
+The cell of an atom in fcc and in bcc, with the neighbors across its faces, and
+the cells of a few atoms at random, each face drawn as a closed line by the
+[renderer](../visualization/rendering.md):
 
 ```python
-from mdapy.build import build_crystal
-from mdapy.visualization import render, write_png
+import mdapy as mp
+from mdapy.visualization import colormap, render, write_png
+
+
+def faces(cells, i):
+    """The faces of the cell of atom i, each a closed line through its corners."""
+    lines = []
+    for f in range(cells.face_offsets[i], cells.face_offsets[i + 1]):
+        corners = cells.corners[cells.corner_offsets[f] : cells.corner_offsets[f + 1]]
+        lines.append(cells.vertices[np.append(corners, corners[0])])
+    return lines
+
 
 pictures = []
-for crystal in (
-    build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 3)),
-    build_crystal("bcc", 2.87, elements="Fe", repeat=(4, 4, 4)),
+for crystal, reach in (
+    (build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 3)), 2.6),
+    (build_crystal("bcc", 2.87, elements="Fe", repeat=(4, 4, 4)), 2.9),
 ):
     cells = VoronoiAnalysis(polyhedra=True).compute(crystal).polyhedra
     middle = crystal.box.matrix.diagonal() / 2
-    near = np.linalg.norm(crystal["positions"] - middle, axis=1) < 3.0
+    i = int(np.argmin(np.linalg.norm(crystal["positions"] - middle, axis=1)))
+    apart = crystal.box.minimum_image(crystal["positions"] - crystal["positions"][i])
+    distance = np.linalg.norm(apart, axis=1)
+    colors = np.where((distance < 0.1)[:, None], (0.85, 0.35, 0.2), (0.75, 0.75, 0.75))
     pictures.append(
-        render(crystal, atoms=near, polyhedra=cells, box=False, width=600, height=600)
+        render(
+            crystal,
+            atoms=distance < reach,
+            color=colors,
+            radius=np.where(distance < 0.1, 0.45, 0.32),
+            lines=faces(cells, i),
+            line_radius=0.05,
+            line_color=(0.15, 0.15, 0.15),
+            box=False,
+            view=[1, 0.6, 0.45],
+            width=500,
+            height=500,
+        )
     )
+
+# sixteen atoms at random in a closed box, the edges of each cell in its color
+rng = np.random.default_rng(4)
+points = mp.System(rng.random((16, 3)) * 10, mp.Box(10.0, pbc=False), elements="Ar")
+cells = VoronoiAnalysis(polyhedra=True).compute(points).polyhedra
+colors = colormap(np.arange(16), "labels")
+lines = [faces(cells, i) for i in range(16)]
+pictures.append(
+    render(
+        points,
+        color=colors,
+        radius=0.4,
+        lines=[face for cell in lines for face in cell],
+        line_color=[colors[i] for i, cell in enumerate(lines) for _ in cell],
+        line_radius=0.04,
+        box=False,
+        width=500,
+        height=500,
+    )
+)
 write_png("images/voronoi.png", np.hstack(pictures))
 ```
 
-![Voronoi cells of fcc and bcc crystals](images/voronoi.png)
+![Voronoi cells of fcc, bcc and random atoms](images/voronoi.png)
 
-*Left: in fcc every cell is a rhombic dodecahedron of 12 faces. Right: in bcc
-a truncated octahedron of 8 hexagons, toward the nearest neighbors, and 6
-squares, toward the second neighbors.*
+*Left: the cell of an atom of fcc, a rhombic dodecahedron, each of its 12 faces
+halfway to one of its 12 nearest neighbors (gray). Middle: in bcc a truncated
+octahedron, 8 hexagons toward the first neighbors and 6 squares toward the second.
+Right: sixteen atoms at random in a box that is not periodic, the edges of each cell in
+the color of its atom; the faces of the box close the outer cells.*
+
+`render(system, polyhedra=cells)` draws the cells of all the atoms shown as solids
+instead, their faces in the color of their atom or by their number of edges; see
+[Rendering](../visualization/rendering.md#parameters).
 
 ## Parameters
 

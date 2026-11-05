@@ -58,6 +58,26 @@ def test_the_report_tells_the_machine():
     assert (rows["GPU"] != "none found") == gpu_available()
 
 
+def test_the_report_tells_glibc_where_there_is_one(monkeypatch):
+    monkeypatch.setattr(os, "confstr", lambda name: "glibc 2.31", raising=False)
+    assert report()["glibc"] == "2.31"
+    monkeypatch.setattr(os, "confstr", lambda name: None, raising=False)
+    assert "glibc" not in report()
+
+    def unknown(name):
+        raise ValueError(name)
+
+    monkeypatch.setattr(os, "confstr", unknown, raising=False)
+    assert "glibc" not in report()
+    monkeypatch.delattr(os, "confstr", raising=False)
+    assert "glibc" not in report()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="the C library of Linux")
+def test_the_report_tells_the_glibc_in_use():
+    assert report()["glibc"] == os.confstr("CS_GNU_LIBC_VERSION").split()[1]
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="the system's own numbers")
 def test_the_processor_and_the_memory_are_those_of_the_system():
     bytes_ = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")

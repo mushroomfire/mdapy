@@ -55,6 +55,7 @@ with open("report.txt", "w") as report:
 | Line | Meaning |
 |---|---|
 | Atom indices | 32 bits, or 64 in a build for more atoms ([64-bit atom indices](../getting-started/installation.md#64-bit-atom-indices)). |
+| glibc | The C library in use, on Linux only ([An old Linux](../getting-started/installation.md#an-old-linux)). |
 | Logical CPUs | Those of the machine, and how many of them this process may use: fewer in a job of a cluster or under `taskset`. |
 | MDAPY threads | How many threads MDAPY is using now ([Parallelism](../basics/parallelism.md)). |
 | GPU | The one that traces pictures and how, or `none found` ([Pictures on the GPU](../getting-started/installation.md#pictures-on-the-gpu)). |

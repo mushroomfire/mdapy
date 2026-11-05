@@ -19,6 +19,8 @@ Documentation:
   template for pull requests, and the rules for them in
   [Contributing](contributing.md): an issue first, and a contribution is licensed under the
   Mozilla Public License 2.0.
+- [Installation](../getting-started/installation.md#an-old-linux) says what an old Linux needs,
+  and `show_versions` prints the glibc in use on Linux.
 
 Continuous integration:
 

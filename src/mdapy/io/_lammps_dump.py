@@ -492,7 +492,7 @@ def _write(
                 raise InvalidParameter(f"the system has no column named {name!r}")
         n = len(table)
         ids = (
-            table["id"].to_numpy().astype(np.int64)
+            table["id"].to_numpy().astype(np.int64, copy=False)
             if "id" in table.columns
             else np.arange(1, n + 1, dtype=np.int64)
         )

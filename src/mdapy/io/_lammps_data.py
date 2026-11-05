@@ -193,15 +193,34 @@ def _next_keyword(reader: TextReader) -> tuple[str, str, int] | None:
     return None
 
 
-def _ids_to_rows(ids: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Sorted atom IDs and the row of each, for _rows_of."""
+def _close_together(values: np.ndarray) -> bool:
+    """Whether a table with a place for each number from the smallest to the
+    largest of these values is about as long as they are, as for atom IDs in
+    nearly every file."""
+    return len(values) > 0 and int(values.max()) - int(values.min()) < 8 * len(values)
+
+
+def _ids_to_rows(ids: np.ndarray) -> tuple[Any, np.ndarray]:
+    """What _rows_of finds the row of an atom ID with: the smallest ID and a
+    table of the row of each ID; or the sorted IDs and the row of each."""
+    if _close_together(ids):
+        low = int(ids.min())
+        rows = np.full(int(ids.max()) - low + 1, -1, dtype=np.int64)
+        rows[ids - low] = np.arange(len(ids))
+        return low, rows
     order = np.argsort(ids, kind="stable")
     return ids[order], order
 
 
-def _rows_of(index: tuple[np.ndarray, np.ndarray], query: np.ndarray) -> np.ndarray:
+def _rows_of(index: tuple[Any, np.ndarray], query: np.ndarray) -> np.ndarray:
     """Rows of the atoms with the given IDs; -1 where no atom has the ID."""
     sorted_ids, order = index
+    if isinstance(sorted_ids, int):
+        places = query - sorted_ids
+        inside = (places >= 0) & (places < len(order))
+        rows = np.full(query.shape, -1, dtype=np.int64)
+        rows[inside] = order[places[inside]]
+        return rows
     if len(sorted_ids) == 0:
         return np.full(query.shape, -1, dtype=np.int64)
     position = np.searchsorted(sorted_ids, query)
@@ -210,14 +229,35 @@ def _rows_of(index: tuple[np.ndarray, np.ndarray], query: np.ndarray) -> np.ndar
     return np.where(found, order[clipped], -1)
 
 
+def _all_different(values: np.ndarray) -> bool:
+    """Whether no value appears twice; without sorting them when they are in
+    order or close together, as atom IDs nearly always are."""
+    if (values[1:] > values[:-1]).all():
+        return True
+    if _close_together(values):
+        low = int(values.min())
+        seen = np.zeros(int(values.max()) - low + 1, dtype=bool)
+        seen[values - low] = True
+        return np.count_nonzero(seen) == len(values)
+    return len(np.unique(values)) == len(values)
+
+
 def _check_unique(reader: TextReader, values: np.ndarray, first_line: int) -> None:
     """Raises at the first line whose atom ID appeared before."""
+    if _all_different(values):
+        return
     _, first = np.unique(values, return_index=True)
-    if len(first) != len(values):
-        repeated = np.ones(len(values), dtype=bool)
-        repeated[first] = False
-        row = int(np.flatnonzero(repeated)[0])
-        raise reader.error("atom IDs are repeated", first_line + row)
+    repeated = np.ones(len(values), dtype=bool)
+    repeated[first] = False
+    row = int(np.flatnonzero(repeated)[0])
+    raise reader.error("atom IDs are repeated", first_line + row)
+
+
+def _by_code(per_code: np.ndarray, codes: np.ndarray) -> np.ndarray:
+    """The value of each code for each row; at once when there is one code."""
+    if len(per_code) == 1:
+        return np.full(len(codes), per_code[0])
+    return per_code[codes]
 
 
 def _type_numbers(
@@ -228,7 +268,8 @@ def _type_numbers(
     name: str,
     first_line: int,
 ) -> np.ndarray:
-    """Numeric types from type numbers or type labels."""
+    """Numeric types of the categories of a column, from type numbers or type
+    labels."""
     codes, categories = values
     numbers = np.empty(len(categories), dtype=np.int32)
     lookup = {} if labels is None else {label: i + 1 for i, label in enumerate(labels)}
@@ -247,7 +288,7 @@ def _type_numbers(
             row = int(np.flatnonzero(codes == code)[0])
             raise reader.error(problem, first_line + row)
         numbers[code] = number
-    return numbers[codes]
+    return numbers
 
 
 class _Contents:
@@ -511,13 +552,18 @@ def _combine(
         contents.style = "atomic"
     style = contents.style
     ids = contents.atoms[0]
-    sorted_ids = _ids_to_rows(ids)
     _check_unique(reader, ids, contents.atoms_line)
+    # only what refers to atoms by their IDs needs to find them
+    sorted_ids = (
+        _ids_to_rows(ids) if contents.velocities is not None or contents.terms else None
+    )
 
     columns: dict[str, Any] = {"id": ids}
     for name, values in zip(_STYLES[style], contents.atoms[1:]):
         if name == "type":
-            values = _type_numbers(
+            codes = values[0]
+            # the type of each kind of the column, then of each atom
+            numbers = _type_numbers(
                 reader,
                 values,
                 contents.labels.get("atom"),
@@ -525,6 +571,7 @@ def _combine(
                 "atom",
                 contents.atoms_line,
             )
+            values = _by_code(numbers, codes)
         columns[name] = values
     if len(contents.atoms) > len(_STYLES[style]) + 1:
         columns["image"] = contents.atoms[-1]
@@ -542,7 +589,6 @@ def _combine(
         ordered[rows] = velocities
         columns["velocities"] = ordered
 
-    types = columns["type"]
     lammps: dict[str, Any] = {"atom_style": style, "units": units}
     for name in _TYPE_NAMES:
         if header.types[name]:
@@ -567,11 +613,11 @@ def _combine(
                 contents.masses_line + i,
             )[0]
             masses[number - 1] = mass
-        columns["mass"] = masses[types - 1]
+        columns["mass"] = _by_code(masses[numbers - 1], codes)
         lammps["masses"] = tuple(masses.tolist())
     if "atom" in contents.labels:
         labels = np.array(contents.labels["atom"], dtype=object)
-        columns["type_label"] = pl.Series(labels[types - 1].tolist(), dtype=pl.String)
+        columns["type_label"] = _labels_of(labels[numbers - 1], codes)
 
     if elements is not None:
         elements = list(elements)
@@ -583,7 +629,7 @@ def _combine(
         named = dict(enumerate(elements, start=1))
     else:
         named = _guess_elements(
-            np.unique(types), contents.masses, contents.labels.get("atom")
+            np.unique(numbers), contents.masses, contents.labels.get("atom")
         )
     if named:
         symbols = [named.get(t, "X") for t in range(header.types["atom"] + 1)]
@@ -593,7 +639,13 @@ def _combine(
             raise InvalidParameter(
                 f"elements= has an unknown symbol: {elements}"
             ) from None
-        columns["element"] = element_type.gather(types)
+        # the element of each kind of the column, then of each atom
+        symbols = element_type.gather(numbers)
+        columns["element"] = (
+            symbols.new_from_index(0, len(codes))
+            if len(numbers) == 1
+            else symbols.gather(codes)
+        )
 
     topology = _topology(reader, header, contents, style, sorted_ids)
     table = pl.DataFrame(
@@ -612,6 +664,11 @@ def _combine(
         return System(table=table, box=box, info=info, topology=topology)
     except InvalidParameter as e:
         raise FileFormatError(str(e), reader.name) from None
+
+
+def _labels_of(per_code: np.ndarray, codes: np.ndarray) -> pl.Series:
+    """The label of each row, from the label of each code."""
+    return pl.Series(per_code.tolist(), dtype=pl.String).gather(codes)
 
 
 def _topology(
@@ -636,10 +693,11 @@ def _topology(
                     reader.name,
                 )
             continue
-        (_, types, atom_ids), line = contents.terms[kind]
-        types = _type_numbers(
-            reader, types, contents.labels.get(name), header.types[name], name, line
+        (_, kinds, atom_ids), line = contents.terms[kind]
+        numbers = _type_numbers(
+            reader, kinds, contents.labels.get(name), header.types[name], name, line
         )
+        types = _by_code(numbers, kinds[0])
         rows = _rows_of(sorted_ids, atom_ids)
         bad = np.flatnonzero((rows < 0).any(axis=1))
         if bad.size:
@@ -648,7 +706,7 @@ def _topology(
         table = {"atoms": rows, "type": types}
         if name in contents.labels:
             labels = np.array(contents.labels[name], dtype=object)
-            table["type_label"] = pl.Series(labels[types - 1].tolist(), dtype=pl.String)
+            table["type_label"] = _labels_of(labels[numbers - 1], kinds[0])
         tables[kind] = pl.DataFrame(table)
     if not any(len(t) for t in tables.values()):
         return None
@@ -667,7 +725,8 @@ def _number(value: float) -> str:
 
 def _per_type(values: np.ndarray, types: np.ndarray, name: str) -> dict[int, Any]:
     """The value of each type, checking that all atoms of a type agree."""
-    pairs = pl.DataFrame({"type": types, "value": values}).unique()
+    pairs = pl.DataFrame({"type": types, "value": values})
+    pairs = pairs.group_by("type", "value").len().select("type", "value")
     repeated = pairs.filter(pl.col("type").is_duplicated())
     if len(repeated):
         t = repeated["type"].min()
@@ -732,11 +791,11 @@ def _atom_types(
             raise InvalidParameter(
                 "elements= assigns types from elements, but the system has a type column"
             )
-        types = table["type"].to_numpy().astype(np.int64)
+        types = table["type"].to_numpy().astype(np.int64, copy=False)
         symbols = {}
         if named and "element" in table.columns:
             # the elements of each type, from the pairs that occur
-            pairs = table.select("type", "element").unique()
+            pairs = table.group_by("type", "element").len().select("type", "element")
             found = pairs.group_by("type").agg(pl.col("element").first(), pl.len())
             for t, symbol, count in found.iter_rows():
                 if count == 1 and symbol != "X":
@@ -803,8 +862,8 @@ def _plan(system: System, atom_style, units, elements, triclinic) -> dict[str, A
 
     n = len(table)
     if "id" in table.columns:
-        ids = table["id"].to_numpy().astype(np.int64)
-        if np.any(ids < 1) or table["id"].n_unique() != n:
+        ids = table["id"].to_numpy().astype(np.int64, copy=False)
+        if np.any(ids < 1) or not _all_different(ids):
             raise InvalidParameter("atom IDs must be positive and unique")
     else:
         ids = np.arange(1, n + 1, dtype=np.int64)

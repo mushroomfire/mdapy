@@ -30,9 +30,10 @@ defect = defect.with_columns(rings)  # the number of rings of each atom
 
 mesh, ring = rings.polygons(defect)  # a fan of triangles about each ring
 size = rings.sizes[ring]
+named = {f"{n} atoms": colormap([n], "coolwarm", (5, 7))[0] for n in (5, 6, 7)}
 render(defect, "images/rings.png", radius=0.35, bonds=1.7, mesh=mesh,
        mesh_color=colormap(size, "coolwarm", (5, 7)), view="top", box=False,
-       width=700, height=520)  # fmt: skip
+       legend=named, width=860, height=520)  # fmt: skip
 ```
 
 ![Rings of a Stone–Wales defect](images/rings.png)

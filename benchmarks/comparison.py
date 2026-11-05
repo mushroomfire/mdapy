@@ -1590,9 +1590,10 @@ def run(names, sizes, threads, repeat, limit, output, timeout=None) -> list[dict
 
 
 def predicted(atoms: int, peak: int, base: int, more: int) -> float:
-    """The peak memory for more atoms: that of the libraries, and the rest
-    in proportion to the atoms."""
-    return base + (peak - base) * more / atoms
+    """The peak memory for more atoms: that of the libraries, and the rest in
+    proportion to the atoms, at least their positions: for few atoms the peak may
+    not rise above that of the libraries at all."""
+    return base + max(peak - base, 24 * atoms) * more / atoms
 
 
 def best(side: dict) -> float | None:

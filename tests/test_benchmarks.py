@@ -122,3 +122,9 @@ def test_memory_limit_and_failures(tmp_path):
     assert "mdapy" not in last
     with pytest.raises(SystemExit):
         comparison.main(["run", "nothing"])
+
+
+def test_memory_for_more_atoms_grows_even_from_no_rise():
+    assert comparison.predicted(1000, 3 * 10**8, 10**8, 2000) == 10**8 + 4 * 10**8
+    # the peak of a small system did not rise above the libraries: their positions
+    assert comparison.predicted(256, 10**8, 10**8, 10**9) == 10**8 + 24 * 10**9

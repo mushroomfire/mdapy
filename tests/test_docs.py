@@ -163,7 +163,7 @@ def test_the_examples_of_the_readme_run(tmp_path, monkeypatch):
     namespace: dict = {}
     for code, _ in python_blocks(README):
         exec(compile(code, "README.md", "exec"), namespace)
-    assert namespace["structures"].counts()["fcc"] == 60682
+    assert namespace["structures"].counts()["fcc"] == 60691
     for name in ("grains", "boundaries", "phonons", "frames"):
         assert Path(f"{name}.png").stat().st_size > 0
 

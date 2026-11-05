@@ -47,16 +47,16 @@ composite = mp.System(table=table, box=fcc.box)
 Inside one polycrystal, `build_polycrystal` already removed the atoms of
 neighboring grains that came too close. Where a copper grain meets a
 tantalum grain the two crystals were built separately, so atoms of the two
-can overlap. Of each pair closer than 0.7 times the nearest distance of
-copper, remove the later atom, as `build_polycrystal` does:
+can overlap. Remove as few as possible, so that no two stay closer than 0.7 times the
+nearest distance of copper, with [`find_overlapping`](../basics/overlapping.md), as
+`build_polycrystal` does:
 
 ```python
-from mdapy.neighbor import NeighborList
+from mdapy.neighbor import find_overlapping
 
-close = NeighborList.build(composite, 0.7 * 3.615 / np.sqrt(2))
-later = np.unique(np.maximum(close.i, close.j))
-composite = composite.gather(np.setdiff1d(np.arange(len(composite)), later))
-len(later), len(composite)  # 638 atoms removed, 66 672 left
+too_close = find_overlapping(composite, 0.7 * 3.615 / np.sqrt(2))
+composite = composite.filter(~too_close)
+too_close.sum(), len(composite)  # 672 atoms removed, 66 678 left
 ```
 
 ## The structure of each grain

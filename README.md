@@ -98,7 +98,7 @@ render(grains, "grains.png", color="grain")
 from mdapy.identify import CommonNeighborAnalysis
 
 structures = CommonNeighborAnalysis().compute(grains)
-structures.counts()  # {'other': 21043, 'fcc': 60682, ...}
+structures.counts()  # {'other': 21162, 'fcc': 60691, ...}
 boundaries = structures.structure != 1  # not fcc
 render(grains, "boundaries.png", atoms=boundaries, color=structures)
 ```

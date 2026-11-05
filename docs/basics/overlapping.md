@@ -1,10 +1,9 @@
 # Overlapping atoms
 
-`mdapy.neighbor.find_overlapping` selects the atoms closer than a distance
-to another atom, as OVITO's find overlapping particles modifier does: by
-default the atom of the higher index of each such pair, so that deleting the
-selection leaves no pair that close, or all of them with `keep_one=False`.
-It finds the atoms that clash where structures are put together.
+`mdapy.neighbor.find_overlapping` selects the atoms closer than a distance to another atom,
+which are the atoms that clash where structures are put together. By default it selects what
+to delete: as few atoms as it can, so that no pair that close is left. With `keep_one=False`
+it selects every atom that overlaps another, to see where they are.
 
 ```python
 import numpy as np
@@ -51,11 +50,17 @@ crystal (red).*
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms and the box |
 | `distance` | float64 | | Å | two atoms closer than this overlap |
-| `keep_one` | bool | `True` | | select only the atom of the higher index of each pair that overlaps; `False` selects both |
+| `keep_one` | bool | `True` | | select only what to delete, as below; `False` selects every atom that overlaps another |
 | `atoms` | (N,) bool or indices | all | | the atoms considered; the others neither overlap nor are selected |
 
 Distances are measured through the periodic boundaries, with the
 [neighbor lists](neighbor.md) of MDAPY; atoms on top of each other overlap.
+
+To delete as few as possible, the atoms that overlap the fewest others are kept first, the
+lower index before the higher, and each atom kept deletes those it overlaps. Of three atoms in
+a row where only neighbors overlap, the middle one goes; of an atom that overlaps four others
+that do not overlap each other, that atom goes. An atom that overlaps its own periodic image
+goes too. The very fewest is too hard to find for many atoms, and this rule comes close to it.
 
 ## Results
 

@@ -20,7 +20,7 @@ grains = grains.with_columns(positions=grains["positions"] + shake)
 
 result = GrainSegmentation().compute(grains)
 result.count  # 8
-result.size  # [2855, 2684, ..., 1319] atoms, largest first
+result.size  # [2885, 2666, ..., 1353] atoms, largest first
 result.orientation[0]  # mean lattice orientation of the largest, (x, y, z, w)
 result.center[0], result.radius_of_gyration[0]  # Å
 grains = grains.with_columns(result)  # the column grain, -1 for none

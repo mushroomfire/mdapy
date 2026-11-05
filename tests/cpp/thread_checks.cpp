@@ -36,6 +36,7 @@
 #include "analysis/surface_mesh.h"
 #include "analysis/tessellation.h"
 #include "analysis/voronoi.h"
+#include "build/crystal.h"
 #include "build/polycrystal.h"
 #include "calculators/eam.h"
 #include "calculators/nep.h"
@@ -1425,6 +1426,51 @@ void polycrystals() {
     }
 }
 
+// A crystal of fcc, of two kinds, against plain loops.
+void crystals() {
+    const std::int64_t counts[3] = {40, 30, 20};
+    const double a = 3.6;
+    const double vectors[9] = {a, 0, 0, 0, a, 0, 0, 0, a};
+    const std::int64_t plane_rows[3] = {0, 2, 4};
+    const std::int64_t row_atoms[5] = {0, 1, 2, 3, 4};
+    const double fractional[12] = {0, 0, 0, 0.5, 0.5, 0, 0.5, 0, 0.5, 0, 0.5, 0.5};
+    const std::int64_t kinds[4] = {0, 1, 1, 0};
+    std::vector<double> positions;
+    std::vector<std::uint32_t> kind;
+    for (std::int64_t k3 = 0; k3 < counts[2]; ++k3) {
+        for (int p = 0; p < 2; ++p) {
+            for (std::int64_t k2 = 0; k2 < counts[1]; ++k2) {
+                for (std::int64_t r = plane_rows[p]; r < plane_rows[p + 1]; ++r) {
+                    for (std::int64_t k1 = 0; k1 < counts[0]; ++k1) {
+                        const double* f = fractional + 3 * r;
+                        positions.push_back((static_cast<double>(k1) + f[0]) * a);
+                        positions.push_back((static_cast<double>(k2) + f[1]) * a);
+                        positions.push_back((static_cast<double>(k3) + f[2]) * a);
+                        kind.push_back(static_cast<std::uint32_t>(kinds[r]));
+                    }
+                }
+            }
+        }
+    }
+    mdapy::build::CrystalFill fill;
+    fill.counts = counts;
+    fill.vectors = vectors;
+    fill.planes = 2;
+    fill.plane_rows = plane_rows;
+    fill.row_atoms = row_atoms;
+    fill.fractional = fractional;
+    fill.kinds = kinds;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        const mdapy::build::CrystalAtoms atoms = mdapy::build::fill_crystal(fill);
+        check(std::equal(positions.begin(), positions.end(), atoms.positions.begin(),
+                         atoms.positions.end()),
+              "the atoms of a crystal are those of plain loops");
+        check(std::equal(kind.begin(), kind.end(), atoms.kind.begin(), atoms.kind.end()),
+              "the kinds of a crystal are those of plain loops");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -1442,6 +1488,7 @@ int main() {
     trajectories();
     pictures();
     polycrystals();
+    crystals();
     if (failures == 0) {
         std::printf("all checks passed\n");
     }

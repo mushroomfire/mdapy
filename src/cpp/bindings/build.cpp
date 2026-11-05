@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "bindings/control.h"
+#include "build/crystal.h"
 #include "build/polycrystal.h"
 #include "build/sqs.h"
 #include "core/buffer.h"
@@ -33,6 +34,7 @@ using Matrices = nb::ndarray<const double, nb::shape<-1, 3, 3>, nb::c_contig, nb
 using Matrix = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
 using Vector3 = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
 using Spans = nb::ndarray<const std::int64_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using Counts = nb::ndarray<const std::int64_t, nb::shape<3>, nb::c_contig, nb::device::cpu>;
 
 void check_pairs(const Offsets& offsets, const Neighbors& neighbors, const Shells& shell,
                  const Types& type, const Values& weights, int shells) {
@@ -83,6 +85,61 @@ nb::object to_array(Buffer<T>&& values, std::initializer_list<std::size_t> shape
     auto* owned = new Buffer<T>(std::move(values));
     nb::capsule owner(owned, [](void* p) noexcept { delete static_cast<Buffer<T>*>(p); });
     return nb::ndarray<nb::numpy, T>(owned->data(), shape.size(), shape.begin(), owner).cast();
+}
+
+// Whether offsets rise from 0 to last, one group after another, none empty.
+bool splits(const Offsets& offsets, std::int64_t last) {
+    if (offsets.shape(0) < 2 || offsets.data()[0] != 0 ||
+        offsets.data()[offsets.shape(0) - 1] != last) {
+        return false;
+    }
+    for (std::size_t i = 1; i < offsets.shape(0); ++i) {
+        if (offsets.data()[i] <= offsets.data()[i - 1]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+nb::tuple fill_crystal(Counts counts, Matrix vectors, Offsets plane_rows, Offsets row_atoms,
+                       Points fractional, Offsets kinds, nb::handle progress,
+                       const CancelToken* cancel) {
+    const auto atoms_in_cell = static_cast<std::int64_t>(fractional.shape(0));
+    if (static_cast<std::int64_t>(kinds.shape(0)) != atoms_in_cell ||
+        !splits(row_atoms, atoms_in_cell) ||
+        !splits(plane_rows, static_cast<std::int64_t>(row_atoms.shape(0)) - 1)) {
+        throw std::invalid_argument("the planes, rows and atoms do not fit");
+    }
+    double total = static_cast<double>(atoms_in_cell);
+    for (int e = 0; e < 3; ++e) {
+        if (counts.data()[e] < 1) {
+            throw std::invalid_argument("a crystal has at least one cell along each vector");
+        }
+        total *= static_cast<double>(counts.data()[e]);
+    }
+    // far more than any memory, and well below where the counts overflow
+    if (total > 1e18) {
+        throw InvalidInput("a crystal of so many atoms does not fit in memory");
+    }
+    for (std::int64_t a = 0; a < atoms_in_cell; ++a) {
+        if (kinds.data()[a] < 0) {
+            throw std::invalid_argument("a kind is negative");
+        }
+    }
+    build::CrystalFill fill;
+    fill.counts = counts.data();
+    fill.vectors = vectors.data();
+    fill.planes = static_cast<std::int64_t>(plane_rows.shape(0)) - 1;
+    fill.plane_rows = plane_rows.data();
+    fill.row_atoms = row_atoms.data();
+    fill.fractional = fractional.data();
+    fill.kinds = kinds.data();
+    build::CrystalAtoms atoms;
+    run_released([&](const Control& control) { atoms = build::fill_crystal(fill, control); },
+                 progress, cancel);
+    const std::size_t n = atoms.kind.size();
+    return nb::make_tuple(to_array(std::move(atoms.positions), {n, 3}),
+                          to_array(std::move(atoms.kind), {n}));
 }
 
 nb::tuple fill_grains(Points seeds, Matrices rotations, Values radii, Spans spans, Offsets offsets,
@@ -143,6 +200,9 @@ nb::tuple fill_grains(Points seeds, Matrices rotations, Values radii, Spans span
 }  // namespace
 
 void bind_build(nb::module_& m) {
+    m.def("fill_crystal", &fill_crystal, nb::arg("counts"), nb::arg("vectors"),
+          nb::arg("plane_rows"), nb::arg("row_atoms"), nb::arg("fractional"), nb::arg("kinds"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("fill_grains", &fill_grains, nb::arg("seeds"), nb::arg("rotations"), nb::arg("radii"),
           nb::arg("spans"), nb::arg("offsets"), nb::arg("faces"), nb::arg("cell"), nb::arg("origin"),
           nb::arg("sites"), nb::arg("centers_of"), nb::arg("centers"), nb::arg("axis"),

@@ -5,9 +5,11 @@
 
 import numpy as np
 import pytest
+from mdapy._core import build as _native
 
 import mdapy
 from mdapy.build import STRUCTURES, build_crystal
+from mdapy.core.threads import get_num_threads, set_num_threads
 from mdapy.errors import InvalidParameter
 
 from atomsk_reference import ATOMSK, atomsk_crystal
@@ -205,6 +207,125 @@ def test_ordered_by_planes(structure, orientation):
     assert by_planes(system)
     first = system.box.to_fractional(system["positions"][:1])
     np.testing.assert_allclose(first, 0.0, atol=1e-12)
+
+
+def _in_plain_loops(unit, repeat):
+    """The positions and elements of a crystal, loop by loop, from its cell."""
+    planes = {}
+    fractions = np.round(unit.box.to_fractional(unit["positions"]), 9)
+    for atom, (_, y, z) in enumerate(fractions):
+        planes.setdefault(z, {}).setdefault(y, []).append(atom)
+    n1, n2, n3 = repeat
+    cell, matrix = unit["positions"], unit.box.matrix
+    positions, atoms = [], []
+    for k3 in range(n3):
+        for rows in planes.values():
+            for k2 in range(n2):
+                for row in rows.values():
+                    for k1 in range(n1):
+                        for atom in row:
+                            shift = k1 * matrix[0] + k2 * matrix[1] + k3 * matrix[2]
+                            positions.append(cell[atom] + shift)
+                            atoms.append(atom)
+    return np.array(positions), np.asarray(unit["element"])[atoms]
+
+
+@pytest.mark.parametrize(
+    "structure, keywords",
+    [
+        ("sc", {}),
+        ("bcc", {}),
+        ("fcc", {"elements": "Cu"}),
+        ("diamond", {}),
+        ("rocksalt", {"elements": ("Na", "Cl")}),
+        ("l1_2", {"elements": ("Ni", "Al")}),
+        ("hcp", {}),
+        ("wurtzite", {"elements": ("Zn", "O")}),
+        ("graphite", {"c": 6.7}),
+        ("fcc", {"orientation": [(1, 1, -2), (1, -1, 0), (1, 1, 1)]}),
+        ("diamond", {"orientation": [(1, 2, 3), (-1, -1, 1), (5, -4, 1)]}),
+        ("hcp", {"orientation": [(2, -1, -1, 0), (0, 1, -1, 1), (0, 0, 0, 1)]}),
+    ],
+)
+@pytest.mark.parametrize(
+    "repeat", [(1, 1, 1), (3, 1, 1), (1, 3, 1), (1, 1, 3), (2, 3, 4), (4, 3, 2)]
+)
+def test_the_atoms_are_those_of_plain_loops(structure, keywords, repeat):
+    unit = build_crystal(structure, 3.6, **keywords)
+    crystal = build_crystal(structure, 3.6, repeat=repeat, **keywords)
+    positions, elements = _in_plain_loops(unit, repeat)
+    np.testing.assert_allclose(crystal["positions"], positions, atol=1e-9)
+    assert np.array_equal(np.asarray(crystal["element"]), elements)
+    np.testing.assert_allclose(
+        crystal.box.matrix, unit.box.matrix * np.array(repeat)[:, None]
+    )
+
+
+@pytest.mark.parametrize(
+    "structure, elements, repeat",
+    [
+        ("fcc", "Cu", (20, 20, 20)),  # more atoms than a chunk of the parallel loop
+        ("rocksalt", ("Na", "Cl"), (10, 10, 10)),
+        ("fcc", "Cu", (3000, 1, 1)),
+        ("fcc", "Cu", (1, 3000, 1)),
+        ("fcc", "Cu", (1, 1, 3000)),
+        ("hcp", "Ti", (40, 30, 6)),
+    ],
+)
+def test_a_large_crystal_is_the_same_for_any_number_of_threads(
+    structure, elements, repeat
+):
+    threads = get_num_threads()
+    try:
+        set_num_threads(1)
+        one = build_crystal(structure, 3.6, elements=elements, repeat=repeat)
+        set_num_threads(4)
+        four = build_crystal(structure, 3.6, elements=elements, repeat=repeat)
+    finally:
+        set_num_threads(threads)
+    assert np.array_equal(one["positions"], four["positions"])
+    assert one.table["element"].equals(four.table["element"])
+    unit = build_crystal(structure, 3.6, elements=elements)
+    positions, kinds = _in_plain_loops(unit, repeat)
+    np.testing.assert_allclose(four["positions"], positions, atol=1e-9)
+    assert np.array_equal(np.asarray(four["element"]), kinds)
+
+
+def test_a_crystal_too_large_for_any_memory():
+    with pytest.raises(InvalidParameter, match="does not fit in memory"):
+        build_crystal("fcc", 3.6, repeat=(10**7, 10**7, 10**7))
+    with pytest.raises(InvalidParameter, match="does not fit in memory"):
+        build_crystal("fcc", 3.6, repeat=(2**62, 2**62, 2**62))
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"counts": np.array([0, 1, 1])},
+        {"counts": np.array([1, -1, 1])},
+        {"kinds": np.zeros(3, dtype=np.int64)},
+        {"kinds": np.array([0, -1], dtype=np.int64)},
+        {"row_atoms": np.array([0, 1], dtype=np.int64)},  # not all the atoms
+        {"row_atoms": np.array([1, 2], dtype=np.int64)},  # not from the first
+        {"row_atoms": np.array([0, 0, 2], dtype=np.int64)},  # a row without atoms
+        {"row_atoms": np.array([0], dtype=np.int64)},  # no rows
+        {"plane_rows": np.array([0, 2], dtype=np.int64)},  # rows that do not exist
+        {"plane_rows": np.array([0, 0, 1], dtype=np.int64)},  # a plane without rows
+    ],
+)
+def test_fill_crystal_checks_what_fits(change):
+    arguments = {
+        "counts": np.array([1, 1, 1]),
+        "vectors": np.eye(3),
+        "plane_rows": np.array([0, 1]),
+        "row_atoms": np.array([0, 2]),
+        "fractional": np.array([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0]]),
+        "kinds": np.array([0, 1]),
+    }
+    positions, kind = _native.fill_crystal(**arguments)
+    assert positions.shape == (2, 3) and kind.tolist() == [0, 1]
+    with pytest.raises(ValueError):
+        _native.fill_crystal(**(arguments | change))
 
 
 def test_oriented_hexagonal_crystals():

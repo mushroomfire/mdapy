@@ -12,8 +12,9 @@ from math import gcd, sqrt
 import numpy as np
 import polars as pl
 
+from mdapy._core import build as _native
 from mdapy.core.box import Box
-from mdapy.core.system import System
+from mdapy.core.system import VECTOR, System
 from mdapy.elements import ELEMENT_DTYPE
 from mdapy.errors import InvalidParameter
 
@@ -297,46 +298,43 @@ def build_crystal(
         symbols = pl.Series(names, dtype=pl.String).cast(ELEMENT_DTYPE)
     except pl.exceptions.InvalidOperationError:
         raise InvalidParameter(f"unknown element in {names}") from None
-    cells, atoms = _in_order(fractional, counts)
-    positions = (cells + fractional[atoms]) @ vectors
+    plane_rows, row_atoms, order = _in_order(fractional)
+    positions, kind = _native.fill_crystal(
+        counts.astype(np.int64),
+        vectors,
+        plane_rows,
+        row_atoms,
+        fractional[order],
+        kinds[order],
+    )
     table = pl.DataFrame(
         {
-            "positions": pl.Series(positions, dtype=pl.Array(pl.Float64, 3)),
-            "element": symbols.gather(kinds[atoms]),
+            "positions": pl.Series(positions, dtype=VECTOR),
+            "element": symbols.new_from_index(0, len(kind))
+            if len(names) == 1
+            else symbols.gather(kind),
         }
     )
     return System(table=table, box=Box(vectors * counts[:, None]))
 
 
-def _in_order(
-    fractional: np.ndarray, counts: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    """The atoms of the crystal of counts cells: the (N, 3) cell of each and
-    its atom in the cell, ordered by plane along the third vector, then the
-    second, then the first; with the first vector along x and the second in
-    the xy plane, by z, then y, then x."""
+def _in_order(fractional: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The atoms of a cell by plane along the third vector, then by row along
+    the first vector, the rows of a plane by the second vector: the rows of
+    each plane and the atoms of each row, both as offsets, and the atoms in
+    that order. With the first vector along x and the second in the xy plane,
+    a crystal is then by z, then y, then x."""
     planes = np.round(fractional, 9)  # the same plane within rounding
-    layers = []  # per plane along the third vector: its rows along the first
+    plane_rows, row_atoms, order = [0], [0], []
     for c in np.unique(planes[:, 2]):
         on = planes[:, 2] == c
-        rows = []
         for b in np.unique(planes[on, 1]):
             row = np.flatnonzero(on & (planes[:, 1] == b))
-            rows.append(row[np.argsort(planes[row, 0], kind="stable")])
-        layers.append(rows)
-    n1, n2, n3 = (int(n) for n in counts)
-    first, second, atom = [], [], []
-    for rows in layers:
-        # a plane of one cell's height: for each cell along the second
-        # vector, its rows, each through the cells along the first
-        line_first = np.concatenate([np.repeat(np.arange(n1), len(r)) for r in rows])
-        line_atom = np.concatenate([np.tile(r, n1) for r in rows])
-        first.append(np.tile(line_first, n2))
-        second.append(np.repeat(np.arange(n2), len(line_first)))
-        atom.append(np.tile(line_atom, n2))
-    layer = len(fractional) * n1 * n2
-    cells = np.empty((layer * n3, 3))
-    cells[:, 0] = np.tile(np.concatenate(first), n3)
-    cells[:, 1] = np.tile(np.concatenate(second), n3)
-    cells[:, 2] = np.repeat(np.arange(n3), layer)
-    return cells, np.tile(np.concatenate(atom), n3)
+            order.extend(row[np.argsort(planes[row, 0], kind="stable")])
+            row_atoms.append(len(order))
+        plane_rows.append(len(row_atoms) - 1)
+    return (
+        np.array(plane_rows, dtype=np.int64),
+        np.array(row_atoms, dtype=np.int64),
+        np.array(order, dtype=np.int64),
+    )

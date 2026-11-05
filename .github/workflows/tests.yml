@@ -50,7 +50,7 @@ jobs:
         include:
           - { os: ubuntu-latest, python: "3.11", werror: "ON" }
           - { os: ubuntu-latest, python: "3.14", werror: "ON" }
-          - { os: macos-14, python: "3.13", werror: "ON" }
+          - { os: macos-15, python: "3.13", werror: "ON" }
           # MSVC also warns inside third-party headers, so no -Werror here.
           - { os: windows-latest, python: "3.13", werror: "OFF" }
     steps:

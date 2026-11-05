@@ -1,48 +1,75 @@
+<!-- needs: lammps -->
+
 # Frozen values
 
 `freeze` gives the atoms of one frame the values a column has in another,
 such as the first of a trajectory, matched by their ids, as OVITO's freeze
-property. It keeps a property of the start, such as the structure of each
-atom, at hand in every later frame, to compare with what the atom is now.
+property. It keeps a property of the start, such as where each atom was or
+its structure, at hand in every later frame, to compare with what the atom is
+now.
+
+Copper melts at 2500 K, here in [LAMMPS](../simulation/lammps.md) for 10 ps.
+Where did each atom of the liquid start?
 
 ```python
 import numpy as np
 from mdapy.build import build_crystal
+from mdapy.calculators import EAM, LAMMPS
 from mdapy.identify import CommonNeighborAnalysis
+from mdapy.simulation import MolecularDynamics
 from mdapy.transform import freeze
 
-# copper with ids, and the same atoms later with a slab melted (shaken by 0.6 Å)
-copper = build_crystal("fcc", 3.615, elements="Cu", repeat=(10, 10, 10))
+copper = build_crystal("fcc", 3.615, elements="Cu", repeat=(12, 6, 6))
 copper = copper.with_columns(id=np.arange(1, len(copper) + 1))
-rng = np.random.default_rng(5)
-z = copper["positions.z"]
-shake = np.where((z > 14) & (z < 22), 0.6, 0.05)[:, None]
-later = copper.with_columns(
-    positions=copper["positions"] + rng.normal(0, 1, (len(copper), 3)) * shake
+EAM.zhou(["Cu"]).write("Cu.eam.alloy")
+potential = LAMMPS(
+    "pair_style eam/alloy\npair_coeff * * Cu.eam.alloy Cu", elements=["Cu"]
 )
+with MolecularDynamics(copper, potential, timestep=0.002) as md:
+    md.velocities(5000, seed=1)
+    md.run(5000, ensemble="npt", temperature=2500.0, pressure=0.0)
+    liquid = md.system
 
+liquid = freeze(liquid, copper, "positions.x")  # the column positions_x_frozen
+
+# the same for the structure: the atoms that are no longer what they were
 cna = CommonNeighborAnalysis()
 start = copper.with_columns(cna.compute(copper))
-later = later.with_columns(cna.compute(later))
-later = freeze(later, start, "cna_structure")  # the column cna_structure_frozen
-changed = later.where("cna_structure != cna_structure_frozen")
+liquid = freeze(liquid.with_columns(cna.compute(liquid)), start, "cna_structure")
+changed = liquid.where("cna_structure != cna_structure_frozen")
+changed.sum()  # 1728: every atom, the crystal has melted
 ```
 
-The atoms that are no longer what they were:
+The crystal and the liquid, each atom in the color of where it started along x:
 
 ```python
 from mdapy.visualization import render, write_png
 
+options = dict(
+    colormap="jet",
+    value_range=(0, copper.box.matrix[0, 0]),
+    legend="x at the start (Å)",
+    view="front",
+    width=640,
+    height=420,
+)
 write_png(
     "images/freeze.png",
-    render(later, atoms=changed, color="#d1495b", view="front", width=500, height=500),
+    np.hstack(
+        [
+            render(copper, color=copper["positions.x"], **options),
+            render(liquid, color="positions_x_frozen", **options),
+        ]
+    ),
 )
 ```
 
-![The atoms whose structure changed](images/freeze.png)
+![Atoms colored by where they started](images/freeze.png)
 
-*Of the atoms that started fcc, those of the melted slab are no longer fcc;
-the rest of the crystal, barely shaken, is unchanged.*
+*Left: the crystal, colored from blue to red along x. Right: the liquid after 10 ps,
+each atom still in the color of where it started: the stripes have mixed over some
+ångströms, and atoms that crossed the periodic boundary at the ends of the box carry
+their color to the other side.*
 
 ## Parameters
 

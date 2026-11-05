@@ -152,8 +152,8 @@ from mdapy.visualization import plot
 
 with plot.style():
     fig, ax = plot.figure("single")
-    ax.plot(partial.fraction, partial.energy * 1000, label="[11-2]")
-    ax.plot(full.fraction, full.energy * 1000, label="[-110]")
+    ax.plot(partial.fraction, partial.energy * 1000, "o-", label="[11-2]")
+    ax.plot(full.fraction, full.energy * 1000, "s-", label="[-110]")
     ax.set_xlabel("slip / period")
     ax.set_ylabel("energy (mJ/m²)")
     ax.legend(frameon=False)

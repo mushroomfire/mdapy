@@ -298,7 +298,7 @@ with plot.style():
         ("Young's modulus (GPa)", "shear modulus (GPa)"),
     ):
         ax.plot(temperatures, model, "-o", color="#2a78d6", label="NEP, quasi-harmonic")
-        ax.plot(measured, fit, "X", color="#1f1f1e", label="measured")
+        ax.plot(measured, fit, "X", color="#1f1f1e", label="Exp.")
         ax.set_xlabel("temperature (K)")
         ax.set_ylabel(name)
     axes[1].legend(frameon=False)

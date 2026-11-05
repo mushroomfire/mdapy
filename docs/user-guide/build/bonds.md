@@ -10,10 +10,10 @@ bonds="topology")` draws.
 ```python
 import numpy as np
 import mdapy as mp
-from mdapy import transform
 from mdapy.build import build_crystal
+from mdapy.transform import create_bonds
 
-silicon = transform.create_bonds(
+silicon = create_bonds(
     build_crystal("diamond", 5.431, elements="Si", repeat=(2, 2, 2)), 2.6
 )
 len(silicon.topology.bonds)  # 4 bonds of 2.35 Å for each atom, each pair once
@@ -25,7 +25,7 @@ ethanol = mp.System(
     mp.Box(20.0, pbc=False),
     elements=["C", "C", "O", "H", "H", "H", "H", "H", "H"],
 )  # fmt: skip
-ethanol = transform.create_bonds(ethanol, "covalent")  # 8 bonds
+ethanol = create_bonds(ethanol, "covalent")  # 8 bonds
 ```
 
 The bonds of the topology drawn:

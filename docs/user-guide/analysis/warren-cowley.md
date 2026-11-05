@@ -60,6 +60,29 @@ with plot.style():
 around Cu shell by shell, −1 for a shell of Zn only and 1 for one of Cu
 only; with the elements shuffled it stays near 0.*
 
+The parameters of one shell, every pair at once, as a matrix with its values:
+
+```python
+from mdapy.build import random_alloy
+
+ordered = build_crystal("l1_2", 3.75, elements=["Cu", "Au"], repeat=(6, 6, 6))
+sites = build_crystal("fcc", 3.6, repeat=(12, 12, 12))
+alloy = random_alloy(sites, {"Co": 1, "Cr": 1, "Fe": 1, "Ni": 1}, seed=1)
+
+with plot.style():
+    fig, (left, right) = plot.figure("double", 62, ncols=2)
+    plot.warren_cowley(WarrenCowley(num_neighbors=12).compute(ordered), ax=left)
+    plot.warren_cowley(WarrenCowley(num_neighbors=12).compute(alloy), ax=right)
+    plot.save(fig, "images/warren-cowley-matrix", formats=("png",))
+```
+
+![Warren–Cowley parameters as matrices](images/warren-cowley-matrix.png)
+
+*Left: Cu<sub>3</sub>Au in the L1<sub>2</sub> order, where Au has only Cu around
+it, so that the Au–Au parameter is 1. Right: a random CoCrFeNi, near 0 for every
+pair. For parameters of several shells, `shell` chooses the one to draw; see
+[plots](../visualization/plots.md).*
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |

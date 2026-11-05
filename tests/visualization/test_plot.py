@@ -14,6 +14,7 @@ from mdapy.analysis import (
     MeanSquaredDisplacement,
     RadialDistributionFunction,
     StructureFactor,
+    WarrenCowley,
 )
 from mdapy.build import build_crystal, random_alloy
 from mdapy.errors import InvalidParameter
@@ -258,3 +259,86 @@ def test_pressure_temperature():
         assert "$" not in ax.get_xlabel() + ax.get_ylabel()
         plot.pressure_temperature(diagram, ax=ax, labels=False)
         plt.close(fig)
+
+
+def _cells(ax):
+    """The text written at each cell of a matrix."""
+    return {(t.get_position()): t.get_text() for t in ax.texts}
+
+
+def test_warren_cowley_of_a_known_order():
+    # L1_2 Cu3Au among the 12 nearest: Au has only Cu around it
+    crystal = build_crystal("l1_2", 3.75, elements=["Cu", "Au"], repeat=(4, 4, 4))
+    result = WarrenCowley(num_neighbors=12).compute(crystal)
+    assert result.elements == ("Cu", "Au")
+    np.testing.assert_allclose(result.alpha, [[1 / 9, -1 / 3], [-1 / 3, 1]], atol=1e-12)
+    with plot.style():
+        ax = plot.warren_cowley(result)
+        assert _cells(ax) == {
+            (0, 0): "0.11",
+            (0, 1): "-0.33",
+            (1, 0): "-0.33",
+            (1, 1): "1.00",
+        }
+        assert [t.get_text() for t in ax.get_xticklabels()] == ["Cu", "Au"]
+        assert [t.get_text() for t in ax.get_yticklabels()] == ["Cu", "Au"]
+        assert ax.get_xlabel() == "Central element"
+        assert ax.get_ylabel() == "Neighboring element"
+        bar = ax.figure.axes[-1]
+        assert bar.get_ylabel() == "Warren–Cowley α"
+        np.testing.assert_allclose(bar.get_yticks(), [-2, 0, 1])
+        plt.close(ax.figure)
+
+
+def test_warren_cowley_puts_each_pair_at_its_place():
+    # row a, column b: the central element a along x, its neighbor b along y
+    result = SimpleNamespace(
+        elements=("A", "B", "C"),
+        alpha=np.array([[0.1, 0.2, 0.3], [0.4, -0.001, 0.6], [0.7, np.nan, -1.5]]),
+    )
+    fig, ax = plt.subplots()
+    assert plot.warren_cowley(result, ax=ax, vmin=-3, vmax=2, cmap="viridis") is ax
+    cells = _cells(ax)
+    assert cells[(0, 1)] == "0.20" and cells[(1, 0)] == "0.40"
+    assert cells[(0, 2)] == "0.30" and cells[(2, 0)] == "0.70"
+    assert cells[(1, 1)] == "0.00"  # no -0.00
+    assert cells[(2, 1)] == "–"  # no atoms to tell
+    assert cells[(2, 2)] == "-1.50"
+    image = ax.images[0]
+    assert image.get_cmap().name == "viridis" and image.origin == "lower"
+    assert image.get_clim() == (-3, 2)
+    assert image.get_array()[1, 0] == 0.2  # y, then x
+    plt.close(fig)
+
+
+def test_warren_cowley_is_readable_on_dark_cells():
+    result = SimpleNamespace(
+        elements=("A", "B"), alpha=np.array([[1.0, -2.0], [-2.0, 0.0]])
+    )
+    fig, ax = plt.subplots()
+    plot.warren_cowley(result, ax=ax)
+    colors = {t.get_position(): t.get_color() for t in ax.texts}
+    assert colors[(0, 0)] == "w" and colors[(0, 1)] == "k" and colors[(1, 1)] == "k"
+    plt.close(fig)
+
+
+def test_warren_cowley_of_shells():
+    crystal = build_crystal("cscl", 2.95, elements=["Cu", "Zn"], repeat=(4, 4, 4))
+    result = WarrenCowley(num_neighbors=(8, 6)).compute(crystal)
+    fig, ax = plt.subplots()
+    plot.warren_cowley(result, ax=ax, shell=1)
+    assert _cells(ax) == {
+        (0, 0): "-1.00",
+        (0, 1): "1.00",
+        (1, 0): "1.00",
+        (1, 1): "-1.00",
+    }
+    plt.close(fig)
+    with pytest.raises(InvalidParameter, match="of 2 shells: choose one"):
+        plot.warren_cowley(result)
+    for shell in (2, -1):
+        with pytest.raises(InvalidParameter, match="is not among 2 shells"):
+            plot.warren_cowley(result, shell=shell)
+    one = WarrenCowley(num_neighbors=8).compute(crystal)
+    with pytest.raises(InvalidParameter, match="of one shell"):
+        plot.warren_cowley(one, shell=0)

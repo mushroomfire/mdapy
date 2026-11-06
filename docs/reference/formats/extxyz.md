@@ -99,6 +99,10 @@ commas), JSON after the prefix `_JSON `, or else text. A key without a value
 is `True`. Values with blanks are quoted with `""`, `''`, `{}` or `[]`, and a
 backslash makes the next character literal.
 
+A comment line without `=` holds no `key=value` pair: it is the free comment of a
+plain XYZ file, such as `water, relaxed with PBE`, kept whole as `info["comment"]`,
+and its words are not keys. Writing puts it back as `comment="..."`.
+
 When writing, numbers, booleans, text and 1-dimensional arrays are written
 as such. Other values (arrays of other shapes, mappings, `None`, and text that
 would read back as a number) are written as `_JSON` so that they read back

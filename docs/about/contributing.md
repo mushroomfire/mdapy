@@ -155,6 +155,15 @@ nightly wheels of NumPy and the pre-releases of polars, so that a change of thei
 breaks MDAPY, or warns of one, shows before it reaches users. A new lower bound in
 `pyproject.toml` is the version the lowest job installs.
 
+Files from elsewhere are often damaged. `tests/io/test_damaged_files.py` damages a
+sample of every format at random, from a fixed seed, and requires an error of MDAPY for
+each, never another exception. Below it, `tests/fuzz/` holds two
+[libFuzzer](https://llvm.org/docs/LibFuzzer.html) targets of the C++ kernels of text
+files: any text is read or refused without a fault, numbers agree with `strtod` bit for
+bit and come back unchanged when written, and so do tables. CI runs each for a minute;
+the command to build them is at the top of each file, and a longer run by hand is
+worthwhile after a change to `src/cpp/io/text.cpp`.
+
 ### What a complete run needs
 
 `pip install -e ".[dev]"` gives everything a plain `pytest` needs: the test

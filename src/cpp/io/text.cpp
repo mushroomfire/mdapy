@@ -788,6 +788,20 @@ inline char* write_double(char* out, double value) {
         *out = '0';
         return out + 1;
     }
+    // As Python writes them: every NaN as nan, whatever its sign and payload
+    // (std::to_chars writes -nan(ind) or nan(snan) on some systems, which no
+    // reader takes), and the infinities as inf and -inf.
+    if (biased == 0x7ff) {
+        if ((bits & ((std::uint64_t{1} << 52) - 1)) != 0) {
+            std::memcpy(out, "nan", 3);
+            return out + 3;
+        }
+        if (negative) {
+            *out++ = '-';
+        }
+        std::memcpy(out, "inf", 3);
+        return out + 3;
+    }
     if (!(magnitude < 1e15) || biased < kLowestFastExponent) {
         return std::to_chars(out, out + 32, value).ptr;
     }

@@ -247,3 +247,27 @@ jobs:
           # Recent kernels randomize mmap with 32 bits, which TSan does not expect.
           sudo sysctl -w vm.mmap_rnd_bits=28
           TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1 ./thread_checks
+
+  # libFuzzer on the kernels of text files (tests/fuzz): any text is read or
+  # refused without a fault, numbers agree with strtod bit for bit and come back
+  # unchanged when written, tables come back unchanged. A minute for each.
+  fuzz:
+    name: fuzz — text kernels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Clang with libFuzzer
+        run: sudo apt-get update -q && sudo apt-get install -y -q clang-18 libclang-rt-18-dev
+      - name: Build
+        run: |
+          for target in numbers table; do
+            clang++-18 -std=c++17 -O1 -g -fsanitize=fuzzer,address,undefined \
+              -fno-sanitize-recover=undefined -ffp-contract=off -Isrc/cpp \
+              -o fuzz_$target tests/fuzz/fuzz_$target.cpp src/cpp/core/parallel.cpp src/cpp/io/text.cpp
+          done
+      - name: Run
+        run: |
+          for target in numbers table; do
+            mkdir -p corpus_$target
+            ./fuzz_$target -max_total_time=60 -print_final_stats=1 corpus_$target
+          done

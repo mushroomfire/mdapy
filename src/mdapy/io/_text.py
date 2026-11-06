@@ -63,6 +63,9 @@ class TextReader:
 
     def skip(self, n: int) -> None:
         """Skips n lines."""
+        # as in table: a count in a damaged header may not even fit in 64 bits
+        if n > len(self.buffer) - self.offset + 1:
+            raise self.error("unexpected end of file", self.line + 1)
         try:
             self.offset = _native.skip_lines(self.buffer, self.offset, n)
         except ValueError as e:

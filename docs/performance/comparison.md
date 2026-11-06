@@ -18,7 +18,7 @@ pip, each with 40 threads. [Reading and writing files](files.md) and
 
 *How many times faster MDAPY is: a row for each case, the largest gain on
 top, and a point for each size, larger and darker for more atoms; the number
-on the right is the gain at the largest size. Left of 1×, the other program
+on the right is the speed-up at the largest size. Left of 1×, the other program
 is faster.*
 
 ### What they show

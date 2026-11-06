@@ -1753,7 +1753,7 @@ def plot(entries: list[dict], path: str) -> None:
             high = max(every) * 1.35
             ax.set_xscale("log")
             ax.set_xlim(low, high)
-            ax.set_ylim(len(names) - 0.4, -1.6)
+            ax.set_ylim(len(names) - 0.4, -2.0)
             if min(every) < 1.0:  # where the other program is faster, shaded
                 ax.axvspan(low, 1.0, color="#f1f0ec", linewidth=0, zorder=0)
             ax.axvline(1.0, color=muted, linewidth=0.6, zorder=1)
@@ -1775,8 +1775,8 @@ def plot(entries: list[dict], path: str) -> None:
                         )
                 largest = max(values)
                 text = _times(values[largest])
-                if largest != sizes[-1]:
-                    text += f" at {largest:,d}"
+                if largest != sizes[-1]:  # not run at the largest size
+                    text += f" at {largest:,d} atoms"
                 ax.annotate(
                     text,
                     (1.0, row),
@@ -1789,18 +1789,18 @@ def plot(entries: list[dict], path: str) -> None:
                 )
             other = PROGRAMS[program]
             ax.annotate(
-                f"{sizes[-1]:,d} atoms",
-                (1.0, -1.0),
+                f"speed-up at\n{sizes[-1]:,d} atoms",
+                (1.0, -1.25),
                 xycoords=("axes fraction", "data"),
                 xytext=(6, 0),
                 textcoords="offset points",
                 va="center",
                 color=muted,
             )
-            ax.text(1.08, -1.0, "MDAPY faster →", va="center", ha="left", color=muted)
+            ax.text(1.08, -1.25, "MDAPY faster →", va="center", ha="left", color=muted)
             if min(every) < 1.0:
                 ax.text(
-                    1 / 1.08, -1.0, f"← {other} faster", va="center", ha="right",
+                    1 / 1.08, -1.25, f"← {other} faster", va="center", ha="right",
                     color=muted,
                 )  # fmt: skip
             ticks = [t for t in (0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500)]

@@ -17,7 +17,7 @@ another node, with Intel Xeon Gold 6248, so their times do not compare with thes
 
 *How many times faster MDAPY is: a row for each case, the largest gain on
 top, and a point for each size, larger and darker for more atoms; the number
-on the right is the gain at the largest size.*
+on the right is the speed-up at the largest size.*
 
 ### What they show
 

@@ -340,35 +340,50 @@ Measurements of the elastic moduli by resonant ultrasound are adiabatic,
 too fast for heat to flow; take the adiabatic constants and their
 Voigt–Reuss–Hill averages, and compare them with the fits of
 [Laplanche et al. (2018)](../reference/references.md#laplanche2018) to
-their measurements of CrCoNi:
+their measurements of CrCoNi. Molecular dynamics gives isothermal constants;
+the adiabatic ones differ by the heat that a strain releases, taken here from
+the quasi-harmonic approximation at the same temperature. In a cubic crystal
+the difference is the same in C11 and C12 and none in C44, so it leaves the
+shear modulus as it is and raises the bulk modulus alone:
 
 <!-- skip-test -->
 ```python
-moduli = [ElasticResult(c) for c in thermal.adiabatic]
-bulk = np.array([m.bulk_modulus() for m in moduli])
-shear = np.array([m.shear_modulus() for m in moduli])
-young = 9 * bulk * shear / (3 * bulk + shear)
+def young_and_shear(constants):
+    """Young's and shear moduli, averages of Voigt, Reuss and Hill."""
+    moduli = [ElasticResult(c) for c in constants]
+    bulk = np.array([m.bulk_modulus() for m in moduli])
+    shear = np.array([m.shear_modulus() for m in moduli])
+    return 9 * bulk * shear / (3 * bulk + shear), shear
 
-measured = np.arange(300, 1001, 100.0)
-einstein = 1 / (np.exp(362 / measured) - 1)
+
+young, shear = young_and_shear(thermal.adiabatic)
+at = np.searchsorted(temperatures, hot)
+heat = thermal.adiabatic[at] - thermal.isothermal[at]
+young_md, shear_md = young_and_shear(np.array([r.constants for r in md]) + heat)
+
+einstein = 1 / (np.exp(362 / hot) - 1)
 young_measured, shear_measured = 244.9 - 32 * einstein, 93.6 - 11.9 * einstein
+print("T (K)   E: QHA     MD   measured   G: QHA    MD  measured (GPa)")
 for t in (300, 600, 900):
-    k, m = np.flatnonzero(temperatures == t)[0], np.flatnonzero(measured == t)[0]
+    k, j = np.flatnonzero(temperatures == t)[0], np.flatnonzero(hot == t)[0]
     print(
-        f"{t} K: E {young[k]:.1f} ({young_measured[m]:.1f}),"
-        f" G {shear[k]:.1f} ({shear_measured[m]:.1f}) GPa"
+        f"{t:5.0f}   {young[k]:9.1f} {young_md[j]:6.1f} {young_measured[j]:8.1f}"
+        f"   {shear[k]:8.1f} {shear_md[j]:5.1f} {shear_measured[j]:7.1f}"
     )
 
 with plot.style():
     fig, axes = plot.figure("double", ncols=2)
-    for ax, model, fit, name in zip(
+    for ax, model, dynamic, fit, name in zip(
         axes,
         (young, shear),
+        (young_md, shear_md),
         (young_measured, shear_measured),
         ("Young's modulus (GPa)", "shear modulus (GPa)"),
     ):
         ax.plot(temperatures, model, "-o", color="#2a78d6", label="NEP, quasi-harmonic")
-        ax.plot(measured, fit, "X", color="#1f1f1e", label="Exp.")
+        ax.plot(hot, dynamic, "s", color="#d55e00", markerfacecolor="none",
+                markersize=5, label="NEP, MD")  # fmt: skip
+        ax.plot(hot, fit, "X", color="#1f1f1e", label="Exp.")
         ax.set_xlabel("temperature (K)")
         ax.set_ylabel(name)
     axes[1].legend(frameon=False)
@@ -376,13 +391,15 @@ with plot.style():
 ```
 
 ```text
-300 K: E 230.8 (231.2), G 87.7 (88.5) GPa
-600 K: E 209.4 (206.3), G 79.0 (79.2) GPa
-900 K: E 185.0 (180.3), G 69.2 (69.6) GPa
+T (K)   E: QHA     MD   measured   G: QHA    MD  measured (GPa)
+  300       230.8  230.4    231.2       87.7  87.5    88.5
+  600       209.4  209.2    206.3       79.0  78.8    79.2
+  900       185.0  186.2    180.3       69.2  69.5    69.6
 ```
 
-![Young's and shear moduli of CrCoNi against temperature: the NEP model in the quasi-harmonic approximation against measurements](images/crconi-moduli.png)
+![Young's and shear moduli of CrCoNi against temperature: the NEP model in the quasi-harmonic approximation and in molecular dynamics against measurements](images/crconi-moduli.png)
 
-The shear modulus follows the measurements to 1 GPa from 300 to 1000 K;
-Young's modulus departs from them as the temperature rises, by 3 % at
+The two methods give nearly the same moduli, within 1.7 GPa from 300 to
+1000 K. The shear modulus follows the measurements to 1 GPa over the whole
+range; Young's modulus departs from them as the temperature rises, by 3 % at
 900 K.

@@ -8,8 +8,10 @@ random alloy, the best that a small cell can do for a random alloy.
 from mdapy.build import build_crystal, sqs_alloy
 
 sites = build_crystal("fcc", 3.6, repeat=(4, 4, 4))
-cuni = sqs_alloy(sites, {"Cu": 1, "Ni": 1}, shells=3, seed=1)
-cantor = sqs_alloy(sites, {"Co": 1, "Cr": 1, "Fe": 1, "Mn": 1, "Ni": 1}, seed=1)
+binary = {"Cu": 1, "Ni": 1}
+quinary = {"Co": 1, "Cr": 1, "Fe": 1, "Mn": 1, "Ni": 1}
+cuni = sqs_alloy(sites, binary, shells=3, seed=1)
+cantor = sqs_alloy(sites, quinary, seed=1)
 ```
 
 ```python
@@ -26,6 +28,56 @@ write_png("images/sqs.png", np.hstack([left, right]))
 *Left: equiatomic CuNi of 256 atoms whose pair correlations in the first three
 shells come as close as the cell allows to those of the random alloy. Right:
 the Cantor alloy on the same sites.*
+
+The [Warren–Cowley parameters](../analysis/warren-cowley.md) of every pair
+of elements, shell by shell, against those of a random alloy of the same
+atoms:
+
+```python
+from mdapy.analysis import WarrenCowley
+from mdapy.build import random_alloy
+from mdapy.visualization import plot
+
+order = WarrenCowley(num_neighbors=(12, 6, 24, 12, 24))  # five shells of fcc
+shell = np.arange(1, 6)
+with plot.style():
+    fig, axes = plot.figure("double", 62, ncols=2)
+    for ax, sqs, fractions in zip(axes, (cuni, cantor), (binary, quinary)):
+        random = random_alloy(sites, fractions, seed=1)
+        for k, (system, name) in enumerate(((random, "random alloy"), (sqs, "SQS"))):
+            alpha = order.compute(system).alpha
+            pairs = np.triu_indices(alpha.shape[1])  # each pair of elements once
+            values = alpha[:, pairs[0], pairs[1]]
+            x = np.repeat(shell + 0.15 * (2 * k - 1), values.shape[1])
+            ax.plot(
+                x, values.ravel(), "o", color=("0.6", plot.COLORS[0])[k], label=name
+            )
+        ax.axvspan(0.5, 3.5, color="0.93", zorder=0, linewidth=0)
+        ax.margins(y=0.15)  # room for the label of the shaded shells
+        ax.text(
+            2,
+            0.98,
+            "made random",
+            transform=ax.get_xaxis_transform(),
+            ha="center",
+            va="top",
+        )
+        ax.axhline(0, color="0.3", linewidth=0.5)
+        ax.set_xticks(shell)
+        ax.set_xlabel("shell of neighbors")
+        ax.set_ylabel("Warren–Cowley α of each pair")
+        ax.set_title("".join(fractions))
+    axes[1].legend()
+    plot.save(fig, "images/sqs-warren-cowley", formats=("png",))
+```
+
+![Warren–Cowley parameters of the random alloys and of the special quasirandom structures](images/sqs-warren-cowley.png)
+
+*Each point is the Warren–Cowley parameter of one pair of elements in one
+shell, 0 for a random alloy of infinite size. In the three shells made
+random, those of CuNi are 0 and those of the Cantor alloy within 0.03,
+where the random alloys of 256 atoms reach 0.016 and 0.35; the fourth and
+fifth shells, left out, are no better than at random.*
 
 ## Parameters
 

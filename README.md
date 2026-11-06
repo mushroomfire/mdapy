@@ -12,6 +12,8 @@
 <p align="center">
   <a href="https://github.com/mushroomfire/mdapy/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/mushroomfire/mdapy/actions/workflows/tests.yml/badge.svg?branch=master"></a>
   <a href="https://codecov.io/gh/mushroomfire/mdapy"><img alt="Coverage" src="https://codecov.io/gh/mushroomfire/mdapy/branch/master/graph/badge.svg"></a>
+  <a href="https://pypi.org/project/mdapy/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/mdapy"></a>
+  <a href="https://pypi.org/project/mdapy/"><img alt="PyPI downloads" src="https://img.shields.io/pypi/dm/mdapy"></a>
   <img alt="Python 3.11 or newer" src="https://img.shields.io/badge/python-3.11%2B-3776AB">
   <img alt="Linux, macOS, Windows" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-555555">
   <a href="https://github.com/mushroomfire/mdapy/blob/master/LICENSE"><img alt="License: MPL-2.0" src="https://img.shields.io/badge/license-MPL--2.0-555555"></a>

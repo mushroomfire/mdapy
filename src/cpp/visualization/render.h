@@ -38,13 +38,10 @@ struct Scene {
 // An orthographic camera looks along forward at a window of half_width by
 // half_height around center; a perspective camera stands at center and
 // half_width and half_height are the tangents of half its angles of view.
-// A perspective camera with an aperture > 0 sees through a lens of that
-// radius, sharp at focal_distance along forward only (depth of field).
 struct Camera {
     std::array<float, 3> center{}, forward{0, 0, -1}, up{0, 1, 0};
     float half_width = 1, half_height = 1;
     bool perspective = false;
-    float aperture = 0, focal_distance = 1;
 };
 
 struct Style {

@@ -297,6 +297,6 @@ The same loop makes other movies with a line or two:
 - a trajectory: read `frames = mdapy.io.read_trajectory("run.dump")` and draw `frames[k]`
   in each picture, so that the camera moves while the atoms do;
 - another look: a [style or its settings](../user-guide/visualization/rendering.md), such as
-  `aperture` for a depth of field;
+  `style="shiny"` or `fog` for depth;
 - another subject: any `color` and `atoms`, such as the
   [dislocations](../user-guide/analysis/dislocations.md) of a system with `dislocations=`.

@@ -141,8 +141,6 @@ The `options` are those of `Scene.render`:
 | `zoom` | float32 | 1 | magnification of the scene framed to fill the picture |
 | `focus` | (3,) float32 | middle of the scene | the point in Å at the middle of the picture |
 | `span` | float32 | the scene framed | the length in Å the picture shows from bottom to top at the focus, in place of the framing and `zoom`: with `focus`, the region a viewport shows |
-| `aperture` | float32 | 0 | the radius in Å of the lens of a perspective camera: 0 for a picture sharp everywhere, more for [depth of field](#depth-of-field-and-soft-shadows) |
-| `focal_distance` | float32 | to the focus | the distance in Å from the camera along the view to the plane that stays sharp |
 | `style` | str | `"matte"` | one of the styles below |
 | `background` | color or `None` | `"white"` | `None` for transparent |
 | `device` | str | `"cpu"` | `"cpu"`, `"gpu"`, or `"auto"` for the GPU when there is one; see below |
@@ -173,40 +171,11 @@ angular radius of the key light in radians, 0 for a point, wider for softer
 shadows) and, for global illumination, `bounces` (0 for none).
 `style_settings(style)` gives every setting of a style as a dictionary.
 
-## Depth of field and soft shadows
+## Soft shadows
 
-```python
-import numpy as np
-from mdapy.visualization import write_png
-
-camera = {"perspective": True, "fov": 40, "focus": [45, 15, 45], "span": 70}
-sharp = render(grains, color=structures, width=480, height=360, **camera)
-blurred = render(
-    grains,
-    color=structures,
-    width=480,
-    height=360,
-    **camera,
-    aperture=3.0,
-    light_size=0.15,
-    supersample=1,
-    samples=32,
-)
-write_png("images/depth_of_field.png", np.hstack([sharp, blurred]))
-```
-
-![Depth of field](images/depth_of_field.png)
-
-*The polycrystal through a pinhole, left, and through a lens 3 Å wide that
-keeps the front left around the focus sharp, lit by a key light 0.15 rad
-wide, right.*
-
-A perspective camera with an `aperture` sees through a lens of that radius:
-the plane `focal_distance` from the camera, through the focus unless given,
-stays sharp, and things blur the more the farther they are from it. A key
-light `light_size` radians wide casts soft shadows in every style. Both are
-sampled by the rays of each pixel and look grainy with few of them: raise
-`samples` for smoother pictures, at a cost in time that grows with it.
+A key light `light_size` radians wide casts soft shadows in every style. They are
+sampled by the rays of each pixel and look grainy with few of them: raise `samples`
+for smoother pictures, at a cost in time that grows with it.
 
 ## On the GPU
 
@@ -384,8 +353,7 @@ the same for any number of threads.
 ## Errors
 
 They raise `InvalidParameter` for an unknown style, view, colormap, color
-or option, a size that is not positive or is above the limits below, a negative aperture or one with an
-orthographic camera, a focal distance that is not positive, arrays of the wrong shape, an
+or option, a size that is not positive or is above the limits below, arrays of the wrong shape, an
 opacity out of [0, 1], a polygon of fewer than three corners, a negative
 id or an invalid mask of atoms; `Cancelled` when cancelled.
 

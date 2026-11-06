@@ -224,7 +224,50 @@ def test_default_properties_and_no_lattice(tmp_path):
     system = read_text(tmp_path, "2\nplain xyz comment\nC 0 0 0\nO 1.2 0 0\n")
     assert system.table.columns == ["element", "positions"]
     assert not system.box.pbc.any()
-    assert system.info == {"plain": True, "xyz": True, "comment": True}
+    assert system.info == {"comment": "plain xyz comment"}
+
+
+@pytest.mark.parametrize(
+    "comment",
+    [
+        # free text that repeats a word, or holds words that are keys of the format
+        "MMM12 made of C atoms on grid; generated for MMM12 logo + H atoms",
+        "water in a box with pbc, energy from PBE",
+        "  Properties of a molecule  ",
+        "it's a test",
+    ],
+)
+def test_a_comment_without_keys_is_plain_text(tmp_path, comment):
+    text = f"3\n{comment}\nC 0.000 0.000 0.000\nH 6 0 0\nH 40.5 -9 1.100"
+    system = read_text(tmp_path, text)
+    assert system.info == {"comment": comment.strip()}
+    assert system["element"].tolist() == ["C", "H", "H"]
+    np.testing.assert_array_equal(system["positions"][2], [40.5, -9.0, 1.1])
+    assert not system.box.pbc.any()
+    back = round_trip(tmp_path, system)
+    assert back.info == system.info
+
+
+@pytest.mark.parametrize(
+    "line, message",
+    [
+        ("C 0 0 0 1.5", "expected 4 values, found 5"),
+        ("C 0 0", "expected 4 values, found 3"),
+        ("6 0 0 0", "unknown element '6'"),
+    ],
+)
+def test_a_plain_xyz_line_holds_an_element_and_three_coordinates(
+    tmp_path, line, message
+):
+    with pytest.raises(FileFormatError, match=message) as info:
+        read_text(tmp_path, f"2\nplain comment\nH 1 0 0\n{line}\n")
+    assert info.value.line == 4
+    assert str(info.value).endswith("each line holds an element symbol and x, y, z")
+    assert str(info.value).count(str(tmp_path)) == 1
+
+
+def test_an_empty_comment_gives_no_info(tmp_path):
+    assert read_text(tmp_path, "1\n   \nH 0 0 0\n").info == {}
 
 
 def test_six_component_tensors_are_voigt_ordered(tmp_path):
@@ -435,6 +478,8 @@ def test_trailing_blank_lines(tmp_path):
         ("x\n", 1, "expected the number of atoms, found 'x'"),
         ("2\n\nH 0 0 0\n", 4, "the frame has 2 atoms, but the file ends after 1"),
         ("2\n", 2, "the frame has 2 atoms, but the file ends after 0"),
+        # a count beyond 64 bits, as in a damaged file
+        ("99999999999999999999\n\nH 0 0 0\n", 2, "the frame has 99999999999999999999 "),
         ("1\n\nH 0 0\n", 3, "expected 4 values, found 3"),
         ("1\n\nH 0 x 0\n", 3, "cannot read 'x' as a number"),
         ("1\n\nH 0 0 0\n\n1\n\nH 0 0 0\n", 5, "a frame follows a blank line"),
@@ -453,7 +498,7 @@ def test_trailing_blank_lines(tmp_path):
         ("1\nenergy=abc\nH 0 0 0\n", 2, "energy must have 1 numbers"),
         ('1\nvirial="1 2"\nH 0 0 0\n', 2, "virial must have 9 or 6 numbers"),
         ('1\nstress="x"\nH 0 0 0\n', 2, "stress must have 9 or 6 numbers"),
-        ("1\nProperties\nH 0 0 0\n", 2, "Properties needs a value"),
+        ("1\nProperties energy=1\nH 0 0 0\n", 2, "Properties needs a value"),
         ('1\na="_JSON {"\nH 0 0 0\n', 2, "Expecting"),
         ("1\nProperties=species:S:1:pos:R\nH 0 0 0\n", 2, "name:type:width triples"),
         ("1\nProperties=species:S:1:pos:Q:3\nH 0 0 0\n", 2, "invalid property pos:Q:3"),

@@ -775,6 +775,29 @@ def test_nan_is_written_as_nan():
     assert b"nan" in native.format_table([("f", np.array([float("nan")]), [])])
 
 
+def test_every_nan_is_written_as_python_writes_it():
+    # a NaN with the sign bit, as x86 computes 0/0, and quiet and signaling NaNs
+    # with payloads: std::to_chars writes -nan(ind) or nan(snan) for some of them
+    bits = np.array(
+        [
+            0xFFF8000000000000,
+            0x7FF8000000000001,
+            0x7FF0000000000001,
+            0xFFF4000000000123,
+        ],
+        dtype=np.uint64,
+    )
+    values = np.concatenate([bits.view(np.float64), [math.inf, -math.inf]])
+    for shift in (0, 3):
+        text = native.format_table([("f", values, [], shift)]).decode()
+        assert text.split() == ["nan"] * 4 + ["inf", "-inf"]
+        (back,), _ = native.parse_table(
+            text.encode(), 0, len(values), [("f", 1, -shift)]
+        )
+        assert np.isnan(back[:4]).all()
+        assert list(back[4:]) == [math.inf, -math.inf]
+
+
 def longest_rows(rows):
     """Every value as long as it can be, in columns that fill any place they get."""
     return [

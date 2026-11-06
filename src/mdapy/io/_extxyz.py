@@ -242,6 +242,14 @@ def _special(key: str, raw: str | None) -> Any:
 
 
 def _parse_comment(reader: TextReader, line: str) -> dict[str, Any]:
+    """The fields of a comment line.
+
+    A line without '=' holds no key=value pair: it is the free comment of a
+    plain XYZ file, kept whole as info["comment"], and its words are not keys.
+    """
+    text = line.strip()
+    if "=" not in text:
+        return {"comment": text} if text else {}
     fields: dict[str, Any] = {}
     try:
         for key, raw in _split_items(line):
@@ -328,6 +336,7 @@ def _read(source: Source, position: FramePosition) -> System:
     count = _atom_count(reader, reader.readline())
     comment_line = reader.line + 1
     fields = _parse_comment(reader, reader.readline())
+    plain = "properties" not in fields
     properties = _parse_properties(
         reader, fields.pop("properties", _DEFAULT_PROPERTIES)
     )
@@ -349,25 +358,37 @@ def _read(source: Source, position: FramePosition) -> System:
         targets.append(target)
     if "positions" not in targets:
         raise reader.error("Properties has no pos property", comment_line)
-    arrays = reader.table(
-        count,
-        [
-            # vel is in Å/fs; the shift converts it to Å/ps exactly.
-            (_KINDS[t], w, 3 if (name, target) == ("vel", "velocities") else 0)
-            for (name, t, w), target in zip(properties, targets)
-        ],
-    )
-
     columns: dict[str, pl.Series | None] = {}
     momenta = None
-    for (name, ptype, width), target, values in zip(properties, targets, arrays):
-        if name == "momenta" and target == "velocities":
-            columns[target] = None  # filled in below, once masses are known
-            momenta = values
-        else:
-            columns[target] = _column(
-                reader, target, ptype, width, values, comment_line + 1
-            )
+    try:
+        arrays = reader.table(
+            count,
+            [
+                # vel is in Å/fs; the shift converts it to Å/ps exactly.
+                (_KINDS[t], w, 3 if (name, target) == ("vel", "velocities") else 0)
+                for (name, t, w), target in zip(properties, targets)
+            ],
+        )
+        for (name, ptype, width), target, values in zip(properties, targets, arrays):
+            if name == "momenta" and target == "velocities":
+                columns[target] = None  # filled in below, once masses are known
+                momenta = values
+            else:
+                columns[target] = _column(
+                    reader, target, ptype, width, values, comment_line + 1
+                )
+    except FileFormatError as e:
+        if not plain:
+            raise
+        # without Properties: say what a line of a plain XYZ file holds
+        location = f"{e.path}:{e.line}: " if e.line is not None else f"{e.path}: "
+        message = str(e).removeprefix(location)
+        raise FileFormatError(
+            f"{message}; without Properties on the comment line, each line holds an "
+            "element symbol and x, y, z",
+            e.path,
+            e.line,
+        ) from None
     if momenta is not None:
         if "mass" in columns:
             masses = columns["mass"].to_numpy()

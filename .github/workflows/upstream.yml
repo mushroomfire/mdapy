@@ -1,0 +1,44 @@
+name: upstream
+
+# NumPy and polars are what mdapy stands on, and polars releases often. Every week,
+# and by hand, the tests run with their newest releases and with what comes next:
+# the nightly wheels of NumPy and the pre-releases of polars. A change that breaks
+# mdapy, or warns of one (pytest turns warnings into errors), fails here before it
+# reaches users, without waiting for a change of mdapy to run tests.yml.
+on:
+  schedule:
+    - cron: "17 3 * * 1" # Mondays, 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: pytest — ${{ matrix.versions }} NumPy and polars
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        versions: [newest, next]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Vulkan headers
+        run: sudo apt-get update -q && sudo apt-get install -y -q libvulkan-dev
+      - name: Install
+        run: pip install ".[dev]" -Ccmake.define.MDAPY_WERROR=ON
+      - name: Newest releases
+        if: matrix.versions == 'newest'
+        run: pip install --upgrade numpy polars
+      - name: Nightly NumPy and pre-release polars
+        if: matrix.versions == 'next'
+        run: |
+          pip install --upgrade --pre --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
+          pip install --upgrade --pre polars
+      - name: Versions
+        run: python -c "import numpy, polars; print('NumPy', numpy.__version__, 'polars', polars.__version__)"
+      - name: Test
+        run: pytest -q -n auto

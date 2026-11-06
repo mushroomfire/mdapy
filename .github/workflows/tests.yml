@@ -42,13 +42,15 @@ jobs:
       - run: ruff format --check .
 
   test:
-    name: pytest — ${{ matrix.os }}, py${{ matrix.python }}
+    name: pytest — ${{ matrix.os }}, py${{ matrix.python }}${{ matrix.lowest && ', lowest NumPy and polars' || '' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, python: "3.11", werror: "ON" }
+          # the oldest of everything: the lowest Python, NumPy and polars that mdapy
+          # accepts, so that its lower bounds are tested; the others take the newest
+          - { os: ubuntu-latest, python: "3.11", werror: "ON", lowest: true }
           - { os: ubuntu-latest, python: "3.14", werror: "ON" }
           - { os: macos-15, python: "3.13", werror: "ON" }
           # MSVC also warns inside third-party headers, so no -Werror here.
@@ -62,9 +64,20 @@ jobs:
       - name: Vulkan headers
         if: runner.os == 'Linux'
         run: sudo apt-get update -q && sudo apt-get install -y -q libvulkan-dev
+      # the lower bounds of the dependencies in pyproject.toml, as exact versions
+      - name: Lowest NumPy and polars
+        if: matrix.lowest
+        shell: bash
+        run: |
+          python -c "import tomllib; print('\n'.join(d.replace('>=', '==') for d in tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))" > lowest.txt
+          cat lowest.txt
+          echo "PIP_CONSTRAINT=$PWD/lowest.txt" >> "$GITHUB_ENV"
       - name: Install
         shell: bash
         run: pip install ".[dev]" -Ccmake.define.MDAPY_WERROR=${{ matrix.werror }}
+      - name: Versions
+        shell: bash
+        run: python -c "import numpy, polars; print('NumPy', numpy.__version__, 'polars', polars.__version__)"
       - name: Test
         shell: bash
         run: pytest -q -n auto

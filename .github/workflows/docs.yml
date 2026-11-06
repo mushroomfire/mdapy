@@ -1,18 +1,18 @@
 name: docs
 
 # Builds the documentation site on every pull request that touches it and publishes
-# it to GitHub Pages on every push to master. The docstrings of src/ are read without
-# importing MDAPY, so nothing is compiled. The built site travels as a workflow
-# artifact, so there is no gh-pages branch. Settings -> Pages -> Source: GitHub Actions.
+# it to GitHub Pages with every release, from its tag, so that the site describes the
+# version that pip installs, not what master holds for the next one. A run by hand
+# publishes the branch or tag it is run on (gh workflow run docs.yml --ref v2.0.0).
+# The docstrings of src/ are read without importing MDAPY, so nothing is compiled. The
+# built site travels as a workflow artifact, so there is no gh-pages branch.
+# Settings -> Pages -> Source: GitHub Actions; the environment github-pages allows
+# master and the tags v*.
 
 on:
   push:
-    branches: [master]
-    paths:
-      - "docs/**"
-      - "mkdocs.yml"
-      - "src/mdapy/**"
-      - ".github/workflows/docs.yml"
+    tags:
+      - "v*"
   pull_request:
     paths:
       - "docs/**"

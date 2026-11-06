@@ -31,6 +31,18 @@ A feature is merged only when it has all of the following:
 
 The maintainers write the [release notes](release-notes.md) when they merge it.
 
+## Releases
+
+A release is a tag `v` and its version on master, such as `v2.0.0`; CI builds the
+wheels, tests each of them and uploads them to PyPI. Releases follow the promises of
+[Compatibility](compatibility.md): a change to the public API waits for 3.0, and a
+replaced name keeps working and warns until then.
+
+The site of the documentation is published from the tag of each release, so that it
+describes the version `pip` installs, not the next one that master holds. A correction
+of the documentation is published with the next release, or at once by running the
+workflow `docs` on the tag by hand.
+
 ## Documentation layout
 
 The tabs follow what the reader is doing, and the directories of `docs/` follow the tabs:
@@ -43,7 +55,7 @@ The tabs follow what the reader is doing, and the directories of `docs/` follow 
 | User guide | `user-guide/` | one directory per area, each page one feature: `build/`, `analysis/`, `simulation/`, `mlip/`, `visualization/`, `interop/` |
 | Performance | `performance/` | timings of MDAPY and of other programs |
 | Reference | `reference/` | the Python API in `reference/api/`, units and conventions, elements, the glossary, the references, file formats |
-| About | `about/` | the release notes, reporting a problem, this page |
+| About | `about/` | the release notes, compatibility, reporting a problem, this page |
 
 Each feature has its own page, named after it (`eam.md`, `minimize.md`), in
 the section of its tab that fits it; closely tied classes, such as an

@@ -1,5 +1,16 @@
 # Release notes
 
+## 2.0.0rc1
+
+- [Compatibility](compatibility.md) says what 2.x promises from 2.0.0 on: code that works
+  keeps working, the API changes only with 3.0, a replaced name warns before it goes, and
+  a result changes only to fix a bug, named here.
+- Built packages for Linux on ARM (aarch64), tested like the others.
+- Python 3.15 is tested and supported.
+- The documentation is published from the tag of each release, so that it describes the
+  version `pip` installs.
+- `CITATION.cff` gives GitHub's "Cite this repository" the paper to cite.
+
 ## 2.0.0b1
 
 The beta of MDAPY 2.0: every feature planned for 2.0 is in, and until 2.0.0 only

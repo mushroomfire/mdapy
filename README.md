@@ -52,6 +52,10 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   `CommonNeighborAnalysis`. A `System` never changes in place, every analysis has the form
   `compute(system)` and returns NumPy arrays, and one unit system, Å, eV and ps, runs
   through everything.
+- **Stable.** From 2.0.0 on, code that works keeps working: the API changes only with
+  3.0, a replaced name warns long before it goes, and a result changes only to fix a bug,
+  named in the release notes. See
+  [Compatibility](https://mushroomfire.github.io/mdapy/about/compatibility/).
 - **Integrated.** One package and one `System`, from the first structure to the last
   picture. It converts systems to and from [ASE](https://wiki.fysik.dtu.dk/ase/),
   [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and

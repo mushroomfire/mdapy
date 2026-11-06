@@ -1,6 +1,9 @@
 # Release notes
 
-## 2.0.0b1 (in development)
+## 2.0.0b1
+
+The beta of MDAPY 2.0: every feature planned for 2.0 is in, and until 2.0.0 only
+documentation and bug fixes follow.
 
 - `render` puts its legend in a column of its own at the left of the picture and frames
   the scene beside it, so that the legend never covers the atoms or the box. See

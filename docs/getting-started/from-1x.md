@@ -100,7 +100,7 @@ See [Systems](../basics/system.md), [Changing a system](../basics/changing.md) a
 
 | MDAPY 1.x | MDAPY 2.0 |
 |---|---|
-| `system.build_neighbor(rc, max_neigh)` | `nl = mp.NeighborList.build(system, rc)`, then `compute(system, neighbors=nl)`; no `max_neigh` |
+| `system.build_neighbor(rc, max_neigh)` | `nl = mp.NeighborList.build(system, rc)`, then `compute(system, neighbors=nl)`; [no `max_neigh`](#what-20-does-otherwise) |
 | `system.build_nearest_neighbor(k)` | `mp.NeighborList.build(system, num_neighbors=k)` |
 | `system.build_voronoi_neighbor()` | `mp.NeighborList.build(system, voronoi=True)` |
 | `system.create_bonds(rc)` | `create_bonds(system, rc)`, from `mdapy.transform`: the bonds in the topology |
@@ -202,11 +202,46 @@ See [Calculators](../user-guide/simulation/calculators.md),
 See [Rendering](../user-guide/visualization/rendering.md) and
 [Plots](../user-guide/visualization/plots.md).
 
-## Not in 2.0
+## What 2.0 does otherwise
 
-- `mp.orthogonal_cell`, `system.set_pka`, `average_by_neighbor`, `BondStiffness`,
-  `Spline`, `split_xyz` and the k3d viewer `View` have no counterpart. `System.with_box`,
-  `System.with_columns`, `NeighborList` and SciPy do what they did.
-- `max_neigh` is gone everywhere: neighbor lists hold any number of neighbors.
-- `MDAPY_NUM_THREADS` sets the number of threads as before, and
-  `mp.set_num_threads(n)` changes it (see [Parallelism](../basics/parallelism.md)).
+**No `max_neigh`.** A neighbor list holds any number of neighbors for each atom, as one
+list of pairs. Nothing has to be guessed before the search, no atom loses neighbors to a
+limit set too low, a dense region and a gas share one list, and the memory follows the
+pairs there are. The same holds for every analysis, which takes no such limit either.
+
+**`split_xyz`**: a trajectory is read frame by frame, and each frame written to a file of
+its own:
+
+```python
+from mdapy.io import read_trajectory
+
+write("frames.xyz", [system, system])  # two frames in one file
+with read_trajectory("frames.xyz") as trajectory:
+    for k, frame in enumerate(trajectory):
+        write(f"frame_{k}.xyz", frame)
+```
+
+**`average_by_neighbor`**: a neighbor list gives it in a few lines of NumPy, here the
+mean of `csp` over each atom and its neighbors:
+
+```python
+import numpy as np
+import mdapy as mp
+
+nl = mp.NeighborList.build(system, 3.0)
+csp = system["csp"]
+total = csp + np.bincount(nl.i, weights=csp[nl.j], minlength=len(system))
+system = system.with_columns(csp_average=total / (nl.counts + 1))
+```
+
+**The notebook viewer `View`** is left out to keep MDAPY lean: `render` makes the
+picture and `show_image(render(system))` shows it in a notebook. A graphical
+application with fuller features is developed separately.
+
+**Coming in a later 2.x release**: `orthogonal_cell`, `set_pka`, `Spline` and
+`BondStiffness`. They will be additions, so code written for 2.0 keeps working (see
+[Compatibility](../about/compatibility.md)).
+
+**Threads**: `MDAPY_NUM_THREADS` sets the number of threads as in 1.x, and
+`mp.set_num_threads(n)` changes it while running (see
+[Parallelism](../basics/parallelism.md)).

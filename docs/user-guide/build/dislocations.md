@@ -153,7 +153,7 @@ normal to it and z along its line, and the Burgers vector the
 
 The dislocations of diamond lie on the glide set, between the planes of a
 pair; the bcc screw dislocation in its easy core. A `Dislocation(structure,
-orientation, burgers, partial=False, core=(0.5, 0.5))` of your own takes
+orientation, burgers, *, partial=False, core=(0.5, 0.5))` of your own takes
 any cubic structure, orientation and Burgers vector in the glide plane (in
 units of the lattice constant, in the axes of the cubic cell); `core` puts
 the line s rows of atoms along x from a row of the plane below it and t of

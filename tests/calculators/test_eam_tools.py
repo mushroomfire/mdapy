@@ -188,8 +188,8 @@ def test_an_average_of_one_element_is_that_element(tmp_path):
     potential = EAM(write_setfl(tmp_path / "a.eam.alloy"))
     copper = alloy(seed=4).with_columns(element=["Cu"] * 32)
     pure = potential.compute(copper, ALL)
-    for concentrations in ({"Cu": 1.0}, [1.0, 0.0]):
-        average = potential.average(concentrations)
+    for fractions in ({"Cu": 1.0}, [1.0, 0.0]):
+        average = potential.average(fractions)
         same_results(average.compute(copper, ALL), pure)
     # every atom is the average atom, whatever its element
     same_results(average.compute(alloy(seed=4), ALL), pure)
@@ -228,13 +228,13 @@ def test_average_tables(tmp_path):
 
 def test_average_errors(tmp_path):
     potential = EAM.zhou(["Cu", "Ni"])
-    for concentrations, message in (
+    for fractions, message in (
         ({"Cu": 0.5, "Al": 0.5}, r"has no \['Al'\]"),
-        ([0.5, 0.3, 0.2], "expected 2 concentrations"),
+        ([0.5, 0.3, 0.2], "expected 2 fractions"),
         ({"Cu": 0.7}, "sum to 1"),
         ([1.2, -0.2], "non-negative"),
     ):
         with pytest.raises(InvalidParameter, match=message):
-            potential.average(concentrations)
+            potential.average(fractions)
     with pytest.raises(InvalidParameter, match="already an average-atom"):
         potential.average([0.5, 0.5]).average([1.0])

@@ -196,7 +196,7 @@ A `CrystalClusters`:
 | Attribute | Type | Meaning |
 |---|---|---|
 | `structure` | (C,) int8 | the structure of each cluster, an index into `names` |
-| `size` | (C,) int64 | the number of atoms of each |
+| `sizes` | (C,) int64 | the number of atoms of each |
 | `orientation` | (C, 3, 3) float64 | the matrix that takes vectors of its lattice frame, in units of the lattice constant, to vectors in Å along the axes of the box |
 
 The lattice frame of a cubic crystal is that of its cubic cell; that of

@@ -26,12 +26,12 @@ _THRESHOLD = 1e-3
 
 
 def _gaussian_basis(
-    r_cut: float, n_max: int, l_max: int
+    cutoff: float, n_max: int, l_max: int
 ) -> tuple[np.ndarray, np.ndarray]:
     """The exponents of the Gaussian radial functions of each l, which decay
     to the threshold at lengths spaced evenly from 1 Å to the cutoff, and
     the Löwdin matrices that make each set orthonormal."""
-    ends = np.linspace(1.0, r_cut, n_max)
+    ends = np.linspace(1.0, cutoff, n_max)
     alphas = np.zeros((l_max + 1, n_max))
     betas = np.zeros((l_max + 1, n_max, n_max))
     for degree in range(l_max + 1):
@@ -42,7 +42,7 @@ def _gaussian_basis(
         if values.min() <= 0:
             raise InvalidParameter(
                 "the radial functions are linearly dependent: use fewer (n_max) "
-                "or a longer cutoff (r_cut)"
+                "or a longer cutoff"
             )
         alphas[degree] = alpha
         betas[degree] = (vectors / np.sqrt(values)) @ vectors.T
@@ -61,7 +61,7 @@ class SOAP:
         The elements, each a part of the descriptor; every atom must be one
         of them, so that systems of other compositions share the same
         layout.
-    r_cut : float64, optional
+    cutoff : float64, optional
         The cutoff of the radial functions in Å, above 1. Default 5.
     n_max : int32, optional
         The number of radial functions. Default 8.
@@ -77,11 +77,11 @@ class SOAP:
     def __init__(
         self,
         species: Sequence[str],
-        r_cut: float = 5.0,
+        cutoff: float = 5.0,
+        *,
         n_max: int = 8,
         l_max: int = 6,
         sigma: float = 0.5,
-        *,
         crossover: bool = True,
     ):
         names = [species] if isinstance(species, str) else list(species)
@@ -92,8 +92,8 @@ class SOAP:
                 raise InvalidParameter(f"unknown element {name!r} in species")
         if len(set(names)) != len(names):
             raise InvalidParameter("an element is given twice in species")
-        if not r_cut > 1:
-            raise InvalidParameter(f"r_cut must be above 1 Å, not {r_cut!r}")
+        if not cutoff > 1:
+            raise InvalidParameter(f"cutoff must be above 1 Å, not {cutoff!r}")
         for name, value, low, high in (
             ("n_max", n_max, 1, None),
             ("l_max", l_max, 0, 20),
@@ -114,20 +114,20 @@ class SOAP:
             raise InvalidParameter(f"sigma must be positive, not {sigma!r}")
         # by atomic number, as DScribe orders them
         self.species = tuple(sorted(names, key=SYMBOLS.index))
-        self.r_cut = float(r_cut)
+        self.cutoff = float(cutoff)
         self.n_max = int(n_max)
         self.l_max = int(l_max)
         self.sigma = float(sigma)
         self.crossover = bool(crossover)
         self.__alphas, self.__betas = _gaussian_basis(
-            self.r_cut, self.n_max, self.l_max
+            self.cutoff, self.n_max, self.l_max
         )
 
     @property
-    def cutoff(self) -> float:
+    def reach(self) -> float:
         """The reach of the neighbors in Å: the cutoff and the distance over
         which the Gaussian of a neighbor decays to a thousandth."""
-        return self.r_cut + self.sigma * math.sqrt(-2 * math.log(_THRESHOLD))
+        return self.cutoff + self.sigma * math.sqrt(-2 * math.log(_THRESHOLD))
 
     @property
     def dimension(self) -> int:
@@ -152,7 +152,7 @@ class SOAP:
         system : System
             The atoms, with an ``element`` column of the species.
         neighbors : NeighborList, optional
-            A neighbor list of this system reaching at least ``cutoff``.
+            A neighbor list of this system reaching at least ``reach``.
 
         Returns
         -------
@@ -179,10 +179,10 @@ class SOAP:
                 f"element {missing[0]} is not among the species {self.species}"
             )
         species = np.array([index[e] for e in elements], dtype=np.int32)
-        neighbors = _given_or_built(system, self.cutoff, neighbors)
+        neighbors = _given_or_built(system, self.reach, neighbors)
         with neighbors._reading():
-            # the pairs within the cutoff, of a list that may reach further
-            keep = neighbors.distances < self.cutoff
+            # the pairs within the reach, of a list that may reach further
+            keep = neighbors.distances < self.reach
             owner = np.repeat(np.arange(len(system)), np.diff(neighbors.offsets))
             counts = np.bincount(owner[keep], minlength=len(system))
             offsets = np.concatenate([[0], np.cumsum(counts)])
@@ -224,7 +224,7 @@ class SOAP:
             species,
             len(self.species),
             *frames.arrays(),
-            self.cutoff,
+            self.reach,
             self.n_max,
             self.l_max,
             1.0 / (2.0 * self.sigma**2),
@@ -235,6 +235,6 @@ class SOAP:
 
     def __repr__(self) -> str:
         return (
-            f"SOAP({self.species}, r_cut={self.r_cut}, n_max={self.n_max}, "
+            f"SOAP({self.species}, cutoff={self.cutoff}, n_max={self.n_max}, "
             f"l_max={self.l_max}, sigma={self.sigma})"
         )

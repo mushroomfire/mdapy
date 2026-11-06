@@ -90,8 +90,8 @@ be alone, in `predict` and `committee`; other models frame by frame.
 | Function | Parameters |
 |---|---|
 | `predict(frames, calculator)` | the frames, their labels the info `energy` and `virial` (eV) and the column `forces` (eV/Å) as extended XYZ training sets hold them; and the model |
-| `read_gpumd(folder, kind="train", *, xyz=None)` | the folder of `energy_train.out`, `force_train.out` and `virial_train.out`, as GPUMD writes them when it trains a NEP model and torchnep when it trains or predicts; `kind="test"` for those of the test set; and the extended XYZ file of the frames, for their numbers of atoms, by default `train.xyz` (or `test.xyz`) in the folder |
-| `Predictions.worst(count, by="force_rmse")` | how many frames, and the column of `table()` to rank them by: `energy_error` (by its size), `force_rmse`, `force_max_error` or `virial_rmse` |
+| `read_gpumd(directory, kind="train", *, xyz=None)` | the directory of `energy_train.out`, `force_train.out` and `virial_train.out`, as GPUMD writes them when it trains a NEP model and torchnep when it trains or predicts; `kind="test"` for those of the test set; and the extended XYZ file of the frames, for their numbers of atoms, by default `train.xyz` (or `test.xyz`) in the directory |
+| `Predictions.worst(count, *, by="force_rmse")` | how many frames, and the column of `table()` to rank them by: `energy_error` (by its size), `force_rmse`, `force_max_error` or `virial_rmse` |
 
 ## Results
 

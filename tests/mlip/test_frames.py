@@ -119,7 +119,7 @@ def test_predict_committee_descriptors(frames, nep, tmp_path):
     np.testing.assert_allclose(fast.forces, slow.forces, rtol=1e-12, atol=1e-12)
     np.testing.assert_allclose(fast.energy, slow.energy, rtol=1e-10, atol=1e-12)
     np.testing.assert_array_equal(fast.max_force, slow.max_force)
-    soap = SOAP(["Cu", "Ni"], r_cut=4.5, n_max=4, l_max=3)
+    soap = SOAP(["Cu", "Ni"], cutoff=4.5, n_max=4, l_max=3)
     for model in (nep, soap):
         np.testing.assert_allclose(
             structure_descriptors(labeled, model),

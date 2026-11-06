@@ -44,7 +44,7 @@ def faces_of(result, m):
 )
 def test_polyhedra_of_crystals(structure, a, options, triangles, volume):
     crystal = build_crystal(structure, a, elements="Fe", repeat=(3, 3, 3))
-    result = CoordinationPolyhedra(**options).compute(crystal, [0, 5])
+    result = CoordinationPolyhedra(**options).compute(crystal, atoms=[0, 5])
     assert result.atoms.tolist() == [0, 5]
     np.testing.assert_allclose(result.volumes, volume, rtol=1e-10)
     for m in range(2):
@@ -74,11 +74,11 @@ def test_octahedra_of_rock_salt_by_bonds():
     bonds = np.column_stack([i, pairs.j])[i < pairs.j]
     bonded = salt.with_topology(mdapy.Topology(bonds=bonds))
     sodium = np.asarray(salt["element"]) == "Na"
-    result = CoordinationPolyhedra(bonds=True).compute(bonded, sodium)
+    result = CoordinationPolyhedra(bonds=True).compute(bonded, atoms=sodium)
     assert len(result.atoms) == sodium.sum()
     np.testing.assert_allclose(result.volumes, 4 / 3 * (5.64 / 2) ** 3, rtol=1e-10)
     assert len(result.owners) == 8 * sodium.sum()
-    by_cutoff = CoordinationPolyhedra(3.0).compute(salt, sodium)
+    by_cutoff = CoordinationPolyhedra(3.0).compute(salt, atoms=sodium)
     np.testing.assert_allclose(by_cutoff.volumes, result.volumes, rtol=1e-12)
 
 
@@ -102,7 +102,7 @@ def test_as_ovito():
         positions=crystal["positions"] + rng.normal(0, 0.05, (len(crystal), 3))
     )
     chosen = [0, 7, 50, 107]
-    result = CoordinationPolyhedra(3.0).compute(shaken, chosen)
+    result = CoordinationPolyhedra(3.0).compute(shaken, atoms=chosen)
     pipeline = Pipeline(source=ovito_source(shaken))
     pipeline.modifiers.append(CreateBondsModifier(cutoff=3.0))
     pipeline.modifiers.append(
@@ -133,7 +133,7 @@ def test_errors():
     with pytest.raises(MissingProperty, match="no bonds"):
         CoordinationPolyhedra(bonds=True).compute(crystal)
     with pytest.raises(InvalidParameter, match="mask or indices"):
-        CoordinationPolyhedra(3.0).compute(crystal, [99])
+        CoordinationPolyhedra(3.0).compute(crystal, atoms=[99])
     # fewer than four neighbors: no faces and no volume
     line = mdapy.System(
         [[0.0, 0, 0], [2.0, 0, 0], [4.0, 0, 0]],

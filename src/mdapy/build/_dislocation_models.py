@@ -6,7 +6,7 @@
 """Models of straight dislocations in cubic crystals from anisotropic
 elasticity: a cylinder with a fixed shell, and a periodic quadrupole."""
 
-from dataclasses import dataclass
+from dataclasses import KW_ONLY, dataclass
 from itertools import product
 from typing import Any
 
@@ -57,6 +57,7 @@ class Dislocation:
     structure: str
     orientation: tuple
     burgers: tuple
+    _: KW_ONLY
     partial: bool = False
     core: tuple = (0.5, 0.5)
 

@@ -245,7 +245,7 @@ def thermal_elastic_constants(
                     displacement,
                     symmetry,
                     reference=cell,
-                ).thermal(temperatures, mesh)
+                ).thermal(temperatures, mesh=mesh)
                 free = free + n * vibrations.free_energy
             # the strains that a rotation of the crystal makes from this one
             for rotation in rotations:

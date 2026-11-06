@@ -6,7 +6,9 @@
 """Neighbor search, selections grown by neighbors, and atoms too close."""
 
 from mdapy.neighbor._expand import expand_selection
-from mdapy.neighbor._neighbor_list import NeighborList
+
+# reached as mdapy.NeighborList; imported here for the modules of mdapy
+from mdapy.neighbor._neighbor_list import NeighborList as NeighborList
 from mdapy.neighbor._overlapping import find_overlapping
 
-__all__ = ["NeighborList", "expand_selection", "find_overlapping"]
+__all__ = ["expand_selection", "find_overlapping"]

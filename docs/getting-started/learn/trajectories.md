@@ -40,7 +40,7 @@ print(len(particle))
 ## Heat it
 
 Give the atoms velocities, let them settle at 300 K, then raise the temperature
-to 1500 K over 60 ps. `frames=500` keeps the atoms every 500 steps:
+to 1500 K over 60 ps. `save_every=500` keeps the atoms every 500 steps:
 
 ```python
 from mdapy.simulation import MolecularDynamics
@@ -48,7 +48,7 @@ from mdapy.simulation import MolecularDynamics
 with MolecularDynamics(particle, potential, timestep=0.002) as md:
     md.velocities(600, seed=1)
     md.run(2500, ensemble="nvt", temperature=300)
-    md.run(30000, ensemble="nvt", temperature=(300, 1500), frames=500)
+    md.run(30000, ensemble="nvt", temperature=(300, 1500), save_every=500)
     frames, thermo = md.frames, md.thermo
 print(len(frames), frames[0])
 ```

@@ -145,7 +145,7 @@ Along an axis where the box is no longer than the box of `unit`, the
 polycrystal is columnar: the seeds lie in one plane, every grain spans the
 axis, the box takes the length of `unit` along it, and the grains turn about
 it only. Both boxes must then be orthogonal. `random_rotations(count,
-seed=None)` gives rotations uniformly over all orientations.
+*, seed=None)` gives rotations uniformly over all orientations.
 
 `rotations_about(axis, angles)` gives the rotations about one axis by angles in
 degrees, for the grains of a columnar polycrystal.

@@ -45,7 +45,7 @@ class SpatialBinning:
 
     Parameters
     ----------
-    property : str
+    column : str
         A column, a component such as "positions.z", or an expression over
         the columns.
     bins : int32 or sequence of int32
@@ -59,7 +59,7 @@ class SpatialBinning:
 
     def __init__(
         self,
-        property: str,
+        column: str,
         bins: int | Sequence[int],
         *,
         axes: int | str | Sequence[int | str] = 2,
@@ -90,7 +90,7 @@ class SpatialBinning:
             raise InvalidParameter(
                 f"reduction must be one of {REDUCTIONS}, not {reduction!r}"
             )
-        self.property = str(property)
+        self.column = str(column)
         self.axes = tuple(indices)
         self.bins = tuple(int(n) for n in counts)
         self.reduction = reduction
@@ -109,7 +109,7 @@ class SpatialBinning:
         SpatialBinningResult
             The values, the counts and the centers of the bins.
         """
-        raw = np.asarray(system[self.property], dtype=float)
+        raw = np.asarray(system[self.column], dtype=float)
         values = raw.reshape(len(system), int(np.prod(raw.shape[1:])))
         box = system.box
         fractional = box.to_fractional(system["positions"])[:, self.axes]
@@ -153,6 +153,6 @@ class SpatialBinning:
 
     def __repr__(self) -> str:
         return (
-            f"SpatialBinning({self.property!r}, {self.bins!r}, axes={self.axes!r}, "
+            f"SpatialBinning({self.column!r}, {self.bins!r}, axes={self.axes!r}, "
             f"reduction={self.reduction!r})"
         )

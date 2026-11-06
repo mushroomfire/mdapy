@@ -113,7 +113,7 @@ class Predictions(Result):
             for name, v in (("energy", energy), ("forces", forces), ("virial", virial))
         }
 
-    def worst(self, count: int, by: str = "force_rmse") -> np.ndarray:
+    def worst(self, count: int, *, by: str = "force_rmse") -> np.ndarray:
         """The frames of the largest errors.
 
         Parameters
@@ -253,21 +253,21 @@ def _atom_counts(path: Path) -> np.ndarray:
 
 
 def read_gpumd(
-    folder: str | Path, kind: str = "train", *, xyz: str | Path | None = None
+    directory: str | Path, kind: str = "train", *, xyz: str | Path | None = None
 ) -> Predictions:
     """The predictions of a NEP model against its training or test set,
     from the files GPUMD or torchnep write: energy, force and virial.
 
     Parameters
     ----------
-    folder : str or Path
-        The folder of ``energy_train.out``, ``force_train.out`` and
+    directory : str or Path
+        The directory of ``energy_train.out``, ``force_train.out`` and
         ``virial_train.out`` (or ``_test``).
     kind : str, optional
         ``"train"`` or ``"test"``. Default train.
     xyz : str or Path, optional
         The extended XYZ file of the frames, whose frames give the number of
-        atoms of each. Default ``train.xyz`` (or ``test.xyz``) in the folder.
+        atoms of each. Default ``train.xyz`` (or ``test.xyz``) in the directory.
 
     Returns
     -------
@@ -277,12 +277,12 @@ def read_gpumd(
     """
     if kind not in ("train", "test"):
         raise InvalidParameter(f"kind must be train or test, not {kind!r}")
-    folder = Path(folder)
+    directory = Path(directory)
     try:
-        energy = np.loadtxt(folder / f"energy_{kind}.out", ndmin=2)
-        forces = np.loadtxt(folder / f"force_{kind}.out", ndmin=2)
-        written = np.loadtxt(folder / f"virial_{kind}.out", ndmin=2)
-        xyz = Path(xyz) if xyz is not None else folder / f"{kind}.xyz"
+        energy = np.loadtxt(directory / f"energy_{kind}.out", ndmin=2)
+        forces = np.loadtxt(directory / f"force_{kind}.out", ndmin=2)
+        written = np.loadtxt(directory / f"virial_{kind}.out", ndmin=2)
+        xyz = Path(xyz) if xyz is not None else directory / f"{kind}.xyz"
         atoms = _atom_counts(xyz)
     except (OSError, ValueError, StopIteration) as error:
         raise InvalidParameter(

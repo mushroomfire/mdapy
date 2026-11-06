@@ -47,7 +47,7 @@ with plot.style():
 runs from 1000 and 1150 K froze, and the one from 1322 K kept both phases and gave 1326 K.
 Here is its last stretch.*
 
-The crystal is repeated to about `atoms` atoms in a box three times as long along its
+The crystal is repeated to about `num_atoms` atoms in a box three times as long along its
 third vector as along the others; the interface lies across that vector. Each run:
 
 1. brings the crystal to the temperature and the pressure and takes its mean box;
@@ -73,8 +73,8 @@ crystal has: 12 in fcc and hcp, 14 in bcc, 4 in diamond.
 | `potential` | `LAMMPS` | | | the interaction |
 | `temperature` | float64 | | K | the first guess |
 | `pressure` | float64 | 0 | GPa | the pressure |
-| `atoms` | int32 | 16000 | | about how many atoms the box holds; fewer for a slow potential |
-| `repeat` | (3,) int32 | | | repeats of `crystal` along its vectors, instead of `atoms`; the third is made even |
+| `num_atoms` | int32 | 16000 | | about how many atoms the box holds; fewer for a slow potential |
+| `repeat` | (3,) int32 | | | repeats of `crystal` along its vectors, instead of `num_atoms`; the third is made even |
 | `timestep` | float64 | 0.001 | ps | the time step |
 | `equilibration` | float64 | 10 | ps | the time of each stage before the phases meet |
 | `coexistence` | float64 | 500 | ps | the time of each stretch of the two phases; a larger box needs longer |
@@ -87,7 +87,7 @@ crystal has: 12 in fcc and hcp, 14 in bcc, 4 in diamond.
 
 The size and the time matter. In a small box the temperature and the interface fluctuate
 too much, and in a large one heat needs longer to cross it. A slow potential may need less
-than the default, through `atoms`, `repeat` and `coexistence`, at the price of a larger
+than the default, through `num_atoms`, `repeat` and `coexistence`, at the price of a larger
 spread. For the copper above, from guesses of 1000, 1327 and 1700 K:
 
 | Atoms | `coexistence` (ps) | Melting point (K) |

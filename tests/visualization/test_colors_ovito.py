@@ -58,7 +58,7 @@ def test_color_coding(name):
             end_value=z.max(),
         ),
     )
-    ours = color_coding(system, "positions.z", name)
+    ours = color_coding(system, "positions.z", colormap=name)
     np.testing.assert_allclose(
         ours["color"], np.asarray(data.particles.colors), atol=1e-6
     )
@@ -68,7 +68,7 @@ def test_color_coding(name):
             property="Position.X", gradient=gradient, start_value=2.0, end_value=8.0
         ),
     )
-    ours = color_coding(system, "positions.x", name, (2.0, 8.0))
+    ours = color_coding(system, "positions.x", colormap=name, value_range=(2.0, 8.0))
     np.testing.assert_allclose(
         ours["color"], np.asarray(data.particles.colors), atol=1e-6
     )
@@ -91,7 +91,9 @@ def test_color_coding_and_assign_color_of_a_selection():
             only_selected=True,
         ),
     )
-    ours = color_coding(system, "positions.y", "jet", (7.0, 14.0), atoms=chosen)
+    ours = color_coding(
+        system, "positions.y", colormap="jet", value_range=(7.0, 14.0), atoms=chosen
+    )
     np.testing.assert_allclose(
         ours["color"][chosen], np.asarray(data.particles.colors)[chosen], atol=1e-6
     )

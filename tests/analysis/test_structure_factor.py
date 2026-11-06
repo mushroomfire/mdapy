@@ -132,9 +132,9 @@ def test_ideal_gas_threads_and_errors():
     with pytest.raises(InvalidParameter, match="method must be one of"):
         StructureFactor(5.0, method="fft")
     with pytest.raises(InvalidParameter, match="Debye method only"):
-        StructureFactor(5.0, r_max=10.0)
+        StructureFactor(5.0, cutoff=10.0)
     with pytest.raises(InvalidParameter, match="Debye method only"):
-        StructureFactor(5.0, method="debye", r_max=0.0)
+        StructureFactor(5.0, method="debye", cutoff=0.0)
     with pytest.raises(InvalidParameter, match="takes no neighbor list"):
         factor.compute(gas, neighbors=mdapy.NeighborList.build(gas, 3.0))
 
@@ -205,16 +205,16 @@ def test_debye_matches_numpy():
     system = crystal("fcc", 3.6, (2, 2, 2), jitter=0.3, seed=7)
     rng = np.random.default_rng(8)
     system = system.with_columns(element=rng.choice(["Cu", "Ni"], len(system)))
-    result = StructureFactor(6.0, bins=30, method="debye", r_max=9.0).compute(system)
+    result = StructureFactor(6.0, bins=30, method="debye", cutoff=9.0).compute(system)
     s, fz = debye_reference(system, result.q, 9.0, ("Ni", "Cu"))
     assert result.vectors is None and result.method == "debye"
     np.testing.assert_allclose(result.s, s, rtol=1e-9, atol=1e-12)
     for pair, value in result.faber_ziman.items():
         np.testing.assert_allclose(value, fz[pair], rtol=1e-9, atol=1e-12)
     check_sum_rule(result)
-    # a neighbor list gives the same, and r_max defaults to half the box
+    # a neighbor list gives the same, and the cutoff defaults to half the box
     nl = mdapy.NeighborList.build(system, 9.0)
-    given = StructureFactor(6.0, bins=30, method="debye", r_max=9.0).compute(
+    given = StructureFactor(6.0, bins=30, method="debye", cutoff=9.0).compute(
         system, neighbors=nl
     )
     np.testing.assert_allclose(given.s, result.s, rtol=1e-12)
@@ -222,15 +222,15 @@ def test_debye_matches_numpy():
     np.testing.assert_allclose(
         half.s, debye_reference(system, half.q, 3.6, ("Ni", "Cu"))[0], rtol=1e-9
     )
-    assert repr(StructureFactor(6.0, method="debye", r_max=9.0)) == (
-        "StructureFactor(q_max=6.0, bins=200, method='debye', r_max=9.0)"
+    assert repr(StructureFactor(6.0, method="debye", cutoff=9.0)) == (
+        "StructureFactor(q_max=6.0, bins=200, method='debye', cutoff=9.0)"
     )
 
 
 def test_debye_of_an_ideal_gas():
     rng = np.random.default_rng(4)
     gas = mdapy.System(rng.random((3000, 3)) * 30, mdapy.Box(30.0), elements="Ar")
-    result = StructureFactor(8.0, bins=40, method="debye", r_max=10.0).compute(gas)
+    result = StructureFactor(8.0, bins=40, method="debye", cutoff=10.0).compute(gas)
     assert np.abs(result.s[10:] - 1.0).max() < 0.05
 
 

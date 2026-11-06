@@ -3,29 +3,13 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Core building blocks: the data model, thread control and index type."""
+"""The data model and its parts: the box of LAMMPS and the base of results.
 
-from mdapy.core.box import Box, LammpsBox
-from mdapy.core.indices import index_dtype
+Box, System, Topology, the threads and the index type are reached from the
+top level, as ``mdapy.Box``.
+"""
+
+from mdapy.core.box import LammpsBox
 from mdapy.core.result import Result
-from mdapy.core.system import System
-from mdapy.core.threads import (
-    CancelToken,
-    get_num_threads,
-    num_threads,
-    set_num_threads,
-)
-from mdapy.core.topology import Topology
 
-__all__ = [
-    "Box",
-    "System",
-    "Topology",
-    "LammpsBox",
-    "Result",
-    "CancelToken",
-    "get_num_threads",
-    "set_num_threads",
-    "num_threads",
-    "index_dtype",
-]
+__all__ = ["LammpsBox", "Result"]

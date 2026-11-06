@@ -12,7 +12,7 @@ room temperature:
 import time
 import numpy as np
 from mdapy.build import build_crystal
-from mdapy.neighbor import NeighborList
+from mdapy import NeighborList
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(30, 30, 30))
 rng = np.random.default_rng(0)

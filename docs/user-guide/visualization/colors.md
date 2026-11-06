@@ -6,7 +6,7 @@ coloring starts from:
 
 | Function | Colors | As OVITO's |
 |---|---|---|
-| `color_coding(system, column, colormap="rainbow", value_range=None, *, atoms=None)` | by the values of a column through a colormap | color coding |
+| `color_coding(system, column, *, colormap="rainbow", value_range=None, atoms=None)` | by the values of a column through a colormap | color coding |
 | `color_by_type(system, column, *, atoms=None)` | one color for each value of a column | color by type |
 | `assign_color(system, color, *, atoms=None)` | in one color | assign color |
 
@@ -91,14 +91,14 @@ column; its other columns as they are.
 
 ## The colors and radii of atoms
 
-`atom_colors(system, color=None, *, colormap_name="viridis",
+`atom_colors(system, color=None, *, colormap="viridis",
 value_range=None, elements=None)` gives the (N, 3) colors `render` draws:
 those of `color` as [`render`](rendering.md#parameters) takes it, by default
 the `color` column, or without one the colors of the elements, those given
 in `elements`, such as `{"Cu": "#d4875a"}`, in place of their own.
-`atom_radii(system, radius="display", *, elements=None, scale=1.0)` gives
+`atom_radii(system, kind="display", *, elements=None, scale=1.0)` gives
 the (N,) radii in Å: the `radius` column, or without one those of the
-elements (`"display"`, `"covalent"` or `"vdw"`), those given in `elements`
+elements of that kind (`"display"`, `"covalent"` or `"vdw"`), those given in `elements`
 in place of their own; each times `scale`.
 
 A system with a `type` column and no `element` column, as a LAMMPS dump of

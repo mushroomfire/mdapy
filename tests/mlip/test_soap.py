@@ -34,7 +34,7 @@ def alloy(pbc=True, seed=0, n=90):
 
 @pytest.mark.parametrize("pbc", [True, False])
 @pytest.mark.parametrize(
-    "r_cut, n_max, l_max, sigma, crossover",
+    "cutoff, n_max, l_max, sigma, crossover",
     [
         (4.0, 4, 3, 0.5, True),
         (5.0, 8, 6, 0.5, True),
@@ -42,7 +42,7 @@ def alloy(pbc=True, seed=0, n=90):
         (3.0, 2, 0, 0.3, True),
     ],
 )
-def test_as_dscribe(pbc, r_cut, n_max, l_max, sigma, crossover):
+def test_as_dscribe(pbc, cutoff, n_max, l_max, sigma, crossover):
     """DScribe's SOAP with its Gaussian radial functions, of every atom;
     species absent from the system take their places in the layout."""
     pytest.importorskip("dscribe")
@@ -52,10 +52,12 @@ def test_as_dscribe(pbc, r_cut, n_max, l_max, sigma, crossover):
 
     system = alloy(pbc)
     species = ["Al", "Cu", "Ni", "Fe"]
-    ours = SOAP(species, r_cut, n_max, l_max, sigma, crossover=crossover)
+    ours = SOAP(
+        species, cutoff, n_max=n_max, l_max=l_max, sigma=sigma, crossover=crossover
+    )
     theirs = Reference(
         species=species,
-        r_cut=r_cut,
+        r_cut=cutoff,
         n_max=n_max,
         l_max=l_max,
         sigma=sigma,
@@ -71,7 +73,7 @@ def test_invariance():
     """The same descriptors for a turned, moved or reordered system, and for
     each copy of a replicated one."""
     system = alloy()
-    soap = SOAP(["Cu", "Ni", "Al"], 4.5, 6, 6)
+    soap = SOAP(["Cu", "Ni", "Al"], 4.5, n_max=6, l_max=6)
     found = soap.descriptors(system)
     q, _ = np.linalg.qr(np.random.default_rng(1).normal(size=(3, 3)))
     q *= np.sign(np.linalg.det(q))
@@ -94,7 +96,7 @@ def test_crystals_and_frames():
     tells fcc and bcc apart; frames of whole structures, chosen far apart."""
     fcc = build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 3))
     bcc = build_crystal("bcc", 2.87, elements="Cu", repeat=(4, 4, 4))
-    soap = SOAP(["Cu"], 5.0, 6, 6)
+    soap = SOAP(["Cu"], 5.0, n_max=6, l_max=6)
     a, b = soap.descriptors(fcc), soap.descriptors(bcc)
     np.testing.assert_allclose(
         a, np.broadcast_to(a[0], a.shape), rtol=0, atol=1e-12 * a.max()
@@ -108,19 +110,21 @@ def test_crystals_and_frames():
 
 def test_neighbors_threads_and_repr():
     system = alloy(seed=4)
-    soap = SOAP(["Al", "Cu", "Ni"], 4.0, 4, 4)
+    soap = SOAP(["Al", "Cu", "Ni"], 4.0, n_max=4, l_max=4)
     found = soap.descriptors(system)
-    longer = mdapy.NeighborList.build(system, soap.cutoff + 1.0)
+    longer = mdapy.NeighborList.build(system, soap.reach + 1.0)
     np.testing.assert_allclose(
         soap.descriptors(system, neighbors=longer), found, rtol=1e-12, atol=1e-14
     )
     with mdapy.num_threads(1):
         np.testing.assert_array_equal(soap.descriptors(system), found)
-    assert soap.cutoff == pytest.approx(4.0 + 0.5 * np.sqrt(-2 * np.log(1e-3)))
+    assert soap.cutoff == 4.0
+    assert soap.reach == pytest.approx(4.0 + 0.5 * np.sqrt(-2 * np.log(1e-3)))
     assert soap.dimension == 3 * 4 * (3 * 4 + 1) // 2 * 5
     assert SOAP("Cu", crossover=False).species == ("Cu",)
     assert (
-        repr(soap) == "SOAP(('Al', 'Ni', 'Cu'), r_cut=4.0, n_max=4, l_max=4, sigma=0.5)"
+        repr(soap)
+        == "SOAP(('Al', 'Ni', 'Cu'), cutoff=4.0, n_max=4, l_max=4, sigma=0.5)"
     )
 
 
@@ -129,13 +133,13 @@ def test_errors():
         ({"species": []}, "at least one"),
         ({"species": ["Xx"]}, "unknown element"),
         ({"species": ["Cu", "Cu"]}, "twice"),
-        ({"species": ["Cu"], "r_cut": 1.0}, "r_cut"),
+        ({"species": ["Cu"], "cutoff": 1.0}, "cutoff"),
         ({"species": ["Cu"], "n_max": 0}, "n_max"),
         ({"species": ["Cu"], "n_max": 2.5}, "n_max"),
         ({"species": ["Cu"], "l_max": 21}, "l_max"),
         ({"species": ["Cu"], "l_max": True}, "l_max"),
         ({"species": ["Cu"], "sigma": 0}, "sigma"),
-        ({"species": ["Cu"], "r_cut": 1.5, "n_max": 40}, "linearly dependent"),
+        ({"species": ["Cu"], "cutoff": 1.5, "n_max": 40}, "linearly dependent"),
     ]:
         with pytest.raises(InvalidParameter, match=match):
             SOAP(**kwargs)

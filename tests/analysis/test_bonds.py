@@ -464,7 +464,7 @@ def test_bond_lengths_by_hand():
     step -= 8.0 * np.round(step / 8.0)
     lengths = np.linalg.norm(step, axis=1)
     result = BondLengthDistribution(bins=7).compute(system)
-    np.testing.assert_allclose(result.lengths, lengths, rtol=1e-14)
+    np.testing.assert_allclose(result.bond_lengths, lengths, rtol=1e-14)
     edges = np.linspace(0, lengths.max(), 8)
     np.testing.assert_array_equal(result.counts, np.histogram(lengths, edges)[0])
     np.testing.assert_allclose(result.edges, edges)
@@ -483,7 +483,10 @@ def test_bond_lengths_by_hand():
     # a cutoff leaves the longer bonds out
     short = BondLengthDistribution(bins=4, cutoff=2.0).compute(system)
     assert short.counts.sum() == (lengths <= 2.0).sum()
-    assert "cutoff=2.0" in repr(BondLengthDistribution(4, 2.0))
+    assert (
+        repr(BondLengthDistribution(2.0, 4))
+        == "BondLengthDistribution(cutoff=2.0, bins=4)"
+    )
 
 
 def test_bond_lengths_errors():

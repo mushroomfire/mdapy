@@ -12,7 +12,7 @@ from mdapy.build import build_crystal, random_alloy
 crystal = build_crystal("fcc", 3.6, elements="Cu", repeat=(5, 5, 5))
 system = random_alloy(crystal, {"Cu": 0.5, "Ni": 0.5}, seed=0)
 
-rdf = RadialDistributionFunction(r_max=8.0, bins=160).compute(system)
+rdf = RadialDistributionFunction(cutoff=8.0, bins=160).compute(system)
 rdf.r, rdf.g  # bin centers in Å and g(r)
 rdf.pair("Cu", "Ni")  # a partial function
 rdf.coordination[-1]  # mean number of neighbors closer than 8 Å
@@ -30,7 +30,7 @@ alloy = random_alloy(
 )
 shake = np.random.default_rng(0).normal(0, 0.12, (len(alloy), 3))
 hot = alloy.with_columns(positions=alloy["positions"] + shake)
-partials = RadialDistributionFunction(r_max=8.0, bins=160).compute(hot)
+partials = RadialDistributionFunction(cutoff=8.0, bins=160).compute(hot)
 with plot.style():
     fig, ax = plot.figure("single")
     plot.rdf(partials, ax=ax, partial=True)
@@ -47,12 +47,12 @@ a/√2, a, a√(3/2), a√2 and beyond.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `r_max` | float64 | | Å | largest distance; it may exceed half the box, periodic images count |
-| `bins` | int32 | 200 | | number of bins of equal width from 0 to `r_max` |
+| `cutoff` | float64 | | Å | largest distance; it may exceed half the box, periodic images count |
+| `bins` | int32 | 200 | | number of bins of equal width from 0 to `cutoff` |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list
-must reach `r_max`; without one, the pairs are counted as they are found,
+must reach `cutoff`; without one, the pairs are counted as they are found,
 never stored. Partial functions need an `element` column.
 
 ## Results
@@ -70,7 +70,7 @@ A `RadialDistributionResult`:
 
 ## Errors
 
-The constructor raises `InvalidParameter` for an `r_max` that is not
+The constructor raises `InvalidParameter` for a `cutoff` that is not
 positive or fewer than one bin; `compute` raises it for a neighbor list that
 does not fit, and `pair` for a pair of elements without a function.
 

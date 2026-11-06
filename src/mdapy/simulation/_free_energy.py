@@ -292,7 +292,7 @@ def _equilibrate(
     pressure: float | None,
     barostat: str,
     counter: _Progress,
-    frames: int | None = None,
+    save_every: int | None = None,
 ) -> None:
     done = md.step
     if pressure is None:
@@ -301,7 +301,7 @@ def _equilibrate(
             ensemble="nvt",
             temperature=temperature,
             thermo=max(steps // 200, 1),
-            frames=frames,
+            save_every=save_every,
             cancel=counter.cancel,
         )
     else:
@@ -312,7 +312,7 @@ def _equilibrate(
             pressure=pressure,
             barostat=barostat,
             thermo=max(steps // 200, 1),
-            frames=frames,
+            save_every=save_every,
             cancel=counter.cancel,
         )
     counter.add(md.step - done)
@@ -334,7 +334,7 @@ def _spring_constants(
             steps,
             ensemble="nve",
             thermo=steps,
-            frames=max(steps // 50, 1),
+            save_every=max(steps // 50, 1),
             cancel=counter.cancel,
         )
         counter.add(md.step - before)
@@ -614,7 +614,7 @@ def _melted(
             pressure,
             "iso",
             counter,
-            frames=max(steps // 50, 1),
+            save_every=max(steps // 50, 1),
         )
         box = start.box if pressure is None else _mean_box(md.frames)
         enthalpy, volume = _thermal_means(md.thermo[recorded:], pressure, n)
@@ -1035,7 +1035,7 @@ def _solid_state(
             pressure,
             barostat,
             counter,
-            frames=max(steps // 50, 1),
+            save_every=max(steps // 50, 1),
         )
         box = _mean_box(md.frames)
         enthalpy, volume = _thermal_means(md.thermo, pressure, n)

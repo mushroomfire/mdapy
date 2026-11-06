@@ -8,7 +8,7 @@
 
 ::: mdapy.Topology
 
-::: mdapy.core.box.LammpsBox
+::: mdapy.core.LammpsBox
 
 ## Files
 

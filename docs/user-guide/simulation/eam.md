@@ -50,7 +50,7 @@ minimum gives the bulk modulus.*
 | `compute(system, properties, *, neighbors=None, progress=None, cancel=None)` | as every calculator, with the `progress=` and `cancel=` of [Parallelism](../../basics/parallelism.md#progress-and-cancellation) |
 | `write(path)` | writes the potential as an `eam/alloy` file, which LAMMPS reads and which reads back to the same tables |
 | `EAM.zhou(elements, *, nr=2000, nrho=2000)` | the potential of Zhou, Johnson and Wadley for the elements |
-| `average(concentrations)` | the average-atom potential of an alloy of the elements |
+| `average(fractions)` | the average-atom potential of an alloy of the elements |
 
 The atoms need an `element` column; elements the potential does not have
 raise `InvalidParameter`, and a malformed file raises
@@ -115,7 +115,7 @@ average.compute(system)  # every atom is the average atom
 average.write("CuNiAl.average.eam.alloy")  # Cu, Ni, Al and the average atom A
 ```
 
-`average(concentrations)` returns the average-atom potential of
+`average(fractions)` returns the average-atom potential of
 [Varvenne et al. (2016)](../../reference/references.md#varvenne2016) for a random alloy with the
 fractions $c_a$ of the elements:
 
@@ -125,7 +125,7 @@ F_A = \sum_a c_a F_a, \qquad \rho_A = \sum_a c_a \rho_a, \qquad
 \phi_{AA} = \sum_{a,b} c_a c_b \phi_{ab}.
 $$
 
-`concentrations` is a mapping from element to fraction, or the fractions in
+`fractions` is a mapping from element to fraction, or the fractions in
 the order of `elements`; elements left out have none, and the fractions sum
 to 1. In MDAPY every atom of a system is the average atom, whatever its
 element. The written file holds the elements of the potential and the

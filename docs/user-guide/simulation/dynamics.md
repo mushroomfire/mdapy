@@ -19,7 +19,7 @@ crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(8, 8, 8))
 with MolecularDynamics(crystal, potential, timestep=0.002) as md:
     md.velocities(600, seed=1)
     md.run(10000, ensemble="npt", temperature=300, pressure=0.0, thermo=100)
-    md.run(5000, ensemble="nvt", temperature=300, frames=500)
+    md.run(5000, ensemble="nvt", temperature=300, save_every=500)
     md.thermo  # polars DataFrame: step, time, temperature, energies, ...
     md.frames  # the atoms every 500 steps of the second run
     hot = md.system  # the atoms at the end, with velocities and images
@@ -73,7 +73,7 @@ The velocities of `system`, if it has them, are where the dynamics starts.
 | Method or attribute | Meaning |
 |---|---|
 | `velocities(temperature, *, seed)` | random velocities of a temperature in K, Gaussian, with no total momentum; the same for the same seed and atoms, whatever their positions |
-| `run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat_damping=None, barostat_damping=None, thermo=100, frames=None, progress=None, cancel=None)` | runs `steps` steps |
+| `run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat_damping=None, barostat_damping=None, thermo=100, save_every=None, progress=None, cancel=None)` | runs `steps` steps |
 | `command(commands)` | runs any LAMMPS commands, one or several lines |
 | `lammps` | the LAMMPS instance itself |
 | `close()` | closes the instance; leaving a `with` block closes it too |
@@ -87,7 +87,7 @@ The velocities of `system`, if it has them, are where the dynamics starts.
 | `thermostat_damping` | float64 | 100 time steps | ps | the damping time of the thermostat |
 | `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
 | `thermo` | int32 | 100 | | records the thermodynamic state every this many steps, and at the start and the end |
-| `frames` | int32 | `None` | | keeps the atoms every this many steps |
+| `save_every` | int32 | `None` | | keeps the atoms every this many steps |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the run, which raises `Cancelled` |
 
@@ -124,5 +124,5 @@ without elements; `ImportError` without the LAMMPS Python module.
 that is not positive; `run` for a negative number of steps, an unknown
 ensemble or barostat, a thermostat without a temperature, a barostat
 without a pressure, `"aniso"` or `"tri"` in a box that is not periodic,
-`"xy"` in a box not periodic along its first two vectors, and `thermo` or `frames` that are not positive; `command` for
+`"xy"` in a box not periodic along its first two vectors, and `thermo` or `save_every` that are not positive; `command` for
 commands LAMMPS rejects; and `lammps` after `close`.

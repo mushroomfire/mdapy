@@ -260,7 +260,7 @@ create_box {len(potential.elements)} box
 
     @property
     def frames(self) -> tuple[System, ...]:
-        """The atoms every ``frames`` steps of the runs."""
+        """The atoms every ``save_every`` steps of the runs."""
         return tuple(self.__frames)
 
     def __record(self) -> None:
@@ -318,7 +318,7 @@ create_box {len(potential.elements)} box
         thermostat_damping: float | None = None,
         barostat_damping: float | None = None,
         thermo: int = 100,
-        frames: int | None = None,
+        save_every: int | None = None,
         progress: Any = None,
         cancel: CancelToken | None = None,
     ) -> None:
@@ -348,7 +348,7 @@ create_box {len(potential.elements)} box
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
-        frames : int32, optional
+        save_every : int32, optional
             Keeps the atoms every this many steps. Default None, keeping
             none.
         progress : callable, optional
@@ -374,8 +374,8 @@ create_box {len(potential.elements)} box
             raise InvalidParameter(
                 f"barostat must be one of {_BAROSTATS}, not {barostat!r}"
             )
-        if int(thermo) < 1 or (frames is not None and int(frames) < 1):
-            raise InvalidParameter("thermo and frames must be positive")
+        if int(thermo) < 1 or (save_every is not None and int(save_every) < 1):
+            raise InvalidParameter("thermo and save_every must be positive")
         temperatures = _pair(temperature, "temperature")
         pressures = _pair(pressure, "pressure")
         if ensemble in ("nvt", "npt") and temperatures is None:
@@ -413,13 +413,14 @@ create_box {len(potential.elements)} box
             self.command("run 0 post no")
             if not self.__rows or self.__rows[-1]["step"] != start:
                 self.__record()
-            if frames is not None and (
+            if save_every is not None and (
                 not self.__frames or self.__frames[-1].info["timestep"] != start
             ):
                 self.__frames.append(self.system)
             stops = set(range(thermo, steps, thermo)) | {steps}
-            if frames is not None:
-                stops |= set(range(int(frames), steps + 1, int(frames)))
+            if save_every is not None:
+                every = int(save_every)
+                stops |= set(range(every, steps + 1, every))
             for stop in sorted(stops):
                 if cancel is not None and cancel.cancelled:
                     raise Cancelled("molecular dynamics cancelled")
@@ -429,7 +430,7 @@ create_box {len(potential.elements)} box
                 done = stop
                 if done % thermo == 0 or done == steps:
                     self.__record()
-                if frames is not None and done % int(frames) == 0:
+                if save_every is not None and done % int(save_every) == 0:
                     self.__frames.append(self.system)
                 if progress is not None:
                     progress(done, steps)

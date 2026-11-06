@@ -27,7 +27,7 @@ elements.element_from_mass(26.98)  # 'Al'
 | `atomic_masses(elements)` | Atomic weights of symbols or atomic numbers. |
 | `COVALENT_RADII`, `VDW_RADII` | Covalent and van der Waals radii in Å, indexed by atomic number; NaN where there is none. Read-only. |
 | `covalent_radii(elements)`, `vdw_radii(elements)` | The radii of symbols or atomic numbers; `InvalidParameter` for an element without one. |
-| `element_from_mass(mass, tolerance=0.01, candidates=None)` | The element whose atomic weight matches a mass. |
+| `element_from_mass(mass, *, tolerance=0.01, candidates=None)` | The element whose atomic weight matches a mass. |
 
 ## The `element` column
 

@@ -10,6 +10,35 @@
 - The documentation is published from the tag of each release, so that it describes the
   version `pip` installs.
 - `CITATION.cff` gives GitHub's "Cite this repository" the paper to cite.
+- [From MDAPY 1.x](../getting-started/from-1x.md) gives the 2.0 way of each common 1.x
+  call.
+- The API of 2.0.0 is fixed, and a test keeps it: a name that goes away or a parameter
+  that changes fails it, and so does an addition these notes do not name. Before that, one
+  name for each concept and options given by name only. From 2.0.0b1:
+    - `cutoff` for every cutoff radius: `RadialDistributionFunction(cutoff)` and
+      `StructureFactor(..., cutoff=)` (were `r_max`), `SOAP(species, cutoff)` (was
+      `r_cut`); `SOAP.reach` is the reach of its neighbors (was `SOAP.cutoff`).
+    - `BondLengthDistribution(cutoff=None, bins=100)` in the order of
+      `BondAngleDistribution`; `BondLengthResult.bond_lengths` (was `lengths`).
+    - `sizes` of `GrainResult` and `CrystalClusters` (were `size`), as of the other
+      results; `TimeAverageResult.num_frames` and `thermal_phonons(..., num_frames=)`
+      (were `frames`); `MolecularDynamics.run(..., save_every=)` (was `frames`), as
+      `minimize`.
+    - `atom_colors(..., colormap=)` (was `colormap_name`), `atom_radii(system, kind=)`
+      (was `radius`), `GrainResult.atom_colors(*, ungrouped=)` (was `none`).
+    - `melting_point(..., num_atoms=)` and `check_calculator(..., num_atoms=)` (were
+      `atoms`), `principal_components(points, count=)` (was `n`),
+      `read_gpumd(directory)` (was `folder`), `EAM.average(fractions)` (was
+      `concentrations`), as `random_alloy`; `SpatialBinning(column, bins)` (was
+      `property`), as `Histogram`.
+    - Given by name only: `scale_positions` of `System.with_box`, `seed` of
+      `random_rotations`, `partial` and `core` of `Dislocation`, the options of
+      `color_coding` and of `SOAP`, `atoms` of `CoordinationPolyhedra.compute` and of
+      `trajectory_lines`, `by` of `Predictions.worst`, `tolerance` and `candidates` of
+      `element_from_mass`, `name` of `freeze`, `mesh` of `Phonons.thermal`, `formats` of
+      `plot.save`.
+    - One path for each name: `mdapy.NeighborList` (no longer in `mdapy.neighbor`);
+      `mdapy.core` holds `LammpsBox` and `Result` only, the others are at the top level.
 - Plain XYZ files read: a comment line without `=` is free text, kept as
   `info["comment"]`, and each atom line then holds an element symbol and x, y, z.
 - Every NaN is written as `nan` in text files; some systems wrote `-nan(ind)` or

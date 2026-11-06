@@ -99,5 +99,5 @@ neighbor list given with a larger cutoff changes nothing.
 | `system` | `System` | | | a few dozen atoms the calculator handles |
 | `displacement` | float64 | 1e-4 | Å | step of the finite differences, also used as strain |
 | `rtol`, `atol` | float64 | 1e-6 | | relative and absolute tolerances of the comparisons |
-| `atoms` | int32 | 3 | | atoms whose forces are checked by finite differences |
+| `num_atoms` | int32 | 3 | | number of atoms whose forces are checked by finite differences |
 | `seed` | int32 | 0 | | seed of the random rotation, translation and choice of atoms |

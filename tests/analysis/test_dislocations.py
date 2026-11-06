@@ -92,7 +92,7 @@ def test_a_hot_crystal_has_no_dislocations(crystal, structure, a):
     assert result.lines == () and result.junctions.shape == (0, 3)
     assert (np.asarray(result.names)[result.structure] == crystal).all()
     assert (result.crystal_cluster == 0).all()
-    np.testing.assert_array_equal(result.clusters.size, [len(system)])
+    np.testing.assert_array_equal(result.clusters.sizes, [len(system)])
     orientation = result.clusters.orientation[0]
     scale = np.cbrt(np.linalg.det(orientation))
     np.testing.assert_allclose(orientation / scale, np.eye(3), atol=0.02)

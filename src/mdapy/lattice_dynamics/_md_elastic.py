@@ -104,7 +104,7 @@ def md_elastic_constants(
             "barostat": barostat,
         }
         md.run(int(equilibration), ensemble="npt", **thermal, **run)
-        md.run(int(production), ensemble="npt", frames=int(every), **thermal, **run)
+        md.run(int(production), ensemble="npt", save_every=int(every), **thermal, **run)
         boxes = np.array([f.box.matrix for f in md.frames[1:]])
         last = md.system
     mean = Box(boxes.mean(axis=0), origin=last.box.origin, pbc=last.box.pbc)

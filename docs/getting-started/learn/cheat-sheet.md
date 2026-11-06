@@ -64,7 +64,7 @@ system = system.with_columns(result)  # per-atom values, as columns
 | the structure of each atom | `CommonNeighborAnalysis()`, `PolyhedralTemplateMatching()` |
 | their numbers | `result.counts()` |
 | the number of neighbors | `CoordinationNumber(cutoff=3.0)` |
-| the radial distribution | `RadialDistributionFunction(r_max=8.0)`, then `result.r`, `result.g` |
+| the radial distribution | `RadialDistributionFunction(cutoff=8.0)`, then `result.r`, `result.g` |
 | one list for several analyses | `nl = mp.NeighborList.build(system, 5.0)`, then `compute(system, neighbors=nl)` |
 
 ## Compute energies

@@ -111,7 +111,7 @@ class CoordinationPolyhedra:
         self.cutoff, self.num_neighbors, self.bonds = cutoff, num_neighbors, bool(bonds)
 
     def compute(
-        self, system: System, atoms: ArrayLike | None = None
+        self, system: System, *, atoms: ArrayLike | None = None
     ) -> CoordinationPolyhedraResult:
         """The polyhedra about some atoms of a system.
 

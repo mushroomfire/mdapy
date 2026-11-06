@@ -103,7 +103,7 @@ def test_color_by_type():
 def test_color_coding():
     system = alloy()
     values = np.asarray(system["value"])
-    colored = color_coding(system, "value", "viridis")
+    colored = color_coding(system, "value", colormap="viridis")
     np.testing.assert_allclose(colored["color"], colormap(values, "viridis"))
     ranged = color_coding(system, "value * 2", value_range=(-1, 1))
     np.testing.assert_allclose(

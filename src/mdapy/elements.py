@@ -663,6 +663,7 @@ _STABLE = tuple(z for z in range(1, 84) if z not in (43, 61))
 
 def element_from_mass(
     mass: float,
+    *,
     tolerance: float = 0.01,
     candidates: Iterable[str] | None = None,
 ) -> str:

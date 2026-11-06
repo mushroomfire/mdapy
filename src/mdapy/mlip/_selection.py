@@ -27,13 +27,13 @@ class PrincipalComponents(Result):
     Attributes
     ----------
     projection : numpy.ndarray
-        (M, n) float64 coordinates of the points along the components.
+        (M, count) float64 coordinates of the points along the components.
     components : numpy.ndarray
-        (n, D) float64, the components, unit vectors, by decreasing variance.
+        (count, D) float64, the components, unit vectors, by decreasing variance.
     variance : numpy.ndarray
-        (n,) float64, the variance along each component.
+        (count,) float64, the variance along each component.
     ratio : numpy.ndarray
-        (n,) float64, the fraction of the total variance of each component.
+        (count,) float64, the fraction of the total variance of each component.
     mean : numpy.ndarray
         (D,) float64, the mean of the points.
     """
@@ -45,18 +45,18 @@ class PrincipalComponents(Result):
     mean: np.ndarray
 
     def transform(self, points: ArrayLike) -> np.ndarray:
-        """(K, n) coordinates of other points along the components."""
+        """(K, count) float64 coordinates of other points along the components."""
         return (np.asarray(points, dtype=float) - self.mean) @ self.components.T
 
 
-def principal_components(points: ArrayLike, n: int = 2) -> PrincipalComponents:
+def principal_components(points: ArrayLike, count: int = 2) -> PrincipalComponents:
     """The principal components of points, such as descriptors.
 
     Parameters
     ----------
     points : array_like
         (M, D) float64 points.
-    n : int32, optional
+    count : int32, optional
         Number of components kept, at most D. Default 2.
 
     Returns
@@ -70,8 +70,8 @@ def principal_components(points: ArrayLike, n: int = 2) -> PrincipalComponents:
         raise InvalidParameter("points must be (M, D) with two points or more")
     if not np.isfinite(x).all():
         raise InvalidParameter("points must be finite")
-    if not 1 <= n <= x.shape[1]:
-        raise InvalidParameter(f"n must be from 1 to {x.shape[1]}, not {n!r}")
+    if not 1 <= count <= x.shape[1]:
+        raise InvalidParameter(f"count must be from 1 to {x.shape[1]}, not {count!r}")
     mean = x.mean(axis=0)
     centered = x - mean
     variance, vectors = np.linalg.eigh(
@@ -79,15 +79,15 @@ def principal_components(points: ArrayLike, n: int = 2) -> PrincipalComponents:
     )
     order = np.argsort(variance)[::-1]
     variance, vectors = variance[order], vectors[:, order]
-    components = vectors[:, :n].T.copy()
+    components = vectors[:, :count].T.copy()
     largest = np.argmax(np.abs(components), axis=1)
-    components *= np.sign(components[np.arange(n), largest])[:, None]
+    components *= np.sign(components[np.arange(count), largest])[:, None]
     total = variance.sum()
     return PrincipalComponents(
         projection=centered @ components.T,
         components=components,
-        variance=variance[:n].copy(),
-        ratio=variance[:n] / total if total > 0 else np.zeros(n),
+        variance=variance[:count].copy(),
+        ratio=variance[:count] / total if total > 0 else np.zeros(count),
         mean=mean,
     )
 

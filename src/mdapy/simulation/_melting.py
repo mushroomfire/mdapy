@@ -213,7 +213,7 @@ def _one_run(
             barostat="aniso",
             barostat_damping=barostat_damping,
             thermo=equilibrium,
-            frames=every,
+            save_every=every,
             cancel=counter.cancel,
         )
         counter.add(md.step - done)
@@ -397,7 +397,7 @@ def melting_point(
     temperature: float,
     *,
     pressure: float = 0.0,
-    atoms: int = 16000,
+    num_atoms: int = 16000,
     repeat: ArrayLike | None = None,
     timestep: float = 0.001,
     equilibration: float = 10.0,
@@ -426,12 +426,12 @@ def melting_point(
         The first guess in K, positive.
     pressure : float64, optional
         Pressure in GPa. Default 0.
-    atoms : int32, optional
+    num_atoms : int32, optional
         About how many atoms the box holds, three times as long along its
         third vector as along the others. Default 16000; fewer for a slow
         potential, at the price of a larger spread between runs.
     repeat : array_like, optional
-        (3,) int32 repeats of crystal along its vectors, instead of ``atoms``; the
+        (3,) int32 repeats of crystal along its vectors, instead of ``num_atoms``; the
         third is made even.
     timestep : float64, optional
         Time step in ps. Default 0.001.
@@ -489,10 +489,10 @@ def melting_point(
         raise InvalidParameter(
             "timestep, equilibration, coexistence and tolerance must be positive"
         )
-    if int(atoms) < 1 or int(max_runs) < 1 or int(seed) < 1:
-        raise InvalidParameter("atoms, max_runs and seed must be positive")
+    if int(num_atoms) < 1 or int(max_runs) < 1 or int(seed) < 1:
+        raise InvalidParameter("num_atoms, max_runs and seed must be positive")
     if repeat is None:
-        start = _supercell(crystal, int(atoms))
+        start = _supercell(crystal, int(num_atoms))
     else:
         counts = np.array(repeat)
         if (

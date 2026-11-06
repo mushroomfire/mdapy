@@ -208,12 +208,12 @@ class EAM(Calculator):
         """
         return cls.__built(_zhou.tables(list(elements), nr, nrho))
 
-    def average(self, concentrations: Mapping[str, float] | Sequence[float]) -> "EAM":
+    def average(self, fractions: Mapping[str, float] | Sequence[float]) -> "EAM":
         """The average-atom potential of an alloy of the elements.
 
         Parameters
         ----------
-        concentrations : mapping or sequence of float64
+        fractions : mapping or sequence of float64
             The fraction of each element, by element or in the order of
             ``elements``; elements not given have none. They sum to 1.
 
@@ -227,24 +227,24 @@ class EAM(Calculator):
         if self.__average:
             raise InvalidParameter("the potential is already an average-atom potential")
         assert self.elements is not None
-        if isinstance(concentrations, Mapping):
-            unknown = set(concentrations) - set(self.elements)
+        if isinstance(fractions, Mapping):
+            unknown = set(fractions) - set(self.elements)
             if unknown:
                 raise InvalidParameter(
                     f"the potential has no {sorted(unknown)}; it has {list(self.elements)}"
                 )
-            fractions = [float(concentrations.get(e, 0.0)) for e in self.elements]
+            given = [float(fractions.get(e, 0.0)) for e in self.elements]
         else:
-            fractions = [float(c) for c in concentrations]
-            if len(fractions) != len(self.elements):
+            given = [float(c) for c in fractions]
+            if len(given) != len(self.elements):
                 raise InvalidParameter(
-                    f"expected {len(self.elements)} concentrations, one per element "
+                    f"expected {len(self.elements)} fractions, one per element "
                     f"of {list(self.elements)}"
                 )
-        c = np.array(fractions)
+        c = np.array(given)
         if (c < 0).any() or not np.isclose(c.sum(), 1.0, rtol=0, atol=1e-10):
             raise InvalidParameter(
-                f"concentrations must be non-negative and sum to 1, not {fractions}"
+                f"fractions must be non-negative and sum to 1, not {given}"
             )
         t = self.__tables
         names = t["elements"]

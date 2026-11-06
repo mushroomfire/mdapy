@@ -29,7 +29,7 @@ to add, as there is one curve for all the atoms:
 ```python
 from mdapy.analysis import RadialDistributionFunction
 
-analysis = RadialDistributionFunction(r_max=8.0, bins=200)
+analysis = RadialDistributionFunction(cutoff=8.0, bins=200)
 cold = analysis.compute(crystal)
 hot = analysis.compute(shaken)
 print(cold.r.shape, cold.g.shape)

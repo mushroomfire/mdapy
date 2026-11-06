@@ -108,7 +108,7 @@ def test_thermo_and_frames(potential):
             ensemble="nvt",
             temperature=300,
             thermo=100,
-            frames=125,
+            save_every=125,
             progress=lambda done, total: calls.append((done, total)),
         )
         md.run(100, ensemble="nve", thermo=100)
@@ -298,8 +298,8 @@ def test_commands_and_the_instance(potential):
         ({"ensemble": "npt", "temperature": 300}, "npt needs a pressure"),
         ({"ensemble": "nph"}, "nph needs a pressure"),
         ({"barostat": "z"}, "barostat must be one of"),
-        ({"thermo": 0}, "thermo and frames must be positive"),
-        ({"frames": 0}, "thermo and frames must be positive"),
+        ({"thermo": 0}, "thermo and save_every must be positive"),
+        ({"save_every": 0}, "thermo and save_every must be positive"),
         ({"ensemble": "nvt", "temperature": (1, 2, 3)}, "temperature must be"),
     ],
 )

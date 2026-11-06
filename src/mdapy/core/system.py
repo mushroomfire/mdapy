@@ -525,7 +525,9 @@ class System:
             raise InvalidParameter(f"cannot add columns: {exc}") from None
         return self.__derived(table=table, changed=None if None in made else made)
 
-    def with_box(self, box: Box | ArrayLike, scale_positions: bool = False) -> "System":
+    def with_box(
+        self, box: Box | ArrayLike, *, scale_positions: bool = False
+    ) -> "System":
         """New system in a different box.
 
         Parameters

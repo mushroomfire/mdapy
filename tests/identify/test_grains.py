@@ -112,7 +112,7 @@ def test_against_ovito(name, option):
     data = ovito_compute(system, ptm, GrainSegmentationModifier(**theirs_options))
     table = data.tables["grains"]
     np.testing.assert_array_equal(ours.grain, data.particles["Grain"])
-    np.testing.assert_array_equal(ours.size, table["Grain Size"])
+    np.testing.assert_array_equal(ours.sizes, table["Grain Size"])
     np.testing.assert_array_equal(ours.structure, table["Structure Type"])
     # OVITO keeps orientations in single precision
     np.testing.assert_allclose(ours.orientation, table["Orientation"], atol=1e-6)
@@ -135,7 +135,7 @@ def test_single_crystal_is_one_grain():
     )
     result = GrainSegmentation().compute(crystal)
     assert result.count == 1
-    assert result.size.tolist() == [len(crystal)]
+    assert result.sizes.tolist() == [len(crystal)]
     np.testing.assert_array_equal(result.grain, 0)
     assert result.names[result.structure[0]] == "fcc"
     assert abs(np.linalg.norm(result.orientation[0]) - 1) < 1e-12
@@ -147,7 +147,7 @@ def test_grains_follow_the_atoms():
     system = copper_grains(40.0, 3, seed=4)
     result = GrainSegmentation().compute(system)
     assert result.count == 3
-    assert result.size.sum() == len(system)  # every atom adopted
+    assert result.sizes.sum() == len(system)  # every atom adopted
     # the same grains wherever the origin; nearly the same in another order
     # of the atoms, which decides which pairs of disordered atoms are bonded
     order = np.random.default_rng(0).permutation(len(system))
@@ -171,13 +171,13 @@ def test_orphans_and_sizes():
     system = copper_grains(40.0, 3, seed=4)
     free = GrainSegmentation(adopt_orphans=False).compute(system)
     assert (free.grain < 0).any()
-    assert np.array_equal(np.bincount(free.grain[free.grain >= 0]), free.size)
-    assert np.all(np.diff(free.size) <= 0)
+    assert np.array_equal(np.bincount(free.grain[free.grain >= 0]), free.sizes)
+    assert np.all(np.diff(free.sizes) <= 0)
     none = GrainSegmentation(min_grain_size=10**6).compute(system)
     assert none.count == 0 and (none.grain == -1).all()
     assert none.orientation.shape == (0, 4) and none.center.shape == (0, 3)
     np.testing.assert_array_equal(none.atom_colors(), 0.8)
-    colors = free.atom_colors(none=(0, 0, 0))
+    colors = free.atom_colors(ungrouped=(0, 0, 0))
     np.testing.assert_array_equal(colors[free.grain < 0], 0)
     np.testing.assert_array_equal(
         colors[free.grain >= 0], free.colors[free.grain[free.grain >= 0]]

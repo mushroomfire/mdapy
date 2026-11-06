@@ -37,7 +37,7 @@ candidates = {
     "with vacancies": [shaken(0.05, missing=4) for _ in range(10)],
 }
 
-soap = SOAP(["Cr", "Co", "Ni"], r_cut=5.0, n_max=6, l_max=4)
+soap = SOAP(["Cr", "Co", "Ni"], cutoff=5.0, n_max=6, l_max=4)
 known = structure_descriptors(train, soap)
 models = [NEP("nep.txt"), EAM.zhou(["Cr", "Co", "Ni"])]
 with plot.style():

@@ -110,7 +110,7 @@ def test_the_search_ends_at_two_phases(monkeypatch, argon, potential):
         ("coexisting", 82.0, 0.5),
     ]
     monkeypatch.setattr(module, "_one_run", run_with(outcomes, seen))
-    result = melting_point(argon, potential, 100.0, atoms=64, tolerance=2.0)
+    result = melting_point(argon, potential, 100.0, num_atoms=64, tolerance=2.0)
     assert seen == [100.0, 85.0, pytest.approx(92.5), 83.0]
     assert result.temperature == 82.0 and result.error == 1.0
     assert len(result.attempts) == 4
@@ -123,7 +123,7 @@ def test_a_search_that_does_not_end_says_so(monkeypatch, argon, potential):
         module, "_one_run", run_with([("melted", 500.0, 0.0)] * 3, seen)
     )
     with pytest.raises(InvalidParameter, match="no melting point in 3 runs"):
-        melting_point(argon, potential, 100.0, atoms=64, max_runs=3)
+        melting_point(argon, potential, 100.0, num_atoms=64, max_runs=3)
 
 
 def test_the_supercell():
@@ -271,7 +271,7 @@ def test_invalid_input(potential, argon):
         (dict(equilibration=-1.0), "positive"),
         (dict(coexistence=0.0), "positive"),
         (dict(tolerance=0.0), "positive"),
-        (dict(atoms=0), "positive"),
+        (dict(num_atoms=0), "positive"),
         (dict(max_runs=0), "positive"),
         (dict(seed=0), "positive"),
         (dict(repeat=(1, 1)), "repeat"),

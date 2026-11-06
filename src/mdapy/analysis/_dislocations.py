@@ -154,7 +154,7 @@ class CrystalClusters(Result):
     structure : numpy.ndarray
         (C,) int8 structure of each cluster, an index into the names of the
         result.
-    size : numpy.ndarray
+    sizes : numpy.ndarray
         (C,) int64 number of atoms of each.
     orientation : numpy.ndarray
         (C, 3, 3) float64, the matrix that takes vectors of the lattice frame of
@@ -163,7 +163,7 @@ class CrystalClusters(Result):
     """
 
     structure: np.ndarray
-    size: np.ndarray
+    sizes: np.ndarray
     orientation: np.ndarray
 
 
@@ -478,7 +478,7 @@ class DislocationAnalysis:
             colors=self.COLORS,
             crystal_cluster=crystal_cluster,
             clusters=CrystalClusters(
-                structure=index[cluster_structure], size=size, orientation=orientation
+                structure=index[cluster_structure], sizes=size, orientation=orientation
             ),
             defect_mesh=TriangleMesh(
                 mesh_vertices.reshape(-1, 3),

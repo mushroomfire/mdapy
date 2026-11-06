@@ -98,6 +98,7 @@ nav:
       - First steps:
           - Installation: getting-started/installation.md
           - Quick tour: getting-started/quick-tour.md
+          - From MDAPY 1.x: getting-started/from-1x.md
       - Learn MDAPY:
           - 1. A crystal is a table: getting-started/learn/table.md
           - 2. Asking the atoms questions: getting-started/learn/analyses.md

@@ -886,7 +886,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         copy3(params.up, up);
         params.half_width = camera.half_width;
         params.half_height = camera.half_height;
-        // the shaders still read a lens, for a depth of field that is gone: none
+        // the shader of Direct3D 12 still reads a lens, for a depth of field that is gone: none
         params.aperture = 0.0f;
         params.focal_distance = 1.0f;
         params.start = start;

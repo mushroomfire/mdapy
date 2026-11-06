@@ -43,6 +43,8 @@ struct Node {
 
 struct Params {
     float center[3], forward[3], right[3], up[3];
+    // aperture and focal_distance, a lens no longer read, keep the layout that
+    // Direct3D 12 shares until its shader is compiled again
     float half_width, half_height, aperture, focal_distance;
     float start, nearest, farthest, epsilon;
     float key[3], highlight[3], fill[3], key_tangent[3], key_bitangent[3];
@@ -622,13 +624,6 @@ kernel void trace_subpixels(device const float* sphere_center [[buffer(0)]],
         if (P.perspective) {
             const float3 d = unit(forward + right * (px * P.half_width) + up * (py * P.half_height));
             ray = make_ray(center, d);
-            if (P.aperture > 0) {
-                const float3 sharp = center + d * (P.focal_distance / dot(d, forward));
-                const float u = next(random), phi = 6.2831853f * next(random);
-                const float r = P.aperture * sqrt(u);
-                const float3 from = center + right * (r * cos(phi)) + up * (r * sin(phi));
-                ray = make_ray(from, unit(sharp - from));
-            }
         } else {
             ray = make_ray(center + right * (px * P.half_width) + up * (py * P.half_height) + forward * P.start, forward);
         }

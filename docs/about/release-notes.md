@@ -2,6 +2,9 @@
 
 ## 2.0.0rc1
 
+The release candidate of MDAPY 2.0: its API is that of 2.0.0, and a test keeps it.
+Until 2.0.0 only fixes follow.
+
 - [Compatibility](compatibility.md) says what 2.x promises from 2.0.0 on: code that works
   keeps working, the API changes only with 3.0, a replaced name warns before it goes, and
   a result changes only to fix a bug, named here.

@@ -32,7 +32,9 @@ Documentation:
 - [Special quasirandom structures](../user-guide/build/sqs.md) plot their Warren–Cowley
   parameters shell by shell against those of a random alloy.
 - The [performance](../performance/comparison.md) pages show for each case how many times
-  faster MDAPY is at every size, the largest gains on top.
+  faster MDAPY is at every size, the largest gains on top. The analyses are measured again
+  with 2.0.0b1, Steinhardt parameters over Voronoi faces now at 2 million atoms too; the
+  dislocation analysis, still experimental, is left out.
 - [Reporting a problem](reporting.md) says which form of an issue to choose.
 
 ## 2.0.0a2

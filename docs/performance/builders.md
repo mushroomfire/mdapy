@@ -9,9 +9,9 @@ builds the structure MDAPY builds.
 
 A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6148 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
-MDAPY 2.0.0a2 built with GCC 12.3, and Atomsk Beta 0.13.1, a
+MDAPY 2.0.0b1 built with GCC 12.3, and Atomsk Beta 0.13.1, a
 statically linked build of its release. The [analyses](comparison.md) ran on
-another node, with Intel Xeon Gold 6248, so their times do not compare with these.
+another node, with Intel Xeon Gold 6230, so their times do not compare with these.
 
 ![Time of Atomsk over the time of MDAPY for each case and size](images/builders.png)
 
@@ -35,18 +35,18 @@ the timings; that of Atomsk, a process of its own, is not counted.
 
 #### Atomsk
 
-| Case | Atoms | MDAPY 2.0.0a2 (s) | Atomsk Beta 0.13.1 (s) | Atomsk / MDAPY | MDAPY (MB) | Atomsk (MB) |
+| Case | Atoms | MDAPY 2.0.0b1 (s) | Atomsk Beta 0.13.1 (s) | Atomsk / MDAPY | MDAPY (MB) | Atomsk (MB) |
 |---|---:|---:|---:|---:|---:|---:|
-| fcc single crystal, written as a LAMMPS data file | 4,000 | 0.0014 | 0.044 | 30.34 | 0 | 0 |
-| fcc single crystal, written as a LAMMPS data file | 32,000 | 0.0031 | 0.151 | 48.43 | 3 | 0 |
-| fcc single crystal, written as a LAMMPS data file | 256,000 | 0.010 | 0.710 | 67.99 | 40 | 0 |
-| fcc single crystal, written as a LAMMPS data file | 2,048,000 | 0.077 | 5.317 | 68.88 | 143 | 0 |
-| fcc single crystal, written as a LAMMPS data file | 9,841,500 | 0.343 | 25.539 | 74.52 | 413 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 3,981 | 0.0059 | 0.585 | 99.99 | 0 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 31,995 | 0.010 | 0.450 | 44.33 | 2 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 255,941 | 0.017 | 1.540 | 88.83 | 39 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 2,047,788 | 0.109 | 10.208 | 93.45 | 64 | 0 |
-| Polycrystal of 20 grains, written as a LAMMPS data file | 9,841,309 | 0.478 | 48.292 | 100.93 | 311 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 4,000 | 0.0014 | 0.044 | 30.3 | 0 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 32,000 | 0.0031 | 0.151 | 48.4 | 3 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 256,000 | 0.010 | 0.710 | 68.0 | 40 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 2,048,000 | 0.077 | 5.317 | 68.9 | 143 | 0 |
+| fcc single crystal, written as a LAMMPS data file | 9,841,500 | 0.343 | 25.539 | 74.5 | 413 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 3,981 | 0.0059 | 0.585 | 100.0 | 0 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 31,995 | 0.010 | 0.450 | 44.3 | 2 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 255,941 | 0.017 | 1.540 | 88.8 | 39 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 2,047,788 | 0.109 | 10.208 | 93.5 | 64 | 0 |
+| Polycrystal of 20 grains, written as a LAMMPS data file | 9,841,309 | 0.478 | 48.292 | 100.9 | 311 | 0 |
 
 ## Cases
 

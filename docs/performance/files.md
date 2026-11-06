@@ -10,9 +10,9 @@ as the system.
 
 A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6148 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
-MDAPY 2.0.0a2 built with GCC 12.3, OVITO 3.17.1 and ASE 3.29.0
+MDAPY 2.0.0b1 built with GCC 12.3, OVITO 3.17.1 and ASE 3.29.0
 from pip. The [analyses](comparison.md) ran on another node, with Intel Xeon Gold
-6248, so their times do not compare with these.
+6230, so their times do not compare with these.
 
 ![Time of OVITO and of ASE over the time of MDAPY for each case and size](images/files.png)
 
@@ -44,123 +44,123 @@ its peak before the timings.
 
 #### OVITO
 
-| Case | Atoms | MDAPY 2.0.0a2 (s) | OVITO 3.17.1 (s) | OVITO / MDAPY | MDAPY (MB) | OVITO (MB) |
+| Case | Atoms | MDAPY 2.0.0b1 (s) | OVITO 3.17.1 (s) | OVITO / MDAPY | MDAPY (MB) | OVITO (MB) |
 |---|---:|---:|---:|---:|---:|---:|
-| Read a LAMMPS dump | 4,000 | 0.0011 | 0.0013 | 1.14 | 0 | 1 |
-| Read a LAMMPS dump | 32,000 | 0.0015 | 0.0082 | 5.34 | 1 | 5 |
-| Read a LAMMPS dump | 256,000 | 0.0049 | 0.057 | 11.73 | 0 | 0 |
-| Read a LAMMPS dump | 2,048,000 | 0.028 | 0.482 | 17.02 | 122 | 110 |
-| Read a LAMMPS dump | 9,841,500 | 0.122 | 2.327 | 19.03 | 770 | 573 |
-| Write a LAMMPS dump | 4,000 | 0.0007 | 0.0027 | 3.64 | 0 | 0 |
-| Write a LAMMPS dump | 32,000 | 0.0015 | 0.019 | 12.33 | 2 | 0 |
-| Write a LAMMPS dump | 256,000 | 0.010 | 0.151 | 15.09 | 30 | 0 |
-| Write a LAMMPS dump | 2,048,000 | 0.073 | 1.195 | 16.27 | 54 | 0 |
-| Write a LAMMPS dump | 9,841,500 | 0.334 | 5.772 | 17.30 | 39 | 0 |
-| Read a LAMMPS data file | 4,000 | 0.0012 | 0.0015 | 1.27 | 0 | 0 |
-| Read a LAMMPS data file | 32,000 | 0.0018 | 0.011 | 5.82 | 1 | 5 |
-| Read a LAMMPS data file | 256,000 | 0.0047 | 0.083 | 17.85 | 0 | 0 |
-| Read a LAMMPS data file | 2,048,000 | 0.036 | 0.687 | 18.83 | 146 | 47 |
-| Read a LAMMPS data file | 9,841,500 | 0.145 | 3.459 | 23.85 | 921 | 125 |
-| Write a LAMMPS data file | 4,000 | 0.0011 | 0.0027 | 2.59 | 0 | 0 |
-| Write a LAMMPS data file | 32,000 | 0.0022 | 0.020 | 8.89 | 2 | 0 |
-| Write a LAMMPS data file | 256,000 | 0.013 | 0.154 | 12.19 | 34 | 0 |
-| Write a LAMMPS data file | 2,048,000 | 0.087 | 1.254 | 14.40 | 204 | 0 |
-| Write a LAMMPS data file | 9,841,500 | 0.347 | 5.907 | 17.02 | 131 | 0 |
-| Read extended XYZ | 4,000 | 0.0010 | 0.0011 | 1.02 | 0 | 0 |
-| Read extended XYZ | 32,000 | 0.0016 | 0.0074 | 4.65 | 1 | 3 |
-| Read extended XYZ | 256,000 | 0.0056 | 0.059 | 10.46 | 0 | 0 |
-| Read extended XYZ | 2,048,000 | 0.031 | 0.484 | 15.68 | 111 | 0 |
-| Read extended XYZ | 9,841,500 | 0.145 | 2.339 | 16.10 | 568 | 11 |
-| Write extended XYZ | 4,000 | 0.0015 | 0.0031 | 2.02 | 0 | 0 |
-| Write extended XYZ | 32,000 | 0.0025 | 0.021 | 8.24 | 1 | 0 |
-| Write extended XYZ | 256,000 | 0.0096 | 0.162 | 16.81 | 20 | 0 |
-| Write extended XYZ | 2,048,000 | 0.057 | 1.292 | 22.76 | 14 | 0 |
-| Write extended XYZ | 9,841,500 | 0.262 | 6.226 | 23.78 | 0 | 0 |
-| Read a gzipped LAMMPS dump | 4,000 | 0.0023 | 0.0030 | 1.28 | 0 | 0 |
-| Read a gzipped LAMMPS dump | 32,000 | 0.012 | 0.019 | 1.62 | 0 | 1 |
-| Read a gzipped LAMMPS dump | 256,000 | 0.086 | 0.147 | 1.71 | 0 | 0 |
-| Read a gzipped LAMMPS dump | 2,048,000 | 0.718 | 1.210 | 1.69 | 142 | 32 |
-| Read a gzipped LAMMPS dump | 9,841,500 | 3.663 | 5.854 | 1.60 | 830 | 0 |
-| Write a gzipped LAMMPS dump | 4,000 | 0.019 | 0.026 | 1.41 | 0 | 0 |
-| Write a gzipped LAMMPS dump | 32,000 | 0.084 | 0.214 | 2.55 | 8 | 0 |
-| Write a gzipped LAMMPS dump | 256,000 | 0.131 | 1.794 | 13.70 | 62 | 0 |
-| Write a gzipped LAMMPS dump | 2,048,000 | 0.508 | 14.797 | 29.11 | 106 | 0 |
-| Write a gzipped LAMMPS dump | 9,841,500 | 2.008 | 69.989 | 34.86 | 85 | 0 |
-| Read a gzipped LAMMPS data file | 4,000 | 0.0023 | 0.0033 | 1.43 | 0 | 1 |
-| Read a gzipped LAMMPS data file | 32,000 | 0.011 | 0.022 | 1.91 | 0 | 3 |
-| Read a gzipped LAMMPS data file | 256,000 | 0.082 | 0.168 | 2.05 | 0 | 0 |
-| Read a gzipped LAMMPS data file | 2,048,000 | 0.707 | 1.380 | 1.95 | 141 | 13 |
-| Read a gzipped LAMMPS data file | 9,841,500 | 3.525 | 6.684 | 1.90 | 914 | 48 |
-| Write a gzipped LAMMPS data file | 4,000 | 0.019 | 0.026 | 1.39 | 0 | 0 |
-| Write a gzipped LAMMPS data file | 32,000 | 0.080 | 0.216 | 2.69 | 8 | 0 |
-| Write a gzipped LAMMPS data file | 256,000 | 0.129 | 1.787 | 13.90 | 60 | 0 |
-| Write a gzipped LAMMPS data file | 2,048,000 | 0.497 | 14.858 | 29.87 | 267 | 0 |
-| Write a gzipped LAMMPS data file | 9,841,500 | 2.023 | 69.931 | 34.57 | 175 | 0 |
-| Read gzipped extended XYZ | 4,000 | 0.0021 | 0.0024 | 1.13 | 0 | 0 |
-| Read gzipped extended XYZ | 32,000 | 0.011 | 0.017 | 1.57 | 0 | 1 |
-| Read gzipped extended XYZ | 256,000 | 0.077 | 0.134 | 1.75 | 0 | 0 |
-| Read gzipped extended XYZ | 2,048,000 | 0.659 | 1.089 | 1.65 | 139 | 39 |
-| Read gzipped extended XYZ | 9,841,500 | 3.188 | 5.236 | 1.64 | 671 | 0 |
-| Write gzipped extended XYZ | 4,000 | 0.019 | 0.025 | 1.33 | 0 | 0 |
-| Write gzipped extended XYZ | 32,000 | 0.083 | 0.198 | 2.39 | 7 | 0 |
-| Write gzipped extended XYZ | 256,000 | 0.120 | 1.626 | 13.51 | 54 | 0 |
-| Write gzipped extended XYZ | 2,048,000 | 0.457 | 13.309 | 29.15 | 65 | 0 |
-| Write gzipped extended XYZ | 9,841,500 | 1.843 | 63.886 | 34.67 | 0 | 0 |
+| Read a LAMMPS dump | 4,000 | 0.0011 | 0.0013 | 1.1 | 0 | 1 |
+| Read a LAMMPS dump | 32,000 | 0.0015 | 0.0082 | 5.3 | 1 | 5 |
+| Read a LAMMPS dump | 256,000 | 0.0049 | 0.057 | 11.7 | 0 | 0 |
+| Read a LAMMPS dump | 2,048,000 | 0.028 | 0.482 | 17.0 | 122 | 110 |
+| Read a LAMMPS dump | 9,841,500 | 0.122 | 2.327 | 19.0 | 770 | 573 |
+| Write a LAMMPS dump | 4,000 | 0.0007 | 0.0027 | 3.6 | 0 | 0 |
+| Write a LAMMPS dump | 32,000 | 0.0015 | 0.019 | 12.3 | 2 | 0 |
+| Write a LAMMPS dump | 256,000 | 0.010 | 0.151 | 15.1 | 30 | 0 |
+| Write a LAMMPS dump | 2,048,000 | 0.073 | 1.195 | 16.3 | 54 | 0 |
+| Write a LAMMPS dump | 9,841,500 | 0.334 | 5.772 | 17.3 | 39 | 0 |
+| Read a LAMMPS data file | 4,000 | 0.0012 | 0.0015 | 1.3 | 0 | 0 |
+| Read a LAMMPS data file | 32,000 | 0.0018 | 0.011 | 5.8 | 1 | 5 |
+| Read a LAMMPS data file | 256,000 | 0.0047 | 0.083 | 17.8 | 0 | 0 |
+| Read a LAMMPS data file | 2,048,000 | 0.036 | 0.687 | 18.8 | 146 | 47 |
+| Read a LAMMPS data file | 9,841,500 | 0.145 | 3.459 | 23.8 | 921 | 125 |
+| Write a LAMMPS data file | 4,000 | 0.0011 | 0.0027 | 2.6 | 0 | 0 |
+| Write a LAMMPS data file | 32,000 | 0.0022 | 0.020 | 8.9 | 2 | 0 |
+| Write a LAMMPS data file | 256,000 | 0.013 | 0.154 | 12.2 | 34 | 0 |
+| Write a LAMMPS data file | 2,048,000 | 0.087 | 1.254 | 14.4 | 204 | 0 |
+| Write a LAMMPS data file | 9,841,500 | 0.347 | 5.907 | 17.0 | 131 | 0 |
+| Read extended XYZ | 4,000 | 0.0010 | 0.0011 | 1.0 | 0 | 0 |
+| Read extended XYZ | 32,000 | 0.0016 | 0.0074 | 4.7 | 1 | 3 |
+| Read extended XYZ | 256,000 | 0.0056 | 0.059 | 10.5 | 0 | 0 |
+| Read extended XYZ | 2,048,000 | 0.031 | 0.484 | 15.7 | 111 | 0 |
+| Read extended XYZ | 9,841,500 | 0.145 | 2.339 | 16.1 | 568 | 11 |
+| Write extended XYZ | 4,000 | 0.0015 | 0.0031 | 2.0 | 0 | 0 |
+| Write extended XYZ | 32,000 | 0.0025 | 0.021 | 8.2 | 1 | 0 |
+| Write extended XYZ | 256,000 | 0.0096 | 0.162 | 16.8 | 20 | 0 |
+| Write extended XYZ | 2,048,000 | 0.057 | 1.292 | 22.8 | 14 | 0 |
+| Write extended XYZ | 9,841,500 | 0.262 | 6.226 | 23.8 | 0 | 0 |
+| Read a gzipped LAMMPS dump | 4,000 | 0.0023 | 0.0030 | 1.3 | 0 | 0 |
+| Read a gzipped LAMMPS dump | 32,000 | 0.012 | 0.019 | 1.6 | 0 | 1 |
+| Read a gzipped LAMMPS dump | 256,000 | 0.086 | 0.147 | 1.7 | 0 | 0 |
+| Read a gzipped LAMMPS dump | 2,048,000 | 0.718 | 1.210 | 1.7 | 142 | 32 |
+| Read a gzipped LAMMPS dump | 9,841,500 | 3.663 | 5.854 | 1.6 | 830 | 0 |
+| Write a gzipped LAMMPS dump | 4,000 | 0.019 | 0.026 | 1.4 | 0 | 0 |
+| Write a gzipped LAMMPS dump | 32,000 | 0.084 | 0.214 | 2.6 | 8 | 0 |
+| Write a gzipped LAMMPS dump | 256,000 | 0.131 | 1.794 | 13.7 | 62 | 0 |
+| Write a gzipped LAMMPS dump | 2,048,000 | 0.508 | 14.797 | 29.1 | 106 | 0 |
+| Write a gzipped LAMMPS dump | 9,841,500 | 2.008 | 69.989 | 34.9 | 85 | 0 |
+| Read a gzipped LAMMPS data file | 4,000 | 0.0023 | 0.0033 | 1.4 | 0 | 1 |
+| Read a gzipped LAMMPS data file | 32,000 | 0.011 | 0.022 | 1.9 | 0 | 3 |
+| Read a gzipped LAMMPS data file | 256,000 | 0.082 | 0.168 | 2.0 | 0 | 0 |
+| Read a gzipped LAMMPS data file | 2,048,000 | 0.707 | 1.380 | 2.0 | 141 | 13 |
+| Read a gzipped LAMMPS data file | 9,841,500 | 3.525 | 6.684 | 1.9 | 914 | 48 |
+| Write a gzipped LAMMPS data file | 4,000 | 0.019 | 0.026 | 1.4 | 0 | 0 |
+| Write a gzipped LAMMPS data file | 32,000 | 0.080 | 0.216 | 2.7 | 8 | 0 |
+| Write a gzipped LAMMPS data file | 256,000 | 0.129 | 1.787 | 13.9 | 60 | 0 |
+| Write a gzipped LAMMPS data file | 2,048,000 | 0.497 | 14.858 | 29.9 | 267 | 0 |
+| Write a gzipped LAMMPS data file | 9,841,500 | 2.023 | 69.931 | 34.6 | 175 | 0 |
+| Read gzipped extended XYZ | 4,000 | 0.0021 | 0.0024 | 1.1 | 0 | 0 |
+| Read gzipped extended XYZ | 32,000 | 0.011 | 0.017 | 1.6 | 0 | 1 |
+| Read gzipped extended XYZ | 256,000 | 0.077 | 0.134 | 1.8 | 0 | 0 |
+| Read gzipped extended XYZ | 2,048,000 | 0.659 | 1.089 | 1.7 | 139 | 39 |
+| Read gzipped extended XYZ | 9,841,500 | 3.188 | 5.236 | 1.6 | 671 | 0 |
+| Write gzipped extended XYZ | 4,000 | 0.019 | 0.025 | 1.3 | 0 | 0 |
+| Write gzipped extended XYZ | 32,000 | 0.083 | 0.198 | 2.4 | 7 | 0 |
+| Write gzipped extended XYZ | 256,000 | 0.120 | 1.626 | 13.5 | 54 | 0 |
+| Write gzipped extended XYZ | 2,048,000 | 0.457 | 13.309 | 29.1 | 65 | 0 |
+| Write gzipped extended XYZ | 9,841,500 | 1.843 | 63.886 | 34.7 | 0 | 0 |
 
 #### ASE
 
-| Case | Atoms | MDAPY 2.0.0a2 (s) | ASE 3.29.0 (s) | ASE / MDAPY | MDAPY (MB) | ASE (MB) |
+| Case | Atoms | MDAPY 2.0.0b1 (s) | ASE 3.29.0 (s) | ASE / MDAPY | MDAPY (MB) | ASE (MB) |
 |---|---:|---:|---:|---:|---:|---:|
-| Read a LAMMPS dump | 4,000 | 0.0011 | 0.0054 | 4.89 | 0 | 1 |
-| Read a LAMMPS dump | 32,000 | 0.0015 | 0.041 | 26.79 | 1 | 5 |
-| Read a LAMMPS dump | 256,000 | 0.0049 | 0.345 | 70.69 | 0 | 34 |
-| Read a LAMMPS dump | 2,048,000 | 0.028 | 2.863 | 101.18 | 122 | 412 |
-| Read a LAMMPS dump | 9,841,500 | 0.122 | 14.035 | 114.81 | 770 | 2208 |
-| Read a LAMMPS data file | 4,000 | 0.0012 | 0.014 | 11.72 | 0 | 7 |
-| Read a LAMMPS data file | 32,000 | 0.0018 | 0.124 | 66.80 | 1 | 59 |
-| Read a LAMMPS data file | 256,000 | 0.0047 | 1.012 | 217.00 | 0 | 510 |
-| Read a LAMMPS data file | 2,048,000 | 0.036 | 8.181 | 224.25 | 146 | 4009 |
-| Read a LAMMPS data file | 9,841,500 | 0.145 | 44.730 | 308.31 | 921 | 18392 |
-| Write a LAMMPS data file | 4,000 | 0.0011 | 0.014 | 12.80 | 0 | 0 |
-| Write a LAMMPS data file | 32,000 | 0.0022 | 0.104 | 47.24 | 2 | 2 |
-| Write a LAMMPS data file | 256,000 | 0.013 | 0.861 | 68.04 | 34 | 32 |
-| Write a LAMMPS data file | 2,048,000 | 0.087 | 7.123 | 81.76 | 204 | 234 |
-| Write a LAMMPS data file | 9,841,500 | 0.347 | 34.116 | 98.28 | 131 | 120 |
-| Read extended XYZ | 4,000 | 0.0010 | 0.0089 | 8.60 | 0 | 1 |
-| Read extended XYZ | 32,000 | 0.0016 | 0.070 | 43.88 | 1 | 8 |
-| Read extended XYZ | 256,000 | 0.0056 | 0.602 | 106.70 | 0 | 52 |
-| Read extended XYZ | 2,048,000 | 0.031 | 4.943 | 160.18 | 111 | 531 |
-| Read extended XYZ | 9,841,500 | 0.145 | 23.354 | 160.76 | 568 | 2667 |
-| Write extended XYZ | 4,000 | 0.0015 | 0.014 | 9.39 | 0 | 0 |
-| Write extended XYZ | 32,000 | 0.0025 | 0.108 | 43.09 | 1 | 2 |
-| Write extended XYZ | 256,000 | 0.0096 | 0.957 | 99.32 | 20 | 7 |
-| Write extended XYZ | 2,048,000 | 0.057 | 7.232 | 127.40 | 14 | 16 |
-| Write extended XYZ | 9,841,500 | 0.262 | 34.089 | 130.18 | 0 | 150 |
-| Read a gzipped LAMMPS dump | 4,000 | 0.0023 | 0.0088 | 3.81 | 0 | 0 |
-| Read a gzipped LAMMPS dump | 32,000 | 0.012 | 0.069 | 5.89 | 0 | 4 |
-| Read a gzipped LAMMPS dump | 256,000 | 0.086 | 0.562 | 6.52 | 0 | 28 |
-| Read a gzipped LAMMPS dump | 2,048,000 | 0.718 | 4.653 | 6.48 | 142 | 411 |
-| Read a gzipped LAMMPS dump | 9,841,500 | 3.663 | 22.356 | 6.10 | 830 | 2259 |
-| Read a gzipped LAMMPS data file | 4,000 | 0.0023 | 0.016 | 6.98 | 0 | 7 |
-| Read a gzipped LAMMPS data file | 32,000 | 0.011 | 0.139 | 12.30 | 0 | 58 |
-| Read a gzipped LAMMPS data file | 256,000 | 0.082 | 1.176 | 14.35 | 0 | 465 |
-| Read a gzipped LAMMPS data file | 2,048,000 | 0.707 | 10.221 | 14.46 | 141 | 4006 |
-| Read a gzipped LAMMPS data file | 9,841,500 | 3.525 | 48.558 | 13.78 | 914 | 18460 |
-| Write a gzipped LAMMPS data file | 4,000 | 0.019 | 0.140 | 7.38 | 0 | 0 |
-| Write a gzipped LAMMPS data file | 32,000 | 0.080 | 1.057 | 13.19 | 8 | 2 |
-| Write a gzipped LAMMPS data file | 256,000 | 0.129 | 9.782 | 76.10 | 60 | 33 |
-| Write a gzipped LAMMPS data file | 2,048,000 | 0.497 | 78.245 | 157.31 | 267 | 242 |
-| Write a gzipped LAMMPS data file | 9,841,500 | 2.023 | 373.525 | 184.63 | 175 | 120 |
-| Read gzipped extended XYZ | 4,000 | 0.0021 | 0.012 | 5.67 | 0 | 1 |
-| Read gzipped extended XYZ | 32,000 | 0.011 | 0.101 | 9.51 | 0 | 7 |
-| Read gzipped extended XYZ | 256,000 | 0.077 | 0.791 | 10.32 | 0 | 38 |
-| Read gzipped extended XYZ | 2,048,000 | 0.659 | 6.576 | 9.98 | 139 | 550 |
-| Read gzipped extended XYZ | 9,841,500 | 3.188 | 31.244 | 9.80 | 671 | 2742 |
-| Write gzipped extended XYZ | 4,000 | 0.019 | 0.094 | 5.09 | 0 | 0 |
-| Write gzipped extended XYZ | 32,000 | 0.083 | 0.699 | 8.44 | 7 | 2 |
-| Write gzipped extended XYZ | 256,000 | 0.120 | 5.750 | 47.78 | 54 | 7 |
-| Write gzipped extended XYZ | 2,048,000 | 0.457 | 46.186 | 101.15 | 65 | 2 |
-| Write gzipped extended XYZ | 9,841,500 | 1.843 | 222.012 | 120.49 | 0 | 149 |
+| Read a LAMMPS dump | 4,000 | 0.0011 | 0.0054 | 4.9 | 0 | 1 |
+| Read a LAMMPS dump | 32,000 | 0.0015 | 0.041 | 26.8 | 1 | 5 |
+| Read a LAMMPS dump | 256,000 | 0.0049 | 0.345 | 70.7 | 0 | 34 |
+| Read a LAMMPS dump | 2,048,000 | 0.028 | 2.863 | 101.2 | 122 | 412 |
+| Read a LAMMPS dump | 9,841,500 | 0.122 | 14.035 | 114.8 | 770 | 2208 |
+| Read a LAMMPS data file | 4,000 | 0.0012 | 0.014 | 11.7 | 0 | 7 |
+| Read a LAMMPS data file | 32,000 | 0.0018 | 0.124 | 66.8 | 1 | 59 |
+| Read a LAMMPS data file | 256,000 | 0.0047 | 1.012 | 217.0 | 0 | 510 |
+| Read a LAMMPS data file | 2,048,000 | 0.036 | 8.181 | 224.3 | 146 | 4009 |
+| Read a LAMMPS data file | 9,841,500 | 0.145 | 44.730 | 308.3 | 921 | 18392 |
+| Write a LAMMPS data file | 4,000 | 0.0011 | 0.014 | 12.8 | 0 | 0 |
+| Write a LAMMPS data file | 32,000 | 0.0022 | 0.104 | 47.2 | 2 | 2 |
+| Write a LAMMPS data file | 256,000 | 0.013 | 0.861 | 68.0 | 34 | 32 |
+| Write a LAMMPS data file | 2,048,000 | 0.087 | 7.123 | 81.8 | 204 | 234 |
+| Write a LAMMPS data file | 9,841,500 | 0.347 | 34.116 | 98.3 | 131 | 120 |
+| Read extended XYZ | 4,000 | 0.0010 | 0.0089 | 8.6 | 0 | 1 |
+| Read extended XYZ | 32,000 | 0.0016 | 0.070 | 43.9 | 1 | 8 |
+| Read extended XYZ | 256,000 | 0.0056 | 0.602 | 106.7 | 0 | 52 |
+| Read extended XYZ | 2,048,000 | 0.031 | 4.943 | 160.2 | 111 | 531 |
+| Read extended XYZ | 9,841,500 | 0.145 | 23.354 | 160.8 | 568 | 2667 |
+| Write extended XYZ | 4,000 | 0.0015 | 0.014 | 9.4 | 0 | 0 |
+| Write extended XYZ | 32,000 | 0.0025 | 0.108 | 43.1 | 1 | 2 |
+| Write extended XYZ | 256,000 | 0.0096 | 0.957 | 99.3 | 20 | 7 |
+| Write extended XYZ | 2,048,000 | 0.057 | 7.232 | 127.4 | 14 | 16 |
+| Write extended XYZ | 9,841,500 | 0.262 | 34.089 | 130.2 | 0 | 150 |
+| Read a gzipped LAMMPS dump | 4,000 | 0.0023 | 0.0088 | 3.8 | 0 | 0 |
+| Read a gzipped LAMMPS dump | 32,000 | 0.012 | 0.069 | 5.9 | 0 | 4 |
+| Read a gzipped LAMMPS dump | 256,000 | 0.086 | 0.562 | 6.5 | 0 | 28 |
+| Read a gzipped LAMMPS dump | 2,048,000 | 0.718 | 4.653 | 6.5 | 142 | 411 |
+| Read a gzipped LAMMPS dump | 9,841,500 | 3.663 | 22.356 | 6.1 | 830 | 2259 |
+| Read a gzipped LAMMPS data file | 4,000 | 0.0023 | 0.016 | 7.0 | 0 | 7 |
+| Read a gzipped LAMMPS data file | 32,000 | 0.011 | 0.139 | 12.3 | 0 | 58 |
+| Read a gzipped LAMMPS data file | 256,000 | 0.082 | 1.176 | 14.4 | 0 | 465 |
+| Read a gzipped LAMMPS data file | 2,048,000 | 0.707 | 10.221 | 14.5 | 141 | 4006 |
+| Read a gzipped LAMMPS data file | 9,841,500 | 3.525 | 48.558 | 13.8 | 914 | 18460 |
+| Write a gzipped LAMMPS data file | 4,000 | 0.019 | 0.140 | 7.4 | 0 | 0 |
+| Write a gzipped LAMMPS data file | 32,000 | 0.080 | 1.057 | 13.2 | 8 | 2 |
+| Write a gzipped LAMMPS data file | 256,000 | 0.129 | 9.782 | 76.1 | 60 | 33 |
+| Write a gzipped LAMMPS data file | 2,048,000 | 0.497 | 78.245 | 157.3 | 267 | 242 |
+| Write a gzipped LAMMPS data file | 9,841,500 | 2.023 | 373.525 | 184.6 | 175 | 120 |
+| Read gzipped extended XYZ | 4,000 | 0.0021 | 0.012 | 5.7 | 0 | 1 |
+| Read gzipped extended XYZ | 32,000 | 0.011 | 0.101 | 9.5 | 0 | 7 |
+| Read gzipped extended XYZ | 256,000 | 0.077 | 0.791 | 10.3 | 0 | 38 |
+| Read gzipped extended XYZ | 2,048,000 | 0.659 | 6.576 | 10.0 | 139 | 550 |
+| Read gzipped extended XYZ | 9,841,500 | 3.188 | 31.244 | 9.8 | 671 | 2742 |
+| Write gzipped extended XYZ | 4,000 | 0.019 | 0.094 | 5.1 | 0 | 0 |
+| Write gzipped extended XYZ | 32,000 | 0.083 | 0.699 | 8.4 | 7 | 2 |
+| Write gzipped extended XYZ | 256,000 | 0.120 | 5.750 | 47.8 | 54 | 7 |
+| Write gzipped extended XYZ | 2,048,000 | 0.457 | 46.186 | 101.1 | 65 | 2 |
+| Write gzipped extended XYZ | 9,841,500 | 1.843 | 222.012 | 120.5 | 0 | 149 |
 
 ## Cases
 

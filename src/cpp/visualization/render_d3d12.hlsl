@@ -52,7 +52,7 @@ ByteAddressBuffer nodes : register(t1);
 RaytracingAccelerationStructure boxes : register(t2);
 #endif
 
-static const uint kParams = 244;  // bytes, before the words of the scene
+static const uint kParams = 236;  // bytes, before the words of the scene
 static const uint kKindShift = 30u;
 static const uint kIndexMask = (1u << 30) - 1u;
 static const uint kSphere = 0u;

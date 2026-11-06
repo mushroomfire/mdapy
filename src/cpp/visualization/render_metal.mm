@@ -113,6 +113,12 @@ Ray make_ray(float3 origin, float3 direction) {
     return ray;
 }
 
+// How far a ray leaves the surface it starts on: the rounding of a hit grows
+// with its distance from the eye, about 1e-7 of it, and the lift with it.
+float lift(float epsilon, float t, float3 origin) {
+    return epsilon + 1e-6f * (t + length(origin));
+}
+
 float intersect(thread const World& w, uint ref, thread const Ray& ray, float t_min, float t_max) {
     const uint i = ref & kIndexMask;
     const uint kind = ref >> kKindShift;
@@ -120,8 +126,10 @@ float intersect(thread const World& w, uint ref, thread const Ray& ray, float t_
         const float3 oc = ray.origin - load3(w.sphere_center + 3 * i);
         const float r = w.sphere_radius[i];
         const float b = dot(oc, ray.direction);
-        const float c = dot(oc, oc) - r * r;
-        const float disc = b * b - c;
+        // r² less the squared distance of the ray from the center: a camera far away
+        // makes b² and |oc|² - r² large and alike, and their difference loses the digits
+        const float3 f = oc - ray.direction * b;
+        const float disc = r * r - dot(f, f);
         if (disc < 0) {
             return INFINITY;
         }
@@ -147,8 +155,10 @@ float intersect(thread const World& w, uint ref, thread const Ray& ray, float t_
         const float qa = dot(d, d);
         const float qb = dot(d, o);
         const float qc = dot(o, o) - r * r;
-        const float disc = qb * qb - qa * qc;
         const bool across = qa >= 1e-12f;
+        // qa (r² less the squared distance of the ray from the axis), for the same reason
+        const float3 f = o - d * (across ? qb / qa : 0.0f);
+        const float disc = across ? qa * (r * r - dot(f, f)) : 0.0f;
         if (across ? disc < 0 : qc > 0) {
             return INFINITY;
         }
@@ -469,7 +479,7 @@ float3 shade(thread const World& w, constant Params& P, Hit hit, thread const Ra
     const float3 point = ray.origin + ray.direction * hit.t;
     const float3 n = normal_at(w, hit.ref, point, ray.direction);
     const float3 base = color_of(w, hit.ref);
-    const float3 lifted = point + n * P.epsilon;
+    const float3 lifted = point + n * lift(P.epsilon, hit.t, ray.origin);
     float ao = 1.0f;
     if (P.ao_samples > 0 && P.ao_strength > 0) {
         const float3 helper = fabs(n[0]) < 0.9f ? float3(1, 0, 0) : float3(0, 1, 0);
@@ -522,7 +532,7 @@ float3 path(thread const World& w, constant Params& P, Hit first, Ray primary, t
     for (int bounce = 0;; ++bounce) {
         const float3 point = ray.origin + ray.direction * hit.t;
         const float3 n = normal_at(w, hit.ref, point, ray.direction);
-        const float3 lifted = point + n * P.epsilon;
+        const float3 lifted = point + n * lift(P.epsilon, hit.t, ray.origin);
         const float3 color = color_of(w, hit.ref);
         const float3 reflected = weight * color * body(P);
         const float3 l = toward_light(P, random);
@@ -646,7 +656,7 @@ kernel void trace_subpixels(device const float* sphere_center [[buffer(0)]],
             const float a = alpha_of(w, hit.ref);
             color = color + c * (remaining * a);
             remaining *= 1.0f - a;
-            t_min = hit.t + P.epsilon;
+            t_min = hit.t + lift(P.epsilon, hit.t, ray.origin);
         }
         coverage += 1.0f - remaining;
     }

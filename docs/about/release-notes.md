@@ -1,5 +1,13 @@
 # Release notes
 
+## 2.0.0 (in development)
+
+- Pictures of large systems seen from far away have no rings: the intersections of the
+  rays with atoms and bonds keep their digits however far the camera is, and the rays of
+  shadows and occlusion leave a surface by more the farther it is from the camera. The
+  rings showed on the GPU above some hundred Å from the eye, more faintly on the
+  processor.
+
 ## 2.0.0rc1
 
 The release candidate of MDAPY 2.0: its API is that of 2.0.0, and a test keeps it.

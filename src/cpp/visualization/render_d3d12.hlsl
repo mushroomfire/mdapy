@@ -93,6 +93,12 @@ Ray make_ray(float3 origin, float3 direction) {
     return ray;
 }
 
+// How far a ray leaves the surface it starts on: the rounding of a hit grows
+// with its distance from the eye, about 1e-7 of it, and the lift with it.
+float lift(float epsilon, float t, float3 origin) {
+    return epsilon + 1e-6 * (t + length(origin));
+}
+
 float intersect(uint ref, Ray ray, float t_min, float t_max) {
     const uint i = ref & kIndexMask;
     const uint kind = ref >> kKindShift;
@@ -100,8 +106,10 @@ float intersect(uint ref, Ray ray, float t_min, float t_max) {
         const float3 oc = ray.origin - load3(A_sphere_center + 3u * i);
         const float r = load(A_sphere_radius + i);
         const float b = dot(oc, ray.direction);
-        const float c = dot(oc, oc) - r * r;
-        const float disc = b * b - c;
+        // r² less the squared distance of the ray from the center: a camera far away
+        // makes b² and |oc|² - r² large and alike, and their difference loses the digits
+        const float3 f = oc - ray.direction * b;
+        const float disc = r * r - dot(f, f);
         if (disc < 0.0) {
             return kInfinity;
         }
@@ -127,8 +135,10 @@ float intersect(uint ref, Ray ray, float t_min, float t_max) {
         const float qa = dot(d, d);
         const float qb = dot(d, o);
         const float qc = dot(o, o) - r * r;
-        const float disc = qb * qb - qa * qc;
         const bool across = qa >= 1e-12;
+        // qa (r² less the squared distance of the ray from the axis), for the same reason
+        const float3 f = o - d * (across ? qb / qa : 0.0);
+        const float disc = across ? qa * (r * r - dot(f, f)) : 0.0;
         if (across ? disc < 0.0 : qc > 0.0) {
             return kInfinity;
         }
@@ -448,7 +458,7 @@ float3 shade(Hit hit, Ray ray, inout uint random) {
     const float3 where = ray.origin + ray.direction * hit.t;
     const float3 n = normal_at(hit.ref, where, ray.direction);
     const float3 base = color_of(hit.ref);
-    const float3 lifted = where + n * P.epsilon;
+    const float3 lifted = where + n * lift(P.epsilon, hit.t, ray.origin);
     float ao = 1.0;
     if (P.ao_samples > 0 && P.ao_strength > 0.0) {
         const float3 helper = abs(n[0]) < 0.9 ? float3(1, 0, 0) : float3(0, 1, 0);
@@ -499,7 +509,7 @@ float3 path(Hit first, Ray primary, inout uint random, int sample_index, float t
     for (int bounce = 0;; ++bounce) {
         const float3 where = ray.origin + ray.direction * hit.t;
         const float3 n = normal_at(hit.ref, where, ray.direction);
-        const float3 lifted = where + n * P.epsilon;
+        const float3 lifted = where + n * lift(P.epsilon, hit.t, ray.origin);
         const float3 color = color_of(hit.ref);
         const float3 reflected = weight * color * body();
         const float3 l = toward_light(random);
@@ -586,7 +596,7 @@ void main(uint3 invocation : SV_DispatchThreadID) {
             const float a = alpha_of(hit.ref);
             color = color + c * (remaining * a);
             remaining *= 1.0 - a;
-            t_min = hit.t + P.epsilon;
+            t_min = hit.t + lift(P.epsilon, hit.t, ray.origin);
         }
         coverage += 1.0 - remaining;
     }

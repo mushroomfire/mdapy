@@ -55,6 +55,12 @@ Ray make_ray(V origin, V direction) {
     return {origin, direction, inverse};
 }
 
+// How far a ray leaves the surface it starts on: the rounding of a hit grows
+// with its distance from the eye, about 1e-7 of it, and the lift with it.
+float lift(float epsilon, float t, V origin) {
+    return epsilon + 1e-6f * (t + std::sqrt(dot(origin, origin)));
+}
+
 struct Hit {
     float t = kInfinity;
     std::uint32_t ref = 0;  // kind and index
@@ -231,8 +237,10 @@ public:
                 const V oc = ray.origin - load(&scene_.sphere_center[3 * i]);
                 const float r = scene_.sphere_radius[i];
                 const float b = dot(oc, ray.direction);
-                const float c = dot(oc, oc) - r * r;
-                const float disc = b * b - c;
+                // r² less the squared distance of the ray from the center: a camera far away
+                // makes b² and |oc|² - r² large and alike, and their difference loses the digits
+                const V f = oc - ray.direction * b;
+                const float disc = r * r - dot(f, f);
                 if (disc < 0) {
                     return kInfinity;
                 }
@@ -258,8 +266,10 @@ public:
                 const float qa = dot(d, d);
                 const float qb = dot(d, o);
                 const float qc = dot(o, o) - r * r;
-                const float disc = qb * qb - qa * qc;
                 const bool across = qa >= 1e-12f;
+                // qa (r² less the squared distance of the ray from the axis), for the same reason
+                const V f = o - d * (across ? qb / qa : 0.0f);
+                const float disc = across ? qa * (r * r - dot(f, f)) : 0.0f;
                 if (across ? disc < 0 : qc > 0) {
                     return kInfinity;
                 }
@@ -771,7 +781,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         const V point = ray.origin + ray.direction * hit.t;
         const V n = bvh.normal(hit.ref, point, ray.direction);
         const V base = bvh.color(hit.ref);
-        const V lifted = point + n * epsilon;
+        const V lifted = point + n * lift(epsilon, hit.t, ray.origin);
         float ao = 1.0f;
         if (style.ao_samples > 0 && style.ao_strength > 0) {
             // cosine-weighted directions about the normal, one in each ring
@@ -846,7 +856,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         for (int bounce = 0;; ++bounce) {
             const V point = ray.origin + ray.direction * hit.t;
             const V n = bvh.normal(hit.ref, point, ray.direction);
-            const V lifted = point + n * epsilon;
+            const V lifted = point + n * lift(epsilon, hit.t, ray.origin);
             const V color = bvh.color(hit.ref);
             const V reflected = weight * color * body;
             const V l = toward_light(random);
@@ -980,7 +990,7 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
                             const float alpha = bvh.alpha(hit.ref);
                             color = color + c * (remaining * alpha);
                             remaining *= 1.0f - alpha;
-                            t_min = hit.t + epsilon;
+                            t_min = hit.t + lift(epsilon, hit.t, ray.origin);
                         }
                         coverage += 1.0f - remaining;
                     }

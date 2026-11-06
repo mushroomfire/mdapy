@@ -1087,6 +1087,23 @@ def test_bonds_are_closed_at_their_ends(device):
     assert (seen.max(axis=0) - seen.min(axis=0)).max() <= 2
 
 
+@pytest.mark.parametrize("device", ["cpu", "gpu"])
+def test_a_camera_far_away_sees_atoms_and_bonds_whole(device):
+    """From 3400 Å through a narrow view, an atom and a bond look as they do
+    without perspective: their intersections keep their digits however far
+    the rays come from, without rings of wrong hits."""
+    if device == "gpu" and not gpu_available():
+        pytest.skip("no GPU")
+    box = mdapy.Box(10.0, pbc=False)
+    pair = mdapy.System([[-0.9, 0.0, 0.0], [0.9, 0.0, 0.0]], box, elements="Cu")
+    options = dict(width=96, height=64, view=(0.3, 0.2, -1.0), focus=(0, 0, 0), span=3.0,
+                   box=False, style="matte", bonds=2.0, device=device)  # fmt: skip
+    near = render(pair, perspective=False, **options).astype(int)
+    far = render(pair, perspective=True, fov=0.05, **options).astype(int)
+    difference = np.abs(near - far).max(axis=2)
+    assert (difference > 8).mean() < 0.01 and np.abs(near - far).mean() < 0.5
+
+
 # ------------------------------------------------------------ on the GPU
 
 needs_gpu = pytest.mark.skipif(not gpu_available(), reason="no GPU")

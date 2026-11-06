@@ -52,6 +52,9 @@ jobs:
           # accepts, so that its lower bounds are tested; the others take the newest
           - { os: ubuntu-latest, python: "3.11", werror: "ON", lowest: true }
           - { os: ubuntu-latest, python: "3.14", werror: "ON" }
+          - { os: ubuntu-latest, python: "3.15", werror: "ON" }
+          # Linux on ARM, for which wheels are published too
+          - { os: ubuntu-24.04-arm, python: "3.13", werror: "ON" }
           - { os: macos-15, python: "3.13", werror: "ON" }
           # MSVC also warns inside third-party headers, so no -Werror here.
           - { os: windows-latest, python: "3.13", werror: "OFF" }

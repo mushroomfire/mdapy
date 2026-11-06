@@ -26,6 +26,9 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   `compute(system)` and returns NumPy arrays, each concept has one name
   ([Glossary](reference/glossary.md)), and one unit system, Å, eV, ps, amu, K, and GPa for
   stress, runs through everything ([Units and conventions](reference/units.md)).
+- **Stable.** From 2.0.0 on, code that works keeps working: the API changes only with
+  3.0, a replaced name warns long before it goes, and a result changes only to fix a bug,
+  named in the release notes ([Compatibility](about/compatibility.md)).
 - **Integrated.** One package and one `System`, from the first structure to the last
   picture. It converts systems to and from [ASE](https://wiki.fysik.dtu.dk/ase/),
   [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and

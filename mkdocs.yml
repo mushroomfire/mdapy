@@ -295,5 +295,6 @@ nav:
           - MDAPY files: reference/formats/mdapy.md
   - About:
       - Release notes: about/release-notes.md
+      - Compatibility: about/compatibility.md
       - Reporting a problem: about/reporting.md
       - Contributing: about/contributing.md

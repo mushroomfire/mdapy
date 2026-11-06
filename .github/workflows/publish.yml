@@ -20,8 +20,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # GitHub retired macos-14; the deployment target below keeps the wheels for macOS 14.
-        os: [ubuntu-latest, macos-15, windows-2022]
+        # Each processor is built natively on a runner of its own. GitHub retired
+        # macos-14; the deployment target below keeps the wheels for macOS 14.
+        include:
+          - { os: ubuntu-latest, archs: x86_64 }
+          - { os: ubuntu-24.04-arm, archs: aarch64 }
+          - { os: macos-15, archs: arm64 }
+          - { os: windows-2022, archs: AMD64 }
     steps:
       - uses: actions/checkout@v4
       - uses: pypa/cibuildwheel@v4.3
@@ -29,9 +34,7 @@ jobs:
           # cp312 produces one abi3 wheel that covers Python >= 3.12.
           CIBW_BUILD: "cp311-* cp312-*"
           CIBW_SKIP: "*-musllinux_*"
-          CIBW_ARCHS_LINUX: x86_64
-          CIBW_ARCHS_MACOS: arm64
-          CIBW_ARCHS_WINDOWS: AMD64
+          CIBW_ARCHS: ${{ matrix.archs }}
           # the headers of Vulkan, for the pictures on the GPU on Linux
           CIBW_BEFORE_ALL_LINUX: dnf install -y vulkan-headers
           MACOSX_DEPLOYMENT_TARGET: "14.0"

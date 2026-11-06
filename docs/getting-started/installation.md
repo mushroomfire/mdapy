@@ -10,8 +10,8 @@ pip install --pre mdapy
 ```
 
 This is the usual way. The first release of 2.0 is a preview, and `--pre` asks `pip` for it:
-without it, `pip` installs 1.x. PyPI holds built packages for Linux on x86-64, macOS on
-Apple silicon and Windows on x86-64, so nothing has to be compiled. Elsewhere, `pip`
+without it, `pip` installs 1.x. PyPI holds built packages for Linux on x86-64 and on ARM,
+macOS on Apple silicon and Windows on x86-64, so nothing has to be compiled. Elsewhere, `pip`
 builds MDAPY from its source archive, which needs [the tools below](#what-a-build-needs).
 
 ## From a source archive

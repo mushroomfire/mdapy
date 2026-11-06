@@ -876,7 +876,6 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
     };
     const bool global = style.bounces > 0;
     const int samples = style.samples;
-    const bool lens = camera.perspective && camera.aperture > 0;
 
     const std::int64_t grain = std::max<std::int64_t>(1, 64 / s);
     if (style.gpu) {
@@ -887,8 +886,9 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
         copy3(params.up, up);
         params.half_width = camera.half_width;
         params.half_height = camera.half_height;
-        params.aperture = lens ? camera.aperture : 0.0f;
-        params.focal_distance = camera.focal_distance;
+        // the shaders still read a lens, for a depth of field that is gone: none
+        params.aperture = 0.0f;
+        params.focal_distance = 1.0f;
         params.start = start;
         params.nearest = nearest;
         params.farthest = farthest;
@@ -959,15 +959,6 @@ std::vector<std::uint8_t> render(const Scene& scene, const Camera& camera, const
                             const V d = unit(forward + right * (px * camera.half_width) +
                                              up * (py * camera.half_height));
                             ray = make_ray(center, d);
-                            if (lens) {
-                                // from a point of the lens to where the ray
-                                // through its middle meets the sharp plane
-                                const V sharp = center + d * (camera.focal_distance / dot(d, forward));
-                                const float u = random.next(), phi = 6.2831853f * random.next();
-                                const float r = camera.aperture * std::sqrt(u);
-                                const V from = center + right * (r * std::cos(phi)) + up * (r * std::sin(phi));
-                                ray = make_ray(from, unit(sharp - from));
-                            }
                         } else {
                             ray = make_ray(center + right * (px * camera.half_width) +
                                                up * (py * camera.half_height) + forward * start,

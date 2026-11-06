@@ -8,6 +8,8 @@
 - `render(line_color=...)` takes a color for each line, such as one for each atom whose
   path `trajectory_lines` gives.
 - The ninth of `LABEL_COLORS` is brown: it was the orange of the first.
+- `render` and `Scene.render` no longer take `aperture` and `focal_distance`: the depth of
+  field they gave only blurred a picture, and was easily set wrong.
 
 Documentation:
 

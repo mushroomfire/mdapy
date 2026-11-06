@@ -826,8 +826,6 @@ class Scene:
         zoom: float = 1.0,
         focus: ArrayLike | None = None,
         span: float | None = None,
-        aperture: float = 0.0,
-        focal_distance: float | None = None,
         style: str = "matte",
         background: Any = "white",
         device: str = "cpu",
@@ -863,12 +861,6 @@ class Scene:
             The length in Å the picture shows from its bottom to its top at
             the focus, in place of the framing and zoom. Default the scene
             framed.
-        aperture : float32, optional
-            Radius in Å of the lens of a perspective camera: 0 for a picture
-            sharp everywhere, more for depth of field. Default 0.
-        focal_distance : float32, optional
-            Distance in Å from the camera along the view to the plane that
-            stays sharp. Default that of the focus.
         style : str, optional
             One of ``STYLES``. Default matte.
         background : color or None, optional
@@ -917,16 +909,6 @@ class Scene:
                 raise InvalidParameter("focus must be a point of three numbers")
         if span is not None and not (np.isfinite(span) and span > 0):
             raise InvalidParameter(f"span must be positive, not {span!r}")
-        if not (np.isfinite(aperture) and aperture >= 0):
-            raise InvalidParameter(f"aperture must be 0 or more, not {aperture!r}")
-        if aperture > 0 and not perspective:
-            raise InvalidParameter("depth of field needs a perspective camera")
-        if focal_distance is not None and not (
-            np.isfinite(focal_distance) and focal_distance > 0
-        ):
-            raise InvalidParameter(
-                f"focal_distance must be positive, not {focal_distance!r}"
-            )
         if device not in ("cpu", "gpu", "auto"):
             raise InvalidParameter(f"device must be cpu, gpu or auto, not {device!r}")
         gpu = device == "gpu" or (device == "auto" and gpu_available())
@@ -1029,8 +1011,6 @@ class Scene:
                 half_h = 0.5 * span
             camera_at = center
             half = (half_h, half_h * aspect)
-        if focal_distance is None:
-            focal_distance = max(float((center - camera_at) @ forward), 1e-6)
         srgb = bool(settings["srgb"])
         if background is not None and not np.isfinite(_color(background)).all():
             raise InvalidParameter(f"background must be finite, not {background!r}")
@@ -1049,8 +1029,6 @@ class Scene:
             half_width=float(half[1]),
             half_height=float(half[0]),
             perspective=bool(perspective),
-            aperture=float(aperture),
-            focal_distance=float(focal_distance),
             width=int(width),
             height=int(height),
             ambient=float(settings["ambient"]),

@@ -470,7 +470,7 @@ def _raw_camera():
     f = np.float32
     return dict(
         center=np.zeros(3, f), forward=np.array([0, 0, -1], f), up=np.array([0, 1, 0], f),
-        half_width=1.0, half_height=1.0, perspective=False, aperture=0.0, focal_distance=1.0,
+        half_width=1.0, half_height=1.0, perspective=False,
         ambient=0.3, diffuse=0.7,
         specular=0.2, shininess=30.0, metalness=0.0, key=np.ones(3, f), highlight=np.ones(3, f),
         fill=np.ones(3, f), fill_intensity=0.2,
@@ -945,56 +945,6 @@ def test_samples_in_every_style():
     assert not np.array_equal(picture[1], picture[16])
 
 
-def test_depth_of_field():
-    # a sphere at the focus and one 20 Å behind it, seen from the front
-    scene = Scene()
-    scene.add_spheres([[-2.5, 0, 0], [2.5, 20, 0]], 1.0, (0.8, 0.3, 0.2))
-    options = {
-        "width": 160,
-        "height": 160,
-        "view": "front",
-        "perspective": True,
-        "focus": [0, 0, 0],
-        "span": 12,
-        "background": None,
-        "style": "flat",
-        "outline_width": 0.0,
-        "samples": 16,
-    }
-
-    def blurred_edges(image):
-        # pixels partly covered, about the near and the far sphere
-        alpha = image[..., 3].astype(int)
-        soft = (alpha > 12) & (alpha < 243)
-        return soft[:, :80].sum(), soft[:, 80:].sum()
-
-    near, far = blurred_edges(scene.render(**options))
-    # sharp at the focus by default: the far sphere blurs
-    near_dof, far_dof = blurred_edges(scene.render(aperture=0.4, **options))
-    assert near_dof <= 1.1 * near and far_dof > 3 * far
-    # sharp at the far sphere: the near one blurs
-    distance = 6 / np.tan(np.radians(15))  # from the camera to the focus
-    near_dof, far_dof = blurred_edges(
-        scene.render(aperture=0.4, focal_distance=distance + 20, **options)
-    )
-    assert near_dof > 3 * near and far_dof <= 1.1 * far
-    np.testing.assert_array_equal(
-        scene.render(aperture=0.0, focal_distance=5.0, **options),
-        scene.render(**options),
-    )
-    with mdapy.num_threads(3):
-        again = scene.render(aperture=0.4, **options)
-    np.testing.assert_array_equal(again, scene.render(aperture=0.4, **options))
-    for settings, message in [
-        ({"aperture": -1.0}, "aperture must be"),
-        ({"aperture": float("nan")}, "aperture must be"),
-        ({"focal_distance": 0.0}, "focal_distance must be"),
-        ({"aperture": 0.4, "perspective": False}, "needs a perspective camera"),
-    ]:
-        with pytest.raises(InvalidParameter, match=message):
-            scene.render(**(options | settings))
-
-
 def test_light_reflected_in_color():
     scene = floor_and_ball("red", [0.0, 0, 1.0], size=4.0)
     options = {"width": 120, "height": 120, "view": "iso"}
@@ -1153,7 +1103,6 @@ needs_gpu = pytest.mark.skipif(not gpu_available(), reason="no GPU")
         {"style": "shiny", "samples": 4},
         {"style": "shiny", "samples": 4, "metalness": 1.0, "highlight": (1, -1, 1)},
         {"style": "matte", "light_size": 0.2, "samples": 4},
-        {"style": "matte", "perspective": True, "aperture": 0.5, "samples": 4},
     ],
 )
 def test_the_gpu_draws_what_the_processor_draws(options):

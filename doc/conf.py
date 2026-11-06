@@ -57,7 +57,9 @@ html_theme_options = {
     "dark_logo": "mdapy-logo.svg",
     "announcement": (
         "This is MDAPY 1.x. We recommend upgrading to MDAPY 2.x: "
-        '<a href="https://mushroomfire.github.io/mdapy/">its documentation</a>.'
+        '<a href="https://mushroomfire.github.io/mdapy/">its documentation</a>, and '
+        '<a href="https://mushroomfire.github.io/mdapy/getting-started/from-1x/">'
+        "the 2.0 way of each 1.x call</a>."
     ),
 }
 

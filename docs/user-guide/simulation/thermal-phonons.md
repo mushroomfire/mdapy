@@ -34,18 +34,24 @@ hot.thermal([1000.0])
 The result is a [`Phonons`](phonons.md#results): its frequencies, band structures,
 densities of states and thermal properties are read as those of harmonic phonons.
 
-The bands of copper at rest and hot:
+The bands of copper at rest and hot. The hot crystal is larger, so its path through
+the Brillouin zone is shorter in reciprocal space; its bands are drawn along the path
+of the crystal at rest, stretched by the ratio of the lengths, so that the special
+points meet:
 
 <!-- skip-test -->
 ```python
 from mdapy.visualization import plot
 
+at_rest = cold.band_structure("fcc")
 with plot.style():
     fig, ax = plot.figure("single")
     for result, name, color in ((cold, "at rest", "0.6"), (hot, "1000 K", "#0072B2")):
         bands = result.band_structure("fcc")
-        lines = ax.plot(bands.distances, bands.frequencies, color=color, lw=1.2)
+        along = bands.distances * at_rest.distances[-1] / bands.distances[-1]
+        lines = ax.plot(along, bands.frequencies, color=color, lw=1.2)
         lines[0].set_label(name)
+    bands = at_rest
     ax.set_xticks([d for d, _ in bands.labels], [label for _, label in bands.labels])
     for d, _ in bands.labels:
         ax.axvline(d, color="0.8", lw=0.6)

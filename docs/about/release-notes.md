@@ -9,6 +9,21 @@
   path `trajectory_lines` gives.
 - The ninth of `LABEL_COLORS` is brown: it was the orange of the first.
 
+Documentation:
+
+- The README shows the examples as a gallery of pictures, each linked to its page.
+- [Polyhedral template matching](../user-guide/analysis/ptm.md) shows every structure and
+  every chemical ordering it knows, the RMSD and orientations;
+  [Voronoi analysis](../user-guide/analysis/voronoi.md) draws cells as voro++ does;
+  [Space group](../user-guide/analysis/space-group.md) explains the point group with its
+  axes and stereograms; [Slip systems](../user-guide/build/slip-systems.md) has the
+  pyramidal systems of hcp; [Frozen values](../user-guide/analysis/freeze.md) follows the
+  atoms of a crystal into its melt.
+- The pictures of stacking faults at finite temperature, of phonons at finite temperature
+  and of phase diagrams come with the code that draws them, and every picture with a
+  legend has it beside the scene.
+- [Reporting a problem](reporting.md) says which form of an issue to choose.
+
 ## 2.0.0a2
 
 - `find_overlapping` and `build_polycrystal` delete as few atoms as they can: the atoms that

@@ -27,16 +27,19 @@ import numpy as np
 from mdapy.visualization import STYLES, write_png
 
 pictures = [
-    render(grains, color=structures, style=style, width=400, height=300, device="auto")
+    render(grains, color=structures, style=style, width=600, height=450, device="auto")
     for style in STYLES
 ]
-write_png("images/styles.png", np.hstack(pictures))
+write_png(
+    "images/styles.png",
+    np.vstack([np.hstack(pictures[:2]), np.hstack(pictures[2:])]),
+)
 ```
 
 ![The styles](images/styles.png)
 
 *The four styles on a polycrystal colored by common neighbor analysis:
-fast, matte, shiny and flat.*
+fast and matte (top), shiny and flat (bottom).*
 
 ## Parameters
 
@@ -261,8 +264,8 @@ drawn = {
         box=False,
         view=(0.3, 0.6, -1.0),
         style="shiny",
-        width=400,
-        height=300,
+        width=520,
+        height=400,
         device="auto",
         legend=True,
     )
@@ -279,42 +282,51 @@ space_filling, in the shiny style.*
 ## Vectors
 
 An arrow along a vector of each atom, such as its displacement, velocity or
-force: here the displacements of an edge dislocation put into copper.
+force: here the displacements of the atoms of copper around an extra atom, put
+at an octahedral site and relaxed, in the plane of that atom.
 
 ```python
 import numpy as np
-from mdapy.build import build_crystal, insert_dislocation
+import mdapy as mp
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM
+from mdapy.simulation import minimize
 
-# x along [1-10], y normal to the (111) glide plane, z along the line
-crystal = build_crystal(
-    "fcc",
-    3.615,
-    elements="Cu",
-    orientation=[(1, -1, 0), (1, 1, 1), (-1, -1, 2)],
-    repeat=(24, 6, 1),
-)
-center = crystal.box.matrix.diagonal() / 2 + [0.1, 0.1, 0.0]
-edge = insert_dislocation(crystal, [3.615 / np.sqrt(2), 0, 0], line="z", center=center)
-edge = edge.with_columns(displacement=edge["positions"] - crystal["positions"])
+a = 3.615
+crystal = build_crystal("fcc", a, elements="Cu", repeat=(9, 9, 9))
+site = np.array([4.5, 4.0, 4.0]) * a  # the middle of an edge of a cubic cell
+start = mp.System(np.vstack([crystal["positions"], site]), crystal.box, elements="Cu")
+relaxed = minimize(start, EAM.zhou(["Cu"]), max_force=1e-4).system
+moved = relaxed["positions"] - start["positions"]
+start = start.with_columns(displacement=moved)
+
+distance = np.linalg.norm(start["positions"] - site, axis=1)
+plane = np.abs(start["positions.z"] - site[2]) < 0.5
 render(
-    edge,
+    start,
     "images/vectors.png",
-    radius=0.5,
+    atoms=plane & (distance < 10.5),
+    color=np.linalg.norm(moved, axis=1),
+    value_range=(0, 0.2),
+    legend="displacement (Å)",
+    radius=0.3,
     vectors="displacement",
-    vector_scale=2.5,
-    vector_radius=0.12,
-    vector_color=(0.85, 0.25, 0.2),
+    vector_scale=5,
+    vector_radius=0.08,
+    vector_color="atom",
     view="top",
+    box=False,
     width=800,
-    height=440,
+    height=700,
 )
 ```
 
-![Displacements around an edge dislocation](images/vectors.png)
+![Displacements around an extra atom](images/vectors.png)
 
-*The displacements of the atoms around an edge dislocation, 2.5 times
-their length, seen along the line: the planes above the glide plane open
-around the extra half plane and close below it.*
+*The displacements of the atoms of copper around an extra atom in the middle, five
+times their length, from where the atoms were, in the color of their length: its four
+nearest neighbors in this (001) plane move out by 0.44 Å, the next ones by 0.13 Å,
+and the rest by less.*
 
 The arrows are those of OVITO's vector display with normal shading: a shaft
 of `vector_radius`, which is OVITO's arrow width, and a head 2.5 times as

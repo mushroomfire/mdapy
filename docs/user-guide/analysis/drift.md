@@ -11,7 +11,7 @@ import numpy as np
 import mdapy as mp
 from mdapy.analysis import trajectory_lines
 from mdapy.transform import remove_drift
-from mdapy.visualization import render
+from mdapy.visualization import colormap, render
 
 # ten atoms that wander and drift together through a periodic box
 rng = np.random.default_rng(2)
@@ -21,15 +21,17 @@ walk = rng.random((10, 3)) * 20 + np.cumsum(steps, axis=0)
 frames = [mp.System(box.wrap(x)[0], box, elements="Ar") for x in walk]
 
 steady = remove_drift(frames)  # the frames moved, read when they are used
+colors = colormap(np.arange(10), "labels")  # one for each atom and its path
 for name, these in (("drift", frames), ("steady", steady)):
     paths = trajectory_lines(these)  # unwrapped, (10, 200, 3)
     render(
         these[-1].with_columns(positions=paths[:, -1]),
         f"images/{name}.png",
+        color=colors,
         radius=0.8,
         lines=paths,
         line_radius=0.12,
-        line_color="#3b6fb6",
+        line_color=colors,
         view=(0.0, 0.0, -1.0),
         width=420,
         height=420,
@@ -39,8 +41,8 @@ for name, these in (("drift", frames), ("steady", steady)):
 ![Paths with the drift](images/drift.png){ width="49%" }
 ![Paths without the drift](images/steady.png){ width="49%" }
 
-*The unwrapped paths of ten atoms over 200 frames, seen along the z axis,
-and the atoms where they end: with the drift of the whole system toward the
+*The unwrapped paths of ten atoms over 200 frames, seen along the z axis, each
+in the color of its atom, and the atoms where they end: with the drift of the whole system toward the
 upper right (left), and with the center of mass kept where it is in the
 first frame (right).*
 

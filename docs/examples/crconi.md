@@ -166,7 +166,7 @@ with plot.style():
     axes[0].plot([], [], color="#2a78d6", label="NEP")
     axes[0].plot([], [], color="#eb6834", lw=0.8, ls="--", label="DFT")
     axes[0].legend(frameon=False)
-    plot.save(fig, "crconi-phonons", formats=("png",))
+    plot.save(fig, "images/crconi-phonons", formats=("png",))
 ```
 
 ![Phonon dispersions of bcc Cr, hcp Co and fcc Ni: the NEP model against DFT](images/crconi-phonons.png)
@@ -298,11 +298,11 @@ with plot.style():
         ("Young's modulus (GPa)", "shear modulus (GPa)"),
     ):
         ax.plot(temperatures, model, "-o", color="#2a78d6", label="NEP, quasi-harmonic")
-        ax.plot(measured, fit, "X", color="#1f1f1e", label="measured")
+        ax.plot(measured, fit, "X", color="#1f1f1e", label="Exp.")
         ax.set_xlabel("temperature (K)")
         ax.set_ylabel(name)
     axes[1].legend(frameon=False)
-    plot.save(fig, "crconi-moduli", formats=("png",))
+    plot.save(fig, "images/crconi-moduli", formats=("png",))
 ```
 
 ```text

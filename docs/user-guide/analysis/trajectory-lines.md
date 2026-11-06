@@ -8,7 +8,7 @@ trajectory lines does; `render(lines=...)` draws the paths.
 import numpy as np
 import mdapy as mp
 from mdapy.analysis import trajectory_lines
-from mdapy.visualization import render
+from mdapy.visualization import colormap, render
 
 # twelve atoms that wander through a periodic box for 300 frames
 rng = np.random.default_rng(1)
@@ -21,13 +21,15 @@ frames = [
 
 paths = trajectory_lines(frames)  # (12, 300, 3), unwrapped
 some = trajectory_lines(frames, [0, 3, 5])  # (3, 300, 3)
+colors = colormap(np.arange(12), "labels")  # one for each atom and its path
 render(
     frames[-1],
     "images/trajectory-lines.png",
+    color=colors,
     radius=0.8,
     lines=paths,
     line_radius=0.12,
-    line_color="#3b6fb6",
+    line_color=colors,
     wrap_lines=True,
     view=(-1.0, -0.7, -0.5),
     width=600,
@@ -37,9 +39,9 @@ render(
 
 ![Paths of wandering atoms](images/trajectory-lines.png)
 
-*The paths of twelve atoms over 300 frames, cut at the faces of the
-periodic box and moved in through the opposite faces, and the atoms where
-they end.*
+*The paths of twelve atoms over 300 frames, each in the color of its atom, cut at
+the faces of the periodic box and moved in through the opposite faces, and the
+atoms where they end.*
 
 ## Parameters
 
@@ -58,7 +60,7 @@ image only, so that its lines of atoms that move more than half the box
 between frames differ.
 
 `render` draws polylines with `lines`, `line_radius` (Å, 0.1 as OVITO's
-line width of 0.2), `line_color` and `wrap_lines`, which cuts the lines at
+line width of 0.2), `line_color`, one or one for each line, and `wrap_lines`, which cuts the lines at
 the periodic faces of the box and moves the parts outside in through the
 opposite faces; see [Rendering](../visualization/rendering.md#parameters).
 

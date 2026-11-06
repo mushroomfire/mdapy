@@ -68,32 +68,47 @@ tetrahedron.lines[0].junctions  # the junctions at its first and last point
 
 The partials with the stacking faults between them, and the tetrahedron,
 drawn by the [renderer](../visualization/rendering.md) in the colors of
-their families:
+their families, with a legend of the atoms and the lines shown:
 
 ```python
 from mdapy.visualization import render, write_png
 
+kinds = {"1/2<110>": "perfect", "1/6<112>": "Shockley", "1/6<110>": "stair-rod",
+         "1/3<100>": "Hirth", "1/3<111>": "Frank"}  # fmt: skip
+
+
+def legend(found, shown):
+    """The structures of the atoms shown and the families of the lines."""
+    names = {found.names[k]: found.colors[k] for k in np.unique(found.structure[shown])}
+    palette = DislocationAnalysis.FAMILY_COLORS[found.crystal]
+    for family in sorted({line.family for line in found.lines}):
+        names[f"{kinds.get(family, 'other')} {family}"] = palette[family]
+    return names
+
+
+hcp = result.structure == result.names.index("hcp")
+not_fcc = tetrahedron.structure != tetrahedron.names.index("fcc")
 pictures = [
     render(
         system,
-        atoms=result.structure == result.names.index("hcp"),
+        atoms=hcp,
         color=result,
-        legend=True,
+        legend=legend(result, hcp),
         radius=0.8,
         dislocations=result,
         burgers_vectors=True,
         burgers_scale=5,
-        width=500,
+        width=640,
         height=500,
     ),
     render(
         relaxed,
-        atoms=tetrahedron.structure != tetrahedron.names.index("fcc"),
+        atoms=not_fcc,
         color=tetrahedron,
-        legend=True,
+        legend=legend(tetrahedron, not_fcc),
         radius=0.6,
         dislocations=tetrahedron,
-        width=500,
+        width=640,
         height=500,
     ),
 ]

@@ -7,9 +7,9 @@ The bonds come from a file, such as a LAMMPS data file, or from
 
 ```python
 import numpy as np
-from mdapy import transform
 from mdapy.analysis import BondLengthDistribution
 from mdapy.build import build_crystal
+from mdapy.transform import create_bonds
 
 # a silicon-germanium alloy on the diamond lattice, its atoms shaken by 0.05 Å
 alloy = build_crystal("diamond", 5.53, elements="Si", repeat=(4, 4, 4))
@@ -18,7 +18,7 @@ alloy = alloy.with_columns(
     element=rng.choice(["Si", "Ge"], size=len(alloy)),
     positions=alloy["positions"] + rng.normal(0, 0.05, (len(alloy), 3)),
 )
-bonded = transform.create_bonds(alloy, 2.8)
+bonded = create_bonds(alloy, 2.8)
 
 lengths = BondLengthDistribution(bins=60, cutoff=2.8).compute(bonded)
 lengths.length, lengths.counts  # bin centers in Å, bonds in each bin

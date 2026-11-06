@@ -14,11 +14,42 @@ composite = add_graphene(copper, layers=2, coverage=0.6, seed=2)
 composite.table["element"].value_counts()  # Cu and C
 ```
 
-![Graphene on the boundaries of a copper polycrystal, cut in half](images/graphene.png)
+One layer on every boundary, two layers, and one layer on half the area of
+the boundaries, each seen through a slice 10 Å thick, the atoms colored by
+[polyhedral template matching](../analysis/ptm.md), which knows graphene:
 
-*A copper polycrystal of six grains, cut in half, with graphene (dark): one
-layer on every boundary, two layers, and one layer on half the area of the
-boundaries.*
+```python
+import numpy as np
+from mdapy.identify import PolyhedralTemplateMatching
+from mdapy.visualization import render, write_png
+
+ptm = PolyhedralTemplateMatching(("fcc", "hcp", "bcc", "graphene"))
+pictures = []
+for layers, coverage in ((1, 1.0), (2, 1.0), (1, 0.5)):
+    composite = add_graphene(copper, layers=layers, coverage=coverage, seed=2)
+    structures = ptm.compute(composite)
+    middle = np.abs(composite["positions.y"] - 30.0) < 5.0
+    pictures.append(
+        render(
+            composite,
+            atoms=middle,
+            color=structures,
+            view="front",
+            legend=True,
+            width=600,
+            height=460,
+        )
+    )
+write_png("images/graphene.png", np.hstack(pictures))
+```
+
+![Graphene on the boundaries of a copper polycrystal](images/graphene.png)
+
+*A copper polycrystal of six grains with graphene: one layer on every
+boundary (left), two layers (middle), and one layer on half the area of
+the boundaries (right). The copper inside the grains is fcc, the carbon
+graphene; the copper next to the carbon is other, as some of its
+neighbors were removed to make room, until a relaxation closes the gap.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|

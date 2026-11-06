@@ -53,8 +53,8 @@ with plot.style():
     plot.save(fig, "images/warren-cowley", formats=("png",))
 ```
 
-![CsCl-ordered CuZn](images/warren-cowley-b2.png){ width="38%" }
-![Warren–Cowley parameters by shell](images/warren-cowley.png){ width="60%" }
+![CsCl-ordered CuZn](images/warren-cowley-b2.png){ width="49%" }
+![Warren–Cowley parameters by shell](images/warren-cowley.png){ width="49%" }
 
 *Left: CuZn in the CsCl order, Cu orange and Zn blue. Right: the order of Zn
 around Cu shell by shell, −1 for a shell of Zn only and 1 for one of Cu

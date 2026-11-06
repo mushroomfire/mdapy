@@ -18,7 +18,6 @@ import numpy as np
 import mdapy as mp
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.simulation import stacking_fault_energy
 
 
 def slab(structure, a, element, orientation):
@@ -34,26 +33,39 @@ tungsten = slab("bcc", 3.165, "W", [(1, -1, 0), (0, 0, 1), (1, 1, 0)])
 
 ## The map
 
-With two points, `stacking_fault_energy` gives the energy at the end of one slip vector:
-the upper half of the crystal moved by it, and the atoms relaxed along the normal. A loop
-over the vectors gives the map:
+At each slip vector, [`slip`](../user-guide/build/defects.md) moves the upper half of
+the crystal by it, and the atoms relax along the normal of the plane only, as for
+`stacking_fault_energy`; the energy above that of the crystal relaxed in the same way,
+per area of the plane, is the map. The crystal without slip is relaxed once, and a whole
+period of the plane brings the crystal back onto itself, so that the last row and column
+of the map are its first:
 
 ```python
+from mdapy import units
+from mdapy.build import slip
+from mdapy.simulation import minimize
+
+
+def relaxed_energy(crystal, potential):
+    """The energy with the atoms relaxed along z only."""
+    along_z = np.zeros((len(crystal), 3), dtype=bool)
+    along_z[:, 2] = True
+    return minimize(crystal.with_columns(movable=along_z), potential).energy
+
+
 def gamma_surface(crystal, potential, nx, ny):
     lx, ly = crystal.box.lengths[:2]
     x, y = np.linspace(0.0, lx, nx), np.linspace(0.0, ly, ny)
-    energy = np.array(
+    area = np.linalg.norm(np.cross(*crystal.box.matrix[:2]))
+    at_rest = relaxed_energy(crystal, potential)
+    inner = np.array(
         [
-            [
-                stacking_fault_energy(crystal, potential, [a, b, 0.0], points=2).energy[
-                    1
-                ]
-                for a in x
-            ]
-            for b in y
+            [relaxed_energy(slip(crystal, [a, b, 0.0]), potential) for a in x[:-1]]
+            for b in y[:-1]
         ]
     )
-    return x, y, energy
+    energy = np.pad(inner - at_rest, ((0, 1), (0, 1)), mode="wrap")
+    return x, y, energy / area * units.EV_PER_A2_TO_J_PER_M2
 
 
 fcc = gamma_surface(copper, EAM.zhou(["Cu"]), 37, 19)
@@ -94,7 +106,7 @@ with plot.style():
     axes[1].annotate("b", (wx / 2, wy / 2), (wx / 2 + 0.1, wy / 2), color="white")
     plot.save(fig, "images/gamma-surface", formats=("png",))
 
-fcc[2][0, 12], fcc[2][0, 6]  # 0.0225 and 0.111 J/m²: the fault, and the way to it
+fcc[2][0, 12], fcc[2][0, 6]  # 0.0224 and 0.111 J/m²: the fault, and the way to it
 bcc[2][4, 6], bcc[2].max()  # 1.73 at the middle of b, and 3.57 J/m² atoms on atoms
 ```
 

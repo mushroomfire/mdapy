@@ -35,11 +35,13 @@ threshold chosen:
 ```python
 from mdapy.visualization import plot, render
 
+names = [f"grain {k}: {n} atoms" for k, n in enumerate(result.size)]
 render(
     grains,
     "images/grain-segmentation.png",
     color=result.atom_colors(),
-    width=800,
+    legend=dict(zip(names, result.colors)),
+    width=1000,
     height=600,
 )
 

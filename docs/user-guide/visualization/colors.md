@@ -36,23 +36,39 @@ layer = alloy.where("positions.z > 12 and positions.z < 16")
 marked = assign_color(by_element, "#222222", atoms=layer)
 ```
 
-The three systems drawn:
+The three systems drawn, each with a legend. A color column holds colors only,
+so the legend is told what they mean: a bar needs the values and the colormap,
+and colors of types a mapping of names to colors:
 
 ```python
 from mdapy.visualization import write_png
 
-options = dict(view="iso", width=400, height=400)
+element = np.asarray(alloy["element"])
+kinds = {kind: by_element["color"][element == kind][0] for kind in np.unique(element)}
+options = dict(view="iso", width=520, height=400)
 write_png(
     "images/colors.png",
-    np.hstack([render(by_height, **options), render(by_element, **options),
-               render(marked, **options)]),
-)  # fmt: skip
+    np.hstack(
+        [
+            render(
+                by_height,
+                color=alloy["positions.z"],
+                colormap="rainbow",
+                legend="z (Å)",
+                **options,
+            ),
+            render(by_element, legend=kinds, **options),
+            render(marked, legend=kinds | {"the layer": "#222222"}, **options),
+        ]
+    ),
+)
 ```
 
 ![Atoms colored by height, by element, and a layer in one color](images/colors.png)
 
-*Left: rainbow from the lowest to the highest z. Middle: one color for each
-of Al, Cu and Ni. Right: a layer in dark gray over the colors by element.*
+*Left: rainbow from the lowest to the highest z, drawn from the values with the
+same colormap. Middle: one color for each of Al, Cu and Ni. Right: a layer in dark
+gray over the colors by element.*
 
 ## Parameters
 

@@ -15,6 +15,10 @@ another node, with Intel Xeon Gold 6248, so their times do not compare with thes
 
 ![Time of Atomsk over the time of MDAPY for each case and size](images/builders.png)
 
+*How many times faster MDAPY is: a row for each case, the largest gain on
+top, and a point for each size, larger and darker for more atoms; the number
+on the right is the speed-up at the largest size.*
+
 ### What they show
 
 - **Single crystal**: MDAPY builds and writes it 30 to 75 times faster

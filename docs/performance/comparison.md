@@ -16,6 +16,11 @@ pip, each with 40 threads. [Reading and writing files](files.md) and
 
 ![Time of OVITO and of freud over the time of MDAPY for each case and size](images/comparison.png)
 
+*How many times faster MDAPY is: a row for each case, the largest gain on
+top, and a point for each size, larger and darker for more atoms; the number
+on the right is the speed-up at the largest size. Left of 1×, the other program
+is faster.*
+
 ### What they show
 
 - **OVITO**: from 256 000 atoms on, MDAPY is faster in every analysis they

@@ -1713,71 +1713,122 @@ def table(entries: list[dict]) -> str:
     return "\n\n".join(tables)
 
 
+def _times(ratio: float) -> str:
+    return f"{ratio:.1f}×" if ratio < 9.95 else f"{ratio:.0f}×"
+
+
 def plot(entries: list[dict], path: str) -> None:
-    """The ratio of the times of each program and mdapy for each case and
-    size, one panel per program."""
+    """How many times faster mdapy is than each program, one panel per
+    program: a row per case, the fastest on top, a point per size, larger and
+    darker for more atoms, and the ratio at the largest size beside the row."""
+    from matplotlib import colormaps
+    from matplotlib.lines import Line2D
+
     from mdapy.visualization import plot as plots
 
     titles = {name: case.title for name, case in _cases().items()}
     panels = [(p, timed(entries, p)) for p in PROGRAMS if timed(entries, p)]
     counts = [len({e["case"] for e in done}) for _, done in panels]
     sizes = sorted({e["size"] for _, done in panels for e in done})
+    shades = colormaps["Blues"](np.linspace(0.38, 1.0, len(sizes)))
+    marks = np.linspace(3.0, 5.5, len(sizes))
+    ink, muted = "#1f1f1e", "#6b6b68"
     with plots.style():
         fig, axes = plots.figure(
             "double",
-            30 * len(panels) + 6.5 * sum(counts),
+            24 + 16 * len(panels) + 4.6 * sum(counts),
             nrows=len(panels),
-            gridspec_kw={"height_ratios": [c + 4 for c in counts]},
+            gridspec_kw={"height_ratios": [c + 3.5 for c in counts]},
         )
         axes = np.atleast_1d(axes)
         for ax, (program, done) in zip(axes, panels):
-            names = [n for n in titles if any(e["case"] == n for e in done)]
-            ratios = {
-                (e["case"], e["size"]): best(e[program]) / best(e["mdapy"])
-                for e in done
-            }
-            height = 0.8 / len(sizes)
-            for k, size in enumerate(sizes):
-                ax.barh(
-                    np.arange(len(names)) + (k - (len(sizes) - 1) / 2) * height,
-                    [ratios.get((name, size), np.nan) for name in names],
-                    height,
-                    color=plots.COLORS[k % len(plots.COLORS)],
-                    label=f"{size:,d} atoms",
-                )
-            ax.axvline(1.0, color="k", lw=0.5)
+            ratios: dict[str, dict[int, float]] = {}
+            for e in done:
+                ratio = best(e[program]) / best(e["mdapy"])
+                ratios.setdefault(e["case"], {})[e["size"]] = ratio
+            # the largest size of each case decides its place
+            names = sorted(ratios, key=lambda n: -ratios[n][max(ratios[n])])
+            every = [r for values in ratios.values() for r in values.values()]
+            low = min(min(every), 1.0) / 1.35
+            high = max(every) * 1.35
             ax.set_xscale("log")
-            ticks = (0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200)
-            low, high = ax.get_xlim()
+            ax.set_xlim(low, high)
+            ax.set_ylim(len(names) - 0.4, -2.0)
+            if min(every) < 1.0:  # where the other program is faster, shaded
+                ax.axvspan(low, 1.0, color="#f1f0ec", linewidth=0, zorder=0)
+            ax.axvline(1.0, color=muted, linewidth=0.6, zorder=1)
+            for row, name in enumerate(names):
+                values = ratios[name]
+                spread = [min(values.values()), max(values.values())]
+                ax.plot(spread, [row, row], color="#cfcdc6", linewidth=1.4, zorder=1)
+                for k, size in enumerate(sizes):
+                    if size in values:
+                        ax.plot(
+                            values[size],
+                            row,
+                            "o",
+                            color=shades[k],
+                            markersize=marks[k],
+                            markeredgecolor="white",
+                            markeredgewidth=0.4,
+                            zorder=2 + k,
+                        )
+                largest = max(values)
+                text = _times(values[largest])
+                if largest != sizes[-1]:  # not run at the largest size
+                    text += f" at {largest:,d} atoms"
+                ax.annotate(
+                    text,
+                    (1.0, row),
+                    xycoords=("axes fraction", "data"),
+                    xytext=(6, 0),
+                    textcoords="offset points",
+                    va="center",
+                    color=ink if largest == sizes[-1] else muted,
+                    fontweight="bold" if largest == sizes[-1] else "normal",
+                )
+            other = PROGRAMS[program]
+            ax.annotate(
+                f"speed-up at\n{sizes[-1]:,d} atoms",
+                (1.0, -1.25),
+                xycoords=("axes fraction", "data"),
+                xytext=(6, 0),
+                textcoords="offset points",
+                va="center",
+                color=muted,
+            )
+            ax.text(1.08, -1.25, "MDAPY faster →", va="center", ha="left", color=muted)
+            if min(every) < 1.0:
+                ax.text(
+                    1 / 1.08, -1.25, f"← {other} faster", va="center", ha="right",
+                    color=muted,
+                )  # fmt: skip
+            ticks = [t for t in (0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500)]
             ticks = [t for t in ticks if low <= t <= high]
-            ax.set_xticks(ticks, [f"{t:g}" for t in ticks])
+            ax.set_xticks(ticks, [f"{t:g}×" for t in ticks])
             ax.minorticks_off()
+            ax.grid(axis="x", color="#e4e2dc", linewidth=0.5, zorder=0)
+            ax.set_axisbelow(True)
             ax.set_yticks(np.arange(len(names)), [titles.get(n, n) for n in names])
-            ax.invert_yaxis()
-            name = PROGRAMS[program]
-            ax.set_title(f"{label(entries, 'mdapy')} against {label(entries, program)}")
-            ax.set_xlabel(f"time of {name} / time of MDAPY")
-            # where mdapy is better, and worse, under the axis
-            ax.annotate(
-                "MDAPY better →",
-                (1.0, 0.0),
-                xycoords="axes fraction",
-                xytext=(0, -26),
-                textcoords="offset points",
-                ha="right",
-                va="top",
+            ax.tick_params(axis="y", length=0)
+            ax.spines["left"].set_visible(False)
+            ax.set_title(
+                f"{label(entries, 'mdapy')} against {label(entries, program)}",
+                loc="left",
+                fontweight="bold",
             )
-            ax.annotate(
-                "← MDAPY worse",
-                (0.0, 0.0),
-                xycoords="axes fraction",
-                xytext=(0, -26),
-                textcoords="offset points",
-                ha="left",
-                va="top",
-            )
-        # beside the bars, which may reach any place; the same sizes below
-        axes[0].legend(frameon=False, loc="upper left", bbox_to_anchor=(1.0, 1.0))
+            ax.set_xlabel(f"time of {other} / time of MDAPY")
+        handles = [
+            Line2D([], [], linestyle="", marker="o", color=shades[k],
+                   markersize=marks[k], markeredgecolor="white", markeredgewidth=0.4)
+            for k in range(len(sizes))
+        ]  # fmt: skip
+        fig.legend(
+            handles,
+            [f"{size:,d} atoms" for size in sizes],
+            loc="outside upper center",
+            ncol=len(sizes),
+        )
         plots.save(fig, path.rsplit(".", 1)[0], formats=(path.rsplit(".", 1)[1],))
 
 

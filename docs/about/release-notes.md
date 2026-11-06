@@ -25,7 +25,12 @@ Documentation:
   and of phase diagrams come with the code that draws them, and every picture with a
   legend has it beside the scene.
 - [The CrCoNi example](../examples/crconi.md) compares the elastic constants of molecular
-  dynamics, run with `pair_style nep/kk` on a GPU, with the quasi-harmonic ones.
+  dynamics, run with `pair_style nep/kk` on a GPU, with the quasi-harmonic ones and the
+  moduli of both with measurements.
+- [Special quasirandom structures](../user-guide/build/sqs.md) plot their Warren–Cowley
+  parameters shell by shell against those of a random alloy.
+- The [performance](../performance/comparison.md) pages show for each case how many times
+  faster MDAPY is at every size, the largest gains on top.
 - [Reporting a problem](reporting.md) says which form of an issue to choose.
 
 ## 2.0.0a2

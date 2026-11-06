@@ -16,6 +16,10 @@ from pip. The [analyses](comparison.md) ran on another node, with Intel Xeon Gol
 
 ![Time of OVITO and of ASE over the time of MDAPY for each case and size](images/files.png)
 
+*How many times faster MDAPY is: a row for each case, the largest gain on
+top, and a point for each size, larger and darker for more atoms; the number
+on the right is the speed-up at the largest size.*
+
 ### What they show
 
 - **OVITO**: from 32 000 atoms on, MDAPY reads the three formats 4.7 to

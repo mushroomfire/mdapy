@@ -10,6 +10,13 @@
 - The documentation is published from the tag of each release, so that it describes the
   version `pip` installs.
 - `CITATION.cff` gives GitHub's "Cite this repository" the paper to cite.
+- Plain XYZ files read: a comment line without `=` is free text, kept as
+  `info["comment"]`, and each atom line then holds an element symbol and x, y, z.
+- Every NaN is written as `nan` in text files; some systems wrote `-nan(ind)` or
+  `nan(snan)`, which no reader takes back.
+- An atom count too large for 64 bits in a damaged header gives a FileFormatError.
+- Damaged files of every format are tested to give an error of MDAPY, and the text
+  kernels are fuzzed in CI.
 
 ## 2.0.0b1
 

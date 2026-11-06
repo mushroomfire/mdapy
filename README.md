@@ -74,89 +74,53 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
 
 ## 🎨 Examples
 
-One copper polycrystal, from nothing to a movie.
-
-<table>
-<tr><th width="58%">Build</th><th>Grains, 81,734 atoms</th></tr>
-<tr><td>
-
-```python
-import mdapy as mp
-from mdapy.build import build_crystal, build_polycrystal
-from mdapy.visualization import render
-
-copper = build_crystal("fcc", 3.615, elements="Cu")
-grains = build_polycrystal(copper, mp.Box(100.0), 8, seed=1)
-render(grains, "grains.png", color="grain")
-```
-
-</td><td><img alt="A polycrystal colored by grain" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/grains.png" width="100%"></td></tr>
-<tr><th>Analyze</th><th>The atoms that are not fcc</th></tr>
-<tr><td>
-
-```python
-from mdapy.identify import CommonNeighborAnalysis
-
-structures = CommonNeighborAnalysis().compute(grains)
-structures.counts()  # {'other': 21162, 'fcc': 60691, ...}
-boundaries = structures.structure != 1  # not fcc
-render(grains, "boundaries.png", atoms=boundaries, color=structures)
-```
-
-</td><td><img alt="The grain boundaries of the polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/boundaries.png" width="100%"></td></tr>
-<tr><th>Simulate</th><th>Phonons of copper</th></tr>
-<tr><td>
-
-```python
-from mdapy.calculators import EAM
-from mdapy.lattice_dynamics import phonons, primitive_cell
-from mdapy.simulation import minimize
-from mdapy.visualization import plot
-
-eam = EAM.zhou(["Cu"])
-relaxed = minimize(copper, eam, cell="full", max_stress=1e-4)
-cell = primitive_cell(relaxed.system)
-bands = phonons(cell, eam).band_structure("fcc")
-with plot.style():
-    fig, ax = plot.figure()
-    plot.band_structure(bands, ax=ax)
-    plot.save(fig, "phonons", formats=("png",))
-```
-
-</td><td><img alt="The phonon dispersion of copper" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/phonons.png" width="100%"></td></tr>
-<tr><th>MLIP</th><th>The 20 frames most worth a DFT calculation</th></tr>
-<tr><td>
-
-```python
-from mdapy import mlip
-
-crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 3))
-frames = mlip.perturb(crystal, 200, displacement=0.1, seed=1)
-points = mlip.structure_descriptors(frames, mlip.SOAP(["Cu"]))
-chosen = mlip.farthest_point_sampling(points, 20)
-
-xy = mlip.principal_components(points).transform(points)
-with plot.style():
-    fig, ax = plot.figure()
-    ax.scatter(*xy.T, s=4, color="0.7", label="all frames")
-    ax.scatter(*xy[chosen].T, s=12, label="chosen")
-    ax.set_xlabel("principal component 1")
-    ax.set_ylabel("principal component 2")
-    ax.legend()
-    plot.save(fig, "frames", formats=("png",))
-```
-
-</td><td><img alt="Frames on the map of their descriptors, with those chosen" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/frames.png" width="100%"></td></tr>
-</table>
-
-### Make a movie
+Click a picture for its example, with the whole code.
 
 <p align="center">
-  <a href="https://mushroomfire.github.io/mdapy/examples/movie/"><img alt="A movie that flies through a copper polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/examples/images/movie.webp" width="480"></a>
+  <a href="https://mushroomfire.github.io/mdapy/examples/movie/"><img alt="A movie that flies through a copper polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/examples/images/movie.webp" width="480"></a><br>
+  <a href="https://mushroomfire.github.io/mdapy/examples/movie/"><b>Fly through a crystal</b></a>
 </p>
 
-See [A movie that flies through a crystal](https://mushroomfire.github.io/mdapy/examples/movie/)
-for the whole script.
+<table>
+<tr>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/build/polycrystals/"><img alt="Polycrystals" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/polycrystal.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/build/polycrystals/"><b>Polycrystals</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/examples/gradient-polycrystals/"><img alt="Gradient grains" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/gradient.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/examples/gradient-polycrystals/"><b>Gradient grains</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/examples/graphene-polycrystal/"><img alt="Graphene grains" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/graphene.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/examples/graphene-polycrystal/"><b>Graphene grains</b></a></td>
+</tr>
+<tr>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/examples/molecular-polycrystal/"><img alt="Ice polycrystal" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/ice.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/examples/molecular-polycrystal/"><b>Ice polycrystal</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/examples/two-phase-polycrystal/"><img alt="Two-phase grains" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/two-phase.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/examples/two-phase-polycrystal/"><b>Two-phase grains</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/examples/columnar-polycrystal/"><img alt="Columnar grains" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/columns.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/examples/columnar-polycrystal/"><b>Columnar grains</b></a></td>
+</tr>
+<tr>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/dislocations/"><img alt="Dislocations" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/dislocations.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/dislocations/"><b>Dislocations</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/ptm/"><img alt="Structure types" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/icosahedron.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/ptm/"><b>Structure types</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/voronoi/"><img alt="Voronoi cells" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/voronoi.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/voronoi/"><b>Voronoi cells</b></a></td>
+</tr>
+<tr>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/space-group/"><img alt="Point groups" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/point-group.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/space-group/"><b>Point groups</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/examples/gamma-surface/"><img alt="Gamma surfaces" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/gamma-surface.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/examples/gamma-surface/"><b>Gamma surfaces</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/examples/crconi/"><img alt="NEP against DFT" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/crconi.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/examples/crconi/"><b>NEP against DFT</b></a></td>
+</tr>
+<tr>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/simulation/phase-diagram/"><img alt="Phase diagrams" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/phase-diagram.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/simulation/phase-diagram/"><b>Phase diagrams</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/simulation/stacking-fault-temperature/"><img alt="Hot stacking faults" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/stacking-fault.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/simulation/stacking-fault-temperature/"><b>Hot stacking faults</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/freeze/"><img alt="Melting copper" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/freeze.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/freeze/"><b>Melting copper</b></a></td>
+</tr>
+<tr>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/trajectory-lines/"><img alt="Atom paths" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/trajectories.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/trajectory-lines/"><b>Atom paths</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/chill-plus/"><img alt="Ice and water" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/ice-structure.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/analysis/chill-plus/"><b>Ice and water</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/visualization/rendering/"><img alt="Displacements" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/vectors.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/visualization/rendering/"><b>Displacements</b></a></td>
+</tr>
+<tr>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/visualization/rendering/"><img alt="Render styles" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/styles.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/visualization/rendering/"><b>Render styles</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/user-guide/visualization/rendering/"><img alt="Molecules" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/molecules.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/user-guide/visualization/rendering/"><b>Molecules</b></a></td>
+<td align="center" width="33%"><a href="https://mushroomfire.github.io/mdapy/examples/high-throughput/"><img alt="High throughput" src="https://raw.githubusercontent.com/mushroomfire/mdapy/master/docs/assets/readme/high-throughput.png" width="100%"></a><br><a href="https://mushroomfire.github.io/mdapy/examples/high-throughput/"><b>High throughput</b></a></td>
+</tr>
+</table>
+
+More in the [documentation](https://mushroomfire.github.io/mdapy/), from the
+[quick tour](https://mushroomfire.github.io/mdapy/getting-started/quick-tour/) on.
 
 ## 📦 Install
 

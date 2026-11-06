@@ -49,7 +49,7 @@ struct Tile {
     std::uint32_t geometry_kinds;
 };
 
-static_assert(sizeof(Params) == 244, "the shader reads the scene after the parameters, at this offset");
+static_assert(sizeof(Params) == 236, "the shader reads the scene after the parameters, at this offset");
 
 void check(HRESULT result, const char* what) {
     if (FAILED(result)) {

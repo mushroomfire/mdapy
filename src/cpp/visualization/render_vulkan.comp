@@ -22,9 +22,7 @@ layout(local_size_x = 8, local_size_y = 8) in;
 
 struct Params {
     float center[3], forward[3], right[3], up[3];
-    // aperture and focal_distance, a lens no longer read, keep the layout that
-    // Direct3D 12 shares until its shader is compiled again
-    float half_width, half_height, aperture, focal_distance;
+    float half_width, half_height;
     float start, nearest, farthest, epsilon;
     float key[3], highlight[3], fill[3], key_tangent[3], key_bitangent[3];
     float ambient, diffuse, specular, shininess, metalness, fill_intensity, base_light;

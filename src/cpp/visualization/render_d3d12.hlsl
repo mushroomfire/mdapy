@@ -16,7 +16,7 @@
 
 struct Params {
     float3 center, forward, right, up;
-    float half_width, half_height, aperture, focal_distance;
+    float half_width, half_height;
     float start, nearest, farthest, epsilon;
     float3 key, highlight, fill, key_tangent, key_bitangent;
     float ambient, diffuse, specular, shininess, metalness, fill_intensity, base_light;
@@ -556,14 +556,6 @@ void main(uint3 invocation : SV_DispatchThreadID) {
         if (P.perspective != 0) {
             const float3 d = unit(P.forward + P.right * (px * P.half_width) + P.up * (py * P.half_height));
             ray = make_ray(P.center, d);
-            if (P.aperture > 0.0) {
-                const float3 sharp = P.center + d * (P.focal_distance / dot(d, P.forward));
-                const float u = next(random);
-                const float phi = 6.2831853 * next(random);
-                const float r = P.aperture * sqrt(u);
-                const float3 from = P.center + P.right * (r * cos(phi)) + P.up * (r * sin(phi));
-                ray = make_ray(from, unit(sharp - from));
-            }
         } else {
             ray = make_ray(P.center + P.right * (px * P.half_width) + P.up * (py * P.half_height) + P.forward * P.start,
                            P.forward);

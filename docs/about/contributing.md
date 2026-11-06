@@ -136,6 +136,13 @@ on the processor, which they never do otherwise. CI has no GPU on Linux and Wind
 runs the tests of pictures once more this way there, for the code and the shaders of Vulkan
 and Direct3D 12. A real GPU remains the only check of its drivers and ray tracing units.
 
+NumPy and polars are what MDAPY stands on. CI tests them at both ends: one job with
+Python 3.11 and the lowest versions `pyproject.toml` accepts, the others with the newest.
+Every week the tests also run with the newest releases and with what comes next, the
+nightly wheels of NumPy and the pre-releases of polars, so that a change of theirs that
+breaks MDAPY, or warns of one, shows before it reaches users. A new lower bound in
+`pyproject.toml` is the version the lowest job installs.
+
 ### What a complete run needs
 
 `pip install -e ".[dev]"` gives everything a plain `pytest` needs: the test

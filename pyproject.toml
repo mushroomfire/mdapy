@@ -84,6 +84,9 @@ filterwarnings = [
     "ignore:Setting the shape on a NumPy array:DeprecationWarning:ase",
     # pymatgen asks spglib for the old error handling, which spglib deprecates
     "ignore:Set OLD_ERROR_HANDLING to false:DeprecationWarning:spglib",
+    # SciPy's norm, which ASE's optimizers call, uses numpy.isfortran, which NumPy 2.6
+    # deprecates
+    "ignore:numpy.isfortran is deprecated:DeprecationWarning:scipy",
 ]
 
 [tool.coverage.run]

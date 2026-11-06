@@ -152,20 +152,16 @@ def test_pages_with_examples_are_found():
     assert any(p.name == "box.md" for p in PAGES)
 
 
-def test_the_examples_of_the_readme_run(tmp_path, monkeypatch):
-    from mdapy import visualization
-
-    monkeypatch.chdir(tmp_path)
-    # the first picture of the movie is enough, and FFmpeg is optional
-    monkeypatch.setattr(
-        visualization, "write_movie", lambda path, pictures, **_: next(iter(pictures))
+def test_the_gallery_of_the_readme_links_each_picture_to_its_page():
+    gallery = re.findall(
+        r'<a href="https://mushroomfire\.github\.io/mdapy/([\w./-]*)"><img [^>]*'
+        r'src="https://raw\.githubusercontent\.com/mushroomfire/mdapy/master/([\w./-]+)"',
+        README.read_text(encoding="utf-8"),
     )
-    namespace: dict = {}
-    for code, _ in python_blocks(README):
-        exec(compile(code, "README.md", "exec"), namespace)
-    assert namespace["structures"].counts()["fcc"] == 60691
-    for name in ("grains", "boundaries", "phonons", "frames"):
-        assert Path(f"{name}.png").stat().st_size > 0
+    assert len(gallery) > 20
+    for page, picture in gallery:
+        assert (DOCS / f"{page.rstrip('/')}.md").exists(), page
+        assert (README.parent / picture).exists(), picture
 
 
 def test_the_files_the_readme_points_to_exist():

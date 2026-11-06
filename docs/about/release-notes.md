@@ -10,6 +10,7 @@
 - The documentation is published from the tag of each release, so that it describes the
   version `pip` installs.
 - `CITATION.cff` gives GitHub's "Cite this repository" the paper to cite.
+- [Papers citing MDAPY](citations.md), by year.
 - [From MDAPY 1.x](../getting-started/from-1x.md) gives the 2.0 way of each common 1.x
   call.
 - The API of 2.0.0 is fixed, and a test keeps it: a name that goes away or a parameter

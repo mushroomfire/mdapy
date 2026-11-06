@@ -297,5 +297,6 @@ nav:
   - About:
       - Release notes: about/release-notes.md
       - Compatibility: about/compatibility.md
+      - Papers citing MDAPY: about/citations.md
       - Reporting a problem: about/reporting.md
       - Contributing: about/contributing.md

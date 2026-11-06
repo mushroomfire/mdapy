@@ -162,6 +162,9 @@ If MDAPY contributes to a publication, please cite:
 > for molecular dynamics simulations*, Computer Physics Communications **290**, 108764
 > (2023). [doi:10.1016/j.cpc.2023.108764](https://doi.org/10.1016/j.cpc.2023.108764)
 
+[Papers citing MDAPY](https://mushroomfire.github.io/mdapy/about/citations/) lists, by year,
+the work done with it.
+
 ## 📄 License
 
 Mozilla Public License 2.0, see [LICENSE](https://github.com/mushroomfire/mdapy/blob/master/LICENSE):

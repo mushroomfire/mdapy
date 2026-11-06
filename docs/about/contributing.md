@@ -62,7 +62,7 @@ The tabs follow what the reader is doing, and the directories of `docs/` follow 
 | User guide | `user-guide/` | one directory per area, each page one feature: `build/`, `analysis/`, `simulation/`, `mlip/`, `visualization/`, `interop/` |
 | Performance | `performance/` | timings of MDAPY and of other programs |
 | Reference | `reference/` | the Python API in `reference/api/`, units and conventions, elements, the glossary, the references, file formats |
-| About | `about/` | the release notes, compatibility, reporting a problem, this page |
+| About | `about/` | the release notes, compatibility, the papers citing MDAPY, reporting a problem, this page |
 
 Each feature has its own page, named after it (`eam.md`, `minimize.md`), in
 the section of its tab that fits it; closely tied classes, such as an

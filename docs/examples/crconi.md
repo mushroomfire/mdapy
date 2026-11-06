@@ -264,6 +264,76 @@ softens it, while the strains of `elastic_constants` act on the static
 crystal. At the same volume, the second derivatives of the energy and the
 stresses under strain give the same constants to 0.1 GPa.
 
+### From molecular dynamics
+
+The quasi-harmonic approximation takes the anharmonic vibrations in only through the
+volume. [`md_elastic_constants`](../user-guide/simulation/md-elastic.md) takes them all,
+from the mean stress of molecular dynamics under small strains. Here it runs in LAMMPS
+with the NEP of KOKKOS, `pair_style nep/kk`, on a GPU, in 4 × 4 × 4 copies of the
+structure, 6912 atoms, for 120 ps under each of the 12 strains; each temperature takes
+about 10 minutes on one GPU:
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import LAMMPS
+from mdapy.lattice_dynamics import md_elastic_constants
+from mdapy.transform import replicate
+
+gpu = LAMMPS(
+    "pair_style nep/kk\npair_coeff * * nep.txt Cr Co Ni",
+    ["Cr", "Co", "Ni"],
+    cmdargs=["-k", "on", "g", "1", "-sf", "kk", "-pk", "kokkos", "newton", "on", "neigh", "half"],
+)  # fmt: skip
+crystal = replicate(sqs, (4, 4, 4))
+hot = np.arange(300, 1001, 100.0)
+md = [
+    md_elastic_constants(
+        crystal, gpu, t, timestep=0.002, equilibration=10000, production=50000
+    )
+    for t in hot
+]
+for t, result in zip(hot[::3], md[::3]):
+    print("%.0f K: C11 %.1f, C12 %.1f, C44 %.1f GPa" % (t, *cubic(result.constants)))
+```
+
+```text
+300 K: C11 268.6, C12 173.7, C44 131.8 GPa
+600 K: C11 247.7, C12 163.5, C44 119.9 GPa
+900 K: C11 225.2, C12 152.7, C44 107.4 GPa
+```
+
+Against the isothermal constants of the quasi-harmonic approximation:
+
+<!-- skip-test -->
+```python
+quasi = np.array([cubic(c) for c in thermal.isothermal])
+dynamic = np.array([cubic(result.constants) for result in md])
+spread = np.array([cubic(result.errors) for result in md])
+with plot.style():
+    fig, ax = plot.figure("single")
+    for k, name in enumerate(("C$_{11}$", "C$_{12}$", "C$_{44}$")):
+        (line,) = ax.plot(temperatures, quasi[:, k], label=f"{name}, quasi-harmonic")
+        ax.errorbar(hot, dynamic[:, k], spread[:, k], fmt="o", color=line.get_color(),
+                    capsize=2, label=f"{name}, MD")  # fmt: skip
+    ax.set_xlabel("temperature (K)")
+    ax.set_ylabel("elastic constants (GPa)")
+    ax.legend(ncol=2)
+    plot.save(fig, "images/crconi-md", formats=("png",))
+```
+
+![Isothermal elastic constants of CrCoNi: quasi-harmonic against molecular dynamics](images/crconi-md.png)
+
+*The isothermal constants of CrCoNi with the NEP model: lines from the quasi-harmonic
+approximation, points from molecular dynamics, with their standard errors, smaller than
+the points. At 300 K the two agree to 1 GPa. Above, the constants of molecular dynamics
+soften more slowly: at 1000 K C11 is 217 against 213 GPa, C12 149 against 142 GPa and
+C44 104 against 100 GPa: the quasi-harmonic approximation, which takes the
+anharmonic vibrations in only through the volume, softens the crystal faster.*
+
+Molecular dynamics treats the atoms as classical, the quasi-harmonic approximation
+quantum mechanically, with their zero-point vibrations; from 300 K on the difference is
+small for the constants, and below it the quasi-harmonic constants are the ones to use.
+
 ### Against measurements
 
 Measurements of the elastic moduli by resonant ultrasound are adiabatic,

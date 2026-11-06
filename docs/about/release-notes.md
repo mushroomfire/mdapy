@@ -22,6 +22,8 @@ Documentation:
 - The pictures of stacking faults at finite temperature, of phonons at finite temperature
   and of phase diagrams come with the code that draws them, and every picture with a
   legend has it beside the scene.
+- [The CrCoNi example](../examples/crconi.md) compares the elastic constants of molecular
+  dynamics, run with `pair_style nep/kk` on a GPU, with the quasi-harmonic ones.
 - [Reporting a problem](reporting.md) says which form of an issue to choose.
 
 ## 2.0.0a2

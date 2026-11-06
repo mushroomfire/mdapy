@@ -29,13 +29,13 @@ recommend upgrading to it.** It is not compatible with 1.x, so scripts need chan
    :target: https://pypi.org/project/mdapy/
    :alt: PyPI downloads
 
-.. image:: https://img.shields.io/github/license/mushroomfire/mdapy.svg
+.. image:: https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg
    :target: https://github.com/mushroomfire/mdapy/blob/1.x/LICENSE
-   :alt: License
+   :alt: License: GPL-3.0-or-later
 
-.. image:: https://readthedocs.org/projects/mdapy/badge/?version=latest
+.. image:: https://img.shields.io/readthedocs/mdapy/latest.svg
    :target: https://mdapy.readthedocs.io/en/latest/
-   :alt: Documentation
+   :alt: Documentation of 1.x
 
 .. image:: https://github.com/mushroomfire/mdapy/actions/workflows/tests.yml/badge.svg
    :target: https://github.com/mushroomfire/mdapy/actions/workflows/tests.yml

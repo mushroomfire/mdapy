@@ -28,8 +28,14 @@ Within 2.x, these stay as they are:
 - the names of the columns that analyses add to a system;
 - the files MDAPY writes: every later 2.x release reads them.
 
-A new parameter comes with a default that keeps the earlier behavior, and a new result is
-added beside the old ones, never in their place.
+A new parameter comes with a default that keeps the earlier behavior and is given by
+name, and a new result is added beside the old ones, never in their place. Results, such
+as a `RadialDistributionResult`, are made by MDAPY: their attributes are part of the API,
+their constructors are not, so that a later release can add to them.
+
+A test holds MDAPY to this: it compares the API with that of each release and fails on
+a name that went away, on a parameter that changed, and on an addition the release notes
+do not name.
 
 ## When something has to change
 

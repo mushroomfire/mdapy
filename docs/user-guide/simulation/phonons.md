@@ -97,7 +97,7 @@ $\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}$.
 | `modes(q)` | tuple of float64 and complex128 arrays | the frequencies, and the (3n, n, 3) or (K, 3n, n, 3) complex polarization vector of each mode |
 | `band_structure(path, *, points=51, connected=False)` | `BandStructure` | the frequencies along a path |
 | `dos(mesh=20, *, frequencies=None, sigma=None, projected=False)` | `PhononDOS` | the density of states |
-| `thermal(temperatures, mesh=20)` | `ThermalProperties` | the thermodynamic properties of the vibrations |
+| `thermal(temperatures, *, mesh=20)` | `ThermalProperties` | the thermodynamic properties of the vibrations |
 
 **Band structures.** `path` is one of:
 

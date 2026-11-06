@@ -20,7 +20,7 @@ frames = [
 ]
 
 paths = trajectory_lines(frames)  # (12, 300, 3), unwrapped
-some = trajectory_lines(frames, [0, 3, 5])  # (3, 300, 3)
+some = trajectory_lines(frames, atoms=[0, 3, 5])  # (3, 300, 3)
 colors = colormap(np.arange(12), "labels")  # one for each atom and its path
 render(
     frames[-1],
@@ -45,7 +45,7 @@ atoms where they end.*
 
 ## Parameters
 
-`trajectory_lines(frames, atoms=None, *, unwrap=True)`
+`trajectory_lines(frames, *, atoms=None, unwrap=True)`
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|

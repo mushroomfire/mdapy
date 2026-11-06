@@ -247,7 +247,7 @@ class LindemannIndex:
 
 
 def trajectory_lines(
-    frames: Iterable[System], atoms: Any = None, *, unwrap: bool = True
+    frames: Iterable[System], *, atoms: Any = None, unwrap: bool = True
 ) -> np.ndarray:
     """The paths of atoms over the frames of a trajectory, as OVITO's
     generate trajectory lines.
@@ -290,14 +290,14 @@ class TimeAverageResult(Result):
         The float64 mean over the frames: of each atom in the order of the first
         frame for a column, (3, 3) for the box, of the shape the function
         gives otherwise.
-    frames : int32
+    num_frames : int32
         The number of frames.
     name : str or None
         The column averaged; None for the box or a function.
     """
 
     value: np.ndarray
-    frames: int
+    num_frames: int
     name: str | None = None
 
     def columns(self) -> dict[str, np.ndarray]:
@@ -368,7 +368,7 @@ class TimeAverage:
         if total is None:
             raise InvalidParameter("there are no frames")
         name = quantity if isinstance(quantity, str) and quantity != "box" else None
-        return TimeAverageResult(value=total / count, frames=count, name=name)
+        return TimeAverageResult(value=total / count, num_frames=count, name=name)
 
     def __repr__(self) -> str:
         return f"TimeAverage({self.quantity!r}, unwrap={self.unwrap})"

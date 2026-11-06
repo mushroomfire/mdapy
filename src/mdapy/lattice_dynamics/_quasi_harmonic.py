@@ -285,7 +285,7 @@ def quasi_harmonic(
                 supercell=supercell,
                 displacement=displacement,
                 symmetry=symmetry,
-            ).thermal(temperatures, mesh)
+            ).thermal(temperatures, mesh=mesh)
         except InvalidParameter as error:
             raise InvalidParameter(f"{where}: {error}") from None
         cells.append(relaxed.system)

@@ -24,7 +24,7 @@ labelled = crystal.with_info(energy=-3.54, label="perfect")
 | Method | Makes a system with |
 |---|---|
 | `with_columns(*exprs, **named)` | columns added or replaced, the positions too: polars expressions or Series, NumPy arrays, one value for all atoms, or the results of analyses |
-| `with_box(box, scale_positions=False)` | another box; with `scale_positions=True` the atoms keep their fractional coordinates and deform with the box |
+| `with_box(box, *, scale_positions=False)` | another box; with `scale_positions=True` the atoms keep their fractional coordinates and deform with the box |
 | `with_info(values, /, **updates)` | other global information: `values` replaces all of it, `{}` clears it; then `updates` adds or replaces entries, and `None` removes one |
 | `with_topology(topology)` | another topology, or none with `None` |
 | `with_table(table)` | another table of the same atoms in the same order, for operations of polars on the whole table |

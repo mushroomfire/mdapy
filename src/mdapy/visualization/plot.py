@@ -166,7 +166,10 @@ def panel_label(ax: Any, text: str, *, x: float = -0.12, y: float = 1.02) -> Non
 
 
 def save(
-    fig: Any, path: str | PathLike, formats: Sequence[str] = ("pdf", "svg", "png")
+    fig: Any,
+    path: str | PathLike,
+    *,
+    formats: Sequence[str] = ("pdf", "svg", "png"),
 ) -> list[Path]:
     """Saves a figure in several formats: vector PDF and SVG with text kept as
     text, and PNG.

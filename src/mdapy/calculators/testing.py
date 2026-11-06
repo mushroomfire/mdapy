@@ -79,7 +79,7 @@ def check_calculator(
     displacement: float = 1e-4,
     rtol: float = 1e-6,
     atol: float = 1e-6,
-    atoms: int = 3,
+    num_atoms: int = 3,
     seed: int = 0,
 ) -> None:
     """Checks that a calculator is consistent with itself and with physics.
@@ -102,7 +102,7 @@ def check_calculator(
     rtol, atol : float64, optional
         Relative and absolute tolerances of the comparisons, in the units of
         each quantity.
-    atoms : int32, optional
+    num_atoms : int32, optional
         Number of atoms whose forces are checked by finite differences.
     seed : int32, optional
         Seed of the random rotation, translation and atom choice.
@@ -152,7 +152,7 @@ def check_calculator(
         )
 
     if result.forces is not None:
-        for i in rng.choice(n, size=min(atoms, n), replace=False):
+        for i in rng.choice(n, size=min(num_atoms, n), replace=False):
             for a in range(3):
                 step = np.zeros((n, 3))
                 step[i, a] = displacement

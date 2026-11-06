@@ -204,7 +204,7 @@ def thermal_phonons(
     timestep: float = 0.001,
     equilibration: float = 10.0,
     production: float = 100.0,
-    frames: int = 200,
+    num_frames: int = 200,
     symmetry: bool | None = None,
     seed: int = 1,
     progress: Callable[[int, int], None] | None = None,
@@ -237,7 +237,7 @@ def thermal_phonons(
         Time in ps of each equilibration. Default 10.
     production : float64, optional
         Time in ps over which the frames are taken. Default 100.
-    frames : int32, optional
+    num_frames : int32, optional
         Number of frames. Default 200.
     symmetry : bool, optional
         Average the force constants over the symmetry operations of the cell,
@@ -279,15 +279,15 @@ def thermal_phonons(
         raise InvalidParameter(
             "timestep, equilibration and production must be positive"
         )
-    if int(frames) < 1 or int(seed) < 1:
-        raise InvalidParameter("frames and seed must be positive")
+    if int(num_frames) < 1 or int(seed) < 1:
+        raise InvalidParameter("num_frames and seed must be positive")
     if supercell is None:
         matrix = _default_supercell(cell.box.matrix, 2 * potential.cutoff)
     else:
         matrix = _supercell_matrix(supercell)
     settle = max(int(round(equilibration / timestep)), 1)
-    every = max(int(round(production / timestep)) // int(frames), 1)
-    total = 2 * settle + every * int(frames)
+    every = max(int(round(production / timestep)) // int(num_frames), 1)
+    total = 2 * settle + every * int(num_frames)
 
     def check(done: int) -> None:
         if progress is not None:
@@ -306,7 +306,7 @@ def thermal_phonons(
                 pressure=pressure,
                 barostat="aniso",
                 thermo=settle,
-                frames=max(settle // 50, 1),
+                save_every=max(settle // 50, 1),
                 cancel=cancel,
             )
             boxes = [frame.box.matrix for frame in md.frames]
@@ -331,7 +331,7 @@ def thermal_phonons(
         )
         md.run(settle, ensemble="nve", thermo=settle, cancel=cancel)
         check(2 * settle)
-        for k in range(int(frames)):
+        for k in range(int(num_frames)):
             md.run(every, ensemble="nve", thermo=every, cancel=cancel)
             check(2 * settle + (k + 1) * every)
             samples.append(md.system)

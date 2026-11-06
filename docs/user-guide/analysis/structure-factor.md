@@ -19,7 +19,7 @@ system = random_alloy(disordered, {"Cu": 0.5, "Ni": 0.5}, seed=0)
 direct = StructureFactor(q_max=6.0, bins=60).compute(system)
 direct.q, direct.s  # bin centers in 1/Å and S(q)
 direct.faber_ziman["Ni", "Cu"]  # a Faber-Ziman partial factor
-debye = StructureFactor(q_max=6.0, bins=60, method="debye", r_max=7.2).compute(system)
+debye = StructureFactor(q_max=6.0, bins=60, method="debye", cutoff=7.2).compute(system)
 ```
 
 ```python
@@ -44,16 +44,16 @@ reflections of fcc, $q = 2\pi\sqrt{h^2+k^2+l^2}/a$ = 3.02, 3.49, 4.94 and
 | `q_max` | float64 | | 1/Å | largest $\lvert \mathbf q \rvert$ |
 | `bins` | int32 | 200 | | number of bins of equal width from 0 to `q_max` |
 | `method` | str | `"direct"` | | `"direct"`, the sum over the wave vectors that fit the box, or `"debye"`, the transform of the radial distribution function |
-| `r_max` | float64 | `None` | Å | with the Debye method, the largest distance of the radial distribution function; default half the length of the longest lattice vector |
+| `cutoff` | float64 | `None` | Å | with the Debye method, the largest distance of the radial distribution function; default half the length of the longest lattice vector |
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters); the box must be
 periodic in every direction. With the Debye method, a given neighbor list
-must reach `r_max`. Partial factors need an `element` column.
+must reach `cutoff`. Partial factors need an `element` column.
 
 The direct method costs the number of wave vectors, about $q_\text{max}^3 V
 / (12\pi^2)$ for a box of volume $V$, times the number of atoms. The Debye
-method costs a radial distribution function up to `r_max`, which can be
+method costs a radial distribution function up to `cutoff`, which can be
 chosen well below half the box for large systems.
 
 ## Results
@@ -74,7 +74,7 @@ A `StructureFactorResult`:
 ## Errors
 
 The constructor raises `InvalidParameter` for a `q_max` that is not
-positive, fewer than one bin, an unknown method, or an `r_max` that is not
+positive, fewer than one bin, an unknown method, or a `cutoff` that is not
 positive or given to the direct method; `compute` raises it for a box that
 is not periodic in every direction, a neighbor list given to the direct
 method or one that does not fit, and `pair` for a pair of elements without a
@@ -99,12 +99,12 @@ bin of $0 < |\mathbf q| \le q_\text{max}$. A perfect crystal gives $N$ at its
 Bragg reflections and 0 elsewhere; an ideal gas gives 1.
 
 The Debye method transforms the radial distribution function $g$ and its
-partial functions $g_{ab}$, computed up to $r_\text{max}$ in bins of 0.01 Å,
-with a window $w(r) = \sin(\pi r / r_\text{max}) / (\pi r / r_\text{max})$
+partial functions $g_{ab}$, computed up to the cutoff $r_c$ in bins of 0.01 Å,
+with a window $w(r) = \sin(\pi r / r_c) / (\pi r / r_c)$
 against the ripples of the cutoff, at the number density $\rho = N / V$:
 
 $$
-S(q) = 1 + \frac{4\pi\rho}{q} \int_0^{r_\text{max}} r\, \big[g(r) - 1\big] \sin(qr)\, w(r)\, \mathrm dr ,
+S(q) = 1 + \frac{4\pi\rho}{q} \int_0^{r_c} r\, \big[g(r) - 1\big] \sin(qr)\, w(r)\, \mathrm dr ,
 $$
 
 and $A_{ab}(q)$ the same with $g_{ab}$. The integral is the sum over the
@@ -137,8 +137,8 @@ gives OVITO's numbers.
   one of each pair $\pm\mathbf q$.
 - **Debye method**: OVITO transforms $g(r)$ rather than $g(r) - 1$. The
   difference,
-  $\frac{4\pi\rho}{q} \int_0^{r_\text{max}} r \sin(qr)\, w(r)\, \mathrm dr$,
-  is the transform of a uniform density inside $r_\text{max}$: it holds
+  $\frac{4\pi\rho}{q} \int_0^{r_c} r \sin(qr)\, w(r)\, \mathrm dr$,
+  is the transform of a uniform density inside $r_c$: it holds
   nothing of the structure, grows without bound as $q \to 0$ and decays
   with ripples at large $q$. MDAPY leaves it out, so that $S(q)$ tends to 1
   at large $q$ and stays finite at small $q$.
@@ -146,9 +146,9 @@ gives OVITO's numbers.
 The alloy above with both integrands:
 
 ```python
-r_max = 7.2
+cutoff = 7.2
 r = (np.arange(720) + 0.5) * 0.01  # the bins of the radial distribution function
-window = np.sinc(r / r_max)  # sin(πr/r_max) / (πr/r_max)
+window = np.sinc(r / cutoff)  # sin(πr/cutoff) / (πr/cutoff)
 density = len(system) / system.box.volume
 uniform = (
     4

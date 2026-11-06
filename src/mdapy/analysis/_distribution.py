@@ -60,18 +60,18 @@ class RadialDistributionFunction:
 
     Parameters
     ----------
-    r_max : float64
+    cutoff : float64
         Largest distance in Å.
     bins : int32, optional
         Number of bins of equal width. Default 200.
     """
 
-    def __init__(self, r_max: float, bins: int = 200):
-        if not r_max > 0:
-            raise InvalidParameter(f"r_max must be positive, not {r_max!r}")
+    def __init__(self, cutoff: float, bins: int = 200):
+        if not cutoff > 0:
+            raise InvalidParameter(f"cutoff must be positive, not {cutoff!r}")
         if bins < 1:
             raise InvalidParameter(f"bins must be at least 1, not {bins!r}")
-        self.r_max = float(r_max)
+        self.cutoff = float(cutoff)
         self.bins = int(bins)
 
     def compute(
@@ -89,7 +89,7 @@ class RadialDistributionFunction:
         system : System
             The atoms; partial functions need an ``element`` column.
         neighbors : NeighborList, optional
-            A neighbor list of this system with a cutoff of at least ``r_max``.
+            A neighbor list of this system with a cutoff of at least ``cutoff``.
 
         Returns
         -------
@@ -108,7 +108,7 @@ class RadialDistributionFunction:
                 np.ascontiguousarray(box.matrix),
                 np.ascontiguousarray(box.origin),
                 np.ascontiguousarray(box.pbc),
-                self.r_max,
+                self.cutoff,
                 bins,
                 index.astype(np.int32),
                 types,
@@ -116,20 +116,20 @@ class RadialDistributionFunction:
                 _native_token(cancel),
             )
         else:
-            nl = _given_or_built(system, self.r_max, neighbors)
+            nl = _given_or_built(system, self.cutoff, neighbors)
             with nl._reading():
                 table = _native.pair_histogram_list(
                     nl.offsets,
                     nl.j,
                     nl.distances,
-                    self.r_max,
+                    self.cutoff,
                     bins,
                     index.astype(np.int32),
                     types,
                     progress,
                     _native_token(cancel),
                 )
-        edges = np.linspace(0.0, self.r_max, bins + 1)
+        edges = np.linspace(0.0, self.cutoff, bins + 1)
         shells = 4.0 / 3.0 * np.pi * np.diff(edges**3)
         volume = system.box.volume
         counts = table.sum(axis=(0, 1)).astype(np.float64)
@@ -152,7 +152,7 @@ class RadialDistributionFunction:
         )
 
     def __repr__(self) -> str:
-        return f"RadialDistributionFunction(r_max={self.r_max!r}, bins={self.bins})"
+        return f"RadialDistributionFunction(cutoff={self.cutoff!r}, bins={self.bins})"
 
 
 @dataclass(frozen=True)
@@ -296,8 +296,8 @@ class StructureFactor:
         Number of bins of |q| of equal width. Default 200.
     method : {"direct", "debye"}, optional
         Sum over the wave vectors that fit the box (default), or transform
-        of the radial distribution function up to ``r_max``.
-    r_max : float64, optional
+        of the radial distribution function up to ``cutoff``.
+    cutoff : float64, optional
         Largest distance of the Debye method in Å; default half the length
         of the longest lattice vector.
     """
@@ -308,7 +308,7 @@ class StructureFactor:
         bins: int = 200,
         *,
         method: str = "direct",
-        r_max: float | None = None,
+        cutoff: float | None = None,
     ):
         if not q_max > 0:
             raise InvalidParameter(f"q_max must be positive, not {q_max!r}")
@@ -316,14 +316,15 @@ class StructureFactor:
             raise InvalidParameter(f"bins must be at least 1, not {bins!r}")
         if method not in METHODS:
             raise InvalidParameter(f"method must be one of {METHODS}, not {method!r}")
-        if r_max is not None and (method != "debye" or not r_max > 0):
+        if cutoff is not None and (method != "debye" or not cutoff > 0):
             raise InvalidParameter(
-                f"r_max must be positive and is used by the Debye method only, not {r_max!r}"
+                "cutoff must be positive and is used by the Debye method only, "
+                f"not {cutoff!r}"
             )
         self.q_max = float(q_max)
         self.bins = int(bins)
         self.method = method
-        self.r_max = None if r_max is None else float(r_max)
+        self.cutoff = None if cutoff is None else float(cutoff)
 
     def compute(
         self,
@@ -342,7 +343,7 @@ class StructureFactor:
             need an ``element`` column.
         neighbors : NeighborList, optional
             With the Debye method, a neighbor list of this system reaching
-            ``r_max``.
+            ``cutoff``.
 
         Returns
         -------
@@ -384,19 +385,19 @@ class StructureFactor:
                 }
         else:
             vectors = None
-            r_max = self.r_max or 0.5 * float(
+            cutoff = self.cutoff or 0.5 * float(
                 np.linalg.norm(system.box.matrix, axis=1).max()
             )
             rdf = RadialDistributionFunction(
-                r_max, max(1, int(np.ceil(r_max / _DEBYE_DR)))
+                cutoff, max(1, int(np.ceil(cutoff / _DEBYE_DR)))
             ).compute(system, neighbors=neighbors, progress=progress, cancel=cancel)
             r, dr = rdf.r, rdf.edges[1] - rdf.edges[0]
             # 4 pi rho r sin(qr) / q w(r) dr, w a window that goes to zero at
-            # r_max against the ripples of the cutoff
+            # the cutoff against its ripples
             density = n / system.box.volume
             kernel = (
                 4.0 * np.pi * density * dr
-                * np.sin(np.outer(q, r)) * (r * np.sinc(r / r_max)) / q[:, None]
+                * np.sin(np.outer(q, r)) * (r * np.sinc(r / cutoff)) / q[:, None]
             )  # fmt: skip
             s = 1.0 + kernel @ (rdf.g - 1.0) if n else np.full(bins, np.nan)
             pairs = {}
@@ -425,7 +426,7 @@ class StructureFactor:
         )
 
     def __repr__(self) -> str:
-        extra = f", r_max={self.r_max!r}" if self.r_max is not None else ""
+        extra = f", cutoff={self.cutoff!r}" if self.cutoff is not None else ""
         return (
             f"StructureFactor(q_max={self.q_max!r}, bins={self.bins}, "
             f"method={self.method!r}{extra})"

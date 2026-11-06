@@ -20,9 +20,9 @@ alloy = alloy.with_columns(
 )
 bonded = create_bonds(alloy, 2.8)
 
-lengths = BondLengthDistribution(bins=60, cutoff=2.8).compute(bonded)
+lengths = BondLengthDistribution(cutoff=2.8, bins=60).compute(bonded)
 lengths.length, lengths.counts  # bin centers in Å, bonds in each bin
-lengths.lengths  # the length of each bond
+lengths.bond_lengths  # the length of each bond
 lengths.pair("Si", "Ge")  # the Si-Ge bonds
 ```
 
@@ -50,12 +50,12 @@ random alloy has twice as many Si–Ge bonds as Si–Si or Ge–Ge bonds.*
 
 ## Parameters
 
-`BondLengthDistribution(bins=100, cutoff=None)`
+`BondLengthDistribution(cutoff=None, bins=100)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `bins` | int32 | 100 | | number of bins of equal width from 0 to the cutoff |
 | `cutoff` | float64 | `None` | Å | the upper end of the bins; longer bonds are not counted. By default the longest bond |
+| `bins` | int32 | 100 | | number of bins of equal width from 0 to the cutoff |
 
 `compute(system)` takes a system with bonds in its topology. Each bond is
 measured to the nearest periodic image of its second atom. Partial counts
@@ -71,7 +71,7 @@ A `BondLengthResult`:
 | `edges` | (bins + 1,) float64 | bin edges in Å |
 | `counts` | (bins,) int64 | number of bonds in each bin |
 | `density` | (bins,) float64 | the counts normalized so that their integral over Å is 1 |
-| `lengths` | (bonds,) float64 | the length of each bond, in the order of the topology |
+| `bond_lengths` | (bonds,) float64 | the length of each bond, in the order of the topology |
 | `partial` | dict of (str, str) to (B,) int64 | counts for each pair of elements `(a, b)`, `a` not after `b` by atomic number; they add up to `counts` |
 | `pair(a, b)` | (bins,) int64 | the counts of the pair, `a` and `b` in either order |
 

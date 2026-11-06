@@ -24,7 +24,7 @@ from calculators.nep_files import write_nep
 def test_principal_components():
     rng = np.random.default_rng(4)
     points = rng.normal(size=(200, 5)) @ np.diag([5.0, 3.0, 1.0, 0.5, 0.1]) + 7.0
-    pca = principal_components(points, n=3)
+    pca = principal_components(points, count=3)
     # the same as the singular value decomposition of the centered points
     centered = points - points.mean(axis=0)
     _, s, vt = np.linalg.svd(centered, full_matrices=False)
@@ -37,12 +37,12 @@ def test_principal_components():
     )
     largest = np.argmax(np.abs(pca.components), axis=1)
     assert (pca.components[np.arange(3), largest] > 0).all()
-    flat = principal_components(np.ones((4, 2)), n=1)
+    flat = principal_components(np.ones((4, 2)), count=1)
     np.testing.assert_array_equal(flat.ratio, [0.0])
     with pytest.raises(InvalidParameter, match="two points or more"):
         principal_components(np.ones((1, 3)))
-    with pytest.raises(InvalidParameter, match="n must be from 1 to 5"):
-        principal_components(points, n=6)
+    with pytest.raises(InvalidParameter, match="count must be from 1 to 5"):
+        principal_components(points, count=6)
 
 
 def greedy(points, count, start, selected=None):

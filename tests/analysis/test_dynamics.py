@@ -213,7 +213,7 @@ def test_time_average_of_moving_atoms():
     np.testing.assert_allclose(
         result.value, BOX.wrap(start)[0] + 4 * velocity, atol=1e-10
     )
-    assert result.frames == 9 and result.name == "positions"
+    assert result.num_frames == 9 and result.name == "positions"
     # as they are: the mean of the wrapped positions of each atom
     wrapped = TimeAverage("positions", unwrap=False).compute(frames).value
     np.testing.assert_allclose(
@@ -278,13 +278,13 @@ def test_trajectory_lines():
         BOX.wrap(start)[0][:, None] + velocity[:, None] * np.arange(7)[None, :, None]
     )
     np.testing.assert_allclose(lines, expected, atol=1e-10)
-    np.testing.assert_allclose(trajectory_lines(frames, [3, 1]), lines[[1, 3]])
+    np.testing.assert_allclose(trajectory_lines(frames, atoms=[3, 1]), lines[[1, 3]])
     mask = np.arange(10) % 2 == 0
-    np.testing.assert_allclose(trajectory_lines(iter(frames), mask), lines[mask])
+    np.testing.assert_allclose(trajectory_lines(iter(frames), atoms=mask), lines[mask])
     wrapped = trajectory_lines(frames, unwrap=False)
     np.testing.assert_allclose(wrapped[:, 0], frames[0]["positions"])
     with pytest.raises(InvalidParameter, match="mask of atoms must have 10"):
-        trajectory_lines(frames, np.ones(3, dtype=bool))
+        trajectory_lines(frames, atoms=np.ones(3, dtype=bool))
     with pytest.raises(InvalidParameter, match="no frames"):
         trajectory_lines([])
 

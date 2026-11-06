@@ -5,7 +5,8 @@ simulates and visualizes atomistic systems.
 
 !!! note "MDAPY 2.0 is a complete rewrite"
     It is not compatible with MDAPY 1.x. It brings many more features, and we recommend
-    upgrading. The code of 1.x stays on the branch [`1.x`](https://github.com/mushroomfire/mdapy/tree/1.x).
+    upgrading: [From MDAPY 1.x](getting-started/from-1x.md) gives the 2.0 way of each
+    common call. The code of 1.x stays on the branch [`1.x`](https://github.com/mushroomfire/mdapy/tree/1.x).
 
 If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/mdapy).
 
@@ -115,6 +116,7 @@ run the tests and what a complete run needs.
 If MDAPY contributes to a publication, please cite
 [Wu and Shao (2023)](reference/references.md#wu2023), and the papers that
 the pages of the features you use ask to cite.
+[Papers citing MDAPY](about/citations.md) lists, by year, the work done with it.
 
 See the [release notes](about/release-notes.md) for what each
 development version contains.

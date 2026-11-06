@@ -176,8 +176,13 @@ column of fixed-size arrays of length 3 and use the plural name.
 | cutoff radius (Å) | `cutoff` | `rc`, `r_cut` |
 | cutoff per pair of elements | `cutoffs`, dict of (str, str) to float64 | `rc_dict` |
 | number of nearest neighbors | `num_neighbors` | `k`, `N`, `nnn` |
+| number of atoms of a box that is built | `num_atoms` | `atoms`, `natoms` |
+| number of atoms of each cluster, grain or ring | `sizes` | `size`, `cluster_size` |
+| number of frames averaged | `num_frames` | `frames`, `nframes` |
+| reach of the neighbors of a descriptor, its cutoff and the tail of its Gaussians (Å) | `reach` | `cutoff`, `r_cut` |
+| folder of files read together | `directory` | `folder` |
 | number of histogram bins | `bins` | `nbin`, `nbins` |
-| upper limit of a distribution | `r_max`, `q_max` | `rc`, `k_max` |
+| upper limit of a distribution of distances (Å), of wave numbers (1/Å) | `cutoff`, `q_max` | `rc`, `r_max`, `k_max` |
 | way of computing a quantity | `method` | `mode` |
 | result for each pair or triplet of elements, ordered by atomic number | `partial[a, b]` with `pair(a, b)`; `partial[a, b, c]` (vertex `a`) with `triplet(a, b, c)` | `rdf_partial`, `adf` |
 | random seed | `seed` (int64 or `numpy.random.Generator`) | `random_seed` |
@@ -228,11 +233,11 @@ column of fixed-size arrays of length 3 and use the plural name.
 | magnitude of an applied strain | `strain` | `delta`, `eps` |
 | size of random displacements of atoms (Å) | `displacement` | `atom_pert_distance`, `sigma` |
 | frames already chosen | `selected=` | `train_des`, `existing` |
-| number of principal components | `n` | `n_components` |
+| number of principal components | `count` | `n`, `n_components` |
 | structures to look for, deviation above which an atom is other | `structures`, `rmsd_cutoff` | `check_fcc`, `rmsd_threshold` |
 | also compute results that cost more: deformation gradients, chemical ordering, neighbors in template order, strain tensors, $D^2_\text{min}$, centers of mass and gyration of clusters | `deformation_gradient`, `ordering`, `template_neighbors`, `strain_tensor`, `d2min`, `center_of_mass`, `gyration` (bool), named after the result | `output_*`, `compute_*` |
 | how atoms and bonds are drawn in a picture | `representation` (`"spheres"`, `"ball_and_stick"`, `"space_filling"`, `"licorice"`) | `model`, `drawing_method` |
-| radii of the elements | `radius="display"`, `"covalent"`, `"vdw"` | `radii_type` |
+| radii of the elements | `kind="display"`, `"covalent"`, `"vdw"` | `radius`, `radii_type` |
 | bounces of light in a picture | `bounces`, `samples` | `depth`, `spp` |
 | direction of the highlights, metals, light everywhere, lighting the colors as given | `highlight`, `metalness`, `base_light`, `srgb` | `spec_dir`, `metallic`, `emission`, `gamma` |
 | where the rays of a picture are traced | `device` (`"cpu"`, `"gpu"`, `"auto"`) | `backend`, `use_gpu` |

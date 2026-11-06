@@ -15,7 +15,7 @@ from mdapy.build import build_crystal
 from mdapy.mlip import SOAP, principal_components, structure_descriptors
 from mdapy.visualization import plot
 
-soap = SOAP(["Cu"], r_cut=5.0, n_max=8, l_max=6, sigma=0.5)
+soap = SOAP(["Cu"], cutoff=5.0, n_max=8, l_max=6, sigma=0.5)
 copper = build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 3))
 soap.descriptors(copper).shape  # (108, 252): one row per atom
 soap.dimension  # 252
@@ -39,7 +39,7 @@ for name, cell in cells.items():
 points = structure_descriptors(frames, soap)  # the mean of the atoms of each frame
 # the length of SOAP grows with the density; unit vectors compare the shapes
 points /= np.linalg.norm(points, axis=1, keepdims=True)
-pca = principal_components(points, n=2)
+pca = principal_components(points, count=2)
 with plot.style():
     fig, ax = plot.figure()
     for name in cells:
@@ -60,12 +60,12 @@ side by side, each spread by its strains and shaking.*
 
 ## Parameters
 
-`SOAP(species, r_cut=5.0, n_max=8, l_max=6, sigma=0.5, *, crossover=True)`
+`SOAP(species, cutoff=5.0, *, n_max=8, l_max=6, sigma=0.5, crossover=True)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `species` | sequence of str | | | the elements; every atom must be one of them, so that systems of other compositions share one layout |
-| `r_cut` | float64 | 5.0 | Å | the cutoff of the radial functions, above 1 Å |
+| `cutoff` | float64 | 5.0 | Å | the cutoff of the radial functions, above 1 Å |
 | `n_max` | int32 | 8 | | the number of radial functions |
 | `l_max` | int32 | 6 | | the highest degree of the spherical harmonics, at most 20 |
 | `sigma` | float64 | 0.5 | Å | the width of the Gaussian on each neighbor |
@@ -73,8 +73,8 @@ side by side, each spread by its strains and shaking.*
 
 `descriptors(system, *, neighbors=None, progress=None, cancel=None)` takes
 a system with an `element` column of the species, and optionally a
-[neighbor list](../../basics/neighbor.md) reaching `cutoff`. The
-property `cutoff` is the reach of the neighbors: `r_cut` and the distance
+[neighbor list](../../basics/neighbor.md) reaching `reach`. The
+property `reach` is the reach of the neighbors: `cutoff` and the distance
 over which the Gaussian of a neighbor decays to a thousandth, 1.86 `sigma`.
 `dimension` is the number of values per atom.
 
@@ -86,9 +86,9 @@ for each pair of radial functions (within one species the second from the
 first on), the power spectrum. A neighborhood of one element has
 (n_max (n_max + 1) / 2) (l_max + 1) values; S elements have
 (S n_max)(S n_max + 1) / 2 (l_max + 1), or S times the first without
-`crossover`. These are the values and the order of DScribe's
-`SOAP(species, r_cut, n_max, l_max, sigma)`, with `compression={"mode":
-"crossover"}` for `crossover=False`.
+`crossover`. These are the values and the order of DScribe's `SOAP`
+with the same species, `n_max`, `l_max` and `sigma` and `r_cut` the
+`cutoff`, with `compression={"mode": "crossover"}` for `crossover=False`.
 
 The values grow with the number of neighbors within the cutoff, so that a
 denser or strained structure has a longer vector; divided by their
@@ -98,7 +98,7 @@ and their dot product is the usual SOAP kernel of two atoms or frames.
 ## Errors
 
 `SOAP` raises `InvalidParameter` for no species, an unknown or repeated
-element, `r_cut` not above 1 Å, `n_max` below 1, `l_max` not from 0 to 20,
+element, `cutoff` not above 1 Å, `n_max` below 1, `l_max` not from 0 to 20,
 `sigma` not positive, and radial functions so many in so short a cutoff
 that they are linearly dependent. `descriptors` raises `MissingProperty`
 without an element column and `InvalidParameter` for an atom of an element
@@ -122,7 +122,7 @@ p^{Z_1 Z_2}_{n n' l} = \pi \sqrt{\frac{8}{2l + 1}} \sum_{m=-l}^{l} c^{Z_1}_{nlm}
 $$
 
 The radial functions of each l are Gaussians $r^l e^{-\alpha_k r^2}$ that
-decay to a thousandth at n_max lengths from 1 Å to `r_cut`, made
+decay to a thousandth at n_max lengths from 1 Å to `cutoff`, made
 orthonormal by Löwdin's symmetric orthonormalization; with them the
 integrals over r have a closed form, so that no integral is approximated.
 

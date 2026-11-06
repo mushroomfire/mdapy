@@ -24,11 +24,11 @@ from mdapy.visualization._scene import (
     Scene,
     _color,
     _hex,
-    colormap,
     element_colors,
     element_radii,
     write_png,
 )
+from mdapy.visualization._scene import colormap as _colormap
 
 # colors of the faces of Voronoi cells by their number of edges, 3 to 9
 _ORDER_COLORS = np.array(
@@ -92,7 +92,7 @@ def atom_colors(
     system: System,
     color: Any = None,
     *,
-    colormap_name: str = "viridis",
+    colormap: str = "viridis",
     value_range: Any = None,
     elements: Mapping[str, Any] | None = None,
 ) -> np.ndarray:
@@ -107,7 +107,7 @@ def atom_colors(
         the colors of the elements; one color for all; (N, 3) colors; a
         column name or (N,) values through the colormap; or a structure
         result, with ``structure`` and ``colors``.
-    colormap_name : str, optional
+    colormap : str, optional
         The colormap of values. Default viridis.
     value_range : sequence of float64, optional
         The values at the two ends of the colormap.
@@ -135,14 +135,14 @@ def atom_colors(
         palette = np.asarray(color.colors, dtype=float)
         return palette[np.asarray(color.structure, dtype=np.int64)]
     if isinstance(color, str) and color in system.table.columns:
-        return colormap(system.table[color].to_numpy(), colormap_name, value_range)
+        return _colormap(system.table[color].to_numpy(), colormap, value_range)
     array = np.asarray(color) if not isinstance(color, str) else None
     if array is not None and array.dtype.kind not in "fiub":
         raise InvalidParameter(f"color must hold numbers, not {array.dtype}")
     if array is not None and array.shape == (n, 3):
         return np.asarray(array, dtype=float)
     if array is not None and array.shape == (n,) and n != 3:
-        return colormap(array, colormap_name, value_range)
+        return _colormap(array, colormap, value_range)
     return np.broadcast_to(_color(color), (n, 3)).copy()
 
 
@@ -151,7 +151,7 @@ def _legend_items(
     color: Any,
     shown: np.ndarray,
     legend: Any,
-    colormap_name: str,
+    colormap: str,
     value_range: Any,
 ) -> dict[str, Any]:
     """What the colors of the atoms shown mean, as arguments of the legend."""
@@ -186,7 +186,7 @@ def _legend_items(
             "a legend needs structures, elements or values to explain; for colors "
             "of your own, give it a mapping of names to colors"
         )
-    if colormap_name == "labels":
+    if colormap == "labels":
         present = np.unique(values[shown])
         if len(present) > len(LABEL_COLORS):
             raise InvalidParameter(
@@ -204,12 +204,12 @@ def _legend_items(
         low, high = (finite.min(), finite.max()) if len(finite) else (0.0, 1.0)
     else:
         low, high = value_range
-    return {"title": title, "bar": (float(low), float(high), colormap_name)}
+    return {"title": title, "bar": (float(low), float(high), colormap)}
 
 
 def atom_radii(
     system: System,
-    radius: str = "display",
+    kind: str = "display",
     *,
     elements: Mapping[str, float] | None = None,
     scale: float = 1.0,
@@ -220,9 +220,9 @@ def atom_radii(
     ----------
     system : System
         The atoms.
-    radius : str, optional
-        The radii of the elements: "display", "covalent" or "vdw". Default
-        display.
+    kind : {"display", "covalent", "vdw"}, optional
+        The radii of the elements: those pictures show, the covalent radii or
+        the van der Waals radii. Default display.
     elements : mapping, optional
         Radii of elements in Å, such as ``{"C": 0.6}``, in place of their
         own.
@@ -238,7 +238,7 @@ def atom_radii(
     if "radius" in system.table.columns:
         return np.asarray(system["radius"], dtype=float) * float(scale)
     kinds, index = _kinds(system)
-    radii = np.asarray(element_radii(kinds, radius), dtype=float)[index]
+    radii = np.asarray(element_radii(kinds, kind), dtype=float)[index]
     for symbol, chosen in (elements or {}).items():
         value = float(chosen)
         if symbol in kinds:
@@ -289,9 +289,9 @@ def color_by_type(
 def color_coding(
     system: System,
     column: str,
+    *,
     colormap: str = "rainbow",
     value_range: Any = None,
-    *,
     atoms: ArrayLike | None = None,
 ) -> System:
     """The atoms colored by the values of a column through a colormap, as
@@ -318,8 +318,6 @@ def color_coding(
     System
         The system with the colors in its ``color`` column.
     """
-    from mdapy.visualization._scene import colormap as through
-
     try:
         values = np.asarray(system[column], dtype=float)
     except (TypeError, ValueError):
@@ -331,7 +329,7 @@ def color_coding(
         finite = chosen[np.isfinite(chosen)]
         if len(finite):
             value_range = (float(finite.min()), float(finite.max()))
-    return _with_colors(system, through(values, colormap, value_range), atoms)
+    return _with_colors(system, _colormap(values, colormap, value_range), atoms)
 
 
 def assign_color(
@@ -590,7 +588,7 @@ def render(
         radius = np.asarray(system["radius"], dtype=float)
     if radius is None:
         radius = bond_radius if default_radius is None else default_radius
-    colors = atom_colors(system, color, colormap_name=colormap, value_range=value_range)
+    colors = atom_colors(system, color, colormap=colormap, value_range=value_range)
     if isinstance(radius, tuple) and len(radius) == 2 and isinstance(radius[0], str):
         kinds, kind_of = _kinds(system)
         radii = element_radii(kinds, radius[0])[kind_of] * radius[1]  # a fraction

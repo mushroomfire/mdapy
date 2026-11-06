@@ -124,11 +124,11 @@ def test_rdf_options_and_errors():
     assert rdf.compute(plain).partial == {}
     empty = mdapy.System(np.zeros((0, 3)), mdapy.Box(5.0), elements=[])
     assert not rdf.compute(empty).g.any() and rdf.compute(empty).partial == {}
-    assert repr(rdf) == "RadialDistributionFunction(r_max=6.0, bins=30)"
+    assert repr(rdf) == "RadialDistributionFunction(cutoff=6.0, bins=30)"
     assert rdf.compute(system).columns() == {}
     with pytest.raises(InvalidParameter, match="below the required"):
         rdf.compute(system, neighbors=mdapy.NeighborList.build(system, 3.0))
-    with pytest.raises(InvalidParameter, match="r_max must be positive"):
+    with pytest.raises(InvalidParameter, match="cutoff must be positive"):
         RadialDistributionFunction(0.0)
     with pytest.raises(InvalidParameter, match="bins must be at least 1"):
         RadialDistributionFunction(5.0, bins=0)

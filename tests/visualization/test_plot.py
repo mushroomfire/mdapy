@@ -100,7 +100,7 @@ def test_results():
     crystal = random_alloy(
         build_crystal("fcc", 3.6, repeat=(4, 4, 4)), {"Cu": 1, "Ni": 1}, seed=1
     )
-    rdf = RadialDistributionFunction(r_max=6.0, bins=60).compute(crystal)
+    rdf = RadialDistributionFunction(cutoff=6.0, bins=60).compute(crystal)
     assert len(plot.rdf(rdf).lines) == 2
     assert len(plot.rdf(rdf, partial=True).get_legend().get_texts()) == 3
     sq = StructureFactor(q_max=4.0, bins=40).compute(crystal)
@@ -197,7 +197,7 @@ def test_labels_are_upright():
     system = build_crystal("fcc", 3.6, elements="Cu", repeat=(3, 3, 3))
     with plot.style():
         fig, ax = plot.figure("single")
-        plot.rdf(RadialDistributionFunction(r_max=4.0).compute(system), ax=ax)
+        plot.rdf(RadialDistributionFunction(cutoff=4.0).compute(system), ax=ax)
         labels = ax.get_xlabel() + ax.get_ylabel()
         plt.close(fig)
     assert "$" not in labels

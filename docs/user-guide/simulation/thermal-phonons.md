@@ -78,7 +78,7 @@ neighbors further from where they rest.*
 | `timestep` | float64 | 0.001 | ps | the time step |
 | `equilibration` | float64 | 10 | ps | the time of each equilibration |
 | `production` | float64 | 100 | ps | the time over which the frames are taken |
-| `frames` | int32 | 200 | | the number of frames |
+| `num_frames` | int32 | 200 | | the number of frames |
 | `symmetry` | bool or `None` | `None` | | average the force constants over the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
 | `seed` | int32 | 1 | | the seed of the random numbers |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |

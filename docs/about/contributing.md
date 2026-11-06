@@ -38,6 +38,13 @@ wheels, tests each of them and uploads them to PyPI. Releases follow the promise
 [Compatibility](compatibility.md): a change to the public API waits for 3.0, and a
 replaced name keeps working and warns until then.
 
+`tests/api` holds the API of the last release, a name to a line with its kind and
+parameters, and `tests/api/test_api.py` compares the code with it: a name gone or a
+parameter changed fails, and so does an addition the release notes do not name above
+the heading of that release. Each release writes its own, such as
+`python tests/api/test_api.py 2.1.0`, which gives `tests/api/2.1.0.txt`; the newest is
+the one compared.
+
 The site of the documentation is published from the tag of each release, so that it
 describes the version `pip` installs, not the next one that master holds. A correction
 of the documentation is published with the next release, or at once by running the
@@ -55,7 +62,7 @@ The tabs follow what the reader is doing, and the directories of `docs/` follow 
 | User guide | `user-guide/` | one directory per area, each page one feature: `build/`, `analysis/`, `simulation/`, `mlip/`, `visualization/`, `interop/` |
 | Performance | `performance/` | timings of MDAPY and of other programs |
 | Reference | `reference/` | the Python API in `reference/api/`, units and conventions, elements, the glossary, the references, file formats |
-| About | `about/` | the release notes, compatibility, reporting a problem, this page |
+| About | `about/` | the release notes, compatibility, the papers citing MDAPY, reporting a problem, this page |
 
 Each feature has its own page, named after it (`eam.md`, `minimize.md`), in
 the section of its tab that fits it; closely tied classes, such as an

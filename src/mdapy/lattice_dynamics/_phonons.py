@@ -1097,7 +1097,7 @@ class Phonons:
         )
 
     def thermal(
-        self, temperatures: ArrayLike, mesh: int | ArrayLike = 20
+        self, temperatures: ArrayLike, *, mesh: int | ArrayLike = 20
     ) -> ThermalProperties:
         """Harmonic thermodynamic properties of the vibrations, by sums over
         the modes on a mesh.

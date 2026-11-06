@@ -16,7 +16,7 @@ srtio3 = build_crystal(
     "perovskite", 3.905, elements=["Sr", "Ti", "O"], repeat=(3, 3, 3)
 )
 titanium = np.asarray(srtio3["element"]) == "Ti"
-octahedra = CoordinationPolyhedra(2.2).compute(srtio3, titanium)
+octahedra = CoordinationPolyhedra(2.2).compute(srtio3, atoms=titanium)
 octahedra.volumes  # 27 octahedra of 4/3 (a/2)³ = 9.93 Å³
 
 # the octahedra in blue, strontium and oxygen as small atoms
@@ -54,7 +54,7 @@ of each, `colors[octahedra.atoms[octahedra.owners]]`.*
 | `num_neighbors` | int32 | | | the nearest neighbors, this many |
 | `bonds` | bool | `False` | | the atoms bonded to each, by the bonds of the [topology](../../basics/topology.md), as OVITO does |
 
-Give exactly one of them. `compute(system, atoms=None)` builds the
+Give exactly one of them. `compute(system, *, atoms=None)` builds the
 polyhedra about the atoms of a boolean mask or of indices, all by default.
 Neighbors are found through the periodic boundaries with the
 [neighbor lists](../../basics/neighbor.md) of MDAPY; each polyhedron

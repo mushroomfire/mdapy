@@ -93,10 +93,8 @@ misorientation is the difference of their angles, modulo the 60° of the
 [111] axis:
 
 ```python
-from mdapy.neighbor import NeighborList
-
 grain = relaxed.table["grain"].to_numpy()
-nl = NeighborList.build(relaxed, 3.0)
+nl = mp.NeighborList.build(relaxed, 3.0)
 across = grain[nl.i] < grain[nl.j]
 pairs = np.stack([grain[nl.i][across], grain[nl.j][across]], axis=1)
 pairs = np.unique(pairs, axis=0)  # each pair of grains that meet, once

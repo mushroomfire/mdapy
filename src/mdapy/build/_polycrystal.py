@@ -35,7 +35,7 @@ _NOT_CARRIED = {
 
 
 def random_rotations(
-    count: int, seed: int | np.random.Generator | None = None
+    count: int, *, seed: int | np.random.Generator | None = None
 ) -> np.ndarray:
     """Rotation matrices drawn uniformly over all orientations.
 
@@ -222,7 +222,7 @@ def build_polycrystal(
     count = len(seeds)
     if orientations is None:
         if axis is None:
-            rotations = random_rotations(count, rng)
+            rotations = random_rotations(count, seed=rng)
         else:
             rotations = rotations_about(axis, rng.uniform(0, 360, count))
     else:

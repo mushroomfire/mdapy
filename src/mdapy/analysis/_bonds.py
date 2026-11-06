@@ -467,7 +467,7 @@ class BondLengthResult(Result):
         (bins,) int64 number of bonds in each bin.
     density : numpy.ndarray
         (bins,) float64, the counts normalized to unit area, per Å.
-    lengths : numpy.ndarray
+    bond_lengths : numpy.ndarray
         (bonds,) float64, the length of each bond, in the order of the topology.
     partial : dict
         (bins,) int64 counts of the bonds between each pair of elements
@@ -479,7 +479,7 @@ class BondLengthResult(Result):
     edges: np.ndarray
     counts: np.ndarray
     density: np.ndarray
-    lengths: np.ndarray
+    bond_lengths: np.ndarray
     partial: dict[tuple[str, str], np.ndarray]
 
     def pair(self, a: str, b: str) -> np.ndarray:
@@ -497,14 +497,14 @@ class BondLengthDistribution:
 
     Parameters
     ----------
-    bins : int32, optional
-        Number of bins. Default 100.
     cutoff : float64, optional
         The upper end of the bins in Å; longer bonds are not counted. By
         default the longest bond.
+    bins : int32, optional
+        Number of bins. Default 100.
     """
 
-    def __init__(self, bins: int = 100, cutoff: float | None = None):
+    def __init__(self, cutoff: float | None = None, bins: int = 100):
         if bins < 1:
             raise InvalidParameter(f"bins must be at least 1, not {bins!r}")
         if cutoff is not None and not cutoff > 0:
@@ -564,12 +564,12 @@ class BondLengthDistribution:
             edges=edges,
             counts=counts.astype(np.int64),
             density=density,
-            lengths=lengths,
+            bond_lengths=lengths,
             partial=partial,
         )
 
     def __repr__(self) -> str:
-        return f"BondLengthDistribution(bins={self.bins}, cutoff={self.cutoff})"
+        return f"BondLengthDistribution(cutoff={self.cutoff}, bins={self.bins})"
 
 
 @dataclass(frozen=True)

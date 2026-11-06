@@ -20,7 +20,7 @@ grains = grains.with_columns(positions=grains["positions"] + shake)
 
 result = GrainSegmentation().compute(grains)
 result.count  # 8
-result.size  # [2885, 2666, ..., 1353] atoms, largest first
+result.sizes  # [2885, 2666, ..., 1353] atoms, largest first
 result.orientation[0]  # mean lattice orientation of the largest, (x, y, z, w)
 result.center[0], result.radius_of_gyration[0]  # Å
 grains = grains.with_columns(result)  # the column grain, -1 for none
@@ -35,7 +35,7 @@ threshold chosen:
 ```python
 from mdapy.visualization import plot, render
 
-names = [f"grain {k}: {n} atoms" for k, n in enumerate(result.size)]
+names = [f"grain {k}: {n} atoms" for k, n in enumerate(result.sizes)]
 render(
     grains,
     "images/grain-segmentation.png",
@@ -100,7 +100,7 @@ A `GrainResult`:
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
 | `grain` | (N,) int64 | | the grain of each atom, an index into the arrays below; -1 for none |
-| `size` | (G,) int64 | atoms | of each grain, largest first |
+| `sizes` | (G,) int64 | atoms | of each grain, largest first |
 | `structure` | (G,) int8 | | structure of each grain, an index into `names` |
 | `names` | tuple of str | | the structures of [polyhedral template matching](ptm.md) |
 | `orientation` | (G, 4) float64 | | mean lattice orientation, a quaternion (x, y, z, w) as those of the atoms |
@@ -108,7 +108,7 @@ A `GrainResult`:
 | `radius` | (G,) float64 | Å | of the smallest sphere about the center that holds the grain |
 | `radius_of_gyration` | (G,) float64 | Å | |
 | `colors` | (G, 3) float64 | | a distinct color for each grain, RGB from 0 to 1 |
-| `atom_colors(none=(0.8, 0.8, 0.8))` | (N, 3) float64 | | the color of the grain of each atom, `none` for atoms in no grain |
+| `atom_colors(*, ungrouped=(0.8, 0.8, 0.8))` | (N, 3) float64 | | the color of the grain of each atom, `ungrouped` for atoms in no grain |
 | `threshold` | float64 | | the threshold applied: log merge distance, or degrees for the spanning tree |
 | `merge_distance`, `merge_size` | (M,) float64 | , atoms | the merges of two clusters of at least 20 atoms, in order: merge distance (degrees for the spanning tree) and the atoms of the smaller cluster |
 | `count` | int32 | | the number of grains |

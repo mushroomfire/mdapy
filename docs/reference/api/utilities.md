@@ -10,7 +10,7 @@
 
 ::: mdapy.CancelToken
 
-::: mdapy.core.indices.index_dtype
+::: mdapy.index_dtype
 
 ## Results
 

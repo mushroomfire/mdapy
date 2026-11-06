@@ -35,7 +35,7 @@ from mdapy.core.threads import (
 )
 from mdapy.core.topology import Topology
 from mdapy.core.versions import show_versions
-from mdapy.neighbor import NeighborList
+from mdapy.neighbor._neighbor_list import NeighborList
 
 __all__ = [
     "Box",

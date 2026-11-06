@@ -20,7 +20,7 @@ from mdapy.errors import InvalidParameter
 
 
 def freeze(
-    system: System, reference: System, column: str, name: str | None = None
+    system: System, reference: System, column: str, *, name: str | None = None
 ) -> System:
     """The values of a column in a reference frame given to the atoms of a
     system, as OVITO's freeze property.

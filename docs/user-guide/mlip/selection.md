@@ -29,7 +29,7 @@ new = structure_descriptors(candidates, potential)
 chosen = farthest_point_sampling(new, 50, start=None, selected=old)
 write("add.xyz", [candidates[i] for i in chosen])
 
-pca = principal_components(old, n=2)
+pca = principal_components(old, count=2)
 pca.ratio  # fraction of the variance on each component
 with plot.style():
     fig, ax = plot.figure()
@@ -62,7 +62,7 @@ alone; those of other models frame by frame.
 |---|---|
 | `structure_descriptors(frames, calculator)` | the frames, and anything with `descriptors(system)`, such as [NEP](../simulation/nep.md) or [SOAP](soap.md) |
 | `farthest_point_sampling(points, count, *, start=0, selected=None)` | (M, D) candidates, the number chosen, the first one chosen (`None`: the farthest from `selected`), and (K, D) points chosen before |
-| `principal_components(points, n=2)` | (M, D) points, two or more, and the number of components kept, at most D |
+| `principal_components(points, count=2)` | (M, D) points, two or more, and the number of components kept, at most D |
 
 The points may be descriptors of frames or of atoms, or any other features.
 
@@ -74,10 +74,10 @@ the order chosen. `principal_components` returns a `PrincipalComponents`:
 
 | Attribute | Meaning |
 |---|---|
-| `projection` | (M, n) coordinates of the points along the components |
-| `components` | (n, D) unit vectors by decreasing variance, each with its largest entry positive |
-| `variance` | (n,) variance along each component |
-| `ratio` | (n,) fraction of the total variance |
+| `projection` | (M, count) coordinates of the points along the components |
+| `components` | (count, D) unit vectors by decreasing variance, each with its largest entry positive |
+| `variance` | (count,) variance along each component |
+| `ratio` | (count,) fraction of the total variance |
 | `mean` | (D,) mean of the points |
 | `transform(points)` | coordinates of other points along the same components |
 

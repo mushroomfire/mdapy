@@ -182,7 +182,9 @@ def dynamics(setfl):
     return LAMMPS(f"pair_style eam/alloy\npair_coeff * * {setfl} Cu Ni", ["Cu", "Ni"])
 
 
-FAST = dict(supercell=4, timestep=0.002, equilibration=2.0, production=20.0, frames=40)
+FAST = dict(
+    supercell=4, timestep=0.002, equilibration=2.0, production=20.0, num_frames=40
+)
 
 
 def test_at_a_low_temperature_as_at_rest(dynamics, potential):
@@ -218,7 +220,7 @@ def test_the_displacements_of_the_dynamics(dynamics, potential):
         md.velocities(2 * temperature, seed=3)
         md.command(f"fix t all langevin {temperature} {temperature} 0.1 4 zero yes")
         md.run(1000, ensemble="nve", thermo=1000)
-        md.run(5000, ensemble="nve", thermo=5000, frames=50)
+        md.run(5000, ensemble="nve", thermo=5000, save_every=50)
         frames = md.frames
     squares = []
     for frame in frames:
@@ -243,7 +245,7 @@ def test_the_displacements_of_the_dynamics(dynamics, potential):
 def test_progress_and_cancel(dynamics, potential):
     cell = primitive_cell(relaxed(potential, "fcc"))
     seen = []
-    options = dict(FAST, equilibration=0.1, production=0.2, frames=4)
+    options = dict(FAST, equilibration=0.1, production=0.2, num_frames=4)
     thermal_phonons(
         cell, dynamics, 100.0, progress=lambda d, t: seen.append((d, t)), **options
     )
@@ -264,7 +266,7 @@ def test_the_default_supercell_is_thick_enough(dynamics, potential):
         timestep=0.002,
         equilibration=0.1,
         production=0.4,
-        frames=8,
+        num_frames=8,
     )
     assert np.linalg.det(result.supercell) > 1
 
@@ -275,7 +277,7 @@ def test_invalid_input(dynamics, potential):
         (dict(timestep=0.0), "positive"),
         (dict(equilibration=0.0), "positive"),
         (dict(production=-1.0), "positive"),
-        (dict(frames=0), "positive"),
+        (dict(num_frames=0), "positive"),
         (dict(seed=0), "positive"),
     ):
         with pytest.raises(InvalidParameter, match=match):

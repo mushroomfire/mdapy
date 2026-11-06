@@ -37,7 +37,7 @@ class GrainResult(Result):
     grain : numpy.ndarray
         (N,) int64 grain of each atom, an index into the arrays of the
         grains, -1 for none.
-    size : numpy.ndarray
+    sizes : numpy.ndarray
         (G,) int64 number of atoms of each grain, largest first.
     structure : numpy.ndarray
         (G,) int8 structure of each grain, an index into ``names``.
@@ -67,7 +67,7 @@ class GrainResult(Result):
     """
 
     grain: np.ndarray
-    size: np.ndarray
+    sizes: np.ndarray
     structure: np.ndarray
     names: tuple[str, ...]
     orientation: np.ndarray
@@ -82,15 +82,15 @@ class GrainResult(Result):
     @property
     def count(self) -> int:
         """Number of grains."""
-        return len(self.size)
+        return len(self.sizes)
 
     def atom_colors(
-        self, none: tuple[float, float, float] = (0.8, 0.8, 0.8)
+        self, *, ungrouped: tuple[float, float, float] = (0.8, 0.8, 0.8)
     ) -> np.ndarray:
-        """(N, 3) the color of the grain of each atom, ``none`` for atoms in
-        no grain."""
+        """(N, 3) float64, the color of the grain of each atom, ``ungrouped``
+        for atoms in no grain."""
         colors = np.empty((len(self.grain), 3))
-        colors[:] = none
+        colors[:] = ungrouped
         inside = self.grain >= 0
         colors[inside] = self.colors[self.grain[inside]]
         return colors
@@ -293,7 +293,7 @@ class GrainSegmentation:
         size = found["size"]
         return GrainResult(
             grain=found["grain"],
-            size=size,
+            sizes=size,
             structure=found["structure"],
             names=PolyhedralTemplateMatching.NAMES,
             orientation=found["orientation"].reshape(-1, 4),

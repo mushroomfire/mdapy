@@ -73,7 +73,7 @@ their color to the other side.*
 
 ## Parameters
 
-`freeze(system, reference, column, name=None)`
+`freeze(system, reference, column, *, name=None)`
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|

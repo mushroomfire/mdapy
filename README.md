@@ -31,7 +31,9 @@
 </p>
 
 > **MDAPY 2.0 is a complete rewrite and is not compatible with MDAPY 1.x.** It brings many
-> more features, and we recommend upgrading. The code of 1.x stays on the branch
+> more features, and we recommend upgrading:
+> [From MDAPY 1.x](https://mushroomfire.github.io/mdapy/getting-started/from-1x/) gives the
+> 2.0 way of each common call. The code of 1.x stays on the branch
 > [`1.x`](https://github.com/mushroomfire/mdapy/tree/1.x).
 
 If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/mdapy).
@@ -159,6 +161,9 @@ If MDAPY contributes to a publication, please cite:
 > Yong-Chao Wu and Jian-Li Shao, *mdapy: A flexible and efficient analysis software
 > for molecular dynamics simulations*, Computer Physics Communications **290**, 108764
 > (2023). [doi:10.1016/j.cpc.2023.108764](https://doi.org/10.1016/j.cpc.2023.108764)
+
+[Papers citing MDAPY](https://mushroomfire.github.io/mdapy/about/citations/) lists, by year,
+the work done with it.
 
 ## 📄 License
 

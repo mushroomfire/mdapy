@@ -17,7 +17,7 @@ result.counts()  # {'other': 0, 'fcc': 256, ...}
 system = system.with_columns(result)  # adds the column 'structure'
 
 nl = mp.NeighborList.build(system, 6.0)  # one search for several analyses
-rdf = RadialDistributionFunction(r_max=6.0).compute(system, neighbors=nl)
+rdf = RadialDistributionFunction(cutoff=6.0).compute(system, neighbors=nl)
 ```
 
 Structure identification is in `mdapy.identify`; every other analysis is in

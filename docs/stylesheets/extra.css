@@ -74,3 +74,14 @@
 .md-typeset .grid.cards .lg {
   font-size: 1.6em;
 }
+
+/* The banner over a version other than the latest release: neutral, as the rest. */
+.md-banner--warning {
+  background-color: var(--md-primary-fg-color--dark);
+  color: var(--md-primary-bg-color);
+}
+.md-banner--warning a,
+.md-banner--warning a:hover {
+  color: var(--md-primary-bg-color);
+  text-decoration: underline;
+}

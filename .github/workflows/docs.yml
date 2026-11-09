@@ -1,36 +1,48 @@
 name: docs
 
-# Builds the documentation site on every pull request that touches it and publishes
-# it to GitHub Pages with every release, from its tag, so that the site describes the
-# version that pip installs, not what master holds for the next one. A run by hand
-# publishes the branch or tag it is run on (gh workflow run docs.yml --ref v2.0.0).
-# The docstrings of src/ are read without importing MDAPY, so nothing is compiled. The
-# built site travels as a workflow artifact, so there is no gh-pages branch.
+# The documentation in versions, with mike: each release (a tag vX.Y.Z) writes its
+# minor version, such as 2.0, and moves the alias latest to it, which readers see by
+# default; master writes dev. Pre-releases write nothing. The versions live on the
+# branch gh-pages, which this workflow alone writes; after each write it publishes
+# the whole branch to GitHub Pages, with a 404 page that sends a path without a
+# version to the same page of latest. Until a release has written latest, nothing is
+# published. Pull requests that touch the documentation only build it.
+# A run by hand writes the version of the branch or tag it is run on.
+# The docstrings of src/ are read without importing MDAPY, so nothing is compiled.
 # Settings -> Pages -> Source: GitHub Actions; the environment github-pages allows
 # master and the tags v*.
 
 on:
   push:
+    branches:
+      - master
     tags:
       - "v*"
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "src/mdapy/**"
+      - ".github/workflows/docs.yml"
+      - ".github/pages/**"
   pull_request:
     paths:
       - "docs/**"
       - "mkdocs.yml"
       - "src/mdapy/**"
       - ".github/workflows/docs.yml"
+      - ".github/pages/**"
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: docs-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    concurrency:
+      group: docs-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
 
@@ -46,16 +58,90 @@ jobs:
       - name: Build
         run: mkdocs build --strict
 
+  # Writes the version to gh-pages and uploads the whole branch for Pages.
+  version:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # one writer of gh-pages at a time, none cancelled half way
+    concurrency:
+      group: docs-gh-pages
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    outputs:
+      publish: ${{ steps.pages.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install MkDocs and mike
+        run: |
+          python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml', 'rb'))['project']['optional-dependencies']['docs']))" > docs-requirements.txt
+          pip install -r docs-requirements.txt
+
+      - name: Which version
+        id: which
+        run: |
+          ref="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            if [[ "$ref" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              echo "version=${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
+              echo "release=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "version=" >> "$GITHUB_OUTPUT"  # a pre-release
+            fi
+          else
+            echo "version=dev" >> "$GITHUB_OUTPUT"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        if: steps.which.outputs.version != ''
+        run: mkdocs build --strict
+
+      - name: Write the version to gh-pages
+        if: steps.which.outputs.version != ''
+        run: |
+          git config user.name mushroomfire
+          git config user.email 934313174@qq.com
+          git fetch origin gh-pages:gh-pages || true
+          if [[ "${{ steps.which.outputs.release }}" == "true" ]]; then
+            mike deploy --push --update-aliases --alias-type=copy "${{ steps.which.outputs.version }}" latest
+            mike set-default --push latest
+          else
+            mike deploy --push --alias-type=copy dev
+          fi
+
+      - name: Gather gh-pages for Pages
+        id: pages
+        if: steps.which.outputs.version != ''
+        run: |
+          git fetch origin gh-pages
+          git worktree add pages origin/gh-pages
+          rm -f pages/.git
+          cp .github/pages/404.html pages/404.html
+          if python -c "import json, sys; v = json.load(open('pages/versions.json')); sys.exit(0 if any('latest' in x.get('aliases', []) for x in v) else 1)"; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "no release has written latest yet: the site stays as it is"
+          fi
+
       - name: Upload the site
-        if: github.event_name != 'pull_request'
+        if: steps.pages.outputs.publish == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: pages
 
-  # Publishes what build uploaded; pull requests only build.
+  # Publishes what version uploaded.
   deploy:
-    if: github.event_name != 'pull_request'
-    needs: build
+    if: needs.version.outputs.publish == 'true'
+    needs: version
     runs-on: ubuntu-latest
     permissions:
       pages: write

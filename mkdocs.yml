@@ -8,6 +8,7 @@ copyright: Copyright &copy; 2022–2026 Yongchao Wu · MPL-2.0
 
 theme:
   name: material
+  custom_dir: docs/overrides
   logo: assets/mdapy-mark.png
   favicon: assets/favicon.png
   features:
@@ -60,6 +61,15 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+exclude_docs: |
+  overrides/
+
+extra:
+  version:
+    provider: mike
+    default: latest
+    alias: true
 
 extra_css:
   - stylesheets/extra.css

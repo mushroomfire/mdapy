@@ -293,6 +293,29 @@ def test_species_and_numbers_together(tmp_path):
 # ---------------------------------------------------------- GPUMD files
 
 
+@pytest.mark.parametrize("order", [("force", "forces"), ("forces", "force")])
+def test_a_property_named_as_its_column_takes_it(tmp_path, order):
+    """force and forces in one file, as when one program adds its own: forces
+    gives the column forces in either order, and force keeps its name; the
+    same for charge beside initial_charges."""
+    values = {"force": [1.0, 2.0, 3.0], "forces": [4.0, 5.0, 6.0]}
+    names = ":".join(f"{name}:R:3" for name in order)
+    numbers = " ".join(str(v) for name in order for v in values[name])
+    path = tmp_path / "both.xyz"
+    path.write_text(
+        f"1\nProperties=species:S:1:pos:R:3:{names}:initial_charges:R:1:charge:R:1\n"
+        f"H 0 0 0 {numbers} 0.5 0.7\n"
+    )
+    system = mdapy.io.read(path)
+    for name in order:
+        np.testing.assert_array_equal(system.table[name].to_numpy()[0], values[name])
+    assert system.table["charge"].to_list() == [0.7]
+    assert system.table["initial_charges"].to_list() == [0.5]
+    # written and read again, the columns stay as they are
+    mdapy.io.write(tmp_path / "again.xyz", system)
+    assert mdapy.io.read(tmp_path / "again.xyz").table.equals(system.table)
+
+
 def test_gpumd_training_file(tmp_path):
     """Keys in lower case, force instead of forces, virial in eV."""
     text = (
@@ -506,7 +529,7 @@ def test_trailing_blank_lines(tmp_path):
         ("1\nProperties=species:S:1:pos:R:2\nH 0 0\n", 2, "'pos' must be pos:R:3"),
         ("1\nProperties=species:S:1\nH\n", 2, "Properties has no pos property"),
         (
-            "1\nProperties=species:S:1:pos:R:3:force:R:3:forces:R:3\nH 0 0 0 0 0 0 0 0 0\n",
+            "1\nProperties=species:S:1:pos:R:3:forces:R:3:forces:R:3\nH 0 0 0 0 0 0 0 0 0\n",
             2,
             "property 'forces' appears twice",
         ),

@@ -14,6 +14,10 @@
 - The documentation has versions: `latest`, the newest release, which readers see by
   default, each release by its minor version, and `dev`, the code of master. A menu at
   the top switches between them; links without a version, as before, go to `latest`.
+- Extended XYZ files with both `force` and `forces`, as when one program adds its own
+  to a file of another, are read: a property named as its column, here `forces`,
+  gives it, and `force` keeps its name; they gave an error before. The same holds
+  for `charge` beside `initial_charges`.
 - Pictures of large systems seen from far away have no rings: the intersections of the
   rays with atoms and bonds keep their digits however far the camera is, and the rays of
   shadows and occlusion leave a surface by more the farther it is from the camera. The

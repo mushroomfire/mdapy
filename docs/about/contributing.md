@@ -45,10 +45,15 @@ the heading of that release. Each release writes its own, such as
 `python tests/api/test_api.py 2.1.0`, which gives `tests/api/2.1.0.txt`; the newest is
 the one compared.
 
-The site of the documentation is published from the tag of each release, so that it
-describes the version `pip` installs, not the next one that master holds. A correction
-of the documentation is published with the next release, or at once by running the
-workflow `docs` on the tag by hand.
+The documentation has versions. Readers see `latest` by default, the newest release, so
+that it describes the version `pip` installs. Each release also keeps its minor version,
+such as 2.0, which its patch releases update, and `dev` follows master, so that the
+documentation of the next release can be read as it grows. A menu at the top switches
+between them, and a banner says when a page is not of the latest release. The workflow
+`docs` writes them with [mike](https://github.com/jimporter/mike) to the branch
+`gh-pages`, which nothing else writes, and publishes that branch; a path without a
+version goes to the same page of `latest`. A correction for the latest release is
+published at once by running the workflow on its tag by hand.
 
 ## Documentation layout
 

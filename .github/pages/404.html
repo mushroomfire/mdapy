@@ -1,0 +1,39 @@
+<!doctype html>
+<!-- The page GitHub Pages shows for a path it does not have. A path without a version,
+     such as /mdapy/getting-started/from-1x/ from before the versions or from 1.x,
+     goes to the same page of the latest release; a path in a version that lacks
+     the page says so. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MDAPY</title>
+  <script>
+    (function () {
+      var base = "/mdapy/";
+      var path = window.location.pathname;
+      if (path.indexOf(base) !== 0) return;
+      var rest = path.slice(base.length);
+      var first = rest.split("/")[0];
+      fetch(base + "versions.json")
+        .then(function (response) { return response.json(); })
+        .then(function (versions) {
+          var known = {};
+          versions.forEach(function (v) {
+            known[v.version] = true;
+            (v.aliases || []).forEach(function (a) { known[a] = true; });
+          });
+          if (known[first]) {
+            document.getElementById("missing").hidden = false;
+          } else {
+            window.location.replace(base + "latest/" + rest + window.location.search + window.location.hash);
+          }
+        })
+        .catch(function () { window.location.replace(base); });
+    })();
+  </script>
+</head>
+<body>
+  <p id="missing" hidden>This page does not exist in this version.
+    <a href="/mdapy/">The documentation of MDAPY</a>.</p>
+</body>
+</html>

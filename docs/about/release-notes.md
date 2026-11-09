@@ -11,6 +11,9 @@
   stretched nothing before, as fixes that plan the whole run at their setup planned
   one of 0 steps. [Molecular dynamics through LAMMPS](../examples/molecular-dynamics.md)
   stretches copper in this way.
+- The documentation has versions: `latest`, the newest release, which readers see by
+  default, each release by its minor version, and `dev`, the code of master. A menu at
+  the top switches between them; links without a version, as before, go to `latest`.
 - Extended XYZ files with both `force` and `forces`, as when one program adds its own
   to a file of another, are read: a property named as its column, here `forces`,
   gives it, and `force` keeps its name; they gave an error before. The same holds

@@ -340,13 +340,18 @@ def _read(source: Source, position: FramePosition) -> System:
     properties = _parse_properties(
         reader, fields.pop("properties", _DEFAULT_PROPERTIES)
     )
-    # The column of each property: the first property that gives a known
-    # column takes it; later ones keep their own names.
+    # The column of each property: a property named as its column, such as
+    # forces, takes it; otherwise the first property that gives a known column
+    # does; the others keep their own names.
+    named = {
+        name for name, _, _ in properties if _READ_NAMES.get(name, ("",))[0] == name
+    }
     targets: list[str] = []
     for name, ptype, width in properties:
         target = name
         known = _READ_NAMES.get(name)
-        if known is not None and known[0] not in targets:
+        taken = known is not None and known[0] != name and known[0] in named
+        if known is not None and not taken and known[0] not in targets:
             if (ptype, width) != known[1:]:
                 raise reader.error(
                     f"property {name!r} must be {name}:{known[1]}:{known[2]}",

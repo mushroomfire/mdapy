@@ -63,8 +63,9 @@ MDAPY columns:
 | `energies:R:1`, `energy_atom:R:1` | `atomic_energies` | |
 | `atomic_virials:R:9` | `atomic_virials` | 3×3, row by row. |
 
-When several properties give the same column, such as `vel` and `momenta`,
-the first one gives it and the others keep their own names. Any other
+When several properties give the same column, a property named as the column
+gives it, such as `forces` beside `force`; otherwise the first one does, such as
+`vel` before `momenta`; the others keep their own names. Any other
 property becomes a column of the same name: a `float64`, `int64`, boolean or
 string column, or for a width above 1 an array column. Without `Properties`,
 a frame has `species:S:1:pos:R:3`, as plain XYZ files do.

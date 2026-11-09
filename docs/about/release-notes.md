@@ -2,6 +2,10 @@
 
 ## 2.0.0 (in development)
 
+- `plot.style(*, font_size=None, line_width=None, colors=None, settings=None)` changes
+  the size of the text, the width of the lines and the colors they take in turn without
+  matplotlib's names, and takes any other setting of matplotlib by its name;
+  [Figures with MDAPY](../examples/plotting.md) shows how.
 - Pictures of large systems seen from far away have no rings: the intersections of the
   rays with atoms and bonds keep their digits however far the camera is, and the rays of
   shadows and occlusion leave a surface by more the farther it is from the camera. The

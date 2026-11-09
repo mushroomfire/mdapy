@@ -76,7 +76,7 @@ from its center.*
 
 | Function | Does |
 |---|---|
-| `style()` | a context in which matplotlib uses `STYLE` and the colors `COLORS` |
+| `style(*, font_size=None, line_width=None, colors=None, settings=None)` | a context in which matplotlib uses `STYLE` and the colors `COLORS`; `font_size` in points sets the text, its tick labels and legends 6/7 of it (default 7), `line_width` in points the lines of data (default 1), `colors` the colors that lines and points take in turn, one or several, and `settings` any other setting of matplotlib by its name, ahead of the options; [Figures with MDAPY](../../examples/plotting.md) shows them at work |
 | `figure(width="single", height=None, *, nrows=1, ncols=1, **options)` | a figure one column (88 mm) or two (180 mm) wide, or `width` mm; `height` in mm, by default 3/4 of a panel's width per row; `options` go to `plt.subplots` |
 | `panel_label(ax, text, *, x=-0.12, y=1.02)` | a bold label at the top left of a panel |
 | `save(fig, path, *, formats=("pdf", "svg", "png"))` | the figure in each format, the text of SVG kept as text |
@@ -104,7 +104,9 @@ in inches.
 
 ## Errors
 
-`figure` raises `InvalidParameter` for a width that is neither single,
+`style` raises `InvalidParameter` for a `font_size` or `line_width` that is not
+positive, no colors, and a color or a setting that matplotlib does not know, with
+matplotlib's message. `figure` raises `InvalidParameter` for a width that is neither single,
 double nor a positive number, `parity` for values of different sizes,
 `scatter` for a column of several components or `max_points` below 1, and
 `warren_cowley` without a `shell` that exists for parameters of several shells,

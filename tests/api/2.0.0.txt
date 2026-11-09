@@ -890,7 +890,7 @@ mdapy.visualization.plot.scatter	function	system	x	y	*	ax=None	atoms=None	max_po
 mdapy.visualization.plot.stacking_fault	function	result	*	ax=None	**options
 mdapy.visualization.plot.structure_counts	function	result	*	ax=None
 mdapy.visualization.plot.structure_factor	function	result	*	ax=None
-mdapy.visualization.plot.style	function
+mdapy.visualization.plot.style	function	*	font_size=None	line_width=None	colors=None	settings=None
 mdapy.visualization.plot.warren_cowley	function	result	*	ax=None	shell=None	vmin=-2.0	vmax=1.0	cmap='GnBu'
 mdapy.visualization.render	function	system	path=None	*	atoms=None	color=None	colormap='viridis'	value_range=None	representation='spheres'	radius=None	bonds=None	bond_radius=None	box=True	box_radius=None	box_color='black'	polyhedra=None	polyhedra_alpha=0.6	polyhedra_color='atom'	polyhedra_edges=None	mesh=None	mesh_color='#8fb0d8'	mesh_alpha=1.0	dislocations=None	dislocation_radius=0.5	burgers_vectors=False	burgers_scale=3.0	burgers_radius=0.3	burgers_color=(0.7, 0.7, 0.7)	vectors=None	vector_scale=1.0	vector_radius=0.5	vector_color=(1.0, 1.0, 0.0)	vector_alignment='base'	lines=None	line_radius=0.1	line_color=(0.6, 0.6, 0.6)	wrap_lines=False	legend=False	**options
 mdapy.visualization.show_image	function	image	*	width=None

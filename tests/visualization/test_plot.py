@@ -51,6 +51,52 @@ def test_style_figure_and_save(tmp_path):
         plot.figure("triple")
 
 
+def test_style_options():
+    """The options change the text, the lines and the colors, settings of
+    matplotlib by name take precedence, and each change ends with the context."""
+    from matplotlib.colors import to_hex
+
+    with plot.style():
+        assert plt.rcParams["lines.linewidth"] == plot.STYLE["lines.linewidth"]
+        cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        assert [to_hex(c) for c in cycle] == list(plot.COLORS)
+    with plot.style(font_size=14, line_width=2.5, colors=["red", "#123456"]):
+        assert plt.rcParams["font.size"] == 14
+        assert plt.rcParams["axes.labelsize"] == 14
+        assert plt.rcParams["xtick.labelsize"] == pytest.approx(12)
+        assert plt.rcParams["legend.fontsize"] == pytest.approx(12)
+        assert plt.rcParams["lines.linewidth"] == 2.5
+        assert plt.rcParams["axes.spines.top"] is False  # the rest of STYLE stays
+        fig, ax = plot.figure()
+        lines = [ax.plot([0, 1], [k, k])[0] for k in range(3)]
+        assert [to_hex(line.get_color()) for line in lines] == [
+            "#ff0000",
+            "#123456",
+            "#ff0000",
+        ]
+        assert lines[0].get_linewidth() == 2.5
+    with plot.style(colors="green", settings={"axes.grid": True, "font.size": 9}):
+        assert plt.rcParams["axes.grid"] is True
+        assert plt.rcParams["font.size"] == 9
+        cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        assert cycle == ["green"]
+    with plot.style(font_size=12, settings={"font.size": 10}):
+        assert plt.rcParams["font.size"] == 10  # settings win
+        assert plt.rcParams["axes.labelsize"] == 12
+    assert plt.rcParams["font.size"] != 14 and not plt.rcParams["axes.grid"]
+    for options, message in (
+        ({"font_size": 0}, "font_size must be positive"),
+        ({"line_width": -1.0}, "line_width must be positive"),
+        ({"colors": []}, "at least one color"),
+        ({"colors": ["notacolor"]}, "matplotlib"),
+        ({"settings": {"axes.gridx": True}}, "matplotlib"),
+        ({"settings": {"font.size": "huge"}}, "matplotlib"),
+    ):
+        with pytest.raises(InvalidParameter, match=message), plot.style(**options):
+            pass  # pragma: no cover - the context does not start
+    assert plt.rcParams["font.size"] != 14
+
+
 def test_parity():
     rng = np.random.default_rng(0)
     reference = rng.normal(size=200)

@@ -98,6 +98,34 @@ def test_the_same_run_as_lammps(tmp_path, setfl, potential):
     assert repr(md) == f"MolecularDynamics({len(system)} atoms, closed)"
 
 
+def test_a_fix_of_ones_own_runs_in_pieces_as_in_one_run(tmp_path, setfl, potential):
+    """A fix that plans the whole run at its setup, as deform does, stretches
+    the box in the pieces of a run as in one run of LAMMPS."""
+    system = crystal()
+    commands = """
+        timestep 0.002
+        velocity all create 300.0 3 dist gaussian mom yes rot no loop all
+        fix pull all deform 1 x erate 0.05 remap x
+        fix 1 all nvt temp 300.0 300.0 0.2
+        run 300
+    """
+    x, v = plain_lammps(tmp_path, system, setfl, commands)
+    with MolecularDynamics(system, potential, timestep=0.002) as md:
+        md.velocities(300, seed=3)
+        md.command("fix pull all deform 1 x erate 0.05 remap x")
+        md.run(300, ensemble="nvt", temperature=300, thermo=70)
+        final, thermo = md.system, md.thermo
+    lengths = np.diag(final.box.matrix)
+    assert lengths[0] == pytest.approx(3 * 3.4 * (1 + 0.05 * 0.6), rel=1e-12)
+    apart = final["positions"] - x
+    np.testing.assert_allclose(
+        apart - np.round(apart / lengths) * lengths, 0, atol=1e-9
+    )
+    np.testing.assert_allclose(final["velocities"], v, atol=1e-9)
+    # the box grows steadily along the run
+    assert np.all(np.diff(thermo["volume"].to_numpy()) > 0)
+
+
 def test_thermo_and_frames(potential):
     system = crystal()
     calls = []

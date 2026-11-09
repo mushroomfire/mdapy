@@ -6,7 +6,7 @@
 """Plot templates for figures of journals, and plots of the results of mdapy.
 Needs matplotlib."""
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from os import PathLike
 from pathlib import Path
@@ -86,14 +86,65 @@ def _pyplot() -> Any:
 
 
 @contextmanager
-def style() -> Iterator[None]:
-    """A context in which matplotlib uses ``STYLE`` and ``COLORS``."""
+def style(
+    *,
+    font_size: float | None = None,
+    line_width: float | None = None,
+    colors: str | Sequence[str] | None = None,
+    settings: Mapping[str, Any] | None = None,
+) -> Iterator[None]:
+    """A context in which matplotlib uses ``STYLE`` and ``COLORS``, changed by
+    the options.
+
+    Parameters
+    ----------
+    font_size : float64, optional
+        Size of the text in points; tick labels and legends 6/7 of it.
+        Default 7.
+    line_width : float64, optional
+        Width of the lines of data in points. Default 1.
+    colors : str or sequence of str, optional
+        The colors that lines and points take in turn. Default ``COLORS``.
+    settings : mapping, optional
+        Any other settings of matplotlib (its rcParams) by their names, such
+        as ``{"axes.grid": True}``; they take precedence over the options.
+
+    Raises
+    ------
+    InvalidParameter
+        For a size or width that is not positive, no colors, a color or a
+        setting that matplotlib does not know.
+    """
     plt = _pyplot()
     from cycler import cycler
 
-    settings = dict(STYLE) | {"axes.prop_cycle": cycler(color=list(COLORS))}
+    chosen = dict(STYLE)
+    if font_size is not None:
+        if not font_size > 0:
+            raise InvalidParameter(f"font_size must be positive, not {font_size!r}")
+        small = float(font_size) * 6 / 7
+        for key in ("font.size", "axes.titlesize", "axes.labelsize"):
+            chosen[key] = float(font_size)
+        for key in ("xtick.labelsize", "ytick.labelsize", "legend.fontsize"):
+            chosen[key] = small
+    if line_width is not None:
+        if not line_width > 0:
+            raise InvalidParameter(f"line_width must be positive, not {line_width!r}")
+        chosen["lines.linewidth"] = float(line_width)
+    if colors is None:
+        palette = list(COLORS)
+    else:
+        palette = [colors] if isinstance(colors, str) else list(colors)
+    if not palette:
+        raise InvalidParameter("colors must hold at least one color")
+    chosen["axes.prop_cycle"] = cycler(color=palette)
+    chosen |= dict(settings or {})
+    try:  # settings of matplotlib check each value, as rc_context would
+        plt.matplotlib.RcParams(chosen)
+    except (KeyError, ValueError) as error:
+        raise InvalidParameter(f"matplotlib: {error}") from None
     try:
-        with plt.rc_context(settings):
+        with plt.rc_context(chosen):
             try:
                 yield
                 # a notebook draws its figures after the cell, when the style

@@ -6,12 +6,22 @@ MDAPY 2.0, written anew, in its first stable release: from here on
 [Compatibility](compatibility.md) holds, and code written for 2.0.0 keeps working, with the
 same results, in every later 2.x release. What 2.0 holds is in the notes of 2.0.0a1 below
 and of each release after it; [From MDAPY 1.x](../getting-started/from-1x.md) gives the
-way from 1.x. The API is that of 2.0.0rc1. Since then:
+way from 1.x. The API is that of 2.0.0rc1, with the options of `plot.style` below.
+Since then:
 
 - `pip install mdapy` installs 2.0, without `--pre`; `pip install "mdapy<2"` keeps 1.x.
 - [Installation](../getting-started/installation.md) names the systems officially
   supported, those with built packages on PyPI; on others, such as macOS on an Intel
   processor, MDAPY built from source should work, untested.
+- `plot.style(*, font_size=None, line_width=None, colors=None, settings=None)` changes
+  the size of the text, the width of the lines and the colors they take in turn without
+  matplotlib's names, and takes any other setting of matplotlib by its name;
+  [Figures with MDAPY](../examples/plotting.md) shows how.
+- A fix of one's own, added with `MolecularDynamics.command`, works in `run` as in one
+  run of LAMMPS: the setup of `run` now knows where the run ends, and a `fix deform`
+  stretched nothing before, as fixes that plan the whole run at their setup planned
+  one of 0 steps. [Molecular dynamics through LAMMPS](../examples/molecular-dynamics.md)
+  stretches copper in this way.
 - Pictures of large systems seen from far away have no rings: the intersections of the
   rays with atoms and bonds keep their digits however far the camera is, and the rays of
   shadows and occlusion leave a surface by more the farther it is from the camera. The

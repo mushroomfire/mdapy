@@ -132,6 +132,7 @@ nav:
       - Simulation:
           - Defect energies of copper: examples/defect-energies.md
           - Gamma surfaces of copper and tungsten: examples/gamma-surface.md
+          - Molecular dynamics through LAMMPS: examples/molecular-dynamics.md
           - A machine-learned potential for CrCoNi: examples/crconi.md
       - Many calculations:
           - Screening alloys in many processes: examples/high-throughput.md

@@ -6,6 +6,11 @@
   the size of the text, the width of the lines and the colors they take in turn without
   matplotlib's names, and takes any other setting of matplotlib by its name;
   [Figures with MDAPY](../examples/plotting.md) shows how.
+- A fix of one's own, added with `MolecularDynamics.command`, works in `run` as in one
+  run of LAMMPS: the setup of `run` now knows where the run ends, and a `fix deform`
+  stretched nothing before, as fixes that plan the whole run at their setup planned
+  one of 0 steps. [Molecular dynamics through LAMMPS](../examples/molecular-dynamics.md)
+  stretches copper in this way.
 - Pictures of large systems seen from far away have no rings: the intersections of the
   rays with atoms and bonds keep their digits however far the camera is, and the rays of
   shadows and occlusion leave a surface by more the farther it is from the camera. The

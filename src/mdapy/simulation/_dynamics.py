@@ -410,7 +410,9 @@ create_box {len(potential.elements)} box
         self.command(f"fix mdapy_integrate all {fix}")
         thermo, start, done = int(thermo), self.step, 0
         try:
-            self.command("run 0 post no")
+            # the setup knows where the whole run ends: fixes that plan the run
+            # at their setup, as deform, would otherwise plan one of 0 steps
+            self.command(f"run 0 start {start} stop {start + steps} post no")
             if not self.__rows or self.__rows[-1]["step"] != start:
                 self.__record()
             if save_every is not None and (

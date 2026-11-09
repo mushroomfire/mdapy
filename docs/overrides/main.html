@@ -1,0 +1,7 @@
+{#- The banner over a version other than the latest release: dev, or an older one. -#}
+{% extends "base.html" %}
+
+{% block outdated %}
+  This is the documentation of another version of MDAPY than the latest release.
+  <a href="{{ '../' ~ base_url }}"><strong>Go to the latest.</strong></a>
+{% endblock %}

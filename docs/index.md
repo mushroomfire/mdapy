@@ -97,11 +97,11 @@ flowchart TB
 ## 📦 Install
 
 ```bash
-pip install --pre mdapy
+pip install mdapy
 ```
 
-The first release of 2.0 is a preview, and `--pre` asks `pip` for it: without it, `pip`
-installs 1.x.
+Code written for 1.x keeps working with `pip install "mdapy<2"`, or moves to 2.0 [as
+this guide shows](getting-started/from-1x.md).
 
 [Installation](getting-started/installation.md) describes the other ways to install it, what
 those need, and the optional packages.

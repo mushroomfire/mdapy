@@ -6,11 +6,10 @@ required dependencies are NumPy 2.3.1 or newer and polars 2.
 ## From PyPI
 
 ```bash
-pip install --pre mdapy
+pip install mdapy
 ```
 
-This is the usual way. The first release of 2.0 is a preview, and `--pre` asks `pip` for it:
-without it, `pip` installs 1.x. PyPI holds built packages for Linux on x86-64 and on ARM,
+This is the usual way. PyPI holds built packages for Linux on x86-64 and on ARM,
 macOS on Apple silicon and Windows on x86-64, so nothing has to be compiled. Elsewhere, `pip`
 builds MDAPY from its source archive, which needs [the tools below](#what-a-build-needs).
 
@@ -23,7 +22,7 @@ and no test runs on them.
 Build the source archive on PyPI, instead of taking a built package:
 
 ```bash
-pip install --pre --no-binary mdapy mdapy
+pip install --no-binary mdapy mdapy
 ```
 
 or a source archive you have downloaded:
@@ -75,7 +74,7 @@ MDAPY alone:
 
 ```bash
 conda install -c conda-forge compilers numpy polars
-pip install --pre mdapy
+pip install mdapy
 ```
 
 ## Pictures on the GPU

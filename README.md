@@ -133,11 +133,11 @@ More in the [documentation](https://mushroomfire.github.io/mdapy/), from the
 ## 📦 Install
 
 ```bash
-pip install --pre mdapy
+pip install mdapy
 ```
 
-The first release of 2.0 is a preview, and `--pre` asks `pip` for it: without it, `pip`
-installs 1.x. MDAPY needs Python 3.11 or newer. [Installation](https://mushroomfire.github.io/mdapy/getting-started/installation/)
+MDAPY needs Python 3.11 or newer. Code written for 1.x keeps working with
+`pip install "mdapy<2"`, or moves to 2.0 [as this guide shows](https://mushroomfire.github.io/mdapy/getting-started/from-1x/). [Installation](https://mushroomfire.github.io/mdapy/getting-started/installation/)
 describes the other ways to install it, from a source archive or from git, what those need,
 and the optional packages.
 

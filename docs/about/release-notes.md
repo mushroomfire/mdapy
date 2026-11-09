@@ -22,6 +22,9 @@ Since then:
   stretched nothing before, as fixes that plan the whole run at their setup planned
   one of 0 steps. [Molecular dynamics through LAMMPS](../examples/molecular-dynamics.md)
   stretches copper in this way.
+- The documentation has versions: `latest`, the newest release, which readers see by
+  default, each release by its minor version, and `dev`, the code of master. A menu at
+  the top switches between them; links without a version, as before, go to `latest`.
 - Pictures of large systems seen from far away have no rings: the intersections of the
   rays with atoms and bonds keep their digits however far the camera is, and the rays of
   shadows and occlusion leave a surface by more the farther it is from the camera. The

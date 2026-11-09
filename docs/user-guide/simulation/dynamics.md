@@ -4,6 +4,8 @@
 runs molecular dynamics of a system in LAMMPS, with the interaction of a
 [LAMMPS calculator](lammps.md), and gives back the thermodynamic state, the
 atoms along the way and the system at the end.
+[Molecular dynamics through LAMMPS](../../examples/molecular-dynamics.md) shows it at
+work, says what it is not made for, and how to run it on several threads or a GPU.
 
 <!-- skip-test -->
 ```python

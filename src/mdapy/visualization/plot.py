@@ -139,8 +139,8 @@ def style(
         raise InvalidParameter("colors must hold at least one color")
     chosen["axes.prop_cycle"] = cycler(color=palette)
     chosen |= dict(settings or {})
-    try:  # a copy of the settings checks each of them, as rc_context would
-        plt.rcParams.copy().update(chosen)
+    try:  # settings of matplotlib check each value, as rc_context would
+        plt.matplotlib.RcParams(chosen)
     except (KeyError, ValueError) as error:
         raise InvalidParameter(f"matplotlib: {error}") from None
     try:

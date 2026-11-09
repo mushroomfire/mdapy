@@ -14,6 +14,10 @@ without it, `pip` installs 1.x. PyPI holds built packages for Linux on x86-64 an
 macOS on Apple silicon and Windows on x86-64, so nothing has to be compiled. Elsewhere, `pip`
 builds MDAPY from its source archive, which needs [the tools below](#what-a-build-needs).
 
+These systems are the ones officially supported. On others, such as macOS on an Intel
+processor, MDAPY built from source should work as well, but no package is built for them
+and no test runs on them.
+
 ## From a source archive
 
 Build the source archive on PyPI, instead of taking a built package:

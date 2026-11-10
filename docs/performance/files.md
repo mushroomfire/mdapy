@@ -10,7 +10,7 @@ as the system.
 
 A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6148 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
-MDAPY 2.0.0b1 built with GCC 12.3, OVITO 3.17.1 and ASE 3.29.0
+MDAPY 2.0.0 built with GCC 12.3, OVITO 3.17.1 and ASE 3.29.0
 from pip. The [analyses](comparison.md) ran on another node, with Intel Xeon Gold
 6230, so their times do not compare with these.
 
@@ -44,7 +44,7 @@ its peak before the timings.
 
 #### OVITO
 
-| Case | Atoms | MDAPY 2.0.0b1 (s) | OVITO 3.17.1 (s) | OVITO / MDAPY | MDAPY (MB) | OVITO (MB) |
+| Case | Atoms | MDAPY 2.0.0 (s) | OVITO 3.17.1 (s) | OVITO / MDAPY | MDAPY (MB) | OVITO (MB) |
 |---|---:|---:|---:|---:|---:|---:|
 | Read a LAMMPS dump | 4,000 | 0.0011 | 0.0013 | 1.1 | 0 | 1 |
 | Read a LAMMPS dump | 32,000 | 0.0015 | 0.0082 | 5.3 | 1 | 5 |
@@ -109,7 +109,7 @@ its peak before the timings.
 
 #### ASE
 
-| Case | Atoms | MDAPY 2.0.0b1 (s) | ASE 3.29.0 (s) | ASE / MDAPY | MDAPY (MB) | ASE (MB) |
+| Case | Atoms | MDAPY 2.0.0 (s) | ASE 3.29.0 (s) | ASE / MDAPY | MDAPY (MB) | ASE (MB) |
 |---|---:|---:|---:|---:|---:|---:|
 | Read a LAMMPS dump | 4,000 | 0.0011 | 0.0054 | 4.9 | 0 | 1 |
 | Read a LAMMPS dump | 32,000 | 0.0015 | 0.041 | 26.8 | 1 | 5 |

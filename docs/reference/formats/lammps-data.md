@@ -25,7 +25,7 @@ same.table["element"].to_list()  # ['O', 'H', 'H'], from the Masses comments
 `water.data` is
 
 ```text
-LAMMPS data file via mdapy 2.0.0.dev0, timestep = 0, units = metal
+LAMMPS data file via MDAPY 2.0.0, timestep = 0, units = metal
 
 3 atoms
 2 atom types

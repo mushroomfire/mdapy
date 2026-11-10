@@ -19,7 +19,7 @@ system = build_crystal("fcc", a, elements="Cu", repeat=(3, 3, 3))
 len(system), system.box.volume  # 108 atoms, Å^3
 ```
 
-See [Systems and topology](../basics/system.md) and [Simulation box](../basics/box.md).
+See [Systems](../basics/system.md), [Topology](../basics/topology.md) and [Simulation box](../basics/box.md).
 
 ## Files
 

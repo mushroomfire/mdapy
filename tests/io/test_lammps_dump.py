@@ -226,6 +226,27 @@ def test_triclinic_bounding_boxes(tmp_path, tilt):
     np.testing.assert_allclose(back.box.origin, box.origin, rtol=1e-15, atol=1e-15)
 
 
+def test_an_element_keeps_its_type_in_every_frame(tmp_path):
+    """Types from elements, without elements=, follow the first appearance of
+    each element over the frames, not in each frame: atoms in another order,
+    or an element that comes later, leave the types of the others as they were."""
+    rng = np.random.default_rng(0)
+    box = mdapy.Box(4.0)
+    first = mdapy.System(
+        rng.random((4, 3)), box, elements=["Cu", "Ni", "Cu", "Ni"]
+    ).with_columns(id=np.arange(1, 5))
+    later = mdapy.System(
+        rng.random((3, 3)), box, elements=["Al", "Ni", "Cu"]
+    ).with_columns(id=np.arange(5, 8))
+    path = tmp_path / "types.dump"
+    mdapy.io.write(path, [first, first.gather([1, 3, 0, 2]), later])
+    type_of = {"Cu": 1, "Ni": 2, "Al": 3}
+    systems = [first, first.gather([1, 3, 0, 2]), later]
+    for system, frame in zip(systems, mdapy.io.read_trajectory(path)):
+        expected = [type_of[e] for e in system["element"]]
+        assert frame["type"].tolist() == expected
+
+
 def test_elements_option(tmp_path):
     text = orthogonal("id type x y z", "1 2 0 0 0\n2 1 1 1 1")
     table = read_text(tmp_path, text, elements=["Cu", "Zr"]).table

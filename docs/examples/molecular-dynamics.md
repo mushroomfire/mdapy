@@ -184,7 +184,7 @@ Several functions of MDAPY run their molecular dynamics this way:
 
 | Not for | Because | Instead |
 |---|---|---|
-| Charges, bonds and molecules: ReaxFF with charge equilibration, water, polymers | LAMMPS holds the atoms as `atom_style atomic`: positions, velocities and types | an input script of LAMMPS; read its dump files with [`mdapy.io.read_trajectory`](../basics/io.md) |
+| Charges, bonds and molecules: ReaxFF with charge equilibration, water, polymers | LAMMPS holds the atoms as `atom_style atomic`: positions, velocities and types | an input script of LAMMPS; read its dump files with [`mdapy.io.read_trajectory`](../basics/trajectory.md) |
 | Units other than metal | the units of MDAPY are those of metal: Å, eV, ps | a potential for metal units |
 | Many nodes, with MPI | MDAPY runs LAMMPS in its own process | Kokkos on the threads of one node or a GPU (below); for more, `mpirun` with an input script, and MDAPY on its dump files |
 | An integrator of one's own, such as a barostat on y and z while x is stretched | each `run` adds its thermostat or barostat, and a second one would move the atoms twice | the fixes and `md.command("run 10000")`: `thermo` and `frames` record only `run`, and `md.system` reads the atoms after |

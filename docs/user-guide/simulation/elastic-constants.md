@@ -1,7 +1,7 @@
 # Elastic constants
 
 `mdapy.lattice_dynamics.elastic_constants(system, calculator, *, strain=1e-3,
-relax=True, max_force=1e-4, max_steps=5000)` gives the elastic constants of a
+relax=True, max_force=1e-4, max_steps=5000, symmetry=None)` gives the elastic constants of a
 periodic crystal from its stress under small strains.
 
 <!-- skip-test -->

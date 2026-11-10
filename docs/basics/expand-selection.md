@@ -66,7 +66,7 @@ render(
 
 Give exactly one of `cutoff`, `num_neighbors` and `bonds`. Neighbors are
 found through the periodic boundaries, with the
-[neighbor lists](neighbor.md) of mdapy.
+[neighbor lists](neighbor.md) of MDAPY.
 
 ## Results
 

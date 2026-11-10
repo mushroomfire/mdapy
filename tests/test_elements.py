@@ -67,9 +67,14 @@ def test_atomic_numbers_rejects_non_symbols(bad):
         elements.atomic_numbers(bad)
 
 
-@pytest.mark.parametrize("bad", [["X"], [0], [119], [-1]])
-def test_atomic_masses_rejects_unknown_elements(bad):
-    with pytest.raises(InvalidParameter):
+@pytest.mark.parametrize(
+    "bad, named", [(["X"], "'X'"), ([0], "'X'"), ([119], "119"), ([-1], "-1")]
+)
+def test_atomic_masses_rejects_unknown_elements(bad, named):
+    """The message names the symbol where there is one, as X for 0."""
+    with pytest.raises(
+        InvalidParameter, match=f"no atomic weight for element {named}$"
+    ):
         elements.atomic_masses(bad)
 
 

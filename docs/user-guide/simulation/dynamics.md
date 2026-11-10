@@ -101,7 +101,7 @@ changing from its start to its end value across all of them.
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `system` | `System` | the atoms now, with `velocities` and `image` columns, the box, and `timestep` and `time` in `info`; the other columns of `system`, but forces and energies, which are out of date |
+| `system` | `System` | the atoms now, with `velocities` and `image` columns, the box, and `timestep` and `time` in `info`; the other columns of `system`, except forces and energies, which would be out of date |
 | `thermo` | polars `DataFrame` | the thermodynamic state of all the runs so far, one row per record |
 | `frames` | tuple of `System` | the atoms kept in all the runs so far, as `system` gives them |
 | `step` | int64 | the time step number of LAMMPS |

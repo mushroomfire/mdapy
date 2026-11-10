@@ -107,7 +107,7 @@ with plot.style():
     plot.save(fig, "images/gamma-surface", formats=("png",))
 
 fcc[2][0, 12], fcc[2][0, 6]  # 0.0224 and 0.111 J/m²: the fault, and the way to it
-bcc[2][4, 6], bcc[2].max()  # 1.73 at the middle of b, and 3.57 J/m² atoms on atoms
+bcc[2][4, 6], bcc[2].max()  # 1.73 at the middle of b; 3.57 J/m², atoms over atoms
 ```
 
 ![Gamma surfaces of copper and tungsten](images/gamma-surface.png)

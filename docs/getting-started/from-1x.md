@@ -27,7 +27,8 @@ needs it, `pip install "mdapy<2"` (see [Compatibility](../about/compatibility.md
   [`mdapy.visualization.plot`](../user-guide/visualization/plots.md), not by `plot()`
   methods of the results.
 
-The units are those of 1.x, LAMMPS's metal units (see [Units](../reference/units.md)).
+The units are LAMMPS's metal units, Å, eV and ps, as in 1.x; stress and pressure are in GPa
+(see [Units](../reference/units.md)).
 
 ## One script in both
 

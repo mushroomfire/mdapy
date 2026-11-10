@@ -453,9 +453,15 @@ def twin_lamellae(cell: System, layers: int) -> System:
         raise InvalidParameter("cell must be periodic, its third vector along z")
     if abs(matrix[0, 2]) > 1e-9 or abs(matrix[1, 2]) > 1e-9:
         raise InvalidParameter("the first two vectors of cell must lie in the xy plane")
-    if int(layers) < 2:
+    try:
+        count = int(layers)
+    except (TypeError, ValueError):
+        raise InvalidParameter(
+            f"layers must be a whole number, not {layers!r}"
+        ) from None
+    if count < 2:
         raise InvalidParameter(f"layers must be at least 2, not {layers!r}")
-    layers = int(layers)
+    layers = count
     fractional = cell.box.to_fractional(cell["positions"])
     fractional -= np.floor(fractional)
     heights = fractional[:, 2] * matrix[2, 2]

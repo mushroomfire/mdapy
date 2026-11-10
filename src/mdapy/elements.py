@@ -593,8 +593,9 @@ def atomic_masses(elements: Iterable[str] | Iterable[int]) -> np.ndarray:
     else:
         z = np.asarray(elements, dtype=np.int64).reshape(-1)
     if z.size and (z.min() < 1 or z.max() >= len(SYMBOLS)):
-        bad = z[(z < 1) | (z >= len(SYMBOLS))][0]
-        raise InvalidParameter(f"no atomic weight for element {bad}")
+        bad = int(z[(z < 1) | (z >= len(SYMBOLS))][0])
+        name = repr(SYMBOLS[bad]) if 0 <= bad < len(SYMBOLS) else bad
+        raise InvalidParameter(f"no atomic weight for element {name}")
     return ATOMIC_MASSES[z].copy()
 
 

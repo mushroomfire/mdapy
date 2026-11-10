@@ -15,7 +15,7 @@ system = build_crystal("fcc", a, elements="Cu", repeat=(4, 4, 4))
 
 result = CommonNeighborAnalysis().compute(system)  # adaptive
 result.counts()  # {'other': 0, 'fcc': 256, 'hcp': 0, 'bcc': 0, 'ico': 0}
-system = system.with_columns(result)  # the column 'structure'
+system = system.with_columns(result)  # the column cna_structure
 
 fixed = CommonNeighborAnalysis(cutoff=0.854 * a).compute(system)  # conventional
 ```

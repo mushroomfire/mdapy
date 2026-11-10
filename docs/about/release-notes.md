@@ -29,6 +29,10 @@ Since then:
   to a file of another, are read: a property named as its column, here `forces`,
   gives it, and `force` keeps its name; they gave an error before. The same holds
   for `charge` beside `initial_charges`.
+- A LAMMPS dump of several frames written from elements, without a `type` column or
+  `elements=`, gives each element one type in every frame, in the order the elements
+  first appear; the types followed the order of the atoms of each frame, so an
+  element could change its type between frames.
 - Pictures of large systems seen from far away have no rings: the intersections of the
   rays with atoms and bonds keep their digits however far the camera is, and the rays of
   shadows and occlusion leave a surface by more the farther it is from the camera. The
@@ -496,7 +500,7 @@ error.
   bonds and atoms of ten Wolde, Ruiz-Montero and Frenkel, as freud's
   `SolidLiquid` (MDAPY 1.x `identify_liquid`); the
   [`EntropyFingerprint`](../user-guide/analysis/entropy.md); and the
-  [`VoronoiAnalysis`](../user-guide/analysis/voronoi.md), computed by mdapy's own code,
+  [`VoronoiAnalysis`](../user-guide/analysis/voronoi.md), computed by MDAPY's own code,
   with the volumes and coordination of the cells and, when asked for, their
   faces and Voronoi indices (`faces=True`), which otherwise are not kept,
   the face and edge thresholds of OVITO, boxes that are not periodic, and
@@ -563,7 +567,7 @@ error.
   OVITO's elastic strain calculation atom by atom.
 - [`SurfaceMesh`](../user-guide/analysis/surface-mesh.md) in `mdapy.analysis`: the
   surface of the solid of atoms by the alpha-shape method of OVITO's
-  Construct surface mesh, from a Delaunay tessellation of mdapy's own, with
+  Construct surface mesh, from a Delaunay tessellation of MDAPY's own, with
   its area, the volume of the solid, the regions of solid and empty space
   and the voids among them, the atoms on the surface, and Taubin's
   smoothing; the same areas, volumes and atoms as OVITO. The surface is a
@@ -766,7 +770,7 @@ error.
   processes with the thread settings it needs, and a movie that flies through a crystal.
   See the Tutorials under Getting started.
 - Pictures with the examples: the pages of the structure builders and of
-  most analyses show what their example makes or finds, drawn by mdapy's
+  most analyses show what their example makes or finds, drawn by MDAPY's
   renderer or plotted with `mdapy.visualization.plot`, from code on the
   page that the documentation tests run.
 - [Surfaces and slip systems](../user-guide/build/slip-systems.md): the orientations of
@@ -786,7 +790,7 @@ error.
 - Atom indices in results are 32-bit, `mdapy.index_dtype`; a build with
   `-Ccmake.define.MDAPY_INDEX64=ON` uses 64-bit indices for more than
   2,147,483,647 atoms. See [Installation](../getting-started/installation.md#64-bit-atom-indices).
-- A thread pool of mdapy's own replaces OpenMP, so MDAPY can run in the same
+- A thread pool of MDAPY's own replaces OpenMP, so MDAPY can run in the same
   process as PyTorch and LAMMPS. Results are identical for any number of
   threads. The calling thread works too, idle threads wait for the next
   step briefly before they sleep, and a step of a few pieces wakes only as

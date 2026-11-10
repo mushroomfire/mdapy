@@ -166,6 +166,8 @@ def test_twin_lamellae():
             twin_lamellae(bad, 4)
     with pytest.raises(InvalidParameter, match="layers must be at least 2"):
         twin_lamellae(cell, 1)
+    with pytest.raises(InvalidParameter, match="layers must be a whole number"):
+        twin_lamellae(cell, [3, 3])
     hcp = build_crystal("hcp", 3.2, elements="Mg")  # a tilted box
     with pytest.raises(InvalidParameter, match="xy plane|third vector"):
         twin_lamellae(

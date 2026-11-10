@@ -122,7 +122,7 @@ parts raise an error that names the package to install.
 |---|---|---|
 | matplotlib | `pip install "mdapy[plot]"` | the plots of [`mdapy.visualization.plot`](../user-guide/visualization/plots.md) |
 | spglib, seekpath | `pip install "mdapy[symmetry]"` | the [space group](../user-guide/analysis/space-group.md); phonons and elastic constants from fewer computations; `band_structure("auto")` |
-| ASE | `pip install "mdapy[ase]"` | [`to_ase`, `from_ase`](../user-guide/interop/ase.md), and [calculators](../user-guide/interop/ase-calculators.md) between ASE and mdapy |
+| ASE | `pip install "mdapy[ase]"` | [`to_ase`, `from_ase`](../user-guide/interop/ase.md), and [calculators](../user-guide/interop/ase-calculators.md) between ASE and MDAPY |
 | freud | `pip install "mdapy[freud]"` | [`to_freud`, `from_freud`](../user-guide/interop/freud.md) |
 | pymatgen | `pip install "mdapy[pymatgen]"` | [`to_pymatgen`, `from_pymatgen`](../user-guide/interop/pymatgen.md) |
 | OVITO | `pip install ovito` | [`to_ovito`, `from_ovito`](../user-guide/interop/ovito.md) |

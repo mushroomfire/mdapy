@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://mushroomfire.github.io/mdapy/2.0.0rc1/performance/builders/">
+        <link rel="canonical" href="https://mushroomfire.github.io/mdapy/2.0/performance/builders/">
       
       
         <link rel="prev" href="../files/">
@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -90,6 +90,20 @@
     <div data-md-component="announce">
       
     </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  This is the documentation of another version of MDAPY than the latest release.
+  <a href="../../.."><strong>Go to the latest.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("../.."),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
     
     
       
@@ -1887,6 +1901,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../examples/molecular-dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics through LAMMPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../examples/crconi/" class="md-nav__link">
         
   
@@ -2062,7 +2104,7 @@
   <span class="md-ellipsis">
     
   
-    Pictures
+    Pictures and figures
   
 
     
@@ -2078,7 +2120,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Pictures
+    Pictures and figures
   
 
           </label>
@@ -2099,6 +2141,34 @@
     
   
     A movie that flies through a crystal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Figures with MDAPY
   
 
     
@@ -7871,7 +7941,7 @@ builds the structure MDAPY builds.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6148 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
-MDAPY 2.0.0b1 built with GCC 12.3, and Atomsk Beta 0.13.1, a
+MDAPY 2.0.0 built with GCC 12.3, and Atomsk Beta 0.13.1, a
 statically linked build of its release. The <a href="../comparison/">analyses</a> ran on
 another node, with Intel Xeon Gold 6230, so their times do not compare with these.</p>
 <p><img alt="Time of Atomsk over the time of MDAPY for each case and size" src="../images/builders.png" /></p>
@@ -7896,7 +7966,7 @@ the timings; that of Atomsk, a process of its own, is not counted.</p>
 <tr>
 <th>Case</th>
 <th style="text-align: right;">Atoms</th>
-<th style="text-align: right;">MDAPY 2.0.0b1 (s)</th>
+<th style="text-align: right;">MDAPY 2.0.0 (s)</th>
 <th style="text-align: right;">Atomsk Beta 0.13.1 (s)</th>
 <th style="text-align: right;">Atomsk / MDAPY</th>
 <th style="text-align: right;">MDAPY (MB)</th>
@@ -8034,7 +8104,7 @@ does by default.</p>
   command from that process, with <code>OMP_NUM_THREADS</code> 40; the time of a build
   by Atomsk includes starting the program.</li>
 <li>Before the timings, a separate process builds the structure with both
-  programs and reads both files with mdapy. Single crystal: the same box and
+  programs and reads both files with MDAPY. Single crystal: the same box and
   the same atoms, in any order, within 1e-9 Å (Atomsk writes 12 decimals).
   Polycrystal: the same box, as many atoms within 0.5 %, and in each grain
   the same lattice. The atoms differ: each program places the lattice of a
@@ -8157,10 +8227,10 @@ the environment variable <code>ATOMSK</code> names.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../javascripts/mathjax.js"></script>
       

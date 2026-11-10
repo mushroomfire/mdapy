@@ -1,667 +1,675 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/about/citations/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/about/citations/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/about/compatibility/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/about/compatibility/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/about/contributing/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/about/contributing/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/about/release-notes/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/about/release-notes/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/about/reporting/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/about/reporting/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/basics/box/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/basics/box/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/basics/changing/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/basics/changing/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/basics/expand-selection/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/basics/expand-selection/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/basics/io/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/basics/io/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/basics/neighbor/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/basics/neighbor/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/basics/overlapping/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/basics/overlapping/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/basics/parallelism/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/basics/parallelism/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/basics/selecting/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/basics/selecting/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/basics/system/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/basics/system/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/basics/topology/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/basics/topology/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/basics/trajectory/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/basics/trajectory/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/examples/columnar-polycrystal/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/columnar-polycrystal/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/examples/crconi/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/crconi/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/examples/defect-energies/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/defect-energies/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/examples/gamma-surface/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/gamma-surface/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/examples/gradient-polycrystals/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/gradient-polycrystals/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/examples/graphene-polycrystal/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/graphene-polycrystal/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/examples/high-throughput/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/high-throughput/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/examples/molecular-polycrystal/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/molecular-dynamics/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/examples/movie/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/molecular-polycrystal/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/examples/neighbor-lists/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/movie/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/examples/two-phase-polycrystal/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/neighbor-lists/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/getting-started/from-1x/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/plotting/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/getting-started/installation/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/examples/two-phase-polycrystal/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/getting-started/quick-tour/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/getting-started/from-1x/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/getting-started/learn/analyses/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/getting-started/installation/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/getting-started/learn/cheat-sheet/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/getting-started/quick-tour/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/getting-started/learn/energy/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/getting-started/learn/analyses/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/getting-started/learn/figures/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/getting-started/learn/cheat-sheet/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/getting-started/learn/table/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/getting-started/learn/energy/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/getting-started/learn/trajectories/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/getting-started/learn/figures/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/getting-started/learn/your-files/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/getting-started/learn/table/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/performance/builders/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/getting-started/learn/trajectories/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/performance/comparison/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/getting-started/learn/your-files/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/performance/files/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/performance/builders/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/elements/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/performance/comparison/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/glossary/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/performance/files/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/references/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/elements/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/units/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/glossary/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/references/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/build/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/units/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/calculators/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/defects/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/build/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/dynamics/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/calculators/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/identification/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/defects/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/interop/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/dynamics/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/lattice-dynamics/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/identification/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/local-order/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/interop/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/mlip/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/lattice-dynamics/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/relaxation/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/local-order/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/statistics/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/mlip/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/structures/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/relaxation/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/thermodynamics/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/statistics/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/utilities/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/structures/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/api/visualization/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/thermodynamics/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/formats/cif/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/utilities/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/formats/extxyz/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/api/visualization/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/formats/lammps-data/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/formats/cif/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/formats/lammps-dump/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/formats/extxyz/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/formats/mdapy/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/formats/lammps-data/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/formats/outcar/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/formats/lammps-dump/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/formats/pdb/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/formats/mdapy/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/reference/formats/poscar/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/formats/outcar/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/ackland-jones/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/formats/pdb/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/atomic-strain/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/reference/formats/poscar/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/bond-angles/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/ackland-jones/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/bond-lengths/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/atomic-strain/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/chill-plus/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/bond-angles/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/clusters/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/bond-lengths/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/cna/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/chill-plus/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/cnp/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/clusters/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/coordination/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/cna/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/csp/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/cnp/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/diamond/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/coordination/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/dislocations/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/csp/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/displacement/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/diamond/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/drift/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/dislocations/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/elastic-strain/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/displacement/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/entropy/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/drift/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/frame-difference/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/elastic-strain/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/freeze/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/entropy/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/grain-segmentation/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/frame-difference/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/histogram/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/freeze/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/isosurface/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/grain-segmentation/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/lindemann/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/histogram/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/msd/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/isosurface/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/overview/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/lindemann/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/planar-faults/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/msd/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/ptm/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/overview/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/rdf/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/planar-faults/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/reduce/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/ptm/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/rings/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/rdf/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/smooth-trajectory/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/reduce/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/space-group/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/rings/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/spatial-binning/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/smooth-trajectory/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/spatial-correlation/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/space-group/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/species/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/spatial-binning/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/steinhardt/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/spatial-correlation/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/structure-factor/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/species/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/surface-mesh/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/steinhardt/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/temperature/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/structure-factor/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/time-average/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/surface-mesh/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/time-series/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/temperature/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/trajectory-lines/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/time-average/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/voronoi/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/time-series/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/warren-cowley/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/trajectory-lines/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/wigner-seitz/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/voronoi/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/affine/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/warren-cowley/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/alloys/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/wigner-seitz/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/bonds/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/affine/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/combine/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/alloys/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/crystals/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/bonds/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/defects/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/combine/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/dislocations/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/crystals/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/graphene/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/defects/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/polycrystals/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/dislocations/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/slice/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/graphene/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/slip-systems/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/polycrystals/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/sqs/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/slice/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/build/transform/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/slip-systems/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/interop/ase-calculators/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/sqs/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/interop/ase/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/build/transform/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/interop/freud/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/interop/ase-calculators/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/interop/gpumd/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/interop/ase/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/interop/lammps/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/interop/freud/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/interop/ovito/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/interop/gpumd/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/interop/pymatgen/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/interop/lammps/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/interop/vasp/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/interop/ovito/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/mlip/checks/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/interop/pymatgen/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/mlip/errors/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/interop/vasp/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/mlip/perturbation/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/mlip/checks/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/mlip/selection/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/mlip/errors/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/mlip/soap/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/mlip/perturbation/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/mlip/uncertainty/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/mlip/selection/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/mlip/vasp/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/mlip/soap/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/calculators/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/mlip/uncertainty/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/defect-energies/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/mlip/vasp/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/dynamics/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/calculators/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/eam/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/defect-energies/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/elastic-constants/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/dynamics/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/free-energy/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/eam/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/lammps/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/elastic-constants/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/md-elastic/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/free-energy/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/melting-point/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/lammps/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/minimize/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/md-elastic/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/nep/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/melting-point/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/phase-diagram/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/minimize/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/phonons/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/nep/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/pressure-temperature/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/phase-diagram/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/quasi-harmonic/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/phonons/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/sheets/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/pressure-temperature/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/stacking-fault-temperature/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/quasi-harmonic/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/thermal-elastic/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/sheets/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/thermal-phonons/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/stacking-fault-temperature/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/simulation/vasp/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/thermal-elastic/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/visualization/colors/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/thermal-phonons/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/visualization/movies/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/simulation/vasp/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/visualization/plots/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/visualization/colors/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/visualization/polyhedra/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/visualization/movies/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/visualization/rendering/</loc>
-         <lastmod>2026-11-09</lastmod>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/visualization/plots/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/visualization/polyhedra/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/2.0/user-guide/visualization/rendering/</loc>
+         <lastmod>2026-11-10</lastmod>
     </url>
 </urlset>

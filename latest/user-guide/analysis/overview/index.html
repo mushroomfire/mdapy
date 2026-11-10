@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://mushroomfire.github.io/mdapy/2.0.0rc1/user-guide/analysis/overview/">
+        <link rel="canonical" href="https://mushroomfire.github.io/mdapy/2.0/user-guide/analysis/overview/">
       
       
         <link rel="prev" href="../../build/bonds/">
@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -90,6 +90,20 @@
     <div data-md-component="announce">
       
     </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  This is the documentation of another version of MDAPY than the latest release.
+  <a href="../../../.."><strong>Go to the latest.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("../../.."),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
     
     
       
@@ -1891,6 +1905,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../examples/molecular-dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics through LAMMPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../examples/crconi/" class="md-nav__link">
         
   
@@ -2066,7 +2108,7 @@
   <span class="md-ellipsis">
     
   
-    Pictures
+    Pictures and figures
   
 
     
@@ -2082,7 +2124,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Pictures
+    Pictures and figures
   
 
           </label>
@@ -2103,6 +2145,34 @@
     
   
     A movie that flies through a crystal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Figures with MDAPY
   
 
     
@@ -7810,7 +7880,7 @@ returns a result.</p>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">result</span> <span class="o">=</span> <span class="n">CommonNeighborAnalysis</span><span class="p">()</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">result</span><span class="o">.</span><span class="n">counts</span><span class="p">()</span>  <span class="c1"># {'other': 0, 'fcc': 256, ...}</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">system</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># adds the column 'structure'</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">system</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># adds the column cna_structure</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">nl</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">NeighborList</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">)</span>  <span class="c1"># one search for several analyses</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">rdf</span> <span class="o">=</span> <span class="n">RadialDistributionFunction</span><span class="p">(</span><span class="n">cutoff</span><span class="o">=</span><span class="mf">6.0</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">neighbors</span><span class="o">=</span><span class="n">nl</span><span class="p">)</span>
@@ -7850,12 +7920,12 @@ wrong value fails before any computation. <code>compute</code> takes:</p>
 </tr>
 </tbody>
 </table>
-<p>Analyses of a trajectory, the mean squared displacement and the Lindemann
-index, take a sequence of systems, <code>frames</code>, instead of <code>system</code>. The
+<p>Analyses of a trajectory, such as the mean squared displacement and the
+Lindemann index, take a sequence of systems, <code>frames</code>, instead of <code>system</code>. The
 Voronoi analysis takes no neighbor list: it searches as far as each cell
 needs.</p>
-<p>A neighbor list passed as <code>neighbors</code> must belong to the same <code>System</code>
-object. An analysis of the neighbors within a cutoff needs a list with at
+<p>A neighbor list passed as <code>neighbors</code> must fit the system: the one it was
+built for, or any with the same positions in the same box. An analysis of the neighbors within a cutoff needs a list with at
 least that cutoff. An analysis of the k nearest neighbors of each atom takes
 either a list of nearest neighbors or a list within a cutoff, with at least
 k neighbors for every atom. The results are those of the analysis's own
@@ -8054,10 +8124,10 @@ the system lacks a column the analysis needs; and
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../../javascripts/mathjax.js"></script>
       

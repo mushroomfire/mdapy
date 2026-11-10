@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://mushroomfire.github.io/mdapy/2.0.0rc1/getting-started/installation/">
+        <link rel="canonical" href="https://mushroomfire.github.io/mdapy/2.0/getting-started/installation/">
       
       
         <link rel="prev" href="../..">
@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -90,6 +90,20 @@
     <div data-md-component="announce">
       
     </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  This is the documentation of another version of MDAPY than the latest release.
+  <a href="../../.."><strong>Go to the latest.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("../.."),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
     
     
       
@@ -2059,6 +2073,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../examples/molecular-dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics through LAMMPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../examples/crconi/" class="md-nav__link">
         
   
@@ -2234,7 +2276,7 @@
   <span class="md-ellipsis">
     
   
-    Pictures
+    Pictures and figures
   
 
     
@@ -2250,7 +2292,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Pictures
+    Pictures and figures
   
 
           </label>
@@ -2271,6 +2313,34 @@
     
   
     A movie that flies through a crystal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Figures with MDAPY
   
 
     
@@ -7919,15 +7989,17 @@
 <p>MDAPY needs Python 3.11 or newer, and on macOS, macOS 14 or newer. Its only
 required dependencies are NumPy 2.3.1 or newer and polars 2.</p>
 <h2 id="from-pypi">From PyPI<a class="headerlink" href="#from-pypi" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--pre<span class="w"> </span>mdapy
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy
 </code></pre></div>
-<p>This is the usual way. The first release of 2.0 is a preview, and <code>--pre</code> asks <code>pip</code> for it:
-without it, <code>pip</code> installs 1.x. PyPI holds built packages for Linux on x86-64 and on ARM,
+<p>This is the usual way. PyPI holds built packages for Linux on x86-64 and on ARM,
 macOS on Apple silicon and Windows on x86-64, so nothing has to be compiled. Elsewhere, <code>pip</code>
 builds MDAPY from its source archive, which needs <a href="#what-a-build-needs">the tools below</a>.</p>
+<p>These systems are the ones officially supported. On others, such as macOS on an Intel
+processor, MDAPY built from source should work as well, but no package is built for them
+and no test runs on them.</p>
 <h2 id="from-a-source-archive">From a source archive<a class="headerlink" href="#from-a-source-archive" title="Permanent link">&para;</a></h2>
 <p>Build the source archive on PyPI, instead of taking a built package:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--pre<span class="w"> </span>--no-binary<span class="w"> </span>mdapy<span class="w"> </span>mdapy
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--no-binary<span class="w"> </span>mdapy<span class="w"> </span>mdapy
 </code></pre></div>
 <p>or a source archive you have downloaded:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy-*.tar.gz
@@ -7985,7 +8057,7 @@ usually comes from a module, such as <code>module load gcc</code>. In a <a href=
 environment, get a compiler and NumPy that run on the old system first, and <code>pip</code> then builds
 MDAPY alone:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>compilers<span class="w"> </span>numpy<span class="w"> </span>polars
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>pip<span class="w"> </span>install<span class="w"> </span>--pre<span class="w"> </span>mdapy
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy
 </code></pre></div>
 <h2 id="pictures-on-the-gpu">Pictures on the GPU<a class="headerlink" href="#pictures-on-the-gpu" title="Permanent link">&para;</a></h2>
 <p><a href="../../user-guide/visualization/rendering/#on-the-gpu">Pictures</a> are traced on the GPU
@@ -8036,7 +8108,7 @@ parts raise an error that names the package to install.</p>
 <tr>
 <td>ASE</td>
 <td><code>pip install "mdapy[ase]"</code></td>
-<td><a href="../../user-guide/interop/ase/"><code>to_ase</code>, <code>from_ase</code></a>, and <a href="../../user-guide/interop/ase-calculators/">calculators</a> between ASE and mdapy</td>
+<td><a href="../../user-guide/interop/ase/"><code>to_ase</code>, <code>from_ase</code></a>, and <a href="../../user-guide/interop/ase-calculators/">calculators</a> between ASE and MDAPY</td>
 </tr>
 <tr>
 <td>freud</td>
@@ -8240,10 +8312,10 @@ changing C++ code.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../javascripts/mathjax.js"></script>
       

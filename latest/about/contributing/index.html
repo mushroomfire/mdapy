@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://mushroomfire.github.io/mdapy/2.0.0rc1/about/contributing/">
+        <link rel="canonical" href="https://mushroomfire.github.io/mdapy/2.0/about/contributing/">
       
       
         <link rel="prev" href="../reporting/">
@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -29,10 +29,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -88,6 +88,20 @@
     <div data-md-component="announce">
       
     </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  This is the documentation of another version of MDAPY than the latest release.
+  <a href="../../.."><strong>Go to the latest.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("../.."),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
     
     
       
@@ -1885,6 +1899,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../examples/molecular-dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics through LAMMPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../examples/crconi/" class="md-nav__link">
         
   
@@ -2060,7 +2102,7 @@
   <span class="md-ellipsis">
     
   
-    Pictures
+    Pictures and figures
   
 
     
@@ -2076,7 +2118,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Pictures
+    Pictures and figures
   
 
           </label>
@@ -2097,6 +2139,34 @@
     
   
     A movie that flies through a crystal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Figures with MDAPY
   
 
     
@@ -7954,10 +8024,15 @@ parameter changed fails, and so does an addition the release notes do not name a
 the heading of that release. Each release writes its own, such as
 <code>python tests/api/test_api.py 2.1.0</code>, which gives <code>tests/api/2.1.0.txt</code>; the newest is
 the one compared.</p>
-<p>The site of the documentation is published from the tag of each release, so that it
-describes the version <code>pip</code> installs, not the next one that master holds. A correction
-of the documentation is published with the next release, or at once by running the
-workflow <code>docs</code> on the tag by hand.</p>
+<p>The documentation has versions. Readers see <code>latest</code> by default, the newest release, so
+that it describes the version <code>pip</code> installs. Each release also keeps its minor version,
+such as 2.0, which its patch releases update, and <code>dev</code> follows master, so that the
+documentation of the next release can be read as it grows. A menu at the top switches
+between them, and a banner says when a page is not of the latest release. The workflow
+<code>docs</code> writes them with <a href="https://github.com/jimporter/mike">mike</a> to the branch
+<code>gh-pages</code>, which nothing else writes, and publishes that branch; a path without a
+version goes to the same page of <code>latest</code>. A correction for the latest release is
+published at once by running the workflow on its tag by hand.</p>
 <h2 id="documentation-layout">Documentation layout<a class="headerlink" href="#documentation-layout" title="Permanent link">&para;</a></h2>
 <p>The tabs follow what the reader is doing, and the directories of <code>docs/</code> follow the tabs:</p>
 <table>
@@ -8021,10 +8096,10 @@ sections, in this order:</p>
    is only an illustration is preceded by the line <code>&lt;!-- skip-test --&gt;</code>. A
    page whose examples need an optional package starts with a line such as
    <code>&lt;!-- needs: ovito --&gt;</code>; its examples are skipped where the package is
-   not installed. Examples import mdapy as <code>import mdapy as mp</code> and write
+   not installed. Examples import the package as <code>import mdapy as mp</code> and write
    <code>mdapy.io.read</code>, <code>mp.System</code>; the text names the functions in full, as
    <code>mdapy.io.read</code>. Where a result can be seen, a short example after it draws
-   it with mdapy's renderer or plots it with <code>mdapy.visualization.plot</code>
+   it with MDAPY's renderer or plots it with <code>mdapy.visualization.plot</code>
    into <code>images/name.png</code>; the tests run it in a folder with an empty
    <code>images</code>. The picture, made by running the page's examples and kept
    next to the page as a PNG of 256 colors, follows the block with a
@@ -8362,10 +8437,10 @@ its Python module installed from the wheel that the build leaves:</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../javascripts/mathjax.js"></script>
       

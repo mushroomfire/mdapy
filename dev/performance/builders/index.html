@@ -7941,7 +7941,7 @@ builds the structure MDAPY builds.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6148 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
-MDAPY 2.0.0b1 built with GCC 12.3, and Atomsk Beta 0.13.1, a
+MDAPY 2.0.0 built with GCC 12.3, and Atomsk Beta 0.13.1, a
 statically linked build of its release. The <a href="../comparison/">analyses</a> ran on
 another node, with Intel Xeon Gold 6230, so their times do not compare with these.</p>
 <p><img alt="Time of Atomsk over the time of MDAPY for each case and size" src="../images/builders.png" /></p>
@@ -7966,7 +7966,7 @@ the timings; that of Atomsk, a process of its own, is not counted.</p>
 <tr>
 <th>Case</th>
 <th style="text-align: right;">Atoms</th>
-<th style="text-align: right;">MDAPY 2.0.0b1 (s)</th>
+<th style="text-align: right;">MDAPY 2.0.0 (s)</th>
 <th style="text-align: right;">Atomsk Beta 0.13.1 (s)</th>
 <th style="text-align: right;">Atomsk / MDAPY</th>
 <th style="text-align: right;">MDAPY (MB)</th>
@@ -8104,7 +8104,7 @@ does by default.</p>
   command from that process, with <code>OMP_NUM_THREADS</code> 40; the time of a build
   by Atomsk includes starting the program.</li>
 <li>Before the timings, a separate process builds the structure with both
-  programs and reads both files with mdapy. Single crystal: the same box and
+  programs and reads both files with MDAPY. Single crystal: the same box and
   the same atoms, in any order, within 1e-9 Å (Atomsk writes 12 decimals).
   Polycrystal: the same box, as many atoms within 0.5 %, and in each grain
   the same lattice. The atoms differ: each program places the lattice of a

@@ -8096,10 +8096,10 @@ sections, in this order:</p>
    is only an illustration is preceded by the line <code>&lt;!-- skip-test --&gt;</code>. A
    page whose examples need an optional package starts with a line such as
    <code>&lt;!-- needs: ovito --&gt;</code>; its examples are skipped where the package is
-   not installed. Examples import mdapy as <code>import mdapy as mp</code> and write
+   not installed. Examples import the package as <code>import mdapy as mp</code> and write
    <code>mdapy.io.read</code>, <code>mp.System</code>; the text names the functions in full, as
    <code>mdapy.io.read</code>. Where a result can be seen, a short example after it draws
-   it with mdapy's renderer or plots it with <code>mdapy.visualization.plot</code>
+   it with MDAPY's renderer or plots it with <code>mdapy.visualization.plot</code>
    into <code>images/name.png</code>; the tests run it in a folder with an empty
    <code>images</code>. The picture, made by running the page's examples and kept
    next to the page as a PNG of 256 colors, follows the block with a

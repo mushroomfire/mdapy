@@ -8005,7 +8005,7 @@ usual.</p>
 or 64 threads gives bit-for-bit identical numbers.</p>
 <h2 id="working-with-pytorch-and-lammps">Working with PyTorch and LAMMPS<a class="headerlink" href="#working-with-pytorch-and-lammps" title="Permanent link">&para;</a></h2>
 <p>MDAPY does not use OpenMP and loads no OpenMP runtime. Two copies of an
-OpenMP runtime in one process (for example mdapy's and PyTorch's) is a common
+OpenMP runtime in one process (for example MDAPY's and PyTorch's) is a common
 cause of crashes such as <code>OMP: Error #15</code> on macOS; this cannot happen with
 MDAPY, so no workaround such as <code>KMP_DUPLICATE_LIB_OK</code> is needed.</p>
 <p>Other libraries keep their own thread settings:</p>
@@ -8018,7 +8018,7 @@ MDAPY, so no workaround such as <code>KMP_DUPLICATE_LIB_OK</code> is needed.</p>
 </ul>
 <p>When several libraries compute at the same time, keep the total number of
 threads close to the number of CPU cores. After each piece of parallel work,
-mdapy's idle threads keep checking for more for 0.2 ms before they sleep, so
+MDAPY's idle threads keep checking for more for 0.2 ms before they sleep, so
 that the steps of one computation follow each other without waking them.</p>
 <h2 id="calling-mdapy-from-several-threads">Calling MDAPY from several threads<a class="headerlink" href="#calling-mdapy-from-several-threads" title="Permanent link">&para;</a></h2>
 <p>Compiled kernels release the Python global interpreter lock (GIL), so other

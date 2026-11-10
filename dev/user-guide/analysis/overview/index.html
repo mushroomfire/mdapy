@@ -7880,7 +7880,7 @@ returns a result.</p>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">result</span> <span class="o">=</span> <span class="n">CommonNeighborAnalysis</span><span class="p">()</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">result</span><span class="o">.</span><span class="n">counts</span><span class="p">()</span>  <span class="c1"># {'other': 0, 'fcc': 256, ...}</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">system</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># adds the column 'structure'</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">system</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># adds the column cna_structure</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">nl</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">NeighborList</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">)</span>  <span class="c1"># one search for several analyses</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">rdf</span> <span class="o">=</span> <span class="n">RadialDistributionFunction</span><span class="p">(</span><span class="n">cutoff</span><span class="o">=</span><span class="mf">6.0</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">neighbors</span><span class="o">=</span><span class="n">nl</span><span class="p">)</span>
@@ -7920,12 +7920,12 @@ wrong value fails before any computation. <code>compute</code> takes:</p>
 </tr>
 </tbody>
 </table>
-<p>Analyses of a trajectory, the mean squared displacement and the Lindemann
-index, take a sequence of systems, <code>frames</code>, instead of <code>system</code>. The
+<p>Analyses of a trajectory, such as the mean squared displacement and the
+Lindemann index, take a sequence of systems, <code>frames</code>, instead of <code>system</code>. The
 Voronoi analysis takes no neighbor list: it searches as far as each cell
 needs.</p>
-<p>A neighbor list passed as <code>neighbors</code> must belong to the same <code>System</code>
-object. An analysis of the neighbors within a cutoff needs a list with at
+<p>A neighbor list passed as <code>neighbors</code> must fit the system: the one it was
+built for, or any with the same positions in the same box. An analysis of the neighbors within a cutoff needs a list with at
 least that cutoff. An analysis of the k nearest neighbors of each atom takes
 either a list of nearest neighbors or a list within a cutoff, with at least
 k neighbors for every atom. The results are those of the analysis's own

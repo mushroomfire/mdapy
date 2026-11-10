@@ -7582,10 +7582,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#200-in-development" class="md-nav__link">
+  <a href="#200" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.0.0 (in development)
+        2.0.0
       
     </span>
   </a>
@@ -7940,10 +7940,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#200-in-development" class="md-nav__link">
+  <a href="#200" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.0.0 (in development)
+        2.0.0
       
     </span>
   </a>
@@ -8164,8 +8164,18 @@
 
 
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
-<h2 id="200-in-development">2.0.0 (in development)<a class="headerlink" href="#200-in-development" title="Permanent link">&para;</a></h2>
+<h2 id="200">2.0.0<a class="headerlink" href="#200" title="Permanent link">&para;</a></h2>
+<p>MDAPY 2.0, written anew, in its first stable release: from here on
+<a href="../compatibility/">Compatibility</a> holds, and code written for 2.0.0 keeps working, with the
+same results, in every later 2.x release. What 2.0 holds is in the notes of 2.0.0a1 below
+and of each release after it; <a href="../../getting-started/from-1x/">From MDAPY 1.x</a> gives the
+way from 1.x. The API is that of 2.0.0rc1, with the options of <code>plot.style</code> below.
+Since then:</p>
 <ul>
+<li><code>pip install mdapy</code> installs 2.0, without <code>--pre</code>; <code>pip install "mdapy&lt;2"</code> keeps 1.x.</li>
+<li><a href="../../getting-started/installation/">Installation</a> names the systems officially
+  supported, those with built packages on PyPI; on others, such as macOS on an Intel
+  processor, MDAPY built from source should work, untested.</li>
 <li><code>plot.style(*, font_size=None, line_width=None, colors=None, settings=None)</code> changes
   the size of the text, the width of the lines and the colors they take in turn without
   matplotlib's names, and takes any other setting of matplotlib by its name;

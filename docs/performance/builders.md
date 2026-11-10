@@ -9,7 +9,7 @@ builds the structure MDAPY builds.
 
 A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6148 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
-MDAPY 2.0.0b1 built with GCC 12.3, and Atomsk Beta 0.13.1, a
+MDAPY 2.0.0 built with GCC 12.3, and Atomsk Beta 0.13.1, a
 statically linked build of its release. The [analyses](comparison.md) ran on
 another node, with Intel Xeon Gold 6230, so their times do not compare with these.
 
@@ -35,7 +35,7 @@ the timings; that of Atomsk, a process of its own, is not counted.
 
 #### Atomsk
 
-| Case | Atoms | MDAPY 2.0.0b1 (s) | Atomsk Beta 0.13.1 (s) | Atomsk / MDAPY | MDAPY (MB) | Atomsk (MB) |
+| Case | Atoms | MDAPY 2.0.0 (s) | Atomsk Beta 0.13.1 (s) | Atomsk / MDAPY | MDAPY (MB) | Atomsk (MB) |
 |---|---:|---:|---:|---:|---:|---:|
 | fcc single crystal, written as a LAMMPS data file | 4,000 | 0.0014 | 0.044 | 30.3 | 0 | 0 |
 | fcc single crystal, written as a LAMMPS data file | 32,000 | 0.0031 | 0.151 | 48.4 | 3 | 0 |

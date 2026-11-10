@@ -95,9 +95,11 @@ jobs:
             else
               echo "version=" >> "$GITHUB_OUTPUT"  # a pre-release
             fi
-          else
+          elif [[ "$ref" == "master" ]]; then
             echo "version=dev" >> "$GITHUB_OUTPUT"
             echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=" >> "$GITHUB_OUTPUT"  # only master writes dev
           fi
 
       - name: Build
@@ -110,9 +112,16 @@ jobs:
           git config user.name mushroomfire
           git config user.email 934313174@qq.com
           git fetch origin gh-pages:gh-pages || true
+          version="${{ steps.which.outputs.version }}"
           if [[ "${{ steps.which.outputs.release }}" == "true" ]]; then
-            mike deploy --push --update-aliases --alias-type=copy "${{ steps.which.outputs.version }}" latest
-            mike set-default --push latest
+            # latest goes to the newest minor version only: a patch of an older
+            # one, or a run by hand on an older tag, leaves it where it is
+            if python .github/pages/newest.py "$version"; then
+              mike deploy --push --update-aliases --alias-type=copy "$version" latest
+              mike set-default --push latest
+            else
+              mike deploy --push --alias-type=copy "$version"
+            fi
           else
             mike deploy --push --alias-type=copy dev
           fi
@@ -143,6 +152,10 @@ jobs:
     if: needs.version.outputs.publish == 'true'
     needs: version
     runs-on: ubuntu-latest
+    # a release pushes master and its tag at once: one deployment at a time
+    concurrency:
+      group: docs-pages
+      cancel-in-progress: false
     permissions:
       pages: write
       id-token: write

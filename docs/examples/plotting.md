@@ -132,7 +132,7 @@ Settings that are often changed:
 | `axes.grid` | `True` | a grid |
 | `lines.markersize` | `5` | the size of markers in points |
 | `legend.frameon` | `True` | a frame around the legend |
-| `savefig.dpi` | `300` | the resolution of saved pictures, such as PNG |
+| `savefig.dpi` | `300` | the resolution of pictures saved with `fig.savefig`; `plot.save` writes PNG at 300 dots per inch |
 
 The [list of matplotlib](https://matplotlib.org/stable/users/explain/customizing.html)
 names them all; an unknown name or value raises `InvalidParameter` with

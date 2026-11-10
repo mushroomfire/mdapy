@@ -1,8 +1,8 @@
 <!doctype html>
 <!-- The page GitHub Pages shows for a path it does not have. A path without a version,
      such as /mdapy/getting-started/from-1x/ from before the versions or from 1.x,
-     goes to the same page of the latest release; a path in a version that lacks
-     the page says so. -->
+     goes to the same page of the latest release, and so does a path in a version
+     that does not exist; a path in a version that lacks the page says so. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -22,10 +22,14 @@
             known[v.version] = true;
             (v.aliases || []).forEach(function (a) { known[a] = true; });
           });
+          var tail = window.location.search + window.location.hash;
           if (known[first]) {
             document.getElementById("missing").hidden = false;
+          } else if (/^[0-9]+\.[0-9]+$/.test(first)) {
+            // a version that is not there: the same page of latest
+            window.location.replace(base + "latest/" + rest.slice(first.length + 1) + tail);
           } else {
-            window.location.replace(base + "latest/" + rest + window.location.search + window.location.hash);
+            window.location.replace(base + "latest/" + rest + tail);
           }
         })
         .catch(function () { window.location.replace(base); });

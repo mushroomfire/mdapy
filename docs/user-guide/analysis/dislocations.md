@@ -224,7 +224,7 @@ meets its own periodic image or an edge of the mesh spans half of it
 
 ## How the results compare with OVITO
 
-The tests of MDAPY compare the analysis with that of OVITO 3.17 on the
+The tests of MDAPY compare the analysis with that of OVITO 3.17.1 on the
 same atoms. It is a separate program, and does not give OVITO's numbers
 everywhere:
 

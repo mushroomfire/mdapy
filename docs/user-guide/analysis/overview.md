@@ -14,7 +14,7 @@ system = build_crystal("fcc", 3.6, elements="Cu", repeat=(4, 4, 4))
 
 result = CommonNeighborAnalysis().compute(system)
 result.counts()  # {'other': 0, 'fcc': 256, ...}
-system = system.with_columns(result)  # adds the column 'structure'
+system = system.with_columns(result)  # adds the column cna_structure
 
 nl = mp.NeighborList.build(system, 6.0)  # one search for several analyses
 rdf = RadialDistributionFunction(cutoff=6.0).compute(system, neighbors=nl)
@@ -34,13 +34,13 @@ wrong value fails before any computation. `compute` takes:
 | `neighbors` | `NeighborList` | `None` | a neighbor list of this system to use instead of a new search, for analyses that take one |
 | `progress`, `cancel` | | `None` | progress reports and cancellation, as described in [Parallelism](../../basics/parallelism.md#progress-and-cancellation) |
 
-Analyses of a trajectory, the mean squared displacement and the Lindemann
-index, take a sequence of systems, `frames`, instead of `system`. The
+Analyses of a trajectory, such as the mean squared displacement and the
+Lindemann index, take a sequence of systems, `frames`, instead of `system`. The
 Voronoi analysis takes no neighbor list: it searches as far as each cell
 needs.
 
-A neighbor list passed as `neighbors` must belong to the same `System`
-object. An analysis of the neighbors within a cutoff needs a list with at
+A neighbor list passed as `neighbors` must fit the system: the one it was
+built for, or any with the same positions in the same box. An analysis of the neighbors within a cutoff needs a list with at
 least that cutoff. An analysis of the k nearest neighbors of each atom takes
 either a list of nearest neighbors or a list within a cutoff, with at least
 k neighbors for every atom. The results are those of the analysis's own

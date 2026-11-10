@@ -91,6 +91,9 @@ def test_style_options():
         ({"colors": ["notacolor"]}, "matplotlib"),
         ({"settings": {"axes.gridx": True}}, "matplotlib"),
         ({"settings": {"font.size": "huge"}}, "matplotlib"),
+        ({"colors": 3}, "a color or a sequence of colors"),
+        ({"settings": "axes.grid"}, "settings must map"),
+        ({"settings": [1, 2]}, "settings must map"),
     ):
         with pytest.raises(InvalidParameter, match=message), plot.style(**options):
             pass  # pragma: no cover - the context does not start

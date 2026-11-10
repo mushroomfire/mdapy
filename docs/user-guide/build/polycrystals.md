@@ -116,7 +116,7 @@ side, from both sides and with two different slopes.
 |---|---|---|---|---|
 | `box` | `Box` or (3, 3) float64 | | Å | the box of the polycrystal |
 | `sizes` | (K, 2) float64 | | —, Å | the positions along the box vector, from 0 to 1 in increasing order, and the grain size at each |
-| `axis` | int32 or str | `"z"` | | the box vector along which the size changes |
+| `axis` | int32 or str | `2` | | the box vector along which the size changes, as 0, 1, 2 or `"x"`, `"y"`, `"z"` |
 | `columns` | int32 or str | `None` | | the box vector of the columns of a columnar polycrystal: the seeds lie in one plane and a grain size is the diameter of the circle of the same area |
 | `seed` | int64 or `numpy.random.Generator` | `None` | | the random seeds |
 

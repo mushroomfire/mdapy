@@ -72,7 +72,7 @@ or 64 threads gives bit-for-bit identical numbers.
 ## Working with PyTorch and LAMMPS
 
 MDAPY does not use OpenMP and loads no OpenMP runtime. Two copies of an
-OpenMP runtime in one process (for example mdapy's and PyTorch's) is a common
+OpenMP runtime in one process (for example MDAPY's and PyTorch's) is a common
 cause of crashes such as `OMP: Error #15` on macOS; this cannot happen with
 MDAPY, so no workaround such as `KMP_DUPLICATE_LIB_OK` is needed.
 
@@ -86,7 +86,7 @@ Other libraries keep their own thread settings:
 
 When several libraries compute at the same time, keep the total number of
 threads close to the number of CPU cores. After each piece of parallel work,
-mdapy's idle threads keep checking for more for 0.2 ms before they sleep, so
+MDAPY's idle threads keep checking for more for 0.2 ms before they sleep, so
 that the steps of one computation follow each other without waking them.
 
 ## Calling MDAPY from several threads

@@ -21,7 +21,7 @@ result.equivalent  # the Au corner on its own, the three Cu face centers togethe
 ```
 
 spglib is an optional dependency: `pip install spglib`, or the extra
-`symmetry` of mdapy.
+`symmetry` of MDAPY.
 
 ## The point group
 

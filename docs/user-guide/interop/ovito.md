@@ -61,7 +61,7 @@ Both need OVITO (`pip install ovito`).
 names are chemical symbols and `type_label` where they are other names.
 Other properties become columns of their names in lowercase with
 underscores, such as `selection` for `Selection`; properties of strings are
-left out. Values keep mdapy's units both ways; OVITO itself assumes none.
+left out. Values keep MDAPY's units both ways; OVITO itself assumes none.
 
 ## See also
 

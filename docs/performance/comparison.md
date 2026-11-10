@@ -9,7 +9,7 @@ where it gives the result of MDAPY, atom by atom.
 
 A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6230 (40 cores, two hardware threads each, two NUMA nodes),
-191 GB, Linux. Python 3.13, MDAPY 2.0.0b1 built with GCC 12.3, OVITO 3.17.1
+191 GB, Linux. Python 3.13, MDAPY 2.0.0 built with GCC 12.3, OVITO 3.17.1
 and freud 3.6.1 from pip, each with 40 threads. [Reading and writing
 files](files.md) and [building structures](builders.md) ran on another
 node, with Intel Xeon Gold 6148, so their times do not compare with these.
@@ -62,7 +62,7 @@ process minus its peak before the timings.
 
 #### OVITO
 
-| Case | Atoms | MDAPY 2.0.0b1 (s) | OVITO 3.17.1 (s) | OVITO / MDAPY | MDAPY (MB) | OVITO (MB) |
+| Case | Atoms | MDAPY 2.0.0 (s) | OVITO 3.17.1 (s) | OVITO / MDAPY | MDAPY (MB) | OVITO (MB) |
 |---|---:|---:|---:|---:|---:|---:|
 | Neighbor list, 5 Å | 4,000 | 0.0038 | 0.0086 | 2.2 | 0 | 13 |
 | Neighbor list, 5 Å | 32,000 | 0.0082 | 0.035 | 4.3 | 17 | 133 |
@@ -147,7 +147,7 @@ process minus its peak before the timings.
 
 #### freud
 
-| Case | Atoms | MDAPY 2.0.0b1 (s) | freud 3.6.1 (s) | freud / MDAPY | MDAPY (MB) | freud (MB) |
+| Case | Atoms | MDAPY 2.0.0 (s) | freud 3.6.1 (s) | freud / MDAPY | MDAPY (MB) | freud (MB) |
 |---|---:|---:|---:|---:|---:|---:|
 | Neighbor list, 5 Å | 4,000 | 0.0038 | 0.0073 | 1.9 | 0 | 12 |
 | Neighbor list, 5 Å | 32,000 | 0.0082 | 0.062 | 7.6 | 17 | 195 |
@@ -278,4 +278,4 @@ python benchmarks/comparison.py plot results.json ratio.png
 option `--output`): the machine, the versions, the agreement of each
 program, and the times and peak memory of each. A new case is a `Case` in
 `_cases()`: how to make its system, the MDAPY call, and for each other
-program its call and how to compare its result with that of mdapy.
+program its call and how to compare its result with that of MDAPY.

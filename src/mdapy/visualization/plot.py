@@ -131,14 +131,24 @@ def style(
         if not line_width > 0:
             raise InvalidParameter(f"line_width must be positive, not {line_width!r}")
         chosen["lines.linewidth"] = float(line_width)
-    if colors is None:
-        palette = list(COLORS)
-    else:
-        palette = [colors] if isinstance(colors, str) else list(colors)
+    try:
+        if colors is None:
+            palette = list(COLORS)
+        else:
+            palette = [colors] if isinstance(colors, str) else list(colors)
+    except TypeError:
+        raise InvalidParameter(
+            f"colors must be a color or a sequence of colors, not {colors!r}"
+        ) from None
     if not palette:
         raise InvalidParameter("colors must hold at least one color")
     chosen["axes.prop_cycle"] = cycler(color=palette)
-    chosen |= dict(settings or {})
+    try:
+        chosen |= dict(settings or {})
+    except (TypeError, ValueError):
+        raise InvalidParameter(
+            f"settings must map names of matplotlib's settings to values, not {settings!r}"
+        ) from None
     try:  # settings of matplotlib check each value, as rc_context would
         plt.matplotlib.RcParams(chosen)
     except (KeyError, ValueError) as error:

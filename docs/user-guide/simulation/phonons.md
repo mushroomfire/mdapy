@@ -1,7 +1,7 @@
 # Phonons
 
 `mdapy.lattice_dynamics.phonons(system, calculator, *, supercell=None,
-displacement=0.01)` gives the harmonic vibrations of a crystal from the
+displacement=0.01, symmetry=None)` gives the harmonic vibrations of a crystal from the
 forces on atoms displaced in a supercell: frequencies and polarization
 vectors at any wave vector, band structures, densities of states and the
 thermodynamic properties of the vibrations.
@@ -139,7 +139,7 @@ phonopy, from a calculation with VASP for example, plot the same way.
 `read_band_structure(path)` reads such a file into a `BandStructure`, its
 distances with the factor 2π, without the wave vectors, which the file
 does not hold. To draw a band structure of another calculation on one of
-mdapy's along the same path, its distances can be moved line by line onto
+MDAPY's along the same path, its distances can be moved line by line onto
 those of MDAPY, which differ as the lattice constants do:
 
 <!-- skip-test -->

@@ -86,10 +86,10 @@ sections, in this order:
    is only an illustration is preceded by the line `<!-- skip-test -->`. A
    page whose examples need an optional package starts with a line such as
    `<!-- needs: ovito -->`; its examples are skipped where the package is
-   not installed. Examples import mdapy as `import mdapy as mp` and write
+   not installed. Examples import the package as `import mdapy as mp` and write
    `mdapy.io.read`, `mp.System`; the text names the functions in full, as
    `mdapy.io.read`. Where a result can be seen, a short example after it draws
-   it with mdapy's renderer or plots it with `mdapy.visualization.plot`
+   it with MDAPY's renderer or plots it with `mdapy.visualization.plot`
    into `images/name.png`; the tests run it in a folder with an empty
    `images`. The picture, made by running the page's examples and kept
    next to the page as a PNG of 256 colors, follows the block with a

@@ -484,6 +484,9 @@ def _write(
         )
     real = units == "real"
     first = True
+    # Types from elements, without elements=: in the order the elements first
+    # appear over the frames, so that an element keeps its type in every frame.
+    order: list[str] = []
     for system in systems:
         table = system.table
         names = list(table.columns if columns is None else columns)
@@ -496,7 +499,18 @@ def _write(
             if "id" in table.columns
             else np.arange(1, n + 1, dtype=np.int64)
         )
-        types, _ = _atom_types(table, elements, named=False)
+        given = elements
+        if (
+            elements is None
+            and "type" not in table.columns
+            and "element" in table.columns
+        ):
+            categories = table["element"].dtype.categories.to_list()
+            for code in table["element"].to_physical().unique(maintain_order=True):
+                if categories[code] not in order:
+                    order.append(categories[code])
+            given = order
+        types, _ = _atom_types(table, given, named=False)
         vectors = {
             name: table[name].to_numpy() if name in table.columns else None
             for name in ("velocities", "forces")

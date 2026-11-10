@@ -32,7 +32,7 @@ last.info["timestep"]  # 200
 | Name | Type | Default | Meaning |
 |---|---|---|---|
 | `units` | str | from the file, else `"metal"` | `"metal"` or `"real"`. Reading: overrides `ITEM: UNITS`. Writing: the units of the file. |
-| `elements` | list of str | | Reading: the element of each atom type, in type order, for dumps without an `element` column. Writing: the order of the elements as atom types, for a system without a `type` column. |
+| `elements` | list of str | | Reading: the element of each atom type, in type order, for dumps without an `element` column. Writing: the order of the elements as atom types, for a system without a `type` column; without it, the order in which the elements first appear over the frames, so that an element keeps its type in every frame. |
 | `triclinic` | str | `"auto"` | Writing only: `"auto"`, `"general"` or `"restricted"`, as for [LAMMPS data](lammps-data.md#box). |
 | `columns` | list of str | all columns | Writing only: the columns to write besides `id`, `type`, `element`, `type_label` and the positions. |
 

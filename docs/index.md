@@ -119,4 +119,4 @@ the pages of the features you use ask to cite.
 [Papers citing MDAPY](about/citations.md) lists, by year, the work done with it.
 
 See the [release notes](about/release-notes.md) for what each
-development version contains.
+release contains.

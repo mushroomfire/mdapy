@@ -278,4 +278,4 @@ python benchmarks/comparison.py plot results.json ratio.png
 option `--output`): the machine, the versions, the agreement of each
 program, and the times and peak memory of each. A new case is a `Case` in
 `_cases()`: how to make its system, the MDAPY call, and for each other
-program its call and how to compare its result with that of mdapy.
+program its call and how to compare its result with that of MDAPY.

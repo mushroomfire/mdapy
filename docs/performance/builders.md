@@ -73,7 +73,7 @@ does by default.
   command from that process, with `OMP_NUM_THREADS` 40; the time of a build
   by Atomsk includes starting the program.
 - Before the timings, a separate process builds the structure with both
-  programs and reads both files with mdapy. Single crystal: the same box and
+  programs and reads both files with MDAPY. Single crystal: the same box and
   the same atoms, in any order, within 1e-9 Å (Atomsk writes 12 decimals).
   Polycrystal: the same box, as many atoms within 0.5 %, and in each grain
   the same lattice. The atoms differ: each program places the lattice of a

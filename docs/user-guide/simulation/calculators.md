@@ -19,7 +19,7 @@ result.stress  # (3, 3) GPa
 system = result.attach(system)  # forces as a column, energy and virial in info
 ```
 
-mdapy's calculators are [EAM](eam.md), [NEP](nep.md), [LAMMPS](lammps.md),
+MDAPY's calculators are [EAM](eam.md), [NEP](nep.md), [LAMMPS](lammps.md),
 which makes any interaction of LAMMPS a calculator, and [VASP](vasp.md),
 which runs VASP for each calculation. Any calculator serves
 [energy minimization](minimize.md) and [elastic constants](elastic-constants.md).

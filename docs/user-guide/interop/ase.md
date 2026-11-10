@@ -17,7 +17,7 @@ back = to_ase(system)
 back.constraints  # [FixAtoms(indices=[0, 1])]
 ```
 
-Both need ASE (`pip install mdapy[ase]`). Calculators go between ASE and
+Both need ASE (`pip install "mdapy[ase]"`). Calculators go between ASE and
 MDAPY too; see [ASE calculators](ase-calculators.md).
 
 ## Parameters

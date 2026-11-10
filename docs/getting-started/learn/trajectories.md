@@ -55,7 +55,7 @@ print(len(frames), frames[0])
 
 ```text
 61 System: 1436 atoms (Cu1436)
-  box:      31.05 × 31.09 × 31.08 Å at (44.5, 44.42, 44.4), orthogonal, not periodic
+  box:      120 × 120 × 120 Å, orthogonal, not periodic
   columns:  element, positions (3), velocities (3), image (3)
   info:     timestep = 2500, time = 5
 ```

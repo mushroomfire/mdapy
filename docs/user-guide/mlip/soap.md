@@ -3,7 +3,7 @@
 `SOAP` gives the smooth overlap of atomic positions of each atom: a vector
 that describes its neighborhood, the same for rotated, moved or reordered
 copies of it, whatever potential the structures were made with. It is the
-default descriptor of mdapy's tools for training sets: the
+default descriptor of MDAPY's tools for training sets: the
 [choice of frames](selection.md) and the maps of their structures work
 with it as with the descriptors of a NEP model. The values are those of
 DScribe's SOAP with its default Gaussian radial functions.

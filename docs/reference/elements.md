@@ -1,7 +1,7 @@
 # Elements
 
 `mdapy.elements` holds the chemical symbols, standard atomic weights and
-radii used everywhere in mdapy. The atomic weights are those of IUPAC
+radii used everywhere in MDAPY. The atomic weights are those of IUPAC
 ([Meija et al. (2016)](references.md#meija2016)); for an element without stable
 isotopes, the mass of its longest-lived isotope. The covalent radii are
 those of [Cordero et al. (2008)](references.md#cordero2008), with sp³

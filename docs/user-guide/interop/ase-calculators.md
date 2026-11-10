@@ -40,7 +40,7 @@ potential = from_ase_calculator(NEP("nep.txt"))
 potential.compute(system, ("energy", "forces", "virial"))
 ```
 
-Both need ASE (`pip install mdapy[ase]`).
+Both need ASE (`pip install "mdapy[ase]"`).
 
 ## Parameters
 
@@ -69,7 +69,7 @@ one, since the forces derive from it.
 
 Each calculation converts the atoms with [`from_ase`](ase.md) or
 [`to_ase`](ase.md). An ASE calculator in MDAPY has a `cutoff` of 0: it
-searches its own neighbors and takes no neighbor list of mdapy.
+searches its own neighbors and takes no neighbor list of MDAPY.
 
 ## Errors
 

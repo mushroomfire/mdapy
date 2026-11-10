@@ -4,7 +4,7 @@ The format `mdapy` (extension `.mdapy`) stores one or more systems exactly as
 they are in memory: every column with its type, the box, the information and
 the topology. It is a ZIP archive of [Parquet](https://parquet.apache.org)
 tables, so its contents can also be read with any Parquet reader, without
-mdapy.
+MDAPY.
 
 ```python
 import numpy as np

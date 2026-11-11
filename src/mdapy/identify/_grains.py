@@ -38,7 +38,8 @@ class GrainResult(Result):
         (N,) int64 grain of each atom, an index into the arrays of the
         grains, -1 for none.
     sizes : numpy.ndarray
-        (G,) int64 number of atoms of each grain, largest first.
+        (G,) int64 number of atoms of each grain; the grains are ranked by
+        size before the atoms in no grain join them.
     structure : numpy.ndarray
         (G,) int8 structure of each grain, an index into ``names``.
     names : tuple of str

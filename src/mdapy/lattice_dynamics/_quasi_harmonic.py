@@ -16,7 +16,7 @@ from mdapy.core.box import Box
 from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
-from mdapy.lattice_dynamics._phonons import _default_supercell, phonons
+from mdapy.lattice_dynamics._phonons import _crossing, _default_supercell, phonons
 from mdapy.simulation._minimize import minimize
 
 
@@ -259,8 +259,9 @@ def quasi_harmonic(
     InvalidParameter
         For a box not periodic in every direction, a negative temperature,
         both volumes and pressures, fewer than five of them, a relaxation
-        that does not converge, imaginary frequencies at a volume, or an
-        equilibrium volume outside the volumes.
+        that does not converge, a pair of atoms that reaches the cutoff of
+        the calculator between the volumes, imaginary frequencies at a
+        volume, or an equilibrium volume outside the volumes.
     """
     if not system.box.pbc.all():
         raise InvalidParameter(
@@ -274,10 +275,26 @@ def quasi_harmonic(
     n = len(system)
     if supercell is None:  # the same supercell at every volume
         supercell = _default_supercell(system.box.matrix, 2 * calculator.cutoff)
-    cells, energies, free, entropy, capacity = [], [], [], [], []
-    for where, relaxed in _relaxed_cells(
-        system, calculator, pressures, volumes, max_force, max_stress, max_steps
+    grid = list(
+        _relaxed_cells(
+            system, calculator, pressures, volumes, max_force, max_stress, max_steps
+        )
+    )
+    # the force constants jump where a pair of atoms crosses the cutoff
+    if crossing := _crossing(
+        [r.system for _, r in grid], calculator.cutoff, displacement
     ):
+        short, near, long, far = crossing
+        raise InvalidParameter(
+            f"a pair of atoms reaches the cutoff of the calculator, "
+            f"{calculator.cutoff:.4g} Å, between the volumes, give or take the "
+            f"displacement of {displacement:.4g} Å: it is {short:.4f} Å apart "
+            f"{grid[near][0]} and {long:.4f} Å {grid[far][0]}, and its force "
+            "constants jump there; use a smaller range of volumes or pressures, "
+            "or another potential"
+        )
+    cells, energies, free, entropy, capacity = [], [], [], [], []
+    for where, relaxed in grid:
         try:
             thermal = phonons(
                 relaxed.system,

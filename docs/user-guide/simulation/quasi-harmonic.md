@@ -110,7 +110,11 @@ It returns a `QuasiHarmonicResult`, all per atom; arrays are read-only.
 both volumes and pressures, fewer than five of them, a relaxation that does
 not converge within `max_steps`, imaginary frequencies at a volume, and an
 equilibrium volume outside the volumes, as well as for the errors of
-[`phonons`](phonons.md).
+[`phonons`](phonons.md). It also raises it, before any phonons, for a pair of
+atoms that comes within `displacement` of the cutoff of the calculator at some
+volumes and not at others: the force constants of most potentials, NEP and
+tabulated EAM among them, jump there, and the free energy with them. Narrow
+the volumes or the pressures, or choose another potential.
 
 ## Definition
 

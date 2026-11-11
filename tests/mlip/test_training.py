@@ -282,3 +282,38 @@ def test_check_frames(frames):
     assert loose["closest"][0] < 1.2 and loose["too_close"][0]
     with pytest.raises(InvalidParameter, match="close"):
         check_frames(frames, close=0)
+
+
+def test_virial_errors_count_six_components():
+    """The errors of a virial over its six independent components, as GPUMD
+    gives them: a shear error counts once, not twice."""
+    from mdapy.mlip import Predictions
+
+    rng = np.random.default_rng(5)
+    label = rng.normal(size=(4, 3, 3))
+    label = label + label.transpose(0, 2, 1)
+    predicted = label.copy()
+    predicted[:, 0, 1] += 0.3  # one shear error, both entries of the symmetric tensor
+    predicted[:, 1, 0] += 0.3
+    predicted[:, 2, 2] -= 0.1
+    predictions = Predictions(
+        atoms=np.full(4, 2),
+        energy=np.zeros((4, 2)),
+        forces=np.zeros((8, 2, 3)),
+        virial=np.stack([label, predicted], axis=1),
+    )
+    expected = np.sqrt((0.3**2 + 0.1**2) / 6)
+    assert predictions.rmse()["virial"] == pytest.approx(expected, rel=1e-12)
+    np.testing.assert_allclose(predictions.table()["virial_rmse"], expected, rtol=1e-12)
+
+
+def test_an_atom_close_to_its_own_image():
+    """One copper atom in a box of 1.2 Å is as close to its images as two
+    atoms 1.2 Å apart."""
+    alone = mdapy.System([[0.0, 0.0, 0.0]], mdapy.Box(1.2), elements="Cu")
+    pair = mdapy.System(
+        [[0.0, 0.0, 0.0], [1.2, 0.0, 0.0]], mdapy.Box(10.0), elements="Cu"
+    )
+    table = check_frames([alone, pair])
+    assert table["too_close"].to_list() == [True, True]
+    assert table["closest"][0] == pytest.approx(table["closest"][1])

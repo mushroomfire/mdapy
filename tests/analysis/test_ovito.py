@@ -724,6 +724,30 @@ def test_surface_mesh(box, smoothing):
         )
 
 
+@pytest.mark.parametrize("missing", [0.3, 0.5])
+@pytest.mark.parametrize("smoothing", [1, 8])
+def test_surface_mesh_of_a_porous_solid(missing, smoothing):
+    """Many atoms on two sheets of the surface, which touch at them: a
+    vertex for each sheet, smoothed apart, as OVITO's."""
+    system = crystal("fcc", 4.0, (10, 10, 10), jitter=0.05, seed=0)
+    rng = np.random.default_rng(1)
+    porous = system.filter(rng.random(len(system)) > missing)
+    ours = SurfaceMesh(radius=3.0, smoothing=smoothing).compute(porous)
+    output = ovito_compute(
+        porous,
+        ConstructSurfaceModifier(
+            method=ConstructSurfaceModifier.Method.AlphaShape,
+            radius=3.0,
+            smoothing_level=smoothing,
+        ),
+    )
+    assert len(ours.atoms) == output.surfaces["surface"].vertices.count
+    assert len(ours.atoms) > len(np.unique(ours.atoms))  # atoms on two sheets
+    assert ours.area == pytest.approx(
+        output.attributes["ConstructSurfaceMesh.surface_area"], rel=1e-9
+    )
+
+
 def tilted(n=300, seed=8, pbc=True):
     """Atoms at random in a triclinic box, some outside it, with ids."""
     rng = np.random.default_rng(seed)

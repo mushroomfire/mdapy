@@ -187,10 +187,15 @@ $$
 the others and the space outside the tessellation empty: the alpha shape
 of the atoms. The surface is made of the faces between a solid and an empty
 tetrahedron, turned so that their normals point to the empty side; its
-vertices are the atoms on it. The volume of the solid is that of its
-tetrahedra. Solid tetrahedra that share faces make a region, and so do
+vertices are the atoms on it, one for each sheet of the surface through the
+atom, as where two pores touch at an atom. The volume of the solid is that
+of its tetrahedra. Solid tetrahedra that share faces make a region, and so do
 empty ones; a region that meets itself in another periodic image runs
-without end.
+without end. OVITO joins two empty regions also where their surfaces meet
+along an edge, so in a very porous solid it finds fewer and larger empty
+regions: in fcc with 30 % and 50 % of its atoms removed at random, 28 and 12
+where MDAPY finds 38 and 79. Pores that touch only along a line are apart
+here, as no probe passes between them.
 
 Smoothing moves every vertex $\mathbf x$ toward the mean of its $n$
 neighbors along the edges of the mesh,
@@ -208,8 +213,7 @@ The tessellation of a perfect crystal is not unique: four atoms of a square
 can be split into two triangles along either diagonal. The atoms are moved
 at random by up to $10^{-4}$ Å first, always the same way, which settles
 each such choice. The area and the volumes are those of either choice; the
-smoothed mesh can differ from OVITO's where OVITO chose otherwise, and is
-the same as OVITO's when the atoms are not on a perfect lattice.
+smoothed mesh can differ from OVITO's where OVITO chose otherwise.
 
 !!! quote "Please cite"
     [Edelsbrunner and Mücke (1994)](../../reference/references.md#edelsbrunner1994)
@@ -219,6 +223,6 @@ the same as OVITO's when the atoms are not on a perfect lattice.
 ## See also
 
 - OVITO [Construct surface mesh](https://docs.ovito.org/reference/pipelines/modifiers/construct_surface_mesh.html),
-  the same with its alpha-shape method.
+  with its alpha-shape method.
 - [Voronoi analysis](voronoi.md) for the empty space around single atoms,
   and [cluster analysis](clusters.md) for groups of atoms.

@@ -164,7 +164,7 @@ it), `srgb` (light the colors as given in sRGB, as the renderers of OVITO
 do, in place of linear light: stronger contrast), `ao_samples`,
 `ao_distance` (Å, default 3 times the median radius), `ao_strength`,
 `shadows`, `shadow_strength`, `flat`, `toon_levels`, `outline_width`
-(pixels), `outline_depth` (Å), `outline_color`, `fog`, `supersample`
+(pixels, at most 100), `outline_depth` (Å), `outline_color`, `fog`, `supersample`
 (rays per pixel along each axis), `samples` (rays per subpixel, the first
 through its middle and the others anywhere in it: more for smoother soft
 shadows, depth of field and global illumination), `light_size` (the

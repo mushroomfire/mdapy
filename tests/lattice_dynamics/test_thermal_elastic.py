@@ -164,6 +164,25 @@ def test_invalid_arguments(copper):
         thermal_elastic_constants(dataclasses.replace(qha, cells=()), potential)
 
 
+def test_strained_cells_across_the_cutoff(copper):
+    # the fifth shell, 5.15 Å or more in the cells, comes inside the cutoff of
+    # 5 Å under two compressions of 4 %; the quasi-static method has no
+    # force constants
+    potential, _, qha = copper
+    with pytest.raises(
+        InvalidParameter,
+        match=r"reaches the cutoff of the calculator, 5 Å, between the strained "
+        r"cells, give or take the displacement of 0\.01 Å: it is 4\.\d+ Å apart in "
+        r"one and 5\.\d+ Å in another, and its force constants jump there; use a "
+        r"smaller strain",
+    ):
+        thermal_elastic_constants(qha, potential, strain=0.04, **OPTIONS)
+    static = thermal_elastic_constants(
+        qha, potential, method="quasi-static", strain=0.04, **OPTIONS
+    )
+    assert np.isfinite(static.isothermal).all()
+
+
 def test_strained_cells_that_do_not_relax(copper):
     potential, _, _ = copper
     # hcp: its atoms move inside a strained cell

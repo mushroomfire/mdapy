@@ -3,9 +3,8 @@
 `PolyhedralTemplateMatching` gives each atom the crystal structure of its
 neighborhood, the rotation of that crystal, its elastic deformation and the
 chemical ordering of its elements, by matching the polyhedron of its
-nearest neighbors to the templates of nine structures. MDAPY implements
-the method of Larsen, Schmidt and Schiøtz itself and gives the same results
-as OVITO 3.17.1, atom by atom.
+nearest neighbors to the templates of nine structures, by the method of
+Larsen, Schmidt and Schiøtz.
 
 ```python
 import numpy as np

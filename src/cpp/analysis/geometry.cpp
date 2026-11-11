@@ -539,13 +539,24 @@ public:
             return;
         }
         // the Gaussian at r_k = k sigma, exp(-(u - k)^2 / 2) with u = r /
-        // sigma, grows from k to k + 1 by exp(u - k - 1/2), a factor that
-        // shrinks by 1/e at each step: two exponentials per pair instead of
-        // one per bin
+        // sigma, from the point nearest the neighbor outward: up from k to
+        // k + 1 by exp(u - k - 1/2), down from k to k - 1 by exp(k - u - 1/2),
+        // factors that shrink by 1/e at each step; three exponentials per
+        // pair instead of one per bin, and none of the Gaussian lost to
+        // underflow where it matters, however far the neighbor
         const double u = r / sigma_;
-        double gauss = std::exp(-0.5 * (u - 1.0) * (u - 1.0));
-        double step = std::exp(u - 1.5);
-        for (int k = 1; k < bins_; ++k) {
+        const int nearest = std::clamp(static_cast<int>(std::lround(u)), 1, bins_ - 1);
+        const double peak = std::exp(-0.5 * (u - nearest) * (u - nearest));
+        double gauss = peak;
+        double step = std::exp(u - nearest - 0.5);
+        for (int k = nearest; k < bins_ && gauss > 0.0; ++k) {
+            g[k] += scale * shell_[k] * gauss;
+            gauss *= step;
+            step *= decay_;
+        }
+        gauss = peak * std::exp(nearest - u - 0.5);
+        step = std::exp(nearest - u - 1.5);
+        for (int k = nearest - 1; k >= 1 && gauss > 0.0; --k) {
             g[k] += scale * shell_[k] * gauss;
             gauss *= step;
             step *= decay_;

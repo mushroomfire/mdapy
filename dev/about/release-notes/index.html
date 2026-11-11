@@ -8231,6 +8231,10 @@
   <a href="../../user-guide/simulation/elastic-constants/#along-directions">Elastic constants</a> and
   the example <a href="../../examples/elastic-anisotropy/">Elastic anisotropy of copper and titanium</a>.</li>
 <li><code>plot.panel_label</code> labels axes in 3D too; it raised <code>TypeError</code> there.</li>
+<li><code>insert_dislocation</code> without <code>elastic</code>: an edge dislocation no longer leaves a fault
+  from its core to the surface when a plane of atoms lies just below the plane of cut.
+  The displacement lifted such atoms across the plane, and they were moved back as if
+  they had been above it, as atomsk does; above and below are now where the atoms were.</li>
 </ul>
 <h2 id="200">2.0.0<a class="headerlink" href="#200" title="Permanent link">&para;</a></h2>
 <p>MDAPY 2.0, written anew, in its first stable release: from here on

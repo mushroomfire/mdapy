@@ -93,10 +93,10 @@ spread. For the copper above, from guesses of 1000, 1327 and 1700 K:
 
 | Atoms | `coexistence` (ps) | Melting point (K) |
 |---|---|---|
-| 4000 | 100 | 1316, 1325, 1326 |
-| 4000 | 500 | 1326, 1318, 1328 |
-| 16000 | 100 | 1322, 1319, 1336 |
-| 16000 | 500 | 1327, 1328, 1324 |
+| 4000 | 100 | 1328, 1333, 1326 |
+| 4000 | 500 | 1321, 1322, 1321 |
+| 16000 | 100 | 1321, 1322, 1320 |
+| 16000 | 500 | 1325, 1323, 1325 |
 
 where [the free energies](free-energy.md) of 16384 atoms cross at 1326 K. `error` is the
 statistical error of one run and smaller than this spread, so repeating a run with another

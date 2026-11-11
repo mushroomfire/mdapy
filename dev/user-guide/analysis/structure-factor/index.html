@@ -8080,7 +8080,8 @@ chosen well below half the box for large systems.</p>
 positive, fewer than one bin, an unknown method, or a <code>cutoff</code> that is not
 positive or given to the direct method; <code>compute</code> raises it for a box that
 is not periodic in every direction, a neighbor list given to the direct
-method or one that does not fit, and <code>pair</code> for a pair of elements without a
+method or one that does not fit, more than 10<sup>8</sup> wave vectors for the
+direct method, which would take 1.6 GB, and <code>pair</code> for a pair of elements without a
 factor.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>With <span class="arithmatex">\(\rho_a(\mathbf q) = \sum_{j \in a} e^{i\mathbf q \cdot \mathbf r_j}\)</span>

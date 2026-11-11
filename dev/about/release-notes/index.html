@@ -2820,6 +2820,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/build/orthogonal-cell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Orthogonal cells
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/build/affine/" class="md-nav__link">
         
   
@@ -8237,6 +8265,9 @@
   magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
   54 GPa.</li>
 <li><code>plot.panel_label</code> labels axes in 3D too; it raised <code>TypeError</code> there.</li>
+<li><code>mdapy.transform.orthogonal_cell(system, *, minimal=False, max_search=20, tolerance=1e-6)</code>
+  puts a crystal in a box whose lattice vectors lie along x, y and z, as atomsk's
+  orthogonal cell; see <a href="../../user-guide/build/orthogonal-cell/">Orthogonal cells</a>.</li>
 <li><code>combine</code> fills a column of arrays of more than one dimension, such as the
   <code>atomic_virials</code> a relaxation leaves, with zeros of their shape for the atoms of the other
   system; it raised a polars error.</li>

@@ -2822,6 +2822,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/build/orthogonal-cell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Orthogonal cells
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/build/affine/" class="md-nav__link">
         
   
@@ -6904,6 +6932,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mdapy.transform.orthogonal_cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        orthogonal_cell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.transform.affine" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8474,6 +8513,17 @@
     <span class="md-ellipsis">
       
         unwrap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.transform.orthogonal_cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        orthogonal_cell
       
     </span>
   </a>
@@ -11557,6 +11607,166 @@ vectors, and the image flags set to zero.</p>
             <td>
               <div class="doc-md-description">
                 <p>If the system has no <code>image</code> column.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.transform.orthogonal_cell" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">orthogonal_cell</span>
+
+
+<a href="#mdapy.transform.orthogonal_cell" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">orthogonal_cell</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">minimal</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">max_search</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-06</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>The same crystal in a box whose lattice vectors lie along x, y and z,
+as atomsk's orthogonal cell: along each axis, the shortest combination of
+the lattice vectors of the box that lies along it.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>system</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A crystal in a box periodic in every direction.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>minimal</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Start from the primitive cell of the crystal, which gives the smallest
+orthogonal cell; otherwise from the box, as atomsk does, so that the
+cell of a box of several periods holds that many. Default False.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_search</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The largest multiple of each lattice vector in the combinations
+searched. Default 20.</p>
+              </div>
+            </td>
+            <td>
+                  <code>20</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tolerance</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How far in Å a combination may lie from an axis. Default 1e-6.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1e-06</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The copies of the atoms of the box, or of the primitive cell, at the
+points of its lattice in the orthogonal box, which has the origin of
+the box; the box itself when it is already orthogonal. Ids and
+molecules (those above 0) of each copy are offset by the largest of
+the original; with an <code>image</code> column, each atom is placed by its
+unwrapped position and its image flags are those of the new box; each
+topology term joins the atoms of the copies where they lie next to its
+first atom. <code>energy</code> and <code>virial</code> are left out of the info.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the box is not periodic in every direction, <code>max_search</code> is not
+a positive integer, <code>tolerance</code> is not positive, or no combination
+lies along an axis, as for a crystal turned at an angle with no
+lattice vector along it.</p>
               </div>
             </td>
           </tr>

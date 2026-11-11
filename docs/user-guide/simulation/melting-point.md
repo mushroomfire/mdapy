@@ -55,8 +55,9 @@ third vector as along the others; the interface lies across that vector. Each ru
    temperature, hotter until its atoms have moved by about the distance between them;
 3. cools the melted half to the temperature and lets it settle;
 4. releases the crystal, relaxes the pressure of the box for a moment at this
-   temperature, and runs both at constant enthalpy, in stretches of `coexistence`, up
-   to five, until the temperature no longer drifts.
+   temperature, and runs both at constant enthalpy, in stretches of `coexistence`, two
+   or more and up to five, until the temperature no longer drifts: neither within the
+   last stretch nor from the one before.
 
 A run that melts started too hot and one that freezes too cold, whatever its
 temperature became; the next guess is 15 % away, or halfway between two such bounds.
@@ -78,7 +79,7 @@ crystal has: 12 in fcc and hcp, 14 in bcc, 4 in diamond.
 | `timestep` | float64 | 0.001 | ps | the time step |
 | `equilibration` | float64 | 10 | ps | the time of each stage before the phases meet |
 | `coexistence` | float64 | 500 | ps | the time of each stretch of the two phases; a larger box needs longer |
-| `tolerance` | float64 | 3 | K | how much the temperature may still drift, from the third quarter of a stretch to the last, for it to be the answer; twice its statistical error, if that is larger |
+| `tolerance` | float64 | 3 | K | how much the temperature may still drift, from the third quarter of a stretch to the last and from the stretch before to this one, for it to be the answer; twice its statistical error, if that is larger |
 | `max_runs` | int32 | 8 | | the largest number of runs |
 | `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
 | `seed` | int32 | 1 | | the seed of the random numbers |
@@ -108,7 +109,7 @@ It returns a `MeltingPointResult`; arrays are read-only.
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
 | `temperature` | float64 | K | the melting point: the mean temperature over the second half of the last stretch |
-| `error` | float64 | K | the standard error of that mean, from blocks of the stretch |
+| `error` | float64 | K | the standard error of that mean, from blocks of the stretch: the statistical error of one run, smaller than the spread of runs from other guesses or seeds |
 | `pressure` | float64 | GPa | the pressure |
 | `attempts` | tuple of `MeltingAttempt` | | each stretch of each run, in order |
 | `time` | (S,) float64 | ps | the time along the last stretch |

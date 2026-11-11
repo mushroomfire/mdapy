@@ -20,7 +20,7 @@ grains = grains.with_columns(positions=grains["positions"] + shake)
 
 result = GrainSegmentation().compute(grains)
 result.count  # 8
-result.sizes  # [2885, 2666, ..., 1353] atoms, largest first
+result.sizes  # [2885, 2666, ..., 1353] atoms, about largest first
 result.orientation[0]  # mean lattice orientation of the largest, (x, y, z, w)
 result.center[0], result.radius_of_gyration[0]  # Å
 grains = grains.with_columns(result)  # the column grain, -1 for none
@@ -100,7 +100,7 @@ A `GrainResult`:
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
 | `grain` | (N,) int64 | | the grain of each atom, an index into the arrays below; -1 for none |
-| `sizes` | (G,) int64 | atoms | of each grain, largest first |
+| `sizes` | (G,) int64 | atoms | of each grain; the grains are ranked by size before `adopt_orphans` adds the atoms in no grain, as in OVITO, so a grain can end a little larger than the one before it |
 | `structure` | (G,) int8 | | structure of each grain, an index into `names` |
 | `names` | tuple of str | | the structures of [polyhedral template matching](ptm.md) |
 | `orientation` | (G, 4) float64 | | mean lattice orientation, a quaternion (x, y, z, w) as those of the atoms |

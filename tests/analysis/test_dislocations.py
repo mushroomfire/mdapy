@@ -421,3 +421,18 @@ def test_errors():
             DislocationAnalysis("bcc").compute(system)
     with pytest.raises(InvalidParameter, match="replicate"):
         DislocationAnalysis("fcc").compute(build_crystal("fcc", 3.615, elements="Cu"))
+
+
+def test_the_lines_of_a_lock_add_up_in_space():
+    """Two dislocations relaxed into a lock and its partials: every line in
+    the frame of a crystal of the matrix, none in the few atoms of crystal
+    inside a fault, and their spatial Burgers vectors adding up to those put
+    in."""
+    from dislocation_models import lock
+
+    system, total, axes = lock()
+    result = DislocationAnalysis("fcc").compute(system)
+    assert len(result.lines) >= 3
+    assert all(result.clusters.sizes[line.cluster] >= 100 for line in result.lines)
+    found = sum(line.spatial_burgers for line in result.lines)
+    np.testing.assert_allclose(axes @ found, axes @ total, atol=0.03)

@@ -19,6 +19,44 @@
 namespace mdapy::analysis {
 namespace {
 
+// Clusters of the crystal's structure smaller than this are slivers, such as
+// the one layer of crystal inside an extrinsic stacking fault: their frame
+// rests on a few atoms.
+constexpr std::int64_t kSliver = 100;
+
+// A line traced in a sliver of the crystal gets its Burgers vector in the
+// frame of the largest cluster of the crystal related to the sliver, through
+// one cluster at most; the frame of a sliver is fitted to a few atoms only.
+void out_of_slivers(dxa::Network& network, const dxa::Clusters& clusters,
+                    const dxa::Mapping& mapping, int crystal) {
+    const auto count = static_cast<std::int64_t>(clusters.structure.size());
+    for (dxa::Segment& segment : network.segments) {
+        const std::int64_t c = segment.cluster;
+        if (c < 0 || clusters.structure[static_cast<std::size_t>(c)] != crystal ||
+            clusters.size[static_cast<std::size_t>(c)] >= kSliver) {
+            continue;
+        }
+        std::int64_t best = -1;
+        dxa::Mat into{};
+        for (std::int64_t k = 0; k < count; ++k) {
+            const auto size = clusters.size[static_cast<std::size_t>(k)];
+            if (k == c || clusters.structure[static_cast<std::size_t>(k)] != crystal ||
+                size <= clusters.size[static_cast<std::size_t>(c)] ||
+                (best >= 0 && size <= clusters.size[static_cast<std::size_t>(best)])) {
+                continue;
+            }
+            if (const auto m = mapping.transition(c, k)) {
+                best = k;
+                into = *m;
+            }
+        }
+        if (best >= 0) {
+            segment.burgers = dxa::turn(into, segment.burgers);
+            segment.cluster = best;
+        }
+    }
+}
+
 // The mesh of the triangles faces of the interface mesh and of caps, the
 // corners of each triangle images of its vertices, the vertices those it
 // uses.
@@ -187,6 +225,7 @@ Dislocations dislocation_analysis(const double* positions, const double* jittere
         dxa::interface_mesh(input, mapping, tetrahedra, good, jittered, alpha);
     out.network = dxa::trace_dislocations(mesh, input, out.clusters, options.max_circuit,
                                           options.stretch, stage(control, 4, kStages));
+    out_of_slivers(out.network, out.clusters, mapping, options.crystal);
     dxa::smooth_lines(out.network, options.separation, options.smoothing);
     out.defects =
         triangles(mesh, out.network.faces, out.network.caps, matrix, inverse, origin, pbc);

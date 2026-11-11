@@ -1349,6 +1349,8 @@ def test_show_image_errors(monkeypatch, tmp_path):
     [
         ({"radius": np.where(np.arange(4) % 2, 1.0, np.nan)}, "radii must be finite"),
         ({"radius": np.nan}, "radii must be finite"),
+        ({"outline_width": 1000.0}, "outline_width must be from 0 to 100"),
+        ({"outline_width": -1.0}, "outline_width must be from 0 to 100"),
         ({"radius": np.inf}, "radii must be finite"),
         ({"radius": -1.0}, "radii must not be negative"),
         ({"radius": np.ones(3)}, "radius must be one number"),

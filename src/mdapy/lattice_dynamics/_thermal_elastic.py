@@ -19,6 +19,7 @@ from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics._phonons import (
+    _crossing,
     _default_supercell,
     _phonons,
     _supercell_matrix,
@@ -186,8 +187,10 @@ def thermal_elastic_constants(
     ------
     InvalidParameter
         For an unknown method, a strain that is not positive, a result
-        without cells, a relaxation that does not converge, imaginary
-        frequencies in a strained cell, or symmetry True without spglib.
+        without cells, a relaxation that does not converge, a pair of atoms
+        that reaches the cutoff of the calculator between the strained cells
+        of the quasi-harmonic method, imaginary frequencies in a strained
+        cell, or symmetry True without spglib.
     """
     if method not in _METHODS:
         raise InvalidParameter(f"method must be one of {_METHODS}, not {method!r}")
@@ -208,8 +211,8 @@ def thermal_elastic_constants(
     cells = qha.cells[first:last]
     volumes = qha.volumes[first:last]  # per atom
     stencil = _stencil(strain)
-    curvatures = []  # per cell: (6, 6, T) in eV/Å³
     keys = {_key(voigt, strain) for voigt in stencil}
+    plans = []  # per cell: its supercell, and each strained cell with its strains
     for cell in cells:
         # the strained cells keep the supercell and the periodic images of
         # the cell, so that their free energies change smoothly with strain
@@ -222,9 +225,9 @@ def thermal_elastic_constants(
         if method == "quasi-harmonic":
             lattices = [_supercell_matrix(matrix), np.diag(np.broadcast_to(mesh, 3))]
         rotations = _rotations(cell, symmetry, *lattices)
-        values = {}
+        strained, found = [], set()
         for voigt in stencil:
-            if _key(voigt, strain) in values:
+            if _key(voigt, strain) in found:
                 continue
             relaxed = minimize(
                 _deformed(cell, voigt),
@@ -236,6 +239,39 @@ def thermal_elastic_constants(
                 raise InvalidParameter(
                     f"a strained cell did not relax within {max_steps} steps"
                 )
+            # the strains that a rotation of the crystal makes from this one
+            images = []
+            for rotation in rotations:
+                eta = rotation @ _strain(voigt) @ rotation.T
+                image = np.array([eta[a, b] * (1 if a == b else 2) for a, b in _PAIRS])
+                key = _key(image, strain)
+                if key in keys and np.allclose(
+                    image / strain, np.round(image / strain), atol=1e-6
+                ):
+                    images.append(key)
+            found.update(images)
+            strained.append((relaxed, images))
+        plans.append((cell, matrix, strained))
+    # the force constants jump where a pair of atoms crosses the cutoff
+    if method == "quasi-harmonic" and (
+        crossing := _crossing(
+            [r.system for _, _, s in plans for r, _ in s],
+            calculator.cutoff,
+            displacement,
+        )
+    ):
+        short, _, long, _ = crossing
+        raise InvalidParameter(
+            f"a pair of atoms reaches the cutoff of the calculator, "
+            f"{calculator.cutoff:.4g} Å, between the strained cells, give or take "
+            f"the displacement of {displacement:.4g} Å: it is {short:.4f} Å apart "
+            f"in one and {long:.4f} Å in another, and its force constants jump "
+            "there; use a smaller strain or another potential"
+        )
+    curvatures = []  # per cell: (6, 6, T) in eV/Å³
+    for cell, matrix, strained in plans:
+        values = {}
+        for relaxed, images in strained:
             free = np.full(len(temperatures), relaxed.energy)
             if method == "quasi-harmonic":
                 vibrations = _phonons(
@@ -247,15 +283,8 @@ def thermal_elastic_constants(
                     reference=cell,
                 ).thermal(temperatures, mesh=mesh)
                 free = free + n * vibrations.free_energy
-            # the strains that a rotation of the crystal makes from this one
-            for rotation in rotations:
-                eta = rotation @ _strain(voigt) @ rotation.T
-                image = np.array([eta[a, b] * (1 if a == b else 2) for a, b in _PAIRS])
-                key = _key(image, strain)
-                if key in keys and np.allclose(
-                    image / strain, np.round(image / strain), atol=1e-6
-                ):
-                    values[key] = free
+            for key in images:
+                values[key] = free
         curvatures.append(_hessian(values, strain) / cell.box.volume)
     curvatures = np.array(curvatures)  # (V, 6, 6, T)
     degree = min(3, len(volumes) - 1)

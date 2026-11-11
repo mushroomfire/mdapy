@@ -186,13 +186,26 @@ def test_write_checks_the_systems(tmp_path):
     assert not path.exists()
 
 
-def test_failed_writes_leave_no_file(tmp_path):
-    path = tmp_path / "a.xyz"
-    path.write_text("old")
-    no_elements = mdapy.System([[0.0, 0.0, 0.0]], mdapy.Box(5.0))
-    with pytest.raises(mdapy.errors.MissingProperty):
-        mdapy.io.write(path, [water(), no_elements])
-    assert not path.exists()
+def test_failed_writes_keep_the_file_there(tmp_path):
+    """A write that fails leaves a file already at the path as it was, and
+    no file where there was none."""
+    no_elements = [water(), mdapy.System([[0.0, 0.0, 0.0]], mdapy.Box(5.0))]
+    same_ids = water().with_columns(id=[1, 1, 1])
+    for name, failing, error in [
+        ("a.xyz", no_elements, mdapy.errors.MissingProperty),
+        ("a.xyz.gz", no_elements, mdapy.errors.MissingProperty),
+        ("a.xyz.bz2", no_elements, mdapy.errors.MissingProperty),
+        ("a.data", same_ids, InvalidParameter),
+    ]:
+        path = tmp_path / name
+        path.write_bytes(b"old")
+        with pytest.raises(error):
+            mdapy.io.write(path, failing)
+        assert path.read_bytes() == b"old"
+        with pytest.raises(error):
+            mdapy.io.write(tmp_path / ("b" + name[1:]), failing)
+    names = sorted(p.name for p in tmp_path.iterdir())
+    assert names == ["a.data", "a.xyz", "a.xyz.bz2", "a.xyz.gz"]
 
 
 def test_options_reach_the_format(tmp_path):

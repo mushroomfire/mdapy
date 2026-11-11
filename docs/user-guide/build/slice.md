@@ -171,7 +171,7 @@ atoms with $s \le 0$ are kept, or with $|s| \le w/2$ for a width $w > 0$.
 ## See also
 
 - OVITO [Slice](https://docs.ovito.org/reference/pipelines/modifiers/slice.html),
-  whose atoms `slice` keeps, also with Miller indices, with its select mode
-  (`slice_mask`) and on the selected atoms only (`atoms`).
+  also with Miller indices, a select mode (`slice_mask` here) and the
+  selected atoms only (`atoms` here).
 - [Selecting atoms](../../basics/selecting.md) with conditions such as
   `"positions.z < 18"`.

@@ -82,7 +82,57 @@ def test_as_atomsk(tmp_path, kind, line, normal, sign):
     if kind == "edge":
         options.append(0.3)
     theirs = atomsk_apply(tmp_path, cell, *options)
-    np.testing.assert_allclose(ours["positions"], theirs["positions"], atol=1e-9)
+    # atomsk moves back above the plane of cut the atoms its displacement lifts
+    # across it, which leaves a fault; mdapy keeps them below (see
+    # test_atoms_lifted_across_the_cut_stay_below): only they differ, by half b
+    diff = ours["positions"] - theirs["positions"]
+    apart = np.abs(diff).max(axis=1) > 1e-9
+    a2 = "xyz".index(normal)
+    assert np.all(np.abs(cell["positions"][apart, a2] - center[a2]) < 1.0)
+    np.testing.assert_allclose(np.abs(diff[apart, a1]), b / 2, atol=1e-9)
+    np.testing.assert_allclose(np.delete(diff[apart], a1, axis=1), 0, atol=1e-9)
+    np.testing.assert_allclose(
+        ours["positions"][~apart], theirs["positions"][~apart], atol=1e-9
+    )
+
+
+@pytest.mark.parametrize(
+    "line, normal, structure", [("y", "z", "fcc"), ("z", "y", "bcc")]
+)
+def test_atoms_lifted_across_the_cut_stay_below(line, normal, structure):
+    """A plane of atoms just below the plane of cut, which the displacement
+    lifts across it, moves with the atoms below: one dislocation and no
+    fault, where atomsk leaves a fault (fcc) or no dislocation at all (bcc)."""
+    from mdapy.analysis import DislocationAnalysis
+    from mdapy.transform import replicate
+
+    if structure == "fcc":
+        cell, b = fcc_slab(), A_CU / np.sqrt(2)
+    else:
+        cell, b = bcc_edge_cell(), A_FE * np.sqrt(3) / 2
+    center = cell.box.matrix.diagonal() / 2 + [0.11, 0.13, 0.17]
+    a1 = 3 - "xyz".index(line) - "xyz".index(normal)
+    burgers = np.zeros(3)
+    burgers[a1] = b
+    moved = insert_dislocation(
+        cell, burgers, line=line, normal=normal, center=center, poisson=0.3
+    )
+    a2 = "xyz".index(normal)
+    x2 = cell["positions"][:, a2] - center[a2]
+    u2 = moved["positions"][:, a2] - cell["positions"][:, a2]
+    assert np.any((x2 * (x2 + u2) < 0)), "no atom is lifted across the cut"
+    k = "xyz".index(line)
+    periodic = mdapy.Box(moved.box.matrix, pbc=tuple(q == k for q in range(3)))
+    long = replicate(
+        moved.with_box(periodic), tuple(4 if q == k else 1 for q in range(3))
+    )
+    (found,) = DislocationAnalysis(structure).compute(long).lines
+    expected = np.zeros(3)
+    expected[a1] = -b if structure == "fcc" else b
+    assert found.family == ("1/2<110>" if structure == "fcc" else "1/2<111>")
+    np.testing.assert_allclose(
+        np.abs(found.spatial_burgers), np.abs(expected), atol=0.05
+    )
 
 
 def test_mixed_is_screw_and_edge():

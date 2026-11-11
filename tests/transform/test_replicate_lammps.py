@@ -73,3 +73,43 @@ def test_the_copies_of_lammps(tmp_path, repeat):
     np.testing.assert_allclose(copies["positions"], expected["positions"], atol=1e-10)
     assert bonded_ids(copies) == bonded_ids(expected)
     assert len(copies.topology.angles) == len(expected.topology.angles)
+
+
+def angle_ids(system):
+    ids = system.table["id"].to_numpy()
+    return {
+        (ids[a[1]], *sorted((ids[a[0]], ids[a[2]])))
+        for a in system.topology.angles["atoms"].to_numpy()
+    }
+
+
+@pytest.mark.parametrize("repeat", [(2, 3, 1), (1, 2, 2)])
+def test_without_image_flags_as_lammps_bond_periodic(tmp_path, repeat):
+    """Molecules cut by the faces of the box and no image flags: a term
+    across a face joins the nearest images, as replicate bond/periodic."""
+    path, out = tmp_path / "in.data", tmp_path / "out.data"
+    mdapy.io.write(path, water(seed=sum(repeat) + 7).drop("image"))
+    system = mdapy.io.read(path)
+    assert "image" not in system.table.columns
+    lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
+    try:
+        lmp.commands_string(
+            "units metal\natom_style full\nbond_style zero\nangle_style zero\n"
+            f"read_data {path}\nbond_coeff *\nangle_coeff *\n"
+            f"replicate {' '.join(map(str, repeat))} bond/periodic\nwrite_data {out}"
+        )
+    finally:
+        lmp.close()
+    expected = by_id(mdapy.io.read(out))
+    copies = by_id(replicate(system, repeat))
+    np.testing.assert_array_equal(
+        copies.table["id"].to_numpy(), expected.table["id"].to_numpy()
+    )
+    assert bonded_ids(copies) == bonded_ids(expected)
+    assert angle_ids(copies) == angle_ids(expected)
+    # every bond as short as in a molecule
+    x = copies["positions"]
+    pairs = copies.topology.bonds["atoms"].to_numpy()
+    step = (x[pairs[:, 1]] - x[pairs[:, 0]]) @ copies.box.inverse
+    step -= np.round(step)
+    assert np.linalg.norm(step @ copies.box.matrix, axis=1).max() < 1.0

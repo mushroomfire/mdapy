@@ -2,9 +2,8 @@
 
 `GrainSegmentation` finds the grains of a polycrystal: groups of crystalline
 atoms whose lattices have nearly the same orientation, from the orientations
-[polyhedral template matching](ptm.md) gives. It gives the same grains as
-OVITO's Grain segmentation, atom by atom, with its centers of mass and
-radii.
+[polyhedral template matching](ptm.md) gives, as OVITO's Grain segmentation
+does, with the centers of mass and the radii of the grains.
 
 ```python
 import numpy as np
@@ -160,9 +159,7 @@ The merges up to the threshold make the clusters; those of at least
 `min_grain_size` atoms are the grains, numbered from the largest. The other
 atoms, the orphans ([Hoffrogge and Barrales-Mora 2017](../../reference/references.md#hoffrogge2017)),
 join the grain whose nearest atom is the closest along the bonds. The
-orientations of the atoms enter in single precision, as OVITO keeps them,
-so that an atom between two choices of nearly the same misorientation goes
-the way OVITO sends it.
+orientations of the atoms enter in single precision, as OVITO keeps them.
 
 !!! quote "Please cite"
     [Larsen et al. (2016)](../../reference/references.md#larsen2016) for

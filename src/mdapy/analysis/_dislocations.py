@@ -432,6 +432,7 @@ class DislocationAnalysis:
             interface_vertices,
             interface_faces,
             interface_shifts,
+            spatial_burgers,
         ) = found
         # the PTM types as indices into NAMES
         index = np.zeros(8, dtype=np.int8)
@@ -447,7 +448,7 @@ class DislocationAnalysis:
             p = points[offsets[s] : offsets[s + 1]]
             p.flags.writeable = False
             b = burgers[s].copy()
-            spatial = orientation[line_cluster[s]] @ b
+            spatial = spatial_burgers[3 * s : 3 * s + 3].copy()
             b.flags.writeable = spatial.flags.writeable = False
             loop = bool(closed[s])
             for end, at in zip(ends[s], (p[0], p[-1])):

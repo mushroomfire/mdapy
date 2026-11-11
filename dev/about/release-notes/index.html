@@ -8231,6 +8231,9 @@
   <a href="../../user-guide/simulation/elastic-constants/#along-directions">Elastic constants</a> and
   the example <a href="../../examples/elastic-anisotropy/">Elastic anisotropy of copper and titanium</a>.</li>
 <li><code>plot.panel_label</code> labels axes in 3D too; it raised <code>TypeError</code> there.</li>
+<li><code>EntropyFingerprint</code> counts every neighbor within the cutoff: those farther than about
+  40 <code>sigma</code>, beyond 7.9 Å with the default <code>sigma=0.2</code>, added nothing before, as their
+  Gaussians underflowed.</li>
 <li><code>DislocationAnalysis</code>: a line traced in a sliver of crystal, such as the layer of
   crystal inside an extrinsic fault, gets its Burgers vector in the largest crystal
   cluster related to it, whose frame is fitted to many atoms; its spatial vector was off
